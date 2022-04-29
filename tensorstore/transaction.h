@@ -33,6 +33,8 @@
 namespace tensorstore {
 
 /// Specifies the transaction mode.
+///
+/// \relates Transaction
 enum TransactionMode : std::uint8_t {
   /// Indicates non-transactional semantics.  This is the default for operations
   /// performed without an explicit transaction.
@@ -42,8 +44,8 @@ enum TransactionMode : std::uint8_t {
   /// - Atomicity is NOT guaranteed
   ///
   /// - Consistency is guaranteed for most operations, with a few exceptions:
-  ///   resize under certain conditions, and creating a TensorStore in
-  ///   `delete_existing` mode under certain conditions.
+  ///   resize under certain conditions, and creating a TensorStore with
+  ///   `OpenMode::delete_existing` under certain conditions.
   ///
   /// - Read and write isolation are NOT guaranteed
   ///
@@ -84,27 +86,36 @@ enum TransactionMode : std::uint8_t {
   atomic_isolated = 3,
 };
 
+/// Prints a string representation of the transaction mode to an `std::ostream`.
+///
+/// \id TransactionMode
+/// \relates TransactionMode
 std::ostream& operator<<(std::ostream& os, TransactionMode mode);
 
 /// Shared handle to a transaction.
+///
+/// \ingroup core
 class Transaction {
  public:
   /// Special type that indicates a null transaction.
   ///
-  /// This is used via the `tensorstore::no_transaction` constant.
+  /// This is used via the `tensorstore::no_transaction_mode` constant.
   ///
-  /// Implicitly converts to `TransactionMode::no_transaction` and a null
-  /// `Transaction`, and can be used for comparisons to either `TransctionMode`
+  /// Implicitly converts to `TransactionMode::no_transaction_mode` and a null
+  /// `Transaction`, and can be used for comparisons to either `TransactionMode`
   /// or `Transaction`.
   struct no_transaction_t {
     explicit no_transaction_t() = default;
 
+    /// Implicitly converts to `TransactionMode::no_transaction_mode`.
+    ///
+    /// \id TransactionMode
     constexpr operator TransactionMode() const {
       return TransactionMode::no_transaction_mode;
     }
 
-    /// Forwards to `ApplyTensorStoreTransaction`, in order to support
-    /// `ChainResult` and "pipeline" `operator|`.
+    // Forwards to `ApplyTensorStoreTransaction`, in order to support
+    // `ChainResult` and "pipeline" ``operator|``.
     template <typename X>
     decltype(ApplyTensorStoreTransaction(std::declval<X&&>(),
                                          std::declval<Transaction>()))
@@ -122,9 +133,12 @@ class Transaction {
   /// convert to a null transaction.
   ///
   /// \post `this-mode() == no_transaction`
+  /// \id no_transaction
   constexpr Transaction(no_transaction_t) {}
 
   /// Creates a new transaction with the specified mode.
+  ///
+  /// \id mode
   explicit Transaction(TransactionMode mode);
 
   /// Returns the transaction mode.
@@ -185,13 +199,13 @@ class Transaction {
   ///
   /// This can be used to ensure that metadata updates are committed before data
   /// updates that are dependent on the metadata.  In particular, this is used
-  /// to implement certain resize operations and the `delete_existing` open mode
-  /// when using `isolated` transactions.
+  /// to implement certain resize operations and the `OpenMode::delete_existing`
+  /// open mode when using `isolated` transactions.
   ///
   /// If `atomic()`, this has no effect since all writes are committed
   /// atomically.
   ///
-  /// For example:
+  /// For example::
   ///
   ///     auto transaction = tensorstore::Transaction(tensorstore::isolated);
   ///     tensorstore::Write(data_array | transaction | ..., ...).value();
@@ -221,41 +235,35 @@ class Transaction {
     return 0;
   }
 
-  /// Returns `true` if `a` and `b` refer to the same transaction state, or are
-  /// both null.
+  /// Checks if `a` and `b` refer to the same transaction state, or are both
+  /// null.
   friend bool operator==(const Transaction& a, const Transaction& b) {
     return a.state_ == b.state_;
   }
-
-  friend bool operator==(const Transaction& a, no_transaction_t b) {
-    return !a.state_;
-  }
-
-  friend bool operator==(no_transaction_t a, const Transaction& b) {
-    return !b.state_;
-  }
-
   friend bool operator!=(const Transaction& a, const Transaction& b) {
     return !(a == b);
   }
-
+  friend bool operator==(const Transaction& a, no_transaction_t b) {
+    return !a.state_;
+  }
+  friend bool operator==(no_transaction_t a, const Transaction& b) {
+    return !b.state_;
+  }
   friend bool operator!=(const Transaction& a, no_transaction_t b) {
     return !(a == b);
   }
-
   friend bool operator!=(no_transaction_t a, const Transaction& b) {
     return !(a == b);
   }
 
-  /// Forwards to `ApplyTensorStoreTransaction`, in order to support
-  /// `ChainResult` and "pipeline" `operator|`.
+  // Forwards to `ApplyTensorStoreTransaction`, in order to support
+  // `ChainResult` and "pipeline" ``operator|``.
   template <typename X>
   decltype(ApplyTensorStoreTransaction(std::declval<X&&>(),
                                        std::declval<Transaction>()))
   operator()(X&& x) const& {
     return ApplyTensorStoreTransaction(static_cast<X&&>(x), *this);
   }
-
   template <typename X>
   decltype(ApplyTensorStoreTransaction(std::declval<X&&>(),
                                        std::declval<Transaction>()))
@@ -269,6 +277,8 @@ class Transaction {
 };
 
 /// Special value that indicates non-transactional semantics.
+///
+/// \relates Transaction
 constexpr inline Transaction::no_transaction_t no_transaction{};
 
 namespace internal {
