@@ -120,10 +120,10 @@ static_assert(!IsArrayExplicitlyConvertible<const int, 2, zero_origin,
 }  // namespace array_metafunctions_tests
 
 namespace subarray_ref_tests {
-static_assert(SubArrayStaticRank<dynamic_rank, span<const Index, 2>>::value ==
+static_assert(SubArrayStaticRank<dynamic_rank, span<const Index, 2>> ==
               dynamic_rank);
-static_assert(SubArrayStaticRank<5, span<const Index>>::value == dynamic_rank);
-static_assert(SubArrayStaticRank<5, span<const Index, 3>>::value == 2);
+static_assert(SubArrayStaticRank<5, span<const Index>> == dynamic_rank);
+static_assert(SubArrayStaticRank<5, span<const Index, 3>> == 2);
 }  // namespace subarray_ref_tests
 
 namespace strided_array_size_tests {
@@ -173,7 +173,7 @@ TEST(MakeArrayViewTest, Scalar) {
 TEST(MakeArrayViewTest, Span) {
   std::vector<int> values{1, 2, 3};
   auto result = MakeArrayView(values);
-  static_assert(std::is_same_v<decltype(result), SharedArray<int, 1>>);
+  static_assert(std::is_same_v<decltype(result), Array<int, 1>>);
   EXPECT_EQ(values.data(), result.data());
   EXPECT_EQ(StridedLayout(ContiguousLayoutOrder::c, sizeof(int), {3}),
             result.layout());

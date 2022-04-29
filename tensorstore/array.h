@@ -259,18 +259,16 @@ constexpr inline bool
 ///
 /// \requires `Indices` is `span`-compatible.
 template <DimensionIndex Rank, typename Indices,
-          typename IndicesSpan = internal::ConstSpanType<Indices>>
-using SubArrayStaticRank = std::enable_if_t<
-    Rank == -1 || IndicesSpan::extent <= Rank,
-    std::integral_constant<DimensionIndex,
-                           SubtractStaticRanks(Rank, IndicesSpan::extent)>>;
+          typename =
+              std::enable_if_t<IsCompatiblePartialIndexVector<Rank, Indices>>>
+constexpr inline DimensionIndex SubArrayStaticRank =
+    SubtractStaticRanks(Rank, internal::ConstSpanType<Indices>::extent);
 
 /// Returns a reference to the sub-array obtained by subscripting the first
 /// `span(indices).size()` dimensions of `array`.
 ///
-/// The result always uses a data raw pointer, never a shared pointer to refer
-/// to the data.  Whether the layout is a `view` or copy (`container`) depends
-/// on the `LayoutCKind` template argument.
+/// `SubArray` always returns an array with an unowned data pointer, while
+/// `SharedSubArray` returns an array that shares ownership of the data.
 ///
 /// \tparam LayoutCKind Specifies whether to return a copy or view of the
 ///     sub-array layout.
@@ -288,70 +286,59 @@ using SubArrayStaticRank = std::enable_if_t<
 template <ContainerKind LayoutCKind = view, typename ElementTag,
           DimensionIndex Rank, ArrayOriginKind OriginKind,
           ContainerKind SourceCKind, typename Indices>
-Array<typename ElementTagTraits<ElementTag>::Element,
-      SubArrayStaticRank<NormalizeRankSpec(Rank), Indices>::value, OriginKind,
-      LayoutCKind>
+std::enable_if_t<
+    IsCompatiblePartialIndexVector<NormalizeRankSpec(Rank), Indices>,
+    Array<typename ElementTagTraits<ElementTag>::Element,
+          SubArrayStaticRank<NormalizeRankSpec(Rank), Indices>, OriginKind,
+          LayoutCKind>>
 SubArray(const Array<ElementTag, Rank, OriginKind, SourceCKind>& array,
          const Indices& indices) {
   using IndicesSpan = internal::ConstSpanType<Indices>;
   const IndicesSpan indices_span = indices;
   const Index byte_offset = array.layout()[indices];
   return Array<typename ElementTagTraits<ElementTag>::Element,
-               SubArrayStaticRank<NormalizeRankSpec(Rank), Indices>::value,
-               OriginKind, LayoutCKind>(
+               SubArrayStaticRank<NormalizeRankSpec(Rank), Indices>, OriginKind,
+               LayoutCKind>(
       ElementPointer<typename ElementTagTraits<ElementTag>::Element>(
           (array.byte_strided_pointer() + byte_offset).get(), array.dtype()),
       GetSubLayoutView<IndicesSpan::extent>(array.layout(),
                                             indices_span.size()));
 }
-
-/// Same as more general `SubArray` overload defined above, but can be called
-/// with a braced list to specify the indices, e.g. `SubArray(array, {1,2})`.
-template <ContainerKind LayoutCKind = view, typename ElementTag,
-          DimensionIndex Rank, ArrayOriginKind OriginKind,
-          ContainerKind SourceCKind, std::size_t N>
-Array<typename ElementTagTraits<ElementTag>::Element,
-      SubArrayStaticRank<NormalizeRankSpec(Rank), span<const Index, N>>::value,
-      OriginKind, LayoutCKind>
-SubArray(const Array<ElementTag, Rank, OriginKind, SourceCKind>& array,
-         const Index (&indices)[N]) {
-  return SubArray<LayoutCKind>(array, span<const Index, N>(indices));
-}
-
-/// Same as `SubArray`, except returns a `SharedArray` corresponding to the
-/// sub-array that shares ownership with the source array.
-///
-/// The returned array prevents the underlying data from being freed even if the
-/// parent `array` is destroyed.
 template <ContainerKind LayoutCKind = view, typename Element,
           DimensionIndex Rank, ArrayOriginKind OriginKind,
           ContainerKind SourceCKind, typename Indices>
-SharedArray<Element,
-            SubArrayStaticRank<NormalizeRankSpec(Rank), Indices>::value,
+SharedArray<Element, SubArrayStaticRank<NormalizeRankSpec(Rank), Indices>,
             OriginKind, LayoutCKind>
 SharedSubArray(const SharedArray<Element, Rank, OriginKind, SourceCKind>& array,
                const Indices& indices) {
   using IndicesSpan = internal::ConstSpanType<Indices>;
   const IndicesSpan indices_span = indices;
   const Index byte_offset = array.layout()[indices];
-  return SharedArray<
-      Element, SubArrayStaticRank<NormalizeRankSpec(Rank), Indices>::value,
-      OriginKind, LayoutCKind>(
+  return SharedArray<Element,
+                     SubArrayStaticRank<NormalizeRankSpec(Rank), Indices>,
+                     OriginKind, LayoutCKind>(
       AddByteOffset(array.element_pointer(), byte_offset),
       GetSubLayoutView<IndicesSpan::extent>(array.layout(),
                                             indices_span.size()));
 }
 
-/// Same as more general `SharedSubArray` overload defined above, but can be
-/// called with a braced list to specify the indices,
-/// e.g. `SharedSubArray(array, {1,2})`.
+template <ContainerKind LayoutCKind = view, typename ElementTag,
+          DimensionIndex Rank, ArrayOriginKind OriginKind,
+          ContainerKind SourceCKind, std::size_t N>
+Array<typename ElementTagTraits<ElementTag>::Element,
+      SubArrayStaticRank<NormalizeRankSpec(Rank), span<const Index, N>>,
+      OriginKind, LayoutCKind>
+SubArray(const Array<ElementTag, Rank, OriginKind, SourceCKind>& array,
+         const Index (&indices)[N]) {
+  return SubArray<LayoutCKind>(array, span<const Index, N>(indices));
+}
+
 template <ContainerKind LayoutCKind = view, typename Element,
           DimensionIndex Rank, ArrayOriginKind OriginKind,
           ContainerKind SourceCKind, std::size_t N>
-SharedArray<
-    Element,
-    SubArrayStaticRank<NormalizeRankSpec(Rank), span<const Index, N>>::value,
-    OriginKind, LayoutCKind>
+SharedArray<Element,
+            SubArrayStaticRank<NormalizeRankSpec(Rank), span<const Index, N>>,
+            OriginKind, LayoutCKind>
 SharedSubArray(const SharedArray<Element, Rank, OriginKind, SourceCKind>& array,
                const Index (&indices)[N]) {
   return SharedSubArray<LayoutCKind>(array, span<const Index, N>(indices));
@@ -431,9 +418,14 @@ class Array {
   using value_type = std::remove_cv_t<Element>;
   using index_type = Index;
   using RankType = typename Layout::RankType;
-  constexpr static DimensionIndex static_rank = Layout::static_rank;
-  constexpr static ArrayOriginKind array_origin_kind =
-      Layout::array_origin_kind;
+
+  /// Rank of the array, or `dynamic_rank` if specified at run time.
+  constexpr static DimensionIndex static_rank = NormalizeRankSpec(Rank);
+
+  /// Origin kind of the array.
+  constexpr static ArrayOriginKind array_origin_kind = OriginKind;
+
+  /// Specified whether the `Layout` is stored by value or by reference.
   constexpr static ContainerKind layout_container_kind = LayoutContainerKind;
 
   /// Alias that evaluates to an Array type with the `static_rank` rebound.
@@ -803,10 +795,12 @@ class Array {
   /// \post `result.data() == `
   ///       `this->byte_strided_pointer() + this->layout()[index]`
   /// \post `result.layout() == GetSubLayoutView(this->layout(), 1)`
-  template <int&... ExplicitArgumentBarrier, DimensionIndex R = static_rank>
-  ArrayView<Element, (R == -1) ? -1 : R - 1, array_origin_kind> operator[](
-      Index index) const {
-    static_assert(R == dynamic_rank || R > 0, "Rank must be > 0.");
+  template <int&... ExplicitArgumentBarrier,
+            DimensionIndex SfinaeR = static_rank>
+  std::enable_if_t<
+      IsStaticRankGreater(SfinaeR, 0),
+      ArrayView<Element, SubtractStaticRanks(SfinaeR, 1), array_origin_kind>>
+  operator[](Index index) const {
     return SubArray(*this, span<const Index, 1>(&index, 1));
   }
 
@@ -824,8 +818,9 @@ class Array {
   /// \post `result.layout() == `
   ///       `GetSubLayoutView(this->layout(), span(indices).size())`.
   template <typename Indices>
-  ArrayView<Element, SubArrayStaticRank<static_rank, Indices>::value,
-            array_origin_kind>
+  std::enable_if_t<IsCompatiblePartialIndexVector<static_rank, Indices>,
+                   ArrayView<Element, SubArrayStaticRank<static_rank, Indices>,
+                             array_origin_kind>>
   operator[](const Indices& indices) const {
     return SubArray(*this, indices);
   }
@@ -833,7 +828,7 @@ class Array {
   /// Same as more general overload defined above, but can be called with a
   /// braced list.
   template <std::size_t N>
-  ArrayView<Element, SubArrayStaticRank<static_rank, const Index (&)[N]>::value,
+  ArrayView<Element, SubArrayStaticRank<static_rank, const Index (&)[N]>,
             array_origin_kind>
   operator[](const Index (&indices)[N]) const {
     return SubArray(*this, indices);
@@ -1120,13 +1115,11 @@ SharedArray<Element, 0> MakeScalarArray(const Element& x) {
 ///     unowned shared pointer.  The caller is responsible for ensuring that the
 ///     returned array is not used after `source` becomes invalid.
 template <typename Source>
-SharedArray<typename internal::SpanType<Source>::element_type, 1> MakeArrayView(
+Array<typename internal::SpanType<Source>::element_type, 1> MakeArrayView(
     Source&& source) {
   using SourceSpan = internal::SpanType<Source>;
-  using Element = typename SourceSpan::element_type;
   SourceSpan s = source;
-  return {SharedElementPointer<Element>(internal::UnownedToShared(s.data())),
-          {s.size()}};
+  return {s.data(), {s.size()}};
 }
 
 // [BEGIN GENERATED: generate_make_array_overloads.py]
@@ -1327,37 +1320,10 @@ SharedArray<Element, internal::ConstSpanType<Extents>::extent> AllocateArray(
               layout.num_elements(), initialization, dtype),
           std::move(layout)};
 }
-
-/// Same as more general overload defined above, but can be called using a
-/// braced list to specify the extents.
-template <typename Element = void, DimensionIndex Rank>
-SharedArray<Element, Rank> AllocateArray(
-    const Index (&extents)[Rank],
-    ContiguousLayoutOrder layout_order = ContiguousLayoutOrder::c,
-    ElementInitialization initialization = default_init,
-    dtype_t<Element> representation = dtype_v<Element>) {
-  return AllocateArray<Element, span<const Index, Rank>>(
-      extents, layout_order, initialization, representation);
-}
-
-/// Allocates a contiguous array with the specified domain and type.
-///
-/// The elements are constructed and initialized as specified by
-/// `initialization`.
-///
-/// \tparam Element Optional.  Specifies the element type of the array.  If not
-///     specified (or if `void` is specified), the element type must be
-///     specified at run time using the `representation` parameter.
-/// \param domain The domain of the array..
-/// \param layout_order Optional.  The layout order of the allocated array.
-///     Defaults to ContiguousLayoutOrder::c.
-/// \param initialization Optional.  Specifies the form of initialization to
-///     use.
-/// \param dtype Optional.  Specifies the element type at run time.  Must be
-///     specified if `Element` is `void`.
 template <typename Element = void, typename BoxType>
 std::enable_if_t<IsBoxLike<BoxType>,
-                 SharedArray<Element, BoxType::static_rank, offset_origin>>
+                 SharedArray<Element, BoxType::static_rank,
+                             offset_origin>>  // NONITPICK: BoxType::static_rank
 AllocateArray(const BoxType& domain,
               ContiguousLayoutOrder layout_order = ContiguousLayoutOrder::c,
               ElementInitialization initialization = default_init,
@@ -1370,6 +1336,18 @@ AllocateArray(const BoxType& domain,
                     -layout.origin_byte_offset()),
       std::move(layout),
   };
+}
+
+// Same as more general overload defined above, but can be called using a braced
+// list to specify the extents.
+template <typename Element = void, DimensionIndex Rank>
+SharedArray<Element, Rank> AllocateArray(
+    const Index (&extents)[Rank],
+    ContiguousLayoutOrder layout_order = ContiguousLayoutOrder::c,
+    ElementInitialization initialization = default_init,
+    dtype_t<Element> representation = dtype_v<Element>) {
+  return AllocateArray<Element, span<const Index, Rank>>(
+      extents, layout_order, initialization, representation);
 }
 
 /// Allocates an array data buffer with a layout similar to an existing strided
@@ -1583,13 +1561,13 @@ absl::Status CopyConvertedArray(const Source& source, const Dest& dest) {
 ///     byte stride of 0 will have a byte stride of 0 in the new array.
 ///     Otherwise, they will be allocated normally.  The default is `c_order`
 ///     and `include_repeated_elements`.
-template <int&... ExplicitArgumentBarrier, typename Source>
-std::enable_if_t<IsArray<Source>,
-                 SharedArray<std::remove_cv_t<typename Source::Element>,
-                             Source::static_rank, Source::array_origin_kind>>
-MakeCopy(const Source& source, IterationConstraints constraints = {
-                                   c_order, include_repeated_elements}) {
-  using Element = std::remove_cv_t<typename Source::Element>;
+template <int&... ExplicitArgumentBarrier, typename E, DimensionIndex R,
+          ArrayOriginKind O, ContainerKind C>
+SharedArray<std::remove_cv_t<typename ElementTagTraits<E>::Element>, R, O>
+MakeCopy(const Array<E, R, O, C>& source,
+         IterationConstraints constraints = {c_order,
+                                             include_repeated_elements}) {
+  using Element = std::remove_cv_t<typename ElementTagTraits<E>::Element>;
   auto dest = AllocateArrayLike<Element>(source.layout(), constraints,
                                          default_init, source.dtype());
   CopyArray(source, dest);
@@ -1608,12 +1586,10 @@ MakeCopy(const Source& source, IterationConstraints constraints = {
 /// \returns The newly allocated array containing the converted copy.
 /// \error `absl::StatusCode::kInvalidArgument` if the conversion is not
 ///     supported or fails.
-template <typename TargetElement, typename SourceElementTag,
-          DimensionIndex Rank, ArrayOriginKind OriginKind,
-          ContainerKind LayoutContainerKind>
-Result<SharedArray<TargetElement, Rank, OriginKind>> MakeCopy(
-    const Array<SourceElementTag, Rank, OriginKind, LayoutContainerKind>&
-        source,
+template <typename TargetElement, typename E, DimensionIndex R,
+          ArrayOriginKind O, ContainerKind C>
+Result<SharedArray<TargetElement, R, O>> MakeCopy(
+    const Array<E, R, O, C>& source,
     IterationConstraints constraints = {c_order, include_repeated_elements},
     dtype_t<TargetElement> target_dtype = dtype_v<TargetElement>) {
   auto dest = AllocateArrayLike<TargetElement>(source.layout(), constraints,
@@ -1621,15 +1597,11 @@ Result<SharedArray<TargetElement, Rank, OriginKind>> MakeCopy(
   TENSORSTORE_RETURN_IF_ERROR(CopyConvertedArray(source, dest));
   return dest;
 }
-
-/// Same as above, but with the target data type specified at run time.
-template <int&... ExplicitArgumentBarrier, typename SourceElementTag,
-          DimensionIndex Rank, ArrayOriginKind OriginKind,
-          ContainerKind LayoutContainerKind>
-Result<SharedArray<void, Rank, OriginKind>> MakeCopy(
-    const Array<SourceElementTag, Rank, OriginKind, LayoutContainerKind>&
-        source,
-    IterationConstraints constraints, DataType target_dtype) {
+template <int&... ExplicitArgumentBarrier, typename E, DimensionIndex R,
+          ArrayOriginKind O, ContainerKind C>
+Result<SharedArray<void, R, O>> MakeCopy(const Array<E, R, O, C>& source,
+                                         IterationConstraints constraints,
+                                         DataType target_dtype) {
   auto dest = AllocateArrayLike<void>(source.layout(), constraints,
                                       default_init, target_dtype);
   TENSORSTORE_RETURN_IF_ERROR(CopyConvertedArray(source, dest));
