@@ -179,7 +179,7 @@ void DownsampleBounds(BoxView<> base_bounds,
 ///     factors must be positive.
 /// \param downsample_method The downsampling method to use.
 /// \returns The downsampled domain.
-IndexDomain<> DownsampleDomain(IndexDomain<> base_domain,
+IndexDomain<> DownsampleDomain(IndexDomainView<> base_domain,
                                span<const Index> downsample_factors,
                                DownsampleMethod method);
 
@@ -189,10 +189,10 @@ IndexDomain<> DownsampleDomain(IndexDomain<> base_domain,
 /// Equivalent to:
 ///
 ///     IdentityTransform(DownsampleDomain(base_domain, downsample_factors,
-///                                        downsample_method))
+///                                        method))
 IndexTransform<> GetDownsampledDomainIdentityTransform(
     IndexDomainView<> base_domain, span<const Index> downsample_factors,
-    DownsampleMethod downsample_method);
+    DownsampleMethod method);
 
 /// Returns `true` if the range of `base_cell_transform` can be downsampled
 /// independently.

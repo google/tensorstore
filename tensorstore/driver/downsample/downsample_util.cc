@@ -704,48 +704,56 @@ void DownsampleBounds(BoxView<> base_bounds,
   }
 }
 
-IndexDomain<> DownsampleDomain(IndexDomain<> base_domain,
+namespace {
+class DownsampleDomainBuilder {
+ public:
+  explicit DownsampleDomainBuilder(IndexDomainView<> base_domain,
+                                   bool domain_only) {
+    const DimensionIndex input_rank = base_domain.rank();
+    const DimensionIndex output_rank = domain_only ? 0 : input_rank;
+    rep = internal_index_space::TransformRep::Allocate(input_rank, output_rank);
+    rep->input_rank = input_rank;
+    rep->output_rank = output_rank;
+    rep->implicit_lower_bounds(input_rank)
+        .DeepAssign(base_domain.implicit_lower_bounds());
+    rep->implicit_upper_bounds(input_rank)
+        .DeepAssign(base_domain.implicit_upper_bounds());
+    const auto& labels = base_domain.labels();
+    std::copy(labels.begin(), labels.end(), rep->input_labels().begin());
+    if (!domain_only) {
+      internal_index_space::SetToIdentityTransform(rep->output_index_maps());
+    }
+  }
+
+  MutableBoxView<> InputBounds() { return rep->input_domain(rep->input_rank); }
+
+  IndexTransform<> MakeTransform() {
+    internal_index_space::DebugCheckInvariants(rep.get());
+    return internal_index_space::TransformAccess::Make<IndexTransform<>>(
+        std::move(rep));
+  }
+
+ private:
+  internal_index_space::TransformRep::Ptr<> rep;
+};
+}  // namespace
+
+IndexDomain<> DownsampleDomain(IndexDomainView<> base_domain,
                                span<const Index> downsample_factors,
                                DownsampleMethod method) {
-  using internal_index_space::TransformAccess;
-  using internal_index_space::TransformRep;
-  const DimensionIndex rank = base_domain.rank();
-  assert(rank == downsample_factors.size());
-  auto rep = TransformRep::Allocate(rank, 0);
-  rep->input_rank = rank;
-  rep->output_rank = 0;
-  DownsampleBounds(base_domain.box(), rep->input_domain(rank),
-                   downsample_factors, method);
-  rep->implicit_lower_bounds(rank).DeepAssign(
-      base_domain.implicit_lower_bounds());
-  rep->implicit_upper_bounds(rank).DeepAssign(
-      base_domain.implicit_upper_bounds());
-  const auto& labels = base_domain.labels();
-  std::copy(labels.begin(), labels.end(), rep->input_labels().begin());
-  internal_index_space::DebugCheckInvariants(rep.get());
-  return TransformAccess::Make<IndexDomain<>>(std::move(rep));
+  DownsampleDomainBuilder builder(base_domain, /*domain_only=*/true);
+  DownsampleBounds(base_domain.box(), builder.InputBounds(), downsample_factors,
+                   method);
+  return builder.MakeTransform().domain();
 }
 
 IndexTransform<> GetDownsampledDomainIdentityTransform(
     IndexDomainView<> base_domain, span<const Index> downsample_factors,
-    DownsampleMethod downsample_method) {
-  using internal_index_space::TransformAccess;
-  using internal_index_space::TransformRep;
-  const DimensionIndex rank = base_domain.rank();
-  assert(rank == downsample_factors.size());
-  auto rep = TransformRep::Allocate(rank, rank);
-  rep->input_rank = rep->output_rank = rank;
-  DownsampleBounds(base_domain.box(), rep->input_domain(rank),
-                   downsample_factors, downsample_method);
-  rep->implicit_lower_bounds(rank).DeepAssign(
-      base_domain.implicit_lower_bounds());
-  rep->implicit_upper_bounds(rank).DeepAssign(
-      base_domain.implicit_upper_bounds());
-  const auto& labels = base_domain.labels();
-  std::copy(labels.begin(), labels.end(), rep->input_labels().begin());
-  internal_index_space::SetToIdentityTransform(rep->output_index_maps());
-  internal_index_space::DebugCheckInvariants(rep.get());
-  return TransformAccess::Make<IndexTransform<>>(std::move(rep));
+    DownsampleMethod method) {
+  DownsampleDomainBuilder builder(base_domain, /*domain_only=*/false);
+  DownsampleBounds(base_domain.box(), builder.InputBounds(), downsample_factors,
+                   method);
+  return builder.MakeTransform();
 }
 
 bool CanDownsampleIndexTransform(IndexTransformView<> base_transform,
