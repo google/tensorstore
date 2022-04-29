@@ -23,6 +23,9 @@
 
 namespace tensorstore {
 
+/// Specifies a C-order or Fortran-order contiguous array layout.
+///
+/// \relates StridedLayout
 enum class ContiguousLayoutOrder {
   right = 0,
   c = 0,
@@ -32,8 +35,13 @@ enum class ContiguousLayoutOrder {
   column_major = 1
 };
 
+/// Prints to an `std::ostream`.
+/// \relates ContiguousLayoutOrder
+///
+/// \id ContiguousLayoutOrder
 std::ostream& operator<<(std::ostream& os, ContiguousLayoutOrder order);
 
+/// \relates ContiguousLayoutOrder
 constexpr ContiguousLayoutOrder c_order = ContiguousLayoutOrder::c;
 constexpr ContiguousLayoutOrder row_major_order =
     ContiguousLayoutOrder::row_major;
@@ -52,7 +60,7 @@ constexpr ContiguousLayoutOrder column_major_order =
 ///     and strides[i+1] = strides[i] * shape[i].  If order ==
 ///     ContiguousLayoutOrder::right, strides[shape.size()-1] = element_stride
 ///     and strides[i] = strides[i+1] * shape[i+1].
-///
+/// \relates ContiguousLayoutOrder
 void ComputeStrides(ContiguousLayoutOrder order, std::ptrdiff_t element_stride,
                     span<const Index> shape, span<Index> strides);
 
