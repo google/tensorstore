@@ -22,51 +22,76 @@
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/rank.h"
 
-/// \file
+namespace tensorstore {
+
 /// Defines options for conversion to/from JSON.
 ///
 /// Each individual option is defined by a separate class in order to support a
-/// form of named parameters.  For example:
+/// form of named parameters.  For example::
 ///
 ///     auto j = x.ToJson(IncludeDefaults{false});
 ///     auto j = x.ToJson({IncludeDefaults{false}, RankConstraint{3}});
-
-namespace tensorstore {
-
+///
+/// \ingroup json
 class JsonSerializationOptions {
  public:
+  /// Indicates if a given type is a supported option.
+  ///
+  /// Supported types include:
+  ///
+  /// - `RankConstraint`
+  /// - `IncludeDefaults`
+  /// - `DataType`
+  /// - `StaticDataType`
   template <typename T>
   constexpr static bool IsOption = false;
 
+  /// Combines any number of supported options.
   template <typename... T, typename = std::enable_if_t<(IsOption<T> && ...)>>
   constexpr JsonSerializationOptions(T... option) {
     (Set(option), ...);
   }
 
+  /// Overrides all options.
   constexpr void Set(JsonSerializationOptions value) { *this = value; }
 
+  /// Sets the rank constraint.
+  ///
+  /// \id RankConstraint
   constexpr void Set(RankConstraint value) {
     assert(value.rank >= -1 && value.rank <= kMaxRank);
     rank_ = value.rank;
   }
 
+  /// Sets the `IncludeDefaults` option.
+  ///
+  /// \id IncludeDefaults
   constexpr void Set(IncludeDefaults value) {
     include_defaults_ = value.include_defaults();
   }
 
+  /// Sets the data type constraint.
+  ///
+  /// \id DataType
   constexpr void Set(DataType value) { data_type_ = value; }
   template <typename T>
   constexpr void Set(StaticDataType<T> value) {
     data_type_ = value;
   }
+
   constexpr void Set(internal_json_binding::NoOptions) {}
 
-  constexpr operator RankConstraint() const { return RankConstraint(rank_); }
+  /// Returns the rank constraint.
   constexpr RankConstraint rank() const { return RankConstraint(rank_); }
+  constexpr operator RankConstraint() const { return RankConstraint(rank_); }
 
-  constexpr operator DataType() const { return data_type_; }
+  /// Returns the data type constraint.
   constexpr DataType dtype() const { return data_type_; }
+  constexpr operator DataType() const { return data_type_; }
 
+  /// Returns the `IncludeDefaults` constraint.
+  ///
+  /// \id IncludeDefaults
   constexpr operator IncludeDefaults() const {
     return IncludeDefaults(include_defaults_);
   }

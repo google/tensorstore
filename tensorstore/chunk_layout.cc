@@ -353,7 +353,7 @@ absl::Status MismatchError(const T& existing_value, const U& new_value) {
 ///     are hard constraints.  Will be updated.
 template <typename Traits>
 absl::Status MergeVectorInto(
-    internal::MaybeHardConstraintSpan<typename Traits::Element> in_vector,
+    MaybeHardConstraintSpan<typename Traits::Element> in_vector,
     typename Traits::Element* out_vector, DimensionSet& out_hard_constraint) {
   using Element = typename Traits::Element;
   DimensionIndex rank = in_vector.size();
@@ -405,7 +405,7 @@ absl::Status MergeVectorInto(
 ///     are hard constraints.  Will be updated.
 template <typename Traits>
 absl::Status ValidateAndMergeVectorInto(
-    internal::MaybeHardConstraintSpan<typename Traits::Element> in_vector,
+    MaybeHardConstraintSpan<typename Traits::Element> in_vector,
     typename Traits::Element* out_vector, DimensionSet& out_hard_constraint) {
   using Element = typename Traits::Element;
   DimensionIndex rank = in_vector.size();
@@ -507,9 +507,9 @@ absl::Status SetInnerOrderInternal(ChunkLayout& self,
   return absl::OkStatus();
 }
 
-absl::Status SetGridOriginInternal(
-    ChunkLayout& self, internal::MaybeHardConstraintSpan<Index> value,
-    StoragePtr& storage_to_be_destroyed) {
+absl::Status SetGridOriginInternal(ChunkLayout& self,
+                                   MaybeHardConstraintSpan<Index> value,
+                                   StoragePtr& storage_to_be_destroyed) {
   const DimensionIndex rank = value.size();
   TENSORSTORE_RETURN_IF_ERROR(
       EnsureRank(self.storage_, rank, storage_to_be_destroyed));
@@ -518,9 +518,10 @@ absl::Status SetGridOriginInternal(
       self.storage_->grid_origin_hard_constraint_);
 }
 
-absl::Status SetChunkShapeInternal(
-    ChunkLayout& self, internal::MaybeHardConstraintSpan<Index> value,
-    Usage usage, StoragePtr& storage_to_be_destroyed) {
+absl::Status SetChunkShapeInternal(ChunkLayout& self,
+                                   MaybeHardConstraintSpan<Index> value,
+                                   Usage usage,
+                                   StoragePtr& storage_to_be_destroyed) {
   const size_t usage_index = static_cast<size_t>(usage);
   const DimensionIndex rank = value.size();
   TENSORSTORE_RETURN_IF_ERROR(
@@ -531,8 +532,8 @@ absl::Status SetChunkShapeInternal(
 }
 
 absl::Status SetChunkShape(ChunkLayout& self,
-                           internal::MaybeHardConstraintSpan<Index> value,
-                           Usage usage, StoragePtr& storage_to_be_destroyed) {
+                           MaybeHardConstraintSpan<Index> value, Usage usage,
+                           StoragePtr& storage_to_be_destroyed) {
   TENSORSTORE_RETURN_IF_ERROR(
       SetChunkShapeInternal(self, value, usage, storage_to_be_destroyed),
       tensorstore::MaybeAnnotateStatus(
@@ -540,9 +541,10 @@ absl::Status SetChunkShape(ChunkLayout& self,
   return absl::OkStatus();
 }
 
-absl::Status SetChunkAspectRatioInternal(
-    ChunkLayout& self, internal::MaybeHardConstraintSpan<double> value,
-    Usage usage, StoragePtr& storage_to_be_destroyed) {
+absl::Status SetChunkAspectRatioInternal(ChunkLayout& self,
+                                         MaybeHardConstraintSpan<double> value,
+                                         Usage usage,
+                                         StoragePtr& storage_to_be_destroyed) {
   const size_t usage_index = static_cast<size_t>(usage);
   const DimensionIndex rank = value.size();
   TENSORSTORE_RETURN_IF_ERROR(
@@ -552,9 +554,10 @@ absl::Status SetChunkAspectRatioInternal(
       self.storage_->chunk_aspect_ratio_hard_constraint_[usage_index]);
 }
 
-absl::Status SetChunkAspectRatio(
-    ChunkLayout& self, internal::MaybeHardConstraintSpan<double> value,
-    Usage usage, StoragePtr& storage_to_be_destroyed) {
+absl::Status SetChunkAspectRatio(ChunkLayout& self,
+                                 MaybeHardConstraintSpan<double> value,
+                                 Usage usage,
+                                 StoragePtr& storage_to_be_destroyed) {
   TENSORSTORE_RETURN_IF_ERROR(
       SetChunkAspectRatioInternal(self, value, usage, storage_to_be_destroyed),
       tensorstore::MaybeAnnotateStatus(
@@ -564,9 +567,9 @@ absl::Status SetChunkAspectRatio(
 }
 
 template <typename HardConstraintRef>
-absl::Status SetChunkElementsInternal(
-    Index& elements, HardConstraintRef is_hard_constraint,
-    internal::MaybeHardConstraintIndex value) {
+absl::Status SetChunkElementsInternal(Index& elements,
+                                      HardConstraintRef is_hard_constraint,
+                                      ChunkLayout::ChunkElementsBase value) {
   if (value.valid()) {
     if (value < 0) {
       return absl::InvalidArgumentError(
@@ -587,7 +590,7 @@ absl::Status SetChunkElementsInternal(
 }
 
 absl::Status SetChunkElementsInternal(ChunkLayout& self,
-                                      internal::MaybeHardConstraintIndex value,
+                                      ChunkLayout::ChunkElementsBase value,
                                       Usage usage,
                                       StoragePtr& storage_to_be_destroyed) {
   if (!value.valid()) return absl::OkStatus();
@@ -601,8 +604,7 @@ absl::Status SetChunkElementsInternal(ChunkLayout& self,
 }
 
 absl::Status SetChunkElements(ChunkLayout& self,
-                              internal::MaybeHardConstraintIndex value,
-                              Usage usage,
+                              ChunkLayout::ChunkElementsBase value, Usage usage,
                               StoragePtr& storage_to_be_destroyed) {
   TENSORSTORE_RETURN_IF_ERROR(
       SetChunkElementsInternal(self, value, usage, storage_to_be_destroyed),
@@ -1832,7 +1834,7 @@ template <typename Traits>
 absl::Status SetVectorProperty(
     ChunkLayout::Grid& self, std::unique_ptr<typename Traits::Element[]>& vec,
     DimensionSet& hard_constraint,
-    internal::MaybeHardConstraintSpan<typename Traits::Element> value) {
+    MaybeHardConstraintSpan<typename Traits::Element> value) {
   if (!value.valid()) return absl::OkStatus();
   const DimensionIndex rank = value.size();
   TENSORSTORE_RETURN_IF_ERROR(self.Set(RankConstraint(rank)));

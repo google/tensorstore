@@ -51,10 +51,12 @@ namespace tensorstore {
 /// a variable-length list of strongly-typed options, there is a unique wrapper
 /// type for each constraint.
 ///
-/// Constraints are set by calling `Schema::Set`.  Constraints are
-/// retrieved using either the named accessor methods, like
-/// `Schema::dtype()`, or in generic code using the explicit
-/// conversion operators, `static_cast<DataType>(constraints)`.
+/// Constraints are set by calling `Schema::Set`.  Constraints are retrieved
+/// using either the named accessor methods, like `Schema::dtype()`, or in
+/// generic code using the explicit conversion operators, e.g.
+/// ``static_cast<DataType>(constraints)``.
+///
+/// \ingroup core
 class Schema {
  public:
   Schema() = default;
@@ -62,10 +64,12 @@ class Schema {
   /// Specifies the rank (`dynamic_rank` indicates unspecified).
   ///
   /// The rank, if specified, is always a hard constraint.
+  tensorstore::RankConstraint rank() const {
+    return tensorstore::RankConstraint{rank_};
+  }
+  explicit operator tensorstore::RankConstraint() const { return rank(); }
+  absl::Status Set(tensorstore::RankConstraint rank);
   using RankConstraint = tensorstore::RankConstraint;
-  RankConstraint rank() const { return RankConstraint{rank_}; }
-  explicit operator RankConstraint() const { return rank(); }
-  absl::Status Set(RankConstraint rank);
 
   /// Specifies the data type.
   ///
@@ -92,18 +96,22 @@ class Schema {
   /// Overrides the domain.
   ///
   /// \post `domain() == value`
+  /// \id IndexDomain
   absl::Status Override(IndexDomain<> value);
 
-  /// Specifies the zero-origin bounds for the domain.
-  ///
-  /// This is equivalent to specifying a domain constraint of
-  /// `IndexDomain(shape)`.
+  /// Strongly-typed alias of `span<const Index>` for representing a shape
+  /// constraint.
   struct Shape : public span<const Index> {
    public:
     explicit Shape(span<const Index> s) : span<const Index>(s) {}
     template <size_t N>
     explicit Shape(const Index (&s)[N]) : span<const Index>(s) {}
   };
+
+  /// Specifies the zero-origin bounds for the domain.
+  ///
+  /// This is equivalent to specifying a domain constraint of
+  /// ``IndexDomain(shape)``.
   absl::Status Set(Shape value);
 
   /// Specifies the data storage layout.
@@ -119,6 +127,20 @@ class Schema {
     return ValidateLayoutInternal();
   }
 
+  /// Strongly-typed alias of `SharedArrayView<const void>` for representing a
+  /// `fill_value` constraint.
+  struct FillValue : public SharedArrayView<const void> {
+    FillValue() = default;
+    explicit FillValue(SharedArrayView<const void> value)
+        : SharedArrayView<const void>(std::move(value)) {}
+
+    /// Compares two fill values for equality.
+    friend bool operator==(const FillValue& a, const FillValue& b);
+    friend bool operator!=(const FillValue& a, const FillValue& b) {
+      return !(a == b);
+    }
+  };
+
   /// Specifies the fill value.
   ///
   /// The fill value data type must be convertible to the actual data type, and
@@ -127,16 +149,6 @@ class Schema {
   /// If an existing fill value has already been set as a constraint, it is an
   /// error to specify a different fill value (where the comparison is done
   /// after normalization by `UnbroadcastArray`).
-  struct FillValue : public SharedArrayView<const void> {
-    FillValue() = default;
-    explicit FillValue(SharedArrayView<const void> value)
-        : SharedArrayView<const void>(std::move(value)) {}
-    friend bool operator==(const FillValue& a, const FillValue& b);
-    friend bool operator!=(const FillValue& a, const FillValue& b) {
-      return !(a == b);
-    }
-  };
-
   FillValue fill_value() const;
   explicit operator FillValue() const { return fill_value(); }
   absl::Status Set(FillValue value);
@@ -146,20 +158,8 @@ class Schema {
   explicit operator CodecSpec::Ptr() const { return codec(); }
   absl::Status Set(CodecSpec::Ptr value);
 
-  /// Specifies the physical quantity corresponding to a single index increment
-  /// along each dimension.
-  ///
-  /// A value of `std::nullopt` indicates that the unit is
-  /// unknown/unconstrained.  A dimension-less quantity can be indicated by a
-  /// unit of `Unit()`.
-  ///
-  /// When creating a new TensorStore, the specified units may be stored as part
-  /// of the metadata.
-  ///
-  /// When opening an existing TensorStore, the specified units serve as a
-  /// constraint, to ensure the units are as expected.  Additionally, for
-  /// drivers like neuroglancer_precomputed that support multiple scales, the
-  /// desired scale can be selected by specifying constraints on the units.
+  /// Strongly-typed alias of `span<const std::optional<Unit>>` for representing
+  /// dimension unit constraints.
   struct DimensionUnits : public span<const std::optional<Unit>> {
    public:
     explicit DimensionUnits() = default;
@@ -179,11 +179,28 @@ class Schema {
       return DimensionUnitsVector(this->begin(), this->end());
     }
   };
+
+  /// Specifies the physical quantity corresponding to a single index increment
+  /// along each dimension.
+  ///
+  /// A value of `std::nullopt` indicates that the unit is
+  /// unknown/unconstrained.  A dimension-less quantity can be indicated by a
+  /// unit of `Unit()`.
+  ///
+  /// When creating a new TensorStore, the specified units may be stored as part
+  /// of the metadata.
+  ///
+  /// When opening an existing TensorStore, the specified units serve as a
+  /// constraint, to ensure the units are as expected.  Additionally, for
+  /// drivers like neuroglancer_precomputed that support multiple scales, the
+  /// desired scale can be selected by specifying constraints on the units.
   DimensionUnits dimension_units() const;
   absl::Status Set(DimensionUnits value);
   explicit operator DimensionUnits() const { return dimension_units(); }
 
   /// Merges in constraints from an existing schema.
+  ///
+  /// \id Schema
   absl::Status Set(Schema value);
 
   /// Evaluates to `true` for option types compatible with `Set`.  Supported
@@ -191,8 +208,8 @@ class Schema {
   ///
   /// - `Schema`
   /// - `RankConstraint`
-  /// - `DataType`, and `StaticDataType<T>`
-  /// - `IndexDomain<Rank, CKind>`
+  /// - `DataType`, and `StaticDataType`
+  /// - `IndexDomain`
   /// - `Schema::Shape`
   /// - `Schema::FillValue`
   /// - `CodecSpec::Ptr`
@@ -203,18 +220,17 @@ class Schema {
   /// - `ChunkLayout`
   /// - `ChunkLayout::GridOrigin`
   /// - `ChunkLayout::InnerOrder`
-  /// - `ChunkLayout::GridConstraintsFor<U>`
-  /// - `ChunkLayout::ChunkElementsFor<U>`
-  /// - `ChunkLayout::ChunkShapeFor<U>`
-  /// - `ChunkLayout::ChunkAspectRatioFor<U>`
+  /// - `ChunkLayout::GridViewFor`
+  /// - `ChunkLayout::ChunkElementsFor`
+  /// - `ChunkLayout::ChunkShapeFor`
+  /// - `ChunkLayout::ChunkAspectRatioFor`
   template <typename T>
   static inline constexpr bool IsOption = ChunkLayout::IsOption<T>;
 
   /// Transforms a `Schema` by an index transform.
   ///
-  /// Upon invocation, the input domain of `transform` corresponds to `schema`.
-  /// The returned `Schema` corresponds to the output space of
-  /// `transform`.
+  /// Upon invocation, the input domain of `transform` corresponds to `this`.
+  /// Upon return, `this` corresponds to the output space of `transform`.
   absl::Status TransformInputSpaceSchema(IndexTransformView<> transform);
 
   /// Transforms a `Schema` object by a `DimExpression`.
@@ -245,11 +261,11 @@ class Schema {
 
   /// "Pipeline" operator.
   ///
-  /// In the expression  `x | y`, if
-  ///   * y is a function having signature `Result<U>(T)`
+  /// In the expression ``x | y``, if ``y`` is a function having signature
+  /// ``Result<U>(T)``, then `operator|` applies ``y`` to the value of ``x``,
+  /// returning a ``Result<U>``.
   ///
-  /// Then operator| applies y to the value of x, returning a
-  /// Result<U>. See tensorstore::Result operator| for examples.
+  /// See `tensorstore::Result::operator|` for examples.
   template <typename Func>
   friend PipelineResultType<Schema, Func> operator|(Schema schema,
                                                     Func&& func) {
@@ -267,32 +283,32 @@ class Schema {
  public:
   // Treat as private:
 
-  /// Returns an identity index transform over the domain/rank.
-  ///
-  /// If `domain().valid() == true`, returns `IdentityTransform(domain())`.
-  ///
-  /// Otherwise, if `rank() != dynamic_rank`, returns
-  /// `IdentityTransform(rank())`.
-  ///
-  /// Otherwise, returns a default-constructed (invalid) transform.
+  // Returns an identity index transform over the domain/rank.
+  //
+  // If `domain().valid() == true`, returns `IdentityTransform(domain())`.
+  //
+  // Otherwise, if `rank() != dynamic_rank`, returns
+  // `IdentityTransform(rank())`.
+  //
+  // Otherwise, returns a default-constructed (invalid) transform.
   Result<IndexTransform<>> GetTransformForIndexingOperation() const;
 
   absl::Status ValidateLayoutInternal();
 
-  /// Constraints other than `rank_` and `dtype_` are stored in a heap-allocated
-  /// `Impl` object.  It is expected that `rank` and `dtype` will be specified
-  /// in most cases, while other constraints may be less commonly used.  This
-  /// avoids bloating the size of `Schema` and allows efficient move
-  /// and copy-on-write, while also avoiding heap allocation in the common case
-  /// of specifying just `rank` and `dtype` constraints.
+  // Constraints other than `rank_` and `dtype_` are stored in a heap-allocated
+  // `Impl` object.  It is expected that `rank` and `dtype` will be specified
+  // in most cases, while other constraints may be less commonly used.  This
+  // avoids bloating the size of `Schema` and allows efficient move
+  // and copy-on-write, while also avoiding heap allocation in the common case
+  // of specifying just `rank` and `dtype` constraints.
   struct Impl;
   friend void intrusive_ptr_increment(Impl* p);
   friend void intrusive_ptr_decrement(Impl* p);
 
-  /// Ensures `impl_` is non-null with a reference count of 1, copying if
-  /// necessary.
-  ///
-  /// \returns `*impl_`
+  // Ensures `impl_` is non-null with a reference count of 1, copying if
+  // necessary.
+  //
+  // \returns `*impl_`
   Impl& EnsureUniqueImpl();
   internal::IntrusivePtr<Impl> impl_;
   DimensionIndex rank_ = dynamic_rank;

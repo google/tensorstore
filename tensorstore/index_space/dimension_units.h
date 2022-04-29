@@ -25,9 +25,13 @@
 namespace tensorstore {
 
 /// Vector specifying optional units for each dimension of an index space.
+///
+/// \relates Schema
 using DimensionUnitsVector = std::vector<std::optional<Unit>>;
 
 /// Converts a dimension unit vector to a string for use in error messages.
+///
+/// \relates DimensionUnitsVector
 std::string DimensionUnitsToString(span<const std::optional<Unit>> u);
 
 /// Merges new dimension units with existing dimension units.
@@ -44,27 +48,30 @@ std::string DimensionUnitsToString(span<const std::optional<Unit>> u);
 ///
 /// 3. It is an error two merge two distinct specified (i.e. not `std::nullopt`)
 ///    units.
+///
+/// \relates DimensionUnitsVector
 absl::Status MergeDimensionUnits(DimensionUnitsVector& existing_units,
                                  span<const std::optional<Unit>> new_units);
 
 /// Converts dimension units for the input space to dimension units for the
 /// output space.
 ///
-/// Output dimensions with `single_input_dimension` maps are assigned the unit
-/// of the corresponding input dimension, if any, divided by the absolute value
-/// of the stride.
+/// Output dimensions with `OutputIndexMethod::single_input_dimension` maps are
+/// assigned the unit of the corresponding input dimension, if any, divided by
+/// the absolute value of the stride.
 ///
-/// The units of output dimensions with `constant` and `array` maps are
-/// left unspecified.
+/// The units of output dimensions with `OutputIndexMethod::constant` and
+/// `OutputIndexMethod::array` maps are left unspecified.
 ///
 /// If a unit is specified for an input dimension, but no output dimension
-/// depends on it via a `single_input_dimension` map, an error is returned to
-/// indicate that this unit would be "lost".
+/// depends on it via a `OutputIndexMethod::single_input_dimension` map, an
+/// error is returned to indicate that this unit would be "lost".
 ///
 /// \param transform Index transform.
 /// \param input_units Units for each input dimension of `transform`.
 /// \error `absl::StatusCode::kInvalidArgument` if a unit is specified for an
 ///     input dimension that does not correspond to an output dimension.
+/// \relates DimensionUnitsVector
 Result<DimensionUnitsVector> TransformInputDimensionUnits(
     IndexTransformView<> transform, DimensionUnitsVector input_units);
 
@@ -72,13 +79,15 @@ Result<DimensionUnitsVector> TransformInputDimensionUnits(
 /// input space.
 ///
 /// Input dimensions that correspond to exactly one output dimension via a
-/// `single_input_dimension` map are assigned the unit of the corresponding
-/// output dimension, if any, multiplied by the absolute value of the stride.
+/// `OutputIndexMethod::single_input_dimension` map are assigned the unit of the
+/// corresponding output dimension, if any, multiplied by the absolute value of
+/// the stride.
 ///
 /// The units of other input dimensions are left unspecified.
 ///
 /// \param transform Index transform.
-/// \param input_units Units for each output dimension of `transform`.
+/// \param output_units Units for each output dimension of `transform`.
+/// \relates DimensionUnitsVector
 DimensionUnitsVector TransformOutputDimensionUnits(
     IndexTransformView<> transform, DimensionUnitsVector output_units);
 

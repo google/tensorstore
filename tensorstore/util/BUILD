@@ -469,6 +469,16 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "maybe_hard_constraint",
+    hdrs = ["maybe_hard_constraint.h"],
+    deps = [
+        ":dimension_set",
+        ":span",
+        "//tensorstore:index",
+    ],
+)
+
+tensorstore_cc_library(
     name = "option",
     hdrs = ["option.h"],
     deps = [

@@ -31,6 +31,8 @@ struct NoOptions {
 
 /// Specifies whether members equal to their default values are included when
 /// converting to JSON.
+///
+/// \ingroup json
 class IncludeDefaults {
  public:
   constexpr explicit IncludeDefaults(bool include_defaults = false)

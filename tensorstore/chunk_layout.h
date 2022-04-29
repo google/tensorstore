@@ -24,11 +24,11 @@
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/integer_range.h"
 #include "tensorstore/internal/json_bindable.h"
-#include "tensorstore/internal/maybe_hard_constraint.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
+#include "tensorstore/util/maybe_hard_constraint.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
@@ -40,8 +40,8 @@ namespace tensorstore {
 /// At the coarsest level, a chunk layout specifies a chunk grid to which writes
 /// should be aligned.  Each write chunk may then be optionally further
 /// subdivided by a grid of read chunks.  Each read chunk may then be optionally
-/// further subdivided by a grid of codec chunks.  Refer to the `chunk-layout`
-/// documentation for details.
+/// further subdivided by a grid of codec chunks.  Refer to the
+/// :ref:`chunk-layout` documentation for details.
 ///
 /// A precise chunk layout is defined by:
 ///
@@ -95,7 +95,7 @@ namespace tensorstore {
 /// The `inner_order` constraint is set as an atomic value, even though it is
 /// represented as a permutation vector.
 ///
-/// Constraints are set using the `Set` overloads.  For example:
+/// Constraints are set using the `Set` overloads.  For example::
 ///
 ///     tensorstore::ChunkLayout layout;
 ///     TENSORSTORE_RETURN_IF_ERROR(layout.Set(
@@ -108,11 +108,9 @@ namespace tensorstore {
 ///     TENSORSTORE_RETURN_IF_ERROR(layout.Set(
 ///         tensorstore::ChunkLayout::ReadChunkShape(
 ///             {100, 200, 300})));
+///
+/// \relates Schema
 class ChunkLayout {
-  using MaybeHardConstraintIndex = internal::MaybeHardConstraintIndex;
-  template <typename T>
-  using MaybeHardConstraintSpan = internal::MaybeHardConstraintSpan<T>;
-
  public:
   /// Specifies the type of operation to which a chunk grid applies.
   ///
@@ -132,10 +130,13 @@ class ChunkLayout {
     kCodec = 2,
   };
 
+  /// Identifies parameters that apply to multiple `Usage` values.
+  ///
+  /// \relates Usage
   constexpr static Usage kUnspecifiedUsage = static_cast<Usage>(3);
 
-  /// Range-based for loop-compatible range containing
-  /// `{kWrite, kRead, kCodec}`.
+  // Range-based for loop-compatible range containing
+  // ``{kWrite, kRead, kCodec}``.
   constexpr static internal::IntegerRange<Usage> kUsages =
       internal::IntegerRange<Usage>::Inclusive(kWrite, kCodec);
 
@@ -144,7 +145,14 @@ class ChunkLayout {
   constexpr static double kDefaultAspectRatioValue = 0;
   constexpr static Index kDefaultShapeValue = 0;
 
+  /// Prints a string representation to an `std::ostream`.
+  ///
+  /// \relates Usage
   friend std::ostream& operator<<(std::ostream& os, Usage usage);
+
+  /// Parses a string representation.
+  ///
+  /// \relates Usage
   static Result<Usage> ParseUsage(std::string_view s);
 
   using ToJsonOptions = JsonSerializationOptions;
@@ -170,7 +178,7 @@ class ChunkLayout {
   /// This is used in conjunction with any explicit shape constraints and aspect
   /// ratio constraints to determine a chunk shape automatically.
   ///
-  /// Example:
+  /// Example::
   ///
   ///     tensorstore::ChunkLayout constraints;
   ///
@@ -252,7 +260,7 @@ class ChunkLayout {
 
   /// Constrains the chunk shape for the specified usage `U`.
   ///
-  /// Example:
+  /// Example::
   ///
   ///     tensorstore::ChunkLayout constraints;
   ///
@@ -336,7 +344,7 @@ class ChunkLayout {
   /// Constrains the aspect ratio of the chunk shape for the specified usage
   /// `U`.
   ///
-  /// Example:
+  /// Example::
   ///
   ///     tensorstore::ChunkLayout constraints;
   ///     // Sets a hard constraint on the aspect ratio for dimensions 0 and 1
@@ -354,13 +362,15 @@ class ChunkLayout {
   /// The actual chunk shape is determined as follows:
   ///
   /// 1. If the chunk size for a given dimension is explicitly constrained,
-  ///    either by the `shape` property or by a driver-specific constraint, that
-  ///    size is used and the aspect ratio value is ignored.
+  ///    either by the `Grid::shape` property or by a driver-specific
+  ///    constraint, that size is used and the aspect ratio value is ignored.
   ///
-  /// 2. The chunk size of all dimensions `i` not otherwise constrained is equal
-  ///    to `clip(round(factor * aspect_ratio[i]), 1, domain.shape()[i])`, where
-  ///    `factor` is the makes the total number of elements per chunk closest to
-  ///    the target number given by the `elements` constraint.
+  /// 2. The chunk size of all dimensions ``i`` not otherwise constrained is
+  ///    equal to
+  ///    ``clip(round(factor * aspect_ratio[i]), 1, domain.shape()[i])``, where
+  ///    ``factor`` is the number that makes the total number of elements per
+  ///    chunk closest to the target number given by the `Grid::elements`
+  ///    constraint.
   template <Usage U>
   struct ChunkAspectRatioFor : public ChunkAspectRatioBase {
     using ChunkAspectRatioBase::ChunkAspectRatioBase;
@@ -377,15 +387,24 @@ class ChunkLayout {
     Grid(Grid&&) = default;
     ~Grid();
 
+    /// Assigns from another grid.
     Grid& operator=(const Grid& other);
     Grid& operator=(Grid&& other) = default;
 
+    /// Represents the shape constraint.
     using Shape = ChunkShapeBase;
+
+    /// Represents the aspect ratio constraint.
     using AspectRatio = ChunkAspectRatioBase;
+
+    /// Represents the target number of elements constraint.
     using Elements = ChunkElementsBase;
 
+    /// Specifies the rank constraint.
     DimensionIndex rank() const { return rank_; }
+    absl::Status Set(RankConstraint value);
 
+    /// Specifies the shape constraint.
     Shape shape() const {
       return shape_ ? Shape(span<const Index>(shape_.get(), rank_),
                             shape_hard_constraint_)
@@ -394,6 +413,7 @@ class ChunkLayout {
     explicit operator Shape() const { return shape(); }
     absl::Status Set(Shape value);
 
+    /// Specifies the aspect ratio constraint.
     AspectRatio aspect_ratio() const {
       return aspect_ratio_
                  ? AspectRatio(span<const double>(aspect_ratio_.get(), rank_),
@@ -403,16 +423,19 @@ class ChunkLayout {
     explicit operator AspectRatio() const { return aspect_ratio(); }
     absl::Status Set(AspectRatio value);
 
+    /// Specifies the target number of elements.
     Elements elements() const {
       return Elements(elements_, elements_hard_constraint_);
     }
     explicit operator Elements() const { return elements(); }
     absl::Status Set(Elements value);
 
+    /// Merges in constraints from another `Grid` or `GridView`.
+    ///
+    /// \id GridView
     absl::Status Set(const GridView& value);
 
-    absl::Status Set(RankConstraint value);
-
+    /// Compares two chunk grid constraints for equality.
     friend bool operator==(const Grid& a, const Grid& b);
     friend bool operator!=(const Grid& a, const Grid& b) { return !(a == b); }
 
@@ -436,7 +459,15 @@ class ChunkLayout {
   /// and chunk shape target number of elements.
   class GridView {
    public:
+    /// Constructs a view of an unconstrained rank-0 grid.
+    ///
+    /// \id default
     explicit GridView() = default;
+
+    /// Constructs from an existing grid, optionally converting to hard
+    /// constraints.
+    ///
+    /// \id grid
     explicit GridView(const GridView& other, bool hard_constraint)
         : GridView(other) {
       if (!hard_constraint) {
@@ -448,6 +479,10 @@ class ChunkLayout {
     explicit GridView(const Grid& grid, bool hard_constraint = true)
         : GridView(GridView(grid.shape(), grid.aspect_ratio(), grid.elements()),
                    hard_constraint) {}
+
+    /// Constructs from individual constraints.
+    ///
+    /// \id components
     explicit GridView(ChunkShapeBase shape, ChunkAspectRatioBase aspect_ratio,
                       ChunkElementsBase elements)
         : shape_rank_(shape.size()),
@@ -465,17 +500,20 @@ class ChunkLayout {
     explicit GridView(ChunkElementsBase elements)
         : GridView(ChunkShapeBase(), ChunkAspectRatioBase(), elements) {}
 
+    /// Returns the shape constraint.
     ChunkShapeBase shape() const {
       return ChunkShapeBase(span<const Index>(shape_, shape_rank_),
                             shape_hard_constraint_);
     }
 
+    /// Returns the aspect ratio constraint.
     ChunkAspectRatioBase aspect_ratio() const {
       return ChunkAspectRatioBase(
           span<const double>(aspect_ratio_, aspect_ratio_rank_),
           aspect_ratio_hard_constraint_);
     }
 
+    /// Returns the target number of elements.
     ChunkElementsBase elements() const {
       return ChunkElementsBase(elements_, elements_hard_constraint_);
     }
@@ -483,61 +521,75 @@ class ChunkLayout {
    private:
     friend class ChunkLayout;
 
-    /// Length of the `shape_` array.
+    // Length of the `shape_` array.
     int8_t shape_rank_ = 0;
 
-    /// Length of the `aspect_ratio_` array.  Stored separately from
-    /// `shape_rank_` in order to allow validation of the lengths to be
-    /// deferred.
+    // Length of the `aspect_ratio_` array.  Stored separately from
+    // `shape_rank_` in order to allow validation of the lengths to be
+    // deferred.
     int8_t aspect_ratio_rank_ = 0;
 
-    /// Indicates whether the `elements_` value is a hard constraint.
+    // Indicates whether the `elements_` value is a hard constraint.
     bool elements_hard_constraint_ = false;
 
-    /// Indicates which dimensions of `shape_` are hard constraints.
+    // Indicates which dimensions of `shape_` are hard constraints.
     DimensionSet shape_hard_constraint_;
 
-    /// Indicates which dimensions of `aspect_ratio_` are hard constraints.
+    // Indicates which dimensions of `aspect_ratio_` are hard constraints.
     DimensionSet aspect_ratio_hard_constraint_;
 
-    /// Indicates the target number of elements per chunk.
+    // Indicates the target number of elements per chunk.
     Index elements_ = kImplicit;
 
-    /// Pointer to array of length `shape_rank_`.
+    // Pointer to array of length `shape_rank_`.
     const Index* shape_ = nullptr;
 
-    /// Pointer to array of length `aspect_ratio_rank_`.
+    // Pointer to array of length `aspect_ratio_rank_`.
     const double* aspect_ratio_ = nullptr;
   };
 
+  /// Strongly-typed view that provides access to parameters specific to a
+  /// particular `Usage`.
   template <Usage U>
   class GridViewFor : public GridView {
    public:
+    /// Representation of the shape constraint.
     using Shape = ChunkShapeFor<U>;
+
+    /// Representation of the aspect ratio constraint.
     using AspectRatio = ChunkAspectRatioFor<U>;
+
+    /// Representation of the target number of elements constraint.
     using Elements = ChunkElementsFor<U>;
 
     using GridView::GridView;
+
+    /// Constructs from an existing grid.
     explicit GridViewFor(GridView other) : GridView(other) {}
 
+    /// Returns the shape constraint.
     Shape shape() const { return Shape(GridView::shape()); }
 
+    /// Returns the aspect ratio constraint.
     AspectRatio aspect_ratio() const {
       return AspectRatio(GridView::aspect_ratio());
     }
 
+    /// Returns the target number of elements.
     Elements elements() const { return Elements(GridView::elements()); }
   };
 
+  /// Aliases of `GridViewFor` that provide access to parameters specific to a
+  /// particular `Usage`.
   using Chunk = GridViewFor<kUnspecifiedUsage>;
   using WriteChunk = GridViewFor<Usage::kWrite>;
   using ReadChunk = GridViewFor<Usage::kRead>;
   using CodecChunk = GridViewFor<Usage::kCodec>;
 
   /// Specifies the data storage order within innermost chunks as a permutation
-  /// of `[0, ..., rank-1]`.
+  /// of ``[0, ..., rank-1]``.
   ///
-  /// Example:
+  /// Example::
   ///
   ///     tensorstore::ChunkLayout constraints;
   ///
@@ -557,7 +609,14 @@ class ChunkLayout {
   ///                 ::testing::ElementsAre(1, 0, 2));
   ///     EXPECT_EQ(true, constraints.inner_order().hard_constraint);
   struct InnerOrder : public span<const DimensionIndex> {
+    /// Constructs an unspecified order.
+    ///
+    /// \id default
     explicit InnerOrder() = default;
+
+    /// Constructs from the specified order.
+    ///
+    /// \id order
     explicit InnerOrder(span<const DimensionIndex> s,
                         bool hard_constraint = true)
         : span<const DimensionIndex>(s), hard_constraint(hard_constraint) {}
@@ -565,7 +624,11 @@ class ChunkLayout {
     explicit InnerOrder(const DimensionIndex (&s)[N],
                         bool hard_constraint = true)
         : span<const DimensionIndex>(s), hard_constraint(hard_constraint) {}
+
+    /// Returns `true` if this specifies an order constraint.
     bool valid() const { return !this->empty(); }
+
+    /// Compares two order constraints for equality.
     friend bool operator==(const InnerOrder& a, const InnerOrder& b) {
       return internal::RangesEqual(a, b) &&
              a.hard_constraint == b.hard_constraint;
@@ -580,7 +643,7 @@ class ChunkLayout {
 
   /// Specifies the base origin/offset of the chunk grid.
   ///
-  /// Example:
+  /// Example::
   ///
   ///     tensorstore::ChunkLayout constraints;
   ///
@@ -616,9 +679,9 @@ class ChunkLayout {
   /// Equivalent to specifying `CodecChunkAspectRatio`, `ReadChunkAspectRatio`,
   /// and `WriteChunkAspectRatio`.
   ///
-  /// Even with `hard_constraint=true`, the aspect ratio is always treated as a
-  /// preference rather than requirement, and is overridden by other constraints
-  /// on chunk shapes.
+  /// Even with ``hard_constraint=true``, the aspect ratio is always treated as
+  /// a preference rather than requirement, and is overridden by other
+  /// constraints on chunk shapes.
   using ChunkAspectRatio = ChunkAspectRatioFor<kUnspecifiedUsage>;
   using WriteChunkAspectRatio = ChunkAspectRatioFor<Usage::kWrite>;
   using ReadChunkAspectRatio = ChunkAspectRatioFor<Usage::kRead>;
@@ -635,9 +698,10 @@ class ChunkLayout {
   /// For the purpose of this method, only hard constraints on `grid_origin()`
   /// and `(*this)[usage].shape()` are considered; soft constraints are ignored.
   ///
-  /// For any dimension `i` where `grid_origin().hard_constraint[i] == false` or
-  /// `(*this)[usage].shape().hard_constraint[i] == false`, `box[i]` is set to
-  /// `IndexInterval::Infinite()`.
+  /// For any dimension ``i`` where
+  /// ``grid_origin().hard_constraint[i] == false`` or
+  /// ``(*this)[usage].shape().hard_constraint[i] == false``, ``box[i]`` is set
+  /// to `IndexInterval::Infinite()`.
   ///
   /// \param usage Must be either `kWrite` or `kRead`.
   /// \param box[out] Set to the chunk template.
@@ -661,6 +725,8 @@ class ChunkLayout {
   explicit operator InnerOrder() const { return inner_order(); }
 
   /// Sets the inner order constraint.
+  ///
+  /// \id InnerOrder
   absl::Status Set(InnerOrder value);
 
   /// Returns the grid origin constraint.
@@ -670,6 +736,8 @@ class ChunkLayout {
   explicit operator GridOrigin() const { return grid_origin(); }
 
   /// Sets/updates the grid origin constraint.
+  ///
+  /// \id GridOrigin
   absl::Status Set(GridOrigin value);
 
   /// Returns the write chunk constraints.
@@ -684,7 +752,7 @@ class ChunkLayout {
   CodecChunk codec_chunk() const;
   explicit operator CodecChunk() const { return codec_chunk(); }
 
-  /// Returns the chunk constraints for the given usage `U`.
+  /// Returns the chunk constraints for the given `usage`.
   ///
   /// \param usage Must be one of `Usage::kWrite`, `Usage::kRead`, or
   ///     `Usage::kRead`.  Must not be `kUnspecifiedUsage`.
@@ -698,33 +766,36 @@ class ChunkLayout {
   /// - If `value` is of type `Chunk` (i.e. `U == kUnspecifiedUsage`), then the
   ///   constraints are set for the usage indicated by the run-time value
   ///   `value.usage()`.  If `value.usage() == kUnspecifiedUsage`, then the
-  ///   `shape` and `elements` apply to write and read chunks, and the
-  ///   `aspect_ratio` applies to write, read, and codec chunks.
+  ///   `GridView::shape` and `GridView::elements` apply to write and read
+  ///   chunks, and the `GridView::aspect_ratio` applies to write, read, and
+  ///   codec chunks.
   ///
-  /// For example, to specify constraints on write chunks:
+  /// For example, to specify constraints on write chunks::
   ///
   ///     tensorstore::ChunkLayout constraints;
   ///     TENSORSTORE_RETURN_IF_ERROR(constraints.Set(
   ///         tensorstore::ChunkLayout::WriteChunk(
   ///           tensorstore::ChunkLayout::ChunkShape({100, 200}))));
   ///
-  /// Equivalently, specifying the usage at run time:
+  /// Equivalently, specifying the usage at run time::
   ///
   ///     TENSORSTORE_RETURN_IF_ERROR(constraints.Set(
   ///         tensorstore::ChunkLayout::Chunk(
   ///           tensorstore::ChunkLayout::ChunkShapeBase({100, 200}),
   ///           tensorstore::ChunkLayout::kWrite)));
   ///
-  /// To specify common constraints for write, read, and codec chunks:
+  /// To specify common constraints for write, read, and codec chunks::
   ///
   ///     TENSORSTORE_RETURN_IF_ERROR(constraints.Set(
   ///         tensorstore::ChunkLayout::Chunk(
   ///           tensorstore::ChunkLayout::ChunkAspectRatio({1, 2}),
   ///           tensorstore::ChunkLayout::ChunkElements(5000000))));
   ///
-  /// Note that the aspect ratio of `{1, 2}` applies to write, read, and codec
+  /// Note that the aspect ratio of ``{1, 2}`` applies to write, read, and codec
   /// chunks, but a target number of elements of 5000000 is set only for write
   /// and read chunks.
+  ///
+  /// \id GridViewFor
   template <Usage U>
   absl::Status Set(const GridViewFor<U>& value);
 
@@ -775,12 +846,16 @@ class ChunkLayout {
   }
 
   /// Sets/updates the chunk shape constraints for the given usage `U`.
+  ///
+  /// \id ChunkShapeFor
   template <Usage U>
   absl::Status Set(ChunkShapeFor<U> value) {
     return Set(GridViewFor<U>(value));
   }
 
   /// Sets/updates the chunk aspect ratio constraints for the given usage `U`.
+  ///
+  /// \id ChunkAspectRatioFor
   template <Usage U>
   absl::Status Set(ChunkAspectRatioFor<U> value) {
     return Set(GridViewFor<U>(value));
@@ -788,6 +863,8 @@ class ChunkLayout {
 
   /// Sets/updates the chunk target number of elements constraint for the given
   /// usage `U`.
+  ///
+  /// \id ChunkElementsFor
   template <Usage U>
   absl::Status Set(ChunkElementsFor<U> value) {
     return Set(GridViewFor<U>(value));
@@ -795,26 +872,33 @@ class ChunkLayout {
 
   /// Merges in additional chunk layout constraints.  Soft constraints of
   /// `*this` take precedence over soft constraints of `value`.
+  ///
+  /// \id ChunkLayout
   absl::Status Set(ChunkLayout value);
 
   /// Sets the rank.
+  ///
+  /// \id RankConstraint
   absl::Status Set(RankConstraint value);
 
   /// Validates and converts this layout into a precise chunk layout.
   ///
   /// - All dimensions of `grid_origin` must be specified as hard constraints.
   ///
-  /// - Any write/read/codec chunk `shape` soft constraints are cleared.
+  /// - Any write/read/codec chunk `GridView::shape` soft constraints are
+  /// - cleared.
   ///
   /// - Any unspecified dimensions of the read chunk shape are set from the
   ///   write chunk shape.
   ///
-  /// - Any write/read/codec chunk `aspect_ratio` or `elements` constraints are
-  ///   cleared.
+  /// - Any write/read/codec chunk `GridView::aspect_ratio` or
+  ///   `GridView::elements` constraints are cleared.
   absl::Status Finalize();
 
   /// Transforms a chunk layout for the output space of a transform to a
   /// corresponding chunk layout for the input space of the transform.
+  ///
+  /// \id transform
   friend Result<ChunkLayout> ApplyIndexTransform(
       IndexTransformView<> transform, ChunkLayout output_constraints);
 
@@ -827,6 +911,8 @@ class ChunkLayout {
                                           ToJsonOptions)
 
   /// Transforms a `ChunkLayout` object by a `DimExpression`.
+  ///
+  /// \id expr
   template <typename Expr>
   friend std::enable_if_t<!IsIndexTransform<internal::remove_cvref_t<Expr>>,
                           Result<ChunkLayout>>
@@ -850,11 +936,11 @@ class ChunkLayout {
 
   /// "Pipeline" operator.
   ///
-  /// In the expression  `x | y`, if
-  ///   * y is a function having signature `Result<U>(T)`
+  /// In the expression ``x | y``, if ``y`` is a function having signature
+  /// ``Result<U>(T)``, then `operator|` applies ``y`` to the value of ``x``,
+  /// returning a ``Result<U>``.
   ///
-  /// Then operator| applies y to the value of x, returning a
-  /// Result<U>. See tensorstore::Result operator| for examples.
+  /// See `tensorstore::Result::operator|` for examples.
   template <typename Func>
   friend PipelineResultType<ChunkLayout, Func> operator|(ChunkLayout layout,
                                                          Func&& func) {
@@ -867,10 +953,10 @@ class ChunkLayout {
   /// - `ChunkLayout`
   /// - `ChunkLayout::GridOrigin`
   /// - `ChunkLayout::InnerOrder`
-  /// - `ChunkLayout::GridViewFor<U>`
-  /// - `ChunkLayout::ChunkElementsFor<U>`
-  /// - `ChunkLayout::ChunkShapeFor<U>`
-  /// - `ChunkLayout::ChunkAspectRatioFor<U>`
+  /// - `ChunkLayout::GridViewFor`
+  /// - `ChunkLayout::ChunkElementsFor`
+  /// - `ChunkLayout::ChunkShapeFor`
+  /// - `ChunkLayout::ChunkAspectRatioFor`
   template <typename T>
   static inline constexpr bool IsOption = false;
 
@@ -887,6 +973,8 @@ class ChunkLayout {
 ///
 /// This may be passed to `ChunkLayout::Set` to set the grid for a single
 /// runtime-specified usage.
+///
+/// \id kUnspecifiedUsage
 template <>
 class ChunkLayout::GridViewFor<ChunkLayout::kUnspecifiedUsage>
     : public GridView {
@@ -951,20 +1039,26 @@ constexpr bool ChunkLayout::IsOption<ChunkLayout::ChunkElementsFor<U>> = true;
 ///
 /// Specifically, `permutation` is ordered by descending byte stride magnitude,
 /// and then ascending dimension index.
+///
+/// \relates ChunkLayout
 void SetPermutationFromStridedLayout(StridedLayoutView<> layout,
                                      span<DimensionIndex> permutation);
 
 /// Sets `permutation` to ascending or descending order.
 ///
 /// If `order == c_order`, sets `permutation` to
-/// `{0, 1, ..., permutation.size()-1}`.
+/// ``{0, 1, ..., permutation.size()-1}``.
 ///
-/// Otherwise, sets `permutation` to `{permutation.size()-1, ..., 1, 0}`.
+/// Otherwise, sets `permutation` to ``{permutation.size()-1, ..., 1, 0}``.
+///
+/// \relates ChunkLayout
 void SetPermutation(ContiguousLayoutOrder order,
                     span<DimensionIndex> permutation);
 
 /// Returns `true` if `permutation` is a valid permutation of
-/// `{0, 1, ..., permutation.size()-1}`.
+/// ``{0, 1, ..., permutation.size()-1}``.
+///
+/// \relates ChunkLayout
 bool IsValidPermutation(span<const DimensionIndex> permutation);
 
 /// Sets `inverse_perm` to the inverse permutation of `perm`.
@@ -972,6 +1066,7 @@ bool IsValidPermutation(span<const DimensionIndex> permutation);
 /// \param perm[in] Pointer to array of length `rank`.
 /// \param inverse_perm[out] Pointer to array of length `rank`.
 /// \dchecks `IsValidPermutation({perm, rank})`.
+/// \relates ChunkLayout
 void InvertPermutation(DimensionIndex rank, const DimensionIndex* perm,
                        DimensionIndex* inverse_perm);
 
@@ -979,19 +1074,23 @@ void InvertPermutation(DimensionIndex rank, const DimensionIndex* perm,
 /// corresponding dimension order for the input space of `transform`.
 ///
 /// If there is a one-to-one onto correspondence between output dimensions and
-/// input dimensions via `single_input_dimension` output index maps, then
-/// `input_perm` is simply mapped from `output_perm` according to this
-/// correspondence, and `TransformInputDimensionOrder` computes the inverse.
+/// input dimensions via `OutputIndexMethod::single_input_dimension` output
+/// index maps, then `input_perm` is simply mapped from `output_perm` according
+/// to this correspondence, and `TransformInputDimensionOrder` computes the
+/// inverse.
 ///
-/// More generally, a dimension `input_dim` in `input_perm` is ordered ascending
-/// by the first index `j` for which the output dimension `output_perm[j]` maps
-/// to `input_dim` via a `single_input_dimension` output index map, and then by
+/// More generally, a dimension ``input_dim`` in `input_perm` is ordered
+/// ascending by the first index ``j`` for which the output dimension
+/// ``output_perm[j]`` maps to ``input_dim`` via a
+/// `OutputIndexMethod::single_input_dimension` output index map, and then by
 /// dimension index.  Input dimensions with no corresponding output dimension
 /// are ordered last.
 ///
 /// \param transform The index transform.
-/// \param output_perm Permutation of `{0, 1, ..., transform.output_rank()-1}`.
+/// \param output_perm Permutation of
+///     ``{0, 1, ..., transform.output_rank()-1}``.
 /// \param input_perm[out] Pointer to array of length `transform.input_rank()`.
+/// \relates ChunkLayout
 void TransformOutputDimensionOrder(IndexTransformView<> transform,
                                    span<const DimensionIndex> output_perm,
                                    span<DimensionIndex> input_perm);
@@ -1000,20 +1099,22 @@ void TransformOutputDimensionOrder(IndexTransformView<> transform,
 /// corresponding dimension order for the output space of `transform`.
 ///
 /// If there is a one-to-one onto correspondence between output dimensions and
-/// input dimensions via `single_input_dimension` output index maps, then
-/// `output_perm` is simply mapped from `input_perm` according to this
-/// correspondence, and `TransformOutputDimensionOrder` computes the inverse.
+/// input dimensions via `OutputIndexMethod::single_input_dimension` output
+/// index maps, then `output_perm` is simply mapped from `input_perm` according
+/// to this correspondence, and `TransformOutputDimensionOrder` computes the
+/// inverse.
 ///
-/// More generally, each output dimension `output_dim` mapped with a
-/// `single_input_dimension` map is ordered ascending by
-/// `inv(input_perm)[output_dim]`, and then by dimension index.  Output
-/// dimensions without a `single_input_dimension` map are ordered last, and then
-/// by dimension index.
+/// More generally, each output dimension ``output_dim`` mapped with a
+/// `OutputIndexMethod::single_input_dimension` map is ordered ascending by
+/// ``inv(input_perm)[output_dim]``, and then by dimension index.  Output
+/// dimensions without a `OutputIndexMethod::single_input_dimension` map are
+/// ordered last, and then by dimension index.
 ///
 /// \param transform The index transform.
-/// \param input_perm Permutation of `{0, 1, ..., transform.input_rank()-1}`.
+/// \param input_perm Permutation of ``{0, 1, ..., transform.input_rank()-1}``.
 /// \param output_perm[out] Pointer to array of length
-///     `transform.output_rank()`..
+///     `transform.output_rank()`.
+/// \relates ChunkLayout
 void TransformInputDimensionOrder(IndexTransformView<> transform,
                                   span<const DimensionIndex> input_perm,
                                   span<DimensionIndex> output_perm);
@@ -1023,7 +1124,7 @@ namespace internal {
 /// Chooses a regular grid according to the specified constraints.
 ///
 /// If `shape_constraints.elements()` is unspecified, a default value (currently
-/// 1024*1024, but may change in the future) is used.
+/// ``1024*1024``, but may change in the future) is used.
 ///
 /// \param origin_constraint If not empty, specifies the origin value for each
 ///     dimension.  A value of `kImplicit` indicates no constraint.

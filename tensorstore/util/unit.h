@@ -37,7 +37,13 @@ namespace tensorstore {
 /// TensorStore does support a syntax for specifying a combined multiplier and
 /// base unit as a single string.  Refer to the `Unit(std::string_view unit)`
 /// constructor documentation below for details.
+///
+/// \relates Schema
 struct Unit {
+  /// Constructs a unit with an empty string as the base unit and a multiplier
+  /// of 1.
+  ///
+  /// \id default
   Unit() = default;
 
   /// Parses a combined multiplier and base unit from `unit`.
@@ -47,7 +53,7 @@ struct Unit {
   /// removed and used as the multiplier.  The remainder (or the entire string
   /// in the case that there is no leading number) is used as the `base_unit`.
   ///
-  /// For example:
+  /// For example::
   ///
   ///     EXPECT_EQ(Unit(4, "nm"), Unit("4nm"));
   ///     EXPECT_EQ(Unit(4e-3, "nm"), Unit("4e-3nm"));
@@ -57,16 +63,15 @@ struct Unit {
   ///     EXPECT_EQ(Unit(1, "nm"), Unit("nm"));
   ///     EXPECT_EQ(Unit(4, ""), Unit("4"));
   ///     EXPECT_EQ(Unit(1, ""), Unit(""));
+  ///
+  /// \id string
   Unit(std::string_view unit);
-
-  /// Same as `std::string_view` constructor above, but permits implicit
-  /// construction of `std::optional<Unit>` from a string literal.
   Unit(const char* unit) : Unit(std::string_view(unit)) {}
-
-  /// Same as `std::string_view` constructor above, but permits implicit
-  /// construction of `std::optional<Unit>` from an `std::string`.
   Unit(const std::string& unit) : Unit(std::string_view(unit)) {}
 
+  /// Constructs from a multiplier and base unit.
+  ///
+  /// \id multiplier, base_unit
   Unit(double multiplier, std::string base_unit)
       : multiplier(multiplier), base_unit(std::move(base_unit)) {}
 
@@ -76,31 +81,33 @@ struct Unit {
   /// Base unit specification.
   std::string base_unit;
 
+  /// Prints a string representation to an `std::ostream`.
   friend std::ostream& operator<<(std::ostream& os, const Unit& unit);
+
+  /// Compares two units for equality.
   friend bool operator==(const Unit& a, const Unit& b);
   friend bool operator!=(const Unit& a, const Unit& b) { return !(a == b); }
 
+  /// Multiplies the `multiplier`.
+  friend Unit operator*(Unit u, double x) {
+    u.multiplier *= x;
+    return u;
+  }
+  friend Unit operator*(double x, Unit u) {
+    u.multiplier *= x;
+    return u;
+  }
   friend Unit& operator*=(Unit& u, double x) {
     u.multiplier *= x;
     return u;
   }
 
-  friend Unit operator*(Unit u, double x) {
-    u.multiplier *= x;
-    return u;
-  }
-
-  friend Unit operator*(double x, Unit u) {
-    u.multiplier *= x;
-    return u;
-  }
-
-  friend Unit& operator/=(Unit& u, double x) {
+  /// Divides the `multiplier`.
+  friend Unit operator/(Unit u, double x) {
     u.multiplier /= x;
     return u;
   }
-
-  friend Unit operator/(Unit u, double x) {
+  friend Unit& operator/=(Unit& u, double x) {
     u.multiplier /= x;
     return u;
   }

@@ -22,7 +22,11 @@
 
 namespace tensorstore {
 
+/// Checks if every `Option` is compatible with the specified `Options` type.
+///
+/// \ingroup utilities
 template <typename Options, typename... Option>
+// NONITPICK: Options::IsOption<std::remove_cvref_t<Option>>
 constexpr inline bool IsCompatibleOptionSequence =
     (Options::template IsOption<internal::remove_cvref_t<Option>> && ...);
 
