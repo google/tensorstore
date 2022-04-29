@@ -53,6 +53,14 @@ class ErrorCodeMatchesStatusMatcher {
 };
 }  // namespace internal_status
 
+/// Returns a
+/// `GMock <https://google.github.io/googletest/reference/matchers.html>`__
+/// matcher for a given status code.
+///
+/// The matcher can be applied to either `Result` or `absl::Status`.
+///
+/// \relates Result
+/// \membergroup Test support
 ::testing::PolymorphicMatcher<internal_status::ErrorCodeMatchesStatusMatcher>
 MatchesStatus(absl::StatusCode status_code,
               const std::string& message_pattern = "[^]*");
@@ -72,9 +80,9 @@ void PrintTo(const Result<T>& result, std::ostream* os) {
 }
 
 /// EXPECT assertion that the argument, when converted to an `absl::Status` via
-/// `tensorstore::GetStatus`, is `ok`.
+/// `tensorstore::GetStatus`, has a code of `absl::StatusCode::kOk`.
 ///
-/// Example:
+/// Example::
 ///
 ///     absl::Status DoSomething();
 ///     tensorstore::Result<int> GetResult();
@@ -82,11 +90,16 @@ void PrintTo(const Result<T>& result, std::ostream* os) {
 ///     TENSORSTORE_EXPECT_OK(DoSomething());
 ///     TENSORSTORE_EXPECT_OK(GetResult());
 ///
+/// \relates tensorstore::Result
+/// \membergroup Test support
 #define TENSORSTORE_EXPECT_OK(...)                               \
   EXPECT_EQ(absl::Status(), tensorstore::GetStatus(__VA_ARGS__)) \
   /**/
 
 /// Same as `TENSORSTORE_EXPECT_OK`, but returns in the case of an error.
+///
+/// \relates tensorstore::Result
+/// \membergroup Test support
 #define TENSORSTORE_ASSERT_OK(...)                               \
   ASSERT_EQ(absl::Status(), tensorstore::GetStatus(__VA_ARGS__)) \
   /**/
@@ -100,6 +113,8 @@ void PrintTo(const Result<T>& result, std::ostream* os) {
 ///
 ///     TENSORSTORE_ASSERT_OK_AND_ASSIGN(int x, GetResult());
 ///
+/// \relates tensorstore::Result
+/// \membergroup Test support
 #define TENSORSTORE_ASSERT_OK_AND_ASSIGN(decl, expr)                      \
   TENSORSTORE_ASSIGN_OR_RETURN(decl, expr,                                \
                                ([&] { FAIL() << #expr << ": " << _; })()) \

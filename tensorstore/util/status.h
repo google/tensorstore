@@ -16,7 +16,6 @@
 #define TENSORSTORE_STATUS_H_
 
 #include <string_view>
-#include <system_error>  // NOLINT
 #include <type_traits>
 #include <utility>
 
@@ -30,12 +29,17 @@
 
 namespace tensorstore {
 
-// If status is not `ok()`, then annotate the status message.
+/// If status is not `absl::StatusCode::kOk`, then annotate the status message.
+///
+/// \ingroup error handling
 absl::Status MaybeAnnotateStatus(const absl::Status& status,
                                  std::string_view message);
 
 /// Overload for the case of a bare absl::Status argument.
+///
 /// \returns `status`
+/// \relates Result
+/// \id status
 inline const absl::Status& GetStatus(const absl::Status& status) {
   return status;
 }
@@ -77,9 +81,10 @@ inline absl::Status ConvertInvalidArgumentToFailedPrecondition(
 }  // namespace internal
 }  // namespace tensorstore
 
-/// Returns the specified absl::Status value if it is an error value.
+/// Causes the containing function to return the specified `absl::Status` value
+/// if it is an error status.
 ///
-/// Example:
+/// Example::
 ///
 ///     absl::Status GetSomeStatus();
 ///
@@ -90,8 +95,8 @@ inline absl::Status ConvertInvalidArgumentToFailedPrecondition(
 ///     }
 ///
 /// An optional second argument specifies the return expression in the case of
-/// an error.  A variable `_` is bound to the value of the first expression is
-/// in scope within this expression.  For example:
+/// an error.  A variable ``_`` is bound to the value of the first expression
+/// is in scope within this expression.  For example::
 ///
 ///     TENSORSTORE_RETURN_IF_ERROR(GetSomeStatus(),
 ///                                 MaybeAnnotateStatus(_, "In Bar"));
@@ -99,10 +104,13 @@ inline absl::Status ConvertInvalidArgumentToFailedPrecondition(
 ///     TENSORSTORE_RETURN_IF_ERROR(GetSomeStatus(),
 ///                                 MakeReadyFuture(_));
 ///
-/// \remark You must ensure that the absl::Status expression does not contain
-/// any
-///     commas outside parentheses (such as in a template argument list), by
-///     adding extra parentheses as needed.
+/// .. warning::
+///
+///    The `absl::Status` expression must not contain any commas outside
+///    parentheses (such as in a template argument list); if necessary, to
+///    ensure this, it may be wrapped in additional parentheses as needed.
+///
+/// \ingroup error handling
 #define TENSORSTORE_RETURN_IF_ERROR(...) \
   TENSORSTORE_PP_EXPAND(                 \
       TENSORSTORE_INTERNAL_RETURN_IF_ERROR_IMPL(__VA_ARGS__, _))
@@ -114,12 +122,16 @@ inline absl::Status ConvertInvalidArgumentToFailedPrecondition(
        ABSL_PREDICT_FALSE(!_.ok());)                                     \
   return error_expr /**/
 
-/// This macro should be called with a single C++ expression.  We use a variadic
-/// macro to allow calls like TENSORSTORE_CHECK_OK(foo<1,2>()).
+/// Logs an error and terminates the program if the specified `absl::Status` is
+/// an error status.
 ///
-// We use a lambda in the definition below to ensure that all uses of the
-// condition argument occurs within a single top-level expression.  This ensures
-// that temporary lifetime extension applies while we evaluate the condition.
+/// .. note::
+///
+///    This macro should be called with a single C++ expression.  We use a
+///    variadic macro to allow calls like
+///    ``TENSORSTORE_CHECK_OK(foo<1,2>())``.
+///
+/// \ingroup error handling
 #define TENSORSTORE_CHECK_OK(...)                                            \
   do {                                                                       \
     [](const ::absl::Status& tensorstore_check_ok_condition) {               \
@@ -130,5 +142,8 @@ inline absl::Status ConvertInvalidArgumentToFailedPrecondition(
       }                                                                      \
     }(::tensorstore::GetStatus((__VA_ARGS__)));                              \
   } while (false)
+// We use a lambda in the definition above to ensure that all uses of the
+// condition argument occurs within a single top-level expression.  This ensures
+// that temporary lifetime extension applies while we evaluate the condition.
 
 #endif  // TENSORSTORE_STATUS_H_
