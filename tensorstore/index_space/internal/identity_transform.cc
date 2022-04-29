@@ -32,7 +32,9 @@ void SetUnboundedDomain(TransformRep* data, DimensionIndex rank) {
   data->input_rank = rank;
   std::fill_n(data->input_origin().begin(), rank, -kInfIndex);
   std::fill_n(data->input_shape().begin(), rank, kInfSize);
-  data->implicit_bitvector = ~uint64_t(0);
+  const auto mask = DimensionSet::UpTo(rank);
+  data->implicit_lower_bounds = mask;
+  data->implicit_upper_bounds = mask;
 }
 
 void SetIdentityOutputOrDomainOnly(TransformRep* data, DimensionIndex rank,
@@ -94,7 +96,8 @@ TransformRep::Ptr<> MakeIdentityTransform(span<const Index> shape,
   result->input_rank = rank;
   std::fill_n(result->input_origin().begin(), rank, 0);
   std::copy_n(shape.begin(), rank, result->input_shape().begin());
-  result->implicit_bitvector = 0;
+  result->implicit_lower_bounds = false;
+  result->implicit_upper_bounds = false;
   SetIdentityOutputOrDomainOnly(result.get(), rank, domain_only);
   internal_index_space::DebugCheckInvariants(result.get());
   return result;
@@ -105,7 +108,8 @@ TransformRep::Ptr<> MakeIdentityTransform(BoxView<> domain, bool domain_only) {
   auto result = TransformRep::Allocate(rank, domain_only ? 0 : rank);
   result->input_rank = rank;
   result->input_domain(rank).DeepAssign(domain);
-  result->implicit_bitvector = 0;
+  result->implicit_lower_bounds = false;
+  result->implicit_upper_bounds = false;
   SetIdentityOutputOrDomainOnly(result.get(), rank, domain_only);
   internal_index_space::DebugCheckInvariants(result.get());
   return result;

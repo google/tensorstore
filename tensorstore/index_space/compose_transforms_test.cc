@@ -19,7 +19,6 @@
 #include "tensorstore/array.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
-#include "tensorstore/util/bit_vec.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 

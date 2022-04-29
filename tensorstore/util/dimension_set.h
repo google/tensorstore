@@ -21,6 +21,8 @@
 namespace tensorstore {
 
 /// Represents a set of dimension indices.
+///
+/// \ingroup indexing
 using DimensionSet = SmallBitSet<kMaxRank>;
 
 }  // namespace tensorstore

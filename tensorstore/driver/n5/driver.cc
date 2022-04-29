@@ -176,19 +176,16 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
                " is incompatible with existing metadata ", existing_key));
   }
 
-  void GetChunkGridBounds(
-      const void* metadata_ptr, MutableBoxView<> bounds,
-      BitSpan<std::uint64_t> implicit_lower_bounds,
-      BitSpan<std::uint64_t> implicit_upper_bounds) override {
+  void GetChunkGridBounds(const void* metadata_ptr, MutableBoxView<> bounds,
+                          DimensionSet& implicit_lower_bounds,
+                          DimensionSet& implicit_upper_bounds) override {
     const auto& metadata = *static_cast<const N5Metadata*>(metadata_ptr);
     assert(bounds.rank() == static_cast<DimensionIndex>(metadata.shape.size()));
-    assert(bounds.rank() == implicit_lower_bounds.size());
-    assert(bounds.rank() == implicit_upper_bounds.size());
     std::fill(bounds.origin().begin(), bounds.origin().end(), Index(0));
     std::copy(metadata.shape.begin(), metadata.shape.end(),
               bounds.shape().begin());
-    implicit_lower_bounds.fill(false);
-    implicit_upper_bounds.fill(true);
+    implicit_lower_bounds = false;
+    implicit_upper_bounds = true;
   }
 
   Result<std::shared_ptr<const void>> GetResizedMetadata(
@@ -264,7 +261,7 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
     auto builder = tensorstore::IndexTransformBuilder<>(rank, rank)
                        .input_shape(metadata.shape)
                        .input_labels(axes);
-    builder.implicit_upper_bounds().fill(true);
+    builder.implicit_upper_bounds(true);
     for (DimensionIndex i = 0; i < rank; ++i) {
       builder.output_single_input_dimension(i, i);
     }

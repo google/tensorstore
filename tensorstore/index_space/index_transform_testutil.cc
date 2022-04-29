@@ -216,8 +216,8 @@ IndexTransform<> MakeRandomStridedIndexTransformForOutputSpace(
   if (p.new_dims_are_singleton) {
     auto input_origin = builder.input_origin();
     auto input_shape = builder.input_shape();
-    auto implicit_lower_bounds = builder.implicit_lower_bounds();
-    auto implicit_upper_bounds = builder.implicit_upper_bounds();
+    auto& implicit_lower_bounds = builder.implicit_lower_bounds();
+    auto& implicit_upper_bounds = builder.implicit_upper_bounds();
     for (DimensionIndex perm_i = 0; perm_i < input_rank; ++perm_i) {
       const DimensionIndex input_dim = perm[perm_i];
       if (perm_i < output_rank) {

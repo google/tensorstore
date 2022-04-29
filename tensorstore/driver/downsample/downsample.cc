@@ -70,8 +70,8 @@ Result<IndexDomain<>> GetBaseDomainConstraintFromDownsampledDomain(
   assert(rank == downsample_factors.size());
   IndexDomainBuilder builder(rank);
   builder.labels(downsampled_domain.labels());
-  auto implicit_lower_bounds = builder.implicit_lower_bounds();
-  auto implicit_upper_bounds = builder.implicit_upper_bounds();
+  auto& implicit_lower_bounds = builder.implicit_lower_bounds();
+  auto& implicit_upper_bounds = builder.implicit_upper_bounds();
   auto origin = builder.origin();
   auto shape = builder.shape();
   for (DimensionIndex i = 0; i < rank; ++i) {

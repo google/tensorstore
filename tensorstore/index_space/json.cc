@@ -122,12 +122,13 @@ struct ImplicitArrayBinderImpl {
             return internal::JsonValidateArrayLength(size, rank);
           }
           std::invoke(values_ptr, obj).resize(size);
-          std::invoke(implicit_ptr, obj).resize(size);
           return absl::OkStatus();
         },
         [this](auto& obj, size_t i) {
-          return std::tie(std::invoke(values_ptr, obj)[i],
-                          std::invoke(implicit_ptr, obj)[i]);
+          auto& value = std::invoke(values_ptr, obj)[i];
+          auto implicit_value = std::invoke(implicit_ptr, obj)[i];
+          return std::pair<decltype(value), decltype(implicit_value)>(
+              value, implicit_value);
         },
         element_binder)(is_loading, options, obj, j);
   }
@@ -150,8 +151,8 @@ struct TransformParserData {
   DimensionIndex rank = dynamic_rank;
   InlinedVector<Index> lower_bounds;
   InlinedVector<Index> upper_bounds;
-  InlinedVector<bool> implicit_lower_bounds;
-  InlinedVector<bool> implicit_upper_bounds;
+  DimensionSet implicit_lower_bounds;
+  DimensionSet implicit_upper_bounds;
   InlinedVector<std::string> labels;
 
   // outputs
@@ -360,14 +361,12 @@ Result<TransformRep::Ptr<>> TransformParserData::Finalize() {
   if ((flags & BuilderFlags::kSetLower) != BuilderFlags::kDefault) {
     std::copy(lower_bounds.begin(), lower_bounds.end(),
               transform->input_origin().begin());
-    std::copy(implicit_lower_bounds.begin(), implicit_lower_bounds.end(),
-              transform->implicit_lower_bounds(rank).begin());
+    transform->implicit_lower_bounds = implicit_lower_bounds;
   }
   if ((flags & BuilderFlags::kSetUpper) != BuilderFlags::kDefault) {
     std::copy(upper_bounds.begin(), upper_bounds.end(),
               transform->input_shape().begin());
-    std::copy(implicit_upper_bounds.begin(), implicit_upper_bounds.end(),
-              transform->implicit_upper_bounds(rank).begin());
+    transform->implicit_upper_bounds = implicit_upper_bounds;
   }
   if (!labels.empty()) {
     std::copy(labels.begin(), labels.end(), transform->input_labels().begin());
@@ -397,19 +396,15 @@ TransformParserData MakeIndexDomainViewDataForSaving(IndexDomainView<> domain) {
   TransformParserData tmp;
   tmp.rank = rank;
   tmp.lower_bounds.resize(rank);
-  tmp.implicit_lower_bounds.resize(rank);
   tmp.upper_bounds.resize(rank);
-  tmp.implicit_upper_bounds.resize(rank);
   tmp.labels.assign(domain.labels().begin(), domain.labels().end());
+  tmp.implicit_lower_bounds = domain.implicit_lower_bounds();
+  tmp.implicit_upper_bounds = domain.implicit_upper_bounds();
 
   // Compute the `inclusive_min` and `exclusive_max` members.
   bool all_implicit_lower = true;
   bool all_implicit_upper = true;
-  auto implicit_lower_bounds = domain.implicit_lower_bounds();
-  auto implicit_upper_bounds = domain.implicit_upper_bounds();
   for (DimensionIndex i = 0; i < rank; ++i) {
-    tmp.implicit_lower_bounds[i] = implicit_lower_bounds[i];
-    tmp.implicit_upper_bounds[i] = implicit_upper_bounds[i];
     tmp.lower_bounds[i] = domain[i].inclusive_min();
     tmp.upper_bounds[i] = domain[i].exclusive_max();
     all_implicit_lower = all_implicit_lower && tmp.implicit_lower_bounds[i] &&
@@ -422,11 +417,9 @@ TransformParserData MakeIndexDomainViewDataForSaving(IndexDomainView<> domain) {
   // NOTE: Move this logic to the binder.
   if (all_implicit_lower) {
     tmp.lower_bounds.resize(0);
-    tmp.implicit_lower_bounds.resize(0);
   }
   if (all_implicit_upper) {
     tmp.upper_bounds.resize(0);
-    tmp.implicit_upper_bounds.resize(0);
   }
   return tmp;
 }

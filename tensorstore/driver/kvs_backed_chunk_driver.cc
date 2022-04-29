@@ -27,7 +27,6 @@
 #include "tensorstore/internal/staleness_bound_json_binder.h"
 #include "tensorstore/internal/unowned_to_shared.h"
 #include "tensorstore/tensorstore.h"
-#include "tensorstore/util/bit_vec.h"
 #include "tensorstore/util/iterate_over_index_range.h"
 #include "tensorstore/util/quote_string.h"
 
@@ -280,25 +279,23 @@ Result<IndexTransform<>> GetInitialTransform(DataCache* cache,
 
 void GetComponentBounds(DataCache* data_cache, const void* metadata,
                         std::size_t component_index, MutableBoxView<> bounds,
-                        BitSpan<std::uint64_t> implicit_lower_bounds,
-                        BitSpan<std::uint64_t> implicit_upper_bounds) {
+                        DimensionSet& implicit_lower_bounds,
+                        DimensionSet& implicit_upper_bounds) {
   const auto& grid = data_cache->grid();
   const auto& component_spec = grid.components[component_index];
   assert(bounds.rank() == component_spec.rank());
-  assert(implicit_lower_bounds.size() == bounds.rank());
-  assert(implicit_upper_bounds.size() == bounds.rank());
   Box<dynamic_rank(internal::kNumInlinedDims)> grid_bounds(
       grid.chunk_shape.size());
-  BitVec<> grid_implicit_lower_bounds(grid_bounds.rank());
-  BitVec<> grid_implicit_upper_bounds(grid_bounds.rank());
+  DimensionSet grid_implicit_lower_bounds;
+  DimensionSet grid_implicit_upper_bounds;
   data_cache->GetChunkGridBounds(metadata, grid_bounds,
                                  grid_implicit_lower_bounds,
                                  grid_implicit_upper_bounds);
   span<const DimensionIndex> chunked_to_cell_dimensions =
       component_spec.chunked_to_cell_dimensions;
   bounds.DeepAssign(component_spec.fill_value.domain());
-  implicit_lower_bounds.fill(false);
-  implicit_upper_bounds.fill(false);
+  implicit_lower_bounds = false;
+  implicit_upper_bounds = false;
   for (DimensionIndex grid_dim = 0; grid_dim < grid_bounds.rank(); ++grid_dim) {
     const DimensionIndex cell_dim = chunked_to_cell_dimensions[grid_dim];
     bounds[cell_dim] = grid_bounds[grid_dim];
@@ -369,8 +366,8 @@ Future<const void> RequestResize(DataCache* cache,
             metadata_constraint.get(), current_metadata.get()));
         Box<dynamic_rank(internal::kNumInlinedDims)> bounds(
             parameters.new_inclusive_min.size());
-        BitVec<> implicit_lower_bounds(bounds.rank());
-        BitVec<> implicit_upper_bounds(bounds.rank());
+        DimensionSet implicit_lower_bounds;
+        DimensionSet implicit_upper_bounds;
         cache->GetChunkGridBounds(current_metadata.get(), bounds,
                                   implicit_lower_bounds, implicit_upper_bounds);
         // The resize request has already been validated against explicit grid
@@ -486,8 +483,8 @@ struct ResolveBoundsForDeleteAndResizeContinuation {
     const DimensionIndex grid_rank = state->cache->grid().chunk_shape.size();
     assert(!state->resize_parameters.expand_only);
     Box<dynamic_rank(internal::kNumInlinedDims)> bounds(grid_rank);
-    BitVec<> implicit_lower_bounds(grid_rank);
-    BitVec<> implicit_upper_bounds(grid_rank);
+    DimensionSet implicit_lower_bounds;
+    DimensionSet implicit_upper_bounds;
     state->cache->GetChunkGridBounds(new_metadata.get(), bounds,
                                      implicit_lower_bounds,
                                      implicit_upper_bounds);
@@ -1157,20 +1154,18 @@ Result<IndexTransform<>> ResolveBoundsFromMetadata(
     ResolveBoundsOptions options) {
   auto& grid = data_cache->grid();
   const DimensionIndex base_rank = grid.components[component_index].rank();
-  BitVec<> base_implicit_lower_bounds(base_rank);
-  BitVec<> base_implicit_upper_bounds(base_rank);
+  DimensionSet base_implicit_lower_bounds;
+  DimensionSet base_implicit_upper_bounds;
   Box<dynamic_rank(internal::kNumInlinedDims)> base_bounds(base_rank);
   GetComponentBounds(data_cache, new_metadata, component_index, base_bounds,
                      base_implicit_lower_bounds, base_implicit_upper_bounds);
   if ((options.mode & fix_resizable_bounds) == fix_resizable_bounds) {
-    base_implicit_lower_bounds.fill(false);
-    base_implicit_upper_bounds.fill(false);
+    base_implicit_lower_bounds = false;
+    base_implicit_upper_bounds = false;
   }
   return PropagateBoundsToTransform(
-      BoxView<>(base_bounds),
-      BitSpan<const std::uint64_t>(base_implicit_lower_bounds),
-      BitSpan<const std::uint64_t>(base_implicit_upper_bounds),
-      std::move(transform));
+      BoxView<>(base_bounds), base_implicit_lower_bounds,
+      base_implicit_upper_bounds, std::move(transform));
 }
 
 absl::Status ValidateResizeConstraints(
@@ -1198,8 +1193,8 @@ Result<ResizeParameters> GetResizeParameters(
 
   const auto& grid = data_cache->grid();
   const DimensionIndex base_rank = grid.components[component_index].rank();
-  BitVec<> base_implicit_lower_bounds(base_rank);
-  BitVec<> base_implicit_upper_bounds(base_rank);
+  DimensionSet base_implicit_lower_bounds;
+  DimensionSet base_implicit_upper_bounds;
   Box<dynamic_rank(internal::kNumInlinedDims)> base_bounds(base_rank);
   GetComponentBounds(data_cache, metadata, component_index, base_bounds,
                      base_implicit_lower_bounds, base_implicit_upper_bounds);

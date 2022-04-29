@@ -43,8 +43,9 @@ absl::Status SetOutputIndexMapsAndValidateTransformRep(
 
   span<Index> input_origin = data->input_origin().first(input_rank);
   span<Index> input_shape = data->input_shape().first(input_rank);
-  const auto implicit_lower_bounds = data->implicit_lower_bounds(input_rank);
-  const auto implicit_upper_bounds = data->implicit_upper_bounds(input_rank);
+  auto& implicit_lower_bounds = data->implicit_lower_bounds;
+  auto& implicit_upper_bounds = data->implicit_upper_bounds;
+  const auto implicit_mask = DimensionSet::UpTo(input_rank);
 
   if ((flags & BuilderFlags::kSetLower) == BuilderFlags::kDefault) {
     Index val =
@@ -61,15 +62,18 @@ absl::Status SetOutputIndexMapsAndValidateTransformRep(
   }
 
   if ((flags & BuilderFlags::kSetImplicitLower) == BuilderFlags::kDefault) {
-    implicit_lower_bounds.fill(
+    implicit_lower_bounds =
         ((flags & BuilderFlags::kSetLower) == BuilderFlags::kDefault) &&
-        interval_form != IntervalForm::sized);
+        interval_form != IntervalForm::sized;
   }
 
   if ((flags & BuilderFlags::kSetImplicitUpper) == BuilderFlags::kDefault) {
-    implicit_upper_bounds.fill((flags & BuilderFlags::kSetUpper) ==
-                               BuilderFlags::kDefault);
+    implicit_upper_bounds =
+        (flags & BuilderFlags::kSetUpper) == BuilderFlags::kDefault;
   }
+
+  implicit_lower_bounds &= implicit_mask;
+  implicit_upper_bounds &= implicit_mask;
 
   TENSORSTORE_RETURN_IF_ERROR(internal::ValidateDimensionLabelsAreUnique(
       data->input_labels().first(input_rank)));

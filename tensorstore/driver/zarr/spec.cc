@@ -352,8 +352,7 @@ Result<IndexDomain<>> GetDomainFromMetadata(
     std::copy_n(info.field->field_shape.begin(), field_rank,
                 shape.end() - field_rank);
   }
-  builder.implicit_upper_bounds(
-      BitSpan<DimensionSet::Bits>(implicit_upper_bounds.begin(), full_rank));
+  builder.implicit_upper_bounds(implicit_upper_bounds);
   TENSORSTORE_ASSIGN_OR_RETURN(auto domain, builder.Finalize());
   TENSORSTORE_ASSIGN_OR_RETURN(
       domain, MergeIndexDomains(std::move(domain), schema_domain));

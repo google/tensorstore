@@ -47,7 +47,6 @@
 #include "tensorstore/open_mode.h"
 #include "tensorstore/serialization/absl_time.h"
 #include "tensorstore/spec.h"
-#include "tensorstore/util/bit_span.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 
@@ -299,10 +298,9 @@ class DataCache
   ///     `grid_rank = GetChunkGridSpecification(metadata).grid_rank()`.
   /// \param implicit_lower_bounds[out] Bit vector of length `bounds.rank()`.
   /// \param implicit_upper_bounds[out] Bit vector of length `bounds.rank()`.
-  virtual void GetChunkGridBounds(
-      const void* metadata, MutableBoxView<> bounds,
-      BitSpan<std::uint64_t> implicit_lower_bounds,
-      BitSpan<std::uint64_t> implicit_upper_bounds) = 0;
+  virtual void GetChunkGridBounds(const void* metadata, MutableBoxView<> bounds,
+                                  DimensionSet& implicit_lower_bounds,
+                                  DimensionSet& implicit_upper_bounds) = 0;
 
   /// Sets `spec` with the bound spec data associated with the specified
   /// component.

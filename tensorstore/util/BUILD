@@ -31,6 +31,7 @@ tensorstore_cc_library(
     name = "bit_span",
     hdrs = ["bit_span.h"],
     deps = [
+        ":small_bit_set",
         ":span",
         "//tensorstore/internal:attributes",
     ],
@@ -182,7 +183,7 @@ tensorstore_cc_library(
     name = "small_bit_set",
     hdrs = ["small_bit_set.h"],
     deps = [
-        ":bit_span",
+        "//tensorstore/internal:attributes",
         "//tensorstore/internal:integer_types",
     ],
 )

@@ -17,18 +17,14 @@
 #include "absl/container/fixed_array.h"
 #include "absl/status/status.h"
 #include "tensorstore/index_space/internal/identity_transform.h"
-#include "tensorstore/util/bit_vec.h"
-#include "tensorstore/util/constant_bit_vector.h"
+#include "tensorstore/util/dimension_set.h"
 
 namespace tensorstore {
 namespace internal_index_space {
 
-absl::Status PropagateBounds(
-    BoxView<> b, BitSpan<const std::uint64_t> b_implicit_lower_bounds,
-    BitSpan<const std::uint64_t> b_implicit_upper_bounds, TransformRep* a_to_b,
-    MutableBoxView<> a) {
-  assert(b_implicit_lower_bounds.size() == b.rank());
-  assert(b_implicit_upper_bounds.size() == b.rank());
+absl::Status PropagateBounds(BoxView<> b, DimensionSet b_implicit_lower_bounds,
+                             DimensionSet b_implicit_upper_bounds,
+                             TransformRep* a_to_b, MutableBoxView<> a) {
   if (!a_to_b) {
     // A null `a_to_b` pointer indicates an identity transform, which we must
     // handle specially: the propagated bounds for `a` are simply equal to the
@@ -53,11 +49,11 @@ absl::Status PropagateBounds(
   absl::FixedArray<bool, internal::kNumInlinedDims> propagated_to_a(a.rank(),
                                                                     false);
 
-  BitVec<> inferred_implicit_lower_bounds(a.rank(), true);
-  BitVec<> inferred_implicit_upper_bounds(a.rank(), true);
+  DimensionSet inferred_implicit_lower_bounds(true);
+  DimensionSet inferred_implicit_upper_bounds(true);
 
-  const auto implicit_lower_bounds = a_to_b->implicit_lower_bounds(a.rank());
-  const auto implicit_upper_bounds = a_to_b->implicit_upper_bounds(a.rank());
+  auto& implicit_lower_bounds = a_to_b->implicit_lower_bounds;
+  auto& implicit_upper_bounds = a_to_b->implicit_upper_bounds;
   const auto existing_input_domain = a_to_b->input_domain(a.rank());
 
   // Determine if the domain is empty.  If the domain is empty, bounds checking
@@ -151,8 +147,7 @@ absl::Status PropagateBounds(
 
 absl::Status PropagateExplicitBounds(BoxView<> b, TransformRep* a_to_b,
                                      MutableBoxView<> a) {
-  auto explicit_vec = GetConstantBitVector<std::uint64_t, false>(b.rank());
-  return PropagateBounds(b, explicit_vec, explicit_vec, a_to_b, a);
+  return PropagateBounds(b, false, false, a_to_b, a);
 }
 
 namespace {
@@ -177,26 +172,19 @@ namespace {
 ///     lower bound of "a".  May alias `a_to_b->implicit_lower_bounds`.
 /// \param a_implicit_upper_bounds[out] Propagated implicit indicators for each
 ///     upper bound of "a".  May alias `a_to_b->implicit_upper_bounds`.
-/// \dchecks `b_implicit_lower_bounds.size() == b_rank`
-/// \dchecks `b_implicit_upper_bounds.size() == b.rank`
-/// \dchecks `a_implicit_lower_bounds.size() == a_rank`
-/// \dchecks `a_implicit_upper_bounds.size() == a_rank`
-void PropagateImplicitBoundState(
-    DimensionIndex b_rank, BitSpan<const std::uint64_t> b_implicit_lower_bounds,
-    BitSpan<const std::uint64_t> b_implicit_upper_bounds, TransformRep* a_to_b,
-    DimensionIndex a_rank, BitSpan<std::uint64_t> a_implicit_lower_bounds,
-    BitSpan<std::uint64_t> a_implicit_upper_bounds) {
-  assert(b_implicit_lower_bounds.size() == b_rank);
-  assert(b_implicit_upper_bounds.size() == b_rank);
-  assert(a_implicit_lower_bounds.size() == a_rank);
-  assert(a_implicit_upper_bounds.size() == a_rank);
+void PropagateImplicitBoundState(DimensionIndex b_rank,
+                                 DimensionSet b_implicit_lower_bounds,
+                                 DimensionSet b_implicit_upper_bounds,
+                                 TransformRep* a_to_b, DimensionIndex a_rank,
+                                 DimensionSet& a_implicit_lower_bounds,
+                                 DimensionSet& a_implicit_upper_bounds) {
   if (!a_to_b) {
-    a_implicit_lower_bounds.DeepAssign(b_implicit_lower_bounds);
-    a_implicit_upper_bounds.DeepAssign(b_implicit_upper_bounds);
+    a_implicit_lower_bounds = b_implicit_lower_bounds;
+    a_implicit_upper_bounds = b_implicit_upper_bounds;
     return;
   }
-  a_implicit_lower_bounds.DeepAssign(a_to_b->implicit_lower_bounds(a_rank));
-  a_implicit_upper_bounds.DeepAssign(a_to_b->implicit_upper_bounds(a_rank));
+  a_implicit_lower_bounds = a_to_b->implicit_lower_bounds;
+  a_implicit_upper_bounds = a_to_b->implicit_upper_bounds;
   span<const OutputIndexMap> maps = a_to_b->output_index_maps().first(b_rank);
   // For each `single_input_dimension` map with an explicit bound in `b`, mark
   // the corresponding bound in `a` as explicit.
@@ -219,11 +207,11 @@ void PropagateImplicitBoundState(
 }
 }  // namespace
 
-absl::Status PropagateBounds(
-    BoxView<> b, BitSpan<const std::uint64_t> b_implicit_lower_bounds,
-    BitSpan<const std::uint64_t> b_implicit_upper_bounds, TransformRep* a_to_b,
-    MutableBoxView<> a, BitSpan<std::uint64_t> a_implicit_lower_bounds,
-    BitSpan<std::uint64_t> a_implicit_upper_bounds) {
+absl::Status PropagateBounds(BoxView<> b, DimensionSet b_implicit_lower_bounds,
+                             DimensionSet b_implicit_upper_bounds,
+                             TransformRep* a_to_b, MutableBoxView<> a,
+                             DimensionSet& a_implicit_lower_bounds,
+                             DimensionSet& a_implicit_upper_bounds) {
   PropagateImplicitBoundState(b.rank(), b_implicit_lower_bounds,
                               b_implicit_upper_bounds, a_to_b, a.rank(),
                               a_implicit_lower_bounds, a_implicit_upper_bounds);
@@ -232,19 +220,16 @@ absl::Status PropagateBounds(
 }
 
 Result<TransformRep::Ptr<>> PropagateBoundsToTransform(
-    BoxView<> b_domain, BitSpan<const std::uint64_t> b_implicit_lower_bounds,
-    BitSpan<const std::uint64_t> b_implicit_upper_bounds,
-    TransformRep::Ptr<> a_to_b) {
+    BoxView<> b_domain, DimensionSet b_implicit_lower_bounds,
+    DimensionSet b_implicit_upper_bounds, TransformRep::Ptr<> a_to_b) {
   const DimensionIndex b_rank = b_domain.rank();
-  assert(b_rank == b_implicit_lower_bounds.size());
-  assert(b_rank == b_implicit_upper_bounds.size());
   if (!a_to_b) {
     a_to_b = TransformRep::Allocate(b_rank, b_rank);
     a_to_b->input_rank = a_to_b->output_rank = b_rank;
     SetToIdentityTransform(a_to_b->output_index_maps().first(b_rank));
     a_to_b->input_domain(b_rank).DeepAssign(b_domain);
-    a_to_b->implicit_lower_bounds(b_rank).DeepAssign(b_implicit_lower_bounds);
-    a_to_b->implicit_upper_bounds(b_rank).DeepAssign(b_implicit_upper_bounds);
+    a_to_b->implicit_lower_bounds = b_implicit_lower_bounds;
+    a_to_b->implicit_upper_bounds = b_implicit_upper_bounds;
     return a_to_b;
   }
   const DimensionIndex a_rank = a_to_b->input_rank;
@@ -254,10 +239,9 @@ Result<TransformRep::Ptr<>> PropagateBoundsToTransform(
                                               a_to_b.get(), bounds_temp));
   a_to_b = MutableRep(std::move(a_to_b));
   a_to_b->input_domain(a_rank).DeepAssign(bounds_temp);
-  PropagateImplicitBoundState(b_rank, b_implicit_lower_bounds,
-                              b_implicit_upper_bounds, a_to_b.get(), a_rank,
-                              a_to_b->implicit_lower_bounds(a_rank),
-                              a_to_b->implicit_upper_bounds(a_rank));
+  PropagateImplicitBoundState(
+      b_rank, b_implicit_lower_bounds, b_implicit_upper_bounds, a_to_b.get(),
+      a_rank, a_to_b->implicit_lower_bounds, a_to_b->implicit_upper_bounds);
   const bool domain_is_explicitly_empty = IsDomainExplicitlyEmpty(a_to_b.get());
   const auto output_index_maps = a_to_b->output_index_maps().first(b_rank);
   for (DimensionIndex b_dim = 0; b_dim < b_rank; ++b_dim) {
@@ -287,10 +271,7 @@ Result<TransformRep::Ptr<>> PropagateBoundsToTransform(
 
 Result<TransformRep::Ptr<>> PropagateExplicitBoundsToTransform(
     BoxView<> b_domain, TransformRep::Ptr<> a_to_b) {
-  auto explicit_vec =
-      GetConstantBitVector<std::uint64_t, false>(b_domain.rank());
-  return PropagateBoundsToTransform(b_domain, explicit_vec, explicit_vec,
-                                    std::move(a_to_b));
+  return PropagateBoundsToTransform(b_domain, false, false, std::move(a_to_b));
 }
 
 }  // namespace internal_index_space

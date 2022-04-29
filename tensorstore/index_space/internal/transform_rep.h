@@ -31,7 +31,6 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/string_like.h"
 #include "tensorstore/rank.h"
-#include "tensorstore/util/bit_span.h"
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/division.h"
 #include "tensorstore/util/element_pointer.h"
@@ -223,15 +222,13 @@ struct TransformRep {
   /// \invariant `0 <= output_rank_capacity <= kMaxRank`.
   std::int16_t output_rank_capacity;
 
-  /// Storage for `implicit_lower_bounds` and `implicit_upper_bounds`.  The
-  /// first `kMaxRank` bits are for `implicit_lower_bounds`, then the next
-  /// `kMaxRank` bits are for `implicit_upper_bounds`.
-  uint64_t implicit_bitvector;
+  /// Set of dimensions with implicit lower/upper bounds.
+  DimensionSet implicit_lower_bounds;
+  DimensionSet implicit_upper_bounds;
 
   /// Dimensions for which the lower or upper bound is implicit.
   DimensionSet implicit_dimensions() const {
-    return DimensionSet::FromBits(static_cast<uint32_t>(
-        implicit_bitvector | (implicit_bitvector >> kMaxRank)));
+    return implicit_lower_bounds | implicit_upper_bounds;
   }
 
   static_assert(kMaxRank * 2 <= 64);
@@ -281,22 +278,6 @@ struct TransformRep {
   MutableBoxView<> input_domain(DimensionIndex rank) {
     assert(0 <= rank && rank <= input_rank_capacity);
     return MutableBoxView<>(rank, input_origin().data(), input_shape().data());
-  }
-
-  /// Returns the `implicit_lower_bounds` of length `rank`.
-  ///
-  /// \dchecks `0 <= rank && rank <= input_rank_capacity`.
-  BitSpan<std::uint64_t> implicit_lower_bounds(DimensionIndex rank) {
-    assert(0 <= rank && rank <= input_rank_capacity);
-    return {&implicit_bitvector, 0, rank};
-  }
-
-  /// Returns the `implicit_upper_bounds` of length `rank`.
-  ///
-  /// \dchecks `0 <= rank && rank <= input_rank_capacity`.
-  BitSpan<std::uint64_t> implicit_upper_bounds(DimensionIndex rank) {
-    assert(0 <= rank && rank <= input_rank_capacity);
-    return {&implicit_bitvector, kMaxRank, rank};
   }
 
   /// Returns the `output_index_maps` array of length `output_rank_capacity`.
@@ -376,6 +357,12 @@ inline void DebugCheckInvariants(TransformRep* rep) {}
 void DebugCheckInvariants(TransformRep* rep);
 #endif
 
+inline void NormalizeImplicitBounds(TransformRep& rep) {
+  const auto mask = DimensionSet::UpTo(rep.input_rank);
+  rep.implicit_lower_bounds &= mask;
+  rep.implicit_upper_bounds &= mask;
+}
+
 // Check that OutputIndexMap and std::string don't have a greater alignment
 // value than Index, as that would require more complicated logic for accessing
 // the variable length fields than is currently implemented.  In practice these
@@ -409,12 +396,12 @@ class InputDimensionRef {
     return {optionally_implicit_domain(), label()};
   }
 
-  BitRef<std::uint64_t> implicit_lower_bound() const {
-    return rep_->implicit_lower_bounds(rep_->input_rank_capacity)[input_dim_];
+  DimensionSet::reference implicit_lower_bound() const {
+    return rep_->implicit_lower_bounds[input_dim_];
   }
 
-  BitRef<std::uint64_t> implicit_upper_bound() const {
-    return rep_->implicit_upper_bounds(rep_->input_rank_capacity)[input_dim_];
+  DimensionSet::reference implicit_upper_bound() const {
+    return rep_->implicit_upper_bounds[input_dim_];
   }
 
   std::string& label() const { return rep_->input_labels()[input_dim_]; }

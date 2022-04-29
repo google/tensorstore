@@ -375,8 +375,8 @@ Result<IndexTransform<>> ToIndexTransform(
   DimensionIndex selected_output_dim_i = 0;
   auto input_origin = builder.input_origin();
   auto input_shape = builder.input_shape();
-  auto implicit_lower_bounds = builder.implicit_lower_bounds();
-  auto implicit_upper_bounds = builder.implicit_upper_bounds();
+  auto& implicit_lower_bounds = builder.implicit_lower_bounds();
+  auto& implicit_upper_bounds = builder.implicit_upper_bounds();
   auto input_labels = builder.input_labels();
 
   const auto initialize_index_array_input_dimensions = [&] {

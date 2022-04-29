@@ -100,9 +100,9 @@ HomogeneousTuple<Index> GetInclusiveMax(IndexDomainView<> domain) {
   return SpanToHomogeneousTuple<Index>({temp, rank});
 }
 
-HomogeneousTuple<bool> GetBitVector(BitSpan<const std::uint64_t> v) {
-  py::tuple t(v.size());
-  for (DimensionIndex i = 0; i < v.size(); ++i) {
+HomogeneousTuple<bool> GetBitVector(DimensionSet v, DimensionIndex size) {
+  py::tuple t(size);
+  for (DimensionIndex i = 0; i < size; ++i) {
     t[i] = py::reinterpret_borrow<py::object>(v[i] ? Py_True : Py_False);
   }
   return HomogeneousTuple<bool>{std::move(t)};
@@ -246,7 +246,8 @@ IndexTransformBuilder<> InitializeIndexTransformBuilder(
     builder.input_origin(*input_inclusive_min);
   }
   if (implicit_lower_bounds) {
-    builder.implicit_lower_bounds(*implicit_lower_bounds);
+    builder.implicit_lower_bounds(
+        DimensionSet::FromRange(*implicit_lower_bounds));
   }
   if (input_exclusive_max) {
     builder.input_exclusive_max(*input_exclusive_max);
@@ -258,7 +259,8 @@ IndexTransformBuilder<> InitializeIndexTransformBuilder(
     builder.input_shape(*input_shape);
   }
   if (implicit_upper_bounds) {
-    builder.implicit_upper_bounds(*implicit_upper_bounds);
+    builder.implicit_upper_bounds(
+        DimensionSet::FromRange(*implicit_upper_bounds));
   }
   if (input_labels) {
     auto builder_input_labels = builder.input_labels();
@@ -404,8 +406,8 @@ Overload:
         auto origin = builder.input_origin();
         auto shape = builder.input_shape();
         auto labels = builder.input_labels();
-        auto implicit_lower_bounds = builder.implicit_lower_bounds();
-        auto implicit_upper_bounds = builder.implicit_upper_bounds();
+        auto& implicit_lower_bounds = builder.implicit_lower_bounds();
+        auto& implicit_upper_bounds = builder.implicit_upper_bounds();
         for (DimensionIndex i = 0; i < rank; ++i) {
           const auto& d = dimensions[i];
           origin[i] = d.inclusive_min();
@@ -940,7 +942,7 @@ Group:
   cls.def_property_readonly(
       "implicit_lower_bounds",
       [](const IndexDomain<>& d) {
-        return GetBitVector(d.implicit_lower_bounds());
+        return GetBitVector(d.implicit_lower_bounds(), d.rank());
       },
       R"(
 Indicates whether the lower bound of each dimension is :ref:`implicit or explicit<implicit-bounds>`.
@@ -971,7 +973,7 @@ Group:
   cls.def_property_readonly(
       "implicit_upper_bounds",
       [](const IndexDomain<>& d) {
-        return GetBitVector(d.implicit_upper_bounds());
+        return GetBitVector(d.implicit_upper_bounds(), d.rank());
       },
       R"(
 Indicates whether the upper bound of each dimension is :ref:`implicit or explicit<implicit-bounds>`.
@@ -1535,7 +1537,7 @@ Group:
   cls.def_property_readonly(
       "implicit_lower_bounds",
       [](const IndexTransform<>& t) {
-        return GetBitVector(t.implicit_lower_bounds());
+        return GetBitVector(t.implicit_lower_bounds(), t.input_rank());
       },
       R"(
 Indicates whether the lower bound of each input dimension is :ref:`implicit or explicit<implicit-bounds>`.
@@ -1570,7 +1572,7 @@ Group:
   cls.def_property_readonly(
       "implicit_upper_bounds",
       [](const IndexTransform<>& t) {
-        return GetBitVector(t.implicit_upper_bounds());
+        return GetBitVector(t.implicit_upper_bounds(), t.input_rank());
       },
       R"(
 Indicates whether the upper bound of each input dimension is :ref:`implicit or explicit<implicit-bounds>`.

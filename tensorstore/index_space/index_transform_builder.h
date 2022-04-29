@@ -23,7 +23,6 @@
 #include "tensorstore/index_space/internal/deep_copy_transform_rep_ptr.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
 #include "tensorstore/rank.h"
-#include "tensorstore/util/bit_span.h"
 #include "tensorstore/util/span.h"
 
 namespace tensorstore {
@@ -95,9 +94,6 @@ class OutputIndexMapInitializer {
 
 template <typename Range, typename Element>
 void AssignRange(const Range& range, span<Element> dest);
-
-template <typename Range>
-void AssignRange(const Range& range, BitSpan<std::uint64_t> dest);
 
 /// Bool-valued metafunction that evaluates to `true` if `Range` is not
 /// `span`-compatible, or `Range` is `span`-compatible with a static
@@ -542,23 +538,18 @@ class IndexTransformBuilder {
   /// having been set.
   ///
   /// \pre `valid() == true`
-  BitSpan<std::uint64_t, InputRank> implicit_lower_bounds() {
+  DimensionSet& implicit_lower_bounds() {
     flags_ |= internal_index_space::BuilderFlags::kSetImplicitLower;
-    return {rep_->implicit_lower_bounds(input_rank()).begin(), input_rank()};
+    return rep_->implicit_lower_bounds;
   }
 
   /// Sets the `implicit_lower_bounds` bit-vector to the specified value.
   ///
-  /// \param indices A sequence with `value_type` convertible to `bool`
-  ///     specifying whether the lower bound is implicit for each input
-  ///     dimension.
   /// \pre `valid() == true`
-  /// \checks The size of the `indices` sequence must equal `input_rank()`.
   /// \remarks Calling this method after it has already been called simply
   ///     overrides the previous value.
-  template <typename X>
-  IndexTransformBuilder& implicit_lower_bounds(const X& x) {
-    internal_index_space::AssignRange(x, implicit_lower_bounds());
+  IndexTransformBuilder& implicit_lower_bounds(DimensionSet x) {
+    implicit_lower_bounds() = x;
     return *this;
   }
 
@@ -568,31 +559,27 @@ class IndexTransformBuilder {
   /// \pre `valid() == true`
   template <std::size_t N>
   IndexTransformBuilder& implicit_lower_bounds(const bool (&x)[N]) {
-    static_assert(InputRank == dynamic_rank || InputRank == N, "");
-    return implicit_lower_bounds(span(x));
+    static_assert(InputRank == dynamic_rank || InputRank == N);
+    assert(N == input_rank() && "range size mismatch");
+    return implicit_lower_bounds(DimensionSet(x));
   }
 
   /// Returns the mutable `implicit_upper_bounds` bit vector, and marks it as
   /// having been set.
   ///
   /// \pre `valid() == true`
-  BitSpan<std::uint64_t, InputRank> implicit_upper_bounds() {
+  DimensionSet& implicit_upper_bounds() {
     flags_ |= internal_index_space::BuilderFlags::kSetImplicitUpper;
-    return {rep_->implicit_upper_bounds(input_rank()).begin(), input_rank()};
+    return rep_->implicit_upper_bounds;
   }
 
   /// Sets the `implicit_upper_bounds` bit-vector to the specified value.
   ///
-  /// \param indices A sequence with `value_type` convertible to `bool`
-  ///     specifying whether the upper bound is implicit for each input
-  ///     dimension.
   /// \pre `valid() == true`
-  /// \checks The size of the `indices` sequence must equal `input_rank()`.
   /// \remarks Calling this method after it has already been called simply
   ///     overrides the previous value.
-  template <typename X>
-  IndexTransformBuilder& implicit_upper_bounds(const X& x) {
-    internal_index_space::AssignRange(x, implicit_upper_bounds());
+  IndexTransformBuilder& implicit_upper_bounds(DimensionSet x) {
+    implicit_upper_bounds() = x;
     return *this;
   }
 
@@ -602,8 +589,9 @@ class IndexTransformBuilder {
   /// \pre `valid() == true`
   template <std::size_t N>
   IndexTransformBuilder& implicit_upper_bounds(const bool (&x)[N]) {
-    static_assert(InputRank == dynamic_rank || InputRank == N, "");
-    return implicit_upper_bounds(span(x));
+    static_assert(InputRank == dynamic_rank || InputRank == N);
+    assert(N == input_rank() && "range size mismatch");
+    return implicit_upper_bounds(DimensionSet(x));
   }
 
   /// Sets the output index map for output dimension `output_dim` to a copy of
@@ -827,20 +815,6 @@ void AssignRange(const Range& range, span<Element> dest) {
   for (std::ptrdiff_t i = 0; i < dest.size(); ++i) {
     TENSORSTORE_CHECK(it != last && "range size mismatch");
     dest[i] = static_cast<Element>(*it);
-    ++it;
-  }
-  TENSORSTORE_CHECK(it == last && "range size mismatch");
-}
-
-template <typename Range>
-void AssignRange(const Range& range, BitSpan<std::uint64_t> dest) {
-  using std::begin;
-  using std::end;
-  auto it = begin(range);
-  auto last = end(range);
-  for (std::ptrdiff_t i = 0; i < dest.size(); ++i) {
-    TENSORSTORE_CHECK(it != last && "range size mismatch");
-    dest[i] = *it;
     ++it;
   }
   TENSORSTORE_CHECK(it == last && "range size mismatch");

@@ -486,7 +486,6 @@ tensorstore_cc_library(
         "//tensorstore:index",
         "//tensorstore:index_interval",
         "//tensorstore/index_space:index_transform",
-        "//tensorstore/util:bit_span",
         "//tensorstore/util:byte_strided_pointer",
         "//tensorstore/util:division",
         "//tensorstore/util:element_pointer",

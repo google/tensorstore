@@ -22,7 +22,6 @@
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/rank.h"
-#include "tensorstore/util/bit_span.h"
 #include "tensorstore/util/span.h"
 
 namespace tensorstore {
@@ -291,20 +290,16 @@ class IndexDomainBuilder {
   /// having been set.
   ///
   /// \pre `valid() == true`
-  BitSpan<std::uint64_t, Rank> implicit_lower_bounds() {
+  DimensionSet& implicit_lower_bounds() {
     return builder_.implicit_lower_bounds();
   }
 
   /// Sets the `implicit_lower_bounds` bit-vector to the specified value.
   ///
-  /// \param indices A sequence with `value_type` convertible to `bool`
-  ///     specifying whether the lower bound is implicit for each dimension.
   /// \pre `valid() == true`
-  /// \checks The size of the `indices` sequence must equal `rank()`.
   /// \remarks Calling this method after it has already been called simply
   ///     overrides the previous value.
-  template <typename X>
-  IndexDomainBuilder& implicit_lower_bounds(const X& x) {
+  IndexDomainBuilder& implicit_lower_bounds(DimensionSet x) {
     builder_.implicit_lower_bounds(x);
     return *this;
   }
@@ -323,21 +318,16 @@ class IndexDomainBuilder {
   /// having been set.
   ///
   /// \pre `valid() == true`
-  BitSpan<std::uint64_t, Rank> implicit_upper_bounds() {
+  DimensionSet& implicit_upper_bounds() {
     return builder_.implicit_upper_bounds();
   }
 
   /// Sets the `implicit_upper_bounds` bit-vector to the specified value.
   ///
-  /// \param indices A sequence with `value_type` convertible to `bool`
-  ///     specifying whether the upper bound is implicit for each input
-  ///     dimension.
   /// \pre `valid() == true`
-  /// \checks The size of the `indices` sequence must equal `rank()`.
   /// \remarks Calling this method after it has already been called simply
   ///     overrides the previous value.
-  template <typename X>
-  IndexDomainBuilder& implicit_upper_bounds(const X& x) {
+  IndexDomainBuilder& implicit_upper_bounds(DimensionSet x) {
     builder_.implicit_upper_bounds(x);
     return *this;
   }
@@ -348,7 +338,7 @@ class IndexDomainBuilder {
   /// \pre `valid() == true`
   template <std::size_t N>
   IndexDomainBuilder& implicit_upper_bounds(const bool (&x)[N]) {
-    builder_.implicit_upper_bounds(span(x));
+    builder_.implicit_upper_bounds(x);
     return *this;
   }
 

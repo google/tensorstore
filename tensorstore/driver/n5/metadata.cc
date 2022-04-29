@@ -369,7 +369,7 @@ Result<IndexDomain<>> GetEffectiveDomain(
   IndexDomainBuilder builder(std::max(schema.rank().rank, rank));
   if (shape) {
     builder.shape(*shape);
-    builder.implicit_upper_bounds().fill(true);
+    builder.implicit_upper_bounds(true);
   } else {
     builder.origin(GetConstantVector<Index, 0>(builder.rank()));
   }

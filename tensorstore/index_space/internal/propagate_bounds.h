@@ -17,6 +17,7 @@
 
 #include "absl/status/status.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
+#include "tensorstore/util/dimension_set.h"
 
 namespace tensorstore {
 namespace internal_index_space {
@@ -24,10 +25,9 @@ namespace internal_index_space {
 /// Implementation of the `PropagateBounds` function in index_transform.h.
 ///
 /// Refer to the documentation there.
-absl::Status PropagateBounds(
-    BoxView<> b, BitSpan<const std::uint64_t> b_implicit_lower_bounds,
-    BitSpan<const std::uint64_t> b_implicit_upper_bounds, TransformRep* a_to_b,
-    MutableBoxView<> a);
+absl::Status PropagateBounds(BoxView<> b, DimensionSet b_implicit_lower_bounds,
+                             DimensionSet b_implicit_upper_bounds,
+                             TransformRep* a_to_b, MutableBoxView<> a);
 
 /// Implementation of the `PropagateExplicitBounds` function in
 /// index_transform.h.
@@ -43,19 +43,18 @@ absl::Status PropagateExplicitBounds(BoxView<> b, TransformRep* a_to_b,
 ///
 /// The output `a_implicit_{lower,upper}_bounds` bit vectors may alias
 /// `a_to_b->implicit_{lower,upper}_bounds(a.rank())`.
-absl::Status PropagateBounds(
-    BoxView<> b, BitSpan<const std::uint64_t> b_implicit_lower_bounds,
-    BitSpan<const std::uint64_t> b_implicit_upper_bounds, TransformRep* a_to_b,
-    MutableBoxView<> a, BitSpan<std::uint64_t> a_implicit_lower_bounds,
-    BitSpan<std::uint64_t> a_implicit_upper_bounds);
+absl::Status PropagateBounds(BoxView<> b, DimensionSet b_implicit_lower_bounds,
+                             DimensionSet b_implicit_upper_bounds,
+                             TransformRep* a_to_b, MutableBoxView<> a,
+                             DimensionSet& a_implicit_lower_bounds,
+                             DimensionSet& a_implicit_upper_bounds);
 
 /// Implementation of `PropagateBoundsToTransform` function index_transform.h
 ///
 /// Refer to the documentation there.
 Result<TransformRep::Ptr<>> PropagateBoundsToTransform(
-    BoxView<> b_domain, BitSpan<const std::uint64_t> b_implicit_lower_bounds,
-    BitSpan<const std::uint64_t> b_implicit_upper_bounds,
-    TransformRep::Ptr<> a_to_b);
+    BoxView<> b_domain, DimensionSet b_implicit_lower_bounds,
+    DimensionSet b_implicit_upper_bounds, TransformRep::Ptr<> a_to_b);
 
 /// Same as above, except that `b_implicit_lower_bounds` and
 /// `b_implicit_upper_bounds` assumed to be all `false`, with the effect that

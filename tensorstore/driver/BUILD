@@ -253,8 +253,6 @@ tensorstore_cc_library(
         "//tensorstore/internal/estimate_heap_usage",
         "//tensorstore/kvstore",
         "//tensorstore/serialization:absl_time",
-        "//tensorstore/util:bit_span",
-        "//tensorstore/util:bit_vec",
         "//tensorstore/util:future",
         "//tensorstore/util:iterate_over_index_range",
         "//tensorstore/util:quote_string",

@@ -16,8 +16,7 @@
 #define TENSORSTORE_UTIL_BIT_SPAN_H_
 
 /// \file
-/// Defines BitSpan, a view of a packed bit sequence, and the related types
-/// BitRef and BitIterator.
+/// Defines BitSpan, a view of a packed bit sequence.
 ///
 /// TODO(jbms): Use the fact that all 64-bit architectures use only the low 48
 /// bits of pointers in order to use a single 64-bit value to store a
@@ -29,265 +28,10 @@
 #include <type_traits>
 
 #include "tensorstore/internal/attributes.h"
+#include "tensorstore/util/small_bit_set.h"
 #include "tensorstore/util/span.h"
 
 namespace tensorstore {
-
-/// Mutable reference to a single bit of a packed bit sequence.
-///
-/// BitRef is bound to a bit location by the constructor, and cannot be rebound.
-///
-/// \tparam T The unsigned integer "block" type used to store the packed bits.
-///     This definition is only used for non-`const` `T`; the specialization
-///     defined below handles the `const T` case.
-/// \requires `std::is_unsigned_v<T>`.
-template <typename T>
-class BitRef {
-  static_assert(std::is_unsigned_v<T>, "Storage type T must be unsigned.");
-
- public:
-  friend class BitRef<const T>;
-  using block_type = T;
-  using value_type = bool;
-  using element_type = bool;
-  constexpr static std::ptrdiff_t kBitsPerBlock = sizeof(T) * 8;
-
-  /// Binds to bit `offset % kBitsPerBlock` of `*block`.
-  constexpr BitRef(T* block TENSORSTORE_LIFETIME_BOUND, std::ptrdiff_t offset)
-      : block_(block), mask_(static_cast<T>(1) << (offset % kBitsPerBlock)) {
-    assert(offset >= 0);
-  }
-
-  /// Returns the value of the bound bit.
-  constexpr operator bool() const { return *block_ & mask_; }
-
-  /// Sets the bound bit to `value`, leaving all other bits unchanged.
-  const BitRef& operator=(bool value) const {
-    *block_ = value ? (*block_ | mask_) : (*block_ & ~mask_);
-    return *this;
-  }
-
-  /// Equivalent to `*this = static_cast<bool>(value)`.
-  /// \remark This does not rebind the BitRef.
-  const BitRef& operator=(BitRef value) const {
-    return (*this = static_cast<bool>(value));
-  }
-
-  friend void swap(BitRef a, bool& x) {
-    bool temp = a;
-    a = x;
-    x = temp;
-  }
-
-  friend void swap(bool& x, BitRef a) {
-    bool temp = a;
-    a = x;
-    x = temp;
-  }
-
- private:
-  T* block_;
-  T mask_;
-};
-
-/// Swaps the contents of the bit to which `a` refers with the contents of the
-/// bit to which `b` refers (does not rebind `a` or `b`).
-template <typename T, typename U>
-
-std::enable_if_t<(!std::is_const_v<T> && !std::is_const_v<U>)> swap(
-    BitRef<T> a, BitRef<U> b) {
-  bool temp = a;
-  a = b;
-  b = temp;
-}
-
-/// Additional overload to serve as a better match than `std::swap` when both
-/// Block types are the same.
-template <typename T>
-std::enable_if_t<(!std::is_const_v<T>)> swap(BitRef<T> a, BitRef<T> b) {
-  bool temp = a;
-  a = b;
-  b = temp;
-}
-
-/// Constant reference to a single bit of a packed bit sequence.
-///
-/// BitRef is bound to a bit location by the constructor, and cannot be rebound.
-///
-/// \tparam T The unsigned integer "block" type used to store the packed bits.
-///     This definition is only used for non-`const` `T`; the specialization
-///     defined below handles the `const T` case.
-/// \requires `std::is_unsigned_v<T>`.
-template <typename T>
-class BitRef<const T> {
-  static_assert(std::is_unsigned_v<T>, "Storage type T must be unsigned.");
-
- public:
-  using block_type = const T;
-  using value_type = bool;
-  using element_type = bool;
-  constexpr static std::ptrdiff_t kBitsPerBlock = sizeof(T) * 8;
-
-  /// Binds to bit `offset % kBitsPerBlock` of `*base`.
-  constexpr BitRef(const T* block TENSORSTORE_LIFETIME_BOUND,
-                   std::ptrdiff_t offset)
-      : block_(block), mask_(static_cast<T>(1) << (offset % kBitsPerBlock)) {
-    assert(offset >= 0);
-  }
-
-  constexpr BitRef(BitRef<T> other)
-      : block_(other.block_), mask_(other.mask_) {}
-
-  constexpr operator bool() const { return *block_ & mask_; }
-
-  BitRef& operator=(BitRef) = delete;
-
- private:
-  const T* block_;
-  T mask_;
-};
-
-/// Iterator within a packed bit sequence.
-///
-/// An iterator is represented by a `base` pointer (of type `T*`) to the packed
-/// bit storage and a non-negative `offset` (of type `std::ptrdiff_t`) in bits,
-/// and corresponds to bit `offset % kBitsPerBlock` of
-/// `base[offset / kBitsPerBlock]`.
-///
-/// Advancing the iterator changes the `offset` while leaving the `base` pointer
-/// unchanged.  Only two iterators with the same `base` pointer may be compared.
-///
-/// \tparam T The unsigned integer "block" type used to store the packed bits.
-///     If `const`-qualified, the iterator cannot be used to modify the
-///     sequence.
-/// \requires `std::is_unsigned_v<T>`.
-template <typename T>
-class BitIterator {
-  static_assert(std::is_unsigned_v<T>, "Storage type T must be unsigned.");
-
- public:
-  using pointer = BitIterator<T>;
-  using const_pointer = BitIterator<const T>;
-  using reference = BitRef<T>;
-  using const_reference = BitRef<const T>;
-  using difference_type = std::ptrdiff_t;
-  using value_type = bool;
-  using iterator_category = std::random_access_iterator_tag;
-  constexpr static std::ptrdiff_t kBitsPerBlock = sizeof(T) * 8;
-
-  /// Constructs an invalid iterator.
-  constexpr BitIterator() : base_(nullptr), offset_(0) {}
-
-  constexpr BitIterator(T* base TENSORSTORE_LIFETIME_BOUND,
-                        std::ptrdiff_t offset)
-      : base_(base), offset_(offset) {}
-
-  template <typename U, std::enable_if_t<std::is_same_v<const U, T>>* = nullptr>
-  constexpr BitIterator(BitIterator<U> other)
-      : base_(other.base()), offset_(other.offset()) {}
-
-  constexpr T* base() const { return base_; }
-  constexpr std::ptrdiff_t offset() const { return offset_; }
-
-  constexpr BitRef<T> operator*() const {
-    return BitRef<T>(base() + offset() / kBitsPerBlock, offset());
-  }
-  constexpr BitRef<T> operator[](std::ptrdiff_t offset) const {
-    return *(*this + offset);
-  }
-
-  BitIterator& operator+=(std::ptrdiff_t x) {
-    offset_ += x;
-    return *this;
-  }
-
-  BitIterator& operator-=(std::ptrdiff_t x) {
-    offset_ -= x;
-    return *this;
-  }
-
-  BitIterator& operator++() {
-    ++offset_;
-    return *this;
-  }
-
-  BitIterator& operator--() {
-    --offset_;
-    return *this;
-  }
-
-  BitIterator operator++(int) {
-    BitIterator temp = *this;
-    ++offset_;
-    return temp;
-  }
-
-  BitIterator operator--(int) {
-    BitIterator temp = *this;
-    --offset_;
-    return temp;
-  }
-
-  friend BitIterator operator+(BitIterator it, std::ptrdiff_t offset) {
-    it += offset;
-    return it;
-  }
-
-  friend BitIterator operator+(std::ptrdiff_t offset, BitIterator it) {
-    it += offset;
-    return it;
-  }
-
-  friend BitIterator operator-(BitIterator it, std::ptrdiff_t offset) {
-    it -= offset;
-    return it;
-  }
-
-  /// Returns the distance from `b` to `a`.
-  ///
-  /// \dchecks `a.base() == b.base()`.
-  friend constexpr std::ptrdiff_t operator-(BitIterator a, BitIterator b) {
-    assert(a.base() == b.base());
-    return a.offset() - b.offset();
-  }
-
-  /// Compares the positions of two iterators.
-  ///
-  /// \dchecks `a.base() == b.base()`.
-  friend constexpr bool operator==(BitIterator a, BitIterator b) {
-    assert(a.base() == b.base());
-    return a.offset() == b.offset();
-  }
-
-  friend constexpr bool operator!=(BitIterator a, BitIterator b) {
-    assert(a.base() == b.base());
-    return a.offset() != b.offset();
-  }
-
-  friend constexpr bool operator<(BitIterator a, BitIterator b) {
-    assert(a.base() == b.base());
-    return a.offset() < b.offset();
-  }
-
-  friend constexpr bool operator<=(BitIterator a, BitIterator b) {
-    assert(a.base() == b.base());
-    return a.offset() <= b.offset();
-  }
-
-  friend constexpr bool operator>(BitIterator a, BitIterator b) {
-    assert(a.base() == b.base());
-    return a.offset() > b.offset();
-  }
-
-  friend constexpr bool operator>=(BitIterator a, BitIterator b) {
-    assert(a.base() == b.base());
-    return a.offset() >= b.offset();
-  }
-
- private:
-  T* base_;
-  std::ptrdiff_t offset_;
-};
 
 namespace internal_bit_span {
 template <bool FillValue, typename T>
@@ -340,6 +84,7 @@ void CopyBits(const U* source, std::ptrdiff_t source_offset, T* dest,
 ///     specify the extent at run time.
 /// \requires `std::is_unsigned_v<T>`.
 /// \requires `Extent >= 0 || Extent == dynamic_extent`.
+/// \ingroup Utilities
 template <typename T, std::ptrdiff_t Extent = dynamic_extent>
 class BitSpan {
   static_assert(std::is_unsigned_v<T>, "Storage type T must be unsigned.");
@@ -466,6 +211,7 @@ class BitSpan {
 /// of the specified `length`.
 ///
 /// \tparam Block The unsigned integer block type.
+/// \relates BitSpan
 template <typename Block>
 inline constexpr std::ptrdiff_t BitVectorSizeInBlocks(std::ptrdiff_t length) {
   return (length + sizeof(Block) * 8 - 1) / (sizeof(Block) * 8);

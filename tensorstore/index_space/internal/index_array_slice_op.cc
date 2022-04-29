@@ -96,7 +96,8 @@ Result<TransformRep::Ptr<>> MakeTransformFromJointIndexArrays(
   // Set all bounds to explicit.  These defaults are only used for dimensions
   // corresponding to the domain of the index arrays.  For identity-mapped
   // dimensions, the defaults are overridden.
-  result->implicit_bitvector = 0;
+  result->implicit_lower_bounds = false;
+  result->implicit_upper_bounds = false;
   span<OutputIndexMap> maps = result->output_index_maps().first(output_rank);
   const DimensionIndex num_preserved_dims = output_rank - num_indexed_dims;
   // Set all output dimensions to single_input_dimension index method.  The
@@ -226,7 +227,8 @@ Result<TransformRep::Ptr<>> MakeTransformFromOuterIndexArrays(
   // Set all bounds to explicit.  These defaults are only used for dimensions
   // corresponding to the domain of the index arrays.  For identity-mapped
   // dimensions, the defaults are overridden.
-  result->implicit_bitvector = 0;
+  result->implicit_lower_bounds = false;
+  result->implicit_upper_bounds = false;
   absl::FixedArray<DimensionIndex, internal::kNumInlinedDims>
       index_array_start_dim(num_indexed_dims);
   absl::FixedArray<DimensionIndex, internal::kNumInlinedDims> index_array_order(

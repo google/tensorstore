@@ -491,8 +491,8 @@ TEST(IndexDomainTest, ConstructFromTransform) {
   EXPECT_EQ(2, d.rank());
   EXPECT_THAT(d.origin(), ::testing::ElementsAre(1, 2));
   EXPECT_THAT(d.shape(), ::testing::ElementsAre(3, 4));
-  EXPECT_THAT(d.implicit_lower_bounds(), ::testing::ElementsAre(1, 0));
-  EXPECT_THAT(d.implicit_upper_bounds(), ::testing::ElementsAre(0, 1));
+  EXPECT_THAT(d.implicit_lower_bounds(), DimensionSet({1, 0}));
+  EXPECT_THAT(d.implicit_upper_bounds(), DimensionSet({0, 1}));
   EXPECT_THAT(d.labels(), ::testing::ElementsAre("x", "y"));
   EXPECT_EQ(IndexDomainDimension<view>(
                 {IndexInterval::UncheckedSized(1, 3), true, false}, "x"),

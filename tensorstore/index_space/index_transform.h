@@ -284,16 +284,14 @@ class IndexTransform {
   /// If an index array-based output index map depends on a given input
   /// dimension, it is an invariant of `IndexTransform` that the lower and upper
   /// bounds of that input dimension are explicit.
-  BitSpan<const std::uint64_t, InputRank> implicit_lower_bounds() const {
-    const auto x = rep_->implicit_lower_bounds(input_rank());
-    return {x.base(), x.offset(), x.size()};
+  DimensionSet implicit_lower_bounds() const {
+    return rep_->implicit_lower_bounds;
   }
 
   /// Returns a bit-vector indicating for each input dimension whether the upper
   /// bound is implicit.
-  BitSpan<const std::uint64_t, InputRank> implicit_upper_bounds() const {
-    const auto x = rep_->implicit_upper_bounds(input_rank());
-    return {x.base(), x.offset(), x.size()};
+  DimensionSet implicit_upper_bounds() const {
+    return rep_->implicit_upper_bounds;
   }
 
   /// Returns a range representing the output index maps.
@@ -715,16 +713,11 @@ template <DimensionIndex InputRank, DimensionIndex OutputRank,
           ContainerKind CKind>
 absl::Status PropagateBounds(
     internal::type_identity_t<BoxView<OutputRank>> b_domain,
-    internal::type_identity_t<BitSpan<const std::uint64_t, OutputRank>>
-        b_implicit_lower_bounds,
-    internal::type_identity_t<BitSpan<const std::uint64_t, OutputRank>>
-        b_implicit_upper_bounds,
+    DimensionSet b_implicit_lower_bounds, DimensionSet b_implicit_upper_bounds,
     const IndexTransform<InputRank, OutputRank, CKind> a_to_b,
     internal::type_identity_t<MutableBoxView<InputRank>> a_domain,
-    internal::type_identity_t<BitSpan<std::uint64_t, InputRank>>
-        a_implicit_lower_bounds,
-    internal::type_identity_t<BitSpan<std::uint64_t, InputRank>>
-        a_implicit_upper_bounds) {
+    DimensionSet& a_implicit_lower_bounds,
+    DimensionSet& a_implicit_upper_bounds) {
   return internal_index_space::PropagateBounds(
       b_domain, b_implicit_lower_bounds, b_implicit_upper_bounds,
       internal_index_space::TransformAccess::rep(a_to_b), a_domain,
@@ -740,10 +733,7 @@ template <DimensionIndex InputRank, DimensionIndex OutputRank,
           ContainerKind CKind>
 absl::Status PropagateBounds(
     internal::type_identity_t<BoxView<OutputRank>> b_domain,
-    internal::type_identity_t<BitSpan<const std::uint64_t, OutputRank>>
-        b_implicit_lower_bounds,
-    internal::type_identity_t<BitSpan<const std::uint64_t, OutputRank>>
-        b_implicit_upper_bounds,
+    DimensionSet b_implicit_lower_bounds, DimensionSet b_implicit_upper_bounds,
     const IndexTransform<InputRank, OutputRank, CKind> a_to_b,
     internal::type_identity_t<MutableBoxView<InputRank>> a_domain) {
   return internal_index_space::PropagateBounds(
@@ -821,10 +811,7 @@ template <DimensionIndex InputRank, DimensionIndex OutputRank,
           ContainerKind CKind>
 Result<IndexTransform<InputRank, OutputRank>> PropagateBoundsToTransform(
     internal::type_identity_t<BoxView<OutputRank>> b_domain,
-    internal::type_identity_t<BitSpan<const std::uint64_t, OutputRank>>
-        b_implicit_lower_bounds,
-    internal::type_identity_t<BitSpan<const std::uint64_t, OutputRank>>
-        b_implicit_upper_bounds,
+    DimensionSet b_implicit_lower_bounds, DimensionSet b_implicit_upper_bounds,
     IndexTransform<InputRank, OutputRank, CKind> a_to_b) {
   using internal_index_space::TransformAccess;
   TENSORSTORE_ASSIGN_OR_RETURN(

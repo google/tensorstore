@@ -47,10 +47,8 @@ void CopyTrivialFields(TransformRep* source, TransformRep* dest) {
               dest->input_origin().begin());
   std::copy_n(source->input_shape().begin(), input_rank,
               dest->input_shape().begin());
-  dest->implicit_lower_bounds(input_rank)
-      .DeepAssign(source->implicit_lower_bounds(input_rank));
-  dest->implicit_upper_bounds(input_rank)
-      .DeepAssign(source->implicit_upper_bounds(input_rank));
+  dest->implicit_lower_bounds = source->implicit_lower_bounds;
+  dest->implicit_upper_bounds = source->implicit_upper_bounds;
 }
 
 }  // namespace
@@ -140,9 +138,13 @@ void OutputIndexMap::Assign(DimensionIndex rank, const OutputIndexMap& other) {
 // Singleton transform instance used when the input and output rank are both
 // zero.
 static TransformRep rank_zero_transform_data{
-    /*.input_rank=*/0,          /*.output_rank=*/0,
-    /*.input_rank_capacity=*/0, /*.output_rank_capacity=*/0,
-    /*.implicit_bitvector=*/0,  /*.reference_count=*/1,
+    /*.input_rank=*/0,
+    /*.output_rank=*/0,
+    /*.input_rank_capacity=*/0,
+    /*.output_rank_capacity=*/0,
+    /*.implicit_lower_bounds=*/false,
+    /*.implicit_upper_bounds=*/false,
+    /*.reference_count=*/1,
 };
 
 TransformRep::Ptr<> TransformRep::Allocate(
@@ -209,7 +211,8 @@ void CopyTransformRepDomain(TransformRep* source, TransformRep* dest) {
               dest->input_origin().begin());
   std::copy_n(source->input_shape().begin(), input_rank,
               dest->input_shape().begin());
-  dest->implicit_bitvector = source->implicit_bitvector;
+  dest->implicit_lower_bounds = source->implicit_lower_bounds;
+  dest->implicit_upper_bounds = source->implicit_upper_bounds;
   std::copy_n(source->input_labels().begin(), input_rank,
               dest->input_labels().begin());
 }
@@ -333,14 +336,8 @@ bool AreDomainsEqual(TransformRep* a, TransformRep* b) {
   const DimensionIndex input_rank = a->input_rank;
   const BoxView<> input_domain_a = a->input_domain(input_rank);
   if (input_domain_a != b->input_domain(input_rank)) return false;
-  auto implicit_lower_bounds_a = a->implicit_lower_bounds(input_rank);
-  auto implicit_upper_bounds_a = a->implicit_upper_bounds(input_rank);
-  if (!std::equal(implicit_lower_bounds_a.begin(),
-                  implicit_lower_bounds_a.end(),
-                  b->implicit_lower_bounds(input_rank).begin()) ||
-      !std::equal(implicit_upper_bounds_a.begin(),
-                  implicit_upper_bounds_a.end(),
-                  b->implicit_upper_bounds(input_rank).begin())) {
+  if (a->implicit_lower_bounds != b->implicit_lower_bounds ||
+      a->implicit_upper_bounds != b->implicit_upper_bounds) {
     return false;
   }
   span<const std::string> input_labels_a = a->input_labels().first(input_rank);
@@ -581,9 +578,9 @@ TransformRep::Ptr<> WithImplicitDimensions(TransformRep::Ptr<> transform,
     implicit_lower_bounds &= ~index_array_dims;
     implicit_upper_bounds &= ~index_array_dims;
   }
-  transform->implicit_bitvector =
-      static_cast<uint64_t>(implicit_lower_bounds.bits()) |
-      (static_cast<uint64_t>(implicit_upper_bounds.bits()) << kMaxRank);
+  const auto mask = DimensionSet::UpTo(transform->input_rank);
+  transform->implicit_lower_bounds = implicit_lower_bounds & mask;
+  transform->implicit_upper_bounds = implicit_upper_bounds & mask;
   return transform;
 }
 
@@ -598,6 +595,9 @@ void DebugCheckInvariants(TransformRep* rep) {
   assert(output_rank <= rep->output_rank_capacity);
   assert(input_rank >= 0);
   assert(output_rank >= 0);
+  const auto mask = DimensionSet::UpTo(rep->input_rank);
+  assert((rep->implicit_lower_bounds & mask) == rep->implicit_lower_bounds);
+  assert((rep->implicit_upper_bounds & mask) == rep->implicit_upper_bounds);
   TENSORSTORE_CHECK_OK(internal::ValidateDimensionLabelsAreUnique(
       rep->input_labels().first(input_rank)));
   auto input_origin = rep->input_origin().data();

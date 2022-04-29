@@ -30,7 +30,6 @@
 #include "tensorstore/internal/grid_partition_impl.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/memory.h"
-#include "tensorstore/util/bit_span.h"
 #include "tensorstore/util/byte_strided_pointer.h"
 #include "tensorstore/util/division.h"
 #include "tensorstore/util/element_pointer.h"
@@ -82,8 +81,8 @@ internal_index_space::TransformRep::Ptr<> InitializeCellTransform(
       TransformRep::Allocate(cell_input_rank, full_input_rank);
   cell_transform->input_rank = cell_input_rank;
   cell_transform->output_rank = full_input_rank;
-  cell_transform->implicit_lower_bounds(cell_input_rank).fill(false);
-  cell_transform->implicit_upper_bounds(cell_input_rank).fill(false);
+  cell_transform->implicit_lower_bounds = false;
+  cell_transform->implicit_upper_bounds = false;
 
   const span<Index> input_origin =
       cell_transform->input_origin().first(cell_input_rank);

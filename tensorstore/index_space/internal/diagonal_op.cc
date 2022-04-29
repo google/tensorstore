@@ -176,6 +176,7 @@ void ExtractDiagonal(TransformRep* original, TransformRep* result,
   result->output_rank = output_rank;
   dimensions->clear();
   dimensions->push_back(diag_input_dim);
+  NormalizeImplicitBounds(*result);
 }
 }  // namespace
 

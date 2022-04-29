@@ -259,6 +259,7 @@ absl::Status PerformSingleIndexSlice(TransformRep* original_transform,
   }
   new_transform->input_rank = new_input_rank;
   new_transform->output_rank = output_rank;
+  NormalizeImplicitBounds(*new_transform);
   internal_index_space::DebugCheckInvariants(new_transform);
   return absl::OkStatus();
 }

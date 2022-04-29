@@ -38,6 +38,7 @@ namespace kvstore = tensorstore::kvstore;
 using tensorstore::ChunkLayout;
 using tensorstore::Context;
 using tensorstore::DimensionIndex;
+using tensorstore::DimensionSet;
 using tensorstore::dtype_v;
 using tensorstore::Index;
 using tensorstore::MatchesJson;
@@ -124,9 +125,9 @@ TEST(DriverTest, Create) {
     EXPECT_THAT(store.domain().labels(),
                 ::testing::ElementsAre("x", "y", "z", "channel"));
     EXPECT_THAT(store.domain().implicit_lower_bounds(),
-                ::testing::ElementsAre(0, 0, 0, 0));
+                DimensionSet({0, 0, 0, 0}));
     EXPECT_THAT(store.domain().implicit_upper_bounds(),
-                ::testing::ElementsAre(0, 0, 0, 0));
+                DimensionSet({0, 0, 0, 0}));
 
     // Test ResolveBounds.
     auto resolved = ResolveBounds(store).value();

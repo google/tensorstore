@@ -522,8 +522,8 @@ absl::Status PropagateIndexTransformDownsampling(
   // computed specifically for the exact output bounds, and the normal
   // propagation used for implicit bounds would not do the right thing.  It is
   // assumed that any implicit bounds have already been resolved.
-  new_transform->implicit_lower_bounds(new_input_rank).fill(false);
-  new_transform->implicit_upper_bounds(new_input_rank).fill(false);
+  new_transform->implicit_lower_bounds = false;
+  new_transform->implicit_upper_bounds = false;
   MutableBoxView<> input_domain = new_transform->input_domain(new_input_rank);
   // Initialize origin and shape for new input dimensions.  The origin does not
   // matter, but is set to avoid a spurious MemorySanitizer
@@ -714,10 +714,8 @@ class DownsampleDomainBuilder {
     rep = internal_index_space::TransformRep::Allocate(input_rank, output_rank);
     rep->input_rank = input_rank;
     rep->output_rank = output_rank;
-    rep->implicit_lower_bounds(input_rank)
-        .DeepAssign(base_domain.implicit_lower_bounds());
-    rep->implicit_upper_bounds(input_rank)
-        .DeepAssign(base_domain.implicit_upper_bounds());
+    rep->implicit_lower_bounds = base_domain.implicit_lower_bounds();
+    rep->implicit_upper_bounds = base_domain.implicit_upper_bounds();
     const auto& labels = base_domain.labels();
     std::copy(labels.begin(), labels.end(), rep->input_labels().begin());
     if (!domain_only) {

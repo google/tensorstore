@@ -181,20 +181,20 @@ class IndexDomain {
     return {rep_->input_labels().data(), this->rank()};
   }
 
-  /// Returns the bit vector of length `rank()` specifying for each dimension
-  /// whether its lower bound is "implicit" (1) or "explicit" (0).
+  /// Returns the bit vector specifying for each dimension whether its lower
+  /// bound is "implicit" (1) or "explicit" (0).
+  ///
   /// \pre `valid()`
-  BitSpan<const std::uint64_t, Rank> implicit_lower_bounds() const {
-    const auto x = rep_->implicit_lower_bounds(rank());
-    return {x.base(), x.offset(), x.size()};
+  DimensionSet implicit_lower_bounds() const {
+    return rep_->implicit_lower_bounds;
   }
 
-  /// Returns the bit vector of length `rank()` specifying for each dimension
-  /// whether its upper bound is "implicit" (1) or "explicit" (0).
+  /// Returns the bit vector specifying for each dimension whether its upper
+  /// bound is "implicit" (1) or "explicit" (0).
+  ///
   /// \pre `valid()`
-  BitSpan<const std::uint64_t, Rank> implicit_upper_bounds() const {
-    const auto x = rep_->implicit_upper_bounds(rank());
-    return {x.base(), x.offset(), x.size()};
+  DimensionSet implicit_upper_bounds() const {
+    return rep_->implicit_upper_bounds;
   }
 
   /// Returns the domain of dimension `i`.

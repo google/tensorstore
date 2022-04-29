@@ -700,8 +700,8 @@ Result<IndexDomain<>> GetEffectiveDomain(
   auto domain_shape = domain_builder.shape();
   std::fill_n(domain_inclusive_min.begin(), 3, -kInfIndex);
   std::fill_n(domain_shape.begin(), 4, kInfSize);
-  auto domain_implicit_lower_bounds = domain_builder.implicit_lower_bounds();
-  auto domain_implicit_upper_bounds = domain_builder.implicit_upper_bounds();
+  auto& domain_implicit_lower_bounds = domain_builder.implicit_lower_bounds();
+  auto& domain_implicit_upper_bounds = domain_builder.implicit_upper_bounds();
   domain_inclusive_min[3] = 0;
   domain_implicit_lower_bounds[3] = false;
   domain_implicit_upper_bounds[3] = true;

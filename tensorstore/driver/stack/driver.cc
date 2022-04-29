@@ -73,7 +73,6 @@
 #include "tensorstore/resize_options.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/transaction.h"
-#include "tensorstore/util/bit_vec.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender.h"
 #include "tensorstore/util/executor.h"

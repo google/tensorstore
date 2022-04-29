@@ -71,11 +71,10 @@ absl::Status ComposeTransforms(TransformRep* b_to_c, bool can_move_from_b_to_c,
   MutableBoxView<> a_to_c_domain = a_to_c->input_domain(a_rank);
 
   // Compute the input domain of the new `a_to_c` transform.
-  TENSORSTORE_RETURN_IF_ERROR(
-      PropagateBounds(b_to_c_domain, b_to_c->implicit_lower_bounds(b_rank),
-                      b_to_c->implicit_upper_bounds(b_rank), a_to_b,
-                      a_to_c_domain, a_to_c->implicit_lower_bounds(a_rank),
-                      a_to_c->implicit_upper_bounds(a_rank)));
+  TENSORSTORE_RETURN_IF_ERROR(PropagateBounds(
+      b_to_c_domain, b_to_c->implicit_lower_bounds,
+      b_to_c->implicit_upper_bounds, a_to_b, a_to_c_domain,
+      a_to_c->implicit_lower_bounds, a_to_c->implicit_upper_bounds));
 
   if (domain_only) {
     internal_index_space::DebugCheckInvariants(a_to_c);
@@ -166,8 +165,8 @@ absl::Status ComposeTransforms(TransformRep* b_to_c, bool can_move_from_b_to_c,
               GetAffineTransformDomain(
                   OptionallyImplicitIndexInterval{
                       b_to_c_domain[b_dim],
-                      b_to_c->implicit_lower_bounds(b_rank)[b_dim],
-                      b_to_c->implicit_upper_bounds(b_rank)[b_dim]}
+                      b_to_c->implicit_lower_bounds[b_dim],
+                      b_to_c->implicit_upper_bounds[b_dim]}
                       .effective_interval(),
                   a_to_b_map.offset(), a_to_b_map.stride()));
           index_range =

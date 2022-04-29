@@ -199,21 +199,18 @@ class DataCacheBase : public internal_kvs_backed_chunk_driver::DataCache {
         existing_metadata, new_metadata, scale_index_, chunk_size_xyz());
   }
 
-  void GetChunkGridBounds(
-      const void* metadata_ptr, MutableBoxView<> bounds,
-      BitSpan<std::uint64_t> implicit_lower_bounds,
-      BitSpan<std::uint64_t> implicit_upper_bounds) override {
+  void GetChunkGridBounds(const void* metadata_ptr, MutableBoxView<> bounds,
+                          DimensionSet& implicit_lower_bounds,
+                          DimensionSet& implicit_upper_bounds) override {
     // Chunk grid dimension order is `[x, y, z]`.
     const auto& metadata =
         *static_cast<const MultiscaleMetadata*>(metadata_ptr);
     assert(3 == bounds.rank());
-    assert(3 == implicit_lower_bounds.size());
-    assert(3 == implicit_upper_bounds.size());
     std::fill(bounds.origin().begin(), bounds.origin().end(), Index(0));
     const auto& scale_metadata = metadata.scales[scale_index_];
     absl::c_copy(scale_metadata.box.shape(), bounds.shape().begin());
-    implicit_lower_bounds.fill(false);
-    implicit_upper_bounds.fill(false);
+    implicit_lower_bounds = false;
+    implicit_upper_bounds = false;
   }
 
   Result<std::shared_ptr<const void>> GetResizedMetadata(

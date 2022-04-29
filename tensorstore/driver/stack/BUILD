@@ -62,7 +62,6 @@ tensorstore_cc_library(
         "//tensorstore/internal/compression:jpeg",
         "//tensorstore/internal/compression:png",
         "//tensorstore/serialization",
-        "//tensorstore/util:bit_vec",
         "//tensorstore/util:executor",
         "//tensorstore/util:future",
         "//tensorstore/util:iterate",

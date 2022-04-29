@@ -31,6 +31,8 @@ Result<TransformRep::Ptr<>> InverseTransform(TransformRep* transform) {
   auto new_transform = TransformRep::Allocate(output_rank, input_rank);
   new_transform->input_rank = output_rank;
   new_transform->output_rank = input_rank;
+  new_transform->implicit_lower_bounds = false;
+  new_transform->implicit_upper_bounds = false;
 
   const auto maps = transform->output_index_maps().first(output_rank);
   const auto new_maps = new_transform->output_index_maps().first(input_rank);

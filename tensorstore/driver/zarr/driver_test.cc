@@ -44,6 +44,7 @@ using tensorstore::ChunkLayout;
 using tensorstore::complex64_t;
 using tensorstore::Context;
 using tensorstore::DimensionIndex;
+using tensorstore::DimensionSet;
 using tensorstore::dtype_v;
 using tensorstore::Index;
 using tensorstore::kImplicit;
@@ -160,10 +161,8 @@ TEST(ZarrDriverTest, Create) {
     EXPECT_THAT(store.domain().origin(), ::testing::ElementsAre(0, 0));
     EXPECT_THAT(store.domain().shape(), ::testing::ElementsAre(100, 100));
     EXPECT_THAT(store.domain().labels(), ::testing::ElementsAre("", ""));
-    EXPECT_THAT(store.domain().implicit_lower_bounds(),
-                ::testing::ElementsAre(0, 0));
-    EXPECT_THAT(store.domain().implicit_upper_bounds(),
-                ::testing::ElementsAre(1, 1));
+    EXPECT_THAT(store.domain().implicit_lower_bounds(), DimensionSet({0, 0}));
+    EXPECT_THAT(store.domain().implicit_upper_bounds(), DimensionSet({1, 1}));
 
     // Test ResolveBounds.
     auto resolved = ResolveBounds(store).value();
