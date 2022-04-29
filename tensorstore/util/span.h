@@ -34,6 +34,9 @@ TENSORSTORE_GDB_AUTO_SCRIPT("span_gdb.py")
 
 namespace tensorstore {
 
+/// Indicates that the extent is specified at run time.
+///
+/// \relates span
 constexpr std::ptrdiff_t dynamic_extent = -1;
 
 template <typename T, std::ptrdiff_t Extent = dynamic_extent>
@@ -118,28 +121,80 @@ constexpr inline ptrdiff_t SubspanExtent(ptrdiff_t extent, ptrdiff_t offset,
 
 }  // namespace internal_span
 
+/// Unowned view of a contiguous 1-d array of elements, similar to `std::span`.
+///
+/// .. note::
+///
+///    This class is nearly identical to `std::span`; the main difference is
+///    that in this implementation, `size` has a signed return type of
+///    `ptrdiff_t` rather than `size_t`.
+///
+/// \tparam T Element type, must be a valid array element type.  May be
+///     ``const`` or ``volatile`` qualified, but must not be a reference
+///     type.
+/// \tparam Extent Static extent of the array, or `dynamic_extent` to indicate
+///     that the extent is specified at run time.
+/// \ingroup utilities
 template <typename T, std::ptrdiff_t Extent>
 class span {
   static_assert(Extent == dynamic_extent || Extent >= 0,
                 "Extent must be non-negative or -1.");
 
  public:
+  /// Element type of the array.
   using element_type = T;
+
+  /// Unqualified element type.
   using value_type = std::remove_cv_t<T>;
+
+  /// Type used for indexing.
   using index_type = std::ptrdiff_t;
+
+  /// Type used for indexing.
   using difference_type = std::ptrdiff_t;
+
+  /// Pointer to an element.
   using pointer = T*;
+
+  /// Pointer to a const-qualified element.
   using const_pointer = const T*;
+
+  /// Reference to an element.
   using reference = T&;
+
+  /// Reference to a const-qualified element.
   using const_reference = const T&;
+
+  /// Iterator type.
   using iterator = pointer;
+
+  /// Constant iterator type.
   using const_iterator = const_pointer;
+
+  /// Reverse iterator type.
   using reverse_iterator = std::reverse_iterator<iterator>;
+
+  /// Constant reverse iterator type.
   using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
+  /// Static extent.
   static constexpr std::ptrdiff_t extent = Extent;
 
+  /// Constructs an empty/invalid array.
+  ///
+  /// If `Extent == dynamic_extent` or `Extent == 0`, then this constructs a
+  /// valid view of an empty array, with `data() == nullptr` and `size() == 0`.
+  ///
+  /// If `Extent > 0`, then this constructs an invalid view of a non-empty
+  /// array, with `data() == nullptr` and `size() == Extent`.
+  ///
+  /// \id default
   constexpr span() noexcept : data_(nullptr), size_{} {}
+
+  /// Constructs from the specified pointer and length.
+  ///
+  /// \dchecks `Extent == dynamic_extent || count == Extent`
+  /// \id pointer, count
   constexpr span(pointer ptr TENSORSTORE_LIFETIME_BOUND,
                  index_type count) noexcept
       : data_(ptr), size_{} {
@@ -151,6 +206,10 @@ class span {
     }
   }
 
+  /// Constructs from begin and end pointers.
+  ///
+  /// \dchecks `Extent == dynamic_extent || Extent == (end - begin)`
+  /// \id begin, end
   template <
       // Add an extra dummy template parameter to ensure this overload ranks
       // lower than the (pointer, index_type) overload in the case of a call of
@@ -162,6 +221,9 @@ class span {
                  pointer end TENSORSTORE_LIFETIME_BOUND) noexcept
       : span(begin, end - begin) {}
 
+  /// Constructs from an array or `std::array`.
+  ///
+  /// \id array
   template <std::size_t N, typename = std::enable_if_t<
                                (Extent == dynamic_extent || Extent == N)>>
   constexpr span(T (&arr TENSORSTORE_LIFETIME_BOUND)[N]) noexcept
@@ -179,6 +241,9 @@ class span {
       const std::array<value_type, N>& arr TENSORSTORE_LIFETIME_BOUND) noexcept
       : span(arr.data(), N) {}
 
+  /// Constructs from a container with ``data`` and ``size`` methods.
+  ///
+  /// \id container
   template <typename Container,
             typename = internal_span::EnableIfCompatibleContainer<T, Container>>
   constexpr span(Container& cont TENSORSTORE_LIFETIME_BOUND)
@@ -189,6 +254,9 @@ class span {
   constexpr span(const Container& cont TENSORSTORE_LIFETIME_BOUND)
       : span(cont.data(), cont.size()) {}
 
+  /// Converts from a compatible span type.
+  ///
+  /// \id convert
   template <typename U, std::ptrdiff_t N,
             typename = std::enable_if_t<
                 internal_span::IsSpanImplicitlyConvertible<U, N, T, Extent>>>
@@ -201,17 +269,21 @@ class span {
   /// Returns the size.
   constexpr index_type size() const noexcept { return size_; }
 
+  /// Returns true if the span is empty.
   constexpr bool empty() const noexcept { return size() == 0; }
 
+  /// Returns the size in bytes.
   constexpr index_type size_bytes() const noexcept {
     return size() * sizeof(element_type);
   }
 
+  /// Returns begin/end iterators.
   constexpr iterator begin() const noexcept { return data(); }
   constexpr iterator end() const noexcept { return data() + size(); }
   constexpr const_iterator cbegin() const noexcept { return begin(); }
   constexpr const_iterator cend() const noexcept { return end(); }
 
+  /// Returns begin/end reverse iterators.
   constexpr reverse_iterator rbegin() const noexcept {
     return reverse_iterator(end());
   }
@@ -221,6 +293,10 @@ class span {
   }
   constexpr const_reverse_iterator crend() const noexcept { return rend(); }
 
+  /// Returns a static extent subspan of the first `Count` elements.
+  ///
+  /// \dchecks `size() >= Count`
+  /// \id static
   template <std::ptrdiff_t Count>
   constexpr span<element_type, Count> first() const {
     static_assert(Count >= 0 && (Extent == dynamic_extent || Extent >= Count),
@@ -228,12 +304,20 @@ class span {
     return {data(), Count};
   }
 
+  /// Returns a dynamic extent subspan of the first `count` elements.
+  ///
+  /// \dchecks `size() >= count`
+  /// \id dynamic
   constexpr span<element_type, dynamic_extent> first(
       std::ptrdiff_t count) const {
     assert(count <= size());
     return {data(), count};
   }
 
+  /// Returns a static extent subspan of the last `Count` elements.
+  ///
+  /// \dchecks `size() >= Count`
+  /// \id static
   template <std::ptrdiff_t Count>
   constexpr span<element_type, Count> last() const {
     static_assert(Count >= 0 && (Extent == dynamic_extent || Extent >= Count),
@@ -241,12 +325,20 @@ class span {
     return {end() - Count, Count};
   }
 
+  /// Returns a dynamic extent subspan of the last `count` elements.
+  ///
+  /// \dchecks `size() >= count`
+  /// \id dynamic
   constexpr span<element_type, dynamic_extent> last(
       std::ptrdiff_t count) const {
     assert(count <= size());
     return {end() - count, count};
   }
 
+  /// Returns a subspan from the starting offset `Offset` with the specified
+  /// `Count`.
+  ///
+  /// \id static
   template <std::ptrdiff_t Offset, std::ptrdiff_t Count = dynamic_extent>
   constexpr span<element_type,
                  internal_span::SubspanExtent(Extent, Offset, Count)>
@@ -261,6 +353,10 @@ class span {
             Count == dynamic_extent ? size() - Offset : Count};
   }
 
+  /// Returns a dynamic extent subspan from the starting `offset` and specified
+  /// `count`.
+  ///
+  /// \id dynamic
   constexpr span<element_type, dynamic_extent> subspan(
       std::ptrdiff_t offset, std::ptrdiff_t count = dynamic_extent) const {
     assert(offset >= 0 && (count == dynamic_extent ||
@@ -269,6 +365,9 @@ class span {
             count == dynamic_extent ? size() - offset : count};
   }
 
+  /// Returns a reference to the element at the specified index.
+  ///
+  /// \dchecks `i >= 0 && i <= size()`
   constexpr reference operator[](index_type i) const noexcept {
     // operator[] is typically unchecked:
     //   "The behavior is undefined if idx is out of range."
@@ -278,6 +377,10 @@ class span {
 
   // Support for non-standard accessors from
   // http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p1024r0.pdf
+
+  /// Returns a reference to the element at the specified index.
+  ///
+  /// \checks `i >= 0 && i < size()`
   constexpr reference at(index_type i) const {
     if (ABSL_PREDICT_TRUE(i < size() && i >= 0)) {
       return *(data() + i);
@@ -286,11 +389,17 @@ class span {
         i >= 0 ? "span.at() i >= size()" : "span.at() i < 0", TENSORSTORE_LOC);
   }
 
+  /// Returns a reference to the first element.
+  ///
+  /// \dchecks `size() > 0`
   constexpr reference front() const {
     assert(!empty());
     return *data();
   }
 
+  /// Returns a reference to the last element.
+  ///
+  /// \dchecks `size() > 0`
   constexpr reference back() const {
     assert(!empty());
     return *(data() + (size() - 1));
@@ -346,6 +455,7 @@ span(const Container& cont)
 /// This definition (along with the partial specializations of std::tuple_size
 /// and std::tuple_element defined below) makes fixed-size spans compatible with
 /// C++17 structured bindings.
+
 template <std::size_t I, typename T, std::ptrdiff_t Extent>
 T& get(const ::tensorstore::span<T, Extent>& s) {
   static_assert(
@@ -379,15 +489,16 @@ constexpr bool RangesEqual(span<T, X> l, span<U, Y> r) {
 
 }  // namespace internal
 
-/// Returns the size of a fixed-size span as an `std::integral_constant`.  The
-/// result is a valid `StaticOrDynamicRank` value.
+/// Returns the size of `span` as an `std::integral_constant` or
+/// `DimensionIndex`.
+///
+/// The result is a valid `StaticOrDynamicRank` value.
+///
+/// \relates span
 template <typename X, std::ptrdiff_t N>
 std::integral_constant<std::ptrdiff_t, N> GetStaticOrDynamicExtent(span<X, N>) {
   return {};
 }
-
-/// Returns the size of a `dynamic_extent` span as a `DimensionIndex`.  The
-/// result is a valid `StaticOrDynamicRank` value.
 template <typename X>
 std::ptrdiff_t GetStaticOrDynamicExtent(span<X> s) {
   return s.size();
