@@ -23,8 +23,13 @@
 namespace tensorstore {
 
 /// Wrapper around `std::string` to indicate a UTF-8 encoded string.
+///
+/// \ingroup Utilities
 struct Utf8String {
+  /// Underlying string encoded as UTF-8.
   std::string utf8;
+
+  /// Comparison operators.
   friend bool operator<(const Utf8String& a, const Utf8String& b) {
     return a.utf8 < b.utf8;
   }
@@ -43,11 +48,13 @@ struct Utf8String {
   friend bool operator!=(const Utf8String& a, const Utf8String& b) {
     return a.utf8 != b.utf8;
   }
+
+  /// Prints the UTF-8 value to an `std::ostream`.
   friend std::ostream& operator<<(std::ostream& os, const Utf8String& s) {
     return os << s.utf8;
   }
 
-  /// Reflection support.
+  // Reflection support.
   static constexpr auto ApplyMembers = [](auto&& x, auto f) {
     return f(x.utf8);
   };
@@ -57,8 +64,8 @@ static_assert(sizeof(Utf8String) == sizeof(std::string), "");
 
 }  // namespace tensorstore
 
-/// The string content is not validated when encoding, but is validated when
-/// decoding.
+// The string content is not validated when encoding, but is validated when
+// decoding.
 TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(tensorstore::Utf8String)
 
 #endif  // TENSORSTORE_UTIL_UTF8_STRING_H_
