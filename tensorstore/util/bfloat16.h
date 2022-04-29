@@ -53,14 +53,21 @@ float Bfloat16ToFloat(bfloat16_t v);
 ///
 /// https://en.wikipedia.org/wiki/Bfloat16_floating-point_format
 ///
-/// This differs from Eigen::bfloat16 and tensorflow::bfloat16 in that it
-/// preserves subnormals rather than flushing them to zero, and also preserves
-/// signaling NaN.
+/// This differs from ``Eigen::bfloat16`` and ``tensorflow::bfloat16`` in
+/// that it preserves subnormals rather than flushing them to zero, and also
+/// preserves signaling NaN.
+///
+/// \ingroup Data types
 class bfloat16_t {
  public:
+  /// Zero initialization.
+  ///
+  /// \id zero
   constexpr bfloat16_t() : rep_(0) {}
 
   /// Possibly lossy conversion from any type convertible to `float`.
+  ///
+  /// \id convert
   template <typename T,
             typename = std::enable_if_t<std::is_convertible_v<T, float>>>
   explicit bfloat16_t(T x) {
@@ -75,13 +82,25 @@ class bfloat16_t {
     }
   }
 
-  /// Lossless conversion to float.
+  /// Lossless conversion to `float`.
   operator float() const { return internal::Bfloat16ToFloat(*this); }
 
+  /// Possibly lossy conversion from `float`.
+  ///
+  /// \id float
+  /// \membergroup Assignment operators
   bfloat16_t& operator=(float v) { return *this = static_cast<bfloat16_t>(v); }
 
+  /// Bool assignment.
+  ///
+  /// \id bool
+  /// \membergroup Assignment operators
   bfloat16_t& operator=(bool v) { return *this = static_cast<bfloat16_t>(v); }
 
+  /// Possibly lossy conversion from any integer type.
+  ///
+  /// \id integer
+  /// \membergroup Assignment operators
   template <typename T>
   std::enable_if_t<std::is_integral_v<T>, bfloat16_t&> operator=(T v) {
     return *this = static_cast<bfloat16_t>(v);
@@ -93,20 +112,23 @@ class bfloat16_t {
   /// `bfloat16_t` parameter and one integer parameter, we provide an
   /// implementation that converts the result back to `bfloat16_t` for
   /// consistency with the builtin floating point operations.
-#define TENSORSTORE_INTERNAL_BFLOAT16_BINARY_OP(OP)                           \
-  friend bfloat16_t operator OP(bfloat16_t a, bfloat16_t b) {                 \
-    return bfloat16_t(static_cast<float>(a) OP static_cast<float>(b));        \
-  }                                                                           \
-  template <typename T>                                                       \
-  friend std::enable_if_t<std::is_integral_v<T>, bfloat16_t> operator OP(     \
-      bfloat16_t a, T b) {                                                    \
-    return bfloat16_t(static_cast<float>(a) OP b);                            \
-  }                                                                           \
-  template <typename T>                                                       \
-  friend std::enable_if_t<std::is_integral_v<T>, bfloat16_t> operator OP(     \
-      T a, bfloat16_t b) {                                                    \
-    return bfloat16_t(a OP static_cast<float>(b));                            \
-  }                                                                           \
+#define TENSORSTORE_INTERNAL_BFLOAT16_ARITHMETIC_OP(OP)                   \
+  friend bfloat16_t operator OP(bfloat16_t a, bfloat16_t b) {             \
+    return bfloat16_t(static_cast<float>(a) OP static_cast<float>(b));    \
+  }                                                                       \
+  template <typename T>                                                   \
+  friend std::enable_if_t<std::is_integral_v<T>, bfloat16_t> operator OP( \
+      bfloat16_t a, T b) {                                                \
+    return bfloat16_t(static_cast<float>(a) OP b);                        \
+  }                                                                       \
+  template <typename T>                                                   \
+  friend std::enable_if_t<std::is_integral_v<T>, bfloat16_t> operator OP( \
+      T a, bfloat16_t b) {                                                \
+    return bfloat16_t(a OP static_cast<float>(b));                        \
+  }                                                                       \
+  /**/
+
+#define TENSORSTORE_INTERNAL_BFLOAT16_ARITHMETIC_ASSIGN_OP(OP)                \
   friend bfloat16_t& operator OP##=(bfloat16_t& a, bfloat16_t b) {            \
     return a = bfloat16_t(static_cast<float>(a) OP static_cast<float>(b));    \
   }                                                                           \
@@ -117,14 +139,55 @@ class bfloat16_t {
   }                                                                           \
   /**/
 
-  TENSORSTORE_INTERNAL_BFLOAT16_BINARY_OP(+)
-  TENSORSTORE_INTERNAL_BFLOAT16_BINARY_OP(-)
-  TENSORSTORE_INTERNAL_BFLOAT16_BINARY_OP(*)
-  TENSORSTORE_INTERNAL_BFLOAT16_BINARY_OP(/)
+  /// Addition operator.
+  ///
+  /// \membergroup Arithmetic operators
+  /// \id binary
+  TENSORSTORE_INTERNAL_BFLOAT16_ARITHMETIC_OP(+)
 
-#undef TENSORSTORE_INTERNAL_BFLOAT16_BINARY_OP
+  /// Addition assignment operator.
+  ///
+  /// \membergroup Arithmetic operators
+  TENSORSTORE_INTERNAL_BFLOAT16_ARITHMETIC_ASSIGN_OP(+)
+
+  /// Subtraction operator.
+  ///
+  /// \membergroup Arithmetic operators
+  /// \id binary
+  TENSORSTORE_INTERNAL_BFLOAT16_ARITHMETIC_OP(-)
+
+  /// Subtraction assignment operator.
+  ///
+  /// \membergroup Arithmetic operators
+  TENSORSTORE_INTERNAL_BFLOAT16_ARITHMETIC_ASSIGN_OP(-)
+
+  /// Multiplication operator.
+  ///
+  /// \membergroup Arithmetic operators
+  TENSORSTORE_INTERNAL_BFLOAT16_ARITHMETIC_OP(*)
+
+  /// Multiplication assignment operator.
+  ///
+  /// \membergroup Arithmetic operators
+  TENSORSTORE_INTERNAL_BFLOAT16_ARITHMETIC_ASSIGN_OP(*)
+
+  /// Division operator.
+  ///
+  /// \membergroup Arithmetic operators
+  TENSORSTORE_INTERNAL_BFLOAT16_ARITHMETIC_OP(/)
+
+  /// Division assignment operator.
+  ///
+  /// \membergroup Arithmetic operators
+  TENSORSTORE_INTERNAL_BFLOAT16_ARITHMETIC_ASSIGN_OP(/)
+
+#undef TENSORSTORE_INTERNAL_BFLOAT16_ARITHMETIC_OP
+#undef TENSORSTORE_INTERNAL_BFLOAT16_ARITHMETIC_ASSIGN_OP
 
   /// Unary negation.
+  ///
+  /// \membergroup Arithmetic operators
+  /// \id negate
   friend bfloat16_t operator-(bfloat16_t a) {
     bfloat16_t result;
     result.rep_ = a.rep_ ^ 0x8000;
@@ -132,21 +195,33 @@ class bfloat16_t {
   }
 
   /// Unary plus.
+  ///
+  /// \membergroup Arithmetic operators
+  /// \id unary
   friend bfloat16_t operator+(bfloat16_t a) { return a; }
 
   /// Pre-increment.
+  ///
+  /// \id pre
+  /// \membergroup Arithmetic operators
   friend bfloat16_t operator++(bfloat16_t& a) {
     a += bfloat16_t(1);
     return a;
   }
 
   /// Pre-decrement.
+  ///
+  /// \membergroup Arithmetic operators
+  /// \id pre
   friend bfloat16_t operator--(bfloat16_t& a) {
     a -= bfloat16_t(1);
     return a;
   }
 
   /// Post-increment.
+  ///
+  /// \membergroup Arithmetic operators
+  /// \id post
   friend bfloat16_t operator++(bfloat16_t& a, int) {
     bfloat16_t original_value = a;
     ++a;
@@ -154,6 +229,9 @@ class bfloat16_t {
   }
 
   /// Post-decrement.
+  ///
+  /// \membergroup Arithmetic operators
+  /// \id post
   friend bfloat16_t operator--(bfloat16_t& a, int) {
     bfloat16_t original_value = a;
     --a;
@@ -163,7 +241,7 @@ class bfloat16_t {
   // Note: Comparison operators do not need to be defined since they are
   // provided automatically by the implicit conversion to `float`.
 
-  /// Conversion to `::nlohmann::json`.
+  // Conversion to `::nlohmann::json`.
   template <template <typename U, typename V, typename... Args>
             class ObjectType /* = std::map*/,
             template <typename U, typename... Args>
@@ -194,109 +272,272 @@ class bfloat16_t {
   uint16_t rep_;
 };
 
+/// Returns true if `x` is +/-infinity.
+///
+/// \membergroup Classification functions
+/// \relates bfloat16_t
 inline bool isinf(bfloat16_t x) { return std::isinf(static_cast<float>(x)); }
 
+/// Returns `true` if `x` is negative.
+///
+/// \relates bfloat16_t
+/// \membergroup Floating-point manipulation functions
 inline bool signbit(bfloat16_t x) {
   return std::signbit(static_cast<float>(x));
 }
 
+/// Returns `true` if `x` is NaN.
+///
+/// \membergroup Classification functions
+/// \relates bfloat16_t
 inline bool isnan(bfloat16_t x) { return std::isnan(static_cast<float>(x)); }
 
+/// Returns `true` if `x` is finite.
+///
+/// \membergroup Classification functions
+/// \relates bfloat16_t
 inline bool isfinite(bfloat16_t x) {
   return std::isfinite(static_cast<float>(x));
 }
 
+/// Returns the absolute value of `x`.
+///
+/// \membergroup Basic operations
+/// \relates bfloat16_t
 inline bfloat16_t abs(bfloat16_t x) {
   x.rep_ &= 0x7fff;
   return x;
 }
 
-inline bfloat16_t exp(bfloat16_t a) {
-  return bfloat16_t(std::exp(static_cast<float>(a)));
-}
-inline bfloat16_t exp2(bfloat16_t a) {
-  return bfloat16_t(std::exp2(static_cast<float>(a)));
-}
-inline bfloat16_t expm1(bfloat16_t a) {
-  return bfloat16_t(std::expm1(static_cast<float>(a)));
-}
-inline bfloat16_t log(bfloat16_t a) {
-  return bfloat16_t(std::log(static_cast<float>(a)));
-}
-inline bfloat16_t log1p(bfloat16_t a) {
-  return bfloat16_t(std::log1p(static_cast<float>(a)));
-}
-inline bfloat16_t log10(bfloat16_t a) {
-  return bfloat16_t(std::log10(static_cast<float>(a)));
-}
-inline bfloat16_t log2(bfloat16_t a) {
-  return bfloat16_t(std::log2(static_cast<float>(a)));
-}
-inline bfloat16_t sqrt(bfloat16_t a) {
-  return bfloat16_t(std::sqrt(static_cast<float>(a)));
-}
-inline bfloat16_t pow(bfloat16_t a, bfloat16_t b) {
-  return bfloat16_t(std::pow(static_cast<float>(a), static_cast<float>(b)));
-}
-inline bfloat16_t sin(bfloat16_t a) {
-  return bfloat16_t(std::sin(static_cast<float>(a)));
-}
-inline bfloat16_t cos(bfloat16_t a) {
-  return bfloat16_t(std::cos(static_cast<float>(a)));
-}
-inline bfloat16_t tan(bfloat16_t a) {
-  return bfloat16_t(std::tan(static_cast<float>(a)));
-}
-inline bfloat16_t asin(bfloat16_t a) {
-  return bfloat16_t(std::asin(static_cast<float>(a)));
-}
-inline bfloat16_t acos(bfloat16_t a) {
-  return bfloat16_t(std::acos(static_cast<float>(a)));
-}
-inline bfloat16_t atan(bfloat16_t a) {
-  return bfloat16_t(std::atan(static_cast<float>(a)));
-}
-inline bfloat16_t sinh(bfloat16_t a) {
-  return bfloat16_t(std::sinh(static_cast<float>(a)));
-}
-inline bfloat16_t cosh(bfloat16_t a) {
-  return bfloat16_t(std::cosh(static_cast<float>(a)));
-}
-inline bfloat16_t tanh(bfloat16_t a) {
-  return bfloat16_t(std::tanh(static_cast<float>(a)));
+/// Computes :math:`e` raised to the given power (:math:`e^x`).
+///
+/// \membergroup Exponential functions
+/// \relates bfloat16_t
+inline bfloat16_t exp(bfloat16_t x) {
+  return bfloat16_t(std::exp(static_cast<float>(x)));
 }
 
-inline bfloat16_t asinh(bfloat16_t a) {
-  return bfloat16_t(std::asinh(static_cast<float>(a)));
-}
-inline bfloat16_t acosh(bfloat16_t a) {
-  return bfloat16_t(std::acosh(static_cast<float>(a)));
-}
-inline bfloat16_t atanh(bfloat16_t a) {
-  return bfloat16_t(std::atanh(static_cast<float>(a)));
+/// Computes :math:`2` raised to the given power (:math:`2^x`).
+///
+/// \membergroup Exponential functions
+/// \relates bfloat16_t
+inline bfloat16_t exp2(bfloat16_t x) {
+  return bfloat16_t(std::exp2(static_cast<float>(x)));
 }
 
-inline bfloat16_t floor(bfloat16_t a) {
-  return bfloat16_t(std::floor(static_cast<float>(a)));
+/// Computes :math:`e` raised to the given power, minus 1 (:math:`e^x-1`).
+///
+/// \membergroup Exponential functions
+/// \relates bfloat16_t
+inline bfloat16_t expm1(bfloat16_t x) {
+  return bfloat16_t(std::expm1(static_cast<float>(x)));
 }
-inline bfloat16_t trunc(bfloat16_t a) {
-  return bfloat16_t(std::trunc(static_cast<float>(a)));
+
+/// Computes the natural (base :math:`e`) logarithm (:math:`\ln x`)
+///
+/// \membergroup Exponential functions
+/// \relates bfloat16_t
+inline bfloat16_t log(bfloat16_t x) {
+  return bfloat16_t(std::log(static_cast<float>(x)));
 }
-inline bfloat16_t rint(bfloat16_t a) {
-  return bfloat16_t(std::rint(static_cast<float>(a)));
+
+/// Computes the natural (base :math:`e`) logarithm of 1 plus the given number
+/// (:math:`\ln (1 + x)`).
+///
+/// \membergroup Exponential functions
+/// \relates bfloat16_t
+inline bfloat16_t log1p(bfloat16_t x) {
+  return bfloat16_t(std::log1p(static_cast<float>(x)));
 }
-inline bfloat16_t ceil(bfloat16_t a) {
-  return bfloat16_t(std::ceil(static_cast<float>(a)));
+
+/// Computes the base-10 logarithm of the given number (:math:`\log_{10} x`).
+///
+/// \membergroup Exponential functions
+/// \relates bfloat16_t
+inline bfloat16_t log10(bfloat16_t x) {
+  return bfloat16_t(std::log10(static_cast<float>(x)));
 }
-inline bfloat16_t fmod(bfloat16_t a, bfloat16_t b) {
-  return bfloat16_t(std::fmod(static_cast<float>(a), static_cast<float>(b)));
+
+/// Computes the base-2 logarithm of the given number (:math:`\log_2 x`).
+///
+/// \membergroup Exponential functions
+/// \relates bfloat16_t
+inline bfloat16_t log2(bfloat16_t x) {
+  return bfloat16_t(std::log2(static_cast<float>(x)));
 }
+
+/// Computes the square root of the given number (:math:`\sqrt{x}`).
+///
+/// \membergroup Power functions
+/// \relates bfloat16_t
+inline bfloat16_t sqrt(bfloat16_t x) {
+  return bfloat16_t(std::sqrt(static_cast<float>(x)));
+}
+
+/// Raises a number to the given power (:math:`x^y`).
+///
+/// \membergroup Power functions
+/// \relates bfloat16_t
+inline bfloat16_t pow(bfloat16_t x, bfloat16_t y) {
+  return bfloat16_t(std::pow(static_cast<float>(x), static_cast<float>(y)));
+}
+
+/// Computes the sine of the given number (:math:`\sin x`).
+///
+/// \membergroup Trigonometric functions
+/// \relates bfloat16_t
+inline bfloat16_t sin(bfloat16_t x) {
+  return bfloat16_t(std::sin(static_cast<float>(x)));
+}
+
+/// Computes the cosine of the given number (:math:`cos x`).
+///
+/// \membergroup Trigonometric functions
+/// \relates bfloat16_t
+inline bfloat16_t cos(bfloat16_t x) {
+  return bfloat16_t(std::cos(static_cast<float>(x)));
+}
+
+/// Computes the tangent.
+///
+/// \membergroup Trigonometric functions
+/// \relates bfloat16_t
+inline bfloat16_t tan(bfloat16_t x) {
+  return bfloat16_t(std::tan(static_cast<float>(x)));
+}
+
+/// Computes the inverse sine.
+///
+/// \membergroup Trigonometric functions
+/// \relates bfloat16_t
+inline bfloat16_t asin(bfloat16_t x) {
+  return bfloat16_t(std::asin(static_cast<float>(x)));
+}
+
+/// Computes the inverse cosine.
+///
+/// \membergroup Trigonometric functions
+/// \relates bfloat16_t
+inline bfloat16_t acos(bfloat16_t x) {
+  return bfloat16_t(std::acos(static_cast<float>(x)));
+}
+
+/// Computes the inverse tangent.
+///
+/// \membergroup Trigonometric functions
+/// \relates bfloat16_t
+inline bfloat16_t atan(bfloat16_t x) {
+  return bfloat16_t(std::atan(static_cast<float>(x)));
+}
+
+/// Computes the hyperbolic sine.
+///
+/// \membergroup Hyperbolic functions
+/// \relates bfloat16_t
+inline bfloat16_t sinh(bfloat16_t x) {
+  return bfloat16_t(std::sinh(static_cast<float>(x)));
+}
+
+/// Computes the hyperbolic cosine.
+///
+/// \membergroup Hyperbolic functions
+/// \relates bfloat16_t
+inline bfloat16_t cosh(bfloat16_t x) {
+  return bfloat16_t(std::cosh(static_cast<float>(x)));
+}
+
+/// Computes the hyperbolic tangent.
+///
+/// \membergroup Hyperbolic functions
+/// \relates bfloat16_t
+inline bfloat16_t tanh(bfloat16_t x) {
+  return bfloat16_t(std::tanh(static_cast<float>(x)));
+}
+
+/// Computes the inverse hyperbolic sine.
+///
+/// \membergroup Hyperbolic functions
+/// \relates bfloat16_t
+inline bfloat16_t asinh(bfloat16_t x) {
+  return bfloat16_t(std::asinh(static_cast<float>(x)));
+}
+
+/// Computes the inverse hyperbolic cosine.
+///
+/// \membergroup Hyperbolic functions
+/// \relates bfloat16_t
+inline bfloat16_t acosh(bfloat16_t x) {
+  return bfloat16_t(std::acosh(static_cast<float>(x)));
+}
+
+/// Computes the inverse hyperbolic tangent.
+///
+/// \membergroup Hyperbolic functions
+/// \relates bfloat16_t
+inline bfloat16_t atanh(bfloat16_t x) {
+  return bfloat16_t(std::atanh(static_cast<float>(x)));
+}
+
+/// Computes the nearest integer not less than the given value.
+///
+/// \membergroup Rounding functions
+/// \relates bfloat16_t
+inline bfloat16_t floor(bfloat16_t x) {
+  return bfloat16_t(std::floor(static_cast<float>(x)));
+}
+
+/// Computes the nearest integer not greater in absolute value.
+///
+/// \membergroup Rounding functions
+/// \relates bfloat16_t
+inline bfloat16_t trunc(bfloat16_t x) {
+  return bfloat16_t(std::trunc(static_cast<float>(x)));
+}
+
+/// Computes the nearest integer using the current rounding mode.
+///
+/// \membergroup Rounding functions
+/// \relates bfloat16_t
+inline bfloat16_t rint(bfloat16_t x) {
+  return bfloat16_t(std::rint(static_cast<float>(x)));
+}
+
+/// Computes the nearest integer not less than the given value.
+///
+/// \membergroup Rounding functions
+/// \relates bfloat16_t
+inline bfloat16_t ceil(bfloat16_t x) {
+  return bfloat16_t(std::ceil(static_cast<float>(x)));
+}
+
+/// Computes the floating-point remainder of the division operation `x / y`.
+///
+/// \membergroup Basic operations
+/// \relates bfloat16_t
+inline bfloat16_t fmod(bfloat16_t x, bfloat16_t y) {
+  return bfloat16_t(std::fmod(static_cast<float>(x), static_cast<float>(y)));
+}
+
+/// Computes the minimum of two values.
+///
+/// \membergroup Basic operations
+/// \relates bfloat16_t
 inline bfloat16_t fmin(bfloat16_t a, bfloat16_t b) {
   return bfloat16_t(std::fmin(static_cast<float>(a), static_cast<float>(b)));
 }
+
+/// Computes the maximum of two values.
+///
+/// \membergroup Basic operations
+/// \relates bfloat16_t
 inline bfloat16_t fmax(bfloat16_t a, bfloat16_t b) {
   return bfloat16_t(std::fmax(static_cast<float>(a), static_cast<float>(b)));
 }
+
+/// Next representable value towards the given value.
+///
+/// \membergroup Floating-point manipulation functions
+/// \relates bfloat16_t
 inline bfloat16_t nextafter(bfloat16_t from, bfloat16_t to) {
   const uint16_t from_as_int = internal::bit_cast<uint16_t>(from),
                  to_as_int = internal::bit_cast<uint16_t>(to);
