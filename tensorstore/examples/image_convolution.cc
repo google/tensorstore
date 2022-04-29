@@ -194,7 +194,8 @@ T clamp(T x, T l, T h) {
 tensorstore::SharedArray<int, 2> AffineWarp(
     const tensorstore::ArrayView<const int, 2> in,
     tensorstore::span<const double, 6> M) {
-  const auto origin = AffinePoint(in.origin()[0], in.origin()[1], M);
+  [[maybe_unused]] const auto origin =
+      AffinePoint(in.origin()[0], in.origin()[1], M);
   assert(origin.first == 0);
   assert(origin.second == 0);
   const auto shape = AffinePoint(in.shape()[0], in.shape()[1], M);
