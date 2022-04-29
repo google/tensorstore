@@ -43,6 +43,7 @@ using tensorstore::LayoutOrderConstraint;
 using tensorstore::skip_repeated_elements;
 using tensorstore::span;
 using tensorstore::internal::AdvanceIndices;
+using tensorstore::internal::DefaultIterationResult;
 using tensorstore::internal_iterate::
     ComputeStridedLayoutDimensionIterationOrder;
 using tensorstore::internal_iterate::ExtractInnerShapeAndStrides;
@@ -600,5 +601,11 @@ TEST(AdvanceIndicesTest, FortranOrderInclusiveMinExclusiveMax) {
                           ElementsAre(1, 3), ElementsAre(2, 3),  //
                           ElementsAre(1, 4), ElementsAre(2, 4)));
 }
+
+// Test bool specialization.
+static_assert(DefaultIterationResult<bool>::value() == true, "");
+
+// Test default definition.
+static_assert(DefaultIterationResult<int>::value() == 0, "");
 
 }  // namespace

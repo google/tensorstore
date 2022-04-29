@@ -151,7 +151,6 @@
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/internal/void_wrapper.h"
 #include "tensorstore/util/byte_strided_pointer.h"
-#include "tensorstore/util/default_iteration_result.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 

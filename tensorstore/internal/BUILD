@@ -384,7 +384,6 @@ tensorstore_cc_library(
         ":void_wrapper",
         "//tensorstore:index",
         "//tensorstore/util:byte_strided_pointer",
-        "//tensorstore/util:default_iteration_result",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "@com_google_absl//absl/status",

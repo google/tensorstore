@@ -25,7 +25,6 @@
 #include "tensorstore/index.h"
 #include "tensorstore/internal/void_wrapper.h"
 #include "tensorstore/util/constant_vector.h"
-#include "tensorstore/util/default_iteration_result.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/span.h"
 
@@ -56,7 +55,7 @@ struct IterateOverIndexRangeHelper {
                                 const IndexType* origin, const IndexType* shape,
                                 span<IndexType, Rank> indices) {
     WrappedResultType result =
-        DefaultIterationResult<WrappedResultType>::value();
+        internal::DefaultIterationResult<WrappedResultType>::value();
     const DimensionIndex cur_dim =
         GetLoopDimension(Order, outer_dims, indices.size());
     const IndexType start = origin[cur_dim];
@@ -122,14 +121,12 @@ struct IterateOverIndexRangeHelper {
 /// \param shape The multi-dimensional shape over which this function iterates.
 /// \param func The function to invoke for each position.  It must be invocable
 ///     as `func(std::declval<span<const IndexType, Rank>>())`, and the return
-///     type must be `void` or a default-constructible type `ResultType`
-///     explicitly convertible to `bool`.  A non-void return convertible to
-///     `false` causes iteration to stop.
+///     type must be `void` or `bool`.  A non-`void` return value of `false`
+///     causes iteration to stop.
 /// \dchecks `origin.size() == shape.size()`.
 /// \returns `void` if `func` returns `void`.  Otherwise, returns the result of
-///     the last invocation of `func`, or
-///     `DefaultIterationResult<ResultType>::value()` if `shape` contains an
-///     extent of `0`.
+///     the last invocation of `func`, or `true` if `shape` contains an extent
+///     of `0`.
 template <ContiguousLayoutOrder Order = ContiguousLayoutOrder::c,
           typename IndexType, DimensionIndex Rank, typename Func>
 internal_iterate::IterateOverIndexRangeResult<
@@ -188,9 +185,8 @@ IterateOverIndexRange(const BoxType& box, Func&& func,
 ///     explicitly convertible to `bool`.  A non-void return convertible to
 ///     `false` causes iteration to stop.
 /// \returns `void` if `func` returns `void`.  Otherwise, returns the result of
-///     the last invocation of `func`, or
-///     `DefaultIterationResult<ResultType>::value()` if `shape` contains an
-///     extent of `0`.
+///     the last invocation of `func`, or `true` if `shape` contains an extent
+///     of `0`.
 template <ContiguousLayoutOrder Order = ContiguousLayoutOrder::c,
           typename IndexType, DimensionIndex Rank, typename Func>
 internal_iterate::IterateOverIndexRangeResult<

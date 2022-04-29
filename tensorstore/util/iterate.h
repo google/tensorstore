@@ -281,6 +281,27 @@ inline bool AdvanceIndices(DimensionIndex rank, I* indices,
   }
 }
 
+/// Metafunction that defines the default value returned by elementwise
+/// iteration functions, given the return type of the elementwise function, when
+/// there are no elements to iterate over.
+///
+/// By default this returns `T()`, but is specialized for `bool` to return a
+/// default value of `true`.  Users may specialize this template for their own
+/// types.
+template <typename T>
+struct DefaultIterationResult {
+  static constexpr T value() { return T(); }
+};
+
+/// Specialization of `DefaultIterationResult` for `bool`.  A value of `false`
+/// indicates that iteration stopped early (due to false return from the
+/// elementwise function); therefore, the natural default is `true` to avoid
+/// ambiguity.
+template <>
+struct DefaultIterationResult<bool> {
+  static constexpr bool value() { return true; }
+};
+
 }  // namespace internal
 }  // namespace tensorstore
 

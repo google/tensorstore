@@ -179,21 +179,6 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
-    name = "default_iteration_result",
-    hdrs = ["default_iteration_result.h"],
-)
-
-tensorstore_cc_test(
-    name = "default_iteration_result_test",
-    size = "small",
-    srcs = ["default_iteration_result_test.cc"],
-    deps = [
-        ":default_iteration_result",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
     name = "small_bit_set",
     hdrs = ["small_bit_set.h"],
     deps = [
@@ -443,7 +428,6 @@ tensorstore_cc_library(
     hdrs = ["iterate_over_index_range.h"],
     deps = [
         ":constant_vector",
-        ":default_iteration_result",
         ":iterate",
         ":span",
         "//tensorstore:box",

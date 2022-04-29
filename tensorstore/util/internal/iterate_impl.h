@@ -252,7 +252,7 @@ class IterateHelper {
     auto increment_pointers = [&]() ABSL_ATTRIBUTE_ALWAYS_INLINE {
       ((pointers += size_and_strides.strides[Is]), ...);
     };
-    Result result = DefaultIterationResult<Result>::value();
+    Result result = internal::DefaultIterationResult<Result>::value();
     if (layouts.size() == 1) {
       for (Index i = 0; i < size_and_strides.size; ++i) {
         result = func(pointers...);
