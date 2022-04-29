@@ -138,7 +138,7 @@ Constrains the shape and origin of the TensorStore.  Equivalent to specifying a
 };
 
 struct SetCodec {
-  using type = internal::IntrusivePtr<CodecSpec>;
+  using type = internal::IntrusivePtr<internal::CodecDriverSpec>;
   constexpr static const char* name = "codec";
   constexpr static const char* doc = R"(
 
@@ -148,7 +148,7 @@ are merged.  If the constraints are incompatible, an error is raised.
 )";
   template <typename Self>
   static absl::Status Apply(Self& self, type value) {
-    return self.Set(CodecSpec::Ptr(std::move(value)));
+    return self.Set(CodecSpec(std::move(value)));
   }
 };
 

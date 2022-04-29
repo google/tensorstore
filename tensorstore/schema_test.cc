@@ -647,20 +647,20 @@ TEST(SchemaTest, DimensionUnits) {
 TEST(SchemaTest, Codec) {
   Schema schema;
   EXPECT_FALSE(schema.codec().valid());
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto codec1, CodecSpec::Ptr::FromJson({
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto codec1, CodecSpec::FromJson({
                                                     {"driver", "zarr"},
                                                     {"compressor", nullptr},
                                                 }));
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto codec2, CodecSpec::Ptr::FromJson({
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto codec2, CodecSpec::FromJson({
                                                     {"driver", "zarr"},
                                                     {"filters", nullptr},
                                                 }));
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto codec3, CodecSpec::Ptr::FromJson({
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto codec3, CodecSpec::FromJson({
                                                     {"driver", "zarr"},
                                                     {"compressor", nullptr},
                                                     {"filters", nullptr},
                                                 }));
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto codec4, CodecSpec::Ptr::FromJson({
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto codec4, CodecSpec::FromJson({
                                                     {"driver", "n5"},
                                                 }));
   TENSORSTORE_ASSERT_OK(schema.Set(codec1));

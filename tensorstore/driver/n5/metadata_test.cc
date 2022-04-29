@@ -313,18 +313,18 @@ TEST(RawCompressionTest, PartialChunk) {
 }
 
 TEST(N5CodecSpecTest, Merge) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto codec1,
+                                   CodecSpec::FromJson({{"driver", "n5"}}));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto codec1, CodecSpec::Ptr::FromJson({{"driver", "n5"}}));
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto codec2, CodecSpec::Ptr::FromJson(
+      auto codec2, CodecSpec::FromJson(
                        {{"driver", "n5"}, {"compression", {{"type", "raw"}}}}));
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto codec3, CodecSpec::Ptr::FromJson({{"driver", "n5"},
-                                             {"compression",
-                                              {{"type", "blosc"},
-                                               {"cname", "lz4"},
-                                               {"clevel", 5},
-                                               {"shuffle", 1}}}}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto codec3,
+                                   CodecSpec::FromJson({{"driver", "n5"},
+                                                        {"compression",
+                                                         {{"type", "blosc"},
+                                                          {"cname", "lz4"},
+                                                          {"clevel", 5},
+                                                          {"shuffle", 1}}}}));
   EXPECT_THAT(CodecSpec::Merge(codec1, codec1), ::testing::Optional(codec1));
   EXPECT_THAT(CodecSpec::Merge(codec2, codec2), ::testing::Optional(codec2));
   EXPECT_THAT(CodecSpec::Merge(codec3, codec3), ::testing::Optional(codec3));
@@ -337,7 +337,7 @@ TEST(N5CodecSpecTest, Merge) {
 }
 
 TEST(N5CodecSpecTest, RoundTrip) {
-  tensorstore::TestJsonBinderRoundTripJsonOnly<tensorstore::CodecSpec::Ptr>({
+  tensorstore::TestJsonBinderRoundTripJsonOnly<tensorstore::CodecSpec>({
       {
           {"driver", "n5"},
           {"compression", {{"type", "raw"}}},

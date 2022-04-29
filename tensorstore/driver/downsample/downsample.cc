@@ -203,7 +203,7 @@ class DownsampleDriverSpec
            AllDims().Stride(downsample_factors);
   }
 
-  Result<CodecSpec::Ptr> GetCodec() const override {
+  Result<CodecSpec> GetCodec() const override {
     return internal::GetEffectiveCodec(base);
   }
 
@@ -290,9 +290,7 @@ class DownsampleDriver
     return base_driver_->GetChunkLayout(strided_base_transform) | transform;
   }
 
-  Result<CodecSpec::Ptr> GetCodec() override {
-    return base_driver_->GetCodec();
-  }
+  Result<CodecSpec> GetCodec() override { return base_driver_->GetCodec(); }
 
   Result<SharedArray<const void>> GetFillValue(
       IndexTransformView<> transform) override {

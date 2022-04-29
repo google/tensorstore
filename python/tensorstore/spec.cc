@@ -450,10 +450,13 @@ Group:
 
   cls.def_property_readonly(
       "codec",
-      [](Self& self) -> std::optional<internal::IntrusivePtr<const CodecSpec>> {
+      [](Self& self)
+          -> std::optional<
+              internal::IntrusivePtr<const internal::CodecDriverSpec>> {
         auto codec = ValueOrThrow(self.value.codec());
         if (!codec.valid()) return std::nullopt;
-        return internal::IntrusivePtr<const CodecSpec>(std::move(codec));
+        return internal::IntrusivePtr<const internal::CodecDriverSpec>(
+            std::move(codec));
       },
       R"(
 
@@ -1242,10 +1245,12 @@ Group:
   cls.def_property_readonly(
       "codec",
       [](const Self& self)
-          -> std::optional<internal::IntrusivePtr<const CodecSpec>> {
+          -> std::optional<
+              internal::IntrusivePtr<const internal::CodecDriverSpec>> {
         auto codec = self.codec();
         if (!codec.valid()) return std::nullopt;
-        return internal::IntrusivePtr<const CodecSpec>(std::move(codec));
+        return internal::IntrusivePtr<const internal::CodecDriverSpec>(
+            std::move(codec));
       },
       R"(
 Codec constraints specified by the schema.
@@ -1706,7 +1711,9 @@ Example:
   EnablePicklingFromSerialization(cls);
 }
 
-using ClsCodecSpec = py::class_<CodecSpec, internal::IntrusivePtr<CodecSpec>>;
+using ClsCodecSpec =
+    py::class_<internal::CodecDriverSpec,
+               internal::IntrusivePtr<internal::CodecDriverSpec>>;
 
 auto MakeCodecSpecClass(py::module m) {
   return ClsCodecSpec(m, "CodecSpec", R"(
@@ -1718,26 +1725,26 @@ Group:
 }
 
 void DefineCodecSpecAttributes(ClsCodecSpec& cls) {
-  cls.def(
-      py::init([](::nlohmann::json json) -> internal::IntrusivePtr<CodecSpec> {
-        return internal::const_pointer_cast<CodecSpec>(
-            ValueOrThrow(CodecSpec::Ptr::FromJson(std::move(json))));
-      }),
-      R"(
+  using Self = internal::IntrusivePtr<internal::CodecDriverSpec>;
+  cls.def(py::init([](::nlohmann::json json) -> Self {
+            return internal::const_pointer_cast<internal::CodecDriverSpec>(
+                ValueOrThrow(CodecSpec::FromJson(std::move(json))));
+          }),
+          R"(
 Constructs from the :json:schema:`JSON representation<Codec>`.
 )",
-      py::arg("json"));
+          py::arg("json"));
 
-  cls.def("__repr__", [](internal::IntrusivePtr<CodecSpec> self) {
+  cls.def("__repr__", [](Self self) {
     return internal_python::PrettyPrintJsonAsPythonRepr(
-        CodecSpec::Ptr(std::move(self)).ToJson(IncludeDefaults{false}),
-        "CodecSpec(", ")");
+        CodecSpec(std::move(self)).ToJson(IncludeDefaults{false}), "CodecSpec(",
+        ")");
   });
 
   cls.def(
       "to_json",
-      [](internal::IntrusivePtr<CodecSpec> self, bool include_defaults) {
-        return ValueOrThrow(CodecSpec::Ptr(std::move(self))
+      [](Self self, bool include_defaults) {
+        return ValueOrThrow(CodecSpec(std::move(self))
                                 .ToJson(IncludeDefaults{include_defaults}));
       },
       R"(
@@ -1745,8 +1752,8 @@ Converts to the :json:schema:`JSON representation<Codec>`.
 )",
       py::arg("include_defaults") = false);
 
-  EnablePicklingFromSerialization<internal::IntrusivePtr<CodecSpec>>(
-      cls, internal::CodecSpecPtrNonNullDirectSerializer{});
+  EnablePicklingFromSerialization<Self>(
+      cls, internal::CodecSpecNonNullDirectSerializer{});
 }
 
 }  // namespace

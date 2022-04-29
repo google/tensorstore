@@ -48,7 +48,7 @@ namespace jb = tensorstore::internal_json_binding;
 struct SchemaConstraintsData {
   IndexDomain<> domain_;
   ChunkLayout chunk_layout_;
-  CodecSpec::Ptr codec_;
+  CodecSpec codec_;
   SharedArray<const void> fill_value_;
   DimensionUnitsVector dimension_units_;
 };
@@ -174,7 +174,7 @@ auto JsonBinder() {
             jb::Member("chunk_layout", LayoutJsonBinder{}),
             jb::Member(
                 "codec",
-                ScalarMemberJsonBinder<CodecSpec::Ptr, CodecSpec::Ptr,
+                ScalarMemberJsonBinder<CodecSpec, CodecSpec,
                                        &Schema::Impl::codec_>(
                     jb::DefaultInitializedPredicate<jb::kNeverIncludeDefaults>(
                         [](auto* obj) { return !obj->valid(); }))),
@@ -281,7 +281,7 @@ Schema::Impl& Schema::EnsureUniqueImpl() {
   return *impl_;
 }
 
-absl::Status Schema::Set(CodecSpec::Ptr value) {
+absl::Status Schema::Set(CodecSpec value) {
   if (!value.valid()) return absl::OkStatus();
   auto& impl = EnsureUniqueImpl();
   return impl.codec_.MergeFrom(std::move(value));
@@ -416,8 +416,8 @@ Result<IndexTransform<>> Schema::GetTransformForIndexingOperation() const {
   return IdentityTransform(rank_);
 }
 
-CodecSpec::Ptr Schema::codec() const {
-  if (!impl_) return CodecSpec::Ptr();
+CodecSpec Schema::codec() const {
+  if (!impl_) return CodecSpec();
   return impl_->codec_;
 }
 
@@ -543,8 +543,8 @@ inline bool CompareEqualImpl(const Schema& a, const Schema& b) {
 
 bool operator==(const Schema& a, const Schema& b) {
   return CompareEqualImpl<RankConstraint, DataType, IndexDomain<>, ChunkLayout,
-                          Schema::FillValue, CodecSpec::Ptr,
-                          Schema::DimensionUnits>(a, b);
+                          Schema::FillValue, CodecSpec, Schema::DimensionUnits>(
+      a, b);
 }
 
 std::ostream& operator<<(std::ostream& os, const Schema& schema) {

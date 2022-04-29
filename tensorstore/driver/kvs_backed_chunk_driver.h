@@ -331,8 +331,8 @@ class DataCache
   ///
   /// \param metadata Non-null pointer to the metadata of type `Metadata`.
   /// \param component_index The ChunkCache component index.
-  virtual Result<CodecSpec::Ptr> GetCodec(const void* metadata,
-                                          std::size_t component_index);
+  virtual Result<CodecSpec> GetCodec(const void* metadata,
+                                     std::size_t component_index);
 
   /// Returns a non-null pointer to a copy of `existing_metadata` with the
   /// specified bounds resized.
@@ -501,7 +501,7 @@ class KvsDriverBase : public internal::ChunkCacheDriver {
       internal::OpenTransactionPtr transaction, KvsDriverSpec& spec,
       IndexTransformView<> transform);
 
-  Result<CodecSpec::Ptr> GetCodec() override;
+  Result<CodecSpec> GetCodec() override;
 
   KvStore GetKvstore() override;
 

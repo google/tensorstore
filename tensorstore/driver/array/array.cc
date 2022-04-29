@@ -150,7 +150,7 @@ class ArrayDriverSpec
     return GetChunkLayoutFromStridedLayout(array.layout());
   }
 
-  Result<CodecSpec::Ptr> GetCodec() const override { return {std::in_place}; }
+  Result<CodecSpec> GetCodec() const override { return CodecSpec{}; }
 
   Result<SharedArray<const void>> GetFillValue(
       IndexTransformView<> transform) const override {
@@ -281,8 +281,7 @@ void ArrayDriver::Write(
     Result<NDIterable::Ptr> operator()(WriteChunk::BeginWrite,
                                        IndexTransform<> chunk_transform,
                                        Arena* arena) {
-      return GetTransformedArrayNDIterable(self->data_,
-                                           chunk_transform, arena);
+      return GetTransformedArrayNDIterable(self->data_, chunk_transform, arena);
     }
 
     WriteChunk::EndWriteResult operator()(

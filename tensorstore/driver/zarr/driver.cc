@@ -165,8 +165,8 @@ class ZarrDriverSpec
     return GetDomainFromMetadata(info, partial_metadata.shape, schema);
   }
 
-  Result<CodecSpec::Ptr> GetCodec() const override {
-    auto codec_spec = CodecSpec::Make<ZarrCodecSpec>();
+  Result<CodecSpec> GetCodec() const override {
+    auto codec_spec = internal::CodecDriverSpec::Make<ZarrCodecSpec>();
     codec_spec->compressor = partial_metadata.compressor;
     TENSORSTORE_RETURN_IF_ERROR(codec_spec->MergeFrom(schema.codec()));
     return codec_spec;
@@ -417,8 +417,8 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
     return chunk_layout;
   }
 
-  Result<CodecSpec::Ptr> GetCodec(const void* metadata,
-                                  std::size_t component_index) override {
+  Result<CodecSpec> GetCodec(const void* metadata,
+                             std::size_t component_index) override {
     return internal_zarr::GetCodecSpecFromMetadata(
         *static_cast<const ZarrMetadata*>(metadata));
   }

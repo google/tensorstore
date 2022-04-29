@@ -31,35 +31,35 @@ CodecSpecRegistry& GetCodecSpecRegistry() {
   return *registry;
 }
 
-}  // namespace internal
-
-absl::Status CodecSpec::MergeFrom(const Ptr& other) {
+absl::Status CodecDriverSpec::MergeFrom(const CodecSpec& other) {
   if (!other) return absl::OkStatus();
   TENSORSTORE_RETURN_IF_ERROR(
       this->DoMergeFrom(*other),
       tensorstore::MaybeAnnotateStatus(
-          _, tensorstore::StrCat("Cannot merge codec spec ", Ptr(this),
+          _, tensorstore::StrCat("Cannot merge codec spec ", CodecSpec(this),
                                  " with ", other)));
   return absl::OkStatus();
 }
 
-bool CodecSpec::EqualTo(const CodecSpec& other) const {
-  auto a_json = Ptr(this).ToJson();
-  auto b_json = Ptr(&other).ToJson();
+bool CodecDriverSpec::EqualTo(const internal::CodecDriverSpec& other) const {
+  auto a_json = CodecSpec(this).ToJson();
+  auto b_json = CodecSpec(&other).ToJson();
   if (!a_json.ok() || !b_json.ok()) return false;
   return internal_json::JsonSame(*a_json, *b_json);
 }
 
-CodecSpec::~CodecSpec() = default;
+CodecDriverSpec::~CodecDriverSpec() = default;
 
-TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(CodecSpec::Ptr, [](auto is_loading,
-                                                          const auto& options,
-                                                          auto* obj, auto* j) {
+}  // namespace internal
+
+TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(CodecSpec, [](auto is_loading,
+                                                     const auto& options,
+                                                     auto* obj, auto* j) {
   auto& registry = internal::GetCodecSpecRegistry();
   namespace jb = internal_json_binding;
   if constexpr (is_loading) {
     if (j->is_discarded()) {
-      *obj = CodecSpec::Ptr();
+      *obj = CodecSpec();
       return absl::OkStatus();
     }
   } else {
@@ -72,13 +72,13 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(CodecSpec::Ptr, [](auto is_loading,
                                                      j);
 })
 
-bool operator==(const CodecSpec::Ptr& a, const CodecSpec::Ptr& b) {
+bool operator==(const CodecSpec& a, const CodecSpec& b) {
   if (!a) return !b;
   if (!b) return false;
   return a->EqualTo(*b);
 }
 
-absl::Status CodecSpec::Ptr::MergeFrom(Ptr other) {
+absl::Status CodecSpec::MergeFrom(CodecSpec other) {
   if (!other) {
     return absl::OkStatus();
   }
@@ -89,15 +89,15 @@ absl::Status CodecSpec::Ptr::MergeFrom(Ptr other) {
   if (get()->use_count() != 1) {
     *this = get()->Clone();
   }
-  return const_cast<CodecSpec&>(**this).MergeFrom(other);
+  return const_cast<internal::CodecDriverSpec&>(**this).MergeFrom(other);
 }
 
-Result<CodecSpec::Ptr> CodecSpec::Merge(Ptr a, Ptr b) {
+Result<CodecSpec> CodecSpec::Merge(CodecSpec a, CodecSpec b) {
   TENSORSTORE_RETURN_IF_ERROR(a.MergeFrom(std::move(b)));
   return a;
 }
 
-std::ostream& operator<<(std::ostream& os, const CodecSpec::Ptr& codec) {
+std::ostream& operator<<(std::ostream& os, const CodecSpec& codec) {
   auto json_result = codec.ToJson();
   if (!json_result.ok()) return os << "<unprintable>";
   return os << json_result->dump();
@@ -105,38 +105,39 @@ std::ostream& operator<<(std::ostream& os, const CodecSpec::Ptr& codec) {
 
 namespace internal {
 
-bool CodecSpecPtrNonNullDirectSerializer::Encode(
-    serialization::EncodeSink& sink, const CodecSpec::Ptr& value) {
+bool CodecSpecNonNullDirectSerializer::Encode(serialization::EncodeSink& sink,
+                                              const CodecSpec& value) {
   assert(value);
-  return serialization::JsonBindableSerializer<CodecSpec::Ptr>::Encode(sink,
-                                                                       value);
+  return serialization::JsonBindableSerializer<CodecSpec>::Encode(sink, value);
 }
 
-bool CodecSpecPtrNonNullDirectSerializer::Encode(
+bool CodecSpecNonNullDirectSerializer::Encode(
     serialization::EncodeSink& sink,
-    const internal::IntrusivePtr<CodecSpec>& value) {
-  return Encode(sink, CodecSpec::Ptr(value));
+    const internal::IntrusivePtr<internal::CodecDriverSpec>& value) {
+  return Encode(sink, CodecSpec(value));
 }
 
-bool CodecSpecPtrNonNullDirectSerializer::Decode(
-    serialization::DecodeSource& source, CodecSpec::Ptr& value) {
-  if (!serialization::JsonBindableSerializer<CodecSpec::Ptr>::Decode(source,
-                                                                     value)) {
+bool CodecSpecNonNullDirectSerializer::Decode(
+    serialization::DecodeSource& source, CodecSpec& value) {
+  if (!serialization::JsonBindableSerializer<CodecSpec>::Decode(source,
+                                                                value)) {
     return false;
   }
   if (!value.valid()) {
-    source.Fail(absl::DataLossError("Expected non-null CodecSpec"));
+    source.Fail(
+        absl::DataLossError("Expected non-null internal::CodecDriverSpec"));
     return false;
   }
   return true;
 }
 
-bool CodecSpecPtrNonNullDirectSerializer::Decode(
+bool CodecSpecNonNullDirectSerializer::Decode(
     serialization::DecodeSource& source,
-    internal::IntrusivePtr<CodecSpec>& value) {
-  CodecSpec::Ptr temp;
+    internal::IntrusivePtr<internal::CodecDriverSpec>& value) {
+  CodecSpec temp;
   if (!Decode(source, temp)) return false;
-  value = internal::const_pointer_cast<CodecSpec>(std::move(temp));
+  value =
+      internal::const_pointer_cast<internal::CodecDriverSpec>(std::move(temp));
   return true;
 }
 
@@ -145,6 +146,5 @@ bool CodecSpecPtrNonNullDirectSerializer::Decode(
 }  // namespace tensorstore
 
 TENSORSTORE_DEFINE_SERIALIZER_SPECIALIZATION(
-    tensorstore::CodecSpec::Ptr,
-    tensorstore::serialization::JsonBindableSerializer<
-        tensorstore::CodecSpec::Ptr>())
+    tensorstore::CodecSpec, tensorstore::serialization::JsonBindableSerializer<
+                                tensorstore::CodecSpec>())

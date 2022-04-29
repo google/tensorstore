@@ -1956,43 +1956,35 @@ TEST(GetChunksPerVolumeShardFunctionTest, NotEnoughBits) {
 TEST(NeuroglancerPrecomputedCodecSpecTest, Merge) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto codec1,
-      CodecSpec::Ptr::FromJson({{"driver", "neuroglancer_precomputed"}}));
+      CodecSpec::FromJson({{"driver", "neuroglancer_precomputed"}}));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto codec2,
-      CodecSpec::Ptr::FromJson(
-          {{"driver", "neuroglancer_precomputed"}, {"encoding", "raw"}}));
+      auto codec2, CodecSpec::FromJson({{"driver", "neuroglancer_precomputed"},
+                                        {"encoding", "raw"}}));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto codec3,
-      CodecSpec::Ptr::FromJson(
-          {{"driver", "neuroglancer_precomputed"}, {"encoding", "jpeg"}}));
+      auto codec3, CodecSpec::FromJson({{"driver", "neuroglancer_precomputed"},
+                                        {"encoding", "jpeg"}}));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto codec4,
-      CodecSpec::Ptr::FromJson({{"driver", "neuroglancer_precomputed"},
-                                {"encoding", "jpeg"},
-                                {"jpeg_quality", 50}}));
+      auto codec4, CodecSpec::FromJson({{"driver", "neuroglancer_precomputed"},
+                                        {"encoding", "jpeg"},
+                                        {"jpeg_quality", 50}}));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto codec4a,
-      CodecSpec::Ptr::FromJson({{"driver", "neuroglancer_precomputed"},
-                                {"encoding", "jpeg"},
-                                {"jpeg_quality", 55}}));
+      auto codec4a, CodecSpec::FromJson({{"driver", "neuroglancer_precomputed"},
+                                         {"encoding", "jpeg"},
+                                         {"jpeg_quality", 55}}));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto codec5,
-      CodecSpec::Ptr::FromJson({{"driver", "neuroglancer_precomputed"},
-                                {"shard_data_encoding", "raw"}}));
+      auto codec5, CodecSpec::FromJson({{"driver", "neuroglancer_precomputed"},
+                                        {"shard_data_encoding", "raw"}}));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto codec6,
-      CodecSpec::Ptr::FromJson({{"driver", "neuroglancer_precomputed"},
-                                {"shard_data_encoding", "gzip"}}));
+      auto codec6, CodecSpec::FromJson({{"driver", "neuroglancer_precomputed"},
+                                        {"shard_data_encoding", "gzip"}}));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto codec7,
-      CodecSpec::Ptr::FromJson({{"driver", "neuroglancer_precomputed"},
-                                {"encoding", "raw"},
-                                {"shard_data_encoding", "raw"}}));
+      auto codec7, CodecSpec::FromJson({{"driver", "neuroglancer_precomputed"},
+                                        {"encoding", "raw"},
+                                        {"shard_data_encoding", "raw"}}));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto codec8,
-      CodecSpec::Ptr::FromJson({{"driver", "neuroglancer_precomputed"},
-                                {"encoding", "raw"},
-                                {"shard_data_encoding", "gzip"}}));
+      auto codec8, CodecSpec::FromJson({{"driver", "neuroglancer_precomputed"},
+                                        {"encoding", "raw"},
+                                        {"shard_data_encoding", "gzip"}}));
   EXPECT_THAT(CodecSpec::Merge(codec1, codec1), ::testing::Optional(codec1));
   EXPECT_THAT(CodecSpec::Merge(codec1, codec2), ::testing::Optional(codec2));
   EXPECT_THAT(CodecSpec::Merge(codec1, codec3), ::testing::Optional(codec3));
@@ -2014,7 +2006,7 @@ TEST(NeuroglancerPrecomputedCodecSpecTest, Merge) {
 }
 
 TEST(NeuroglancerPrecomputedCodecSpecTest, RoundTrip) {
-  tensorstore::TestJsonBinderRoundTripJsonOnly<tensorstore::CodecSpec::Ptr>({
+  tensorstore::TestJsonBinderRoundTripJsonOnly<tensorstore::CodecSpec>({
       ::nlohmann::json::value_t::discarded,
       {
           {"driver", "neuroglancer_precomputed"},

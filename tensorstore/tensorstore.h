@@ -230,7 +230,7 @@ class TensorStore {
   /// Returns the codec spec.
   ///
   /// \pre `valid()`
-  Result<CodecSpec::Ptr> codec() const { return internal::GetCodec(handle_); }
+  Result<CodecSpec> codec() const { return internal::GetCodec(handle_); }
 
   /// Returns the fill value.
   ///

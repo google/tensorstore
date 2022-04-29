@@ -90,10 +90,10 @@ class N5DriverSpec
     return GetEffectiveDomain(metadata_constraints, schema);
   }
 
-  Result<CodecSpec::Ptr> GetCodec() const override {
+  Result<CodecSpec> GetCodec() const override {
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto codec, GetEffectiveCodec(metadata_constraints, schema));
-    return CodecSpec::Ptr(std::move(codec));
+    return CodecSpec(std::move(codec));
   }
 
   Result<ChunkLayout> GetChunkLayout() const override {
@@ -296,8 +296,8 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
     return chunk_layout;
   }
 
-  Result<CodecSpec::Ptr> GetCodec(const void* metadata,
-                                  std::size_t component_index) override {
+  Result<CodecSpec> GetCodec(const void* metadata,
+                             std::size_t component_index) override {
     assert(component_index == 0);
     return GetCodecFromMetadata(*static_cast<const N5Metadata*>(metadata));
   }

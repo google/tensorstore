@@ -572,7 +572,7 @@ TEST(CastTest, Codec) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store, tensorstore::Cast(base_store, tensorstore::dtype_v<int32_t>));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expected_codec,
-                                   tensorstore::CodecSpec::Ptr::FromJson({
+                                   tensorstore::CodecSpec::FromJson({
                                        {"driver", "zarr"},
                                        {"compressor", nullptr},
                                        {"filters", nullptr},

@@ -17,7 +17,7 @@
 
 /// \file
 ///
-/// Interface for registering an `CodecSpec`.
+/// Interface for registering an `internal::CodecDriverSpec`.
 
 #include "tensorstore/codec_spec.h"
 #include "tensorstore/internal/json_registry.h"
@@ -27,8 +27,9 @@ namespace tensorstore {
 namespace internal {
 
 using CodecSpecRegistry =
-    JsonRegistry<CodecSpec, JsonSerializationOptions, JsonSerializationOptions,
-                 IntrusivePtr<const CodecSpec>>;
+    JsonRegistry<internal::CodecDriverSpec, JsonSerializationOptions,
+                 JsonSerializationOptions,
+                 IntrusivePtr<const internal::CodecDriverSpec>>;
 
 /// Returns the global encoding registry.
 CodecSpecRegistry& GetCodecSpecRegistry();
@@ -37,13 +38,13 @@ CodecSpecRegistry& GetCodecSpecRegistry();
 ///
 /// Example usage:
 ///
-///     class MyCodec : public CodecSpec {
+///     class MyCodec : public internal::CodecDriverSpec {
 ///      public:
 ///       // ...
 ///       constexpr static char id[] = "my_driver";
-///       absl::Status MergeFrom(const CodecSpec &other) override;
-///       bool EqualTo(const CodecSpec &other);
-///       Ptr Clone() const override {
+///       absl::Status MergeFrom(const internal::CodecDriverSpec &other)
+///       override; bool EqualTo(const internal::CodecDriverSpec &other); Ptr
+///       Clone() const override {
 ///         return Ptr(new MyCodec(*this));
 ///       }
 ///       TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(
@@ -58,13 +59,14 @@ CodecSpecRegistry& GetCodecSpecRegistry();
 ///
 ///     const internal::CodecSpecRegistration<MyCodec> registration;
 ///
-/// \tparam Derived The derived codec type, must be a subclass of `CodecSpec`
-///     and must define an `id` member and a `default_json_binder` member.  The
-///     `default_json_binder` member is typically defined using the
-///     `TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER` macro.
+/// \tparam Derived The derived codec type, must be a subclass of
+///     `internal::CodecDriverSpec` and must define an `id` member and a
+///     `default_json_binder` member.  The `default_json_binder` member is
+///     typically defined using the `TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER`
+///     macro.
 template <typename Derived>
 class CodecSpecRegistration {
-  static_assert(std::is_base_of_v<CodecSpec, Derived>);
+  static_assert(std::is_base_of_v<internal::CodecDriverSpec, Derived>);
 
  public:
   CodecSpecRegistration() {

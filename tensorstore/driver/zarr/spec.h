@@ -34,12 +34,12 @@
 namespace tensorstore {
 namespace internal_zarr {
 
-class ZarrCodecSpec : public CodecSpec {
+class ZarrCodecSpec : public internal::CodecDriverSpec {
  public:
   constexpr static char id[] = "zarr";
 
-  Ptr Clone() const final;
-  absl::Status DoMergeFrom(const CodecSpec& other_base) final;
+  CodecSpec Clone() const final;
+  absl::Status DoMergeFrom(const internal::CodecDriverSpec& other_base) final;
 
   std::optional<Compressor> compressor;
   std::optional<std::nullptr_t> filters;
@@ -106,7 +106,7 @@ absl::Status SetChunkLayoutFromMetadata(
     const SpecRankAndFieldInfo& info, std::optional<span<const Index>> chunks,
     std::optional<ContiguousLayoutOrder> order, ChunkLayout& chunk_layout);
 
-CodecSpec::Ptr GetCodecSpecFromMetadata(const ZarrMetadata& metadata);
+CodecSpec GetCodecSpecFromMetadata(const ZarrMetadata& metadata);
 
 /// Validates that `schema` is compatible with the specified field of
 /// `metadata`.

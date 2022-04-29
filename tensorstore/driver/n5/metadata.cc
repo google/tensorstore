@@ -41,11 +41,12 @@ namespace internal_n5 {
 using internal::MetadataMismatchError;
 namespace jb = tensorstore::internal_json_binding;
 
-CodecSpec::Ptr N5CodecSpec::Clone() const {
-  return Ptr(new N5CodecSpec(*this));
+CodecSpec N5CodecSpec::Clone() const {
+  return internal::CodecDriverSpec::Make<N5CodecSpec>(*this);
 }
 
-absl::Status N5CodecSpec::DoMergeFrom(const CodecSpec& other_base) {
+absl::Status N5CodecSpec::DoMergeFrom(
+    const internal::CodecDriverSpec& other_base) {
   if (typeid(other_base) != typeid(N5CodecSpec)) {
     return absl::InvalidArgumentError("");
   }
@@ -437,9 +438,9 @@ Result<ChunkLayout> GetEffectiveChunkLayout(
       metadata_constraints.chunk_shape, schema);
 }
 
-Result<CodecSpec::PtrT<N5CodecSpec>> GetEffectiveCodec(
+Result<internal::CodecDriverSpec::PtrT<N5CodecSpec>> GetEffectiveCodec(
     const N5MetadataConstraints& metadata_constraints, const Schema& schema) {
-  auto codec_spec = CodecSpec::Make<N5CodecSpec>();
+  auto codec_spec = internal::CodecDriverSpec::Make<N5CodecSpec>();
   if (metadata_constraints.compressor) {
     codec_spec->compressor = *metadata_constraints.compressor;
   }
@@ -447,10 +448,10 @@ Result<CodecSpec::PtrT<N5CodecSpec>> GetEffectiveCodec(
   return codec_spec;
 }
 
-CodecSpec::Ptr GetCodecFromMetadata(const N5Metadata& metadata) {
-  auto codec_spec = CodecSpec::Make<N5CodecSpec>();
+CodecSpec GetCodecFromMetadata(const N5Metadata& metadata) {
+  auto codec_spec = internal::CodecDriverSpec::Make<N5CodecSpec>();
   codec_spec->compressor = metadata.compressor;
-  return CodecSpec::Ptr(std::move(codec_spec));
+  return CodecSpec(std::move(codec_spec));
 }
 
 DimensionUnitsVector GetDimensionUnits(

@@ -74,7 +74,7 @@ class Spec {
   Result<ChunkLayout> chunk_layout() const;
 
   /// Returns the effective codec, propagated to the transformed space.
-  Result<CodecSpec::Ptr> codec() const;
+  Result<CodecSpec> codec() const;
 
   /// Returns the effective fill value, propagated to the transformed space.
   Result<SharedArray<const void>> fill_value() const;

@@ -72,7 +72,7 @@ Result<ChunkLayout> DriverSpec::GetChunkLayout() const {
   return schema.chunk_layout();
 }
 
-Result<CodecSpec::Ptr> DriverSpec::GetCodec() const { return schema.codec(); }
+Result<CodecSpec> DriverSpec::GetCodec() const { return schema.codec(); }
 
 Result<SharedArray<const void>> DriverSpec::GetFillValue(
     IndexTransformView<> transform) const {
@@ -146,7 +146,7 @@ Result<SharedArray<const void>> GetEffectiveFillValue(
   return spec.driver_spec->GetFillValue(spec.transform);
 }
 
-Result<CodecSpec::Ptr> GetEffectiveCodec(const TransformedDriverSpec& spec) {
+Result<CodecSpec> GetEffectiveCodec(const TransformedDriverSpec& spec) {
   if (!spec.driver_spec) return {std::in_place};
   return spec.driver_spec->GetCodec();
 }

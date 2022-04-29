@@ -154,9 +154,9 @@ class Schema {
   absl::Status Set(FillValue value);
 
   /// Specifies the data codec.
-  CodecSpec::Ptr codec() const;
-  explicit operator CodecSpec::Ptr() const { return codec(); }
-  absl::Status Set(CodecSpec::Ptr value);
+  CodecSpec codec() const;
+  explicit operator CodecSpec() const { return codec(); }
+  absl::Status Set(CodecSpec value);
 
   /// Strongly-typed alias of `span<const std::optional<Unit>>` for representing
   /// dimension unit constraints.
@@ -212,7 +212,7 @@ class Schema {
   /// - `IndexDomain`
   /// - `Schema::Shape`
   /// - `Schema::FillValue`
-  /// - `CodecSpec::Ptr`
+  /// - `CodecSpec`
   /// - `Schema::DimensionUnits`
   ///
   /// Additionally, all `ChunkLayout` options are also supported:
@@ -337,7 +337,7 @@ template <>
 constexpr inline bool Schema::IsOption<Schema::FillValue> = true;
 
 template <>
-constexpr inline bool Schema::IsOption<CodecSpec::Ptr> = true;
+constexpr inline bool Schema::IsOption<CodecSpec> = true;
 
 template <>
 constexpr inline bool Schema::IsOption<Schema::DimensionUnits> = true;

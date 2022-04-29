@@ -190,15 +190,16 @@ struct OpenConstraints {
                                           ::nlohmann::json::object_t)
 };
 
-struct NeuroglancerPrecomputedCodecSpec : public tensorstore::CodecSpec {
+struct NeuroglancerPrecomputedCodecSpec
+    : public tensorstore::internal::CodecDriverSpec {
  public:
   constexpr static char id[] = "neuroglancer_precomputed";
   std::optional<ScaleMetadata::Encoding> encoding;
   std::optional<int> jpeg_quality;
   std::optional<ShardingSpec::DataEncoding> shard_data_encoding;
 
-  Ptr Clone() const final;
-  absl::Status DoMergeFrom(const CodecSpec& other_base) final;
+  CodecSpec Clone() const final;
+  absl::Status DoMergeFrom(const internal::CodecDriverSpec& other_base) final;
 
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(NeuroglancerPrecomputedCodecSpec,
                                           FromJsonOptions, ToJsonOptions,
@@ -244,8 +245,8 @@ absl::Status ValidateMetadataSchema(const MultiscaleMetadata& metadata,
                                     span<const Index, 3> chunk_size_xyz,
                                     const Schema& schema);
 
-CodecSpec::Ptr GetCodecFromMetadata(const MultiscaleMetadata& metadata,
-                                    size_t scale_index);
+CodecSpec GetCodecFromMetadata(const MultiscaleMetadata& metadata,
+                               size_t scale_index);
 
 /// Returns the combined domain from `existing_metadata`, `constraints` and
 /// `schema`.
@@ -278,8 +279,8 @@ Result<std::pair<IndexDomain<>, ChunkLayout>> GetEffectiveDomainAndChunkLayout(
 /// \returns Non-null pointer.
 /// \error `absl::StatusCode::kInvalidArgument` if `constraints` is inconsistent
 ///     with `schema`.
-Result<CodecSpec::PtrT<NeuroglancerPrecomputedCodecSpec>> GetEffectiveCodec(
-    const OpenConstraints& constraints, const Schema& schema);
+Result<internal::CodecDriverSpec::PtrT<NeuroglancerPrecomputedCodecSpec>>
+GetEffectiveCodec(const OpenConstraints& constraints, const Schema& schema);
 
 /// Returns the combined dimension units from `constraints` and `schema`.
 ///

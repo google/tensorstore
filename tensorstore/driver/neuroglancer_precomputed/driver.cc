@@ -85,10 +85,10 @@ class NeuroglancerPrecomputedDriverSpec
                               schema);
   }
 
-  Result<CodecSpec::Ptr> GetCodec() const override {
+  Result<CodecSpec> GetCodec() const override {
     TENSORSTORE_ASSIGN_OR_RETURN(auto codec,
                                  GetEffectiveCodec(open_constraints, schema));
-    return CodecSpec::Ptr(std::move(codec));
+    return CodecSpec(std::move(codec));
   }
 
   Result<ChunkLayout> GetChunkLayout() const override {
@@ -344,8 +344,8 @@ class DataCacheBase : public internal_kvs_backed_chunk_driver::DataCache {
     return layout;
   }
 
-  Result<CodecSpec::Ptr> GetCodec(const void* metadata_ptr,
-                                  std::size_t component_index) override {
+  Result<CodecSpec> GetCodec(const void* metadata_ptr,
+                             std::size_t component_index) override {
     return GetCodecFromMetadata(
         *static_cast<const MultiscaleMetadata*>(metadata_ptr), scale_index_);
   }

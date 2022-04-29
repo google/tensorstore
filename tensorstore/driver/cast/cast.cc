@@ -89,7 +89,7 @@ class CastDriverSpec
     return internal::GetEffectiveChunkLayout(base);
   }
 
-  Result<CodecSpec::Ptr> GetCodec() const override {
+  Result<CodecSpec> GetCodec() const override {
     return internal::GetEffectiveCodec(base);
   }
 
@@ -162,9 +162,7 @@ class CastDriver
     return base_driver_->GetChunkLayout(transform);
   }
 
-  Result<CodecSpec::Ptr> GetCodec() override {
-    return base_driver_->GetCodec();
-  }
+  Result<CodecSpec> GetCodec() override { return base_driver_->GetCodec(); }
 
   Result<SharedArray<const void>> GetFillValue(
       IndexTransformView<> transform) override {

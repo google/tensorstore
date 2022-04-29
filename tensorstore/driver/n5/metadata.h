@@ -143,12 +143,12 @@ class N5MetadataConstraints {
                                           tensorstore::IncludeDefaults)
 };
 
-class N5CodecSpec : public CodecSpec {
+class N5CodecSpec : public internal::CodecDriverSpec {
  public:
   constexpr static char id[] = "n5";
 
-  Ptr Clone() const final;
-  absl::Status DoMergeFrom(const CodecSpec& other_base) final;
+  CodecSpec Clone() const final;
+  absl::Status DoMergeFrom(const internal::CodecDriverSpec& other_base) final;
 
   std::optional<Compressor> compressor;
 
@@ -198,11 +198,11 @@ Result<ChunkLayout> GetEffectiveChunkLayout(
 /// \returns Non-null pointer.
 /// \error `absl::StatusCode::kInvalidArgument` if `metadata_constraints` is
 ///     inconsistent with `schema`.
-Result<CodecSpec::PtrT<N5CodecSpec>> GetEffectiveCodec(
+Result<internal::CodecDriverSpec::PtrT<N5CodecSpec>> GetEffectiveCodec(
     const N5MetadataConstraints& metadata_constraints, const Schema& schema);
 
 /// Returns the codec from the specified metadata.
-CodecSpec::Ptr GetCodecFromMetadata(const N5Metadata& metadata);
+CodecSpec GetCodecFromMetadata(const N5Metadata& metadata);
 
 /// Combines the units and resolution fields into a dimension units vector.
 DimensionUnitsVector GetDimensionUnits(

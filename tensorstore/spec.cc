@@ -46,7 +46,7 @@ Result<ChunkLayout> Spec::chunk_layout() const {
   return internal::GetEffectiveChunkLayout(impl_);
 }
 
-Result<CodecSpec::Ptr> Spec::codec() const {
+Result<CodecSpec> Spec::codec() const {
   return internal::GetEffectiveCodec(impl_);
 }
 

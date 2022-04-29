@@ -876,7 +876,9 @@ Group:
 
   cls.def_property_readonly(
       "codec",
-      [](Self& self) -> std::optional<internal::IntrusivePtr<const CodecSpec>> {
+      [](Self& self)
+          -> std::optional<
+              internal::IntrusivePtr<const internal::CodecDriverSpec>> {
         auto codec = ValueOrThrow(self.value.codec());
         if (!codec.valid()) return std::nullopt;
         return codec;

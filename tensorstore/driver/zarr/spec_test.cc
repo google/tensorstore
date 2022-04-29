@@ -423,7 +423,7 @@ TEST(GetNewMetadataTest, SchemaObjectWithDomainDtypeFillValue) {
 TEST(GetNewMetadataTest, SchemaDtypeShapeCodec) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto codec,
-      CodecSpec::Ptr::FromJson({{"driver", "zarr"}, {"compressor", nullptr}}));
+      CodecSpec::FromJson({{"driver", "zarr"}, {"compressor", nullptr}}));
   EXPECT_THAT(GetNewMetadataFromOptions(::nlohmann::json::object_t(),
                                         /*selected_field=*/{},
                                         Schema::Shape({100, 200}),
@@ -444,7 +444,7 @@ TEST(GetNewMetadataTest, SchemaDtypeShapeCodec) {
 TEST(GetNewMetadataTest, SchemaDtypeInnerOrderC) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto codec,
-      CodecSpec::Ptr::FromJson({{"driver", "zarr"}, {"compressor", nullptr}}));
+      CodecSpec::FromJson({{"driver", "zarr"}, {"compressor", nullptr}}));
   EXPECT_THAT(GetNewMetadataFromOptions(
                   ::nlohmann::json::object_t(),
                   /*selected_field=*/{}, Schema::Shape({100, 200}),
@@ -465,7 +465,7 @@ TEST(GetNewMetadataTest, SchemaDtypeInnerOrderC) {
 TEST(GetNewMetadataTest, SchemaDtypeInnerOrderFortran) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto codec,
-      CodecSpec::Ptr::FromJson({{"driver", "zarr"}, {"compressor", nullptr}}));
+      CodecSpec::FromJson({{"driver", "zarr"}, {"compressor", nullptr}}));
   EXPECT_THAT(GetNewMetadataFromOptions(
                   ::nlohmann::json::object_t(),
                   /*selected_field=*/{}, Schema::Shape({100, 200}),
@@ -600,7 +600,7 @@ TEST(GetNewMetadataTest, SchemaCodecChunkShape) {
 TEST(GetNewMetadataTest, CodecMismatch) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto codec,
-      CodecSpec::Ptr::FromJson({{"driver", "zarr"}, {"compressor", nullptr}}));
+      CodecSpec::FromJson({{"driver", "zarr"}, {"compressor", nullptr}}));
   EXPECT_THAT(
       GetNewMetadataFromOptions({{"compressor", {{"id", "blosc"}}}},
                                 /*selected_field=*/{},
@@ -767,30 +767,29 @@ TEST(ValidateMetadataTest, FillValueMismatch) {
 }
 
 TEST(ZarrCodecSpecTest, Merge) {
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto codec1, CodecSpec::Ptr::FromJson({{"driver", "zarr"}}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto codec1,
+                                   CodecSpec::FromJson({{"driver", "zarr"}}));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto codec2,
-      CodecSpec::Ptr::FromJson({{"driver", "zarr"}, {"filters", nullptr}}));
+      CodecSpec::FromJson({{"driver", "zarr"}, {"filters", nullptr}}));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto codec3,
-      CodecSpec::Ptr::FromJson({{"driver", "zarr"}, {"compressor", nullptr}}));
+      CodecSpec::FromJson({{"driver", "zarr"}, {"compressor", nullptr}}));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto codec4,
-      CodecSpec::Ptr::FromJson(
-          {{"driver", "zarr"}, {"compressor", {{"id", "blosc"}}}}));
+      auto codec4, CodecSpec::FromJson({{"driver", "zarr"},
+                                        {"compressor", {{"id", "blosc"}}}}));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto codec5,
-      CodecSpec::Ptr::FromJson(
+      CodecSpec::FromJson(
           {{"driver", "zarr"}, {"compressor", nullptr}, {"filters", nullptr}}));
   EXPECT_THAT(CodecSpec::Merge(codec1, codec1), ::testing::Optional(codec1));
   EXPECT_THAT(CodecSpec::Merge(codec3, codec3), ::testing::Optional(codec3));
-  EXPECT_THAT(CodecSpec::Merge(codec1, CodecSpec::Ptr()),
+  EXPECT_THAT(CodecSpec::Merge(codec1, CodecSpec()),
               ::testing::Optional(codec1));
-  EXPECT_THAT(CodecSpec::Merge(CodecSpec::Ptr(), codec1),
+  EXPECT_THAT(CodecSpec::Merge(CodecSpec(), codec1),
               ::testing::Optional(codec1));
-  EXPECT_THAT(CodecSpec::Merge(CodecSpec::Ptr(), CodecSpec::Ptr()),
-              ::testing::Optional(CodecSpec::Ptr()));
+  EXPECT_THAT(CodecSpec::Merge(CodecSpec(), CodecSpec()),
+              ::testing::Optional(CodecSpec()));
   EXPECT_THAT(CodecSpec::Merge(codec1, codec2), ::testing::Optional(codec2));
   EXPECT_THAT(CodecSpec::Merge(codec1, codec3), ::testing::Optional(codec3));
   EXPECT_THAT(CodecSpec::Merge(codec2, codec3), ::testing::Optional(codec5));
@@ -802,7 +801,7 @@ TEST(ZarrCodecSpecTest, Merge) {
 }
 
 TEST(ZarrCodecSpecTest, RoundTrip) {
-  tensorstore::TestJsonBinderRoundTripJsonOnly<tensorstore::CodecSpec::Ptr>({
+  tensorstore::TestJsonBinderRoundTripJsonOnly<tensorstore::CodecSpec>({
       ::nlohmann::json::value_t::discarded,
       {
           {"driver", "zarr"},

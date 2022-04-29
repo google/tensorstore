@@ -152,7 +152,7 @@ class DriverSpec : public internal::AtomicReferenceCount<DriverSpec> {
   /// Returns the effective codec spec.
   ///
   /// By default, returns `schema.codec()`.
-  virtual Result<CodecSpec::Ptr> GetCodec() const;
+  virtual Result<CodecSpec> GetCodec() const;
 
   /// Returns the effective fill value.
   ///
@@ -255,7 +255,7 @@ Result<ChunkLayout> GetEffectiveChunkLayout(const TransformedDriverSpec& spec);
 Result<SharedArray<const void>> GetEffectiveFillValue(
     const TransformedDriverSpec& spec);
 
-Result<CodecSpec::Ptr> GetEffectiveCodec(const TransformedDriverSpec& spec);
+Result<CodecSpec> GetEffectiveCodec(const TransformedDriverSpec& spec);
 
 Result<DimensionUnitsVector> GetEffectiveDimensionUnits(
     const TransformedDriverSpec& spec);

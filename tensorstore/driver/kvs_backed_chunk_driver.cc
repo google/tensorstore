@@ -92,9 +92,9 @@ Result<ChunkLayout> DataCache::GetChunkLayout(const void* metadata_ptr,
   return ChunkCache::GetChunkLayout(component_index);
 }
 
-Result<CodecSpec::Ptr> DataCache::GetCodec(const void* metadata,
-                                           std::size_t component_index) {
-  return CodecSpec::Ptr{};
+Result<CodecSpec> DataCache::GetCodec(const void* metadata,
+                                      std::size_t component_index) {
+  return CodecSpec{};
 }
 
 namespace {
@@ -619,7 +619,7 @@ absl::Status KvsDriverSpec::ApplyOptions(SpecOptions&& options) {
   return OpenModeSpec::ApplyOptions(options);
 }
 
-Result<CodecSpec::Ptr> KvsDriverBase::GetCodec() {
+Result<CodecSpec> KvsDriverBase::GetCodec() {
   auto* cache = this->cache();
   return cache->GetCodec(cache->initial_metadata_.get(), component_index());
 }

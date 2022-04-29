@@ -128,7 +128,7 @@ class Driver : public AtomicReferenceCount<Driver> {
   /// Returns the data codec spec.
   ///
   /// \returns The codec.
-  virtual Result<CodecSpec::Ptr> GetCodec();
+  virtual Result<CodecSpec> GetCodec();
 
   /// Returns the fill value.
   ///
@@ -260,7 +260,7 @@ Future<DriverHandle> OpenDriver(OpenTransactionPtr transaction,
 
 Result<ChunkLayout> GetChunkLayout(const Driver::Handle& handle);
 
-Result<CodecSpec::Ptr> GetCodec(const Driver::Handle& handle);
+Result<CodecSpec> GetCodec(const Driver::Handle& handle);
 
 template <typename Element = void>
 Result<SharedArray<const Element>> GetFillValue(const Driver::Handle& handle) {

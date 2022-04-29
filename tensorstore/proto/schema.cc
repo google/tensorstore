@@ -212,7 +212,7 @@ void EncodeToProto(::tensorstore::proto::Schema& proto,  // NOLINT
     EncodeToProto(*proto.mutable_fill_value(), fill_value);
   }
 
-  if (CodecSpec::Ptr codec = schema.codec(); codec.valid()) {
+  if (CodecSpec codec = schema.codec(); codec.valid()) {
     auto serialized = tensorstore::serialization::EncodeBatch(schema.codec());
     proto.set_codec(serialized.value());
   }
@@ -248,7 +248,7 @@ Result<Schema> ParseSchemaFromProto(const ::tensorstore::proto::Schema& proto) {
     TENSORSTORE_RETURN_IF_ERROR(schema.Set(chunk_layout));
   }
   if (proto.has_codec()) {
-    CodecSpec::Ptr codec;
+    CodecSpec codec;
     TENSORSTORE_RETURN_IF_ERROR(
         tensorstore::serialization::DecodeBatch(proto.codec(), codec));
     TENSORSTORE_RETURN_IF_ERROR(schema.Set(codec));

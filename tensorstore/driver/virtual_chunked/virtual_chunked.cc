@@ -399,7 +399,7 @@ class VirtualChunkedDriver
     return static_cast<VirtualChunkedCache*>(
         internal::ChunkCacheDriver::cache());
   }
-  Result<CodecSpec::Ptr> GetCodec() override { return {std::in_place}; }
+  Result<CodecSpec> GetCodec() override { return CodecSpec{}; }
 
   Result<DimensionUnitsVector> GetDimensionUnits() override {
     return cache()->dimension_units_;

@@ -865,9 +865,10 @@ Result<std::pair<IndexDomain<>, ChunkLayout>> GetEffectiveDomainAndChunkLayout(
   return {std::in_place, std::move(domain), std::move(chunk_layout)};
 }
 
-Result<CodecSpec::PtrT<NeuroglancerPrecomputedCodecSpec>> GetEffectiveCodec(
-    const OpenConstraints& constraints, const Schema& schema) {
-  auto codec_spec = CodecSpec::Make<NeuroglancerPrecomputedCodecSpec>();
+Result<internal::CodecDriverSpec::PtrT<NeuroglancerPrecomputedCodecSpec>>
+GetEffectiveCodec(const OpenConstraints& constraints, const Schema& schema) {
+  auto codec_spec =
+      internal::CodecDriverSpec::Make<NeuroglancerPrecomputedCodecSpec>();
   codec_spec->encoding = constraints.scale.encoding;
   codec_spec->jpeg_quality = constraints.scale.jpeg_quality;
 
@@ -1146,11 +1147,11 @@ Result<std::pair<std::shared_ptr<MultiscaleMetadata>, std::size_t>> CreateScale(
   return std::pair(new_metadata, scale_index);
 }
 
-CodecSpec::Ptr GetCodecFromMetadata(const MultiscaleMetadata& metadata,
-                                    size_t scale_index) {
+CodecSpec GetCodecFromMetadata(const MultiscaleMetadata& metadata,
+                               size_t scale_index) {
   const auto& scale = metadata.scales[scale_index];
-  internal::IntrusivePtr<NeuroglancerPrecomputedCodecSpec> codec(
-      new NeuroglancerPrecomputedCodecSpec);
+  auto codec =
+      internal::CodecDriverSpec::Make<NeuroglancerPrecomputedCodecSpec>();
   codec->encoding = scale.encoding;
   if (scale.encoding == ScaleMetadata::Encoding::jpeg) {
     codec->jpeg_quality = scale.jpeg_quality;
@@ -1158,7 +1159,7 @@ CodecSpec::Ptr GetCodecFromMetadata(const MultiscaleMetadata& metadata,
   if (auto* sharding = std::get_if<ShardingSpec>(&scale.sharding)) {
     codec->shard_data_encoding = sharding->data_encoding;
   }
-  return CodecSpec::Ptr(std::move(codec));
+  return CodecSpec(std::move(codec));
 }
 
 absl::Status ValidateMetadataSchema(const MultiscaleMetadata& metadata,
@@ -1477,12 +1478,13 @@ GetChunksPerVolumeShardFunction(const ShardingSpec& sharding_spec,
   };
 }
 
-CodecSpec::Ptr NeuroglancerPrecomputedCodecSpec::Clone() const {
-  return Ptr(new NeuroglancerPrecomputedCodecSpec(*this));
+CodecSpec NeuroglancerPrecomputedCodecSpec::Clone() const {
+  return internal::CodecDriverSpec::Make<NeuroglancerPrecomputedCodecSpec>(
+      *this);
 }
 
 absl::Status NeuroglancerPrecomputedCodecSpec::DoMergeFrom(
-    const CodecSpec& other_base) {
+    const internal::CodecDriverSpec& other_base) {
   if (typeid(other_base) != typeid(NeuroglancerPrecomputedCodecSpec)) {
     return absl::InvalidArgumentError("");
   }

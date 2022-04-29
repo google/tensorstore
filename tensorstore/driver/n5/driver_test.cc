@@ -1041,7 +1041,7 @@ TEST(DriverTest, Codec) {
       auto store,
       tensorstore::Open(json_spec, tensorstore::OpenMode::create).result());
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expected_codec,
-                                   tensorstore::CodecSpec::Ptr::FromJson({
+                                   tensorstore::CodecSpec::FromJson({
                                        {"driver", "n5"},
                                        {"compression", {{"type", "raw"}}},
                                    }));

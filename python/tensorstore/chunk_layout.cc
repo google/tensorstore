@@ -54,8 +54,7 @@ Result<IndexDomain<>> GetChunkTemplateAsIndexDomain(const ChunkLayout& self,
 /// which the "hardness" does not equal the value of `hard_constraint`.
 template <typename T>
 HomogeneousTuple<std::optional<T>> MaybeHardConstraintSpanToHomogeneousTuple(
-    internal::MaybeHardConstraintSpan<T> vec, bool hard_constraint,
-    T default_value) {
+    MaybeHardConstraintSpan<T> vec, bool hard_constraint, T default_value) {
   py::tuple t(vec.size());
   for (DimensionIndex i = 0; i < vec.size(); ++i) {
     t[i] =

@@ -27,11 +27,12 @@ namespace internal_zarr {
 using internal::MetadataMismatchError;
 namespace jb = tensorstore::internal_json_binding;
 
-CodecSpec::Ptr ZarrCodecSpec::Clone() const {
-  return Ptr(new ZarrCodecSpec(*this));
+CodecSpec ZarrCodecSpec::Clone() const {
+  return internal::CodecDriverSpec::Make<ZarrCodecSpec>(*this);
 }
 
-absl::Status ZarrCodecSpec::DoMergeFrom(const CodecSpec& other_base) {
+absl::Status ZarrCodecSpec::DoMergeFrom(
+    const internal::CodecDriverSpec& other_base) {
   if (typeid(other_base) != typeid(ZarrCodecSpec)) {
     return absl::InvalidArgumentError("");
   }
@@ -191,7 +192,7 @@ Result<ZarrMetadataPtr> GetNewMetadata(
   }
 
   // Determine compressor.
-  auto codec_spec = CodecSpec::Make<ZarrCodecSpec>();
+  auto codec_spec = internal::CodecDriverSpec::Make<ZarrCodecSpec>();
   if (partial_metadata.compressor) {
     codec_spec->compressor = partial_metadata.compressor;
   }
@@ -395,8 +396,8 @@ absl::Status SetChunkLayoutFromMetadata(
   return absl::OkStatus();
 }
 
-CodecSpec::Ptr GetCodecSpecFromMetadata(const ZarrMetadata& metadata) {
-  internal::IntrusivePtr<ZarrCodecSpec> codec(new ZarrCodecSpec);
+CodecSpec GetCodecSpecFromMetadata(const ZarrMetadata& metadata) {
+  auto codec = internal::CodecDriverSpec::Make<ZarrCodecSpec>();
   codec->compressor = metadata.compressor;
   codec->filters = nullptr;
   return codec;

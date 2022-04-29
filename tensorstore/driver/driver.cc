@@ -120,7 +120,7 @@ Result<ChunkLayout> Driver::GetChunkLayout(IndexTransformView<> transform) {
   return {std::in_place};
 }
 
-Result<CodecSpec::Ptr> Driver::GetCodec() { return CodecSpec::Ptr{}; }
+Result<CodecSpec> Driver::GetCodec() { return CodecSpec{}; }
 
 KvStore Driver::GetKvstore() { return {}; }
 
@@ -165,7 +165,7 @@ Result<ChunkLayout> GetChunkLayout(const Driver::Handle& handle) {
   return handle.driver->GetChunkLayout(handle.transform);
 }
 
-Result<CodecSpec::Ptr> GetCodec(const Driver::Handle& handle) {
+Result<CodecSpec> GetCodec(const Driver::Handle& handle) {
   assert(handle.driver);
   return handle.driver->GetCodec();
 }
