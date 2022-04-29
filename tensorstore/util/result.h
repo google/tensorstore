@@ -36,8 +36,11 @@ template <typename T>
 class [[nodiscard]] Result;
 
 /// IsResult evaluates to `true` if `T` is an instance of `Result`.
+///
+/// \relates Result
 template <typename T>
 constexpr inline bool IsResult = false;
+
 template <typename T>
 constexpr inline bool IsResult<Result<T>> = true;
 
@@ -46,10 +49,14 @@ constexpr inline bool IsResult<Result<T>> = true;
 ///   Result<T> -> T
 ///   absl::Status -> void
 ///   T -> T
+///
+/// \relates Result
 template <typename T>
 using UnwrapResultType = typename internal_result::UnwrapResultHelper<T>::type;
 
 /// As above, preserving const / volatile / reference qualifiers.
+///
+/// \relates Result
 template <typename T>
 using UnwrapQualifiedResultType =
     internal::CopyQualifiers<T, UnwrapResultType<internal::remove_cvref_t<T>>>;
@@ -60,14 +67,19 @@ using UnwrapQualifiedResultType =
 ///     Result<T> -> Result<T>
 ///     absl::Status -> Result<void>
 ///
+/// \relates Result
 template <typename T>
 using FlatResult = typename internal_result::UnwrapResultHelper<T>::result_type;
 
-/// Type alias that maps `Result<T>` to `Result<U>`, where `U = MapType<U>`.
+/// Type alias that maps `Result<T>` to ``Result<U>``, where ``U = MapType<U>``.
+///
+/// \relates Result
 template <template <typename...> class MapType, typename... T>
 using FlatMapResultType = Result<MapType<UnwrapResultType<T>...>>;
 
 /// Type alias used by initial overloads of the "Pipeline" operator|.
+///
+/// \relates Result
 template <typename T, typename Func>
 using PipelineResultType =
     std::enable_if_t<IsResult<std::invoke_result_t<Func&&, T>>,
@@ -79,38 +91,35 @@ using PipelineResultType =
 using std::in_place;
 using std::in_place_t;
 
-/// \brief Result<R> implements a value-or-error concept using the
-/// existing absl::Status mechanism. It provides a discriminated
-/// union of a usable value, T, or an error Status explaining why the value
-/// is not present.
+/// `Result<T>` implements a value-or-error concept using the existing
+/// absl::Status mechanism. It provides a discriminated union of a usable value,
+/// `T`, or an error `absl::Status` explaining why the value is not present.
 ///
 /// The primary use case for Result<T> is as the return value of a
 /// function which might fail.
 ///
-/// `Result` requires explicit initialization using a non-default constructor.
-/// Use `Result<T>{in_place, ...}` or `Result<T>{Status(...)}`
-/// to construct a Result with the desired state.
-///
-/// Initialization with a non-error absl::Status is only allowed for
-/// Result<void>, otherwise non-error absl::Status initilization is nonsensical
-/// because it does not provide a value.
+/// Initialization with a non-error `absl::Status` is only allowed for
+/// `Result<void>`, otherwise non-error `absl::Status` initilization is
+/// nonsensical because it does not provide a value.
 ///
 /// Conversion from `Result<T>` to `Result<void>` is allowed; the status
 /// is retained but any value is discarded by such a conversion.
 ///
 /// There are quite a few similar classes extant:
 ///
-/// Assignment operators always destroy the existing value and
-/// reconstruct the value. This may be surprising, since it is unlike
-/// std::optional and many other monadic C++ types.
+/// Assignment operators always destroy the existing value and reconstruct the
+/// value. This may be surprising, since it is unlike `std::optional` and many
+/// other monadic C++ types.
 ///
-/// * The StatusOr concept used by Google protocol buffers.
-/// * A std::variant<T, Status>, except that it allows T=void.
-/// * The proposed std::expected<>, except that the error type is not
+/// - The StatusOr concept used by Google protocol buffers.
+///
+/// - An `std::variant<T, absl::Status>`, except that it allows ``T=void``.
+///
+/// - The proposed ``std::expected<>``, except that the error type is not
 ///   template-selectable.
 ///   http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0323r6.html
 ///
-/// \example
+/// Example::
 ///
 ///   Result<Foo> result = GetTheStuff();
 ///   if (!result) {
@@ -118,6 +127,9 @@ using std::in_place_t;
 ///   }
 ///   result->DoTheStuff();
 ///
+/// \tparam T Contained value type, or `void` to indicate no contained value.
+///     Must not be a reference type or cv-qualified.
+/// \ingroup Error handling
 template <typename T>
 class Result : private internal_result::ResultStorage<T>,
                private internal_result::CopyCtorBase<T>,
@@ -133,10 +145,17 @@ class Result : private internal_result::ResultStorage<T>,
 
  public:
   /// The type of the contained success value.
-  using value_type = typename Base::value_type;
-  using reference_type = typename Base::reference_type;
-  using const_reference_type = typename Base::const_reference_type;
+  using value_type = T;
 
+  /// Equal to `T&`, or `void` if `T` is void.
+  using reference_type =
+      typename internal_result::ResultStorage<T>::reference_type;
+
+  /// Equal to `const T&`, or `void` if `T` is `void`.
+  using const_reference_type =
+      typename internal_result::ResultStorage<T>::const_reference_type;
+
+  /// Always equal to `absl::Status`.
   using error_type = absl::Status;
 
   template <typename U>
@@ -145,20 +164,30 @@ class Result : private internal_result::ResultStorage<T>,
   ~Result() = default;
 
   /// Constructs an error Result with a code of `absl::StatusCode::kUnknown`.
+  ///
+  /// \id default
   explicit Result() : Base(internal_result::noinit_t{}) {
     this->construct_status(absl::UnknownError(""));
   }
 
-  /// Copy and move constructors, standard semantics
+  /// Constructs from an existing result.
+  ///
+  /// \id copy
   Result(const Result& src) = default;
   Result(Result&& src) = default;
+
+  /// Assigns from an existing result.
+  ///
+  /// \id copy
   Result& operator=(const Result& src) = default;
   Result& operator=(Result&& src) = default;
 
   /// absl::Status construtors.
 
-  /// \brief Construct a Result<T> with an an absl::Status code.
-  /// \pre `!status` unless T is void.
+  /// Constructs from a status object.
+  ///
+  /// \pre `!status` unless `T` is `void`.
+  /// \id status
   Result(const absl::Status& status) : Base(internal_result::noinit_t{}) {
     if constexpr (std::is_void_v<value_type>) {
       if (status.ok()) {
@@ -180,6 +209,10 @@ class Result : private internal_result::ResultStorage<T>,
     this->construct_status(status);
   }
 
+  /// Assigns from a status object.
+  ///
+  /// \pre `!status` unless `T` is `void`.
+  /// \id status
   Result& operator=(const absl::Status& status) {
     if constexpr (std::is_void_v<value_type>) {
       if (status.ok()) {
@@ -210,7 +243,16 @@ class Result : private internal_result::ResultStorage<T>,
   ///
   /// Disallowed when T is constructible from Result<U>.
 
-  /// \brief Converting copy constructor (implicit)
+  /// Constructs from an existing result with a convertible value type.
+  ///
+  /// .. note::
+  ///
+  ///    This constructor is *conditionally* implicit if `T` is implicitly
+  ///    constructible from `U`.
+  ///
+  /// \requires `T` is constructible from `U` and is not constructible from
+  ///     `Result<U>`.
+  /// \id convert
   template <
       typename U,
       std::enable_if_t<
@@ -264,7 +306,11 @@ class Result : private internal_result::ResultStorage<T>,
     construct_from(std::move(rhs));
   }
 
-  /// \brief Converting assignment operator
+  /// Assigns from an existing result with a convertible value type.
+  ///
+  /// \requires `T` is `void`, or `T` is constructible from `U` and is not
+  ///     constructible from `Result<U>`.
+  /// \id convert
   template <
       typename U,
       std::enable_if_t<
@@ -277,7 +323,6 @@ class Result : private internal_result::ResultStorage<T>,
     this->assign_from(rhs);
     return *this;
   }
-
   template <
       typename U,
       std::enable_if_t<
@@ -291,7 +336,7 @@ class Result : private internal_result::ResultStorage<T>,
     return *this;
   }
 
-  /// \brief Constructs a Result<void> from a Result<U>.
+  // Constructs a Result<void> from a Result<U>.
   template <typename V,  //
             std::enable_if_t<internal_result::result_void_conversion<T, V>>* =
                 nullptr>
@@ -313,7 +358,7 @@ class Result : private internal_result::ResultStorage<T>,
     }
   }
 
-  /// \brief Conversion to Result<void> assignment.
+  // Conversion to Result<void> assignment.
   template <typename V,  //
             std::enable_if_t<internal_result::result_void_conversion<T, V>>* =
                 nullptr>
@@ -340,14 +385,11 @@ class Result : private internal_result::ResultStorage<T>,
 
   /// Forwarding constructors.
 
-  /// \brief Constructs a non-empty `Result` direct-initialized value of type
-  /// `T` from the arguments `std::forward<Args>(args)...`  within the `Result`.
+  /// Directly constructs the contained value from the specified arguments.
+  /// \id in_place
   template <typename... Args>
   Result(std::in_place_t, Args&&... args)
       : Base(internal_result::value_t{}, std::forward<Args>(args)...) {}
-
-  /// Constructs a non-empty `Result` direct-initialized value of type `T` from
-  /// the arguments of an initializer_list and `std::forward<Args>(args)...`.
   template <typename U, typename... Args>
   Result(std::in_place_t, std::initializer_list<U> il, Args&&... args)
       : Base(internal_result::value_t{}, il, std::forward<Args>(args)...) {}
@@ -357,7 +399,16 @@ class Result : private internal_result::ResultStorage<T>,
   /// Disallowed when T is constructible from Result<U> except when T is U.
   /// Disallowed when absl::Status is constructible from U except when T is U.
 
-  /// \brief Value constructor (implicit)
+  /// Constructs the contained value from a convertible value.
+  ///
+  /// .. note::
+  ///
+  ///    This constructor is *conditionally* implicit if `T` is implicitly
+  ///    constructible from `U`.
+  ///
+  /// \requires `T` is constructible from `U` and either `T` is `U` or `T` is
+  ///     not constructible from `Result<U>`.
+  /// \id value
   template <typename U,
             std::enable_if_t<(internal_result::value_conversion<T, U> &&
                               std::is_constructible_v<T, U&&> &&
@@ -365,7 +416,7 @@ class Result : private internal_result::ResultStorage<T>,
                               )>* = nullptr>
   Result(U&& v) : Base(internal_result::value_t{}, std::forward<U>(v)) {}
 
-  /// \brief Value constructor (explicit)
+  // Explicit overload.
   template <typename U,
             std::enable_if_t<(internal_result::value_conversion<T, U> &&
                               std::is_constructible_v<T, U&&> &&
@@ -374,7 +425,11 @@ class Result : private internal_result::ResultStorage<T>,
   explicit Result(U&& v)
       : Base(internal_result::value_t{}, std::forward<U>(v)) {}
 
-  /// \brief Value assignment
+  /// Assigns the contained value from a convertible value.
+  ///
+  /// \requires `T` is constructible from `U` and either `T` is `U` or `T` is
+  ///     not constructible from `Result<U>`.
+  /// \id value
   template <typename U,
             std::enable_if_t<(internal_result::value_conversion<T, U> &&
                               std::is_constructible_v<T, U&&> &&
@@ -385,10 +440,10 @@ class Result : private internal_result::ResultStorage<T>,
     return *this;
   }
 
-  /// \brief Result::emplace() reconstructs the underlying `T` in-place with
-  /// the given forwarded arguments.
+  /// Reconstructs the contained value in-place with the given forwarded
+  /// arguments.
   ///
-  /// Example:
+  /// Example::
   ///
   ///   Result<Foo> opt = absl::UnknownError("");
   ///   opt.emplace(arg1,arg2,arg3);  // Constructs Foo(arg1,arg2,arg3)
@@ -401,45 +456,44 @@ class Result : private internal_result::ResultStorage<T>,
       return this->value_;
     }
   }
-
   template <typename U, typename... Args>
   reference_type emplace(std::initializer_list<U> il, Args&&... args) {
     this->emplace_value(il, std::forward<Args>(args)...);
     return this->value_;
   }
 
-  /// Ignores the result. This method signals intent to ignore the result
-  /// to suppress compiler warnings from [[nodiscard]].
+  /// Ignores the result. This method signals intent to ignore the result to
+  /// suppress compiler warnings from ``[[nodiscard]]``.
   void IgnoreResult() const {}
 
   /// Result observers.
 
-  /// Returns true if this represents a success state, false for a failure
-  /// state. value() is only iff has_value() is true. status() is valid iff
-  /// has_value is false.
-  constexpr bool has_value() const { return this->has_value_; }
-
-  /// Returns true if *this represents a success state.
-  explicit constexpr operator bool() const noexcept { return has_value(); }
+  /// Returns `true` if this represents a success state, `false` for a failure
+  /// state.
+  ///
+  /// `value()` is valid only iff `has_value()` is `true`. `status()` is valid
+  /// iff `has_value()` is false.
   constexpr bool ok() const { return has_value(); }
+  constexpr bool has_value() const { return this->has_value_; }
+  explicit constexpr operator bool() const noexcept { return has_value(); }
 
-  /// \brief Checked value accessor.
-  /// Terminates the process if *this represents a failure state.
-  /// \pre has_value() == true
+  /// Checked value accessor.
+  ///
+  /// Terminates the process if `*this` represents a failure state.
+  ///
+  /// \pre `has_value() == true`
   const_reference_type value() const& noexcept TENSORSTORE_LIFETIME_BOUND {
     if (!has_value()) TENSORSTORE_CHECK_OK(status());
     if constexpr (!std::is_void_v<value_type>) {
       return this->value_;
     }
   }
-
   reference_type value() & noexcept TENSORSTORE_LIFETIME_BOUND {
     if (!has_value()) TENSORSTORE_CHECK_OK(status());
     if constexpr (!std::is_void_v<value_type>) {
       return this->value_;
     }
   }
-
   value_type value() && noexcept {
     if (!has_value()) TENSORSTORE_CHECK_OK(status());
     if constexpr (!std::is_void_v<value_type>) {
@@ -447,17 +501,18 @@ class Result : private internal_result::ResultStorage<T>,
     }
   }
 
+  /// Returns the error status.
   const absl::Status& status() const& noexcept TENSORSTORE_LIFETIME_BOUND {
     TENSORSTORE_CHECK(!has_value());
     return this->status_;
   }
-
   absl::Status status() && {
     TENSORSTORE_CHECK(!has_value());
     return std::move(this->status_);
   }
 
-  /// operators
+  /// Returns a pointer to the contained value.
+  ///
   /// \pre has_value() == true
   template <typename U = T>
   constexpr const U* operator->() const noexcept {
@@ -470,6 +525,7 @@ class Result : private internal_result::ResultStorage<T>,
     return &this->value_;
   }
 
+  /// Returns a reference to the contained value.
   template <typename U = T>
   constexpr const U& operator*() const& noexcept {
     assert_has_value();
@@ -488,14 +544,15 @@ class Result : private internal_result::ResultStorage<T>,
 
   /// "Pipeline" operator for `Result`.
   ///
-  /// In the expression  `x | y`, if
-  ///   * x is of type `Result<T>`
-  ///   * y is a function having signature `U (T)` or `Result<U>(T)`
+  /// In the expression  ``x | y``, if
   ///
-  /// Then operator| applies y to the value contained in x, returning a
-  /// Result<U>. In other words, this function is roughly expressed as:
+  /// - ``x`` is of type `Result<T>`
+  /// - ``y`` is a function having signature ``U (T)`` or ``Result<U>(T)``
   ///
-  ///    `return !x.ok() ? x.status() | Result<U>(y(x.value()))`
+  /// Then `operator|` applies ``y`` to the value contained in ``x``, returning
+  /// a ``Result<U>``. In other words, this function is roughly expressed as::
+  ///
+  ///    return !x.ok() ? x.status() : Result<U>(y(x.value()))
   ///
   template <typename Func>
   inline FlatResult<std::invoke_result_t<Func&&, reference_type>>  //
@@ -510,13 +567,14 @@ class Result : private internal_result::ResultStorage<T>,
     return static_cast<Func&&>(func)(value());
   }
 
+  /// Returns the contained value, or `default_value` if `*this` is in an error
+  /// state.
   template <typename U>
-  constexpr value_type value_or(U&& default_value) const& {
+  constexpr T value_or(U&& default_value) const& {
     return has_value() ? this->value_ : std::forward<U>(default_value);
   }
-
   template <typename U>
-  constexpr value_type value_or(U&& default_value) && {
+  constexpr T value_or(U&& default_value) && {
     return has_value() ? std::move(this->value_)
                        : std::forward<U>(default_value);
   }
@@ -601,10 +659,10 @@ class Result : private internal_result::ResultStorage<T>,
   /// convertible to `Result<T>` to also model `Receiver<absl::Status, T>` and
   /// `Sender<absl::Status, T>`.
 
-  /// Implements the Receiver `set_value` operation.
-  ///
-  /// This destroys any existing value/error and constructs the contained value
-  /// from `v...`.
+  // Implements the Receiver `set_value` operation.
+  //
+  // This destroys any existing value/error and constructs the contained value
+  // from `v...`.
   template <typename... V>
   friend std::enable_if_t<((std::is_same_v<void, T> && sizeof...(V) == 0) ||
                            std::is_constructible_v<T, V&&...>)>
@@ -612,27 +670,27 @@ class Result : private internal_result::ResultStorage<T>,
     result.emplace(std::forward<V>(v)...);
   }
 
-  /// Implements the Receiver `set_error` operation.
-  ///
-  /// Overrides the existing value/error with `status`.
+  // Implements the Receiver `set_error` operation.
+  //
+  // Overrides the existing value/error with `status`.
   friend void set_error(Result& result, absl::Status status) {
     result = std::move(status);
   }
 
-  /// Implements the Receiver `set_cancel` operation.
-  ///
-  /// This overrides the existing value/error with `absl::CancelledError("")`.
+  // Implements the Receiver `set_cancel` operation.
+  //
+  // This overrides the existing value/error with `absl::CancelledError("")`.
   friend void set_cancel(Result& result) { result = absl::CancelledError(""); }
 
-  /// Implements the Sender `submit` operation.
-  ///
-  /// If `has_value() == true`, calls `set_value` with an lvalue reference to
-  /// the contained value.
-  ///
-  /// If in an error state with an error code of `absl::StatusCode::kCancelled`,
-  /// calls `set_cancel`.
-  ///
-  /// Otherwise, calls `set_error` with `status()`.
+  // Implements the Sender `submit` operation.
+  //
+  // If `has_value() == true`, calls `set_value` with an lvalue reference to
+  // the contained value.
+  //
+  // If in an error state with an error code of `absl::StatusCode::kCancelled`,
+  // calls `set_cancel`.
+  //
+  // Otherwise, calls `set_error` with `status()`.
   template <typename Receiver>
   friend std::void_t<decltype(execution::set_value, std::declval<Receiver&>(),
                               std::declval<T>()),
@@ -684,12 +742,15 @@ class Result : private internal_result::ResultStorage<T>,
 };
 
 /// Returns a Result<T> with a (possibly-default) value.
+///
 /// Example:
 ///    Result<void> r = MakeResult();
 ///    Result<int>  x = MakeResult<int>();
 ///    auto result = MakeResult(7);
+///
+/// \relates Result
+/// \id value
 inline Result<void> MakeResult() { return {std::in_place}; }
-
 template <int&... ExplicitArgumentBarrier, typename T>
 inline Result<typename tensorstore::internal::remove_cvref_t<T>> MakeResult(
     T&& t) {
@@ -718,12 +779,14 @@ inline Result<U> MakeResult(absl::Status status) {
 
 /// Returns the error status of `Result`, or `absl::OkStatus()` if `Result` has
 /// a value.
+///
 /// \returns `result.status()`
+/// \relates Result
+/// \id result
 template <typename T>
 inline absl::Status GetStatus(const Result<T>& result) {
   return result.has_value() ? absl::Status() : result.status();
 }
-
 template <typename T>
 inline absl::Status GetStatus(Result<T>&& result) {
   return result.has_value() ? absl::Status() : std::move(result).status();
@@ -731,21 +794,20 @@ inline absl::Status GetStatus(Result<T>&& result) {
 
 /// UnwrapResult returns the value contained by the Result<T> instance,
 /// `*t`, or the value, `t`.
+///
+/// \relates Result
 template <typename T>
 inline T&& UnwrapResult(T&& t) {
   return std::forward<T>(t);
 }
-
 template <typename T>
 inline const T& UnwrapResult(const Result<T>& t) {
   return *t;
 }
-
 template <typename T>
 inline T& UnwrapResult(Result<T>& t) {  // NOLINT
   return *t;
 }
-
 template <typename T>
 inline T&& UnwrapResult(Result<T>&& t) {
   return *std::move(t);
@@ -760,6 +822,8 @@ inline T&& UnwrapResult(Result<T>&& t) {
 ///     if no `Result`-wrapped `arg` is an in error state.  Otherwise, returns
 ///     the error `absl::Status` of the first `Result`-wrapped `arg` in an error
 ///     state.
+///
+/// \relates Result
 template <typename Func, typename... T>
 FlatResult<std::invoke_result_t<Func&&, UnwrapQualifiedResultType<T>...>>
 MapResult(Func&& func, T&&... arg) {
@@ -818,10 +882,10 @@ using ChainResultType = typename ChainResultTypeHelper<T, Func...>::type;
 
 }  // namespace internal_result
 
-/// ChainResult() applies a sequence of functions, which may optionally
-/// return `Result`-wrapped values, to an optionally `Result`-wrapped value.
+/// Applies a sequence of functions, which may optionally return
+/// `Result`-wrapped values, to an optionally `Result`-wrapped value.
 ///
-/// For example:
+/// For example::
 ///
 ///     float func1(int x);
 ///     Result<std::string> func2(float x);
@@ -829,14 +893,12 @@ using ChainResultType = typename ChainResultTypeHelper<T, Func...>::type;
 ///
 ///     Result<bool> y1 = ChainResult(Result<int>(3), func1, func2, func3);
 ///     Result<bool> y2 = ChainResult(3, func1, func2, func3);
-
-/// This overload handles the base case of zero functions.
+///
+/// \relates Result
 template <typename T>
 internal_result::ChainResultType<T> ChainResult(T&& arg) {
   return std::forward<T>(arg);
 }
-
-/// Overload that handles the case of at least one function.
 template <typename T, typename Func0, typename... Func>
 internal_result::ChainResultType<T, Func0, Func...> ChainResult(
     T&& arg, Func0&& func0, Func&&... func) {
@@ -859,20 +921,22 @@ internal_result::ChainResultType<T, Func0, Func...> ChainResult(
   /**/
 
 /// Convenience macro for propagating errors when calling a function that
-/// returns a `Result`.
+/// returns a `tensorstore::Result`.
 ///
-/// This macro generates multiple statements and should be invoked as follows:
+/// This macro generates multiple statements and should be invoked as follows::
 ///
 ///     Result<int> GetSomeResult();
 ///
 ///     TENSORSTORE_ASSIGN_OR_RETURN(int x, GetSomeResult());
 ///
 /// An optional third argument specifies the return expression in the case of an
-/// error.  A variable `_` bound to the error absl::Status value is in scope
-/// within this expression.  For example:
+/// error.  A variable ``_`` bound to the error `absl::Status` value is in
+/// scope within this expression.  For example::
 ///
 ///     TENSORSTORE_ASSIGN_OR_RETURN(int x, GetSomeResult(),
 ///                                  _.Annotate("Context message"));
+///
+/// \relates tensorstore::Result
 #define TENSORSTORE_ASSIGN_OR_RETURN(decl, ...)                          \
   TENSORSTORE_PP_EXPAND(TENSORSTORE_INTERNAL_ASSIGN_OR_RETURN_IMPL(      \
       TENSORSTORE_PP_CAT(tensorstore_assign_or_return_, __LINE__), decl, \
@@ -891,16 +955,19 @@ internal_result::ChainResultType<T, Func0, Func...> ChainResult(
   decl = std::move(*temp);
 
 /// Convenience macro for checking errors when calling a function that returns a
-/// `Result`.
+/// `tensorstore::Result`.
 ///
-/// This macro generates multiple statements and should be invoked as follows:
+/// This macro generates multiple statements and should be invoked as follows::
 ///
 ///     Result<int> GetSomeResult();
 ///
 ///     TENSORSTORE_CHECK_OK_AND_ASSIGN(int x, GetSomeResult());
 ///
-/// If the expression returns a `Result` with a value, it is assigned to `decl`.
-/// Otherwise, the error is logged and the program is terminated.
+/// If the expression returns a `tensorstore::Result` with a value, the value is
+/// assigned to `decl`.  Otherwise, the error is logged and the program is
+/// terminated.
+///
+/// \relates tensorstore::Result
 #define TENSORSTORE_CHECK_OK_AND_ASSIGN(decl, ...)                         \
   TENSORSTORE_PP_EXPAND(TENSORSTORE_INTERNAL_CHECK_OK_AND_ASSIGN_IMPL(     \
       TENSORSTORE_PP_CAT(tensorstore_check_ok_or_return_, __LINE__), decl, \
