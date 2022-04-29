@@ -21,7 +21,9 @@ namespace tensorstore {
 
 /// Specifies the method by which downsampling is performed.
 ///
-/// Refer to driver/downsample/schema.yml for details.
+/// Refer to :json:schema:`DownsampleMethod` for details.
+///
+/// \ingroup downsample
 enum class DownsampleMethod {
   kStride,
   kMean,
@@ -31,6 +33,10 @@ enum class DownsampleMethod {
   kMax,
 };
 
+/// Prints a debugging string representation to an `std::ostream`.
+///
+/// \relates DownsampleMethod
+/// \id DownsampleMethod
 std::ostream& operator<<(std::ostream& os, DownsampleMethod method);
 
 }  // namespace tensorstore

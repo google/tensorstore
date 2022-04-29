@@ -33,13 +33,16 @@ namespace tensorstore {
 /// \param downsample_factors Factors by which to downsample each dimension of
 ///     `store`.  Must have length equal to `store.rank()` and all factors must
 ///     be positive.  Specifying a factor of 1 indicates not to downsample a
-///     given dimension.
+///     given dimension.  May be specified as a braced list,
+///     e.g. `Downsample(store, {2, 3}, DownsampleMethod::kMean)`.
 /// \param downsample_method The downsampling method.
 /// \returns The downsampled view, with the same rank as `store` but downsampled
 ///     domain.
 /// \error `absl::StatusCode::kInvalidArgument` if `downsample_factors` is
 ///     invalid, or `downsample_method` is not supported for
 ///     `store.dtype()`.
+/// \ingroup downsample
+/// \id TensorStore
 template <typename Element, DimensionIndex Rank, ReadWriteMode Mode>
 Result<TensorStore<Element, Rank, ReadWriteMode::read>> Downsample(
     TensorStore<Element, Rank, Mode> store,
@@ -57,8 +60,8 @@ Result<TensorStore<Element, Rank, ReadWriteMode::read>> Downsample(
       std::move(transformed_driver));
 }
 
-/// Overload that allows `downsample_factors` to be specified as a braced list,
-/// e.g. `Downsample(store, {2, 3}, DownsampleMethod::kMean)`.
+// Overload that allows `downsample_factors` to be specified as a braced list,
+// e.g. `Downsample(store, {2, 3}, DownsampleMethod::kMean)`.
 template <typename Element, DimensionIndex Rank, ReadWriteMode Mode,
           DimensionIndex FactorsRank>
 std::enable_if_t<RankConstraint::Implies(FactorsRank, Rank),
@@ -72,18 +75,21 @@ Downsample(TensorStore<Element, Rank, Mode> store,
 
 /// Returns a downsampled view of a `Spec`.
 ///
-/// \param spec Base spec to downsample.
+/// \param base_spec Base spec to downsample.
 /// \param downsample_factors Factors by which to downsample each dimension.
-///     Must have length compatible with `spec.rank()` and all factors must be
-///     positive.
+///     Must have length compatible with `base_spec.rank()` and all factors must
+///     be positive.  May be specified as a braced list,
+///     e.g. `Downsample(base_spec, {2, 3}, DownsampleMethod::kMean)`.
 /// \param downsample_method The downsampling method.
 /// \returns The downsampled view.
+/// \ingroup downsample
+/// \id Spec
 Result<Spec> Downsample(const Spec& base_spec,
                         span<const Index> downsample_factors,
                         DownsampleMethod downsample_method);
 
-/// Overload that allows `downsample_factors` to be specified as a braced
-/// list, e.g. `Downsample(spec, {2, 3}, DownsampleMethod::kMean)`.
+// Overload that allows `downsample_factors` to be specified as a braced
+// list, e.g. `Downsample(spec, {2, 3}, DownsampleMethod::kMean)`.
 template <DimensionIndex FactorsRank>
 Result<Spec> Downsample(const Spec& base_spec,
                         const Index (&downsample_factors)[FactorsRank],
