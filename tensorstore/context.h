@@ -60,7 +60,7 @@ namespace tensorstore {
 /// specified as a context resource, while authentication credentials, caching,
 /// and concurrency options should be specified as context resources.
 ///
-/// Example usage:
+/// Example usage::
 ///
 ///     auto spec_result = Context::Spec::FromJson({
 ///       {"data_copy_concurrency", {{"limit", 4}}},
@@ -97,12 +97,11 @@ namespace tensorstore {
 /// context or resource specification without actually constructing the
 /// resource; this is especially useful if one process/machine prepares a
 /// specification for use by another process/machine.  It also makes it possible
-/// to properly handle shared resources when serializing back to JSON (see
-/// `internal::ContextSpecBuilder`).
+/// to properly handle shared resources when serializing back to JSON.
 ///
 /// The `Context::Resource` type is actually a variant type that can hold either
 /// a context resource or a context resource spec.
-/// `Context::Resource<Provider>::FromJson` returns an unresolved context
+/// ``Context::Resource<Provider>::FromJson`` returns an unresolved context
 /// resource spec, which specifies any parameters of the context resource
 /// (e.g. memory limits for a cache pool) but does not represent a specific
 /// resource (e.g. the actual cache pool).  *Binding* the context resource spec
@@ -112,12 +111,14 @@ namespace tensorstore {
 /// to data structures like `tensorstore::Spec` and `tensorstore::kvstore::Spec`
 /// that indirectly hold context resources.
 ///
-/// \threadsafety Thread compatible.
+/// \ingroup core
 class Context {
  public:
+  /// JSON serialization options.
   using ToJsonOptions = JsonSerializationOptions;
   using FromJsonOptions = JsonSerializationOptions;
 
+  /// Parsed specification of a collection of context resources.
   class Spec {
    public:
     /// Constructs an empty context spec.
@@ -143,6 +144,7 @@ class Context {
     using ResourceImpl = internal_context::ResourceImpl<Provider>;
 
    public:
+    /// JSON serialization options.
     using ToJsonOptions = JsonSerializationOptions;
     using FromJsonOptions = JsonSerializationOptions;
 
@@ -159,8 +161,8 @@ class Context {
       return r;
     }
 
-    /// Returns a pointer to the resource object of type
-    /// `typename Provider::Resource`, or `nullptr` if no resource is bound.
+    /// Returns a pointer to the resource object of type ``Provider::Resource``,
+    /// or `nullptr` if no resource is bound.
     auto* get() const noexcept {
       return has_resource()
                  ? &(static_cast<ResourceImpl*>(impl_.get().get())->value_)
@@ -172,18 +174,22 @@ class Context {
       return *get();
     }
 
+    /// Returns `true` if this is not null and corresponds to a bound resource
+    /// (rather than a resource spec).
     bool has_resource() const { return impl_.get() && impl_.get().tag() == 0; }
+
+    /// Returns `true` if this corresponds to a resource spec or bound resource.
     bool valid() const { return !!impl_; }
 
-    /// Returns `true` if `a` and `b` refer to the same resource.
+    /// Checks if `a` and `b` refer to the same resource or resource spec.
     friend bool operator==(const Resource& a, const Resource& b) {
       return a.impl_ == b.impl_;
     }
-
     friend bool operator!=(const Resource& a, const Resource& b) {
       return !(a == b);
     }
 
+    /// Converts to a JSON representation.
     Result<::nlohmann::json> ToJson(
         const ToJsonOptions& options = ToJsonOptions{}) const {
       return internal_json_binding::ToJson(
@@ -191,6 +197,7 @@ class Context {
           internal_json_binding::DefaultBinder<>, options);
     }
 
+    /// Returns a resource spec from a JSON representation.
     static Result<Resource<Provider>> FromJson(
         ::nlohmann::json j,
         const FromJsonOptions& options = FromJsonOptions{}) {
@@ -198,7 +205,7 @@ class Context {
           std::move(j), internal_json_binding::DefaultBinder<>, options);
     }
 
-    /// Support for json binding via internal_json_binding::DefaultBinder<>.
+    // Support for json binding via internal_json_binding::DefaultBinder<>.
     static constexpr internal_context::ResourceJsonBinderImpl<Provider,
                                                               Resource>
         default_json_binder = {};
@@ -212,16 +219,16 @@ class Context {
       return absl::OkStatus();
     }
 
-    /// If `!this->has_resource()`, resolves this to a resource using the
-    /// specified context.  Otherwise, does nothing.
-    ///
-    /// Upon successful return, `has_resource() == true`.
+    // If `!this->has_resource()`, resolves this to a resource using the
+    // specified context.  Otherwise, does nothing.
+    //
+    // Upon successful return, `has_resource() == true`.
     absl::Status BindContext(internal::ContextResourceCreationContext context);
 
-    /// If `this->has_resource()`, converts this to a resource spec.  Otherwise,
-    /// does nothing.
-    ///
-    /// \post `has_resource() == false`
+    // If `this->has_resource()`, converts this to a resource spec.  Otherwise,
+    // does nothing.
+    //
+    // \post `has_resource() == false`
     void UnbindContext(
         const internal::ContextSpecBuilder& context_spec_builder);
 
@@ -241,18 +248,21 @@ class Context {
   };
 
   /// Constructs a null context.
+  ///
+  /// \id null
   Context() = default;
 
   /// Constructs a new default context.
   static Context Default();
 
-  /// Constructs a context from a `ContextSpec`.
+  /// Constructs a context from a `Spec`.
   ///
   /// The actual resources are created lazily as needed.
   ///
   /// \param spec The context spec.
   /// \param parent The parent context to extend.  Specifying a null context is
   ///     equivalent to specifying `Default()`.
+  /// \id spec, parent
   explicit Context(const Spec& spec, Context parent = {});
 
   /// Constructs a context from a JSON spec.
@@ -265,12 +275,17 @@ class Context {
                                   Context parent = {},
                                   FromJsonOptions options = {});
 
-  /// Returns a resource.
+  /// Returns a resource or the default resource for a given provider.
   ///
+  /// If the nullary overload is called, returns the default resource for
+  /// `Provider`.
+  ///
+  /// \tparam Provider Context resource provider type.  Must be specified when
+  ///     not using the `resource_spec` overload.
   /// \param resource_spec The resource spec.  May be null, in which case a null
   ///     resource is returned.
+  /// \param json_spec The JSON resource spec.
   /// \dchecks This context is not null.
-  /// \threadsafety Thread safe.
   template <typename Provider>
   Result<Resource<Provider>> GetResource(
       const Resource<Provider>& resource_spec) const {
@@ -280,12 +295,6 @@ class Context {
         /*resource=*/resource.impl_));
     return resource;
   }
-
-  /// Returns a resource from a JSON spec.
-  ///
-  /// \param resource_spec The JSON resource spec.
-  /// \dchecks This context is not null.
-  /// \threadsafety Thread safe.
   template <typename Provider>
   Result<Resource<Provider>> GetResource(
       const ::nlohmann::json& json_spec) const {
@@ -293,17 +302,14 @@ class Context {
                                  Resource<Provider>::FromJson(json_spec));
     return GetResource(spec);
   }
-
-  /// Returns the default resource for a given provider.
-  ///
-  /// \dchecks This context is not null.
-  /// \threadsafety Thread safe.
   template <typename Provider>
   Result<Resource<Provider>> GetResource() {
     return GetResource<Provider>(Provider::id);
   }
 
   /// Returns `true` if this is not a null context.
+  ///
+  /// \id bool
   explicit operator bool() const { return static_cast<bool>(impl_); }
 
   /// Returns `true` if the two context objects refer to the same underlying
@@ -311,15 +317,14 @@ class Context {
   friend bool operator==(const Context& a, const Context& b) {
     return a.impl_ == b.impl_;
   }
-
   friend bool operator!=(const Context& a, const Context& b) {
     return !(a == b);
   }
 
-  /// Returns the spec used to create this context.
+  /// Returns the `Spec` used to create this context.
   Context::Spec spec() const;
 
-  /// Returns the parent Context, if any.
+  /// Returns the parent `Context`, if any.
   Context parent() const;
 
  private:
@@ -331,7 +336,9 @@ class Context {
 /// as `tensorstore::kvstore::Spec` and `tensorstore::Spec`.
 ///
 /// This is an "option" type that can be used with `TensorStore::spec`,
-/// `kvstore::spec`, and related methods.
+/// `KvStore::spec`, and related methods.
+///
+/// \relates Context
 enum class ContextBindingMode : unsigned char {
   /// Context binding mode is unspecified.
   unspecified,
@@ -357,6 +364,8 @@ enum class ContextBindingMode : unsigned char {
 
 /// Indicates the binding state of context resources within a Spec-like type,
 /// such as `tensorstore::Spec` and `tensorstore::kvstore::Spec`.
+///
+/// \relates Context
 enum class ContextBindingState : unsigned char {
   /// All resources are unbound.
   unbound,
@@ -367,6 +376,7 @@ enum class ContextBindingState : unsigned char {
   bound
 };
 
+/// \relates ContextBindingMode
 constexpr ContextBindingMode retain_context = ContextBindingMode::retain;
 constexpr ContextBindingMode unbind_context = ContextBindingMode::unbind;
 constexpr ContextBindingMode strip_context = ContextBindingMode::strip;
@@ -677,13 +687,13 @@ TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(tensorstore::Context::Spec)
 TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(tensorstore::Context)
 
 namespace std {
-/// Specialization of `std::pointer_traits` for `Context::Resource`.
-///
-/// Note that we can't define a nested `element_type` within
-/// `Context::Resource`, which would eliminate the need for this specialization,
-/// because we need to allow `Context::Resource` to be instantiated even if
-/// `Provider` is incomplete (to allow recursive context references, for
-/// example).
+// Specialization of `std::pointer_traits` for `Context::Resource`.
+//
+// Note that we can't define a nested `element_type` within
+// `Context::Resource`, which would eliminate the need for this specialization,
+// because we need to allow `Context::Resource` to be instantiated even if
+// `Provider` is incomplete (to allow recursive context references, for
+// example).
 template <typename Provider>
 struct pointer_traits<tensorstore::Context::Resource<Provider>> {
   using pointer = tensorstore::Context::Resource<Provider>;
