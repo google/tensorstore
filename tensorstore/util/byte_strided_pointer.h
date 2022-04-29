@@ -26,27 +26,39 @@
 namespace tensorstore {
 
 /// Wrapper type for a raw pointer for which pointer arithmetic operates with a
-/// stride of 1 byte, rather than a stride of sizeof(T) bytes.
+/// stride of 1 byte, rather than a stride of ``sizeof(T)`` bytes.
 ///
-/// If the run-time type of the pointee is `U`, all byte offsets used for
-/// arithmetic MUST be a multiple of `alignof(U)`.
+/// If the run-time type of the pointee is ``U``, all byte offsets used for
+/// arithmetic MUST be a multiple of ``alignof(U)``.
 ///
 /// \tparam T The (possibly const-qualified) type of the pointee.  It may be
 ///     `void` or `const void` to indicate that the type is not known at compile
 ///     time.
+/// \ingroup array
 template <typename T>
 class ByteStridedPointer {
  public:
+  /// Pointee type.
   using element_type = T;
+
+  /// Pointer difference type, in bytes.
   using difference_type = std::ptrdiff_t;
 
+  /// Alignment required by `T`, or `1` if `T` is `void`.
   constexpr static size_t alignment =
       alignof(std::conditional_t<std::is_void_v<T>, char, T>);
 
   /// Default initialization, leaves the wrapped raw pointer in an uninitialized
   /// state.
+  ///
+  /// \id default
   ByteStridedPointer() = default;
 
+  /// Constructs from a compatible raw pointer.
+  ///
+  /// Conditionally implicit if `IsElementTypeImplicitlyConvertible<U, T>`.
+  ///
+  /// \id raw
   template <
       typename U,
       std::enable_if_t<IsElementTypeImplicitlyConvertible<U, T>>* = nullptr>
@@ -54,7 +66,6 @@ class ByteStridedPointer {
       : value_(reinterpret_cast<std::uintptr_t>(value)) {
     assert(value_ % alignment == 0);
   }
-
   template <
       typename U,
       std::enable_if_t<IsElementTypeOnlyExplicitlyConvertible<U, T>>* = nullptr>
@@ -63,6 +74,11 @@ class ByteStridedPointer {
     assert(value_ % alignment == 0);
   }
 
+  /// Converts from a compatible `ByteStridedPointer` type.
+  ///
+  /// Conditionally implicit if `IsElementTypeImplicitlyConvertible<U, T>`.
+  ///
+  /// \id convert
   template <
       typename U,
       std::enable_if_t<IsElementTypeImplicitlyConvertible<U, T>>* = nullptr>
@@ -70,7 +86,6 @@ class ByteStridedPointer {
       : value_(reinterpret_cast<std::uintptr_t>(value.get())) {
     assert(value_ % alignment == 0);
   }
-
   template <
       typename U,
       std::enable_if_t<IsElementTypeOnlyExplicitlyConvertible<U, T>>* = nullptr>
@@ -79,22 +94,33 @@ class ByteStridedPointer {
     assert(value_ % alignment == 0);
   }
 
+  /// Converts to a raw pointer.
+  ///
+  /// \dchecks The pointer is a multiple of `alignment`.
+  /// \membergroup Accessors
   T* get() const {
     assert(value_ % alignment == 0);
     return reinterpret_cast<T*>(value_);
   }
+
+  /// Enables member access to the pointee.
+  ///
+  /// \membergroup Accessors
   T* operator->() const { return get(); }
 
   /// Dereferences the raw pointer.
   ///
-  /// This is a template solely to avoid compilation errors when T=void.
+  /// This is a template solely to avoid compilation errors when `T` is `void`.
+  /// \membergroup Accessors
   template <typename U = T>
   U& operator*() const {
     return *static_cast<U*>(get());
   }
 
+  /// Converts to a raw pointer.
+  ///
+  /// \membergroup Accessors
   operator T*() const { return get(); }
-
   template <
       typename U,
       std::enable_if_t<IsElementTypeOnlyExplicitlyConvertible<T, U>>* = nullptr>
@@ -103,6 +129,8 @@ class ByteStridedPointer {
   }
 
   /// Increments the raw pointer by `byte_offset` bytes.
+  ///
+  /// \membergroup Arithmetic operations
   template <typename Integer>
   std::enable_if_t<std::is_integral_v<Integer>, ByteStridedPointer&> operator+=(
       Integer byte_offset) {
@@ -113,6 +141,8 @@ class ByteStridedPointer {
   }
 
   /// Decrements the raw pointer by `byte_offset` bytes.
+  ///
+  /// \membergroup Arithmetic operations
   template <typename Integer>
   std::enable_if_t<std::is_integral_v<Integer>, ByteStridedPointer&> operator-=(
       Integer byte_offset) {
@@ -124,6 +154,8 @@ class ByteStridedPointer {
 
   /// Returns a reference to the element starting at the specified `byte_offset`
   /// relative to `get()`.
+  ///
+  /// \membergroup Arithmetic operations
   template <typename Integer>
   std::enable_if_t<std::is_integral_v<Integer>, T>& operator[](
       Integer byte_offset) const {
@@ -133,6 +165,10 @@ class ByteStridedPointer {
     return *x;
   }
 
+  /// Computes the byte offset between two pointers.
+  ///
+  /// \membergroup Arithmetic operations
+  /// \id pointer
   template <typename U>
   friend std::ptrdiff_t operator-(ByteStridedPointer<T> a,
                                   ByteStridedPointer<U> b) {
@@ -140,6 +176,9 @@ class ByteStridedPointer {
            reinterpret_cast<const char*>(b.get());
   }
 
+  /// Adds a byte offset to a pointer.
+  ///
+  /// \membergroup Arithmetic operations
   template <typename Integer>
   friend std::enable_if_t<std::is_integral_v<Integer>, ByteStridedPointer<T>>
   operator+(ByteStridedPointer<T> ptr, Integer byte_offset) {
@@ -154,6 +193,10 @@ class ByteStridedPointer {
     return ptr;
   }
 
+  /// Subtracts a byte offset from a pointer.
+  ///
+  /// \membergroup Arithmetic operations
+  /// \id byte_offset
   template <typename Integer>
   friend inline std::enable_if_t<std::is_integral_v<Integer>,
                                  ByteStridedPointer<T>>
