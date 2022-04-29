@@ -24,10 +24,21 @@
 namespace tensorstore {
 namespace kvstore {
 
+/// Key-value store key type.
+///
+/// \relates KvStore
 using Key = std::string;
+
+/// Key-value store value type.
+///
+/// \relates KvStore
 using Value = absl::Cord;
 
+/// Result of a `Read` operation.
+///
+/// \relates KvStore
 struct ReadResult {
+  /// Specifies the interpretation of `value`.
   enum class State {
     /// Indicates an unspecified value, used when a conditional read was
     /// requested and the condition was not satisfied.  The `value` member
@@ -40,17 +51,31 @@ struct ReadResult {
     kValue
   };
 
+  /// \relates State
   constexpr static State kUnspecified = State::kUnspecified;
   constexpr static State kMissing = State::kMissing;
   constexpr static State kValue = State::kValue;
 
+  /// Prints a debugging string representation to an `std::ostream`.
+  ///
+  /// \relates State
+  /// \id State
   friend std::ostream& operator<<(std::ostream& os, State state);
 
+  /// Constructs a read result with unspecified value and generation.
+  ///
+  /// \id default
   ReadResult() = default;
 
   /// Constructs a `ReadResult` with the value unspecified.
+  ///
+  /// \id stamp
   ReadResult(TimestampedStorageGeneration stamp) : stamp(std::move(stamp)) {}
 
+  /// Constructs a `ReadResult` from the specified `state`, `value`, and
+  /// `stamp`.
+  ///
+  /// \id state, value, stamp
   ReadResult(State state, Value value, TimestampedStorageGeneration stamp)
       : state(state), value(std::move(value)), stamp(std::move(stamp)) {}
 
@@ -62,9 +87,9 @@ struct ReadResult {
 
   /// Generation and timestamp associated with `value` and `state`.
   ///
-  /// The `time` must be greater than or equal to the `staleness_bound`
-  /// specified in the `ReadOptions` (or the time of the read request, if a
-  /// `staleness_bound` in the future was specified).
+  /// The `time` must be greater than or equal to the
+  /// `ReadOptions::staleness_bound` (or the time of the read request, if a
+  /// `ReadOptions::staleness_bound` in the future was specified).
   TimestampedStorageGeneration stamp;
 
   /// Returns `true` if the read was aborted because the conditions were not
@@ -74,24 +99,30 @@ struct ReadResult {
   /// Returns `true` if the key was not found.
   bool not_found() const { return state == kMissing; }
 
+  /// Returns `true` if a value is available.
   bool has_value() const { return state == kValue; }
 
+  /// Returns the `value`, or `std::nullopt` if not available.
   std::optional<Value> optional_value() const& {
     if (state == kValue) return value;
     return std::nullopt;
   }
-
   std::optional<Value> optional_value() && {
     if (state == kValue) return std::move(value);
     return std::nullopt;
   }
 
+  /// Compares two read results for equality.
   friend bool operator==(const ReadResult& a, const ReadResult& b) {
     return a.state == b.state && a.value == b.value && a.stamp == b.stamp;
   }
   friend bool operator!=(const ReadResult& a, const ReadResult& b) {
     return !(a == b);
   }
+
+  /// Prints a debugging string representation to an `std::ostream`.
+  ///
+  /// \id ReadResult
   friend std::ostream& operator<<(std::ostream& os, const ReadResult& x);
 
   // Reflection support.

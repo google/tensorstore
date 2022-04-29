@@ -29,31 +29,39 @@
 
 namespace tensorstore {
 
+/// Specifies a range of bytes within a stored value.
+///
+/// \ingroup kvstore
 struct ByteRange {
-  /// Specifies the starting byte.
+  /// Specifies the starting byte (inclusive).
   std::uint64_t inclusive_min;
 
-  /// Specifies the ending byte.
+  /// Specifies the ending byte (exclusive).
   std::uint64_t exclusive_max;
 
+  /// Checks that this byte range is valid.
   constexpr bool SatisfiesInvariants() const {
     return exclusive_max >= inclusive_min;
   }
 
+  /// Returns the number of bytes contained in the range.
+  ///
+  /// \dchecks `SatisfiesInvariants()`
   std::uint64_t size() const {
     assert(SatisfiesInvariants());
     return exclusive_max - inclusive_min;
   }
 
+  /// Compares two byte ranges for equality.
   friend bool operator==(const ByteRange& a, const ByteRange& b) {
     return a.inclusive_min == b.inclusive_min &&
            a.exclusive_max == b.exclusive_max;
   }
-
   friend bool operator!=(const ByteRange& a, const ByteRange& b) {
     return !(a == b);
   }
 
+  /// Prints a debugging string representation to an `std::ostream`.
   friend std::ostream& operator<<(std::ostream& os, const ByteRange& r);
 
   constexpr static auto ApplyMembers = [](auto&& x, auto f) {
@@ -62,12 +70,20 @@ struct ByteRange {
 };
 
 /// Specifies an optional byte range request.
+///
+/// \ingroup kvstore
 struct OptionalByteRangeRequest {
+  /// Constructs from the specified bounds.
+  ///
+  /// \id inclusive_min, exclusive_max
   OptionalByteRangeRequest(
       std::uint64_t inclusive_min = 0,
       std::optional<std::uint64_t> exclusive_max = std::nullopt)
       : inclusive_min(inclusive_min), exclusive_max(exclusive_max) {}
 
+  /// Constructs from an existing byte range.
+  ///
+  /// \id ByteRange
   OptionalByteRangeRequest(ByteRange r)
       : inclusive_min(r.inclusive_min), exclusive_max(r.exclusive_max) {}
 
@@ -79,20 +95,22 @@ struct OptionalByteRangeRequest {
   /// \invariant `exclusive_max >= inclusive_min`
   std::optional<std::uint64_t> exclusive_max;
 
+  /// Compares for equality.
   friend bool operator==(const OptionalByteRangeRequest& a,
                          const OptionalByteRangeRequest& b) {
     return a.inclusive_min == b.inclusive_min &&
            a.exclusive_max == b.exclusive_max;
   }
-
   friend bool operator!=(const OptionalByteRangeRequest& a,
                          const OptionalByteRangeRequest& b) {
     return !(a == b);
   }
 
+  /// Prints a debugging string representation to an `std::ostream`.
   friend std::ostream& operator<<(std::ostream& os,
                                   const OptionalByteRangeRequest& r);
 
+  /// Checks that this byte range is valid.
   constexpr bool SatisfiesInvariants() const {
     return (!exclusive_max || exclusive_max >= inclusive_min);
   }

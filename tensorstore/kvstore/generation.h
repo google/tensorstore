@@ -37,30 +37,30 @@ namespace tensorstore {
 ///   `StorageGeneration::Unknown()`, equal to the empty string, which can be
 ///   used to indicate an unspecified generation.
 ///
-///   `StorageGeneration::NoValue()`, equal to `{0}`, which can be used to
+///   `StorageGeneration::NoValue()`, equal to ``{1, 5}``, which can be used to
 ///   specify a condition that the object not exist.
 ///
-///   `StorageGeneration::Invalid()`, equal to `{1}`, which must not match any
-///   valid generation.
+///   `StorageGeneration::Invalid()`, equal to ``{1, 8}``, which must not match
+///   any valid generation.
 ///
 /// A storage implementation must ensure that the encoding of generations does
 /// not conflict with these two special generation values.
 ///
 /// For example:
 ///
-/// t=0: Object does not exist, implicitly has generation G0, which may equal
-///      `StorageGeneration::NoValue()`.
+/// - t=0: Object does not exist, implicitly has generation G0, which may equal
+///   `StorageGeneration::NoValue()`.
 ///
-/// t=1: Value V1 is written, storage system assigns generation G1.
+/// - t=1: Value V1 is written, storage system assigns generation G1.
 ///
-/// t=2: Value V2 is written, storage system assigns generation G2, which must
-///      not equal G1.
+/// - t=2: Value V2 is written, storage system assigns generation G2, which must
+///   not equal G1.
 ///
-/// t=3: Value V1 is written again, storage system assigns generation G3, which
-///      must not equal G1 or G2.
+/// - t=3: Value V1 is written again, storage system assigns generation G3,
+///   which must not equal G1 or G2.
 ///
-/// t=4: Object is deleted, implicitly has generation G4, which may equal G0
-///      and/or `StorageGeneration::NoValue()`.
+/// - t=4: Object is deleted, implicitly has generation G4, which may equal G0
+///   and/or `StorageGeneration::NoValue()`.
 ///
 /// Note: Some storage implementations always use a generation of
 /// `StorageGeneration::NoValue()` for not-present objects.  Other storage
@@ -68,6 +68,8 @@ namespace tensorstore {
 /// For example, if some sharding scheme is used pack multiple objects together
 /// into a "shard", the generation associated with a not-present object may be
 /// the generation of the shard in which the object is missing.
+///
+/// \ingroup kvstore
 struct StorageGeneration {
   /// The generation is indicated by a variable-length byte string (the
   /// "generation identifier") followed by a sequence of bytes containing a
@@ -75,49 +77,49 @@ struct StorageGeneration {
   ///
   /// The flag bytes are parsed from the end of `value` in reverse.  The start
   /// of the flag bytes is indicated by a flag byte with `kBaseGeneration` set.
-  /// For example, clean generation with identifier `gen_id`:
+  /// For example, clean generation with identifier ``gen_id``::
   ///
   ///     gen_id + kBaseGeneration
   ///
-  /// Dirty generation with identifier `gen_id`:
+  /// Dirty generation with identifier ``gen_id``::
   ///
   ///     gen_id + (kBaseGeneration|kDirty)
   ///
-  /// Clean "no value" generation indicating a key not present in the store:
+  /// Clean "no value" generation indicating a key not present in the store::
   ///
   ///     gen_id + (kBaseGeneration|kNoValue)
   ///
-  /// Dirty generation derived from "no value" generation:
+  /// Dirty generation derived from "no value" generation::
   ///
   ///     gen_id + (kBaseGeneration|kNoValue|kDirty)
-  ///
-  /// In the case of multiple layers of modifications, e.g. the
-  /// neuroglancer_precomputed uint64_sharded_key_value_store, where we need to
-  /// separately track whether an individual chunk within a shard is dirty, but
-  /// also whether the full shard on which the chunk is based was also dirty
-  /// from a prior `ReadModifyWriteSource`.  This is done by appending
-  /// additional flag bytes with `kBaseGeneration` not set.  Each flag byte is
-  /// referred to as a layer and corresponds to a sequence of potential
-  /// modifications by `ReadModifyWriteSource` objects. The last flag byte
-  /// corresponds to the innermost layer.  In the case of
-  /// uint64_sharded_key_value_store, modifications to an individual chunk
-  /// correspond to the inner layer, while prior modifications to the entire
-  /// shard correspond to the outer layer.
-  ///
-  /// Generation that is dirty in inner layer, but not in outer layer:
-  ///
-  ///     gen_id + kBaseGeneration + kDirty
-  ///
-  /// Generation that is dirty in outer layer, but not in inner layer:
-  ///
-  ///     gen_id + (kBaseGeneration|kDirty) + '\x00'
-  ///
-  /// The `kNewlyDirty` flag must only be used as a temporary flag when calling
-  /// `ReadModifyWriteSource::WritebackReceiver`, and must only be set on the
-  /// last flag byte.  A read operation must not return a generation with
-  /// `kNewlyDirty` set.
   std::string value;
+  // In the case of multiple layers of modifications, e.g. the
+  // neuroglancer_precomputed uint64_sharded_key_value_store, where we need to
+  // separately track whether an individual chunk within a shard is dirty, but
+  // also whether the full shard on which the chunk is based was also dirty
+  // from a prior `ReadModifyWriteSource`.  This is done by appending
+  // additional flag bytes with `kBaseGeneration` not set.  Each flag byte is
+  // referred to as a layer and corresponds to a sequence of potential
+  // modifications by `ReadModifyWriteSource` objects. The last flag byte
+  // corresponds to the innermost layer.  In the case of
+  // uint64_sharded_key_value_store, modifications to an individual chunk
+  // correspond to the inner layer, while prior modifications to the entire
+  // shard correspond to the outer layer.
+  //
+  // Generation that is dirty in inner layer, but not in outer layer::
+  //
+  //     gen_id + kBaseGeneration + kDirty
+  //
+  // Generation that is dirty in outer layer, but not in inner layer::
+  //
+  //     gen_id + (kBaseGeneration|kDirty) + '\x00'
+  //
+  // The `kNewlyDirty` flag must only be used as a temporary flag when calling
+  // `ReadModifyWriteSource::WritebackReceiver`, and must only be set on the
+  // last flag byte.  A read operation must not return a generation with
+  // `kNewlyDirty` set.
 
+  /// Flag values specified as a suffix of `value`.
   constexpr static char kBaseGeneration = 1;
   constexpr static char kDirty = 2;
   constexpr static char kNewlyDirty = 16;
@@ -238,31 +240,38 @@ struct StorageGeneration {
   /// generations.
   static bool Equivalent(std::string_view a, std::string_view b);
 
+  /// Checks if `generation` represents a locally-modified value.
   static bool IsDirty(const StorageGeneration& generation);
 
+  /// Checks if the innermost layer of `generation` is locally-modified.
   static bool IsInnerLayerDirty(const StorageGeneration& generation);
 
-  /// Returns a `new_generation` for which
-  /// `IsModified(new_generation) == IsModified(generation)` and
-  /// `BaseGeneration(new_generation) == BaseGeneration(condition)`.
+  /// Returns a ``new_generation`` for which
+  /// ``IsDirty(new_generation) == IsDirty(generation)`` and
+  /// ``Clean(new_generation) == Clean(condition)``.
   static StorageGeneration Condition(const StorageGeneration& generation,
                                      StorageGeneration condition);
 
+  /// Adds another layer of local modification to `generation`.
   static StorageGeneration AddLayer(StorageGeneration generation);
 
+  /// Checks if `Clean(generation) != Unknown()`.
   static bool IsConditional(const StorageGeneration& generation);
 
+  /// Checks if `if_equal` is unspecified, or equal to `generation`.
   static bool EqualOrUnspecified(const StorageGeneration& generation,
                                  const StorageGeneration& if_equal);
 
+  /// Checks if `if_not_equal` is unspecified, or not equal to `generation`.
   static bool NotEqualOrUnspecified(const StorageGeneration& generation,
                                     const StorageGeneration& if_not_equal);
 
   /// Returns `true` if `generation` is equal to the special
   /// `StorageGeneration::Unknown()` value, i.e. an empty string.
   ///
-  /// This usually indicates an unspecified generation; in `if_equal` and
-  /// `if_not_equal` conditions, it indicates that the condition does not apply.
+  /// This usually indicates an unspecified generation; in
+  /// `kvstore::ReadOptions::if_equal` and `kvstore::ReadOptions::if_not_equal`
+  /// conditions, it indicates that the condition does not apply.
   static bool IsUnknown(const StorageGeneration& generation) {
     return generation.value.empty();
   }
@@ -282,13 +291,15 @@ struct StorageGeneration {
   /// generation.
   ///
   /// While all kvstore drivers support `StorageGeneration::NoValue()` in
-  /// `if_equal` and `if_not_equal` conditions, some kvstore drivers may return
-  /// a different generation for missing values.
+  /// `kvstore::ReadOptions::if_equal` and `kvstore::ReadOptions::if_not_equal`
+  /// conditions, some kvstore drivers may return a different generation for
+  /// missing values.
   static bool IsNoValue(const StorageGeneration& generation) {
     return generation.value.size() == 1 &&
            generation.value[0] == (kNoValue | kBaseGeneration);
   }
 
+  /// Checks if two generations are `Equivalent`.
   friend inline bool operator==(const StorageGeneration& a,
                                 const StorageGeneration& b) {
     return Equivalent(a.value, b.value);
@@ -301,7 +312,6 @@ struct StorageGeneration {
                                 std::string_view b) {
     return Equivalent(a.value, b);
   }
-
   friend inline bool operator!=(const StorageGeneration& a,
                                 const StorageGeneration& b) {
     return !(a == b);
@@ -315,6 +325,7 @@ struct StorageGeneration {
     return !(a == b);
   }
 
+  /// Prints a debugging string representation to an `std::ostream`.
   friend std::ostream& operator<<(std::ostream& os, const StorageGeneration& g);
 
   constexpr static auto ApplyMembers = [](auto&& x, auto f) {
@@ -324,20 +335,36 @@ struct StorageGeneration {
 
 /// Combines a local timestamp with a StorageGeneration indicating the local
 /// time for which the generation is known to be current.
+///
+/// \ingroup kvstore
 struct TimestampedStorageGeneration {
+  /// Constructs with an unspecified generation and infinite past timestamp.
+  ///
+  /// \id default
   TimestampedStorageGeneration() = default;
 
+  /// Constructs from the specified generation and time.
+  ///
+  /// \id generation, time
   TimestampedStorageGeneration(StorageGeneration generation, absl::Time time)
       : generation(std::move(generation)), time(std::move(time)) {}
+
+  /// Storage generation.
   StorageGeneration generation;
+
+  /// Timestamp associated with `generation`.
   absl::Time time = absl::InfinitePast();
 
+  /// Checks if `time` is equal to the infinite future value.
   bool unconditional() const { return time == absl::InfiniteFuture(); }
 
+  /// Returns a timestamped generation with unspecified generation and infinite
+  /// future timestamp.
   static TimestampedStorageGeneration Unconditional() {
     return {StorageGeneration::Unknown(), absl::InfiniteFuture()};
   }
 
+  /// Compares two timestamped generations for equality.
   friend bool operator==(const TimestampedStorageGeneration& a,
                          const TimestampedStorageGeneration& b) {
     return a.generation == b.generation && a.time == b.time;
@@ -346,6 +373,8 @@ struct TimestampedStorageGeneration {
                          const TimestampedStorageGeneration& b) {
     return !(a == b);
   }
+
+  /// Prints a debugging string representation to an `std::ostream`.
   friend std::ostream& operator<<(std::ostream& os,
                                   const TimestampedStorageGeneration& x);
 

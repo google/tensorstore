@@ -32,12 +32,24 @@
 namespace tensorstore {
 namespace kvstore {
 
-/// Options that may be specified for modifying an existing `Spec`.  Refer to
-/// the documentation of `Spec::Set` for details.
+/// Options that may be specified for modifying an existing `Spec`.
+///
+/// Refer to the documentation of `Spec::Set` for details.
+///
+/// \relates Spec
 struct SpecConvertOptions {
+  /// Specifies the context binding mode.
   ContextBindingMode context_binding_mode = ContextBindingMode::unspecified;
+
+  /// Specifies the context to bind.
   Context context;
 
+  /// Indicates which option types are supported.
+  ///
+  /// Supported types include:
+  ///
+  /// - `Context`
+  /// - `ContextBindingMode`
   template <typename T>
   constexpr static bool IsOption = false;
 
@@ -57,8 +69,9 @@ class DriverSpec;
 void intrusive_ptr_increment(const DriverSpec* p);
 void intrusive_ptr_decrement(const DriverSpec* p);
 
-/// `DriverSpec` objects are always managed using a reference-counted
-/// `DriverSpecPtr`.
+/// Smart pointer that represents a driver-specific kvstore spec.
+///
+/// \relates Spec
 class DriverSpecPtr : public internal::IntrusivePtr<const DriverSpec> {
   using Base = internal::IntrusivePtr<const DriverSpec>;
 
@@ -74,7 +87,9 @@ class DriverSpecPtr : public internal::IntrusivePtr<const DriverSpec> {
   /// Unbinds any bound context resources, replacing them with context
   /// resource specs that may be used to recreate the context resources.  Any
   /// already-unbound context resources remain unmodified.
-  void UnbindContext(const internal::ContextSpecBuilder& context_builder = {});
+  void UnbindContext() { return UnbindContext({}); }
+
+  void UnbindContext(const internal::ContextSpecBuilder& context_builder);
 
   /// Replaces any context resources with a default context resource spec.
   void StripContext();
@@ -102,7 +117,7 @@ class DriverSpecPtr : public internal::IntrusivePtr<const DriverSpec> {
   ///
   /// If an error occurs, the spec may be left in a partially modified state.
   ///
-  /// \param option Any option type supported by `ConvertOptions`.
+  /// \param option Any option type supported by `SpecConvertOptions`.
   template <typename... Option>
   std::enable_if_t<IsCompatibleOptionSequence<SpecConvertOptions, Option...>,
                    absl::Status>
@@ -111,20 +126,22 @@ class DriverSpecPtr : public internal::IntrusivePtr<const DriverSpec> {
     (options.Set(option), ...);
     return Set(std::move(options));
   }
-
-  /// Mutates this spec according to the specified options.
   absl::Status Set(SpecConvertOptions&& options);
 
-  /// For compatibility with `tensorstore::internal::EncodeCacheKey`.
+  // For compatibility with `tensorstore::internal::EncodeCacheKey`.
   friend void EncodeCacheKeyAdl(std::string* out, const DriverSpecPtr& ptr);
 };
 
 class Driver;
 void intrusive_ptr_increment(Driver* p);
 void intrusive_ptr_decrement(Driver* p);
+
+/// Handle to an open kvstore driver.
+///
+/// \relates KvStore
 using DriverPtr = internal::IntrusivePtr<Driver>;
 
-/// For compatibility with `tensorstore::internal::EncodeCacheKey`.
+// For compatibility with `tensorstore::internal::EncodeCacheKey`.
 void EncodeCacheKeyAdl(std::string* out, const DriverPtr& ptr);
 
 }  // namespace kvstore
@@ -138,18 +155,26 @@ class RegisteredDriverSpec;
 
 namespace kvstore {
 
-/// Combines a `KvStore` with a string path that serves as a key prefix.
-template <typename DriverType>
-class KvStorePathBase {
+/// Combines a driver-specific kvstore spec with a string `path` that serves as
+/// a key prefix.
+///
+/// \ingroup kvstore
+class Spec {
  public:
-  /// Constructs an invalid (null) path.
-  KvStorePathBase() = default;
+  /// Constructs an invalid (null) spec.
+  ///
+  /// \id default
+  Spec() = default;
 
   /// Constructs from a driver with empty path.
-  KvStorePathBase(DriverType driver) : driver(std::move(driver)) {}
+  ///
+  /// \id driver
+  Spec(DriverSpecPtr driver) : driver(std::move(driver)) {}
 
   /// Constructs a path from the specified driver and key prefix.
-  explicit KvStorePathBase(DriverType driver, std::string path)
+  ///
+  /// \id driver, path
+  explicit Spec(DriverSpecPtr driver, std::string path)
       : driver(std::move(driver)), path(std::move(path)) {}
 
   /// Appends `suffix` to the `path`.
@@ -162,24 +187,19 @@ class KvStorePathBase {
     internal::AppendPathComponent(path, component);
   }
 
-  /// Returns `true` if this is a valid (non-null) path.
+  /// Returns `true` if this is a valid (non-null) spec.
   bool valid() const { return static_cast<bool>(driver); }
 
-  /// Driver or DriverSpec to which this path refers.
-  DriverType driver;
+  /// Driver spec.
+  DriverSpecPtr driver;
 
-  /// Path within the KeyValueStore.
+  /// Path within the `driver`.
   std::string path;
 
+  // ApplyMembers support.
   static constexpr auto ApplyMembers = [](auto& x, auto f) {
     return f(x.driver, x.path);
   };
-};
-
-/// Combines a `DriverSpecPtr` with a string path that serves as a key prefix.
-class Spec : public KvStorePathBase<DriverSpecPtr> {
- public:
-  using KvStorePathBase<DriverSpecPtr>::KvStorePathBase;
 
   /// Binds any unbound context resources using the specified context.  Any
   /// already-bound context resources remain unmodified.
@@ -188,13 +208,17 @@ class Spec : public KvStorePathBase<DriverSpecPtr> {
   absl::Status BindContext(const Context& context);
 
   /// Unbinds any bound context resources, replacing them with context
-  /// resource specs that may be used to recreate the context resources.  Any
-  /// already-unbound context resources remain unmodified.
-  void UnbindContext(const internal::ContextSpecBuilder& context_builder = {});
+  /// resource specs that may be used to recreate the context resources.
+  ///
+  /// Any already-unbound context resources remain unmodified.
+  void UnbindContext() { UnbindContext({}); }
+
+  void UnbindContext(const internal::ContextSpecBuilder& context_builder);
 
   /// Replaces any context resources with a default context resource spec.
   void StripContext();
 
+  /// Returns the context binding state of the spec.
   ContextBindingState context_binding_state() const {
     return driver.context_binding_state();
   }
@@ -228,8 +252,6 @@ class Spec : public KvStorePathBase<DriverSpecPtr> {
     (options.Set(option), ...);
     return Set(std::move(options));
   }
-
-  /// Mutates this spec according to the specified options.
   absl::Status Set(SpecConvertOptions&& options);
 
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(Spec, JsonSerializationOptions,

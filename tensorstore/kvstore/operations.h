@@ -33,9 +33,12 @@ namespace tensorstore {
 namespace kvstore {
 
 /// Read options for non-transactional reads.
-/// See also `TransactionalReadOptions`
+///
+/// See also `TransactionalReadOptions`.
+///
+/// \relates KvStore
 struct ReadOptions {
-  /// The read is aborted if the generation associated with the stored `key`
+  /// The read is aborted if the generation associated with the stored ``key``
   /// matches `if_not_equal`.  The special values of
   /// `StorageGeneration::Unknown()` (the default) or
   /// `StorageGeneration::NoValue()` disable this condition.
@@ -49,7 +52,7 @@ struct ReadOptions {
   /// `absl::Now()` just before invoking `Read`.
   absl::Time staleness_bound{absl::InfiniteFuture()};
 
-  /// The read is aborted if the generation associated with `key` does not
+  /// The read is aborted if the generation associated with ``key`` does not
   /// match `if_equal`.  This is primarily useful in conjunction with a
   /// `byte_range` request to ensure consistency.
   ///
@@ -67,9 +70,12 @@ struct ReadOptions {
 };
 
 /// Read options for transactional reads.
+///
 /// See also `ReadOptions`
+///
+/// \relates KvStore
 struct TransactionalReadOptions {
-  /// The read is aborted if the generation associated with the stored `key`
+  /// The read is aborted if the generation associated with the stored ``key``
   /// matches `if_not_equal`.  The special values of
   /// `StorageGeneration::Unknown()` (the default) or
   /// `StorageGeneration::NoValue()` disable this condition.
@@ -84,23 +90,28 @@ struct TransactionalReadOptions {
   absl::Time staleness_bound{absl::InfiniteFuture()};
 };
 
+/// Options for `Write`.
+///
+/// \relates KvStore
 struct WriteOptions {
   // Note: While it would be nice to use default member initializers to be
   // more explicit about what the default values are, doing so would trigger
   // Clang bug https://bugs.llvm.org/show_bug.cgi?id=36684.
 
   /// The write is aborted if the existing generation associated with the
-  /// stored `key` does not match `if_equal`.
+  /// stored ``key`` does not match `if_equal`.
   ///
   /// - The special value of `StorageGeneration::Unknown()` (the default)
   ///   disables this condition.
   ///
   /// - The special value of `StorageGeneration::NoValue()` specifies a
-  ///   condition that the `key` does not have an existing value.
+  ///   condition that the ``key`` does not have an existing value.
   StorageGeneration if_equal;
 };
 
-/// Options for `List`.
+/// Options for `ListFuture`.
+///
+/// \relates KvStore
 struct ListOptions {
   /// Only keys in this range are emitted.
   KeyRange range;
@@ -109,35 +120,83 @@ struct ListOptions {
   size_t strip_prefix_length = 0;
 };
 
-/// Reads `path + key`.
+/// Attempts to read the value for the key `store.path + key`.
+///
+/// .. note::
+///
+///    A missing value is not considered an error.
+///
+/// \param store `KvStore` from which to read.
+/// \param key The key to read, interpreted as a suffix to be appended to
+///     `store.path`.
+/// \param options Specifies options for reading.
+/// \returns A Future that resolves when the read completes successfully or with
+///     an error.
+/// \relates KvStore
 Future<ReadResult> Read(const KvStore& store, std::string_view key,
                         ReadOptions options = {});
 
-/// Writes `path + key`.
+/// Performs an optionally-conditional write.
+///
+/// Atomically updates or deletes the value stored for `store.path + key`
+/// subject to the conditions specified in `options`.
+///
+/// \param store `KvStore` into which to perform the write operation.
+/// \param key The key to write or delete, interpreted as a suffix to be
+///     appended to `store.path`.
+/// \param value The value to write, or `std::nullopt` to delete.
+/// \returns A Future that resolves to the generation corresponding to the new
+///     value on success, or to `StorageGeneration::Unknown()` if the
+///     conditions in `options` are not satisfied.
+/// \relates KvStore
 Future<TimestampedStorageGeneration> Write(const KvStore& store,
                                            std::string_view key,
                                            std::optional<Value> value,
                                            WriteOptions options = {});
 
-/// Deletes `path + key`.
+/// Performs an optionally-conditional delete.
+///
+/// Equivalent to `Write(store, key, std::nullopt, options)`.
+///
+/// \param store `KvStore` from which to delete the key.
+/// \param key Key to delete, interpreted as a suffix to be appended to
+///     `store.path`.
+/// \relates KvStore
 Future<TimestampedStorageGeneration> Delete(const KvStore& store,
                                             std::string_view key,
                                             WriteOptions options = {});
 
-/// Deletes a range relative to `path`.
+/// Deletes all keys in the specified range.
+///
+/// This operation is not guaranteed to be atomic with respect to other
+/// operations affecting keys in `range`.  If there are concurrent writes to
+/// keys in `range`, this operation may fail with an error or indicate success
+/// despite not having removed the newly-added keys.
+///
+/// \param store `KvStore` from which to delete keys.
+/// \param range Range of keys to delete, relative to `store.path`.
+/// \returns A Future that becomes ready when the operation has completed
+///     either successfully or with an error.
+/// \relates KvStore
 Future<void> DeleteRange(const KvStore& store, KeyRange range);
 
-/// Lists keys relative to `path`.
+// Lists keys relative to `path`.
 void List(const KvStore& store, ListOptions options,
           AnyFlowReceiver<absl::Status, Key> receiver);
 
 AnyFlowSender<absl::Status, Key> List(const KvStore& store,
                                       ListOptions options);
 
+/// Lists the keys in a kvstore.
+///
+/// \param store `KvStore` from which to list keys.
+/// \param options List options.  The `options.range` is interpreted relative to
+///     `store.path`.
+/// \relates KvStore
 Future<std::vector<Key>> ListFuture(const KvStore& store,
                                     ListOptions options = {});
 
-/// Calls `List` and collects the results in an `std::vector`.
+// Calls `List` and collects the results in an `std::vector`.
 Future<std::vector<Key>> ListFuture(Driver* driver, ListOptions options = {});
 
 inline Future<std::vector<Key>> ListFuture(const DriverPtr& driver,

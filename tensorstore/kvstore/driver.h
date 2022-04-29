@@ -45,46 +45,47 @@ namespace kvstore {
 ///   context resource specifications override any resources provided by the
 ///   `Context` object used to bind/open the `DriverSpec`.
 ///
-/// For each `Derived` kvstore driver implementation that supports a JSON
-/// representation, `internal_kvstore::RegisteredDriverSpec<Derived>` defined in
-/// `registry.h` serves as the corresponding `DriverSpec` implementation.
+/// \relates Spec
 class DriverSpec : public internal::AtomicReferenceCount<DriverSpec> {
+  // For each `Derived` kvstore driver implementation that supports a JSON
+  // representation, `internal_kvstore::RegisteredDriverSpec<Derived>` defined
+  // in `registry.h` serves as the corresponding `DriverSpec` implementation.
  public:
   virtual ~DriverSpec();
 
-  /// Normalizes the spec and `path`, possibly by moving information between the
-  /// path and driver spec.  This is used by the `http` driver.
-  ///
-  /// The default implementation simply returns `absl::OkStatus()`.
+  // Normalizes the spec and `path`, possibly by moving information between the
+  // path and driver spec.  This is used by the `http` driver.
+  //
+  // The default implementation simply returns `absl::OkStatus()`.
   virtual absl::Status NormalizeSpec(std::string& path);
 
-  /// Resolves any context references using `context`.
+  // Resolves any context references using `context`.
   virtual absl::Status BindContext(const Context& context) = 0;
 
-  /// Converts any bound context resources to unbound resource specs.
+  // Converts any bound context resources to unbound resource specs.
   virtual void UnbindContext(const internal::ContextSpecBuilder& builder) = 0;
 
-  /// Replaces any context resources with default context resource specs.
+  // Replaces any context resources with default context resource specs.
   virtual void StripContext() = 0;
 
-  /// Encodes any relevant parameters as a cache key.  This should only include
-  /// parameters relevant after the `Driver` is open that determine whether two
-  /// `Driver` objects may be used interchangeably.  Parameters that only affect
-  /// creation should be excluded.
+  // Encodes any relevant parameters as a cache key.  This should only include
+  // parameters relevant after the `Driver` is open that determine whether two
+  // `Driver` objects may be used interchangeably.  Parameters that only affect
+  // creation should be excluded.
   virtual void EncodeCacheKey(std::string* out) const = 0;
 
   /// Returns the driver identifier.
   virtual std::string_view driver_id() const = 0;
 
-  /// Returns the URL
+  // Returns the URL
   virtual Result<std::string> ToUrl(std::string_view path) const;
 
-  /// Returns a copy of this spec, used to implement copy-on-write behavior.
+  // Returns a copy of this spec, used to implement copy-on-write behavior.
   virtual DriverSpecPtr Clone() const = 0;
 
-  /// Opens a `Driver` using this spec.
-  ///
-  /// \pre All context resources must be bound.
+  // Opens a `Driver` using this spec.
+  //
+  // \pre All context resources must be bound.
   virtual Future<DriverPtr> DoOpen() const = 0;
 
   virtual void GarbageCollectionVisit(
@@ -93,10 +94,10 @@ class DriverSpec : public internal::AtomicReferenceCount<DriverSpec> {
   friend class DriverSpecPtr;
   friend class Spec;
 
-  /// Specifies context resource overrides.
+  // Specifies context resource overrides.
   Context::Spec context_spec_;
 
-  /// Indicates the binding state.
+  // Indicates the binding state.
   ContextBindingState context_binding_state_ = ContextBindingState::unknown;
 };
 
@@ -220,18 +221,8 @@ class Driver {
   /// Returns a Spec that can be used to re-open this key-value store.
   ///
   /// Options that modify the returned `Spec` may be specified in any order.
-  /// The meaning of the option is determined by its type.
   ///
-  /// Supported options are:
-  ///
-  /// - ContextBindingMode: Defaults to `ContextBindingMode::strip`, such that
-  ///   the returned `Spec` does not specify any context resources.  To retain
-  ///   the bound context resources, such that the returned `Spec` may be used
-  ///   to re-open the `Driver` with the identical context resources, specify
-  ///   `ContextBindingMode::retain`.  Specifying `ContextBindingMode::unbind`
-  ///   converts all context resources to context resource specs that may be
-  ///   used to re-open the `Driver` with a graph new context resources
-  ///   isomorphic to the existing graph of context resources.
+  /// Refer to `KvStore::spec` for details.
   ///
   /// \param option Any option compatible with `SpecRequestOptions`.
   /// \error `absl::StatusCode::kUnimplemented` if a JSON representation is not
