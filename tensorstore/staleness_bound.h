@@ -22,18 +22,38 @@
 namespace tensorstore {
 
 /// Specifies time bound on cached data that may be used without revalidation.
+///
+/// \relates Spec
 struct RecheckCacheOption {
+  /// Constructs an unspecified bound.
+  ///
+  /// \id default
   constexpr explicit RecheckCacheOption() {}
+
+  /// Constructs a bound that either always or never revalidates cached data.
+  ///
+  /// \param value If `true`, always revalidate cached data regardless of how
+  ///     old it is.  If `false`, never revalidate cached data, regardless of
+  ///     how old it is.
+  /// \id bool
   constexpr explicit RecheckCacheOption(bool value)
       : RecheckCacheOption(value ? absl::InfiniteFuture()
                                  : absl::InfinitePast()) {}
+
+  /// Constructs from the specified bound.
+  ///
+  /// \id time
   constexpr explicit RecheckCacheOption(absl::Time time)
       : time(time), flags(kSpecified) {}
+
+  /// Special time bound equal to the time the TensorStore is opened.
   static constexpr RecheckCacheOption AtOpen() {
     RecheckCacheOption option;
     option.flags = kAtOpen;
     return option;
   }
+
+  /// Specifies the kind of time bound.
   enum Flags {
     /// No bound has been specified.
     kUnspecified,
@@ -42,9 +62,16 @@ struct RecheckCacheOption {
     /// Data must not be older than the time at which the Spec is opened.
     kAtOpen,
   };
+
+  /// Specifies the time bound.
+  ///
   /// If `flags == kSpecified`, data must not be older than `time`.
   absl::Time time = absl::InfiniteFuture();
+
+  /// Specifies the interpretation of `time`.
   Flags flags = kUnspecified;
+
+  /// Checks if a bound has been specified.
   constexpr bool specified() const { return flags != kUnspecified; }
 };
 
@@ -65,13 +92,17 @@ struct RecheckCacheOption {
 /// without rechecking, and is equivalent to
 /// `RecheckCachedData{absl::InfiniteFuture()}`.
 ///
-/// `RecheckCacheData::AtOpen()` indicates that cached older than the time at
+/// `RecheckCachedData::AtOpen()` indicates that cached older than the time at
 /// which the TensorStore was opened will be rechecked before it is returned;
 /// data not older than the open time is assumed to be valid.
+///
+/// \relates Spec
 struct RecheckCachedData : public RecheckCacheOption {
   constexpr explicit RecheckCachedData(RecheckCacheOption option)
       : RecheckCacheOption(option) {}
   using RecheckCacheOption::RecheckCacheOption;
+
+  /// Special time bound equal to the time the TensorStore is opened.
   static constexpr RecheckCachedData AtOpen() {
     return RecheckCachedData(RecheckCacheOption::AtOpen());
   }
@@ -83,6 +114,8 @@ struct RecheckCachedData : public RecheckCacheOption {
 /// caching, and distinguish between data and metadata.
 ///
 /// The usage is the same as for `RecheckCachedData`.
+///
+/// \relates Spec
 struct RecheckCachedMetadata : public RecheckCacheOption {
   constexpr explicit RecheckCachedMetadata(RecheckCacheOption option)
       : RecheckCacheOption(option) {}
@@ -98,10 +131,14 @@ struct RecheckCachedMetadata : public RecheckCacheOption {
 /// caching.
 ///
 /// The usage is the same as for `RecheckCachedData`.
+///
+/// \relates Spec
 struct RecheckCached : public RecheckCacheOption {
   constexpr explicit RecheckCached(RecheckCacheOption option)
       : RecheckCacheOption(option) {}
   using RecheckCacheOption::RecheckCacheOption;
+
+  /// Special time bound equal to the time the TensorStore is opened.
   static constexpr RecheckCached AtOpen() {
     return RecheckCached(RecheckCacheOption::AtOpen());
   }
@@ -165,7 +202,7 @@ class StalenessBound {
   };
 };
 
-/// Combines staleness bound for metadata and data.
+// Combines staleness bound for metadata and data.
 struct StalenessBounds {
   /// Initializes the `metadata` and `data` bound to `absl::InfiniteFuture()`,
   /// which ensures stale data is never seen.

@@ -23,6 +23,8 @@ namespace tensorstore {
 ///
 /// Currently, there is on a single optional flag, but more may be added in the
 /// future.
+///
+/// \relates ResolveBounds
 enum class ResolveBoundsMode {
   /// Requests that any resizable (implicit) bounds of the underlying
   /// TensorStore are fixed (treated as explicit).  If this flag is not
@@ -31,28 +33,48 @@ enum class ResolveBoundsMode {
   /// input domain.
   fix_resizable_bounds = 1,
 };
+
+/// \relates ResolveBoundsMode
 constexpr ResolveBoundsMode fix_resizable_bounds =
     ResolveBoundsMode::fix_resizable_bounds;
 
+/// Computes the intersection of two mode sets.
+///
+/// \relates ResolveBoundsMode
+/// \id ResolveBoundsMode
 constexpr inline ResolveBoundsMode operator&(ResolveBoundsMode a,
                                              ResolveBoundsMode b) {
   return static_cast<ResolveBoundsMode>(static_cast<int>(a) &
                                         static_cast<int>(b));
 }
 
+/// Computes the union of two mode sets.
+///
+/// \relates ResolveBoundsMode
+/// \id ResolveBoundsMode
 constexpr inline ResolveBoundsMode operator|(ResolveBoundsMode a,
                                              ResolveBoundsMode b) {
   return static_cast<ResolveBoundsMode>(static_cast<int>(a) |
                                         static_cast<int>(b));
 }
 
+/// Checks if any mode has been set.
+///
+/// \relates ResolveBoundsMode
+/// \id ResolveBoundsMode
 constexpr inline bool operator!(ResolveBoundsMode a) {
   return !static_cast<int>(a);
 }
 
+/// Prints a debugging string representation to an `std::ostream`.
+///
+/// \relates ResolveBoundsMode
+/// \id ResolveBoundsMode
 std::ostream& operator<<(std::ostream& os, ResolveBoundsMode mode);
 
 /// Specifies options for TensorStore ResolveBounds operations.
+///
+/// \relates ResolveBounds
 struct ResolveBoundsOptions {
   ResolveBoundsOptions() = default;
   ResolveBoundsOptions(ResolveBoundsMode mode) : mode(mode) {}
@@ -61,6 +83,8 @@ struct ResolveBoundsOptions {
 };
 
 /// Bitvector specifying resize options.
+///
+/// \relates Resize
 enum class ResizeMode {
   /// Requests that, if applicable, the resize operation affect only the
   /// metadata but not delete data chunks that are outside of the new bounds.
@@ -83,28 +107,55 @@ enum class ResizeMode {
   // with the fill value in all out-of-bounds positions.
 };
 
+/// \relates ResizeMode
 constexpr ResizeMode resize_metadata_only = ResizeMode::resize_metadata_only;
 constexpr ResizeMode resize_tied_bounds = ResizeMode::resize_tied_bounds;
 constexpr ResizeMode expand_only = ResizeMode::expand_only;
 constexpr ResizeMode shrink_only = ResizeMode::shrink_only;
 
+/// Computes the intersection of two mode sets.
+///
+/// \relates ResizeMode
+/// \id ResizeMode
 constexpr inline ResizeMode operator&(ResizeMode a, ResizeMode b) {
   return static_cast<ResizeMode>(static_cast<int>(a) & static_cast<int>(b));
 }
 
+/// Computes the union of two mode sets.
+///
+/// \relates ResizeMode
+/// \id ResizeMode
 constexpr inline ResizeMode operator|(ResizeMode a, ResizeMode b) {
   return static_cast<ResizeMode>(static_cast<int>(a) | static_cast<int>(b));
 }
 
+/// Checks if any mode has been set.
+///
+/// \relates ResizeMode
+/// \id ResizeMode
 constexpr inline bool operator!(ResizeMode a) { return !static_cast<int>(a); }
 
+/// Prints a debugging string representation to an `std::ostream`.
+///
+/// \relates ResizeMode
+/// \id ResizeMode
 std::ostream& operator<<(std::ostream& os, ResizeMode mode);
 
 /// Specifies options for resize operations.
+///
+/// \relates Resize
 struct ResizeOptions {
+  /// Constructs the default resize options.
+  ///
+  /// \id default
   ResizeOptions() = default;
+
+  /// Constructs from a `ResizeMode`.
+  ///
+  /// \id mode
   ResizeOptions(ResizeMode mode) : mode(mode) {}
 
+  /// Specifies the resize mode.
   ResizeMode mode = ResizeMode{};
 
   // TOOD: Add delete progress callback

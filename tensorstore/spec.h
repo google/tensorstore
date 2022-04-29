@@ -34,12 +34,17 @@
 
 namespace tensorstore {
 
-/// Specifies the parameters necessary to open or create a TensorStore,
-/// including the driver identifier, driver parameters, and optionally the data
-/// type and a transform or rank constraint.
+/// Specifies the parameters necessary to open or create a `TensorStore`.
+///
+/// Includes the driver identifier, driver parameters, optionally an
+/// `IndexTransform` and `Schema`.
+///
+/// \ingroup core
 class Spec {
  public:
   /// Constructs an invalid specification.
+  ///
+  /// \id default
   Spec() = default;
 
   /// Returns `true` if this is a valid spec.
@@ -80,7 +85,7 @@ class Spec {
 
   /// Returns the associated key-value store used as the underlying storage.  If
   /// unspecified or not applicable, returns a null (invalid) spec.
-  kvstore::Spec kvstore() const;
+  tensorstore::kvstore::Spec kvstore() const;
 
   /// Returns the transform applied on top of the driver.
   const IndexTransform<>& transform() const { return impl_.transform; }
@@ -106,10 +111,6 @@ class Spec {
                                                   option)
     return this->Set(std::move(options));
   }
-
-  /// Applies the specified options in place.
-  ///
-  /// If an error occurs, the spec may be in a partially modified state.
   absl::Status Set(SpecConvertOptions&& options);
 
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(Spec, JsonSerializationOptions,
@@ -123,6 +124,7 @@ class Spec {
   /// \returns The transformed `Spec` on success.
   /// \error `absl::StatusCode::kInvalidArgument` if `spec.transform()` is not
   ///     valid.
+  /// \id expr
   template <typename Expr>
   friend internal::FirstType<
       std::enable_if_t<!IsIndexTransform<internal::remove_cvref_t<Expr>>,
@@ -146,6 +148,7 @@ class Spec {
   /// \param spec The spec to transform.
   /// \returns New Spec, with rank equal to `transform.input_rank()` (or
   ///     unchanged if `transform.valid() == false`.
+  /// \id transform
   friend Result<Spec> ApplyIndexTransform(IndexTransform<> transform,
                                           Spec spec);
 
@@ -158,7 +161,9 @@ class Spec {
   /// Unbinds any bound context resources, replacing them with context resource
   /// specs that may be used to recreate the context resources.  Any
   /// already-unbound context resources remain unmodified.
-  void UnbindContext(const internal::ContextSpecBuilder& context_builder = {});
+  void UnbindContext() { UnbindContext({}); }
+
+  void UnbindContext(const internal::ContextSpecBuilder& context_builder);
 
   /// Replaces any context resources with a default context resource spec.
   void StripContext();

@@ -21,14 +21,16 @@
 
 namespace tensorstore {
 
-/// Options for `tensorstore::Read` into existing target array.
+/// Options for `tensorstore::Read` into an existing target array.
+///
+/// \relates Read[TensorStore, Array]
 struct ReadOptions {
+  /// Constructs the options.
   ReadOptions(
       DomainAlignmentOptions alignment_options = DomainAlignmentOptions::all,
       ReadProgressFunction progress_function = {})
       : alignment_options(alignment_options),
         progress_function(std::move(progress_function)) {}
-
   ReadOptions(ReadProgressFunction progress_function)
       : progress_function(std::move(progress_function)) {}
 
@@ -40,12 +42,14 @@ struct ReadOptions {
 };
 
 /// Options for `tensorstore::Read` into new array.
+///
+/// \relates Read[TensorStore]
 struct ReadIntoNewArrayOptions {
+  /// Constructs the options.
   ReadIntoNewArrayOptions(ContiguousLayoutOrder layout_order = {},
                           ReadProgressFunction progress_function = {})
       : layout_order(layout_order),
         progress_function(std::move(progress_function)) {}
-
   ReadIntoNewArrayOptions(ReadProgressFunction progress_function)
       : progress_function(std::move(progress_function)) {}
 
@@ -58,13 +62,15 @@ struct ReadIntoNewArrayOptions {
 };
 
 /// Options for `tensorstore::Write`.
+///
+/// \relates Write[Array, TensorStore]
 struct WriteOptions {
+  /// Constructs the options.
   WriteOptions(
       DomainAlignmentOptions alignment_options = DomainAlignmentOptions::all,
       WriteProgressFunction progress_function = {})
       : alignment_options(alignment_options),
         progress_function(std::move(progress_function)) {}
-
   WriteOptions(WriteProgressFunction progress_function)
       : progress_function(std::move(progress_function)) {}
 
@@ -76,13 +82,15 @@ struct WriteOptions {
 };
 
 /// Options for `tensorstore::Copy`.
+///
+/// \relates Copy[TensorStore, TensorStore]
 struct CopyOptions {
+  /// Constructs the options.
   CopyOptions(
       DomainAlignmentOptions alignment_options = DomainAlignmentOptions::all,
       CopyProgressFunction progress_function = {})
       : alignment_options(alignment_options),
         progress_function(std::move(progress_function)) {}
-
   CopyOptions(CopyProgressFunction progress_function)
       : progress_function(std::move(progress_function)) {}
 

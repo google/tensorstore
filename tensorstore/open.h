@@ -28,31 +28,6 @@
 
 namespace tensorstore {
 
-/// Opens a TensorStore from a `Spec` and `TransactionalOpenOptions`.
-///
-/// \tparam Element Constrains data type at compile time, defaults to `void` (no
-///     constraint).
-/// \tparam Rank Constrains rank at compile time, defaults to `dynamic_rank`.
-/// \tparam Mode Constrains read-write mode at compile-time, defaults to
-///     `ReadWriteMode::dynamic`.
-/// \param spec The Spec to open.
-/// \param options Options for opening/modifying `spec`.
-template <typename Element = void, DimensionIndex Rank = dynamic_rank,
-          ReadWriteMode Mode = ReadWriteMode::dynamic>
-Future<TensorStore<Element, Rank, Mode>> Open(
-    Spec spec, TransactionalOpenOptions&& options) {
-  if constexpr (Mode != ReadWriteMode::dynamic) {
-    if (options.read_write_mode == ReadWriteMode::dynamic) {
-      options.read_write_mode = Mode;
-    } else if (!internal::IsModePossible(options.read_write_mode, Mode)) {
-      return internal::InvalidModeError(options.read_write_mode, Mode);
-    }
-  }
-  return internal::ConvertTensorStoreFuture<Element, Rank, Mode>(
-      internal::OpenDriver(std::move(internal_spec::SpecAccess::impl(spec)),
-                           std::move(options)));
-}
-
 /// Opens a TensorStore from a Spec.
 ///
 /// Options are specified in any order after `spec`.  The meaning of the option
@@ -85,7 +60,7 @@ Future<TensorStore<Element, Rank, Mode>> Open(
 /// than once, the later value takes precedence; however, for the sake of
 /// readability, it is not recommended to rely on this override behavior.
 ///
-/// Example usage:
+/// Example usage::
 ///
 ///     tensorstore::Context context = ...;
 ///     TENSORSTORE_ASSIGN_OR_RETURN(auto store,
@@ -104,6 +79,22 @@ Future<TensorStore<Element, Rank, Mode>> Open(
 ///     `ReadWriteMode::dynamic`.
 /// \param spec The Spec to open.
 /// \param option Any option compatible with `TransactionalOpenOptions`.
+/// \relates TensorStore
+template <typename Element = void, DimensionIndex Rank = dynamic_rank,
+          ReadWriteMode Mode = ReadWriteMode::dynamic>
+Future<TensorStore<Element, Rank, Mode>> Open(
+    Spec spec, TransactionalOpenOptions&& options) {
+  if constexpr (Mode != ReadWriteMode::dynamic) {
+    if (options.read_write_mode == ReadWriteMode::dynamic) {
+      options.read_write_mode = Mode;
+    } else if (!internal::IsModePossible(options.read_write_mode, Mode)) {
+      return internal::InvalidModeError(options.read_write_mode, Mode);
+    }
+  }
+  return internal::ConvertTensorStoreFuture<Element, Rank, Mode>(
+      internal::OpenDriver(std::move(internal_spec::SpecAccess::impl(spec)),
+                           std::move(options)));
+}
 template <typename Element = void, DimensionIndex Rank = dynamic_rank,
           ReadWriteMode Mode = ReadWriteMode::dynamic, typename... Option>
 std::enable_if_t<
@@ -115,10 +106,6 @@ Open(Spec spec, Option&&... option) {
   return tensorstore::Open<Element, Rank, Mode>(std::move(spec),
                                                 std::move(options));
 }
-
-/// Opens a TensorStore from a JSON specification.
-///
-/// Equivalent to calling `Spec::FromJson(json_spec)`, then calling `Open`.
 template <typename Element = void, DimensionIndex Rank = dynamic_rank,
           ReadWriteMode Mode = ReadWriteMode::dynamic,
           typename J = ::nlohmann::json, typename... Option>
@@ -131,9 +118,6 @@ Open(J json_spec, Option&&... option) {
   return tensorstore::Open<Element, Rank, Mode>(
       std::move(spec), std::forward<Option>(option)...);
 }
-
-/// Same as above, but with options already collected into
-/// `TransactionalOpenOptions`.
 template <typename Element = void, DimensionIndex Rank = dynamic_rank,
           ReadWriteMode Mode = ReadWriteMode::dynamic,
           typename J = ::nlohmann::json>

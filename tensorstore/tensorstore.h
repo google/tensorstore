@@ -51,23 +51,23 @@ namespace tensorstore {
 /// may be used to perform operations on a TensorStore.
 ///
 /// Indexing may be performed using the `DimExpression` facilities.  For
-/// example:
+/// example::
 ///
 ///     TensorStore<std::int32_t, 3> store = ...;
 ///     Result<TensorStore<std::int32_t, 2>> sub_store =
 ///         store | Dims(0).IndexSlice(5);
 ///
-/// Typically a `TensorStore` object is obtained by calling `tensorstore::Open`
-/// defined in `tensorstore/open.h`.
+/// Typically a `TensorStore` object is obtained by calling `tensorstore::Open`.
 ///
 /// \tparam ElementType Compile-time element type constraint.  May be `void` to
 ///     indicate that the element type is determined at run time.  Must be
-///     unqualified (i.e. must not be `const T`).
+///     unqualified (i.e. must not be ``const T``).
 /// \tparam Rank Compile-time rank constraint.  May be `dynamic_rank` to
 ///     indicate that the rank is determined at run time.
 /// \tparam Mode Compile-time read/write mode constraint.  May be
 ///     `ReadWriteMode::dynamic` to indicate that the read-write mode is
 ///     determined at run time.
+/// \ingroup core
 template <typename ElementType = void, DimensionIndex Rank = dynamic_rank,
           ReadWriteMode Mode = ReadWriteMode::dynamic>
 class TensorStore {
@@ -78,21 +78,35 @@ class TensorStore {
   using Transform = IndexTransform<Rank>;
 
  public:
+  /// Element type.
   using Element = ElementType;
+
+  /// Static or dynamic data type representation.
   using DataType = dtype_t<Element>;
+
+  /// Static or dynamic rank type representation.
   using RankType = StaticOrDynamicRank<Rank>;
 
+  /// Compile-time rank, or `dynamic_rank` if the rank is determined at run
+  /// time.
   constexpr static DimensionIndex static_rank = Rank;
+
+  /// Compile-time read-write mode, or `ReadWriteMode::dynamic` if the mode is
+  /// determined at run time.
   constexpr static ReadWriteMode static_mode = Mode;
 
   /// Constructs an invalid `TensorStore`.
+  ///
   /// \post `valid() == false`
+  /// \id default
   TensorStore() = default;
 
   /// Constructs from a compatible existing TensorStore.
+  ///
   /// \requires `SourceElement` is implicitly convertible to `Element`
   /// \requires `SourceRank` is implicitly convertible to `Rank`
   /// \requires `SourceMode` is implicitly convertible to `Mode`
+  /// \id convert
   template <typename SourceElement, DimensionIndex SourceRank,
             ReadWriteMode SourceMode,
             std::enable_if_t<(internal::IsTensorStoreImplicitlyConvertible<
@@ -109,6 +123,7 @@ class TensorStore {
   /// \pre `other.dtype()` is compatible with `Element`
   /// \pre `other.rank()` is compatible with `static_rank`
   /// \pre `other.read_write_mode()` is compatible with `static_mode`
+  /// \id unchecked
   template <typename SourceElement, DimensionIndex SourceRank,
             ReadWriteMode SourceMode,
             std::enable_if_t<(internal::IsTensorStoreCastConvertible<
@@ -130,6 +145,7 @@ class TensorStore {
     return *this;
   }
 
+  /// Returns the read-write mode.
   ReadWriteMode read_write_mode() const {
     return handle_.driver.read_write_mode();
   }
@@ -138,12 +154,14 @@ class TensorStore {
   bool valid() const noexcept { return static_cast<bool>(handle_.driver); }
 
   /// Returns the data type.
+  ///
   /// \pre `valid()`
   DataType dtype() const {
     return StaticDataTypeCast<ElementType, unchecked>(handle_.driver->dtype());
   }
 
   /// Returns the rank.
+  ///
   /// \pre `valid()`
   RankType rank() const {
     return StaticRankCast<Rank, unchecked>(handle_.transform.input_rank());
@@ -156,13 +174,6 @@ class TensorStore {
 
   /// Returns the associated transaction.
   const Transaction& transaction() const { return handle_.transaction; }
-
-  /// Returns a Spec that may be used to open/recreate this TensorStore.
-  ///
-  /// \pre `valid()`
-  Result<Spec> spec(SpecRequestOptions&& options) const {
-    return internal::GetSpec(handle_, std::move(options));
-  }
 
   /// Returns a Spec that may be used to open/recreate this TensorStore.
   ///
@@ -183,16 +194,19 @@ class TensorStore {
   /// - RecheckCached, RecheckCachedData, RecheckCachedMetadata: specifies cache
   ///   staleness bounds, overriding the current bounds (if applicable).
   ///
-  /// - UnbindContext: Indicates whether context resources should be unbound,
-  ///   meaning that they refer to an unresolved context resource spec (e.g. a
-  ///   desired number of concurrent requests, memory limits on cache pool),
-  ///   rather than a specific context resource (specific concurrency pool,
-  ///   specific cache pool).  Defaults to `UnbindContext{true}`.  If
-  ///   `UnbindContext{false}` is specified, the returned `Spec` may be used to
+  /// - ContextBindingMode: Indicates whether context resources should be
+  ///   unbound, meaning that they refer to an unresolved context resource spec
+  ///   (e.g. a desired number of concurrent requests, memory limits on cache
+  ///   pool), rather than a specific context resource (specific concurrency
+  ///   pool, specific cache pool).  Defaults to `unbind_context`.  If
+  ///   `retain_context` is specified, the returned `Spec` may be used to
   ///   re-open the TensorStore using the identical context resources.
   ///
   /// \param option Any option compatible with `SpecRequestOptions`.
   /// \pre `valid()`
+  Result<Spec> spec(SpecRequestOptions&& options) const {
+    return internal::GetSpec(handle_, std::move(options));
+  }
   template <typename... Option>
   std::enable_if_t<IsCompatibleOptionSequence<SpecRequestOptions, Option...>,
                    Result<Spec>>
@@ -221,7 +235,8 @@ class TensorStore {
   /// Returns the fill value.
   ///
   /// If the there is no fill value, or it is unknown, returns a null array
-  /// (i.e. with `data() == nullptr`) and unspecified bounds and data type.
+  /// (i.e. with `Array::data() == nullptr`) and unspecified bounds and data
+  /// type.
   ///
   /// Otherwise, the returned array has a non-null data pointer, a shape
   /// broadcastable to `this->domain()` and a data type equal to
@@ -234,7 +249,7 @@ class TensorStore {
   ///
   /// The returned vector has a length equal to `this->rank()`.
   ///
-  /// Example:
+  /// Example::
   ///
   ///     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
   ///         auto store,
@@ -267,11 +282,11 @@ class TensorStore {
 
   /// "Pipeline" operator.
   ///
-  /// In the expression  `x | y`, if
-  ///   * y is a function having signature `Result<U>(T)`
+  /// In the expression ``x | y``, if ``y`` is a function having signature
+  /// ``Result<U>(T)``, then `operator|` applies ``y`` to the value of ``x``,
+  /// returning a ``Result<U>``.
   ///
-  /// Then operator| applies y to the value of x, returning a
-  /// Result<U>. See tensorstore::Result operator| for examples.
+  /// See `tensorstore::Result::operator|` for examples.
   template <typename Func>
   PipelineResultType<const TensorStore&, Func> operator|(Func&& func) const& {
     return std::forward<Func>(func)(*this);
@@ -313,7 +328,7 @@ class TensorStore {
   /// This is intended to be used with the "pipeline" `operator|` or
   /// `ChainResult`.
   ///
-  /// Example:
+  /// Example::
   ///
   ///     tensorstore::TensorStore<> store = ...;
   ///     auto transaction = tensorstore::Transaction(tensorstore::isolated);
@@ -335,9 +350,9 @@ class TensorStore {
   internal::Driver::Handle handle_;
 };
 
-/// Specialization of `StaticCastTraits` for the `TensorStore` class template,
-/// which enables `StaticCast`, `StaticRankCast`, `StaticDataTypeCast`, and
-/// `ModeCast`.
+// Specialization of `StaticCastTraits` for the `TensorStore` class template,
+// which enables `StaticCast`, `StaticRankCast`, `StaticDataTypeCast`, and
+// `ModeCast`.
 template <typename Element, DimensionIndex Rank, ReadWriteMode Mode>
 struct StaticCastTraits<TensorStore<Element, Rank, Mode>>
     : public DefaultStaticCastTraits<TensorStore<Element, Rank, Mode>> {
@@ -369,16 +384,19 @@ struct StaticCastTraits<TensorStore<Element, Rank, Mode>>
   }
 };
 
-/// Evaluates to a type similar to `SourceRef` but with a ReadWriteMode of
+/// Evaluates to a type similar to `SourceRef` but with a `ReadWriteMode` of
 /// `TargetMode`.
 ///
-/// The actual type is determined by the `RebindMode` template alias defined by
-/// the `StaticCastTraits` specialization for `SourceRef`.
+/// \ingroup compile-time-constraints
 template <typename SourceRef, ReadWriteMode TargetMode>
+// The actual type is determined by the `RebindMode` template alias defined by
+// the `StaticCastTraits` specialization for `SourceRef`.
 using RebindMode =
     typename StaticCastTraitsType<SourceRef>::template RebindMode<TargetMode>;
 
 /// Casts `source` to have a static `ReadWriteMode` of `TargetMode`.
+///
+/// \ingroup compile-time-constraints
 template <ReadWriteMode TargetMode,
           CastChecking Checking = CastChecking::checked, typename SourceRef>
 StaticCastResultType<RebindMode<SourceRef, TargetMode>, SourceRef, Checking>
@@ -387,28 +405,34 @@ ModeCast(SourceRef&& source) {
       std::forward<SourceRef>(source));
 }
 
-/// Read-only TensorStore alias.
+/// Read-only `TensorStore` alias.
+///
+/// \relates TensorStore
 template <typename Element = void, DimensionIndex Rank = dynamic_rank>
 using TensorReader = TensorStore<Element, Rank, ReadWriteMode::read>;
 
-/// Write-only TensorStore alias.
+/// Write-only `TensorStore` alias.
+///
+/// \relates TensorStore
 template <typename Element = void, DimensionIndex Rank = dynamic_rank>
 using TensorWriter = TensorStore<Element, Rank, ReadWriteMode::write>;
 
 /// Returns a new `TensorStore` that is equivalent to `store` but has implicit
 /// bounds resolved if possible, and explicit bounds checked.
 ///
-/// Example:
+/// Example::
 ///
 ///     TensorStore<std::int32_t, 3> store = ...;
 ///     store = ResolveBounds(store).value();
 ///
-/// \param store_result The TensorStore to resolve.  May be `Result`-wrapped.
+/// \param store The TensorStore to resolve.  May be `Result`-wrapped.
 /// \param options Options for resolving bounds.
+/// \relates TensorStore
+/// \membergroup I/O
 template <typename StoreResult>
 std::enable_if_t<internal::IsTensorStore<UnwrapResultType<StoreResult>>,
                  Future<UnwrapResultType<StoreResult>>>
-ResolveBounds(StoreResult store_result, ResolveBoundsOptions options = {}) {
+ResolveBounds(StoreResult store, ResolveBoundsOptions options = {}) {
   using Store = UnwrapResultType<StoreResult>;
   return MapResult(
       [&](auto&& store) -> Future<Store> {
@@ -427,7 +451,7 @@ ResolveBounds(StoreResult store_result, ResolveBoundsOptions options = {}) {
                                   IndexTransform<>(std::move(handle.transform)),
                                   options));
       },
-      std::move(store_result));
+      std::move(store));
 }
 
 /// Resizes a `TensorStore` to have the specified `inclusive_min` and
@@ -437,11 +461,7 @@ ResolveBounds(StoreResult store_result, ResolveBoundsOptions options = {}) {
 /// `store` operates, but these bounds are mapped back to base, untransformed
 /// TensorStore.
 ///
-/// TODO(jbms): Consider changing this interface to be more convenient,
-/// e.g. supporting dimension selections by name/index, and both inclusive and
-/// exclusive bounds.
-///
-/// Example:
+/// Example::
 ///
 ///     TensorStore<std::int32_t, 3> store = ...;
 ///     store = Resize(store,
@@ -452,16 +472,22 @@ ResolveBounds(StoreResult store_result, ResolveBoundsOptions options = {}) {
 /// \param store The TensorStore to resize.
 /// \param inclusive_min Vector of length `store.rank()` specifying the new
 ///     inclusive min bounds.  A bound of `kImplicit` indicates no change.
-/// \param exclusive_min Vector of length `store.rank()` specifying the new
+/// \param exclusive_max Vector of length `store.rank()` specifying the new
 ///     exclusive max bounds.  A bound of `kImplicit` indicates no change.
 /// \param options Options affecting the resize behavior.
 /// \returns A future that becomes ready once the resize operation has completed
 ///     (successfully or unsuccessfully).
+/// \relates TensorStore
+/// \membergroup I/O
 template <typename StoreResult>
 std::enable_if_t<internal::IsTensorStore<UnwrapResultType<StoreResult>>,
                  Future<UnwrapResultType<StoreResult>>>
+// NONITPICK: UnwrapResultType<StoreResult>::static_rank
+// TODO(jbms): Consider changing this interface to be more convenient,
+// e.g. supporting dimension selections by name/index, and both inclusive and
+// exclusive bounds.
 Resize(
-    StoreResult store_result,
+    StoreResult store,
     span<const Index, UnwrapResultType<StoreResult>::static_rank> inclusive_min,
     span<const Index, UnwrapResultType<StoreResult>::static_rank> exclusive_max,
     ResizeOptions options = {}) {
@@ -491,7 +517,7 @@ Resize(
                            IndexTransform<>(std::move(handle.transform)),
                            inclusive_min, exclusive_max, options));
       },
-      std::move(store_result));
+      std::move(store));
 }
 
 /// Copies from `source` TensorStore to `target` array.
@@ -502,7 +528,7 @@ Resize(
 /// If an error occurs while reading, the `target` array may be left in a
 /// partially-written state.
 ///
-/// Example:
+/// Example::
 ///
 ///     TensorReader<std::int32_t, 3> store = ...;
 ///     auto array = AllocateArray<std::int32_t>({25, 30});
@@ -510,14 +536,17 @@ Resize(
 ///                                                   {25, 30})),
 ///          array).value();
 ///
-/// \param source Source TensorStore object that supports reading.  May be
+/// \param source Source `TensorStore` object that supports reading.  May be
 ///     `Result`-wrapped.
-/// \param target Array or TransformedArray with a non-`const` element type. May
-///     be `Result`-wrapped.  This array must remain valid until the returned
-///     future becomes ready.
+/// \param target `Array` or `TransformedArray` with a non-``const`` element
+///    type.  May be `Result`-wrapped.  This array must remain valid until the
+///    returned future becomes ready.
 /// \param options Additional read options.
 /// \returns A future that becomes ready when the read has completed
 ///     successfully or has failed.
+/// \relates TensorStore
+/// \id TensorStore, Array
+/// \membergroup I/O
 template <typename Source, typename TargetArray>
 internal::EnableIfCanCopyTensorStoreToArray<
     UnwrapResultType<internal::remove_cvref_t<Source>>,
@@ -535,9 +564,9 @@ Read(Source&& source, TargetArray&& target, ReadOptions options = {}) {
       std::forward<Source>(source), std::forward<TargetArray>(target));
 }
 
-/// Copies from `source` TensorStore to a newly-allocated target array.
+/// Copies from a `source` `TensorStore` to a newly-allocated target `Array`.
 ///
-/// Example:
+/// Example::
 ///
 ///     TensorReader<std::int32_t, 3> store = ...;
 ///     auto array = Read(
@@ -552,6 +581,9 @@ Read(Source&& source, TargetArray&& target, ReadOptions options = {}) {
 /// \param options Additional read options.
 /// \returns A future that becomes ready when the read has completed
 ///     successfully or has failed.
+/// \relates TensorStore
+/// \id TensorStore
+/// \membergroup I/O
 template <ArrayOriginKind OriginKind = offset_origin, typename Source>
 internal::ReadTensorStoreIntoNewArrayResult<
     OriginKind, UnwrapResultType<internal::remove_cvref_t<Source>>>
@@ -569,13 +601,15 @@ Read(Source&& source, ReadIntoNewArrayOptions options = {}) {
       std::forward<Source>(source));
 }
 
-/// Copies from `source` array to `target` TensorStore.
+/// Copies from a `source` array to `target` TensorStore.
 ///
 /// The domain of `target` is resolved via `ResolveBounds` and then the domain
 /// of `source` is aligned/broadcast to it via `AlignDomainTo`.
 ///
 /// If an error occurs while writing, the `target` TensorStore may be left in a
 /// partially-written state.
+///
+/// Example::
 ///
 ///     TensorWriter<std::int32_t, 3> store = ...;
 ///     SharedArray<std::int32_t, 3> array = ...;
@@ -585,9 +619,12 @@ Read(Source&& source, ReadIntoNewArrayOptions options = {}) {
 ///
 /// \param source The source `Array` or `TransformedArray`.  May be
 ///     `Result`-wrapped.  This array must remain valid until the returned
-///     `copy_future` becomes ready.
+///     `WriteFutures::copy_future` becomes ready.
 /// \param target The target `TensorStore`.  May be `Result`-wrapped.
 /// \param options Additional write options.
+/// \relates TensorStore
+/// \membergoup I/O
+/// \id Array, TensorStore
 template <typename SourceArray, typename Target>
 internal::EnableIfCanCopyArrayToTensorStore<
     UnwrapResultType<internal::remove_cvref_t<SourceArray>>,
@@ -605,7 +642,7 @@ Write(SourceArray&& source, Target&& target, WriteOptions options = {}) {
       std::forward<SourceArray>(source), std::forward<Target>(target));
 }
 
-/// Copies from `source` TensorStore to `target` TensorStore.
+/// Copies from `source` `TensorStore` to `target` `TensorStore`.
 ///
 /// The domains of `source` and `target` are resolved via `ResolveBounds`, and
 /// then the domain of `source` is aligned/broadcast to the domain of `target`
@@ -613,6 +650,8 @@ Write(SourceArray&& source, Target&& target, WriteOptions options = {}) {
 ///
 /// If an error occurs while copying, the `target` TensorStore may be left in a
 /// partially-written state.
+///
+/// Example::
 ///
 ///     TensorReader<std::int32_t, 3> source = ...;
 ///     TensorWriter<std::int32_t, 3> target = ...;
@@ -623,10 +662,13 @@ Write(SourceArray&& source, Target&& target, WriteOptions options = {}) {
 ///
 /// \param source The source `TensorStore` that supports reading.  May be
 ///     `Result`-wrapped.  The `source` must remain valid until the returned
-///     `copy_future` becomes ready.
+///     `WriteFutures::copy_future` becomes ready.
 /// \param target The target `TensorStore` that supports writing.  May be
 ///     `Result`-wrapped.
 /// \param options Additional write options.
+/// \relates TensorStore
+/// \membergoup I/O
+/// \id TensorStore, TensorStore
 template <typename Source, typename Target>
 internal::EnableIfCanCopyTensorStoreToTensorStore<
     UnwrapResultType<internal::remove_cvref_t<Source>>,
