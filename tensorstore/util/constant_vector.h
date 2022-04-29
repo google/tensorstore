@@ -56,7 +56,7 @@ extern const std::string kStringArray[kMaxRank];
 /// The returned `span` is valid for the duration of the program.
 ///
 /// \param length The length of the vector to return.
-/// \dchecks `0 <= length && length < kMaxRank`
+/// \dchecks `IsValidRank(length)`
 template <typename T, T Value>
 constexpr span<const T> GetConstantVector(std::ptrdiff_t length) {
   assert(IsValidRank(length));
