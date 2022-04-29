@@ -36,6 +36,8 @@
 ///
 /// This macro should be called with a single C++ expression.  We use a variadic
 /// macro to allow calls like TENSORSTORE_CHECK(foo<1,2>()).
+///
+/// \ingroup error handling
 #define TENSORSTORE_CHECK(...)                                                \
   do {                                                                        \
     if (ABSL_PREDICT_FALSE(!(__VA_ARGS__))) {                                 \
