@@ -51,7 +51,7 @@ namespace {
 ///
 /// If `UseStridedLayout == false`, `transform` must not be `nullptr`, and
 /// `(array.element_pointer(), transform)` is assumed to be a valid
-/// `NormalizedTransformedArray`.
+/// `TransformedArray`.
 template <bool UseStridedLayout>
 absl::Status InitializeSingleArrayIterationStateImpl(
     OffsetArrayView<const void, (UseStridedLayout ? dynamic_rank : 0)> array,

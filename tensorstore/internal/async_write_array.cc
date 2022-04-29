@@ -74,7 +74,7 @@ Result<NDIterable::Ptr> AsyncWriteArray::Spec::GetReadNDIterable(
   TENSORSTORE_ASSIGN_OR_RETURN(
       chunk_transform,
       ComposeLayoutAndTransform(data_layout, std::move(chunk_transform)));
-  return GetNormalizedTransformedArrayNDIterable(
+  return GetTransformedArrayNDIterable(
       {AddByteOffset(std::move(array.element_pointer()),
                      -data_layout.origin_byte_offset()),
        std::move(chunk_transform)},
@@ -207,7 +207,7 @@ Result<NDIterable::Ptr> AsyncWriteArray::MaskedArray::BeginWrite(
       chunk_transform,
       ComposeLayoutAndTransform(data_layout, std::move(chunk_transform)));
 
-  return GetNormalizedTransformedArrayNDIterable(
+  return GetTransformedArrayNDIterable(
       {UnownedToShared(AddByteOffset(write_array.element_pointer(),
                                      -data_layout.origin_byte_offset())),
        std::move(chunk_transform)},

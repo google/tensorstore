@@ -92,7 +92,6 @@ using tensorstore::StorageGeneration;
 using tensorstore::TensorStore;
 using tensorstore::TimestampedStorageGeneration;
 using tensorstore::Transaction;
-using tensorstore::TransformedSharedArrayView;
 using tensorstore::WriteFutures;
 using tensorstore::WriteProgressFunction;
 using tensorstore::internal::AsyncCache;
@@ -628,27 +627,6 @@ TEST_F(ChunkCacheTest, TwoDimensional) {
                                                   {3, 1, 2, 3, 1},
                                                   {6, 4, 5, 6, 4},
                                                   {3, 1, 2, 3, 1}})));
-}
-
-// Tests that an invalid transformed array as the read destination leads to an
-// error.
-TEST_F(ChunkCacheTest, ReadInvalidTransformedArray) {
-  // Dimension 0 is chunked with a size of 2.
-  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
-      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
-  auto cache = MakeChunkCache();
-
-  // Create an invalid transformed array: the array has domain [1,3] but the
-  // transform has an output range of [0,2].
-  auto read_array = tensorstore::TransformedArray(
-      tensorstore::AllocateArray<int>(tensorstore::BoxView<1>({1}, {3})),
-      tensorstore::IdentityTransform(tensorstore::BoxView<1>({3})));
-  auto read_future =
-      tensorstore::Read(GetTensorStore(cache, absl::InfinitePast()) |
-                            tensorstore::Dims(0).TranslateSizedInterval(3, 3),
-                        read_array);
-  EXPECT_THAT(read_future.result(),
-              MatchesStatus(absl::StatusCode::kOutOfRange));
 }
 
 TEST_F(ChunkCacheTest, ReadRequestErrorBasic) {

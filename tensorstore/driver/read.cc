@@ -100,7 +100,7 @@ struct ReadState
   DriverPtr source_driver;
   internal::OpenTransactionPtr source_transaction;
   DataTypeConversionLookupResult data_type_conversion;
-  NormalizedTransformedArray<Shared<void>> target;
+  TransformedArray<Shared<void>> target;
   DomainAlignmentOptions alignment_options;
   ReadProgressFunction read_progress_function;
   Promise<PromiseValue> promise;
@@ -204,8 +204,8 @@ struct DriverReadIntoNewInitiateOp {
         std::move(source_transform_future.value());
     auto array = AllocateArray(source_transform.domain().box(),
                                target_layout_order, default_init, target_dtype);
-    auto& r = promise.raw_result() = array;
-    state->target = MakeNormalizedTransformedArray(*r);
+    auto& r = promise.raw_result() = std::move(array);
+    state->target = *r;
     state->promise = std::move(promise);
     state->total_elements = source_transform.input_domain().num_elements();
 
@@ -221,26 +221,22 @@ struct DriverReadIntoNewInitiateOp {
 }  // namespace
 
 Future<void> DriverRead(Executor executor, DriverHandle source,
-                        TransformedSharedArrayView<void> target,
+                        TransformedSharedArray<void> target,
                         DriverReadOptions options) {
   TENSORSTORE_RETURN_IF_ERROR(
       internal::ValidateSupportsRead(source.driver.read_write_mode()));
-  TENSORSTORE_ASSIGN_OR_RETURN(
-      auto normalized_target,
-      MakeNormalizedTransformedArray(std::move(target)));
   using State = ReadState<void>;
   IntrusivePtr<State> state(new State);
   state->executor = executor;
   TENSORSTORE_ASSIGN_OR_RETURN(
       state->data_type_conversion,
-      GetDataTypeConverterOrError(source.driver->dtype(),
-                                  normalized_target.dtype(),
+      GetDataTypeConverterOrError(source.driver->dtype(), target.dtype(),
                                   options.data_type_conversion_flags));
   state->source_driver = std::move(source.driver);
   TENSORSTORE_ASSIGN_OR_RETURN(
       state->source_transaction,
       internal::AcquireOpenTransactionPtrOrError(source.transaction));
-  state->target = std::move(normalized_target);
+  state->target = std::move(target);
   state->alignment_options = options.alignment_options;
   state->read_progress_function = std::move(options.progress_function);
   auto pair = PromiseFuturePair<void>::Make(MakeResult());
@@ -258,7 +254,7 @@ Future<void> DriverRead(Executor executor, DriverHandle source,
 }
 
 Future<void> DriverRead(DriverHandle source,
-                        TransformedSharedArrayView<void> target,
+                        TransformedSharedArray<void> target,
                         ReadOptions options) {
   auto executor = source.driver->data_copy_executor();
   return internal::DriverRead(
@@ -313,12 +309,12 @@ Future<SharedOffsetArray<void>> DriverReadIntoNewArray(
 absl::Status CopyReadChunk(
     ReadChunk::Impl& chunk, IndexTransform<> chunk_transform,
     const DataTypeConversionLookupResult& chunk_conversion,
-    NormalizedTransformedArray<void, dynamic_rank, view> target) {
+    TransformedArray<void, dynamic_rank, view> target) {
   DefaultNDIterableArena arena;
 
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto target_iterable,
-      GetNormalizedTransformedArrayNDIterable(UnownedToShared(target), arena));
+      GetTransformedArrayNDIterable(UnownedToShared(target), arena));
 
   LockCollection lock_collection;
   TENSORSTORE_ASSIGN_OR_RETURN(auto guard, LockChunks(lock_collection, chunk));
@@ -336,9 +332,9 @@ absl::Status CopyReadChunk(
   return copier.Copy();
 }
 
-absl::Status CopyReadChunk(
-    ReadChunk::Impl& chunk, IndexTransform<> chunk_transform,
-    NormalizedTransformedArray<void, dynamic_rank, view> target) {
+absl::Status CopyReadChunk(ReadChunk::Impl& chunk,
+                           IndexTransform<> chunk_transform,
+                           TransformedArray<void, dynamic_rank, view> target) {
   auto converter =
       internal::GetDataTypeConverter(target.dtype(), target.dtype());
   return CopyReadChunk(chunk, std::move(chunk_transform), converter,

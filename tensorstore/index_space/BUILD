@@ -811,10 +811,7 @@ tensorstore_cc_test(
 
 tensorstore_cc_library(
     name = "transformed_array",
-    srcs = [
-        "internal/transformed_array_impl.h",
-        "transformed_array.cc",
-    ],
+    srcs = ["transformed_array.cc"],
     hdrs = ["transformed_array.h"],
     visibility = ["//visibility:public"],
     deps = [

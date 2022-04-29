@@ -590,11 +590,11 @@ struct BufferedReadChunkImpl {
     // `chunk_transform.domain()`.
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto transformed_array,
-        MakeNormalizedTransformedArray(state_->data_buffer_,
-                                       std::move(propagated.transform)));
+        MakeTransformedArray(state_->data_buffer_,
+                             std::move(propagated.transform)));
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto base_nditerable,
-        GetNormalizedTransformedArrayNDIterable(transformed_array, arena));
+        GetTransformedArrayNDIterable(transformed_array, arena));
     // Return a downsampled view of `state_->base_buffer_`.  Note that
     // `propagated.transform` may have additional synthetic input dimensions
     // beyond `chunk_transform.input_rank()`, but those are truncated by
@@ -818,42 +818,41 @@ struct ReadReceiverImpl {
     // involve any significant data copying, so don't bother deferring the work
     // to an executor.
     if (MaybeEmitIndependentReadChunk(*state_, chunk, cell_transform)) return;
-    state_->self_->data_copy_executor()(
-        [state = state_, chunk = std::move(chunk),
-         cell_transform = std::move(cell_transform)]() mutable {
-          const Index num_elements = cell_transform.domain().num_elements();
-          {
-            std::lock_guard<ReadState> guard(*state);
-            if (state->canceled_) {
-              --state->chunks_in_progress_;
-              return;
-            }
-            if (state->data_buffer_.byte_strided_origin_pointer() == nullptr) {
-              state->data_buffer_ = AllocateArray(
-                  state->base_transform_domain_.box(), c_order, default_init,
-                  state->self_->base_driver_->dtype());
-            }
-          }
-          TENSORSTORE_ASSIGN_OR_RETURN(
-              auto transformed_data_buffer,
-              MakeNormalizedTransformedArray(state->data_buffer_,
-                                             std::move(cell_transform)),
-              state->SetError(_, 1));
-          TENSORSTORE_RETURN_IF_ERROR(
-              internal::CopyReadChunk(chunk.impl, chunk.transform,
-                                      transformed_data_buffer),
-              state->SetError(_, 1));
-          {
-            std::lock_guard<ReadState> guard(*state);
-            bool elements_done =
-                (state->remaining_elements_ -= num_elements) == 0;
-            if (state->canceled_ || !elements_done) {
-              --state->chunks_in_progress_;
-              return;
-            }
-          }
-          state->EmitBufferedChunks();
-        });
+    state_->self_->data_copy_executor()([state = state_,
+                                         chunk = std::move(chunk),
+                                         cell_transform = std::move(
+                                             cell_transform)]() mutable {
+      const Index num_elements = cell_transform.domain().num_elements();
+      {
+        std::lock_guard<ReadState> guard(*state);
+        if (state->canceled_) {
+          --state->chunks_in_progress_;
+          return;
+        }
+        if (state->data_buffer_.byte_strided_origin_pointer() == nullptr) {
+          state->data_buffer_ =
+              AllocateArray(state->base_transform_domain_.box(), c_order,
+                            default_init, state->self_->base_driver_->dtype());
+        }
+      }
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          auto transformed_data_buffer,
+          MakeTransformedArray(state->data_buffer_, std::move(cell_transform)),
+          state->SetError(_, 1));
+      TENSORSTORE_RETURN_IF_ERROR(
+          internal::CopyReadChunk(chunk.impl, chunk.transform,
+                                  transformed_data_buffer),
+          state->SetError(_, 1));
+      {
+        std::lock_guard<ReadState> guard(*state);
+        bool elements_done = (state->remaining_elements_ -= num_elements) == 0;
+        if (state->canceled_ || !elements_done) {
+          --state->chunks_in_progress_;
+          return;
+        }
+      }
+      state->EmitBufferedChunks();
+    });
   }
 
   void set_error(absl::Status status) { state_->SetError(std::move(status)); }

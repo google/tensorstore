@@ -20,13 +20,13 @@
 /// in-memory array.
 
 #include <memory>
+#include <string>
 #include <type_traits>
 
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
-#include "tensorstore/index_space/internal/transformed_array_impl.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/result.h"
@@ -37,12 +37,35 @@ template <typename ElementTagType, DimensionIndex Rank = dynamic_rank,
           ContainerKind LayoutCKind = container>
 class TransformedArray;
 
-template <typename ElementTagType, DimensionIndex Rank = dynamic_rank,
+/// Alias for a `TransformedArray` where the `IndexTransform` is
+/// stored by unowned reference.
+///
+/// \relates TransformedArray
+template <typename ElementTagType, DimensionIndex Rank = dynamic_rank>
+using TransformedArrayView = TransformedArray<ElementTagType, Rank>;
+
+/// Alias for a `TransformedArray` where the data pointer is stored as
+/// an `std::shared_ptr`.
+///
+/// \relates TransformedArray
+template <typename Element, DimensionIndex Rank = dynamic_rank,
           ContainerKind LayoutCKind = container>
-class NormalizedTransformedArray;
+using TransformedSharedArray =
+    TransformedArray<Shared<Element>, Rank, LayoutCKind>;
+
+/// Alias for a `TransformedArray` where the data pointer is stored as
+/// an `std::shared_ptr` and the `IndexTransform` is stored by unowned
+/// reference.
+///
+/// \relates TransformedArray
+template <typename Element, DimensionIndex Rank = dynamic_rank>
+using TransformedSharedArrayView =
+    TransformedArray<Shared<Element>, Rank, view>;
 
 /// Bool-valued metafunction that evaluates to `true` if `T` is an instance of
 /// `TransformedArray`.
+///
+/// \relates TransformedArray
 template <typename T>
 constexpr inline bool IsTransformedArray = false;
 
@@ -52,34 +75,84 @@ constexpr inline bool
     IsTransformedArray<TransformedArray<ElementTagType, Rank, LayoutCKind>> =
         true;
 
-/// Bool-valued metafunction that evaluates to `true` if `T` is an instance of
-/// `NormalizedTransformedArray`.
-template <typename T>
-constexpr inline bool IsNormalizedTransformedArray = false;
-
-template <typename ElementTagType, DimensionIndex Rank,
-          ContainerKind LayoutCKind>
-constexpr inline bool IsNormalizedTransformedArray<
-    NormalizedTransformedArray<ElementTagType, Rank, LayoutCKind>> = true;
-
 /// Bool-valued metafunction that evaluates to `true` if `T` satisfies
-/// `IsArray`, `IsTransformedArray`, or `IsNormalizedTransformedArray`.
+/// `IsArray` or `IsTransformedArray`.
+///
+/// \relates TransformedArray
 template <typename T>
-constexpr inline bool IsTransformedArrayLike = IsArray<T>;
+constexpr inline bool IsTransformedArrayLike =
+    IsArray<T> || IsTransformedArray<T>;
 
-template <typename ElementTagType, DimensionIndex Rank,
-          ContainerKind LayoutCKind>
-constexpr inline bool IsTransformedArrayLike<
-    TransformedArray<ElementTagType, Rank, LayoutCKind>> = true;
+namespace internal_index_space {
+TransformRep::Ptr<> MakeTransformFromStridedLayout(
+    StridedLayoutView<dynamic_rank, offset_origin> layout);
+Result<TransformRep::Ptr<>> MakeTransformFromStridedLayoutAndTransform(
+    StridedLayoutView<dynamic_rank, offset_origin> layout,
+    TransformRep::Ptr<> transform);
 
-template <typename ElementTagType, DimensionIndex Rank,
-          ContainerKind LayoutCKind>
-constexpr inline bool IsTransformedArrayLike<
-    NormalizedTransformedArray<ElementTagType, Rank, LayoutCKind>> = true;
+/// Returns a layout of rank `rank` with a domain of `Box(rank)` and a
+/// `byte_strides` vector of `GetConstantVector<Index, 1>(output_rank)`.
+StridedLayoutView<dynamic_rank, offset_origin> GetUnboundedLayout(
+    DimensionIndex rank);
+
+/// Type alias that evaluates to the result of calling MapTransform with a given
+/// function type.
+template <typename A, typename Func>
+using TransformedArrayMapTransformResultType = FlatMapResultType<
+    A::template RebindTransform,
+    internal::remove_cvref_t<std::invoke_result_t<
+        Func, const typename internal::remove_cvref_t<A>::Transform&>>>;
+
+/// Returns a new `Result`-wrapped `TransformedArray` where the index transform
+/// has been mapped by the specified function.
+template <typename A, typename Func>
+static TransformedArrayMapTransformResultType<internal::remove_cvref_t<A>, Func>
+TransformedArrayMapTransform(A&& a, Func&& func) {
+  using ResultType =
+      TransformedArrayMapTransformResultType<internal::remove_cvref_t<A>, Func>;
+  using AX = internal::remove_cvref_t<A>;
+  using MappedTransform = UnwrapResultType<
+      std::invoke_result_t<Func, const typename AX::Transform&>>;
+  return MapResult(
+      [&](MappedTransform transform) {
+        return typename ResultType::value_type{
+            std::forward<A>(a).element_pointer(), std::move(transform)};
+      },
+      std::forward<Func>(func)(std::forward<A>(a).transform()));
+}
+
+// Used to implement `EnableIfTransformedArrayMapTransformResultType` below.
+template <bool Condition>
+struct ConditionalTransformedArrayMapTransformResultType {
+  template <typename A, typename Func>
+  using type = TransformedArrayMapTransformResultType<A, Func>;
+};
+
+template <>
+struct ConditionalTransformedArrayMapTransformResultType<false> {};
+
+/// Equivalent to:
+///
+///     std::enable_if_t<
+///         Condition,
+///         TransformedArrayMapTransformResultType<A, Func>>
+///
+/// except that `TransformedArrayMapTransformResultType<A, Func>` is not
+/// evaluated if `Condition` is `false` (this avoids the potential for SFINAE
+/// loops).
+template <bool Condition, typename A, typename Func>
+using EnableIfTransformedArrayMapTransformResultType =
+    typename ConditionalTransformedArrayMapTransformResultType<
+        Condition>::template type<A, Func>;
+
+std::string DescribeTransformedArrayForCast(DataType dtype,
+                                            DimensionIndex rank);
+
+}  // namespace internal_index_space
 
 /// View through an index transform of an in-memory array.
 ///
-/// Example of making a transformed array directly:
+/// Example of making a transformed array directly::
 ///
 ///    // Transform that extracts the diagonal.
 ///    IndexTransform<> t = IndexTransformBuilder<>(1, 2)
@@ -89,670 +162,222 @@ constexpr inline bool IsTransformedArrayLike<
 ///                             .value();
 ///    auto source_array = MakeArray<int>({1, 2, 3}, {4, 5, 6}, {7, 8, 9});
 ///    auto dest_array = AllocateArray<int>({3});
-///    auto transformed_array = TransformedArray(source_array, t);
+///    TENSORSTORE_ASSIGN_OR_RETURN(auto transformed_array, source_array | t);
+///
 ///    // Copy the diagonal of source_array to dest_array.
 ///    IterateOverTransformedArrays([](const int* x, int* y) { *y = *x; },
 ///                                 /*constraints=*/{}, transformed_array,
 ///                                 dest_array);
 ///    // dest_array equals {1, 5, 9}.
 ///
-/// Example of making a transformed array using DimExpression:
+/// Example of making a transformed array using `DimExpression`::
 ///
-///     auto transformed_array = ChainResult(
-///       tensorstore::MakeArray<int>({{1, 2, 3}, {4, 5, 6}}),
-///       tensorstore::Dims(0).TranslateTo(10),
+///     TENSORSTORE_ASSIGN_OR_RETURN(
+///       auto transformed_array,
+///       tensorstore::MakeArray<int>({{1, 2, 3}, {4, 5, 6}}) |
+///       tensorstore::Dims(0).TranslateTo(10) |
 ///       tensorstore::Dims(0, 1).IndexVectorArraySlice(
-///         tensorstore::MakeArray<Index>({10, 1}, {11, 1}, {11, 2}))
-///       tensorstore::Dims(0).Label("a")).value();
+///         tensorstore::MakeArray<Index>({10, 1}, {11, 1}, {11, 2})) |
+///       tensorstore::Dims(0).Label("a"));
 ///
+/// Logically, a `TransformedArray` is represented by an
+/// `ElementPointer<ElementTagType>` and an `IndexTransform<Rank, LayoutCKind>`.
+/// The original `StridedLayout` of the array is represented implicitly as part
+/// of the `IndexTransform`.
 ///
-/// A transformed array uses one of three possible representations (determined
-/// at run time):
-///
-///   1. An element pointer `element_pointer()` accessed directly using an index
-///      transform `transform()` (the byte offset of each element is obtained by
-///      summing the output indices computed by the index transform).  This is
-///      the "normalized" representation (and is the only representation
-///      supported by the simpler and more efficient
-///      `NormalizedTransformedArray` class template).
-///
-///   2. A strided "base" array `base_array()` (of arbitrary rank, using either
-///      a zero-origin or offset-origin layout) transformed by an index
-///      transform `transform()`.  This representation is not considered
-///      "normalized", and it is possible that the range of the `transform()`
-///      may not be contained within the domain of the `base_array()`.  Such
-///      incompatibilities lead to errors being returned (never undefined
-///      behavior) when the transformed array is used.
-///
-///   3. A strided "untransformed" array `untransformed_array()` without an
-///      index transform (using either a zero-origin or offset-origin layout).
-///      This representation is also not considered "normalized", although
-///      unlike representation 2 this representation is always valid.
-///
-/// \tparam ElementTagType Must satisfy `IsElementTag`.  Either `T` or
-///     `Shared<T>`, where `T` satisfies `IsElementType<T>`.
+/// \tparam ElementTagType Must satisfy `IsElementTag`.  Either ``T`` or
+///     ``Shared<T>``, where ``T`` satisfies ``IsElementType<T>``.
 /// \tparam Rank The static rank of the transformed array.  May be
 ///     `dynamic_rank` to allow the rank to be determined at run time.
 /// \tparam LayoutCKind Either `container` or `view`.  If equal to `container`,
-///     the transformed array owns the contained index transform and/or strided
-///     layout.  If equal to `view`, an unowned reference to an index transform
-///     and/or strided layout is stored.
+///     the transformed array owns the index transform.  If equal to `view`, an
+///     unowned reference to the index transform is stored.
+/// \ingroup array
 template <typename ElementTagType, DimensionIndex Rank,
           ContainerKind LayoutCKind>
 class TransformedArray {
-  using Access = internal_index_space::TransformedArrayAccess;
-  using LayoutStorage = Access::LayoutStorage<Rank, LayoutCKind>;
   static_assert(IsElementTag<ElementTagType>,
                 "ElementTagType must be an ElementTag type.");
   static_assert(Rank == dynamic_rank || Rank >= 0,
                 "Rank must be dynamic_rank or >= 0.");
 
  public:
+  /// Element tag type of the array.
   using ElementTag = ElementTagType;
-  using ElementPointer = tensorstore::ElementPointer<ElementTag>;
-  using Pointer = typename ElementPointer::Pointer;
-  using Transform = typename LayoutStorage::Transform;
-  using Element = typename ElementPointer::Element;
-  using DataType = dtype_t<Element>;
-  constexpr static DimensionIndex static_rank = Transform::static_input_rank;
-  constexpr static ContainerKind layout_container_kind = LayoutCKind;
-  using RankType = StaticOrDynamicRank<static_rank>;
 
-  template <ArrayOriginKind OriginKind>
-  using UntransformedArray =
-      Array<ElementTagType, Rank, OriginKind, LayoutCKind>;
-  template <ArrayOriginKind OriginKind>
-  using BaseArray =
-      Array<ElementTagType, dynamic_rank, OriginKind, LayoutCKind>;
+  /// Element pointer type.
+  using ElementPointer = tensorstore::ElementPointer<ElementTag>;
+
+  /// Data pointer type.
+  using Pointer = typename ElementPointer::Pointer;
+
+  /// Index transform type.
+  using Transform = IndexTransform<Rank, dynamic_rank, LayoutCKind>;
+
+  /// Element type.
+  using Element = typename ElementPointer::Element;
+
+  /// Data type representation.
+  using DataType = dtype_t<Element>;
+
+  /// Compile-time rank constraint, or `dynamic_rank` if the rank is determined
+  /// at run time.
+  constexpr static DimensionIndex static_rank = Transform::static_input_rank;
+
+  /// Layout container kind.
+  constexpr static ContainerKind layout_container_kind = LayoutCKind;
+
+  /// Static or dynamic rank representation type.
+  using RankType = StaticOrDynamicRank<static_rank>;
 
   template <ContainerKind CKind>
   using RebindContainerKind = TransformedArray<ElementTagType, Rank, CKind>;
 
-  /// Alias that evaluates to the `NormalizedTransformedArray` type with the
-  /// same `ElementTag` but with the `static_input_rank` of `OtherTransform`,
-  /// and a layout container kind of `container`.
-  ///
-  /// \tparam OtherTransform The new transform type.  Must be an instance of
-  ///     `IndexTransform` or `IndexTransformView`.
-  template <typename OtherTransform = Transform>
-  using RebindTransform =
-      NormalizedTransformedArray<ElementTagType,
-                                 OtherTransform::static_input_rank, container>;
-
-  /// Constructs an invalid transformed array with a rank of `RankType()`.
-  TransformedArray() = default;
-
-  /// Constructs a transformed array that holds the specified "untransformed"
-  /// array.
-  ///
-  /// The domain of the index transform is equal to the domain of the array.  An
-  /// index vector `v` into the transformed array corresponds to `array(v)`.
-  ///
-  /// \requires `A` satisfies `IsArray`
-  /// \requires `UntransformedArray<A::array_origin_kind>` is constructible from
-  /// `A`. \remarks This constructor is explicit if, and only if, the conversion
-  /// from
-  ///     `A` to `UntransformedArray<A::array_origin_kind>` is explicit.
-  template <
-      typename A,
-      std::enable_if_t<
-          (IsArray<internal::remove_cvref_t<A>> &&
-           std::is_convertible_v<A, UntransformedArray<internal::remove_cvref_t<
-                                        A>::array_origin_kind>>)>* = nullptr>
-  TransformedArray(A&& array) noexcept
-      : TransformedArray(Access::construct_array_tag{},
-                         std::forward<A>(array)) {}
-
-  /// Overload that handles the explicit conversion case.
-  template <
-      typename A,
-      std::enable_if_t<(
-          IsArray<internal::remove_cvref_t<A>> &&
-          std::is_constructible_v<UntransformedArray<offset_origin>, A&&> &&
-          !std::is_convertible_v<A, UntransformedArray<internal::remove_cvref_t<
-                                        A>::array_origin_kind>>)>* = nullptr>
-  explicit TransformedArray(A&& array) noexcept
-      : TransformedArray(Access::construct_array_tag{},
-                         std::forward<A>(array)) {}
-
-  /// Unchecked conversion from an existing `Array`.
-  ///
-  /// \requires `A` is an instance of `Array` with a `StaticCast`-compatible
-  ///     `ElementPointer` and `static_rank`.
-  /// \pre `array.dtype()` is compatible with `Element`.
-  /// \pre `array.rank()` is compatible with `Rank`.
-  template <typename A,
-            std::enable_if_t<(IsArray<internal::remove_cvref_t<A>> &&
-                              IsStaticCastConstructible<
-                                  UntransformedArray<offset_origin>, A&&>)>* =
-                nullptr>
-  explicit TransformedArray(unchecked_t, A&& array) noexcept
-      : TransformedArray(Access::construct_array_tag{},
-                         std::forward<A>(array)) {}
-
-  /// Constructs a transformed array from an element pointer and an index
-  /// transform.
-  ///
-  /// The domain of the transformed array is equal to the input domain of the
-  /// index transform.  An index vector `v` into the transformed array
-  /// corresponds to the element at a byte offset of `sum(transform(v))` from
-  /// `element_pointer`.
-  ///
-  /// \requires `ElementPointer` is constructible from `P`.
-  /// \requires `Transform` is constructible from `T`.
-  template <typename P, typename T,
-            std::enable_if_t<internal::IsPairImplicitlyConvertible<
-                P, T, ElementPointer, Transform>>* = nullptr>
-  TransformedArray(P&& element_pointer, T&& transform) noexcept
-      : TransformedArray(Access::construct_element_pointer_tag{},
-                         std::forward<P>(element_pointer),
-                         std::forward<T>(transform)) {}
-
-  /// Constructs a transformed array from a "base" array and an index
-  /// transform.
-  ///
-  /// The domain of the transformed array is equal to the domain of the index
-  /// transform.  An index vector `v` into the transformed array corresponds to
-  /// `array(transform(v))`, but all accesses are checked to ensure that
-  /// `transform(v)` is within the domain of `array`.
-  ///
-  /// \requires `A` satisfies `IsArray`.
-  /// \requires `T` satisfies `IsIndexTransform`.
-  /// \requires `A::static_rank == T::static_output_rank`.
-  /// \requires `BaseArray<A::array_origin_kind>` is constructible from `A`.
-  /// \requires `Transform` is constructible from `T`.
-  /// \remarks This constructor is explicit if, and only if, the conversion from
-  ///     `A` to `BaseArray<A::array_origin_kind>` and/or the conversion from
-  ///     `T` to `Transform` is explicit.
-  template <
-      typename A, typename T,
-      std::enable_if_t<
-          (IsArray<internal::remove_cvref_t<A>> &&
-           IsIndexTransform<internal::remove_cvref_t<T>> &&
-           (internal::remove_cvref_t<T>::static_output_rank ==
-            internal::remove_cvref_t<A>::static_rank) &&
-           internal::IsPairImplicitlyConvertible<
-               A, T, BaseArray<internal::remove_cvref_t<A>::array_origin_kind>,
-               Transform>)>* = nullptr>
-  TransformedArray(A&& array, T&& transform)
-      : TransformedArray(Access::construct_base_array_transform_tag{},
-                         std::forward<A>(array), std::forward<T>(transform)) {}
-
-  /// Overload that handles the explicit conversion case.
-  template <
-      typename A, typename T,
-      std::enable_if_t<
-          (IsArray<internal::remove_cvref_t<A>> &&
-           IsIndexTransform<internal::remove_cvref_t<T>> &&
-           (internal::remove_cvref_t<T>::static_output_rank ==
-            internal::remove_cvref_t<A>::static_rank) &&
-           internal::IsPairOnlyExplicitlyConvertible<
-               A, T, BaseArray<internal::remove_cvref_t<A>::array_origin_kind>,
-               Transform>)>* = nullptr>
-  explicit TransformedArray(A&& array, T&& transform)
-      : TransformedArray(Access::construct_base_array_transform_tag{},
-                         std::forward<A>(array), std::forward<T>(transform)) {}
-
-  /// Copy or move constructs from another transformed array.
-  ///
-  /// \requires `ElementPointer` is constructible from `Other::ElementPointer`.
-  /// \requires `Transform` is constructible from `Other::Transform`.
-  /// \remarks This constructor is explicit if, and only if, the conversion from
-  ///     `Other::ElementPointer` to `ElementPointer` and/or the conversion from
-  ///     `Other::UntransformedArray<...>` to `UntransformedArray<...>` is
-  ///     explicit.
-  template <
-      typename Other,
-      std::enable_if_t<
-          (IsTransformedArray<internal::remove_cvref_t<Other>> &&
-           internal::IsPairImplicitlyConvertible<
-               typename internal::remove_cvref_t<Other>::ElementPointer,
-               typename internal::remove_cvref_t<
-                   Other>::template UntransformedArray<offset_origin>,
-               ElementPointer, UntransformedArray<offset_origin>>)>* = nullptr>
-  TransformedArray(Other&& other) noexcept
-      : TransformedArray(Access::construct_tag{}, std::forward<Other>(other)) {}
-
-  /// Overload that handles the explicit conversion case.
-  template <
-      typename Other,
-      std::enable_if_t<
-          (IsTransformedArray<internal::remove_cvref_t<Other>> &&
-           internal::IsPairOnlyExplicitlyConvertible<
-               typename internal::remove_cvref_t<Other>::ElementPointer,
-               typename internal::remove_cvref_t<
-                   Other>::template UntransformedArray<offset_origin>,
-               ElementPointer, UntransformedArray<offset_origin>>)>* = nullptr>
-  explicit TransformedArray(Other&& other) noexcept
-      : TransformedArray(Access::construct_tag{}, std::forward<Other>(other)) {}
-
-  /// Copy or move constructs from another normalized transformed array.
-  ///
-  /// \requires `ElementPointer` is constructible from `Other::ElementPointer`.
-  /// \requires `Transform` is constructible from `Other::Transform`.
-  template <
-      typename Other,
-      std::enable_if_t<
-          (IsNormalizedTransformedArray<internal::remove_cvref_t<Other>> &&
-           std::is_convertible_v<
-               typename internal::remove_cvref_t<Other>::ElementPointer,
-               ElementPointer> &&
-           RankConstraint::Implies(internal::remove_cvref_t<Other>::static_rank,
-                                   Rank))>* = nullptr>
-  TransformedArray(Other&& other) noexcept
-      : TransformedArray(Access::construct_tag{}, std::forward<Other>(other)) {}
-
-  /// Unchecked conversion from an existing `TransformedArray` or
-  /// `NormalizedTransformedArray`.
-  ///
-  /// \requires `Other` is an instance of `TransformedArray` or
-  ///     `NormalizedTransformedArray` with `StaticCast`-compatible
-  ///     `ElementPointer` and `static_rank`.
-  /// \pre `other.dtype()` is compatible with `Element`.
-  /// \pre `other.rank()` is compatible with `Rank`.
-  template <
-      typename Other,
-      std::enable_if_t<
-          ((IsTransformedArray<internal::remove_cvref_t<Other>> ||
-            IsNormalizedTransformedArray<internal::remove_cvref_t<
-                Other>>)&&IsStaticCastConstructible<ElementPointer,
-                                                    typename internal::
-                                                        remove_cvref_t<Other>::
-                                                            ElementPointer> &&
-           RankConstraint::EqualOrUnspecified(
-               internal::remove_cvref_t<Other>::static_rank, Rank))>* = nullptr>
-  explicit TransformedArray(unchecked_t, Other&& other) noexcept
-      : TransformedArray(Access::construct_tag{}, std::forward<Other>(other)) {}
-
-  /// Copy or move assigns from another transformed array or array.
-  template <typename Other, std::enable_if_t<std::is_constructible_v<
-                                TransformedArray, Other&&>>* = nullptr>
-  TransformedArray& operator=(Other&& other) noexcept {
-    std::destroy_at(this);
-    // TODO(jbms): handle exceptions
-    new (this) TransformedArray(std::forward<Other>(other));
-    return *this;
-  }
-
-  /// Returns the rank of the transformed array.
-  ///
-  /// \returns `transform().rank()` if `has_transform()`, else
-  ///     `untransformed_array().rank()`.
-  RankType rank() const { return layout_.rank(); }
-
-  /// Returns the domain of the transformed array.
-  ///
-  /// \returns `transform().input_domain()` if `has_transform()`, else
-  ///     `untransformed_array().domain()`.
-  BoxView<static_rank> domain() const { return layout_.domain(); }
-
-  /// Returns the origin vector of the transformed array.
-  span<const Index, static_rank> origin() const { return domain().origin(); }
-
-  /// Returns the shape vector of the transformed array.
-  span<const Index, static_rank> shape() const { return domain().shape(); }
-
-  /// Returns the dimension label vector.
-  ///
-  /// If this transformed array is represented without an index transform, this
-  /// returns a vector of empty strings.
-  span<const std::string, static_rank> labels() const {
-    return layout_.labels();
-  }
-
-  /// Returns the element representation.
-  DataType dtype() const { return element_pointer_.dtype(); }
-
-  /// Returns the base element pointer.
-  const ElementPointer& element_pointer() const& { return element_pointer_; }
-  ElementPointer& element_pointer() & { return element_pointer_; }
-  ElementPointer&& element_pointer() && { return std::move(element_pointer_); }
-
-  /// Returns `true` if the transformed array is represented using an index
-  /// transform.
-  ///
-  /// If `false`, the transformed array is represented using an "untransformed"
-  /// array.
-  bool has_transform() const { return static_cast<bool>(layout_.transform_); }
-
-  /// Returns the index transform used to represent the transformed array.
-  ///
-  /// If `has_transform() == false`, returns an invalid index transform for
-  /// which `valid()` returns `false`.
-  IndexTransformView<Rank, dynamic_rank> transform() const {
-    return layout_.transform();
-  }
-
-  /// Returns `true` if this transformed array is represented using an
-  /// "untransformed" array.
-  bool has_untransformed_array() const {
-    return layout_.has_untransformed_array();
-  }
-
-  /// Returns the "untransformed" array used to represent the transformed array.
-  ///
-  /// \dchecks `has_untransformed_array()`.
-  /// \returns `{ element_pointer(), untransformed_strided_layout() }`.
-  OffsetArrayView<Element, Rank> untransformed_array() const {
-    return {element_pointer_, untransformed_strided_layout()};
-  }
-
-  /// Returns the "untransformed" array strided layout used to represent this
-  /// transformed array.
-  ///
-  /// \dchecks `has_untransformed_array()`
-  StridedLayoutView<Rank, offset_origin> untransformed_strided_layout() const {
-    return layout_.untransformed_strided_layout();
-  }
-
-  /// Returns the "base" array used to represent the transformed array.
-  ///
-  /// 1. If the transformed array is represented using a base array, this
-  ///    returns a reference to it.
-  ///
-  /// 2. If the transformed array is represented using an element pointer and an
-  ///    index transform (but not an explicit base array), this returns an
-  ///    array with the stored `element_pointer()` and an unbounded layout of
-  ///    rank equal to `transform().output_rank()` and an all-1 `byte_strides`
-  ///    vector.
-  ///
-  /// 3. If the transformed array is represented using an "untransformed" array
-  ///    (and therefore no index transform or "base" array), this returns
-  ///    `untransformed_array()`.
-  ///
-  /// \remarks Unlike the `untransformed_array()` accessor, this accessor has no
-  ///     preconditions and is always valid to call.
-  OffsetArrayView<Element> base_array() const {
-    return {element_pointer_, layout_.base_or_untransformed_strided_layout()};
-  }
-
-  /// Returns `true` if this transformed array is represented using an explicit
-  /// "base" array.
-  ///
-  /// \remarks This returns `false` if the transformed array is represented
-  ///     using an `element_pointer()` and a `transform()` but no explicit
-  ///     "base" array.
-  bool has_base_array() const { return layout_.has_base_array(); }
-
-  /// Returns the "base" array strided layout used to represent this
-  /// transformed array.
-  ///
-  /// \dchecks `has_base_array()`
-  /// \remarks Unlike the `base_array()` accessor, this accessor is
-  ///     preconditioned on `has_base_array() == true`.
-  StridedLayoutView<dynamic_rank, offset_origin> base_strided_layout() const {
-    return layout_.base_strided_layout();
-  }
-
-  /// Materializes the transformed array as a strided array.
-  ///
-  /// Refer to the documentation for `TransformArray`.  Depending on
-  /// `constraints` and whether the transform uses index arrays, the returned
-  /// array may be newly allocated or point to a sub-region of the existing
-  /// array.  In the latter case, the returned array is only valid as long as
-  /// the existing array despite being stored as a `SharedArray`.
-  ///
-  /// \tparam OriginKind Specifies whether to retain the origin offset.
-  /// \param constraints If `constraints == std::nullopt`, the returned array
-  ///     may refer to `base_array()`.
-  template <ArrayOriginKind OriginKind = offset_origin>
-  Result<SharedArray<const Element, Rank, OriginKind>> Materialize(
-      TransformArrayConstraints constraints = skip_repeated_elements) const {
-    return TransformArray<OriginKind>(UnownedToShared(base_array()),
-                                      transform(), constraints);
-  }
-
-  /// "Pipeline" operator.
-  ///
-  /// In the expression  `x | y`, if
-  ///   * y is a function having signature `Result<U>(T)`
-  ///
-  /// Then operator| applies y to the value of x, returning a
-  /// StatusOr<U>. See tensorstore::Result operator| for examples.
-  template <typename Func>
-  PipelineResultType<const TransformedArray&, Func> operator|(
-      Func&& func) const& {
-    return static_cast<Func&&>(func)(*this);
-  }
-  template <typename Func>
-  PipelineResultType<TransformedArray&&, Func> operator|(Func&& func) && {
-    return static_cast<Func&&>(func)(std::move(*this));
-  }
-
- private:
-  friend class internal_index_space::TransformedArrayAccess;
-
-  template <typename A>
-  explicit TransformedArray(Access::construct_array_tag, A&& array)
-      : element_pointer_(unchecked, std::forward<A>(array).element_pointer()),
-        layout_(Access::construct_array_tag{},
-                std::forward<A>(array).layout()) {}
-
-  template <typename P, typename T>
-  explicit TransformedArray(Access::construct_element_pointer_tag,
-                            P&& element_pointer, T&& transform) noexcept
-      : element_pointer_(unchecked, std::forward<P>(element_pointer)),
-        layout_(Access::construct_element_pointer_tag{},
-                std::forward<T>(transform)) {}
-
-  template <typename A, typename T>
-  explicit TransformedArray(Access::construct_base_array_transform_tag,
-                            A&& array, T&& transform) noexcept
-      : element_pointer_(unchecked, std::forward<A>(array).element_pointer()),
-        layout_(Access::construct_base_array_transform_tag{},
-                std::forward<A>(array).layout(), std::forward<T>(transform)) {}
-
-  template <typename Other, std::enable_if_t<IsTransformedArray<
-                                internal::remove_cvref_t<Other>>>* = nullptr>
-  explicit TransformedArray(Access::construct_tag, Other&& other)
-      : element_pointer_(unchecked,
-                         std::forward<Other>(other).element_pointer()),
-        layout_(Access::construct_tag{},
-                Access::layout(std::forward<Other>(other))) {}
-
-  template <typename Other, std::enable_if_t<IsNormalizedTransformedArray<
-                                internal::remove_cvref_t<Other>>>* = nullptr>
-  explicit TransformedArray(Access::construct_tag, Other&& other)
-      : element_pointer_(unchecked,
-                         std::forward<Other>(other).element_pointer()),
-        layout_(Access::construct_element_pointer_tag{},
-                std::forward<Other>(other).transform()) {}
-
-  explicit TransformedArray(Access::construct_tag,
-                            ElementPointer element_pointer,
-                            LayoutStorage layout)
-      : element_pointer_(std::move(element_pointer)),
-        layout_(std::move(layout)) {}
-
-  ElementPointer element_pointer_;
-  LayoutStorage layout_;
-};
-
-/// Converts a `TransformedArray` with a non-`Shared` element pointer to
-/// `TransformedArray` with a `Shared` element pointer that does not manage
-/// ownership.
-///
-/// The caller is responsible for ensuring that the returned array is not used
-/// after the element data to which it points becomes invalid.
-///
-/// This is useful for passing a `TransformedArray` with non-`Shared` element
-/// pointer to a function that requires a `Shared` element pointer, when the
-/// caller can ensure that the array data remains valid as long as required by
-/// the callee.
-template <typename Element, DimensionIndex Rank, ContainerKind LayoutCKind>
-std::enable_if_t<!IsShared<Element>,
-                 TransformedArray<Shared<Element>, Rank, LayoutCKind>>
-UnownedToShared(TransformedArray<Element, Rank, LayoutCKind> array) {
-  using internal_index_space::TransformedArrayAccess;
-  return TransformedArrayAccess::Construct<
-      TransformedArray<Shared<Element>, Rank, LayoutCKind>>(
-      TransformedArrayAccess::construct_tag{},
-      UnownedToShared(array.element_pointer()),
-      std::move(TransformedArrayAccess::layout(array)));
-}
-
-/// Converts a `TransformedArray` with a non-`Shared` element pointer to a
-/// `TransformedArray` with a `Shared` element pointer that shares the ownership
-/// of the specified `owned` pointer, in the same way as the `std::shared_ptr`
-/// aliasing constructor.
-///
-/// The caller is responsible for ensuring that the returned array is not used
-/// after the element data to which it points becomes invalid.
-template <typename T, typename Element, DimensionIndex Rank,
-          ContainerKind LayoutCKind>
-std::enable_if_t<!IsShared<Element>,
-                 TransformedArray<Shared<Element>, Rank, LayoutCKind>>
-UnownedToShared(const std::shared_ptr<T>& owned,
-                TransformedArray<Element, Rank, LayoutCKind> array) {
-  using internal_index_space::TransformedArrayAccess;
-  return TransformedArrayAccess::Construct<
-      TransformedArray<Shared<Element>, Rank, LayoutCKind>>(
-      TransformedArrayAccess::construct_tag{},
-      UnownedToShared(owned, array.element_pointer()),
-      std::move(TransformedArrayAccess::layout(array)));
-}
-
-/// No-op overload for an existing `Shared` element type.
-///
-/// The returned array shares ownership with `array`.
-template <typename Element, DimensionIndex Rank, ContainerKind LayoutCKind>
-TransformedArray<Shared<Element>, Rank, LayoutCKind> UnownedToShared(
-    TransformedArray<Shared<Element>, Rank, LayoutCKind> array) {
-  return array;
-}
-
-/// NormalizedTransformedArray behaves like `TransformedArray` but always uses
-/// the "normalized" representation of an element pointer pair with an index
-/// transform.
-///
-/// It smaller and more efficient than `TransformedArray` due to not supporting
-/// multiple representation types.
-///
-/// Typically, `TransformedArray` is used as a function parameter type in public
-/// APIs because it can be implicitly constructed from any of the 3 supported
-/// representations (untransformed array, array + transform, and element pointer
-/// + transform).  Within the implementation of such a function, a
-/// `NormalizedTransformedArray` is created from the `TransformedArray` argument
-/// and then the `NormalizedTransformedArray` representation is used internally.
-///
-/// For example:
-///
-///     void ProcessArrayHelper(
-///         NormalizedTransformedArray<void, dynamic_rank, view>
-///             array, int arg) {
-///       // ...
-///     }
-///
-///     absl::Status ProcessArray(TransformedArrayView<void, 2> array) {
-///       TENSORSTORE_ASSIGN_OR_RETURN(
-///           NormalizedTransformedArray<void, 2> normalized,
-///           MakeNormalizedTransformedArray(array));
-///       // Use `normalized.domain()` (which may differ from `array.domain()`
-///       // due to implicit bounds having been resolved),
-///       // `normalized.transform()`, `normalized.element_pointer()`.
-///       ProcessArrayHelper(normalized, 1);
-///       ProcessArrayHelper(normalized, 5);
-///       // ...
-///     }
-///
-/// In the above example, `ProcessArrayHelper` uses
-/// `layout_container_kind = view` to avoid copying the transform.
-template <typename ElementTagType, DimensionIndex Rank,
-          ContainerKind LayoutCKind>
-class NormalizedTransformedArray {
-  static_assert(IsElementTag<ElementTagType>,
-                "ElementTagType must be an ElementTag type.");
-  static_assert(Rank == dynamic_rank || Rank >= 0,
-                "Rank must be dynamic_rank or >= 0.");
-
- public:
-  using ElementTag = ElementTagType;
-  using ElementPointer = tensorstore::ElementPointer<ElementTag>;
-  using Pointer = typename ElementPointer::Pointer;
-  using Transform = IndexTransform<Rank, dynamic_rank, LayoutCKind>;
-  using Element = typename ElementPointer::Element;
-  using DataType = dtype_t<Element>;
-  constexpr static DimensionIndex static_rank = Transform::static_input_rank;
-  constexpr static ContainerKind layout_container_kind = LayoutCKind;
-  using RankType = StaticOrDynamicRank<static_rank>;
-
-  template <ContainerKind CKind>
-  using RebindContainerKind =
-      NormalizedTransformedArray<ElementTagType, Rank, CKind>;
-
-  /// Alias that evaluates to the `NormalizedTransformedArray` type with the
-  /// same `ElementTag` but with the `static_input_rank` of `OtherTransform`,
-  /// and a layout container kind of `container`.
+  /// Alias that evaluates to the `TransformedArray` type with the same
+  /// `ElementTag` but with the `IndexTransform::static_input_rank` of
+  /// `OtherTransform`, and a layout container kind of `container`.
   ///
   /// \tparam OtherTransform The new transform type.  Must be an instance of
   ///     `IndexTransform` or `IndexTransformView`.
   template <typename OtherTransform>
+  // NONITPICK: OtherTransform::static_input_rank
   using RebindTransform =
-      NormalizedTransformedArray<ElementTagType,
-                                 OtherTransform::static_input_rank, container>;
+      TransformedArray<ElementTagType, OtherTransform::static_input_rank>;
 
   /// Constructs an invalid transformed array.
-  NormalizedTransformedArray() = default;
+  ///
+  /// \id default
+  TransformedArray() = default;
 
   /// Constructs a normalized transformed array from an element pointer and an
   /// index transform.
   ///
   /// The domain of the transformed array is equal to the input domain of the
-  /// index transform.  An index vector `v` into the transformed array
-  /// corresponds to the element at a byte offset of `sum(transform(v))` from
+  /// index transform.  An index vector ``v`` into the transformed array
+  /// corresponds to the element at a byte offset of ``sum(transform(v))`` from
   /// `element_pointer`.
   ///
   /// \requires `ElementPointer` is constructible from `P`.
   /// \requires `Transform` is constructible from `T`.
+  /// \id element_pointer, transform
   template <typename P, typename T,
             std::enable_if_t<internal::IsPairImplicitlyConvertible<
                 P, T, ElementPointer, Transform>>* = nullptr>
-  NormalizedTransformedArray(P&& element_pointer, T&& transform) noexcept
+  TransformedArray(P&& element_pointer, T&& transform) noexcept
       : element_pointer_(std::forward<P>(element_pointer)),
         transform_(std::forward<T>(transform)) {}
 
+  /// Constructs a transformed array from a regular strided `Array`.
+  ///
+  /// \id array
+  template <typename A, ContainerKind SfinaeC = LayoutCKind,
+            typename = std::enable_if_t<
+                (SfinaeC == container && IsArray<internal::remove_cvref_t<A>> &&
+                 std::is_convertible_v<
+                     typename internal::remove_cvref_t<A>::ElementPointer,
+                     ElementPointer> &&
+                 RankConstraint::Implies(
+                     internal::remove_cvref_t<A>::static_rank, Rank))>>
+  // NONITPICK: std::remove_cvref_t<A>::ElementPointer
+  // NONITPICK: std::remove_cvref_t<A>::static_rank
+  TransformedArray(A&& array)
+      : element_pointer_(std::forward<A>(array).element_pointer()),
+        transform_(internal_index_space::TransformAccess::Make<Transform>(
+            internal_index_space::MakeTransformFromStridedLayout(
+                array.layout()))) {}
+
   /// Copy or move constructs from another normalized transformed array.
   ///
-  /// \requires `ElementPointer` is constructible from `Other::ElementPointer`.
-  /// \requires `Transform` is constructible from `Other::Transform`.
+  /// \requires `ElementPointer` is constructible from
+  ///     ``Other::ElementPointer``.
+  /// \requires `Transform` is constructible from ``Other::Transform``.
+  /// \id convert
   template <typename Other,
-            std::enable_if_t<(
-                IsNormalizedTransformedArray<internal::remove_cvref_t<Other>> &&
-                internal::IsPairImplicitlyConvertible<
-                    typename internal::remove_cvref_t<Other>::ElementPointer,
-                    typename internal::remove_cvref_t<Other>::Transform,
-                    ElementPointer, Transform>)>* = nullptr>
-  NormalizedTransformedArray(Other&& other) noexcept
+            std::enable_if_t<
+                (IsTransformedArray<internal::remove_cvref_t<Other>> &&
+                 internal::IsPairImplicitlyConvertible<
+                     typename internal::remove_cvref_t<Other>::ElementPointer,
+                     typename internal::remove_cvref_t<Other>::Transform,
+                     ElementPointer, Transform>)>* = nullptr>
+  // NONITPICK: std::remove_cvref_t<Other>::ElementPointer
+  // NONITPICK: std::remove_cvref_t<Other>::Transform
+  TransformedArray(Other&& other) noexcept
       : element_pointer_(std::forward<Other>(other).element_pointer()),
         transform_(std::forward<Other>(other).transform()) {}
 
-  /// Unchecked conversion from an existing NormalizedTransformedArray.
+  /// Unchecked conversion from an existing `TransformedArray`.
   ///
-  /// \requires `ElementPointer` is `StaticCast` constructible from
-  ///     `Other::ElementPointer`.
-  /// \requires `Transform` is `StaticCast` constructible from
-  /// `Other::Transform`.
+  /// \id unchecked
   template <typename Other,
             std::enable_if_t<(
-                IsNormalizedTransformedArray<internal::remove_cvref_t<Other>> &&
+                IsTransformedArray<internal::remove_cvref_t<Other>> &&
                 IsStaticCastConstructible<
                     ElementPointer,
                     typename internal::remove_cvref_t<Other>::ElementPointer> &&
                 IsStaticCastConstructible<Transform,
                                           typename internal::remove_cvref_t<
                                               Other>::Transform>)>* = nullptr>
-  explicit NormalizedTransformedArray(unchecked_t, Other&& other) noexcept
+  // NONITPICK: std::remove_cvref_t<Other>::ElementPointer
+  // NONITPICK: std::remove_cvref_t<Other>::Transform
+  explicit TransformedArray(unchecked_t, Other&& other) noexcept
       : element_pointer_(unchecked,
                          std::forward<Other>(other).element_pointer()),
         transform_(unchecked, std::forward<Other>(other).transform()) {}
 
+  /// Unchecked conversion from an existing `Array`.
+  ///
+  /// \id unchecked, array
+  template <
+      typename A, ContainerKind SfinaeC = LayoutCKind,
+      std::enable_if_t<
+          (SfinaeC == container && IsArray<internal::remove_cvref_t<A>> &&
+           IsStaticCastConstructible<
+               ElementPointer,
+               typename internal::remove_cvref_t<A>::ElementPointer> &&
+           RankConstraint::EqualOrUnspecified(
+               internal::remove_cvref_t<A>::static_rank, Rank))>* = nullptr>
+  // NONITPICK: std::remove_cvref_t<A>::ElementPointer
+  // NONITPICK: std::remove_cvref_t<A>::static_rank
+  explicit TransformedArray(unchecked_t, A&& array) noexcept
+      : element_pointer_(unchecked, std::forward<A>(array).element_pointer()),
+        transform_(unchecked,
+                   internal_index_space::TransformAccess::Make<Transform>(
+                       internal_index_space::MakeTransformFromStridedLayout(
+                           array.layout()))) {}
+
   /// Copy or move assigns from another normalized transformed array.
+  ///
+  /// \id convert
   template <typename Other,
-            std::enable_if_t<std::is_constructible_v<NormalizedTransformedArray,
-                                                     Other&&>>* = nullptr>
-  NormalizedTransformedArray& operator=(Other&& other) noexcept {
+            std::enable_if_t<
+                (IsTransformedArray<internal::remove_cvref_t<Other>> &&
+                 internal::IsPairImplicitlyConvertible<
+                     typename internal::remove_cvref_t<Other>::ElementPointer,
+                     typename internal::remove_cvref_t<Other>::Transform,
+                     ElementPointer, Transform>)>* = nullptr>
+  TransformedArray& operator=(Other&& other) noexcept {
     element_pointer_ = std::forward<Other>(other).element_pointer();
     transform_ = std::forward<Other>(other).transform();
+    return *this;
+  }
+
+  /// Copy or move assigns from another `Array`.
+  ///
+  /// \id array
+  template <typename A, ContainerKind SfinaeC = LayoutCKind,
+            typename = std::enable_if_t<
+                (SfinaeC == container && IsArray<internal::remove_cvref_t<A>> &&
+                 std::is_assignable_v<
+                     ElementPointer,
+                     typename internal::remove_cvref_t<A>::ElementPointer> &&
+                 RankConstraint::Implies(
+                     internal::remove_cvref_t<A>::static_rank, Rank))>>
+  // NONITPICK: std::remove_cvref_t<A>::ElementPointer
+  // NONITPICK: std::remove_cvref_t<A>::static_rank
+  TransformedArray& operator=(A&& array) noexcept {
+    element_pointer_ = std::forward<A>(array).element_pointer();
+    transform_ = internal_index_space::TransformAccess::Make<Transform>(
+        internal_index_space::MakeTransformFromStridedLayout(array.layout()));
     return *this;
   }
 
@@ -785,6 +410,9 @@ class NormalizedTransformedArray {
   ElementPointer& element_pointer() & { return element_pointer_; }
   ElementPointer&& element_pointer() && { return std::move(element_pointer_); }
 
+  /// Returns a raw pointer to the first element of the array.
+  Element* data() const { return element_pointer_.data(); }
+
   /// Returns the transform.
   const Transform& transform() const& { return transform_; }
   Transform& transform() & { return transform_; }
@@ -793,10 +421,9 @@ class NormalizedTransformedArray {
   /// Returns a fake "base array" such that this transformed array is equivalent
   /// to applying `transform()` to `base_array()`.
   ///
-  /// \returns An array with an `element_pointer` equal to
-  ///     `this->element_pointer()` and a layout of rank
-  ///     `transform().output_rank()` with unbounded domain and `byte_strides`
-  ///     of `1`.
+  /// \returns An array with an `Array::element_pointer` equal to
+  ///     `element_pointer()` and a layout of rank `transform().output_rank()`
+  ///     with unbounded domain and `Array::byte_strides` of `1`.
   ArrayView<ElementTag, dynamic_rank, offset_origin> base_array() const {
     return {element_pointer(),
             internal_index_space::GetUnboundedLayout(transform_.output_rank())};
@@ -822,19 +449,18 @@ class NormalizedTransformedArray {
 
   /// "Pipeline" operator.
   ///
-  /// In the expression  `x | y`, if
-  ///   * y is a function having signature `Result<U>(T)`
+  /// In the expression ``x | y``, if ``y`` is a function having signature
+  /// ``Result<U>(T)``, then `operator|` applies ``y`` to the value of ``x``,
+  /// returning a ``Result<U>``.
   ///
-  /// Then operator| applies y to the value of x, returning a
-  /// Result<U>. See tensorstore::Result operator| for examples.
+  /// See `tensorstore::Result::operator|` for examples.
   template <typename Func>
-  PipelineResultType<const NormalizedTransformedArray&, Func> operator|(
+  PipelineResultType<const TransformedArray&, Func> operator|(
       Func&& func) const& {
     return static_cast<Func&&>(func)(*this);
   }
   template <typename Func>
-  PipelineResultType<NormalizedTransformedArray&&, Func> operator|(
-      Func&& func) && {
+  PipelineResultType<TransformedArray&&, Func> operator|(Func&& func) && {
     return static_cast<Func&&>(func)(std::move(*this));
   }
 
@@ -843,108 +469,97 @@ class NormalizedTransformedArray {
   Transform transform_;
 };
 
-/// Converts a `NormalizedTransformedArray` with a non-`Shared` element pointer
-/// to `NormalizedTransformedArray` with a `Shared` element pointer that does
-/// not manage ownership.
+/// Converts an arbitrary `TransformedArray` to a `TransformedSharedArray`.
 ///
-/// The caller is responsible for ensuring that the returned array is not used
-/// after the element data to which it points becomes invalid.
+/// .. warning::
 ///
-/// This is useful for passing a `NormalizedTransformedArray` with non-`Shared`
-/// element pointer to a function that requires a `Shared` element pointer, when
-/// the caller can ensure that the array data remains valid as long as required
-/// by the callee.
+///    The caller is responsible for ensuring that the returned array is not
+///    used after the element data to which it points becomes invalid.
+///
+/// \param owned If specified, the returned array shares ownership with the
+///     `owned` pointer, in the same way as the `std::shared_ptr` aliasing
+///     constructor.  Cannot be specified if `array` is already a
+///     `TransformedSharedArray`.
+/// \param array Existing array to return.  If `array` is already a
+///     `TransformedSharedArray`, it is simply returned as is, i.e. the returned
+///     array shares ownership with `array`.
+/// \relates TransformedArray
 template <typename Element, DimensionIndex Rank, ContainerKind LayoutCKind>
 std::enable_if_t<!IsShared<Element>,
-                 NormalizedTransformedArray<Shared<Element>, Rank, LayoutCKind>>
-UnownedToShared(NormalizedTransformedArray<Element, Rank, LayoutCKind> array) {
-  return NormalizedTransformedArray<Shared<Element>, Rank, LayoutCKind>(
+                 TransformedArray<Shared<Element>, Rank, LayoutCKind>>
+UnownedToShared(TransformedArray<Element, Rank, LayoutCKind> array) {
+  return TransformedArray<Shared<Element>, Rank, LayoutCKind>(
       UnownedToShared(array.element_pointer()), std::move(array.transform()));
 }
-
-/// Converts a `NormalizedTransformedArray` with a non-`Shared` element pointer
-/// to a `NormalizedTransformedArray` with a `Shared` element pointer that
-/// shares the ownership of the specified `owned` pointer, in the same way as
-/// the `std::shared_ptr` aliasing constructor.
-///
-/// The caller is responsible for ensuring that the returned array is not used
-/// after the element data to which it points becomes invalid.
 template <typename T, typename Element, DimensionIndex Rank,
           ContainerKind LayoutCKind>
 std::enable_if_t<!IsShared<Element>,
-                 NormalizedTransformedArray<Shared<Element>, Rank, LayoutCKind>>
+                 TransformedArray<Shared<Element>, Rank, LayoutCKind>>
 UnownedToShared(const std::shared_ptr<T>& owned,
-                NormalizedTransformedArray<Element, Rank, LayoutCKind> array) {
-  return NormalizedTransformedArray<Shared<Element>, Rank, LayoutCKind>(
+                TransformedArray<Element, Rank, LayoutCKind> array) {
+  return TransformedArray<Shared<Element>, Rank, LayoutCKind>(
       UnownedToShared(owned, array.element_pointer()),
       std::move(array.transform()));
 }
-
-/// No-op overload for an existing `Shared` element type.
-///
-/// The returned array shares ownership with `array`.
 template <typename Element, DimensionIndex Rank, ContainerKind LayoutCKind>
-NormalizedTransformedArray<Shared<Element>, Rank, LayoutCKind> UnownedToShared(
-    NormalizedTransformedArray<Shared<Element>, Rank, LayoutCKind> array) {
+TransformedArray<Shared<Element>, Rank, LayoutCKind> UnownedToShared(
+    TransformedArray<Shared<Element>, Rank, LayoutCKind> array) {
   return array;
 }
 
-/// Specializations of `StaticCastTraits` for `TransformedArray` and
-/// `NormalizedTransformedArray`, which enables `StaticCast`,
-/// `StaticDataTypeCast`, `ConstDataTypeCast`, and `StaticRankCast`.
-template <typename ElementTagType, DimensionIndex Rank,
-          ContainerKind LayoutContainerKind>
-struct StaticCastTraits<
-    NormalizedTransformedArray<ElementTagType, Rank, LayoutContainerKind>>
-    : public internal_index_space::TransformedArrayCastTraits<
-          NormalizedTransformedArray, ElementTagType, Rank,
-          LayoutContainerKind> {};
+// Specialization of `StaticCastTraits` for `TransformedArray`, which
+// enables `StaticCast`, `StaticDataTypeCast`, `ConstDataTypeCast`, and
+// `StaticRankCast`.
 template <typename ElementTagType, DimensionIndex Rank,
           ContainerKind LayoutContainerKind>
 struct StaticCastTraits<
     TransformedArray<ElementTagType, Rank, LayoutContainerKind>>
-    : public internal_index_space::TransformedArrayCastTraits<
-          TransformedArray, ElementTagType, Rank, LayoutContainerKind> {};
+    : public DefaultStaticCastTraits<
+          TransformedArray<ElementTagType, Rank, LayoutContainerKind>> {
+  using type = TransformedArray<ElementTagType, Rank, LayoutContainerKind>;
 
-/// Specializes the HasBoxDomain metafunction for TransformedArray.
+  template <typename TargetElement>
+  using RebindDataType = TransformedArray<
+      typename ElementTagTraits<ElementTagType>::template rebind<TargetElement>,
+      Rank, LayoutContainerKind>;
+
+  template <DimensionIndex TargetRank>
+  using RebindRank =
+      TransformedArray<ElementTagType, TargetRank, LayoutContainerKind>;
+
+  template <typename Other>
+  static bool IsCompatible(const Other& other) {
+    return RankConstraint::EqualOrUnspecified(other.rank(), Rank) &&
+           IsPossiblySameDataType(other.dtype(), typename type::DataType());
+  }
+
+  static std::string Describe() {
+    return internal_index_space::DescribeTransformedArrayForCast(
+        typename type::DataType(), Rank);
+  }
+
+  static std::string Describe(const type& value) {
+    return internal_index_space::DescribeTransformedArrayForCast(value.dtype(),
+                                                                 value.rank());
+  }
+};
+
+// Specializes the HasBoxDomain metafunction for `TransformedArray`.
 template <typename ElementTagType, DimensionIndex Rank,
           ContainerKind LayoutCKind>
 constexpr inline bool
     HasBoxDomain<TransformedArray<ElementTagType, Rank, LayoutCKind>> = true;
 
-/// Implements the HasBoxDomain concept for `TransformedArray`.
+/// Implements the `HasBoxDomain` concept for `TransformedArray`.
+///
+/// \relates TransformedArray
+/// \id TransformedArray
 template <typename ElementTagType, DimensionIndex Rank,
           ContainerKind LayoutCKind>
 BoxView<Rank> GetBoxDomainOf(
     const TransformedArray<ElementTagType, Rank, LayoutCKind>& array) {
-  return array.domain();
-}
-
-/// Specializes the HasBoxDomain metafunction for `NormalizedTransformedArray`.
-template <typename ElementTagType, DimensionIndex Rank,
-          ContainerKind LayoutCKind>
-constexpr inline bool HasBoxDomain<
-    NormalizedTransformedArray<ElementTagType, Rank, LayoutCKind>> = true;
-
-/// Implements the HasBoxDomain concept for `NormalizedTransformedArray`.
-template <typename ElementTagType, DimensionIndex Rank,
-          ContainerKind LayoutCKind>
-BoxView<Rank> GetBoxDomainOf(
-    const NormalizedTransformedArray<ElementTagType, Rank, LayoutCKind>&
-        array) {
   return array.domain().box();
 }
-
-template <typename Element, DimensionIndex Rank = dynamic_rank>
-using TransformedSharedArray =
-    TransformedArray<Shared<Element>, Rank, container>;
-
-template <typename Element, DimensionIndex Rank = dynamic_rank>
-using TransformedArrayView = TransformedArray<Element, Rank, view>;
-
-template <typename Element, DimensionIndex Rank = dynamic_rank>
-using TransformedSharedArrayView =
-    TransformedArray<Shared<Element>, Rank, view>;
 
 /// Alias that evaluates to the transformed array type corresponding to a
 /// strided array type.
@@ -952,8 +567,11 @@ using TransformedSharedArrayView =
 /// The resultant transformed array type has the same element pointer type,
 /// rank, and layout container kind as `A`.
 ///
-/// \requires `A` satisfies `IsArray`.
+/// \relates TransformedArray
 template <typename A>
+// NONITPICK: A::ElementTag
+// NONITPICK: A::static_rank
+// NONITPICK: A::layout_container_kind
 using TransformedArrayTypeFromArray =
     std::enable_if_t<IsArray<A>,
                      TransformedArray<typename A::ElementTag, A::static_rank,
@@ -962,58 +580,7 @@ using TransformedArrayTypeFromArray =
 template <typename ElementTag, DimensionIndex Rank, ArrayOriginKind OriginKind,
           ContainerKind LayoutCKind>
 TransformedArray(Array<ElementTag, Rank, OriginKind, LayoutCKind> array)
-    -> TransformedArray<ElementTag, RankConstraint::FromInlineRank(Rank),
-                        LayoutCKind>;
-
-template <typename ElementTag, DimensionIndex Rank, ContainerKind LayoutCKind>
-TransformedArray(
-    NormalizedTransformedArray<ElementTag, Rank, LayoutCKind> array)
-    -> TransformedArray<ElementTag, Rank, LayoutCKind>;
-
-template <typename ElementTag, DimensionIndex Rank, ArrayOriginKind OriginKind,
-          ContainerKind LayoutCKind, DimensionIndex InputRank>
-TransformedArray(
-    Array<ElementTag, Rank, OriginKind, LayoutCKind> array,
-    IndexTransform<InputRank, RankConstraint::FromInlineRank(Rank), LayoutCKind>
-        transform) -> TransformedArray<ElementTag, InputRank, LayoutCKind>;
-
-/// Returns an equivalent normalized transformed array.
-///
-/// \requires `A` satisfies `IsArray`.
-template <typename A>
-std::enable_if_t<
-    IsArray<internal::remove_cvref_t<A>>,
-    NormalizedTransformedArray<typename internal::remove_cvref_t<A>::ElementTag,
-                               internal::remove_cvref_t<A>::static_rank>>
-MakeNormalizedTransformedArray(A&& array) {
-  return {
-      std::forward<A>(array).element_pointer(),
-      internal_index_space::TransformAccess::Make<
-          IndexTransform<internal::remove_cvref_t<A>::static_rank>>(
-          internal_index_space::MakeTransformFromStridedLayout(array.layout())),
-  };
-}
-
-/// Returns an equivalent normalized transformed array.
-///
-/// \requires `A` satisfies `IsTransformedArray`.
-template <typename A>
-std::enable_if_t<IsTransformedArray<internal::remove_cvref_t<A>>,
-                 Result<NormalizedTransformedArray<
-                     typename internal::remove_cvref_t<A>::ElementTag,
-                     internal::remove_cvref_t<A>::static_rank>>>
-MakeNormalizedTransformedArray(A&& array) {
-  return internal_index_space::TransformedArrayAccess::NormalizeTransform(
-      std::forward<A>(array));
-}
-
-/// No-op overload that handles the case of an argument that is already a
-/// normalized transformed array.
-template <typename A>
-std::enable_if_t<IsNormalizedTransformedArray<internal::remove_cvref_t<A>>, A&&>
-MakeNormalizedTransformedArray(A&& array) {
-  return std::forward<A>(array);
-}
+    -> TransformedArray<ElementTag, RankConstraint::FromInlineRank(Rank)>;
 
 /// Alias that evaluates to the transformed array type corresponding to the
 /// normalized combination of a strided array type and an index transform.
@@ -1021,35 +588,39 @@ MakeNormalizedTransformedArray(A&& array) {
 /// The resultant transformed array has the element pointer type of `A`, the
 /// `static_rank` of `T`, and a `layout_container_kind` of `container`.
 ///
-/// \requires `A` satifies `IsArray`.
-/// \requires `T` satisfies `IsIndexTransform`.
-/// \requires `A::static_rank == T::static_output_rank`.
+/// \relates TransformedArray
 template <typename A, typename T>
-using NormalizedTransformedArrayTypeFromArrayAndTransform = std::enable_if_t<
+// NONITPICK: A::static_rank
+// NONITPICK: T::static_input_rank
+// NONITPICK: T::static_output_rank
+// NONITPICK: A::ElementTag
+using TransformedArrayTypeFromArrayAndTransform = std::enable_if_t<
     (IsArray<A> && IsIndexTransform<T> &&
      A::static_rank == T::static_output_rank),
-    NormalizedTransformedArray<typename A::ElementTag, T::static_input_rank,
-                               container>>;
+    TransformedArray<typename A::ElementTag, T::static_input_rank, container>>;
 
 /// Returns an index transform composed from a strided layout and an existing
-/// index transform.  The domain of `layout` is propagated to `transform` using
-/// `PropagateBounds`.
+/// index transform.
+///
+/// The domain of `layout` is propagated to `transform` using `PropagateBounds`.
 ///
 /// The lower and upper bounds of the returned transform are explicit.
 ///
-/// \requires `L` satisfies `IsStridedLayout`.
-/// \requires `T` satisfies `IsIndexTransform`.
-/// \requires `L::static_rank == T::static_output_rank`.
-/// \returns The composed IndexTransform on success, or an error from
+/// \returns The composed `IndexTransform` on success, or an error from
 ///     `PropagateBounds` on failure.
 /// \error `absl::StatusCode::kInvalidArgument` if `layout.rank()` does not
 ///     equal `transform.output_rank()`.
-template <typename L, typename T>
+/// \relates TransformedArray
+template <DimensionIndex R, ArrayOriginKind O, ContainerKind AC, typename T>
+// NONITPICK: std::remove_cvref_t<T>::static_input_rank
 inline std::enable_if_t<
-    (IsStridedLayout<L> && IsIndexTransform<internal::remove_cvref_t<T>>),
+    (IsIndexTransform<internal::remove_cvref_t<T>>),
     Result<IndexTransform<internal::remove_cvref_t<T>::static_input_rank,
-                          L::static_rank>>>
-ComposeLayoutAndTransform(const L& layout, T&& transform) {
+                          RankConstraint::FromInlineRank(R)>>>
+ComposeLayoutAndTransform(const StridedLayout<R, O, AC>& layout,
+                          T&& transform) {
+  static_assert(RankConstraint::FromInlineRank(R) ==
+                internal::remove_cvref_t<T>::static_output_rank);
   using TX = internal::remove_cvref_t<T>;
   using internal_index_space::TransformAccess;
   TENSORSTORE_ASSIGN_OR_RETURN(auto transform_ptr,
@@ -1057,24 +628,24 @@ ComposeLayoutAndTransform(const L& layout, T&& transform) {
                                    layout, TransformAccess::rep_ptr<container>(
                                                std::forward<T>(transform))));
   return TransformAccess::Make<
-      IndexTransform<TX::static_input_rank, L::static_rank>>(
+      IndexTransform<TX::static_input_rank, RankConstraint::FromInlineRank(R)>>(
       std::move(transform_ptr));
 }
 
-/// Returns an equivalent transformed array with an owned layout where
-/// `has_transform() == true` and `has_base_array() == false`.  The domain of
-/// `array` is propagated to `transform` using `PropagateBounds`.
+/// Returns a transformed array representing `transform` applied to `array`.
+///
+/// The domain of `array` is propagated to `transform` using `PropagateBounds`.
 ///
 /// \requires `A` satisfies `IsArray`.
 /// \requires `T` satisfies `IsIndexTransform`.
-/// \requires `A::static_rank == T::static_output_rank`.
+/// \requires ``A::static_rank == T::static_output_rank``.
 /// \error `absl::StatusCode::kInvalidArgument` if `array.rank()` is not equal
-/// to
-///     `transform.output_rank()`.
+///     to `transform.output_rank()`.
+/// \relates TransformedArray
 template <typename A, typename T>
-inline Result<NormalizedTransformedArrayTypeFromArrayAndTransform<
+inline Result<TransformedArrayTypeFromArrayAndTransform<
     internal::remove_cvref_t<A>, internal::remove_cvref_t<T>>>
-MakeNormalizedTransformedArray(A&& array, T&& transform) {
+MakeTransformedArray(A&& array, T&& transform) {
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto composed_transform,
       ComposeLayoutAndTransform(array.layout(), std::forward<T>(transform)));
@@ -1087,15 +658,21 @@ MakeNormalizedTransformedArray(A&& array, T&& transform) {
 /// This behaves similarly to the MakeCopy function defined in array.h for Array
 /// instances.
 ///
-/// \requires `A` satisfies `IsTransformedArray` or
-///     `IsNormalizedTransformedArray`.
+/// \tparam OriginKind Origin kind of the returned array.  If equal to
+///     `offset_origin` (the default), the returned array has the same origin as
+///     `transformed_array`.  If equal to `zero_origin`, the origin of each
+///     dimension is translated to zero.
 /// \param transformed_array The transformed array to copy.
 /// \param constraints The constraints on the layout of the returned array.
+/// \id transformed_array
+/// \relates TransformedArray
 template <ArrayOriginKind OriginKind = offset_origin, typename A>
+// NONITPICK: A::Element
+// NONITPICK: A::static_rank
 inline std::enable_if_t<
-    (IsTransformedArray<A> || IsNormalizedTransformedArray<A>),
-    Result<SharedOffsetArray<std::remove_const_t<typename A::Element>,
-                             A::static_rank>>>
+    IsTransformedArray<A>,
+    Result<SharedArray<std::remove_const_t<typename A::Element>, A::static_rank,
+                       OriginKind>>>
 MakeCopy(const A& transformed_array, IterationConstraints constraints = {
                                          c_order, include_repeated_elements}) {
   return MakeCopy<OriginKind>(transformed_array.base_array(),
@@ -1114,20 +691,16 @@ absl::Status CopyTransformedArrayImpl(TransformedArrayView<const void> source,
 /// \param dest The destination transformed array.
 /// \returns `absl::Status()` on success.
 /// \error `absl::StatusCode::kInvalidArgument` if `source` and `dest` do not
-/// have
-///     the same rank.
+///     have the same rank.
 /// \error `absl::StatusCode::kOutOfRange` if `source` and `dest` do not have
-/// compatible
-///     domains.
+///     compatible domains.
 /// \error `absl::StatusCode::kOutOfRange` if an index array contains an
-/// out-of-bounds
-///     index.
+///     out-of-bounds index.
 /// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs
-/// computing output
-///     indices.
-/// \error `absl::StatusCode::kInvalidArgument` if `source.dtype()` is not
-/// equal to, or
-///     cannot be converted to, `dest.dtype()`
+///     computing output indices.
+/// \error `absl::StatusCode::kInvalidArgument` if `source.dtype()` is not equal
+///     to, or cannot be converted to, `dest.dtype()`
+/// \relates TransformedArray
 template <typename SourceResult, typename DestResult>
 std::enable_if_t<(IsTransformedArrayLike<UnwrapResultType<SourceResult>> &&
                   IsTransformedArrayLike<UnwrapResultType<DestResult>>),
@@ -1150,38 +723,36 @@ CopyTransformedArray(const SourceResult& source, const DestResult& dest) {
                                                         UnwrapResult(dest));
 }
 
-/// Applies a function that operates on an IndexTransform to a transformed
-/// array.  The result is always a `NormalizedTransformedArray` with a
-/// `layout_container_type` of `container`.
+/// Applies a function that operates on an `IndexTransform` to a transformed
+/// array.  The result is always a `TransformedArray`.
 ///
-/// This definition allows DimExpression objects to be used with transformed
-/// arrays.
+/// This allows `DimExpression` objects to be used with transformed arrays.
+///
+/// \relates TransformedArray
+/// \id TransformedArray
 template <typename Expr, typename T>
 internal_index_space::EnableIfTransformedArrayMapTransformResultType<
-    (IsTransformedArray<internal::remove_cvref_t<T>> ||
-     IsNormalizedTransformedArray<internal::remove_cvref_t<T>>),
+    IsTransformedArray<internal::remove_cvref_t<T>>,
     internal::remove_cvref_t<T>, Expr>
 ApplyIndexTransform(Expr&& expr, T&& t) {
-  return internal_index_space::TransformedArrayAccess::MapTransform(
-      /*normalized=*/std::integral_constant<
-          bool, IsNormalizedTransformedArray<internal::remove_cvref_t<T>>>{},
+  return internal_index_space::TransformedArrayMapTransform(
       std::forward<T>(t), std::forward<Expr>(expr));
 }
 
 /// Applies a function that operates on an IndexTransform to a strided
-/// (non-transformed) array.  The result is always a
-/// `NormalizedTransformedArray` with a `layout_container_type` of `container`.
+/// (non-transformed) array.  The result is always a `TransformedArray`.
 ///
-/// This definition allows DimExpression objects to be used with strided arrays.
+/// This allows `DimExpression` objects to be used with regular strided arrays.
+///
+/// \relates Array
+/// \id Array
 template <typename Expr, typename T>
 internal_index_space::EnableIfTransformedArrayMapTransformResultType<
     IsArray<internal::remove_cvref_t<T>>,
     TransformedArrayTypeFromArray<internal::remove_cvref_t<T>>, Expr>
 ApplyIndexTransform(Expr&& expr, T&& t) {
-  return internal_index_space::TransformedArrayAccess::MapTransform(
-      /*normalized=*/std::true_type{},
-      MakeNormalizedTransformedArray(std::forward<T>(t)),
-      std::forward<Expr>(expr));
+  return internal_index_space::TransformedArrayMapTransform(
+      TransformedArray(std::forward<T>(t)), std::forward<Expr>(expr));
 }
 
 namespace internal {
@@ -1193,7 +764,7 @@ struct MaterializeFn {
 
   template <typename A>
   inline std::enable_if_t<
-      (IsTransformedArray<A> || IsNormalizedTransformedArray<A>),
+      (IsTransformedArray<A> || IsTransformedArray<A>),
       decltype(std::declval<A>().template Materialize<OriginKind>())>
   operator()(const A& array) const {
     return array.template Materialize<OriginKind>(constraints);
@@ -1210,12 +781,14 @@ struct MaterializeFn {
 /// array.  In the latter case, the returned array is only valid as long as
 /// the existing array despite being stored as a `SharedArray`.
 ///
-/// Example:
+/// Example::
+///
 ///    auto materialized_array = array | AllDims().Diagonal() | Materialize();
 ///
 /// \tparam OriginKind Specifies whether to retain the origin offset.
-/// \param constraints If `constraints == std::nullopt`, the returned array
-///     may refer to `base_array()`.
+/// \param constraints If `constraints == std::nullopt`, the returned array may
+///     refer to the existing array data.
+/// \relates TransformedArray
 template <ArrayOriginKind OriginKind = offset_origin>
 inline internal::MaterializeFn<OriginKind> Materialize(
     TransformArrayConstraints constraints = skip_repeated_elements) {
@@ -1236,102 +809,96 @@ Result<ArrayIterateResult> IterateOverTransformedArrays(
 /// Jointly iterates over one or more transformed arrays with compatible
 /// domains.
 ///
-/// For each index vector `input_indices` in the domain of the transformed
-/// arrays, invokes
-/// `func(&TransformedArray(array).array()(output_indices)...)`. where for
-/// each `array`, `output_indices` is the output index vector corresponding to
-/// `input_indices`.
+/// For each index vector ``input_indices`` in the domain of the transformed
+/// arrays, invokes::
 ///
-/// \requires `sizeof...(Array) > 0`
-/// \requires Every `Array` type satisfies
-///     `IsTransformedArrayLike<UnwrapResultType<Array>>`.
-/// \param func The element-wise function.  Must return `void` or a type
-///     explicitly convertible to `bool` when invoked as
-///     `func(Array::Element*..., absl::Status*)`.  Iteration stops if it
-///     returns `false`.
-/// \param status absl::Status pointer to pass to `func`.
-/// \param iteration_order Specifies constraints on the iteration order, and
-///     whether repeated elements may be skipped.  If
+///     func(&TransformedArray(arrays).array()(output_indices)...)
+///
+/// where for each of the `arrays`, ``output_indices`` is the output index
+/// vector corresponding to ``input_indices``.
+///
+/// \requires `sizeof...(Arrays) > 0`
+/// \param func The element-wise function.  Must return `void` or `bool` when
+///     invoked with ``(Array::Element*...)``, or as
+///     ``(Array::Element*..., absl::Status*)`` if `status` is specified.
+///     Iteration stops if the return value of `func` is `false`.
+/// \param status The `absl::Status` pointer to pass through the `func`.
+/// \param constraints Specifies constraints on the iteration order, and whether
+///     repeated elements may be skipped.  If
 ///     `constraints.can_skip_repeated_elements()`, the element-wise function
-///     may be invoked only once for multiple `input_indices` vectors that yield
-///     the same tuple of element pointers.  If
+///     may be invoked only once for multiple ``input_indices`` vectors that
+///     yield the same tuple of element pointers.  If
 ///     `constraints.has_order_constraint()`, `func` is invoked in the order
 ///     given by `constraints.order_constraint_value()`.  Otherwise, iteration
 ///     is not guaranteed to occur in any particular order; an efficient
 ///     iteration order is determined automatically.
-/// \param array The transformed arrays over which to iterate, which must all
+/// \param arrays The transformed arrays over which to iterate, which must all
 ///     have compatible input domains.
 /// \returns An `ArrayIterateResult` object specifying whether iteration
 ///     completed and the number of elements successfully processed.
 /// \error `absl::StatusCode::kInvalidArgument` if the transformed arrays do not
-/// all have
-///     the same rank.
+///     all have the same rank.
 /// \error `absl::StatusCode::kOutOfRange` if the transformed arrays do not have
-/// compatible
-///     domains.
+///     compatible domains.
 /// \error `absl::StatusCode::kOutOfRange` if an index array contains an
-/// out-of-bounds
-///     index.
+///     out-of-bounds index.
 /// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs
-/// computing output
-///     indices.
-template <typename Func, typename... Array>
+///     computing output indices.
+/// \relates TransformedArray
+template <typename Func, typename... Arrays>
 std::enable_if_t<
-    ((IsTransformedArrayLike<UnwrapResultType<Array>> && ...) &&
+    ((IsTransformedArrayLike<UnwrapResultType<Arrays>> && ...) &&
      std::is_constructible_v<
          bool, internal::Void::WrappedType<std::invoke_result_t<
-                   Func&, typename UnwrapResultType<Array>::Element*...,
+                   Func&, typename UnwrapResultType<Arrays>::Element*...,
                    absl::Status*>>>),
     Result<ArrayIterateResult>>
 IterateOverTransformedArrays(Func&& func, absl::Status* status,
                              IterationConstraints constraints,
-                             const Array&... array) {
+                             const Arrays&... arrays) {
   static_assert(RankConstraint::EqualOrUnspecified(
-                    {UnwrapResultType<Array>::static_rank...}),
+                    {UnwrapResultType<Arrays>::static_rank...}),
                 "Arrays must have compatible static ranks.");
   return tensorstore::MapResult(
       [&](auto&&... unwrapped_array) {
-        return internal::IterateOverTransformedArrays<sizeof...(Array)>(
+        return internal::IterateOverTransformedArrays<sizeof...(Arrays)>(
             internal::SimpleElementwiseFunction<
                 std::remove_reference_t<Func>(
-                    typename UnwrapResultType<Array>::Element...),
+                    typename UnwrapResultType<Arrays>::Element...),
                 absl::Status*>::Closure(&func),
             status, constraints,
-            span<const TransformedArrayView<const void>, sizeof...(Array)>(
+            span<const TransformedArrayView<const void>, sizeof...(Arrays)>(
                 {TransformedArray(unwrapped_array)...}));
       },
-      array...);
+      arrays...);
 }
-
-/// Same as above, except that `func` is called without an extra `absl::Status`
-/// pointer.
-template <typename Func, typename... Array>
+template <typename Func, typename... Arrays>
 std::enable_if_t<
-    ((IsTransformedArrayLike<UnwrapResultType<Array>> && ...) &&
+    ((IsTransformedArrayLike<UnwrapResultType<Arrays>> && ...) &&
      std::is_constructible_v<
          bool, internal::Void::WrappedType<std::invoke_result_t<
-                   Func&, typename UnwrapResultType<Array>::Element*...>>>),
+                   Func&, typename UnwrapResultType<Arrays>::Element*...>>>),
     Result<ArrayIterateResult>>
 IterateOverTransformedArrays(Func&& func, IterationConstraints constraints,
-                             const Array&... array) {
+                             const Arrays&... arrays) {
   static_assert(RankConstraint::EqualOrUnspecified(
-                    {UnwrapResultType<Array>::static_rank...}),
+                    {UnwrapResultType<Arrays>::static_rank...}),
                 "Arrays must have compatible static ranks.");
   return tensorstore::MapResult(
       [&](auto&&... unwrapped_array) {
         const auto func_wrapper =
-            [&func](typename UnwrapResultType<Array>::Element*... ptr,
+            [&func](typename UnwrapResultType<Arrays>::Element*... ptr,
                     absl::Status*) { return func(ptr...); };
-        return internal::IterateOverTransformedArrays<sizeof...(Array)>(
+        return internal::IterateOverTransformedArrays<sizeof...(Arrays)>(
             internal::SimpleElementwiseFunction<
                 decltype(func_wrapper)(
-                    typename UnwrapResultType<Array>::Element...),
+                    typename UnwrapResultType<Arrays>::Element...),
                 absl::Status*>::Closure(&func_wrapper),
             /*status=*/nullptr, constraints,
-            span<const TransformedArrayView<const void>, sizeof...(Array)>(
+            span<const TransformedArrayView<const void>, sizeof...(Arrays)>(
                 {TransformedArrayView<const void>(unwrapped_array)...}));
       },
-      array...);
+      arrays...);
 }
 
 }  // namespace tensorstore

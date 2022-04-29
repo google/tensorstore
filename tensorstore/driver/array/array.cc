@@ -247,8 +247,7 @@ void ArrayDriver::Read(
     Result<NDIterable::Ptr> operator()(ReadChunk::BeginRead,
                                        IndexTransform<> chunk_transform,
                                        Arena* arena) {
-      return GetTransformedArrayNDIterable(
-          {self->data_, std::move(chunk_transform)}, arena);
+      return GetTransformedArrayNDIterable(self->data_, chunk_transform, arena);
     }
   };
   // Cancellation does not make sense since there is only a single call to
@@ -282,8 +281,8 @@ void ArrayDriver::Write(
     Result<NDIterable::Ptr> operator()(WriteChunk::BeginWrite,
                                        IndexTransform<> chunk_transform,
                                        Arena* arena) {
-      return GetTransformedArrayNDIterable(
-          {self->data_, std::move(chunk_transform)}, arena);
+      return GetTransformedArrayNDIterable(self->data_,
+                                           chunk_transform, arena);
     }
 
     WriteChunk::EndWriteResult operator()(

@@ -50,7 +50,8 @@ Result<SharedOffsetArray<void>> DownsampleArray(
     OffsetArrayView<const void> source, span<const Index> downsample_factors,
     DownsampleMethod method);
 
-/// Same as `DownsampleArray`, but operates on `TransformedArrayView` instead.
+/// Same as `DownsampleArray`, but operates on `TransformedArrayView`
+/// instead.
 absl::Status DownsampleTransformedArray(TransformedArrayView<const void> source,
                                         TransformedArrayView<void> target,
                                         span<const Index> downsample_factors,

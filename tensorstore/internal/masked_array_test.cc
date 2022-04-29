@@ -63,7 +63,7 @@ using tensorstore::offset_origin;
 using tensorstore::SharedArray;
 using tensorstore::span;
 using tensorstore::StridedLayout;
-using tensorstore::TransformedArrayView;
+using tensorstore::TransformedArray;
 using tensorstore::internal::ElementCopyFunction;
 using tensorstore::internal::MaskData;
 using tensorstore::internal::SimpleElementwiseFunction;
@@ -117,8 +117,7 @@ class MaskedArrayWriteTester : public MaskedArrayTester {
 
   template <typename CopyFunc>
   absl::Status Write(IndexTransformView<> dest_transform,
-                     TransformedArrayView<const T> source,
-                     CopyFunc&& copy_func) {
+                     TransformedArray<const T> source, CopyFunc&& copy_func) {
     ElementCopyFunction copy_function =
         SimpleElementwiseFunction<std::remove_reference_t<CopyFunc>(const T, T),
                                   absl::Status*>();
@@ -130,7 +129,7 @@ class MaskedArrayWriteTester : public MaskedArrayTester {
   }
 
   absl::Status Write(IndexTransformView<> dest_transform,
-                     TransformedArrayView<const T> source) {
+                     TransformedArray<const T> source) {
     return Write(
         dest_transform, source,
         [](const T* source, T* dest, absl::Status*) { *dest = *source; });

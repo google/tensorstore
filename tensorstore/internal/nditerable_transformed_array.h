@@ -23,28 +23,41 @@
 namespace tensorstore {
 namespace internal {
 
-/// Returns an NDIterable representation of `array`.
+/// Returns an `NDIterable` representation of `array`.
+///
+/// \param array The array to iterate over.  The data must remain valid as long
+///     as the iterable is used.  A non-`Shared` array guaranteed to remain
+///     valid for the lifetime of the returned `NDIterable` may be passed using
+///     `UnownedToShared`.
+/// \param arena Allocation arena to use, must remain valid until after the
+///     returned `NDIterable` is destroyed.
+/// \returns Non-null pointer to `NDIterable`.
+/// \error `absl::StatusCode::kOutOfBounds` if any index arrays contain
+///     out-of-bounds indices.
+/// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs
+///     computing the iteration state.
+Result<NDIterable::Ptr> GetTransformedArrayNDIterable(
+    TransformedArray<Shared<const void>> array, Arena* arena);
+
+/// Returns an `NDIterable` representation of `array | transform`.
 ///
 /// \param array The array to iterate over.  The data must remain valid as long
 ///     as the iterable is used, but the layout need not remain valid after this
 ///     function returns.  A non-`Shared` array guaranteed to remain valid for
 ///     the lifetime of the returned `NDIterable` may be passed using
 ///     `UnownedToShared`.
+/// \param transform Index transform to apply to `array`.  May be a null
+///     transform to indicate an identity transform.
 /// \param arena Allocation arena to use, must remain valid until after the
 ///     returned `NDIterable` is destroyed.
 /// \returns Non-null pointer to `NDIterable`.
-/// \error `absl::StatusCode::kOutOfBounds` if range of the transform is not
-///     contained within the domain of the array or the `index_range`
-///     constraints.
+/// \error `absl::StatusCode::kOutOfBounds` if any index arrays contain
+///     out-of-bounds indices.
 /// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs
-/// computing the
-///     iteration state.
+///     computing the iteration state.
 Result<NDIterable::Ptr> GetTransformedArrayNDIterable(
-    TransformedArrayView<Shared<const void>> array, Arena* arena);
-
-/// Same as above, but for a `NormalizedTransfomedArray`.
-Result<NDIterable::Ptr> GetNormalizedTransformedArrayNDIterable(
-    NormalizedTransformedArray<Shared<const void>> array, Arena* arena);
+    SharedOffsetArrayView<const void> array, IndexTransformView<> transform,
+    Arena* arena);
 
 }  // namespace internal
 }  // namespace tensorstore

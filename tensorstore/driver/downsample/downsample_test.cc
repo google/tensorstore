@@ -556,7 +556,7 @@ TEST(DownsampleTest, ReadChunkWithIndexTransform) {
     auto target_array = tensorstore::AllocateArray<float>({4, 2});
     TENSORSTORE_ASSERT_OK(tensorstore::internal::CopyReadChunk(
         entry.first.impl, transform,
-        tensorstore::MakeNormalizedTransformedArray(target_array)));
+        tensorstore::TransformedArray(target_array)));
     EXPECT_EQ(MakeArray<float>({
                   {4.5, 7},
                   {12, 14.5},
@@ -575,7 +575,7 @@ TEST(DownsampleTest, ReadChunkWithIndexTransform) {
     auto target_array = tensorstore::AllocateArray<float>({3});
     TENSORSTORE_ASSERT_OK(tensorstore::internal::CopyReadChunk(
         entry.first.impl, transform,
-        tensorstore::MakeNormalizedTransformedArray(target_array)));
+        tensorstore::TransformedArray(target_array)));
     // Note that the last entry is the average of {14, 15, 15} because of how
     // `PropagateIndexTransformDownsampling` handles index arrays.
     EXPECT_EQ(MakeArray<float>({4.5, 12, 14.666666666666666}), target_array);

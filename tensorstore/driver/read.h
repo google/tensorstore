@@ -78,11 +78,11 @@ struct DriverReadIntoNewOptions {
 /// \error `absl::StatusCode::kInvalidArgument` if `source.driver->dtype()`
 ///     cannot be converted to `target.dtype()`.
 Future<void> DriverRead(Executor executor, DriverHandle source,
-                        TransformedSharedArrayView<void> target,
+                        TransformedSharedArray<void> target,
                         DriverReadOptions options);
 
 Future<void> DriverRead(DriverHandle source,
-                        TransformedSharedArrayView<void> target,
+                        TransformedSharedArray<void> target,
                         ReadOptions options);
 
 /// Copies data from a TensorStore driver to a newly-allocated array.
@@ -109,11 +109,11 @@ Future<SharedOffsetArray<void>> DriverReadIntoNewArray(
 absl::Status CopyReadChunk(
     ReadChunk::Impl& chunk, IndexTransform<> chunk_transform,
     const DataTypeConversionLookupResult& chunk_conversion,
-    NormalizedTransformedArray<void, dynamic_rank, view> target);
+    TransformedArray<void, dynamic_rank, view> target);
 
-absl::Status CopyReadChunk(
-    ReadChunk::Impl& chunk, IndexTransform<> chunk_transform,
-    NormalizedTransformedArray<void, dynamic_rank, view> target);
+absl::Status CopyReadChunk(ReadChunk::Impl& chunk,
+                           IndexTransform<> chunk_transform,
+                           TransformedArray<void, dynamic_rank, view> target);
 
 }  // namespace internal
 }  // namespace tensorstore

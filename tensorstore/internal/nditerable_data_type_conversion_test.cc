@@ -52,7 +52,7 @@ using tensorstore::MatchesStatus;
 using tensorstore::Shared;
 using tensorstore::SharedArray;
 using tensorstore::string_t;
-using tensorstore::TransformedArrayView;
+using tensorstore::TransformedArray;
 using tensorstore::uint32_t;
 using tensorstore::internal::GetDataTypeConverter;
 using ::testing::Pair;
@@ -64,7 +64,7 @@ class NDIterableDataTypeConversionTest : public ::testing::TestWithParam<bool> {
   tensorstore::internal::Arena arena;
 
   std::pair<absl::Status, SharedArray<const void>> Convert(
-      TransformedArrayView<Shared<const void>> source, DataType target_dtype) {
+      TransformedArray<Shared<const void>> source, DataType target_dtype) {
     tensorstore::internal::Arena arena;
     auto target =
         tensorstore::AllocateArray(source.shape(), tensorstore::c_order,

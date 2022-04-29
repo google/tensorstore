@@ -385,10 +385,9 @@ struct ReadChunkImpl {
         json_pointer::Dereference(*read_value, driver->json_pointer_),
         entry->AnnotateError(_, /*reading=*/true));
     return GetTransformedArrayNDIterable(
-        {SharedArrayView<const void>(std::shared_ptr<const ::nlohmann::json>(
-             std::move(read_value), sub_value)),
-         std::move(chunk_transform)},
-        arena);
+        std::shared_ptr<const ::nlohmann::json>(std::move(read_value),
+                                                sub_value),
+        std::move(chunk_transform), arena);
   }
 };
 
@@ -419,10 +418,8 @@ struct ReadChunkTransactionImpl {
           *value, node->changes_.Apply(*existing_value, driver->json_pointer_),
           GetOwningEntry(*node).AnnotateError(_, /*reading=*/true));
     }
-    return GetTransformedArrayNDIterable(
-        {SharedOffsetArrayView<const void>(std::move(value)),
-         std::move(chunk_transform)},
-        arena);
+    return GetTransformedArrayNDIterable(std::move(value), chunk_transform,
+                                         arena);
   }
 };
 
@@ -483,10 +480,8 @@ struct WriteChunkImpl {
                                      Arena* arena) {
     // Return NDIterable that references `this->value`.  The write is not
     // recorded in the `JsonCache::TransactionNode` until `EndWrite` is called.
-    return GetTransformedArrayNDIterable(
-        {SharedOffsetArrayView<const void>(UnownedToShared(&value)),
-         std::move(chunk_transform)},
-        arena);
+    return GetTransformedArrayNDIterable(UnownedToShared(&value),
+                                         chunk_transform, arena);
   }
 
   WriteChunk::EndWriteResult operator()(WriteChunk::EndWrite,

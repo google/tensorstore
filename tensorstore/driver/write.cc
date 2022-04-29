@@ -116,7 +116,7 @@ struct WriteState : public internal::AtomicReferenceCount<WriteState> {
     }
   };
   Executor executor;
-  NormalizedTransformedArray<Shared<const void>> source;
+  TransformedArray<Shared<const void>> source;
   DataTypeConversionLookupResult data_type_conversion;
   DriverPtr target_driver;
   internal::OpenTransactionPtr target_transaction;
@@ -148,7 +148,7 @@ struct WriteChunkOp {
 
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto source_iterable,
-        GetNormalizedTransformedArrayNDIterable(std::move(source), arena),
+        GetTransformedArrayNDIterable(std::move(source), arena),
         state->SetError(_));
 
     LockCollection lock_collection;
@@ -258,25 +258,21 @@ struct DriverWriteInitiateOp {
 }  // namespace
 
 WriteFutures DriverWrite(Executor executor,
-                         TransformedSharedArrayView<const void> source,
+                         TransformedSharedArray<const void> source,
                          DriverHandle target, DriverWriteOptions options) {
   TENSORSTORE_RETURN_IF_ERROR(
       internal::ValidateSupportsWrite(target.driver.read_write_mode()));
-  TENSORSTORE_ASSIGN_OR_RETURN(
-      auto normalized_source,
-      MakeNormalizedTransformedArray(std::move(source)));
   IntrusivePtr<WriteState> state(new WriteState);
   state->executor = executor;
   TENSORSTORE_ASSIGN_OR_RETURN(
       state->data_type_conversion,
-      GetDataTypeConverterOrError(normalized_source.dtype(),
-                                  target.driver->dtype(),
+      GetDataTypeConverterOrError(source.dtype(), target.driver->dtype(),
                                   options.data_type_conversion_flags));
   state->target_driver = std::move(target.driver);
   TENSORSTORE_ASSIGN_OR_RETURN(
       state->target_transaction,
       internal::AcquireOpenTransactionPtrOrError(target.transaction));
-  state->source = std::move(normalized_source);
+  state->source = std::move(source);
   state->alignment_options = options.alignment_options;
   state->commit_state->write_progress_function =
       std::move(options.progress_function);
@@ -302,7 +298,7 @@ WriteFutures DriverWrite(Executor executor,
   return {std::move(copy_pair.future), std::move(commit_pair.future)};
 }
 
-WriteFutures DriverWrite(TransformedSharedArrayView<const void> source,
+WriteFutures DriverWrite(TransformedSharedArray<const void> source,
                          DriverHandle target, WriteOptions options) {
   auto executor = target.driver->data_copy_executor();
   return internal::DriverWrite(

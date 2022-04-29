@@ -58,10 +58,10 @@ struct DriverWriteOptions {
 /// \error `absl::StatusCode::kInvalidArgument` if `source.dtype()` cannot
 ///     be converted to `target.driver->dtype()`.
 WriteFutures DriverWrite(Executor executor,
-                         TransformedSharedArrayView<const void> source,
+                         TransformedSharedArray<const void> source,
                          DriverHandle target, DriverWriteOptions options);
 
-WriteFutures DriverWrite(TransformedSharedArrayView<const void> source,
+WriteFutures DriverWrite(TransformedSharedArray<const void> source,
                          DriverHandle target, WriteOptions options);
 
 }  // namespace internal

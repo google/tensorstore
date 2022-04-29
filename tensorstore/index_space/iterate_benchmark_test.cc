@@ -66,7 +66,7 @@ tensorstore::TransformedSharedArray<char> Allocate(
                       .value();
     }
   }
-  return TransformedArray(std::move(array), std::move(transform));
+  return MakeTransformedArray(std::move(array), std::move(transform)).value();
 }
 
 struct BenchmarkConfig {

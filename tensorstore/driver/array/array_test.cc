@@ -180,38 +180,6 @@ TEST(ArrayDriverTest, Write) {
                                                      WriteProgress{2, 2, 2}));
 }
 
-/// Tests calling Write with an invalid source array that yields an error when
-/// MakeNormalizedTransformedArray is called.
-TEST(ArrayDriverTest, WriteInvalidSourceTransform) {
-  auto array =
-      tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 5, 6}});
-  auto context = Context::Default();
-  auto [driver, transform, transaction] =
-      tensorstore::internal::MakeArrayDriver<offset_origin>(context, array)
-          .value();
-  std::vector<WriteProgress> write_progress;
-  auto write_result = tensorstore::internal::DriverWrite(
-      /*executor=*/tensorstore::InlineExecutor{},
-      /*source=*/
-      tensorstore::TransformedArray(
-          tensorstore::MakeOffsetArray<int>({2, 3}, {{7, 8}}),
-          tensorstore::IdentityTransform(tensorstore::BoxView({2, 3}, {2, 2}))),
-      /*target=*/
-      {driver, ChainResult(transform, tensorstore::Dims(0, 1).SizedInterval(
-                                          {2, 3}, {1, 2}))
-                   .value()},
-      {/*.progress_function=*/[&write_progress](WriteProgress progress) {
-        write_progress.push_back(progress);
-      }});
-  EXPECT_THAT(GetStatus(write_result.copy_future.result()),
-              MatchesStatus(absl::StatusCode::kOutOfRange,
-                            "Propagated bounds .* for dimension 0 are "
-                            "incompatible with existing bounds .*"));
-  EXPECT_EQ(GetStatus(write_result.commit_future.result()),
-            GetStatus(write_result.copy_future.result()));
-  EXPECT_THAT(write_progress, ::testing::ElementsAre());
-}
-
 /// Tests calling Write with a source domain that does not match the destination
 /// domain.
 TEST(ArrayDriverTest, WriteDomainMismatch) {
@@ -468,31 +436,6 @@ TEST(FromArrayTest, WriteBroadcast) {
   EXPECT_EQ(absl::OkStatus(), GetStatus(write_result.commit_future.result()));
   EXPECT_EQ(tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 42, 42}}),
             array);
-}
-
-/// Tests calling Write with an invalid source array that yields an error when
-/// MakeNormalizedTransformedArray is called.
-TEST(FromArrayTest, WriteInvalidSourceTransform) {
-  auto array =
-      tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 5, 6}});
-  auto context = Context::Default();
-  auto store = tensorstore::FromArray(context, array);
-  std::vector<WriteProgress> write_progress;
-  auto write_result = Write(
-      tensorstore::TransformedArray(
-          tensorstore::MakeOffsetArray<int>({2, 3}, {{7, 8}}),
-          tensorstore::IdentityTransform(tensorstore::BoxView({2, 3}, {2, 2}))),
-      ChainResult(store, tensorstore::Dims(0, 1).SizedInterval({2, 3}, {1, 2})),
-      WriteProgressFunction{[&write_progress](WriteProgress progress) {
-        write_progress.push_back(progress);
-      }});
-  EXPECT_THAT(GetStatus(write_result.copy_future.result()),
-              MatchesStatus(absl::StatusCode::kOutOfRange,
-                            "Propagated bounds .* for dimension 0 are "
-                            "incompatible with existing bounds .*"));
-  EXPECT_EQ(GetStatus(write_result.commit_future.result()),
-            GetStatus(write_result.copy_future.result()));
-  EXPECT_THAT(write_progress, ::testing::ElementsAre());
 }
 
 /// Tests calling Write with a source domain that does not match the destination

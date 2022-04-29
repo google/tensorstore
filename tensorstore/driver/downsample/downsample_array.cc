@@ -121,62 +121,51 @@ absl::Status DownsampleTransformedArray(TransformedArrayView<const void> source,
                                         TransformedArrayView<void> target,
                                         span<const Index> downsample_factors,
                                         DownsampleMethod method) {
-  TENSORSTORE_ASSIGN_OR_RETURN(auto normalized_source,
-                               MakeNormalizedTransformedArray(source));
-  TENSORSTORE_ASSIGN_OR_RETURN(auto normalized_target,
-                               MakeNormalizedTransformedArray(target));
-  if (normalized_source.dtype() != normalized_target.dtype()) {
-    return absl::InvalidArgumentError(
-
-        tensorstore::StrCat("Source data type (", normalized_source.dtype(),
-                            ") does not match target data type (",
-                            normalized_target.dtype(), ")"));
+  if (source.dtype() != target.dtype()) {
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Source data type (", source.dtype(),
+        ") does not match target data type (", target.dtype(), ")"));
   }
 
+  TENSORSTORE_RETURN_IF_ERROR(ValidateDownsampleMethod(source.dtype(), method));
   TENSORSTORE_RETURN_IF_ERROR(
-      ValidateDownsampleMethod(normalized_source.dtype(), method));
-  TENSORSTORE_RETURN_IF_ERROR(ValidateDownsampleDomain(
-      normalized_source.domain().box(), normalized_target.domain().box(),
-      downsample_factors, method));
+      ValidateDownsampleDomain(source.domain().box(), target.domain().box(),
+                               downsample_factors, method));
 
   if (method == DownsampleMethod::kStride) {
     return CopyTransformedArray(
-        std::move(normalized_source) |
-            tensorstore::AllDims().Stride(downsample_factors),
+        std::move(source) | tensorstore::AllDims().Stride(downsample_factors),
         target);
   }
 
   internal::DefaultNDIterableArena arena;
-  TENSORSTORE_ASSIGN_OR_RETURN(auto base_iterable,
-                               GetNormalizedTransformedArrayNDIterable(
-                                   UnownedToShared(normalized_source), arena));
-  TENSORSTORE_ASSIGN_OR_RETURN(auto target_iterable,
-                               GetNormalizedTransformedArrayNDIterable(
-                                   UnownedToShared(normalized_target), arena));
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto base_iterable,
+      GetTransformedArrayNDIterable(UnownedToShared(source), arena));
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto target_iterable,
+      GetTransformedArrayNDIterable(UnownedToShared(target), arena));
   auto downsampled_iterable = DownsampleNDIterable(
-      std::move(base_iterable), normalized_source.domain().box(),
-      downsample_factors, method, downsample_factors.size(), arena);
+      std::move(base_iterable), source.domain().box(), downsample_factors,
+      method, downsample_factors.size(), arena);
   internal::NDIterableCopier copier(*downsampled_iterable, *target_iterable,
-                                    normalized_target.shape(),
-                                    skip_repeated_elements, arena);
+                                    target.shape(), skip_repeated_elements,
+                                    arena);
   return copier.Copy();
 }
 
 Result<SharedOffsetArray<void>> DownsampleTransformedArray(
     TransformedArrayView<const void> source,
     span<const Index> downsample_factors, DownsampleMethod method) {
-  TENSORSTORE_ASSIGN_OR_RETURN(auto normalized_source,
-                               MakeNormalizedTransformedArray(source));
   SharedOffsetArray<void> target;
-  target.layout().set_rank(normalized_source.rank());
-  DownsampleBounds(normalized_source.domain().box(),
+  target.layout().set_rank(source.rank());
+  DownsampleBounds(source.domain().box(),
                    MutableBoxView<>(target.origin(), target.shape()),
                    downsample_factors, method);
-  target = AllocateArray(target.domain(), c_order, default_init,
-                         normalized_source.dtype());
+  target =
+      AllocateArray(target.domain(), c_order, default_init, source.dtype());
   TENSORSTORE_RETURN_IF_ERROR(DownsampleTransformedArray(
-      normalized_source, MakeNormalizedTransformedArray(target),
-      downsample_factors, method));
+      source, TransformedArray(target), downsample_factors, method));
   return target;
 }
 

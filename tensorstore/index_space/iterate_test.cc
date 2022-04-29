@@ -38,7 +38,6 @@ using tensorstore::kInfIndex;
 using tensorstore::MakeArray;
 using tensorstore::MatchesStatus;
 using tensorstore::span;
-using tensorstore::TransformedArray;
 using tensorstore::internal_index_space::TransformAccess;
 
 TEST(ValidateIndexArrayBoundsTest, Basic) {

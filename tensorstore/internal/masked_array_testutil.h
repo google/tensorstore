@@ -59,8 +59,7 @@ struct MaskedArrayWriteResult {
 ///     computing output indices.
 MaskedArrayWriteResult WriteToMaskedArray(
     ElementPointer<void> output_ptr, MaskData* mask, BoxView<> output_box,
-    IndexTransformView<> input_to_output,
-    TransformedArrayView<const void> source,
+    IndexTransformView<> input_to_output, TransformedArray<const void> source,
     ElementCopyFunction::Closure copy_function);
 
 }  // namespace internal

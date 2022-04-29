@@ -185,11 +185,7 @@ class MockDriver : public Driver {
 };
 
 /// Returns a `ReadChunk` that simply reads from the specified array.
-ReadChunk MakeArrayBackedReadChunk(
-    NormalizedTransformedArray<Shared<const void>> data);
-
-ReadChunk MakeArrayBackedReadChunk(
-    SharedOffsetArray<const void, dynamic_rank, view> data);
+ReadChunk MakeArrayBackedReadChunk(TransformedArray<Shared<const void>> data);
 
 /// DriverRandomOperationTester implements random/fuzz based testing for a
 /// driver.

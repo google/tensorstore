@@ -475,10 +475,8 @@ struct ReadChunkImpl {
                                                internal::Arena* arena) const {
     LockType lock{*entry};
     assert(lock.data());
-    return internal::GetTransformedArrayNDIterable(
-        {SharedOffsetArrayView<const void>(*lock.data()),
-         std::move(chunk_transform)},
-        arena);
+    return internal::GetTransformedArrayNDIterable(*lock.data(),
+                                                   chunk_transform, arena);
   }
 };
 

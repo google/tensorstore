@@ -602,7 +602,7 @@ ReadAsIndividualChunks(TensorStore<> store) {
       r->emplace_back(array, request_transform);
       TENSORSTORE_RETURN_IF_ERROR(
           internal::CopyReadChunk(chunk.impl, std::move(chunk.transform),
-                                  MakeNormalizedTransformedArray(array)),
+                                  TransformedArray(array)),
           this->set_error(_));
     }
     void set_done() { promise_ = {}; }
@@ -683,8 +683,7 @@ TensorStore<> MockDriver::Wrap(IndexTransform<> transform) {
           std::move(transform)});
 }
 
-ReadChunk MakeArrayBackedReadChunk(
-    NormalizedTransformedArray<Shared<const void>> data) {
+ReadChunk MakeArrayBackedReadChunk(TransformedArray<Shared<const void>> data) {
   /// Implementation of the `ReadChunk::Impl` Poly interface.
   struct ReadChunkImpl {
     SharedElementPointer<const void> data;
@@ -695,19 +694,13 @@ ReadChunk MakeArrayBackedReadChunk(
     Result<NDIterable::Ptr> operator()(ReadChunk::BeginRead,
                                        IndexTransform<> chunk_transform,
                                        Arena* arena) {
-      return GetNormalizedTransformedArrayNDIterable({data, chunk_transform},
-                                                     arena);
+      return GetTransformedArrayNDIterable({data, chunk_transform}, arena);
     }
   };
   ReadChunk chunk;
   chunk.impl = ReadChunkImpl{data.element_pointer()};
   chunk.transform = data.transform();
   return chunk;
-}
-
-ReadChunk MakeArrayBackedReadChunk(
-    SharedOffsetArray<const void, dynamic_rank, view> data) {
-  return MakeArrayBackedReadChunk(MakeNormalizedTransformedArray(data));
 }
 
 void TestTensorStoreCreateWithSchemaImpl(::nlohmann::json json_spec,

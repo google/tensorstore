@@ -432,28 +432,25 @@ Result<NDIterable::Ptr> MaybeConvertToArrayNDIterable(
 }  // namespace
 
 Result<NDIterable::Ptr> GetTransformedArrayNDIterable(
-    TransformedArrayView<Shared<const void>> array, Arena* arena) {
-  if (!array.has_transform()) {
-    return GetArrayNDIterable({std::move(array.element_pointer()),
-                               array.untransformed_strided_layout()},
-                              arena);
+    SharedOffsetArrayView<const void> array, IndexTransformView<> transform,
+    Arena* arena) {
+  if (!transform.valid()) {
+    return GetArrayNDIterable(array, arena);
   }
 
   auto impl = MakeUniqueWithVirtualIntrusiveAllocator<IterableImpl>(
-      ArenaAllocator<>(arena), array.transform());
+      ArenaAllocator<>(arena), transform);
   TENSORSTORE_RETURN_IF_ERROR(InitializeSingleArrayIterationState(
-      array.base_array(),
-      internal_index_space::TransformAccess::rep(impl->transform_),
-      impl->transform_.input_origin().data(),
-      impl->transform_.input_shape().data(), &impl->state_,
-      impl->input_dimension_flags_.data()));
+      array, internal_index_space::TransformAccess::rep(transform),
+      transform.input_origin().data(), transform.input_shape().data(),
+      &impl->state_, impl->input_dimension_flags_.data()));
   impl->dtype_ = array.dtype();
   impl->data_owner_ = std::move(array.element_pointer().pointer());
   return MaybeConvertToArrayNDIterable(std::move(impl), arena);
 }
 
-Result<NDIterable::Ptr> GetNormalizedTransformedArrayNDIterable(
-    NormalizedTransformedArray<Shared<const void>> array, Arena* arena) {
+Result<NDIterable::Ptr> GetTransformedArrayNDIterable(
+    TransformedArray<Shared<const void>> array, Arena* arena) {
   auto impl = MakeUniqueWithVirtualIntrusiveAllocator<IterableImpl>(
       ArenaAllocator<>(arena), std::move(array.transform()));
   TENSORSTORE_RETURN_IF_ERROR(InitializeSingleArrayIterationState(

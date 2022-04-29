@@ -35,7 +35,6 @@ using tensorstore::kInfSize;
 using tensorstore::MakeArray;
 using tensorstore::MakeOffsetArray;
 using tensorstore::MatchesStatus;
-using tensorstore::NormalizedTransformedArray;
 using tensorstore::Result;
 using tensorstore::Shared;
 using tensorstore::StaticDataTypeCast;
@@ -48,12 +47,8 @@ static_assert(std::is_convertible_v<tensorstore::TransformedSharedArray<int, 1>,
 static_assert(
     !std::is_convertible_v<tensorstore::TransformedArrayView<int, 1>,
                            tensorstore::TransformedSharedArray<int, 1>>);
-static_assert(!std::is_convertible_v<tensorstore::TransformedArrayView<int, 1>,
-                                     tensorstore::TransformedArray<int, 1>>);
-
-static_assert(
-    std::is_constructible_v<tensorstore::TransformedArray<int, 1>,
-                            tensorstore::TransformedArrayView<int, 1>>);
+static_assert(std::is_convertible_v<tensorstore::TransformedArrayView<int, 1>,
+                                    tensorstore::TransformedArray<int, 1>>);
 static_assert(
     std::is_same_v<typename tensorstore::TransformedArrayView<int, 1>::
                        template RebindContainerKind<tensorstore::container>,
@@ -73,11 +68,7 @@ std::vector<const typename TA::Element*> GetPointers(const TA& a) {
 }
 using TransformedArrayTestTypes =
     ::testing::Types<tensorstore::TransformedSharedArray<int>,
-                     tensorstore::TransformedSharedArray<int, 1>,
-                     tensorstore::TransformedSharedArrayView<int>,
-                     tensorstore::TransformedSharedArrayView<int, 1>,
-                     tensorstore::TransformedArrayView<int>,
-                     tensorstore::TransformedArrayView<int, 1>>;
+                     tensorstore::TransformedSharedArray<int, 1>>;
 
 template <typename T>
 class TransformedArrayConstructorTest : public ::testing::Test {};
@@ -90,8 +81,7 @@ void TestCopyAndMove(SourceArray&& source,
   // Test copy construction.
   {
     TransformedArrayType tb(source);
-    EXPECT_EQ(source.domain(), tb.domain());
-    EXPECT_EQ(source.domain(), GetBoxDomainOf(tb.domain()));
+    EXPECT_EQ(GetBoxDomainOf(source), GetBoxDomainOf(tb));
     EXPECT_EQ(expected_pointers, GetPointers(tb));
   }
 
@@ -99,7 +89,7 @@ void TestCopyAndMove(SourceArray&& source,
   {
     auto source_copy = source;
     TransformedArrayType tc(std::move(source_copy));
-    EXPECT_EQ(source.domain(), tc.domain());
+    EXPECT_EQ(GetBoxDomainOf(source), GetBoxDomainOf(tc));
     EXPECT_EQ(expected_pointers, GetPointers(tc));
   }
 
@@ -107,7 +97,7 @@ void TestCopyAndMove(SourceArray&& source,
   {
     TransformedArrayType td;
     td = source;
-    EXPECT_EQ(source.domain(), td.domain());
+    EXPECT_EQ(GetBoxDomainOf(source), GetBoxDomainOf(td));
     EXPECT_EQ(expected_pointers, GetPointers(td));
   }
 
@@ -117,17 +107,14 @@ void TestCopyAndMove(SourceArray&& source,
     TransformedArrayType td;
     td = std::move(source_copy);
     EXPECT_EQ(expected_pointers, GetPointers(td));
-    EXPECT_EQ(source.domain(), td.domain());
+    EXPECT_EQ(GetBoxDomainOf(source), GetBoxDomainOf(td));
   }
 }
 
 TYPED_TEST(TransformedArrayConstructorTest, DefaultConstruct) {
   TypeParam ta;
-  EXPECT_FALSE(ta.has_transform());
-  EXPECT_FALSE(ta.has_base_array());
-  EXPECT_TRUE(ta.has_untransformed_array());
   EXPECT_FALSE(ta.transform());
-  EXPECT_EQ(nullptr, ta.untransformed_array().data());
+  EXPECT_EQ(nullptr, ta.element_pointer());
 }
 
 template <typename TransformedArrayType, typename Array>
@@ -135,14 +122,8 @@ void TestConstructFromArray(Array&& array,
                             std::vector<const int*> expected_pointers) {
   auto array_copy = array;
   TransformedArrayType ta(std::forward<Array>(array));
-  EXPECT_EQ(array_copy.domain(), ta.domain());
+  EXPECT_EQ(array_copy.domain(), ta.domain().box());
   EXPECT_EQ(array_copy.domain(), GetBoxDomainOf(ta));
-  EXPECT_FALSE(ta.has_transform());
-  EXPECT_FALSE(ta.has_base_array());
-  EXPECT_TRUE(ta.has_untransformed_array());
-  EXPECT_FALSE(ta.transform());
-  EXPECT_EQ(array_copy, ta.untransformed_array());
-  EXPECT_EQ(array_copy.layout(), ta.untransformed_strided_layout());
   auto pointers = GetPointers(ta);
   EXPECT_EQ(expected_pointers, pointers);
 
@@ -176,16 +157,9 @@ void TestConstructFromElementPointerAndTransform(
   auto transform_copy = transform;
   TransformedArrayType ta(std::forward<ElementPointer>(element_pointer),
                           std::forward<Transform>(transform));
-  EXPECT_EQ(transform_copy.input_domain().box(), ta.domain());
-  EXPECT_EQ(transform_copy.input_domain().box(), GetBoxDomainOf(ta));
-  EXPECT_TRUE(ta.has_transform());
-  EXPECT_FALSE(ta.has_base_array());
-  EXPECT_FALSE(ta.has_untransformed_array());
+  EXPECT_EQ(GetBoxDomainOf(transform_copy), GetBoxDomainOf(ta));
   EXPECT_EQ(transform_copy, ta.transform());
-  EXPECT_EQ(element_pointer_copy, ta.base_array().element_pointer());
-  EXPECT_THAT(ta.base_array().shape(), ::testing::ElementsAre(kInfSize));
-  EXPECT_THAT(ta.base_array().origin(), ::testing::ElementsAre(-kInfIndex));
-  EXPECT_THAT(ta.base_array().byte_strides(), ::testing::ElementsAre(1));
+  EXPECT_EQ(element_pointer_copy, ta.element_pointer());
   auto pointers = GetPointers(ta);
   EXPECT_EQ(expected_pointers, pointers);
 
@@ -216,62 +190,11 @@ TYPED_TEST(TransformedArrayConstructorTest,
       a.element_pointer(), t_view, expected_pointers);
 }
 
-template <typename TransformedArrayType, typename Array, typename Transform>
-void TestConstructFromArrayAndTransform(
-    Array&& array, Transform&& transform,
-    std::vector<const int*> expected_pointers) {
-  auto array_copy = array;
-  auto transform_copy = transform;
-  TransformedArrayType ta{std::forward<Array>(array),
-                          std::forward<Transform>(transform)};
-  EXPECT_TRUE(ta.has_transform());
-  EXPECT_TRUE(ta.has_base_array());
-  EXPECT_FALSE(ta.has_untransformed_array());
-  EXPECT_TRUE(ta.transform());
-  EXPECT_EQ(array_copy, ta.base_array());
-  EXPECT_EQ(array_copy.layout(), ta.base_strided_layout());
-  EXPECT_EQ(array_copy.domain(), ta.domain());
-  EXPECT_EQ(array_copy.domain(), GetBoxDomainOf(ta));
-  EXPECT_EQ(transform_copy, ta.transform());
-  EXPECT_EQ(expected_pointers, GetPointers(ta));
-  TestCopyAndMove<TransformedArrayType>(ta, expected_pointers);
-}
-
-TYPED_TEST(TransformedArrayConstructorTest,
-           ConstructFromZeroOriginArrayAndTransform) {
-  auto a = MakeArray<int>({1, 2, 3});
-  tensorstore::SharedArrayView<int, 1> a_view = a;
-  auto t = tensorstore::IdentityTransform(a.domain());
-  auto t_view = tensorstore::IndexTransformView<1, 1>(t);
-  const std::vector<const int*> expected_pointers{&a(0), &a(1), &a(2)};
-  TestConstructFromArrayAndTransform<TypeParam>(a, t, expected_pointers);
-  TestConstructFromArrayAndTransform<TypeParam>(a, t_view, expected_pointers);
-  TestConstructFromArrayAndTransform<TypeParam>(a_view, t_view,
-                                                expected_pointers);
-  auto t_copy = t;
-  auto array_copy = a;
-  TestConstructFromArrayAndTransform<TypeParam>(
-      std::move(array_copy), std::move(t_copy), expected_pointers);
-}
-
-TYPED_TEST(TransformedArrayConstructorTest,
-           ConstructFromOffsetOriginArrayAndTransform) {
-  auto a = MakeOffsetArray<int>({3}, {1, 2, 3});
-  auto t = tensorstore::IdentityTransform(a.domain());
-  auto t_view = tensorstore::IndexTransformView<1, 1>(t);
-  const std::vector<const int*> expected_pointers{&a(3), &a(4), &a(5)};
-  TestConstructFromArrayAndTransform<TypeParam>(a, t, expected_pointers);
-  TestConstructFromArrayAndTransform<TypeParam>(a, t_view, expected_pointers);
-  TestConstructFromArrayAndTransform<TypeParam>(a, std::move(t),
-                                                expected_pointers);
-}
-
 TEST(TransformedArrayTest, Array) {
   auto a = MakeOffsetArray<int>({3}, {1, 2, 3});
   auto ta = tensorstore::TransformedArray(a);
   static_assert(std::is_same_v<decltype(ta),
                                tensorstore::TransformedSharedArray<int, 1>>);
-  EXPECT_EQ(a, ta.untransformed_array());
   auto a_copy = a;
   EXPECT_EQ(3, a.pointer().use_count());
   auto tb = tensorstore::TransformedArray(std::move(a_copy));
@@ -287,14 +210,12 @@ TEST(TransformedArrayTest, TransformedArray) {
   auto tb = tensorstore::TransformedArray(ta);
   static_assert(std::is_same_v<decltype(tb),
                                tensorstore::TransformedSharedArray<int, 1>>);
-  EXPECT_EQ(a, tb.untransformed_array());
   auto ta_copy = ta;
   EXPECT_EQ(4, a.pointer().use_count());
   auto tc = tensorstore::TransformedArray(std::move(ta_copy));
   static_assert(std::is_same_v<decltype(tc),
                                tensorstore::TransformedSharedArray<int, 1>>);
   EXPECT_EQ(a.element_pointer(), tc.element_pointer());
-  EXPECT_EQ(a, tc.untransformed_array());
   EXPECT_EQ(4, a.pointer().use_count());
   EXPECT_FALSE(ta_copy.element_pointer());  // NOLINT
 }
@@ -309,35 +230,35 @@ TEST(TransformedArrayTest, MapTransform) {
 
 TEST(TransformedArrayTest, ArrayAndTransform) {
   auto a = MakeOffsetArray<int>({3}, {1, 2, 3});
-  auto t = tensorstore::IndexTransformBuilder<1, 1>()
-               .input_origin({0})
-               .input_shape({3})
-               .input_labels({"a"})
-               .output_single_input_dimension(0, 3, 1, 0)
-               .Finalize()
-               .value();
-  auto ta = tensorstore::TransformedArray(a, t);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto t, (tensorstore::IndexTransformBuilder<1, 1>()
+                   .input_origin({0})
+                   .input_shape({3})
+                   .input_labels({"a"})
+                   .output_single_input_dimension(0, 3, 1, 0)
+                   .Finalize()));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto ta,
+                                   tensorstore::MakeTransformedArray(a, t));
   static_assert(std::is_same_v<decltype(ta),
                                tensorstore::TransformedSharedArray<int, 1>>);
-  EXPECT_EQ(a, ta.base_array());
-  EXPECT_EQ(t, ta.transform());
-  EXPECT_THAT(ta.labels(), ::testing::ElementsAre("a"));
-}
-
-TEST(TransformedArrayTest, DefaultLabels) {
-  auto a = MakeOffsetArray<int>({3}, {1, 2, 3});
-  tensorstore::TransformedSharedArray<int, 1> ta(a);
-  EXPECT_EQ(a, ta.untransformed_array());
-  EXPECT_THAT(ta.labels(), ::testing::ElementsAre(""));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto expected_transform, (tensorstore::IndexTransformBuilder<1, 1>()
+                                    .input_origin({0})
+                                    .input_shape({3})
+                                    .input_labels({"a"})
+                                    .output_single_input_dimension(
+                                        0, 3 * sizeof(int), 1 * sizeof(int), 0)
+                                    .Finalize()));
+  EXPECT_EQ(expected_transform, ta.transform());
 }
 
 TEST(TransformedArrayTest, DimExpression) {
   auto a = MakeOffsetArray<int>({10, 20}, {{1, 2, 3}, {4, 5, 6}});
-  auto ta = ChainResult(a,
-                        tensorstore::Dims(0, 1).IndexVectorArraySlice(
-                            MakeArray<Index>({{10, 22}, {11, 21}, {11, 22}})),
-                        tensorstore::Dims(0).Label("a"))
-                .value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto ta, a |
+                   tensorstore::Dims(0, 1).IndexVectorArraySlice(
+                       MakeArray<Index>({{10, 22}, {11, 21}, {11, 22}})) |
+                   tensorstore::Dims(0).Label("a"));
   EXPECT_EQ(ta.transform(),
             (tensorstore::IndexTransformBuilder<1, 2>()
                  .input_origin({0})
@@ -471,11 +392,15 @@ TEST(TransformedArrayTest, MakeCopy) {
 /// container does not destroy the transform until the end of the complete
 /// expression.
 TEST(TransformedArrayTest, MoveConstructViewFromContainer) {
-  [](tensorstore::TransformedSharedArrayView<const void> x) {
-    EXPECT_EQ(tensorstore::BoxView({2, 3}, {2, 2}), x.domain());
-  }(tensorstore::TransformedArray(
-      tensorstore::MakeOffsetArray<int>({2, 3}, {{1, 2}, {3, 4}}),
-      tensorstore::IdentityTransform(tensorstore::BoxView({2, 3}, {2, 2}))));
+  MapResult(
+      [](tensorstore::TransformedSharedArrayView<const void> x) {
+        EXPECT_EQ(tensorstore::BoxView({2, 3}, {2, 2}), GetBoxDomainOf(x));
+        return absl::OkStatus();
+      },
+      tensorstore::MakeTransformedArray(
+          tensorstore::MakeOffsetArray<int>({2, 3}, {{1, 2}, {3, 4}}),
+          tensorstore::IdentityTransform(tensorstore::BoxView({2, 3}, {2, 2}))))
+      .value();
 }
 
 /// Tests that ComposeLayoutAndTransformTest works when a transform is not
@@ -533,27 +458,7 @@ TEST(ComposeLayoutAndTransformTest, RankMismatch) {
                             "array rank \\(2\\)"));
 }
 
-TEST(MakeNormalizedTransformedArrayTest, UntransformedArray) {
-  auto array = MakeOffsetArray<int>({2, 3}, {{3, 4, 5}, {6, 7, 8}});
-  auto result = tensorstore::MakeNormalizedTransformedArray(
-      tensorstore::TransformedArray(array));
-  ASSERT_TRUE(result);
-  EXPECT_EQ(array.element_pointer(), result->element_pointer());
-  EXPECT_THAT(result->origin(), ::testing::ElementsAre(2, 3));
-  EXPECT_THAT(result->shape(), ::testing::ElementsAre(2, 3));
-  EXPECT_THAT(result->labels(), ::testing::ElementsAre("", ""));
-  EXPECT_EQ(GetBoxDomainOf(array), GetBoxDomainOf(*result));
-  EXPECT_EQ(tensorstore::IndexTransformBuilder<>(2, 2)
-                .input_origin({2, 3})
-                .input_shape({2, 3})
-                .output_single_input_dimension(0, 0, sizeof(int) * 3, 0)
-                .output_single_input_dimension(1, 0, sizeof(int), 1)
-                .Finalize()
-                .value(),
-            result->transform());
-}
-
-TEST(MakeNormalizedTransformedArrayTest, BaseArrayAndTransform) {
+TEST(MakeTransformedArrayTest, TwoArgumentBaseArrayAndTransform) {
   auto array = MakeOffsetArray<int>({2, 3}, {{3, 4, 5}, {6, 7, 8}});
   auto t = tensorstore::IndexTransformBuilder<1, 2>()
                .implicit_lower_bounds({1})
@@ -562,10 +467,9 @@ TEST(MakeNormalizedTransformedArrayTest, BaseArrayAndTransform) {
                .output_single_input_dimension(1, 2, 1, 0)
                .Finalize()
                .value();
-  auto result = tensorstore::MakeNormalizedTransformedArray(
-      tensorstore::TransformedArray(array, t));
-  ASSERT_EQ(absl::OkStatus(), GetStatus(result));
-  EXPECT_EQ(array.element_pointer(), result->element_pointer());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto ta,
+                                   tensorstore::MakeTransformedArray(array, t));
+  EXPECT_EQ(array.element_pointer(), ta.element_pointer());
   EXPECT_EQ(
       tensorstore::IndexTransformBuilder<>(1, 2)
           .input_origin({1})
@@ -574,48 +478,7 @@ TEST(MakeNormalizedTransformedArrayTest, BaseArrayAndTransform) {
           .output_single_input_dimension(1, sizeof(int) * 2, sizeof(int), 0)
           .Finalize()
           .value(),
-      result->transform());
-}
-
-TEST(MakeNormalizedTransformedArrayTest, TwoArgumentBaseArrayAndTransform) {
-  auto array = MakeOffsetArray<int>({2, 3}, {{3, 4, 5}, {6, 7, 8}});
-  auto t = tensorstore::IndexTransformBuilder<1, 2>()
-               .implicit_lower_bounds({1})
-               .implicit_upper_bounds({1})
-               .output_single_input_dimension(0, 1, 1, 0)
-               .output_single_input_dimension(1, 2, 1, 0)
-               .Finalize()
-               .value();
-  auto result = tensorstore::MakeNormalizedTransformedArray(array, t);
-  ASSERT_TRUE(result);
-  EXPECT_EQ(array.element_pointer(), result->element_pointer());
-  EXPECT_EQ(
-      tensorstore::IndexTransformBuilder<>(1, 2)
-          .input_origin({1})
-          .input_shape({2})
-          .output_single_input_dimension(0, sizeof(int) * 3, sizeof(int) * 3, 0)
-          .output_single_input_dimension(1, sizeof(int) * 2, sizeof(int), 0)
-          .Finalize()
-          .value(),
-      result->transform());
-}
-
-TEST(MakeNormalizedTransformedArrayTest, ElementPointerAndTransform) {
-  auto array = MakeOffsetArray<int>({2, 3}, {{3, 4, 5}, {6, 7, 8}});
-  tensorstore::TransformedArray<int, 2> transformed_array =
-      tensorstore::MakeNormalizedTransformedArray(
-          tensorstore::TransformedArray(array))
-          .value();
-  auto result = tensorstore::MakeNormalizedTransformedArray(transformed_array);
-  ASSERT_TRUE(result);
-  EXPECT_EQ(array.element_pointer(), result->element_pointer());
-  EXPECT_EQ(transformed_array.transform(), result->transform());
-
-  // Test `NormalizedTransformedArray` converting `operator=`.
-  tensorstore::NormalizedTransformedArray<int, 2, tensorstore::view> t_view;
-  t_view = *result;
-  EXPECT_EQ(array.element_pointer(), t_view.element_pointer());
-  EXPECT_EQ(transformed_array.transform(), t_view.transform());
+      ta.transform());
 }
 
 TEST(GetUnboundedLayoutTest, Basic) {
@@ -636,23 +499,6 @@ TEST(TransformedArrayTest, StaticDataTypeCast) {
               ::testing::ElementsAreArray(GetPointers(ta_orig)));
 }
 
-TEST(TransformedArrayTest, StaticRankCast) {
-  TransformedArray<Shared<std::int32_t>, dynamic_rank> ta =
-      MakeArray<std::int32_t>({3, 4});
-  auto ta1 = StaticRankCast<1>(ta);
-  static_assert(
-      std::is_same_v<decltype(ta1),
-                     Result<TransformedArray<Shared<std::int32_t>, 1>>>);
-  ASSERT_TRUE(ta1);
-  EXPECT_THAT(GetPointers(*ta1), ::testing::ElementsAreArray(GetPointers(ta)));
-  EXPECT_THAT(
-      StaticRankCast<2>(ta),
-      MatchesStatus(
-          absl::StatusCode::kInvalidArgument,
-          "Cannot cast transformed array with data type of int32 and rank of 1 "
-          "to transformed array with data type of int32 and rank of 2"));
-}
-
 // Tests cast from Array of dynamic rank to TransformedArray of static rank.
 TEST(TransformedArrayTest, CastArrayToTransformedArray) {
   tensorstore::SharedArray<std::int32_t> a = MakeArray<std::int32_t>({1, 2});
@@ -662,27 +508,25 @@ TEST(TransformedArrayTest, CastArrayToTransformedArray) {
   EXPECT_THAT(GetPointers(*ta_result), ::testing::ElementsAre(&a(0), &a(1)));
 }
 
-TEST(NormalizedTransformedArrayTest, StaticDataTypeCast) {
-  auto ta_orig = tensorstore::MakeNormalizedTransformedArray(
-      MakeArray<std::int32_t>({3, 4}));
-  NormalizedTransformedArray<Shared<void>, 1> ta = ta_orig;
+TEST(TransformedArrayTest, StaticDataTypeCastShared) {
+  auto ta_orig = tensorstore::TransformedArray(MakeArray<std::int32_t>({3, 4}));
+  TransformedArray<Shared<void>, 1> ta = ta_orig;
   auto ta_int = StaticDataTypeCast<std::int32_t>(ta);
-  static_assert(std::is_same_v<
-                decltype(ta_int),
-                Result<NormalizedTransformedArray<Shared<std::int32_t>, 1>>>);
+  static_assert(
+      std::is_same_v<decltype(ta_int),
+                     Result<TransformedArray<Shared<std::int32_t>, 1>>>);
   ASSERT_TRUE(ta_int);
   EXPECT_THAT(GetPointers(*ta_int),
               ::testing::ElementsAreArray(GetPointers(ta_orig)));
 }
 
-TEST(NormalizedTransformedArrayTest, StaticRankCast) {
-  NormalizedTransformedArray<Shared<std::int32_t>, dynamic_rank> ta =
-      tensorstore::MakeNormalizedTransformedArray(
-          MakeArray<std::int32_t>({3, 4}));
+TEST(TransformedArrayTest, StaticRankCast) {
+  TransformedArray<Shared<std::int32_t>, dynamic_rank> ta =
+      MakeArray<std::int32_t>({3, 4});
   auto ta1 = StaticRankCast<1>(ta);
-  static_assert(std::is_same_v<
-                decltype(ta1),
-                Result<NormalizedTransformedArray<Shared<std::int32_t>, 1>>>);
+  static_assert(
+      std::is_same_v<decltype(ta1),
+                     Result<TransformedArray<Shared<std::int32_t>, 1>>>);
   ASSERT_TRUE(ta1);
   EXPECT_THAT(GetPointers(*ta1), ::testing::ElementsAreArray(GetPointers(ta)));
   EXPECT_THAT(
@@ -756,31 +600,6 @@ TEST(TransformedArrayTest, UnownedToSharedAliasing) {
     auto shared_ta_copy = UnownedToShared(shared_ta);
     static_assert(
         std::is_same_v<decltype(shared_ta), TransformedArray<Shared<int>>>);
-    EXPECT_EQ(3, a.pointer().use_count());
-  }
-  EXPECT_EQ(1, a.pointer().use_count());
-}
-
-TEST(NormalizedTransformedArrayTest, UnownedToShared) {
-  auto a = MakeArray<int>({1, 2, 3});
-  NormalizedTransformedArray<int> ta = MakeNormalizedTransformedArray(a);
-  auto shared_ta = UnownedToShared(ta);
-  static_assert(std::is_same_v<decltype(shared_ta),
-                               NormalizedTransformedArray<Shared<int>>>);
-}
-
-TEST(NormalizedTransformedArrayTest, UnownedToSharedAliasing) {
-  auto a = MakeArray<int>({1, 2, 3});
-  NormalizedTransformedArray<int> ta = MakeNormalizedTransformedArray(a);
-  EXPECT_EQ(1, a.pointer().use_count());
-  {
-    auto shared_ta = UnownedToShared(a.pointer(), ta);
-    EXPECT_EQ(2, a.pointer().use_count());
-    static_assert(std::is_same_v<decltype(shared_ta),
-                                 NormalizedTransformedArray<Shared<int>>>);
-    auto shared_ta_copy = UnownedToShared(shared_ta);
-    static_assert(std::is_same_v<decltype(shared_ta),
-                                 NormalizedTransformedArray<Shared<int>>>);
     EXPECT_EQ(3, a.pointer().use_count());
   }
   EXPECT_EQ(1, a.pointer().use_count());

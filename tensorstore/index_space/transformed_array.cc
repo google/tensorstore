@@ -149,7 +149,7 @@ Result<ArrayIterateResult> IterateOverTransformedArrays(
 
   // Compute input_bounds.
   for (std::size_t i = 0; i < Arity; ++i) {
-    const BoxView<> domain = transformed_arrays[i].domain();
+    const BoxView<> domain = transformed_arrays[i].domain().box();
     TENSORSTORE_RETURN_IF_ERROR(
         internal_index_space::ValidateAndIntersectBounds(
             domain, input_bounds, [](IndexInterval a, IndexInterval b) {
@@ -169,13 +169,11 @@ Result<ArrayIterateResult> IterateOverTransformedArrays(
 
   for (std::size_t i = 0; i < Arity; ++i) {
     const auto& ta = transformed_arrays[i];
-    single_array_states[i].emplace(
-        input_rank,
-        ta.has_transform() ? ta.transform().output_rank() : ta.rank());
+    single_array_states[i].emplace(input_rank, ta.transform().output_rank());
     auto& single_array_state = single_array_states[i];
     TENSORSTORE_RETURN_IF_ERROR(
         internal_index_space::InitializeSingleArrayIterationState(
-            ta.base_array(),
+            ta.element_pointer(),
             internal_index_space::TransformAccess::rep(ta.transform()),
             input_bounds.origin().data(), input_bounds.shape().data(),
             &*single_array_state, input_dimension_flags.data()));

@@ -52,7 +52,6 @@ using tensorstore::IndexTransformBuilder;
 using tensorstore::kImplicit;
 using tensorstore::MakeArray;
 using tensorstore::MatchesStatus;
-using tensorstore::NormalizedTransformedArray;
 using tensorstore::Result;
 using tensorstore::Shared;
 using tensorstore::SharedArray;
@@ -60,7 +59,6 @@ using tensorstore::skip_repeated_elements;
 using tensorstore::StridedLayout;
 using tensorstore::TransformedArray;
 using tensorstore::internal::Arena;
-using tensorstore::internal::GetNormalizedTransformedArrayNDIterable;
 using tensorstore::internal::GetTransformedArrayNDIterable;
 using tensorstore::internal::MultiNDIterator;
 using tensorstore::internal::NDIterable;
@@ -101,36 +99,37 @@ GetIterationTrace(
 }
 
 // The parameter determines whether the array is specified as a
-// NormalizedTransformedArray a TransformedArray (converted from the
-// NormalizedTransformedArray), in order to test both variants.
-class NDIterableTransformedArrayTest : public ::testing::TestWithParam<bool> {
+// `TransformedArray` directly or as an ``(array, transform)`` pair of
+// arguments, in order to test both variants.
+class MaybeDirectTest : public ::testing::TestWithParam<bool> {
  protected:
   Arena arena;
 
-  Result<NDIterable::Ptr> GetMaybeNormalizedTransformedArrayNDIterable(
-      NormalizedTransformedArray<Shared<const void>> array) {
+  Result<NDIterable::Ptr> GetMaybeDirectTransformedArrayNDIterable(
+      tensorstore::SharedOffsetArrayView<const void> array,
+      tensorstore::IndexTransformView<> transform) {
     if (GetParam()) {
-      return GetNormalizedTransformedArrayNDIterable(std::move(array), &arena);
+      TENSORSTORE_ASSIGN_OR_RETURN(auto transformed_array,
+                                   MakeTransformedArray(array, transform));
+      return GetTransformedArrayNDIterable(std::move(transformed_array),
+                                           &arena);
     } else {
-      return GetTransformedArrayNDIterable(std::move(array), &arena);
+      return GetTransformedArrayNDIterable(std::move(array), transform, &arena);
     }
   }
 };
 
-INSTANTIATE_TEST_SUITE_P(GetNormalizedTransformedArrayNDIterable,
-                         NDIterableTransformedArrayTest,
-                         ::testing::Values(true));
-INSTANTIATE_TEST_SUITE_P(GetTransformedArrayNDIterable,
-                         NDIterableTransformedArrayTest,
-                         ::testing::Values(false));
+INSTANTIATE_TEST_SUITE_P(Indirect, MaybeDirectTest, ::testing::Values(true));
+INSTANTIATE_TEST_SUITE_P(Direct, MaybeDirectTest, ::testing::Values(false));
 
 // Test the case of an array with no index array input dimensions (simply
 // forwards to `GetArrayNDIterable`).
-TEST_P(NDIterableTransformedArrayTest, Strided) {
+TEST(NDIterableTransformedArrayTest, Strided) {
+  Arena arena;
   auto a = AllocateArray<int>({2, 3});
   auto ta = ChainResult(a, tensorstore::Dims(1).SizedInterval(0, 2, 2)).value();
 
-  auto iterable = GetMaybeNormalizedTransformedArrayNDIterable(ta).value();
+  auto iterable = GetTransformedArrayNDIterable(ta, &arena).value();
   MultiNDIterator<1, /*Full=*/true> multi_iterator(
       ta.shape(), skip_repeated_elements, {{iterable.get()}}, &arena);
   EXPECT_THAT(
@@ -142,13 +141,14 @@ TEST_P(NDIterableTransformedArrayTest, Strided) {
 // Test the case of an array with both index array input dimensions and purely
 // strided input dimensions.  The inner loop dimension will not be an index
 // array input dimension.
-TEST_P(NDIterableTransformedArrayTest, Indexed) {
+TEST(NDIterableTransformedArrayTest, Indexed) {
+  Arena arena;
   auto a = AllocateArray<int>({2, 3});
   auto ta = ChainResult(a, tensorstore::Dims(1).OuterIndexArraySlice(
                                MakeArray<Index>({0, 2, 1, 1})))
                 .value();
 
-  auto iterable = GetMaybeNormalizedTransformedArrayNDIterable(ta).value();
+  auto iterable = GetTransformedArrayNDIterable(ta, &arena).value();
   MultiNDIterator<1, /*Full=*/true> multi_iterator(
       ta.shape(), skip_repeated_elements, {{iterable.get()}}, &arena);
   EXPECT_THAT(multi_iterator.iteration_dimensions, ElementsAre(1, 0));
@@ -164,7 +164,8 @@ TEST_P(NDIterableTransformedArrayTest, Indexed) {
 // purely strided input dimension, where the strided input dimension is
 // reversed.  The inner loop dimension will not be an index array input
 // dimension.
-TEST_P(NDIterableTransformedArrayTest, IndexedAndReversedStrided) {
+TEST(NDIterableTransformedArrayTest, IndexedAndReversedStrided) {
+  Arena arena;
   auto a = AllocateArray<int>({2, 3});
   auto ta =
       ChainResult(a,
@@ -173,7 +174,7 @@ TEST_P(NDIterableTransformedArrayTest, IndexedAndReversedStrided) {
                   tensorstore::Dims(0).SizedInterval(kImplicit, kImplicit, -1))
           .value();
 
-  auto iterable = GetMaybeNormalizedTransformedArrayNDIterable(ta).value();
+  auto iterable = GetTransformedArrayNDIterable(ta, &arena).value();
   MultiNDIterator<1, /*Full=*/true> multi_iterator(
       ta.shape(), skip_repeated_elements, {{iterable.get()}}, &arena);
   EXPECT_THAT(multi_iterator.iteration_dimensions, ElementsAre(1, 0));
@@ -187,13 +188,14 @@ TEST_P(NDIterableTransformedArrayTest, IndexedAndReversedStrided) {
 }
 
 // Tests that input dimensions on which index array maps depend can be combined.
-TEST_P(NDIterableTransformedArrayTest, IndexedCombine) {
+TEST(NDIterableTransformedArrayTest, IndexedCombine) {
+  Arena arena;
   auto a = AllocateArray<int>({2, 3});
   auto ta = ChainResult(a, tensorstore::Dims(1).OuterIndexArraySlice(
                                MakeArray<Index>({{0, 2}, {2, 0}})))
                 .value();
 
-  auto iterable = GetMaybeNormalizedTransformedArrayNDIterable(ta).value();
+  auto iterable = GetTransformedArrayNDIterable(ta, &arena).value();
   MultiNDIterator<1, /*Full=*/true> multi_iterator(
       ta.shape(), skip_repeated_elements, {{iterable.get()}}, &arena);
   EXPECT_THAT(multi_iterator.iteration_dimensions, ElementsAre(2, 0));
@@ -206,7 +208,8 @@ TEST_P(NDIterableTransformedArrayTest, IndexedCombine) {
 
 // Tests that index array maps depending on reversed dimensions are handled
 // correctly.
-TEST_P(NDIterableTransformedArrayTest, IndexedCombinePartiallyReversed) {
+TEST(NDIterableTransformedArrayTest, IndexedCombinePartiallyReversed) {
+  Arena arena;
   auto a = AllocateArray<int>({2, 3});
   auto ta = ChainResult(
                 a, tensorstore::Dims(1)
@@ -214,7 +217,7 @@ TEST_P(NDIterableTransformedArrayTest, IndexedCombinePartiallyReversed) {
                        .SizedInterval(kImplicit, kImplicit, {1, -1}))
                 .value();
 
-  auto iterable = GetMaybeNormalizedTransformedArrayNDIterable(ta).value();
+  auto iterable = GetTransformedArrayNDIterable(ta, &arena).value();
   MultiNDIterator<1, /*Full=*/true> multi_iterator(
       ta.shape(), skip_repeated_elements, {{iterable.get()}}, &arena);
   EXPECT_THAT(multi_iterator.iteration_dimensions, ElementsAre(2, 0));
@@ -227,7 +230,8 @@ TEST_P(NDIterableTransformedArrayTest, IndexedCombinePartiallyReversed) {
 }
 
 // Same as above, but with both index array dimensions reversed.
-TEST_P(NDIterableTransformedArrayTest, IndexedCombineBothReversed) {
+TEST(NDIterableTransformedArrayTest, IndexedCombineBothReversed) {
+  Arena arena;
   auto a = AllocateArray<int>({2, 3});
   auto ta = ChainResult(
                 a, tensorstore::Dims(1)
@@ -235,7 +239,7 @@ TEST_P(NDIterableTransformedArrayTest, IndexedCombineBothReversed) {
                        .SizedInterval(kImplicit, kImplicit, -1))
                 .value();
 
-  auto iterable = GetMaybeNormalizedTransformedArrayNDIterable(ta).value();
+  auto iterable = GetTransformedArrayNDIterable(ta, &arena).value();
   MultiNDIterator<1, /*Full=*/true> multi_iterator(
       ta.shape(), skip_repeated_elements, {{iterable.get()}}, &arena);
   EXPECT_THAT(multi_iterator.iteration_dimensions, ElementsAre(2, 0));
@@ -250,7 +254,8 @@ TEST_P(NDIterableTransformedArrayTest, IndexedCombineBothReversed) {
 // Tests that the preference for input dimensions on which index arrays to come
 // first take precedence over the preference for a higher-magnitude byte_stride
 // dimension to come first.
-TEST_P(NDIterableTransformedArrayTest, IndexedVsStrided) {
+TEST(NDIterableTransformedArrayTest, IndexedVsStrided) {
+  Arena arena;
   auto a = AllocateArray<int>({2, 2});
   auto b = AllocateArray<int>({2, 3});
 
@@ -259,7 +264,7 @@ TEST_P(NDIterableTransformedArrayTest, IndexedVsStrided) {
                 .value();
 
   auto iterable_a = GetTransformedArrayNDIterable(a, &arena).value();
-  auto iterable_b = GetMaybeNormalizedTransformedArrayNDIterable(tb).value();
+  auto iterable_b = GetTransformedArrayNDIterable(tb, &arena).value();
   MultiNDIterator<2, /*Full=*/true> multi_iterator(
       tb.shape(), skip_repeated_elements,
       {{iterable_a.get(), iterable_b.get()}}, &arena);
@@ -271,7 +276,8 @@ TEST_P(NDIterableTransformedArrayTest, IndexedVsStrided) {
            absl::OkStatus()));
 }
 
-TEST_P(NDIterableTransformedArrayTest, IndexedWith2StridedDims) {
+TEST(NDIterableTransformedArrayTest, IndexedWith2StridedDims) {
+  Arena arena;
   auto a = AllocateArray<int>({2, 2, 3});
 
   auto ta = ChainResult(a, tensorstore::Dims(1).MoveToFront(),
@@ -279,7 +285,7 @@ TEST_P(NDIterableTransformedArrayTest, IndexedWith2StridedDims) {
                             MakeArray<Index>({0, 2, 1})))
                 .value();
 
-  auto iterable = GetMaybeNormalizedTransformedArrayNDIterable(ta).value();
+  auto iterable = GetTransformedArrayNDIterable(ta, &arena).value();
   MultiNDIterator<1, /*Full=*/true> multi_iterator(
       ta.shape(), skip_repeated_elements, {{iterable.get()}}, &arena);
   EXPECT_THAT(multi_iterator.iteration_dimensions, ElementsAre(2, 0));
@@ -291,7 +297,8 @@ TEST_P(NDIterableTransformedArrayTest, IndexedWith2StridedDims) {
                    absl::OkStatus()));
 }
 
-TEST_P(NDIterableTransformedArrayTest, TwoIndexedDims) {
+TEST(NDIterableTransformedArrayTest, TwoIndexedDims) {
+  Arena arena;
   auto a = AllocateArray<int>({2, 3});
 
   auto ta =
@@ -302,7 +309,7 @@ TEST_P(NDIterableTransformedArrayTest, TwoIndexedDims) {
           tensorstore::Dims(1).OuterIndexArraySlice(MakeArray<Index>({0, 2})))
           .value();
 
-  auto iterable = GetMaybeNormalizedTransformedArrayNDIterable(ta).value();
+  auto iterable = GetTransformedArrayNDIterable(ta, &arena).value();
   MultiNDIterator<1, /*Full=*/true> multi_iterator(
       ta.shape(), skip_repeated_elements, {{iterable.get()}}, &arena);
   EXPECT_THAT(multi_iterator.iteration_dimensions, ElementsAre(0, 1));
@@ -312,7 +319,8 @@ TEST_P(NDIterableTransformedArrayTest, TwoIndexedDims) {
                    absl::OkStatus()));
 }
 
-TEST_P(NDIterableTransformedArrayTest, FourIndexedDims) {
+TEST(NDIterableTransformedArrayTest, FourIndexedDims) {
+  Arena arena;
   auto a = AllocateArray<int>({2, 3});
 
   auto ta = ChainResult(a,
@@ -324,7 +332,7 @@ TEST_P(NDIterableTransformedArrayTest, FourIndexedDims) {
 
   auto b = AllocateArray<int>({2, 2, 2, 2});
 
-  auto iterable_a = GetMaybeNormalizedTransformedArrayNDIterable(ta).value();
+  auto iterable_a = GetTransformedArrayNDIterable(ta, &arena).value();
   auto iterable_b = GetTransformedArrayNDIterable(b, &arena).value();
   MultiNDIterator<2, /*Full=*/true> multi_iterator(
       ta.shape(), skip_repeated_elements,
@@ -346,7 +354,8 @@ TEST_P(NDIterableTransformedArrayTest, FourIndexedDims) {
           absl::OkStatus()));
 }
 
-TEST_P(NDIterableTransformedArrayTest, TwoTransformedArrays) {
+TEST(NDIterableTransformedArrayTest, TwoTransformedArrays) {
+  Arena arena;
   auto a = AllocateArray<int>({2, 3});
   auto b = AllocateArray<int>({2, 3});
   auto ta = ChainResult(a, tensorstore::Dims(0).OuterIndexArraySlice(
@@ -355,8 +364,8 @@ TEST_P(NDIterableTransformedArrayTest, TwoTransformedArrays) {
   auto tb = ChainResult(b, tensorstore::Dims(1).OuterIndexArraySlice(
                                MakeArray<Index>({0, 1, 2})))
                 .value();
-  auto iterable_a = GetMaybeNormalizedTransformedArrayNDIterable(ta).value();
-  auto iterable_b = GetMaybeNormalizedTransformedArrayNDIterable(tb).value();
+  auto iterable_a = GetTransformedArrayNDIterable(ta, &arena).value();
+  auto iterable_b = GetTransformedArrayNDIterable(tb, &arena).value();
   MultiNDIterator<2, /*Full=*/true> multi_iterator(
       ta.shape(), skip_repeated_elements,
       {{iterable_a.get(), iterable_b.get()}}, &arena);
@@ -369,28 +378,33 @@ TEST_P(NDIterableTransformedArrayTest, TwoTransformedArrays) {
                    absl::OkStatus()));
 }
 
-TEST_P(NDIterableTransformedArrayTest, ZeroRankIndexArray) {
+TEST(NDIterableTransformedArrayTest, ZeroRankIndexArray) {
+  Arena arena;
   SharedArray<const Index> index_array{std::make_shared<Index>(3),
                                        StridedLayout<>({5}, {0})};
   int data[100];
-  NormalizedTransformedArray<const int> ta{
-      &data[0],
-      IndexTransformBuilder<>(1, 1)
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto transform,
+      IndexTransformBuilder(1, 1)
           .input_shape({5})
           .output_index_array(0, sizeof(int) * 2, sizeof(int) * 4, index_array)
-          .Finalize()
-          .value()};
-  auto iterable_a =
-      GetMaybeNormalizedTransformedArrayNDIterable(UnownedToShared(ta)).value();
+          .Finalize());
+  auto iterable_a = GetTransformedArrayNDIterable(
+                        {tensorstore::UnownedToShared(
+                             tensorstore::ElementPointer<int>(&data[0])),
+                         transform},
+                        &arena)
+                        .value();
   MultiNDIterator<1, /*Full=*/true> multi_iterator(
-      ta.shape(), skip_repeated_elements, {{iterable_a.get()}}, &arena);
+      transform.input_shape(), skip_repeated_elements, {{iterable_a.get()}},
+      &arena);
   EXPECT_THAT(multi_iterator.iteration_dimensions, ElementsAre(-1));
   EXPECT_THAT(
       (GetIterationTrace<int>(&multi_iterator)),
       Pair(ElementsAre(ElementsAre(&data[4 * 3 + 2])), absl::OkStatus()));
 }
 
-TEST(NDIterableTransformedArrayErrorTest, OutOfBoundsConstant) {
+TEST(NDIterableTransformedArrayTest, OutOfBoundsConstant) {
   Arena arena;
   auto a = AllocateArray<int>({5});
   auto transform = IndexTransformBuilder<1, 1>()
@@ -398,15 +412,14 @@ TEST(NDIterableTransformedArrayErrorTest, OutOfBoundsConstant) {
                        .output_constant(0, 8)
                        .Finalize()
                        .value();
-  TransformedArray<Shared<int>> ta(a, transform);
   EXPECT_THAT(
-      GetTransformedArrayNDIterable(ta, &arena),
+      GetTransformedArrayNDIterable(a, transform, &arena),
       MatchesStatus(absl::StatusCode::kOutOfRange,
                     "Checking bounds of constant output index map for "
                     "dimension 0: Index 8 is outside valid range \\[0, 5\\)"));
 }
 
-TEST(NDIterableTransformedArrayErrorTest, OutOfBoundsSingleInputDimension) {
+TEST(NDIterableTransformedArrayTest, OutOfBoundsSingleInputDimension) {
   Arena arena;
   auto a = AllocateArray<int>({5});
   auto transform = IndexTransformBuilder<1, 1>()
@@ -414,15 +427,13 @@ TEST(NDIterableTransformedArrayErrorTest, OutOfBoundsSingleInputDimension) {
                        .output_single_input_dimension(0, 2, 1, 0)
                        .Finalize()
                        .value();
-  TransformedArray<Shared<int>> ta(a, transform);
-  EXPECT_THAT(GetTransformedArrayNDIterable(ta, &arena),
+  EXPECT_THAT(GetTransformedArrayNDIterable(a, transform, &arena),
               MatchesStatus(absl::StatusCode::kOutOfRange,
                             "Output dimension 0 range of \\[2, 7\\) is not "
                             "contained within array domain of \\[0, 5\\)"));
 }
 
-TEST(NDIterableTransformedArrayErrorTest, OutOfBoundsIndexArray) {
-  Arena arena;
+TEST_P(MaybeDirectTest, OutOfBoundsIndexArray) {
   auto a = AllocateArray<int>({5});
   auto transform =
       IndexTransformBuilder<1, 1>()
@@ -430,24 +441,21 @@ TEST(NDIterableTransformedArrayErrorTest, OutOfBoundsIndexArray) {
           .output_index_array(0, 2, 1, MakeArray<Index>({0, 0, 0, 0, 42}))
           .Finalize()
           .value();
-  TransformedArray<Shared<int>> ta(a, transform);
-  EXPECT_THAT(GetTransformedArrayNDIterable(ta, &arena),
+  EXPECT_THAT(GetMaybeDirectTransformedArrayNDIterable(a, transform),
               MatchesStatus(absl::StatusCode::kOutOfRange,
                             ".*Index 42 is outside valid range \\[-2, 3\\)"));
 }
 
-TEST(NDIterableTransformedArrayErrorTest, OutOfBoundsSingletonIndexArray) {
+TEST_P(MaybeDirectTest, OutOfBoundsSingletonIndexArray) {
   SharedArray<const Index> index_array{std::make_shared<Index>(42),
                                        StridedLayout<>({5}, {0})};
-  Arena arena;
   auto a = AllocateArray<int>({5});
   auto transform = IndexTransformBuilder<1, 1>()
                        .input_shape({5})
                        .output_index_array(0, 2, 1, index_array)
                        .Finalize()
                        .value();
-  TransformedArray<Shared<int>> ta(a, transform);
-  EXPECT_THAT(GetTransformedArrayNDIterable(ta, &arena),
+  EXPECT_THAT(GetMaybeDirectTransformedArrayNDIterable(a, transform),
               MatchesStatus(absl::StatusCode::kOutOfRange,
                             ".*Index 42 is outside valid range \\[-2, 3\\)"));
 }

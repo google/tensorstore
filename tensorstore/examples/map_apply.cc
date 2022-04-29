@@ -58,9 +58,8 @@ std::enable_if_t<tensorstore::IsArray<A>> Apply(const A& input, Fn fn) {
 // This would also work for a regular Array if we deleted the above overload and
 // changed the IsTransformedArray constraint to IsTransformedArrayLike.
 template <typename A, typename Fn>
-std::enable_if_t<(tensorstore::IsTransformedArray<A> ||
-                  tensorstore::IsNormalizedTransformedArray<A>)>
-Apply(const A& input, Fn fn) {
+std::enable_if_t<tensorstore::IsTransformedArray<A>> Apply(const A& input,
+                                                           Fn fn) {
   // FIXME: TransformedArray has no C++ iterator support.
   // for (const auto& x : input) { fn(x); }
   using X = typename A::Element;

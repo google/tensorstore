@@ -299,17 +299,17 @@ bool WriteToMask(MaskData* mask, BoxView<> output_box,
   Hull(mask->region, output_range, mask->region);
 
   if (use_mask_array) {
-    TransformedArrayView<Shared<bool>> transformed_mask_array(
-        ArrayView<Shared<bool>, dynamic_rank, offset_origin>(
-            AddByteOffset(SharedElementPointer<bool>(
-                              UnownedToShared(mask->mask_array.get())),
-                          -IndexInnerProduct(output_box.origin(),
-                                             span(mask_byte_strides))),
-            mask_layout),
-        input_to_output);
     // Cannot fail, because `input_to_output` must have already been validated.
     auto mask_iterable =
-        GetTransformedArrayNDIterable(transformed_mask_array, arena).value();
+        GetTransformedArrayNDIterable(
+            ArrayView<Shared<bool>, dynamic_rank, offset_origin>(
+                AddByteOffset(SharedElementPointer<bool>(
+                                  UnownedToShared(mask->mask_array.get())),
+                              -IndexInnerProduct(output_box.origin(),
+                                                 span(mask_byte_strides))),
+                mask_layout),
+            input_to_output, arena)
+            .value();
     const auto mask_buffer_kind =
         mask_iterable->GetIterationBufferConstraint(layout).min_buffer_kind;
     const Index mask_block_size =

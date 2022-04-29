@@ -55,18 +55,16 @@ MaskedArrayWriteResult WriteToMaskedArray(ElementPointer<void> output_ptr,
   absl::FixedArray<Index, kNumInlinedDims> data_byte_strides(output_rank);
   ComputeStrides(ContiguousLayoutOrder::c, output_ptr.dtype()->size,
                  output_box.shape(), data_byte_strides);
-  TransformedArrayView<Shared<void>> dest(
-      ArrayView<Shared<void>, dynamic_rank, offset_origin>(
-          UnownedToShared(AddByteOffset(
-              output_ptr, -IndexInnerProduct(output_box.origin(),
-                                             span(data_byte_strides)))),
-          StridedLayoutView<dynamic_rank, offset_origin>(output_box,
-                                                         data_byte_strides)),
-      input_to_output);
-
-  TENSORSTORE_ASSIGN_OR_RETURN(auto dest_iterable,
-                               GetTransformedArrayNDIterable(dest, arena),
-                               (MaskedArrayWriteResult{_, false}));
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto dest_iterable,
+      GetTransformedArrayNDIterable(
+          {UnownedToShared(AddByteOffset(
+               output_ptr, -IndexInnerProduct(output_box.origin(),
+                                              span(data_byte_strides)))),
+           StridedLayoutView<dynamic_rank, offset_origin>(output_box,
+                                                          data_byte_strides)},
+          input_to_output, arena),
+      (MaskedArrayWriteResult{_, false}));
 
   NDIterableCopier copier(source, *dest_iterable, input_to_output.input_shape(),
                           arena);
@@ -79,10 +77,9 @@ MaskedArrayWriteResult WriteToMaskedArray(ElementPointer<void> output_ptr,
 
 MaskedArrayWriteResult WriteToMaskedArray(
     ElementPointer<void> output_ptr, MaskData* mask, BoxView<> output_box,
-    IndexTransformView<> input_to_output,
-    TransformedArrayView<const void> source,
+    IndexTransformView<> input_to_output, TransformedArray<const void> source,
     ElementCopyFunction::Closure copy_function) {
-  if (source.domain() != input_to_output.domain().box()) {
+  if (source.domain().box() != input_to_output.domain().box()) {
     return MaskedArrayWriteResult{
         absl::InvalidArgumentError("Source domain does not match masked array"),
         false};
