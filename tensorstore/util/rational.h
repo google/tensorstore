@@ -47,6 +47,7 @@ namespace tensorstore {
 /// indicate NaN).
 ///
 /// \tparam I The base integer type, must be signed.
+/// \ingroup utilities
 template <typename I>
 class Rational {
   static_assert(std::numeric_limits<I>::is_specialized &&
@@ -58,9 +59,13 @@ class Rational {
   using int_type = I;
 
   /// Constructs from an integer.
+  ///
+  /// \id integer
   constexpr Rational(I value = 0) : n_(value), d_(1) {}
 
   /// Constructs `n / d`.
+  ///
+  /// \id n, d
   constexpr Rational(I n, I d) {
     if (d != 0) {
       I gcd = tensorstore::GreatestCommonDivisor(n, d);
@@ -567,10 +572,10 @@ class Rational {
   };
 
  private:
-  /// Constructs from already-reduced numerator and denominator.
-  ///
-  /// This saves the cost of the GCD computation when the factors are already
-  /// known to be incorrect.
+  // Constructs from already-reduced numerator and denominator.
+  //
+  // This saves the cost of the GCD computation when the factors are already
+  // known to be incorrect.
   static constexpr Rational FromReduced(I n, I d) {
     Rational r;
     r.n_ = n;
