@@ -19,33 +19,48 @@
 
 namespace tensorstore {
 
-// Metafunction that evaluates to whether an array of Source-type elements is
-// implicitly convertible to an array of Dest-type elements.
-//
-// Implicit conversions are (where T indicates a non-const type):
-//
-//   T          -> const T
-//   T          ->       void
-//   T          -> const void
-//   const T    -> const void
-//   void       -> const void
+/// Metafunction that evaluates to `true` if an array of `Source`-type elements
+/// is implicitly convertible to an array of `Dest`-type elements.
+///
+/// Implicit conversions are (where ``T`` indicates a non-const type):
+///
+/// =========== ==============
+/// `Source`    `Dest`
+/// =========== ==============
+/// ``T``       ``const T``
+/// ``T``       ``void``
+/// ``T``       ``const void``
+/// ``const T`` ``const void``
+/// ``void``    ``const void``
+/// =========== ==============
+///
+/// \relates ElementPointer
+/// \membergroup Metafunctions
 template <typename Source, typename Dest>
 constexpr inline bool IsElementTypeImplicitlyConvertible =
     (std::is_const_v<Source> <= std::is_const_v<Dest>)&&  //
     (std::is_same_v<const Source, const Dest> ||
      std::is_void_v<Source> < std::is_void_v<Dest>);
 
-// Metafunction that evaluates to whether an array of Source-type elements is
-// explicitly BUT NOT implicitly convertible to an array of Dest-type elements.
-//
-// Explicit conversions are (where T indicates a non-const type):
-//
-//   const void -> const T
-//   void       ->       T
-//   void       -> const T
-//
-// Unlike the implicit conversions, these conversions are not statically known
-// to be valid, and should be checked at run-time.
+/// Metafunction that evaluates `true` if an array of `Source`-type elements is
+/// explicitly BUT NOT implicitly convertible to an array of `Dest`-type
+/// elements.
+///
+/// Explicit conversions are (where ``T`` indicates a non-const type):
+///
+/// =============== ==============
+/// `Source`        `Dest`
+/// =============== ==============
+/// ``const void``  ``const T``
+/// ``void``        ``T``
+/// ``void``        ``const T``
+/// =============== ==============
+///
+/// Unlike the implicit conversions, these conversions are not statically known
+/// to be valid, and should be checked at run-time.
+///
+/// \relates ElementPointer
+/// \membergroup Metafunctions
 template <class Source, class Dest>
 constexpr inline bool IsElementTypeOnlyExplicitlyConvertible =
     (std::is_void_v<Source> > std::is_void_v<Dest>)&&  //
@@ -54,38 +69,52 @@ constexpr inline bool IsElementTypeOnlyExplicitlyConvertible =
 /// Metafunction that evaluates to whether an array of Source-type elements is
 /// implicitly or explicitly convertible to an array of Dest-type elements.
 ///
-///   T -> T
-///   T -> const T
-///   T -> void
-///   T -> const void
-///   void -> T
-///   void -> const T
-///   const void -> const T
+/// ============== ==============
+/// `Source`       `Dest`
+/// ============== ==============
+/// ``T``          ``T``
+/// ``T``          ``const T``
+/// ``T``          ``void``
+/// ``T``          ``const void``
+/// ``void``       ``T``
+/// ``void``       ``const T``
+/// ``const void`` ``const T``
+/// ============== ==============
+///
+/// \relates ElementPointer
+/// \membergroup Metafunctions
 template <typename Source, typename Dest>
 constexpr inline bool IsElementTypeExplicitlyConvertible =
     (std::is_const_v<Source> <= std::is_const_v<Dest>)&&  //
     (std::is_void_v<Source> || std::is_void_v<Dest> ||
      std::is_same_v<const Source, const Dest>);
 
-/// Metafunction that evaluates to whether A and B could refer to the same type,
-/// ignoring const.
+/// Metafunction that evaluates to whether `A` and `B` could refer to the same
+/// type, ignoring const.
 ///
-/// (T, T) -> true
-/// (const T, T) -> true
-/// (T, const T) -> true
-/// (const T, const T) -> true
-/// (const T, void) -> true
-/// (const T, const void) -> true
-/// (T, void) -> true
-/// (T, const void) -> true
-/// (void, const T) -> true
-/// (const void, const T) -> true
-/// (void, T) -> true
-/// (const void, T) -> true
-/// (T, U) -> false
-/// (const T, U) -> false
-/// (T, const U) -> false
-/// (const T, const U) -> false
+/// ============== ============== ============
+/// `A`            `B`            Compatible
+/// ============== ============== ============
+/// ``T``          ``T``          ``true``
+/// ``const T``    ``T``          ``true``
+/// ``T``          ``const T``    ``true``
+/// ``const T``    ``const T``    ``true``
+/// ``const T``    ``void``       ``true``
+/// ``const T``    ``const void`` ``true``
+/// ``T``          ``void``       ``true``
+/// ``T``          ``const void`` ``true``
+/// ``void``       ``const T``    ``true``
+/// ``const void`` ``const T``    ``true``
+/// ``void``       ``T``          ``true``
+/// ``const void`` ``T``          ``true``
+/// ``T``          ``U``          ``false``
+/// ``const T``    ``U``          ``false``
+/// ``T``          ``const U``    ``false``
+/// ``const T``    ``const U``    ``false``
+/// ============== ============== ============
+///
+/// \relates ElementPointer
+/// \membergroup Metafunctions
 template <typename A, typename B>
 constexpr inline bool AreElementTypesCompatible =
     (std::is_void_v<A> || std::is_void_v<B> ||
