@@ -15,12 +15,8 @@
 #include "tensorstore/util/status.h"
 
 #include <cstdio>
-#include <exception>
-#include <memory>
-#include <ostream>
 #include <string>
 #include <string_view>
-#include <system_error>  // NOLINT
 #include <utility>
 
 #include "absl/status/status.h"

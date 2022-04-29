@@ -18,6 +18,7 @@
 #include <blosc.h>
 #include "tensorstore/internal/flat_cord_builder.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace blosc {

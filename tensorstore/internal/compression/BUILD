@@ -13,6 +13,7 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore/internal:flat_cord_builder",
         "//tensorstore/util:status",
+        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/status",
         "@org_blosc_cblosc//:blosc",
     ],

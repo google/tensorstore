@@ -15,9 +15,6 @@
 #ifndef TENSORSTORE_STATUS_H_
 #define TENSORSTORE_STATUS_H_
 
-#include <iosfwd>
-#include <memory>
-#include <string>
 #include <string_view>
 #include <system_error>  // NOLINT
 #include <type_traits>
@@ -30,7 +27,6 @@
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/util/assert_macros.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 
