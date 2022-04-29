@@ -1185,6 +1185,15 @@ constexpr DataType kDataTypes[] = {
 #undef TENSORSTORE_INTERNAL_DO_DATA_TYPE
 };
 
+/// `StaticDataType` corresponding to the element type of `Pointer`, or
+/// `DataType` if the element type is `void`.
+///
+/// \relates ElementPointer
+template <typename Pointer>
+using pointee_dtype_t =
+    internal::Undocumented<dtype_t<typename std::pointer_traits<
+        internal::remove_cvref_t<Pointer>>::element_type>>;
+
 namespace internal {
 absl::Status NonSerializableDataTypeError(DataType dtype);
 }  // namespace internal

@@ -38,15 +38,20 @@
 
 namespace tensorstore {
 
-/// Tag type that represents an Element type to be held via a std::shared_ptr
-/// rather than a raw, unowned pointer.
+/// Tag type that represents an `Element` type to be held via an
+/// `std::shared_ptr` rather than a raw, unowned pointer.
+///
+/// \relates ElementPointer
 template <typename Element>
 class Shared;  // Intentionally left undefined.
 
-/// `bool`-valued metafunction that evaluates to `true` if `T` is `Shared<U>` or
-/// `const Shared<U>`.
+/// `bool`-valued metafunction that evaluates to `true` if `T` is an instance of
+/// `Shared`.
+///
+/// \relates Shared
 template <typename T>
 constexpr inline bool IsShared = false;
+
 template <typename T>
 constexpr inline bool IsShared<Shared<T>> = true;
 template <typename T>
@@ -55,6 +60,8 @@ constexpr inline bool IsShared<const Shared<T>> = true;
 /// An ElementTag type is a type `T` or `Shared<T>` where `T` satisfies
 /// `IsElementType<T>`.  It specifies a pointer type of `T*` or
 /// `std::shared_ptr<T>`, respectively.
+///
+/// \relates ElementPointer
 template <typename T>
 constexpr inline bool IsElementTag = (IsElementType<T> &&
                                       // Detect accidental `const`-qualification
@@ -74,11 +81,17 @@ constexpr inline bool IsElementTag<Shared<T>> = (IsElementType<T> &&
 /// element tag with the same ownership semantics for a different element type.
 ///
 /// \tparam T Type satisfying `IsElementTag<T>`.
+/// \relates ElementPointer
 template <typename T>
 struct ElementTagTraits {
   static_assert(IsElementTag<T>, "T must be an ElementTag type.");
+  /// Element type of `Pointer`.
   using Element = T;
+
+  /// Pointer type.
   using Pointer = T*;
+
+  /// Same kind of tag type, but for another element type `U`.
   template <typename U>
   using rebind = U;
 };
@@ -108,6 +121,14 @@ struct PointerElementTagType<std::shared_ptr<T>> {
 };
 }  // namespace internal_element_pointer
 
+/// Element tag type corresponding to a given pointer type.
+///
+/// This is the inverse metafunction of `ElementTagTraits::Pointer`.
+///
+/// \tparam T Pointer type corresponding to an element tag.  Must be either
+///     ``U*`` or ``std::shared_ptr<U>``.
+///
+/// \relates ElementPointer
 template <typename T>
 using PointerElementTag =
     typename internal_element_pointer::PointerElementTagType<T>::type;
@@ -117,12 +138,18 @@ using PointerElementTag =
 ///
 /// Specifically, the following conversions are permitted:
 ///
-///     T*                    -> U*
-///     ByteStridedPointer<T> -> U*
-///     shared_ptr<T>         -> U*
-///     shared_ptr<T>         -> shared_ptr<U>
+/// =========================    =========================
+/// `SourcePointer`              `TargetPointer`
+/// =========================    =========================
+/// ``T*``                       ``U*``
+/// ``ByteStridedPointer<T>``    ``U*``
+/// ``std::shared_ptr<T>``       ``U*``
+/// ``std::shared_ptr<T>``       ``std::shared_ptr<U>``
+/// =========================    =========================
 ///
-/// where `IsElementTypeImplicitlyConvertible<T,U>` is `true`.
+/// where ``IsElementTypeImplicitlyConvertible<T,U>`` is `true`.
+///
+/// \relates ElementPointer
 template <typename SourcePointer, typename TargetPointer>
 constexpr inline bool IsArrayBasePointerConvertible = false;
 
@@ -146,6 +173,10 @@ constexpr inline bool IsArrayBasePointerConvertible<
     std::shared_ptr<SourceElement>, std::shared_ptr<TargetElement>> =
     IsElementTypeImplicitlyConvertible<SourceElement, TargetElement>;
 
+/// Determine if `Source` and `Target` are instances of `ElementPointer` and
+/// `Source` is (explicitly) convertible to `Target`.
+///
+/// \relates ElementPointer
 template <typename Source, typename Target>
 constexpr inline bool IsElementPointerCastConvertible = false;
 
@@ -160,8 +191,11 @@ constexpr inline bool IsElementPointerCastConvertible<
          std::remove_const_t<typename ElementTagTraits<SourceTag>::Element>,
          std::remove_const_t<typename ElementTagTraits<TargetTag>::Element>>);
 
-/// `bool`-valued metafunction that evaluates to `true` if `T` is `Element*` or
-/// `std::shared_ptr<Element>`, where `Element` is non-`void`.
+/// `bool`-valued metafunction that evaluates to `true` if `T` is
+/// ``Element*`` or ``std::shared_ptr<Element>``, where ``Element`` is
+/// non-`void`.
+///
+/// \relates ElementPointer
 template <typename T>
 constexpr inline bool IsNonVoidArrayBasePointer = false;
 
@@ -194,17 +228,13 @@ ConvertPointer(Source&& x) {
 std::string DescribeForCast(DataType dtype);
 }  // namespace internal_element_pointer
 
-/// `StaticDataType` corresponding to the element type of `Pointer`, or
-/// `DataType` if the element type is `void`.
-template <typename Pointer>
-using pointee_dtype_t = dtype_t<typename std::pointer_traits<
-    internal::remove_cvref_t<Pointer>>::element_type>;
-
 template <typename ElementTagType>
 class ElementPointer;
 
 /// `bool`-valued metafunction that evaluates to `true` if `T` is an instance of
 /// `ElementPointer`.
+///
+/// \relates ElementPointer
 template <typename T>
 constexpr inline bool IsElementPointer = false;
 
@@ -212,18 +242,19 @@ template <typename PointerType>
 constexpr inline bool IsElementPointer<ElementPointer<PointerType>> = true;
 
 /// Pairs an array base pointer (either an `Element*` or an
-/// `std::shared_ptr<Element>`) with an `DataType` in order to support a dynamic
-/// element type determined at run time.
+/// `std::shared_ptr<Element>`) with a `DataType` in order to support a
+/// dynamic element type determined at run time.
 ///
-/// If `Element` is non-`void`, the `DataType` is not actually stored, making
-/// this object the same size as `PointerType`.
+/// If `Element` is non-`void`, the `DataType` is not actually stored,
+/// making this object the same size as `Pointer`.
 ///
-/// Instances of this type are used by the array types defined in array.h to
-/// pointer to the actual array data.
+/// Instances of this type are used by `Array` to point to the actual array
+/// data.
 ///
 /// \tparam ElementTagType An ElementTag type that is either `Element` (to
-///     represent unowned array data) or `Shared<Element>` (to represent array
-///     data with shared ownership).
+///     represent unowned array data) or `Shared<Element>` (to represent
+///     array data with shared ownership).
+/// \ingroup array
 template <typename ElementTagType>
 class ElementPointer {
   using Traits = ElementTagTraits<ElementTagType>;
@@ -231,40 +262,50 @@ class ElementPointer {
  public:
   static_assert(IsElementTag<ElementTagType>,
                 "ElementTagType must be an ElementTag type.");
+
+  /// Element tag type.
   using ElementTag = ElementTagType;
+
+  /// Underlying data pointer type, either `Element*` or
+  /// `std::shared_ptr<Element>`.
   using Pointer = typename Traits::Pointer;
-  using element_type = typename std::pointer_traits<Pointer>::element_type;
+
+  /// Underlying element type.
+  using element_type = typename std::pointer_traits<Pointer>::
+      element_type;  // NONITPICK: std::pointer_traits<Pointer>::element_type
   using Element = element_type;
+
+  /// Static or dynamic data type representation.
   using DataType = dtype_t<Element>;
 
-  /// For compatibility with `std::pointer_traits`.
+  // For compatibility with `std::pointer_traits`.
   template <typename OtherElement>
   using rebind = ElementPointer<typename Traits::template rebind<OtherElement>>;
 
   /// Initializes to a null pointer.
-  /// \post data() == nullptr
+  ///
+  /// \id default
   ElementPointer() = default;
-
-  /// Initializes to a null pointer.
-  /// \post data() == nullptr
   ElementPointer(std::nullptr_t) {}
 
-  /// Constructs from a compatible ElementPointer type.
+  /// Constructs from a compatible `ElementPointer` type.
   ///
-  /// \post this->pointer() == source.pointer()
-  /// \post this->dtype() == source.dtype()
+  /// \id element_pointer
   template <
       typename Source,
       std::enable_if_t<(IsElementPointer<internal::remove_cvref_t<Source>> &&
                         IsArrayBasePointerConvertible<
                             typename internal::remove_cvref_t<Source>::Pointer,
                             Pointer>)>* = nullptr>
+  // NONITPICK: std::remove_cvref_t<Source>::Pointer
   ElementPointer(Source&& source)
       : storage_(source.dtype(),
                  internal_element_pointer::ConvertPointer<Pointer>(
                      std::forward<Source>(source).pointer())) {}
 
   /// Unchecked conversion.
+  ///
+  /// \id unchecked
   template <typename Source,
             std::enable_if_t<IsElementPointerCastConvertible<
                 internal::remove_cvref_t<Source>, ElementPointer>>* = nullptr>
@@ -273,11 +314,12 @@ class ElementPointer {
                  internal_element_pointer::ConvertPointer<Pointer>(
                      std::forward<Source>(source).pointer())) {}
 
-  /// Constructs from another compatible pointer with a static `Element` type.
+  /// Constructs from another compatible pointer and optional data type.
   ///
   /// \param pointer The element pointer.
-  /// \post `this->pointer() == pointer`
-  /// \post `this->dtype() == dtype_v<SourcePointer::element_type>`
+  /// \param dtype The data type, must be specified if `SourcePointer` has an
+  ///     element type of `void`.
+  /// \id pointer
   template <
       typename SourcePointer,
       std::enable_if_t<
@@ -289,13 +331,6 @@ class ElementPointer {
                  internal::static_pointer_cast<Element>(
                      internal_element_pointer::ConvertPointer<Pointer>(
                          std::forward<SourcePointer>(pointer)))) {}
-
-  /// Constructs from another compatible pointer paired with an `DataType`.
-  ///
-  /// \param pointer The element pointer.
-  /// \param dtype The element representation type.
-  /// \post this->pointer() == pointer
-  /// \post this->dtype() == dtype
   template <typename SourcePointer,
             std::enable_if_t<IsArrayBasePointerConvertible<
                 internal::remove_cvref_t<SourcePointer>, Pointer>>* = nullptr>
@@ -304,7 +339,7 @@ class ElementPointer {
                             internal_element_pointer::ConvertPointer<Pointer>(
                                 std::forward<SourcePointer>(pointer)))) {}
 
-  /// Assigns from a `nullptr`, pointer type, or ElementPointer type.
+  /// Assigns from a `nullptr`, pointer type, or `ElementPointer` type.
   template <typename Source>
   std::enable_if_t<std::is_constructible_v<ElementPointer, Source&&>,
                    ElementPointer&>
@@ -312,29 +347,37 @@ class ElementPointer {
     return *this = ElementPointer(static_cast<Source&&>(source));
   }
 
+  /// Returns the data type.
+  ///
+  /// \membergroup Accessors
   constexpr DataType dtype() const { return storage_.first(); }
 
   /// Returns the raw pointer value.
+  ///
+  /// \membergroup Accessors
   Element* data() const { return internal::to_address(pointer()); }
 
-  /// Returns the raw pointer value as a ByteStridedPointer.
+  /// Returns the raw pointer value as a `ByteStridedPointer`.
+  ///
+  /// \membergroup Accessors
   ByteStridedPointer<Element> byte_strided_pointer() const { return data(); }
 
-  /// Returns a const reference to the stored pointer.
+  /// Returns a reference to the stored pointer.
+  ///
+  /// \membergroup Accessors
   const Pointer& pointer() const& { return storage_.second(); }
-
-  /// Returns a non-const reference to the stored pointer.
   Pointer& pointer() & { return storage_.second(); }
-
-  /// Returns an rvalue reference to the stored pointer.
   Pointer&& pointer() && { return static_cast<Pointer&&>(storage_.second()); }
 
   /// Returns `data() != nullptr`.
+  ///
+  /// \membergroup Accessors
   explicit operator bool() const { return data() != nullptr; }
 
   /// Compares the data pointers and data types.
   ///
-  /// \returns p.data() == nullptr
+  /// \id element_pointer
+  /// \membergroup Comparison
   template <typename B>
   friend bool operator==(const ElementPointer& a, const ElementPointer<B>& b) {
     return a.data() == b.data() && a.dtype() == b.dtype();
@@ -345,27 +388,19 @@ class ElementPointer {
   }
 
   /// Checks if the data pointer is null.
+  ///
+  /// \id nullptr
+  /// \membergroup Comparison
   friend bool operator==(const ElementPointer& p, std::nullptr_t) {
     return p.data() == nullptr;
   }
 
-  /// Compares an element pointer against `nullptr`.
-  ///
-  /// \returns p.data() == nullptr
   friend bool operator==(std::nullptr_t, const ElementPointer& p) {
     return p.data() == nullptr;
   }
-
-  /// Compares an element pointer against `nullptr`.
-  ///
-  /// \returns p.data() != nullptr
   friend bool operator!=(const ElementPointer& p, std::nullptr_t) {
     return p.data() != nullptr;
   }
-
-  /// Compares an element pointer against `nullptr`.
-  ///
-  /// \returns p.data() != nullptr
   friend bool operator!=(std::nullptr_t, const ElementPointer& p) {
     return p.data() != nullptr;
   }
@@ -376,11 +411,13 @@ class ElementPointer {
 };
 
 /// Represents a pointer to array data with shared ownership.
+///
+/// \relates ElementPointer
 template <typename Element>
 using SharedElementPointer = ElementPointer<Shared<Element>>;
 
-/// Specialization of `StaticCastTraits` for `ElementPointer`, which enables
-/// `StaticCast`, `StaticDataTypeCast`, and `ConstDataTypeCast`.
+// Specialization of `StaticCastTraits` for `ElementPointer`, which enables
+// `StaticCast`, `StaticDataTypeCast`, and `ConstDataTypeCast`.
 template <typename ElementTag>
 struct StaticCastTraits<ElementPointer<ElementTag>>
     : public DefaultStaticCastTraits<ElementPointer<ElementTag>> {
@@ -412,6 +449,10 @@ struct StaticCastTraits<ElementPointer<ElementTag>>
 /// The returned SharedElementPointer can be copied more efficiently than a
 /// SharedElementPointer that does manage ownership, because it does not perform
 /// any atomic reference count operations.
+///
+/// \relates ElementPointer
+/// \membergroup Ownership conversion
+/// \id element_pointer
 template <typename Element>
 std::enable_if_t<!IsShared<Element>, ElementPointer<Shared<Element>>>
 UnownedToShared(ElementPointer<Element> element_pointer) {
@@ -426,6 +467,10 @@ UnownedToShared(ElementPointer<Element> element_pointer) {
 /// The caller is responsible for ensuring that the returned
 /// `SharedElementPointer` is not used after the element data to which it points
 /// becomes invalid.
+///
+/// \relates ElementPointer
+/// \membergroup Ownership conversion
+/// \id owned, element_pointer
 template <typename T, typename Element>
 std::enable_if_t<!IsShared<Element>, ElementPointer<Shared<Element>>>
 UnownedToShared(const std::shared_ptr<T>& owned,
@@ -435,6 +480,10 @@ UnownedToShared(const std::shared_ptr<T>& owned,
 }
 
 /// Adds a byte offset to a raw pointer.
+///
+/// \relates ElementPointer
+/// \membergroup Arithmetic operations
+/// \id raw
 template <typename T>
 inline T* AddByteOffset(T* x, Index byte_offset) {
   return (ByteStridedPointer<T>(x) + byte_offset).get();
@@ -443,22 +492,29 @@ inline T* AddByteOffset(T* x, Index byte_offset) {
 /// Adds a byte offset to a shared_ptr.
 ///
 /// The returned pointer shares ownership with the original.
+///
+/// \relates ElementPointer
+/// \membergroup Arithmetic operations
+/// \id shared_ptr
 template <typename T>
 inline std::shared_ptr<T> AddByteOffset(const std::shared_ptr<T>& x,
                                         Index byte_offset) {
   return std::shared_ptr<T>(x, AddByteOffset(x.get(), byte_offset));
 }
 
-/// Adds a byte offset to an ElementPointer type.
+/// Adds a byte offset to an `ElementPointer` type.
 ///
-/// If `Pointer` is an instance of `std::shared_ptr`, the returned pointer
-/// shares ownership with the original.
+/// If `IsShared<ElementTag>`, the returned pointer shares ownership with the
+/// original.
+///
+/// \relates ElementPointer
+/// \membergroup Arithmetic operations
+/// \id element_pointer
 template <typename ElementTag>
 inline ElementPointer<ElementTag> AddByteOffset(
     const ElementPointer<ElementTag>& x, Index byte_offset) {
   return {AddByteOffset(x.pointer(), byte_offset), x.dtype()};
 }
-
 template <typename ElementTag>
 inline ElementPointer<ElementTag> AddByteOffset(ElementPointer<ElementTag>&& x,
                                                 Index byte_offset) {
