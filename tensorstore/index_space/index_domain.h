@@ -32,12 +32,16 @@ namespace tensorstore {
 template <DimensionIndex Rank = dynamic_rank, ContainerKind CKind = container>
 class IndexDomain;
 
-/// Unowned view of an input domain.
+/// Unowned view of an index domain.
+///
+/// \relates IndexDomain
 template <DimensionIndex Rank = dynamic_rank>
 using IndexDomainView = IndexDomain<Rank, view>;
 
 /// Bool-valued metafunction that evaluates to `true` if `T` is an instance of
 /// `IndexDomain`.
+///
+/// \relates IndexDomain
 template <typename T>
 constexpr inline bool IsIndexDomain = false;
 
@@ -53,36 +57,55 @@ Result<IndexDomain<>> SliceByBox(IndexDomain<> domain, BoxView<> box);
 }  // namespace internal_index_space
 
 /// Represents an index domain.
+///
+/// Index domains specify the bounds, implicit indicators, and optional labels
+/// for a list of dimensions.  They are logically immutable and are inexpensive
+/// to copy.
+///
+/// \tparam Rank Specifies the rank at compile time, or `dynamic_rank` to
+///     indicate that the rank is determined at run time.
+/// \tparam CKind Specifies whether this owns an index domain (`container`), or
+///     merely holds an unowned reference to one (`view`).
+/// \ingroup indexing
 template <DimensionIndex Rank, ContainerKind CKind>
 class IndexDomain {
   using Access = internal_index_space::TransformAccess;
   static_assert(RankConstraint(Rank).valid());
 
  public:
+  /// Compile-time rank, or `dynamic_rank` if the rank is specified at run time.
   constexpr static DimensionIndex static_rank = Rank;
+
+  /// Specifies whether this owns an index domain (`container`), or merely holds
+  /// an unowned reference to one (`view`).
   constexpr static ContainerKind container_kind = CKind;
+
+  /// Type that represents the static or dynamic rank.
   using RankType = StaticOrDynamicRank<Rank>;
 
   /// Constructs an invalid index domain.
+  ///
+  /// \id default
   IndexDomain() = default;
 
   /// Constructs an unbounded domain with the specified rank.
   ///
   /// \checks `IsValidRank(rank)`
+  /// \id rank
   explicit IndexDomain(RankType rank)
       : rep_(internal_index_space::MakeIdentityTransform(
             rank,
             /*domain_only=*/true)) {}
 
   /// Constructs a domain with the specified shape.
+  ///
+  /// Can be called with a braced list, e.g. `IndexDomain({2, 3, 4})`.
+  ///
+  /// \id shape
   explicit IndexDomain(span<const Index, Rank> shape)
       : rep_(internal_index_space::MakeIdentityTransform(
             shape,
             /*domain_only=*/true)) {}
-
-  /// Constructs a domain with the specified shape.
-  ///
-  /// Can be called with a braced list, e.g. `IndexDomain({2, 3, 4})`.
   template <DimensionIndex N,
             typename = std::enable_if_t<RankConstraint::Implies(N, Rank)>>
   explicit IndexDomain(const Index (&shape)[N])
@@ -91,12 +114,16 @@ class IndexDomain {
   }
 
   /// Constructs a domain with the specified box.
+  ///
+  /// \id box
   explicit IndexDomain(BoxView<Rank> box)
       : rep_(internal_index_space::MakeIdentityTransform(
             box,
             /*domain_only=*/true)) {}
 
   /// Constructs an unbounded domain with the specified labels.
+  ///
+  /// \id labels
   template <DimensionIndex N,
             typename = std::enable_if_t<RankConstraint::Implies(N, Rank)>>
   explicit IndexDomain(const std::string_view (&labels)[N])
@@ -105,44 +132,42 @@ class IndexDomain {
             /*domain_only=*/true)) {
     static_assert(IsValidRank(N));
   }
-
-  /// Constructs an unbounded domain with the specified labels.
   explicit IndexDomain(span<const std::string_view, Rank> labels)
       : rep_(internal_index_space::MakeIdentityTransform(
             internal::StringLikeSpan(labels),
             /*domain_only=*/true)) {}
-
-  /// Constructs an unbounded domain with the specified labels.
   explicit IndexDomain(span<const std::string, Rank> labels)
       : rep_(internal_index_space::MakeIdentityTransform(
             internal::StringLikeSpan(labels),
             /*domain_only=*/true)) {}
-
-  /// Constructs an unbounded domain with the specified labels.
   explicit IndexDomain(span<const char*, Rank> labels)
       : rep_(internal_index_space::MakeIdentityTransform(
             internal::StringLikeSpan(labels),
             /*domain_only=*/true)) {}
 
+  /// Converts from another compatible domain.
+  ///
+  /// \id convert
   template <
       DimensionIndex OtherRank, ContainerKind OtherCKind,
       std::enable_if_t<RankConstraint::Implies(OtherRank, Rank)>* = nullptr>
   IndexDomain(const IndexDomain<OtherRank, OtherCKind>& other)
       : rep_(Access::rep(other)) {}
-
   template <
       DimensionIndex OtherRank, ContainerKind OtherCKind,
       std::enable_if_t<RankConstraint::Implies(OtherRank, Rank)>* = nullptr>
   IndexDomain(IndexDomain<OtherRank, OtherCKind>&& other)
       : rep_(Access::rep_ptr<CKind>(std::move(other))) {}
 
+  /// Converts from another domain (unchecked).
+  ///
+  /// \id unchecked
   template <DimensionIndex OtherRank, ContainerKind OtherCKind,
             std::enable_if_t<
                 RankConstraint::EqualOrUnspecified(OtherRank, Rank)>* = nullptr>
   explicit IndexDomain(unchecked_t,
                        const IndexDomain<OtherRank, OtherCKind>& other)
       : rep_(Access::rep(other)) {}
-
   template <DimensionIndex OtherRank, ContainerKind OtherCKind,
             std::enable_if_t<
                 RankConstraint::EqualOrUnspecified(OtherRank, Rank)>* = nullptr>
@@ -152,17 +177,20 @@ class IndexDomain {
   /// Returns `true` if this refers to a valid index domain.
   bool valid() const { return static_cast<bool>(rep_); }
 
+  /// Returns the number of dimensions.
   RankType rank() const {
     return StaticRankCast<Rank, unchecked>(
         static_cast<DimensionIndex>(rep_->input_rank));
   }
 
+  /// Returns the bounds of the domain.
   BoxView<Rank> box() const {
     return BoxView<Rank>(rank(), origin().data(), shape().data());
   }
 
   /// Returns the vector of length `rank()` specifying the inclusive lower bound
   /// of each dimension.
+  ///
   /// \pre `valid()`
   span<const Index, Rank> origin() const {
     return {rep_->input_origin().data(), this->rank()};
@@ -170,12 +198,14 @@ class IndexDomain {
 
   /// Returns the vector of length `rank()` specifying the extent of each
   /// dimension.
+  ///
   /// \pre `valid()`
   span<const Index, Rank> shape() const {
     return {rep_->input_shape().data(), this->rank()};
   }
 
   /// Returns the vector of length `rank()` specifying the dimension labels.
+  ///
   /// \pre `valid()`
   span<const std::string, Rank> labels() const {
     return {rep_->input_labels().data(), this->rank()};
@@ -201,6 +231,7 @@ class IndexDomain {
   ///
   /// \dchecks `0 <= i && i < rank()`
   /// \pre `valid()`
+  /// \id dim
   IndexDomainDimension<view> operator[](DimensionIndex i) const {
     assert(0 <= i && i < rank());
     return {OptionallyImplicitIndexInterval{
@@ -209,55 +240,68 @@ class IndexDomain {
             labels()[i]};
   }
 
-  /// Returns a new IndexDomain in which dimension `i` is equal to dimension
-  /// `dims[i]` of this domain.
+  /// Returns a new domain in which dimension ``i`` is equal to dimension
+  /// ``dims[i]`` of this domain.
   ///
-  /// For example, given an IndexDomain `orig` with dimensions:
-  /// `"x": [2, 7), "y": [3, 10), "z": [4, 8)`, the result of
-  /// `orig[span<const Index>({2, 0})]` is an IndexDomain with dimensions:
-  /// `"z": [4, 8), "x": [2, 7)`.
+  /// .. example::
   ///
+  ///    Given an `IndexDomain` ``orig`` with dimensions: ``"x": [2, 7), "y":
+  ///    [3, 10), "z": [4, 8)``, the result of ``orig[{2, 0}]`` is an
+  ///    `IndexDomain` with dimensions: ``"z": [4, 8), "x": [2, 7)``.
+  ///
+  /// \param dims Sequence of dimensions to include in the new domain.  All
+  ///     dimensions in `dims` must be unique.  May be specified as a braced
+  ///     list, e.g. ``domain[{2, 3, 0}]``.
   /// \pre `valid()`
-  /// \dchecks `dims[i] >= 0 && dims[i] < rank()` for `0 <= i < dims.size()`.
-  /// \dchecks All dimensions `d`  in `dims` are unique.
+  /// \dchecks ``dims[i] >= 0 && dims[i] < rank()`` for
+  ///     ``0 <= i < dims.size()``.
+  /// \id dims
   template <DimensionIndex SubRank = dynamic_rank>
   IndexDomain<SubRank, container> operator[](
       span<const DimensionIndex, SubRank> dims) const {
     return Access::Make<IndexDomain<SubRank, container>>(
         internal_index_space::GetSubDomain(Access::rep(*this), dims));
   }
+  template <DimensionIndex SubRank>
+  IndexDomain<SubRank, container> operator[](
+      const DimensionIndex (&dims)[SubRank]) const {
+    return Access::Make<IndexDomain<SubRank, container>>(
+        internal_index_space::GetSubDomain(Access::rep(*this), dims));
+  }
 
   /// Returns the number of elements in the domain.
+  ///
   /// \pre `valid()`
   Index num_elements() const { return ProductOfExtents(shape()); }
 
   /// Slices an index transform by this index domain.
   ///
   /// Equivalent to applying
-  /// `Dims(dims).SizedInterval(this->origin(), this->shape())` to `transform`,
-  /// where `dims` is a dimension index vector of length `this->rank()` computed
-  /// according to one of two cases:
+  /// ``Dims(dims).SizedInterval(this->origin(), this->shape())`` to
+  /// `transform`, where ``dims`` is a dimension index vector of length
+  /// `this->rank()` computed according to one of two cases:
   ///
   /// M1. At least one of `this` or `transform` is entirely unlabeled (all
-  ///     dimension labels are empty).  In this case, `dims[i] = i` for all `i`.
-  ///     It is an error if `this->rank() != transform.input_rank()`.  If
-  ///     `transform` is entirely unlabeled, the returned transform has the
+  ///     dimension labels are empty).  In this case, ``dims[i] = i`` for all
+  ///     ``i``.  It is an error if `this->rank() != transform.input_rank()`.
+  ///     If `transform` is entirely unlabeled, the returned transform has the
   ///     labels of `this->labels()`, which is equivalent to chaining a call to
-  ///     `.Label(this->labels())` after the call to `SizedInterval`.
+  ///     ``.Label(this->labels())`` after the call to
+  ///     `DimExpression::SizedInterval`.
   ///
   /// M2. Both `this` and `transform` have at least one labeled dimension.  In
-  ///     this case, each corresponding dimension `dims[i]` of `transform` is
-  ///     determined as follows:
+  ///     this case, each corresponding dimension ``dims[i]`` of `transform`
+  ///     is determined as follows:
   ///
-  ///     1. If dimension `i` of `this` has a non-empty label, `dims[i] = k`,
-  ///        where `k` is the dimension of `transform` for which
-  ///        `transform.input_labels()[k] == labels()[i]`.  It is an error if no
-  ///        such dimension exists.
+  ///     1. If dimension ``i`` of `this` has a non-empty label,
+  ///        ``dims[i] = k``, where ``k`` is the dimension of `transform`
+  ///        for which ``transform.input_labels()[k] == labels()[i]``.  It is
+  ///        an error if no such dimension exists.
   ///
-  ///     2. Otherwise, `i` is the `j`th unlabeled dimension of `*this` (left to
-  ///        right), and `dims[i] = k`, where `k` is the `j`th unlabeled
-  ///        dimension of `transform` (left to right).  It is an error if no
-  ///        such dimension exists.
+  ///     2. Otherwise, ``i`` is the ``j`` th unlabeled dimension of
+  ///        `*this` (left to right), and ``dims[i] = k``, where ``k`` is
+  ///        the ``j`` th unlabeled dimension of `transform` (left to right).
+  ///        It is an error if no such dimension exists.
   ///
   ///     If any dimensions of `*this` are unlabeled, then it is an error if
   ///     `this->rank() != transform.input_rank()`.  This condition is not
@@ -267,32 +311,33 @@ class IndexDomain {
   /// The bounds of this index domain must be contained within the existing
   /// domain of `transform`.
   ///
-  /// Examples:
+  /// .. example:: All unlabeled dimensions example
   ///
-  ///   All unlabeled dimensions:
+  ///    - transform: ``[0, 5), [1, 7)``
+  ///    - domain:    ``[2, 4), [3, 6)``
+  ///    - result:    ``[2, 4), [3, 6)``
   ///
-  ///     transform: [0, 5), [1, 7)
-  ///     domain:    [2, 4), [3, 6)
-  ///     result:    [2, 4), [3, 6)
+  /// .. example:: Fully labeled dimensions example
   ///
-  ///   Fully labeled dimensions:
+  ///    - transform: ``"x": [0, 5), "y": [1, 7), "z": [2, 8)``
+  ///    - domain:    ``"y": [2, 6), "x": [3, 4)``
+  ///    - result:    ``"x": [3, 4), "y": [2, 6), "z": [2, 8)``
   ///
-  ///     transform: "x": [0, 5), "y": [1, 7), "z": [2, 8)
-  ///     domain:    "y": [2, 6), "x": [3, 4)
-  ///     result:    "x": [3, 4), "y": [2, 6), "z": [2, 8)
+  /// .. example:: Mixed labeled and unlabeled dimensions example
   ///
-  ///   Mixed labeled and unlabeled:
-  ///
-  ///     transform: "x": [0, 10), "": [0, 10), "": [0, 10), "y": [0, 10)
-  ///     domain:    "y": [1, 6), "": [2, 7), "x": [3, 8), "": [4, 9)
-  ///     result:    "x": [3, 8), "": [2, 7), "": [4, 9), "y": [1, 6)
+  ///    - transform:
+  ///      ``"x": [0, 10), "": [0, 10), "": [0, 10), "y": [0, 10)``
+  ///    - domain:    ``"y": [1, 6), "": [2, 7), "x": [3, 8), "": [4, 9)``
+  ///    - result:    ``"x": [3, 8), "": [2, 7), "": [4, 9), "y": [1, 6)``
   ///
   /// \param transform The transform to slice..
   /// \returns The sliced transform.
   /// \error `absl::StatusCode::kInvalidArgument` if dimension matching fails.
-  /// \error `absl::StatusCode::kOutOfRange` if the bounds of dimension `i` of
-  ///     `this` are not contained within the effective bounds (ignoring
-  ///     implicit bounds) of the corresponding dimension `j` of `transform`.
+  /// \error `absl::StatusCode::kOutOfRange` if the bounds of dimension ``i``
+  ///     of `this` are not contained within the effective bounds (ignoring
+  ///     implicit bounds) of the corresponding dimension ``j`` of
+  ///     `transform`.
+  /// \id transform
   template <DimensionIndex InputRank, DimensionIndex OutputRank,
             ContainerKind OtherCKind>
   Result<IndexTransform<InputRank, OutputRank, container>> operator()(
@@ -307,6 +352,8 @@ class IndexDomain {
   /// Applies the slicing operation defined by the overload of `operator()`
   /// defined above to an object with an associated index space that supports
   /// `ApplyIndexTransform`.
+  ///
+  /// \id transformable
   template <typename Transformable>
   decltype(ApplyIndexTransform(std::declval<const IndexDomain&>(),
                                std::declval<Transformable>()))
@@ -327,7 +374,6 @@ class IndexDomain {
     return internal_index_space::AreDomainsEqual(Access::rep(a),
                                                  Access::rep(b));
   }
-
   template <DimensionIndex RankB, ContainerKind CKindB>
   friend bool operator!=(const IndexDomain& a,
                          const IndexDomain<RankB, CKindB>& b) {
@@ -336,11 +382,11 @@ class IndexDomain {
 
   /// "Pipeline" operator.
   ///
-  /// In the expression  `x | y`, if
-  ///   * y is a function having signature `Result<U>(T)`
+  /// In the expression `domain | func`, if `func` is a function having
+  /// signature ``Result<U>(IndexDomain)``, then `operator|` applies `func`
+  /// to the value of ``domain``, returning a ``Result<U>``.
   ///
-  /// Then operator| applies y to the value of x, returning a
-  /// Result<U>. See tensorstore::Result operator| for examples.
+  /// See `tensorstore::Result::operator|` for examples.
   template <typename Func>
   friend PipelineResultType<IndexDomain&&, Func> operator|(IndexDomain domain,
                                                            Func&& func) {
@@ -349,7 +395,7 @@ class IndexDomain {
 
   /// Restricts an index domain by a box of the same rank.
   ///
-  /// This is normally invoked via the pipeline operator:
+  /// This is normally invoked via the pipeline operator::
   ///
   ///     TENSORSTORE_ASSIGN_OR_RETURN(auto new_domain, domain | box);
   ///
@@ -420,6 +466,21 @@ explicit IndexDomain(const BoxType& box)
 
 explicit IndexDomain()->IndexDomain<>;
 
+/// Specializes the HasBoxDomain metafunction for IndexTransform.
+///
+/// \relates IndexDomain
+template <DimensionIndex Rank, ContainerKind CKind>
+constexpr inline bool HasBoxDomain<IndexDomain<Rank, CKind>> = true;
+
+/// Implements the HasBoxDomain concept for `IndexDomain`.
+///
+/// \relates IndexDomain
+/// \id IndexDomain
+template <DimensionIndex Rank, ContainerKind CKind>
+BoxView<Rank> GetBoxDomainOf(const IndexDomain<Rank, CKind>& domain) {
+  return domain.box();
+}
+
 /// Merges two index domains.
 ///
 /// If both `a` and `b` are null, returns a null index domain.
@@ -430,26 +491,28 @@ explicit IndexDomain()->IndexDomain<>;
 ///
 /// - `a.rank() == b.rank()`
 ///
-/// - For all dimension `i` for which
-///   `!a.labels()[i].empty() && !b.labels()[i].empty()`,
-///   `a.labels[i] == b.labels[i]`.
+/// - For all dimension ``i`` for which
+///   ``!a.labels()[i].empty() && !b.labels()[i].empty()``,
+///   ``a.labels[i] == b.labels[i]``.
 ///
-/// - For each lower/upper bound of each dimension `i`, either `a` and `b` have
-///   the same bound (including implicit bit), or at least one of the bounds is
-///   implicit and infinite.
+/// - For each lower/upper bound of each dimension ``i``, either `a` and `b`
+///   have the same bound (including implicit bit), or at least one of the
+///   bounds is implicit and infinite.
 ///
 /// In the merged domain, non-empty labels take precedence, and explicit/finite
 /// bounds take precedence over implicit/infinite bounds.
 ///
-/// \param a IndexDomain to merge.  May be null.
-/// \param b Other IndexDomain to merge.  May be null.
+/// \param a Domain to merge.  May be null.
+/// \param b Other domain to merge.  May be null.
 /// \returns The merged domain, or a null domain if `a` and `b` are both null.
 /// \error `absl::StatusCode::kInvalidArgument` if `a` and `b` are not
 ///     compatible.
+/// \relates IndexDomain
+/// \membergroup Composition
 Result<IndexDomain<>> MergeIndexDomains(IndexDomainView<> a,
                                         IndexDomainView<> b);
 
-/// Hulls two index domains.
+/// Computes the hull of two index domains.
 ///
 /// If both `a` and `b` are null, returns a null index domain.
 ///
@@ -459,20 +522,21 @@ Result<IndexDomain<>> MergeIndexDomains(IndexDomainView<> a,
 ///
 /// - `a.rank() == b.rank()`
 ///
-/// - For all dimension `i` for which
-///   `!a.labels()[i].empty() && !b.labels()[i].empty()`,
-///   `a.labels[i] == b.labels[i]`.
+/// - For all dimension ``i`` for which
+///   ``!a.labels()[i].empty() && !b.labels()[i].empty()``,
+///   ``a.labels[i] == b.labels[i]``.
 ///
-/// In the resulting IndexDomain, each bound is the smaller of the lower bounds
-/// and the larger of the upper bounds. The `implicit` flag that corresponds to
-/// the chosen bound is propagated.
-/// The result includes the labels, with non-empty labels having precedence.
+/// In the resulting domain, each bound is the smaller of the lower bounds and
+/// the larger of the upper bounds. The implicit flag that corresponds to the
+/// chosen bound is propagated.  The result includes the labels, with non-empty
+/// labels having precedence.
 ///
-/// \param a IndexDomain to hull.
-/// \param b Other IndexDomain to hull.
-/// \returns The hulled domain, or a null domain if `a` and `b` are both null.
+/// \returns The hull of the two domains domain, or a null domain if `a` and `b`
+///     are both null.
 /// \error `absl::StatusCode::kInvalidArgument` if `a` and `b` are not
 ///     compatible.
+/// \relates IndexDomain
+/// \membergroup Composition
 Result<IndexDomain<>> HullIndexDomains(IndexDomainView<> a,
                                        IndexDomainView<> b);
 
@@ -486,25 +550,25 @@ Result<IndexDomain<>> HullIndexDomains(IndexDomainView<> a,
 ///
 /// - `a.rank() == b.rank()`
 ///
-/// - For all dimension `i` for which
-///   `!a.labels()[i].empty() && !b.labels()[i].empty()`,
-///   `a.labels[i] == b.labels[i]`.
+/// - For all dimension ``i`` for which
+///   ``!a.labels()[i].empty() && !b.labels()[i].empty()``,
+///   ``a.labels[i] == b.labels[i]``.
 ///
-/// In the resulting IndexDomain, each bound is the larger of the lower bounds
-/// and the smaller of the upper bounds. The `implicit` flag that corresponds to
-/// the chosen bound is propagated.
-/// The result includes the labels, with non-empty labels having precedence.
+/// In the resulting domain, each bound is the larger of the lower bounds and
+/// the smaller of the upper bounds. The implicit flag that corresponds to the
+/// chosen bound is propagated.  The result includes the labels, with non-empty
+/// labels having precedence.
 ///
-/// \param a IndexDomain to intersect.
-/// \param b Other IndexDomain to intersect.
 /// \returns The intersected domain, or a null domain if `a` and `b` are both
 ///          null.
 /// \error `absl::StatusCode::kInvalidArgument` if `a` and `b` are not
 ///     compatible.
+/// \relates IndexDomain
+/// \membergroup Composition
 Result<IndexDomain<>> IntersectIndexDomains(IndexDomainView<> a,
                                             IndexDomainView<> b);
 
-/// Constrains index domain a by b.
+/// Constrains index domain `a` by `b`.
 ///
 /// If both `a` and `b` are null, returns a null index domain.
 ///
@@ -514,19 +578,19 @@ Result<IndexDomain<>> IntersectIndexDomains(IndexDomainView<> a,
 ///
 /// - `a.rank() == b.rank()`
 ///
-/// - For all dimension `i` for which
-///   `!a.labels()[i].empty() && !b.labels()[i].empty()`,
-///   `a.labels[i] == b.labels[i]`.
+/// - For all dimension ``i`` for which
+///   ``!a.labels()[i].empty() && !b.labels()[i].empty()``,
+///   ``a.labels[i] == b.labels[i]``.
 ///
-/// In the resulting IndexDomain, if a bound in a is both implicit and infinite,
-/// then the bound from b is used, otherwise the bound of a is used.
+/// In the resulting domain, if a bound in `a` is both implicit and infinite,
+/// then the bound from `b` is used, otherwise the bound of `a` is used.
 ///
-/// \param a IndexDomain to intersect.
-/// \param b Other IndexDomain to intersect.
 /// \returns The intersected domain, or a null domain if `a` and `b` are both
 ///          null.
 /// \error `absl::StatusCode::kInvalidArgument` if `a` and `b` are not
 ///     compatible.
+/// \relates IndexDomain
+/// \membergroup Composition
 Result<IndexDomain<>> ConstrainIndexDomain(IndexDomainView<> a,
                                            IndexDomainView<> b);
 
@@ -534,8 +598,8 @@ namespace internal_index_space {
 std::string DescribeDomainForCast(DimensionIndex rank);
 }  // namespace internal_index_space
 
-/// Specialization of `StaticCastTraits` for `IndexDomain`, which enables
-/// `StaticCast` and `StaticRankCast`.
+// Specialization of `StaticCastTraits` for `IndexDomain`, which enables
+// `StaticCast` and `StaticRankCast`.
 template <DimensionIndex Rank, ContainerKind CKind>
 struct StaticCastTraits<IndexDomain<Rank, CKind>>
     : public DefaultStaticCastTraits<IndexDomain<Rank, CKind>> {
@@ -558,6 +622,9 @@ struct StaticCastTraits<IndexDomain<Rank, CKind>>
 
 /// Returns a copy of `domain` with `implicit_lower_bounds` and
 /// `implicit_upper_bounds` set to the specified values.
+///
+/// \relates IndexDomain
+/// \id domain
 template <DimensionIndex Rank, ContainerKind CKind>
 IndexDomain<Rank> WithImplicitDimensions(IndexDomain<Rank, CKind> domain,
                                          DimensionSet implicit_lower_bounds,

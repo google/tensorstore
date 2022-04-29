@@ -35,21 +35,24 @@ namespace tensorstore {
 /// except that `Finalize` returns an `IndexDomain` rather than an
 /// `IndexTransform`.
 ///
-/// Examples:
+/// .. example:: Examples
 ///
-///     IndexDomain<2> t = IndexDomainBuilder<2>()
-///         .origin({1, 2})
-///         .shape({3, 4})
-///         .labels({"x", "y"})
-///         .Finalize()
-///         .value();
+///    .. code-block:: cpp
 ///
-///     IndexDomain<> t = IndexDomainBuilder()
-///         .origin({1, 2, 3})
-///         .exclusive_max({4, 5, 6})
-///         .Finalize()
-///         .value();
+///       IndexDomain<2> t = IndexDomainBuilder<2>()
+///           .origin({1, 2})
+///           .shape({3, 4})
+///           .labels({"x", "y"})
+///           .Finalize()
+///           .value();
 ///
+///       IndexDomain<> t = IndexDomainBuilder()
+///           .origin({1, 2, 3})
+///           .exclusive_max({4, 5, 6})
+///           .Finalize()
+///           .value();
+///
+/// \relates IndexDomain
 template <DimensionIndex Rank = dynamic_rank>
 class IndexDomainBuilder {
   static_assert(RankConstraint(Rank).valid());
