@@ -30,21 +30,28 @@
 
 namespace tensorstore {
 
-/// Maximum arity supported by iteration functions.
+// Maximum arity supported by iteration functions.
 constexpr std::size_t kMaxSupportedIterationArity = 5;
 
 /// Specifies whether repeated elements may be skipped.
-/// \see IterationConstraints
+///
+/// \ingroup array iteration
 enum class RepeatedElementsConstraint {
   include_repeated_elements = 0,
   skip_repeated_elements = 1,
 };
+
+/// \relates RepeatedElementsConstraint
 constexpr RepeatedElementsConstraint include_repeated_elements =
     RepeatedElementsConstraint::include_repeated_elements;
 constexpr RepeatedElementsConstraint skip_repeated_elements =
     RepeatedElementsConstraint::skip_repeated_elements;
 
+/// Specifies that the iteration order is unconstrained.
+///
+/// \ingroup array iteration
 enum class UnspecifiedLayoutOrder { unspecified_order };
+/// \relates UnspecifiedLayoutOrder
 constexpr UnspecifiedLayoutOrder unspecified_order =
     UnspecifiedLayoutOrder::unspecified_order;
 
@@ -55,6 +62,8 @@ constexpr UnspecifiedLayoutOrder unspecified_order =
 /// There are three possible values: `c_order` (must be in C order),
 /// `fortran_order` (must be in Fortran order), and `unspecified_order` (no
 /// constraint on order).
+///
+/// \ingroup array iteration
 class LayoutOrderConstraint {
  public:
   constexpr LayoutOrderConstraint(UnspecifiedLayoutOrder = unspecified_order)
@@ -92,11 +101,13 @@ class LayoutOrderConstraint {
 /// Specifies constraints on how multi-dimensional iteration can be performed.
 ///
 /// Logically this type is the algebraic product of `LayoutOrderConstraint` and
-/// `RepeatedElementsContraint`.
+/// `RepeatedElementsConstraint`.
 ///
 /// A `RepeatedElementsConstraint` of `skip_repeated_elements` indicates that
 /// repeated elements (due to a stride of 0) may be processed only once.
 /// Otherwise, repeated elements are not skipped.
+///
+/// \ingroup array iteration
 class IterationConstraints {
  public:
   constexpr IterationConstraints(
@@ -141,6 +152,9 @@ class IterationConstraints {
   int value_;
 };
 
+/// Specifies status information for an array iteration operation.
+///
+/// \ingroup array iteration
 struct ArrayIterateResult {
   /// If `true`, all elements were successfully processed.
   bool success;
@@ -148,6 +162,7 @@ struct ArrayIterateResult {
   /// The total number of elements successfully processed.
   Index count;
 
+  /// Returns `success`.
   explicit operator bool() const { return success; }
 
   friend constexpr bool operator==(ArrayIterateResult a, ArrayIterateResult b) {
