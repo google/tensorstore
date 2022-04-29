@@ -42,12 +42,17 @@ template <DimensionIndex InputRank = dynamic_rank,
           ContainerKind CKind = container>
 class IndexTransform;
 
+/// Unowned view of an index transform.
+///
+/// \relates IndexTransform
 template <DimensionIndex InputRank = dynamic_rank,
           DimensionIndex OutputRank = dynamic_rank>
 using IndexTransformView = IndexTransform<InputRank, OutputRank, view>;
 
 /// Bool-valued metafunction that evaluates to `true` if `T` is an instance of
 /// `IndexTransform`.
+///
+/// \relates IndexTransform
 template <typename T>
 constexpr inline bool IsIndexTransform = false;
 
@@ -61,14 +66,16 @@ constexpr inline bool
 /// \param b_to_c Index transform from index space "b" to index space "c".
 /// \param a_to_b Index transform from index space "a" to index space "b".
 /// \pre `b_to_c.valid() && a_to_b.valid()`.
-/// \returns The composed transform with `input_rank` equal to
-///     `a_to_b.input_rank()` and `output_rank` equal to `b_to_c.output_rank()`.
+/// \returns The composed transform with ``input_rank`` equal to
+///     `a_to_b.input_rank()` and ``output_rank`` equal to
+///     `b_to_c.output_rank()`.
 /// \error `absl::StatusCode::kInvalidArgument` if
 ///     `a_to_b.output_rank() != b_to_c.input_rank()`.
 /// \error `absl::StatusCode::kOutOfRange` if the range of `a_to_b` is
 ///     incompatible with the domain of `b_to_c`.
 /// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs
 ///     computing the composed transform.
+/// \relates IndexTransform
 template <DimensionIndex RankA, ContainerKind CKindA, DimensionIndex RankB,
           ContainerKind CKindB, DimensionIndex RankC>
 Result<IndexTransform<RankA, RankC>> ComposeTransforms(
@@ -85,9 +92,11 @@ Result<IndexTransform<RankA, RankC>> ComposeTransforms(
 
 /// Composes two index transforms, which may be null.
 ///
-/// If `a_to_b` is null, returns `b_to_c`.
-/// If `b_to_c` is null, returns `a_to_b`.
-/// Otherwise, returns `ComposeTransforms(b_to_c, a_to_b)`.
+/// - If `a_to_b` is null, returns `b_to_c`.
+/// - If `b_to_c` is null, returns `a_to_b`.
+/// - Otherwise, returns `ComposeTransforms(b_to_c, a_to_b)`.
+///
+/// \relates IndexTransform
 Result<IndexTransform<>> ComposeOptionalTransforms(IndexTransform<> b_to_c,
                                                    IndexTransform<> a_to_b);
 
@@ -109,6 +118,7 @@ Result<IndexTransform<>> SliceByBox(IndexTransform<> transform,
 ///     object represents an unowned view of a transform.  Copy constructing a
 ///     `container` index transform from an existing `container` or `view` index
 ///     transform only incurs the cost of an atomic reference count increment.
+/// \ingroup indexing
 template <DimensionIndex InputRank, DimensionIndex OutputRank,
           ContainerKind CKind>
 class IndexTransform {
@@ -117,21 +127,27 @@ class IndexTransform {
   using Access = internal_index_space::TransformAccess;
 
  public:
+  /// Static input rank, or `dynamic_rank` if the input rank is determined at
+  /// run time.
   constexpr static DimensionIndex static_rank = InputRank;
   constexpr static DimensionIndex static_input_rank = InputRank;
+
+  /// Static output rank, or `dynamic_rank` if the input rank is determined at
+  /// run time.
   constexpr static DimensionIndex static_output_rank = OutputRank;
+
+  /// Specifies whether this owns an index transform (`container`), or merely
+  /// holds an unowned reference to one (`view`).
   constexpr static ContainerKind container_kind = CKind;
 
-  constexpr explicit operator bool() const { return static_cast<bool>(rep_); }
-
-  constexpr bool valid() const { return static_cast<bool>(rep_); }
-
+  /// Constructs a null index transform.
+  ///
+  /// \id default
   constexpr IndexTransform() = default;
 
   /// Construct from a compatible existing index transform.
   ///
-  /// \requires `SourceInputRank` is implicitly convertible to `InputRank`
-  /// \requires `SourceOutputRank` is implicitly convertible to `OutputRank`
+  /// \id convert
   template <
       DimensionIndex SourceInputRank, DimensionIndex SourceOutputRank,
       ContainerKind SourceCKind,
@@ -141,8 +157,6 @@ class IndexTransform {
   IndexTransform(const IndexTransform<SourceInputRank, SourceOutputRank,
                                       SourceCKind>& other) noexcept
       : rep_(Access::rep(other)) {}
-
-  /// Rvalue reference overload.
   template <
       DimensionIndex SourceInputRank, DimensionIndex SourceOutputRank,
       ContainerKind SourceCKind,
@@ -162,6 +176,7 @@ class IndexTransform {
   ///     `InputRank`
   /// \pre `!other.valid()` or `other.output_rank()` is compatible with
   ///     `OutputRank`
+  /// \id unchecked
   template <DimensionIndex SourceInputRank, DimensionIndex SourceOutputRank,
             ContainerKind SourceCKind,
             std::enable_if_t<(RankConstraint::EqualOrUnspecified(
@@ -173,8 +188,6 @@ class IndexTransform {
       const IndexTransform<SourceInputRank, SourceOutputRank, SourceCKind>&
           other) noexcept
       : rep_(Access::rep(other)) {}
-
-  /// Rvalue reference overload.
   template <DimensionIndex SourceInputRank, DimensionIndex SourceOutputRank,
             ContainerKind SourceCKind,
             std::enable_if_t<(RankConstraint::EqualOrUnspecified(
@@ -200,8 +213,6 @@ class IndexTransform {
     rep_ = Ptr(Access::rep(other));
     return *this;
   }
-
-  /// Rvalue reference overload.
   template <DimensionIndex SourceInputRank, DimensionIndex SourceOutputRank,
             ContainerKind SourceCKind>
   std::enable_if_t<(RankConstraint::Implies(SourceInputRank, InputRank) &&
@@ -213,54 +224,70 @@ class IndexTransform {
     return *this;
   }
 
+  /// Returns `true` if this is not a null transform.
+  ///
+  /// \membergroup Accessors
+  constexpr explicit operator bool() const { return static_cast<bool>(rep_); }
+  constexpr bool valid() const { return static_cast<bool>(rep_); }
+
   /// Returns the input rank.
+  ///
   /// \pre valid()
+  /// \membergroup Accessors
   StaticOrDynamicRank<InputRank> input_rank() const {
     return StaticRankCast<InputRank, unchecked>(
         static_cast<DimensionIndex>(rep_->input_rank));
   }
 
   /// Returns the output rank.
+  ///
   /// \pre valid()
+  /// \membergroup Accessors
   StaticOrDynamicRank<OutputRank> output_rank() const {
     return StaticRankCast<OutputRank, unchecked>(
         static_cast<DimensionIndex>(rep_->output_rank));
   }
 
   /// Returns the array of inclusive lower bounds for the input dimensions.
+  ///
   /// \pre valid()
   /// \returns A span of length `input_rank()`.
+  /// \membergroup Accessors
   span<const Index, InputRank> input_origin() const {
     return {rep_->input_origin().data(), this->input_rank()};
   }
 
   /// Returns the array of extents for the input dimensions.
+  ///
   /// \pre valid()
   /// \returns A span of length `input_rank()`.
+  /// \membergroup Accessors
   span<const Index, InputRank> input_shape() const {
     return {rep_->input_shape().data(), this->input_rank()};
   }
 
   /// Returns the array of labels for the input dimensions.
+  ///
   /// \pre valid()
   /// \returns A span of length `input_rank()`.
+  /// \membergroup Accessors
   span<const std::string, InputRank> input_labels() const {
     return {rep_->input_labels().data(), this->input_rank()};
   }
 
   /// Returns the input domain.
+  ///
+  /// \membergroup Accessors
   IndexDomainView<InputRank> input_domain() const {
     IndexDomainView<InputRank> domain;
     Access::rep_ptr(domain) = Access::rep(*this);
     return domain;
   }
-
   IndexDomainView<InputRank> domain() const& {
     IndexDomainView<InputRank> domain;
     Access::rep_ptr(domain) = Access::rep(*this);
     return domain;
   }
-
   IndexDomain<InputRank, CKind> domain() && {
     IndexDomain<InputRank, CKind> domain;
     Access::rep_ptr(domain) = std::move(rep_);
@@ -277,32 +304,42 @@ class IndexTransform {
   /// for a remotely-stored TensorStore that supports resizing.
   ///
   /// Implicit bounds are primarily useful on input dimensions used by
-  /// `single_input_dimension` output index maps: in that case, the
-  /// `PropagateBounds` operation may be used to update them based on an output
-  /// space `Box`.
+  /// `OutputIndexMethod::single_input_dimension` output index maps: in that
+  /// case, the `PropagateBounds` operation may be used to update them based on
+  /// an output space `Box`.
   ///
   /// If an index array-based output index map depends on a given input
   /// dimension, it is an invariant of `IndexTransform` that the lower and upper
   /// bounds of that input dimension are explicit.
+  ///
+  /// \membergroup Accessors
+  /// \pre `valid()`
   DimensionSet implicit_lower_bounds() const {
     return rep_->implicit_lower_bounds;
   }
 
   /// Returns a bit-vector indicating for each input dimension whether the upper
   /// bound is implicit.
+  ///
+  /// \membergroup Accessors
+  /// \pre `valid()`
   DimensionSet implicit_upper_bounds() const {
     return rep_->implicit_upper_bounds;
   }
 
   /// Returns a range representing the output index maps.
-  /// \pre valid()
+  ///
+  /// \membergroup Accessors
+  /// \pre `valid()`
   OutputIndexMapRange<InputRank, OutputRank> output_index_maps() const {
     return OutputIndexMapRange<InputRank, OutputRank>(*this);
   }
 
   /// Returns the output index map for a given `output_dim`.
+  ///
   /// \pre valid()
   /// \dchecks `0 <= output_dim && output_dim < output_rank()`
+  /// \membergroup Accessors
   OutputIndexMapRef<InputRank> output_index_map(
       DimensionIndex output_dim) const {
     return output_index_maps()[output_dim];
@@ -313,11 +350,13 @@ class IndexTransform {
   /// \pre `valid()`
   /// \dchecks `input_indices.size() == input_rank()`
   /// \dchecks `output_indices.size() == output_rank()`
-  /// \returns `OkStatus()` on success.
+  /// \returns `absl::OkStatus()` on success.
   /// \error `absl::StatusCode::kOutOfRange` if `input_indices` is not contained
   ///     within the domain (implicit bounds are ignored).
   /// \error `absl::StatusCode::kOutOfRange` if an array output index map
-  ///     results in an index outside its `index_range` constraint.
+  ///     results in an index outside its
+  ///     :cpp:any:`index_range<OutputIndexMapRef::IndexArrayView::index_range>`
+  ///     constraint.
   absl::Status TransformIndices(span<const Index, InputRank> input_indices,
                                 span<Index, OutputRank> output_indices) const {
     return internal_index_space::TransformIndices(
@@ -326,15 +365,16 @@ class IndexTransform {
 
   /// Returns `ComposeTransforms(other, *this)`.
   ///
-  /// This allows an IndexTransform to be used in the same way as DimExpression,
-  /// as a modifier of an index space, by functions like ApplyIndexTransform in
-  /// transformed_array.h.
+  /// This allows an IndexTransform to be used in the same way as
+  /// `DimExpression`, as a modifier of an index space.
   ///
-  /// Given `result = transform_a(transform_b).value()`, the output index vector
-  /// `result(x)` is equal to `transform_b(transform_a(x))`.  This is the
-  /// opposite composition order of normal mathematical function composition,
-  /// but is consistent with `DimExpression::operator()`, which also effectively
-  /// transforms the input space rather than the output space.
+  /// Given ``result = transform_a(transform_b).value()``, the output index
+  /// vector ``result(x)`` is equal to ``transform_b(transform_a(x))``.
+  /// This is the opposite composition order of normal mathematical function
+  /// composition, but is consistent with `DimExpression::operator()`, which
+  /// also effectively transforms the input space rather than the output space.
+  ///
+  /// \id compose
   template <DimensionIndex NewOutputRank, ContainerKind OtherCKind>
   Result<IndexTransform<InputRank, NewOutputRank>> operator()(
       const IndexTransform<OutputRank, NewOutputRank, OtherCKind>& other)
@@ -355,6 +395,8 @@ class IndexTransform {
 
   /// Enables `IndexTransform` to be be applied to `TransformedArray`,
   /// `TensorStore`, and other types that support `ApplyIndexTransform`.
+  ///
+  /// \id transformable
   template <typename Target>
   decltype(ApplyIndexTransform(std::declval<const IndexTransform&>(),
                                std::declval<Target>()))
@@ -376,8 +418,6 @@ class IndexTransform {
       const IndexTransform<InputRankB, OutputRankB, CKindB>& b) {
     return internal_index_space::AreEqual(Access::rep(a), Access::rep(b));
   }
-
-  /// Equivalent to `!(a == b)`.
   template <DimensionIndex InputRankB, DimensionIndex OutputRankB,
             ContainerKind CKindB>
   friend bool operator!=(
@@ -388,11 +428,11 @@ class IndexTransform {
 
   /// "Pipeline" operator.
   ///
-  /// In the expression  `x | y`, if
-  ///   * y is a function having signature `Result<U>(T)`
+  /// In the expression `transform | func`, if `func` is a function having
+  /// signature ``Result<U>(T)``, then `operator|` applies `func` to the
+  /// value of `transform`, returning a Result<U>.
   ///
-  /// Then operator| applies y to the value of x, returning a
-  /// Result<U>. See tensorstore::Result operator| for examples.
+  /// See `tensorstore::Result::operator|` for examples.
   template <typename Func>
   friend PipelineResultType<IndexTransform&&, Func> operator|(
       IndexTransform transform, Func&& func) {
@@ -443,14 +483,18 @@ class IndexTransform {
   Ptr rep_{};
 };
 
-/// Specializes the HasBoxDomain metafunction for IndexTransform.
+/// Specializes the HasBoxDomain metafunction for `IndexTransform`.
+///
+/// \relates IndexTransform
 template <DimensionIndex InputRank, DimensionIndex OutputRank,
           ContainerKind CKind>
 constexpr inline bool
     HasBoxDomain<IndexTransform<InputRank, OutputRank, CKind>> = true;
 
-/// Implements the HasBoxDomain concept for IndexTransformView and
-/// IndexTransform.
+/// Implements the HasBoxDomain concept for `IndexTransform`.
+///
+/// \relates IndexTransform
+/// \id IndexTransform
 template <DimensionIndex InputRank, DimensionIndex OutputRank,
           ContainerKind CKind>
 BoxView<InputRank> GetBoxDomainOf(
@@ -463,8 +507,8 @@ std::string DescribeTransformForCast(DimensionIndex input_rank,
                                      DimensionIndex output_rank);
 }  // namespace internal_index_space
 
-/// Specialization of `StaticCastTraits` for `IndexTransform`, which enables
-/// `StaticCast` and `StaticRankCast`.
+// Specialization of `StaticCastTraits` for `IndexTransform`, which enables
+// `StaticCast` and `StaticRankCast`.
 template <DimensionIndex InputRank, DimensionIndex OutputRank,
           ContainerKind CKind>
 struct StaticCastTraits<IndexTransform<InputRank, OutputRank, CKind>>
@@ -498,6 +542,9 @@ struct StaticCastTraits<IndexTransform<InputRank, OutputRank, CKind>>
 ///
 /// \tparam Rank Optional. Specifies the rank at compile time.
 /// \dchecks rank >= 0
+/// \relates IndexTransform
+/// \membergroup Identity transform
+/// \id rank
 template <DimensionIndex Rank>
 inline IndexTransform<Rank, Rank> IdentityTransform(
     StaticOrDynamicRank<Rank> rank = StaticRank<Rank>()) {
@@ -505,7 +552,6 @@ inline IndexTransform<Rank, Rank> IdentityTransform(
       IndexTransform<Rank, Rank>>(
       internal_index_space::MakeIdentityTransform(rank));
 }
-
 inline IndexTransform<> IdentityTransform(DimensionIndex rank) {
   return internal_index_space::TransformAccess::Make<IndexTransform<>>(
       internal_index_space::MakeIdentityTransform(rank));
@@ -514,10 +560,14 @@ inline IndexTransform<> IdentityTransform(DimensionIndex rank) {
 /// Returns an identity transform over the specified box.
 ///
 /// The lower and upper bounds of the returned transform are explicit.
+/// \relates IndexTransform
+/// \membergroup Identity transform
+/// \id box
 template <typename BoxType>
 inline std::enable_if_t<
     IsBoxLike<BoxType>,
-    IndexTransform<BoxType::static_rank, BoxType::static_rank>>
+    IndexTransform<BoxType::static_rank,
+                   BoxType::static_rank>>  // NONITPICK: BoxType::static_rank
 IdentityTransform(const BoxType& domain) {
   return internal_index_space::TransformAccess::Make<
       IndexTransform<BoxType::static_rank, BoxType::static_rank>>(
@@ -528,6 +578,12 @@ IdentityTransform(const BoxType& domain) {
 ///
 /// The input domain of the returned transform is unbounded with implicit lower
 /// and upper bounds and explicit labels.
+///
+/// \relates IndexTransform
+/// \requires `Labels` is `span`-compatible with a `span::value_type` of
+///     `std::string`, `std::string_view`, or `const char *`.
+/// \membergroup Identity transform
+/// \id labels
 template <DimensionIndex Rank>
 inline IndexTransform<Rank, Rank> IdentityTransform(
     const std::string_view (&labels)[Rank]) {
@@ -535,14 +591,6 @@ inline IndexTransform<Rank, Rank> IdentityTransform(
       IndexTransform<Rank, Rank>>(internal_index_space::MakeIdentityTransform(
       internal::StringLikeSpan(span(labels))));
 }
-
-/// Returns an identity transform with the specified labels.
-///
-/// The input domain of the returned transform is unbounded with implicit lower
-/// and upper bounds and explicit labels.
-///
-/// \requires `Labels` is `span`-compatible with a `value_type` of
-///     `std::string`, `std::string_view`, or `const char *`.
 template <typename Labels>
 inline IdentityTransformFromLabelsType<Labels> IdentityTransform(
     const Labels& labels) {
@@ -555,9 +603,13 @@ inline IdentityTransformFromLabelsType<Labels> IdentityTransform(
 /// Returns an identity transform over the input domain of an existing
 /// transform.
 ///
-/// The `implicit_lower_bounds` and `implicit_upper_bounds` vectors of the
-/// returned transform are equal to the corresponding vector of the input
-/// `transform`.
+/// The `IndexTransform::implicit_lower_bounds` and
+/// `IndexTransform::implicit_upper_bounds` vectors of the returned transform
+/// are equal to the corresponding vector of the input `transform`.
+///
+/// \relates IndexTransform
+/// \membergroup Identity transform
+/// \id transform
 template <DimensionIndex InputRank, DimensionIndex OutputRank,
           ContainerKind CKind>
 inline IndexTransform<InputRank, InputRank> IdentityTransformLike(
@@ -569,6 +621,10 @@ inline IndexTransform<InputRank, InputRank> IdentityTransformLike(
 }
 
 /// Returns an identity transform over the specified index domain.
+///
+/// \relates IndexTransform
+/// \membergroup Identity transform
+/// \id domain
 template <DimensionIndex Rank, ContainerKind CKind>
 inline IndexTransform<Rank, Rank> IdentityTransform(
     const IndexDomain<Rank, CKind>& domain) {
@@ -579,27 +635,35 @@ inline IndexTransform<Rank, Rank> IdentityTransform(
 /// Returns an identity transform over the input domain of an array.
 ///
 /// The lower and upper bounds of the returned transform are explicit.
+///
+/// \relates IndexTransform
+/// \membergroup Identity transform
+/// \id array
 template <typename Array>
 inline std::enable_if_t<IsArray<Array>,
                         IndexTransform<Array::static_rank, Array::static_rank>>
+// NONITPICK: Array::static_rank
 IdentityTransformLike(const Array& array) {
   return IdentityTransform(array.domain());
 }
 
-/// Returns an identity transform with an input_origin of `0` and the specified
-/// `input_shape`.
+/// Returns an identity transform with an origin of `0` and the specified
+/// `shape`.
 ///
 /// The lower and upper bounds of the returned transform are explicit.
+///
+/// \requires `shape` is a `span`-compatible vector with a `span::value_type` of
+///     `Index`.
+/// \relates IndexTransform
+/// \membergroup Identity transform
+/// \id shape
 template <typename Shape>
 inline IdentityTransformFromShapeType<Shape> IdentityTransform(
-    const Shape& input_shape) {
+    const Shape& shape) {
   return internal_index_space::TransformAccess::Make<
       IdentityTransformFromShapeType<Shape>>(
-      internal_index_space::MakeIdentityTransform(input_shape));
+      internal_index_space::MakeIdentityTransform(shape));
 }
-
-/// Overload that can be called with a braced list,
-/// e.g. `IdentityTransform({2, 3})`.
 template <DimensionIndex Rank>
 inline IndexTransform<Rank, Rank> IdentityTransform(
     const Index (&shape)[Rank]) {
@@ -612,35 +676,43 @@ inline IndexTransform<Rank, Rank> IdentityTransform(
 ///
 /// 1. All output index maps are either:
 ///
-///    (a) `constant`, or
+///    (a) `OutputIndexMethod::constant`, or
 ///
-///    (b) `single_input_dimension`, with a stride of `1` or `-1` and a unique
-///        input dimension not referenced by any other output index map.
+///    (b) `OutputIndexMethod::single_input_dimension`, with a stride of `1` or
+///        `-1` and a unique input dimension not referenced by any other output
+///        index map.
 ///
-/// 2. Every input dimension not referenced by a `single_input_dimension` output
-///    index map must be a "singleton dimension" with explicit lower/upper
-///    bounds and an extent of 1.
+/// 2. Every input dimension not referenced by a
+///    `OutputIndexMethod::single_input_dimension` output index map must be a
+///    "singleton dimension" with explicit lower/upper bounds and an extent of
+///    1.
 ///
-/// Note that `constant` output index maps correspond to singleton input
-/// dimensions in the inverse transform, and vice versa.  The labels of
-/// singleton input dimensions are not preserved.
+/// Note that `OutputIndexMethod::constant` output index maps correspond to
+/// singleton input dimensions in the inverse transform, and vice versa.  The
+/// labels of singleton input dimensions are not preserved.
 ///
 /// For example:
 ///
-/// Given a `transform` with domain:
+/// Given a `transform` with domain::
+///
 ///   "x": [1*, 5)
 ///   "":  [3,  4)
 ///   "y": [2,  8*)
-/// and output index maps:
+///
+/// and output index maps::
+///
 ///   output[0] = 5 + -1 * input[2]
 ///   output[1] = 3 + 1 * input[0],
 ///   output[2] = 7
 ///
-/// the inverse transform has a domain of:
+/// the inverse transform has a domain of::
+///
 ///   "y": [-2*, 4)
 ///   "x": [ 4*, 8)
 ///   "":  [ 7,  8)
-/// and output index maps:
+///
+/// and output index maps::
+///
 ///   output[0] = -3 + input[1]
 ///   output[1] = 3
 ///   output[2] = 5 + -1 * input[0]
@@ -650,6 +722,7 @@ inline IndexTransform<Rank, Rank> IdentityTransform(
 /// \returns The inverse transform if `transform` is invertible.
 /// \error `absl::StatusCode::kInvalidArgument` if `transform` is not
 ///     invertible.
+/// \relates IndexTransform
 template <DimensionIndex Rank, ContainerKind CKind>
 Result<IndexTransform<Rank, Rank>> InverseTransform(
     const IndexTransform<Rank, Rank, CKind>& transform) {
@@ -660,55 +733,58 @@ Result<IndexTransform<Rank, Rank>> InverseTransform(
       IndexTransform<Rank, Rank>>(std::move(rep));
 }
 
-/// Propagates bounds on an output index space "b" back to each input dimension
-/// `input_dim` of the input index space "a" as follows:
+/// Propagates bounds on an output index space ``b`` back to each input
+/// dimension ``input_dim`` of the input index space ``a`` as follows:
 ///
-///   1. The `inferred_bounds` are computed as the intersection of the bounds
-///      due to each `output_dim` of `a_to_b` that specifies `input_dim` as a
-///      `single_input_dimension` output index map.
+///   1. The ``inferred_bounds`` are computed as the intersection of the
+///      bounds due to each ``output_dim`` of `a_to_b` that specifies
+///      ``input_dim`` as a `OutputIndexMethod::single_input_dimension`
+///      output index map.
 ///
-///   2. If the `existing_bounds` specified by `a_to_b` for `input_dim` are
-///      explicit, they must be contained in `inferred_bounds`.
+///   2. If the ``existing_bounds`` specified by `a_to_b` for ``input_dim`` are
+///      explicit, they must be contained in ``inferred_bounds``.
 ///
-///   3. The lower and upper bounds `a[input_dim]` are set to the corresponding
-///      lower or upper bounds from `existing_bounds` if explicit or if no
-///      dimensions of "b" contributed to `inferred_bounds`, or otherwise from
-///      `inferred_bounds`.
+///   3. The lower and upper bounds ``a[input_dim]`` are set to the
+///      corresponding lower or upper bounds from ``existing_bounds`` if
+///      explicit or if no dimensions of ``b`` contributed to
+///      ``inferred_bounds``, or otherwise from ``inferred_bounds``.
 ///
-///   4. Each resultant lower/upper bounds for "a" is implicit iff:
+///   4. Each resultant lower/upper bounds for ``a`` is implicit iff:
 ///
 ///      a. The original bound specified in `a_to_b` is implicit; and
 ///
-///      b. All contributing (by way of a `single_input_dimension` map) bounds
-///         of "b" are implicit.
+///      b. All contributing (by way of a
+///         `OutputIndexMethod::single_input_dimension` map) bounds of ``b`` are
+///         implicit.
 ///
 /// Also checks that any constant output index maps have an output offset within
-/// the "b" domain (implicit bounds of "b" are ignored).
+/// the ``b`` domain (implicit bounds of ``b`` are ignored).
 ///
-/// \param b_domain The bounds in the "b" index space.
+/// \param b_domain The bounds in the ``b`` index space.
 /// \param b_implicit_lower_bounds Implicit indicator for each lower bound of
-///     "b".
+///     ``b``.
 /// \param b_implicit_upper_bounds Implicit indicator for each upper bound of
-///     "b".
-/// \param a_to_b The transform.  May be invalid (default constructed) to
-///     indicate an identity transform.
-/// \param a_domain[out] The propagated bounds in the "a" index space.
+///     ``b``.
+/// \param a_to_b The transform.  May be null to indicate an identity transform.
+/// \param a_domain[out] The propagated bounds in the ``a`` index space.
 /// \param a_implicit_lower_bounds[out] Propagated implicit indicators for each
-///     lower bound of "a".
+///     lower bound of ``a``.
 /// \param a_implicit_upper_bounds[out] Propagated implicit indicators for each
-///     upper bound of "a".
-/// \dchecks `b_implicit_lower_bounds.size() == b_domain.rank()`
-/// \dchecks `b_implicit_upper_bounds.size() == b_domain.rank()`
-/// \dchecks `a_implicit_lower_bounds.size() == a_domain.rank()`
-/// \dchecks `a_implicit_upper_bounds.size() == a_domain.rank()`
+///     upper bound of ``a``.
 /// \dchecks `a_to_b.valid() || a_domain.rank() == b_domain.rank()`
 /// \dchecks `!a_to_b.valid() || b_domain.rank() == a_to_b.output_rank()`
 /// \dchecks `!a_to_b.valid() || a_domain.rank() == a_to_b.input_rank()`
 /// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs when
 ///     propagating bounds.
 /// \error `absl::StatusCode::kOutOfRange` if the bounds are incompatible.
-/// \remarks This function does not check `array` output index maps (as they do
-///     not influence the inferred bounds).  Those must be checked separately.
+/// \relates IndexTransform
+/// \membergroup Bounds propagation
+///
+/// .. warning::
+///
+///    This function does not check `OutputIndexMethod::array` output index maps
+///    (as they do not influence the inferred bounds).  Those must be checked
+///    separately.
 template <DimensionIndex InputRank, DimensionIndex OutputRank,
           ContainerKind CKind>
 absl::Status PropagateBounds(
@@ -723,12 +799,6 @@ absl::Status PropagateBounds(
       internal_index_space::TransformAccess::rep(a_to_b), a_domain,
       a_implicit_lower_bounds, a_implicit_upper_bounds);
 }
-
-/// Same as above, except that the output `a_implicit_{lower,upper}_bounds` bit
-/// vectors are not computed.
-///
-/// The input `b_implicit_{lower,upper}_bounds` and bit vectors are used only to
-/// validate constant output index maps.
 template <DimensionIndex InputRank, DimensionIndex OutputRank,
           ContainerKind CKind>
 absl::Status PropagateBounds(
@@ -741,8 +811,14 @@ absl::Status PropagateBounds(
       internal_index_space::TransformAccess::rep(a_to_b), a_domain);
 }
 
-/// Same as above, except that `b_implicit_lower_bounds` and
-/// `b_implicit_upper_bounds` are assumed to be all `false`.
+/// Equivalent to `PropagateBounds`, except that
+/// :cpp:any:`b_implicit_lower_bounds<PropagateBounds::b_implicit_lower_bounds>`
+/// and
+/// :cpp:any:`b_implicit_upper_bounds<PropagateBounds::b_implicit_upper_bounds>`
+/// are assumed to be all `false`.
+///
+/// \relates IndexTransform
+/// \membergroup Bounds propagation
 template <DimensionIndex InputRank, DimensionIndex OutputRank,
           ContainerKind CKind>
 absl::Status PropagateExplicitBounds(
@@ -757,56 +833,65 @@ absl::Status PropagateExplicitBounds(
 /// have a reduced input domain:
 ///
 /// 1. Any implicit bounds are replaced with inferred values propagated from
-///    `b_domain`.  Bounds are only inferred from `single_input_dimension`
-///    output index maps.  If any explicit input dimension bounds would result
-///    in an output range not contained within `b_domain`, then this function
-///    returns an error.
+///    `b_domain`.  Bounds are only inferred from
+///    `OutputIndexMethod::single_input_dimension` output index maps.  If any
+///    explicit input dimension bounds would result in an output range not
+///    contained within `b_domain`, then this function returns an error.
 ///
-/// 2. The `index_range` intervals of any index array output index maps are also
-///    restricted as needed to ensure the output range is contained within
-///    `b_domain`.  Note that only the `index_range` intervals are adjusted; the
-///    actual index values contained in any index arrays are not checked (but
-///    any subsequent attempt to use them will cause them to be checked against
-///    the reduced `index_range` intervals).  Implicit bounds of "b" are not
-///    propagated to the `index_range` intervals.
+/// 2. The
+///    :cpp:any:`index_range<OutputIndexMapRef::IndexArrayView::index_range>`
+///    intervals of any index array output index maps are also restricted as
+///    needed to ensure the output range is contained within `b_domain`.  Note
+///    that only the
+///    :cpp:any:`index_range<OutputIndexMapRef::IndexArrayView::index_range>`
+///    intervals are adjusted; the actual index values contained in any index
+///    arrays are not checked (but any subsequent attempt to use them will cause
+///    them to be checked against the reduced
+///    :cpp:any:`index_range<OutputIndexMapRef::IndexArrayView::index_range>`
+///    intervals).  Implicit bounds of "b" are not propagated to the
+///    :cpp:any:`index_range<OutputIndexMapRef::IndexArrayView::index_range>`
+///    intervals.
 ///
 /// Additionally, this function returns an error, rather than a new transform,
 /// if constant output index maps produce output indices outside `b_domain`
-/// (implicit bounds of "b" are ignored).
+/// (implicit bounds of ``b`` are ignored).
 ///
 /// If this function does not return an error, it is guaranteed that any output
 /// index vector computed by the returned transform will be contained within
 /// `b_domain`.
 ///
-/// The `implicit_lower_bounds` and `implicit_upper_bounds` vectors for the
-/// input space "a" of the returned transform are computed based on the implicit
-/// bound state of the input `a_to_b` transform and the specified
-/// `b_implicit_lower_bounds` and `b_implicit_upper_bounds`:
+/// The `IndexTransform::implicit_lower_bounds` and
+/// `IndexTransform::implicit_upper_bounds` vectors for the input space ``a`` of
+/// the returned transform are computed based on the implicit bound state of the
+/// input `a_to_b` transform and the specified `b_implicit_lower_bounds` and
+/// `b_implicit_upper_bounds`:
 ///
-/// Each propagated lower/upper bound for "a" is implicit iff:
+/// Each propagated lower/upper bound for ``a`` is implicit iff:
 ///
 /// 1. The original bound specified in `a_to_b` is implicit; and
 ///
-/// 2. All contributing (by way of a `single_input_dimension` map) bounds of "b"
-///    are implicit.
+/// 2. All contributing (by way of a `OutputIndexMethod::single_input_dimension`
+///    map) bounds of ``b`` are implicit.
 ///
 /// \param b_domain The bounds in the "b" index space.
 /// \param b_implicit_lower_bounds Implicit indicator for each lower bound of
-///     "b".
+///     ``b``.
 /// \param b_implicit_upper_bounds Implicit indicator for each upper bound of
-///     "b".
-/// \param a_to_b The transform from "a" to "b".  May be invalid, which implies
+///     ``b``.
+/// \param a_to_b The transform from ``a`` to ``b``.  May be null, which implies
 ///     an identity transform over `b_domain`.
-/// \dchecks `b_implicit_lower_bounds.size() == b_domain.rank()`
-/// \dchecks `b_implicit_upper_bounds.size() == b_domain.rank()`
 /// \returns A new index transform that specifies the same transform as `a_to_b`
 ///     but with a restricted input domain as computed by the `PropagateBounds`
-///     overload defined above, and with the `index_range` values of any `array`
-///     output index maps also restricted.
+///     overload defined above, and with the
+///     :cpp:any:`index_range<OutputIndexMapRef::IndexArrayView::index_range>`
+///     values of any `OutputIndexMethod::array` output index maps also
+///     restricted.
 /// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs when
 ///     propagating bounds.
 /// \error `absl::StatusCode::kOutOfRange` if the existing input domain or
 ///     constant index maps of `a_to_b` are incompatible with `b_domain`
+/// \relates IndexTransform
+/// \membergroup Bounds propagation
 template <DimensionIndex InputRank, DimensionIndex OutputRank,
           ContainerKind CKind>
 Result<IndexTransform<InputRank, OutputRank>> PropagateBoundsToTransform(
@@ -821,8 +906,6 @@ Result<IndexTransform<InputRank, OutputRank>> PropagateBoundsToTransform(
   return TransformAccess::Make<IndexTransform<InputRank, OutputRank>>(
       std::move(rep));
 }
-
-/// Same as above, but with the domain of "b" specified as an `IndexDomain`.
 template <DimensionIndex InputRank, DimensionIndex OutputRank,
           ContainerKind CKind>
 Result<IndexTransform<InputRank, OutputRank>> PropagateBoundsToTransform(
@@ -833,10 +916,15 @@ Result<IndexTransform<InputRank, OutputRank>> PropagateBoundsToTransform(
       b_domain.implicit_upper_bounds(), std::move(a_to_b));
 }
 
-/// Same as `PropagateBoundsToTransform`, except that `b_implicit_lower_bounds`
-/// and `b_implicit_upper_bounds` assumed to be all `false`, with the effect
-/// that `implicit_lower_bounds` and `implicit_upper_bounds` of the returned
-/// transform are all `false`.
+/// Same as `PropagateBoundsToTransform`, except that
+/// `PropagateBoundsToTransform::b_implicit_lower_bounds` and
+/// `PropagateBoundsToTransform::b_implicit_upper_bounds` assumed to be all
+/// `false`, with the effect that `IndexTransform::implicit_lower_bounds` and
+/// `IndexTransform::implicit_upper_bounds` of the returned transform are all
+/// `false`.
+///
+/// \relates IndexTransform
+/// \membergroup Bounds propagation
 template <DimensionIndex InputRank, DimensionIndex OutputRank,
           ContainerKind CKind>
 Result<IndexTransform<InputRank, OutputRank>>
@@ -871,63 +959,57 @@ PropagateExplicitBoundsToTransform(
 ///     `must_allocate` is specified, a newly allocated array is returned, with
 ///     a layout constrained by the `IterationConstraints`, which defaults to
 ///     `skip_repeated_elements`.
+/// \ingroup array transformation
 template <ArrayOriginKind OriginKind = offset_origin, DimensionIndex InputRank,
           DimensionIndex OutputRank, ContainerKind CKind, typename Array>
-std::enable_if_t<(IsArray<Array> && OutputRank == Array::static_rank &&
-                  OriginKind == offset_origin),
-                 Result<SharedArray<const typename Array::Element, InputRank,
-                                    offset_origin>>>
-TransformArray(const Array& array,
-               const IndexTransform<InputRank, OutputRank, CKind>& transform,
-               TransformArrayConstraints constraints = skip_repeated_elements) {
-  SharedArray<const typename Array::Element, InputRank, offset_origin>
-      result_array;
-  result_array.layout().set_rank(transform.input_rank());
-  TENSORSTORE_ASSIGN_OR_RETURN(
-      auto element_pointer,
-      internal_index_space::TransformArrayPreservingOrigin(
-          array, internal_index_space::TransformAccess::rep(transform),
-          result_array.origin().data(), result_array.shape().data(),
-          result_array.byte_strides().data(), constraints));
-  result_array.element_pointer() =
-      StaticDataTypeCast<const typename Array::Element, unchecked>(
-          std::move(element_pointer));
-  return result_array;
-}
-
-/// Overload to handle the case of `OriginKind == zero_origin`.
-template <ArrayOriginKind OriginKind, DimensionIndex InputRank,
-          DimensionIndex OutputRank, ContainerKind CKind, typename Array>
 std::enable_if_t<
-    (IsArray<Array> && OutputRank == Array::static_rank &&
-     OriginKind == zero_origin),
-    Result<SharedArray<const typename Array::Element, InputRank, zero_origin>>>
+    (IsArray<Array> && OutputRank == Array::static_rank),
+    Result<SharedArray<const typename Array::Element, InputRank, OriginKind>>>
+// NONITPICK: Array::Element
+// NONITPICK: Array::static_rank
+// NONITPICK: Array::Pointer
 TransformArray(const Array& array,
                const IndexTransform<InputRank, OutputRank, CKind>& transform,
                TransformArrayConstraints constraints = skip_repeated_elements) {
-  SharedArray<const typename Array::Element, InputRank, zero_origin>
+  SharedArray<const typename Array::Element, InputRank, OriginKind>
       result_array;
   result_array.layout().set_rank(transform.input_rank());
-  TENSORSTORE_ASSIGN_OR_RETURN(
-      auto element_pointer,
-      internal_index_space::TransformArrayDiscardingOrigin(
-          array, internal_index_space::TransformAccess::rep(transform),
-          result_array.shape().data(), result_array.byte_strides().data(),
-          constraints));
-  result_array.element_pointer() =
-      StaticDataTypeCast<const typename Array::Element, unchecked>(
-          std::move(element_pointer));
+  if constexpr (OriginKind == offset_origin) {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto element_pointer,
+        internal_index_space::TransformArrayPreservingOrigin(
+            array, internal_index_space::TransformAccess::rep(transform),
+            result_array.origin().data(), result_array.shape().data(),
+            result_array.byte_strides().data(), constraints));
+    result_array.element_pointer() =
+        StaticDataTypeCast<const typename Array::Element, unchecked>(
+            std::move(element_pointer));
+  } else {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto element_pointer,
+        internal_index_space::TransformArrayDiscardingOrigin(
+            array, internal_index_space::TransformAccess::rep(transform),
+            result_array.shape().data(), result_array.byte_strides().data(),
+            constraints));
+    result_array.element_pointer() =
+        StaticDataTypeCast<const typename Array::Element, unchecked>(
+            std::move(element_pointer));
+  }
   return result_array;
 }
 
 /// Equivalent to `TransformArray`, but always returns a newly allocated array
-/// with a non-`const` element type.
+/// with a non-``const`` element type.
+///
+/// \ingroup array transformation
 template <ArrayOriginKind OriginKind = offset_origin, DimensionIndex InputRank,
           DimensionIndex OutputRank, ContainerKind CKind, typename Array>
 std::enable_if_t<
     (IsArray<Array> && OutputRank == Array::static_rank),
     Result<SharedArray<std::remove_const_t<typename Array::Element>, InputRank,
                        OriginKind>>>
+// NONITPICK: Array::Element
+// NONITPICK: Array::static_rank
 MakeCopy(const Array& array,
          const IndexTransform<InputRank, OutputRank, CKind>& transform,
          IterationConstraints constraints = skip_repeated_elements) {
@@ -940,10 +1022,11 @@ MakeCopy(const Array& array,
   }
 }
 
-/// Checks that `bounds.Contains(index)` for all values of `index` in
+/// Checks that ``bounds.Contains(index)`` for all values of ``index`` in
 /// `index_array`.
 ///
 /// \error `absl::StatusCode::kOutOfRange` if an index is out of bounds.
+/// \relates IndexTransform
 absl::Status ValidateIndexArrayBounds(
     IndexInterval bounds,
     ArrayView<const Index, dynamic_rank, offset_origin> index_array);
@@ -951,21 +1034,24 @@ absl::Status ValidateIndexArrayBounds(
 /// Computes a hyperrectangle bound on the output range of `transform`.
 ///
 /// In some cases, the computed bound is exactly equal to the range of the
-/// transform, meaning for every position `output` in the computed bounding box,
-/// there is at least one `input` index vector such that `transform(input) ==
-/// output`.  In other cases, the computed bound is merely a superset of the
-/// range of the transform.
+/// transform, meaning for every position ``output`` in the computed bounding
+/// box, there is at least one ``input`` index vector such that
+/// ``transform(input) == output``.  In other cases, the computed bound is
+/// merely a superset of the range of the transform.
 ///
 /// The computed bound is exact if, and only if, the following two conditions
 /// are satisfied:
 ///
 /// 1. All output index maps:
-///    a. are `constant` maps or have a `stride` of `0`, or
-///    c. are `single_input_dimension` maps with a `stride` of `1` or `-1`.
 ///
-/// 2. No two `single_input_dimension` output index maps depend on the same
-///    input dimension (meaning an input dimension correspond to the diagonal of
-///    two or more output dimensions).
+///    a. are `OutputIndexMethod::constant` maps or have a ``stride`` of `0`, or
+///
+///    b. are `OutputIndexMethod::single_input_dimension` maps with a ``stride``
+///       of `1` or `-1`.
+///
+/// 2. No two `OutputIndexMethod::single_input_dimension` output index maps
+///    depend on the same input dimension (meaning an input dimension correspond
+///    to the diagonal of two or more output dimensions).
 ///
 /// \param transform The index transform for which to compute the output range.
 /// \param output_range[out] Reference to box of rank `transform.output_rank()`.
@@ -976,12 +1062,18 @@ absl::Status ValidateIndexArrayBounds(
 /// \error `absl::StatusCode::kInvalidArgument` if the transform is invalid.
 /// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs while
 ///     computing the result.
-/// \remark For efficiency, in the case of an index array output index map, the
-///     output range is computed based solely on the stored `index_range`
-///     interval; the actual indices in the index array do not affect the
-///     result.  Furthermore, even if the index array happens to densely cover
-///     the `index_range` interval, the computed output range will still be
-///     considered not to be exact, and the return value will be `false`.
+/// \relates IndexTransform
+///
+/// .. warning::
+///
+///    For efficiency, in the case of an `OutputIndexMethod::array` output index
+///    map, the output range is computed based solely on the stored
+///    :cpp:any:`index_range<OutputIndexMapRef::IndexArrayView::index_range>`
+///    interval; the actual indices in the index array do not affect the result.
+///    Furthermore, even if the index array happens to densely cover the
+///    :cpp:any:`index_range<OutputIndexMapRef::IndexArrayView::index_range>`
+///    interval, the computed output range will still be considered not to be
+///    exact, and the return value will be `false`.
 Result<bool> GetOutputRange(IndexTransformView<> transform,
                             MutableBoxView<> output_range);
 
@@ -1025,18 +1117,20 @@ absl::Status ValidateInputDimensionResize(
 ///     inclusive_min bounds of the output space that must be satisfied in order
 ///     for the resize to not affect positions outside the output range of
 ///     `transform`.  Each value not equal to `kImplicit` must match the
-///     corresponding existing `inclusive_min` bound.  If
+///     corresponding existing `IndexInterval::inclusive_min` bound.  If
 ///     `can_resize_tied_bounds == true`, all values are set equal `kImplicit`.
 /// \param output_exclusive_max_constraint[out] Set to constraints on the
 ///     exclusive_max bounds of the output space that must be satisfied in order
 ///     for the resize to not affect positions outside the output range of
 ///     `transform`.  Each value not equal to `kImplicit` must match the
-///     corresponding existing `exclusive_min` bound.  If
+///     corresponding existing `IndexInterval::exclusive_min` bound.  If
 ///     `can_resize_tied_bounds == true`, all values are set equal `kImplicit`.
-/// \param new_output_inclusive_min[out] Set to the new `inclusive_min` bounds
-///     for the output space.  A bound of `kImplicit` indicates no change.
-/// \param new_output_inclusive_min[out] Set to the new `exclusive_max` bounds
-///     for the output space.  A bound of `kImplicit` indicates no change.
+/// \param new_output_inclusive_min[out] Set to the new
+///     `IndexInterval::inclusive_min` bounds for the output space.  A bound of
+///     `kImplicit` indicates no change.
+/// \param new_output_inclusive_min[out] Set to the new
+///     `IndexInterval::exclusive_max` bounds for the output space.  A bound of
+///     `kImplicit` indicates no change.
 /// \param is_noop[out] Must be non-null.  Upon successful return, `*is_noop` is
 ///     set to `true` if all bounds in `new_output_inclusive_min` and
 ///     `new_output_exclusive_max` are `kImplicit`, and is set to `false`
@@ -1048,6 +1142,7 @@ absl::Status ValidateInputDimensionResize(
 /// \error `absl::StatusCode::kInvalidArgument` if the requested bound are
 ///     invalid or incompatible with `transform`.
 /// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs.
+/// \relates IndexTransform
 absl::Status PropagateInputDomainResizeToOutput(
     IndexTransformView<> transform,
     span<const Index> requested_input_inclusive_min,
@@ -1089,6 +1184,9 @@ OneToOneInputDimensions GetOneToOneInputDimensions(
 
 /// Returns a copy of `transform` with `implicit_lower_bounds` and
 /// `implicit_upper_bounds` set to the specified values.
+///
+/// \relates IndexTransform
+/// \id transform
 template <DimensionIndex InputRank, DimensionIndex OutputRank,
           ContainerKind CKind>
 IndexTransform<InputRank, OutputRank> WithImplicitDimensions(

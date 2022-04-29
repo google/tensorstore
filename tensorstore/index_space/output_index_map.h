@@ -31,7 +31,12 @@ namespace tensorstore {
 ///
 /// This view is valid only as long as the underlying index transform.
 ///
-/// \see OutputIndexMapRange
+/// .. seealso::
+///
+///    - OutputIndexMapRange
+///    - OutputIndexMapIterator
+///
+/// \relates IndexTransform
 template <DimensionIndex InputRank = dynamic_rank>
 class OutputIndexMapRef {
  public:
@@ -40,8 +45,8 @@ class OutputIndexMapRef {
    public:
     /// Returns a SharedArrayView representing the index array.
     ///
-    /// The shape of the returned array is equal to the `input_shape()` of the
-    /// index transform.
+    /// The shape of the returned array is equal to the
+    /// `IndexTransform::input_shape()`.
     ///
     /// If an unowned reference is sufficient, `array_ref()` can be used instead
     /// to avoid the cost of atomic reference count operations.
@@ -52,8 +57,8 @@ class OutputIndexMapRef {
 
     /// Returns an ArrayView representing the index array.
     ///
-    /// The shape of the returned array is equal to the `input_shape()` of the
-    /// index transform.
+    /// The shape of the returned array is equal to the
+    /// `IndexTransform::input_shape()`.
     ArrayView<const Index, InputRank, offset_origin> array_ref() const {
       return {element_pointer(), layout()};
     }
@@ -104,6 +109,9 @@ class OutputIndexMapRef {
   /// No methods are valid on an invalid reference, except `operator=`.
   OutputIndexMapRef() = default;
 
+  /// Rebinds to another output index map.
+  OutputIndexMapRef& operator=(const OutputIndexMapRef&) = default;
+
   /// Returns the input rank of the index transform.
   StaticOrDynamicRank<InputRank> input_rank() const {
     return StaticRankCast<InputRank, unchecked>(
@@ -148,15 +156,25 @@ class OutputIndexMapRef {
 /// Satisfies the standard library RandomAccessIterator concept, except that the
 /// reference type is the proxy type OutputIndexMapRef, not a real reference
 /// type.
+///
+/// \relates OutputIndexMapRange
 template <DimensionIndex InputRank = dynamic_rank>
 class OutputIndexMapIterator {
  public:
+  /// Proxy reference to output index map.
   using value_type = OutputIndexMapRef<InputRank>;
   using reference = OutputIndexMapRef<InputRank>;
+
+  /// Iterator difference type.
   using difference_type = DimensionIndex;
+
+  /// Pointer type.
   using pointer = value_type*;
+
+  /// Iterator category.
   using iterator_category = std::random_access_iterator_tag;
 
+  /// Constructs an invalid iterator.
   OutputIndexMapIterator() = default;
 
   OutputIndexMapRef<InputRank> operator*() const { return ref_; }
@@ -244,13 +262,20 @@ class OutputIndexMapIterator {
 /// transform.
 ///
 /// This range is valid only as long as the underlying index transform.
+///
+/// \relates IndexTransform
 template <DimensionIndex InputRank = dynamic_rank,
           DimensionIndex OutputRank = dynamic_rank, ContainerKind CKind = view>
 class OutputIndexMapRange {
  public:
+  /// Proxy reference to an output index map.
   using value_type = OutputIndexMapRef<InputRank>;
   using reference = value_type;
+
+  /// Iterator over output index maps.
   using iterator = OutputIndexMapIterator<InputRank>;
+
+  /// Iterator difference type.
   using difference_type = DimensionIndex;
 
   /// The static extent of this range, equal to the static output rank of the
@@ -258,14 +283,20 @@ class OutputIndexMapRange {
   constexpr static DimensionIndex extent = OutputRank;
 
   /// Constructs an invalid output index map range.
+  ///
+  /// \id default
   OutputIndexMapRange() = default;
 
   /// Constructs from an index transform.
+  ///
+  /// \id transform
   explicit OutputIndexMapRange(
       IndexTransform<InputRank, OutputRank, CKind> transform)
       : transform_(std::move(transform)) {}
 
-  /// Constructs from an index transform.
+  /// Converts from a compatible `OutputIndexMapRange` type.
+  ///
+  /// \id convert
   template <DimensionIndex OtherInputRank, DimensionIndex OtherOutputRank,
             ContainerKind OtherCKind,
             typename = std::enable_if_t<
@@ -280,17 +311,19 @@ class OutputIndexMapRange {
     return transform_.output_rank();
   }
 
+  /// Returns `true` if `size() == 0`.
   bool empty() const { return size() == 0; }
 
+  /// Returns the begin/end iterators.
   iterator begin() const {
     return iterator(rep()->output_index_maps().data(), rep());
   }
-
   iterator end() const {
     return iterator(rep()->output_index_maps().data() + size(), rep());
   }
 
   /// Returns the output index map for dimension `output_dim`.
+  ///
   /// \dchecks `0 <= output_dim && output_dim < size()`.
   OutputIndexMapRef<InputRank> operator[](DimensionIndex output_dim) const {
     assert(output_dim >= 0 && output_dim < size());

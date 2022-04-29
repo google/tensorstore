@@ -22,9 +22,21 @@ namespace tensorstore {
 /// Specifies the method by which the index into a given output dimension of an
 /// index transform is computed from the input indices.
 ///
-/// \see OutputIndexMapRef
-enum class OutputIndexMethod { constant, single_input_dimension, array };
+/// \relates OutputIndexMapRef
+enum class OutputIndexMethod {
+  /// Output index is equal to the constant ``offset`` and does not depend on
+  /// any input dimensions.
+  constant,
+  /// Output index is equal to ``offset + stride * input[input_dimension]``.
+  single_input_dimension,
+  /// Output index is equal to ``offset + stride * array(input)``.
+  array
+};
 
+/// Prints to an output stream.
+///
+/// \relates OutputIndexMethod
+/// \id OutputIndexMethod
 std::ostream& operator<<(std::ostream& os, OutputIndexMethod method);
 
 }  // namespace tensorstore

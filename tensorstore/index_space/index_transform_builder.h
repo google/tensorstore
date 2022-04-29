@@ -183,56 +183,67 @@ constexpr inline bool IsStaticExtentCompatibleWithRange<
 /// at most once, and either returns a valid index transform, or an error if an
 /// invalid input domain or output index map was specified.
 ///
-/// Examples:
+/// .. example:: Examples
 ///
-///     IndexTransform<3, 2> t = IndexTransformBuilder<3, 2>()
-///         .input_origin({1, 2, 3})
-///         .input_inclusive_max({5, 7, 9})
-///         .output_single_input_dimension(0, 1, 2, 0)
-///         .output_constant(1, 5)
-///         .Finalize()
-///         .value();
+///     .. code-block:: cpp
 ///
-/// Creates an index transform from an rank-3 input domain
-/// `[1, 5], [2, 7], [3, 9]` to a rank 2 output space, where
-/// `output[0] = 1 + 2 * input[0]` and `output[1] = 5`.  Both the input and
-/// output ranks are specified at compile time.
+///        IndexTransform<3, 2> t = IndexTransformBuilder<3, 2>()
+///            .input_origin({1, 2, 3})
+///            .input_inclusive_max({5, 7, 9})
+///            .output_single_input_dimension(0, 1, 2, 0)
+///            .output_constant(1, 5)
+///            .Finalize()
+///            .value();
 ///
-///     IndexTransform<> t = IndexTransformBuilder<>(3, 2)
-///         .input_origin({1, 2, 3})
-///         .input_exclusive_max({6, 8, 10})
-///         .output_single_input_dimension(0, 1, 2, 0)
-///         .output_constant(1, 5)
-///         .Finalize()
-///         .value();
+///    Creates an index transform from an rank-3 input domain
+///    `[1, 5], [2, 7], [3, 9]` to a rank 2 output space, where
+///    `output[0] = 1 + 2 * input[0]` and `output[1] = 5`.  Both the input and
+///    output ranks are specified at compile time.
 ///
-/// Same as previous example, except that both the input and output ranks are
-/// specified at run time, and the upper bound of the input domain is specified
-/// using the `input_exclusive_max` method.
+///    .. code-block:: cpp
 ///
-///     IndexTransform<3, 2> t = IndexTransformBuilder<3, 2>()
-///         .input_origin({1, 2, 3})
-///         .input_shape({5, 6, 3})
-///         .input_labels({"a", "b", "x"})
-///         .output_single_input_dimension(0, 1, 2, 0)
-///         .output_index_array(1, 0, 1, MakeArray<Index>({{{5, 10, 13}}}))
-///         .Finalize()
-///         .value();
+///       IndexTransform<> t = IndexTransformBuilder<>(3, 2)
+///           .input_origin({1, 2, 3})
+///           .input_exclusive_max({6, 8, 10})
+///           .output_single_input_dimension(0, 1, 2, 0)
+///           .output_constant(1, 5)
+///           .Finalize()
+///           .value();
 ///
-/// Creates an index transform from a rank-3 input domain
-/// `"a": [1, 5], "b": [2, 7], "x": [3, 5]` to a rank 2 output space, where
-/// `output[0] = 1 + 2 * input[0]` and `output[1] = {5, 10, 13}[input[2] - 3]`.
-/// Both the input and output ranks are specified at compile time.
+///    Same as previous example, except that both the input and output ranks are
+///    specified at run time, and the upper bound of the input domain is
+///    specified using the `input_exclusive_max` method.
 ///
-/// \remark Invalid arguments specified to IndexTransformBuilder are handled in
-///     two different ways.  Calling `input_origin`, `input_shape`,
-///     `input_inclusive_max`, `input_exclusive_max`, or `input_labels` with a
-///     sequence of length not equal to `input_rank()`, and calling `output_*`
-///     with an invalid `output_dim` are fatal errors.  Specifying an invalid
-///     input domain or invalid output index map is not a fatal error; the
-///     Finalize method will simply return an error `Result` if the invalid
-///     input domain or output index map has not been overridden with a valid
-///     one prior to the call to Finalize.
+///    .. code-block:: cpp
+///
+///       IndexTransform<3, 2> t = IndexTransformBuilder<3, 2>()
+///           .input_origin({1, 2, 3})
+///           .input_shape({5, 6, 3})
+///           .input_labels({"a", "b", "x"})
+///           .output_single_input_dimension(0, 1, 2, 0)
+///           .output_index_array(1, 0, 1, MakeArray<Index>({{{5, 10, 13}}}))
+///           .Finalize()
+///           .value();
+///
+///    Creates an index transform from a rank-3 input domain
+///    ``"a": [1, 5], "b": [2, 7], "x": [3, 5]`` to a rank 2 output space, where
+///    ``output[0] = 1 + 2 * input[0]`` and
+///    ``output[1] = {5, 10, 13}[input[2] - 3]``.  Both the input and output
+///    ranks are specified at compile time.
+///
+/// .. note::
+///
+///    Invalid arguments specified to `IndexTransformBuilder` are handled in two
+///    different ways.  Calling `input_origin`, `input_shape`,
+///    `input_inclusive_max`, `input_exclusive_max`, or `input_labels` with a
+///    sequence of length not equal to `input_rank()`, and calling `output_*`
+///    with an invalid `output_dim` are fatal errors.  Specifying an invalid
+///    input domain or invalid output index map is not a fatal error; the
+///    `Finalize` method will simply return an error `Result` if the invalid
+///    input domain or output index map has not been overridden with a valid one
+///    prior to the call to `Finalize`.
+///
+/// \relates IndexTransform
 template <DimensionIndex InputRank = dynamic_rank,
           DimensionIndex OutputRank = dynamic_rank>
 class IndexTransformBuilder {
@@ -560,7 +571,7 @@ class IndexTransformBuilder {
   template <std::size_t N>
   IndexTransformBuilder& implicit_lower_bounds(const bool (&x)[N]) {
     static_assert(InputRank == dynamic_rank || InputRank == N);
-    assert(N == input_rank() && "range size mismatch");
+    TENSORSTORE_CHECK(N == input_rank() && "range size mismatch");
     return implicit_lower_bounds(DimensionSet(x));
   }
 
@@ -590,7 +601,7 @@ class IndexTransformBuilder {
   template <std::size_t N>
   IndexTransformBuilder& implicit_upper_bounds(const bool (&x)[N]) {
     static_assert(InputRank == dynamic_rank || InputRank == N);
-    assert(N == input_rank() && "range size mismatch");
+    TENSORSTORE_CHECK(N == input_rank() && "range size mismatch");
     return implicit_upper_bounds(DimensionSet(x));
   }
 
