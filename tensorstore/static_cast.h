@@ -56,8 +56,10 @@
 namespace tensorstore {
 
 /// Enum type used as a template parameter to casts to choose between an
-/// unchecked cast (that returns the bare value `T`) and a checked cast that
-/// returns `Result<T>`.
+/// unchecked cast (that returns the bare value ``T``) and a checked cast
+/// that returns ``Result<T>``.
+///
+/// \ingroup compile-time-constraints
 enum class CastChecking { checked = 0, unchecked = 1 };
 
 /// Tag type used as the first parameter of some constructors to request an
@@ -67,14 +69,7 @@ enum class CastChecking { checked = 0, unchecked = 1 };
 /// constructors with an initial `unchecked_t` parameter in order to perform
 /// unchecked conversion.
 ///
-/// For types `T` that follow this convention, a specialization of
-/// `StaticCastTraits<T>` is defined that inherits from
-/// `DefaultStaticCastTraits<T>` in order to make the `StaticCast` function use
-/// such constructors.
-///
-/// For builtin types and other existing types that cannot be modified, this
-/// convention can't be used and instead the `StaticCastTraits` specialization
-/// must define a custom `Construct` method.
+/// \ingroup compile-time-constraints
 struct unchecked_t {
   explicit constexpr unchecked_t() = default;
   constexpr operator CastChecking() const { return CastChecking::unchecked; }
@@ -91,20 +86,22 @@ struct unchecked_t {
 ///
 /// - It can also be used directly to call constructors with an `unchecked_t`
 ///   parameter.
+///
+/// \relates unchecked_t
 constexpr unchecked_t unchecked{};
 
-/// Traits class that is specialized for unqualified source and target types `T`
-/// compatible with `StaticCast`.
-///
-/// Specializations of `StaticCastTraits<T>` must define the members documented
-/// by `DefaultStaticCastTraits`, and may publicly inherit from
-/// `DefaultStaticCastTraits<T>` to use the default implementation of
-/// `Construct`.
+// Traits class that is specialized for unqualified source and target types `T`
+// compatible with `StaticCast`.
+//
+// Specializations of `StaticCastTraits<T>` must define the members documented
+// by `DefaultStaticCastTraits`, and may publicly inherit from
+// `DefaultStaticCastTraits<T>` to use the default implementation of
+// `Construct`.
 template <typename T>
 struct StaticCastTraits;
 
-/// Base class from which specializations of `StaticCastTraits` may inherit in
-/// order to obtain the default `Construct` behavior.
+// Base class from which specializations of `StaticCastTraits` may inherit in
+// order to obtain the default `Construct` behavior.
 template <typename T>
 struct DefaultStaticCastTraits {
   /// Constructs a value of type `T` from `source`.
@@ -143,8 +140,8 @@ struct DefaultStaticCastTraits {
   static std::string Describe(const T& value) = delete;
 };
 
-/// Alias that evaluates to the `StaticCastTraits` type to use for an
-/// optionally-qualified type `T`.
+// Alias that evaluates to the `StaticCastTraits` type to use for an
+// optionally-qualified type `T`.
 template <typename T>
 using StaticCastTraitsType = StaticCastTraits<internal::remove_cvref_t<T>>;
 
@@ -231,6 +228,8 @@ constexpr inline bool IsStaticCastConstructible<
 
 /// `bool`-valued metafunction that evaluates to `true` if a value of type
 /// `SourceRef&&` can be converted to a type of `Target` using `StaticCast`.
+///
+/// \ingroup compile-time-constraints
 template <typename Target, typename SourceRef>
 constexpr inline bool IsStaticCastConstructible =
     internal_cast::IsStaticCastConstructible<Target, SourceRef>;
@@ -238,7 +237,7 @@ constexpr inline bool IsStaticCastConstructible =
 /// Evaluates to the result of casting a value of type `SourceRef&&` to `Target`
 /// with a checking mode of `Checking`.
 ///
-/// \requires `IsCastConstructible<Target, SourceRef>`.
+/// \ingroup compile-time-constraints
 template <typename Target, typename SourceRef,
           CastChecking Checking = CastChecking::unchecked>
 using StaticCastResultType = std::enable_if_t<
@@ -246,14 +245,9 @@ using StaticCastResultType = std::enable_if_t<
     typename internal_cast::CastImplType<
         Target, SourceRef, Checking>::template ResultType<SourceRef, Target>>;
 
-/// Casts `source` to the specified `Target` type using `StaticCastTraits`.
+/// Type-erasure-aware conversion of `source` to the specified `Target` type.
 ///
-/// `StaticCastTraits` must be specialized for both `Target` and
-/// `remove_cvref_t<SourceRef>`.  Supported types include `DataType`,
-/// `StaticRank`, `Box`, `Array`, `StridedLayout`, `IndexTransform`, `Spec`,
-/// `TensorStore`.
-///
-/// Example:
+/// Example::
 ///
 ///     tensorstore::Box<> b = ...;
 ///     BoxView<5> b_view = tensorstore::StaticCast<tensorstore::BoxView<5>,
@@ -274,7 +268,8 @@ using StaticCastResultType = std::enable_if_t<
 ///     value of `CastChecking::unchecked` may be more conveniently specified
 ///     using the special tag value `tensorstore::unchecked`.
 /// \param source Source value.
-/// \requires `IsCastConstructible<Target, SourceRef>`
+/// \requires `IsStaticCastConstructible<Target, SourceRef>`
+/// \ingroup compile-time-constraints
 template <typename Target, CastChecking Checking = CastChecking::checked,
           typename SourceRef>
 std::enable_if_t<IsStaticCastConstructible<Target, SourceRef>,
