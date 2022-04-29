@@ -780,6 +780,13 @@ TEST(StridedLayoutViewTest, SubLayout) {
       EXPECT_EQ(r.byte_strides().data() + 1, s.byte_strides().data());
     }
     {
+      auto s = GetSubLayoutView(r, tensorstore::StaticRank<1>{});
+      static_assert(std::is_same_v<decltype(s), StridedLayoutView<2>>);
+      EXPECT_EQ(2, s.rank());
+      EXPECT_EQ(r.shape().data() + 1, s.shape().data());
+      EXPECT_EQ(r.byte_strides().data() + 1, s.byte_strides().data());
+    }
+    {
       auto s = GetSubLayoutView<2>(r);
       static_assert(std::is_same_v<decltype(s), StridedLayoutView<1>>);
 

@@ -814,107 +814,49 @@ struct StaticCastTraits<StridedLayout<Rank, OriginKind, CKind>>
   using RebindRank = StridedLayout<TargetRank, OriginKind, CKind>;
 };
 
-/// Returns the layout representing `layout` with the first `SubRank` dimensions
-/// removed.
+/// Returns a view with the leading `sub_rank` dimensions of `layout` removed.
 ///
-/// The extra optional `sub_rank` parameter, which must equal `SubRank`, is
-/// supported in order to allow a uniform call syntax for both a compile-time
-/// and run-time number of dimensions to remove.
-///
+/// \tparam SubRank Specifies the number of leading dimensions to remove at
+///     compile time, or `dynamic_rank` to specify the number of dimensions at
+///     run time.
 /// \param layout The existing layout.
-/// \param sub_rank Optional.  Must equal `SubRank`.
-/// \returns A StridedLayoutView that references the same memory as `layout`.
-template <DimensionIndex SubRank, typename Layout>
-std::enable_if_t<
-    (IsStridedLayout<Layout> && SubRank != dynamic_rank &&
-     Layout::array_origin_kind == zero_origin),
-    StridedLayoutView<RankConstraint::Subtract(Layout::static_rank, SubRank),
-                      zero_origin>>
-GetSubLayoutView(const Layout& layout, DimensionIndex sub_rank = SubRank) {
-  static_assert(SubRank >= 0, "SubRank must be >= 0.");
-  static_assert(
-      RankConstraint::GreaterEqualOrUnspecified(Layout::static_rank, SubRank),
-      "Rank must be >= SubRank.");
-  assert(SubRank <= layout.rank());
-  assert(sub_rank == SubRank);
-  return StridedLayoutView<
-      RankConstraint::Subtract(Layout::static_rank, SubRank), zero_origin>{
-      layout.shape().template subspan<SubRank>(),
-      layout.byte_strides().template subspan<SubRank>()};
-}
-
-/// Returns the layout representing `layout` with the first `sub_rank`
-/// dimensions removed.
-///
-/// In order to more conveniently support calling this function from generic
-/// code where the `sub_rank` may be known at compile time, this overload can
-/// optionally be called with a single template argument of `dynamic_rank`.
-///
-/// \param layout The existing layout.
-/// \param sub_rank The number of dimensions to remove.
-/// \returns A StridedLayoutView that references the same memory as `layout`.
-template <DimensionIndex SubRank = dynamic_rank, typename Layout>
-std::enable_if_t<(IsStridedLayout<Layout> &&
-                  Layout::array_origin_kind == zero_origin &&
-                  SubRank == dynamic_rank),
-                 StridedLayoutView<dynamic_rank, zero_origin>>
-GetSubLayoutView(const Layout& layout, DimensionIndex sub_rank) {
+/// \param sub_rank Specifies the number of leading dimensions to remove.
+///     Optional if `SubRank != dynamic_rank`.
+/// \returns A view that references the same memory as `layout`.
+template <DimensionIndex SubRank = dynamic_rank, DimensionIndex R,
+          ArrayOriginKind O, ContainerKind C>
+StridedLayoutView<
+    RankConstraint::Subtract(RankConstraint::FromInlineRank(R), SubRank), O>
+GetSubLayoutView(
+    const StridedLayout<R, O, C>& layout,
+    StaticOrDynamicRank<SubRank> sub_rank = StaticRank<SubRank>{}) {
+  static_assert(RankConstraint(SubRank).valid());
+  static_assert(RankConstraint::GreaterEqualOrUnspecified(
+                    RankConstraint::FromInlineRank(R), SubRank),
+                "Rank must be >= SubRank.");
   assert(sub_rank >= 0 && sub_rank <= layout.rank());
-  return StridedLayoutView<dynamic_rank, zero_origin>{
-      layout.shape().subspan(sub_rank),
-      layout.byte_strides().subspan(sub_rank)};
+  using NewLayout = StridedLayoutView<
+      RankConstraint::Subtract(RankConstraint::FromInlineRank(R), SubRank), O>;
+  if constexpr (O == zero_origin) {
+    return NewLayout(unchecked, StridedLayoutView<dynamic_rank, zero_origin>(
+                                    layout.shape().subspan(sub_rank),
+                                    layout.byte_strides().subspan(sub_rank)));
+  } else {
+    return NewLayout(unchecked, StridedLayoutView<dynamic_rank, offset_origin>(
+                                    layout.origin().subspan(sub_rank),
+                                    layout.shape().subspan(sub_rank),
+                                    layout.byte_strides().subspan(sub_rank)));
+  }
 }
 
-/// Returns the layout representing `layout` with the first `SubRank` dimensions
-/// removed.
-///
-/// The extra optional `sub_rank` parameter, which must equal `SubRank`, is
-/// supported in order to allow a uniform call syntax for both a compile-time
-/// and run-time number of dimensions to remove.
-///
-/// \param layout The existing layout.
-/// \param sub_rank Optional.  Must equal `SubRank`.
-/// \returns A StridedLayoutView that references the same memory as `layout`.
-template <DimensionIndex SubRank, typename Layout>
-std::enable_if_t<
-    (IsStridedLayout<Layout> && SubRank != dynamic_rank &&
-     Layout::array_origin_kind == offset_origin),
-    StridedLayoutView<RankConstraint::Subtract(Layout::static_rank, SubRank),
-                      offset_origin>>
-GetSubLayoutView(const Layout& layout, DimensionIndex sub_rank = SubRank) {
-  static_assert(SubRank >= 0, "SubRank must be >= 0.");
-  static_assert(
-      RankConstraint::GreaterEqualOrUnspecified(Layout::static_rank, SubRank),
-      "Rank must be >= SubRank.");
-  assert(SubRank <= layout.rank());
-  assert(sub_rank == SubRank);
-  return StridedLayoutView<
-      RankConstraint::Subtract(Layout::static_rank, SubRank), offset_origin>{
-      layout.origin().template subspan<SubRank>(),
-      layout.shape().template subspan<SubRank>(),
-      layout.byte_strides().template subspan<SubRank>()};
-}
-
-/// Returns the layout representing `layout` with the first `sub_rank`
-/// dimensions removed.
-///
-/// In order to more conveniently support calling this function from generic
-/// code where the `sub_rank` may be known at compile time, this overload can
-/// optionally be called with a single template argument of `dynamic_rank`.
-///
-/// \param layout The existing layout.
-/// \param sub_rank The number of dimensions to remove.
-/// \returns A StridedLayoutView that references the same memory as `layout`.
-template <DimensionIndex SubRank = dynamic_rank, typename Layout>
-std::enable_if_t<(IsStridedLayout<Layout> &&
-                  Layout::array_origin_kind == offset_origin &&
-                  SubRank == dynamic_rank),
-                 StridedLayoutView<dynamic_rank, offset_origin>>
-GetSubLayoutView(const Layout& layout, DimensionIndex sub_rank) {
-  assert(sub_rank >= 0 && sub_rank <= layout.rank());
-  return StridedLayoutView<dynamic_rank, offset_origin>{
-      layout.origin().subspan(sub_rank), layout.shape().subspan(sub_rank),
-      layout.byte_strides().subspan(sub_rank)};
+// Overload that allows `SubRank` to be inferred.
+template <int&... ExplicitArgumentBarrier, DimensionIndex SubRank,
+          DimensionIndex R, ArrayOriginKind O, ContainerKind C>
+StridedLayoutView<
+    RankConstraint::Subtract(RankConstraint::FromInlineRank(R), SubRank), O>
+GetSubLayoutView(const StridedLayout<R, O, C>& layout,
+                 std::integral_constant<DimensionIndex, SubRank>) {
+  return GetSubLayoutView<SubRank>(layout);
 }
 
 template <DimensionIndex Rank, ArrayOriginKind OriginKind, ContainerKind CKind>

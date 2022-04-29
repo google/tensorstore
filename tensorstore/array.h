@@ -303,8 +303,8 @@ SubArray(const Array<ElementTag, Rank, OriginKind, SourceCKind>& array,
       OriginKind, LayoutCKind>(
       ElementPointer<typename ElementTagTraits<ElementTag>::Element>(
           (array.byte_strided_pointer() + byte_offset).get(), array.dtype()),
-      GetSubLayoutView<IndicesSpan::extent>(array.layout(),
-                                            indices_span.size()));
+      GetSubLayoutView<IndicesSpan::extent>(
+          array.layout(), GetStaticOrDynamicExtent(indices_span)));
 }
 template <ContainerKind LayoutCKind = view, typename Element,
           DimensionIndex Rank, ArrayOriginKind OriginKind,
@@ -322,8 +322,8 @@ SharedSubArray(const SharedArray<Element, Rank, OriginKind, SourceCKind>& array,
       SubArrayStaticRank<RankConstraint::FromInlineRank(Rank), Indices>,
       OriginKind, LayoutCKind>(
       AddByteOffset(array.element_pointer(), byte_offset),
-      GetSubLayoutView<IndicesSpan::extent>(array.layout(),
-                                            indices_span.size()));
+      GetSubLayoutView<IndicesSpan::extent>(
+          array.layout(), GetStaticOrDynamicExtent(indices_span)));
 }
 
 template <ContainerKind LayoutCKind = view, typename ElementTag,
