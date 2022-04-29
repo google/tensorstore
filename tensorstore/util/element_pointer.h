@@ -93,13 +93,7 @@ struct ElementTagTraits<Shared<T>> {
   using rebind = Shared<U>;
 };
 
-/// Metafunction with a nested `type` alias that specifies the element tag type
-/// corresponding to a given pointer type.
-///
-/// This is the inverse metafunction of `ElementTagPointerType`.
-///
-/// \tparam T Pointer type corresponding to an element tag.  Must be either `U*`
-///     or `std::shared_ptr<U>`.
+namespace internal_element_pointer {
 template <typename T>
 struct PointerElementTagType;
 
@@ -112,9 +106,11 @@ template <typename T>
 struct PointerElementTagType<std::shared_ptr<T>> {
   using type = Shared<T>;
 };
+}  // namespace internal_element_pointer
 
 template <typename T>
-using PointerElementTag = typename PointerElementTagType<T>::type;
+using PointerElementTag =
+    typename internal_element_pointer::PointerElementTagType<T>::type;
 
 /// `bool`-valued metafunction that evaluates to `true` if `SourcePointer` may
 /// be converted to `TargetPointer` when used as an array base pointer.
@@ -197,6 +193,12 @@ ConvertPointer(Source&& x) {
 
 std::string DescribeForCast(DataType dtype);
 }  // namespace internal_element_pointer
+
+/// `StaticDataType` corresponding to the element type of `Pointer`, or
+/// `DataType` if the element type is `void`.
+template <typename Pointer>
+using pointee_dtype_t = dtype_t<typename std::pointer_traits<
+    internal::remove_cvref_t<Pointer>>::element_type>;
 
 template <typename ElementTagType>
 class ElementPointer;
@@ -283,8 +285,7 @@ class ElementPointer {
           IsArrayBasePointerConvertible<internal::remove_cvref_t<SourcePointer>,
                                         Pointer>>* = nullptr>
   ElementPointer(SourcePointer&& pointer)
-      : storage_(dtype_v<typename std::pointer_traits<
-                     internal::remove_cvref_t<SourcePointer>>::element_type>,
+      : storage_(pointee_dtype_t<SourcePointer>(),
                  internal::static_pointer_cast<Element>(
                      internal_element_pointer::ConvertPointer<Pointer>(
                          std::forward<SourcePointer>(pointer)))) {}
@@ -298,10 +299,7 @@ class ElementPointer {
   template <typename SourcePointer,
             std::enable_if_t<IsArrayBasePointerConvertible<
                 internal::remove_cvref_t<SourcePointer>, Pointer>>* = nullptr>
-  ElementPointer(SourcePointer&& pointer,
-                 dtype_t<typename std::pointer_traits<
-                     internal::remove_cvref_t<SourcePointer>>::element_type>
-                     dtype)
+  ElementPointer(SourcePointer&& pointer, pointee_dtype_t<SourcePointer> dtype)
       : storage_(dtype, internal::static_pointer_cast<Element>(
                             internal_element_pointer::ConvertPointer<Pointer>(
                                 std::forward<SourcePointer>(pointer)))) {}
@@ -334,9 +332,19 @@ class ElementPointer {
   /// Returns `data() != nullptr`.
   explicit operator bool() const { return data() != nullptr; }
 
-  /// Compares an element pointer against `nullptr`.
+  /// Compares the data pointers and data types.
   ///
   /// \returns p.data() == nullptr
+  template <typename B>
+  friend bool operator==(const ElementPointer& a, const ElementPointer<B>& b) {
+    return a.data() == b.data() && a.dtype() == b.dtype();
+  }
+  template <typename B>
+  friend bool operator!=(const ElementPointer& a, const ElementPointer<B>& b) {
+    return !(a == b);
+  }
+
+  /// Checks if the data pointer is null.
   friend bool operator==(const ElementPointer& p, std::nullptr_t) {
     return p.data() == nullptr;
   }
@@ -366,22 +374,6 @@ class ElementPointer {
   using Storage = internal::CompressedPair<DataType, Pointer>;
   Storage storage_{DataType(), nullptr};
 };
-
-/// Compares two element pointers for equality.
-///
-/// \returns `a.data() == b.data() && a.dtype() == b.dtype()`
-template <typename A, typename B>
-bool operator==(const ElementPointer<A>& a, const ElementPointer<B>& b) {
-  return a.data() == b.data() && a.dtype() == b.dtype();
-}
-
-/// Compares two element pointers for inequality.
-///
-/// \returns !(a == b)
-template <typename A, typename B>
-bool operator!=(const ElementPointer<A>& a, const ElementPointer<B>& b) {
-  return !(a == b);
-}
 
 /// Represents a pointer to array data with shared ownership.
 template <typename Element>
