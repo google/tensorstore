@@ -44,4 +44,41 @@
 #endif
 #endif  // !defined(TENSORSTORE_LIFETIME_BOUND)
 
+// When defining a conditionally-explicit constructor, this may be used on the
+// explicit overload to wrap the portion of the `enable_if` conditions that
+// differ from the implicit overload.
+//
+// For example:
+//
+//     template <typename T>
+//     struct Foo {
+//
+//       /// Constructs from a convertible value.
+//       template <typename U, typename = std::enable_if_t<
+//           (std::is_constructible_v<T, U> &&
+//            ExplicitRequires(!std::is_convertible_v<U, T>)>>
+//       explicit Foo(U &&value);
+//
+//       // Undocumented
+//       template <typename U, typename = std::enable_if_t<
+//           std::is_convertible_v<U, T>>>
+//       Foo(U &&value);
+//     };
+//
+// When the API documentation is generated, this will be treated as equivalent
+// to the C++20 syntax:
+//
+//     template <typename T>
+//     struct Foo {
+//
+//       /// Constructs from a convertible value.
+//       template <typename U>
+//           requires(std::is_constructible_v<T, U>)
+//       explicit(!std::is_convertible_v<U, T>)
+//       Foo(U &&value);
+//     };
+namespace tensorstore {
+constexpr inline bool ExplicitRequires(bool value) { return value; }
+}  // namespace tensorstore
+
 #endif  // TENSORSTORE_INTERNAL_ATTRIBUTES_H_
