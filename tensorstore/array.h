@@ -95,13 +95,13 @@ absl::Status CopyConvertedArrayImplementation(
 /// Conceptually, `SharedArray` combines a `SharedElementPointer<Element>`,
 /// which represents either an unowned reference to the array data, or shared
 /// ownership of the array data, with a `StridedLayout<Rank>`, which represents
-/// the layout (specifically the `shape` and `byte_strides`) with value
-/// semantics.  Copying a `Array` object copies the layout (such that any
-/// changes to the layout in one copy do not affect other copies) but does not
-/// copy the multi-dimensional array data (such that any changes to the array
-/// data made using one `Array` object will also be reflected in any other
-/// copies).  The `CopyArray` function can be used to actually copy the array
-/// data.
+/// the layout (specifically the `StridedLayout::shape` and
+/// `StridedLayout::byte_strides`) with value semantics.  Copying an `Array`
+/// object copies the layout (such that any changes to the layout in one copy do
+/// not affect other copies) but does not copy the multi-dimensional array data
+/// (such that any changes to the array data made using one `Array` object will
+/// also be reflected in any other copies).  The `CopyArray` function can be
+/// used to actually copy the array data.
 ///
 /// Example usage:
 ///
@@ -124,20 +124,23 @@ absl::Status CopyConvertedArrayImplementation(
 ///     that the multi-dimensional array is const.
 /// \tparam Rank Specifies the compile-time rank.  The special value
 ///     `dynamic_rank` indicates that the rank is determined at run time.  If
-///     `LayoutContainerKind == container`, `dynamic_rank(n)` for `n >= 0` may
-///     be specified to indicate a rank determine at run time and inline layout
-///     storage for ranks `<= n`.
+///     `LayoutContainerKind == container`, ``dynamic_rank(n)`` for
+///     ``n >= 0`` may be specified to indicate a rank determined at run time
+///     and inline layout storage for ranks ``<= n``.
 /// \tparam OriginKind Specifies whether the origin for each dimension is fixed
 ///     at 0, or may be offset.
 /// \tparam LayoutContainerKind Specifies whether the layout (shape, byte
 ///     strides, and optional origin) is stored by value or by reference.
+/// \relates Array
 template <typename Element, DimensionIndex Rank = dynamic_rank,
           ArrayOriginKind OriginKind = zero_origin,
           ContainerKind LayoutContainerKind = container>
 using SharedArray =
     Array<Shared<Element>, Rank, OriginKind, LayoutContainerKind>;
 
-/// Same as `SharedArray` but supports an arbitrary `origin` vector.
+/// Same as `SharedArray` but supports an arbitrary `Array::origin` vector.
+///
+/// \relates Array
 template <typename Element, DimensionIndex Rank = dynamic_rank,
           ContainerKind LayoutContainerKind = container>
 using SharedOffsetArray =
@@ -176,13 +179,19 @@ using SharedOffsetArray =
 ///     run time.
 /// \tparam Rank Specifies the compile-time rank of the array.  A value of
 ///     `dynamic_rank` indicates that the rank will be determined at run time.
-/// \see Array The related type `ArrayView` supports optional shared ownership
-///     semantics for the array data it references.
+/// \relates Array
+///
+/// .. seealso::
+///
+///    The related type `ArrayView` supports optional shared ownership semantics
+///    for the array data it references.
 template <typename Element, DimensionIndex Rank = dynamic_rank,
           ArrayOriginKind OriginKind = zero_origin>
 using SharedArrayView = Array<Shared<Element>, Rank, OriginKind, view>;
 
-/// Same as SharedArrayView but supports an arbitrary `origin` vector.
+/// Same as SharedArrayView but supports an arbitrary `Array::origin` vector.
+///
+/// \relates Array
 template <typename Element, DimensionIndex Rank = dynamic_rank>
 using SharedOffsetArrayView = Array<Shared<Element>, Rank, offset_origin, view>;
 
@@ -220,11 +229,14 @@ using SharedOffsetArrayView = Array<Shared<Element>, Rank, offset_origin, view>;
 ///     run time.
 /// \tparam Rank Specifies the compile-time rank of the array.  A value of
 ///     `dynamic_rank` indicates that the rank will be determined at run time.
+/// \relates Array
 template <typename Element, DimensionIndex Rank = dynamic_rank,
           ArrayOriginKind OriginKind = zero_origin>
 using ArrayView = Array<Element, Rank, OriginKind, view>;
 
-/// Same as `ArrayView` but supports an arbitrary `origin` vector.
+/// Same as `ArrayView` but supports an arbitrary `Array::origin` vector.
+///
+/// \relates Array
 template <typename Element, DimensionIndex Rank = dynamic_rank>
 using OffsetArrayView = Array<Element, Rank, offset_origin, view>;
 
@@ -233,6 +245,8 @@ using OffsetArrayView = Array<Element, Rank, offset_origin, view>;
 /// (DestElement, DestRank, DestOriginKind) tuple, based on
 /// `IsElementTypeExplicitlyConvertible`, `RankConstraint::EqualOrUnspecified`
 /// and `IsArrayOriginKindConvertible`.
+///
+/// \relates Array
 template <typename SourceElement, DimensionIndex SourceRank,
           ArrayOriginKind SourceOriginKind, typename DestElement,
           DimensionIndex DestRank, ArrayOriginKind DestOriginKind>
@@ -241,8 +255,9 @@ constexpr inline bool IsArrayExplicitlyConvertible =
     RankConstraint::EqualOrUnspecified(SourceRank, DestRank) &&
     IsArrayOriginKindConvertible(SourceOriginKind, DestOriginKind);
 
-/// Bool-valued metafunction that is `true` if `T` is an instance of
-/// `SharedArray`, `SharedArrayView`, or `ArrayView`.
+/// Bool-valued metafunction that is `true` if `T` is an instance of `Array`.
+///
+/// \relates Array
 template <typename T>
 constexpr inline bool IsArray = false;
 
@@ -254,10 +269,9 @@ constexpr inline bool
 
 /// Metafunction that computes the static rank of the sub-array obtained by
 /// indexing an array of the given `Rank` with an index vector of type
-/// `Indices`.  Will result in a substitution failure if the arguments are
-/// invalid.
+/// `Indices`.
 ///
-/// \requires `Indices` is `span`-compatible.
+/// \relates Array
 template <DimensionIndex Rank, typename Indices,
           typename =
               std::enable_if_t<IsCompatiblePartialIndexVector<Rank, Indices>>>
@@ -273,16 +287,14 @@ constexpr inline DimensionIndex SubArrayStaticRank =
 /// \tparam LayoutCKind Specifies whether to return a copy or view of the
 ///     sub-array layout.
 /// \param array The source array.
-/// \param indices A `span`-compatible index array.
+/// \param indices A `span`-compatible index array.  May be specified as a
+///     braced list, e.g. ``SubArray(array, {1, 2})`` or
+///     ``SharedSubArray(array, {1, 2})``.
 /// \dchecks `array.rank() >= span(indices).size()`.
-/// \dchecks `0 <= span(indices)[i] < array.shape()[i]` for
-///     `0 <= i < span(indices).size()`.
+/// \dchecks ``0 <= span(indices)[i] < array.shape()[i]`` for
+///     ``0 <= i < span(indices).size()``.
 /// \returns The sub array.
-/// \post `result.rank() == array.rank() - span(indices).size()`
-/// \post `result.data() == `
-///       `array.byte_strided_pointer() + array.layout()[indices]`
-/// \post `result.layout() == `
-///       `GetSubLayoutView(array.layout(), span(indices).size())`.
+/// \relates Array
 template <ContainerKind LayoutCKind = view, typename ElementTag,
           DimensionIndex Rank, ArrayOriginKind OriginKind,
           ContainerKind SourceCKind, typename Indices>
@@ -364,10 +376,10 @@ absl::Status ArrayOriginCastError(span<const Index> shape);
 /// This class template has several parameters:
 ///
 /// 1. The ownership semantics for the array data are specified using the
-///    `ElementTagType` template parameter: `ElementTagType` may be an
-///    ElementType to obtain an unowned view of the array data, or may be
-///    `Shared<T>`, where `T` is an ElementType, for shared ownership of the
-///    array data.
+///    `ElementTagType` template parameter: `ElementTagType` may be an `Element`
+///    type to obtain an unowned view of the array data, or may be
+///    `Shared<Element>`, where `Element` is an element type, for shared
+///    ownership of the array data.
 ///
 /// 2. The `Element` type may either be specified at compile time, or may be
 ///    `void` or `const void` to indicate a dynamic element type determined at
@@ -388,20 +400,19 @@ absl::Status ArrayOriginCastError(span<const Index> shape);
 ///    unowned view semantics (by specifying a `LayoutContainerKind` of `view`).
 ///
 /// Instances of this class template may be more conveniently specified using
-/// the convenience aliases {Shared,}{Offset,}Array{Ref,}.
+/// the convenience aliases {Shared,}{Offset,}Array{View,}.
 ///
-/// Logically, this class pairs an element pointer of type
-/// `ElementPointerBase<PointerType>` with a `StridedLayout` of type
-/// `StridedLayout<Rank, OriginKind, LayoutContainerKind>`.
+/// Logically, this class pairs an `ElementPointer` with a strided `Layout`.
 ///
-/// \tparam ElementTagType Must satisfy `IsElementTag`.  Either `T` or
-///     `Shared<T>`, where `T` satisfies `IsElementType<T>`.
+/// \tparam ElementTagType Must satisfy `IsElementTag`.  Either ``T`` or
+///     ``Shared<T>``, where ``T`` satisfies ``IsElementType<T>``.
 /// \tparam Rank The compile-time rank of the array, `dynamic_rank` if the rank
 ///     is to be specified at run time, if `LayoutContainerKind == view`,
-///     `dynamic_rank(n)` for `n >= 0` to indicate a rank specified at run time
-///     with inline layout storage for ranks `<= n`.
+///     ``dynamic_rank(n)`` for ``n >= 0`` to indicate a rank specified at
+///     run time with inline layout storage for ranks ``k <= n``.
 /// \tparam OriginKind Equal to `zero_origin` or `offset_origin`.
 /// \tparam LayoutContainerKind Equal to `container` or `view`.
+/// \ingroup array
 template <typename ElementTagType, DimensionIndex Rank = dynamic_rank,
           ArrayOriginKind OriginKind = zero_origin,
           ContainerKind LayoutContainerKind = container>
@@ -412,17 +423,42 @@ class Array {
                 "ElementTagType must be an ElementTag type.");
   static_assert(LayoutContainerKind == container || Rank >= dynamic_rank,
                 "Rank must be dynamic_rank or >= 0.");
+
+  /// Element tag type of the array.
   using ElementTag = ElementTagType;
+
+  /// Strided layout type used by the array.
   using Layout = StridedLayout<Rank, OriginKind, LayoutContainerKind>;
+
+  /// Element type of the `span` returned by the non-const `shape` and
+  /// `byte_strides` methods.
   using MaybeConstIndex = typename Layout::MaybeConstIndex;
+
+  /// Element type of the `span` returned by the non-const `origin` method.
   using MaybeConstOriginIndex = typename Layout::MaybeConstOriginIndex;
+
+  /// Element pointer type.
   using ElementPointer = tensorstore::ElementPointer<ElementTagType>;
+
+  /// Element type of the array, may be const qualified.
   using Element = typename ElementPointer::Element;
+
+  /// Static or dynamic data type of the array.
   using DataType = dtype_t<Element>;
+
+  /// Stored data pointer, either `Element*` or `std::shared_ptr<Element>`.
   using Pointer = typename ElementPointer::Pointer;
+
+  /// Raw data pointer type.
   using RawPointer = Element*;
+
+  /// Unqualified element type.
   using value_type = std::remove_cv_t<Element>;
+
+  /// Array index type.
   using index_type = Index;
+
+  /// Static or dynamic rank representation type.
   using RankType = typename Layout::RankType;
 
   /// Rank of the array, or `dynamic_rank` if specified at run time.
@@ -450,6 +486,7 @@ class Array {
   /// Default constructs both the `element_pointer` and the `layout`.
   ///
   /// \post `data() == nullptr`
+  /// \id default
   Array() = default;
 
   /// Constructs a rank-0 array from an implicitly convertible
@@ -458,6 +495,7 @@ class Array {
   /// \requires `static_rank == 0 || static_rank == dynamic_rank`.
   /// \post `this->element_pointer() == element_pointer`
   /// \post `this->layout() == StridedLayoutView<0>()`
+  /// \id element_pointer
   template <
       typename SourcePointer = ElementPointer,
       std::enable_if_t<(std::is_convertible_v<SourcePointer, ElementPointer> &&
@@ -465,11 +503,21 @@ class Array {
   Array(SourcePointer element_pointer)
       : storage_(std::move(element_pointer), Layout()) {}
 
-  /// Constructs an array from an implicitly convertible `element_pointer` and
-  /// `layout`.
+  /// Constructs an array from a convertible `element_pointer` and `layout`.
   ///
-  /// \post `this->element_pointer() == element_pointer`
-  /// \post `this->layout() == layout`
+  /// \id element_pointer, layout
+  template <typename SourcePointer = ElementPointer, typename SourceLayout,
+            std::enable_if_t<
+                (ExplicitRequires(
+                     !std::is_convertible_v<SourcePointer, ElementPointer> ||
+                     !std::is_convertible_v<SourceLayout, Layout>) &&
+                 std::is_constructible_v<ElementPointer, SourcePointer> &&
+                 std::is_constructible_v<Layout, SourceLayout>)>* = nullptr>
+  explicit Array(SourcePointer element_pointer, SourceLayout&& layout)
+      : storage_(std::move(element_pointer),
+                 std::forward<SourceLayout>(layout)) {}
+
+  // Overload for implicit conversion case.
   template <
       typename SourcePointer = ElementPointer, typename SourceLayout,
       std::enable_if_t<internal::IsPairImplicitlyConvertible<
@@ -490,17 +538,17 @@ class Array {
   ///     auto f_array = Array(&data[0], {3, 2}, fortran_order);
   ///     EXPECT_EQ(MakeArray<int>({{1, 4}, {2, 5}, {3, 6}}), array);
   ///
-  /// \requires `Shape` is a `span`-compatible vector with static extent
-  ///     implicitly convertible to `static_rank`.
-  /// \requires `std::is_convertible_v<SourcePointer, ElementPointer>`
-  /// \requires `layout_container_kind == container`
   /// \param element_pointer The base/origin pointer of the array.
   /// \param shape The dimensions of the array.  May be specified as a braced
-  ///     list, i.e. `{2, 3}`, which is handled by the overload defined below.
+  ///     list, e.g. ``Array(element_pointer, {2, 3})``.
   /// \param order Specifies the layout order.
-  /// \remark The caller is responsible for ensuring that `shape` and `order`
-  ///     are valid for `element_pointer`.  This function does not check them in
-  ///     any way.
+  /// \id element_pointer, shape, order
+  ///
+  /// .. warning::
+  ///
+  ///   The caller is responsible for ensuring that `shape` and `order` are
+  ///   valid for `element_pointer`.  This function does not check them in any
+  ///   way.
   template <typename SourcePointer = ElementPointer, typename Shape,
             std::enable_if_t<
                 (std::is_convertible_v<SourcePointer, ElementPointer> &&
@@ -513,12 +561,6 @@ class Array {
     InitializeContiguousLayout(order, this->dtype().size(), shape,
                                &this->layout());
   }
-
-  /// Same as above, but can be called with `shape` specified using a braced
-  /// list.
-  ///
-  /// \requires `std::is_convertible_v<SourcePointer, ElementPointer>`
-  /// \requires `layout_container_kind == container`
   template <typename SourcePointer = ElementPointer, DimensionIndex ShapeRank,
             std::enable_if_t<
                 (std::is_convertible_v<SourcePointer, ElementPointer> &&
@@ -537,7 +579,7 @@ class Array {
   /// The `element_pointer` is assumed to point to the element at
   /// `domain.origin()`, not the element at the zero position vector.
   ///
-  /// Example:
+  /// Example::
   ///
   ///     int data[6] = {1, 2, 3, 4, 5, 6};
   ///     auto c_array = Array(&data[0], Box({1, 2}, {2, 3}));
@@ -548,12 +590,13 @@ class Array {
   ///     EXPECT_EQ(MakeOffsetArray<int>({1, 2}, {{1, 4}, {2, 5}, {3, 6}}),
   ///               array);
   ///
-  /// \requires `std::is_convertible_v<SourcePointer, ElementPointer>`
-  /// \requires `layout_container_kind == container`
-  /// \requires `array_origin_kind == offset_origin`
-  /// \remark The caller is responsible for ensuring that `domain` and `order`
-  ///     are valid for `element_pointer`.  This function does not check them in
-  ///     any way.
+  /// .. warning::
+  ///
+  ///    The caller is responsible for ensuring that `domain` and `order` are
+  ///    valid for `element_pointer`.  This function does not check them in any
+  ///    way.
+  ///
+  /// \id element_pointer, domain, order
   template <
       typename SourcePointer = ElementPointer,
       std::enable_if_t<(std::is_convertible_v<SourcePointer, ElementPointer> &&
@@ -569,51 +612,55 @@ class Array {
                       -this->layout().origin_byte_offset());
   }
 
-  /// Constructs an array from an explicitly convertible `element_pointer` and
-  /// `layout`.
+  /// Converts from a compatible existing array.
   ///
-  /// \post `this->element_pointer() == element_pointer`
-  /// \post `this->layout() == layout`
+  /// \id convert
   template <
-      typename SourcePointer = ElementPointer, typename SourceLayout,
-      std::enable_if_t<internal::IsPairOnlyExplicitlyConvertible<
-          SourcePointer, SourceLayout, ElementPointer, Layout>>* = nullptr>
-  explicit Array(SourcePointer element_pointer, SourceLayout&& layout)
-      : storage_(std::move(element_pointer),
-                 std::forward<SourceLayout>(layout)) {}
+      typename E, DimensionIndex R, ArrayOriginKind O, ContainerKind C,
+      std::enable_if_t<
+          (ExplicitRequires(
+               !std::is_convertible_v<StridedLayout<R, O, C>, Layout> ||
+               !std::is_convertible_v<tensorstore::ElementPointer<E>,
+                                      ElementPointer>) &&
+           std::is_constructible_v<Layout, StridedLayout<R, O, C>> &&
+           std::is_constructible_v<ElementPointer,
+                                   tensorstore::ElementPointer<E>>)>* = nullptr>
+  explicit Array(const Array<E, R, O, C>& other)
+      : storage_(other.element_pointer(), other.layout()) {}
+  template <
+      typename E, DimensionIndex R, ArrayOriginKind O, ContainerKind C,
+      std::enable_if_t<
+          (ExplicitRequires(
+               !std::is_convertible_v<StridedLayout<R, O, C>, Layout> ||
+               !std::is_convertible_v<tensorstore::ElementPointer<E>,
+                                      ElementPointer>) &&
+           std::is_constructible_v<Layout, StridedLayout<R, O, C>> &&
+           std::is_constructible_v<ElementPointer,
+                                   tensorstore::ElementPointer<E>>)>* = nullptr>
+  explicit Array(Array<E, R, O, C>&& other)
+      : storage_(std::move(other).element_pointer(),
+                 std::move(other).layout()) {}
 
-  /// Copy constructs an array from an existing array guaranteed at compile
-  /// time to be compatible with the element pointer and layout.
-  ///
-  /// \post this->element_pointer() == other.element_pointer()
-  /// \post this->layout() == other.layout()
-  template <typename Other,
-            std::enable_if_t<
-                (IsArray<internal::remove_cvref_t<Other>> &&
-                 internal::IsPairImplicitlyConvertible<
-                     typename internal::remove_cvref_t<Other>::ElementPointer,
-                     typename internal::remove_cvref_t<Other>::Layout,
-                     ElementPointer, Layout>)>* = nullptr>
-  Array(Other&& other)
-      : storage_(std::forward<Other>(other).element_pointer(),
-                 std::forward<Other>(other).layout()) {}
-
-  /// Copy constructs from a compatible existing array.
-  ///
-  /// \post this->element_pointer() == other.element_pointer()
-  /// \post this->layout() == other.layout()
-  template <typename Other,
-            std::enable_if_t<
-                (IsArray<internal::remove_cvref_t<Other>> &&
-                 internal::IsPairOnlyExplicitlyConvertible<
-                     typename internal::remove_cvref_t<Other>::ElementPointer,
-                     typename internal::remove_cvref_t<Other>::Layout,
-                     ElementPointer, Layout>)>* = nullptr>
-  explicit Array(Other&& other)
-      : storage_(std::forward<Other>(other).element_pointer(),
-                 std::forward<Other>(other).layout()) {}
+  // Overloads for implicit conversion case.
+  template <
+      typename E, DimensionIndex R, ArrayOriginKind O, ContainerKind C,
+      std::enable_if_t<(std::is_convertible_v<StridedLayout<R, O, C>, Layout> &&
+                        std::is_convertible_v<tensorstore::ElementPointer<E>,
+                                              ElementPointer>)>* = nullptr>
+  Array(const Array<E, R, O, C>& other)
+      : storage_(other.element_pointer(), other.layout()) {}
+  template <
+      typename E, DimensionIndex R, ArrayOriginKind O, ContainerKind C,
+      std::enable_if_t<(std::is_convertible_v<StridedLayout<R, O, C>, Layout> &&
+                        std::is_convertible_v<tensorstore::ElementPointer<E>,
+                                              ElementPointer>)>* = nullptr>
+  Array(Array<E, R, O, C>&& other)
+      : storage_(std::move(other).element_pointer(),
+                 std::move(other).layout()) {}
 
   /// Unchecked conversion.
+  ///
+  /// \id unchecked
   template <
       typename Other,
       std::enable_if_t<
@@ -623,6 +670,8 @@ class Array {
                typename internal::remove_cvref_t<Other>::ElementPointer> &&
            IsStaticCastConstructible<Layout, typename internal::remove_cvref_t<
                                                  Other>::Layout>)>* = nullptr>
+  // NONITPICK: std::remove_cvref_t<Other>::ElementPointer
+  // NONITPICK: std::remove_cvref_t<Other>::Layout
   explicit Array(unchecked_t, Other&& other)
       : storage_(unchecked, std::forward<Other>(other).element_pointer(),
                  std::forward<Other>(other).layout()) {}
@@ -645,25 +694,25 @@ class Array {
   /// Returns `true` if `data() != nullptr`.
   bool valid() const { return this->data() != nullptr; }
 
-  /// Returns a raw pointer to the first element of the array.
+  /// Returns a raw pointer to the element of the array at the zero index
+  /// vector.
+  ///
+  /// .. warning::
+  ///
+  ///    If `origin()` is non-zero, the returned pointer may not point to the
+  ///    origin of the array, and may even point to an out-of-bounds location.
   Element* data() const { return storage_.data(); }
 
-  /// Returns a const reference to the stored pointer.
+  /// Returns a reference to the stored pointer.
   const Pointer& pointer() const { return storage_.pointer(); }
-
-  /// Returns a mutable reference to the stored pointer.
   Pointer& pointer() { return storage_.pointer(); }
 
   /// Returns the element representation type.
   DataType dtype() const { return storage_.dtype(); }
 
-  /// Returns a const reference to the element pointer.
+  /// Returns a reference to the element pointer.
   const ElementPointer& element_pointer() const& { return storage_; }
-
-  /// Returns an lvalue reference to the element point.
   ElementPointer& element_pointer() & { return storage_; }
-
-  /// Returns an rvalue reference to the element point.
   ElementPointer&& element_pointer() && {
     return static_cast<ElementPointer&&>(storage_);
   }
@@ -681,33 +730,24 @@ class Array {
   /// Returns the rank of the array.
   constexpr RankType rank() const { return storage_.rank(); }
 
-  /// Returns a const view of the `origin` array.
+  /// Returns the origin vector of size `rank()`.
   constexpr span<const Index, static_rank> origin() const {
     return storage_.origin();
   }
-
-  /// This returns either span<const Index, static_rank> or
-  /// span<Index, static_rank> depending on the layout type.
   span<MaybeConstOriginIndex, static_rank> origin() {
     return storage_.origin();
   }
 
-  /// Returns a const view of the `shape` array.
+  /// Returns the shape vector of size `rank()`.
   constexpr span<const Index, static_rank> shape() const {
     return storage_.shape();
   }
-
-  /// This returns either span<const Index, static_rank> or
-  /// span<Index, static_rank> depending on the layout type.
   span<MaybeConstIndex, static_rank> shape() { return storage_.shape(); }
 
-  /// Returns a const view of the `byte_strides` array.
+  /// Returns the byte strides vector of size `rank()`.
   constexpr span<const Index, static_rank> byte_strides() const {
     return storage_.byte_strides();
   }
-
-  /// This returns either span<const Index, static_rank> or
-  /// span<Index, static_rank> depending on the layout type.
   span<MaybeConstIndex, static_rank> byte_strides() {
     return storage_.byte_strides();
   }
@@ -719,24 +759,21 @@ class Array {
   /// Returns the domain of the array.
   BoxView<static_rank> domain() const { return storage_.domain(); }
 
-  /// Returns a const reference to the layout.
+  /// Returns a reference to the layout.
   const Layout& layout() const& { return storage_; }
-
-  /// Returns an lvalue reference to the layout.
   Layout& layout() & { return storage_; }
-
-  /// Returns an rvalue reference to the layout.
   Layout&& layout() && { return static_cast<Layout&&>(storage_); }
 
   /// Returns a reference to the element at the specified indices.
   ///
-  /// \requires `Indices` satisfies `IsCompatibleFullIndexVector<static_rank,
-  ///     Indices>`.
-  /// \param indices A `span` compatible vector of `rank()` indices, of
-  ///     type convertible to `Index`.
-  /// \pre CHECKs that span(indices).size() == rank()
-  /// \pre 0 <= span(indices)[i] < shape()[i]
+  /// \param indices A `span` compatible vector of `rank()` indices, of type
+  ///     convertible to `Index`.  May also be specified as a braced list,
+  ///     e.g. ``array({1, 2, 3})``.
+  /// \dchecks `std::size(indices) == rank()`
+  /// \dchecks `Contains(domain(), indices)`
   /// \returns byte_strided_pointer()[layout()(indices)]
+  /// \membergroup Indexing
+  /// \id indices
   template <typename Indices,
             // Note: Use extra template parameter to make condition dependent.
             bool SfinaeNotVoid = !std::is_void_v<Element>>
@@ -747,13 +784,6 @@ class Array {
     return byte_strided_pointer()[this->layout()(indices)];
   }
 
-  /// Same as more general overload of `operator()` defined above, but can be
-  /// called with a braced list.
-  ///
-  /// \param indices An array of `N` indices.
-  /// \pre CHECKs that N == rank()
-  /// \pre 0 <= indices[i] < shape()[i]
-  /// \returns byte_strided_pointer()[layout()(indices)]
   template <std::size_t N,
             // Note: Use extra template parameter to make condition dependent.
             bool SfinaeNotVoid = !std::is_void_v<Element>>
@@ -765,13 +795,12 @@ class Array {
   }
 
   /// Returns a reference to the element at the specified indices.
-  /// \requires Every `IndexType` is convertible without narrowing to `Index`,
-  ///     and `sizeof...(IndexType)` must be compatible with `static_rank`.
-  /// \tparam IndexType... Must be convertible to `Index`.
-  /// \param index... A pack of `rank()` indices.
-  /// \checks that span({index...}).size() == rank()
-  /// \dchecks 0 <= span({index...})[i] < shape()[i]
-  /// \returns byte_strided_pointer()[layout()({index...})]
+  ///
+  /// \tparam IndexType Must be convertible without narrowing to `Index`.
+  /// \param index A pack of `rank()` indices.
+  /// \dchecks `Contains(domain(), {index...})`
+  /// \returns `byte_strided_pointer()[layout()({index...})]`
+  /// \id index...
   template <typename... IndexType,
             // Note: Use extra template parameter to make condition dependent.
             bool SfinaeNotVoid = !std::is_void_v<Element>>
@@ -789,20 +818,18 @@ class Array {
   }
 
   /// Returns a reference to the sub-array obtained by subscripting the first
-  /// dimension.  Equivalent to `SubArray(*this, {index})`.
+  /// dimension.
+  ///
+  /// Equivalent to `SubArray(*this, {index})`.
   ///
   /// For efficiency, the returned sub-array does not share ownership of the
   /// data and stores a view, rather than a copy, of the layout.  To share
   /// ownership of the data, use the `SharedSubArray` free function instead.
   ///
   /// \dchecks `rank() > 0`
-  /// \dchecks `0 <= index` and `index < shape()[0]`
+  /// \dchecks `Contains(domain()[0], index)`
   /// \param index The index into the first dimension.
-  /// \returns The sub-array `result`.
-  /// \post `result.rank() == this->rank() - 1`
-  /// \post `result.data() == `
-  ///       `this->byte_strided_pointer() + this->layout()[index]`
-  /// \post `result.layout() == GetSubLayoutView(this->layout(), 1)`
+  /// \id index
   template <int&... ExplicitArgumentBarrier,
             DimensionIndex SfinaeR = static_rank>
   std::enable_if_t<RankConstraint::GreaterOrUnspecified(SfinaeR, 0),
@@ -813,18 +840,16 @@ class Array {
   }
 
   /// Returns a reference to the sub-array obtained by subscripting the first
-  /// `indices.size()` dimensions.
+  /// `std::size(indices)` dimensions.
   ///
-  /// \param indices A `span`-compatible index array.
-  /// \dchecks `rank() >= span(indices).size()`.
-  /// \dchecks `0 <= span(indices)[i] < shape()[i]` for
-  ///     `0 <= i < span(indices).size()`.
-  /// \returns The sub-array `result`.
-  /// \post `result.rank() == this->rank() - span(indices).size()`
-  /// \post `result.data() == `
-  ///       `this->byte_strided_pointer() + this->layout()[indices]`.
-  /// \post `result.layout() == `
-  ///       `GetSubLayoutView(this->layout(), span(indices).size())`.
+  /// For efficiency, the returned sub-array does not share ownership of the
+  /// data and stores a view, rather than a copy, of the layout.  To share
+  /// ownership of the data, use the `SharedSubArray` free function instead.
+  ///
+  /// \param indices A `span`-compatible index vector.  May also be specified as
+  ///     a braced list, e.g. ``array[{1, 2}]``.
+  /// \dchecks `ContainsPartial(domain(), indices)`
+  /// \id indices
   template <typename Indices>
   std::enable_if_t<IsCompatiblePartialIndexVector<static_rank, Indices>,
                    ArrayView<Element, SubArrayStaticRank<static_rank, Indices>,
@@ -833,8 +858,6 @@ class Array {
     return SubArray(*this, indices);
   }
 
-  /// Same as more general overload defined above, but can be called with a
-  /// braced list.
   template <std::size_t N>
   ArrayView<Element, SubArrayStaticRank<static_rank, const Index (&)[N]>,
             array_origin_kind>
@@ -861,11 +884,11 @@ class Array {
 
   /// "Pipeline" operator.
   ///
-  /// In the expression  `x | y`, if
-  ///   * y is a function having signature `Result<U>(T)`
+  /// In the expression ``x | y``, if ``y`` is a function having signature
+  /// ``Result<U>(T)``, then ``operator|`` applies ``y`` to the value
+  /// of ``x``, returning a ``Result<U>``.
   ///
-  /// Then operator| applies y to the value of x, returning a
-  /// Result<U>. See tensorstore::Result operator| for examples.
+  /// See `tensorstore::Result::operator|` for examples.
   template <typename Func>
   PipelineResultType<const Array&, Func> operator|(Func&& func) const& {
     return static_cast<Func&&>(func)(*this);
@@ -875,6 +898,7 @@ class Array {
     return static_cast<Func&&>(func)(std::move(*this));
   }
 
+  /// Prints the array to an `std::ostream`.
   friend std::ostream& operator<<(std::ostream& os, const Array& array) {
     internal_array::PrintToOstream(os, array);
     return os;
@@ -954,9 +978,9 @@ Array(Pointer pointer, const BoxLike& domain,
       ContiguousLayoutOrder order = c_order)
     -> Array<DeducedElementTag<Pointer>, BoxLike::static_rank, offset_origin>;
 
-/// Specialization of `StaticCastTraits` for `Array`, which enables
-/// `StaticCast`, `StaticDataTypeCast`, `ConstDataTypeCast`, and
-/// `StaticRankCast`.
+// Specialization of `StaticCastTraits` for `Array`, which enables
+// `StaticCast`, `StaticDataTypeCast`, `ConstDataTypeCast`, and
+// `StaticRankCast`.
 template <typename ElementTagType, DimensionIndex Rank,
           ArrayOriginKind OriginKind, ContainerKind LayoutContainerKind>
 struct StaticCastTraits<
@@ -1005,8 +1029,7 @@ struct StaticCastTraits<
 ///     zero_origin`, `array.array_origin_kind == offset_origin`, and
 ///     `array.shape()` contains an extent that exceeds `kInfIndex` (which would
 ///     result in an upper bound outside the valid range for `Index`).
-/// \remark This overload handles the case of `TargetOriginKind == zero_origin`
-///     and `array.array_origin_kind == offset_origin`.
+/// \relates Array
 template <ArrayOriginKind TargetOriginKind,
           ContainerKind LayoutContainerKind = view, typename A>
 std::enable_if_t<(IsArray<internal::remove_cvref_t<A>> &&
@@ -1016,6 +1039,11 @@ std::enable_if_t<(IsArray<internal::remove_cvref_t<A>> &&
                  Result<Array<typename internal::remove_cvref_t<A>::ElementTag,
                               internal::remove_cvref_t<A>::static_rank,
                               TargetOriginKind, LayoutContainerKind>>>
+// NONITPICK: std::remove_cvref_t<A>::array_origin_kind
+// NONITPICK: std::remove_cvref_t<A>::ElementTag
+// NONITPICK: std::remove_cvref_t<A>::static_rank
+// This overload handles the case of `TargetOriginKind == zero_origin`
+// and `array.array_origin_kind == offset_origin`.
 ArrayOriginCast(A&& array) {
   using AX = internal::remove_cvref_t<A>;
   if (std::any_of(array.shape().begin(), array.shape().end(),
@@ -1028,9 +1056,6 @@ ArrayOriginCast(A&& array) {
           StridedLayout<AX::static_rank, zero_origin, LayoutContainerKind>(
               array.shape(), array.byte_strides())};
 }
-
-/// Overload that handles the case where `TargetOriginKind == offset_origin` or
-/// `array.array_origin_kind == zero_origin`.
 template <ArrayOriginKind TargetOriginKind,
           ContainerKind LayoutContainerKind = view, typename A>
 std::enable_if_t<(IsArray<internal::remove_cvref_t<A>> &&
@@ -1046,11 +1071,22 @@ ArrayOriginCast(A&& array) {
                LayoutContainerKind>(std::forward<A>(array));
 }
 
-/// Converts an array with an unowned element pointer to a SharedArray that does
-/// not manage ownership.
+/// Converts an arbitrary array to a `SharedArray`.
 ///
-/// The caller is responsible for ensuring that the returned array is not used
-/// after the element data to which it points becomes invalid.
+/// .. warning::
+///
+///    The caller is responsible for ensuring that the returned array is not
+///    used after the element data to which it points becomes invalid.
+///
+/// \param owned If specified, the returned array shares ownership with the
+///     `owned` pointer, in the same way as the `std::shared_ptr` aliasing
+///     constructor.  Cannot be specified if `array` is already a `SharedArray`.
+/// \param array Existing array to return.  If `array` is already a
+///     `SharedArray`, it is simply returned as is, i.e. the returned array
+///     shares ownership with `array`.
+///
+/// \relates Array
+/// \id array
 template <typename Element, DimensionIndex Rank, ArrayOriginKind OriginKind,
           ContainerKind LayoutCKind>
 std::enable_if_t<(!IsShared<Element>),
@@ -1058,13 +1094,6 @@ std::enable_if_t<(!IsShared<Element>),
 UnownedToShared(Array<Element, Rank, OriginKind, LayoutCKind> array) {
   return {UnownedToShared(array.element_pointer()), std::move(array.layout())};
 }
-
-/// Converts an array with an unowned element pointer to a SharedArray that
-/// shares the ownership of the specified `owned` pointer, in the same way as
-/// the `std::shared_ptr` aliasing constructor.
-///
-/// The caller is responsible for ensuring that the returned array is not used
-/// after the element data to which it points becomes invalid.
 template <typename T, typename Element, DimensionIndex Rank,
           ArrayOriginKind OriginKind, ContainerKind LayoutCKind>
 std::enable_if_t<(!IsShared<Element>),
@@ -1074,10 +1103,6 @@ UnownedToShared(const std::shared_ptr<T>& owned,
   return {{std::shared_ptr<Element>(owned, array.data()), array.dtype()},
           std::move(array.layout())};
 }
-
-/// No-op overload for an existing SharedArray.
-///
-/// The returned array shares ownership with `array`.
 template <typename Element, DimensionIndex Rank, ArrayOriginKind OriginKind,
           ContainerKind LayoutCKind>
 SharedArray<Element, Rank, OriginKind, LayoutCKind> UnownedToShared(
@@ -1097,11 +1122,15 @@ SharedElementPointer<void> AllocateArrayLike(
 ///
 /// \param x A reference specifying the memory location to which the array will
 ///     point.
-/// \returns The strided array reference `result`.
-/// \post result.data() == &x
-/// \post result.rank() == 0
-/// \remark The caller is responsible for ensuring that the returned array is
-///     not used after the reference `x` becomes invalid.
+/// \returns The strided array reference.
+///
+/// .. note::
+///
+///    The caller is responsible for ensuring that the returned array is not
+///    used after the reference `x` becomes invalid.
+///
+/// \relates Array
+/// \membergroup Creation functions
 template <typename Element>
 ArrayView<std::remove_reference_t<Element>, 0> MakeScalarArrayView(
     Element&& x) {
@@ -1109,6 +1138,9 @@ ArrayView<std::remove_reference_t<Element>, 0> MakeScalarArrayView(
 }
 
 /// Returns a rank-0 array containing a copy of the specified value.
+///
+/// \relates Array
+/// \membergroup Creation functions
 template <typename Element>
 SharedArray<Element, 0> MakeScalarArray(const Element& x) {
   return SharedArray<Element, 0>{std::make_shared<Element>(x),
@@ -1119,11 +1151,15 @@ SharedArray<Element, 0> MakeScalarArray(const Element& x) {
 /// `span`-compatible array/container.
 ///
 /// \param source The source to be converted to a `span`.
-/// \remark This function returns a `Array` rather than `ArrayView` because
-///     there is no existing `shape` or `byte_strides` array to be referenced.
-///     However, while `result.pointer()` is a `std::shared_ptr`, it is an
-///     unowned shared pointer.  The caller is responsible for ensuring that the
-///     returned array is not used after `source` becomes invalid.
+/// \returns A contiguous `c_order` array referencing the contents of `source`.
+/// \relates Array
+/// \membergroup Creation functions
+/// \id span
+///
+/// .. note::
+///
+///    The caller is responsible for ensuring that the returned array is not
+///    used after `source` becomes invalid.
 template <typename Source>
 Array<typename internal::SpanType<Source>::element_type, 1> MakeArrayView(
     Source&& source) {
@@ -1134,135 +1170,258 @@ Array<typename internal::SpanType<Source>::element_type, 1> MakeArrayView(
 
 // [BEGIN GENERATED: generate_make_array_overloads.py]
 
-/// Returns a rank-1 ArrayView that points to the specified C array.
+/// Returns an `ArrayView` that points to the specified C array.
 ///
-/// \param arr The C array to which the returned `ArrayView` will point.
-/// \remark The caller is responsible for ensuring that the returned array is
-///     not used after `arr` becomes invalid.
+/// .. note::
+///
+///    Only the rank-1 and rank-2 overloads are shown, but C arrays with up to
+///    6 dimensions are supported.
+///
+/// \param array The C array to which the returned `ArrayView` will point.
+///     May be specified as a (nested) braced list, e.g.
+///     `MakeArrayView({{1, 2, 3}, {4, 5, 6}})`, in which case the inferred
+///     `Element` type will be ``const``-qualified.
+///
+/// .. warning::
+///
+///    The caller is responsible for ensuring that the returned array is
+///    not used after `array` becomes invalid.
+///
+/// \relates Array
+/// \membergroup Creation functions
+/// \id array
 template <typename Element, Index N0>
-ArrayView<Element, 1> MakeArrayView(Element (&arr)[N0]) {
+ArrayView<Element, 1> MakeArrayView(Element (&array)[N0]) {
   static constexpr Index shape[] = {N0};
   static constexpr Index byte_strides[] = {sizeof(Element)};
   StridedLayoutView<1> layout(shape, byte_strides);
-  return {&arr[0], layout};
+  return {&array[0], layout};
 }
-
-/// Returns a rank-1 ArrayView that points to the specified C array.
-///
-/// This overload can be called with a braced list.
-///
-/// \param arr The C array to which the returned `ArrayView` will point.
-/// \remark The caller is responsible for ensuring that the returned array is
-///     not used after `arr` becomes invalid.
 template <typename Element, Index N0>
-ArrayView<const Element, 1> MakeArrayView(const Element (&arr)[N0]) {
+ArrayView<const Element, 1> MakeArrayView(const Element (&array)[N0]) {
   static constexpr Index shape[] = {N0};
   static constexpr Index byte_strides[] = {sizeof(Element)};
   StridedLayoutView<1> layout(shape, byte_strides);
-  return {&arr[0], layout};
+  return {&array[0], layout};
+}
+template <typename Element, Index N0, Index N1>
+ArrayView<Element, 2> MakeArrayView(Element (&array)[N0][N1]) {
+  static constexpr Index shape[] = {N0, N1};
+  static constexpr Index byte_strides[] = {N1 * sizeof(Element),
+                                           sizeof(Element)};
+  StridedLayoutView<2> layout(shape, byte_strides);
+  return {&array[0][0], layout};
+}
+template <typename Element, Index N0, Index N1>
+ArrayView<const Element, 2> MakeArrayView(const Element (&array)[N0][N1]) {
+  static constexpr Index shape[] = {N0, N1};
+  static constexpr Index byte_strides[] = {N1 * sizeof(Element),
+                                           sizeof(Element)};
+  StridedLayoutView<2> layout(shape, byte_strides);
+  return {&array[0][0], layout};
 }
 
-/// Returns a rank-1 SharedArray containing a copy of the specified C array.
+/// Returns a `SharedArray` containing a copy of the specified C array.
 ///
-/// \param arr The C array to be copied.
+/// .. note::
+///
+///    Only the rank-1 and rank-2 overloads are shown, but C arrays with up to
+///    6 dimensions are supported.
+///
+/// \param array The C array to be copied.  May be specified as a (nested)
+///     braced list, e.g. `MakeArray({{1, 2, 3}, {4, 5, 6}})`.
+/// \relates Array
+/// \membergroup Creation functions
+/// \id array
 template <typename Element, Index N0>
-SharedArray<Element, 1> MakeArray(const Element (&arr)[N0]) {
-  return MakeCopy(MakeArrayView(arr));
+SharedArray<Element, 1> MakeArray(Element (&array)[N0]) {
+  return MakeCopy(MakeArrayView(array));
+}
+template <typename Element, Index N0>
+SharedArray<Element, 1> MakeArray(const Element (&array)[N0]) {
+  return MakeCopy(MakeArrayView(array));
+}
+template <typename Element, Index N0, Index N1>
+SharedArray<Element, 2> MakeArray(Element (&array)[N0][N1]) {
+  return MakeCopy(MakeArrayView(array));
+}
+template <typename Element, Index N0, Index N1>
+SharedArray<Element, 2> MakeArray(const Element (&array)[N0][N1]) {
+  return MakeCopy(MakeArrayView(array));
 }
 
-/// Returns a rank-1 ArrayView that points to the specified C array.
+/// Returns an `ArrayView` that points to the specified C array.
 ///
-/// \param origin The origin vector of the array.
-/// \param arr The C array to which the returned `ArrayView` will point.
-/// \remark The caller is responsible for ensuring that the returned array is
-///     not used after `arr` becomes invalid.
+/// .. note::
+///
+///    Only the rank-1 and rank-2 overloads are shown, but C arrays with up to
+///    6 dimensions are supported.
+///
+/// \param origin The origin vector of the array.  May be specified as a
+///     braced list, e.g. `MakeOffsetArray({1, 2}, {{3, 4, 5}, {6, 7, 8}})`.
+/// \param array The C array to which the returned `ArrayView` will point.
+///     May be specified as a (nested) braced list, e.g.
+///     `MakeArrayView({{1, 2, 3}, {4, 5, 6}})`, in which case the inferred
+///     `Element` type will be ``const``-qualified.
+///
+/// .. warning::
+///
+///    The caller is responsible for ensuring that the returned array is
+///    not used after `array` becomes invalid.
+///
+/// \relates Array
+/// \membergroup Creation functions
+/// \id array
 template <typename Element, Index N0>
 ArrayView<Element, 1, offset_origin> MakeOffsetArrayView(
-    span<const Index, 1> origin, Element (&arr)[N0]) {
+    span<const Index, 1> origin, Element (&array)[N0]) {
   static constexpr Index shape[] = {N0};
   static constexpr Index byte_strides[] = {sizeof(Element)};
   StridedLayoutView<1, offset_origin> layout(origin, shape, byte_strides);
-  return {AddByteOffset(ElementPointer<Element>(&arr[0]),
+  return {AddByteOffset(ElementPointer<Element>(&array[0]),
                         -layout.origin_byte_offset()),
           layout};
 }
-
-/// Returns a rank-1 ArrayView that points to the specified C array.
-///
-/// This overload can be called with a braced list.
-///
-/// \param origin The origin vector of the array.
-/// \param arr The C array to which the returned `ArrayView` will point.
-/// \remark The caller is responsible for ensuring that the returned array is
-///     not used after `arr` becomes invalid.
 template <typename Element, Index N0>
 ArrayView<const Element, 1, offset_origin> MakeOffsetArrayView(
-    span<const Index, 1> origin, const Element (&arr)[N0]) {
+    span<const Index, 1> origin, const Element (&array)[N0]) {
   static constexpr Index shape[] = {N0};
   static constexpr Index byte_strides[] = {sizeof(Element)};
   StridedLayoutView<1, offset_origin> layout(origin, shape, byte_strides);
-  return {AddByteOffset(ElementPointer<const Element>(&arr[0]),
+  return {AddByteOffset(ElementPointer<const Element>(&array[0]),
+                        -layout.origin_byte_offset()),
+          layout};
+}
+template <typename Element, Index N0, Index N1>
+ArrayView<Element, 2, offset_origin> MakeOffsetArrayView(
+    span<const Index, 2> origin, Element (&array)[N0][N1]) {
+  static constexpr Index shape[] = {N0, N1};
+  static constexpr Index byte_strides[] = {N1 * sizeof(Element),
+                                           sizeof(Element)};
+  StridedLayoutView<2, offset_origin> layout(origin, shape, byte_strides);
+  return {AddByteOffset(ElementPointer<Element>(&array[0][0]),
+                        -layout.origin_byte_offset()),
+          layout};
+}
+template <typename Element, Index N0, Index N1>
+ArrayView<const Element, 2, offset_origin> MakeOffsetArrayView(
+    span<const Index, 2> origin, const Element (&array)[N0][N1]) {
+  static constexpr Index shape[] = {N0, N1};
+  static constexpr Index byte_strides[] = {N1 * sizeof(Element),
+                                           sizeof(Element)};
+  StridedLayoutView<2, offset_origin> layout(origin, shape, byte_strides);
+  return {AddByteOffset(ElementPointer<const Element>(&array[0][0]),
                         -layout.origin_byte_offset()),
           layout};
 }
 
-/// Returns a rank-1 SharedArray containing a copy of the specified C array.
+/// Returns a `SharedArray` containing a copy of the specified C array.
 ///
-/// \param origin The origin vector of the array.
-/// \param arr The C array to be copied.
+/// .. note::
+///
+///    Only the rank-1 and rank-2 overloads are shown, but C arrays with up to
+///    6 dimensions are supported.
+///
+/// \param origin The origin vector of the array.  May be specified as a
+///     braced list, e.g. `MakeOffsetArray({1, 2}, {{3, 4, 5}, {6, 7, 8}})`.
+/// \param array The C array to be copied.  May be specified as a (nested)
+///     braced list, e.g. `MakeArray({{1, 2, 3}, {4, 5, 6}})`.
+/// \relates Array
+/// \membergroup Creation functions
+/// \id array
 template <typename Element, Index N0>
 SharedArray<Element, 1, offset_origin> MakeOffsetArray(
-    span<const Index, 1> origin, const Element (&arr)[N0]) {
-  return MakeCopy(MakeOffsetArrayView(origin, arr));
+    span<const Index, 1> origin, Element (&array)[N0]) {
+  return MakeCopy(MakeOffsetArrayView(origin, array));
+}
+template <typename Element, Index N0>
+SharedArray<Element, 1, offset_origin> MakeOffsetArray(
+    span<const Index, 1> origin, const Element (&array)[N0]) {
+  return MakeCopy(MakeOffsetArrayView(origin, array));
+}
+template <typename Element, Index N0, Index N1>
+SharedArray<Element, 2, offset_origin> MakeOffsetArray(
+    span<const Index, 2> origin, Element (&array)[N0][N1]) {
+  return MakeCopy(MakeOffsetArrayView(origin, array));
+}
+template <typename Element, Index N0, Index N1>
+SharedArray<Element, 2, offset_origin> MakeOffsetArray(
+    span<const Index, 2> origin, const Element (&array)[N0][N1]) {
+  return MakeCopy(MakeOffsetArrayView(origin, array));
 }
 
-/// Returns a rank-1 ArrayView that points to the specified C array.
-///
-/// \param origin The origin vector of the array.
-/// \param arr The C array to which the returned `ArrayView` will point.
-/// \remark The caller is responsible for ensuring that the returned array is
-///     not used after `arr` becomes invalid.
-template <typename Element, Index N0, std::ptrdiff_t OriginRank>
+template <typename Element, Index N0, ptrdiff_t OriginRank>
 ArrayView<Element, 1, offset_origin> MakeOffsetArrayView(
-    const Index (&origin)[OriginRank], Element (&arr)[N0]) {
+    const Index (&origin)[OriginRank], Element (&array)[N0]) {
   static_assert(OriginRank == 1, "Origin vector must have length 1.");
   static constexpr Index shape[] = {N0};
   static constexpr Index byte_strides[] = {sizeof(Element)};
   StridedLayoutView<1, offset_origin> layout(origin, shape, byte_strides);
-  return {AddByteOffset(ElementPointer<Element>(&arr[0]),
+  return {AddByteOffset(ElementPointer<Element>(&array[0]),
                         -layout.origin_byte_offset()),
           layout};
 }
-
-/// Returns a rank-1 ArrayView that points to the specified C array.
-///
-/// This overload can be called with a braced list.
-///
-/// \param origin The origin vector of the array.
-/// \param arr The C array to which the returned `ArrayView` will point.
-/// \remark The caller is responsible for ensuring that the returned array is
-///     not used after `arr` becomes invalid.
-template <typename Element, Index N0, std::ptrdiff_t OriginRank>
+template <typename Element, Index N0, ptrdiff_t OriginRank>
 ArrayView<const Element, 1, offset_origin> MakeOffsetArrayView(
-    const Index (&origin)[OriginRank], const Element (&arr)[N0]) {
+    const Index (&origin)[OriginRank], const Element (&array)[N0]) {
   static_assert(OriginRank == 1, "Origin vector must have length 1.");
   static constexpr Index shape[] = {N0};
   static constexpr Index byte_strides[] = {sizeof(Element)};
   StridedLayoutView<1, offset_origin> layout(origin, shape, byte_strides);
-  return {AddByteOffset(ElementPointer<const Element>(&arr[0]),
+  return {AddByteOffset(ElementPointer<const Element>(&array[0]),
                         -layout.origin_byte_offset()),
           layout};
 }
 
-/// Returns a rank-1 SharedArray containing a copy of the specified C array.
-///
-/// \param origin The origin vector of the array.
-/// \param arr The C array to be copied.
-template <typename Element, Index N0, std::ptrdiff_t OriginRank>
+template <typename Element, Index N0, Index N1, ptrdiff_t OriginRank>
+ArrayView<Element, 2, offset_origin> MakeOffsetArrayView(
+    const Index (&origin)[OriginRank], Element (&array)[N0][N1]) {
+  static_assert(OriginRank == 2, "Origin vector must have length 2.");
+  static constexpr Index shape[] = {N0, N1};
+  static constexpr Index byte_strides[] = {N1 * sizeof(Element),
+                                           sizeof(Element)};
+  StridedLayoutView<2, offset_origin> layout(origin, shape, byte_strides);
+  return {AddByteOffset(ElementPointer<Element>(&array[0][0]),
+                        -layout.origin_byte_offset()),
+          layout};
+}
+template <typename Element, Index N0, Index N1, ptrdiff_t OriginRank>
+ArrayView<const Element, 2, offset_origin> MakeOffsetArrayView(
+    const Index (&origin)[OriginRank], const Element (&array)[N0][N1]) {
+  static_assert(OriginRank == 2, "Origin vector must have length 2.");
+  static constexpr Index shape[] = {N0, N1};
+  static constexpr Index byte_strides[] = {N1 * sizeof(Element),
+                                           sizeof(Element)};
+  StridedLayoutView<2, offset_origin> layout(origin, shape, byte_strides);
+  return {AddByteOffset(ElementPointer<const Element>(&array[0][0]),
+                        -layout.origin_byte_offset()),
+          layout};
+}
+
+template <typename Element, Index N0, ptrdiff_t OriginRank>
 SharedArray<Element, 1, offset_origin> MakeOffsetArray(
-    const Index (&origin)[OriginRank], const Element (&arr)[N0]) {
+    const Index (&origin)[OriginRank], Element (&array)[N0]) {
   static_assert(OriginRank == 1, "Origin vector must have length 1.");
-  return MakeCopy(MakeOffsetArrayView(origin, arr));
+  return MakeCopy(MakeOffsetArrayView(origin, array));
+}
+template <typename Element, Index N0, ptrdiff_t OriginRank>
+SharedArray<Element, 1, offset_origin> MakeOffsetArray(
+    const Index (&origin)[OriginRank], const Element (&array)[N0]) {
+  static_assert(OriginRank == 1, "Origin vector must have length 1.");
+  return MakeCopy(MakeOffsetArrayView(origin, array));
+}
+
+template <typename Element, Index N0, Index N1, ptrdiff_t OriginRank>
+SharedArray<Element, 2, offset_origin> MakeOffsetArray(
+    const Index (&origin)[OriginRank], Element (&array)[N0][N1]) {
+  static_assert(OriginRank == 2, "Origin vector must have length 2.");
+  return MakeCopy(MakeOffsetArrayView(origin, array));
+}
+template <typename Element, Index N0, Index N1, ptrdiff_t OriginRank>
+SharedArray<Element, 2, offset_origin> MakeOffsetArray(
+    const Index (&origin)[OriginRank], const Element (&array)[N0][N1]) {
+  static_assert(OriginRank == 2, "Origin vector must have length 2.");
+  return MakeCopy(MakeOffsetArrayView(origin, array));
 }
 
 // Defines MakeArray, MakeArrayView, MakeOffsetAray, and MakeOffsetArrayView
@@ -1297,25 +1456,31 @@ SharedElementPointer<Element> AllocateAndConstructSharedElements(
 /// Assigns all elements of an array to the result of value initialization.
 ///
 /// For trivial types, this is equivalent to zeroing the memory.
+///
+/// \relates Array
 void InitializeArray(const ArrayView<void, dynamic_rank, offset_origin>& array);
 
-/// Allocates a contiguous array of the specified shape and type.
+/// Allocates a contiguous array of the specified shape/domain and type.
 ///
 /// The elements are constructed and initialized as specified by
 /// `initialization`.
 ///
 /// \tparam Element Optional.  Specifies the element type of the array.  If not
 ///     specified (or if `void` is specified), the element type must be
-///     specified at run time using the `representation` parameter.
+///     specified at run time using the `dtype` parameter.
 /// \param extents A `span`-compatible array specifying the shape of the array.
 ///     The element type of `extents` must be convertible without narrowing to
-///     `Index`.
+///     `Index`.  May also be specified as a braced list,
+///     e.g. ``{200, 300}``.
+/// \param domain The domain of the array.
 /// \param layout_order Optional.  The layout order of the allocated array.
 ///     Defaults to ContiguousLayoutOrder::c.
 /// \param initialization Optional.  Specifies the form of initialization to
 ///     use.
 /// \param dtype Optional.  Specifies the element type at run time.  Must be
 ///     specified if `Element` is `void`.
+/// \relates Array
+/// \membergroup Creation functions
 template <typename Element = void, typename Extents>
 SharedArray<Element, internal::ConstSpanType<Extents>::extent> AllocateArray(
     const Extents& extents,
@@ -1363,7 +1528,7 @@ SharedArray<Element, Rank> AllocateArray(
 /// Allocates an array data buffer with a layout similar to an existing strided
 /// layout.
 ///
-/// The newly allocated array has the same `domain` as `layout`.
+/// The newly allocated array has the same `Array::domain` as `layout`.
 ///
 /// This provides a lower-level interface where the byte strides are stored in
 /// an existing buffer.  In most cases it is more convenient to use
@@ -1378,8 +1543,9 @@ SharedArray<Element, Rank> AllocateArray(
 ///     have the same order (with respect to their absolute values) as
 ///     `layout.byte_strides()`.
 /// \param initialization Specifies the initialization type.
-/// \param representation Specifies the element type (optional if `Element` is
+/// \param dtype Specifies the element type (optional if `Element` is
 ///     non-`void`).
+/// \relates Array
 template <typename Element, DimensionIndex Rank, ArrayOriginKind OriginKind,
           ContainerKind CKind>
 SharedElementPointer<Element> AllocateArrayElementsLike(
@@ -1405,7 +1571,7 @@ SharedElementPointer<Element> AllocateArrayElementsLike(
 
 /// Allocates an array with a layout similar to an existing strided layout.
 ///
-/// The newly allocated array has the same `domain` as `layout`.
+/// The newly allocated array has the same `Array::domain` as `layout`.
 ///
 /// \param layout The existing strided layout.
 /// \param constraints If `constraints.has_order_constraint()`, the returned
@@ -1414,8 +1580,10 @@ SharedElementPointer<Element> AllocateArrayElementsLike(
 ///     have the same order (with respect to their absolute values) as
 ///     `layout.byte_strides()`.
 /// \param initialization Specifies the initialization type.
-/// \param representation Specifies the element type (optional if `Element` is
+/// \param dtype Specifies the element type (optional if `Element` is
 ///     non-`void`).
+/// \relates Array
+/// \membergroup Creation functions
 template <typename Element, DimensionIndex Rank, ArrayOriginKind OriginKind,
           ContainerKind CKind>
 SharedArray<Element, Rank, OriginKind> AllocateArrayLike(
@@ -1437,6 +1605,8 @@ SharedArray<Element, Rank, OriginKind> AllocateArrayLike(
 }
 
 /// Checks that all array arguments have the same shape.
+///
+/// \relates Array
 template <typename Array0, typename... Array>
 inline bool ArraysHaveSameShapes(const Array0& array0, const Array&... array) {
   return (internal::RangesEqual(array0.shape(), array.shape()) && ...);
@@ -1464,20 +1634,21 @@ ArrayIterateResult IterateOverArrays(
 
 /// Iterates over one array or jointly iterates over multiple arrays.
 ///
-/// For each index vector `indices` within the domain of the arrays, calls the
-/// element-wise function `func(&array(indices)...)`.
+/// For each index vector ``indices`` within the domain of the arrays, calls
+/// the element-wise function ``func(&array(indices)...)``.
 ///
 /// \requires The `Array` types must satisfy `IsArray<Array>` and have
 ///     compatible static ranks.
 /// \param func The element-wise function.  Must return `void` or `bool` when
-///     invoked as `func(Array::Element*..., absl::Status*)`.  Iteration stops
-///     if the return value is `false`.
-/// \param status The absl::Status pointer to pass through the `func`.
-/// \param iteration_order Specifies constraints on the iteration order, and
-///     whether repeated elements may be skipped.  If
+///     invoked with ``(Array::Element*...)``, or with
+///     ``(Array::Element*..., absl::Status*)`` if `status` is specified.
+///     Iteration stops if the return value of `func` is `false`.
+/// \param status The `absl::Status` pointer to pass through the `func`.
+/// \param constraints Specifies constraints on the iteration order, and whether
+///     repeated elements may be skipped.  If
 ///     `constraints.can_skip_repeated_elements()`, the element-wise function
-///     may be invoked only once for multiple `indices` vectors that yield the
-///     same tuple of element pointers.  If
+///     may be invoked only once for multiple ``indices`` vectors that yield
+///     the same tuple of element pointers.  If
 ///     `constraints.has_order_constraint()`, `func` is invoked in the order
 ///     given by `constraints.order_constraint_value()`.  Otherwise, iteration
 ///     is not guaranteed to occur in any particular order; an efficient
@@ -1487,6 +1658,7 @@ ArrayIterateResult IterateOverArrays(
 /// \returns An `ArrayIterateResult` that indicates whether iteration completed
 ///     and the number of elements processed.
 /// \checks `ArraysHaveSameShapes(array...)`
+/// \relates Array
 template <typename Func, typename... Array>
 std::enable_if_t<
     ((IsArray<Array> && ...) &&
@@ -1502,9 +1674,6 @@ IterateOverArrays(Func&& func, absl::Status* status,
                                           absl::Status*>::Closure(&func),
       status, constraints, array...);
 }
-
-/// Same as above, except that `func` is called without an extra `absl::Status*`
-/// argument.
 template <typename Func, typename... Array>
 std::enable_if_t<((IsArray<Array> && ...) &&
                   std::is_constructible_v<
@@ -1528,6 +1697,8 @@ IterateOverArrays(Func&& func, IterationConstraints constraints,
 /// `source` and `dest` are compatible.
 ///
 /// \checks `ArraysHaveSameShapes(source, dest)`
+/// \relates Array
+/// \membergroup Copy functions
 template <typename Source, typename Dest>
 std::enable_if_t<(IsArray<Source> && IsArray<Dest>), void> CopyArray(
     const Source& source, const Dest& dest) {
@@ -1550,6 +1721,8 @@ std::enable_if_t<(IsArray<Source> && IsArray<Dest>), void> CopyArray(
 /// \checks `ArraysHaveSameShapes(source, dest)`
 /// \error `absl::StatusCode::kInvalidArgument` if the conversion is not
 ///     supported or fails.
+/// \relates Array
+/// \membergroup Copy functions
 template <typename Source, typename Dest>
 absl::Status CopyConvertedArray(const Source& source, const Dest& dest) {
   static_assert(IsArray<Source>, "Source must be an instance of Array");
@@ -1571,6 +1744,9 @@ absl::Status CopyConvertedArray(const Source& source, const Dest& dest) {
 ///     byte stride of 0 will have a byte stride of 0 in the new array.
 ///     Otherwise, they will be allocated normally.  The default is `c_order`
 ///     and `include_repeated_elements`.
+/// \relates Array
+/// \id copy
+/// \membergroup Copy functions
 template <int&... ExplicitArgumentBarrier, typename E, DimensionIndex R,
           ArrayOriginKind O, ContainerKind C>
 SharedArray<std::remove_cv_t<typename ElementTagTraits<E>::Element>, R, O>
@@ -1591,11 +1767,15 @@ MakeCopy(const Array<E, R, O, C>& source,
 /// \param source The source array to copy.
 /// \param constraints Constrains the layout of the newly allocated array.  See
 ///     the documentation of the `MakeCopy` overload above.
-/// \param target_dtype Specifies the target data type at run time.
-///     Required if `TargetElement=void`.
+/// \param target_dtype Specifies the target data type at run time.  Required if
+///     `TargetElement` is `void` and when invoking the overload without the
+///     `TargetElement` template parameter.
 /// \returns The newly allocated array containing the converted copy.
 /// \error `absl::StatusCode::kInvalidArgument` if the conversion is not
 ///     supported or fails.
+/// \relates Array
+/// \id cast
+/// \membergroup Copy functions
 template <typename TargetElement, typename E, DimensionIndex R,
           ArrayOriginKind O, ContainerKind C>
 Result<SharedArray<TargetElement, R, O>> MakeCopy(
@@ -1618,7 +1798,7 @@ Result<SharedArray<void, R, O>> MakeCopy(const Array<E, R, O, C>& source,
   return dest;
 }
 
-/// Specializes the HasBoxDomain metafunction for Array.
+// Specializes the HasBoxDomain metafunction for Array.
 template <typename PointerType, DimensionIndex Rank, ArrayOriginKind OriginKind,
           ContainerKind LayoutContainerKind>
 constexpr inline bool
@@ -1626,6 +1806,9 @@ constexpr inline bool
         true;
 
 /// Implements the HasBoxDomain concept for `Array`.
+///
+/// \relates Array
+/// \id array
 template <typename PointerType, DimensionIndex Rank, ArrayOriginKind OriginKind,
           ContainerKind LayoutContainerKind>
 BoxView<Rank> GetBoxDomainOf(
@@ -1633,6 +1816,10 @@ BoxView<Rank> GetBoxDomainOf(
   return array.domain();
 }
 
+/// Specifies options for formatting an array.
+///
+/// \relates Array
+/// \membergroup Formatting
 struct ArrayFormatOptions {
   /// Prefix printed at the start of each dimension.
   std::string prefix = "{";
@@ -1673,6 +1860,9 @@ struct ArrayFormatOptions {
 /// and for an offset-origin array is of the form:
 ///
 ///     {{1, 2, 3}, {4, 5, 6}} @ {7, 8}
+///
+/// \relates Array
+/// \membergroup Formatting
 void AppendToString(
     std::string* result,
     const ArrayView<const void, dynamic_rank, offset_origin>& array,
@@ -1680,20 +1870,26 @@ void AppendToString(
 
 /// Returns a string representation of `array` (same representation as
 /// `AppendToString`).
+///
+/// \relates Array
+/// \membergroup Formatting
 std::string ToString(
     const ArrayView<const void, dynamic_rank, offset_origin>& array,
     const ArrayFormatOptions& options = ArrayFormatOptions::Default());
 
 /// Compares two arrays for "same value" equality.
 ///
-/// For non-floating point types, this behaves the same as normal `operator==`.
-/// For floating point types, this differs from normal `operator==` in that
-/// negative zero is not equal to positive zero, and NaN is equal to NaN.
+/// For non-floating point types, this behaves the same as normal
+/// ``operator==``.  For floating point types, this differs from normal
+/// ``operator==`` in that negative zero is not equal to positive zero, and
+/// NaN is equal to NaN.
 ///
 /// Note that this differs from bit equality, because there are multiple bit
 /// representations of NaN, and this functions treats all of them as equal.
 ///
 /// Checks that the data types, domains, and content are equal.
+///
+/// \relates Array
 bool AreArraysSameValueEqual(const OffsetArrayView<const void>& a,
                              const OffsetArrayView<const void>& b);
 
@@ -1732,6 +1928,8 @@ bool AreArraysSameValueEqual(const OffsetArrayView<const void>& a,
 /// \returns `absl::OkStatus()` if the shapes are compatible.
 /// \error `absl::StatusCode::kInvalidArgument` if the shapes are not
 ///     compatible.
+/// \relates Array
+/// \membergroup Broadcasting
 absl::Status ValidateShapeBroadcast(span<const Index> source_shape,
                                     span<const Index> target_shape);
 
@@ -1742,13 +1940,15 @@ absl::Status ValidateShapeBroadcast(span<const Index> source_shape,
 /// \param target_byte_strides Pointer to array of length `target_shape.size()`.
 /// \error `absl::StatusCode::kInvalidArgument` if the shapes are not
 ///     compatible.
+/// \relates Array
+/// \membergroup Broadcasting
 absl::Status BroadcastStridedLayout(StridedLayoutView<> source,
                                     span<const Index> target_shape,
                                     Index* target_byte_strides);
 
 /// Broadcasts `source` to `target_shape`.
 ///
-/// For example:
+/// For example::
 ///
 ///     EXPECT_THAT(
 ///         BroadcastArray(MakeArray<int>({1, 2, 3}),
@@ -1759,13 +1959,17 @@ absl::Status BroadcastStridedLayout(StridedLayoutView<> source,
 ///                                span<const Index>({3, 2})),
 ///                 MakeArray<int>({{1, 1}, {2, 2}, {3, 3}}));
 ///
+/// \param source Source array to broadcast.
+/// \param target_shape Target shape to which `source` should be broadcast.
+/// \param target_domain Target domain to which `source` should be broadcast.
+///     The origin of `source` is translated to `target_domain.origin()`.
 /// \returns The broadcast array if successful.
 /// \error `absl::StatusCode::kInvalidArgument` if the shapes are not
 ///     compatible.
+/// \relates Array
+/// \membergroup Broadcasting
 Result<SharedArray<const void>> BroadcastArray(
     SharedArrayView<const void> source, span<const Index> target_shape);
-
-/// Same as above, but translates the origin to `target_domain.origin()`.
 Result<SharedOffsetArray<const void>> BroadcastArray(
     SharedOffsetArrayView<const void> source, BoxView<> target_domain);
 
@@ -1792,6 +1996,9 @@ void UnbroadcastStridedLayout(StridedLayoutView<> layout,
 /// array is equivalent to `source` (i.e. it has the same layout in addition to
 /// the same data pointer).  In particular, applying this function again to its
 /// return value has no effect.
+///
+/// \relates Array
+/// \membergroup Broadcasting
 SharedArray<const void> UnbroadcastArray(
     SharedOffsetArrayView<const void> source);
 
@@ -1802,6 +2009,9 @@ SharedArray<const void> UnbroadcastArray(
 ///
 /// If `source` has shared ownership of the array data, the returned array
 /// shares a reference to the data.
+///
+/// \relates Array
+/// \membergroup Broadcasting
 template <typename ElementTag, DimensionIndex Rank, ContainerKind CKind,
           ArrayOriginKind OriginKind>
 Array<ElementTag, (Rank < 0 ? dynamic_rank(kMaxRank) : Rank)>
