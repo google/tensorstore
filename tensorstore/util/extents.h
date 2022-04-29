@@ -34,10 +34,12 @@ namespace tensorstore {
 ///
 /// \param s A contiguous sequence of numbers to multiply.
 /// \dchecks All elements of `s` are non-negative.
-/// \returns s[0] * ... * s[s.size()-1], or 1 if s.empty(), or
+/// \returns ``s[0] * ... * s[s.size()-1]``, or `1` if `s.empty()`, or
 ///     `std::numeric_limits<T>::max()` if integer overflow occurs.  However, if
 ///     any element is `0`, the return value is guaranteed to be `0`, even if
 ///     overflow occurred in computing an intermediate product.
+///
+/// \relates Box
 template <typename T, std::ptrdiff_t Extent>
 T ProductOfExtents(span<T, Extent> s) {
   using value_type = std::remove_const_t<T>;
@@ -55,8 +57,10 @@ T ProductOfExtents(span<T, Extent> s) {
 }
 
 /// Bool-valued metafunction that evaluates to `true` if `Indices` is
-/// `span`-compatible with a `value_type` convertible without narrowing to
-/// `Index` and a static `extent` compatible with `Rank`.
+/// `span`-compatible with a `span::value_type` convertible without narrowing to
+/// `Index` and a static `span::extent` compatible with `Rank`.
+///
+/// \ingroup index vectors
 template <DimensionIndex Rank, typename Indices, typename = void>
 constexpr inline bool IsCompatibleFullIndexVector = false;
 
@@ -69,8 +73,10 @@ constexpr inline bool IsCompatibleFullIndexVector<
         typename internal::ConstSpanType<Indices>::value_type>;
 
 /// Bool-valued metafunction that evaluates to `true` if `Indices` is
-/// `span`-compatible with a `value_type` convertible without narrowing to
-/// `Index` and a static `extent` implicitly compatible with `Rank`.
+/// `span`-compatible with a `span::value_type` convertible without narrowing to
+/// `Index` and a static `span::extent` implicitly compatible with `Rank`.
+///
+/// \ingroup index vectors
 template <DimensionIndex Rank, typename Indices, typename = void>
 constexpr inline bool IsImplicitlyCompatibleFullIndexVector = false;
 
@@ -82,8 +88,10 @@ constexpr inline bool IsImplicitlyCompatibleFullIndexVector<
         typename internal::ConstSpanType<Indices>::value_type>;
 
 /// Bool-valued metafunction that evaluates to `true` if `Indices` is
-/// `span`-compatible with a `value_type` convertible without narrowing to
-/// `Index` and a static `extent <= Rank`.
+/// `span`-compatible with a `span::value_type` convertible without narrowing to
+/// `Index` and a static `span::extent <= Rank`.
+///
+/// \ingroup index vectors
 template <DimensionIndex Rank, typename Indices, typename = void>
 constexpr inline bool IsCompatiblePartialIndexVector = false;
 
@@ -98,14 +106,18 @@ constexpr inline bool IsCompatiblePartialIndexVector<
 /// Bool-valued metafunction that evaluates to `true` if every `IndexType` is
 /// convertible without narrowing to `Index`, and `sizeof...(IndexType)` is
 /// compatible with `Rank`.
+///
+/// \ingroup index vectors
 template <DimensionIndex Rank, typename... IndexType>
 constexpr inline bool IsCompatibleFullIndexPack =
     RankConstraint::EqualOrUnspecified(Rank, sizeof...(IndexType)) &&
     internal::IsIndexPack<IndexType...>;
 
 /// Bool-valued metafunction that evaluates to `true` if `Indices` is
-/// `span`-compatible with a `value_type` convertible without narrowing to
+/// `span`-compatible with a `span::value_type` convertible without narrowing to
 /// `Index`.
+//
+/// \ingroup index vectors
 template <typename Indices, typename = void>
 constexpr inline bool IsIndexConvertibleVector = false;
 
@@ -116,7 +128,9 @@ constexpr inline bool IsIndexConvertibleVector<
         typename internal::ConstSpanType<Indices>::value_type>;
 
 /// Bool-valued metafunction that evaluates to `true` if `Indices` is
-/// `span`-compatible with a `value_type` of `Index`.
+/// `span`-compatible with a `span::value_type` of `Index`.
+///
+/// \ingroup index vectors
 template <typename Indices, typename = Index>
 constexpr inline bool IsIndexVector = false;
 
@@ -125,7 +139,9 @@ constexpr inline bool IsIndexVector<
     Indices, typename internal::ConstSpanType<Indices>::value_type> = true;
 
 /// Bool-valued metafunction that evaluates to `true` if `Indices` is
-/// `span`-compatible with an `element_type` of `Index`.
+/// `span`-compatible with a `span::element_type` of `Index`.
+///
+/// \ingroup index vectors
 template <typename Indices, typename = Index>
 constexpr inline bool IsMutableIndexVector = false;
 
@@ -143,12 +159,15 @@ struct SpanStaticExtentHelper<span<Ts, Extent>...>
     : public std::integral_constant<std::ptrdiff_t, Extent> {};
 }  // namespace internal_extents
 
-/// `std::ptrdiff_t`-valued metafunction with a static constepxr `value` member
-/// that is equal to the common static extent of `X0, Xs...` if `X0, Xs...` are
-/// all `span`-compatible types with the same static extent.
+/// `std::ptrdiff_t`-valued metafunction with a
+/// ``static constepxr ptrdiff_t value`` member that is equal to the common
+/// static extent of ``X0, Xs...`` if ``X0, Xs...`` are all
+/// `span`-compatible types with the same static extent.
 ///
-/// If any of `X0, Xs...` are not `span`-compatible or do not have the same
-/// static extent, there is no `value` member.
+/// If any of ``X0, Xs...`` are not `span`-compatible or do not have the same
+/// static extent, there is no ``value`` member.
+///
+/// \ingroup index vectors
 template <typename X0, typename... Xs>
 using SpanStaticExtent =
     internal_extents::SpanStaticExtentHelper<internal::ConstSpanType<X0>,
