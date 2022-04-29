@@ -231,6 +231,11 @@ class Box : public internal_box::BoxStorage<Rank> {
   explicit Box(OriginVec origin, ShapeVec shape) {
     Access::Assign(this, span(origin), span(shape));
   }
+  template <std::size_t N, typename = std::enable_if_t<
+                               IsRankImplicitlyConvertible(N, static_rank)>>
+  explicit Box(const Index (&origin)[N], const Index (&shape)[N]) {
+    Access::Assign(this, StaticRank<N>{}, origin, shape);
+  }
 
   /// Constructs from a rank, an origin base pointer, and a shape base pointer.
   ///
@@ -245,21 +250,6 @@ class Box : public internal_box::BoxStorage<Rank> {
     Access::Assign(this, rank, origin, shape);
   }
 
-  /// Constructs from a shape array.
-  template <std::size_t N, typename = std::enable_if_t<
-                               IsRankImplicitlyConvertible(N, static_rank)>>
-  explicit Box(const Index (&shape)[N]) {
-    Access::Assign(this, StaticRank<N>{},
-                   GetConstantVector<Index, 0, N>().data(), shape);
-  }
-
-  /// Constructs from an origin and shape array.
-  template <std::size_t N, typename = std::enable_if_t<
-                               IsRankImplicitlyConvertible(N, static_rank)>>
-  explicit Box(const Index (&origin)[N], const Index (&shape)[N]) {
-    Access::Assign(this, StaticRank<N>{}, origin, shape);
-  }
-
   /// Constructs from a shape vector.
   template <typename ShapeVec,
             typename = std::enable_if_t<
@@ -269,6 +259,12 @@ class Box : public internal_box::BoxStorage<Rank> {
             GetConstantVector<Index, 0>(GetStaticOrDynamicExtent(span(shape)))
                 .data(),
             shape.data()) {}
+  template <std::size_t N, typename = std::enable_if_t<
+                               IsRankImplicitlyConvertible(N, static_rank)>>
+  explicit Box(const Index (&shape)[N]) {
+    Access::Assign(this, StaticRank<N>{},
+                   GetConstantVector<Index, 0, N>().data(), shape);
+  }
 
   /// Constructs from another Box-like type with a compatible rank.
   template <typename BoxType,
@@ -443,13 +439,15 @@ class BoxView : public internal_box::BoxViewStorage<Rank, Mutable> {
   ///
   /// \requires `Mutable == false`.
   /// \post If `Rank == dynamic_rank`, `rank() == 0`.
-  template <bool M = Mutable, typename = std::enable_if_t<M == false>>
+  template <bool SfinaeM = Mutable,
+            typename = std::enable_if_t<SfinaeM == false>>
   BoxView() : BoxView(RankType()) {}
 
   /// Constructs an unbounded box view of the given rank.
   ///
   /// \requires `Mutable == false`.
-  template <bool M = Mutable, typename = std::enable_if_t<M == false>>
+  template <bool SfinaeM = Mutable,
+            typename = std::enable_if_t<SfinaeM == false>>
   explicit BoxView(RankType rank) {
     Access::Assign(this, GetConstantVector<Index, -kInfIndex>(rank),
                    GetConstantVector<Index, kInfSize>(rank));
@@ -458,40 +456,32 @@ class BoxView : public internal_box::BoxViewStorage<Rank, Mutable> {
   /// Constructs from a shape array.
   ///
   /// \requires `Mutable == false`.
-  template <std::size_t N, typename = std::enable_if_t<
-                               (IsRankImplicitlyConvertible(N, static_rank) &&
-                                Mutable == false)>>
+  template <bool SfinaeM = Mutable,
+            typename = std::enable_if_t<SfinaeM == false>>
+  explicit BoxView(span<const Index, Rank> shape TENSORSTORE_LIFETIME_BOUND) {
+    const auto rank = GetStaticOrDynamicExtent(shape);
+    Access::Assign(this, rank, GetConstantVector<Index, 0>(rank).data(),
+                   shape.data());
+  }
+  template <std::size_t N, bool SfinaeM = Mutable,
+            typename =
+                std::enable_if_t<(IsRankImplicitlyConvertible(N, static_rank) &&
+                                  SfinaeM == false)>>
   explicit BoxView(IndexType (&shape TENSORSTORE_LIFETIME_BOUND)[N]) {
     const auto rank = std::integral_constant<std::ptrdiff_t, N>{};
     Access::Assign(this, rank, GetConstantVector<Index, 0>(rank).data(), shape);
   }
 
-  /// Constructs from an origin and shape array.
+  /// Constructs from an origin and shape vector.
+  explicit BoxView(span<IndexType, Rank> origin, span<IndexType, Rank> shape) {
+    Access::Assign(this, origin, shape);
+  }
   template <std::size_t N, typename = std::enable_if_t<
                                IsRankImplicitlyConvertible(N, static_rank)>>
   explicit BoxView(IndexType (&origin TENSORSTORE_LIFETIME_BOUND)[N],
                    IndexType (&shape TENSORSTORE_LIFETIME_BOUND)[N]) {
     const auto rank = std::integral_constant<std::ptrdiff_t, N>{};
     Access::Assign(this, rank, origin, shape);
-  }
-
-  /// Constructs a BoxView from a shape array and an all-zero origin vector.
-  ///
-  /// \requires `Mutable == false`.
-  template <bool M = Mutable, typename = std::enable_if_t<M == false>>
-  explicit BoxView(span<const Index, Rank> shape TENSORSTORE_LIFETIME_BOUND) {
-    const auto rank = GetStaticOrDynamicExtent(shape);
-    Access::Assign(this, rank, GetConstantVector<Index, 0>(rank).data(),
-                   shape.data());
-  }
-
-  /// Constructs from an origin array and shape array.
-  ///
-  /// \param origin Array of origin values.
-  /// \param shape Array of extents.
-  /// \dchecks origin.size() == shape.size()
-  explicit BoxView(span<IndexType, Rank> origin, span<IndexType, Rank> shape) {
-    Access::Assign(this, origin, shape);
   }
 
   /// Constructs from a rank, an origin base pointer, and a shape base pointer.
@@ -715,9 +705,12 @@ template <DimensionIndex Rank, bool Mutable>
 constexpr inline bool HasBoxDomain<BoxView<Rank, Mutable>> = true;
 
 /// Implements the `HasBoxDomain` concept for `Box` and `BoxView`.
-template <typename BoxType>
-inline std::enable_if_t<IsBoxLike<BoxType>, BoxView<BoxType::static_rank>>
-GetBoxDomainOf(const BoxType& box) {
+template <DimensionIndex Rank>
+inline BoxView<NormalizeRankSpec(Rank)> GetBoxDomainOf(const Box<Rank>& box) {
+  return box;
+}
+template <DimensionIndex Rank, bool Mutable>
+inline BoxView<Rank> GetBoxDomainOf(const BoxView<Rank, Mutable>& box) {
   return box;
 }
 
