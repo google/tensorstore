@@ -129,7 +129,8 @@ class ArrayDriverSpec
       jb::Initialize([](auto* obj) {
         // `jb::NestedArray` ensures that the array rank is compatible with
         // `obj->rank`.
-        assert(AreStaticRanksCompatible(obj->array.rank(), obj->schema.rank()));
+        assert(RankConstraint::EqualOrUnspecified(obj->array.rank(),
+                                                  obj->schema.rank()));
         obj->schema.Set(RankConstraint{obj->array.rank()}).IgnoreError();
       }));
 

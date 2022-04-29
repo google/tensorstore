@@ -96,7 +96,8 @@ struct TranslateOp {
   constexpr static DimensionIndex GetStaticSelectionRank(
       DimensionIndex num_input_dims) {
     TENSORSTORE_CONSTEXPR_ASSERT(
-        IsRankExplicitlyConvertible(num_input_dims, static_selection_rank) &&
+        RankConstraint::EqualOrUnspecified(num_input_dims,
+                                           static_selection_rank) &&
         "Number of selected dimensions must match number of offsets.");
     return num_input_dims == dynamic_rank ? static_selection_rank
                                           : num_input_dims;

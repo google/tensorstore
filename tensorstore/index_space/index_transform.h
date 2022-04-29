@@ -112,8 +112,8 @@ Result<IndexTransform<>> SliceByBox(IndexTransform<> transform,
 template <DimensionIndex InputRank, DimensionIndex OutputRank,
           ContainerKind CKind>
 class IndexTransform {
-  static_assert(IsValidStaticRank(InputRank));
-  static_assert(IsValidStaticRank(OutputRank));
+  static_assert(RankConstraint(InputRank).valid());
+  static_assert(RankConstraint(OutputRank).valid());
   using Access = internal_index_space::TransformAccess;
 
  public:
@@ -132,23 +132,23 @@ class IndexTransform {
   ///
   /// \requires `SourceInputRank` is implicitly convertible to `InputRank`
   /// \requires `SourceOutputRank` is implicitly convertible to `OutputRank`
-  template <DimensionIndex SourceInputRank, DimensionIndex SourceOutputRank,
-            ContainerKind SourceCKind,
-            std::enable_if_t<
-                (IsRankImplicitlyConvertible(SourceInputRank, InputRank) &&
-                 IsRankImplicitlyConvertible(SourceOutputRank, OutputRank))>* =
-                nullptr>
+  template <
+      DimensionIndex SourceInputRank, DimensionIndex SourceOutputRank,
+      ContainerKind SourceCKind,
+      std::enable_if_t<(RankConstraint::Implies(SourceInputRank, InputRank) &&
+                        RankConstraint::Implies(SourceOutputRank,
+                                                OutputRank))>* = nullptr>
   IndexTransform(const IndexTransform<SourceInputRank, SourceOutputRank,
                                       SourceCKind>& other) noexcept
       : rep_(Access::rep(other)) {}
 
   /// Rvalue reference overload.
-  template <DimensionIndex SourceInputRank, DimensionIndex SourceOutputRank,
-            ContainerKind SourceCKind,
-            std::enable_if_t<
-                (IsRankImplicitlyConvertible(SourceInputRank, InputRank) &&
-                 IsRankImplicitlyConvertible(SourceOutputRank, OutputRank))>* =
-                nullptr>
+  template <
+      DimensionIndex SourceInputRank, DimensionIndex SourceOutputRank,
+      ContainerKind SourceCKind,
+      std::enable_if_t<(RankConstraint::Implies(SourceInputRank, InputRank) &&
+                        RankConstraint::Implies(SourceOutputRank,
+                                                OutputRank))>* = nullptr>
   IndexTransform(IndexTransform<SourceInputRank, SourceOutputRank,
                                 SourceCKind>&& other) noexcept
       : rep_(Access::rep_ptr<CKind>(std::move(other))) {}
@@ -164,10 +164,10 @@ class IndexTransform {
   ///     `OutputRank`
   template <DimensionIndex SourceInputRank, DimensionIndex SourceOutputRank,
             ContainerKind SourceCKind,
-            std::enable_if_t<
-                (IsRankExplicitlyConvertible(SourceInputRank, InputRank) &&
-                 IsRankExplicitlyConvertible(SourceOutputRank, OutputRank))>* =
-                nullptr>
+            std::enable_if_t<(RankConstraint::EqualOrUnspecified(
+                                  SourceInputRank, InputRank) &&
+                              RankConstraint::EqualOrUnspecified(
+                                  SourceOutputRank, OutputRank))>* = nullptr>
   explicit IndexTransform(
       unchecked_t,
       const IndexTransform<SourceInputRank, SourceOutputRank, SourceCKind>&
@@ -177,10 +177,10 @@ class IndexTransform {
   /// Rvalue reference overload.
   template <DimensionIndex SourceInputRank, DimensionIndex SourceOutputRank,
             ContainerKind SourceCKind,
-            std::enable_if_t<
-                (IsRankExplicitlyConvertible(SourceInputRank, InputRank) &&
-                 IsRankExplicitlyConvertible(SourceOutputRank, OutputRank))>* =
-                nullptr>
+            std::enable_if_t<(RankConstraint::EqualOrUnspecified(
+                                  SourceInputRank, InputRank) &&
+                              RankConstraint::EqualOrUnspecified(
+                                  SourceOutputRank, OutputRank))>* = nullptr>
   explicit IndexTransform(unchecked_t,
                           IndexTransform<SourceInputRank, SourceOutputRank,
                                          SourceCKind>&& other) noexcept
@@ -192,8 +192,8 @@ class IndexTransform {
   /// \requires `SourceOutputRank` is implicitly convertible to `OutputRank`
   template <DimensionIndex SourceInputRank, DimensionIndex SourceOutputRank,
             ContainerKind SourceCKind>
-  std::enable_if_t<(IsRankImplicitlyConvertible(SourceInputRank, InputRank) &&
-                    IsRankImplicitlyConvertible(SourceOutputRank, OutputRank)),
+  std::enable_if_t<(RankConstraint::Implies(SourceInputRank, InputRank) &&
+                    RankConstraint::Implies(SourceOutputRank, OutputRank)),
                    IndexTransform&>
   operator=(const IndexTransform<SourceInputRank, SourceOutputRank,
                                  SourceCKind>& other) noexcept {
@@ -204,8 +204,8 @@ class IndexTransform {
   /// Rvalue reference overload.
   template <DimensionIndex SourceInputRank, DimensionIndex SourceOutputRank,
             ContainerKind SourceCKind>
-  std::enable_if_t<(IsRankImplicitlyConvertible(SourceInputRank, InputRank) &&
-                    IsRankImplicitlyConvertible(SourceOutputRank, OutputRank)),
+  std::enable_if_t<(RankConstraint::Implies(SourceInputRank, InputRank) &&
+                    RankConstraint::Implies(SourceOutputRank, OutputRank)),
                    IndexTransform&>
   operator=(IndexTransform<SourceInputRank, SourceOutputRank, SourceCKind>&&
                 other) noexcept {
@@ -429,8 +429,9 @@ class IndexTransform {
   ///     within the explicit bounds of `transform.domain()`.
   template <DimensionIndex OtherRank>
   friend std::enable_if_t<
-      IsRankExplicitlyConvertible(OtherRank, InputRank),
-      Result<IndexTransform<MaxStaticRank(InputRank, OtherRank), OutputRank>>>
+      RankConstraint::EqualOrUnspecified(OtherRank, InputRank),
+      Result<IndexTransform<RankConstraint::And(InputRank, OtherRank),
+                            OutputRank>>>
   ApplyIndexTransform(BoxView<OtherRank> box, IndexTransform transform) {
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto new_transform,
@@ -476,8 +477,8 @@ struct StaticCastTraits<IndexTransform<InputRank, OutputRank, CKind>>
 
   template <typename T>
   static bool IsCompatible(const T& other) {
-    return IsRankExplicitlyConvertible(other.input_rank(), InputRank) &&
-           IsRankExplicitlyConvertible(other.output_rank(), OutputRank);
+    return RankConstraint::EqualOrUnspecified(other.input_rank(), InputRank) &&
+           RankConstraint::EqualOrUnspecified(other.output_rank(), OutputRank);
   }
 
   static std::string Describe() {

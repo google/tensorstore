@@ -41,16 +41,6 @@ class IncludeDefaults {
   bool value_;
 };
 
-struct RankConstraint {
-  constexpr explicit RankConstraint(DimensionIndex rank = dynamic_rank)
-      : rank(rank) {}
-
-  /// Specifies the rank, or equal to `dynamic_rank` if unknown.
-  DimensionIndex rank = dynamic_rank;
-
-  constexpr operator DimensionIndex() const { return rank; }
-};
-
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_JSON_SERIALIZATION_OPTIONS_BASE_H_

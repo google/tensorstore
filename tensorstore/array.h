@@ -231,14 +231,14 @@ using OffsetArrayView = Array<Element, Rank, offset_origin, view>;
 /// Bool-valued metafunction that determines whether a (SourceElement,
 /// SourceRank, SourceOriginKind) tuple is potentially convertible to a
 /// (DestElement, DestRank, DestOriginKind) tuple, based on
-/// `IsElementTypeExplicitlyConvertible`, `IsRankExplicitlyConvertible` and
-/// `IsArrayOriginKindConvertible`.
+/// `IsElementTypeExplicitlyConvertible`, `RankConstraint::EqualOrUnspecified`
+/// and `IsArrayOriginKindConvertible`.
 template <typename SourceElement, DimensionIndex SourceRank,
           ArrayOriginKind SourceOriginKind, typename DestElement,
           DimensionIndex DestRank, ArrayOriginKind DestOriginKind>
 constexpr inline bool IsArrayExplicitlyConvertible =
     IsElementTypeExplicitlyConvertible<SourceElement, DestElement> &&
-    IsRankExplicitlyConvertible(SourceRank, DestRank) &&
+    RankConstraint::EqualOrUnspecified(SourceRank, DestRank) &&
     IsArrayOriginKindConvertible(SourceOriginKind, DestOriginKind);
 
 /// Bool-valued metafunction that is `true` if `T` is an instance of
@@ -262,7 +262,7 @@ template <DimensionIndex Rank, typename Indices,
           typename =
               std::enable_if_t<IsCompatiblePartialIndexVector<Rank, Indices>>>
 constexpr inline DimensionIndex SubArrayStaticRank =
-    SubtractStaticRanks(Rank, internal::ConstSpanType<Indices>::extent);
+    RankConstraint::Subtract(Rank, internal::ConstSpanType<Indices>::extent);
 
 /// Returns a reference to the sub-array obtained by subscripting the first
 /// `span(indices).size()` dimensions of `array`.
@@ -287,18 +287,20 @@ template <ContainerKind LayoutCKind = view, typename ElementTag,
           DimensionIndex Rank, ArrayOriginKind OriginKind,
           ContainerKind SourceCKind, typename Indices>
 std::enable_if_t<
-    IsCompatiblePartialIndexVector<NormalizeRankSpec(Rank), Indices>,
+    IsCompatiblePartialIndexVector<RankConstraint::FromInlineRank(Rank),
+                                   Indices>,
     Array<typename ElementTagTraits<ElementTag>::Element,
-          SubArrayStaticRank<NormalizeRankSpec(Rank), Indices>, OriginKind,
-          LayoutCKind>>
+          SubArrayStaticRank<RankConstraint::FromInlineRank(Rank), Indices>,
+          OriginKind, LayoutCKind>>
 SubArray(const Array<ElementTag, Rank, OriginKind, SourceCKind>& array,
          const Indices& indices) {
   using IndicesSpan = internal::ConstSpanType<Indices>;
   const IndicesSpan indices_span = indices;
   const Index byte_offset = array.layout()[indices];
-  return Array<typename ElementTagTraits<ElementTag>::Element,
-               SubArrayStaticRank<NormalizeRankSpec(Rank), Indices>, OriginKind,
-               LayoutCKind>(
+  return Array<
+      typename ElementTagTraits<ElementTag>::Element,
+      SubArrayStaticRank<RankConstraint::FromInlineRank(Rank), Indices>,
+      OriginKind, LayoutCKind>(
       ElementPointer<typename ElementTagTraits<ElementTag>::Element>(
           (array.byte_strided_pointer() + byte_offset).get(), array.dtype()),
       GetSubLayoutView<IndicesSpan::extent>(array.layout(),
@@ -307,16 +309,18 @@ SubArray(const Array<ElementTag, Rank, OriginKind, SourceCKind>& array,
 template <ContainerKind LayoutCKind = view, typename Element,
           DimensionIndex Rank, ArrayOriginKind OriginKind,
           ContainerKind SourceCKind, typename Indices>
-SharedArray<Element, SubArrayStaticRank<NormalizeRankSpec(Rank), Indices>,
+SharedArray<Element,
+            SubArrayStaticRank<RankConstraint::FromInlineRank(Rank), Indices>,
             OriginKind, LayoutCKind>
 SharedSubArray(const SharedArray<Element, Rank, OriginKind, SourceCKind>& array,
                const Indices& indices) {
   using IndicesSpan = internal::ConstSpanType<Indices>;
   const IndicesSpan indices_span = indices;
   const Index byte_offset = array.layout()[indices];
-  return SharedArray<Element,
-                     SubArrayStaticRank<NormalizeRankSpec(Rank), Indices>,
-                     OriginKind, LayoutCKind>(
+  return SharedArray<
+      Element,
+      SubArrayStaticRank<RankConstraint::FromInlineRank(Rank), Indices>,
+      OriginKind, LayoutCKind>(
       AddByteOffset(array.element_pointer(), byte_offset),
       GetSubLayoutView<IndicesSpan::extent>(array.layout(),
                                             indices_span.size()));
@@ -326,7 +330,8 @@ template <ContainerKind LayoutCKind = view, typename ElementTag,
           DimensionIndex Rank, ArrayOriginKind OriginKind,
           ContainerKind SourceCKind, std::size_t N>
 Array<typename ElementTagTraits<ElementTag>::Element,
-      SubArrayStaticRank<NormalizeRankSpec(Rank), span<const Index, N>>,
+      SubArrayStaticRank<RankConstraint::FromInlineRank(Rank),
+                         span<const Index, N>>,
       OriginKind, LayoutCKind>
 SubArray(const Array<ElementTag, Rank, OriginKind, SourceCKind>& array,
          const Index (&indices)[N]) {
@@ -337,7 +342,8 @@ template <ContainerKind LayoutCKind = view, typename Element,
           DimensionIndex Rank, ArrayOriginKind OriginKind,
           ContainerKind SourceCKind, std::size_t N>
 SharedArray<Element,
-            SubArrayStaticRank<NormalizeRankSpec(Rank), span<const Index, N>>,
+            SubArrayStaticRank<RankConstraint::FromInlineRank(Rank),
+                               span<const Index, N>>,
             OriginKind, LayoutCKind>
 SharedSubArray(const SharedArray<Element, Rank, OriginKind, SourceCKind>& array,
                const Index (&indices)[N]) {
@@ -401,7 +407,7 @@ template <typename ElementTagType, DimensionIndex Rank = dynamic_rank,
           ContainerKind LayoutContainerKind = container>
 class Array {
  public:
-  static_assert(IsValidRankSpec(Rank));
+  static_assert(IsValidInlineRank(Rank));
   static_assert(IsElementTag<ElementTagType>,
                 "ElementTagType must be an ElementTag type.");
   static_assert(LayoutContainerKind == container || Rank >= dynamic_rank,
@@ -420,7 +426,8 @@ class Array {
   using RankType = typename Layout::RankType;
 
   /// Rank of the array, or `dynamic_rank` if specified at run time.
-  constexpr static DimensionIndex static_rank = NormalizeRankSpec(Rank);
+  constexpr static DimensionIndex static_rank =
+      RankConstraint::FromInlineRank(Rank);
 
   /// Origin kind of the array.
   constexpr static ArrayOriginKind array_origin_kind = OriginKind;
@@ -451,10 +458,10 @@ class Array {
   /// \requires `static_rank == 0 || static_rank == dynamic_rank`.
   /// \post `this->element_pointer() == element_pointer`
   /// \post `this->layout() == StridedLayoutView<0>()`
-  template <typename SourcePointer = ElementPointer,
-            std::enable_if_t<
-                (std::is_convertible_v<SourcePointer, ElementPointer> &&
-                 IsRankImplicitlyConvertible(0, static_rank))>* = nullptr>
+  template <
+      typename SourcePointer = ElementPointer,
+      std::enable_if_t<(std::is_convertible_v<SourcePointer, ElementPointer> &&
+                        RankConstraint::Implies(0, static_rank))>* = nullptr>
   Array(SourcePointer element_pointer)
       : storage_(std::move(element_pointer), Layout()) {}
 
@@ -512,12 +519,11 @@ class Array {
   ///
   /// \requires `std::is_convertible_v<SourcePointer, ElementPointer>`
   /// \requires `layout_container_kind == container`
-  template <
-      typename SourcePointer = ElementPointer, DimensionIndex ShapeRank,
-      std::enable_if_t<(std::is_convertible_v<SourcePointer, ElementPointer> &&
-                        LayoutContainerKind == container &&
-                        IsRankImplicitlyConvertible(ShapeRank, static_rank))>* =
-          nullptr>
+  template <typename SourcePointer = ElementPointer, DimensionIndex ShapeRank,
+            std::enable_if_t<
+                (std::is_convertible_v<SourcePointer, ElementPointer> &&
+                 LayoutContainerKind == container &&
+                 RankConstraint::Implies(ShapeRank, static_rank))>* = nullptr>
   Array(SourcePointer element_pointer, const Index (&shape)[ShapeRank],
         ContiguousLayoutOrder order = c_order) {
     this->element_pointer() = std::move(element_pointer);
@@ -751,7 +757,8 @@ class Array {
   template <std::size_t N,
             // Note: Use extra template parameter to make condition dependent.
             bool SfinaeNotVoid = !std::is_void_v<Element>>
-  std::enable_if_t<(SfinaeNotVoid && AreStaticRanksCompatible(static_rank, N)),
+  std::enable_if_t<(SfinaeNotVoid &&
+                    RankConstraint::EqualOrUnspecified(static_rank, N)),
                    Element>&
   operator()(const Index (&indices)[N]) const {
     return byte_strided_pointer()[this->layout()(indices)];
@@ -798,9 +805,9 @@ class Array {
   /// \post `result.layout() == GetSubLayoutView(this->layout(), 1)`
   template <int&... ExplicitArgumentBarrier,
             DimensionIndex SfinaeR = static_rank>
-  std::enable_if_t<
-      IsStaticRankGreater(SfinaeR, 0),
-      ArrayView<Element, SubtractStaticRanks(SfinaeR, 1), array_origin_kind>>
+  std::enable_if_t<RankConstraint::GreaterOrUnspecified(SfinaeR, 0),
+                   ArrayView<Element, RankConstraint::Subtract(SfinaeR, 1),
+                             array_origin_kind>>
   operator[](Index index) const {
     return SubArray(*this, span<const Index, 1>(&index, 1));
   }
@@ -883,8 +890,9 @@ class Array {
             ArrayOriginKind OriginKindB, ContainerKind CKindB>
   friend bool operator==(
       const Array& a, const Array<ElementTagB, RankB, OriginKindB, CKindB>& b) {
-    static_assert(IsRankExplicitlyConvertible(NormalizeRankSpec(Rank),
-                                              NormalizeRankSpec(RankB)),
+    static_assert(RankConstraint::EqualOrUnspecified(
+                      RankConstraint::FromInlineRank(Rank),
+                      RankConstraint::FromInlineRank(RankB)),
                   "tensorstore::Array ranks must be compatible.");
     static_assert(AreElementTypesCompatible<
                       Element, typename ElementTagTraits<ElementTagB>::Element>,
@@ -968,13 +976,14 @@ struct StaticCastTraits<
 
   template <typename Other>
   static bool IsCompatible(const Other& other) {
-    return IsRankExplicitlyConvertible(other.rank(), NormalizeRankSpec(Rank)) &&
+    return RankConstraint::EqualOrUnspecified(
+               other.rank(), RankConstraint::FromInlineRank(Rank)) &&
            IsPossiblySameDataType(other.dtype(), typename type::DataType());
   }
 
   static std::string Describe() {
-    return internal_array::DescribeForCast(typename type::DataType(),
-                                           NormalizeRankSpec(Rank));
+    return internal_array::DescribeForCast(
+        typename type::DataType(), RankConstraint::FromInlineRank(Rank));
   }
 
   static std::string Describe(const type& value) {
@@ -1545,9 +1554,9 @@ template <typename Source, typename Dest>
 absl::Status CopyConvertedArray(const Source& source, const Dest& dest) {
   static_assert(IsArray<Source>, "Source must be an instance of Array");
   static_assert(IsArray<Dest>, "Dest must be an instance of Array");
-  static_assert(
-      IsRankExplicitlyConvertible(Dest::static_rank, Source::static_rank),
-      "Arrays must have compatible ranks.");
+  static_assert(RankConstraint::EqualOrUnspecified(Dest::static_rank,
+                                                   Source::static_rank),
+                "Arrays must have compatible ranks.");
   static_assert(!std::is_const_v<typename Dest::Element>,
                 "Dest array must have a non-const element type.");
   return internal_array::CopyConvertedArrayImplementation(source, dest);
@@ -1859,7 +1868,8 @@ struct Serializer<Array<Shared<Element>, Rank, OriginKind, container>> {
       Array<Shared<Element>, Rank, OriginKind, container>& value) {
     SharedArray<void, dynamic_rank, OriginKind> array;
     if (!internal_array::DecodeArray<OriginKind>::Decode(
-            source, array, dtype_v<Element>, NormalizeRankSpec(Rank))) {
+            source, array, dtype_v<Element>,
+            RankConstraint::FromInlineRank(Rank))) {
       return false;
     }
     value = tensorstore::StaticCast<SharedArray<Element, Rank, OriginKind>,

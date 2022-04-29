@@ -108,8 +108,8 @@ constexpr inline bool IsStaticExtentCompatibleWithRange = true;
 template <std::ptrdiff_t StaticExtent, typename Range>
 constexpr inline bool IsStaticExtentCompatibleWithRange<
     StaticExtent, Range, std::void_t<internal::ConstSpanType<Range>>> =
-    IsRankExplicitlyConvertible(StaticExtent,
-                                internal::ConstSpanType<Range>::extent);
+    RankConstraint::EqualOrUnspecified(StaticExtent,
+                                       internal::ConstSpanType<Range>::extent);
 
 }  // namespace internal_index_space
 
@@ -240,8 +240,8 @@ constexpr inline bool IsStaticExtentCompatibleWithRange<
 template <DimensionIndex InputRank = dynamic_rank,
           DimensionIndex OutputRank = dynamic_rank>
 class IndexTransformBuilder {
-  static_assert(IsValidStaticRank(InputRank));
-  static_assert(IsValidStaticRank(OutputRank));
+  static_assert(RankConstraint(InputRank).valid());
+  static_assert(RankConstraint(OutputRank).valid());
 
  public:
   /// Constructs an invalid `IndexTransformBuilder`.

@@ -1278,8 +1278,8 @@ Result<ChunkLayout> ApplyIndexTransform(IndexTransformView<> transform,
   const DimensionIndex output_rank = transform.output_rank();
   const DimensionIndex input_rank = transform.input_rank();
   const DimensionIndex output_constraints_rank = output_constraints.rank();
-  if (!IsRankExplicitlyConvertible(output_constraints_rank,
-                                   transform.output_rank())) {
+  if (!RankConstraint::EqualOrUnspecified(output_constraints_rank,
+                                          transform.output_rank())) {
     return absl::InvalidArgumentError(tensorstore::StrCat(
         "Cannot transform constraints of rank ", output_constraints_rank,
         " by index transform of rank ", input_rank, " -> ", output_rank));
@@ -1334,8 +1334,8 @@ Result<ChunkLayout> ApplyInverseIndexTransform(IndexTransformView<> transform,
   const DimensionIndex output_rank = transform.output_rank();
   const DimensionIndex input_rank = transform.input_rank();
   const DimensionIndex input_constraints_rank = input_constraints.rank();
-  if (!IsRankExplicitlyConvertible(input_constraints_rank,
-                                   transform.input_rank())) {
+  if (!RankConstraint::EqualOrUnspecified(input_constraints_rank,
+                                          transform.input_rank())) {
     return absl::InvalidArgumentError(tensorstore::StrCat(
         "Cannot transform constraints of rank ", input_constraints_rank,
         " by index transform of rank ", input_rank, " -> ", output_rank));
@@ -1813,7 +1813,7 @@ absl::Status ChunkLayout::Grid::Set(RankConstraint value) {
     return absl::OkStatus();
   }
   TENSORSTORE_RETURN_IF_ERROR(ValidateRank(rank));
-  if (!IsRankExplicitlyConvertible(rank_, rank)) {
+  if (!RankConstraint::EqualOrUnspecified(rank_, rank)) {
     return RankMismatchError(rank, rank_);
   }
   rank_ = rank;

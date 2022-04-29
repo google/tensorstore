@@ -93,9 +93,9 @@ struct IntervalSliceOp {
   static constexpr bool selected_dimensions_are_new = false;
 
   static constexpr DimensionIndex static_selection_rank =
-      MaxStaticRank(IsIndexVectorOrScalar<StartVector>::extent,
-                    IsIndexVectorOrScalar<StopOrSizeVector>::extent,
-                    IsIndexVectorOrScalar<StrideVector>::extent);
+      RankConstraint::And({IsIndexVectorOrScalar<StartVector>::extent,
+                           IsIndexVectorOrScalar<StopOrSizeVector>::extent,
+                           IsIndexVectorOrScalar<StrideVector>::extent});
 
   constexpr static DimensionIndex GetNewStaticInputRank(
       DimensionIndex input_rank, DimensionIndex num_input_dims) {
@@ -108,7 +108,8 @@ struct IntervalSliceOp {
   constexpr static DimensionIndex GetStaticSelectionRank(
       DimensionIndex num_input_dims) {
     TENSORSTORE_CONSTEXPR_ASSERT(
-        IsRankExplicitlyConvertible(num_input_dims, static_selection_rank) &&
+        RankConstraint::EqualOrUnspecified(num_input_dims,
+                                           static_selection_rank) &&
         "Number of selected dimensions must match number of indices.");
     return num_input_dims == dynamic_rank ? static_selection_rank
                                           : num_input_dims;
@@ -183,7 +184,8 @@ struct StrideOp {
   constexpr static DimensionIndex GetStaticSelectionRank(
       DimensionIndex num_input_dims) {
     TENSORSTORE_CONSTEXPR_ASSERT(
-        IsRankExplicitlyConvertible(num_input_dims, static_selection_rank) &&
+        RankConstraint::EqualOrUnspecified(num_input_dims,
+                                           static_selection_rank) &&
         "Number of selected dimensions must match number of strides.");
     return num_input_dims == dynamic_rank ? static_selection_rank
                                           : num_input_dims;
@@ -217,7 +219,8 @@ struct BoxSliceOp {
   constexpr static DimensionIndex GetStaticSelectionRank(
       DimensionIndex num_input_dims) {
     TENSORSTORE_CONSTEXPR_ASSERT(
-        IsRankExplicitlyConvertible(num_input_dims, static_selection_rank) &&
+        RankConstraint::EqualOrUnspecified(num_input_dims,
+                                           static_selection_rank) &&
         "Number of selected dimensions must match number of strides.");
     return num_input_dims == dynamic_rank ? static_selection_rank
                                           : num_input_dims;

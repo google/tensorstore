@@ -73,7 +73,7 @@ template <typename ElementType = void, DimensionIndex Rank = dynamic_rank,
 class TensorStore {
   static_assert(std::is_same_v<ElementType, std::decay_t<ElementType>>,
                 "Invalid ElementType.");
-  static_assert(IsValidStaticRank(Rank));
+  static_assert(RankConstraint(Rank).valid());
   using Access = internal::TensorStoreAccess;
   using Transform = IndexTransform<Rank>;
 
@@ -355,7 +355,7 @@ struct StaticCastTraits<TensorStore<Element, Rank, Mode>>
   template <typename Other>
   static bool IsCompatible(const Other& other) {
     return IsPossiblySameDataType(other.dtype(), typename type::DataType()) &&
-           IsRankExplicitlyConvertible(other.rank(), Rank) &&
+           RankConstraint::EqualOrUnspecified(other.rank(), Rank) &&
            IsModeExplicitlyConvertible(other.read_write_mode(), Mode);
   }
 

@@ -161,23 +161,24 @@ class DimExpression<LastOp, PriorOp...> {
       IndexVectorOpExpr<internal_index_space::IntervalSliceOp, IndexVector...>;
 
   template <typename BoxType>
-  using BoxSliceOpExpr = NewExpr<
-      std::enable_if_t<(IsBoxLike<BoxType> && IsRankExplicitlyConvertible(
-                                                  static_selection_rank::value,
-                                                  BoxType::static_rank)),
-                       internal_index_space::BoxSliceOp<BoxType::static_rank>>>;
+  using BoxSliceOpExpr = NewExpr<std::enable_if_t<
+      (IsBoxLike<BoxType> &&
+       RankConstraint::EqualOrUnspecified(static_selection_rank::value,
+                                          BoxType::static_rank)),
+      internal_index_space::BoxSliceOp<BoxType::static_rank>>>;
 
   /// Defines the return type for IndexArraySlice with a parameter pack of index
   /// arrays.
   template <typename... IndexArray>
   using IndexArraySliceOpExpr = std::enable_if_t<
       sizeof...(IndexArray) >= 1 &&
-          IsRankExplicitlyConvertible(sizeof...(IndexArray),
-                                      static_selection_rank::value) &&
+          RankConstraint::EqualOrUnspecified(sizeof...(IndexArray),
+                                             static_selection_rank::value) &&
           (IsIndexArray<IndexArray> && ...) &&
-          AreStaticRanksCompatible(IndexArray::static_rank...),
+          RankConstraint::EqualOrUnspecified({IndexArray::static_rank...}),
       NewExpr<internal_index_space::IndexArraySliceOp<
-          /*OuterIndexing=*/false, MaxStaticRank(IndexArray::static_rank...),
+          /*OuterIndexing=*/false,
+          RankConstraint::And({IndexArray::static_rank...}),
           std::array<SharedArrayView<const Index>, sizeof...(IndexArray)>>>>;
 
   /// Defines the return type for IndexArraySlice with a span of index arrays.
@@ -190,11 +191,12 @@ class DimExpression<LastOp, PriorOp...> {
   /// index arrays.
   template <typename... IndexArray>
   using IndexArrayOuterSliceOpExpr = std::enable_if_t<
-      IsRankExplicitlyConvertible(sizeof...(IndexArray),
-                                  static_selection_rank::value) &&
+      RankConstraint::EqualOrUnspecified(sizeof...(IndexArray),
+                                         static_selection_rank::value) &&
           (IsIndexArray<IndexArray> && ...),
       NewExpr<internal_index_space::IndexArraySliceOp<
-          /*OuterIndexing=*/true, AddStaticRanks(IndexArray::static_rank...),
+          /*OuterIndexing=*/true,
+          RankConstraint::Add({IndexArray::static_rank...}),
           std::array<SharedArrayView<const Index>, sizeof...(IndexArray)>>>>;
 
   /// Defines the return type for OuterIndexArraySlice with a span of index
@@ -208,7 +210,7 @@ class DimExpression<LastOp, PriorOp...> {
   /// with the specified static `Rank`.
   template <typename Labels, DimensionIndex Rank>
   using LabelOpExpr =
-      std::enable_if_t<IsRankExplicitlyConvertible(
+      std::enable_if_t<RankConstraint::EqualOrUnspecified(
                            Rank, static_selection_rank::value),
                        NewExpr<internal_index_space::LabelOp<Labels>>>;
 
@@ -244,8 +246,8 @@ class DimExpression<LastOp, PriorOp...> {
   template <typename TargetDims,
             typename TargetDimsSpan = internal::ConstSpanType<TargetDims>>
   using TransposeToOpExpr = std::enable_if_t<
-      (IsRankExplicitlyConvertible(TargetDimsSpan::extent,
-                                   static_selection_rank::value) &&
+      (RankConstraint::EqualOrUnspecified(TargetDimsSpan::extent,
+                                          static_selection_rank::value) &&
        std::is_same_v<typename TargetDimsSpan::value_type, DimensionIndex>),
       NewExpr<internal_index_space::TransposeToOp<TargetDimsSpan>>>;
 
@@ -257,8 +259,8 @@ class DimExpression<LastOp, PriorOp...> {
   template <typename IndexVectorArray>
   using IndexVectorArraySliceOpExpr =
       std::enable_if_t<IsIndexArray<IndexVectorArray> &&
-                           IsStaticRankGreater(IndexVectorArray::static_rank,
-                                               0),
+                           RankConstraint::GreaterOrUnspecified(
+                               IndexVectorArray::static_rank, 0),
                        NewExpr<internal_index_space::IndexVectorArraySliceOp<
                            IndexVectorArray::static_rank>>>;
 

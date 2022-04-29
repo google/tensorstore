@@ -100,7 +100,8 @@ struct TransposeToOp {
   constexpr static DimensionIndex GetStaticSelectionRank(
       DimensionIndex num_input_dims) {
     TENSORSTORE_CONSTEXPR_ASSERT(
-        IsRankExplicitlyConvertible(num_input_dims, static_selection_rank) &&
+        RankConstraint::EqualOrUnspecified(num_input_dims,
+                                           static_selection_rank) &&
         "Number of selected dimensions must match number of target "
         "dimensions.");
     return num_input_dims == dynamic_rank ? static_selection_rank
@@ -145,7 +146,7 @@ struct TransposeOp {
   constexpr static DimensionIndex GetNewStaticInputRank(
       DimensionIndex input_rank, DimensionIndex num_input_dims) {
     TENSORSTORE_CONSTEXPR_ASSERT(
-        IsRankExplicitlyConvertible(input_rank, num_input_dims) &&
+        RankConstraint::EqualOrUnspecified(input_rank, num_input_dims) &&
         "Number of selected dimensions must equal input rank.");
     return input_rank == dynamic_rank ? num_input_dims : input_rank;
   }

@@ -67,7 +67,7 @@ template <typename SourceElement, DimensionIndex SourceRank,
           ReadWriteMode SourceMode, typename TargetElement,
           DimensionIndex TargetRank, ReadWriteMode TargetMode>
 constexpr inline bool IsTensorStoreImplicitlyConvertible =
-    (IsRankImplicitlyConvertible(SourceRank, TargetRank) &&
+    (RankConstraint::Implies(SourceRank, TargetRank) &&
      (SourceMode & TargetMode) == TargetMode &&
      IsElementTypeImplicitlyConvertible<SourceElement, TargetElement>);
 
@@ -78,7 +78,7 @@ template <typename SourceElement, DimensionIndex SourceRank,
           ReadWriteMode SourceMode, typename TargetElement,
           DimensionIndex TargetRank, ReadWriteMode TargetMode>
 constexpr inline bool IsTensorStoreCastConvertible =
-    (IsRankExplicitlyConvertible(SourceRank, TargetRank) &&
+    (RankConstraint::EqualOrUnspecified(SourceRank, TargetRank) &&
      IsModeExplicitlyConvertible(SourceMode, TargetMode) &&
      IsElementTypeExplicitlyConvertible<SourceElement, TargetElement>);
 

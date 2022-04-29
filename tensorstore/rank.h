@@ -25,6 +25,7 @@
 
 #include <cassert>
 #include <cstddef>
+#include <initializer_list>
 #include <type_traits>
 
 #include "tensorstore/index.h"
@@ -38,12 +39,9 @@ namespace tensorstore {
 /// Maximum supported rank.
 constexpr DimensionIndex kMaxRank = 32;
 
+/// Checks if `rank` is a valid rank value.
 constexpr inline bool IsValidRank(DimensionIndex rank) {
   return 0 <= rank && rank <= kMaxRank;
-}
-
-constexpr inline bool IsValidRankSpec(DimensionIndex rank_spec) {
-  return rank_spec >= (-kMaxRank - 1) && rank_spec <= kMaxRank;
 }
 
 struct DynamicRank {
@@ -73,34 +71,164 @@ struct DynamicRank {
 /// `dynamic_rank` is equivalent to `dynamic_rank(0)`.
 constexpr inline DynamicRank dynamic_rank = {};
 
-constexpr inline DimensionIndex InlineRankLimit(DimensionIndex rank_spec) {
+/// Specifies a fixed compile-time rank, or a run-time rank with an optional
+/// inline storage limit.
+///
+/// - Non-negative integers `0`, `1`, ..., `kMaxRank` indicate a fixed rank
+///   specified at compile time.
+///
+/// - A value of :cpp:`dynamic_rank(k)` (equal to :cpp:`-k -1`), for
+///   `0 <= k <= kMaxRank`, indicates that the rank is determined at run time,
+///   and bounds/layout information for rank values up to :cpp:`k` will be
+///   stored inline without additional heap allocation.
+///
+/// - The special value `dynamic_rank`, equivalent to `dynamic_rank(0)`,
+///   indicates that the rank is determined at run time, and any non-zero rank
+///   will require heap-allocated storage of bounds/layout information.
+using InlineRank = DimensionIndex;
+
+/// Represents an optional rank value and provides related operations.
+struct RankConstraint {
+  /// Constructs with an unspecified rank value (`dynamic_rank`).
+  constexpr RankConstraint() = default;
+  constexpr RankConstraint(DynamicRank) {}
+
+  /// Constructs with the specified rank value.
+  constexpr explicit RankConstraint(DimensionIndex rank) : rank(rank) {}
+
+  /// Constructs from an `InlineRank` value, ignoring the inline buffer size.
+  static constexpr RankConstraint FromInlineRank(InlineRank value) {
+    return RankConstraint(value < 0 ? dynamic_rank : value);
+  }
+
+  /// Indicates the rank, or equal to `dynamic_rank` if unknown.
+  DimensionIndex rank = dynamic_rank;
+
+  /// Returns `rank`.
+  constexpr operator DimensionIndex() const { return rank; }
+
+  /// Returns `true` if this is a valid rank constraint.
+  constexpr bool valid() const {
+    return rank == -1 || (rank >= 0 && rank <= kMaxRank);
+  }
+
+  /// Returns the intersection of the rank constraints.
+  ///
+  /// \pre `EqualOrUnspecified(a, b)` or `EqualOrUnspecified(constraints)`
+  static constexpr RankConstraint And(DimensionIndex a, DimensionIndex b) {
+    assert(EqualOrUnspecified(a, b));
+    return RankConstraint(a == dynamic_rank ? b : a);
+  }
+  static constexpr RankConstraint And(
+      std::initializer_list<DimensionIndex> constraints) {
+    assert(EqualOrUnspecified(constraints));
+    for (DimensionIndex x : constraints) {
+      if (x == dynamic_rank) continue;
+      return RankConstraint(x);
+    }
+    return dynamic_rank;
+  }
+
+  /// Adds the rank constraints.
+  ///
+  /// - If any constraint is equal to `dynamic_rank`, the result is
+  ///   `dynamic_rank`.
+  ///
+  /// - Otherwise, the result is the sum of the two fixed ranks.
+  static constexpr RankConstraint Add(DimensionIndex a, DimensionIndex b) {
+    if (a == dynamic_rank || b == dynamic_rank) return dynamic_rank;
+    return RankConstraint(a + b);
+  }
+  static constexpr RankConstraint Add(
+      std::initializer_list<DimensionIndex> constraints) {
+    DimensionIndex result = 0;
+    for (auto x : constraints) {
+      if (x == dynamic_rank) return dynamic_rank;
+      result += x;
+    }
+    return RankConstraint(result);
+  }
+
+  /// Subtracts the rank constraints.
+  ///
+  /// - If `a` or `b` is equal to `dynamic_rank`, the result is `dynamic_rank`.
+  ///
+  /// - Otherwise, the result is equal to the difference of the two fixed ranks.
+  ///
+  /// \pre `GreaterEqualOrUnspecified(a, b)`
+  static constexpr RankConstraint Subtract(DimensionIndex a, DimensionIndex b) {
+    if (a == dynamic_rank || b == dynamic_rank) return dynamic_rank;
+    assert(a >= b);
+    return RankConstraint(a - b);
+  }
+
+  /// Returns `true` if any rank satisfying `inner` also satisfies `outer`.
+  static constexpr bool Implies(DimensionIndex inner, DimensionIndex outer) {
+    return outer == dynamic_rank || outer == inner;
+  }
+
+  /// Returns `true` if there is at least one rank satisfying all constraints.
+  static constexpr bool EqualOrUnspecified(DimensionIndex a, DimensionIndex b) {
+    return a == dynamic_rank || b == dynamic_rank || a == b;
+  }
+  static constexpr bool EqualOrUnspecified(
+      std::initializer_list<DimensionIndex> constraints) {
+    DimensionIndex common = dynamic_rank;
+    for (auto x : constraints) {
+      if (x == dynamic_rank) continue;
+      if (x != common && common != dynamic_rank) {
+        return false;
+      }
+      common = x;
+    }
+    return true;
+  }
+
+  /// Returns `true` if some rank satisfying `a` is less than some rank
+  /// satisfying `b`.
+  static constexpr bool LessOrUnspecified(DimensionIndex a, DimensionIndex b) {
+    return a == dynamic_rank || b == dynamic_rank || a < b;
+  }
+
+  /// Returns `true` if some rank satisfying `a` is less than or equal to some
+  /// rank satisfying `b`.
+  static constexpr bool LessEqualOrUnspecified(DimensionIndex a,
+                                               DimensionIndex b) {
+    return a == dynamic_rank || b == dynamic_rank || a <= b;
+  }
+
+  /// Returns `true` if some rank satisfying `a` is greater than some rank
+  /// satisfying `b`.
+  static constexpr bool GreaterOrUnspecified(DimensionIndex a,
+                                             DimensionIndex b) {
+    return a == dynamic_rank || b == dynamic_rank || a > b;
+  }
+
+  /// Returns `true` if some rank satisfying `a` is greater than or equal to
+  /// some rank satisfying `b`.
+  static constexpr bool GreaterEqualOrUnspecified(DimensionIndex a,
+                                                  DimensionIndex b) {
+    return a == dynamic_rank || b == dynamic_rank || a >= b;
+  }
+};
+
+/// Checks if `rank_spec` is a valid compile-time rank constraint.
+///
+/// Supported values are:
+///
+/// - Any fixed rank for `0 <= rank_spec <= kMaxRank`.
+///
+/// - `dynamic_rank`, indicating an unspecified rank and no inline buffer.
+///
+/// - :cpp:`dynamic_rank(k)`, for :cpp:`0 <= k <= kMaxRank`, indicating an
+///   unspecified rank with inline storage up to :cpp:`k`.
+constexpr inline bool IsValidInlineRank(InlineRank inline_rank) {
+  return inline_rank >= (-kMaxRank - 1) && inline_rank <= kMaxRank;
+}
+
+/// Returns the inline rank limit of a rank spec.
+constexpr inline DimensionIndex InlineRankLimit(InlineRank rank_spec) {
   return (rank_spec <= -1) ? -1 - rank_spec : 0;
-}
-
-constexpr inline DimensionIndex NormalizeRankSpec(DimensionIndex rank_spec) {
-  return (rank_spec <= -1) ? -1 : rank_spec;
-}
-
-/// Returns `true` if `rank` is a valid static rank value.
-constexpr inline bool IsValidStaticRank(DimensionIndex static_rank) {
-  return (static_rank >= 0 && static_rank <= kMaxRank) ||
-         static_rank == dynamic_rank;
-}
-
-/// Returns `true` if, and only if, a conversion from `source_rank` to
-/// `dest_rank` is always valid.
-constexpr inline bool IsRankImplicitlyConvertible(DimensionIndex source_rank,
-                                                  DimensionIndex dest_rank) {
-  return source_rank == dest_rank || dest_rank == dynamic_rank;
-}
-
-/// Returns `true`, if, and only if, a conversion from `source_rank` to
-/// `dest_rank` is potentially valid (i.e. not known at compile-time to be
-/// invalid).
-constexpr inline bool IsRankExplicitlyConvertible(DimensionIndex source_rank,
-                                                  DimensionIndex dest_rank) {
-  return source_rank == dest_rank || source_rank == dynamic_rank ||
-         dest_rank == dynamic_rank;
 }
 
 /// Template alias that evaluates to the type used for representing a static
@@ -125,128 +253,6 @@ template <DimensionIndex Rank>
 using StaticOrDynamicRank =
     std::conditional_t<(Rank <= dynamic_rank), DimensionIndex,
                        std::integral_constant<DimensionIndex, Rank>>;
-
-/// DimensionIndex-valued metafunction that evaluates to the static rank
-/// corresponding to the specified RankType.  This metafunction is the inverse
-/// of `StaticOrDynamicRank`.
-///
-/// If `RankType` is `DimensionIndex`, the result is
-/// `std::integral_constant<DimensionIndex, dynamic_rank>`.  Otherwise, the
-/// result is `RankType`.
-///
-/// \tparam RankType Either `DimensionIndex` or
-///     `std::integral_constant<DimensionIndex, Rank>`.
-template <typename RankType>
-struct StaticRankFromRankType : public RankType {};
-
-/// Specialization of `StaticRankFromRankType` for the case of a dynamic rank.
-template <>
-struct StaticRankFromRankType<DimensionIndex>
-    : public std::integral_constant<DimensionIndex, dynamic_rank> {};
-
-/// Returns the sum of two static rank values.
-///
-/// \pre `IsValidStaticRank(a) && IsValidStaticRank(b)`
-/// \returns `dynamic_rank` if `a` or `b` equals `dynamic_rank`, else `a + b`.
-constexpr DimensionIndex AddStaticRanks(DimensionIndex a, DimensionIndex b) {
-  assert(IsValidStaticRank(a) && IsValidStaticRank(b));
-  return a == dynamic_rank || b == dynamic_rank ? dynamic_rank : a + b;
-}
-
-/// Base case for zero arguments.
-constexpr DimensionIndex AddStaticRanks() { return 0; }
-
-/// Base case for a single argument.
-constexpr DimensionIndex AddStaticRanks(DimensionIndex a) { return a; }
-
-/// Returns the sum of a variable number of static rank values.
-template <typename... T>
-constexpr DimensionIndex AddStaticRanks(DimensionIndex a, DimensionIndex b,
-                                        T... x) {
-  return AddStaticRanks(a, AddStaticRanks(b, x...));
-}
-
-constexpr bool IsStaticRankLess(DimensionIndex a, DimensionIndex b) {
-  return a == dynamic_rank || b == dynamic_rank || a < b;
-}
-
-constexpr bool IsStaticRankLessEqual(DimensionIndex a, DimensionIndex b) {
-  return a == dynamic_rank || b == dynamic_rank || a <= b;
-}
-
-constexpr bool IsStaticRankGreater(DimensionIndex a, DimensionIndex b) {
-  return a == dynamic_rank || b == dynamic_rank || a > b;
-}
-
-constexpr bool IsStaticRankGreaterEqual(DimensionIndex a, DimensionIndex b) {
-  return a == dynamic_rank || b == dynamic_rank || a >= b;
-}
-
-/// Returns the sum of two static rank values.
-///
-/// \pre `IsValidStaticRank(a) && IsValidStaticRank(b) && (a == dynamic_rank ||
-///     a >= b)`
-/// \returns `dynamic_rank` if `a` or `b` equals `dynamic_rank`, else `a - b`.
-constexpr DimensionIndex SubtractStaticRanks(DimensionIndex a,
-                                             DimensionIndex b) {
-  assert(IsValidStaticRank(a) && IsValidStaticRank(b) &&
-         (a == dynamic_rank || a >= b));
-  return (a == dynamic_rank || b == dynamic_rank ? dynamic_rank : a - b);
-}
-
-/// Returns the minimum statically-known rank value.
-///
-/// \pre `IsValidStaticRank(a) && IsValidStaticRank(b)`
-/// \returns `a` if `b == dynamic_rank`, `b` if `a == dynamic_rank`, or `min(a,
-///     b)` otherwise.
-constexpr DimensionIndex MinStaticRank(DimensionIndex a, DimensionIndex b) {
-  assert(IsValidStaticRank(a) && IsValidStaticRank(b));
-  return (a == dynamic_rank || b == dynamic_rank ? (a < b ? b : a)
-                                                 : (a < b ? a : b));
-}
-
-/// Base case for a single argument.
-constexpr DimensionIndex MinStaticRank(DimensionIndex a) { return a; }
-
-/// Base case for zero arguments.
-constexpr DimensionIndex MinStaticRank() { return dynamic_rank; }
-
-/// Returns the sum of a variable number of static rank values.
-template <typename... T>
-constexpr DimensionIndex MinStaticRank(DimensionIndex a, DimensionIndex b,
-                                       T... x) {
-  return MinStaticRank(a, MinStaticRank(b, x...));
-}
-
-/// Returns the maximum statically-known rank value.
-///
-/// \pre `IsValidStaticRank(a) && IsValidStaticRank(b)`
-/// \returns `max(a,b)`
-constexpr DimensionIndex MaxStaticRank(DimensionIndex a, DimensionIndex b) {
-  assert(IsValidStaticRank(a) && IsValidStaticRank(b));
-  return (a < b ? b : a);
-}
-
-/// Base case for zero arguments.
-constexpr DimensionIndex MaxStaticRank() { return dynamic_rank; }
-
-/// Base case for a single argument.
-constexpr DimensionIndex MaxStaticRank(DimensionIndex a) {
-  assert(IsValidStaticRank(a));
-  return a;
-}
-
-/// Returns the max of a variable number of static rank values.
-template <typename... T>
-constexpr DimensionIndex MaxStaticRank(DimensionIndex a, DimensionIndex b,
-                                       T... x) {
-  return MaxStaticRank(a, MaxStaticRank(b, x...));
-}
-
-template <typename... T>
-constexpr bool AreStaticRanksCompatible(T... rank) {
-  return MinStaticRank(rank...) == MaxStaticRank(rank...);
-}
 
 /// If `Rank == dynamic_rank`, returns `dynamic_rank`.  Otherwise, returns
 /// `StaticRank<Rank>{}`.
@@ -349,7 +355,7 @@ struct StaticCastTraits<std::integral_constant<DimensionIndex, Rank>> {
   static constexpr StaticRank<Rank> Construct(StaticRank<Rank>) { return {}; }
   static constexpr StaticRank<Rank> Construct(DimensionIndex) { return {}; }
   static constexpr bool IsCompatible(DimensionIndex source) {
-    return IsRankExplicitlyConvertible(source, Rank);
+    return RankConstraint::EqualOrUnspecified(source, Rank);
   }
   static std::string Describe() {
     return StaticCastTraits<DimensionIndex>::Describe(Rank);

@@ -53,8 +53,8 @@ constexpr bool IndexVectorsCompatible<
     StaticSelectionRank,
     std::enable_if_t<(IsIndexVectorOrScalar<IndexVector>::value && ...)>,
     IndexVector...> =
-    AreStaticRanksCompatible(StaticSelectionRank,
-                             IsIndexVectorOrScalar<IndexVector>::extent...);
+    RankConstraint::EqualOrUnspecified(
+        {StaticSelectionRank, IsIndexVectorOrScalar<IndexVector>::extent...});
 
 /// Helper friend class used by DimExpression to apply operations to an
 /// IndexTransform.

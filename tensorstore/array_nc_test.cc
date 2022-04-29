@@ -36,7 +36,7 @@ void FullIndexing() {
   EXPECT_NON_COMPILE("IsCompatibleFullIndexPack", x(1.1, 2, 3));
   EXPECT_NON_COMPILE("IsCompatibleFullIndexPack", x());
   EXPECT_NON_COMPILE("template argument", x({}));
-  EXPECT_NON_COMPILE("AreStaticRanksCompatible", x({1, 2, 3}));
+  EXPECT_NON_COMPILE("RankConstraint::EqualOrUnspecified", x({1, 2, 3}));
   EXPECT_NON_COMPILE("IsCompatibleFullIndexVector",
                      x(span<const Index, 3>({1, 2, 3})));
 }
@@ -49,7 +49,7 @@ void PartialIndexing() {
   static_cast<void>(x[{0, 1}]);
   static_cast<void>(x[span<const Index, 2>({0, 1})]);
 
-  EXPECT_NON_COMPILE("Rank must be > 0", x[0][0][0]);
+  EXPECT_NON_COMPILE("GreaterOrUnspecified", x[0][0][0]);
   EXPECT_NON_COMPILE("no viable overloaded operator\\[\\]", x[{0, 0, 0}]);
   EXPECT_NON_COMPILE("no viable overloaded operator\\[\\]",
                      x[span<const Index, 3>({0, 0, 0})]);

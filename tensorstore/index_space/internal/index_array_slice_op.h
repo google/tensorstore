@@ -92,14 +92,16 @@ struct IndexArraySliceOp {
     TENSORSTORE_CONSTEXPR_ASSERT(
         (input_rank == dynamic_rank || input_rank >= static_selection_rank) &&
         "Number of dimensions must not exceed input rank.");
-    return AddStaticRanks(SubtractStaticRanks(input_rank, num_input_dims),
-                          IndexArrayInputRank);
+    return RankConstraint::Add(
+        RankConstraint::Subtract(input_rank, num_input_dims),
+        IndexArrayInputRank);
   }
 
   constexpr static DimensionIndex GetStaticSelectionRank(
       DimensionIndex num_input_dims) {
     TENSORSTORE_CONSTEXPR_ASSERT(
-        IsRankExplicitlyConvertible(num_input_dims, static_selection_rank) &&
+        RankConstraint::EqualOrUnspecified(num_input_dims,
+                                           static_selection_rank) &&
         "Number of selected dimensions must match number of indices.");
     return IndexArrayInputRank;
   }
@@ -156,13 +158,14 @@ struct IndexVectorArraySliceOp {
 
   constexpr static DimensionIndex GetNewStaticInputRank(
       DimensionIndex input_rank, DimensionIndex num_input_dims) {
-    return AddStaticRanks(SubtractStaticRanks(input_rank, num_input_dims),
-                          SubtractStaticRanks(IndexVectorArrayRank, 1));
+    return RankConstraint::Add(
+        RankConstraint::Subtract(input_rank, num_input_dims),
+        RankConstraint::Subtract(IndexVectorArrayRank, 1));
   }
 
   constexpr static DimensionIndex GetStaticSelectionRank(
       DimensionIndex num_input_dims) {
-    return SubtractStaticRanks(IndexVectorArrayRank, 1);
+    return RankConstraint::Subtract(IndexVectorArrayRank, 1);
   }
 
   Result<IndexTransform<>> Apply(IndexTransform<> transform,

@@ -776,7 +776,7 @@ struct TransformedArrayCastTraits
 
   template <typename Other>
   static bool IsCompatible(const Other& other) {
-    return IsRankExplicitlyConvertible(other.rank(), Rank) &&
+    return RankConstraint::EqualOrUnspecified(other.rank(), Rank) &&
            IsPossiblySameDataType(other.dtype(), typename type::DataType());
   }
 

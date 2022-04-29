@@ -61,7 +61,8 @@ struct DiagonalOp {
 
   constexpr static DimensionIndex GetNewStaticInputRank(
       DimensionIndex input_rank, DimensionIndex num_input_dims) {
-    return AddStaticRanks(SubtractStaticRanks(input_rank, num_input_dims), 1);
+    return RankConstraint::Add(
+        RankConstraint::Subtract(input_rank, num_input_dims), 1);
   }
 
   constexpr static DimensionIndex GetStaticSelectionRank(

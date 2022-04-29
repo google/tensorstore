@@ -301,7 +301,8 @@ constexpr auto IndexTransformParser(
             keys->labels,
             jb::Projection(&T::labels, jb::DimensionLabelVector(rank))),
         jb::Initialize([=](auto* obj) {
-          if (!IsRankExplicitlyConvertible(input_rank_constraint, obj->rank)) {
+          if (!RankConstraint::EqualOrUnspecified(input_rank_constraint,
+                                                  obj->rank)) {
             return absl::InvalidArgumentError(tensorstore::StrCat(
                 "Expected ", keys->rank, " to be ", input_rank_constraint,
                 ", but is: ", obj->rank));
@@ -590,7 +591,7 @@ TENSORSTORE_DEFINE_JSON_BINDER(
           *j = *obj;
         }
       }
-      if (!IsRankExplicitlyConvertible(options.rank().rank, *obj)) {
+      if (!RankConstraint::EqualOrUnspecified(options.rank().rank, *obj)) {
         return absl::InvalidArgumentError(tensorstore::StrCat(
             "Expected ", options.rank().rank, ", but received: ", *obj));
       }

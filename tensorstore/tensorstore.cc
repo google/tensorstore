@@ -32,7 +32,8 @@ absl::Status ValidateDataTypeAndRank(DataType expected_dtype,
                                      DimensionIndex expected_rank,
                                      DataType actual_dtype,
                                      DimensionIndex actual_rank) {
-  if (!tensorstore::IsRankExplicitlyConvertible(expected_rank, actual_rank)) {
+  if (!tensorstore::RankConstraint::EqualOrUnspecified(expected_rank,
+                                                       actual_rank)) {
     return absl::FailedPreconditionError(tensorstore::StrCat(
         "Expected rank of ", expected_rank, " but received: ", actual_rank));
   }

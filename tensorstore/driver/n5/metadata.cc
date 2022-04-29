@@ -365,7 +365,7 @@ Result<IndexDomain<>> GetEffectiveDomain(
   }
 
   // Rank is already validated by caller.
-  assert(IsRankExplicitlyConvertible(schema.rank(), rank));
+  assert(RankConstraint::EqualOrUnspecified(schema.rank(), rank));
   IndexDomainBuilder builder(std::max(schema.rank().rank, rank));
   if (shape) {
     builder.shape(*shape);
@@ -430,7 +430,8 @@ Result<ChunkLayout> GetEffectiveChunkLayout(
 
 Result<ChunkLayout> GetEffectiveChunkLayout(
     const N5MetadataConstraints& metadata_constraints, const Schema& schema) {
-  assert(IsRankExplicitlyConvertible(metadata_constraints.rank, schema.rank()));
+  assert(RankConstraint::EqualOrUnspecified(metadata_constraints.rank,
+                                            schema.rank()));
   return GetEffectiveChunkLayout(
       std::max(metadata_constraints.rank, schema.rank().rank),
       metadata_constraints.chunk_shape, schema);
@@ -590,7 +591,7 @@ Result<std::shared_ptr<const N5Metadata>> GetNewMetadata(
 
 absl::Status ValidateMetadataSchema(const N5Metadata& metadata,
                                     const Schema& schema) {
-  if (!IsRankExplicitlyConvertible(metadata.rank, schema.rank())) {
+  if (!RankConstraint::EqualOrUnspecified(metadata.rank, schema.rank())) {
     return absl::FailedPreconditionError(tensorstore::StrCat(
         "Rank specified by schema (", schema.rank(),
         ") does not match rank specified by metadata (", metadata.rank, ")"));

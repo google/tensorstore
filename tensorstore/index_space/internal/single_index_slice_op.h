@@ -70,14 +70,16 @@ struct SingleIndexSliceOp {
     TENSORSTORE_CONSTEXPR_ASSERT(
         (input_rank == dynamic_rank || input_rank >= static_selection_rank) &&
         "Number of dimensions must not exceed input rank.");
-    return SubtractStaticRanks(
-        input_rank, MaxStaticRank(NumSelectedDims, static_selection_rank));
+    return RankConstraint::Subtract(
+        input_rank,
+        RankConstraint::And(NumSelectedDims, static_selection_rank));
   }
 
   constexpr static DimensionIndex GetStaticSelectionRank(
       DimensionIndex num_input_dims) {
     TENSORSTORE_CONSTEXPR_ASSERT(
-        IsRankExplicitlyConvertible(num_input_dims, static_selection_rank) &&
+        RankConstraint::EqualOrUnspecified(num_input_dims,
+                                           static_selection_rank) &&
         "Number of selected dimensions must match number of indices.");
     return 0;
   }

@@ -63,7 +63,8 @@ constexpr inline bool IsCompatibleFullIndexVector = false;
 template <DimensionIndex Rank, typename Indices>
 constexpr inline bool IsCompatibleFullIndexVector<
     Rank, Indices, std::void_t<internal::ConstSpanType<Indices>>> =
-    AreStaticRanksCompatible(Rank, internal::ConstSpanType<Indices>::extent) &&
+    RankConstraint::EqualOrUnspecified(
+        Rank, internal::ConstSpanType<Indices>::extent) &&
     internal::IsIndexPack<
         typename internal::ConstSpanType<Indices>::value_type>;
 
@@ -76,8 +77,7 @@ constexpr inline bool IsImplicitlyCompatibleFullIndexVector = false;
 template <DimensionIndex Rank, typename Indices>
 constexpr inline bool IsImplicitlyCompatibleFullIndexVector<
     Rank, Indices, std::void_t<internal::ConstSpanType<Indices>>> =
-    IsRankImplicitlyConvertible(internal::ConstSpanType<Indices>::extent,
-                                Rank) &&
+    RankConstraint::Implies(internal::ConstSpanType<Indices>::extent, Rank) &&
     internal::IsIndexPack<
         typename internal::ConstSpanType<Indices>::value_type>;
 
@@ -90,7 +90,8 @@ constexpr inline bool IsCompatiblePartialIndexVector = false;
 template <DimensionIndex Rank, typename Indices>
 constexpr inline bool IsCompatiblePartialIndexVector<
     Rank, Indices, std::void_t<internal::ConstSpanType<Indices>>> =
-    IsStaticRankGreaterEqual(Rank, internal::ConstSpanType<Indices>::extent) &&
+    RankConstraint::GreaterEqualOrUnspecified(
+        Rank, internal::ConstSpanType<Indices>::extent) &&
     internal::IsIndexPack<
         typename internal::ConstSpanType<Indices>::value_type>;
 
@@ -99,7 +100,7 @@ constexpr inline bool IsCompatiblePartialIndexVector<
 /// compatible with `Rank`.
 template <DimensionIndex Rank, typename... IndexType>
 constexpr inline bool IsCompatibleFullIndexPack =
-    AreStaticRanksCompatible(Rank, sizeof...(IndexType)) &&
+    RankConstraint::EqualOrUnspecified(Rank, sizeof...(IndexType)) &&
     internal::IsIndexPack<IndexType...>;
 
 /// Bool-valued metafunction that evaluates to `true` if `Indices` is

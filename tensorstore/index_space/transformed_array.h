@@ -337,8 +337,8 @@ class TransformedArray {
            std::is_convertible_v<
                typename internal::remove_cvref_t<Other>::ElementPointer,
                ElementPointer> &&
-           IsRankImplicitlyConvertible(
-               internal::remove_cvref_t<Other>::static_rank, Rank))>* = nullptr>
+           RankConstraint::Implies(internal::remove_cvref_t<Other>::static_rank,
+                                   Rank))>* = nullptr>
   TransformedArray(Other&& other) noexcept
       : TransformedArray(Access::construct_tag{}, std::forward<Other>(other)) {}
 
@@ -359,7 +359,7 @@ class TransformedArray {
                                                     typename internal::
                                                         remove_cvref_t<Other>::
                                                             ElementPointer> &&
-           IsRankExplicitlyConvertible(
+           RankConstraint::EqualOrUnspecified(
                internal::remove_cvref_t<Other>::static_rank, Rank))>* = nullptr>
   explicit TransformedArray(unchecked_t, Other&& other) noexcept
       : TransformedArray(Access::construct_tag{}, std::forward<Other>(other)) {}
@@ -962,7 +962,8 @@ using TransformedArrayTypeFromArray =
 template <typename ElementTag, DimensionIndex Rank, ArrayOriginKind OriginKind,
           ContainerKind LayoutCKind>
 TransformedArray(Array<ElementTag, Rank, OriginKind, LayoutCKind> array)
-    -> TransformedArray<ElementTag, NormalizeRankSpec(Rank), LayoutCKind>;
+    -> TransformedArray<ElementTag, RankConstraint::FromInlineRank(Rank),
+                        LayoutCKind>;
 
 template <typename ElementTag, DimensionIndex Rank, ContainerKind LayoutCKind>
 TransformedArray(
@@ -973,8 +974,8 @@ template <typename ElementTag, DimensionIndex Rank, ArrayOriginKind OriginKind,
           ContainerKind LayoutCKind, DimensionIndex InputRank>
 TransformedArray(
     Array<ElementTag, Rank, OriginKind, LayoutCKind> array,
-    IndexTransform<InputRank, NormalizeRankSpec(Rank), LayoutCKind> transform)
-    -> TransformedArray<ElementTag, InputRank, LayoutCKind>;
+    IndexTransform<InputRank, RankConstraint::FromInlineRank(Rank), LayoutCKind>
+        transform) -> TransformedArray<ElementTag, InputRank, LayoutCKind>;
 
 /// Returns an equivalent normalized transformed array.
 ///
@@ -1134,9 +1135,9 @@ std::enable_if_t<(IsTransformedArrayLike<UnwrapResultType<SourceResult>> &&
 CopyTransformedArray(const SourceResult& source, const DestResult& dest) {
   using Source = UnwrapResultType<SourceResult>;
   using Dest = UnwrapResultType<DestResult>;
-  static_assert(
-      IsRankExplicitlyConvertible(Dest::static_rank, Source::static_rank),
-      "Arrays must have compatible ranks.");
+  static_assert(RankConstraint::EqualOrUnspecified(Dest::static_rank,
+                                                   Source::static_rank),
+                "Arrays must have compatible ranks.");
   static_assert(!std::is_const_v<typename Dest::Element>,
                 "Dest array must have a non-const element type.");
   if constexpr (IsResult<SourceResult>) {
@@ -1285,9 +1286,9 @@ std::enable_if_t<
 IterateOverTransformedArrays(Func&& func, absl::Status* status,
                              IterationConstraints constraints,
                              const Array&... array) {
-  static_assert(
-      AreStaticRanksCompatible(UnwrapResultType<Array>::static_rank...),
-      "Arrays must have compatible static ranks.");
+  static_assert(RankConstraint::EqualOrUnspecified(
+                    {UnwrapResultType<Array>::static_rank...}),
+                "Arrays must have compatible static ranks.");
   return tensorstore::MapResult(
       [&](auto&&... unwrapped_array) {
         return internal::IterateOverTransformedArrays<sizeof...(Array)>(
@@ -1313,9 +1314,9 @@ std::enable_if_t<
     Result<ArrayIterateResult>>
 IterateOverTransformedArrays(Func&& func, IterationConstraints constraints,
                              const Array&... array) {
-  static_assert(
-      AreStaticRanksCompatible(UnwrapResultType<Array>::static_rank...),
-      "Arrays must have compatible static ranks.");
+  static_assert(RankConstraint::EqualOrUnspecified(
+                    {UnwrapResultType<Array>::static_rank...}),
+                "Arrays must have compatible static ranks.");
   return tensorstore::MapResult(
       [&](auto&&... unwrapped_array) {
         const auto func_wrapper =

@@ -22,91 +22,79 @@
 
 namespace {
 
-using tensorstore::AddStaticRanks;
 using tensorstore::DimensionIndex;
 using tensorstore::dynamic_rank;
 using tensorstore::InlineRankLimit;
-using tensorstore::IsRankExplicitlyConvertible;
-using tensorstore::IsRankImplicitlyConvertible;
-using tensorstore::IsStaticRankGreater;
-using tensorstore::IsStaticRankGreaterEqual;
-using tensorstore::IsStaticRankLess;
-using tensorstore::IsStaticRankLessEqual;
 using tensorstore::MatchesStatus;
-using tensorstore::MaxStaticRank;
-using tensorstore::MinStaticRank;
-using tensorstore::NormalizeRankSpec;
+using tensorstore::RankConstraint;
 using tensorstore::StaticRankCast;
-using tensorstore::SubtractStaticRanks;
 using tensorstore::unchecked;
 
 // Static rank conversion tests
-static_assert(IsRankImplicitlyConvertible(3, 3));
-static_assert(IsRankImplicitlyConvertible(3, dynamic_rank));
-static_assert(IsRankImplicitlyConvertible(dynamic_rank, dynamic_rank));
-static_assert(!IsRankImplicitlyConvertible(3, 2));
-static_assert(!IsRankImplicitlyConvertible(dynamic_rank, 3));
+static_assert(RankConstraint::Implies(3, 3));
+static_assert(RankConstraint::Implies(3, dynamic_rank));
+static_assert(RankConstraint::Implies(dynamic_rank, dynamic_rank));
+static_assert(!RankConstraint::Implies(3, 2));
+static_assert(!RankConstraint::Implies(dynamic_rank, 3));
 
-static_assert(IsRankExplicitlyConvertible(3, 3));
-static_assert(IsRankExplicitlyConvertible(dynamic_rank, dynamic_rank));
-static_assert(IsRankExplicitlyConvertible(dynamic_rank, 3));
-static_assert(IsRankExplicitlyConvertible(3, dynamic_rank));
-static_assert(!IsRankExplicitlyConvertible(3, 2));
+static_assert(RankConstraint::EqualOrUnspecified(3, 3));
+static_assert(RankConstraint::EqualOrUnspecified(dynamic_rank, dynamic_rank));
+static_assert(RankConstraint::EqualOrUnspecified(dynamic_rank, 3));
+static_assert(RankConstraint::EqualOrUnspecified(3, dynamic_rank));
+static_assert(!RankConstraint::EqualOrUnspecified(3, 2));
 
-static_assert(AddStaticRanks(2, 3) == 5);
-static_assert(AddStaticRanks(2, 3, 4) == 9);
-static_assert(AddStaticRanks(2) == 2);
-static_assert(AddStaticRanks() == 0);
-static_assert(AddStaticRanks(dynamic_rank, 3) == dynamic_rank);
-static_assert(AddStaticRanks(3, dynamic_rank) == dynamic_rank);
-static_assert(AddStaticRanks(dynamic_rank, dynamic_rank) == dynamic_rank);
+static_assert(RankConstraint::Add(2, 3) == 5);
+static_assert(RankConstraint::Add({2, 3, 4}) == 9);
+static_assert(RankConstraint::Add({2}) == 2);
+static_assert(RankConstraint::Add({}) == 0);
+static_assert(RankConstraint::Add(dynamic_rank, 3) == dynamic_rank);
+static_assert(RankConstraint::Add(3, dynamic_rank) == dynamic_rank);
+static_assert(RankConstraint::Add(dynamic_rank, dynamic_rank) == dynamic_rank);
 
-static_assert(SubtractStaticRanks(5, 2) == 3);
-static_assert(SubtractStaticRanks(dynamic_rank, 3) == dynamic_rank);
-static_assert(SubtractStaticRanks(3, dynamic_rank) == dynamic_rank);
-static_assert(SubtractStaticRanks(dynamic_rank, dynamic_rank) == dynamic_rank);
+static_assert(RankConstraint::Subtract(5, 2) == 3);
+static_assert(RankConstraint::Subtract(dynamic_rank, 3) == dynamic_rank);
+static_assert(RankConstraint::Subtract(3, dynamic_rank) == dynamic_rank);
+static_assert(RankConstraint::Subtract(dynamic_rank, dynamic_rank) ==
+              dynamic_rank);
 
-static_assert(MinStaticRank(3, 5) == 3);
-static_assert(MinStaticRank(dynamic_rank, 5) == 5);
-static_assert(MinStaticRank(5, dynamic_rank) == 5);
-static_assert(MinStaticRank(dynamic_rank, dynamic_rank) == dynamic_rank);
-static_assert(MinStaticRank(3, 5, dynamic_rank) == 3);
-static_assert(MinStaticRank(3) == 3);
-static_assert(MinStaticRank() == dynamic_rank);
+static_assert(RankConstraint::And(dynamic_rank, 5) == 5);
+static_assert(RankConstraint::And(5, dynamic_rank) == 5);
+static_assert(RankConstraint::And(dynamic_rank, dynamic_rank) == dynamic_rank);
+static_assert(RankConstraint::And({5, 5, dynamic_rank}) == 5);
+static_assert(RankConstraint::And({3}) == 3);
+static_assert(RankConstraint::And({}) == dynamic_rank);
 
-static_assert(MaxStaticRank(3, 5) == 5);
-static_assert(MaxStaticRank(dynamic_rank, 5) == 5);
-static_assert(MaxStaticRank(5, dynamic_rank) == 5);
-static_assert(MaxStaticRank(dynamic_rank, dynamic_rank) == dynamic_rank);
-static_assert(MaxStaticRank(3, 5, dynamic_rank) == 5);
-static_assert(MaxStaticRank(3) == 3);
-static_assert(MaxStaticRank() == dynamic_rank);
+static_assert(RankConstraint::LessOrUnspecified(1, 2) == true);
+static_assert(RankConstraint::LessOrUnspecified(1, 1) == false);
+static_assert(RankConstraint::LessOrUnspecified(dynamic_rank, 2) == true);
+static_assert(RankConstraint::LessOrUnspecified(1, dynamic_rank) == true);
+static_assert(RankConstraint::LessOrUnspecified(dynamic_rank, dynamic_rank) ==
+              true);
 
-static_assert(IsStaticRankLess(1, 2) == true);
-static_assert(IsStaticRankLess(1, 1) == false);
-static_assert(IsStaticRankLess(dynamic_rank, 2) == true);
-static_assert(IsStaticRankLess(1, dynamic_rank) == true);
-static_assert(IsStaticRankLess(dynamic_rank, dynamic_rank) == true);
+static_assert(RankConstraint::LessEqualOrUnspecified(1, 2) == true);
+static_assert(RankConstraint::LessEqualOrUnspecified(1, 1) == true);
+static_assert(RankConstraint::LessEqualOrUnspecified(1, 0) == false);
+static_assert(RankConstraint::LessEqualOrUnspecified(dynamic_rank, 2) == true);
+static_assert(RankConstraint::LessEqualOrUnspecified(1, dynamic_rank) == true);
+static_assert(RankConstraint::LessEqualOrUnspecified(dynamic_rank,
+                                                     dynamic_rank) == true);
 
-static_assert(IsStaticRankLessEqual(1, 2) == true);
-static_assert(IsStaticRankLessEqual(1, 1) == true);
-static_assert(IsStaticRankLessEqual(1, 0) == false);
-static_assert(IsStaticRankLessEqual(dynamic_rank, 2) == true);
-static_assert(IsStaticRankLessEqual(1, dynamic_rank) == true);
-static_assert(IsStaticRankLessEqual(dynamic_rank, dynamic_rank) == true);
+static_assert(RankConstraint::GreaterOrUnspecified(2, 1) == true);
+static_assert(RankConstraint::GreaterOrUnspecified(1, 1) == false);
+static_assert(RankConstraint::GreaterOrUnspecified(dynamic_rank, 2) == true);
+static_assert(RankConstraint::GreaterOrUnspecified(1, dynamic_rank) == true);
+static_assert(RankConstraint::GreaterOrUnspecified(dynamic_rank,
+                                                   dynamic_rank) == true);
 
-static_assert(IsStaticRankGreater(2, 1) == true);
-static_assert(IsStaticRankGreater(1, 1) == false);
-static_assert(IsStaticRankGreater(dynamic_rank, 2) == true);
-static_assert(IsStaticRankGreater(1, dynamic_rank) == true);
-static_assert(IsStaticRankGreater(dynamic_rank, dynamic_rank) == true);
-
-static_assert(IsStaticRankGreaterEqual(2, 1) == true);
-static_assert(IsStaticRankGreaterEqual(1, 1) == true);
-static_assert(IsStaticRankGreaterEqual(0, 1) == false);
-static_assert(IsStaticRankGreaterEqual(dynamic_rank, 2) == true);
-static_assert(IsStaticRankGreaterEqual(1, dynamic_rank) == true);
-static_assert(IsStaticRankGreaterEqual(dynamic_rank, dynamic_rank) == true);
+static_assert(RankConstraint::GreaterEqualOrUnspecified(2, 1) == true);
+static_assert(RankConstraint::GreaterEqualOrUnspecified(1, 1) == true);
+static_assert(RankConstraint::GreaterEqualOrUnspecified(0, 1) == false);
+static_assert(RankConstraint::GreaterEqualOrUnspecified(dynamic_rank, 2) ==
+              true);
+static_assert(RankConstraint::GreaterEqualOrUnspecified(1, dynamic_rank) ==
+              true);
+static_assert(RankConstraint::GreaterEqualOrUnspecified(dynamic_rank,
+                                                        dynamic_rank) == true);
 
 TEST(RankCastTest, Basic) {
   auto x =
@@ -142,11 +130,11 @@ TEST(RankCastDeathTest, DynamicToStatic) {
 static_assert(InlineRankLimit(dynamic_rank(0)) == 0);
 static_assert(InlineRankLimit(dynamic_rank(1)) == 1);
 static_assert(InlineRankLimit(dynamic_rank(2)) == 2);
-static_assert(NormalizeRankSpec(dynamic_rank(0)) == -1);
-static_assert(NormalizeRankSpec(dynamic_rank(1)) == -1);
-static_assert(NormalizeRankSpec(dynamic_rank(2)) == -1);
-static_assert(NormalizeRankSpec(0) == 0);
-static_assert(NormalizeRankSpec(1) == 1);
-static_assert(NormalizeRankSpec(2) == 2);
+static_assert(RankConstraint::FromInlineRank(dynamic_rank(0)) == -1);
+static_assert(RankConstraint::FromInlineRank(dynamic_rank(1)) == -1);
+static_assert(RankConstraint::FromInlineRank(dynamic_rank(2)) == -1);
+static_assert(RankConstraint::FromInlineRank(0) == 0);
+static_assert(RankConstraint::FromInlineRank(1) == 1);
+static_assert(RankConstraint::FromInlineRank(2) == 2);
 
 }  // namespace

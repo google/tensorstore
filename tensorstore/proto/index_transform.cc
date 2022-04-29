@@ -54,7 +54,7 @@ Result<IndexDomain<>> ParseIndexDomainFromProto(
                             "], but is: ", rank));
   }
 
-  if (!IsRankExplicitlyConvertible(rank_constraint, rank)) {
+  if (!RankConstraint::EqualOrUnspecified(rank_constraint, rank)) {
     return absl::InvalidArgumentError(tensorstore::StrCat(
         "Expected rank to be ", rank_constraint, ", but is: ", rank));
   }
@@ -129,7 +129,8 @@ Result<IndexTransform<>> ParseIndexTransformFromProto(
         tensorstore::StrCat("Expected output_rank to be in the range [0, ",
                             kMaxRank, "], but is: ", output_rank));
   }
-  if (!IsRankExplicitlyConvertible(output_rank_constraint, output_rank)) {
+  if (!RankConstraint::EqualOrUnspecified(output_rank_constraint,
+                                          output_rank)) {
     return absl::InvalidArgumentError(
         tensorstore::StrCat("Expected output_rank to be ",
                             output_rank_constraint, ", but is: ", output_rank));

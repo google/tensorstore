@@ -102,8 +102,8 @@ class MultiVectorStorageImpl;
 ///     };
 template <std::ptrdiff_t Extent, typename... Ts>
 using MultiVectorStorage =
-    MultiVectorStorageImpl<NormalizeRankSpec(Extent), InlineRankLimit(Extent),
-                           Ts...>;
+    MultiVectorStorageImpl<RankConstraint::FromInlineRank(Extent),
+                           InlineRankLimit(Extent), Ts...>;
 
 template <typename StorageT>
 class MultiVectorAccess;

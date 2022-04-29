@@ -56,7 +56,7 @@ struct AddNewDimsOp {
 
   constexpr static DimensionIndex GetNewStaticInputRank(
       DimensionIndex input_rank, DimensionIndex num_input_dims) {
-    return AddStaticRanks(input_rank, num_input_dims);
+    return RankConstraint::Add(input_rank, num_input_dims);
   }
 
   constexpr static DimensionIndex GetStaticSelectionRank(

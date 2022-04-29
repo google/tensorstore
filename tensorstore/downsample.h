@@ -61,7 +61,7 @@ Result<TensorStore<Element, Rank, ReadWriteMode::read>> Downsample(
 /// e.g. `Downsample(store, {2, 3}, DownsampleMethod::kMean)`.
 template <typename Element, DimensionIndex Rank, ReadWriteMode Mode,
           DimensionIndex FactorsRank>
-std::enable_if_t<IsRankImplicitlyConvertible(FactorsRank, Rank),
+std::enable_if_t<RankConstraint::Implies(FactorsRank, Rank),
                  Result<TensorStore<Element, Rank, ReadWriteMode::read>>>
 Downsample(TensorStore<Element, Rank, Mode> store,
            const Index (&downsample_factors)[FactorsRank],

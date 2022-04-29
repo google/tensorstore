@@ -436,7 +436,7 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(Schema, JsonBinder())
 absl::Status Schema::TransformInputSpaceSchema(IndexTransformView<> transform) {
   if (!transform.valid()) return absl::OkStatus();
   const DimensionIndex rank = rank_;
-  if (!IsRankExplicitlyConvertible(rank, transform.input_rank())) {
+  if (!RankConstraint::EqualOrUnspecified(rank, transform.input_rank())) {
     return absl::InvalidArgumentError(tensorstore::StrCat(
         "Cannot inverse transform schema of rank ", rank,
         " by index transform of rank ", transform.input_rank(), " -> ",
@@ -483,7 +483,7 @@ absl::Status Schema::TransformInputSpaceSchema(IndexTransformView<> transform) {
 Result<Schema> ApplyIndexTransform(IndexTransform<> transform, Schema schema) {
   if (!transform.valid()) return schema;
   const DimensionIndex rank = schema.rank_;
-  if (!IsRankExplicitlyConvertible(rank, transform.output_rank())) {
+  if (!RankConstraint::EqualOrUnspecified(rank, transform.output_rank())) {
     return absl::InvalidArgumentError(tensorstore::StrCat(
         "Cannot transform schema of rank ", rank,
         " by index transform of rank ", transform.input_rank(), " -> ",
@@ -569,7 +569,8 @@ absl::Status Schema::ValidateLayoutInternal() {
 namespace internal {
 absl::Status ChooseReadWriteChunkGrid(MutableBoxView<> chunk_template,
                                       const Schema& schema) {
-  if (!IsRankExplicitlyConvertible(chunk_template.rank(), schema.rank())) {
+  if (!RankConstraint::EqualOrUnspecified(chunk_template.rank(),
+                                          schema.rank())) {
     return absl::InvalidArgumentError(tensorstore::StrCat(
         "Expected schema to have rank ", chunk_template.rank(),
         ", but received schema of rank: ", schema.rank()));

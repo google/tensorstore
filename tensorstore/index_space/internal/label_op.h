@@ -73,7 +73,7 @@ struct LabelOp {
   constexpr static DimensionIndex GetStaticSelectionRank(
       DimensionIndex num_input_dims) {
     TENSORSTORE_CONSTEXPR_ASSERT(
-        IsRankExplicitlyConvertible(num_input_dims, num_required_dims) &&
+        RankConstraint::EqualOrUnspecified(num_input_dims, num_required_dims) &&
         "Number of selected dimensions must match number of indices.");
     return num_input_dims == dynamic_rank ? num_required_dims : num_input_dims;
   }

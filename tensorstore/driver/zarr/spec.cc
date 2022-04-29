@@ -264,26 +264,31 @@ absl::Status ValidateSpecRankAndFieldInfo(SpecRankAndFieldInfo& info) {
   }
 
   if (info.full_rank == dynamic_rank) {
-    info.full_rank = AddStaticRanks(info.chunked_rank, info.field_rank);
+    info.full_rank = RankConstraint::Add(info.chunked_rank, info.field_rank);
     if (info.full_rank != dynamic_rank) {
       TENSORSTORE_RETURN_IF_ERROR(ValidateRank(info.full_rank));
     }
   }
 
-  if (!IsStaticRankLessEqual(info.chunked_rank, info.full_rank) ||
-      !IsStaticRankLessEqual(info.field_rank, info.full_rank) ||
-      !IsRankExplicitlyConvertible(
-          info.full_rank, AddStaticRanks(info.chunked_rank, info.field_rank))) {
+  if (!RankConstraint::LessEqualOrUnspecified(info.chunked_rank,
+                                              info.full_rank) ||
+      !RankConstraint::LessEqualOrUnspecified(info.field_rank,
+                                              info.full_rank) ||
+      !RankConstraint::EqualOrUnspecified(
+          info.full_rank,
+          RankConstraint::Add(info.chunked_rank, info.field_rank))) {
     return absl::InvalidArgumentError(
         tensorstore::StrCat("Rank specified by schema (", info.full_rank,
                             ") is not compatible with metadata"));
   }
 
   if (info.chunked_rank == dynamic_rank) {
-    info.chunked_rank = SubtractStaticRanks(info.full_rank, info.field_rank);
+    info.chunked_rank =
+        RankConstraint::Subtract(info.full_rank, info.field_rank);
   }
   if (info.field_rank == dynamic_rank) {
-    info.field_rank = SubtractStaticRanks(info.full_rank, info.chunked_rank);
+    info.field_rank =
+        RankConstraint::Subtract(info.full_rank, info.chunked_rank);
   }
 
   return absl::OkStatus();
@@ -403,7 +408,7 @@ absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
   auto info = GetSpecRankAndFieldInfo(metadata, field_index);
   const auto& field = metadata.dtype.fields[field_index];
 
-  if (!IsRankExplicitlyConvertible(schema.rank(), info.full_rank)) {
+  if (!RankConstraint::EqualOrUnspecified(schema.rank(), info.full_rank)) {
     return absl::FailedPreconditionError(
         tensorstore::StrCat("Rank is ", info.full_rank,
                             ", but schema specifies rank of ", schema.rank()));

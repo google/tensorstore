@@ -269,8 +269,8 @@ class OutputIndexMapRange {
   template <DimensionIndex OtherInputRank, DimensionIndex OtherOutputRank,
             ContainerKind OtherCKind,
             typename = std::enable_if_t<
-                (IsRankImplicitlyConvertible(OtherInputRank, InputRank) &&
-                 IsRankImplicitlyConvertible(OtherOutputRank, OutputRank))>>
+                (RankConstraint::Implies(OtherInputRank, InputRank) &&
+                 RankConstraint::Implies(OtherOutputRank, OutputRank))>>
   OutputIndexMapRange(
       OutputIndexMapRange<OtherInputRank, OtherOutputRank, OtherCKind> other)
       : transform_(std::move(other.transform_)) {}

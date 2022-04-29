@@ -56,7 +56,7 @@ Result<IndexDomain<>> SliceByBox(IndexDomain<> domain, BoxView<> box);
 template <DimensionIndex Rank, ContainerKind CKind>
 class IndexDomain {
   using Access = internal_index_space::TransformAccess;
-  static_assert(IsValidStaticRank(Rank));
+  static_assert(RankConstraint(Rank).valid());
 
  public:
   constexpr static DimensionIndex static_rank = Rank;
@@ -84,7 +84,7 @@ class IndexDomain {
   ///
   /// Can be called with a braced list, e.g. `IndexDomain({2, 3, 4})`.
   template <DimensionIndex N,
-            typename = std::enable_if_t<IsRankImplicitlyConvertible(N, Rank)>>
+            typename = std::enable_if_t<RankConstraint::Implies(N, Rank)>>
   explicit IndexDomain(const Index (&shape)[N])
       : IndexDomain(span<const Index, Rank>(shape)) {
     static_assert(IsValidRank(N));
@@ -98,7 +98,7 @@ class IndexDomain {
 
   /// Constructs an unbounded domain with the specified labels.
   template <DimensionIndex N,
-            typename = std::enable_if_t<IsRankImplicitlyConvertible(N, Rank)>>
+            typename = std::enable_if_t<RankConstraint::Implies(N, Rank)>>
   explicit IndexDomain(const std::string_view (&labels)[N])
       : rep_(internal_index_space::MakeIdentityTransform(
             internal::StringLikeSpan(labels),
@@ -126,26 +126,26 @@ class IndexDomain {
 
   template <
       DimensionIndex OtherRank, ContainerKind OtherCKind,
-      std::enable_if_t<IsRankImplicitlyConvertible(OtherRank, Rank)>* = nullptr>
+      std::enable_if_t<RankConstraint::Implies(OtherRank, Rank)>* = nullptr>
   IndexDomain(const IndexDomain<OtherRank, OtherCKind>& other)
       : rep_(Access::rep(other)) {}
 
   template <
       DimensionIndex OtherRank, ContainerKind OtherCKind,
-      std::enable_if_t<IsRankImplicitlyConvertible(OtherRank, Rank)>* = nullptr>
+      std::enable_if_t<RankConstraint::Implies(OtherRank, Rank)>* = nullptr>
   IndexDomain(IndexDomain<OtherRank, OtherCKind>&& other)
       : rep_(Access::rep_ptr<CKind>(std::move(other))) {}
 
-  template <
-      DimensionIndex OtherRank, ContainerKind OtherCKind,
-      std::enable_if_t<IsRankExplicitlyConvertible(OtherRank, Rank)>* = nullptr>
+  template <DimensionIndex OtherRank, ContainerKind OtherCKind,
+            std::enable_if_t<
+                RankConstraint::EqualOrUnspecified(OtherRank, Rank)>* = nullptr>
   explicit IndexDomain(unchecked_t,
                        const IndexDomain<OtherRank, OtherCKind>& other)
       : rep_(Access::rep(other)) {}
 
-  template <
-      DimensionIndex OtherRank, ContainerKind OtherCKind,
-      std::enable_if_t<IsRankExplicitlyConvertible(OtherRank, Rank)>* = nullptr>
+  template <DimensionIndex OtherRank, ContainerKind OtherCKind,
+            std::enable_if_t<
+                RankConstraint::EqualOrUnspecified(OtherRank, Rank)>* = nullptr>
   explicit IndexDomain(unchecked_t, IndexDomain<OtherRank, OtherCKind>&& other)
       : rep_(Access::rep_ptr<CKind>(std::move(other))) {}
 
@@ -365,8 +365,9 @@ class IndexDomain {
   /// \error `absl::StatusCode::kInvalidArgument` if `box` is not contained
   ///     within the explicit bounds of `domain`.
   template <DimensionIndex OtherRank>
-  friend std::enable_if_t<IsRankExplicitlyConvertible(OtherRank, Rank),
-                          Result<IndexDomain<MaxStaticRank(Rank, OtherRank)>>>
+  friend std::enable_if_t<
+      RankConstraint::EqualOrUnspecified(OtherRank, Rank),
+      Result<IndexDomain<RankConstraint::And(Rank, OtherRank)>>>
   ApplyIndexTransform(BoxView<OtherRank> box, IndexDomain domain) {
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto new_domain,
@@ -543,7 +544,7 @@ struct StaticCastTraits<IndexDomain<Rank, CKind>>
 
   template <typename T>
   static bool IsCompatible(const T& other) {
-    return IsRankExplicitlyConvertible(other.rank(), Rank);
+    return RankConstraint::EqualOrUnspecified(other.rank(), Rank);
   }
 
   static std::string Describe() {

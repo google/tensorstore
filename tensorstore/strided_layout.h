@@ -134,10 +134,10 @@ void InitializeContiguousLayout(ContiguousLayoutOrder order,
 /// \param layout[out] Layout to update.  The rank will be set to
 ///     `domain.rank()`, and any existing value is ignored.
 template <DimensionIndex Rank>
-void InitializeContiguousLayout(ContiguousLayoutOrder order,
-                                Index element_stride,
-                                BoxView<NormalizeRankSpec(Rank)> domain,
-                                StridedLayout<Rank, offset_origin>* layout) {
+void InitializeContiguousLayout(
+    ContiguousLayoutOrder order, Index element_stride,
+    BoxView<RankConstraint::FromInlineRank(Rank)> domain,
+    StridedLayout<Rank, offset_origin>* layout) {
   const auto rank = domain.rank();
   layout->set_rank(rank);
   std::copy_n(domain.origin().begin(), rank, layout->origin().begin());
@@ -158,7 +158,8 @@ void InitializeContiguousLayout(ContiguousLayoutOrder order,
 /// \param layout[out] Layout to update.  The rank will be set to
 ///     `domain.rank()`, and any existing value is ignored.
 template <DimensionIndex Rank, ArrayOriginKind OriginKind, typename Shape>
-std::enable_if_t<IsCompatibleFullIndexVector<NormalizeRankSpec(Rank), Shape>>
+std::enable_if_t<
+    IsCompatibleFullIndexVector<RankConstraint::FromInlineRank(Rank), Shape>>
 InitializeContiguousLayout(ContiguousLayoutOrder order, Index element_stride,
                            const Shape& shape,
                            StridedLayout<Rank, OriginKind>* layout) {
@@ -174,8 +175,8 @@ InitializeContiguousLayout(ContiguousLayoutOrder order, Index element_stride,
 /// e.g. `InitializeContiguousLayout(c_order, 2, {3, 4, 5}, layout)`.
 template <DimensionIndex Rank, DimensionIndex LayoutRank,
           ArrayOriginKind OriginKind>
-std::enable_if_t<IsRankImplicitlyConvertible(Rank,
-                                             NormalizeRankSpec(LayoutRank))>
+std::enable_if_t<
+    RankConstraint::Implies(Rank, RankConstraint::FromInlineRank(LayoutRank))>
 InitializeContiguousLayout(ContiguousLayoutOrder order, Index element_stride,
                            const Index (&shape)[Rank],
                            StridedLayout<LayoutRank, OriginKind>* layout) {
@@ -355,7 +356,7 @@ class StridedLayout
     : public internal_strided_layout::LayoutStorageSelector<Rank, OriginKind,
                                                             CKind>::Storage {
  private:
-  static_assert(IsValidRankSpec(Rank));
+  static_assert(IsValidInlineRank(Rank));
   using Selector =
       internal_strided_layout::LayoutStorageSelector<Rank, OriginKind, CKind>;
   using Storage = typename Selector::Storage;
@@ -365,7 +366,8 @@ class StridedLayout
   constexpr static ArrayOriginKind array_origin_kind = OriginKind;
   constexpr static ContainerKind container_kind = CKind;
   static_assert(CKind == container || Rank >= dynamic_rank);
-  constexpr static DimensionIndex static_rank = NormalizeRankSpec(Rank);
+  constexpr static DimensionIndex static_rank =
+      RankConstraint::FromInlineRank(Rank);
 
   template <DimensionIndex OtherRank,
             ArrayOriginKind OtherOriginKind = OriginKind>
@@ -417,7 +419,7 @@ class StridedLayout
                    byte_strides.data());
   }
   template <std::size_t N, typename = std::enable_if_t<
-                               IsRankImplicitlyConvertible(N, static_rank)>>
+                               RankConstraint::Implies(N, static_rank)>>
   explicit StridedLayout(const Index (&shape)[N],
                          const Index (&byte_strides)[N]) {
     Access::Assign(this, StaticRank<N>{}, shape, byte_strides);
@@ -445,7 +447,7 @@ class StridedLayout
   template <
       std::size_t N, ArrayOriginKind SfinaeOKind = OriginKind,
       typename = std::enable_if_t<SfinaeOKind == offset_origin &&
-                                  IsRankImplicitlyConvertible(N, static_rank)>>
+                                  RankConstraint::Implies(N, static_rank)>>
   explicit StridedLayout(const Index (&origin)[N], const Index (&shape)[N],
                          const Index (&byte_strides)[N]) {
     Access::Assign(this, StaticRank<N>{}, origin, shape, byte_strides);
@@ -473,38 +475,38 @@ class StridedLayout
   /// Conditionally explicit if
   ///     `container_kind == container && OtherCKindSpec != container && `
   ///     `OtherRankSpec != 0`.
-  template <
-      DimensionIndex R, ArrayOriginKind O, ContainerKind C,
-      ContainerKind SfinaeC = CKind,
-      typename = std::enable_if_t<
-          (TENSORSTORE_EXPLICIT_REQUIRES(SfinaeC == container &&
-                                         C != container && R != 0) &&
-           IsRankImplicitlyConvertible(NormalizeRankSpec(R), static_rank) &&
-           IsArrayOriginKindConvertible(O, OriginKind))>>
+  template <DimensionIndex R, ArrayOriginKind O, ContainerKind C,
+            ContainerKind SfinaeC = CKind,
+            typename = std::enable_if_t<
+                (TENSORSTORE_EXPLICIT_REQUIRES(SfinaeC == container &&
+                                               C != container && R != 0) &&
+                 RankConstraint::Implies(RankConstraint::FromInlineRank(R),
+                                         static_rank) &&
+                 IsArrayOriginKindConvertible(O, OriginKind))>>
   explicit StridedLayout(const StridedLayout<R, O, C>& source) {
     Access::AssignFrom(this, source);
   }
 
   /// Overload of above constructor that handles the implicit conversion case of
   /// `container_kind == view || OtherCKind == container || OtherRankSpec == 0`.
-  template <
-      DimensionIndex R, ArrayOriginKind O, ContainerKind C,
-      typename = std::enable_if_t<
-          ((CKind == view || C == container || R == 0) &&
-           IsRankImplicitlyConvertible(NormalizeRankSpec(R), static_rank) &&
-           (R == 0 || IsArrayOriginKindConvertible(O, OriginKind)))>>
+  template <DimensionIndex R, ArrayOriginKind O, ContainerKind C,
+            typename = std::enable_if_t<
+                ((CKind == view || C == container || R == 0) &&
+                 RankConstraint::Implies(RankConstraint::FromInlineRank(R),
+                                         static_rank) &&
+                 (R == 0 || IsArrayOriginKindConvertible(O, OriginKind)))>>
   StridedLayout(const StridedLayout<R, O, C>& source) {
     Access::AssignFrom(this, source);
   }
 
   /// Unchecked conversion.
-  template <
-      DimensionIndex R, ArrayOriginKind O, ContainerKind C,
-      typename = std::enable_if_t<
-          (IsRankExplicitlyConvertible(NormalizeRankSpec(R), static_rank) &&
-           (R == 0 || IsArrayOriginKindConvertible(O, OriginKind)))>>
+  template <DimensionIndex R, ArrayOriginKind O, ContainerKind C,
+            typename = std::enable_if_t<
+                (RankConstraint::EqualOrUnspecified(
+                     RankConstraint::FromInlineRank(R), static_rank) &&
+                 (R == 0 || IsArrayOriginKindConvertible(O, OriginKind)))>>
   explicit StridedLayout(unchecked_t, const StridedLayout<R, O, C>& source) {
-    assert(IsRankExplicitlyConvertible(source.rank(), static_rank));
+    assert(RankConstraint::EqualOrUnspecified(source.rank(), static_rank));
     Access::AssignFrom(this, source);
   }
 
@@ -563,10 +565,10 @@ class StridedLayout
   /// Refer to the documentation of `InitializeContiguousLayout`.
   ///
   /// \requires `container_kind == container`
-  template <DimensionIndex R, ContainerKind SfinaeC = CKind,
-            typename =
-                std::enable_if_t<(SfinaeC == container &&
-                                  IsRankImplicitlyConvertible(R, static_rank))>>
+  template <
+      DimensionIndex R, ContainerKind SfinaeC = CKind,
+      typename = std::enable_if_t<(SfinaeC == container &&
+                                   RankConstraint::Implies(R, static_rank))>>
   explicit StridedLayout(ContiguousLayoutOrder order, Index element_stride,
                          const Index (&shape)[R]) {
     InitializeContiguousLayout(order, element_stride, shape, this);
@@ -577,8 +579,8 @@ class StridedLayout
   ///
   /// \post `*this == other`
   template <DimensionIndex R, ArrayOriginKind O, ContainerKind C>
-  std::enable_if_t<(IsRankImplicitlyConvertible(NormalizeRankSpec(R),
-                                                static_rank) &&
+  std::enable_if_t<(RankConstraint::Implies(RankConstraint::FromInlineRank(R),
+                                            static_rank) &&
                     (R == 0 || IsArrayOriginKindConvertible(O, OriginKind))),
                    StridedLayout&>
   operator=(const StridedLayout<R, O, C>& other) {
@@ -687,8 +689,8 @@ class StridedLayout
     return (*this)[indices_span];
   }
   template <std::size_t N>
-  std::enable_if_t<AreStaticRanksCompatible(static_rank, N), Index> operator()(
-      const Index (&indices)[N]) const {
+  std::enable_if_t<RankConstraint::EqualOrUnspecified(static_rank, N), Index>
+  operator()(const Index (&indices)[N]) const {
     return (*this)(span<const Index, N>(indices));
   }
 
@@ -795,7 +797,8 @@ struct StaticCastTraits<StridedLayout<Rank, OriginKind, CKind>>
     : public DefaultStaticCastTraits<StridedLayout<Rank, OriginKind, CKind>> {
   template <DimensionIndex R, ArrayOriginKind O, ContainerKind C>
   constexpr static bool IsCompatible(const StridedLayout<R, O, C>& other) {
-    return IsRankExplicitlyConvertible(other.rank(), NormalizeRankSpec(Rank));
+    return RankConstraint::EqualOrUnspecified(
+        other.rank(), RankConstraint::FromInlineRank(Rank));
   }
 
   static std::string Describe() {
@@ -825,16 +828,17 @@ template <DimensionIndex SubRank, typename Layout>
 std::enable_if_t<
     (IsStridedLayout<Layout> && SubRank != dynamic_rank &&
      Layout::array_origin_kind == zero_origin),
-    StridedLayoutView<SubtractStaticRanks(Layout::static_rank, SubRank),
+    StridedLayoutView<RankConstraint::Subtract(Layout::static_rank, SubRank),
                       zero_origin>>
 GetSubLayoutView(const Layout& layout, DimensionIndex sub_rank = SubRank) {
   static_assert(SubRank >= 0, "SubRank must be >= 0.");
-  static_assert(IsStaticRankGreaterEqual(Layout::static_rank, SubRank),
-                "Rank must be >= SubRank.");
+  static_assert(
+      RankConstraint::GreaterEqualOrUnspecified(Layout::static_rank, SubRank),
+      "Rank must be >= SubRank.");
   assert(SubRank <= layout.rank());
   assert(sub_rank == SubRank);
-  return StridedLayoutView<SubtractStaticRanks(Layout::static_rank, SubRank),
-                           zero_origin>{
+  return StridedLayoutView<
+      RankConstraint::Subtract(Layout::static_rank, SubRank), zero_origin>{
       layout.shape().template subspan<SubRank>(),
       layout.byte_strides().template subspan<SubRank>()};
 }
@@ -875,16 +879,17 @@ template <DimensionIndex SubRank, typename Layout>
 std::enable_if_t<
     (IsStridedLayout<Layout> && SubRank != dynamic_rank &&
      Layout::array_origin_kind == offset_origin),
-    StridedLayoutView<SubtractStaticRanks(Layout::static_rank, SubRank),
+    StridedLayoutView<RankConstraint::Subtract(Layout::static_rank, SubRank),
                       offset_origin>>
 GetSubLayoutView(const Layout& layout, DimensionIndex sub_rank = SubRank) {
   static_assert(SubRank >= 0, "SubRank must be >= 0.");
-  static_assert(IsStaticRankGreaterEqual(Layout::static_rank, SubRank),
-                "Rank must be >= SubRank.");
+  static_assert(
+      RankConstraint::GreaterEqualOrUnspecified(Layout::static_rank, SubRank),
+      "Rank must be >= SubRank.");
   assert(SubRank <= layout.rank());
   assert(sub_rank == SubRank);
-  return StridedLayoutView<SubtractStaticRanks(Layout::static_rank, SubRank),
-                           offset_origin>{
+  return StridedLayoutView<
+      RankConstraint::Subtract(Layout::static_rank, SubRank), offset_origin>{
       layout.origin().template subspan<SubRank>(),
       layout.shape().template subspan<SubRank>(),
       layout.byte_strides().template subspan<SubRank>()};
