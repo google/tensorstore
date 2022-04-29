@@ -28,29 +28,6 @@
 
 namespace tensorstore {
 
-namespace internal_open {
-absl::Status InvalidModeError(ReadWriteMode mode, ReadWriteMode static_mode);
-absl::Status ValidateDataTypeAndRank(DataType expected_dtype,
-                                     DimensionIndex expected_rank,
-                                     DataType actual_dtype,
-                                     DimensionIndex actual_rank);
-template <typename Element, DimensionIndex Rank, ReadWriteMode Mode>
-Future<TensorStore<Element, Rank, Mode>> ConvertTensorStoreFuture(
-    Future<internal::Driver::Handle> future) {
-  return MapFutureValue(
-      InlineExecutor{},
-      [](internal::Driver::Handle& handle)
-          -> Result<TensorStore<Element, Rank, Mode>> {
-        TENSORSTORE_RETURN_IF_ERROR(internal_open::ValidateDataTypeAndRank(
-            dtype_v<Element>, Rank, handle.driver->dtype(),
-            handle.transform.input_rank()));
-        return internal::TensorStoreAccess::Construct<
-            TensorStore<Element, Rank, Mode>>(std::move(handle));
-      },
-      std::move(future));
-}
-}  // namespace internal_open
-
 /// Opens a TensorStore from a `Spec` and `TransactionalOpenOptions`.
 ///
 /// \tparam Element Constrains data type at compile time, defaults to `void` (no
@@ -68,10 +45,10 @@ Future<TensorStore<Element, Rank, Mode>> Open(
     if (options.read_write_mode == ReadWriteMode::dynamic) {
       options.read_write_mode = Mode;
     } else if (!internal::IsModePossible(options.read_write_mode, Mode)) {
-      return internal_open::InvalidModeError(options.read_write_mode, Mode);
+      return internal::InvalidModeError(options.read_write_mode, Mode);
     }
   }
-  return internal_open::ConvertTensorStoreFuture<Element, Rank, Mode>(
+  return internal::ConvertTensorStoreFuture<Element, Rank, Mode>(
       internal::OpenDriver(std::move(internal_spec::SpecAccess::impl(spec)),
                            std::move(options)));
 }

@@ -164,6 +164,28 @@ using ReadTensorStoreIntoNewArrayResult = std::enable_if_t<
     Future<
         SharedArray<typename Store::Element, Store::static_rank, OriginKind>>>;
 
+absl::Status InvalidModeError(ReadWriteMode mode, ReadWriteMode static_mode);
+absl::Status ValidateDataTypeAndRank(DataType expected_dtype,
+                                     DimensionIndex expected_rank,
+                                     DataType actual_dtype,
+                                     DimensionIndex actual_rank);
+
+template <typename Element, DimensionIndex Rank, ReadWriteMode Mode>
+Future<TensorStore<Element, Rank, Mode>> ConvertTensorStoreFuture(
+    Future<internal::Driver::Handle> future) {
+  return MapFutureValue(
+      InlineExecutor{},
+      [](internal::Driver::Handle& handle)
+          -> Result<TensorStore<Element, Rank, Mode>> {
+        TENSORSTORE_RETURN_IF_ERROR(internal::ValidateDataTypeAndRank(
+            dtype_v<Element>, Rank, handle.driver->dtype(),
+            handle.transform.input_rank()));
+        return internal::TensorStoreAccess::Construct<
+            TensorStore<Element, Rank, Mode>>(std::move(handle));
+      },
+      std::move(future));
+}
+
 }  // namespace internal
 
 namespace internal_tensorstore {

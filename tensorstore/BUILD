@@ -453,7 +453,6 @@ tensorstore_cc_library(
 
 tensorstore_cc_library(
     name = "open",
-    srcs = ["open.cc"],
     hdrs = ["open.h"],
     deps = [
         ":context",
@@ -463,7 +462,6 @@ tensorstore_cc_library(
         ":tensorstore",
         "//tensorstore/driver",
         "//tensorstore/util:status",
-        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/status",
     ],
 )
@@ -712,6 +710,7 @@ tensorstore_cc_library(
         "//tensorstore/index_space:transformed_array",
         "//tensorstore/serialization",
         "//tensorstore/util:future",
+        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/status",
     ],
 )
