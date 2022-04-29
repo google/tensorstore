@@ -40,15 +40,16 @@ struct DataTypeConversionTraits {
 /// `bool`-valued metafunction that specifies whether a conversion is allowed
 /// from a compile-time data type of `From` to a compile-time data type of `To`.
 ///
-/// If either type is `void`, the conversion is permitted at compile time (but
-/// may fail at run time).  Otherwise, the conversion is allowed if, and only
-/// if, `DataTypeConversionTraits<From,To>::flags` includes `kSupported` and
-/// `AdditionalFlags`.
+/// .. warning::
+///
+///    If either `From` or `To` is `void`, the conversion is permitted at
+///    compile time but may fail at run time.
 ///
 /// \tparam From Unqualified element type, or `void` if unknown.
 /// \tparam To Unqualified element type, or `void` if unknown.
 /// \tparam AdditionalFlags Additional flags required,
 ///     e.g. `DataTypeConversionFlags::kSafeAndImplicit`.
+/// \relates DataType
 template <typename From, typename To,
           DataTypeConversionFlags AdditionalFlags = DataTypeConversionFlags{}>
 constexpr inline bool IsDataTypeConversionSupported =
@@ -157,7 +158,7 @@ GetConvertToCanonicalOperations() {
 
 }  // namespace internal_data_type
 
-/// Define conversion traits between canonical data types.
+// Define conversion traits between canonical data types.
 
 namespace internal_data_type {
 
@@ -288,7 +289,7 @@ TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(
         DataTypeConversionFlags::kCanReinterpretCast |
         DataTypeConversionFlags::kSafeAndImplicit);
 
-/// Define conversion flags from bool to every other canonical type.
+// Define conversion flags from bool to every other canonical type.
 #define TENSORSTORE_INTERNAL_DEFINE_CONVERSIONS_FROM_BOOL(T, ...) \
   TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(                     \
       T, bool_t,                                                  \
@@ -304,8 +305,8 @@ TENSORSTORE_FOR_EACH_COMPLEX_DATA_TYPE(
 TENSORSTORE_INTERNAL_DEFINE_CONVERSIONS_FROM_BOOL(json_t)
 #undef TENSORSTORE_INTERNAL_DEFINE_CONVERSIONS_FROM_BOOL
 
-/// Define conversion flags from canonical integer types to every other
-/// canonical type.
+// Define conversion flags from canonical integer types to every other
+// canonical type.
 #define TENSORSTORE_INTERNAL_DEFINE_CONVERSIONS_FROM_INT(X, ...)           \
   TENSORSTORE_PP_DEFER(TENSORSTORE_FOR_EACH_INTEGER_DATA_TYPE_ID)          \
   ()(TENSORSTORE_PP_DEFER(TENSORSTORE_INTERNAL_INHERITED_CONVERT), X,      \
@@ -329,8 +330,8 @@ TENSORSTORE_PP_EXPAND(TENSORSTORE_FOR_EACH_INTEGER_DATA_TYPE(
     TENSORSTORE_INTERNAL_DEFINE_CONVERSIONS_FROM_INT))
 #undef TENSORSTORE_INTERNAL_DEFINE_CONVERSIONS_FROM_INT
 
-/// Define conversion flags from canonical float types to every other canonical
-/// type.
+// Define conversion flags from canonical float types to every other canonical
+// type.
 #define TENSORSTORE_INTERNAL_DEFINE_CONVERSIONS_FROM_FLOAT(X, ...)       \
   TENSORSTORE_PP_DEFER(TENSORSTORE_FOR_EACH_INTEGER_DATA_TYPE_ID)        \
   ()(TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS, X,                      \
@@ -354,8 +355,8 @@ TENSORSTORE_PP_EXPAND(TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(
     TENSORSTORE_INTERNAL_DEFINE_CONVERSIONS_FROM_FLOAT))
 #undef TENSORSTORE_INTERNAL_DEFINE_CONVERSIONS_FROM_FLOAT
 
-/// Define conversion flags from canonical complex types to every other
-/// canonical type.
+// Define conversion flags from canonical complex types to every other
+// canonical type.
 #define TENSORSTORE_INTERNAL_DEFINE_CONVERSIONS_FROM_COMPLEX(X, ...) \
   TENSORSTORE_PP_DEFER(TENSORSTORE_FOR_EACH_INTEGER_DATA_TYPE_ID)    \
   ()(TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS, X,                  \
@@ -379,7 +380,7 @@ template <typename T>
 struct DataTypeConversionTraits<std::complex<T>, json_t>
     : public DataTypeConversionTraits<T, json_t> {};
 
-/// Define conversion flags from json_t to every other canonical type.
+// Define conversion flags from json_t to every other canonical type.
 TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(bool, json_t,
                                            DataTypeConversionFlags::kSupported)
 TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(string_t, json_t,
@@ -396,25 +397,25 @@ TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(  //
 
 // TODO(jbms): support JSON -> complex conversion
 
-/// ustring_t -> string_t conversion: converts to UTF8 encoding.
+// ustring_t -> string_t conversion: converts to UTF8 encoding.
 TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(
     string_t, ustring_t,
     DataTypeConversionFlags::kSupported |
         DataTypeConversionFlags::kSafeAndImplicit |
         DataTypeConversionFlags::kCanReinterpretCast);
 
-/// string_t -> ustring_t conversion: validates UTF-8 encoding.
+// string_t -> ustring_t conversion: validates UTF-8 encoding.
 TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(ustring_t, string_t,
                                            DataTypeConversionFlags::kSupported);
 
-/// string_t -> json_t conversion: validates UTF-8 encoding
+// string_t -> json_t conversion: validates UTF-8 encoding
 TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(json_t, string_t,
                                            DataTypeConversionFlags::kSupported);
 
 // TODO(jbms): Define string_t and ustring_t -> number, complex, bool
 // conversions
 
-/// ustring_t -> json_t conversion always succeeds.
+// ustring_t -> json_t conversion always succeeds.
 TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(
     json_t, ustring_t,
     DataTypeConversionFlags::kSupported |

@@ -81,34 +81,79 @@
 namespace tensorstore {
 
 /// Boolean value (always represented as 0 or 1).
+///
+/// \ingroup data types
 using bool_t = bool;
 /// Single ASCII/UTF-8 code unit.  Primarily intended to represent fixed-width
 /// ASCII fields.
+///
+/// \ingroup data types
 using char_t = char;
 /// Opaque byte value.  Intended to represent opaque binary data.
+///
+/// \ingroup data types
 using byte_t = std::byte;
 /// Signed and unsigned integer types.
+///
+/// \ingroup data types
 using int8_t = std::int8_t;
+///
+/// \ingroup data types
 using uint8_t = std::uint8_t;
+///
+/// \ingroup data types
 using int16_t = std::int16_t;
+///
+/// \ingroup data types
 using uint16_t = std::uint16_t;
+///
+/// \ingroup data types
 using int32_t = std::int32_t;
+///
+/// \ingroup data types
 using uint32_t = std::uint32_t;
+///
+/// \ingroup data types
 using int64_t = std::int64_t;
+///
+/// \ingroup data types
 using uint64_t = std::uint64_t;
 // TODO(jbms): consider adding 128-bit integer types
-/// Floating-point types.
+/// :wikipedia:`IEEE 754 binary16<Half-precision_floating-point_format>`
+/// half-precision floating-point data type.
+///
+/// \ingroup data types
 using float16_t = half_float::half;
+
+/// :wikipedia:`IEEE 754 binary32<Single-precision_floating-point_format>`
+/// single-precision floating-point data type.
+///
+/// \ingroup data types
 using float32_t = float;
+/// :wikipedia:`IEEE 754 binary64<Double-precision_floating-point_format>`
+/// double-precision floating-point data type.
+///
+/// \ingroup data types
 using float64_t = double;
-/// Complex types.
+/// Complex number based on `float32_t`.
+///
+/// \ingroup data types
 using complex64_t = std::complex<float32_t>;
+/// Complex number based on `float64_t`.
+///
+/// \ingroup data types
 using complex128_t = std::complex<float64_t>;
 /// Byte string.
+///
+/// \ingroup data types
 using string_t = std::string;
 /// Unicode string, represented in memory as UTF-8.
+///
+/// \ingroup data types
 using ustring_t = Utf8String;
 /// JSON value.
+///
+/// \ingroup data types
 using json_t = ::nlohmann::json;
 
 // Define a DataTypeId `x_t` corresponding to each C++ type `tensorstore::x_t`
@@ -141,13 +186,13 @@ enum class DataTypeId {
 inline constexpr size_t kNumDataTypeIds =
     static_cast<size_t>(DataTypeId::num_ids);
 
-/// Indicates whether an element type can be treated as trivial.
+// Indicates whether an element type can be treated as trivial.
 template <typename T>
 constexpr inline bool IsTrivial =
-    std::is_trivially_destructible_v<T>&& std::is_trivially_copyable_v<T>;
+    std::is_trivially_destructible_v<T> && std::is_trivially_copyable_v<T>;
 
-/// TENSORSTORE_FOR_EACH_DATA_TYPE(X, ...) macros will instantiate
-/// X(datatype, ...) for each tensorstore data type.
+// TENSORSTORE_FOR_EACH_DATA_TYPE(X, ...) macros will instantiate
+// X(datatype, ...) for each tensorstore data type.
 #define TENSORSTORE_FOR_EACH_BYTE_DATA_TYPE(X, ...) \
   X(char_t, ##__VA_ARGS__)                          \
   X(byte_t, ##__VA_ARGS__)                          \
@@ -187,10 +232,10 @@ constexpr inline bool IsTrivial =
   X(json_t, ##__VA_ARGS__)                                 \
   /**/
 
-/// Generates the indicated data_type name, permitting nested
-/// macro expansion. Used, for example, in generating the
-/// conversion specializations between data types.
-/// The _BYTE_ and other variants are unused.
+// Generates the indicated data_type name, permitting nested
+// macro expansion. Used, for example, in generating the
+// conversion specializations between data types.
+// The _BYTE_ and other variants are unused.
 #define TENSORSTORE_FOR_EACH_INTEGER_DATA_TYPE_ID() \
   TENSORSTORE_FOR_EACH_INTEGER_DATA_TYPE
 
@@ -243,8 +288,8 @@ TENSORSTORE_FOR_EACH_DATA_TYPE(TENSORSTORE_INTERNAL_DO_DATA_TYPE_ID)
 /// element type, if there is one.
 ///
 /// If `T` is an integer type of ``N`` equal to 8, 16, 32, or 64 bits, the
-/// equivalent canonical element type is :cpp:`intN_t` (if `T` is signed) or
-/// :cpp:`uintN_t` (if `T` is unsigned).  Otherwise, the canonical element type
+/// equivalent canonical element type is ``intN_t`` (if `T` is signed) or
+/// ``uintN_t`` (if `T` is unsigned).  Otherwise, the canonical element type
 /// is `T`.
 ///
 /// On all common platforms::
@@ -267,21 +312,25 @@ TENSORSTORE_FOR_EACH_DATA_TYPE(TENSORSTORE_INTERNAL_DO_DATA_TYPE_ID)
 /// with TensorStore, this metafunction is used to ensure that non-canonical
 /// types (`long` if `long` is 32-bit, `long long` if `long` is 64-bit) map to
 /// the same TensorStore `DataType` as the corresponding canonical type.
+///
+/// \relates DataType
 template <typename T>
 using CanonicalElementType =
     typename internal_data_type::CanonicalElementTypeImpl<T>::type;
 
-/// `DataTypeId` corresponding to `T`, or `DataTypeId::custom` if `T` is not a
-/// canonical data type.
+// `DataTypeId` corresponding to `T`, or `DataTypeId::custom` if `T` is not a
+// canonical data type.
 template <typename T>
 inline constexpr DataTypeId DataTypeIdOf =
     internal_data_type::DataTypeIdOfHelper<
         CanonicalElementType<std::remove_cv_t<T>>>;
 
-/// An ElementType is any optionally `const`-qualified fundamental type
+/// An ElementType is any optionally ``const``-qualified fundamental type
 /// (including `void`), pointer type, member pointer type, class/union type, or
 /// enumeration type.  A type of `void` or `const void` indicates a type-erased
 /// element type.
+///
+/// \relates DataType
 template <typename T>
 constexpr inline bool IsElementType =
     (!std::is_volatile_v<T> &&
@@ -293,6 +342,8 @@ constexpr inline bool IsElementType =
      !std::is_array_v<std::remove_const_t<T>>);
 
 /// Specifies traits for the conversion from one data type to another.
+///
+/// \relates DataType
 enum class DataTypeConversionFlags : unsigned char {
   /// Conversion is possible.  If not set, no other flags should be specified.
   kSupported = 1,
@@ -310,20 +361,36 @@ enum class DataTypeConversionFlags : unsigned char {
   kIdentity = 8,
 };
 
+/// Checks if any flags are set.
+///
+/// \id DataTypeConversionFlags
+/// \relates DataTypeConversionFlags
 inline constexpr bool operator!(DataTypeConversionFlags x) {
   return !static_cast<bool>(x);
 }
 
+/// Computes the union of the flag sets.
+///
+/// \id DataTypeConversionFlags
+/// \relates DataTypeConversionFlags
 inline constexpr DataTypeConversionFlags operator|(DataTypeConversionFlags a,
                                                    DataTypeConversionFlags b) {
   return DataTypeConversionFlags(static_cast<unsigned char>(a) |
                                  static_cast<unsigned char>(b));
 }
 
+/// Computes the complement of the flag set.
+///
+/// \id DataTypeConversionFlags
+/// \relates DataTypeConversionFlags
 inline constexpr DataTypeConversionFlags operator~(DataTypeConversionFlags x) {
   return DataTypeConversionFlags(~static_cast<unsigned char>(x));
 }
 
+/// Computes the intersection of the flag sets.
+///
+/// \id DataTypeConversionFlags
+/// \relates DataTypeConversionFlags
 inline constexpr DataTypeConversionFlags operator&(DataTypeConversionFlags a,
                                                    DataTypeConversionFlags b) {
   return DataTypeConversionFlags(static_cast<unsigned char>(a) &
@@ -491,8 +558,10 @@ struct DataTypeConversionLookupResult {
 /// with a `void *` pointer to an element of the corresponding type (this
 /// pairing is implemented by the ElementPointer class).
 ///
-/// An DataType instance corresponding to a type `T` known at compile time may
-/// be obtained by implicit conversion from `StaticDataType<T>`.
+/// A `DataType` instance corresponding to a type known at compile time may be
+/// obtained using `dtype_v`.
+///
+/// \ingroup data types
 class DataType {
   using Ops = internal::DataTypeOperations;
 
@@ -513,10 +582,13 @@ class DataType {
 
   constexpr DataTypeId id() const { return operations_->id; }
 
+  /// Returns the data type name, e.g. ``"bool"`` or ``"uint32"``.
   constexpr std::string_view name() const { return operations_->name; }
 
+  /// Returns the size in bytes of the data type.
   constexpr std::ptrdiff_t size() const { return operations_->size; }
 
+  /// Returns the alignment required by the data type.
   constexpr std::ptrdiff_t alignment() const { return operations_->alignment; }
 
   constexpr Ops::ConstructFunction construct_function() const {
@@ -562,31 +634,25 @@ class DataType {
   }
 
   /// Comparison operators.
-  ///
-  /// These depend only on the `type` because there should only be a single
-  /// `DataTypeOperations` object per type.  To handle possible multiple
-  /// instances due to certain dynamic linking modes, however, we rely on the
-  /// `operator==` defined for `std::type_info` rather than comparing the
-  /// `operators_` pointers directly.
   friend constexpr bool operator==(DataType a, DataType b) {
+    // These depend only on the `type` because there should only be a single
+    // `DataTypeOperations` object per type.  To handle possible multiple
+    // instances due to certain dynamic linking modes, however, we rely on the
+    // `operator==` defined for `std::type_info` rather than comparing the
+    // `operators_` pointers directly.
     return a.valid() == b.valid() &&
            (a.operations_ == b.operations_ || a->type == b->type);
   }
-
   friend constexpr bool operator!=(DataType a, DataType b) { return !(a == b); }
-
   friend constexpr bool operator==(DataType r, const std::type_info& type) {
     return r.valid() && r->type == type;
   }
-
   friend constexpr bool operator!=(DataType r, const std::type_info& type) {
     return !(r == type);
   }
-
   friend constexpr bool operator==(const std::type_info& type, DataType r) {
     return r.valid() && r->type == type;
   }
-
   friend constexpr bool operator!=(const std::type_info& type, DataType r) {
     return !(r == type);
   }
@@ -595,7 +661,7 @@ class DataType {
   friend std::ostream& operator<<(std::ostream& os, DataType r);
 
  private:
-  /// \invariant operations_ != nullptr
+  // \invariant operations_ != nullptr
   const internal::DataTypeOperations* operations_;
 };
 
@@ -802,9 +868,12 @@ TENSORSTORE_FOR_EACH_DATA_TYPE(TENSORSTORE_DATA_TYPE_EXPLICIT_INSTANTIATION,
 
 }  // namespace internal_data_type
 
-/// Empty/monostate type that represents a statically known element type.  In
-/// generic code, this can be used in place of an `DataType` when the element
+/// Empty/monostate type that represents a statically known element type.
+///
+/// In generic code, this can be used in place of an `DataType` when the element
 /// type is statically known.
+///
+/// \relates DataType
 template <typename T>
 class StaticDataType {
  private:
@@ -943,6 +1012,7 @@ class StaticDataType<void>;
 ///
 /// \param T C++ element type for which to obtain the corresponding data type.
 ///     Any const/volatile qualifiers are ignored.
+/// \relates DataType
 template <typename T = void>
 using dtype_t = std::conditional_t<
     std::is_void_v<T>, DataType,
@@ -953,16 +1023,17 @@ using dtype_t = std::conditional_t<
 ///
 /// If `T` is `void`, equal to `DataType()` (representing an unknown data type).
 ///
-/// Otherwise, equal to `StaticDataType<U>()`, where `U` is obtained from `T` by
-/// striping cv-qualifiers and applying `CanonicalElementType`.
+/// Otherwise, equal to ``StaticDataType<U>()``, where ``U`` is obtained
+/// from `T` by striping cv-qualifiers and applying `CanonicalElementType`.
 ///
 /// \param T C++ element type for which to obtain the corresponding data type.
 ///     Any const/volatile qualifiers are ignored.
+/// \relates DataType
 template <typename T>
 inline constexpr auto dtype_v = dtype_t<T>();
 
-/// Returns `{ func(dtype_v<T>)... }` where `T` ranges over the canonical
-/// data types.
+// Returns `{ func(dtype_v<T>)... }` where `T` ranges over the canonical
+// data types.
 template <typename Func>
 constexpr std::array<std::invoke_result_t<Func, dtype_t<bool>>, kNumDataTypeIds>
 MapCanonicalDataTypes(Func func) {
@@ -974,6 +1045,9 @@ MapCanonicalDataTypes(Func func) {
 }
 
 /// Specifies the form of initialization to use when allocating an array.
+///
+/// \relates DataType
+/// \membergroup Allocation
 enum class ElementInitialization {
   /// Specifies default initialization.  For primitive types, or class types for
   /// which the default constructor leaves some members uninitialized, this
@@ -983,8 +1057,12 @@ enum class ElementInitialization {
   /// Specifies value initialization.
   value_init
 };
+
+/// \relates ElementInitialization
 constexpr ElementInitialization default_init =
     ElementInitialization::default_init;
+
+/// \relates ElementInitialization
 constexpr ElementInitialization value_init = ElementInitialization::value_init;
 
 /// Allocates and initializes a contiguous 1-dimensional array of `n` elements
@@ -1000,8 +1078,14 @@ constexpr ElementInitialization value_init = ElementInitialization::value_init;
 /// \param initialization The form of initialization to use.
 /// \param r The element type.
 /// \returns A pointer to the allocated array.
-/// \remark For primitive types, default initialization leaves the elements
-///     uninitialized.
+///
+/// .. note::
+///
+///    For primitive types, default initialization leaves the elements
+///    uninitialized.
+///
+/// \relates DataType
+/// \membergroup Allocation
 void* AllocateAndConstruct(std::ptrdiff_t n,
                            ElementInitialization initialization, DataType r);
 
@@ -1015,6 +1099,8 @@ void* AllocateAndConstruct(std::ptrdiff_t n,
 /// \params n The number of elements that were allocated and constructed.
 /// \params r The element type.
 /// \params ptr Pointer to the allocated array of `n` elements.
+/// \relates DataType
+/// \membergroup Allocation
 void DestroyAndFree(std::ptrdiff_t n, DataType r, void* ptr);
 
 /// Returns a shared_ptr that manages the memory returned by
@@ -1025,6 +1111,8 @@ void DestroyAndFree(std::ptrdiff_t n, DataType r, void* ptr);
 /// \param n The number of elements to allocate.
 /// \param initialization Optional.  The form of initialization to use.
 /// \param r The element type.  Optional if `T` is not `void`.
+/// \relates DataType
+/// \membergroup Allocation
 template <typename T = void>
 std::shared_ptr<T> AllocateAndConstructShared(
     std::ptrdiff_t n, ElementInitialization initialization = default_init,
@@ -1039,10 +1127,12 @@ template <>
 std::shared_ptr<void> AllocateAndConstructShared<void>(
     std::ptrdiff_t n, ElementInitialization initialization, DataType r);
 
+/// Checks if both data types are equal or at least one is unspecified.
+///
+/// \relates DataType
 inline bool IsPossiblySameDataType(DataType a, DataType b) {
   return !b.valid() || !a.valid() || a == b;
 }
-
 template <typename T, typename U>
 constexpr inline bool IsPossiblySameDataType(StaticDataType<T> a,
                                              StaticDataType<U> b) {
@@ -1052,19 +1142,13 @@ constexpr inline bool IsPossiblySameDataType(StaticDataType<T> a,
 /// Evaluates to a type similar to `SourceRef` but with a static data type of
 /// `TargetElement`.
 ///
-/// The actual type is determined by the `RebindDataType` template alias defined
-/// by the `StaticCastTraits` specialization for `SourceRef`, which must be of
-/// the following form:
-///
-///     template <typename TargetElement>
-///     using RebindDataType = ...;
-///
 /// Supported types include `ElementPointer`, `Array`, `TransformedArray`,
-/// `TensorStore`, `Spec`.
+/// `TensorStore`.
 ///
-/// \tparam SourceRef Optionally `const`- and/or reference-qualified source
+/// \tparam SourceRef Optionally ``const``- and/or reference-qualified source
 ///     type.  Any qualifiers are ignored.
 /// \tparam TargetElement Target element type.
+/// \ingroup compile-time-constraints
 template <typename SourceRef, typename TargetElement>
 using RebindDataType = typename StaticCastTraitsType<
     SourceRef>::template RebindDataType<TargetElement>;
@@ -1072,15 +1156,15 @@ using RebindDataType = typename StaticCastTraitsType<
 /// Casts `source` to have a static data type of `TargetElement`.
 ///
 /// The source type must be supported by `RebindDataType` and define a nested
-/// `Element` type, and both the source and target types must be supported by
-/// `StaticCast`.
+/// ``Element`` type, and both the source and target types must be supported
+/// by `StaticCast`.
 ///
 /// The semantics of the `Checking` parameter are the same as for `StaticCast`.
 ///
 /// This cast cannot be used to cast away const qualification of the source
 /// element type.  To do that, use `ConstDataTypeCast` instead.
 ///
-/// Examples:
+/// Examples::
 ///
 ///     Array<void> array = ...;
 ///     Result<Array<int>> result = StaticDataTypeCast<int>(array);
@@ -1095,11 +1179,11 @@ using RebindDataType = typename StaticCastTraitsType<
 ///     DataType d_dynamic = StaticDataTypeCast<void>(d_int);
 ///
 /// \tparam TargetElement Target element type.  Depending on the source type,
-///     `const`-qualified `TargetElement` types may or may not be supported.
+///     ``const``-qualified `TargetElement` types may or may not be
+///     supported.
 /// \tparam Checking Specifies whether the cast is checked or unchecked.
 /// \param source Source value.
-/// \requires `typename remove_cvref_t<SourceRef>::Element` is compatible with
-///     `Target` according to `IsElementExplicitlyConvertible`.
+/// \ingroup compile-time-constraints
 template <typename TargetElement, CastChecking Checking = CastChecking::checked,
           typename SourceRef>
 StaticCastResultType<RebindDataType<SourceRef, TargetElement>, SourceRef,
@@ -1116,20 +1200,18 @@ StaticDataTypeCast(SourceRef&& source) {
 /// Casts `source` to a specified target element type which must differ from the
 /// existing element type only in const qualification.
 ///
-/// The source type must be supported by `RebindDataType` and define a nested
-/// `Element` type, and both the source and target types must be supported by
-/// `StaticCast`.
+/// Supported types include `ElementPointer`, `Array`, `TransformedArray`,
+/// `TensorStore`.
 ///
 /// This cast is always unchecked.
 ///
-/// Example:
+/// Example::
 ///
 ///     Array<const int> const_array = ...;
 ///     Array<int> array = ConstDataTypeCast<int>(const_array);
 ///
 /// \tparam TargetElement Target element type.
-/// \schecks `TargetElement` and `typename remove_cvref_t<SourceRef>::Element`
-///     differ only in their `const` qualification.
+/// \ingroup compile-time-constraints
 template <typename TargetElement, typename SourceRef>
 inline StaticCastResultType<RebindDataType<SourceRef, TargetElement>, SourceRef>
 ConstDataTypeCast(SourceRef&& source) {
@@ -1141,7 +1223,7 @@ ConstDataTypeCast(SourceRef&& source) {
                     CastChecking::unchecked>(std::forward<SourceRef>(source));
 }
 
-/// `StaticCastTraits` specialization for `DataType`.
+// `StaticCastTraits` specialization for `DataType`.
 template <>
 struct StaticCastTraits<DataType> : public DefaultStaticCastTraits<DataType> {
   static std::string Describe() { return Describe(DataType{}); }
@@ -1151,7 +1233,7 @@ struct StaticCastTraits<DataType> : public DefaultStaticCastTraits<DataType> {
   using RebindDataType = dtype_t<TargetElement>;
 };
 
-/// `StaticCastTraits` specialization for `StaticDataType<T>`.
+// `StaticCastTraits` specialization for `StaticDataType<T>`.
 template <typename T>
 struct StaticCastTraits<StaticDataType<T>>
     : public DefaultStaticCastTraits<StaticDataType<T>> {
@@ -1168,15 +1250,17 @@ struct StaticCastTraits<StaticDataType<T>>
   using RebindDataType = dtype_t<TargetElement>;
 };
 
-/// Returns the `DataType` with `name` equal to `id`.
+/// Returns the `DataType` with `DataType::name` equal to `id`.
 ///
 /// If `id` does not specify a supported data type name, returns the invalid
 /// data type of `DataType()`.
 ///
-/// Example:
+/// Example::
 ///
 ///     EXPECT_EQ(dtype_v<std::int32_t>, GetDataType("int32"));
 ///     EXPECT_EQ(dtype_v<float>, GetDataType("float32"));
+///
+/// \relates DataType
 DataType GetDataType(std::string_view id);
 
 constexpr DataType kDataTypes[] = {
@@ -1190,9 +1274,8 @@ constexpr DataType kDataTypes[] = {
 ///
 /// \relates ElementPointer
 template <typename Pointer>
-using pointee_dtype_t =
-    internal::Undocumented<dtype_t<typename std::pointer_traits<
-        internal::remove_cvref_t<Pointer>>::element_type>>;
+using pointee_dtype_t = dtype_t<typename std::pointer_traits<
+    internal::remove_cvref_t<Pointer>>::element_type>;
 
 namespace internal {
 absl::Status NonSerializableDataTypeError(DataType dtype);
