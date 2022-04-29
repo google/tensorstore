@@ -80,8 +80,9 @@ static_assert(IsElementType<int (ClassT::*)(int)>);
 }  // namespace is_element_type_tests
 
 struct X {
-  int value = 3;
-  ~X() { value = 5; }
+  constexpr static int constant_value = 0;
+  std::shared_ptr<const int> value =
+      std::shared_ptr<const int>(std::shared_ptr<void>{}, &constant_value);
 };
 
 TEST(ElementOperationsTest, UnsignedIntBasic) {
@@ -348,14 +349,15 @@ TEST(ElementOperationsTest, FloatCompareSameValue) {
 TEST(ElementOperationsTest, Class) {
   DataType r = dtype_v<X>;
 
-  alignas(alignof(unsigned int)) unsigned char dest_char_arr[sizeof(X) * 2];
+  alignas(alignof(X)) unsigned char dest_char_arr[sizeof(X) * 2];
   X* dest_arr = reinterpret_cast<X*>(&dest_char_arr[0]);
   r->construct(2, dest_arr);
-  EXPECT_EQ(3, dest_arr[0].value);
-  EXPECT_EQ(3, dest_arr[1].value);
-  r->destroy(2, dest_arr);
-  EXPECT_EQ(5, dest_arr[0].value);
-  EXPECT_EQ(5, dest_arr[1].value);
+  EXPECT_EQ(&X::constant_value, dest_arr[0].value.get());
+  EXPECT_EQ(&X::constant_value, dest_arr[1].value.get());
+  auto ptr = std::make_shared<int>();
+  dest_arr[0].value = ptr;
+  dest_arr[1].value = ptr;
+  EXPECT_EQ(3, ptr.use_count());
 
   EXPECT_EQ(0, r->compare_equal[IterationBufferKind::kStrided](
                    nullptr, 0, IterationBufferPointer{dest_arr, Index(0)},
@@ -366,6 +368,9 @@ TEST(ElementOperationsTest, Class) {
                    nullptr, 1, IterationBufferPointer{dest_arr, Index(0)},
                    IterationBufferPointer{dest_arr, Index(0)},
                    /*status=*/nullptr));
+
+  r->destroy(2, dest_arr);
+  EXPECT_EQ(1, ptr.use_count());
 }
 
 TEST(DataTypeTest, Construct) {
