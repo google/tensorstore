@@ -49,15 +49,31 @@ namespace tensorstore {
 
 /// Specifies whether array indices start at zero, or at an arbitrary origin
 /// vector.
-enum class ArrayOriginKind { zero, offset };
+///
+/// \relates Array
+enum class ArrayOriginKind {
+  /// Origin is always at 0.
+  zero,
+  /// Non-zero origin is permitted.
+  offset
+};
 
+/// \relates ArrayOriginKind
 constexpr ArrayOriginKind zero_origin = ArrayOriginKind::zero;
+
+/// \relates ArrayOriginKind
 constexpr ArrayOriginKind offset_origin = ArrayOriginKind::offset;
 
+/// Prints a string representation of the origin kind.
+///
+/// \relates ArrayOriginKind
+/// \id ArrayOriginKind
 std::ostream& operator<<(std::ostream& os, ArrayOriginKind origin_kind);
 
 /// Returns `true` iff an array with origin kind `source` can be converted to an
 /// array with origin kind `target`.
+///
+/// \relates ArrayOriginKind
 constexpr inline bool IsArrayOriginKindConvertible(ArrayOriginKind source,
                                                    ArrayOriginKind target) {
   return static_cast<int>(source) <= static_cast<int>(target);
@@ -68,12 +84,17 @@ template <DimensionIndex Rank = dynamic_rank,
           ContainerKind CKind = container>
 class StridedLayout;
 
+/// Specifies an unowned strided layout.
+///
+/// \relates StridedLayout
 template <DimensionIndex Rank = dynamic_rank,
           ArrayOriginKind OriginKind = zero_origin>
 using StridedLayoutView = StridedLayout<Rank, OriginKind, view>;
 
 /// Metafunction that checks whether a given type is convertible to
 /// StridedLayoutView.
+///
+/// \relates StridedLayout
 template <typename X>
 constexpr inline bool IsStridedLayout = false;
 
@@ -85,18 +106,17 @@ constexpr inline bool IsStridedLayout<StridedLayout<Rank, OriginKind, CKind>> =
 ///
 /// The elements of `a` and `b` are converted to `Index` prior to multiplying.
 ///
-/// \params n The length.
-/// \params a Pointer to an array of length `n`.
-/// \params b Pointer to an array of length `n`.
+/// \param n The length of `a` and `b`, if they are specified as pointers.
+/// \param a Array of length `n`, or the same length as `b` if specified as a
+///     `span`.
+/// \param b Array of length `n`, or the same length as `a` if specified as a
+///     `span`.
+/// \relates StridedLayout
 template <typename T0, typename T1>
 inline std::enable_if_t<internal::IsIndexPack<T0, T1>, Index> IndexInnerProduct(
     DimensionIndex n, const T0* a, const T1* b) {
   return internal::wrap_on_overflow::InnerProduct<Index>(n, a, b);
 }
-
-/// Returns the inner product of `a` and `b`, wrapping on overflow.
-///
-/// \dchecks `a.size() == b.size()`.
 template <DimensionIndex Rank, typename T0, typename T1>
 inline std::enable_if_t<internal::IsIndexPack<T0, T1>, Index> IndexInnerProduct(
     span<T0, Rank> a, span<T1, Rank> b) {
@@ -114,6 +134,8 @@ inline std::enable_if_t<internal::IsIndexPack<T0, T1>, Index> IndexInnerProduct(
 ///     `order == fortran_order`.  Typically this is equal to the size of the
 ///     data type.  If `layout->rank() == 0`, this has no effect.
 /// \param layout[in,out] The layout to update.
+/// \relates StridedLayout
+/// \id layout
 template <DimensionIndex Rank, ArrayOriginKind OriginKind>
 void InitializeContiguousLayout(ContiguousLayoutOrder order,
                                 Index element_stride,
@@ -133,6 +155,8 @@ void InitializeContiguousLayout(ContiguousLayoutOrder order,
 ///     copied but does not affect the resultant byte strides.
 /// \param layout[out] Layout to update.  The rank will be set to
 ///     `domain.rank()`, and any existing value is ignored.
+/// \relates StridedLayout
+/// \id domain, layout
 template <DimensionIndex Rank>
 void InitializeContiguousLayout(
     ContiguousLayoutOrder order, Index element_stride,
@@ -151,12 +175,15 @@ void InitializeContiguousLayout(
 /// \param element_stride The byte stride for the last dimension if
 ///     `order == c_order`, or for the first dimension if
 ///     `order == fortran_order`.  Typically this is equal to the size of the
-///     data type.  If `domain.rank() == 0`, this has no effect.
-/// \param shape The shape to assign to `*layout`.  Must be
-///     `span`-compatible with a static extent compatible with `Rank`
-///     and a `value_type` convertible without narrowing to `Index`.
+///     data type.  If `span(shape).size() == 0`, this has no effect.
+/// \param shape The shape to assign to `*layout`.  Must be `span`-compatible
+///     with a static extent compatible with `Rank` and a `span::value_type`
+///     convertible without narrowing to `Index`.  May be specified as a braced
+///     list, e.g. ``{3, 4, 5}``.
 /// \param layout[out] Layout to update.  The rank will be set to
-///     `domain.rank()`, and any existing value is ignored.
+///     `std::size(shape)`, and any existing value is ignored.
+/// \relates StridedLayout
+/// \id shape, layout
 template <DimensionIndex Rank, ArrayOriginKind OriginKind, typename Shape>
 std::enable_if_t<
     IsCompatibleFullIndexVector<RankConstraint::FromInlineRank(Rank), Shape>>
@@ -171,8 +198,8 @@ InitializeContiguousLayout(ContiguousLayoutOrder order, Index element_stride,
   InitializeContiguousLayout(order, element_stride, layout);
 }
 
-/// Overload that permits `shape` to be specified as a braced list,
-/// e.g. `InitializeContiguousLayout(c_order, 2, {3, 4, 5}, layout)`.
+// Overload that permits `shape` to be specified as a braced list,
+// e.g. `InitializeContiguousLayout(c_order, 2, {3, 4, 5}, layout)`.
 template <DimensionIndex Rank, DimensionIndex LayoutRank,
           ArrayOriginKind OriginKind>
 std::enable_if_t<
@@ -301,9 +328,10 @@ bool StridedLayoutsEqual(StridedLayoutView<dynamic_rank, offset_origin> a,
 /// vector specifies the offset in bytes between consecutive elements in each
 /// dimension.
 ///
-/// Specifying the strides in units of bytes, rather than sizeof(T) bytes, is
-/// consistent with NumPy, and is useful for representing an "array of structs"
-/// as a "struct of arrays" in the case that alignof(T) <= sizeof(T).
+/// Specifying the strides in units of bytes, rather than ``sizeof(T)``
+/// bytes, is consistent with NumPy, and is useful for representing an "array of
+/// structs" as a "struct of arrays" in the case that
+/// ``alignof(T) <= sizeof(T)``.
 ///
 /// The rank may be specified at compile time using the `Rank` template
 /// parameter, or at run time by specifying a `Rank` of `dynamic_rank`.
@@ -314,11 +342,11 @@ bool StridedLayoutsEqual(StridedLayoutView<dynamic_rank, offset_origin> a,
 ///
 /// If `CKind == container` (the default), this type has value semantics with
 /// respect to the contents of the `origin`, `shape` and `byte_strides` vectors,
-/// and non-`const` instances provide mutable access to them (except that only
-/// const access to the `origin` vector is provided if `OriginKind ==
-/// zero_origin`).  If the `Rank` is specified at compile time, these vectors
-/// are stored inline, while in the case of `dynamic_rank` they stored in a
-/// single heap allocation, making copying more expensive.
+/// and non-const instances provide mutable access to them (except that only
+/// const access to the `origin` vector is provided if
+/// `OriginKind == zero_origin`).  If the `Rank` is specified at compile time,
+/// these vectors are stored inline, while in the case of `dynamic_rank` they
+/// stored in a single heap allocation, making copying more expensive.
 ///
 /// If `CKind == view` (or if using the `StridedLayoutView` convenience alias),
 /// this type represents a const, unowned view of a layout, and stores only
@@ -326,7 +354,7 @@ bool StridedLayoutsEqual(StridedLayoutView<dynamic_rank, offset_origin> a,
 /// case, the user is responsible for ensuring that the `origin`, `shape`, and
 /// `byte_strides` vectors remain valid as long as they are referenced.
 ///
-/// Example usage:
+/// Example usage::
 ///
 ///     tensorstore::StridedLayout<2> x(tensorstore::c_order, sizeof(int),
 ///                                     {3, 4});
@@ -343,14 +371,15 @@ bool StridedLayoutsEqual(StridedLayoutView<dynamic_rank, offset_origin> a,
 ///     // Create a StridedLayoutView that refers to x.
 ///     tensorstore::StridedLayoutView<2> x_ref = x;
 ///
-/// \tparam Rank The compile time rank (must be `>= 0`), `dynamic_rank` to
-///     specify a rank at run time, or if `CKind == container`,
-///     `dynamic_rank(n)` for `n >= 0` to specify a rank at run time with inline
-///     storage for ranks `<= n`.
+/// \tparam Rank The compile time rank (must be ``>= 0``),
+///     `dynamic_rank` to specify a rank at run time, or if
+///     `CKind == container`, ``dynamic_rank(n)`` for ``n >= 0`` to
+///     specify a rank at run time with inline storage for ranks ``<= n``.
 /// \tparam OriginKind Either `zero_origin` (to indicate a constant all-zero
 ///     origin vector) or `offset_origin` (to allow an arbitrary origin vector).
 /// \tparam CKind Either `container` (for value semantics) or `view` (for
 ///     unowned view semantics).
+/// \ingroup array
 template <DimensionIndex Rank, ArrayOriginKind OriginKind, ContainerKind CKind>
 class StridedLayout
     : public internal_strided_layout::LayoutStorageSelector<Rank, OriginKind,
@@ -363,20 +392,31 @@ class StridedLayout
   using Access = typename Selector::Access;
 
  public:
+  /// Origin kind of the layout.
   constexpr static ArrayOriginKind array_origin_kind = OriginKind;
+
+  /// Indicates whether this represents a layout by value (`container`) or by
+  /// unowned reference (`view`).
   constexpr static ContainerKind container_kind = CKind;
   static_assert(CKind == container || Rank >= dynamic_rank);
+
+  /// Rank of the layout, or `dynamic_rank` if specified at run time.
   constexpr static DimensionIndex static_rank =
       RankConstraint::FromInlineRank(Rank);
 
-  template <DimensionIndex OtherRank,
-            ArrayOriginKind OtherOriginKind = OriginKind>
-  using Rebind = StridedLayout<OtherRank, OtherOriginKind, CKind>;
+  template <DimensionIndex R, ArrayOriginKind O = OriginKind>
+  using Rebind = StridedLayout<R, O, CKind>;
 
+  /// Representation of static or dynamic rank value.
   using RankType = StaticOrDynamicRank<static_rank>;
+
+  /// Conditionally const-qualified element type of `shape` vector.
   using MaybeConstIndex = typename Access::MaybeConstIndex;
+
+  /// Conditionally const-qualified element type of `origin` vector.
   using MaybeConstOriginIndex = typename Access::MaybeConstOriginIndex;
 
+  /// Returns the number of dimensions in the layout.
   RankType rank() const { return Access::GetExtent(*this); }
 
   /// Constructs a default layout of rank equal to `static_rank` (if
@@ -384,6 +424,7 @@ class StridedLayout
   ///
   /// The `origin`, `shape`, and `byte_strides` vectors are valid with
   /// unspecified contents.
+  /// \id default
   StridedLayout() noexcept {
     if (container_kind == view) {
       const Index* zero_vec = GetConstantVector<Index, 0>(RankType{}).data();
@@ -398,6 +439,7 @@ class StridedLayout
   /// \post this->rank() == rank
   /// \post The contents of this->shape() and this->byte_strides() are
   ///     unspecified.
+  /// \id rank
   template <ContainerKind SfinaeC = CKind,
             typename = std::enable_if_t<SfinaeC == container>>
   explicit StridedLayout(RankType rank) {
@@ -406,10 +448,8 @@ class StridedLayout
 
   /// Constructs from the specified `shape` and `byte_strides`.
   ///
-  /// \checks `shape.size() == byte_strides.size()`
-  /// \post this->rank() == shape.size()
-  /// \post this->shape() == shape
-  /// \post this->byte_strides() == byte_strides
+  /// \dchecks `std::size(shape) == std::size(byte_strides)`
+  /// \id shape, byte_strides
   explicit StridedLayout(span<const Index, static_rank> shape,
                          span<const Index, static_rank> byte_strides) {
     // This check is redundant with the check done by Access::Assign, but
@@ -428,12 +468,9 @@ class StridedLayout
   /// Constructs from the specified `origin`, `shape` and `byte_strides`.
   ///
   /// \requires `array_origin_kind == offset_origin`.
-  /// \dchecks `origin.size() == shape.size()`
-  /// \dchecks `origin.size() == byte_strides.size()`
-  /// \post this->rank() == shape.size()
-  /// \post this->origin() == shape
-  /// \post this->shape() == shape
-  /// \post this->byte_strides() == byte_strides
+  /// \dchecks `std::size(origin) == std::size(shape)`
+  /// \dchecks `std::size(origin) == std::size(byte_strides)`
+  /// \id origin, shape, byte_strides
   template <ArrayOriginKind SfinaeOKind = array_origin_kind,
             typename = std::enable_if_t<SfinaeOKind == offset_origin>>
   explicit StridedLayout(span<const Index, static_rank> origin,
@@ -453,13 +490,14 @@ class StridedLayout
     Access::Assign(this, StaticRank<N>{}, origin, shape, byte_strides);
   }
 
-  /// Constructs from the specified `origin`, `shape` and `byte_strides`.
+  /// Constructs from the specified `domain` and `byte_strides`.
   ///
   /// \requires `array_origin_kind == offset_origin`.
   /// \dchecks `domain.size() == byte_strides.size()`
-  /// \post this->rank() == shape.size()
-  /// \post this->domain() == domain
-  /// \post this->byte_strides() == byte_strides
+  /// \post `this->rank() == shape.size()`
+  /// \post `this->domain() == domain`
+  /// \post `this->byte_strides() == byte_strides`
+  /// \id domain, byte_strides
   template <ArrayOriginKind SfinaeOKind = array_origin_kind,
             typename = std::enable_if_t<SfinaeOKind == offset_origin>>
   explicit StridedLayout(BoxView<static_rank> domain,
@@ -472,23 +510,21 @@ class StridedLayout
   /// Constructs from a layout with a compatible `static_rank` and
   /// `array_origin_kind`.
   ///
-  /// Conditionally explicit if
-  ///     `container_kind == container && OtherCKindSpec != container && `
-  ///     `OtherRankSpec != 0`.
-  template <DimensionIndex R, ArrayOriginKind O, ContainerKind C,
-            ContainerKind SfinaeC = CKind,
-            typename = std::enable_if_t<
-                (TENSORSTORE_EXPLICIT_REQUIRES(SfinaeC == container &&
-                                               C != container && R != 0) &&
-                 RankConstraint::Implies(RankConstraint::FromInlineRank(R),
-                                         static_rank) &&
-                 IsArrayOriginKindConvertible(O, OriginKind))>>
+  /// \id convert
+  template <
+      DimensionIndex R, ArrayOriginKind O, ContainerKind C,
+      ContainerKind SfinaeC = CKind,
+      typename = std::enable_if_t<
+          (ExplicitRequires(SfinaeC == container && C != container && R != 0) &&
+           RankConstraint::Implies(RankConstraint::FromInlineRank(R),
+                                   static_rank) &&
+           IsArrayOriginKindConvertible(O, OriginKind))>>
   explicit StridedLayout(const StridedLayout<R, O, C>& source) {
     Access::AssignFrom(this, source);
   }
 
-  /// Overload of above constructor that handles the implicit conversion case of
-  /// `container_kind == view || OtherCKind == container || OtherRankSpec == 0`.
+  // Overload of above constructor that handles the implicit conversion case of
+  // `container_kind == view || C == container || R == 0`.
   template <DimensionIndex R, ArrayOriginKind O, ContainerKind C,
             typename = std::enable_if_t<
                 ((CKind == view || C == container || R == 0) &&
@@ -500,6 +536,8 @@ class StridedLayout
   }
 
   /// Unchecked conversion.
+  ///
+  /// \id unchecked
   template <DimensionIndex R, ArrayOriginKind O, ContainerKind C,
             typename = std::enable_if_t<
                 (RankConstraint::EqualOrUnspecified(
@@ -509,21 +547,22 @@ class StridedLayout
     assert(RankConstraint::EqualOrUnspecified(source.rank(), static_rank));
     Access::AssignFrom(this, source);
   }
-
-  /// Unchecked conversion.
   explicit StridedLayout(unchecked_t, StridedLayout&& source)
       : StridedLayout(std::move(source)) {}
 
-  /// Constructs from the specified `rank`, `shape`, and `byte_strides`.
+  /// Constructs from the specified rank and origin/shape/byte_strides arrays.
+  ///
+  /// \param rank Number of dimensions in the layout.
+  /// \param origin Pointer to array of size `rank` specifying the origin.
+  /// \param shape Pointer to array of size `rank` specifying the shape.
+  /// \param byte_strides Pointer to array of size `rank` specifying the
+  ///     byte_strides.
+  /// \requires `array_origin_kind == offset_origin` if `origin` is specified.
+  /// \id rank, components
   explicit StridedLayout(RankType rank, const Index* shape,
                          const Index* byte_strides) {
     Access::Assign(this, rank, shape, byte_strides);
   }
-
-  /// Constructs from the specified `rank`, `origin`, `shape`, and
-  /// `byte_strides`.
-  ///
-  /// \requires `array_origin_kind == offset_origin`
   template <ArrayOriginKind OKind = array_origin_kind,
             typename = std::enable_if_t<OKind == offset_origin>>
   explicit StridedLayout(RankType rank, const Index* origin, const Index* shape,
@@ -536,8 +575,7 @@ class StridedLayout
   ///
   /// Refer to the documentation of `InitializeContiguousLayout`.
   ///
-  /// \requires `array_origin_kind == offset_origin`
-  /// \requires `container_kind == container`
+  /// \id order
   template <ArrayOriginKind SfinaeOKind = array_origin_kind,
             typename = std::enable_if_t<(SfinaeOKind == offset_origin &&
                                          container_kind == container)>>
@@ -545,26 +583,12 @@ class StridedLayout
                          BoxView<static_rank> domain) {
     InitializeContiguousLayout(order, element_stride, domain, this);
   }
-
-  /// Constructs a contiguous layout with the specified shape and element
-  /// stride.
-  ///
-  /// Refer to the documentation of `InitializeContiguousLayout`.
-  ///
-  /// \requires `container_kind == container`
   template <ContainerKind SfinaeC = container_kind,
             typename = std::enable_if_t<(SfinaeC == container)>>
   explicit StridedLayout(ContiguousLayoutOrder order, Index element_stride,
                          span<const Index, static_rank> shape) {
     InitializeContiguousLayout(order, element_stride, shape, this);
   }
-
-  /// Constructs a contiguous layout with the specified shape and element
-  /// stride.
-  ///
-  /// Refer to the documentation of `InitializeContiguousLayout`.
-  ///
-  /// \requires `container_kind == container`
   template <
       DimensionIndex R, ContainerKind SfinaeC = CKind,
       typename = std::enable_if_t<(SfinaeC == container &&
@@ -577,7 +601,8 @@ class StridedLayout
   /// Assigns from a layout with a compatible `static_rank` and
   /// `array_origin_kind`.
   ///
-  /// \post `*this == other`
+  /// \id convert
+  /// \membergroup Assignment
   template <DimensionIndex R, ArrayOriginKind O, ContainerKind C>
   std::enable_if_t<(RankConstraint::Implies(RankConstraint::FromInlineRank(R),
                                             static_rank) &&
@@ -592,7 +617,7 @@ class StridedLayout
   ///
   /// The existing `origin`, `shape` and `byte_strides` are not preserved.
   ///
-  /// \requires `container_kind == container`.
+  /// \membergroup Assignment
   template <int&... ExplicitArgumentBarrier, ContainerKind SfinaeC = CKind>
   std::enable_if_t<SfinaeC == container> set_rank(RankType rank) {
     Access::Resize(this, rank);
@@ -603,6 +628,7 @@ class StridedLayout
   /// For the non-const overload, the returned `span` has non-const `Index`
   /// elements if `container_kind == container` and
   /// `array_origin_kind == offset_origin`.
+  /// \membergroup Accessors
   span<const Index, static_rank> origin() const {
     return const_cast<StridedLayout*>(this)->origin();
   }
@@ -614,6 +640,7 @@ class StridedLayout
   ///
   /// For the non-const overload, the returned `span` has non-const `Index`
   /// elements if `container_kind == container`.
+  /// \membergroup Accessors
   span<const Index, static_rank> byte_strides() const {
     return const_cast<StridedLayout*>(this)->byte_strides();
   }
@@ -625,12 +652,15 @@ class StridedLayout
   ///
   /// For the non-const overload, the returned `span` has non-const `Index`
   /// elements if `container_kind == container`.
+  /// \membergroup Accessors
   span<const Index, static_rank> shape() const {
     return const_cast<StridedLayout*>(this)->shape();
   }
   span<MaybeConstIndex, static_rank> shape() { return Access::shape(this); }
 
   /// Returns the byte offset of the origin.
+  ///
+  /// \membergroup Accessors
   Index origin_byte_offset() const {
     return array_origin_kind == zero_origin
                ? 0
@@ -638,15 +668,17 @@ class StridedLayout
                                    this->byte_strides().data());
   }
 
-  /// Returns the byte offset corresponding to a list of `N <= rank()` indices
-  /// into the layout.
+  /// Returns the byte offset corresponding to a list of ``N <= rank()``
+  /// indices into the layout.
   ///
-  /// \param indices A list of `N <= rank()` indices.  `span(indices)` must
-  ///     be valid, and the resulting `value_type` must convertible to
-  ///     `Index`.
-  /// \pre 0 <= span(indices)[i] < shape()[i]
-  /// \pre CHECKs that `span(indices).size() <= rank()`.
-  /// \returns sum(byte_strides[i] * indices[i] for 0 <= i < N)
+  /// \param indices A list of ``N <= rank()`` indices.  `span(indices)` must
+  ///     be valid, and the resulting `span::value_type` must be convertible to
+  ///     `Index`.  May be specified as a braced list,
+  ///     e.g. ``layout[{1, 2, 3}]``.
+  /// \pre ``0 <= span(indices)[i] < shape()[i]`` for ``0 <= i < N``
+  /// \dchecks `std::size(indices) <= rank()`
+  /// \returns sum(``byte_strides[i] * indices[i]`` for ``0 <= i < N``)
+  /// \membergroup Indexing
   template <typename Indices>
   std::enable_if_t<IsCompatiblePartialIndexVector<static_rank, Indices>, Index>
   operator[](const Indices& indices) const {
@@ -658,9 +690,6 @@ class StridedLayout
     return IndexInnerProduct(indices_span.size(), byte_strides().data(),
                              indices_span.data());
   }
-
-  /// Same as more general `operator[]` overload defined above, but can be
-  /// called with a braced list, e.g. `layout[{1,2,3}]`.
   template <typename IndexType, std::size_t N>
   std::enable_if_t<
       IsCompatiblePartialIndexVector<static_rank, const IndexType (&)[N]>,
@@ -674,12 +703,15 @@ class StridedLayout
   ///
   /// Unlike for `operator[]`, the number of indices must equal `rank()`.
   ///
-  /// \param indices A list of `rank()` indices.  `span(indices)` must be
-  ///     valid, and the resulting `value_type` must be convertible to
-  ///     `Index`.
-  /// \pre 0 <= span(indices)[i] < shape()[i]
-  /// \pre CHECKs that `span(indices).size() == rank()`.
-  /// \returns sum(byte_strides[i] * indices[i] for 0 <= i < rank())
+  /// \param indices A list of `rank()` indices.  `span(indices)` must be valid,
+  ///     and the resulting `span::value_type` must be convertible to `Index`.
+  ///     May be specified as a braced list, e.g. ``layout({1, 2, 3})``.
+  /// \pre ``0 <= span(indices)[i] < shape()[i]`` for ``0 <= i < rank()``
+  /// \checks `span(indices).size() == rank()`
+  /// \returns sum(``byte_strides[i] * indices[i]`` for
+  ///     ``0 <= i < rank()``)
+  /// \membergroup Indexing
+  /// \id vector
   template <typename Indices>
   std::enable_if_t<IsCompatibleFullIndexVector<static_rank, Indices>, Index>
   operator()(const Indices& indices) const {
@@ -697,6 +729,8 @@ class StridedLayout
   /// Returns `(*this)({index...})`, or `0` if `index` is an empty pack.
   ///
   /// \dchecks `sizeof...(index) == rank()`
+  /// \membergroup Indexing
+  /// \id pack
   template <typename... IndexType>
   std::enable_if_t<IsCompatibleFullIndexPack<static_rank, IndexType...>, Index>
   operator()(IndexType... index) const {
@@ -711,9 +745,13 @@ class StridedLayout
   }
 
   /// Returns the total number of elements (product of extents in `shape()`).
+  ///
+  /// \membergroup Accessors
   Index num_elements() const { return ProductOfExtents(this->shape()); }
 
   /// Returns the domain of the layout.
+  ///
+  /// \membergroup Accessors
   BoxView<static_rank> domain() const {
     return BoxView<static_rank>(this->origin(), this->shape());
   }
@@ -723,6 +761,18 @@ class StridedLayout
                                   const StridedLayout& layout) {
     internal_strided_layout::PrintToOstream(os, layout);
     return os;
+  }
+
+  /// Compares the `domain` and `byte_strides`.
+  template <DimensionIndex R, ArrayOriginKind O, ContainerKind C>
+  friend bool operator==(const StridedLayout& a,
+                         const StridedLayout<R, O, C>& b) {
+    return internal_strided_layout::StridedLayoutsEqual(a, b);
+  }
+  template <DimensionIndex R, ArrayOriginKind O, ContainerKind C>
+  friend bool operator!=(const StridedLayout& a,
+                         const StridedLayout<R, O, C>& b) {
+    return !internal_strided_layout::StridedLayoutsEqual(a, b);
   }
 };
 
@@ -772,26 +822,8 @@ template <DimensionIndex Rank>
 explicit StridedLayout(ContiguousLayoutOrder order, Index element_stride,
                        const Index (&shape)[Rank]) -> StridedLayout<Rank>;
 
-/// Returns `a.domain() == b.domain() && a.byte_strides() == b.byte_strides()`.
-template <DimensionIndex RankA, ArrayOriginKind OriginKindA,
-          ContainerKind CKindA, DimensionIndex RankB,
-          ArrayOriginKind OriginKindB, ContainerKind CKindB>
-inline bool operator==(const StridedLayout<RankA, OriginKindA, CKindA>& a,
-                       const StridedLayout<RankB, OriginKindB, CKindB>& b) {
-  return internal_strided_layout::StridedLayoutsEqual(a, b);
-}
-
-/// Returns `!(a == b)`.
-template <DimensionIndex RankA, ArrayOriginKind OriginKindA,
-          ContainerKind CKindA, DimensionIndex RankB,
-          ArrayOriginKind OriginKindB, ContainerKind CKindB>
-inline bool operator!=(const StridedLayout<RankA, OriginKindA, CKindA>& a,
-                       const StridedLayout<RankB, OriginKindB, CKindB>& b) {
-  return !internal_strided_layout::StridedLayoutsEqual(a, b);
-}
-
-/// Specialization of `StaticCastTraits` for `StridedLayout`, which enables
-/// `StaticCast` and `StaticRankCast`.
+// Specialization of `StaticCastTraits` for `StridedLayout`, which enables
+// `StaticCast` and `StaticRankCast`.
 template <DimensionIndex Rank, ArrayOriginKind OriginKind, ContainerKind CKind>
 struct StaticCastTraits<StridedLayout<Rank, OriginKind, CKind>>
     : public DefaultStaticCastTraits<StridedLayout<Rank, OriginKind, CKind>> {
@@ -814,22 +846,13 @@ struct StaticCastTraits<StridedLayout<Rank, OriginKind, CKind>>
   using RebindRank = StridedLayout<TargetRank, OriginKind, CKind>;
 };
 
-/// Returns a view with the leading `sub_rank` dimensions of `layout` removed.
-///
-/// \tparam SubRank Specifies the number of leading dimensions to remove at
-///     compile time, or `dynamic_rank` to specify the number of dimensions at
-///     run time.
-/// \param layout The existing layout.
-/// \param sub_rank Specifies the number of leading dimensions to remove.
-///     Optional if `SubRank != dynamic_rank`.
-/// \returns A view that references the same memory as `layout`.
-template <DimensionIndex SubRank = dynamic_rank, DimensionIndex R,
-          ArrayOriginKind O, ContainerKind C>
+namespace internal_strided_layout {
+template <DimensionIndex SubRank, DimensionIndex R, ArrayOriginKind O,
+          ContainerKind C>
 StridedLayoutView<
     RankConstraint::Subtract(RankConstraint::FromInlineRank(R), SubRank), O>
-GetSubLayoutView(
-    const StridedLayout<R, O, C>& layout,
-    StaticOrDynamicRank<SubRank> sub_rank = StaticRank<SubRank>{}) {
+GetSubLayoutViewImpl(const StridedLayout<R, O, C>& layout,
+                     StaticOrDynamicRank<SubRank> sub_rank) {
   static_assert(RankConstraint(SubRank).valid());
   static_assert(RankConstraint::GreaterEqualOrUnspecified(
                     RankConstraint::FromInlineRank(R), SubRank),
@@ -848,15 +871,42 @@ GetSubLayoutView(
                                     layout.byte_strides().subspan(sub_rank)));
   }
 }
+}  // namespace internal_strided_layout
 
-// Overload that allows `SubRank` to be inferred.
-template <int&... ExplicitArgumentBarrier, DimensionIndex SubRank,
-          DimensionIndex R, ArrayOriginKind O, ContainerKind C>
-StridedLayoutView<
-    RankConstraint::Subtract(RankConstraint::FromInlineRank(R), SubRank), O>
+/// Returns a view with the leading `sub_rank` dimensions of `layout` removed.
+///
+/// \tparam SubRank Specifies the number of leading dimensions to remove at
+///     compile time, or `dynamic_rank` to specify the number of dimensions at
+///     run time.
+/// \param layout The existing layout.
+/// \param sub_rank Specifies the number of leading dimensions to remove.
+///     Optional if `SubRank != dynamic_rank`.
+/// \returns A view that references the same memory as `layout`.
+/// \relates StridedLayout
+template <DimensionIndex SubRank = dynamic_rank, DimensionIndex R,
+          ArrayOriginKind O, ContainerKind C>
+std::enable_if_t<
+    SubRank == dynamic_rank,
+    StridedLayoutView<
+        RankConstraint::Subtract(RankConstraint::FromInlineRank(R), SubRank),
+        O>>
 GetSubLayoutView(const StridedLayout<R, O, C>& layout,
-                 std::integral_constant<DimensionIndex, SubRank>) {
-  return GetSubLayoutView<SubRank>(layout);
+                 DimensionIndex sub_rank) {
+  return internal_strided_layout::GetSubLayoutViewImpl<SubRank, R, O, C>(
+      layout, sub_rank);
+}
+template <DimensionIndex SubRank, DimensionIndex R, ArrayOriginKind O,
+          ContainerKind C>
+std::enable_if_t<
+    SubRank != dynamic_rank,
+    StridedLayoutView<
+        RankConstraint::Subtract(RankConstraint::FromInlineRank(R), SubRank),
+        O>>
+GetSubLayoutView(
+    const StridedLayout<R, O, C>& layout,
+    std::integral_constant<DimensionIndex, SubRank> sub_rank = {}) {
+  return internal_strided_layout::GetSubLayoutViewImpl<SubRank, R, O, C>(
+      layout, sub_rank);
 }
 
 template <DimensionIndex Rank, ArrayOriginKind OriginKind, ContainerKind CKind>
@@ -864,6 +914,9 @@ constexpr inline bool HasBoxDomain<StridedLayout<Rank, OriginKind, CKind>> =
     true;
 
 /// Implements the HasBoxDomain concept for `StridedLayout`.
+///
+/// \relates StridedLayout
+/// \id strided_layout
 template <DimensionIndex Rank, ArrayOriginKind OriginKind, ContainerKind CKind>
 BoxView<Rank> GetBoxDomainOf(
     const StridedLayout<Rank, OriginKind, CKind>& layout) {

@@ -895,7 +895,7 @@ TEST(StridedLayoutViewDeathTest, SubLayout) {
   StridedLayout<> r({1, 2, 3}, {3, 4, 5});
   TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY(GetSubLayoutView(r, -1), "sub_rank");
   TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY(GetSubLayoutView(r, 4), "sub_rank");
-  TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY(GetSubLayoutView<4>(r), "SubRank");
+  TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY(GetSubLayoutView<4>(r), "sub_rank");
 }
 
 TEST(StridedLayoutTest, COrderStatic) {
