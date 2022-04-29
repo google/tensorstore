@@ -610,12 +610,13 @@ class Array {
   /// Unchecked conversion.
   template <
       typename Other,
-      std::enable_if_t<(
-          IsArray<internal::remove_cvref_t<Other>> &&
-          IsCastConstructible<ElementPointer, typename internal::remove_cvref_t<
-                                                  Other>::ElementPointer> &&
-          IsCastConstructible<Layout, typename internal::remove_cvref_t<
-                                          Other>::Layout>)>* = nullptr>
+      std::enable_if_t<
+          (IsArray<internal::remove_cvref_t<Other>> &&
+           IsStaticCastConstructible<
+               ElementPointer,
+               typename internal::remove_cvref_t<Other>::ElementPointer> &&
+           IsStaticCastConstructible<Layout, typename internal::remove_cvref_t<
+                                                 Other>::Layout>)>* = nullptr>
   explicit Array(unchecked_t, Other&& other)
       : storage_(unchecked, std::forward<Other>(other).element_pointer(),
                  std::forward<Other>(other).layout()) {}

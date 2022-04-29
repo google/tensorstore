@@ -31,7 +31,7 @@ using tensorstore::dynamic_rank;
 using tensorstore::HasBoxDomain;
 using tensorstore::Index;
 using tensorstore::IndexInterval;
-using tensorstore::IsCastConstructible;
+using tensorstore::IsStaticCastConstructible;
 using tensorstore::kInfIndex;
 using tensorstore::kInfSize;
 using tensorstore::MatchesStatus;
@@ -53,15 +53,15 @@ static_assert(!std::is_constructible_v<MutableBoxView<3>, MutableBoxView<>>);
 static_assert(!std::is_constructible_v<MutableBoxView<3>, Box<>>);
 static_assert(std::is_constructible_v<MutableBoxView<3>, Box<3>&>);
 
-static_assert(IsCastConstructible<BoxView<3>, BoxView<>>);
-static_assert(IsCastConstructible<Box<3>, BoxView<>>);
-static_assert(IsCastConstructible<Box<3>, Box<>>);
-static_assert(IsCastConstructible<BoxView<>, BoxView<3>>);
-static_assert(IsCastConstructible<MutableBoxView<3>, Box<3>&>);
-static_assert(!IsCastConstructible<MutableBoxView<>, const Box<3>&>);
-static_assert(!IsCastConstructible<BoxView<2>, BoxView<3>>);
-static_assert(!IsCastConstructible<BoxView<2>, Box<3>>);
-static_assert(!IsCastConstructible<Box<3>, Box<2>>);
+static_assert(IsStaticCastConstructible<BoxView<3>, BoxView<>>);
+static_assert(IsStaticCastConstructible<Box<3>, BoxView<>>);
+static_assert(IsStaticCastConstructible<Box<3>, Box<>>);
+static_assert(IsStaticCastConstructible<BoxView<>, BoxView<3>>);
+static_assert(IsStaticCastConstructible<MutableBoxView<3>, Box<3>&>);
+static_assert(!IsStaticCastConstructible<MutableBoxView<>, const Box<3>&>);
+static_assert(!IsStaticCastConstructible<BoxView<2>, BoxView<3>>);
+static_assert(!IsStaticCastConstructible<BoxView<2>, Box<3>>);
+static_assert(!IsStaticCastConstructible<Box<3>, Box<2>>);
 
 TEST(BoxTest, DefaultConstructDynamic) {
   Box<> box;

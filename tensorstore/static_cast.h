@@ -146,7 +146,7 @@ struct DefaultStaticCastTraits {
 /// Alias that evaluates to the `StaticCastTraits` type to use for an
 /// optionally-qualified type `T`.
 template <typename T>
-using CastTraitsType = StaticCastTraits<internal::remove_cvref_t<T>>;
+using StaticCastTraitsType = StaticCastTraits<internal::remove_cvref_t<T>>;
 
 namespace internal_cast {
 
@@ -175,7 +175,7 @@ struct CastImpl<CastChecking::checked, false> {
   template <typename Target, typename SourceRef>
   static Result<Target> StaticCast(SourceRef&& source) {
     if (!StaticCastTraits<Target>::IsCompatible(source)) {
-      return CastError(CastTraitsType<SourceRef>::Describe(source),
+      return CastError(StaticCastTraitsType<SourceRef>::Describe(source),
                        StaticCastTraits<Target>::Describe());
     }
     return StaticCastTraits<Target>::Construct(std::forward<SourceRef>(source));
@@ -219,10 +219,10 @@ using CastImplType =
                             (Checking == CastChecking::unchecked && IsSame)>;
 
 template <typename Target, typename SourceRef, typename ReturnType = Target>
-constexpr inline bool IsCastConstructible = false;
+constexpr inline bool IsStaticCastConstructible = false;
 
 template <typename Target, typename SourceRef>
-constexpr inline bool IsCastConstructible<
+constexpr inline bool IsStaticCastConstructible<
     Target, SourceRef,
     decltype(StaticCastTraits<Target>::Construct(std::declval<SourceRef>()))> =
     true;
@@ -232,8 +232,8 @@ constexpr inline bool IsCastConstructible<
 /// `bool`-valued metafunction that evaluates to `true` if a value of type
 /// `SourceRef&&` can be converted to a type of `Target` using `StaticCast`.
 template <typename Target, typename SourceRef>
-constexpr inline bool IsCastConstructible =
-    internal_cast::IsCastConstructible<Target, SourceRef>;
+constexpr inline bool IsStaticCastConstructible =
+    internal_cast::IsStaticCastConstructible<Target, SourceRef>;
 
 /// Evaluates to the result of casting a value of type `SourceRef&&` to `Target`
 /// with a checking mode of `Checking`.
@@ -241,8 +241,8 @@ constexpr inline bool IsCastConstructible =
 /// \requires `IsCastConstructible<Target, SourceRef>`.
 template <typename Target, typename SourceRef,
           CastChecking Checking = CastChecking::unchecked>
-using SupportedCastResultType = std::enable_if_t<
-    IsCastConstructible<Target, SourceRef>,
+using StaticCastResultType = std::enable_if_t<
+    IsStaticCastConstructible<Target, SourceRef>,
     typename internal_cast::CastImplType<
         Target, SourceRef, Checking>::template ResultType<SourceRef, Target>>;
 
@@ -277,8 +277,9 @@ using SupportedCastResultType = std::enable_if_t<
 /// \requires `IsCastConstructible<Target, SourceRef>`
 template <typename Target, CastChecking Checking = CastChecking::checked,
           typename SourceRef>
-SupportedCastResultType<Target, SourceRef, Checking> StaticCast(
-    SourceRef&& source) {
+std::enable_if_t<IsStaticCastConstructible<Target, SourceRef>,
+                 StaticCastResultType<Target, SourceRef, Checking>>
+StaticCast(SourceRef&& source) {
   return internal_cast::CastImplType<Target, SourceRef, Checking>::
       template StaticCast<Target>(std::forward<SourceRef>(source));
 }

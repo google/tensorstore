@@ -376,12 +376,12 @@ struct StaticCastTraits<TensorStore<Element, Rank, Mode>>
 /// the `StaticCastTraits` specialization for `SourceRef`.
 template <typename SourceRef, ReadWriteMode TargetMode>
 using RebindMode =
-    typename CastTraitsType<SourceRef>::template RebindMode<TargetMode>;
+    typename StaticCastTraitsType<SourceRef>::template RebindMode<TargetMode>;
 
 /// Casts `source` to have a static `ReadWriteMode` of `TargetMode`.
 template <ReadWriteMode TargetMode,
           CastChecking Checking = CastChecking::checked, typename SourceRef>
-SupportedCastResultType<RebindMode<SourceRef, TargetMode>, SourceRef, Checking>
+StaticCastResultType<RebindMode<SourceRef, TargetMode>, SourceRef, Checking>
 ModeCast(SourceRef&& source) {
   return StaticCast<RebindMode<SourceRef, TargetMode>, Checking>(
       std::forward<SourceRef>(source));

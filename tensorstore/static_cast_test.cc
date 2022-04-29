@@ -24,7 +24,7 @@
 
 namespace {
 using tensorstore::dynamic_extent;
-using tensorstore::IsCastConstructible;
+using tensorstore::IsStaticCastConstructible;
 using tensorstore::MatchesStatus;
 using tensorstore::Result;
 using tensorstore::span;
@@ -101,16 +101,16 @@ struct StaticCastTraits<Y<Extent>> {
 
 namespace {
 
-// Test IsCastConstructible
-static_assert(IsCastConstructible<X<3>, X<dynamic_extent>>);
-static_assert(IsCastConstructible<X<dynamic_extent>, X<3>>);
-static_assert(IsCastConstructible<X<3>, X<3>>);
-static_assert(!IsCastConstructible<X<3>, X<2>>);
+// Test IsStaticCastConstructible
+static_assert(IsStaticCastConstructible<X<3>, X<dynamic_extent>>);
+static_assert(IsStaticCastConstructible<X<dynamic_extent>, X<3>>);
+static_assert(IsStaticCastConstructible<X<3>, X<3>>);
+static_assert(!IsStaticCastConstructible<X<3>, X<2>>);
 
-static_assert(IsCastConstructible<Y<3>, Y<dynamic_extent>>);
-static_assert(IsCastConstructible<Y<dynamic_extent>, Y<3>>);
-static_assert(IsCastConstructible<Y<3>, Y<3>>);
-static_assert(!IsCastConstructible<Y<3>, Y<2>>);
+static_assert(IsStaticCastConstructible<Y<3>, Y<dynamic_extent>>);
+static_assert(IsStaticCastConstructible<Y<dynamic_extent>, Y<3>>);
+static_assert(IsStaticCastConstructible<Y<3>, Y<3>>);
+static_assert(!IsStaticCastConstructible<Y<3>, Y<2>>);
 
 // Test unchecked no-op casting result type.
 static_assert(std::is_same_v<const X<3>&, decltype(StaticCast<X<3>, unchecked>(

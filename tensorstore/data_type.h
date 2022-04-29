@@ -1066,8 +1066,8 @@ constexpr inline bool IsPossiblySameDataType(StaticDataType<T> a,
 ///     type.  Any qualifiers are ignored.
 /// \tparam TargetElement Target element type.
 template <typename SourceRef, typename TargetElement>
-using RebindDataType =
-    typename CastTraitsType<SourceRef>::template RebindDataType<TargetElement>;
+using RebindDataType = typename StaticCastTraitsType<
+    SourceRef>::template RebindDataType<TargetElement>;
 
 /// Casts `source` to have a static data type of `TargetElement`.
 ///
@@ -1102,8 +1102,8 @@ using RebindDataType =
 ///     `Target` according to `IsElementExplicitlyConvertible`.
 template <typename TargetElement, CastChecking Checking = CastChecking::checked,
           typename SourceRef>
-SupportedCastResultType<RebindDataType<SourceRef, TargetElement>, SourceRef,
-                        Checking>
+StaticCastResultType<RebindDataType<SourceRef, TargetElement>, SourceRef,
+                     Checking>
 StaticDataTypeCast(SourceRef&& source) {
   using Source = internal::remove_cvref_t<SourceRef>;
   static_assert(IsElementTypeExplicitlyConvertible<typename Source::Element,
@@ -1131,8 +1131,7 @@ StaticDataTypeCast(SourceRef&& source) {
 /// \schecks `TargetElement` and `typename remove_cvref_t<SourceRef>::Element`
 ///     differ only in their `const` qualification.
 template <typename TargetElement, typename SourceRef>
-inline SupportedCastResultType<RebindDataType<SourceRef, TargetElement>,
-                               SourceRef>
+inline StaticCastResultType<RebindDataType<SourceRef, TargetElement>, SourceRef>
 ConstDataTypeCast(SourceRef&& source) {
   using Source = internal::remove_cvref_t<SourceRef>;
   static_assert(

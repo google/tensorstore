@@ -222,9 +222,9 @@ class TransformedArray {
   /// \pre `array.dtype()` is compatible with `Element`.
   /// \pre `array.rank()` is compatible with `Rank`.
   template <typename A,
-            std::enable_if_t<(
-                IsArray<internal::remove_cvref_t<A>> &&
-                IsCastConstructible<UntransformedArray<offset_origin>, A&&>)>* =
+            std::enable_if_t<(IsArray<internal::remove_cvref_t<A>> &&
+                              IsStaticCastConstructible<
+                                  UntransformedArray<offset_origin>, A&&>)>* =
                 nullptr>
   explicit TransformedArray(unchecked_t, A&& array) noexcept
       : TransformedArray(Access::construct_array_tag{},
@@ -355,9 +355,10 @@ class TransformedArray {
       std::enable_if_t<
           ((IsTransformedArray<internal::remove_cvref_t<Other>> ||
             IsNormalizedTransformedArray<internal::remove_cvref_t<
-                Other>>)&&IsCastConstructible<ElementPointer,
-                                              typename internal::remove_cvref_t<
-                                                  Other>::ElementPointer> &&
+                Other>>)&&IsStaticCastConstructible<ElementPointer,
+                                                    typename internal::
+                                                        remove_cvref_t<Other>::
+                                                            ElementPointer> &&
            IsRankExplicitlyConvertible(
                internal::remove_cvref_t<Other>::static_rank, Rank))>* = nullptr>
   explicit TransformedArray(unchecked_t, Other&& other) noexcept
@@ -731,14 +732,15 @@ class NormalizedTransformedArray {
   ///     `Other::ElementPointer`.
   /// \requires `Transform` is `StaticCast` constructible from
   /// `Other::Transform`.
-  template <
-      typename Other,
-      std::enable_if_t<(
-          IsNormalizedTransformedArray<internal::remove_cvref_t<Other>> &&
-          IsCastConstructible<ElementPointer, typename internal::remove_cvref_t<
-                                                  Other>::ElementPointer> &&
-          IsCastConstructible<Transform, typename internal::remove_cvref_t<
-                                             Other>::Transform>)>* = nullptr>
+  template <typename Other,
+            std::enable_if_t<(
+                IsNormalizedTransformedArray<internal::remove_cvref_t<Other>> &&
+                IsStaticCastConstructible<
+                    ElementPointer,
+                    typename internal::remove_cvref_t<Other>::ElementPointer> &&
+                IsStaticCastConstructible<Transform,
+                                          typename internal::remove_cvref_t<
+                                              Other>::Transform>)>* = nullptr>
   explicit NormalizedTransformedArray(unchecked_t, Other&& other) noexcept
       : element_pointer_(unchecked,
                          std::forward<Other>(other).element_pointer()),

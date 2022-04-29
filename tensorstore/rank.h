@@ -280,7 +280,7 @@ GetDefaultRank<dynamic_rank>() {
 /// \tparam TargetRank Target rank value.
 template <typename SourceRef, DimensionIndex TargetRank>
 using RebindRank =
-    typename CastTraitsType<SourceRef>::template RebindRank<TargetRank>;
+    typename StaticCastTraitsType<SourceRef>::template RebindRank<TargetRank>;
 
 /// Casts `source` to have a static rank of `TargetRank`.
 ///
@@ -304,7 +304,7 @@ using RebindRank =
 /// \param source Source value.
 template <DimensionIndex TargetRank,
           CastChecking Checking = CastChecking::checked, typename SourceRef>
-SupportedCastResultType<RebindRank<SourceRef, TargetRank>, SourceRef, Checking>
+StaticCastResultType<RebindRank<SourceRef, TargetRank>, SourceRef, Checking>
 StaticRankCast(SourceRef&& source) {
   return StaticCast<RebindRank<SourceRef, TargetRank>, Checking>(
       std::forward<SourceRef>(source));
