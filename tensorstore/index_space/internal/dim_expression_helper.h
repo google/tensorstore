@@ -56,6 +56,12 @@ constexpr bool IndexVectorsCompatible<
     RankConstraint::EqualOrUnspecified(
         {StaticSelectionRank, IsIndexVectorOrScalar<IndexVector>::extent...});
 
+template <typename Last, typename... Prior>
+struct DimExpressionTraits {
+  using LastOp = Last;
+  using Parent = DimExpression<Prior...>;
+};
+
 /// Helper friend class used by DimExpression to apply operations to an
 /// IndexTransform.
 class DimExpressionHelper {
@@ -202,11 +208,9 @@ class DimExpressionHelper {
       OpTemplate<
           typename IsIndexVectorOrScalar<IndexVector>::normalized_type...>>;
 
-  template <typename ReturnType, DimensionIndex InputRank, typename... Op>
-  using EnableIfCanResolveDimensions =
-      std::enable_if_t<(sizeof...(Op) == 1 &&
-                        GetStaticSelectionRank<Op...>(InputRank) >= -1),
-                       ReturnType>;
+  template <DimensionIndex InputRank, typename... Op>
+  static constexpr inline bool CanResolveDimensions =
+      (sizeof...(Op) == 1 && GetStaticSelectionRank<Op...>(InputRank) >= -1);
 };
 
 // Used to implement `EnableIfApplyIndexTransformResult` below.

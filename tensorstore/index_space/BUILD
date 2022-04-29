@@ -219,6 +219,7 @@ tensorstore_cc_library(
     hdrs = ["dimension_index_buffer.h"],
     visibility = ["//visibility:public"],
     deps = [
+        "//tensorstore/internal:type_traits",
         "//tensorstore/util:iterate",
         "@com_google_absl//absl/container:inlined_vector",
     ],

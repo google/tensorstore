@@ -16,6 +16,7 @@
 #define TENSORSTORE_INDEX_SPACE_DIMENSION_INDEX_BUFFER_H_
 
 #include "absl/container/inlined_vector.h"
+#include "tensorstore/internal/type_traits.h"
 #include "tensorstore/util/iterate.h"
 
 namespace tensorstore {
@@ -24,9 +25,11 @@ namespace tensorstore {
 // file, rather than in tensorstore/index_space/dim_expression.h, to avoid
 // circular header dependencies.
 
-/// Specifies a sequence of DimensionIndex values.
+/// Specifies a sequence of `DimensionIndex` values.
 ///
-/// \see DimExpression
+/// This has the same interface as `std::vector<DimensionIndex>`.
+///
+/// \relates DimExpression
 using DimensionIndexBuffer =
     absl::InlinedVector<DimensionIndex, internal::kNumInlinedDims>;
 

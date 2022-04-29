@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # Copyright 2020 The TensorStore Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -67,7 +67,7 @@ def main():
         out.write('\n')
         if i != 0:
           out.write("""
-/// Overload that permits arguments to be specified as braced lists.
+// Overload that permits arguments to be specified as braced lists.
 """)
         else:
           doc_comment = (
@@ -80,8 +80,8 @@ def main():
   /// component is `1`, the new domain is simply restricted to the specified
   /// interval, with the new origin equal to the specified `start` component.
   /// In the general case with a stide component not equal to `1`, the new
-  /// origin is equal to the `start` component divided by the `stride`
-  /// component, rounded towards zero; in this case, the Translate%sInterval
+  /// origin is equal to the `start` component divided by the `strides`
+  /// component, rounded towards zero; in this case, the `Translate%sInterval`
   /// operation, which ensures an origin of 0, may be more convenient.
   ///
   /// The new dimension selection is the same as the prior dimension selection,
@@ -96,16 +96,30 @@ def main():
                 """  /// For example: `Dims(0, 2).ClosedInterval({1, 8}, {4, 3}, {1, -2})` has the
   /// following effects:
   ///
-  /// *                   | Prior                  | New
-  /// ------------------- | ---                    | ---
-  /// Dimension selection | {0, 2}                 | {0, 2}
-  /// Input domain        | [0, 6], [2, 5], [0, 9] | [1, 4], [2, 5], [-4, -2]
-  /// Labels              | {"x", "y", "z"}        | {"x", "y", "z"}
-  /// Equiv. input indices| {2, 3, 6}              | {2, 3, -3}
-  /// Equiv. input indices| {x, y, z * -2}         | {x, y, z}
+  /// .. list-table::
+  ///    :header-rows: 1
   ///
-  /// where `x` is any index in `[1, 4]`, `y` is any index in `[2, 5]`, and `z`
-  /// is any index in `[-4, -2]`.
+  ///    * -
+  ///      - Before
+  ///      - After
+  ///    * - Dimension selection
+  ///      - ``{0, 2}``
+  ///      - ``{0, 2}``
+  ///    * - Input domain
+  ///      - ``[0, 6], [2, 5], [0, 9]``
+  ///      - ``[1, 4], [2, 5], [-4, -2]``
+  ///    * - Labels
+  ///      - ``{"x", "y", "z"}``
+  ///      - ``{"x", "y", "z"}``
+  ///    * - Equivalent input indices
+  ///      - ``{2, 3, 6}``
+  ///      - ``{2, 3, -3}``
+  ///    * - Equivalent input indices
+  ///      - ``{x, y, z * -2}``
+  ///      - ``{x, y, z}``
+  ///
+  /// where ``x`` is any index in ``[1, 4]``, ``y`` is any index in
+  /// ``[2, 5]``, and ``z`` is any index in ``[-4, -2]``.
   ///
   /// Note that in the case of a stride component not equal to `1` or `-1`, if
   /// the `start` component is not evenly divisible by the stride, the
@@ -114,16 +128,30 @@ def main():
   /// For example: `Dims(0, 2).ClosedInterval({1, 9}, {4, 3}, {1, -2})` has the
   /// following effects:
   ///
-  /// *                   | Prior                  | New
-  /// ------------------- | ---                    | ---
-  /// Dimension selection | {0, 2}                 | {0, 2}
-  /// Input domain        | [0, 6], [2, 5], [0, 9] | [1, 4], [2, 5], [-4, -1]
-  /// Labels              | {"x", "y", "z"}        | {"x", "y", "z"}
-  /// Equiv. input indices| {2, 3, 7}              | {2, 3, -3}
-  /// Equiv. input indices| {x, y, z * -2 + 1}     | {x, y, z}
+  /// .. list-table::
+  ///    :header-rows: 1
   ///
-  /// where `x` is any index in `[1, 4]`, `y` is any index in `[2, 5]`, and `z`
-  /// is any index in `[-4, -1]`.
+  ///    * -
+  ///      - Before
+  ///      - After
+  ///    * - Dimension selection
+  ///      - ``{0, 2}``
+  ///      - ``{0, 2}``
+  ///    * - Input domain
+  ///      - ``[0, 6], [2, 5], [0, 9]``
+  ///      - ``[1, 4], [2, 5], [-4, -1]``
+  ///    * - Labels
+  ///      - ``{"x", "y", "z"}``
+  ///      - ``{"x", "y", "z"}``
+  ///    * - Equivalent input indices
+  ///      - ``{2, 3, 7}``
+  ///      - ``{2, 3, -3}``
+  ///    * - Equivalent input indices
+  ///      - ``{x, y, z * -2 + 1}``
+  ///      - ``{x, y, z}``
+  ///
+  /// where ``x`` is any index in ``[1, 4]``, ``y`` is any index in
+  /// ``[2, 5]``, and ``z`` is any index in ``[-4, -1]``.
   ///
 """)
           elif interval_form == 'half_open':
@@ -131,16 +159,30 @@ def main():
                 """  /// For example: `Dims(0, 2).HalfOpenInterval({1, 8}, {4, 3}, {1, -2})` has the
   /// following effects:
   ///
-  /// *                   | Prior                  | New
-  /// ------------------- | ---                    | ---
-  /// Dimension selection | {0, 2}                 | {0, 2}
-  /// Input domain        | [0, 6], [2, 5], [0, 9] | [1, 3], [2, 5], [-4, -2]
-  /// Labels              | {"x", "y", "z"}        | {"x", "y", "z"}
-  /// Equiv. input indices| {2, 3, 6}              | {2, 3, -3}
-  /// Equiv. input indices| {x, y, z * -2}         | {x, y, z}
+  /// .. list-table::
+  ///    :header-rows: 1
   ///
-  /// where `x` is any index in `[1, 4]`, `y` is any index in `[2, 5]`, and `z`
-  /// is any index in `[-4, -2]`.
+  ///    * -
+  ///      - Before
+  ///      - After
+  ///    * - Dimension selection
+  ///      - ``{0, 2}``
+  ///      - ``{0, 2}``
+  ///    * - Input domain
+  ///      - ``[0, 6], [2, 5], [0, 9]``
+  ///      - ``[1, 3], [2, 5], [-4, -2]``
+  ///    * - Labels
+  ///      - ``{"x", "y", "z"}``
+  ///      - ``{"x", "y", "z"}``
+  ///    * - Equivalent input indices
+  ///      - ``{2, 3, 6}``
+  ///      - ``{2, 3, -3}``
+  ///    * - Equivalent input indices
+  ///      - ``{x, y, z * -2}``
+  ///      - ``{x, y, z}``
+  ///
+  /// where ``x`` is any index in ``[1, 4]``, ``y`` is any index in
+  /// ``[2, 5]``, and ``z`` is any index in ``[-4, -2]``.
   ///
 """)
           elif interval_form == 'sized':
@@ -148,16 +190,30 @@ def main():
                 """  /// For example: `Dims(0, 2).SizedInterval({1, 8}, {3, 2}, {1, -2})` has the
   /// following effects:
   ///
-  /// *                   | Prior                  | New
-  /// ------------------- | ---                    | ---
-  /// Dimension selection | {0, 2}                 | {0, 2}
-  /// Input domain        | [0, 6], [2, 5], [0, 9] | [1, 3], [2, 5], [-4, -3]
-  /// Labels              | {"x", "y", "z"}        | {"x", "y", "z"}
-  /// Equiv. input indices| {2, 3, 6}              | {2, 3, -3}
-  /// Equiv. input indices| {x, y, z * -2}         | {x, y, z}
+  /// .. list-table::
+  ///    :header-rows: 1
   ///
-  /// where `x` is any index in `[1, 3]`, `y` is any index in `[2, 5]`, and `z`
-  /// is any index in `[-4, -3]`.
+  ///    * -
+  ///      - Before
+  ///      - After
+  ///    * - Dimension selection
+  ///      - ``{0, 2}``
+  ///      - ``{0, 2}``
+  ///    * - Input domain
+  ///      - ``[0, 6], [2, 5], [0, 9]``
+  ///      - ``[1, 3], [2, 5], [-4, -3]``
+  ///    * - Labels
+  ///      - ``{"x", "y", "z"}``
+  ///      - ``{"x", "y", "z"}``
+  ///    * - Equivalent input indices
+  ///      - ``{2, 3, 6}``
+  ///      - ``{2, 3, -3}``
+  ///    * - Equivalent input indices
+  ///      - ``{x, y, z * -2}``
+  ///      - ``{x, y, z}``
+  ///
+  /// where ``x`` is any index in ``[1, 3]``, ``y`` is any index in
+  /// ``[2, 5]``, and ``z`` is any index in ``[-4, -3]``.
   ///
 """)
 
@@ -166,9 +222,9 @@ def main():
   ///     concept with static extents compatible with each other and with the
   ///     static rank of the dimension selection.
   /// \param start The index vector specifying the start indices for each
-  ///     selected dimension.  May be a braced list, e.g. `{1, 2, 3}`.  May also
-  ///     be a scalar, e.g. `5`, in which case the same start index is used for
-  ///     all selected dimensions.
+  ///     selected dimension.  May be a braced list, e.g. ``{1, 2, 3}``.
+  ///     May also be a scalar, e.g. `5`, in which case the same start index is
+  ///     used for all selected dimensions.
 """ % (stop_type_name))
           if interval_form == 'sized':
             doc_comment += (
@@ -187,12 +243,13 @@ def main():
   /// \error `absl::StatusCode::kInvalidArgument` if the extents of the `start`,
   ///     `{stop}`, or `strides` vectors do not match the number of selected
   ///     dimensions.
-  /// \error `absl::StatusCode::kInvalidArgument` or `StatusCode::kOutOfRange` if
-  ///     the start, {stop}, and stride values are invalid or specify a slice
-  ///     outside the effective bounds for a given dimension (implicit lower/upper
-  ///     bounds are treated as -/+inf).
-  /// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs when
-  ///     computing the resultant transform.
+  /// \error `absl::StatusCode::kInvalidArgument` or
+  ///     `absl::StatusCode::kOutOfRange` if the `start`, `{stop}`, and
+  ///     `strides` values are invalid or specify a slice outside the effective
+  ///     bounds for a given dimension (implicit lower/upper bounds are treated
+  ///     as -/+inf).
+  /// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs
+  ///     when computing the resultant transform.
 """.format(stop=stop_name))
           if not translate:
             out.write(doc_comment)

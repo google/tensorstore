@@ -29,26 +29,42 @@ namespace tensorstore {
 /// A type `T` satisfies the IsIndexVectorOrScalar concept if it is either:
 ///
 ///   1. convertible without narrowing to Index (scalar), in which case the
-///      nested `extent` constant equals `dynamic_extent` and the nested
+///      nested `extent` constant equals `dynamic_rank` and the nested
 ///      `normalized_type` alias equals `Index`; or
 ///
-///   2. compatible with `span` with a `value_type` of `Index` (vector), in
-///      which case the nested `normalized_type` alias is equal to the result
+///   2. compatible with `span` with a `span::value_type` of `Index` (vector),
+///      in which case the nested `normalized_type` alias is equal to the result
 ///      type of `span`, and the nested `extent` constant is equal to the
-///      `extent` member of `normalized_type`.
+///      `span::extent` of `normalized_type`.
 ///
-/// If `T` satisfies the IsIndexVectorOrScalar concept, this metafunction has
+/// If `T` satisfies the `IsIndexVectorOrScalar` concept, this metafunction has
 /// defines a nested `value` member equal to `true`, as well as nested `extent`
 /// and `normalized_type` members.  Otherwise, this metafunction defines a
 /// nested `value` member equal to `false`, and no nested `normalized_type` or
 /// `extent` members.
 ///
 /// This concept is used to constrain the parameter types of some methods of
-/// DimExpression.
+/// `DimExpression`.
+///
+/// \relates DimExpression
 template <typename T, typename = std::true_type>
-struct IsIndexVectorOrScalar : public std::false_type {};
+struct IsIndexVectorOrScalar {
+  /// Indicates whether `T` satisfies the concept.
+  static constexpr bool value = false;
 
-/// Specialization of IsIndexVectorOrScalar for the scalar case.
+  /// Compile-time length of the vector, or `dynamic_rank` if `T` represents a
+  /// scalar or the length is specified at run time.
+  ///
+  /// Only valid if `value == true`.
+  static constexpr DimensionIndex extent = -1;
+
+  /// Normalized scalar/vector type, equal to `Index` or `span<Index, extent>`.
+  ///
+  /// Only valid if `value == true`.
+  using normalized_type = void;
+};
+
+// Specialization of IsIndexVectorOrScalar for the scalar case.
 template <typename T>
 struct IsIndexVectorOrScalar<
     T,
@@ -58,7 +74,7 @@ struct IsIndexVectorOrScalar<
   constexpr static std::ptrdiff_t extent = dynamic_extent;
 };
 
-/// Specialization of IsIndexVectorOrScalar for the vector case.
+// Specialization of IsIndexVectorOrScalar for the vector case.
 template <typename T>
 struct IsIndexVectorOrScalar<
     T,

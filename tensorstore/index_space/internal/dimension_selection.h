@@ -54,13 +54,19 @@ class DimensionList {
  public:
   absl::Status GetDimensions(IndexTransformView<> transform,
                              DimensionIndexBuffer* buffer) const {
-    return internal_index_space::GetDimensions(transform, container, buffer);
+    if constexpr (std::is_same_v<typename Container::value_type,
+                                 DynamicDimSpec>) {
+      return internal_index_space::GetDimensions(transform.input_labels(),
+                                                 container, buffer);
+    } else {
+      return internal_index_space::GetDimensions(transform, container, buffer);
+    }
   }
 
   absl::Status GetNewDimensions(DimensionIndex input_rank,
                                 DimensionIndexBuffer* buffer) const {
     static_assert(
-        std::is_same_v<typename Container::value_type, DimensionIndex>,
+        !std::is_same_v<typename Container::value_type, DimensionIdentifier>,
         "New dimensions must be specified by index.");
     return internal_index_space::GetNewDimensions(input_rank, container,
                                                   buffer);
@@ -68,7 +74,12 @@ class DimensionList {
 
   constexpr static DimensionIndex GetStaticSelectionRank(
       DimensionIndex input_rank) {
-    return internal::ConstSpanType<Container>::extent;
+    if constexpr (std::is_same_v<typename Container::value_type,
+                                 DynamicDimSpec>) {
+      return dynamic_rank;
+    } else {
+      return internal::ConstSpanType<Container>::extent;
+    }
   }
 
   Container container;
@@ -88,30 +99,6 @@ class AllDims {
   }
 };
 
-template <typename Container>
-class DynamicDims {
-  static_assert(std::is_same_v<DynamicDimSpec, typename Container::value_type>);
-
- public:
-  absl::Status GetDimensions(IndexTransformView<> transform,
-                             DimensionIndexBuffer* buffer) const {
-    return internal_index_space::GetDimensions(transform.input_labels(),
-                                               container, buffer);
-  }
-  absl::Status GetNewDimensions(DimensionIndex input_rank,
-                                DimensionIndexBuffer* buffer) const {
-    return internal_index_space::GetNewDimensions(input_rank, container,
-                                                  buffer);
-  }
-
-  constexpr static DimensionIndex GetStaticSelectionRank(
-      DimensionIndex input_rank) {
-    return dynamic_rank;
-  }
-
-  Container container;
-};
-
 template <typename T>
 constexpr inline bool IsDimensionIdentifier = false;
 
@@ -120,6 +107,9 @@ constexpr inline bool IsDimensionIdentifier<DimensionIndex> = true;
 
 template <>
 constexpr inline bool IsDimensionIdentifier<DimensionIdentifier> = true;
+
+template <>
+constexpr inline bool IsDimensionIdentifier<DynamicDimSpec> = true;
 
 template <typename Dimensions,
           typename DimensionsSpan = internal::ConstSpanType<Dimensions>>
@@ -135,10 +125,10 @@ using DimensionsFromPackType = std::conditional_t<
         internal::IsPackConvertibleWithoutNarrowing<DimensionIdentifier,
                                                     DimensionId...>,
         DimensionList<std::array<DimensionIdentifier, sizeof...(DimensionId)>>,
-        std::enable_if_t<
-            internal::IsPackConvertibleWithoutNarrowing<DynamicDimSpec,
-                                                        DimensionId...>,
-            DynamicDims<std::array<DynamicDimSpec, sizeof...(DimensionId)>>>>>;
+        std::enable_if_t<internal::IsPackConvertibleWithoutNarrowing<
+                             DynamicDimSpec, DimensionId...>,
+                         DimensionList<std::array<DynamicDimSpec,
+                                                  sizeof...(DimensionId)>>>>>;
 
 }  // namespace internal_index_space
 }  // namespace tensorstore

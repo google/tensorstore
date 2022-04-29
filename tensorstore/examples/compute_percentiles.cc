@@ -173,7 +173,8 @@ absl::Status ComputeQuantiles(InputArray& input,
     // Materialize the indices data into the output.
     TENSORSTORE_RETURN_IF_ERROR(
         tensorstore::CopyTransformedArray(
-            values | Dims(0).IndexArraySlice(indices),
+            values |
+                Dims(0).IndexArraySlice(tensorstore::UnownedToShared(indices)),
             output | Dims(0).TranslateTo(0).IndexSlice(x)),
         MaybeAnnotateStatus(_, "ComputeQuantiles copying output"));
   }
