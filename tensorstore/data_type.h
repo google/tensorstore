@@ -202,15 +202,52 @@ constexpr inline bool IsTrivial =
 
 namespace internal_data_type {
 
+template <typename T>
+struct CanonicalElementTypeImpl {
+  using type = T;
+};
+
+template <>
+struct CanonicalElementTypeImpl<long> {            // NOLINT
+  using type = internal::int_t<sizeof(long) * 8>;  // NOLINT
+};
+
+template <>
+struct CanonicalElementTypeImpl<unsigned long> {             // NOLINT
+  using type = internal::uint_t<sizeof(unsigned long) * 8>;  // NOLINT
+};
+
+template <>
+struct CanonicalElementTypeImpl<long long> {            // NOLINT
+  using type = internal::int_t<sizeof(long long) * 8>;  // NOLINT
+};
+
+template <>
+struct CanonicalElementTypeImpl<unsigned long long> {             // NOLINT
+  using type = internal::uint_t<sizeof(unsigned long long) * 8>;  // NOLINT
+};
+
+template <typename T>
+inline constexpr DataTypeId DataTypeIdOfHelper = DataTypeId::custom;
+
+#define TENSORSTORE_INTERNAL_DO_DATA_TYPE_ID(T, ...)                 \
+  template <>                                                        \
+  inline constexpr DataTypeId DataTypeIdOfHelper<T> = DataTypeId::T; \
+  /**/
+TENSORSTORE_FOR_EACH_DATA_TYPE(TENSORSTORE_INTERNAL_DO_DATA_TYPE_ID)
+#undef TENSORSTORE_INTERNAL_DO_DATA_TYPE_ID
+
+}  // namespace internal_data_type
+
 /// Metafunction that maps an unqualified type `T` to the equivalent canonical
 /// element type, if there is one.
 ///
-/// If `T` is an integer type of `N` equal to 8, 16, 32, or 64 bits, the
-/// equivalent canonical element type is `intN_t` (if `T` is signed) or
-/// `uintN_t` (if `T` is unsigned).  Otherwise, the canonical element type is
-/// `T`.
+/// If `T` is an integer type of ``N`` equal to 8, 16, 32, or 64 bits, the
+/// equivalent canonical element type is :cpp:`intN_t` (if `T` is signed) or
+/// :cpp:`uintN_t` (if `T` is unsigned).  Otherwise, the canonical element type
+/// is `T`.
 ///
-/// On all common platforms:
+/// On all common platforms::
 ///
 ///   signed char == int8_t
 ///   short == int16_t
@@ -229,51 +266,17 @@ namespace internal_data_type {
 /// canonical C++ type.  In order to allow `int`, `long`, `long long` to be used
 /// with TensorStore, this metafunction is used to ensure that non-canonical
 /// types (`long` if `long` is 32-bit, `long long` if `long` is 64-bit) map to
-/// the same TensorStore DataType as the corresponding canonical type.
+/// the same TensorStore `DataType` as the corresponding canonical type.
 template <typename T>
-struct CanonicalElementType {
-  using type = T;
-};
-
-template <>
-struct CanonicalElementType<long> {                // NOLINT
-  using type = internal::int_t<sizeof(long) * 8>;  // NOLINT
-};
-
-template <>
-struct CanonicalElementType<unsigned long> {                 // NOLINT
-  using type = internal::uint_t<sizeof(unsigned long) * 8>;  // NOLINT
-};
-
-template <>
-struct CanonicalElementType<long long> {                // NOLINT
-  using type = internal::int_t<sizeof(long long) * 8>;  // NOLINT
-};
-
-template <>
-struct CanonicalElementType<unsigned long long> {                 // NOLINT
-  using type = internal::uint_t<sizeof(unsigned long long) * 8>;  // NOLINT
-};
-
-template <typename T>
-inline constexpr DataTypeId DataTypeIdOfHelper = DataTypeId::custom;
-
-#define TENSORSTORE_INTERNAL_DO_DATA_TYPE_ID(T, ...)                 \
-  template <>                                                        \
-  inline constexpr DataTypeId DataTypeIdOfHelper<T> = DataTypeId::T; \
-  /**/
-TENSORSTORE_FOR_EACH_DATA_TYPE(TENSORSTORE_INTERNAL_DO_DATA_TYPE_ID)
-#undef TENSORSTORE_INTERNAL_DO_DATA_TYPE_ID
-
-}  // namespace internal_data_type
+using CanonicalElementType =
+    typename internal_data_type::CanonicalElementTypeImpl<T>::type;
 
 /// `DataTypeId` corresponding to `T`, or `DataTypeId::custom` if `T` is not a
 /// canonical data type.
 template <typename T>
 inline constexpr DataTypeId DataTypeIdOf =
     internal_data_type::DataTypeIdOfHelper<
-        typename internal_data_type::CanonicalElementType<
-            std::remove_cv_t<T>>::type>;
+        CanonicalElementType<std::remove_cv_t<T>>>;
 
 /// An ElementType is any optionally `const`-qualified fundamental type
 /// (including `void`), pointer type, member pointer type, class/union type, or
@@ -943,8 +946,7 @@ class StaticDataType<void>;
 template <typename T = void>
 using dtype_t = std::conditional_t<
     std::is_void_v<T>, DataType,
-    StaticDataType<typename internal_data_type::CanonicalElementType<
-        std::remove_cv_t<T>>::type>>;
+    StaticDataType<CanonicalElementType<std::remove_cv_t<T>>>>;
 
 /// Data type object representing the data type for `T`, convertible to
 /// `DataType`.
