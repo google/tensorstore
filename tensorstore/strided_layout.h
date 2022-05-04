@@ -38,7 +38,6 @@
 #include "tensorstore/internal/multi_vector_view.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/rank.h"
-#include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/constant_vector.h"
 #include "tensorstore/util/extents.h"
 #include "tensorstore/util/span.h"
@@ -176,38 +175,26 @@ void InitializeContiguousLayout(
 ///     `order == c_order`, or for the first dimension if
 ///     `order == fortran_order`.  Typically this is equal to the size of the
 ///     data type.  If `span(shape).size() == 0`, this has no effect.
-/// \param shape The shape to assign to `*layout`.  Must be `span`-compatible
-///     with a static extent compatible with `Rank` and a `span::value_type`
-///     convertible without narrowing to `Index`.  May be specified as a braced
-///     list, e.g. ``{3, 4, 5}``.
+/// \param shape The shape to assign to `*layout`.  Must be a `span`  with a
+///     static extent compatible with `Rank` and a `span::value_type`
+///     convertible without narrowing to `Index`.
 /// \param layout[out] Layout to update.  The rank will be set to
 ///     `std::size(shape)`, and any existing value is ignored.
 /// \relates StridedLayout
 /// \id shape, layout
-template <DimensionIndex Rank, ArrayOriginKind OriginKind, typename Shape>
-std::enable_if_t<
-    IsCompatibleFullIndexVector<RankConstraint::FromInlineRank(Rank), Shape>>
-InitializeContiguousLayout(ContiguousLayoutOrder order, Index element_stride,
-                           const Shape& shape,
-                           StridedLayout<Rank, OriginKind>* layout) {
-  layout->set_rank(GetStaticOrDynamicExtent(span(shape)));
+template <DimensionIndex Rank, ArrayOriginKind OriginKind>
+void InitializeContiguousLayout(
+    ContiguousLayoutOrder order, Index element_stride,
+    internal::type_identity_t<
+        span<const Index, RankConstraint::FromInlineRank(Rank)>>
+        shape,
+    StridedLayout<Rank, OriginKind>* layout) {
+  layout->set_rank(GetStaticOrDynamicExtent(shape));
   std::copy(shape.begin(), shape.end(), layout->shape().begin());
   if constexpr (OriginKind == offset_origin) {
     std::fill(layout->origin().begin(), layout->origin().end(), Index(0));
   }
   InitializeContiguousLayout(order, element_stride, layout);
-}
-
-// Overload that permits `shape` to be specified as a braced list,
-// e.g. `InitializeContiguousLayout(c_order, 2, {3, 4, 5}, layout)`.
-template <DimensionIndex Rank, DimensionIndex LayoutRank,
-          ArrayOriginKind OriginKind>
-std::enable_if_t<
-    RankConstraint::Implies(Rank, RankConstraint::FromInlineRank(LayoutRank))>
-InitializeContiguousLayout(ContiguousLayoutOrder order, Index element_stride,
-                           const Index (&shape)[Rank],
-                           StridedLayout<LayoutRank, OriginKind>* layout) {
-  InitializeContiguousLayout(order, element_stride, span(shape), layout);
 }
 
 namespace internal_strided_layout {
@@ -595,7 +582,7 @@ class StridedLayout
                                    RankConstraint::Implies(R, static_rank))>>
   explicit StridedLayout(ContiguousLayoutOrder order, Index element_stride,
                          const Index (&shape)[R]) {
-    InitializeContiguousLayout(order, element_stride, shape, this);
+    InitializeContiguousLayout(order, element_stride, span(shape), this);
   }
 
   /// Assigns from a layout with a compatible `static_rank` and

@@ -31,7 +31,6 @@
 #include "tensorstore/box.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/meta.h"
-#include "tensorstore/internal/unowned_to_shared.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/strided_layout.h"
@@ -558,7 +557,7 @@ class Array {
   Array(SourcePointer element_pointer, const Shape& shape,
         ContiguousLayoutOrder order = c_order) {
     this->element_pointer() = std::move(element_pointer);
-    InitializeContiguousLayout(order, this->dtype().size(), shape,
+    InitializeContiguousLayout(order, this->dtype().size(), span(shape),
                                &this->layout());
   }
   template <typename SourcePointer = ElementPointer, DimensionIndex ShapeRank,

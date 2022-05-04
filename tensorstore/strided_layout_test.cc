@@ -19,7 +19,6 @@
 #include "tensorstore/index.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -899,7 +898,8 @@ TEST(StridedLayoutViewDeathTest, SubLayout) {
 }
 
 TEST(StridedLayoutTest, COrderStatic) {
-  auto layout = StridedLayout(ContiguousLayoutOrder::c, 2, {3, 4, 5});
+  auto layout = StridedLayout(ContiguousLayoutOrder::c, 2,
+                              span<const Index, 3>({3, 4, 5}));
   static_assert(std::is_same_v<decltype(layout), StridedLayout<3>>);
   EXPECT_EQ(StridedLayout<3>({3, 4, 5}, {4 * 5 * 2, 5 * 2, 2}), layout);
 
@@ -930,9 +930,16 @@ TEST(StridedLayoutTest, COrderVector) {
             layout_offset_origin);
 }
 
-TEST(StridedLayoutTest, FortranOrderDynamic) {
+TEST(StridedLayoutTest, FortranOrderStatic) {
   auto layout = StridedLayout(ContiguousLayoutOrder::fortran, 2, {3, 4, 5});
   static_assert(std::is_same_v<decltype(layout), StridedLayout<3>>);
+  EXPECT_EQ(StridedLayout<3>({3, 4, 5}, {2, 3 * 2, 3 * 4 * 2}), layout);
+}
+
+TEST(StridedLayoutTest, FortranOrderDynamic) {
+  auto layout = StridedLayout(ContiguousLayoutOrder::fortran, 2,
+                              span<const Index>({3, 4, 5}));
+  static_assert(std::is_same_v<decltype(layout), StridedLayout<>>);
   EXPECT_EQ(StridedLayout<3>({3, 4, 5}, {2, 3 * 2, 3 * 4 * 2}), layout);
 }
 

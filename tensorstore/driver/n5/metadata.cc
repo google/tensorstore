@@ -22,8 +22,6 @@
 #include "absl/strings/str_join.h"
 #include "tensorstore/codec_spec_registry.h"
 #include "tensorstore/index_space/index_domain_builder.h"
-#include "tensorstore/index_space/index_transform_builder.h"
-#include "tensorstore/internal/container_to_shared.h"
 #include "tensorstore/internal/data_type_endian_conversion.h"
 #include "tensorstore/internal/data_type_json_binder.h"
 #include "tensorstore/internal/dimension_indexed_json_binder.h"
@@ -33,7 +31,6 @@
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/serialization/json_bindable.h"
-#include "tensorstore/util/quote_string.h"
 
 namespace tensorstore {
 namespace internal_n5 {
@@ -101,7 +98,8 @@ absl::Status ValidateMetadata(N5Metadata& metadata) {
         metadata.dtype, " exceeds maximum chunk size of 2GB"));
   }
   InitializeContiguousLayout(fortran_order, metadata.dtype.size(),
-                             metadata.chunk_shape, &metadata.chunk_layout);
+                             span<const Index>(metadata.chunk_shape),
+                             &metadata.chunk_layout);
   return absl::OkStatus();
 }
 
