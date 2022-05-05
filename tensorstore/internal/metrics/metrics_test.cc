@@ -158,8 +158,10 @@ TEST(MetricTest, GaugeIntFields) {
   ASSERT_EQ(2, metric.gauges.size());
   EXPECT_THAT(metric.gauges[0].fields, ::testing::ElementsAre("a"));
   EXPECT_EQ(3, std::get<int64_t>(metric.gauges[0].value));
+  EXPECT_EQ(3, std::get<int64_t>(metric.gauges[0].max_value));
   EXPECT_THAT(metric.gauges[1].fields, ::testing::ElementsAre("b"));
   EXPECT_EQ(3, std::get<int64_t>(metric.gauges[1].value));
+  EXPECT_EQ(3, std::get<int64_t>(metric.gauges[1].max_value));
 }
 
 TEST(MetricTest, GaugeDoubleFields) {
@@ -178,8 +180,10 @@ TEST(MetricTest, GaugeDoubleFields) {
   ASSERT_EQ(2, metric.gauges.size());
   EXPECT_THAT(metric.gauges[0].fields, ::testing::ElementsAre("0"));
   EXPECT_EQ(3, std::get<double>(metric.gauges[0].value));
+  EXPECT_EQ(3, std::get<double>(metric.gauges[0].max_value));
   EXPECT_THAT(metric.gauges[1].fields, ::testing::ElementsAre("1"));
   EXPECT_EQ(3, std::get<double>(metric.gauges[1].value));
+  EXPECT_EQ(3, std::get<double>(metric.gauges[1].max_value));
 }
 
 TEST(MetricTest, Histogram) {

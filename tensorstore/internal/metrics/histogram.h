@@ -24,6 +24,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/base/optimization.h"
 #include "absl/debugging/leak_check.h"
 #include "absl/memory/memory.h"
 #include "absl/numeric/bits.h"
@@ -56,7 +57,7 @@ class HistogramCell;
 ///   animals->Record(33.0, "dog");
 ///
 template <typename Bucketer, typename... Fields>
-class Histogram {
+class ABSL_CACHELINE_ALIGNED Histogram {
   using Cell = HistogramCell<Bucketer>;
   using Impl = AbstractMetric<Cell, Fields...>;
 
@@ -165,7 +166,7 @@ struct DefaultBucketer {
 };
 
 template <typename Bucketer>
-class HistogramCell : public Bucketer {
+class ABSL_CACHELINE_ALIGNED HistogramCell : public Bucketer {
  public:
   using value_type = double;
   using count_type = int64_t;

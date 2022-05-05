@@ -24,6 +24,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/base/optimization.h"
 #include "absl/debugging/leak_check.h"
 #include "absl/memory/memory.h"
 #include "tensorstore/internal/metrics/collect.h"
@@ -58,7 +59,7 @@ class CounterCell;
 ///   animals->Increment("dog");
 ///
 template <typename T, typename... Fields>
-class Counter {
+class ABSL_CACHELINE_ALIGNED Counter {
   static_assert(std::is_same_v<T, int64_t> || std::is_same_v<T, double>);
   using Cell = std::conditional_t<std::is_same_v<T, int64_t>,
                                   CounterCell<int64_t>, CounterCell<double>>;
@@ -121,7 +122,7 @@ class Counter {
             std::vector<std::string> fields;
             fields.reserve(sizeof...(item));
             (fields.push_back(tensorstore::StrCat(item)), ...);
-            return CollectedMetric::Metric{std::move(fields), cell.Get()};
+            return CollectedMetric::Counter{std::move(fields), cell.Get()};
           },
           fields));
     });
@@ -147,7 +148,7 @@ struct CounterTag {
 };
 
 template <>
-class CounterCell<double> : public CounterTag {
+class ABSL_CACHELINE_ALIGNED CounterCell<double> : public CounterTag {
  public:
   using value_type = double;
   CounterCell() = default;
@@ -155,7 +156,7 @@ class CounterCell<double> : public CounterTag {
   void IncrementBy(double value) {
     if (value <= 0) return;
     // C++ 20 will add std::atomic::fetch_add support for floating point types
-    double v = value_.load();
+    double v = value_.load(std::memory_order_relaxed);
     while (!value_.compare_exchange_weak(v, v + value)) {
       // repeat
     }
@@ -168,7 +169,7 @@ class CounterCell<double> : public CounterTag {
 };
 
 template <>
-class CounterCell<int64_t> : public CounterTag {
+class ABSL_CACHELINE_ALIGNED CounterCell<int64_t> : public CounterTag {
  public:
   using value_type = int64_t;
   CounterCell() = default;

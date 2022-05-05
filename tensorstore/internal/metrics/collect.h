@@ -20,6 +20,7 @@
 #include <variant>
 #include <vector>
 
+#include "absl/functional/function_ref.h"
 #include "tensorstore/internal/metrics/metadata.h"
 
 namespace tensorstore {
@@ -32,12 +33,18 @@ struct CollectedMetric {
   MetricMetadata metadata;
   std::string_view tag;
 
-  struct Metric {
+  struct Counter {
     std::vector<std::string> fields;
     std::variant<int64_t, double> value;
   };
-  std::vector<Metric> counters;
-  std::vector<Metric> gauges;
+  std::vector<Counter> counters;
+
+  struct Gauge {
+    std::vector<std::string> fields;
+    std::variant<int64_t, double> value;
+    std::variant<int64_t, double> max_value;
+  };
+  std::vector<Gauge> gauges;
 
   struct Histogram {
     std::vector<std::string> fields;
@@ -47,6 +54,12 @@ struct CollectedMetric {
   };
   std::vector<Histogram> histograms;
 };
+
+/// Invokes handle_line on one or more formatted CollectedMetric lines.
+void FormatCollectedMetric(
+    const CollectedMetric& metric,
+    absl::FunctionRef<void(bool has_value, std::string formatted_line)>
+        handle_line);
 
 }  // namespace internal_metrics
 }  // namespace tensorstore

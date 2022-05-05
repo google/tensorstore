@@ -179,6 +179,19 @@ auto& file_bytes_written = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/file/bytes_written",
     "Bytes written by the file kvstore driver");
 
+auto& file_read = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/file/read", "file driver kvstore::Read calls");
+
+auto& file_write = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/file/write", "file driver kvstore::Write calls");
+
+auto& file_delete_range = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/file/delete_range",
+    "file driver kvstore::DeleteRange calls");
+
+auto& file_list = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/file/list", "file driver kvstore::List calls");
+
 absl::Status ValidateKey(std::string_view key) {
   if (!IsKeyValid(key, kLockSuffix)) {
     return absl::InvalidArgumentError(
@@ -775,6 +788,7 @@ class FileKeyValueStore
                                                 FileKeyValueStoreSpec> {
  public:
   Future<ReadResult> Read(Key key, ReadOptions options) override {
+    file_read.Increment();
     TENSORSTORE_RETURN_IF_ERROR(ValidateKey(key));
     return MapFuture(executor(), ReadTask{std::move(key), std::move(options)});
   }
@@ -782,6 +796,7 @@ class FileKeyValueStore
   Future<TimestampedStorageGeneration> Write(Key key,
                                              std::optional<Value> value,
                                              WriteOptions options) override {
+    file_write.Increment();
     TENSORSTORE_RETURN_IF_ERROR(ValidateKey(key));
     if (value) {
       return MapFuture(executor(), WriteTask{std::move(key), std::move(*value),
@@ -793,6 +808,7 @@ class FileKeyValueStore
   }
 
   Future<void> DeleteRange(KeyRange range) override {
+    file_delete_range.Increment();
     if (range.empty()) return absl::OkStatus();  // Converted to a ReadyFuture.
     TENSORSTORE_RETURN_IF_ERROR(ValidateKeyRange(range));
     return PromiseFuturePair<void>::Link(
@@ -802,6 +818,7 @@ class FileKeyValueStore
 
   void ListImpl(ListOptions options,
                 AnyFlowReceiver<absl::Status, Key> receiver) override {
+    file_list.Increment();
     if (options.range.empty()) {
       execution::set_starting(receiver, [] {});
       execution::set_done(receiver);

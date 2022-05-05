@@ -20,6 +20,7 @@ tensorstore_cc_library(
         ":registry",
         "//tensorstore/internal:type_traits",
         "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/debugging:leak_check",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/numeric:bits",
@@ -83,8 +84,14 @@ tensorstore_cc_library(
 
 tensorstore_cc_library(
     name = "collect",
+    srcs = ["collect.cc"],
     hdrs = ["collect.h"],
-    deps = [":metadata"],
+    deps = [
+        ":metadata",
+        "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/functional:function_ref",
+        "@com_google_absl//absl/strings",
+    ],
 )
 
 tensorstore_cc_library(

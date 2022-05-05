@@ -28,17 +28,35 @@
 #include "absl/time/time.h"
 #include "tensorstore/internal/intrusive_linked_list.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/gauge.h"
 #include "tensorstore/internal/no_destructor.h"
-#include "tensorstore/internal/void_wrapper.h"
 #include "tensorstore/util/future_impl.h"
 
 namespace tensorstore {
 namespace internal_future {
 namespace {
+
 auto& live_futures = internal_metrics::Gauge<int64_t>::New(
     "/tensorstore/futures/live", "Live futures");
-}
+
+#if 1
+auto& future_ready_callbacks = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/futures/ready_callbacks", "Ready callbacks");
+auto& future_not_needed_callbacks = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/futures/not_needed_callbacks", "Not needed callbacks");
+auto& future_force_callbacks = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/futures/force_callbacks", "Force callbacks");
+#else
+struct MockCounter {
+  void Increment() {}
+};
+static MockCounter future_ready_callbacks;
+static MockCounter future_not_needed_callbacks;
+static MockCounter future_force_callbacks;
+#endif
+
+}  // namespace
 
 /// Special value to which CallbackListNode::next points to indicate that
 /// unregistration was requested.
@@ -84,6 +102,7 @@ CallbackPointer FutureStateBase::RegisterReadyCallback(
   assert(callback->reference_count_.load(std::memory_order_relaxed) >= 2);
   {
     absl::MutexLock lock(GetMutex(this));
+    future_ready_callbacks.Increment();
     if (!this->ready()) {
       InsertBefore(CallbackListAccessor{}, &ready_callbacks_, callback);
       return CallbackPointer(callback, internal::adopt_object_ref);
@@ -98,6 +117,7 @@ CallbackPointer FutureStateBase::RegisterNotNeededCallback(
   assert(callback->reference_count_.load(std::memory_order_relaxed) >= 2);
   {
     absl::MutexLock lock(GetMutex(this));
+    future_not_needed_callbacks.Increment();
     if (result_needed()) {
       InsertBefore(CallbackListAccessor{}, &promise_callbacks_, callback);
       return CallbackPointer(callback, internal::adopt_object_ref);
@@ -113,6 +133,7 @@ CallbackPointer FutureStateBase::RegisterForceCallback(
   auto* mutex = GetMutex(this);
   {
     absl::MutexLock lock(mutex);
+    future_force_callbacks.Increment();
     const auto state = state_.load(std::memory_order_acquire);
     if ((state & kResultLocked) != 0 || !has_future()) {
       // Handle result-not-needed case after unlocking the mutex.

@@ -24,6 +24,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/base/optimization.h"
 #include "absl/debugging/leak_check.h"
 #include "absl/memory/memory.h"
 #include "tensorstore/internal/metrics/collect.h"
@@ -59,7 +60,7 @@ class GaugeCell;
 ///   temperature->IncrementBy(-3.5);
 ///
 template <typename T, typename... Fields>
-class Gauge {
+class ABSL_CACHELINE_ALIGNED Gauge {
   static_assert(std::is_same_v<T, int64_t> || std::is_same_v<T, double>);
   using Cell = std::conditional_t<std::is_same_v<T, int64_t>,
                                   GaugeCell<int64_t>, GaugeCell<double>>;
@@ -118,8 +119,14 @@ class Gauge {
     impl_.GetCell(labels...)->Set(value);
   }
 
+  /// Get the counter.
   value_type Get(typename FieldTraits<Fields>::param_type... labels) const {
     return impl_.GetCell(labels...)->Get();
+  }
+
+  /// Get the maximum observed counter value.
+  value_type GetMax(typename FieldTraits<Fields>::param_type... labels) const {
+    return impl_.GetCell(labels...)->GetMax();
   }
 
   /// Collect the gauge.
@@ -135,7 +142,8 @@ class Gauge {
             std::vector<std::string> fields;
             fields.reserve(sizeof...(item));
             (fields.push_back(tensorstore::StrCat(item)), ...);
-            return CollectedMetric::Metric{std::move(fields), cell.Get()};
+            return CollectedMetric::Gauge{std::move(fields), cell.Get(),
+                                          cell.GetMax()};
           },
           fields));
     });
@@ -161,42 +169,71 @@ struct GaugeTag {
 };
 
 template <>
-class GaugeCell<double> : public GaugeTag {
+class ABSL_CACHELINE_ALIGNED GaugeCell<double> : public GaugeTag {
  public:
   using value_type = double;
   GaugeCell() = default;
 
   void IncrementBy(double value) {
     // C++ 20 will add std::atomic::fetch_add support for floating point types
-    double v = value_.load();
-    while (!value_.compare_exchange_weak(v, v + value)) {
+    double old = value_.load(std::memory_order_relaxed);
+    while (!value_.compare_exchange_weak(old, old + value)) {
+      // repeat
+    }
+    SetMax(old + value);
+  }
+
+  void DecrementBy(int64_t value) { IncrementBy(-value); }
+  void Set(double value) {
+    value_ = value;
+    SetMax(value);
+  }
+
+  double Get() const { return value_; }
+  double GetMax() const { return max_; }
+
+ private:
+  inline void SetMax(double value) {
+    double h = max_.load(std::memory_order_relaxed);
+    while (h < value && !max_.compare_exchange_weak(h, value)) {
       // repeat
     }
   }
-  void DecrementBy(int64_t value) { IncrementBy(-value); }
-  void Set(double value) { value_ = value; }
 
-  double Get() const { return value_; }
-
- private:
   std::atomic<double> value_{0};
+  std::atomic<double> max_{0};
 };
 
 template <>
-class GaugeCell<int64_t> : public GaugeTag {
+class ABSL_CACHELINE_ALIGNED GaugeCell<int64_t> : public GaugeTag {
  public:
   using value_type = int64_t;
   GaugeCell() = default;
 
   /// Increment the counter by value.
-  void IncrementBy(int64_t value) { value_.fetch_add(value); }
+  void IncrementBy(int64_t value) {
+    int64_t old = value_.fetch_add(value);
+    SetMax(old + value);
+  }
   void DecrementBy(int64_t value) { IncrementBy(-value); }
-  void Set(int64_t value) { value_ = value; }
+  void Set(int64_t value) {
+    value_ = value;
+    SetMax(value);
+  }
 
   int64_t Get() const { return value_; }
+  int64_t GetMax() const { return max_; }
 
  private:
+  inline void SetMax(int64_t value) {
+    int64_t h = max_.load(std::memory_order_relaxed);
+    while (h < value && !max_.compare_exchange_weak(h, value)) {
+      // repeat
+    }
+  }
+
   std::atomic<int64_t> value_{0};
+  std::atomic<int64_t> max_{0};
 };
 
 }  // namespace internal_metrics

@@ -111,6 +111,19 @@ auto& gcs_retries = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/gcs/retries",
     "Count of all retried GCS requests (read/write/delete)");
 
+auto& gcs_read = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/gcs/read", "GCS driver kvstore::Read calls");
+
+auto& gcs_write = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/gcs/write", "GCS driver kvstore::Write calls");
+
+auto& gcs_delete_range = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/gcs/delete_range",
+    "GCS driver kvstore::DeleteRange calls");
+
+auto& gcs_list = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/gcs/list", "GCS driver kvstore::List calls");
+
 std::string_view GetGcsBaseUrl() {
   static std::string url = []() -> std::string {
     auto maybe_url = internal::GetEnv("TENSORSTORE_GCS_HTTP_URL");
@@ -519,6 +532,7 @@ struct ReadTask {
 
 Future<kvstore::ReadResult> GcsKeyValueStore::Read(Key key,
                                                    ReadOptions options) {
+  gcs_read.Increment();
   if (!IsValidObjectName(key)) {
     return absl::InvalidArgumentError("Invalid GCS object name");
   }
@@ -695,6 +709,7 @@ struct DeleteTask {
 
 Future<TimestampedStorageGeneration> GcsKeyValueStore::Write(
     Key key, std::optional<Value> value, WriteOptions options) {
+  gcs_write.Increment();
   if (!IsValidObjectName(key)) {
     return absl::InvalidArgumentError("Invalid GCS object name");
   }
@@ -888,6 +903,7 @@ struct ListReceiver {
 void GcsKeyValueStore::ListImpl(ListOptions options,
                                 AnyFlowReceiver<absl::Status, Key> receiver) {
   using State = ListState<ListReceiver>;
+  gcs_list.Increment();
   auto state = internal::MakeIntrusivePtr<State>();
   state->owner = IntrusivePtr<GcsKeyValueStore>(this);
   state->executor = executor();
@@ -927,6 +943,7 @@ struct DeleteRangeListReceiver {
 };
 
 Future<void> GcsKeyValueStore::DeleteRange(KeyRange range) {
+  gcs_delete_range.Increment();
   // TODO(jbms): It could make sense to rate limit the list operation, so that
   // we don't get way ahead of the delete operations.  Currently our
   // sender/receiver abstraction does not support back pressure, though.
