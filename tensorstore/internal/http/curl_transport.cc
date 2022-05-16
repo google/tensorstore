@@ -298,9 +298,10 @@ class MultiTransportImpl {
   ~MultiTransportImpl() {
     {
       absl::MutexLock lock(&mutex_);
-      curl_multi_wakeup(multi_.get());
       done_ = true;
     }
+    curl_multi_wakeup(multi_.get());
+
     thread_.join();
     factory_->CleanupMultiHandle(std::move(multi_));
   }
@@ -314,12 +315,13 @@ class MultiTransportImpl {
 
   void Run();
 
+  int HandlePendingMesssages();
+
   std::shared_ptr<CurlHandleFactory> factory_;
   CurlMulti multi_;
 
   absl::Mutex mutex_;
   std::vector<CURL*> pending_requests_;
-  size_t active_requests_ = 0;
 
   std::thread thread_;
   bool done_ = false;
@@ -346,8 +348,8 @@ Future<HttpResponse> MultiTransportImpl::StartRequest(
   {
     absl::MutexLock l(&mutex_);
     pending_requests_.emplace_back(e);
-    curl_multi_wakeup(multi_.get());
   }
+  curl_multi_wakeup(multi_.get());
 
   return std::move(pair.future);
 }
@@ -381,6 +383,26 @@ void MultiTransportImpl::FinishRequest(CURL* e, CURLcode code) {
   }
 }
 
+int MultiTransportImpl::HandlePendingMesssages() {
+  int active_requests;
+  // curl_multi_perform is the main curl method that performs work
+  // on the existing curl handles.
+  while (CURLM_CALL_MULTI_PERFORM ==
+         curl_multi_perform(multi_.get(), &active_requests)) {
+    /* loop */
+  }
+  http_active.Set(active_requests);
+
+  for (;;) {
+    int messages_in_queue;
+    const auto* m = curl_multi_info_read(multi_.get(), &messages_in_queue);
+    if (!m) break;
+    FinishRequest(m->easy_handle, m->data.result);
+    if (messages_in_queue == 0) break;
+  }
+  return active_requests;
+}
+
 void MultiTransportImpl::Run() {
   int active_requests = 0;
   for (;;) {
@@ -405,7 +427,6 @@ void MultiTransportImpl::Run() {
         }
       }
       pending_requests_.clear();
-      http_active.Set(active_requests);
 
       if (active_requests == 0) {
         // Shutdown has been requested.
@@ -421,22 +442,7 @@ void MultiTransportImpl::Run() {
       }
     }
 
-    // curl_multi_perform is the main curl method that performs work
-    // on the existing curl handles.
-    while (CURLM_CALL_MULTI_PERFORM ==
-           curl_multi_perform(multi_.get(), &active_requests)) {
-      /* loop */
-    }
-    http_active.Set(active_requests);
-
-    // Try to read any messages in the queue.
-    for (;;) {
-      int messages_in_queue;
-      const auto* m = curl_multi_info_read(multi_.get(), &messages_in_queue);
-      if (!m) break;
-      FinishRequest(m->easy_handle, m->data.result);
-      if (messages_in_queue == 0) break;
-    }
+    active_requests = HandlePendingMesssages();
 
     if (active_requests > 0) {
       // Wait for more transfers to complete.  Rely on curl_multi_wakeup to
