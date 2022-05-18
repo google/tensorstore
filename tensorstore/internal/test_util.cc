@@ -117,7 +117,7 @@ absl::Status EnumeratePathsImpl(
     if (entry_dname == "." || entry_dname == "..") {
       continue;
     }
-    std::string path = StrCat(dirname, "/", entry_dname);
+    std::string path = tensorstore::internal::JoinPath(dirname, entry_dname);
     if (is_directory()) {
       result.Update(EnumeratePathsImpl(path, on_entry));
     } else {
@@ -188,8 +188,9 @@ ScopedTemporaryDirectory::ScopedTemporaryDirectory() {
     x = kAlphabet[absl::Uniform(gen, 0u, std::size(kAlphabet) - 1)];
   }
 
-  path_ = StrCat(TemporaryDirectoryPath(), "/tmp_tensorstore_test",
-                 std::string_view(data, std::size(data)));
+  std::string basename =
+      StrCat("tmp_tensorstore_test_", std::string_view(data, std::size(data)));
+  path_ = tensorstore::internal::JoinPath(TemporaryDirectoryPath(), basename);
 
   TENSORSTORE_CHECK(MakeDirectory(path_));
 }
