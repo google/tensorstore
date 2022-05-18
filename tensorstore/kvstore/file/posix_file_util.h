@@ -26,6 +26,7 @@
 #include <string_view>
 
 #include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include "tensorstore/kvstore/file/unique_handle.h"
 #include "tensorstore/util/result.h"
 
@@ -176,6 +177,16 @@ inline std::ptrdiff_t WriteToFile(FileDescriptor fd, const void* buf,
   }
   return n;
 }
+
+/// Writes an absl::Cord to an open file.
+///
+/// \param fd Open file descriptor.
+/// \param cord[in] data to write.
+/// \param count Maximum number of bytes to write.
+/// \returns Number of bytes written on success.  Returns `0` or `-1` to
+///     indicate an error (in which case `GetLastErrorCode()` retrieves the
+///     error).
+std::ptrdiff_t WriteCordToFile(FileDescriptor fd, absl::Cord value);
 
 /// Truncates an open file.
 ///

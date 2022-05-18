@@ -16,7 +16,12 @@
 
 #include "tensorstore/kvstore/file/posix_file_util.h"
 
+#include "absl/container/inlined_vector.h"
 #include "tensorstore/internal/os_error_code.h"
+
+// More system headers
+#include <sys/uio.h>
+#include <unistd.h>
 
 // Extension point used internally at Google to support lightweight fibers.
 namespace {
@@ -25,6 +30,13 @@ class PotentiallyBlockingRegion {
   ~PotentiallyBlockingRegion() {}
 };
 }
+
+// Most modern unix allow 1024 iovs.
+#if defined(UIO_MAXIOV)
+#define TENSORSTORE_MAXIOV UIO_MAXIOV
+#else
+#define TENSORSTORE_MAXIOV 1024
+#endif
 
 namespace tensorstore {
 namespace internal_file_util {
@@ -50,6 +62,24 @@ UniqueFileDescriptor OpenFileForWriting(const std::string& path) {
   }
 #endif
   return fd;
+}
+
+std::ptrdiff_t WriteCordToFile(FileDescriptor fd, absl::Cord value) {
+  absl::InlinedVector<iovec, 16> iovs;
+
+  for (absl::string_view chunk : value.Chunks()) {
+    struct iovec iov;
+    iov.iov_base = const_cast<char*>(chunk.data());
+    iov.iov_len = chunk.size();
+    iovs.emplace_back(iov);
+    if (iovs.size() >= TENSORSTORE_MAXIOV) break;
+  }
+  PotentiallyBlockingRegion region;
+  std::ptrdiff_t n = ::writev(fd, iovs.data(), iovs.size());
+  if (!value.empty() && n == 0) {
+    errno = ENOSPC;
+  }
+  return n;
 }
 
 bool FileLockTraits::Acquire(int fd) {
@@ -82,6 +112,7 @@ bool FileLockTraits::Acquire(int fd) {
 }
 
 void FileLockTraits::Close(int fd) {
+  PotentiallyBlockingRegion region;
   // This releases a lock acquired above.
   // This is not strictly necessary as the posix/linux locks will be released
   // when the fd is closed, but it allows easier reasoning by making locking

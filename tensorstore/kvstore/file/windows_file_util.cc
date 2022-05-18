@@ -57,6 +57,24 @@ std::ptrdiff_t WriteToFile(FileDescriptor fd, const void* buf,
   return static_cast<std::size_t>(num_written);
 }
 
+std::ptrdiff_t WriteCordToFile(FileDescriptor fd, absl::Cord value) {
+  // If we switched to OVERLAPPED io on Windows, then using WriteFileGather
+  // would be similar to the unix ::writev call.
+  size_t value_remaining = value.size();
+  for (absl::Cord::CharIterator char_it = value.char_begin();
+       value_remaining;) {
+    std::string_view chunk = absl::Cord::ChunkRemaining(char_it);
+    std::ptrdiff_t n = WriteToFile(fd, chunk.data(), chunk.size());
+    if (n > 0) {
+      value_remaining -= n;
+      absl::Cord::Advance(&char_it, n);
+      continue;
+    }
+    return n;
+  }
+  return value.size();
+}
+
 namespace {
 /// Maximum length of Windows path, including terminating NUL.
 constexpr size_t kMaxWindowsPathSize = 32768;

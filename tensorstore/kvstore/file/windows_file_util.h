@@ -26,6 +26,7 @@
 #include <string_view>
 
 #include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/match.h"
 #include "tensorstore/kvstore/file/unique_handle.h"
 #include "tensorstore/util/result.h"
@@ -91,6 +92,8 @@ std::ptrdiff_t ReadFromFile(FileDescriptor fd, void* buf, std::size_t count,
                             std::int64_t offset);
 std::ptrdiff_t WriteToFile(FileDescriptor fd, const void* buf,
                            std::size_t count);
+
+std::ptrdiff_t WriteCordToFile(FileDescriptor fd, absl::Cord value);
 
 inline bool TruncateFile(FileDescriptor fd) {
   return static_cast<bool>(::SetEndOfFile(fd));
