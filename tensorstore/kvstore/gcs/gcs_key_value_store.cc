@@ -93,6 +93,7 @@ using tensorstore::internal_storage_gcs::ParseObjectMetadata;
 
 namespace {
 static constexpr char kUriScheme[] = "gs";
+static constexpr char kNoRetryPayload[] = "tensorstore/no_retry";
 }  // namespace
 
 namespace tensorstore {
@@ -234,6 +235,9 @@ std::string BucketUploadRoot(std::string_view bucket) {
 
 /// Returns whether the absl::Status is a retriable request.
 bool IsRetriable(const absl::Status& status) {
+  if (status.GetPayload(kNoRetryPayload).has_value()) {
+    return false;
+  }
   if (status.code() == absl::StatusCode::kDeadlineExceeded ||
       status.code() == absl::StatusCode::kUnavailable) {
     gcs_retries.Increment();
@@ -335,7 +339,12 @@ class GcsKeyValueStore
       }
     }
     if (!*auth_provider_) return std::nullopt;
-    return (*auth_provider_)->GetAuthHeader();
+    auto result = (*auth_provider_)->GetAuthHeader();
+    if (result.ok()) return result;
+    // Annotate auth failures to abort the retry loop.
+    auto status = std::move(result).status();
+    status.SetPayload(kNoRetryPayload, {});
+    return status;
   }
 
   const Executor& executor() const {
