@@ -215,41 +215,6 @@ struct CurlRequestState {
     CurlEasySetopt(handle_.get(), CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_0);
   }
 
-  size_t WriteCallback(std::string_view data) {
-    http_response_bytes.IncrementBy(data.size());
-    response_.payload.Append(data);
-    return data.size();
-  }
-
-  size_t ReadCallback(char* data, size_t size) {
-    size_t n = std::min(size, payload_remaining_);
-    http_request_bytes.IncrementBy(n);
-    internal::CopyCordToSpan(payload_it_, {data, static_cast<ptrdiff_t>(n)});
-    payload_remaining_ -= n;
-    return n;
-  }
-
-  size_t SeekCallback(curl_off_t offset, int origin) {
-    if (origin != SEEK_SET) {
-      // According to the documentation:
-      // https://curl.haxx.se/libcurl/c/CURLOPT_SEEKFUNCTION.html
-      //
-      // curl only uses SEEK_SET.
-      return CURL_SEEKFUNC_CANTSEEK;
-    }
-    if (offset < 0 || offset > payload_.size()) {
-      return CURL_SEEKFUNC_FAIL;
-    }
-    payload_it_ = payload_.char_begin();
-    absl::Cord::Advance(&payload_it_, static_cast<size_t>(offset));
-    payload_remaining_ = payload_.size() - static_cast<size_t>(offset);
-    return CURL_SEEKFUNC_OK;
-  }
-
-  size_t HeaderCallback(std::string_view data) {
-    return AppendHeaderData(response_.headers, data);
-  }
-
   void SetForbidReuse() {
     // https://curl.haxx.se/libcurl/c/CURLOPT_FORBID_REUSE.html
     CurlEasySetopt(handle_.get(), CURLOPT_FORBID_REUSE, 1);
@@ -266,25 +231,50 @@ struct CurlRequestState {
 
   static std::size_t CurlWriteCallback(void* contents, std::size_t size,
                                        std::size_t nmemb, void* userdata) {
-    return static_cast<CurlRequestState*>(userdata)->WriteCallback(
-        std::string_view(static_cast<char const*>(contents), size * nmemb));
+    auto* self = static_cast<CurlRequestState*>(userdata);
+    http_response_bytes.IncrementBy(size);
+    auto data =
+        std::string_view(static_cast<char const*>(contents), size * nmemb);
+    self->response_.payload.Append(data);
+    return data.size();
   }
 
   static std::size_t CurlReadCallback(void* contents, std::size_t size,
                                       std::size_t nmemb, void* userdata) {
-    return static_cast<CurlRequestState*>(userdata)->ReadCallback(
-        static_cast<char*>(contents), size * nmemb);
+    auto* self = static_cast<CurlRequestState*>(userdata);
+    size_t n = std::min(size * nmemb, self->payload_remaining_);
+    http_request_bytes.IncrementBy(n);
+    internal::CopyCordToSpan(self->payload_it_, {static_cast<char*>(contents),
+                                                 static_cast<ptrdiff_t>(n)});
+    self->payload_remaining_ -= n;
+    return n;
   }
 
   static int CurlSeekCallback(void* userdata, curl_off_t offset, int origin) {
-    return static_cast<CurlRequestState*>(userdata)->SeekCallback(offset,
-                                                                  origin);
+    if (origin != SEEK_SET) {
+      // According to the documentation:
+      // https://curl.haxx.se/libcurl/c/CURLOPT_SEEKFUNCTION.html
+      //
+      // curl only uses SEEK_SET.
+      return CURL_SEEKFUNC_CANTSEEK;
+    }
+    auto* self = static_cast<CurlRequestState*>(userdata);
+    if (offset < 0 || offset > self->payload_.size()) {
+      return CURL_SEEKFUNC_FAIL;
+    }
+    self->payload_it_ = self->payload_.char_begin();
+    absl::Cord::Advance(&self->payload_it_, static_cast<size_t>(offset));
+    self->payload_remaining_ =
+        self->payload_.size() - static_cast<size_t>(offset);
+    return CURL_SEEKFUNC_OK;
   }
 
   static std::size_t CurlHeaderCallback(void* contents, std::size_t size,
                                         std::size_t nmemb, void* userdata) {
-    return static_cast<CurlRequestState*>(userdata)->HeaderCallback(
-        std::string_view(static_cast<char const*>(contents), size * nmemb));
+    auto* self = static_cast<CurlRequestState*>(userdata);
+    auto data =
+        std::string_view(static_cast<char const*>(contents), size * nmemb);
+    return AppendHeaderData(self->response_.headers, data);
   }
 };
 
