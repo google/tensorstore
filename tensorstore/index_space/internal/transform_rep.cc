@@ -135,26 +135,11 @@ void OutputIndexMap::Assign(DimensionIndex rank, const OutputIndexMap& other) {
   stride_ = other.stride_;
 }
 
-// Singleton transform instance used when the input and output rank are both
-// zero.
-static TransformRep rank_zero_transform_data{
-    /*.input_rank=*/0,
-    /*.output_rank=*/0,
-    /*.input_rank_capacity=*/0,
-    /*.output_rank_capacity=*/0,
-    /*.implicit_lower_bounds=*/false,
-    /*.implicit_upper_bounds=*/false,
-    /*.reference_count=*/1,
-};
-
 TransformRep::Ptr<> TransformRep::Allocate(
     DimensionIndex input_rank_capacity, DimensionIndex output_rank_capacity) {
   TENSORSTORE_CHECK(input_rank_capacity >= 0 && output_rank_capacity >= 0 &&
                     input_rank_capacity <= kMaxRank &&
                     output_rank_capacity <= kMaxRank);
-  if (input_rank_capacity == 0 && output_rank_capacity == 0) {
-    return TransformRep::Ptr<>(&rank_zero_transform_data);
-  }
   const size_t total_size =
       // header size
       sizeof(TransformRep) +
@@ -234,7 +219,7 @@ void ResetOutputIndexMaps(TransformRep* ptr) {
 }
 
 TransformRep::Ptr<> MutableRep(TransformRep::Ptr<> ptr, bool domain_only) {
-  if (!ptr || ptr.get() == &rank_zero_transform_data) return ptr;
+  if (!ptr) return ptr;
   if (ptr->is_unique()) {
     if (domain_only) {
       ResetOutputIndexMaps(ptr.get());
@@ -246,10 +231,12 @@ TransformRep::Ptr<> MutableRep(TransformRep::Ptr<> ptr, bool domain_only) {
     auto new_rep = TransformRep::Allocate(ptr->input_rank, 0);
     CopyTransformRepDomain(ptr.get(), new_rep.get());
     new_rep->output_rank = 0;
+    internal_index_space::DebugCheckInvariants(new_rep.get());
     return new_rep;
   } else {
     auto new_rep = TransformRep::Allocate(ptr->input_rank, ptr->output_rank);
     CopyTransformRep(ptr.get(), new_rep.get());
+    internal_index_space::DebugCheckInvariants(new_rep.get());
     return new_rep;
   }
 }
@@ -587,6 +574,7 @@ TransformRep::Ptr<> WithImplicitDimensions(TransformRep::Ptr<> transform,
 #ifndef NDEBUG
 void DebugCheckInvariants(TransformRep* rep) {
   assert(rep);
+  assert(rep->reference_count > 0);
   const DimensionIndex input_rank = rep->input_rank,
                        output_rank = rep->output_rank;
   assert(rep->input_rank_capacity <= kMaxRank);

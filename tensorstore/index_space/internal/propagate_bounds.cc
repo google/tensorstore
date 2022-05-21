@@ -230,6 +230,7 @@ Result<TransformRep::Ptr<>> PropagateBoundsToTransform(
     a_to_b->input_domain(b_rank).DeepAssign(b_domain);
     a_to_b->implicit_lower_bounds = b_implicit_lower_bounds;
     a_to_b->implicit_upper_bounds = b_implicit_upper_bounds;
+    internal_index_space::DebugCheckInvariants(a_to_b.get());
     return a_to_b;
   }
   const DimensionIndex a_rank = a_to_b->input_rank;

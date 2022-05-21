@@ -155,6 +155,7 @@ internal_index_space::TransformRep::Ptr<> InitializeCellTransform(
     ++cell_input_dim;
   }
 
+  // Invariants checked in InvokeCallback
   return cell_transform;
 }
 

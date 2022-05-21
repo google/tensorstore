@@ -51,11 +51,8 @@ absl::Status ComposeTransforms(TransformRep* b_to_c, bool can_move_from_b_to_c,
   assert(a_to_c_output_rank <= a_to_c->output_rank_capacity &&
          a_to_b->output_rank == b_to_c->input_rank &&
          a_to_b->input_rank <= a_to_c->input_rank_capacity);
-  // Aliasing of `a_to_c` is not allowed unless it has maximum input/output
-  // ranks of 0.
-  assert(
-      (a_to_c->input_rank_capacity == 0 && b_to_c->input_rank_capacity == 0) ||
-      (a_to_c != b_to_c && a_to_c != a_to_b));
+  // Aliasing of `a_to_c` is not allowed
+  assert(a_to_c != b_to_c && a_to_c != a_to_b);
 
   const DimensionIndex a_rank = a_to_b->input_rank;
   const DimensionIndex b_rank = a_to_b->output_rank;

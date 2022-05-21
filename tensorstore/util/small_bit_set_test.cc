@@ -303,4 +303,12 @@ TEST(SmallBitSetTest, Reference) {
   EXPECT_EQ(0b100, v.bits());
 }
 
+TEST(SmallBitSetTest, UpTo) {
+  EXPECT_EQ(0x00000000, BitSet::UpTo(0).bits());
+  EXPECT_EQ(0x00000001, BitSet::UpTo(1).bits());
+  EXPECT_EQ(0x0000ffff, BitSet::UpTo(16).bits());
+  EXPECT_EQ(0x7fffffff, BitSet::UpTo(31).bits());
+  EXPECT_EQ(0xffffffff, BitSet::UpTo(32).bits());
+}
+
 }  // namespace

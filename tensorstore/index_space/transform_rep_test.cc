@@ -179,7 +179,6 @@ TEST(Allocate, Basic) {
 
 TEST(CopyTransformRep, Basic) {
   auto source = TransformRep::Allocate(1, 2);
-  auto dest = TransformRep::Allocate(1, 2);
   source->input_rank = 1;
   source->output_rank = 2;
   source->input_origin()[0] = 5;
@@ -192,7 +191,10 @@ TEST(CopyTransformRep, Basic) {
   source_index_array_data.element_pointer = index_array_ptr;
   source_index_array_data.byte_strides[0] = 0;
   source->input_labels()[0] = "source";
+  // TODO:
+  // tensorstore::internal_index_space::DebugCheckInvariants(source.get());
 
+  auto dest = TransformRep::Allocate(1, 2);
   dest->input_rank = 0;
   dest->output_rank = 0;
   dest->input_origin()[0] = 6;
@@ -230,13 +232,17 @@ TEST(CopyTransformRep, Basic) {
 }
 
 TEST(MoveTransformRep, Basic) {
+  using tensorstore::DimensionSet;
+
   auto source = TransformRep::Allocate(1, 2);
-  auto dest = TransformRep::Allocate(1, 2);
   source->input_rank = 1;
   source->output_rank = 2;
+  source->implicit_lower_bounds = DimensionSet::UpTo(source->input_rank);
+  source->implicit_upper_bounds = DimensionSet::UpTo(source->input_rank);
   source->input_origin()[0] = 5;
   source->input_shape()[0] = 2;
   auto& source_map = source->output_index_maps()[0];
+  source_map.SetSingleInputDimension(0);
   source_map.offset() = 3;
   source_map.stride() = 4;
   auto index_array_ptr = std::make_shared<Index>();
@@ -244,7 +250,10 @@ TEST(MoveTransformRep, Basic) {
   source_index_array_data.element_pointer = index_array_ptr;
   source_index_array_data.byte_strides[0] = 0;
   source->input_labels()[0] = "source";
+  // TODO:
+  // tensorstore::internal_index_space::DebugCheckInvariants(source.get());
 
+  auto dest = TransformRep::Allocate(1, 2);
   dest->input_rank = 0;
   dest->output_rank = 0;
   dest->input_origin()[0] = 6;
@@ -253,6 +262,7 @@ TEST(MoveTransformRep, Basic) {
   auto& dest_map = dest->output_index_maps()[0];
   dest_map.offset() = 10;
   dest_map.stride() = 11;
+
   MoveTransformRep(source.get(), dest.get());
 
   EXPECT_EQ(5, source->input_origin()[0]);
@@ -314,10 +324,22 @@ TEST(MutableRepTest, Basic) {
 }
 
 TEST(MutableRepTest, Concurrent) {
+  // MutablePtr checks invariants, so create legal pointers.
+  auto orig = IndexTransformBuilder<>(1, 1)
+                  .input_origin({1})
+                  .input_shape({2})
+                  .input_labels({"a"})
+                  .implicit_lower_bounds({0})
+                  .implicit_upper_bounds({0})
+                  .output_constant(0, 5)
+                  .Finalize()
+                  .value();
+
   TransformRep* orig_ptr;
-  TransformRep::Ptr<> write_ptr = TransformRep::Allocate(1, 0);
+  TransformRep::Ptr<> write_ptr = TransformAccess::rep_ptr(orig);
   write_ptr->output_rank = 0;
   TransformRep::Ptr<> read_ptr;
+
   [[maybe_unused]] std::size_t num_reads_before_write = 0;
   const std::size_t num_iterations = 1000;
   TestConcurrent(

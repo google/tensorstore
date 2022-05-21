@@ -330,8 +330,9 @@ struct TransformRep {
 
   /// Allocate a new TransformRep with the specified capacities and type.
   ///
-  /// Sets the `input_rank_capacity` and `output_rank_capacity` fields, but does
-  /// not initialize any other fields, including `input_rank` and `output_rank`.
+  /// Sets the `input_rank_capacity` and `output_rank_capacity` fields, and
+  /// zero-initializes `implicit_lower_bounds` and `implicit_lower_bounds`, but
+  /// does not initialize `input_rank` and `output_rank`.
   /// The `output_index_maps` array and `input_labels` array are default
   /// initialized.
   ///

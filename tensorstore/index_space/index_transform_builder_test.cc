@@ -410,18 +410,6 @@ TEST(IndexTransformBuilderDeathTest, InvalidArguments) {
                "invalid output dimension");
 }
 
-// Test the special allocation-free code path for rank zero.
-TEST(IndexTransformBuilderTest, RankZero) {
-  auto transform = IndexTransformBuilder<>(0, 0).Finalize().value();
-  EXPECT_TRUE(transform.input_origin().empty());
-  EXPECT_TRUE(transform.input_shape().empty());
-  EXPECT_TRUE(transform.input_labels().empty());
-  EXPECT_TRUE(transform.output_index_maps().empty());
-
-  auto transform2 = IndexTransformBuilder<>(0, 0).Finalize().value();
-  EXPECT_EQ(TransformAccess::rep(transform), TransformAccess::rep(transform2));
-}
-
 TEST(IndexTransformBuilderTest, OutputStrideZero) {
   // Setting an output stride of zero should make the output index map
   // constant.
