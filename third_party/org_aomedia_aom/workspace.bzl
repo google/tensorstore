@@ -26,7 +26,7 @@ def repo():
         third_party_http_archive,
         name = "org_aomedia_aom",
         urls = [
-            "http://storage.googleapis.com/tensorstore-bazel-mirror/aomedia.googlesource.com/aom/+archive/287164de79516c25c8c84fd544f67752c170082a.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/aomedia.googlesource.com/aom/+archive/287164de79516c25c8c84fd544f67752c170082a.tar.gz",
             # "https://aomedia.googlesource.com/aom/+archive/287164de79516c25c8c84fd544f67752c170082a.tar.gz",
         ],
         # googlesource does not cache archive files; the sha256 is only valid for the mirror.
