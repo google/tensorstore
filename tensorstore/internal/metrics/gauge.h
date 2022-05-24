@@ -121,12 +121,14 @@ class ABSL_CACHELINE_ALIGNED Gauge {
 
   /// Get the counter.
   value_type Get(typename FieldTraits<Fields>::param_type... labels) const {
-    return impl_.GetCell(labels...)->Get();
+    auto* cell = impl_.FindCell(labels...);
+    return cell ? cell->Get() : value_type{};
   }
 
   /// Get the maximum observed counter value.
   value_type GetMax(typename FieldTraits<Fields>::param_type... labels) const {
-    return impl_.GetCell(labels...)->GetMax();
+    auto* cell = impl_.FindCell(labels...);
+    return cell ? cell->GetMax() : value_type{};
   }
 
   /// Collect the gauge.

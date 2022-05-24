@@ -106,7 +106,8 @@ class ABSL_CACHELINE_ALIGNED Counter {
   }
 
   value_type Get(typename FieldTraits<Fields>::param_type... labels) const {
-    return impl_.GetCell(labels...)->Get();
+    auto* cell = impl_.FindCell(labels...);
+    return cell ? cell->Get() : value_type{};
   }
 
   /// Collect the counter.

@@ -40,6 +40,8 @@ TEST(MetricTest, CounterInt) {
   counter.Increment();
   counter.IncrementBy(2);
 
+  EXPECT_EQ(3, counter.Get());
+
   auto metric = counter.Collect();
 
   EXPECT_EQ("/tensorstore/counter1", metric.metric_name);
@@ -76,6 +78,9 @@ TEST(MetricTest, CounterIntFields) {
                                                      "field1", "A metric");
   counter.Increment("a");
   counter.IncrementBy(2, "b");
+
+  EXPECT_EQ(1, counter.Get("a"));
+  EXPECT_EQ(2, counter.Get("b"));
 
   auto metric = counter.Collect();
   EXPECT_EQ("/tensorstore/counter3", metric.metric_name);
@@ -118,6 +123,9 @@ TEST(MetricTest, GaugeInt) {
   gauge.Increment();
   gauge.IncrementBy(2);
 
+  EXPECT_EQ(6, gauge.Get());
+  EXPECT_EQ(6, gauge.GetMax());
+
   auto metric = gauge.Collect();
 
   EXPECT_EQ("/tensorstore/gauge1", metric.metric_name);
@@ -148,6 +156,9 @@ TEST(MetricTest, GaugeIntFields) {
   gauge.Increment("a");
   gauge.IncrementBy(2, "a");
   gauge.Set(3, "b");
+
+  EXPECT_EQ(3, gauge.Get("a"));
+  EXPECT_EQ(3, gauge.GetMax("b"));
 
   auto metric = gauge.Collect();
   std::sort(metric.gauges.begin(), metric.gauges.end(),
@@ -192,6 +203,9 @@ TEST(MetricTest, Histogram) {
   histogram.Observe(1);
   histogram.Observe(2);
   histogram.Observe(1000);
+
+  EXPECT_EQ(3, histogram.GetCount());
+  EXPECT_EQ(1003, histogram.GetSum());
 
   auto metric = histogram.Collect();
 

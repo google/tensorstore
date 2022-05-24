@@ -190,6 +190,14 @@ class AbstractMetric : public AbstractMetricBase<sizeof...(Fields)> {
   using Base::metadata;
   using Base::metric_name;
 
+  const Cell* FindCell(
+      typename FieldTraits<Fields>::param_type... labels) const {
+    LookupKey k{labels...};
+    absl::MutexLock l(&mu_);
+    auto it = impl_.find(k);
+    return it == impl_.end() ? nullptr : &(it->second);
+  }
+
   Cell* GetCell(typename FieldTraits<Fields>::param_type... labels) {
     LookupKey k{labels...};
     absl::MutexLock l(&mu_);
@@ -236,6 +244,7 @@ class AbstractMetric<Cell> : public AbstractMetricBase<0> {
   using Base::metadata;
   using Base::metric_name;
 
+  const Cell* FindCell() const { return &impl_; }
   Cell* GetCell() { return &impl_; }
   bool HasCell() { return true; }
 
@@ -269,6 +278,7 @@ class AbstractMetric<Cell, bool> : public AbstractMetricBase<1> {
   using Base::metadata;
   using Base::metric_name;
 
+  const Cell* FindCell(bool x) const { return x ? &true_impl_ : &false_impl_; }
   Cell* GetCell(bool x) { return x ? &true_impl_ : &false_impl_; }
   bool HasCell(bool) { return true; }
 

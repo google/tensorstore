@@ -95,17 +95,20 @@ class ABSL_CACHELINE_ALIGNED Histogram {
   }
 
   value_type GetSum(typename FieldTraits<Fields>::param_type... labels) const {
-    return impl_.GetCell(labels...)->GetSum();
+    auto* cell = impl_.FindCell(labels...);
+    return cell ? cell->GetSum() : value_type{};
   }
 
   count_type GetCount(
       typename FieldTraits<Fields>::param_type... labels) const {
-    return impl_.GetCell(labels...)->GetCount();
+    auto* cell = impl_.FindCell(labels...);
+    return cell ? cell->GetCount() : count_type{};
   }
 
   std::vector<int64_t> GetBucket(
       size_t idx, typename FieldTraits<Fields>::param_type... labels) const {
-    return impl_.GetCell(labels...)->GetBucket(idx);
+    auto* cell = impl_.FindCell(labels...);
+    return cell ? cell->GetBucket(idx) : std::vector<int64_t>{};
   }
 
   /// Collect the histogram. There is potential tearing between the sum and the
