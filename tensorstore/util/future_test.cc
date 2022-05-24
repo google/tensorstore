@@ -1638,7 +1638,7 @@ TEST(WaitAllFuture, ReadyFutureSpanError) {
 
 TEST(WaitAllFuture, ReadyFutureSpan) {
   std::vector<AnyFuture> futures;
-  for (int i = 0; i < 16; i++) {
+  for (int i = 0; i < 17; i++) {
     auto future = WaitAllFuture(futures);
     ASSERT_TRUE(future.ready());
     EXPECT_TRUE(future.result().ok());

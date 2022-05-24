@@ -1385,7 +1385,7 @@ Future<ReadResult> ReadViaExistingTransaction(
                          InitialReadReceiverImpl{
                              internal::OpenTransactionNodePtr<Node>(node.get()),
                              std::move(promise)});
-  return future;
+  return std::move(future);
 }
 
 namespace {
@@ -1545,7 +1545,7 @@ Future<TimestampedStorageGeneration> WriteViaExistingTransaction(
   node->SetPhase(phase);
   TENSORSTORE_RETURN_IF_ERROR(node->Register());
   LinkError(std::move(promise), transaction->future());
-  return future;
+  return std::move(future);
 }
 
 Future<TimestampedStorageGeneration> WriteViaTransaction(

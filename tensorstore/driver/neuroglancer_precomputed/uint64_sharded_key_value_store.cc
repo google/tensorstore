@@ -79,7 +79,7 @@ class MinishardIndexKeyValueStore : public kvstore::Driver {
     }
     auto [promise, future] = PromiseFuturePair<ReadResult>::Make();
     DoRead(std::move(promise), split_info, std::move(options));
-    return future;
+    return std::move(future);
   }
 
   std::string DescribeKey(std::string_view key) override {

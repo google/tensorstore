@@ -558,38 +558,44 @@ Future<void> WaitAllFuture(tensorstore::span<const AnyFuture> futures) {
     default:
       break;
   }
+
+  // 8 or more...
   auto [promise, result] = PromiseFuturePair<void>::LinkError(
       absl::OkStatus(), f[0], f[1], f[2], f[3], f[4], f[5], f[6], f[7]);
-  for (;;) {
+  f = f.subspan(8);
+  while (f.size() > 8) {
+    LinkError(promise, f[0], f[1], f[2], f[3], f[4], f[5], f[6], f[7]);
     f = f.subspan(8);
-    switch (f.size()) {
-      case 0:
-        return result;
-      case 1:
-        LinkError(promise, f[0]);
-        return result;
-      case 2:
-        LinkError(promise, f[0], f[1]);
-        return result;
-      case 3:
-        LinkError(promise, f[0], f[1], f[2]);
-        return result;
-      case 4:
-        LinkError(promise, f[0], f[1], f[2], f[3]);
-        return result;
-      case 5:
-        LinkError(promise, f[0], f[1], f[2], f[3], f[4]);
-        return result;
-      case 6:
-        LinkError(promise, f[0], f[1], f[2], f[3], f[4], f[5]);
-        return result;
-      case 7:
-        LinkError(promise, f[0], f[1], f[2], f[3], f[4], f[5], f[6]);
-        return result;
-      default:
-        LinkError(promise, f[0], f[1], f[2], f[3], f[4], f[5], f[6], f[7]);
-        break;
-    }
+  }
+
+  switch (f.size()) {
+    case 0:
+      return std::move(result);
+    case 1:
+      LinkError(std::move(promise), f[0]);
+      return std::move(result);
+    case 2:
+      LinkError(std::move(promise), f[0], f[1]);
+      return std::move(result);
+    case 3:
+      LinkError(std::move(promise), f[0], f[1], f[2]);
+      return std::move(result);
+    case 4:
+      LinkError(std::move(promise), f[0], f[1], f[2], f[3]);
+      return std::move(result);
+    case 5:
+      LinkError(std::move(promise), f[0], f[1], f[2], f[3], f[4]);
+      return std::move(result);
+    case 6:
+      LinkError(std::move(promise), f[0], f[1], f[2], f[3], f[4], f[5]);
+      return std::move(result);
+    case 7:
+      LinkError(std::move(promise), f[0], f[1], f[2], f[3], f[4], f[5], f[6]);
+      return std::move(result);
+    case 8:
+      LinkError(std::move(promise), f[0], f[1], f[2], f[3], f[4], f[5], f[6],
+                f[7]);
+      return std::move(result);
   }
   TENSORSTORE_UNREACHABLE;
 }
