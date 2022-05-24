@@ -28,7 +28,21 @@ namespace internal {
 /// status-response is retriable.
 bool DefaultIsRetriable(const absl::Status& status);
 
-/// \brieff RetryWithBackoff retries `function` up to max_retries times.
+/// BackoffForAttempt computes a backoff to use after a retry attempt.
+/// Example:
+///   for (int i = 0; i < max_retries; i++) {
+///     if (function()) return absl::OkStatus();
+///     auto delay = BackoffForAttempt(i);
+///     thread::Sleep(*delay);
+///   }
+absl::Duration BackoffForAttempt(
+    int attempt,
+    absl::Duration initial_delay,  // GCS recommends absl::Seconds(1)
+    absl::Duration max_delay,      // GCS recommends absl::Seconds(32)
+    absl::Duration jitter          // GCS recommends absl::Seconds(1)
+);
+
+/// \brief RetryWithBackoff retries `function` up to max_retries times.
 /// Applies exponential backoff + jitter between each retry attempt,
 /// up to max_delay_time.
 absl::Status RetryWithBackoff(

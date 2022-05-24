@@ -22,16 +22,19 @@ tensorstore_cc_library(
     ],
     hdrs = ["object_metadata.h"],
     deps = [
+        ":admission_queue",
         ":validate",
         "//tensorstore:context",
         "//tensorstore/internal:absl_time_json_binder",
         "//tensorstore/internal:concurrency_resource",
+        "//tensorstore/internal:data_copy_concurrency_resource",
         "//tensorstore/internal:env",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:json",
         "//tensorstore/internal:path",
         "//tensorstore/internal:retries_context_resource",
         "//tensorstore/internal:retry",
+        "//tensorstore/internal:schedule_at",
         "//tensorstore/internal/cache_key",
         "//tensorstore/internal/http",
         "//tensorstore/internal/http:curl_transport",
@@ -77,6 +80,7 @@ tensorstore_cc_test(
         "//tensorstore/internal:logging",
         "//tensorstore/internal:mutex",
         "//tensorstore/internal:path",
+        "//tensorstore/internal:schedule_at",
         "//tensorstore/internal/http",
         "//tensorstore/internal/http:curl_handle",
         "//tensorstore/internal/http:curl_transport",
@@ -114,6 +118,22 @@ tensorstore_cc_test(
         "//tensorstore/util:status",
         "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "admission_queue",
+    srcs = ["admission_queue.cc"],
+    hdrs = ["admission_queue.h"],
+    deps = [
+        "//tensorstore:context",
+        "//tensorstore:json_serialization_options_base",
+        "//tensorstore/internal:intrusive_linked_list",
+        "//tensorstore/internal:json",
+        "//tensorstore/util:result",
+        "@com_google_absl//absl/base",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/synchronization",
     ],
 )
 

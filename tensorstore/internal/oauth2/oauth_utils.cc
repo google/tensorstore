@@ -170,20 +170,11 @@ constexpr static auto ErrorResponseBinder = jb::Object(
                                                jb::NonEmptyStringBinder)),
     jb::DiscardExtraMembers);
 
-Result<ErrorResponse> ParseErrorResponseImpl(const ::nlohmann::json& error) {
+Result<ErrorResponse> ParseErrorResponse(const ::nlohmann::json& error) {
   if (error.is_discarded()) {
     return absl::InvalidArgumentError("Invalid ErrorResponse");
   }
   return jb::FromJson<ErrorResponse>(error, ErrorResponseBinder);
-}
-
-Result<ErrorResponse> ParseErrorResponse(std::string_view source) {
-  auto error = internal::ParseJson(source);
-  if (error.is_discarded()) {
-    return absl::InvalidArgumentError(
-        absl::StrCat("Invalid ErrorResponse: ", source));
-  }
-  return ParseErrorResponseImpl(error);
 }
 
 constexpr static auto GoogleServiceAccountCredentialsBinder = jb::Object(
@@ -211,8 +202,13 @@ ParseGoogleServiceAccountCredentialsImpl(const ::nlohmann::json& credentials) {
   // Google ServiceAccountCredentials files contain numerous fields that we
   // don't care to parse, such as { "type", "project_id", "client_id",
   // "auth_uri", "auth_provider_x509_cert_url", "client_x509_cert_url"}.
-  return jb::FromJson<GoogleServiceAccountCredentials>(
+  auto creds_token = jb::FromJson<GoogleServiceAccountCredentials>(
       credentials, GoogleServiceAccountCredentialsBinder);
+  if (!creds_token.ok()) {
+    return absl::InvalidArgumentError(StrCat(
+        "Invalid GoogleServiceAccountCredentials: ", creds_token.status()));
+  }
+  return creds_token;
 }
 
 Result<GoogleServiceAccountCredentials> ParseGoogleServiceAccountCredentials(
@@ -237,17 +233,13 @@ constexpr static auto RefreshTokenBinder = jb::Object(
 Result<RefreshToken> ParseRefreshTokenImpl(
     const ::nlohmann::json& credentials) {
   if (credentials.is_discarded()) {
-    return absl::InvalidArgumentError("Invalid RefreshToken token");
+    return absl::UnauthenticatedError("Invalid RefreshToken token");
   }
   auto refresh_token =
       jb::FromJson<RefreshToken>(credentials, RefreshTokenBinder);
   if (!refresh_token.ok()) {
-    auto error_token =
-        jb::FromJson<ErrorResponse>(credentials, ErrorResponseBinder);
-    if (error_token.ok()) {
-      return absl::UnauthenticatedError(
-          StrCat("Failed to refresh token: ", credentials));
-    }
+    return absl::UnauthenticatedError(
+        absl::StrCat("Invalid RefreshToken: ", credentials.dump()));
   }
   return refresh_token;
 }
@@ -255,7 +247,7 @@ Result<RefreshToken> ParseRefreshTokenImpl(
 Result<RefreshToken> ParseRefreshToken(std::string_view source) {
   auto credentials = internal::ParseJson(source);
   if (credentials.is_discarded()) {
-    return absl::InvalidArgumentError(
+    return absl::UnauthenticatedError(
         absl::StrCat("Invalid RefreshToken: ", source));
   }
   return ParseRefreshTokenImpl(credentials);
@@ -273,17 +265,13 @@ constexpr static auto OAuthResponseBinder = jb::Object(
 Result<OAuthResponse> ParseOAuthResponseImpl(
     const ::nlohmann::json& credentials) {
   if (credentials.is_discarded()) {
-    return absl::InvalidArgumentError("Invalid OAuthResponse token");
+    return absl::UnauthenticatedError("Invalid OAuthResponse token");
   }
   auto response_token =
       jb::FromJson<OAuthResponse>(credentials, OAuthResponseBinder);
   if (!response_token.ok()) {
-    auto error_token =
-        jb::FromJson<ErrorResponse>(credentials, ErrorResponseBinder);
-    if (error_token.ok()) {
-      return absl::UnauthenticatedError(
-          StrCat("OAuth request failed: ", credentials));
-    }
+    return absl::UnauthenticatedError(
+        absl::StrCat("Invalid OAuthResponse: ", credentials.dump()));
   }
   return response_token;
 }
@@ -291,7 +279,7 @@ Result<OAuthResponse> ParseOAuthResponseImpl(
 Result<OAuthResponse> ParseOAuthResponse(std::string_view source) {
   auto credentials = internal::ParseJson(source);
   if (credentials.is_discarded()) {
-    return absl::InvalidArgumentError(
+    return absl::UnauthenticatedError(
         absl::StrCat("Invalid OAuthResponse: ", source));
   }
   return ParseOAuthResponseImpl(credentials);

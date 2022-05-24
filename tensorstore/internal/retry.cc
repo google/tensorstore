@@ -37,40 +37,43 @@ bool DefaultIsRetriable(const absl::Status& status) {
           status.code() == absl::StatusCode::kUnavailable);
 }
 
+absl::Duration BackoffForAttempt(int attempt, absl::Duration initial_delay,
+                                 absl::Duration max_delay,
+                                 absl::Duration jitter) {
+  assert(initial_delay > absl::ZeroDuration());
+  assert(max_delay >= initial_delay);
+  assert(attempt >= 0);
+
+  int64_t multiple = int64_t{1} << (attempt > 63 ? 63 : attempt);
+  auto delay = initial_delay * multiple;
+  if (jitter >= absl::Microseconds(1)) {
+    delay += absl::Microseconds(absl::Uniform(
+        absl::InsecureBitGen{}, 0, absl::ToInt64Microseconds(jitter)));
+  }
+  if (delay > max_delay) delay = max_delay;
+  return delay;
+}
+
 absl::Status RetryWithBackoff(
     std::function<absl::Status()> function, int max_retries,
     absl::Duration initial_delay, absl::Duration max_delay,
     absl::Duration jitter,
     std::function<bool(const absl::Status&)> is_retriable) {
-  assert(initial_delay > absl::ZeroDuration());
-  assert(max_delay >= initial_delay);
-  assert(max_retries >= 0);
-
-  std::optional<absl::BitGen> rng;
   absl::Status status;
-
-  int64_t multiple = 1;
-  for (int retries = 0; retries < max_retries; retries++) {
+  for (int attempt = 0; attempt < max_retries; attempt++) {
     status = function();
     if (status.ok() || !is_retriable(status)) {
       return status;
     }
 
     // Compute backoff.
-    auto delay = initial_delay * multiple;
-    multiple <<= 1;
-    if (jitter >= absl::Microseconds(1)) {
-      if (!rng) rng.emplace();
-      delay += absl::Microseconds(
-          absl::Uniform(*rng, 0, absl::ToInt64Microseconds(jitter)));
-    }
-    if (delay > max_delay) delay = max_delay;
+    auto delay = BackoffForAttempt(attempt, initial_delay, max_delay, jitter);
 
     // NOTE: Figure out a way to enable better logging when we want it.
     if (false) {
       TENSORSTORE_LOG(
           "The operation failed and will be automatically retried in ",
-          absl::ToDoubleSeconds(delay), " seconds (attempt ", retries + 1,
+          absl::ToDoubleSeconds(delay), " seconds (attempt ", attempt + 1,
           " out of ", max_retries, "), caused by: ", status);
     }
 

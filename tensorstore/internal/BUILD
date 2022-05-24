@@ -2105,3 +2105,35 @@ tensorstore_cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+cc_library(
+    name = "schedule_at",
+    srcs = ["schedule_at.cc"],
+    hdrs = ["schedule_at.h"],
+    deps = [
+        ":attributes",
+        ":intrusive_ptr",
+        ":logging",
+        ":mutex",
+        ":no_destructor",
+        ":type_traits",
+        "//tensorstore/internal/metrics",
+        "//tensorstore/internal/poly",
+        "//tensorstore/util:assert_macros",
+        "//tensorstore/util:executor",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/synchronization",
+        "@com_google_absl//absl/time",
+    ],
+)
+
+cc_test(
+    name = "schedule_at_test",
+    srcs = ["schedule_at_test.cc"],
+    deps = [
+        ":schedule_at",
+        "//tensorstore/util:executor",
+        "@com_google_absl//absl/synchronization",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

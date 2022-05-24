@@ -14,6 +14,7 @@
 
 #include <atomic>
 #include <functional>
+#include <limits>
 #include <map>
 #include <optional>
 #include <string>
@@ -34,6 +35,7 @@
 #include "tensorstore/internal/cache_key/std_optional.h"  // IWYU pragma: keep
 #include "tensorstore/internal/concurrency_resource.h"
 #include "tensorstore/internal/concurrency_resource_provider.h"
+#include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/internal/http/http_request.h"
@@ -48,8 +50,10 @@
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/retries_context_resource.h"
 #include "tensorstore/internal/retry.h"
+#include "tensorstore/internal/schedule_at.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
+#include "tensorstore/kvstore/gcs/admission_queue.h"
 #include "tensorstore/kvstore/gcs/object_metadata.h"
 #include "tensorstore/kvstore/gcs/validate.h"
 #include "tensorstore/kvstore/generation.h"
@@ -74,17 +78,25 @@
 // https://cloud.google.com/storage/docs/uploading-objects
 // https://cloud.google.com/storage/docs/best-practices#uploading
 // https://cloud.google.com/storage/docs/json_api/v1/
+// https://cloud.google.com/storage/docs/retry-strategy#exponential-backoff
 
-using tensorstore::internal::IntrusivePtr;
-using tensorstore::internal_http::HttpRequest;
-using tensorstore::internal_http::HttpRequestBuilder;
-using tensorstore::internal_http::HttpResponse;
-using tensorstore::internal_http::HttpTransport;
-using tensorstore::internal_storage_gcs::IsValidBucketName;
-using tensorstore::internal_storage_gcs::IsValidObjectName;
-using tensorstore::internal_storage_gcs::IsValidStorageGeneration;
-using tensorstore::internal_storage_gcs::ObjectMetadata;
-using tensorstore::internal_storage_gcs::ParseObjectMetadata;
+using ::tensorstore::internal::DataCopyConcurrencyResource;
+using ::tensorstore::internal::IntrusivePtr;
+using ::tensorstore::internal::ScheduleAt;
+using ::tensorstore::internal_http::HttpRequest;
+using ::tensorstore::internal_http::HttpRequestBuilder;
+using ::tensorstore::internal_http::HttpResponse;
+using ::tensorstore::internal_http::HttpTransport;
+using ::tensorstore::internal_storage_gcs::AdmissionNode;
+using ::tensorstore::internal_storage_gcs::AdmissionQueue;
+using ::tensorstore::internal_storage_gcs::AdmissionQueueResource;
+using ::tensorstore::internal_storage_gcs::IsValidBucketName;
+using ::tensorstore::internal_storage_gcs::IsValidObjectName;
+using ::tensorstore::internal_storage_gcs::IsValidStorageGeneration;
+using ::tensorstore::internal_storage_gcs::ObjectMetadata;
+using ::tensorstore::internal_storage_gcs::ParseObjectMetadata;
+using ::tensorstore::kvstore::Key;
+using ::tensorstore::kvstore::ListOptions;
 
 // Uncomment to log all http requests.
 // #define TENSORSTORE_INTERNAL_GCS_LOG_REQUESTS
@@ -93,7 +105,6 @@ using tensorstore::internal_storage_gcs::ParseObjectMetadata;
 
 namespace {
 static constexpr char kUriScheme[] = "gs";
-static constexpr char kNoRetryPayload[] = "tensorstore/no_retry";
 }  // namespace
 
 namespace tensorstore {
@@ -134,14 +145,23 @@ std::string_view GetGcsBaseUrl() {
   return url;
 }
 
-struct GcsRequestConcurrencyResource : public internal::ConcurrencyResource {
+/// Specifies an admission queue as a context object.
+///
+/// This provides a way to limit the concurrency across multiple tensorstores
+/// rather than each tensorstore always having independent limits.
+struct GcsAdmissionQueueResource
+    : public AdmissionQueueResource,
+      public internal::ContextResourceTraits<GcsAdmissionQueueResource> {
+  GcsAdmissionQueueResource() : AdmissionQueueResource(32) {}
+
   static constexpr char id[] = "gcs_request_concurrency";
 };
 
 /// Optionally specifies a project to which all requests are billed.
 ///
-/// If not specified, requests to normal buckets are billed to the project that
-/// owns the bucket, and requests to "requestor pays"-enabled buckets fail.
+/// If not specified, requests to normal buckets are billed to the project
+/// that owns the bucket, and requests to "requestor pays"-enabled buckets
+/// fail.
 struct GcsUserProjectResource
     : public internal::ContextResourceTraits<GcsUserProjectResource> {
   static constexpr char id[] = "gcs_user_project";
@@ -158,9 +178,9 @@ struct GcsUserProjectResource
       const Spec& spec, internal::ContextResourceCreationContext context) {
     return spec;
   }
-  static Spec GetSpec(const Spec& spec,
+  static Spec GetSpec(const Resource& resource,
                       const internal::ContextSpecBuilder& builder) {
-    return spec;
+    return resource;
   }
 };
 
@@ -169,13 +189,8 @@ struct GcsRequestRetries : public internal::RetriesResource<GcsRequestRetries> {
   static constexpr char id[] = "gcs_request_retries";
 };
 
-struct GcsRequestConcurrencyResourceTraits
-    : public internal::ConcurrencyResourceTraits,
-      public internal::ContextResourceTraits<GcsRequestConcurrencyResource> {
-  GcsRequestConcurrencyResourceTraits() : ConcurrencyResourceTraits(32) {}
-};
-const internal::ContextResourceRegistration<GcsRequestConcurrencyResourceTraits>
-    gcs_request_concurrency_registration;
+const internal::ContextResourceRegistration<GcsAdmissionQueueResource>
+    gcs_admission_queue_registration;
 const internal::ContextResourceRegistration<GcsUserProjectResource>
     gcs_user_project_registration;
 const internal::ContextResourceRegistration<GcsRequestRetries>
@@ -191,12 +206,12 @@ bool AddGenerationParam(std::string* url, const bool has_query,
   } else {
     // One of two cases applies:
     //
-    // 1. `gen` is a `StorageGeneration::FromUint64` generation.  In this case,
-    //    the condition is specified as `=N`, where `N` is the decimal
+    // 1. `gen` is a `StorageGeneration::FromUint64` generation.  In this
+    //    case, the condition is specified as `=N`, where `N` is the decimal
     //    representation of the generation number.
     //
-    // 2. `gen` is `StorageGeneration::NoValue()`.  In this case, the condition
-    //    is specified as `=0`.
+    // 2. `gen` is `StorageGeneration::NoValue()`.  In this case, the
+    //    condition is specified as `=0`.
     //
     // In either case, `StorageGeneration::ToUint64` provides the correct
     // result.
@@ -235,9 +250,6 @@ std::string BucketUploadRoot(std::string_view bucket) {
 
 /// Returns whether the absl::Status is a retriable request.
 bool IsRetriable(const absl::Status& status) {
-  if (status.GetPayload(kNoRetryPayload).has_value()) {
-    return false;
-  }
   if (status.code() == absl::StatusCode::kDeadlineExceeded ||
       status.code() == absl::StatusCode::kUnavailable) {
     gcs_retries.Increment();
@@ -246,14 +258,29 @@ bool IsRetriable(const absl::Status& status) {
   return false;
 }
 
+void MaybeLogResponse(const char* description,
+                      const Result<HttpResponse>& result) {
+#ifdef TENSORSTORE_INTERNAL_GCS_LOG_RESPONSES
+  if (result.ok()) {
+    for (auto& [key, value] : result->headers) {
+      TENSORSTORE_LOG(description, ": ", key, ": ", value);
+    }
+    TENSORSTORE_LOG(description, ": Response: ", result->payload);
+  }
+#endif
+}
+
 struct GcsKeyValueStoreSpecData {
   std::string bucket;
-  Context::Resource<GcsRequestConcurrencyResource> request_concurrency;
+
+  Context::Resource<GcsAdmissionQueueResource> admission_queue;
   Context::Resource<GcsUserProjectResource> user_project;
   Context::Resource<GcsRequestRetries> retries;
+  Context::Resource<DataCopyConcurrencyResource> data_copy_concurrency;
 
   constexpr static auto ApplyMembers = [](auto& x, auto f) {
-    return f(x.bucket, x.request_concurrency, x.user_project, x.retries);
+    return f(x.bucket, x.admission_queue, x.user_project, x.retries,
+             x.data_copy_concurrency);
   };
 
   constexpr static auto default_json_binder = jb::Object(
@@ -268,16 +295,19 @@ struct GcsKeyValueStoreSpecData {
                        }
                        return absl::OkStatus();
                      }))),
-      jb::Member(
-          GcsRequestConcurrencyResource::id,
-          jb::Projection<&GcsKeyValueStoreSpecData::request_concurrency>()),
+      jb::Member("gcs_request_concurrency",
+                 jb::Projection<&GcsKeyValueStoreSpecData::admission_queue>()),
       // `user_project` project ID to use for billing is obtained from the
       // `context` since it is not part of the identity of the resource being
       // accessed.
       jb::Member(GcsUserProjectResource::id,
                  jb::Projection<&GcsKeyValueStoreSpecData::user_project>()),
       jb::Member(GcsRequestRetries::id,
-                 jb::Projection<&GcsKeyValueStoreSpecData::retries>()));
+                 jb::Projection<&GcsKeyValueStoreSpecData::retries>()),
+      jb::Member(DataCopyConcurrencyResource::id,
+                 jb::Projection<
+                     &GcsKeyValueStoreSpecData::data_copy_concurrency>()) /**/
+  );
 };
 
 std::string GetGcsUrl(std::string_view bucket, std::string_view path) {
@@ -339,17 +369,13 @@ class GcsKeyValueStore
       }
     }
     if (!*auth_provider_) return std::nullopt;
-    auto result = (*auth_provider_)->GetAuthHeader();
-    if (result.ok()) return result;
-    // Annotate auth failures to abort the retry loop.
-    auto status = std::move(result).status();
-    status.SetPayload(kNoRetryPayload, {});
-    return status;
+    return (*auth_provider_)->GetAuthHeader();
   }
 
   const Executor& executor() const {
-    return spec_.request_concurrency->executor;
+    return spec_.data_copy_concurrency->executor;
   }
+  AdmissionQueue& admission_queue() { return *(spec_.admission_queue->queue); }
 
   absl::Status GetBoundSpecData(SpecData& spec) const {
     spec = spec_;
@@ -361,35 +387,31 @@ class GcsKeyValueStore
   }
 
   // Wrap transport to allow our old mocking to work.
-  Result<HttpResponse> IssueRequest(const char* description,
+  Future<HttpResponse> IssueRequest(const char* description,
                                     const HttpRequest& request,
                                     const absl::Cord& payload) {
-    auto result = transport_->IssueRequest(request, payload).result();
 #ifdef TENSORSTORE_INTERNAL_GCS_LOG_REQUESTS
-    if (result.ok()) {
-      TENSORSTORE_LOG(description, " ", result->status_code, " ",
-                      request.url());
-    } else {
-      TENSORSTORE_LOG(description, " ", result.status(), " ", request.url());
-    }
+    TENSORSTORE_LOG(description, " ", request.url(), " size=", payload.size());
 #endif
-#ifdef TENSORSTORE_INTERNAL_GCS_LOG_RESPONSES
-    if (result.ok()) {
-      for (auto& [key, value] : result->headers) {
-        TENSORSTORE_LOG(description, ": ", key, ": ", value);
-      }
-      TENSORSTORE_LOG(description, ": Response: ", result->payload);
-    }
-#endif
-    return result;
+    return transport_->IssueRequest(request, payload);
   }
 
-  // https://cloud.google.com/storage/docs/retry-strategy#exponential-backoff
-  absl::Status RetryRequestWithBackoff(std::function<absl::Status()> function) {
-    return internal::RetryWithBackoff(
-        std::move(function), spec_.retries->max_retries,
-        spec_.retries->initial_delay, spec_.retries->max_delay,
-        spec_.retries->initial_delay, IsRetriable);
+  // Apply default backoff/retry logic to the task.
+  // Returns whether the task will be retried. On false, max retries have
+  // been met or exceeded.  On true, `task->Retry()` will be scheduled to run
+  // after a suitable backoff period.
+  template <typename Task>
+  bool BackoffForAttemptAsync(int attempt, Task* task) {
+    if (attempt >= spec_.retries->max_retries) return false;
+    // https://cloud.google.com/storage/docs/retry-strategy#exponential-backoff
+    auto delay = internal::BackoffForAttempt(
+        attempt, spec_.retries->initial_delay, spec_.retries->max_delay,
+        spec_.retries->initial_delay);
+    ScheduleAt(absl::Now() + delay,
+               WithExecutor(executor(), [task = IntrusivePtr<Task>(task)] {
+                 task->Retry();
+               }));
+    return true;
   }
 
   SpecData spec_;
@@ -400,8 +422,8 @@ class GcsKeyValueStore
   std::shared_ptr<HttpTransport> transport_;
 
   absl::Mutex auth_provider_mutex_;
-  // Optional state indicates whether the provider has been obtained.  A nullptr
-  // provider is valid and indicates to use anonymous access.
+  // Optional state indicates whether the provider has been obtained.  A
+  // nullptr provider is valid and indicates to use anonymous access.
   std::optional<std::shared_ptr<internal_oauth2::AuthProvider>> auth_provider_;
 };
 
@@ -411,6 +433,7 @@ Future<kvstore::DriverPtr> GcsKeyValueStoreSpec::DoOpen() const {
   driver->resource_root_ = BucketResourceRoot(data_.bucket);
   driver->upload_root_ = BucketUploadRoot(data_.bucket);
   driver->transport_ = internal_http::GetDefaultHttpTransport();
+
   if (const auto& project_id = data_.user_project->project_id) {
     driver->encoded_user_project_ =
         internal::PercentEncodeUriComponent(*project_id);
@@ -418,14 +441,41 @@ Future<kvstore::DriverPtr> GcsKeyValueStoreSpec::DoOpen() const {
   return driver;
 }
 
+////////////////////////////////////////////////////
+
 /// A ReadTask is a function object used to satisfy a
 /// GcsKeyValueStore::Read request.
-struct ReadTask {
+struct ReadTask : public AdmissionNode,
+                  public internal::AtomicReferenceCount<ReadTask> {
   IntrusivePtr<GcsKeyValueStore> owner;
   std::string resource;
   kvstore::ReadOptions options;
+  Promise<kvstore::ReadResult> promise;
 
-  Result<kvstore::ReadResult> operator()() {
+  int attempt_ = 0;
+  absl::Time start_time_;
+
+  ReadTask(IntrusivePtr<GcsKeyValueStore> owner, std::string resource,
+           kvstore::ReadOptions options, Promise<kvstore::ReadResult> promise)
+      : owner(std::move(owner)),
+        resource(std::move(resource)),
+        options(std::move(options)),
+        promise(std::move(promise)) {}
+
+  ~ReadTask() { owner->admission_queue().Finish(this); }
+
+  static void Start(void* task) {
+    auto* self = reinterpret_cast<ReadTask*>(task);
+    self->owner->executor()(
+        [state = IntrusivePtr<ReadTask>(self, internal::adopt_object_ref)] {
+          state->Retry();
+        });
+  }
+
+  void Retry() {
+    if (!promise.result_needed()) {
+      return;
+    }
     /// Reads contents of a GCS object.
     std::string media_url = StrCat(resource, "?alt=media");
 
@@ -437,44 +487,75 @@ struct ReadTask {
     // Assume that if the user_project field is set, that we want to provide
     // it on the uri for a requestor pays bucket.
     AddUserProjectParam(&media_url, true, owner->encoded_user_project());
-    kvstore::ReadResult read_result;
 
     // TODO: Configure timeouts.
-    HttpResponse httpresponse;
-    auto retry_status = owner->RetryRequestWithBackoff([&] {
-      TENSORSTORE_ASSIGN_OR_RETURN(auto auth_header, owner->GetAuthHeader());
-      HttpRequestBuilder request_builder("GET", media_url);
-      if (auth_header) request_builder.AddHeader(*auth_header);
-      // For requests to buckets that are publicly readable, GCS may return a
-      // stale response unless it is prohibited by the cache-control header.
-      internal_http::AddStalenessBoundCacheControlHeader(
-          request_builder, options.staleness_bound);
-      if (options.byte_range.inclusive_min != 0 ||
-          options.byte_range.exclusive_max) {
-        request_builder.AddHeader(
-            internal_http::GetRangeHeader(options.byte_range));
-      }
-      auto request = request_builder.EnableAcceptEncoding().BuildRequest();
-      read_result.stamp.time = absl::Now();
-      auto response = owner->IssueRequest("ReadTask", request, {});
-      if (!response.ok()) return GetStatus(response);
-      httpresponse = std::move(*response);
-      switch (httpresponse.status_code) {
+    auto maybe_auth_header = owner->GetAuthHeader();
+    if (!maybe_auth_header.ok()) {
+      promise.SetResult(maybe_auth_header.status());
+      return;
+    }
+
+    HttpRequestBuilder request_builder("GET", media_url);
+    if (maybe_auth_header.value().has_value()) {
+      request_builder.AddHeader(*maybe_auth_header.value());
+    }
+    // For requests to buckets that are publicly readable, GCS may return a
+    // stale response unless it is prohibited by the cache-control header.
+    internal_http::AddStalenessBoundCacheControlHeader(request_builder,
+                                                       options.staleness_bound);
+    if (options.byte_range.inclusive_min != 0 ||
+        options.byte_range.exclusive_max) {
+      request_builder.AddHeader(
+          internal_http::GetRangeHeader(options.byte_range));
+    }
+    auto request = request_builder.EnableAcceptEncoding().BuildRequest();
+    start_time_ = absl::Now();
+    auto future = owner->IssueRequest("ReadTask", request, {});
+    future.ExecuteWhenReady([self = IntrusivePtr<ReadTask>(this)](
+                                ReadyFuture<HttpResponse> response) {
+      self->OnResponse(response.result());
+    });
+  }
+
+  void OnResponse(const Result<HttpResponse>& response) {
+    if (!promise.result_needed()) {
+      return;
+    }
+    MaybeLogResponse("ReadTask", response);
+
+    absl::Status status = [&]() -> absl::Status {
+      if (!response.ok()) return response.status();
+      switch (response.value().status_code) {
         // Special status codes handled outside the retry loop.
         case 412:
         case 404:
         case 304:
           return absl::OkStatus();
       }
-      return HttpResponseCodeToStatus(httpresponse);
-    });
+      return HttpResponseCodeToStatus(response.value());
+    }();
 
-    TENSORSTORE_RETURN_IF_ERROR(retry_status);
+    if (!status.ok() && IsRetriable(status)) {
+      if (owner->BackoffForAttemptAsync(attempt_++, this)) {
+        return;
+      }
+      status =
+          absl::AbortedError(StrCat("All retry attempts failed: ", status));
+    }
+    if (!status.ok()) {
+      promise.SetResult(status);
+    } else {
+      promise.SetResult(FinishResponse(response.value()));
+    }
+  }
 
+  Result<kvstore::ReadResult> FinishResponse(const HttpResponse& httpresponse) {
     gcs_bytes_read.IncrementBy(httpresponse.payload.size());
 
     // Parse `Date` header from response to correctly handle cached responses.
     // The GCS servers always send a `date` header.
+    kvstore::ReadResult read_result;
+    read_result.stamp.time = start_time_;
     {
       absl::Time response_date;
       auto date_it = httpresponse.headers.find("date");
@@ -489,13 +570,13 @@ struct ReadTask {
             tensorstore::StrCat("Invalid \"date\" response header: ",
                                 tensorstore::QuoteString(date_it->second)));
       }
-      if (response_date < read_result.stamp.time) {
-        if (options.staleness_bound < read_result.stamp.time &&
+      if (response_date < start_time_) {
+        if (options.staleness_bound < start_time_ &&
             response_date < options.staleness_bound) {
-          // `response_date` does not satisfy the `staleness_bound` requirement,
-          // possibly due to time skew.  Due to the way we compute `max-age` in
-          // the request header, in the case of time skew it is correct to just
-          // use `staleness_bound` instead.
+          // `response_date` does not satisfy the `staleness_bound`
+          // requirement, possibly due to time skew.  Due to the way we
+          // compute `max-age` in the request header, in the case of time skew
+          // it is correct to just use `staleness_bound` instead.
           read_result.stamp.time = options.staleness_bound;
         } else {
           read_result.stamp.time = response_date;
@@ -511,13 +592,13 @@ struct ReadTask {
         read_result.state = kvstore::ReadResult::kMissing;
         return read_result;
       case 412:
-        // "Failed precondition": indicates the ifGenerationMatch condition did
-        // not hold.
+        // "Failed precondition": indicates the ifGenerationMatch condition
+        // did not hold.
         read_result.stamp.generation = StorageGeneration::Unknown();
         return read_result;
       case 304:
-        // "Not modified": indicates that the ifGenerationNotMatch condition did
-        // not hold.
+        // "Not modified": indicates that the ifGenerationNotMatch condition
+        // did not hold.
         read_result.stamp.generation = options.if_not_equal;
         return read_result;
     }
@@ -553,23 +634,55 @@ Future<kvstore::ReadResult> GcsKeyValueStore::Read(Key key,
   auto encoded_object_name = internal::PercentEncodeUriComponent(key);
   std::string resource = tensorstore::internal::JoinPath(resource_root_, "/o/",
                                                          encoded_object_name);
-  return MapFuture(executor(),
-                   ReadTask{IntrusivePtr<GcsKeyValueStore>(this),
-                            std::move(resource), std::move(options)});
+
+  auto op = PromiseFuturePair<ReadResult>::Make();
+  auto state = internal::MakeIntrusivePtr<ReadTask>(
+      internal::IntrusivePtr<GcsKeyValueStore>(this), std::move(resource),
+      std::move(options), std::move(op.promise));
+
+  intrusive_ptr_increment(state.get());  // adopted by ReadTask::Start.
+  admission_queue().Admit(state.get(), &ReadTask::Start);
+  return std::move(op.future);
 }
 
 /// A WriteTask is a function object used to satisfy a
 /// GcsKeyValueStore::Write request.
-struct WriteTask {
-  using Value = kvstore::Value;
-
+struct WriteTask : public AdmissionNode,
+                   public internal::AtomicReferenceCount<WriteTask> {
   IntrusivePtr<GcsKeyValueStore> owner;
   std::string encoded_object_name;
-  Value value;
+  absl::Cord value;
   kvstore::WriteOptions options;
+  Promise<TimestampedStorageGeneration> promise;
+
+  int attempt_ = 0;
+  absl::Time start_time_;
+
+  WriteTask(IntrusivePtr<GcsKeyValueStore> owner,
+            std::string encoded_object_name, absl::Cord value,
+            kvstore::WriteOptions options,
+            Promise<TimestampedStorageGeneration> promise)
+      : owner(std::move(owner)),
+        encoded_object_name(std::move(encoded_object_name)),
+        value(std::move(value)),
+        options(std::move(options)),
+        promise(std::move(promise)) {}
+
+  ~WriteTask() { owner->admission_queue().Finish(this); }
+
+  static void Start(void* task) {
+    auto* self = reinterpret_cast<WriteTask*>(task);
+    self->owner->executor()(
+        [state = IntrusivePtr<WriteTask>(self, internal::adopt_object_ref)] {
+          state->Retry();
+        });
+  }
 
   /// Writes an object to GCS.
-  Result<TimestampedStorageGeneration> operator()() {
+  void Retry() {
+    if (!promise.result_needed()) {
+      return;
+    }
     // We use the SimpleUpload technique.
 
     std::string upload_url =
@@ -584,22 +697,35 @@ struct WriteTask {
     // it on the uri for a requestor pays bucket.
     AddUserProjectParam(&upload_url, true, owner->encoded_user_project());
 
-    TimestampedStorageGeneration r;
+    auto maybe_auth_header = owner->GetAuthHeader();
+    if (!maybe_auth_header.ok()) {
+      promise.SetResult(maybe_auth_header.status());
+      return;
+    }
+    HttpRequestBuilder request_builder("POST", upload_url);
+    if (maybe_auth_header.value().has_value()) {
+      request_builder.AddHeader(*maybe_auth_header.value());
+    }
+    auto request = request_builder  //
+                       .AddHeader("Content-Type: application/octet-stream")
+                       .AddHeader(StrCat("Content-Length: ", value.size()))
+                       .BuildRequest();
+    start_time_ = absl::Now();
+    auto future = owner->IssueRequest("WriteTask", request, value);
+    future.ExecuteWhenReady([self = IntrusivePtr<WriteTask>(this)](
+                                ReadyFuture<HttpResponse> response) {
+      self->OnResponse(response.result());
+    });
+  }
 
-    HttpResponse httpresponse;
-    auto retry_status = owner->RetryRequestWithBackoff([&] {
-      TENSORSTORE_ASSIGN_OR_RETURN(auto auth_header, owner->GetAuthHeader());
-      HttpRequestBuilder request_builder("POST", upload_url);
-      if (auth_header) request_builder.AddHeader(*auth_header);
-      auto request = request_builder  //
-                         .AddHeader("Content-Type: application/octet-stream")
-                         .AddHeader(StrCat("Content-Length: ", value.size()))
-                         .BuildRequest();
-      r.time = absl::Now();
-      auto response = owner->IssueRequest("WriteTask", request, value);
-      if (!response.ok()) return GetStatus(response);
-      httpresponse = std::move(*response);
-      switch (httpresponse.status_code) {
+  void OnResponse(const Result<HttpResponse>& response) {
+    if (!promise.result_needed()) {
+      return;
+    }
+    MaybeLogResponse("WriteTask", response);
+    absl::Status status = [&]() -> absl::Status {
+      if (!response.ok()) return response.status();
+      switch (response.value().status_code) {
         case 304:
           // Not modified implies that the generation did not match.
           [[fallthrough]];
@@ -615,11 +741,27 @@ struct WriteTask {
         default:
           break;
       }
-      return HttpResponseCodeToStatus(httpresponse);
-    });
+      return HttpResponseCodeToStatus(response.value());
+    }();
 
-    TENSORSTORE_RETURN_IF_ERROR(retry_status);
+    if (!status.ok() && IsRetriable(status)) {
+      if (owner->BackoffForAttemptAsync(attempt_++, this)) {
+        return;
+      }
+      status =
+          absl::AbortedError(StrCat("All retry attempts failed: ", status));
+    }
+    if (!status.ok()) {
+      promise.SetResult(status);
+    } else {
+      promise.SetResult(FinishResponse(response.value()));
+    }
+  }
 
+  Result<TimestampedStorageGeneration> FinishResponse(
+      const HttpResponse& httpresponse) {
+    TimestampedStorageGeneration r;
+    r.time = start_time_;
     switch (httpresponse.status_code) {
       case 304:
         // Not modified implies that the generation did not match.
@@ -639,26 +781,51 @@ struct WriteTask {
 
     // TODO: Avoid parsing the entire metadata & only extract the
     // generation field.
-    auto parsed_object_metadata =
-        ParseObjectMetadata(httpresponse.payload.Flatten());
+    auto payload = httpresponse.payload;
+    auto parsed_object_metadata = ParseObjectMetadata(payload.Flatten());
     TENSORSTORE_RETURN_IF_ERROR(parsed_object_metadata);
 
     r.generation =
         StorageGeneration::FromUint64(parsed_object_metadata->generation);
-
     return r;
   }
 };
 
 /// A DeleteTask is a function object used to satisfy a
 /// GcsKeyValueStore::Delete request.
-struct DeleteTask {
+struct DeleteTask : public AdmissionNode,
+                    public internal::AtomicReferenceCount<DeleteTask> {
   IntrusivePtr<GcsKeyValueStore> owner;
   std::string resource;
   kvstore::WriteOptions options;
+  Promise<TimestampedStorageGeneration> promise;
 
-  /// Writes an object to GCS.
-  Result<TimestampedStorageGeneration> operator()() {
+  int attempt_ = 0;
+  absl::Time start_time_;
+
+  DeleteTask(IntrusivePtr<GcsKeyValueStore> owner, std::string resource,
+             kvstore::WriteOptions options,
+             Promise<TimestampedStorageGeneration> promise)
+      : owner(std::move(owner)),
+        resource(std::move(resource)),
+        options(std::move(options)),
+        promise(std::move(promise)) {}
+
+  ~DeleteTask() { owner->admission_queue().Finish(this); }
+
+  static void Start(void* task) {
+    auto* self = reinterpret_cast<DeleteTask*>(task);
+    self->owner->executor()(
+        [state = IntrusivePtr<DeleteTask>(self, internal::adopt_object_ref)] {
+          state->Retry();
+        });
+  }
+
+  /// Removes an object from GCS.
+  void Retry() {
+    if (!promise.result_needed()) {
+      return;
+    }
     std::string delete_url = resource;
 
     // Add the ifGenerationNotMatch condition.
@@ -668,20 +835,35 @@ struct DeleteTask {
     // Assume that if the user_project field is set, that we want to provide
     // it on the uri for a requestor pays bucket.
     AddUserProjectParam(&delete_url, has_query, owner->encoded_user_project());
-    TimestampedStorageGeneration r;
 
-    HttpResponse httpresponse;
-    auto retry_status = owner->RetryRequestWithBackoff([&] {
-      TENSORSTORE_ASSIGN_OR_RETURN(auto auth_header, owner->GetAuthHeader());
-      HttpRequestBuilder request_builder("DELETE", delete_url);
-      if (auth_header) request_builder.AddHeader(*auth_header);
-      auto request = request_builder  //
-                         .BuildRequest();
-      r.time = absl::Now();
-      auto response = owner->IssueRequest("DeleteTask", request, {});
-      if (!response.ok()) return GetStatus(response);
-      httpresponse = std::move(*response);
-      switch (httpresponse.status_code) {
+    auto maybe_auth_header = owner->GetAuthHeader();
+    if (!maybe_auth_header.ok()) {
+      promise.SetResult(maybe_auth_header.status());
+      return;
+    }
+    HttpRequestBuilder request_builder("DELETE", delete_url);
+    if (maybe_auth_header.value().has_value()) {
+      request_builder.AddHeader(*maybe_auth_header.value());
+    }
+
+    auto request = request_builder.BuildRequest();
+    start_time_ = absl::Now();
+    auto future = owner->IssueRequest("DeleteTask", request, {});
+    future.ExecuteWhenReady([self = IntrusivePtr<DeleteTask>(this)](
+                                ReadyFuture<HttpResponse> response) {
+      self->OnResponse(response.result());
+    });
+  }
+
+  void OnResponse(const Result<HttpResponse>& response) {
+    if (!promise.result_needed()) {
+      return;
+    }
+    MaybeLogResponse("DeleteTask", response);
+
+    absl::Status status = [&]() -> absl::Status {
+      if (!response.ok()) return response.status();
+      switch (response.value().status_code) {
         case 412:
           // Failed precondition implies the generation did not match.
           [[fallthrough]];
@@ -690,12 +872,24 @@ struct DeleteTask {
         default:
           break;
       }
-      return HttpResponseCodeToStatus(httpresponse);
-    });
+      return HttpResponseCodeToStatus(response.value());
+    }();
 
-    TENSORSTORE_RETURN_IF_ERROR(retry_status);
+    if (!status.ok() && IsRetriable(status)) {
+      if (owner->BackoffForAttemptAsync(attempt_++, this)) {
+        return;
+      }
+      status =
+          absl::AbortedError(StrCat("All retry attempts failed: ", status));
+    }
+    if (!status.ok()) {
+      promise.SetResult(status);
+      return;
+    }
 
-    switch (httpresponse.status_code) {
+    TimestampedStorageGeneration r;
+    r.time = start_time_;
+    switch (response.value().status_code) {
       case 412:
         // Failed precondition implies the generation did not match.
         r.generation = StorageGeneration::Unknown();
@@ -712,7 +906,7 @@ struct DeleteTask {
         r.generation = StorageGeneration::NoValue();
         break;
     }
-    return r;
+    promise.SetResult(std::move(r));
   }
 };
 
@@ -727,58 +921,28 @@ Future<TimestampedStorageGeneration> GcsKeyValueStore::Write(
   }
 
   std::string encoded_object_name = internal::PercentEncodeUriComponent(key);
+  auto op = PromiseFuturePair<TimestampedStorageGeneration>::Make();
+
   if (value) {
-    return MapFuture(
-        executor(), WriteTask{IntrusivePtr<GcsKeyValueStore>(this),
-                              std::move(encoded_object_name), std::move(*value),
-                              std::move(options)});
+    auto state = internal::MakeIntrusivePtr<WriteTask>(
+        IntrusivePtr<GcsKeyValueStore>(this), std::move(encoded_object_name),
+        std::move(*value), std::move(options), std::move(op.promise));
+
+    intrusive_ptr_increment(state.get());  // adopted by WriteTask::Start.
+    admission_queue().Admit(state.get(), &WriteTask::Start);
   } else {
     std::string resource = tensorstore::internal::JoinPath(
         resource_root_, "/o/", encoded_object_name);
-    return MapFuture(executor(),
-                     DeleteTask{IntrusivePtr<GcsKeyValueStore>(this),
-                                std::move(resource), std::move(options)});
+
+    auto state = internal::MakeIntrusivePtr<DeleteTask>(
+        IntrusivePtr<GcsKeyValueStore>(this), std::move(resource),
+        std::move(options), std::move(op.promise));
+
+    intrusive_ptr_increment(state.get());  // adopted by DeleteTask::Start.
+    admission_queue().Admit(state.get(), &DeleteTask::Start);
   }
+  return std::move(op.future);
 }
-
-std::string BuildListQueryParameters(const KeyRange& range,
-                                     std::optional<int> max_results) {
-  std::string result;
-  if (!range.inclusive_min.empty()) {
-    result = StrCat("startOffset=",
-                    internal::PercentEncodeUriComponent(range.inclusive_min));
-  }
-  if (!range.exclusive_max.empty()) {
-    absl::StrAppend(&result, (result.empty() ? "" : "&"), "endOffset=",
-                    internal::PercentEncodeUriComponent(range.exclusive_max));
-  }
-  if (max_results.has_value()) {
-    absl::StrAppend(&result, (result.empty() ? "" : "&"),
-                    "maxResults=", *max_results);
-  }
-  return result;
-}
-
-template <typename Receiver>
-struct ListState : public internal::AtomicReferenceCount<ListState<Receiver>> {
-  IntrusivePtr<GcsKeyValueStore> owner;
-  Executor executor;
-  std::string resource;
-  std::string query_parameters;
-
-  Receiver receiver;
-  std::atomic<bool> cancelled{false};
-
-  inline bool is_cancelled() {
-    return cancelled.load(std::memory_order_relaxed);
-  }
-
-  // Helpers forward to the receiver.
-  inline void set_starting() {
-    execution::set_starting(
-        receiver, [this] { cancelled.store(true, std::memory_order_relaxed); });
-  }
-};
 
 // List responds with a Json payload that includes these fields.
 struct GcsListResponsePayload {
@@ -794,141 +958,183 @@ constexpr static auto GcsListResponsePayloadBinder = jb::Object(
                                        jb::DefaultInitializedValue())),
     jb::DiscardExtraMembers);
 
-template <typename Receiver>
-struct ListOp {
-  using State = ListState<Receiver>;
-  IntrusivePtr<State> state;
+/// ListTask implements the ListImpl execution flow.
+struct ListTask : public AdmissionNode,
+                  public internal::AtomicReferenceCount<ListTask> {
+  internal::IntrusivePtr<GcsKeyValueStore> owner_;
+  ListOptions options_;
+  AnyFlowReceiver<absl::Status, Key> receiver_;
+  std::string resource_;
 
-  inline absl::Status maybe_cancelled() {
-    return state->is_cancelled() ? absl::CancelledError("") : absl::OkStatus();
+  std::string base_list_url_;
+  std::string next_page_token_;
+  int attempt_ = 0;
+  bool has_query_parameters_;
+  std::atomic<bool> cancelled_{false};
+
+  ListTask(internal::IntrusivePtr<GcsKeyValueStore> owner, ListOptions options,
+           AnyFlowReceiver<absl::Status, Key> receiver, std::string resource)
+      : owner_(std::move(owner)),
+        options_(std::move(options)),
+        receiver_(std::move(receiver)),
+        resource_(std::move(resource)) {
+    // Construct the base LIST url. This will be modified to include the
+    // nextPageToken
+    base_list_url_ = resource_;
+    has_query_parameters_ = AddUserProjectParam(&base_list_url_, false,
+                                                owner_->encoded_user_project());
+    if (auto& inclusive_min = options_.range.inclusive_min;
+        !inclusive_min.empty()) {
+      absl::StrAppend(
+          &base_list_url_, (has_query_parameters_ ? "&" : "?"),
+          "startOffset=", internal::PercentEncodeUriComponent(inclusive_min));
+      has_query_parameters_ = true;
+    }
+    if (auto& exclusive_max = options_.range.exclusive_max;
+        !exclusive_max.empty()) {
+      absl::StrAppend(
+          &base_list_url_, (has_query_parameters_ ? "&" : "?"),
+          "endOffset=", internal::PercentEncodeUriComponent(exclusive_max));
+      has_query_parameters_ = true;
+    }
   }
 
-  void operator()() {
-    state->set_starting();
-    auto status = Run();
-    if (!status.ok() && !state->is_cancelled()) {
-      if (absl::IsInvalidArgument(status)) {
-        status = absl::InternalError(status.message());
-      }
-      execution::set_error(state->receiver, std::move(status));
+  ~ListTask() { owner_->admission_queue().Finish(this); }
+
+  inline bool is_cancelled() {
+    return cancelled_.load(std::memory_order_relaxed);
+  }
+
+  static void Start(void* task) {
+    auto* self = reinterpret_cast<ListTask*>(task);
+    execution::set_starting(self->receiver_, [self] {
+      self->cancelled_.store(true, std::memory_order_relaxed);
+    });
+    self->owner_->executor()(
+        [state = IntrusivePtr<ListTask>(self, internal::adopt_object_ref)] {
+          state->IssueRequest();
+        });
+  }
+
+  void Retry() { IssueRequest(); }
+
+  void IssueRequest() {
+    if (is_cancelled()) {
+      execution::set_done(receiver_);
+      execution::set_stopping(receiver_);
       return;
     }
 
-    // Either the request has been cancelled, or it has been completed.
-    execution::set_done(state->receiver);
-    execution::set_stopping(state->receiver);
-  }
-
-  absl::Status Run() {
-    // Construct the base LIST url. This will be modified to
-    // include the nextPageToken
-    std::string base_list_url = state->resource;
-    bool url_has_query = AddUserProjectParam(
-        &base_list_url, false, state->owner->encoded_user_project());
-    if (!state->query_parameters.empty()) {
-      absl::StrAppend(&base_list_url, (url_has_query ? "&" : "?"),
-                      state->query_parameters);
-      url_has_query = true;
+    std::string list_url = base_list_url_;
+    if (!next_page_token_.empty()) {
+      absl::StrAppend(&list_url, (has_query_parameters_ ? "&" : "?"),
+                      "pageToken=", next_page_token_);
     }
 
-    GcsListResponsePayload last_payload;
-    while (true) {
-      TENSORSTORE_RETURN_IF_ERROR(maybe_cancelled());
+    auto auth_header = owner_->GetAuthHeader();
+    if (!auth_header.ok()) {
+      execution::set_error(receiver_, std::move(auth_header).status());
+      execution::set_stopping(receiver_);
+      return;
+    }
 
-      std::string list_url = base_list_url;
-      if (!last_payload.next_page_token.empty()) {
-        absl::StrAppend(&list_url, (url_has_query ? "&" : "?"),
-                        "pageToken=", last_payload.next_page_token);
-      }
+    HttpRequestBuilder request_builder("GET", list_url);
+    if (auth_header->has_value())
+      request_builder.AddHeader(auth_header->value());
+    auto request = request_builder.BuildRequest();
 
-      HttpResponse httpresponse;
-      auto retry_status = state->owner->RetryRequestWithBackoff([&] {
-        TENSORSTORE_RETURN_IF_ERROR(maybe_cancelled());
-        TENSORSTORE_ASSIGN_OR_RETURN(auto auth_header,
-                                     state->owner->GetAuthHeader());
-        TENSORSTORE_RETURN_IF_ERROR(maybe_cancelled());
-        HttpRequestBuilder request_builder("GET", list_url);
-        if (auth_header) request_builder.AddHeader(*auth_header);
-        auto request = request_builder.BuildRequest();
-        auto response = state->owner->IssueRequest("List", request, {});
-        if (!response.ok()) return GetStatus(response);
-        httpresponse = std::move(*response);
-        return HttpResponseCodeToStatus(httpresponse);
-      });
+    auto future = owner_->IssueRequest("List", request, {});
+    future.ExecuteWhenReady(WithExecutor(
+        owner_->executor(), [self = IntrusivePtr<ListTask>(this)](
+                                ReadyFuture<HttpResponse> response) {
+          self->OnResponse(response.result());
+        }));
+  }
 
-      TENSORSTORE_RETURN_IF_ERROR(retry_status);
-      TENSORSTORE_RETURN_IF_ERROR(maybe_cancelled());
+  void OnResponse(const Result<HttpResponse>& response) {
+    auto status = OnResponseImpl(response);
+    // OkStatus are handled by OnResponseImpl
+    if (absl::IsCancelled(status)) {
+      execution::set_done(receiver_);
+      execution::set_stopping(receiver_);
+      return;
+    }
+    if (!status.ok()) {
+      execution::set_error(receiver_, std::move(status));
+      execution::set_stopping(receiver_);
+      return;
+    }
+  }
 
-      auto j = internal::ParseJson(httpresponse.payload.Flatten());
-      if (j.is_discarded()) {
-        return absl::InternalError(StrCat("Failed to parse response metadata: ",
-                                          httpresponse.payload.Flatten()));
-      }
-
-      TENSORSTORE_ASSIGN_OR_RETURN(last_payload,
-                                   jb::FromJson<GcsListResponsePayload>(
-                                       j, GcsListResponsePayloadBinder));
-
-      execution::set_value(state->receiver, std::move(last_payload.items));
-
-      // Are we done yet?
-      if (last_payload.next_page_token.empty()) {
+  absl::Status OnResponseImpl(const Result<HttpResponse>& response) {
+    if (is_cancelled()) {
+      return absl::CancelledError();
+    }
+    MaybeLogResponse("List", response);
+    absl::Status status = response.ok() ? HttpResponseCodeToStatus(*response)
+                                        : GetStatus(response);
+    if (!status.ok() && IsRetriable(status)) {
+      if (owner_->BackoffForAttemptAsync(attempt_++, this)) {
         return absl::OkStatus();
       }
+      return absl::AbortedError(StrCat("All retry attempts failed: ", status));
     }
-  }
-};
-
-struct ListReceiver {
-  AnyFlowReceiver<absl::Status, kvstore::Key> receiver;
-  size_t strip_prefix_length;
-
-  // set_value extracts the name from the object metadata.
-  [[maybe_unused]] friend void set_value(ListReceiver& self,
-                                         std::vector<ObjectMetadata> v) {
-    for (auto& metadata : v) {
-      metadata.name.erase(0, self.strip_prefix_length);
-      execution::set_value(self.receiver, std::move(metadata.name));
+    auto payload = response->payload;
+    auto j = internal::ParseJson(payload.Flatten());
+    if (j.is_discarded()) {
+      return absl::InternalError(
+          StrCat("Failed to parse response metadata: ", payload.Flatten()));
     }
-  }
-  [[maybe_unused]] friend void set_done(ListReceiver& self) {
-    execution::set_done(self.receiver);
-  }
-  [[maybe_unused]] friend void set_stopping(ListReceiver& self) {
-    execution::set_stopping(self.receiver);
-  }
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto parsed_payload,
+        jb::FromJson<GcsListResponsePayload>(j, GcsListResponsePayloadBinder));
+    for (auto& metadata : parsed_payload.items) {
+      if (is_cancelled()) {
+        return absl::CancelledError();
+      }
+      std::string_view name = metadata.name;
+      if (options_.strip_prefix_length) {
+        name = name.substr(options_.strip_prefix_length);
+      }
+      execution::set_value(receiver_, std::string(name));
+    }
 
-  // Other methods just forward to the underlying receiver.
-  template <typename CancelReceiver>
-  friend void set_starting(ListReceiver& self, CancelReceiver cancel) {
-    execution::set_starting(self.receiver, std::move(cancel));
-  }
-  template <typename E>
-  friend void set_error(ListReceiver& self, E e) {
-    execution::set_error(self.receiver, std::move(e));
+    // Successful request, so clear the retry_attempt for the next request.
+    attempt_ = 0;
+    next_page_token_ = std::move(parsed_payload.next_page_token);
+    if (!next_page_token_.empty()) {
+      IssueRequest();
+    } else {
+      execution::set_done(receiver_);
+      execution::set_stopping(receiver_);
+    }
+    return absl::OkStatus();
   }
 };
 
 void GcsKeyValueStore::ListImpl(ListOptions options,
                                 AnyFlowReceiver<absl::Status, Key> receiver) {
-  using State = ListState<ListReceiver>;
   gcs_list.Increment();
-  auto state = internal::MakeIntrusivePtr<State>();
-  state->owner = IntrusivePtr<GcsKeyValueStore>(this);
-  state->executor = executor();
-  state->resource = tensorstore::internal::JoinPath(resource_root_, "/o");
-  state->query_parameters =
-      BuildListQueryParameters(options.range, std::nullopt);
-  state->receiver.receiver = std::move(receiver);
-  state->receiver.strip_prefix_length = options.strip_prefix_length;
+  if (options.range.empty()) {
+    execution::set_starting(receiver, [] {});
+    execution::set_done(receiver);
+    execution::set_stopping(receiver);
+    return;
+  }
 
-  executor()(ListOp<ListReceiver>{std::move(state)});
+  auto state = internal::MakeIntrusivePtr<ListTask>(
+      IntrusivePtr<GcsKeyValueStore>(this), std::move(options),
+      std::move(receiver),
+      /*resource=*/tensorstore::internal::JoinPath(resource_root_, "/o"));
+
+  intrusive_ptr_increment(state.get());  // adopted by ListTask::Start.
+  admission_queue().Admit(state.get(), &ListTask::Start);
 }
 
 // Receiver used by `DeleteRange` for processing the results from `List`.
 struct DeleteRangeListReceiver {
+  IntrusivePtr<GcsKeyValueStore> owner_;
   Promise<void> promise_;
-  IntrusivePtr<GcsKeyValueStore> owner;
   FutureCallbackRegistration cancel_registration_;
 
   void set_starting(AnyCancelReceiver cancel) {
@@ -936,13 +1142,14 @@ struct DeleteRangeListReceiver {
   }
 
   void set_value(std::string key) {
-    LinkError(promise_, owner->Delete(std::move(key)));
+    assert(!key.empty());
+    if (!key.empty()) {
+      LinkError(promise_, owner_->Delete(std::move(key)));
+    }
   }
 
   void set_error(absl::Status error) {
-    if (internal_future::FutureAccess::rep(promise_).LockResult()) {
-      promise_.raw_result() = std::move(error);
-    }
+    SetDeferredResult(promise_, std::move(error));
     promise_ = Promise<void>();
   }
 
@@ -953,17 +1160,18 @@ struct DeleteRangeListReceiver {
 
 Future<void> GcsKeyValueStore::DeleteRange(KeyRange range) {
   gcs_delete_range.Increment();
+  if (range.empty()) return absl::OkStatus();
+
   // TODO(jbms): It could make sense to rate limit the list operation, so that
   // we don't get way ahead of the delete operations.  Currently our
   // sender/receiver abstraction does not support back pressure, though.
-  auto [promise, future] =
-      PromiseFuturePair<void>::Make(tensorstore::MakeResult());
+  auto op = PromiseFuturePair<void>::Make(tensorstore::MakeResult());
   ListOptions list_options;
   list_options.range = std::move(range);
-  ListImpl(list_options,
-           DeleteRangeListReceiver{std::move(promise),
-                                   IntrusivePtr<GcsKeyValueStore>(this)});
-  return future;
+  ListImpl(list_options, DeleteRangeListReceiver{
+                             internal::IntrusivePtr<GcsKeyValueStore>(this),
+                             std::move(op.promise)});
+  return std::move(op.future);
 }
 
 Result<kvstore::Spec> ParseGcsUrl(std::string_view url) {
@@ -987,12 +1195,15 @@ Result<kvstore::Spec> ParseGcsUrl(std::string_view url) {
           : parsed.authority_and_path.substr(end_of_bucket + 1);
   auto driver_spec = internal::MakeIntrusivePtr<GcsKeyValueStoreSpec>();
   driver_spec->data_.bucket = bucket;
-  driver_spec->data_.request_concurrency =
-      Context::Resource<GcsRequestConcurrencyResource>::DefaultSpec();
+  driver_spec->data_.admission_queue =
+      Context::Resource<GcsAdmissionQueueResource>::DefaultSpec();
   driver_spec->data_.user_project =
       Context::Resource<GcsUserProjectResource>::DefaultSpec();
   driver_spec->data_.retries =
       Context::Resource<GcsRequestRetries>::DefaultSpec();
+  driver_spec->data_.data_copy_concurrency =
+      Context::Resource<DataCopyConcurrencyResource>::DefaultSpec();
+
   return {std::in_place, std::move(driver_spec),
           internal::PercentDecode(encoded_path)};
 }

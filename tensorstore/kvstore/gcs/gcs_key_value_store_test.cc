@@ -43,6 +43,7 @@
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/oauth2/google_auth_provider.h"
 #include "tensorstore/internal/path.h"
+#include "tensorstore/internal/schedule_at.h"
 #include "tensorstore/kvstore/gcs/gcs_mock.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/generation_testutil.h"
@@ -65,6 +66,7 @@ using tensorstore::MatchesJson;
 using tensorstore::MatchesStatus;
 using tensorstore::StrCat;
 using tensorstore::internal::MatchesKvsReadResult;
+using tensorstore::internal::ScheduleAt;
 using tensorstore::internal_http::HttpRequest;
 using tensorstore::internal_http::HttpResponse;
 using tensorstore::internal_http::HttpTransport;
@@ -265,7 +267,7 @@ TEST(GcsKeyValueStoreTest, Retry) {
                                     context)
                           .result());
       if (fail) {
-        bucket.TriggerErrors(max_retries);
+        bucket.TriggerErrors(max_retries + 1);
         EXPECT_THAT(kvstore::Read(store, "x").result(),
                     MatchesStatus(absl::StatusCode::kAborted));
       } else {
@@ -500,90 +502,6 @@ TEST(GcsKeyValueStoreTest, RequestorPays) {
             absl::OkStatus());
 }
 
-class MyConcurrentMockTransport : public MyMockTransport {
- public:
-  void reset(std::size_t limit) {
-    absl::MutexLock lock(&concurrent_request_mutex_);
-    expected_concurrent_requests_ = limit;
-    cur_concurrent_requests_ = 0;
-    max_concurrent_requests_ = 0;
-  }
-
-  Future<HttpResponse> IssueRequest(const HttpRequest& request,
-                                    absl::Cord payload,
-                                    absl::Duration request_timeout,
-                                    absl::Duration connect_timeout) override {
-    auto parsed = tensorstore::internal::ParseGenericUri(request.url());
-
-    // Don't do concurrency test on auth requests, as those don't happen
-    // concurrently.
-    if (!absl::StartsWith(parsed.authority_and_path,
-                          "metadata.google.internal/")) {
-      {
-        absl::MutexLock lock(&concurrent_request_mutex_);
-        ++cur_concurrent_requests_;
-        max_concurrent_requests_ =
-            std::max(max_concurrent_requests_, cur_concurrent_requests_);
-        concurrent_request_mutex_.Await(absl::Condition(
-            +[](MyConcurrentMockTransport* self) {
-              return self->max_concurrent_requests_ ==
-                     self->expected_concurrent_requests_;
-            },
-            this));
-      }
-      absl::SleepFor(kSleepAmount);
-      {
-        absl::MutexLock lock(&concurrent_request_mutex_);
-        --cur_concurrent_requests_;
-      }
-    }
-
-    return MyMockTransport::IssueRequest(request, payload, request_timeout,
-                                         connect_timeout);
-  }
-
-  constexpr static auto kSleepAmount = absl::Milliseconds(10);
-
-  std::size_t expected_concurrent_requests_ = 0;
-  std::size_t cur_concurrent_requests_ = 0;
-  std::size_t max_concurrent_requests_ = 0;
-  absl::Mutex concurrent_request_mutex_;
-};
-
-TEST(GcsKeyValueStoreTest, Concurrency) {
-  auto mock_transport = std::make_shared<MyConcurrentMockTransport>();
-  DefaultHttpTransportSetter mock_transport_setter{mock_transport};
-
-  GCSMockStorageBucket bucket("my-bucket");
-  mock_transport->buckets_.push_back(&bucket);
-
-  const auto TestConcurrency = [&](size_t limit) {
-    mock_transport->reset(limit);
-    auto context = DefaultTestContext();
-    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        auto store,
-        kvstore::Open(
-            {{"driver", kDriver},
-             {"bucket", "my-bucket"},
-             {"context", {{"gcs_request_concurrency", {{"limit", limit}}}}}},
-            context)
-            .result());
-
-    std::vector<tensorstore::Future<kvstore::ReadResult>> futures;
-    for (size_t i = 0; i < 10 * limit; ++i) {
-      futures.push_back(kvstore::Read(store, "abc"));
-    }
-    for (const auto& future : futures) {
-      future.Wait();
-    }
-    EXPECT_EQ(limit, mock_transport->max_concurrent_requests_);
-  };
-
-  TestConcurrency(1);
-  TestConcurrency(2);
-  TestConcurrency(3);
-}
-
 TEST(GcsKeyValueStoreTest, DeletePrefix) {
   auto mock_transport = std::make_shared<MyMockTransport>();
   DefaultHttpTransportSetter mock_transport_setter{mock_transport};
@@ -772,6 +690,90 @@ TEST(GcsKeyValueStoreTest, StaleResponse) {
         MatchesKvsReadResult(kvstore::ReadResult::kMissing, stamp3.generation,
                              ::testing::Ge(intermediate3)));
   }
+}
+
+class MyConcurrentMockTransport : public MyMockTransport {
+ public:
+  void reset(std::size_t limit) {
+    absl::MutexLock lock(&concurrent_request_mutex_);
+    expected_concurrent_requests_ = limit;
+    cur_concurrent_requests_ = 0;
+    max_concurrent_requests_ = 0;
+  }
+
+  Future<HttpResponse> IssueRequest(const HttpRequest& request,
+                                    absl::Cord payload,
+                                    absl::Duration request_timeout,
+                                    absl::Duration connect_timeout) override {
+    auto parsed = tensorstore::internal::ParseGenericUri(request.url());
+
+    // Don't do concurrency test on auth requests, as those don't happen
+    // concurrently.
+    if (absl::StartsWith(parsed.authority_and_path,
+                         "metadata.google.internal/")) {
+      return MyMockTransport::IssueRequest(request, payload, request_timeout,
+                                           connect_timeout);
+    }
+
+    {
+      absl::MutexLock lock(&concurrent_request_mutex_);
+      ++cur_concurrent_requests_;
+      max_concurrent_requests_ =
+          std::max(max_concurrent_requests_, cur_concurrent_requests_);
+    }
+
+    /// Schedule the completion 5ms in the future.
+    auto op = tensorstore::PromiseFuturePair<HttpResponse>::Make();
+    ScheduleAt(absl::Now() + absl::Milliseconds(5),
+               [=, p = std::move(op.promise), r = request] {
+                 absl::MutexLock lock(&concurrent_request_mutex_);
+                 --cur_concurrent_requests_;
+                 p.SetResult(MyMockTransport::IssueRequest(
+                                 r, payload, request_timeout, connect_timeout)
+                                 .result());
+               });
+
+    return std::move(op.future);
+  }
+
+  std::size_t expected_concurrent_requests_ = 0;
+  std::size_t cur_concurrent_requests_ = 0;
+  std::size_t max_concurrent_requests_ = 0;
+  absl::Mutex concurrent_request_mutex_;
+};
+
+TEST(GcsKeyValueStoreTest, Concurrency) {
+  auto mock_transport = std::make_shared<MyConcurrentMockTransport>();
+  DefaultHttpTransportSetter mock_transport_setter{mock_transport};
+
+  GCSMockStorageBucket bucket("my-bucket");
+  mock_transport->buckets_.push_back(&bucket);
+
+  const auto TestConcurrency = [&](size_t limit) {
+    mock_transport->reset(limit);
+    auto context = DefaultTestContext();
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        kvstore::Open(
+            {{"driver", kDriver},
+             {"bucket", "my-bucket"},
+             {"context", {{"gcs_request_concurrency", {{"limit", limit}}}}}},
+            context)
+            .result());
+
+    std::vector<tensorstore::Future<kvstore::ReadResult>> futures;
+    for (size_t i = 0; i < 10 * limit; ++i) {
+      futures.push_back(kvstore::Read(store, "abc"));
+    }
+    for (const auto& future : futures) {
+      future.Wait();
+    }
+    EXPECT_EQ(limit, mock_transport->max_concurrent_requests_);
+  };
+
+  TestConcurrency(1);
+  TestConcurrency(2);
+  TestConcurrency(3);
 }
 
 TEST(GcsKeyValueStoreTest, UrlRoundtrip) {

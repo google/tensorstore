@@ -105,15 +105,7 @@ struct ErrorResponse {
   std::string error_uri;
   std::string error_subtype;
 };
-Result<ErrorResponse> ParseErrorResponseImpl(const ::nlohmann::json& error);
-
-Result<ErrorResponse> ParseErrorResponse(std::string_view source);
-
-template <typename T>
-std::enable_if_t<std::is_same_v<T, ::nlohmann::json>, Result<ErrorResponse>>
-ParseErrorResponse(const T& json) {
-  return ParseErrorResponseImpl(json);
-}
+Result<ErrorResponse> ParseErrorResponse(const ::nlohmann::json& error);
 
 }  // namespace internal_oauth2
 }  // namespace tensorstore

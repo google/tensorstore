@@ -162,19 +162,7 @@ Result<std::unique_ptr<AuthProvider>> GetDefaultGoogleAuthProvider(
   absl::Status status;
   auto credentials_filename = GetEnvironmentVariableFileName();
   if (!credentials_filename) {
-    TENSORSTORE_LOG("Credentials file not found. ",
-                    credentials_filename.status());
-
     credentials_filename = GetWellKnownFileName();
-    if (!credentials_filename.ok()) {
-      TENSORSTORE_LOG("Credentials file not found. ",
-                      credentials_filename.status());
-    }
-    if (!credentials_filename.ok()) {
-      TENSORSTORE_LOG(
-          "To use Google application default credentials, run: gcloud auth "
-          "application-default login");
-    }
   }
 
   if (credentials_filename.ok()) {
@@ -210,6 +198,13 @@ Result<std::unique_ptr<AuthProvider>> GetDefaultGoogleAuthProvider(
     TENSORSTORE_LOG("Running on GCE, using GCE Auth Provider");
     result.reset(new GceAuthProvider(std::move(transport)));
     return std::move(result);
+  }
+  if (!credentials_filename.ok()) {
+    TENSORSTORE_LOG(credentials_filename.status().message(),
+                    ". You may specify a credentials file using $",
+                    kGoogleApplicationCredentials,
+                    ", or to use Google application default credentials, run: "
+                    "gcloud auth application-default login");
   }
 
   // Return a failure code.
