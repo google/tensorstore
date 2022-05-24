@@ -20,6 +20,7 @@
 #include <optional>
 #include <utility>
 
+#include "absl/status/status.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
@@ -157,6 +158,34 @@ Result<std::string> BuildSignedJWTRequest(std::string_view private_key,
                       *result);
 }
 
+constexpr static auto ErrorResponseBinder = jb::Object(
+    jb::Member("error",
+               jb::Projection(&ErrorResponse::error, jb::NonEmptyStringBinder)),
+    jb::Member("error_description",
+               jb::Projection(&ErrorResponse::error_description,
+                              jb::NonEmptyStringBinder)),
+    jb::Member("error_uri", jb::Projection(&ErrorResponse::error_uri,
+                                           jb::NonEmptyStringBinder)),
+    jb::Member("error_subtype", jb::Projection(&ErrorResponse::error_subtype,
+                                               jb::NonEmptyStringBinder)),
+    jb::DiscardExtraMembers);
+
+Result<ErrorResponse> ParseErrorResponseImpl(const ::nlohmann::json& error) {
+  if (error.is_discarded()) {
+    return absl::InvalidArgumentError("Invalid ErrorResponse");
+  }
+  return jb::FromJson<ErrorResponse>(error, ErrorResponseBinder);
+}
+
+Result<ErrorResponse> ParseErrorResponse(std::string_view source) {
+  auto error = internal::ParseJson(source);
+  if (error.is_discarded()) {
+    return absl::InvalidArgumentError(
+        absl::StrCat("Invalid ErrorResponse: ", source));
+  }
+  return ParseErrorResponseImpl(error);
+}
+
 constexpr static auto GoogleServiceAccountCredentialsBinder = jb::Object(
     jb::Member("private_key",
                jb::Projection(&GoogleServiceAccountCredentials::private_key,
@@ -210,7 +239,17 @@ Result<RefreshToken> ParseRefreshTokenImpl(
   if (credentials.is_discarded()) {
     return absl::InvalidArgumentError("Invalid RefreshToken token");
   }
-  return jb::FromJson<RefreshToken>(credentials, RefreshTokenBinder);
+  auto refresh_token =
+      jb::FromJson<RefreshToken>(credentials, RefreshTokenBinder);
+  if (!refresh_token.ok()) {
+    auto error_token =
+        jb::FromJson<ErrorResponse>(credentials, ErrorResponseBinder);
+    if (error_token.ok()) {
+      return absl::UnauthenticatedError(
+          StrCat("Failed to refresh token: ", credentials));
+    }
+  }
+  return refresh_token;
 }
 
 Result<RefreshToken> ParseRefreshToken(std::string_view source) {
@@ -236,7 +275,17 @@ Result<OAuthResponse> ParseOAuthResponseImpl(
   if (credentials.is_discarded()) {
     return absl::InvalidArgumentError("Invalid OAuthResponse token");
   }
-  return jb::FromJson<OAuthResponse>(credentials, OAuthResponseBinder);
+  auto response_token =
+      jb::FromJson<OAuthResponse>(credentials, OAuthResponseBinder);
+  if (!response_token.ok()) {
+    auto error_token =
+        jb::FromJson<ErrorResponse>(credentials, ErrorResponseBinder);
+    if (error_token.ok()) {
+      return absl::UnauthenticatedError(
+          StrCat("OAuth request failed: ", credentials));
+    }
+  }
+  return response_token;
 }
 
 Result<OAuthResponse> ParseOAuthResponse(std::string_view source) {

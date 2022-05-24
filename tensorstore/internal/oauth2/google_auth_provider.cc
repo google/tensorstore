@@ -66,6 +66,7 @@ constexpr char kCloudSdkConfig[] = "CLOUDSDK_CONFIG";
 constexpr char kGCloudConfigFolder[] = ".config/gcloud/";
 
 // The name of the well-known credentials JSON file in the gcloud config folder.
+// generated with: gcloud auth application-default login
 constexpr char kWellKnownCredentialsFile[] =
     "application_default_credentials.json";
 
@@ -168,6 +169,11 @@ Result<std::unique_ptr<AuthProvider>> GetDefaultGoogleAuthProvider(
     if (!credentials_filename.ok()) {
       TENSORSTORE_LOG("Credentials file not found. ",
                       credentials_filename.status());
+    }
+    if (!credentials_filename.ok()) {
+      TENSORSTORE_LOG(
+          "To use Google application default credentials, run: gcloud auth "
+          "application-default login");
     }
   }
 

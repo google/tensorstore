@@ -202,6 +202,15 @@ TEST(OAuthUtilTest, ParseRefreshToken_Invalid) {
     "client_secret": "abc",
   })")
                    .ok());
+
+  // Error response.
+  EXPECT_FALSE(ParseRefreshToken(R"json({
+    "error": "invalid_grant",
+    "error_description": "reauth related error (invalid_rapt)",
+    "error_uri": "https://support.google.com/a/answer/9368756",
+    "error_subtype": "invalid_rapt"
+  })json")
+                   .ok());
 }
 
 TEST(OAuthUtilTest, ParseRefreshToken) {
@@ -222,25 +231,34 @@ TEST(OAuthUtilTest, ParseOAuthResponse_Invalid) {
   EXPECT_FALSE(ParseOAuthResponse("{ }").ok());
 
   // Empty fields.
-  EXPECT_FALSE(ParseOAuthResponse(R"({
+  EXPECT_FALSE(ParseOAuthResponse(R"json({
     "token_type" : "",
     "access_token": "abc",
     "expires_in": 456
-  })")
+  })json")
                    .ok());
 
-  EXPECT_FALSE(ParseOAuthResponse(R"({
+  EXPECT_FALSE(ParseOAuthResponse(R"json({
     "token_type" : "123",
     "access_token": "",
     "expires_in": 456
-  })")
+  })json")
                    .ok());
 
   // Missing field.
-  EXPECT_FALSE(ParseOAuthResponse(R"({
+  EXPECT_FALSE(ParseOAuthResponse(R"json({
     "token_type" : "123",
     "access_token": "abc",
-  })")
+  })json")
+                   .ok());
+
+  // Error response.
+  EXPECT_FALSE(ParseOAuthResponse(R"json({
+    "error": "invalid_grant",
+    "error_description": "reauth related error (invalid_rapt)",
+    "error_uri": "https://support.google.com/a/answer/9368756",
+    "error_subtype": "invalid_rapt"
+  })json")
                    .ok());
 }
 

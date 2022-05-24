@@ -212,6 +212,7 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
         "@com_google_boringssl//:crypto",
