@@ -58,9 +58,9 @@ struct RetriesResource : public ContextResourceTraits<Derived> {
       const Spec& spec, internal::ContextResourceCreationContext context) {
     return spec;
   }
-  static Spec GetSpec(const Spec& spec,
+  static Spec GetSpec(const Resource& resource,
                       const internal::ContextSpecBuilder& builder) {
-    return spec;
+    return resource;
   }
 };
 
