@@ -13,7 +13,7 @@ safely allow concurrent access from multiple machines.
 .. json:schema:: kvstore/gcs
 
 .. json:schema:: Context.gcs_user_project
-                 
+
 .. json:schema:: Context.gcs_request_concurrency
 
 .. json:schema:: Context.gcs_request_retries
