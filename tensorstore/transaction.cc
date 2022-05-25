@@ -72,13 +72,13 @@ TransactionState::OpenPtr TransactionState::AcquireImplicitOpenPtr() {
     return {};
   }
   Future<const void> future;
-  if (!future_.valid()) {
+  if (future_.null()) {
     // Future reference was already released.  Try to obtain another future
     // reference.
     future = promise_.future();
-    if (!future.valid()) return {};
+    if (future.null()) return {};
   }
-  if (future.valid()) {
+  if (!future.null()) {
     future_ = std::move(future);
   }
   return OpenPtr(this);
@@ -517,7 +517,7 @@ void TransactionState::Node::AbortDone() {
 void TransactionState::Node::SetError(const absl::Status& error) {
   assert(!error.ok());
   auto& promise = transaction()->promise_;
-  if (!promise.valid()) return;
+  if (promise.null()) return;
   SetDeferredResult(promise, error);
 }
 

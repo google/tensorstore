@@ -180,9 +180,9 @@ class Promise {
   /// The value type contained in the result type.
   using value_type = T;
 
-  /// Constructs an invalid `Promise`.
+  /// Constructs an null `Promise`.
   ///
-  /// \post `!valid()`.
+  /// \post `null()`.
   /// \id default
   Promise() = default;
 
@@ -202,16 +202,16 @@ class Promise {
     return *this;
   }
 
-  /// Resets this Promise to be invalid.
-  /// \post `!valid()`.
+  /// Resets this Promise to be null.
+  /// \post `null()`.
   void reset() noexcept { rep_.reset(); }
 
-  /// Returns `true` if this `Promise` refers to a valid shared state.
-  bool valid() const noexcept { return static_cast<bool>(rep_); }
+  /// Returns `true` if this `Promise` has no shared state.
+  bool null() const noexcept { return rep_ == nullptr; }
 
   /// Returns `true` if the result is ready.
   ///
-  /// \dchecks `valid()`
+  /// \dchecks `!null()`
   ///
   /// .. note::
   ///
@@ -237,7 +237,7 @@ class Promise {
   /// concurrent accesses that may result from calls to SetResult or
   /// SetResultWith.
   ///
-  /// \dchecks `valid()`
+  /// \dchecks `!null()`
   std::add_lvalue_reference_t<result_type> raw_result() const {
     return rep().result;
   }
@@ -351,9 +351,9 @@ class Promise {
   /// remaining future reference, or `SetResult()` or `SetReady()` has been
   /// called.
   ///
-  /// Otherwise, this returns an invalid Future.
+  /// Otherwise, this returns an null Future.
   ///
-  /// \dchecks `valid()`.
+  /// \dchecks `!null()`.
   Future<T> future() const {
     auto& rep = this->rep();
     if (!rep.AcquireFutureReference()) return {};
@@ -430,8 +430,8 @@ class AnyFuture {
   using SharedState = internal_future::FutureStateBase;
 
  public:
-  /// Constructs an invalid `AnyFuture`.
-  /// \post `!valid()`.
+  /// Constructs an null `AnyFuture`.
+  /// \post `null()`.
   explicit AnyFuture() = default;
 
   AnyFuture(const AnyFuture&) = default;
@@ -443,17 +443,17 @@ class AnyFuture {
   /// to suppress compiler warnings from [[nodiscard]].
   inline void IgnoreFuture() const {}
 
-  /// Resets this Future to be invalid.
+  /// Resets this Future to be null.
   ///
-  /// \post `!valid()`.
+  /// \post `null()`.
   void reset() noexcept { rep_.reset(); }
 
-  /// Returns `true` if this `Future` refers to a valid shared state.
-  bool valid() const noexcept { return static_cast<bool>(rep_); }
+  /// Returns `true` if this `Future` has no shared state.
+  bool null() const noexcept { return rep_ == nullptr; }
 
   /// Returns `true` if the result is ready.
   ///
-  /// \dchecks `valid()`
+  /// \dchecks `!null()`
   ///
   /// .. note::
   ///
@@ -463,12 +463,12 @@ class AnyFuture {
 
   /// Calls `Force()`, and waits until `ready() == true`.
   ///
-  /// \dchecks `valid()`
+  /// \dchecks `!null()`
   void Wait() const noexcept { rep().Wait(); }
 
   /// Waits for up to the specified duration for the result to be ready.
   ///
-  /// \dchecks `valid()`
+  /// \dchecks `!null()`
   /// \returns `ready()`.
   bool WaitFor(absl::Duration duration) const noexcept {
     return rep().WaitFor(duration);
@@ -476,7 +476,7 @@ class AnyFuture {
 
   /// Waits until the specified time for the result to be ready.
   ///
-  /// \dchecks `valid()`
+  /// \dchecks `!null()`
   /// \returns `ready()`.
   bool WaitUntil(absl::Time deadline) const noexcept {
     return rep().WaitUntil(deadline);
@@ -487,13 +487,13 @@ class AnyFuture {
   ///
   /// Commonly, this will trigger deferred work to begin.
   ///
-  /// \dchecks `valid()`
+  /// \dchecks `!null()`
   void Force() const noexcept { return rep().Force(); }
 
   /// Calls `Force()`, waits for the result to be ready, and returns OkStatus
   /// (when a value is present) or a copy of result.status().
   ///
-  /// \dchecks `valid()`
+  /// \dchecks `!null()`
   absl::Status status() const {
     Wait();
     return rep().GetStatusCopy();
@@ -673,9 +673,9 @@ class Future : public AnyFuture {
   /// The value type contained in the `result_type`.
   using value_type = T;
 
-  /// Constructs an invalid `Future`.
+  /// Constructs an null `Future`.
   ///
-  /// \post `!valid()`.
+  /// \post `null()`.
   /// \id default
   Future() = default;
 
@@ -760,17 +760,17 @@ class Future : public AnyFuture {
   /// suppress compiler warnings from ``[[nodiscard]]``.
   inline void IgnoreFuture() const {}
 
-  /// Resets this Future to be invalid.
+  /// Resets this Future to be null.
   ///
-  /// \post `!valid()`.
+  /// \post `null()`.
   using AnyFuture::reset;
 
-  /// Returns `true` if this `Future` refers to a valid shared state.
-  using AnyFuture::valid;
+  /// Returns `true` if this `Future` lacks a valid shared state.
+  using AnyFuture::null;
 
   /// Returns `true` if the result is ready.
   ///
-  /// \dchecks `valid()`
+  /// \dchecks `!null()`
   ///
   /// .. note::
   ///
@@ -780,18 +780,18 @@ class Future : public AnyFuture {
 
   /// Calls `Force()`, and waits until `ready() == true`.
   ///
-  /// \dchecks `valid()`
+  /// \dchecks `!null()`
   using AnyFuture::Wait;
 
   /// Waits for up to the specified duration for the result to be ready.
   ///
-  /// \dchecks `valid()`
+  /// \dchecks `!null()`
   /// \returns `ready()`.
   using AnyFuture::WaitFor;
 
   /// Waits until the specified time for the result to be ready.
   ///
-  /// \dchecks `valid()`
+  /// \dchecks `!null()`
   /// \returns `ready()`.
   using AnyFuture::WaitUntil;
 
@@ -800,12 +800,12 @@ class Future : public AnyFuture {
   ///
   /// Commonly, this will trigger deferred work to begin.
   ///
-  /// \dchecks `valid()`
+  /// \dchecks `!null()`
   using AnyFuture::Force;
 
   /// Registers a callback to invoke when `ready()` becomes `true`.
   ///
-  /// \dchecks `valid()`.
+  /// \dchecks `!null()`.
   /// \param callback A function object to be invoked with a `ReadyFuture<T>`
   ///     referring to the same shared state as `*this`.  The return value of
   ///     the callback is ignored.
@@ -840,7 +840,7 @@ class Future : public AnyFuture {
   /// Calls `Force()`, waits for the result to be ready, and returns a reference
   /// to the result.
   ///
-  /// \dchecks `valid()`
+  /// \dchecks `!null()`
   std::add_lvalue_reference_t<result_type> result() const
       TENSORSTORE_LIFETIME_BOUND {
     this->Wait();
@@ -893,7 +893,7 @@ template <typename T>
 Future(const Result<T>& result) -> Future<T>;
 
 /// Returns `true` if both futures refer to the same shared state, or are both
-/// invalid.
+/// null.
 ///
 /// \relates AnyFuture
 inline bool HaveSameSharedState(const AnyFuture& a, const AnyFuture& b) {
@@ -932,7 +932,7 @@ class ReadyFuture : public Future<T> {
   /// Associated result type.
   using result_type = typename Future<T>::result_type;
 
-  /// Constructs an invalid ReadyFuture.
+  /// Constructs an null ReadyFuture.
   ///
   /// \id default
   ReadyFuture() = default;
@@ -943,12 +943,12 @@ class ReadyFuture : public Future<T> {
   ReadyFuture& operator=(ReadyFuture&& src) = default;
 
   /// Constructs a ReadyFuture from an existing Future, which must either be
-  /// invalid or ready.
+  /// null or ready.
   ///
-  /// \dchecks `!future.valid() || future.ready()`.
+  /// \dchecks `future.null() || future.ready()`.
   /// \id future
   explicit ReadyFuture(Future<T> future) : Future<T>(std::move(future)) {
-    if (this->valid()) {
+    if (!this->null()) {
       assert(this->Future<T>::ready());
     }
   }
@@ -1325,7 +1325,7 @@ Future<void> WaitAllFuture(tensorstore::span<const AnyFuture> futures);
 ///     ready.  The callback is invoked immediately if all of the `future`
 ///     objects are already ready.
 /// \param future The `Future` objects to link.
-/// \dchecks `(future.valid() && ...)`
+/// \dchecks `(!future.null() && ...)`
 /// \returns A ``Future<UnwrapFutureType<std::remove_cvref_t<U>>>``, where
 ///     ``U`` is the return type of the specified `callback` function.
 /// \relates Future
@@ -1378,7 +1378,7 @@ MapFuture(Executor&& executor, Callback&& callback,
 ///     `callback(future.result().value()...)` when all of the `future` objects
 ///     become ready with non-error results.
 /// \param future The `Future` objects to link.
-/// \dchecks `(future.valid() && ...)`
+/// \dchecks `(future.!null() && ...)`
 /// \returns A ``Future<UnwrapFutureType<std::remove_cvref_t<U>>>``, where
 ///     ``U`` is the return type of the specified `callback` function.
 /// \relates Future

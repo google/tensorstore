@@ -205,7 +205,7 @@ struct CopyChunkOp {
           state->UpdateCommitProgress(num_elements);
         }
       };
-      if (state->commit_promise.valid() && commit_future.valid()) {
+      if (!state->commit_promise.null() && !commit_future.null()) {
         // For transactional writes, `state->commit_promise` is null.
         LinkValue(CommitCallback{state->commit_state, num_elements},
                   state->commit_promise, commit_future);

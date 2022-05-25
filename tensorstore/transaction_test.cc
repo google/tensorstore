@@ -126,7 +126,7 @@ TEST(TransactionTest, OpenPtrRetainsFuture) {
         AcquireOpenTransactionPtrOrError(Transaction(tensorstore::isolated)));
     ASSERT_TRUE(open_ptr);
     future = open_ptr->future();
-    ASSERT_TRUE(future.valid());
+    ASSERT_FALSE(future.null());
     EXPECT_FALSE(future.ready());
     future.Force();
     EXPECT_FALSE(future.ready());
@@ -347,11 +347,11 @@ TEST(TransactionTest, ImplicitTransaction) {
     future = open_ptr->future();
   }
   EXPECT_FALSE(future.ready());
-  EXPECT_FALSE(weak_ptr->future().valid());
+  EXPECT_TRUE(weak_ptr->future().null());
   {
     auto open_ptr = weak_ptr->AcquireImplicitOpenPtr();
     EXPECT_TRUE(open_ptr);
-    EXPECT_TRUE(weak_ptr->future().valid());
+    EXPECT_FALSE(weak_ptr->future().null());
     EXPECT_FALSE(future.ready());
   }
   future.Force();
@@ -370,11 +370,11 @@ TEST(TransactionTest, ImplicitTransactionCommitBlock) {
     future = open_ptr->future();
   }
   EXPECT_FALSE(future.ready());
-  EXPECT_FALSE(weak_ptr->future().valid());
+  EXPECT_TRUE(weak_ptr->future().null());
   {
     auto open_ptr = weak_ptr->AcquireImplicitOpenPtr();
     EXPECT_TRUE(open_ptr);
-    EXPECT_TRUE(weak_ptr->future().valid());
+    EXPECT_FALSE(weak_ptr->future().null());
     EXPECT_FALSE(future.ready());
   }
   weak_ptr->AcquireCommitBlock();
@@ -383,7 +383,7 @@ TEST(TransactionTest, ImplicitTransactionCommitBlock) {
   {
     auto open_ptr = weak_ptr->AcquireImplicitOpenPtr();
     EXPECT_TRUE(open_ptr);
-    EXPECT_TRUE(weak_ptr->future().valid());
+    EXPECT_FALSE(weak_ptr->future().null());
     EXPECT_FALSE(future.ready());
   }
   weak_ptr->ReleaseCommitBlock();

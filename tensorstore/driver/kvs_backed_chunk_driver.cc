@@ -921,11 +921,11 @@ MetadataCache::TransactionNode::GetUpdatedMetadata(MetadataPtr metadata) {
                  AtomicUpdateConstraint::kRequireExisting ||
              metadata != nullptr);
       metadata = std::move(*result);
-      if (request.promise.valid()) {
+      if (!request.promise.null()) {
         request.promise.raw_result() = MakeResult();
       }
     } else {
-      if (request.promise.valid()) {
+      if (!request.promise.null()) {
         request.promise.raw_result() = GetOwningEntry(*this).AnnotateError(
             result.status(), /*reading=*/false);
       } else {

@@ -375,7 +375,7 @@ struct PythonFutureObject {
                   internal_future::FutureStatePointer(&state)));
         },
     };
-    assert(future.valid());
+    assert(!future.null());
     pybind11::object self = pybind11::reinterpret_steal<pybind11::object>(
         python_type->tp_alloc(python_type, 0));
     if (!self) throw pybind11::error_already_set();
@@ -533,7 +533,7 @@ Future<T> ConvertToFuture(pybind11::handle src, pybind11::handle loop) {
       })) {
     return internal_python::GetStatusFromPythonException();
   }
-  if (future.valid()) return future;
+  if (!future.null()) return future;
   return MapFutureValue(
       InlineExecutor{},
       [](const GilSafePythonHandle& v) -> Result<T> {

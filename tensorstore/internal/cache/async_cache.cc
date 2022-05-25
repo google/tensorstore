@@ -77,9 +77,9 @@ void ReleaseReadRequestReference(TransactionNode& node) {
 }
 
 Future<const void> GetFuture(Promise<void>& promise) {
-  if (promise.valid()) {
+  if (!promise.null()) {
     auto future = promise.future();
-    if (future.valid()) return future;
+    if (!future.null()) return future;
   }
   auto pair = PromiseFuturePair<void>::Make();
   promise = std::move(pair.promise);
@@ -102,7 +102,7 @@ void EntryOrNodeStartRead(EntryOrNode& entry_or_node,
   static_assert(std::is_same_v<EntryOrNode, Entry> ||
                 std::is_same_v<EntryOrNode, TransactionNode>);
   auto& request_state = entry_or_node.read_request_state_;
-  if (!request_state.queued.valid()) {
+  if (request_state.queued.null()) {
     TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(
         entry_or_node, "EntryOrNodeStartRead: no pending read request");
     return;
@@ -138,7 +138,7 @@ void MaybeStartReadOrWriteback(Entry& entry, UniqueWriterLock<Entry> lock) {
     while (true) {
       const auto existing_prepare_for_commit_state =
           committing_transaction_node->prepare_for_commit_state_;
-      const bool read_request_issued = read_request_state.issued.valid();
+      const bool read_request_issued = !read_request_state.issued.null();
       // Determine the transitions we will make on `prepare_for_commit_state_`.
       // We need to update `prepare_for_commit_state_` while holding the `lock`,
       // but we can't actually perform the required actions until after
@@ -194,7 +194,7 @@ void MaybeStartReadOrWriteback(Entry& entry, UniqueWriterLock<Entry> lock) {
     }
   }
 
-  if (!read_request_state.issued.valid()) {
+  if (read_request_state.issued.null()) {
     // Issue a read if requested.
     EntryOrNodeStartRead(entry, std::move(lock));
   }
@@ -262,9 +262,9 @@ Future<const void> RequestRead(EntryOrNode& entry_or_node,
   request_state.queued_time = std::max(request_state.queued_time,
                                        std::min(staleness_bound, absl::Now()));
   Future<const void> future;
-  if (request_state.issued.valid()) {
+  if (!request_state.issued.null()) {
     // Another read operation is in progress.
-    if (request_state.issued.valid() &&
+    if (!request_state.issued.null() &&
         request_state.issued_time >= staleness_bound) {
       // Another read is in progress, and `staleness_bound` will be satisfied by
       // it when it completes.
@@ -293,7 +293,7 @@ class QueuedReadHandler {
   // Must be invoked with the `Entry::mutex_` locked.
   explicit QueuedReadHandler(AsyncCache::ReadRequestState& request_state,
                              absl::Time time) {
-    if (request_state.queued.valid() && time >= request_state.queued_time) {
+    if (!request_state.queued.null() && time >= request_state.queued_time) {
       // Queued read is also satisfied.
       queued_ = std::move(request_state.queued);
       request_state.queued_time = absl::InfinitePast();
@@ -302,7 +302,7 @@ class QueuedReadHandler {
 
   // Must be invoked with the `Entry::mutex_` unlocked.
   ~QueuedReadHandler() {
-    if (queued_.valid()) {
+    if (!queued_.null()) {
       queued_.SetResult(tensorstore::MakeResult());
     }
   }
@@ -319,7 +319,7 @@ void ResolveIssuedRead(EntryOrNode& entry_or_node, absl::Status status,
   auto& request_state = entry_or_node.read_request_state_;
   auto issued = std::move(request_state.issued);
   auto time = GetEffectiveReadRequestState(entry_or_node).read_state.stamp.time;
-  assert(issued.valid());
+  assert(!issued.null());
   assert(!status.ok() || time >= request_state.issued_time);
   {
     QueuedReadHandler queued_read_handler(request_state, time);
@@ -415,7 +415,7 @@ void ResolveIssuedWriteback(AsyncCache::TransactionNode& node,
              node.transaction());
 
   // Read must not be in progress.
-  assert(!entry.read_request_state_.issued.valid());
+  assert(entry.read_request_state_.issued.null());
 
   if (entry.committing_transaction_node_ != &node) {
     intrusive_linked_list::Remove(PendingWritebackQueueAccessor{}, &node);

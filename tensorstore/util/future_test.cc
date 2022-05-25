@@ -95,13 +95,13 @@ static_assert(std::is_same_v<
               tensorstore::FlatResult<std::invoke_result_t<Future<void>()>>>);
 
 TEST(FutureTest, Valid) {
-  EXPECT_FALSE(Future<int>().valid());
-  EXPECT_FALSE(Promise<int>().valid());
+  EXPECT_TRUE(Future<int>().null());
+  EXPECT_TRUE(Promise<int>().null());
   auto pair = PromiseFuturePair<int>::Make();
-  EXPECT_TRUE(pair.future.valid());
-  EXPECT_TRUE(pair.promise.valid());
+  EXPECT_FALSE(pair.future.null());
+  EXPECT_FALSE(pair.promise.null());
   auto future2 = pair.promise.future();
-  EXPECT_TRUE(future2.valid());
+  EXPECT_FALSE(future2.null());
 }
 
 TEST(FutureTest, MakeReadyFuture) {
@@ -940,7 +940,7 @@ TEST(AcquireFutureReferenceTest, NoExistingFutureNotReady) {
   auto pair = PromiseFuturePair<void>::Make();
   pair.future.reset();
   auto future2 = pair.promise.future();
-  EXPECT_FALSE(future2.valid());
+  EXPECT_FALSE(!future2.null());
 }
 
 TEST(AcquireFutureReferenceTest, NoExistingFutureReady) {
