@@ -40,8 +40,8 @@ namespace {
 namespace jb = tensorstore::internal_json_binding;
 using ::nlohmann::json;
 using tensorstore::MatchesStatus;
-using tensorstore::internal::JsonParseArray;
-using tensorstore::internal::JsonValidateArrayLength;
+using tensorstore::internal_json::JsonParseArray;
+using tensorstore::internal_json::JsonValidateArrayLength;
 
 TEST(JsonTest, SimpleParse) {
   using tensorstore::internal::ParseJson;

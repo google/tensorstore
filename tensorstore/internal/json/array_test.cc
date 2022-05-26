@@ -12,20 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/json_array.h"
+#include "tensorstore/internal/json/array.h"
 
+#include <cstddef>
 #include <optional>
+#include <string>
+#include <type_traits>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/contiguous_layout.h"
+#include "tensorstore/data_type.h"
 #include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json/value_as.h"
 #include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/internal/json_gtest.h"
+#include "tensorstore/util/element_pointer.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -248,24 +254,6 @@ TEST(JsonParseNestedArray, DataTypeConversionByteError) {
                            dtype_v<std::byte>, 2),
       MatchesStatus(absl::StatusCode::kInvalidArgument,
                     "Conversion from JSON to byte is not implemented"));
-}
-
-TEST(JsonParseNestedArray, NestedArrayBinder) {
-  namespace jb = tensorstore::internal_json_binding;
-
-  tensorstore::TestJsonBinderRoundTrip<tensorstore::SharedArray<void>>(
-      {
-          {tensorstore::MakeArray<std::int64_t>({{1, 2, 3}, {4, 5, 6}}),
-           ::nlohmann::json{{1, 2, 3}, {4, 5, 6}}},
-      },
-      jb::NestedVoidArray(tensorstore::dtype_v<std::int64_t>));
-
-  tensorstore::TestJsonBinderRoundTrip<tensorstore::SharedArray<std::int64_t>>(
-      {
-          {tensorstore::MakeArray<std::int64_t>({{1, 2, 3}, {4, 5, 6}}),
-           ::nlohmann::json{{1, 2, 3}, {4, 5, 6}}},
-      },
-      jb::NestedArray());
 }
 
 }  // namespace

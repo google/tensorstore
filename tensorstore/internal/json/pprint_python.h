@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_JSON_PPRINT_PYTHON_H_
-#define TENSORSTORE_INTERNAL_JSON_PPRINT_PYTHON_H_
+#ifndef TENSORSTORE_INTERNAL_JSON__PPRINT_PYTHON_H_
+#define TENSORSTORE_INTERNAL_JSON__PPRINT_PYTHON_H_
 
 /// \file
 ///
@@ -26,8 +26,9 @@
 /// different output style that reduces nested indentation levels.
 
 #include <string>
+#include <string_view>
 
-#include <nlohmann/json.hpp>
+#include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
@@ -65,4 +66,4 @@ std::string PrettyPrintJsonAsPythonRepr(
 }  // namespace internal_python
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_JSON_PPRINT_PYTHON_H_
+#endif  // TENSORSTORE_INTERNAL_JSON__PPRINT_PYTHON_H_

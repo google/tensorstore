@@ -170,7 +170,7 @@ Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value) {
     return out;
   }
   out.has_fields = true;
-  auto parse_result = internal::JsonParseArray(
+  auto parse_result = internal_json::JsonParseArray(
       value,
       [&](std::ptrdiff_t size) {
         out.fields.resize(size);
@@ -178,7 +178,7 @@ Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value) {
       },
       [&](const ::nlohmann::json& x, std::ptrdiff_t field_i) {
         auto& field = out.fields[field_i];
-        return internal::JsonParseArray(
+        return internal_json::JsonParseArray(
             x,
             [&](std::ptrdiff_t size) {
               if (size < 2 || size > 3) {
@@ -190,7 +190,7 @@ Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value) {
             [&](const ::nlohmann::json& v, std::ptrdiff_t i) {
               switch (i) {
                 case 0:
-                  if (internal::JsonRequireValueAs(v, &field.name).ok()) {
+                  if (internal_json::JsonRequireValueAs(v, &field.name).ok()) {
                     if (!field.name.empty()) return absl::OkStatus();
                   }
                   return absl::InvalidArgumentError(StrCat(
@@ -198,21 +198,21 @@ Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value) {
                 case 1: {
                   std::string dtype_string;
                   TENSORSTORE_RETURN_IF_ERROR(
-                      internal::JsonRequireValueAs(v, &dtype_string));
+                      internal_json::JsonRequireValueAs(v, &dtype_string));
                   TENSORSTORE_ASSIGN_OR_RETURN(
                       static_cast<ZarrDType::BaseDType&>(field),
                       ParseBaseDType(dtype_string));
                   return absl::OkStatus();
                 }
                 case 2: {
-                  return internal::JsonParseArray(
+                  return internal_json::JsonParseArray(
                       v,
                       [&](std::ptrdiff_t size) {
                         field.outer_shape.resize(size);
                         return absl::OkStatus();
                       },
                       [&](const ::nlohmann::json& x, std::ptrdiff_t j) {
-                        return internal::JsonRequireInteger(
+                        return internal_json::JsonRequireInteger(
                             x, &field.outer_shape[j], /*strict=*/true, 1,
                             kInfIndex);
                       });

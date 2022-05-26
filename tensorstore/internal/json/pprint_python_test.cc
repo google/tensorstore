@@ -12,13 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/json_pprint_python.h"
+#include "tensorstore/internal/json/pprint_python.h"
 
-#include <string>
-#include <vector>
-
-#include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 
 namespace {

@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_JSON_VALUE_AS_H_
-#define TENSORSTORE_INTERNAL_JSON_VALUE_AS_H_
+#ifndef TENSORSTORE_INTERNAL_JSON__VALUE_AS_H_
+#define TENSORSTORE_INTERNAL_JSON__VALUE_AS_H_
 
 /// \file
 ///
@@ -25,15 +25,16 @@
 // This is extracted from json.h to avoid circular/excessive dependencies.
 
 #include <cstdint>
+#include <limits>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <type_traits>
+#include <utility>
 
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/type_traits.h"
-#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal_json {
@@ -88,9 +89,6 @@ struct JsonRequireIntegerImpl {
   static absl::Status Execute(const ::nlohmann::json& json, T* result,
                               bool strict, T min_value, T max_value);
 };
-}  // namespace internal_json
-
-namespace internal {
 
 /// Return a json object as the C++ type, if conversion is possible.
 /// Will attempt to parse strings and perform exact-numeric conversions
@@ -146,15 +144,15 @@ template <typename T, typename ValidateFn>
 std::enable_if_t<!std::is_same_v<ValidateFn, bool>, absl::Status>
 JsonRequireValueAs(const ::nlohmann::json& j, T* result, ValidateFn is_valid,
                    bool strict = false) {
-  auto value = internal::JsonValueAs<T>(j, strict);
+  auto value = JsonValueAs<T>(j, strict);
   if (!value) {
     return internal_json::ExpectedError(
-        j, internal_json::GetTypeName(type_identity<T>{}));
+        j, internal_json::GetTypeName(internal::type_identity<T>{}));
   }
   // NOTE: improve is_valid; allow bool or status returns.
   if (!is_valid(*value)) {
     return internal_json::ValidationError(
-        j, internal_json::GetTypeName(type_identity<T>{}));
+        j, internal_json::GetTypeName(internal::type_identity<T>{}));
   }
   if (result != nullptr) {
     *result = std::move(*value);
@@ -186,8 +184,8 @@ absl::Status JsonRequireValueAs(const ::nlohmann::json& j, T* result,
 template <typename T>
 absl::Status JsonRequireInteger(
     const ::nlohmann::json& json, T* result, bool strict = false,
-    type_identity_t<T> min_value = std::numeric_limits<T>::min(),
-    type_identity_t<T> max_value = std::numeric_limits<T>::max()) {
+    internal::type_identity_t<T> min_value = std::numeric_limits<T>::min(),
+    internal::type_identity_t<T> max_value = std::numeric_limits<T>::max()) {
   static_assert(std::is_signed_v<T> || std::is_unsigned_v<T>,
                 "T must be an integer type.");
   using U =
@@ -199,7 +197,7 @@ absl::Status JsonRequireInteger(
   return status;
 }
 
-}  // namespace internal
+}  // namespace internal_json
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_JSON_VALUE_AS_H_
+#endif  // TENSORSTORE_INTERNAL_JSON__VALUE_AS_H_

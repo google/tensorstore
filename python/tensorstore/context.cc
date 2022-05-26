@@ -27,7 +27,7 @@
 #include "python/tensorstore/serialization.h"
 #include "tensorstore/context.h"
 #include "tensorstore/context_impl.h"
-#include "tensorstore/internal/json_pprint_python.h"
+#include "tensorstore/internal/json/pprint_python.h"
 #include "tensorstore/json_serialization_options.h"
 
 namespace tensorstore {
@@ -37,14 +37,11 @@ namespace py = ::pybind11;
 
 namespace {
 
-using internal::ContextSpecBuilder;
 using internal_context::Access;
-using internal_context::BuilderResourceSpec;
 using internal_context::ContextImpl;
 using internal_context::ContextImplPtr;
 using internal_context::ContextSpecImpl;
 using internal_context::ContextSpecImplPtr;
-using internal_context::ResourceContainer;
 using internal_context::ResourceImplBase;
 using internal_context::ResourceImplWeakPtr;
 

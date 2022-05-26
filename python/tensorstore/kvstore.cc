@@ -27,7 +27,7 @@
 #include "python/tensorstore/status.h"
 #include "python/tensorstore/time.h"
 #include "python/tensorstore/transaction.h"
-#include "tensorstore/internal/json_pprint_python.h"
+#include "tensorstore/internal/json/pprint_python.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/util/executor.h"

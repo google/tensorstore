@@ -709,57 +709,6 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
-    name = "json_value_as",
-    srcs = ["json_value_as.cc"],
-    hdrs = ["json_value_as.h"],
-    deps = [
-        ":type_traits",
-        "//tensorstore/util:status",
-        "//tensorstore/util:str_cat",
-        "@com_github_nlohmann_json//:nlohmann_json",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "json_value_as_test",
-    size = "small",
-    srcs = ["json_value_as_test.cc"],
-    deps = [
-        ":json_gtest",
-        ":json_value_as",
-        "//tensorstore/util:status_testutil",
-        "@com_github_nlohmann_json//:nlohmann_json",
-        "@com_google_absl//absl/status",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
-    name = "json_same",
-    srcs = ["json_same.cc"],
-    hdrs = ["json_same.h"],
-    deps = [
-        ":json_fwd",
-        "@com_github_nlohmann_json//:nlohmann_json",
-        "@com_google_absl//absl/container:inlined_vector",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "json_same_test",
-    size = "small",
-    srcs = ["json_same_test.cc"],
-    deps = [
-        ":json_gtest",
-        ":json_same",
-        "@com_github_nlohmann_json//:nlohmann_json",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
     name = "json",
     srcs = ["json.cc"],
     hdrs = [
@@ -767,11 +716,11 @@ tensorstore_cc_library(
         "json_bindable.h",
     ],
     deps = [
-        ":json_same",
-        ":json_value_as",
         ":type_traits",
         "//tensorstore:index",
         "//tensorstore:json_serialization_options_base",
+        "//tensorstore/internal/json",
+        "//tensorstore/internal/json:value_as",
         "//tensorstore/util:assert_macros",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
@@ -788,28 +737,19 @@ tensorstore_cc_library(
 
 tensorstore_cc_library(
     name = "json_array",
-    srcs = ["json_array.cc"],
     hdrs = ["json_array.h"],
     deps = [
-        ":element_copy_function",
         ":json_fwd",
         ":type_traits",
         "//tensorstore:array",
-        "//tensorstore:contiguous_layout",
         "//tensorstore:data_type",
-        "//tensorstore:index",
         "//tensorstore:rank",
         "//tensorstore:static_cast",
         "//tensorstore:strided_layout",
-        "//tensorstore/util:byte_strided_pointer",
-        "//tensorstore/util:iterate",
+        "//tensorstore/internal/json:array",
         "//tensorstore/util:result",
-        "//tensorstore/util:span",
         "//tensorstore/util:status",
-        "//tensorstore/util:str_cat",
         "@com_github_nlohmann_json//:nlohmann_json",
-        "@com_google_absl//absl/container:fixed_array",
-        "@com_google_absl//absl/container:inlined_vector",
         "@com_google_absl//absl/functional:function_ref",
         "@com_google_absl//absl/status",
     ],
@@ -882,28 +822,6 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
-    name = "json_pprint_python",
-    srcs = ["json_pprint_python.cc"],
-    hdrs = ["json_pprint_python.h"],
-    deps = [
-        "//tensorstore/util:result",
-        "@com_github_nlohmann_json//:nlohmann_json",
-        "@com_google_absl//absl/strings",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "json_pprint_python_test",
-    size = "small",
-    srcs = ["json_pprint_python_test.cc"],
-    deps = [
-        ":json_pprint_python",
-        "@com_github_nlohmann_json//:nlohmann_json",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
     name = "json_registry",
     srcs = [
         "json_registry_impl.cc",
@@ -961,7 +879,6 @@ tensorstore_cc_test(
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
         "@com_github_nlohmann_json//:nlohmann_json",
-        "@com_google_absl//absl/container:node_hash_set",
         "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
     ],
@@ -2034,7 +1951,7 @@ tensorstore_cc_library(
     srcs = ["json_metadata_matching.cc"],
     hdrs = ["json_metadata_matching.h"],
     deps = [
-        ":json_same",
+        "//tensorstore/internal/json",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:str_cat",
         "@com_github_nlohmann_json//:nlohmann_json",

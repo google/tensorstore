@@ -102,7 +102,7 @@ Result<std::vector<SharedArray<const void>>> ParseFillValue(
             (static_cast<std::uint64_t>(1) << num_bits) - 1);
         const std::int64_t min_value = static_cast<std::int64_t>(-1)
                                        << num_bits;
-        TENSORSTORE_RETURN_IF_ERROR(internal::JsonRequireInteger(
+        TENSORSTORE_RETURN_IF_ERROR(internal_json::JsonRequireInteger(
             j, &value, /*strict=*/true, min_value, max_value));
         fill_values[0] =
             MakeCopy(MakeScalarArrayView(value), c_order, field.dtype).value();
@@ -113,7 +113,7 @@ Result<std::vector<SharedArray<const void>>> ParseFillValue(
         const std::size_t num_bits = 8 * field.dtype->size;
         const std::uint64_t max_value =
             (static_cast<std::uint64_t>(2) << (num_bits - 1)) - 1;
-        TENSORSTORE_RETURN_IF_ERROR(internal::JsonRequireInteger(
+        TENSORSTORE_RETURN_IF_ERROR(internal_json::JsonRequireInteger(
             j, &value, /*strict=*/true, 0, max_value));
         fill_values[0] =
             MakeCopy(MakeScalarArrayView(value), c_order, field.dtype).value();
@@ -122,7 +122,7 @@ Result<std::vector<SharedArray<const void>>> ParseFillValue(
       case 'b': {
         bool value;
         TENSORSTORE_RETURN_IF_ERROR(
-            internal::JsonRequireValueAs(j, &value, /*strict=*/true));
+            internal_json::JsonRequireValueAs(j, &value, /*strict=*/true));
         fill_values[0] = MakeScalarArray<bool>(value);
         return fill_values;
       }
@@ -132,10 +132,10 @@ Result<std::vector<SharedArray<const void>>> ParseFillValue(
           // Fallthrough to allow base64 encoding.
           break;
         }
-        TENSORSTORE_RETURN_IF_ERROR(internal::JsonParseArray(
+        TENSORSTORE_RETURN_IF_ERROR(internal_json::JsonParseArray(
             j,
             [](std::ptrdiff_t size) {
-              return internal::JsonValidateArrayLength(size, 2);
+              return internal_json::JsonValidateArrayLength(size, 2);
             },
             [&](const ::nlohmann::json& v, std::ptrdiff_t i) {
               TENSORSTORE_ASSIGN_OR_RETURN(values[i], DecodeFloat(v));

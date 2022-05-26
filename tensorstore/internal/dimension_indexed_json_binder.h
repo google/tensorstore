@@ -68,7 +68,7 @@ constexpr auto DimensionIndexedVector(
           if (*rank == dynamic_rank) {
             *rank = size;
           } else if (*rank != static_cast<DimensionIndex>(size)) {
-            return internal::JsonValidateArrayLength(size, *rank);
+            return internal_json::JsonValidateArrayLength(size, *rank);
           }
         }
         return set_size(c, size);

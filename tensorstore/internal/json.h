@@ -29,9 +29,9 @@
 #include "absl/status/status.h"
 #include "absl/strings/str_join.h"
 #include <nlohmann/json.hpp>
+#include "tensorstore/internal/json/json.h"
+#include "tensorstore/internal/json/value_as.h"
 #include "tensorstore/internal/json_bindable.h"
-#include "tensorstore/internal/json_same.h"
-#include "tensorstore/internal/json_value_as.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/util/assert_macros.h"
@@ -40,77 +40,6 @@
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
-
-namespace tensorstore {
-namespace internal_json {
-
-/// When passed an error status for parsing JSON, returns a status annotated
-/// with the member name.
-absl::Status MaybeAnnotateMemberError(const absl::Status& status,
-                                      std::string_view member_name);
-
-/// When passed an error status for converting to JSON, returns a status
-/// annotated with the member name.
-absl::Status MaybeAnnotateMemberConvertError(const absl::Status& status,
-                                             std::string_view member_name);
-
-absl::Status MaybeAnnotateArrayElementError(const absl::Status& status,
-                                            std::size_t i, bool is_loading);
-
-inline ::nlohmann::json::object_t* GetObject(::nlohmann::json* j) {
-  return j->template get_ptr<::nlohmann::json::object_t*>();
-}
-
-}  // namespace internal_json
-namespace internal {
-
-// ParseJson wraps the ::nlohmann::json::parse calls to avoid throwing
-// exceptions.
-::nlohmann::json ParseJson(std::string_view str);
-
-/// Parses a JSON array.
-///
-/// \param j The JSON value to parse.
-/// \param size_callback Callback invoked with the array size before parsing any
-///     elements.  Parsing stops if it returns an error.
-/// \param element_callback Callback invoked for each array element after
-///     `size_callback` has been invoked.  Parsing stops if it returns an error.
-/// \returns `absl::Status()` on success, or otherwise the first error returned
-/// by
-///     `size_callback` or `element_callback`.
-/// \error `absl::StatusCode::kInvalidArgument` if `j` is not an array.
-absl::Status JsonParseArray(
-    const ::nlohmann::json& j,
-    absl::FunctionRef<absl::Status(std::ptrdiff_t size)> size_callback,
-    absl::FunctionRef<absl::Status(const ::nlohmann::json& value,
-                                   std::ptrdiff_t index)>
-        element_callback);
-
-/// Validates that `parsed_size` matches `expected_size`.
-///
-/// If the sizes don't match, returns a `absl::Status` with an informative error
-/// message.
-///
-/// This function is particularly useful to call from a `size_callback` passed
-/// to `JsonParseArray`.
-///
-/// \param parsed_size Parsed size of array.
-/// \param expected_size Expected size of array.
-/// \returns `absl::Status()` if `parsed_size == expected_size`.
-/// \error `absl::StatusCode::kInvalidArgument` if `parsed_size !=
-///     expected_size`.
-absl::Status JsonValidateArrayLength(std::ptrdiff_t parsed_size,
-                                     std::ptrdiff_t expected_size);
-
-/// Removes the specified member from `*j_obj` if it is present.
-///
-/// \returns The extracted member if present, or
-///     `::nlohmann::json::value_t::discarded` if not present.
-::nlohmann::json JsonExtractMember(::nlohmann::json::object_t* j_obj,
-                                   std::string_view name);
-
-/// Returns an error indicating that all members of `j_obj` are unexpected.
-absl::Status JsonExtraMembersError(const ::nlohmann::json::object_t& j_obj);
 
 /// Framework for bidirectional binding between C++ types and JSON values.
 ///
@@ -183,8 +112,21 @@ absl::Status JsonExtraMembersError(const ::nlohmann::json::object_t& j_obj);
 ///       }
 ///     };
 
-}  // namespace internal
+namespace tensorstore {
 namespace internal_json_binding {
+
+/// When passed an error status for parsing JSON, returns a status annotated
+/// with the member name.
+absl::Status MaybeAnnotateMemberError(const absl::Status& status,
+                                      std::string_view member_name);
+
+/// When passed an error status for converting to JSON, returns a status
+/// annotated with the member name.
+absl::Status MaybeAnnotateMemberConvertError(const absl::Status& status,
+                                             std::string_view member_name);
+
+absl::Status MaybeAnnotateArrayElementError(const absl::Status& status,
+                                            std::size_t i, bool is_loading);
 
 /// Binder adapter that projects the parsed representation.
 ///
@@ -405,7 +347,7 @@ constexpr auto Object(MemberBinder... member_binder) {
     ::nlohmann::json::object_t* j_obj;
     if constexpr (is_loading) {
       if constexpr (std::is_same_v<::nlohmann::json*, decltype(j)>) {
-        j_obj = internal_json::GetObject(j);
+        j_obj = j->template get_ptr<::nlohmann::json::object_t*>();
         if (!j_obj) {
           return internal_json::ExpectedError(*j, "object");
         }
@@ -416,13 +358,13 @@ constexpr auto Object(MemberBinder... member_binder) {
           is_loading, options, obj, j_obj, member_binder...));
       // If any members remain in j_obj after this, error.
       if (!j_obj->empty()) {
-        return internal::JsonExtraMembersError(*j_obj);
+        return internal_json::JsonExtraMembersError(*j_obj);
       }
       return absl::OkStatus();
     } else {
       if constexpr (std::is_same_v<::nlohmann::json*, decltype(j)>) {
         *j = ::nlohmann::json::object_t();
-        j_obj = internal_json::GetObject(j);
+        j_obj = j->template get_ptr<::nlohmann::json::object_t*>();
       } else {
         j_obj = j;
         j_obj->clear();
@@ -441,20 +383,19 @@ struct MemberBinderImpl {
   template <typename Options, typename Obj>
   absl::Status operator()(std::true_type is_loading, const Options& options,
                           Obj* obj, ::nlohmann::json::object_t* j_obj) const {
-    ::nlohmann::json j_member = internal::JsonExtractMember(j_obj, name);
+    ::nlohmann::json j_member = internal_json::JsonExtractMember(j_obj, name);
     if constexpr (kDropDiscarded) {
       if (j_member.is_discarded()) return absl::OkStatus();
     }
-    return internal_json::MaybeAnnotateMemberError(
-        binder(is_loading, options, obj, &j_member), name);
+    return MaybeAnnotateMemberError(binder(is_loading, options, obj, &j_member),
+                                    name);
   }
   template <typename Options, typename Obj>
   absl::Status operator()(std::false_type is_loading, const Options& options,
                           Obj* obj, ::nlohmann::json::object_t* j_obj) const {
     ::nlohmann::json j_member(::nlohmann::json::value_t::discarded);
-    TENSORSTORE_RETURN_IF_ERROR(
-        binder(is_loading, options, obj, &j_member),
-        internal_json::MaybeAnnotateMemberConvertError(_, name));
+    TENSORSTORE_RETURN_IF_ERROR(binder(is_loading, options, obj, &j_member),
+                                MaybeAnnotateMemberConvertError(_, name));
     if (!j_member.is_discarded()) {
       j_obj->emplace(name, std::move(j_member));
     }
@@ -789,7 +730,7 @@ constexpr inline auto LooseValueAsBinder =
     [](auto is_loading, const auto& options, auto* obj,
        ::nlohmann::json* j) -> absl::Status {
   if constexpr (is_loading) {
-    return internal::JsonRequireValueAs(*j, obj, /*strict=*/false);
+    return internal_json::JsonRequireValueAs(*j, obj, /*strict=*/false);
   } else {
     *j = *obj;
     return absl::OkStatus();
@@ -805,7 +746,7 @@ constexpr inline auto ValueAsBinder = [](auto is_loading, const auto& options,
                                          auto* obj,
                                          ::nlohmann::json* j) -> absl::Status {
   if constexpr (is_loading) {
-    return internal::JsonRequireValueAs(*j, obj, /*strict=*/true);
+    return internal_json::JsonRequireValueAs(*j, obj, /*strict=*/true);
   } else {
     *j = *obj;
     return absl::OkStatus();
@@ -835,7 +776,7 @@ constexpr inline auto LooseFloatBinder =
        ::nlohmann::json* j) -> absl::Status {
   if constexpr (is_loading) {
     double x;
-    auto status = internal::JsonRequireValueAs(*j, &x, /*strict=*/false);
+    auto status = internal_json::JsonRequireValueAs(*j, &x, /*strict=*/false);
     if (status.ok()) *obj = x;
     return status;
   } else {
@@ -854,7 +795,7 @@ constexpr inline auto FloatBinder = [](auto is_loading, const auto& options,
                                        ::nlohmann::json* j) -> absl::Status {
   if constexpr (is_loading) {
     double x;
-    auto status = internal::JsonRequireValueAs(*j, &x, /*strict=*/true);
+    auto status = internal_json::JsonRequireValueAs(*j, &x, /*strict=*/true);
     if (status.ok()) *obj = x;
     return status;
   } else {
@@ -877,7 +818,8 @@ constexpr auto LooseInteger(T min = std::numeric_limits<T>::min(),
   return [=](auto is_loading, const auto& options, auto* obj,
              ::nlohmann::json* j) -> absl::Status {
     if constexpr (is_loading) {
-      return internal::JsonRequireInteger(*j, obj, /*strict=*/false, min, max);
+      return internal_json::JsonRequireInteger(*j, obj, /*strict=*/false, min,
+                                               max);
     } else {
       *j = *obj;
       return absl::OkStatus();
@@ -892,7 +834,8 @@ constexpr auto Integer(T min = std::numeric_limits<T>::min(),
   return [=](auto is_loading, const auto& options, auto* obj,
              ::nlohmann::json* j) -> absl::Status {
     if constexpr (is_loading) {
-      return internal::JsonRequireInteger(*j, obj, /*strict=*/true, min, max);
+      return internal_json::JsonRequireInteger(*j, obj, /*strict=*/true, min,
+                                               max);
     } else {
       *j = *obj;
       return absl::OkStatus();
@@ -911,7 +854,7 @@ constexpr inline auto NonEmptyStringBinder =
     [](auto is_loading, const auto& options, auto* obj,
        ::nlohmann::json* j) -> absl::Status {
   if constexpr (is_loading) {
-    return internal::JsonRequireValueAs(
+    return internal_json::JsonRequireValueAs(
         *j, obj, [](const std::string& value) { return !value.empty(); },
         /*strict=*/true);
   } else {
@@ -951,7 +894,7 @@ constexpr inline auto CopyJsonObjectBinder = [](auto is_loading,
     if constexpr (std::is_same_v<decltype(j), ::nlohmann::json::object_t*>) {
       *obj = std::move(*j);
     } else {
-      if (auto* j_obj = internal_json::GetObject(j)) {
+      if (auto* j_obj = j->template get_ptr<::nlohmann::json::object_t*>()) {
         *obj = std::move(*j_obj);
       } else {
         return internal_json::ExpectedError(*j, "object");
@@ -1132,7 +1075,7 @@ struct ArrayBinderImpl {
       auto&& element = get_element(*obj, i);
       TENSORSTORE_RETURN_IF_ERROR(
           element_binder(is_loading, options, &element, &(*j_arr)[i]),
-          internal_json::MaybeAnnotateArrayElementError(_, i, is_loading));
+          MaybeAnnotateArrayElementError(_, i, is_loading));
     }
     return absl::OkStatus();
   }
@@ -1202,7 +1145,7 @@ constexpr auto FixedSizeArray(ElementBinder element_binder = DefaultBinder<>) {
   return internal_json_binding::Array(
       [](auto& c) { return std::size(c); },
       [](auto& c, std::size_t new_size) {
-        return internal::JsonValidateArrayLength(new_size, std::size(c));
+        return internal_json::JsonValidateArrayLength(new_size, std::size(c));
       },
       [](auto& c, std::size_t i) -> decltype(auto) { return c[i]; },
       element_binder);

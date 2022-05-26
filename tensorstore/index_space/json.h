@@ -260,7 +260,7 @@ constexpr auto BoundsBinder() {
           return absl::OkStatus();
         }
       }
-      auto value = internal::JsonValueAs<Index>(*j);
+      auto value = internal_json::JsonValueAs<Index>(*j);
       if (value && (kNegInfinity == 0 || *value >= kNegInfinity) &&
           (kPosInfinity == 0 || *value <= kPosInfinity)) {
         *obj = *value;

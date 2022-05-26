@@ -12,15 +12,80 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/json_same.h"
+#include "tensorstore/internal/json/json.h"
 
+#include <map>
+#include <string>
+#include <string_view>
+#include <utility>
 #include <variant>
+#include <vector>
 
 #include "absl/container/inlined_vector.h"
+#include "absl/functional/function_ref.h"
+#include "absl/status/status.h"
+#include "absl/strings/str_join.h"
 #include <nlohmann/json.hpp>
+#include "tensorstore/index.h"
+#include "tensorstore/internal/json/value_as.h"
+#include "tensorstore/util/quote_string.h"
+#include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_json {
+
+::nlohmann::json JsonExtractMember(::nlohmann::json::object_t* j_obj,
+                                   std::string_view name) {
+  if (auto it = j_obj->find(name); it != j_obj->end()) {
+    auto node = j_obj->extract(it);
+    return std::move(node.mapped());
+  }
+  return ::nlohmann::json(::nlohmann::json::value_t::discarded);
+}
+absl::Status JsonExtraMembersError(const ::nlohmann::json::object_t& j_obj) {
+  return absl::InvalidArgumentError(
+      StrCat("Object includes extra members: ",
+             absl::StrJoin(j_obj, ",", [](std::string* out, const auto& p) {
+               *out += QuoteString(p.first);
+             })));
+}
+
+::nlohmann::json ParseJson(std::string_view str) {
+  return ::nlohmann::json::parse(str, nullptr, false);
+}
+
+absl::Status JsonParseArray(
+    const ::nlohmann::json& j,
+    absl::FunctionRef<absl::Status(std::ptrdiff_t size)> size_callback,
+    absl::FunctionRef<absl::Status(const ::nlohmann::json& value,
+                                   std::ptrdiff_t index)>
+        element_callback) {
+  const auto* j_array = j.get_ptr<const ::nlohmann::json::array_t*>();
+  if (!j_array) {
+    return internal_json::ExpectedError(j, "array");
+  }
+  const std::ptrdiff_t size = j_array->size();
+  TENSORSTORE_RETURN_IF_ERROR(size_callback(size));
+  for (DimensionIndex i = 0; i < size; ++i) {
+    auto status = element_callback(j[i], i);
+    if (!status.ok()) {
+      return MaybeAnnotateStatus(status,
+                                 StrCat("Error parsing value at position ", i));
+    }
+  }
+  return absl::OkStatus();
+}
+
+absl::Status JsonValidateArrayLength(std::ptrdiff_t parsed_size,
+                                     std::ptrdiff_t expected_size) {
+  if (parsed_size != expected_size) {
+    return absl::InvalidArgumentError(StrCat("Array has length ", parsed_size,
+                                             " but should have length ",
+                                             expected_size));
+  }
+  return absl::OkStatus();
+}
 
 bool JsonSame(const ::nlohmann::json& a, const ::nlohmann::json& b) {
   using value_t = ::nlohmann::json::value_t;

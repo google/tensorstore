@@ -119,7 +119,7 @@ struct ImplicitArrayBinderImpl {
           if (rank == dynamic_rank) {
             rank = size;
           } else if (rank != static_cast<DimensionIndex>(size)) {
-            return internal::JsonValidateArrayLength(size, rank);
+            return internal_json::JsonValidateArrayLength(size, rank);
           }
           std::invoke(values_ptr, obj).resize(size);
           return absl::OkStatus();

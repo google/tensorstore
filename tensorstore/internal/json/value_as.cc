@@ -12,18 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/json_value_as.h"
+#include "tensorstore/internal/json/value_as.h"
 
+#include <cmath>
 #include <cstdint>
+#include <limits>
 #include <optional>
 #include <string>
 #include <string_view>
-#include <type_traits>
 
 #include "absl/status/status.h"
 #include "absl/strings/numbers.h"
 #include <nlohmann/json.hpp>
-#include "tensorstore/util/status.h"
+#include "tensorstore/internal/type_traits.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -49,7 +50,7 @@ template <typename T>
 absl::Status JsonRequireIntegerImpl<T>::Execute(const ::nlohmann::json& json,
                                                 T* result, bool strict,
                                                 T min_value, T max_value) {
-  if (auto x = internal::JsonValueAs<T>(json, strict)) {
+  if (auto x = JsonValueAs<T>(json, strict)) {
     if (*x >= min_value && *x <= max_value) {
       *result = *x;
       return absl::OkStatus();
@@ -83,9 +84,6 @@ absl::Status JsonRequireIntegerImpl<T>::Execute(const ::nlohmann::json& json,
 template struct JsonRequireIntegerImpl<std::int64_t>;
 template struct JsonRequireIntegerImpl<std::uint64_t>;
 
-}  // namespace internal_json
-
-namespace internal {
 template <>
 std::optional<std::nullptr_t> JsonValueAs<std::nullptr_t>(
     const ::nlohmann::json& j, bool strict) {
@@ -188,5 +186,5 @@ std::optional<std::string> JsonValueAs<std::string>(const ::nlohmann::json& j,
   return std::nullopt;
 }
 
-}  // namespace internal
+}  // namespace internal_json
 }  // namespace tensorstore

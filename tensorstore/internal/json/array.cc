@@ -12,11 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/json_array.h"
+#include "tensorstore/internal/json/array.h"
+
+#include <stddef.h>
 
 #include <algorithm>
 #include <cassert>
-#include <functional>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -24,13 +26,14 @@
 #include "absl/container/inlined_vector.h"
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
+#include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/data_type_conversion.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/element_copy_function.h"
-#include "tensorstore/internal/json_fwd.h"
+#include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/byte_strided_pointer.h"
@@ -43,7 +46,7 @@
 namespace tensorstore {
 namespace internal_json {
 
-::nlohmann::json JsonEncodeNestedArray(
+::nlohmann::json JsonEncodeNestedArrayImpl(
     ArrayView<const void, dynamic_rank, offset_origin> array,
     absl::FunctionRef<::nlohmann::json(const void*)> encode_element) {
   // To avoid the possibility of stack overflow, this implementation is
@@ -116,39 +119,8 @@ namespace internal_json {
     }
   }
 }
-}  // namespace internal_json
 
-namespace internal {
-
-Result<::nlohmann::json> JsonEncodeNestedArray(ArrayView<const void> array) {
-  auto convert = internal::GetDataTypeConverter(array.dtype(), dtype_v<json_t>);
-  if (!(convert.flags & DataTypeConversionFlags::kSupported)) {
-    return absl::InvalidArgumentError(StrCat("Conversion from ", array.dtype(),
-                                             " to JSON is not implemented"));
-  }
-  bool error = false;
-  absl::Status status;
-  ::nlohmann::json j = internal::JsonEncodeNestedArray(
-      array, [&](const void* ptr) -> ::nlohmann::json {
-        if ((convert.flags & DataTypeConversionFlags::kCanReinterpretCast) ==
-            DataTypeConversionFlags::kCanReinterpretCast) {
-          return *reinterpret_cast<const json_t*>(ptr);
-        }
-        ::nlohmann::json value;
-        if ((*convert.closure.function)[IterationBufferKind::kContiguous](
-                convert.closure.context, 1,
-                IterationBufferPointer(const_cast<void*>(ptr), Index(0)),
-                IterationBufferPointer(&value, Index(0)), &status) != 1) {
-          error = true;
-          return nullptr;
-        }
-        return value;
-      });
-  if (error) return GetElementCopyErrorStatus(std::move(status));
-  return j;
-}
-
-Result<SharedArray<void>> JsonParseNestedArray(
+Result<SharedArray<void>> JsonParseNestedArrayImpl(
     const ::nlohmann::json& j_root, DataType dtype,
     absl::FunctionRef<absl::Status(const ::nlohmann::json& v, void* out)>
         decode_element) {
@@ -262,6 +234,37 @@ Result<SharedArray<void>> JsonParseNestedArray(
   }
 }
 
+Result<::nlohmann::json> JsonEncodeNestedArray(ArrayView<const void> array) {
+  auto convert = internal::GetDataTypeConverter(array.dtype(), dtype_v<json_t>);
+  if (!(convert.flags & DataTypeConversionFlags::kSupported)) {
+    return absl::InvalidArgumentError(StrCat("Conversion from ", array.dtype(),
+                                             " to JSON is not implemented"));
+  }
+  bool error = false;
+  absl::Status status;
+  ::nlohmann::json j = JsonEncodeNestedArrayImpl(
+      array, [&](const void* ptr) -> ::nlohmann::json {
+        if ((convert.flags & DataTypeConversionFlags::kCanReinterpretCast) ==
+            DataTypeConversionFlags::kCanReinterpretCast) {
+          return *reinterpret_cast<const json_t*>(ptr);
+        }
+        ::nlohmann::json value;
+        if ((*convert.closure
+                  .function)[internal::IterationBufferKind::kContiguous](
+                convert.closure.context, 1,
+                internal::IterationBufferPointer(const_cast<void*>(ptr),
+                                                 Index(0)),
+                internal::IterationBufferPointer(&value, Index(0)),
+                &status) != 1) {
+          error = true;
+          return nullptr;
+        }
+        return value;
+      });
+  if (error) return internal::GetElementCopyErrorStatus(std::move(status));
+  return j;
+}
+
 Result<SharedArray<void>> JsonParseNestedArray(const ::nlohmann::json& j,
                                                DataType dtype,
                                                DimensionIndex rank_constraint) {
@@ -272,7 +275,7 @@ Result<SharedArray<void>> JsonParseNestedArray(const ::nlohmann::json& j,
   }
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto array,
-      JsonParseNestedArray(
+      JsonParseNestedArrayImpl(
           j, dtype, [&](const ::nlohmann::json& v, void* out) -> absl::Status {
             if ((convert.flags &
                  DataTypeConversionFlags::kCanReinterpretCast) ==
@@ -281,12 +284,14 @@ Result<SharedArray<void>> JsonParseNestedArray(const ::nlohmann::json& j,
               return absl::OkStatus();
             } else {
               absl::Status status;
-              if ((*convert.closure.function)[IterationBufferKind::kContiguous](
+              if ((*convert.closure
+                        .function)[internal::IterationBufferKind::kContiguous](
                       convert.closure.context, 1,
-                      IterationBufferPointer(const_cast<::nlohmann::json*>(&v),
-                                             Index(0)),
-                      IterationBufferPointer(out, Index(0)), &status) != 1) {
-                return GetElementCopyErrorStatus(std::move(status));
+                      internal::IterationBufferPointer(
+                          const_cast<::nlohmann::json*>(&v), Index(0)),
+                      internal::IterationBufferPointer(out, Index(0)),
+                      &status) != 1) {
+                return internal::GetElementCopyErrorStatus(std::move(status));
               }
               return absl::OkStatus();
             }
@@ -299,5 +304,5 @@ Result<SharedArray<void>> JsonParseNestedArray(const ::nlohmann::json& j,
   return array;
 }
 
-}  // namespace internal
+}  // namespace internal_json
 }  // namespace tensorstore

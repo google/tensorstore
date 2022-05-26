@@ -226,12 +226,11 @@ tensorstore_cc_library(
     deps = [
         ":proto_util",
         "//tensorstore:json_serialization_options_base",
-        "//tensorstore/internal:arena",
         "//tensorstore/internal:json",
         "//tensorstore/internal:json_fwd",
-        "//tensorstore/internal:json_value_as",
         "//tensorstore/internal:path",
         "//tensorstore/internal:type_traits",
+        "//tensorstore/internal/json:value_as",
         "//tensorstore/util:str_cat",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/memory",

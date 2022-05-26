@@ -32,7 +32,7 @@ Result<::nlohmann::json::array_t*> EnsureJsonTupleRepresentationImpl(
     auto* array_ptr = j->get_ptr<::nlohmann::json::array_t*>();
     if (!array_ptr) return internal_json::ExpectedError(*j, "array");
     TENSORSTORE_RETURN_IF_ERROR(
-        internal::JsonValidateArrayLength(array_ptr->size(), n));
+        internal_json::JsonValidateArrayLength(array_ptr->size(), n));
     return array_ptr;
   } else {
     *j = ::nlohmann::json::array_t(n);
@@ -52,8 +52,7 @@ constexpr auto TupleJsonBinderImpl(std::index_sequence<Is...>,
         (((status = element_binder(is_loading, options, &std::get<Is>(*obj),
                                    &(*array_ptr)[Is]))
               .ok() ||
-          ((status = internal_json::MaybeAnnotateArrayElementError(status, Is,
-                                                                   is_loading)),
+          ((status = MaybeAnnotateArrayElementError(status, Is, is_loading)),
            false)) &&
          ...)) {
       return status;
@@ -74,8 +73,7 @@ constexpr auto TupleDefaultJsonBinderImpl(std::index_sequence<Is...>) {
         (((status = DefaultBinder<>(is_loading, options, &get<Is>(*obj),
                                     &(*array_ptr)[Is]))
               .ok() ||
-          ((status = internal_json::MaybeAnnotateArrayElementError(status, Is,
-                                                                   is_loading)),
+          ((status = MaybeAnnotateArrayElementError(status, Is, is_loading)),
            false)) &&
          ...)) {
       return status;
@@ -95,8 +93,7 @@ constexpr auto HeterogeneousArrayJsonBinderImpl(
     if (absl::Status status;
         (((status = element_binder(is_loading, options, obj, &(*array_ptr)[Is]))
               .ok() ||
-          ((status = internal_json::MaybeAnnotateArrayElementError(status, Is,
-                                                                   is_loading)),
+          ((status = MaybeAnnotateArrayElementError(status, Is, is_loading)),
            false)) &&
          ...)) {
       return status;
@@ -162,8 +159,7 @@ constexpr auto HeterogeneousArray(ElementBinder... element_binder) {
         (((status =
                element_binder(is_loading, options, obj, &(*array_ptr)[i++]))
               .ok() ||
-          ((status = internal_json::MaybeAnnotateArrayElementError(
-                status, i - 1, is_loading)),
+          ((status = MaybeAnnotateArrayElementError(status, i - 1, is_loading)),
            false)) &&
          ...);
     return status;

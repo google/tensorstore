@@ -12,13 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/json_pprint_python.h"
+#include "tensorstore/internal/json/pprint_python.h"
 
 #include <string>
+#include <string_view>
 
 #include "absl/strings/escaping.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_python {

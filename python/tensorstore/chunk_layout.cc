@@ -26,7 +26,7 @@
 #include "python/tensorstore/keyword_arguments.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/index_space/index_domain_builder.h"
-#include "tensorstore/internal/json_pprint_python.h"
+#include "tensorstore/internal/json/pprint_python.h"
 #include "tensorstore/util/executor.h"
 
 namespace tensorstore {

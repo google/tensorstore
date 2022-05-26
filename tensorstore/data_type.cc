@@ -21,7 +21,7 @@
 #include <nlohmann/json.hpp>
 #include "tensorstore/data_type_conversion.h"
 #include "tensorstore/internal/exception_macros.h"
-#include "tensorstore/internal/json_value_as.h"
+#include "tensorstore/internal/json/value_as.h"
 #include "tensorstore/internal/preprocessor.h"
 #include "tensorstore/internal/utf8.h"
 #include "tensorstore/serialization/serialization.h"
@@ -220,7 +220,7 @@ namespace internal_data_type {
 struct JsonIntegerConvertDataType {
   template <typename To>
   bool operator()(const json_t* from, To* to, absl::Status* status) const {
-    auto s = internal::JsonRequireInteger(*from, to, /*strict=*/false);
+    auto s = internal_json::JsonRequireInteger(*from, to, /*strict=*/false);
     if (s.ok()) return true;
     *status = s;
     return false;
@@ -231,7 +231,7 @@ struct JsonFloatConvertDataType {
   template <typename To>
   bool operator()(const json_t* from, To* to, absl::Status* status) const {
     double value;
-    auto s = internal::JsonRequireValueAs(*from, &value, /*strict=*/false);
+    auto s = internal_json::JsonRequireValueAs(*from, &value, /*strict=*/false);
     if (s.ok()) {
       *to = static_cast<To>(value);
       return true;
@@ -329,7 +329,7 @@ TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(
 template <>
 struct ConvertDataType<json_t, bool> {
   bool operator()(const json_t* from, bool* to, absl::Status* status) const {
-    auto s = internal::JsonRequireValueAs(*from, to, /*strict=*/false);
+    auto s = internal_json::JsonRequireValueAs(*from, to, /*strict=*/false);
     if (s.ok()) return true;
     *status = s;
     return false;
@@ -340,7 +340,7 @@ template <>
 struct ConvertDataType<json_t, string_t> {
   bool operator()(const json_t* from, string_t* to,
                   absl::Status* status) const {
-    auto s = internal::JsonRequireValueAs(*from, to, /*strict=*/false);
+    auto s = internal_json::JsonRequireValueAs(*from, to, /*strict=*/false);
     if (s.ok()) return true;
     *status = s;
     return false;
@@ -351,7 +351,8 @@ template <>
 struct ConvertDataType<json_t, ustring_t> {
   bool operator()(const json_t* from, ustring_t* to,
                   absl::Status* status) const {
-    auto s = internal::JsonRequireValueAs(*from, &to->utf8, /*strict=*/false);
+    auto s =
+        internal_json::JsonRequireValueAs(*from, &to->utf8, /*strict=*/false);
     if (s.ok()) return true;
     *status = s;
     return false;

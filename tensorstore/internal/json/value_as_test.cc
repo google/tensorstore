@@ -12,10 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/json_value_as.h"
+#include "tensorstore/internal/json/value_as.h"
 
+#include <stdint.h>
+
+#include <map>
 #include <optional>
 #include <set>
+#include <string>
+#include <type_traits>
+#include <utility>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -27,9 +33,9 @@
 namespace {
 
 using tensorstore::MatchesStatus;
-using tensorstore::internal::JsonRequireInteger;
-using tensorstore::internal::JsonRequireValueAs;
-using tensorstore::internal::JsonValueAs;
+using tensorstore::internal_json::JsonRequireInteger;
+using tensorstore::internal_json::JsonRequireValueAs;
+using tensorstore::internal_json::JsonValueAs;
 
 template <typename T, bool kStrict = true>
 std::optional<T> JsonMemberT(const ::nlohmann::json::object_t& j,
