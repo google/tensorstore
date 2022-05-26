@@ -47,7 +47,9 @@ definitions:
         - const: "shared"
         description: >-
           The maximum number of concurrent requests.  If the special value of
-          :json:`"shared"` is specified, a shared global limit of 32 applies.
+          :json:`"shared"` is specified, a shared global limit specified by
+          environment variable :envvar:`TENSORSTORE_GCS_REQUEST_CONCURRENCY`,
+          which defaults to 32.
         default: "shared"
   gcs_user_project:
     $id: Context.gcs_user_project

@@ -12,20 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <assert.h>
+
 #include <atomic>
-#include <functional>
-#include <limits>
 #include <map>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
+#include "absl/flags/marshalling.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
-#include "absl/strings/str_format.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
@@ -145,6 +147,18 @@ std::string_view GetGcsBaseUrl() {
   return url;
 }
 
+size_t GetDefaultGcsRequestConcurrency() {
+  // Called before flag parsing during resource registration.
+  constexpr size_t kDefault = 32;
+  auto env = internal::GetEnv("TENSORSTORE_GCS_REQUEST_CONCURRENCY");
+  if (!env) {
+    return kDefault;
+  }
+  size_t limit;
+  std::string error;
+  return absl::ParseFlag(*env, &limit, &error) ? limit : kDefault;
+}
+
 /// Specifies an admission queue as a context object.
 ///
 /// This provides a way to limit the concurrency across multiple tensorstores
@@ -152,7 +166,8 @@ std::string_view GetGcsBaseUrl() {
 struct GcsAdmissionQueueResource
     : public AdmissionQueueResource,
       public internal::ContextResourceTraits<GcsAdmissionQueueResource> {
-  GcsAdmissionQueueResource() : AdmissionQueueResource(32) {}
+  GcsAdmissionQueueResource()
+      : AdmissionQueueResource(GetDefaultGcsRequestConcurrency()) {}
 
   static constexpr char id[] = "gcs_request_concurrency";
 };

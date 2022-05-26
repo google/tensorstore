@@ -104,6 +104,8 @@ Result<AdmissionQueueResource::Resource> AdmissionQueueResource::Create(
     value.queue = std::make_shared<AdmissionQueue>(*spec.limit);
   } else {
     absl::call_once(shared_once_, [&] {
+      TENSORSTORE_LOG("Using default AdmissionQueue with limit ",
+                      shared_limit_);
       shared_queue_ = std::make_shared<AdmissionQueue>(shared_limit_);
     });
     value.queue = shared_queue_;

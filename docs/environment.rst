@@ -123,3 +123,9 @@ Google Cloud Storage
    ``https://storage.googleapis.com``.  Note that the normal Google oauth2
    credentials *are* included in requests, and therefore only trusted servers
    should be used.
+
+.. envvar:: TENSORSTORE_GCS_REQUEST_CONCURRENCY
+
+   Specifies the concurrency level used by the shared Context
+   :json:schema:`Context.gcs_request_concurrency` resource. Defaults to 32.
+
