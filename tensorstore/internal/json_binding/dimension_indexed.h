@@ -12,13 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_DIMENSION_INDEXED_JSON_BINDER_H_
-#define TENSORSTORE_INTERNAL_DIMENSION_INDEXED_JSON_BINDER_H_
+#ifndef TENSORSTORE_INTERNAL_JSON_BINDING_DIMENSION_INDEXED_H_
+#define TENSORSTORE_INTERNAL_JSON_BINDING_DIMENSION_INDEXED_H_
+
+#include <stddef.h>
 
 #include <algorithm>
+#include <utility>
 
+#include "absl/status/status.h"
+#include "tensorstore/index.h"
 #include "tensorstore/internal/dimension_labels.h"
-#include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json/json.h"
+#include "tensorstore/internal/json_binding/bindable.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/internal/json_binding/std_array.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/util/status.h"
 
@@ -151,4 +159,4 @@ constexpr auto DimensionLabelVector(DimensionIndex* rank) {
 }  // namespace internal_json_binding
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_DIMENSION_INDEXED_JSON_BINDER_H_
+#endif  // TENSORSTORE_INTERNAL_JSON_BINDING_DIMENSION_INDEXED_H_

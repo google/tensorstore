@@ -22,7 +22,7 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
-#include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_registry.h"
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/json_serialization_options.h"

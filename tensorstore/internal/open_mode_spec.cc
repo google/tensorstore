@@ -16,7 +16,8 @@
 
 #include <optional>
 
-#include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/internal/json_binding/std_optional.h"
 #include "tensorstore/open_mode.h"
 
 namespace tensorstore {

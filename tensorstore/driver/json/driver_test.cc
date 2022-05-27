@@ -22,7 +22,7 @@
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/global_initializer.h"
-#include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/parse_json_matches.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/memory/memory_key_value_store.h"

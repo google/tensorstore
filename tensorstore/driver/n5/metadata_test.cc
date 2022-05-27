@@ -20,6 +20,7 @@
 #include <gtest/gtest.h>
 #include "tensorstore/array.h"
 #include "tensorstore/codec_spec.h"
+#include "tensorstore/internal/json_binding/gtest.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"

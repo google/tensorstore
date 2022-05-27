@@ -138,8 +138,9 @@
 #include <nlohmann/json.hpp>
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
-#include "tensorstore/internal/json.h"
-#include "tensorstore/internal/json_bindable.h"
+#include "tensorstore/internal/json_binding/bindable.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/internal/json_binding/std_array.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/util/result.h"
 

@@ -19,6 +19,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "tensorstore/index_space/dim_expression.h"
+#include "tensorstore/internal/json_binding/gtest.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/serialization/test_util.h"

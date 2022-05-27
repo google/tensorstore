@@ -84,10 +84,10 @@ tensorstore_cc_library(
     ],
     deps = [
         ":serialization",
-        "//tensorstore/internal:json",
         "//tensorstore/internal:json_fwd",
         "//tensorstore/internal:riegeli_json_input",
         "//tensorstore/internal:riegeli_json_output",
+        "//tensorstore/internal/json_binding",
         "//tensorstore/util:status",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/status",

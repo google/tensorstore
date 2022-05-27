@@ -17,7 +17,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/json_serialization_options.h"

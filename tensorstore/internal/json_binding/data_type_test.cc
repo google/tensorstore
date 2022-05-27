@@ -12,24 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/data_type_json_binder.h"
+#include "tensorstore/internal/json_binding/data_type.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/data_type.h"
-#include "tensorstore/internal/json_bindable.h"
+#include "tensorstore/internal/json_binding/bindable.h"
+#include "tensorstore/internal/json_binding/gtest.h"
 #include "tensorstore/internal/json_gtest.h"
+#include "tensorstore/json_serialization_options_base.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
 
-namespace {
-using tensorstore::DataType;
-using tensorstore::dtype_v;
-using tensorstore::MatchesStatus;
+using ::tensorstore::DataType;
+using ::tensorstore::dtype_v;
+using ::tensorstore::MatchesStatus;
 
 namespace jb = tensorstore::internal_json_binding;
 
+namespace {
 struct X {};
 
 TEST(DataTypeJsonBinderTest, ToJson) {

@@ -15,7 +15,8 @@
 #include "tensorstore/driver/zarr/compressor.h"
 
 #include "tensorstore/driver/zarr/compressor_registry.h"
-#include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_binding/enum.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_registry.h"
 #include "tensorstore/internal/no_destructor.h"
 

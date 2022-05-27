@@ -25,7 +25,7 @@
 #include <blosc.h>
 #include "tensorstore/internal/compression/blosc.h"
 #include "tensorstore/internal/compression/json_specified_compressor.h"
-#include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/util/quote_string.h"
 
 namespace tensorstore {

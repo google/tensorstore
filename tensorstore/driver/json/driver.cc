@@ -23,10 +23,10 @@
 #include "tensorstore/internal/cache/cache_pool_resource.h"
 #include "tensorstore/internal/cache/kvs_backed_cache.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
-#include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/internal/json_binding/staleness_bound.h"
 #include "tensorstore/internal/json_pointer.h"
 #include "tensorstore/internal/nditerable_transformed_array.h"
-#include "tensorstore/internal/staleness_bound_json_binder.h"
 #include "tensorstore/serialization/absl_time.h"
 #include "tensorstore/util/execution/sender.h"
 

@@ -12,10 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_JSON_UNIT_H_
-#define TENSORSTORE_INTERNAL_JSON_UNIT_H_
+#ifndef TENSORSTORE_INTERNAL_JSON_BINDING_UNIT_H_
+#define TENSORSTORE_INTERNAL_JSON_BINDING_UNIT_H_
 
-#include "tensorstore/internal/json_bindable.h"
+#include "absl/status/status.h"
+#include "tensorstore/internal/json_binding/bindable.h"
+#include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/util/unit.h"
 
 namespace tensorstore {

@@ -20,7 +20,7 @@
 
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
-#include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_gtest.h"
 
 namespace tensorstore {

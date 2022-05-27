@@ -37,6 +37,7 @@ tensorstore_cc_library(
         "//tensorstore/index_space:index_transform",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:nditerable_transformed_array",
+        "//tensorstore/internal/json_binding",
         "//tensorstore/serialization",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
@@ -206,7 +207,8 @@ tensorstore_cc_library(
     hdrs = ["downsample_method_json_binder.h"],
     deps = [
         "//tensorstore:downsample_method",
-        "//tensorstore/internal:json",
+        "//tensorstore/internal/json_binding",
+        "//tensorstore/internal/json_binding:bindable",
     ],
 )
 

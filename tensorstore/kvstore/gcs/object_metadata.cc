@@ -26,8 +26,8 @@
 #include "absl/strings/str_split.h"
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
-#include "tensorstore/internal/absl_time_json_binder.h"
-#include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_binding/absl_time.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 

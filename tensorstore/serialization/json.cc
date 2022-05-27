@@ -16,7 +16,7 @@
 
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
-#include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/riegeli_json_input.h"
 #include "tensorstore/internal/riegeli_json_output.h"
 #include "tensorstore/serialization/serialization.h"

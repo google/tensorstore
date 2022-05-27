@@ -102,7 +102,6 @@ tensorstore_cc_test(
         "//tensorstore:array",
         "//tensorstore:contiguous_layout",
         "//tensorstore:data_type",
-        "//tensorstore/internal:json",
         "//tensorstore/internal:json_fwd",
         "//tensorstore/internal:json_gtest",
         "//tensorstore/util:element_pointer",

@@ -12,23 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/staleness_bound_json_binder.h"
+#include "tensorstore/internal/json_binding/staleness_bound.h"
+
+#include <memory>
+#include <type_traits>
+#include <utility>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "absl/status/status.h"
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
-#include "tensorstore/internal/json_bindable.h"
+#include "tensorstore/internal/json_binding/bindable.h"
+#include "tensorstore/internal/json_binding/gtest.h"
 #include "tensorstore/internal/json_gtest.h"
+#include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/staleness_bound.h"
-#include "tensorstore/util/status_testutil.h"
+
+using ::tensorstore::MatchesJson;
+using ::tensorstore::StalenessBound;
+using ::testing::Optional;
 
 namespace {
-
-using tensorstore::MatchesJson;
-using tensorstore::StalenessBound;
-using ::testing::Optional;
 
 TEST(StalenessBoundJsonBinderTest, RoundTrip) {
   tensorstore::TestJsonBinderToJson<StalenessBound>({

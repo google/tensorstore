@@ -21,8 +21,9 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore:context",
         "//tensorstore/internal:intrusive_ptr",
-        "//tensorstore/internal:json",
         "//tensorstore/internal:path",
+        "//tensorstore/internal/json_binding",
+        "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:byte_range",
         "//tensorstore/kvstore:generation",

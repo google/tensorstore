@@ -24,6 +24,7 @@
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform_testutil.h"
 #include "tensorstore/index_space/json.h"
+#include "tensorstore/internal/json_binding/gtest.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/test_util.h"
 #include "tensorstore/serialization/serialization.h"

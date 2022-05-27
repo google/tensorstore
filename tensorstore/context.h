@@ -30,7 +30,7 @@
 #include "tensorstore/context_impl_base.h"  // IWYU pragma: export
 #include "tensorstore/internal/cache_key/cache_key.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/json_bindable.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/serialization/fwd.h"

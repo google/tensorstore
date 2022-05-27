@@ -29,8 +29,8 @@
 #include <openssl/evp.h>     // IWYU pragma: keep
 #include <openssl/pem.h>     // IWYU pragma: keep
 #include <openssl/rsa.h>     // IWYU pragma: keep
-#include "tensorstore/internal/json.h"
-#include "tensorstore/internal/json_bindable.h"
+#include "tensorstore/internal/json_binding/bindable.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 

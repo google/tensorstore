@@ -21,7 +21,8 @@
 #include <gtest/gtest.h>
 #include "tensorstore/context_impl.h"
 #include "tensorstore/context_resource_provider.h"
-#include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/internal/json_binding/std_optional.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/serialization/serialization.h"

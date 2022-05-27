@@ -23,7 +23,7 @@
 #include "tensorstore/codec_spec.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/n5/compressor.h"
-#include "tensorstore/internal/json_bindable.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/strided_layout.h"

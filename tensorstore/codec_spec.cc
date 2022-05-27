@@ -17,8 +17,8 @@
 #include <ostream>
 
 #include "tensorstore/codec_spec_registry.h"
-#include "tensorstore/internal/json.h"
-#include "tensorstore/internal/json_bindable.h"
+#include "tensorstore/internal/json_binding/bindable.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/serialization/json_bindable.h"
 #include "tensorstore/serialization/serialization.h"

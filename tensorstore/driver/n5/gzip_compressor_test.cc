@@ -19,6 +19,7 @@
 #include "tensorstore/array.h"
 #include "tensorstore/driver/n5/compressor.h"
 #include "tensorstore/driver/n5/metadata.h"
+#include "tensorstore/internal/json_binding/gtest.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"

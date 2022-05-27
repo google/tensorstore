@@ -26,7 +26,6 @@
 #include "tensorstore/array.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
-#include "tensorstore/internal/json.h"
 #include "tensorstore/internal/json/value_as.h"
 #include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/internal/json_gtest.h"

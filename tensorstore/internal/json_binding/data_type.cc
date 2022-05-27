@@ -12,12 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/data_type_json_binder.h"
+#include "tensorstore/internal/json_binding/data_type.h"
+
+#include <string>
 
 #include "absl/status/status.h"
-#include "tensorstore/internal/json.h"
+#include <nlohmann/json.hpp>
+#include "tensorstore/data_type.h"
+#include "tensorstore/internal/json/json.h"
+#include "tensorstore/internal/json_binding/bindable.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/util/quote_string.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {

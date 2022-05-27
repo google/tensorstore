@@ -20,7 +20,7 @@
 /// Defines `OpenModeSpec` base class for TensorStore driver SpecT types that
 /// support `OpenMode`.
 
-#include "tensorstore/internal/json_bindable.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/open_mode.h"
 
 namespace tensorstore {

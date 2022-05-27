@@ -26,8 +26,10 @@
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
-#include "tensorstore/internal/json.h"
-#include "tensorstore/internal/json_array.h"
+#include "tensorstore/internal/json/array.h"
+#include "tensorstore/internal/json_binding/array.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/internal/json_binding/std_array.h"
 #include "tensorstore/internal/type_traits.h"
 
 // TODO(jbms): Encoding/decoding from JSON does not support string values that

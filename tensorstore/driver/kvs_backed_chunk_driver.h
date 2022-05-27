@@ -40,7 +40,7 @@
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/estimate_heap_usage/std_vector.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/json_bindable.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/open_mode_spec.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/kvstore/kvstore.h"

@@ -32,7 +32,7 @@
 /// to also serve as the `Traits` type.
 
 #include "tensorstore/context.h"
-#include "tensorstore/internal/json_bindable.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 
 namespace tensorstore {
 namespace internal {
@@ -130,8 +130,8 @@ class ContextResourceTraitsConcept : public ContextResourceTraits<Provider> {
   /// Required.  Returns the default `Spec`.
   Spec Default() const;
 
-  /// Required.  Returns a JSON binder (see `tensorstore/internal/json.h`) for
-  /// `Spec`.
+  /// Required.  Returns a JSON binder (see
+  /// `tensorstore/internal/json_binding/json_binding.h`) for `Spec`.
   AnyContextResourceJsonBinder<Spec> JsonBinder() const;
 
   /// Creates a resource from a `Spec` object.

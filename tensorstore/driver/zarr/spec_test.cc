@@ -20,6 +20,7 @@
 #include "tensorstore/codec_spec.h"
 #include "tensorstore/driver/zarr/metadata.h"
 #include "tensorstore/index_space/index_domain_builder.h"
+#include "tensorstore/internal/json_binding/gtest.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"

@@ -20,7 +20,7 @@
 
 #include "tensorstore/driver/zarr/compressor.h"
 #include "tensorstore/driver/zarr/compressor_registry.h"
-#include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
 
 namespace tensorstore {
 namespace internal_zarr {

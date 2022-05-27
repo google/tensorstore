@@ -12,20 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/json_tuple.h"
+#include "tensorstore/internal/json_binding/std_tuple.h"
 
-#include <gmock/gmock.h>
+#include <string>
+#include <tuple>
+#include <utility>
+
 #include <gtest/gtest.h>
-#include <nlohmann/json.hpp>
-#include "tensorstore/internal/json.h"
-#include "tensorstore/internal/json_gtest.h"
-#include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/internal/json_binding/gtest.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/internal/json_fwd.h"
+#include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/util/status_testutil.h"
+
+namespace jb = tensorstore::internal_json_binding;
 
 namespace {
 
-namespace jb = tensorstore::internal_json_binding;
 
 TEST(TupleDefaultJsonBinderTest, RoundTrip) {
   tensorstore::TestJsonBinderRoundTrip<std::pair<int, int>>({

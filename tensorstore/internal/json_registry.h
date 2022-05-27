@@ -35,7 +35,7 @@
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_registry_fwd.h"
 #include "tensorstore/internal/json_registry_impl.h"
 #include "tensorstore/json_serialization_options.h"

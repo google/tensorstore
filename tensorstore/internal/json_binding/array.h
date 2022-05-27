@@ -12,29 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_JSON_ARRAY_H_
-#define TENSORSTORE_INTERNAL_JSON_ARRAY_H_
+#ifndef TENSORSTORE_INTERNAL_JSON_BINDING_ARRAY_H_
+#define TENSORSTORE_INTERNAL_JSON_BINDING_ARRAY_H_
 
 /// \file
 /// Functions for converting between `::nlohmann::json` and
 /// `tensorstore::Array`.
 
-#include <functional>
+#include <assert.h>
+
 #include <type_traits>
 
-#include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
-#include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/data_type.h"
+#include "tensorstore/index.h"
 #include "tensorstore/internal/json/array.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/static_cast.h"
-#include "tensorstore/strided_layout.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal_json_binding {
@@ -88,4 +87,4 @@ constexpr auto NestedArray(DimensionIndex rank_constraint = dynamic_rank) {
 }  // namespace internal_json_binding
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_JSON_ARRAY_H_
+#endif  // TENSORSTORE_INTERNAL_JSON_BINDING_ARRAY_H_

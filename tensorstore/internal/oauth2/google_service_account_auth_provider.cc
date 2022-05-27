@@ -25,7 +25,7 @@
 #include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
-#include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"

@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_DATA_TYPE_JSON_BINDER_H_
-#define TENSORSTORE_INTERNAL_DATA_TYPE_JSON_BINDER_H_
+#ifndef TENSORSTORE_INTERNAL_JSON_BINDING_DATA_TYPE_H_
+#define TENSORSTORE_INTERNAL_JSON_BINDING_DATA_TYPE_H_
 
+#include "absl/status/status.h"
 #include "tensorstore/data_type.h"
-#include "tensorstore/internal/json_bindable.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/json_serialization_options.h"
 
 namespace tensorstore {
@@ -41,4 +42,4 @@ inline constexpr auto DefaultBinder<DataType> = OptionalDataTypeJsonBinder;
 }  // namespace internal_json_binding
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_DATA_TYPE_JSON_BINDER_H_
+#endif  // TENSORSTORE_INTERNAL_JSON_BINDING_DATA_TYPE_H_

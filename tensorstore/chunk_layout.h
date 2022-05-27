@@ -23,7 +23,7 @@
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/integer_range.h"
-#include "tensorstore/internal/json_bindable.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/util/dimension_set.h"

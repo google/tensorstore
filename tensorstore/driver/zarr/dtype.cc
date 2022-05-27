@@ -14,7 +14,7 @@
 
 #include "tensorstore/driver/zarr/dtype.h"
 
-#include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/util/extents.h"
 #include "tensorstore/util/quote_string.h"
 

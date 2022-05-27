@@ -29,7 +29,7 @@
 #include "tensorstore/context.h"
 #include "tensorstore/driver/driver_spec.h"
 #include "tensorstore/internal/context_binding.h"
-#include "tensorstore/internal/json_bindable.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_registry.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/serialization/registry.h"

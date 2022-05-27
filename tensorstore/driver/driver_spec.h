@@ -30,7 +30,7 @@
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/context_binding.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/json_bindable.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/open_mode.h"

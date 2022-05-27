@@ -23,7 +23,7 @@
 #include "tensorstore/driver/zarr/metadata.h"
 #include "tensorstore/driver/zarr/spec.h"
 #include "tensorstore/index_space/index_transform_builder.h"
-#include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/open.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"

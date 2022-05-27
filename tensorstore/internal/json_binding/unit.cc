@@ -12,11 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/json_unit.h"
+#include "tensorstore/internal/json_binding/unit.h"
 
 #include <cmath>
+#include <string>
 
-#include "tensorstore/internal/json_tuple.h"
+#include "absl/status/status.h"
+#include "tensorstore/internal/json/value_as.h"
+#include "tensorstore/internal/json_binding/bindable.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/internal/json_binding/std_tuple.h"
+#include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/util/unit.h"
 
 namespace tensorstore {

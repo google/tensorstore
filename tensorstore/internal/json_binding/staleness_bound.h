@@ -12,14 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_STALENESS_BOUND_JSON_BINDER_H_
-#define TENSORSTORE_INTERNAL_STALENESS_BOUND_JSON_BINDER_H_
+#ifndef TENSORSTORE_INTERNAL_JSON_BINDING_STALENESS_BOUND_H_
+#define TENSORSTORE_INTERNAL_JSON_BINDING_STALENESS_BOUND_H_
 
 /// \file
 ///
 /// Defines a JSON binder for `StalenessBound`.
 
-#include "tensorstore/internal/json_bindable.h"
+#include "absl/status/status.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/staleness_bound.h"
 
 namespace tensorstore {
@@ -39,4 +40,4 @@ inline constexpr auto DefaultBinder<StalenessBound> =
 }  // namespace internal_json_binding
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_STALENESS_BOUND_JSON_BINDER_H_
+#endif  // TENSORSTORE_INTERNAL_JSON_BINDING_STALENESS_BOUND_H_

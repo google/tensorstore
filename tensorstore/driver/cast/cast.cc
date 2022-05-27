@@ -18,7 +18,7 @@
 #include "tensorstore/driver/driver_handle.h"
 #include "tensorstore/driver/registry.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/nditerable_data_type_conversion.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/spec.h"

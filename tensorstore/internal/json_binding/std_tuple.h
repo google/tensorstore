@@ -12,17 +12,44 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_JSON_TUPLE_H_
-#define TENSORSTORE_INTERNAL_JSON_TUPLE_H_
+#ifndef TENSORSTORE_INTERNAL_JSON_BINDING_STD_TUPLE_H_
+#define TENSORSTORE_INTERNAL_JSON_BINDING_STD_TUPLE_H_
 
+#include <stddef.h>
+
+#include <array>
+#include <string>
 #include <tuple>
+#include <type_traits>
 #include <utility>
+#include <variant>
+#include <vector>
 
+#include "absl/status/status.h"
 #include <nlohmann/json.hpp>
-#include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json/json.h"
+#include "tensorstore/internal/json/value_as.h"
+#include "tensorstore/internal/json_binding/bindable.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/internal/json_fwd.h"
+#include "tensorstore/internal/type_traits.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_json_binding {
+
+inline absl::Status MaybeAnnotateTupleElementError(absl::Status status,
+                                                   std::size_t i,
+                                                   bool is_loading) {
+  return status.ok()
+             ? status
+             : MaybeAnnotateStatus(
+                   status, tensorstore::StrCat(
+                               "Error ", is_loading ? "parsing" : "converting",
+                               " value at position ", i));
+}
 
 template <bool IsLoading>
 Result<::nlohmann::json::array_t*> EnsureJsonTupleRepresentationImpl(
@@ -52,7 +79,7 @@ constexpr auto TupleJsonBinderImpl(std::index_sequence<Is...>,
         (((status = element_binder(is_loading, options, &std::get<Is>(*obj),
                                    &(*array_ptr)[Is]))
               .ok() ||
-          ((status = MaybeAnnotateArrayElementError(status, Is, is_loading)),
+          ((status = MaybeAnnotateTupleElementError(status, Is, is_loading)),
            false)) &&
          ...)) {
       return status;
@@ -73,7 +100,7 @@ constexpr auto TupleDefaultJsonBinderImpl(std::index_sequence<Is...>) {
         (((status = DefaultBinder<>(is_loading, options, &get<Is>(*obj),
                                     &(*array_ptr)[Is]))
               .ok() ||
-          ((status = MaybeAnnotateArrayElementError(status, Is, is_loading)),
+          ((status = MaybeAnnotateTupleElementError(status, Is, is_loading)),
            false)) &&
          ...)) {
       return status;
@@ -93,7 +120,7 @@ constexpr auto HeterogeneousArrayJsonBinderImpl(
     if (absl::Status status;
         (((status = element_binder(is_loading, options, obj, &(*array_ptr)[Is]))
               .ok() ||
-          ((status = MaybeAnnotateArrayElementError(status, Is, is_loading)),
+          ((status = MaybeAnnotateTupleElementError(status, Is, is_loading)),
            false)) &&
          ...)) {
       return status;
@@ -159,7 +186,7 @@ constexpr auto HeterogeneousArray(ElementBinder... element_binder) {
         (((status =
                element_binder(is_loading, options, obj, &(*array_ptr)[i++]))
               .ok() ||
-          ((status = MaybeAnnotateArrayElementError(status, i - 1, is_loading)),
+          ((status = MaybeAnnotateTupleElementError(status, i - 1, is_loading)),
            false)) &&
          ...);
     return status;
@@ -175,4 +202,4 @@ constexpr inline auto DefaultBinder<std::pair<T, U>> = Tuple();
 }  // namespace internal_json_binding
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_JSON_TUPLE_H_
+#endif  // TENSORSTORE_INTERNAL_JSON_BINDING_STD_TUPLE_H_

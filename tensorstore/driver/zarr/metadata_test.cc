@@ -23,6 +23,7 @@
 #include "tensorstore/array_testutil.h"
 #include "tensorstore/driver/zarr/metadata_testutil.h"
 #include "tensorstore/index.h"
+#include "tensorstore/internal/json_binding/gtest.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"

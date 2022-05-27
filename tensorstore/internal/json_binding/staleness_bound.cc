@@ -12,12 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/staleness_bound_json_binder.h"
+#include "tensorstore/internal/json_binding/staleness_bound.h"
 
 #include "absl/status/status.h"
 #include "absl/time/time.h"
-#include "tensorstore/internal/json.h"
-#include "tensorstore/staleness_bound.h"
+#include <nlohmann/json.hpp>
+#include "tensorstore/internal/json/value_as.h"
+#include "tensorstore/internal/json_binding/bindable.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/internal/json_fwd.h"
 
 namespace tensorstore {
 namespace internal {

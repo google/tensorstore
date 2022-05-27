@@ -22,8 +22,8 @@
 #include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"
 #include "tensorstore/internal/concurrency_resource.h"
-#include "tensorstore/internal/json.h"
-#include "tensorstore/internal/json_bindable.h"
+#include "tensorstore/internal/json_binding/bindable.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/result.h"
 

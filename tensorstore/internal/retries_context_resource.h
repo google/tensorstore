@@ -16,9 +16,9 @@
 #define TENSORSTORE_INTERNAL_RETRIES_CONTEXT_RESOURCE_H_
 
 #include "tensorstore/context_resource_provider.h"
-#include "tensorstore/internal/absl_time_json_binder.h"
-#include "tensorstore/internal/json.h"
-#include "tensorstore/internal/json_bindable.h"
+#include "tensorstore/internal/json_binding/absl_time.h"
+#include "tensorstore/internal/json_binding/bindable.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
 
 namespace tensorstore {
 namespace internal {

@@ -12,15 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_JSON_RATIONAL_H_
-#define TENSORSTORE_INTERNAL_JSON_RATIONAL_H_
+#ifndef TENSORSTORE_INTERNAL_JSON_BINDING_RATIONAL_H_
+#define TENSORSTORE_INTERNAL_JSON_BINDING_RATIONAL_H_
 
+#include <stddef.h>
+
+#include <string>
+#include <string_view>
 #include <type_traits>
 
+#include "absl/status/status.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_format.h"
-#include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json/value_as.h"
+#include "tensorstore/internal/json_binding/bindable.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/internal/json_binding/std_array.h"
+#include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/util/rational.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 
 namespace tensorstore {
@@ -86,4 +96,4 @@ constexpr inline auto DefaultBinder<Rational<T>> =
 }  // namespace internal_json_binding
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_JSON_RATIONAL_H_
+#endif  // TENSORSTORE_INTERNAL_JSON_BINDING_RATIONAL_H_

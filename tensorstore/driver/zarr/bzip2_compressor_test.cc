@@ -15,7 +15,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "tensorstore/driver/zarr/compressor.h"
-#include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"

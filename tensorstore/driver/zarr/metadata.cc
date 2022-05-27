@@ -23,9 +23,11 @@
 #include "tensorstore/driver/zarr/compressor.h"
 #include "tensorstore/internal/container_to_shared.h"
 #include "tensorstore/internal/data_type_endian_conversion.h"
-#include "tensorstore/internal/dimension_indexed_json_binder.h"
 #include "tensorstore/internal/flat_cord_builder.h"
-#include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_binding/dimension_indexed.h"
+#include "tensorstore/internal/json_binding/enum.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/internal/json_binding/std_optional.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/serialization/json_bindable.h"
 

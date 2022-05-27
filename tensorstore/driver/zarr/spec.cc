@@ -17,7 +17,7 @@
 #include "absl/status/status.h"
 #include "tensorstore/codec_spec_registry.h"
 #include "tensorstore/index_space/index_domain_builder.h"
-#include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_metadata_matching.h"
 #include "tensorstore/util/quote_string.h"
 

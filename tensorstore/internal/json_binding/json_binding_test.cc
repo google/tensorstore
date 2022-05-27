@@ -12,15 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
 
-#include <cstdint>
-#include <iterator>
+#include <limits>
 #include <optional>
 #include <string>
-#include <unordered_set>
+#include <type_traits>
 #include <utility>
-#include <variant>
 #include <vector>
 
 #include <gmock/gmock.h>
@@ -28,11 +26,16 @@
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/box.h"
-#include "tensorstore/internal/json_bindable.h"
+#include "tensorstore/index.h"
+#include "tensorstore/internal/json/json.h"
+#include "tensorstore/internal/json_binding/bindable.h"
+#include "tensorstore/internal/json_binding/gtest.h"
+#include "tensorstore/internal/json_binding/std_array.h"
+#include "tensorstore/internal/json_binding/std_optional.h"
+#include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/internal/json_gtest.h"
-#include "tensorstore/json_serialization_options.h"
+#include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -294,6 +297,50 @@ TEST(JsonBindingTest, FloatBinders) {
       jb::LooseFloatBinder);
 }
 
+TEST(JsonBindingTest, DefaultValueDiscarded) {
+  const auto binder =
+      jb::DefaultValue([](auto* obj) { *obj = 3; },
+                       jb::DefaultValue([](auto* obj) { *obj = 3; }));
+  tensorstore::TestJsonBinderRoundTrip<int>(
+      {
+          {3, ::nlohmann::json(::nlohmann::json::value_t::discarded)},
+          {4, 4},
+      },
+      binder, tensorstore::IncludeDefaults{false});
+  tensorstore::TestJsonBinderRoundTrip<int>(
+      {
+          {3, 3},
+          {4, 4},
+      },
+      binder, tensorstore::IncludeDefaults{true});
+}
+
+TEST(JsonBindingTest, GetterSetter) {
+  struct Foo {
+    int x;
+    int get_x() const { return x; }
+    void set_x(int value) { this->x = value; }
+  };
+
+  const auto FooBinder =
+      jb::Object(jb::Member("x", jb::GetterSetter(&Foo::get_x, &Foo::set_x)));
+
+  EXPECT_EQ(::nlohmann::json({{"x", 3}}), jb::ToJson(Foo{3}, FooBinder));
+  auto value = jb::FromJson<Foo>({{"x", 3}}, FooBinder).value();
+  EXPECT_EQ(3, value.x);
+}
+
+TEST(JsonBindingTest, Constant) {
+  const auto binder = jb::Constant([] { return 3; });
+  EXPECT_THAT(jb::ToJson("ignored", binder),
+              ::testing::Optional(::nlohmann::json(3)));
+  EXPECT_THAT(jb::FromJson<std::string>(::nlohmann::json(3), binder),
+              ::testing::Optional(std::string{}));
+  EXPECT_THAT(jb::FromJson<std::string>(::nlohmann::json(4), binder),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Expected 3, but received: 4"));
+}
+
 TEST(JsonBindingTest, ObjectMember) {
   tensorstore::TestJsonBinderRoundTrip<int>(
       {
@@ -324,218 +371,6 @@ TEST(JsonBindingTest, ObjectOptionalMember) {
   }
 }
 
-TEST(JsonBindingTest, GetterSetter) {
-  struct Foo {
-    int x;
-    int get_x() const { return x; }
-    void set_x(int value) { this->x = value; }
-  };
-
-  const auto FooBinder =
-      jb::Object(jb::Member("x", jb::GetterSetter(&Foo::get_x, &Foo::set_x)));
-
-  EXPECT_EQ(::nlohmann::json({{"x", 3}}), jb::ToJson(Foo{3}, FooBinder));
-  auto value = jb::FromJson<Foo>({{"x", 3}}, FooBinder).value();
-  EXPECT_EQ(3, value.x);
-}
-
-TEST(JsonBindingTest, Constant) {
-  const auto binder = jb::Constant([] { return 3; });
-  EXPECT_THAT(jb::ToJson("ignored", binder),
-              ::testing::Optional(::nlohmann::json(3)));
-  EXPECT_THAT(jb::FromJson<std::string>(::nlohmann::json(3), binder),
-              ::testing::Optional(std::string{}));
-  EXPECT_THAT(jb::FromJson<std::string>(::nlohmann::json(4), binder),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Expected 3, but received: 4"));
-}
-
-TEST(JsonBindingTest, Optional) {
-  tensorstore::TestJsonBinderRoundTrip<std::optional<int>>({
-      {3, ::nlohmann::json(3)},
-      {std::nullopt, ::nlohmann::json(::nlohmann::json::value_t::discarded)},
-  });
-}
-
-TEST(JsonBindingTest, OptionalExplicitNullopt) {
-  const auto binder =
-      jb::Optional(jb::DefaultBinder<>, [] { return "nullopt"; });
-  tensorstore::TestJsonBinderRoundTrip<std::optional<int>>(
-      {
-          {3, 3},
-          {std::nullopt, "nullopt"},
-      },
-      binder);
-}
-
-TEST(JsonBindingTest, OptionalResult) {
-  // Result doesn't default-initialize, so verify manually.
-
-  ::nlohmann::json j;
-  tensorstore::Result<int> x(absl::UnknownError("x"));
-
-  // saving error -> discarded
-  j = 3;
-  EXPECT_TRUE(jb::Optional()(std::false_type{}, jb::NoOptions{}, &x, &j).ok());
-  EXPECT_TRUE(j.is_discarded());
-
-  // loading value -> value
-  j = 4;
-  EXPECT_TRUE(jb::Optional()(std::true_type{}, jb::NoOptions{}, &x, &j).ok());
-  EXPECT_TRUE(x.has_value());
-  EXPECT_EQ(4, x.value());
-
-  // saving value -> value
-  j = ::nlohmann::json::value_t::discarded;
-  EXPECT_TRUE(jb::Optional()(std::false_type{}, jb::NoOptions{}, &x, &j).ok());
-  EXPECT_FALSE(j.is_discarded());
-  EXPECT_EQ(4, j);
-
-  // loading discarded -> no change.
-  j = ::nlohmann::json::value_t::discarded;
-  EXPECT_TRUE(jb::Optional()(std::true_type{}, jb::NoOptions{}, &x, &j).ok());
-  EXPECT_TRUE(x.has_value());
-  EXPECT_EQ(4, x.value());
-}
-
-TEST(JsonBindingTest, DefaultValueDiscarded) {
-  const auto binder =
-      jb::DefaultValue([](auto* obj) { *obj = 3; },
-                       jb::DefaultValue([](auto* obj) { *obj = 3; }));
-  tensorstore::TestJsonBinderRoundTrip<int>(
-      {
-          {3, ::nlohmann::json(::nlohmann::json::value_t::discarded)},
-          {4, 4},
-      },
-      binder, tensorstore::IncludeDefaults{false});
-  tensorstore::TestJsonBinderRoundTrip<int>(
-      {
-          {3, 3},
-          {4, 4},
-      },
-      binder, tensorstore::IncludeDefaults{true});
-}
-
-TEST(JsonBindingTest, Array) {
-  const auto binder = jb::Array();
-  tensorstore::TestJsonBinderRoundTrip<std::vector<int>>(
-      {
-          {{1, 2, 3}, {1, 2, 3}},
-      },
-      binder);
-  tensorstore::TestJsonBinderFromJson<std::vector<int>>(
-      {
-          {{1, 2, "a"},
-           MatchesStatus(
-               absl::StatusCode::kInvalidArgument,
-               "Error parsing value at position 2: Expected integer .*")},
-      },
-      binder);
-}
-
-TEST(JsonBindingTest, FixedSizeArray) {
-  const auto binder = jb::FixedSizeArray();
-  tensorstore::TestJsonBinderRoundTrip<std::array<int, 3>>(
-      {
-          {{{1, 2, 3}}, {1, 2, 3}},
-      },
-      binder);
-  tensorstore::TestJsonBinderFromJson<std::array<int, 3>>(
-      {
-
-          {{1, 2, 3, 4},
-           MatchesStatus(absl::StatusCode::kInvalidArgument,
-                         "Array has length 4 but should have length 3")},
-      },
-      binder);
-}
-
-TEST(JsonBindingTest, Enum) {
-  enum class TestEnum { a, b };
-  const auto binder = jb::Enum<TestEnum, std::string_view>({
-      {TestEnum::a, "a"},
-      {TestEnum::b, "b"},
-  });
-  tensorstore::TestJsonBinderRoundTrip<TestEnum>(
-      {
-          {TestEnum::a, "a"},
-          {TestEnum::b, "b"},
-      },
-      binder);
-  tensorstore::TestJsonBinderFromJson<TestEnum>(
-      {
-          {"c",
-           MatchesStatus(absl::StatusCode::kInvalidArgument,
-                         "Expected one of \"a\", \"b\", but received: \"c\"")},
-      },
-      binder);
-}
-
-TEST(JsonBindingTest, MapValue) {
-  enum class TestMap { a, b };
-
-  const auto binder = jb::MapValue(
-      [](auto...) { return absl::InvalidArgumentError("missing"); },
-      std::make_pair(TestMap::a, "a"),  //
-      std::make_pair(TestMap::b, "b"),  //
-      std::make_pair(TestMap::a, 1),    //
-      std::make_pair(TestMap::b, 2));
-
-  tensorstore::TestJsonBinderRoundTrip<TestMap>(
-      {
-          {TestMap::a, "a"},
-          {TestMap::b, "b"},
-      },
-      binder);
-
-  tensorstore::TestJsonBinderFromJson<TestMap>(
-      {
-          {"a", ::testing::Eq(TestMap::a)},
-          {"b", ::testing::Eq(TestMap::b)},
-          {"c",
-           MatchesStatus(absl::StatusCode::kInvalidArgument, ".*missing.*")},
-          {1, ::testing::Eq(TestMap::a)},
-          {2, ::testing::Eq(TestMap::b)},
-          {3, MatchesStatus(absl::StatusCode::kInvalidArgument, ".*missing.*")},
-      },
-      binder);
-}
-
-namespace map_variant_test {
-struct A {
-  [[maybe_unused]] friend bool operator==(const A&, const A&) { return true; }
-};
-struct B {
-  [[maybe_unused]] friend bool operator==(const B&, const B&) { return true; }
-};
-struct C {
-  [[maybe_unused]] friend bool operator==(const C&, const C&) { return true; }
-};
-}  // namespace map_variant_test
-
-TEST(JsonBindingTest, MapValueVariant) {
-  // MapValue can be used to map simple variant types, but more complex types
-  // still require custom binding.
-  using map_variant_test::A;
-  using map_variant_test::B;
-  using map_variant_test::C;
-
-  using T = std::variant<A, B, C>;
-  const auto binder = jb::MapValue(
-      [](auto...) { return absl::InvalidArgumentError("missing"); },
-      std::make_pair(T{A{}}, "a"),  //
-      std::make_pair(T{B{}}, "b"),  //
-      std::make_pair(T{C{}}, 3));
-
-  tensorstore::TestJsonBinderRoundTrip<T>(
-      {
-          {A{}, "a"},
-          {B{}, "b"},
-          {C{}, 3},
-      },
-      binder);
-}
-
 // Tests `FixedSizeArray` applied to `tensorstore::span<tensorstore::Index, 3>`.
 TEST(JsonBindingTest, StaticRankBox) {
   using Value = tensorstore::Box<3>;
@@ -562,6 +397,7 @@ TEST(JsonBindingTest, DynamicRankBox) {
                              jb::Integer(0))),
       jb::Member("origin", jb::Projection([](auto& x) { return x.origin(); })),
       jb::Member("shape", jb::Projection([](auto& x) { return x.shape(); })));
+
   tensorstore::TestJsonBinderRoundTrip<Value>(
       {
           {Value({1, 2, 3}, {4, 5, 6}),

@@ -12,17 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_ABSL_TIME_JSON_BINDER_H_
-#define TENSORSTORE_INTERNAL_ABSL_TIME_JSON_BINDER_H_
+#ifndef TENSORSTORE_INTERNAL_JSON_BINDING_ABSL_TIME_H_
+#define TENSORSTORE_INTERNAL_JSON_BINDING_ABSL_TIME_H_
 
 #include <string>
-#include <type_traits>
-#include <utility>
 
 #include "absl/status/status.h"
 #include "absl/time/time.h"
-#include <nlohmann/json.hpp>
-#include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json/json.h"
+#include "tensorstore/internal/json/value_as.h"
+#include "tensorstore/internal/json_binding/bindable.h"
+#include "tensorstore/internal/json_fwd.h"
 
 namespace tensorstore {
 namespace internal_json_binding {
@@ -81,4 +81,4 @@ constexpr inline auto DefaultBinder<absl::Duration> = DurationBinder;
 }  // namespace internal_json_binding
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_ABSL_TIME_JSON_BINDER_H_
+#endif  // TENSORSTORE_INTERNAL_JSON_BINDING_ABSL_TIME_H_

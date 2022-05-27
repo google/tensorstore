@@ -25,7 +25,7 @@ tensorstore_cc_library(
     deps = [
         ":blosc",
         ":json_specified_compressor",
-        "//tensorstore/internal:json",
+        "//tensorstore/internal/json_binding",
         "//tensorstore/util:quote_string",
         "@com_google_absl//absl/status",
         "@org_blosc_cblosc//:blosc",

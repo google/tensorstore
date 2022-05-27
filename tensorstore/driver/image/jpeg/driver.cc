@@ -24,7 +24,7 @@
 #include "tensorstore/driver/registry.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/compression/jpeg.h"
-#include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/memory.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/json_serialization_options_base.h"

@@ -12,22 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/json_rational.h"
+#include "tensorstore/internal/json_binding/rational.h"
 
-#include <gmock/gmock.h>
+#include <memory>
+#include <utility>
+
 #include <gtest/gtest.h>
-#include <nlohmann/json.hpp>
+#include "absl/status/status.h"
+#include "tensorstore/index.h"
+#include "tensorstore/internal/json_binding/gtest.h"
+#include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/internal/json_gtest.h"
+#include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/util/rational.h"
-#include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
-namespace {
+using ::tensorstore::Index;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::Rational;
 
-using tensorstore::Index;
-using tensorstore::MatchesStatus;
-using tensorstore::Rational;
+namespace {
 
 TEST(JsonBindingTest, Simple) {
   tensorstore::TestJsonBinderRoundTrip<Rational<Index>>({

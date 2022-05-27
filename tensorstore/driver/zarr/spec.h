@@ -27,7 +27,7 @@
 #include "tensorstore/driver/zarr/compressor.h"
 #include "tensorstore/driver/zarr/metadata.h"
 #include "tensorstore/index.h"
-#include "tensorstore/internal/json_bindable.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/util/result.h"
 

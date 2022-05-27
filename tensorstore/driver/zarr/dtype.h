@@ -21,7 +21,7 @@
 
 #include <nlohmann/json.hpp>
 #include "tensorstore/data_type.h"
-#include "tensorstore/internal/json_bindable.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/util/endian.h"
 #include "tensorstore/util/result.h"
 

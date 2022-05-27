@@ -27,7 +27,7 @@
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/internal/cache/chunk_cache.h"
 #include "tensorstore/internal/cache_key/cache_key.h"
-#include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/tensorstore.h"

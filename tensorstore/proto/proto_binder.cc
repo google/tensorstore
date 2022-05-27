@@ -11,8 +11,8 @@
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
-#include "tensorstore/internal/json.h"
 #include "tensorstore/internal/json/value_as.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/type_traits.h"

@@ -19,7 +19,7 @@
 #include "tensorstore/driver/n5/compressor.h"
 #include "tensorstore/driver/n5/compressor_registry.h"
 #include "tensorstore/internal/compression/zlib_compressor.h"
-#include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
 
 namespace tensorstore {
 namespace internal_n5 {

@@ -15,7 +15,8 @@
 #include "tensorstore/driver/n5/compressor.h"
 
 #include "tensorstore/driver/n5/compressor_registry.h"
-#include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_binding/enum.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_registry.h"
 #include "tensorstore/internal/no_destructor.h"
 

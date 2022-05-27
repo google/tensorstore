@@ -18,8 +18,9 @@
 #include <string_view>
 
 #include "tensorstore/downsample_method.h"
-#include "tensorstore/internal/json.h"
-#include "tensorstore/internal/json_bindable.h"
+#include "tensorstore/internal/json_binding/bindable.h"
+#include "tensorstore/internal/json_binding/enum.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
 
 namespace tensorstore {
 namespace internal_downsample {

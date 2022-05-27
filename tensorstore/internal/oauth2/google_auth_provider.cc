@@ -30,7 +30,7 @@
 #include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
-#include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/internal/oauth2/fixed_token_auth_provider.h"

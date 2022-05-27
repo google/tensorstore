@@ -17,8 +17,8 @@
 #include "tensorstore/context.h"
 #include "tensorstore/driver/driver.h"
 #include "tensorstore/index_space/json.h"
-#include "tensorstore/internal/json.h"
 #include "tensorstore/internal/json/json.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/garbage_collection/garbage_collection.h"
 

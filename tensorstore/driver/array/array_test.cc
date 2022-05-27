@@ -22,6 +22,7 @@
 #include "tensorstore/driver/driver_testutil.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/internal/elementwise_function.h"
+#include "tensorstore/internal/json_binding/gtest.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"

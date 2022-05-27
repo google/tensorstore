@@ -27,7 +27,7 @@
 #include "python/tensorstore/serialization.h"
 #include "python/tensorstore/status.h"
 #include "python/tensorstore/unit.h"
-#include "tensorstore/internal/json_unit.h"
+#include "tensorstore/internal/json_binding/unit.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/unit.h"

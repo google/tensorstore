@@ -29,7 +29,7 @@
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/kvstore/driver.h"

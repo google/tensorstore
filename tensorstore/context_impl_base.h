@@ -33,7 +33,7 @@
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/attributes.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/json_bindable.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/tagged_ptr.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/serialization/fwd.h"

@@ -32,31 +32,6 @@ NDITERABLE_TEST_UNIT_BLOCK_SIZE_DEFINES = select({
 })
 
 tensorstore_cc_library(
-    name = "absl_time_json_binder",
-    hdrs = ["absl_time_json_binder.h"],
-    deps = [
-        ":json",
-        "@com_github_nlohmann_json//:nlohmann_json",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/time",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "absl_time_json_binder_test",
-    size = "small",
-    srcs = ["absl_time_json_binder_test.cc"],
-    deps = [
-        ":absl_time_json_binder",
-        ":json",
-        ":json_gtest",
-        "@com_github_nlohmann_json//:nlohmann_json",
-        "@com_google_absl//absl/time",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
     name = "arena",
     hdrs = ["arena.h"],
     deps = [
@@ -161,10 +136,11 @@ tensorstore_cc_library(
         "concurrency_resource_provider.h",
     ],
     deps = [
-        ":json",
         ":thread_pool",
         ":type_traits",
         "//tensorstore:context",
+        "//tensorstore/internal/json_binding",
+        "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/util:executor",
         "//tensorstore/util:result",
         "@com_github_nlohmann_json//:nlohmann_json",
@@ -268,37 +244,6 @@ tensorstore_cc_test(
         "//tensorstore/util:str_cat",
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/strings:cord_test_helpers",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
-    name = "data_type_json_binder",
-    srcs = ["data_type_json_binder.cc"],
-    hdrs = ["data_type_json_binder.h"],
-    deps = [
-        ":json",
-        "//tensorstore:data_type",
-        "//tensorstore:json_serialization_options",
-        "//tensorstore/util:quote_string",
-        "//tensorstore/util:status",
-        "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/status",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "data_type_json_binder_test",
-    size = "small",
-    srcs = ["data_type_json_binder_test.cc"],
-    deps = [
-        ":data_type_json_binder",
-        ":json",
-        ":json_gtest",
-        "//tensorstore:data_type",
-        "//tensorstore/util:status_testutil",
-        "@com_github_nlohmann_json//:nlohmann_json",
-        "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -709,72 +654,6 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
-    name = "json",
-    srcs = ["json.cc"],
-    hdrs = [
-        "json.h",
-        "json_bindable.h",
-    ],
-    deps = [
-        ":type_traits",
-        "//tensorstore:index",
-        "//tensorstore:json_serialization_options_base",
-        "//tensorstore/internal/json",
-        "//tensorstore/internal/json:value_as",
-        "//tensorstore/util:assert_macros",
-        "//tensorstore/util:quote_string",
-        "//tensorstore/util:result",
-        "//tensorstore/util:span",
-        "//tensorstore/util:status",
-        "//tensorstore/util:str_cat",
-        "@com_github_nlohmann_json//:nlohmann_json",
-        "@com_google_absl//absl/container:inlined_vector",
-        "@com_google_absl//absl/functional:function_ref",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
-    ],
-)
-
-tensorstore_cc_library(
-    name = "json_array",
-    hdrs = ["json_array.h"],
-    deps = [
-        ":json_fwd",
-        ":type_traits",
-        "//tensorstore:array",
-        "//tensorstore:data_type",
-        "//tensorstore:rank",
-        "//tensorstore:static_cast",
-        "//tensorstore:strided_layout",
-        "//tensorstore/internal/json:array",
-        "//tensorstore/util:result",
-        "//tensorstore/util:status",
-        "@com_github_nlohmann_json//:nlohmann_json",
-        "@com_google_absl//absl/functional:function_ref",
-        "@com_google_absl//absl/status",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "json_array_test",
-    size = "small",
-    srcs = ["json_array_test.cc"],
-    deps = [
-        ":json",
-        ":json_array",
-        ":json_fwd",
-        ":json_gtest",
-        "//tensorstore:array",
-        "//tensorstore:contiguous_layout",
-        "//tensorstore/util:result",
-        "//tensorstore/util:status",
-        "//tensorstore/util:status_testutil",
-        "@com_github_nlohmann_json//:nlohmann_json",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
     name = "json_fwd",
     hdrs = ["json_fwd.h"],
 )
@@ -785,7 +664,7 @@ tensorstore_cc_library(
     srcs = ["json_gtest.cc"],
     hdrs = ["json_gtest.h"],
     deps = [
-        ":json",
+        "//tensorstore/internal/json",
         "//tensorstore/util:status_testutil",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_googletest//:gtest",
@@ -834,9 +713,9 @@ tensorstore_cc_library(
     deps = [
         ":heterogeneous_container",
         ":intrusive_ptr",
-        ":json",
         ":logging",
         "//tensorstore:json_serialization_options",
+        "//tensorstore/internal/json_binding",
         "//tensorstore/internal/poly",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
@@ -854,32 +733,14 @@ tensorstore_cc_test(
     srcs = ["json_registry_test.cc"],
     deps = [
         ":intrusive_ptr",
-        ":json",
         ":json_gtest",
         ":json_registry",
         ":no_destructor",
         "//tensorstore:json_serialization_options",
+        "//tensorstore/internal/json_binding",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "json_test",
-    size = "small",
-    srcs = ["json_test.cc"],
-    deps = [
-        ":json",
-        ":json_gtest",
-        "//tensorstore:box",
-        "//tensorstore:json_serialization_options",
-        "//tensorstore/util:result",
-        "//tensorstore/util:status",
-        "//tensorstore/util:status_testutil",
-        "@com_github_nlohmann_json//:nlohmann_json",
-        "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -1569,8 +1430,8 @@ tensorstore_cc_library(
     srcs = ["parse_json_matches.cc"],
     hdrs = ["parse_json_matches.h"],
     deps = [
-        ":json",
         ":json_gtest",
+        "//tensorstore/internal/json_binding",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_googletest//:gtest",
     ],
@@ -1659,9 +1520,10 @@ tensorstore_cc_library(
     name = "retries_context_resource",
     hdrs = ["retries_context_resource.h"],
     deps = [
-        ":absl_time_json_binder",
-        ":json",
         "//tensorstore:context",
+        "//tensorstore/internal/json_binding",
+        "//tensorstore/internal/json_binding:absl_time",
+        "//tensorstore/internal/json_binding:bindable",
     ],
 )
 
@@ -1866,52 +1728,13 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
-    name = "staleness_bound_json_binder",
-    srcs = ["staleness_bound_json_binder.cc"],
-    hdrs = ["staleness_bound_json_binder.h"],
-    deps = [
-        ":json",
-        "//tensorstore:staleness_bound",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/time",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "staleness_bound_json_binder_test",
-    size = "small",
-    srcs = ["staleness_bound_json_binder_test.cc"],
-    deps = [
-        ":json",
-        ":json_gtest",
-        ":staleness_bound_json_binder",
-        "//tensorstore:staleness_bound",
-        "//tensorstore/util:status_testutil",
-        "@com_github_nlohmann_json//:nlohmann_json",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/time",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
     name = "open_mode_spec",
     srcs = ["open_mode_spec.cc"],
     hdrs = ["open_mode_spec.h"],
     deps = [
-        ":json",
         "//tensorstore:open_mode",
-    ],
-)
-
-tensorstore_cc_library(
-    name = "dimension_indexed_json_binder",
-    hdrs = ["dimension_indexed_json_binder.h"],
-    deps = [
-        ":dimension_labels",
-        ":json",
-        "//tensorstore:rank",
-        "//tensorstore/util:status",
+        "//tensorstore/internal/json_binding",
+        "//tensorstore/internal/json_binding:bindable",
     ],
 )
 
@@ -1956,70 +1779,6 @@ tensorstore_cc_library(
         "//tensorstore/util:str_cat",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/status",
-    ],
-)
-
-tensorstore_cc_library(
-    name = "json_tuple",
-    hdrs = ["json_tuple.h"],
-    deps = [
-        ":json",
-        "@com_github_nlohmann_json//:nlohmann_json",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "json_tuple_test",
-    size = "small",
-    srcs = ["json_tuple_test.cc"],
-    deps = [
-        ":json",
-        ":json_gtest",
-        ":json_tuple",
-        "//tensorstore/util:result",
-        "//tensorstore/util:status",
-        "//tensorstore/util:status_testutil",
-        "@com_github_nlohmann_json//:nlohmann_json",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
-    name = "json_unit",
-    srcs = ["json_unit.cc"],
-    hdrs = ["json_unit.h"],
-    deps = [
-        ":json",
-        ":json_tuple",
-        "//tensorstore/util:unit",
-    ],
-)
-
-tensorstore_cc_library(
-    name = "json_rational",
-    hdrs = ["json_rational.h"],
-    deps = [
-        ":json",
-        "//tensorstore/util:rational",
-        "//tensorstore/util:status",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/strings:str_format",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "json_rational_test",
-    size = "small",
-    srcs = ["json_rational_test.cc"],
-    deps = [
-        ":json_gtest",
-        ":json_rational",
-        "//tensorstore/util:rational",
-        "//tensorstore/util:result",
-        "//tensorstore/util:status",
-        "//tensorstore/util:status_testutil",
-        "@com_github_nlohmann_json//:nlohmann_json",
-        "@com_google_googletest//:gtest_main",
     ],
 )
 

@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_JSON_BINDABLE_H_
-#define TENSORSTORE_INTERNAL_JSON_BINDABLE_H_
+#ifndef TENSORSTORE_INTERNAL_JSON_BINDING_BINDABLE_H_
+#define TENSORSTORE_INTERNAL_JSON_BINDING_BINDABLE_H_
 
 #include <type_traits>
-#include <utility>
+#include <variant>
 
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
@@ -266,4 +266,4 @@ class StaticBinder {
 }  // namespace internal_json_binding
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_JSON_BINDABLE_H_
+#endif  // TENSORSTORE_INTERNAL_JSON_BINDING_BINDABLE_H_

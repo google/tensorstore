@@ -53,7 +53,7 @@
 #include "tensorstore/index_space/json.h"
 #include "tensorstore/index_space/output_index_map.h"
 #include "tensorstore/index_space/output_index_method.h"
-#include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/assert_macros.h"

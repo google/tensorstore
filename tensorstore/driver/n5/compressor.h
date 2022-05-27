@@ -16,7 +16,7 @@
 #define TENSORSTORE_DRIVER_N5_COMPRESSOR_H_
 
 #include "tensorstore/internal/compression/json_specified_compressor.h"
-#include "tensorstore/internal/json_bindable.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 
 namespace tensorstore {
 namespace internal_n5 {

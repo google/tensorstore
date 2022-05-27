@@ -22,7 +22,8 @@
 #include "absl/base/call_once.h"
 #include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"
-#include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/internal/json_binding/std_optional.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/util/result.h"
 

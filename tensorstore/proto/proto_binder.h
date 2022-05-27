@@ -19,7 +19,7 @@
 
 #include "google/protobuf/message.h"
 #include "absl/status/status.h"
-#include "tensorstore/internal/json.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/json_serialization_options_base.h"
 
 namespace tensorstore {

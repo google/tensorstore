@@ -28,7 +28,7 @@
 
 #include "absl/strings/cord.h"
 #include <nlohmann/json.hpp>
-#include "tensorstore/internal/json_bindable.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/util/result.h"
