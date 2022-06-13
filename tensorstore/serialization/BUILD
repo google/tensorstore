@@ -118,7 +118,6 @@ tensorstore_cc_library(
         ":serialization",
         "@com_google_absl//absl/status",
         "@com_google_protobuf//:protobuf_lite",
-        "@com_google_riegeli//riegeli/bytes:limiting_reader",
         "@com_google_riegeli//riegeli/messages:message_parse",
         "@com_google_riegeli//riegeli/messages:message_serialize",
     ],

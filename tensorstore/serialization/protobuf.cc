@@ -16,7 +16,6 @@
 
 #include "google/protobuf/message_lite.h"
 #include "absl/status/status.h"
-#include "riegeli/bytes/limiting_reader.h"
 #include "riegeli/messages/message_parse.h"
 #include "riegeli/messages/message_serialize.h"
 #include "tensorstore/serialization/serialization.h"
@@ -45,11 +44,8 @@ bool ProtobufSerializer::Decode(DecodeSource& source,
   if (!serialization::ReadSize(source.reader(), size)) return false;
   riegeli::ParseOptions options;
   options.set_partial(true);
-  auto status = riegeli::ParseFromReader(
-      riegeli::LimitingReader(
-          &source.reader(),
-          riegeli::LimitingReaderBase::Options().set_exact_length(size)),
-      value, options);
+  auto status =
+      riegeli::ParseFromReaderWithLength(source.reader(), size, value, options);
   if (!status.ok()) {
     source.Fail(std::move(status));
     return false;
