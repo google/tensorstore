@@ -1831,4 +1831,65 @@ TEST(ChunkLayoutSerializationTest, SerializationRoundTrip) {
   tensorstore::serialization::TestSerializationRoundTrip(chunk_layout);
 }
 
+TEST(ChooseChunkShapeTest, Elements) {
+  // ChooseChunkShape attempts to partition elements equally in each hypercube
+  // dimension.
+  Index chunk_shape[kMaxRank] = {0};
+  TENSORSTORE_ASSERT_OK(tensorstore::internal::ChooseChunkShape(
+      /*shape_constraints=*/tensorstore::ChunkLayout::GridView(
+          tensorstore::ChunkLayout::ChunkElementsBase(1000, false)),
+      /*domain=*/tensorstore::BoxView({0, 0, 0}, {2000, 2000, 2000}),
+      span<Index>(chunk_shape, 3)));
+
+  EXPECT_THAT(span<Index>(chunk_shape, 3), testing::ElementsAre(10, 10, 10));
+
+  TENSORSTORE_ASSERT_OK(tensorstore::internal::ChooseChunkShape(
+      /*shape_constraints=*/tensorstore::ChunkLayout::GridView(
+          tensorstore::ChunkLayout::ChunkElementsBase(1000, true)),
+      /*domain=*/tensorstore::BoxView({0, 0, 0}, {2000, 2000, 1}),
+      span<Index>(chunk_shape, 3)));
+
+  EXPECT_THAT(span<Index>(chunk_shape, 3), testing::ElementsAre(32, 32, 1));
+}
+
+TEST(ChooseChunkShapeTest, AspectRatio) {
+  Index chunk_shape[kMaxRank] = {0};
+  TENSORSTORE_ASSERT_OK(tensorstore::internal::ChooseChunkShape(
+      /*shape_constraints=*/tensorstore::ChunkLayout::GridView(
+          tensorstore::ChunkLayout::ChunkAspectRatioBase({3, 2, 1}, true)),
+      /*domain=*/tensorstore::BoxView({0, 0, 0}, {2000, 2000, 2000}),
+      span<Index>(chunk_shape, 3)));
+
+  EXPECT_THAT(span<Index>(chunk_shape, 3), testing::ElementsAre(168, 112, 56));
+
+  TENSORSTORE_ASSERT_OK(tensorstore::internal::ChooseChunkShape(
+      /*shape_constraints=*/tensorstore::ChunkLayout::GridView(
+          tensorstore::ChunkLayout::ChunkAspectRatioBase({3, 2, 1}, false)),
+      /*domain=*/tensorstore::BoxView({0, 0, 0}, {2000, 2000, 1}),
+      span<Index>(chunk_shape, 3)));
+
+  EXPECT_THAT(span<Index>(chunk_shape, 3), testing::ElementsAre(1254, 836, 1));
+}
+
+TEST(ChooseChunkShapeTest, Shape) {
+  // NOTE: Shape behaves differently from other constraints as it is not
+  // necessarily constrained by the dimension.
+  Index chunk_shape[kMaxRank] = {0};
+  TENSORSTORE_ASSERT_OK(tensorstore::internal::ChooseChunkShape(
+      /*shape_constraints=*/tensorstore::ChunkLayout::GridView(
+          tensorstore::ChunkLayout::ChunkShapeBase({30, 20, 10}, false)),
+      /*domain=*/tensorstore::BoxView({0, 0, 0}, {2000, 2000, 2000}),
+      span<Index>(chunk_shape, 3)));
+
+  EXPECT_THAT(span<Index>(chunk_shape, 3), testing::ElementsAre(30, 20, 10));
+
+  TENSORSTORE_ASSERT_OK(tensorstore::internal::ChooseChunkShape(
+      /*shape_constraints=*/tensorstore::ChunkLayout::GridView(
+          tensorstore::ChunkLayout::ChunkShapeBase({30, 20, 10}, false)),
+      /*domain=*/tensorstore::BoxView({0, 0, 0}, {2000, 2000, 1}),
+      span<Index>(chunk_shape, 3)));
+
+  EXPECT_THAT(span<Index>(chunk_shape, 3), testing::ElementsAre(30, 20, 10));
+}
+
 }  // namespace
