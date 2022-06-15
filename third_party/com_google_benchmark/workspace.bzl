@@ -23,9 +23,9 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_benchmark",
-        urls = ["https://github.com/google/benchmark/archive/v1.6.0.zip"],
-        sha256 = "3da225763533aa179af8438e994842be5ca72e4a7fed4d7976dc66c8c4502f58",
-        strip_prefix = "benchmark-1.6.0",
+        urls = ["https://github.com/google/benchmark/archive/v1.6.1.zip"],
+        sha256 = "367e963b8620080aff8c831e24751852cffd1f74ea40f25d9cc1b667a9dd5e45",
+        strip_prefix = "benchmark-1.6.1",
     )
 
 cmake_fetch_content_package(

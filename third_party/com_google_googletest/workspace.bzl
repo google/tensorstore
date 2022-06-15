@@ -25,9 +25,9 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_googletest",
-        urls = ["https://github.com/google/googletest/archive/3e0e32ba300ce8afe695ad3ba7e81b21b7cf237a.zip"],  # main(2021-11-20)
-        sha256 = "84bf0acb4a7ed172ffdd806bb3bef76ad705f4ea63ac7175cd7c86df2a017d17",
-        strip_prefix = "googletest-3e0e32ba300ce8afe695ad3ba7e81b21b7cf237a",
+        urls = ["https://github.com/google/googletest/archive/191ca1f3a9262b90a586ae2c2e8c742c3d867801.zip"],  # main(2022-06-14)
+        sha256 = "d0b0b8fffa58489f0803b230d2971bd6344fc3a0068f352fd7075bca8ea6c4cc",
+        strip_prefix = "googletest-191ca1f3a9262b90a586ae2c2e8c742c3d867801",
     )
 
 cmake_set_section(section = 100)

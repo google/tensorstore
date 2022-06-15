@@ -26,11 +26,11 @@ def repo():
         # "org_libjpeg_turbo" because this repository may actually refer to the
         # system jpeg.
         name = "jpeg",
-        strip_prefix = "libjpeg-turbo-2.1.2",
+        strip_prefix = "libjpeg-turbo-2.1.3",
         urls = [
-            "https://github.com/libjpeg-turbo/libjpeg-turbo/archive/2.1.2.tar.gz",
+            "https://github.com/libjpeg-turbo/libjpeg-turbo/archive/2.1.3.tar.gz",
         ],
-        sha256 = "e7fdc8a255c45bc8fbd9aa11c1a49c23092fcd7379296aeaeb14d3343a3d1bed",
+        sha256 = "dbda0c685942aa3ea908496592491e5ec8160d2cf1ec9d5fd5470e50768e7859",
         build_file = Label("//third_party:jpeg/bundled.BUILD.bazel"),
         system_build_file = Label("//third_party:jpeg/system.BUILD.bazel"),
     )

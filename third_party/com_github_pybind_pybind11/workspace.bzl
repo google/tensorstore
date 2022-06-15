@@ -22,11 +22,11 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_github_pybind_pybind11",
-        strip_prefix = "pybind11-2.8.1",
+        strip_prefix = "pybind11-2.9.2",
         urls = [
-            "https://github.com/pybind/pybind11/archive/v2.8.1.tar.gz",
+            "https://github.com/pybind/pybind11/archive/v2.9.2.tar.gz",
         ],
-        sha256 = "f1bcc07caa568eb312411dde5308b1e250bd0e1bc020fae855bf9f43209940cc",
+        sha256 = "6bd528c4dbe2276635dc787b6b1f2e5316cf6b49ee3e150264e455a0d68d19c1",
         build_file = Label("//third_party:com_github_pybind_pybind11/bundled.BUILD.bazel"),
     )
 

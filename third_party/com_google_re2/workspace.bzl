@@ -25,11 +25,11 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_re2",
-        strip_prefix = "re2-4bb7b2e8b04c9c2483196a34217bab6fd355e35d",
+        strip_prefix = "re2-a427f10b9fb4622dd6d8643032600aa1b50fbd12",
         urls = [
-            "https://github.com/google/re2/archive/4bb7b2e8b04c9c2483196a34217bab6fd355e35d.tar.gz",  # abseil(2021-11-20)
+            "https://github.com/google/re2/archive/a427f10b9fb4622dd6d8643032600aa1b50fbd12.tar.gz",  # abseil(2022-06-14)
         ],
-        sha256 = "f68f7dfc693f11209fd74c88ca2ec7809d3fff4cfda8319b215f3bacf742e7ee",
+        sha256 = "c7463cd08e76c8a6721624de2d4adf0aed648bbfaf4011c9dbf2bff9f9426229",
     )
 
 cmake_fetch_content_package(name = "com_google_re2")

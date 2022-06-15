@@ -24,6 +24,7 @@ def repo():
         third_party_http_archive,
         name = "net_sourceforge_half",
         urls = [
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/sourceforge.net/projects/half/files/half/2.1.0/half-2.1.0.zip",
             "https://sourceforge.net/projects/half/files/half/2.1.0/half-2.1.0.zip",
         ],
         sha256 = "ad1788afe0300fa2b02b0d1df128d857f021f92ccf7c8bddd07812685fa07a25",

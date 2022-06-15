@@ -1,6 +1,5 @@
 load("@com_google_tensorstore//:utils.bzl", "cc_library_with_strip_include_prefix", "template_rule")
 load("@com_google_tensorstore//:rules_nasm.bzl", "nasm_library")
-load("@bazel_skylib//lib:selects.bzl", "selects")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -13,8 +12,8 @@ WIN_COPTS = [
     "-wd4996",
 ]
 
-libjpegturbo_copts = select({
-    ":windows": WIN_COPTS,
+LIBJPEGTURBO_COPTS = select({
+    ":cpu_windows": WIN_COPTS,
     ":armeabi-v7a": [
         "-D__ARM_NEON__",
         "-DNEON_INTRINSICS",
@@ -104,7 +103,6 @@ cc_library_with_strip_include_prefix(
         "jquant1.c",
         "jquant2.c",
         "jutils.c",
-        "jversion.h",
     ],
     hdrs = [
         "jccolext.c",  # should have been named .inc
@@ -118,7 +116,7 @@ cc_library_with_strip_include_prefix(
         "jpeglib.h",
         "jstdhuff.c",  # should have been named .inc
     ],
-    copts = libjpegturbo_copts,
+    copts = LIBJPEGTURBO_COPTS,
     strip_include_prefix = "",
     visibility = ["//visibility:public"],
     deps = select({
@@ -126,7 +124,7 @@ cc_library_with_strip_include_prefix(
         ":armeabi-v7a": [":simd_armv7a"],
         ":arm64": [":simd_armv8a"],
         ":linux_ppc64le": [":simd_altivec"],
-        ":windows": [":simd_x86_64"],
+        ":cpu_windows": [":simd_x86_64"],
         "//conditions:default": [":simd_none"],
     }),
 )
@@ -137,6 +135,7 @@ cc_library(
     hdrs = [
         "jchuff.h",
         "jconfig.h",
+        "jconfigint.h",
         "jdct.h",
         "jerror.h",
         "jinclude.h",
@@ -145,8 +144,9 @@ cc_library(
         "jpeglib.h",
         "jsimd.h",
         "jsimddct.h",
+        "jversion.h",
     ],
-    copts = libjpegturbo_copts,
+    copts = LIBJPEGTURBO_COPTS,
 )
 
 cc_library(
@@ -154,7 +154,7 @@ cc_library(
     srcs = [
         "jsimd_none.c",
     ],
-    copts = libjpegturbo_copts,
+    copts = LIBJPEGTURBO_COPTS,
     deps = [":simd_common"],
 )
 
@@ -183,34 +183,42 @@ cc_library(
         "simd/powerpc/jdmrgext-altivec.c",
         "simd/powerpc/jsimd_altivec.h",
     ],
-    copts = libjpegturbo_copts,
+    copts = LIBJPEGTURBO_COPTS,
     deps = [":simd_common"],
 )
 
 cc_library(
     name = "simd_x86_64",
-    hdrs = [
-        "jconfigint.h",
-    ],
     srcs = [
         "simd/jsimd.h",
         "simd/x86_64/jsimd.c",
     ],
-    copts = libjpegturbo_copts,
+    copts = LIBJPEGTURBO_COPTS,
+    linkstatic = 1,
     deps = [
         ":simd_common",
         ":simd_x86_64_asm",
     ],
-    linkstatic = 1,
 )
 
 NASM_FLAGS = [
     "-w+all",
     "-D__x86_64__",
 ] + select({
-    "@platforms//os:windows": ["-fwin64", "-DWIN64"],
-    "@platforms//os:macos": ["-fmacho64", "-DMACHO", "-DPIC"],
-    "//conditions:default": ["-felf64", "-DELF", "-DPIC"],
+    "@platforms//os:windows": [
+        "-fwin64",
+        "-DWIN64",
+    ],
+    "@platforms//os:macos": [
+        "-fmacho64",
+        "-DMACHO",
+        "-DPIC",
+    ],
+    "//conditions:default": [
+        "-felf64",
+        "-DELF",
+        "-DPIC",
+    ],
 })
 
 nasm_library(
@@ -244,9 +252,8 @@ nasm_library(
         "simd/x86_64/jquanti-sse2.asm",
         "simd/x86_64/jsimdcpu.asm",
     ],
+    flags = NASM_FLAGS,
     includes = [
-        "jconfig.h",
-        "jconfigint.h",
         "simd/nasm/jcolsamp.inc",
         "simd/nasm/jdct.inc",
         "simd/nasm/jsimdcfg.inc",
@@ -263,7 +270,6 @@ nasm_library(
         "simd/x86_64/jdmrgext-sse2.asm",
     ],
     deps = [":simd_common"],
-    flags = NASM_FLAGS,
 )
 
 template_rule(
@@ -287,7 +293,7 @@ genrule(
 cc_library(
     name = "neon-compat_hdr",
     hdrs = ["neon-compat.h"],
-    copts = libjpegturbo_copts,
+    copts = LIBJPEGTURBO_COPTS,
 )
 
 SRCS_SIMD_ARM = [
@@ -304,8 +310,6 @@ SRCS_SIMD_ARM = [
     "simd/arm/jidctint-neon.c",
     "simd/arm/jidctred-neon.c",
     "simd/arm/jquanti-neon.c",
-    "jconfig.h",
-    "jconfigint.h",
 ]
 
 # .c files in the following list are used like .h files in that they are
@@ -329,7 +333,7 @@ cc_library(
     hdrs = [
         "simd/arm/aarch32/jccolext-neon.c",
     ] + HDRS_SIMD_ARM,
-    copts = libjpegturbo_copts,
+    copts = LIBJPEGTURBO_COPTS,
     deps = [
         ":neon-compat_hdr",
         ":simd_common",
@@ -346,11 +350,22 @@ cc_library(
     hdrs = [
         "simd/arm/aarch64/jccolext-neon.c",
     ] + HDRS_SIMD_ARM,
-    copts = libjpegturbo_copts,
+    copts = LIBJPEGTURBO_COPTS,
     deps = [
         ":neon-compat_hdr",
         ":simd_common",
     ],
+)
+
+# libjpeg-turbo configure rules
+
+template_rule(
+    name = "jversion_config",
+    src = "jversion.h.in",
+    out = "jversion.h",
+    substitutions = {
+        "@COPYRIGHT_YEAR@": "1991-2022",
+    },
 )
 
 template_rule(
@@ -478,7 +493,7 @@ genrule(
     ],
     outs = ["jconfig.h"],
     cmd = select({
-        ":windows": "cp $(location jconfig_win.h) $@",
+        ":cpu_windows": "cp $(location jconfig_win.h) $@",
         ":k8": "cp $(location jconfig_nowin_simd.h) $@",
         ":armeabi-v7a": "cp $(location jconfig_nowin_simd.h) $@",
         ":arm64": "cp $(location jconfig_nowin_simd.h) $@",
@@ -495,7 +510,7 @@ genrule(
     ],
     outs = ["jconfigint.h"],
     cmd = select({
-        ":windows": "cp $(location jconfigint_win.h) $@",
+        ":cpu_windows": "cp $(location jconfigint_win.h) $@",
         "//conditions:default": "cp $(location jconfigint_nowin.h) $@",
     }),
 )
@@ -570,19 +585,11 @@ genrule(
           "EOF",
 )
 
+# Config settings
+
 config_setting(
     name = "k8",
     values = {"cpu": "k8"},
-)
-
-config_setting(
-    name = "android",
-    values = {"crosstool_top": "//external:android/crosstool"},
-)
-
-config_setting(
-    name = "windows",
-    values = {"cpu": "x64_windows"},
 )
 
 config_setting(
@@ -595,33 +602,17 @@ config_setting(
     values = {"cpu": "armeabi-v7a"},
 )
 
-# arm64 variants.
 config_setting(
-    name = "cpu_aarch64",
-    values = {"cpu": "aarch64"},
+    name = "cpu_windows",
+    values = {"cpu": "x64_windows"},
 )
 
-config_setting(
-    name = "cpu_arm64_v8a",
-    values = {"cpu": "arm64-v8a"},
-)
-
-config_setting(
-    name = "cpu_darwin_arm64",
-    values = {"cpu": "darwin_arm64"},
-)
-
-config_setting(
-    name = "cpu_darwin_arm64e",
-    values = {"cpu": "darwin_arm64e"},
-)
-
-selects.config_setting_group(
-    name = "arm64",
-    match_any = [
-        ":cpu_aarch64",
-        ":cpu_arm64_v8a",
-        ":cpu_darwin_arm64",
-        ":cpu_darwin_arm64e",
-    ],
-)
+[
+    alias(
+        name = name,
+        actual = "@com_google_tensorstore//:{target}".format(target = name),
+    )
+    for name in [
+        "arm64",
+    ]
+]
