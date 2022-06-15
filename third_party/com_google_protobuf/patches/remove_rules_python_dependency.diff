@@ -1,14 +1,15 @@
-diff --git a/BUILD b/BUILD
+diff --git a/BUILD.bazel b/BUILD.bazel
 index a0c93676a..82d2a741b 100644
---- a/BUILD
-+++ b/BUILD
-@@ -3,7 +3,6 @@
- load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
- load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_test", "objc_library", native_cc_proto_library = "cc_proto_library")
+--- a/BUILD.bazel
++++ b/BUILD.bazel
+@@ -4,7 +4,6 @@
+ load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_test")
+ load("@rules_pkg//:mappings.bzl", "pkg_files", "strip_prefix")
  load("@rules_proto//proto:defs.bzl", "proto_lang_toolchain", "proto_library")
 -load("@rules_python//python:defs.bzl", "py_library")
  load("@rules_java//java:defs.bzl", "java_binary", "java_lite_proto_library", "java_proto_library")
- load(":cc_proto_blacklist_test.bzl", "cc_proto_blacklist_test")
+ load("//build_defs:cpp_opts.bzl", "COPTS", "LINK_OPTS", "PROTOC_LINK_OPTS")
+ load(
  
 diff --git a/protobuf.bzl b/protobuf.bzl
 index 971612812..7692b0a77 100644
@@ -22,6 +23,6 @@ index 971612812..7692b0a77 100644
 +
 +py_library = native.py_library
 +py_test = native.py_test
- 
+
  def _GetPath(ctx, path):
      if ctx.label.workspace_root:

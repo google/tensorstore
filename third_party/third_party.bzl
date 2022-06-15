@@ -28,6 +28,7 @@ load("//third_party:org_videolan_dav1d/workspace.bzl", repo_org_videolan_dav1d =
 load("//third_party:png/workspace.bzl", repo_png = "repo")
 load("//third_party:pypa/workspace.bzl", repo_pypa = "repo")
 load("//third_party:rules_perl/workspace.bzl", repo_rules_perl = "repo")
+load("//third_party:rules_pkg/workspace.bzl", repo_rules_pkg = "repo")
 load("//third_party:se_curl/workspace.bzl", repo_se_curl = "repo")
 
 def third_party_dependencies():
@@ -61,4 +62,5 @@ def third_party_dependencies():
     repo_png()
     repo_pypa()
     repo_rules_perl()
+    repo_rules_pkg()
     repo_se_curl()
