@@ -620,13 +620,14 @@ tensorstore_cc_library(
     ],
     deps = [
         ":assert_macros",
-        ":str_cat",
         "//tensorstore/internal:preprocessor",
         "//tensorstore/internal:source_location",
         "//tensorstore/internal:type_traits",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/strings:str_format",
     ],
 )
 

@@ -15,6 +15,7 @@
 #ifndef TENSORSTORE_STATUS_H_
 #define TENSORSTORE_STATUS_H_
 
+#include <optional>
 #include <string_view>
 #include <type_traits>
 #include <utility>
@@ -28,25 +29,6 @@
 #include "tensorstore/util/assert_macros.h"
 
 namespace tensorstore {
-
-/// If status is not `absl::StatusCode::kOk`, then annotate the status message.
-///
-/// \ingroup error handling
-absl::Status MaybeAnnotateStatus(const absl::Status& status,
-                                 std::string_view message);
-
-/// Overload for the case of a bare absl::Status argument.
-///
-/// \returns `status`
-/// \relates Result
-/// \id status
-inline const absl::Status& GetStatus(const absl::Status& status) {
-  return status;
-}
-inline absl::Status GetStatus(absl::Status&& status) {
-  return std::move(status);
-}
-
 namespace internal {
 
 /// Returns `f(args...)`, converting a `void` return to `absl::Status`.
@@ -75,10 +57,42 @@ inline absl::Status ConvertInvalidArgumentToFailedPrecondition(
 }
 
 [[noreturn]] void FatalStatus(const char* message, const absl::Status& status,
-                              SourceLocation loc
-                                  TENSORSTORE_LOC_CURRENT_DEFAULT_ARG);
+                              SourceLocation loc);
+
+absl::Status MaybeAnnotateStatusImpl(absl::Status source,
+                                     std::string_view message,
+                                     std::optional<SourceLocation> loc);
 
 }  // namespace internal
+
+/// If status is not `absl::StatusCode::kOk`, then annotate the status message.
+///
+/// \ingroup error handling
+inline absl::Status MaybeAnnotateStatus(
+    absl::Status source, std::string_view message,
+    SourceLocation loc TENSORSTORE_LOC_CURRENT_DEFAULT_ARG) {
+  return internal::MaybeAnnotateStatusImpl(std::move(source), message, loc);
+}
+#if !TENSORSTORE_HAVE_SOURCE_LOCATION_CURRENT
+inline absl::Status MaybeAnnotateStatus(absl::Status source,
+                                        std::string_view message) {
+  return internal::MaybeAnnotateStatusImpl(std::move(source), message,
+                                           std::nullopt);
+}
+#endif
+
+/// Overload for the case of a bare absl::Status argument.
+///
+/// \returns `status`
+/// \relates Result
+/// \id status
+inline const absl::Status& GetStatus(const absl::Status& status) {
+  return status;
+}
+inline absl::Status GetStatus(absl::Status&& status) {
+  return std::move(status);
+}
+
 }  // namespace tensorstore
 
 /// Causes the containing function to return the specified `absl::Status` value

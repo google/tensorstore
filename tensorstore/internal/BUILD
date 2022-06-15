@@ -1566,6 +1566,17 @@ tensorstore_cc_test(
 tensorstore_cc_library(
     name = "source_location",
     hdrs = ["source_location.h"],
+    deps = ["@com_google_absl//absl/base:config"],
+)
+
+tensorstore_cc_test(
+    name = "source_location_test",
+    size = "small",
+    srcs = ["source_location_test.cc"],
+    deps = [
+        ":source_location",
+        "@com_google_googletest//:gtest_main",
+    ],
 )
 
 tensorstore_cc_library(

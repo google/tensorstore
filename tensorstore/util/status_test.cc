@@ -34,10 +34,22 @@ TEST(StatusTest, StrCat) {
 }
 
 TEST(StatusTest, MaybeAnnotateStatus) {
-  EXPECT_EQ(absl::OkStatus(),
+  EXPECT_EQ(absl::OkStatus(),  //
             MaybeAnnotateStatus(absl::OkStatus(), "Annotated"));
-  EXPECT_EQ(absl::UnknownError("Annotated: Bar"),
-            MaybeAnnotateStatus(absl::UnknownError("Bar"), "Annotated"));
+
+  EXPECT_EQ(
+      absl::OkStatus(),  //
+      MaybeAnnotateStatus(absl::OkStatus(), "Annotated", TENSORSTORE_LOC));
+
+  auto bar_status = absl::UnknownError("Bar");
+  bar_status.SetPayload("a", absl::Cord("b"));
+  auto status = MaybeAnnotateStatus(bar_status, "Annotated");
+  EXPECT_TRUE(status.GetPayload("a").has_value());
+
+  // EXEPCT_EQ also verifies status.payloads.
+  auto expected = absl::UnknownError("Annotated: Bar");
+  expected.SetPayload("a", absl::Cord("b"));
+  EXPECT_EQ(expected, status);
 }
 
 TEST(StatusTest, InvokeForStatus) {
