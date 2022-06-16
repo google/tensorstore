@@ -91,6 +91,7 @@ cc_library_with_strip_include_prefix(
         "HAVE_LIBZ",
         "HAVE_ZLIB_H",
         "HAVE_BROTLI",
+        # "USE_ARES",  # TODO: Enable c-ares; after debugging broken test.
     ] + select({
         ":windows": [
             "CURL_DISABLE_PROXY",
@@ -116,6 +117,7 @@ cc_library_with_strip_include_prefix(
     deps = [
         "@net_zlib//:zlib",
         "@com_google_brotli//:brotlidec",
+        # "@com_github_cares_cares//:ares",
         "@org_nghttp2//:nghttp2",
     ] + select({
         ":ios": [],
