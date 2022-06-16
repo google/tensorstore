@@ -39,6 +39,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:no_destructor",
         "//tensorstore/internal/metrics",
         "//tensorstore/util:future",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/time",
@@ -106,10 +107,22 @@ tensorstore_cc_test(
     deps = [
         ":curl_transport",
         ":http",
+        ":transport_test_utils",
         "//tensorstore/internal:logging",
-        "//tensorstore/internal:mutex",
-        "//tensorstore/util:executor",
-        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "curl_transport_http2_test",
+    srcs = ["curl_transport_http2_test.cc"],
+    deps = [
+        ":curl_transport",
+        ":http",
+        ":transport_test_utils",
+        "//tensorstore/internal:logging",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",
@@ -138,5 +151,19 @@ tensorstore_cc_test(
         "//tensorstore/util:status_testutil",
         "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "transport_test_utils",
+    testonly = 1,
+    srcs = ["transport_test_utils.cc"],
+    hdrs = ["transport_test_utils.h"],
+    visibility = ["//visibility:private"],
+    deps = [
+        "//tensorstore/internal:logging",
+        "//tensorstore/util:assert_macros",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/strings",
     ],
 )
