@@ -395,7 +395,7 @@ class StridedLayout
   using Rebind = StridedLayout<R, O, CKind>;
 
   /// Representation of static or dynamic rank value.
-  using RankType = StaticOrDynamicRank<static_rank>;
+  using RankType = StaticOrDynamicRank<RankConstraint::FromInlineRank(Rank)>;
 
   /// Conditionally const-qualified element type of `shape` vector.
   using MaybeConstIndex = typename Access::MaybeConstIndex;
@@ -437,8 +437,9 @@ class StridedLayout
   ///
   /// \dchecks `std::size(shape) == std::size(byte_strides)`
   /// \id shape, byte_strides
-  explicit StridedLayout(span<const Index, static_rank> shape,
-                         span<const Index, static_rank> byte_strides) {
+  explicit StridedLayout(
+      span<const Index, RankConstraint::FromInlineRank(Rank)> shape,
+      span<const Index, RankConstraint::FromInlineRank(Rank)> byte_strides) {
     // This check is redundant with the check done by Access::Assign, but
     // provides a better assertion error message.
     assert(shape.size() == byte_strides.size());
@@ -460,9 +461,10 @@ class StridedLayout
   /// \id origin, shape, byte_strides
   template <ArrayOriginKind SfinaeOKind = array_origin_kind,
             typename = std::enable_if_t<SfinaeOKind == offset_origin>>
-  explicit StridedLayout(span<const Index, static_rank> origin,
-                         span<const Index, static_rank> shape,
-                         span<const Index, static_rank> byte_strides) {
+  explicit StridedLayout(
+      span<const Index, RankConstraint::FromInlineRank(Rank)> origin,
+      span<const Index, RankConstraint::FromInlineRank(Rank)> shape,
+      span<const Index, RankConstraint::FromInlineRank(Rank)> byte_strides) {
     assert(origin.size() == shape.size());
     assert(origin.size() == byte_strides.size());
     Access::Assign(this, GetStaticOrDynamicExtent(origin), origin.data(),
@@ -487,8 +489,9 @@ class StridedLayout
   /// \id domain, byte_strides
   template <ArrayOriginKind SfinaeOKind = array_origin_kind,
             typename = std::enable_if_t<SfinaeOKind == offset_origin>>
-  explicit StridedLayout(BoxView<static_rank> domain,
-                         span<const Index, static_rank> byte_strides) {
+  explicit StridedLayout(
+      BoxView<RankConstraint::FromInlineRank(Rank)> domain,
+      span<const Index, RankConstraint::FromInlineRank(Rank)> byte_strides) {
     assert(domain.rank() == byte_strides.size());
     Access::Assign(this, domain.rank(), domain.origin().data(),
                    domain.shape().data(), byte_strides.data());
@@ -567,13 +570,14 @@ class StridedLayout
             typename = std::enable_if_t<(SfinaeOKind == offset_origin &&
                                          container_kind == container)>>
   explicit StridedLayout(ContiguousLayoutOrder order, Index element_stride,
-                         BoxView<static_rank> domain) {
+                         BoxView<RankConstraint::FromInlineRank(Rank)> domain) {
     InitializeContiguousLayout(order, element_stride, domain, this);
   }
   template <ContainerKind SfinaeC = container_kind,
             typename = std::enable_if_t<(SfinaeC == container)>>
-  explicit StridedLayout(ContiguousLayoutOrder order, Index element_stride,
-                         span<const Index, static_rank> shape) {
+  explicit StridedLayout(
+      ContiguousLayoutOrder order, Index element_stride,
+      span<const Index, RankConstraint::FromInlineRank(Rank)> shape) {
     InitializeContiguousLayout(order, element_stride, shape, this);
   }
   template <
