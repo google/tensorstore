@@ -22,6 +22,16 @@ dimensions<dimension-labels>` and non-zero origins.
    indexing results in a view of the original data, but advanced
    indexing always results in a copy.
 
+
+Index transforms
+^^^^^^^^^^^^^^^^
+
+Indexing operations are composed into a normalized representation via the
+:py:obj:`tensorstore.IndexTransform` class, which represents an :ref:`index
+transform<index-transform>` from an input space to an output space. The
+examples below may include the :ref:`index transform<index-transform>`
+representation.
+
 .. _python-numpy-style-indexing:
 
 NumPy-style indexing
@@ -36,9 +46,10 @@ and the indexing expression :python:`expr` is one of:
 
    * - an integer;
      - `python-indexing-integer`
-   * - a `slice` object :python:`start:stop:step`, e.g. :python:`obj[:]` or :python:`obj[3:5]` or
-       :python:`obj[1:7:2]`, where the :python:`start`, :python:`stop`, or :python:`step` values are
-       each `None`, integers or sequences of integer or `None` values;
+   * - a `slice` object :python:`start:stop:step`, e.g. :python:`obj[:]` or
+       :python:`obj[3:5]` or :python:`obj[1:7:2]`, where the :python:`start`,
+       :python:`stop`, or :python:`step` values are each `None`, integers or
+       sequences of integer or `None` values;
      - `python-indexing-interval`
    * - :py:obj:`tensorstore.newaxis` or :py:obj:`None`;
      - `python-indexing-newaxis`
@@ -48,7 +59,8 @@ and the indexing expression :python:`expr` is one of:
      - `python-indexing-integer-array`
    * - `array_like` with `bool` data type;
      - `python-indexing-boolean-array`
-   * - :py:obj:`tuple` of any of the above, e.g. :python:`obj[1, 2, :, 3]` or :python:`obj[1, ..., :, [0, 2, 3]]`.
+   * - :py:obj:`tuple` of any of the above, e.g. :python:`obj[1, 2, :, 3]` or
+       :python:`obj[1, ..., :, [0, 2, 3]]`.
      -
 
 This form of indexing always operates on a prefix of the dimensions,
@@ -62,7 +74,8 @@ retained unchanged as if indexed by :python:`:`.
 Integer indexing
 ^^^^^^^^^^^^^^^^
 
-Indexing with an integer selects a single position within the corresponding dimension:
+Indexing with an integer selects a single position within the corresponding
+dimension:
 
 .. doctest::
 
@@ -121,7 +134,8 @@ negative positions:
    `numpy.ndarray`, where a negative index specifies a position
    relative to the end (upper bound).
 
-Specifying an index outside the explicit bounds of a dimension results in an immediate error:
+Specifying an index outside the explicit bounds of a dimension results in an
+immediate error:
 
 .. doctest::
 
@@ -199,6 +213,7 @@ instead, it has an origin equal to the start position of the interval
 
 .. doctest::
 
+   >>> x = ts.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], dtype=ts.int32)
    >>> x[1:5][2]
    TensorStore({
      'array': 2,
@@ -214,6 +229,7 @@ the :python:`step` value, rounded towards zero:
 
 .. doctest::
 
+   >>> x = ts.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], dtype=ts.int32)
    >>> x[3:8:2]
    TensorStore({
      'array': [3, 5, 7],
@@ -244,6 +260,7 @@ dimension:
 
 .. doctest::
 
+   >>> x = ts.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], dtype=ts.int32)
    >>> x[3:12]
    Traceback (most recent call last):
        ...
@@ -304,6 +321,8 @@ may be specified as a sequence of integer or `None` values (e.g. a
 
 This is equivalent to specifying a sequence of `slice` objects:
 
+   >>> x = ts.array([[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]],
+   ...              dtype=ts.int32)
    >>> x[1:3, 1:4]
    TensorStore({
      'array': [[6, 7, 8], [10, 11, 12]],
@@ -323,6 +342,8 @@ This is equivalent to specifying a sequence of `slice` objects:
 It is an error to specify a :py:obj:`slice` with sequences of unequal
 lengths, but a sequence may be combined with a scalar value:
 
+   >>> x = ts.array([[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]],
+   ...              dtype=ts.int32)
    >>> x[1:(3, 4)]
    TensorStore({
      'array': [[6, 7, 8], [10, 11, 12]],
@@ -344,9 +365,9 @@ lengths, but a sequence may be combined with a scalar value:
 Adding singleton dimensions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Specifying a value of :py:obj:`tensorstore.newaxis` (equal to `None`) adds a new
-dummy/singleton dimension with `implicit bounds<implicit-bounds>` :math:`[0,
-1)`:
+Specifying a value of :py:obj:`tensorstore.newaxis` (equal to `None`) adds a
+new dummy/singleton dimension with `implicit bounds<implicit-bounds>`
+:math:`[0, 1)`:
 
 .. doctest::
 
@@ -367,6 +388,7 @@ operations:
 
 .. doctest::
 
+   >>> x = ts.IndexTransform(input_rank=2)
    >>> x[:, ts.newaxis, ts.newaxis]
    Rank 4 -> 2 index space transform:
      Input domain:
@@ -383,6 +405,7 @@ arbitrary bounds by a subsequent interval indexing term:
 
 .. doctest::
 
+   >>> x = ts.IndexTransform(input_rank=2)
    >>> x[ts.newaxis][3:10]
    Rank 3 -> 2 index space transform:
      Input domain:
@@ -424,6 +447,7 @@ indexing expression:
 
 .. doctest::
 
+   >>> x = ts.array([[[1, 2, 3], [4, 5, 6]]], dtype=ts.int32)
    >>> x[..., 1, ...]
    Traceback (most recent call last):
        ...
@@ -542,6 +566,7 @@ result domain:
 
 .. doctest::
 
+   >>> x = ts.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]], dtype=ts.int32)
    >>> x[:, [1, 0], ts.newaxis, [1, 1]]
    TensorStore({
      'array': [[4, 8], [2, 6]],
@@ -719,6 +744,7 @@ boolean array has no effect except that:
 
 .. doctest::
 
+   >>> x = ts.IndexTransform(input_rank=2)
    >>> # Index array dimension added to result domain inline
    >>> x[:, True, [0, 1]]
    Rank 2 -> 2 index space transform:
@@ -779,8 +805,16 @@ there are a few differences to be aware of:
   result in an error.  In NumPy, out-of-bounds indices specified by a
   `slice` are silently truncated.
 
-- To specify a sequence of indexing terms when using the syntax :python:`obj[expr]` in TensorStore, :python:`expr` must be a `tuple`. In NumPy, for compatibility with its predecessor library *Numeric*, if
-  :python:`expr` is a `list` or other non-`numpy.ndarray` sequence type containing at least one `slice`, `Ellipsis`, or `None` value, it is interpreted the same as a `tuple` :ref:`(this behavior is deprecated in NumPy since version 1.15.0)<numpy:arrays.indexing>`.  TensorStore, in contrast, will attempt to convert any non-`tuple` sequence to an integer or boolean array, which results in an error if the sequence contains a `slice`, `Ellipsis`, or `None` value.
+- To specify a sequence of indexing terms when using the syntax
+  :python:`obj[expr]` in TensorStore, :python:`expr` must be a `tuple`. In
+  NumPy, for compatibility with its predecessor library *Numeric*, if
+  :python:`expr` is a `list` or other non-`numpy.ndarray` sequence type
+  containing at least one `slice`, `Ellipsis`, or `None` value, it is
+  interpreted the same as a `tuple` :ref:`(this behavior is deprecated
+  in NumPy since version 1.15.0)<numpy:arrays.indexing>`.  TensorStore, in
+  contrast, will attempt to convert any non-`tuple` sequence to an integer
+  or boolean array, which results in an error if the sequence contains a
+  `slice`, `Ellipsis`, or `None` value.
 
 .. _python-vindex-indexing:
 
@@ -885,6 +919,7 @@ domain:
 
 .. doctest::
 
+   >>> x = ts.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]], dtype=ts.int32)
    >>> x.oindex[[[True, False], [False, True]], [1, 0]]
    TensorStore({
      'array': [[2, 1], [8, 7]],
@@ -1023,18 +1058,23 @@ full validation is deferred until it is actually applied to an
 Dimension selections
 ^^^^^^^^^^^^^^^^^^^^
 
-A dimension selection is specified using the syntax :python:`ts.d[sel]`, where :python:`sel` is one of:
+A dimension selection is specified using the syntax :python:`ts.d[sel]`, where
+:python:`sel` is one of:
 
-- an integer, specifying an existing or new dimension by index (as with built-in sequence types, negative numbers
-  specify a dimension index relative to the end);
+- an integer, specifying an existing or new dimension by index (as with
+  built-in sequence types, negative numbers specify a dimension index relative
+  to the end);
 
 - a non-empty `str`, specifying an existing dimension by label;
 
 - a `slice` object, :python:`start:stop:step`, where :python:`start`,
   :python:`stop`, and :python:`step` are either integers or `None`,
-  specifying a range of existing or new dimensions by index (as for built-in sequence types, negative numbers specify a dimension index relative to the end);
+  specifying a range of existing or new dimensions by index (as for built-in
+  sequence types, negative numbers specify a dimension index relative to the
+  end);
 
-- any sequence (including a `tuple`, `list`, or another `tensorstore.d` object) of any of the above.
+- any sequence (including a `tuple`, `list`, or another `tensorstore.d` object)
+  of any of the above.
 
 The result is a `tensorstore.d` object, which is simply a lightweight, immutable
 container representing the flattened sequence of `int`, `str`, or `slice`
@@ -1199,7 +1239,8 @@ When a `tensorstore.DimExpression` :python:`dexpr` is applied to a
 2. The first operation specified in :python:`dexpr` is applied to
    :python:`obj` using the resolved initial dimension selection.  This results
    in a new `tensorstore.Indexable` object of the same type as
-   :python:`obj` and a new dimension selection consisting of the dimensions retained from the prior dimension selection or added by the operation.
+   :python:`obj` and a new dimension selection consisting of the dimensions
+   retained from the prior dimension selection or added by the operation.
 3. Each subsequent operation, is applied, in order, to the new
    `tensorstore.Indexable` object and new dimension selection produced
    by each prior operation.
@@ -1234,8 +1275,8 @@ indexing<python-numpy-style-indexing>` applied directly to a
 - If :python:`iexpr` is a *scalar* indexing expression that consists of a:
 
   - single integer,
-  - `slice` :python:`start:stop:step` where :python:`start`, :python:`stop`, and :python:`step`
-    are integers or `None`, or
+  - `slice` :python:`start:stop:step` where :python:`start`, :python:`stop`,
+    and :python:`step` are integers or `None`, or
   - `tensorstore.newaxis` term,
 
   it may be used with a dimension selection of more than one
@@ -1275,9 +1316,3 @@ indexing<python-numpy-style-indexing>` applied directly to a
 - When using outer indexing mode, i.e. :python:`dexpr.oindex[iexpr]`,
   zero-rank boolean arrays are not permitted.
 
-Index transforms
-----------------
-
-The :py:obj:`tensorstore.IndexTransform` class represents an :ref:`index
-transform<index-transform>` from an input space to an output space, and provides
-a normalized representation of any composition of indexing operations.
