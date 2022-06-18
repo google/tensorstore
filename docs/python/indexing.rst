@@ -24,7 +24,7 @@ dimensions<dimension-labels>` and non-zero origins.
 
 
 Index transforms
-^^^^^^^^^^^^^^^^
+----------------
 
 Indexing operations are composed into a normalized representation via the
 :py:obj:`tensorstore.IndexTransform` class, which represents an :ref:`index
