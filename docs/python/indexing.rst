@@ -79,8 +79,8 @@ dimension:
 
 .. doctest::
 
-   >>> x = ts.array([[0, 1, 2], [3, 4, 5]], dtype=ts.int32)
-   >>> x[1]
+   >>> a = ts.array([[0, 1, 2], [3, 4, 5]], dtype=ts.int32)
+   >>> a[1]
    TensorStore({
      'array': [3, 4, 5],
      'context': {'data_copy_concurrency': {}},
@@ -88,7 +88,7 @@ dimension:
      'dtype': 'int32',
      'transform': {'input_exclusive_max': [3], 'input_inclusive_min': [0]},
    })
-   >>> x[1, 2]
+   >>> a[1, 2]
    TensorStore({
      'array': 5,
      'context': {'data_copy_concurrency': {}},
@@ -106,7 +106,7 @@ negative positions:
 
 .. doctest::
 
-   >>> x = await ts.open({
+   >>> a = await ts.open({
    ...     "dtype": "int32",
    ...     "driver": "array",
    ...     "array": [1, 2, 3],
@@ -119,7 +119,7 @@ negative positions:
    ...         }],
    ...     },
    ... })
-   >>> x[-10]
+   >>> a[-10]
    TensorStore({
      'array': 1,
      'context': {'data_copy_concurrency': {}},
@@ -139,8 +139,8 @@ immediate error:
 
 .. doctest::
 
-   >>> x = ts.array([0, 1, 2, 3], dtype=ts.int32)
-   >>> x[4]
+   >>> a = ts.array([0, 1, 2, 3], dtype=ts.int32)
+   >>> a[4]
    Traceback (most recent call last):
        ...
    IndexError: Checking bounds of constant output index map for dimension 0: Index 4 is outside valid range [0, 4)
@@ -150,13 +150,13 @@ a dimension is permitted:
 
 .. doctest::
 
-   >>> y = ts.IndexTransform(input_shape=[4], implicit_lower_bounds=[True])
-   >>> y[-1]
+   >>> a = ts.IndexTransform(input_shape=[4], implicit_lower_bounds=[True])
+   >>> a[-1]
    Rank 0 -> 1 index space transform:
      Input domain:
      Output index maps:
        out[0] = -1
-   >>> y[4]
+   >>> a[4]
    Traceback (most recent call last):
        ...
    IndexError: Checking bounds of constant output index map for dimension 0: Index 4 is outside valid range (-inf, 4)
@@ -182,8 +182,8 @@ interval or strided interval within the corresponding dimension:
 
 .. doctest::
 
-   >>> x = ts.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], dtype=ts.int32)
-   >>> x[1:5]
+   >>> a = ts.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], dtype=ts.int32)
+   >>> a[1:5]
    TensorStore({
      'array': [1, 2, 3, 4],
      'context': {'data_copy_concurrency': {}},
@@ -213,8 +213,8 @@ instead, it has an origin equal to the start position of the interval
 
 .. doctest::
 
-   >>> x = ts.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], dtype=ts.int32)
-   >>> x[1:5][2]
+   >>> a = ts.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], dtype=ts.int32)
+   >>> a[1:5][2]
    TensorStore({
      'array': 2,
      'context': {'data_copy_concurrency': {}},
@@ -229,8 +229,8 @@ the :python:`step` value, rounded towards zero:
 
 .. doctest::
 
-   >>> x = ts.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], dtype=ts.int32)
-   >>> x[3:8:2]
+   >>> a = ts.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], dtype=ts.int32)
+   >>> a[3:8:2]
    TensorStore({
      'array': [3, 5, 7],
      'context': {'data_copy_concurrency': {}},
@@ -242,7 +242,7 @@ the :python:`step` value, rounded towards zero:
        'output': [{'input_dimension': 0, 'offset': -1}],
      },
    })
-   >>> x[7:3:-2]
+   >>> a[7:3:-2]
    TensorStore({
      'array': [7, 5],
      'context': {'data_copy_concurrency': {}},
@@ -260,8 +260,8 @@ dimension:
 
 .. doctest::
 
-   >>> x = ts.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], dtype=ts.int32)
-   >>> x[3:12]
+   >>> a = ts.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], dtype=ts.int32)
+   >>> a[3:12]
    Traceback (most recent call last):
        ...
    IndexError: Computing interval slice for dimension 0: Slice interval [3, 12) is not contained within domain [0, 10)
@@ -277,8 +277,8 @@ of a dimension is permitted:
 
 .. doctest::
 
-   >>> y = ts.IndexTransform(input_shape=[4], implicit_lower_bounds=[True])
-   >>> y[-1:2]
+   >>> a = ts.IndexTransform(input_shape=[4], implicit_lower_bounds=[True])
+   >>> a[-1:2]
    Rank 1 -> 1 index space transform:
      Input domain:
        0: [-1, 2)
@@ -301,9 +301,9 @@ may be specified as a sequence of integer or `None` values (e.g. a
 
 .. doctest::
 
-   >>> x = ts.array([[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]],
+   >>> a = ts.array([[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]],
    ...              dtype=ts.int32)
-   >>> x[(1, 1):(3, 4)]
+   >>> a[(1, 1):(3, 4)]
    TensorStore({
      'array': [[6, 7, 8], [10, 11, 12]],
      'context': {'data_copy_concurrency': {}},
@@ -321,9 +321,9 @@ may be specified as a sequence of integer or `None` values (e.g. a
 
 This is equivalent to specifying a sequence of `slice` objects:
 
-   >>> x = ts.array([[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]],
+   >>> a = ts.array([[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]],
    ...              dtype=ts.int32)
-   >>> x[1:3, 1:4]
+   >>> a[1:3, 1:4]
    TensorStore({
      'array': [[6, 7, 8], [10, 11, 12]],
      'context': {'data_copy_concurrency': {}},
@@ -342,9 +342,9 @@ This is equivalent to specifying a sequence of `slice` objects:
 It is an error to specify a :py:obj:`slice` with sequences of unequal
 lengths, but a sequence may be combined with a scalar value:
 
-   >>> x = ts.array([[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]],
+   >>> a = ts.array([[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]],
    ...              dtype=ts.int32)
-   >>> x[1:(3, 4)]
+   >>> a[1:(3, 4)]
    TensorStore({
      'array': [[6, 7, 8], [10, 11, 12]],
      'context': {'data_copy_concurrency': {}},
@@ -371,8 +371,8 @@ new dummy/singleton dimension with `implicit bounds<implicit-bounds>`
 
 .. doctest::
 
-   >>> x = ts.IndexTransform(input_rank=2)
-   >>> x[ts.newaxis]
+   >>> a = ts.IndexTransform(input_rank=2)
+   >>> a[ts.newaxis]
    Rank 3 -> 2 index space transform:
      Input domain:
        0: [0*, 1*)
@@ -388,8 +388,8 @@ operations:
 
 .. doctest::
 
-   >>> x = ts.IndexTransform(input_rank=2)
-   >>> x[:, ts.newaxis, ts.newaxis]
+   >>> a = ts.IndexTransform(input_rank=2)
+   >>> a[:, ts.newaxis, ts.newaxis]
    Rank 4 -> 2 index space transform:
      Input domain:
        0: (-inf*, +inf*)
@@ -405,8 +405,8 @@ arbitrary bounds by a subsequent interval indexing term:
 
 .. doctest::
 
-   >>> x = ts.IndexTransform(input_rank=2)
-   >>> x[ts.newaxis][3:10]
+   >>> a = ts.IndexTransform(input_rank=2)
+   >>> a[ts.newaxis][3:10]
    Rank 3 -> 2 index space transform:
      Input domain:
        0: [3, 10)
@@ -428,8 +428,8 @@ indexing terms:
 
 .. doctest::
 
-   >>> x = ts.array([[[1, 2, 3], [4, 5, 6]]], dtype=ts.int32)
-   >>> x[..., 1]
+   >>> a = ts.array([[[1, 2, 3], [4, 5, 6]]], dtype=ts.int32)
+   >>> a[..., 1]
    TensorStore({
      'array': [2, 5],
      'context': {'data_copy_concurrency': {}},
@@ -447,8 +447,8 @@ indexing expression:
 
 .. doctest::
 
-   >>> x = ts.array([[[1, 2, 3], [4, 5, 6]]], dtype=ts.int32)
-   >>> x[..., 1, ...]
+   >>> a = ts.array([[[1, 2, 3], [4, 5, 6]]], dtype=ts.int32)
+   >>> a[..., 1, ...]
    Traceback (most recent call last):
        ...
    IndexError: An index can only have a single ellipsis (`...`)
@@ -459,9 +459,9 @@ for the purpose of an assignment:
 
 .. doctest::
 
-   >>> x = ts.array([0, 1, 2, 3], dtype=ts.int32)
-   >>> x[...] = 7
-   >>> x
+   >>> a = ts.array([0, 1, 2, 3], dtype=ts.int32)
+   >>> a[...] = 7
+   >>> a
    TensorStore({
      'array': [7, 7, 7, 7],
      'context': {'data_copy_concurrency': {}},
@@ -480,8 +480,8 @@ coordinates of the dimension given by the elements of the array:
 
 .. doctest::
 
-   >>> x = ts.array([5, 4, 3, 2], dtype=ts.int32)
-   >>> x[[0, 3, 3]]
+   >>> a = ts.array([5, 4, 3, 2], dtype=ts.int32)
+   >>> a[[0, 3, 3]]
    TensorStore({
      'array': [5, 2, 2],
      'context': {'data_copy_concurrency': {}},
@@ -489,7 +489,7 @@ coordinates of the dimension given by the elements of the array:
      'dtype': 'int32',
      'transform': {'input_exclusive_max': [3], 'input_inclusive_min': [0]},
    })
-   >>> x[[[0, 1], [2, 3]]]
+   >>> a[[[0, 1], [2, 3]]]
    TensorStore({
      'array': [[5, 4], [3, 2]],
      'context': {'data_copy_concurrency': {}},
@@ -514,8 +514,8 @@ of the single broadcasted domain are added to the result domain:
 
 .. doctest::
 
-   >>> x = ts.array([[1, 2], [3, 4], [5, 6]], dtype=ts.int32)
-   >>> x[[0, 1, 2], [0, 1, 0]]
+   >>> a = ts.array([[1, 2], [3, 4], [5, 6]], dtype=ts.int32)
+   >>> a[[0, 1, 2], [0, 1, 0]]
    TensorStore({
      'array': [1, 4, 5],
      'context': {'data_copy_concurrency': {}},
@@ -523,7 +523,7 @@ of the single broadcasted domain are added to the result domain:
      'dtype': 'int32',
      'transform': {'input_exclusive_max': [3], 'input_inclusive_min': [0]},
    })
-   >>> x[[[0, 1], [2, 2]], [[0, 1], [1, 0]]]
+   >>> a[[[0, 1], [2, 2]], [[0, 1], [1, 0]]]
    TensorStore({
      'array': [[1, 4], [6, 5]],
      'context': {'data_copy_concurrency': {}},
@@ -531,7 +531,7 @@ of the single broadcasted domain are added to the result domain:
      'dtype': 'int32',
      'transform': {'input_exclusive_max': [2, 2], 'input_inclusive_min': [0, 0]},
    })
-   >>> x[[[0, 1], [2, 2]], [0, 1]]
+   >>> a[[[0, 1], [2, 2]], [0, 1]]
    TensorStore({
      'array': [[1, 4], [5, 6]],
      'context': {'data_copy_concurrency': {}},
@@ -549,8 +549,8 @@ dimensions added by prior indexing terms in the indexing expression:
 
 .. doctest::
 
-   >>> x = ts.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]], dtype=ts.int32)
-   >>> x[:, [1, 0], [1, 1]]
+   >>> a = ts.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]], dtype=ts.int32)
+   >>> a[:, [1, 0], [1, 1]]
    TensorStore({
      'array': [[4, 2], [8, 6]],
      'context': {'data_copy_concurrency': {}},
@@ -566,8 +566,8 @@ result domain:
 
 .. doctest::
 
-   >>> x = ts.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]], dtype=ts.int32)
-   >>> x[:, [1, 0], ts.newaxis, [1, 1]]
+   >>> a = ts.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]], dtype=ts.int32)
+   >>> a[:, [1, 0], ts.newaxis, [1, 1]]
    TensorStore({
      'array': [[4, 8], [2, 6]],
      'context': {'data_copy_concurrency': {}},
@@ -615,8 +615,8 @@ non-zero coordinates:
 
 .. doctest::
 
-   >>> x = ts.array([0, 1, 2, 3, 4], dtype=ts.int32)
-   >>> x[[True, False, True, True]]
+   >>> a = ts.array([0, 1, 2, 3, 4], dtype=ts.int32)
+   >>> a[[True, False, True, True]]
    TensorStore({
      'array': [0, 2, 3],
      'context': {'data_copy_concurrency': {}},
@@ -625,7 +625,7 @@ non-zero coordinates:
      'transform': {'input_exclusive_max': [3], 'input_inclusive_min': [0]},
    })
    >>> # equivalent, using index array
-   >>> x[[0, 2, 3]]
+   >>> a[[0, 2, 3]]
    TensorStore({
      'array': [0, 2, 3],
      'context': {'data_copy_concurrency': {}},
@@ -640,8 +640,8 @@ the ``i``\ th coordinate of the `True` values:
 
 .. doctest::
 
-   >>> x = ts.array([[0, 1, 2], [3, 4, 5]], dtype=ts.int32)
-   >>> x[[[True, False, False], [True, True, False]]]
+   >>> a = ts.array([[0, 1, 2], [3, 4, 5]], dtype=ts.int32)
+   >>> a[[[True, False, False], [True, True, False]]]
    TensorStore({
      'array': [0, 3, 4],
      'context': {'data_copy_concurrency': {}},
@@ -650,7 +650,7 @@ the ``i``\ th coordinate of the `True` values:
      'transform': {'input_exclusive_max': [3], 'input_inclusive_min': [0]},
    })
    >>> # equivalent, using index arrays
-   >>> x[[0, 1, 1], [0, 0, 1]]
+   >>> a[[0, 1, 1], [0, 0, 1]]
    TensorStore({
      'array': [0, 3, 4],
      'context': {'data_copy_concurrency': {}},
@@ -669,8 +669,8 @@ sequence of integer index arrays:
 
 .. doctest::
 
-   >>> x = ts.array([[0, 1, 2], [3, 4, 5], [7, 8, 9]], dtype=ts.int32)
-   >>> x[[True, False, True], [2, 1]]
+   >>> a = ts.array([[0, 1, 2], [3, 4, 5], [7, 8, 9]], dtype=ts.int32)
+   >>> a[[True, False, True], [2, 1]]
    TensorStore({
      'array': [2, 8],
      'context': {'data_copy_concurrency': {}},
@@ -679,7 +679,7 @@ sequence of integer index arrays:
      'transform': {'input_exclusive_max': [2], 'input_inclusive_min': [0]},
    })
    >>> # equivalent, using index array
-   >>> x[[0, 2], [2, 1]]
+   >>> a[[0, 2], [2, 1]]
    TensorStore({
      'array': [2, 8],
      'context': {'data_copy_concurrency': {}},
@@ -707,8 +707,8 @@ a `False` array the added dimension has the empty bounds of :math:`[0,
 
 .. doctest::
 
-   >>> x = ts.IndexTransform(input_rank=2)
-   >>> x[:, True]
+   >>> a = ts.IndexTransform(input_rank=2)
+   >>> a[:, True]
    Rank 3 -> 2 index space transform:
      Input domain:
        0: (-inf*, +inf*)
@@ -717,7 +717,7 @@ a `False` array the added dimension has the empty bounds of :math:`[0,
      Output index maps:
        out[0] = 0 + 1 * in[0]
        out[1] = 0 + 1 * in[2]
-   >>> x[:, False]
+   >>> a[:, False]
    Rank 3 -> 2 index space transform:
      Input domain:
        0: (-inf*, +inf*)
@@ -744,9 +744,9 @@ boolean array has no effect except that:
 
 .. doctest::
 
-   >>> x = ts.IndexTransform(input_rank=2)
+   >>> a = ts.IndexTransform(input_rank=2)
    >>> # Index array dimension added to result domain inline
-   >>> x[:, True, [0, 1]]
+   >>> a[:, True, [0, 1]]
    Rank 2 -> 2 index space transform:
      Input domain:
        0: (-inf*, +inf*)
@@ -755,7 +755,7 @@ boolean array has no effect except that:
        out[0] = 0 + 1 * in[0]
        out[1] = 0 + 1 * bounded((-inf, +inf), array(in)), where array =
          {{0, 1}}
-   >>> x[:, False, []]
+   >>> a[:, False, []]
    Rank 2 -> 2 index space transform:
      Input domain:
        0: (-inf*, +inf*)
@@ -764,7 +764,7 @@ boolean array has no effect except that:
        out[0] = 0 + 1 * in[0]
        out[1] = 0
    >>> # Index array dimensions added as first dimension of result domain
-   >>> x[True, :, [0, 1]]
+   >>> a[True, :, [0, 1]]
    Rank 2 -> 2 index space transform:
      Input domain:
        0: [0, 2)
@@ -773,7 +773,7 @@ boolean array has no effect except that:
        out[0] = 0 + 1 * in[1]
        out[1] = 0 + 1 * bounded((-inf, +inf), array(in)), where array =
          {{0}, {1}}
-   >>> x[False, :, []]
+   >>> a[False, :, []]
    Rank 2 -> 2 index space transform:
      Input domain:
        0: [0, 0)
@@ -831,8 +831,8 @@ domain:
 
 .. doctest::
 
-   >>> x = ts.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]], dtype=ts.int32)
-   >>> x.vindex[:, [1, 0], [1, 1]]
+   >>> a = ts.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]], dtype=ts.int32)
+   >>> a.vindex[:, [1, 0], [1, 1]]
    TensorStore({
      'array': [[4, 8], [2, 6]],
      'context': {'data_copy_concurrency': {}},
@@ -873,8 +873,8 @@ indexing terms are applied orthogonally:
 
 .. doctest::
 
-   >>> x = ts.array([[0, 1, 2], [3, 4, 5]], dtype=ts.int32)
-   >>> x.oindex[[0, 0, 1], [1, 2]]
+   >>> a = ts.array([[0, 1, 2], [3, 4, 5]], dtype=ts.int32)
+   >>> a.oindex[[0, 0, 1], [1, 2]]
    TensorStore({
      'array': [[1, 2], [1, 2], [4, 5]],
      'context': {'data_copy_concurrency': {}},
@@ -883,7 +883,7 @@ indexing terms are applied orthogonally:
      'transform': {'input_exclusive_max': [3, 2], 'input_inclusive_min': [0, 0]},
    })
    >>> # equivalent, using boolean array
-   >>> x.oindex[[0, 0, 1], [False, True, True]]
+   >>> a.oindex[[0, 0, 1], [False, True, True]]
    TensorStore({
      'array': [[1, 2], [1, 2], [4, 5]],
      'context': {'data_copy_concurrency': {}},
@@ -901,8 +901,8 @@ added by the previous indexing terms:
 
 .. doctest::
 
-   >>> x = ts.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]], dtype=ts.int32)
-   >>> x.oindex[[1, 0], :, [0, 0, 1]]
+   >>> a = ts.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]], dtype=ts.int32)
+   >>> a.oindex[[1, 0], :, [0, 0, 1]]
    TensorStore({
      'array': [[[5, 5, 6], [7, 7, 8]], [[1, 1, 2], [3, 3, 4]]],
      'context': {'data_copy_concurrency': {}},
@@ -919,8 +919,8 @@ domain:
 
 .. doctest::
 
-   >>> x = ts.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]], dtype=ts.int32)
-   >>> x.oindex[[[True, False], [False, True]], [1, 0]]
+   >>> a = ts.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]], dtype=ts.int32)
+   >>> a.oindex[[[True, False], [False, True]], [1, 0]]
    TensorStore({
      'array': [[2, 1], [8, 7]],
      'context': {'data_copy_concurrency': {}},
@@ -951,90 +951,6 @@ Dimension expressions
 supports `dimension labels<dimension-labels>` (but can be more
 verbose):
 
-.. doctest::
-
-   >>> x = ts.array([[[0, 1], [2, 3], [4, 5]], [[6, 7], [8, 9], [10, 11]]],
-   ...              dtype=ts.int32)
-   >>> # Label the dimensions "x", "y", "z"
-   >>> x = x[ts.d[:].label["x", "y", "z"]]
-   >>> x
-   TensorStore({
-     'array': [[[0, 1], [2, 3], [4, 5]], [[6, 7], [8, 9], [10, 11]]],
-     'context': {'data_copy_concurrency': {}},
-     'driver': 'array',
-     'dtype': 'int32',
-     'transform': {
-       'input_exclusive_max': [2, 3, 2],
-       'input_inclusive_min': [0, 0, 0],
-       'input_labels': ['x', 'y', 'z'],
-     },
-   })
-   >>> # Select the x=0 slice
-   >>> x[ts.d["x"][0]]
-   TensorStore({
-     'array': [[0, 1], [2, 3], [4, 5]],
-     'context': {'data_copy_concurrency': {}},
-     'driver': 'array',
-     'dtype': 'int32',
-     'transform': {
-       'input_exclusive_max': [3, 2],
-       'input_inclusive_min': [0, 0],
-       'input_labels': ['y', 'z'],
-     },
-   })
-   >>> # Select the y=1, x=0 slice
-   >>> x[ts.d["y", "x"][1, 0]]
-   TensorStore({
-     'array': [2, 3],
-     'context': {'data_copy_concurrency': {}},
-     'driver': 'array',
-     'dtype': 'int32',
-     'transform': {
-       'input_exclusive_max': [2],
-       'input_inclusive_min': [0],
-       'input_labels': ['z'],
-     },
-   })
-   >>> # Transpose "x" and "z"
-   >>> x[ts.d["x", "z"].transpose[2, 0]]
-   TensorStore({
-     'array': [[[0, 6], [2, 8], [4, 10]], [[1, 7], [3, 9], [5, 11]]],
-     'context': {'data_copy_concurrency': {}},
-     'driver': 'array',
-     'dtype': 'int32',
-     'transform': {
-       'input_exclusive_max': [2, 3, 2],
-       'input_inclusive_min': [0, 0, 0],
-       'input_labels': ['z', 'y', 'x'],
-     },
-   })
-   >>> # Select the x=d, y=d diagonal, and transpose "d" to end
-   >>> x[ts.d["x", "y"].diagonal.label["d"].transpose[-1]]
-   TensorStore({
-     'array': [[0, 8], [1, 9]],
-     'context': {'data_copy_concurrency': {}},
-     'driver': 'array',
-     'dtype': 'int32',
-     'transform': {
-       'input_exclusive_max': [2, 2],
-       'input_inclusive_min': [0, 0],
-       'input_labels': ['z', 'd'],
-     },
-   })
-   >>> # Slice z=0, apply outer indexing to "x" and "y", label as "a", "b"
-   >>> x[ts.d["z", "x", "y"].oindex[0, [0, 1], [2, 1]].label["a", "b"]]
-   TensorStore({
-     'array': [[4, 2], [10, 8]],
-     'context': {'data_copy_concurrency': {}},
-     'driver': 'array',
-     'dtype': 'int32',
-     'transform': {
-       'input_exclusive_max': [2, 2],
-       'input_inclusive_min': [0, 0],
-       'input_labels': ['a', 'b'],
-     },
-   })
-
 The usual syntax for applying a dimension expression is:
 :python:`obj[ts.d[sel] op1 ... opN]`, where :python:`obj` is any
 `tensorstore.Indexable` object, :python:`sel` specifies the initial
@@ -1052,6 +968,282 @@ arguments, and performs only minimal validation upon construction;
 full validation is deferred until it is actually applied to an
 `tensorstore.Indexable` object, using the syntax
 :python:`obj[ts.d[sel] op1 ... opN]`.
+
+.. doctest::
+
+   >>> a = ts.array([[[0, 1], [2, 3], [4, 5]], [[6, 7], [8, 9], [10, 11]]],
+   ...              dtype=ts.int32)
+   >>> # Label the dimensions "x", "y", "z"
+   >>> a = a[ts.d[:].label["x", "y", "z"]]
+   >>> a
+   TensorStore({
+     'array': [[[0, 1], [2, 3], [4, 5]], [[6, 7], [8, 9], [10, 11]]],
+     'context': {'data_copy_concurrency': {}},
+     'driver': 'array',
+     'dtype': 'int32',
+     'transform': {
+       'input_exclusive_max': [2, 3, 2],
+       'input_inclusive_min': [0, 0, 0],
+       'input_labels': ['x', 'y', 'z'],
+     },
+   })
+   >>> # Select the y=1, x=0 slice
+   >>> a[ts.d["y", "x"][1, 0]]
+   TensorStore({
+     'array': [2, 3],
+     'context': {'data_copy_concurrency': {}},
+     'driver': 'array',
+     'dtype': 'int32',
+     'transform': {
+       'input_exclusive_max': [2],
+       'input_inclusive_min': [0],
+       'input_labels': ['z'],
+     },
+   })
+
+
+Operations
+^^^^^^^^^^
+
+Dimension expressions provide the following advanced operations:
+
+:py:obj:`~tensorstore.DimExpression.label`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Sets (or changes) the labels of the selected dimensions.
+
+.. doctest::
+
+   >>> a = ts.array([[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]],
+   ...              dtype=ts.int32)
+   >>> a = a[ts.d[:].label["x", "y"]]
+   >>> a
+   TensorStore({
+     'array': [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]],
+     'context': {'data_copy_concurrency': {}},
+     'driver': 'array',
+     'dtype': 'int32',
+     'transform': {
+       'input_exclusive_max': [3, 4],
+       'input_inclusive_min': [0, 0],
+       'input_labels': ['x', 'y'],
+     },
+   })
+   >>> # Select the x=1 slice
+   >>> a[ts.d["x"][1]]
+   TensorStore({
+     'array': [4, 5, 6, 7],
+     'context': {'data_copy_concurrency': {}},
+     'driver': 'array',
+     'dtype': 'int32',
+     'transform': {
+       'input_exclusive_max': [4],
+       'input_inclusive_min': [0],
+       'input_labels': ['y'],
+     },
+   })
+
+:py:obj:`~tensorstore.DimExpression.diagonal`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Extracts the diagonal of the selected dimensions.
+
+.. doctest::
+
+   >>> a = ts.array([[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]],
+   ...              dtype=ts.int32)
+   >>> a[ts.d[:].diagonal]
+   TensorStore({
+     'array': [0, 5, 10],
+     'context': {'data_copy_concurrency': {}},
+     'driver': 'array',
+     'dtype': 'int32',
+     'transform': {'input_exclusive_max': [3], 'input_inclusive_min': [0]},
+   })
+
+:py:obj:`~tensorstore.DimExpression.translate_to`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Translates the domains of the selected input dimensions to the specified
+origins without affecting the output range.
+
+.. doctest::
+
+   >>> a = ts.array([[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]],
+   ...              dtype=ts.int32)
+   >>> a.origin
+   (0, 0)
+   >>> a[ts.d[:].translate_to[1]].origin
+   (1, 1)
+   >>> a[ts.d[:].translate_to[1, 2]].origin
+   (1, 2)
+
+:py:obj:`~tensorstore.DimExpression.translate_by`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Translates (shifts) the domains of the selected input dimensions by the
+specified offsets, without affecting the output range.
+
+.. doctest::
+
+   >>> a = ts.array([[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]],
+   ...              dtype=ts.int32)
+   >>> a[ts.d[:].translate_by[-1, 1]].origin
+   (-1, 1)
+
+:py:obj:`~tensorstore.DimExpression.translate_backward_by`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Translates (shifts) the domains of the selected input dimensions backward by
+the specified offsets, without affecting the output range.
+
+.. doctest::
+
+   >>> a = ts.array([[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]],
+   ...              dtype=ts.int32)
+   >>> a[ts.d[:].translate_backward_by[-1, 1]].origin
+   (1, -1)
+
+:py:obj:`~tensorstore.DimExpression.stride`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Strides the domains of the selected input dimensions by the specified amounts.
+
+.. doctest::
+
+   >>> a = ts.array([[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]],
+   ...              dtype=ts.int32)
+   >>> a[ts.d[1].stride[2]]
+   TensorStore({
+     'array': [[0, 2], [4, 6], [8, 10]],
+     'context': {'data_copy_concurrency': {}},
+     'driver': 'array',
+     'dtype': 'int32',
+     'transform': {'input_exclusive_max': [3, 2], 'input_inclusive_min': [0, 0]},
+   })
+
+:py:obj:`~tensorstore.DimExpression.transpose`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Transposes the selected dimensions to the specified target indices.
+
+.. doctest::
+
+   >>> a = ts.array([[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]],
+   ...              dtype=ts.int32)
+   >>> a = a[ts.d[:].label["x", "y"]]
+   >>> a[ts.d[1].transpose[0]]
+   TensorStore({
+     'array': [[0, 4, 8], [1, 5, 9], [2, 6, 10], [3, 7, 11]],
+     'context': {'data_copy_concurrency': {}},
+     'driver': 'array',
+     'dtype': 'int32',
+     'transform': {
+       'input_exclusive_max': [4, 3],
+       'input_inclusive_min': [0, 0],
+       'input_labels': ['y', 'x'],
+     },
+   })
+   >>> a[ts.d[:].transpose[::-1]]
+   TensorStore({
+     'array': [[0, 4, 8], [1, 5, 9], [2, 6, 10], [3, 7, 11]],
+     'context': {'data_copy_concurrency': {}},
+     'driver': 'array',
+     'dtype': 'int32',
+     'transform': {
+       'input_exclusive_max': [4, 3],
+       'input_inclusive_min': [0, 0],
+       'input_labels': ['y', 'x'],
+     },
+   })
+
+:py:obj:`~tensorstore.DimExpression.oindex`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Applies a NumPy-style indexing operation with outer indexing semantics.
+
+.. doctest::
+
+   >>> a = ts.array([[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]],
+   ...              dtype=ts.int32)
+   >>> a[ts.d[:].oindex[(2, 2), (0, 1, 3)]]
+   TensorStore({
+     'array': [[8, 9, 11], [8, 9, 11]],
+     'context': {'data_copy_concurrency': {}},
+     'driver': 'array',
+     'dtype': 'int32',
+     'transform': {'input_exclusive_max': [2, 3], 'input_inclusive_min': [0, 0]},
+   })
+
+:py:obj:`~tensorstore.DimExpression.vindex`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Applies a NumPy-style indexing operation with vectorized indexing semantics.
+
+.. doctest::
+
+   >>> a = ts.array([[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]],
+   ...              dtype=ts.int32)
+   >>> a[ts.d[:].vindex[(1, 0, 2), (0, 1, 3)]]
+   TensorStore({
+     'array': [4, 1, 11],
+     'context': {'data_copy_concurrency': {}},
+     'driver': 'array',
+     'dtype': 'int32',
+     'transform': {'input_exclusive_max': [3], 'input_inclusive_min': [0]},
+   })
+
+
+Composed examples
+^^^^^^^^^^^^^^^^^
+
+Composing dimension expressions enables constructing more complex indexing
+operations than are easily done with native syntax.
+
+.. doctest::
+
+   >>> a = ts.array([[[0, 1], [2, 3], [4, 5]], [[6, 7], [8, 9], [10, 11]]],
+   ...              dtype=ts.int32)[ts.d[:].label["x", "y", "z"]]
+   >>> # Transpose "x" and "z"
+   >>> a[ts.d["x", "z"].transpose[2, 0]]
+   TensorStore({
+     'array': [[[0, 6], [2, 8], [4, 10]], [[1, 7], [3, 9], [5, 11]]],
+     'context': {'data_copy_concurrency': {}},
+     'driver': 'array',
+     'dtype': 'int32',
+     'transform': {
+       'input_exclusive_max': [2, 3, 2],
+       'input_inclusive_min': [0, 0, 0],
+       'input_labels': ['z', 'y', 'x'],
+     },
+   })
+   >>> # Select the x=d, y=d diagonal, and transpose "d" to end
+   >>> a[ts.d["x", "y"].diagonal.label["d"].transpose[-1]]
+   TensorStore({
+     'array': [[0, 8], [1, 9]],
+     'context': {'data_copy_concurrency': {}},
+     'driver': 'array',
+     'dtype': 'int32',
+     'transform': {
+       'input_exclusive_max': [2, 2],
+       'input_inclusive_min': [0, 0],
+       'input_labels': ['z', 'd'],
+     },
+   })
+   >>> # Slice z=0, apply outer indexing to "x" and "y", label as "a", "b"
+   >>> a[ts.d["z", "x", "y"].oindex[0, [0, 1], [2, 1]].label["a", "b"]]
+   TensorStore({
+     'array': [[4, 2], [10, 8]],
+     'context': {'data_copy_concurrency': {}},
+     'driver': 'array',
+     'dtype': 'int32',
+     'transform': {
+       'input_exclusive_max': [2, 2],
+       'input_inclusive_min': [0, 0],
+       'input_labels': ['a', 'b'],
+     },
+   })
+
 
 .. _python-dim-selections:
 
@@ -1096,8 +1288,8 @@ compatible with operations/terms that expect an existing dimension:
 
 .. doctest::
 
-   >>> x = ts.IndexTransform(input_labels=['x'])
-   >>> x[ts.d["x"][2:3]]
+   >>> a = ts.IndexTransform(input_labels=['x'])
+   >>> a[ts.d["x"][2:3]]
    Rank 1 -> 1 index space transform:
      Input domain:
        0: [2, 3) "x"
@@ -1109,9 +1301,9 @@ on whether it is used with a `tensorstore.newaxis` term:
 
 .. doctest::
 
-   >>> x = ts.IndexTransform(input_labels=['x', 'y'])
+   >>> a = ts.IndexTransform(input_labels=['x', 'y'])
    >>> # `1` refers to existing dimension "y"
-   >>> x[ts.d[1][2:3]]
+   >>> a[ts.d[1][2:3]]
    Rank 2 -> 2 index space transform:
      Input domain:
        0: (-inf*, +inf*) "x"
@@ -1120,7 +1312,7 @@ on whether it is used with a `tensorstore.newaxis` term:
        out[0] = 0 + 1 * in[0]
        out[1] = 0 + 1 * in[1]
    >>> # `1` refers to new singleton dimension
-   >>> x[ts.d[1][ts.newaxis]]
+   >>> a[ts.d[1][ts.newaxis]]
    Rank 3 -> 2 index space transform:
      Input domain:
        0: (-inf*, +inf*) "x"
@@ -1136,9 +1328,9 @@ the number of `tensorstore.newaxis` terms:
 
 .. doctest::
 
-   >>> x = ts.IndexTransform(input_labels=['x', 'y'])
+   >>> a = ts.IndexTransform(input_labels=['x', 'y'])
    >>> # `-1` is equivalent to 1, refers to existing dimension "y"
-   >>> x[ts.d[-1][2:3]]
+   >>> a[ts.d[-1][2:3]]
    Rank 2 -> 2 index space transform:
      Input domain:
        0: (-inf*, +inf*) "x"
@@ -1147,7 +1339,7 @@ the number of `tensorstore.newaxis` terms:
        out[0] = 0 + 1 * in[0]
        out[1] = 0 + 1 * in[1]
    >>> # `-1` is equivalent to 2, refers to new singleton dimension
-   >>> x[ts.d[-1][ts.newaxis]]
+   >>> a[ts.d[-1][ts.newaxis]]
    Rank 3 -> 2 index space transform:
      Input domain:
        0: (-inf*, +inf*) "x"
@@ -1161,9 +1353,9 @@ Likewise, a `slice` may identify either existing or new dimensions:
 
 .. doctest::
 
-   >>> x = ts.IndexTransform(input_labels=['x', 'y', 'z'])
+   >>> a = ts.IndexTransform(input_labels=['x', 'y', 'z'])
    >>> # `:2` refers to existing dimensions "x", "y"
-   >>> x[ts.d[:2][1:2, 3:4]]
+   >>> a[ts.d[:2][1:2, 3:4]]
    Rank 3 -> 3 index space transform:
      Input domain:
        0: [1, 2) "x"
@@ -1174,7 +1366,7 @@ Likewise, a `slice` may identify either existing or new dimensions:
        out[1] = 0 + 1 * in[1]
        out[2] = 0 + 1 * in[2]
    >>> # `:2` refers to two new singleton dimensions
-   >>> x[ts.d[:2][ts.newaxis, ts.newaxis]]
+   >>> a[ts.d[:2][ts.newaxis, ts.newaxis]]
    Rank 5 -> 3 index space transform:
      Input domain:
        0: [0*, 1*)
@@ -1193,10 +1385,10 @@ selection (either directly or via `slice` objects) are with respect to
 an *intermediate* domain with any new singleton dimensions inserted
 but no existing dimensions consumed:
 
-   >>> x = ts.IndexTransform(input_labels=['x', 'y'])
+   >>> a = ts.IndexTransform(input_labels=['x', 'y'])
    >>> # `1` refers to new singleton dimension, `2` refers to "y"
    >>> # intermediate domain is: {0: "x", 1: "", 2: "y"}
-   >>> x[ts.d[1, 2][ts.newaxis, 0]]
+   >>> a[ts.d[1, 2][ts.newaxis, 0]]
    Rank 2 -> 2 index space transform:
      Input domain:
        0: (-inf*, +inf*) "x"
@@ -1222,8 +1414,8 @@ an existing `tensorstore.DimExpression`:
 
 .. doctest::
 
-   >>> x = ts.IndexTransform(input_rank=0)
-   >>> x[ts.d[0][ts.newaxis][1:10].label['z']]
+   >>> a = ts.IndexTransform(input_rank=0)
+   >>> a[ts.d[0][ts.newaxis][1:10].label['z']]
    Rank 1 -> 0 index space transform:
      Input domain:
        0: [1, 10) "z"
@@ -1285,9 +1477,9 @@ indexing<python-numpy-style-indexing>` applied directly to a
 
   .. doctest::
 
-     >>> x = ts.IndexTransform(input_labels=["x", "y"])
+     >>> a = ts.IndexTransform(input_labels=["x", "y"])
      >>> # add singleton dimension to beginning and end
-     >>> x[ts.d[0, -1][ts.newaxis]]
+     >>> a[ts.d[0, -1][ts.newaxis]]
      Rank 4 -> 2 index space transform:
        Input domain:
          0: [0*, 1*)
@@ -1298,7 +1490,7 @@ indexing<python-numpy-style-indexing>` applied directly to a
          out[0] = 0 + 1 * in[1]
          out[1] = 0 + 1 * in[2]
      >>> # slice out square region
-     >>> x[ts.d[:][0:10]]
+     >>> a[ts.d[:][0:10]]
      Rank 2 -> 2 index space transform:
        Input domain:
          0: [0, 10) "x"
