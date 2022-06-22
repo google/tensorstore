@@ -75,12 +75,9 @@
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
-// Best Practices for GCS Storage usage & other GCS reference
-// links are:
+// GCS reference links are:
 //
-// https://cloud.google.com/storage/docs/downloading-objects
-// https://cloud.google.com/storage/docs/uploading-objects
-// https://cloud.google.com/storage/docs/best-practices#uploading
+// https://cloud.google.com/storage/docs/uploads-downloads
 // https://cloud.google.com/storage/docs/json_api/v1/
 // https://cloud.google.com/storage/docs/retry-strategy#exponential-backoff
 
