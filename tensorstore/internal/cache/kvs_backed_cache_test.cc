@@ -175,6 +175,48 @@ TEST_F(MockStoreTest, ReadErrorDueToValidateDuringWriteback) {
                             "Error reading \"a\": read error"));
 }
 
+TEST_F(MockStoreTest, WriteDuringRead) {
+  auto entry = GetCacheEntry(cache, "a");
+  auto read_future = entry->Read(absl::InfinitePast());
+
+  auto transaction = Transaction(tensorstore::atomic_isolated);
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto open_transaction,
+        tensorstore::internal::AcquireOpenTransactionPtrOrError(transaction));
+    TENSORSTORE_ASSERT_OK(entry->Modify(open_transaction, true, "abc"));
+  }
+  // Request that the transaction be committed.
+  transaction.CommitAsync().IgnoreFuture();
+
+  // Because a read is still in progress, the commit waits after reaching the
+  // `kPrepareDoneCalled` state.
+
+  // Issue another read request, which triggers another call to
+  // `MaybeStartReadOrWriteback` (which will not do anything).
+  auto read_future2 = entry->Read(absl::InfinitePast());
+
+  {
+    auto read_req = mock_store->read_requests.pop();
+    read_req(memory_store);
+    TENSORSTORE_ASSERT_OK(read_future);
+    TENSORSTORE_ASSERT_OK(read_future2);
+  }
+
+  // Commit can proceed now that the read request is finished.
+
+  {
+    auto write_req = mock_store->write_requests.pop();
+    EXPECT_TRUE(mock_store->read_requests.empty());
+    EXPECT_TRUE(mock_store->write_requests.empty());
+    EXPECT_EQ("a", write_req.key);
+    EXPECT_EQ(StorageGeneration::Unknown(), write_req.options.if_equal);
+    EXPECT_EQ("abc", write_req.value);
+    write_req(memory_store);
+    TENSORSTORE_ASSERT_OK(transaction.future());
+  }
+}
+
 TEST_F(MockStoreTest, MultiPhaseSeparateKeys) {
   auto transaction = Transaction(tensorstore::isolated);
   {

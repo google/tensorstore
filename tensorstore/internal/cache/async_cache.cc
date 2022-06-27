@@ -146,10 +146,9 @@ void MaybeStartReadOrWriteback(Entry& entry, UniqueWriterLock<Entry> lock) {
       PrepareForCommitState new_prepare_for_commit_state;
       switch (existing_prepare_for_commit_state) {
         case PrepareForCommitState::kNone:
+        case PrepareForCommitState::kPrepareDoneCalled:
           new_prepare_for_commit_state =
               PrepareForCommitState::kPrepareDoneCalled;
-          [[fallthrough]];
-        case PrepareForCommitState::kPrepareDoneCalled:
           // Don't allow this `TransactionNode` to be committed until any
           // in-flight read request on the `Entry` completes.  This limitation
           // serves to avoid the possibility of a cache inconsistency that could
