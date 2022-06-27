@@ -206,6 +206,10 @@ class MetadataCache
     /// \param update Update function to apply.
     /// \param update_constraint Specifies additional constraints on the atomic
     ///     update.
+    /// \param read_time If `transaction` is specified and
+    ///     `!transaction.implicit_transaction()` and `read_time` is specified,
+    ///     the returned `Future` does not complete until metadata as of the
+    ///     specified `*read_time` is available in the cache.
     /// \returns Future that becomes ready when the request has completed
     ///     (either successfully or with an error).  Any error returned from the
     ///     last call to `update` (i.e. the last retry) is returned as the
@@ -213,7 +217,8 @@ class MetadataCache
     ///     underlying kvstore is also returned.
     Future<const void> RequestAtomicUpdate(
         const internal::OpenTransactionPtr& transaction, UpdateFunction update,
-        AtomicUpdateConstraint update_constraint);
+        AtomicUpdateConstraint update_constraint,
+        std::optional<absl::Time> read_time = {});
   };
 
   class TransactionNode : public Base::TransactionNode {
@@ -447,7 +452,6 @@ class DataCache
 
   const internal::PinnedCacheEntry<MetadataCache> metadata_cache_entry_;
   const MetadataPtr initial_metadata_;
-  absl::Mutex mutex_;
 };
 
 /// Private data members of `OpenState`.
@@ -527,8 +531,13 @@ class KvsDriverBase : public internal::ChunkCacheDriver {
                       const KvsDriverBase& value);
   };
 
- private:
+  // Treat as private:
+
   StalenessBound metadata_staleness_bound_;
+
+  /// Set to the open time if `OpenMode::assume_metadata` was specified.
+  /// Otherwise, set to `absl::InfinitePast()`.
+  absl::Time assume_metadata_time_ = absl::InfinitePast();
 };
 
 /// Interface by which driver implementations define the open behavior.

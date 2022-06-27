@@ -98,6 +98,7 @@ Allow write access.  Defaults to `True` if neither ``read`` nor ``write`` is spe
 )";
 };
 
+using spec_setters::SetAssumeMetadata;
 using spec_setters::SetCreate;
 using spec_setters::SetDeleteExisting;
 using spec_setters::SetOpen;
@@ -148,15 +149,16 @@ constexpr auto ForwardOpenSetters = [](auto callback, auto... other_param) {
       callback, other_param..., open_setters::SetRead{},
       open_setters::SetWrite{}, open_setters::SetOpen{},
       open_setters::SetCreate{}, open_setters::SetDeleteExisting{},
-      open_setters::SetContext{}, open_setters::SetTransaction{},
-      spec_setters::SetKvstore{});
+      open_setters::SetAssumeMetadata{}, open_setters::SetContext{},
+      open_setters::SetTransaction{}, spec_setters::SetKvstore{});
 };
 
 constexpr auto ForwardSpecRequestSetters = [](auto callback,
                                               auto... other_param) {
   callback(other_param..., spec_setters::SetOpen{}, spec_setters::SetCreate{},
-           spec_setters::SetDeleteExisting{}, spec_setters::SetMinimalSpec{},
-           spec_setters::SetRetainContext{}, spec_setters::SetUnbindContext{});
+           spec_setters::SetDeleteExisting{}, spec_setters::SetAssumeMetadata{},
+           spec_setters::SetMinimalSpec{}, spec_setters::SetRetainContext{},
+           spec_setters::SetUnbindContext{});
 };
 
 using TensorStoreCls = py::class_<PythonTensorStoreObject>;
@@ -2303,6 +2305,104 @@ schema constraints:
         'input_inclusive_min': [0, 0, 0],
       },
     })
+
+.. _python-open-assume-metadata:
+
+Using :py:param:`.assume_metadata` for improved concurrent open efficiency
+--------------------------------------------------------------------------
+
+Normally, when opening or creating a chunked format like
+:ref:`zarr<zarr-driver>`, TensorStore first attempts to read the existing
+metadata (and confirms that it matches any specified constraints), or (if
+creating is allowed) creates a new metadata file based on any specified
+constraints.
+
+When the same TensorStore stored on a distributed filesystem or cloud storage is
+opened concurrently from many machines, the simultaneous requests to read and
+write the metadata file by every machine can create contention and result in
+high latency on some distributed filesystems.
+
+The :py:param:`.assume_metadata` open mode allows redundant reading and writing
+of the metadata file to be avoided, but requires careful use to avoid data
+corruption.
+
+.. admonition:: Example of skipping reading the metadata when opening an existing array
+   :class: example
+
+   >>> context = ts.Context()
+   >>> # First create the array normally
+   >>> store = await ts.open({
+   ...     "driver": "zarr",
+   ...     "kvstore": "memory://"
+   ... },
+   ...                       context=context,
+   ...                       dtype=ts.float32,
+   ...                       shape=[5],
+   ...                       create=True)
+   >>> # Note that the .zarray metadata has been written.
+   >>> await store.kvstore.list()
+   [b'.zarray']
+   >>> await store.write([1, 2, 3, 4, 5])
+   >>> spec = store.spec()
+   >>> spec
+   Spec({
+     'driver': 'zarr',
+     'dtype': 'float32',
+     'kvstore': {'driver': 'memory'},
+     'metadata': {
+       'chunks': [5],
+       'compressor': {
+         'blocksize': 0,
+         'clevel': 5,
+         'cname': 'lz4',
+         'id': 'blosc',
+         'shuffle': -1,
+       },
+       'dimension_separator': '.',
+       'dtype': '<f4',
+       'fill_value': None,
+       'filters': None,
+       'order': 'C',
+       'shape': [5],
+       'zarr_format': 2,
+     },
+     'transform': {'input_exclusive_max': [[5]], 'input_inclusive_min': [0]},
+   })
+   >>> # Re-open later without re-reading metadata
+   >>> store2 = await ts.open(spec,
+   ...                        context=context,
+   ...                        open=True,
+   ...                        assume_metadata=True)
+   >>> # Read data using the unverified metadata from `spec`
+   >>> await store2.read()
+
+.. admonition:: Example of skipping writing the metadata when creating a new array
+   :class: example
+
+   >>> context = ts.Context()
+   >>> spec = ts.Spec(json={"driver": "zarr", "kvstore": "memory://"})
+   >>> spec.update(dtype=ts.float32, shape=[5])
+   >>> # Open the array without writing the metadata.  If using a distributed
+   >>> # filesystem, this can safely be executed on multiple machines concurrently,
+   >>> # provided that the `spec` is identical and the metadata is either fully
+   >>> # constrained, or exactly the same TensorStore version is used to ensure the
+   >>> # same defaults are applied.
+   >>> store = await ts.open(spec,
+   ...                       context=context,
+   ...                       open=True,
+   ...                       create=True,
+   ...                       assume_metadata=True)
+   >>> await store.write([1, 2, 3, 4, 5])
+   >>> # Note that the data chunk has been written but not the .zarray metadata
+   >>> await store.kvstore.list()
+   [b'0']
+   >>> # From a single machine, actually write the metadata to ensure the array
+   >>> # can be re-opened knowing the metadata.  This can be done in parallel with
+   >>> # any other writing.
+   >>> await ts.open(spec, context=context, open=True, create=True)
+   >>> # Metadata has now been written.
+   >>> await store.kvstore.list()
+   [b'.zarray', b'0']
 
 Group:
   Core

@@ -121,6 +121,18 @@ TEST(OpenTest, CreateWithoutWrite) {
                     "Cannot specify an open mode of `create` without `write`"));
 }
 
+TEST(OpenTest, AssumeExistingWithoutOpen) {
+  EXPECT_THAT(tensorstore::Open(GetJsonSpec(),
+                                tensorstore::OpenMode::create |
+                                    tensorstore::OpenMode::assume_metadata,
+                                tensorstore::ReadWriteMode::read_write)
+                  .result(),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Error opening \"zarr\" driver: "
+                            "Cannot specify an open mode of `assume_metadata` "
+                            "without `open`"));
+}
+
 TEST(ZarrDriverTest, OpenNonExisting) {
   EXPECT_THAT(tensorstore::Open(GetJsonSpec(), tensorstore::OpenMode::open,
                                 tensorstore::ReadWriteMode::read_write)
@@ -634,9 +646,9 @@ TEST_F(MockKeyValueStoreTest, CreateWithTransactionWriteError) {
   };
   auto transaction = tensorstore::Transaction(tensorstore::isolated);
   auto store_future = tensorstore::Open(json_spec, context, transaction);
+  mock_key_value_store->read_requests.pop()(memory_store);
   TENSORSTORE_EXPECT_OK(store_future.result());
   transaction.CommitAsync().IgnoreFuture();
-  mock_key_value_store->read_requests.pop()(memory_store);
   mock_key_value_store->write_requests.pop().promise.SetResult(
       absl::UnknownError("write error"));
   EXPECT_THAT(transaction.future().result(),
@@ -666,6 +678,7 @@ TEST_F(MockKeyValueStoreTest, CreateWithTransactionAlreadyExists) {
   };
   auto transaction = tensorstore::Transaction(tensorstore::isolated);
   auto store_future = tensorstore::Open(json_spec, context, transaction);
+  mock_key_value_store->read_requests.pop()(memory_store);
   TENSORSTORE_EXPECT_OK(store_future.result());
   EXPECT_TRUE(mock_key_value_store->read_requests.empty());
   EXPECT_TRUE(mock_key_value_store->write_requests.empty());
@@ -678,6 +691,7 @@ TEST_F(MockKeyValueStoreTest, CreateWithTransactionAlreadyExists) {
   TENSORSTORE_EXPECT_OK(store2_future.result());
 
   transaction.CommitAsync().IgnoreFuture();
+  mock_key_value_store->write_requests.pop()(memory_store);
   mock_key_value_store->read_requests.pop()(memory_store);
 
   EXPECT_THAT(transaction.future().result(),
@@ -2944,12 +2958,147 @@ TEST(DriverTest, InvalidSpecPathButNoKvstore) {
           "\"path\" must be specified in conjunction with \"kvstore\""));
 }
 
+TEST(DriverTest, AssumeMetadataSpecRoundtrip) {
+  tensorstore::TestJsonBinderRoundTripJsonOnly<tensorstore::Spec>({
+      {
+          {"driver", "zarr"},
+          {"dtype", "int32"},
+          {"assume_metadata", true},
+      },
+  });
+}
+
 TEST(DriverTest, MissingKvstore) {
   tensorstore::TestJsonBinderRoundTripJsonOnly<tensorstore::Spec>({
       {
           {"driver", "zarr"},
       },
   });
+}
+
+TEST(DriverTest, AssumeMetadata) {
+  ::nlohmann::json json_spec = GetJsonSpec();
+  auto context = Context::Default();
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::Open(json_spec, context,
+                                    tensorstore::OpenMode::open |
+                                        tensorstore::OpenMode::assume_metadata,
+                                    tensorstore::ReadWriteMode::read_write)
+                      .result());
+
+  auto kvs = store.kvstore();
+  ASSERT_TRUE(kvs.valid());
+
+  EXPECT_THAT(GetMap(kvs), ::testing::Optional(::testing::ElementsAre()));
+
+  // Issue a read to be filled with the fill value.
+  EXPECT_THAT(
+      tensorstore::Read<tensorstore::zero_origin>(
+          store | tensorstore::AllDims().TranslateSizedInterval({9, 7}, {1, 1}))
+          .result(),
+      ::testing::Optional(tensorstore::MakeArray<std::int16_t>({{0}})));
+
+  // Issue a valid write.
+  TENSORSTORE_EXPECT_OK(tensorstore::Write(
+      tensorstore::MakeArray<std::int16_t>({{1, 2, 3}, {4, 5, 6}}),
+      store | tensorstore::AllDims().TranslateSizedInterval({9, 8}, {2, 3})));
+
+  // Check that key value store has expected contents.
+  EXPECT_THAT(GetMap(kvs),
+              ::testing::Optional(UnorderedElementsAreArray({
+                  Pair("3.4",           //
+                       DecodedMatches(  //
+                           Bytes({1, 0, 2, 0, 4, 0, 5, 0, 0, 0, 0, 0}),
+                           tensorstore::blosc::Decode)),
+                  Pair("3.5",           //
+                       DecodedMatches(  //
+                           Bytes({3, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0}),
+                           tensorstore::blosc::Decode)),
+              })));
+
+  // Re-read and validate result.
+  EXPECT_THAT(
+      tensorstore::Read<tensorstore::zero_origin>(
+          store | tensorstore::AllDims().TranslateSizedInterval({9, 7}, {3, 5}))
+          .result(),
+      ::testing::Optional(tensorstore::MakeArray<std::int16_t>(
+          {{0, 1, 2, 3, 0}, {0, 4, 5, 6, 0}, {0, 0, 0, 0, 0}})));
+
+  EXPECT_THAT(store.domain().shape(), ::testing::ElementsAre(100, 100));
+
+  // Resizing fails.
+  EXPECT_THAT(tensorstore::Resize(store, {{kImplicit, kImplicit}}, {{100, 200}})
+                  .result(),
+              MatchesStatus(absl::StatusCode::kFailedPrecondition));
+
+  // ResolveBounds still succeeds (negative cache entry ignored).
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(store,
+                                   tensorstore::ResolveBounds(store).result());
+  EXPECT_THAT(store.domain().shape(), ::testing::ElementsAre(100, 100));
+
+  {
+    auto new_json_spec = json_spec;
+    new_json_spec["metadata"]["shape"] = {100, 200};
+    TENSORSTORE_EXPECT_OK(
+        tensorstore::Open(new_json_spec, context, tensorstore::OpenMode::create,
+                          tensorstore::ReadWriteMode::read_write));
+  }
+
+  TENSORSTORE_ASSERT_OK(kvstore::Delete(kvs, ".zarray"));
+
+  // ResolveBounds picks up new cached shape.
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(store,
+                                   tensorstore::ResolveBounds(store).result());
+  EXPECT_THAT(store.domain().shape(), ::testing::ElementsAre(100, 200));
+
+  {
+    tensorstore::Transaction transaction(
+        tensorstore::TransactionMode::isolated);
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto txn_store,
+        tensorstore::ResolveBounds(store | transaction).result());
+    EXPECT_THAT(txn_store.domain().shape(), ::testing::ElementsAre(100, 200));
+
+    auto new_json_spec = json_spec;
+    new_json_spec["metadata"]["shape"] = {100, 300};
+    TENSORSTORE_EXPECT_OK(tensorstore::Open(
+        new_json_spec, context, transaction, tensorstore::OpenMode::create,
+        tensorstore::ReadWriteMode::read_write));
+
+    // ResolveBounds picks up new cached shape for transaction.
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        txn_store, tensorstore::ResolveBounds(txn_store).result());
+    EXPECT_THAT(txn_store.domain().shape(), ::testing::ElementsAre(100, 300));
+  }
+}
+
+TEST(DriverTest, AssumeMetadataMismatch) {
+  ::nlohmann::json json_spec = GetJsonSpec();
+  auto context = Context::Default();
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::Open(json_spec, context,
+                                    tensorstore::OpenMode::open |
+                                        tensorstore::OpenMode::assume_metadata,
+                                    tensorstore::RecheckCachedMetadata{true},
+                                    tensorstore::ReadWriteMode::read_write)
+                      .result());
+
+  // Write metadata with different chunk shape.
+  {
+    auto new_json_spec = json_spec;
+    new_json_spec["metadata"]["chunks"] = {3, 3};
+
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store2,
+        tensorstore::Open(new_json_spec, context, tensorstore::OpenMode::create,
+                          tensorstore::ReadWriteMode::read_write)
+            .result());
+  }
+
+  EXPECT_THAT(tensorstore::ResolveBounds(store).result(),
+              MatchesStatus(absl::StatusCode::kFailedPrecondition));
 }
 
 }  // namespace

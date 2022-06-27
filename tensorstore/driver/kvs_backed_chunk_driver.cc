@@ -321,16 +321,94 @@ Future<IndexTransform<>> KvsDriverBase::ResolveBounds(
     internal::OpenTransactionPtr transaction, IndexTransform<> transform,
     StalenessBound metadata_staleness_bound, ResolveBoundsOptions options) {
   auto* cache = this->cache();
+  const bool skip_read = assume_metadata_time_ >= metadata_staleness_bound.time;
+  const auto handle_assume_metadata =
+      [&](auto& entry_or_node) -> Result<IndexTransform<>> {
+    // Don't issue a read request, but check if there is already newer cached
+    // metadata available.
+    std::shared_ptr<const void> new_metadata;
+    bool has_cache_entry = false;
+    if (MetadataCache::ReadLock<void> lock(entry_or_node);
+        lock.stamp().time > assume_metadata_time_) {
+      new_metadata = lock.shared_data();
+      has_cache_entry = true;
+    }
+    if (has_cache_entry) {
+      if constexpr (std::is_same_v<
+                        internal::remove_cvref_t<decltype(entry_or_node)>,
+                        MetadataCache::TransactionNode>) {
+        TENSORSTORE_ASSIGN_OR_RETURN(
+            new_metadata,
+            entry_or_node.GetUpdatedMetadata(std::move(new_metadata)),
+            cache->metadata_cache_entry_->AnnotateError(_,
+                                                        /*reading=*/false));
+      }
+    }
+    // If there is a newer negative cache entry (i.e. an entry that indicates
+    // that the metadata is not present), ignore it.  This allows the following
+    // use case
+    //
+    //   1. Open TensorStore with `OpenMode::assume_metadata` specified, and the
+    //      metadata does not actually exist.
+    //
+    //   2. Write data to the TensorStore opened in step 1 (this results in
+    //      calls to `ResolveBounds`).
+    //
+    //   3. Concurrent with step 2, open the same spec using the same cache,
+    //      with `OpenMode::create` specified and `OpenMode::assume_metadata`
+    //      not specified.  This first checks if the metadata exists, and then
+    //      writes it if not present.
+    //
+    // If negative cache entries were taken into account, then after the initial
+    // check in step 3 that finds the metadata missing, a subsequent call to
+    // `ResolveBounds` in step 2 will fail.
+    if (new_metadata) {
+      return ResolveBoundsFromMetadata(cache, new_metadata.get(),
+                                       component_index(), std::move(transform),
+                                       options);
+    } else {
+      return ResolveBoundsFromMetadata(cache, cache->initial_metadata_.get(),
+                                       component_index(), std::move(transform),
+                                       options);
+    }
+  };
+  if (transaction) {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto node,
+        GetTransactionNode(*cache->metadata_cache_entry_, transaction));
+    if (skip_read) return handle_assume_metadata(*node);
+    auto read_future = node->Read(metadata_staleness_bound.time);
+    return MapFuture(
+        cache->executor(),
+        [cache = internal::CachePtr<DataCache>(cache), node = std::move(node),
+         transform = std::move(transform),
+         component_index = this->component_index(),
+         options = std::move(options)](
+            const Result<void>& result) -> Result<IndexTransform<>> {
+          TENSORSTORE_RETURN_IF_ERROR(result);
+          TENSORSTORE_ASSIGN_OR_RETURN(
+              auto new_metadata, node->GetUpdatedMetadata(),
+              cache->metadata_cache_entry_->AnnotateError(_,
+                                                          /*reading=*/false));
+          TENSORSTORE_RETURN_IF_ERROR(
+              ValidateNewMetadata(cache.get(), new_metadata.get()));
+          return ResolveBoundsFromMetadata(cache.get(), new_metadata.get(),
+                                           component_index,
+                                           std::move(transform), options);
+        },
+        std::move(read_future));
+  }
+  if (skip_read) return handle_assume_metadata(*cache->metadata_cache_entry_);
   return MapFuture(
       cache->executor(),
       [cache = internal::CachePtr<DataCache>(cache),
-       transaction = std::move(transaction), transform = std::move(transform),
+       transform = std::move(transform),
        component_index = this->component_index(), options = std::move(options)](
           const Result<void>& result) -> Result<IndexTransform<>> {
         TENSORSTORE_RETURN_IF_ERROR(result);
-        TENSORSTORE_ASSIGN_OR_RETURN(
-            auto new_metadata,
-            ValidateNewMetadata(cache.get(), std::move(transaction)));
+        auto new_metadata = cache->metadata_cache_entry_->GetMetadata();
+        TENSORSTORE_RETURN_IF_ERROR(
+            ValidateNewMetadata(cache.get(), new_metadata.get()));
         return ResolveBoundsFromMetadata(cache.get(), new_metadata.get(),
                                          component_index, std::move(transform),
                                          options);
@@ -694,7 +772,7 @@ Result<internal::Driver::Handle> CreateTensorStoreFromMetadata(
       auto new_transform,
       GetInitialTransform(chunk_cache.get(), metadata.get(), component_index));
 
-  if (base.transaction_) {
+  if (base.transaction_ && !base.spec_->assume_metadata) {
     // Add consistency check.
     chunk_cache->metadata_cache_entry_
         ->RequestAtomicUpdate(
@@ -722,6 +800,10 @@ Result<internal::Driver::Handle> CreateTensorStoreFromMetadata(
           {std::move(chunk_cache), component_index,
            base.spec_->staleness.BoundAtOpen(base.request_time_)}),
       read_write_mode);
+  if (base.spec_->assume_metadata) {
+    static_cast<KvsDriverBase&>(*driver).assume_metadata_time_ =
+        base.request_time_;
+  }
   return internal::Driver::Handle{
       std::move(driver), std::move(new_transform),
       internal::TransactionState::ToTransaction(std::move(base.transaction_))};
@@ -777,7 +859,7 @@ void CreateMetadata(OpenState::Ptr state,
                -> Result<MetadataCache::MetadataPtr> {
              return state->Create(existing_metadata.get());
            },
-           state_ptr->GetCreateConstraint()));
+           state_ptr->GetCreateConstraint(), base.request_time_));
 }
 
 /// Called when the metadata has been read (successfully or not found).
@@ -820,6 +902,17 @@ struct GetMetadataForOpen {
     auto& base = *(PrivateOpenState*)state.get();  // Cast to private base
     auto state_ptr = state.get();
     if (base.spec_->open) {
+      if (base.spec_->assume_metadata) {
+        TENSORSTORE_ASSIGN_OR_RETURN(auto metadata, state->Create(nullptr),
+                                     static_cast<void>(promise.SetResult(_)));
+        TENSORSTORE_ASSIGN_OR_RETURN(
+            std::size_t component_index,
+            ValidateOpenRequest(state.get(), metadata.get()),
+            static_cast<void>(promise.SetResult(_)));
+        promise.SetResult(CreateTensorStoreFromMetadata(
+            std::move(state), std::move(metadata), component_index));
+        return;
+      }
       LinkValue(
           WithExecutor(state_ptr->executor(),
                        HandleReadMetadata{std::move(state)}),
@@ -876,7 +969,8 @@ struct HandleKeyValueStoreReady {
 
 Future<const void> MetadataCache::Entry::RequestAtomicUpdate(
     const internal::OpenTransactionPtr& transaction, UpdateFunction update,
-    AtomicUpdateConstraint update_constraint) {
+    AtomicUpdateConstraint update_constraint,
+    std::optional<absl::Time> read_time) {
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto node, GetWriteLockedTransactionNode(*this, transaction));
   node->updated_metadata_base_state_ =
@@ -890,6 +984,9 @@ Future<const void> MetadataCache::Entry::RequestAtomicUpdate(
     return std::move(future);
   }
   node->AddPendingWrite(PendingWrite{std::move(update), update_constraint});
+  if (read_time) {
+    return node->Read(*read_time);
+  }
   return MakeReadyFuture();
 }
 

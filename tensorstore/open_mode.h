@@ -47,6 +47,14 @@ enum class OpenMode {
   /// Open an existing TensorStore or create a new TensorStore if it does not
   /// exist.
   open_or_create = open + create,
+
+  /// When opening a TensorStore, skip reading the metadata if possible.
+  /// Instead, just assume any necessary metadata based on constraints in the
+  /// spec and any defaults used by TensorStore.  This option requires care as
+  /// it can lead to data corruption if the assumed metadata does not match the
+  /// stored metadata, or multiple concurrent writers use different assumed
+  /// metadata.
+  assume_metadata = 8,
 };
 
 /// Returns the intersection of two open modes.

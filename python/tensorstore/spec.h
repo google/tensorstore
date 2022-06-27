@@ -284,6 +284,28 @@ open mode.  Must be specified in conjunction with :python:`create=True`.
 )";
 };
 
+struct SetAssumeMetadata : public SetModeBase<OpenMode::assume_metadata> {
+  static constexpr const char* name = "assume_metadata";
+  static constexpr const char* doc = R"(
+
+Skip reading the metadata if possible.  Instead, just assume any necessary
+metadata based on constraints in the spec, using the same defaults for any
+unspecified metadata as when creating a new TensorStore.  Overrides the existing
+open mode.  Requires that :py:param:`.open` is `True` and
+:py:param:`.delete_existing` is `False`.
+
+.. warning::
+
+   This option can lead to data corruption if the assumed metadata does
+   not match the stored metadata, or multiple concurrent writers use
+   different assumed metadata.
+
+.. seealso:
+
+   - :ref:`python-open-assume-metadata`
+)";
+};
+
 struct SetMinimalSpec {
   using type = bool;
   static constexpr const char* name = "minimal_spec";

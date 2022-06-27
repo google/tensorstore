@@ -45,6 +45,21 @@ allOf:
         a new TensorStore.  Requires that `.create` is
         :json:`true`, and that `.open` is :json:`false`.
       default: false
+    assume_metadata:
+      type: boolean
+      description: >-
+        Skip reading the metadata if possible.  Instead, just assume any
+        necessary metadata based on constraints in the spec, using the same
+        defaults for any unspecified metadata as when creating a new
+        TensorStore.  Requires that `.open` is :json:`true` and that
+        `.delete_existing` is :json:`false`.
+
+        .. warning::
+
+           This option can lead to data corruption if the assumed metadata does
+           not match the stored metadata, or multiple concurrent writers use
+           different assumed metadata.
+      default: false
     cache_pool:
       $ref: ContextResource
       description: >-

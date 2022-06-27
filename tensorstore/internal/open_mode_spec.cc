@@ -56,6 +56,11 @@ TENSORSTORE_DEFINE_JSON_BINDER(
                                   jb::DefaultValue([](bool* v) {
                                     *v = false;
                                   }))),
+        jb::Member("assume_metadata",
+                   jb::Projection(&OpenModeSpec::assume_metadata,
+                                  jb::DefaultValue([](bool* v) {
+                                    *v = false;
+                                  }))),
         // For backward compatibility, accept `allow_metadata_mismatch` even
         // though it is no longer supported.
         jb::Member("allow_metadata_mismatch", [](auto is_loading,
@@ -77,6 +82,8 @@ absl::Status OpenModeSpec::ApplyOptions(const SpecOptions& options) {
     create = (open_mode & OpenMode::create) == OpenMode::create;
     delete_existing =
         (open_mode & OpenMode::delete_existing) == OpenMode::delete_existing;
+    assume_metadata =
+        (open_mode & OpenMode::assume_metadata) == OpenMode::assume_metadata;
   }
   return absl::Status();
 }
@@ -92,6 +99,18 @@ absl::Status OpenModeSpec::Validate(ReadWriteMode read_write_mode) const {
     return absl::InvalidArgumentError(
         "Cannot specify an open mode of `delete_existing` "
         "with `open`");
+  }
+
+  if (delete_existing && assume_metadata) {
+    return absl::InvalidArgumentError(
+        "Cannot specify an open mode of `delete_existing` "
+        "with `assume_metadata`");
+  }
+
+  if (assume_metadata && !open) {
+    return absl::InvalidArgumentError(
+        "Cannot specify an open mode of `assume_metadata` "
+        "without `open`");
   }
 
   if (create && (read_write_mode != ReadWriteMode::dynamic &&

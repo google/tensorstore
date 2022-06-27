@@ -210,14 +210,6 @@ class AsyncCache : public Cache {
 
     explicit ReadView(const ReadState& read_state) : read_state_(&read_state) {}
 
-    bool has_timestamp() const {
-      return stamp().time.inclusive_lower != absl::InfinitePast();
-    }
-
-    bool has_generation() const {
-      return !StorageGeneration::IsUnknown(stamp().generation);
-    }
-
     std::shared_ptr<const ReadData> shared_data() const {
       return std::static_pointer_cast<const ReadData>(read_state_->data);
     }

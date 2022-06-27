@@ -24,64 +24,46 @@ using tensorstore::ReadWriteMode;
 using tensorstore::StrCat;
 
 static_assert(ReadWriteMode::read_write ==
-                  (ReadWriteMode::read | ReadWriteMode::write),
-              "");
+              (ReadWriteMode::read | ReadWriteMode::write));
 static_assert((ReadWriteMode::read_write & ReadWriteMode::read) ==
-                  ReadWriteMode::read,
-              "");
-static_assert(!ReadWriteMode::dynamic, "");
+              ReadWriteMode::read);
+static_assert(!ReadWriteMode::dynamic);
 
 static_assert(tensorstore::internal::StaticReadWriteMask(ReadWriteMode::read) ==
-                  ReadWriteMode::read,
-              "");
+              ReadWriteMode::read);
 static_assert(tensorstore::internal::StaticReadWriteMask(
-                  ReadWriteMode::write) == ReadWriteMode::write,
-              "");
+                  ReadWriteMode::write) == ReadWriteMode::write);
 static_assert(tensorstore::internal::StaticReadWriteMask(
-                  ReadWriteMode::dynamic) == ReadWriteMode::read_write,
-              "");
+                  ReadWriteMode::dynamic) == ReadWriteMode::read_write);
 
 static_assert(tensorstore::internal::IsModePossible(ReadWriteMode::read,
-                                                    ReadWriteMode::dynamic),
-              "");
+                                                    ReadWriteMode::dynamic));
 static_assert(tensorstore::internal::IsModePossible(ReadWriteMode::read,
-                                                    ReadWriteMode::read),
-              "");
+                                                    ReadWriteMode::read));
 static_assert(tensorstore::internal::IsModePossible(ReadWriteMode::write,
-                                                    ReadWriteMode::dynamic),
-              "");
+                                                    ReadWriteMode::dynamic));
 static_assert(tensorstore::internal::IsModePossible(ReadWriteMode::write,
-                                                    ReadWriteMode::write),
-              "");
+                                                    ReadWriteMode::write));
 
 static_assert(tensorstore::internal::IsModePossible(ReadWriteMode::read_write,
-                                                    ReadWriteMode::dynamic),
-              "");
+                                                    ReadWriteMode::dynamic));
 static_assert(tensorstore::internal::IsModePossible(ReadWriteMode::read_write,
-                                                    ReadWriteMode::read_write),
-              "");
+                                                    ReadWriteMode::read_write));
 
 static_assert(!tensorstore::internal::IsModePossible(ReadWriteMode::dynamic,
-                                                     ReadWriteMode::dynamic),
-              "");
+                                                     ReadWriteMode::dynamic));
+static_assert(!tensorstore::internal::IsModePossible(
+    ReadWriteMode::read, ReadWriteMode::read_write));
 static_assert(!tensorstore::internal::IsModePossible(ReadWriteMode::read,
-                                                     ReadWriteMode::read_write),
-              "");
-static_assert(!tensorstore::internal::IsModePossible(ReadWriteMode::read,
-                                                     ReadWriteMode::write),
-              "");
+                                                     ReadWriteMode::write));
 static_assert(!tensorstore::internal::IsModePossible(ReadWriteMode::write,
-                                                     ReadWriteMode::read),
-              "");
-static_assert(!tensorstore::internal::IsModePossible(ReadWriteMode::write,
-                                                     ReadWriteMode::read_write),
-              "");
+                                                     ReadWriteMode::read));
+static_assert(!tensorstore::internal::IsModePossible(
+    ReadWriteMode::write, ReadWriteMode::read_write));
 static_assert(!tensorstore::internal::IsModePossible(ReadWriteMode::read_write,
-                                                     ReadWriteMode::read),
-              "");
+                                                     ReadWriteMode::read));
 static_assert(!tensorstore::internal::IsModePossible(ReadWriteMode::read_write,
-                                                     ReadWriteMode::write),
-              "");
+                                                     ReadWriteMode::write));
 
 TEST(ReadWriteModeTest, PrintToOstream) {
   EXPECT_EQ("dynamic", StrCat(ReadWriteMode::dynamic));
@@ -96,6 +78,8 @@ TEST(OpenTest, PrintToOstream) {
   EXPECT_EQ("open", StrCat(OpenMode::open));
   EXPECT_EQ("create", StrCat(OpenMode::create));
   EXPECT_EQ("open|create", StrCat(OpenMode::open | OpenMode::create));
+  EXPECT_EQ("open|assume_metadata",
+            StrCat(OpenMode::open | OpenMode::assume_metadata));
   EXPECT_EQ("create|delete_existing",
             StrCat(OpenMode::create | OpenMode::delete_existing));
 }

@@ -76,8 +76,9 @@ constexpr auto WithSpecKeywordArguments = [](auto callback,
   WithSchemaKeywordArguments(
       callback, other_param..., spec_setters::SetOpen{},
       spec_setters::SetCreate{}, spec_setters::SetDeleteExisting{},
-      spec_setters::SetUnbindContext{}, spec_setters::SetStripContext{},
-      spec_setters::SetContext{}, spec_setters::SetKvstore{});
+      spec_setters::SetAssumeMetadata{}, spec_setters::SetUnbindContext{},
+      spec_setters::SetStripContext{}, spec_setters::SetContext{},
+      spec_setters::SetKvstore{});
 };
 
 using SpecCls = py::class_<PythonSpecObject>;

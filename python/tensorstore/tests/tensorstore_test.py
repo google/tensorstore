@@ -327,3 +327,11 @@ async def test_write_string():
 def test_instantiation():
   with pytest.raises(TypeError):
     ts.TensorStore()
+
+
+async def test_assume_metadata():
+  t = await ts.open({
+      "driver": "zarr",
+      "kvstore": "memory://",
+  }, dtype=ts.uint32, shape=[2, 3, 4], open=True, assume_metadata=True)
+  assert await t.kvstore.list() == []

@@ -54,6 +54,10 @@ std::ostream& operator<<(std::ostream& os, OpenMode mode) {
     os << sep << "delete_existing";
     sep = kSep;
   }
+  if (!!(mode & OpenMode::assume_metadata)) {
+    os << sep << "assume_metadata";
+    sep = kSep;
+  }
   return os;
 }
 
