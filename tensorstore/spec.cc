@@ -28,10 +28,12 @@ absl::Status Spec::Set(SpecConvertOptions&& options) {
   internal::ApplyContextBindingMode(
       *this, options.context_binding_mode,
       /*default_mode=*/ContextBindingMode::retain);
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal::TransformAndApplyOptions(impl_, std::move(options)));
   if (options.context) {
     TENSORSTORE_RETURN_IF_ERROR(this->BindContext(options.context));
   }
-  return internal::TransformAndApplyOptions(impl_, std::move(options));
+  return absl::OkStatus();
 }
 
 Result<Schema> Spec::schema() const {

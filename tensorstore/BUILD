@@ -609,6 +609,7 @@ tensorstore_cc_test(
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/internal:json_gtest",
         "//tensorstore/internal/json_binding:gtest",
+        "//tensorstore/kvstore/file",
         "//tensorstore/kvstore/memory",
         "//tensorstore/serialization",
         "//tensorstore/serialization:test_util",

@@ -273,6 +273,51 @@ TEST(SpecTest, PreserveBoundContextResources) {
       })));
 }
 
+// Tests that when `Spec::Set` is called with both a `kvstore::Spec` and a
+// `Context`, the context is also bound to the kvstore spec.
+TEST(SpecTest, SetContextAndKvstore) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto spec, Spec::FromJson({
+                     {"driver", "zarr"},
+                     {"schema", {{"domain", {{"shape", {10}}}}}},
+                     {"dtype", "uint8"},
+                 }));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto kvstore_spec,
+      tensorstore::kvstore::Spec::FromJson(
+          {{"driver", "file"},
+           {"path", "/tmp/"},
+           {"file_io_concurrency", "file_io_concurrency#a"}}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto context, tensorstore::Context::FromJson(
+                        {{"file_io_concurrency#a", {{"limit", 5}}}}));
+  TENSORSTORE_EXPECT_OK(spec.Set(context, kvstore_spec));
+  tensorstore::JsonSerializationOptions json_serialization_options;
+  json_serialization_options.preserve_bound_context_resources_ = true;
+  EXPECT_THAT(
+      spec.ToJson(json_serialization_options),
+      ::testing::Optional(MatchesJson({
+          {"driver", "zarr"},
+          {"kvstore",
+           {{"driver", "file"},
+            {"path", "/tmp/"},
+            {"file_io_concurrency", {"file_io_concurrency#a"}}}},
+          {"dtype", "uint8"},
+          {"cache_pool", {"cache_pool"}},
+          {"schema",
+           {{"domain", {{"inclusive_min", {0}}, {"exclusive_max", {10}}}}}},
+          {"transform",
+           {{"input_inclusive_min", {0}}, {"input_exclusive_max", {{10}}}}},
+          {"data_copy_concurrency", {"data_copy_concurrency"}},
+          {"context",
+           {
+               {"data_copy_concurrency", ::nlohmann::json::object_t()},
+               {"cache_pool", ::nlohmann::json::object_t()},
+               {"file_io_concurrency#a", {{"limit", 5}}},
+           }},
+      })));
+}
+
 TEST(SpecSerializationTest, Invalid) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto invalid_spec,
                                    SerializationRoundTrip(tensorstore::Spec()));
