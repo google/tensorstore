@@ -482,7 +482,7 @@ class NDIterationPositionStepper {
   Index block_size_;
 };
 
-/// Arena with a stack-allocated buffer of 48 KiB.
+/// Arena with a stack-allocated buffer of 32 KiB.
 class DefaultNDIterableArena {
  public:
   DefaultNDIterableArena() : arena_(buffer_) {}
@@ -495,7 +495,7 @@ class DefaultNDIterableArena {
   }
 
  private:
-  unsigned char buffer_[48 * 1024];
+  unsigned char buffer_[32 * 1024];
   tensorstore::internal::Arena arena_;
 };
 

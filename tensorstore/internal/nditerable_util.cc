@@ -156,7 +156,9 @@ Index GetNDIterationBlockSize(std::ptrdiff_t working_memory_bytes_per_element,
   }
 #endif
   // TODO(jbms): maybe choose based on actual L1 cache size.
-  constexpr Index kTargetMemoryUsage = 32 * 1024;
+  //
+  // Note: Choose an amount smaller than the default arena size of `32 * 1024`.
+  constexpr Index kTargetMemoryUsage = 24 * 1024;
   const Index last_dimension_size = iteration_shape.back();
   if (working_memory_bytes_per_element == 0) {
     return last_dimension_size;

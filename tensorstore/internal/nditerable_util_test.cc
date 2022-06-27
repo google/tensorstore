@@ -54,15 +54,15 @@ TEST(GetNDIterationBlockSize, Basic) {
             GetNDIterationBlockSize(/*working_memory_bytes_per_element=*/1,
                                     span<const Index>({3, 4, 15})));
 
-  EXPECT_EQ(expected_block_size(32 * 1024),
+  EXPECT_EQ(expected_block_size(24 * 1024),
             GetNDIterationBlockSize(/*working_memory_bytes_per_element=*/1,
                                     span<const Index>({3, 4, 1000000})));
 
-  EXPECT_EQ(expected_block_size(1024),
+  EXPECT_EQ(expected_block_size(768),
             GetNDIterationBlockSize(/*working_memory_bytes_per_element=*/32,
                                     span<const Index>({3, 4, 1000000})));
 
-  EXPECT_EQ(expected_block_size(512),
+  EXPECT_EQ(expected_block_size(384),
             GetNDIterationBlockSize(/*working_memory_bytes_per_element=*/64,
                                     span<const Index>({3, 4, 1000000})));
 }
