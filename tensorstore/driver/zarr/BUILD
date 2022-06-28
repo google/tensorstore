@@ -158,6 +158,7 @@ tensorstore_cc_test(
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:gtest",
         "//tensorstore/kvstore",
+        "//tensorstore/kvstore:mock_kvstore",
         "//tensorstore/kvstore:test_util",
         "//tensorstore/kvstore/memory",
         "//tensorstore/util:assert_macros",

@@ -17,7 +17,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/kvstore/memory/memory_key_value_store.h"
+#include "tensorstore/kvstore/mock_kvstore.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/util/status_testutil.h"
 

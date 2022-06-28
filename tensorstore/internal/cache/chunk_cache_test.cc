@@ -56,6 +56,7 @@
 #include "tensorstore/internal/thread_pool.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/memory/memory_key_value_store.h"
+#include "tensorstore/kvstore/mock_kvstore.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/progress.h"
 #include "tensorstore/rank.h"
@@ -90,17 +91,13 @@ using tensorstore::span;
 using tensorstore::StalenessBound;
 using tensorstore::StorageGeneration;
 using tensorstore::TensorStore;
-using tensorstore::TimestampedStorageGeneration;
 using tensorstore::Transaction;
-using tensorstore::WriteFutures;
 using tensorstore::WriteProgressFunction;
 using tensorstore::internal::AsyncCache;
 using tensorstore::internal::CachePool;
 using tensorstore::internal::CachePtr;
 using tensorstore::internal::ChunkCache;
-using tensorstore::internal::ChunkCacheDriver;
 using tensorstore::internal::ChunkGridSpecification;
-using tensorstore::internal::Driver;
 using tensorstore::internal::ElementCopyFunction;
 using tensorstore::internal::MakeReadWritePtr;
 using tensorstore::internal::MockKeyValueStore;

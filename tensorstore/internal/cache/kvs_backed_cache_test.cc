@@ -28,12 +28,11 @@
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache/kvs_backed_cache_testutil.h"
 #include "tensorstore/internal/global_initializer.h"
-#include "tensorstore/kvstore/generation_testutil.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/memory/memory_key_value_store.h"
+#include "tensorstore/kvstore/mock_kvstore.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/transaction.h"
-#include "tensorstore/util/executor.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {

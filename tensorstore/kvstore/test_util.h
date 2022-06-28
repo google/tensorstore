@@ -16,24 +16,22 @@
 #define TENSORSTORE_KVSTORE_TEST_UTIL_H_
 
 #include <map>
-#include <optional>
 #include <string>
-#include <utility>
+#include <string_view>
+#include <type_traits>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/functional/function_ref.h"
-#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/time/time.h"
-#include "tensorstore/internal/queue_testutil.h"
+#include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/generation_testutil.h"
 #include "tensorstore/kvstore/kvstore.h"
-#include "tensorstore/util/future.h"
+#include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal {
@@ -148,101 +146,6 @@ MatchesKvsReadResultAborted(
   return MatchesKvsReadResult(kvstore::ReadResult::kUnspecified, ::testing::_,
                               time);
 }
-
-/// Mock KeyValueStore that simply records requests in a queue.
-///
-/// This can be used to test the behavior of code that interacts with a
-/// `KeyValueStore`, and to inject errors to test error handling.
-class MockKeyValueStore : public kvstore::Driver {
- public:
-  using MockPtr = IntrusivePtr<MockKeyValueStore>;
-  static MockKeyValueStore::MockPtr Make() {
-    return MakeIntrusivePtr<MockKeyValueStore>();
-  }
-
-  struct ReadRequest {
-    Promise<ReadResult> promise;
-    Key key;
-    ReadOptions options;
-    void operator()(kvstore::DriverPtr target) const {
-      LinkResult(promise, target->Read(key, options));
-    }
-  };
-
-  struct WriteRequest {
-    Promise<TimestampedStorageGeneration> promise;
-    Key key;
-    std::optional<Value> value;
-    WriteOptions options;
-    void operator()(kvstore::DriverPtr target) const {
-      LinkResult(promise, target->Write(key, value, options));
-    }
-  };
-
-  struct DeleteRangeRequest {
-    Promise<void> promise;
-    KeyRange range;
-    void operator()(kvstore::DriverPtr target) const {
-      LinkResult(promise, target->DeleteRange(range));
-    }
-  };
-
-  struct ListRequest {
-    ListOptions options;
-    AnyFlowReceiver<absl::Status, Key> receiver;
-  };
-
-  Future<ReadResult> Read(Key key, ReadOptions options) override;
-
-  Future<TimestampedStorageGeneration> Write(Key key,
-                                             std::optional<Value> value,
-                                             WriteOptions options) override;
-
-  void ListImpl(ListOptions options,
-                AnyFlowReceiver<absl::Status, Key> receiver) override;
-
-  Future<void> DeleteRange(KeyRange range) override;
-
-  void GarbageCollectionVisit(
-      garbage_collection::GarbageCollectionVisitor& visitor) const final;
-
-  ConcurrentQueue<ReadRequest> read_requests;
-  ConcurrentQueue<WriteRequest> write_requests;
-  ConcurrentQueue<ListRequest> list_requests;
-  ConcurrentQueue<DeleteRangeRequest> delete_range_requests;
-};
-
-/// Context resource for a `MockKeyValueStore`.
-///
-/// To use a `MockKeyValueStore` where a KeyValueStore must be specified via a
-/// JSON specification, specify:
-///
-///     {"driver": "mock_key_value_store"}
-///
-/// When opened, this will return a `KeyValueStore` that forwards to the
-/// `MockKeyValueStore` specified in the `Context`.
-///
-/// For example:
-///
-///     auto context = Context::Default();
-///
-///     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-///         auto mock_key_value_store_resource,
-///         context.GetResource<
-///             tensorstore::internal::MockKeyValueStoreResource>());
-///     MockKeyValueStore *mock_key_value_store =
-///         mock_key_value_store_resource->get();
-///
-///     auto store_future = tensorstore::Open(context, ::nlohmann::json{
-///         {"driver", "n5"},
-///         {"kvstore", {{"driver", "mock_key_value_store"}}},
-///         ...
-///     });
-///
-struct MockKeyValueStoreResource {
-  static constexpr char id[] = "mock_key_value_store";
-  using Resource = MockKeyValueStore::MockPtr;
-};
 
 }  // namespace internal
 }  // namespace tensorstore

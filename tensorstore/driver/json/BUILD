@@ -58,6 +58,7 @@ tensorstore_cc_test(
         "//tensorstore/internal/cache",
         "//tensorstore/internal/json_binding",
         "//tensorstore/kvstore",
+        "//tensorstore/kvstore:mock_kvstore",
         "//tensorstore/kvstore:test_util",
         "//tensorstore/kvstore/memory",
         "//tensorstore/util:status",
