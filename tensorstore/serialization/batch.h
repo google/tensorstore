@@ -128,6 +128,7 @@ class MaybeDecode {
 
 template <>
 class MaybeDecode<std::string> {
+ public:
   absl::Status Decode(const std::string& arg) {
     value_ = &arg;
     return absl::OkStatus();
