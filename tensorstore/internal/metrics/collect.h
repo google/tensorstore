@@ -53,6 +53,12 @@ struct CollectedMetric {
     std::vector<int64_t> buckets;
   };
   std::vector<Histogram> histograms;
+
+  struct Value {
+    std::vector<std::string> fields;
+    std::variant<int64_t, double, std::string> value;
+  };
+  std::vector<Value> values;
 };
 
 /// Invokes handle_line on one or more formatted CollectedMetric lines.

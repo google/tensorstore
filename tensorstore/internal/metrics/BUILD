@@ -12,6 +12,7 @@ tensorstore_cc_library(
         "counter.h",
         "gauge.h",
         "histogram.h",
+        "value.h",
     ],
     deps = [
         ":collect",
@@ -24,6 +25,7 @@ tensorstore_cc_library(
         "@com_google_absl//absl/debugging:leak_check",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/numeric:bits",
+        "@com_google_absl//absl/synchronization",
     ],
 )
 
@@ -49,9 +51,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:no_destructor",
         "//tensorstore/internal/poly",
         "//tensorstore/util:assert_macros",
-        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/container:flat_hash_map",
-        "@com_google_absl//absl/meta:type_traits",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/synchronization",
     ],

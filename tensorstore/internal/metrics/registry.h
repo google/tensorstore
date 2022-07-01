@@ -26,7 +26,6 @@
 #include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/poly/poly.h"
 #include "tensorstore/util/assert_macros.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_metrics {

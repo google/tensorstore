@@ -26,6 +26,7 @@
 #include "tensorstore/internal/metrics/gauge.h"
 #include "tensorstore/internal/metrics/histogram.h"
 #include "tensorstore/internal/metrics/registry.h"
+#include "tensorstore/internal/metrics/value.h"
 
 namespace {
 
@@ -34,6 +35,7 @@ using tensorstore::internal_metrics::DefaultBucketer;
 using tensorstore::internal_metrics::Gauge;
 using tensorstore::internal_metrics::GetMetricRegistry;
 using tensorstore::internal_metrics::Histogram;
+using tensorstore::internal_metrics::Value;
 
 TEST(MetricTest, CounterInt) {
   auto& counter = Counter<int64_t>::New("/tensorstore/counter1", "A metric");
@@ -246,6 +248,41 @@ TEST(MetricTest, HistogramFields) {
 
   EXPECT_THAT(metric.histograms[3].fields, ::testing::ElementsAre("4"));
   EXPECT_EQ(1, metric.histograms[3].buckets[3]);  // <4
+}
+
+TEST(MetricTest, ValueInt) {
+  auto& value = Value<int64_t>::New("/tensorstore/value1", "A metric");
+  value.Set(3);
+  EXPECT_EQ(3, value.Get());
+
+  auto metric = value.Collect();
+
+  EXPECT_EQ("/tensorstore/value1", metric.metric_name);
+  EXPECT_TRUE(metric.field_names.empty());
+  ASSERT_EQ(1, metric.values.size());
+  EXPECT_TRUE(metric.values[0].fields.empty());
+
+  EXPECT_TRUE(std::holds_alternative<int64_t>(metric.values[0].value));
+  EXPECT_FALSE(std::holds_alternative<double>(metric.values[0].value));
+  EXPECT_FALSE(std::holds_alternative<std::string>(metric.values[0].value));
+  EXPECT_EQ(3, std::get<int64_t>(metric.values[0].value));
+}
+
+TEST(MetricTest, ValueString) {
+  auto& gauge = Value<std::string>::New("/tensorstore/value2", "A metric");
+  gauge.Set("foo");
+
+  auto metric = gauge.Collect();
+
+  EXPECT_EQ("/tensorstore/value2", metric.metric_name);
+  EXPECT_TRUE(metric.field_names.empty());
+  ASSERT_EQ(1, metric.values.size());
+  EXPECT_TRUE(metric.values[0].fields.empty());
+
+  EXPECT_FALSE(std::holds_alternative<int64_t>(metric.values[0].value));
+  EXPECT_FALSE(std::holds_alternative<double>(metric.values[0].value));
+  EXPECT_TRUE(std::holds_alternative<std::string>(metric.values[0].value));
+  EXPECT_EQ("foo", std::get<std::string>(metric.values[0].value));
 }
 
 }  // namespace

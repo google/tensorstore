@@ -10,10 +10,9 @@
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
-#include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/metrics/gauge.h"
-#include "tensorstore/internal/mutex.h"
+#include "tensorstore/internal/metrics/histogram.h"
+#include "tensorstore/internal/metrics/value.h"
 #include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/executor.h"
@@ -22,9 +21,18 @@ namespace tensorstore {
 namespace internal {
 namespace {
 
-auto& executor_queued_ops = internal_metrics::Gauge<int64_t>::New(
+auto& schedule_at_queued_ops = internal_metrics::Gauge<int64_t>::New(
     "/tensorstore/internal/schedule_at/queued_ops",
-    "Operations in flight on the managed thread pool");
+    "Operations in flight on the schedule_at thread");
+
+auto& schedule_at_next_event = internal_metrics::Value<absl::Time>::New(
+    "/tensorstore/internal/schedule_at/next_event",
+    "Time of the next in-flight schedule_at operation");
+
+auto& schedule_at_insert_histogram_ms =
+    internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
+        "/tensorstore/internal/schedule_at/insert_histogram_ms",
+        "Histogram of schedule_at insert delays (ms)");
 
 struct DeadlineTask {
   absl::Time deadline;
@@ -68,13 +76,14 @@ class DeadlineTaskQueue {
 };
 
 void DeadlineTaskQueue::ScheduleAt(absl::Time target_time, ExecutorTask task) {
-  executor_queued_ops.Increment();
+  schedule_at_queued_ops.Increment();
+  schedule_at_insert_histogram_ms.Observe(
+      absl::ToInt64Milliseconds(target_time - absl::Now()));
 
-  {
-    absl::MutexLock l(&mutex_);
-    heap_.emplace_back(DeadlineTask{std::move(target_time), std::move(task)});
-    std::push_heap(heap_.begin(), heap_.end(), Compare{});
-  }
+  // Enqueue the task.
+  absl::MutexLock l(&mutex_);
+  heap_.emplace_back(DeadlineTask{std::move(target_time), std::move(task)});
+  std::push_heap(heap_.begin(), heap_.end(), Compare{});
 }
 
 void DeadlineTaskQueue::Run() {
@@ -88,6 +97,8 @@ void DeadlineTaskQueue::Run() {
 
       // Sleep until our next deadline.
       next_wakeup_ = heap_min_deadline();
+      schedule_at_next_event.Set(next_wakeup_);
+
       mutex_.AwaitWithDeadline(
           absl::Condition(&DeadlineTaskQueue::Wakeup, this), next_wakeup_);
 
@@ -102,7 +113,7 @@ void DeadlineTaskQueue::Run() {
 
     // Execute functions without lock
     for (auto& r : runnable) {
-      executor_queued_ops.Decrement();
+      schedule_at_queued_ops.Decrement();
       r.task();
     }
     runnable.clear();

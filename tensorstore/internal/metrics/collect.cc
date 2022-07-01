@@ -66,6 +66,22 @@ void FormatCollectedMetric(
                          absl::StrJoin(v.buckets, ","), "]}"));
     }
   }
+  if (!metric.values.empty()) {
+    for (auto& v : metric.values) {
+      std::string fields;
+      if (!v.fields.empty()) {
+        fields = StrCat("[", absl::StrJoin(v.fields, ", "), "]");
+      }
+      std::visit(
+          [&](auto x) {
+            decltype(x) d{};
+            handle_line(
+                /*has_value=*/x != d,
+                StrCat(metric.metric_name, field_names, fields, "=", x));
+          },
+          v.value);
+    }
+  }
 }
 
 }  // namespace internal_metrics

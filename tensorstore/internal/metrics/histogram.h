@@ -53,8 +53,8 @@ class HistogramCell;
 ///       std::string>::New("/animal/weight", "category");
 ///   }
 ///
-///   animals->Record(1.0, "cat");
-///   animals->Record(33.0, "dog");
+///   animals->Observe(1.0, "cat");
+///   animals->Observe(33.0, "dog");
 ///
 template <typename Bucketer, typename... Fields>
 class ABSL_CACHELINE_ALIGNED Histogram {

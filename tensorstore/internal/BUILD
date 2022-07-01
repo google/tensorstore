@@ -1799,9 +1799,6 @@ cc_library(
     hdrs = ["schedule_at.h"],
     deps = [
         ":attributes",
-        ":intrusive_ptr",
-        ":logging",
-        ":mutex",
         ":no_destructor",
         ":type_traits",
         "//tensorstore/internal/metrics",
