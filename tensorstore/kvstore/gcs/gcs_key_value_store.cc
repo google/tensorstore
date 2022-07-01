@@ -420,7 +420,7 @@ class GcsKeyValueStore
     // https://cloud.google.com/storage/docs/retry-strategy#exponential-backoff
     auto delay = internal::BackoffForAttempt(
         attempt, spec_.retries->initial_delay, spec_.retries->max_delay,
-        spec_.retries->initial_delay);
+        /*jitter=*/std::min(absl::Seconds(1), spec_.retries->initial_delay));
     ScheduleAt(absl::Now() + delay,
                WithExecutor(executor(), [task = IntrusivePtr<Task>(task)] {
                  task->Retry();
