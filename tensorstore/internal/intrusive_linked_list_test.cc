@@ -31,6 +31,8 @@ TEST(IntrusiveLinkedListTest, Initialize) {
   Initialize(Accessor{}, &head);
   EXPECT_EQ(&head, head.next);
   EXPECT_EQ(&head, head.prev);
+
+  EXPECT_TRUE(OnlyContainsNode(Accessor{}, &head));
 }
 
 TEST(IntrusiveLinkedListTest, InsertBefore) {
@@ -43,6 +45,7 @@ TEST(IntrusiveLinkedListTest, InsertBefore) {
   EXPECT_EQ(&a, head.prev);
   EXPECT_EQ(&head, a.next);
   EXPECT_EQ(&head, a.prev);
+  EXPECT_FALSE(OnlyContainsNode(Accessor{}, &head));
   InsertBefore(Accessor{}, &head, &b);
   EXPECT_EQ(&a, head.next);
   EXPECT_EQ(&b, head.prev);

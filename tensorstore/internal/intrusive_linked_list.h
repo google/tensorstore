@@ -16,7 +16,7 @@
 #define TENSORSTORE_INTERNAL_INTRUSIVE_LINKED_LIST_H_
 
 /// \file
-/// Simple intrusive circular doubly-linked list functionality.
+/// Intrusive circular doubly-linked list functionality.
 ///
 /// Operations on a doubly-linked list are performed based on an Accessor object
 /// of a type that satisfies the List Accessor concept, defined below:
@@ -73,6 +73,13 @@ template <typename Accessor>
 void Remove(Accessor accessor, typename Accessor::Node node) {
   accessor.SetPrev(accessor.GetNext(node), accessor.GetPrev(node));
   accessor.SetNext(accessor.GetPrev(node), accessor.GetNext(node));
+}
+
+/// Returns whether the list only contains `node`. When called with a
+/// head node, indicates that the list is empty.
+template <typename Accessor>
+bool OnlyContainsNode(Accessor accessor, typename Accessor::Node node) {
+  return accessor.GetNext(node) == node;
 }
 
 }  // namespace intrusive_linked_list

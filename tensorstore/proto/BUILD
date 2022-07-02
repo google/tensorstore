@@ -86,6 +86,27 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "encode_time",
+    srcs = ["encode_time.cc"],
+    hdrs = ["encode_time.h"],
+    deps = [
+        "//tensorstore/util:result",
+        "@com_google_absl//absl/time",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "encode_time_test",
+    srcs = ["encode_time_test.cc"],
+    deps = [
+        ":encode_time",
+        "//tensorstore/util:status_testutil",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
     name = "index_transform",
     srcs = ["index_transform.cc"],
     hdrs = ["index_transform.h"],
