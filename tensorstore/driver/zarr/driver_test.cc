@@ -2431,6 +2431,38 @@ TEST(DriverTest, ChunkLayout) {
   }
 }
 
+TEST(DriverTest, ChunkLayoutRank0) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open({{"driver", "zarr"}, {"kvstore", "memory://"}},
+                        tensorstore::dtype_v<int32_t>,
+                        tensorstore::RankConstraint{0},
+                        tensorstore::OpenMode::create)
+          .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expected_layout, ChunkLayout::FromJson({
+                                                             {"rank", 0},
+                                                         }));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto chunk_layout, store.chunk_layout());
+  EXPECT_EQ(expected_layout, chunk_layout);
+  tensorstore::Box<> box(0);
+  TENSORSTORE_EXPECT_OK(chunk_layout.GetReadChunkTemplate(box));
+}
+
+TEST(SpecTest, ChunkLayoutRank0) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto spec,
+      tensorstore::Spec::FromJson({{"driver", "zarr"},
+                                   {"kvstore", "memory://"},
+                                   {"metadata",
+                                    {{"shape", ::nlohmann::json::array_t()},
+                                     {"chunks", ::nlohmann::json::array_t()},
+                                     {"dtype", "<u2"}}}}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expected_layout, ChunkLayout::FromJson({
+                                                             {"rank", 0},
+                                                         }));
+  EXPECT_THAT(spec.chunk_layout(), ::testing::Optional(expected_layout));
+}
+
 TEST(DriverTest, Codec) {
   ::nlohmann::json json_spec{
       {"driver", "zarr"},

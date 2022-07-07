@@ -367,6 +367,7 @@ absl::Status SetChunkLayoutFromMetadata(
   if (full_rank == dynamic_rank) {
     return absl::OkStatus();
   }
+  TENSORSTORE_RETURN_IF_ERROR(chunk_layout.Set(RankConstraint(full_rank)));
   TENSORSTORE_RETURN_IF_ERROR(chunk_layout.Set(
       ChunkLayout::GridOrigin(GetConstantVector<Index, 0>(full_rank))));
 

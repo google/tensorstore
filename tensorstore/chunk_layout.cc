@@ -27,6 +27,7 @@
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/json.h"
 #include "tensorstore/internal/json_binding/dimension_indexed.h"
 #include "tensorstore/internal/json_binding/enum.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
@@ -856,6 +857,7 @@ bool AllRankDependentConstraintsUnset(Storage& storage) {
 bool AllConstraintsUnset(const ChunkLayout& self) {
   if (!self.storage_) return true;
   auto& storage = *self.storage_;
+  if (storage.rank_ != dynamic_rank) return false;
   if (std::any_of(storage.chunk_elements_, storage.chunk_elements_ + kNumUsages,
                   [](Index x) { return x != kImplicit; })) {
     return false;
@@ -1050,7 +1052,24 @@ constexpr auto DefaultableGridConstraintsJsonBinder(Usage usage) {
 
 TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
     ChunkLayout,
-    jb::Object(HardSoftMemberPairJsonBinder("inner_order",
+    jb::Object(jb::Member("rank",
+                          jb::Compose<DimensionIndex>(
+                              [](auto is_loading, const auto& options,
+                                 auto* obj, auto* rank) {
+                                if constexpr (is_loading) {
+                                  return obj->Set(RankConstraint{*rank});
+                                } else {
+                                  const DimensionIndex rank_value = obj->rank();
+                                  *rank = (rank_value == dynamic_rank ||
+                                           !AllRankDependentConstraintsUnset(
+                                               *obj->storage_))
+                                              ? dynamic_rank
+                                              : rank_value;
+                                  return absl::OkStatus();
+                                }
+                              },
+                              jb::ConstrainedRankJsonBinder)),
+               HardSoftMemberPairJsonBinder("inner_order",
                                             "inner_order_soft_constraint",
                                             InnerOrderJsonBinder),
                HardSoftMemberPairJsonBinder(
@@ -1076,7 +1095,6 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(ChunkLayout::Grid,
                                        StandaloneGridJsonBinder())
 
 namespace {
-
 /// Transforms a vector of soft/hard constraints for dimensions of the input
 /// space to a corresponding vector of soft/hard constraints for the output
 /// space.

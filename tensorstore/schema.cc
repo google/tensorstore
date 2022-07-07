@@ -138,7 +138,9 @@ struct LayoutJsonBinder {
   template <bool IsLoading>
   absl::Status operator()(
       std::integral_constant<bool, IsLoading> is_loading,
-      const JsonSerializationOptions& options,
+      std::conditional_t<IsLoading, const JsonSerializationOptions&,
+                         JsonSerializationOptions>
+          options,
       std::conditional_t<IsLoading, Schema, const Schema>* obj,
       ::nlohmann::json* j) const {
     ChunkLayout* chunk_layout_obj;
@@ -147,6 +149,7 @@ struct LayoutJsonBinder {
       chunk_layout_obj = &obj->EnsureUniqueImpl().chunk_layout_;
     } else {
       chunk_layout_obj = &obj->impl_->chunk_layout_;
+      options.Set(obj->rank());
     }
     TENSORSTORE_RETURN_IF_ERROR(
         jb::DefaultInitializedValue<jb::kNeverIncludeDefaults>()(

@@ -2,6 +2,14 @@ $schema: http://json-schema.org/draft-07/schema#
 $id: ChunkLayout
 type: object
 properties:
+  rank:
+    type: integer
+    minimum: 0
+    maximum: 32
+    title: Number of dimensions.
+    description: |
+      The rank is always a hard constraint.  It is redundant to specify the rank
+      if any other field that implicitly specifies the rank is included.
   grid_origin:
     type: array
     items:

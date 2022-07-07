@@ -360,6 +360,7 @@ Result<IndexDomain<>> GetEffectiveDomain(
     std::optional<span<const std::string>> axes, const Schema& schema) {
   auto domain = schema.domain();
   if (!shape && !axes && !domain.valid()) {
+    if (schema.rank() == 0) return {std::in_place, 0};
     // No information about the domain available.
     return {std::in_place};
   }

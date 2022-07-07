@@ -292,6 +292,12 @@ TEST(ChunkLayoutTest, Json) {
   tensorstore::TestJsonBinderRoundTripJsonOnly<ChunkLayout>(
       {
           {
+              {"rank", 0},
+          },
+          {
+              {"rank", 2},
+          },
+          {
               {"grid_origin", {1, 2}},
               {"write_chunk",
                {

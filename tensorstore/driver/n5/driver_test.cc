@@ -1024,6 +1024,38 @@ TEST(DriverTest, ChunkLayout) {
   EXPECT_THAT(store.chunk_layout(), ::testing::Optional(expected_layout));
 }
 
+TEST(DriverTest, ChunkLayoutRank0) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open({{"driver", "n5"}, {"kvstore", "memory://"}},
+                        tensorstore::dtype_v<int32_t>,
+                        tensorstore::RankConstraint{0},
+                        tensorstore::OpenMode::create)
+          .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expected_layout, ChunkLayout::FromJson({
+                                                             {"rank", 0},
+                                                         }));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto chunk_layout, store.chunk_layout());
+  EXPECT_EQ(expected_layout, chunk_layout);
+  tensorstore::Box<> box(0);
+  TENSORSTORE_EXPECT_OK(chunk_layout.GetReadChunkTemplate(box));
+}
+
+TEST(SpecTest, ChunkLayoutRank0) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto spec, tensorstore::Spec::FromJson(
+                     {{"driver", "n5"},
+                      {"kvstore", "memory://"},
+                      {"metadata",
+                       {{"dimensions", ::nlohmann::json::array_t()},
+                        {"blockSize", ::nlohmann::json::array_t()},
+                        {"dataType", "uint16"}}}}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto expected_layout, ChunkLayout::FromJson({
+                                                             {"rank", 0},
+                                                         }));
+  EXPECT_THAT(spec.chunk_layout(), ::testing::Optional(expected_layout));
+}
+
 TEST(DriverTest, Codec) {
   ::nlohmann::json json_spec{
       {"driver", "n5"},
