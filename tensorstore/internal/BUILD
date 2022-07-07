@@ -1418,9 +1418,10 @@ tensorstore_cc_library(
     name = "os_error_code",
     srcs = ["os_error_code.cc"],
     hdrs = ["os_error_code.h"],
+    tags = ["msvc"],
     deps = [
+        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
     ],
 )
 
@@ -1595,6 +1596,34 @@ tensorstore_cc_test(
     deps = [
         ":string_like",
         "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "subprocess",
+    testonly = True,
+    srcs = ["subprocess.cc"],
+    hdrs = ["subprocess.h"],
+    tags = ["msvc"],
+    deps = [
+        ":os_error_code",
+        "//tensorstore/internal:logging",
+        "//tensorstore/util:assert_macros",
+        "//tensorstore/util:result",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "subprocess_test",
+    srcs = ["subprocess_test.cc"],
+    tags = ["msvc"],
+    deps = [
+        ":logging",
+        ":subprocess",
+        "//tensorstore/util:status_testutil",
+        "@com_google_googletest//:gtest",
     ],
 )
 

@@ -16,7 +16,7 @@
 
 #include <string.h>
 
-#include "absl/strings/str_cat.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal {
@@ -114,9 +114,9 @@ absl::StatusCode GetOsErrorStatusCode(OsErrorCode error) {
 absl::Status StatusFromOsError(OsErrorCode error_code, std::string_view a,
                                std::string_view b, std::string_view c,
                                std::string_view d) {
-  return absl::Status(GetOsErrorStatusCode(error_code),
-                      absl::StrCat(a, b, c, d, " [OS error: ",
-                                   GetOsErrorMessage(error_code), "]"));
+  return absl::Status(
+      GetOsErrorStatusCode(error_code),
+      StrCat(a, b, c, d, " [OS error: ", GetOsErrorMessage(error_code), "]"));
 }
 
 }  // namespace internal
