@@ -620,6 +620,7 @@ tensorstore_cc_library(
     ],
     deps = [
         ":assert_macros",
+        ":str_cat",
         "//tensorstore/internal:preprocessor",
         "//tensorstore/internal:source_location",
         "//tensorstore/internal:type_traits",

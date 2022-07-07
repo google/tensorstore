@@ -22,7 +22,7 @@
 namespace tensorstore {
 
 std::string QuoteString(std::string_view s) {
-  return '"' + absl::CHexEscape(s) + '"';
+  return '"' + absl::CHexEscape(absl::string_view(s.data(), s.size())) + '"';
 }
 
 }  // namespace tensorstore
