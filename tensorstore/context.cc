@@ -586,7 +586,7 @@ BuilderImpl::~BuilderImpl() {
   using SharedEntry = std::pair<ResourceImplBase*, ResourceEntry*>;
   std::vector<SharedEntry> shared_entries;
   for (auto& p : resources_) {
-    std::string_view key = p.first->spec_->key_;
+    const auto& key = p.first->spec_->key_;
     if (!key.empty()) {
       ids[key]++;
     }
