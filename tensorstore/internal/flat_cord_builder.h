@@ -52,11 +52,10 @@ class FlatCordBuilder {
       ::free(data_);
     }
   }
+
   const char* data() const { return data_; }
   char* data() { return data_; }
   size_t size() const { return size_; }
-
-  explicit operator std::string_view() const { return {data_, size_}; }
 
   /// Resizes the buffer, preserving any existing data up to
   /// `min(size(), new_size)`.
@@ -66,21 +65,21 @@ class FlatCordBuilder {
     TENSORSTORE_CHECK(new_size == 0 || data_);
   }
 
-  /// Releases ownership of the buffer.  The caller must call `::free`.
-  std::string_view release() {
-    std::string_view view(*this);
-    data_ = nullptr;
-    size_ = 0;
-    return view;
-  }
-
   absl::Cord Build() && {
-    return absl::MakeCordFromExternal(release(), [](std::string_view s) {
+    return absl::MakeCordFromExternal(release(), [](absl::string_view s) {
       ::free(const_cast<char*>(s.data()));
     });
   }
 
  private:
+  /// Releases ownership of the buffer.  The caller must call `::free`.
+  absl::string_view release() {
+    absl::string_view view(data_, size_);
+    data_ = nullptr;
+    size_ = 0;
+    return view;
+  }
+
   char* data_ = nullptr;
   size_t size_ = 0;
 };
