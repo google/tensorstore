@@ -170,7 +170,7 @@ def repo_pypa_atomicwrites():
         third_party_python_package,
         name = "pypa_atomicwrites",
         target = "atomicwrites",
-        requirement = "atomicwrites==1.4.0",
+        requirement = "atomicwrites==1.4.1",
     )
 
 def repo_pypa_attrs():
