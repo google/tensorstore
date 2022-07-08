@@ -771,11 +771,9 @@ tensorstore_cc_test(
 
 tensorstore_cc_library(
     name = "log_message",
+    srcs = ["log_message.cc"],
     hdrs = ["log_message.h"],
-    deps = [
-        ":open_source_log_message",  # buildcleaner: keep
-        ":source_location",
-    ],
+    deps = [":source_location"],
 )
 
 tensorstore_cc_library(
@@ -1394,27 +1392,6 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
-    name = "open_source_log_message",
-    srcs = ["log_message.cc"],
-    deps = [":source_location"],
-)
-
-tensorstore_cc_library(
-    name = "open_source_thread_pool",
-    srcs = ["thread_pool.cc"],
-    deps = [
-        ":intrusive_ptr",
-        ":mutex",
-        ":no_destructor",
-        "//tensorstore/util:assert_macros",
-        "//tensorstore/util:executor",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/synchronization",
-        "@com_google_absl//absl/time",
-    ],
-)
-
-tensorstore_cc_library(
     name = "os_error_code",
     srcs = ["os_error_code.cc"],
     hdrs = ["os_error_code.h"],
@@ -1669,10 +1646,18 @@ tensorstore_cc_library(
 
 tensorstore_cc_library(
     name = "thread_pool",
+    srcs = ["thread_pool.cc"],
     hdrs = ["thread_pool.h"],
     deps = [
-        ":open_source_thread_pool",  # buildcleaner: keep
+        ":intrusive_ptr",
+        ":mutex",
+        ":no_destructor",
+        "//tensorstore/internal/metrics",
+        "//tensorstore/util:assert_macros",
         "//tensorstore/util:executor",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/synchronization",
+        "@com_google_absl//absl/time",
     ],
 )
 
@@ -1680,14 +1665,14 @@ tensorstore_cc_test(
     name = "thread_pool_test",
     size = "small",
     deps = [
-        ":open_source_thread_pool",
+        ":thread_pool",
         ":thread_pool_test_lib",
     ],
 )
 
 tensorstore_cc_library(
     name = "thread_pool_test_lib",
-    testonly = 1,
+    testonly = True,
     srcs = ["thread_pool_test.cc"],
     deps = [
         "//tensorstore/util:executor",
