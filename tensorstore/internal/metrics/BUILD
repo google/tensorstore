@@ -41,20 +41,29 @@ tensorstore_cc_test(
     ],
 )
 
+REGISTRY_DEPS = select({
+    "//conditions:default": [],
+})
+
+REGISTRY_DEFINES = select({
+    "//conditions:default": [],
+})
+
 tensorstore_cc_library(
     name = "registry",
     srcs = ["registry.cc"],
     hdrs = ["registry.h"],
+    local_defines = REGISTRY_DEFINES,
     deps = [
         ":collect",
         ":metadata",
-        "//tensorstore/internal:no_destructor",
-        "//tensorstore/internal/poly",
-        "//tensorstore/util:assert_macros",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/synchronization",
-    ],
+        "//tensorstore/internal:no_destructor",
+        "//tensorstore/internal/poly",
+        "//tensorstore/util:assert_macros",
+    ] + REGISTRY_DEPS,
 )
 
 tensorstore_cc_test(

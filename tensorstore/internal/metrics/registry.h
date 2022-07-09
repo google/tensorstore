@@ -39,7 +39,7 @@ class MetricRegistry {
       poly::Poly<sizeof(void*), /*Copyable=*/true, CollectedMetric() const>;
 
   /// Add a generic metric to be collected. Metric name must be a path-style
-  /// string, and must be unique.
+  /// string, must be unique, and must ultimately be a string literal.
   void AddGeneric(std::string_view metric_name, MetricRegistry::Metric m,
                   std::shared_ptr<void> hook = nullptr) {
     TENSORSTORE_CHECK(IsValidMetricName(metric_name));
@@ -50,7 +50,7 @@ class MetricRegistry {
   /// Metric name must be a path-style string, and must be unique.
   template <typename Collectable>
   void Add(const Collectable* metric) {
-    std::shared_ptr<void> hook = nullptr;
+    std::shared_ptr<void> hook;
     AddInternal(
         metric->metric_name(), [metric] { return metric->Collect(); },
         std::move(hook));
