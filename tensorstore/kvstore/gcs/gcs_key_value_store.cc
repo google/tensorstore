@@ -368,7 +368,7 @@ class GcsKeyValueStore
   void ListImpl(ListOptions options,
                 AnyFlowReceiver<absl::Status, Key> receiver) override;
 
-  Future<void> DeleteRange(KeyRange range) override;
+  Future<const void> DeleteRange(KeyRange range) override;
 
   /// Returns the Auth header for a GCS request.
   Result<std::optional<std::string>> GetAuthHeader() {
@@ -1172,7 +1172,7 @@ struct DeleteRangeListReceiver {
   void set_stopping() { cancel_registration_.Unregister(); }
 };
 
-Future<void> GcsKeyValueStore::DeleteRange(KeyRange range) {
+Future<const void> GcsKeyValueStore::DeleteRange(KeyRange range) {
   gcs_delete_range.Increment();
   if (range.empty()) return absl::OkStatus();
 

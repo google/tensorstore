@@ -65,7 +65,7 @@ void MockKeyValueStore::ListImpl(ListOptions options,
   list_requests.push({options, std::move(receiver)});
 }
 
-Future<void> MockKeyValueStore::DeleteRange(KeyRange range) {
+Future<const void> MockKeyValueStore::DeleteRange(KeyRange range) {
   auto [promise, future] = PromiseFuturePair<void>::Make();
   delete_range_requests.push({std::move(promise), std::move(range)});
   return future;
@@ -144,7 +144,7 @@ class RegisteredMockKeyValueStore
     base()->ListImpl(std::move(options), std::move(receiver));
   }
 
-  Future<void> DeleteRange(KeyRange range) override {
+  Future<const void> DeleteRange(KeyRange range) override {
     return base()->DeleteRange(std::move(range));
   }
 

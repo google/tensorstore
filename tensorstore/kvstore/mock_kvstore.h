@@ -84,7 +84,7 @@ class MockKeyValueStore : public kvstore::Driver {
   void ListImpl(ListOptions options,
                 AnyFlowReceiver<absl::Status, Key> receiver) override;
 
-  Future<void> DeleteRange(KeyRange range) override;
+  Future<const void> DeleteRange(KeyRange range) override;
 
   void GarbageCollectionVisit(
       garbage_collection::GarbageCollectionVisitor& visitor) const final;

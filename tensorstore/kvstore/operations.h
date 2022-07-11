@@ -178,7 +178,7 @@ Future<TimestampedStorageGeneration> Delete(const KvStore& store,
 /// \returns A Future that becomes ready when the operation has completed
 ///     either successfully or with an error.
 /// \relates KvStore
-Future<void> DeleteRange(const KvStore& store, KeyRange range);
+Future<const void> DeleteRange(const KvStore& store, KeyRange range);
 
 // Lists keys relative to `path`.
 void List(const KvStore& store, ListOptions options,

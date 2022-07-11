@@ -205,7 +205,7 @@ class Driver {
   ///
   /// \returns A Future that becomes ready when the operation has completed
   ///     either successfully or with an error.
-  virtual Future<void> DeleteRange(KeyRange range);
+  virtual Future<const void> DeleteRange(KeyRange range);
 
   /// Implementation of `List` that driver implementations must define.
   virtual void ListImpl(ListOptions options,

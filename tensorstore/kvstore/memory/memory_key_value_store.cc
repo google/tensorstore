@@ -174,7 +174,7 @@ class MemoryDriver
                                              std::optional<Value> value,
                                              WriteOptions options) override;
 
-  Future<void> DeleteRange(KeyRange range) override;
+  Future<const void> DeleteRange(KeyRange range) override;
 
   void ListImpl(ListOptions options,
                 AnyFlowReceiver<absl::Status, Key> receiver) override;
@@ -433,7 +433,7 @@ Future<TimestampedStorageGeneration> MemoryDriver::Write(
   return GenerationNow(it->second.generation());
 }
 
-Future<void> MemoryDriver::DeleteRange(KeyRange range) {
+Future<const void> MemoryDriver::DeleteRange(KeyRange range) {
   auto& data = this->data();
   absl::WriterMutexLock lock(&data.mutex);
   if (!range.empty()) {

@@ -952,10 +952,6 @@ class ShardedKeyValueStore : public kvstore::Driver {
         .future;
   }
 
-  Future<void> DeleteRange(KeyRange range) override {
-    return absl::UnimplementedError("DeleteRange not supported");
-  }
-
   void ListImpl(ListOptions options,
                 AnyFlowReceiver<absl::Status, Key> receiver) override {
     struct State {

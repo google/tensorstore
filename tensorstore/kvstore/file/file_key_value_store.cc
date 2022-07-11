@@ -824,7 +824,7 @@ class FileKeyValueStore
     }
   }
 
-  Future<void> DeleteRange(KeyRange range) override {
+  Future<const void> DeleteRange(KeyRange range) override {
     file_delete_range.Increment();
     if (range.empty()) return absl::OkStatus();  // Converted to a ReadyFuture.
     TENSORSTORE_RETURN_IF_ERROR(ValidateKeyRange(range));

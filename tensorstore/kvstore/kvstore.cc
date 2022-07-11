@@ -306,7 +306,7 @@ Future<TimestampedStorageGeneration> Driver::Write(Key key,
   return absl::UnimplementedError("KeyValueStore does not support writing");
 }
 
-Future<void> Driver::DeleteRange(KeyRange range) {
+Future<const void> Driver::DeleteRange(KeyRange range) {
   return absl::UnimplementedError(
       "KeyValueStore does not support deleting by range");
 }
@@ -470,7 +470,7 @@ Future<TimestampedStorageGeneration> Delete(const KvStore& store,
   return Write(store, key, std::nullopt, std::move(options));
 }
 
-Future<void> DeleteRange(const KvStore& store, KeyRange range) {
+Future<const void> DeleteRange(const KvStore& store, KeyRange range) {
   range = KeyRange::AddPrefix(store.path, std::move(range));
   if (store.transaction == no_transaction) {
     return store.driver->DeleteRange(std::move(range));
