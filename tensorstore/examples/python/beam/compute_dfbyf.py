@@ -57,8 +57,11 @@ class ComputeDFByF(beam.core.DoFn):
     bnp = np.array(b)
     bnp = bnp.astype(self._dtype)
 
-    output = (fnp - bnp) / (self._smoothing + bnp)
-    self._ds_out[:, y, z, :] = output
+    d = self._smoothing + bnp
+    d[d == 0] = 1
+
+    output = (fnp - bnp) / d
+    self._ds_out[:, y, z, :] = output.astype(self._dtype)
     yield None
 
 

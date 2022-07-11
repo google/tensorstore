@@ -17,10 +17,11 @@
 python3 run_pipeline.py --gin_config reshard.gin
 """
 
-# These modules use the import side effect to register factory methods.
 import logging
 from absl import app
 from absl import flags
+
+# These modules use the import side effect to register factory methods.
 # pylint: disable=unused-import
 import compute_dfbyf
 import compute_percentiles
