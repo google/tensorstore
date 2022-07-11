@@ -25,7 +25,6 @@
 
 #include <string_view>
 
-#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "tensorstore/kvstore/file/unique_handle.h"
 #include "tensorstore/util/result.h"

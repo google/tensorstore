@@ -94,9 +94,11 @@ tensorstore_cc_library(
         "windows_file_util.h",
     ],
     deps = [
+        ":potentially_blocking_region",
         ":util",
         "//tensorstore/internal:os_error_code",
         "//tensorstore/util:result",
+        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/container:inlined_vector",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
@@ -117,6 +119,11 @@ tensorstore_cc_library(
         "//tensorstore/kvstore:key_range",
         "@com_google_absl//absl/strings",
     ],
+)
+
+tensorstore_cc_library(
+    name = "potentially_blocking_region",
+    hdrs = ["potentially_blocking_region.h"],
 )
 
 tensorstore_cc_test(

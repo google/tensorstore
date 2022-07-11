@@ -16,20 +16,13 @@
 
 #include "tensorstore/kvstore/file/posix_file_util.h"
 
-#include "absl/container/inlined_vector.h"
-#include "tensorstore/internal/os_error_code.h"
-
 // More system headers
 #include <sys/uio.h>
 #include <unistd.h>
 
-// Extension point used internally at Google to support lightweight fibers.
-namespace {
-class PotentiallyBlockingRegion {
- public:
-  ~PotentiallyBlockingRegion() {}
-};
-}
+#include "absl/container/inlined_vector.h"
+#include "tensorstore/internal/os_error_code.h"
+#include "tensorstore/kvstore/file/potentially_blocking_region.h"
 
 // Most modern unix allow 1024 iovs.
 #if defined(UIO_MAXIOV)
@@ -37,6 +30,8 @@ class PotentiallyBlockingRegion {
 #else
 #define TENSORSTORE_MAXIOV 1024
 #endif
+
+using ::tensorstore::internal::PotentiallyBlockingRegion;
 
 namespace tensorstore {
 namespace internal_file_util {

@@ -17,11 +17,21 @@
 // Defined before including <stdio.h> to ensure `::rand_s` is defined.
 #define _CRT_RAND_S
 
+// Windows 10 1607 required for FileDispositionInfoEx, FileRenameInfoEx
+// NOTE: Consider moving this to the build target.
+#ifndef NTDDI_VERSION
+#define NTDDI_VERSION NTDDI_WIN10_RS1
+#define _WIN32_WINNT _WIN32_WINNT_WIN10
+#elif (NTDDI_VERSION < NTDDI_WIN10_RS1)
+#error "NTDDI_VERSION must be WIN10 "
+#endif
+
 #include "tensorstore/kvstore/file/windows_file_util.h"
 
 #include <stdio.h>
 
 #include "tensorstore/internal/os_error_code.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_file_util {
@@ -63,7 +73,7 @@ std::ptrdiff_t WriteCordToFile(FileDescriptor fd, absl::Cord value) {
   size_t value_remaining = value.size();
   for (absl::Cord::CharIterator char_it = value.char_begin();
        value_remaining;) {
-    std::string_view chunk = absl::Cord::ChunkRemaining(char_it);
+    auto chunk = absl::Cord::ChunkRemaining(char_it);
     std::ptrdiff_t n = WriteToFile(fd, chunk.data(), chunk.size());
     if (n > 0) {
       value_remaining -= n;
@@ -185,8 +195,9 @@ bool DeleteOpenFile(FileDescriptor fd, std::string_view path) {
       buf[0], buf[1], buf[2], buf[3], buf[4],
       static_cast<int>(kLockSuffix.size()), kLockSuffix.data());
   if (!internal_file_util::RenameFile(
-          fd, absl::StrCat(GetDirName(path),
-                           std::string_view(temp_name, temp_name_size)))) {
+          fd,
+          tensorstore::StrCat(GetDirName(path),
+                              std::string_view(temp_name, temp_name_size)))) {
     return false;
   }
 
