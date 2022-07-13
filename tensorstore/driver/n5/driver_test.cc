@@ -851,14 +851,18 @@ TENSORSTORE_GLOBAL_INITIALIZER {
        {{"blockSize", {3, 2}},
         {"compression", {{"type", "raw"}}},
         {"dataType", "int16"},
-        {"dimensions", {10, 11}}}},
+        {"dimensions", {10, 11}},
+        {"units", {"s", "m"}},
+        {"resolution", {2, 3}},
+        {"axes", {"x", "y"}}}},
       {"kvstore",
        {
            {"driver", "memory"},
            {"path", "prefix/"},
        }},
       {"transform",
-       {{"input_exclusive_max", {{10}, {11}}},
+       {{"input_labels", {"x", "y"}},
+        {"input_exclusive_max", {{10}, {11}}},
         {"input_inclusive_min", {0, 0}}}},
   };
 
@@ -871,7 +875,8 @@ TENSORSTORE_GLOBAL_INITIALIZER {
            {"path", "prefix/"},
        }},
       {"transform",
-       {{"input_exclusive_max", {{10}, {11}}},
+       {{"input_labels", {"x", "y"}},
+        {"input_exclusive_max", {{10}, {11}}},
         {"input_inclusive_min", {0, 0}}}},
   };
   options.to_json_options = tensorstore::IncludeDefaults{false};

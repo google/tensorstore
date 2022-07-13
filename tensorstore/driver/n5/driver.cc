@@ -279,6 +279,7 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
     constraints.axes = metadata.axes;
     constraints.dtype = metadata.dtype;
     constraints.compressor = metadata.compressor;
+    constraints.units_and_resolution = metadata.units_and_resolution;
     constraints.extra_attributes = metadata.extra_attributes;
     constraints.chunk_shape =
         std::vector<Index>(metadata.chunk_layout.shape().begin(),
