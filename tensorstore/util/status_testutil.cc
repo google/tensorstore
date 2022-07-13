@@ -19,51 +19,50 @@
 #include <string>
 #include <system_error>  // NOLINT
 
-#include <gtest/gtest.h>
+#include <gmock/gmock.h>
 #include "absl/status/status.h"
-#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal_status {
+namespace {
 
-ErrorCodeMatchesStatusMatcher::ErrorCodeMatchesStatusMatcher(
-    absl::StatusCode status_code, const std::string& message_pattern)
-    : status_code_(status_code), message_pattern_(message_pattern) {}
+/// NOTE: Replace this with ::testing::MatchesRegex; currently there are a few
+/// regex expressions are incompatible between the two implementations.
+template <typename StringType>
+class RegexMatchImpl : public ::testing::MatcherInterface<StringType> {
+ public:
+  RegexMatchImpl(const std::string& message_pattern)
+      : message_pattern_(message_pattern) {}
 
-bool ErrorCodeMatchesStatusMatcher::MatchAndExplain(
-    const absl::Status& status,
-    ::testing::MatchResultListener* listener) const {
-  auto message = status.message();
-  return status.code() == status_code_ &&
-         std::regex_match(std::begin(message), std::end(message),
-                          std::regex(message_pattern_));
-}
-
-void ErrorCodeMatchesStatusMatcher::DescribeTo(::std::ostream* os) const {
-  *os << "matches error code " << status_code_;
-  if (message_pattern_ != "[^]*") {
-    *os << " and message pattern ";
+  void DescribeTo(std::ostream* os) const override {
+    *os << "message matches pattern ";
     ::testing::internal::UniversalPrint(message_pattern_, os);
   }
-}
 
-void ErrorCodeMatchesStatusMatcher::DescribeNegationTo(
-    ::std::ostream* os) const {
-  *os << "does not match error code " << status_code_;
-  if (message_pattern_ != "[^]*") {
-    *os << " and message pattern ";
+  void DescribeNegationTo(std::ostream* os) const override {
+    *os << "message doesn't match pattern ";
     ::testing::internal::UniversalPrint(message_pattern_, os);
   }
-}
 
+  bool MatchAndExplain(
+      StringType message,
+      ::testing::MatchResultListener* result_listener) const override {
+    return std::regex_match(message, std::regex(message_pattern_));
+  }
+
+ private:
+  const std::string message_pattern_;
+};
+
+}  // namespace
 }  // namespace internal_status
 
-::testing::PolymorphicMatcher<internal_status::ErrorCodeMatchesStatusMatcher>
-MatchesStatus(absl::StatusCode status_code,
-              const std::string& message_pattern) {
-  return ::testing::MakePolymorphicMatcher(
-      internal_status::ErrorCodeMatchesStatusMatcher(status_code,
-                                                     message_pattern));
+internal_status::StatusIsMatcher MatchesStatus(
+    absl::StatusCode status_code, const std::string& message_pattern) {
+  return internal_status::StatusIsMatcher(
+      status_code, ::testing::Matcher<const std::string&>(
+                       new internal_status::RegexMatchImpl<const std::string&>(
+                           message_pattern)));
 }
 
 }  // namespace tensorstore

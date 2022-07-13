@@ -652,10 +652,23 @@ tensorstore_cc_library(
     srcs = ["status_testutil.cc"],
     hdrs = ["status_testutil.h"],
     deps = [
+        ":future",
         ":result",
         ":status",
         "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "status_testutil_test",
+    srcs = ["status_testutil_test.cc"],
+    deps = [
+        ":future",
+        ":result",
+        ":status_testutil",
+        "@com_google_absl//absl/status",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
