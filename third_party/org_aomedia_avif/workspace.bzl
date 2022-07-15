@@ -32,6 +32,7 @@ def repo():
         sha256 = "6dce70530fa750544ba842e40555825e8894e8f805cf5c458ee0642a60d160e5",
         strip_prefix = "libavif-d9cffc5f46b62aeff46eebf51449726386d6c485",
         build_file = Label("//third_party:org_aomedia_avif/libavif.BUILD.bazel"),
+        system_build_file = Label("//third_party:org_aomedia_avif/system.BUILD.bazel"),
     )
 
 cmake_fetch_content_package(

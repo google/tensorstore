@@ -56,8 +56,8 @@ def _third_party_http_archive_impl(ctx):
                 envvar = SYSTEM_LIBS_ENVVAR,
             ))
         ctx.template(
-            path = "BUILD.bazel",
-            template = ctx.attr.system_build_file,
+            "BUILD.bazel",
+            ctx.attr.system_build_file,
         )
     else:
         if not ctx.attr.urls:

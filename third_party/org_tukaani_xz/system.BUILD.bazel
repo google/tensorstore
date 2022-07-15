@@ -3,3 +3,9 @@ cc_library(
     linkopts = ["-llz4"],
     visibility = ["//visibility:public"],
 )
+
+cc_library(
+    name = "liblzma",
+    linkopts = ["-llzma"],
+    visibility = ["//visibility:public"],
+)
