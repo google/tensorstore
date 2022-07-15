@@ -22,6 +22,7 @@ def repo():
         name = "org_tukaani_xz",
         strip_prefix = "xz-5.2.5",
         urls = [
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/tukaani.org/xz/xz-5.2.5.tar.gz",
             "https://tukaani.org/xz/xz-5.2.5.tar.gz",
         ],
         sha256 = "f6f4910fd033078738bd82bfba4f49219d03b17eb0794eb91efbae419f4aba10",
