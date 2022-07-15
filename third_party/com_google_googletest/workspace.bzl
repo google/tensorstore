@@ -28,6 +28,9 @@ def repo():
         urls = ["https://github.com/google/googletest/archive/191ca1f3a9262b90a586ae2c2e8c742c3d867801.zip"],  # main(2022-06-14)
         sha256 = "d0b0b8fffa58489f0803b230d2971bd6344fc3a0068f352fd7075bca8ea6c4cc",
         strip_prefix = "googletest-191ca1f3a9262b90a586ae2c2e8c742c3d867801",
+        repo_mapping = {
+            "@com_googlesource_code_re2": "@com_google_re2",
+        },
     )
 
 cmake_set_section(section = 100)
