@@ -25,7 +25,6 @@
 #include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
 #include <openssl/bio.h>     // IWYU pragma: keep
-#include <openssl/digest.h>  // IWYU pragma: keep
 #include <openssl/evp.h>     // IWYU pragma: keep
 #include <openssl/pem.h>     // IWYU pragma: keep
 #include <openssl/rsa.h>     // IWYU pragma: keep
@@ -102,7 +101,6 @@ Result<std::string> SignWithRSA256(std::string_view private_key,
   if (EVP_DigestSignFinal(md_ctx.get(), sig.get(), &sig_len) != 1) {
     return absl::InternalError("DigestFinal (signature compute) failed.");
   }
-  EVP_MD_CTX_cleanup(md_ctx.get());
 
   std::string signature;
   absl::WebSafeBase64Escape(
