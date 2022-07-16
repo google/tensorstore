@@ -17,21 +17,19 @@
 // Defined before including <stdio.h> to ensure `::rand_s` is defined.
 #define _CRT_RAND_S
 
-// Windows 10 1607 required for FileDispositionInfoEx, FileRenameInfoEx
-// NOTE: Consider moving this to the build target.
-#ifndef NTDDI_VERSION
-#define NTDDI_VERSION NTDDI_WIN10_RS1
-#define _WIN32_WINNT _WIN32_WINNT_WIN10
-#elif (NTDDI_VERSION < NTDDI_WIN10_RS1)
-#error "NTDDI_VERSION must be WIN10 "
-#endif
-
 #include "tensorstore/kvstore/file/windows_file_util.h"
 
 #include <stdio.h>
 
 #include "tensorstore/internal/os_error_code.h"
 #include "tensorstore/util/str_cat.h"
+
+// Windows 10 1607 required for FileDispositionInfoEx, FileRenameInfoEx
+#if defined(NTDDI_VERSION) && (NTDDI_VERSION < NTDDI_WIN10_RS1)
+// NTDDI_VERSION should be >= NTDDI_WIN10_RS1
+// _WIN32_WINNT  should be >= _WIN32_WINNT_WIN10
+#error "NTDDI_VERSION must be WIN10 "
+#endif
 
 namespace tensorstore {
 namespace internal_file_util {
