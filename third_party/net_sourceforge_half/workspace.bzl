@@ -29,6 +29,11 @@ def repo():
         ],
         sha256 = "ad1788afe0300fa2b02b0d1df128d857f021f92ccf7c8bddd07812685fa07a25",
         build_file = Label("//third_party:net_sourceforge_half/bundled.BUILD.bazel"),
+        patches = [
+            # https://sourceforge.net/p/half/discussion/general/thread/86298c105c/
+            "//third_party:net_sourceforge_half/patches/detail_raise.patch",
+        ],
+        patch_args = ["-p1"],
     )
 
 cmake_add_dep_mapping(target_mapping = {

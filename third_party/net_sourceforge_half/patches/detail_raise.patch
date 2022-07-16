@@ -1,0 +1,159 @@
+diff --git a/include/half.hpp b/include/half.hpp
+index 69f2ffd..1e73dfa 100644
+--- a/include/half.hpp
++++ b/include/half.hpp
+@@ -661,11 +661,11 @@ namespace half_float
+ 		#endif
+ 		#if HALF_ERRHANDLING_UNDERFLOW_TO_INEXACT
+ 			if((flags & FE_UNDERFLOW) && !(flags & FE_INEXACT))
+-				raise(FE_INEXACT);
++				detail::raise(FE_INEXACT);
+ 		#endif
+ 		#if HALF_ERRHANDLING_OVERFLOW_TO_INEXACT
+ 			if((flags & FE_OVERFLOW) && !(flags & FE_INEXACT))
+-				raise(FE_INEXACT);
++				detail::raise(FE_INEXACT);
+ 		#endif
+ 		#endif
+ 		}
+@@ -679,7 +679,7 @@ namespace half_float
+ 		inline HALF_CONSTEXPR_NOERR bool compsignal(unsigned int x, unsigned int y)
+ 		{
+ 		#if HALF_ERRHANDLING
+-			raise(FE_INVALID, (x&0x7FFF)>0x7C00 || (y&0x7FFF)>0x7C00);
++			detail::raise(FE_INVALID, (x&0x7FFF)>0x7C00 || (y&0x7FFF)>0x7C00);
+ 		#endif
+ 			return (x&0x7FFF) > 0x7C00 || (y&0x7FFF) > 0x7C00;
+ 		}
+@@ -691,7 +691,7 @@ namespace half_float
+ 		inline HALF_CONSTEXPR_NOERR unsigned int signal(unsigned int nan)
+ 		{
+ 		#if HALF_ERRHANDLING
+-			raise(FE_INVALID, !(nan&0x200));
++			detail::raise(FE_INVALID, !(nan&0x200));
+ 		#endif
+ 			return nan | 0x200;
+ 		}
+@@ -704,7 +704,7 @@ namespace half_float
+ 		inline HALF_CONSTEXPR_NOERR unsigned int signal(unsigned int x, unsigned int y)
+ 		{
+ 		#if HALF_ERRHANDLING
+-			raise(FE_INVALID, ((x&0x7FFF)>0x7C00 && !(x&0x200)) || ((y&0x7FFF)>0x7C00 && !(y&0x200)));
++			detail::raise(FE_INVALID, ((x&0x7FFF)>0x7C00 && !(x&0x200)) || ((y&0x7FFF)>0x7C00 && !(y&0x200)));
+ 		#endif
+ 			return ((x&0x7FFF)>0x7C00) ? (x|0x200) : (y|0x200);
+ 		}
+@@ -718,7 +718,7 @@ namespace half_float
+ 		inline HALF_CONSTEXPR_NOERR unsigned int signal(unsigned int x, unsigned int y, unsigned int z)
+ 		{
+ 		#if HALF_ERRHANDLING
+-			raise(FE_INVALID, ((x&0x7FFF)>0x7C00 && !(x&0x200)) || ((y&0x7FFF)>0x7C00 && !(y&0x200)) || ((z&0x7FFF)>0x7C00 && !(z&0x200)));
++			detail::raise(FE_INVALID, ((x&0x7FFF)>0x7C00 && !(x&0x200)) || ((y&0x7FFF)>0x7C00 && !(y&0x200)) || ((z&0x7FFF)>0x7C00 && !(z&0x200)));
+ 		#endif
+ 			return ((x&0x7FFF)>0x7C00) ? (x|0x200) : ((y&0x7FFF)>0x7C00) ? (y|0x200) : (z|0x200);
+ 		}
+@@ -743,7 +743,7 @@ namespace half_float
+ 		inline HALF_CONSTEXPR_NOERR unsigned int invalid()
+ 		{
+ 		#if HALF_ERRHANDLING
+-			raise(FE_INVALID);
++			detail::raise(FE_INVALID);
+ 		#endif
+ 			return 0x7FFF;
+ 		}
+@@ -755,7 +755,7 @@ namespace half_float
+ 		inline HALF_CONSTEXPR_NOERR unsigned int pole(unsigned int sign = 0)
+ 		{
+ 		#if HALF_ERRHANDLING
+-			raise(FE_DIVBYZERO);
++			detail::raise(FE_DIVBYZERO);
+ 		#endif
+ 			return sign | 0x7C00;
+ 		}
+@@ -767,7 +767,7 @@ namespace half_float
+ 		inline HALF_CONSTEXPR_NOERR unsigned int check_underflow(unsigned int arg)
+ 		{
+ 		#if HALF_ERRHANDLING && !HALF_ERRHANDLING_UNDERFLOW_TO_INEXACT
+-			raise(FE_UNDERFLOW, !(arg&0x7C00));
++			detail::raise(FE_UNDERFLOW, !(arg&0x7C00));
+ 		#endif
+ 			return arg;
+ 		}
+@@ -784,7 +784,7 @@ namespace half_float
+ 		template<std::float_round_style R> HALF_CONSTEXPR_NOERR unsigned int overflow(unsigned int sign = 0)
+ 		{
+ 		#if HALF_ERRHANDLING
+-			raise(FE_OVERFLOW);
++			detail::raise(FE_OVERFLOW);
+ 		#endif
+ 			return	(R==std::round_toward_infinity) ? (sign+0x7C00-(sign>>15)) :
+ 					(R==std::round_toward_neg_infinity) ? (sign+0x7BFF+(sign>>15)) :
+@@ -800,7 +800,7 @@ namespace half_float
+ 		template<std::float_round_style R> HALF_CONSTEXPR_NOERR unsigned int underflow(unsigned int sign = 0)
+ 		{
+ 		#if HALF_ERRHANDLING
+-			raise(FE_UNDERFLOW);
++			detail::raise(FE_UNDERFLOW);
+ 		#endif
+ 			return	(R==std::round_toward_infinity) ? (sign+1-(sign>>15)) :
+ 					(R==std::round_toward_neg_infinity) ? (sign+(sign>>15)) :
+@@ -824,11 +824,11 @@ namespace half_float
+ 						(R==std::round_toward_infinity) ? (~(value>>15)&(g|s)) :
+ 						(R==std::round_toward_neg_infinity) ? ((value>>15)&(g|s)) : 0;
+ 			if((value&0x7C00) == 0x7C00)
+-				raise(FE_OVERFLOW);
++				detail::raise(FE_OVERFLOW);
+ 			else if(value & 0x7C00)
+-				raise(FE_INEXACT, I || (g|s)!=0);
++				detail::raise(FE_INEXACT, I || (g|s)!=0);
+ 			else
+-				raise(FE_UNDERFLOW, !(HALF_ERRHANDLING_UNDERFLOW_TO_INEXACT) || I || (g|s)!=0);
++				detail::raise(FE_UNDERFLOW, !(HALF_ERRHANDLING_UNDERFLOW_TO_INEXACT) || I || (g|s)!=0);
+ 			return value;
+ 		#else
+ 			return	(R==std::round_to_nearest) ? (value+(g&(s|value))) :
+@@ -851,7 +851,7 @@ namespace half_float
+ 			unsigned int abs = value & 0x7FFF;
+ 			if(abs < 0x3C00)
+ 			{
+-				raise(FE_INEXACT, I);
++				detail::raise(FE_INEXACT, I);
+ 				return ((R==std::round_to_nearest) ? (0x3C00&-static_cast<unsigned>(abs>=(0x3800+E))) :
+ 						(R==std::round_toward_infinity) ? (0x3C00&-(~(value>>15)&(abs!=0))) :
+ 						(R==std::round_toward_neg_infinity) ? (0x3C00&-static_cast<unsigned>(value>0x8000)) :
+@@ -860,7 +860,7 @@ namespace half_float
+ 			if(abs >= 0x6400)
+ 				return (abs>0x7C00) ? signal(value) : value;
+ 			unsigned int exp = 25 - (abs>>10), mask = (1<<exp) - 1;
+-			raise(FE_INEXACT, I && (value&mask));
++			detail::raise(FE_INEXACT, I && (value&mask));
+ 			return ((	(R==std::round_to_nearest) ? ((1<<(exp-1))-(~(value>>exp)&E)) :
+ 						(R==std::round_toward_infinity) ? (mask&((value>>15)-1)) :
+ 						(R==std::round_toward_neg_infinity) ? (mask&-(value>>15)) :
+@@ -1319,12 +1319,12 @@ namespace half_float
+ 			unsigned int abs = value & 0x7FFF;
+ 			if(abs >= 0x7C00)
+ 			{
+-				raise(FE_INVALID);
++				detail::raise(FE_INVALID);
+ 				return (value&0x8000) ? std::numeric_limits<T>::min() : std::numeric_limits<T>::max();
+ 			}
+ 			if(abs < 0x3800)
+ 			{
+-				raise(FE_INEXACT, I);
++				detail::raise(FE_INEXACT, I);
+ 				return	(R==std::round_toward_infinity) ? T(~(value>>15)&(abs!=0)) :
+ 						(R==std::round_toward_neg_infinity) ? -T(value>0x8000) :
+ 						T();
+@@ -1337,9 +1337,9 @@ namespace half_float
+ 				(R==std::round_toward_neg_infinity) ? (((1<<exp)-1)&-(value>>15)) : 0))>>exp));
+ 			if((!std::numeric_limits<T>::is_signed && (value&0x8000)) || (std::numeric_limits<T>::digits<16 &&
+ 				((value&0x8000) ? (-i<std::numeric_limits<T>::min()) : (i>std::numeric_limits<T>::max()))))
+-				raise(FE_INVALID);
++				detail::raise(FE_INVALID);
+ 			else if(I && exp > 0 && (m&((1<<exp)-1)))
+-				raise(FE_INEXACT);
++				detail::raise(FE_INEXACT);
+ 			return static_cast<T>((value&0x8000) ? -i : i);
+ 		}
+
