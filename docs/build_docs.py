@@ -29,6 +29,58 @@ THIRD_PARTY_ROOT = 'third_party'
 CPP_ROOT = 'tensorstore'
 
 
+class WorkspaceDict(dict):
+  """Dictionary type used to evaluate workspace.bzl files as python."""
+
+  def __init__(self):
+    self.maybe_args = {}
+
+  def __setitem__(self, key, val):
+    if not hasattr(self, key):
+      dict.__setitem__(self, key, val)
+
+  def __getitem__(self, key):
+    if hasattr(self, key):
+      return getattr(self, key)
+    if dict.__contains__(self, key):
+      return dict.__getitem__(self, key)
+    return self._unimplemented
+
+  def _unimplemented(self, *args, **kwargs):
+    pass
+
+  def glob(self, *args, **kwargs):
+    # NOTE: Non-trivial uses of glob() in BUILD files will need attention.
+    return []
+
+  def select(self, arg_dict):
+    return []
+
+  def load(self, *args):
+    pass
+
+  def package_name(self, **kwargs):
+    return ''
+
+  def third_party_http_archive(self):
+    pass
+
+  def maybe(self, fn, **kwargs):
+    self.maybe_args = kwargs
+
+  def get_args(self) -> dict:
+    self['repo']()
+    return self.maybe_args
+
+
+def _get_third_party_http_archive_args(workspace_text: str) -> dict:
+  if not workspace_text:
+    return {}
+  d = WorkspaceDict()
+  exec(workspace_text, d)
+  return d.get_args()
+
+
 def _write_third_party_libraries_summary(runfiles_dir: str, output_path: str):
   """Generate the third_party_libraries.rst file."""
   with open(output_path, 'w') as f:
@@ -51,31 +103,51 @@ def _write_third_party_libraries_summary(runfiles_dir: str, output_path: str):
       system_lib_supported = (dep / 'system.BUILD.bazel').exists()
       if not system_lib_supported:
         continue
-      workspace_bzl_content = workspace_bzl_file.read_text(encoding='utf-8')
-      m = re.search('https://[^"]*', workspace_bzl_content)
-      if m is None:
-        raise ValueError(f'Failed to find URL in {workspace_bzl_file}')
-      url = m.group(0)
-      parsed_url = urllib.parse.urlparse(url)
-      if parsed_url.netloc in ('github.com', 'sourceware.org'):
-        m = re.match('https://[^/]*/[^/]*/[^/]*/', url)
+      args = _get_third_party_http_archive_args(
+          workspace_bzl_file.read_text(encoding='utf-8'))
+      if not args:
+        raise ValueError(f'Failed to evaluate {workspace_bzl_file}')
+
+      if 'urls' not in args:
+        raise ValueError(f'Failed to find urls in {workspace_bzl_file}')
+
+      name = None
+      version = None
+      for url in args['urls']:
+        if url.startswith(
+            'https://storage.googleapis.com/tensorstore-bazel-mirror/'):
+          continue
+        m = re.search('([^/]+)-([^-]*)(\.zip|\.tar|\.tgz|\.tar\.gz)$', url)
+        if m is not None:
+          name = m.group(1)
+          version = m.group(2)
+        parsed_url = urllib.parse.urlparse(url)
+        if parsed_url.netloc in ('github.com', 'sourceware.org'):
+          m = re.match('https://[^/]*/[^/]*/[^/]*/', url)
+          if m is not None:
+            homepage = m.group(0)
+        elif parsed_url.netloc == 'tukaani.org':
+          m = re.match('https://[^/]*/[^/]*/', url)
+          if m is not None:
+            homepage = m.group(0)
+        else:
+          homepage = parsed_url.scheme + '://' + parsed_url.netloc
+
+      if 'strip_prefix' in args:
+        m = re.search('(.*)-([^-]*)$', args['strip_prefix'])
         if m is None:
-          raise ValueError(f'Failed to determine homepage from {url}')
-        homepage = m.group(0)
-      elif parsed_url.netloc == 'tukaani.org':
-        m = re.match('https://[^/]*/[^/]*/', url)
-        if m is None:
-          raise ValueError(f'Failed to determine homepage from {url}')
-        homepage = m.group(0)
-      else:
-        homepage = parsed_url.scheme + '://' + parsed_url.netloc
-      m = re.search('strip_prefix = "([^"]*)-([^-"]*)"', workspace_bzl_content)
-      if m is None:
+          raise ValueError(
+              f'Failed to determine version from strip_prefix in {workspace_bzl_file}'
+          )
+        name = m.group(1)
+        version = m.group(2)[:12]
+
+      if (not name or not homepage or not version):
         raise ValueError(
-            f'Failed to determine name and version from {workspace_bzl_file}')
-      name = m.group(1)
-      version = m.group(2)[:12]
+            f'Failed to determine full dependency information in {workspace_bzl_file}; '
+            f'Found {name}, {homepage}, {version}')
       third_party_libs.append((identifier, name, homepage, version))
+
     third_party_libs.sort(key=lambda x: x[1])
 
     for identifier, name, homepage, version in third_party_libs:
@@ -119,8 +191,8 @@ def _prepare_source_tree(runfiles_dir: str):
     create_symlinks(os.path.join(runfiles_dir, DOCS_ROOT), temp_src_dir)
     source_cpp_root = os.path.abspath(os.path.join(runfiles_dir, CPP_ROOT))
     for name in ['driver', 'kvstore']:
-      os.symlink(os.path.join(source_cpp_root, name),
-                 os.path.join(temp_src_dir, name))
+      os.symlink(
+          os.path.join(source_cpp_root, name), os.path.join(temp_src_dir, name))
     yield temp_src_dir
 
 
@@ -156,8 +228,8 @@ def run(args: argparse.Namespace, unknown: List[str]):
   else:
     sphinx_args += ['-j', 'auto']
   runfiles_dir = os.getcwd()
-  output_dir = os.path.join(os.getenv('BUILD_WORKING_DIRECTORY', os.getcwd()),
-                            args.output)
+  output_dir = os.path.join(
+      os.getenv('BUILD_WORKING_DIRECTORY', os.getcwd()), args.output)
   os.makedirs(output_dir, exist_ok=True)
   with _prepare_source_tree(runfiles_dir) as temp_src_dir:
     # Use a separate temporary directory for the doctrees, since we don't want
@@ -178,8 +250,8 @@ def run(args: argparse.Namespace, unknown: List[str]):
 
       if args.minify:
         # Minify HTML
-        html_output = glob.glob(os.path.join(output_dir, "**/*.html"),
-                                recursive=True)
+        html_output = glob.glob(
+            os.path.join(output_dir, '**/*.html'), recursive=True)
         _minify_html(paths=html_output)
       print('Output written to: %s' % (os.path.abspath(output_dir),))
       sys.exit(result)
@@ -188,13 +260,22 @@ def run(args: argparse.Namespace, unknown: List[str]):
 def main():
   ap = argparse.ArgumentParser()
   default_output = os.environ.get('TEST_UNDECLARED_OUTPUTS_DIR', None)
-  ap.add_argument('--output', '-o', help='Output directory',
-                  default=default_output, required=default_output is None)
-  ap.add_argument('-P', dest='pdb_on_error', action='store_true',
-                  help='Run pdb on exception')
+  ap.add_argument(
+      '--output',
+      '-o',
+      help='Output directory',
+      default=default_output,
+      required=default_output is None)
+  ap.add_argument(
+      '-P',
+      dest='pdb_on_error',
+      action='store_true',
+      help='Run pdb on exception')
   ap.add_argument('--no-minify', dest='minify', action='store_false')
-  ap.add_argument('--sphinx-help', action='store_true',
-                  help='Show sphinx build command-line help')
+  ap.add_argument(
+      '--sphinx-help',
+      action='store_true',
+      help='Show sphinx build command-line help')
   ap.add_argument('--pdb', action='store_true', help='Run under pdb')
   args, unknown = ap.parse_known_args()
   if args.pdb:
