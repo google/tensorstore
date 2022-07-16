@@ -26,6 +26,7 @@ def py_extension(
         data = None,
         local_defines = None,
         visibility = None,
+        linkopts = None,
         deps = None,
         testonly = False,
         imports = None):
@@ -42,6 +43,8 @@ def py_extension(
       visibility: Controls which rules can depend on this.
       deps: Other C++ libraries that this library depends upon.
     """
+    if not linkopts:
+        linkopts = []
 
     cc_library_name = name + "_cc"
     cc_binary_so_name = name + ".so"
@@ -78,10 +81,10 @@ def py_extension(
 
     for cc_binary_name in [cc_binary_dll_name, cc_binary_so_name]:
         deps = [cc_library_name]
-        linkopts = []
+        so_linkopts = [] + linkopts
         if name.endswith(".so"):
             deps += [":" + linker_script_name]
-            linkopts += ["-Wl,--version-script", "$(location :" + linker_script_name + ")"]
+            so_linkopts += ["-Wl,--version-script", "$(location :" + linker_script_name + ")"]
         native.cc_binary(
             name = cc_binary_name,
             linkshared = True,
@@ -90,7 +93,7 @@ def py_extension(
             deps = deps,
             tags = ["manual"],
             testonly = testonly,
-            linkopts = linkopts,
+            linkopts = so_linkopts,
         )
 
     copy_file(
