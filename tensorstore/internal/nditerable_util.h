@@ -485,7 +485,8 @@ class NDIterationPositionStepper {
 /// Arena with a stack-allocated buffer of 32 KiB.
 class DefaultNDIterableArena {
  public:
-  DefaultNDIterableArena() : arena_(buffer_) {}
+  DefaultNDIterableArena()
+      : arena_(/*Workaround gcc -Wuninitialized*/ (buffer_[0] = 0, buffer_)) {}
 
   operator Arena*() { return &arena_; }
 

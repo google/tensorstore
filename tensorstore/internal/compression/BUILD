@@ -54,6 +54,7 @@ tensorstore_cc_library(
     hdrs = ["bzip2.h"],
     deps = [
         ":cord_stream_manager",
+        "//tensorstore/util:assert_macros",
         "//tensorstore/util:status",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:cord",

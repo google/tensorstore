@@ -16,6 +16,7 @@
 
 #include "absl/status/status.h"
 #include "tensorstore/internal/compression/cord_stream_manager.h"
+#include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/status.h"
 
 // Include this last since it defines many macros.
@@ -97,6 +98,7 @@ absl::Status Decode(const absl::Cord& input, absl::Cord* output) {
     default:
       TENSORSTORE_CHECK(false);
   }
+  TENSORSTORE_UNREACHABLE;
 }
 
 }  // namespace bzip2

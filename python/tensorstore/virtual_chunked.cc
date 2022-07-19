@@ -30,6 +30,7 @@
 #include "python/tensorstore/type_name_override.h"
 #include "python/tensorstore/virtual_chunked.h"
 #include "tensorstore/index_space/index_domain_builder.h"
+#include "tensorstore/util/assert_macros.h"
 #include "tensorstore/virtual_chunked.h"
 
 namespace tensorstore {
@@ -249,6 +250,7 @@ struct FunctionAdapterBase {
           },
           std::move(optional_timestamp_future));
     }
+    TENSORSTORE_UNREACHABLE;
   }
 };
 

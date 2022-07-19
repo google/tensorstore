@@ -878,6 +878,7 @@ pybind11_cc_library(
         ":type_name_override",
         "//tensorstore:virtual_chunked",
         "//tensorstore/index_space:index_transform",
+        "//tensorstore/util:assert_macros",
         "//tensorstore/util:executor",
         "@com_github_pybind_pybind11//:pybind11",
     ],

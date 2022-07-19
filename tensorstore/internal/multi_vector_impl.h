@@ -44,6 +44,7 @@
 // IWYU pragma: private, include "third_party/tensorstore/internal/multi_vector.h"
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 
 #include "tensorstore/internal/meta.h"

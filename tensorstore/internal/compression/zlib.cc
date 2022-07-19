@@ -102,6 +102,7 @@ absl::Status ProcessZlib(const absl::Cord& input, absl::Cord* output, int level,
     default:
       TENSORSTORE_CHECK(false);
   }
+  TENSORSTORE_UNREACHABLE;
 }
 
 }  // namespace
