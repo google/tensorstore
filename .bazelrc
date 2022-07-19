@@ -8,6 +8,9 @@ build --incompatible_linkopts_to_linklibs
 # Ensure the cache is not invalidated by changes to $PATH
 build --incompatible_strict_action_env=true
 
+# Use absl with googletest
+build --define=absl=1
+
 # Configure C++17 mode
 build:linux --copt=-fdiagnostics-color=always --cxxopt=-std=c++17 --cxxopt=-fsized-deallocation
 build:macos --copt=-fdiagnostics-color=always --cxxopt=-std=c++17 --cxxopt=-fsized-deallocation
