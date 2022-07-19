@@ -27,6 +27,7 @@
 #include "tensorstore/array_testutil.h"
 #include "tensorstore/context.h"
 #include "tensorstore/index.h"
+#include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/open.h"
 #include "tensorstore/util/status.h"
@@ -39,7 +40,20 @@ namespace {
 
 using tensorstore::Index;
 
-void TestRead(std::string path, std::vector<Index> shape) {
+class GoldenFileTest : public ::testing::TestWithParam<const char*> {
+ public:
+  std::string GetPath() {
+    return tensorstore::internal::JoinPath(
+        absl::GetFlag(FLAGS_tensorstore_test_data_dir), GetParam());
+  }
+};
+
+TEST_P(GoldenFileTest, Read) {
+  std::string path = GetPath();
+  std::vector<Index> shape({5, 4});
+
+  TENSORSTORE_LOG(path);
+
   auto context = tensorstore::Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
                                    tensorstore::Open<std::uint16_t>(
@@ -56,6 +70,7 @@ void TestRead(std::string path, std::vector<Index> shape) {
                                        context, tensorstore::OpenMode::open,
                                        tensorstore::ReadWriteMode::read)
                                        .result());
+
   auto data = tensorstore::Read(store).value();
   auto expected = tensorstore::AllocateArray<std::uint16_t>(shape);
   const Index num_elements = expected.num_elements();
@@ -63,14 +78,6 @@ void TestRead(std::string path, std::vector<Index> shape) {
     expected.data()[i] = static_cast<std::uint16_t>(i);
   }
   EXPECT_EQ(expected, data);
-}
-
-class GoldenFileTest : public ::testing::TestWithParam<const char*> {};
-
-TEST_P(GoldenFileTest, Read) {
-  TestRead(tensorstore::internal::JoinPath(
-               absl::GetFlag(FLAGS_tensorstore_test_data_dir), GetParam()),
-           {5, 4});
 }
 
 INSTANTIATE_TEST_SUITE_P(Tests, GoldenFileTest,

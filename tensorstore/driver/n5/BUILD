@@ -138,7 +138,7 @@ tensorstore_cc_test(
     size = "small",
     srcs = ["golden_file_test.cc"],
     args = [
-        "--tensorstore_test_data_dir",
+        "--tensorstore_test_data_dir=" +
         package_name() + "/testdata",
     ],
     data = [":testdata"],
@@ -153,6 +153,7 @@ tensorstore_cc_test(
         "//tensorstore:context",
         "//tensorstore:index",
         "//tensorstore:open",
+        "//tensorstore/internal:logging",
         "//tensorstore/internal:path",
         "//tensorstore/kvstore/file",
         "//tensorstore/util:status",
