@@ -36,6 +36,76 @@ from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 
 
+@functools.cache
+def _get_session():
+  s = requests.Session()
+  retry = Retry(connect=10, read=10, backoff_factor=0.2)
+  adapter = HTTPAdapter(max_retries=retry)
+  s.mount('http://', adapter)
+  s.mount('https://', adapter)
+  return s
+
+
+def _is_mirror(url: str) -> Tuple[bool, str]:
+  # urls = https://storage.googleapis.com/  => Should be mirrored.
+  # urls = https://mirror.bazel.build/  => Should be mirrored.
+  if url.startswith('https://mirror.bazel.build/'):
+    return (True, 'https://' + url[len('https://mirror.bazel.build/'):])
+  if url.startswith('https://storage.googleapis.com/'):
+    i = url.find('/', len('https://storage.googleapis.com/'))
+    return (True, 'https://' + url[i + 1:])
+  return (False, url)
+
+
+class WorkspaceDict(dict):
+  """Dictionary type used to evaluate workspace.bzl files as python."""
+
+  def __init__(self):
+    self.maybe_args = {}
+    dict.__setitem__(self, 'native', self)
+
+  def __setitem__(self, key, val):
+    if not hasattr(self, key):
+      dict.__setitem__(self, key, val)
+
+  def __getitem__(self, key):
+    if hasattr(self, key):
+      return getattr(self, key)
+    if dict.__contains__(self, key):
+      return dict.__getitem__(self, key)
+    return self._unimplemented
+
+  def _unimplemented(self, *args, **kwargs):
+    pass
+
+  def glob(self, *args, **kwargs):
+    # NOTE: Non-trivial uses of glob() in BUILD files will need attention.
+    return []
+
+  def select(self, arg_dict):
+    return []
+
+  def load(self, *args):
+    pass
+
+  def bind(self, **kwargs):
+    pass
+
+  def package_name(self, **kwargs):
+    return ''
+
+  def third_party_http_archive(self):
+    pass
+
+  def maybe(self, fn, **kwargs):
+    self.maybe_args = kwargs
+
+  def get_args(self):
+    self.maybe_args = {}
+    self['repo']()
+    return self.maybe_args
+
+
 class WorkspaceFile:
   """Holds the contents of a workspace.bzl file and the parse methods."""
   URL_RE = re.compile(r'"(https://[^"]*)"')
@@ -54,10 +124,26 @@ class WorkspaceFile:
     self._tag = ''
     self._github_fields_updated = False
 
+    self._workspace_dict = WorkspaceDict()
+    exec(self._content, self._workspace_dict)
+    self._repo_args = self._workspace_dict.get_args()
+
+    # Choose a preferred url
+    self._url = None
+    self._mirror = False
+    for u in self._repo_args['urls']:
+      (mirror, u) = _is_mirror(u)
+      if mirror:
+        self._mirror = True
+        if not self._url:
+          self._url = u
+      else:
+        self._url = u
+
   def _update_github_fields(self):
     """Updates the .github properties.
 
-       Extract .githuib_ fields from url formats like:
+       Extract .github fields from url formats like:
 https://github.com/protocolbuffers/protobuf/releases/download/v3.19.1/protobuf-cpp-3.19.1.tar.gz",
 https://api.github.com/repos/abseil/abseil-cpp/tarball/20211102.0
 https://api.github.com/repos/abseil/abseil-cpp/tarball/refs/tags/20211102.0
@@ -67,6 +153,7 @@ https://github.com/pybind/pybind11/archive/56322dafc9d4d248c46bd1755568df01fbea4
     if self._github_fields_updated:
       return
     self._github_fields_updated = True  # run_once
+
     repo_m = self.GITHUB_REPO_RE.fullmatch(self.url)
     if not repo_m:
       raise ValueError(f'{self.url} does not appear to be a github url')
@@ -98,10 +185,12 @@ https://github.com/pybind/pybind11/archive/56322dafc9d4d248c46bd1755568df01fbea4
     return self._content
 
   @property
-  def url(self):
-    if not self.url_m:
-      return None
-    return str(self.url_m.group(1))
+  def url(self) -> str:
+    return self._url
+
+  @property
+  def mirror(self) -> bool:
+    return self._mirror
 
   @property
   def github_org(self):
@@ -155,16 +244,6 @@ https://github.com/pybind/pybind11/archive/56322dafc9d4d248c46bd1755568df01fbea4
   @functools.cache
   def date_m(self):
     return self.DATE_RE.search(self._content, re.MULTILINE)
-
-
-@functools.cache
-def _get_session():
-  s = requests.Session()
-  retry = Retry(connect=10, read=10, backoff_factor=0.2)
-  adapter = HTTPAdapter(max_retries=retry)
-  s.mount('http://', adapter)
-  s.mount('https://', adapter)
-  return s
 
 
 def get_latest_download(webpage_url: str, url_pattern: str) -> Tuple[str, str]:
@@ -440,6 +519,11 @@ def update_workspace(workspace_bzl_file: pathlib.Path, identifier: str,
   print('Updating %s' % (identifier,))
   print('   Old URL: %s' % (url,))
   print('   New URL: %s' % (new_url,))
+
+  if workspace.mirror:
+    print('Cannot update mirrored repo %s' % (identifier,))
+    print('   Old URL: %s' % (url,))
+    print('   New URL: %s' % (new_url,))
 
   if dry_run:
     return

@@ -17,6 +17,7 @@ cc_library(
         "@platforms//os:windows": [],
         "//conditions:default": ["-ldl"],
     }),
+    visibility = ["//visibility:public"],
     deps = [
         ":dav1d_core",
         ":dav1d_entrypoints",
@@ -27,105 +28,39 @@ cc_library(
         ":arm64": [],
         "//conditions:default": [":dav1d_asm_x86"],
     }),
-    visibility = ["//visibility:public"],
 )
 
-X86_ASM_SRCS = [
-    "src/x86/cpuid.asm",
-    "src/x86/msac.asm",
-    "src/x86/refmvs.asm",
-    "src/x86/cdef_avx2.asm",
-    "src/x86/itx_avx2.asm",
-    "src/x86/looprestoration_avx2.asm",
-    "src/x86/cdef_sse.asm",
-    "src/x86/itx_sse.asm",
-    "src/x86/cdef_avx512.asm",
-    "src/x86/mc_avx512.asm",
-    "src/x86/mc_avx2.asm",
-    "src/x86/film_grain_avx2.asm",
-    "src/x86/ipred_avx2.asm",
-    "src/x86/loopfilter_avx2.asm",
-    "src/x86/film_grain_sse.asm",
-    "src/x86/ipred_sse.asm",
-    "src/x86/loopfilter_sse.asm",
-    "src/x86/looprestoration_sse.asm",
-    "src/x86/mc_sse.asm",
-    "src/x86/cdef16_avx2.asm",
-    "src/x86/film_grain16_avx2.asm",
-    "src/x86/ipred16_avx2.asm",
-    "src/x86/itx16_avx2.asm",
-    "src/x86/loopfilter16_avx2.asm",
-    "src/x86/looprestoration16_avx2.asm",
-    "src/x86/mc16_avx2.asm",
-    "src/x86/cdef16_sse.asm",
-    "src/x86/film_grain16_sse.asm",
-    "src/x86/ipred16_sse.asm",
-    "src/x86/itx16_sse.asm",
-    "src/x86/loopfilter16_sse.asm",
-    "src/x86/looprestoration16_sse.asm",
-    "src/x86/mc16_sse.asm",
-]
+X86_ASM_SRCS = glob(
+    [
+        "src/x86/*.asm",
+    ],
+    exclude = [
+        "src/x86/filmgrain_common.asm",
+    ],
+)
 
-ARM_ASM_SRCS = [
-    "src/arm/cpu.c",
-    "src/arm/refmvs_init.c",
-    "src/arm/64/itx.S",
-    "src/arm/64/looprestoration_common.S",
-    "src/arm/64/msac.S",
-    "src/arm/64/refmvs.S",
-    "src/arm/64/cdef.S",
-    "src/arm/64/film_grain.S",
-    "src/arm/64/ipred.S",
-    "src/arm/64/loopfilter.S",
-    "src/arm/64/looprestoration.S",
-    "src/arm/64/mc.S",
-    "src/arm/64/cdef16.S",
-    "src/arm/64/film_grain16.S",
-    "src/arm/64/ipred16.S",
-    "src/arm/64/itx16.S",
-    "src/arm/64/loopfilter16.S",
-    "src/arm/64/looprestoration16.S",
-    "src/arm/64/mc16.S",
-]
-
-X86_TMPL_SRCS = [
-    "src/x86/cdef_init_tmpl.c",
-    "src/x86/film_grain_init_tmpl.c",
-    "src/x86/ipred_init_tmpl.c",
-    "src/x86/itx_init_tmpl.c",
-    "src/x86/loopfilter_init_tmpl.c",
-    "src/x86/looprestoration_init_tmpl.c",
-    "src/x86/mc_init_tmpl.c",
-]
-
-ARM_TMPL_SRCS = [
-    "src/arm/cdef_init_tmpl.c",
-    "src/arm/film_grain_init_tmpl.c",
-    "src/arm/ipred_init_tmpl.c",
-    "src/arm/itx_init_tmpl.c",
-    "src/arm/loopfilter_init_tmpl.c",
-    "src/arm/looprestoration_init_tmpl.c",
-    "src/arm/mc_init_tmpl.c",
-]
+ARM_ASM_SRCS = glob(
+    [
+        "src/arm/cpu.c",
+        "src/arm/refmvs_init.c",
+        "src/arm/64/*.S",
+    ],
+    exclude = [
+        "src/arm/64/util.S",
+        "src/arm/64/*_tmpl.S",
+    ],
+)
 
 # TMPL_SRCS are compiled for BITDEPTH=8 and BITDEPTH=16
-TMPL_SRCS = [
-    "src/cdef_apply_tmpl.c",
-    "src/cdef_tmpl.c",
-    "src/fg_apply_tmpl.c",
-    "src/film_grain_tmpl.c",
-    "src/ipred_prepare_tmpl.c",
-    "src/ipred_tmpl.c",
-    "src/itx_tmpl.c",
-    "src/lf_apply_tmpl.c",
-    "src/loopfilter_tmpl.c",
-    "src/looprestoration_tmpl.c",
-    "src/lr_apply_tmpl.c",
-    "src/mc_tmpl.c",
-    "src/recon_tmpl.c",
-] + select({
-    ":arm64": ARM_TMPL_SRCS,
-    "//conditions:default": X86_TMPL_SRCS,
+TMPL_SRCS = select({
+    ":arm64": glob([
+        "src/*_tmpl.c",
+        "src/arm/*_tmpl.c",
+    ]),
+    "//conditions:default": glob([
+        "src/*_tmpl.c",
+        "src/x86/*_tmpl.c",
+    ]),
 })
 
 ENTRYPOINT_SRCS = [
@@ -170,13 +105,17 @@ DAV1D_SRCS = [
 })
 
 TEXTUAL_HDRS = select({
-    ":arm64": glob(["src/*.h", "src/arm/*.h"]) + [
+    ":arm64": glob([
+        "src/*.h",
+        "src/arm/*.h",
         "src/arm/asm.S",
+        "src/arm/64/*_tmpl.S",
         "src/arm/64/util.S",
-        "src/arm/64/cdef_tmpl.S",
-        "src/arm/64/looprestoration_tmpl.S",
-    ],
-    "//conditions:default": glob(["src/*.h", "src/x86/*.h"]),
+    ]),
+    "//conditions:default": glob([
+        "src/*.h",
+        "src/x86/*.h",
+    ]),
 })
 
 # Notes on copts/defines for x86:
@@ -223,8 +162,11 @@ X86_COPTS = COMMON_COPTS + [
 ]
 
 CLANG_ALIGN_OPTS = ["-mstack-alignment=32"]
+
 CLANG_REALIGN_OPTS = ["-mstackrealign"]
+
 GCC_ALIGN_OPTS = ["-mpreferred-stack-boundary=6"]
+
 GCC_REALIGN_OPTS = ["-mincoming-stack-boundary=4"]
 
 REALIGN_OPTS = select({
@@ -266,46 +208,46 @@ cc_library(
     name = "dav1d_core",
     srcs = DAV1D_SRCS,
     copts = COPTS,
+    linkstatic = 1,
     textual_hdrs = TEXTUAL_HDRS,
     deps = [
         ":headers",
     ],
     alwayslink = 1,
-    linkstatic = 1,
 )
 
 cc_library(
     name = "dav1d_entrypoints",
     srcs = ENTRYPOINT_SRCS,
+    copts = COPTS + REALIGN_OPTS,
+    linkstatic = 1,
     textual_hdrs = TEXTUAL_HDRS,
     deps = [":headers"],
-    copts = COPTS + REALIGN_OPTS,
     alwayslink = 1,
-    linkstatic = 1,
 )
 
 cc_library(
     name = "dav1d_8bit",
     srcs = TMPL_SRCS,
-    textual_hdrs = TEXTUAL_HDRS,
     copts = COPTS + [
         "-DBITDEPTH=8",
     ],
+    linkstatic = 1,
+    textual_hdrs = TEXTUAL_HDRS,
     deps = [":headers"],
     alwayslink = 1,
-    linkstatic = 1,
 )
 
 cc_library(
     name = "dav1d_16bit",
     srcs = TMPL_SRCS,
-    textual_hdrs = TEXTUAL_HDRS,
     copts = COPTS + [
         "-DBITDEPTH=16",
     ],
+    linkstatic = 1,
+    textual_hdrs = TEXTUAL_HDRS,
     deps = [":headers"],
     alwayslink = 1,
-    linkstatic = 1,
 )
 
 NASM_FLAGS = [
@@ -320,11 +262,6 @@ NASM_FLAGS = [
 nasm_library(
     name = "dav1d_asm_x86",
     srcs = X86_ASM_SRCS,
-    includes = [
-        "build/config.asm",
-        "src/ext/x86/x86inc.asm",
-        "src/meson.build",  # To get -Isrc/, as that is the root of the exports.
-    ],
     flags = [
         "-s",
         "-w-macro-params-legacy",
@@ -334,6 +271,12 @@ nasm_library(
         "@platforms//os:macos": ["-fmacho64"],
         "//conditions:default": ["-felf64"],
     }),
+    includes = [
+        "build/config.asm",
+        "src/ext/x86/x86inc.asm",
+        "src/meson.build",  # To get -Isrc/, as that is the root of the exports.
+        "src/x86/filmgrain_common.asm",
+    ],
     linkstatic = 1,
     alwayslink = 1,
 )
@@ -359,6 +302,7 @@ cc_library(
         "include/compat/msvc/stdatomic.h",
         # "include/compat/gcc/stdatomic.h",
     ],
+    copts = COPTS,
     includes = [
         "build",
         "include",
@@ -367,7 +311,6 @@ cc_library(
         "@platforms//os:windows": ["include/compat/msvc"],
         "//conditions:default": [],
     }),
-    copts = COPTS,
 )
 
 template_rule(
@@ -375,9 +318,9 @@ template_rule(
     src = "include/dav1d/version.h.in",
     out = "build/version.h",
     substitutions = {
-        "@DAV1D_API_VERSION_MAJOR@": "5",
-        "@DAV1D_API_VERSION_MINOR@": "1",
-        "@DAV1D_API_VERSION_PATCH@": "1",
+        "@DAV1D_API_VERSION_MAJOR@": "6",
+        "@DAV1D_API_VERSION_MINOR@": "6",
+        "@DAV1D_API_VERSION_PATCH@": "0",
     },
 )
 
@@ -450,6 +393,7 @@ X86_64_CONFIG_H = "\n".join([
 ])
 
 ALIGN32_CONFIG_H = "\n#define STACK_ALIGNMENT 32\n"
+
 ALIGN16_CONFIG_H = "\n#define STACK_ALIGNMENT 16\n"
 
 DARWIN_CONFIG_H = "\n#define PREFIX 1\n"
@@ -536,8 +480,8 @@ genrule(
 # @org_videolan_dav1d//:dav1d_shared
 cc_binary(
     name = "dav1d_shared",
+    linkshared = 1,
     deps = [
         ":dav1d",
     ],
-    linkshared = 1,
 )

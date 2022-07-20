@@ -25,11 +25,11 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_boringssl",
-        strip_prefix = "boringssl-333b731bec4d3cd3db9bd98e1836ebb6e2a4201b",
+        strip_prefix = "boringssl-098695591f3a2665fccef83a3732ecfc99acdcdd",
         urls = [
-            "https://github.com/google/boringssl/archive/333b731bec4d3cd3db9bd98e1836ebb6e2a4201b.tar.gz",  # master-with-bazel(2022-06-14)
+            "https://github.com/google/boringssl/archive/098695591f3a2665fccef83a3732ecfc99acdcdd.tar.gz",  # master-with-bazel(2022-07-20)
         ],
-        sha256 = "a90da4c4fdd666b29a8605fb4a4ee4b9a89daada376ed2676d6e86430f650ce2",
+        sha256 = "e141448cf6f686b6e9695f6b6459293fd602c8d51efe118a83106752cf7e1280",
         system_build_file = Label("//third_party:com_google_boringssl/system.BUILD.bazel"),
         patches = [
             # boringssl sets -Werror by default.  That makes the build fragile

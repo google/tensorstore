@@ -20,7 +20,7 @@ def repo():
         third_party_http_archive,
         name = "nasm",
         urls = [
-            "http://storage.googleapis.com/tensorstore-bazel-mirror/www.nasm.us/pub/nasm/releasebuilds/2.15.05/nasm-2.15.05.tar.bz2",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/www.nasm.us/pub/nasm/releasebuilds/2.15.05/nasm-2.15.05.tar.bz2",
             # "https://www.nasm.us/pub/nasm/releasebuilds/2.15.05/nasm-2.15.05.tar.bz2",
         ],
         sha256 = "3c4b8339e5ab54b1bcb2316101f8985a5da50a3f9e504d43fa6f35668bee2fd0",

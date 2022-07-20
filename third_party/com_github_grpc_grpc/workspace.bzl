@@ -22,10 +22,10 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_github_grpc_grpc",
-        sha256 = "a49e6ed0ef16a4b12fefad44e7aec6f6cd3843d5a0a3ba66709565b74a62f595",
-        strip_prefix = "grpc-1.46.3",
+        sha256 = "20e02152bc63c53dd9148325d32b2fac4d38e74e86d832fb7950452c00a52faa",
+        strip_prefix = "grpc-1.48.0",
         urls = [
-            "https://github.com/grpc/grpc/archive/v1.46.3.zip",
+            "https://github.com/grpc/grpc/archive/v1.48.0.zip",
         ],
         repo_mapping = {
             "@upb": "@com_google_upb",
