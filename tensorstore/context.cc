@@ -124,9 +124,11 @@ static ContextProviderRegistry& GetRegistry() {
   return *registrar;
 }
 
-/// Checks for a cycle in the `creation_blocked_on_` pointers starting from
-/// `container`.  If one is found, returns a node in the cycle.  Note that
-/// `container` may lead to a cycle without being part of one.
+// Checks for a cycle in the `creation_blocked_on_` pointers starting from
+// `container`.  If one is found, returns a node in the cycle.  Note that
+// `container` may lead to a cycle without being part of one.
+//
+// Must be called with root context mutex held.
 ResourceContainer* FindCycle(ResourceContainer* container) {
   // Brent's algorithm for cycle detection.
   std::size_t power = 1;
@@ -147,6 +149,7 @@ ResourceContainer* FindCycle(ResourceContainer* container) {
   }
 }
 
+// Must be called with root context mutex held.
 void KillCycle(ResourceContainer* container) {
   std::vector<std::string> parts;
   auto* node = container;
@@ -210,11 +213,12 @@ Result<ResourceImplStrongPtr> CreateResource(ContextImpl& context,
     trigger->creation_blocked_on_ = container.get();
   }
   context.resources_.insert(std::move(container));
+  Result<ResourceImplStrongPtr> result{};
   {
     internal::ScopedWriterUnlock unlock(context.root_->mutex_);
-    container_ptr->result_ = spec.CreateResource({&context, container_ptr});
-    if (container_ptr->result_.ok()) {
-      auto& resource = **container_ptr->result_;
+    result = spec.CreateResource({&context, container_ptr});
+    if (result.ok()) {
+      auto& resource = **result;
       // Set `weak_creator_` if `resource` was created directly from `spec` by
       // `context`.  The alternative is that `spec` is a
       // `ResourceReference` and `resource` was created by a parent
@@ -232,6 +236,7 @@ Result<ResourceImplStrongPtr> CreateResource(ContextImpl& context,
       }
     }
   }
+  container_ptr->result_ = std::move(result);
   if (trigger) {
     trigger->creation_blocked_on_ = nullptr;
   }
@@ -321,8 +326,9 @@ class ResourceReference : public ResourceSpecImplBase {
     }
     while (true) {
       if (auto it = c->resources_.find(referent); it != c->resources_.end()) {
-        WaitForCompletion(mutex, it->get(), creation_context.trigger_);
-        return it->get()->result_;
+        ResourceContainer* container = it->get();
+        WaitForCompletion(mutex, container, creation_context.trigger_);
+        return container->result_;
       }
       auto* context_spec = c->spec_.get();
       if (context_spec) {

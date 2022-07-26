@@ -279,6 +279,7 @@ tensorstore_cc_test(
     deps = [
         ":context",
         ":json_serialization_options",
+        "//tensorstore/internal:concurrent_testutil",
         "//tensorstore/internal:json_gtest",
         "//tensorstore/internal/json_binding",
         "//tensorstore/serialization",

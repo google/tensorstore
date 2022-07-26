@@ -21,6 +21,7 @@
 #include <gtest/gtest.h>
 #include "tensorstore/context_impl.h"
 #include "tensorstore/context_resource_provider.h"
+#include "tensorstore/internal/concurrent_testutil.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/std_optional.h"
 #include "tensorstore/internal/json_gtest.h"
@@ -53,6 +54,7 @@ using tensorstore::internal::ContextResourceCreationContext;
 using tensorstore::internal::ContextResourceRegistration;
 using tensorstore::internal::ContextResourceTraits;
 using tensorstore::internal::ContextSpecBuilder;
+using tensorstore::internal::TestConcurrent;
 using tensorstore::serialization::SerializationRoundTrip;
 namespace jb = tensorstore::internal_json_binding;
 
@@ -846,6 +848,51 @@ TEST(ContextSerializationTest, Shared) {
               ::testing::Optional(copy_res_c_child));
   EXPECT_THAT(copy_parent_context.GetResource<IntResource>("int_resource#c"),
               ::testing::Optional(copy_res_c_parent));
+}
+
+TEST(ContextTest, ConcurrentCreateSingleResource) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto spec, Context::Spec::FromJson({{"int_resource", {{"value", 5}}}}));
+  Context context;
+  TestConcurrent<3>(
+      /*num_iterations=*/100,
+      /*initialize=*/[&] { context = Context(spec); },
+      /*finalize=*/[&] {},
+      [&](auto i) {
+        TENSORSTORE_EXPECT_OK(context.GetResource<IntResource>());
+      });
+}
+
+TEST(ContextTest, ConcurrentCreateMultipleResources) {
+  std::vector<std::string> resource_keys{"int_resource#a", "int_resource#b"};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
+                                   Context::Spec::FromJson({
+                                       {resource_keys[0], {{"value", 5}}},
+                                       {resource_keys[1], {{"value", 6}}},
+                                   }));
+  Context context;
+  TestConcurrent<4>(
+      /*num_iterations=*/100,
+      /*initialize=*/[&] { context = Context(spec); },
+      /*finalize=*/[&] {},
+      [&](auto i) {
+        TENSORSTORE_EXPECT_OK(context.GetResource<IntResource>(
+            resource_keys[i % resource_keys.size()]));
+      });
+}
+
+TEST(ContextTest, ConcurrentCreateInParent) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto spec, Context::Spec::FromJson({{"int_resource", {{"value", 5}}}}));
+  Context context;
+  TestConcurrent<3>(
+      /*num_iterations=*/100,
+      /*initialize=*/[&] { context = Context(spec); },
+      /*finalize=*/[&] {},
+      [&](auto i) {
+        Context child({}, context);
+        TENSORSTORE_EXPECT_OK(child.GetResource<IntResource>());
+      });
 }
 
 }  // namespace
