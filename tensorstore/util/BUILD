@@ -786,3 +786,30 @@ tensorstore_cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+tensorstore_cc_library(
+    name = "stop_token",
+    srcs = ["stop_token_impl.cc"],
+    hdrs = [
+        "stop_token.h",
+        "stop_token_impl.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//tensorstore/internal:attributes",
+        "//tensorstore/internal:intrusive_linked_list",
+        "//tensorstore/internal:intrusive_ptr",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/synchronization",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "stop_token_test",
+    srcs = ["stop_token_test.cc"],
+    deps = [
+        ":stop_token",
+        "//tensorstore/internal:concurrent_testutil",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
