@@ -47,13 +47,13 @@ def _get_session():
 
 
 def _is_mirror(url: str) -> Tuple[bool, str]:
-  # urls = https://storage.googleapis.com/  => Should be mirrored.
-  # urls = https://mirror.bazel.build/  => Should be mirrored.
-  if url.startswith('https://mirror.bazel.build/'):
-    return (True, 'https://' + url[len('https://mirror.bazel.build/'):])
-  if url.startswith('https://storage.googleapis.com/'):
-    i = url.find('/', len('https://storage.googleapis.com/'))
-    return (True, 'https://' + url[i + 1:])
+  for prefix in [
+      'https://mirror.bazel.build/',
+      'https://storage.googleapis.com/tensorstore-bazel-mirror/',
+      'https://storage.googleapis.com/grpc-bazel-mirror/'
+  ]:
+    if url.startswith(prefix):
+      return (True, 'https://' + url[len(prefix):])
   return (False, url)
 
 

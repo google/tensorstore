@@ -81,6 +81,17 @@ def _get_third_party_http_archive_args(workspace_text: str) -> dict:
   return d.get_args()
 
 
+def _remove_mirror(url: str) -> str:
+  for prefix in [
+      'https://mirror.bazel.build/',
+      'https://storage.googleapis.com/tensorstore-bazel-mirror/',
+      'https://storage.googleapis.com/grpc-bazel-mirror/'
+  ]:
+    if url.startswith(prefix):
+      return 'https://' + url[len(prefix):]
+  return url
+
+
 def _write_third_party_libraries_summary(runfiles_dir: str, output_path: str):
   """Generate the third_party_libraries.rst file."""
   with open(output_path, 'w') as f:
@@ -113,10 +124,10 @@ def _write_third_party_libraries_summary(runfiles_dir: str, output_path: str):
 
       name = None
       version = None
+      homepage = None
+
       for url in args['urls']:
-        if url.startswith(
-            'https://storage.googleapis.com/tensorstore-bazel-mirror/'):
-          continue
+        url = _remove_mirror(url)
         m = re.search('([^/]+)-([^-]*)(\.zip|\.tar|\.tgz|\.tar\.gz)$', url)
         if m is not None:
           name = m.group(1)
