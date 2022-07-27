@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/util/sync_flow_sender.h"
+#include "tensorstore/util/execution/sync_flow_sender.h"
 
 #include <string>
 #include <thread>  // NOLINT
@@ -20,6 +20,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "tensorstore/internal/mutex.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender_testutil.h"
 

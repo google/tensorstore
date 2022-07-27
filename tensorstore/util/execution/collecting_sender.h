@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_UTIL_COLLECTING_SENDER_H_
-#define TENSORSTORE_UTIL_COLLECTING_SENDER_H_
+#ifndef TENSORSTORE_UTIL_EXECUTION_COLLECTING_SENDER_H_
+#define TENSORSTORE_UTIL_EXECUTION_COLLECTING_SENDER_H_
 
 #include <utility>
 
@@ -84,4 +84,4 @@ CollectingSender<Container, Sender> MakeCollectingSender(Sender sender) {
 }  // namespace internal
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_UTIL_COLLECTING_SENDER_H_
+#endif  // TENSORSTORE_UTIL_EXECUTION_COLLECTING_SENDER_H_

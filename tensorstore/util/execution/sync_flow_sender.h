@@ -12,11 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_UTIL_SYNC_FLOW_SENDER_H_
-#define TENSORSTORE_UTIL_SYNC_FLOW_SENDER_H_
+#ifndef TENSORSTORE_UTIL_EXECUTION_SYNC_FLOW_SENDER_H_
+#define TENSORSTORE_UTIL_EXECUTION_SYNC_FLOW_SENDER_H_
 
 #include <mutex>  // NOLINT
-#include <type_traits>
 #include <utility>
 
 #include "tensorstore/internal/mutex.h"
@@ -106,4 +105,4 @@ SyncFlowSender<Sender, Mutex> MakeSyncFlowSender(Sender sender) {
 
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_UTIL_SYNC_FLOW_SENDER_H_
+#endif  // TENSORSTORE_UTIL_EXECUTION_SYNC_FLOW_SENDER_H_

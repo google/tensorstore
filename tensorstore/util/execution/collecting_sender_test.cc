@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/util/collecting_sender.h"
+#include "tensorstore/util/execution/collecting_sender.h"
 
 #include <ostream>
 #include <string>
@@ -21,8 +21,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "tensorstore/util/execution/execution.h"
-#include "tensorstore/util/execution/sender.h"
 #include "tensorstore/util/execution/sender_testutil.h"
+#include "tensorstore/util/execution/sender_util.h"
 #include "tensorstore/util/span.h"
 
 namespace {

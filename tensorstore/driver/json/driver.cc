@@ -29,6 +29,7 @@
 #include "tensorstore/internal/nditerable_transformed_array.h"
 #include "tensorstore/serialization/absl_time.h"
 #include "tensorstore/util/execution/sender.h"
+#include "tensorstore/util/execution/sender_util.h"
 
 namespace tensorstore {
 namespace internal {

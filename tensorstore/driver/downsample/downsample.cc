@@ -35,6 +35,7 @@
 #include "tensorstore/internal/nditerable_transformed_array.h"
 #include "tensorstore/serialization/std_vector.h"
 #include "tensorstore/spec.h"
+#include "tensorstore/util/execution/sender_util.h"
 #include "tensorstore/util/garbage_collection/std_vector.h"
 
 namespace tensorstore {

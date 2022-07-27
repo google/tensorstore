@@ -35,8 +35,8 @@
 #include "tensorstore/open.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/transaction.h"
+#include "tensorstore/util/execution/sync_flow_sender.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/sync_flow_sender.h"
 
 namespace tensorstore {
 namespace internal {

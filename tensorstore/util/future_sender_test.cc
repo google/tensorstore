@@ -22,9 +22,9 @@
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender.h"
 #include "tensorstore/util/execution/sender_testutil.h"
+#include "tensorstore/util/execution/sender_util.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 
 namespace {
 

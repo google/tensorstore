@@ -39,15 +39,16 @@
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/transaction.h"
 #include "tensorstore/util/assert_macros.h"
-#include "tensorstore/util/collecting_sender.h"
+#include "tensorstore/util/execution/collecting_sender.h"
 #include "tensorstore/util/execution/sender.h"
+#include "tensorstore/util/execution/sender_util.h"
+#include "tensorstore/util/execution/sync_flow_sender.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
-#include "tensorstore/util/sync_flow_sender.h"
 
 using ::tensorstore::internal::IntrusivePtr;
 

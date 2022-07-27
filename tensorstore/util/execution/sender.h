@@ -90,10 +90,9 @@
 /// type-erasure classes `AnySender`, `AnyReceiver`, `AnyFlowSender`, and
 /// `AnyFlowReceiver`.
 ///
-/// Refer to the definitions of `DoneSender`, `ErrorSender`, `ValueSender`,
-/// `SenderWithExecutor`, `FlowSingleSender` and `RangeFlowSender` below, and
+/// Refer to the definitions of `CancelSender`, `ErrorSender`, and `ValueSender`
+/// below, `FlowSingleSender` and `RangeFlowSender` in sender_util.h, and
 /// `LoggingReceiver` in `sender_testutil.h`, as examples.
-///
 ///
 ///
 /// The `tensorstore::Result<T>` type models both `Sender<absl::Status, T>` and
@@ -117,14 +116,9 @@
 /// http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2022/p2300r4.html
 /// https://github.com/brycelelbach/wg21_p2300_std_execution
 
-#include <atomic>
-#include <iterator>
-#include <tuple>
 #include <utility>
 
 #include "absl/base/attributes.h"
-#include "absl/status/status.h"
-#include "absl/utility/utility.h"
 #include "tensorstore/internal/poly/poly.h"
 #include "tensorstore/util/execution/execution.h"
 
@@ -295,23 +289,6 @@ class AnyFlowSender : public internal_sender::FlowSenderPoly<E, V...> {
   }
 };
 
-/// Sender that adapts an existing `sender` to invoke its `submit` function with
-/// the specified `executor`.
-template <typename Sender, typename Executor>
-struct SenderWithExecutor {
-  Executor executor;
-  Sender sender;
-  template <typename Receiver>
-  void submit(Receiver receiver) {
-    struct Callback {
-      Sender sender;
-      Receiver receiver;
-      void operator()() { execution::submit(sender, std::move(receiver)); }
-    };
-    executor(Callback{std::move(sender), std::move(receiver)});
-  }
-};
-
 /// Sender that immediately invokes `set_cancel`.
 ///
 /// `CancelSender` is a model of `Sender<E, V...>` for any `E, V...`.
@@ -357,71 +334,6 @@ struct ValueSender {
 };
 template <typename... V>
 ValueSender(V... v) -> ValueSender<V...>;
-
-/// Receiver that adapts a FlowReceiver to be used as a single Receiver.
-template <typename FlowReceiver>
-struct FlowSingleReceiver {
-  FlowReceiver receiver;
-
-  template <typename... V>
-  void set_value(V... v) {
-    execution::set_starting(receiver, [] {});
-    execution::set_value(receiver, std::move(v)...);
-    execution::set_done(receiver);
-    execution::set_stopping(receiver);
-  }
-
-  template <typename E>
-  void set_error(E e) {
-    execution::set_starting(receiver, [] {});
-    execution::set_error(receiver, std::move(e));
-    execution::set_stopping(receiver);
-  }
-
-  void set_cancel() {
-    execution::set_starting(receiver, [] {});
-    execution::set_done(receiver);
-    execution::set_stopping(receiver);
-  }
-};
-template <typename FlowReceiver>
-FlowSingleReceiver(FlowReceiver receiver) -> FlowSingleReceiver<FlowReceiver>;
-
-/// FlowSender that adapts a single Sender to be used as FlowSender.
-template <typename Sender>
-struct FlowSingleSender {
-  Sender sender;
-  template <typename Receiver>
-  void submit(Receiver receiver) {
-    execution::submit(sender,
-                      FlowSingleReceiver<Receiver>{std::move(receiver)});
-  }
-};
-template <typename Sender>
-FlowSingleSender(Sender sender) -> FlowSingleSender<Sender>;
-
-/// FlowSender that consecutively sends each element of a range.
-///
-/// \tparam Range Type compatible with a range-based for loop.
-template <typename Range>
-struct RangeFlowSender {
-  Range range;
-  template <typename Receiver>
-  friend void submit(RangeFlowSender& sender, Receiver receiver) {
-    std::atomic<bool> cancelled{false};
-    execution::set_starting(receiver, [&cancelled] { cancelled = true; });
-    using std::begin;
-    using std::end;
-    auto it = begin(sender.range);
-    auto end_it = end(sender.range);
-    for (; !cancelled && it != end_it; ++it) {
-      auto&& value = *it;
-      execution::set_value(receiver, std::forward<decltype(value)>(value));
-    }
-    execution::set_done(receiver);
-    execution::set_stopping(receiver);
-  }
-};
 
 }  // namespace tensorstore
 

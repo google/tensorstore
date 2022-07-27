@@ -41,6 +41,7 @@ tensorstore_cc_library(
         "//tensorstore/serialization",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
+        "//tensorstore/util/execution:sender_util",
         "//tensorstore/util/garbage_collection",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/status",
@@ -157,6 +158,7 @@ tensorstore_cc_test(
         "//tensorstore/internal:json_gtest",
         "//tensorstore/kvstore/memory",
         "//tensorstore/util:status_testutil",
+        "//tensorstore/util/execution:sender_util",
         "@com_google_googletest//:gtest_main",
     ],
 )

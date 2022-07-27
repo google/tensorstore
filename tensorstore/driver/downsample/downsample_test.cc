@@ -25,6 +25,7 @@
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/open.h"
 #include "tensorstore/spec.h"
+#include "tensorstore/util/execution/sender_util.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {

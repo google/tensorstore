@@ -15,6 +15,7 @@
 #include "tensorstore/util/execution/sender.h"
 
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -103,64 +104,24 @@ TEST(ValueSenderTest, AnySender) {
   EXPECT_THAT(log, ::testing::ElementsAre("set_value: 3, hello"));
 }
 
-TEST(FlowSingleSenderTest, SetValue) {
-  std::vector<std::string> log;
-  tensorstore::execution::submit(
-      tensorstore::FlowSingleSender<tensorstore::ValueSender<int, std::string>>{
-          {3, "hello"}},
-      tensorstore::LoggingReceiver{&log});
-  EXPECT_THAT(log, ::testing::ElementsAre("set_starting", "set_value: 3, hello",
-                                          "set_done", "set_stopping"));
-}
-
-TEST(FlowSingleSenderTest, AnyFlowSenderSetValue) {
-  std::vector<std::string> log;
-  tensorstore::execution::submit(
-      tensorstore::AnyFlowSender<int, int, std::string>(
-          tensorstore::FlowSingleSender<
-              tensorstore::ValueSender<int, std::string>>{{3, "hello"}}),
-      tensorstore::LoggingReceiver{&log});
-  EXPECT_THAT(log, ::testing::ElementsAre("set_starting", "set_value: 3, hello",
-                                          "set_done", "set_stopping"));
-}
-
-TEST(FlowSingleSenderTest, SetError) {
-  std::vector<std::string> log;
-  tensorstore::execution::submit(
-      tensorstore::FlowSingleSender<tensorstore::ErrorSender<int>>{{3}},
-      tensorstore::LoggingReceiver{&log});
-  EXPECT_THAT(log, ::testing::ElementsAre("set_starting", "set_error: 3",
-                                          "set_stopping"));
-}
-
-TEST(FlowSingleSenderTest, AnyFlowSenderSetError) {
-  std::vector<std::string> log;
-  tensorstore::execution::submit(
-      tensorstore::AnyFlowSender<int>(
-          tensorstore::FlowSingleSender<tensorstore::ErrorSender<int>>{{3}}),
-      tensorstore::LoggingReceiver{&log});
-  EXPECT_THAT(log, ::testing::ElementsAre("set_starting", "set_error: 3",
-                                          "set_stopping"));
-}
-
-TEST(FlowSingleSenderTest, SetCancel) {
-  std::vector<std::string> log;
-  tensorstore::execution::submit(
-      tensorstore::FlowSingleSender<tensorstore::CancelSender>{},
-      tensorstore::LoggingReceiver{&log});
-  EXPECT_THAT(
-      log, ::testing::ElementsAre("set_starting", "set_done", "set_stopping"));
-}
-
-TEST(FlowSingleSenderTest, AnyFlowSenderSetCancel) {
-  std::vector<std::string> log;
-  tensorstore::execution::submit(
-      tensorstore::AnyFlowSender<int>(
-          tensorstore::FlowSingleSender<tensorstore::CancelSender>{}),
-      tensorstore::LoggingReceiver{&log});
-  EXPECT_THAT(
-      log, ::testing::ElementsAre("set_starting", "set_done", "set_stopping"));
-}
+/// Sender that adapts an existing `sender` to invoke its `submit` function with
+/// the specified `executor`.
+template <typename Sender, typename Executor>
+struct SenderWithExecutor {
+  Executor executor;
+  Sender sender;
+  template <typename Receiver>
+  void submit(Receiver receiver) {
+    struct Callback {
+      Sender sender;
+      Receiver receiver;
+      void operator()() {
+        tensorstore::execution::submit(sender, std::move(receiver));
+      }
+    };
+    executor(Callback{std::move(sender), std::move(receiver)});
+  }
+};
 
 struct QueueExecutor {
   std::vector<tensorstore::ExecutorTask>* queue;
@@ -174,9 +135,8 @@ TEST(SenderWithExecutorTest, SetValue) {
   std::vector<std::string> log;
   QueueExecutor executor{&queue};
   tensorstore::execution::submit(
-      tensorstore::SenderWithExecutor<
-          tensorstore::ValueSender<int, std::string>, tensorstore::Executor>{
-          executor, {3, "hello"}},
+      SenderWithExecutor<tensorstore::ValueSender<int, std::string>,
+                         tensorstore::Executor>{executor, {3, "hello"}},
       tensorstore::LoggingReceiver{&log});
   EXPECT_THAT(log, ::testing::ElementsAre());
   EXPECT_EQ(1, queue.size());
@@ -190,9 +150,8 @@ TEST(SenderWithExecutorTest, AnySenderSetValue) {
   QueueExecutor executor{&queue};
   tensorstore::execution::submit(
       tensorstore::AnySender<int, int, std::string>(
-          tensorstore::SenderWithExecutor<
-              tensorstore::ValueSender<int, std::string>,
-              tensorstore::Executor>{executor, {3, "hello"}}),
+          SenderWithExecutor<tensorstore::ValueSender<int, std::string>,
+                             tensorstore::Executor>{executor, {3, "hello"}}),
       tensorstore::LoggingReceiver{&log});
   EXPECT_THAT(log, ::testing::ElementsAre());
   EXPECT_EQ(1, queue.size());
@@ -205,8 +164,8 @@ TEST(SenderWithExecutorTest, SetError) {
   std::vector<std::string> log;
   QueueExecutor executor{&queue};
   tensorstore::execution::submit(
-      tensorstore::SenderWithExecutor<tensorstore::ErrorSender<int>,
-                                      tensorstore::Executor>{executor, {3}},
+      SenderWithExecutor<tensorstore::ErrorSender<int>, tensorstore::Executor>{
+          executor, {3}},
       tensorstore::LoggingReceiver{&log});
   EXPECT_THAT(log, ::testing::ElementsAre());
   EXPECT_EQ(1, queue.size());
@@ -220,9 +179,8 @@ TEST(SenderWithExecutorTest, AnySenderSetError) {
   QueueExecutor executor{&queue};
   tensorstore::execution::submit(
       tensorstore::AnySender<int>(
-          tensorstore::SenderWithExecutor<tensorstore::ErrorSender<int>,
-                                          tensorstore::Executor>{executor,
-                                                                 {3}}),
+          SenderWithExecutor<tensorstore::ErrorSender<int>,
+                             tensorstore::Executor>{executor, {3}}),
       tensorstore::LoggingReceiver{&log});
   EXPECT_THAT(log, ::testing::ElementsAre());
   EXPECT_EQ(1, queue.size());
@@ -235,8 +193,8 @@ TEST(SenderWithExecutorTest, SetCancel) {
   std::vector<std::string> log;
   QueueExecutor executor{&queue};
   tensorstore::execution::submit(
-      tensorstore::SenderWithExecutor<tensorstore::CancelSender,
-                                      tensorstore::Executor>{executor},
+      SenderWithExecutor<tensorstore::CancelSender, tensorstore::Executor>{
+          executor},
       tensorstore::LoggingReceiver{&log});
   EXPECT_THAT(log, ::testing::ElementsAre());
   EXPECT_EQ(1, queue.size());
@@ -250,69 +208,13 @@ TEST(SenderWithExecutorTest, AnySenderSetCancel) {
   QueueExecutor executor{&queue};
   tensorstore::execution::submit(
       tensorstore::AnySender<int>(
-          tensorstore::SenderWithExecutor<tensorstore::CancelSender,
-                                          tensorstore::Executor>{executor}),
+          SenderWithExecutor<tensorstore::CancelSender, tensorstore::Executor>{
+              executor}),
       tensorstore::LoggingReceiver{&log});
   EXPECT_THAT(log, ::testing::ElementsAre());
   EXPECT_EQ(1, queue.size());
   queue[0]();
   EXPECT_THAT(log, ::testing::ElementsAre("set_cancel"));
-}
-
-TEST(RangeFlowSenderTest, Basic) {
-  std::vector<int> values{1, 2, 3};
-  std::vector<std::string> log;
-  tensorstore::execution::submit(
-      tensorstore::AnyFlowSender<int, int>(
-          tensorstore::RangeFlowSender<std::vector<int>&>{values}),
-      tensorstore::LoggingReceiver{&log});
-  EXPECT_THAT(log, ::testing::ElementsAre("set_starting", "set_value: 1",
-                                          "set_value: 2", "set_value: 3",
-                                          "set_done", "set_stopping"));
-}
-
-TEST(RangeFlowSenderTest, CancelImmediately) {
-  std::vector<int> values{1, 2, 3};
-  std::vector<std::string> log;
-  struct Receiver : public tensorstore::LoggingReceiver {
-    tensorstore::AnyCancelReceiver cancel;
-    void set_starting(tensorstore::AnyCancelReceiver cancel) {
-      this->tensorstore::LoggingReceiver::set_starting({});
-      cancel();
-    }
-  };
-  tensorstore::execution::submit(
-      tensorstore::AnyFlowSender<int, int>(
-          tensorstore::RangeFlowSender<std::vector<int>&>{values}),
-      Receiver{{&log}});
-  EXPECT_THAT(
-      log, ::testing::ElementsAre("set_starting", "set_done", "set_stopping"));
-}
-
-TEST(RangeFlowSenderTest, Cancel) {
-  std::vector<int> values{1, 2, 3};
-  std::vector<std::string> log;
-  struct Receiver : public tensorstore::LoggingReceiver {
-    tensorstore::AnyCancelReceiver cancel;
-    void set_starting(tensorstore::AnyCancelReceiver cancel) {
-      this->cancel = std::move(cancel);
-      this->tensorstore::LoggingReceiver::set_starting({});
-    }
-
-    void set_value(int value) {
-      this->tensorstore::LoggingReceiver::set_value(value);
-      if (value == 2) {
-        this->cancel();
-      }
-    }
-  };
-  tensorstore::execution::submit(
-      tensorstore::AnyFlowSender<int, int>(
-          tensorstore::RangeFlowSender<std::vector<int>&>{values}),
-      Receiver{{&log}});
-  EXPECT_THAT(
-      log, ::testing::ElementsAre("set_starting", "set_value: 1",
-                                  "set_value: 2", "set_done", "set_stopping"));
 }
 
 }  // namespace

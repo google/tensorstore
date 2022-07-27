@@ -45,6 +45,7 @@
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender.h"
+#include "tensorstore/util/execution/sender_util.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/fwd.h"

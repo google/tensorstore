@@ -21,10 +21,10 @@
 
 #include "absl/strings/str_join.h"
 #include "absl/synchronization/notification.h"
-#include "tensorstore/internal/mutex.h"
+#include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender.h"
+#include "tensorstore/util/execution/sync_flow_sender.h"
 #include "tensorstore/util/str_cat.h"
-#include "tensorstore/util/sync_flow_sender.h"
 
 namespace tensorstore {
 
@@ -37,7 +37,7 @@ struct LoggingReceiver {
 
   template <typename... V>
   void set_value(V... v) {
-    log->push_back(StrCat(
+    log->push_back(tensorstore::StrCat(
         "set_value: ",
         absl::StrJoin(std::make_tuple(v...), ", ", absl::StreamFormatter())));
   }
