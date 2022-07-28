@@ -7,10 +7,7 @@ licenses(["notice"])
 tensorstore_cc_library(
     name = "execution",
     hdrs = ["execution.h"],
-    deps = [
-        "//tensorstore/internal:type_traits",
-        "@com_google_absl//absl/base:core_headers",
-    ],
+    deps = ["@com_google_absl//absl/base:core_headers"],
 )
 
 tensorstore_cc_library(

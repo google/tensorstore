@@ -27,6 +27,18 @@
 
 namespace {
 
+// Verify execution.h detected_t mechanism.
+template <typename T, typename... Arg>
+using trait_has_submit =
+    decltype(std::declval<T&&>().submit(std::declval<Arg>()...));
+template <typename... Arg>
+using trait_has_adl_submit = decltype(submit(std::declval<Arg>()...));
+
+static_assert(!tensorstore::internal_execution::detected_t<
+              trait_has_submit, tensorstore::NullSender&, int>::value);
+static_assert(tensorstore::internal_execution::detected_t<
+              trait_has_adl_submit, tensorstore::NullSender&, int>::value);
+
 TEST(NullReceiverTest, SetDone) {
   tensorstore::NullReceiver receiver;
   tensorstore::execution::set_done(receiver);

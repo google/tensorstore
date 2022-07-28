@@ -121,41 +121,6 @@ TEST(PossiblyEmptyObjectGetterTest, Basic) {
 
 static_assert(std::is_same_v<int, type_identity_t<int>>);
 
-namespace has {
-TENSORSTORE_INTERNAL_DEFINE_HAS_METHOD(Foo)
-TENSORSTORE_INTERNAL_DEFINE_HAS_ADL_FUNCTION(Bar)
-}  // namespace has
-
-struct HasFooStruct {
-  int* Foo(int);
-  float* Foo(int, int);
-};
-
-struct MissingStruct {
-  void Bar(int, int);
-};
-
-struct HasBarStruct {
-  // Note: there doesn't appear to be a way to use `[[maybe_unused]]` in place
-  // of `ABSL_ATTRIBUTE_UNUSED` here.
-  friend int* Bar(HasBarStruct) ABSL_ATTRIBUTE_UNUSED;
-  friend float* Bar(HasBarStruct, int, int) ABSL_ATTRIBUTE_UNUSED;
-};
-
-static_assert(has::HasMethodFoo<int*, HasFooStruct, int>);
-static_assert(has::HasMethodFoo<const int*, HasFooStruct, int>);
-static_assert(has::HasMethodFoo<void, HasFooStruct, int>);
-static_assert(has::HasMethodFoo<void, HasFooStruct, int, int>);
-static_assert(has::HasMethodFoo<float*, HasFooStruct, int, int>);
-static_assert(!has::HasMethodFoo<void, HasFooStruct, int, int, int>);
-static_assert(!has::HasMethodFoo<void, HasFooStruct>);
-static_assert(!has::HasMethodFoo<void, MissingStruct, int>);
-static_assert(has::HasAdlFunctionBar<void, HasBarStruct>);
-static_assert(!has::HasAdlFunctionBar<void, HasBarStruct, int>);
-static_assert(has::HasAdlFunctionBar<float*, HasBarStruct, int, int>);
-static_assert(has::HasAdlFunctionBar<const float*, HasBarStruct, int, int>);
-static_assert(has::HasAdlFunctionBar<void, HasBarStruct, int, int>);
-static_assert(!has::HasAdlFunctionBar<void, MissingStruct, int, int>);
 
 namespace explict_conversion_tests {
 using tensorstore::internal::IsOnlyExplicitlyConvertible;

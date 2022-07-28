@@ -116,6 +116,7 @@
 /// http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2022/p2300r4.html
 /// https://github.com/brycelelbach/wg21_p2300_std_execution
 
+#include <tuple>
 #include <utility>
 
 #include "absl/base/attributes.h"
@@ -320,6 +321,7 @@ template <typename... V>
 struct ValueSender {
   ValueSender(V... v) : value(std::move(v)...) {}
   std::tuple<V...> value;
+
   template <typename Receiver>
   friend void submit(ValueSender& sender, Receiver receiver) {
     sender.SubmitHelper(std::move(receiver),

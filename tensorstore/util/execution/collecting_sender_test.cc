@@ -43,6 +43,7 @@ struct X {
 TEST(CollectingSenderTest, Success) {
   std::vector<std::string> log;
   std::vector<int> input{1, 2, 3, 4};
+
   tensorstore::execution::submit(
       tensorstore::internal::MakeCollectingSender<std::vector<X>>(
           tensorstore::RangeFlowSender<tensorstore::span<int>>{input}),
