@@ -111,6 +111,10 @@ _third_party_http_archive_attrs = {
     "system_build_file": attr.label(
         allow_single_file = True,
     ),
+    # documentation only
+    "doc_name": attr.string(),
+    "doc_version": attr.string(),
+    "doc_homepage": attr.string(),
 }
 
 third_party_http_archive = repository_rule(

@@ -28,6 +28,7 @@ def repo():
         sha256 = "f6f4910fd033078738bd82bfba4f49219d03b17eb0794eb91efbae419f4aba10",
         build_file = Label("//third_party:org_tukaani_xz/bundled.BUILD.bazel"),
         system_build_file = Label("//third_party:org_tukaani_xz/system.BUILD.bazel"),
+        doc_homepage = "https://tukaani.org/xz/",
     )
 
 # https://github.com/xz-mirror/xz/blob/master/CMakeLists.txt

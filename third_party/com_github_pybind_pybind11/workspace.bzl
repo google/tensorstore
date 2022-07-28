@@ -28,6 +28,10 @@ def repo():
         ],
         sha256 = "eacf582fa8f696227988d08cfc46121770823839fe9e301a20fbce67e7cd70ec",
         build_file = Label("//third_party:com_github_pybind_pybind11/bundled.BUILD.bazel"),
+        system_build_file = Label("//third_party:com_github_pybind_pybind11/system.BUILD.bazel"),
+        # documentation-only
+        doc_name = "pybind11",
+        doc_homepage = "https://pybind11.readthedocs.io/en/stable/",
     )
 
 cmake_fetch_content_package(

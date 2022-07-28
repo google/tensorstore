@@ -33,6 +33,7 @@ class WorkspaceDict(dict):
   """Dictionary type used to evaluate workspace.bzl files as python."""
 
   def __init__(self):
+    dict.__setitem__(self, 'native', self)
     self.maybe_args = {}
 
   def __setitem__(self, key, val):
@@ -119,6 +120,11 @@ def _write_third_party_libraries_summary(runfiles_dir: str, output_path: str):
       if not args:
         raise ValueError(f'Failed to evaluate {workspace_bzl_file}')
 
+      if 'system_build_file' not in args:
+        # Maybe log this; there's a system.BUILD.bazel, but it's not added
+        # to the repo() method in workspace.bzl.
+        continue
+
       if 'urls' not in args:
         raise ValueError(f'Failed to find urls in {workspace_bzl_file}')
 
@@ -137,10 +143,6 @@ def _write_third_party_libraries_summary(runfiles_dir: str, output_path: str):
           m = re.match('https://[^/]*/[^/]*/[^/]*/', url)
           if m is not None:
             homepage = m.group(0)
-        elif parsed_url.netloc == 'tukaani.org':
-          m = re.match('https://[^/]*/[^/]*/', url)
-          if m is not None:
-            homepage = m.group(0)
         else:
           homepage = parsed_url.scheme + '://' + parsed_url.netloc
 
@@ -152,6 +154,11 @@ def _write_third_party_libraries_summary(runfiles_dir: str, output_path: str):
           )
         name = m.group(1)
         version = m.group(2)[:12]
+
+      # Override doc metadata.
+      name = args.get('doc_name', name)
+      version = args.get('doc_version', version)
+      homepage = args.get('doc_homepage', homepage)
 
       if (not name or not homepage or not version):
         raise ValueError(
