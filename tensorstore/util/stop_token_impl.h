@@ -25,7 +25,7 @@
 namespace tensorstore {
 namespace internal_stop_token {
 
-class StopState;
+struct StopState;
 struct StopCallbackInvocationState;
 
 struct StopCallbackBase {
@@ -82,11 +82,14 @@ struct StopState {
   bool RequestStop() ABSL_LOCKS_EXCLUDED(mutex_);
 
   /// Adds the stop callback to the callback list, or, when stop has been
-  /// requested immediately invokes the callback.
+  /// requested immediately invokes the callback. May assign callback.state_
+  /// to this, also incrementing the reference count.
   void RegisterImpl(StopCallbackBase& callback) ABSL_LOCKS_EXCLUDED(mutex_);
 
   /// Removes the stop callback from the callback list. May block if the
   /// callback is currently being run by a separate process.
+  /// Call intrusive_ptr_increment(this) before returning, so the StopState
+  /// may be deallocated immediately afterwards.
   void UnregisterImpl(StopCallbackBase& callback) ABSL_LOCKS_EXCLUDED(mutex_);
 };
 
