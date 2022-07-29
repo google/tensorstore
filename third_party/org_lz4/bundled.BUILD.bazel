@@ -29,6 +29,11 @@ cc_library_with_strip_include_prefix(
         "lib/lz4hc.h",
     ],
     copts = ["-I" + package_relative_path("lib")],
+    defines = [
+        # Since this rule is used to build a static library, prevent LZ4 from
+        # overriding global `-fvisibility=hidden` setting.
+        "LZ4LIB_VISIBILITY=",
+    ],
     local_defines = [
         # Inline XXH for better performance and to avoid exposing symbols.
         "XXH_INLINE_ALL",

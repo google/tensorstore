@@ -66,13 +66,17 @@ def py_extension(
         alwayslink = True,
     )
 
+    # On Unix, restrict symbol visibility.
+    exported_symbol = "PyInit_" + name
+
+    # Generate linker script used on non-macOS unix platforms.
     native.genrule(
         name = linker_script_name_rule,
         outs = [linker_script_name],
         cmd = "\n".join([
             "cat <<'EOF' >$@",
             "{",
-            "  global: PyInit_" + name + ";",
+            "  global: " + exported_symbol + ";",
             "  local: *;",
             "};",
             "EOF",
@@ -80,20 +84,38 @@ def py_extension(
     )
 
     for cc_binary_name in [cc_binary_dll_name, cc_binary_so_name]:
-        deps = [cc_library_name]
-        so_linkopts = [] + linkopts
-        if name.endswith(".so"):
-            deps += [":" + linker_script_name]
-            so_linkopts += ["-Wl,--version-script", "$(location :" + linker_script_name + ")"]
+        cur_linkopts = linkopts
+        cur_deps = [cc_library_name]
+        if cc_binary_name == cc_binary_so_name:
+            cur_linkopts = linkopts + select({
+                # On macOS, the linker does not support version scripts.  Use
+                # the `-exported_symbol` option instead to restrict symbol
+                # visibility.
+                constraint_values_config_setting(["@platforms//os:macos"]): [
+                    "-Wl,-exported_symbol",
+                    # On macOS, the symbol starts with an underscore.
+                    "-Wl,_" + exported_symbol,
+                ],
+                # On non-macOS unix, use a version script to restrict symbol
+                # visibility.
+                "//conditions:default": [
+                    "-Wl,--version-script",
+                    "-Wl,$(location :" + linker_script_name + ")",
+                ],
+            })
+            cur_deps = cur_deps + select({
+                constraint_values_config_setting(["@platforms//os:macos"]): [],
+                "//conditions:default": [linker_script_name],
+            })
         native.cc_binary(
             name = cc_binary_name,
             linkshared = True,
             #linkstatic = True,
-            visibility = visibility,
-            deps = deps,
+            visibility = ["//visibility:private"],
+            deps = cur_deps,
             tags = ["manual"],
             testonly = testonly,
-            linkopts = so_linkopts,
+            linkopts = cur_linkopts,
         )
 
     copy_file(
@@ -108,7 +130,9 @@ def py_extension(
     native.filegroup(
         name = shared_objects_name,
         data = select({
-            constraint_values_config_setting(["@platforms//os:windows"]): [":" + cc_binary_pyd_name],
+            constraint_values_config_setting(["@platforms//os:windows"]): [
+                ":" + cc_binary_pyd_name,
+            ],
             "//conditions:default": [":" + cc_binary_so_name],
         }),
         testonly = testonly,
@@ -124,8 +148,10 @@ def py_extension(
 
 def _get_pybind11_build_options(local_defines = None, **kwargs):
     return dict(
-        # Disable -fvisibility=hidden directive on pybind11 namespace by default.
-        # We instead accomplish the same thing using a linker script.
+        # Disable -fvisibility=hidden directive on pybind11 namespace by
+        # default.  We instead specify `--copt=-fvisibility=hidden` in setup.py
+        # to enable hidden visibility globally when building the Python
+        # extension.
         local_defines = (local_defines or []) + ["PYBIND11_NAMESPACE=pybind11"],
         **kwargs
     )

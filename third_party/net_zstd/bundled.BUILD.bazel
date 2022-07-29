@@ -16,7 +16,9 @@ ZSTD_SRCS = glob(
     exclude = ["lib/zstd.h"],
 )
 
-LOCAL_DEFINES = ["XXH_NAMESPACE=ZSTD_"] + select({
+LOCAL_DEFINES = [
+    "XXH_NAMESPACE=ZSTD_",
+] + select({
     ":zstd_asm_supported": [],
     "//conditions:default": ["ZSTD_DISABLE_ASM=1"],
 })
@@ -30,6 +32,12 @@ cc_library_with_strip_include_prefix(
            }),
     hdrs = ["lib/zstd.h"],
     copts = ["-I" + package_relative_path("lib/common")],
+    defines = [
+        # Since this rule is used to build a static library, prevent ZSTD from
+        # overriding global `-fvisibility=hidden` setting.
+        "ZSTDLIB_VISIBLE=",
+        "ZSTDLIB_HIDDEN=",
+    ],
     local_defines = LOCAL_DEFINES,
     strip_include_prefix = "lib",
 )

@@ -193,6 +193,12 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
           #
           # https://cibuildwheel.readthedocs.io/en/stable/faq/#importerror-dll-load-failed-the-specific-module-could-not-be-found-error-on-windows
           build_command += ['--copt=/d2FH4-']
+        else:
+          # Build with hidden visibility for more efficient code generation.
+          # Note that this also hides most symbols, but ultimately has no effect
+          # on symbol visibility because a separate linker option is already
+          # used to hide all extraneous symbols anyway.
+          build_command += ['--copt=-fvisibility=hidden']
 
         self.spawn(build_command)
         suffix = '.pyd' if os.name == 'nt' else '.so'
