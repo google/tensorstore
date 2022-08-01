@@ -85,9 +85,9 @@ class StopToken {
   internal::IntrusivePtr<internal_stop_token::StopState> state_{nullptr};
 };
 
-/// Provides a mechanism to stop an asynchronous request. Once a stop has
-/// been requested, it cannot be withdrawn. Any StopCallbacks registered with
-/// this StopSource will be invoked when a stop is requested.
+/// Provides a mechanism to stop an asynchronous request.
+/// Once a stop has been requested, it cannot be withdrawn, and all future
+/// StopCallbacks registered with the stop_token() will be immediately invoked.
 class StopSource {
  public:
   StopSource() noexcept
@@ -110,6 +110,11 @@ class StopSource {
     return state_ != nullptr && state_->stop_requested();
   }
 
+  /// Requests a stop. Once a stop has been requested, it cannot be withdrawn.
+  /// The first call to request_stop() will invoke all StopCallbacks registered
+  /// with the StopSource, and will return true.
+  /// Subsequent (or concurrent) calls to request_stop() will return false and
+  /// the callbacks may still be in-flight.
   bool request_stop() const noexcept {
     if (state_ != nullptr) {
       return state_->RequestStop();

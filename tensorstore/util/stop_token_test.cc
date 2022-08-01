@@ -191,6 +191,8 @@ TEST(StopTokenTest, Concurrent) {
   tensorstore::StopSource source;
   bool called = false;
 
+  std::optional<tensorstore::StopCallback<std::function<void()>>> callback;
+
   tensorstore::internal::TestConcurrent(
       /*num_iterations=*/100,
       /*initialize=*/
@@ -202,15 +204,12 @@ TEST(StopTokenTest, Concurrent) {
       /*finalize=*/
       [&] {
         EXPECT_TRUE(source.stop_requested());
+        callback = std::nullopt;
         EXPECT_TRUE(called);
       },  //
       // Concurrently:
       // (a) register a callback.
-      [&] {
-        tensorstore::StopCallback callback(source.get_token(),
-                                           [&]() { called = true; });
-        source.request_stop();
-      },
+      [&] { callback.emplace(source.get_token(), [&]() { called = true; }); },
       // (b) request a stop.
       [&] { source.request_stop(); },
       // (c) register and unregister a do-nothing callback.
