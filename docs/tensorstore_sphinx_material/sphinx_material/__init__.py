@@ -184,12 +184,12 @@ def _get_html_builder(
     return CustomHTMLBuilder
 
 
-def dict_merge(*dicts: List[collections.Mapping]):
+def dict_merge(*dicts):
     """Recursively merges the members of one or more dicts."""
     result = dict()
     for d in dicts:
         for k, v in d.items():
-            if (isinstance(v, collections.Mapping) and k in result
+            if (isinstance(v, dict) and k in result
                     and isinstance(result[k], dict)):
                 result[k] = dict_merge(result[k], v)
             else:
