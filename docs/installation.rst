@@ -117,6 +117,18 @@ The build is affected by the following environment variables:
    to specify when building.  The encoding is the same as for
    :envvar:`TENSORSTORE_BAZEL_STARTUP_OPTIONS`.
 
+.. envvar:: ARCHFLAGS
+
+   macOS only.  Specifies the CPU architecture to target for cross-compilation.
+   May be ``-arch x86_64`` or ``-arch arm64``.  Universal2 builds (specified by
+   ``-arch arm64 -arch x86_64`` are *not* supported).
+
+.. envvar:: MACOSX_DEPLOYMENT_TARGET
+
+   macOS only.  Specifies the minimum required macOS version to target.  Must
+   not be earlier than ``10.14``.  If not specified, defaults to the same macOS
+   version required by the Python binary itself, or ``10.14`` if later.
+
 .. envvar:: TENSORSTORE_PREBUILT_DIR
 
    If specified, building is skipped, and instead ``setup.py`` expects to find

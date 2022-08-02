@@ -6,12 +6,19 @@ jobs:
   python-build-package:
     strategy:
       matrix:
-        os:
-          - 'ubuntu-latest'
-          - 'windows-latest'
-          - 'macos-latest'
-        python-version:
-          - '3.9'
+        include:
+        - os: 'ubuntu-latest'
+          cibw_build: '*'
+          wheel_identifier: linux
+        - os: 'windows-latest'
+          cibw_build: '*'
+          wheel_identifier: windows
+        - os: 'macos-latest'
+          cibw_build: '*_x86_64'
+          wheel_identifier: macos_x86_64
+        - os: 'macos-latest'
+          cibw_build: '*_arm64'
+          wheel_identifier: macos_arm64
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v2
@@ -49,10 +56,12 @@ jobs:
     - name: Build Python wheels
       run: python ./tools/ci/cibuildwheel.py --bazelrc ~/ci_bazelrc
       shell: bash # For ~ expansion
+      env:
+        CIBW_BUILD: ${{ matrix.cibw_build }}
     - name: Upload wheels as artifacts
       uses: actions/upload-artifact@v2
       with:
-        name: python-wheels-${{ matrix.os }}
+        name: python-wheels-${{ matrix.wheel_identifier }}
         path: |
           dist/*.whl
           dist/*.tar.gz
@@ -66,15 +75,19 @@ jobs:
     steps:
     - uses: actions/download-artifact@v2
       with:
-        name: python-wheels-ubuntu-latest
+        name: python-wheels-linux
         path: dist
     - uses: actions/download-artifact@v2
       with:
-        name: python-wheels-macos-latest
+        name: python-wheels-macos_x86_64
         path: dist
     - uses: actions/download-artifact@v2
       with:
-        name: python-wheels-windows-latest
+        name: python-wheels-macos_arm64
+        path: dist
+    - uses: actions/download-artifact@v2
+      with:
+        name: python-wheels-windows
         path: dist
     - name: Publish to PyPI (test server)
       uses: pypa/gh-action-pypi-publish@54b39fb9371c0b3a6f9f14bb8a67394defc7a806 # 2020-09-25

@@ -1,0 +1,21 @@
+# Defines platforms for macOS, for use by the `platform_mappings` file, which is
+# enabled automatically by our `.bazelrc`.
+#
+# Currently cross-compilation is not used elsewhere, and therefore platform
+# definitions aren't needed.
+
+platform(
+    name = "macos_x86_64",
+    constraint_values = [
+        "@platforms//os:macos",
+        "@platforms//cpu:x86_64",
+    ],
+)
+
+platform(
+    name = "macos_arm64",
+    constraint_values = [
+        "@platforms//os:macos",
+        "@platforms//cpu:arm64",
+    ],
+)

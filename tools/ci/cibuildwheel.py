@@ -93,6 +93,7 @@ def run(args, extra_args):
 
   # Setup common to all platforms
 
+  env["CIBW_ARCHS_MACOS"] = "x86_64 arm64"
   env["CIBW_SKIP"] = "cp27-* cp35-* cp36-* pp* *_i686 *-win32 *-musllinux*"
   env["CIBW_TEST_COMMAND"] = (
       "python -m pytest {project}/python/tensorstore/tests -vv -s")
@@ -121,31 +122,8 @@ def run(args, extra_args):
   bazelisk_home = os.getenv("BAZELISK_HOME",
                             os.path.join(home_dir, ".cache", "bazelisk"))
 
-  # Currently, bazel can only cache results for a single Python version
-  # (i.e. when PYTHON_BIN_PATH changes, previous results that depend on it are
-  # invalidated).  However, most of the targets do not depend on the Python
-  # headers.
-  #
-  # To avoid wasteful rebuilding of the Python-independent targets for each
-  # version of Python, we ensure that the same workspace directory and cache
-  # directory are used for all Python versions (in particular, we specify
-  # `--incompatible_strict_action_env=true` in `.bazelrc` to prevent changes in
-  # PATH from invalidating the entire cache).
-  #
-  # Currently, `pip wheel` always performs an out-of-tree build by copying the
-  # source directory to a temporary directory:
-  #
-  # https://github.com/pypa/pip/pull/9091
-  #
-  # Since each temporary directory would be a new workspace directory, Bazel"s
-  # normal caching would not apply.  While `--disk_cache` would work, we don"t
-  # use it because currently it does not support any sort of automated pruning.
-  # Instead, invoke Bazel via `CIBW_BEFORE_BUILD` to build the extension module
-  # from the original source directory before `pip wheel` is invoked.  Then `pip
-  # wheel` just copies the pre-built extension.
   env["CIBW_BEFORE_BUILD"] = " && ".join([
       "pip install -r {package}/tools/ci/build_requirements.txt",
-      "bash -euxv {package}/tools/ci/prebuild_extension.sh"
   ])
   bazel_cache_dir = os.getenv(
       "CIBUILDWHEEL_BAZEL_CACHE",
@@ -153,9 +131,7 @@ def run(args, extra_args):
 
   # Logic for completing the build setup and starting the build that is common
   # to all platforms.
-  def perform_build(prebuilt_dir: str):
-    cibw_environment["TENSORSTORE_PREBUILT_DIR"] = prebuilt_dir
-
+  def perform_build():
     cibw_environment["TENSORSTORE_BAZEL_STARTUP_OPTIONS"] = shlex_join(
         bazel_startup_options)
 
@@ -214,7 +190,7 @@ def run(args, extra_args):
         pathlib.Path(temp_bazelrc).write_text(bazelrc_data, encoding="utf-8")
         bazel_startup_options.append("--bazelrc=" + "/host" + temp_bazelrc)
       with preserve_permissions([pip_cache_dir, bazel_cache_dir]):
-        perform_build(prebuilt_dir="/tmp/tensorstore_prebuilt_extension")
+        perform_build()
   else:
     # macOS or Windows: build is performed without a container.
 
@@ -226,8 +202,7 @@ def run(args, extra_args):
     cibw_environment["BAZELISK_HOME"] = fix_path(bazelisk_home)
     bazel_startup_options.append("--output_user_root=" +
                                  fix_path(bazel_cache_dir))
-    with tempfile.TemporaryDirectory() as prebuilt_dir:
-      perform_build(prebuilt_dir)
+    perform_build()
 
 
 def main():

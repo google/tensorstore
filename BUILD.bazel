@@ -147,36 +147,10 @@ config_setting(
     visibility = ["//visibility:public"],
 )
 
-selects.config_setting_group(
+config_setting(
     name = "arm64",
-    match_any = [
-        ":cpu_aarch64",
-        ":cpu_arm64_v8a",
-        ":cpu_darwin_arm64",
-        ":cpu_darwin_arm64e",
-    ],
+    constraint_values = ["@platforms//cpu:arm64"],
     visibility = ["//visibility:public"],
-)
-
-# ARM64 cpu variants.
-config_setting(
-    name = "cpu_aarch64",
-    values = {"cpu": "aarch64"},
-)
-
-config_setting(
-    name = "cpu_arm64_v8a",
-    values = {"cpu": "arm64-v8a"},
-)
-
-config_setting(
-    name = "cpu_darwin_arm64",
-    values = {"cpu": "darwin_arm64"},
-)
-
-config_setting(
-    name = "cpu_darwin_arm64e",
-    values = {"cpu": "darwin_arm64e"},
 )
 
 # Os settings

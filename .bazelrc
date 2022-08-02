@@ -8,6 +8,13 @@ build --incompatible_linkopts_to_linklibs
 # Ensure the cache is not invalidated by changes to $PATH
 build --incompatible_strict_action_env=true
 
+# Use platforms to select toolchains (https://github.com/bazelbuild/bazel/issues/7260)
+build --incompatible_enable_cc_toolchain_resolution
+
+# Specify platform mapping to ensure "platforms" and --cpu flags are
+# in sync.
+build --platform_mappings=tools/bazel_platforms/platform_mappings
+
 # Use absl with googletest
 build --define=absl=1
 

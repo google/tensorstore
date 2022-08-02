@@ -87,10 +87,14 @@ class BuildCommand(distutils.command.build.build):
     super().finalize_options()
 
 
+_EXCLUDED_PYTHON_MODULES = frozenset([
+    'tensorstore.bazel_pytest_main', 'tensorstore.shell',
+    'tensorstore.cc_test_driver_main'
+])
+
+
 def _include_python_module(name):
-  if name == 'tensorstore.bazel_pytest_main':
-    return False
-  if name == 'tensorstore.shell':
+  if name in _EXCLUDED_PYTHON_MODULES:
     return False
   if name.endswith('_test'):
     return False
@@ -187,6 +191,23 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
           # Note: Bazel does not use the MACOSX_DEPLOYMENT_TARGET environment
           # variable.
           build_command += ['--macos_minimum_os=%s' % _macos_deployment_target]
+          # Support cross-compilation on macOS
+          # https://github.com/pypa/cibuildwheel/discussions/997#discussioncomment-2045760
+          darwin_cpus = [
+              x for x in os.getenv('ARCHFLAGS', '').split() if x != '-arch'
+          ]
+          # cibuildwheel sets `ARCHFLAGS` to one of:
+          #     '-arch x86_64'
+          #     '-arch arm64'
+          #     '-arch arm64 -arch x86_64'
+          if darwin_cpus:
+            if len(darwin_cpus) > 1:
+              raise ValueError('Fat/universal %r build not supported' %
+                               (darwin_cpus,))
+            darwin_cpu = darwin_cpus[0]
+            build_command += [
+                f'--cpu=darwin_{darwin_cpu}', f'--macos_cpus={darwin_cpu}'
+            ]
         if sys.platform == 'win32':
           # Disable newer exception handling from Visual Studio 2019, since it
           # requires a newer C++ runtime than shipped with Python.
