@@ -21,6 +21,7 @@
 
 #include <gtest/gtest.h>
 #include "absl/synchronization/notification.h"
+#include "absl/time/clock.h"
 #include "tensorstore/util/executor.h"
 
 namespace tensorstore {
@@ -70,7 +71,7 @@ TEST(DetachedThreadPoolTest, ThreadLimit) {
     executor([&num_running_tasks, &notifications, i] {
       auto& notification = notifications[i];
       EXPECT_LE(++num_running_tasks, kThreadLimit);
-      std::this_thread::sleep_for(std::chrono::seconds(1));
+      absl::SleepFor(absl::Seconds(1));
       --num_running_tasks;
       notification.Notify();
     });

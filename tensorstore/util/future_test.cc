@@ -280,7 +280,7 @@ TEST(FutureTest, Wait) {
   auto pair = PromiseFuturePair<int>::Make();
   std::thread thread(
       [](Promise<int> promise) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        absl::SleepFor(absl::Milliseconds(20));
         EXPECT_TRUE(promise.SetResult(5));
       },
       std::move(pair.promise));
@@ -294,16 +294,14 @@ TEST(FutureTest, WaitForFailure) {
   // allow it to pass if it works even once.
   for (size_t i = 0; i < 100; ++i) {
     auto pair = PromiseFuturePair<int>::Make();
-    EXPECT_FALSE(
-        pair.future.WaitFor(absl::FromChrono(std::chrono::milliseconds(10))));
+    EXPECT_FALSE(pair.future.WaitFor(absl::Milliseconds(10)));
     std::thread thread(
         [](Promise<int> promise) {
-          std::this_thread::sleep_for(std::chrono::milliseconds(20));
+          absl::SleepFor(absl::Milliseconds(20));
           EXPECT_TRUE(promise.SetResult(5));
         },
         pair.promise);
-    const bool ready =
-        pair.future.WaitFor(absl::FromChrono(std::chrono::milliseconds(5)));
+    const bool ready = pair.future.WaitFor(absl::Milliseconds(5));
     thread.join();
     if (!ready) {
       // Passed
@@ -320,14 +318,12 @@ TEST(FutureTest, WaitForSuccess) {
     auto pair = PromiseFuturePair<int>::Make();
     std::thread thread(
         [](Promise<int> promise) {
-          std::this_thread::sleep_for(std::chrono::milliseconds(5));
+          absl::SleepFor(absl::Milliseconds(5));
           EXPECT_TRUE(promise.SetResult(5));
         },
         pair.promise);
-    const bool ready1 =
-        pair.future.WaitFor(absl::FromChrono(std::chrono::milliseconds(20)));
-    const bool ready2 =
-        pair.future.WaitFor(absl::FromChrono(std::chrono::milliseconds(10)));
+    const bool ready1 = pair.future.WaitFor(absl::Milliseconds(20));
+    const bool ready2 = pair.future.WaitFor(absl::Milliseconds(10));
     thread.join();
     if (ready1 && ready2) {
       // Passed
@@ -346,7 +342,7 @@ TEST(FutureTest, WaitUntilFailure) {
     EXPECT_FALSE(pair.future.WaitUntil(absl::Now() + absl::Milliseconds(10)));
     std::thread thread(
         [](Promise<int> promise) {
-          std::this_thread::sleep_for(std::chrono::milliseconds(20));
+          absl::SleepFor(absl::Milliseconds(20));
           EXPECT_TRUE(promise.SetResult(5));
         },
         pair.promise);
@@ -368,7 +364,7 @@ TEST(FutureTest, WaitUntilSuccess) {
     auto pair = PromiseFuturePair<int>::Make();
     std::thread thread(
         [](Promise<int> promise) {
-          std::this_thread::sleep_for(std::chrono::milliseconds(5));
+          absl::SleepFor(absl::Milliseconds(5));
           EXPECT_TRUE(promise.SetResult(5));
         },
         pair.promise);
