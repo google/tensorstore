@@ -13,10 +13,8 @@
 // limitations under the License.
 
 #include <atomic>
-#include <chrono>  // NOLINT
 #include <cstddef>
 #include <memory>
-#include <thread>  // NOLINT
 #include <vector>
 
 #include <gtest/gtest.h>

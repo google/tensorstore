@@ -25,6 +25,7 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/no_destructor.h"
+#include "tensorstore/internal/thread.h"
 #include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/executor.h"
 
@@ -148,73 +149,75 @@ void SharedThreadPool::HandleQueueBlocked() {
 
 void SharedThreadPool::StartThread() {
   idle_threads_++;
-  std::thread([self = IntrusivePtr<SharedThreadPool>(this)] {
-    absl::MutexLock lock(&self->mutex_);
-    while (true) {
-      absl::Time idle_start_time = absl::Now();
-      if (self->queue_.empty()) {
-        // Block until queue is empty, or until deadline to exit may have
-        // been reached.
-        while (!self->mutex_.AwaitWithDeadline(
-            absl::Condition(
-                +[](SharedThreadPool* self) ABSL_EXCLUSIVE_LOCKS_REQUIRED(
-                     self->mutex_) { return !self->queue_.empty(); },
-                self.get()),
-            std::max(idle_start_time + kThreadIdleBeforeExit,
-                     self->last_thread_exit_time_ + kThreadExitDelay))) {
-          auto now = absl::Now();
-          if (self->last_thread_exit_time_ + kThreadExitDelay <= now) {
-            self->last_thread_exit_time_ = now;
-            --self->idle_threads_;
-            return;
+  tensorstore::internal::Thread::StartDetached(
+      {"pool_worker"}, [self = IntrusivePtr<SharedThreadPool>(this)] {
+        absl::MutexLock lock(&self->mutex_);
+        while (true) {
+          absl::Time idle_start_time = absl::Now();
+          if (self->queue_.empty()) {
+            // Block until queue is empty, or until deadline to exit may have
+            // been reached.
+            while (!self->mutex_.AwaitWithDeadline(
+                absl::Condition(
+                    +[](SharedThreadPool* self) ABSL_EXCLUSIVE_LOCKS_REQUIRED(
+                         self->mutex_) { return !self->queue_.empty(); },
+                    self.get()),
+                std::max(idle_start_time + kThreadIdleBeforeExit,
+                         self->last_thread_exit_time_ + kThreadExitDelay))) {
+              auto now = absl::Now();
+              if (self->last_thread_exit_time_ + kThreadExitDelay <= now) {
+                self->last_thread_exit_time_ = now;
+                --self->idle_threads_;
+                return;
+              }
+            }
           }
-        }
-      }
-      auto task = std::move(self->queue_.front());
-      self->queue_.pop();
-      if (--self->idle_threads_ == 0 && !self->queue_.empty()) {
-        self->HandleQueueBlocked();
-      }
+          auto task = std::move(self->queue_.front());
+          self->queue_.pop();
+          if (--self->idle_threads_ == 0 && !self->queue_.empty()) {
+            self->HandleQueueBlocked();
+          }
 
-      // Execute task with mutex unlocked.
-      {
-        ScopedWriterUnlock unlock(self->mutex_);
-        task.callback();
-        task.managed_queue->TaskDone();
-        // Ensure the task destructor runs while the mutex is unlocked.
-        task = QueuedTask{};
-      }
-      ++self->idle_threads_;
-    }
-  }).detach();
+          // Execute task with mutex unlocked.
+          {
+            ScopedWriterUnlock unlock(self->mutex_);
+            task.callback();
+            task.managed_queue->TaskDone();
+            // Ensure the task destructor runs while the mutex is unlocked.
+            task = QueuedTask{};
+          }
+          ++self->idle_threads_;
+        }
+      });
 }
 
 void SharedThreadPool::StartOverseerThread() {
   has_overseer_thread_ = true;
-  std::thread([self = IntrusivePtr<SharedThreadPool>(this)] {
-    absl::Time idle_start_time = absl::Now();
-    absl::MutexLock lock(&self->mutex_);
-    while (true) {
-      auto now = absl::Now();
-      absl::Time deadline;
-      if (self->queue_blocked()) {
-        deadline = self->queue_blocked_time_ + kThreadStartDelay;
-        if (deadline <= now) {
-          self->queue_blocked_time_ += kThreadStartDelay;
-          self->StartThread();
-          idle_start_time = absl::Now();
-          continue;
+  tensorstore::internal::Thread::StartDetached(
+      {"pool_overseer"}, [self = IntrusivePtr<SharedThreadPool>(this)] {
+        absl::Time idle_start_time = absl::Now();
+        absl::MutexLock lock(&self->mutex_);
+        while (true) {
+          auto now = absl::Now();
+          absl::Time deadline;
+          if (self->queue_blocked()) {
+            deadline = self->queue_blocked_time_ + kThreadStartDelay;
+            if (deadline <= now) {
+              self->queue_blocked_time_ += kThreadStartDelay;
+              self->StartThread();
+              idle_start_time = absl::Now();
+              continue;
+            }
+          } else {
+            deadline = idle_start_time + kOverseerIdleBeforeExit;
+            if (deadline <= now) {
+              self->has_overseer_thread_ = false;
+              return;
+            }
+          }
+          self->overseer_condvar_.WaitWithDeadline(&self->mutex_, deadline);
         }
-      } else {
-        deadline = idle_start_time + kOverseerIdleBeforeExit;
-        if (deadline <= now) {
-          self->has_overseer_thread_ = false;
-          return;
-        }
-      }
-      self->overseer_condvar_.WaitWithDeadline(&self->mutex_, deadline);
-    }
-  }).detach();
+      });
 }
 
 ManagedTaskQueue::ManagedTaskQueue(IntrusivePtr<SharedThreadPool> pool,

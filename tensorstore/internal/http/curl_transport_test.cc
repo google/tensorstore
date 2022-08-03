@@ -35,6 +35,7 @@
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/transport_test_utils.h"
 #include "tensorstore/internal/logging.h"
+#include "tensorstore/internal/thread.h"
 
 using ::tensorstore::internal_http::HttpRequestBuilder;
 using ::tensorstore::transport_test_utils::AcceptNonBlocking;
@@ -85,7 +86,7 @@ TEST_F(CurlTransportTest, Http1) {
 
   // Start a thread to handle a single request.
   std::string initial_request;
-  std::thread serve_thread = std::thread([&] {
+  tensorstore::internal::Thread serve_thread({"serve_thread"}, [&] {
     auto client_fd = AcceptNonBlocking(socket);
     initial_request = ReceiveAvailable(client_fd);
     AssertSend(client_fd, kResponse);
@@ -106,7 +107,7 @@ TEST_F(CurlTransportTest, Http1) {
   TENSORSTORE_LOG(GetStatus(response));
 
   TENSORSTORE_LOG("Wait on server");
-  serve_thread.join();
+  serve_thread.Join();
 
   EXPECT_THAT(initial_request, HasSubstr("POST /?name=dragon&age=1234"));
   EXPECT_THAT(initial_request,
@@ -151,7 +152,7 @@ TEST_F(CurlTransportTest, Http1Resend) {
   // the response.
 
   std::string seen_requests[3];
-  std::thread serve_thread = std::thread([&] {
+  tensorstore::internal::Thread serve_thread({"serve_thread"}, [&] {
     socket_t client_fd = -1;
 
     for (int i = 0; i < 3; i++) {
@@ -205,7 +206,7 @@ TEST_F(CurlTransportTest, Http1Resend) {
   }
 
   TENSORSTORE_LOG("Wait on server");
-  serve_thread.join();
+  serve_thread.Join();
 
   for (auto& request : seen_requests) {
     using ::testing::HasSubstr;

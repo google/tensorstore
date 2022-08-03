@@ -24,7 +24,6 @@
 
 #include <cstring>
 #include <string_view>
-#include <thread>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -35,6 +34,7 @@
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/transport_test_utils.h"
 #include "tensorstore/internal/logging.h"
+#include "tensorstore/internal/thread.h"
 
 using ::tensorstore::internal_http::HttpRequestBuilder;
 using ::tensorstore::transport_test_utils::AcceptNonBlocking;
@@ -343,7 +343,7 @@ TEST_F(CurlTransportTest, Http2) {
   std::string initial_request;
   std::string second_request;
 
-  std::thread serve_thread = std::thread([&] {
+  tensorstore::internal::Thread serve_thread({"serve_thread"}, [&] {
     auto client_fd = AcceptNonBlocking(socket);
     initial_request = ReceiveAvailable(client_fd);
 
@@ -430,7 +430,7 @@ TEST_F(CurlTransportTest, Http2) {
     TENSORSTORE_LOG(GetStatus(response));
   }
 
-  serve_thread.join();
+  serve_thread.Join();
 }
 
 }  // namespace

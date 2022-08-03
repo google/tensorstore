@@ -155,6 +155,7 @@ tensorstore_cc_library(
     hdrs = ["concurrent_testutil.h"],
     deps = [
         ":logging",
+        ":thread",
         "//tensorstore/util:assert_macros",
     ],
 )
@@ -1641,6 +1642,22 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
+    name = "thread",
+    srcs = ["thread.cc"],
+    hdrs = ["thread.h"],
+    deps = ["//tensorstore/util:assert_macros"],
+)
+
+tensorstore_cc_test(
+    name = "thread_test",
+    srcs = ["thread_test.cc"],
+    deps = [
+        ":thread",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
     name = "thread_pool",
     srcs = ["thread_pool.cc"],
     hdrs = ["thread_pool.h"],
@@ -1648,6 +1665,7 @@ tensorstore_cc_library(
         ":intrusive_ptr",
         ":mutex",
         ":no_destructor",
+        ":thread",
         "//tensorstore/internal/metrics",
         "//tensorstore/util:assert_macros",
         "//tensorstore/util:executor",
@@ -1804,7 +1822,7 @@ tensorstore_cc_library(
     ],
 )
 
-cc_library(
+tensorstore_cc_library(
     name = "schedule_at",
     srcs = ["schedule_at.cc"],
     hdrs = ["schedule_at.h"],
@@ -1822,7 +1840,7 @@ cc_library(
     ],
 )
 
-cc_test(
+tensorstore_cc_test(
     name = "schedule_at_test",
     srcs = ["schedule_at_test.cc"],
     deps = [

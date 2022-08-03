@@ -18,7 +18,6 @@
 #include <cstring>
 #include <fstream>
 #include <string>
-#include <thread>  // NOLINT
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -33,6 +32,7 @@
 #include "tensorstore/context.h"
 #include "tensorstore/internal/file_io_concurrency_resource.h"
 #include "tensorstore/internal/test_util.h"
+#include "tensorstore/internal/thread.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/generation_testutil.h"
 #include "tensorstore/kvstore/key_range.h"
@@ -200,7 +200,9 @@ TEST(FileKeyValueStoreTest, NestedDirectories) {
 
 TEST(FileKeyValueStoreTest, ConcurrentWrites) {
   constexpr std::size_t num_threads = 4;
-  std::vector<std::thread> threads;
+  std::vector<tensorstore::internal::Thread> threads;
+  threads.reserve(num_threads);
+
   tensorstore::internal::ScopedTemporaryDirectory tempdir;
   std::string root = tempdir.path() + "/root";
   auto store = GetStore(root);
@@ -211,38 +213,40 @@ TEST(FileKeyValueStoreTest, ConcurrentWrites) {
       kvstore::Write(store, key, absl::Cord(initial_value)).value().generation;
   constexpr std::size_t num_iterations = 100;
   for (std::size_t thread_i = 0; thread_i < num_threads; ++thread_i) {
-    threads.push_back(std::thread([&, thread_i] {
-      StorageGeneration generation = initial_generation;
-      std::string value = initial_value;
-      for (std::size_t i = 0; i < num_iterations; ++i) {
-        const std::size_t value_offset = sizeof(std::size_t) * thread_i;
-        while (true) {
-          std::size_t x;
-          std::memcpy(&x, &value[value_offset], sizeof(std::size_t));
-          ASSERT_EQ(i, x);
-          std::string new_value = value;
-          x = i + 1;
-          std::memcpy(&new_value[value_offset], &x, sizeof(std::size_t));
-          TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-              auto write_result,
-              kvstore::Write(store, key, absl::Cord(new_value), {generation})
-                  .result());
-          if (!StorageGeneration::IsUnknown(write_result.generation)) {
-            generation = write_result.generation;
-            value = new_value;
-            break;
+    threads.emplace_back(
+        tensorstore::internal::Thread({"concurrent_write"}, [&, thread_i] {
+          StorageGeneration generation = initial_generation;
+          std::string value = initial_value;
+          for (std::size_t i = 0; i < num_iterations; ++i) {
+            const std::size_t value_offset = sizeof(std::size_t) * thread_i;
+            while (true) {
+              std::size_t x;
+              std::memcpy(&x, &value[value_offset], sizeof(std::size_t));
+              ASSERT_EQ(i, x);
+              std::string new_value = value;
+              x = i + 1;
+              std::memcpy(&new_value[value_offset], &x, sizeof(std::size_t));
+              TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+                  auto write_result,
+                  kvstore::Write(store, key, absl::Cord(new_value),
+                                 {generation})
+                      .result());
+              if (!StorageGeneration::IsUnknown(write_result.generation)) {
+                generation = write_result.generation;
+                value = new_value;
+                break;
+              }
+              TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+                  auto read_result, kvstore::Read(store, key).result());
+              ASSERT_FALSE(read_result.aborted() || read_result.not_found());
+              value = std::string(read_result.value);
+              ASSERT_EQ(sizeof(std::size_t) * num_threads, value.size());
+              generation = read_result.stamp.generation;
+            }
           }
-          TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto read_result,
-                                           kvstore::Read(store, key).result());
-          ASSERT_FALSE(read_result.aborted() || read_result.not_found());
-          value = std::string(read_result.value);
-          ASSERT_EQ(sizeof(std::size_t) * num_threads, value.size());
-          generation = read_result.stamp.generation;
-        }
-      }
-    }));
+        }));
   }
-  for (auto& t : threads) t.join();
+  for (auto& t : threads) t.Join();
   {
     auto read_result = kvstore::Read(store, key).result();
     ASSERT_TRUE(read_result);

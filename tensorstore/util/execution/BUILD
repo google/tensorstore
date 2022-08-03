@@ -93,6 +93,7 @@ tensorstore_cc_test(
         ":sender_testutil",
         ":sync_flow_sender",
         "//tensorstore/internal:mutex",
+        "//tensorstore/internal:thread",
         "@com_google_googletest//:gtest_main",
     ],
 )

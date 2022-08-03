@@ -21,7 +21,6 @@
 #include <memory>
 #include <string>
 #include <string_view>
-#include <thread>
 #include <utility>
 
 #include "absl/status/status.h"
@@ -37,6 +36,7 @@
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/gauge.h"
 #include "tensorstore/internal/no_destructor.h"
+#include "tensorstore/internal/thread.h"
 #include "tensorstore/util/future.h"
 
 namespace tensorstore {
@@ -283,14 +283,14 @@ class MultiTransportImpl {
  public:
   explicit MultiTransportImpl(std::shared_ptr<CurlHandleFactory> factory)
       : factory_(factory), multi_(factory_->CreateMultiHandle()) {
-    thread_ = std::thread([this] { Run(); });
+    thread_ = internal::Thread({"curl_handler"}, [this] { Run(); });
   }
 
   ~MultiTransportImpl() {
     done_ = true;
     curl_multi_wakeup(multi_.get());
 
-    thread_.join();
+    thread_.Join();
     factory_->CleanupMultiHandle(std::move(multi_));
   }
 
@@ -318,7 +318,7 @@ class MultiTransportImpl {
   std::vector<CURL*> pending_requests_;
   std::atomic<bool> done_{false};
 
-  std::thread thread_;
+  internal::Thread thread_;
 };
 
 Future<HttpResponse> MultiTransportImpl::StartRequest(

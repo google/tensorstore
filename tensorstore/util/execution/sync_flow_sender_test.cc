@@ -15,12 +15,12 @@
 #include "tensorstore/util/execution/sync_flow_sender.h"
 
 #include <string>
-#include <thread>  // NOLINT
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "tensorstore/internal/mutex.h"
+#include "tensorstore/internal/thread.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender_testutil.h"
 
@@ -32,12 +32,13 @@ struct ConcurrentSender {
   template <typename Receiver>
   void submit(Receiver receiver) {
     tensorstore::execution::set_starting(receiver, [] {});
-    std::vector<std::thread> threads;
+    std::vector<tensorstore::internal::Thread> threads;
     for (std::size_t i = 0; i < num_threads; ++i) {
-      threads.emplace_back(
-          [i, &receiver] { tensorstore::execution::set_value(receiver, i); });
+      threads.emplace_back(tensorstore::internal::Thread(
+          {"sender"},
+          [i, &receiver] { tensorstore::execution::set_value(receiver, i); }));
     }
-    for (auto& thread : threads) thread.join();
+    for (auto& thread : threads) thread.Join();
     if (error) {
       tensorstore::execution::set_error(receiver, 3);
     } else {

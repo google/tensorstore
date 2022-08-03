@@ -18,7 +18,8 @@
 #include <atomic>
 #include <cstddef>
 #include <ctime>
-#include <thread>  // NOLINT
+
+#include "tensorstore/internal/thread.h"
 
 namespace tensorstore {
 namespace internal {
@@ -57,7 +58,7 @@ void TestConcurrent(std::size_t num_iterations, Initialize initialize,
   // One count per concurrent op, plus one for initialize/finalize.
   constexpr std::size_t counts_per_iteration = sizeof...(ConcurrentOps) + 1;
   // Start one thread for each concurrent operation.
-  std::thread threads[]{std::thread([&] {
+  internal::Thread threads[]{internal::Thread({"concurrent"}, [&] {
     MaybeYield();
     for (std::size_t iteration = 0; iteration < num_iterations; ++iteration) {
       // Spin/yield until `initialize` has run for this iteration.
@@ -79,7 +80,7 @@ void TestConcurrent(std::size_t num_iterations, Initialize initialize,
     finalize();
   }
   for (auto& t : threads) {
-    t.join();
+    t.Join();
   }
 }
 
