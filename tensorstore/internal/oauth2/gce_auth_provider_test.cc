@@ -30,13 +30,6 @@ using tensorstore::internal_oauth2::GceAuthProvider;
 
 namespace {
 
-const char kServiceAccountInfo[] = R"(
-{
-  "email": "nobody@nowhere.com",
-  "scopes": [ "abc", "xyz" ]
-}
-)";
-
 const char kOAuthResponse[] = R"(
 {
   "token_type" : "refresh",
@@ -48,7 +41,8 @@ const char kOAuthResponse[] = R"(
 class TestAuthProvider : public GceAuthProvider {
  public:
   TestAuthProvider()
-      : GceAuthProvider(nullptr, [this] { return this->time; }),
+      : GceAuthProvider(nullptr, {"nobody@nowhere.com", {"abc", "xyz"}},
+                        [this] { return this->time; }),
         time(absl::Now()),
         idx(0) {}
 
@@ -75,23 +69,15 @@ TEST(GceAuthProviderTest, InitialState) {
 TEST(GceAuthProviderTest, Status200) {
   TestAuthProvider auth;
   auth.responses = {
-      {0,
-       {200,
-        absl::Cord(kServiceAccountInfo),
-        {}}},                                      // RetrieveServiceAccountInfo
+      {0, {200, absl::Cord(kOAuthResponse), {}}},  // OAuth request
       {1, {200, absl::Cord(kOAuthResponse), {}}},  // OAuth request
-      {2,
-       {200,
-        absl::Cord(kServiceAccountInfo),
-        {}}},                                      // RetrieveServiceAccountInfo
-      {3, {200, absl::Cord(kOAuthResponse), {}}},  // OAuth request
   };
 
   EXPECT_FALSE(auth.IsValid());
 
   {
     auto result = auth.GetToken();
-    EXPECT_EQ(2, auth.idx);
+    EXPECT_EQ(1, auth.idx);
     EXPECT_TRUE(result.ok()) << result.status();
 
     EXPECT_EQ(auth.time + absl::Seconds(456), result->expiration);
@@ -105,7 +91,7 @@ TEST(GceAuthProviderTest, Status200) {
   auth.time += absl::Seconds(600);
   {
     auto result = auth.GetToken();
-    EXPECT_EQ(4, auth.idx);
+    EXPECT_EQ(2, auth.idx);
     EXPECT_TRUE(result.ok()) << result.status();
 
     EXPECT_EQ(auth.time + absl::Seconds(456), result->expiration);
@@ -120,40 +106,24 @@ TEST(GceAuthProviderTest, NoResponse) {
   EXPECT_FALSE(result.ok()) << result.status();
 
   ASSERT_EQ(1, auth.request.size());
-  EXPECT_EQ("/computeMetadata/v1/instance/service-accounts/default/",
-            auth.request[0]);
+  EXPECT_EQ(
+      "/computeMetadata/v1/instance/service-accounts/nobody@nowhere.com/token",
+      auth.request[0]);
 }
 
 TEST(GceAuthProviderTest, Status400) {
   TestAuthProvider auth;
   auth.responses = {
-      {0,
-       {400,
-        absl::Cord(kServiceAccountInfo),
-        {}}},  // RetrieveServiceAccountInfo
+      {0, {400, absl::Cord(kOAuthResponse), {}}},  // OAuth request
   };
 
   auto result = auth.GetToken();
-  EXPECT_FALSE(result.ok()) << result.status();
-}
-
-TEST(GceAuthProviderTest, Status400OnSecondCall) {
-  TestAuthProvider auth;
-  auth.responses = {
-      {0,
-       {200,
-        absl::Cord(kServiceAccountInfo),
-        {}}},                                      // RetrieveServiceAccountInfo
-      {1, {400, absl::Cord(kOAuthResponse), {}}},  // OAuth request
-  };
-
-  auto result = auth.GetToken();
-  EXPECT_EQ(2, auth.idx);
+  EXPECT_EQ(1, auth.idx);
   EXPECT_FALSE(result.ok()) << result.status();
 }
 
 TEST(GceAuthProviderTest, Hostname) {
-  // GCE_METADATA_ROOT overrides the default GCE metata hostname.
+  // GCE_METADATA_ROOT overrides the default GCE metadata hostname.
   EXPECT_EQ("metadata.google.internal",
             tensorstore::internal_oauth2::GceMetadataHostname());
 

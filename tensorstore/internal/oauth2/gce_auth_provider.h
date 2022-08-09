@@ -38,12 +38,26 @@ std::string GceMetadataHostname();
 
 class GceAuthProvider : public RefreshableAuthProvider {
  public:
+  struct ServiceAccountInfo {
+    std::string email;
+    std::vector<std::string> scopes;
+  };
+
   ~GceAuthProvider() override = default;
 
   GceAuthProvider(std::shared_ptr<internal_http::HttpTransport> transport,
+                  const ServiceAccountInfo& service_account_info,
                   std::function<absl::Time()> clock = {});
 
   using AuthProvider::BearerTokenWithExpiration;
+
+  /// Returns the default GCE service account info if available.  If not running
+  /// on GCE, or there is no default service account, returns `NOT_FOUND`.
+  ///
+  /// The ServiceAccountInfo is returned from a GCE metadata call to:
+  /// "metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/",
+  static Result<ServiceAccountInfo> GetDefaultServiceAccountInfoIfRunningOnGce(
+      internal_http::HttpTransport* transport);
 
  protected:
   // Issue an http request on the provided path.

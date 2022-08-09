@@ -55,22 +55,17 @@ namespace {
 //    .config/gcloud/application_default_credentials.json
 // 3. The GCE metadata service will return credentials for <self>.
 
-// The ServiceAccountInfo is returned from a GCE metadata call to:
-// "metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/",
-struct ServiceAccountInfo {
-  std::string email;
-  std::vector<std::string> scopes;
-};
-
 constexpr static auto ServiceAccountInfoBinder = jb::Object(
-    jb::Member("email", jb::Projection(&ServiceAccountInfo::email,
-                                       jb::NonEmptyStringBinder)),
+    jb::Member("email",
+               jb::Projection(&GceAuthProvider::ServiceAccountInfo::email,
+                              jb::NonEmptyStringBinder)),
 
     // Note that the "scopes" attribute will always be present and contain a
     // JSON array. At minimum, for the request to succeed, the instance must
     // have been granted the scope that allows it to retrieve info from the
     // metadata server.
-    jb::Member("scopes", jb::Projection(&ServiceAccountInfo::scopes)),
+    jb::Member("scopes",
+               jb::Projection(&GceAuthProvider::ServiceAccountInfo::scopes)),
     jb::DiscardExtraMembers);
 
 }  // namespace
@@ -85,9 +80,12 @@ std::string GceMetadataHostname() {
 
 GceAuthProvider::GceAuthProvider(
     std::shared_ptr<internal_http::HttpTransport> transport,
+    const ServiceAccountInfo& service_account_info,
     std::function<absl::Time()> clock)
     : RefreshableAuthProvider(std::move(clock)),
-      service_account_email_("default"),
+      service_account_email_(service_account_info.email),
+      scopes_(service_account_info.scopes.begin(),
+              service_account_info.scopes.end()),
       transport_(std::move(transport)) {}
 
 Result<HttpResponse> GceAuthProvider::IssueRequest(std::string path,
@@ -101,35 +99,30 @@ Result<HttpResponse> GceAuthProvider::IssueRequest(std::string path,
   return transport_->IssueRequest(request_builder.BuildRequest(), {}).result();
 }
 
-absl::Status GceAuthProvider::RetrieveServiceAccountInfo() {
+Result<GceAuthProvider::ServiceAccountInfo>
+GceAuthProvider::GetDefaultServiceAccountInfoIfRunningOnGce(
+    internal_http::HttpTransport* transport) {
+  HttpRequestBuilder request_builder(
+      "GET", internal::JoinPath(
+                 "http://", GceMetadataHostname(),
+                 "/computeMetadata/v1/instance/service-accounts/default/"));
+  request_builder.AddHeader("Metadata-Flavor: Google");
+  request_builder.AddQueryParameter("recursive", "true");
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto response,
-      IssueRequest(
-          absl::StrCat("/computeMetadata/v1/instance/service-accounts/",
-                       service_account_email_, "/"),
-          true));
+      transport->IssueRequest(request_builder.BuildRequest(), {}).result());
   TENSORSTORE_RETURN_IF_ERROR(HttpResponseCodeToStatus(response));
-
   auto info_response = internal::ParseJson(response.payload.Flatten());
   if (info_response.is_discarded()) {
     return absl::InvalidArgumentError(
         absl::StrCat("Failed to parse service account response: ",
                      response.payload.Flatten()));
   }
-
-  TENSORSTORE_ASSIGN_OR_RETURN(auto service_info,
-                               jb::FromJson<ServiceAccountInfo>(
-                                   info_response, ServiceAccountInfoBinder));
-
-  service_account_email_ = std::move(service_info.email);
-  scopes_ = std::set<std::string>(service_info.scopes.begin(),
-                                  service_info.scopes.end());
-  return absl::OkStatus();
+  return jb::FromJson<ServiceAccountInfo>(info_response,
+                                          ServiceAccountInfoBinder);
 }
 
 absl::Status GceAuthProvider::Refresh() {
-  TENSORSTORE_RETURN_IF_ERROR(RetrieveServiceAccountInfo());
-
   const auto now = clock_();
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto response,

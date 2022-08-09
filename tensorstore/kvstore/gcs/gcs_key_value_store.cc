@@ -383,7 +383,12 @@ class GcsKeyValueStore
       }
     }
     if (!*auth_provider_) return std::nullopt;
-    return (*auth_provider_)->GetAuthHeader();
+    auto auth_header_result = (*auth_provider_)->GetAuthHeader();
+    if (!auth_header_result.ok() &&
+        absl::IsNotFound(auth_header_result.status())) {
+      return std::nullopt;
+    }
+    return auth_header_result;
   }
 
   const Executor& executor() const {

@@ -80,26 +80,6 @@ bool IsFile(const std::string& filename) {
   return fstream.good();
 }
 
-/// Returns whether this is running on GCE.
-bool IsRunningOnGce(internal_http::HttpTransport* transport) {
-  HttpRequestBuilder request_builder(
-      "GET", JoinPath("http://", GceMetadataHostname()));
-
-  request_builder.AddHeader("Metadata-Flavor: Google");
-  auto request = request_builder.BuildRequest();
-
-  const auto issue_request = [&request, transport]() -> absl::Status {
-    TENSORSTORE_ASSIGN_OR_RETURN(auto response,
-                                 transport->IssueRequest(request, {}).result());
-    return internal_http::HttpResponseCodeToStatus(response);
-  };
-  auto status = internal::RetryWithBackoff(
-      issue_request, 3, /*initial_delay=*/absl::Milliseconds(10),
-      /*max_delay=*/absl::Seconds(1), /*jitter=*/absl::Milliseconds(10));
-
-  return status.ok();
-}
-
 /// Returns the credentials file name from the env variable.
 Result<std::string> GetEnvironmentVariableFileName() {
   auto env = GetEnv(kGoogleApplicationCredentials);
@@ -194,9 +174,14 @@ Result<std::unique_ptr<AuthProvider>> GetDefaultGoogleAuthProvider(
   }
 
   // 3. Running on GCE?
-  if (IsRunningOnGce(transport.get())) {
-    TENSORSTORE_LOG("Running on GCE, using GCE Auth Provider");
-    result.reset(new GceAuthProvider(std::move(transport)));
+  if (auto gce_service_account =
+          GceAuthProvider::GetDefaultServiceAccountInfoIfRunningOnGce(
+              transport.get());
+      gce_service_account.ok()) {
+    TENSORSTORE_LOG("Running on GCE, using service account ",
+                    gce_service_account->email);
+    result.reset(
+        new GceAuthProvider(std::move(transport), *gce_service_account));
     return std::move(result);
   }
   if (!credentials_filename.ok()) {
