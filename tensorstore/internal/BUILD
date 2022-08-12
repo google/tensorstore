@@ -155,8 +155,19 @@ tensorstore_cc_library(
     hdrs = ["concurrent_testutil.h"],
     deps = [
         ":logging",
+        ":multi_barrier",
         ":thread",
         "//tensorstore/util:assert_macros",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "concurrent_testutil_test",
+    srcs = ["concurrent_testutil_test.cc"],
+    deps = [
+        ":concurrent_testutil",
+        ":logging",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -1847,6 +1858,23 @@ tensorstore_cc_test(
         ":schedule_at",
         "//tensorstore/util:executor",
         "@com_google_absl//absl/synchronization",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "multi_barrier",
+    srcs = ["multi_barrier.cc"],
+    hdrs = ["multi_barrier.h"],
+    deps = ["@com_google_absl//absl/synchronization"],
+)
+
+tensorstore_cc_test(
+    name = "multi_barrier_test",
+    srcs = ["multi_barrier_test.cc"],
+    deps = [
+        ":multi_barrier",
+        ":thread",
         "@com_google_googletest//:gtest_main",
     ],
 )
