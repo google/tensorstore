@@ -28,6 +28,9 @@ TEST(PrettyPrintJsonAsPythonTest, Basic) {
   EXPECT_EQ("True", PrettyPrintJsonAsPython(::nlohmann::json(true)));
   EXPECT_EQ("False", PrettyPrintJsonAsPython(::nlohmann::json(false)));
   EXPECT_EQ("'abc'", PrettyPrintJsonAsPython(::nlohmann::json("abc")));
+  EXPECT_EQ("b'abc'",
+            PrettyPrintJsonAsPython(::nlohmann::json(::nlohmann::json::binary_t(
+                std::vector<uint8_t>{'a', 'b', 'c'}))));
   EXPECT_EQ("1", PrettyPrintJsonAsPython(::nlohmann::json(1)));
   EXPECT_EQ("1.5", PrettyPrintJsonAsPython(::nlohmann::json(1.5)));
   EXPECT_EQ("[1, 2, 3]", PrettyPrintJsonAsPython(::nlohmann::json({1, 2, 3})));

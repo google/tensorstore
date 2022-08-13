@@ -27,7 +27,7 @@ namespace internal_python {
 
 namespace {
 
-void FormatStringForPython(std::string* out, const std::string& s) {
+void FormatStringForPython(std::string* out, std::string_view s) {
   *out += '\'';
   *out += absl::CHexEscape(s);
   *out += '\'';
@@ -68,6 +68,14 @@ void FormatAsSingleLineForPython(std::string* out, const ::nlohmann::json& j) {
     }
     case ::nlohmann::json::value_t::string: {
       FormatStringForPython(out, j.get_ref<const std::string&>());
+      break;
+    }
+    case ::nlohmann::json::value_t::binary: {
+      auto& s = j.get_ref<const ::nlohmann::json::binary_t&>();
+      *out += 'b';
+      FormatStringForPython(
+          out,
+          std::string_view(reinterpret_cast<const char*>(s.data()), s.size()));
       break;
     }
     case ::nlohmann::json::value_t::boolean: {
