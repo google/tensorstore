@@ -8,12 +8,14 @@ licenses(["notice"])
 
 tensorstore_cc_library(
     name = "json_binding",
+    srcs = ["std_variant.cc"],
     hdrs = [
         "enum.h",
         "json_binding.h",
         "std_array.h",
         "std_optional.h",
         "std_tuple.h",
+        "std_variant.h",
     ],
     deps = [
         ":bindable",
@@ -321,6 +323,24 @@ tensorstore_cc_test(
         "//tensorstore:json_serialization_options_base",
         "//tensorstore/internal:json_fwd",
         "//tensorstore/util:status_testutil",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "std_variant_test",
+    srcs = ["std_variant_test.cc"],
+    deps = [
+        ":bindable",
+        ":gtest",
+        ":json_binding",
+        "//tensorstore:json_serialization_options_base",
+        "//tensorstore/internal:json_fwd",
+        "//tensorstore/internal:json_gtest",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status_testutil",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
     ],
 )
