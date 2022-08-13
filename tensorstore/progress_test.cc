@@ -19,9 +19,9 @@
 
 namespace {
 
-using tensorstore::CopyProgress;
-using tensorstore::ReadProgress;
-using tensorstore::WriteProgress;
+using ::tensorstore::CopyProgress;
+using ::tensorstore::ReadProgress;
+using ::tensorstore::WriteProgress;
 
 TEST(ReadProgressTest, Comparison) {
   ReadProgress a{1, 1};

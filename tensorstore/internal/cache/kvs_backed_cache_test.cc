@@ -38,20 +38,20 @@
 namespace {
 
 namespace kvstore = tensorstore::kvstore;
-using tensorstore::KeyRange;
-using tensorstore::MatchesStatus;
-using tensorstore::StorageGeneration;
-using tensorstore::TimestampedStorageGeneration;
-using tensorstore::Transaction;
-using tensorstore::internal::CachePool;
-using tensorstore::internal::KvsBackedTestCache;
-using tensorstore::internal::MatchesKvsReadResult;
-using tensorstore::internal::MockKeyValueStore;
-using tensorstore::internal::OpenTransactionPtr;
+using ::tensorstore::KeyRange;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::StorageGeneration;
+using ::tensorstore::TimestampedStorageGeneration;
+using ::tensorstore::Transaction;
+using ::tensorstore::internal::CachePool;
+using ::tensorstore::internal::KvsBackedTestCache;
+using ::tensorstore::internal::MatchesKvsReadResult;
+using ::tensorstore::internal::MockKeyValueStore;
+using ::tensorstore::internal::OpenTransactionPtr;
 
 TENSORSTORE_GLOBAL_INITIALIZER {
-  using tensorstore::internal::KvsBackedCacheBasicTransactionalTestOptions;
-  using tensorstore::internal::RegisterKvsBackedCacheBasicTransactionalTest;
+  using ::tensorstore::internal::KvsBackedCacheBasicTransactionalTestOptions;
+  using ::tensorstore::internal::RegisterKvsBackedCacheBasicTransactionalTest;
   {
     KvsBackedCacheBasicTransactionalTestOptions options;
     options.test_name = "MemoryNonAtomic";

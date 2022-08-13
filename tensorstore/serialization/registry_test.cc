@@ -21,9 +21,9 @@
 
 namespace {
 
-using tensorstore::serialization::Register;
-using tensorstore::serialization::RegistrySerializer;
-using tensorstore::serialization::SerializationRoundTrip;
+using ::tensorstore::serialization::Register;
+using ::tensorstore::serialization::RegistrySerializer;
+using ::tensorstore::serialization::SerializationRoundTrip;
 
 struct Base {
   virtual ~Base() = default;

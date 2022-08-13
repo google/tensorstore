@@ -38,12 +38,11 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span_json.h"
 
-namespace jb = ::tensorstore::internal_json_binding;
-
 namespace tensorstore {
 namespace internal_neuroglancer_precomputed {
 
-using internal::MetadataMismatchError;
+namespace jb = ::tensorstore::internal_json_binding;
+using ::tensorstore::internal::MetadataMismatchError;
 
 void to_json(::nlohmann::json& out,  // NOLINT
              const std::variant<NoShardingSpec, ShardingSpec>& s) {

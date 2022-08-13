@@ -40,6 +40,11 @@ namespace tensorstore {
 namespace internal_zarr {
 
 namespace {
+
+namespace jb = tensorstore::internal_json_binding;
+
+using ::tensorstore::internal_kvs_backed_chunk_driver::KvsDriverSpec;
+
 constexpr const char kDefaultMetadataKey[] = ".zarray";
 
 inline char GetDimensionSeparatorChar(DimensionSeparator dimension_separator) {
@@ -89,9 +94,6 @@ class MetadataCache : public internal_kvs_backed_chunk_driver::MetadataCache {
   }
 };
 
-namespace jb = tensorstore::internal_json_binding;
-
-using internal_kvs_backed_chunk_driver::KvsDriverSpec;
 
 class ZarrDriverSpec
     : public internal::RegisteredDriverSpec<ZarrDriverSpec,

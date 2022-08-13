@@ -19,7 +19,7 @@
 #include "tensorstore/util/str_cat.h"
 
 namespace {
-using tensorstore::KeyRange;
+using ::tensorstore::KeyRange;
 
 TEST(KeyRangeTest, Comparison) {
   KeyRange r1("a", "b");

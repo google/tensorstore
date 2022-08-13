@@ -47,6 +47,8 @@
 namespace tensorstore {
 namespace internal_cache {
 
+using ::tensorstore::internal::PinnedCacheEntry;
+
 #if !defined(NDEBUG)
 inline void DebugAssertMutexHeld(absl::Mutex* mutex) { mutex->AssertHeld(); }
 #else
@@ -67,7 +69,6 @@ CachePoolImpl::CachePoolImpl(const CachePool::Limits& limits)
 }
 
 namespace {
-using internal::PinnedCacheEntry;
 inline void AcquireWeakReference(CachePoolImpl* p) {
   p->weak_references_.fetch_add(1, std::memory_order_relaxed);
 }

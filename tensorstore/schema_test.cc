@@ -32,18 +32,19 @@
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
-using tensorstore::Box;
-using tensorstore::CodecSpec;
-using tensorstore::DimensionIndex;
-using tensorstore::dtype_v;
-using tensorstore::dynamic_rank;
-using tensorstore::Index;
-using tensorstore::IndexDomainBuilder;
-using tensorstore::kInfSize;
-using tensorstore::MatchesJson;
-using tensorstore::MatchesStatus;
-using tensorstore::Schema;
-using tensorstore::Unit;
+
+using ::tensorstore::Box;
+using ::tensorstore::CodecSpec;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::dtype_v;
+using ::tensorstore::dynamic_rank;
+using ::tensorstore::Index;
+using ::tensorstore::IndexDomainBuilder;
+using ::tensorstore::kInfSize;
+using ::tensorstore::MatchesJson;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::Schema;
+using ::tensorstore::Unit;
 
 TEST(SchemaTest, JsonRoundTrip) {
   tensorstore::TestJsonBinderRoundTripJsonOnly<Schema>({

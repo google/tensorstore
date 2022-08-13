@@ -36,8 +36,6 @@
 namespace tensorstore {
 namespace internal_grid_partition {
 
-using tensorstore::MatchesStatus;
-
 std::ostream& operator<<(std::ostream& os,
                          const IndexTransformGridPartition::StridedSet& s) {
   return os << "{grid_dimensions=" << s.grid_dimensions
@@ -86,18 +84,20 @@ bool operator!=(const IndexTransformGridPartition::IndexArraySet& a,
 }  // namespace tensorstore
 
 namespace {
-using tensorstore::DimensionIndex;
-using tensorstore::Index;
-using tensorstore::IndexInterval;
-using tensorstore::IndexTransformBuilder;
-using tensorstore::kInfIndex;
-using tensorstore::MakeArray;
-using tensorstore::MatchesStatus;
-using tensorstore::span;
-using tensorstore::internal::IrregularGrid;
-using tensorstore::internal_grid_partition::IndexTransformGridPartition;
-using tensorstore::internal_grid_partition::PrePartitionIndexTransformOverGrid;
-using tensorstore::internal_grid_partition::RegularGridRef;
+
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::Index;
+using ::tensorstore::IndexInterval;
+using ::tensorstore::IndexTransformBuilder;
+using ::tensorstore::kInfIndex;
+using ::tensorstore::MakeArray;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::span;
+using ::tensorstore::internal::IrregularGrid;
+using ::tensorstore::internal_grid_partition::IndexTransformGridPartition;
+using ::tensorstore::internal_grid_partition::
+    PrePartitionIndexTransformOverGrid;
+using ::tensorstore::internal_grid_partition::RegularGridRef;
 using ::testing::ElementsAre;
 
 TEST(RegularGridTest, Basic) {

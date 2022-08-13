@@ -24,9 +24,9 @@
 #include <gtest/gtest.h>
 
 namespace {
-using tensorstore::BitIterator;
-using tensorstore::BitSpan;
-using tensorstore::BitVectorSizeInBlocks;
+using ::tensorstore::BitIterator;
+using ::tensorstore::BitSpan;
+using ::tensorstore::BitVectorSizeInBlocks;
 
 static_assert(std::is_convertible_v<BitSpan<std::uint32_t>,
                                     BitSpan<const std::uint32_t>>);

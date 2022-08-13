@@ -46,22 +46,22 @@
 
 namespace {
 
-using tensorstore::AllocateArray;
-using tensorstore::Index;
-using tensorstore::IndexTransformBuilder;
-using tensorstore::kImplicit;
-using tensorstore::MakeArray;
-using tensorstore::MatchesStatus;
-using tensorstore::Result;
-using tensorstore::Shared;
-using tensorstore::SharedArray;
-using tensorstore::skip_repeated_elements;
-using tensorstore::StridedLayout;
-using tensorstore::TransformedArray;
-using tensorstore::internal::Arena;
-using tensorstore::internal::GetTransformedArrayNDIterable;
-using tensorstore::internal::MultiNDIterator;
-using tensorstore::internal::NDIterable;
+using ::tensorstore::AllocateArray;
+using ::tensorstore::Index;
+using ::tensorstore::IndexTransformBuilder;
+using ::tensorstore::kImplicit;
+using ::tensorstore::MakeArray;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::Result;
+using ::tensorstore::Shared;
+using ::tensorstore::SharedArray;
+using ::tensorstore::skip_repeated_elements;
+using ::tensorstore::StridedLayout;
+using ::tensorstore::TransformedArray;
+using ::tensorstore::internal::Arena;
+using ::tensorstore::internal::GetTransformedArrayNDIterable;
+using ::tensorstore::internal::MultiNDIterator;
+using ::tensorstore::internal::NDIterable;
 using ::testing::ElementsAre;
 using ::testing::Pair;
 

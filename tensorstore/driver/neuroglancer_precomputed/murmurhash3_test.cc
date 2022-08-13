@@ -21,7 +21,7 @@
 
 namespace {
 
-using tensorstore::neuroglancer_uint64_sharded::MurmurHash3_x86_128Hash64Bits;
+using ::tensorstore::neuroglancer_uint64_sharded::MurmurHash3_x86_128Hash64Bits;
 
 // Test against examples computed using pymmh3 library
 TEST(MurmurHash3Test, Basic) {

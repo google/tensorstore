@@ -21,12 +21,12 @@
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
-using tensorstore::internal_oauth2::GetFakePrivateKey;
-using tensorstore::internal_oauth2::ParseGoogleServiceAccountCredentials;
-using tensorstore::internal_oauth2::ParseOAuthResponse;
-using tensorstore::internal_oauth2::ParseRefreshToken;
-
 namespace {
+
+using ::tensorstore::internal_oauth2::GetFakePrivateKey;
+using ::tensorstore::internal_oauth2::ParseGoogleServiceAccountCredentials;
+using ::tensorstore::internal_oauth2::ParseOAuthResponse;
+using ::tensorstore::internal_oauth2::ParseRefreshToken;
 
 std::string GetJsonKeyFileContents() {
   constexpr char kJsonKeyfilePrefix[] = R"""({
@@ -293,8 +293,8 @@ TEST(OAuthUtilTest, ParseOAuthResponse) {
 }
 
 TEST(OAuthUtilTest, BuildJWTClaimTest) {
-  using tensorstore::internal_oauth2::BuildJWTClaimBody;
-  using tensorstore::internal_oauth2::BuildJWTHeader;
+  using ::tensorstore::internal_oauth2::BuildJWTClaimBody;
+  using ::tensorstore::internal_oauth2::BuildJWTHeader;
 
   EXPECT_EQ("eyJhbGciOiJSUzI1NiIsImtpZCI6ImEiLCJ0eXAiOiJKV1QifQ",
             BuildJWTHeader("a"));
@@ -307,7 +307,7 @@ TEST(OAuthUtilTest, BuildJWTClaimTest) {
 }
 
 TEST(OAuthUtilTest, Sign) {
-  using tensorstore::internal_oauth2::SignWithRSA256;
+  using ::tensorstore::internal_oauth2::SignWithRSA256;
 
   // Empty private key.
   {
@@ -346,7 +346,7 @@ TEST(OAuthUtilTest, Sign) {
 }
 
 TEST(OAuthUtilTest, BuildJWTRequestBody) {
-  using tensorstore::internal_oauth2::BuildSignedJWTRequest;
+  using ::tensorstore::internal_oauth2::BuildSignedJWTRequest;
 
   auto creds = ParseGoogleServiceAccountCredentials(GetJsonKeyFileContents());
   ASSERT_TRUE(creds.ok());

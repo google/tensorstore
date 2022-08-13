@@ -27,18 +27,18 @@
 
 namespace {
 
-using tensorstore::ChunkLayout;
-using tensorstore::CodecSpec;
-using tensorstore::dtype_v;
-using tensorstore::MatchesJson;
-using tensorstore::MatchesStatus;
-using tensorstore::Schema;
-using tensorstore::internal_zarr::GetFieldIndex;
-using tensorstore::internal_zarr::ParseDType;
-using tensorstore::internal_zarr::ParseSelectedField;
-using tensorstore::internal_zarr::SelectedField;
-using tensorstore::internal_zarr::ZarrMetadata;
-using tensorstore::internal_zarr::ZarrPartialMetadata;
+using ::tensorstore::ChunkLayout;
+using ::tensorstore::CodecSpec;
+using ::tensorstore::dtype_v;
+using ::tensorstore::MatchesJson;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::Schema;
+using ::tensorstore::internal_zarr::GetFieldIndex;
+using ::tensorstore::internal_zarr::ParseDType;
+using ::tensorstore::internal_zarr::ParseSelectedField;
+using ::tensorstore::internal_zarr::SelectedField;
+using ::tensorstore::internal_zarr::ZarrMetadata;
+using ::tensorstore::internal_zarr::ZarrPartialMetadata;
 
 TEST(ParsePartialMetadataTest, InvalidZarrFormat) {
   tensorstore::TestJsonBinderFromJson<ZarrPartialMetadata>({

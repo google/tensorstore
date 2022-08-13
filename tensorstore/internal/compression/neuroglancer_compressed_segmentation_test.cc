@@ -20,13 +20,13 @@
 
 namespace {
 
-using tensorstore::neuroglancer_compressed_segmentation::DecodeBlock;
-using tensorstore::neuroglancer_compressed_segmentation::DecodeChannel;
-using tensorstore::neuroglancer_compressed_segmentation::DecodeChannels;
-using tensorstore::neuroglancer_compressed_segmentation::EncodeBlock;
-using tensorstore::neuroglancer_compressed_segmentation::EncodeChannel;
-using tensorstore::neuroglancer_compressed_segmentation::EncodeChannels;
-using tensorstore::neuroglancer_compressed_segmentation::EncodedValueCache;
+using ::tensorstore::neuroglancer_compressed_segmentation::DecodeBlock;
+using ::tensorstore::neuroglancer_compressed_segmentation::DecodeChannel;
+using ::tensorstore::neuroglancer_compressed_segmentation::DecodeChannels;
+using ::tensorstore::neuroglancer_compressed_segmentation::EncodeBlock;
+using ::tensorstore::neuroglancer_compressed_segmentation::EncodeChannel;
+using ::tensorstore::neuroglancer_compressed_segmentation::EncodeChannels;
+using ::tensorstore::neuroglancer_compressed_segmentation::EncodedValueCache;
 
 std::vector<std::uint32_t> AsVec(std::string_view s) {
   EXPECT_EQ(0, s.size() % 4);

@@ -26,10 +26,10 @@
 
 namespace {
 
-using protobuf_matchers::EqualsProto;
-using tensorstore::JsonSerializationOptions;
-using tensorstore::internal_json_binding::AsciiProtoBinder;
-using tensorstore::internal_json_binding::JsonProtoBinder;
+using ::protobuf_matchers::EqualsProto;
+using ::tensorstore::JsonSerializationOptions;
+using ::tensorstore::internal_json_binding::AsciiProtoBinder;
+using ::tensorstore::internal_json_binding::JsonProtoBinder;
 
 static inline constexpr JsonProtoBinder<::tensorstore::proto::Array>
     ArrayJsonBinder = {};

@@ -22,7 +22,8 @@
 #include <gtest/gtest.h>
 
 namespace {
-using tensorstore::internal::ContainerToSharedDataPointerWithOffset;
+
+using ::tensorstore::internal::ContainerToSharedDataPointerWithOffset;
 
 TEST(ContainerToSharedDataPointerWithOffsetTest, SmallBuffer) {
   std::string small = "hello";

@@ -37,10 +37,10 @@
 // limitations under the License.
 
 namespace {
-using tensorstore::bfloat16_t;
-using tensorstore::internal::bit_cast;
-using tensorstore::internal::Float32ToBfloat16RoundNearestEven;
-using tensorstore::internal::Float32ToBfloat16Truncate;
+using ::tensorstore::bfloat16_t;
+using ::tensorstore::internal::bit_cast;
+using ::tensorstore::internal::Float32ToBfloat16RoundNearestEven;
+using ::tensorstore::internal::Float32ToBfloat16Truncate;
 
 ::testing::Matcher<bfloat16_t> MatchesBits(uint16_t bits) {
   return ::testing::ResultOf([](bfloat16_t y) { return bit_cast<uint16_t>(y); },

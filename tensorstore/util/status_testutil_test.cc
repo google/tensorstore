@@ -20,10 +20,10 @@
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 
-using tensorstore::Future;
-using tensorstore::Result;
-
 namespace {
+
+using ::tensorstore::Future;
+using ::tensorstore::Result;
 
 // Returns the reason why x matches, or doesn't match, m.
 template <typename MatcherType, typename Value>

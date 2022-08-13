@@ -24,14 +24,14 @@
 
 namespace {
 
-using tensorstore::DimensionIndex;
-using tensorstore::Dims;
-using tensorstore::Index;
-using tensorstore::IndexTransformBuilder;
-using tensorstore::span;
-using tensorstore::internal_index_space::EquivalentIndices;
-using tensorstore::internal_index_space::TestDimExpression;
-using tensorstore::internal_index_space::TestDimExpressionError;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::Dims;
+using ::tensorstore::Index;
+using ::tensorstore::IndexTransformBuilder;
+using ::tensorstore::span;
+using ::tensorstore::internal_index_space::EquivalentIndices;
+using ::tensorstore::internal_index_space::TestDimExpression;
+using ::tensorstore::internal_index_space::TestDimExpressionError;
 
 TEST(TransposeToTest, Example) {
   const auto original_transform = IndexTransformBuilder<3, 3>()

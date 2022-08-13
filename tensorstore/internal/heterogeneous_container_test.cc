@@ -21,7 +21,7 @@
 
 namespace {
 
-using tensorstore::internal::HeterogeneousHashSet;
+using ::tensorstore::internal::HeterogeneousHashSet;
 
 struct Entry {
   std::string id;

@@ -21,7 +21,7 @@
 
 namespace {
 
-using tensorstore::span;
+using ::tensorstore::span;
 
 TEST(SpanJsonTest, Basic) {
   EXPECT_EQ(::nlohmann::json({1, 2, 3}),

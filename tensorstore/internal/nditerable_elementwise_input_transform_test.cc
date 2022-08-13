@@ -36,8 +36,8 @@
 
 namespace {
 
-using tensorstore::Index;
-using tensorstore::internal::NDIterableCopier;
+using ::tensorstore::Index;
+using ::tensorstore::internal::NDIterableCopier;
 using ::testing::_;
 using ::testing::Pair;
 

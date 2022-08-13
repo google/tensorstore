@@ -30,10 +30,10 @@
 
 namespace {
 
-using tensorstore::MatchesStatus;
-using tensorstore::avif::Decode;
-using tensorstore::avif::Encode;
-using tensorstore::avif::EncodeOptions;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::avif::Decode;
+using ::tensorstore::avif::Encode;
+using ::tensorstore::avif::EncodeOptions;
 
 double ComputeRMSE(const std::vector<unsigned char>& a,
                    const std::vector<unsigned char>& b) {

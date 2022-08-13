@@ -39,26 +39,27 @@
 
 namespace {
 
-namespace zlib = tensorstore::zlib;
-namespace kvstore = tensorstore::kvstore;
-using kvstore::ReadResult;
-using tensorstore::Future;
-using tensorstore::MatchesStatus;
-using tensorstore::OptionalByteRangeRequest;
-using tensorstore::Result;
-using tensorstore::StorageGeneration;
-using tensorstore::TimestampedStorageGeneration;
-using tensorstore::Transaction;
-using tensorstore::internal::CachePool;
-using tensorstore::internal::KvsBackedTestCache;
-using tensorstore::internal::MatchesKvsReadResult;
-using tensorstore::internal::MatchesKvsReadResultNotFound;
-using tensorstore::internal::MatchesTimestampedStorageGeneration;
-using tensorstore::internal::MockKeyValueStore;
-using tensorstore::internal::UniqueNow;
-using tensorstore::neuroglancer_uint64_sharded::ChunkIdToKey;
-using tensorstore::neuroglancer_uint64_sharded::GetShardedKeyValueStore;
-using tensorstore::neuroglancer_uint64_sharded::ShardingSpec;
+namespace zlib = ::tensorstore::zlib;
+namespace kvstore = ::tensorstore::kvstore;
+
+using ::tensorstore::Future;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::OptionalByteRangeRequest;
+using ::tensorstore::Result;
+using ::tensorstore::StorageGeneration;
+using ::tensorstore::TimestampedStorageGeneration;
+using ::tensorstore::Transaction;
+using ::tensorstore::internal::CachePool;
+using ::tensorstore::internal::KvsBackedTestCache;
+using ::tensorstore::internal::MatchesKvsReadResult;
+using ::tensorstore::internal::MatchesKvsReadResultNotFound;
+using ::tensorstore::internal::MatchesTimestampedStorageGeneration;
+using ::tensorstore::internal::MockKeyValueStore;
+using ::tensorstore::internal::UniqueNow;
+using ::tensorstore::kvstore::ReadResult;
+using ::tensorstore::neuroglancer_uint64_sharded::ChunkIdToKey;
+using ::tensorstore::neuroglancer_uint64_sharded::GetShardedKeyValueStore;
+using ::tensorstore::neuroglancer_uint64_sharded::ShardingSpec;
 
 constexpr CachePool::Limits kSmallCacheLimits{10000000, 5000000};
 
@@ -1547,8 +1548,8 @@ TEST_F(ReadModifyWriteTest, MultiplePhasesMultipleCaches) {
 }
 
 TENSORSTORE_GLOBAL_INITIALIZER {
-  using tensorstore::internal::KvsBackedCacheBasicTransactionalTestOptions;
-  using tensorstore::internal::RegisterKvsBackedCacheBasicTransactionalTest;
+  using ::tensorstore::internal::KvsBackedCacheBasicTransactionalTestOptions;
+  using ::tensorstore::internal::RegisterKvsBackedCacheBasicTransactionalTest;
 
   ::nlohmann::json sharding_spec_json{
       {"@type", "neuroglancer_uint64_sharded_v1"},

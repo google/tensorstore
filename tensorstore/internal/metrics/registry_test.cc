@@ -22,8 +22,8 @@
 
 namespace {
 
-using tensorstore::internal_metrics::CollectedMetric;
-using tensorstore::internal_metrics::MetricRegistry;
+using ::tensorstore::internal_metrics::CollectedMetric;
+using ::tensorstore::internal_metrics::MetricRegistry;
 
 TEST(RegistryTest, Arbitrary) {
   MetricRegistry registry;

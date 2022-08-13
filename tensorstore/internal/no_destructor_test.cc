@@ -20,7 +20,7 @@
 #include <gtest/gtest.h>
 
 namespace {
-using tensorstore::internal::NoDestructor;
+using ::tensorstore::internal::NoDestructor;
 
 static_assert(std::is_trivially_destructible_v<NoDestructor<std::string>>);
 static_assert(

@@ -34,25 +34,25 @@
 
 namespace {
 
-using tensorstore::Box;
-using tensorstore::BoxView;
-using tensorstore::DimensionIndex;
-using tensorstore::Dims;
-using tensorstore::DownsampleMethod;
-using tensorstore::Index;
-using tensorstore::IndexInterval;
-using tensorstore::IndexTransformBuilder;
-using tensorstore::kInfIndex;
-using tensorstore::MakeArray;
-using tensorstore::MatchesStatus;
-using tensorstore::span;
-using tensorstore::internal_downsample::CanDownsampleIndexTransform;
-using tensorstore::internal_downsample::DownsampleArray;
-using tensorstore::internal_downsample::DownsampleBounds;
-using tensorstore::internal_downsample::DownsampleInterval;
-using tensorstore::internal_downsample::DownsampleTransformedArray;
-using tensorstore::internal_downsample::PropagatedIndexTransformDownsampling;
-using tensorstore::internal_downsample::PropagateIndexTransformDownsampling;
+using ::tensorstore::Box;
+using ::tensorstore::BoxView;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::Dims;
+using ::tensorstore::DownsampleMethod;
+using ::tensorstore::Index;
+using ::tensorstore::IndexInterval;
+using ::tensorstore::IndexTransformBuilder;
+using ::tensorstore::kInfIndex;
+using ::tensorstore::MakeArray;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::span;
+using ::tensorstore::internal_downsample::CanDownsampleIndexTransform;
+using ::tensorstore::internal_downsample::DownsampleArray;
+using ::tensorstore::internal_downsample::DownsampleBounds;
+using ::tensorstore::internal_downsample::DownsampleInterval;
+using ::tensorstore::internal_downsample::DownsampleTransformedArray;
+using ::tensorstore::internal_downsample::PropagatedIndexTransformDownsampling;
+using ::tensorstore::internal_downsample::PropagateIndexTransformDownsampling;
 using ::testing::Optional;
 
 TEST(PropagateIndexTransformDownsamplingTest, Rank0) {

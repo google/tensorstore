@@ -20,16 +20,16 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-using tensorstore::internal::EnsureDirectoryPath;
-using tensorstore::internal::EnsureNonDirectoryPath;
-using tensorstore::internal::JoinPath;
-using tensorstore::internal::ParseGenericUri;
-using tensorstore::internal::PathDirnameBasename;
-using tensorstore::internal::PercentDecode;
-using tensorstore::internal::PercentEncodeUriComponent;
-using tensorstore::internal::PercentEncodeUriPath;
-
 namespace {
+
+using ::tensorstore::internal::EnsureDirectoryPath;
+using ::tensorstore::internal::EnsureNonDirectoryPath;
+using ::tensorstore::internal::JoinPath;
+using ::tensorstore::internal::ParseGenericUri;
+using ::tensorstore::internal::PathDirnameBasename;
+using ::tensorstore::internal::PercentDecode;
+using ::tensorstore::internal::PercentEncodeUriComponent;
+using ::tensorstore::internal::PercentEncodeUriPath;
 
 TEST(PathTest, JoinPath) {
   EXPECT_EQ("/foo/bar", JoinPath("/foo", "bar"));

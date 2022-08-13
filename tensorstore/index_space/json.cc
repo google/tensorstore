@@ -33,14 +33,14 @@
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/str_cat.h"
 
-namespace jb = tensorstore::internal_json_binding;
-
-using tensorstore::internal_index_space::BuilderFlags;
-using tensorstore::internal_index_space::OutputIndexMapInitializer;
-using tensorstore::internal_index_space::TransformRep;
-
 namespace tensorstore {
 namespace {
+
+namespace jb = tensorstore::internal_json_binding;
+
+using ::tensorstore::internal_index_space::BuilderFlags;
+using ::tensorstore::internal_index_space::OutputIndexMapInitializer;
+using ::tensorstore::internal_index_space::TransformRep;
 
 struct DomainJsonKeys {
   const char* rank;

@@ -30,7 +30,7 @@ namespace {
 
 constexpr double pi = 3.14159265358979323846264338327950288;
 
-using tensorstore::Rational;
+using ::tensorstore::Rational;
 
 TEST(RationalTest, Initialization) {
   static constexpr Rational<int> r1, r2(0), r3(1), r4(-3), r5(7, 2), r6(5, 15),

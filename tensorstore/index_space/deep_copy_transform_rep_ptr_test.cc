@@ -19,10 +19,10 @@
 
 namespace {
 
-using tensorstore::internal::acquire_object_ref;
-using tensorstore::internal::adopt_object_ref;
-using tensorstore::internal_index_space::DeepCopyTransformRepPtr;
-using tensorstore::internal_index_space::TransformRep;
+using ::tensorstore::internal::acquire_object_ref;
+using ::tensorstore::internal::adopt_object_ref;
+using ::tensorstore::internal_index_space::DeepCopyTransformRepPtr;
+using ::tensorstore::internal_index_space::TransformRep;
 
 TEST(DeepCopyTransformRepPtr, DefaultConstruct) {
   DeepCopyTransformRepPtr ptr;

@@ -46,13 +46,13 @@
 
 namespace {
 
-using tensorstore::dtype_v;
-using tensorstore::Index;
-using tensorstore::MakeArray;
-using tensorstore::Shared;
-using tensorstore::internal::GetElementwiseInputTransformNDIterable;
-using tensorstore::internal::GetElementwiseOutputTransformNDIterable;
-using tensorstore::internal::GetTransformedArrayNDIterable;
+using ::tensorstore::dtype_v;
+using ::tensorstore::Index;
+using ::tensorstore::MakeArray;
+using ::tensorstore::Shared;
+using ::tensorstore::internal::GetElementwiseInputTransformNDIterable;
+using ::tensorstore::internal::GetElementwiseOutputTransformNDIterable;
+using ::tensorstore::internal::GetTransformedArrayNDIterable;
 
 TEST(NDIterableCopyTest, Example) {
   auto source_array = MakeArray<int>({{1, 2, 3}, {4, 5, 6}});

@@ -54,8 +54,8 @@ namespace tensorstore {
 namespace internal {
 namespace {
 
-using tensorstore::MatchesJson;
-using tensorstore::MatchesStatus;
+using ::tensorstore::MatchesJson;
+using ::tensorstore::MatchesStatus;
 
 class Cleanup {
  public:

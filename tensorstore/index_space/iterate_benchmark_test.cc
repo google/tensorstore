@@ -23,11 +23,11 @@
 
 namespace {
 
-using tensorstore::DimensionIndex;
-using tensorstore::Index;
-using tensorstore::IterationConstraints;
-using tensorstore::span;
-using tensorstore::TransformedArray;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::Index;
+using ::tensorstore::IterationConstraints;
+using ::tensorstore::span;
+using ::tensorstore::TransformedArray;
 
 struct BenchmarkArrayConfig {
   std::vector<Index> shape;

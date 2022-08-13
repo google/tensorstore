@@ -28,19 +28,19 @@
 
 namespace {
 
-using tensorstore::DimensionSet;
-using tensorstore::Index;
-using tensorstore::IndexDomainBuilder;
-using tensorstore::IndexInterval;
-using tensorstore::IndexTransform;
-using tensorstore::IndexTransformBuilder;
-using tensorstore::kInfIndex;
-using tensorstore::kInfSize;
-using tensorstore::MakeArray;
-using tensorstore::MatchesStatus;
-using tensorstore::OutputIndexMethod;
-using tensorstore::span;
-using tensorstore::internal_index_space::TransformAccess;
+using ::tensorstore::DimensionSet;
+using ::tensorstore::Index;
+using ::tensorstore::IndexDomainBuilder;
+using ::tensorstore::IndexInterval;
+using ::tensorstore::IndexTransform;
+using ::tensorstore::IndexTransformBuilder;
+using ::tensorstore::kInfIndex;
+using ::tensorstore::kInfSize;
+using ::tensorstore::MakeArray;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::OutputIndexMethod;
+using ::tensorstore::span;
+using ::tensorstore::internal_index_space::TransformAccess;
 
 TEST(IndexTransformTest, BuilderValid) {
   auto index_array = MakeArray<Index>({{{1, 0, 2, 2}}});

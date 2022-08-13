@@ -24,10 +24,10 @@
 
 namespace {
 
-using tensorstore::ContiguousLayoutOrder;
-using tensorstore::Index;
-using tensorstore::IterateOverIndexRange;
-using tensorstore::span;
+using ::tensorstore::ContiguousLayoutOrder;
+using ::tensorstore::Index;
+using ::tensorstore::IterateOverIndexRange;
+using ::tensorstore::span;
 
 TEST(IterateOverIndexRange, COrder) {
   using R = std::vector<int>;

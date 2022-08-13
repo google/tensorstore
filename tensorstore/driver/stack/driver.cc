@@ -91,18 +91,18 @@
 #include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/garbage_collection/std_vector.h"  // IWYU pragma: keep
 
-using tensorstore::internal::DataCopyConcurrencyResource;
-using tensorstore::internal::IntrusivePtr;
-using tensorstore::internal::IrregularGrid;
-using tensorstore::internal::MakeIntrusivePtr;
-using tensorstore::internal::OpenTransactionPtr;
-using tensorstore::internal::ReadChunk;
-using tensorstore::internal::TransformedDriverSpec;
-using tensorstore::internal::WriteChunk;
-
 namespace tensorstore {
 namespace internal_stack {
 namespace {
+
+using ::tensorstore::internal::DataCopyConcurrencyResource;
+using ::tensorstore::internal::IntrusivePtr;
+using ::tensorstore::internal::IrregularGrid;
+using ::tensorstore::internal::MakeIntrusivePtr;
+using ::tensorstore::internal::OpenTransactionPtr;
+using ::tensorstore::internal::ReadChunk;
+using ::tensorstore::internal::TransformedDriverSpec;
+using ::tensorstore::internal::WriteChunk;
 
 // NOTES:
 //

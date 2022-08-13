@@ -26,23 +26,23 @@
 
 namespace {
 
-using tensorstore::Box;
-using tensorstore::BoxView;
-using tensorstore::DimensionIndex;
-using tensorstore::DimensionSet;
-using tensorstore::Index;
-using tensorstore::IndexDomainBuilder;
-using tensorstore::IndexInterval;
-using tensorstore::IndexTransform;
-using tensorstore::IndexTransformBuilder;
-using tensorstore::kInfIndex;
-using tensorstore::kMinFiniteIndex;
-using tensorstore::MakeArray;
-using tensorstore::MatchesStatus;
-using tensorstore::PropagateBounds;
-using tensorstore::PropagateBoundsToTransform;
-using tensorstore::PropagateExplicitBounds;
-using tensorstore::PropagateExplicitBoundsToTransform;
+using ::tensorstore::Box;
+using ::tensorstore::BoxView;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::DimensionSet;
+using ::tensorstore::Index;
+using ::tensorstore::IndexDomainBuilder;
+using ::tensorstore::IndexInterval;
+using ::tensorstore::IndexTransform;
+using ::tensorstore::IndexTransformBuilder;
+using ::tensorstore::kInfIndex;
+using ::tensorstore::kMinFiniteIndex;
+using ::tensorstore::MakeArray;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::PropagateBounds;
+using ::tensorstore::PropagateBoundsToTransform;
+using ::tensorstore::PropagateExplicitBounds;
+using ::tensorstore::PropagateExplicitBoundsToTransform;
 
 // Tests that a default-constructed (invalid) IndexTransform is treated as an
 // identity transform.

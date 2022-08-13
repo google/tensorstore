@@ -42,25 +42,25 @@
 namespace {
 
 namespace kvstore = tensorstore::kvstore;
-using tensorstore::ChunkLayout;
-using tensorstore::complex64_t;
-using tensorstore::Context;
-using tensorstore::DimensionIndex;
-using tensorstore::DimensionSet;
-using tensorstore::dtype_v;
-using tensorstore::Index;
-using tensorstore::kImplicit;
-using tensorstore::MatchesJson;
-using tensorstore::MatchesStatus;
-using tensorstore::Schema;
-using tensorstore::span;
-using tensorstore::StrCat;
-using tensorstore::internal::DecodedMatches;
-using tensorstore::internal::GetMap;
-using tensorstore::internal::ParseJsonMatches;
-using tensorstore::internal::TestSpecSchema;
-using tensorstore::internal::TestTensorStoreCreateCheckSchema;
-using tensorstore::internal::TestTensorStoreCreateWithSchema;
+using ::tensorstore::ChunkLayout;
+using ::tensorstore::complex64_t;
+using ::tensorstore::Context;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::DimensionSet;
+using ::tensorstore::dtype_v;
+using ::tensorstore::Index;
+using ::tensorstore::kImplicit;
+using ::tensorstore::MatchesJson;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::Schema;
+using ::tensorstore::span;
+using ::tensorstore::StrCat;
+using ::tensorstore::internal::DecodedMatches;
+using ::tensorstore::internal::GetMap;
+using ::tensorstore::internal::ParseJsonMatches;
+using ::tensorstore::internal::TestSpecSchema;
+using ::tensorstore::internal::TestTensorStoreCreateCheckSchema;
+using ::tensorstore::internal::TestTensorStoreCreateWithSchema;
 using ::testing::ElementsAreArray;
 using ::testing::Pair;
 using ::testing::UnorderedElementsAreArray;
@@ -822,7 +822,7 @@ TEST(ZarrDriverTest, CreateRank0) {
 }
 
 TEST(ZarrDriverTest, CreateBfloat16) {
-  using tensorstore::bfloat16_t;
+  using ::tensorstore::bfloat16_t;
   ::nlohmann::json json_spec{
       {"driver", "zarr"},
       {"kvstore",

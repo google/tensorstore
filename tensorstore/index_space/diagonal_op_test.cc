@@ -22,14 +22,14 @@
 
 namespace {
 
-using tensorstore::Dims;
-using tensorstore::Index;
-using tensorstore::IndexTransformBuilder;
-using tensorstore::kInfIndex;
-using tensorstore::kInfSize;
-using tensorstore::MakeArray;
-using tensorstore::internal_index_space::EquivalentIndices;
-using tensorstore::internal_index_space::TestDimExpression;
+using ::tensorstore::Dims;
+using ::tensorstore::Index;
+using ::tensorstore::IndexTransformBuilder;
+using ::tensorstore::kInfIndex;
+using ::tensorstore::kInfSize;
+using ::tensorstore::MakeArray;
+using ::tensorstore::internal_index_space::EquivalentIndices;
+using ::tensorstore::internal_index_space::TestDimExpression;
 
 TEST(DiagonalTest, Example) {
   const auto original_transform = IndexTransformBuilder<3, 3>()

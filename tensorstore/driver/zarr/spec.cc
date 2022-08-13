@@ -24,7 +24,7 @@
 namespace tensorstore {
 namespace internal_zarr {
 
-using internal::MetadataMismatchError;
+using ::tensorstore::internal::MetadataMismatchError;
 namespace jb = tensorstore::internal_json_binding;
 
 CodecSpec ZarrCodecSpec::Clone() const {

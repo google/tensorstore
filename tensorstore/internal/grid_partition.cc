@@ -43,9 +43,10 @@ namespace internal_grid_partition {
 
 namespace {
 
-using internal_index_space::OutputIndexMap;
-using internal_index_space::TransformAccess;
-using internal_index_space::TransformRep;
+using ::tensorstore::internal_index_space::OutputIndexMap;
+using ::tensorstore::internal_index_space::TransformAccess;
+using ::tensorstore::internal_index_space::TransformRep;
+
 using IndexArraySet = IndexTransformGridPartition::IndexArraySet;
 using StridedSet = IndexTransformGridPartition::StridedSet;
 

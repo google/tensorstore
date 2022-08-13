@@ -23,8 +23,8 @@
 
 namespace {
 
-using protobuf_matchers::EqualsProto;
-using tensorstore::TryParseTextProto;
+using ::protobuf_matchers::EqualsProto;
+using ::tensorstore::TryParseTextProto;
 
 TEST(ProtoUtilTest, Basic) {
   constexpr const char kProto[] = R"pb(

@@ -25,17 +25,17 @@
 #include "tensorstore/util/span.h"
 
 namespace {
-using tensorstore::dynamic_extent;
-using tensorstore::Index;
-using tensorstore::IsCompatibleFullIndexVector;
-using tensorstore::IsCompatiblePartialIndexVector;
-using tensorstore::IsImplicitlyCompatibleFullIndexVector;
-using tensorstore::IsIndexConvertibleVector;
-using tensorstore::IsIndexVector;
-using tensorstore::IsMutableIndexVector;
-using tensorstore::ProductOfExtents;
-using tensorstore::span;
-using tensorstore::SpanStaticExtent;
+using ::tensorstore::dynamic_extent;
+using ::tensorstore::Index;
+using ::tensorstore::IsCompatibleFullIndexVector;
+using ::tensorstore::IsCompatiblePartialIndexVector;
+using ::tensorstore::IsImplicitlyCompatibleFullIndexVector;
+using ::tensorstore::IsIndexConvertibleVector;
+using ::tensorstore::IsIndexVector;
+using ::tensorstore::IsMutableIndexVector;
+using ::tensorstore::ProductOfExtents;
+using ::tensorstore::span;
+using ::tensorstore::SpanStaticExtent;
 
 static_assert(IsCompatibleFullIndexVector<3, int (&)[3]>);
 static_assert(IsCompatibleFullIndexVector<dynamic_extent, int (&)[3]>);

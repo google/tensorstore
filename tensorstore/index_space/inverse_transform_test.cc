@@ -23,16 +23,17 @@
 #include "tensorstore/internal/test_util.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
+
 namespace {
 
-using tensorstore::Index;
-using tensorstore::IndexDomainBuilder;
-using tensorstore::IndexTransform;
-using tensorstore::IndexTransformBuilder;
-using tensorstore::InverseTransform;
-using tensorstore::kMaxFiniteIndex;
-using tensorstore::MakeArray;
-using tensorstore::MatchesStatus;
+using ::tensorstore::Index;
+using ::tensorstore::IndexDomainBuilder;
+using ::tensorstore::IndexTransform;
+using ::tensorstore::IndexTransformBuilder;
+using ::tensorstore::InverseTransform;
+using ::tensorstore::kMaxFiniteIndex;
+using ::tensorstore::MakeArray;
+using ::tensorstore::MatchesStatus;
 
 TEST(InverseTransformTest, Null) {
   auto result = InverseTransform(IndexTransform<>());

@@ -22,7 +22,7 @@
 
 namespace {
 
-using tensorstore::serialization::TestSerializationRoundTrip;
+using ::tensorstore::serialization::TestSerializationRoundTrip;
 
 TEST(ResultTest, OkRoundTrip) {
   TestSerializationRoundTrip(tensorstore::Result<int>(3));

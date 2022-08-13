@@ -38,9 +38,9 @@ namespace {
 
 namespace jb = tensorstore::internal_json_binding;
 
-constexpr const char kMetadataKey[] = "attributes.json";
+using ::tensorstore::internal_kvs_backed_chunk_driver::KvsDriverSpec;
 
-using internal_kvs_backed_chunk_driver::KvsDriverSpec;
+constexpr const char kMetadataKey[] = "attributes.json";
 
 class N5DriverSpec
     : public internal::RegisteredDriverSpec<N5DriverSpec,

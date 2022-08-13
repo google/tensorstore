@@ -26,9 +26,9 @@
 
 namespace {
 
-using tensorstore::Context;
-using tensorstore::MatchesStatus;
-using tensorstore::internal::CachePoolResource;
+using ::tensorstore::Context;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::internal::CachePoolResource;
 
 TEST(CachePoolResourceTest, Default) {
   auto resource_spec = Context::Resource<CachePoolResource>::DefaultSpec();

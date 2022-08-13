@@ -29,16 +29,16 @@
 
 namespace {
 
-using tensorstore::DimensionIndex;
-using tensorstore::Dims;
-using tensorstore::Index;
-using tensorstore::IndexInterval;
-using tensorstore::IterationConstraints;
-using tensorstore::kInfIndex;
-using tensorstore::MakeArray;
-using tensorstore::MatchesStatus;
-using tensorstore::span;
-using tensorstore::internal_index_space::TransformAccess;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::Dims;
+using ::tensorstore::Index;
+using ::tensorstore::IndexInterval;
+using ::tensorstore::IterationConstraints;
+using ::tensorstore::kInfIndex;
+using ::tensorstore::MakeArray;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::span;
+using ::tensorstore::internal_index_space::TransformAccess;
 
 TEST(ValidateIndexArrayBoundsTest, Basic) {
   EXPECT_EQ(absl::OkStatus(),
@@ -100,7 +100,7 @@ TEST(InitializeSingleArrayIterationStateTest, Basic) {
 TEST(ComputeDimensionIterationOrderTest, Basic) {
   namespace flags =
       tensorstore::internal_index_space::input_dimension_iteration_flags;
-  using tensorstore::internal_index_space::ComputeDimensionIterationOrder;
+  using ::tensorstore::internal_index_space::ComputeDimensionIterationOrder;
   const flags::Bitmask input_dimension_flags[] = {
       flags::can_skip,      flags::strided,  flags::array_indexed,
       flags::array_indexed, flags::can_skip, flags::strided};

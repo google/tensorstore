@@ -26,22 +26,23 @@
 
 namespace {
 
-using tensorstore::DimensionIndex;
-using tensorstore::IdentityTransform;
-using tensorstore::Index;
-using tensorstore::IndexInterval;
-using tensorstore::IndexTransformBuilder;
-using tensorstore::IndexTransformView;
-using tensorstore::kImplicit;
-using tensorstore::kInfIndex;
-using tensorstore::MakeArray;
-using tensorstore::MatchesStatus;
-using tensorstore::span;
-using tensorstore::StrCat;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::IdentityTransform;
+using ::tensorstore::Index;
+using ::tensorstore::IndexInterval;
+using ::tensorstore::IndexTransformBuilder;
+using ::tensorstore::IndexTransformView;
+using ::tensorstore::kImplicit;
+using ::tensorstore::kInfIndex;
+using ::tensorstore::MakeArray;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::span;
+using ::tensorstore::StrCat;
+using ::tensorstore::internal::GetLValue;
+using ::tensorstore::internal_index_space::ValidateInputDimensionResize;
 
 TEST(ValidateInputDimensionResizeTest, ValidArguments) {
-  using tensorstore::internal_index_space::ValidateInputDimensionResize;
-  using OIII = tensorstore::OptionallyImplicitIndexInterval;
+  using OIII = ::tensorstore::OptionallyImplicitIndexInterval;
 
   EXPECT_EQ(absl::OkStatus(),
             ValidateInputDimensionResize(  //
@@ -91,7 +92,6 @@ TEST(ValidateInputDimensionResizeTest, ValidArguments) {
 }
 
 TEST(ValidateInputDimensionResizeTest, InvalidArguments) {
-  using tensorstore::internal_index_space::ValidateInputDimensionResize;
   using OIII = tensorstore::OptionallyImplicitIndexInterval;
   EXPECT_THAT(ValidateInputDimensionResize(  //
                   OIII{},
@@ -345,7 +345,6 @@ TEST(PropagateInputDomainResizeToOutputTest,
 }
 
 TEST(PropagateInputDomainResizeToOutputTest, InvalidArguments) {
-  using tensorstore::internal::GetLValue;
   bool is_noop;
   const auto test_resize = [&](bool can_resize_tied_bounds) {
     // `can_resize_tied_bounds` should have no effect on these cases.

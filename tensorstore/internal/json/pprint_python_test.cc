@@ -20,8 +20,8 @@
 
 namespace {
 
-using tensorstore::internal_python::PrettyPrintJsonAsPython;
-using tensorstore::internal_python::PrettyPrintJsonAsPythonRepr;
+using ::tensorstore::internal_python::PrettyPrintJsonAsPython;
+using ::tensorstore::internal_python::PrettyPrintJsonAsPythonRepr;
 
 TEST(PrettyPrintJsonAsPythonTest, Basic) {
   EXPECT_EQ("None", PrettyPrintJsonAsPython(::nlohmann::json(nullptr)));

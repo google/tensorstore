@@ -22,7 +22,7 @@
 #include "tensorstore/util/iterate_over_index_range.h"
 #include "tensorstore/util/status.h"
 
-using tensorstore::Index;
+using ::tensorstore::Index;
 
 // Examples of basic math functions for tensorstore.
 

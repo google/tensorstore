@@ -17,10 +17,10 @@
 #include <gtest/gtest.h>
 #include "tensorstore/util/status_testutil.h"
 
-using tensorstore::internal::AbslTimeToProto;
-using tensorstore::internal::ProtoToAbslTime;
-
 namespace {
+
+using ::tensorstore::internal::AbslTimeToProto;
+using ::tensorstore::internal::ProtoToAbslTime;
 
 TEST(EncodeTimestamp, Basic) {
   auto roundtrip = [](absl::Time ts) {

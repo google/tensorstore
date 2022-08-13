@@ -25,22 +25,22 @@
 
 namespace {
 
-using tensorstore::AllDims;
-using tensorstore::DimensionIndex;
-using tensorstore::Dims;
-using tensorstore::Index;
-using tensorstore::IndexDomainBuilder;
-using tensorstore::IndexTransformBuilder;
-using tensorstore::kImplicit;
-using tensorstore::kInfIndex;
-using tensorstore::kInfSize;
-using tensorstore::kMaxFiniteIndex;
-using tensorstore::kMinFiniteIndex;
-using tensorstore::MakeArray;
-using tensorstore::MatchesStatus;
-using tensorstore::span;
-using tensorstore::internal_index_space::EquivalentIndices;
-using tensorstore::internal_index_space::TestDimExpression;
+using ::tensorstore::AllDims;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::Dims;
+using ::tensorstore::Index;
+using ::tensorstore::IndexDomainBuilder;
+using ::tensorstore::IndexTransformBuilder;
+using ::tensorstore::kImplicit;
+using ::tensorstore::kInfIndex;
+using ::tensorstore::kInfSize;
+using ::tensorstore::kMaxFiniteIndex;
+using ::tensorstore::kMinFiniteIndex;
+using ::tensorstore::MakeArray;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::span;
+using ::tensorstore::internal_index_space::EquivalentIndices;
+using ::tensorstore::internal_index_space::TestDimExpression;
 
 TEST(TranslateByTest, Example) {
   const auto original_transform = IndexTransformBuilder<3, 3>()

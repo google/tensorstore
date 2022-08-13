@@ -35,19 +35,19 @@
 
 namespace {
 
-using tensorstore::Future;
-using tensorstore::no_transaction;
-using tensorstore::StorageGeneration;
-using tensorstore::Transaction;
-using tensorstore::UniqueWriterLock;
-using tensorstore::internal::AsyncCache;
-using tensorstore::internal::CacheEntryQueueState;
-using tensorstore::internal::CachePool;
-using tensorstore::internal::OpenTransactionPtr;
-using tensorstore::internal::PinnedCacheEntry;
-using tensorstore::internal::TransactionState;
-using tensorstore::internal::UniqueNow;
-using tensorstore::internal::WeakTransactionNodePtr;
+using ::tensorstore::Future;
+using ::tensorstore::no_transaction;
+using ::tensorstore::StorageGeneration;
+using ::tensorstore::Transaction;
+using ::tensorstore::UniqueWriterLock;
+using ::tensorstore::internal::AsyncCache;
+using ::tensorstore::internal::CacheEntryQueueState;
+using ::tensorstore::internal::CachePool;
+using ::tensorstore::internal::OpenTransactionPtr;
+using ::tensorstore::internal::PinnedCacheEntry;
+using ::tensorstore::internal::TransactionState;
+using ::tensorstore::internal::UniqueNow;
+using ::tensorstore::internal::WeakTransactionNodePtr;
 
 constexpr CachePool::Limits kSmallCacheLimits{10000000, 5000000};
 

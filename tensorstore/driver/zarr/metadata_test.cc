@@ -29,21 +29,21 @@
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
-using tensorstore::bfloat16_t;
-using tensorstore::ContiguousLayoutOrder;
-using tensorstore::dtype_v;
-using tensorstore::float16_t;
-using tensorstore::MakeArray;
-using tensorstore::MakeScalarArray;
-using tensorstore::MatchesStatus;
-using tensorstore::internal_zarr::DimensionSeparator;
-using tensorstore::internal_zarr::DimensionSeparatorJsonBinder;
-using tensorstore::internal_zarr::EncodeFillValue;
-using tensorstore::internal_zarr::OrderJsonBinder;
-using tensorstore::internal_zarr::ParseDType;
-using tensorstore::internal_zarr::ParseFillValue;
-using tensorstore::internal_zarr::ZarrMetadata;
-using testing::ElementsAre;
+using ::tensorstore::bfloat16_t;
+using ::tensorstore::ContiguousLayoutOrder;
+using ::tensorstore::dtype_v;
+using ::tensorstore::float16_t;
+using ::tensorstore::MakeArray;
+using ::tensorstore::MakeScalarArray;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::internal_zarr::DimensionSeparator;
+using ::tensorstore::internal_zarr::DimensionSeparatorJsonBinder;
+using ::tensorstore::internal_zarr::EncodeFillValue;
+using ::tensorstore::internal_zarr::OrderJsonBinder;
+using ::tensorstore::internal_zarr::ParseDType;
+using ::tensorstore::internal_zarr::ParseFillValue;
+using ::tensorstore::internal_zarr::ZarrMetadata;
+using ::testing::ElementsAre;
 
 TEST(OrderJsonBinderTest, Success) {
   tensorstore::TestJsonBinderRoundTrip<ContiguousLayoutOrder>(

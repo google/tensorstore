@@ -26,10 +26,11 @@
 #include "tensorstore/util/result.h"
 
 namespace {
-using tensorstore::internal_poly::CallPolyApplyResult;
-using tensorstore::internal_poly::HasPolyApply;
-using tensorstore::internal_poly::IsCallPolyApplyResultConvertible;
-using tensorstore::poly::Poly;
+
+using ::tensorstore::internal_poly::CallPolyApplyResult;
+using ::tensorstore::internal_poly::HasPolyApply;
+using ::tensorstore::internal_poly::IsCallPolyApplyResultConvertible;
+using ::tensorstore::poly::Poly;
 
 struct GetWidth {};
 struct GetHeight {};

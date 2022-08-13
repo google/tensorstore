@@ -20,11 +20,11 @@
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/util/status_testutil.h"
 
-using tensorstore::internal::SpawnSubprocess;
-using tensorstore::internal::Subprocess;
-using tensorstore::internal::SubprocessOptions;
-
 namespace {
+
+using ::tensorstore::internal::SpawnSubprocess;
+using ::tensorstore::internal::Subprocess;
+using ::tensorstore::internal::SubprocessOptions;
 
 static std::string* program_name = nullptr;
 const char kSubprocessArg[] = "--is_subprocess";

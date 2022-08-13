@@ -30,42 +30,43 @@
 #include "tensorstore/util/str_cat.h"
 
 namespace {
-using tensorstore::Box;
-using tensorstore::CodecSpec;
-using tensorstore::DataType;
-using tensorstore::DataTypeId;
-using tensorstore::dtype_v;
-using tensorstore::GetStatus;
-using tensorstore::Index;
-using tensorstore::kDataTypes;
-using tensorstore::MatchesJson;
-using tensorstore::MatchesStatus;
-using tensorstore::span;
-using tensorstore::StrCat;
-using tensorstore::internal::ParseJson;
-using tensorstore::internal_neuroglancer_precomputed::EncodeCompressedZIndex;
-using tensorstore::internal_neuroglancer_precomputed::
+using ::tensorstore::Box;
+using ::tensorstore::CodecSpec;
+using ::tensorstore::DataType;
+using ::tensorstore::DataTypeId;
+using ::tensorstore::dtype_v;
+using ::tensorstore::GetStatus;
+using ::tensorstore::Index;
+using ::tensorstore::kDataTypes;
+using ::tensorstore::MatchesJson;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::span;
+using ::tensorstore::StrCat;
+using ::tensorstore::internal::ParseJson;
+using ::tensorstore::internal_neuroglancer_precomputed::EncodeCompressedZIndex;
+using ::tensorstore::internal_neuroglancer_precomputed::
     GetChunksPerVolumeShardFunction;
-using tensorstore::internal_neuroglancer_precomputed::GetCompressedZIndexBits;
-using tensorstore::internal_neuroglancer_precomputed::
+using ::tensorstore::internal_neuroglancer_precomputed::GetCompressedZIndexBits;
+using ::tensorstore::internal_neuroglancer_precomputed::
     GetMetadataCompatibilityKey;
-using tensorstore::internal_neuroglancer_precomputed::GetShardChunkHierarchy;
-using tensorstore::internal_neuroglancer_precomputed::MultiscaleMetadata;
-using tensorstore::internal_neuroglancer_precomputed::
+using ::tensorstore::internal_neuroglancer_precomputed::GetShardChunkHierarchy;
+using ::tensorstore::internal_neuroglancer_precomputed::MultiscaleMetadata;
+using ::tensorstore::internal_neuroglancer_precomputed::
     MultiscaleMetadataConstraints;
-using tensorstore::internal_neuroglancer_precomputed::NoShardingSpec;
-using tensorstore::internal_neuroglancer_precomputed::OpenConstraints;
-using tensorstore::internal_neuroglancer_precomputed::ResolveScaleKey;
-using tensorstore::internal_neuroglancer_precomputed::ScaleMetadata;
-using tensorstore::internal_neuroglancer_precomputed::ScaleMetadataConstraints;
-using tensorstore::internal_neuroglancer_precomputed::ShardChunkHierarchy;
-using tensorstore::internal_neuroglancer_precomputed::ShardingSpec;
-using tensorstore::internal_neuroglancer_precomputed::ValidateDataType;
-using tensorstore::internal_neuroglancer_precomputed::
+using ::tensorstore::internal_neuroglancer_precomputed::NoShardingSpec;
+using ::tensorstore::internal_neuroglancer_precomputed::OpenConstraints;
+using ::tensorstore::internal_neuroglancer_precomputed::ResolveScaleKey;
+using ::tensorstore::internal_neuroglancer_precomputed::ScaleMetadata;
+using ::tensorstore::internal_neuroglancer_precomputed::
+    ScaleMetadataConstraints;
+using ::tensorstore::internal_neuroglancer_precomputed::ShardChunkHierarchy;
+using ::tensorstore::internal_neuroglancer_precomputed::ShardingSpec;
+using ::tensorstore::internal_neuroglancer_precomputed::ValidateDataType;
+using ::tensorstore::internal_neuroglancer_precomputed::
     ValidateMetadataCompatibility;
+using ::testing::ElementsAre;
 
 using Encoding = ScaleMetadata::Encoding;
-using ::testing::ElementsAre;
 
 TEST(NoShardingSpecTest, Basic) {
   EXPECT_TRUE(NoShardingSpec() == NoShardingSpec());

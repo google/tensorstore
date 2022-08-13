@@ -26,8 +26,8 @@
 
 namespace {
 
-using tensorstore::Index;
-using tensorstore::MatchesStatus;
+using ::tensorstore::Index;
+using ::tensorstore::MatchesStatus;
 
 namespace jpeg = tensorstore::jpeg;
 

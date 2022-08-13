@@ -31,17 +31,18 @@
 
 namespace {
 
-using tensorstore::StorageGeneration;
-using tensorstore::internal::AsyncWriteArray;
-using Spec = AsyncWriteArray::Spec;
+using ::tensorstore::Index;
+using ::tensorstore::kInfIndex;
+using ::tensorstore::kInfSize;
+using ::tensorstore::MakeArray;
+using ::tensorstore::MakeScalarArray;
+using ::tensorstore::span;
+using ::tensorstore::StorageGeneration;
+using ::tensorstore::internal::Arena;
+using ::tensorstore::internal::AsyncWriteArray;
+
 using MaskedArray = AsyncWriteArray::MaskedArray;
-using tensorstore::Index;
-using tensorstore::kInfIndex;
-using tensorstore::kInfSize;
-using tensorstore::MakeArray;
-using tensorstore::MakeScalarArray;
-using tensorstore::span;
-using tensorstore::internal::Arena;
+using Spec = AsyncWriteArray::Spec;
 
 tensorstore::SharedArray<void> CopyNDIterable(
     tensorstore::internal::NDIterable::Ptr source_iterable,

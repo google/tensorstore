@@ -32,21 +32,21 @@
 namespace {
 
 namespace kvstore = tensorstore::kvstore;
-using tensorstore::ChunkLayout;
-using tensorstore::Context;
-using tensorstore::DimensionIndex;
-using tensorstore::DimensionSet;
-using tensorstore::dtype_v;
-using tensorstore::Index;
-using tensorstore::kImplicit;
-using tensorstore::MatchesStatus;
-using tensorstore::Schema;
-using tensorstore::span;
-using tensorstore::StrCat;
-using tensorstore::internal::GetMap;
-using tensorstore::internal::ParseJsonMatches;
-using tensorstore::internal::TestSpecSchema;
-using tensorstore::internal::TestTensorStoreCreateCheckSchema;
+using ::tensorstore::ChunkLayout;
+using ::tensorstore::Context;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::DimensionSet;
+using ::tensorstore::dtype_v;
+using ::tensorstore::Index;
+using ::tensorstore::kImplicit;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::Schema;
+using ::tensorstore::span;
+using ::tensorstore::StrCat;
+using ::tensorstore::internal::GetMap;
+using ::tensorstore::internal::ParseJsonMatches;
+using ::tensorstore::internal::TestSpecSchema;
+using ::tensorstore::internal::TestTensorStoreCreateCheckSchema;
 using ::testing::Pair;
 using ::testing::UnorderedElementsAreArray;
 

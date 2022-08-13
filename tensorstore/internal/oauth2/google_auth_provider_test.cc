@@ -41,20 +41,20 @@
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
 
-using tensorstore::Future;
-using tensorstore::StrCat;
-using tensorstore::internal::JoinPath;
-using tensorstore::internal::SetEnv;
-using tensorstore::internal::UnsetEnv;
-using tensorstore::internal_http::HttpRequest;
-using tensorstore::internal_http::HttpResponse;
-using tensorstore::internal_http::HttpTransport;
-using tensorstore::internal_http::SetDefaultHttpTransport;
-using tensorstore::internal_oauth2::AuthProvider;
-using tensorstore::internal_oauth2::GetFakePrivateKey;
-using tensorstore::internal_oauth2::GetGoogleAuthProvider;
-
 namespace {
+
+using ::tensorstore::Future;
+using ::tensorstore::StrCat;
+using ::tensorstore::internal::JoinPath;
+using ::tensorstore::internal::SetEnv;
+using ::tensorstore::internal::UnsetEnv;
+using ::tensorstore::internal_http::HttpRequest;
+using ::tensorstore::internal_http::HttpResponse;
+using ::tensorstore::internal_http::HttpTransport;
+using ::tensorstore::internal_http::SetDefaultHttpTransport;
+using ::tensorstore::internal_oauth2::AuthProvider;
+using ::tensorstore::internal_oauth2::GetFakePrivateKey;
+using ::tensorstore::internal_oauth2::GetGoogleAuthProvider;
 
 class TestData : public tensorstore::internal::ScopedTemporaryDirectory {
  public:

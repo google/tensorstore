@@ -22,9 +22,9 @@
 
 namespace {
 
-using tensorstore::BitIterator;
-using tensorstore::BitRef;
-using BitSet = tensorstore::SmallBitSet<32>;
+using ::tensorstore::BitIterator;
+using ::tensorstore::BitRef;
+using BitSet = ::tensorstore::SmallBitSet<32>;
 
 static_assert(
     std::is_convertible_v<BitRef<std::uint32_t>, BitRef<const std::uint32_t>>);

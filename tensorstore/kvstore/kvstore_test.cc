@@ -26,7 +26,7 @@
 namespace {
 
 namespace kvstore = tensorstore::kvstore;
-using tensorstore::MatchesStatus;
+using ::tensorstore::MatchesStatus;
 
 TEST(KeyValueStoreTest, OpenInvalid) {
   auto context = tensorstore::Context::Default();

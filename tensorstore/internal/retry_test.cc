@@ -25,9 +25,9 @@
 #include "absl/time/time.h"
 #include "tensorstore/util/status.h"
 
-using tensorstore::internal::RetryWithBackoff;
-
 namespace {
+
+using ::tensorstore::internal::RetryWithBackoff;
 
 TEST(RetryTest, ImmediateSuccess) {
   std::deque<absl::Status> results({absl::OkStatus()});

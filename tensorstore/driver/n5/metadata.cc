@@ -36,8 +36,8 @@
 namespace tensorstore {
 namespace internal_n5 {
 
-using internal::MetadataMismatchError;
 namespace jb = tensorstore::internal_json_binding;
+using ::tensorstore::internal::MetadataMismatchError;
 
 CodecSpec N5CodecSpec::Clone() const {
   return internal::CodecDriverSpec::Make<N5CodecSpec>(*this);

@@ -27,12 +27,13 @@
 #include "tensorstore/util/str_cat.h"
 
 namespace {
-using tensorstore::AnyFlowReceiver;
-using tensorstore::IndexTransform;
-using tensorstore::MatchesStatus;
-using tensorstore::WriteProgress;
-using tensorstore::internal::ReadChunk;
-using tensorstore::internal::WriteChunk;
+
+using ::tensorstore::AnyFlowReceiver;
+using ::tensorstore::IndexTransform;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::WriteProgress;
+using ::tensorstore::internal::ReadChunk;
+using ::tensorstore::internal::WriteChunk;
 
 class ChunkErrorDriver : public tensorstore::internal::Driver {
  public:

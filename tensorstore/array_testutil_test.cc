@@ -21,13 +21,13 @@
 
 namespace {
 
-using tensorstore::Index;
-using tensorstore::MakeArray;
-using tensorstore::MakeOffsetArray;
-using tensorstore::MakeScalarArray;
-using tensorstore::MatchesArray;
-using tensorstore::MatchesScalarArray;
-using tensorstore::span;
+using ::tensorstore::Index;
+using ::tensorstore::MakeArray;
+using ::tensorstore::MakeOffsetArray;
+using ::tensorstore::MakeScalarArray;
+using ::tensorstore::MatchesArray;
+using ::tensorstore::MatchesScalarArray;
+using ::tensorstore::span;
 
 TEST(MatchesArrayTest, Describe) {
   std::ostringstream ss;

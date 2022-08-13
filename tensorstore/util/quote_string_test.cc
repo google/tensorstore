@@ -18,7 +18,7 @@
 
 namespace {
 
-using tensorstore::QuoteString;
+using ::tensorstore::QuoteString;
 
 TEST(QuoteStringTest, Basic) {
   EXPECT_EQ("\"abc \"", QuoteString("abc "));

@@ -25,21 +25,22 @@
 #include "tensorstore/util/str_cat.h"
 
 namespace {
-using tensorstore::Box;
-using tensorstore::BoxView;
-using tensorstore::dynamic_rank;
-using tensorstore::HasBoxDomain;
-using tensorstore::Index;
-using tensorstore::IndexInterval;
-using tensorstore::IsStaticCastConstructible;
-using tensorstore::kInfIndex;
-using tensorstore::kInfSize;
-using tensorstore::MatchesStatus;
-using tensorstore::MutableBoxView;
-using tensorstore::span;
-using tensorstore::StaticRankCast;
-using tensorstore::unchecked;
-using tensorstore::serialization::TestSerializationRoundTrip;
+
+using ::tensorstore::Box;
+using ::tensorstore::BoxView;
+using ::tensorstore::dynamic_rank;
+using ::tensorstore::HasBoxDomain;
+using ::tensorstore::Index;
+using ::tensorstore::IndexInterval;
+using ::tensorstore::IsStaticCastConstructible;
+using ::tensorstore::kInfIndex;
+using ::tensorstore::kInfSize;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::MutableBoxView;
+using ::tensorstore::span;
+using ::tensorstore::StaticRankCast;
+using ::tensorstore::unchecked;
+using ::tensorstore::serialization::TestSerializationRoundTrip;
 using ::testing::ElementsAre;
 using ::testing::ElementsAreArray;
 

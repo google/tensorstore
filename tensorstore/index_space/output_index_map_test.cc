@@ -27,19 +27,19 @@
 
 namespace {
 
-using tensorstore::dynamic_rank;
-using tensorstore::Index;
-using tensorstore::IndexInterval;
-using tensorstore::IndexTransformBuilder;
-using tensorstore::MakeOffsetArray;
-using tensorstore::offset_origin;
-using tensorstore::OutputIndexMapIterator;
-using tensorstore::OutputIndexMapRange;
-using tensorstore::OutputIndexMapRef;
-using tensorstore::OutputIndexMethod;
-using tensorstore::span;
-using tensorstore::StaticRank;
-using tensorstore::StridedLayout;
+using ::tensorstore::dynamic_rank;
+using ::tensorstore::Index;
+using ::tensorstore::IndexInterval;
+using ::tensorstore::IndexTransformBuilder;
+using ::tensorstore::MakeOffsetArray;
+using ::tensorstore::offset_origin;
+using ::tensorstore::OutputIndexMapIterator;
+using ::tensorstore::OutputIndexMapRange;
+using ::tensorstore::OutputIndexMapRef;
+using ::tensorstore::OutputIndexMethod;
+using ::tensorstore::span;
+using ::tensorstore::StaticRank;
+using ::tensorstore::StridedLayout;
 
 TEST(OutputIndexMethodTest, Ostream) {
   EXPECT_EQ("constant", tensorstore::StrCat(OutputIndexMethod::constant));

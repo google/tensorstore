@@ -28,13 +28,13 @@
 
 namespace {
 
-using tensorstore::Index;
-using tensorstore::MakeArray;
-using tensorstore::MatchesStatus;
-using tensorstore::span;
-using tensorstore::internal_n5::Compressor;
-using tensorstore::internal_n5::DecodeChunk;
-using tensorstore::internal_n5::N5Metadata;
+using ::tensorstore::Index;
+using ::tensorstore::MakeArray;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::span;
+using ::tensorstore::internal_n5::Compressor;
+using ::tensorstore::internal_n5::DecodeChunk;
+using ::tensorstore::internal_n5::N5Metadata;
 
 TEST(BloscCompressionTest, Parse) {
   for (auto codec : {"lz4", "blosclz", "lz4hc", "snappy", "zlib", "zstd"}) {

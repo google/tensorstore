@@ -23,13 +23,14 @@
 #include "tensorstore/internal/memory.h"
 
 namespace {
-using tensorstore::internal::acquire_object_ref;
-using tensorstore::internal::adopt_object_ref;
-using tensorstore::internal::AtomicReferenceCount;
-using tensorstore::internal::const_pointer_cast;
-using tensorstore::internal::dynamic_pointer_cast;
-using tensorstore::internal::IntrusivePtr;
-using tensorstore::internal::static_pointer_cast;
+
+using ::tensorstore::internal::acquire_object_ref;
+using ::tensorstore::internal::adopt_object_ref;
+using ::tensorstore::internal::AtomicReferenceCount;
+using ::tensorstore::internal::const_pointer_cast;
+using ::tensorstore::internal::dynamic_pointer_cast;
+using ::tensorstore::internal::IntrusivePtr;
+using ::tensorstore::internal::static_pointer_cast;
 
 namespace default_behavior {
 

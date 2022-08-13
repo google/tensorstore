@@ -23,14 +23,15 @@
 #include "tensorstore/util/str_cat.h"
 
 namespace {
-using tensorstore::dynamic_extent;
-using tensorstore::IsStaticCastConstructible;
-using tensorstore::MatchesStatus;
-using tensorstore::Result;
-using tensorstore::span;
-using tensorstore::StaticCast;
-using tensorstore::unchecked;
-using tensorstore::unchecked_t;
+
+using ::tensorstore::dynamic_extent;
+using ::tensorstore::IsStaticCastConstructible;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::Result;
+using ::tensorstore::span;
+using ::tensorstore::StaticCast;
+using ::tensorstore::unchecked;
+using ::tensorstore::unchecked_t;
 
 /// Define a type that follows the `unchecked_t` construction convention.
 template <std::ptrdiff_t Extent>

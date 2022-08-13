@@ -30,10 +30,10 @@
 
 namespace {
 
-using tensorstore::MatchesStatus;
-using tensorstore::png::Decode;
-using tensorstore::png::Encode;
-using tensorstore::png::EncodeOptions;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::png::Decode;
+using ::tensorstore::png::Encode;
+using ::tensorstore::png::EncodeOptions;
 
 class PngCodingTest : public ::testing::TestWithParam<int> {
  public:

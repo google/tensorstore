@@ -39,14 +39,14 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
-using tensorstore::internal_http::HttpRequestBuilder;
-using tensorstore::internal_http::HttpResponse;
-
-namespace jb = tensorstore::internal_json_binding;
-
 namespace tensorstore {
 namespace internal_oauth2 {
 namespace {
+
+namespace jb = tensorstore::internal_json_binding;
+
+using ::tensorstore::internal_http::HttpRequestBuilder;
+using ::tensorstore::internal_http::HttpResponse;
 
 // Using GCE-based credentials
 // 1. Run the process on GCE.

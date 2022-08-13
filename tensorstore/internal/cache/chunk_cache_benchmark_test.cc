@@ -54,28 +54,28 @@
 
 namespace {
 
-using tensorstore::ArrayView;
-using tensorstore::Box;
-using tensorstore::DimensionIndex;
-using tensorstore::Executor;
-using tensorstore::Future;
-using tensorstore::Index;
-using tensorstore::IndexTransform;
-using tensorstore::MakeArray;
-using tensorstore::MakeCopy;
-using tensorstore::SharedArray;
-using tensorstore::SharedArrayView;
-using tensorstore::span;
-using tensorstore::StorageGeneration;
-using tensorstore::TimestampedStorageGeneration;
-using tensorstore::internal::CachePool;
-using tensorstore::internal::CachePtr;
-using tensorstore::internal::ChunkCache;
-using tensorstore::internal::ChunkCacheDriver;
-using tensorstore::internal::ChunkGridSpecification;
-using tensorstore::internal::Driver;
-using tensorstore::internal::ElementCopyFunction;
-using tensorstore::internal::GetOwningCache;
+using ::tensorstore::ArrayView;
+using ::tensorstore::Box;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::Executor;
+using ::tensorstore::Future;
+using ::tensorstore::Index;
+using ::tensorstore::IndexTransform;
+using ::tensorstore::MakeArray;
+using ::tensorstore::MakeCopy;
+using ::tensorstore::SharedArray;
+using ::tensorstore::SharedArrayView;
+using ::tensorstore::span;
+using ::tensorstore::StorageGeneration;
+using ::tensorstore::TimestampedStorageGeneration;
+using ::tensorstore::internal::CachePool;
+using ::tensorstore::internal::CachePtr;
+using ::tensorstore::internal::ChunkCache;
+using ::tensorstore::internal::ChunkCacheDriver;
+using ::tensorstore::internal::ChunkGridSpecification;
+using ::tensorstore::internal::Driver;
+using ::tensorstore::internal::ElementCopyFunction;
+using ::tensorstore::internal::GetOwningCache;
 
 /// Benchmark configuration for read/write benchmark.
 struct BenchmarkConfig {

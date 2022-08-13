@@ -25,37 +25,37 @@
 
 namespace {
 
-using tensorstore::AreCompatibleOrUnbounded;
-using tensorstore::ComputeStridedSliceMap;
-using tensorstore::container;
-using tensorstore::DividePositiveRoundOut;
-using tensorstore::ExplicitIndexOr;
-using tensorstore::ExtractClosedStridedSlice;
-using tensorstore::ExtractHalfOpenStridedSlice;
-using tensorstore::ExtractSizedStridedSlice;
-using tensorstore::GetAffineTransformInverseDomain;
-using tensorstore::ImplicitOrEqual;
-using tensorstore::Index;
-using tensorstore::IndexDomainDimension;
-using tensorstore::IndexInterval;
-using tensorstore::IndexIntervalRef;
-using tensorstore::Intersect;
-using tensorstore::IntervalForm;
-using tensorstore::kImplicit;
-using tensorstore::kInfIndex;
-using tensorstore::kInfSize;
-using tensorstore::kMaxFiniteIndex;
-using tensorstore::kMinFiniteIndex;
-using tensorstore::MatchesStatus;
-using tensorstore::MergeDimensionLabels;
-using tensorstore::MergeOptionallyImplicitIndexIntervals;
-using tensorstore::OptionallyImplicitIndexInterval;
-using tensorstore::ShiftInterval;
-using tensorstore::ShiftIntervalBackward;
-using tensorstore::ShiftIntervalTo;
-using tensorstore::StrCat;
-using tensorstore::view;
-using tensorstore::serialization::TestSerializationRoundTrip;
+using ::tensorstore::AreCompatibleOrUnbounded;
+using ::tensorstore::ComputeStridedSliceMap;
+using ::tensorstore::container;
+using ::tensorstore::DividePositiveRoundOut;
+using ::tensorstore::ExplicitIndexOr;
+using ::tensorstore::ExtractClosedStridedSlice;
+using ::tensorstore::ExtractHalfOpenStridedSlice;
+using ::tensorstore::ExtractSizedStridedSlice;
+using ::tensorstore::GetAffineTransformInverseDomain;
+using ::tensorstore::ImplicitOrEqual;
+using ::tensorstore::Index;
+using ::tensorstore::IndexDomainDimension;
+using ::tensorstore::IndexInterval;
+using ::tensorstore::IndexIntervalRef;
+using ::tensorstore::Intersect;
+using ::tensorstore::IntervalForm;
+using ::tensorstore::kImplicit;
+using ::tensorstore::kInfIndex;
+using ::tensorstore::kInfSize;
+using ::tensorstore::kMaxFiniteIndex;
+using ::tensorstore::kMinFiniteIndex;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::MergeDimensionLabels;
+using ::tensorstore::MergeOptionallyImplicitIndexIntervals;
+using ::tensorstore::OptionallyImplicitIndexInterval;
+using ::tensorstore::ShiftInterval;
+using ::tensorstore::ShiftIntervalBackward;
+using ::tensorstore::ShiftIntervalTo;
+using ::tensorstore::StrCat;
+using ::tensorstore::view;
+using ::tensorstore::serialization::TestSerializationRoundTrip;
 using ::testing::Optional;
 using ::testing::Pair;
 
@@ -1375,7 +1375,6 @@ TEST(IndexIntervalRefTest, Assignment) {
 }
 
 TEST(OptionallyImplicitIndexIntervalTest, EffectiveInterval) {
-  using tensorstore::OptionallyImplicitIndexInterval;
   EXPECT_EQ(IndexInterval::UncheckedClosed(-kInfIndex, 2),
             OptionallyImplicitIndexInterval(
                 IndexInterval::UncheckedClosed(1, 2), true, false)
@@ -1391,7 +1390,6 @@ TEST(OptionallyImplicitIndexIntervalTest, EffectiveInterval) {
 }
 
 TEST(OptionallyImplicitIndexIntervalTest, Ostream) {
-  using tensorstore::OptionallyImplicitIndexInterval;
   EXPECT_EQ("[1*, 3)", StrCat(OptionallyImplicitIndexInterval{
                            IndexInterval::UncheckedClosed(1, 2), true, false}));
   EXPECT_EQ("(-inf, 3*)",

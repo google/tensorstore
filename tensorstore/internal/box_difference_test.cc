@@ -22,10 +22,11 @@
 #include "tensorstore/index.h"
 
 namespace {
-using tensorstore::Box;
-using tensorstore::BoxView;
-using tensorstore::Index;
-using tensorstore::internal::BoxDifference;
+
+using ::tensorstore::Box;
+using ::tensorstore::BoxView;
+using ::tensorstore::Index;
+using ::tensorstore::internal::BoxDifference;
 
 std::vector<Box<>> Subtract(BoxView<> outer, BoxView<> inner) {
   BoxDifference difference(outer, inner);

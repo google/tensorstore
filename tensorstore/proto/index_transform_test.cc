@@ -36,20 +36,20 @@
 
 namespace {
 
-using protobuf_matchers::EqualsProto;
-using tensorstore::DimensionIndex;
-using tensorstore::dynamic_rank;
-using tensorstore::EncodeToProto;
-using tensorstore::Index;
-using tensorstore::IndexDomainView;
-using tensorstore::IndexInterval;
-using tensorstore::IndexTransform;
-using tensorstore::IndexTransformBuilder;
-using tensorstore::IndexTransformView;
-using tensorstore::kInfIndex;
-using tensorstore::MatchesStatus;
-using tensorstore::ParseIndexDomainFromProto;
-using tensorstore::ParseIndexTransformFromProto;
+using ::protobuf_matchers::EqualsProto;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::dynamic_rank;
+using ::tensorstore::EncodeToProto;
+using ::tensorstore::Index;
+using ::tensorstore::IndexDomainView;
+using ::tensorstore::IndexInterval;
+using ::tensorstore::IndexTransform;
+using ::tensorstore::IndexTransformBuilder;
+using ::tensorstore::IndexTransformView;
+using ::tensorstore::kInfIndex;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::ParseIndexDomainFromProto;
+using ::tensorstore::ParseIndexTransformFromProto;
 
 template <typename Proto>
 Proto ParseProtoOrDie(const std::string& asciipb) {

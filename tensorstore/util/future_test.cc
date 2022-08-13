@@ -41,20 +41,20 @@
 #include "tensorstore/util/str_cat.h"
 
 namespace {
-using tensorstore::AnyFuture;
-using tensorstore::Future;
-using tensorstore::FutureCallbackRegistration;
-using tensorstore::InlineExecutor;
-using tensorstore::IsFutureConvertible;
-using tensorstore::MakeReadyFuture;
-using tensorstore::MakeResult;
-using tensorstore::MatchesStatus;
-using tensorstore::Promise;
-using tensorstore::PromiseFuturePair;
-using tensorstore::ReadyFuture;
-using tensorstore::Result;
-using tensorstore::internal::TestConcurrent;
-using tensorstore::internal_future::FutureAccess;
+using ::tensorstore::AnyFuture;
+using ::tensorstore::Future;
+using ::tensorstore::FutureCallbackRegistration;
+using ::tensorstore::InlineExecutor;
+using ::tensorstore::IsFutureConvertible;
+using ::tensorstore::MakeReadyFuture;
+using ::tensorstore::MakeResult;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::Promise;
+using ::tensorstore::PromiseFuturePair;
+using ::tensorstore::ReadyFuture;
+using ::tensorstore::Result;
+using ::tensorstore::internal::TestConcurrent;
+using ::tensorstore::internal_future::FutureAccess;
 
 static_assert(IsFutureConvertible<int, const int>);
 static_assert(!IsFutureConvertible<const int, int>);

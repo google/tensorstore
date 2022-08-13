@@ -27,14 +27,14 @@
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
-using tensorstore::AllocateArray;
-using tensorstore::Box;
-using tensorstore::IdentityTransform;
-using tensorstore::Index;
-using tensorstore::IndexDomain;
-using tensorstore::IndexTransform;
-using tensorstore::IndexTransformBuilder;
-using tensorstore::span;
+using ::tensorstore::AllocateArray;
+using ::tensorstore::Box;
+using ::tensorstore::IdentityTransform;
+using ::tensorstore::Index;
+using ::tensorstore::IndexDomain;
+using ::tensorstore::IndexTransform;
+using ::tensorstore::IndexTransformBuilder;
+using ::tensorstore::span;
 
 TEST(IdentityTransformTest, Static) {
   auto t = IdentityTransform<2>();

@@ -25,11 +25,11 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
-using tensorstore::Result;
-using tensorstore::internal_http::HttpResponse;
-using tensorstore::internal_oauth2::OAuth2AuthProvider;
-
 namespace {
+
+using ::tensorstore::Result;
+using ::tensorstore::internal_http::HttpResponse;
+using ::tensorstore::internal_oauth2::OAuth2AuthProvider;
 
 const char kServiceAccountInfo[] = R"({
     "token_type" : "123",

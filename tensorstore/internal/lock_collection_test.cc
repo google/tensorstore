@@ -23,7 +23,7 @@
 #include "tensorstore/internal/concurrent_testutil.h"
 
 namespace {
-using tensorstore::internal::LockCollection;
+using ::tensorstore::internal::LockCollection;
 
 TEST(LockCollectionTest, Empty) {
   LockCollection c;

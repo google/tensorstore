@@ -17,9 +17,9 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-using tensorstore::internal_http::HttpRequestBuilder;
-
 namespace {
+
+using ::tensorstore::internal_http::HttpRequestBuilder;
 
 TEST(HttpRequestBuilder, BuildRequest) {
   auto request = HttpRequestBuilder("GET", "http://127.0.0.1:0/")

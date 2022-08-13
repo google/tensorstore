@@ -22,16 +22,16 @@
 #include "tensorstore/util/str_cat.h"
 
 namespace {
-using tensorstore::DimensionIdentifier;
-using tensorstore::DimensionIndexBuffer;
-using tensorstore::DimRangeSpec;
-using tensorstore::DynamicDimSpec;
-using tensorstore::Index;
-using tensorstore::MatchesStatus;
-using tensorstore::NormalizeDimensionIdentifier;
-using tensorstore::NormalizeDimensionIndex;
-using tensorstore::span;
-using tensorstore::StrCat;
+using ::tensorstore::DimensionIdentifier;
+using ::tensorstore::DimensionIndexBuffer;
+using ::tensorstore::DimRangeSpec;
+using ::tensorstore::DynamicDimSpec;
+using ::tensorstore::Index;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::NormalizeDimensionIdentifier;
+using ::tensorstore::NormalizeDimensionIndex;
+using ::tensorstore::span;
+using ::tensorstore::StrCat;
 
 TEST(DimensionIdentifierTest, ConstructDefault) {
   DimensionIdentifier d;

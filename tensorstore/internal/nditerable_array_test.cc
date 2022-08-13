@@ -35,17 +35,17 @@
 
 namespace {
 
-using tensorstore::Array;
-using tensorstore::DimensionIndex;
-using tensorstore::Index;
-using tensorstore::span;
-using tensorstore::StridedLayout;
-using tensorstore::internal::Arena;
-using tensorstore::internal::GetArrayNDIterable;
-using tensorstore::internal::IterationBufferKind;
-using tensorstore::internal::IterationBufferPointer;
-using tensorstore::internal::MultiNDIterator;
-using tensorstore::internal::NDIterable;
+using ::tensorstore::Array;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::Index;
+using ::tensorstore::span;
+using ::tensorstore::StridedLayout;
+using ::tensorstore::internal::Arena;
+using ::tensorstore::internal::GetArrayNDIterable;
+using ::tensorstore::internal::IterationBufferKind;
+using ::tensorstore::internal::IterationBufferPointer;
+using ::tensorstore::internal::MultiNDIterator;
+using ::tensorstore::internal::NDIterable;
 
 using DirectionPref = NDIterable::DirectionPref;
 

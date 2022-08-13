@@ -44,11 +44,11 @@ namespace internal_downsample {
 
 namespace {
 
-using internal::ArenaAllocator;
-using internal::IterationBufferKind;
-using internal::IterationBufferPointer;
-using internal::NDIterable;
-using internal::NDIterator;
+using ::tensorstore::internal::ArenaAllocator;
+using ::tensorstore::internal::IterationBufferKind;
+using ::tensorstore::internal::IterationBufferPointer;
+using ::tensorstore::internal::NDIterable;
+using ::tensorstore::internal::NDIterator;
 
 /// Traits type that defines the reduction operations for each downsample
 /// method, used by `DownsampleImpl`.

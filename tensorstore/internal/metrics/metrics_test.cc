@@ -30,12 +30,12 @@
 
 namespace {
 
-using tensorstore::internal_metrics::Counter;
-using tensorstore::internal_metrics::DefaultBucketer;
-using tensorstore::internal_metrics::Gauge;
-using tensorstore::internal_metrics::GetMetricRegistry;
-using tensorstore::internal_metrics::Histogram;
-using tensorstore::internal_metrics::Value;
+using ::tensorstore::internal_metrics::Counter;
+using ::tensorstore::internal_metrics::DefaultBucketer;
+using ::tensorstore::internal_metrics::Gauge;
+using ::tensorstore::internal_metrics::GetMetricRegistry;
+using ::tensorstore::internal_metrics::Histogram;
+using ::tensorstore::internal_metrics::Value;
 
 TEST(MetricTest, CounterInt) {
   auto& counter = Counter<int64_t>::New("/tensorstore/counter1", "A metric");

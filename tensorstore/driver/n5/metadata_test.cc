@@ -29,17 +29,17 @@
 
 namespace {
 
-using tensorstore::ArrayView;
-using tensorstore::CodecSpec;
-using tensorstore::fortran_order;
-using tensorstore::Index;
-using tensorstore::MakeArray;
-using tensorstore::MatchesJson;
-using tensorstore::MatchesStatus;
-using tensorstore::span;
-using tensorstore::StridedLayout;
-using tensorstore::internal_n5::DecodeChunk;
-using tensorstore::internal_n5::N5Metadata;
+using ::tensorstore::ArrayView;
+using ::tensorstore::CodecSpec;
+using ::tensorstore::fortran_order;
+using ::tensorstore::Index;
+using ::tensorstore::MakeArray;
+using ::tensorstore::MatchesJson;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::span;
+using ::tensorstore::StridedLayout;
+using ::tensorstore::internal_n5::DecodeChunk;
+using ::tensorstore::internal_n5::N5Metadata;
 
 TEST(MetadataTest, ParseValid) {
   ::nlohmann::json attributes{

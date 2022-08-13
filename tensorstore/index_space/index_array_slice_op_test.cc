@@ -25,17 +25,17 @@
 
 namespace {
 
-using tensorstore::AllDims;
-using tensorstore::DimensionIndex;
-using tensorstore::Dims;
-using tensorstore::Index;
-using tensorstore::IndexInterval;
-using tensorstore::IndexTransformBuilder;
-using tensorstore::MakeArray;
-using tensorstore::SharedArrayView;
-using tensorstore::span;
-using tensorstore::internal_index_space::EquivalentIndices;
-using tensorstore::internal_index_space::TestDimExpression;
+using ::tensorstore::AllDims;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::Dims;
+using ::tensorstore::Index;
+using ::tensorstore::IndexInterval;
+using ::tensorstore::IndexTransformBuilder;
+using ::tensorstore::MakeArray;
+using ::tensorstore::SharedArrayView;
+using ::tensorstore::span;
+using ::tensorstore::internal_index_space::EquivalentIndices;
+using ::tensorstore::internal_index_space::TestDimExpression;
 
 TEST(IndexArraySliceTest, Example) {
   const auto original_transform = IndexTransformBuilder<3, 3>()

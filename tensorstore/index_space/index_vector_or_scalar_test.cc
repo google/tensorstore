@@ -27,13 +27,13 @@
 
 namespace {
 
-using tensorstore::dynamic_extent;
-using tensorstore::Index;
-using tensorstore::IsIndexVectorOrScalar;
-using tensorstore::MatchesStatus;
-using tensorstore::span;
-using tensorstore::internal_index_space::CheckIndexVectorSize;
-using tensorstore::internal_index_space::IndexVectorOrScalarView;
+using ::tensorstore::dynamic_extent;
+using ::tensorstore::Index;
+using ::tensorstore::IsIndexVectorOrScalar;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::span;
+using ::tensorstore::internal_index_space::CheckIndexVectorSize;
+using ::tensorstore::internal_index_space::IndexVectorOrScalarView;
 
 static_assert(IsIndexVectorOrScalar<Index>::value == true);
 

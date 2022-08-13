@@ -29,19 +29,19 @@
 
 namespace {
 
-using tensorstore::DimensionIndex;
-using tensorstore::dynamic_rank;
-using tensorstore::Future;
-using tensorstore::Index;
-using tensorstore::MatchesStatus;
-using tensorstore::Promise;
-using tensorstore::Result;
-using tensorstore::span;
-using tensorstore::StorageGeneration;
-using tensorstore::TimestampedStorageGeneration;
-using tensorstore::internal::ConcurrentQueue;
-using tensorstore::internal::UniqueNow;
-using tensorstore::serialization::SerializationRoundTrip;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::dynamic_rank;
+using ::tensorstore::Future;
+using ::tensorstore::Index;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::Promise;
+using ::tensorstore::Result;
+using ::tensorstore::span;
+using ::tensorstore::StorageGeneration;
+using ::tensorstore::TimestampedStorageGeneration;
+using ::tensorstore::internal::ConcurrentQueue;
+using ::tensorstore::internal::UniqueNow;
+using ::tensorstore::serialization::SerializationRoundTrip;
 
 template <typename... Option>
 Result<tensorstore::TensorStore<Index, dynamic_rank,
@@ -79,7 +79,7 @@ SerializableCoordinatesView(DimensionIndex dim, Option&&... option) {
 }
 
 using RequestLayout =
-    tensorstore::StridedLayout<dynamic_rank, tensorstore::offset_origin>;
+    ::tensorstore::StridedLayout<dynamic_rank, ::tensorstore::offset_origin>;
 
 template <typename... Option>
 Result<tensorstore::TensorStore<void, dynamic_rank,

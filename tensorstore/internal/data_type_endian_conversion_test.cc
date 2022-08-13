@@ -27,20 +27,20 @@
 
 namespace {
 
-using tensorstore::Array;
-using tensorstore::c_order;
-using tensorstore::ContiguousLayoutOrder;
-using tensorstore::DataType;
-using tensorstore::dtype_v;
-using tensorstore::endian;
-using tensorstore::fortran_order;
-using tensorstore::Index;
-using tensorstore::MakeArray;
-using tensorstore::SharedArrayView;
-using tensorstore::StridedLayout;
-using tensorstore::internal::DecodeArray;
-using tensorstore::internal::EncodeArray;
-using tensorstore::internal::TryViewCordAsArray;
+using ::tensorstore::Array;
+using ::tensorstore::c_order;
+using ::tensorstore::ContiguousLayoutOrder;
+using ::tensorstore::DataType;
+using ::tensorstore::dtype_v;
+using ::tensorstore::endian;
+using ::tensorstore::fortran_order;
+using ::tensorstore::Index;
+using ::tensorstore::MakeArray;
+using ::tensorstore::SharedArrayView;
+using ::tensorstore::StridedLayout;
+using ::tensorstore::internal::DecodeArray;
+using ::tensorstore::internal::EncodeArray;
+using ::tensorstore::internal::TryViewCordAsArray;
 
 // Test encoding an endian-neutral uint8 array.
 TEST(EncodeDecodeArrayTest, Uint8) {
@@ -92,7 +92,7 @@ TEST(EncodeDecodeArrayTest, Uint16) {
 
 // Test encoding a float16 array.
 TEST(EncodeDecodeArrayTest, Float16) {
-  using tensorstore::float16_t;
+  using ::tensorstore::float16_t;
   float16_t source[6] = {float16_t(1.0), float16_t(2.0), float16_t(3.0),
                          float16_t(4.0), float16_t(5.0), float16_t(6.0)};
   alignas(2) unsigned char dest1[13] = {};
@@ -126,7 +126,7 @@ TEST(EncodeDecodeArrayTest, Float16) {
 
 // Test encoding a bfloat16 array.
 TEST(EncodeDecodeArrayTest, Bfloat16) {
-  using tensorstore::bfloat16_t;
+  using ::tensorstore::bfloat16_t;
   bfloat16_t source[6] = {bfloat16_t(1.0), bfloat16_t(2.0), bfloat16_t(3.0),
                           bfloat16_t(4.0), bfloat16_t(5.0), bfloat16_t(6.0)};
   alignas(2) unsigned char dest1[13] = {};

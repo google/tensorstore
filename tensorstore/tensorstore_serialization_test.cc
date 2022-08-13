@@ -27,8 +27,8 @@
 
 namespace {
 
-using tensorstore::Context;
-using tensorstore::serialization::SerializationRoundTrip;
+using ::tensorstore::Context;
+using ::tensorstore::serialization::SerializationRoundTrip;
 
 TEST(TensorStoreSerializationTest, Invalid) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(

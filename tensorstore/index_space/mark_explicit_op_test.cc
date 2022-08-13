@@ -26,14 +26,14 @@
 
 namespace {
 
-using tensorstore::DimensionIndex;
-using tensorstore::Dims;
-using tensorstore::Index;
-using tensorstore::IndexDomainBuilder;
-using tensorstore::IndexTransformBuilder;
-using tensorstore::MakeArray;
-using tensorstore::internal_index_space::TestDimExpression;
-using tensorstore::internal_index_space::TestDimExpressionErrorTransformOnly;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::Dims;
+using ::tensorstore::Index;
+using ::tensorstore::IndexDomainBuilder;
+using ::tensorstore::IndexTransformBuilder;
+using ::tensorstore::MakeArray;
+using ::tensorstore::internal_index_space::TestDimExpression;
+using ::tensorstore::internal_index_space::TestDimExpressionErrorTransformOnly;
 
 TEST(MarkBoundsExplicitTest, Example) {
   const auto original_transform = IndexTransformBuilder<3, 3>()

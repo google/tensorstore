@@ -52,7 +52,9 @@ namespace {
 
 namespace jb = tensorstore::internal_json_binding;
 
-using kvstore::ReadResult;
+using ::tensorstore::internal_kvstore::DeleteRangeEntry;
+using ::tensorstore::internal_kvstore::kReadModifyWrite;
+using ::tensorstore::kvstore::ReadResult;
 
 TimestampedStorageGeneration GenerationNow(StorageGeneration generation) {
   return TimestampedStorageGeneration{std::move(generation), absl::Now()};
@@ -218,8 +220,6 @@ Future<kvstore::DriverPtr> MemoryDriverSpec::DoOpen() const {
 
 using BufferedReadModifyWriteEntry =
     internal_kvstore::AtomicMultiPhaseMutation::BufferedReadModifyWriteEntry;
-using internal_kvstore::DeleteRangeEntry;
-using internal_kvstore::kReadModifyWrite;
 
 class MemoryDriver::TransactionNode
     : public internal_kvstore::AtomicTransactionNode {

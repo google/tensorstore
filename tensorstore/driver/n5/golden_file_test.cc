@@ -38,7 +38,7 @@ ABSL_FLAG(std::string, tensorstore_test_data_dir, ".",
 
 namespace {
 
-using tensorstore::Index;
+using ::tensorstore::Index;
 
 class GoldenFileTest : public ::testing::TestWithParam<const char*> {
  public:

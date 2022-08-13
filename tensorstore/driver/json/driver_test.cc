@@ -35,15 +35,16 @@
 namespace {
 
 namespace kvstore = tensorstore::kvstore;
-using tensorstore::MakeArray;
-using tensorstore::MakeScalarArray;
-using tensorstore::MatchesStatus;
-using tensorstore::internal::GetMap;
-using tensorstore::internal::ParseJsonMatches;
-using tensorstore::internal::TestSpecSchema;
-using tensorstore::internal::TestTensorStoreCreateCheckSchema;
-using testing::Optional;
-using testing::Pair;
+
+using ::tensorstore::MakeArray;
+using ::tensorstore::MakeScalarArray;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::internal::GetMap;
+using ::tensorstore::internal::ParseJsonMatches;
+using ::tensorstore::internal::TestSpecSchema;
+using ::tensorstore::internal::TestTensorStoreCreateCheckSchema;
+using ::testing::Optional;
+using ::testing::Pair;
 
 std::string GetPath() { return "path.json"; }
 ::nlohmann::json GetKvstoreSpec() { return {{"driver", "memory"}}; }

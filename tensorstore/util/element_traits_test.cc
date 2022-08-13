@@ -17,9 +17,9 @@
 #include <type_traits>
 
 namespace {
-using tensorstore::AreElementTypesCompatible;
-using tensorstore::IsElementTypeImplicitlyConvertible;
-using tensorstore::IsElementTypeOnlyExplicitlyConvertible;
+using ::tensorstore::AreElementTypesCompatible;
+using ::tensorstore::IsElementTypeImplicitlyConvertible;
+using ::tensorstore::IsElementTypeOnlyExplicitlyConvertible;
 
 static_assert(IsElementTypeImplicitlyConvertible<int, int>);
 static_assert(IsElementTypeImplicitlyConvertible<const int, const int>);

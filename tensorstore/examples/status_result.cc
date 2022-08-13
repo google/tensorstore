@@ -18,9 +18,9 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
-using tensorstore::Result;
-
 namespace {
+
+using ::tensorstore::Result;
 
 absl::Status ReturnStatus(int x) {
   if (x < 10) {

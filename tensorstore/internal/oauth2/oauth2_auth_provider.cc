@@ -31,13 +31,13 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
-using tensorstore::Result;
-using tensorstore::internal_http::HttpRequestBuilder;
-using tensorstore::internal_http::HttpResponse;
-
 namespace tensorstore {
 namespace internal_oauth2 {
 namespace {
+
+using ::tensorstore::Result;
+using ::tensorstore::internal_http::HttpRequestBuilder;
+using ::tensorstore::internal_http::HttpResponse;
 
 // Construct the refresh token payload once when the OAuth2AuthProvider
 // is created & cache the value.

@@ -28,9 +28,9 @@
 
 namespace {
 
-using tensorstore::Promise;
-using tensorstore::PromiseFuturePair;
-using tensorstore::Result;
+using ::tensorstore::Promise;
+using ::tensorstore::PromiseFuturePair;
+using ::tensorstore::Result;
 
 TEST(PromiseReceiverTest, SetCancel) {
   auto pair = PromiseFuturePair<int>::Make();

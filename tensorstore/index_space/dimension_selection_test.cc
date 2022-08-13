@@ -22,16 +22,16 @@
 
 namespace {
 
-using tensorstore::DimensionIndex;
-using tensorstore::DimensionIndexBuffer;
-using tensorstore::DimRangeSpec;
-using tensorstore::Dims;
-using tensorstore::dynamic_rank;
-using tensorstore::DynamicDims;
-using tensorstore::IndexDomainBuilder;
-using tensorstore::IndexTransformBuilder;
-using tensorstore::span;
-using tensorstore::internal_index_space::TestDimExpressionError;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::DimensionIndexBuffer;
+using ::tensorstore::DimRangeSpec;
+using ::tensorstore::Dims;
+using ::tensorstore::dynamic_rank;
+using ::tensorstore::DynamicDims;
+using ::tensorstore::IndexDomainBuilder;
+using ::tensorstore::IndexTransformBuilder;
+using ::tensorstore::span;
+using ::tensorstore::internal_index_space::TestDimExpressionError;
 
 TEST(DimsTest, ErrorHandling) {
   TestDimExpressionError(

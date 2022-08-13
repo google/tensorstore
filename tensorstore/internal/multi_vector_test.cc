@@ -25,13 +25,13 @@
 
 namespace {
 
-using tensorstore::dynamic_rank;
-using tensorstore::span;
-using tensorstore::internal::MultiVectorAccess;
-using tensorstore::internal::MultiVectorStorage;
-using tensorstore::internal::MultiVectorStorageImpl;
-using tensorstore::internal_multi_vector::GetAlignedOffset;
-using tensorstore::internal_multi_vector::PackStorageOffsets;
+using ::tensorstore::dynamic_rank;
+using ::tensorstore::span;
+using ::tensorstore::internal::MultiVectorAccess;
+using ::tensorstore::internal::MultiVectorStorage;
+using ::tensorstore::internal::MultiVectorStorageImpl;
+using ::tensorstore::internal_multi_vector::GetAlignedOffset;
+using ::tensorstore::internal_multi_vector::PackStorageOffsets;
 using ::testing::ElementsAre;
 
 static_assert(

@@ -42,25 +42,26 @@
 
 namespace {
 
-using tensorstore::Box;
-using tensorstore::BoxView;
-using tensorstore::ChunkLayout;
-using tensorstore::DimensionIndex;
-using tensorstore::Dims;
-using tensorstore::dynamic_rank;
-using tensorstore::Index;
-using tensorstore::IndexDomainBuilder;
-using tensorstore::IndexTransformBuilder;
-using tensorstore::IndexTransformView;
-using tensorstore::kImplicit;
-using tensorstore::kInfIndex;
-using tensorstore::kMaxRank;
-using tensorstore::MatchesJson;
-using tensorstore::MatchesStatus;
-using tensorstore::span;
-using tensorstore::internal::ChooseChunkGrid;
-using tensorstore::internal::MakeRandomDimensionOrder;
+using ::tensorstore::Box;
+using ::tensorstore::BoxView;
+using ::tensorstore::ChunkLayout;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::Dims;
+using ::tensorstore::dynamic_rank;
+using ::tensorstore::Index;
+using ::tensorstore::IndexDomainBuilder;
+using ::tensorstore::IndexTransformBuilder;
+using ::tensorstore::IndexTransformView;
+using ::tensorstore::kImplicit;
+using ::tensorstore::kInfIndex;
+using ::tensorstore::kMaxRank;
+using ::tensorstore::MatchesJson;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::span;
+using ::tensorstore::internal::ChooseChunkGrid;
+using ::tensorstore::internal::MakeRandomDimensionOrder;
 using ::testing::Optional;
+
 using Usage = ChunkLayout::Usage;
 
 TEST(ChunkLayoutTest, SingleLevelRank0) {

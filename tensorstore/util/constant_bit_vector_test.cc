@@ -23,8 +23,8 @@
 #include "tensorstore/util/bit_span.h"
 
 namespace {
-using tensorstore::BitSpan;
-using tensorstore::GetConstantBitVector;
+using ::tensorstore::BitSpan;
+using ::tensorstore::GetConstantBitVector;
 TEST(GetConstantBitVectorTest, StaticExtentFalse) {
   constexpr auto v = GetConstantBitVector<std::uint64_t, false, 113>();
   static_assert(

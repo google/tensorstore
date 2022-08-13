@@ -30,10 +30,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
-using tensorstore::Result;
-using tensorstore::internal_http::HttpRequestBuilder;
-using tensorstore::internal_http::HttpResponse;
-
 // Using Google service account credentials.
 //  1. Create the service account via console.developers.google.com
 //  2. Under IAM, add the role with appropriate permissions.
@@ -42,6 +38,10 @@ using tensorstore::internal_http::HttpResponse;
 //
 namespace tensorstore {
 namespace internal_oauth2 {
+
+using ::tensorstore::Result;
+using ::tensorstore::internal_http::HttpRequestBuilder;
+using ::tensorstore::internal_http::HttpResponse;
 
 // The URL to retrieve the auth bearer token via OAuth with a private key.
 constexpr char kOAuthV4Url[] = "https://www.googleapis.com/oauth2/v4/token";

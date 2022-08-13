@@ -45,28 +45,28 @@
 
 namespace {
 
-using tensorstore::ArrayView;
-using tensorstore::Box;
-using tensorstore::BoxView;
-using tensorstore::Dims;
-using tensorstore::dynamic_rank;
-using tensorstore::Index;
-using tensorstore::IndexTransform;
-using tensorstore::IndexTransformBuilder;
-using tensorstore::IndexTransformView;
-using tensorstore::MakeArray;
-using tensorstore::MakeArrayView;
-using tensorstore::MakeOffsetArray;
-using tensorstore::MakeScalarArray;
-using tensorstore::MatchesStatus;
-using tensorstore::offset_origin;
-using tensorstore::SharedArray;
-using tensorstore::span;
-using tensorstore::StridedLayout;
-using tensorstore::TransformedArray;
-using tensorstore::internal::ElementCopyFunction;
-using tensorstore::internal::MaskData;
-using tensorstore::internal::SimpleElementwiseFunction;
+using ::tensorstore::ArrayView;
+using ::tensorstore::Box;
+using ::tensorstore::BoxView;
+using ::tensorstore::Dims;
+using ::tensorstore::dynamic_rank;
+using ::tensorstore::Index;
+using ::tensorstore::IndexTransform;
+using ::tensorstore::IndexTransformBuilder;
+using ::tensorstore::IndexTransformView;
+using ::tensorstore::MakeArray;
+using ::tensorstore::MakeArrayView;
+using ::tensorstore::MakeOffsetArray;
+using ::tensorstore::MakeScalarArray;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::offset_origin;
+using ::tensorstore::SharedArray;
+using ::tensorstore::span;
+using ::tensorstore::StridedLayout;
+using ::tensorstore::TransformedArray;
+using ::tensorstore::internal::ElementCopyFunction;
+using ::tensorstore::internal::MaskData;
+using ::tensorstore::internal::SimpleElementwiseFunction;
 
 /// Stores a MaskData object along with a Box representing its associated domain
 /// and a StridedLayout representing the mask array layout.

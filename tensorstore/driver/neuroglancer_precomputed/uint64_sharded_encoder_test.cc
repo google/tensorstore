@@ -27,12 +27,12 @@
 namespace {
 
 namespace zlib = tensorstore::zlib;
-using tensorstore::neuroglancer_uint64_sharded::EncodeMinishardIndex;
-using tensorstore::neuroglancer_uint64_sharded::EncodeShardIndex;
-using tensorstore::neuroglancer_uint64_sharded::MinishardIndexEntry;
-using tensorstore::neuroglancer_uint64_sharded::ShardEncoder;
-using tensorstore::neuroglancer_uint64_sharded::ShardIndexEntry;
-using tensorstore::neuroglancer_uint64_sharded::ShardingSpec;
+using ::tensorstore::neuroglancer_uint64_sharded::EncodeMinishardIndex;
+using ::tensorstore::neuroglancer_uint64_sharded::EncodeShardIndex;
+using ::tensorstore::neuroglancer_uint64_sharded::MinishardIndexEntry;
+using ::tensorstore::neuroglancer_uint64_sharded::ShardEncoder;
+using ::tensorstore::neuroglancer_uint64_sharded::ShardIndexEntry;
+using ::tensorstore::neuroglancer_uint64_sharded::ShardingSpec;
 
 absl::Cord Bytes(std::vector<unsigned char> bytes) {
   return absl::Cord(std::string_view(

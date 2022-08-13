@@ -23,9 +23,9 @@
 
 namespace {
 
-using tensorstore::MatchesStatus;
-using tensorstore::neuroglancer_uint64_sharded::MinishardIndexEntry;
-using tensorstore::neuroglancer_uint64_sharded::ShardingSpec;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::neuroglancer_uint64_sharded::MinishardIndexEntry;
+using ::tensorstore::neuroglancer_uint64_sharded::ShardingSpec;
 
 TEST(ShardingSpecTest, Comparison) {
   ShardingSpec a{

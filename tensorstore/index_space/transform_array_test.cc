@@ -24,15 +24,15 @@
 
 namespace {
 
-using tensorstore::DimensionIndex;
-using tensorstore::IdentityTransform;
-using tensorstore::Index;
-using tensorstore::IndexInterval;
-using tensorstore::IndexTransformBuilder;
-using tensorstore::IndexTransformView;
-using tensorstore::MakeArray;
-using tensorstore::MakeOffsetArray;
-using tensorstore::MatchesStatus;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::IdentityTransform;
+using ::tensorstore::Index;
+using ::tensorstore::IndexInterval;
+using ::tensorstore::IndexTransformBuilder;
+using ::tensorstore::IndexTransformView;
+using ::tensorstore::MakeArray;
+using ::tensorstore::MakeOffsetArray;
+using ::tensorstore::MatchesStatus;
 
 TEST(TransformArrayTest, OneDimensionalIdentity) {
   auto original_array = tensorstore::MakeArray<int>({1, 2, 3, 4});

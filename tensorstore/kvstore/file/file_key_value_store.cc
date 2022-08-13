@@ -134,21 +134,6 @@
 #include "tensorstore/kvstore/file/posix_file_util.h"
 #include "tensorstore/kvstore/file/windows_file_util.h"
 
-using tensorstore::internal::GetLastErrorCode;
-using tensorstore::internal::GetOsErrorStatusCode;
-using tensorstore::internal::OsErrorCode;
-using tensorstore::internal::StatusFromOsError;
-using tensorstore::internal_file_util::FileDescriptor;
-using tensorstore::internal_file_util::FileInfo;
-using tensorstore::internal_file_util::GetFileInfo;
-using tensorstore::internal_file_util::IsKeyValid;
-using tensorstore::internal_file_util::kLockSuffix;
-using tensorstore::internal_file_util::LongestDirectoryPrefix;
-using tensorstore::internal_file_util::UniqueFileDescriptor;
-using tensorstore::kvstore::ReadResult;
-
-namespace tensorstore {
-
 /// On FreeBSD and Mac OS X, `flock` can safely be used instead of open file
 /// descriptor locks.  `flock`/`fcntl`/`lockf` all use the same underlying lock
 /// mechanism and are all compatible with each other, and with NFS.
@@ -169,8 +154,23 @@ namespace tensorstore {
 /// require passing through the Promise to the task code, rather than using
 /// `MapFuture`.
 
+namespace tensorstore {
 namespace {
+
 namespace jb = tensorstore::internal_json_binding;
+
+using ::tensorstore::internal::GetLastErrorCode;
+using ::tensorstore::internal::GetOsErrorStatusCode;
+using ::tensorstore::internal::OsErrorCode;
+using ::tensorstore::internal::StatusFromOsError;
+using ::tensorstore::internal_file_util::FileDescriptor;
+using ::tensorstore::internal_file_util::FileInfo;
+using ::tensorstore::internal_file_util::GetFileInfo;
+using ::tensorstore::internal_file_util::IsKeyValid;
+using ::tensorstore::internal_file_util::kLockSuffix;
+using ::tensorstore::internal_file_util::LongestDirectoryPrefix;
+using ::tensorstore::internal_file_util::UniqueFileDescriptor;
+using ::tensorstore::kvstore::ReadResult;
 
 auto& file_bytes_read = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/file/bytes_read",

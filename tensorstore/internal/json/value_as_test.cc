@@ -32,10 +32,10 @@
 
 namespace {
 
-using tensorstore::MatchesStatus;
-using tensorstore::internal_json::JsonRequireInteger;
-using tensorstore::internal_json::JsonRequireValueAs;
-using tensorstore::internal_json::JsonValueAs;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::internal_json::JsonRequireInteger;
+using ::tensorstore::internal_json::JsonRequireValueAs;
+using ::tensorstore::internal_json::JsonValueAs;
 
 template <typename T, bool kStrict = true>
 std::optional<T> JsonMemberT(const ::nlohmann::json::object_t& j,

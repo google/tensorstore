@@ -22,11 +22,11 @@
 #include "tensorstore/internal/memory.h"
 
 namespace {
-using tensorstore::internal::const_pointer_cast;
-using tensorstore::internal::dynamic_pointer_cast;
-using tensorstore::internal::IntrusivePtr;
-using tensorstore::internal::static_pointer_cast;
-using tensorstore::internal::TaggedPtr;
+using ::tensorstore::internal::const_pointer_cast;
+using ::tensorstore::internal::dynamic_pointer_cast;
+using ::tensorstore::internal::IntrusivePtr;
+using ::tensorstore::internal::static_pointer_cast;
+using ::tensorstore::internal::TaggedPtr;
 
 struct alignas(8) X {
   virtual ~X() = default;

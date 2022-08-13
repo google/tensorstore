@@ -24,11 +24,11 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
-using tensorstore::Result;
-using tensorstore::internal_http::HttpResponse;
-using tensorstore::internal_oauth2::GceAuthProvider;
-
 namespace {
+
+using ::tensorstore::Result;
+using ::tensorstore::internal_http::HttpResponse;
+using ::tensorstore::internal_oauth2::GceAuthProvider;
 
 const char kOAuthResponse[] = R"(
 {

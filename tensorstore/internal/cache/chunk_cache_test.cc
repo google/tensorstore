@@ -73,39 +73,38 @@
 namespace {
 
 namespace kvstore = tensorstore::kvstore;
-using tensorstore::ArrayView;
-using tensorstore::Box;
-using tensorstore::DimensionIndex;
-using tensorstore::Executor;
-using tensorstore::Future;
-using tensorstore::Index;
-using tensorstore::IndexTransform;
-using tensorstore::MakeArray;
-using tensorstore::MakeCopy;
-using tensorstore::MatchesStatus;
-using tensorstore::no_transaction;
-using tensorstore::ReadProgressFunction;
-using tensorstore::Result;
-using tensorstore::SharedArray;
-using tensorstore::span;
-using tensorstore::StalenessBound;
-using tensorstore::StorageGeneration;
-using tensorstore::TensorStore;
-using tensorstore::Transaction;
-using tensorstore::WriteProgressFunction;
-using tensorstore::internal::AsyncCache;
-using tensorstore::internal::CachePool;
-using tensorstore::internal::CachePtr;
-using tensorstore::internal::ChunkCache;
-using tensorstore::internal::ChunkGridSpecification;
-using tensorstore::internal::ElementCopyFunction;
-using tensorstore::internal::MakeReadWritePtr;
-using tensorstore::internal::MockKeyValueStore;
-using tensorstore::internal::PinnedCacheEntry;
-using tensorstore::internal::ReadWritePtr;
-using tensorstore::internal::SimpleElementwiseFunction;
-
-using testing::ElementsAre;
+using ::tensorstore::ArrayView;
+using ::tensorstore::Box;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::Executor;
+using ::tensorstore::Future;
+using ::tensorstore::Index;
+using ::tensorstore::IndexTransform;
+using ::tensorstore::MakeArray;
+using ::tensorstore::MakeCopy;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::no_transaction;
+using ::tensorstore::ReadProgressFunction;
+using ::tensorstore::Result;
+using ::tensorstore::SharedArray;
+using ::tensorstore::span;
+using ::tensorstore::StalenessBound;
+using ::tensorstore::StorageGeneration;
+using ::tensorstore::TensorStore;
+using ::tensorstore::Transaction;
+using ::tensorstore::WriteProgressFunction;
+using ::tensorstore::internal::AsyncCache;
+using ::tensorstore::internal::CachePool;
+using ::tensorstore::internal::CachePtr;
+using ::tensorstore::internal::ChunkCache;
+using ::tensorstore::internal::ChunkGridSpecification;
+using ::tensorstore::internal::ElementCopyFunction;
+using ::tensorstore::internal::MakeReadWritePtr;
+using ::tensorstore::internal::MockKeyValueStore;
+using ::tensorstore::internal::PinnedCacheEntry;
+using ::tensorstore::internal::ReadWritePtr;
+using ::tensorstore::internal::SimpleElementwiseFunction;
+using ::testing::ElementsAre;
 
 /// Decodes component arrays encoded as native-endian C order.
 Result<std::shared_ptr<const ChunkCache::ReadData>> DecodeRaw(
@@ -208,7 +207,7 @@ class TestCache
 
 class TestDriver : public tensorstore::internal::ChunkCacheDriver {
  public:
-  using tensorstore::internal::ChunkCacheDriver::ChunkCacheDriver;
+  using ::tensorstore::internal::ChunkCacheDriver::ChunkCacheDriver;
   void GarbageCollectionVisit(
       tensorstore::garbage_collection::GarbageCollectionVisitor& visitor)
       const final {

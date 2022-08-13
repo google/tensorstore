@@ -22,11 +22,11 @@
 
 namespace {
 
-using tensorstore::internal::Arena;
-using tensorstore::internal::ArenaAllocator;
-using tensorstore::internal::IntrusiveAllocatorBase;
-using tensorstore::internal::MakeUniqueWithIntrusiveAllocator;
-using tensorstore::internal::MakeUniqueWithVirtualIntrusiveAllocator;
+using ::tensorstore::internal::Arena;
+using ::tensorstore::internal::ArenaAllocator;
+using ::tensorstore::internal::IntrusiveAllocatorBase;
+using ::tensorstore::internal::MakeUniqueWithIntrusiveAllocator;
+using ::tensorstore::internal::MakeUniqueWithVirtualIntrusiveAllocator;
 
 class Base {
  public:

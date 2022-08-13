@@ -23,7 +23,7 @@
 #include "tensorstore/util/iterate_over_index_range.h"
 #include "tensorstore/util/status.h"
 
-using tensorstore::Index;
+using ::tensorstore::Index;
 
 // ApplyKernel applies the convolution kernel `kernel` to the
 // input image `in`.
@@ -116,7 +116,6 @@ using AffineWarpGridFunction = absl::FunctionRef<void(
 void AffineWarpGrid(size_t xmax, size_t ymax,
                     tensorstore::span<const double, 6> M,
                     AffineWarpGridFunction fn) {
-  using tensorstore::Index;
   constexpr size_t kBlockSize = 32;
   double mx[kBlockSize * 2];
   double yx[kBlockSize * kBlockSize * 2];

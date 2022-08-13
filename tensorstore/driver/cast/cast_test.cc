@@ -30,23 +30,23 @@
 
 namespace {
 
-using tensorstore::Cast;
-using tensorstore::ChunkLayout;
-using tensorstore::DataTypeConversionFlags;
-using tensorstore::DimensionIndex;
-using tensorstore::dtype_v;
-using tensorstore::Index;
-using tensorstore::MakeArray;
-using tensorstore::MatchesStatus;
-using tensorstore::ReadWriteMode;
-using tensorstore::Result;
-using tensorstore::string_t;
-using tensorstore::zero_origin;
-using tensorstore::internal::CastDataTypeConversions;
-using tensorstore::internal::GetCastDataTypeConversions;
-using tensorstore::internal::GetCastMode;
-using tensorstore::internal::TestSpecSchema;
-using tensorstore::internal::TestTensorStoreCreateCheckSchema;
+using ::tensorstore::Cast;
+using ::tensorstore::ChunkLayout;
+using ::tensorstore::DataTypeConversionFlags;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::dtype_v;
+using ::tensorstore::Index;
+using ::tensorstore::MakeArray;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::ReadWriteMode;
+using ::tensorstore::Result;
+using ::tensorstore::string_t;
+using ::tensorstore::zero_origin;
+using ::tensorstore::internal::CastDataTypeConversions;
+using ::tensorstore::internal::GetCastDataTypeConversions;
+using ::tensorstore::internal::GetCastMode;
+using ::tensorstore::internal::TestSpecSchema;
+using ::tensorstore::internal::TestTensorStoreCreateCheckSchema;
 
 template <class T>
 constexpr void test_helper(T&& t) {}

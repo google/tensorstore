@@ -20,14 +20,15 @@
 #include "tensorstore/util/str_cat.h"
 
 namespace {
-using tensorstore::MatchesStatus;
-using tensorstore::no_transaction;
-using tensorstore::Transaction;
-using tensorstore::TransactionMode;
-using tensorstore::internal::AcquireOpenTransactionPtrOrError;
-using tensorstore::internal::OpenTransactionNodePtr;
-using tensorstore::internal::TransactionState;
-using tensorstore::internal::WeakTransactionNodePtr;
+
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::no_transaction;
+using ::tensorstore::Transaction;
+using ::tensorstore::TransactionMode;
+using ::tensorstore::internal::AcquireOpenTransactionPtrOrError;
+using ::tensorstore::internal::OpenTransactionNodePtr;
+using ::tensorstore::internal::TransactionState;
+using ::tensorstore::internal::WeakTransactionNodePtr;
 
 TEST(TransactionTest, NoTransaction) {
   EXPECT_EQ(TransactionMode::no_transaction_mode, no_transaction);

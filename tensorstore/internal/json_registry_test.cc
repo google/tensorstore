@@ -27,9 +27,9 @@
 
 namespace {
 
-using tensorstore::MatchesStatus;
-using tensorstore::internal::IntrusivePtr;
-using tensorstore::internal::JsonRegistry;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::internal::IntrusivePtr;
+using ::tensorstore::internal::JsonRegistry;
 
 class MyInterface
     : public tensorstore::internal::AtomicReferenceCount<MyInterface> {

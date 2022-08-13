@@ -26,20 +26,20 @@
 
 namespace {
 
-using tensorstore::MatchesJson;
-using tensorstore::MatchesStatus;
-using tensorstore::json_pointer::Compare;
-using tensorstore::json_pointer::CompareResult;
-using tensorstore::json_pointer::Dereference;
-using tensorstore::json_pointer::EncodeReferenceToken;
-using tensorstore::json_pointer::kCreate;
-using tensorstore::json_pointer::kDelete;
-using tensorstore::json_pointer::kMustExist;
-using tensorstore::json_pointer::kSimulateCreate;
-using tensorstore::json_pointer::Replace;
-using tensorstore::json_pointer::Validate;
-using testing::Optional;
-using testing::Pointee;
+using ::tensorstore::MatchesJson;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::json_pointer::Compare;
+using ::tensorstore::json_pointer::CompareResult;
+using ::tensorstore::json_pointer::Dereference;
+using ::tensorstore::json_pointer::EncodeReferenceToken;
+using ::tensorstore::json_pointer::kCreate;
+using ::tensorstore::json_pointer::kDelete;
+using ::tensorstore::json_pointer::kMustExist;
+using ::tensorstore::json_pointer::kSimulateCreate;
+using ::tensorstore::json_pointer::Replace;
+using ::tensorstore::json_pointer::Validate;
+using ::testing::Optional;
+using ::testing::Pointee;
 
 TEST(ValidateTest, Valid) {
   TENSORSTORE_EXPECT_OK(Validate(""));

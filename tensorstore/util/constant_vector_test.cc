@@ -24,8 +24,8 @@
 
 namespace {
 
-using tensorstore::GetConstantVector;
-using tensorstore::span;
+using ::tensorstore::GetConstantVector;
+using ::tensorstore::span;
 
 // Tests with a run time-specified length.  The request is satisfied with the
 // initial static buffer of length 32.

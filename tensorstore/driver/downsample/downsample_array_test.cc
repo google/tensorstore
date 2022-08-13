@@ -26,15 +26,15 @@
 
 namespace {
 
-using tensorstore::Dims;
-using tensorstore::DownsampleMethod;
-using tensorstore::Index;
-using tensorstore::kImplicit;
-using tensorstore::MakeArray;
-using tensorstore::MakeOffsetArray;
-using tensorstore::span;
-using tensorstore::internal_downsample::DownsampleArray;
-using tensorstore::internal_downsample::DownsampleTransformedArray;
+using ::tensorstore::Dims;
+using ::tensorstore::DownsampleMethod;
+using ::tensorstore::Index;
+using ::tensorstore::kImplicit;
+using ::tensorstore::MakeArray;
+using ::tensorstore::MakeOffsetArray;
+using ::tensorstore::span;
+using ::tensorstore::internal_downsample::DownsampleArray;
+using ::tensorstore::internal_downsample::DownsampleTransformedArray;
 using ::testing::Optional;
 
 TEST(DownsampleArrayTest, MeanRank0) {
@@ -376,7 +376,7 @@ TEST(DownsampleArrayTest, MedianBool) {
 }
 
 TEST(DownsampleArrayTest, ModeJson) {
-  using tensorstore::json_t;
+  using ::tensorstore::json_t;
   EXPECT_THAT(DownsampleArray(MakeArray<json_t>({"a", "a", 3.0, 3, 3u}),
                               span<const Index>({5}), DownsampleMethod::kMode),
               Optional(MakeArray<::nlohmann::json>({json_t(3)})));

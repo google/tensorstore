@@ -30,29 +30,29 @@
 
 namespace {
 
-using tensorstore::bfloat16_t;
-using tensorstore::bool_t;
-using tensorstore::complex128_t;
-using tensorstore::complex64_t;
-using tensorstore::DataTypeConversionFlags;
-using tensorstore::DataTypeConversionTraits;
-using tensorstore::dtype_v;
-using tensorstore::float16_t;
-using tensorstore::float32_t;
-using tensorstore::float64_t;
-using tensorstore::Index;
-using tensorstore::IsDataTypeConversionSupported;
-using tensorstore::json_t;
-using tensorstore::MatchesStatus;
-using tensorstore::Result;
-using tensorstore::StrCat;
-using tensorstore::string_t;
-using tensorstore::ustring_t;
-using tensorstore::internal::GetDataTypeConverter;
-using tensorstore::internal::GetDataTypeConverterOrError;
-using tensorstore::internal::GetElementCopyErrorStatus;
-using tensorstore::internal::IterationBufferKind;
-using tensorstore::internal::IterationBufferPointer;
+using ::tensorstore::bfloat16_t;
+using ::tensorstore::bool_t;
+using ::tensorstore::complex128_t;
+using ::tensorstore::complex64_t;
+using ::tensorstore::DataTypeConversionFlags;
+using ::tensorstore::DataTypeConversionTraits;
+using ::tensorstore::dtype_v;
+using ::tensorstore::float16_t;
+using ::tensorstore::float32_t;
+using ::tensorstore::float64_t;
+using ::tensorstore::Index;
+using ::tensorstore::IsDataTypeConversionSupported;
+using ::tensorstore::json_t;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::Result;
+using ::tensorstore::StrCat;
+using ::tensorstore::string_t;
+using ::tensorstore::ustring_t;
+using ::tensorstore::internal::GetDataTypeConverter;
+using ::tensorstore::internal::GetDataTypeConverterOrError;
+using ::tensorstore::internal::GetElementCopyErrorStatus;
+using ::tensorstore::internal::IterationBufferKind;
+using ::tensorstore::internal::IterationBufferPointer;
 
 constexpr DataTypeConversionFlags kSupported =
     DataTypeConversionFlags::kSupported;

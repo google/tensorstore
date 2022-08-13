@@ -24,15 +24,15 @@
 
 namespace {
 
-using tensorstore::DimensionIndex;
-using tensorstore::IdentityTransform;
-using tensorstore::Index;
-using tensorstore::IndexInterval;
-using tensorstore::IndexTransformBuilder;
-using tensorstore::IndexTransformView;
-using tensorstore::kMaxFiniteIndex;
-using tensorstore::MakeArray;
-using tensorstore::MatchesStatus;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::IdentityTransform;
+using ::tensorstore::Index;
+using ::tensorstore::IndexInterval;
+using ::tensorstore::IndexTransformBuilder;
+using ::tensorstore::IndexTransformView;
+using ::tensorstore::kMaxFiniteIndex;
+using ::tensorstore::MakeArray;
+using ::tensorstore::MatchesStatus;
 
 TEST(ComposeTransformsTest, EmptyDomain) {
   auto b_to_c = IndexTransformBuilder<3, 2>()

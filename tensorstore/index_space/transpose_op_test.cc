@@ -23,13 +23,13 @@
 
 namespace {
 
-using tensorstore::Dims;
-using tensorstore::Index;
-using tensorstore::IndexInterval;
-using tensorstore::IndexTransformBuilder;
-using tensorstore::MakeArray;
-using tensorstore::internal_index_space::EquivalentIndices;
-using tensorstore::internal_index_space::TestDimExpression;
+using ::tensorstore::Dims;
+using ::tensorstore::Index;
+using ::tensorstore::IndexInterval;
+using ::tensorstore::IndexTransformBuilder;
+using ::tensorstore::MakeArray;
+using ::tensorstore::internal_index_space::EquivalentIndices;
+using ::tensorstore::internal_index_space::TestDimExpression;
 
 TEST(TransposeTest, Example) {
   const auto original_transform = IndexTransformBuilder<3, 3>()

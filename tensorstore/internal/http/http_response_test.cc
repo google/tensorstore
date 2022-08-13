@@ -21,9 +21,9 @@
 #include "absl/container/flat_hash_set.h"
 #include "tensorstore/util/status.h"
 
-using tensorstore::internal_http::AppendHeaderData;
-
 namespace {
+
+using ::tensorstore::internal_http::AppendHeaderData;
 
 TEST(AppendHeaderData, BadHeaders) {
   std::multimap<std::string, std::string> headers;
@@ -85,7 +85,7 @@ TEST(AppendHeaderData, GoodHeaders) {
 }
 
 TEST(HttpResponseCodeToStatusTest, AllCodes) {
-  using tensorstore::internal_http::HttpResponseCodeToStatus;
+  using ::tensorstore::internal_http::HttpResponseCodeToStatus;
 
   // OK responses
   absl::flat_hash_set<int> seen;

@@ -18,7 +18,7 @@
 
 namespace {
 
-using tensorstore::SourceLocation;
+using ::tensorstore::SourceLocation;
 
 std::uint64_t TakesSourceLocation(
     SourceLocation loc TENSORSTORE_LOC_CURRENT_DEFAULT_ARG) {

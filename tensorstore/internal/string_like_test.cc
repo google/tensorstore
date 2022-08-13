@@ -22,7 +22,7 @@
 
 namespace {
 
-using tensorstore::internal::StringLikeSpan;
+using ::tensorstore::internal::StringLikeSpan;
 
 TEST(StringLikeSpan, Default) {
   StringLikeSpan x;

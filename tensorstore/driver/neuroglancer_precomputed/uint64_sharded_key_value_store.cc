@@ -38,13 +38,12 @@
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
-using ::tensorstore::internal::IntrusivePtr;
-
 namespace tensorstore {
 namespace neuroglancer_uint64_sharded {
 namespace {
 
-using internal::ConvertInvalidArgumentToFailedPrecondition;
+using ::tensorstore::internal::ConvertInvalidArgumentToFailedPrecondition;
+using ::tensorstore::internal::IntrusivePtr;
 
 /// Read-only KeyValueStore for retrieving a minishard index
 ///

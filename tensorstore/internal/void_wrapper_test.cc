@@ -21,7 +21,7 @@
 
 namespace {
 
-using tensorstore::internal::Void;
+using ::tensorstore::internal::Void;
 
 // Tests for WrappedType.
 static_assert(std::is_same_v<Void, Void::WrappedType<void>>);

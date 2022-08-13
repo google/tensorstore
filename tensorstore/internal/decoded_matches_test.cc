@@ -24,7 +24,7 @@
 
 namespace {
 
-using tensorstore::internal::DecodedMatches;
+using ::tensorstore::internal::DecodedMatches;
 
 absl::Status Stride2Decoder(const absl::Cord& input, absl::Cord* dest) {
   if (input.size() % 2 != 0) {

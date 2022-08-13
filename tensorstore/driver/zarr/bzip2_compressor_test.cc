@@ -22,8 +22,8 @@
 
 namespace {
 
-using tensorstore::MatchesStatus;
-using tensorstore::internal_zarr::Compressor;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::internal_zarr::Compressor;
 
 // Tests that a small input round trips.
 TEST(Bzip2CompressorTest, SmallRoundtrip) {

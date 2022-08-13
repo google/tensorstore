@@ -28,11 +28,11 @@
 #include "absl/types/span.h"
 #include "tensorstore/util/str_cat.h"
 
-using tensorstore::span;
-using tensorstore::StrCat;
-using tensorstore::internal::ConstSpanType;
-using tensorstore::internal::SpanType;
-using tensorstore::internal_span::IsSpanImplicitlyConvertible;
+using ::tensorstore::span;
+using ::tensorstore::StrCat;
+using ::tensorstore::internal::ConstSpanType;
+using ::tensorstore::internal::SpanType;
+using ::tensorstore::internal_span::IsSpanImplicitlyConvertible;
 
 static_assert(
     std::is_same_v<ConstSpanType<const std::vector<int>&>, span<const int>>);
@@ -603,7 +603,7 @@ TEST(DeduceSpanTest, Span) {
 
 namespace compare_tests {
 TEST(SpanTest, RangesEqual) {
-  using tensorstore::internal::RangesEqual;
+  using ::tensorstore::internal::RangesEqual;
 
   EXPECT_TRUE(RangesEqual(span<const int>(), span<const int>()));
   EXPECT_TRUE(RangesEqual(span<const int>(), span<int>()));

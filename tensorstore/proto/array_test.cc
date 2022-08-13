@@ -36,12 +36,12 @@
 
 namespace {
 
-using protobuf_matchers::EqualsProto;
-using tensorstore::Index;
-using tensorstore::kInfIndex;
-using tensorstore::MatchesStatus;
-using tensorstore::ParseArrayFromProto;
-using tensorstore::StridedLayout;
+using ::protobuf_matchers::EqualsProto;
+using ::tensorstore::Index;
+using ::tensorstore::kInfIndex;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::ParseArrayFromProto;
+using ::tensorstore::StridedLayout;
 
 template <typename Proto>
 Proto ParseProtoOrDie(const std::string& asciipb) {

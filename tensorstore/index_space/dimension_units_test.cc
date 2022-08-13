@@ -31,14 +31,14 @@
 
 namespace {
 
-using tensorstore::DimensionIndex;
-using tensorstore::DimensionUnitsToString;
-using tensorstore::DimensionUnitsVector;
-using tensorstore::MatchesStatus;
-using tensorstore::MergeDimensionUnits;
-using tensorstore::TransformInputDimensionUnits;
-using tensorstore::TransformOutputDimensionUnits;
-using tensorstore::Unit;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::DimensionUnitsToString;
+using ::tensorstore::DimensionUnitsVector;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::MergeDimensionUnits;
+using ::tensorstore::TransformInputDimensionUnits;
+using ::tensorstore::TransformOutputDimensionUnits;
+using ::tensorstore::Unit;
 
 TEST(DimensionUnitsToStringTest, Basic) {
   EXPECT_EQ("[null, \"4 nm\"]", DimensionUnitsToString(DimensionUnitsVector{

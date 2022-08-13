@@ -29,11 +29,11 @@
 
 namespace {
 
-using tensorstore::Index;
-using tensorstore::MatchesStatus;
-using tensorstore::internal_neuroglancer_precomputed::DecodeChunk;
-using tensorstore::internal_neuroglancer_precomputed::EncodeChunk;
-using tensorstore::internal_neuroglancer_precomputed::MultiscaleMetadata;
+using ::tensorstore::Index;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::internal_neuroglancer_precomputed::DecodeChunk;
+using ::tensorstore::internal_neuroglancer_precomputed::EncodeChunk;
+using ::tensorstore::internal_neuroglancer_precomputed::MultiscaleMetadata;
 
 template <typename T>
 void TestRoundtrip(::nlohmann::json metadata_json, bool compare) {

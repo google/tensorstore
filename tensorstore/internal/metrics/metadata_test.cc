@@ -21,8 +21,8 @@
 
 namespace {
 
-using tensorstore::internal_metrics::IsValidMetricLabel;
-using tensorstore::internal_metrics::IsValidMetricName;
+using ::tensorstore::internal_metrics::IsValidMetricLabel;
+using ::tensorstore::internal_metrics::IsValidMetricName;
 
 TEST(MetadataTest, IsValidMetricName) {
   EXPECT_FALSE(IsValidMetricName(""));

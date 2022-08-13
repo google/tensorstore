@@ -25,7 +25,7 @@
 
 namespace {
 
-using tensorstore::internal::ToStringUsingOstream;
+using ::tensorstore::internal::ToStringUsingOstream;
 
 enum class OstreamableEnum { value = 0 };
 enum class PlainEnum { value = 0 };

@@ -58,14 +58,14 @@
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
-using tensorstore::internal::IntrusivePtr;
-using tensorstore::internal_http::HttpRequestBuilder;
-using tensorstore::internal_http::HttpResponse;
-using tensorstore::internal_http::HttpTransport;
-
 namespace tensorstore {
 namespace {
+
 namespace jb = tensorstore::internal_json_binding;
+using ::tensorstore::internal::IntrusivePtr;
+using ::tensorstore::internal_http::HttpRequestBuilder;
+using ::tensorstore::internal_http::HttpResponse;
+using ::tensorstore::internal_http::HttpTransport;
 
 auto& http_bytes_read = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/http/bytes_read",

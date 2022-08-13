@@ -21,7 +21,7 @@
 
 namespace {
 
-using tensorstore::serialization::TestSerializationRoundTrip;
+using ::tensorstore::serialization::TestSerializationRoundTrip;
 
 TEST(CodecSpecSerializationTest, SerializationRoundTrip) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(  //

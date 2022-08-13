@@ -19,9 +19,10 @@
 #include "tensorstore/util/str_cat.h"
 
 namespace {
-using tensorstore::OpenMode;
-using tensorstore::ReadWriteMode;
-using tensorstore::StrCat;
+
+using ::tensorstore::OpenMode;
+using ::tensorstore::ReadWriteMode;
+using ::tensorstore::StrCat;
 
 static_assert(ReadWriteMode::read_write ==
               (ReadWriteMode::read | ReadWriteMode::write));

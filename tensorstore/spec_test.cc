@@ -31,21 +31,21 @@
 namespace {
 
 using ::nlohmann::json;
-using tensorstore::BoxView;
-using tensorstore::DataType;
-using tensorstore::DimensionIndex;
-using tensorstore::dtype_v;
-using tensorstore::dynamic_rank;
-using tensorstore::IndexTransform;
-using tensorstore::MatchesJson;
-using tensorstore::MatchesStatus;
-using tensorstore::Result;
-using tensorstore::Spec;
-using tensorstore::StaticDataType;
-using tensorstore::StaticRankCast;
-using tensorstore::StrCat;
-using tensorstore::serialization::SerializationRoundTrip;
-using tensorstore::serialization::TestSerializationRoundTrip;
+using ::tensorstore::BoxView;
+using ::tensorstore::DataType;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::dtype_v;
+using ::tensorstore::dynamic_rank;
+using ::tensorstore::IndexTransform;
+using ::tensorstore::MatchesJson;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::Result;
+using ::tensorstore::Spec;
+using ::tensorstore::StaticDataType;
+using ::tensorstore::StaticRankCast;
+using ::tensorstore::StrCat;
+using ::tensorstore::serialization::SerializationRoundTrip;
+using ::tensorstore::serialization::TestSerializationRoundTrip;
 
 TEST(SpecTest, Invalid) {
   Spec spec;

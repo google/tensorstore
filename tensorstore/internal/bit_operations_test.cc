@@ -19,8 +19,8 @@
 
 namespace {
 
-using tensorstore::internal::bit_width;
-using tensorstore::internal_bits::CountLeadingZeros64Slow;
+using ::tensorstore::internal::bit_width;
+using ::tensorstore::internal_bits::CountLeadingZeros64Slow;
 
 static_assert(CountLeadingZeros64Slow(0) == 64);
 static_assert(CountLeadingZeros64Slow(~std::uint64_t(0)) == 0);

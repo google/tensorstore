@@ -22,17 +22,17 @@
 
 namespace {
 
-using tensorstore::internal::CopyQualifiers;
-using tensorstore::internal::FirstNonVoidType;
-using tensorstore::internal::FirstType;
-using tensorstore::internal::GetLValue;
-using tensorstore::internal::IsConstConvertible;
-using tensorstore::internal::IsConstConvertibleOrVoid;
-using tensorstore::internal::IsEqualityComparable;
-using tensorstore::internal::PossiblyEmptyObjectGetter;
-using tensorstore::internal::remove_cvref_t;
-using tensorstore::internal::type_identity_t;
-using tensorstore::internal::TypePackElement;
+using ::tensorstore::internal::CopyQualifiers;
+using ::tensorstore::internal::FirstNonVoidType;
+using ::tensorstore::internal::FirstType;
+using ::tensorstore::internal::GetLValue;
+using ::tensorstore::internal::IsConstConvertible;
+using ::tensorstore::internal::IsConstConvertibleOrVoid;
+using ::tensorstore::internal::IsEqualityComparable;
+using ::tensorstore::internal::PossiblyEmptyObjectGetter;
+using ::tensorstore::internal::remove_cvref_t;
+using ::tensorstore::internal::type_identity_t;
+using ::tensorstore::internal::TypePackElement;
 
 static_assert(std::is_same_v<FirstNonVoidType<void, int>, int>);
 static_assert(std::is_same_v<FirstNonVoidType<float, void>, float>);
@@ -123,10 +123,10 @@ static_assert(std::is_same_v<int, type_identity_t<int>>);
 
 
 namespace explict_conversion_tests {
-using tensorstore::internal::IsOnlyExplicitlyConvertible;
-using tensorstore::internal::IsPairExplicitlyConvertible;
-using tensorstore::internal::IsPairImplicitlyConvertible;
-using tensorstore::internal::IsPairOnlyExplicitlyConvertible;
+using ::tensorstore::internal::IsOnlyExplicitlyConvertible;
+using ::tensorstore::internal::IsPairExplicitlyConvertible;
+using ::tensorstore::internal::IsPairImplicitlyConvertible;
+using ::tensorstore::internal::IsPairOnlyExplicitlyConvertible;
 
 struct X {
   X(int) {}

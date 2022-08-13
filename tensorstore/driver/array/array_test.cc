@@ -36,24 +36,24 @@
 
 namespace {
 
-using tensorstore::ChunkLayout;
-using tensorstore::Context;
-using tensorstore::CopyProgress;
-using tensorstore::CopyProgressFunction;
-using tensorstore::DimensionIndex;
-using tensorstore::Index;
-using tensorstore::MatchesJson;
-using tensorstore::MatchesStatus;
-using tensorstore::offset_origin;
-using tensorstore::ReadProgress;
-using tensorstore::ReadProgressFunction;
-using tensorstore::ReadWriteMode;
-using tensorstore::TensorStore;
-using tensorstore::WriteProgress;
-using tensorstore::WriteProgressFunction;
-using tensorstore::zero_origin;
-using tensorstore::internal::TestSpecSchema;
-using tensorstore::internal::TestTensorStoreCreateCheckSchema;
+using ::tensorstore::ChunkLayout;
+using ::tensorstore::Context;
+using ::tensorstore::CopyProgress;
+using ::tensorstore::CopyProgressFunction;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::Index;
+using ::tensorstore::MatchesJson;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::offset_origin;
+using ::tensorstore::ReadProgress;
+using ::tensorstore::ReadProgressFunction;
+using ::tensorstore::ReadWriteMode;
+using ::tensorstore::TensorStore;
+using ::tensorstore::WriteProgress;
+using ::tensorstore::WriteProgressFunction;
+using ::tensorstore::zero_origin;
+using ::tensorstore::internal::TestSpecSchema;
+using ::tensorstore::internal::TestTensorStoreCreateCheckSchema;
 
 constexpr const char kMismatchRE[] = ".* mismatch with target dimension .*";
 constexpr const char kOutsideValidRangeRE[] = ".* is outside valid range .*";

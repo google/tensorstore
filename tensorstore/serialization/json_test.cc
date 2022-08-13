@@ -25,9 +25,9 @@
 
 namespace {
 
-using tensorstore::MatchesStatus;
-using tensorstore::serialization::SerializationRoundTrip;
-using tensorstore::serialization::TestSerializationRoundTrip;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::serialization::SerializationRoundTrip;
+using ::tensorstore::serialization::TestSerializationRoundTrip;
 
 TEST(SerializationTest, Valid) {
   TestSerializationRoundTrip(::nlohmann::json(5));

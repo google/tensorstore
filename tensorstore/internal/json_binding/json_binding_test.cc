@@ -42,12 +42,12 @@ namespace {
 
 namespace jb = tensorstore::internal_json_binding;
 using ::nlohmann::json;
-using tensorstore::MatchesStatus;
-using tensorstore::internal_json::JsonParseArray;
-using tensorstore::internal_json::JsonValidateArrayLength;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::internal::ParseJson;
+using ::tensorstore::internal_json::JsonParseArray;
+using ::tensorstore::internal_json::JsonValidateArrayLength;
 
 TEST(JsonTest, SimpleParse) {
-  using tensorstore::internal::ParseJson;
   const char kArray[] = R"({ "foo": "bar" })";
 
   auto x = ParseJson("");  // std::string_view

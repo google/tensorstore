@@ -23,11 +23,11 @@
 
 namespace {
 
-using tensorstore::MatchesStatus;
-using tensorstore::serialization::BindFront;
-using tensorstore::serialization::NonSerializable;
-using tensorstore::serialization::SerializableFunction;
-using tensorstore::serialization::SerializationRoundTrip;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::serialization::BindFront;
+using ::tensorstore::serialization::NonSerializable;
+using ::tensorstore::serialization::SerializableFunction;
+using ::tensorstore::serialization::SerializationRoundTrip;
 
 TEST(SerializationTest, Function) {
   SerializableFunction<int()> func([] { return 3; });

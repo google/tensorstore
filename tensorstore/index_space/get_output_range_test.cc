@@ -24,17 +24,17 @@
 
 namespace {
 
-using tensorstore::Box;
-using tensorstore::BoxView;
-using tensorstore::DimensionIndex;
-using tensorstore::Index;
-using tensorstore::IndexInterval;
-using tensorstore::IndexTransformBuilder;
-using tensorstore::IndexTransformView;
-using tensorstore::kMaxFiniteIndex;
-using tensorstore::MakeArray;
-using tensorstore::MatchesStatus;
-using tensorstore::internal_index_space::TransformAccess;
+using ::tensorstore::Box;
+using ::tensorstore::BoxView;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::Index;
+using ::tensorstore::IndexInterval;
+using ::tensorstore::IndexTransformBuilder;
+using ::tensorstore::IndexTransformView;
+using ::tensorstore::kMaxFiniteIndex;
+using ::tensorstore::MakeArray;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::internal_index_space::TransformAccess;
 
 TEST(GetOutputRangeTest, Constant) {
   Box<> output_range(1);

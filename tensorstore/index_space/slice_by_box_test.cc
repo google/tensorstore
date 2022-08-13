@@ -25,12 +25,12 @@
 
 namespace {
 
-using tensorstore::Box;
-using tensorstore::Index;
-using tensorstore::IndexDomainBuilder;
-using tensorstore::IndexTransformBuilder;
-using tensorstore::MakeArray;
-using tensorstore::MatchesStatus;
+using ::tensorstore::Box;
+using ::tensorstore::Index;
+using ::tensorstore::IndexDomainBuilder;
+using ::tensorstore::IndexTransformBuilder;
+using ::tensorstore::MakeArray;
+using ::tensorstore::MatchesStatus;
 
 TEST(IndexTransformSliceByBoxTest, Simple) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto transform,

@@ -23,7 +23,7 @@
 
 namespace {
 
-using tensorstore::MatchesJson;
+using ::tensorstore::MatchesJson;
 
 TEST(RiegeliJsonOutputTest, Basic) {
   std::string s;

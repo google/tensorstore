@@ -28,18 +28,18 @@
 
 namespace {
 
-using tensorstore::DimensionIndex;
-using tensorstore::dynamic_rank;
-using tensorstore::Index;
-using tensorstore::IndexInterval;
-using tensorstore::IndexTransform;
-using tensorstore::IndexTransformBuilder;
-using tensorstore::kInfIndex;
-using tensorstore::kInfSize;
-using tensorstore::MatchesJson;
-using tensorstore::MatchesStatus;
-using tensorstore::Result;
-using tensorstore::internal::ParseJson;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::dynamic_rank;
+using ::tensorstore::Index;
+using ::tensorstore::IndexInterval;
+using ::tensorstore::IndexTransform;
+using ::tensorstore::IndexTransformBuilder;
+using ::tensorstore::kInfIndex;
+using ::tensorstore::kInfSize;
+using ::tensorstore::MatchesJson;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::Result;
+using ::tensorstore::internal::ParseJson;
 
 IndexTransform<> MakeExampleTransform() {
   return tensorstore::IndexTransformBuilder<4, 3>()
@@ -778,7 +778,7 @@ TEST(IndexDomainJsonBinderTest, Simple) {
 }
 
 TEST(IndexBinderTest, Basic) {
-  using tensorstore::kMaxFiniteIndex;
+  using ::tensorstore::kMaxFiniteIndex;
   tensorstore::TestJsonBinderRoundTrip<Index>(
       {
           {-kInfIndex, "-inf"},
@@ -801,7 +801,7 @@ TEST(IndexBinderTest, Basic) {
 }
 
 TEST(IndexIntervalBinderTest, Basic) {
-  using tensorstore::IndexInterval;
+  using ::tensorstore::IndexInterval;
   tensorstore::TestJsonBinderRoundTrip<IndexInterval>({
       {IndexInterval::UncheckedClosed(5, 10), {5, 10}},
       {IndexInterval(), {"-inf", "+inf"}},

@@ -20,7 +20,7 @@
 
 namespace {
 
-using tensorstore::internal::IsValidUtf8;
+using ::tensorstore::internal::IsValidUtf8;
 
 // Basic sanity checks of `IsValidUtf8`.
 //

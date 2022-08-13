@@ -24,10 +24,10 @@
 
 namespace {
 
-using tensorstore::dynamic_rank;
-using tensorstore::span;
-using tensorstore::internal::MultiVectorAccess;
-using tensorstore::internal::MultiVectorViewStorage;
+using ::tensorstore::dynamic_rank;
+using ::tensorstore::span;
+using ::tensorstore::internal::MultiVectorAccess;
+using ::tensorstore::internal::MultiVectorViewStorage;
 using ::testing::ElementsAre;
 
 static_assert(

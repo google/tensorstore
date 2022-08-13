@@ -29,8 +29,8 @@ Executor DetachedThreadPool(std::size_t num_threads);
 }  // namespace tensorstore
 
 namespace {
-using tensorstore::Executor;
-using tensorstore::internal::DetachedThreadPool;
+using ::tensorstore::Executor;
+using ::tensorstore::internal::DetachedThreadPool;
 
 // Tests that the thread pool runs a task.
 TEST(DetachedThreadPoolTest, Basic) {

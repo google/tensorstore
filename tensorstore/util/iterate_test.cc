@@ -31,27 +31,27 @@
 
 namespace {
 
-using tensorstore::ArrayIterateResult;
-using tensorstore::c_order;
-using tensorstore::ContiguousLayoutOrder;
-using tensorstore::DimensionIndex;
-using tensorstore::fortran_order;
-using tensorstore::include_repeated_elements;
-using tensorstore::Index;
-using tensorstore::IterationConstraints;
-using tensorstore::LayoutOrderConstraint;
-using tensorstore::skip_repeated_elements;
-using tensorstore::span;
-using tensorstore::internal::AdvanceIndices;
-using tensorstore::internal::DefaultIterationResult;
-using tensorstore::internal_iterate::
+using ::tensorstore::ArrayIterateResult;
+using ::tensorstore::c_order;
+using ::tensorstore::ContiguousLayoutOrder;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::fortran_order;
+using ::tensorstore::include_repeated_elements;
+using ::tensorstore::Index;
+using ::tensorstore::IterationConstraints;
+using ::tensorstore::LayoutOrderConstraint;
+using ::tensorstore::skip_repeated_elements;
+using ::tensorstore::span;
+using ::tensorstore::internal::AdvanceIndices;
+using ::tensorstore::internal::DefaultIterationResult;
+using ::tensorstore::internal_iterate::
     ComputeStridedLayoutDimensionIterationOrder;
-using tensorstore::internal_iterate::ExtractInnerShapeAndStrides;
-using tensorstore::internal_iterate::InnerShapeAndStrides;
-using tensorstore::internal_iterate::PermuteAndSimplifyStridedIterationLayout;
-using tensorstore::internal_iterate::SimplifyStridedIterationLayout;
-using tensorstore::internal_iterate::StridedIterationLayout;
-using testing::ElementsAre;
+using ::tensorstore::internal_iterate::ExtractInnerShapeAndStrides;
+using ::tensorstore::internal_iterate::InnerShapeAndStrides;
+using ::tensorstore::internal_iterate::PermuteAndSimplifyStridedIterationLayout;
+using ::tensorstore::internal_iterate::SimplifyStridedIterationLayout;
+using ::tensorstore::internal_iterate::StridedIterationLayout;
+using ::testing::ElementsAre;
 
 TEST(LayoutOrderConstraint, Basic) {
   static_assert(!LayoutOrderConstraint{}, "");

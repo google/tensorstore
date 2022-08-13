@@ -43,13 +43,13 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
-using tensorstore::internal::GetEnv;
-using tensorstore::internal::JoinPath;
-using tensorstore::internal_http::HttpRequestBuilder;
-
 namespace tensorstore {
 namespace internal_oauth2 {
 namespace {
+
+using ::tensorstore::internal::GetEnv;
+using ::tensorstore::internal::JoinPath;
+using ::tensorstore::internal_http::HttpRequestBuilder;
 
 // The environment variable to override token generation for testing.
 constexpr char kGoogleAuthTokenForTesting[] = "GOOGLE_AUTH_TOKEN_FOR_TESTING";

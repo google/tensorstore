@@ -18,8 +18,8 @@
 
 namespace {
 
-using tensorstore::internal_storage_gcs::IsValidBucketName;
-using tensorstore::internal_storage_gcs::IsValidObjectName;
+using ::tensorstore::internal_storage_gcs::IsValidBucketName;
+using ::tensorstore::internal_storage_gcs::IsValidObjectName;
 
 TEST(ValidateTest, IsValidBucketName) {
   EXPECT_TRUE(IsValidBucketName("foo"));

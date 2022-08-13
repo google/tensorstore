@@ -23,7 +23,7 @@
 
 namespace {
 
-using tensorstore::internal::ParseJsonMatches;
+using ::tensorstore::internal::ParseJsonMatches;
 
 TEST(ParseJsonMatchesTest, Describe) {
   std::ostringstream ss;

@@ -42,13 +42,13 @@ namespace tensorstore {
 namespace internal_downsample {
 namespace {
 
-using internal::DriverPtr;
-using internal::IntrusivePtr;
-using internal::LockCollection;
-using internal::NDIterable;
-using internal::OpenTransactionPtr;
-using internal::ReadChunk;
-using internal::TransformedDriverSpec;
+using ::tensorstore::internal::DriverPtr;
+using ::tensorstore::internal::IntrusivePtr;
+using ::tensorstore::internal::LockCollection;
+using ::tensorstore::internal::NDIterable;
+using ::tensorstore::internal::OpenTransactionPtr;
+using ::tensorstore::internal::ReadChunk;
+using ::tensorstore::internal::TransformedDriverSpec;
 
 namespace jb = tensorstore::internal_json_binding;
 

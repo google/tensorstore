@@ -22,7 +22,7 @@
 
 namespace {
 
-using tensorstore::serialization::TestSerializationRoundTrip;
+using ::tensorstore::serialization::TestSerializationRoundTrip;
 
 TEST(DurationTest, SerializationRoundTrip) {
   TestSerializationRoundTrip(absl::Seconds(1));

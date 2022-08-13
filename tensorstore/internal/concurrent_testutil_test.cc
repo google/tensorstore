@@ -17,9 +17,9 @@
 #include <gtest/gtest.h>
 #include "tensorstore/internal/logging.h"
 
-using tensorstore::internal::TestConcurrent;
-
 namespace {
+
+using ::tensorstore::internal::TestConcurrent;
 
 TEST(TestConcurrent, EnsureContentionHappens) {
   // This test attempts to measure contention. Note, however, contention is

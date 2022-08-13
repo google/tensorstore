@@ -38,26 +38,26 @@
 
 namespace {
 
-using tensorstore::Box;
-using tensorstore::BoxView;
-using tensorstore::ContiguousLayoutOrder;
-using tensorstore::DimensionIndex;
-using tensorstore::dynamic_rank;
-using tensorstore::GetSubLayoutView;
-using tensorstore::Index;
-using tensorstore::IndexInnerProduct;
-using tensorstore::IsStridedLayout;
-using tensorstore::MatchesStatus;
-using tensorstore::offset_origin;
-using tensorstore::span;
-using tensorstore::StaticCast;
-using tensorstore::StaticRankCast;
-using tensorstore::StrCat;
-using tensorstore::StridedLayout;
-using tensorstore::StridedLayoutView;
-using tensorstore::unchecked;
-using tensorstore::zero_origin;
-using tensorstore::internal::remove_cvref_t;
+using ::tensorstore::Box;
+using ::tensorstore::BoxView;
+using ::tensorstore::ContiguousLayoutOrder;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::dynamic_rank;
+using ::tensorstore::GetSubLayoutView;
+using ::tensorstore::Index;
+using ::tensorstore::IndexInnerProduct;
+using ::tensorstore::IsStridedLayout;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::offset_origin;
+using ::tensorstore::span;
+using ::tensorstore::StaticCast;
+using ::tensorstore::StaticRankCast;
+using ::tensorstore::StrCat;
+using ::tensorstore::StridedLayout;
+using ::tensorstore::StridedLayoutView;
+using ::tensorstore::unchecked;
+using ::tensorstore::zero_origin;
+using ::tensorstore::internal::remove_cvref_t;
 
 static_assert(!IsStridedLayout<int>);
 static_assert(IsStridedLayout<StridedLayout<>>);
@@ -130,7 +130,7 @@ TEST(IndexInnerProductTest, Span) {
 }
 
 namespace conversion_tests {
-using tensorstore::internal::IsOnlyExplicitlyConvertible;
+using ::tensorstore::internal::IsOnlyExplicitlyConvertible;
 
 // Tests that StridedLayout is explicitly but not implicitly constructible from
 // any StridedLayoutView type with an implicitly convertible rank and origin

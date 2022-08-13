@@ -25,13 +25,13 @@
 
 namespace {
 
-using tensorstore::Box;
-using tensorstore::Index;
-using tensorstore::IndexDomain;
-using tensorstore::IndexDomainBuilder;
-using tensorstore::IndexTransformBuilder;
-using tensorstore::MakeArray;
-using tensorstore::MatchesStatus;
+using ::tensorstore::Box;
+using ::tensorstore::Index;
+using ::tensorstore::IndexDomain;
+using ::tensorstore::IndexDomainBuilder;
+using ::tensorstore::IndexTransformBuilder;
+using ::tensorstore::MakeArray;
+using ::tensorstore::MatchesStatus;
 
 TEST(SliceByIndexDomainTest, BothFullyUnlabeled) {
   auto transform = IndexTransformBuilder<>(2, 2)

@@ -23,12 +23,12 @@
 
 namespace {
 
-using tensorstore::Box;
-using tensorstore::BoxView;
-using tensorstore::Index;
-using tensorstore::MakeArray;
-using tensorstore::internal_downsample::GridOccupancyMap;
-using tensorstore::internal_downsample::GridOccupancyTracker;
+using ::tensorstore::Box;
+using ::tensorstore::BoxView;
+using ::tensorstore::Index;
+using ::tensorstore::MakeArray;
+using ::tensorstore::internal_downsample::GridOccupancyMap;
+using ::tensorstore::internal_downsample::GridOccupancyTracker;
 
 std::vector<Box<>> GetUnoccupiedBoxes(const GridOccupancyMap& map) {
   std::vector<Box<>> boxes;

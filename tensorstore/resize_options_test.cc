@@ -20,9 +20,9 @@
 
 namespace {
 
-using tensorstore::ResizeMode;
-using tensorstore::ResolveBoundsMode;
-using tensorstore::StrCat;
+using ::tensorstore::ResizeMode;
+using ::tensorstore::ResolveBoundsMode;
+using ::tensorstore::StrCat;
 
 TEST(ResolveBoundsModeTest, PrintToOstream) {
   EXPECT_EQ("fix_resizable_bounds",

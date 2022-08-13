@@ -19,9 +19,9 @@
 
 namespace {
 
-using tensorstore::KeyRange;
-using tensorstore::internal_file_util::IsKeyValid;
-using tensorstore::internal_file_util::LongestDirectoryPrefix;
+using ::tensorstore::KeyRange;
+using ::tensorstore::internal_file_util::IsKeyValid;
+using ::tensorstore::internal_file_util::LongestDirectoryPrefix;
 
 TEST(IsKeyValid, Basic) {
   EXPECT_TRUE(IsKeyValid("tmp/root", ""));

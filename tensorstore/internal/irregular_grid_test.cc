@@ -28,14 +28,14 @@
 
 namespace {
 
-using tensorstore::BoxView;
-using tensorstore::DimensionIndex;
-using tensorstore::Index;
-using tensorstore::IndexDomain;
-using tensorstore::IndexInterval;
-using tensorstore::kInfIndex;
-using tensorstore::span;
-using tensorstore::internal::IrregularGrid;
+using ::tensorstore::BoxView;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::Index;
+using ::tensorstore::IndexDomain;
+using ::tensorstore::IndexInterval;
+using ::tensorstore::kInfIndex;
+using ::tensorstore::span;
+using ::tensorstore::internal::IrregularGrid;
 using ::testing::ElementsAre;
 
 TEST(IrregularGridTest, Basic) {

@@ -37,11 +37,11 @@
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/status.h"
 
-using tensorstore::internal_http::HttpRequest;
-using tensorstore::internal_http::HttpResponse;
-
 namespace tensorstore {
 namespace {
+
+using ::tensorstore::internal_http::HttpRequest;
+using ::tensorstore::internal_http::HttpResponse;
 
 const char kInvalidLongBody[] =
     R"({"error": {"code": 400,  "message": "Invalid long value: '$0'." }})";

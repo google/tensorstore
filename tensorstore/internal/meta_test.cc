@@ -18,7 +18,7 @@
 
 namespace {
 
-using tensorstore::internal::GetFirstArgument;
+using ::tensorstore::internal::GetFirstArgument;
 
 static_assert(
     std::is_same_v<int&, decltype(GetFirstArgument(std::declval<int&>(),

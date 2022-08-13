@@ -24,9 +24,9 @@
 
 namespace {
 
-using tensorstore::span;
-using tensorstore::serialization::DecodeBatch;
-using tensorstore::serialization::EncodeBatch;
+using ::tensorstore::span;
+using ::tensorstore::serialization::DecodeBatch;
+using ::tensorstore::serialization::EncodeBatch;
 
 TEST(SpanSerializationTest, StaticExtent) {
   int values[2] = {1, 2};

@@ -18,9 +18,9 @@
 #include "absl/time/clock.h"
 #include "tensorstore/util/result.h"
 
-using tensorstore::internal_oauth2::FixedTokenAuthProvider;
-
 namespace {
+
+using ::tensorstore::internal_oauth2::FixedTokenAuthProvider;
 
 TEST(FixedTokenAuthProvider, Minimal) {
   FixedTokenAuthProvider auth("token");

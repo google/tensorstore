@@ -30,25 +30,25 @@
 
 namespace {
 
-using tensorstore::BoxView;
-using tensorstore::ChunkLayout;
-using tensorstore::Context;
-using tensorstore::DimensionIndex;
-using tensorstore::DownsampleMethod;
-using tensorstore::Index;
-using tensorstore::MakeArray;
-using tensorstore::MakeOffsetArray;
-using tensorstore::MatchesJson;
-using tensorstore::MatchesStatus;
-using tensorstore::ReadWriteMode;
-using tensorstore::Spec;
-using tensorstore::TensorStore;
-using tensorstore::internal::CollectReadChunks;
-using tensorstore::internal::MakeArrayBackedReadChunk;
-using tensorstore::internal::MockDriver;
-using tensorstore::internal::ReadAsIndividualChunks;
-using tensorstore::internal::TestSpecSchema;
-using tensorstore::internal::TestTensorStoreCreateCheckSchema;
+using ::tensorstore::BoxView;
+using ::tensorstore::ChunkLayout;
+using ::tensorstore::Context;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::DownsampleMethod;
+using ::tensorstore::Index;
+using ::tensorstore::MakeArray;
+using ::tensorstore::MakeOffsetArray;
+using ::tensorstore::MatchesJson;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::ReadWriteMode;
+using ::tensorstore::Spec;
+using ::tensorstore::TensorStore;
+using ::tensorstore::internal::CollectReadChunks;
+using ::tensorstore::internal::MakeArrayBackedReadChunk;
+using ::tensorstore::internal::MockDriver;
+using ::tensorstore::internal::ReadAsIndividualChunks;
+using ::tensorstore::internal::TestSpecSchema;
+using ::tensorstore::internal::TestTensorStoreCreateCheckSchema;
 using ::testing::Optional;
 using ::testing::Pair;
 

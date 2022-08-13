@@ -57,24 +57,25 @@
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
 
-using tensorstore::CompletionNotifyingReceiver;
-using tensorstore::Context;
-using tensorstore::Future;
-using tensorstore::GCSMockStorageBucket;
-using tensorstore::KeyRange;
-using tensorstore::MatchesJson;
-using tensorstore::MatchesStatus;
-using tensorstore::StrCat;
-using tensorstore::internal::MatchesKvsReadResult;
-using tensorstore::internal::ScheduleAt;
-using tensorstore::internal_http::HttpRequest;
-using tensorstore::internal_http::HttpResponse;
-using tensorstore::internal_http::HttpTransport;
-using tensorstore::internal_http::SetDefaultHttpTransport;
-
-namespace kvstore = tensorstore::kvstore;
-
 namespace {
+
+namespace kvstore = ::tensorstore::kvstore;
+
+using ::tensorstore::CompletionNotifyingReceiver;
+using ::tensorstore::Context;
+using ::tensorstore::Future;
+using ::tensorstore::GCSMockStorageBucket;
+using ::tensorstore::KeyRange;
+using ::tensorstore::MatchesJson;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::StorageGeneration;
+using ::tensorstore::StrCat;
+using ::tensorstore::internal::MatchesKvsReadResult;
+using ::tensorstore::internal::ScheduleAt;
+using ::tensorstore::internal_http::HttpRequest;
+using ::tensorstore::internal_http::HttpResponse;
+using ::tensorstore::internal_http::HttpTransport;
+using ::tensorstore::internal_http::SetDefaultHttpTransport;
 
 static constexpr char kUriScheme[] = "gs";
 static constexpr char kDriver[] = "gcs";
@@ -185,8 +186,6 @@ TEST(GcsKeyValueStoreTest, BadBucketNames) {
 }
 
 TEST(GcsKeyValueStoreTest, BadObjectNames) {
-  using tensorstore::StorageGeneration;
-
   auto mock_transport = std::make_shared<MyMockTransport>();
   DefaultHttpTransportSetter mock_transport_setter{mock_transport};
 

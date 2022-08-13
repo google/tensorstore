@@ -29,12 +29,12 @@
 
 namespace {
 
-using tensorstore::ByteRange;
-using tensorstore::MatchesStatus;
-using tensorstore::OptionalByteRangeRequest;
-using tensorstore::StrCat;
-using tensorstore::internal::GetSubCord;
-using tensorstore::serialization::TestSerializationRoundTrip;
+using ::tensorstore::ByteRange;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::OptionalByteRangeRequest;
+using ::tensorstore::StrCat;
+using ::tensorstore::internal::GetSubCord;
+using ::tensorstore::serialization::TestSerializationRoundTrip;
 
 TEST(ByteRangeTest, SatisfiesInvariants) {
   EXPECT_TRUE((ByteRange{0, 1}).SatisfiesInvariants());

@@ -30,38 +30,38 @@
 
 namespace {
 
-using tensorstore::DimensionIndex;
-using tensorstore::DimensionSet;
-using tensorstore::HullIndexDomains;
-using tensorstore::IdentityTransform;
-using tensorstore::Index;
-using tensorstore::IndexDomain;
-using tensorstore::IndexDomainBuilder;
-using tensorstore::IndexDomainDimension;
-using tensorstore::IndexDomainView;
-using tensorstore::IndexInterval;
-using tensorstore::IndexTransform;
-using tensorstore::IndexTransformBuilder;
-using tensorstore::IndexTransformView;
-using tensorstore::IntersectIndexDomains;
-using tensorstore::IsIndexDomain;
-using tensorstore::kImplicit;
-using tensorstore::kInfIndex;
-using tensorstore::kMaxFiniteIndex;
-using tensorstore::kMinFiniteIndex;
-using tensorstore::MakeArray;
-using tensorstore::MakeOffsetArray;
-using tensorstore::MatchesStatus;
-using tensorstore::MergeIndexDomains;
-using tensorstore::Result;
-using tensorstore::span;
-using tensorstore::StaticCast;
-using tensorstore::StaticRankCast;
-using tensorstore::StrCat;
-using tensorstore::unchecked;
-using tensorstore::view;
-using tensorstore::internal_index_space::TransformAccess;
-using tensorstore::serialization::TestSerializationRoundTrip;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::DimensionSet;
+using ::tensorstore::HullIndexDomains;
+using ::tensorstore::IdentityTransform;
+using ::tensorstore::Index;
+using ::tensorstore::IndexDomain;
+using ::tensorstore::IndexDomainBuilder;
+using ::tensorstore::IndexDomainDimension;
+using ::tensorstore::IndexDomainView;
+using ::tensorstore::IndexInterval;
+using ::tensorstore::IndexTransform;
+using ::tensorstore::IndexTransformBuilder;
+using ::tensorstore::IndexTransformView;
+using ::tensorstore::IntersectIndexDomains;
+using ::tensorstore::IsIndexDomain;
+using ::tensorstore::kImplicit;
+using ::tensorstore::kInfIndex;
+using ::tensorstore::kMaxFiniteIndex;
+using ::tensorstore::kMinFiniteIndex;
+using ::tensorstore::MakeArray;
+using ::tensorstore::MakeOffsetArray;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::MergeIndexDomains;
+using ::tensorstore::Result;
+using ::tensorstore::span;
+using ::tensorstore::StaticCast;
+using ::tensorstore::StaticRankCast;
+using ::tensorstore::StrCat;
+using ::tensorstore::unchecked;
+using ::tensorstore::view;
+using ::tensorstore::internal_index_space::TransformAccess;
+using ::tensorstore::serialization::TestSerializationRoundTrip;
 
 TEST(IndexTransformTest, Equality) {
   // Two invalid transforms are equal.
@@ -951,7 +951,7 @@ TEST(IntersectIndexDomains, Basic) {
 }
 
 TEST(ConstrainIndexDomain, Basic) {
-  using tensorstore::ConstrainIndexDomain;
+  using ::tensorstore::ConstrainIndexDomain;
   EXPECT_THAT(ConstrainIndexDomain(IndexDomain<>(), IndexDomain<>()),
               ::testing::Optional(IndexDomain<>()));
 

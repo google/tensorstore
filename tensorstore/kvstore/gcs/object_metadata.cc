@@ -34,7 +34,7 @@
 namespace tensorstore {
 namespace internal_storage_gcs {
 
-using tensorstore::internal_json_binding::DefaultInitializedValue;
+using ::tensorstore::internal_json_binding::DefaultInitializedValue;
 
 namespace jb = tensorstore::internal_json_binding;
 

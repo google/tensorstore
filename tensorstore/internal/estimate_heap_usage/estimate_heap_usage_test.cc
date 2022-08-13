@@ -28,7 +28,7 @@
 
 namespace {
 
-using tensorstore::internal::EstimateHeapUsage;
+using ::tensorstore::internal::EstimateHeapUsage;
 
 TEST(EstimateHeapUsageTest, Trivial) {
   EXPECT_EQ(0, EstimateHeapUsage(5));

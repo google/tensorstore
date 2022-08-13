@@ -23,7 +23,7 @@
 
 namespace {
 
-using tensorstore::serialization::TestSerializationRoundTrip;
+using ::tensorstore::serialization::TestSerializationRoundTrip;
 
 TEST(StatusTest, SimpleRoundTrip) {
   TestSerializationRoundTrip(absl::OkStatus());

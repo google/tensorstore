@@ -21,7 +21,7 @@
 
 namespace {
 
-using tensorstore::ByteStridedPointer;
+using ::tensorstore::ByteStridedPointer;
 
 struct Base {};
 struct Derived : Base {};

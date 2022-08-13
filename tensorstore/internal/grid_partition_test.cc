@@ -31,14 +31,14 @@
 #include "tensorstore/util/status.h"
 
 namespace {
-using tensorstore::DimensionIndex;
-using tensorstore::Index;
-using tensorstore::IndexTransform;
-using tensorstore::IndexTransformBuilder;
-using tensorstore::IndexTransformView;
-using tensorstore::MakeArray;
-using tensorstore::span;
-using tensorstore::internal::IrregularGrid;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::Index;
+using ::tensorstore::IndexTransform;
+using ::tensorstore::IndexTransformBuilder;
+using ::tensorstore::IndexTransformView;
+using ::tensorstore::MakeArray;
+using ::tensorstore::span;
+using ::tensorstore::internal::IrregularGrid;
 using ::testing::ElementsAre;
 
 namespace partition_tests {

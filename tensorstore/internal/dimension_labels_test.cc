@@ -24,8 +24,8 @@
 
 namespace {
 
-using tensorstore::MatchesStatus;
-using tensorstore::internal::ValidateDimensionLabelsAreUnique;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::internal::ValidateDimensionLabelsAreUnique;
 
 TEST(ValidateDimensionLabelsAreUniqueTest, Basic) {
   TENSORSTORE_EXPECT_OK(ValidateDimensionLabelsAreUnique(

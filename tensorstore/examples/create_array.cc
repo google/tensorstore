@@ -22,9 +22,9 @@
 #include "tensorstore/util/iterate_over_index_range.h"
 #include "tensorstore/util/status.h"
 
-using tensorstore::Index;
-
 namespace {
+
+using ::tensorstore::Index;
 
 struct X {
   float a;

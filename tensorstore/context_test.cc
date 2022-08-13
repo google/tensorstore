@@ -45,18 +45,20 @@ auto* GetRawPointer(const Context::Resource<Provider>& resource) {
 }  // namespace tensorstore
 
 namespace {
-using tensorstore::Context;
-using tensorstore::IncludeDefaults;
-using tensorstore::MatchesJson;
-using tensorstore::MatchesStatus;
-using tensorstore::Result;
-using tensorstore::internal::ContextResourceCreationContext;
-using tensorstore::internal::ContextResourceRegistration;
-using tensorstore::internal::ContextResourceTraits;
-using tensorstore::internal::ContextSpecBuilder;
-using tensorstore::internal::TestConcurrent;
-using tensorstore::serialization::SerializationRoundTrip;
+
 namespace jb = tensorstore::internal_json_binding;
+
+using ::tensorstore::Context;
+using ::tensorstore::IncludeDefaults;
+using ::tensorstore::MatchesJson;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::Result;
+using ::tensorstore::internal::ContextResourceCreationContext;
+using ::tensorstore::internal::ContextResourceRegistration;
+using ::tensorstore::internal::ContextResourceTraits;
+using ::tensorstore::internal::ContextSpecBuilder;
+using ::tensorstore::internal::TestConcurrent;
+using ::tensorstore::serialization::SerializationRoundTrip;
 
 struct IntResource : public ContextResourceTraits<IntResource> {
   struct Spec {
@@ -552,9 +554,9 @@ TEST(ContextSpecBuilderTest, ExcludeDefaultsJson) {
 }
 
 TEST(ContextTest, WeakCreator) {
-  using tensorstore::internal_context::Access;
-  using tensorstore::internal_context::GetCreator;
-  using tensorstore::internal_context::ResourceImplBase;
+  using ::tensorstore::internal_context::Access;
+  using ::tensorstore::internal_context::GetCreator;
+  using ::tensorstore::internal_context::ResourceImplBase;
 
   const ::nlohmann::json json_spec1{
       {"int_resource", {{"value", 7}}},

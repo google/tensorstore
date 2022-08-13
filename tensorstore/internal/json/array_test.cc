@@ -36,12 +36,12 @@
 namespace {
 
 using ::nlohmann::json;
-using tensorstore::dtype_v;
-using tensorstore::MatchesStatus;
-using tensorstore::Result;
-using tensorstore::internal_json::JsonEncodeNestedArray;
-using tensorstore::internal_json::JsonParseNestedArray;
-using tensorstore::internal_json::JsonValueAs;
+using ::tensorstore::dtype_v;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::Result;
+using ::tensorstore::internal_json::JsonEncodeNestedArray;
+using ::tensorstore::internal_json::JsonParseNestedArray;
+using ::tensorstore::internal_json::JsonValueAs;
 
 TEST(JsonEncodeNestedArray, Rank0) {
   EXPECT_EQ((::nlohmann::json(1)),

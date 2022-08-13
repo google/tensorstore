@@ -22,8 +22,8 @@
 
 namespace {
 
-using tensorstore::MakeResult;
-using tensorstore::Result;
+using ::tensorstore::MakeResult;
+using ::tensorstore::Result;
 
 struct W {
   explicit W(Result<int>) {}

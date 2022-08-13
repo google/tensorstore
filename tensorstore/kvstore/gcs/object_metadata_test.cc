@@ -22,9 +22,9 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
-using tensorstore::internal_storage_gcs::ParseObjectMetadata;
-
 namespace {
+
+using ::tensorstore::internal_storage_gcs::ParseObjectMetadata;
 
 const char kObjectMetadata[] = R"""({
       "acl": [{

@@ -33,27 +33,27 @@ namespace {
 #define TENSORSTORE_EXPECT_OOM(expr) EXPECT_DEATH(expr, "Out of memory");
 #endif
 
-using tensorstore::Box;
-using tensorstore::DimensionIndex;
-using tensorstore::Index;
-using tensorstore::IndexInterval;
-using tensorstore::IndexTransformBuilder;
-using tensorstore::kInfIndex;
-using tensorstore::kInfSize;
-using tensorstore::kMaxFiniteIndex;
-using tensorstore::kMinFiniteIndex;
-using tensorstore::MatchesStatus;
-using tensorstore::OutputIndexMethod;
-using tensorstore::internal::TestConcurrent;
-using tensorstore::internal_index_space::CopyTransformRep;
-using tensorstore::internal_index_space::MoveTransformRep;
-using tensorstore::internal_index_space::MutableRep;
-using tensorstore::internal_index_space::NewOrMutableRep;
-using tensorstore::internal_index_space::OutputIndexMap;
-using tensorstore::internal_index_space::ReplaceZeroRankIndexArrayIndexMap;
-using tensorstore::internal_index_space::TransformAccess;
-using tensorstore::internal_index_space::TransformRep;
-using tensorstore::internal_index_space::ValidateAndIntersectBounds;
+using ::tensorstore::Box;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::Index;
+using ::tensorstore::IndexInterval;
+using ::tensorstore::IndexTransformBuilder;
+using ::tensorstore::kInfIndex;
+using ::tensorstore::kInfSize;
+using ::tensorstore::kMaxFiniteIndex;
+using ::tensorstore::kMinFiniteIndex;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::OutputIndexMethod;
+using ::tensorstore::internal::TestConcurrent;
+using ::tensorstore::internal_index_space::CopyTransformRep;
+using ::tensorstore::internal_index_space::MoveTransformRep;
+using ::tensorstore::internal_index_space::MutableRep;
+using ::tensorstore::internal_index_space::NewOrMutableRep;
+using ::tensorstore::internal_index_space::OutputIndexMap;
+using ::tensorstore::internal_index_space::ReplaceZeroRankIndexArrayIndexMap;
+using ::tensorstore::internal_index_space::TransformAccess;
+using ::tensorstore::internal_index_space::TransformRep;
+using ::tensorstore::internal_index_space::ValidateAndIntersectBounds;
 
 TEST(OutputIndexMapTest, Basic) {
   OutputIndexMap map;
@@ -232,7 +232,7 @@ TEST(CopyTransformRep, Basic) {
 }
 
 TEST(MoveTransformRep, Basic) {
-  using tensorstore::DimensionSet;
+  using ::tensorstore::DimensionSet;
 
   auto source = TransformRep::Allocate(1, 2);
   source->input_rank = 1;

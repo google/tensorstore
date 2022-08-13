@@ -36,24 +36,24 @@
 namespace {
 
 namespace kvstore = tensorstore::kvstore;
-using tensorstore::ChunkLayout;
-using tensorstore::Context;
-using tensorstore::DimensionIndex;
-using tensorstore::DimensionSet;
-using tensorstore::dtype_v;
-using tensorstore::Index;
-using tensorstore::MatchesJson;
-using tensorstore::MatchesStatus;
-using tensorstore::Schema;
-using tensorstore::StorageGeneration;
-using tensorstore::StrCat;
-using tensorstore::TimestampedStorageGeneration;
-using tensorstore::Unit;
-using tensorstore::internal::GetMap;
-using tensorstore::internal::ParseJsonMatches;
-using tensorstore::internal::TestSpecSchema;
-using tensorstore::internal::TestTensorStoreCreateCheckSchema;
-using tensorstore::internal::TestTensorStoreCreateWithSchema;
+using ::tensorstore::ChunkLayout;
+using ::tensorstore::Context;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::DimensionSet;
+using ::tensorstore::dtype_v;
+using ::tensorstore::Index;
+using ::tensorstore::MatchesJson;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::Schema;
+using ::tensorstore::StorageGeneration;
+using ::tensorstore::StrCat;
+using ::tensorstore::TimestampedStorageGeneration;
+using ::tensorstore::Unit;
+using ::tensorstore::internal::GetMap;
+using ::tensorstore::internal::ParseJsonMatches;
+using ::tensorstore::internal::TestSpecSchema;
+using ::tensorstore::internal::TestTensorStoreCreateCheckSchema;
+using ::tensorstore::internal::TestTensorStoreCreateWithSchema;
 using ::testing::Pair;
 using ::testing::UnorderedElementsAreArray;
 

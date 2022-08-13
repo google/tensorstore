@@ -22,13 +22,13 @@
 
 namespace {
 
-using tensorstore::DimensionIndex;
-using tensorstore::dynamic_rank;
-using tensorstore::InlineRankLimit;
-using tensorstore::MatchesStatus;
-using tensorstore::RankConstraint;
-using tensorstore::StaticRankCast;
-using tensorstore::unchecked;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::dynamic_rank;
+using ::tensorstore::InlineRankLimit;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::RankConstraint;
+using ::tensorstore::StaticRankCast;
+using ::tensorstore::unchecked;
 
 // Static rank conversion tests
 static_assert(RankConstraint::Implies(3, 3));

@@ -42,7 +42,7 @@ namespace {
 
 namespace jb = tensorstore::internal_json_binding;
 
-using internal_kvs_backed_chunk_driver::KvsDriverSpec;
+using ::tensorstore::internal_kvs_backed_chunk_driver::KvsDriverSpec;
 
 class NeuroglancerPrecomputedDriverSpec
     : public internal::RegisteredDriverSpec<NeuroglancerPrecomputedDriverSpec,

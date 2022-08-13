@@ -29,14 +29,14 @@
 
 namespace {
 
-using tensorstore::Box;
-using tensorstore::BoxView;
-using tensorstore::DataType;
-using tensorstore::DimensionIndex;
-using tensorstore::DownsampleMethod;
-using tensorstore::Index;
-using tensorstore::internal_downsample::DownsampleArray;
-using tensorstore::internal_downsample::DownsampleBounds;
+using ::tensorstore::Box;
+using ::tensorstore::BoxView;
+using ::tensorstore::DataType;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::DownsampleMethod;
+using ::tensorstore::Index;
+using ::tensorstore::internal_downsample::DownsampleArray;
+using ::tensorstore::internal_downsample::DownsampleBounds;
 
 void BenchmarkDownsample(::benchmark::State& state, DataType dtype,
                          DownsampleMethod downsample_method,

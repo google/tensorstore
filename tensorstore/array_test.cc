@@ -50,54 +50,54 @@
 
 namespace {
 
-using tensorstore::Array;
-using tensorstore::ArrayIterateResult;
-using tensorstore::ArrayOriginKind;
-using tensorstore::ArrayView;
-using tensorstore::BoxView;
-using tensorstore::BroadcastArray;
-using tensorstore::c_order;
-using tensorstore::container;
-using tensorstore::ContainerKind;
-using tensorstore::ContiguousLayoutOrder;
-using tensorstore::DimensionIndex;
-using tensorstore::dtype_v;
-using tensorstore::dynamic_rank;
-using tensorstore::ElementPointer;
-using tensorstore::fortran_order;
-using tensorstore::Index;
-using tensorstore::kInfIndex;
-using tensorstore::kInfSize;
-using tensorstore::MakeArray;
-using tensorstore::MakeArrayView;
-using tensorstore::MakeCopy;
-using tensorstore::MakeOffsetArray;
-using tensorstore::MakeScalarArrayView;
-using tensorstore::MatchesStatus;
-using tensorstore::offset_origin;
-using tensorstore::SharedArray;
-using tensorstore::SharedArrayView;
-using tensorstore::SharedSubArray;
-using tensorstore::span;
-using tensorstore::StaticCast;
-using tensorstore::StaticDataTypeCast;
-using tensorstore::StaticRankCast;
-using tensorstore::StrCat;
-using tensorstore::StridedLayout;
-using tensorstore::SubArray;
-using tensorstore::SubArrayStaticRank;
-using tensorstore::unchecked;
-using tensorstore::ValidateShapeBroadcast;
-using tensorstore::view;
-using tensorstore::zero_origin;
-using tensorstore::serialization::DecodeBatch;
-using tensorstore::serialization::EncodeBatch;
-using tensorstore::serialization::SerializationRoundTrip;
-using tensorstore::serialization::TestSerializationRoundTrip;
-using testing::ElementsAre;
+using ::tensorstore::Array;
+using ::tensorstore::ArrayIterateResult;
+using ::tensorstore::ArrayOriginKind;
+using ::tensorstore::ArrayView;
+using ::tensorstore::BoxView;
+using ::tensorstore::BroadcastArray;
+using ::tensorstore::c_order;
+using ::tensorstore::container;
+using ::tensorstore::ContainerKind;
+using ::tensorstore::ContiguousLayoutOrder;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::dtype_v;
+using ::tensorstore::dynamic_rank;
+using ::tensorstore::ElementPointer;
+using ::tensorstore::fortran_order;
+using ::tensorstore::Index;
+using ::tensorstore::IsArrayExplicitlyConvertible;
+using ::tensorstore::kInfIndex;
+using ::tensorstore::kInfSize;
+using ::tensorstore::MakeArray;
+using ::tensorstore::MakeArrayView;
+using ::tensorstore::MakeCopy;
+using ::tensorstore::MakeOffsetArray;
+using ::tensorstore::MakeScalarArrayView;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::offset_origin;
+using ::tensorstore::SharedArray;
+using ::tensorstore::SharedArrayView;
+using ::tensorstore::SharedSubArray;
+using ::tensorstore::span;
+using ::tensorstore::StaticCast;
+using ::tensorstore::StaticDataTypeCast;
+using ::tensorstore::StaticRankCast;
+using ::tensorstore::StrCat;
+using ::tensorstore::StridedLayout;
+using ::tensorstore::SubArray;
+using ::tensorstore::SubArrayStaticRank;
+using ::tensorstore::unchecked;
+using ::tensorstore::ValidateShapeBroadcast;
+using ::tensorstore::view;
+using ::tensorstore::zero_origin;
+using ::tensorstore::serialization::DecodeBatch;
+using ::tensorstore::serialization::EncodeBatch;
+using ::tensorstore::serialization::SerializationRoundTrip;
+using ::tensorstore::serialization::TestSerializationRoundTrip;
+using ::testing::ElementsAre;
 
 namespace array_metafunctions_tests {
-using tensorstore::IsArrayExplicitlyConvertible;
 static_assert(IsArrayExplicitlyConvertible<int, dynamic_rank, zero_origin,
                                            const int, 2, zero_origin>);
 static_assert(
@@ -1384,9 +1384,9 @@ TEST(IterateOverArrays, BoolFalseReturn) {
 }
 
 TEST(SharedArrayTest, Example) {
-  using tensorstore::CopyArray;
-  using tensorstore::MakeArray;
-  using tensorstore::SharedArray;
+  using ::tensorstore::CopyArray;
+  using ::tensorstore::MakeArray;
+  using ::tensorstore::SharedArray;
   ///! [SharedArray usage example]
 
   SharedArray<int, 2> x = MakeArray<int>({{1, 2, 3}, {4, 5, 6}});
@@ -1406,11 +1406,11 @@ TEST(SharedArrayTest, Example) {
 }
 
 TEST(ArrayViewTest, Example) {
-  using tensorstore::AllocateArray;
-  using tensorstore::ArrayView;
-  using tensorstore::IterateOverArrays;
-  using tensorstore::MakeArray;
-  using tensorstore::SharedArray;
+  using ::tensorstore::AllocateArray;
+  using ::tensorstore::ArrayView;
+  using ::tensorstore::IterateOverArrays;
+  using ::tensorstore::MakeArray;
+  using ::tensorstore::SharedArray;
   ///! [ArrayView usage example]
 
   const auto compute_sum = [&](ArrayView<int> a,
@@ -1429,10 +1429,10 @@ TEST(ArrayViewTest, Example) {
 }
 
 TEST(SharedArrayViewTest, Example) {
-  using tensorstore::AllocateArray;
-  using tensorstore::MakeArray;
-  using tensorstore::SharedArray;
-  using tensorstore::SharedArrayView;
+  using ::tensorstore::AllocateArray;
+  using ::tensorstore::MakeArray;
+  using ::tensorstore::SharedArray;
+  using ::tensorstore::SharedArrayView;
   ///! [SharedArrayView usage example]
 
   const auto transpose = [&](SharedArrayView<int> x) -> SharedArray<int> {
@@ -1448,10 +1448,10 @@ TEST(SharedArrayViewTest, Example) {
 }
 
 TEST(DynamicArrayCastTest, Example) {
-  using tensorstore::AllocateArray;
-  using tensorstore::MakeArray;
-  using tensorstore::SharedArray;
-  using tensorstore::SharedArrayView;
+  using ::tensorstore::AllocateArray;
+  using ::tensorstore::MakeArray;
+  using ::tensorstore::SharedArray;
+  using ::tensorstore::SharedArrayView;
   ///! [DynamicArrayCast usage example]
 
   SharedArray<void> a(MakeArray<int>({1, 2, 3}));
@@ -1466,10 +1466,10 @@ TEST(DynamicArrayCastTest, Example) {
 }
 
 TEST(DynamicElementCastTest, Example) {
-  using tensorstore::AllocateArray;
-  using tensorstore::MakeArray;
-  using tensorstore::SharedArray;
-  using tensorstore::SharedArrayView;
+  using ::tensorstore::AllocateArray;
+  using ::tensorstore::MakeArray;
+  using ::tensorstore::SharedArray;
+  using ::tensorstore::SharedArrayView;
   ///! [DynamicElementCast usage example]
 
   SharedArray<void, 1> a = MakeArray<int>({1, 2, 3});
@@ -1487,10 +1487,10 @@ TEST(DynamicElementCastTest, Example) {
 }
 
 TEST(DynamicRankCastTest, Example) {
-  using tensorstore::AllocateArray;
-  using tensorstore::MakeArray;
-  using tensorstore::SharedArray;
-  using tensorstore::SharedArrayView;
+  using ::tensorstore::AllocateArray;
+  using ::tensorstore::MakeArray;
+  using ::tensorstore::SharedArray;
+  using ::tensorstore::SharedArrayView;
   ///! [DynamicRankCast usage example]
 
   SharedArray<int> a(MakeArray<int>({1, 2, 3}));

@@ -28,13 +28,13 @@
 
 namespace {
 
-using tensorstore::Index;
-using tensorstore::internal::ElementwiseClosure;
-using tensorstore::internal::ElementwiseFunction;
-using tensorstore::internal::IterationBufferAccessor;
-using tensorstore::internal::IterationBufferKind;
-using tensorstore::internal::IterationBufferPointer;
-using tensorstore::internal::SimpleElementwiseFunction;
+using ::tensorstore::Index;
+using ::tensorstore::internal::ElementwiseClosure;
+using ::tensorstore::internal::ElementwiseFunction;
+using ::tensorstore::internal::IterationBufferAccessor;
+using ::tensorstore::internal::IterationBufferKind;
+using ::tensorstore::internal::IterationBufferPointer;
+using ::tensorstore::internal::SimpleElementwiseFunction;
 
 using ContiguousAccessor =
     IterationBufferAccessor<IterationBufferKind::kContiguous>;

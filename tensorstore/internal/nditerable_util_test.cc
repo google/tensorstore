@@ -24,14 +24,14 @@
 
 namespace {
 
-using tensorstore::Index;
-using tensorstore::span;
-using tensorstore::internal::GetNDIterationBlockSize;
-using tensorstore::internal::NDIterationPositionStepper;
-using tensorstore::internal::ResetBufferPositionAtBeginning;
-using tensorstore::internal::ResetBufferPositionAtEnd;
-using tensorstore::internal::StepBufferPositionBackward;
-using tensorstore::internal::StepBufferPositionForward;
+using ::tensorstore::Index;
+using ::tensorstore::span;
+using ::tensorstore::internal::GetNDIterationBlockSize;
+using ::tensorstore::internal::NDIterationPositionStepper;
+using ::tensorstore::internal::ResetBufferPositionAtBeginning;
+using ::tensorstore::internal::ResetBufferPositionAtEnd;
+using ::tensorstore::internal::StepBufferPositionBackward;
+using ::tensorstore::internal::StepBufferPositionForward;
 using ::testing::ElementsAre;
 using ::testing::ElementsAreArray;
 

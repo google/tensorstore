@@ -33,22 +33,23 @@
 
 namespace {
 
-using tensorstore::StrCat;
-using tensorstore::internal::Cache;
-using tensorstore::internal::CacheEntryQueueState;
-using tensorstore::internal::CachePool;
-using tensorstore::internal::CachePtr;
-using tensorstore::internal::PinnedCacheEntry;
-using tensorstore::internal::static_pointer_cast;
-using tensorstore::internal::TestConcurrent;
-using tensorstore::internal_cache::Access;
-using tensorstore::internal_cache::CacheEntryImpl;
-using tensorstore::internal_cache::CacheImpl;
-using tensorstore::internal_cache::CachePoolImpl;
-using tensorstore::internal_cache::LruListNode;
+using ::tensorstore::StrCat;
+using ::tensorstore::internal::Cache;
+using ::tensorstore::internal::CacheEntryQueueState;
+using ::tensorstore::internal::CachePool;
+using ::tensorstore::internal::CachePtr;
+using ::tensorstore::internal::PinnedCacheEntry;
+using ::tensorstore::internal::static_pointer_cast;
+using ::tensorstore::internal::TestConcurrent;
+using ::tensorstore::internal_cache::Access;
+using ::tensorstore::internal_cache::CacheEntryImpl;
+using ::tensorstore::internal_cache::CacheImpl;
+using ::tensorstore::internal_cache::CachePoolImpl;
+using ::tensorstore::internal_cache::LruListNode;
 using ::testing::ElementsAre;
 using ::testing::Pair;
 using ::testing::UnorderedElementsAre;
+
 using QueueState = tensorstore::internal::CacheEntryQueueState;
 
 constexpr CachePool::Limits kSmallCacheLimits{10000000, 5000000};

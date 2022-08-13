@@ -30,20 +30,20 @@
 
 namespace {
 
-using tensorstore::DimensionIndex;
-using tensorstore::Index;
-using tensorstore::IndexDomain;
-using tensorstore::IndexDomainView;
-using tensorstore::IndexTransformBuilder;
-using tensorstore::IndexTransformView;
-using tensorstore::MakeArray;
-using tensorstore::MakeScalarArray;
-using tensorstore::MatchesStatus;
-using tensorstore::SharedArray;
-using tensorstore::SharedArrayView;
-using tensorstore::span;
-using tensorstore::TransformInputBroadcastableArray;
-using tensorstore::TransformOutputBroadcastableArray;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::Index;
+using ::tensorstore::IndexDomain;
+using ::tensorstore::IndexDomainView;
+using ::tensorstore::IndexTransformBuilder;
+using ::tensorstore::IndexTransformView;
+using ::tensorstore::MakeArray;
+using ::tensorstore::MakeScalarArray;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::SharedArray;
+using ::tensorstore::SharedArrayView;
+using ::tensorstore::span;
+using ::tensorstore::TransformInputBroadcastableArray;
+using ::tensorstore::TransformOutputBroadcastableArray;
 
 /// Tests round tripping, with both the `input_array` and `output_array`
 /// specified.

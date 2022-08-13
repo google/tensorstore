@@ -23,12 +23,12 @@
 
 namespace {
 
-using tensorstore::DimensionIndex;
-using tensorstore::Dims;
-using tensorstore::IdentityTransform;
-using tensorstore::IndexTransformBuilder;
-using tensorstore::span;
-using tensorstore::internal_index_space::TestDimExpression;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::Dims;
+using ::tensorstore::IdentityTransform;
+using ::tensorstore::IndexTransformBuilder;
+using ::tensorstore::span;
+using ::tensorstore::internal_index_space::TestDimExpression;
 
 TEST(LabelTest, Example) {
   const auto original_transform = IndexTransformBuilder<3, 3>()

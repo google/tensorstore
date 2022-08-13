@@ -23,8 +23,8 @@
 
 namespace {
 
-using tensorstore::MatchesStatus;
-using tensorstore::internal_zarr::Compressor;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::internal_zarr::Compressor;
 
 TEST(ParseCompressorTest, Null) {
   auto compressor_result = Compressor::FromJson(nullptr);

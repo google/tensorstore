@@ -24,22 +24,22 @@
 
 namespace {
 
-using tensorstore::bfloat16_t;
-using tensorstore::complex128_t;
-using tensorstore::complex64_t;
-using tensorstore::DataType;
-using tensorstore::dtype_v;
-using tensorstore::endian;
-using tensorstore::float16_t;
-using tensorstore::float32_t;
-using tensorstore::float64_t;
-using tensorstore::Index;
-using tensorstore::kInfIndex;
-using tensorstore::MatchesStatus;
-using tensorstore::internal_zarr::ChooseBaseDType;
-using tensorstore::internal_zarr::ParseBaseDType;
-using tensorstore::internal_zarr::ParseDType;
-using tensorstore::internal_zarr::ZarrDType;
+using ::tensorstore::bfloat16_t;
+using ::tensorstore::complex128_t;
+using ::tensorstore::complex64_t;
+using ::tensorstore::DataType;
+using ::tensorstore::dtype_v;
+using ::tensorstore::endian;
+using ::tensorstore::float16_t;
+using ::tensorstore::float32_t;
+using ::tensorstore::float64_t;
+using ::tensorstore::Index;
+using ::tensorstore::kInfIndex;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::internal_zarr::ChooseBaseDType;
+using ::tensorstore::internal_zarr::ParseBaseDType;
+using ::tensorstore::internal_zarr::ParseDType;
+using ::tensorstore::internal_zarr::ZarrDType;
 
 void CheckBaseDType(std::string dtype, DataType r, endian e,
                     std::vector<Index> flexible_shape) {

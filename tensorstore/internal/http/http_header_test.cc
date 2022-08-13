@@ -21,8 +21,8 @@
 
 namespace {
 
-using tensorstore::MatchesStatus;
-using tensorstore::internal_http::ValidateHttpHeader;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::internal_http::ValidateHttpHeader;
 
 TEST(ValidateHttpHeaderTest, Valid) {
   TENSORSTORE_EXPECT_OK(ValidateHttpHeader("a!#$%&'*+-.^_`|~3X: b\xfe"));

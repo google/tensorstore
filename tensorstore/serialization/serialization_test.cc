@@ -36,10 +36,10 @@
 
 namespace {
 
-using tensorstore::serialization::IsNonSerializableLike;
-using tensorstore::serialization::NonSerializable;
-using tensorstore::serialization::SerializationRoundTrip;
-using tensorstore::serialization::TestSerializationRoundTrip;
+using ::tensorstore::serialization::IsNonSerializableLike;
+using ::tensorstore::serialization::NonSerializable;
+using ::tensorstore::serialization::SerializationRoundTrip;
+using ::tensorstore::serialization::TestSerializationRoundTrip;
 
 TEST(SerializationTest, Bool) {
   TestSerializationRoundTrip(true);

@@ -24,13 +24,13 @@
 
 namespace {
 
-using tensorstore::DimensionIndex;
-using tensorstore::Index;
-using tensorstore::IndexDomain;
-using tensorstore::IndexDomainBuilder;
-using tensorstore::IndexTransform;
-using tensorstore::IndexTransformBuilder;
-using tensorstore::MatchesStatus;
+using ::tensorstore::DimensionIndex;
+using ::tensorstore::Index;
+using ::tensorstore::IndexDomain;
+using ::tensorstore::IndexDomainBuilder;
+using ::tensorstore::IndexTransform;
+using ::tensorstore::IndexTransformBuilder;
+using ::tensorstore::MatchesStatus;
 
 using Dao = tensorstore::DomainAlignmentOptions;
 

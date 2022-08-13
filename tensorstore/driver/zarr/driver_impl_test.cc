@@ -32,16 +32,16 @@
 
 namespace {
 
-using tensorstore::Index;
-using tensorstore::IndexTransformBuilder;
-using tensorstore::kImplicit;
-using tensorstore::MatchesStatus;
-using tensorstore::Result;
-using tensorstore::span;
-using tensorstore::TransactionMode;
-using tensorstore::internal_kvs_backed_chunk_driver::ResizeParameters;
-using tensorstore::internal_zarr::DimensionSeparator;
-using tensorstore::internal_zarr::ZarrMetadata;
+using ::tensorstore::Index;
+using ::tensorstore::IndexTransformBuilder;
+using ::tensorstore::kImplicit;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::Result;
+using ::tensorstore::span;
+using ::tensorstore::TransactionMode;
+using ::tensorstore::internal_kvs_backed_chunk_driver::ResizeParameters;
+using ::tensorstore::internal_zarr::DimensionSeparator;
+using ::tensorstore::internal_zarr::ZarrMetadata;
 
 Result<tensorstore::IndexTransform<>> ResolveBoundsFromMetadata(
     const ZarrMetadata& metadata, std::string field,

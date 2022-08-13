@@ -20,8 +20,8 @@
 
 namespace {
 
-using tensorstore::Index;
-using tensorstore::span;
+using ::tensorstore::Index;
+using ::tensorstore::span;
 
 void FullIndexing() {
   tensorstore::SharedArray<int, 2> x =

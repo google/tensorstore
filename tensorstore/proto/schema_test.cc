@@ -27,10 +27,10 @@
 
 namespace {
 
-using protobuf_matchers::EqualsProto;
-using tensorstore::MatchesStatus;
-using tensorstore::ParseSchemaFromProto;
-using tensorstore::Schema;
+using ::protobuf_matchers::EqualsProto;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::ParseSchemaFromProto;
+using ::tensorstore::Schema;
 
 template <typename Proto>
 Proto ParseProtoOrDie(const std::string& asciipb) {

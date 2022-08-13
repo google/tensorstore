@@ -20,9 +20,9 @@
 #include <gtest/gtest.h>
 
 namespace {
-using tensorstore::Executor;
-using tensorstore::InlineExecutor;
-using tensorstore::WithExecutor;
+using ::tensorstore::Executor;
+using ::tensorstore::InlineExecutor;
+using ::tensorstore::WithExecutor;
 
 TEST(InlineExecutorTest, Basic) {
   Executor executor = InlineExecutor{};

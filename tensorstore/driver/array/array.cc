@@ -72,12 +72,12 @@ namespace tensorstore {
 namespace internal_array_driver {
 namespace {
 
-using internal::Arena;
-using internal::DataCopyConcurrencyResource;
-using internal::IntrusivePtr;
-using internal::NDIterable;
-using internal::ReadChunk;
-using internal::WriteChunk;
+using ::tensorstore::internal::Arena;
+using ::tensorstore::internal::DataCopyConcurrencyResource;
+using ::tensorstore::internal::IntrusivePtr;
+using ::tensorstore::internal::NDIterable;
+using ::tensorstore::internal::ReadChunk;
+using ::tensorstore::internal::WriteChunk;
 
 namespace jb = tensorstore::internal_json_binding;
 

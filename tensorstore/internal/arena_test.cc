@@ -23,8 +23,8 @@
 
 namespace {
 
-using tensorstore::internal::Arena;
-using tensorstore::internal::ArenaAllocator;
+using ::tensorstore::internal::Arena;
+using ::tensorstore::internal::ArenaAllocator;
 
 bool Contains(tensorstore::span<const unsigned char> buffer, void* ptr) {
   return ptr >= buffer.data() && ptr < buffer.data() + buffer.size();

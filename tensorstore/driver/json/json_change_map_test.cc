@@ -26,12 +26,12 @@
 
 namespace {
 
-using tensorstore::MatchesJson;
-using tensorstore::MatchesStatus;
-using tensorstore::internal_json_driver::JsonChangeMap;
-using testing::ElementsAre;
-using testing::Optional;
-using testing::Pair;
+using ::tensorstore::MatchesJson;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::internal_json_driver::JsonChangeMap;
+using ::testing::ElementsAre;
+using ::testing::Optional;
+using ::testing::Pair;
 
 TEST(JsonChangeMapTest, AddChangeValid) {
   JsonChangeMap changes;

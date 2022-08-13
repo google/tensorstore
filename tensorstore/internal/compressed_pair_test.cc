@@ -20,10 +20,10 @@
 
 namespace {
 
-using tensorstore::internal::CompressedFirstEmptyPair;
-using tensorstore::internal::CompressedFirstSecondPair;
-using tensorstore::internal::CompressedPair;
-using tensorstore::internal::CompressedSecondEmptyPair;
+using ::tensorstore::internal::CompressedFirstEmptyPair;
+using ::tensorstore::internal::CompressedFirstSecondPair;
+using ::tensorstore::internal::CompressedPair;
+using ::tensorstore::internal::CompressedSecondEmptyPair;
 
 struct Empty {
   Empty() = default;

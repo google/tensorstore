@@ -23,13 +23,14 @@
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
+
 namespace zlib = tensorstore::zlib;
-using tensorstore::MatchesStatus;
-using tensorstore::neuroglancer_uint64_sharded::DecodeMinishardIndex;
-using tensorstore::neuroglancer_uint64_sharded::EncodeMinishardIndex;
-using tensorstore::neuroglancer_uint64_sharded::MinishardIndexEntry;
-using tensorstore::neuroglancer_uint64_sharded::ShardIndexEntry;
-using tensorstore::neuroglancer_uint64_sharded::ShardingSpec;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::neuroglancer_uint64_sharded::DecodeMinishardIndex;
+using ::tensorstore::neuroglancer_uint64_sharded::EncodeMinishardIndex;
+using ::tensorstore::neuroglancer_uint64_sharded::MinishardIndexEntry;
+using ::tensorstore::neuroglancer_uint64_sharded::ShardIndexEntry;
+using ::tensorstore::neuroglancer_uint64_sharded::ShardingSpec;
 
 void TestEncodeMinishardRoundTrip(
     std::vector<MinishardIndexEntry> minishard_index) {

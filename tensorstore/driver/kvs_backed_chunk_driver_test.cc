@@ -25,13 +25,14 @@
 
 namespace {
 
-using tensorstore::Box;
-using tensorstore::Index;
-using tensorstore::kImplicit;
-using tensorstore::MatchesStatus;
-using tensorstore::internal_kvs_backed_chunk_driver::ValidateResizeConstraints;
+using ::tensorstore::Box;
+using ::tensorstore::Index;
+using ::tensorstore::kImplicit;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::internal_kvs_backed_chunk_driver::
+    ValidateResizeConstraints;
 
-using ISpan = tensorstore::span<const Index>;
+using ISpan = ::tensorstore::span<const Index>;
 
 TEST(ValidateResizeConstraintsTest, Success) {
   EXPECT_EQ(absl::OkStatus(),

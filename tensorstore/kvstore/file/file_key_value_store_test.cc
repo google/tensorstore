@@ -56,14 +56,14 @@
 namespace {
 
 namespace kvstore = tensorstore::kvstore;
-using tensorstore::CompletionNotifyingReceiver;
-using tensorstore::Context;
-using tensorstore::KeyRange;
-using tensorstore::KvStore;
-using tensorstore::MatchesStatus;
-using tensorstore::StorageGeneration;
-using tensorstore::internal::MatchesKvsReadResultNotFound;
-using tensorstore::internal::MatchesTimestampedStorageGeneration;
+using ::tensorstore::CompletionNotifyingReceiver;
+using ::tensorstore::Context;
+using ::tensorstore::KeyRange;
+using ::tensorstore::KvStore;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::StorageGeneration;
+using ::tensorstore::internal::MatchesKvsReadResultNotFound;
+using ::tensorstore::internal::MatchesTimestampedStorageGeneration;
 using ::testing::HasSubstr;
 
 KvStore GetStore(std::string root) {

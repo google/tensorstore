@@ -28,12 +28,12 @@
 
 namespace {
 
-using tensorstore::ChainResult;
-using tensorstore::FlatMapResultType;
-using tensorstore::FlatResult;
-using tensorstore::Result;
-using tensorstore::UnwrapQualifiedResultType;
-using tensorstore::UnwrapResultType;
+using ::tensorstore::ChainResult;
+using ::tensorstore::FlatMapResultType;
+using ::tensorstore::FlatResult;
+using ::tensorstore::Result;
+using ::tensorstore::UnwrapQualifiedResultType;
+using ::tensorstore::UnwrapResultType;
 
 static_assert(std::is_convertible_v<Result<int>, Result<float>>, "");
 static_assert(!std::is_convertible_v<Result<int>, Result<std::string>>, "");

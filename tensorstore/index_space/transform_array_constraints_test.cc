@@ -17,9 +17,9 @@
 #include <gtest/gtest.h>
 
 namespace {
-using tensorstore::ContiguousLayoutOrder;
-using tensorstore::IterationConstraints;
-using tensorstore::TransformArrayConstraints;
+using ::tensorstore::ContiguousLayoutOrder;
+using ::tensorstore::IterationConstraints;
+using ::tensorstore::TransformArrayConstraints;
 
 TEST(TransformArrayConstraintsTest, Basic) {
   EXPECT_TRUE(

@@ -26,8 +26,8 @@
 #include "tensorstore/util/str_cat.h"
 
 namespace {
-using tensorstore::BitSpan;
-using tensorstore::BitVec;
+using ::tensorstore::BitSpan;
+using ::tensorstore::BitVec;
 
 static_assert(!std::is_convertible_v<BitSpan<std::uint64_t, 3>, BitVec<>>);
 

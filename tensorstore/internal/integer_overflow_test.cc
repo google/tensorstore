@@ -21,14 +21,14 @@
 
 namespace {
 
-using tensorstore::Index;
-using tensorstore::internal::AddOverflow;
-using tensorstore::internal::AddSaturate;
-using tensorstore::internal::MulOverflow;
-using tensorstore::internal::SubOverflow;
-using tensorstore::internal::wrap_on_overflow::Add;
-using tensorstore::internal::wrap_on_overflow::InnerProduct;
-using tensorstore::internal::wrap_on_overflow::Multiply;
+using ::tensorstore::Index;
+using ::tensorstore::internal::AddOverflow;
+using ::tensorstore::internal::AddSaturate;
+using ::tensorstore::internal::MulOverflow;
+using ::tensorstore::internal::SubOverflow;
+using ::tensorstore::internal::wrap_on_overflow::Add;
+using ::tensorstore::internal::wrap_on_overflow::InnerProduct;
+using ::tensorstore::internal::wrap_on_overflow::Multiply;
 
 TEST(AddTest, Overflow) {
   EXPECT_EQ(std::int32_t{-0x80000000LL},

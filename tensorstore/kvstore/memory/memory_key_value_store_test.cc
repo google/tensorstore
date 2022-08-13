@@ -38,14 +38,14 @@
 namespace {
 
 namespace kvstore = tensorstore::kvstore;
-using tensorstore::Context;
-using tensorstore::KeyRange;
-using tensorstore::KvStore;
-using tensorstore::MatchesJson;
-using tensorstore::MatchesStatus;
-using tensorstore::internal::MatchesKvsReadResult;
-using tensorstore::internal::MatchesKvsReadResultNotFound;
-using tensorstore::serialization::SerializationRoundTrip;
+using ::tensorstore::Context;
+using ::tensorstore::KeyRange;
+using ::tensorstore::KvStore;
+using ::tensorstore::MatchesJson;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::internal::MatchesKvsReadResult;
+using ::tensorstore::internal::MatchesKvsReadResultNotFound;
+using ::tensorstore::serialization::SerializationRoundTrip;
 
 TEST(MemoryKeyValueStoreTest, Basic) {
   auto store = tensorstore::GetMemoryKeyValueStore();

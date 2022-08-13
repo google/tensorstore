@@ -19,9 +19,9 @@
 #include "absl/synchronization/notification.h"
 #include "tensorstore/util/executor.h"
 
-using tensorstore::internal::ScheduleAt;
-
 namespace {
+
+using ::tensorstore::internal::ScheduleAt;
 
 // Tests that the thread pool runs a task.
 TEST(DelayExecutorTest, Basic) {

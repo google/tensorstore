@@ -26,7 +26,7 @@
 
 namespace {
 
-using tensorstore::MatchesStatus;
+using ::tensorstore::MatchesStatus;
 
 namespace bzip2 = tensorstore::bzip2;
 

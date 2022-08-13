@@ -24,10 +24,10 @@
 
 namespace {
 
-using tensorstore::ComputeStrides;
-using tensorstore::ContiguousLayoutOrder;
-using tensorstore::Index;
-using tensorstore::span;
+using ::tensorstore::ComputeStrides;
+using ::tensorstore::ContiguousLayoutOrder;
+using ::tensorstore::Index;
+using ::tensorstore::span;
 
 TEST(ContiguousLayoutOrderTest, PrintToOstream) {
   {

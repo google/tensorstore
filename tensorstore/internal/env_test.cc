@@ -18,11 +18,11 @@
 
 #include <gtest/gtest.h>
 
-using tensorstore::internal::GetEnv;
-using tensorstore::internal::SetEnv;
-using tensorstore::internal::UnsetEnv;
-
 namespace {
+
+using ::tensorstore::internal::GetEnv;
+using ::tensorstore::internal::SetEnv;
+using ::tensorstore::internal::UnsetEnv;
 
 TEST(GetEnvTest, Basic) {
   // Env is set

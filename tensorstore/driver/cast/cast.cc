@@ -28,15 +28,15 @@ namespace tensorstore {
 namespace internal_cast_driver {
 namespace {
 
-using internal::Arena;
-using internal::DataTypeConversionLookupResult;
-using internal::IntrusivePtr;
-using internal::LockCollection;
-using internal::NDIterable;
-using internal::OpenTransactionPtr;
-using internal::ReadChunk;
-using internal::TransformedDriverSpec;
-using internal::WriteChunk;
+using ::tensorstore::internal::Arena;
+using ::tensorstore::internal::DataTypeConversionLookupResult;
+using ::tensorstore::internal::IntrusivePtr;
+using ::tensorstore::internal::LockCollection;
+using ::tensorstore::internal::NDIterable;
+using ::tensorstore::internal::OpenTransactionPtr;
+using ::tensorstore::internal::ReadChunk;
+using ::tensorstore::internal::TransformedDriverSpec;
+using ::tensorstore::internal::WriteChunk;
 
 namespace jb = tensorstore::internal_json_binding;
 

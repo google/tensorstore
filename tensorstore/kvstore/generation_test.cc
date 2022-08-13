@@ -20,9 +20,9 @@
 
 namespace {
 
-using tensorstore::StorageGeneration;
-using tensorstore::TimestampedStorageGeneration;
-using tensorstore::serialization::TestSerializationRoundTrip;
+using ::tensorstore::StorageGeneration;
+using ::tensorstore::TimestampedStorageGeneration;
+using ::tensorstore::serialization::TestSerializationRoundTrip;
 
 TEST(StorageGenerationTest, Basic) {
   EXPECT_TRUE(StorageGeneration::IsUnknown(StorageGeneration::Unknown()));

@@ -27,7 +27,7 @@
 
 namespace {
 
-using tensorstore::Result;
+using ::tensorstore::Result;
 
 TEST(ResultReceiverTest, SetCancel) {
   Result<int> result = absl::UnknownError("");

@@ -26,20 +26,20 @@
 
 namespace {
 
-using tensorstore::dynamic_rank;
-using tensorstore::Index;
-using tensorstore::IndexInterval;
-using tensorstore::kImplicit;
-using tensorstore::kInfIndex;
-using tensorstore::kInfSize;
-using tensorstore::MakeArray;
-using tensorstore::MakeOffsetArray;
-using tensorstore::MatchesStatus;
-using tensorstore::Result;
-using tensorstore::Shared;
-using tensorstore::StaticDataTypeCast;
-using tensorstore::StaticRankCast;
-using tensorstore::TransformedArray;
+using ::tensorstore::dynamic_rank;
+using ::tensorstore::Index;
+using ::tensorstore::IndexInterval;
+using ::tensorstore::kImplicit;
+using ::tensorstore::kInfIndex;
+using ::tensorstore::kInfSize;
+using ::tensorstore::MakeArray;
+using ::tensorstore::MakeOffsetArray;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::Result;
+using ::tensorstore::Shared;
+using ::tensorstore::StaticDataTypeCast;
+using ::tensorstore::StaticRankCast;
+using ::tensorstore::TransformedArray;
 
 static_assert(std::is_convertible_v<tensorstore::TransformedSharedArray<int, 1>,
                                     tensorstore::TransformedArrayView<int, 1>>);

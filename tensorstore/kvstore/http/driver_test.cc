@@ -27,17 +27,17 @@
 
 namespace {
 namespace kvstore = ::tensorstore::kvstore;
-using tensorstore::Future;
-using tensorstore::MatchesStatus;
-using tensorstore::Promise;
-using tensorstore::PromiseFuturePair;
-using tensorstore::StorageGeneration;
-using tensorstore::internal::MatchesKvsReadResult;
-using tensorstore::internal::MatchesKvsReadResultNotFound;
-using tensorstore::internal_http::HttpRequest;
-using tensorstore::internal_http::HttpResponse;
-using tensorstore::internal_http::HttpTransport;
-using tensorstore::internal_http::SetDefaultHttpTransport;
+using ::tensorstore::Future;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::Promise;
+using ::tensorstore::PromiseFuturePair;
+using ::tensorstore::StorageGeneration;
+using ::tensorstore::internal::MatchesKvsReadResult;
+using ::tensorstore::internal::MatchesKvsReadResultNotFound;
+using ::tensorstore::internal_http::HttpRequest;
+using ::tensorstore::internal_http::HttpResponse;
+using ::tensorstore::internal_http::HttpTransport;
+using ::tensorstore::internal_http::SetDefaultHttpTransport;
 
 class MyMockTransport : public HttpTransport {
  public:

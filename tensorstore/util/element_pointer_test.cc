@@ -27,17 +27,17 @@
 
 namespace {
 
-using tensorstore::DataType;
-using tensorstore::dtype_v;
-using tensorstore::ElementPointer;
-using tensorstore::ElementTagTraits;
-using tensorstore::IsElementTag;
-using tensorstore::MatchesStatus;
-using tensorstore::PointerElementTag;
-using tensorstore::Result;
-using tensorstore::Shared;
-using tensorstore::SharedElementPointer;
-using tensorstore::StaticDataTypeCast;
+using ::tensorstore::DataType;
+using ::tensorstore::dtype_v;
+using ::tensorstore::ElementPointer;
+using ::tensorstore::ElementTagTraits;
+using ::tensorstore::IsElementTag;
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::PointerElementTag;
+using ::tensorstore::Result;
+using ::tensorstore::Shared;
+using ::tensorstore::SharedElementPointer;
+using ::tensorstore::StaticDataTypeCast;
 
 static_assert(IsElementTag<int>);
 static_assert(IsElementTag<void>);

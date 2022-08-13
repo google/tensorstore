@@ -22,15 +22,15 @@
 
 namespace {
 
-using tensorstore::Dims;
-using tensorstore::Index;
-using tensorstore::IndexInterval;
-using tensorstore::IndexTransformBuilder;
-using tensorstore::kInfIndex;
-using tensorstore::kInfSize;
-using tensorstore::MakeArray;
-using tensorstore::internal_index_space::TestDimExpression;
-using tensorstore::internal_index_space::TestDimExpressionError;
+using ::tensorstore::Dims;
+using ::tensorstore::Index;
+using ::tensorstore::IndexInterval;
+using ::tensorstore::IndexTransformBuilder;
+using ::tensorstore::kInfIndex;
+using ::tensorstore::kInfSize;
+using ::tensorstore::MakeArray;
+using ::tensorstore::internal_index_space::TestDimExpression;
+using ::tensorstore::internal_index_space::TestDimExpressionError;
 
 TEST(AddNewTest, Example) {
   const auto expected_new_transform =

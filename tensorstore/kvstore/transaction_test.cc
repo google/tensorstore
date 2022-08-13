@@ -24,14 +24,15 @@
 namespace {
 
 namespace kvstore = tensorstore::kvstore;
-using kvstore::KvStore;
-using tensorstore::MatchesStatus;
-using tensorstore::OptionalByteRangeRequest;
-using tensorstore::StorageGeneration;
-using tensorstore::TimestampedStorageGeneration;
-using tensorstore::Transaction;
-using tensorstore::internal::MatchesKvsReadResult;
-using tensorstore::internal::MockKeyValueStore;
+
+using ::tensorstore::MatchesStatus;
+using ::tensorstore::OptionalByteRangeRequest;
+using ::tensorstore::StorageGeneration;
+using ::tensorstore::TimestampedStorageGeneration;
+using ::tensorstore::Transaction;
+using ::tensorstore::internal::MatchesKvsReadResult;
+using ::tensorstore::internal::MockKeyValueStore;
+using ::tensorstore::kvstore::KvStore;
 
 TEST(KvStoreTest, WriteThenRead) {
   auto mock_driver = MockKeyValueStore::Make();

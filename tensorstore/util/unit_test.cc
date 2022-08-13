@@ -25,10 +25,10 @@
 
 namespace {
 
-using tensorstore::TestJsonBinderRoundTrip;
-using tensorstore::TestJsonBinderRoundTripJsonOnlyInexact;
-using tensorstore::Unit;
-using tensorstore::serialization::TestSerializationRoundTrip;
+using ::tensorstore::TestJsonBinderRoundTrip;
+using ::tensorstore::TestJsonBinderRoundTripJsonOnlyInexact;
+using ::tensorstore::Unit;
+using ::tensorstore::serialization::TestSerializationRoundTrip;
 
 TEST(UnitTest, DefaultConstruct) {
   Unit u;
