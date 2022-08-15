@@ -191,6 +191,8 @@ tensorstore_cc_library(
     hdrs = [
         "division.h",
     ],
+    deps = [
+    ],
 )
 
 tensorstore_cc_test(

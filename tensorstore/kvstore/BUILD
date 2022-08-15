@@ -23,12 +23,15 @@ filegroup(
     ],
 )
 
+EXTRA_DRIVERS = []
+
 tensorstore_cc_library(
     name = "all_drivers",
     deps = [
         "//tensorstore/kvstore/" + driver
         for driver in DRIVERS
-    ],
+    ] + EXTRA_DRIVERS,
+    alwayslink = True,
 )
 
 tensorstore_cc_library(

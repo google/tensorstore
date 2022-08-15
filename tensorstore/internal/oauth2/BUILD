@@ -11,6 +11,7 @@ tensorstore_cc_library(
     testonly = 1,
     srcs = ["fake_private_key.cc"],
     hdrs = ["fake_private_key.h"],
+    deps = [],
 )
 
 tensorstore_cc_test(
