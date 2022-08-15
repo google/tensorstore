@@ -50,6 +50,7 @@
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/iterate_over_index_range.h"
+#include "tensorstore/util/json_absl_flag.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
@@ -266,7 +267,7 @@ absl::Status ValidateRun(const InputArray& input, const OutputArray& output,
   return absl::OkStatus();
 }
 
-absl::Status Run(::nlohmann::json input_spec, ::nlohmann::json output_spec,
+absl::Status Run(tensorstore::Spec input_spec, tensorstore::Spec output_spec,
                  std::vector<double> quantiles, size_t radius) {
   auto context = Context::Default();
 
@@ -394,52 +395,41 @@ absl::Status Run(::nlohmann::json input_spec, ::nlohmann::json output_spec,
 
 }  // namespace
 
-::nlohmann::json DefaultInputSpec() {
-  return ::nlohmann::json({
-      {"open", true},
-      {"driver", "n5"},
-      {"kvstore", {{"driver", "memory"}}},
-      {"path", "input"},
-      {"metadata",
-       {
-           {"compression", {{"type", "raw"}}},
-           {"dataType", "uint16"},
-           {"blockSize", {256, 1, 1, 100}},
-           {"dimensions", {1024, 1, 1, 100}},
-       }},
-  });
+tensorstore::Spec DefaultInputSpec() {
+  return tensorstore::Spec::FromJson(
+             {
+                 {"open", true},
+                 {"driver", "n5"},
+                 {"kvstore", {{"driver", "memory"}}},
+                 {"path", "input"},
+                 {"metadata",
+                  {
+                      {"compression", {{"type", "raw"}}},
+                      {"dataType", "uint16"},
+                      {"blockSize", {256, 1, 1, 100}},
+                      {"dimensions", {1024, 1, 1, 100}},
+                  }},
+             })
+      .value();
 }
 
-::nlohmann::json DefaultOutputSpec() {
-  return ::nlohmann::json({
-      {"create", true},
-      {"open", true},
-      {"driver", "n5"},
-      {"kvstore", {{"driver", "memory"}}},
-      {"path", "output"},
-      {"metadata",
-       {
-           {"compression", {{"type", "raw"}}},
-           {"dataType", "uint16"},
-           {"blockSize", {256, 1, 1, 100, 3}},
-           {"dimensions", {1024, 1, 1, 100, 3}},
-       }},
-  });
-}
-
-struct JsonFlag {
-  JsonFlag(::nlohmann::json j) : json(j) {}
-  ::nlohmann::json json;
-};
-std::string AbslUnparseFlag(JsonFlag j) {
-  return absl::UnparseFlag(j.json.dump());
-}
-bool AbslParseFlag(std::string_view in, JsonFlag* out, std::string* error) {
-  out->json = ::nlohmann::json::parse(in, nullptr, false);
-  if (!out->json.is_object()) {
-    *error = "Failed to parse json flag.";
-  }
-  return out->json.is_object();
+tensorstore::Spec DefaultOutputSpec() {
+  return tensorstore::Spec::FromJson(
+             {
+                 {"create", true},
+                 {"open", true},
+                 {"driver", "n5"},
+                 {"kvstore", {{"driver", "memory"}}},
+                 {"path", "output"},
+                 {"metadata",
+                  {
+                      {"compression", {{"type", "raw"}}},
+                      {"dataType", "uint16"},
+                      {"blockSize", {256, 1, 1, 100, 3}},
+                      {"dimensions", {1024, 1, 1, 100, 3}},
+                  }},
+             })
+      .value();
 }
 
 struct Quantiles {
@@ -467,11 +457,11 @@ bool AbslParseFlag(std::string_view in, Quantiles* out, std::string* error) {
   return true;
 }
 
-ABSL_FLAG(JsonFlag, input_spec, DefaultInputSpec(),
-          "tensorstore JSON input specification");
+ABSL_FLAG(tensorstore::JsonAbslFlag<tensorstore::Spec>, input_spec,
+          DefaultInputSpec(), "tensorstore JSON input specification");
 
-ABSL_FLAG(JsonFlag, output_spec, DefaultOutputSpec(),
-          "tensorstore JSON output specification");
+ABSL_FLAG(tensorstore::JsonAbslFlag<tensorstore::Spec>, output_spec,
+          DefaultOutputSpec(), "tensorstore JSON output specification");
 
 ABSL_FLAG(Quantiles, quantiles, std::vector<double>({.1, .5, .9}), "Quantiles");
 
@@ -489,8 +479,8 @@ int main(int argc, char** argv) {
             << AbslUnparseFlag(absl::GetFlag(FLAGS_quantiles)) << std::endl;
   std::cout << "  --radius=" << absl::GetFlag(FLAGS_radius) << std::endl;
 
-  auto status = Run(absl::GetFlag(FLAGS_input_spec).json,
-                    absl::GetFlag(FLAGS_output_spec).json,
+  auto status = Run(absl::GetFlag(FLAGS_input_spec).value,
+                    absl::GetFlag(FLAGS_output_spec).value,
                     absl::GetFlag(FLAGS_quantiles).quantiles,
                     absl::GetFlag(FLAGS_radius));
 

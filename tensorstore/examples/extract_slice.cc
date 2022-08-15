@@ -46,6 +46,7 @@
 #include "tensorstore/rank.h"
 #include "tensorstore/spec.h"
 #include "tensorstore/tensorstore.h"
+#include "tensorstore/util/json_absl_flag.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -90,7 +91,7 @@ absl::Status Validate(const InputArray& input) {
 }
 
 /// Load a 2d tensorstore volume slice and render it as a jpeg.
-absl::Status Run(::nlohmann::json input_spec, std::string output_filename) {
+absl::Status Run(tensorstore::Spec input_spec, std::string output_filename) {
   auto context = Context::Default();
 
   // Open input tensorstore and resolve the bounds.
@@ -155,43 +156,22 @@ absl::Status Run(::nlohmann::json input_spec, std::string output_filename) {
 
 }  // namespace
 
-::nlohmann::json DefaultInputSpec() {
-  return ::nlohmann::json({
-      {"open", true},
-      {"driver", "n5"},
-      {"kvstore", {{"driver", "memory"}}},
-      {"path", "input"},
-      {"metadata",
-       {
-           {"compression", {{"type", "raw"}}},
-           {"dataType", "uint8"},
-           {"blockSize", {16, 16, 1}},
-           {"dimensions", {64, 64, 1}},
-       }},
-  });
-}
-
-struct JsonFlag {
-  JsonFlag() : json(::nlohmann::json::value_t::discarded) {}
-  JsonFlag(::nlohmann::json j) : json(j) {}
-  ::nlohmann::json json;
-};
-std::string AbslUnparseFlag(JsonFlag j) {
-  if (j.json.is_discarded()) {
-    return {};
-  }
-  return absl::UnparseFlag(j.json.dump());
-}
-bool AbslParseFlag(std::string_view in, JsonFlag* out, std::string* error) {
-  if (in.empty()) {
-    out->json = ::nlohmann::json::value_t::discarded;
-    return true;
-  }
-  out->json = ::nlohmann::json::parse(in, nullptr, false);
-  if (!out->json.is_object()) {
-    *error = "Failed to parse json flag.";
-  }
-  return out->json.is_object();
+tensorstore::Spec DefaultInputSpec() {
+  return tensorstore::Spec::FromJson(
+             {
+                 {"open", true},
+                 {"driver", "n5"},
+                 {"kvstore", {{"driver", "memory"}}},
+                 {"path", "input"},
+                 {"metadata",
+                  {
+                      {"compression", {{"type", "raw"}}},
+                      {"dataType", "uint8"},
+                      {"blockSize", {16, 16, 1}},
+                      {"dimensions", {64, 64, 1}},
+                  }},
+             })
+      .value();
 }
 
 /// Required. The output jpeg filepath.
@@ -216,8 +196,8 @@ ABSL_FLAG(std::string, output_file, "",
 ///                   {"input_dimension":1},
 ///                   {"offset":3667},{}]}
 ///   }'
-ABSL_FLAG(JsonFlag, input_spec, DefaultInputSpec(),
-          "tensorstore JSON input specification");
+ABSL_FLAG(tensorstore::JsonAbslFlag<tensorstore::Spec>, input_spec,
+          DefaultInputSpec(), "tensorstore JSON input specification");
 
 int main(int argc, char** argv) {
   tensorstore::InitTensorstore(&argc, &argv);
@@ -229,7 +209,7 @@ int main(int argc, char** argv) {
   std::cerr << "--input_spec="
             << AbslUnparseFlag(absl::GetFlag(FLAGS_input_spec)) << std::endl;
 
-  auto status = Run(absl::GetFlag(FLAGS_input_spec).json,
+  auto status = Run(absl::GetFlag(FLAGS_input_spec).value,
                     absl::GetFlag(FLAGS_output_file));
 
   if (!status.ok()) {

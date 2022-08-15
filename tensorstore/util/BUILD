@@ -448,6 +448,18 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "json_absl_flag",
+    hdrs = ["json_absl_flag.h"],
+    deps = [
+        ":status",
+        "//tensorstore/internal/json_binding:bindable",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/flags:marshalling",
+        "@com_google_absl//absl/status",
+    ],
+)
+
+tensorstore_cc_library(
     name = "maybe_hard_constraint",
     hdrs = ["maybe_hard_constraint.h"],
     deps = [
