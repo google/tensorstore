@@ -1,4 +1,4 @@
-load("//tensorstore:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
+load("//tensorstore:tensorstore.bzl", "tensorstore_cc_binary", "tensorstore_cc_library", "tensorstore_cc_test")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 
 package(default_visibility = ["//visibility:public"])
@@ -306,5 +306,21 @@ tensorstore_cc_test(
         "//tensorstore/kvstore/memory",
         "//tensorstore/util:status_testutil",
         "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_binary(
+    name = "copy",
+    srcs = ["copy.cc"],
+    deps = [
+        ":all_drivers",
+        ":kvstore",
+        "//tensorstore/internal:init_tensorstore",
+        "//tensorstore/internal:path",
+        "//tensorstore/internal/json_binding",
+        "//tensorstore/util:json_absl_flag",
+        "//tensorstore/util:quote_string",
+        "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/flags:flag",
     ],
 )
