@@ -21,13 +21,18 @@ namespace internal {
 namespace {
 
 // Return whether int *arg is zero.
-bool IsZero(void* arg) { return 0 == *reinterpret_cast<int*>(arg); }
+bool IsZero(void* arg) { return *reinterpret_cast<int*>(arg) == 0; }
 
 }  // namespace
 
 MultiBarrier::MultiBarrier(int num_threads)
-    : num_threads_(num_threads << 1), blocking_{num_threads, 0} {
+    : blocking_{num_threads, 0}, asleep_(0), num_threads_(num_threads << 1) {
   assert(num_threads > 0);
+}
+
+MultiBarrier::~MultiBarrier() {
+  absl::MutexLock l(&lock_);
+  lock_.Await(absl::Condition(IsZero, &asleep_));
 }
 
 bool MultiBarrier::Block() {
@@ -39,13 +44,17 @@ bool MultiBarrier::Block() {
   num_to_block--;
   assert(num_to_block >= 0);
 
-  bool owner = (num_to_block == 0);
-  if (owner) {
+  if (num_to_block == 0) {
+    int num_threads = num_threads_ >> 1;
     num_threads_ ^= 1;
-    blocking_[num_threads_ & 1] = num_threads_ >> 1;
+    blocking_[num_threads_ & 1] = num_threads;
+    asleep_ = num_threads;
+  } else {
+    lock_.Await(absl::Condition(IsZero, &num_to_block));
   }
-  lock_.Await(absl::Condition(IsZero, &num_to_block));
-  return owner;
+
+  asleep_--;
+  return asleep_ == 0;
 }
 
 }  // namespace internal

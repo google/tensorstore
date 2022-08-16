@@ -1866,7 +1866,10 @@ tensorstore_cc_library(
     name = "multi_barrier",
     srcs = ["multi_barrier.cc"],
     hdrs = ["multi_barrier.h"],
-    deps = ["@com_google_absl//absl/synchronization"],
+    deps = [
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/synchronization",
+    ],
 )
 
 tensorstore_cc_test(

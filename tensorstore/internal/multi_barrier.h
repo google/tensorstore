@@ -15,6 +15,7 @@
 #ifndef TENSORSTORE_INTERNAL_MULTI_BARRIER_H_
 #define TENSORSTORE_INTERNAL_MULTI_BARRIER_H_
 
+#include "absl/base/thread_annotations.h"
 #include "absl/synchronization/mutex.h"
 
 namespace tensorstore {
@@ -51,6 +52,7 @@ class MultiBarrier {
   ///
   /// \param num_threads  Number of threads that participate in the barrier.
   explicit MultiBarrier(int num_threads);
+  ~MultiBarrier();
 
   /// Blocks the current thread, and returns only when the `num_threads`
   /// threshold of threads utilizing this barrier has been reached. `Block()`
@@ -59,8 +61,9 @@ class MultiBarrier {
 
  private:
   absl::Mutex lock_;
-  int num_threads_ ABSL_GUARDED_BY(lock_);
   int blocking_[2] ABSL_GUARDED_BY(lock_);
+  int asleep_ ABSL_GUARDED_BY(lock_);
+  int num_threads_ ABSL_GUARDED_BY(lock_);
 };
 
 }  // namespace internal
