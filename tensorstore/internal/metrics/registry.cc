@@ -53,15 +53,13 @@ std::vector<CollectedMetric> MetricRegistry::CollectWithPrefix(
   return all;
 }
 
-CollectedMetric MetricRegistry::Collect(std::string_view name) {
+std::optional<CollectedMetric> MetricRegistry::Collect(std::string_view name) {
   absl::MutexLock l(&mu_);
   auto it = entries_.find(name);
-  if (it != entries_.end()) {
-    CollectedMetric m = it->second.poly();
-    assert(m.metric_name == it->first);
-    return m;
-  }
-  return {};
+  if (it == entries_.end()) return std::nullopt;
+  CollectedMetric m = it->second.poly();
+  assert(m.metric_name == it->first);
+  return m;
 }
 
 MetricRegistry& GetMetricRegistry() {

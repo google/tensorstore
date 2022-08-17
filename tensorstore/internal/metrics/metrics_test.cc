@@ -20,7 +20,6 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/metrics/collect.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/gauge.h"
@@ -44,21 +43,25 @@ TEST(MetricTest, CounterInt) {
 
   EXPECT_EQ(3, counter.Get());
 
-  auto metric = counter.Collect();
+  {
+    auto metric = counter.Collect();
 
-  EXPECT_EQ("/tensorstore/counter1", metric.metric_name);
-  EXPECT_TRUE(metric.field_names.empty());
-  ASSERT_EQ(1, metric.counters.size());
-  EXPECT_TRUE(metric.counters[0].fields.empty());
-  EXPECT_EQ(3, std::get<int64_t>(metric.counters[0].value));
+    EXPECT_EQ("/tensorstore/counter1", metric.metric_name);
+    EXPECT_TRUE(metric.field_names.empty());
+    ASSERT_EQ(1, metric.counters.size());
+    EXPECT_TRUE(metric.counters[0].fields.empty());
+    EXPECT_EQ(3, std::get<int64_t>(metric.counters[0].value));
+  }
+  {
+    auto metric = GetMetricRegistry().Collect("/tensorstore/counter1");
+    ASSERT_TRUE(metric.has_value());
 
-  metric = GetMetricRegistry().Collect("/tensorstore/counter1");
-
-  EXPECT_EQ("/tensorstore/counter1", metric.metric_name);
-  EXPECT_TRUE(metric.field_names.empty());
-  ASSERT_EQ(1, metric.counters.size());
-  EXPECT_TRUE(metric.counters[0].fields.empty());
-  EXPECT_EQ(3, std::get<int64_t>(metric.counters[0].value));
+    EXPECT_EQ("/tensorstore/counter1", metric->metric_name);
+    EXPECT_TRUE(metric->field_names.empty());
+    ASSERT_EQ(1, metric->counters.size());
+    EXPECT_TRUE(metric->counters[0].fields.empty());
+    EXPECT_EQ(3, std::get<int64_t>(metric->counters[0].value));
+  }
 }
 
 TEST(MetricTest, CounterDouble) {
@@ -67,7 +70,6 @@ TEST(MetricTest, CounterDouble) {
   counter.IncrementBy(2);
 
   auto metric = counter.Collect();
-
   EXPECT_EQ("/tensorstore/counter2", metric.metric_name);
   EXPECT_TRUE(metric.field_names.empty());
   ASSERT_EQ(1, metric.counters.size());

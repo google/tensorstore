@@ -40,8 +40,11 @@ TEST(RegistryTest, Arbitrary) {
     return metric;
   });
 
-  EXPECT_EQ("", registry.Collect("/my/foo").metric_name);
-  EXPECT_EQ("/my/metric", registry.Collect("/my/metric").metric_name);
+  EXPECT_FALSE(registry.Collect("/my/foo").has_value());
+
+  auto collected = registry.Collect("/my/metric");
+  ASSERT_TRUE(collected.has_value());
+  EXPECT_EQ("/my/metric", collected->metric_name);
 
   auto all = registry.CollectWithPrefix("/my");
   EXPECT_EQ(2, all.size());

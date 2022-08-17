@@ -16,6 +16,7 @@
 #define TENSORSTORE_INTERNAL_METRICS_REGISTRY_H_
 
 #include <memory>
+#include <optional>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -24,6 +25,7 @@
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/metrics/collect.h"
 #include "tensorstore/internal/metrics/metadata.h"
+#include "tensorstore/internal/metrics/metric_hook.h"
 #include "tensorstore/internal/poly/poly.h"
 #include "tensorstore/util/assert_macros.h"
 
@@ -50,14 +52,14 @@ class MetricRegistry {
   /// Metric name must be a path-style string, and must be unique.
   template <typename Collectable>
   void Add(const Collectable* metric) {
-    std::shared_ptr<void> hook;
+    std::shared_ptr<void> hook = RegisterMetricHook(metric);
     AddInternal(
         metric->metric_name(), [metric] { return metric->Collect(); },
         std::move(hook));
   }
 
   /// Collect an individual metric.
-  CollectedMetric Collect(std::string_view name);
+  std::optional<CollectedMetric> Collect(std::string_view name);
 
   /// Collect metrics that begin with the specified prefix.
   /// The result is not ordered.
