@@ -67,6 +67,7 @@ list(APPEND CMAKE_MODULE_PATH
 include(CTest)
 include(CMakePackageConfigHelpers)
 include(CMakeDependentOption)
+include(DebugHelpers)
 include(TensorstoreHelpers)
 include(ProtobufHelpers)
 
