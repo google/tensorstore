@@ -110,7 +110,7 @@ list(APPEND TENSORSTORE_TEST_COPTS
 
 find_package(Threads REQUIRED)
 
-{third_party_template}
+{root_template}
 
 # dump_cmake_variables()
 # dump_cmake_targets(${CMAKE_BINARY_DIR})

@@ -51,7 +51,6 @@ ABSL_CMAKE_MAPPING = {
     "@com_google_absl//absl/debugging:debugging": "absl::debugging",
     "@com_google_absl//absl/debugging:failure_signal_handler": "absl::failure_signal_handler",
     "@com_google_absl//absl/debugging:leak_check": "absl::leak_check",
-    "@com_google_absl//absl/debugging:leak_check_disable": "absl::leak_check_disable",
     "@com_google_absl//absl/debugging:stacktrace": "absl::stacktrace",
     "@com_google_absl//absl/debugging:symbolize": "absl::symbolize",
     "@com_google_absl//absl/flags:commandlineflag": "absl::flags_commandlineflag",
@@ -65,7 +64,6 @@ ABSL_CMAKE_MAPPING = {
     "@com_google_absl//absl/functional:bind_front": "absl::bind_front",
     "@com_google_absl//absl/functional:function_ref": "absl::function_ref",
     "@com_google_absl//absl/hash:hash": "absl::hash",
-    "@com_google_absl//absl/hash:hash_testing": "absl::hash_testing",
     "@com_google_absl//absl/memory:memory": "absl::memory",
     "@com_google_absl//absl/meta:meta": "absl::meta",
     "@com_google_absl//absl/meta:type_traits": "absl::type_traits",
@@ -85,7 +83,6 @@ ABSL_CMAKE_MAPPING = {
     "@com_google_absl//absl/status:status": "absl::status",
     "@com_google_absl//absl/status:statusor": "absl::statusor",
     "@com_google_absl//absl/strings:cord": "absl::cord",
-    "@com_google_absl//absl/strings:cord_test_helpers": "absl::cord_test_helpers",
     "@com_google_absl//absl/strings:str_format": "absl::str_format",
     "@com_google_absl//absl/strings:strings": "absl::strings",
     "@com_google_absl//absl/synchronization:synchronization": "absl::synchronization",
@@ -104,6 +101,11 @@ ABSL_CMAKE_MAPPING = {
     # Internal targets mapping
     "@com_google_absl//absl/base:endian": "absl::base",
     "@com_google_absl//absl/base:config": "absl::base",
+    # Not available in abseil CMakeLists.txt
+    "@com_google_absl//absl/debugging:leak_check_disable": "",
+    # Testonly targets
+    "@com_google_absl//absl/hash:hash_testing": "absl::hash_testing",
+    "@com_google_absl//absl/strings:cord_test_helpers": "absl::cord_test_helpers",
 }
 
 cmake_set_section(section = 200)
@@ -115,7 +117,7 @@ cmake_fetch_content_package(
     name = "com_google_absl",
     settings = [
         ("ABSL_PROPAGATE_CXX_STD", "ON"),
-        ("ABSL_BUILD_TESTING", "OFF"),
+        ("ABSL_BUILD_TESTING", "ON"),
         ("ABSL_USE_EXTERNAL_GOOGLETEST", "ON"),
         ("ABSL_FIND_GOOGLETEST", "OFF"),
     ],
@@ -131,4 +133,5 @@ cmake_raw(text = "\n")
         ),
     )
     for v in ABSL_CMAKE_MAPPING.values()
+    if v
 ]
