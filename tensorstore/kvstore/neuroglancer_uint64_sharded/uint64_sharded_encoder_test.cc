@@ -12,15 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/driver/neuroglancer_precomputed/uint64_sharded_encoder.h"
+#include "tensorstore/kvstore/neuroglancer_uint64_sharded/uint64_sharded_encoder.h"
 
 #include <string>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "tensorstore/driver/neuroglancer_precomputed/uint64_sharded.h"
 #include "tensorstore/internal/compression/zlib.h"
+#include "tensorstore/kvstore/neuroglancer_uint64_sharded/uint64_sharded.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 

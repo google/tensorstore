@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_DRIVER_NEUROGLANCER_PRECOMPUTED_UINT64_SHARDED_ENCODER_H_
-#define TENSORSTORE_DRIVER_NEUROGLANCER_PRECOMPUTED_UINT64_SHARDED_ENCODER_H_
+#ifndef TENSORSTORE_KVSTORE_NEUROGLANCER_UINT64_SHARDED_UINT64_SHARDED_ENCODER_H_
+#define TENSORSTORE_KVSTORE_NEUROGLANCER_UINT64_SHARDED_UINT64_SHARDED_ENCODER_H_
 
 /// \file
 /// Support for encoding the neuroglancer_uint64_sharded_v1 format.
@@ -29,8 +29,8 @@
 #include <vector>
 
 #include "absl/status/status.h"
-#include "tensorstore/driver/neuroglancer_precomputed/uint64_sharded.h"
 #include "tensorstore/kvstore/byte_range.h"
+#include "tensorstore/kvstore/neuroglancer_uint64_sharded/uint64_sharded.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
@@ -175,4 +175,4 @@ absl::Cord EncodeData(const absl::Cord& input,
 }  // namespace neuroglancer_uint64_sharded
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_DRIVER_NEUROGLANCER_PRECOMPUTED_UINT64_SHARDED_ENCODER_H_
+#endif  // TENSORSTORE_KVSTORE_NEUROGLANCER_UINT64_SHARDED_UINT64_SHARDED_ENCODER_H_

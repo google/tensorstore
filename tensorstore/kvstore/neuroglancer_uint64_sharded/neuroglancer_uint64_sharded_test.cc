@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/driver/neuroglancer_precomputed/uint64_sharded_key_value_store.h"
+#include "tensorstore/kvstore/neuroglancer_uint64_sharded/neuroglancer_uint64_sharded.h"
 
 #include <functional>
 #include <vector>
@@ -1580,6 +1580,24 @@ TENSORSTORE_GLOBAL_INITIALIZER {
     };
     RegisterKvsBackedCacheBasicTransactionalTest(options);
   }
+}
+
+TEST(ShardedKeyValueStoreTest, SpecRoundtrip) {
+  ::nlohmann::json sharding_spec_json{
+      {"@type", "neuroglancer_uint64_sharded_v1"},
+      {"hash", "identity"},
+      {"preshift_bits", 0},
+      {"minishard_bits", 1},
+      {"shard_bits", 1},
+      {"data_encoding", "raw"},
+      {"minishard_index_encoding", "raw"}};
+  tensorstore::internal::KeyValueStoreSpecRoundtripOptions options;
+  options.roundtrip_key = std::string(8, '\0');
+  tensorstore::internal::TestKeyValueStoreSpecRoundtrip(
+      {{"driver", "neuroglancer_uint64_sharded"},
+       {"base", {{"driver", "memory"}, {"path", "abc/"}}},
+       {"metadata", sharding_spec_json}},
+      options);
 }
 
 }  // namespace

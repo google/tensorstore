@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/driver/neuroglancer_precomputed/uint64_sharded_decoder.h"
+#include "tensorstore/kvstore/neuroglancer_uint64_sharded/uint64_sharded_decoder.h"
 
 #include <vector>
 

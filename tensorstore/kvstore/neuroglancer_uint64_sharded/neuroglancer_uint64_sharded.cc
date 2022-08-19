@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/driver/neuroglancer_precomputed/uint64_sharded_key_value_store.h"
+#include "tensorstore/kvstore/neuroglancer_uint64_sharded/neuroglancer_uint64_sharded.h"
 
 #include <cstdint>
 #include <optional>
@@ -21,16 +21,22 @@
 #include "absl/algorithm/container.h"
 #include "absl/base/internal/endian.h"
 #include "absl/status/status.h"
-#include "tensorstore/driver/neuroglancer_precomputed/uint64_sharded.h"
-#include "tensorstore/driver/neuroglancer_precomputed/uint64_sharded_decoder.h"
-#include "tensorstore/driver/neuroglancer_precomputed/uint64_sharded_encoder.h"
 #include "tensorstore/internal/cache/async_cache.h"
+#include "tensorstore/internal/cache/cache_pool_resource.h"
 #include "tensorstore/internal/cache/kvs_backed_cache.h"
 #include "tensorstore/internal/compression/zlib.h"
+#include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/estimate_heap_usage/estimate_heap_usage.h"
 #include "tensorstore/internal/estimate_heap_usage/std_vector.h"
+#include "tensorstore/internal/json_binding/bindable.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/mutex.h"
+#include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/generation.h"
+#include "tensorstore/kvstore/neuroglancer_uint64_sharded/uint64_sharded.h"
+#include "tensorstore/kvstore/neuroglancer_uint64_sharded/uint64_sharded_decoder.h"
+#include "tensorstore/kvstore/neuroglancer_uint64_sharded/uint64_sharded_encoder.h"
+#include "tensorstore/kvstore/registry.h"
 #include "tensorstore/kvstore/transaction.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/quote_string.h"
@@ -911,13 +917,62 @@ struct MinishardIndexCacheEntryReadyCallback {
   }
 };
 
-class ShardedKeyValueStore : public kvstore::Driver {
+}  // namespace
+
+struct ShardedKeyValueStoreSpecData {
+  Context::Resource<internal::CachePoolResource> cache_pool;
+  Context::Resource<internal::DataCopyConcurrencyResource>
+      data_copy_concurrency;
+  kvstore::Spec base;
+  ShardingSpec metadata;
+  TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(ShardedKeyValueStoreSpecData,
+                                          internal_json_binding::NoOptions,
+                                          IncludeDefaults,
+                                          ::nlohmann::json::object_t)
+
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.cache_pool, x.data_copy_concurrency, x.base, x.metadata);
+  };
+};
+
+namespace jb = ::tensorstore::internal_json_binding;
+
+TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
+    ShardedKeyValueStoreSpecData,
+    jb::Object(
+        jb::Member("base",
+                   jb::Projection<&ShardedKeyValueStoreSpecData::base>()),
+        jb::Initialize([](auto* obj) {
+          internal::EnsureDirectoryPath(obj->base.path);
+          return absl::OkStatus();
+        }),
+        jb::Member("metadata",
+                   jb::Projection<&ShardedKeyValueStoreSpecData::metadata>(
+                       jb::DefaultInitializedValue())),
+        jb::Member(internal::CachePoolResource::id,
+                   jb::Projection<&ShardedKeyValueStoreSpecData::cache_pool>()),
+        jb::Member(
+            internal::DataCopyConcurrencyResource::id,
+            jb::Projection<
+                &ShardedKeyValueStoreSpecData::data_copy_concurrency>())));
+
+class ShardedKeyValueStoreSpec
+    : public internal_kvstore::RegisteredDriverSpec<
+          ShardedKeyValueStoreSpec, ShardedKeyValueStoreSpecData> {
+ public:
+  static constexpr char id[] = "neuroglancer_uint64_sharded";
+  Future<kvstore::DriverPtr> DoOpen() const override;
+};
+
+class ShardedKeyValueStore
+    : public internal_kvstore::RegisteredDriver<ShardedKeyValueStore,
+                                                ShardedKeyValueStoreSpec> {
  public:
   explicit ShardedKeyValueStore(
       kvstore::DriverPtr base_kvstore, Executor executor,
       std::string key_prefix, const ShardingSpec& sharding_spec,
       internal::CachePool::WeakPtr cache_pool,
-      GetMaxChunksPerShardFunction get_max_chunks_per_shard)
+      GetMaxChunksPerShardFunction get_max_chunks_per_shard = {})
       : write_cache_(
             cache_pool->GetCache<ShardedKeyValueStoreWriteCache>("", [&] {
               return std::make_unique<ShardedKeyValueStoreWriteCache>(
@@ -1054,11 +1109,6 @@ class ShardedKeyValueStore : public kvstore::Driver {
             GetShardKey(sharding_spec, key_prefix(), shard_info.shard)));
   }
 
-  void GarbageCollectionVisit(
-      garbage_collection::GarbageCollectionVisitor& visitor) const final {
-    // No-op
-  }
-
   kvstore::Driver* base_kvstore_driver() const {
     return minishard_index_cache()->base_kvstore_driver();
   }
@@ -1076,10 +1126,61 @@ class ShardedKeyValueStore : public kvstore::Driver {
     return write_cache_->minishard_index_cache_;
   }
 
-  internal::CachePtr<ShardedKeyValueStoreWriteCache> write_cache_;
-};
+  absl::Status GetBoundSpecData(ShardedKeyValueStoreSpecData& spec) const;
 
-}  // namespace
+  internal::CachePtr<ShardedKeyValueStoreWriteCache> write_cache_;
+  Context::Resource<internal::CachePoolResource> cache_pool_resource_;
+  Context::Resource<internal::DataCopyConcurrencyResource>
+      data_copy_concurrency_resource_;
+};
+}  // namespace neuroglancer_uint64_sharded
+
+namespace garbage_collection {
+template <>
+struct GarbageCollection<neuroglancer_uint64_sharded::ShardedKeyValueStore> {
+  static void Visit(
+      GarbageCollectionVisitor& visitor,
+      const neuroglancer_uint64_sharded::ShardedKeyValueStore& value) {
+    garbage_collection::GarbageCollectionVisit(visitor,
+                                               *value.base_kvstore_driver());
+  }
+};
+}  // namespace garbage_collection
+
+namespace neuroglancer_uint64_sharded {
+
+absl::Status ShardedKeyValueStore::GetBoundSpecData(
+    ShardedKeyValueStoreSpecData& spec) const {
+  TENSORSTORE_ASSIGN_OR_RETURN(spec.base.driver,
+                               base_kvstore_driver()->GetBoundSpec());
+  spec.base.path = key_prefix();
+  if (!data_copy_concurrency_resource_.has_resource() ||
+      !cache_pool_resource_.has_resource()) {
+    return absl::InternalError("JSON representation not supported");
+  }
+  spec.data_copy_concurrency = data_copy_concurrency_resource_;
+  spec.cache_pool = cache_pool_resource_;
+  spec.metadata = sharding_spec();
+  return absl::Status();
+}
+
+Future<kvstore::DriverPtr> ShardedKeyValueStoreSpec::DoOpen() const {
+  return MapFutureValue(
+      InlineExecutor{},
+      [spec = internal::IntrusivePtr<const ShardedKeyValueStoreSpec>(this)](
+          kvstore::KvStore& base_kvstore) -> Result<kvstore::DriverPtr> {
+        auto driver = internal::MakeIntrusivePtr<ShardedKeyValueStore>(
+            std::move(base_kvstore.driver),
+            spec->data_.data_copy_concurrency->executor,
+            std::move(base_kvstore.path), spec->data_.metadata,
+            *spec->data_.cache_pool);
+        driver->data_copy_concurrency_resource_ =
+            spec->data_.data_copy_concurrency;
+        driver->cache_pool_resource_ = spec->data_.cache_pool;
+        return driver;
+      },
+      kvstore::Open(data_.base));
+}
 
 kvstore::DriverPtr GetShardedKeyValueStore(
     kvstore::DriverPtr base_kvstore, Executor executor, std::string key_prefix,
@@ -1105,3 +1206,9 @@ std::optional<ChunkId> KeyToChunkId(std::string_view key) {
 
 }  // namespace neuroglancer_uint64_sharded
 }  // namespace tensorstore
+
+namespace {
+const tensorstore::internal_kvstore::DriverRegistration<
+    tensorstore::neuroglancer_uint64_sharded::ShardedKeyValueStoreSpec>
+    registration;
+}  // namespace

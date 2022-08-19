@@ -9,8 +9,6 @@ Multiscale volumes are supported, but each scale must be opened individually.
 
 .. json:schema:: driver/neuroglancer_precomputed
 
-.. json:schema:: driver/neuroglancer_precomputed/ShardingSpec
-
 Example JSON specifications
 ---------------------------
 
@@ -19,8 +17,7 @@ Example JSON specifications
 
    {
      "driver": "neuroglancer_precomputed",
-     "kvstore": {"driver": "gcs", "bucket": "my-bucket"},
-     "path": "path/to/volume"
+     "kvstore": "gs://my-bucket/path/to/volume/",
    }
 
 
@@ -29,8 +26,7 @@ Example JSON specifications
 
    {
      "driver": "neuroglancer_precomputed",
-     "kvstore": {"driver": "gcs", "bucket": "my-bucket"},
-     "path": "path/to/volume",
+     "kvstore": "gs://my-bucket/path/to/volume/",
      "scale_index": 1
    }
 
@@ -40,8 +36,7 @@ Example JSON specifications
 
    {
      "driver": "neuroglancer_precomputed",
-     "kvstore": {"driver": "gcs", "bucket": "my-bucket"},
-     "path": "path/to/volume",
+     "kvstore": "gs://my-bucket/path/to/volume/",
      "scale_metadata": {
        "resolution": [4, 4, 40]
      }
@@ -52,8 +47,7 @@ Example JSON specifications
 
    {
      "driver": "neuroglancer_precomputed",
-     "kvstore": {"driver": "gcs", "bucket": "my-bucket"},
-     "path": "path/to/volume",
+     "kvstore": "gs://my-bucket/path/to/volume/",
      "schema": {
        "dimension_units": ["4nm", "4nm", "40nm", null]
      }
@@ -64,8 +58,7 @@ Example JSON specifications
 
    {
      "driver": "neuroglancer_precomputed",
-     "kvstore": {"driver": "gcs", "bucket": "my-bucket"},
-     "path": "path/to/volume",
+     "kvstore": "gs://my-bucket/path/to/volume/",
      "scale_metadata": {
        "key": "4_4_40"
      }
@@ -76,8 +69,7 @@ Example JSON specifications
 
    {
      "driver": "neuroglancer_precomputed",
-     "kvstore": {"driver": "gcs", "bucket": "my-bucket"},
-     "path": "path/to/volume",
+     "kvstore": "gs://my-bucket/path/to/volume/",
      "scale_metadata": {
        "size": [40000, 50000, 10000],
        "encoding": "compressed_segmentation",
@@ -92,8 +84,7 @@ Example JSON specifications
 
    {
      "driver": "neuroglancer_precomputed",
-     "kvstore": {"driver": "gcs", "bucket": "my-bucket"},
-     "path": "path/to/volume",
+     "kvstore": "gs://my-bucket/path/to/volume/",
      "multiscale_metadata": {
        "type": "segmentation",
        "data_type": "uint64",

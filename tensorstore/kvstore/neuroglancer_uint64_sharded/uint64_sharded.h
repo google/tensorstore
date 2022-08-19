@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_DRIVER_NEUROGLANCER_PRECOMPUTED_UINT64_SHARDED_H_
-#define TENSORSTORE_DRIVER_NEUROGLANCER_PRECOMPUTED_UINT64_SHARDED_H_
+#ifndef TENSORSTORE_KVSTORE_NEUROGLANCER_UINT64_SHARDED_UINT64_SHARDED_H_
+#define TENSORSTORE_KVSTORE_NEUROGLANCER_UINT64_SHARDED_UINT64_SHARDED_H_
 
 /// \file
 /// Common utilities for reading or writing the neuroglancer_uint64_sharded_v1
@@ -99,6 +99,11 @@ class ShardingSpec {
   friend bool operator!=(const ShardingSpec& a, const ShardingSpec& b) {
     return !(a == b);
   }
+
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.hash_function, x.preshift_bits, x.minishard_bits, x.shard_bits,
+             x.data_encoding, x.minishard_index_encoding);
+  };
 };
 
 TENSORSTORE_DECLARE_JSON_BINDER(DataEncodingJsonBinder,
@@ -203,4 +208,4 @@ const EncodedChunk* FindChunk(span<const EncodedChunk> chunks,
 }  // namespace neuroglancer_uint64_sharded
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_DRIVER_NEUROGLANCER_PRECOMPUTED_UINT64_SHARDED_H_
+#endif  // TENSORSTORE_KVSTORE_NEUROGLANCER_UINT64_SHARDED_UINT64_SHARDED_H_

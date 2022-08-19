@@ -15,11 +15,9 @@ Drivers
 
 .. toctree::
    :maxdepth: 1
+   :glob:
 
-   memory/index
-   file/index
-   gcs/index
-   http/index
+   */index
 
 .. json:schema:: KvStore
 

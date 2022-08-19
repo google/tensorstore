@@ -10,6 +10,7 @@ DRIVERS = [
     "gcs",
     "http",
     "memory",
+    "neuroglancer_uint64_sharded",
 ]
 
 filegroup(

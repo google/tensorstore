@@ -1,0 +1,115 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: kvstore/neuroglancer_uint64_sharded
+allOf:
+- $ref: KvStore
+- type: object
+  properties:
+    driver:
+      const: neuroglancer_uint64_sharded
+    base:
+      $ref: KvStore
+      title: Underlying key-value store.
+    metadata:
+      type: object
+      title: "Specifies the sharding format."
+      $ref: kvstore/neuroglancer_uint64_sharded/ShardingSpec
+    cache_pool:
+      $ref: ContextResource
+      description: >-
+        Specifies or references a previously defined `Context.cache_pool`.  It
+        is normally more convenient to specify a default `~Context.cache_pool`
+        in the `.context`.
+
+        .. important::
+
+           It is very helpful to specify a cache pool with a non-zero
+           `~Context.cache_pool.total_bytes_limit` value.  Otherwise, every read
+           operation will require 2 additional reads, to read the shard index
+           and the minishard index.
+           
+      default: cache_pool
+    data_copy_concurrency:
+      $ref: ContextResource
+      description: >-
+        Specifies or references a previously defined
+        `Context.data_copy_concurrency`.  It is normally more
+        convenient to specify a default `~Context.data_copy_concurrency` in
+        the `.context`.
+      default: data_copy_concurrency
+  required:
+  - base
+  - metadata
+title: JSON specification of neuroglancer_uint64_sharded key-value store.
+definitions:
+  sharding-spec:
+    $id: 'kvstore/neuroglancer_uint64_sharded/ShardingSpec'
+    title: Sharding metadata
+    type: object
+    description: >-
+      Specifies the sharded format within the
+      `kvstore/neuroglancer_uint64_sharded.metadata` and
+      `driver/neuroglancer_precomputed.scale_metadata` properties.
+    properties:
+      '@type':
+        const: neuroglancer_uint64_sharded_v1
+      preshift_bits:
+        type: integer
+        title: >-
+          Number of low-order bits of the chunk ID that do not contribute to the
+          hashed chunk ID.
+        minimum: 0
+        maximum: 64
+      hash:
+        enum:
+        - identity
+        - murmurhash3_x86_128
+        title: >-
+          Specifies the hash function used to map chunk IDs to shards.
+      minishard_bits:
+        type: integer
+        title: >-
+          Number of bits of the hashed chunk ID that determine the minishard
+          number.
+        description: >-
+          The number of minishards within each shard is equal to
+          :math:`2^{\mathrm{minishard\_bits}}`.  The minishard number is equal
+          to bits ``[0, minishard_bits)`` of the hashed chunk id.
+        minimum: 0
+        maximum: 64
+      shard_bits:
+        type: integer
+        title: >-
+          Number of bits of the hashed chunk ID that determine the shard number.
+        description: >-
+          The number of shards is equal to :math:`2^{\mathrm{shard\_bits}}`.
+          The shard number is equal to bits ``[minishard_bits,
+          minishard_bits+shard_bits)`` of the hashed chunk ID.
+        minimum: 0
+        maximum: 64
+      minishard_index_encoding:
+        title: >-
+          Specifies the encoding of the minishard index.
+        description: >-
+          Normally :json:`"gzip"` is a good choice.
+        enum:
+        - raw
+        - gzip
+        default: raw
+      data_encoding:
+        title: >-
+          Specifies the encoding of the data chunks.
+        description: >-
+          Normally :json:`"gzip"` is a good choice, unless the volume uses
+          :json:`"jpeg"`
+          `~driver/neuroglancer_precomputed.scale_metadata.encoding`.
+        enum:
+        - raw
+        - gzip
+        default: raw
+    required:
+    - '@type'
+    - preshift_bits
+    - hash
+    - minishard_bits
+    - shard_bits
+

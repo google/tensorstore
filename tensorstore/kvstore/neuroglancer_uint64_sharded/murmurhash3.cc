@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/driver/neuroglancer_precomputed/murmurhash3.h"
+#include "tensorstore/kvstore/neuroglancer_uint64_sharded/murmurhash3.h"
 
 #include <cstdint>
 

@@ -74,6 +74,9 @@ struct KeyValueStoreSpecRoundtripOptions {
   // Checks that data persists after re-opening from the returned spec.
   // Requires `check_write_read == true`.
   bool check_data_persists = true;
+
+  std::string roundtrip_key = "mykey";
+  absl::Cord roundtrip_value = absl::Cord("myvalue");
 };
 
 /// Tests that calling `kvstore::Open` with `spec` returns a `KvStore` whose

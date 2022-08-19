@@ -40,7 +40,6 @@
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/json/pprint_python.h"
 #include "tensorstore/internal/json_fwd.h"
-#include "tensorstore/internal/preprocessor.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/spec.h"

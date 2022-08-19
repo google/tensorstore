@@ -12,16 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/driver/neuroglancer_precomputed/uint64_sharded.h"
+#include "tensorstore/kvstore/neuroglancer_uint64_sharded/uint64_sharded.h"
 
 #include <algorithm>
 
 #include "absl/strings/str_format.h"
-#include "tensorstore/driver/neuroglancer_precomputed/murmurhash3.h"
 #include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/internal/json_binding/enum.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/path.h"
+#include "tensorstore/kvstore/neuroglancer_uint64_sharded/murmurhash3.h"
 #include "tensorstore/util/division.h"
 #include "tensorstore/util/quote_string.h"
 

@@ -48,7 +48,6 @@
 #include "tensorstore/driver/array/array.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/json/pprint_python.h"
-#include "tensorstore/internal/preprocessor.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/progress.h"

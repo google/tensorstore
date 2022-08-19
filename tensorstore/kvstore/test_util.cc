@@ -509,11 +509,9 @@ void TestKeyValueStoreSpecRoundtrip(
   SCOPED_TRACE(tensorstore::StrCat("json_spec=", json_spec.dump()));
   auto context = Context::Default();
 
-  const std::string key = "mykey";
-  const absl::Cord value("myvalue");
   ::nlohmann::json derived_spec;
 
-  // Open and populate `"mykey"`.
+  // Open and populate roundtrip_key.
   {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto store, kvstore::Open(json_spec, context).result());
@@ -524,10 +522,12 @@ void TestKeyValueStoreSpecRoundtrip(
         derived_spec, spec.ToJson(options.json_serialization_options));
     EXPECT_THAT(derived_spec, MatchesJson(json_spec));
     if (options.check_write_read) {
-      ASSERT_THAT(kvstore::Write(store, key, value).result(),
-                  MatchesRegularTimestampedStorageGeneration());
-      EXPECT_THAT(kvstore::Read(store, key).result(),
-                  MatchesKvsReadResult(value));
+      ASSERT_THAT(
+          kvstore::Write(store, options.roundtrip_key, options.roundtrip_value)
+              .result(),
+          MatchesRegularTimestampedStorageGeneration());
+      EXPECT_THAT(kvstore::Read(store, options.roundtrip_key).result(),
+                  MatchesKvsReadResult(options.roundtrip_value));
     }
   }
 
@@ -538,8 +538,8 @@ void TestKeyValueStoreSpecRoundtrip(
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto store, kvstore::Open(derived_spec, context).result());
     TENSORSTORE_ASSERT_OK(store.spec());
-    EXPECT_THAT(kvstore::Read(store, key).result(),
-                MatchesKvsReadResult(value));
+    EXPECT_THAT(kvstore::Read(store, options.roundtrip_key).result(),
+                MatchesKvsReadResult(options.roundtrip_value));
   }
 }
 
