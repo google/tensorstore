@@ -25,8 +25,10 @@
 #include <vector>
 
 #include "absl/flags/marshalling.h"
+#include "absl/random/random.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/escaping.h"
 #include "absl/strings/str_cat.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
@@ -460,6 +462,33 @@ Future<kvstore::DriverPtr> GcsKeyValueStoreSpec::DoOpen() const {
   return driver;
 }
 
+// GCS does not follow HTTP spec as far as respecting `cache-control` request
+// headers.
+//
+// Instead, if the object metadata does not disallow caching and the bucket is
+// public, a cached response may be returned even if `cache-control: max-age=0`
+// is specified.
+//
+// b/243544317
+//
+// As a workaround, specify a unique query parameter in every request.  That
+// ensures the cache is bypassed.
+void AddUniqueQueryParameterToDisableCaching(std::string& url) {
+  struct RandomState {
+    absl::Mutex mutex;
+    absl::BitGen gen ABSL_GUARDED_BY(mutex);
+  };
+  static RandomState random_state;
+  uint64_t uuid[2];
+  absl::MutexLock lock(&random_state.mutex);
+  for (auto& x : uuid) {
+    x = absl::Uniform<uint64_t>(random_state.gen);
+  }
+  tensorstore::StrAppend(&url,
+                         "&tensorstore=", absl::Hex(uuid[0], absl::kZeroPad16),
+                         absl::Hex(uuid[1], absl::kZeroPad16));
+}
+
 ////////////////////////////////////////////////////
 
 /// A ReadTask is a function object used to satisfy a
@@ -507,6 +536,8 @@ struct ReadTask : public AdmissionNode,
     // it on the uri for a requestor pays bucket.
     AddUserProjectParam(&media_url, true, owner->encoded_user_project());
 
+    AddUniqueQueryParameterToDisableCaching(media_url);
+
     // TODO: Configure timeouts.
     auto maybe_auth_header = owner->GetAuthHeader();
     if (!maybe_auth_header.ok()) {
@@ -518,10 +549,7 @@ struct ReadTask : public AdmissionNode,
     if (maybe_auth_header.value().has_value()) {
       request_builder.AddHeader(*maybe_auth_header.value());
     }
-    // For requests to buckets that are publicly readable, GCS may return a
-    // stale response unless it is prohibited by the cache-control header.
-    internal_http::AddStalenessBoundCacheControlHeader(request_builder,
-                                                       options.staleness_bound);
+
     if (options.byte_range.inclusive_min != 0 ||
         options.byte_range.exclusive_max) {
       request_builder.AddHeader(
@@ -575,33 +603,6 @@ struct ReadTask : public AdmissionNode,
     // The GCS servers always send a `date` header.
     kvstore::ReadResult read_result;
     read_result.stamp.time = start_time_;
-    {
-      absl::Time response_date;
-      auto date_it = httpresponse.headers.find("date");
-      if (date_it == httpresponse.headers.end()) {
-        return absl::InvalidArgumentError("Missing \"date\" response header");
-      }
-      if (!absl::ParseTime(internal_http::kHttpTimeFormat, date_it->second,
-                           &response_date, /*err=*/nullptr) ||
-          response_date == absl::InfiniteFuture() ||
-          response_date == absl::InfinitePast()) {
-        return absl::InvalidArgumentError(
-            tensorstore::StrCat("Invalid \"date\" response header: ",
-                                tensorstore::QuoteString(date_it->second)));
-      }
-      if (response_date < start_time_) {
-        if (options.staleness_bound < start_time_ &&
-            response_date < options.staleness_bound) {
-          // `response_date` does not satisfy the `staleness_bound`
-          // requirement, possibly due to time skew.  Due to the way we
-          // compute `max-age` in the request header, in the case of time skew
-          // it is correct to just use `staleness_bound` instead.
-          read_result.stamp.time = options.staleness_bound;
-        } else {
-          read_result.stamp.time = response_date;
-        }
-      }
-    }
 
     switch (httpresponse.status_code) {
       case 204:

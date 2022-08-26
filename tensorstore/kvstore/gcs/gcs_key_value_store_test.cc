@@ -46,7 +46,6 @@
 #include "tensorstore/internal/schedule_at.h"
 #include "tensorstore/kvstore/gcs/gcs_mock.h"
 #include "tensorstore/kvstore/generation.h"
-#include "tensorstore/kvstore/generation_testutil.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/util/execution/execution.h"
@@ -70,7 +69,6 @@ using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::StrCat;
-using ::tensorstore::internal::MatchesKvsReadResult;
 using ::tensorstore::internal::ScheduleAt;
 using ::tensorstore::internal_http::HttpRequest;
 using ::tensorstore::internal_http::HttpResponse;
@@ -617,78 +615,6 @@ TEST(GcsKeyValueStoreTest, DeleteRangeCancellation) {
   EXPECT_GE(1, mock_transport->total_delete_requests_.load());
   EXPECT_THAT(ListFuture(store).result(),
               ::testing::Optional(::testing::SizeIs(::testing::Ge(4))));
-}
-
-TEST(GcsKeyValueStoreTest, StaleResponse) {
-  auto mock_transport = std::make_shared<MyMockTransport>();
-  DefaultHttpTransportSetter mock_transport_setter{mock_transport};
-
-  GCSMockStorageBucket bucket("my-bucket");
-  mock_transport->buckets_.push_back(&bucket);
-
-  auto context = DefaultTestContext();
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store,
-      kvstore::Open({{"driver", kDriver}, {"bucket", "my-bucket"}}, context)
-          .result());
-
-  auto time0 = absl::Now();
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto stamp1, kvstore::Write(store, "a", absl::Cord("xyz")).result());
-  auto intermediate1 = tensorstore::internal::UniqueNow();
-  // Since staleness bounds are encoded via integer number of `max-age`
-  // seconds, and date header is also in seconds, ensure there is at least a 2
-  // second gap.
-  absl::SleepFor(absl::Seconds(2));
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto stamp2, kvstore::Write(store, "a", absl::Cord("abc")).result());
-  auto intermediate2 = tensorstore::internal::UniqueNow();
-  absl::SleepFor(absl::Seconds(2));
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto stamp3,
-                                   kvstore::Delete(store, "a").result());
-  auto intermediate3 = tensorstore::internal::UniqueNow();
-
-  {
-    kvstore::ReadOptions options;
-    options.staleness_bound = absl::InfinitePast();
-    EXPECT_THAT(kvstore::Read(store, "a", options).result(),
-                MatchesKvsReadResult(
-                    absl::Cord("xyz"), stamp1.generation,
-                    ::testing::AllOf(::testing::Ge(time0 - absl::Seconds(1)),
-                                     ::testing::Le(intermediate1 +
-                                                   absl::Milliseconds(1500)))));
-  }
-
-  {
-    kvstore::ReadOptions options;
-    options.staleness_bound = intermediate1;
-    EXPECT_THAT(kvstore::Read(store, "a", options).result(),
-                MatchesKvsReadResult(
-                    absl::Cord("xyz"), stamp1.generation,
-                    ::testing::AllOf(::testing::Ge(intermediate1),
-                                     ::testing::Le(intermediate1 +
-                                                   absl::Milliseconds(1500)))));
-  }
-
-  {
-    kvstore::ReadOptions options;
-    options.staleness_bound = intermediate2;
-    EXPECT_THAT(kvstore::Read(store, "a", options).result(),
-                MatchesKvsReadResult(
-                    absl::Cord("abc"), stamp2.generation,
-                    ::testing::AllOf(::testing::Ge(intermediate2),
-                                     ::testing::Le(intermediate2 +
-                                                   absl::Milliseconds(1500)))));
-  }
-
-  {
-    kvstore::ReadOptions options;
-    options.staleness_bound = intermediate3;
-    EXPECT_THAT(
-        kvstore::Read(store, "a", options).result(),
-        MatchesKvsReadResult(kvstore::ReadResult::kMissing, stamp3.generation,
-                             ::testing::Ge(intermediate3)));
-  }
 }
 
 class MyConcurrentMockTransport : public MyMockTransport {
