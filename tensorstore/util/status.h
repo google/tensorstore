@@ -23,7 +23,7 @@
 #include "absl/base/attributes.h"
 #include "absl/base/optimization.h"
 #include "absl/status/status.h"
-#include "tensorstore/internal/preprocessor.h"
+#include "tensorstore/internal/preprocessor/expand.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/util/assert_macros.h"

@@ -15,7 +15,7 @@
 #ifndef TENSORSTORE_INTERNAL_GLOBAL_INITIALIZER_H_
 #define TENSORSTORE_INTERNAL_GLOBAL_INITIALIZER_H_
 
-#include "tensorstore/internal/preprocessor.h"
+#include "tensorstore/internal/preprocessor/cat.h"
 
 /// Defines a global initialization block to be run before `main()`, sequenced
 /// in the same way as dynamic initialization of global variables

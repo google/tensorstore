@@ -20,7 +20,8 @@
 #include "absl/status/status.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/elementwise_function.h"
-#include "tensorstore/internal/preprocessor.h"
+#include "tensorstore/internal/preprocessor/defer.h"
+#include "tensorstore/internal/preprocessor/expand.h"
 
 namespace tensorstore {
 

@@ -76,7 +76,7 @@ tensorstore_cc_test(
 tensorstore_cc_library(
     name = "global_initializer",
     hdrs = ["global_initializer.h"],
-    deps = [":preprocessor"],
+    deps = ["//tensorstore/internal/preprocessor:cat"],
 )
 
 tensorstore_cc_test(
@@ -1455,11 +1455,6 @@ tensorstore_cc_test(
         ":path",
         "@com_google_googletest//:gtest_main",
     ],
-)
-
-tensorstore_cc_library(
-    name = "preprocessor",
-    hdrs = ["preprocessor.h"],
 )
 
 tensorstore_cc_library(

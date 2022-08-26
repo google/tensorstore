@@ -14,6 +14,8 @@
 
 """Rule definitions for TensorStore targets."""
 
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+
 def get_tensorstore_copts(copts):
     return (copts or []) + [
     ]
@@ -34,6 +36,18 @@ def tensorstore_cc_binary(copts = None, **kwargs):
     native.cc_binary(
         copts = get_tensorstore_copts(copts),
         **kwargs
+    )
+
+def tensorstore_cc_compile_test(name, copts = None, **kwargs):
+    lib_name = name + "__lib"
+    native.cc_library(
+        name = lib_name,
+        copts = get_tensorstore_copts(copts),
+        **kwargs
+    )
+    build_test(
+        name = name,
+        targets = [lib_name],
     )
 
 def tensorstore_proto_library(has_services = None, **kwargs):
