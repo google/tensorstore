@@ -27,8 +27,8 @@
 #include "tensorstore/internal/json_binding/staleness_bound.h"
 #include "tensorstore/internal/json_pointer.h"
 #include "tensorstore/internal/nditerable_transformed_array.h"
-#include "tensorstore/serialization/absl_time.h"
-#include "tensorstore/util/execution/sender.h"
+#include "tensorstore/serialization/absl_time.h"  // IWYU pragma: keep
+#include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/sender_util.h"
 
 namespace tensorstore {

@@ -41,6 +41,7 @@
 #include "tensorstore/kvstore/registry.h"
 #include "tensorstore/kvstore/transaction.h"
 #include "tensorstore/kvstore/url_registry.h"
+#include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender.h"
 #include "tensorstore/util/future.h"

@@ -119,8 +119,6 @@
 #include <tuple>
 #include <utility>
 
-#include "absl/base/attributes.h"
-#include "tensorstore/internal/poly/poly.h"
 #include "tensorstore/util/execution/execution.h"
 
 namespace tensorstore {
@@ -149,145 +147,7 @@ class NullReceiver {
 /// concepts for which `submit` is a no-op.
 class NullSender {
   template <typename R>
-  friend void submit(NullSender&, R) {}
-};
-
-/// Type-erased container for a move-only nullary function used by FlowReceiver
-/// implementations to request cancellation.
-using AnyCancelReceiver = poly::Poly<0, /*Copyable=*/false, void()>;
-
-namespace internal_sender {
-
-/// Used to implement `AnyReceiver` defined below.
-template <typename E, typename... V>
-using ReceiverPoly = poly::Poly<sizeof(void*) * 2, /*Copyable=*/false,
-                                void(internal_execution::set_value_t, V...),
-                                void(internal_execution::set_error_t, E),
-                                void(internal_execution::set_cancel_t)>;
-
-/// Used to implement `AnyFlowReceiver` defined below.
-template <typename E, typename... V>
-using FlowReceiverPoly =
-    poly::Poly<sizeof(void*) * 2, /*Copyable=*/false,
-               void(internal_execution::set_starting_t, AnyCancelReceiver up),
-               void(internal_execution::set_value_t, V...),
-               void(internal_execution::set_done_t),
-               void(internal_execution::set_error_t, E),
-               void(internal_execution::set_stopping_t)>;
-}  // namespace internal_sender
-
-/// Type-erased container for any type that models the `Receiver<E, V...>`
-/// concept.
-template <typename E, typename... V>
-class AnyReceiver : public internal_sender::ReceiverPoly<E, V...> {
-  using Base = internal_sender::ReceiverPoly<E, V...>;
-
- public:
-  /// Supports copy/move construction from any `Receiver<E, V...>` type.  Also
-  /// supports in-place construction using `std::in_place_t<T>{}` as the first
-  /// argument.
-  using Base::Base;
-
-  /// Constructs a null receiver.
-  AnyReceiver() : Base(NullReceiver{}) {}
-
-  ABSL_ATTRIBUTE_ALWAYS_INLINE void set_value(V... v) {
-    (*this)(internal_execution::set_value_t{}, std::forward<V>(v)...);
-  }
-  ABSL_ATTRIBUTE_ALWAYS_INLINE void set_error(E e) {
-    (*this)(internal_execution::set_error_t{}, std::forward<E>(e));
-  }
-  ABSL_ATTRIBUTE_ALWAYS_INLINE void set_cancel() {
-    (*this)(internal_execution::set_cancel_t{});
-  }
-};
-
-/// Type-erased container for any type that models `FlowReceiver<E, V...>`
-/// concept.
-template <typename E, typename... V>
-class AnyFlowReceiver : public internal_sender::FlowReceiverPoly<E, V...> {
-  using Base = internal_sender::FlowReceiverPoly<E, V...>;
-
- public:
-  /// Supports copy/move construction from any `FlowReceiver<E, V...>` type.
-  /// Also supports in-place construction using `std::in_place_t<T>{}` as the
-  /// first argument.
-  using Base::Base;
-
-  /// Constructs a null receiver.
-  AnyFlowReceiver() : Base(NullReceiver{}) {}
-
-  ABSL_ATTRIBUTE_ALWAYS_INLINE void set_starting(AnyCancelReceiver cancel) {
-    (*this)(internal_execution::set_starting_t{}, std::move(cancel));
-  }
-  ABSL_ATTRIBUTE_ALWAYS_INLINE void set_value(V... v) {
-    (*this)(internal_execution::set_value_t{}, std::forward<V>(v)...);
-  }
-  ABSL_ATTRIBUTE_ALWAYS_INLINE void set_done() {
-    (*this)(internal_execution::set_done_t{});
-  }
-  ABSL_ATTRIBUTE_ALWAYS_INLINE void set_error(E e) {
-    (*this)(internal_execution::set_error_t{}, std::forward<E>(e));
-  }
-  ABSL_ATTRIBUTE_ALWAYS_INLINE void set_stopping() {
-    (*this)(internal_execution::set_stopping_t{});
-  }
-};
-
-namespace internal_sender {
-
-/// Used to implement `AnySender` defined below.
-template <typename E, typename... V>
-using SenderPoly =
-    poly::Poly<(sizeof(V) + ... + 0), /*Copyable=*/false,
-               void(internal_execution::submit_t, AnyReceiver<E, V...>)>;
-
-/// Used to implement `AnyFlowSender` defined below.
-template <typename E, typename... V>
-using FlowSenderPoly =
-    poly::Poly<(sizeof(V) + ... + 0), /*Copyable=*/false,
-               void(internal_execution::submit_t, AnyFlowReceiver<E, V...>)>;
-
-}  // namespace internal_sender
-
-/// Type-erased container for any type that models the `Sender<E, V...>`
-/// concept.
-template <typename E, typename... V>
-class AnySender : public internal_sender::SenderPoly<E, V...> {
-  using Base = internal_sender::SenderPoly<E, V...>;
-
- public:
-  /// Supports copy/move construction from any `Sender<E, V...>` type.  Also
-  /// supports in-place construction using `std::in_place_t<T>{}` as the first
-  /// argument.
-  using Base::Base;
-
-  /// Constructs a null sender.
-  AnySender() : Base(NullSender{}) {}
-
-  ABSL_ATTRIBUTE_ALWAYS_INLINE void submit(AnyReceiver<E, V...> receiver) {
-    (*this)(internal_execution::submit_t{}, std::move(receiver));
-  }
-};
-
-/// Type-erased container for any type that models the `FlowSender<E, V...>`
-/// concept.
-template <typename E, typename... V>
-class AnyFlowSender : public internal_sender::FlowSenderPoly<E, V...> {
-  using Base = internal_sender::FlowSenderPoly<E, V...>;
-
- public:
-  /// Supports copy/move construction from any `FlowSender<E, V...>` type.  Also
-  /// supports in-place construction using `std::in_place_t<T>{}` as the first
-  /// argument.
-  using Base::Base;
-
-  /// Constructs a null sender.
-  AnyFlowSender() : Base(NullSender{}) {}
-
-  ABSL_ATTRIBUTE_ALWAYS_INLINE void submit(AnyFlowReceiver<E, V...> receiver) {
-    (*this)(internal_execution::submit_t{}, std::move(receiver));
-  }
+  friend void submit(NullSender&, R&&) {}
 };
 
 /// Sender that immediately invokes `set_cancel`.
@@ -295,7 +155,7 @@ class AnyFlowSender : public internal_sender::FlowSenderPoly<E, V...> {
 /// `CancelSender` is a model of `Sender<E, V...>` for any `E, V...`.
 struct CancelSender {
   template <typename Receiver>
-  friend void submit(CancelSender, Receiver receiver) {
+  friend void submit(CancelSender, Receiver&& receiver) {
     execution::set_cancel(receiver);
   }
 };
@@ -307,7 +167,7 @@ template <typename E>
 struct ErrorSender {
   E error;
   template <typename Receiver>
-  friend void submit(ErrorSender& sender, Receiver receiver) {
+  friend void submit(ErrorSender& sender, Receiver&& receiver) {
     execution::set_error(receiver, std::move(sender.error));
   }
 };
@@ -323,14 +183,14 @@ struct ValueSender {
   std::tuple<V...> value;
 
   template <typename Receiver>
-  friend void submit(ValueSender& sender, Receiver receiver) {
-    sender.SubmitHelper(std::move(receiver),
+  friend void submit(ValueSender& sender, Receiver&& receiver) {
+    sender.SubmitHelper(std::forward<Receiver>(receiver),
                         std::make_index_sequence<sizeof...(V)>{});
   }
 
  private:
   template <typename Receiver, std::size_t... Is>
-  void SubmitHelper(Receiver receiver, std::index_sequence<Is...>) {
+  void SubmitHelper(Receiver&& receiver, std::index_sequence<Is...>) {
     execution::set_value(receiver, std::move(std::get<Is>(value))...);
   }
 };

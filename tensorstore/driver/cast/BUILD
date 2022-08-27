@@ -37,6 +37,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/json_binding",
         "//tensorstore/util:result",
         "//tensorstore/util:str_cat",
+        "//tensorstore/util/execution:any_receiver",
         "@com_google_absl//absl/status",
     ],
     alwayslink = 1,

@@ -39,7 +39,10 @@
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/transaction.h"
 #include "tensorstore/util/assert_macros.h"
+#include "tensorstore/util/execution/any_receiver.h"
+#include "tensorstore/util/execution/any_sender.h"
 #include "tensorstore/util/execution/collecting_sender.h"
+#include "tensorstore/util/execution/future_sender.h"  // IWYU pragma: keep
 #include "tensorstore/util/execution/sender.h"
 #include "tensorstore/util/execution/sender_util.h"
 #include "tensorstore/util/execution/sync_flow_sender.h"

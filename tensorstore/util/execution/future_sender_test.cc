@@ -14,15 +14,19 @@
 
 /// Tests for the `Sender` and `Receiver` interfaces of `Future` and `Promise`.
 
+#include "tensorstore/util/execution/future_sender.h"
+
 #include <string>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include "tensorstore/util/execution/any_receiver.h"
+#include "tensorstore/util/execution/any_sender.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender.h"
 #include "tensorstore/util/execution/sender_testutil.h"
-#include "tensorstore/util/execution/sender_util.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 
@@ -41,7 +45,7 @@ TEST(PromiseReceiverTest, SetCancel) {
 TEST(PromiseReceiverTest, AnyReceiverSetCancel) {
   auto pair = PromiseFuturePair<int>::Make();
   tensorstore::execution::set_cancel(
-      tensorstore::AnyReceiver<absl::Status, int>(pair.promise));
+      tensorstore::AnyReceiver<absl::Status, int>(std::cref(pair.promise)));
   EXPECT_EQ(pair.future.result(), Result<int>(absl::CancelledError("")));
 }
 
@@ -62,7 +66,7 @@ TEST(PromiseReceiverTest, SetValueThenSetCancel) {
 TEST(PromiseReceiverTest, AnyReceiverSetValue) {
   auto pair = PromiseFuturePair<int>::Make();
   tensorstore::execution::set_value(
-      tensorstore::AnyReceiver<absl::Status, int>(pair.promise), 3);
+      tensorstore::AnyReceiver<absl::Status, int>(std::cref(pair.promise)), 3);
   EXPECT_EQ(pair.future.result(), Result<int>(3));
 }
 
@@ -76,7 +80,7 @@ TEST(PromiseReceiverTest, SetError) {
 
 TEST(PromiseReceiverTest, AnyReceiverSetError) {
   auto pair = PromiseFuturePair<int>::Make();
-  tensorstore::execution::set_error(pair.promise,
+  tensorstore::execution::set_error(std::cref(pair.promise),
                                     absl::UnknownError("message"));
   EXPECT_EQ(pair.future.result(), Result<int>(absl::UnknownError("message")));
 }
@@ -117,7 +121,7 @@ TEST(FutureSenderTest, SetError) {
   bool forced = false;
   pair.promise.ExecuteWhenForced([&](Promise<int>) { forced = true; });
   std::vector<std::string> log;
-  tensorstore::execution::submit(pair.future,
+  tensorstore::execution::submit(std::ref(pair.future),
                                  tensorstore::LoggingReceiver{&log});
   EXPECT_THAT(log, ::testing::ElementsAre());
   EXPECT_TRUE(forced);
@@ -158,7 +162,7 @@ TEST(FutureSenderTest, AnySenderSetCancel) {
   pair.promise.ExecuteWhenForced([&](Promise<int>) { forced = true; });
   std::vector<std::string> log;
   tensorstore::execution::submit(
-      tensorstore::AnySender<absl::Status, int>(pair.future),
+      tensorstore::AnySender<absl::Status, int>(std::ref(pair.future)),
       tensorstore::LoggingReceiver{&log});
   EXPECT_THAT(log, ::testing::ElementsAre());
   EXPECT_TRUE(forced);

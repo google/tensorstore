@@ -52,6 +52,7 @@ tensorstore_cc_library(
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "//tensorstore/util/execution",
+        "//tensorstore/util/execution:any_receiver",
         "//tensorstore/util/execution:sender",
         "//tensorstore/util/garbage_collection",
         "@com_google_absl//absl/memory",

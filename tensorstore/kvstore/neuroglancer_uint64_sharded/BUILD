@@ -153,6 +153,8 @@ tensorstore_cc_library(
         "//tensorstore/util:span",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
+        "//tensorstore/util/execution:any_receiver",
+        "//tensorstore/util/execution:result_sender",
         "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/base:endian",
         "@com_google_absl//absl/status",

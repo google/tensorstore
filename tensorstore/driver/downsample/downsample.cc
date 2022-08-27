@@ -33,10 +33,11 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/std_array.h"
 #include "tensorstore/internal/nditerable_transformed_array.h"
-#include "tensorstore/serialization/std_vector.h"
+#include "tensorstore/serialization/std_vector.h"  // IWYU pragma: keep
 #include "tensorstore/spec.h"
+#include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/sender_util.h"
-#include "tensorstore/util/garbage_collection/std_vector.h"
+#include "tensorstore/util/garbage_collection/std_vector.h"  // IWYU pragma: keep
 
 namespace tensorstore {
 namespace internal_downsample {

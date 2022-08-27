@@ -38,6 +38,8 @@
 #include "tensorstore/kvstore/neuroglancer_uint64_sharded/uint64_sharded_encoder.h"
 #include "tensorstore/kvstore/registry.h"
 #include "tensorstore/kvstore/transaction.h"
+#include "tensorstore/util/execution/any_receiver.h"
+#include "tensorstore/util/execution/result_sender.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/span.h"

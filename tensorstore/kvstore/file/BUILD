@@ -42,6 +42,7 @@ tensorstore_cc_library(
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "//tensorstore/util/execution",
+        "//tensorstore/util/execution:any_receiver",
         "//tensorstore/util/execution:sender",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/functional:function_ref",

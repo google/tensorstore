@@ -68,6 +68,7 @@
 #include "tensorstore/staleness_bound.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/assert_macros.h"
+#include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/sender.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/iterate.h"

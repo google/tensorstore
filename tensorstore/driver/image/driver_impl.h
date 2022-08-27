@@ -70,9 +70,10 @@
 #include "tensorstore/open_mode.h"
 #include "tensorstore/resize_options.h"
 #include "tensorstore/schema.h"
-#include "tensorstore/serialization/absl_time.h"  // build_cleaner: keep
+#include "tensorstore/serialization/absl_time.h"  // IWYU pragma: keep
 #include "tensorstore/staleness_bound.h"
 #include "tensorstore/transaction.h"
+#include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender.h"
 #include "tensorstore/util/executor.h"

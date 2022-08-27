@@ -36,7 +36,7 @@
 #include "tensorstore/kvstore/read_modify_write.h"
 #include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/execution/execution.h"
-#include "tensorstore/util/execution/sender.h"
+#include "tensorstore/util/execution/future_sender.h"  // IWYU pragma: keep
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/status.h"
 

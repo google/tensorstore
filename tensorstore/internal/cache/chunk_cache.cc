@@ -51,6 +51,7 @@
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/element_pointer.h"
+#include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender.h"
 #include "tensorstore/util/extents.h"

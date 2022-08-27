@@ -28,8 +28,6 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/container/inlined_vector.h"
 #include "absl/hash/hash.h"
-#include "absl/memory/memory.h"
-#include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
@@ -47,14 +45,6 @@
 #include "tensorstore/index_space/internal/propagate_bounds.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
 #include "tensorstore/index_space/transform_broadcastable_array.h"
-#include "tensorstore/internal/cache/async_cache.h"
-#include "tensorstore/internal/cache/async_initialized_cache_mixin.h"
-#include "tensorstore/internal/cache/cache.h"
-#include "tensorstore/internal/cache/cache_pool_resource.h"
-#include "tensorstore/internal/cache/kvs_backed_cache.h"
-#include "tensorstore/internal/cache_key/cache_key.h"
-#include "tensorstore/internal/compression/jpeg.h"
-#include "tensorstore/internal/compression/png.h"
 #include "tensorstore/internal/concurrency_resource.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/grid_partition.h"
@@ -62,11 +52,8 @@
 #include "tensorstore/internal/irregular_grid.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/staleness_bound.h"
-#include "tensorstore/internal/json_binding/std_array.h"
+#include "tensorstore/internal/json_binding/std_array.h"  // IWYU pragma: keep
 #include "tensorstore/internal/logging.h"
-#include "tensorstore/internal/memory.h"
-#include "tensorstore/internal/mutex.h"
-#include "tensorstore/internal/nditerable_transformed_array.h"
 #include "tensorstore/internal/tagged_ptr.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/json_serialization_options_base.h"
@@ -74,8 +61,8 @@
 #include "tensorstore/resize_options.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/transaction.h"
+#include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
-#include "tensorstore/util/execution/sender.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/iterate.h"
@@ -88,7 +75,7 @@
 /// Support for ApplyMembers protocols
 #include "tensorstore/internal/context_binding_vector.h"  // IWYU pragma: keep
 #include "tensorstore/serialization/std_vector.h"  // IWYU pragma: keep
-#include "tensorstore/util/garbage_collection/fwd.h"
+#include "tensorstore/util/garbage_collection/fwd.h"  // IWYU pragma: keep
 #include "tensorstore/util/garbage_collection/std_vector.h"  // IWYU pragma: keep
 
 namespace tensorstore {

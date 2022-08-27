@@ -17,12 +17,13 @@
 
 #include <string>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 #include "absl/strings/str_join.h"
 #include "absl/synchronization/notification.h"
+#include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
-#include "tensorstore/util/execution/sender.h"
 #include "tensorstore/util/execution/sync_flow_sender.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -36,17 +37,17 @@ struct LoggingReceiver {
   }
 
   template <typename... V>
-  void set_value(V... v) {
+  void set_value(V&&... v) {
     log->push_back(tensorstore::StrCat(
-        "set_value: ",
-        absl::StrJoin(std::make_tuple(v...), ", ", absl::StreamFormatter())));
+        "set_value: ", absl::StrJoin(std::make_tuple(std::forward<V>(v)...),
+                                     ", ", absl::StreamFormatter())));
   }
 
   void set_done() { log->push_back("set_done"); }
 
   template <typename E>
-  void set_error(E e) {
-    log->push_back(StrCat("set_error: ", e));
+  void set_error(E&& e) {
+    log->push_back(tensorstore::StrCat("set_error: ", e));
   }
 
   void set_cancel() { log->push_back("set_cancel"); }

@@ -41,6 +41,7 @@ tensorstore_cc_library(
         "//tensorstore/serialization",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
+        "//tensorstore/util/execution:any_receiver",
         "//tensorstore/util/execution:sender_util",
         "//tensorstore/util/garbage_collection",
         "@com_google_absl//absl/base:core_headers",

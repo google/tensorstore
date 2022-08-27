@@ -24,6 +24,8 @@
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/transaction.h"
+#include "tensorstore/util/execution/any_receiver.h"
+#include "tensorstore/util/execution/any_sender.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
 
 namespace tensorstore {

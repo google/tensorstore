@@ -36,7 +36,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:staleness_bound",
         "//tensorstore/serialization:absl_time",
-        "//tensorstore/util/execution:sender",
+        "//tensorstore/util/execution:any_receiver",
         "//tensorstore/util/execution:sender_util",
         "@com_google_absl//absl/status",
     ],

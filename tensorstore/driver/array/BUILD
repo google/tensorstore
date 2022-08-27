@@ -40,6 +40,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/json:array",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:array",
+        "//tensorstore/util/execution:any_receiver",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/synchronization",
     ],

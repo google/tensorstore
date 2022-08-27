@@ -140,6 +140,7 @@ tensorstore_cc_library(
         "//tensorstore/util:str_cat",
         "//tensorstore/util:unit",
         "//tensorstore/util/execution",
+        "//tensorstore/util/execution:any_receiver",
         "//tensorstore/util/execution:sender",
         "//tensorstore/util/execution:sender_util",
         "//tensorstore/util/garbage_collection",
@@ -162,6 +163,7 @@ tensorstore_cc_test(
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",
+        "//tensorstore/util/execution:any_receiver",
         "@com_google_googletest//:gtest_main",
     ],
 )

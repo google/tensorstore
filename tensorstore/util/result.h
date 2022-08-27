@@ -27,7 +27,6 @@
 #include "tensorstore/internal/preprocessor/expand.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/util/assert_macros.h"
-#include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/result_impl.h"  // IWYU pragma: export
 #include "tensorstore/util/status.h"
 
@@ -649,65 +648,6 @@ class Result : private internal_result::ResultStorage<T>,
       internal_result::IsEqualityComparableIfNotResult<T, U>, bool>
   operator!=(const U& a, const Result<T>& b) {
     return !(a == b);
-  }
-
-  /// The `set_value`, `set_cancel`, `set_error`, and `submit` functions defined
-  /// below make `Result<T>` model the `Receiver<absl::Status, T>` and
-  /// `Sender<absl::Status, T>` concepts.
-  ///
-  /// These are defined as friend functions rather than member functions to
-  /// allow `std::reference_wrapper<Result<T>>` and other types implicitly
-  /// convertible to `Result<T>` to also model `Receiver<absl::Status, T>` and
-  /// `Sender<absl::Status, T>`.
-
-  // Implements the Receiver `set_value` operation.
-  //
-  // This destroys any existing value/error and constructs the contained value
-  // from `v...`.
-  template <typename... V>
-  friend std::enable_if_t<((std::is_same_v<void, T> && sizeof...(V) == 0) ||
-                           std::is_constructible_v<T, V&&...>)>
-  set_value(Result& result, V&&... v) {
-    result.emplace(std::forward<V>(v)...);
-  }
-
-  // Implements the Receiver `set_error` operation.
-  //
-  // Overrides the existing value/error with `status`.
-  friend void set_error(Result& result, absl::Status status) {
-    result = std::move(status);
-  }
-
-  // Implements the Receiver `set_cancel` operation.
-  //
-  // This overrides the existing value/error with `absl::CancelledError("")`.
-  friend void set_cancel(Result& result) { result = absl::CancelledError(""); }
-
-  // Implements the Sender `submit` operation.
-  //
-  // If `has_value() == true`, calls `set_value` with an lvalue reference to
-  // the contained value.
-  //
-  // If in an error state with an error code of `absl::StatusCode::kCancelled`,
-  // calls `set_cancel`.
-  //
-  // Otherwise, calls `set_error` with `status()`.
-  template <typename Receiver>
-  friend std::void_t<decltype(execution::set_value, std::declval<Receiver&>(),
-                              std::declval<T>()),
-                     decltype(execution::set_error, std::declval<Receiver&>(),
-                              std::declval<absl::Status>()),
-                     decltype(execution::set_cancel, std::declval<Receiver&>())>
-  submit(Result& result, Receiver&& receiver) {
-    if (result.has_value()) {
-      execution::set_value(receiver, *result);
-    } else {
-      if (result.status().code() == absl::StatusCode::kCancelled) {
-        execution::set_cancel(receiver);
-      } else {
-        execution::set_error(receiver, result.status());
-      }
-    }
   }
 
  private:

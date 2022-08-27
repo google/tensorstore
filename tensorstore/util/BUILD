@@ -321,42 +321,22 @@ tensorstore_cc_library(
         "future_impl.h",
     ],
     deps = [
-        ":assert_macros",
         ":executor",
         ":result",
         ":status",
         "//tensorstore/internal:attributes",
         "//tensorstore/internal:intrusive_linked_list",
         "//tensorstore/internal:intrusive_ptr",
-        "//tensorstore/internal:meta",
         "//tensorstore/internal:no_destructor",
         "//tensorstore/internal:tagged_ptr",
         "//tensorstore/internal:type_traits",
-        "//tensorstore/internal:void_wrapper",
         "//tensorstore/internal/metrics",
-        "//tensorstore/util/execution",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/hash",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/utility",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "future_sender_test",
-    size = "small",
-    srcs = ["future_sender_test.cc"],
-    deps = [
-        ":future",
-        ":result",
-        ":status",
-        "//tensorstore/util/execution",
-        "//tensorstore/util/execution:sender",
-        "//tensorstore/util/execution:sender_testutil",
-        "//tensorstore/util/execution:sender_util",
-        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -526,20 +506,6 @@ cc_with_non_compile_test(
     deps = [
         ":result",
         ":status",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "result_sender_test",
-    size = "small",
-    srcs = ["result_sender_test.cc"],
-    deps = [
-        ":result",
-        ":status",
-        "//tensorstore/util/execution",
-        "//tensorstore/util/execution:sender",
-        "//tensorstore/util/execution:sender_testutil",
-        "@com_google_googletest//:gtest_main",
     ],
 )
 

@@ -31,6 +31,7 @@
 #include "tensorstore/internal/tagged_ptr.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/transaction.h"
+#include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/sender.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/quote_string.h"

@@ -18,6 +18,7 @@
 #include "absl/functional/function_ref.h"
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/kvstore/driver.h"
+#include "tensorstore/util/execution/future_sender.h"  // IWYU pragma: keep
 
 namespace tensorstore {
 namespace internal_kvstore {

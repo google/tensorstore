@@ -30,15 +30,10 @@
 #include "absl/time/time.h"
 #include "tensorstore/internal/attributes.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/meta.h"
 #include "tensorstore/internal/type_traits.h"
-#include "tensorstore/internal/void_wrapper.h"
-#include "tensorstore/util/assert_macros.h"
-#include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future_impl.h"  // IWYU pragma: export
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 
@@ -359,36 +354,6 @@ class Promise {
     if (!rep.AcquireFutureReference()) return {};
     return internal_future::FutureAccess::Construct<Future<T>>(
         internal_future::FutureStatePointer(&rep, internal::adopt_object_ref));
-  }
-
-  /// The `set_value`, `set_error`, and `set_cancel` functions defined below
-  /// make `Promise<T>` model the `Receiver<absl::Status, T>` concept.  Calling
-  /// any of these methods has no effect if the promise is already in a ready
-  /// state. This implies that calling any of these functions after they have
-  /// already been called on a given Promise has no effect.
-
-  /// Implements the Receiver `set_value` operation.
-  template <typename... V,
-            // Use extra template parameter to make condition dependent.
-            bool SfinaeNotConst = !std::is_const_v<T>>
-  friend std::enable_if_t<
-      (SfinaeNotConst &&
-       std::is_constructible_v<result_type, std::in_place_t, V...>),
-      void>
-  set_value(const Promise& promise, V&&... v) {
-    promise.SetResult(std::in_place, std::forward<V>(v)...);
-  }
-
-  /// Implements the Receiver `set_error` operation.
-  template <typename... V>
-  friend void set_error(const Promise& promise, absl::Status error) {
-    promise.SetResult(std::move(error));
-  }
-
-  /// Implements the Receiver `set_cancel` operation.
-  template <typename... V>
-  friend void set_cancel(const Promise& promise) {
-    promise.SetResult(absl::CancelledError(""));
   }
 
  private:
@@ -854,28 +819,6 @@ class Future : public AnyFuture {
 
   /// Returns a copy of `result().status()`
   using AnyFuture::status;
-
-  // Makes `Future<T>` model the `Sender<absl::Status, T>` concept.
-  //
-  // The `set_value`, `set_error` or `set_cancel` function is called on the
-  // specified `receiver` once the future becomes ready.  It is valid to call
-  // `submit` multiple times on the same `Future`.
-  template <typename Receiver>
-  friend std::void_t<decltype(execution::set_value, std::declval<Receiver&>(),
-                              std::declval<T>()),
-                     decltype(execution::set_error, std::declval<Receiver&>(),
-                              std::declval<absl::Status>()),
-                     decltype(execution::set_cancel, std::declval<Receiver&>())>
-  submit(const Future& future, Receiver receiver) {
-    struct Callback {
-      Receiver receiver;
-      void operator()(ReadyFuture<T> future) {
-        execution::submit(future.result(), std::move(receiver));
-      }
-    };
-    future.Force();
-    future.ExecuteWhenReady(Callback{std::move(receiver)});
-  }
 
  private:
   explicit Future(internal_future::FutureStatePointer rep)
@@ -1449,19 +1392,6 @@ MapFutureError(Executor&& executor, Func func, Future<T> future) {
                    std::move(future));
 }
 
-// Converts an arbitrary `Sender<absl::Status, T>` into a `Future<T>`.
-template <typename T, typename Sender>
-Future<T> MakeSenderFuture(Sender sender) {
-  auto pair = PromiseFuturePair<T>::Make();
-  struct Callback {
-    Sender sender;
-    void operator()(Promise<T> promise) {
-      execution::submit(sender, std::move(promise));
-    }
-  };
-  pair.promise.ExecuteWhenForced(Callback{std::move(sender)});
-  return pair.future;
-}
 
 /// If `promise` does not already have a result set, sets its result to `result`
 /// and sets `promise.result_needed() = false`.

@@ -15,18 +15,18 @@
 #include "tensorstore/util/execution/sender_util.h"
 
 #include <string>
-#include <tuple>
 #include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "tensorstore/util/execution/any_receiver.h"
+#include "tensorstore/util/execution/any_sender.h"
 #include "tensorstore/util/execution/execution.h"
+#include "tensorstore/util/execution/sender.h"
 #include "tensorstore/util/execution/sender_testutil.h"
-#include "tensorstore/util/executor.h"
 
 namespace {
-
 
 TEST(FlowSingleSenderTest, SetValue) {
   std::vector<std::string> log;

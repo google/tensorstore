@@ -22,6 +22,7 @@
 #include "tensorstore/internal/nditerable_data_type_conversion.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/spec.h"
+#include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -31,7 +32,6 @@ namespace {
 using ::tensorstore::internal::Arena;
 using ::tensorstore::internal::DataTypeConversionLookupResult;
 using ::tensorstore::internal::IntrusivePtr;
-using ::tensorstore::internal::LockCollection;
 using ::tensorstore::internal::NDIterable;
 using ::tensorstore::internal::OpenTransactionPtr;
 using ::tensorstore::internal::ReadChunk;
