@@ -19,23 +19,13 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "absl/memory/memory.h"
 #include "absl/strings/cord.h"
-#include "absl/strings/match.h"
 #include "absl/strings/string_view.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
-#include "tensorstore/internal/cache/async_cache.h"
-#include "tensorstore/internal/cache/cache.h"
-#include "tensorstore/internal/cache/kvs_backed_cache.h"
-#include "tensorstore/internal/compression/jpeg.h"
-#include "tensorstore/internal/compression/png.h"
-#include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/internal/json_gtest.h"
-#include "tensorstore/internal/logging.h"
-#include "tensorstore/internal/memory.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/open.h"
