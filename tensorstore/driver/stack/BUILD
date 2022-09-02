@@ -90,22 +90,35 @@ tensorstore_cc_test(
         "//tensorstore/driver/array",  # build_cleaner: keep
         "//tensorstore/driver/n5",  # build_cleaner: keep
         "//tensorstore/index_space:dim_expression",
-        "//tensorstore/internal:elementwise_function",
         "//tensorstore/internal:json_gtest",
-        "//tensorstore/internal:logging",
-        "//tensorstore/internal:memory",
-        "//tensorstore/internal/cache",
-        "//tensorstore/internal/cache:async_cache",
-        "//tensorstore/internal/cache:kvs_backed_cache",
-        "//tensorstore/internal/compression:jpeg",
-        "//tensorstore/internal/compression:png",
-        "//tensorstore/kvstore",
         "//tensorstore/kvstore/memory",  # build_cleaner: keep
         "//tensorstore/util:future",
         "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
         "@com_github_nlohmann_json//:nlohmann_json",
-        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "image_stack_test",
+    srcs = ["image_stack_test.cc"],
+    deps = [
+        ":stack",  # build_cleaner: keep
+        "//tensorstore",
+        "//tensorstore:context",
+        "//tensorstore:index",
+        "//tensorstore:open",
+        "//tensorstore:progress",
+        "//tensorstore/driver/image/png",  # build_cleaner: keep
+        "//tensorstore/kvstore",
+        "//tensorstore/kvstore/memory",  # build_cleaner: keep
+        "//tensorstore/util:future",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "//tensorstore/util:status_testutil",
+        "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
         "@com_google_googletest//:gtest_main",

@@ -41,10 +41,8 @@
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_transform.h"
-#include "tensorstore/index_space/internal/identity_transform.h"
 #include "tensorstore/index_space/internal/propagate_bounds.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
-#include "tensorstore/index_space/transform_broadcastable_array.h"
 #include "tensorstore/internal/concurrency_resource.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/grid_partition.h"
@@ -56,7 +54,6 @@
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/tagged_ptr.h"
 #include "tensorstore/internal/type_traits.h"
-#include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/resize_options.h"
 #include "tensorstore/schema.h"
@@ -578,7 +575,7 @@ struct OpenLayerOp {
 // Asynchronous state for StackDriver::Read maintains reference
 // counts while the read operation is in progress.
 struct ReadState : public internal::AtomicReferenceCount<ReadState> {
-  static constexpr ReadWriteMode kMode = ReadWriteMode::write;
+  static constexpr ReadWriteMode kMode = ReadWriteMode::read;
   using Receiver = ForwardingLayerReceiver<ReadState>;
   using ChunkType = ReadChunk;
 
