@@ -37,6 +37,7 @@
 #include "tensorstore/internal/metrics/gauge.h"
 #include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/internal/thread.h"
+#include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/future.h"
 
 namespace tensorstore {
@@ -91,45 +92,62 @@ struct CurlRequestState {
 
     const auto& config = CurlEnvConfig();
     if (config.verbose) {
-      CurlEasySetopt(handle_.get(), CURLOPT_VERBOSE, 1L);
+      TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_VERBOSE, 1L));
     }
 
     if (const auto& x = config.ca_path) {
-      CurlEasySetopt(handle_.get(), CURLOPT_CAPATH, x->c_str());
+      TENSORSTORE_CHECK_OK(
+          CurlEasySetopt(handle_.get(), CURLOPT_CAPATH, x->c_str()));
     }
     if (const auto& x = config.ca_bundle) {
-      CurlEasySetopt(handle_.get(), CURLOPT_CAINFO, x->c_str());
+      TENSORSTORE_CHECK_OK(
+          CurlEasySetopt(handle_.get(), CURLOPT_CAINFO, x->c_str()));
     }
     // NOTE: When there are no ca certs, we may want to set:
     // CURLOPT_SSL_VERIFYPEER CURLOPT_SSL_VERIFYHOST
 
     // Use a 512k buffer.
-    CurlEasySetopt(handle_.get(), CURLOPT_BUFFERSIZE, 512 * 1024);
-    CurlEasySetopt(handle_.get(), CURLOPT_TCP_NODELAY, 1L);
+    TENSORSTORE_CHECK_OK(
+        CurlEasySetopt(handle_.get(), CURLOPT_BUFFERSIZE, 512 * 1024));
+    TENSORSTORE_CHECK_OK(
+        CurlEasySetopt(handle_.get(), CURLOPT_TCP_NODELAY, 1L));
 
-    CurlEasySetopt(handle_.get(), CURLOPT_WRITEDATA, this);
-    CurlEasySetopt(handle_.get(), CURLOPT_WRITEFUNCTION,
-                   &CurlRequestState::CurlWriteCallback);
+    TENSORSTORE_CHECK_OK(
+        CurlEasySetopt(handle_.get(), CURLOPT_WRITEDATA, this));
+    TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_WRITEFUNCTION,
+                                        &CurlRequestState::CurlWriteCallback));
 
-    CurlEasySetopt(handle_.get(), CURLOPT_HEADERDATA, this);
-    CurlEasySetopt(handle_.get(), CURLOPT_HEADERFUNCTION,
-                   &CurlRequestState::CurlHeaderCallback);
+    TENSORSTORE_CHECK_OK(
+        CurlEasySetopt(handle_.get(), CURLOPT_HEADERDATA, this));
+    TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_HEADERFUNCTION,
+                                        &CurlRequestState::CurlHeaderCallback));
 
-    CurlEasySetopt(handle_.get(), CURLOPT_ERRORBUFFER, error_buffer_);
-    CurlEasySetopt(handle_.get(), CURLOPT_PRIVATE, this);
+    TENSORSTORE_CHECK_OK(
+        CurlEasySetopt(handle_.get(), CURLOPT_ERRORBUFFER, error_buffer_));
+    TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_PRIVATE, this));
   }
 
   ~CurlRequestState() {
-    CurlEasySetopt(handle_.get(), CURLOPT_PRIVATE, nullptr);
-    CurlEasySetopt(handle_.get(), CURLOPT_WRITEDATA, nullptr);
-    CurlEasySetopt(handle_.get(), CURLOPT_WRITEFUNCTION, nullptr);
-    CurlEasySetopt(handle_.get(), CURLOPT_READDATA, nullptr);
-    CurlEasySetopt(handle_.get(), CURLOPT_READFUNCTION, nullptr);
-    CurlEasySetopt(handle_.get(), CURLOPT_SEEKDATA, nullptr);
-    CurlEasySetopt(handle_.get(), CURLOPT_SEEKFUNCTION, nullptr);
-    CurlEasySetopt(handle_.get(), CURLOPT_HEADERDATA, nullptr);
-    CurlEasySetopt(handle_.get(), CURLOPT_HEADERFUNCTION, nullptr);
-    CurlEasySetopt(handle_.get(), CURLOPT_ERRORBUFFER, nullptr);
+    TENSORSTORE_CHECK_OK(
+        CurlEasySetopt(handle_.get(), CURLOPT_PRIVATE, nullptr));
+    TENSORSTORE_CHECK_OK(
+        CurlEasySetopt(handle_.get(), CURLOPT_WRITEDATA, nullptr));
+    TENSORSTORE_CHECK_OK(
+        CurlEasySetopt(handle_.get(), CURLOPT_WRITEFUNCTION, nullptr));
+    TENSORSTORE_CHECK_OK(
+        CurlEasySetopt(handle_.get(), CURLOPT_READDATA, nullptr));
+    TENSORSTORE_CHECK_OK(
+        CurlEasySetopt(handle_.get(), CURLOPT_READFUNCTION, nullptr));
+    TENSORSTORE_CHECK_OK(
+        CurlEasySetopt(handle_.get(), CURLOPT_SEEKDATA, nullptr));
+    TENSORSTORE_CHECK_OK(
+        CurlEasySetopt(handle_.get(), CURLOPT_SEEKFUNCTION, nullptr));
+    TENSORSTORE_CHECK_OK(
+        CurlEasySetopt(handle_.get(), CURLOPT_HEADERDATA, nullptr));
+    TENSORSTORE_CHECK_OK(
+        CurlEasySetopt(handle_.get(), CURLOPT_HEADERFUNCTION, nullptr));
+    TENSORSTORE_CHECK_OK(
+        CurlEasySetopt(handle_.get(), CURLOPT_ERRORBUFFER, nullptr));
 
     factory_->CleanupHandle(std::move(handle_));
   }
@@ -140,12 +158,14 @@ struct CurlRequestState {
     // async name resolution is not supported).
     //
     // https://curl.haxx.se/libcurl/c/threadsafe.html
-    CurlEasySetopt(handle_.get(), CURLOPT_NOSIGNAL, 1L);
+    TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_NOSIGNAL, 1L));
 
     std::string user_agent = request.user_agent() + GetCurlUserAgentSuffix();
-    CurlEasySetopt(handle_.get(), CURLOPT_USERAGENT, user_agent.c_str());
+    TENSORSTORE_CHECK_OK(
+        CurlEasySetopt(handle_.get(), CURLOPT_USERAGENT, user_agent.c_str()));
 
-    CurlEasySetopt(handle_.get(), CURLOPT_URL, request.url().c_str());
+    TENSORSTORE_CHECK_OK(
+        CurlEasySetopt(handle_.get(), CURLOPT_URL, request.url().c_str()));
 
     // Convert headers to a curl slist
     curl_slist* head = nullptr;
@@ -153,72 +173,81 @@ struct CurlRequestState {
       head = curl_slist_append(head, h.c_str());
     }
     headers_.reset(head);
-    CurlEasySetopt(handle_.get(), CURLOPT_HTTPHEADER, headers_.get());
+    TENSORSTORE_CHECK_OK(
+        CurlEasySetopt(handle_.get(), CURLOPT_HTTPHEADER, headers_.get()));
     if (request.accept_encoding()) {
-      CurlEasySetopt(handle_.get(), CURLOPT_ACCEPT_ENCODING, "");
+      TENSORSTORE_CHECK_OK(
+          CurlEasySetopt(handle_.get(), CURLOPT_ACCEPT_ENCODING, ""));
     }
 
     if (request_timeout > absl::ZeroDuration()) {
       auto ms = absl::ToInt64Milliseconds(request_timeout);
-      CurlEasySetopt(handle_.get(), CURLOPT_TIMEOUT_MS, ms > 0 ? ms : 1);
+      TENSORSTORE_CHECK_OK(
+          CurlEasySetopt(handle_.get(), CURLOPT_TIMEOUT_MS, ms > 0 ? ms : 1));
     }
     if (connect_timeout > absl::ZeroDuration()) {
       auto ms = absl::ToInt64Milliseconds(connect_timeout);
-      CurlEasySetopt(handle_.get(), CURLOPT_CONNECTTIMEOUT_MS, ms > 0 ? ms : 1);
+      TENSORSTORE_CHECK_OK(CurlEasySetopt(
+          handle_.get(), CURLOPT_CONNECTTIMEOUT_MS, ms > 0 ? ms : 1));
     }
 
-    if (!payload.empty()) {
-      payload_ = std::move(payload);
+    payload_ = std::move(payload);
+    payload_remaining_ = payload_.size();
+    if (payload_remaining_ > 0) {
       payload_it_ = payload_.char_begin();
-      payload_remaining_ = payload_.size();
 
-      CurlEasySetopt(handle_.get(), CURLOPT_READDATA, this);
-      CurlEasySetopt(handle_.get(), CURLOPT_READFUNCTION,
-                     &CurlRequestState::CurlReadCallback);
+      TENSORSTORE_CHECK_OK(
+          CurlEasySetopt(handle_.get(), CURLOPT_READDATA, this));
+      TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_READFUNCTION,
+                                          &CurlRequestState::CurlReadCallback));
       // Seek callback allows curl to re-read input, which it sometimes needs to
       // do.
       //
       // https://curl.haxx.se/mail/lib-2010-01/0183.html
       //
       // If this is not set, curl may fail with CURLE_SEND_FAIL_REWIND.
-      CurlEasySetopt(handle_.get(), CURLOPT_SEEKFUNCTION,
-                     &CurlRequestState::CurlSeekCallback);
-      CurlEasySetopt(handle_.get(), CURLOPT_SEEKDATA, this);
+      TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_SEEKFUNCTION,
+                                          &CurlRequestState::CurlSeekCallback));
+      TENSORSTORE_CHECK_OK(
+          CurlEasySetopt(handle_.get(), CURLOPT_SEEKDATA, this));
     }
 
     if (request.method() == "GET") {
-      CurlEasySetopt(handle_.get(), CURLOPT_PIPEWAIT, 1L);
-      CurlEasySetopt(handle_.get(), CURLOPT_HTTPGET, 1L);
+      TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_PIPEWAIT, 1L));
+      TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_HTTPGET, 1L));
     } else if (request.method() == "HEAD") {
-      CurlEasySetopt(handle_.get(), CURLOPT_NOBODY, 1L);
+      TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_NOBODY, 1L));
     } else if (request.method() == "PUT") {
-      CurlEasySetopt(handle_.get(), CURLOPT_UPLOAD, 1L);
-      CurlEasySetopt(handle_.get(), CURLOPT_PUT, 1L);
-      CurlEasySetopt(handle_.get(), CURLOPT_INFILESIZE_LARGE,
-                     payload_remaining_);
+      TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_UPLOAD, 1L));
+      TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_PUT, 1L));
+      TENSORSTORE_CHECK_OK(CurlEasySetopt(
+          handle_.get(), CURLOPT_INFILESIZE_LARGE, payload_remaining_));
     } else if (request.method() == "POST") {
-      CurlEasySetopt(handle_.get(), CURLOPT_POST, 1L);
-      CurlEasySetopt(handle_.get(), CURLOPT_POSTFIELDSIZE_LARGE,
-                     payload_remaining_);
+      TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_POST, 1L));
+      TENSORSTORE_CHECK_OK(CurlEasySetopt(
+          handle_.get(), CURLOPT_POSTFIELDSIZE_LARGE, payload_remaining_));
     } else if (request.method() == "PATCH") {
-      CurlEasySetopt(handle_.get(), CURLOPT_UPLOAD, 1L);
-      CurlEasySetopt(handle_.get(), CURLOPT_CUSTOMREQUEST, "PATCH");
-      CurlEasySetopt(handle_.get(), CURLOPT_POSTFIELDSIZE_LARGE,
-                     payload_remaining_);
+      TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_UPLOAD, 1L));
+      TENSORSTORE_CHECK_OK(
+          CurlEasySetopt(handle_.get(), CURLOPT_CUSTOMREQUEST, "PATCH"));
+      TENSORSTORE_CHECK_OK(CurlEasySetopt(
+          handle_.get(), CURLOPT_POSTFIELDSIZE_LARGE, payload_remaining_));
     } else {
       // Such as "DELETE"
-      CurlEasySetopt(handle_.get(), CURLOPT_CUSTOMREQUEST,
-                     request.method().c_str());
+      TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_CUSTOMREQUEST,
+                                          request.method().c_str()));
     }
   }
 
   void SetHTTP2() {
-    CurlEasySetopt(handle_.get(), CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_0);
+    TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_HTTP_VERSION,
+                                        CURL_HTTP_VERSION_2_0));
   }
 
   void SetForbidReuse() {
     // https://curl.haxx.se/libcurl/c/CURLOPT_FORBID_REUSE.html
-    CurlEasySetopt(handle_.get(), CURLOPT_FORBID_REUSE, 1);
+    TENSORSTORE_CHECK_OK(
+        CurlEasySetopt(handle_.get(), CURLOPT_FORBID_REUSE, 1));
   }
 
   absl::Status CurlCodeToStatus(CURLcode code) {

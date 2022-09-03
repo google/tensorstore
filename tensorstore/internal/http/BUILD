@@ -39,6 +39,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:no_destructor",
         "//tensorstore/internal:thread",
         "//tensorstore/internal/metrics",
+        "//tensorstore/util:assert_macros",
         "//tensorstore/util:future",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/status",

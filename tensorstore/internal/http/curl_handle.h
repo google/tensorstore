@@ -82,15 +82,9 @@ absl::Status CurlCodeToStatus(CURLcode code, std::string_view);
 absl::Status CurlMCodeToStatus(CURLMcode code, std::string_view);
 
 template <typename T>
-inline void CurlEasySetopt(CURL* handle, CURLoption option, T value) {
-  auto e = curl_easy_setopt(handle, option, value);
-  TENSORSTORE_CHECK(e == CURLE_OK);
-}
-
-template <typename T>
-inline void CurlMultiSetopt(CURLM* handle, CURLMoption option, T value) {
-  auto e = curl_multi_setopt(handle, option, value);
-  TENSORSTORE_CHECK(e == CURLM_OK);
+inline absl::Status CurlEasySetopt(CURL* handle, CURLoption option, T value) {
+  return CurlCodeToStatus(curl_easy_setopt(handle, option, value),
+                          "curl_easy_setopt");
 }
 
 /// Returns the HTTP response code from a curl handle.
