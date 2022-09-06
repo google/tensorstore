@@ -176,9 +176,9 @@ struct IsCompatibleWithPoly<T, true, Signature...>
 ///     qualification.  To obtain the equivalent behavior of a signature without
 ///     reference qualification, specify both an lvalue and rvalue-qualified
 ///     signature.
-template <std::size_t InlineSize, bool Copyable, typename... Signature>
+template <std::size_t InlineSize_, bool Copyable, typename... Signature>
 class Poly
-    : private internal_poly::PolyImpl<Poly<InlineSize, Copyable, Signature...>,
+    : private internal_poly::PolyImpl<Poly<InlineSize_, Copyable, Signature...>,
                                       Signature...> {
   template <typename, typename...>
   friend class internal_poly::PolyImpl;
@@ -186,13 +186,17 @@ class Poly
   template <std::size_t, bool, typename...>
   friend class Poly;
 
-  using Storage = internal_poly::Storage<InlineSize, Copyable>;
+  static constexpr std::size_t InlineSize =
+      internal_poly_storage::ActualInlineSize(InlineSize_);
+
+  using Storage = internal_poly_storage::Storage<InlineSize, Copyable>;
   using Base = internal_poly::PolyImpl<Poly, Signature...>;
   using VTable = internal_poly::VTableType<Signature...>;
 
   template <typename Self>
-  using VTInstance = internal_poly::VTableInstance<
-      Self, Copyable, Storage::template UsesInline<Self>(), Signature...>;
+  using VTInstance =
+      internal_poly::VTableInstance<typename Storage::template Ops<Self>,
+                                    Copyable, Signature...>;
 
   template <typename... S>
   using HasConvertibleVTable =
@@ -242,9 +246,10 @@ class Poly
   /// \post `bool(*this) == true`
   template <typename T,
             std::enable_if_t<IsCompatibleAndConstructible<T>::value>* = nullptr>
-  Poly(T&& obj)
-      : Poly(std::in_place_type_t<internal_poly::remove_cvref_t<T>>{},
-             std::forward<T>(obj)) {}
+  Poly(T&& obj) {
+    Construct(std::in_place_type_t<internal_poly::remove_cvref_t<T>>{},
+              std::forward<T>(obj));
+  }
 
   /// Constructs an object of type `T` from `arg...`.
   ///
@@ -319,31 +324,20 @@ class Poly
   using Base::operator();
 
   /// Returns `true` if this is bound to a valid object.
-  explicit operator bool() const { return static_cast<bool>(storage_); }
-
-  /// Returns `true` if the contained object is stored inline.
-  bool is_inline() const { return storage_.is_inline(); }
-
-  /// Returns a pointer to the contained object, or `nullptr` if in null state.
-  void* target() { return storage_ ? storage_.target() : nullptr; }
-
-  /// Returns a pointer to the contained object, or `nullptr` if in null state.
-  const void* target() const { return const_cast<Poly*>(this)->target(); }
+  explicit operator bool() const { return !storage_.null(); }
 
   /// Returns a pointer to the contained object if it is of type `T`, or
   /// `nullptr` otherwise.
   template <typename T>
   T* target() {
-    return storage_ && storage_.vtable()->type == internal_poly::GetTypeId<T>
-               ? storage_.template target<T>()
-               : nullptr;
+    return storage_.template get_if<T>();
   }
 
   /// Returns a pointer to the contained object if it is of type `T`, or
   /// `nullptr` otherwise.
   template <typename T>
   const T* target() const {
-    return const_cast<Poly*>(this)->target<T>();
+    return storage_.template get_if<T>();
   }
 
   friend bool operator==(std::nullptr_t, const Poly& poly) {
@@ -364,18 +358,24 @@ class Poly
   template <typename T, typename... U>
   std::enable_if_t<!IsPoly<T>::value> Construct(std::in_place_type_t<T>,
                                                 U&&... arg) {
-    return storage_.template Construct<T>(VTInstance<T>::vtable,
-                                          static_cast<U&&>(arg)...);
+    return storage_.template ConstructT<T>(&VTInstance<T>::vtable,
+                                           static_cast<U&&>(arg)...);
   }
 
   /// Copy/move constructs from a Poly.
   template <std::size_t ISize, bool C, typename... S, typename T>
   void Construct(std::in_place_type_t<Poly<ISize, C, S...>>, T&& poly) {
-    if constexpr (ISize <= InlineSize && HasConvertibleVTable<S...>::value) {
-      storage_.Construct(static_cast<T&&>(poly).storage_);
+    if constexpr (internal_poly_storage::ActualInlineSize(ISize) <=
+                      InlineSize &&
+                  HasConvertibleVTable<S...>::value) {
+      if constexpr (std::is_lvalue_reference_v<decltype(poly)>) {
+        storage_.CopyConstruct(std::forward<T>(poly).storage_);
+      } else {
+        storage_.Construct(std::forward<T>(poly).storage_);
+      }
     } else {
-      storage_.template Construct<Poly<ISize, C, S...>>(
-          VTInstance<Poly<ISize, C, S...>>::vtable, static_cast<T&&>(poly));
+      storage_.template ConstructT<Poly<ISize, C, S...>>(
+          &VTInstance<Poly<ISize, C, S...>>::vtable, std::forward<T>(poly));
     }
   }
 

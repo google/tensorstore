@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/poly/poly.h"
+#include "tensorstore/internal/poly/storage.h"
 
 namespace tensorstore {
-namespace internal_poly {
+namespace internal_poly_storage {
 
 constexpr VTableBase NullVTable::vtable;
 
-}  // namespace internal_poly
+}  // namespace internal_poly_storage
 }  // namespace tensorstore

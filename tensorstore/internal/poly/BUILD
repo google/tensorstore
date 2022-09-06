@@ -9,10 +9,10 @@ licenses(["notice"])
 tensorstore_cc_library(
     name = "poly",
     srcs = [
-        "poly.cc",
         "poly_impl.h",
     ],
     hdrs = ["poly.h"],
+    deps = [":storage"],
 )
 
 tensorstore_cc_test(
@@ -23,6 +23,21 @@ tensorstore_cc_test(
         ":poly",
         "//tensorstore/util:result",
         "@com_google_absl//absl/functional:function_ref",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "storage",
+    srcs = ["storage.cc"],
+    hdrs = ["storage.h"],
+)
+
+tensorstore_cc_test(
+    name = "storage_test",
+    srcs = ["storage_test.cc"],
+    deps = [
+        ":storage",
         "@com_google_googletest//:gtest_main",
     ],
 )

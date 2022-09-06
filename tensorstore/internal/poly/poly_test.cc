@@ -56,6 +56,13 @@ struct Square {
 // Define Scale operation on Square non-intrusively via PolyApply.
 void PolyApply(Square& self, Scale, double scalar) { self.size *= scalar; }
 
+template <typename T, typename P>
+bool IsStoredInline(P& p) {
+  auto min = reinterpret_cast<uintptr_t>(&p);
+  auto t = reinterpret_cast<uintptr_t>(p.template target<T>());
+  return t >= min && t <= (min + sizeof(p));
+}
+
 TEST(PolyTest, Example) {
   // No heap allocation because `sizeof(Square) <= sizeof(double)`.
   PolyRectangle square = Square{5};
@@ -136,10 +143,8 @@ struct Add {
 TEST(PolyTest, DefaultConstruct) {
   Poly<1, true, int(int)&, float(float)&> poly;
   EXPECT_FALSE(poly);
-  EXPECT_EQ(nullptr, poly.target());
   EXPECT_EQ(nullptr, poly.target<Add>());
   const auto& const_poly = poly;
-  EXPECT_EQ(nullptr, const_poly.target());
   EXPECT_EQ(nullptr, const_poly.target<Add>());
 }
 
@@ -162,12 +167,12 @@ TEST(PolyTest, InlineConstruct) {
     Poly<sizeof(Add), true, int(int)&, double(double)&> poly(Add{amount});
     EXPECT_EQ(2, amount.use_count());
     EXPECT_TRUE(poly);
-    EXPECT_TRUE(poly.is_inline());
+
+    EXPECT_TRUE(IsStoredInline<Add>(poly));
+
     auto* contained_obj = poly.target<Add>();
     ASSERT_NE(nullptr, contained_obj);
     EXPECT_EQ(amount, contained_obj->value);
-    // Test that untyped `target()` method returns the same pointer.
-    EXPECT_EQ(contained_obj, poly.target());
     EXPECT_EQ(3, poly(2));
     EXPECT_EQ(3.5, poly(2.5));
   }
@@ -270,12 +275,12 @@ TEST(PolyTest, InlineMove) {
   {
     Poly<sizeof(Add), true, int(int)&, double(double)&> poly(Add{amount});
     EXPECT_TRUE(poly);
-    EXPECT_TRUE(poly.is_inline());
+    //    EXPECT_TRUE(poly.is_inline());
     EXPECT_EQ(2, amount.use_count());
 
     auto poly2 = std::move(poly);
     EXPECT_TRUE(poly2);
-    EXPECT_TRUE(poly2.is_inline());
+    //    EXPECT_TRUE(poly2.is_inline());
     EXPECT_FALSE(poly);  // NOLINT
     EXPECT_EQ(2, amount.use_count());
     EXPECT_EQ(3, poly2(2));
@@ -289,12 +294,14 @@ TEST(PolyTest, InlineCopy) {
   {
     Poly<sizeof(Add), true, int(int)&, double(double)&> poly(Add{amount});
     EXPECT_TRUE(poly);
-    EXPECT_TRUE(poly.is_inline());
     EXPECT_EQ(2, amount.use_count());
+
+    EXPECT_TRUE(IsStoredInline<Add>(poly));
 
     auto poly2 = poly;
     EXPECT_TRUE(poly2);
-    EXPECT_TRUE(poly2.is_inline());
+    EXPECT_TRUE(IsStoredInline<Add>(poly2));
+
     EXPECT_TRUE(poly);  // NOLINT
     EXPECT_EQ(3, amount.use_count());
     EXPECT_EQ(3, poly2(2));
@@ -308,10 +315,10 @@ TEST(PolyTest, HeapConstruct) {
   {
     Poly<0, true, int(int)&, double(double)&> poly(Add{amount});
     EXPECT_TRUE(poly);
-    EXPECT_FALSE(poly.is_inline());
-    EXPECT_TRUE(poly.target());
+
     EXPECT_TRUE(poly.target<Add>());
-    EXPECT_EQ(poly.target<Add>(), poly.target());
+    EXPECT_FALSE(IsStoredInline<Add>(poly));
+
     EXPECT_EQ(amount, poly.target<Add>()->value);
     EXPECT_EQ(2, amount.use_count());
     EXPECT_EQ(3, poly(2));
@@ -325,11 +332,12 @@ TEST(PolyTest, HeapMove) {
   {
     Poly<0, true, int(int)&, double(double)&> poly(Add{amount});
     EXPECT_TRUE(poly);
-    EXPECT_FALSE(poly.is_inline());
     EXPECT_EQ(2, amount.use_count());
+    EXPECT_FALSE(IsStoredInline<Add>(poly));
 
     auto poly2 = std::move(poly);
     EXPECT_TRUE(poly2);
+
     EXPECT_FALSE(poly);  // NOLINT
     EXPECT_EQ(2, amount.use_count());
     EXPECT_EQ(3, poly2(2));
@@ -343,8 +351,8 @@ TEST(PolyTest, HeapCopy) {
   {
     Poly<0, true, int(int)&, double(double)&> poly(Add{amount});
     EXPECT_TRUE(poly);
-    EXPECT_FALSE(poly.is_inline());
     EXPECT_EQ(2, amount.use_count());
+    EXPECT_FALSE(IsStoredInline<Add>(poly));
 
     auto poly2 = poly;
     EXPECT_TRUE(poly2);
@@ -467,6 +475,27 @@ TEST(PolyTest, MoveConstructFromPolyWithIncompatibleVTable) {
   EXPECT_EQ(1, amount.use_count());
 }
 
+TEST(PolyTest, EmplaceFromPolyWithIncompatibleVTable) {
+  auto amount = std::make_shared<int>(1);
+  {
+    using Poly1 = Poly<sizeof(Add), true, int(int)&, double(double)&>;
+    using Poly2 = Poly<sizeof(Add), true, double(double)&, int(int)&>;
+    Poly1 poly(Add{amount});
+    EXPECT_EQ(2, amount.use_count());
+
+    Poly2 poly2;
+    poly2.emplace(std::move(poly));
+    EXPECT_FALSE(poly);  // NOLINT
+    EXPECT_FALSE(poly2.target<Add>());
+    EXPECT_TRUE(poly2.target<Poly1>());
+    EXPECT_TRUE(poly2);
+    EXPECT_EQ(2, amount.use_count());
+    EXPECT_EQ(3, poly2(2));
+    EXPECT_EQ(3.5, poly2(2.5));
+  }
+  EXPECT_EQ(1, amount.use_count());
+}
+
 TEST(PolyTest, CopyConstructFromPolyWithCompatibleVTable) {
   Poly<0, true, void(int), int()> poly1 = IntGetterSetter{5};
   EXPECT_EQ(5, poly1());
@@ -485,6 +514,19 @@ TEST(PolyTest, MoveConstructFromPolyWithCompatibleVTable) {
   EXPECT_EQ(6, poly1());
 
   Poly<0, true, int()> poly2{std::move(poly1)};
+  EXPECT_TRUE(poly2.target<IntGetterSetter>());
+  EXPECT_EQ(6, poly2());
+  EXPECT_FALSE(poly1);  // NOLINT
+}
+
+TEST(PolyTest, EmplacePolyWithCompatibleVTable) {
+  Poly<0, true, void(int), int()> poly1 = IntGetterSetter{5};
+  EXPECT_EQ(5, poly1());
+  poly1(6);
+  EXPECT_EQ(6, poly1());
+
+  Poly<0, true, int()> poly2;
+  poly2.emplace(std::move(poly1));
   EXPECT_TRUE(poly2.target<IntGetterSetter>());
   EXPECT_EQ(6, poly2());
   EXPECT_FALSE(poly1);  // NOLINT
