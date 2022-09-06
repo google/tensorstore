@@ -68,7 +68,7 @@ the layer stack.
   the rank of each of the :json:schema:`~driver/stack.layers`
 
 - :json:schema:`Schema.dtype`  Sets the dtype of the TensorStore and constrains
-  the rank of each of the :json:schema:`~driver/stack.layers`
+  the dtype of each of the :json:schema:`~driver/stack.layers`
 
 - :json:schema:`Schema.domain`  Sets the domain of the TensorStore. The ``stack``
   driver computes an effective domain as the hull of each layer's effective
