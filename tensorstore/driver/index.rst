@@ -21,6 +21,7 @@ Single file drivers
    image/avif/index
    image/jpeg/index
    image/png/index
+   image/tiff/index
 
 .. _chunked-drivers:
 

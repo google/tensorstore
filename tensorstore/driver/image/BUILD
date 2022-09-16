@@ -71,6 +71,7 @@ tensorstore_cc_test(
         "//tensorstore/driver/image/avif",  # build_cleaner: keep
         "//tensorstore/driver/image/jpeg",  # build_cleaner: keep
         "//tensorstore/driver/image/png",  # build_cleaner: keep
+        "//tensorstore/driver/image/tiff",  # build_cleaner: keep
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/internal:json_gtest",
         "//tensorstore/kvstore",

@@ -13,6 +13,7 @@ DRIVERS = [
     "image/avif",
     "image/jpeg",
     "image/png",
+    "image/tiff",
     "json",
     "n5",
     "neuroglancer_precomputed",

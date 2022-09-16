@@ -1,0 +1,44 @@
+load("//tensorstore:tensorstore.bzl", "tensorstore_cc_library")
+load("//docs:doctest.bzl", "doctest_test")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])
+
+DOCTEST_SOURCES = glob([
+    "**/*.rst",
+    "**/*.yml",
+])
+
+doctest_test(
+    name = "doctest_test",
+    srcs = DOCTEST_SOURCES,
+)
+
+filegroup(
+    name = "doc_sources",
+    srcs = DOCTEST_SOURCES,
+)
+
+tensorstore_cc_library(
+    name = "tiff",
+    srcs = ["driver.cc"],
+    deps = [
+        "//tensorstore:array",
+        "//tensorstore:data_type",
+        "//tensorstore:index",
+        "//tensorstore/driver",
+        "//tensorstore/driver/image:driver_impl",
+        "//tensorstore/internal/image:riegeli_block_writer",
+        "//tensorstore/internal/image:tiff",
+        "//tensorstore/internal/json_binding",
+        "//tensorstore/serialization",
+        "//tensorstore/util:result",
+        "//tensorstore/util:span",
+        "//tensorstore/util:status",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_riegeli//riegeli/bytes:cord_reader",
+    ],
+    alwayslink = True,
+)
