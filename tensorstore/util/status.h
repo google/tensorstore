@@ -31,6 +31,54 @@
 namespace tensorstore {
 namespace internal {
 
+absl::Status MaybeAnnotateStatusImpl(absl::Status source,
+                                     std::string_view prefix_message,
+                                     std::optional<absl::StatusCode> new_code,
+                                     std::optional<SourceLocation> loc);
+
+[[noreturn]] void FatalStatus(const char* message, const absl::Status& status,
+                              SourceLocation loc);
+
+/// If status is not `absl::StatusCode::kOk`, then converts the status code.
+inline absl::Status MaybeConvertStatusTo(
+    absl::Status status, absl::StatusCode code,
+    SourceLocation loc TENSORSTORE_LOC_CURRENT_DEFAULT_ARG) {
+  if (status.code() == code) return status;
+  return MaybeAnnotateStatusImpl(std::move(status), {}, code, loc);
+}
+#if !TENSORSTORE_HAVE_SOURCE_LOCATION_CURRENT
+inline absl::Status MaybeConvertStatusTo(absl::Status status,
+                                         absl::StatusCode code) {
+  if (status.code() == code) return status;
+  return MaybeAnnotateStatusImpl(std::move(status), {}, code, std::nullopt);
+}
+#endif
+
+/// Converts `kInvalidArgument` and `kOutOfRange` errors to
+/// `kFailedPrecondition` errors.
+inline absl::Status ConvertInvalidArgumentToFailedPrecondition(
+    absl::Status status,
+    SourceLocation loc TENSORSTORE_LOC_CURRENT_DEFAULT_ARG) {
+  if (status.code() == absl::StatusCode::kInvalidArgument ||
+      status.code() == absl::StatusCode::kOutOfRange) {
+    return MaybeAnnotateStatusImpl(std::move(status), {},
+                                   absl::StatusCode::kFailedPrecondition, loc);
+  }
+  return status;
+}
+#if !TENSORSTORE_HAVE_SOURCE_LOCATION_CURRENT
+inline absl::Status ConvertInvalidArgumentToFailedPrecondition(
+    absl::Status status) {
+  if (status.code() == absl::StatusCode::kInvalidArgument ||
+      status.code() == absl::StatusCode::kOutOfRange) {
+    return MaybeAnnotateStatusImpl(std::move(status), {},
+                                   absl::StatusCode::kFailedPrecondition,
+                                   std::nullopt);
+  }
+  return status;
+}
+#endif
+
 /// Returns `f(args...)`, converting a `void` return to `absl::Status`.
 template <typename F, typename... Args>
 inline absl::Status InvokeForStatus(F&& f, Args&&... args) {
@@ -45,24 +93,6 @@ inline absl::Status InvokeForStatus(F&& f, Args&&... args) {
   }
 }
 
-/// Converts `kInvalidArgument` and `kOutOfRange` errors to
-/// `kFailedPrecondition` errors.
-inline absl::Status ConvertInvalidArgumentToFailedPrecondition(
-    absl::Status status) {
-  if (status.code() == absl::StatusCode::kInvalidArgument ||
-      status.code() == absl::StatusCode::kOutOfRange) {
-    return absl::FailedPreconditionError(status.message());
-  }
-  return status;
-}
-
-[[noreturn]] void FatalStatus(const char* message, const absl::Status& status,
-                              SourceLocation loc);
-
-absl::Status MaybeAnnotateStatusImpl(absl::Status source,
-                                     std::string_view message,
-                                     std::optional<SourceLocation> loc);
-
 }  // namespace internal
 
 /// If status is not `absl::StatusCode::kOk`, then annotate the status message.
@@ -71,13 +101,14 @@ absl::Status MaybeAnnotateStatusImpl(absl::Status source,
 inline absl::Status MaybeAnnotateStatus(
     absl::Status source, std::string_view message,
     SourceLocation loc TENSORSTORE_LOC_CURRENT_DEFAULT_ARG) {
-  return internal::MaybeAnnotateStatusImpl(std::move(source), message, loc);
+  return internal::MaybeAnnotateStatusImpl(std::move(source), message,
+                                           std::nullopt, loc);
 }
 #if !TENSORSTORE_HAVE_SOURCE_LOCATION_CURRENT
 inline absl::Status MaybeAnnotateStatus(absl::Status source,
                                         std::string_view message) {
   return internal::MaybeAnnotateStatusImpl(std::move(source), message,
-                                           std::nullopt);
+                                           std::nullopt, std::nullopt);
 }
 #endif
 

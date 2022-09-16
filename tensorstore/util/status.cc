@@ -24,23 +24,33 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
-#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/str_join.h"
 #include "tensorstore/internal/source_location.h"
 
 namespace tensorstore {
 namespace internal {
 
 absl::Status MaybeAnnotateStatusImpl(absl::Status source,
-                                     std::string_view message,
+                                     std::string_view prefix_message,
+                                     std::optional<absl::StatusCode> new_code,
                                      std::optional<SourceLocation> loc) {
   if (source.ok()) return source;
+  if (!new_code) new_code = source.code();
 
-  absl::Status dest(
-      source.code(),  //
-      source.message().empty()
-          ? message
-          : std::string_view(absl::StrCat(message, ": ", source.message())));
+  size_t index = 0;
+  std::array<std::string_view, 3> to_join = {};
+  if (!prefix_message.empty()) {
+    to_join[index++] = prefix_message;
+  }
+  if (!source.message().empty()) {
+    to_join[index++] = source.message();
+  }
+
+  absl::Status dest(*new_code, (index > 1) ? std::string_view(absl::StrJoin(
+                                                 to_join.begin(),
+                                                 to_join.begin() + index, ": "))
+                                           : to_join[0]);
 
   // Preserve the payloads.
   source.ForEachPayload([&](absl::string_view name, const absl::Cord& value) {

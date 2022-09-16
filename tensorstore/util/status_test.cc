@@ -25,11 +25,32 @@ namespace {
 
 using ::tensorstore::MaybeAnnotateStatus;
 using ::tensorstore::internal::InvokeForStatus;
+using ::tensorstore::internal::MaybeAnnotateStatusImpl;
+using ::tensorstore::internal::MaybeConvertStatusTo;
 
 TEST(StatusTest, StrCat) {
   const absl::Status s = absl::UnknownError("Message");
   EXPECT_THAT(s.ToString(), testing::HasSubstr("UNKNOWN: Message"));
   EXPECT_THAT(tensorstore::StrCat(s), testing::HasSubstr("UNKNOWN: Message"));
+}
+
+TEST(StatusTest, MaybeAnnotateStatusImpl) {
+  // Just change the code.
+  EXPECT_EQ(
+      MaybeAnnotateStatusImpl(absl::UnknownError("Boo"), {},
+                              absl::StatusCode::kInternal, TENSORSTORE_LOC),
+      absl::InternalError("Boo"));
+
+  // Just change the message.
+  EXPECT_EQ(MaybeAnnotateStatusImpl(absl::UnknownError("Boo"), "Annotated", {},
+                                    TENSORSTORE_LOC),
+            absl::UnknownError("Annotated: Boo"));
+
+  // Change both code and message
+  EXPECT_EQ(
+      MaybeAnnotateStatusImpl(absl::UnknownError("Boo"), "Annotated",
+                              absl::StatusCode::kInternal, TENSORSTORE_LOC),
+      absl::InternalError("Annotated: Boo"));
 }
 
 TEST(StatusTest, MaybeAnnotateStatus) {
@@ -49,6 +70,15 @@ TEST(StatusTest, MaybeAnnotateStatus) {
   auto expected = absl::UnknownError("Annotated: Bar");
   expected.SetPayload("a", absl::Cord("b"));
   EXPECT_EQ(expected, status);
+}
+
+TEST(StatusTest, MaybeConvertStatusTo) {
+  EXPECT_EQ(absl::OkStatus(),  //
+            MaybeConvertStatusTo(absl::OkStatus(),
+                                 absl::StatusCode::kDeadlineExceeded));
+  EXPECT_EQ(absl::InternalError("Boo"),  //
+            MaybeConvertStatusTo(absl::UnknownError("Boo"),
+                                 absl::StatusCode::kInternal));
 }
 
 TEST(StatusTest, InvokeForStatus) {
