@@ -38,7 +38,6 @@ class RiegeliBlockWriter : public riegeli::Writer {
   RiegeliBlockWriter();
 
   bool PrefersCopying() const override { return true; }
-  bool SupportsSize() override { return true; }
   bool SupportsTruncate() override { return true; }
   bool SupportsRandomAccess() override { return true; }
 
