@@ -1,15 +1,15 @@
-# Description:
-#   TIFF library
+load("@com_google_tensorstore//:utils.bzl", "cc_library_with_strip_include_prefix")
 
 licenses(["notice"])  # BSD-like licence
 
 exports_files(["COPYRIGHT"])
 
-cc_library(
+cc_library_with_strip_include_prefix(
     name = "tiff",
     srcs = glob(
         [
             "libtiff/tif_*.c",
+            "libtiff/tif_stream.cxx",
         ],
         exclude = [
             "libtiff/tif_win32.c",
@@ -17,9 +17,7 @@ cc_library(
             "libtiff/tif_vms.c",
             "libtiff/tif_webp.c",
         ],
-    ) + [
-        "libtiff/tif_stream.cxx",
-    ] + select({
+    ) + select({
         ":windows": ["libtiff/tif_win32.c"],
         "//conditions:default": [],
     }),
@@ -38,11 +36,8 @@ cc_library(
             "-Wno-array-parameter",
         ],
     }),
-    defines = [],
-    includes = [
-        "libtiff",
-    ],
     linkopts = [],
+    strip_include_prefix = "libtiff",
     visibility = ["//visibility:public"],
     deps = [
         "@jpeg",

@@ -14,9 +14,11 @@
 
 #include "tensorstore/internal/image/image_view.h"
 
-#include <ostream>
+#include <assert.h>
 
-#include "absl/strings/str_format.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/internal/image/image_info.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 namespace internal_image {

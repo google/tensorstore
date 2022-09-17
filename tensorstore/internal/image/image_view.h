@@ -15,11 +15,9 @@
 #ifndef TENSORSTORE_INTERNAL_IMAGE_IMAGE_VIEW_H_
 #define TENSORSTORE_INTERNAL_IMAGE_IMAGE_VIEW_H_
 
-#include <stddef.h>
+#include <assert.h>
 
-#include <iosfwd>
-#include <memory>
-#include <utility>
+#include <cstddef>
 
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/image/image_info.h"

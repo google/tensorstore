@@ -14,19 +14,31 @@
 
 #include "tensorstore/internal/image/image_reader.h"
 
+#include <stddef.h>
+
+#include <array>
 #include <cstdint>
+#include <memory>
+#include <string>
+#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/flags/flag.h"
+#include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/match.h"
+#include "absl/strings/string_view.h"
 #include "riegeli/base/any_dependency.h"
-#include "riegeli/base/base.h"
 #include "riegeli/bytes/cord_reader.h"
 #include "riegeli/bytes/fd_reader.h"
+#include "riegeli/bytes/reader.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/image/tiff_reader.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 

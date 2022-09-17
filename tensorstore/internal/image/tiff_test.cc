@@ -13,24 +13,25 @@
 // limitations under the License.
 
 #include <stddef.h>
+#include <stdint.h>
 
-#include <cmath>
-#include <vector>
+#include <memory>
+#include <string>
+#include <string_view>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/flags/flag.h"
 #include "absl/status/status.h"
-#include "absl/strings/cord.h"
 #include "riegeli/bytes/cord_reader.h"
-#include "riegeli/bytes/cord_writer.h"
 #include "riegeli/bytes/fd_reader.h"
 #include "riegeli/bytes/string_reader.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/image/riegeli_block_writer.h"
 #include "tensorstore/internal/image/tiff_reader.h"
 #include "tensorstore/internal/image/tiff_writer.h"
 #include "tensorstore/internal/path.h"
-#include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
 
@@ -165,7 +166,7 @@ TEST_F(TiffTest, ReadMultiPage) {
   std::string filename = tensorstore::internal::JoinPath(
       absl::GetFlag(FLAGS_tensorstore_test_data_dir),
       "tiff/D75_08b_3page.tiff");
-  riegeli::FdReader<> file_reader(filename);
+  riegeli::FdReader file_reader(filename);
   TiffReader decoder;
 
   ASSERT_THAT(decoder.Initialize(&file_reader), ::tensorstore::IsOk());

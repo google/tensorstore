@@ -15,7 +15,11 @@
 #ifndef TENSORSTORE_INTERNAL_IMAGE_TIFF_WRITER_H_
 #define TENSORSTORE_INTERNAL_IMAGE_TIFF_WRITER_H_
 
+#include <memory>
+#include <utility>
+
 #include "absl/status/status.h"
+#include "riegeli/bytes/writer.h"
 #include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/image/image_writer.h"
 #include "tensorstore/util/span.h"
@@ -48,7 +52,7 @@ class TiffWriter : public ImageWriter {
   absl::Status Encode(const ImageInfo& info,
                       tensorstore::span<const unsigned char> source) override;
 
-  // Returns an absl::Cord containing the encoded image data.
+  /// Finish writing. Closes the writer and returns the status.
   absl::Status Done() override;
 
  private:

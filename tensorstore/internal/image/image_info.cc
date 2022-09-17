@@ -14,9 +14,13 @@
 
 #include "tensorstore/internal/image/image_info.h"
 
+#include <stddef.h>
+
+#include <cmath>
 #include <ostream>
 
 #include "absl/strings/str_format.h"
+#include "tensorstore/data_type.h"
 
 namespace tensorstore {
 namespace internal_image {

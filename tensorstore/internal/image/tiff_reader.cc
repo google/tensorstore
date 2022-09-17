@@ -14,24 +14,27 @@
 
 #include "tensorstore/internal/image/tiff_reader.h"
 
+#include <assert.h>
 #include <errno.h>
 #include <stdio.h>
 
+#include <algorithm>
 #include <cstddef>
-#include <cstdint>
 #include <cstring>
+#include <memory>
 #include <optional>
 #include <string>
-#include <type_traits>
-#include <variant>
+#include <utility>
 
 #include "absl/base/attributes.h"
-#include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
 #include "riegeli/bytes/reader.h"
 #include "tensorstore/data_type.h"
+#include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/image/image_view.h"
+#include "tensorstore/util/assert_macros.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 
 // Include libtiff last.

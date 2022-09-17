@@ -14,26 +14,26 @@
 
 #include "tensorstore/internal/image/tiff_writer.h"
 
+#include <assert.h>
 #include <errno.h>
 #include <stdio.h>
 
-#include <cstdint>
-#include <cstring>
+#include <memory>
 #include <optional>
-#include <string>
-#include <type_traits>
-#include <variant>
+#include <utility>
 
-#include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
-#include "absl/strings/str_format.h"
 #include "riegeli/bytes/writer.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/image/image_view.h"
+#include "tensorstore/util/assert_macros.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 
 // Include libtiff last.
 // See: http://www.libtiff.org/man/index.html
 #include "tensorstore/internal/image/tiff_common.h"
-#include "tensorstore/util/status.h"
 #include <tiff.h>
 #include <tiffio.h>
 
@@ -157,8 +157,6 @@ absl::Status TiffWriter::Context::Open() {
 
 absl::Status TiffWriter::Context::WriteImage(
     const ImageInfo& info, tensorstore::span<const unsigned char> source) {
-  TENSORSTORE_CHECK(source.size() == ImageRequiredBytes(info));
-
   image_number++;
   if (image_number > 0) {
     return absl::UnknownError(
@@ -225,6 +223,7 @@ absl::Status TiffWriter::Encode(const ImageInfo& info,
   if (!context_) {
     return absl::InternalError("TIFF writer not initialized");
   }
+  TENSORSTORE_CHECK(source.size() == ImageRequiredBytes(info));
   return context_->WriteImage(info, source);
 }
 

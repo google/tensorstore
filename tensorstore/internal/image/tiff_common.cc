@@ -14,16 +14,10 @@
 
 #include "tensorstore/internal/image/tiff_common.h"
 
-#include <errno.h>
+#include <stdarg.h>
 #include <stdio.h>
 
-#include <cstdint>
-#include <cstring>
-#include <optional>
 #include <string>
-#include <type_traits>
-#include <utility>
-#include <variant>
 
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"

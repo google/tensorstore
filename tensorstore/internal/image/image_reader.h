@@ -15,12 +15,9 @@
 #ifndef TENSORSTORE_INTERNAL_IMAGE_IMAGE_READER_H_
 #define TENSORSTORE_INTERNAL_IMAGE_IMAGE_READER_H_
 
-#include <memory>
-
 #include "absl/status/status.h"
 #include "riegeli/bytes/reader.h"
 #include "tensorstore/internal/image/image_info.h"
-#include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 
 namespace tensorstore {

@@ -14,16 +14,30 @@
 
 #include "tensorstore/internal/image/image_writer.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
+#include <any>
+#include <cmath>
+#include <functional>
+#include <string>
+#include <vector>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "riegeli/base/any_dependency.h"
-#include "riegeli/base/base.h"
 #include "riegeli/bytes/cord_reader.h"
-#include "riegeli/bytes/cord_writer.h"
+#include "riegeli/bytes/writer.h"
+#include "tensorstore/internal/image/image_info.h"
+#include "tensorstore/internal/image/image_reader.h"
 #include "tensorstore/internal/image/image_view.h"
 #include "tensorstore/internal/image/riegeli_block_writer.h"
 #include "tensorstore/internal/image/tiff_reader.h"
 #include "tensorstore/internal/image/tiff_writer.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {

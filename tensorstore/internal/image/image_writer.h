@@ -15,9 +15,6 @@
 #ifndef TENSORSTORE_INTERNAL_IMAGE_IMAGE_WRITER_H_
 #define TENSORSTORE_INTERNAL_IMAGE_IMAGE_WRITER_H_
 
-#include <cstddef>
-#include <memory>
-
 #include "absl/status/status.h"
 #include "riegeli/bytes/writer.h"
 #include "tensorstore/internal/image/image_info.h"

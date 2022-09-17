@@ -18,8 +18,6 @@
 #include <stddef.h>
 
 #include <iosfwd>
-#include <memory>
-#include <utility>
 
 #include "tensorstore/data_type.h"
 

@@ -15,9 +15,6 @@
 #ifndef TENSORSTORE_INTERNAL_IMAGE_TIFF_COMMON_H_
 #define TENSORSTORE_INTERNAL_IMAGE_TIFF_COMMON_H_
 
-#include <string>
-#include <vector>
-
 #include "absl/status/status.h"
 
 namespace tensorstore {
