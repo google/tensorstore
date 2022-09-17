@@ -27,7 +27,6 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
-#include "absl/strings/str_join.h"
 #include "riegeli/bytes/writer.h"
 #include "tensorstore/internal/image/image_view.h"
 
@@ -82,16 +81,16 @@ toff_t SeekProc(thandle_t data, toff_t pos, int whence) {
 
   switch (whence) {
     case SEEK_SET:
-      TENSORSTORE_LOG("tiff seek ", pos);
+      // TENSORSTORE_LOG("tiff seek ", pos);
       writer->Seek(pos);
       break;
     case SEEK_CUR:
-      TENSORSTORE_LOG("tiff skip ", writer->pos(), " ", pos);
+      // TENSORSTORE_LOG("tiff skip ", writer->pos(), " ", pos);
       writer->Seek(writer->pos() + pos);
       break;
     case SEEK_END:
       assert(pos <= 0);
-      TENSORSTORE_LOG("tiff seek_end ", pos);
+      // TENSORSTORE_LOG("tiff seek_end ", pos);
       if (auto size = writer->Size(); size) {
         writer->Seek(*size - static_cast<uint64_t>(-pos));
       } else {
