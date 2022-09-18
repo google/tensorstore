@@ -267,16 +267,17 @@ TENSORSTORE_INTERNAL_POLY_SIG_TRAITS(const&, const&);
 ///
 /// This has to be done with a macro to avoid repetition of the body for each
 /// set of qualifiers, due to limitations of the C++ template mechanism.
+/// NOTE: Uses __VA_ARGS__ to avoid MSVC warning C4003
 ///
-/// \param QUALIFIERS An optional C++ qualifier, one of `const, const &, &, &&`.
-#define TENSORSTORE_INTERNAL_POLY_DEFINE_IMPL(QUALIFIERS)                     \
+/// \param ... An optional C++ qualifier, one of `const, const &, &, &&`.
+#define TENSORSTORE_INTERNAL_POLY_DEFINE_IMPL(...)                            \
   template <typename Derived, typename R, typename... Arg,                    \
             typename... Signature>                                            \
-  class PolyImpl<Derived, R(Arg...) QUALIFIERS, Signature...>                 \
+  class PolyImpl<Derived, R(Arg...) __VA_ARGS__, Signature...>                \
       : public PolyImpl<Derived, Signature...> {                              \
    public:                                                                    \
     using PolyImpl<Derived, Signature...>::operator();                        \
-    R operator()(Arg... arg) QUALIFIERS {                                     \
+    R operator()(Arg... arg) __VA_ARGS__ {                                    \
       using VTable = VTableType<R(Arg...), Signature...>;                     \
       auto& impl = static_cast<const Derived&>(*this).storage_;               \
       return static_cast<const VTable*>(                                      \

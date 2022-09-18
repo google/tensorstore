@@ -1,39 +1,83 @@
-load("@com_google_tensorstore//:utils.bzl", "cc_library_with_strip_include_prefix")
+load(
+    "@com_google_tensorstore//:utils.bzl",
+    "package_relative_path",
+)
 
 licenses(["notice"])  # BSD-like licence
 
 exports_files(["COPYRIGHT"])
 
-cc_library_with_strip_include_prefix(
+cc_library(
     name = "tiff",
-    srcs = glob(
-        [
-            "libtiff/tif_*.c",
-            "libtiff/tif_stream.cxx",
-        ],
-        exclude = [
-            "libtiff/tif_win32.c",
-            "libtiff/tif_wince.c",
-            "libtiff/tif_vms.c",
-            "libtiff/tif_webp.c",
-        ],
-    ) + select({
+    srcs = [
+        "libtiff/tif_aux.c",
+        "libtiff/tif_close.c",
+        "libtiff/tif_codec.c",
+        "libtiff/tif_color.c",
+        "libtiff/tif_compress.c",
+        "libtiff/tif_dir.c",
+        "libtiff/tif_dirinfo.c",
+        "libtiff/tif_dirread.c",
+        "libtiff/tif_dirwrite.c",
+        "libtiff/tif_dumpmode.c",
+        "libtiff/tif_error.c",
+        "libtiff/tif_extension.c",
+        "libtiff/tif_fax3.c",
+        "libtiff/tif_fax3sm.c",
+        "libtiff/tif_flush.c",
+        "libtiff/tif_getimage.c",
+        "libtiff/tif_jbig.c",
+        "libtiff/tif_jpeg.c",
+        "libtiff/tif_jpeg_12.c",
+        "libtiff/tif_lerc.c",
+        "libtiff/tif_luv.c",
+        "libtiff/tif_lzma.c",
+        "libtiff/tif_lzw.c",
+        "libtiff/tif_next.c",
+        "libtiff/tif_ojpeg.c",
+        "libtiff/tif_open.c",
+        "libtiff/tif_packbits.c",
+        "libtiff/tif_pixarlog.c",
+        "libtiff/tif_predict.c",
+        "libtiff/tif_print.c",
+        "libtiff/tif_read.c",
+        "libtiff/tif_strip.c",
+        "libtiff/tif_swab.c",
+        "libtiff/tif_thunder.c",
+        "libtiff/tif_tile.c",
+        "libtiff/tif_version.c",
+        "libtiff/tif_warning.c",
+        "libtiff/tif_write.c",
+        "libtiff/tif_zip.c",
+        "libtiff/tif_zstd.c",
+        "libtiff/tif_stream.cxx",
+        # Private headers
+        "libtiff/t4.h",
+        "libtiff/tif_dir.h",
+        "libtiff/tif_fax3.h",
+        "libtiff/tif_predict.h",
+        "libtiff/tiffiop.h",
+        "libtiff/uvcode.h",
+    ] + select({
         ":windows": ["libtiff/tif_win32.c"],
-        "//conditions:default": [],
+        "//conditions:default": ["libtiff/tif_unix.c"],
     }),
-    hdrs = glob([
-        "libtiff/*.h",
-    ]) + [
+    hdrs = [
         "libtiff/tif_config.h",
+        "libtiff/tiff.h",
         "libtiff/tiffconf.h",
+        "libtiff/tiffio.h",
         "libtiff/tiffio.hxx",
+        "libtiff/tiffvers.h",
     ],
-    copts = select({
+    copts = [
+        "-I" + package_relative_path("libtiff"),
+    ] + select({
         ":windows": [],
         "//conditions:default": [
             "-Wno-format",
             "-Wno-format-extra-args",
-            "-Wno-array-parameter",
+            # "-Wno-array-parameter",
         ],
     }),
     linkopts = [],
