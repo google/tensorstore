@@ -35,6 +35,7 @@
 #include "riegeli/bytes/reader.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/image/image_info.h"
+#include "tensorstore/internal/image/jpeg_reader.h"
 #include "tensorstore/internal/image/tiff_reader.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/util/result.h"
@@ -49,6 +50,7 @@ namespace {
 
 using ::tensorstore::internal_image::ImageInfo;
 using ::tensorstore::internal_image::ImageReader;
+using ::tensorstore::internal_image::JpegReader;
 using ::tensorstore::internal_image::TiffReader;
 
 struct V {
@@ -71,6 +73,8 @@ class ReaderTest : public ::testing::TestWithParam<TestParam> {
   ReaderTest() {
     if (IsTiff()) {
       reader.Emplace<TiffReader>();
+    } else if (IsJpeg()) {
+      reader.Emplace<JpegReader>();
     }
   }
 
@@ -231,6 +235,21 @@ std ::vector<V> GetD75_08_Values() {
   };
 }
 
+std ::vector<V> GetD75_08_Values_JPEG() {
+  // JPEG values are inexact.
+  return {
+      V{{0, 0}, {152, 76, 88}},
+      V{{171, 0}, {253, 247, 251}},
+      V{{29, 117}, {174, 93, 99}},
+  };
+}
+
+INSTANTIATE_TEST_SUITE_P(  //
+    JpegFiles, ReaderTest,
+    ::testing::Values(  //
+        TestParam{"jpeg/D75_08b.jpeg", ImageInfo{172, 306, 3},
+                  GetD75_08_Values_JPEG()}));
+
 INSTANTIATE_TEST_SUITE_P(
     TifFiles, ReaderTest,
     ::testing::Values(  //
@@ -244,5 +263,4 @@ INSTANTIATE_TEST_SUITE_P(
                   GetD75_08_Values()},
         TestParam{"tiff/D75_16b.tiff",
                   ImageInfo{172, 306, 3, ::tensorstore::dtype_v<uint16_t>}}));
-
 }  // namespace

@@ -16,13 +16,15 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "riegeli/bytes/cord_writer.h"
 #include "tensorstore/driver/driver_testutil.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/internal/cache/cache.h"
-#include "tensorstore/internal/compression/jpeg.h"
 #include "tensorstore/internal/global_initializer.h"
+#include "tensorstore/internal/image/image_info.h"
+#include "tensorstore/internal/image/jpeg_writer.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/parse_json_matches.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -54,6 +56,8 @@ using ::tensorstore::internal::ParseJsonMatches;
 using ::tensorstore::internal::TestSpecSchema;
 using ::tensorstore::internal::TestTensorStoreCreateCheckSchema;
 using ::tensorstore::internal::TestTensorStoreCreateWithSchema;
+using ::tensorstore::internal_image::ImageInfo;
+using ::tensorstore::internal_image::JpegWriter;
 using ::testing::Pair;
 using ::testing::UnorderedElementsAreArray;
 
@@ -960,10 +964,17 @@ TEST(DriverTest, Jpeg1Channel) {
     // Write valid JPEG with the wrong number of channels.
     {
       absl::Cord jpeg_data;
-      TENSORSTORE_EXPECT_OK(tensorstore::jpeg::Encode(
-          std::vector<unsigned char>(3 * 4 * 2 * 3).data(),
-          /*width=*/3, /*height=*/4 * 2, /*num_components=*/3,
-          tensorstore::jpeg::EncodeOptions{}, &jpeg_data));
+      {
+        std::vector<unsigned char> tmp(3 * 4 * 2 * 3);
+        ImageInfo info{/*.height =*/4 * 2,
+                       /*.width =*/3,
+                       /*.num_components =*/3};
+        JpegWriter writer;
+        riegeli::CordWriter<> cord_writer(&jpeg_data);
+        TENSORSTORE_EXPECT_OK(writer.Initialize(&cord_writer));
+        TENSORSTORE_EXPECT_OK(writer.Encode(info, tmp));
+        TENSORSTORE_EXPECT_OK(writer.Done());
+      }
       TENSORSTORE_EXPECT_OK(
           kvstore::Write(kvs, "prefix/1_1_1/0-3_0-4_0-2", jpeg_data));
     }
@@ -978,10 +989,18 @@ TEST(DriverTest, Jpeg1Channel) {
     // Write valid JPEG with the wrong dimensions.
     {
       absl::Cord jpeg_data;
-      TENSORSTORE_EXPECT_OK(tensorstore::jpeg::Encode(
-          std::vector<unsigned char>(3 * 5 * 2 * 1).data(),
-          /*width=*/3, /*height=*/5 * 2, /*num_components=*/1,
-          tensorstore::jpeg::EncodeOptions{}, &jpeg_data));
+      {
+        std::vector<unsigned char> tmp(3 * 5 * 1);
+        ImageInfo info{/*.height =*/5,
+                       /*.width =*/3,
+                       /*.num_components =*/1};
+
+        JpegWriter writer;
+        riegeli::CordWriter<> cord_writer(&jpeg_data);
+        TENSORSTORE_EXPECT_OK(writer.Initialize(&cord_writer));
+        TENSORSTORE_EXPECT_OK(writer.Encode(info, tmp));
+        TENSORSTORE_EXPECT_OK(writer.Done());
+      }
       TENSORSTORE_EXPECT_OK(
           kvstore::Write(kvs, "prefix/1_1_1/0-3_0-4_0-2", jpeg_data));
     }

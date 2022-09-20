@@ -7,6 +7,46 @@ package(
 licenses(["notice"])
 
 tensorstore_cc_library(
+    name = "jpeg",
+    srcs = [
+        "jpeg_common.cc",
+        "jpeg_common.h",
+        "jpeg_reader.cc",
+        "jpeg_writer.cc",
+    ],
+    hdrs = [
+        "jpeg_reader.h",
+        "jpeg_writer.h",
+    ],
+    deps = [
+        ":image",
+        "//tensorstore:data_type",
+        "//tensorstore/util:span",
+        "//tensorstore/util:status",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:str_format",
+        "@com_google_riegeli//riegeli/bytes:reader",
+        "@jpeg",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "jpeg_test",
+    srcs = ["jpeg_test.cc"],
+    deps = [
+        ":jpeg",
+        "//tensorstore/util:result",
+        "//tensorstore/util:span",
+        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_riegeli//riegeli/bytes:cord_reader",
+        "@com_google_riegeli//riegeli/bytes:cord_writer",
+        "@com_google_riegeli//riegeli/bytes:string_reader",
+    ],
+)
+
+tensorstore_cc_library(
     name = "tiff",
     srcs = [
         "tiff_common.cc",
@@ -93,6 +133,7 @@ tensorstore_cc_test(
     data = [":testdata"],
     deps = [
         ":image",
+        ":jpeg",
         ":tiff",
         "//tensorstore:data_type",
         "//tensorstore/internal:path",
@@ -117,6 +158,7 @@ tensorstore_cc_test(
     srcs = ["image_writer_test.cc"],
     deps = [
         ":image",
+        ":jpeg",
         ":riegeli_block_writer",
         ":tiff",
         "//tensorstore/util:span",

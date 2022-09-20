@@ -34,6 +34,8 @@
 #include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/image/image_reader.h"
 #include "tensorstore/internal/image/image_view.h"
+#include "tensorstore/internal/image/jpeg_reader.h"
+#include "tensorstore/internal/image/jpeg_writer.h"
 #include "tensorstore/internal/image/riegeli_block_writer.h"
 #include "tensorstore/internal/image/tiff_reader.h"
 #include "tensorstore/internal/image/tiff_writer.h"
@@ -47,6 +49,9 @@ using ::tensorstore::internal_image::ImageInfo;
 using ::tensorstore::internal_image::ImageReader;
 using ::tensorstore::internal_image::ImageView;
 using ::tensorstore::internal_image::ImageWriter;
+using ::tensorstore::internal_image::JpegReader;
+using ::tensorstore::internal_image::JpegWriter;
+using ::tensorstore::internal_image::JpegWriterOptions;
 using ::tensorstore::internal_image::TiffReader;
 using ::tensorstore::internal_image::TiffWriter;
 using ::tensorstore::internal_image::TiffWriterOptions;
@@ -117,6 +122,7 @@ struct TestParam {
   std::any options;
   ImageInfo image_params;
   double rmse = 0;
+  double rmse_error = 0;
 };
 
 [[maybe_unused]] std::string PrintToString(const TestParam& p) {
@@ -131,6 +137,9 @@ class WriterTest : public ::testing::TestWithParam<TestParam> {
     if (GetPointerFromAny<TiffWriterOptions>(options)) {
       writer.Emplace<TiffWriter>();
       reader.Emplace<TiffReader>();
+    } else if (GetPointerFromAny<JpegWriterOptions>(options)) {
+      writer.Emplace<JpegWriter>();
+      reader.Emplace<JpegReader>();
     }
   }
 
@@ -138,6 +147,9 @@ class WriterTest : public ::testing::TestWithParam<TestParam> {
     std::any* options = const_cast<std::any*>(&GetParam().options);
     if (auto* ptr = GetPointerFromAny<TiffWriterOptions>(options)) {
       return reinterpret_cast<TiffWriter*>(writer.get())
+          ->Initialize(riegeli_writer, *ptr);
+    } else if (auto* ptr = GetPointerFromAny<JpegWriterOptions>(options)) {
+      return reinterpret_cast<JpegWriter*>(writer.get())
           ->Initialize(riegeli_writer, *ptr);
     }
     return writer->Initialize(riegeli_writer);
@@ -187,8 +199,7 @@ TEST_P(WriterTest, RoundTrip) {
     EXPECT_EQ(0, rmse) << "\nA: " << source_info << " "
                        << "\nB: " << decoded_info;
   } else {
-    EXPECT_NEAR(GetParam().rmse, rmse, rmse * 0.05)
-        << decoded_info;  // within 5%
+    EXPECT_NEAR(GetParam().rmse, rmse, GetParam().rmse_error) << decoded_info;
   }
 }
 
@@ -199,5 +210,11 @@ INSTANTIATE_TEST_SUITE_P(
         TestParam{TiffWriterOptions{}, ImageInfo{33, 100, 2}, 0},
         TestParam{TiffWriterOptions{}, ImageInfo{33, 100, 3}, 0},
         TestParam{TiffWriterOptions{}, ImageInfo{33, 100, 4}, 0}));
+
+INSTANTIATE_TEST_SUITE_P(
+    JpegFiles, WriterTest,
+    ::testing::Values(  //
+        TestParam{JpegWriterOptions{100}, ImageInfo{33, 100, 1}, 0.5, 0.5},
+        TestParam{JpegWriterOptions{100}, ImageInfo{33, 100, 3}, 48, 3}));
 
 }  // namespace

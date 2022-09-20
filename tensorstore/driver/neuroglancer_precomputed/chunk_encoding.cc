@@ -15,15 +15,25 @@
 #include "tensorstore/driver/neuroglancer_precomputed/chunk_encoding.h"
 
 #include "absl/algorithm/container.h"
-#include "tensorstore/internal/compression/jpeg.h"
+#include "riegeli/bytes/cord_reader.h"
+#include "riegeli/bytes/cord_writer.h"
 #include "tensorstore/internal/compression/neuroglancer_compressed_segmentation.h"
 #include "tensorstore/internal/container_to_shared.h"
 #include "tensorstore/internal/data_type_endian_conversion.h"
 #include "tensorstore/internal/flat_cord_builder.h"
+#include "tensorstore/internal/image/image_info.h"
+#include "tensorstore/internal/image/jpeg_reader.h"
+#include "tensorstore/internal/image/jpeg_writer.h"
 #include "tensorstore/util/endian.h"
+#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal_neuroglancer_precomputed {
+
+using ::tensorstore::internal_image::ImageInfo;
+using ::tensorstore::internal_image::JpegReader;
+using ::tensorstore::internal_image::JpegWriter;
+using ::tensorstore::internal_image::JpegWriterOptions;
 
 Result<SharedArrayView<const void>> DecodeRawChunk(
     DataType dtype, span<const Index, 4> shape,
@@ -68,23 +78,36 @@ Result<SharedArrayView<const void>> DecodeJpegChunk(
   auto array = AllocateArray(
       {partial_shape[1], partial_shape[2], partial_shape[3], partial_shape[0]},
       c_order, default_init, dtype);
-  TENSORSTORE_RETURN_IF_ERROR(jpeg::Decode(
-      encoded_input,
-      [&](size_t width, size_t height,
-          size_t num_components) -> Result<unsigned char*> {
-        size_t total_pixels;
-        const Index num_elements = ProductOfExtents(partial_shape.subspan<1>());
-        if (internal::MulOverflow(width, height, &total_pixels) ||
-            num_elements == std::numeric_limits<Index>::max() ||
-            static_cast<Index>(total_pixels) != num_elements ||
-            static_cast<Index>(num_components) != partial_shape[0]) {
-          return absl::InvalidArgumentError(StrCat(
-              "Image dimensions (", width, ", ", height, ", ", num_components,
-              ") are not compatible with expected chunk shape ",
-              partial_shape));
-        }
-        return reinterpret_cast<unsigned char*>(array.data());
-      }));
+
+  {
+    riegeli::CordReader<> cord_reader(&encoded_input);
+    JpegReader reader;
+    TENSORSTORE_RETURN_IF_ERROR(reader.Initialize(&cord_reader));
+    auto info = reader.GetImageInfo();
+
+    // Check constraints.
+    const Index num_elements = ProductOfExtents(partial_shape.subspan<1>());
+    size_t total_pixels;
+    if (internal::MulOverflow(static_cast<size_t>(info.width),
+                              static_cast<size_t>(info.height),
+                              &total_pixels) ||
+        num_elements == std::numeric_limits<Index>::max() ||
+        static_cast<Index>(total_pixels) != num_elements ||
+        static_cast<Index>(info.num_components) != partial_shape[0]) {
+      return absl::InvalidArgumentError(tensorstore::StrCat(
+          "Image dimensions (", info.width, ", ", info.height, ", ",
+          info.num_components,
+          ") are not compatible with expected chunk shape ", partial_shape));
+    }
+
+    TENSORSTORE_RETURN_IF_ERROR(reader.Decode(
+        tensorstore::span(reinterpret_cast<unsigned char*>(array.data()),
+                          ImageRequiredBytes(info))));
+    if (!cord_reader.Close()) {
+      return cord_reader.status();
+    }
+  }
+
   if (partial_shape[0] == 1 &&
       absl::c_equal(partial_shape, chunk_layout.shape())) {
     // `array` already has correct layout.
@@ -215,12 +238,24 @@ Result<absl::Cord> EncodeJpegChunk(DataType dtype, int quality,
                        {array.byte_strides()[1], array.byte_strides()[2],
                         array.byte_strides()[3], array.byte_strides()[0]}));
   auto contiguous_array = MakeCopy(partial_source, c_order);
-  jpeg::EncodeOptions options;
-  options.quality = quality;
+
   absl::Cord buffer;
-  TENSORSTORE_RETURN_IF_ERROR(jpeg::Encode(
-      reinterpret_cast<const unsigned char*>(contiguous_array.data()),
-      shape[1] * shape[2], shape[3], shape[0], options, &buffer));
+  {
+    JpegWriterOptions options;
+    options.quality = quality;
+    JpegWriter writer;
+    riegeli::CordWriter<> cord_writer(&buffer);
+    TENSORSTORE_RETURN_IF_ERROR(writer.Initialize(&cord_writer, options));
+    ImageInfo info{/*.height =*/static_cast<int32_t>(shape[3]),
+                   /*.width =*/static_cast<int32_t>(shape[1] * shape[2]),
+                   /*.num_components =*/static_cast<int32_t>(shape[0])};
+    TENSORSTORE_RETURN_IF_ERROR(writer.Encode(
+        info, tensorstore::span(reinterpret_cast<const unsigned char*>(
+                                    contiguous_array.data()),
+                                contiguous_array.num_elements() *
+                                    contiguous_array.dtype().size())));
+    TENSORSTORE_RETURN_IF_ERROR(writer.Done());
+  }
   return buffer;
 }
 

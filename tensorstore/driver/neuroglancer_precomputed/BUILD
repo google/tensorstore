@@ -33,12 +33,16 @@ tensorstore_cc_library(
         "//tensorstore/internal:container_to_shared",
         "//tensorstore/internal:data_type_endian_conversion",
         "//tensorstore/internal:flat_cord_builder",
-        "//tensorstore/internal/compression:jpeg",
         "//tensorstore/internal/compression:neuroglancer_compressed_segmentation",
+        "//tensorstore/internal/image",
+        "//tensorstore/internal/image:jpeg",
         "//tensorstore/util:endian",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
+        "//tensorstore/util:status",
         "@com_google_absl//absl/algorithm:container",
+        "@com_google_riegeli//riegeli/bytes:cord_reader",
+        "@com_google_riegeli//riegeli/bytes:cord_writer",
     ],
 )
 
@@ -70,7 +74,8 @@ tensorstore_cc_test(
         "//tensorstore/internal:json_gtest",
         "//tensorstore/internal:parse_json_matches",
         "//tensorstore/internal/cache",
-        "//tensorstore/internal/compression:jpeg",
+        "//tensorstore/internal/image",
+        "//tensorstore/internal/image:jpeg",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:mock_kvstore",
         "//tensorstore/kvstore:test_util",
@@ -79,6 +84,7 @@ tensorstore_cc_test(
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",
         "@com_google_googletest//:gtest_main",
+        "@com_google_riegeli//riegeli/bytes:cord_writer",
     ],
 )
 

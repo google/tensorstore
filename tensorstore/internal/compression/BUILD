@@ -97,35 +97,6 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
-    name = "jpeg",
-    srcs = ["jpeg.cc"],
-    hdrs = ["jpeg.h"],
-    deps = [
-        "//tensorstore/util:result",
-        "//tensorstore/util:status",
-        "@com_google_absl//absl/functional:function_ref",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:cord",
-        "@jpeg",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "jpeg_test",
-    size = "small",
-    srcs = ["jpeg_test.cc"],
-    deps = [
-        ":jpeg",
-        "//tensorstore:array",
-        "//tensorstore/util:status",
-        "//tensorstore/util:status_testutil",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_absl//absl/strings:cord_test_helpers",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
     name = "json_specified_compressor",
     srcs = ["json_specified_compressor.cc"],
     hdrs = ["json_specified_compressor.h"],

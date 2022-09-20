@@ -25,37 +25,39 @@
 #include <vector>
 
 #include "absl/flags/flag.h"
-#include "absl/flags/marshalling.h"
 #include "absl/status/status.h"
-#include "absl/strings/cord.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_join.h"
 #include <nlohmann/json.hpp>
+#include "riegeli/base/any_dependency.h"
+#include "riegeli/bytes/fd_writer.h"
+#include "riegeli/bytes/std_io.h"
 #include "tensorstore/array.h"
 #include "tensorstore/context.h"
-#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_transform.h"
-#include "tensorstore/index_space/json.h"
-#include "tensorstore/index_space/transformed_array.h"
-#include "tensorstore/internal/compression/jpeg.h"
+#include "tensorstore/internal/image/image_info.h"
+#include "tensorstore/internal/image/jpeg_writer.h"
 #include "tensorstore/internal/init_tensorstore.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
-#include "tensorstore/rank.h"
 #include "tensorstore/spec.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/util/json_absl_flag.h"
 #include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace {
 
 using ::tensorstore::Context;
+using ::tensorstore::Index;
 using ::tensorstore::StrCat;
-
-namespace jpeg = tensorstore::jpeg;
+using ::tensorstore::internal_image::ImageInfo;
+using ::tensorstore::internal_image::ImageWriter;
+using ::tensorstore::internal_image::JpegWriter;
 
 template <typename InputArray>
 absl::Status Validate(const InputArray& input) {
@@ -90,7 +92,7 @@ absl::Status Validate(const InputArray& input) {
   return absl::OkStatus();
 }
 
-/// Load a 2d tensorstore volume slice and render it as a jpeg.
+/// Load a 2d tensorstore volume slice and render it as an image.
 absl::Status Run(tensorstore::Spec input_spec, std::string output_filename) {
   auto context = Context::Default();
 
@@ -104,17 +106,32 @@ absl::Status Run(tensorstore::Spec input_spec, std::string output_filename) {
   /// To render something other than the top-layer, A spec should
   /// include a transform.
   tensorstore::Result<tensorstore::IndexTransform<>> transform(
-      std::in_place, tensorstore::IdentityTransform(input.rank()));
+      std::in_place, tensorstore::IdentityTransform(input.domain()));
+
+  std::cerr << std::endl << "Before: " << *transform << std::endl;
+
+  // By convention, assume that the first dimension is Y, and the second is X,
+  // and the third is C. The C++ api could use some help with labelling missing
+  // dimensions, actually...
+  bool has_x = false;
+  bool has_y = false;
+  bool has_c = false;
+  for (auto& l : input.domain().labels()) {
+    has_x = has_x || l == "x";
+    has_y = has_y || l == "y";
+    has_c = has_c || l == "c";
+  }
+  if (has_y) {
+    transform = transform | tensorstore::Dims("y").MoveTo(0);
+  }
+  if (has_x) {
+    transform = transform | tensorstore::Dims("x").MoveTo(1);
+  }
+  if (has_c) {
+    transform = transform | tensorstore::Dims("c").MoveToBack();
+  }
   if (input.rank() > 2) {
-    /// c is the last dimension; eliminate the others.
-    const auto c = input.rank() - 1;
-    if (input.rank() > 3) {
-      transform = transform | tensorstore::DimRange(2, -1).IndexSlice(0);
-    }
-    /// eliminate c if it is not rank 3.
-    if (input.domain().shape()[c] != 3) {
-      transform = transform | tensorstore::Dims(-1).IndexSlice(0);
-    }
+    transform = transform | tensorstore::DimRange(2, -1).IndexSlice(0);
   }
 
   auto constrained_input = input | *transform;
@@ -128,30 +145,42 @@ absl::Status Run(tensorstore::Spec input_spec, std::string output_filename) {
       auto slice,
       tensorstore::Read<tensorstore::zero_origin>(constrained_input).result());
 
-  // Construct a jpeg from the slice.
-  int num_components = slice.rank() == 2 ? 1 : slice.shape()[2];
-  absl::Cord encoded;
-  jpeg::EncodeOptions options;
-  TENSORSTORE_RETURN_IF_ERROR(jpeg::Encode(
-      static_cast<const unsigned char*>(slice.data()), slice.shape()[0],
-      slice.shape()[1], num_components, options, &encoded));
+  auto shape_yxc = slice.shape();
+  ImageInfo info{.height = static_cast<int32_t>(shape_yxc[0]),
+                 .width = static_cast<int32_t>(shape_yxc[1]),
+                 .num_components = slice.rank() == 2
+                                       ? 1
+                                       : static_cast<int32_t>(shape_yxc[2])};
 
-  auto write_jpeg = [&encoded](auto& out) {
-    for (auto chunk = encoded.chunk_begin(); chunk != encoded.chunk_end();
-         ++chunk) {
-      out.write(chunk->data(), chunk->size());
-    }
-  };
+  riegeli::AnyDependency<ImageWriter*, JpegWriter> writer;
 
-  if (output_filename == "-") {
-    write_jpeg(std::cout);
+  riegeli::AnyDependency<riegeli::Writer*, riegeli::FdWriter<>, riegeli::StdOut>
+      output;
+
+  // Maybe output to stdout.
+  if (output_filename == "-" || output_filename == "-jpeg-") {
+    // TODO: Also check istty.
+    output.Emplace<riegeli::StdOut>();
   } else {
-    std::ofstream out(output_filename, std::ios::binary);
-    write_jpeg(out);
-    out.close();
+    output.Emplace<riegeli::FdWriter<>>(output_filename);
   }
 
-  return absl::OkStatus();
+  // Select the image format.
+  if (absl::EndsWith(output_filename, ".jpg") ||
+      absl::EndsWith(output_filename, ".jpeg") ||
+      (output_filename == "-jpeg-")) {
+    writer.Emplace<JpegWriter>();
+  } else {
+    return absl::InvalidArgumentError("Only .jpeg, and is allowed");
+  }
+
+  // And encode the image.
+  TENSORSTORE_RETURN_IF_ERROR(writer->Initialize(output.get()));
+  TENSORSTORE_RETURN_IF_ERROR(writer->Encode(
+      info,
+      tensorstore::span(reinterpret_cast<const unsigned char*>(slice.data()),
+                        info.width * info.height * info.num_components)));
+  return writer->Done();
 }
 
 }  // namespace
@@ -174,10 +203,6 @@ tensorstore::Spec DefaultInputSpec() {
       .value();
 }
 
-/// Required. The output jpeg filepath.
-ABSL_FLAG(std::string, output_file, "",
-          "Slice will be written to this image file; use - for STDOUT");
-
 /// Required. The DefaultInputSpec() renders a 64x64 black square.
 ///
 /// Specify a transform along with the spec to select a specific region.
@@ -190,14 +215,28 @@ ABSL_FLAG(std::string, output_file, "",
 ///     "path":"data/20210601/4nm_raw",
 ///     "scale_metadata":{ "resolution":[8,8,33] },
 ///     "transform":{
+///         "input_labels": ["x", "y"],
 ///         "input_inclusive_min":[320553,177054],
 ///         "input_shape":[512,512],
 ///         "output":[{"input_dimension":0},
 ///                   {"input_dimension":1},
 ///                   {"offset":3667},{}]}
 ///   }'
+///
+/// And this just copies the image:
+///
+///   --input_spec='{
+///     "driver":"png",
+///     "kvstore":"file:///home/data/myfile.png",
+///     "domain": { "labels": ["y", "x", "c"] }
+///   }'
+///
 ABSL_FLAG(tensorstore::JsonAbslFlag<tensorstore::Spec>, input_spec,
           DefaultInputSpec(), "tensorstore JSON input specification");
+
+/// Required. The output file. Must be a .jpg, .png, or .avif.
+ABSL_FLAG(std::string, output_file, "-",
+          "Slice will be written to this image file; use - for STDOUT");
 
 int main(int argc, char** argv) {
   tensorstore::InitTensorstore(&argc, &argv);

@@ -58,9 +58,11 @@ void TestRoundtrip(::nlohmann::json metadata_json, bool compare) {
   if (!out.empty()) {
     // Test that truncating the chunk leads to a decoding error.
     auto corrupt = out.Subcord(0, out.size() - 1);
-    EXPECT_THAT(DecodeChunk(chunk_indices, metadata, scale_index, chunk_layout,
-                            corrupt),
-                tensorstore::MatchesStatus(absl::StatusCode::kInvalidArgument));
+    EXPECT_THAT(
+        DecodeChunk(chunk_indices, metadata, scale_index, chunk_layout,
+                    corrupt),
+        testing::AnyOf(MatchesStatus(absl::StatusCode::kDataLoss),
+                       MatchesStatus(absl::StatusCode::kInvalidArgument)));
   }
 
   if (!compare) return;

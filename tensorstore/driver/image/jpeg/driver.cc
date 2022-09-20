@@ -17,12 +17,16 @@
 #include <array>
 
 #include "absl/strings/cord.h"
+#include "riegeli/bytes/cord_reader.h"
+#include "riegeli/bytes/cord_writer.h"
 #include "tensorstore/array.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/image/driver_impl.h"
 #include "tensorstore/driver/registry.h"
 #include "tensorstore/index.h"
-#include "tensorstore/internal/compression/jpeg.h"
+#include "tensorstore/internal/image/image_info.h"
+#include "tensorstore/internal/image/jpeg_reader.h"
+#include "tensorstore/internal/image/jpeg_writer.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
@@ -32,9 +36,14 @@ namespace tensorstore {
 namespace internal_image_driver {
 namespace {
 
+using ::tensorstore::internal_image::ImageInfo;
+using ::tensorstore::internal_image::JpegReader;
+using ::tensorstore::internal_image::JpegWriter;
+using ::tensorstore::internal_image::JpegWriterOptions;
+
 namespace jb = tensorstore::internal_json_binding;
 
-struct JpegSpecialization : public jpeg::EncodeOptions {
+struct JpegSpecialization : public JpegWriterOptions {
   constexpr static char id[] = "jpeg";
   constexpr static char kTransactionError[] =
       "\"jpeg\" driver does not support transactions";
@@ -45,30 +54,41 @@ struct JpegSpecialization : public jpeg::EncodeOptions {
 
   // MSVC doesn't like &JpegSpecialization::compression_level
   constexpr static auto default_json_binder = jb::Member(
-      "quality", jb::Projection(&jpeg::EncodeOptions::quality,
+      "quality", jb::Projection(&JpegWriterOptions::quality,
                                 jb::DefaultValue([](auto* v) { *v = 75; })));
 
-  Result<absl::Cord> EncodeImage(ArrayView<const void, 3> array_xyc) const {
+  Result<absl::Cord> EncodeImage(ArrayView<const void, 3> array_yxc) const {
+    auto shape_yxc = array_yxc.shape();
+    ImageInfo info{/*.height =*/static_cast<int32_t>(shape_yxc[0]),
+                   /*.width =*/static_cast<int32_t>(shape_yxc[1]),
+                   /*.num_components =*/static_cast<int32_t>(shape_yxc[2])};
+
     absl::Cord buffer;
-    TENSORSTORE_RETURN_IF_ERROR(
-        jpeg::Encode(reinterpret_cast<const unsigned char*>(array_xyc.data()),
-                     array_xyc.shape()[0], array_xyc.shape()[1],
-                     array_xyc.shape()[2], *this, &buffer));
+    riegeli::CordWriter<> buffer_writer(&buffer);
+
+    JpegWriter writer;
+    TENSORSTORE_RETURN_IF_ERROR(writer.Initialize(&buffer_writer, *this));
+    TENSORSTORE_RETURN_IF_ERROR(writer.Encode(
+        info, tensorstore::span(
+                  reinterpret_cast<const unsigned char*>(array_yxc.data()),
+                  array_yxc.num_elements() * array_yxc.dtype().size())));
+    TENSORSTORE_RETURN_IF_ERROR(writer.Done());
     return buffer;
   }
 
   Result<SharedArray<uint8_t, 3>> DecodeImage(absl::Cord value) {
-    SharedArray<uint8_t, 3> array_xyc;
-    auto allocate_data = [&](size_t width, size_t height,
-                             size_t num_components) -> Result<unsigned char*> {
-      std::array<Index, 3> shape_xyc = {static_cast<Index>(width),
-                                        static_cast<Index>(height),
-                                        static_cast<Index>(num_components)};
-      array_xyc = AllocateArray<uint8_t>(shape_xyc);
-      return reinterpret_cast<unsigned char*>(array_xyc.data());
-    };
-    TENSORSTORE_RETURN_IF_ERROR(jpeg::Decode(value, allocate_data));
-    return array_xyc;
+    riegeli::CordReader<> buffer_reader(&value);
+    JpegReader reader;
+    TENSORSTORE_RETURN_IF_ERROR(reader.Initialize(&buffer_reader));
+    ImageInfo info = reader.GetImageInfo();
+    std::array<Index, 3> shape_yxc = {static_cast<Index>(info.height),
+                                      static_cast<Index>(info.width),
+                                      static_cast<Index>(info.num_components)};
+    SharedArray<uint8_t, 3> array_yxc = AllocateArray<uint8_t>(shape_yxc);
+    TENSORSTORE_RETURN_IF_ERROR(reader.Decode(tensorstore::span(
+        reinterpret_cast<unsigned char*>(array_yxc.data()),
+        array_yxc.num_elements() * array_yxc.dtype().size())));
+    return array_yxc;
   }
 };
 
