@@ -19,14 +19,16 @@
 #include <nlohmann/json.hpp>
 #include "tensorstore/serialization/json.h"
 #include "tensorstore/serialization/serialization.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace serialization {
 
 template <typename T>
 struct JsonBindableSerializer {
+  using JsonValue = UnwrapResultType<decltype(std::declval<T>().ToJson())>;
   [[nodiscard]] static bool Encode(EncodeSink& sink, const T& value) {
-    auto json_result = value.ToJson();
+    Result<JsonValue> json_result = value.ToJson();
     if (!json_result.ok()) {
       sink.Fail(std::move(json_result).status());
       return false;
@@ -35,7 +37,7 @@ struct JsonBindableSerializer {
   }
 
   [[nodiscard]] static bool Decode(DecodeSource& source, T& value) {
-    ::nlohmann::json json;
+    JsonValue json;
     if (!serialization::Decode(source, json)) return false;
     TENSORSTORE_ASSIGN_OR_RETURN(value, T::FromJson(std::move(json)),
                                  (source.Fail(_), false));

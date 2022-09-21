@@ -27,10 +27,12 @@
 #include "tensorstore/internal/image/jpeg_writer.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/parse_json_matches.h"
+#include "tensorstore/internal/test_util.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/mock_kvstore.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/open.h"
+#include "tensorstore/serialization/test_util.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
@@ -53,11 +55,13 @@ using ::tensorstore::TimestampedStorageGeneration;
 using ::tensorstore::Unit;
 using ::tensorstore::internal::GetMap;
 using ::tensorstore::internal::ParseJsonMatches;
+using ::tensorstore::internal::ScopedTemporaryDirectory;
 using ::tensorstore::internal::TestSpecSchema;
 using ::tensorstore::internal::TestTensorStoreCreateCheckSchema;
 using ::tensorstore::internal::TestTensorStoreCreateWithSchema;
 using ::tensorstore::internal_image::ImageInfo;
 using ::tensorstore::internal_image::JpegWriter;
+using ::tensorstore::serialization::SerializationRoundTrip;
 using ::testing::Pair;
 using ::testing::UnorderedElementsAreArray;
 
@@ -2736,6 +2740,28 @@ TEST(DriverTest, MultipleScales) {
                 ::testing::Optional(::testing::ElementsAre(
                     Unit("16nm"), Unit("20nm"), Unit("30nm"), std::nullopt)));
   }
+}
+
+TEST(DriverTest, SerializationRoundTrip) {
+  ScopedTemporaryDirectory temp_dir;
+  ::nlohmann::json json_spec;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(
+          {{"driver", "neuroglancer_precomputed"},
+           {"kvstore", {{"driver", "file"}, {"path", temp_dir.path()}}}},
+          tensorstore::OpenMode::create, tensorstore::dtype_v<uint8_t>,
+          tensorstore::Schema::Shape({100, 200, 300, 1}),
+          tensorstore::ReadWriteMode::read_write)
+          .result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store_spec, store.spec());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store_spec_json, store_spec.ToJson());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store_copy,
+                                   SerializationRoundTrip(store));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store_copy_spec, store_copy.spec());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store_copy_spec_json,
+                                   store_copy_spec.ToJson());
+  EXPECT_THAT(store_copy_spec_json, MatchesJson(store_spec_json));
 }
 
 }  // namespace
