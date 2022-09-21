@@ -36,6 +36,8 @@
 #include "tensorstore/internal/image/image_view.h"
 #include "tensorstore/internal/image/jpeg_reader.h"
 #include "tensorstore/internal/image/jpeg_writer.h"
+#include "tensorstore/internal/image/png_reader.h"
+#include "tensorstore/internal/image/png_writer.h"
 #include "tensorstore/internal/image/riegeli_block_writer.h"
 #include "tensorstore/internal/image/tiff_reader.h"
 #include "tensorstore/internal/image/tiff_writer.h"
@@ -52,6 +54,9 @@ using ::tensorstore::internal_image::ImageWriter;
 using ::tensorstore::internal_image::JpegReader;
 using ::tensorstore::internal_image::JpegWriter;
 using ::tensorstore::internal_image::JpegWriterOptions;
+using ::tensorstore::internal_image::PngReader;
+using ::tensorstore::internal_image::PngWriter;
+using ::tensorstore::internal_image::PngWriterOptions;
 using ::tensorstore::internal_image::TiffReader;
 using ::tensorstore::internal_image::TiffWriter;
 using ::tensorstore::internal_image::TiffWriterOptions;
@@ -140,6 +145,9 @@ class WriterTest : public ::testing::TestWithParam<TestParam> {
     } else if (GetPointerFromAny<JpegWriterOptions>(options)) {
       writer.Emplace<JpegWriter>();
       reader.Emplace<JpegReader>();
+    } else if (GetPointerFromAny<PngWriterOptions>(options)) {
+      writer.Emplace<PngWriter>();
+      reader.Emplace<PngReader>();
     }
   }
 
@@ -216,5 +224,13 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Values(  //
         TestParam{JpegWriterOptions{100}, ImageInfo{33, 100, 1}, 0.5, 0.5},
         TestParam{JpegWriterOptions{100}, ImageInfo{33, 100, 3}, 48, 3}));
+
+INSTANTIATE_TEST_SUITE_P(
+    PngFiles, WriterTest,
+    ::testing::Values(  //
+        TestParam{PngWriterOptions{}, ImageInfo{33, 100, 1}, 0},
+        TestParam{PngWriterOptions{}, ImageInfo{33, 100, 2}, 0},
+        TestParam{PngWriterOptions{}, ImageInfo{33, 100, 3}, 0},
+        TestParam{PngWriterOptions{}, ImageInfo{33, 100, 4}, 0}));
 
 }  // namespace

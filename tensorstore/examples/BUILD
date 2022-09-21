@@ -115,6 +115,7 @@ tensorstore_cc_binary(
         "//tensorstore/internal:init_tensorstore",
         "//tensorstore/internal/image",
         "//tensorstore/internal/image:jpeg",
+        "//tensorstore/internal/image:png",
         "//tensorstore/util:json_absl_flag",
         "//tensorstore/util:span",
         "//tensorstore/util:status",

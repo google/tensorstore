@@ -145,6 +145,7 @@ TEST_F(ImageDriverReadTest, OpenImageStack) {
                   {"kvstore", {{"driver", "memory"}, {"path", "a.png"}}},
                   {"transform",
                    {
+                       {"input_labels", {"y", "x", "c"}},
                        {"input_inclusive_min", {0, 0, 0}},
                        {"input_exclusive_max", {256, 256, 1}},
                        {"output",
@@ -158,6 +159,7 @@ TEST_F(ImageDriverReadTest, OpenImageStack) {
                   {"kvstore", {{"driver", "memory"}, {"path", "a.png"}}},
                   {"transform",
                    {
+                       {"input_labels", {"y", "x", "c"}},
                        {"input_inclusive_min", {0, 0, 1}},
                        {"input_exclusive_max", {256, 256, 2}},
                        {"output",

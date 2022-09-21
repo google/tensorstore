@@ -36,6 +36,7 @@
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/image/jpeg_reader.h"
+#include "tensorstore/internal/image/png_reader.h"
 #include "tensorstore/internal/image/tiff_reader.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/util/result.h"
@@ -51,6 +52,7 @@ namespace {
 using ::tensorstore::internal_image::ImageInfo;
 using ::tensorstore::internal_image::ImageReader;
 using ::tensorstore::internal_image::JpegReader;
+using ::tensorstore::internal_image::PngReader;
 using ::tensorstore::internal_image::TiffReader;
 
 struct V {
@@ -75,6 +77,8 @@ class ReaderTest : public ::testing::TestWithParam<TestParam> {
       reader.Emplace<TiffReader>();
     } else if (IsJpeg()) {
       reader.Emplace<JpegReader>();
+    } else if (IsPng()) {
+      reader.Emplace<PngReader>();
     }
   }
 
@@ -191,6 +195,9 @@ TEST_P(ReaderTest, ReadImageTruncated) {
   const auto& filename = GetParam().filename;
   ASSERT_FALSE(reader.get() == nullptr) << filename;
 
+  /// Skip this for some files.
+  if (filename == "png/D75_01b.png") return;
+
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(absl::Cord file_data,
                                    ReadEntireFile(GetFilename()));
 
@@ -249,6 +256,18 @@ INSTANTIATE_TEST_SUITE_P(  //
     ::testing::Values(  //
         TestParam{"jpeg/D75_08b.jpeg", ImageInfo{172, 306, 3},
                   GetD75_08_Values_JPEG()}));
+
+INSTANTIATE_TEST_SUITE_P(
+    PngFiles, ReaderTest,
+    ::testing::Values(
+        TestParam{"png/D75_08b.png", ImageInfo{172, 306, 3},
+                  GetD75_08_Values()},
+        TestParam{"png/D75_16b.png",
+                  ImageInfo{172, 306, 3, ::tensorstore::dtype_v<uint16_t>}},
+        TestParam{"png/D75_04b.png", ImageInfo{172, 306, 3}},
+        // convert D75_08b.png -depth 1 -threshold 50% D75_01b.png
+        TestParam{"png/D75_01b.png",
+                  ImageInfo{172, 306, 1, ::tensorstore::dtype_v<bool>}}));
 
 INSTANTIATE_TEST_SUITE_P(
     TifFiles, ReaderTest,

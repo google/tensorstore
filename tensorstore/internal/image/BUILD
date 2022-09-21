@@ -47,6 +47,51 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "png",
+    srcs = [
+        "png_reader.cc",
+        "png_writer.cc",
+    ],
+    hdrs = [
+        "png_reader.h",
+        "png_writer.h",
+    ],
+    deps = [
+        ":image",
+        "//tensorstore:data_type",
+        "//tensorstore/util:assert_macros",
+        "//tensorstore/util:endian",
+        "//tensorstore/util:span",
+        "//tensorstore/util:status",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/types:optional",
+        "@com_google_riegeli//riegeli/base",
+        "@com_google_riegeli//riegeli/bytes:reader",
+        "@com_google_riegeli//riegeli/bytes:writer",
+        "@png",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "png_test",
+    srcs = ["png_test.cc"],
+    deps = [
+        ":image",
+        ":png",
+        "//tensorstore/util:span",
+        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_riegeli//riegeli/bytes:cord_reader",
+        "@com_google_riegeli//riegeli/bytes:cord_writer",
+        "@com_google_riegeli//riegeli/bytes:string_reader",
+    ],
+)
+
+tensorstore_cc_library(
     name = "tiff",
     srcs = [
         "tiff_common.cc",
@@ -134,6 +179,7 @@ tensorstore_cc_test(
     deps = [
         ":image",
         ":jpeg",
+        ":png",
         ":tiff",
         "//tensorstore:data_type",
         "//tensorstore/internal:path",
@@ -159,6 +205,7 @@ tensorstore_cc_test(
     deps = [
         ":image",
         ":jpeg",
+        ":png",
         ":riegeli_block_writer",
         ":tiff",
         "//tensorstore/util:span",

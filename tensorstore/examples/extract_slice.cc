@@ -40,6 +40,7 @@
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/image/jpeg_writer.h"
+#include "tensorstore/internal/image/png_writer.h"
 #include "tensorstore/internal/init_tensorstore.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
@@ -58,6 +59,7 @@ using ::tensorstore::StrCat;
 using ::tensorstore::internal_image::ImageInfo;
 using ::tensorstore::internal_image::ImageWriter;
 using ::tensorstore::internal_image::JpegWriter;
+using ::tensorstore::internal_image::PngWriter;
 
 template <typename InputArray>
 absl::Status Validate(const InputArray& input) {
@@ -158,7 +160,8 @@ absl::Status Run(tensorstore::Spec input_spec, std::string output_filename) {
       output;
 
   // Maybe output to stdout.
-  if (output_filename == "-" || output_filename == "-jpeg-") {
+  if (output_filename == "-" || output_filename == "-.jpeg" ||
+      output_filename == "-.png") {
     // TODO: Also check istty.
     output.Emplace<riegeli::StdOut>();
   } else {
@@ -167,11 +170,13 @@ absl::Status Run(tensorstore::Spec input_spec, std::string output_filename) {
 
   // Select the image format.
   if (absl::EndsWith(output_filename, ".jpg") ||
-      absl::EndsWith(output_filename, ".jpeg") ||
-      (output_filename == "-jpeg-")) {
+      absl::EndsWith(output_filename, ".jpeg")) {
     writer.Emplace<JpegWriter>();
+  } else if (absl::EndsWith(output_filename, ".png") ||
+             output_filename == "-") {
+    writer.Emplace<PngWriter>();
   } else {
-    return absl::InvalidArgumentError("Only .jpeg, and is allowed");
+    return absl::InvalidArgumentError("Only .jpeg, and .png are allowed");
   }
 
   // And encode the image.
@@ -234,7 +239,7 @@ tensorstore::Spec DefaultInputSpec() {
 ABSL_FLAG(tensorstore::JsonAbslFlag<tensorstore::Spec>, input_spec,
           DefaultInputSpec(), "tensorstore JSON input specification");
 
-/// Required. The output file. Must be a .jpg, .png, or .avif.
+/// Required. The output file. Must be a .png, or .jpg.
 ABSL_FLAG(std::string, output_file, "-",
           "Slice will be written to this image file; use - for STDOUT");
 
