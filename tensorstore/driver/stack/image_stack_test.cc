@@ -21,8 +21,10 @@
 #include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
 #include <nlohmann/json.hpp>
+#include "tensorstore/array_testutil.h"
 #include "tensorstore/context.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/open.h"
@@ -176,6 +178,87 @@ TEST_F(ImageDriverReadTest, OpenImageStack) {
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto array,
                                    tensorstore::Read<>(store).result());
+}
+
+TEST_F(ImageDriverReadTest, Transform) {
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto context, PrepareTest());
+
+  ::nlohmann::json spec{
+      {"driver", "stack"},
+      {
+          "layers",
+          {
+              {
+                  {"driver", "png"},
+                  {"kvstore", {{"driver", "memory"}, {"path", "a.png"}}},
+                  {"transform",
+                   {
+                       {"input_inclusive_min", {0, 256, 0}},
+                       {"input_exclusive_max", {256, 512, 3}},
+                       {
+                           "output",
+                           {{{"input_dimension", 0}, {"offset", 0}},
+                            {{"input_dimension", 1}, {"offset", -256}},
+                            {{"input_dimension", 2}, {"offset", 0}}},
+                       },
+                   }},
+              },
+          },
+      },
+  };
+
+  // Path is embedded in kvstore, so we don't write it.
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      (tensorstore::Open<uint8_t, 3, tensorstore::ReadWriteMode::read>(spec,
+                                                                       context)
+           .result()));
+
+  // Read into an array where each dimension has dimension 1.
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto a,
+        tensorstore::Read<>(store | tensorstore::AllDims().SizedInterval(
+                                        {100, 300, 1}, {1, 1, 1}))
+            .result());
+    EXPECT_EQ(a.domain(), tensorstore::BoxView({100, 300, 1}, {1, 1, 1}));
+    EXPECT_THAT(a[100][300][1], tensorstore::MatchesScalarArray<uint8_t>(100));
+
+    // Read into an array where each dimension has dimension 1.
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto b,
+        tensorstore::Read<>(store | tensorstore::AllDims()
+                                        .SizedInterval({100, 300, 1}, {1, 1, 1})
+                                        .TranslateTo(0))
+            .result());
+    EXPECT_EQ(b.domain(), tensorstore::BoxView({0, 0, 0}, {1, 1, 1}));
+    EXPECT_THAT(b, (tensorstore::MatchesArray<uint8_t, 1, 1, 1>({{{100}}})));
+  }
+
+  {
+    // Read into a rank-0 scalar array.
+    tensorstore::SharedArray<uint8_t, 0> c;
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        c, tensorstore::Read<>(store |
+                               tensorstore::AllDims().IndexSlice({100, 300, 1}))
+               .result());
+    EXPECT_THAT(c, tensorstore::MatchesScalarArray<uint8_t>(100));
+  }
+
+  {
+    // Read into a singleton array.
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto d, tensorstore::Read<>(
+                    store | tensorstore::AllDims().IndexArraySlice(
+                                tensorstore::MakeArray<Index>({100, 102}),
+                                tensorstore::MakeArray<Index>({300, 301}),
+                                tensorstore::MakeArray<Index>({0, 1})))
+                    .result());
+
+    EXPECT_EQ(d.domain(), tensorstore::BoxView({0}, {2}));
+    EXPECT_THAT(d, (tensorstore::MatchesArray<uint8_t, 2>({44, 102})));
+  }
 }
 
 }  // namespace

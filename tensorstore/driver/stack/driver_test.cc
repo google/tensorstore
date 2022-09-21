@@ -209,6 +209,24 @@ TEST(StackDriverTest, Read) {
 
     EXPECT_THAT(array, MatchesArray<int32_t>({1, 2, 3, 1, 2, 3, 1, 2, 3}));
   }
+
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto array, (tensorstore::Read<tensorstore::zero_origin>(
+                         store | tensorstore::AllDims().IndexArraySlice(
+                                     tensorstore::MakeArray<Index>({-2, 1, 4})))
+                         .result()));
+
+    EXPECT_THAT(array, MatchesArray<int32_t>({2, 2, 2}));
+  }
+
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto array, (tensorstore::Read<tensorstore::zero_origin>(
+                         store | tensorstore::AllDims().IndexSlice({3}))
+                         .result()));
+    EXPECT_THAT(array, tensorstore::MatchesScalarArray<int32_t>(1));
+  }
 }
 
 TEST(StackDriverTest, ReadSparse) {

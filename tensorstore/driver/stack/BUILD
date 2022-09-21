@@ -30,7 +30,6 @@ tensorstore_cc_library(
         "//tensorstore:data_type",
         "//tensorstore:index",
         "//tensorstore:index_interval",
-        "//tensorstore:json_serialization_options_base",
         "//tensorstore:open_mode",
         "//tensorstore:resize_options",
         "//tensorstore:schema",
@@ -38,7 +37,6 @@ tensorstore_cc_library(
         "//tensorstore/driver",
         "//tensorstore/driver:chunk",
         "//tensorstore/index_space:index_transform",
-        "//tensorstore/index_space:transform_broadcastable_array",
         "//tensorstore/internal:concurrency_resource",
         "//tensorstore/internal:context_binding",
         "//tensorstore/internal:data_copy_concurrency_resource",
@@ -107,11 +105,13 @@ cc_test(
     deps = [
         ":stack",  # build_cleaner: keep
         "//tensorstore",
+        "//tensorstore:array_testutil",
         "//tensorstore:context",
         "//tensorstore:index",
         "//tensorstore:open",
         "//tensorstore:progress",
         "//tensorstore/driver/image/png",  # build_cleaner: keep
+        "//tensorstore/index_space:dim_expression",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore/memory",  # build_cleaner: keep
         "//tensorstore/util:future",

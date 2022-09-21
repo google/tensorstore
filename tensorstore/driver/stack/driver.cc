@@ -470,6 +470,7 @@ template <typename StateType>
 struct ForwardingLayerReceiver {
   using ChunkType = typename StateType::ChunkType;
   IntrusivePtr<SetPromiseOnRelease<StateType>> set_promise;
+  IndexTransform<> cell_transform;
   FutureCallbackRegistration cancel_registration;
 
   void set_starting(AnyCancelReceiver cancel) {
@@ -481,9 +482,14 @@ struct ForwardingLayerReceiver {
   void set_error(absl::Status error) {
     set_promise->SetError(std::move(error));
   }
-  void set_value(ChunkType chunk, IndexTransform<> cell_transform) {
-    execution::set_value(set_promise->state->receiver, std::move(chunk),
-                         std::move(cell_transform));
+  void set_value(ChunkType chunk, IndexTransform<> composed_transform) {
+    auto c_transform = ComposeTransforms(cell_transform, composed_transform);
+    if (!c_transform.ok()) {
+      set_promise->SetError(std::move(c_transform).status());
+    } else {
+      execution::set_value(set_promise->state->receiver, std::move(chunk),
+                           std::move(c_transform).value());
+    }
   }
 };
 
@@ -498,24 +504,23 @@ struct AfterOpenOp {
       set_promise->SetError(f.result().status());
       return;
     }
-
-    // After opening the layer, issue reads to each of
-    // the the grid cell transforms.
+    // After opening the layer, issue reads to each of the the grid cells.
+    // The read transform is: Compose(outer_request, Compose(driver, cell)).
     for (auto& cell_transform : cells) {
-      auto composed_transform =
-          ComposeTransforms(f.result()->transform, cell_transform);
-      if (!composed_transform.ok()) {
-#if !defined(NDEBUG)
-        TENSORSTORE_LOG(composed_transform.status());
-        TENSORSTORE_LOG(cell_transform);
-        TENSORSTORE_LOG(f.result()->transform);
-#endif
-        set_promise->SetError(std::move(composed_transform).status());
+      auto a_transform =
+          ComposeTransforms(set_promise->state->orig_transform, cell_transform);
+      if (!a_transform.ok()) {
+        set_promise->SetError(std::move(a_transform).status());
         return;
       }
-
-      set_promise->state->Dispatch(*f.result(), std::move(*composed_transform),
-                                   set_promise);
+      auto b_transform =
+          ComposeTransforms(f.result()->transform, a_transform.value());
+      if (!b_transform.ok()) {
+        set_promise->SetError(std::move(b_transform).status());
+        return;
+      }
+      set_promise->state->Dispatch(*f.result(), std::move(*b_transform),
+                                   set_promise, cell_transform);
     }
   }
 };
@@ -540,7 +545,7 @@ struct OpenLayerOp {
     UnmappedOpType unmapped{set_promise->state->self.get()};
     absl::flat_hash_map<size_t, std::vector<IndexTransform<>>> layers_to_load;
     auto status = tensorstore::internal::PartitionIndexTransformOverGrid(
-        dimension_order, self->grid_, set_promise->state->transform,
+        dimension_order, self->grid_, set_promise->state->orig_transform,
         [&](span<const Index> grid_cell_indices,
             IndexTransformView<> cell_transform) {
           auto it = self->grid_to_layer_.find(grid_cell_indices);
@@ -582,14 +587,16 @@ struct ReadState : public internal::AtomicReferenceCount<ReadState> {
   IntrusivePtr<StackDriver> self;
   OpenTransactionPtr transaction;
   AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver;
-  IndexTransform<> transform;
+  IndexTransform<> orig_transform;
 
   // Initiate the read of an individual transform; dispatched by AfterOpenOp
   void Dispatch(internal::Driver::Handle& h,
                 IndexTransform<> composed_transform,
-                IntrusivePtr<SetPromiseOnRelease<ReadState>> set_promise) {
-    h.driver->Read(transaction, std::move(composed_transform),
-                   ReadState::Receiver{std::move(set_promise)});
+                IntrusivePtr<SetPromiseOnRelease<ReadState>> set_promise,
+                IndexTransform<> cell_transform) {
+    h.driver->Read(
+        transaction, std::move(composed_transform),
+        ReadState::Receiver{std::move(set_promise), std::move(cell_transform)});
   }
 };
 
@@ -611,7 +618,7 @@ void StackDriver::Read(
   state->self = IntrusivePtr<StackDriver>(this);
   state->receiver = std::move(receiver);
   state->transaction = std::move(transaction);
-  state->transform = std::move(transform);
+  state->orig_transform = std::move(transform);
   auto op = PromiseFuturePair<void>::Make(absl::OkStatus());
   execution::set_starting(state->receiver, [p = op.promise] {
     SetDeferredResult(p, absl::CancelledError(""));
@@ -640,14 +647,16 @@ struct WriteState : public internal::AtomicReferenceCount<WriteState> {
   IntrusivePtr<StackDriver> self;
   OpenTransactionPtr transaction;
   AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>> receiver;
-  IndexTransform<> transform;
+  IndexTransform<> orig_transform;
 
   // Initiate the write of an individual transform; dispatched by AfterOpenOp
   void Dispatch(internal::Driver::Handle& h,
                 IndexTransform<> composed_transform,
-                IntrusivePtr<SetPromiseOnRelease<WriteState>> set_promise) {
+                IntrusivePtr<SetPromiseOnRelease<WriteState>> set_promise,
+                IndexTransform<> cell_transform) {
     h.driver->Write(transaction, std::move(composed_transform),
-                    WriteState::Receiver{std::move(set_promise)});
+                    WriteState::Receiver{std::move(set_promise),
+                                         std::move(cell_transform)});
   }
 };
 
@@ -669,7 +678,7 @@ void StackDriver::Write(OpenTransactionPtr transaction,
   state->self = IntrusivePtr<StackDriver>(this);
   state->receiver = std::move(receiver);
   state->transaction = std::move(transaction);
-  state->transform = std::move(transform);
+  state->orig_transform = std::move(transform);
   auto op = PromiseFuturePair<void>::Make(absl::OkStatus());
 
   execution::set_starting(state->receiver, [p = op.promise] {
