@@ -37,5 +37,5 @@ allOf:
   required:
   - kvstore
 examples:
-- driver: png
+- driver: tiff
   "kvstore": "gs://my-bucket/path-to-image.tiff"
