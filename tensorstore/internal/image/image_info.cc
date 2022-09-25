@@ -25,6 +25,11 @@
 namespace tensorstore {
 namespace internal_image {
 
+bool operator==(const ImageInfo& a, const ImageInfo& b) {
+  return a.width == b.width && a.height == b.height &&
+         a.num_components == b.num_components && a.dtype == b.dtype;
+}
+
 std::ostream& operator<<(std::ostream& os, const ImageInfo& info) {
   return os << absl::StrFormat(
              "{.width=%d, .height=%d, .num_components=%d, .dtype=%s}",

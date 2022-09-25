@@ -196,6 +196,7 @@ TEST_F(ImageDriverReadTest, Transform) {
                   {"kvstore", {{"driver", "memory"}, {"path", "a.png"}}},
                   {"transform",
                    {
+                       {"input_labels", {"y", "x", "c"}},
                        {"input_inclusive_min", {0, 256, 0}},
                        {"input_exclusive_max", {256, 512, 3}},
                        {

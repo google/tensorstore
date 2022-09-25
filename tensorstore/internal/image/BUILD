@@ -7,6 +7,57 @@ package(
 licenses(["notice"])
 
 tensorstore_cc_library(
+    name = "avif",
+    srcs = [
+        "avif_common.cc",
+        "avif_common.h",
+        "avif_reader.cc",
+        "avif_writer.cc",
+    ],
+    hdrs = [
+        "avif_reader.h",
+        "avif_writer.h",
+    ],
+    deps = [
+        ":image",
+        "//tensorstore:data_type",
+        "//tensorstore/internal:logging",
+        "//tensorstore/util:assert_macros",
+        "//tensorstore/util:span",
+        "//tensorstore/util:status",
+        "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/types:optional",
+        "@com_google_riegeli//riegeli/base",
+        "@com_google_riegeli//riegeli/bytes:reader",
+        "@com_google_riegeli//riegeli/bytes:writer",
+        "@org_aomedia_avif//:avif",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "avif_test",
+    srcs = ["avif_test.cc"],
+    deps = [
+        ":avif",
+        ":image",
+        "//tensorstore/internal:path",
+        "//tensorstore/util:span",
+        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_riegeli//riegeli/bytes:cord_reader",
+        "@com_google_riegeli//riegeli/bytes:cord_writer",
+        "@com_google_riegeli//riegeli/bytes:fd_reader",
+        "@com_google_riegeli//riegeli/bytes:string_reader",
+    ],
+)
+
+tensorstore_cc_library(
     name = "bmp",
     srcs = [
         "bmp_reader.cc",
@@ -211,6 +262,7 @@ tensorstore_cc_test(
     ],
     data = [":testdata"],
     deps = [
+        ":avif",
         ":bmp",
         ":image",
         ":jpeg",
@@ -238,6 +290,7 @@ tensorstore_cc_test(
     name = "image_writer_test",
     srcs = ["image_writer_test.cc"],
     deps = [
+        ":avif",
         ":image",
         ":jpeg",
         ":png",

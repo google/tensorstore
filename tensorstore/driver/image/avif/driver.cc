@@ -18,12 +18,15 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "riegeli/bytes/cord_reader.h"
+#include "riegeli/bytes/cord_writer.h"
 #include "tensorstore/array.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/image/driver_impl.h"
 #include "tensorstore/driver/registry.h"
 #include "tensorstore/index.h"
-#include "tensorstore/internal/compression/avif.h"
+#include "tensorstore/internal/image/avif_reader.h"
+#include "tensorstore/internal/image/avif_writer.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
@@ -33,9 +36,14 @@ namespace tensorstore {
 namespace internal_image_driver {
 namespace {
 
+using ::tensorstore::internal_image::AvifReader;
+using ::tensorstore::internal_image::AvifWriter;
+using ::tensorstore::internal_image::AvifWriterOptions;
+using ::tensorstore::internal_image::ImageInfo;
+
 namespace jb = tensorstore::internal_json_binding;
 
-struct AvifSpecialization : public avif::EncodeOptions {
+struct AvifSpecialization : public AvifWriterOptions {
   constexpr static char id[] = "avif";
   constexpr static char kTransactionError[] =
       "\"avif\" driver does not support transactions";
@@ -46,34 +54,49 @@ struct AvifSpecialization : public avif::EncodeOptions {
 
   constexpr static auto default_json_binder = jb::Sequence(
       jb::Member("quantizer",
-                 jb::Projection(&avif::EncodeOptions::quantizer,
+                 jb::Projection(&AvifWriterOptions::quantizer,
                                 jb::DefaultValue([](auto* v) { *v = 0; }))),
       jb::Member(   //
           "speed",  //
-          jb::Projection(&avif::EncodeOptions::speed,
+          jb::Projection(&AvifWriterOptions::speed,
                          jb::DefaultValue([](auto* v) { *v = 6; }))));
 
-  Result<absl::Cord> EncodeImage(ArrayView<const void, 3> array_xyc) const {
+  Result<absl::Cord> EncodeImage(ArrayView<const void, 3> array_yxc) const {
+    auto shape_yxc = array_yxc.shape();
+    ImageInfo info{/*.height =*/static_cast<int32_t>(shape_yxc[0]),
+                   /*.width =*/static_cast<int32_t>(shape_yxc[1]),
+                   /*.num_components =*/static_cast<int32_t>(shape_yxc[2])};
+
     absl::Cord buffer;
-    TENSORSTORE_RETURN_IF_ERROR(
-        avif::Encode(reinterpret_cast<const unsigned char*>(array_xyc.data()),
-                     array_xyc.shape()[0], array_xyc.shape()[1],
-                     array_xyc.shape()[2], *this, &buffer));
+    riegeli::CordWriter<> buffer_writer(&buffer);
+
+    AvifWriter writer;
+    TENSORSTORE_RETURN_IF_ERROR(writer.Initialize(&buffer_writer, *this));
+    TENSORSTORE_RETURN_IF_ERROR(writer.Encode(
+        info, tensorstore::span(
+                  reinterpret_cast<const unsigned char*>(array_yxc.data()),
+                  array_yxc.num_elements() * array_yxc.dtype().size())));
+    TENSORSTORE_RETURN_IF_ERROR(writer.Done());
     return buffer;
   }
 
   Result<SharedArray<uint8_t, 3>> DecodeImage(absl::Cord value) {
-    SharedArray<uint8_t, 3> array_xyc;
-    auto allocate_data = [&](size_t width, size_t height,
-                             size_t num_components) -> Result<unsigned char*> {
-      std::array<Index, 3> shape_xyc = {static_cast<Index>(width),
-                                        static_cast<Index>(height),
-                                        static_cast<Index>(num_components)};
-      array_xyc = AllocateArray<uint8_t>(shape_xyc);
-      return reinterpret_cast<unsigned char*>(array_xyc.data());
-    };
-    TENSORSTORE_RETURN_IF_ERROR(avif::Decode(value, allocate_data));
-    return array_xyc;
+    riegeli::CordReader<> buffer_reader(&value);
+    AvifReader reader;
+    TENSORSTORE_RETURN_IF_ERROR(reader.Initialize(&buffer_reader));
+    ImageInfo info = reader.GetImageInfo();
+    if (info.dtype != dtype_v<uint8_t>) {
+      return absl::UnimplementedError(
+          "\"avif\" driver only supports uint8 images");
+    }
+    std::array<Index, 3> shape_yxc = {static_cast<Index>(info.height),
+                                      static_cast<Index>(info.width),
+                                      static_cast<Index>(info.num_components)};
+    SharedArray<uint8_t, 3> array_yxc = AllocateArray<uint8_t>(shape_yxc);
+    TENSORSTORE_RETURN_IF_ERROR(reader.Decode(tensorstore::span(
+        reinterpret_cast<unsigned char*>(array_yxc.data()),
+        array_yxc.num_elements() * array_yxc.dtype().size())));
+    return array_yxc;
   }
 };
 

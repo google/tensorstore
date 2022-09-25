@@ -34,6 +34,7 @@
 #include "riegeli/bytes/fd_reader.h"
 #include "riegeli/bytes/reader.h"
 #include "tensorstore/data_type.h"
+#include "tensorstore/internal/image/avif_reader.h"
 #include "tensorstore/internal/image/bmp_reader.h"
 #include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/image/jpeg_reader.h"
@@ -50,6 +51,7 @@ ABSL_FLAG(std::string, tensorstore_test_data_dir, ".",
 
 namespace {
 
+using ::tensorstore::internal_image::AvifReader;
 using ::tensorstore::internal_image::BmpReader;
 using ::tensorstore::internal_image::ImageInfo;
 using ::tensorstore::internal_image::ImageReader;
@@ -83,6 +85,8 @@ class ReaderTest : public ::testing::TestWithParam<TestParam> {
       reader.Emplace<PngReader>();
     } else if (IsBmp()) {
       reader.Emplace<BmpReader>();
+    } else if (IsAvif()) {
+      reader.Emplace<AvifReader>();
     }
   }
 
@@ -259,6 +263,26 @@ std ::vector<V> GetD75_08_Values_JPEG() {
 }
 
 INSTANTIATE_TEST_SUITE_P(  //
+    AvifFiles, ReaderTest,
+    ::testing::Values(
+        // lossless: avifenc -l <file.png> <file.avif>
+        TestParam{"avif/D75_08b.avif", ImageInfo{172, 306, 3},
+                  GetD75_08_Values()},
+        // lossy: avifenc -y 422 -a cq-level=1 --min 1 --max 1 <png> <avif>
+        TestParam{"avif/D75_08b_cq1.avif",
+                  ImageInfo{172, 306, 3},
+                  {V{{29, 117}, {172, 93, 97}}}},
+        TestParam{"avif/D75_10b_cq1.avif",
+                  ImageInfo{172, 306, 3, ::tensorstore::dtype_v<uint16_t>}},
+        // avifenc -y 400  -a cq-level=1 --min 1 --max 1 <grey.png> <avif>
+        TestParam{"avif/D75_08b_grey.avif",
+                  ImageInfo{172, 306, 1},
+                  {V{{29, 117}, {87, 87, 87}}}},
+        // avifenc -y 400  -a cq-level=1 --min 1 --max 1 -d 12 <grey.png> <avif>
+        TestParam{"avif/D75_12b_grey.avif",
+                  ImageInfo{172, 306, 1, ::tensorstore::dtype_v<uint16_t>}}));
+
+INSTANTIATE_TEST_SUITE_P(  //
     BmpFiles, ReaderTest,
     ::testing::Values(  //
         TestParam{"bmp/D75_08b.bmp", ImageInfo{172, 306, 3},
@@ -281,10 +305,16 @@ INSTANTIATE_TEST_SUITE_P(
         TestParam{"png/D75_16b.png",
                   ImageInfo{172, 306, 3, ::tensorstore::dtype_v<uint16_t>}},
         TestParam{"png/D75_04b.png", ImageInfo{172, 306, 3}},
+        TestParam{"png/D75_08b_grey.png",
+                  ImageInfo{172, 306, 1},
+                  {V{{29, 117}, {87, 87, 87}}}},
+        TestParam{"png/D75_16b_grey.png",
+                  ImageInfo{172, 306, 1, ::tensorstore::dtype_v<uint16_t>}},
         // convert D75_08b.png -depth 1 -threshold 50% D75_01b.png
         TestParam{"png/D75_01b.png",
                   ImageInfo{172, 306, 1, ::tensorstore::dtype_v<bool>}}));
 
+// Use tiffcp -c/-t
 INSTANTIATE_TEST_SUITE_P(
     TifFiles, ReaderTest,
     ::testing::Values(  //

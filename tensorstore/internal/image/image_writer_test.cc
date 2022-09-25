@@ -31,6 +31,8 @@
 #include "riegeli/base/any_dependency.h"
 #include "riegeli/bytes/cord_reader.h"
 #include "riegeli/bytes/writer.h"
+#include "tensorstore/internal/image/avif_reader.h"
+#include "tensorstore/internal/image/avif_writer.h"
 #include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/image/image_reader.h"
 #include "tensorstore/internal/image/image_view.h"
@@ -47,6 +49,10 @@
 namespace {
 
 using ::tensorstore::internal::RiegeliBlockWriter;
+using ::tensorstore::internal_image::AvifReader;
+using ::tensorstore::internal_image::AvifReaderOptions;
+using ::tensorstore::internal_image::AvifWriter;
+using ::tensorstore::internal_image::AvifWriterOptions;
 using ::tensorstore::internal_image::ImageInfo;
 using ::tensorstore::internal_image::ImageReader;
 using ::tensorstore::internal_image::ImageView;
@@ -126,13 +132,13 @@ void MakeTestImage(const ImageInfo& info,
 struct TestParam {
   std::any options;
   ImageInfo image_params;
-  double rmse = 0;
-  double rmse_error = 0;
+  double rmse_error_limit = 0;
+  std::any reader_options;
 };
 
 [[maybe_unused]] std::string PrintToString(const TestParam& p) {
   return absl::StrCat(p.image_params.num_components,
-                      p.rmse != 0 ? "_rmse" : "");
+                      p.rmse_error_limit != 0 ? "_rmse" : "");
 }
 
 class WriterTest : public ::testing::TestWithParam<TestParam> {
@@ -148,10 +154,13 @@ class WriterTest : public ::testing::TestWithParam<TestParam> {
     } else if (GetPointerFromAny<PngWriterOptions>(options)) {
       writer.Emplace<PngWriter>();
       reader.Emplace<PngReader>();
+    } else if (GetPointerFromAny<AvifWriterOptions>(options)) {
+      writer.Emplace<AvifWriter>();
+      reader.Emplace<AvifReader>();
     }
   }
 
-  absl::Status InitializeWriter(riegeli::Writer* riegeli_writer) {
+  absl::Status InitializeWithOptions(riegeli::Writer* riegeli_writer) {
     std::any* options = const_cast<std::any*>(&GetParam().options);
     if (auto* ptr = GetPointerFromAny<TiffWriterOptions>(options)) {
       return reinterpret_cast<TiffWriter*>(writer.get())
@@ -159,8 +168,19 @@ class WriterTest : public ::testing::TestWithParam<TestParam> {
     } else if (auto* ptr = GetPointerFromAny<JpegWriterOptions>(options)) {
       return reinterpret_cast<JpegWriter*>(writer.get())
           ->Initialize(riegeli_writer, *ptr);
+    } else if (auto* ptr = GetPointerFromAny<AvifWriterOptions>(options)) {
+      return reinterpret_cast<AvifWriter*>(writer.get())
+          ->Initialize(riegeli_writer, *ptr);
     }
     return writer->Initialize(riegeli_writer);
+  }
+
+  absl::Status DecodeWithOptions(tensorstore::span<unsigned char> dest) {
+    std::any* options = const_cast<std::any*>(&GetParam().reader_options);
+    if (auto* ptr = GetPointerFromAny<AvifReaderOptions>(options)) {
+      return reinterpret_cast<AvifReader*>(reader.get())->Decode(dest, *ptr);
+    }
+    return reader->Decode(dest);
   }
 
   riegeli::AnyDependency<ImageWriter*, TiffWriter> writer;
@@ -180,7 +200,7 @@ TEST_P(WriterTest, RoundTrip) {
     RiegeliBlockWriter buffer;
 
     // Despite options being passed in, initialize with defaults.
-    ASSERT_THAT(InitializeWriter(&buffer), ::tensorstore::IsOk());
+    ASSERT_THAT(InitializeWithOptions(&buffer), ::tensorstore::IsOk());
     ASSERT_THAT(writer->Encode(source_info, source), ::tensorstore::IsOk());
     ASSERT_THAT(writer->Done(), ::tensorstore::IsOk());
     encoded = buffer.ConvertToCord();
@@ -197,33 +217,55 @@ TEST_P(WriterTest, RoundTrip) {
     EXPECT_EQ(decoded_info.height, source_info.height);
     EXPECT_EQ(decoded_info.num_components, source_info.num_components);
 
-    EXPECT_THAT(reader->Decode(decoded), ::tensorstore::IsOk());
+    EXPECT_THAT(DecodeWithOptions(decoded), ::tensorstore::IsOk());
   }
 
   double rmse = ComputeRMSE(decoded.data(), source.data(), source.size());
 
   /// When RMSE is not 0, verify that the actual value is witin 5%.
-  if (GetParam().rmse == 0) {
+  if (GetParam().rmse_error_limit == 0) {
     EXPECT_EQ(0, rmse) << "\nA: " << source_info << " "
                        << "\nB: " << decoded_info;
+    EXPECT_THAT(decoded, testing::Eq(source));
   } else {
-    EXPECT_NEAR(GetParam().rmse, rmse, GetParam().rmse_error) << decoded_info;
+    EXPECT_LT(rmse, GetParam().rmse_error_limit) << decoded_info;
   }
 }
 
 INSTANTIATE_TEST_SUITE_P(
-    TiffFiles, WriterTest,
+    AvifLossless, WriterTest,
     ::testing::Values(  //
-        TestParam{TiffWriterOptions{}, ImageInfo{33, 100, 1}, 0},
-        TestParam{TiffWriterOptions{}, ImageInfo{33, 100, 2}, 0},
-        TestParam{TiffWriterOptions{}, ImageInfo{33, 100, 3}, 0},
-        TestParam{TiffWriterOptions{}, ImageInfo{33, 100, 4}, 0}));
+        TestParam{AvifWriterOptions{}, ImageInfo{33, 100, 1}, 0},
+        TestParam{AvifWriterOptions{}, ImageInfo{33, 100, 2}, 0},
+        TestParam{AvifWriterOptions{}, ImageInfo{33, 100, 3}, 0},
+        TestParam{AvifWriterOptions{}, ImageInfo{33, 100, 4}, 0}));
+
+// Quality varies based on the available encoders.
+INSTANTIATE_TEST_SUITE_P(
+    AVifLossy, WriterTest,
+    ::testing::Values(  //
+        TestParam{AvifWriterOptions{1}, ImageInfo{33, 100, 1}, 0.26},
+        TestParam{AvifWriterOptions{1}, ImageInfo{33, 100, 2}, 0.5},
+        TestParam{AvifWriterOptions{1}, ImageInfo{33, 100, 3}, 28.5},
+        TestParam{AvifWriterOptions{1}, ImageInfo{33, 100, 4}, 24.5}));
+
+INSTANTIATE_TEST_SUITE_P(
+    AVifExtended, WriterTest,
+    ::testing::Values(  //
+        TestParam{AvifWriterOptions{0, 6, false}, ImageInfo{33, 100, 3}, 0,
+                  AvifReaderOptions{false}},
+        TestParam{AvifWriterOptions{0, 6, false}, ImageInfo{33, 100, 4}, 0,
+                  AvifReaderOptions{false}},
+        TestParam{AvifWriterOptions{1, 6, false}, ImageInfo{33, 100, 3}, 0.5,
+                  AvifReaderOptions{false}},
+        TestParam{AvifWriterOptions{1, 6, false}, ImageInfo{33, 100, 4}, 44,
+                  AvifReaderOptions{false}}));
 
 INSTANTIATE_TEST_SUITE_P(
     JpegFiles, WriterTest,
     ::testing::Values(  //
-        TestParam{JpegWriterOptions{100}, ImageInfo{33, 100, 1}, 0.5, 0.5},
-        TestParam{JpegWriterOptions{100}, ImageInfo{33, 100, 3}, 48, 3}));
+        TestParam{JpegWriterOptions{100}, ImageInfo{33, 100, 1}, 0.5},
+        TestParam{JpegWriterOptions{100}, ImageInfo{33, 100, 3}, 48}));
 
 INSTANTIATE_TEST_SUITE_P(
     PngFiles, WriterTest,
@@ -232,5 +274,13 @@ INSTANTIATE_TEST_SUITE_P(
         TestParam{PngWriterOptions{}, ImageInfo{33, 100, 2}, 0},
         TestParam{PngWriterOptions{}, ImageInfo{33, 100, 3}, 0},
         TestParam{PngWriterOptions{}, ImageInfo{33, 100, 4}, 0}));
+
+INSTANTIATE_TEST_SUITE_P(
+    TiffFiles, WriterTest,
+    ::testing::Values(  //
+        TestParam{TiffWriterOptions{}, ImageInfo{33, 100, 1}, 0},
+        TestParam{TiffWriterOptions{}, ImageInfo{33, 100, 2}, 0},
+        TestParam{TiffWriterOptions{}, ImageInfo{33, 100, 3}, 0},
+        TestParam{TiffWriterOptions{}, ImageInfo{33, 100, 4}, 0}));
 
 }  // namespace

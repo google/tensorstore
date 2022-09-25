@@ -289,7 +289,7 @@ class ImageDriver
                    std::string(cache_entry_->key()));
   }
 
-  // FIXME: Current image formats are restricted to rank3 (x,y,channels) and
+  // FIXME: Current image formats are restricted to rank3 (y,x,channels) and
   // uint8_t data, but there are image types which support a much wider array
   // of dtype(), and some which support multiple z levels encoded as one image.
   DataType dtype() override { return dtype_v<uint8_t>; }

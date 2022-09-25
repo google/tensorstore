@@ -10,10 +10,6 @@ allOf:
       const: uint8
       description: |
         Optional.  If specified, must be :json:`"uint8"`.
-    rank:
-      const: 0
-      description: |
-        Optional.  If specified, must be :json:`3`.
     kvstore:
       $ref: KvStore
       description: >-

@@ -81,6 +81,10 @@ struct PngSpecialization : public PngWriterOptions {
     PngReader reader;
     TENSORSTORE_RETURN_IF_ERROR(reader.Initialize(&buffer_reader));
     ImageInfo info = reader.GetImageInfo();
+    if (info.dtype != dtype_v<uint8_t>) {
+      return absl::UnimplementedError(
+          "\"png\" driver only supports uint8 images");
+    }
     std::array<Index, 3> shape_yxc = {static_cast<Index>(info.height),
                                       static_cast<Index>(info.width),
                                       static_cast<Index>(info.num_components)};

@@ -34,6 +34,10 @@ struct ImageInfo {
   int32_t num_components = 0;
   DataType dtype = dtype_v<uint8_t>;
 
+  friend bool operator==(const ImageInfo& a, const ImageInfo& b);
+  friend bool operator!=(const ImageInfo& a, const ImageInfo& b) {
+    return !(a == b);
+  }
   friend std::ostream& operator<<(std::ostream& os, const ImageInfo& info);
 };
 

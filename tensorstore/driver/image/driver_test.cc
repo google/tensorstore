@@ -404,9 +404,10 @@ struct P {
   std::string path;
   absl::Cord data;
 
-  /// Values at points in the image.
-  uint8_t a[3];  // (0,0)
-  uint8_t b[3];  // (255,255)
+  /// Values at predefined points in the image.
+  /// image drivers return c-order: y, x, c
+  uint8_t a[3] = {100, 50, 0};   // (50,100)
+  uint8_t b[3] = {200, 100, 0};  // (100,200)
 };
 
 // Implements ::testing::PrintToStringParamName().
@@ -414,46 +415,39 @@ static std::string PrintToString(const P& p) { return p.driver; }
 
 P ParamPng() {
   return {
-      "png",
-      "a.png",
+      "png", "a.png",
       absl::MakeCordFromExternal(
           absl::string_view(reinterpret_cast<const char*>(kPng), sizeof(kPng)),
-          [] {}),
-      {0, 0, 0},
-      {255, 255, 0}};
+          [] {})};
 }
 
 P ParamJpeg() {
-  return {"jpeg",
-          "b.jpg",
-          absl::MakeCordFromExternal(
-              absl::string_view(reinterpret_cast<const char*>(kJpeg),
-                                sizeof(kJpeg)),
-              [] {}),
-          {0, 8, 0},
-          {255, 246, 5}};
+  return {
+      "jpeg",
+      "b.jpg",
+      absl::MakeCordFromExternal(
+          absl::string_view(reinterpret_cast<const char*>(kJpeg),
+                            sizeof(kJpeg)),
+          [] {}),
+      {98, 55, 2},   // (50,100)
+      {200, 104, 1}  // (100,200)
+  };
 }
 
 P ParamAvif() {
-  return {"avif",
-          "c.avif",
+  return {"avif", "c.avif",
           absl::MakeCordFromExternal(
               absl::string_view(reinterpret_cast<const char*>(kAvif),
                                 sizeof(kAvif)),
-              [] {}),
-          {1, 1, 0},
-          {254, 254, 0}};
+              [] {})};
 }
 
 P ParamTiff() {
-  return {"tiff",
-          "d.tiff",
+  return {"tiff", "d.tiff",
           absl::MakeCordFromExternal(
               absl::string_view(reinterpret_cast<const char*>(kTiff),
                                 sizeof(kTiff)),
-              [] {}),
-          {0, 0, 0},
-          {255, 255, 0}};
+              [] {})};
 }
 
 class ImageDriverReadTest : public ::testing::TestWithParam<P> {
@@ -559,8 +553,8 @@ TEST_P(ImageDriverReadTest, Read) {
                                    tensorstore::Read(store).result());
 
   EXPECT_THAT(array.shape(), ::testing::ElementsAre(256, 256, 3));
-  EXPECT_THAT(array[0][0], tensorstore::MakeArray<uint8_t>(GetParam().a));
-  EXPECT_THAT(array[255][255], tensorstore::MakeArray<uint8_t>(GetParam().b));
+  EXPECT_THAT(array[50][100], tensorstore::MakeArray<uint8_t>(GetParam().a));
+  EXPECT_THAT(array[100][200], tensorstore::MakeArray<uint8_t>(GetParam().b));
 }
 
 TEST_P(ImageDriverReadTest, ReadWithTransform) {
@@ -571,7 +565,7 @@ TEST_P(ImageDriverReadTest, ReadWithTransform) {
                                    tensorstore::Open(spec, context).result());
 
   auto transformed =
-      store | tensorstore::Dims(0, 1).SizedInterval({255, 255}, {1, 1});
+      store | tensorstore::Dims(0, 1).SizedInterval({100, 200}, {1, 1});
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto array,
       tensorstore::Read<tensorstore::zero_origin>(transformed).result());
