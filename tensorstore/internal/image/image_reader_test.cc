@@ -34,6 +34,7 @@
 #include "riegeli/bytes/fd_reader.h"
 #include "riegeli/bytes/reader.h"
 #include "tensorstore/data_type.h"
+#include "tensorstore/internal/image/bmp_reader.h"
 #include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/image/jpeg_reader.h"
 #include "tensorstore/internal/image/png_reader.h"
@@ -49,6 +50,7 @@ ABSL_FLAG(std::string, tensorstore_test_data_dir, ".",
 
 namespace {
 
+using ::tensorstore::internal_image::BmpReader;
 using ::tensorstore::internal_image::ImageInfo;
 using ::tensorstore::internal_image::ImageReader;
 using ::tensorstore::internal_image::JpegReader;
@@ -79,6 +81,8 @@ class ReaderTest : public ::testing::TestWithParam<TestParam> {
       reader.Emplace<JpegReader>();
     } else if (IsPng()) {
       reader.Emplace<PngReader>();
+    } else if (IsBmp()) {
+      reader.Emplace<BmpReader>();
     }
   }
 
@@ -93,6 +97,8 @@ class ReaderTest : public ::testing::TestWithParam<TestParam> {
   }
   bool IsAvif() { return absl::EndsWith(GetParam().filename, ".avif"); }
   bool IsBmp() { return absl::EndsWith(GetParam().filename, ".bmp"); }
+
+  bool ReadsEntireFile() { return IsAvif() || IsJpeg(); }
 
   std::string GetFilename() {
     return tensorstore::internal::JoinPath(
@@ -131,10 +137,10 @@ TEST_P(ReaderTest, ReadImageFromFile) {
               ::tensorstore::IsOk());
 
   // Some file types (e.g. tiff) may not read the end of file bits.
-  if (IsTiff() || IsPng()) {
-    EXPECT_TRUE(file_reader.Close()) << file_reader.status();
-  } else {
+  if (ReadsEntireFile()) {
     EXPECT_TRUE(file_reader.VerifyEndAndClose()) << file_reader.status();
+  } else {
+    EXPECT_TRUE(file_reader.Close()) << file_reader.status();
   }
 
   /// Validate values.
@@ -197,6 +203,7 @@ TEST_P(ReaderTest, ReadImageTruncated) {
 
   /// Skip this for some files.
   if (filename == "png/D75_01b.png") return;
+  if (filename == "bmp/D75_08b_grey.bmp") return;
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(absl::Cord file_data,
                                    ReadEntireFile(GetFilename()));
@@ -250,6 +257,15 @@ std ::vector<V> GetD75_08_Values_JPEG() {
       V{{29, 117}, {174, 93, 99}},
   };
 }
+
+INSTANTIATE_TEST_SUITE_P(  //
+    BmpFiles, ReaderTest,
+    ::testing::Values(  //
+        TestParam{"bmp/D75_08b.bmp", ImageInfo{172, 306, 3},
+                  GetD75_08_Values()},
+        TestParam{"bmp/D75_08b_grey.bmp",
+                  ImageInfo{172, 306, 1},
+                  {V{{29, 117}, {87, 87, 87}}}}));
 
 INSTANTIATE_TEST_SUITE_P(  //
     JpegFiles, ReaderTest,

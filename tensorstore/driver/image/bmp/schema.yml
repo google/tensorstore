@@ -1,0 +1,36 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: driver/bmp
+allOf:
+- $ref: TensorStore
+- type: object
+  properties:
+    driver:
+      const: bmp
+    dtype:
+      const: uint8
+      description: |
+        Optional.  If specified, must be :json:`"uint8"`.
+    kvstore:
+      $ref: KvStore
+      description: >-
+        Specifies the underlying storage mechanism.
+    cache_pool:
+      $ref: ContextResource
+      description: >-
+        Specifies or references a previously defined `Context.cache_pool`.  It
+        is normally more convenient to specify a default `~Context.cache_pool`
+        in the `.context`.
+      default: cache_pool
+    data_copy_concurrency:
+      $ref: ContextResource
+      description: >-
+        Specifies or references a previously defined
+        `Context.data_copy_concurrency`.  It is normally more
+        convenient to specify a default `~Context.data_copy_concurrency` in
+        the `.context`.
+      default: data_copy_concurrency
+  required:
+  - kvstore
+examples:
+- driver: bmp
+  "kvstore": "gs://my-bucket/path-to-image.bmp"

@@ -7,6 +7,40 @@ package(
 licenses(["notice"])
 
 tensorstore_cc_library(
+    name = "bmp",
+    srcs = [
+        "bmp_reader.cc",
+    ],
+    hdrs = [
+        "bmp_reader.h",
+    ],
+    deps = [
+        ":image",
+        "//tensorstore:data_type",
+        "//tensorstore/util:span",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:str_format",
+        "@com_google_riegeli//riegeli/bytes:limiting_reader",
+        "@com_google_riegeli//riegeli/bytes:reader",
+        "@com_google_riegeli//riegeli/endian:endian_reading",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "bmp_test",
+    srcs = ["bmp_test.cc"],
+    deps = [
+        ":bmp",
+        "//tensorstore/util:result",
+        "//tensorstore/util:span",
+        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/strings:str_format",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_riegeli//riegeli/bytes:string_reader",
+    ],
+)
+
+tensorstore_cc_library(
     name = "jpeg",
     srcs = [
         "jpeg_common.cc",
@@ -177,6 +211,7 @@ tensorstore_cc_test(
     ],
     data = [":testdata"],
     deps = [
+        ":bmp",
         ":image",
         ":jpeg",
         ":png",
