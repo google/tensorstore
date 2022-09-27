@@ -27,7 +27,7 @@ Create a new :ref:`N5<n5-driver>` dataset on the local filesystem using the
    ...     'delete_existing': True,
    ... }).result()
 
-Asynchronously write to to a sub-region:
+Asynchronously write to a sub-region:
 
    >>> write_future = dataset[80:82, 99:102].write([[1, 2, 3], [4, 5, 6]])
 
