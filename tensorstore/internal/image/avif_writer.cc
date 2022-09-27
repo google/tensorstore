@@ -319,7 +319,7 @@ absl::Status AvifWriter::InitializeImpl(riegeli::Writer* writer,
 absl::Status AvifWriter::Encode(const ImageInfo& info,
                                 tensorstore::span<const unsigned char> source) {
   if (!encoder_) {
-    return absl::InternalError("AVIF reader not initialized");
+    return absl::InternalError("AVIF writer not initialized");
   }
   TENSORSTORE_CHECK(source.size() == ImageRequiredBytes(info));
   return AvifAddImage(encoder_.get(), options_, info, source);

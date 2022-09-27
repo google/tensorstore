@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_IMAGE_AVIF_H_
-#define TENSORSTORE_INTERNAL_IMAGE_AVIF_H_
+#ifndef TENSORSTORE_INTERNAL_IMAGE_AVIF_READER_H_
+#define TENSORSTORE_INTERNAL_IMAGE_AVIF_READER_H_
 
 #include <memory>
 
@@ -84,4 +84,4 @@ class AvifReader : public ImageReader {
 }  // namespace internal_image
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_IMAGE_AVIF_H_
+#endif  // TENSORSTORE_INTERNAL_IMAGE_AVIF_READER_H_
