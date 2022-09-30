@@ -60,7 +60,11 @@ tensorstore_cc_library(
 tensorstore_cc_test(
     name = "image_test",
     size = "small",
-    srcs = ["driver_test.cc"],
+    srcs = [
+        "driver_test.cc",
+        "test_image.cc",
+        "test_image.h",
+    ],
     deps = [
         "//tensorstore",
         "//tensorstore:context",
@@ -69,9 +73,11 @@ tensorstore_cc_test(
         "//tensorstore:progress",
         "//tensorstore:strided_layout",
         "//tensorstore/driver/image/avif",  # build_cleaner: keep
+        "//tensorstore/driver/image/bmp",  # build_cleaner: keep
         "//tensorstore/driver/image/jpeg",  # build_cleaner: keep
         "//tensorstore/driver/image/png",  # build_cleaner: keep
         "//tensorstore/driver/image/tiff",  # build_cleaner: keep
+        "//tensorstore/driver/image/webp",  # build_cleaner: keep
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/internal:json_gtest",
         "//tensorstore/kvstore",

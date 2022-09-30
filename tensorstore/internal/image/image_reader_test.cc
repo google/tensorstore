@@ -40,6 +40,7 @@
 #include "tensorstore/internal/image/jpeg_reader.h"
 #include "tensorstore/internal/image/png_reader.h"
 #include "tensorstore/internal/image/tiff_reader.h"
+#include "tensorstore/internal/image/webp_reader.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
@@ -58,6 +59,7 @@ using ::tensorstore::internal_image::ImageReader;
 using ::tensorstore::internal_image::JpegReader;
 using ::tensorstore::internal_image::PngReader;
 using ::tensorstore::internal_image::TiffReader;
+using ::tensorstore::internal_image::WebPReader;
 
 struct V {
   std::array<size_t, 2> yx;
@@ -87,6 +89,8 @@ class ReaderTest : public ::testing::TestWithParam<TestParam> {
       reader.Emplace<BmpReader>();
     } else if (IsAvif()) {
       reader.Emplace<AvifReader>();
+    } else if (IsWebP()) {
+      reader.Emplace<WebPReader>();
     }
   }
 
@@ -101,6 +105,7 @@ class ReaderTest : public ::testing::TestWithParam<TestParam> {
   }
   bool IsAvif() { return absl::EndsWith(GetParam().filename, ".avif"); }
   bool IsBmp() { return absl::EndsWith(GetParam().filename, ".bmp"); }
+  bool IsWebP() { return absl::EndsWith(GetParam().filename, ".webp"); }
 
   bool ReadsEntireFile() { return IsAvif() || IsJpeg(); }
 
@@ -208,6 +213,7 @@ TEST_P(ReaderTest, ReadImageTruncated) {
   /// Skip this for some files.
   if (filename == "png/D75_01b.png") return;
   if (filename == "bmp/D75_08b_grey.bmp") return;
+  if (IsWebP()) return;
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(absl::Cord file_data,
                                    ReadEntireFile(GetFilename()));
@@ -248,7 +254,7 @@ std ::vector<V> GetD75_08_Values() {
       V{{0, 0}, {151, 75, 83}},
       // lower-left corner: hw=171,0 => 255,250,251
       V{{171, 0}, {255, 250, 251}},
-      // arbitrary point: hw=29,117  => 141,54,67
+      // arbitrary point: hw=29,117  => 173,93,97
       V{{29, 117}, {173, 93, 97}},
   };
 }
@@ -328,4 +334,14 @@ INSTANTIATE_TEST_SUITE_P(
                   GetD75_08_Values()},
         TestParam{"tiff/D75_16b.tiff",
                   ImageInfo{172, 306, 3, ::tensorstore::dtype_v<uint16_t>}}));
+
+INSTANTIATE_TEST_SUITE_P(  //
+    WebPFiles, ReaderTest,
+    ::testing::Values(  //
+        TestParam{"webp/D75_08b.webp", ImageInfo{172, 306, 3},
+                  GetD75_08_Values()},
+        TestParam{"webp/D75_08b_q90.webp",
+                  ImageInfo{172, 306, 3},
+                  {V{{29, 117}, {166, 94, 91}}}}));
+
 }  // namespace

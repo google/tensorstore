@@ -43,6 +43,8 @@
 #include "tensorstore/internal/image/riegeli_block_writer.h"
 #include "tensorstore/internal/image/tiff_reader.h"
 #include "tensorstore/internal/image/tiff_writer.h"
+#include "tensorstore/internal/image/webp_reader.h"
+#include "tensorstore/internal/image/webp_writer.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
 
@@ -66,6 +68,10 @@ using ::tensorstore::internal_image::PngWriterOptions;
 using ::tensorstore::internal_image::TiffReader;
 using ::tensorstore::internal_image::TiffWriter;
 using ::tensorstore::internal_image::TiffWriterOptions;
+using ::tensorstore::internal_image::WebPReader;
+using ::tensorstore::internal_image::WebPReaderOptions;
+using ::tensorstore::internal_image::WebPWriter;
+using ::tensorstore::internal_image::WebPWriterOptions;
 
 /// Returns a pointer to T if T or reference_wrapped T is contained in the
 /// std::any container.
@@ -157,6 +163,9 @@ class WriterTest : public ::testing::TestWithParam<TestParam> {
     } else if (GetPointerFromAny<AvifWriterOptions>(options)) {
       writer.Emplace<AvifWriter>();
       reader.Emplace<AvifReader>();
+    } else if (GetPointerFromAny<WebPWriterOptions>(options)) {
+      writer.Emplace<WebPWriter>();
+      reader.Emplace<WebPReader>();
     }
   }
 
@@ -168,8 +177,14 @@ class WriterTest : public ::testing::TestWithParam<TestParam> {
     } else if (auto* ptr = GetPointerFromAny<JpegWriterOptions>(options)) {
       return reinterpret_cast<JpegWriter*>(writer.get())
           ->Initialize(riegeli_writer, *ptr);
+    } else if (auto* ptr = GetPointerFromAny<PngWriterOptions>(options)) {
+      return reinterpret_cast<PngWriter*>(writer.get())
+          ->Initialize(riegeli_writer, *ptr);
     } else if (auto* ptr = GetPointerFromAny<AvifWriterOptions>(options)) {
       return reinterpret_cast<AvifWriter*>(writer.get())
+          ->Initialize(riegeli_writer, *ptr);
+    } else if (auto* ptr = GetPointerFromAny<WebPWriterOptions>(options)) {
+      return reinterpret_cast<WebPWriter*>(writer.get())
           ->Initialize(riegeli_writer, *ptr);
     }
     return writer->Initialize(riegeli_writer);
@@ -282,5 +297,17 @@ INSTANTIATE_TEST_SUITE_P(
         TestParam{TiffWriterOptions{}, ImageInfo{33, 100, 2}, 0},
         TestParam{TiffWriterOptions{}, ImageInfo{33, 100, 3}, 0},
         TestParam{TiffWriterOptions{}, ImageInfo{33, 100, 4}, 0}));
+
+INSTANTIATE_TEST_SUITE_P(
+    WebPLossless, WriterTest,
+    ::testing::Values(  //
+        TestParam{WebPWriterOptions{true}, ImageInfo{33, 100, 3}, 0},
+        TestParam{WebPWriterOptions{true}, ImageInfo{33, 100, 4}, 0}));
+
+INSTANTIATE_TEST_SUITE_P(
+    WebPLossy, WriterTest,
+    ::testing::Values(  //
+        TestParam{WebPWriterOptions{false}, ImageInfo{33, 100, 3}, 47},
+        TestParam{WebPWriterOptions{false}, ImageInfo{33, 100, 4}, 44}));
 
 }  // namespace

@@ -1,0 +1,83 @@
+licenses(["notice"])
+
+exports_files(["LICENSE"])
+
+C89_FLAGS = select({
+    "//conditions:default": [],
+    ":armeabi-v7a": ["-marm"],
+}) + select({
+    "@platforms//cpu:arm": ["-mfpu=neon"],
+    "//conditions:default": [],
+})
+
+cc_library(
+    name = "webp",
+    srcs = glob([
+        "src/enc/*.c",
+        "src/enc/*.h",
+        "src/dec/*.c",
+        "src/dec/*.h",
+        "src/mux/*.c",
+        "src/mux/*.h",
+        "src/demux/*.c",
+        "src/demux/*.h",
+        "src/dsp/*.c",
+        "src/dsp/*.h",
+    ]),
+    hdrs = [
+        "src/webp/decode.h",
+        "src/webp/demux.h",
+        "src/webp/encode.h",
+        "src/webp/format_constants.h",
+        "src/webp/mux.h",
+        "src/webp/mux_types.h",
+        "src/webp/types.h",
+    ],
+    copts = C89_FLAGS,
+    strip_include_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":sharpyuv",
+        ":webp_utils",
+    ],
+)
+
+cc_library(
+    name = "webp_utils",
+    srcs = glob(["src/utils/*.c"]) + [
+        "src/dsp/cpu.h",
+        "src/dsp/dsp.h",
+        "src/webp/decode.h",
+        "src/webp/encode.h",
+        "src/webp/types.h",
+        "src/webp/format_constants.h",
+    ],
+    hdrs = glob(["src/utils/*.h"]),
+    copts = C89_FLAGS,
+)
+
+cc_library(
+    name = "sharpyuv",
+    srcs = [
+        "sharpyuv/sharpyuv.c",
+        "sharpyuv/sharpyuv_csp.c",
+        "sharpyuv/sharpyuv_dsp.c",
+        "sharpyuv/sharpyuv_dsp.h",
+        "sharpyuv/sharpyuv_gamma.c",
+        "sharpyuv/sharpyuv_neon.c",
+        "sharpyuv/sharpyuv_sse2.c",
+        "src/dsp/cpu.h",
+        "src/webp/types.h",
+    ],
+    hdrs = [
+        "sharpyuv/sharpyuv.h",
+        "sharpyuv/sharpyuv_csp.h",
+        "sharpyuv/sharpyuv_gamma.h",
+    ],
+    copts = C89_FLAGS,
+)
+
+config_setting(
+    name = "armeabi-v7a",
+    values = {"cpu": "armeabi-v7a"},
+)

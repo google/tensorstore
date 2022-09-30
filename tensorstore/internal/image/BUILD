@@ -268,6 +268,7 @@ tensorstore_cc_test(
         ":jpeg",
         ":png",
         ":tiff",
+        ":webp",
         "//tensorstore:data_type",
         "//tensorstore/internal:path",
         "//tensorstore/util:result",
@@ -296,6 +297,7 @@ tensorstore_cc_test(
         ":png",
         ":riegeli_block_writer",
         ":tiff",
+        ":webp",
         "//tensorstore/util:span",
         "//tensorstore/util:status_testutil",
         "@com_google_absl//absl/status",
@@ -329,4 +331,48 @@ filegroup(
             "testdata/**",
         ],
     ),
+)
+
+cc_library(
+    name = "webp",
+    srcs = [
+        "webp_reader.cc",
+        "webp_writer.cc",
+    ],
+    hdrs = [
+        "webp_reader.h",
+        "webp_writer.h",
+    ],
+    deps = [
+        ":image",
+        "//tensorstore:data_type",
+        "//tensorstore/util:assert_macros",
+        "//tensorstore/util:span",
+        "//tensorstore/util:status",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:optional",
+        "@com_google_riegeli//riegeli/base",
+        "@com_google_riegeli//riegeli/bytes:reader",
+        "@com_google_riegeli//riegeli/bytes:writer",
+        "@libwebp//:webp",
+    ],
+)
+
+cc_test(
+    name = "webp_test",
+    srcs = ["webp_test.cc"],
+    deps = [
+        ":image",
+        ":webp",
+        "//tensorstore/util:span",
+        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_riegeli//riegeli/bytes:cord_reader",
+        "@com_google_riegeli//riegeli/bytes:cord_writer",
+        "@com_google_riegeli//riegeli/bytes:fd_reader",
+        "@com_google_riegeli//riegeli/bytes:string_reader",
+    ],
 )

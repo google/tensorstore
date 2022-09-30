@@ -14,6 +14,8 @@ DRIVERS = [
     "image/jpeg",
     "image/png",
     "image/tiff",
+    "image/webp",
+    "image/bmp",
     "json",
     "n5",
     "neuroglancer_precomputed",

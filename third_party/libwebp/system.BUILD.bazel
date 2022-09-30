@@ -1,0 +1,9 @@
+cc_library(
+    name = "webp",
+    linkopts = [
+        "-lwebp",
+        "-lwebpdemux",
+        "-lwebpmux",
+    ],
+    visibility = ["//visibility:public"],
+)

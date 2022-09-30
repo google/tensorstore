@@ -19,9 +19,11 @@ Single file drivers
 
    json/index
    image/avif/index
+   image/bmp/index
    image/jpeg/index
    image/png/index
    image/tiff/index
+   image/webp/index
 
 .. _chunked-drivers:
 
