@@ -1,10 +1,11 @@
-load("@com_google_tensorstore//:utils.bzl", "cc_library_with_strip_include_prefix", "package_relative_path")
+load("@com_google_tensorstore//:utils.bzl", "package_relative_path")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
 
 licenses(["notice"])
 
 exports_files(["COPYING"])
 
-cc_library_with_strip_include_prefix(
+cc_library(
     name = "curl",
     srcs = glob(
                include = [
@@ -23,13 +24,13 @@ cc_library_with_strip_include_prefix(
                ],
            ) +
            select({
-               ":macos": [
+               "@platforms//os:osx": [
                    "lib/vtls/sectransp.c",
                ],
-               ":ios": [
+               "@platforms//os:ios": [
                    "lib/vtls/sectransp.c",
                ],
-               ":windows": [
+               "@platforms//os:windows": [
                    "lib/idn_win32.c",
                    "lib/socks_sspi.c",
                    "lib/system_win32.c",
@@ -47,23 +48,23 @@ cc_library_with_strip_include_prefix(
         "include/curl_config.h",
     ],
     copts = ["-I" + package_relative_path("lib")] + select({
-                ":windows": [],
+                "@platforms//os:windows": [],
                 "//conditions:default": [
                     "-Wno-string-plus-int",
                 ],
             }) +
             select({
-                ":macos": [
+                "@platforms//os:osx": [
                     "-fno-constant-cfstrings",
                 ],
                 "//conditions:default": [],
             }),
     defines = ["CURL_STATICLIB"],
     linkopts = select({
-        ":android": [
+        "@platforms//os:android": [
             "-pie",
         ],
-        ":macos": [
+        "@platforms//os:osx": [
             "-Wl,-framework",
             "-Wl,CoreFoundation",
             "-Wl,-framework",
@@ -71,8 +72,8 @@ cc_library_with_strip_include_prefix(
             "-Wl,-framework",
             "-Wl,Security",
         ],
-        ":ios": [],
-        ":windows": [
+        "@platforms//os:ios": [],
+        "@platforms//os:windows": [
             "-DEFAULTLIB:ws2_32.lib",
             "-DEFAULTLIB:advapi32.lib",
             "-DEFAULTLIB:crypt32.lib",
@@ -93,7 +94,7 @@ cc_library_with_strip_include_prefix(
         "HAVE_BROTLI",
         # "USE_ARES",  # TODO: Enable c-ares; after debugging broken test.
     ] + select({
-        ":windows": [
+        "@platforms//os:windows": [
             "CURL_DISABLE_PROXY",
             # Defining _USING_V110_SDK71_ is hackery to defeat curl's incorrect
             # detection of what OS releases we can build on with VC 2012. This
@@ -103,8 +104,8 @@ cc_library_with_strip_include_prefix(
         ],
         "//conditions:default": ["_GNU_SOURCE"],
     }) + select({
-        ":macos": [],
-        ":windows": [
+        "@platforms//os:osx": [],
+        "@platforms//os:windows": [
             # See curl.h for discussion of write size and Windows
             "CURL_MAX_WRITE_SIZE=16384",
         ],
@@ -120,19 +121,18 @@ cc_library_with_strip_include_prefix(
         # "@com_github_cares_cares//:ares",
         "@org_nghttp2//:nghttp2",
     ] + select({
-        ":ios": [],
-        ":windows": [],
+        "@platforms//os:ios": [],
+        "@platforms//os:windows": [],
         "//conditions:default": [
             "@com_google_boringssl//:ssl",
         ],
     }),
 )
 
-genrule(
+write_file(
     name = "configure",
-    outs = ["include/curl_config.h"],
-    cmd = "\n".join([
-        "cat <<'EOF' >$@",
+    out = "include/curl_config.h",
+    content = [
         "#ifndef EXTERNAL_CURL_INCLUDE_CURL_CONFIG_H_",
         "#define EXTERNAL_CURL_INCLUDE_CURL_CONFIG_H_",
         "",
@@ -383,26 +383,6 @@ genrule(
         "#endif",
         "",
         "#endif  // EXTERNAL_CURL_INCLUDE_CURL_CONFIG_H_",
-        "EOF",
-    ]),
-)
-
-config_setting(
-    name = "android",
-    constraint_values = ["@platforms//os:android"],
-)
-
-config_setting(
-    name = "windows",
-    constraint_values = ["@platforms//os:windows"],
-)
-
-config_setting(
-    name = "macos",
-    constraint_values = ["@platforms//os:osx"],
-)
-
-config_setting(
-    name = "ios",
-    constraint_values = ["@platforms//os:ios"],
+    ],
+    newline = "unix",
 )

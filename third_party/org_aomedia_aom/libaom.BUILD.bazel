@@ -1,7 +1,8 @@
 # Description:
 #   The libaom package is the reference codec for AV1 and AVIF.
 #
-load("@com_google_tensorstore//:utils.bzl", "template_rule")
+load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@com_google_tensorstore//:rules_nasm.bzl", "nasm_library")
 
 package(default_visibility = ["//visibility:private"])
@@ -353,8 +354,9 @@ AV1_ASM = [
 cc_library(
     name = "av1",
     srcs = AV1_SRCS,
-    textual_hdrs = LIBAOM_HEADERS,
     copts = LIBAOM_COPTS,
+    linkstatic = 1,
+    textual_hdrs = LIBAOM_HEADERS,
     deps = [
         ":codec",
         ":dsp",
@@ -373,21 +375,19 @@ cc_library(
         ],
     }),
     alwayslink = 1,
-    linkstatic = 1,
 )
 
 nasm_library(
     name = "av1_x86_asm",
     srcs = AV1_ASM,
-    includes = NASM_INCLUDES,
     flags = NASM_FLAGS,
+    includes = NASM_INCLUDES,
     alwayslink = 1,
 )
 
 cc_library(
     name = "av1_x86_sse",
     srcs = AV1_SRCS_SSE,
-    textual_hdrs = LIBAOM_HEADERS,
     copts = LIBAOM_COPTS + select({
         ":compiler_msvc": [
             # Set up /arch:SSE4.2, which does not exist.
@@ -400,6 +400,7 @@ cc_library(
         ],
         "//conditions:default": ["-msse4.2"],
     }),
+    textual_hdrs = LIBAOM_HEADERS,
     deps = [
         ":config",
         ":vector",
@@ -410,11 +411,11 @@ cc_library(
 cc_library(
     name = "av1_x86_avx2",
     srcs = AV1_SRCS_AVX2,
-    textual_hdrs = LIBAOM_HEADERS,
     copts = LIBAOM_COPTS + select({
         ":compiler_msvc": ["/arch:AVX2"],
         "//conditions:default": ["-mavx2"],
     }),
+    textual_hdrs = LIBAOM_HEADERS,
     deps = [
         ":config",
         ":vector",
@@ -580,8 +581,8 @@ DSP_ASM = [
 cc_library(
     name = "dsp",
     srcs = DSP_SRCS,
-    textual_hdrs = LIBAOM_HEADERS,
     copts = LIBAOM_COPTS,
+    textual_hdrs = LIBAOM_HEADERS,
     deps = [
         ":config",
     ] + select({
@@ -599,15 +600,14 @@ cc_library(
 nasm_library(
     name = "dsp_x86_asm",
     srcs = DSP_ASM,
-    includes = NASM_INCLUDES,
     flags = NASM_FLAGS,
+    includes = NASM_INCLUDES,
     alwayslink = 1,
 )
 
 cc_library(
     name = "dsp_x86_sse",
     srcs = DSP_SRCS_SSE,
-    textual_hdrs = LIBAOM_HEADERS,
     copts = LIBAOM_COPTS + select({
         ":compiler_msvc": [
             # Set up /arch:SSE4.1, which does not exist.
@@ -619,6 +619,7 @@ cc_library(
         ],
         "//conditions:default": ["-msse4.1"],
     }),
+    textual_hdrs = LIBAOM_HEADERS,
     deps = [":config"],
     alwayslink = 1,
 )
@@ -626,11 +627,11 @@ cc_library(
 cc_library(
     name = "dsp_x86_avx",
     srcs = DSP_SRCS_AVX,
-    textual_hdrs = LIBAOM_HEADERS,
     copts = LIBAOM_COPTS + select({
         ":compiler_msvc": ["/arch:AVX"],
         "//conditions:default": ["-mavx"],
     }),
+    textual_hdrs = LIBAOM_HEADERS,
     deps = [":config"],
     alwayslink = 1,
 )
@@ -638,11 +639,11 @@ cc_library(
 cc_library(
     name = "dsp_x86_avx2",
     srcs = DSP_SRCS_AVX2,
-    textual_hdrs = LIBAOM_HEADERS,
     copts = LIBAOM_COPTS + select({
         ":compiler_msvc": ["/arch:AVX2"],
         "//conditions:default": ["-mavx2"],
     }),
+    textual_hdrs = LIBAOM_HEADERS,
     deps = [":config"],
     alwayslink = 1,
 )
@@ -664,11 +665,11 @@ cc_library(
     name = "scale",
     srcs = SCALE_SRCS,
     hdrs = SCALE_HDRS,
-    textual_hdrs = LIBAOM_HEADERS,
     copts = LIBAOM_COPTS,
+    textual_hdrs = LIBAOM_HEADERS,
     deps = [
-        ":mem",
         ":config",
+        ":mem",
     ],
     alwayslink = 1,
 )
@@ -715,9 +716,9 @@ cc_library(
     name = "codec",
     srcs = CODEC_SRCS,
     hdrs = CODEC_HDRS,
-    textual_hdrs = LIBAOM_HEADERS,
     copts = LIBAOM_COPTS,
     includes = ["aom"],
+    textual_hdrs = LIBAOM_HEADERS,
     deps = [
         ":mem",
         ":config",
@@ -736,16 +737,16 @@ nasm_library(
     srcs = [
         "aom_ports/float.asm",
     ],
-    includes = NASM_INCLUDES,
     flags = NASM_FLAGS,
+    includes = NASM_INCLUDES,
     alwayslink = 1,
 )
 
 cc_library(
     name = "mem",
     srcs = [
-        "aom_mem/aom_mem.c",
         "aom/aom_integer.h",
+        "aom_mem/aom_mem.c",
         "aom_mem/include/aom_mem_intrnl.h",
     ],
     hdrs = [
@@ -762,9 +763,9 @@ cc_library(
     srcs = [
         "common/args_helper.c",
     ],
-    textual_hdrs = LIBAOM_HEADERS,
     hdrs = ["common/args_helper.h"],
     copts = LIBAOM_COPTS,
+    textual_hdrs = LIBAOM_HEADERS,
     deps = [":config"],
     alwayslink = 1,
 )
@@ -774,9 +775,9 @@ cc_library(
 cc_library(
     name = "fastfeat",
     srcs = [
-        "third_party/fastfeat/nonmax.c",
-        "third_party/fastfeat/fast_9.c",
         "third_party/fastfeat/fast.c",
+        "third_party/fastfeat/fast_9.c",
+        "third_party/fastfeat/nonmax.c",
     ],
     hdrs = [
         "third_party/fastfeat/fast.h",
@@ -801,10 +802,10 @@ cc_library(
     name = "config",
     hdrs = [
         "config/aom_config.h",
-        "config/av1_rtcd.h",
-        "config/aom_scale_rtcd.h",
         "config/aom_dsp_rtcd.h",
+        "config/aom_scale_rtcd.h",
         "config/aom_version.h",
+        "config/av1_rtcd.h",
     ],
     #    deps = [":aom_dsp_rtcd", ":aom_scale_rtcd", ":av1_rtcd"],
 )
@@ -827,32 +828,31 @@ CONFIG_SUBSTITUTIONS = select({
     },
 })
 
-template_rule(
+expand_template(
     name = "config_h_tmpl",
-    src = "@com_google_tensorstore//third_party:org_aomedia_aom/aom_config.h.template",
     out = "config/aom_config.h",
     substitutions = CONFIG_SUBSTITUTIONS,
+    template = "@com_google_tensorstore//third_party:org_aomedia_aom/aom_config.h.template",
 )
 
-template_rule(
+expand_template(
     name = "config_asm_tmpl",
-    src = "@com_google_tensorstore//third_party:org_aomedia_aom/aom_config.asm.template",
     out = "config/aom_config.asm",
     substitutions = CONFIG_SUBSTITUTIONS,
+    template = "@com_google_tensorstore//third_party:org_aomedia_aom/aom_config.asm.template",
 )
 
-template_rule(
+expand_template(
     name = "config_version_tmpl",
-    src = "@com_google_tensorstore//third_party:org_aomedia_aom/aom_version.h.template",
     out = "config/aom_version.h",
     substitutions = CONFIG_SUBSTITUTIONS,
+    template = "@com_google_tensorstore//third_party:org_aomedia_aom/aom_version.h.template",
 )
 
-genrule(
+write_file(
     name = "config_c_tmpl",
-    outs = ["config/aom_config.c"],
-    cmd = "\n".join([
-        "cat <<'EOF' >$@",
+    out = "config/aom_config.c",
+    content = [
         "/*",
         " * Copyright (c) 2016, Alliance for Open Media. All rights reserved",
         " *",
@@ -867,8 +867,8 @@ genrule(
         "static const char* const cfg = \"bazel build @org_aomedia_aom//:all\";",
         "const char *aom_codec_build_config(void) {return cfg;}",
         "",
-        "EOF",
-    ]),
+    ],
+    newline = "unix",
 )
 
 # Uses the rtcd.pl tool to build the config .h files required by libaom.
@@ -888,11 +888,18 @@ RTCD_CMD = select({
 [
     genrule(
         name = tag,
-        srcs = ["build/cmake/rtcd.pl", "config/aom_config.h", script],
+        srcs = [
+            "build/cmake/rtcd.pl",
+            "config/aom_config.h",
+            script,
+        ],
         outs = ["config/{file}.h".format(file = tag)],
         cmd = (RTCD_CMD + " ".join([
             "--config=$(location config/aom_config.h)",
-            "--sym={sym} $(location {script})".format(sym = tag, script = script),
+            "--sym={sym} $(location {script})".format(
+                sym = tag,
+                script = script,
+            ),
             "> $(OUTS)",
         ])),
         message = "RTCD {tag}".format(tag = tag),

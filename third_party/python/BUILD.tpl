@@ -1,5 +1,4 @@
 load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
-load("@com_google_tensorstore//:utils.bzl", "cc_library_with_strip_include_prefix")
 
 licenses(["restricted"])
 
@@ -17,11 +16,11 @@ cc_import(
     system_provided = 1,
 )
 
-cc_library_with_strip_include_prefix(
+cc_library(
     name = "python_headers",
     hdrs = [":python_include"],
     deps = select({
-        ":windows": [":python_lib"],
+        "@platforms//os:windows": [":python_lib"],
         "//conditions:default": [],
     }),
     strip_include_prefix = "python_include",
@@ -30,14 +29,9 @@ cc_library_with_strip_include_prefix(
         # problematic snprintf macro.
         #
         # https://bugs.python.org/issue36020
-        ":windows": ["HAVE_SNPRINTF=1"],
+        "@platforms//os:windows": ["HAVE_SNPRINTF=1"],
         "//conditions:default": [],
     }),
-)
-
-config_setting(
-    name = "windows",
-    constraint_values = ["@platforms//os:windows"],
 )
 
 # Manually define Python toolchain to ensure correct behavior on Windows

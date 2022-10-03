@@ -131,8 +131,6 @@ def _third_party_python_package_impl(ctx):
     build_file_content = ""
     if is_numpy:
         build_file_content = """
-load("@com_google_tensorstore//:utils.bzl", "cc_library_with_strip_include_prefix")
-
 """
     if use_syslib:
         build_file_content += """
@@ -143,7 +141,7 @@ py_library(
 """
         if is_numpy:
             build_file_content += """
-cc_library_with_strip_include_prefix(
+cc_library(
   name = "headers",
   hdrs = [":numpy_include"],
   strip_include_prefix = "numpy_include",
@@ -182,7 +180,7 @@ py_library(
         if is_numpy:
             build_file_content += """
 
-cc_library_with_strip_include_prefix(
+cc_library(
   name = "headers",
   hdrs = glob(["numpy/core/include/**/*.h"]),
   strip_include_prefix = "numpy/core/include",

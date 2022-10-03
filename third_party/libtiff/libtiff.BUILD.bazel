@@ -1,7 +1,5 @@
-load(
-    "@com_google_tensorstore//:utils.bzl",
-    "package_relative_path",
-)
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
+load("@com_google_tensorstore//:utils.bzl", "package_relative_path")
 
 licenses(["notice"])  # BSD-like licence
 
@@ -59,7 +57,7 @@ cc_library(
         "libtiff/tiffiop.h",
         "libtiff/uvcode.h",
     ] + select({
-        ":windows": ["libtiff/tif_win32.c"],
+        "@platforms//os:windows": ["libtiff/tif_win32.c"],
         "//conditions:default": ["libtiff/tif_unix.c"],
     }),
     hdrs = [
@@ -73,7 +71,7 @@ cc_library(
     copts = [
         "-I" + package_relative_path("libtiff"),
     ] + select({
-        ":windows": [],
+        "@platforms//os:windows": [],
         "//conditions:default": [
             "-Wno-format",
             "-Wno-format-extra-args",
@@ -91,11 +89,10 @@ cc_library(
     ],
 )
 
-genrule(
+write_file(
     name = "tiffconf_h",
-    outs = ["libtiff/tiffconf.h"],
-    cmd = "\n".join([
-        "cat <<'EOF' >$@",
+    out = "libtiff/tiffconf.h",
+    content = [
         "#ifndef _TIFFCONF_",
         "#define _TIFFCONF_",
         "",
@@ -157,15 +154,14 @@ genrule(
         "#define PHOTOSHOP_SUPPORT",
         "#define IPTC_SUPPORT",
         "#endif /* _TIFFCONF_ */",
-        "EOF",
-    ]),
+    ],
+    newline = "unix",
 )
 
-genrule(
+write_file(
     name = "tif_config_h",
-    outs = ["libtiff/tif_config.h"],
-    cmd = "\n".join([
-        "cat <<'EOF' >$@",
+    out = "libtiff/tif_config.h",
+    content = [
         "#if defined(_MSC_VER)",
         "",
         "#define TIFF_INT64_T signed __int64",
@@ -294,11 +290,6 @@ genrule(
         "#define ZIP_SUPPORT 1",
         "#define ZSTD_SUPPORT 1",
         "#define _DARWIN_USE_64_BIT_INODE 1",
-        "EOF",
-    ]),
-)
-
-config_setting(
-    name = "windows",
-    constraint_values = ["@platforms//os:windows"],
+    ],
+    newline = "unix",
 )

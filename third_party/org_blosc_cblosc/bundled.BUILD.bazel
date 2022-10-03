@@ -1,9 +1,9 @@
-load("@com_google_tensorstore//:utils.bzl", "cc_library_with_strip_include_prefix", "package_relative_path")
+load("@com_google_tensorstore//:utils.bzl", "package_relative_path")
 
 package(default_visibility = ["//visibility:private"])
 
 BLOSC_LOCAL_DEFINES = select({
-    ":cpu_x86_64": [
+    "@platforms//cpu:x86_64": [
         "SHUFFLE_SSE2_ENABLED",
         # Always build AVX2 support.  It is only used at runtime if the CPU
         # supports it.
@@ -86,7 +86,7 @@ cc_library(
     copts = BLOSC_COPTS + select({
         # This should really be based on the compiler, rather than the platform,
         # but it is difficult to reliably detect the compiler.
-        ":windows": ["/arch:AVX2"],
+        "@platforms//os:windows": ["/arch:AVX2"],
         "//conditions:default": ["-mavx2"],
     }),
     local_defines = BLOSC_LOCAL_DEFINES,
@@ -110,13 +110,13 @@ cc_library(
         ":blosc_common",
         ":shuffle_generic",
     ] + select({
-        ":cpu_x86_64": [
+        "@platforms//cpu:x86_64": [
             ":shuffle_avx2",
             ":shuffle_sse2",
         ],
         "//conditions:default": [],
     }) + select({
-        ":windows": [":win32"],
+        "@platforms//os:windows": [":win32"],
         "//conditions:default": [],
     }),
 )
@@ -133,7 +133,7 @@ cc_library(
     target_compatible_with = ["@platforms//os:windows"],
 )
 
-cc_library_with_strip_include_prefix(
+cc_library(
     name = "blosc",
     srcs = [
         "blosc/blosc.c",
@@ -158,17 +158,7 @@ cc_library_with_strip_include_prefix(
         "@net_zlib//:zlib",
         "@org_lz4//:lz4",
     ] + select({
-        ":windows": [":win32"],
+        "@platforms//os:windows": [":win32"],
         "//conditions:default": [],
     }),
-)
-
-config_setting(
-    name = "cpu_x86_64",
-    constraint_values = ["@platforms//cpu:x86_64"],
-)
-
-config_setting(
-    name = "windows",
-    constraint_values = ["@platforms//os:windows"],
 )

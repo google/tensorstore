@@ -1,6 +1,8 @@
 # Description:
 #   NASM is a portable assembler in the Intel/Microsoft tradition.
 
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
+
 package(
     default_visibility = ["//visibility:public"],
 )
@@ -158,7 +160,6 @@ cc_binary(
         ":have_strlcpy": [],
         "//conditions:default": ["stdlib/strlcpy.c"],
     }),
-
     copts = select({
         "@platforms//os:windows": ["/O2"],
         "//conditions:default": [
@@ -181,7 +182,7 @@ cc_binary(
     ],
 )
 
-CONFIG_H = "\n".join([
+CONFIG_H = [
     "#define HAVE_ACCESS 1",
     "#define HAVE_FACCESSAT 1",
     "#define HAVE_FCNTL_H 1",
@@ -215,10 +216,10 @@ CONFIG_H = "\n".join([
     "#define HAVE_MEMORY_H 1",
     "#define HAVE_MMAP 1",
     "",
-]) + select({
-    ":have_mempcpy": "#define HAVE_MEMPCPY 1\n",
-    "//conditions:default": "",
-}) + "\n".join([
+] + select({
+    ":have_mempcpy": ["#define HAVE_MEMPCPY 1"],
+    "//conditions:default": [],
+}) + [
     "#define HAVE_PATHCONF 1",
     "#define HAVE_REALPATH 1",
     "#define HAVE_SNPRINTF 1",
@@ -231,14 +232,14 @@ CONFIG_H = "\n".join([
     "#define HAVE_STRINGS_H 1",
     "#define HAVE_STRING_H 1",
     "",
-]) + select({
-    ":have_strlcpy": "\n".join([
+] + select({
+    ":have_strlcpy": [
         "#define HAVE_STRLCPY 1",
         "#define HAVE_DECL_STRLCPY 1",
         "",
-    ]),
-    "//conditions:default": "",
-}) + "\n".join([
+    ],
+    "//conditions:default": [],
+}) + [
     "#define HAVE_STRCASECMP 1",
     "#define HAVE_DECL_STRCASECMP 1",
     "#define HAVE_STRNCASECMP 1",
@@ -283,12 +284,13 @@ CONFIG_H = "\n".join([
     "#endif",
     "",
     "#include \"config/unconfig.h\"",
-])
+]
 
-genrule(
+write_file(
     name = "config",
-    outs = ["config/config.h"],
-    cmd = "cat <<'EOF' >$@\n" + CONFIG_H + "\nEOF\n",
+    out = "config/config.h",
+    content = CONFIG_H,
+    newline = "unix",
 )
 
 config_setting(

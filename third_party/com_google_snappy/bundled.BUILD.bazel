@@ -1,4 +1,4 @@
-load("@com_google_tensorstore//:utils.bzl", "cc_library_with_strip_include_prefix")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -9,10 +9,10 @@ filegroup(
     srcs = ["COPYING"],
 )
 
-genrule(
+write_file(
     name = "configure",
-    outs = ["snappy-stubs-public.h"],
-    cmd = """cat <<'EOF' >$@
+    out = "snappy-stubs-public.h",
+    content = ["""
 // Copyright 2011 Google Inc. All Rights Reserved.
 // Author: sesse@google.com (Steinar H. Gunderson)
 //
@@ -111,11 +111,11 @@ struct iovec {
 }  // namespace snappy
 
 #endif  // UTIL_SNAPPY_OPENSOURCE_SNAPPY_STUBS_PUBLIC_H_
-EOF
-""",
+"""],
+    newline = "unix",
 )
 
-cc_library_with_strip_include_prefix(
+cc_library(
     name = "snappy",
     srcs = [
         "snappy.cc",

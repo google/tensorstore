@@ -1,4 +1,4 @@
-load("@com_google_tensorstore//:utils.bzl", "cc_library_with_strip_include_prefix", "package_relative_path")
+load("@com_google_tensorstore//:utils.bzl", "package_relative_path")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -16,7 +16,7 @@ cc_library(
     ],
 )
 
-cc_library_with_strip_include_prefix(
+cc_library(
     name = "lz4",
     srcs = [
         "lib/lz4.c",

@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("//:utils.bzl", "constraint_values_config_setting")
 load("//tensorstore:tensorstore.bzl", "tensorstore_cc_test")
 
 def cc_with_non_compile_test(
@@ -30,9 +29,7 @@ def cc_with_non_compile_test(
     if deps == None:
         deps = []
 
-    # This should really be detecting the compiler rather than the platform, but
-    # it is difficult to reliably detect the compiler.
-    msvc_config_setting = constraint_values_config_setting(["@platforms//os:windows"])
+    msvc_config_setting = "@com_google_tensorstore//:compiler_msvc"
 
     # This just turns it into a regular test.
     tensorstore_cc_test(

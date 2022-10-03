@@ -1,10 +1,8 @@
-load("@com_google_tensorstore//:utils.bzl", "cc_library_with_strip_include_prefix")
-
 licenses(["notice"])
 
 exports_files(["LICENSE.txt"])
 
-cc_library_with_strip_include_prefix(
+cc_library(
     name = "half",
     hdrs = ["include/half.hpp"],
     strip_include_prefix = "include",

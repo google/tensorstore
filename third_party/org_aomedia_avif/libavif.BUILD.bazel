@@ -1,15 +1,13 @@
 # Description:
 #   The libavif package provides avif encoding and decoding.
 #
-load("@com_google_tensorstore//:utils.bzl", "cc_library_with_strip_include_prefix")
-
 package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
 exports_files(["LICENSE"])
 
-cc_library_with_strip_include_prefix(
+cc_library(
     name = "avif",
     srcs = glob(
         [
@@ -25,6 +23,12 @@ cc_library_with_strip_include_prefix(
     hdrs = glob([
         "include/avif/*.h",
     ]),
+    copts = select({
+        "@com_google_tensorstore//:compiler_msvc": [],
+        "//conditions:default": [
+            "-Wno-incompatible-pointer-types",
+        ],
+    }),
     local_defines = [
         "AVIF_CODEC_DAV1D=1",  # https://code.videolan.org/videolan/dav1d
         #"AVIF_CODEC_LIBGAV1=1",  # https://chromium.googlesource.com/codecs/libgav1/
@@ -36,16 +40,10 @@ cc_library_with_strip_include_prefix(
         "AVIF_LIBYUV_ENABLED=1",
     ],
     strip_include_prefix = "include",
+    visibility = ["//visibility:public"],
     deps = [
         "@com_google_libyuv//:libyuv",
         "@org_aomedia_aom//:libaom",
         "@org_videolan_dav1d//:dav1d",
     ],
-    copts = select({
-        "@com_google_tensorstore//:compiler_msvc": [],
-        "//conditions:default": [
-            "-Wno-incompatible-pointer-types",
-        ],
-    }),
-    visibility = ["//visibility:public"],
 )

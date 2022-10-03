@@ -14,7 +14,6 @@
 
 """Supports pybind11 extension modules"""
 
-load("//:utils.bzl", "constraint_values_config_setting")
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("//python/tensorstore:pybind11_cc_test.bzl", _pybind11_cc_googletest_test = "pybind11_cc_googletest_test")
 
@@ -91,7 +90,7 @@ def py_extension(
                 # On macOS, the linker does not support version scripts.  Use
                 # the `-exported_symbol` option instead to restrict symbol
                 # visibility.
-                constraint_values_config_setting(["@platforms//os:macos"]): [
+                "@platforms//os:macos": [
                     "-Wl,-exported_symbol",
                     # On macOS, the symbol starts with an underscore.
                     "-Wl,_" + exported_symbol,
@@ -104,7 +103,7 @@ def py_extension(
                 ],
             })
             cur_deps = cur_deps + select({
-                constraint_values_config_setting(["@platforms//os:macos"]): [],
+                "@platforms//os:macos": [],
                 "//conditions:default": [linker_script_name],
             })
         native.cc_binary(
@@ -130,7 +129,7 @@ def py_extension(
     native.filegroup(
         name = shared_objects_name,
         data = select({
-            constraint_values_config_setting(["@platforms//os:windows"]): [
+            "@platforms//os:windows": [
                 ":" + cc_binary_pyd_name,
             ],
             "//conditions:default": [":" + cc_binary_so_name],

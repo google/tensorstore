@@ -1,10 +1,11 @@
-load("@com_google_tensorstore//:utils.bzl", "cc_library_with_strip_include_prefix", "package_relative_path")
+load("@com_google_tensorstore//:utils.bzl", "package_relative_path")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
 
 licenses(["notice"])
 
 exports_files(["COPYING"])
 
-cc_library_with_strip_include_prefix(
+cc_library(
     name = "nghttp2",
     srcs = glob([
         "lib/nghttp2_*.h",
@@ -19,7 +20,7 @@ cc_library_with_strip_include_prefix(
         "-I" + package_relative_path("lib"),
         "-I" + package_relative_path("lib/includes"),
     ] + select({
-        ":windows": [],
+        "@platforms//os:windows": [],
         "//conditions:default": [
             "-Wno-string-plus-int",
         ],
@@ -37,11 +38,10 @@ cc_library_with_strip_include_prefix(
 
 # Generated based on running configure on several platforms.
 # May need to be updated in future versions.
-genrule(
+write_file(
     name = "configure",
-    outs = ["lib/includes/config.h"],
-    cmd = "\n".join([
-        "cat <<'EOF' >$@",
+    out = "lib/includes/config.h",
+    content = [
         "#ifndef EXTERNAL_NGHTTP2_CONFIG_H_",
         "#define EXTERNAL_NGHTTP2_CONFIG_H_",
         "",
@@ -171,11 +171,6 @@ genrule(
         "#define PACKAGE_VERSION \"1.41.0\"",
         "",
         "#endif  // EXTERNAL_NGHTTP2_CONFIG_H_",
-        "EOF",
-    ]),
-)
-
-config_setting(
-    name = "windows",
-    constraint_values = ["@platforms//os:windows"],
+    ],
+    newline = "unix",
 )

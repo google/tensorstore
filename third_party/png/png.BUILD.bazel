@@ -1,20 +1,20 @@
-load("@com_google_tensorstore//:utils.bzl", "cc_library_with_strip_include_prefix", "template_rule")
+load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
 
 licenses(["notice"])  # BSD/MIT-like license
 
 exports_files(["LICENSE"])
 
-libpng_copts = select({
-    ":windows": ["-DPNG_INTEL_SSE_OPT=1"],
+libpng_local_defines = select({
+    "@platforms//os:windows": ["PNG_INTEL_SSE_OPT=1"],
     "//conditions:default": [],
 })
 
 libpng_linkopts = select({
-    ":windows": [],
+    "@platforms//os:windows": [],
     "//conditions:default": ["-lm"],
 })
 
-cc_library_with_strip_include_prefix(
+cc_library(
     name = "png",
     srcs = [
         "png.c",
@@ -38,15 +38,15 @@ cc_library_with_strip_include_prefix(
         "pngwtran.c",
         "pngwutil.c",
     ] + select({
-        ":windows": [
+        "@platforms//os:windows": [
             "intel/intel_init.c",
             "intel/filter_sse2_intrinsics.c",
         ],
-        ":linux_ppc64le": [
+        "@platforms//cpu:ppc": [
             "powerpc/powerpc_init.c",
             "powerpc/filter_vsx_intrinsics.c",
         ],
-        ":arm64": [
+        "@platforms//cpu:arm64": [
             "arm/arm_init.c",
             "arm/filter_neon.S",
             "arm/filter_neon_intrinsics.c",
@@ -58,8 +58,8 @@ cc_library_with_strip_include_prefix(
         "png.h",
         "pngconf.h",
     ],
-    copts = libpng_copts,
     linkopts = libpng_linkopts,
+    local_defines = libpng_local_defines,
     strip_include_prefix = "",
     visibility = ["//visibility:public"],
     deps = ["@net_zlib//:zlib"],
@@ -71,25 +71,9 @@ PNG_IN_SUBSTITUTIONS = {
     # consistency.
 }
 
-template_rule(
+expand_template(
     name = "png_config",
-    src = "scripts/pnglibconf.h.prebuilt",
     out = "pnglibconf.h",
     substitutions = PNG_IN_SUBSTITUTIONS,
-)
-
-config_setting(
-    name = "windows",
-    values = {"cpu": "x64_windows"},
-)
-
-config_setting(
-    name = "linux_ppc64le",
-    values = {"cpu": "ppc"},
-)
-
-# Config settings
-alias(
-    name = "arm64",
-    actual = "@com_google_tensorstore//:arm64",
+    template = "scripts/pnglibconf.h.prebuilt",
 )

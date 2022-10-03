@@ -1,20 +1,8 @@
-load("@com_google_tensorstore//:utils.bzl", "cc_library_with_strip_include_prefix")
-
 package(default_visibility = ["//visibility:private"])
 
 licenses(["notice"])  # BSD/MIT-like license (for zlib)
 
-config_setting(
-    name = "windows",
-    values = {"cpu": "x64_windows"},
-)
-
-config_setting(
-    name = "windows_msvc",
-    values = {"cpu": "x64_windows_msvc"},
-)
-
-cc_library_with_strip_include_prefix(
+cc_library(
     name = "zlib",
     srcs = [
         "adler32.c",
@@ -45,8 +33,7 @@ cc_library_with_strip_include_prefix(
     ],
     hdrs = ["zlib.h"],
     copts = select({
-        ":windows": [],
-        ":windows_msvc": [],
+        "@platforms//os:windows": [],
         "//conditions:default": [
             "-Wno-shift-negative-value",
             "-DZ_HAVE_UNISTD_H",
