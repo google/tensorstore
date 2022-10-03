@@ -354,7 +354,7 @@ TEST(StackDriverTest, ReadWriteNonExistingLayers) {
   // Sublayers are opened on read; they do not exist.
   EXPECT_THAT(tensorstore::Read<tensorstore::zero_origin>(store).result(),
               tensorstore::MatchesStatus(absl::StatusCode::kNotFound,
-                                         "Error opening \"n5\" driver: .*"));
+                                         ".*Error opening \"n5\" driver: .*"));
 
   // Sublayers are opened on write; they do not exist.
   EXPECT_THAT(tensorstore::Write(tensorstore::MakeOffsetArray(
@@ -362,7 +362,7 @@ TEST(StackDriverTest, ReadWriteNonExistingLayers) {
                                  store)
                   .result(),
               tensorstore::MatchesStatus(absl::StatusCode::kNotFound,
-                                         "Error opening \"n5\" driver: .*"));
+                                         ".*Error opening \"n5\" driver: .*"));
 }
 
 TEST(StackDriverTest, Schema_MismatchedDtype) {

@@ -48,6 +48,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:type_traits",
         "//tensorstore/internal/cache:cache_pool_resource",
         "//tensorstore/internal/json_binding",
+        "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/internal/json_binding:staleness_bound",
         "//tensorstore/serialization",
         "//tensorstore/util:executor",

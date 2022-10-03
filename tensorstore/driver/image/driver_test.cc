@@ -190,6 +190,76 @@ TEST_P(ImageDriverReadTest, OpenAndResolveBounds) {
   }
 }
 
+TEST_P(ImageDriverReadTest, OpenSchemaDomainTooLarge) {
+  /// The schema domain exceeds image bounds; that's a failure.
+  ::nlohmann::json spec{
+      {"driver", GetParam().driver},
+      {"kvstore", {{"driver", "memory"}, {"path", GetParam().path}}},
+      {"schema",
+       {
+           {"domain",
+            {
+                {"exclusive_max", {300, 400, 3}},
+                {"inclusive_min", {0, 0, 0}},
+            }},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto context, PrepareTest(spec));
+
+  EXPECT_THAT(tensorstore::Open(spec, context).result(),
+              MatchesStatus(absl::StatusCode::kOutOfRange));
+}
+
+TEST_P(ImageDriverReadTest, OpenTransformTooLarge) {
+  // Transform input domain exceeds image bounds; that's a failure.
+  ::nlohmann::json spec{
+      {"driver", GetParam().driver},
+      {"kvstore", {{"driver", "memory"}, {"path", GetParam().path}}},
+      {"transform",
+       {
+           {"input_labels", {"y", "x", "c"}},
+           {"input_inclusive_min", {0, 0, 0}},
+           {"input_exclusive_max", {512, 512, 3}},
+           {"output",
+            {{{"input_dimension", 0}},
+             {{"input_dimension", 1}},
+             {{"input_dimension", 2}}}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto context, PrepareTest(spec));
+
+  EXPECT_THAT(tensorstore::Open(spec, context).result(),
+              MatchesStatus(absl::StatusCode::kOutOfRange));
+}
+
+TEST_P(ImageDriverReadTest, OpenTransformSmall) {
+  // Transform input domain is smaller than the image; that's OK.
+  ::nlohmann::json spec{
+      {"driver", GetParam().driver},
+      {"kvstore", {{"driver", "memory"}, {"path", GetParam().path}}},
+      {"transform",
+       {
+           {"input_labels", {"y", "x", "c"}},
+           {"input_inclusive_min", {0, 0, 0}},
+           {"input_exclusive_max", {200, 200, 2}},
+           {"output",
+            {{{"input_dimension", 0}},
+             {{"input_dimension", 1}},
+             {{"input_dimension", 2}}}},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto context, PrepareTest(spec));
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
+                                   tensorstore::Open(spec, context).result());
+
+  EXPECT_EQ(store.domain().box(),
+            tensorstore::BoxView({0, 0, 0}, {200, 200, 2}));
+}
+
 TEST_P(ImageDriverReadTest, Read) {
   auto spec = GetSpec();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto context, PrepareTest(spec));

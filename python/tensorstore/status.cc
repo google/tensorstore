@@ -204,7 +204,7 @@ pybind11::object GetStatusPythonException(const absl::Status& status,
   if (auto exc = GetExceptionFromStatus(status); exc.ptr()) {
     return exc;
   }
-  return GetExceptionType(status.code(), policy)(std::string{status.message()});
+  return GetExceptionType(status.code(), policy)(status.ToString());
 }
 
 absl::Status GetStatusFromPythonException(pybind11::handle exc) noexcept {

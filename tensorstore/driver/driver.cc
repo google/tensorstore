@@ -34,6 +34,7 @@
 #include "tensorstore/index_space/dimension_units.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/tagged_ptr.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/open_mode.h"
@@ -87,27 +88,52 @@ Future<Driver::Handle> OpenDriver(OpenTransactionPtr transaction,
 Future<Driver::Handle> OpenDriver(OpenTransactionPtr transaction,
                                   TransformedDriverSpec bound_spec,
                                   ReadWriteMode read_write_mode) {
+  DriverSpecPtr ptr = bound_spec.driver_spec;
+
   return MapFuture(
       InlineExecutor{},
-      [transform = std::move(bound_spec.transform),
-       id = bound_spec.driver_spec->GetId()](
+      [bound_spec = std::move(bound_spec)](
           Result<Driver::Handle>& handle) mutable -> Result<Driver::Handle> {
+        absl::Status status;
         if (!handle.ok()) {
-          return tensorstore::MaybeAnnotateStatus(
-              handle.status(),
-              tensorstore::StrCat("Error opening ",
-                                  tensorstore::QuoteString(id), " driver"));
+          status = handle.status();
+        } else if (bound_spec.transform.valid()) {
+          auto composed_transform = tensorstore::ComposeTransforms(
+              std::move(handle->transform), std::move(bound_spec.transform));
+          if (composed_transform.ok()) {
+            handle->transform = std::move(composed_transform).value();
+          } else {
+            status = composed_transform.status();
+          }
         }
-        if (transform.valid()) {
-          TENSORSTORE_ASSIGN_OR_RETURN(
-              handle->transform,
-              tensorstore::ComposeTransforms(std::move(handle->transform),
-                                             std::move(transform)));
+
+        /// On failure, annotate status with spec.
+        if (!status.ok()) {
+          status = tensorstore::MaybeAnnotateStatus(
+              std::move(status),
+              tensorstore::StrCat(
+                  "Error opening ",
+                  tensorstore::QuoteString(bound_spec.driver_spec->GetId()),
+                  " driver"));
+          auto spec_json = internal_json_binding::ToJson(bound_spec);
+          if (spec_json.ok()) {
+            // Find a unique payload id.
+            std::string payload_id = "tensorstore_spec";
+            int id = 1;
+            while (status.GetPayload(payload_id).has_value()) {
+              payload_id = StrCat("tensorstore_spec_", id++);
+            }
+            // And store the spec string.
+            std::string spec_str = spec_json.value().dump();
+            status.SetPayload(payload_id, absl::Cord(spec_str));
+          }
+          return status;
         }
+
         // Move handle out of the `Future`.
         return std::move(handle);
       },
-      bound_spec.driver_spec->Open(std::move(transaction), read_write_mode));
+      ptr->Open(std::move(transaction), read_write_mode));
 }
 
 Driver::~Driver() = default;

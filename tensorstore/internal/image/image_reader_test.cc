@@ -275,9 +275,7 @@ INSTANTIATE_TEST_SUITE_P(  //
         TestParam{"avif/D75_08b.avif", ImageInfo{172, 306, 3},
                   GetD75_08_Values()},
         // lossy: avifenc -y 422 -a cq-level=1 --min 1 --max 1 <png> <avif>
-        TestParam{"avif/D75_08b_cq1.avif",
-                  ImageInfo{172, 306, 3},
-                  {V{{29, 117}, {172, 93, 98}}}},
+        TestParam{"avif/D75_08b_cq1.avif", ImageInfo{172, 306, 3}},
         TestParam{"avif/D75_10b_cq1.avif",
                   ImageInfo{172, 306, 3, ::tensorstore::dtype_v<uint16_t>}},
         // avifenc -y 400  -a cq-level=1 --min 1 --max 1 <grey.png> <avif>

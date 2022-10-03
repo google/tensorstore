@@ -48,6 +48,7 @@
 #include "tensorstore/internal/grid_partition.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/irregular_grid.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/staleness_bound.h"
 #include "tensorstore/internal/json_binding/std_array.h"  // IWYU pragma: keep
@@ -400,7 +401,7 @@ absl::Status StackDriver::InitializeGridIndices(
   std::fill(start.begin(), start.end(), 0);
   IterateOverIndexRange<>(
       span<const Index>(start), grid_.shape(), [this](span<const Index> key) {
-        if (grid_to_layer_.find(key) == grid_to_layer_.end()) {
+        if (auto it = grid_to_layer_.find(key); it == grid_to_layer_.end()) {
           TENSORSTORE_LOG("\"stack\" driver missing grid cell: ", key);
         }
       });
@@ -497,30 +498,36 @@ struct ForwardingLayerReceiver {
 template <typename StateType>
 struct AfterOpenOp {
   IntrusivePtr<SetPromiseOnRelease<StateType>> set_promise;
+  size_t layer_id;
   std::vector<IndexTransform<>> cells;
 
-  void operator()(Promise<void>, ReadyFuture<internal::Driver::Handle> f) {
+  absl::Status ComposeAndDispatch(ReadyFuture<internal::Driver::Handle> f) {
     if (!f.result().ok()) {
-      set_promise->SetError(f.result().status());
-      return;
+      return f.result().status();
     }
     // After opening the layer, issue reads to each of the the grid cells.
     // The read transform is: Compose(outer_request, Compose(driver, cell)).
     for (auto& cell_transform : cells) {
-      auto a_transform =
-          ComposeTransforms(set_promise->state->orig_transform, cell_transform);
-      if (!a_transform.ok()) {
-        set_promise->SetError(std::move(a_transform).status());
-        return;
-      }
-      auto b_transform =
-          ComposeTransforms(f.result()->transform, a_transform.value());
-      if (!b_transform.ok()) {
-        set_promise->SetError(std::move(b_transform).status());
-        return;
-      }
-      set_promise->state->Dispatch(*f.result(), std::move(*b_transform),
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          auto a_transform,
+          ComposeTransforms(set_promise->state->orig_transform,
+                            cell_transform));
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          auto b_transform,
+          ComposeTransforms(f.result()->transform, std::move(a_transform)));
+
+      set_promise->state->Dispatch(*f.result(), std::move(b_transform),
                                    set_promise, cell_transform);
+    }
+    return absl::OkStatus();
+  }
+
+  void operator()(Promise<void>, ReadyFuture<internal::Driver::Handle> f) {
+    absl::Status status = ComposeAndDispatch(std::move(f));
+    if (!status.ok()) {
+      set_promise->SetError(MaybeAnnotateStatus(
+          std::move(status),
+          tensorstore::StrCat("While opening layer ", layer_id)));
     }
   }
 };
@@ -566,9 +573,9 @@ struct OpenLayerOp {
 
     // Open each layer and invoke OpType for all corresponding cell transforms.
     for (auto& kv : layers_to_load) {
-      Link(WithExecutor(
-               self->data_copy_executor(),
-               AfterOpenOp<StateType>{set_promise, std::move(kv.second)}),
+      Link(WithExecutor(self->data_copy_executor(),
+                        AfterOpenOp<StateType>{set_promise, kv.first,
+                                               std::move(kv.second)}),
            set_promise->promise,
            internal::OpenDriver(set_promise->state->transaction,
                                 self->bound_spec_.layers[kv.first],
