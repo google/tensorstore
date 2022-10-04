@@ -9,7 +9,7 @@ package(default_visibility = ["//visibility:public"])
 cc_import(
     name = "python_lib",
     interface_library = select({
-        ":windows": ":python_import_lib",
+        "@platforms//os:windows": ":python_import_lib",
         # A placeholder for Unix platforms which makes --no_build happy.
         "//conditions:default": "not-existing.lib",
     }),
