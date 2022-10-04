@@ -372,14 +372,28 @@ Future<internal::DriverHandle> ImageDriverSpec<Specialization>::Open(
                driver->data_staleness_ =
                    data_staleness.BoundAtOpen(request_time);
 
+               IndexDomain<> schema_domain = this->schema.domain();
                // Since writing is not allowed, resolve the cache entry
                // upon opening.
                LinkValue(
-                   [driver, transaction = std::move(transaction)](
+                   [driver, transaction = std::move(transaction),
+                    schema_domain = std::move(schema_domain)](
                        Promise<internal::DriverHandle> p, AnyFuture f) {
                      LockType lock{*driver->cache_entry_};
                      assert(lock.data());
                      auto transform = IdentityTransform(lock.data()->domain());
+
+                     // Validate the schema.domain constraint, if any.
+                     if (schema_domain.valid() &&
+                         !MergeIndexDomains(schema_domain, transform.domain())
+                              .ok()) {
+                       p.SetResult(absl::InvalidArgumentError(
+                           tensorstore::StrCat("Schema domain ", schema_domain,
+                                               " does not match image domain ",
+                                               transform.domain())));
+                       return;
+                     }
+
                      p.SetResult(internal::DriverHandle{
                          std::move(driver), std::move(transform),
                          internal::TransactionState::ToTransaction(

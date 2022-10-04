@@ -190,6 +190,28 @@ TEST_P(ImageDriverReadTest, OpenAndResolveBounds) {
   }
 }
 
+TEST_P(ImageDriverReadTest, OpenSchemaDomainTooSmall) {
+  /// The schema domain is smaller than the image bounds; that's a failure.
+  ::nlohmann::json spec{
+      {"driver", GetParam().driver},
+      {"kvstore", {{"driver", "memory"}, {"path", GetParam().path}}},
+      {"schema",
+       {
+           {"domain",
+            {
+                {"exclusive_max", {200, 200, 2}},
+                {"inclusive_min", {0, 0, 0}},
+            }},
+       }},
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto context, PrepareTest(spec));
+
+  EXPECT_THAT(
+      tensorstore::Open(spec, context).result(),
+      MatchesStatus(absl::StatusCode::kInvalidArgument, ".*Schema domain.*"));
+}
+
 TEST_P(ImageDriverReadTest, OpenSchemaDomainTooLarge) {
   /// The schema domain exceeds image bounds; that's a failure.
   ::nlohmann::json spec{
@@ -207,8 +229,9 @@ TEST_P(ImageDriverReadTest, OpenSchemaDomainTooLarge) {
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto context, PrepareTest(spec));
 
-  EXPECT_THAT(tensorstore::Open(spec, context).result(),
-              MatchesStatus(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(
+      tensorstore::Open(spec, context).result(),
+      MatchesStatus(absl::StatusCode::kInvalidArgument, ".*Schema domain.*"));
 }
 
 TEST_P(ImageDriverReadTest, OpenTransformTooLarge) {
