@@ -18,6 +18,7 @@
 #endif
 
 #include <cstdio>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -74,4 +75,22 @@ absl::Status MaybeAnnotateStatusImpl(absl::Status source,
 }
 
 }  // namespace internal
+
+std::optional<std::string> AddStatusPayload(absl::Status& status,
+                                            absl::string_view prefix,
+                                            absl::Cord value) {
+  std::string payload_id(prefix);
+  int i = 1;
+  while (true) {
+    auto p = status.GetPayload(payload_id);
+    if (!p.has_value()) {
+      break;
+    }
+    if (p.value() == value) return std::nullopt;
+    payload_id = absl::StrFormat("%s[%d]", prefix, i++);
+  }
+  status.SetPayload(payload_id, std::move(value));
+  return payload_id;
+}
+
 }  // namespace tensorstore

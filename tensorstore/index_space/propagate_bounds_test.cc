@@ -369,9 +369,10 @@ TEST(PropagateExplicitBoundsTest, OutOfBounds) {
   Box<2> a;
   EXPECT_THAT(
       PropagateExplicitBounds(b, transform, a),
-      MatchesStatus(absl::StatusCode::kOutOfRange,
-                    "Propagated bounds \\[-9, 11\\) for dimension 1 are "
-                    "incompatible with existing bounds \\[3, 13\\)\\."));
+      MatchesStatus(
+          absl::StatusCode::kOutOfRange,
+          "Propagated bounds \\[-9, 11\\), with size=20, for dimension 1 are "
+          "incompatible with existing bounds \\[3, 13\\), with size=10.*"));
 }
 
 // Tests that bounds checking is not performed in the case of an empty domain.
@@ -400,11 +401,11 @@ TEST(PropagateExplicitBoundsTest, OutOfBoundsInfLower) {
                        .value();
   const Box<3> b({2, 3, 4}, {50, 60, 100});
   Box<2> a;
-  EXPECT_THAT(
-      PropagateExplicitBounds(b, transform, a),
-      MatchesStatus(absl::StatusCode::kOutOfRange,
-                    "Propagated bounds \\[-9, 11\\) for dimension 1 are "
-                    "incompatible with existing bounds \\(-inf, 4\\)\\."));
+  EXPECT_THAT(PropagateExplicitBounds(b, transform, a),
+              MatchesStatus(
+                  absl::StatusCode::kOutOfRange,
+                  "Propagated bounds \\[-9, 11\\), with size=20, for dimension "
+                  "1 are incompatible with existing bounds \\(-inf, 4\\).*"));
 }
 
 TEST(PropagateExplicitBoundsTest, OutOfBoundsInfUpper) {
@@ -420,9 +421,10 @@ TEST(PropagateExplicitBoundsTest, OutOfBoundsInfUpper) {
   Box<2> a;
   EXPECT_THAT(
       PropagateExplicitBounds(b, transform, a),
-      MatchesStatus(absl::StatusCode::kOutOfRange,
-                    "Propagated bounds \\[-9, 11\\) for dimension 1 are "
-                    "incompatible with existing bounds \\[2, \\+inf\\)\\."));
+      MatchesStatus(
+          absl::StatusCode::kOutOfRange,
+          "Propagated bounds \\[-9, 11\\), with size=20, for dimension 1 are "
+          "incompatible with existing bounds \\[2, \\+inf\\).*"));
 }
 
 TEST(PropagateExplicitBoundsTest, Overflow) {
@@ -668,9 +670,10 @@ TEST(PropagateExplicitBoundsToTransformTest, OutOfBounds) {
   // For output dimension 2, {x : 4 <= (x * 4 + 45) <= 103} = [-10, 14].
   EXPECT_THAT(
       PropagateExplicitBoundsToTransform(output_domain, t),
-      MatchesStatus(absl::StatusCode::kOutOfRange,
-                    "Propagated bounds \\[-9, 11\\) for dimension 1 are "
-                    "incompatible with existing bounds \\[3, 13\\)\\."));
+      MatchesStatus(
+          absl::StatusCode::kOutOfRange,
+          "Propagated bounds \\[-9, 11\\), with size=20, for dimension 1 are "
+          "incompatible with existing bounds \\[3, 13\\), with size=10.*"));
 }
 
 TEST(PropagateExplicitBoundsToTransformTest, Overflow) {

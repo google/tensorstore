@@ -14,17 +14,22 @@
 
 #include "tensorstore/index_space/internal/propagate_bounds.h"
 
+#include <sstream>
+
 #include "absl/container/fixed_array.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_replace.h"
 #include "tensorstore/index_space/internal/identity_transform.h"
 #include "tensorstore/util/dimension_set.h"
 
 namespace tensorstore {
 namespace internal_index_space {
+namespace {
 
-absl::Status PropagateBounds(BoxView<> b, DimensionSet b_implicit_lower_bounds,
-                             DimensionSet b_implicit_upper_bounds,
-                             TransformRep* a_to_b, MutableBoxView<> a) {
+absl::Status PropagateBoundsImpl(BoxView<> b,
+                                 DimensionSet b_implicit_lower_bounds,
+                                 DimensionSet b_implicit_upper_bounds,
+                                 TransformRep* a_to_b, MutableBoxView<> a) {
   if (!a_to_b) {
     // A null `a_to_b` pointer indicates an identity transform, which we must
     // handle specially: the propagated bounds for `a` are simply equal to the
@@ -136,21 +141,24 @@ absl::Status PropagateBounds(BoxView<> b, DimensionSet b_implicit_lower_bounds,
         inferred_implicit_upper_bounds[a_dim]};
     if (!is_domain_empty &&
         !Contains(inferred_oi.effective_interval(), combined)) {
-      return absl::OutOfRangeError(
-          StrCat("Propagated bounds ", inferred_oi, " for dimension ", a_dim,
-                 " are incompatible with existing bounds ", combined, "."));
+      std::ostringstream os;
+      os << "Propagated bounds " << inferred_oi;
+      if (inferred_oi.size() != kInfSize) {
+        os << ", with size=" << inferred_oi.size() << ", ";
+      }
+      os << "for dimension " << a_dim
+         << " are incompatible with existing bounds " << combined;
+      if (combined.size() != kInfSize) {
+        os << ", with size=" << combined.size();
+      }
+      os << ".";
+      return absl::OutOfRangeError(os.str());
     }
     inferred = combined;
   }
   return absl::OkStatus();
 }
 
-absl::Status PropagateExplicitBounds(BoxView<> b, TransformRep* a_to_b,
-                                     MutableBoxView<> a) {
-  return PropagateBounds(b, false, false, a_to_b, a);
-}
-
-namespace {
 /// Propagates the implicit lower/upper bound bits from "b" to "a".
 ///
 /// Each propagated lower/upper bound for "a" is implicit iff:
@@ -205,7 +213,31 @@ void PropagateImplicitBoundState(DimensionIndex b_rank,
     if (!implicit_upper) a_implicit_upper_bounds[a_dim] = false;
   }
 }
+
 }  // namespace
+
+absl::Status PropagateBounds(BoxView<> b, DimensionSet b_implicit_lower_bounds,
+                             DimensionSet b_implicit_upper_bounds,
+                             TransformRep* a_to_b, MutableBoxView<> a) {
+  auto status = PropagateBoundsImpl(b, b_implicit_lower_bounds,
+                                    b_implicit_upper_bounds, a_to_b, a);
+  if (!status.ok()) {
+    // Augment failed calls with transform and domain
+    std::ostringstream os;
+    internal_index_space::PrintToOstream(os, a_to_b);
+    std::string str = os.str();
+    absl::StrReplaceAll({{"\n", " "}}, &str);
+
+    AddStatusPayload(status, "transform", absl::Cord(str));
+    AddStatusPayload(status, "domain", absl::Cord(tensorstore::StrCat(b)));
+  }
+  return status;
+}
+
+absl::Status PropagateExplicitBounds(BoxView<> b, TransformRep* a_to_b,
+                                     MutableBoxView<> a) {
+  return PropagateBounds(b, false, false, a_to_b, a);
+}
 
 absl::Status PropagateBounds(BoxView<> b, DimensionSet b_implicit_lower_bounds,
                              DimensionSet b_implicit_upper_bounds,

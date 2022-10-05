@@ -14,9 +14,14 @@
 
 #include "tensorstore/index_space/internal/compose_transforms.h"
 
+#include <sstream>
+
+#include "absl/status/status.h"
+#include "absl/strings/str_replace.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/internal/propagate_bounds.h"
 #include "tensorstore/index_space/internal/transform_array.h"
+#include "tensorstore/index_space/internal/transform_rep.h"
 #include "tensorstore/index_space/internal/transform_rep_impl.h"
 
 namespace tensorstore {
@@ -40,11 +45,26 @@ bool IsSingletonIndexArrayMap(StridedLayoutView<> layout) {
   return true;
 }
 
-}  // namespace
-
-absl::Status ComposeTransforms(TransformRep* b_to_c, bool can_move_from_b_to_c,
-                               TransformRep* a_to_b, bool can_move_from_a_to_b,
-                               TransformRep* a_to_c, bool domain_only) {
+/// Sets `a_to_c` to be the composition of `b_to_c` and `a_to_b`.
+///
+/// \param b_to_c[in] The transform from index space "b" to index space "c".
+/// \param can_move_from_b_to_c Specifies whether `b_to_c` may be modified.
+/// \param a_to_b[in] The transform from index space "a" to index space "b".
+/// \param can_move_from_a_to_b Specifies whether `a_to_b` may be modified.
+/// \param a_to_c[out] The transform to be set to the composition of `a_to_b`
+///     and `b_to_c`.
+/// \param domain_only Indicates that the output dimensions of `b_to_c` should
+///     be ignored, and the output rank of `a_to_c` will be set to 0.
+/// \dchecks `b_to_c != nullptr && a_to_b != nullptr && a_to_c != nullptr`.
+/// \dchecks `b_to_c->input_rank == a_to_b->output_rank`.
+/// \dchecks `a_to_c->output_rank_capacity >= b_to_c->output_rank`.
+/// \dchecks `a_to_c->input_rank_capacity >= a_to_b->input_rank`.
+/// \returns A success `absl::Status()` or error.
+absl::Status ComposeTransformsImpl(TransformRep* b_to_c,
+                                   bool can_move_from_b_to_c,
+                                   TransformRep* a_to_b,
+                                   bool can_move_from_a_to_b,
+                                   TransformRep* a_to_c, bool domain_only) {
   assert(b_to_c != nullptr && a_to_b != nullptr && a_to_c != nullptr);
   const DimensionIndex a_to_c_output_rank =
       domain_only ? 0 : b_to_c->output_rank;
@@ -236,6 +256,8 @@ absl::Status ComposeTransforms(TransformRep* b_to_c, bool can_move_from_b_to_c,
   return absl::OkStatus();
 }
 
+}  // namespace
+
 Result<TransformRep::Ptr<>> ComposeTransforms(TransformRep* b_to_c,
                                               bool can_move_from_b_to_c,
                                               TransformRep* a_to_b,
@@ -246,17 +268,39 @@ Result<TransformRep::Ptr<>> ComposeTransforms(TransformRep* b_to_c,
   const DimensionIndex a_rank = a_to_b->input_rank;
   const DimensionIndex b_rank = a_to_b->output_rank;
   const DimensionIndex c_rank = b_to_c->output_rank;
-  if (b_rank != b_to_c->input_rank) {
-    return absl::InvalidArgumentError(
+
+  absl::Status status;
+  if (b_rank == b_to_c->input_rank) {
+    auto data = TransformRep::Allocate(a_rank, domain_only ? 0 : c_rank);
+    status =
+        ComposeTransformsImpl(b_to_c, can_move_from_b_to_c, a_to_b,
+                              can_move_from_a_to_b, data.get(), domain_only);
+    if (status.ok()) {
+      return data;
+    }
+  } else {
+    status = absl::InvalidArgumentError(
         StrCat("Rank ", b_to_c->input_rank, " -> ", c_rank,
                " transform cannot be composed with rank ", a_rank, " -> ",
                b_rank, " transform."));
   }
-  auto data = TransformRep::Allocate(a_rank, domain_only ? 0 : c_rank);
-  TENSORSTORE_RETURN_IF_ERROR(ComposeTransforms(b_to_c, can_move_from_b_to_c,
-                                                a_to_b, can_move_from_a_to_b,
-                                                data.get(), domain_only));
-  return data;
+  assert(!status.ok());
+
+  /// Annotate error with transforms.
+  auto format_transform = [](TransformRep* rep) {
+    std::ostringstream os;
+    internal_index_space::PrintToOstream(os, rep);
+    std::string str = os.str();
+    absl::StrReplaceAll({{"\n", " "}}, &str);
+    return absl::Cord(str);
+  };
+
+  AddStatusPayload(status, "transform", format_transform(a_to_b));
+  if (!status.GetPayload("domain").has_value()) {
+    AddStatusPayload(status, "left_transform", format_transform(b_to_c));
+  }
+
+  return status;
 }
 
 Result<IndexTransform<dynamic_rank, dynamic_rank, container>> ComposeTransforms(

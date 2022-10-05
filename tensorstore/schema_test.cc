@@ -403,10 +403,12 @@ TEST(SchemaTest, ApplyIndexTransformDomainBoundsMismatch) {
                                    Schema::FromJson({
                                        {"domain", {{"shape", {2, 3}}}},
                                    }));
-  EXPECT_THAT(schema | tensorstore::IdentityTransform({4, 5}),
-              MatchesStatus(absl::StatusCode::kOutOfRange,
-                            "Propagated bounds \\[0, 2\\) for dimension 0 are "
-                            "incompatible with existing bounds \\[0, 4\\)\\."));
+  EXPECT_THAT(
+      schema | tensorstore::IdentityTransform({4, 5}),
+      MatchesStatus(
+          absl::StatusCode::kOutOfRange,
+          "Propagated bounds \\[0, 2\\), with size=2, for dimension 0 are "
+          "incompatible with existing bounds \\[0, 4\\), with size=4.*"));
 }
 
 TEST(SchemaTest, ApplyIndexTransformUnknownRankNullTransform) {

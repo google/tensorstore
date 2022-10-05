@@ -15,30 +15,12 @@
 #ifndef TENSORSTORE_INDEX_SPACE_INTERNAL_COMPOSE_TRANSFORMS_H_
 #define TENSORSTORE_INDEX_SPACE_INTERNAL_COMPOSE_TRANSFORMS_H_
 
-#include "absl/status/status.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal_index_space {
 
-/// Sets `a_to_c` to be the composition of `b_to_c` and `a_to_b`.
-///
-/// \param b_to_c[in] The transform from index space "b" to index space "c".
-/// \param can_move_from_b_to_c Specifies whether `b_to_c` may be modified.
-/// \param a_to_b[in] The transform from index space "a" to index space "b".
-/// \param can_move_from_a_to_b Specifies whether `a_to_b` may be modified.
-/// \param a_to_c[out] The transform to be set to the composition of `a_to_b`
-///     and `b_to_c`.
-/// \param domain_only Indicates that the output dimensions of `b_to_c` should
-///     be ignored, and the output rank of `a_to_c` will be set to 0.
-/// \dchecks `b_to_c != nullptr && a_to_b != nullptr && a_to_c != nullptr`.
-/// \dchecks `b_to_c->input_rank == a_to_b->output_rank`.
-/// \dchecks `a_to_c->output_rank_capacity >= b_to_c->output_rank`.
-/// \dchecks `a_to_c->input_rank_capacity >= a_to_b->input_rank`.
-/// \returns A success `absl::Status()` or error.
-absl::Status ComposeTransforms(TransformRep* b_to_c, bool can_move_from_b_to_c,
-                               TransformRep* a_to_b, bool can_move_from_a_to_b,
-                               TransformRep* a_to_c, bool domain_only = false);
 
 /// Computes the composition of `b_to_c` and `a_to_b`.
 ///

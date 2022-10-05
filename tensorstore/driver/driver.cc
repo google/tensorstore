@@ -117,15 +117,8 @@ Future<Driver::Handle> OpenDriver(OpenTransactionPtr transaction,
                   " driver"));
           auto spec_json = internal_json_binding::ToJson(bound_spec);
           if (spec_json.ok()) {
-            // Find a unique payload id.
-            std::string payload_id = "tensorstore_spec";
-            int id = 1;
-            while (status.GetPayload(payload_id).has_value()) {
-              payload_id = StrCat("tensorstore_spec_", id++);
-            }
-            // And store the spec string.
-            std::string spec_str = spec_json.value().dump();
-            status.SetPayload(payload_id, absl::Cord(spec_str));
+            AddStatusPayload(status, "tensorstore_spec",
+                             absl::Cord(spec_json.value().dump()));
           }
           return status;
         }

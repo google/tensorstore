@@ -23,6 +23,7 @@
 #include "absl/base/attributes.h"
 #include "absl/base/optimization.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/internal/preprocessor/expand.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/type_traits.h"
@@ -94,6 +95,14 @@ inline absl::Status InvokeForStatus(F&& f, Args&&... args) {
 }
 
 }  // namespace internal
+
+/// Adds value to status usiung `status.SetPayload`.
+/// Iterates through payloads like `prefix` and `prefix[N]`, and if value
+/// is not found, adds to the status payload, returning prefix.
+/// If the payload already exists, returns std::nullopt.
+std::optional<std::string> AddStatusPayload(absl::Status& status,
+                                            absl::string_view prefix,
+                                            absl::Cord value);
 
 /// If status is not `absl::StatusCode::kOk`, then annotate the status message.
 ///
