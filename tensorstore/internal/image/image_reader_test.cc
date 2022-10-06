@@ -29,9 +29,8 @@
 #include "absl/strings/cord.h"
 #include "absl/strings/match.h"
 #include "absl/strings/string_view.h"
-#include "riegeli/base/any_dependency.h"
+#include "riegeli/bytes/cfile_reader.h"
 #include "riegeli/bytes/cord_reader.h"
-#include "riegeli/bytes/fd_reader.h"
 #include "riegeli/bytes/reader.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/image/avif_reader.h"
@@ -41,6 +40,7 @@
 #include "tensorstore/internal/image/png_reader.h"
 #include "tensorstore/internal/image/tiff_reader.h"
 #include "tensorstore/internal/image/webp_reader.h"
+#include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
@@ -80,17 +80,17 @@ class ReaderTest : public ::testing::TestWithParam<TestParam> {
  public:
   ReaderTest() {
     if (IsTiff()) {
-      reader.Emplace<TiffReader>();
+      reader = std::make_unique<TiffReader>();
     } else if (IsJpeg()) {
-      reader.Emplace<JpegReader>();
+      reader = std::make_unique<JpegReader>();
     } else if (IsPng()) {
-      reader.Emplace<PngReader>();
+      reader = std::make_unique<PngReader>();
     } else if (IsBmp()) {
-      reader.Emplace<BmpReader>();
+      reader = std::make_unique<BmpReader>();
     } else if (IsAvif()) {
-      reader.Emplace<AvifReader>();
+      reader = std::make_unique<AvifReader>();
     } else if (IsWebP()) {
-      reader.Emplace<WebPReader>();
+      reader = std::make_unique<WebPReader>();
     }
   }
 
@@ -116,59 +116,20 @@ class ReaderTest : public ::testing::TestWithParam<TestParam> {
 
   tensorstore::Result<absl::Cord> ReadEntireFile(std::string filename) {
     absl::Cord file_data;
-    TENSORSTORE_RETURN_IF_ERROR(
-        riegeli::ReadAll(riegeli::FdReader(filename), file_data));
+    TENSORSTORE_RETURN_IF_ERROR(riegeli::ReadAll(
+        riegeli::CFileReader(
+            filename, riegeli::CFileReaderBase::Options().set_mode("rb")),
+        file_data));
     return file_data;
   }
 
-  riegeli::AnyDependency<ImageReader*, TiffReader> reader;
+  std::unique_ptr<ImageReader> reader;
 };
 
-TEST_P(ReaderTest, ReadImageFromFile) {
+TEST_P(ReaderTest, ReadImage) {
   const auto& filename = GetParam().filename;
   ASSERT_FALSE(reader.get() == nullptr) << filename;
-
-  riegeli::FdReader file_reader(GetFilename());
-  ASSERT_THAT(reader->Initialize(&file_reader), ::tensorstore::IsOk())
-      << filename;
-
-  auto expected_info = GetParam().info;
-  auto info = reader->GetImageInfo();
-  EXPECT_EQ(info.width, expected_info.width) << filename;
-  EXPECT_EQ(info.height, expected_info.height) << filename;
-  EXPECT_EQ(info.num_components, expected_info.num_components) << filename;
-  EXPECT_EQ(info.dtype, expected_info.dtype) << filename;
-
-  const size_t image_bytes = ImageRequiredBytes(info);
-  EXPECT_EQ(image_bytes, ImageRequiredBytes(expected_info));
-  std::unique_ptr<unsigned char[]> image(new unsigned char[image_bytes]());
-  EXPECT_THAT(reader->Decode(tensorstore::span(image.get(), image_bytes)),
-              ::tensorstore::IsOk());
-
-  // Some file types (e.g. tiff) may not read the end of file bits.
-  if (ReadsEntireFile()) {
-    EXPECT_TRUE(file_reader.VerifyEndAndClose()) << file_reader.status();
-  } else {
-    EXPECT_TRUE(file_reader.Close()) << file_reader.status();
-  }
-
-  /// Validate values.
-  for (const V& v : GetParam().values) {
-    ASSERT_LT(v.yx[0], expected_info.height)
-        << " (" << v.yx[0] << "," << v.yx[1] << ")";
-    ASSERT_LT(v.yx[1], expected_info.width)
-        << " (" << v.yx[0] << "," << v.yx[1] << ")";
-    size_t offset =
-        expected_info.width * expected_info.num_components * v.yx[0] + v.yx[1];
-    EXPECT_THAT(tensorstore::span<unsigned char>(image.get() + offset, 3),
-                ::testing::ElementsAreArray(v.rgb))
-        << " (" << v.yx[0] << "," << v.yx[1] << ") " << offset;
-  }
-}
-
-TEST_P(ReaderTest, ReadImageFromCord) {
-  const auto& filename = GetParam().filename;
-  ASSERT_FALSE(reader.get() == nullptr) << filename;
+  TENSORSTORE_LOG(filename);
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(absl::Cord file_data,
                                    ReadEntireFile(GetFilename()));
@@ -324,14 +285,21 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Values(  //
         TestParam{"tiff/D75_08b.tiff", ImageInfo{172, 306, 3},
                   GetD75_08_Values()},
-        TestParam{"tiff/D75_08b_lzw.tiff", ImageInfo{172, 306, 3},
-                  GetD75_08_Values()},
-        TestParam{"tiff/D75_08b_zip.tiff", ImageInfo{172, 306, 3},
-                  GetD75_08_Values()},
         TestParam{"tiff/D75_08b_tiled.tiff", ImageInfo{172, 306, 3},
                   GetD75_08_Values()},
         TestParam{"tiff/D75_16b.tiff",
                   ImageInfo{172, 306, 3, ::tensorstore::dtype_v<uint16_t>}}));
+
+#if !defined(_MSC_VER)
+// NOTE: Compressed TIFF currently doesn't work properly on MSVC.
+INSTANTIATE_TEST_SUITE_P(
+    TifCompressedFiles, ReaderTest,
+    ::testing::Values(  //
+        TestParam{"tiff/D75_08b_zip.tiff", ImageInfo{172, 306, 3},
+                  GetD75_08_Values()},
+        TestParam{"tiff/D75_08b_lzw.tiff", ImageInfo{172, 306, 3},
+                  GetD75_08_Values()}));
+#endif
 
 INSTANTIATE_TEST_SUITE_P(  //
     WebPFiles, ReaderTest,

@@ -23,7 +23,6 @@
 #include "absl/strings/cord.h"
 #include "riegeli/bytes/cord_reader.h"
 #include "riegeli/bytes/cord_writer.h"
-#include "riegeli/bytes/fd_reader.h"
 #include "riegeli/bytes/string_reader.h"
 #include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/image/webp_reader.h"

@@ -16,8 +16,7 @@
 //
 // extract_slice --output_file=/tmp/foo.jpg --input_spec=...
 
-#include <stdint.h>
-
+#include <cstdint>
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -29,18 +28,19 @@
 #include "absl/strings/match.h"
 #include "absl/strings/str_join.h"
 #include <nlohmann/json.hpp>
-#include "riegeli/base/any_dependency.h"
-#include "riegeli/bytes/fd_writer.h"
-#include "riegeli/bytes/std_io.h"
+#include "riegeli/bytes/cfile_writer.h"
 #include "tensorstore/array.h"
 #include "tensorstore/context.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/internal/image/avif_writer.h"
 #include "tensorstore/internal/image/image_info.h"
+#include "tensorstore/internal/image/image_writer.h"
 #include "tensorstore/internal/image/jpeg_writer.h"
 #include "tensorstore/internal/image/png_writer.h"
+#include "tensorstore/internal/image/webp_writer.h"
 #include "tensorstore/internal/init_tensorstore.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
@@ -51,15 +51,25 @@
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
+#if defined(_MSC_VER)
+#include <cstdio>
+// Use stdio for output.
+#else
+#include "riegeli/bytes/std_io.h"
+// Use riegeli::StdOut for output.
+#endif
+
 namespace {
 
 using ::tensorstore::Context;
 using ::tensorstore::Index;
 using ::tensorstore::StrCat;
+using ::tensorstore::internal_image::AvifWriter;
 using ::tensorstore::internal_image::ImageInfo;
 using ::tensorstore::internal_image::ImageWriter;
 using ::tensorstore::internal_image::JpegWriter;
 using ::tensorstore::internal_image::PngWriter;
+using ::tensorstore::internal_image::WebPWriter;
 
 template <typename InputArray>
 absl::Status Validate(const InputArray& input) {
@@ -148,35 +158,43 @@ absl::Status Run(tensorstore::Spec input_spec, std::string output_filename) {
       tensorstore::Read<tensorstore::zero_origin>(constrained_input).result());
 
   auto shape_yxc = slice.shape();
-  ImageInfo info{.height = static_cast<int32_t>(shape_yxc[0]),
-                 .width = static_cast<int32_t>(shape_yxc[1]),
-                 .num_components = slice.rank() == 2
-                                       ? 1
-                                       : static_cast<int32_t>(shape_yxc[2])};
+  ImageInfo info{/*height=*/static_cast<int32_t>(shape_yxc[0]),
+                 /*width=*/static_cast<int32_t>(shape_yxc[1]),
+                 /*num_components=*/slice.rank() == 2
+                     ? 1
+                     : static_cast<int32_t>(shape_yxc[2])};
 
-  riegeli::AnyDependency<ImageWriter*, JpegWriter> writer;
-
-  riegeli::AnyDependency<riegeli::Writer*, riegeli::FdWriter<>, riegeli::StdOut>
-      output;
-
-  // Maybe output to stdout.
-  if (output_filename == "-" || output_filename == "-.jpeg" ||
-      output_filename == "-.png") {
-    // TODO: Also check istty.
-    output.Emplace<riegeli::StdOut>();
-  } else {
-    output.Emplace<riegeli::FdWriter<>>(output_filename);
-  }
+  std::unique_ptr<ImageWriter> writer;
+  std::unique_ptr<riegeli::Writer> output;
 
   // Select the image format.
   if (absl::EndsWith(output_filename, ".jpg") ||
       absl::EndsWith(output_filename, ".jpeg")) {
-    writer.Emplace<JpegWriter>();
+    writer = std::make_unique<JpegWriter>();
+  } else if (absl::EndsWith(output_filename, ".avif")) {
+    writer = std::make_unique<AvifWriter>();
+  } else if (absl::EndsWith(output_filename, ".webp")) {
+    writer = std::make_unique<WebPWriter>();
   } else if (absl::EndsWith(output_filename, ".png") ||
              output_filename == "-") {
-    writer.Emplace<PngWriter>();
+    writer = std::make_unique<PngWriter>();
   } else {
-    return absl::InvalidArgumentError("Only .jpeg, and .png are allowed");
+    return absl::InvalidArgumentError(
+        "Only .jpeg, .webp, .avif, and .png output formats permitted");
+  }
+
+  // Maybe output to stdout.
+  if (output_filename == "-" || absl::StartsWith(output_filename, "-.")) {
+#if defined(_MSC_VER)
+    output =
+        std::make_unique<riegeli::CFileWriter<riegeli::UnownedCFile>>(stdout);
+#else
+    // TODO: Also check istty.
+    output = std::make_unique<riegeli::StdOut>();
+#endif
+    if (!output->ok()) return output->status();
+  } else {
+    output = std::make_unique<riegeli::CFileWriter<>>(output_filename);
   }
 
   // And encode the image.
@@ -239,7 +257,7 @@ tensorstore::Spec DefaultInputSpec() {
 ABSL_FLAG(tensorstore::JsonAbslFlag<tensorstore::Spec>, input_spec,
           DefaultInputSpec(), "tensorstore JSON input specification");
 
-/// Required. The output file. Must be a .png, or .jpg.
+/// Required. The output file. Must be a .jpeg, .webp, .avif, or .png.
 ABSL_FLAG(std::string, output_file, "-",
           "Slice will be written to this image file; use - for STDOUT");
 

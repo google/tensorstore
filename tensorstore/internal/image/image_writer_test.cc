@@ -28,7 +28,6 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
-#include "riegeli/base/any_dependency.h"
 #include "riegeli/bytes/cord_reader.h"
 #include "riegeli/bytes/writer.h"
 #include "tensorstore/internal/image/avif_reader.h"
@@ -152,20 +151,20 @@ class WriterTest : public ::testing::TestWithParam<TestParam> {
   WriterTest() {
     std::any* options = const_cast<std::any*>(&GetParam().options);
     if (GetPointerFromAny<TiffWriterOptions>(options)) {
-      writer.Emplace<TiffWriter>();
-      reader.Emplace<TiffReader>();
+      writer = std::make_unique<TiffWriter>();
+      reader = std::make_unique<TiffReader>();
     } else if (GetPointerFromAny<JpegWriterOptions>(options)) {
-      writer.Emplace<JpegWriter>();
-      reader.Emplace<JpegReader>();
+      writer = std::make_unique<JpegWriter>();
+      reader = std::make_unique<JpegReader>();
     } else if (GetPointerFromAny<PngWriterOptions>(options)) {
-      writer.Emplace<PngWriter>();
-      reader.Emplace<PngReader>();
+      writer = std::make_unique<PngWriter>();
+      reader = std::make_unique<PngReader>();
     } else if (GetPointerFromAny<AvifWriterOptions>(options)) {
-      writer.Emplace<AvifWriter>();
-      reader.Emplace<AvifReader>();
+      writer = std::make_unique<AvifWriter>();
+      reader = std::make_unique<AvifReader>();
     } else if (GetPointerFromAny<WebPWriterOptions>(options)) {
-      writer.Emplace<WebPWriter>();
-      reader.Emplace<WebPReader>();
+      writer = std::make_unique<WebPWriter>();
+      reader = std::make_unique<WebPReader>();
     }
   }
 
@@ -198,8 +197,8 @@ class WriterTest : public ::testing::TestWithParam<TestParam> {
     return reader->Decode(dest);
   }
 
-  riegeli::AnyDependency<ImageWriter*, TiffWriter> writer;
-  riegeli::AnyDependency<ImageReader*, TiffReader> reader;
+  std::unique_ptr<ImageWriter> writer;
+  std::unique_ptr<ImageReader> reader;
 };
 
 TEST_P(WriterTest, RoundTrip) {
