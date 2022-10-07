@@ -231,7 +231,7 @@ absl::Status GetTIFFImageInfo(TIFF* tiff, TiffImageInfo& info) {
     samples_per_pixel = 1;
     TIFFSetField(tiff, TIFFTAG_SAMPLESPERPIXEL, samples_per_pixel);
   }
-  uint16* sample_info;
+  uint16_t* sample_info;
   if (TIFFGetField(tiff, TIFFTAG_EXTRASAMPLES, &info.extra_samples_,
                    &sample_info) != 1) {
     info.extra_samples_ = 0;

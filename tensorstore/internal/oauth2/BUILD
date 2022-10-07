@@ -79,6 +79,7 @@ tensorstore_cc_test(
     deps = [
         ":fake_private_key",
         ":google_auth_provider",
+        ":google_auth_test_utils",
         ":google_service_account_auth_provider",
         ":oauth2",
         ":oauth2_auth_provider",
@@ -96,6 +97,17 @@ tensorstore_cc_test(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "google_auth_test_utils",
+    testonly = True,
+    srcs = ["google_auth_test_utils.cc"],
+    hdrs = ["google_auth_test_utils.h"],
+    deps = [
+        "//tensorstore/internal:env",
+        "//tensorstore/internal:test_util",
     ],
 )
 

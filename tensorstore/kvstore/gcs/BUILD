@@ -88,6 +88,7 @@ tensorstore_cc_test(
         "//tensorstore/internal/http:curl_handle",
         "//tensorstore/internal/http:curl_transport",
         "//tensorstore/internal/oauth2:google_auth_provider",
+        "//tensorstore/internal/oauth2:google_auth_test_utils",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:generation",
         "//tensorstore/kvstore:test_util",

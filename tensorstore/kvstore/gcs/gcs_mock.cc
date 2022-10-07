@@ -106,7 +106,8 @@ Future<HttpResponse> GCSMockStorageBucket::IssueRequest(
   } else if (std::holds_alternative<HttpResponse>(match_result)) {
     return std::move(std::get<HttpResponse>(match_result));
   }
-  return absl::UnimplementedError("Mock cannot satisfy the request.");
+  return absl::UnimplementedError(
+      absl::StrCat("Mock cannot satisfy the request: ", request.url()));
 }
 
 std::variant<std::monostate, HttpResponse, absl::Status>

@@ -42,6 +42,7 @@
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/oauth2/google_auth_provider.h"
+#include "tensorstore/internal/oauth2/google_auth_test_utils.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/schedule_at.h"
 #include "tensorstore/kvstore/gcs/gcs_mock.h"
@@ -74,6 +75,7 @@ using ::tensorstore::internal_http::HttpRequest;
 using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_http::HttpTransport;
 using ::tensorstore::internal_http::SetDefaultHttpTransport;
+using ::tensorstore::internal_oauth2::GoogleAuthTestScope;
 
 static constexpr char kUriScheme[] = "gs";
 static constexpr char kDriver[] = "gcs";
@@ -116,6 +118,8 @@ class MetadataMockTransport : public HttpTransport {
     // Pretend to run on GCE.
     return HttpResponse{200, absl::Cord()};
   }
+
+  GoogleAuthTestScope google_auth_test_scope;
 };
 
 class MyMockTransport : public HttpTransport {

@@ -31,6 +31,7 @@
 #include "tensorstore/internal/oauth2/fake_private_key.h"
 #include "tensorstore/internal/oauth2/fixed_token_auth_provider.h"
 #include "tensorstore/internal/oauth2/gce_auth_provider.h"
+#include "tensorstore/internal/oauth2/google_auth_test_utils.h"
 #include "tensorstore/internal/oauth2/google_service_account_auth_provider.h"
 #include "tensorstore/internal/oauth2/oauth2_auth_provider.h"
 #include "tensorstore/internal/oauth2/oauth_utils.h"
@@ -55,6 +56,7 @@ using ::tensorstore::internal_http::SetDefaultHttpTransport;
 using ::tensorstore::internal_oauth2::AuthProvider;
 using ::tensorstore::internal_oauth2::GetFakePrivateKey;
 using ::tensorstore::internal_oauth2::GetGoogleAuthProvider;
+using ::tensorstore::internal_oauth2::GoogleAuthTestScope;
 
 class TestData : public tensorstore::internal::ScopedTemporaryDirectory {
  public:
@@ -91,15 +93,7 @@ class TestData : public tensorstore::internal::ScopedTemporaryDirectory {
 };
 
 class GoogleAuthProviderTest : public ::testing::Test {
-  void SetUp() override { ClearEnvVars(); }
-
-  void TearDown() override { ClearEnvVars(); }
-
-  void ClearEnvVars() {
-    UnsetEnv("GOOGLE_APPLICATION_CREDENTIALS");
-    UnsetEnv("CLOUDSDK_CONFIG");
-    UnsetEnv("GOOGLE_AUTH_TOKEN_FOR_TESTING");
-  }
+  GoogleAuthTestScope google_auth_test_scope;
 };
 
 TEST_F(GoogleAuthProviderTest, Invalid) {
