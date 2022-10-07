@@ -173,6 +173,7 @@ TEST_P(ReaderTest, ReadImageTruncated) {
 
   /// Skip this for some files.
   if (filename == "png/D75_01b.png") return;
+  if (filename == "tiff/D75_01b.tiff") return;
   if (filename == "bmp/D75_08b_grey.bmp") return;
   if (IsWebP()) return;
 
@@ -245,7 +246,8 @@ INSTANTIATE_TEST_SUITE_P(  //
                   {V{{29, 117}, {87, 87, 87}}}},
         // avifenc -y 400  -a cq-level=1 --min 1 --max 1 -d 12 <grey.png> <avif>
         TestParam{"avif/D75_12b_grey.avif",
-                  ImageInfo{172, 306, 1, ::tensorstore::dtype_v<uint16_t>}}));
+                  ImageInfo{172, 306, 1, ::tensorstore::dtype_v<uint16_t>}} /**/
+        ));
 
 INSTANTIATE_TEST_SUITE_P(  //
     BmpFiles, ReaderTest,
@@ -254,13 +256,15 @@ INSTANTIATE_TEST_SUITE_P(  //
                   GetD75_08_Values()},
         TestParam{"bmp/D75_08b_grey.bmp",
                   ImageInfo{172, 306, 1},
-                  {V{{29, 117}, {87, 87, 87}}}}));
+                  {V{{29, 117}, {87, 87, 87}}}} /**/
+        ));
 
 INSTANTIATE_TEST_SUITE_P(  //
     JpegFiles, ReaderTest,
     ::testing::Values(  //
         TestParam{"jpeg/D75_08b.jpeg", ImageInfo{172, 306, 3},
-                  GetD75_08_Values_JPEG()}));
+                  GetD75_08_Values_JPEG()} /**/
+        ));
 
 INSTANTIATE_TEST_SUITE_P(
     PngFiles, ReaderTest,
@@ -277,7 +281,8 @@ INSTANTIATE_TEST_SUITE_P(
                   ImageInfo{172, 306, 1, ::tensorstore::dtype_v<uint16_t>}},
         // convert D75_08b.png -depth 1 -threshold 50% D75_01b.png
         TestParam{"png/D75_01b.png",
-                  ImageInfo{172, 306, 1, ::tensorstore::dtype_v<bool>}}));
+                  ImageInfo{172, 306, 1, ::tensorstore::dtype_v<bool>}} /**/
+        ));
 
 // Use tiffcp -c/-t
 INSTANTIATE_TEST_SUITE_P(
@@ -287,19 +292,23 @@ INSTANTIATE_TEST_SUITE_P(
                   GetD75_08_Values()},
         TestParam{"tiff/D75_08b_tiled.tiff", ImageInfo{172, 306, 3},
                   GetD75_08_Values()},
-        TestParam{"tiff/D75_16b.tiff",
-                  ImageInfo{172, 306, 3, ::tensorstore::dtype_v<uint16_t>}}));
-
-#if !defined(_MSC_VER)
-// NOTE: Compressed TIFF currently doesn't work properly on MSVC.
-INSTANTIATE_TEST_SUITE_P(
-    TifCompressedFiles, ReaderTest,
-    ::testing::Values(  //
+        TestParam{"tiff/D75_08b_scanline.tiff", ImageInfo{172, 306, 3},
+                  GetD75_08_Values()},
         TestParam{"tiff/D75_08b_zip.tiff", ImageInfo{172, 306, 3},
                   GetD75_08_Values()},
         TestParam{"tiff/D75_08b_lzw.tiff", ImageInfo{172, 306, 3},
-                  GetD75_08_Values()}));
-#endif
+                  GetD75_08_Values()},
+        TestParam{"tiff/D75_16b.tiff",
+                  ImageInfo{172, 306, 3, ::tensorstore::dtype_v<uint16_t>}},
+        // convert D75_08b.png -depth 1 -threshold 50% D75_01b.tiff
+        TestParam{"tiff/D75_01b.tiff",
+                  ImageInfo{172, 306, 1, ::tensorstore::dtype_v<bool>}},
+        TestParam{"tiff/D75_08b_grey.tiff",
+                  ImageInfo{172, 306, 1},
+                  {V{{29, 117}, {87, 87, 87}}}},
+        TestParam{"tiff/D75_16b_grey.tiff",
+                  ImageInfo{172, 306, 1, ::tensorstore::dtype_v<uint16_t>}} /**/
+        ));
 
 INSTANTIATE_TEST_SUITE_P(  //
     WebPFiles, ReaderTest,
@@ -308,6 +317,7 @@ INSTANTIATE_TEST_SUITE_P(  //
                   GetD75_08_Values()},
         TestParam{"webp/D75_08b_q90.webp",
                   ImageInfo{172, 306, 3},
-                  {V{{29, 117}, {166, 94, 91}}}}));
+                  {V{{29, 117}, {166, 94, 91}}}} /**/
+        ));
 
 }  // namespace

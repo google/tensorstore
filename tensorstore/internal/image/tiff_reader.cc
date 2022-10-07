@@ -52,7 +52,7 @@ struct TiffReader::Context : public LibTiffErrorBase {
 
   Context(riegeli::Reader* reader);
   ~Context();
-  absl::Status ExtractErrors();
+  absl::Status ExtractErrors(absl::Status in);
 
   absl::Status Open();
   absl::Status DefaultDecode(tensorstore::span<unsigned char> data);
@@ -147,14 +147,7 @@ struct TiffImageInfo : public ImageInfo {
   uint16_t bits_per_sample_ = 0;
 };
 
-absl::Status SetDType(TIFF* tiff, ImageInfo& info) {
-  uint32_t bits_per_sample = 0;
-  if (!TIFFGetField(tiff, TIFFTAG_BITSPERSAMPLE, &bits_per_sample)) {
-    bits_per_sample = 1;
-  }
-  uint32_t sample_format = 0;
-  TIFFGetFieldDefaulted(tiff, TIFFTAG_SAMPLEFORMAT, &sample_format);
-
+Result<DataType> SetDType(uint16_t sample_format, uint16_t bits_per_sample) {
   const char* sample_format_str = "";
   /// Validate sample format
   switch (sample_format) {
@@ -162,54 +155,42 @@ absl::Status SetDType(TIFF* tiff, ImageInfo& info) {
       sample_format_str = " INT";
       // TODO: Support bits_per_sample < 8.
       if (bits_per_sample == 8) {
-        info.dtype = dtype_v<int8_t>;
-        return absl::OkStatus();
+        return dtype_v<int8_t>;
       } else if (bits_per_sample == 16) {
-        info.dtype = dtype_v<int16_t>;
-        return absl::OkStatus();
+        return dtype_v<int16_t>;
       } else if (bits_per_sample == 32) {
-        info.dtype = dtype_v<int32_t>;
-        return absl::OkStatus();
+        return dtype_v<int32_t>;
       }
       break;
     case SAMPLEFORMAT_UINT:
       sample_format_str = " UINT";
       if (bits_per_sample == 1) {
-        info.dtype = dtype_v<bool>;
-        return absl::OkStatus();
+        return dtype_v<bool>;
       } else if (bits_per_sample == 2 || bits_per_sample == 4 ||
                  bits_per_sample == 8) {
-        info.dtype = dtype_v<uint8_t>;
-        return absl::OkStatus();
+        return dtype_v<uint8_t>;
       } else if (bits_per_sample == 16) {
-        info.dtype = dtype_v<uint16_t>;
-        return absl::OkStatus();
+        return dtype_v<uint16_t>;
       } else if (bits_per_sample == 32) {
-        info.dtype = dtype_v<uint32_t>;
-        return absl::OkStatus();
+        return dtype_v<uint32_t>;
       }
       break;
     case SAMPLEFORMAT_IEEEFP:
       sample_format_str = " IEEE FP";
       if (bits_per_sample == 16) {
-        info.dtype = dtype_v<tensorstore::float16_t>;
-        return absl::OkStatus();
+        return dtype_v<tensorstore::float16_t>;
       } else if (bits_per_sample == 32) {
-        info.dtype = dtype_v<float>;
-        return absl::OkStatus();
+        return dtype_v<float>;
       } else if (bits_per_sample == 64) {
-        info.dtype = dtype_v<double>;
-        return absl::OkStatus();
+        return dtype_v<double>;
       }
       break;
     case SAMPLEFORMAT_COMPLEXIEEEFP:
       sample_format_str = " COMPLEX IEEE FP";
       if (bits_per_sample == 64) {
-        info.dtype = dtype_v<tensorstore::complex64_t>;
-        return absl::OkStatus();
+        return dtype_v<tensorstore::complex64_t>;
       } else if (bits_per_sample == 128) {
-        info.dtype = dtype_v<tensorstore::complex128_t>;
-        return absl::OkStatus();
+        return dtype_v<tensorstore::complex128_t>;
       }
       break;
     case SAMPLEFORMAT_COMPLEXINT:
@@ -241,11 +222,11 @@ absl::Status GetTIFFImageInfo(TIFF* tiff, TiffImageInfo& info) {
 
   // These call TIFFSetField to update the in-memory structure so that
   // subsequent calls get appropriate defaults.
-  uint32_t samples_per_pixel = 0;
   if (!TIFFGetField(tiff, TIFFTAG_BITSPERSAMPLE, &info.bits_per_sample_)) {
     info.bits_per_sample_ = 1;
     TIFFSetField(tiff, TIFFTAG_BITSPERSAMPLE, info.bits_per_sample_);
   }
+  uint32_t samples_per_pixel = 0;
   if (!TIFFGetField(tiff, TIFFTAG_SAMPLESPERPIXEL, &samples_per_pixel)) {
     samples_per_pixel = 1;
     TIFFSetField(tiff, TIFFTAG_SAMPLESPERPIXEL, samples_per_pixel);
@@ -265,61 +246,86 @@ absl::Status GetTIFFImageInfo(TIFF* tiff, TiffImageInfo& info) {
     }
   }
 
+  uint16_t sample_format = 0;
+  TIFFGetFieldDefaulted(tiff, TIFFTAG_SAMPLEFORMAT, &sample_format);
+
   info.width = width;
   info.height = height;
   info.num_components = samples_per_pixel + info.extra_samples_;
-  return SetDType(tiff, info);
+  TENSORSTORE_ASSIGN_OR_RETURN(info.dtype,
+                               SetDType(sample_format, info.bits_per_sample_));
+  return absl::OkStatus();
 }
 
-void ReadScanlineImpl(TIFF* tiff, TiffImageInfo& info,
-                      tensorstore::span<unsigned char> data) {
+absl::Status ReadStripImpl(TIFF* tiff, TiffImageInfo& info,
+                           tensorstore::span<unsigned char> data) {
   ImageView dest_view(info, data);
 
   // Translate 1,2,4 bits per sample to 8-bpp images.
   const unsigned char* mapping = nullptr;
-  bool alloc = false;
   ptrdiff_t trstride = 1;
   if (info.bits_per_sample_ == 1) {
     mapping = TranslateBits<1>(trstride);
-    alloc = true;
   } else if (info.bits_per_sample_ == 2) {
     mapping = TranslateBits<2>(trstride);
-    alloc = true;
   } else if (info.bits_per_sample_ == 4) {
     mapping = TranslateBits<4>(trstride);
-    alloc = true;
   }
 
-  std::unique_ptr<unsigned char[]> buffer;
-  const int scanline_bytes = TIFFScanlineSize(tiff);
-  if (alloc || scanline_bytes != dest_view.row_stride_bytes()) {
-    buffer.reset(new unsigned char[scanline_bytes]);
-  }
+  const int strip_bytes = TIFFStripSize(tiff);
+  uint32 rows_per_strip = 1;
+  TIFFGetFieldDefaulted(tiff, TIFFTAG_ROWSPERSTRIP, &rows_per_strip);
 
-  for (size_t y = 0; y < info.height; ++y) {
-    auto target_row = dest_view.data_row(y);
-    if (TIFFReadScanline(tiff, buffer ? buffer.get() : target_row.data(), y,
-                         0) == -1) {
-      return;
-    }
-    if (!buffer) continue;
-    if (info.bits_per_sample_ >= 8) {
-      memcpy(target_row.data(), buffer.get(), target_row.size());
-    } else {
-      unsigned char* packed = reinterpret_cast<unsigned char*>(buffer.get());
-      while (!target_row.empty()) {
-        size_t n = std::min(trstride, target_row.size());
-        memcpy(target_row.data(), mapping + (*packed * trstride), n);
-        target_row = target_row.subspan(n);
-        packed++;
+  if (!mapping &&
+      strip_bytes == rows_per_strip * dest_view.row_stride_bytes()) {
+    /// No extra data && no mapping means that the TIFF can be read directly
+    /// into the output buffer.
+    for (size_t y = 0; y < info.height; y += rows_per_strip) {
+      // Read the strip.
+      if (TIFFReadEncodedStrip(tiff, TIFFComputeStrip(tiff, y, 0),
+                               dest_view.data_row(y).data(),
+                               strip_bytes) == -1) {
+        return absl::DataLossError("TIFF read strip failed");
       }
-      assert(packed <= buffer.get() + scanline_bytes);
+    }
+    return absl::OkStatus();
+  }
+
+  std::unique_ptr<unsigned char[]> buffer(new unsigned char[strip_bytes]);
+  uint32 line_bytes =
+      info.width * (info.bits_per_sample_ / 8) * info.num_components;
+
+  for (size_t y = 0; y < info.height; y += rows_per_strip) {
+    // Read the strip.
+    if (TIFFReadEncodedStrip(tiff, TIFFComputeStrip(tiff, y, 0), buffer.get(),
+                             strip_bytes) == -1) {
+      return absl::DataLossError("TIFF read strip failed");
+    }
+
+    unsigned char* source_row = buffer.get();
+    for (size_t r = 0; r < rows_per_strip; r++) {
+      if (y + r >= info.height) break;
+      auto target_row = dest_view.data_row(y + r);
+
+      if (info.bits_per_sample_ >= 8) {
+        assert(line_bytes == dest_view.row_stride_bytes());
+        memcpy(target_row.data(), source_row, line_bytes);
+        source_row += line_bytes;
+      } else {
+        while (!target_row.empty()) {
+          size_t n = std::min(trstride, target_row.size());
+          memcpy(target_row.data(), mapping + (*source_row * trstride), n);
+          target_row = target_row.subspan(n);
+          source_row++;
+        }
+      }
     }
   }
+  return absl::OkStatus();
 }
 
-void ReadTiledImpl(TIFF* tiff, TiffImageInfo& info,
-                   tensorstore::span<unsigned char> data) {
+absl::Status ReadTiledImpl(TIFF* tiff, TiffImageInfo& info,
+                           tensorstore::span<unsigned char> data) {
   ImageView dest_view(info, data);
 
   // Translate 1,2,4 bits per sample to 8-bpp images.
@@ -347,7 +353,7 @@ void ReadTiledImpl(TIFF* tiff, TiffImageInfo& info,
   for (size_t y = 0; y < info.height; y += tile_height) {
     for (size_t x = 0; x < info.width; x += tile_width) {
       if (TIFFReadTile(tiff, tile_buffer.get(), x, y, 0, 0) == -1) {
-        return;
+        return absl::DataLossError("TIFF read tile failed");
       }
       for (size_t y1 = 0; y1 < tile_height; y1++) {
         if ((y + y1) >= info.height) break;
@@ -369,6 +375,7 @@ void ReadTiledImpl(TIFF* tiff, TiffImageInfo& info,
       }
     }
   }
+  return absl::OkStatus();
 }
 
 }  // namespace
@@ -381,7 +388,8 @@ TiffReader::Context::~Context() {
   }
 }
 
-absl::Status TiffReader::Context::ExtractErrors() {
+absl::Status TiffReader::Context::ExtractErrors(absl::Status in) {
+  if (error_.ok()) return in;
   return std::exchange(error_, absl::OkStatus());
 }
 
@@ -411,7 +419,7 @@ absl::Status TiffReader::Context::Open() {
   }
 #endif
 
-  return ExtractErrors();
+  return ExtractErrors(absl::OkStatus());
 }
 
 absl::Status TiffReader::Context::DefaultDecode(
@@ -457,21 +465,22 @@ absl::Status TiffReader::Context::DefaultDecode(
   }
 
   if (info.num_components > 1) {
-    uint32_t planarconfig;
-    if (TIFFGetField(tiff_, TIFFTAG_PLANARCONFIG, &planarconfig) &&
-        planarconfig == PLANARCONFIG_SEPARATE) {
+    uint32_t planarconfig = PLANARCONFIG_CONTIG;
+    TIFFGetFieldDefaulted(tiff_, TIFFTAG_PLANARCONFIG, &planarconfig);
+    if (planarconfig == PLANARCONFIG_SEPARATE) {
       return absl::InvalidArgumentError(
           "TIFF read failed: separate planes not supported");
     }
   }
 
+  absl::Status status;
   if (TIFFIsTiled(tiff_)) {
-    ReadTiledImpl(tiff_, info, data);
+    status = ReadTiledImpl(tiff_, info, data);
   } else {
-    ReadScanlineImpl(tiff_, info, data);
+    status = ReadStripImpl(tiff_, info, data);
   }
 
-  return ExtractErrors();
+  return ExtractErrors(status);
 }
 
 TiffReader::TiffReader() = default;
@@ -502,10 +511,10 @@ absl::Status TiffReader::SeekFrame(int frame_number) {
   }
   context_->error_ = absl::OkStatus();
   if (TIFFSetDirectory(context_->tiff_, frame_number) != 1) {
-    context_->error_.Update(absl::InvalidArgumentError(
+    return context_->ExtractErrors(absl::InvalidArgumentError(
         "TIFF Initialize failed: failed to set directory"));
   }
-  return context_->ExtractErrors();
+  return context_->ExtractErrors(absl::OkStatus());
 }
 
 ImageInfo TiffReader::GetImageInfo() {
