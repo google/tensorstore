@@ -17,6 +17,7 @@
 #include <csetjmp>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -40,7 +41,7 @@ static const char* kRiegeliError = "Riegeli error";
 
 void WriteFunction(png_structp png_ptr, png_bytep data, png_size_t size) {
   if (!static_cast<riegeli::Writer*>(png_get_io_ptr(png_ptr))
-           ->Write(reinterpret_cast<char*>(data), size)) {
+           ->Write(std::string_view(reinterpret_cast<char*>(data), size))) {
     png_error(png_ptr, kRiegeliError);
   }
 }

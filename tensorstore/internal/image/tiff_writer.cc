@@ -20,6 +20,7 @@
 
 #include <memory>
 #include <optional>
+#include <string_view>
 #include <utility>
 
 #include "absl/status/status.h"
@@ -67,7 +68,7 @@ tmsize_t WriteProc(thandle_t data, void* buf, tmsize_t len) {
   assert(data != nullptr);
 
   auto* writer = static_cast<TiffWriter::Context*>(data)->writer_;
-  if (!writer->Write(static_cast<char*>(buf), len)) {
+  if (!writer->Write(std::string_view(static_cast<char*>(buf), len))) {
     errno = EBADF;
     return -1;
   }

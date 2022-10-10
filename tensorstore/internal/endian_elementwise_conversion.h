@@ -16,6 +16,7 @@
 #define TENSORSTORE_INTERNAL_ENDIAN_ELEMENTWISE_CONVERSION_H_
 
 #include <array>
+#include <string_view>
 
 #include "absl/status/status.h"
 #include "tensorstore/index.h"
@@ -225,8 +226,9 @@ struct WriteSwapEndianLoopTemplate {
                       internal::IterationBufferKind::kContiguous) {
       // Fast path: source array is contiguous and byte swapping is not
       // required.
-      if (!writer.Write(reinterpret_cast<const char*>(source.pointer.get()),
-                        count * sizeof(Element))) {
+      if (!writer.Write(std::string_view(
+              reinterpret_cast<const char*>(source.pointer.get()),
+              count * sizeof(Element)))) {
         return 0;
       }
     } else {

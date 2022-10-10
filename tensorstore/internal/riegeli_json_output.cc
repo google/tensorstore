@@ -14,6 +14,8 @@
 
 #include "tensorstore/internal/riegeli_json_output.h"
 
+#include <string_view>
+
 #include <nlohmann/json.hpp>
 #include "riegeli/bytes/writer.h"
 #include "tensorstore/internal/unowned_to_shared.h"
@@ -28,7 +30,7 @@ struct RiegeliJsonOutputAdapter
   RiegeliJsonOutputAdapter(riegeli::Writer& writer) : writer_(writer) {}
   void write_character(char c) final { writer_.WriteChar(c); }
   void write_characters(const char* s, size_t length) final {
-    writer_.Write(s, length);
+    writer_.Write(std::string_view(s, length));
   }
 
   riegeli::Writer& writer_;

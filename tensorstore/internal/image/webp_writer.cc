@@ -18,11 +18,11 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
 #include "absl/status/status.h"
-#include "absl/strings/string_view.h"
 #include "riegeli/base/base.h"
 #include "riegeli/bytes/writer.h"
 #include "tensorstore/data_type.h"
@@ -43,7 +43,10 @@ namespace {
 static int WebPWriterWrite(const uint8_t* data, size_t data_size,
                            const WebPPicture* const picture) {
   riegeli::Writer& writer = *static_cast<riegeli::Writer*>(picture->custom_ptr);
-  return writer.Write(reinterpret_cast<const char*>(data), data_size) ? 1 : 0;
+  return writer.Write(
+             std::string_view(reinterpret_cast<const char*>(data), data_size))
+             ? 1
+             : 0;
 }
 
 absl::Status EncodeWebP(riegeli::Writer* writer,
