@@ -239,16 +239,6 @@ using EnableIfApplyIndexTransformResult =
 
 }  // namespace internal_index_space
 
-/// Specialization of DimExpression for an empty parameter list.  This is an
-/// implementation detail, and is not a part of the public API.
-template <>
-class DimExpression<> {
-  template <typename...>
-  friend class DimExpression;
-  friend class internal_index_space::DimExpressionHelper;
-  DimExpression() = default;
-};
-
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_INDEX_SPACE_INTERNAL_DIM_EXPRESSION_HELPER_H_

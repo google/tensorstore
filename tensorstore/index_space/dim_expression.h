@@ -2117,6 +2117,18 @@ class DimExpression {
   Parent parent_;
 };
 
+// Specialization of DimExpression for an empty parameter list.  This is an
+// implementation detail, and is not a part of the public API.
+template <>
+class DimExpression<> {
+  template <typename...>
+  friend class DimExpression;
+  friend class internal_index_space::DimExpressionHelper;
+
+ public:
+  DimExpression() = default;
+};
+
 /// Starts a `DimExpression` with the specified dimensions selected (and no
 /// operations).
 ///

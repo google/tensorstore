@@ -81,15 +81,19 @@ TEST(DetachedThreadPoolTest, ThreadLimit) {
 
 // Tests that enqueuing a task from a task's destructor does not deadlock.
 TEST(DetachedThreadPoolTest, EnqueueFromTaskDestructor) {
-  auto executor = DetachedThreadPool(1);
-  absl::Notification notification1;
-  absl::Notification notification2;
   struct Task {
     Executor& executor;
     absl::Notification* notification1;
     absl::Notification* notification2;
+
     void operator()() { notification1->Notify(); }
-    Task(const Task&) = delete;
+
+    Task(Executor& executor, absl::Notification* notification1,
+         absl::Notification* notification2)
+        : executor(executor),
+          notification1(notification1),
+          notification2(notification2) {}
+
     ~Task() {
       executor(
           [notification2 = this->notification2] { notification2->Notify(); });
@@ -99,8 +103,14 @@ TEST(DetachedThreadPoolTest, EnqueueFromTaskDestructor) {
     std::unique_ptr<Task> task;
     void operator()() { (*task)(); }
   };
-  executor(TaskWrapper{std::unique_ptr<Task>(
-      new Task{executor, &notification1, &notification2})});
+
+  auto executor = DetachedThreadPool(1);
+  absl::Notification notification1;
+  absl::Notification notification2;
+
+  executor(TaskWrapper{std::make_unique<Task>(std::ref(executor),
+                                              &notification1, &notification2)});
+
   notification1.WaitForNotification();
   notification2.WaitForNotification();
 }
