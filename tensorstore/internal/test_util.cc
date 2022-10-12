@@ -28,6 +28,7 @@
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/os_error_code.h"
 #include "tensorstore/internal/path.h"
+#include "tensorstore/kvstore/file/file_util.h"
 #include "tensorstore/util/status.h"
 
 #if defined(_WIN32)
@@ -197,6 +198,16 @@ ScopedTemporaryDirectory::ScopedTemporaryDirectory() {
 
 ScopedTemporaryDirectory::~ScopedTemporaryDirectory() {
   TENSORSTORE_CHECK_OK(RemoveAll(path_));
+}
+
+ScopedCurrentWorkingDirectory::ScopedCurrentWorkingDirectory(
+    const std::string& new_cwd) {
+  TENSORSTORE_CHECK_OK_AND_ASSIGN(old_cwd_, internal_file_util::GetCwd());
+  TENSORSTORE_CHECK_OK(internal_file_util::SetCwd(new_cwd));
+}
+
+ScopedCurrentWorkingDirectory::~ScopedCurrentWorkingDirectory() {
+  TENSORSTORE_CHECK_OK(internal_file_util::SetCwd(old_cwd_));
 }
 
 void RegisterGoogleTestCaseDynamically(std::string test_suite_name,

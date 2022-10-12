@@ -861,10 +861,10 @@ Example:
 
     >>> kvstore = await ts.KvStore.open({
     ...     'driver': 'file',
-    ...     'path': '/tmp/data/'
+    ...     'path': 'tmp/data/'
     ... })
     >>> kvstore
-    KvStore({'context': {'file_io_concurrency': {}}, 'driver': 'file', 'path': '/tmp/data/'})
+    KvStore({'context': {'file_io_concurrency': {}}, 'driver': 'file', 'path': 'tmp/data/'})
 
 )");
 
@@ -874,17 +874,17 @@ Returns a copy of the key-value store.
 
 Example:
 
-  >>> a = await ts.KvStore.open({'driver': 'file', 'path': '/tmp/data/'})
+  >>> a = await ts.KvStore.open({'driver': 'file', 'path': 'tmp/data/'})
   >>> b = a.copy()
-  >>> a.path = '/tmp/data/abc/'
+  >>> a.path = 'tmp/data/abc/'
   >>> a
   KvStore({
     'context': {'file_io_concurrency': {}},
     'driver': 'file',
-    'path': '/tmp/data/abc/',
+    'path': 'tmp/data/abc/',
   })
   >>> b
-  KvStore({'context': {'file_io_concurrency': {}}, 'driver': 'file', 'path': '/tmp/data/'})
+  KvStore({'context': {'file_io_concurrency': {}}, 'driver': 'file', 'path': 'tmp/data/'})
 
 Group:
   Accessors
@@ -975,9 +975,9 @@ Path prefix within the base key-value store.
 
 Example:
 
-    >>> spec = ts.KvStore.Spec({'driver': 'file', 'path': '/tmp/data'})
+    >>> spec = ts.KvStore.Spec({'driver': 'file', 'path': 'tmp/data'})
     >>> spec.path
-    '/tmp/data'
+    'tmp/data'
 
 Group:
   Accessors
@@ -1020,11 +1020,11 @@ ensure there is a :python:`'/'` separator, use :py:obj:`.__truediv__` instead.
 
 Example:
 
-    >>> spec = ts.KvStore.Spec({'driver': 'file', 'path': '/tmp/data'})
+    >>> spec = ts.KvStore.Spec({'driver': 'file', 'path': 'tmp/data'})
     >>> spec + '/abc'
-    KvStore.Spec({'driver': 'file', 'path': '/tmp/data/abc'})
+    KvStore.Spec({'driver': 'file', 'path': 'tmp/data/abc'})
     >>> spec + 'abc'
-    KvStore.Spec({'driver': 'file', 'path': '/tmp/dataabc'})
+    KvStore.Spec({'driver': 'file', 'path': 'tmp/dataabc'})
 
 Group:
   Operators
@@ -1042,11 +1042,11 @@ Returns a key-value store with an additional path component joined to the path.
 
 Example:
 
-    >>> spec = ts.KvStore.Spec({'driver': 'file', 'path': '/tmp/data'})
+    >>> spec = ts.KvStore.Spec({'driver': 'file', 'path': 'tmp/data'})
     >>> spec / 'abc'
-    KvStore.Spec({'driver': 'file', 'path': '/tmp/data/abc'})
+    KvStore.Spec({'driver': 'file', 'path': 'tmp/data/abc'})
     >>> spec / '/abc'
-    KvStore.Spec({'driver': 'file', 'path': '/tmp/data/abc'})
+    KvStore.Spec({'driver': 'file', 'path': 'tmp/data/abc'})
 
 Group:
   Operators
@@ -1062,15 +1062,15 @@ Constructs from the :json:schema:`JSON representation<KvStore>` or a :json:schem
 
 Example of constructing from the :json:schema:`JSON representation<KvStore>`:
 
-    >>> spec = ts.KvStore.Spec({'driver': 'file', 'path': '/tmp/data/'})
+    >>> spec = ts.KvStore.Spec({'driver': 'file', 'path': 'tmp/data/'})
     >>> spec
-    KvStore.Spec({'driver': 'file', 'path': '/tmp/data/'})
+    KvStore.Spec({'driver': 'file', 'path': 'tmp/data/'})
 
 Example of constructing from a :json:schema:`URL<KvStoreUrl>`:
 
-    >>> spec = ts.KvStore.Spec('file:///tmp/data/')
+    >>> spec = ts.KvStore.Spec('file://tmp/data/')
     >>> spec
-    KvStore.Spec({'driver': 'file', 'path': '/tmp/data/'})
+    KvStore.Spec({'driver': 'file', 'path': 'tmp/data/'})
 
 )");
 
@@ -1085,15 +1085,15 @@ Converts to the :json:schema:`JSON representation<KvStore>`.
 
 Example:
 
-  >>> spec = ts.KvStore.Spec({'driver': 'file', 'path': '/tmp/dataset/'})
+  >>> spec = ts.KvStore.Spec({'driver': 'file', 'path': 'tmp/dataset/'})
   >>> spec /= 'abc/'
   >>> spec.to_json()
-  {'driver': 'file', 'path': '/tmp/dataset/abc/'}
+  {'driver': 'file', 'path': 'tmp/dataset/abc/'}
   >>> spec.to_json(include_defaults=True)
   {'context': {},
    'driver': 'file',
    'file_io_concurrency': 'file_io_concurrency',
-   'path': '/tmp/dataset/abc/'}
+   'path': 'tmp/dataset/abc/'}
 
 Group:
   Accessors
@@ -1106,13 +1106,13 @@ Returns a copy of the key-value store spec.
 
 Example:
 
-  >>> a = ts.KvStore.Spec({'driver': 'file', 'path': '/tmp/data/'})
+  >>> a = ts.KvStore.Spec({'driver': 'file', 'path': 'tmp/data/'})
   >>> b = a.copy()
-  >>> a.path = '/tmp/data/abc/'
+  >>> a.path = 'tmp/data/abc/'
   >>> a
-  KvStore.Spec({'driver': 'file', 'path': '/tmp/data/abc/'})
+  KvStore.Spec({'driver': 'file', 'path': 'tmp/data/abc/'})
   >>> b
-  KvStore.Spec({'driver': 'file', 'path': '/tmp/data/'})
+  KvStore.Spec({'driver': 'file', 'path': 'tmp/data/'})
 
 Group:
   Accessors
@@ -1137,8 +1137,8 @@ Returns a string representation based on the  :json:schema:`JSON representation<
 
 Example:
 
-    >>> ts.KvStore.Spec({'driver': 'file', 'path': '/tmp/data/'})
-    KvStore.Spec({'driver': 'file', 'path': '/tmp/data/'})
+    >>> ts.KvStore.Spec({'driver': 'file', 'path': 'tmp/data/'})
+    KvStore.Spec({'driver': 'file', 'path': 'tmp/data/'})
 
 )");
 

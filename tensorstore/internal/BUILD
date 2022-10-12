@@ -1639,6 +1639,7 @@ tensorstore_cc_library(
         ":os_error_code",
         ":path",
         ":source_location",
+        "//tensorstore/kvstore/file:file_util",
         "//tensorstore/util:status",
         "@com_google_absl//absl/random",
         "@com_google_absl//absl/status",

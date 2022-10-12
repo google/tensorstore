@@ -13,7 +13,7 @@ Create a new :ref:`N5<n5-driver>` dataset on the local filesystem using the
    ...     'driver': 'n5',
    ...     'kvstore': {
    ...         'driver': 'file',
-   ...         'path': '/tmp/dataset/',
+   ...         'path': 'tmp/dataset/',
    ...     },
    ...     'metadata': {
    ...         'compression': {

@@ -251,7 +251,7 @@ Result<UniqueFileDescriptor> OpenParentDirectory(std::string path) {
   while (true) {
     // Loop backward until we reach a directory we can open (or .).
     // Loop forward, making directories, until we are done.
-    size_t separator_pos = path.size();
+    size_t separator_pos = end_pos;
     while (separator_pos != 0 &&
            !internal_file_util::IsDirSeparator(path[separator_pos - 1])) {
       --separator_pos;
@@ -267,8 +267,8 @@ Result<UniqueFileDescriptor> OpenParentDirectory(std::string path) {
       // containing the current ancestor directory path.
       path[separator_pos] = '\0';
       dir_path = path.c_str();
+      end_pos = separator_pos;
     }
-    end_pos = separator_pos;
     fd.reset(internal_file_util::OpenDirectoryDescriptor(dir_path));
     if (!fd.valid()) {
       OsErrorCode error = GetLastErrorCode();

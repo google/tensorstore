@@ -60,7 +60,7 @@ Example usage:
     ...     'driver': 'n5',
     ...     'kvstore': {
     ...         'driver': 'file',
-    ...         'path': '/tmp/dataset'
+    ...         'path': 'tmp/dataset/'
     ...     },
     ...     'metadata': {
     ...         'dataType': 'uint16',

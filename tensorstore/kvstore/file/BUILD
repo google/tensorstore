@@ -92,6 +92,7 @@ tensorstore_cc_library(
         "windows_file_util.cc",
     ],
     hdrs = [
+        "file_util.h",
         "posix_file_util.h",
         "windows_file_util.h",
     ],
@@ -99,6 +100,7 @@ tensorstore_cc_library(
         ":potentially_blocking_region",
         ":util",
         "//tensorstore/internal:os_error_code",
+        "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
         "//tensorstore/util:str_cat",
         "@com_google_absl//absl/container:inlined_vector",

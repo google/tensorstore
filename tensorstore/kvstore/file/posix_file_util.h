@@ -26,6 +26,7 @@
 #include <string_view>
 
 #include "absl/strings/cord.h"
+#include "tensorstore/internal/os_error_code.h"
 #include "tensorstore/kvstore/file/unique_handle.h"
 #include "tensorstore/util/result.h"
 

@@ -36,9 +36,11 @@ import io
 import json
 import os
 import pathlib
+import pdb
 import pprint
 import re
 import sys
+import tempfile
 import textwrap
 import traceback
 from typing import Tuple
@@ -59,7 +61,20 @@ JSON_OUTPUT_FLAG = doctest.register_optionflag('JSON_OUTPUT')
 """Flag that indicates output should be pretty-printed as JSON."""
 
 
-def execute_doctests(filename: str, verbose: bool) -> Tuple[str, str]:
+def execute_doctests(*args, **kwargs) -> Tuple[str, str]:
+  with tempfile.TemporaryDirectory() as temp_dir:
+    orig_cwd = os.getcwd()
+    # Change to a temporary directory to ensure that relative paths used in
+    # tests refer to a unique temporary directory.
+    os.chdir(temp_dir)
+    try:
+      return execute_doctests_with_temp_dir(*args, **kwargs)
+    finally:
+      os.chdir(orig_cwd)
+
+
+def execute_doctests_with_temp_dir(filename: str, verbose: bool,
+                                   use_pdb: bool = False) -> Tuple[str, str]:
   orig_text = pathlib.Path(filename).read_text()
 
   # New text assembled
@@ -158,9 +173,13 @@ def execute_doctests(filename: str, verbose: bool) -> Tuple[str, str]:
         # Preserve existing output if it matches (in case it contains ellipses).
         output = example.want
       else:
+        if use_pdb:
+          pdb.set_trace()
         output = actual_output
 
     if not success and not example.want:
+      if use_pdb:
+        pdb.set_trace()
       output = actual_output
 
     if output:
@@ -187,8 +206,9 @@ def _get_diff(orig_text: str, new_text: str, filename: str) -> str:
 
 
 def update_doctests(filename: str, verbose: bool, in_place: bool,
-                    print_expected: bool) -> None:
-  orig_text, new_text = execute_doctests(filename=filename, verbose=verbose)
+                    print_expected: bool, use_pdb: bool = False) -> None:
+  orig_text, new_text = execute_doctests(filename=filename, verbose=verbose,
+                                         use_pdb=use_pdb)
   if in_place:
     with open(filename, 'w') as f:
       f.write(new_text)
@@ -206,7 +226,8 @@ def pytest_generate_tests(metafunc):
 
 def test_doctest(doctest_filename: str) -> None:
   orig_text, new_text = execute_doctests(doctest_filename, verbose=False)
-  if orig_text == new_text: return
+  if orig_text == new_text:
+    return
   assert False, '\n' + _get_diff(orig_text, new_text, doctest_filename)
 
 
@@ -319,13 +340,19 @@ def main(argv):
                   help='Print examples as they are executed')
   ap.add_argument('--stdout', action='store_true',
                   help='Print expected content to stdout.')
+  ap.add_argument('--pdb', action='store_true',
+                  help='Run PDB in the case of a failure.')
   args = ap.parse_args(argv[1:])
-  for path in args.path:
+  # Resolve all paths as absolute paths since we change the current directory
+  # while running the tests.
+  paths = [os.path.abspath(path) for path in args.path]
+  for path in paths:
     update_doctests(
         path,
         in_place=args.in_place,
         verbose=args.verbose,
         print_expected=args.stdout,
+        use_pdb=args.pdb,
     )
 
 

@@ -22,6 +22,8 @@
 #include <stdio.h>
 
 #include "tensorstore/internal/os_error_code.h"
+#include "tensorstore/kvstore/file/file_util.h"
+#include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/str_cat.h"
 
 // Windows 10 1607 required for FileDispositionInfoEx, FileRenameInfoEx
@@ -352,6 +354,70 @@ bool DirectoryIterator::Make(Entry entry,
     it->Update(find_data);
   }
   return true;
+}
+
+Result<std::string> GetCwd() {
+  // Determine required buffer size.
+  DWORD size = ::GetCurrentDirectoryW(0, nullptr);
+  // size is equal to the required length, INCLUDING the terminating NUL.
+  while (true) {
+    // size of 0 indicates an error
+    if (size == 0) break;
+
+    std::vector<wchar_t> buf(size);
+
+    // If `size` was sufficient, `new_size` is equal to the path length,
+    // EXCLUDING the terminating NUL.
+    //
+    // If `size` was insufficient, `new_size` is equal to the path length,
+    // INCLUDING the terminating NUL.
+    DWORD new_size = ::GetCurrentDirectoryW(size, buf.data());
+    if (new_size != size - 1) {
+      // Another thread changed the current working directory between the two
+      // calls to `GetCurrentDirectoryW`.
+
+      // It is not valid for `size` to exactly equal `new_size`, since that
+      // would simultaneously mean `size` was insufficient but also the correct
+      // size.
+      TENSORSTORE_CHECK(new_size != size);
+
+      if (new_size > size) {
+        size = new_size;
+        continue;
+      }
+    }
+    std::string utf8_buf;
+    utf8_buf.resize(new_size * 3);
+    int utf8_size = ::WideCharToMultiByte(
+        CP_UTF8, WC_ERR_INVALID_CHARS, buf.data(), static_cast<int>(new_size),
+        utf8_buf.data(), utf8_buf.size(), /*lpDefaultChar=*/nullptr,
+        /*lpUsedDefaultChar=*/nullptr);
+    if (utf8_size == 0) {
+      return internal::StatusFromOsError(
+          ::GetLastError(),
+          "Failed to convert current working directory to UTF-8");
+    }
+    utf8_buf.resize(utf8_size);
+    return utf8_buf;
+  }
+
+  return internal::StatusFromOsError(::GetLastError(),
+                                     "Failed to get current working directory");
+}
+
+absl::Status SetCwd(const std::string& path) {
+  WindowsPathConverter converter(path);
+  if (converter.failed()) {
+    return internal::StatusFromOsError(
+        ::GetLastError(),
+        "Failed to convert path to UTF-16: ", tensorstore::QuoteString(path));
+  }
+  if (!::SetCurrentDirectoryW(converter.wc_str())) {
+    return internal::StatusFromOsError(
+        ::GetLastError(), "Failed to set current working directory to: ",
+        tensorstore::QuoteString(path));
+  }
+  return absl::OkStatus();
 }
 
 }  // namespace internal_file_util

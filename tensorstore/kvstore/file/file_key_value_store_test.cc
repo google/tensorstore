@@ -528,4 +528,12 @@ TEST(FileKeyValueStoreTest, InvalidUri) {
                             ".*: Fragment identifier not supported"));
 }
 
+TEST(FileKeyValueStoreTest, RelativePath) {
+  tensorstore::internal::ScopedTemporaryDirectory tempdir;
+  tensorstore::internal::ScopedCurrentWorkingDirectory scoped_cwd(
+      tempdir.path());
+  auto store = GetStore("tmp/dataset");
+  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "abc", {}).result());
+}
+
 }  // namespace

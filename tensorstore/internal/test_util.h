@@ -36,12 +36,28 @@ absl::Status EnumeratePaths(
 class ScopedTemporaryDirectory {
  public:
   ScopedTemporaryDirectory();
+  ScopedTemporaryDirectory(const ScopedTemporaryDirectory&) = delete;
   ~ScopedTemporaryDirectory();
 
   const std::string& path() const { return path_; }
 
  private:
   std::string path_;
+};
+
+// Sets current working directory while in scope.
+//
+// The destructor restores the existing current working directory.
+//
+// On Windows, the directory path is specified as UTF-8.
+class ScopedCurrentWorkingDirectory {
+ public:
+  ScopedCurrentWorkingDirectory(const std::string& new_cwd);
+  ScopedCurrentWorkingDirectory(const ScopedCurrentWorkingDirectory&) = delete;
+  ~ScopedCurrentWorkingDirectory();
+
+ private:
+  std::string old_cwd_;
 };
 
 /// Registers a GoogleTest case dynamically.
