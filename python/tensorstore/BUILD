@@ -419,6 +419,7 @@ pybind11_cc_library(
         ":garbage_collection",
         ":gil_safe",
         ":homogeneous_tuple",
+        ":index",
         ":index_space",
         ":json_type_caster",
         ":keyword_arguments",

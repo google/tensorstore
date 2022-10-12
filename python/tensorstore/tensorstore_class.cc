@@ -18,6 +18,7 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
+#include <cstdint>
 #include <memory>
 #include <new>
 #include <optional>
@@ -30,6 +31,7 @@
 #include "python/tensorstore/future.h"
 #include "python/tensorstore/gil_safe.h"
 #include "python/tensorstore/homogeneous_tuple.h"
+#include "python/tensorstore/index.h"
 #include "python/tensorstore/index_space.h"
 #include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/keyword_arguments.h"
@@ -746,6 +748,102 @@ writes to be read:
 
 )",
       py::arg("source"));
+
+  cls.def(
+      "resize",
+      [](Self& self,
+         std::optional<SequenceParameter<OptionallyImplicitIndex>>
+             inclusive_min,
+         std::optional<SequenceParameter<OptionallyImplicitIndex>>
+             exclusive_max,
+         bool resize_metadata_only, bool resize_tied_bounds, bool expand_only,
+         bool shrink_only) {
+        if (!inclusive_min) {
+          inclusive_min =
+              std::vector<OptionallyImplicitIndex>(self.value.rank());
+        }
+        if (!exclusive_max) {
+          exclusive_max =
+              std::vector<OptionallyImplicitIndex>(self.value.rank());
+        }
+        tensorstore::ResizeOptions options = {};
+        if (resize_metadata_only) {
+          options.mode = options.mode | tensorstore::resize_metadata_only;
+        }
+        if (resize_tied_bounds) {
+          options.mode = options.mode | tensorstore::resize_tied_bounds;
+        }
+        if (expand_only) {
+          options.mode = options.mode | tensorstore::expand_only;
+        }
+        if (shrink_only) {
+          options.mode = options.mode | tensorstore::shrink_only;
+        }
+        return PythonFutureWrapper<TensorStore<>>(tensorstore::Resize(
+            self.value,
+            std::vector<Index>(inclusive_min.value().begin(),
+                               inclusive_min.value().end()),
+            std::vector<Index>(exclusive_max.value().begin(),
+                               exclusive_max.value().end()),
+            options), self.reference_manager());
+      },
+      R"(
+Resizes the current domain, persistently modifying the stored representation.
+
+Depending on the :py:param`resize_metadata_only`, if the bounds are shrunk,
+existing elements outside of the new bounds may be deleted. If the bounds are
+expanded, elements outside the existing bounds will initially contain either the
+fill value, or existing out-of-bounds data remaining after a prior resize
+operation.
+
+Example:
+
+    >>> dataset = await ts.open(
+    ...     {
+    ...         'driver': 'zarr',
+    ...         'kvstore': {
+    ...             'driver': 'memory'
+    ...         }
+    ...     },
+    ...     dtype=ts.int64,
+    ...     shape=[3, 3],
+    ...     create=True)
+    >>> await dataset.write(np.arange(9).reshape((3, 3)))
+    >>> dataset = await dataset.resize(exclusive_max=(3, 2))
+    >>> await dataset.read()
+    array([[0, 1],
+           [3, 4],
+           [6, 7]])
+
+Args:
+
+  inclusive_min: Sequence of length :python:`self.rank()` specifying the new
+    inclusive min bounds.  A bound of :python:`None` indicates no change.
+  exclusive_max: Sequence of length :python:`self.rank()` specifying the new
+    exclusive max bounds.  A bound of :python:`None` indicates no change.
+  resize_metadata_only: Requests that, if applicable, the resize operation
+    affect only the metadata but not delete data chunks that are outside of the
+    new bounds.
+  resize_tied_bounds: Requests that the resize be permitted even if other
+    bounds tied to the specified bounds must also be resized.  This option
+    should be used with caution.
+  expand_only: Fail if any bounds would be reduced.
+  shrink_only: Fail if any bounds would be increased.
+
+Returns:
+
+  Future that resolves to a copy of :python:`self` with the updated bounds, once
+  the resize operation completes.
+
+Group:
+  I/O
+
+)",
+      py::arg("inclusive_min") = std::nullopt,
+      py::arg("exclusive_max") = std::nullopt,
+      py::arg("resize_metadata_only") = false,
+      py::arg("resize_tied_bounds") = false, py::arg("expand_only") = false,
+      py::arg("shrink_only") = false);
 
   cls.def(
       "__array__",

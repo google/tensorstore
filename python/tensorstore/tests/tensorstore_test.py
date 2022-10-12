@@ -17,9 +17,9 @@ import pickle
 import re
 import tempfile
 
+import numpy as np
 import pytest
 import tensorstore as ts
-import numpy as np
 
 pytestmark = pytest.mark.asyncio
 
@@ -56,6 +56,29 @@ async def test_open_array_driver():
   with pytest.raises(
       TypeError, match=re.escape("`order` must be specified as 'C' or 'F'")):
     await t.read(order="X")
+
+
+async def test_resize():
+  arr = np.asarray([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+  t = await ts.open(
+      {
+          "driver": "zarr",
+          "kvstore": "memory://",
+          "metadata": {
+              "shape": arr.shape,
+              "chunks": (1, 1),
+              "dtype": arr.dtype.str,
+          }
+      },
+      open=True,
+      create=True)
+  await t.write(arr)
+  await t.resize(exclusive_max=(3, 2))
+  a = await t.read()
+  np.testing.assert_equal(a, [[1, 2], [4, 5], [7, 8]])
+  await t.resize()  # Resize with no arguments does nothing.
+  a = await t.read()
+  np.testing.assert_equal(a, [[1, 2], [4, 5], [7, 8]])
 
 
 async def test_array():
