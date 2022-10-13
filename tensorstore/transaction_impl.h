@@ -742,7 +742,7 @@ class TransactionState {
 
   ~TransactionState();
 
-  Mutex mutex_;
+  absl::Mutex mutex_;
   TransactionMode mode_;
 
   /// Red-black tree of nodes in the transaction.

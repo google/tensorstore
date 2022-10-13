@@ -27,11 +27,10 @@
 
 #include "absl/base/call_once.h"
 #include "absl/functional/function_ref.h"
-#include "absl/hash/hash.h"
+#include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/cache/cache_pool_limits.h"
 #include "tensorstore/internal/heterogeneous_container.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/mutex.h"
 
 namespace tensorstore {
 namespace internal {
@@ -120,7 +119,7 @@ class CachePoolImpl {
   /// Protects access to `total_bytes_`, `queued_for_writeback_bytes_`,
   /// `writeback_queue_`, `eviction_queue_`, `caches_`, and the `entries_` hash
   /// tables of all caches associated with this pool.
-  Mutex mutex_;
+  absl::Mutex mutex_;
   CachePoolLimits limits_;
   size_t total_bytes_;
   size_t queued_for_writeback_bytes_;

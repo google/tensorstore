@@ -141,7 +141,6 @@ tensorstore_cc_library(
         "//tensorstore/internal/cache:async_cache",
         "//tensorstore/internal/cache:cache_pool_resource",
         "//tensorstore/internal/cache:kvs_backed_cache",
-        "//tensorstore/internal/compression:zlib",
         "//tensorstore/internal/estimate_heap_usage",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
@@ -158,6 +157,7 @@ tensorstore_cc_library(
         "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/base:endian",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/synchronization",
     ],
     alwayslink = True,
 )

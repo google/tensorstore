@@ -15,10 +15,9 @@
 #ifndef TENSORSTORE_UTIL_EXECUTION_SYNC_FLOW_SENDER_H_
 #define TENSORSTORE_UTIL_EXECUTION_SYNC_FLOW_SENDER_H_
 
-#include <mutex>  // NOLINT
 #include <utility>
 
-#include "tensorstore/internal/mutex.h"
+#include "absl/synchronization/mutex.h"
 #include "tensorstore/util/execution/execution.h"
 
 namespace tensorstore {
@@ -27,13 +26,11 @@ namespace tensorstore {
 /// are serialized.
 ///
 /// \tparam Receiver The FlowReceiver type to adapt.
-/// \tparam Mutex The mutex type to use, must be compatible with
-///     `std::lock_guard`.
 ///
 /// \remark SyncFlowReceiver is movable even though the underlying Mutex is not
 ///     moved, because the caller must ensure that any moves are serialized with
 ///     calls to any of the other functions.
-template <typename Receiver, typename Mutex = tensorstore::Mutex>
+template <typename Receiver>
 struct SyncFlowReceiver {
   SyncFlowReceiver() = default;
 
@@ -56,7 +53,7 @@ struct SyncFlowReceiver {
 
   template <typename... V>
   friend void set_value(SyncFlowReceiver& self, V... v) {
-    std::lock_guard<Mutex> lock(self.mutex);
+    absl::MutexLock lock(&self.mutex);
     execution::set_value(self.receiver, std::move(v)...);
   }
 
@@ -82,24 +79,24 @@ struct SyncFlowReceiver {
   }
 
   Receiver receiver;
-  Mutex mutex;
+  absl::Mutex mutex;
 };
 
 /// FlowSender that adapts a FlowSender to ensure calls to the receiver
 /// functions are serialized.
-template <typename Sender, typename Mutex = tensorstore::Mutex>
+template <typename Sender>
 struct SyncFlowSender {
   Sender sender;
 
   template <typename Receiver>
   friend void submit(SyncFlowSender& self, Receiver receiver) {
     execution::submit(self.sender,
-                      SyncFlowReceiver<Receiver, Mutex>{std::move(receiver)});
+                      SyncFlowReceiver<Receiver>{std::move(receiver)});
   }
 };
 
-template <typename Mutex = tensorstore::Mutex, typename Sender>
-SyncFlowSender<Sender, Mutex> MakeSyncFlowSender(Sender sender) {
+template <typename Sender>
+SyncFlowSender<Sender> MakeSyncFlowSender(Sender sender) {
   return {std::move(sender)};
 }
 

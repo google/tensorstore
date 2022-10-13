@@ -22,22 +22,8 @@
 #include "absl/synchronization/mutex.h"
 
 namespace tensorstore {
-
-/// \brief Trivial wrapper around absl::Mutex providing C++ standard library
-/// compatibility.
-///
-/// This class satisfies the C++ standard library Lockable concept and can be
-/// used with std::unique_lock.
-class ABSL_LOCKABLE Mutex : public absl::Mutex {
- public:
-  void lock() ABSL_EXCLUSIVE_LOCK_FUNCTION() { this->Lock(); }
-  void unlock() ABSL_UNLOCK_FUNCTION() { this->Unlock(); }
-  bool try_lock() ABSL_EXCLUSIVE_TRYLOCK_FUNCTION(true) {
-    return this->TryLock();
-  }
-};
-
 namespace internal {
+
 struct ReaderMutexTraits {
   template <typename MutexType>
   static void lock(MutexType& m) ABSL_NO_THREAD_SAFETY_ANALYSIS {
@@ -86,6 +72,33 @@ class UniqueLockImpl {
   std::unique_ptr<mutex_type, Deleter> mutex_;
 };
 
+template <typename MutexType, typename Traits>
+class ScopedUnlockImpl {
+ public:
+  using mutex_type = MutexType;
+  explicit ScopedUnlockImpl(mutex_type& m) : mutex_(m) { Traits::unlock(m); }
+  ~ScopedUnlockImpl() { Traits::lock(mutex_); }
+
+ private:
+  mutex_type& mutex_;
+};
+
+// Note: ScopedWriterUnlock and ScopedReaderLock inherit from
+// `ScopedUnlockImpl`, rather than being template aliases, in order to support
+// class template argument deduction (CTAD).  C++17 does not support CTAD for
+// template aliases; C++20 allows it, though.
+
+template <typename MutexType>
+class ScopedWriterUnlock
+    : public ScopedUnlockImpl<MutexType, WriterMutexTraits> {
+  using Base = ScopedUnlockImpl<MutexType, WriterMutexTraits>;
+
+ public:
+  using Base::Base;
+};
+template <typename MutexType>
+explicit ScopedWriterUnlock(MutexType&) -> ScopedWriterUnlock<MutexType>;
+
 }  // namespace internal
 
 // Note: UniqueWriterLock and UniqueReaderLock inherit from `UniqueLockImpl`,
@@ -127,47 +140,6 @@ explicit UniqueReaderLock(MutexType&) -> UniqueReaderLock<MutexType>;
 template <typename MutexType>
 UniqueReaderLock(MutexType&, std::adopt_lock_t) -> UniqueReaderLock<MutexType>;
 
-namespace internal {
-
-template <typename MutexType, typename Traits>
-class ScopedUnlockImpl {
- public:
-  using mutex_type = MutexType;
-  explicit ScopedUnlockImpl(mutex_type& m) : mutex_(m) { Traits::unlock(m); }
-  ~ScopedUnlockImpl() { Traits::lock(mutex_); }
-
- private:
-  mutex_type& mutex_;
-};
-
-// Note: ScopedWriterUnlock and ScopedReaderLock inherit from
-// `ScopedUnlockImpl`, rather than being template aliases, in order to support
-// class template argument deduction (CTAD).  C++17 does not support CTAD for
-// template aliases; C++20 allows it, though.
-
-template <typename MutexType>
-class ScopedWriterUnlock
-    : public ScopedUnlockImpl<MutexType, WriterMutexTraits> {
-  using Base = ScopedUnlockImpl<MutexType, WriterMutexTraits>;
-
- public:
-  using Base::Base;
-};
-template <typename MutexType>
-explicit ScopedWriterUnlock(MutexType&) -> ScopedWriterUnlock<MutexType>;
-
-template <typename MutexType>
-class ScopedReaderUnlock
-    : public ScopedUnlockImpl<MutexType, ReaderMutexTraits> {
-  using Base = ScopedUnlockImpl<MutexType, ReaderMutexTraits>;
-
- public:
-  using Base::Base;
-};
-template <typename MutexType>
-explicit ScopedReaderUnlock(MutexType&) -> ScopedReaderUnlock<MutexType>;
-
-}  // namespace internal
 }  // namespace tensorstore
 
 #endif  //  TENSORSTORE_INTERNAL_MUTEX_H_

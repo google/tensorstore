@@ -124,7 +124,7 @@ tensorstore_cc_library(
     hdrs = ["sync_flow_sender.h"],
     deps = [
         ":execution",
-        "//tensorstore/internal:mutex",
+        "@com_google_absl//absl/synchronization",
     ],
 )
 
