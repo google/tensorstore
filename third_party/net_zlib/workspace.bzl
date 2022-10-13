@@ -26,7 +26,7 @@ def repo():
         sha256 = "91844808532e5ce316b3c010929493c0244f3d37593afd6de04f71821d5136d9",
         strip_prefix = "zlib-1.2.12",
         urls = [
-            "https://zlib.net/zlib-1.2.12.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/zlib.net/zlib-1.2.12.tar.gz",
         ],
         build_file = Label("//third_party:net_zlib/bundled.BUILD.bazel"),
         system_build_file = Label("//third_party:net_zlib/system.BUILD.bazel"),
