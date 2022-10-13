@@ -66,9 +66,7 @@
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/status.h"
 #include "python/tensorstore/type_name_override.h"
-#include "tensorstore/internal/attributes.h"
 #include "tensorstore/internal/intrusive_linked_list.h"
-#include "tensorstore/internal/logging.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
@@ -534,20 +532,28 @@ Future<T> ConvertToFuture(pybind11::handle src, pybind11::handle loop) {
     return internal_python::GetStatusFromPythonException();
   }
   if (!future.null()) return future;
-  return MapFutureValue(
-      InlineExecutor{},
-      [](const GilSafePythonHandle& v) -> Result<T> {
-        ExitSafeGilScopedAcquire gil;
-        if (!gil.acquired()) return PythonExitingError();
-        Result<T> obj;
-        if (internal_python::CallAndSetErrorIndicator(
-                [&] { obj = pybind11::cast<T>(pybind11::handle(v.get())); })) {
-          obj = GetStatusFromPythonException();
-        }
-        return obj;
-      },
+  auto python_value_future =
       reinterpret_cast<PythonFutureObject*>(python_future.ptr())
-          ->GetPythonValueFuture());
+          ->GetPythonValueFuture();
+
+  if constexpr (std::is_same_v<T, GilSafePythonHandle>) {
+    return python_value_future;
+  } else {
+    return MapFutureValue(
+        InlineExecutor{},
+        [](const GilSafePythonHandle& v) -> Result<T> {
+          ExitSafeGilScopedAcquire gil;
+          if (!gil.acquired()) return PythonExitingError();
+          Result<T> obj;
+          if (internal_python::CallAndSetErrorIndicator([&] {
+                obj = pybind11::cast<T>(pybind11::handle(v.get()));
+              })) {
+            obj = GetStatusFromPythonException();
+          }
+          return obj;
+        },
+        std::move(python_value_future));
+  }
 }
 
 /// Wrapper that holds a `pybind11::object` but which displays in
