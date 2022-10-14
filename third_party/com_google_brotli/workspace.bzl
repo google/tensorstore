@@ -17,7 +17,6 @@ load(
     "third_party_http_archive",
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//:cmake_helpers.bzl", "cmake_fetch_content_package")
 
 def repo():
     maybe(
@@ -27,9 +26,10 @@ def repo():
         sha256 = "79edf11c219ee05fa57f5ec7b2a224d1d945679c457f4585bb834a6e2c321b8f",
         strip_prefix = "brotli-9801a2c5d6c67c467ffad676ac301379bb877fc3",
         system_build_file = Label("//third_party:com_google_brotli/system.BUILD.bazel"),
+        cmake_name = "Brotli",
+        bazel_to_cmake = {},
+        cmake_target_mapping = {
+            ":brotlidec": "Brotli::brotlidec",
+            ":brotlienc": "Brotli::brotlienc",
+        },
     )
-
-cmake_fetch_content_package(
-    name = "com_google_brotli",
-    settings = [("BROTLI_DISABLE_TESTS", "ON")],
-)

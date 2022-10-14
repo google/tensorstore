@@ -145,7 +145,7 @@ IPython shell without installing
 
 .. code-block:: shell
 
-   python bazelisk.py run -c opt //python/tensorstore:shell
+   python3 bazelisk.py run -c opt //python/tensorstore:shell
 
 Publishing a PyPI package
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -155,7 +155,7 @@ To build a source package:
 .. code-block:: shell
 
    python3 setup.py sdist
-   
+
 To build a binary package:
 
 .. code-block:: shell
@@ -167,9 +167,15 @@ The packages are written to the ``dist/`` sub-directory.
 C++ API
 -------
 
-Currently, use of the TensorStore C++ API is only supported from projects built
-using `Bazel <https://bazel.build/>`_.  CMake support will be added in the
-future.
+The C++ API is supported for both `Bazel <https://bazel.build/>`__ and `CMake
+<https://cmake.org/>`__ projects.  In either case, it must be added as a
+dependency so that it is built from source and statically linked as part of the
+overall build.
+
+.. _bazel-build:
+
+Bazel integration
+^^^^^^^^^^^^^^^^^
 
 To add TensorStore as a dependency to an existing Bazel workspace:
 
@@ -182,13 +188,84 @@ To add TensorStore as a dependency to an existing Bazel workspace:
        http_archive,
        name = "com_google_tensorstore",
        strip_prefix = "tensorstore-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-       url = "https://github.com/google/tensorstore/archive/XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+       url = "https://github.com/google/tensorstore/archive/XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.tar.gz",
        sha256 = "YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY",
    )
 
 Additionally, TensorStore must be built in C++17 mode.  You should add the
 compiler flags specified in the ``.bazelrc`` file in the TensorStore repository
 to your dependent project's ``.bazelrc``.
+
+The `supported C++ toolchains<build-dependencies>` are listed below.
+
+.. _cmake-build:
+
+CMake integration
+^^^^^^^^^^^^^^^^^
+
+To add TensorStore as a dependency to an existing CMake project:
+
+.. code-block:: cmake
+
+   include(FetchContent)
+
+   FetchContent_Declare(
+     tensorstore
+     URL "https://github.com/google/tensorstore/archive/XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.tar.gz"
+     URL_HASH SHA256=YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY
+   )
+
+   # Additional FetchContent_Declare calls as needed...
+
+   FetchContent_MakeAvailable(tensorstore)
+
+   # Define a target that depends on TensorStore...
+
+   target_link_libraries(
+     my_target
+     PRIVATE
+       tensorstore::tensorstore tensorstore::all_drivers
+   )
+
+TensorStore requires that the project is built in C++17 mode.
+
+The `supported C++ toolchains<build-dependencies>` and `additional system
+requirements<cmake-build-dependencies>` are listed below.
+
+.. note::
+
+   Python is used to generate the CMake build rules automatically from the Bazel
+   build rules as part of the CMake configuration step.
+
+Third-party dependencies
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+By default, TensorStore's CMake build also pulls in all of its dependencies via
+`FetchContent <https://cmake.org/cmake/help/latest/module/FetchContent.html>`__
+and statically links them.  This behavior may be overridden on a per-package
+basis via :samp:`TENSORSTORE_USE_SYSTEM_{<PACKAGE>}` options, which may be set
+on the CMake command line with the syntax
+:samp:`-DTENSORSTORE_USE_SYSTEM_{<PACKAGE>}=ON`.
+
+.. warning::
+
+   Some combinations of system-provided and vendored dependencies can lead to
+   symbol collisions, which can result in crashes or incorrect behavior at
+   runtime.  For example, if you specify ``-DTENSORSTORE_USE_SYSTEM_CURL=ON`` to
+   use a system-provided CURL, which links with a system-provided ZLIB, then you
+   should also specify ``-DTENSORSTORE_USE_SYSTEM_ZLIB=ON`` as well to ensure
+   more than one copy of zlib is not linked into the binary.
+
+   In general it is safest to use either all system-provided dependencies, or
+   all vendored dependencies.
+
+Build caching
+~~~~~~~~~~~~~
+
+When using CMake, it is often helpful to use a build caching tool like `sccache
+<https://github.com/mozilla/sccache>`__ or to speed up re-builds.  To enable
+sccache, specify ``-DCMAKE_{C,CXX}_COMPILER_LAUNCHER=ccache`` when invoking
+CMake.
 
 Development
 -----------
@@ -201,14 +278,14 @@ Building the documentation
 
 .. code-block:: shell
 
-   python bazelisk.py run //tools/docs:build_docs -- --output /tmp/tensorstore-docs
+   python3 bazelisk.py run //tools/docs:build_docs -- --output /tmp/tensorstore-docs
 
 Running tests
 ^^^^^^^^^^^^^
 
 .. code-block:: shell
 
-   python bazelisk.py test //...
+   python3 bazelisk.py test //...
 
 .. _build-dependencies:
 
@@ -225,10 +302,18 @@ compilers:
 - Apple Xcode 11.3.1 or later (earlier versions of XCode 11 have a code
   generation bug related to stack alignment)
 
-TensorStore uses the `Bazel build system <https://bazel.build/>`_.  You don't
-need to install Bazel manually; the included copy of `bazelisk
+.. _bazel-build-dependencies:
+
+Bazel build
+^^^^^^^^^^^
+
+The `Bazel build system <https://bazel.build/>`_ is used automatically when
+building the Python API, and may also be used to `build the C++
+API<bazel-build>` and command-line tools.  You don't need to install Bazel
+manually; the included copy of `bazelisk
 <https://github.com/bazelbuild/bazelisk>`_ automatically downloads a suitable
-version for your operating system.  Bazelisk requires Python to run.
+version for your operating system.  Bazelisk requires Python 2.7 or later to
+run.
 
 .. note::
 
@@ -243,7 +328,7 @@ version for your operating system.  Bazelisk requires Python to run.
 
 TensorStore depends on a number of third-party libraries.  By default, these
 dependencies are fetched and built automatically as part of the TensorStore
-build, which requires no additional effort.
+Bazel build, which requires no additional effort.
 
 On Linux and macOS, however, it is possible to override this behavior for a
 subset of these libraries and instead link to a system-provided version.  This
@@ -264,4 +349,23 @@ libraries:
 .. code-block:: shell
 
    export TENSORSTORE_SYSTEM_LIBS=se_curl,jpeg,com_google_boringssl
-   python bazelisk.py test //...
+   python3 bazelisk.py test //...
+
+.. _cmake-build-dependencies:
+
+CMake build
+^^^^^^^^^^^
+
+In addition to a `supported C++ toolchain<build-dependencies>`, the following
+system dependencies are also required for the `CMake build<cmake-build>`:
+
+- Python 3.7 or later
+- CMake 3.24 or later
+- `Perl <https://www.perl.org/>`__, for building libaom from source (default).
+  Must be in ``PATH``.  Not required if ``-DTENSORSTORE_USE_SYSTEM_LIBAOM=ON``
+  is specified.
+- `NASM <https://nasm.us/>`__, for building libjpeg-turbo, libaom, and dav1d from
+  source (default).  Must be in ``PATH``.Not required if
+  ``-DTENSORSTORE_USE_SYSTEM_{JPEG,LIBAOM,DAV1D}=ON`` is specified.
+- `GNU Patch <https://savannah.gnu.org/projects/patch/>`__ or equivalent.  Must
+  be in ``PATH``.

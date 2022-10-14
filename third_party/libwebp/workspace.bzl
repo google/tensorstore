@@ -30,4 +30,15 @@ def repo():
         strip_prefix = "libwebp-1.2.4",
         build_file = Label("//third_party:libwebp/libwebp.BUILD.bazel"),
         system_build_file = Label("//third_party:libwebp/system.BUILD.bazel"),
+        cmake_name = "WebP",
+        bazel_to_cmake = {},
+        cmake_target_mapping = {
+            "@libwebp//:webp": "WebP::webp",
+            "@libwebp//:sharpyuv": "WebP::sharpyuv",
+        },
+        cmake_package_redirect_libraries = {
+            "WebP": "WebP::webp",
+            "LIBSHARPYUV": "WebP::sharpyuv",
+        },
+        cmake_package_aliases = ["libsharpyuv"],
     )

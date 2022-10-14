@@ -17,7 +17,6 @@ load(
     "third_party_http_archive",
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//:cmake_helpers.bzl", "cmake_add_dep_mapping", "cmake_find_package")
 
 def repo():
     maybe(
@@ -36,24 +35,16 @@ def repo():
         repo_mapping = {
             "@zlib": "@net_zlib",
         },
+        # https://cmake.org/cmake/help/latest/module/FindProtobuf.html
+        # https://github.com/protocolbuffers/protobuf/blob/master/CMakeLists.txt
+        cmake_name = "Protobuf",
+        bazel_to_cmake = {
+            "include": ["", "build_defs"],
+            "aliased_targets_only": True,
+        },
+        cmake_target_mapping = {
+            "@com_google_protobuf//:protoc": "protobuf::protoc",
+            "@com_google_protobuf//:protobuf": "protobuf::libprotobuf",
+            "@com_google_protobuf//:protobuf_lite": "protobuf::libprotobuf-lite",
+        },
     )
-
-# https://cmake.org/cmake/help/latest/module/FindProtobuf.html
-# https://github.com/protocolbuffers/protobuf/blob/master/CMakeLists.txt
-cmake_find_package(
-    name = "Protobuf",
-    fallback = True,
-    source_subdir = "cmake",
-    settings = [
-        ("protobuf_INSTALL", "OFF"),
-        ("protobuf_BUILD_TESTS", "OFF"),
-        ("protobuf_BUILD_CONFORMANCE", "OFF"),
-        ("protobuf_BUILD_EXAMPLES", "OFF"),
-        ("protobuf_VERBOSE", "ON"),
-    ],
-)
-
-cmake_add_dep_mapping(target_mapping = {
-    "@com_google_protobuf//:protobuf": "protobuf::libprotobuf",
-    "@com_google_protobuf//:protobuf_lite": "protobuf::libprotobuf-lite",
-})

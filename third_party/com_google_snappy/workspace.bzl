@@ -22,27 +22,17 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_snappy",
-        urls = ["https://github.com/google/snappy/archive/1.1.9.zip"],
-        sha256 = "e170ce0def2c71d0403f5cda61d6e2743373f9480124bcfcd0fa9b3299d428d9",
-        strip_prefix = "snappy-1.1.9",
+        urls = ["https://github.com/google/snappy/archive/984b191f0fefdeb17050b42a90b7625999c13b8d.tar.gz"],  # main(2022-10-12)
+        sha256 = "2e458b7017cd58dcf1469ab315389e85e7f445bd035188f2983f81fb19ecfb29",
+        strip_prefix = "snappy-984b191f0fefdeb17050b42a90b7625999c13b8d",
         build_file = Label("//third_party:com_google_snappy/bundled.BUILD.bazel"),
         system_build_file = Label("//third_party:com_google_snappy/system.BUILD.bazel"),
-        patches = [
-            # https://github.com/google/snappy/pull/142
-            "//third_party:com_google_snappy/patches/asm-older-clang-fix.diff",
-        ],
-        patch_args = ["-p1"],
+        cmake_name = "Snappy",
+        bazel_to_cmake = {},
+        cmake_target_mapping = {
+            "//:snappy": "Snappy::Snappy",
+        },
+        cmake_package_redirect_libraries = {
+            "Snappy": "Snappy::Snappy",
+        },
     )
-
-# https://github.com/google/snappy/blob/main/CMakeLists.txt
-# Snappy is only used by blosc
-#
-# load("//:cmake_helpers.bzl", "cmake_fetch_content_package")
-# cmake_fetch_content_package(
-#    name = "com_google_snappy",
-#    settings = [
-#        ("SNAPPY_BUILD_TESTS", "OFF"),
-#        ("SNAPPY_BUILD_BENCHMARKS", "OFF"),
-#        ("SNAPPY_INSTALL", "OFF"),
-#    ],
-#)

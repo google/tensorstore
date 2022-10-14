@@ -29,11 +29,12 @@ def repo():
         sha256 = "53f4696f3cec8703f12d3402707a6aaf7eb92d43c90d61e1d32454bda5da7b9c",
         build_file = Label("//third_party:net_zstd/bundled.BUILD.bazel"),
         system_build_file = Label("//third_party:net_zstd/system.BUILD.bazel"),
+        cmake_name = "Zstd",
+        bazel_to_cmake = {},
+        cmake_target_mapping = {
+            ":zstdlib": "Zstd::Zstd",
+        },
+        cmake_package_redirect_libraries = {
+            "Zstd": "Zstd::Zstd",
+        },
     )
-
-# ZStd is only used by blosc
-#
-# load("//:cmake_helpers.bzl", "cmake_fetch_content_package")
-# cmake_fetch_content_package(
-#     name = "ZStd",
-# )

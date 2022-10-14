@@ -17,7 +17,6 @@ load(
     "third_party_http_archive",
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//:cmake_helpers.bzl", "cmake_add_dep_mapping", "cmake_fetch_content_package", "cmake_raw", "cmake_set_section")
 
 # REPO_BRANCH = master
 
@@ -25,14 +24,24 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_absl",
-        strip_prefix = "abseil-cpp-20220623.0",
+        strip_prefix = "abseil-cpp-90965f4c9662a73f2eb9c345b3a5431f40fd86d3",
         urls = [
-            "https://github.com/abseil/abseil-cpp/archive/20220623.0.tar.gz",
+            "https://github.com/abseil/abseil-cpp/archive/90965f4c9662a73f2eb9c345b3a5431f40fd86d3.tar.gz",  # master(2022-10-12)
         ],
-        sha256 = "4208129b49006089ba1d6710845a45e31c59b0ab6bff9e5788a87f55c5abd602",
+        sha256 = "a74295fd02bbeeb0c516287c1ed4a5d744664f295f565fdb3943aa268d8bba02",
+        cmake_name = "absl",
+        cmake_target_mapping = ABSL_CMAKE_MAPPING,
+        cmake_settings = {
+            "ABSL_PROPAGATE_CXX_STD": "ON",
+            "ABSL_BUILD_TESTING": "OFF",
+            "BUILD_TESTING": "OFF",
+            "ABSL_BUILD_TEST_HELPERS": "ON",
+            "ABSL_USE_EXTERNAL_GOOGLETEST": "ON",
+            "ABSL_FIND_GOOGLETEST": "ON",
+        },
     )
 
-# Mapping from BAZEL dependency to CMake targets.
+# Mapping from Bazel label to CMake target
 ABSL_CMAKE_MAPPING = {
     "@com_google_absl//absl/algorithm:algorithm": "absl::algorithm",
     "@com_google_absl//absl/algorithm:container": "absl::algorithm_container",
@@ -107,31 +116,3 @@ ABSL_CMAKE_MAPPING = {
     "@com_google_absl//absl/hash:hash_testing": "absl::hash_testing",
     "@com_google_absl//absl/strings:cord_test_helpers": "absl::cord_test_helpers",
 }
-
-cmake_set_section(section = 200)
-
-cmake_add_dep_mapping(target_mapping = ABSL_CMAKE_MAPPING)
-
-# https://github.com/abseil/abseil-cpp/blob/master/CMake/README.md
-cmake_fetch_content_package(
-    name = "com_google_absl",
-    settings = [
-        ("ABSL_PROPAGATE_CXX_STD", "ON"),
-        ("ABSL_BUILD_TESTING", "ON"),
-        ("ABSL_USE_EXTERNAL_GOOGLETEST", "ON"),
-        ("ABSL_FIND_GOOGLETEST", "OFF"),
-    ],
-)
-
-# Ensure aliases exist.
-cmake_raw(text = "\n")
-
-[
-    (
-        cmake_raw(
-            text = "check_absl_target({t})\n".format(t = v),
-        ),
-    )
-    for v in ABSL_CMAKE_MAPPING.values()
-    if v
-]

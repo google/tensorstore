@@ -1,8 +1,6 @@
-diff --git a/include/half.hpp b/include/half.hpp
-index 69f2ffd..1e73dfa 100644
 --- a/include/half.hpp
 +++ b/include/half.hpp
-@@ -661,11 +661,11 @@ namespace half_float
+@@ -661,11 +661,11 @@
  		#endif
  		#if HALF_ERRHANDLING_UNDERFLOW_TO_INEXACT
  			if((flags & FE_UNDERFLOW) && !(flags & FE_INEXACT))
@@ -16,7 +14,7 @@ index 69f2ffd..1e73dfa 100644
  		#endif
  		#endif
  		}
-@@ -679,7 +679,7 @@ namespace half_float
+@@ -679,7 +679,7 @@
  		inline HALF_CONSTEXPR_NOERR bool compsignal(unsigned int x, unsigned int y)
  		{
  		#if HALF_ERRHANDLING
@@ -25,7 +23,7 @@ index 69f2ffd..1e73dfa 100644
  		#endif
  			return (x&0x7FFF) > 0x7C00 || (y&0x7FFF) > 0x7C00;
  		}
-@@ -691,7 +691,7 @@ namespace half_float
+@@ -691,7 +691,7 @@
  		inline HALF_CONSTEXPR_NOERR unsigned int signal(unsigned int nan)
  		{
  		#if HALF_ERRHANDLING
@@ -34,7 +32,7 @@ index 69f2ffd..1e73dfa 100644
  		#endif
  			return nan | 0x200;
  		}
-@@ -704,7 +704,7 @@ namespace half_float
+@@ -704,7 +704,7 @@
  		inline HALF_CONSTEXPR_NOERR unsigned int signal(unsigned int x, unsigned int y)
  		{
  		#if HALF_ERRHANDLING
@@ -43,7 +41,7 @@ index 69f2ffd..1e73dfa 100644
  		#endif
  			return ((x&0x7FFF)>0x7C00) ? (x|0x200) : (y|0x200);
  		}
-@@ -718,7 +718,7 @@ namespace half_float
+@@ -718,7 +718,7 @@
  		inline HALF_CONSTEXPR_NOERR unsigned int signal(unsigned int x, unsigned int y, unsigned int z)
  		{
  		#if HALF_ERRHANDLING
@@ -52,7 +50,7 @@ index 69f2ffd..1e73dfa 100644
  		#endif
  			return ((x&0x7FFF)>0x7C00) ? (x|0x200) : ((y&0x7FFF)>0x7C00) ? (y|0x200) : (z|0x200);
  		}
-@@ -743,7 +743,7 @@ namespace half_float
+@@ -743,7 +743,7 @@
  		inline HALF_CONSTEXPR_NOERR unsigned int invalid()
  		{
  		#if HALF_ERRHANDLING
@@ -61,7 +59,7 @@ index 69f2ffd..1e73dfa 100644
  		#endif
  			return 0x7FFF;
  		}
-@@ -755,7 +755,7 @@ namespace half_float
+@@ -755,7 +755,7 @@
  		inline HALF_CONSTEXPR_NOERR unsigned int pole(unsigned int sign = 0)
  		{
  		#if HALF_ERRHANDLING
@@ -70,7 +68,7 @@ index 69f2ffd..1e73dfa 100644
  		#endif
  			return sign | 0x7C00;
  		}
-@@ -767,7 +767,7 @@ namespace half_float
+@@ -767,7 +767,7 @@
  		inline HALF_CONSTEXPR_NOERR unsigned int check_underflow(unsigned int arg)
  		{
  		#if HALF_ERRHANDLING && !HALF_ERRHANDLING_UNDERFLOW_TO_INEXACT
@@ -79,7 +77,7 @@ index 69f2ffd..1e73dfa 100644
  		#endif
  			return arg;
  		}
-@@ -784,7 +784,7 @@ namespace half_float
+@@ -784,7 +784,7 @@
  		template<std::float_round_style R> HALF_CONSTEXPR_NOERR unsigned int overflow(unsigned int sign = 0)
  		{
  		#if HALF_ERRHANDLING
@@ -88,7 +86,7 @@ index 69f2ffd..1e73dfa 100644
  		#endif
  			return	(R==std::round_toward_infinity) ? (sign+0x7C00-(sign>>15)) :
  					(R==std::round_toward_neg_infinity) ? (sign+0x7BFF+(sign>>15)) :
-@@ -800,7 +800,7 @@ namespace half_float
+@@ -800,7 +800,7 @@
  		template<std::float_round_style R> HALF_CONSTEXPR_NOERR unsigned int underflow(unsigned int sign = 0)
  		{
  		#if HALF_ERRHANDLING
@@ -97,7 +95,7 @@ index 69f2ffd..1e73dfa 100644
  		#endif
  			return	(R==std::round_toward_infinity) ? (sign+1-(sign>>15)) :
  					(R==std::round_toward_neg_infinity) ? (sign+(sign>>15)) :
-@@ -824,11 +824,11 @@ namespace half_float
+@@ -824,11 +824,11 @@
  						(R==std::round_toward_infinity) ? (~(value>>15)&(g|s)) :
  						(R==std::round_toward_neg_infinity) ? ((value>>15)&(g|s)) : 0;
  			if((value&0x7C00) == 0x7C00)
@@ -112,7 +110,7 @@ index 69f2ffd..1e73dfa 100644
  			return value;
  		#else
  			return	(R==std::round_to_nearest) ? (value+(g&(s|value))) :
-@@ -851,7 +851,7 @@ namespace half_float
+@@ -851,7 +851,7 @@
  			unsigned int abs = value & 0x7FFF;
  			if(abs < 0x3C00)
  			{
@@ -121,7 +119,7 @@ index 69f2ffd..1e73dfa 100644
  				return ((R==std::round_to_nearest) ? (0x3C00&-static_cast<unsigned>(abs>=(0x3800+E))) :
  						(R==std::round_toward_infinity) ? (0x3C00&-(~(value>>15)&(abs!=0))) :
  						(R==std::round_toward_neg_infinity) ? (0x3C00&-static_cast<unsigned>(value>0x8000)) :
-@@ -860,7 +860,7 @@ namespace half_float
+@@ -860,7 +860,7 @@
  			if(abs >= 0x6400)
  				return (abs>0x7C00) ? signal(value) : value;
  			unsigned int exp = 25 - (abs>>10), mask = (1<<exp) - 1;
@@ -130,7 +128,7 @@ index 69f2ffd..1e73dfa 100644
  			return ((	(R==std::round_to_nearest) ? ((1<<(exp-1))-(~(value>>exp)&E)) :
  						(R==std::round_toward_infinity) ? (mask&((value>>15)-1)) :
  						(R==std::round_toward_neg_infinity) ? (mask&-(value>>15)) :
-@@ -1319,12 +1319,12 @@ namespace half_float
+@@ -1319,12 +1319,12 @@
  			unsigned int abs = value & 0x7FFF;
  			if(abs >= 0x7C00)
  			{
@@ -145,7 +143,7 @@ index 69f2ffd..1e73dfa 100644
  				return	(R==std::round_toward_infinity) ? T(~(value>>15)&(abs!=0)) :
  						(R==std::round_toward_neg_infinity) ? -T(value>0x8000) :
  						T();
-@@ -1337,9 +1337,9 @@ namespace half_float
+@@ -1337,9 +1337,9 @@
  				(R==std::round_toward_neg_infinity) ? (((1<<exp)-1)&-(value>>15)) : 0))>>exp));
  			if((!std::numeric_limits<T>::is_signed && (value&0x8000)) || (std::numeric_limits<T>::digits<16 &&
  				((value&0x8000) ? (-i<std::numeric_limits<T>::min()) : (i>std::numeric_limits<T>::max()))))
@@ -156,4 +154,4 @@ index 69f2ffd..1e73dfa 100644
 +				detail::raise(FE_INEXACT);
  			return static_cast<T>((value&0x8000) ? -i : i);
  		}
-
+ 

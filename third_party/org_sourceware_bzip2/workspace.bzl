@@ -17,7 +17,6 @@ load(
     "third_party_http_archive",
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//:cmake_helpers.bzl", "cmake_add_dep_mapping", "cmake_find_package")
 
 def repo():
     maybe(
@@ -30,10 +29,10 @@ def repo():
         sha256 = "ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269",
         build_file = Label("//third_party:org_sourceware_bzip2/bundled.BUILD.bazel"),
         system_build_file = Label("//third_party:org_sourceware_bzip2/system.BUILD.bazel"),
+        cmake_name = "BZip2",
+        cmake_languages = ["C"],
+        bazel_to_cmake = {},
+        cmake_target_mapping = {
+            "@org_sourceware_bzip2//:bzip2": "BZip2::BZip2",
+        },
     )
-
-cmake_find_package(name = "BZip2")
-
-cmake_add_dep_mapping(target_mapping = {
-    "@org_sourceware_bzip2//:bzip2": "BZip2::BZip2",
-})

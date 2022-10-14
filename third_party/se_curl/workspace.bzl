@@ -17,33 +17,22 @@ load(
     "third_party_http_archive",
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//:cmake_helpers.bzl", "cmake_add_dep_mapping", "cmake_find_package")
 
 def repo():
     maybe(
         third_party_http_archive,
         name = "se_curl",
-        strip_prefix = "curl-7.83.1",
+        strip_prefix = "curl-7.85.0",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/curl.se/download/curl-7.83.1.tar.gz",
-            "https://curl.se/download/curl-7.83.1.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/curl.se/download/curl-7.85.0.tar.gz",
+            "https://curl.se/download/curl-7.85.0.tar.gz",
         ],
-        sha256 = "93fb2cd4b880656b4e8589c912a9fd092750166d555166370247f09d18f5d0c0",
+        sha256 = "78a06f918bd5fde3c4573ef4f9806f56372b32ec1829c9ec474799eeee641c27",
         build_file = Label("//third_party:se_curl/bundled.BUILD.bazel"),
         system_build_file = Label("//third_party:se_curl/system.BUILD.bazel"),
+        cmake_name = "CURL",
+        bazel_to_cmake = {},
+        cmake_target_mapping = {
+            "@se_curl//:curl": "CURL::libcurl",
+        },
     )
-
-cmake_find_package(
-    name = "CURL",
-    fallback = True,
-    settings = [
-        ("BUILD_CURL_EXE", "OFF"),
-        ("HTTP_ONLY", "ON"),
-        ("CURL_BROTLI", "ON"),
-        #        ("USE_NGHTTP2", "ON"),  # TODO: Enable this
-    ],
-)
-
-cmake_add_dep_mapping(target_mapping = {
-    "@se_curl//:curl": "CURL::libcurl",
-})

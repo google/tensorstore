@@ -17,21 +17,23 @@ load(
     "third_party_http_archive",
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//:cmake_helpers.bzl", "cmake_fetch_content_package")
 
 def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_libyuv",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/chromium.googlesource.com/libyuv/libyuv/+archive/2525698acba9bf9b701ba6b4d9584291a1f62257.tar.gz",
-            # "https://chromium.googlesource.com/libyuv/libyuv/+archive/2525698acba9bf9b701ba6b4d9584291a1f62257.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/chromium.googlesource.com/libyuv/libyuv/+archive/97bd3bba83e3eb4df85e8e243ceb1abebc190a43.tar.gz",
         ],
         # googlesource does not cache archive files; the sha256 is only valid for the mirror.
-        sha256 = "43dfa4511332424dfad1ce48be645bb063faf0e48f0b3e6c07c2cb308db80f9e",
+        sha256 = "668d771967903caa559d749bc188e91bab4d355b3631b013068a582ab78b0368",
         build_file = Label("//third_party:com_google_libyuv/libyuv.BUILD.bazel"),
+        cmake_name = "libyuv",
+        cmake_target_mapping = {
+            ":libyuv": "LIBYUV::LIBYUV",
+        },
+        bazel_to_cmake = {},
+        cmake_package_redirect_libraries = {
+            "LIBYUV": "LIBYUV::LIBYUV",
+        },
     )
-
-# yuv is only used by avif
-
-cmake_fetch_content_package(name = "libyuv")

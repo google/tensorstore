@@ -273,7 +273,7 @@ absl::Status ReadStripImpl(TIFF* tiff, TiffImageInfo& info,
   }
 
   const int strip_bytes = TIFFStripSize(tiff);
-  uint32 rows_per_strip = 1;
+  uint32_t rows_per_strip = 1;
   TIFFGetFieldDefaulted(tiff, TIFFTAG_ROWSPERSTRIP, &rows_per_strip);
 
   if (!mapping &&
@@ -292,7 +292,7 @@ absl::Status ReadStripImpl(TIFF* tiff, TiffImageInfo& info,
   }
 
   std::unique_ptr<unsigned char[]> buffer(new unsigned char[strip_bytes]);
-  uint32 line_bytes =
+  uint32_t line_bytes =
       info.width * (info.bits_per_sample_ / 8) * info.num_components;
 
   for (size_t y = 0; y < info.height; y += rows_per_strip) {

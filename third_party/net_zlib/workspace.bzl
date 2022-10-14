@@ -17,7 +17,6 @@ load(
     "third_party_http_archive",
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//:cmake_helpers.bzl", "cmake_add_dep_mapping", "cmake_find_package")
 
 def repo():
     maybe(
@@ -30,10 +29,12 @@ def repo():
         ],
         build_file = Label("//third_party:net_zlib/bundled.BUILD.bazel"),
         system_build_file = Label("//third_party:net_zlib/system.BUILD.bazel"),
+        cmake_name = "ZLIB",
+        bazel_to_cmake = {},
+        cmake_target_mapping = {
+            "@net_zlib//:zlib": "ZLIB::ZLIB",
+        },
+        cmake_package_redirect_libraries = {
+            "ZLIB": "ZLIB::ZLIB",
+        },
     )
-
-cmake_find_package(name = "ZLIB")
-
-cmake_add_dep_mapping(target_mapping = {
-    "@net_zlib//:zlib": "ZLIB::ZLIB",
-})

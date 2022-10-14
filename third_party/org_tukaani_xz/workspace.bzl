@@ -14,26 +14,23 @@
 
 load("//third_party:repo.bzl", "third_party_http_archive")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//:cmake_helpers.bzl", "cmake_add_dep_mapping", "cmake_fetch_content_package")
 
 def repo():
     maybe(
         third_party_http_archive,
         name = "org_tukaani_xz",
-        strip_prefix = "xz-5.2.5",
+        strip_prefix = "xz-5.3.3alpha",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/tukaani.org/xz/xz-5.2.5.tar.gz",
-            "https://tukaani.org/xz/xz-5.2.5.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/tukaani.org/xz/xz-5.3.3alpha.tar.gz",
+            "https://tukaani.org/xz/xz-5.3.3alpha.tar.gz",
         ],
-        sha256 = "f6f4910fd033078738bd82bfba4f49219d03b17eb0794eb91efbae419f4aba10",
+        sha256 = "c6d4789a79bab565440784db2e132d6bf03b2e75dd6d66a8102cf002d8dfe926",
         build_file = Label("//third_party:org_tukaani_xz/bundled.BUILD.bazel"),
         system_build_file = Label("//third_party:org_tukaani_xz/system.BUILD.bazel"),
         doc_homepage = "https://tukaani.org/xz/",
+        cmake_name = "LibLZMA",
+        cmake_target_mapping = {
+            "@org_tukaani_xz//:liblzma": "LibLZMA::LibLZMA",
+        },
+        bazel_to_cmake = {},
     )
-
-# https://github.com/xz-mirror/xz/blob/master/CMakeLists.txt
-cmake_fetch_content_package(name = "org_tukaani_xz")
-
-cmake_add_dep_mapping(target_mapping = {
-    "@org_tukaani_xz//:liblzma": "liblzma",
-})

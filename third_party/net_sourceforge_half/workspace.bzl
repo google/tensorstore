@@ -17,7 +17,6 @@ load(
     "third_party_http_archive",
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//:cmake_helpers.bzl", "cmake_add_dep_mapping", "cmake_fetch_content_package", "cmake_raw")
 
 def repo():
     maybe(
@@ -34,35 +33,9 @@ def repo():
             "//third_party:net_sourceforge_half/patches/detail_raise.patch",
         ],
         patch_args = ["-p1"],
+        cmake_name = "half",
+        cmake_target_mapping = {
+            "@net_sourceforge_half//:half": "half::half",
+        },
+        bazel_to_cmake = {},
     )
-
-cmake_add_dep_mapping(target_mapping = {
-    "@net_sourceforge_half//:half": "half::half",
-})
-
-cmake_fetch_content_package(
-    name = "net_sourceforge_half",
-    configure_command = "",
-    build_command = "",
-    make_available = False,
-)
-
-# https://stackoverflow.com/questions/65586352/is-it-possible-to-use-fetchcontent-or-an-equivalent-to-add-a-library-that-has-no
-#
-cmake_raw(
-    text = """
-
-FetchContent_GetProperties(net_sourceforge_half)
-if(NOT net_sourceforge_half_POPULATED)
-  FetchContent_Populate(net_sourceforge_half)
-endif()
-
-# net_sourceforge_half has no CMakeLists.txt, so we create the simple interface library here:
-
-add_library(halflib INTERFACE)
-target_include_directories(halflib INTERFACE "${net_sourceforge_half_SOURCE_DIR}/include")
-
-add_library(half::half ALIAS halflib)
-
-""",
-)

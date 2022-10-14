@@ -64,17 +64,65 @@ endfunction()
 function(dump_cmake_targets directory)
   get_property(imported_targets DIRECTORY ${directory} PROPERTY IMPORTED_TARGETS)
   foreach(_target ${imported_targets})
-    message(STATUS "+ ${_target}")
+    message(STATUS "+ ${_target} in ${directory}")
   endforeach()
 
   get_property(dir_targets DIRECTORY ${directory} PROPERTY BUILDSYSTEM_TARGETS)
   foreach(_target ${dir_targets})
     get_target_property(_type ${_target} TYPE)
-    message(STATUS "+ ${_target}  ${_type}")
+    message(STATUS "+ ${_target}  ${_type} in ${directory}")
   endforeach()
 
   get_property(sub_directories DIRECTORY ${directory} PROPERTY SUBDIRECTORIES)
   foreach(directory ${sub_directories})
     dump_cmake_targets(${directory})
   endforeach()
+endfunction()
+
+
+# Get all propreties that cmake supports
+if(NOT CMAKE_PROPERTY_LIST)
+    execute_process(COMMAND cmake --help-property-list OUTPUT_VARIABLE CMAKE_PROPERTY_LIST)
+    
+    # Convert command output into a CMake list
+    string(REGEX REPLACE ";" "\\\\;" CMAKE_PROPERTY_LIST "${CMAKE_PROPERTY_LIST}")
+    string(REGEX REPLACE "\n" ";" CMAKE_PROPERTY_LIST "${CMAKE_PROPERTY_LIST}")
+
+    # Fix https://stackoverflow.com/questions/32197663/how-can-i-remove-the-the-location-property-may-not-be-read-from-target-error-i
+    list(FILTER CMAKE_PROPERTY_LIST EXCLUDE REGEX "^LOCATION$|^LOCATION_|_LOCATION$")
+
+    list(REMOVE_DUPLICATES CMAKE_PROPERTY_LIST)
+endif()
+    
+function(print_properties)
+    message("CMAKE_PROPERTY_LIST = ${CMAKE_PROPERTY_LIST}")
+endfunction()
+    
+function(print_target_properties target)
+    if(NOT TARGET ${target})
+      message(STATUS "There is no target named '${target}'")
+      return()
+    endif()
+
+    foreach(property ${CMAKE_PROPERTY_LIST})
+        string(REPLACE "<CONFIG>" "${CMAKE_BUILD_TYPE}" property ${property})
+
+        get_property(value TARGET ${target} PROPERTY ${property})
+        if (DEFINED value)
+          message("${target} ${property} = ${value}")
+        endif()
+    endforeach()
+endfunction()
+
+function(print_source_properties source target)
+    foreach(property ${CMAKE_PROPERTY_LIST})
+        string(REPLACE "<CONFIG>" "${CMAKE_BUILD_TYPE}" property ${property})
+
+        get_source_file_property(value ${source} TARGET_DIRECTORY ${target} ${property})
+        if(value MATCHES "^NOTFOUND$" OR value MATCHES "^$")
+          # Nothing
+        else()
+          message("${source} ${property} = ${value}")
+        endif()
+    endforeach()
 endfunction()

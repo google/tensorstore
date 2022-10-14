@@ -39,11 +39,7 @@ def all_conditions(conditions):
     return name
 
 def repository_source_root():
-    repo_name = native.repository_name().lstrip("@")
-    if repo_name == "":
-        return ""
-    else:
-        return "external/%s" % repo_name
+    return Label(native.repository_name() + "//:dummy").workspace_root
 
 def package_source_root():
     root = repository_source_root()

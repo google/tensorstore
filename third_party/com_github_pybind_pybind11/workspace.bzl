@@ -14,7 +14,6 @@
 
 load("//third_party:repo.bzl", "third_party_http_archive")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//:cmake_helpers.bzl", "cmake_add_dep_mapping", "cmake_fetch_content_package")
 
 # REPO_BRANCH = master
 
@@ -32,12 +31,5 @@ def repo():
         # documentation-only
         doc_name = "pybind11",
         doc_homepage = "https://pybind11.readthedocs.io/en/stable/",
+        # CMake support is not needed because CMake is not used for the Python build.
     )
-
-cmake_fetch_content_package(
-    name = "com_github_pybind_pybind11",
-)
-
-cmake_add_dep_mapping(target_mapping = {
-    "@com_github_pybind_pybind11//:pybind11": "pybind11::module",
-})

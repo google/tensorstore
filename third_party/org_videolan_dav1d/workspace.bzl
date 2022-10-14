@@ -17,7 +17,6 @@ load(
     "third_party_http_archive",
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//:cmake_helpers.bzl", "cmake_fetch_content_package")
 
 #   Canonical location for dav1d codec is https://code.videolan.org/videolan/dav1d
 
@@ -31,21 +30,13 @@ def repo():
             "https://github.com/videolan/dav1d/archive/1.0.0.tar.gz",
         ],
         build_file = Label("//third_party:org_videolan_dav1d/dav1d.BUILD.bazel"),
+        cmake_name = "dav1d",
+        bazel_to_cmake = {},
+        cmake_languages = ["ASM_NASM"],
+        cmake_target_mapping = {
+            "@org_videolan_dav1d//:dav1d": "DAV1D::DAV1D",
+        },
+        cmake_package_redirect_libraries = {
+            "DAV1D": "DAV1D::DAV1D",
+        },
     )
-
-#cmake_raw("""
-#find_program(Meson_EXECUTABLE meson)
-#if(NOT Meson_EXECUTABLE)
-#  message(FATAL_ERROR "dav1d: Meson is required!")
-#endif()
-#""")
-#
-#    configure_command =
-#        "env CC=@CMAKE_C_COMPILER@ ${Meson_EXECUTABLE} --prefix=<INSTALL_DIR> <BINARY_DIR> <SOURCE_DIR>",
-
-cmake_fetch_content_package(
-    name = "org_videolan_dav1d",
-    configure_command = "",
-    build_command = "",
-    make_available = False,
-)

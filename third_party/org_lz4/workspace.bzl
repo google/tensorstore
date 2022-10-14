@@ -29,11 +29,12 @@ def repo():
         sha256 = "4ec935d99aa4950eadfefbd49c9fad863185ac24c32001162c44a683ef61b580",
         build_file = Label("//third_party:org_lz4/bundled.BUILD.bazel"),
         system_build_file = Label("//third_party:org_lz4/system.BUILD.bazel"),
+        cmake_name = "LZ4",
+        cmake_target_mapping = {
+            "@org_lz4//:lz4": "LZ4::LZ4",
+        },
+        bazel_to_cmake = {},
+        cmake_package_redirect_libraries = {
+            "LZ4": "LZ4::LZ4",
+        },
     )
-
-# lz4 is only used by blosc
-#
-# load("//:cmake_helpers.bzl", "cmake_fetch_content_package")
-# cmake_fetch_content_package(
-#    name = "org_lz4",
-#)

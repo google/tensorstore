@@ -73,6 +73,8 @@ def _third_party_http_archive_impl(ctx):
             canonical_id = ctx.attr.canonical_id,
         )
         patch(ctx)
+        for path in ctx.attr.remove_paths:
+            ctx.delete(path)
         workspace_and_buildfile(ctx)
 
         return update_attrs(
@@ -102,6 +104,9 @@ _third_party_http_archive_attrs = {
     "patch_cmds_win": attr.string_list(
         default = [],
     ),
+    "remove_paths": attr.string_list(
+        default = [],
+    ),
     "build_file": attr.label(
         allow_single_file = True,
     ),
@@ -117,13 +122,30 @@ _third_party_http_archive_attrs = {
     "doc_homepage": attr.string(),
 }
 
-third_party_http_archive = repository_rule(
+_third_party_http_archive = repository_rule(
     implementation = _third_party_http_archive_impl,
     attrs = _third_party_http_archive_attrs,
     environ = [
         SYSTEM_LIBS_ENVVAR,
     ],
 )
+
+def third_party_http_archive(
+        name,
+        cmake_name = None,
+        bazel_to_cmake = None,
+        cmake_target_mapping = None,
+        cmake_settings = None,
+        cmake_aliases = None,
+        cmake_languages = None,
+        cmake_source_subdir = None,
+        cmake_package_redirect_extra = None,
+        cmake_package_redirect_libraries = None,
+        cmakelists_prefix = None,
+        cmakelists_suffix = None,
+        cmake_package_aliases = None,
+        **kwargs):
+    _third_party_http_archive(name = name, **kwargs)
 
 def _third_party_python_package_impl(ctx):
     use_syslib = use_system_lib(ctx, ctx.attr.target, SYSTEM_PYTHON_LIBS_ENVVAR)

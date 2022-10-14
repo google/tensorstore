@@ -20,32 +20,24 @@ load(
     "third_party_http_archive",
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//:cmake_helpers.bzl", "cmake_add_dep_mapping", "cmake_fetch_content_package")
 
 def repo():
     maybe(
         third_party_http_archive,
         name = "org_aomedia_avif",
         urls = [
-            "https://github.com/AOMediaCodec/libavif/archive/v0.10.1.tar.gz",
+            "https://github.com/AOMediaCodec/libavif/archive/cd0bb358f83d01867f0fa53079470043618c9af5.tar.gz",  # main(2022-09-30)
         ],
-        sha256 = "66e82854ceb84a3e542bc140a343bc90e56c68f3ecb4fff63e636c136ed9a05e",
-        strip_prefix = "libavif-0.10.1",
+        sha256 = "7ebef5d60279671dcc8d13ebaba2ab8b2580a2a9e2bb0e9aaa72fd8083ff49c3",
+        strip_prefix = "libavif-cd0bb358f83d01867f0fa53079470043618c9af5",
         build_file = Label("//third_party:org_aomedia_avif/libavif.BUILD.bazel"),
         system_build_file = Label("//third_party:org_aomedia_avif/system.BUILD.bazel"),
+        cmake_name = "AVIF",
+        bazel_to_cmake = {},
+        cmake_target_mapping = {
+            "//:avif": "AVIF::AVIF",
+        },
+        cmake_package_redirect_libraries = {
+            "AVIF": "AVIF::AVIF",
+        },
     )
-
-cmake_fetch_content_package(
-    name = "avif",
-    settings = [
-        ("AVIF_BUILD_AOM", "ON"),
-        ("AVIF_CODEC_DAV1D", "OFF"),  # TODO: Change to ON
-        ("AVIF_CODEC_AOM_DECODE", "ON"),
-        ("AVIF_CODEC_AOM_ENCODE", "ON"),
-        ("AVIF_LIBYUV_ENABLED", "ON"),
-    ],
-)
-
-cmake_add_dep_mapping(target_mapping = {
-    "@org_aomedia_avif//:avif": "avif",
-})

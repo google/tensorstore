@@ -17,7 +17,6 @@ load(
     "third_party_http_archive",
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//:cmake_helpers.bzl", "cmake_add_dep_mapping", "cmake_find_package", "cmake_raw", "cmake_set_section")
 
 # REPO_BRANCH = main
 
@@ -31,27 +30,16 @@ def repo():
         repo_mapping = {
             "@com_googlesource_code_re2": "@com_google_re2",
         },
+        cmake_name = "GTest",
+        bazel_to_cmake = {
+            "include": [""],
+        },
+        cmake_target_mapping = {
+            "@com_google_googletest//:gtest": "GTest::gmock",
+            "@com_google_googletest//:gtest_main": "GTest::gmock_main",
+        },
+        cmake_aliases = {
+            "GTest::gtest": "GTest::gmock",
+            "GTest::gtest_main": "GTest::gmock_main",
+        },
     )
-
-cmake_set_section(section = 100)
-
-cmake_add_dep_mapping(target_mapping = {
-    "@com_google_googletest//:gtest": "GTest::gtest_main",
-    "@com_google_googletest//:gtest_main": "GTest::gtest_main",
-})
-
-cmake_find_package(
-    name = "GTest",
-    fallback = True,
-)
-
-cmake_raw(
-    text = """
-
-check_target(GTest::gtest)
-check_target(GTest::gtest_main)
-check_target(GTest::gmock)
-check_target(GTest::gmock_main)
-
-""",
-)

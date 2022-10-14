@@ -65,12 +65,9 @@ cc_library(
             "-pie",
         ],
         "@platforms//os:osx": [
-            "-Wl,-framework",
-            "-Wl,CoreFoundation",
-            "-Wl,-framework",
-            "-Wl,SystemConfiguration",
-            "-Wl,-framework",
-            "-Wl,Security",
+            "-Wl,-framework,CoreFoundation",
+            "-Wl,-framework,SystemConfiguration",
+            "-Wl,-framework,Security",
         ],
         "@platforms//os:ios": [],
         "@platforms//os:windows": [

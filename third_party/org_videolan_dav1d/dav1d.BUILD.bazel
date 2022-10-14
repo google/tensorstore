@@ -477,14 +477,3 @@ write_file(
         "x86_64",
     ]
 ]
-
-# This shared library aids in debugging shared library builds for dav1d, which
-# happens when bundling with tensorstore.so python extension.
-# @org_videolan_dav1d//:dav1d_shared
-cc_binary(
-    name = "dav1d_shared",
-    linkshared = 1,
-    deps = [
-        ":dav1d",
-    ],
-)

@@ -1,7 +1,7 @@
 load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
 load("@bazel_skylib//lib:selects.bzl", "selects")
 
-package(default_visibility = ["//visibility:private"])
+package(default_visibility = ["//visibility:public"])
 
 exports_files(glob(["*"]))
 
@@ -46,7 +46,6 @@ selects.config_setting_group(
         ":linux",
         ":arm64",
     ],
-    visibility = ["//visibility:public"],
 )
 
 selects.config_setting_group(
@@ -56,7 +55,6 @@ selects.config_setting_group(
         ":linux",
         ":x86_64",
     ],
-    visibility = ["//visibility:public"],
 )
 
 selects.config_setting_group(
@@ -66,7 +64,6 @@ selects.config_setting_group(
         ":linux",
         ":arm64",
     ],
-    visibility = ["//visibility:public"],
 )
 
 selects.config_setting_group(
@@ -76,7 +73,6 @@ selects.config_setting_group(
         ":linux",
         ":x86_64",
     ],
-    visibility = ["//visibility:public"],
 )
 
 selects.config_setting_group(
@@ -85,7 +81,6 @@ selects.config_setting_group(
         ":macos",
         ":x86_64",
     ],
-    visibility = ["//visibility:public"],
 )
 
 selects.config_setting_group(
@@ -94,7 +89,6 @@ selects.config_setting_group(
         ":macos",
         ":arm64",
     ],
-    visibility = ["//visibility:public"],
 )
 
 selects.config_setting_group(
@@ -104,7 +98,6 @@ selects.config_setting_group(
         ":windows",
         ":x86_64",
     ],
-    visibility = ["//visibility:public"],
 )
 
 # compiler selection
@@ -118,7 +111,6 @@ config_setting(
     flag_values = {
         "@bazel_tools//tools/cpp:compiler": "msvc-cl",
     },
-    visibility = ["//visibility:public"],
 )
 
 config_setting(
@@ -126,7 +118,6 @@ config_setting(
     flag_values = {
         "@bazel_tools//tools/cpp:compiler": "clang",
     },
-    visibility = ["//visibility:public"],
 )
 
 config_setting(
@@ -134,7 +125,6 @@ config_setting(
     flag_values = {
         "@bazel_tools//tools/cpp:compiler": "compiler",
     },
-    visibility = ["//visibility:public"],
 )
 
 # Cpu settings
@@ -144,13 +134,11 @@ config_setting(
 config_setting(
     name = "x86_64",
     constraint_values = ["@platforms//cpu:x86_64"],
-    visibility = ["//visibility:public"],
 )
 
 config_setting(
     name = "arm64",
     constraint_values = ["@platforms//cpu:arm64"],
-    visibility = ["//visibility:public"],
 )
 
 # Os settings

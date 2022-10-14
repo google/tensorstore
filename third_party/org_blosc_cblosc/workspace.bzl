@@ -17,7 +17,6 @@ load(
     "third_party_http_archive",
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//:cmake_helpers.bzl", "cmake_add_dep_mapping", "cmake_fetch_content_package")
 
 def repo():
     maybe(
@@ -30,25 +29,9 @@ def repo():
         sha256 = "abdf8ad8e5f8a876d67b38d16ff0c40c0456cdce1dcbafe58b589671ff55d31a",
         build_file = Label("//third_party:org_blosc_cblosc/bundled.BUILD.bazel"),
         system_build_file = Label("//third_party:org_blosc_cblosc/system.BUILD.bazel"),
+        cmake_name = "Blosc",
+        bazel_to_cmake = {},
+        cmake_target_mapping = {
+            "//:blosc": "Blosc::blosc",
+        },
     )
-
-cmake_add_dep_mapping(target_mapping = {
-    "@org_blosc_cblosc//:blosc": "blosc",
-})
-
-cmake_fetch_content_package(
-    name = "org_blosc_cblosc",
-    settings = [
-        ("BUILD_SHARED", "OFF"),
-        ("BUILD_TESTS", "OFF"),
-        ("BUILD_FUZZERS", "OFF"),
-        ("BUILD_BENCHMARKS", "OFF"),
-        ("DEACTIVATE_SNAPPY", "OFF"),
-        ("TEST_INCLUDE_BENCH_SHUFFLE_1", "OFF"),
-        ("TEST_INCLUDE_BENCH_SHUFFLE_N", "OFF"),
-        ("TEST_INCLUDE_BENCH_BITSHUFFLE_1", "OFF"),
-        ("TEST_INCLUDE_BENCH_BITSHUFFLE_N", "OFF"),
-        ("SNAPPY_BUILD_TESTS", "OFF"),
-        ("SNAPPY_BUILD_BENCHMARKS", "OFF"),
-    ],
-)

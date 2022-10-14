@@ -31,7 +31,10 @@ def repo():
         strip_prefix = "tiff-4.4.0",
         build_file = Label("//third_party:libtiff/libtiff.BUILD.bazel"),
         system_build_file = Label("//third_party:libtiff/system.BUILD.bazel"),
-        patch_cmds = [
-            "rm -f VERSION",
-        ],
+        remove_paths = ["VERSION"],
+        cmake_name = "TIFF",
+        cmake_target_mapping = {
+            "@libtiff//:tiff": "TIFF::TIFF",
+        },
+        bazel_to_cmake = {},
     )

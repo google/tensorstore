@@ -17,7 +17,6 @@ load(
     "third_party_http_archive",
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//:cmake_helpers.bzl", "cmake_add_dep_mapping", "cmake_fetch_content_package")
 
 # REPO_BRANCH = master-with-bazel
 
@@ -37,10 +36,20 @@ def repo():
             "//third_party:com_google_boringssl/patches/no-Werror.diff",
         ],
         patch_args = ["-p1"],
+        cmake_name = "OpenSSL",
+        cmake_target_mapping = {
+            "@com_google_boringssl//:crypto": "OpenSSL::Crypto",
+            "@com_google_boringssl//:ssl": "OpenSSL::SSL",
+        },
+        bazel_to_cmake = {},
+        cmake_package_redirect_libraries = {
+            "OPENSSL_CRYPTO": "OpenSSL::Crypto",
+            "OPENSSL_SSL": "OpenSSL::SSL",
+            "OPENSSL": "OpenSSL::SSL",
+        },
+        cmake_package_redirect_extra = """
+# Required by curl to avoid `check_symbol_exists` call that won't work when using FetchContent.
+set(HAVE_RAND_EGD ON)
+set(HAVE_SSL_CTX_SET_QUIC_METHOD ON)
+""",
     )
-
-cmake_fetch_content_package(name = "com_google_boringssl")
-
-cmake_add_dep_mapping(target_mapping = {
-    "@com_google_boringssl//:crypto": "crypto",
-})

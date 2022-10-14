@@ -17,7 +17,6 @@ load(
     "third_party_http_archive",
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//:cmake_helpers.bzl", "cmake_add_dep_mapping", "cmake_fetch_content_package")
 
 # REPO_BRANCH = abseil
 
@@ -30,10 +29,16 @@ def repo():
             "https://github.com/google/re2/archive/698890e31fade80eac8d4e7f160b74b3621211ee.tar.gz",  # abseil(2022-07-20)
         ],
         sha256 = "41758cb9ff49a51862d3c2e3ef45962eeda31bfbb54b4f834e811856f238c5fc",
+        repo_mapping = {
+            "@com_github_google_benchmark": "@com_google_benchmark",
+        },
+        cmake_name = "Re2",
+        # The `main` branch of re2 provides a CMakeLists.txt, but the `abseil`
+        # branch does not.
+        bazel_to_cmake = {
+            "include": [""],
+        },
+        cmake_target_mapping = {
+            "@com_google_re2//:re2": "re2::re2",
+        },
     )
-
-cmake_fetch_content_package(name = "com_google_re2")
-
-cmake_add_dep_mapping(target_mapping = {
-    "@com_google_re2//:re2": "re2",
-})

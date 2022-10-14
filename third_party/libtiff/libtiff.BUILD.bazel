@@ -1,5 +1,4 @@
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
-load("@com_google_tensorstore//:utils.bzl", "package_relative_path")
 
 licenses(["notice"])  # BSD-like licence
 
@@ -68,9 +67,7 @@ cc_library(
         "libtiff/tiffio.hxx",
         "libtiff/tiffvers.h",
     ],
-    copts = [
-        "-I" + package_relative_path("libtiff"),
-    ] + select({
+    copts = select({
         "@platforms//os:windows": [],
         "//conditions:default": [
             "-Wno-format",
@@ -78,7 +75,6 @@ cc_library(
             # "-Wno-array-parameter",
         ],
     }),
-    linkopts = [],
     strip_include_prefix = "libtiff",
     visibility = ["//visibility:public"],
     deps = [

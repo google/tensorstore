@@ -805,15 +805,15 @@ Example:
     ...             'driver': 'memory'
     ...         }
     ...     },
-    ...     dtype=ts.int64,
+    ...     dtype=ts.uint32,
     ...     shape=[3, 3],
     ...     create=True)
-    >>> await dataset.write(np.arange(9).reshape((3, 3)))
+    >>> await dataset.write(np.arange(9, dtype=np.uint32).reshape((3, 3)))
     >>> dataset = await dataset.resize(exclusive_max=(3, 2))
     >>> await dataset.read()
     array([[0, 1],
            [3, 4],
-           [6, 7]])
+           [6, 7]], dtype=uint32)
 
 Args:
 
