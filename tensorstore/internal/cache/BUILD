@@ -2,7 +2,7 @@ load("//tensorstore:tensorstore.bzl", "tensorstore_cc_binary", "tensorstore_cc_l
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 
 package(
-    default_visibility = ["//visibility:public"],
+    default_visibility = ["//tensorstore:internal_packages"],
 )
 
 licenses(["notice"])
