@@ -196,8 +196,6 @@ def run(args, extra_args):
 
     if platform != "linux" and sys.platform.startswith("darwin"):
       cibw_environment["MACOSX_DEPLOYMENT_TARGET"] = "10.14"
-      # https://github.com/bazelbuild/bazel/issues/14113
-      cibw_environment["BAZEL_USE_CPP_ONLY_TOOLCHAIN"] = "1"
 
     if extra_bazelrc:
       bazel_startup_options.append("--bazelrc=" + fix_path(extra_bazelrc))
