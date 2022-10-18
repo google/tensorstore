@@ -483,7 +483,7 @@ struct ReadTask {
         if (regex_match(tag_value, match_result, tile_indices_regex)){
           uint32_t x_pos = std::stoi(match_result[1].str());
           uint32_t y_pos = std::stoi(match_result[2].str());
-          std::cout << "using libtiff" << std::endl;
+          std::cout << "using libtiff API" << std::endl;
           TIFF *tiff_ = TIFFOpen(actual_full_path.c_str(), "r");
           if (tiff_ != nullptr) 
           {

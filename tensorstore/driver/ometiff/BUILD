@@ -1,4 +1,4 @@
-# N5 TensorStore driver
+# OMETiff TensorStore driver
 
 load("//tensorstore:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
 load("//docs:doctest.bzl", "doctest_test")
