@@ -178,30 +178,30 @@ using ::tensorstore::internal_file_util::LongestDirectoryPrefix;
 using ::tensorstore::internal_file_util::UniqueFileDescriptor;
 using ::tensorstore::kvstore::ReadResult;
 
-auto& file_bytes_read = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/file/bytes_read",
-    "Bytes read by the file kvstore driver");
+auto& tiff_bytes_read = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/tiff/bytes_read",
+    "Bytes read by the tiff kvstore driver");
 
-auto& file_bytes_written = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/file/bytes_written",
-    "Bytes written by the file kvstore driver");
+auto& tiff_bytes_written = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/tiff/bytes_written",
+    "Bytes written by the tiff kvstore driver");
 
-auto& file_read = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/file/read", "file driver kvstore::Read calls");
+auto& tiff_read = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/tiff/read", "tiff driver kvstore::Read calls");
 
-auto& file_write = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/file/write", "file driver kvstore::Write calls");
+auto& tiff_write = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/tiff/write", "tiff driver kvstore::Write calls");
 
-auto& file_delete_range = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/file/delete_range",
-    "file driver kvstore::DeleteRange calls");
+auto& tiff_delete_range = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/tiff/delete_range",
+    "tiff driver kvstore::DeleteRange calls");
 
-auto& file_list = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/file/list", "file driver kvstore::List calls");
+auto& tiff_list = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/tiff/list", "tiff driver kvstore::List calls");
 
-auto& file_lock_contention = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/file/lock_contention",
-    "file driver write lock contention");
+auto& tiff_lock_contention = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/tiff/lock_contention",
+    "tiff driver write lock contention");
 
 absl::Status ValidateKey(std::string_view key) {
   if (!IsKeyValid(key, kLockSuffix)) {
@@ -383,7 +383,7 @@ struct ReadTask {
     //       fd.get(), buffer.data() + offset, buffer.size() - offset,
     //       byte_range.inclusive_min + offset);
     //   if (n > 0) {
-    //     file_bytes_read.IncrementBy(n);
+    //     tiff_bytes_read.IncrementBy(n);
     //     offset += n;
     //     continue;
     //   }
@@ -557,7 +557,7 @@ struct WriteLockHelper {
       // Release lock and try again.
       lock = FileLock{};
       lock_fd = std::move(other_fd);
-      file_lock_contention.Increment();
+      tiff_lock_contention.Increment();
     }
   }
 
@@ -612,7 +612,7 @@ struct WriteTask {
         if (n <= 0) {
           return StatusFromErrno("Error writing to file: ", lock_path);
         }
-        file_bytes_written.IncrementBy(n);
+        tiff_bytes_written.IncrementBy(n);
         if (n == value_for_write.size()) break;
         value_for_write.RemovePrefix(n);
       }
@@ -933,7 +933,7 @@ class TiffKeyValueStore
                                                 TiffKeyValueStoreSpec> {
  public:
   Future<ReadResult> Read(Key key, ReadOptions options) override {
-    file_read.Increment();
+    tiff_read.Increment();
     TENSORSTORE_RETURN_IF_ERROR(ValidateKey(key));
     return MapFuture(executor(), ReadTask{std::move(key), std::move(options)});
   }
@@ -941,7 +941,7 @@ class TiffKeyValueStore
   Future<TimestampedStorageGeneration> Write(Key key,
                                              std::optional<Value> value,
                                              WriteOptions options) override {
-    file_write.Increment();
+    tiff_write.Increment();
     TENSORSTORE_RETURN_IF_ERROR(ValidateKey(key));
     if (value) {
       return MapFuture(executor(), WriteTask{std::move(key), std::move(*value),
@@ -953,7 +953,7 @@ class TiffKeyValueStore
   }
 
   Future<const void> DeleteRange(KeyRange range) override {
-    file_delete_range.Increment();
+    tiff_delete_range.Increment();
     if (range.empty()) return absl::OkStatus();  // Converted to a ReadyFuture.
     TENSORSTORE_RETURN_IF_ERROR(ValidateKeyRange(range));
     return PromiseFuturePair<void>::Link(
@@ -963,7 +963,7 @@ class TiffKeyValueStore
 
   void ListImpl(ListOptions options,
                 AnyFlowReceiver<absl::Status, Key> receiver) override {
-    file_list.Increment();
+    tiff_list.Increment();
     if (options.range.empty()) {
       execution::set_starting(receiver, [] {});
       execution::set_done(receiver);
