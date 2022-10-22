@@ -23,6 +23,7 @@
 #include <stdlib.h>
 
 #include <cstring>
+#include <optional>
 #include <string_view>
 
 #include <gmock/gmock.h>
@@ -35,6 +36,7 @@
 #include "tensorstore/internal/http/transport_test_utils.h"
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/thread.h"
+#include "tensorstore/util/assert_macros.h"
 
 using ::tensorstore::internal_http::HttpRequestBuilder;
 using ::tensorstore::transport_test_utils::AcceptNonBlocking;
@@ -43,7 +45,6 @@ using ::tensorstore::transport_test_utils::CloseSocket;
 using ::tensorstore::transport_test_utils::CreateBoundSocket;
 using ::tensorstore::transport_test_utils::FormatSocketAddress;
 using ::tensorstore::transport_test_utils::get_socket_errno;
-using ::tensorstore::transport_test_utils::kInvalidSocket;
 using ::tensorstore::transport_test_utils::ReceiveAvailable;
 using ::tensorstore::transport_test_utils::socket_t;
 using ::tensorstore::transport_test_utils::WaitForRead;
@@ -325,10 +326,10 @@ TEST_F(CurlTransportTest, Http2) {
 
   // This test sets up a simple single-request tcp/ip service which allows
   // us to mock a simple HTTP/2 server.
-  socket_t socket = CreateBoundSocket();
-  TENSORSTORE_CHECK(socket != kInvalidSocket);
+  auto socket = CreateBoundSocket();
+  TENSORSTORE_CHECK(socket.has_value());
 
-  auto hostport = FormatSocketAddress(socket);
+  auto hostport = FormatSocketAddress(*socket);
   TENSORSTORE_CHECK(!hostport.empty());
 
   static constexpr char kSwitchProtocols[] =  // 69
@@ -344,13 +345,14 @@ TEST_F(CurlTransportTest, Http2) {
   std::string second_request;
 
   tensorstore::internal::Thread serve_thread({"serve_thread"}, [&] {
-    auto client_fd = AcceptNonBlocking(socket);
-    initial_request = ReceiveAvailable(client_fd);
+    auto client_fd = AcceptNonBlocking(*socket);
+    TENSORSTORE_CHECK(client_fd.has_value());
+    initial_request = ReceiveAvailable(*client_fd);
 
     // Manually upgrade the h2c to HTTP/2
-    AssertSend(client_fd, kSwitchProtocols);
+    AssertSend(*client_fd, kSwitchProtocols);
 
-    Http2Session session(client_fd, std::string_view(kSettings, 18));
+    Http2Session session(*client_fd, std::string_view(kSettings, 18));
     session.SendResponse(
         1, {{":status", "200"}, {"content-type", "text/html"}},
         "<html>\n<body>\n<h1>Hello, World!</h1>\n</body>\n</html>\n");
@@ -365,7 +367,7 @@ TEST_F(CurlTransportTest, Http2) {
     for (int i = 0; i < 10; i++) {
       if (!session.TrySendReceive()) {
         // fd closed prematurely.
-        CloseSocket(client_fd);
+        CloseSocket(*client_fd);
         return;
       }
 
@@ -382,7 +384,7 @@ TEST_F(CurlTransportTest, Http2) {
     session.TrySendReceive();
 
     // We have not sent a shutdown message.
-    CloseSocket(client_fd);
+    CloseSocket(*client_fd);
   });
 
   // Issue request 1.
@@ -431,6 +433,7 @@ TEST_F(CurlTransportTest, Http2) {
   }
 
   serve_thread.Join();
+  CloseSocket(*socket);
 }
 
 }  // namespace

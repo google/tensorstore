@@ -22,14 +22,12 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <winsock2.h>
-#include <ws2tcpip.h>
 #else
 #include <errno.h>
-#include <sys/socket.h>
-#include <unistd.h>
 #endif
 
 #include <cstdio>
+#include <optional>
 #include <string>
 
 namespace tensorstore {
@@ -40,18 +38,16 @@ namespace transport_test_utils {
 
 using socket_t = SOCKET;
 inline int get_socket_errno() { return WSAGetLastError(); }
-static constexpr socket_t kInvalidSocket = INVALID_SOCKET;
 
 #else  // _WIN32
 
 using socket_t = int;
 inline int get_socket_errno() { return errno; }
-static constexpr socket_t kInvalidSocket = -1;
 
 #endif  // _WIN32
 
 // Creates a socket bound to localhost on an open port.
-socket_t CreateBoundSocket();
+std::optional<socket_t> CreateBoundSocket();
 
 // Formats a socket address as a host:port / [host]:port.
 std::string FormatSocketAddress(socket_t sock);
@@ -63,7 +59,7 @@ bool SetSocketNonBlocking(socket_t sock);
 bool WaitForRead(socket_t sock);
 
 // Accepts a client socket & sets the socke to non-blocking.
-socket_t AcceptNonBlocking(socket_t server_fd);
+std::optional<socket_t> AcceptNonBlocking(socket_t server_fd);
 
 // Receives available data on the socket.
 std::string ReceiveAvailable(socket_t client_fd);

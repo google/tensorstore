@@ -25,6 +25,7 @@
 #include <stdlib.h>
 
 #include <cstring>
+#include <optional>
 #include <string_view>
 #include <thread>
 
@@ -36,6 +37,7 @@
 #include "tensorstore/internal/http/transport_test_utils.h"
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/thread.h"
+#include "tensorstore/util/assert_macros.h"
 
 using ::tensorstore::internal_http::HttpRequestBuilder;
 using ::tensorstore::transport_test_utils::AcceptNonBlocking;
@@ -43,7 +45,6 @@ using ::tensorstore::transport_test_utils::AssertSend;
 using ::tensorstore::transport_test_utils::CloseSocket;
 using ::tensorstore::transport_test_utils::CreateBoundSocket;
 using ::tensorstore::transport_test_utils::FormatSocketAddress;
-using ::tensorstore::transport_test_utils::kInvalidSocket;
 using ::tensorstore::transport_test_utils::ReceiveAvailable;
 using ::tensorstore::transport_test_utils::socket_t;
 using ::testing::HasSubstr;
@@ -72,10 +73,10 @@ TEST_F(CurlTransportTest, Http1) {
   // us to mock a simple http server.
   // NOTE: It would be nice to expand this to provide, e.g. HTTP2 functionality.
 
-  socket_t socket = CreateBoundSocket();
-  TENSORSTORE_CHECK(socket != kInvalidSocket);
+  auto socket = CreateBoundSocket();
+  TENSORSTORE_CHECK(socket.has_value());
 
-  auto hostport = FormatSocketAddress(socket);
+  auto hostport = FormatSocketAddress(*socket);
   TENSORSTORE_CHECK(!hostport.empty());
 
   static constexpr char kResponse[] =  //
@@ -87,10 +88,11 @@ TEST_F(CurlTransportTest, Http1) {
   // Start a thread to handle a single request.
   std::string initial_request;
   tensorstore::internal::Thread serve_thread({"serve_thread"}, [&] {
-    auto client_fd = AcceptNonBlocking(socket);
-    initial_request = ReceiveAvailable(client_fd);
-    AssertSend(client_fd, kResponse);
-    CloseSocket(client_fd);
+    auto client_fd = AcceptNonBlocking(*socket);
+    TENSORSTORE_CHECK(client_fd.has_value());
+    initial_request = ReceiveAvailable(*client_fd);
+    AssertSend(*client_fd, kResponse);
+    CloseSocket(*client_fd);
   });
 
   // Issue a request.
@@ -108,6 +110,7 @@ TEST_F(CurlTransportTest, Http1) {
 
   TENSORSTORE_LOG("Wait on server");
   serve_thread.Join();
+  CloseSocket(*socket);
 
   EXPECT_THAT(initial_request, HasSubstr("POST /?name=dragon&age=1234"));
   EXPECT_THAT(initial_request,
@@ -132,10 +135,10 @@ TEST_F(CurlTransportTest, Http1) {
 TEST_F(CurlTransportTest, Http1Resend) {
   auto transport = ::tensorstore::internal_http::GetDefaultHttpTransport();
 
-  socket_t socket = CreateBoundSocket();
-  TENSORSTORE_CHECK(socket != kInvalidSocket);
+  auto socket = CreateBoundSocket();
+  TENSORSTORE_CHECK(socket.has_value());
 
-  auto hostport = FormatSocketAddress(socket);
+  auto hostport = FormatSocketAddress(*socket);
   TENSORSTORE_CHECK(!hostport.empty());
 
   // Include content-length to allow connection reuse.
@@ -153,16 +156,17 @@ TEST_F(CurlTransportTest, Http1Resend) {
 
   std::string seen_requests[3];
   tensorstore::internal::Thread serve_thread({"serve_thread"}, [&] {
-    socket_t client_fd = -1;
+    std::optional<socket_t> client_fd = std::nullopt;
 
     for (int i = 0; i < 3; i++) {
-      if (client_fd == -1) {
+      if (!client_fd.has_value()) {
         TENSORSTORE_LOG("S: Waiting on listen");
-        client_fd = AcceptNonBlocking(socket);
+        client_fd = AcceptNonBlocking(*socket);
+        TENSORSTORE_CHECK(client_fd.has_value());
       }
 
       while (seen_requests[i].empty()) {
-        seen_requests[i] = ReceiveAvailable(client_fd);
+        seen_requests[i] = ReceiveAvailable(*client_fd);
       }
       TENSORSTORE_LOG("S: request ", i, " size=", seen_requests[i].size());
 
@@ -171,17 +175,16 @@ TEST_F(CurlTransportTest, Http1Resend) {
         // (simulates the race condition under which the server closes the
         // connection due to a timeout just the client is reusing the connection
         // to send another request).
-        CloseSocket(client_fd);
-        client_fd = -1;
+        CloseSocket(*client_fd);
+        client_fd = std::nullopt;
         continue;
       }
 
-      AssertSend(client_fd, kResponse);
+      AssertSend(*client_fd, kResponse);
     }
 
     // cleanup.
-    CloseSocket(client_fd);
-    CloseSocket(socket);
+    CloseSocket(*client_fd);
   });
 
   // Issue 2 requests.
@@ -207,6 +210,7 @@ TEST_F(CurlTransportTest, Http1Resend) {
 
   TENSORSTORE_LOG("Wait on server");
   serve_thread.Join();
+  CloseSocket(*socket);
 
   for (auto& request : seen_requests) {
     using ::testing::HasSubstr;

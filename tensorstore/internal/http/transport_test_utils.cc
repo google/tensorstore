@@ -15,7 +15,10 @@
 #include "tensorstore/internal/http/transport_test_utils.h"
 
 #ifdef _WIN32
+#include <ws2tcpip.h>
+
 #pragma comment(lib, "ws2_32.lib")
+
 #else
 
 #include <arpa/inet.h>
@@ -47,7 +50,14 @@
 namespace tensorstore {
 namespace transport_test_utils {
 
-socket_t CreateBoundSocket() {
+// Platform specific defines.
+#ifdef _WIN32
+static constexpr socket_t kInvalidSocket = INVALID_SOCKET;
+#else   // _WIN32
+static constexpr socket_t kInvalidSocket = -1;
+#endif  // _WIN32
+
+std::optional<socket_t> CreateBoundSocket() {
   auto try_open_socket = [](struct addrinfo* rp) -> socket_t {
     // Create a socket
     //
@@ -56,6 +66,11 @@ socket_t CreateBoundSocket() {
     // with the standard C interface.
     socket_t sock = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
     if (sock < 0) return kInvalidSocket;
+
+#ifndef _WIN32
+    // On non-WIN32, set socket as close on exec.  Ignore errors.
+    fcntl(sock, F_SETFD, FD_CLOEXEC);
+#endif
 
     // Make 'reuse address' option available
     int yes = 1;
@@ -96,7 +111,7 @@ socket_t CreateBoundSocket() {
 
   struct addrinfo* result = nullptr;
   if (getaddrinfo("localhost", nullptr, &hints, &result)) {
-    return kInvalidSocket;
+    return std::nullopt;
   }
 
   // Loop over the address families twice. On the first pass try and open
@@ -121,7 +136,7 @@ socket_t CreateBoundSocket() {
   }
 
   freeaddrinfo(result);
-  return kInvalidSocket;
+  return std::nullopt;
 }
 
 std::string FormatSocketAddress(socket_t sock) {
@@ -178,13 +193,13 @@ bool WaitForRead(socket_t sock) {
   }
 }
 
-socket_t AcceptNonBlocking(socket_t server_fd) {
+std::optional<socket_t> AcceptNonBlocking(socket_t server_fd) {
   struct sockaddr_storage peer_addr;
   socklen_t peer_len = sizeof(peer_addr);
 
   socket_t client_fd =
       accept(server_fd, (struct sockaddr*)&peer_addr, &peer_len);
-  assert(client_fd >= 0);
+  if (client_fd == kInvalidSocket) return std::nullopt;
 
   SetSocketNonBlocking(client_fd);
   return client_fd;
