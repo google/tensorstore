@@ -237,6 +237,18 @@ requirements<cmake-build-dependencies>` are listed below.
    Python is used to generate the CMake build rules automatically from the Bazel
    build rules as part of the CMake configuration step.
 
+Supported generators
+~~~~~~~~~~~~~~~~~~~~
+
+The following CMake generators are supported:
+
+- Ninja and Ninja Multi-Config
+- Makefile generators
+- Visual Studio generators
+- Xcode (targetting arm64 only)
+
+The Ninja generator is recommended because it provides the fastest builds.
+
 Third-party dependencies
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -266,6 +278,10 @@ When using CMake, it is often helpful to use a build caching tool like `sccache
 <https://github.com/mozilla/sccache>`__ or to speed up re-builds.  To enable
 sccache, specify ``-DCMAKE_{C,CXX}_COMPILER_LAUNCHER=ccache`` when invoking
 CMake.
+
+.. note::
+
+   Caching is only supported by the Ninja and Makefile generators.
 
 Development
 -----------

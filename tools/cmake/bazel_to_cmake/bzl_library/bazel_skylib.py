@@ -180,6 +180,7 @@ class BazelSkylibCopyFileLibrary(BazelGlobals):
                       src: Configurable[RelativeLabel],
                       visibility: Optional[List[RelativeLabel]] = None,
                       **kwargs):
+    del kwargs
     context = self._context
     cmake_command = context.workspace.cmake_vars["CMAKE_COMMAND"]
     native_rules.genrule(

@@ -42,6 +42,10 @@ def quote_list(y) -> str:
   return " ".join(quote_string(x) for x in y)
 
 
+def quote_path_list(y) -> str:
+  return " ".join(quote_path(x) for x in y)
+
+
 INCLUDE_SECTION = 0
 FIND_PACKAGE_SECTION = 1
 OPTIONS_SECTION = 10

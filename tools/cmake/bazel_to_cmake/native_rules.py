@@ -47,7 +47,6 @@ def glob(self: EvaluationContext,
          include: List[str],
          exclude: Optional[List[str]] = None,
          allow_empty: bool = True) -> List[str]:
-  # TODO(jbms): exclude files from subpackages.
   matches = set()
 
   exclude_regexp = None
@@ -62,7 +61,6 @@ def glob(self: EvaluationContext,
 
   is_subpackage_dir: Dict[str, bool] = {}
   is_subpackage_dir[""] = False
-
   def in_subpackage(path: str):
     start_index = 1
     end_index = len(path)

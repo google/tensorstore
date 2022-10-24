@@ -62,8 +62,15 @@ _CMAKE_SYSTEM_PROCESSOR_CONFIG_SETTINGS = {
     "armv7l": ["@platforms//cpu:arm"],
 }
 
-_CMAKE_SYSTEM_PROCESSOR_VALUES: Dict[str, List[Tuple[str, str]]] = {
+ValueList = List[Tuple[str, str]]
+
+_CMAKE_SYSTEM_PROCESSOR_VALUES: Dict[str, ValueList] = {
     "armv7l": [("cpu", "armeabi-v7a")],
+}
+
+_CMAKE_SYSTEM_NAME_AND_PROCESSOR_VALUES: Dict[Tuple[str, str], ValueList] = {
+    ("Windows", "AMD64"): [("cpu", "x64_windows")],
+    ("QNX", "x86_64"): [("cpu", "x64_qnx")],
 }
 
 
@@ -96,6 +103,10 @@ def add_platform_constraints(workspace: Workspace) -> None:
 
   workspace.values.update(
       _CMAKE_SYSTEM_PROCESSOR_VALUES.get(cmake_system_processor, []))
+
+  workspace.values.update(
+      _CMAKE_SYSTEM_NAME_AND_PROCESSOR_VALUES.get(
+          (cmake_system_name, cmake_system_processor), []))
 
   if cmake_system_name == "Windows":
     # Bazel defines this by default.

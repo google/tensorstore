@@ -64,7 +64,7 @@ def glob_pattern_to_regexp(glob_pattern: str) -> str:
       regexp_parts.append(".*)?")
       continue
     regexp_parts.append(sep_prefix)
-    for x in part.split(r"(\*)"):
+    for x in re.split(r"(\*)", part):
       if x == "*":
         regexp_parts.append("[^/]*")
       else:
