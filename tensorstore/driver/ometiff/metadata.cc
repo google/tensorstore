@@ -172,7 +172,7 @@ Result<SharedArrayView<const void>> DecodeChunk(const OmeTiffMetadata& metadata,
         internal::TryViewCordAsArray(buffer, 0, metadata.dtype,
                                      endian::little, metadata.chunk_layout);
     if (decoded_array.valid()){
-      std::cout<<"valid array"<<std::endl;
+      //std::cout<<"valid array"<<std::endl;
       return decoded_array;
     }
     else {

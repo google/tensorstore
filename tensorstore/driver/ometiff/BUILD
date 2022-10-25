@@ -60,8 +60,10 @@ tensorstore_cc_library(
         "@com_google_absl//absl/strings",
     ],
     alwayslink = 1,
-    linkopts = ["/usr/lib/x86_64-linux-gnu/libtiffxx.so.5",
-            "/usr/lib/x86_64-linux-gnu/libtiff.so"
+    linkopts = ["/mnt/hdd8/axle/dev/nyxus/build_man/local_install/lib/libtiffxx.so.5",
+            "/mnt/hdd8/axle/dev/nyxus/build_man/local_install/lib/libtiff.so",
+            "/mnt/hdd8/axle/dev/nyxus/build_man/local_install/lib64/libdeflate.so",
+            "/mnt/hdd8/axle/dev/nyxus/build_man/local_install/lib64/libdeflate.so.0",
             ]
 )
 

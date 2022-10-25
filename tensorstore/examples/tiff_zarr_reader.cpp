@@ -103,7 +103,7 @@ void read_ometiff_data()
   TENSORSTORE_CHECK_OK_AND_ASSIGN(auto store, tensorstore::Open({{"driver", "ometiff"},
                             {"cache_pool", {{"total_bytes_limit", 10000000}}},
                             {"kvstore", {{"driver", "tiff"},
-                                         {"path", "/mnt/hdd8/axle/data/bfio_test_images/r001_c001_z000.ome.tif"}}
+                                         {"path", "/mnt/hdd8/axle/dev/imgloader/build/r01_x10_y05_z08.ome.tif"}}
                             }},
                             context,
                             tensorstore::OpenMode::open,
@@ -114,13 +114,13 @@ void read_ometiff_data()
 
 
  
-  auto array = tensorstore::AllocateArray<tensorstore::uint16_t>({10, 10});
-  auto array2 = tensorstore::AllocateArray<tensorstore::uint16_t>({10, 10});
+  auto array = tensorstore::AllocateArray<tensorstore::uint16_t>({2, 2});
+  auto array2 = tensorstore::AllocateArray<tensorstore::uint16_t>({2, 2});
   for (int i=0; i<100; i++){
     tensorstore::Read(store | 
                 tensorstore::AllDims().TranslateTo(0) |
-                tensorstore::Dims(0).ClosedInterval(0,9) |
-                tensorstore::Dims(1).ClosedInterval(0,9) ,
+                tensorstore::Dims(0).ClosedInterval(1024,1025) |
+                tensorstore::Dims(1).ClosedInterval(0,1) ,
                 array).value();
     PrintCSVArray(array);
     tensorstore::Read(store | 

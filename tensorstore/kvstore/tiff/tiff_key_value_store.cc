@@ -370,7 +370,7 @@ struct ReadTask {
     if (read_result.stamp.generation == options.if_not_equal ||
         (!StorageGeneration::IsUnknown(options.if_equal) &&
          read_result.stamp.generation != options.if_equal)) {
-      std::cout<<"returning from cache...yay"<<std::endl;
+      //std::cout<<"returning from cache...yay"<<std::endl;
       return read_result;
     }
     // TENSORSTORE_ASSIGN_OR_RETURN(auto byte_range,
@@ -465,8 +465,8 @@ struct ReadTask {
 
           
           oss << "{"
-              << "\"dimensions\": [" << image_width << "," << image_height << "],"
-              << "\"blockSize\": [" << tile_width << "," << tile_height << "],"
+              << "\"dimensions\": [" << image_height << "," << image_width << "],"
+              << "\"blockSize\": [" << tile_height << "," << tile_width << "],"
               << "\"dataType\": \"" << dtype << "\""
               << "}";
 
@@ -481,9 +481,9 @@ struct ReadTask {
         std::smatch match_result;
         std::regex tile_indices_regex("_(\\d+)_(\\d+)");
         if (regex_match(tag_value, match_result, tile_indices_regex)){
-          uint32_t x_pos = std::stoi(match_result[1].str());
-          uint32_t y_pos = std::stoi(match_result[2].str());
-          std::cout << "using libtiff API" << std::endl;
+          uint32_t x_pos = std::stoi(match_result[2].str());
+          uint32_t y_pos = std::stoi(match_result[1].str());
+          //std::cout << "using libtiff API" << std::endl;
           TIFF *tiff_ = TIFFOpen(actual_full_path.c_str(), "r");
           if (tiff_ != nullptr) 
           {
@@ -494,7 +494,7 @@ struct ReadTask {
             //auto errcode = TIFFReadTile(tiff_, tiffTile, x_pos, y_pos, 0, 0);
             internal::FlatCordBuilder buffer2(t_szb);
             //memcpy(buffer2.data(), tiffTile, t_szb);
-            std::cout<<"new read"<<std::endl;
+            //std::cout<<"new read"<<std::endl;
             auto errcode = TIFFReadTile(tiff_, buffer2.data(), x_pos, y_pos, 0, 0);
             //_TIFFfree(tiffTile);
             TIFFClose(tiff_);      

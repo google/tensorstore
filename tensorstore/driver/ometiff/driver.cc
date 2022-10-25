@@ -240,7 +240,7 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
      for (DimensionIndex i = 0; i < cell_indices.size(); ++i) {
        StrAppend(&key, "_", cell_indices[i]*chunk_shape[i]);
      }
-    std::cout << "storage key : " << key << std::endl;
+    //std::cout << "storage key : " << key << std::endl;
     return key;
   }
 
