@@ -18,8 +18,8 @@ tensorstore_cc_library(
     name = "tiff",
     srcs = ["tiff_key_value_store.cc"],
     deps = [
-        ":file_util",
-        ":util",
+        "//tensorstore/kvstore/file:file_util",
+        "//tensorstore/kvstore/file:util",
         "//tensorstore:context",
         "//tensorstore/internal:context_binding",
         "//tensorstore/internal:file_io_concurrency_resource",
