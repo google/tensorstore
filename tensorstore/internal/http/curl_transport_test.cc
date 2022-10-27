@@ -27,7 +27,6 @@
 #include <cstring>
 #include <optional>
 #include <string_view>
-#include <thread>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
