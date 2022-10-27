@@ -1,4 +1,5 @@
 #include <tiffio.h>
+#include "pugixml.hpp"
 #include <regex>
 
 #include <stddef.h>
@@ -214,12 +215,11 @@ struct ReadTask {
 
     if (pos != std::string::npos){
       if (tag_value == img_tag){
-        std::ostringstream oss;
+        std::ostringstream oss, tiff_data_str;
         TIFF *tiff_ = TIFFOpen(actual_full_path.c_str(), "r");
         if (tiff_ != nullptr) 
         {
           read_result.state = ReadResult::kValue;
-          char* infobuf;
           uint32_t 
             image_width = 0, 
             image_height = 0, 
@@ -228,7 +228,9 @@ struct ReadTask {
           short
             sample_format = 0,          
             bits_per_sample = 0;
-
+          
+          oss << "{"; //start creating JSON string
+          
           TIFFGetField(tiff_, TIFFTAG_IMAGEWIDTH, &image_width);
           TIFFGetField(tiff_, TIFFTAG_IMAGELENGTH, &image_height);
           TIFFGetField(tiff_, TIFFTAG_TILEWIDTH, &tile_width);
@@ -238,13 +240,69 @@ struct ReadTask {
           
           std::string dtype = GetDataType(sample_format, bits_per_sample);
 
-          oss << "{"
-              << "\"dimensions\": [" << image_height << "," << image_width << "],"
-              << "\"blockSize\": [" << tile_height << "," << tile_width << "],"
-              << "\"dataType\": \"" << dtype << "\""
-              << "}";
+          size_t nc =1, nz=1, nt=1;
+          short dim_order = 1; //default
+          char* infobuf;
+          TIFFGetField(tiff_, TIFFTAG_IMAGEDESCRIPTION , &infobuf);
+          pugi::xml_document doc;
+          pugi::xml_parse_result result = doc.load_string(infobuf);
+          if (result){
+            auto xml_metadata_map = std::map<std::string, std::string>();
+            pugi::xml_node pixel = doc.child("OME").child("Image").child("Pixels");
 
+            for (const pugi::xml_attribute &attr: pixel.attributes()){
+              oss<<"\""<<attr.name()<<"\":"<<"\""<<attr.value()<<"\",";
+              xml_metadata_map.emplace(attr.name(), attr.value());
+            }
+          	auto it = xml_metadata_map.find("DimensionOrder");
+            if (it != xml_metadata_map.end())
+            {
+              auto dim_order_str = it->second;
+              if (dim_order_str == "XYZTC") { dim_order = 1;}
+              else if (dim_order_str == "XYZCT") { dim_order = 2;}
+              else if (dim_order_str == "XYTCZ") { dim_order = 4;}
+              else if (dim_order_str == "XYTZC") { dim_order = 8;}
+              else if (dim_order_str == "XYCTZ") { dim_order = 16;}
+              else if (dim_order_str == "XYCZT") { dim_order = 32;}
+              else { dim_order = 1;}
+            }
+            
+            it = xml_metadata_map.find("SizeC");
+            if (it != xml_metadata_map.end()) nc = std::stoi(it->second);
+
+            it = xml_metadata_map.find("SizeZ");
+            if (it != xml_metadata_map.end()) nz = std::stoi(it->second);
+
+            it = xml_metadata_map.find("SizeT");
+            if (it != xml_metadata_map.end()) nt = std::stoi(it->second);
+            
+            // get TiffData info
+            tiff_data_str << "{ "; 
+            for (pugi::xml_node tiff_data: pixel.children("TiffData")){
+              size_t c=0, t=0, z=0, ifd=0;
+              for (pugi::xml_attribute attr: tiff_data.attributes()){
+                if (strcmp(attr.name(),"FirstC") == 0) {c = atoi(attr.value());}
+                else if (strcmp(attr.name(),"FirstZ") == 0) {z = atoi(attr.value());}
+                else if (strcmp(attr.name(),"FirstT") == 0) {t = atoi(attr.value());}
+                else if (strcmp(attr.name(),"IFD") == 0) {ifd = atoi(attr.value());}
+                else {continue;}
+              } 
+              tiff_data_str << "\"" << ifd << "\": [" << z << "," << c << ", " << t << " ],"; 
+            }
+            tiff_data_str.seekp(-1, tiff_data_str.cur);
+            tiff_data_str << "}";
+          }
+
+
+          oss << "\"dimensions\": [" << image_height << "," << image_width << "," << nz << "," << nc << "," << nz << "],"
+              << "\"blockSize\": [" << tile_height << "," << tile_width << ",1,1,1],"
+              << "\"dataType\": \"" << dtype << "\","
+              << "\"dimOrder\": " << dim_order << ","
+              << "\"tiffData\": " << tiff_data_str.str() << ",";
         }
+        oss.seekp(-1, oss.cur);
+        oss << "}"; // finish json
+        //std::cout << oss.str() <<std::endl;
         TIFFClose(tiff_);      
         absl::Cord tmp =  absl::Cord(oss.str());
         read_result.value = std::move(tmp);
@@ -253,23 +311,27 @@ struct ReadTask {
       else // parse tile indices
       { 
         std::smatch match_result;
-        std::regex tile_indices_regex("_(\\d+)_(\\d+)");
+        std::regex tile_indices_regex("_(\\d+)_(\\d+)_(\\d+)");
         if (regex_match(tag_value, match_result, tile_indices_regex)){
           uint32_t x_pos = std::stoi(match_result[2].str());
           uint32_t y_pos = std::stoi(match_result[1].str());
+          uint32_t ifd_dir = std::stoi(match_result[3].str());
           TIFF *tiff_ = TIFFOpen(actual_full_path.c_str(), "r");
           if (tiff_ != nullptr) 
           {
-            read_result.state = ReadResult::kValue;
+            
             auto t_szb = TIFFTileSize(tiff_);
+            TIFFSetDirectory(tiff_, ifd_dir);
             internal::FlatCordBuilder buffer(t_szb);
             auto errcode = TIFFReadTile(tiff_, buffer.data(), x_pos, y_pos, 0, 0);
             TIFFClose(tiff_);      
             if (errcode != -1){
+              read_result.state = ReadResult::kValue;
               tiff_bytes_read.IncrementBy(errcode);
               read_result.value = std::move(buffer).Build();
             } 
             else {
+              read_result.state = ReadResult::kMissing;
               return StatusFromErrno("Error reading file: ", actual_full_path);
             }
           }

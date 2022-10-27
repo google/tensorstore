@@ -2,6 +2,8 @@
 #define TENSORSTORE_DRIVER_OMETIFF_METADATA_H_
 
 #include <string>
+#include <map>
+#include <tuple>
 
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
@@ -21,16 +23,22 @@ namespace internal_ometiff {
 class OmeTiffMetadata {
     public: 
         DimensionIndex rank = dynamic_rank;
-        std::vector<Index> shape; // whole size
-        std::vector<Index> chunk_shape; // tile size, may be?
+        std::vector<Index> shape;
+        std::vector<Index> chunk_shape; 
         DataType dtype;
         StridedLayout<> chunk_layout;
         bool tiled;
+        short dim_order;
+        std::map<std::tuple<size_t, size_t, size_t>, size_t> ifd_lookup_table;
+          /// Contains all additional attributes, excluding attributes parsed into the
+  /// data members above.
+        ::nlohmann::json::object_t extra_attributes;
         TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(OmeTiffMetadata,
                                                 internal_json_binding::NoOptions,
                                                 tensorstore::IncludeDefaults)
 
         std::string GetCompatibilityKey() const;
+        size_t GetIfdIndex(size_t, size_t, size_t) const;
 };
 
 
@@ -51,7 +59,10 @@ class OmeTiffMetadataConstraints {
   /// and the in-memory layout of a full chunk (always C order).
   std::optional<std::vector<Index>> chunk_shape;
   std::optional<DataType> dtype;
-
+  std::optional<short> dim_order;
+  /// Contains all additional attributes, excluding attributes parsed into the
+  /// data members above.
+  ::nlohmann::json::object_t extra_attributes;
 
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(OmeTiffMetadataConstraints,
                                           internal_json_binding::NoOptions,

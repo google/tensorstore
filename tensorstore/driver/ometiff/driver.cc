@@ -18,8 +18,8 @@
 #include "tensorstore/util/future.h"
 
 #include <iostream>
-
-#include "tensorstore/driver/ometiff/pugixml.hpp"
+#include <tuple>
+#include <string>
 
 namespace tensorstore {
 namespace internal_ometiff {
@@ -92,26 +92,24 @@ class OmeTiffDriverSpec
 // we need OMETiff Metadata 
 Result<std::shared_ptr<const OmeTiffMetadata>> ParseEncodedMetadata(
     std::string_view encoded_value) {
-
-
-  std::string test = "{\"dimensions\": [42906, 29286],\"blockSize\": [1024, 1024],\"dataType\": \"uint16\"}";
   nlohmann::json raw_data = nlohmann::json::parse(encoded_value, nullptr,
                                                   /*allow_exceptions=*/false);
   if (raw_data.is_discarded()) {
     return absl::FailedPreconditionError("Invalid JSON");
   }
-
-  // for now, hardcoded metadata, 
-  // in future this will come from "IMAGE_DESCRIPTION" tag
-  pugi::xml_document doc;
- // pugi::xml_parse_result result = doc.load_string(encoded_value);
-  // nlohmann::json raw_data {
-  //     {"dimensions", {42906, 29286}},   
-  //     {"blockSize", {1024, 1024}},           
-  //     {"dataType", "uint16"},
-  // }; 
+  // create ifd lookup table
+  std::map<std::tuple<size_t, size_t, size_t>, size_t> ifd_lookup_table;
+  if (raw_data.contains("tiffData")){
+    for(auto &el : raw_data["tiffData"].items()){
+      ifd_lookup_table.emplace(el.value().get<std::tuple<size_t,size_t,size_t>>(), 
+                                std::stoi(el.key()));
+    }
+  }
   TENSORSTORE_ASSIGN_OR_RETURN(auto metadata,
                                OmeTiffMetadata::FromJson(std::move(raw_data)));
+  
+
+  metadata.ifd_lookup_table = ifd_lookup_table;
   return std::make_shared<OmeTiffMetadata>(std::move(metadata));
 }
 
@@ -233,13 +231,16 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
                                  span<const Index> cell_indices) override {
     // Use "0" for rank 0 as a special case.
     const auto& metadata = *static_cast<const OmeTiffMetadata*>(metadata_ptr);
+
+    size_t ifd = metadata.GetIfdIndex(cell_indices[2],cell_indices[3],cell_indices[4]);
     std::string key =
          StrCat(key_prefix_, "__TAG__/" );
     auto& chunk_shape = metadata.chunk_shape;
 //    StrAppend(&key, cell_indices.empty() ? 0 : cell_indices[0]);
-     for (DimensionIndex i = 0; i < cell_indices.size(); ++i) {
-       StrAppend(&key, "_", cell_indices[i]*chunk_shape[i]);
-     }
+
+    StrAppend(&key, "_", cell_indices[0]*chunk_shape[0]);
+    StrAppend(&key, "_", cell_indices[1]*chunk_shape[1]);
+    StrAppend(&key, "_", ifd);
     //std::cout << "storage key : " << key << std::endl;
     return key;
   }
@@ -268,6 +269,8 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
     auto& constraints = spec.metadata_constraints;
     constraints.shape = metadata.shape;
     constraints.dtype = metadata.dtype;
+    constraints.dim_order = metadata.dim_order;
+    constraints.extra_attributes = metadata.extra_attributes;
     constraints.chunk_shape =
         std::vector<Index>(metadata.chunk_layout.shape().begin(),
                            metadata.chunk_layout.shape().end());

@@ -65,19 +65,58 @@ constexpr auto MetadataJsonBinder = [](auto maybe_optional) {
         jb::Member("blockSize",
                    jb::Projection(&T::chunk_shape,
                                   maybe_optional(jb::ChunkShapeVector(rank)))),
+        jb::Member("dimOrder",
+                   jb::Projection(&T::dim_order)),
         jb::Member(
             "dataType",
             jb::Projection(&T::dtype, maybe_optional(jb::Validate(
                                           [](const auto& options, auto* obj) {
                                             return ValidateDataType(*obj);
                                           },
-                                          jb::DataTypeJsonBinder))))
-
-            )(is_loading, options, obj, j);
+                                          jb::DataTypeJsonBinder)))),
+            jb::Projection(&T::extra_attributes)
+        )(is_loading, options, obj, j);
   };
 };
 
 }  // namespace
+
+size_t OmeTiffMetadata::GetIfdIndex(size_t z, size_t c, size_t t) const{
+	size_t ifd_dir = 0, ifd_offset = 0, nz=shape[2], nc=shape[3], nt=shape[4];
+  auto tmp = std::make_tuple(z,c,t);
+  auto it = ifd_lookup_table.find(tmp);
+  if (it!=ifd_lookup_table.end()){ifd_dir = it->second;}
+	else {
+		switch (dim_order)
+		{
+			case 1:
+				ifd_dir = nz*nt*c + nz*t + z + ifd_offset;
+				break;
+			case 2:
+				ifd_dir = nz*nc*t + nz*c + z + ifd_offset;
+				break;
+			case 4:
+				ifd_dir = nt*nc*z + nt*c + t + ifd_offset;
+				break;
+			case 8:
+				ifd_dir = nt*nz*c + nt*z + t + ifd_offset;
+				break;
+			case 16:
+				ifd_dir = nc*nt*z + nc*t + c + ifd_offset;
+				break;
+			case 32:
+				ifd_dir = nc*nz*t + nc*z + c + ifd_offset;
+				break;
+			
+			default:
+				ifd_dir = nz*nt*c + nz*t + z + ifd_offset;
+				break;
+		}
+
+	}
+
+	return ifd_dir;
+}
 
 std::string OmeTiffMetadata::GetCompatibilityKey() const {
   // need to figure out what goes here
@@ -133,6 +172,8 @@ Result<std::shared_ptr<const OmeTiffMetadata>> GetNewMetadata(
         MutableBoxView<>(rank, chunk_origin, metadata->chunk_shape.data())));
   }
 
+  metadata->dim_order = *metadata_constraints.dim_order;
+  metadata->extra_attributes = metadata_constraints.extra_attributes;
   TENSORSTORE_RETURN_IF_ERROR(ValidateMetadata(*metadata));
   TENSORSTORE_RETURN_IF_ERROR(ValidateMetadataSchema(*metadata, schema));
   return metadata;
@@ -198,6 +239,11 @@ absl::Status ValidateMetadata(const OmeTiffMetadata& metadata,
                                  metadata.shape);
   }
 
+  if (constraints.dim_order && *constraints.dim_order!=metadata.dim_order) {
+    return MetadataMismatchError("dimOrder", *constraints.dim_order,
+                                 metadata.dim_order);
+  }
+
   if (constraints.chunk_shape &&
       !absl::c_equal(metadata.chunk_layout.shape(), *constraints.chunk_shape)) {
     return MetadataMismatchError("blockSize", *constraints.chunk_shape,
@@ -207,8 +253,9 @@ absl::Status ValidateMetadata(const OmeTiffMetadata& metadata,
     return MetadataMismatchError("dataType", constraints.dtype->name(),
                                  metadata.dtype.name());
   }
-
-  return absl::OkStatus();
+  return internal::ValidateMetadataSubset(constraints.extra_attributes,
+                                          metadata.extra_attributes);
+  //return absl::OkStatus();
 }
 
 Result<IndexDomain<>> GetEffectiveDomain(DimensionIndex rank,
