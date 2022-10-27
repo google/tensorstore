@@ -24,21 +24,16 @@
 #include <utility>
 #include <vector>
 
-#include "absl/flags/marshalling.h"
 #include "absl/random/random.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
-#include "absl/strings/escaping.h"
 #include "absl/strings/str_cat.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
-#include "tensorstore/context_resource_provider.h"
-#include "tensorstore/internal/cache_key/std_optional.h"  // IWYU pragma: keep
 #include "tensorstore/internal/concurrency_resource.h"
-#include "tensorstore/internal/concurrency_resource_provider.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/curl_transport.h"
@@ -48,8 +43,6 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/json_binding/std_array.h"
-#include "tensorstore/internal/json_binding/std_optional.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/oauth2/auth_provider.h"
 #include "tensorstore/internal/oauth2/google_auth_provider.h"
@@ -60,7 +53,9 @@
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/gcs/admission_queue.h"
+#include "tensorstore/kvstore/gcs/gcs_resource.h"
 #include "tensorstore/kvstore/gcs/object_metadata.h"
+#include "tensorstore/kvstore/gcs/rate_limiter.h"
 #include "tensorstore/kvstore/gcs/validate.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -78,6 +73,14 @@
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
+/// Support for ApplyMembers protocols
+#include "tensorstore/internal/cache_key/std_optional.h"  // IWYU pragma: keep
+#include "tensorstore/internal/json_binding/std_array.h"  // IWYU pragma: keep
+#include "tensorstore/internal/json_binding/std_optional.h"  // IWYU pragma: keep
+#include "tensorstore/serialization/fwd.h"  // IWYU pragma: keep
+#include "tensorstore/serialization/std_optional.h"  // IWYU pragma: keep
+#include "tensorstore/util/garbage_collection/std_optional.h"  // IWYU pragma: keep
+
 // GCS reference links are:
 //
 // https://cloud.google.com/storage/docs/uploads-downloads
@@ -91,14 +94,17 @@ using ::tensorstore::internal_http::HttpRequest;
 using ::tensorstore::internal_http::HttpRequestBuilder;
 using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_http::HttpTransport;
-using ::tensorstore::internal_storage_gcs::AdmissionNode;
-using ::tensorstore::internal_storage_gcs::AdmissionQueue;
-using ::tensorstore::internal_storage_gcs::AdmissionQueueResource;
+using ::tensorstore::internal_storage_gcs::GcsConcurrencyResource;
+using ::tensorstore::internal_storage_gcs::GcsRateLimiterResource;
+using ::tensorstore::internal_storage_gcs::GcsRequestRetries;
+using ::tensorstore::internal_storage_gcs::GcsUserProjectResource;
 using ::tensorstore::internal_storage_gcs::IsValidBucketName;
 using ::tensorstore::internal_storage_gcs::IsValidObjectName;
 using ::tensorstore::internal_storage_gcs::IsValidStorageGeneration;
 using ::tensorstore::internal_storage_gcs::ObjectMetadata;
 using ::tensorstore::internal_storage_gcs::ParseObjectMetadata;
+using ::tensorstore::internal_storage_gcs::RateLimiter;
+using ::tensorstore::internal_storage_gcs::RateLimiterNode;
 using ::tensorstore::kvstore::Key;
 using ::tensorstore::kvstore::ListOptions;
 
@@ -148,70 +154,6 @@ std::string_view GetGcsBaseUrl() {
   }();
   return url;
 }
-
-size_t GetDefaultGcsRequestConcurrency() {
-  // Called before flag parsing during resource registration.
-  constexpr size_t kDefault = 32;
-  auto env = internal::GetEnv("TENSORSTORE_GCS_REQUEST_CONCURRENCY");
-  if (!env) {
-    return kDefault;
-  }
-  size_t limit;
-  std::string error;
-  return absl::ParseFlag(*env, &limit, &error) ? limit : kDefault;
-}
-
-/// Specifies an admission queue as a context object.
-///
-/// This provides a way to limit the concurrency across multiple tensorstores
-/// rather than each tensorstore always having independent limits.
-struct GcsAdmissionQueueResource
-    : public AdmissionQueueResource,
-      public internal::ContextResourceTraits<GcsAdmissionQueueResource> {
-  GcsAdmissionQueueResource()
-      : AdmissionQueueResource(GetDefaultGcsRequestConcurrency()) {}
-
-  static constexpr char id[] = "gcs_request_concurrency";
-};
-
-/// Optionally specifies a project to which all requests are billed.
-///
-/// If not specified, requests to normal buckets are billed to the project
-/// that owns the bucket, and requests to "requestor pays"-enabled buckets
-/// fail.
-struct GcsUserProjectResource
-    : public internal::ContextResourceTraits<GcsUserProjectResource> {
-  static constexpr char id[] = "gcs_user_project";
-  struct Spec {
-    std::optional<std::string> project_id;
-  };
-  using Resource = Spec;
-  static Spec Default() { return {}; }
-  static constexpr auto JsonBinder() {
-    return jb::Object(
-        jb::Member("project_id", jb::Projection(&Spec::project_id)));
-  }
-  static Result<Resource> Create(
-      const Spec& spec, internal::ContextResourceCreationContext context) {
-    return spec;
-  }
-  static Spec GetSpec(const Resource& resource,
-                      const internal::ContextSpecBuilder& builder) {
-    return resource;
-  }
-};
-
-/// Specifies a limit on the number of retries.
-struct GcsRequestRetries : public internal::RetriesResource<GcsRequestRetries> {
-  static constexpr char id[] = "gcs_request_retries";
-};
-
-const internal::ContextResourceRegistration<GcsAdmissionQueueResource>
-    gcs_admission_queue_registration;
-const internal::ContextResourceRegistration<GcsUserProjectResource>
-    gcs_user_project_registration;
-const internal::ContextResourceRegistration<GcsRequestRetries>
-    gcs_request_retries_registration;
 
 /// Adds the generation query parameter to the provided url.
 bool AddGenerationParam(std::string* url, const bool has_query,
@@ -290,14 +232,15 @@ void MaybeLogResponse(const char* description,
 struct GcsKeyValueStoreSpecData {
   std::string bucket;
 
-  Context::Resource<GcsAdmissionQueueResource> admission_queue;
+  Context::Resource<GcsConcurrencyResource> request_concurrency;
+  std::optional<Context::Resource<GcsRateLimiterResource>> rate_limiter;
   Context::Resource<GcsUserProjectResource> user_project;
   Context::Resource<GcsRequestRetries> retries;
   Context::Resource<DataCopyConcurrencyResource> data_copy_concurrency;
 
   constexpr static auto ApplyMembers = [](auto& x, auto f) {
-    return f(x.bucket, x.admission_queue, x.user_project, x.retries,
-             x.data_copy_concurrency);
+    return f(x.bucket, x.request_concurrency, x.rate_limiter, x.user_project,
+             x.retries, x.data_copy_concurrency);
   };
 
   constexpr static auto default_json_binder = jb::Object(
@@ -312,8 +255,13 @@ struct GcsKeyValueStoreSpecData {
                        }
                        return absl::OkStatus();
                      }))),
-      jb::Member("gcs_request_concurrency",
-                 jb::Projection<&GcsKeyValueStoreSpecData::admission_queue>()),
+
+      jb::Member(
+          GcsConcurrencyResource::id,
+          jb::Projection<&GcsKeyValueStoreSpecData::request_concurrency>()),
+      jb::Member(GcsRateLimiterResource::id,
+                 jb::Projection<&GcsKeyValueStoreSpecData::rate_limiter>()),
+
       // `user_project` project ID to use for billing is obtained from the
       // `context` since it is not part of the identity of the resource being
       // accessed.
@@ -397,7 +345,21 @@ class GcsKeyValueStore
   const Executor& executor() const {
     return spec_.data_copy_concurrency->executor;
   }
-  AdmissionQueue& admission_queue() { return *(spec_.admission_queue->queue); }
+
+  RateLimiter& read_rate_limiter() {
+    if (spec_.rate_limiter.has_value()) {
+      return *(spec_.rate_limiter.value()->read_limiter);
+    }
+    return no_rate_limiter_;
+  }
+  RateLimiter& write_rate_limiter() {
+    if (spec_.rate_limiter.has_value()) {
+      return *(spec_.rate_limiter.value()->write_limiter);
+    }
+    return no_rate_limiter_;
+  }
+
+  RateLimiter& admission_queue() { return *spec_.request_concurrency->queue; }
 
   absl::Status GetBoundSpecData(SpecData& spec) const {
     spec = spec_;
@@ -440,6 +402,7 @@ class GcsKeyValueStore
   std::string resource_root_;  // bucket resource root.
   std::string upload_root_;    // bucket upload root.
   std::string encoded_user_project_;
+  internal_storage_gcs::NoRateLimiter no_rate_limiter_;
 
   std::shared_ptr<HttpTransport> transport_;
 
@@ -456,6 +419,10 @@ Future<kvstore::DriverPtr> GcsKeyValueStoreSpec::DoOpen() const {
   driver->upload_root_ = BucketUploadRoot(data_.bucket);
   driver->transport_ = internal_http::GetDefaultHttpTransport();
 
+  // NOTE: Remove temporary logging use of experimental feature.
+  if (data_.rate_limiter.has_value()) {
+    TENSORSTORE_LOG("Using experimental_gcs_rate_limiter");
+  }
   if (const auto& project_id = data_.user_project->project_id) {
     driver->encoded_user_project_ =
         internal::PercentEncodeUriComponent(*project_id);
@@ -494,7 +461,7 @@ void AddUniqueQueryParameterToDisableCaching(std::string& url) {
 
 /// A ReadTask is a function object used to satisfy a
 /// GcsKeyValueStore::Read request.
-struct ReadTask : public AdmissionNode,
+struct ReadTask : public RateLimiterNode,
                   public internal::AtomicReferenceCount<ReadTask> {
   IntrusivePtr<GcsKeyValueStore> owner;
   std::string resource;
@@ -514,6 +481,12 @@ struct ReadTask : public AdmissionNode,
   ~ReadTask() { owner->admission_queue().Finish(this); }
 
   static void Start(void* task) {
+    auto* self = reinterpret_cast<ReadTask*>(task);
+    self->owner->read_rate_limiter().Finish(self);
+    self->owner->admission_queue().Admit(self, &ReadTask::Admit);
+  }
+
+  static void Admit(void* task) {
     auto* self = reinterpret_cast<ReadTask*>(task);
     self->owner->executor()(
         [state = IntrusivePtr<ReadTask>(self, internal::adopt_object_ref)] {
@@ -662,13 +635,13 @@ Future<kvstore::ReadResult> GcsKeyValueStore::Read(Key key,
       std::move(options), std::move(op.promise));
 
   intrusive_ptr_increment(state.get());  // adopted by ReadTask::Start.
-  admission_queue().Admit(state.get(), &ReadTask::Start);
+  read_rate_limiter().Admit(state.get(), &ReadTask::Start);
   return std::move(op.future);
 }
 
 /// A WriteTask is a function object used to satisfy a
 /// GcsKeyValueStore::Write request.
-struct WriteTask : public AdmissionNode,
+struct WriteTask : public RateLimiterNode,
                    public internal::AtomicReferenceCount<WriteTask> {
   IntrusivePtr<GcsKeyValueStore> owner;
   std::string encoded_object_name;
@@ -692,6 +665,11 @@ struct WriteTask : public AdmissionNode,
   ~WriteTask() { owner->admission_queue().Finish(this); }
 
   static void Start(void* task) {
+    auto* self = reinterpret_cast<WriteTask*>(task);
+    self->owner->write_rate_limiter().Finish(self);
+    self->owner->admission_queue().Admit(self, &WriteTask::Admit);
+  }
+  static void Admit(void* task) {
     auto* self = reinterpret_cast<WriteTask*>(task);
     self->owner->executor()(
         [state = IntrusivePtr<WriteTask>(self, internal::adopt_object_ref)] {
@@ -814,7 +792,7 @@ struct WriteTask : public AdmissionNode,
 
 /// A DeleteTask is a function object used to satisfy a
 /// GcsKeyValueStore::Delete request.
-struct DeleteTask : public AdmissionNode,
+struct DeleteTask : public RateLimiterNode,
                     public internal::AtomicReferenceCount<DeleteTask> {
   IntrusivePtr<GcsKeyValueStore> owner;
   std::string resource;
@@ -835,6 +813,12 @@ struct DeleteTask : public AdmissionNode,
   ~DeleteTask() { owner->admission_queue().Finish(this); }
 
   static void Start(void* task) {
+    auto* self = reinterpret_cast<DeleteTask*>(task);
+    self->owner->write_rate_limiter().Finish(self);
+    self->owner->admission_queue().Admit(self, &DeleteTask::Admit);
+  }
+
+  static void Admit(void* task) {
     auto* self = reinterpret_cast<DeleteTask*>(task);
     self->owner->executor()(
         [state = IntrusivePtr<DeleteTask>(self, internal::adopt_object_ref)] {
@@ -950,7 +934,7 @@ Future<TimestampedStorageGeneration> GcsKeyValueStore::Write(
         std::move(*value), std::move(options), std::move(op.promise));
 
     intrusive_ptr_increment(state.get());  // adopted by WriteTask::Start.
-    admission_queue().Admit(state.get(), &WriteTask::Start);
+    write_rate_limiter().Admit(state.get(), &WriteTask::Start);
   } else {
     std::string resource = tensorstore::internal::JoinPath(
         resource_root_, "/o/", encoded_object_name);
@@ -960,7 +944,7 @@ Future<TimestampedStorageGeneration> GcsKeyValueStore::Write(
         std::move(options), std::move(op.promise));
 
     intrusive_ptr_increment(state.get());  // adopted by DeleteTask::Start.
-    admission_queue().Admit(state.get(), &DeleteTask::Start);
+    write_rate_limiter().Admit(state.get(), &DeleteTask::Start);
   }
   return std::move(op.future);
 }
@@ -980,7 +964,7 @@ constexpr static auto GcsListResponsePayloadBinder = jb::Object(
     jb::DiscardExtraMembers);
 
 /// ListTask implements the ListImpl execution flow.
-struct ListTask : public AdmissionNode,
+struct ListTask : public RateLimiterNode,
                   public internal::AtomicReferenceCount<ListTask> {
   internal::IntrusivePtr<GcsKeyValueStore> owner_;
   ListOptions options_;
@@ -1027,6 +1011,11 @@ struct ListTask : public AdmissionNode,
   }
 
   static void Start(void* task) {
+    auto* self = reinterpret_cast<ListTask*>(task);
+    self->owner_->read_rate_limiter().Finish(self);
+    self->owner_->admission_queue().Admit(self, &ListTask::Admit);
+  }
+  static void Admit(void* task) {
     auto* self = reinterpret_cast<ListTask*>(task);
     execution::set_starting(self->receiver_, [self] {
       self->cancelled_.store(true, std::memory_order_relaxed);
@@ -1149,7 +1138,7 @@ void GcsKeyValueStore::ListImpl(ListOptions options,
       /*resource=*/tensorstore::internal::JoinPath(resource_root_, "/o"));
 
   intrusive_ptr_increment(state.get());  // adopted by ListTask::Start.
-  admission_queue().Admit(state.get(), &ListTask::Start);
+  read_rate_limiter().Admit(state.get(), &ListTask::Start);
 }
 
 // Receiver used by `DeleteRange` for processing the results from `List`.
@@ -1216,8 +1205,8 @@ Result<kvstore::Spec> ParseGcsUrl(std::string_view url) {
           : parsed.authority_and_path.substr(end_of_bucket + 1);
   auto driver_spec = internal::MakeIntrusivePtr<GcsKeyValueStoreSpec>();
   driver_spec->data_.bucket = bucket;
-  driver_spec->data_.admission_queue =
-      Context::Resource<GcsAdmissionQueueResource>::DefaultSpec();
+  driver_spec->data_.request_concurrency =
+      Context::Resource<GcsConcurrencyResource>::DefaultSpec();
   driver_spec->data_.user_project =
       Context::Resource<GcsUserProjectResource>::DefaultSpec();
   driver_spec->data_.retries =

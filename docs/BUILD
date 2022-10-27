@@ -58,6 +58,7 @@ config_setting(
 
 pytype_strict_test(
     name = "build_docs",
+    timeout = "long",
     srcs = ["build_docs.py"],
     args = select({
         ":no_minify_setting": ["--no-minify"],

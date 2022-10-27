@@ -18,6 +18,8 @@ safely allow concurrent access from multiple machines.
 
 .. json:schema:: Context.gcs_request_retries
 
+.. json:schema:: Context.experimental_gcs_rate_limiter
+
 .. json:schema:: KvStoreUrl/gs
 
 .. _gcs-authentication:

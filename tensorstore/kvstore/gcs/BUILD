@@ -18,17 +18,22 @@ tensorstore_cc_library(
     name = "gcs",
     srcs = [
         "gcs_key_value_store.cc",
+        "gcs_resource.cc",
+        "gcs_resource.h",
         "object_metadata.cc",
     ],
     hdrs = ["object_metadata.h"],
     deps = [
         ":admission_queue",
+        ":rate_limiter",
+        ":scaling_rate_limiter",
         ":validate",
         "//tensorstore:context",
         "//tensorstore/internal:concurrency_resource",
         "//tensorstore/internal:data_copy_concurrency_resource",
         "//tensorstore/internal:env",
         "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/internal:logging",
         "//tensorstore/internal:path",
         "//tensorstore/internal:retries_context_resource",
         "//tensorstore/internal:retry",
@@ -45,6 +50,7 @@ tensorstore_cc_library(
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:byte_range",
         "//tensorstore/kvstore:generation",
+        "//tensorstore/serialization",
         "//tensorstore/util:executor",
         "//tensorstore/util:future",
         "//tensorstore/util:quote_string",
@@ -56,6 +62,7 @@ tensorstore_cc_library(
         "//tensorstore/util/execution:sender",
         "//tensorstore/util/garbage_collection",
         "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/base",
         "@com_google_absl//absl/flags:marshalling",
         "@com_google_absl//absl/random",
         "@com_google_absl//absl/status",
@@ -129,15 +136,61 @@ tensorstore_cc_library(
     srcs = ["admission_queue.cc"],
     hdrs = ["admission_queue.h"],
     deps = [
-        "//tensorstore:context",
-        "//tensorstore:json_serialization_options_base",
-        "//tensorstore/internal:intrusive_linked_list",
-        "//tensorstore/internal/json_binding",
-        "//tensorstore/internal/json_binding:bindable",
-        "//tensorstore/util:result",
-        "@com_google_absl//absl/base",
+        ":rate_limiter",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/synchronization",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "admission_queue_test",
+    srcs = ["admission_queue_test.cc"],
+    deps = [
+        ":admission_queue",
+        ":rate_limiter",
+        "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/util:executor",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "rate_limiter",
+    srcs = ["rate_limiter.cc"],
+    hdrs = ["rate_limiter.h"],
+    deps = [
+        "//tensorstore/internal:intrusive_linked_list",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/synchronization",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "scaling_rate_limiter",
+    srcs = ["scaling_rate_limiter.cc"],
+    hdrs = ["scaling_rate_limiter.h"],
+    deps = [
+        ":rate_limiter",
+        "//tensorstore:data_type",
+        "//tensorstore/internal:logging",
+        "//tensorstore/internal:schedule_at",
+        "//tensorstore/internal/poly",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/synchronization",
+        "@com_google_absl//absl/time",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "scaling_rate_limiter_test",
+    srcs = ["scaling_rate_limiter_test.cc"],
+    deps = [
+        ":rate_limiter",
+        ":scaling_rate_limiter",
+        "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/util:executor",
+        "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
