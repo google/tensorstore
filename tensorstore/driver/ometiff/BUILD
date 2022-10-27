@@ -60,20 +60,17 @@ tensorstore_cc_library(
         "@com_google_absl//absl/strings",
     ],
     alwayslink = 1,
-    linkopts = ["/mnt/hdd8/axle/dev/nyxus/build_man/local_install/lib/libtiffxx.so.5",
-            "/mnt/hdd8/axle/dev/nyxus/build_man/local_install/lib/libtiff.so",
-            "/mnt/hdd8/axle/dev/nyxus/build_man/local_install/lib64/libdeflate.so",
-            "/mnt/hdd8/axle/dev/nyxus/build_man/local_install/lib64/libdeflate.so.0",
+    linkopts = ["/usr/lib/x86_64-linux-gnu//libtiffxx.so.5",
+            "/usr/lib/x86_64-linux-gnu//libtiff.so",
+            "/usr/lib/x86_64-linux-gnu//libdeflate.so",
+            "/usr/lib/x86_64-linux-gnu//libdeflate.so.0",
             ]
 )
 
 
 tensorstore_cc_library(
     name = "driver",
-    srcs = ["driver.cc",
-            "pugixml.cpp"],
-    hdrs = ["pugixml.hpp",
-            "pugiconfig.hpp"],
+    srcs = ["driver.cc"],
     deps = [
         ":metadata",
         "//tensorstore",

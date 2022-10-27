@@ -16,7 +16,10 @@ filegroup(
 
 tensorstore_cc_library(
     name = "tiff",
-    srcs = ["tiff_key_value_store.cc"],
+    srcs = ["tiff_key_value_store.cc",
+            "pugixml.cpp"],
+    hdrs = ["pugixml.hpp",
+            "pugiconfig.hpp"],
     deps = [
         "//tensorstore/kvstore/file:file_util",
         "//tensorstore/kvstore/file:util",
