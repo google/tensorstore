@@ -34,6 +34,7 @@
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future_impl.h"  // IWYU pragma: export
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 
@@ -1391,7 +1392,6 @@ MapFutureError(Executor&& executor, Func func, Future<T> future) {
                    Callback{std::make_tuple(std::move(func))},
                    std::move(future));
 }
-
 
 /// If `promise` does not already have a result set, sets its result to `result`
 /// and sets `promise.result_needed() = false`.

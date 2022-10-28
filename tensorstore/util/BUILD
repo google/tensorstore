@@ -323,6 +323,7 @@ tensorstore_cc_library(
     deps = [
         ":executor",
         ":result",
+        ":span",
         ":status",
         "//tensorstore/internal:attributes",
         "//tensorstore/internal:intrusive_linked_list",
@@ -646,6 +647,7 @@ tensorstore_cc_test(
     size = "small",
     srcs = ["str_cat_test.cc"],
     deps = [
+        ":span",
         ":str_cat",
         "@com_google_googletest//:gtest_main",
     ],

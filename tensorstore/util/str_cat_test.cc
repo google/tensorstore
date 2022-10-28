@@ -15,17 +15,20 @@
 #include "tensorstore/util/str_cat.h"
 
 #include <complex>
+#include <map>
 #include <optional>
 #include <ostream>
+#include <sstream>
 #include <string>
 #include <tuple>
 #include <utility>
 
 #include <gtest/gtest.h>
+#include "tensorstore/util/span.h"
 
 namespace {
 
-using ::tensorstore::internal::ToStringUsingOstream;
+using ::tensorstore::internal_strcat::StringifyUsingOstream;
 
 enum class OstreamableEnum { value = 0 };
 enum class PlainEnum { value = 0 };
@@ -35,9 +38,9 @@ std::ostream& operator<<(std::ostream& os, OstreamableEnum e) {
 }
 
 TEST(ToStringUsingOstreamTest, Basic) {
-  EXPECT_EQ("hello", ToStringUsingOstream("hello"));
-  EXPECT_EQ("1", ToStringUsingOstream(1));
-  EXPECT_EQ("(1,2)", ToStringUsingOstream(std::complex<float>(1, 2)));
+  EXPECT_EQ("hello", StringifyUsingOstream("hello"));
+  EXPECT_EQ("1", StringifyUsingOstream(1));
+  EXPECT_EQ("(1,2)", StringifyUsingOstream(std::complex<float>(1, 2)));
 }
 
 TEST(StrAppendTest, Basic) {
@@ -48,6 +51,9 @@ TEST(StrAppendTest, Basic) {
 
 TEST(StrCat, Basic) {
   EXPECT_EQ("a(1,2)3", tensorstore::StrCat("a", std::complex<float>(1, 2), 3));
+
+  char a = 'a';
+  EXPECT_EQ("a", tensorstore::StrCat(a));
 }
 
 TEST(StrCat, Enum) {
@@ -63,6 +69,24 @@ TEST(StrCat, Tuple) {
 
 TEST(StrCat, Pair) {
   EXPECT_EQ("{2, abc}", tensorstore::StrCat(std::make_pair(2.0, "abc")));
+}
+
+TEST(StrCat, Container) {
+  std::vector<int> x{1, 2, 3};
+  EXPECT_EQ("{1, 2, 3}", tensorstore::StrCat(x));
+
+  EXPECT_EQ("{1, 2, 3}", tensorstore::StrCat(tensorstore::span(x)));
+
+  std::map<std::string, int> y{{"a", 1}, {"b", 2}};
+  EXPECT_EQ("{{a, 1}, {b, 2}}", tensorstore::StrCat(y));
+}
+
+TEST(StrCat, Nested) {
+  std::vector<std::pair<int, int>> x{{1, 2}, {2, 3}};
+  EXPECT_EQ("{{1, 2}, {2, 3}}", tensorstore::StrCat(x));
+
+  std::pair<std::pair<int, int>, std::pair<int, int>> y{{1, 2}, {2, 3}};
+  EXPECT_EQ("{{1, 2}, {2, 3}}", tensorstore::StrCat(y));
 }
 
 TEST(SpanTest, Ostream) {
