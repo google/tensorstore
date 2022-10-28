@@ -24,11 +24,11 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_absl",
-        strip_prefix = "abseil-cpp-90965f4c9662a73f2eb9c345b3a5431f40fd86d3",
+        strip_prefix = "abseil-cpp-1db72eb03e3685742c62abea9d13ddab2adcdf01",
         urls = [
-            "https://github.com/abseil/abseil-cpp/archive/90965f4c9662a73f2eb9c345b3a5431f40fd86d3.tar.gz",  # master(2022-10-12)
+            "https://github.com/abseil/abseil-cpp/archive/1db72eb03e3685742c62abea9d13ddab2adcdf01.tar.gz",  # master(2022-10-28)
         ],
-        sha256 = "a74295fd02bbeeb0c516287c1ed4a5d744664f295f565fdb3943aa268d8bba02",
+        sha256 = "706d3c86b01eb4701225331035afa110a53e3212968c86606002a3791bfd3c69",
         cmake_name = "absl",
         cmake_target_mapping = ABSL_CMAKE_MAPPING,
         cmake_settings = {
