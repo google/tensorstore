@@ -759,18 +759,14 @@ TEST(DataTypeConversionTest, Json) {
 }
 
 TEST(GetDataTypeConverterOrErrorTest, Basic) {
-  EXPECT_EQ(absl::OkStatus(),
-            GetStatus(GetDataTypeConverterOrError(dtype_v<std::int32_t>,
-                                                  dtype_v<std::int32_t>)));
-  EXPECT_EQ(absl::OkStatus(),
-            GetStatus(GetDataTypeConverterOrError(
-                dtype_v<int32_t>, dtype_v<int32_t>, kIdentity)));
-  EXPECT_EQ(absl::OkStatus(),
-            GetStatus(GetDataTypeConverterOrError(
-                dtype_v<int32_t>, dtype_v<int64_t>, kSafeAndImplicit)));
-  EXPECT_EQ(absl::OkStatus(),
-            GetStatus(GetDataTypeConverterOrError(
-                dtype_v<int32_t>, dtype_v<uint32_t>, kCanReinterpretCast)));
+  TENSORSTORE_EXPECT_OK(GetDataTypeConverterOrError(dtype_v<std::int32_t>,
+                                                    dtype_v<std::int32_t>));
+  TENSORSTORE_EXPECT_OK(GetDataTypeConverterOrError(
+      dtype_v<int32_t>, dtype_v<int32_t>, kIdentity));
+  TENSORSTORE_EXPECT_OK(GetDataTypeConverterOrError(
+      dtype_v<int32_t>, dtype_v<int64_t>, kSafeAndImplicit));
+  TENSORSTORE_EXPECT_OK(GetDataTypeConverterOrError(
+      dtype_v<int32_t>, dtype_v<uint32_t>, kCanReinterpretCast));
   EXPECT_THAT(
       GetDataTypeConverterOrError(dtype_v<json_t>, dtype_v<complex64_t>),
       MatchesStatus(absl::StatusCode::kInvalidArgument,

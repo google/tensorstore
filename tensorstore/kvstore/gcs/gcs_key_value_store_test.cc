@@ -486,7 +486,7 @@ TEST(GcsKeyValueStoreTest, RequestorPays) {
                                    context)
                          .result());
     TENSORSTORE_EXPECT_OK(kvstore::Write(store1, "abc", absl::Cord("xyz")));
-    EXPECT_THAT(GetStatus(kvstore::Write(store2, "abc", absl::Cord("xyz"))),
+    EXPECT_THAT(kvstore::Write(store2, "abc", absl::Cord("xyz")).status(),
                 bucket2_status_matcher);
   };
 

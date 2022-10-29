@@ -177,9 +177,7 @@ class Transaction {
 
   /// Synchronously commits.  Blocks until the commit completes successfully or
   /// with an error.
-  absl::Status Commit() const {
-    return tensorstore::GetStatus(CommitAsync().result());
-  }
+  absl::Status Commit() const { return CommitAsync().status(); }
 
   /// Commits the transaction (has no effect if already committed or aborted).
   ///

@@ -178,7 +178,7 @@ TEST(ElementPointerTest, StaticType) {
     auto p2 = tensorstore::StaticDataTypeCast<const float>(other);
     static_assert(
         std::is_same_v<decltype(p2), Result<ElementPointer<const float>>>);
-    ASSERT_EQ(absl::OkStatus(), GetStatus(p2));
+    TENSORSTORE_ASSERT_OK(p2);
     EXPECT_EQ(&value, p2->data());
   }
 

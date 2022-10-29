@@ -248,8 +248,7 @@ TEST(GetOutputRangeTest, InvalidConstantOffset) {
                          .Finalize()
                          .value(),
                      output_range);
-  EXPECT_THAT(GetStatus(result),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(result, MatchesStatus(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(GetOutputRangeTest, InvalidSingleInputDimension) {
@@ -262,8 +261,7 @@ TEST(GetOutputRangeTest, InvalidSingleInputDimension) {
                                    .Finalize()
                                    .value(),
                                output_range);
-  EXPECT_THAT(GetStatus(result),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(result, MatchesStatus(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(GetOutputRangeTest, InvalidIndexRange) {
@@ -281,8 +279,7 @@ TEST(GetOutputRangeTest, InvalidIndexRange) {
           .Finalize()
           .value(),
       output_range);
-  EXPECT_THAT(GetStatus(result),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(result, MatchesStatus(absl::StatusCode::kInvalidArgument));
 }
 
 }  // namespace

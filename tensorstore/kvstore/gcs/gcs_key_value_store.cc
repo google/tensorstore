@@ -1081,8 +1081,8 @@ struct ListTask : public RateLimiterNode,
       return absl::CancelledError();
     }
     MaybeLogResponse("List", response);
-    absl::Status status = response.ok() ? HttpResponseCodeToStatus(*response)
-                                        : GetStatus(response);
+    absl::Status status =
+        response.ok() ? HttpResponseCodeToStatus(*response) : response.status();
     if (!status.ok() && IsRetriable(status)) {
       if (owner_->BackoffForAttemptAsync(attempt_++, this)) {
         return absl::OkStatus();

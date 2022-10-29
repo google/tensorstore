@@ -360,7 +360,7 @@ TEST(AsyncCacheTest, ReadFailed) {
     ASSERT_EQ(0, log.reads.size());
     ASSERT_EQ(0, log.writebacks.size());
     ASSERT_TRUE(read_future.ready());
-    EXPECT_EQ(read_status, GetStatus(read_future.result()));
+    EXPECT_EQ(read_status, read_future.status());
   }
 
   // Check that a new read can be issued.
@@ -416,7 +416,7 @@ TEST(AsyncCacheTest, ReadFailedAfterSuccessfulRead) {
     ASSERT_EQ(0, log.reads.size());
     ASSERT_EQ(0, log.writebacks.size());
     ASSERT_TRUE(read_future.ready());
-    EXPECT_EQ(read_status, GetStatus(read_future.result()));
+    EXPECT_EQ(read_status, read_future.status());
   }
 
   // Check that a new read can be issued.
@@ -700,7 +700,7 @@ TEST(AsyncCacheTest, TransactionalWritebackError) {
   }
 
   ASSERT_TRUE(future.ready());
-  EXPECT_EQ(error, GetStatus(future.result()));
+  EXPECT_EQ(error, future.status());
 }
 
 // Tests that concurrently committing multiple transactions over the same set of
@@ -788,7 +788,7 @@ TEST(AsyncCacheTest, DoInitializeTransactionError) {
   // Test implicit transaction error.
   {
     OpenTransactionPtr transaction;
-    EXPECT_EQ(error, GetStatus(GetTransactionNode(*entry, transaction)));
+    EXPECT_EQ(error, GetTransactionNode(*entry, transaction).status());
   }
 
   // Test explicit transaction error.
@@ -797,7 +797,7 @@ TEST(AsyncCacheTest, DoInitializeTransactionError) {
         auto transaction,
         tensorstore::internal::AcquireOpenTransactionPtrOrError(
             Transaction(tensorstore::isolated)));
-    EXPECT_EQ(error, GetStatus(GetTransactionNode(*entry, transaction)));
+    EXPECT_EQ(error, GetTransactionNode(*entry, transaction).status());
   }
 }
 

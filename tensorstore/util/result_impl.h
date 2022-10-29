@@ -61,40 +61,33 @@ struct UnwrapResultHelper<absl::Status> {
 // Tag types to select internal constructors.
 struct status_t {};
 struct value_t {};
-struct noinit_t {};
 
 // ----------------------------------------------------------------
 // Storage base classes for Result<T>
 // ----------------------------------------------------------------
 
-// ResultStorageBase
-// * Owns the underlying absl::Status and T data objects.
-// * Specialized construction and assignment for T=void vs. non-void.
-//
-template <class T>
-struct ResultStorageBase {
-  using value_type = T;
-  using reference_type = T&;
-  using const_reference_type = const T&;
-
-  constexpr ResultStorageBase(noinit_t) noexcept
-      : dummy_(), has_value_(false) {}
+// `ResultStorage` is the storage base class for `Result<T>` (where
+// `T != void`), and implements the constructors, copy, and assignment
+// operators.  This separate base class is needed so that we can default those
+// methods on `Result` and have the operations either defined or deleted
+// depending on `{Copy,Move},{Ctor,Assign}Base`.
+template <typename T>
+struct ResultStorage {
+  ResultStorage() noexcept {}
 
   template <typename... Args>
-  constexpr explicit ResultStorageBase(value_t, Args&&... args)
-      : value_(std::forward<Args>(args)...), has_value_(true) {}
+  explicit ResultStorage(value_t, Args&&... args)
+      : value_(std::forward<Args>(args)...) {}
 
   template <typename... Args>
-  constexpr explicit ResultStorageBase(status_t, Args&&... args) noexcept
-      : status_(std::forward<Args>(args)...), has_value_(false) {}
+  explicit ResultStorage(status_t, Args&&... args) noexcept
+      : status_(std::forward<Args>(args)...) {}
 
-  ~ResultStorageBase() { destruct(); }
+  ~ResultStorage() { destruct(); }
 
   inline void destruct() {
-    if (has_value_) {
+    if (status_.ok()) {
       destruct_value();
-    } else {
-      status_.~Status();
     }
   }
 
@@ -103,95 +96,30 @@ struct ResultStorageBase {
   template <typename... Args>
   inline void construct_value(Args&&... args) {
     ::new (&value_) T(std::forward<Args>(args)...);
-    this->has_value_ = true;
   }
 
-  struct dummy {};
-  union {
-    dummy dummy_;  // for constexpr initialization.
-    T value_;
-    absl::Status status_;
-  };
-  bool has_value_;
-};
-
-template <>
-struct ResultStorageBase<void> {
-  using value_type = void;
-  using reference_type = void;
-  using const_reference_type = void;
-
-  constexpr ResultStorageBase(noinit_t) noexcept
-      : value_(), has_value_(false) {}
-
-  template <typename... Args>
-  explicit constexpr ResultStorageBase(value_t, Args&&... args) noexcept
-      : value_(), has_value_(true) {}
-
-  template <typename... Args>
-  explicit ResultStorageBase(status_t, Args&&... args) noexcept
-      : status_(std::forward<Args>(args)...), has_value_(false) {}
-
-  ~ResultStorageBase() { destruct(); }
-
-  inline void destruct() {
-    if (!has_value_) {
-      status_.~Status();
-    }
-  }
-
-  inline void destruct_value() noexcept {}
-
-  template <typename... Args>
-  inline void construct_value(Args&&...) noexcept {
-    this->has_value_ = true;
-  }
-
-  struct dummy {};
-  union {
-    dummy value_;  // for constexpr initialization.
-    absl::Status status_;
-  };
-  bool has_value_;
-};
-
-// ResultStorage is the storage base class for Result<T>,
-// and implements the consturctors, copy, and assignment operators.
-template <typename T>
-struct ResultStorage : public ResultStorageBase<T> {
-  using base = ResultStorageBase<T>;
-
-  constexpr ResultStorage(noinit_t t) noexcept : base(t) {}
-
-  template <typename... Args>
-  explicit ResultStorage(value_t t, Args&&... args)
-      : base(t, std::forward<Args>(args)...) {}
-
-  template <typename... Args>
-  explicit ResultStorage(status_t t, Args&&... args)
-      : base(t, std::forward<Args>(args)...) {}
-
-  ResultStorage(const ResultStorage& rhs) : base(noinit_t{}) {
-    if (rhs.has_value_) {
+  ResultStorage(const ResultStorage& rhs) {
+    if (rhs.status_.ok()) {
       this->construct_value(rhs.value_);
     } else {
-      construct_status(rhs.status_);
+      status_ = rhs.status_;
     }
   }
 
   ResultStorage(ResultStorage&& rhs) noexcept(
-      std::is_nothrow_move_constructible<T>::value)
-      : base(noinit_t{}) {
-    if (rhs.has_value_) {
+      std::is_nothrow_move_constructible_v<T>) {
+    if (rhs.status_.ok()) {
       this->construct_value(std::move(rhs).value_);
     } else {
-      construct_status(std::move(rhs).status_);
+      // This relies on the fact that the moved-from `absl::Status` value is not
+      // `ok`.
+      status_ = std::move(rhs).status_;
     }
   }
 
   ResultStorage& operator=(const ResultStorage& rhs) {
     if (&rhs == this) return *this;
-    if (rhs.has_value_) {
+    if (rhs.status_.ok()) {
       emplace_value(rhs.value_);
     } else {
       assign_status(rhs.status_);
@@ -200,9 +128,9 @@ struct ResultStorage : public ResultStorageBase<T> {
   }
 
   ResultStorage& operator=(ResultStorage&& rhs) noexcept(
-      std::is_nothrow_move_assignable<T>::value) {
+      std::is_nothrow_move_assignable_v<T>) {
     if (&rhs == this) return *this;
-    if (rhs.has_value_) {
+    if (rhs.status_.ok()) {
       emplace_value(std::move(rhs).value_);
     } else {
       assign_status(std::move(rhs).status_);
@@ -210,21 +138,12 @@ struct ResultStorage : public ResultStorageBase<T> {
     return *this;
   }
 
-  template <typename... Args>
-  void construct_status(Args&&... args) noexcept {
-    ::new (static_cast<void*>(&this->status_))
-        absl::Status(std::forward<Args>(args)...);
-    this->has_value_ = false;
-  }
-
   template <typename Arg>
   void assign_status(Arg&& arg) noexcept {
-    if (!this->has_value_) {
-      this->status_ = std::forward<Arg>(arg);
-    } else {
+    if (status_.ok()) {
       this->destruct_value();
-      construct_status(std::forward<Arg>(arg));
     }
+    status_ = std::forward<Arg>(arg);
   }
 
   template <typename... Args>
@@ -233,8 +152,14 @@ struct ResultStorage : public ResultStorageBase<T> {
     // misleading. We should use this->value_ = arg when a value already exists,
     // which is the same as std::optional<> and other monadic structures.
     this->destruct();
+    status_ = absl::OkStatus();
     this->construct_value(std::forward<Args>(args)...);
   }
+
+  absl::Status status_;
+  union {
+    T value_;
+  };
 };
 
 // ----------------------------------------------------------------
@@ -350,15 +275,6 @@ template <typename T, typename U>
 constexpr inline bool result_conversion = !std::is_same_v<T, U>;
 template <typename U>
 constexpr inline bool result_conversion<void, U> = false;
-
-// Metafunction for enabling the Result<void>::Result(Result<U>) constructor
-// overloads.
-template <typename T, typename U>
-constexpr inline bool result_void_conversion = false;
-template <typename U>
-constexpr inline bool result_void_conversion<void, U> = true;
-template <>
-constexpr inline bool result_void_conversion<void, void> = false;
 
 // Metafunction for enabling the Result<T>::Result(U) constructor overloads.
 template <typename T, typename U>

@@ -43,9 +43,9 @@ using ::tensorstore::internal_zarr::ZarrDType;
 
 void CheckBaseDType(std::string dtype, DataType r, endian e,
                     std::vector<Index> flexible_shape) {
-  auto result = ParseBaseDType(dtype);
-  ASSERT_EQ(absl::OkStatus(), GetStatus(result)) << dtype;
-  EXPECT_EQ(*result, (ZarrDType::BaseDType{dtype, r, e, flexible_shape}));
+  EXPECT_THAT(ParseBaseDType(dtype), ::testing::Optional(ZarrDType::BaseDType{
+                                         dtype, r, e, flexible_shape}))
+      << dtype;
 }
 
 TEST(ParseBaseDType, Success) {
@@ -139,11 +139,10 @@ TEST(ParseBaseDType, Failure) {
 
 void CheckDType(const ::nlohmann::json& json, const ZarrDType& expected) {
   SCOPED_TRACE(json.dump());
-  auto result = ParseDType(json);
-  ASSERT_EQ(absl::OkStatus(), GetStatus(result));
-  EXPECT_EQ(*result, expected);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto dtype, ParseDType(json));
+  EXPECT_EQ(expected, dtype);
   // Check round trip.
-  EXPECT_EQ(json, ::nlohmann::json(*result));
+  EXPECT_EQ(json, ::nlohmann::json(dtype));
 }
 
 TEST(ParseDType, SimpleStringBool) {

@@ -318,7 +318,7 @@ TEST(TransformedArrayTest, MaterializeConstraints) {
   const auto ValidateCopy =
       [&](const Result<tensorstore::SharedOffsetArray<const int, 3>>& new_array,
           const std::vector<Index>& expected_byte_strides) {
-        ASSERT_EQ(absl::OkStatus(), GetStatus(new_array));
+        TENSORSTORE_ASSERT_OK(new_array);
         EXPECT_NE(GetPointers(transformed_array), GetPointers(*new_array));
         EXPECT_EQ(expected_array, *new_array);
         EXPECT_THAT(new_array->byte_strides(),
@@ -504,7 +504,7 @@ TEST(TransformedArrayTest, CastArrayToTransformedArray) {
   tensorstore::SharedArray<std::int32_t> a = MakeArray<std::int32_t>({1, 2});
   auto ta_result = tensorstore::StaticCast<
       tensorstore::TransformedArrayView<std::int32_t, 1>>(a);
-  ASSERT_EQ(absl::OkStatus(), GetStatus(ta_result));
+  TENSORSTORE_ASSERT_OK(ta_result);
   EXPECT_THAT(GetPointers(*ta_result), ::testing::ElementsAre(&a(0), &a(1)));
 }
 
@@ -540,7 +540,7 @@ TEST(TransformedArrayTest, StaticRankCast) {
 TEST(TransformedArrayTest, ApplyIndexTransform) {
   auto array = MakeArray<int>({{1, 2, 3}, {4, 5, 6}});
   auto result = ChainResult(array, tensorstore::IdentityTransform<2>());
-  ASSERT_EQ(absl::OkStatus(), GetStatus(result));
+  TENSORSTORE_ASSERT_OK(result);
   EXPECT_EQ(array, MakeCopy(*result));
 }
 

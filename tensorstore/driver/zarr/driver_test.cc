@@ -521,8 +521,7 @@ TEST_F(MockKeyValueStoreTest,
   mock_key_value_store->read_requests.pop()(memory_store);
   // Exactly one of the create requests succeeds.
   EXPECT_THAT(
-      std::vector({GetStatus(store_future1.result()),
-                   GetStatus(store_future2.result())}),
+      std::vector({store_future1.status(), store_future2.status()}),
       ::testing::UnorderedElementsAre(
           absl::OkStatus(), MatchesStatus(absl::StatusCode::kAlreadyExists,
                                           "Error opening \"zarr\" driver: "
@@ -555,8 +554,7 @@ TEST(ZarrDriverTest, CreateMetadataConcurrentErrorSharedCachePool) {
   store_future2.Force();
   // Exactly one of the create requests succeeds.
   EXPECT_THAT(
-      std::vector({GetStatus(store_future1.result()),
-                   GetStatus(store_future2.result())}),
+      std::vector({store_future1.status(), store_future2.status()}),
       ::testing::UnorderedElementsAre(
           absl::OkStatus(), MatchesStatus(absl::StatusCode::kAlreadyExists,
                                           "Error opening \"zarr\" driver: "
@@ -1138,7 +1136,7 @@ TEST(ZarrDriverTest, Resize) {
       auto resize_future =
           Resize(store, span<const Index>({kImplicit, kImplicit}),
                  span<const Index>({3, 2}), resize_mode);
-      ASSERT_EQ(absl::OkStatus(), GetStatus(resize_future.result()));
+      TENSORSTORE_ASSERT_OK(resize_future);
       EXPECT_EQ(tensorstore::BoxView({3, 2}),
                 resize_future.value().domain().box());
 

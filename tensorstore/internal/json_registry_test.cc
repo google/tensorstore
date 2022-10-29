@@ -93,18 +93,16 @@ struct BarRegistration {
 
 TEST(RegistryTest, Foo) {
   const ::nlohmann::json j{{"id", "foo"}, {"x", 10}};
-  auto obj = MyInterfacePtr::FromJson(j);
-  EXPECT_EQ(absl::OkStatus(), GetStatus(obj));
-  EXPECT_EQ(10, (*obj)->Whatever());
-  EXPECT_EQ(j, (*obj).ToJson());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto obj, MyInterfacePtr::FromJson(j));
+  EXPECT_EQ(10, obj->Whatever());
+  EXPECT_EQ(j, obj.ToJson());
 }
 
 TEST(RegistryTest, Bar) {
   const ::nlohmann::json j{{"id", "bar"}, {"y", 42.5}};
-  auto obj = MyInterfacePtr::FromJson(j);
-  EXPECT_EQ(absl::OkStatus(), GetStatus(obj));
-  EXPECT_EQ(42, (*obj)->Whatever());
-  EXPECT_EQ(j, (*obj).ToJson());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto obj, MyInterfacePtr::FromJson(j));
+  EXPECT_EQ(42, obj->Whatever());
+  EXPECT_EQ(j, obj.ToJson());
 }
 
 TEST(RegistryTest, Unknown) {

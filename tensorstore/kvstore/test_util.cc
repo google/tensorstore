@@ -83,7 +83,7 @@ class Cleanup {
 StorageGeneration GetStorageGeneration(const KvStore& store, std::string key) {
   auto get = kvstore::Read(store, key).result();
   StorageGeneration gen;
-  if (GetStatus(get).ok()) {
+  if (get.ok()) {
     gen = get->stamp.generation;
   }
   return gen;

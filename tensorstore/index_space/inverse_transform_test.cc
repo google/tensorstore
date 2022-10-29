@@ -36,13 +36,13 @@ using ::tensorstore::MakeArray;
 using ::tensorstore::MatchesStatus;
 
 TEST(InverseTransformTest, Null) {
-  auto result = InverseTransform(IndexTransform<>());
-  ASSERT_EQ(absl::OkStatus(), GetStatus(result));
-  EXPECT_FALSE(result->valid());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto inv,
+                                   InverseTransform(IndexTransform<>()));
+  EXPECT_FALSE(inv.valid());
 
-  auto result_static = InverseTransform(IndexTransform<3, 3>());
-  ASSERT_EQ(absl::OkStatus(), GetStatus(result_static));
-  EXPECT_FALSE(result_static->valid());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto inv_static,
+                                   InverseTransform(IndexTransform<3, 3>()));
+  EXPECT_FALSE(inv_static.valid());
 }
 
 TEST(InverseTransformTest, Example) {

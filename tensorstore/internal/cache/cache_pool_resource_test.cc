@@ -38,37 +38,39 @@ TEST(CachePoolResourceTest, Default) {
 }
 
 TEST(CachePoolResourceTest, EmptyObject) {
-  auto resource_spec = Context::Resource<CachePoolResource>::FromJson(
-      ::nlohmann::json::object_t{});
-  ASSERT_EQ(absl::OkStatus(), GetStatus(resource_spec));
-  auto cache = Context::Default().GetResource(*resource_spec).value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto resource_spec, Context::Resource<CachePoolResource>::FromJson(
+                              ::nlohmann::json::object_t{}));
+  auto cache = Context::Default().GetResource(resource_spec).value();
   EXPECT_EQ(0u, (*cache)->limits().total_bytes_limit);
   EXPECT_EQ(0u, (*cache)->limits().queued_for_writeback_bytes_limit);
 }
 
 TEST(CachePoolResourceTest, TotalBytesLimitOnly) {
-  auto resource_spec = Context::Resource<CachePoolResource>::FromJson(
-      {{"total_bytes_limit", 100}});
-  ASSERT_EQ(absl::OkStatus(), GetStatus(resource_spec));
-  auto cache = Context::Default().GetResource(*resource_spec).value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto resource_spec, Context::Resource<CachePoolResource>::FromJson(
+                              {{"total_bytes_limit", 100}}));
+  auto cache = Context::Default().GetResource(resource_spec).value();
   EXPECT_EQ(100u, (*cache)->limits().total_bytes_limit);
   EXPECT_EQ(50u, (*cache)->limits().queued_for_writeback_bytes_limit);
 }
 
 TEST(CachePoolResourceTest, Both) {
-  auto resource_spec = Context::Resource<CachePoolResource>::FromJson(
-      {{"total_bytes_limit", 100}, {"queued_for_writeback_bytes_limit", 30}});
-  ASSERT_EQ(absl::OkStatus(), GetStatus(resource_spec));
-  auto cache = Context::Default().GetResource(*resource_spec).value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto resource_spec, Context::Resource<CachePoolResource>::FromJson(
+                              {{"total_bytes_limit", 100},
+                               {"queued_for_writeback_bytes_limit", 30}}));
+  auto cache = Context::Default().GetResource(resource_spec).value();
   EXPECT_EQ(100u, (*cache)->limits().total_bytes_limit);
   EXPECT_EQ(30u, (*cache)->limits().queued_for_writeback_bytes_limit);
 }
 
 TEST(CachePoolResourceTest, BothEqual) {
-  auto resource_spec = Context::Resource<CachePoolResource>::FromJson(
-      {{"total_bytes_limit", 100}, {"queued_for_writeback_bytes_limit", 100}});
-  ASSERT_EQ(absl::OkStatus(), GetStatus(resource_spec));
-  auto cache = Context::Default().GetResource(*resource_spec).value();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto resource_spec, Context::Resource<CachePoolResource>::FromJson(
+                              {{"total_bytes_limit", 100},
+                               {"queued_for_writeback_bytes_limit", 100}}));
+  auto cache = Context::Default().GetResource(resource_spec).value();
   EXPECT_EQ(100u, (*cache)->limits().total_bytes_limit);
   EXPECT_EQ(100u, (*cache)->limits().queued_for_writeback_bytes_limit);
 }

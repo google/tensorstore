@@ -269,7 +269,7 @@ struct ReadTask {
       auto request = request_builder.EnableAcceptEncoding().BuildRequest();
       read_result.stamp.time = absl::Now();
       auto response = owner->transport_->IssueRequest(request, {}).result();
-      if (!response.ok()) return GetStatus(response);
+      if (!response.ok()) return response.status();
       httpresponse = std::move(*response);
       switch (httpresponse.status_code) {
         // Special status codes handled outside the retry loop.

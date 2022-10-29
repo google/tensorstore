@@ -105,7 +105,7 @@ TEST_F(CurlTransportTest, Http1) {
           .BuildRequest(),
       absl::Cord("Hello"));
 
-  TENSORSTORE_LOG(GetStatus(response));
+  TENSORSTORE_LOG(response.status());
 
   TENSORSTORE_LOG("Wait on server");
   serve_thread.Join();
@@ -200,7 +200,7 @@ TEST_F(CurlTransportTest, Http1Resend) {
             .BuildRequest(),
         absl::Cord("Hello"));
 
-    TENSORSTORE_LOG("C: ", i, " ", GetStatus(future));
+    TENSORSTORE_LOG("C: ", i, " ", future.status());
 
     EXPECT_EQ(200, future.value().status_code);
     EXPECT_EQ("<html>\n<body>\n<h1>Hello, World!</h1>\n</body>\n</html>\n",

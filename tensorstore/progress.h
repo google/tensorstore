@@ -142,6 +142,11 @@ struct [[nodiscard]] WriteFutures {
   /// This implies `Force()`.
   Result<void>& result() const { return commit_future.result(); }
 
+  /// Returns the `Future::status` of the `commit_future`.
+  ///
+  /// This implies `Force()`.
+  absl::Status status() const { return commit_future.status(); }
+
   /// Returns the `Future::value` of the `commit_future`.
   ///
   /// This implies `Force()`.
@@ -162,7 +167,7 @@ struct [[nodiscard]] WriteFutures {
 /// \relates WriteFutures
 /// \id WriteFutures
 inline absl::Status GetStatus(const WriteFutures& future) {
-  return tensorstore::GetStatus(future.result());
+  return future.status();
 }
 
 /// Type-erased movable function with signature `void (ReadProgress)`.

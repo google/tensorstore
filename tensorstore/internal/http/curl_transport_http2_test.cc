@@ -400,7 +400,7 @@ TEST_F(CurlTransportTest, Http2) {
         absl::Cord("Hello"));
 
     // Waits for the response.
-    TENSORSTORE_LOG(GetStatus(response));
+    TENSORSTORE_LOG(response.status());
 
     EXPECT_THAT(initial_request, HasSubstr("/?name=dragon&age=1234"));
     EXPECT_THAT(initial_request,
@@ -429,7 +429,7 @@ TEST_F(CurlTransportTest, Http2) {
         absl::Cord());
 
     // Waits for the response.
-    TENSORSTORE_LOG(GetStatus(response));
+    TENSORSTORE_LOG(response.status());
   }
 
   serve_thread.Join();

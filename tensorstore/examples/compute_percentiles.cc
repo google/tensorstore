@@ -62,7 +62,6 @@ namespace {
 using ::tensorstore::AllDims;
 using ::tensorstore::Context;
 using ::tensorstore::Dims;
-using ::tensorstore::GetStatus;
 using ::tensorstore::Index;
 using ::tensorstore::MaybeAnnotateStatus;
 using ::tensorstore::StrCat;
@@ -368,9 +367,9 @@ absl::Status Run(tensorstore::Spec input_spec, tensorstore::Spec output_spec,
       // cleanup any committed futures.
       for (auto it = pending_writes.begin(); it != pending_writes.end();) {
         if (it->commit_future.ready()) {
-          if (!GetStatus(it->commit_future).ok()) {
+          if (!it->commit_future.status().ok()) {
             write_failed_count++;
-            std::cout << GetStatus(it->commit_future);
+            std::cout << it->commit_future.status();
           }
           it = pending_writes.erase(it);
         } else {
@@ -382,9 +381,9 @@ absl::Status Run(tensorstore::Spec input_spec, tensorstore::Spec output_spec,
 
   // Wait for all remaining futures to complete.
   for (auto& front : pending_writes) {
-    if (!GetStatus(front.commit_future).ok()) {
+    if (!front.commit_future.status().ok()) {
       write_failed_count++;
-      std::cout << GetStatus(front.commit_future) << std::endl;
+      std::cout << front.commit_future.status() << std::endl;
     }
   }
 

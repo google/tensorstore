@@ -817,7 +817,7 @@ struct HandleWroteMetadata {
     auto& base = *(PrivateOpenState*)state.get();  // Cast to private base
     auto& result = future.result();
     TENSORSTORE_KVS_DRIVER_DEBUG_LOG("HandleWroteMetadata: state=", state.get(),
-                                     ", status=", GetStatus(result));
+                                     ", status=", result.status());
     if (!result) {
       // Creation of new array metadata failed.
       if (result.status().code() != absl::StatusCode::kAlreadyExists ||

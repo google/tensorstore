@@ -150,7 +150,7 @@ Result<std::string> BuildSignedJWTRequest(std::string_view private_key,
   auto claim = absl::StrCat(header, ".", body);
   auto result = SignWithRSA256(private_key, claim);
   if (!result) {
-    return GetStatus(result);
+    return result.status();
   }
   return absl::StrCat("grant_type=", kGrantType, "&assertion=", claim, ".",
                       *result);
