@@ -460,9 +460,9 @@ class AnyFuture {
   /// (when a value is present) or a copy of result.status().
   ///
   /// \dchecks `!null()`
-  absl::Status status() const {
+  const absl::Status& status() const& noexcept TENSORSTORE_LIFETIME_BOUND {
     Wait();
-    return rep().GetStatusCopy();
+    return rep().status();
   }
 
   /// Executes `callback` with the signature `void (AnyFuture)` when this
@@ -818,7 +818,7 @@ class Future : public AnyFuture {
     return result().value();
   }
 
-  /// Returns a copy of `result().status()`
+  /// Equivalent to `result().status()`.
   using AnyFuture::status;
 
  private:
