@@ -82,40 +82,43 @@ constexpr auto MetadataJsonBinder = [](auto maybe_optional) {
 }  // namespace
 
 size_t OmeTiffMetadata::GetIfdIndex(size_t z, size_t c, size_t t) const{
-	size_t ifd_dir = 0, ifd_offset = 0, nz=shape[2], nc=shape[3], nt=shape[4];
-  auto tmp = std::make_tuple(z,c,t);
-  auto it = ifd_lookup_table.find(tmp);
-  if (it!=ifd_lookup_table.end()){ifd_dir = it->second;}
+	size_t nz=shape[2], nc=shape[3], nt=shape[4], ifd_offset;
+  auto it = ifd_lookup_table.find(std::make_tuple(0,0,0));
+  if (it!=ifd_lookup_table.end()) {
+    ifd_offset = 0;
+  } else {
+    ifd_offset = it->second;
+  }
+  
+  it = ifd_lookup_table.find(std::make_tuple(z,c,t));
+  if (it!=ifd_lookup_table.end()){return it->second;}
 	else {
 		switch (dim_order)
 		{
 			case 1:
-				ifd_dir = nz*nt*c + nz*t + z + ifd_offset;
+				return nz*nt*c + nz*t + z + ifd_offset;
 				break;
 			case 2:
-				ifd_dir = nz*nc*t + nz*c + z + ifd_offset;
+				return nz*nc*t + nz*c + z + ifd_offset;
 				break;
 			case 4:
-				ifd_dir = nt*nc*z + nt*c + t + ifd_offset;
+				return nt*nc*z + nt*c + t + ifd_offset;
 				break;
 			case 8:
-				ifd_dir = nt*nz*c + nt*z + t + ifd_offset;
+				return nt*nz*c + nt*z + t + ifd_offset;
 				break;
 			case 16:
-				ifd_dir = nc*nt*z + nc*t + c + ifd_offset;
+				return nc*nt*z + nc*t + c + ifd_offset;
 				break;
 			case 32:
-				ifd_dir = nc*nz*t + nc*z + c + ifd_offset;
+				return nc*nz*t + nc*z + c + ifd_offset;
 				break;
 			
 			default:
-				ifd_dir = nz*nt*c + nz*t + z + ifd_offset;
+				return nz*nt*c + nz*t + z + ifd_offset;
 				break;
 		}
-
 	}
-
-	return ifd_dir;
 }
 
 std::string OmeTiffMetadata::GetCompatibilityKey() const {

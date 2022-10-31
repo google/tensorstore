@@ -232,14 +232,14 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
     // Use "0" for rank 0 as a special case.
     const auto& metadata = *static_cast<const OmeTiffMetadata*>(metadata_ptr);
 
-    size_t ifd = metadata.GetIfdIndex(cell_indices[2],cell_indices[3],cell_indices[4]);
+    size_t ifd = metadata.GetIfdIndex(cell_indices[2],cell_indices[1],cell_indices[0]);
     std::string key =
          StrCat(key_prefix_, "__TAG__/" );
     auto& chunk_shape = metadata.chunk_shape;
 //    StrAppend(&key, cell_indices.empty() ? 0 : cell_indices[0]);
 
-    StrAppend(&key, "_", cell_indices[0]*chunk_shape[0]);
-    StrAppend(&key, "_", cell_indices[1]*chunk_shape[1]);
+    StrAppend(&key, "_", cell_indices[3]*chunk_shape[3]);
+    StrAppend(&key, "_", cell_indices[4]*chunk_shape[4]);
     StrAppend(&key, "_", ifd);
     //std::cout << "storage key : " << key << std::endl;
     return key;

@@ -210,6 +210,7 @@ struct ReadTask {
     if (read_result.stamp.generation == options.if_not_equal ||
         (!StorageGeneration::IsUnknown(options.if_equal) &&
          read_result.stamp.generation != options.if_equal)) {
+      std::cout<<"from cache" <<std::endl;
       return read_result;
     }
 
@@ -225,11 +226,12 @@ struct ReadTask {
             image_height = 0, 
             tile_width = 0,
             tile_height = 0;
+          uint16_t  sample_per_pixel = 0;
           short
             sample_format = 0,          
             bits_per_sample = 0;
           
-          oss << "{"; //start creating JSON string
+          
           
           TIFFGetField(tiff_, TIFFTAG_IMAGEWIDTH, &image_width);
           TIFFGetField(tiff_, TIFFTAG_IMAGELENGTH, &image_height);
@@ -237,7 +239,8 @@ struct ReadTask {
           TIFFGetField(tiff_, TIFFTAG_TILELENGTH, &tile_height);
           TIFFGetField(tiff_, TIFFTAG_BITSPERSAMPLE, &bits_per_sample);
           TIFFGetField(tiff_, TIFFTAG_SAMPLEFORMAT, &sample_format);
-          
+          TIFFGetField(tiff_, TIFFTAG_SAMPLESPERPIXEL, &sample_per_pixel);
+
           std::string dtype = GetDataType(sample_format, bits_per_sample);
 
           size_t nc =1, nz=1, nt=1;
@@ -246,14 +249,23 @@ struct ReadTask {
           TIFFGetField(tiff_, TIFFTAG_IMAGEDESCRIPTION , &infobuf);
           pugi::xml_document doc;
           pugi::xml_parse_result result = doc.load_string(infobuf);
+          auto xml_metadata_map = std::map<std::string, std::string>();
           if (result){
-            auto xml_metadata_map = std::map<std::string, std::string>();
             pugi::xml_node pixel = doc.child("OME").child("Image").child("Pixels");
 
             for (const pugi::xml_attribute &attr: pixel.attributes()){
-              oss<<"\""<<attr.name()<<"\":"<<"\""<<attr.value()<<"\",";
+              //oss<<"\""<<attr.name()<<"\":"<<"\""<<attr.value()<<"\",";
               xml_metadata_map.emplace(attr.name(), attr.value());
             }
+
+            			// read structured annotaion
+            pugi::xml_node annotion_list = doc.child("OME").child("StructuredAnnotations");
+            for(const pugi::xml_node &annotation : annotion_list){
+              auto key = annotation.child("Value").child("OriginalMetadata").child("Key").child_value();
+              auto value = annotation.child("Value").child("OriginalMetadata").child("Value").child_value();
+              xml_metadata_map.emplace(key,value);
+            }
+
           	auto it = xml_metadata_map.find("DimensionOrder");
             if (it != xml_metadata_map.end())
             {
@@ -293,15 +305,20 @@ struct ReadTask {
             tiff_data_str << "}";
           }
 
-
-          oss << "\"dimensions\": [" << image_height << "," << image_width << "," << nz << "," << nc << "," << nz << "],"
-              << "\"blockSize\": [" << tile_height << "," << tile_width << ",1,1,1],"
+          oss << "{"; //start creating JSON string
+          oss << "\"dimensions\": [" << nt << "," << nc << "," << nz << ","  << image_height << "," << image_width <<  "],"
+              << "\"blockSize\": [1,1,1," << tile_height << "," << tile_width << "],"
               << "\"dataType\": \"" << dtype << "\","
+              << "\"samplePerPixel\": \"" << sample_per_pixel << "\","
               << "\"dimOrder\": " << dim_order << ","
               << "\"tiffData\": " << tiff_data_str.str() << ",";
+          for (auto &key : xml_metadata_map){
+            oss<<"\""<<key.first<<"\":"<<"\""<<key.second<<"\",";
+          }
+          oss.seekp(-1, oss.cur);
+          oss << "}"; // finish JSON string
+
         }
-        oss.seekp(-1, oss.cur);
-        oss << "}"; // finish json
         //std::cout << oss.str() <<std::endl;
         TIFFClose(tiff_);      
         absl::Cord tmp =  absl::Cord(oss.str());
@@ -323,6 +340,7 @@ struct ReadTask {
             auto t_szb = TIFFTileSize(tiff_);
             TIFFSetDirectory(tiff_, ifd_dir);
             internal::FlatCordBuilder buffer(t_szb);
+            std::cout<<"using libtiff" <<std::endl;
             auto errcode = TIFFReadTile(tiff_, buffer.data(), x_pos, y_pos, 0, 0);
             TIFFClose(tiff_);      
             if (errcode != -1){

@@ -53,11 +53,9 @@ tensorstore_cc_library(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/time",
+        "@libtiff//:tiff",
     ],
     alwayslink = 1,
-    linkopts = ["/usr/lib/x86_64-linux-gnu/libtiffxx.so.5",
-            "/usr/lib/x86_64-linux-gnu/libtiff.so"
-            ]
 )
 
 tensorstore_cc_test(
