@@ -22,15 +22,16 @@
 #include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/util/internal/iterate_impl.h"
 #include "tensorstore/util/iterate.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_index_space {
 
 std::string DescribeTransformedArrayForCast(DataType dtype,
                                             DimensionIndex rank) {
-  return StrCat("transformed array with ",
-                StaticCastTraits<DataType>::Describe(dtype), " and ",
-                StaticCastTraits<DimensionIndex>::Describe(rank));
+  return tensorstore::StrCat(
+      "transformed array with ", StaticCastTraits<DataType>::Describe(dtype),
+      " and ", StaticCastTraits<DimensionIndex>::Describe(rank));
 }
 
 namespace {
@@ -84,9 +85,9 @@ Result<TransformRep::Ptr<>> MakeTransformFromStridedLayoutAndTransform(
     TransformRep::Ptr<> transform) {
   if (!transform) return MakeTransformFromStridedLayout(layout);
   if (transform->output_rank != layout.rank()) {
-    return absl::InvalidArgumentError(
-        StrCat("Transform output rank (", transform->output_rank,
-               ") does not equal array rank (", layout.rank(), ")"));
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Transform output rank (", transform->output_rank,
+        ") does not equal array rank (", layout.rank(), ")"));
   }
   TENSORSTORE_ASSIGN_OR_RETURN(
       transform, PropagateExplicitBoundsToTransform(layout.domain(),
@@ -142,9 +143,9 @@ Result<ArrayIterateResult> IterateOverTransformedArrays(
     for (std::size_t i = 0; i < Arity; ++i) {
       transformed_ranks[i] = transformed_arrays[i].domain().rank();
     }
-    return absl::InvalidArgumentError(StrCat("Transformed array input ranks ",
-                                             span(transformed_ranks),
-                                             " do not all match"));
+    return absl::InvalidArgumentError(
+        tensorstore::StrCat("Transformed array input ranks ",
+                            span(transformed_ranks), " do not all match"));
   }
 
   // Compute input_bounds.

@@ -72,11 +72,12 @@ constexpr auto Enum(const std::pair<EnumValue, JsonValue> (&values)[N]) {
     }
     if constexpr (is_loading) {
       return internal_json::ExpectedError(
-          *j, StrCat("one of ",
-                     absl::StrJoin(values, ", ",
-                                   [](std::string* out, const auto& p) {
-                                     *out += ::nlohmann::json(p.second).dump();
-                                   })));
+          *j,
+          tensorstore::StrCat(
+              "one of ",
+              absl::StrJoin(values, ", ", [](std::string* out, const auto& p) {
+                *out += ::nlohmann::json(p.second).dump();
+              })));
     } else {
       TENSORSTORE_UNREACHABLE;
     }

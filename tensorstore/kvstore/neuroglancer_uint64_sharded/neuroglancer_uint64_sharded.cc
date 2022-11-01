@@ -178,7 +178,7 @@ class MinishardIndexKeyValueStore : public kvstore::Driver {
                            absl::Status error) {
         promise.SetResult(MaybeAnnotateStatus(
             ConvertInvalidArgumentToFailedPrecondition(std::move(error)),
-            StrCat("Error retrieving shard index entry")));
+            "Error retrieving shard index entry"));
       }
 
       void operator()(Promise<kvstore::ReadResult> promise,

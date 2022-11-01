@@ -184,7 +184,7 @@ class ABSL_CACHELINE_ALIGNED MutexValueCell : public ValueTag {
     if constexpr (std::is_same_v<T, std::string>) {
       return value_;
     }
-    return StrCat(value_);
+    return tensorstore::StrCat(value_);
   }
 
   mutable absl::Mutex m_;

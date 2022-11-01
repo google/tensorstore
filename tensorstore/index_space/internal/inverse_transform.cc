@@ -16,6 +16,7 @@
 
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_index_space {
@@ -59,18 +60,18 @@ Result<TransformRep::Ptr<>> InverseTransform(TransformRep* transform) {
       }
       case OutputIndexMethod::single_input_dimension: {
         if (map.stride() != 1 && map.stride() != -1) {
-          return absl::InvalidArgumentError(
-              StrCat("Transform is not invertible due to "
-                     "stride of ",
-                     map.stride(), " for output dimension ", output_dim));
+          return absl::InvalidArgumentError(tensorstore::StrCat(
+              "Transform is not invertible due to "
+              "stride of ",
+              map.stride(), " for output dimension ", output_dim));
         }
         const DimensionIndex input_dim = map.input_dimension();
         auto& new_map = new_maps[input_dim];
         if (new_map.method() == OutputIndexMethod::single_input_dimension) {
-          return absl::InvalidArgumentError(
-              StrCat("Transform is not invertible because input dimension ",
-                     input_dim, " maps to output dimensions ",
-                     new_map.input_dimension(), " and ", output_dim));
+          return absl::InvalidArgumentError(tensorstore::StrCat(
+              "Transform is not invertible because input dimension ", input_dim,
+              " maps to output dimensions ", new_map.input_dimension(), " and ",
+              output_dim));
         }
         new_map.SetSingleInputDimension(output_dim);
         auto new_domain_result = GetAffineTransformRange(
@@ -79,14 +80,15 @@ Result<TransformRep::Ptr<>> InverseTransform(TransformRep* transform) {
         if (!new_domain_result.ok()) {
           return MaybeAnnotateStatus(
               new_domain_result.status(),
-              StrCat("Error inverting map from input dimension ", input_dim,
-                     " -> output dimension ", output_dim));
+              tensorstore::StrCat("Error inverting map from input dimension ",
+                                  input_dim, " -> output dimension ",
+                                  output_dim));
         }
         if (map.offset() == std::numeric_limits<Index>::min()) {
-          return absl::InvalidArgumentError(
-              StrCat("Integer overflow occurred while inverting map from "
-                     "input dimension ",
-                     input_dim, " -> output dimension ", output_dim));
+          return absl::InvalidArgumentError(tensorstore::StrCat(
+              "Integer overflow occurred while inverting map from "
+              "input dimension ",
+              input_dim, " -> output dimension ", output_dim));
         }
         new_map.offset() = -map.offset() * map.stride();
         new_map.stride() = map.stride();

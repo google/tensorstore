@@ -329,9 +329,9 @@ constexpr auto IndexTransformOutputParser(
           if (obj->output) {
             if (output_rank_constraint != dynamic_rank &&
                 obj->output->size() != output_rank_constraint) {
-              return absl::InvalidArgumentError(
-                  StrCat("Expected output rank to be ", output_rank_constraint,
-                         ", but is: ", obj->output->size()));
+              return absl::InvalidArgumentError(tensorstore::StrCat(
+                  "Expected output rank to be ", output_rank_constraint,
+                  ", but is: ", obj->output->size()));
             }
             return absl::OkStatus();
           }

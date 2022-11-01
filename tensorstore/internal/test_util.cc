@@ -30,6 +30,7 @@
 #include "tensorstore/internal/path.h"
 #include "tensorstore/kvstore/file/file_util.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 
 #if defined(_WIN32)
 #define TENSORSTORE_USE_STD_FILESYSTEM 1
@@ -189,8 +190,8 @@ ScopedTemporaryDirectory::ScopedTemporaryDirectory() {
     x = kAlphabet[absl::Uniform(gen, 0u, std::size(kAlphabet) - 1)];
   }
 
-  std::string basename =
-      StrCat("tmp_tensorstore_test_", std::string_view(data, std::size(data)));
+  std::string basename = tensorstore::StrCat(
+      "tmp_tensorstore_test_", std::string_view(data, std::size(data)));
   path_ = tensorstore::internal::JoinPath(TemporaryDirectoryPath(), basename);
 
   TENSORSTORE_CHECK(MakeDirectory(path_));

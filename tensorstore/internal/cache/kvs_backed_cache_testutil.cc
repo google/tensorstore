@@ -420,11 +420,12 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
           auto old_read_generation =
               AsyncCache::ReadLock<absl::Cord>(*entry).stamp();
           TENSORSTORE_EXPECT_OK(kvstore->Write(a_key, absl::Cord("Z")));
-          EXPECT_THAT(entry->Read(absl::Now()).result(),
-                      MatchesStatus(
-                          absl::StatusCode::kFailedPrecondition,
-                          StrCat("Error reading ", kvstore->DescribeKey(a_key),
-                                 ": existing value contains Z")));
+          EXPECT_THAT(
+              entry->Read(absl::Now()).result(),
+              MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                            tensorstore::StrCat(
+                                "Error reading ", kvstore->DescribeKey(a_key),
+                                ": existing value contains Z")));
           // Read state is not modified.
           EXPECT_THAT(AsyncCache::ReadLock<absl::Cord>(*entry).data(),
                       Pointee(absl::Cord("ghi")));
@@ -460,8 +461,9 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
         EXPECT_THAT(
             transaction.CommitAsync().result(),
             MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                          StrCat("Error reading ", kvstore->DescribeKey(a_key),
-                                 ": existing value contains Z")));
+                          tensorstore::StrCat("Error reading ",
+                                              kvstore->DescribeKey(a_key),
+                                              ": existing value contains Z")));
         EXPECT_THAT(kvstore->Read(a_key).result(),
                     MatchesKvsReadResult(absl::Cord("Z")));
       },
@@ -554,11 +556,12 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
                     transaction));
             TENSORSTORE_ASSERT_OK(entry->Modify(open_transaction, true, "Z"));
           }
-          EXPECT_THAT(transaction.CommitAsync().result(),
-                      MatchesStatus(
-                          absl::StatusCode::kInvalidArgument,
-                          StrCat("Error writing ", kvstore->DescribeKey(a_key),
-                                 ": new value contains Z")));
+          EXPECT_THAT(
+              transaction.CommitAsync().result(),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            tensorstore::StrCat("Error writing ",
+                                                kvstore->DescribeKey(a_key),
+                                                ": new value contains Z")));
         }
         EXPECT_THAT(AsyncCache::ReadLock<absl::Cord>(*entry).data(),
                     Pointee(absl::Cord("abc")));
@@ -594,17 +597,19 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
                   GetTransactionNode(*entry_b, open_transaction),
                   MatchesStatus(
                       absl::StatusCode::kInvalidArgument,
-                      StrCat("Cannot read/write ", kvstore->DescribeKey(a_key),
-                             " and read/write ", kvstore->DescribeKey(b_key),
-                             " as single atomic transaction")));
+                      tensorstore::StrCat(
+                          "Cannot read/write ", kvstore->DescribeKey(a_key),
+                          " and read/write ", kvstore->DescribeKey(b_key),
+                          " as single atomic transaction")));
             }
             EXPECT_THAT(
                 transaction.future().result(),
                 MatchesStatus(
                     absl::StatusCode::kInvalidArgument,
-                    StrCat("Cannot read/write ", kvstore->DescribeKey(a_key),
-                           " and read/write ", kvstore->DescribeKey(b_key),
-                           " as single atomic transaction")));
+                    tensorstore::StrCat(
+                        "Cannot read/write ", kvstore->DescribeKey(a_key),
+                        " and read/write ", kvstore->DescribeKey(b_key),
+                        " as single atomic transaction")));
           }
         },
         TENSORSTORE_LOC);

@@ -22,7 +22,6 @@
 #include "tensorstore/util/division.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -31,8 +30,8 @@ Result<IndexInterval> IndexInterval::Closed(Index inclusive_min,
                                             Index inclusive_max) {
   if (!ValidClosed(inclusive_min, inclusive_max)) {
     return absl::InvalidArgumentError(
-        StrCat("(", inclusive_min, ", ", inclusive_max,
-               ") do not specify a valid closed index interval"));
+        tensorstore::StrCat("(", inclusive_min, ", ", inclusive_max,
+                            ") do not specify a valid closed index interval"));
   }
   return UncheckedClosed(inclusive_min, inclusive_max);
 }
@@ -40,9 +39,9 @@ Result<IndexInterval> IndexInterval::Closed(Index inclusive_min,
 Result<IndexInterval> IndexInterval::HalfOpen(Index inclusive_min,
                                               Index exclusive_max) {
   if (!ValidHalfOpen(inclusive_min, exclusive_max)) {
-    return absl::InvalidArgumentError(
-        StrCat("(", inclusive_min, ", ", exclusive_max,
-               ") do not specify a valid half-open index interval"));
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "(", inclusive_min, ", ", exclusive_max,
+        ") do not specify a valid half-open index interval"));
   }
   return UncheckedHalfOpen(inclusive_min, exclusive_max);
 }
@@ -50,8 +49,8 @@ Result<IndexInterval> IndexInterval::HalfOpen(Index inclusive_min,
 Result<IndexInterval> IndexInterval::Sized(Index inclusive_min, Index size) {
   if (!ValidSized(inclusive_min, size)) {
     return absl::InvalidArgumentError(
-        StrCat("(", inclusive_min, ", ", size,
-               ") do not specify a valid sized index interval"));
+        tensorstore::StrCat("(", inclusive_min, ", ", size,
+                            ") do not specify a valid sized index interval"));
   }
   return UncheckedSized(inclusive_min, size);
 }
@@ -216,9 +215,9 @@ Result<IndexInterval> ShiftInterval(IndexInterval interval, Index min_offset,
   } else if (internal::AddOverflow(interval.inclusive_min(), min_offset,
                                    &inclusive_min) ||
              !IsFiniteIndex(inclusive_min)) {
-    return absl::InvalidArgumentError(
-        StrCat(interval.inclusive_min(), " + ", min_offset,
-               " is outside valid range ", IndexInterval::FiniteRange()));
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        interval.inclusive_min(), " + ", min_offset, " is outside valid range ",
+        IndexInterval::FiniteRange()));
   }
   Index inclusive_max;
   if (interval.inclusive_max() == kInfIndex) {
@@ -226,9 +225,9 @@ Result<IndexInterval> ShiftInterval(IndexInterval interval, Index min_offset,
   } else if (internal::AddOverflow(interval.inclusive_max(), max_offset,
                                    &inclusive_max) ||
              !IsFiniteIndex(inclusive_max)) {
-    return absl::InvalidArgumentError(
-        StrCat(interval.inclusive_max(), " + ", max_offset,
-               " is outside valid range ", IndexInterval::FiniteRange()));
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        interval.inclusive_max(), " + ", max_offset, " is outside valid range ",
+        IndexInterval::FiniteRange()));
   }
   return IndexInterval::UncheckedClosed(inclusive_min, inclusive_max);
 }
@@ -260,13 +259,13 @@ Result<IndexInterval> ShiftIntervalBackward(IndexInterval interval,
 
 Result<IndexInterval> ShiftIntervalTo(IndexInterval interval, Index origin) {
   if (!IsFiniteIndex(origin)) {
-    return absl::OutOfRangeError(StrCat("Origin ", origin,
-                                        " is outside valid range ",
-                                        IndexInterval::FiniteRange()));
+    return absl::OutOfRangeError(
+        tensorstore::StrCat("Origin ", origin, " is outside valid range ",
+                            IndexInterval::FiniteRange()));
   }
   if (interval.inclusive_min() == -kInfIndex) {
     return absl::InvalidArgumentError(
-        StrCat("Interval ", interval, " is not bounded below"));
+        tensorstore::StrCat("Interval ", interval, " is not bounded below"));
   }
   // Guaranteed not to overflow because `IsFiniteIndex(origin) == true`.
   Index offset;
@@ -278,8 +277,8 @@ Result<IndexInterval> ShiftIntervalTo(IndexInterval interval, Index origin) {
 
 absl::Status CheckContains(IndexInterval interval, Index index) {
   if (Contains(interval, index)) return absl::OkStatus();
-  return absl::OutOfRangeError(
-      StrCat("Index ", index, " is outside valid range ", interval));
+  return absl::OutOfRangeError(tensorstore::StrCat(
+      "Index ", index, " is outside valid range ", interval));
 }
 
 Result<std::pair<OptionallyImplicitIndexInterval, Index>> ExtractStridedSlice(
@@ -292,13 +291,15 @@ Result<std::pair<OptionallyImplicitIndexInterval, Index>> ExtractStridedSlice(
 
   // Check for 0 and std::numeric_limits<Index>::min(), which are both invalid.
   if (stride == 0 || stride == std::numeric_limits<Index>::min()) {
-    return absl::InvalidArgumentError(StrCat("Invalid stride ", stride));
+    return absl::InvalidArgumentError(
+        tensorstore::StrCat("Invalid stride ", stride));
   }
   if (start == kImplicit) {
     start = stride > 0 ? orig.inclusive_min() : orig.inclusive_max();
   } else {
     if (!IsValidIndex(start)) {
-      return absl::InvalidArgumentError(StrCat("Invalid start index ", start));
+      return absl::InvalidArgumentError(
+          tensorstore::StrCat("Invalid start index ", start));
     }
     orig.implicit_lower() = false;
   }
@@ -309,8 +310,8 @@ Result<std::pair<OptionallyImplicitIndexInterval, Index>> ExtractStridedSlice(
       inclusive_stop = stride > 0 ? orig.inclusive_max() : orig.inclusive_min();
     } else {
       if (size < 0) {
-        return absl::InvalidArgumentError(
-            StrCat("Negative size ", size, " specified for sized interval"));
+        return absl::InvalidArgumentError(tensorstore::StrCat(
+            "Negative size ", size, " specified for sized interval"));
       }
       orig.implicit_upper() = false;
       if (size == 0) {
@@ -321,7 +322,7 @@ Result<std::pair<OptionallyImplicitIndexInterval, Index>> ExtractStridedSlice(
         if (internal::MulOverflow(stride, size - 1, &inclusive_stop) ||
             internal::AddOverflow(start, inclusive_stop, &inclusive_stop)) {
           return absl::OutOfRangeError(
-              StrCat("Integer overflow computing slice result"));
+              tensorstore::StrCat("Integer overflow computing slice result"));
         }
       }
     }
@@ -341,9 +342,9 @@ Result<std::pair<OptionallyImplicitIndexInterval, Index>> ExtractStridedSlice(
     }
   }
   if (std::abs(stride) != 1 && !IsFiniteIndex(start)) {
-    return absl::InvalidArgumentError(StrCat("Slicing with non-unit stride of ",
-                                             stride,
-                                             " requires a finite start index"));
+    return absl::InvalidArgumentError(
+        tensorstore::StrCat("Slicing with non-unit stride of ", stride,
+                            " requires a finite start index"));
   }
   Index adjusted_inclusive_min, adjusted_inclusive_max;
   if (stride > 0) {
@@ -358,9 +359,9 @@ Result<std::pair<OptionallyImplicitIndexInterval, Index>> ExtractStridedSlice(
       auto adjusted_interval,
       IndexInterval::Closed(adjusted_inclusive_min, adjusted_inclusive_max));
   if (!Contains(constraint, adjusted_interval)) {
-    return absl::OutOfRangeError(StrCat("Slice interval ", adjusted_interval,
-                                        " is not contained within domain ",
-                                        constraint));
+    return absl::OutOfRangeError(
+        tensorstore::StrCat("Slice interval ", adjusted_interval,
+                            " is not contained within domain ", constraint));
   }
 
   Index new_start = start / stride;
@@ -466,9 +467,9 @@ Result<IndexInterval> GetAffineTransformDomain(IndexInterval interval,
     return IndexInterval::UncheckedSized(result_lower, result_size);
   } while (false);
   return absl::InvalidArgumentError(
-      StrCat("Integer overflow propagating range ", interval,
-             " through inverse affine transform with offset ", offset,
-             " and multiplier ", divisor));
+      tensorstore::StrCat("Integer overflow propagating range ", interval,
+                          " through inverse affine transform with offset ",
+                          offset, " and multiplier ", divisor));
 }
 
 Result<OptionallyImplicitIndexInterval> GetAffineTransformDomain(

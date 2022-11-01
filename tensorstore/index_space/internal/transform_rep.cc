@@ -477,9 +477,9 @@ absl::Status TransformIndices(TransformRep* data,
   for (DimensionIndex i = 0; i < input_rank; ++i) {
     auto oi_interval = data->input_dimension(i).optionally_implicit_domain();
     if (!Contains(oi_interval.effective_interval(), input_indices[i])) {
-      return absl::OutOfRangeError(
-          StrCat("Index ", input_indices[i], " is not contained in the domain ",
-                 oi_interval, " for input dimension ", i));
+      return absl::OutOfRangeError(tensorstore::StrCat(
+          "Index ", input_indices[i], " is not contained in the domain ",
+          oi_interval, " for input dimension ", i));
     }
   }
   for (DimensionIndex output_dim = 0; output_dim < output_rank; ++output_dim) {
@@ -487,7 +487,8 @@ absl::Status TransformIndices(TransformRep* data,
         output_indices[output_dim],
         output_index_maps[output_dim](input_indices),
         MaybeAnnotateStatus(
-            _, StrCat("Computing index for output dimension ", output_dim)));
+            _, tensorstore::StrCat("Computing index for output dimension ",
+                                   output_dim)));
   }
   return absl::OkStatus();
 }
@@ -500,8 +501,8 @@ absl::Status ReplaceZeroRankIndexArrayIndexMap(Index index,
   Index new_offset;
   if (internal::MulOverflow(index, *output_stride, &new_offset) ||
       internal::AddOverflow(new_offset, *output_offset, output_offset)) {
-    return absl::InvalidArgumentError(
-        StrCat("Integer overflow computing offset for output dimension."));
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Integer overflow computing offset for output dimension."));
   }
   *output_stride = 0;
   return absl::OkStatus();

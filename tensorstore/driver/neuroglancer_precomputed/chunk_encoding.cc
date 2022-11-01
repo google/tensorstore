@@ -18,7 +18,6 @@
 #include "riegeli/bytes/cord_reader.h"
 #include "riegeli/bytes/cord_writer.h"
 #include "tensorstore/internal/compression/neuroglancer_compressed_segmentation.h"
-#include "tensorstore/internal/container_to_shared.h"
 #include "tensorstore/internal/data_type_endian_conversion.h"
 #include "tensorstore/internal/flat_cord_builder.h"
 #include "tensorstore/internal/image/image_info.h"
@@ -26,6 +25,7 @@
 #include "tensorstore/internal/image/jpeg_writer.h"
 #include "tensorstore/util/endian.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_neuroglancer_precomputed {
@@ -40,9 +40,9 @@ Result<SharedArrayView<const void>> DecodeRawChunk(
     StridedLayoutView<4> chunk_layout, absl::Cord buffer) {
   const Index expected_bytes = ProductOfExtents(shape) * dtype.size();
   if (expected_bytes != static_cast<Index>(buffer.size())) {
-    return absl::InvalidArgumentError(StrCat("Expected chunk length to be ",
-                                             expected_bytes, ", but received ",
-                                             buffer.size(), " bytes"));
+    return absl::InvalidArgumentError(
+        tensorstore::StrCat("Expected chunk length to be ", expected_bytes,
+                            ", but received ", buffer.size(), " bytes"));
   }
   auto flat_buffer = buffer.Flatten();
   if (absl::c_equal(shape, chunk_layout.shape())) {

@@ -20,6 +20,7 @@
 #include "absl/container/fixed_array.h"
 #include "absl/status/status.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 
@@ -33,7 +34,7 @@ absl::Status AlignDimensionsTo(IndexDomainView<> source,
   const DimensionIndex target_rank = target.rank();
   if (!(options & DomainAlignmentOptions::broadcast) &&
       source_rank != target_rank) {
-    return absl::InvalidArgumentError(StrCat(
+    return absl::InvalidArgumentError(tensorstore::StrCat(
         "Aligning source domain of rank ", source_rank,
         " to target domain of rank ", target_rank, " requires broadcasting"));
   }
@@ -95,28 +96,29 @@ absl::Status AlignDimensionsTo(IndexDomainView<> source,
               : source_size != target_shape[j]) {
         if (!(options & DomainAlignmentOptions::broadcast) ||
             source_size != 1) {
-          StrAppend(&mismatch_error, "source dimension ", i, " ", source[i],
-                    " mismatch with target dimension ", j, " ", target[j],
-                    ", ");
+          tensorstore::StrAppend(&mismatch_error, "source dimension ", i, " ",
+                                 source[i], " mismatch with target dimension ",
+                                 j, " ", target[j], ", ");
         }
         j = -1;
       }
     } else {
       // j == -1
       if (!(options & DomainAlignmentOptions::broadcast)) {
-        StrAppend(&mismatch_error, "unmatched source dimension ", i, " ",
-                  source[i], ", ");
+        tensorstore::StrAppend(&mismatch_error, "unmatched source dimension ",
+                               i, " ", source[i], ", ");
       }
       if (source_size != 1) {
-        StrAppend(&mismatch_error, "unmatched source dimension ", i, " ",
-                  source[i], " does not have a size of 1, ");
+        tensorstore::StrAppend(&mismatch_error, "unmatched source dimension ",
+                               i, " ", source[i],
+                               " does not have a size of 1, ");
       }
     }
   }
   if (!mismatch_error.empty()) {
     mismatch_error.resize(mismatch_error.size() - 2);
     return absl::InvalidArgumentError(
-        StrCat("Error aligning dimensions: ", mismatch_error));
+        tensorstore::StrCat("Error aligning dimensions: ", mismatch_error));
   }
   return absl::OkStatus();
 }

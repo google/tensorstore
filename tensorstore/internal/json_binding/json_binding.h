@@ -854,10 +854,11 @@ struct MemberBinderImpl {
       if (j_member.is_discarded()) return absl::OkStatus();
     }
     auto status = binder(is_loading, options, obj, &j_member);
-    return status.ok() ? status
-                       : MaybeAnnotateStatus(
-                             status, StrCat("Error parsing object member ",
-                                            QuoteString(name)));
+    return status.ok()
+               ? status
+               : MaybeAnnotateStatus(
+                     status, tensorstore::StrCat("Error parsing object member ",
+                                                 QuoteString(name)));
   }
   template <typename Options, typename Obj>
   absl::Status operator()(std::false_type is_loading, const Options& options,
@@ -867,7 +868,8 @@ struct MemberBinderImpl {
         binder(is_loading, options, obj, &j_member),
 
         MaybeAnnotateStatus(
-            _, StrCat("Error converting object member ", QuoteString(name))));
+            _, tensorstore::StrCat("Error converting object member ",
+                                   QuoteString(name))));
     if (!j_member.is_discarded()) {
       j_obj->emplace(name, std::move(j_member));
     }
@@ -952,7 +954,7 @@ constexpr auto AtMostOne(MemberName... names) {
         return j->find(name) == j->end() ? 0 : 1;
       };
       if ((has_member(names) + ...) > 1) {
-        return absl::InvalidArgumentError(StrCat(
+        return absl::InvalidArgumentError(tensorstore::StrCat(
             "At most one of ",
             absl::StrJoin({QuoteString(std::string_view(names))...}, ", "),
             " members is allowed"));
@@ -981,7 +983,7 @@ constexpr auto AtLeastOne(MemberName... names) {
         return j->find(name) == j->end() ? 0 : 1;
       };
       if ((has_member(names) + ...) == 0) {
-        return absl::InvalidArgumentError(StrCat(
+        return absl::InvalidArgumentError(tensorstore::StrCat(
             "At least one of ",
             absl::StrJoin(
                 std::make_tuple(QuoteString(std::string_view(names))...), ", "),

@@ -29,7 +29,7 @@
 #include "tensorstore/rank.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/dimension_set.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace {
@@ -262,10 +262,10 @@ Result<SharedArray<void, dynamic_rank, offset_origin>> ParseArrayFromProto(
 
     for (DimensionIndex i = rank - 1; i >= 0; --i) {
       if (!IndexInterval::ValidSized(array.origin()[i], array.shape()[i])) {
-        return absl::InvalidArgumentError(
-            StrCat("Proto origin and shape of {", array.origin()[i], ", ",
-                   array.shape()[i],
-                   "} do not specify a valid IndexInterval for rank ", i));
+        return absl::InvalidArgumentError(tensorstore::StrCat(
+            "Proto origin and shape of {", array.origin()[i], ", ",
+            array.shape()[i],
+            "} do not specify a valid IndexInterval for rank ", i));
       }
       if (zero_byte_strides[i]) {
         array.layout().byte_strides()[i] = 0;

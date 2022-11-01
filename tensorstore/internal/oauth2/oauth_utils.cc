@@ -22,7 +22,6 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/escaping.h"
-#include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
 #include <openssl/bio.h>     // IWYU pragma: keep
 #include <openssl/evp.h>     // IWYU pragma: keep
@@ -31,7 +30,7 @@
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace jb = tensorstore::internal_json_binding;
 
@@ -147,13 +146,13 @@ std::string BuildJWTClaimBody(std::string_view client_email,
 Result<std::string> BuildSignedJWTRequest(std::string_view private_key,
                                           std::string_view header,
                                           std::string_view body) {
-  auto claim = absl::StrCat(header, ".", body);
+  auto claim = tensorstore::StrCat(header, ".", body);
   auto result = SignWithRSA256(private_key, claim);
   if (!result) {
     return result.status();
   }
-  return absl::StrCat("grant_type=", kGrantType, "&assertion=", claim, ".",
-                      *result);
+  return tensorstore::StrCat("grant_type=", kGrantType, "&assertion=", claim,
+                             ".", *result);
 }
 
 constexpr static auto ErrorResponseBinder = jb::Object(
@@ -203,7 +202,7 @@ ParseGoogleServiceAccountCredentialsImpl(const ::nlohmann::json& credentials) {
   auto creds_token = jb::FromJson<GoogleServiceAccountCredentials>(
       credentials, GoogleServiceAccountCredentialsBinder);
   if (!creds_token.ok()) {
-    return absl::InvalidArgumentError(StrCat(
+    return absl::InvalidArgumentError(tensorstore::StrCat(
         "Invalid GoogleServiceAccountCredentials: ", creds_token.status()));
   }
   return creds_token;
@@ -213,8 +212,8 @@ Result<GoogleServiceAccountCredentials> ParseGoogleServiceAccountCredentials(
     std::string_view source) {
   auto credentials = internal::ParseJson(source);
   if (credentials.is_discarded()) {
-    return absl::InvalidArgumentError(
-        absl::StrCat("Invalid GoogleServiceAccountCredentials: ", source));
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Invalid GoogleServiceAccountCredentials: ", source));
   }
   return ParseGoogleServiceAccountCredentialsImpl(credentials);
 }
@@ -237,7 +236,7 @@ Result<RefreshToken> ParseRefreshTokenImpl(
       jb::FromJson<RefreshToken>(credentials, RefreshTokenBinder);
   if (!refresh_token.ok()) {
     return absl::UnauthenticatedError(
-        absl::StrCat("Invalid RefreshToken: ", credentials.dump()));
+        tensorstore::StrCat("Invalid RefreshToken: ", credentials.dump()));
   }
   return refresh_token;
 }
@@ -246,7 +245,7 @@ Result<RefreshToken> ParseRefreshToken(std::string_view source) {
   auto credentials = internal::ParseJson(source);
   if (credentials.is_discarded()) {
     return absl::UnauthenticatedError(
-        absl::StrCat("Invalid RefreshToken: ", source));
+        tensorstore::StrCat("Invalid RefreshToken: ", source));
   }
   return ParseRefreshTokenImpl(credentials);
 }
@@ -269,7 +268,7 @@ Result<OAuthResponse> ParseOAuthResponseImpl(
       jb::FromJson<OAuthResponse>(credentials, OAuthResponseBinder);
   if (!response_token.ok()) {
     return absl::UnauthenticatedError(
-        absl::StrCat("Invalid OAuthResponse: ", credentials.dump()));
+        tensorstore::StrCat("Invalid OAuthResponse: ", credentials.dump()));
   }
   return response_token;
 }
@@ -278,7 +277,7 @@ Result<OAuthResponse> ParseOAuthResponse(std::string_view source) {
   auto credentials = internal::ParseJson(source);
   if (credentials.is_discarded()) {
     return absl::UnauthenticatedError(
-        absl::StrCat("Invalid OAuthResponse: ", source));
+        tensorstore::StrCat("Invalid OAuthResponse: ", source));
   }
   return ParseOAuthResponseImpl(credentials);
 }

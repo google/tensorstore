@@ -15,6 +15,7 @@
 #include "tensorstore/index_space/internal/label_op.h"
 
 #include "tensorstore/internal/dimension_labels.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_index_space {
@@ -24,9 +25,9 @@ Result<IndexTransform<>> ApplyLabel(IndexTransform<> transform,
                                     internal::StringLikeSpan labels,
                                     bool domain_only) {
   if (dimensions->size() != static_cast<std::size_t>(labels.size())) {
-    return absl::InvalidArgumentError(
-        StrCat("Number of dimensions (", dimensions->size(),
-               ") does not match number of labels (", labels.size(), ")."));
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Number of dimensions (", dimensions->size(),
+        ") does not match number of labels (", labels.size(), ")."));
   }
   auto rep = MutableRep(
       TransformAccess::rep_ptr<container>(std::move(transform)), domain_only);

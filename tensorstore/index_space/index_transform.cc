@@ -25,20 +25,21 @@
 #include "tensorstore/serialization/json.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 
 namespace internal_index_space {
 std::string DescribeTransformForCast(DimensionIndex input_rank,
                                      DimensionIndex output_rank) {
-  return StrCat("index transform with input ",
-                StaticCastTraits<DimensionIndex>::Describe(input_rank),
-                " and output ",
-                StaticCastTraits<DimensionIndex>::Describe(output_rank));
+  return tensorstore::StrCat(
+      "index transform with input ",
+      StaticCastTraits<DimensionIndex>::Describe(input_rank), " and output ",
+      StaticCastTraits<DimensionIndex>::Describe(output_rank));
 }
 std::string DescribeDomainForCast(DimensionIndex rank) {
-  return StrCat("index domain with ",
-                StaticCastTraits<DimensionIndex>::Describe(rank));
+  return tensorstore::StrCat("index domain with ",
+                             StaticCastTraits<DimensionIndex>::Describe(rank));
 }
 
 Result<IndexTransform<>> SliceByIndexDomain(IndexTransform<> transform,
@@ -59,10 +60,10 @@ Result<IndexTransform<>> SliceByIndexDomain(IndexTransform<> transform,
       internal_index_space::IsUnlabeled(domain_labels);
   if (domain_unlabeled || internal_index_space::IsUnlabeled(transform_labels)) {
     if (slice_rank != input_rank) {
-      return absl::InvalidArgumentError(
-          StrCat("Rank of index domain (", slice_rank,
-                 ") must match rank of slice target (", input_rank,
-                 ") when the index domain or slice target is unlabeled"));
+      return absl::InvalidArgumentError(tensorstore::StrCat(
+          "Rank of index domain (", slice_rank,
+          ") must match rank of slice target (", input_rank,
+          ") when the index domain or slice target is unlabeled"));
     }
     std::iota(transform_dims.begin(), transform_dims.end(), DimensionIndex(0));
     if (!domain_unlabeled) {
@@ -95,11 +96,11 @@ Result<IndexTransform<>> SliceByIndexDomain(IndexTransform<> transform,
       transform_dims[i] = j;
     }
     if (next_potentially_unlabeled_dim != 0 && input_rank != slice_rank) {
-      return absl::InvalidArgumentError(
-          StrCat("Rank (", slice_rank,
-                 ") of index domain containing unlabeled dimensions must "
-                 "equal slice target rank (",
-                 input_rank, ")"));
+      return absl::InvalidArgumentError(tensorstore::StrCat(
+          "Rank (", slice_rank,
+          ") of index domain containing unlabeled dimensions must "
+          "equal slice target rank (",
+          input_rank, ")"));
     }
   }
   bool domain_is_empty = false;
@@ -110,10 +111,10 @@ Result<IndexTransform<>> SliceByIndexDomain(IndexTransform<> transform,
         d.optionally_implicit_domain().effective_interval();
     const IndexInterval new_domain = domain[i];
     if (!Contains(orig_domain, new_domain)) {
-      return absl::OutOfRangeError(
-          StrCat("Cannot slice target dimension ", j, " {",
-                 d.index_domain_dimension<view>(),
-                 "} with index domain dimension ", i, " {", domain[i], "}"));
+      return absl::OutOfRangeError(tensorstore::StrCat(
+          "Cannot slice target dimension ", j, " {",
+          d.index_domain_dimension<view>(), "} with index domain dimension ", i,
+          " {", domain[i], "}"));
     }
     if (new_domain.empty()) domain_is_empty = true;
     d.domain() = new_domain;
@@ -146,9 +147,9 @@ Result<IndexTransform<>> SliceByBox(IndexTransform<> transform,
     const IndexInterval new_domain = domain[i];
     if (new_domain.empty()) domain_is_empty = true;
     if (!Contains(orig_domain, new_domain)) {
-      return absl::OutOfRangeError(StrCat("Cannot slice dimension ", i, " {",
-                                          d.index_domain_dimension<view>(),
-                                          "} with interval {", domain[i], "}"));
+      return absl::OutOfRangeError(tensorstore::StrCat(
+          "Cannot slice dimension ", i, " {", d.index_domain_dimension<view>(),
+          "} with interval {", domain[i], "}"));
     }
     d.domain() = new_domain;
     d.implicit_lower_bound() = false;
@@ -230,21 +231,21 @@ absl::Status ValidateInputDimensionResize(
   if (requested_inclusive_min != kImplicit &&
       requested_inclusive_min != -kInfIndex &&
       !IsFiniteIndex(requested_inclusive_min)) {
-    return absl::InvalidArgumentError(StrCat(
+    return absl::InvalidArgumentError(tensorstore::StrCat(
         "Invalid requested inclusive min value ", requested_inclusive_min));
   }
   if (requested_exclusive_max != kImplicit &&
       requested_exclusive_max != kInfIndex + 1 &&
       !IsFiniteIndex(requested_exclusive_max - 1)) {
-    return absl::InvalidArgumentError(StrCat(
+    return absl::InvalidArgumentError(tensorstore::StrCat(
         "Invalid requested exclusive max value ", requested_exclusive_max));
   }
   if (requested_inclusive_min != kImplicit &&
       requested_exclusive_max != kImplicit &&
       requested_inclusive_min > requested_exclusive_max) {
-    return absl::InvalidArgumentError(StrCat("Invalid requested bounds [",
-                                             requested_inclusive_min, ", ",
-                                             requested_exclusive_max, ")"));
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Invalid requested bounds [", requested_inclusive_min, ", ",
+        requested_exclusive_max, ")"));
   }
   if (!input_domain.implicit_lower() && requested_inclusive_min != kImplicit) {
     return absl::InvalidArgumentError("Cannot change explicit lower bound");
@@ -282,8 +283,8 @@ absl::Status PropagateInputDomainResizeToOutput(
             requested_input_inclusive_min[input_dim],
             requested_input_exclusive_max[input_dim]),
         MaybeAnnotateStatus(
-            _,
-            StrCat("Invalid resize request for input dimension ", input_dim)));
+            _, tensorstore::StrCat(
+                   "Invalid resize request for input dimension ", input_dim)));
   }
 
   bool is_noop_value = true;
@@ -305,10 +306,10 @@ absl::Status PropagateInputDomainResizeToOutput(
     if (requested_min != kImplicit || requested_max != kImplicit) {
       is_noop_value = false;
       if (std::abs(map.stride()) != 1) {
-        return absl::InvalidArgumentError(
-            StrCat("Output dimension ", output_dim,
-                   " depends on resized input dimension ", input_dim,
-                   " with non-unit stride of ", map.stride()));
+        return absl::InvalidArgumentError(tensorstore::StrCat(
+            "Output dimension ", output_dim,
+            " depends on resized input dimension ", input_dim,
+            " with non-unit stride of ", map.stride()));
       }
 
       Result<OptionallyImplicitIndexInterval> output_bounds =
@@ -321,8 +322,9 @@ absl::Status PropagateInputDomainResizeToOutput(
       if (!output_bounds) {
         return MaybeAnnotateStatus(
             output_bounds.status(),
-            StrCat("Error propagating bounds for output dimension ", output_dim,
-                   " from requested bounds for input dimension ", input_dim));
+            tensorstore::StrCat(
+                "Error propagating bounds for output dimension ", output_dim,
+                " from requested bounds for input dimension ", input_dim));
       }
       if (!output_bounds->implicit_lower()) {
         new_output_inclusive_min[output_dim] = output_bounds->inclusive_min();
@@ -346,9 +348,9 @@ absl::Status PropagateInputDomainResizeToOutput(
     switch (map.method()) {
       case OutputIndexMethod::constant:
         if (!IsFiniteIndex(map.offset())) {
-          return absl::InvalidArgumentError(
-              StrCat("Output dimension ", output_dim,
-                     " has constant map with invalid offset ", map.offset()));
+          return absl::InvalidArgumentError(tensorstore::StrCat(
+              "Output dimension ", output_dim,
+              " has constant map with invalid offset ", map.offset()));
         }
         if (!can_resize_tied_bounds) {
           output_inclusive_min_constraint[output_dim] = map.offset();
@@ -360,12 +362,12 @@ absl::Status PropagateInputDomainResizeToOutput(
         if (!can_resize_tied_bounds) {
           if (num_input_dim_deps[input_dim]++ != 0) {
             return absl::InvalidArgumentError(
-                StrCat("Input dimension ", input_dim,
-                       " corresponds to a diagonal but "
-                       "`resize_tied_bounds` was not specified"));
+                tensorstore::StrCat("Input dimension ", input_dim,
+                                    " corresponds to a diagonal but "
+                                    "`resize_tied_bounds` was not specified"));
           }
           if (std::abs(map.stride()) != 1) {
-            return absl::InvalidArgumentError(StrCat(
+            return absl::InvalidArgumentError(tensorstore::StrCat(
                 "Output dimension ", output_dim, " depends on input dimension ",
                 input_dim, " with non-unit stride of ", map.stride(),
                 " but `resize_tied_bounds` was not specified"));
@@ -377,9 +379,10 @@ absl::Status PropagateInputDomainResizeToOutput(
           if (!output_bounds) {
             return MaybeAnnotateStatus(
                 output_bounds.status(),
-                StrCat("Error propagating bounds for output dimension ",
-                       output_dim, " from existing bounds for input dimension ",
-                       input_dim));
+                tensorstore::StrCat(
+                    "Error propagating bounds for output dimension ",
+                    output_dim, " from existing bounds for input dimension ",
+                    input_dim));
           }
           if (!output_bounds->implicit_lower()) {
             output_inclusive_min_constraint[output_dim] =
@@ -396,10 +399,10 @@ absl::Status PropagateInputDomainResizeToOutput(
         // TODO(jbms): Consider treating rank-0 index array as constant map, and
         // maybe also handle other special cases (such as diagonal of size 1).
         if (!can_resize_tied_bounds) {
-          return absl::InvalidArgumentError(
-              StrCat("Output dimension ", output_dim,
-                     " has index array map but `resize_tied_bounds` was "
-                     "not specified"));
+          return absl::InvalidArgumentError(tensorstore::StrCat(
+              "Output dimension ", output_dim,
+              " has index array map but `resize_tied_bounds` was "
+              "not specified"));
         }
         break;
     }

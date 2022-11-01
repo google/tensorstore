@@ -18,11 +18,11 @@
 
 #include <type_traits>
 
-#include "absl/strings/str_cat.h"
 #include "python/tensorstore/bfloat16.h"
 #include "python/tensorstore/data_type.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/util/bfloat16.h"
+#include "tensorstore/util/str_cat.h"
 
 // This implementation is based on code from Tensorflow:
 // https://github.com/tensorflow/tensorflow/blob/master/tensorflow/python/lib/core/bfloat16.cc
@@ -333,14 +333,14 @@ PyObject* PyBfloat16_RichCompare(PyObject* a, PyObject* b, int op) {
 // Implementation of repr() for PyBfloat16.
 PyObject* PyBfloat16_Repr(PyObject* self) {
   bfloat16 x = reinterpret_cast<PyBfloat16*>(self)->value;
-  std::string v = absl::StrCat(static_cast<float>(x));
+  std::string v = tensorstore::StrCat(static_cast<float>(x));
   return PyUnicode_FromString(v.c_str());
 }
 
 // Implementation of str() for PyBfloat16.
 PyObject* PyBfloat16_Str(PyObject* self) {
   bfloat16 x = reinterpret_cast<PyBfloat16*>(self)->value;
-  std::string v = absl::StrCat(static_cast<float>(x));
+  std::string v = tensorstore::StrCat(static_cast<float>(x));
   return PyUnicode_FromString(v.c_str());
 }
 

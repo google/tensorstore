@@ -37,6 +37,7 @@
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/execution/sync_flow_sender.h"
 #include "tensorstore/util/status_testutil.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal {
@@ -211,7 +212,7 @@ DriverRandomOperationTester::DriverRandomOperationTester(
 
 void DriverRandomOperationTester::TestBasicFunctionality(
     TransactionMode transaction_mode, size_t num_iterations) {
-  SCOPED_TRACE(StrCat("create_spec=", options.create_spec));
+  SCOPED_TRACE(tensorstore::StrCat("create_spec=", options.create_spec));
   Transaction transaction(transaction_mode);
   auto context = Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -252,9 +253,10 @@ void DriverRandomOperationTester::TestBasicFunctionality(
     auto random_array = MakeRandomArray(gen, transform.domain().box(),
                                         options.initial_value.dtype());
     if (log) TENSORSTORE_LOG("i = ", i);
-    SCOPED_TRACE(StrCat("i=", i));
-    SCOPED_TRACE(StrCat("transform=", transform));
-    SCOPED_TRACE(StrCat("original_domain=", options.initial_value.domain()));
+    SCOPED_TRACE(tensorstore::StrCat("i=", i));
+    SCOPED_TRACE(tensorstore::StrCat("transform=", transform));
+    SCOPED_TRACE(tensorstore::StrCat("original_domain=",
+                                     options.initial_value.domain()));
     auto write_future =
         tensorstore::Write(random_array, store | transform).commit_future;
     TENSORSTORE_ASSERT_OK(write_future.result());
@@ -336,7 +338,7 @@ void DriverRandomOperationTester::TestBasicFunctionality(
 void DriverRandomOperationTester::TestMultiTransactionWrite(
     TransactionMode mode, size_t num_transactions, size_t num_iterations,
     bool use_random_values) {
-  SCOPED_TRACE(StrCat("create_spec=", options.create_spec));
+  SCOPED_TRACE(tensorstore::StrCat("create_spec=", options.create_spec));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
       tensorstore::Open(options.create_spec, tensorstore::OpenMode::create)

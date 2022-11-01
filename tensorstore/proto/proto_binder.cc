@@ -22,13 +22,11 @@
 #include "google/protobuf/message.h"
 #include "google/protobuf/text_format.h"
 #include "google/protobuf/util/json_util.h"
-#include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/json/value_as.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_fwd.h"
-#include "tensorstore/internal/path.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/proto/proto_util.h"
@@ -49,7 +47,7 @@ absl::Status JsonProtoBinderBase::operator()(std::true_type /*is_loading*/,
   if (status.ok()) {
     return absl::OkStatus();
   }
-  return absl::InvalidArgumentError(StrCat(
+  return absl::InvalidArgumentError(tensorstore::StrCat(
       "Expected JSON protocol buffer ", obj->GetDescriptor()->name(),
       " object, but received ", j->dump(), "  with error ",
       std::string_view(status.message().data(), status.message().size())));
@@ -84,9 +82,9 @@ absl::Status AsciiProtoBinderBase::operator()(std::true_type,
   if (TryParseTextProto(*str, obj)) {
     return absl::OkStatus();
   }
-  return absl::InvalidArgumentError(StrCat("Expected ASCII protocol buffer ",
-                                           obj->GetDescriptor()->name(),
-                                           " object, but received ", *str));
+  return absl::InvalidArgumentError(tensorstore::StrCat(
+      "Expected ASCII protocol buffer ", obj->GetDescriptor()->name(),
+      " object, but received ", *str));
 }
 
 absl::Status AsciiProtoBinderBase::operator()(std::false_type,

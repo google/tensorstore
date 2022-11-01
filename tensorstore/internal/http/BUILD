@@ -17,6 +17,7 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
+        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@se_curl//:curl",
@@ -169,7 +170,7 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore/internal:logging",
         "//tensorstore/util:assert_macros",
+        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/container:flat_hash_map",
-        "@com_google_absl//absl/strings",
     ],
 )

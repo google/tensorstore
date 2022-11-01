@@ -16,9 +16,7 @@
 
 #include <algorithm>
 
-#include "absl/container/fixed_array.h"
 #include "absl/container/flat_hash_set.h"
-#include "absl/container/inlined_vector.h"
 #include "absl/status/status.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_domain_builder.h"
@@ -28,11 +26,9 @@
 #include "tensorstore/internal/json_binding/dimension_indexed.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/logging.h"
-#include "tensorstore/internal/type_traits.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/proto/index_transform.pb.h"
 #include "tensorstore/rank.h"
-#include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -61,25 +57,25 @@ Result<IndexDomain<>> ParseIndexDomainFromProto(
 
   if (proto.origin_size() > 0 && proto.origin_size() != rank) {
     return absl::InvalidArgumentError(
-        StrCat("Proto origin must include ", rank, " items"));
+        tensorstore::StrCat("Proto origin must include ", rank, " items"));
   }
   if (proto.shape_size() > 0 && proto.shape_size() != rank) {
     return absl::InvalidArgumentError(
-        StrCat("Proto shape must include ", rank, " items"));
+        tensorstore::StrCat("Proto shape must include ", rank, " items"));
   }
   if (proto.labels_size() > 0 && proto.labels_size() != rank) {
     return absl::InvalidArgumentError(
-        StrCat("Proto labels must include ", rank, " items"));
+        tensorstore::StrCat("Proto labels must include ", rank, " items"));
   }
   if (proto.implicit_lower_bound_size() > 0 &&
       proto.implicit_lower_bound_size() != rank) {
-    return absl::InvalidArgumentError(
-        StrCat("Proto implicit_lower_bound must include ", rank, " items"));
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Proto implicit_lower_bound must include ", rank, " items"));
   }
   if (proto.implicit_upper_bound_size() > 0 &&
       proto.implicit_upper_bound_size() != rank) {
-    return absl::InvalidArgumentError(
-        StrCat("Proto implicit_upper_bound must include ", rank, " items"));
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Proto implicit_upper_bound must include ", rank, " items"));
   }
 
   IndexDomainBuilder builder(rank);
@@ -142,7 +138,7 @@ Result<IndexTransform<>> ParseIndexTransformFromProto(
   } else {
     if (proto.output_size() != output_rank) {
       return absl::InvalidArgumentError(
-          StrCat("Proto output expected ", output_rank, " items"));
+          tensorstore::StrCat("Proto output expected ", output_rank, " items"));
     }
     for (DimensionIndex output_dim = 0; output_dim < output_rank;
          ++output_dim) {

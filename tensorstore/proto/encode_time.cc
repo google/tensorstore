@@ -14,6 +14,8 @@
 
 #include "tensorstore/proto/encode_time.h"
 
+#include "tensorstore/util/str_cat.h"
+
 namespace tensorstore {
 namespace internal {
 
@@ -46,10 +48,10 @@ tensorstore::Result<absl::Time> ProtoToAbslTime(
   // Otherwise validate according to: google/protobuf/timestamp.proto
   // sec must be [0001-01-01T00:00:00Z, 9999-12-31T23:59:59.999999999Z]
   if (sec < -62135596800 || sec > 253402300799) {
-    return absl::InvalidArgumentError(absl::StrCat("seconds=", sec));
+    return absl::InvalidArgumentError(tensorstore::StrCat("seconds=", sec));
   }
   if (ns < 0 || ns > 999999999) {
-    return absl::InvalidArgumentError(absl::StrCat("nanos=", ns));
+    return absl::InvalidArgumentError(tensorstore::StrCat("nanos=", ns));
   }
   return absl::FromUnixSeconds(sec) + absl::Nanoseconds(ns);
 }

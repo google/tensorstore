@@ -22,14 +22,12 @@
 #include <vector>
 
 #include "absl/status/status.h"
-#include "absl/strings/str_cat.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/curl_handle.h"
 #include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/internal/http/http_request.h"
-#include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/no_destructor.h"
@@ -39,9 +37,9 @@
 #include "tensorstore/internal/oauth2/oauth2_auth_provider.h"
 #include "tensorstore/internal/oauth2/oauth_utils.h"
 #include "tensorstore/internal/path.h"
-#include "tensorstore/internal/retry.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_oauth2 {
@@ -84,8 +82,8 @@ bool IsFile(const std::string& filename) {
 Result<std::string> GetEnvironmentVariableFileName() {
   auto env = GetEnv(kGoogleApplicationCredentials);
   if (!env || !IsFile(*env)) {
-    return absl::NotFoundError(absl::StrCat("$", kGoogleApplicationCredentials,
-                                            " is not set or corrupt."));
+    return absl::NotFoundError(tensorstore::StrCat(
+        "$", kGoogleApplicationCredentials, " is not set or corrupt."));
   }
   return *env;
 }
@@ -109,9 +107,9 @@ Result<std::string> GetWellKnownFileName() {
   }
   if (!IsFile(result)) {
     return absl::NotFoundError(
-        absl::StrCat("Could not find the credentials file in the "
-                     "standard gcloud location [",
-                     result, "]"));
+        tensorstore::StrCat("Could not find the credentials file in the "
+                            "standard gcloud location [",
+                            result, "]"));
   }
   return result;
 }
@@ -169,8 +167,8 @@ Result<std::unique_ptr<AuthProvider>> GetDefaultGoogleAuthProvider(
     }
 
     status = absl::UnknownError(
-        absl::StrCat("Unexpected content of the JSON credentials file: ",
-                     *credentials_filename));
+        tensorstore::StrCat("Unexpected content of the JSON credentials file: ",
+                            *credentials_filename));
   }
 
   // 3. Running on GCE?

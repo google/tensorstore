@@ -117,13 +117,14 @@ void PrintArrayDimension(
 }
 
 std::string DescribeForCast(DataType dtype, DimensionIndex rank) {
-  return StrCat("array with ", StaticCastTraits<DataType>::Describe(dtype),
-                " and ", StaticCastTraits<DimensionIndex>::Describe(rank));
+  return tensorstore::StrCat(
+      "array with ", StaticCastTraits<DataType>::Describe(dtype), " and ",
+      StaticCastTraits<DimensionIndex>::Describe(rank));
 }
 
 absl::Status ArrayOriginCastError(span<const Index> shape) {
-  return absl::InvalidArgumentError(StrCat("Cannot translate array with shape ",
-                                           shape, " to have zero origin."));
+  return absl::InvalidArgumentError(tensorstore::StrCat(
+      "Cannot translate array with shape ", shape, " to have zero origin."));
 }
 
 }  // namespace internal_array
@@ -184,7 +185,7 @@ void AppendToString(
   const span<const Index> origin = array.origin();
   if (std::any_of(origin.begin(), origin.end(),
                   [](Index x) { return x != 0; })) {
-    StrAppend(result, " @ ", origin);
+    tensorstore::StrAppend(result, " @ ", origin);
   }
 }
 

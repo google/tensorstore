@@ -30,11 +30,10 @@
 #include "tensorstore/internal/cache/chunk_cache.h"
 #include "tensorstore/internal/cache_key/cache_key.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/path.h"
 #include "tensorstore/internal/type_traits.h"
-#include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_zarr {
@@ -281,10 +280,10 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
     if (IsMetadataCompatible(existing_metadata, new_metadata)) {
       return absl::OkStatus();
     }
-    return absl::FailedPreconditionError(
-        StrCat("Updated zarr metadata ", ::nlohmann::json(new_metadata).dump(),
-               " is incompatible with existing metadata ",
-               ::nlohmann::json(existing_metadata).dump()));
+    return absl::FailedPreconditionError(tensorstore::StrCat(
+        "Updated zarr metadata ", ::nlohmann::json(new_metadata).dump(),
+        " is incompatible with existing metadata ",
+        ::nlohmann::json(existing_metadata).dump()));
   }
 
   void GetChunkGridBounds(const void* metadata_ptr, MutableBoxView<> bounds,
@@ -504,9 +503,9 @@ std::string EncodeChunkIndices(span<const Index> indices,
                                DimensionSeparator dimension_separator) {
   // Use "0" for rank 0 as a special case.
   const char separator = GetDimensionSeparatorChar(dimension_separator);
-  std::string key = (indices.empty() ? "0" : StrCat(indices[0]));
+  std::string key = (indices.empty() ? "0" : tensorstore::StrCat(indices[0]));
   for (DimensionIndex i = 1; i < indices.size(); ++i) {
-    StrAppend(&key, separator, indices[i]);
+    tensorstore::StrAppend(&key, separator, indices[i]);
   }
   return key;
 }

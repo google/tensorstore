@@ -1478,9 +1478,9 @@ tensorstore_cc_library(
     deps = [
         ":logging",
         "//tensorstore/util:status",
+        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/random",
         "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
     ],
 )
@@ -1641,6 +1641,7 @@ tensorstore_cc_library(
         ":source_location",
         "//tensorstore/kvstore/file:file_util",
         "//tensorstore/util:status",
+        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/random",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",

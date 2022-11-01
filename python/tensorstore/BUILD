@@ -282,7 +282,6 @@ pybind11_cc_library(
         ":status",
         ":subscript_method",
         "//tensorstore:array",
-        "//tensorstore:data_type",
         "//tensorstore:index",
         "//tensorstore:index_interval",
         "//tensorstore:rank",
@@ -301,7 +300,6 @@ pybind11_cc_library(
         "//tensorstore/util:str_cat",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_github_pybind_pybind11//:pybind11",
-        "@com_google_absl//absl/hash",
     ],
 )
 
@@ -337,7 +335,6 @@ pybind11_cc_library(
         "//tensorstore/util:element_pointer",
         "//tensorstore/util:iterate",
         "//tensorstore/util:span",
-        "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "@com_github_pybind_pybind11//:pybind11",
         "@com_google_absl//absl/status",
@@ -403,7 +400,6 @@ pybind11_cc_library(
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_github_pybind_pybind11//:pybind11",
         "@com_google_absl//absl/hash",
-        "@com_google_absl//absl/strings",
     ],
 )
 

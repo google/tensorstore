@@ -24,7 +24,6 @@
 #include <string>
 #include <utility>
 
-#include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/time/clock.h"
@@ -54,7 +53,7 @@
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/json_binding/staleness_bound.h"
+#include "tensorstore/internal/json_binding/staleness_bound.h"  // IWYU pragma: keep
 #include "tensorstore/internal/lock_collection.h"
 #include "tensorstore/internal/nditerable.h"
 #include "tensorstore/internal/nditerable_transformed_array.h"
@@ -72,7 +71,7 @@
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
-#include "tensorstore/util/garbage_collection/fwd.h"
+#include "tensorstore/util/garbage_collection/fwd.h"  // IWYU pragma: keep
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
@@ -109,7 +108,7 @@ class ImageDriverSpec
     TENSORSTORE_RETURN_IF_ERROR(schema.Set(RankConstraint{3}));
     if (schema.codec().valid()) {
       return absl::InvalidArgumentError(
-          StrCat("codec not supported by \"", id, "\" driver"));
+          tensorstore::StrCat("codec not supported by \"", id, "\" driver"));
     }
     if (schema.fill_value().valid()) {
       return absl::InvalidArgumentError(

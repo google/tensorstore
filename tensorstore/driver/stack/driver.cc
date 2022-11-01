@@ -50,7 +50,7 @@
 #include "tensorstore/internal/irregular_grid.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/json_binding/staleness_bound.h"
+#include "tensorstore/internal/json_binding/staleness_bound.h"  // IWYU pragma: keep
 #include "tensorstore/internal/json_binding/std_array.h"  // IWYU pragma: keep
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/tagged_ptr.h"
@@ -230,7 +230,7 @@ class StackDriverSpec
                                    internal::GetEffectiveDomain(layers[i]));
       if (!effective_domain.valid()) {
         return absl::InvalidArgumentError(
-            StrCat("layer[", i, "] domain is unspecified"));
+            tensorstore::StrCat("layer[", i, "] domain is unspecified"));
       }
       domains.emplace_back(std::move(effective_domain));
       // validate rank.
@@ -238,7 +238,7 @@ class StackDriverSpec
         rank = domains.back().rank();
       } else if (domains.back().rank() != rank) {
         return absl::InvalidArgumentError(
-            StrCat("layer[", i, "] rank mismatch"));
+            tensorstore::StrCat("layer[", i, "] rank mismatch"));
       }
     }
     return domains;
@@ -613,8 +613,8 @@ struct UnmappedReadOp {
                           IndexTransformView<> cell_transform) {
     auto origin = self->grid_.cell_origin(grid_cell_indices);
     return absl::InvalidArgumentError(
-        StrCat("Read cell origin=", span(origin),
-               " missing layer mapping in \"stack\" driver"));
+        tensorstore::StrCat("Read cell origin=", span(origin),
+                            " missing layer mapping in \"stack\" driver"));
   }
 };
 
@@ -673,8 +673,8 @@ struct UnmappedWriteOp {
                           IndexTransformView<> cell_transform) {
     auto origin = self->grid_.cell_origin(grid_cell_indices);
     return absl::InvalidArgumentError(
-        StrCat("Write cell origin=", span(origin),
-               " missing layer mapping in \"stack\" driver"));
+        tensorstore::StrCat("Write cell origin=", span(origin),
+                            " missing layer mapping in \"stack\" driver"));
   }
 };
 

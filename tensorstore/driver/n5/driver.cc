@@ -15,7 +15,6 @@
 #include "tensorstore/driver/driver.h"
 
 #include "absl/status/status.h"
-#include "absl/strings/str_cat.h"
 #include "tensorstore/context.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/kvs_backed_chunk_driver.h"
@@ -25,11 +24,10 @@
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/internal/cache/chunk_cache.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/path.h"
-#include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/util/constant_vector.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_n5 {
@@ -171,9 +169,9 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
     auto existing_key = existing_metadata.GetCompatibilityKey();
     auto new_key = new_metadata.GetCompatibilityKey();
     if (existing_key == new_key) return absl::OkStatus();
-    return absl::FailedPreconditionError(
-        StrCat("Updated N5 metadata ", new_key,
-               " is incompatible with existing metadata ", existing_key));
+    return absl::FailedPreconditionError(tensorstore::StrCat(
+        "Updated N5 metadata ", new_key,
+        " is incompatible with existing metadata ", existing_key));
   }
 
   void GetChunkGridBounds(const void* metadata_ptr, MutableBoxView<> bounds,
@@ -244,10 +242,10 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
   std::string GetChunkStorageKey(const void* metadata,
                                  span<const Index> cell_indices) override {
     // Use "0" for rank 0 as a special case.
-    std::string key =
-        StrCat(key_prefix_, cell_indices.empty() ? 0 : cell_indices[0]);
+    std::string key = tensorstore::StrCat(
+        key_prefix_, cell_indices.empty() ? 0 : cell_indices[0]);
     for (DimensionIndex i = 1; i < cell_indices.size(); ++i) {
-      StrAppend(&key, "/", cell_indices[i]);
+      tensorstore::StrAppend(&key, "/", cell_indices[i]);
     }
     return key;
   }

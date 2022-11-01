@@ -20,6 +20,7 @@
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_metadata_matching.h"
 #include "tensorstore/util/quote_string.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_zarr {
@@ -493,23 +494,23 @@ Result<std::size_t> GetFieldIndex(const ZarrDType& dtype,
                                   const SelectedField& selected_field) {
   if (selected_field.empty()) {
     if (dtype.fields.size() != 1) {
-      return absl::FailedPreconditionError(StrCat(
+      return absl::FailedPreconditionError(tensorstore::StrCat(
           "Must specify a \"field\" that is one of: ", GetFieldNames(dtype)));
     }
     return 0;
   }
   if (!dtype.has_fields) {
     return absl::FailedPreconditionError(
-        StrCat("Requested field ", QuoteString(selected_field),
-               " but dtype does not have named fields"));
+        tensorstore::StrCat("Requested field ", QuoteString(selected_field),
+                            " but dtype does not have named fields"));
   }
   for (std::size_t field_index = 0; field_index < dtype.fields.size();
        ++field_index) {
     if (dtype.fields[field_index].name == selected_field) return field_index;
   }
   return absl::FailedPreconditionError(
-      StrCat("Requested field ", QuoteString(selected_field),
-             " is not one of: ", GetFieldNames(dtype)));
+      tensorstore::StrCat("Requested field ", QuoteString(selected_field),
+                          " is not one of: ", GetFieldNames(dtype)));
 }
 
 Result<SelectedField> ParseSelectedField(const ::nlohmann::json& value) {
@@ -518,8 +519,8 @@ Result<SelectedField> ParseSelectedField(const ::nlohmann::json& value) {
     if (!s->empty()) return *s;
   }
   return absl::InvalidArgumentError(
-      StrCat("Expected null or non-empty string, but received: ",
-             ::nlohmann::json(value).dump()));
+      tensorstore::StrCat("Expected null or non-empty string, but received: ",
+                          ::nlohmann::json(value).dump()));
 }
 
 SelectedField EncodeSelectedField(std::size_t field_index,

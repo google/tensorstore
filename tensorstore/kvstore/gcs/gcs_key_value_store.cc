@@ -27,7 +27,6 @@
 #include "absl/random/random.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
-#include "absl/strings/str_cat.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
@@ -250,7 +249,7 @@ struct GcsKeyValueStoreSpecData {
                  jb::Projection<&GcsKeyValueStoreSpecData::bucket>(jb::Validate(
                      [](const auto& options, const std::string* x) {
                        if (!IsValidBucketName(*x)) {
-                         return absl::InvalidArgumentError(StrCat(
+                         return absl::InvalidArgumentError(tensorstore::StrCat(
                              "Invalid GCS bucket name: ", QuoteString(*x)));
                        }
                        return absl::OkStatus();
@@ -499,7 +498,7 @@ struct ReadTask : public RateLimiterNode,
       return;
     }
     /// Reads contents of a GCS object.
-    std::string media_url = StrCat(resource, "?alt=media");
+    std::string media_url = tensorstore::StrCat(resource, "?alt=media");
 
     // Add the ifGenerationNotMatch condition.
     AddGenerationParam(&media_url, true, "ifGenerationNotMatch",
@@ -560,8 +559,8 @@ struct ReadTask : public RateLimiterNode,
       if (owner->BackoffForAttemptAsync(attempt_++, this)) {
         return;
       }
-      status =
-          absl::AbortedError(StrCat("All retry attempts failed: ", status));
+      status = absl::AbortedError(
+          tensorstore::StrCat("All retry attempts failed: ", status));
     }
     if (!status.ok()) {
       promise.SetResult(status);
@@ -685,8 +684,8 @@ struct WriteTask : public RateLimiterNode,
     // We use the SimpleUpload technique.
 
     std::string upload_url =
-        StrCat(owner->upload_root(), "/o", "?uploadType=media",
-               "&name=", encoded_object_name);
+        tensorstore::StrCat(owner->upload_root(), "/o", "?uploadType=media",
+                            "&name=", encoded_object_name);
 
     // Add the ifGenerationNotMatch condition.
     AddGenerationParam(&upload_url, true, "ifGenerationMatch",
@@ -705,10 +704,11 @@ struct WriteTask : public RateLimiterNode,
     if (maybe_auth_header.value().has_value()) {
       request_builder.AddHeader(*maybe_auth_header.value());
     }
-    auto request = request_builder  //
-                       .AddHeader("Content-Type: application/octet-stream")
-                       .AddHeader(StrCat("Content-Length: ", value.size()))
-                       .BuildRequest();
+    auto request =
+        request_builder  //
+            .AddHeader("Content-Type: application/octet-stream")
+            .AddHeader(tensorstore::StrCat("Content-Length: ", value.size()))
+            .BuildRequest();
     start_time_ = absl::Now();
     auto future = owner->IssueRequest("WriteTask", request, value);
     future.ExecuteWhenReady([self = IntrusivePtr<WriteTask>(this)](
@@ -747,8 +747,8 @@ struct WriteTask : public RateLimiterNode,
       if (owner->BackoffForAttemptAsync(attempt_++, this)) {
         return;
       }
-      status =
-          absl::AbortedError(StrCat("All retry attempts failed: ", status));
+      status = absl::AbortedError(
+          tensorstore::StrCat("All retry attempts failed: ", status));
     }
     if (!status.ok()) {
       promise.SetResult(status);
@@ -884,8 +884,8 @@ struct DeleteTask : public RateLimiterNode,
       if (owner->BackoffForAttemptAsync(attempt_++, this)) {
         return;
       }
-      status =
-          absl::AbortedError(StrCat("All retry attempts failed: ", status));
+      status = absl::AbortedError(
+          tensorstore::StrCat("All retry attempts failed: ", status));
     }
     if (!status.ok()) {
       promise.SetResult(status);
@@ -1087,13 +1087,14 @@ struct ListTask : public RateLimiterNode,
       if (owner_->BackoffForAttemptAsync(attempt_++, this)) {
         return absl::OkStatus();
       }
-      return absl::AbortedError(StrCat("All retry attempts failed: ", status));
+      return absl::AbortedError(
+          tensorstore::StrCat("All retry attempts failed: ", status));
     }
     auto payload = response->payload;
     auto j = internal::ParseJson(payload.Flatten());
     if (j.is_discarded()) {
-      return absl::InternalError(
-          StrCat("Failed to parse response metadata: ", payload.Flatten()));
+      return absl::InternalError(tensorstore::StrCat(
+          "Failed to parse response metadata: ", payload.Flatten()));
     }
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto parsed_payload,
@@ -1197,7 +1198,7 @@ Result<kvstore::Spec> ParseGcsUrl(std::string_view url) {
   std::string_view bucket = parsed.authority_and_path.substr(0, end_of_bucket);
   if (!IsValidBucketName(bucket)) {
     return absl::InvalidArgumentError(
-        StrCat("Invalid GCS bucket name: ", QuoteString(bucket)));
+        tensorstore::StrCat("Invalid GCS bucket name: ", QuoteString(bucket)));
   }
   std::string_view encoded_path =
       (end_of_bucket == std::string_view::npos)

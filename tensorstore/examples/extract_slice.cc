@@ -75,8 +75,8 @@ template <typename InputArray>
 absl::Status Validate(const InputArray& input) {
   std::vector<std::string> errors;
   if (input.rank() != 2 && input.rank() != 3) {
-    errors.push_back(
-        StrCat("expected input of rank 2 or 3, not ", input.rank()));
+    errors.push_back(tensorstore::StrCat("expected input of rank 2 or 3, not ",
+                                         input.rank()));
   }
 
   // Validate data types
@@ -88,18 +88,18 @@ absl::Status Validate(const InputArray& input) {
   // Validate shapes
   auto input_shape = input.domain().shape();
   if (input_shape[0] <= 0 || input_shape[1] <= 0) {
-    errors.push_back(
-        StrCat("input.shape of ", input_shape, " has invalid x,y dimensions"));
+    errors.push_back(tensorstore::StrCat("input.shape of ", input_shape,
+                                         " has invalid x,y dimensions"));
   }
   auto c = input.rank() - 1;
   if (input.rank() > 2 && input_shape[c] != 1 && input_shape[c] != 3) {
-    errors.push_back(
-        StrCat("input.shape of ", input_shape, " has invalid c dimension"));
+    errors.push_back(tensorstore::StrCat("input.shape of ", input_shape,
+                                         " has invalid c dimension"));
   }
 
   if (!errors.empty()) {
-    return absl::InvalidArgumentError(
-        StrCat("tensorstore validation failed: ", absl::StrJoin(errors, ", ")));
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "tensorstore validation failed: ", absl::StrJoin(errors, ", ")));
   }
   return absl::OkStatus();
 }

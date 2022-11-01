@@ -18,6 +18,7 @@
 #include "absl/status/status.h"
 #include "tensorstore/index_space/internal/transform_rep_impl.h"
 #include "tensorstore/internal/integer_overflow.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_index_space {
@@ -84,9 +85,10 @@ Result<SingletonSlicingInfo> GetSingletonSlicingInfo(
     const auto domain = original->input_dimension(original_input_dim)
                             .optionally_implicit_domain();
     if (!Contains(domain.effective_interval(), index)) {
-      StrAppend(&slice_error, (slice_error.empty() ? "" : ", "),
-                "in input dimension ", original_input_dim, " index ", index,
-                " is outside valid domain ", domain);
+      tensorstore::StrAppend(&slice_error, (slice_error.empty() ? "" : ", "),
+                             "in input dimension ", original_input_dim,
+                             " index ", index, " is outside valid domain ",
+                             domain);
     }
     result->original_input_dimension_info[original_input_dim] =
         InputDimensionSingletonSliceInfo{-1, index};
@@ -94,7 +96,8 @@ Result<SingletonSlicingInfo> GetSingletonSlicingInfo(
   if (!slice_error.empty()) {
     // Assign to result, rather than just returning the error, to encourage
     // NRVO.
-    result = absl::OutOfRangeError(StrCat("Slice mismatch: ", slice_error));
+    result = absl::OutOfRangeError(
+        tensorstore::StrCat("Slice mismatch: ", slice_error));
     return result;
   }
 
@@ -186,7 +189,7 @@ absl::Status PerformSingleIndexSlice(TransformRep* original_transform,
                                     &new_offset) ||
               internal::AddOverflow(new_offset, output_offset,
                                     &new_map.offset())) {
-            return absl::InvalidArgumentError(StrCat(
+            return absl::InvalidArgumentError(tensorstore::StrCat(
                 "Integer overflow computing offset for output dimension ",
                 output_dim, "."));
           }

@@ -100,22 +100,24 @@ absl::Status ComputeQuantilesValidator(const InputArray& input,
   // validate input and output shapes.
   std::vector<std::string> errors;
   if (input.rank() != 2) {
-    errors.push_back(
-        StrCat("expected input rank 2, got ", static_cast<int>(input.rank())));
+    errors.push_back(tensorstore::StrCat("expected input rank 2, got ",
+                                         static_cast<int>(input.rank())));
   }
   if (output.rank() != 2) {
-    errors.push_back(StrCat("expected output rank 2, got ",
-                            static_cast<int>(output.rank())));
+    errors.push_back(tensorstore::StrCat("expected output rank 2, got ",
+                                         static_cast<int>(output.rank())));
   }
   if (shape[1] == 0) {
     errors.push_back("input rank 1 has zero size");
   }
   if (shape[0] != output.domain().shape()[0]) {
-    errors.push_back(StrCat("expected dimension 0 shape matching, got input ",
+    errors.push_back(
+        tensorstore::StrCat("expected dimension 0 shape matching, got input ",
                             shape[0], " vs. ", output.domain().shape()[0]));
   }
   if (output.domain().shape()[1] != quantiles.size()) {
-    errors.push_back(StrCat("expected output dimension 1 to match q, got ",
+    errors.push_back(
+        tensorstore::StrCat("expected output dimension 1 to match q, got ",
                             output.domain().shape()[1]));
   }
   if (!errors.empty()) {
@@ -208,7 +210,8 @@ absl::Status ValidateRun(const InputArray& input, const OutputArray& output,
     errors.push_back("radius must be > 0");
   }
   if (input.rank() != 4) {
-    errors.push_back(StrCat("expected input rank 4, not ", input.rank()));
+    errors.push_back(
+        tensorstore::StrCat("expected input rank 4, not ", input.rank()));
   }
 
   // Validate data types
@@ -230,38 +233,39 @@ absl::Status ValidateRun(const InputArray& input, const OutputArray& output,
   auto input_shape = input.domain().shape();
   auto output_shape = output.domain().shape();
   if (output_shape[4] != quantiles.size()) {
-    errors.push_back(StrCat("output shape[4] is ", output.domain().shape()[4],
-                            " which does not match the number of quantiles ",
-                            quantiles.size()));
+    errors.push_back(tensorstore::StrCat(
+        "output shape[4] is ", output.domain().shape()[4],
+        " which does not match the number of quantiles ", quantiles.size()));
   }
   if (output.rank() != 5) {
-    errors.push_back(StrCat("expected output rank 5, got ", output.rank()));
+    errors.push_back(
+        tensorstore::StrCat("expected output rank 5, got ", output.rank()));
   }
 
   // Validate shapes
   if (output_shape[4] != quantiles.size()) {
-    errors.push_back(StrCat("output shape[4] is ", output.domain().shape()[4],
-                            " which does not match the number of quantiles ",
-                            quantiles.size()));
+    errors.push_back(tensorstore::StrCat(
+        "output shape[4] is ", output.domain().shape()[4],
+        " which does not match the number of quantiles ", quantiles.size()));
   }
   for (int i = 0; i < 4; i++) {
     if (i < input_shape.size() && input.domain().shape()[i] == 0) {
-      errors.push_back(StrCat("input dimension ", i, " is 0"));
+      errors.push_back(tensorstore::StrCat("input dimension ", i, " is 0"));
     }
     if (i < output_shape.size() && output.domain().shape()[i] == 0) {
-      errors.push_back(StrCat("output dimension ", i, " is 0"));
+      errors.push_back(tensorstore::StrCat("output dimension ", i, " is 0"));
     }
     if (i < output_shape.size() && i < input_shape.size() &&
         output_shape[i] > input_shape[i]) {
-      errors.push_back(StrCat("output dimension ", i,
-                              " is greater than the input dimension, ",
-                              output_shape[i], " vs ", input_shape[i]));
+      errors.push_back(tensorstore::StrCat(
+          "output dimension ", i, " is greater than the input dimension, ",
+          output_shape[i], " vs ", input_shape[i]));
     }
   }
 
   if (!errors.empty()) {
-    return absl::InvalidArgumentError(
-        StrCat("tensorstore validation failed: ", absl::StrJoin(errors, ", ")));
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "tensorstore validation failed: ", absl::StrJoin(errors, ", ")));
   }
   return absl::OkStatus();
 }

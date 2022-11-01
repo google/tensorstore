@@ -14,6 +14,8 @@
 
 #include "tensorstore/internal/oauth2/auth_provider.h"
 
+#include "tensorstore/util/str_cat.h"
+
 namespace tensorstore {
 namespace internal_oauth2 {
 
@@ -22,7 +24,7 @@ AuthProvider::~AuthProvider() = default;
 Result<std::string> AuthProvider::GetAuthHeader() {
   auto token = this->GetToken();
   TENSORSTORE_RETURN_IF_ERROR(token);
-  return absl::StrCat("Authorization: Bearer ", token->token);
+  return tensorstore::StrCat("Authorization: Bearer ", token->token);
 }
 
 }  // namespace internal_oauth2

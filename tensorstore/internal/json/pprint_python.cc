@@ -180,7 +180,7 @@ std::string PrettyPrintJsonAsPythonRepr(
     PrettyPrintJsonAsPython(&pretty, *j, options);
     dotdotdot = "";
   }
-  StrAppend(&pretty, dotdotdot, suffix);
+  tensorstore::StrAppend(&pretty, dotdotdot, suffix);
   return pretty;
 }
 

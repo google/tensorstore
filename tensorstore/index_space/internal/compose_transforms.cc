@@ -23,6 +23,7 @@
 #include "tensorstore/index_space/internal/transform_array.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
 #include "tensorstore/index_space/internal/transform_rep_impl.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_index_space {
@@ -137,9 +138,9 @@ absl::Status ComposeTransformsImpl(TransformRep* b_to_c,
             internal::AddOverflow(b_to_c_map.offset(), new_output_offset,
                                   &a_to_c_map.offset())) {
           return absl::InvalidArgumentError(
-              StrCat("Integer overflow computing output "
-                     "offset for output dimension ",
-                     c_dim, "."));
+              tensorstore::StrCat("Integer overflow computing output "
+                                  "offset for output dimension ",
+                                  c_dim, "."));
         }
         if (a_to_b_method == OutputIndexMethod::constant) {
           // Handle the single_input_dimension -> constant case.  Bounds were
@@ -151,7 +152,7 @@ absl::Status ComposeTransformsImpl(TransformRep* b_to_c,
         // Compute the stride value of the new output index map.
         if (internal::MulOverflow(a_to_b_map.stride(), b_to_c_map.stride(),
                                   &a_to_c_map.stride())) {
-          return absl::InvalidArgumentError(StrCat(
+          return absl::InvalidArgumentError(tensorstore::StrCat(
               "Integer overflow computing output_strides[", c_dim,
               "] = ", a_to_b_map.stride(), " * ", b_to_c_map.stride(), "."));
         }
@@ -280,9 +281,9 @@ Result<TransformRep::Ptr<>> ComposeTransforms(TransformRep* b_to_c,
     }
   } else {
     status = absl::InvalidArgumentError(
-        StrCat("Rank ", b_to_c->input_rank, " -> ", c_rank,
-               " transform cannot be composed with rank ", a_rank, " -> ",
-               b_rank, " transform."));
+        tensorstore::StrCat("Rank ", b_to_c->input_rank, " -> ", c_rank,
+                            " transform cannot be composed with rank ", a_rank,
+                            " -> ", b_rank, " transform."));
   }
   assert(!status.ok());
 

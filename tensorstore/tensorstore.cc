@@ -23,9 +23,9 @@ namespace tensorstore {
 namespace internal {
 
 absl::Status InvalidModeError(ReadWriteMode mode, ReadWriteMode static_mode) {
-  return absl::InvalidArgumentError(StrCat("Run-time mode ", mode,
-                                           " does not match compile-time mode ",
-                                           static_mode));
+  return absl::InvalidArgumentError(
+      tensorstore::StrCat("Run-time mode ", mode,
+                          " does not match compile-time mode ", static_mode));
 }
 
 absl::Status ValidateDataTypeAndRank(DataType expected_dtype,
@@ -49,12 +49,12 @@ absl::Status ValidateDataTypeAndRank(DataType expected_dtype,
 
 namespace internal_tensorstore {
 absl::Status ResizeRankError(DimensionIndex rank) {
-  return absl::InvalidArgumentError(
-      StrCat("inclusive_min and exclusive_max must have rank ", rank));
+  return absl::InvalidArgumentError(tensorstore::StrCat(
+      "inclusive_min and exclusive_max must have rank ", rank));
 }
 std::string DescribeForCast(DataType dtype, DimensionIndex rank,
                             ReadWriteMode mode) {
-  return StrCat(
+  return tensorstore::StrCat(
       "TensorStore with ", StaticCastTraits<DataType>::Describe(dtype), ", ",
       StaticCastTraits<DimensionIndex>::Describe(rank), " and mode of ", mode);
 }
