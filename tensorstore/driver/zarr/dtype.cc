@@ -37,14 +37,26 @@ Result<ZarrDType::BaseDType> ParseBaseDType(std::string_view dtype) {
     const char type_indicator = dtype[1];
     const std::string_view suffix = dtype.substr(2);
     endian endian_value;
+    switch (endian_indicator) {
+      case '<':
+        endian_value = endian::little;
+        break;
+      case '>':
+        endian_value = endian::big;
+        break;
+      case '|':
+        endian_value = endian::native;
+        break;
+      default:
+        goto error;
+    }
     switch (type_indicator) {
       case 'b':
         if (suffix != "1") goto error;
         ABSL_FALLTHROUGH_INTENDED;
       case 'S':
       case 'V':
-        // Single byte types must have endian indicator of '|'.
-        if (endian_indicator != '|') goto error;
+        // Single byte types ignore the endian indicator.
         endian_value = endian::native;
         break;
       case 'i':
@@ -55,19 +67,17 @@ Result<ZarrDType::BaseDType> ParseBaseDType(std::string_view dtype) {
           endian_value = endian::native;
           break;
         } else if (suffix == "1") {
-          goto error;
+          endian_value = endian::native;
+          break;
         }
+        // Fallthrough if size is greater than 1 byte.
         [[fallthrough]];
       case 'f':
       case 'c':
       case 'm':
       case 'M':
         // Endian indicator must be '<' or '>'.
-        if (endian_indicator == '<') {
-          endian_value = endian::little;
-        } else if (endian_indicator == '>') {
-          endian_value = endian::big;
-        } else {
+        if (endian_indicator == '|') {
           goto error;
         }
         break;
