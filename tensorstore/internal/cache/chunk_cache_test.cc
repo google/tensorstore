@@ -726,27 +726,21 @@ TEST_F(ChunkCacheTest, WriteSingleComponentOneDimensional) {
     EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_equal);
     r(memory_store);
   }
-  {
+  std::vector<std::pair<std::vector<Index>, StorageGeneration>> write_requests;
+  for (size_t i = 0; i < 3; ++i) {
     auto r = mock_store->write_requests.pop();
-    EXPECT_THAT(ParseKey(r.key), ElementsAre(2));
-    EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_equal);
+    write_requests.emplace_back(ParseKey(r.key), r.options.if_equal);
     r(memory_store);
   }
-  EXPECT_THAT(GetChunk({2}), ElementsAre(MakeArray<int>({4, 5})));
-  {
-    auto r = mock_store->write_requests.pop();
-    EXPECT_THAT(ParseKey(r.key), ElementsAre(3));
-    EXPECT_EQ(StorageGeneration::NoValue(), r.options.if_equal);
-    r(memory_store);
-  }
-  EXPECT_THAT(GetChunk({3}), ElementsAre(MakeArray<int>({6, 2})));
-  {
-    auto r = mock_store->write_requests.pop();
-    EXPECT_THAT(ParseKey(r.key), ElementsAre(1));
-    EXPECT_EQ(StorageGeneration::NoValue(), r.options.if_equal);
-    r(memory_store);
-  }
+  EXPECT_THAT(
+      write_requests,
+      ::testing::UnorderedElementsAre(
+          ::testing::Pair(ElementsAre(2), StorageGeneration::Unknown()),
+          ::testing::Pair(ElementsAre(3), StorageGeneration::NoValue()),
+          ::testing::Pair(ElementsAre(1), StorageGeneration::NoValue())));
   EXPECT_THAT(GetChunk({1}), ElementsAre(MakeArray<int>({1, 3})));
+  EXPECT_THAT(GetChunk({2}), ElementsAre(MakeArray<int>({4, 5})));
+  EXPECT_THAT(GetChunk({3}), ElementsAre(MakeArray<int>({6, 2})));
   TENSORSTORE_EXPECT_OK(write_future);
 }
 
