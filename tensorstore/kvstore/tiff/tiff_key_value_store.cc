@@ -16,7 +16,9 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
-
+#include <algorithm>
+#include <cctype>
+	
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
@@ -90,6 +92,9 @@ absl::Status ValidateKey(std::string_view key) {
   return absl::OkStatus();
 }
 
+void remove_control_characters(std::string& s) {
+    s.erase(std::remove_if(s.begin(), s.end(), [](char c) { return std::iscntrl(c); }), s.end());
+}
 // Encode in the generation fields that uniquely identify the file.
 StorageGeneration GetFileGeneration(const FileInfo& info) {
   return StorageGeneration::FromValues(internal_file_util::GetDeviceId(info),
@@ -169,10 +174,10 @@ std::string GetDataType(short sample_format, short bits_per_sample){
         case 8:
         case 16:
         case 32:
-          return "float";
+          return "float32";
           break;
         case 64:
-          return "double";
+          return "float64";
           break;
         default: return "uint16";
       }
@@ -210,7 +215,7 @@ struct ReadTask {
     if (read_result.stamp.generation == options.if_not_equal ||
         (!StorageGeneration::IsUnknown(options.if_equal) &&
          read_result.stamp.generation != options.if_equal)) {
-      std::cout<<"from cache" <<std::endl;
+      //std::cout<<"from cache" <<std::endl;
       return read_result;
     }
 
@@ -254,7 +259,6 @@ struct ReadTask {
             pugi::xml_node pixel = doc.child("OME").child("Image").child("Pixels");
 
             for (const pugi::xml_attribute &attr: pixel.attributes()){
-              //oss<<"\""<<attr.name()<<"\":"<<"\""<<attr.value()<<"\",";
               xml_metadata_map.emplace(attr.name(), attr.value());
             }
 
@@ -262,7 +266,8 @@ struct ReadTask {
             pugi::xml_node annotion_list = doc.child("OME").child("StructuredAnnotations");
             for(const pugi::xml_node &annotation : annotion_list){
               auto key = annotation.child("Value").child("OriginalMetadata").child("Key").child_value();
-              auto value = annotation.child("Value").child("OriginalMetadata").child("Value").child_value();
+              std::string value = annotation.child("Value").child("OriginalMetadata").child("Value").child_value();
+              remove_control_characters(value);
               xml_metadata_map.emplace(key,value);
             }
 
@@ -340,7 +345,7 @@ struct ReadTask {
             auto t_szb = TIFFTileSize(tiff_);
             TIFFSetDirectory(tiff_, ifd_dir);
             internal::FlatCordBuilder buffer(t_szb);
-            std::cout<<"using libtiff" <<std::endl;
+            //std::cout<<"using libtiff" <<std::endl;
             auto errcode = TIFFReadTile(tiff_, buffer.data(), x_pos, y_pos, 0, 0);
             TIFFClose(tiff_);      
             if (errcode != -1){
