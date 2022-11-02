@@ -1,5 +1,5 @@
 #include <tiffio.h>
-#include "pugixml.hpp"
+#include "omexml.h"
 #include <regex>
 
 #include <stddef.h>
@@ -92,9 +92,7 @@ absl::Status ValidateKey(std::string_view key) {
   return absl::OkStatus();
 }
 
-void remove_control_characters(std::string& s) {
-    s.erase(std::remove_if(s.begin(), s.end(), [](char c) { return std::iscntrl(c); }), s.end());
-}
+
 // Encode in the generation fields that uniquely identify the file.
 StorageGeneration GetFileGeneration(const FileInfo& info) {
   return StorageGeneration::FromValues(internal_file_util::GetDeviceId(info),
@@ -215,7 +213,6 @@ struct ReadTask {
     if (read_result.stamp.generation == options.if_not_equal ||
         (!StorageGeneration::IsUnknown(options.if_equal) &&
          read_result.stamp.generation != options.if_equal)) {
-      //std::cout<<"from cache" <<std::endl;
       return read_result;
     }
 
@@ -248,83 +245,22 @@ struct ReadTask {
 
           std::string dtype = GetDataType(sample_format, bits_per_sample);
 
-          size_t nc =1, nz=1, nt=1;
-          short dim_order = 1; //default
           char* infobuf;
           TIFFGetField(tiff_, TIFFTAG_IMAGEDESCRIPTION , &infobuf);
-          pugi::xml_document doc;
-          pugi::xml_parse_result result = doc.load_string(infobuf);
-          auto xml_metadata_map = std::map<std::string, std::string>();
-          if (result){
-            pugi::xml_node pixel = doc.child("OME").child("Image").child("Pixels");
-
-            for (const pugi::xml_attribute &attr: pixel.attributes()){
-              xml_metadata_map.emplace(attr.name(), attr.value());
-            }
-
-            			// read structured annotaion
-            pugi::xml_node annotion_list = doc.child("OME").child("StructuredAnnotations");
-            for(const pugi::xml_node &annotation : annotion_list){
-              auto key = annotation.child("Value").child("OriginalMetadata").child("Key").child_value();
-              std::string value = annotation.child("Value").child("OriginalMetadata").child("Value").child_value();
-              remove_control_characters(value);
-              xml_metadata_map.emplace(key,value);
-            }
-
-          	auto it = xml_metadata_map.find("DimensionOrder");
-            if (it != xml_metadata_map.end())
-            {
-              auto dim_order_str = it->second;
-              if (dim_order_str == "XYZTC") { dim_order = 1;}
-              else if (dim_order_str == "XYZCT") { dim_order = 2;}
-              else if (dim_order_str == "XYTCZ") { dim_order = 4;}
-              else if (dim_order_str == "XYTZC") { dim_order = 8;}
-              else if (dim_order_str == "XYCTZ") { dim_order = 16;}
-              else if (dim_order_str == "XYCZT") { dim_order = 32;}
-              else { dim_order = 1;}
-            }
-            
-            it = xml_metadata_map.find("SizeC");
-            if (it != xml_metadata_map.end()) nc = std::stoi(it->second);
-
-            it = xml_metadata_map.find("SizeZ");
-            if (it != xml_metadata_map.end()) nz = std::stoi(it->second);
-
-            it = xml_metadata_map.find("SizeT");
-            if (it != xml_metadata_map.end()) nt = std::stoi(it->second);
-            
-            // get TiffData info
-            tiff_data_str << "{ "; 
-            for (pugi::xml_node tiff_data: pixel.children("TiffData")){
-              size_t c=0, t=0, z=0, ifd=0;
-              for (pugi::xml_attribute attr: tiff_data.attributes()){
-                if (strcmp(attr.name(),"FirstC") == 0) {c = atoi(attr.value());}
-                else if (strcmp(attr.name(),"FirstZ") == 0) {z = atoi(attr.value());}
-                else if (strcmp(attr.name(),"FirstT") == 0) {t = atoi(attr.value());}
-                else if (strcmp(attr.name(),"IFD") == 0) {ifd = atoi(attr.value());}
-                else {continue;}
-              } 
-              tiff_data_str << "\"" << ifd << "\": [" << z << "," << c << ", " << t << " ],"; 
-            }
-            tiff_data_str.seekp(-1, tiff_data_str.cur);
-            tiff_data_str << "}";
-          }
+          OmeXml ome_data = OmeXml();
+          ome_data.ParseOmeXml(infobuf);
 
           oss << "{"; //start creating JSON string
-          oss << "\"dimensions\": [" << nt << "," << nc << "," << nz << ","  << image_height << "," << image_width <<  "],"
+          oss << "\"dimensions\": [" << ome_data.nt << "," << ome_data.nc << "," << ome_data.nz << ","  << image_height << "," << image_width <<  "],"
               << "\"blockSize\": [1,1,1," << tile_height << "," << tile_width << "],"
               << "\"dataType\": \"" << dtype << "\","
               << "\"samplePerPixel\": \"" << sample_per_pixel << "\","
-              << "\"dimOrder\": " << dim_order << ","
-              << "\"tiffData\": " << tiff_data_str.str() << ",";
-          for (auto &key : xml_metadata_map){
-            oss<<"\""<<key.first<<"\":"<<"\""<<key.second<<"\",";
-          }
+              << "\"dimOrder\": " << ome_data.dim_order << ","
+              << "\"omeXml\": " << ome_data.ToJsonStr() << ",";
           oss.seekp(-1, oss.cur);
           oss << "}"; // finish JSON string
 
         }
-        //std::cout << oss.str() <<std::endl;
         TIFFClose(tiff_);      
         absl::Cord tmp =  absl::Cord(oss.str());
         read_result.value = std::move(tmp);
@@ -345,7 +281,6 @@ struct ReadTask {
             auto t_szb = TIFFTileSize(tiff_);
             TIFFSetDirectory(tiff_, ifd_dir);
             internal::FlatCordBuilder buffer(t_szb);
-            //std::cout<<"using libtiff" <<std::endl;
             auto errcode = TIFFReadTile(tiff_, buffer.data(), x_pos, y_pos, 0, 0);
             TIFFClose(tiff_);      
             if (errcode != -1){

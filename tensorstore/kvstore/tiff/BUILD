@@ -16,11 +16,10 @@ filegroup(
 
 tensorstore_cc_library(
     name = "tiff",
-    srcs = ["tiff_key_value_store.cc",
-            "pugixml.cpp"],
-    hdrs = ["pugixml.hpp",
-            "pugiconfig.hpp"],
+    srcs = ["tiff_key_value_store.cc"],
+    hdrs = ["omexml.h"],
     deps = [
+        ":omexml",
         "//tensorstore/kvstore/file:file_util",
         "//tensorstore/kvstore/file:util",
         "//tensorstore:context",
@@ -87,6 +86,15 @@ tensorstore_cc_test(
         "@com_google_absl//absl/synchronization",
         "@com_google_googletest//:gtest_main",
     ],
+)
+
+tensorstore_cc_library(
+    name = "omexml",
+    srcs = ["omexml.cc",
+            "pugixml.cpp"],
+    hdrs = ["pugixml.hpp",
+            "pugiconfig.hpp",
+            "omexml.h"],
 )
 
 tensorstore_cc_library(

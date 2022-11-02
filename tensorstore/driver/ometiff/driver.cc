@@ -99,12 +99,12 @@ Result<std::shared_ptr<const OmeTiffMetadata>> ParseEncodedMetadata(
   }
   // create ifd lookup table
   std::map<std::tuple<size_t, size_t, size_t>, size_t> ifd_lookup_table;
-  if (raw_data.contains("tiffData")){
-    for(auto &el : raw_data["tiffData"].items()){
-      ifd_lookup_table.emplace(el.value().get<std::tuple<size_t,size_t,size_t>>(), 
-                                std::stoi(el.key()));
-    }
+
+  for(auto &el : raw_data["omeXml"]["tiffData"].items()){
+    ifd_lookup_table.emplace(el.value().get<std::tuple<size_t,size_t,size_t>>(), 
+                              std::stoi(el.key()));
   }
+
   TENSORSTORE_ASSIGN_OR_RETURN(auto metadata,
                                OmeTiffMetadata::FromJson(std::move(raw_data)));
   
@@ -241,7 +241,6 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
     StrAppend(&key, "_", cell_indices[3]*chunk_shape[3]);
     StrAppend(&key, "_", cell_indices[4]*chunk_shape[4]);
     StrAppend(&key, "_", ifd);
-    //std::cout << "storage key : " << key << std::endl;
     return key;
   }
 

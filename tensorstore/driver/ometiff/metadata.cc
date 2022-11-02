@@ -82,9 +82,9 @@ constexpr auto MetadataJsonBinder = [](auto maybe_optional) {
 }  // namespace
 
 size_t OmeTiffMetadata::GetIfdIndex(size_t z, size_t c, size_t t) const{
-	size_t nz=shape[2], nc=shape[3], nt=shape[4], ifd_offset;
+	size_t nz=shape[2], nc=shape[1], nt=shape[0], ifd_offset;
   auto it = ifd_lookup_table.find(std::make_tuple(0,0,0));
-  if (it!=ifd_lookup_table.end()) {
+  if (it == ifd_lookup_table.end()) {
     ifd_offset = 0;
   } else {
     ifd_offset = it->second;
@@ -216,7 +216,6 @@ Result<SharedArrayView<const void>> DecodeChunk(const OmeTiffMetadata& metadata,
         internal::TryViewCordAsArray(buffer, 0, metadata.dtype,
                                      endian::little, metadata.chunk_layout);
     if (decoded_array.valid()){
-      //std::cout<<"valid array"<<std::endl;
       return decoded_array;
     }
     else {
