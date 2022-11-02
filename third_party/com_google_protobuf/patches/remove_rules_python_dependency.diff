@@ -1,8 +1,8 @@
 diff --git a/BUILD.bazel b/BUILD.bazel
-index a0c93676a..82d2a741b 100644
+index 0f6e41e3a..9a0e33abc 100644
 --- a/BUILD.bazel
 +++ b/BUILD.bazel
-@@ -4,7 +4,6 @@
+@@ -4,7 +4,6 @@ load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
  load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_test")
  load("@rules_pkg//:mappings.bzl", "pkg_files", "strip_prefix")
  load("@rules_proto//proto:defs.bzl", "proto_lang_toolchain", "proto_library")
@@ -10,9 +10,8 @@ index a0c93676a..82d2a741b 100644
  load("@rules_java//java:defs.bzl", "java_binary", "java_lite_proto_library", "java_proto_library")
  load("//build_defs:cpp_opts.bzl", "COPTS", "LINK_OPTS", "PROTOC_LINK_OPTS")
  load(
- 
 diff --git a/protobuf.bzl b/protobuf.bzl
-index 971612812..7692b0a77 100644
+index c5b8dab38..c0934d9f7 100644
 --- a/protobuf.bzl
 +++ b/protobuf.bzl
 @@ -1,7 +1,9 @@
@@ -23,6 +22,6 @@ index 971612812..7692b0a77 100644
 +
 +py_library = native.py_library
 +py_test = native.py_test
-
+ 
  def _GetPath(ctx, path):
      if ctx.label.workspace_root:
