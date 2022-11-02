@@ -88,41 +88,8 @@ LIBAOM_COPTS = select({
 })
 
 ARCH_DICT = {
-    "sse": select({
-        ":compiler_msvc": ["/arch:SSE"],
-        "//conditions:default": ["-msse"],
-    }),
-    "sse2": select({
-        ":compiler_msvc": ["/arch:SSE2"],
-        "//conditions:default": ["-msse2"],
-    }),
-    "sse3": select({
-        ":compiler_msvc": [
-            "-D__SSE__",
-            "-D__SSE2__",
-            "-D__SSE3__",
-        ],
-        "//conditions:default": ["-msse3"],
-    }),
-    "ssse3": select({
-        ":compiler_msvc": [
-            "-D__SSE__",
-            "-D__SSE2__",
-            "-D__SSE3__",
-            "-D__SSSE3__",
-        ],
-        "//conditions:default": ["-mssse3"],
-    }),
-    "sse4": select({
-        ":compiler_msvc": [
-            "-D__SSE__",
-            "-D__SSE2__",
-            "-D__SSE3__",
-            "-D__SSSE3__",
-            "-D__SSE4__",
-        ],
-        "//conditions:default": ["-msse4"],
-    }),
+    # While aom has implementations for various architectures, this build
+    # assumes that every processor has -msse through -msse4.2, inclusive.
     "sse42": select({
         ":compiler_msvc": [
             "-D__SSE__",
@@ -133,7 +100,16 @@ ARCH_DICT = {
             "-D__SSE4_1__",
             "-D__SSE4_2__",
         ],
-        "//conditions:default": ["-msse4.2"],
+        "//conditions:default": [
+            "-msse",
+            "-msse2",
+            "-msse3",
+            "-mssse3",
+            "-msse4",
+            "-msse4a",
+            "-msse4.1",
+            "-msse4.2",
+        ],
     }),
     "avx": select({
         ":compiler_msvc": ["/arch:AVX"],
@@ -198,23 +174,15 @@ AV1_SRCS = glob(
 AV1_ASM = glob(["av1/encoder/x86/*.asm"])
 
 AV1_SRC_PATTERNS = {
-    "sse2": [
+    "sse42": [
         "av1/encoder/x86/*_sse2.c",
         "av1/common/x86/*_sse2.c",
-    ],
-    "sse3": [
         "av1/encoder/x86/*_sse3.c",
         "av1/common/x86/*_sse3.c",
-    ],
-    "ssse3": [
         "av1/encoder/x86/*_ssse3.c",
         "av1/common/x86/*_ssse3.c",
-    ],
-    "sse4": [
         "av1/encoder/x86/*_sse4.c",
         "av1/common/x86/*_sse4.c",
-    ],
-    "sse42": [
         "av1/encoder/x86/*_sse42.c",
         "av1/common/x86/*_sse42.c",
     ],
@@ -297,9 +265,11 @@ DSP_SRCS = glob(
 DSP_ASM = glob(["aom_dsp/x86/*.asm"])
 
 DSP_SRC_PATTERNS = {
-    "sse2": ["aom_dsp/x86/*_sse2.c"],
-    "ssse3": ["aom_dsp/x86/*_ssse3.c"],
-    "sse4": ["aom_dsp/x86/*_sse4.c"],
+    "sse42": [
+        "aom_dsp/x86/*_sse2.c",
+        "aom_dsp/x86/*_ssse3.c",
+        "aom_dsp/x86/*_sse4.c",
+    ],
     "avx": ["aom_dsp/x86/*_avx.c"],
     "avx2": ["aom_dsp/x86/*_avx2.c"],
 }
