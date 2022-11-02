@@ -269,3 +269,15 @@ tensorstore_cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+cc_library(
+    name = "parse_text_proto_or_die",
+    hdrs = ["parse_text_proto_or_die.h"],
+    deps = [
+        ":proto_util",
+        "//tensorstore/internal:log_message",
+        "//tensorstore/internal:source_location",
+        "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/strings",
+    ],
+)
