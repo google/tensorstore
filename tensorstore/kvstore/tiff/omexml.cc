@@ -2,10 +2,12 @@
 #include "pugixml.hpp"
 #include <algorithm>
 #include <cctype>
+#include <iostream>
 #include <sstream>
 
 void RemoveControlCharacters(std::string& s) {
     s.erase(std::remove_if(s.begin(), s.end(), [](char c) { return std::iscntrl(c); }), s.end());
+    std::replace(s.begin(), s.end(), '\\', '/');
 }
 
 OmeXml::OmeXml():nc{1}, nz{1}, nt{1}, dim_order{1} {}
@@ -21,13 +23,19 @@ void OmeXml::ParseOmeXml(char* buf){
         }
 
         // read structured annotation
-        pugi::xml_node annotation_list = doc.child("OME").child("StructuredAnnotations");
-        for(const pugi::xml_node &annotation : annotation_list){
-            auto key = annotation.child("Value").child("OriginalMetadata").child("Key").child_value();
-            std::string value = annotation.child("Value").child("OriginalMetadata").child("Value").child_value();
-            RemoveControlCharacters(value);
-            xml_metadata_map.emplace(key,value);
-        }
+        // pugi::xml_node annotation_list = doc.child("OME").child("StructuredAnnotations");
+        // std::string skip_str = "xml version=";
+        // for(const pugi::xml_node &annotation : annotation_list){
+        //     std::string key = annotation.child("Value").child("OriginalMetadata").child("Key").child_value();
+        //     std::string value = annotation.child("Value").child("OriginalMetadata").child("Value").child_value();
+        //     if (value.find(skip_str) != std::string::npos) {continue;} // skip nested xml
+        //     else{
+        //         RemoveControlCharacters(key);
+        //         RemoveControlCharacters(value);
+        //         xml_metadata_map.emplace(key,value);
+        //     }
+
+        // }
 
         auto it = xml_metadata_map.find("DimensionOrder");
         if (it != xml_metadata_map.end()){
@@ -87,5 +95,6 @@ std::string OmeXml::ToJsonStr(){
     
     oss.seekp(-1, oss.cur);
     oss << "}"; //finish json 
+    std::cout << oss.str() << std::endl;
     return oss.str();
 }

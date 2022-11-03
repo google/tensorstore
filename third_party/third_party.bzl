@@ -35,6 +35,7 @@ load("//third_party:pypa/workspace.bzl", repo_pypa = "repo")
 load("//third_party:rules_perl/workspace.bzl", repo_rules_perl = "repo")
 load("//third_party:rules_pkg/workspace.bzl", repo_rules_pkg = "repo")
 load("//third_party:se_curl/workspace.bzl", repo_se_curl = "repo")
+load("//third_party:com_github_pugixml/workspace.bzl", repo_com_github_pugixml = "repo")
 
 def third_party_dependencies():
     repo_bazel_skylib()
@@ -74,3 +75,4 @@ def third_party_dependencies():
     repo_rules_perl()
     repo_rules_pkg()
     repo_se_curl()
+    repo_com_github_pugixml()

@@ -57,42 +57,9 @@ tensorstore_cc_library(
     alwayslink = 1,
 )
 
-tensorstore_cc_test(
-    name = "tiff_key_value_store_test",
-    size = "small",
-    srcs = ["tiff_key_value_store_test.cc"],
-    deps = [
-        ":tiff",
-        "//tensorstore:context",
-        "//tensorstore/internal:file_io_concurrency_resource",
-        "//tensorstore/internal:test_util",
-        "//tensorstore/internal:thread",
-        "//tensorstore/kvstore",
-        "//tensorstore/kvstore:generation",
-        "//tensorstore/kvstore:generation_testutil",
-        "//tensorstore/kvstore:key_range",
-        "//tensorstore/kvstore:test_util",
-        "//tensorstore/util:executor",
-        "//tensorstore/util:future",
-        "//tensorstore/util:result",
-        "//tensorstore/util:status",
-        "//tensorstore/util:status_testutil",
-        "//tensorstore/util:str_cat",
-        "//tensorstore/util/execution",
-        "//tensorstore/util/execution:sender_testutil",
-        "@com_github_nlohmann_json//:nlohmann_json",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_absl//absl/synchronization",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
 tensorstore_cc_library(
     name = "omexml",
-    srcs = ["omexml.cc",
-            "pugixml.cpp"],
-    hdrs = ["pugixml.hpp",
-            "pugiconfig.hpp",
-            "omexml.h"],
+    srcs = ["omexml.cc"],
+    hdrs = ["omexml.h"],
+    deps = ["@com_github_pugixml//:pugixml",]
 )
