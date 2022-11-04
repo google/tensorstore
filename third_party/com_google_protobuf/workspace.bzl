@@ -46,5 +46,6 @@ def repo():
             "@com_google_protobuf//:protoc": "protobuf::protoc",
             "@com_google_protobuf//:protobuf": "protobuf::libprotobuf",
             "@com_google_protobuf//:protobuf_lite": "protobuf::libprotobuf-lite",
+            "@com_google_protobuf//:timestamp_proto": "protobuf::timestamp_proto",
         },
     )

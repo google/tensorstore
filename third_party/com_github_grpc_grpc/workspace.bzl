@@ -18,6 +18,11 @@ load(
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 
+# NOTE: When updating grpc, also update:
+#   com_envoyproxy_protoc_gen_validate
+#   com_github_cncf_udpa
+#   upb
+
 def repo():
     maybe(
         third_party_http_archive,
@@ -42,25 +47,29 @@ def repo():
 
 # Aliases (unfortunately) required by gRPC.
 GRPC_NATIVE_BINDINGS = {
-    "benchmark": "@com_google_benchmark//:benchmark",
     "cares": "@com_github_cares_cares//:ares",
     "grpc++_codegen_proto": "@com_github_grpc_grpc//:grpc++_codegen_proto",
     "grpc_cpp_plugin": "@com_github_grpc_grpc//src/compiler:grpc_cpp_plugin",
-    "gtest": "@com_google_googletest//:gtest",
-    "libcrypto": "@com_google_boringssl//:crypto",
-    "libssl": "@com_google_boringssl//:ssl",
-    # "libuv": "@com_github_libuv_libuv//:libuv",
-    # "libuv_test": "@com_github_libuv_libuv//:libuv_test",
-    "madler_zlib": "@net_zlib//:zlib",
     "protobuf": "@com_google_protobuf//:protobuf",
     "protobuf_clib": "@com_google_protobuf//:protoc_lib",
     "protobuf_headers": "@com_google_protobuf//:protobuf_headers",
     "protocol_compiler": "@com_google_protobuf//:protoc",
-    "re2": "@com_google_re2//:re2",
+
+    # upb mappings.
     "upb_json_lib": "@com_google_upb//:json",
     "upb_lib": "@com_google_upb//:upb",
     "upb_lib_descriptor": "@com_google_upb//:descriptor_upb_proto",
     "upb_lib_descriptor_reflection": "@com_google_upb//:descriptor_upb_proto_reflection",
     "upb_reflection": "@com_google_upb//:reflection",
     "upb_textformat_lib": "@com_google_upb//:textformat",
+
+    # These exist to be used by grpc_build_system.bzl
+    "benchmark": "@com_google_benchmark//:benchmark",
+    "gtest": "@com_google_googletest//:gtest",
+    "libcrypto": "@com_google_boringssl//:crypto",
+    "libssl": "@com_google_boringssl//:ssl",
+    "libuv": "@com_github_libuv_libuv//:libuv",
+    "libuv_test": "@com_github_libuv_libuv//:libuv_test",
+    "madler_zlib": "@net_zlib//:zlib",
+    "re2": "@com_google_re2//:re2",
 }

@@ -18,44 +18,86 @@ build --platform_mappings=tools/bazel_platforms/platform_mappings
 # Use absl with googletest
 build --define=absl=1
 
+# Disable xds in gRPC
+build --define=grpc_no_xds=true
+
 # Configure C++17 mode
-build:linux --copt=-fdiagnostics-color=always --cxxopt=-std=c++17 --cxxopt=-fsized-deallocation
-build:macos --copt=-fdiagnostics-color=always --cxxopt=-std=c++17 --cxxopt=-fsized-deallocation
-build:freebsd --copt=-fdiagnostics-color=always --cxxopt=-std=c++17 --cxxopt=-fsized-deallocation
+build:linux --cxxopt=-std=c++17 --cxxopt=-fsized-deallocation
+build:linux --host_cxxopt=-std=c++17 --host_cxxopt=-fsized-deallocation
+
+build:macos --cxxopt=-std=c++17 --cxxopt=-fsized-deallocation
+build:macos --host_cxxopt=-std=c++17 --host_cxxopt=-fsized-deallocation
+
+build:freebsd --cxxopt=-std=c++17 --cxxopt=-fsized-deallocation
+build:freebsd --host_cxxopt=-std=c++17 --host_cxxopt=-fsized-deallocation
+
 build:windows --cxxopt=/std:c++17
+build:windows --host_cxxopt=/std:c++17
+
+# Use colors
+build:linux --copt=-fdiagnostics-color=always
+build:linux --host_copt=-fdiagnostics-color=always
+build:macos --copt=-fdiagnostics-color=always
+build:macos --host_copt=-fdiagnostics-color=always
+build:freebsd --copt=-fdiagnostics-color=always
+build:freebsd --host_copt=-fdiagnostics-color=always
 
 # disable deprecated-declarations warnings
 build:linux --copt='-Wno-deprecated-declarations'
+build:linux --host_copt='-Wno-deprecated-declarations'
 build:macos --copt='-Wno-deprecated-declarations'
+build:macos --host_copt='-Wno-deprecated-declarations'
 build:freebsd --copt='-Wno-deprecated-declarations'
+build:freebsd --host_copt='-Wno-deprecated-declarations'
 
 # disable mixed sign comparison warnings
 build:linux --copt='-Wno-sign-compare'
+build:linux --host_copt='-Wno-sign-compare'
 build:macos --copt='-Wno-sign-compare'
+build:macos --host_copt='-Wno-sign-compare'
 build:freebsd --copt='-Wno-sign-compare'
+build:freebsd --host_copt='-Wno-sign-compare'
 
 # disable spurious warnings from gcc
 build:linux --copt='-Wno-unused-but-set-parameter'
+build:linux --host_copt='-Wno-unused-but-set-parameter'
 build:linux --copt='-Wno-maybe-uninitialized'
+build:linux --host_copt='-Wno-maybe-uninitialized'
 
 # disable warnings from clang about unknown warnings
 build:linux --copt='-Wno-unknown-warning-option'
+build:linux --host_copt='-Wno-unknown-warning-option'
 
-# Windows 10 RS1 required for rename/delete with POSIX semantics
-build:windows --copt=-D_WIN32_WINNT=0x0A000002
+# ------------------------------
+# MacOS configuration settings
+# ------------------------------
 
 # Workaround for https://github.com/abseil/abseil-cpp/issues/848
 # Root cause: https://github.com/bazelbuild/bazel/issues/4341
 build:macos --features=-supports_dynamic_linker
 
+# ------------------------------
+# Windows configuration settings
+# ------------------------------
+
 # Significantly speeds up Python test execution.  Requires Windows
 # developer mode enabled in order for non-admin users to create
 # symlinks.
 startup --windows_enable_symlinks
+
 build:windows --enable_runfiles=true --build_python_zip=false
 
 # Disable warning regarding `msvc::no_unique_address`
 build:windows --copt=/wd4848
+build:windows --host_copt=/wd4848
 
 # Make MSVC conform to the C++ standard regarding hidden friends
 build:windows --copt=/Zc:hiddenFriend
+build:windows --host_copt=/Zc:hiddenFriend
+
+# Windows 10 RS1 required for rename/delete with POSIX semantics
+build:windows --copt=-D_WIN32_WINNT=0x0A000002
+build:windows --host_copt=-D_WIN32_WINNT=0x0A000002
+
+# More verbose windows failures.
+build:windows --verbose_failures
