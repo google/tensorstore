@@ -25,10 +25,10 @@
 #include "absl/status/status.h"
 #include "riegeli/bytes/cfile_reader.h"
 #include "riegeli/bytes/cord_reader.h"
+#include "riegeli/bytes/cord_writer.h"
 #include "riegeli/bytes/string_reader.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/image/image_info.h"
-#include "tensorstore/internal/image/riegeli_block_writer.h"
 #include "tensorstore/internal/image/tiff_reader.h"
 #include "tensorstore/internal/image/tiff_writer.h"
 #include "tensorstore/internal/path.h"
@@ -40,7 +40,6 @@ ABSL_FLAG(std::string, tensorstore_test_data_dir, ".",
 
 namespace {
 
-using ::tensorstore::internal::RiegeliBlockWriter;
 using ::tensorstore::internal_image::ImageInfo;
 using ::tensorstore::internal_image::TiffReader;
 using ::tensorstore::internal_image::TiffWriter;
@@ -120,11 +119,12 @@ TEST_F(TiffTest, EncodeDecode) {
   };
 
   uint8_t pixels[1] = {};
-  RiegeliBlockWriter writer;
 
+  absl::Cord encoded;
   {
+    riegeli::CordWriter riegeli_writer(&encoded);
     TiffWriter encoder;
-    ASSERT_THAT(encoder.Initialize(&writer, TiffWriterOptions{}),
+    ASSERT_THAT(encoder.Initialize(&riegeli_writer, TiffWriterOptions{}),
                 ::tensorstore::IsOk());
     ASSERT_THAT(encoder.Encode(ImageInfo{1, 1, 1}, pixels),
                 ::tensorstore::IsOk());
@@ -132,7 +132,6 @@ TEST_F(TiffTest, EncodeDecode) {
     ASSERT_THAT(encoder.Done(), ::tensorstore::IsOk());
   }
 
-  auto encoded = writer.ConvertToCord();
   EXPECT_THAT(
       encoded,
       ::testing::AnyOf(

@@ -213,7 +213,6 @@ tensorstore_cc_test(
     data = [":testdata"],
     deps = [
         ":image",
-        ":riegeli_block_writer",
         ":tiff",
         "//tensorstore:data_type",
         "//tensorstore/internal:path",
@@ -224,6 +223,7 @@ tensorstore_cc_test(
         "@com_google_googletest//:gtest_main",
         "@com_google_riegeli//riegeli/bytes:cfile_reader",
         "@com_google_riegeli//riegeli/bytes:cord_reader",
+        "@com_google_riegeli//riegeli/bytes:cord_writer",
         "@com_google_riegeli//riegeli/bytes:string_reader",
     ],
 )
@@ -292,7 +292,6 @@ tensorstore_cc_test(
         ":image",
         ":jpeg",
         ":png",
-        ":riegeli_block_writer",
         ":tiff",
         ":webp",
         "//tensorstore/util:span",
@@ -302,20 +301,7 @@ tensorstore_cc_test(
         "@com_google_absl//absl/strings:cord",
         "@com_google_googletest//:gtest_main",
         "@com_google_riegeli//riegeli/bytes:cord_reader",
-        "@com_google_riegeli//riegeli/bytes:writer",
-    ],
-)
-
-tensorstore_cc_library(
-    name = "riegeli_block_writer",
-    srcs = ["riegeli_block_writer.cc"],
-    hdrs = ["riegeli_block_writer.h"],
-    deps = [
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_absl//absl/types:optional",
-        "@com_google_riegeli//riegeli/base",
+        "@com_google_riegeli//riegeli/bytes:cord_writer",
         "@com_google_riegeli//riegeli/bytes:writer",
     ],
 )

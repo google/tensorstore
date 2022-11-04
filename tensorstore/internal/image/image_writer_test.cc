@@ -29,6 +29,7 @@
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "riegeli/bytes/cord_reader.h"
+#include "riegeli/bytes/cord_writer.h"
 #include "riegeli/bytes/writer.h"
 #include "tensorstore/internal/image/avif_reader.h"
 #include "tensorstore/internal/image/avif_writer.h"
@@ -39,7 +40,6 @@
 #include "tensorstore/internal/image/jpeg_writer.h"
 #include "tensorstore/internal/image/png_reader.h"
 #include "tensorstore/internal/image/png_writer.h"
-#include "tensorstore/internal/image/riegeli_block_writer.h"
 #include "tensorstore/internal/image/tiff_reader.h"
 #include "tensorstore/internal/image/tiff_writer.h"
 #include "tensorstore/internal/image/webp_reader.h"
@@ -49,7 +49,6 @@
 
 namespace {
 
-using ::tensorstore::internal::RiegeliBlockWriter;
 using ::tensorstore::internal_image::AvifReader;
 using ::tensorstore::internal_image::AvifReaderOptions;
 using ::tensorstore::internal_image::AvifWriter;
@@ -211,13 +210,12 @@ TEST_P(WriterTest, RoundTrip) {
 
   absl::Cord encoded;
   {
-    RiegeliBlockWriter buffer;
+    riegeli::CordWriter riegeli_writer(&encoded);
 
     // Despite options being passed in, initialize with defaults.
-    ASSERT_THAT(InitializeWithOptions(&buffer), ::tensorstore::IsOk());
+    ASSERT_THAT(InitializeWithOptions(&riegeli_writer), ::tensorstore::IsOk());
     ASSERT_THAT(writer->Encode(source_info, source), ::tensorstore::IsOk());
     ASSERT_THAT(writer->Done(), ::tensorstore::IsOk());
-    encoded = buffer.ConvertToCord();
   }
 
   ImageInfo decoded_info;

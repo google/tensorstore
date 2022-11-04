@@ -79,21 +79,23 @@ toff_t SeekProc(thandle_t data, toff_t pos, int whence) {
   assert(data != nullptr);
   auto* writer = static_cast<TiffWriter::Context*>(data)->writer_;
   assert(writer != nullptr);
+  auto writer_size = writer->Size();
+  uint64_t target_pos = 0;
 
   switch (whence) {
     case SEEK_SET:
       // TENSORSTORE_LOG("tiff seek ", pos);
-      writer->Seek(pos);
+      target_pos = pos;
       break;
     case SEEK_CUR:
       // TENSORSTORE_LOG("tiff skip ", writer->pos(), " ", pos);
-      writer->Seek(writer->pos() + pos);
+      target_pos = writer->pos() + pos;
       break;
     case SEEK_END:
       assert(pos <= 0);
-      // TENSORSTORE_LOG("tiff seek_end ", pos);
-      if (auto size = writer->Size(); size) {
-        writer->Seek(*size - static_cast<uint64_t>(-pos));
+      // TENSORSTORE_LOG("tiff seek_end ", writer->pos(), " ", pos);
+      if (writer_size) {
+        target_pos = *writer_size - static_cast<uint64_t>(-pos);
       } else {
         // Error getting size.
         return -1;
@@ -101,6 +103,16 @@ toff_t SeekProc(thandle_t data, toff_t pos, int whence) {
       break;
     default:
       return -1;
+  }
+
+  // libtiff assumes that seek works like a file; so if the target_pos is beyond
+  // EOF, the writer needs to be extended and the simplest way is WriteZeros.
+  if (target_pos > writer_size.value_or(0)) {
+    uint64_t zeros = target_pos - writer_size.value_or(0);
+    writer->Seek(writer_size.value_or(0));
+    writer->WriteZeros(zeros);
+  } else {
+    writer->Seek(target_pos);
   }
   return writer->ok() ? static_cast<toff_t>(writer->pos()) : -1;
 }
