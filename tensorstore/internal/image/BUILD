@@ -224,6 +224,7 @@ tensorstore_cc_test(
         "@com_google_riegeli//riegeli/bytes:cfile_reader",
         "@com_google_riegeli//riegeli/bytes:cord_reader",
         "@com_google_riegeli//riegeli/bytes:cord_writer",
+        "@com_google_riegeli//riegeli/bytes:read_all",
         "@com_google_riegeli//riegeli/bytes:string_reader",
     ],
 )
@@ -280,7 +281,7 @@ tensorstore_cc_test(
         "@com_google_googletest//:gtest_main",
         "@com_google_riegeli//riegeli/bytes:cfile_reader",
         "@com_google_riegeli//riegeli/bytes:cord_reader",
-        "@com_google_riegeli//riegeli/bytes:reader",
+        "@com_google_riegeli//riegeli/bytes:read_all",
     ],
 )
 

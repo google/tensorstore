@@ -31,7 +31,7 @@
 #include "absl/strings/string_view.h"
 #include "riegeli/bytes/cfile_reader.h"
 #include "riegeli/bytes/cord_reader.h"
-#include "riegeli/bytes/reader.h"
+#include "riegeli/bytes/read_all.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/image/avif_reader.h"
 #include "tensorstore/internal/image/bmp_reader.h"

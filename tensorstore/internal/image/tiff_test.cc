@@ -26,6 +26,7 @@
 #include "riegeli/bytes/cfile_reader.h"
 #include "riegeli/bytes/cord_reader.h"
 #include "riegeli/bytes/cord_writer.h"
+#include "riegeli/bytes/read_all.h"
 #include "riegeli/bytes/string_reader.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/image/image_info.h"
