@@ -15,8 +15,8 @@ filegroup(
 )
 
 tensorstore_cc_library(
-    name = "tiff",
-    srcs = ["tiff_key_value_store.cc"],
+    name = "tiled_tiff",
+    srcs = ["tiled_tiff_key_value_store.cc"],
     hdrs = ["omexml.h"],
     deps = [
         ":omexml",

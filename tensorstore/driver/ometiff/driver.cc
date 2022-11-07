@@ -123,8 +123,7 @@ class MetadataCache : public internal_kvs_backed_chunk_driver::MetadataCache {
   // Metadata is stored as IMAGE_DESCRIPTION tag inside tiff.
   std::string GetMetadataStorageKey(std::string_view entry_key) override {
     // metadata is in the same file
-   auto tmp = tensorstore::StrCat(entry_key, "/__TAG__/", kMetadataKey);
-    return tensorstore::StrCat(entry_key, "/__TAG__/", kMetadataKey);
+    return tensorstore::StrCat(entry_key, "__TAG__/", kMetadataKey);
 //    return std::string(entry_key);
   }
   Result<MetadataPtr> DecodeMetadata(std::string_view entry_key,
@@ -229,7 +228,7 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
 
    std::string GetChunkStorageKey(const void* metadata_ptr,
                                  span<const Index> cell_indices) override {
-    // Use "0" for rank 0 as a special case.
+    // OMETiff is always 5D. So need to add some check here
     const auto& metadata = *static_cast<const OmeTiffMetadata*>(metadata_ptr);
 
     size_t ifd = metadata.GetIfdIndex(cell_indices[2],cell_indices[1],cell_indices[0]);
@@ -313,9 +312,8 @@ class OmeTiffDriver::OpenState : public OmeTiffDriver::OpenStateBase {
     return spec().store.path;
   }
   std::string GetMetadataCacheEntryKey() override { 
-    std::string tmp = spec().store.path;
-    tmp.pop_back(); 
-    return tmp; }
+    return spec().store.path; 
+  }
   
   std::unique_ptr<internal_kvs_backed_chunk_driver::MetadataCache>
   GetMetadataCache(MetadataCache::Initializer initializer) override {

@@ -77,12 +77,12 @@ using ::tensorstore::internal_file_util::LongestDirectoryPrefix;
 using ::tensorstore::internal_file_util::UniqueFileDescriptor;
 using ::tensorstore::kvstore::ReadResult;
 
-auto& tiff_bytes_read = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/tiff/bytes_read",
-    "Bytes read by the tiff kvstore driver");
+auto& tiled_tiff_bytes_read = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/tiled_tiff/bytes_read",
+    "Bytes read by the tiled tiff kvstore driver");
 
-auto& tiff_read = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/kvstore/tiff/read", "tiff driver kvstore::Read calls");
+auto& tiled_tiff_read = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/tiled_tiff/read", "tiled tiff driver kvstore::Read calls");
 
 absl::Status ValidateKey(std::string_view key) {
   if (!IsKeyValid(key, kLockSuffix)) {
@@ -184,7 +184,7 @@ std::string GetDataType(short sample_format, short bits_per_sample){
   }
 }
 
-/// Implements `TiffKeyValueStore::Read`.
+/// Implements `TiledTiffKeyValueStore::Read`.
 
 // if we can override this in each cache class, that may work
 struct ReadTask {
@@ -285,7 +285,7 @@ struct ReadTask {
             TIFFClose(tiff_);      
             if (errcode != -1){
               read_result.state = ReadResult::kValue;
-              tiff_bytes_read.IncrementBy(errcode);
+              tiled_tiff_bytes_read.IncrementBy(errcode);
               read_result.value = std::move(buffer).Build();
             } 
             else {
@@ -301,7 +301,7 @@ struct ReadTask {
   }
 };
 
-struct TiffKeyValueStoreSpecData {
+struct TiledTiffKeyValueStoreSpecData {
   Context::Resource<internal::FileIoConcurrencyResource> file_io_concurrency;
 
   constexpr static auto ApplyMembers = [](auto& x, auto f) {
@@ -310,14 +310,14 @@ struct TiffKeyValueStoreSpecData {
 
    constexpr static auto default_json_binder = jb::Object(jb::Member(
       internal::FileIoConcurrencyResource::id,
-      jb::Projection<&TiffKeyValueStoreSpecData::file_io_concurrency>()));
+      jb::Projection<&TiledTiffKeyValueStoreSpecData::file_io_concurrency>()));
 };
 
-class TiffKeyValueStoreSpec
-    : public internal_kvstore::RegisteredDriverSpec<TiffKeyValueStoreSpec,
-                                                    TiffKeyValueStoreSpecData> {
+class TiledTiffKeyValueStoreSpec
+    : public internal_kvstore::RegisteredDriverSpec<TiledTiffKeyValueStoreSpec,
+                                                    TiledTiffKeyValueStoreSpecData> {
  public:
-  static constexpr char id[] = "tiff";
+  static constexpr char id[] = "tiled_tiff";
 
   Future<kvstore::DriverPtr> DoOpen() const override;
 
@@ -326,12 +326,12 @@ class TiffKeyValueStoreSpec
   }
 };
 
-class TiffKeyValueStore
-    : public internal_kvstore::RegisteredDriver<TiffKeyValueStore,
-                                                TiffKeyValueStoreSpec> {
+class TiledTiffKeyValueStore
+    : public internal_kvstore::RegisteredDriver<TiledTiffKeyValueStore,
+                                                TiledTiffKeyValueStoreSpec> {
  public:
   Future<ReadResult> Read(Key key, ReadOptions options) override {
-    tiff_read.Increment();
+    tiled_tiff_read.Increment();
     TENSORSTORE_RETURN_IF_ERROR(ValidateKey(key));
     return MapFuture(executor(), ReadTask{std::move(key), std::move(options)});
   }
@@ -342,7 +342,7 @@ class TiffKeyValueStore
     return tensorstore::StrCat("local file ", tensorstore::QuoteString(key));
   }
 
-  absl::Status GetBoundSpecData(TiffKeyValueStoreSpecData& spec) const {
+  absl::Status GetBoundSpecData(TiledTiffKeyValueStoreSpecData& spec) const {
     spec = spec_;
     return absl::OkStatus();
   }
@@ -350,18 +350,18 @@ class TiffKeyValueStore
   SpecData spec_;
 };
 
-Future<kvstore::DriverPtr> TiffKeyValueStoreSpec::DoOpen() const {
-  auto driver_ptr = internal::MakeIntrusivePtr<TiffKeyValueStore>();
+Future<kvstore::DriverPtr> TiledTiffKeyValueStoreSpec::DoOpen() const {
+  auto driver_ptr = internal::MakeIntrusivePtr<TiledTiffKeyValueStore>();
   driver_ptr->spec_ = data_;
   return driver_ptr;
 }
 
 Result<kvstore::Spec> ParseFileUrl(std::string_view url) {
-  auto driver_spec = internal::MakeIntrusivePtr<TiffKeyValueStoreSpec>();
+  auto driver_spec = internal::MakeIntrusivePtr<TiledTiffKeyValueStoreSpec>();
   driver_spec->data_.file_io_concurrency =
       Context::Resource<internal::FileIoConcurrencyResource>::DefaultSpec();
   auto parsed = internal::ParseGenericUri(url);
-  assert(parsed.scheme == tensorstore::TiffKeyValueStoreSpec::id);
+  assert(parsed.scheme == tensorstore::TiledTiffKeyValueStoreSpec::id);
   if (!parsed.query.empty()) {
     return absl::InvalidArgumentError("Query string not supported");
   }
@@ -376,14 +376,14 @@ Result<kvstore::Spec> ParseFileUrl(std::string_view url) {
 }  // namespace tensorstore
 
 TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(
-    tensorstore::TiffKeyValueStore)
+    tensorstore::TiledTiffKeyValueStore)
 
 namespace {
 const tensorstore::internal_kvstore::DriverRegistration<
-    tensorstore::TiffKeyValueStoreSpec>
+    tensorstore::TiledTiffKeyValueStoreSpec>
     registration;
 
 const tensorstore::internal_kvstore::UrlSchemeRegistration
-    url_scheme_registration{tensorstore::TiffKeyValueStoreSpec::id,
+    url_scheme_registration{tensorstore::TiledTiffKeyValueStoreSpec::id,
                             tensorstore::ParseFileUrl};
 }  // namespace

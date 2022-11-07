@@ -174,8 +174,10 @@ Result<std::shared_ptr<const OmeTiffMetadata>> GetNewMetadata(
         chunk_layout, domain.box(),
         MutableBoxView<>(rank, chunk_origin, metadata->chunk_shape.data())));
   }
-
-  metadata->dim_order = *metadata_constraints.dim_order;
+  if(metadata_constraints.dim_order){
+    metadata->dim_order = *metadata_constraints.dim_order;
+  }
+  
   metadata->extra_attributes = metadata_constraints.extra_attributes;
   TENSORSTORE_RETURN_IF_ERROR(ValidateMetadata(*metadata));
   TENSORSTORE_RETURN_IF_ERROR(ValidateMetadataSchema(*metadata, schema));
@@ -231,7 +233,8 @@ Result<SharedArrayView<const void>> DecodeChunk(const OmeTiffMetadata& metadata,
 Result<absl::Cord> EncodeChunk(span<const Index> chunk_indices,
                                const OmeTiffMetadata& metadata,
                                ArrayView<const void> array) {
-  return absl::Cord();
+  return absl::UnimplementedError(
+            "Writing OMETiff is not supported");
 }
 
 absl::Status ValidateMetadata(const OmeTiffMetadata& metadata,

@@ -11,7 +11,7 @@ DRIVERS = [
     "http",
     "memory",
     "neuroglancer_uint64_sharded",
-    "tiff",
+    "tiled_tiff",
 ]
 
 filegroup(
