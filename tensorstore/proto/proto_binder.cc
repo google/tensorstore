@@ -18,12 +18,12 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/status/status.h"
+#include <nlohmann/json.hpp>
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/message.h"
 #include "google/protobuf/text_format.h"
 #include "google/protobuf/util/json_util.h"
-#include "absl/status/status.h"
-#include <nlohmann/json.hpp>
 #include "tensorstore/internal/json/value_as.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_fwd.h"

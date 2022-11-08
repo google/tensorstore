@@ -19,11 +19,11 @@
 #include <utility>
 #include <vector>
 
+#include "absl/strings/string_view.h"
 #include "google/protobuf/io/tokenizer.h"
 #include "google/protobuf/io/zero_copy_stream_impl_lite.h"
 #include "google/protobuf/message.h"
 #include "google/protobuf/text_format.h"
-#include "absl/strings/string_view.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
