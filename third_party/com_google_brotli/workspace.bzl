@@ -22,9 +22,9 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_brotli",
-        urls = ["https://github.com/google/brotli/archive/9801a2c5d6c67c467ffad676ac301379bb877fc3.zip"],  # master(2022-06-14)
-        sha256 = "79edf11c219ee05fa57f5ec7b2a224d1d945679c457f4585bb834a6e2c321b8f",
-        strip_prefix = "brotli-9801a2c5d6c67c467ffad676ac301379bb877fc3",
+        urls = ["https://github.com/google/brotli/archive/6d03dfbedda1615c4cba1211f8d81735575209c8.zip"],  # master(2022-11-08)
+        sha256 = "73a89a4a5ad295eed881795f2767ee9f7542946011f4b30385bcf2caef899df3",
+        strip_prefix = "brotli-6d03dfbedda1615c4cba1211f8d81735575209c8",
         system_build_file = Label("//third_party:com_google_brotli/system.BUILD.bazel"),
         cmake_name = "Brotli",
         bazel_to_cmake = {},
