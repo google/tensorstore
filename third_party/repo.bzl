@@ -72,9 +72,9 @@ def _third_party_http_archive_impl(ctx):
             stripPrefix = ctx.attr.strip_prefix,
             canonical_id = ctx.attr.canonical_id,
         )
-        patch(ctx)
         for path in ctx.attr.remove_paths:
             ctx.delete(path)
+        patch(ctx)
         workspace_and_buildfile(ctx)
 
         return update_attrs(
