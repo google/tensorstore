@@ -233,6 +233,15 @@ class ThirdPartyRepoLibrary(BazelGlobals):
     pass
 
 
+@register_bzl_library(
+    "@com_google_tensorstore//third_party:local_mirror.bzl", workspace=True)
+class ThirdPartyLocalMirrorLibrary(BazelGlobals):
+
+  def bazel_local_mirror(self, **kwargs):
+    del kwargs
+    pass
+
+
 def _get_fetch_content_third_party_dir(context: EvaluationContext) -> str:
   return os.path.join(context.repo.cmake_binary_dir, "third_party")
 
