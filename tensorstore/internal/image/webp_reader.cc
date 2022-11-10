@@ -25,7 +25,6 @@
 
 #include "absl/status/status.h"
 #include "absl/types/optional.h"
-#include "riegeli/base/base.h"
 #include "riegeli/bytes/reader.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/image/image_info.h"
