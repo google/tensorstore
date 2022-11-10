@@ -23,6 +23,7 @@ import sys
 
 from . import cmake_builder
 from . import native_rules  # pylint: disable=unused-import
+from . import native_rules_cc  # pylint: disable=unused-import
 from . import rule  # pylint: disable=unused-import
 from .bzl_library import default as _  # pylint: disable=unused-import
 from .evaluation import EvaluationContext

@@ -98,6 +98,10 @@ class CMakeBuilder:
       key = (section, text)
       if key in self._unique:
         return
+      # FIND_PACKAGE / FIND_DEP_PACKAGE are special.
+      if (section == FIND_DEP_PACKAGE_SECTION and
+          (FIND_PACKAGE_SECTION, text) in self._unique):
+        return
       self._unique.add(key)
     self._sections[section].append(text)
 

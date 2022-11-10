@@ -16,7 +16,6 @@
 # pylint: disable=missing-function-docstring,relative-beyond-top-level,g-doc-args
 
 import argparse
-import os
 import pathlib
 import platform
 import re
@@ -31,6 +30,7 @@ from .provider import CMakeDepsProvider
 from .provider import CMakePackageDepsProvider
 from .provider import Provider
 from .provider import TargetInfo
+
 
 # Maps `platform.system()` value to Bazel host platform name for use in
 # .bazelrc.
@@ -69,6 +69,8 @@ class Workspace:
       self,
       cmake_vars: Dict[str, str],
   ):
+    # Variables provided by CMake.
+    self.cmake_vars = cmake_vars
     # Maps bazel repo names to CMake project name/prefix.
     self.bazel_to_cmake_deps: Dict[str, str] = {}
 
@@ -76,17 +78,12 @@ class Workspace:
     self.repo_cmake_packages: Set[str] = set()
     self.host_platform_name = _PLATFORM_NAME_TO_BAZEL_PLATFORM.get(
         platform.system())
-
-    self.flag_values: Dict[Label, str] = {}
     self.values: Set[Tuple[str, str]] = set()
     self.copts: List[str] = []
     self.cxxopts: List[str] = []
     self.cdefines: List[str] = []
     self.ignored_libraries: Set[Label] = set()
-
-    self.cmake_vars = cmake_vars
     self.modules: List[str] = []
-
     self._analyzed_targets: Dict[Label, TargetInfo] = {}
 
   def set_bazel_target_mapping(self,
@@ -130,7 +127,13 @@ class Workspace:
 
     This currently only uses `--define` options.
     """
-    options = _parse_bazelrc(path)
+    self.add_bazelrc(_parse_bazelrc(path))
+
+  def add_bazelrc(self, options: Dict[str, List[str]]) -> None:
+    """Updates options based on a parsed `.bazelrc` file.
+
+    This currently only uses `--define` options.
+    """
     build_options = []
     build_options.extend(options.get("build", []))
     if self.host_platform_name is not None:
@@ -185,11 +188,8 @@ class Repository:
     self.workspace = workspace
     self.bazel_repo_name = bazel_repo_name
     self.cmake_project_name = cmake_project_name
-    if os.sep != "/":
-      source_directory = source_directory.replace(os.sep, "/")
-      cmake_binary_dir = cmake_binary_dir.replace(os.sep, "/")
-    self.cmake_binary_dir = cmake_binary_dir
-    self.source_directory = source_directory
+    self.cmake_binary_dir = str(pathlib.PurePath(cmake_binary_dir).as_posix())
+    self.source_directory = str(pathlib.PurePath(source_directory).as_posix())
     self.repo_mapping: Dict[str, str] = {}
     self.top_level = top_level
     workspace.repos[bazel_repo_name] = self

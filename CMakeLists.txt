@@ -85,8 +85,9 @@ bazel_to_cmake(
   --ignore-library "//tensorstore:non_compile.bzl"
   --ignore-library "@com_google_protobuf//:protobuf.bzl"
   --bazelrc .bazelrc
-  --module bazel_to_cmake.bzl_library.third_party_http_archive
+  --module bazel_to_cmake.bzl_library.local_mirror
   --module bazel_to_cmake.bzl_library.rules_nasm
+  --module bazel_to_cmake.bzl_library.third_party_http_archive
 )
 
 if(TENSORSTORE_DEBUG_DUMP_TARGETS)

@@ -18,6 +18,7 @@
 from typing import Any, TypeVar, Type, Optional, List, NamedTuple, cast
 
 from .label import CMakeTarget
+from .label import Label
 
 
 class Provider:
@@ -31,6 +32,9 @@ class BuildSettingProvider(Provider):
   def __init__(self, value: Any):
     self.value = value
 
+  def __repr__(self):
+    return f"{self.__class__.__name__}({repr(self.value)})"
+
 
 class ConditionProvider(Provider):
   """Condition value corresponding to a Bazel target."""
@@ -38,6 +42,9 @@ class ConditionProvider(Provider):
 
   def __init__(self, value: bool):
     self.value = value
+
+  def __repr__(self):
+    return f"{self.__class__.__name__}({self.value})"
 
 
 class FilesProvider(Provider):
@@ -47,6 +54,20 @@ class FilesProvider(Provider):
 
   def __init__(self, paths: List[str]):
     self.paths = paths
+
+  def __repr__(self):
+    return f"{self.__class__.__name__}({repr(self.value)})"
+
+
+class ProtoLibraryProvider(Provider):
+  __slots__ = ("srcs", "deps")
+
+  def __init__(self, srcs: List[Label], deps: List[Label]):
+    self.srcs = set(srcs)
+    self.deps = set(deps)
+
+  def __repr__(self):
+    return f"{self.__class__.__name__}({repr(self.srcs)}, {repr(self.deps)})"
 
 
 class CMakeTargetPair(NamedTuple):
@@ -69,6 +90,9 @@ class CMakeDepsProvider(Provider):
   def __init__(self, targets: List[CMakeTarget]):
     self.targets = targets
 
+  def __repr__(self):
+    return f"{self.__class__.__name__}({repr(self.targets)})"
+
 
 class CMakePackageDepsProvider(Provider):
   """CMake packages required by a Bazel target."""
@@ -78,6 +102,9 @@ class CMakePackageDepsProvider(Provider):
   def __init__(self, packages: List[str]):
     self.packages = packages
 
+  def __repr__(self):
+    return f"{self.__class__.__name__}({repr(self.packages)})"
+
 
 class CMakeTargetProvider(Provider):
   """CMake target corresponding to a Bazel target."""
@@ -86,6 +113,9 @@ class CMakeTargetProvider(Provider):
 
   def __init__(self, target: CMakeTarget):
     self.target = target
+
+  def __repr__(self):
+    return f"{self.__class__.__name__}({repr(self.target)})"
 
 
 P = TypeVar("P", bound=Provider)

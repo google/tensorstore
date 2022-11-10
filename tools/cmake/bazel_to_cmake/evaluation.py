@@ -64,7 +64,6 @@ Similar to the real Bazel, evaluation is performed in several phases:
    and `bazel_to_cmake` exits.
 
 10. The CMake code is evaluated by CMake.
-
 """
 
 # pylint: disable=relative-beyond-top-level,protected-access,missing-function-docstring,invalid-name,g-doc-args,g-doc-return-or-yield
@@ -417,6 +416,11 @@ class EvaluationContext:
 
     library_path = self.get_source_file_path(library_target)
     assert library_path is not None
+    print(f"Using bzl library: {parsed} at {library_path}")
+
+    content = self._load(library_path)
+
+    # Parse the library
     scope_type = BazelWorkspaceGlobals if is_workspace else BuildFileLibraryGlobals
     library = scope_type(context=self, path=library_path)
     package_name = parsed.package_name
@@ -426,37 +430,43 @@ class EvaluationContext:
     self.current_package = None
     self.current_package_name = package_name
     self.current_repository_name = parsed.repo_name
-    self._exec(library_path, library)
+    exec(compile(content, library_path, "exec"), library)  # pylint: disable=exec-used
     self.current_package = old_package
     self.current_package_name = old_package_name
     self.current_repository_name = old_repository_name
     self._loaded_libraries[key] = library
     return library
 
-  def _exec(self, path: str, scope: Dict[str, Any]):
+  def _load(self, path: str) -> str:
     print(f"Loading {path}")
     self.loaded_files.add(path)
-    code = compile(pathlib.Path(path).read_text(encoding="utf-8"), path, "exec")
-    exec(code, scope)  # pylint: disable=exec-used
+    return pathlib.Path(path).read_text(encoding="utf-8")
 
   def process_build_file(self, build_file: str):
     """Processes a single package (BUILD file)."""
-    self._processing_workspace = False
     build_file_path = str(
         pathlib.PurePosixPath(self.repo.source_directory).joinpath(build_file))
-    package_name = "/".join(build_file.split("/")[:-1])  # remove BUILD.
+    self.process_build_content(build_file_path, self._load(build_file_path))
+
+  def process_build_content(self, build_file_path: str, content: str):
+    """Processes a single package (BUILD file content)."""
+    assert (build_file_path.endswith("BUILD") or
+            build_file_path.endswith("BUILD.bazel"))
+    assert build_file_path.startswith(self.repo.source_directory)
+    # remove prefix and BUILD.
+    package_name = build_file_path[(
+        1 + len(self.repo.source_directory)):build_file_path.rfind("/")]
     package = Package(self, self.repo, package_name)
+    self._processing_workspace = False
     self.current_package_name = package_name
     self.current_repository_name = self.repo.bazel_repo_name
     self.current_package = package
-
     scope = BuildFileGlobals(context=self, path=build_file_path)
-    self._exec(build_file_path, scope)
+    exec(compile(content, build_file_path, "exec"), scope)  # pylint: disable=exec-used
 
   def process_workspace(self):
     """Processes the WORKSPACE."""
     assert self.repo.top_level
-    self._processing_workspace = True
     workspace_file_path = str(
         pathlib.PurePosixPath(
             self.repo.source_directory).joinpath("WORKSPACE.bazel"))
@@ -464,10 +474,19 @@ class EvaluationContext:
       workspace_file_path = str(
           pathlib.PurePosixPath(
               self.repo.source_directory).joinpath("WORKSPACE"))
+    self.process_workspace_content(workspace_file_path,
+                                   self._load(workspace_file_path))
+
+  def process_workspace_content(self, workspace_file_path: str, content: str):
+    assert (workspace_file_path.endswith("WORKSPACE") or
+            workspace_file_path.endswith("WORKSPACE.bazel"))
+    assert self.repo.top_level
+    self._processing_workspace = True
+
     self.current_package_name = ""
     self.current_package = None
     scope = BazelWorkspaceGlobals(context=self, path=workspace_file_path)
-    self._exec(workspace_file_path, scope)
+    exec(compile(content, workspace_file_path, "exec"), scope)  # pylint: disable=exec-used
     for callback in self._call_after_workspace_loading:
       callback()
 
@@ -547,6 +566,9 @@ class BazelGlobals(dict):
   @property
   def repo_and_package_name(self):
     return f"@{self._repo.bazel_repo_name}//{self._package_name}"
+
+  def bazel_len(self, x):
+    return len(x)
 
   def bazel_Label(self, target: RelativeLabel) -> StarlarkLabel:  # pylint: disable=invalid-name
     return StarlarkLabel(
