@@ -4,6 +4,8 @@
 #include <cctype>
 #include <iostream>
 #include <sstream>
+namespace tensorstore {
+namespace omexml{
 
 void RemoveControlCharacters(std::string& s) {
     s.erase(std::remove_if(s.begin(), s.end(), [](char c) { return std::iscntrl(c); }), s.end());
@@ -98,3 +100,5 @@ std::string OmeXml::ToJsonStr(){
     std::cout << oss.str() << std::endl;
     return oss.str();
 }
+} // namespace omexml
+} // namespace tensorstore

@@ -1,0 +1,11 @@
+licenses(["notice"])
+
+exports_files(["LICENSE.MIT"])
+
+cc_library(
+    name = "pugixml",
+    srcs = glob(["src/*.cpp"]),
+    hdrs = glob(["src/*.hpp"]),
+    strip_include_prefix = "src",
+    visibility = ["//visibility:public"],
+)

@@ -4,7 +4,8 @@
 #include <tuple>
 #include <vector>
 
-
+namespace tensorstore {
+namespace omexml {
 class OmeXml
 {
 public:
@@ -18,3 +19,5 @@ public:
     std::string ToJsonStr();
     
 };
+} // namespace omexml
+} // namespace tensorstore

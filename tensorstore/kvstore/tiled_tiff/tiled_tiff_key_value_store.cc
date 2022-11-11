@@ -76,6 +76,7 @@ using ::tensorstore::internal_file_util::kLockSuffix;
 using ::tensorstore::internal_file_util::LongestDirectoryPrefix;
 using ::tensorstore::internal_file_util::UniqueFileDescriptor;
 using ::tensorstore::kvstore::ReadResult;
+using ::tensorstore::omexml::OmeXml;
 
 auto& tiled_tiff_bytes_read = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/tiled_tiff/bytes_read",
