@@ -15,7 +15,10 @@
 """Supports pybind11 extension modules"""
 
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
-load("//python/tensorstore:pybind11_cc_test.bzl", _pybind11_cc_googletest_test = "pybind11_cc_googletest_test")
+load(
+    "//bazel:pybind11_cc_test.bzl",
+    _pybind11_cc_googletest_test = "pybind11_cc_googletest_test",
+)
 
 # Derived from py_extension rule in riegelli
 def py_extension(

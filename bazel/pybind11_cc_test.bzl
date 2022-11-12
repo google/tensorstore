@@ -21,6 +21,9 @@ the entry point (`cc_test_driver.cc`), and use a Python script
 module.
 """
 
+CC_DRIVER_SRC = "//python/tensorstore:cc_test_driver.cc"
+PYTHON_DRIVER_SRC = "//python/tensorstore:cc_test_driver_main.py"
+
 # The _write_template rule copies a template file to a destination file,
 # applying string replacements.
 def _write_template_impl(ctx):
@@ -73,7 +76,7 @@ def pybind11_cc_googletest_test(
 
     _write_template(
         name = driver_module_cc_src + "_gen",
-        src = "//python/tensorstore:cc_test_driver.cc",
+        src = CC_DRIVER_SRC,
         substitutions = {
             "CC_TEST_DRIVER_MODULE": driver_module_name,
         },
@@ -99,7 +102,7 @@ def pybind11_cc_googletest_test(
 
     _write_template(
         name = driver_module_py_src + "_gen",
-        src = "//python/tensorstore:cc_test_driver_main.py",
+        src = PYTHON_DRIVER_SRC,
         substitutions = {
             "CC_TEST_DRIVER_MODULE": driver_module_name,
         },

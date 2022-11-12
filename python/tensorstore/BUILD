@@ -1,8 +1,13 @@
-load(":pybind11.bzl", "pybind11_cc_googletest_test", "pybind11_cc_library", "pybind11_py_extension")
-load(":pytest.bzl", "tensorstore_pytest_test")
-load(":pytype.bzl", "pytype_strict_binary")
+load(
+    "//bazel:pybind11.bzl",
+    "pybind11_cc_googletest_test",
+    "pybind11_cc_library",
+    "pybind11_py_extension",
+)
+load("//bazel:pytest.bzl", "tensorstore_pytest_test")
+load("//bazel:pytype.bzl", "pytype_strict_binary")
+load("//bazel:tensorstore.bzl", "tensorstore_cc_library")
 load("//docs:doctest.bzl", "doctest_test")
-load("//tensorstore:tensorstore.bzl", "tensorstore_cc_library")
 
 package(default_visibility = ["//visibility:public"])
 

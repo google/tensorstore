@@ -82,7 +82,7 @@ bazel_to_cmake(
   "--exclude-package=tensorstore/examples/python/**"
   --ignore-library "//third_party:python/python_configure.bzl"
   --ignore-library "//docs:doctest.bzl"
-  --ignore-library "//tensorstore:non_compile.bzl"
+  --ignore-library "//bazel:non_compile.bzl"
   --ignore-library "@com_google_protobuf//:protobuf.bzl"
   --bazelrc .bazelrc
   --module bazel_to_cmake.bzl_library.local_mirror

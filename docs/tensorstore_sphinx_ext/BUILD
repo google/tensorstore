@@ -1,4 +1,4 @@
-load("//python/tensorstore:pytype.bzl", "pytype_strict_library")
+load("//bazel:pytype.bzl", "pytype_strict_library")
 
 package(
     default_visibility = ["//docs:__subpackages__"],

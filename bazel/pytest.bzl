@@ -14,7 +14,7 @@
 
 """Supports running pytest-based tests."""
 
-load("//python/tensorstore:pytype.bzl", "pytype_strict_test")
+load("//bazel:pytype.bzl", "pytype_strict_test")
 
 # The _write_wrapper rule generates a Python script for invoking pytest on a
 # particular set of test modules, by copying the template

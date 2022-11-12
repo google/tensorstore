@@ -11,8 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""CMake implementation of "@com_google_tensorstore//third_party:local_mirror.bzl".
-"""
+"""CMake implementation of "@com_google_tensorstore//bazel:local_mirror.bzl"."""
 
 # pylint: disable=invalid-name,missing-function-docstring,relative-beyond-top-level,g-long-lambda
 
@@ -32,7 +31,7 @@ from ..label import Label
 
 
 @register_bzl_library(
-    "@com_google_tensorstore//third_party:local_mirror.bzl", workspace=True)
+    "@com_google_tensorstore//bazel:local_mirror.bzl", workspace=True)
 class ThirdPartyLocalMirrorLibrary(BazelGlobals):
 
   def bazel_local_mirror(self, **kwargs):

@@ -1,4 +1,4 @@
-load("//python/tensorstore:pytest.bzl", "tensorstore_pytest_test")
+load("//bazel:pytest.bzl", "tensorstore_pytest_test")
 # Beam based tensorstore examples
 
 package(default_visibility = ["//visibility:public"])

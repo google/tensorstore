@@ -1,4 +1,4 @@
-load("//docs/tensorstore_sphinx_material:nodejs_rules.bzl", "nodejs_binary")
+load("//bazel:nodejs_rules.bzl", "nodejs_binary")
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load(":icons.bzl", "icon_symlinks")
 

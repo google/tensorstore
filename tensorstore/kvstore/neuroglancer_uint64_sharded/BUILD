@@ -1,7 +1,7 @@
 #Neuroglancer precomputed sharded format kvstore driver
 
 load(
-    "//tensorstore:tensorstore.bzl",
+    "//bazel:tensorstore.bzl",
     "tensorstore_cc_library",
     "tensorstore_cc_test",
 )

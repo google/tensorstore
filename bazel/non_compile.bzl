@@ -11,8 +11,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""C++ non-compilation test.
 
-load("//tensorstore:tensorstore.bzl", "tensorstore_cc_test")
+Typically cc_with_non_compile_test() asserts that a compilation fails,
+however given the number of possible configurations, this has not been
+ported to the open-source build, and disables the non-compile test
+macro, EXPECT_NON_COMPILE.
+"""
+
+load("//bazel:tensorstore.bzl", "tensorstore_cc_test")
 
 def cc_with_non_compile_test(
         name,

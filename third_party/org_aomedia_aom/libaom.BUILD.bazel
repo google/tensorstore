@@ -3,7 +3,7 @@
 #
 load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
-load("@com_google_tensorstore//:rules_nasm.bzl", "nasm_library")
+load("@com_google_tensorstore//bazel:rules_nasm.bzl", "nasm_library")
 
 package(default_visibility = ["//visibility:private"])
 
