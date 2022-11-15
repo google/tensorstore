@@ -68,10 +68,11 @@ Similar to the real Bazel, evaluation is performed in several phases:
 
 # pylint: disable=relative-beyond-top-level,protected-access,missing-function-docstring,invalid-name,g-doc-args,g-doc-return-or-yield
 
+import collections
 import importlib
 import os
 import pathlib
-from typing import Tuple, Dict, Type, Callable, TypeVar, List, Optional, Any, Set, cast, Iterable, NamedTuple
+from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Set, Tuple, Type, TypeVar, cast
 
 from . import cmake_builder
 from .cmake_builder import CMakeBuilder
@@ -135,6 +136,14 @@ class EvaluationContext:
     # Ensure all rule modules are loaded
     for module in self.workspace.modules:
       importlib.import_module(module)
+
+  def _set_current(self, package: Optional["Package"], repository_name: str,
+                   package_name: str):
+    old = (self.current_package, self.current_repository_name,
+           self.current_package_name)
+    (self.current_package, self.current_repository_name,
+     self.current_package_name) = (package, repository_name, package_name)
+    return old
 
   def add_rule(self,
                rule_label: Label,
@@ -238,7 +247,7 @@ class EvaluationContext:
     parsed = parse_label(target)
     repo = self.workspace.repos.get(parsed.repo_name)
     if repo is None:
-      raise ValueError(f"Unknown repo name in target: {target}")
+      raise ValueError(f"Unknown repository name in target: {target}")
     return str(
         pathlib.PurePosixPath(repo.cmake_binary_dir).joinpath(
             parsed.package_name, parsed.target_name))
@@ -291,7 +300,10 @@ class EvaluationContext:
       cmake_info = info.get(CMakeDepsProvider)
       if cmake_info is not None:
         custom_target_deps.extend(cmake_info.targets)
-    return info[FilesProvider].paths
+    files_provider = info.get(FilesProvider)
+    if files_provider is not None:
+      return files_provider.paths
+    raise ValueError(f"get_file_paths failed for {target} info {repr(info)}")
 
   def get_targets_file_paths(
       self,
@@ -419,21 +431,17 @@ class EvaluationContext:
     print(f"Using bzl library: {parsed} at {library_path}")
 
     content = self._load(library_path)
-
-    # Parse the library
+   
+    # Switch packages and parse the library
+    old = self._set_current(None, parsed.repo_name, parsed.package_name)
     scope_type = BazelWorkspaceGlobals if is_workspace else BuildFileLibraryGlobals
     library = scope_type(context=self, path=library_path)
-    package_name = parsed.package_name
-    old_package_name = self.current_package_name
-    old_repository_name = self.current_repository_name
-    old_package = self.current_package
-    self.current_package = None
-    self.current_package_name = package_name
-    self.current_repository_name = parsed.repo_name
-    exec(compile(content, library_path, "exec"), library)  # pylint: disable=exec-used
-    self.current_package = old_package
-    self.current_package_name = old_package_name
-    self.current_repository_name = old_repository_name
+    try:
+      exec(compile(content, library_path, "exec"), library)  # pylint: disable=exec-used
+    except Exception as e:
+      raise RuntimeError(f"While loading {library_path}") from e
+    # Restore packages and save the library
+    self._set_current(*old)
     self._loaded_libraries[key] = library
     return library
 
@@ -458,9 +466,7 @@ class EvaluationContext:
         1 + len(self.repo.source_directory)):build_file_path.rfind("/")]
     package = Package(self, self.repo, package_name)
     self._processing_workspace = False
-    self.current_package_name = package_name
-    self.current_repository_name = self.repo.bazel_repo_name
-    self.current_package = package
+    self._set_current(package, self.repo.bazel_repo_name, package_name)
     scope = BuildFileGlobals(context=self, path=build_file_path)
     exec(compile(content, build_file_path, "exec"), scope)  # pylint: disable=exec-used
 
@@ -543,6 +549,9 @@ class BazelGlobals(dict):
 
   Derived classes can define a `bazel_<name>` property/method to implement the
   `<name>` Starlark global.
+  
+  Reference:
+    https://github.com/bazelbuild/starlark/blob/master/spec.md#built-in-constants-and-functions
   """
 
   def __init__(self, context: EvaluationContext, path: str = ""):
@@ -567,9 +576,6 @@ class BazelGlobals(dict):
   def repo_and_package_name(self):
     return f"@{self._repo.bazel_repo_name}//{self._package_name}"
 
-  def bazel_len(self, x):
-    return len(x)
-
   def bazel_Label(self, target: RelativeLabel) -> StarlarkLabel:  # pylint: disable=invalid-name
     return StarlarkLabel(
         self._context,
@@ -591,8 +597,43 @@ class BazelGlobals(dict):
     for key, value in kwargs.items():
       self[key] = library[value]
 
-  bazel_hasattr = staticmethod(hasattr)
+  def bazel_fail(self, *args):
+    raise ValueError(" ".join([str(x) for x in args]))
+
+  def bazel_struct(self, **kwargs):
+    """https://bazel.build/rules/lib/struct"""
+    # NOTE: We should install this struct in a distinct module.
+    fields = sorted(kwargs.keys())
+    typename = "".join([x.title() for x in fields])
+    struct_cls = collections.namedtuple(typename, fields)
+    return struct_cls(**kwargs)
+
+  bazel_all = staticmethod(all)
+  bazel_any = staticmethod(any)
+  bazel_bool = staticmethod(bool)
+  bazel_bytes = staticmethod(bytes)
+  bazel_dict = staticmethod(dict)
+  bazel_dir = staticmethod(dir)
+  bazel_enumerate = staticmethod(enumerate)
+  bazel_float = staticmethod(float)
   bazel_getattr = staticmethod(getattr)
+  bazel_hasattr = staticmethod(hasattr)
+  bazel_hash = staticmethod(hash)
+  bazel_int = staticmethod(int)
+  bazel_len = staticmethod(len)
+  bazel_list = staticmethod(list)
+  bazel_max = staticmethod(max)
+  bazel_min = staticmethod(min)
+  bazel_print = staticmethod(print)
+  bazel_range = staticmethod(range)
+  bazel_repr = staticmethod(repr)
+  bazel_reversed = staticmethod(reversed)
+  bazel_set = staticmethod(set)
+  bazel_sorted = staticmethod(sorted)
+  bazel_str = staticmethod(str)
+  bazel_tuple = staticmethod(tuple)
+  bazel_type = staticmethod(type)
+  bazel_zip = staticmethod(zip)
 
 
 class BazelNativeWorkspaceRules:
