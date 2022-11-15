@@ -46,6 +46,18 @@ def repo():
             "@com_google_protobuf//:protoc": "protobuf::protoc",
             "@com_google_protobuf//:protobuf": "protobuf::libprotobuf",
             "@com_google_protobuf//:protobuf_lite": "protobuf::libprotobuf-lite",
+            # Well-known protos
+            "@com_google_protobuf//:any_proto": "protobuf::any_proto",
+            "@com_google_protobuf//:api_proto": "protobuf::api_proto",  #
+            "@com_google_protobuf//:compiler_plugin_proto": "protobuf::compiler_plugin_proto",  #
+            "@com_google_protobuf//:descriptor_proto": "protobuf::descriptor_proto",
+            "@com_google_protobuf//:duration_proto": "protobuf::duration_proto",
+            "@com_google_protobuf//:empty_proto": "protobuf::empty_proto",  #
+            "@com_google_protobuf//:field_mask_proto": "protobuf::field_mask_proto",  #
+            "@com_google_protobuf//:source_context_proto": "protobuf::source_context_proto",  #
+            "@com_google_protobuf//:struct_proto": "protobuf::struct_proto",  #
             "@com_google_protobuf//:timestamp_proto": "protobuf::timestamp_proto",
+            "@com_google_protobuf//:type_proto": "protobuf::type_proto",  #
+            "@com_google_protobuf//:wrappers_proto": "protobuf::wrappers_proto",
         },
     )
