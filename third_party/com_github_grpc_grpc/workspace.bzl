@@ -18,19 +18,17 @@ load(
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 
+# NOTE: Switch back to a tagged release with darwin-arm64
 # NOTE: When updating grpc, also update:
-#   com_envoyproxy_protoc_gen_validate
-#   com_github_cncf_udpa
 #   upb
-
 def repo():
     maybe(
         third_party_http_archive,
         name = "com_github_grpc_grpc",
-        sha256 = "13df210199d89b62cc48d6b24ba202815a3d8bf7d91c1cc38353702712b3d716",
-        strip_prefix = "grpc-1.50.1",
+        sha256 = "9164010d67b9080d26c2f93d4bb457231ec5a7d687dffe43d1ddf924e4b5ca6b",
+        strip_prefix = "grpc-a02cc7d88ae45abf7ccb742c7c61345f7ef6d0d2",
         urls = [
-            "https://github.com/grpc/grpc/archive/v1.50.1.zip",
+            "https://github.com/grpc/grpc/archive/a02cc7d88ae45abf7ccb742c7c61345f7ef6d0d2.tar.gz",  # master(2022-11-18)
         ],
         patches = [
             "//third_party:com_github_grpc_grpc/patches/update_build_system.diff",
