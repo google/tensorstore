@@ -311,7 +311,7 @@ Build dependencies
 TensorStore is written in C++ and is compatible with the following C++
 compilers:
 
-- GCC 9 or later (Linux)
+- GCC 10 or later (Linux)
 - Clang 8 or later (Linux)
 - Microsoft Visual Studio 2019 version 16.10 (MSVC 14.29.30037) or later
 - Clang-cl 9 or later (Windows)
