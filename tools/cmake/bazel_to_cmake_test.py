@@ -49,14 +49,17 @@ class CMakeHelper:
     workspace = self.workspace
     add_platform_constraints(workspace)
     workspace.add_module('bazel_to_cmake.native_rules')
+    workspace.add_module('bazel_to_cmake.native_rules_cc')
     workspace.add_module('bazel_to_cmake.bzl_library.third_party_http_archive')
-    workspace.add_module('bazel_to_cmake.bzl_library.rules_nasm')
     workspace.add_module('bazel_to_cmake.bzl_library.local_mirror')
-    workspace.add_module('bazel_to_cmake.bzl_library.cc_grpc_library')
+    workspace.add_module('bazel_to_cmake.bzl_library.grpc_generate_cc')
 
     workspace.set_bazel_target_mapping(
         '@com_github_grpc_grpc//:grpc++_codegen_proto', 'gRPC::gRPC_codegen',
         'gRPC')
+    workspace.set_bazel_target_mapping(
+        '@com_github_grpc_grpc//src/compiler:grpc_cpp_plugin',
+        'gRPC::grpc_cpp_plugin', 'gRPC')
     workspace.set_bazel_target_mapping('@com_google_protobuf//:protobuf',
                                        'protobuf::libprotobuf', 'protobuf')
 
@@ -163,26 +166,65 @@ add_custom_command(
   OUTPUT "_cmake_binary_dir_/c.pb.h" "_cmake_binary_dir_/c.pb.cc"
   COMMAND protobuf::protoc
   ARGS --experimental_allow_proto3_optional
-      --cpp_out "${PROJECT_BINARY_DIR}"
       -I "${PROJECT_SOURCE_DIR}"
+      --cpp_out=${PROJECT_BINARY_DIR}
       "{directory}/c.proto"
   DEPENDS "protobuf::protoc" "{directory}/c.proto"
-  COMMENT "Running cpp protocol buffer compiler on {directory}/c.proto"
+  COMMENT "Running protoc (cpp) on c.proto"
   VERBATIM)
 add_custom_target(CMakeProject_c.proto__cc_protoc DEPENDS "_cmake_binary_dir_/c.pb.h" "_cmake_binary_dir_/c.pb.cc")
 """, cmake_text)
 
-  def test_cc_grpc_library(self):
+  def test_starlark_primitives(self):
     self.maxDiff = None
     # bazel_to_cmake checks file existence before returning a
     with tempfile.TemporaryDirectory(prefix='src') as directory:
       os.chdir(directory)
-      with open('a.h', 'wb') as f:
+      os.makedirs('bazel')
+      with open('bazel/a.bzl', 'wb') as f:
+        f.write(
+            bytes("""
+load(":b.bzl", "bfn")
+
+def afn(x):
+    return bfn(x)
+
+""", 'utf-8'))
+      with open('bazel/b.bzl', 'wb') as f:
+        f.write(
+            bytes(
+                """
+def bfn(x):
+    return 'b_'+x
+
+def test_fn(x):
+  print(x)
+
+# Tests
+T=len([1,2,3])
+T=all([True, False])
+T=any([True, False])
+T=sorted([2,1, 3])
+T=reversed([1,2,3])
+T=set([1, 2, 3])
+T=dict([('one', 2), (3, 4)])
+T=range(0, 5, 10)
+T=list(range(5))
+T=min(5, -2, 1, 7, 3)
+T=max(5, -2, 1, 7, 3)
+T=enumerate([False, True, None], 42)
+T=zip([1, 2, 3])
+T=dir({})
+T=hasattr("", "find")
+T=struct(x=1, y='a')
+T=repr(T)
+
+""", 'utf-8'))
+      with open('b_r.h', 'wb') as f:
         f.write(bytes('// a.h\n', 'utf-8'))
-      with open('a.cc', 'wb') as f:
+
+      with open('b_r.cc', 'wb') as f:
         f.write(bytes('// a.cc\n', 'utf-8'))
-      with open('c.proto', 'wb') as f:
-        f.write(bytes('// c.proto\n', 'utf-8'))
 
       cmake = CMakeHelper(directory, CMAKE_VARS)
 
@@ -196,27 +238,32 @@ workspace(name = "com_google_tensorstore")
       cmake.context.process_build_content(
           os.path.join(directory, 'BUILD.bazel'), """
 
-load("@com_google_tensorstore//tensorstore:cc_grpc_library.bzl", "cc_grpc_library")
-
 package(default_visibility = ["//visibility:public"])
+
+load("//bazel:a.bzl", "afn")
+
+alias(
+  name = "h_file",
+  actual = select({
+    "//conditions:default": afn("r.h"),
+    "//:cpu_darwin_arm64": afn("r.h"),
+  })
+)
 
 cc_library(
     name = "a",
-    srcs = ["a.cc"],
-    hdrs = ["a.h"],
-    deps = [":cc_grpc" ],
+    hdrs = [ ":h_file" ],
+    srcs = select({
+    "//conditions:default" : [ afn("r.cc") ],
+    "//:cpu_darwin_arm64" : [ afn("r.cc") ],
+  })
 )
 
-proto_library(
-    name = "c_proto",
-    cc_api_version = 2,
-    srcs = [ "c.proto" ],
+config_setting(
+    name = "cpu_darwin_arm64",
+    values = {"cpu": "darwin_arm64"},
 )
 
-cc_grpc_library(
-   name = "cc_grpc",
-   srcs = [ ":c_proto" ],
-)
 """)
 
       cmake.context.analyze_default_targets()
@@ -226,29 +273,12 @@ cc_grpc_library(
       self.assertIn(
           f"""
 add_library(CMakeProject_a)
-target_sources(CMakeProject_a PRIVATE "{directory}/a.cc")
+target_sources(CMakeProject_a PRIVATE "{directory}/b_r.cc")
 set_property(TARGET CMakeProject_a PROPERTY LINKER_LANGUAGE "CXX")
-target_link_libraries(CMakeProject_a PUBLIC "CMakeProject::cc_grpc" "Threads::Threads" "m")
+target_link_libraries(CMakeProject_a PUBLIC "Threads::Threads" "m")
 target_include_directories(CMakeProject_a PUBLIC "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>" "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
 target_compile_features(CMakeProject_a PUBLIC cxx_std_17)
 add_library(CMakeProject::a ALIAS CMakeProject_a)
-""", cmake_text)
-
-      # There's grpc output
-      self.assertIn(
-          f"""
-add_custom_command(
-  OUTPUT "_cmake_binary_dir_/c.grpc.pb.h" "_cmake_binary_dir_/c.grpc.pb.cc"
-  COMMAND protobuf::protoc
-  ARGS --experimental_allow_proto3_optional
-      --grpc_out "${PROJECT_BINARY_DIR}"
-      -I "${PROJECT_SOURCE_DIR}"
-      --plugin=protoc-gen-grpc="$<TARGET_FILE:gRPC::grpc_cpp_plugin>"
-      "{directory}/c.proto"
-  DEPENDS "protobuf::protoc" "gRPC::grpc_cpp_plugin" "{directory}/c.proto"
-  COMMENT "Running gRPC compiler on {directory}/c.proto"
-  VERBATIM)
-add_custom_target(CMakeProject_cc_grpc__grpc_codegen DEPENDS "_cmake_binary_dir_/c.grpc.pb.h" "_cmake_binary_dir_/c.grpc.pb.cc")
 """, cmake_text)
 
   def test_third_party_http_library(self):
@@ -275,7 +305,6 @@ add_custom_target(CMakeProject_cc_grpc__grpc_codegen DEPENDS "_cmake_binary_dir_
 workspace(name = "com_google_tensorstore")
 
 load("//third_party:repo.bzl", "third_party_http_archive")
-load("//third_party:local_mirror.bzl", "local_mirror")
 
 third_party_http_archive(
     name = "net_sourceforge_half",
@@ -355,7 +384,7 @@ cc_library(
           os.path.join(directory, 'WORKSPACE'), '''
 workspace(name = "com_google_tensorstore")
 
-load("//third_party:local_mirror.bzl", "local_mirror")
+load("//bazel:local_mirror.bzl", "local_mirror")
 
 local_mirror(
     name = "local_proto_mirror",
@@ -444,6 +473,97 @@ file(DOWNLOAD "https://raw.githubusercontent.com/bufbuild/protoc-gen-validate/26
       self.assertIn(
           """add_subdirectory("_cmake_binary_dir_/local_mirror/lpm" _local_mirror_configs EXCLUDE_FROM_ALL)""",
           cmake_text)
+
+  def test_grpc_generate_cc(self):
+    self.maxDiff = None
+    # bazel_to_cmake checks file existence before returning a
+    with tempfile.TemporaryDirectory(prefix='src') as directory:
+      os.chdir(directory)
+      with open('a.h', 'wb') as f:
+        f.write(bytes('// a.h\n', 'utf-8'))
+      with open('a.cc', 'wb') as f:
+        f.write(bytes('// a.cc\n', 'utf-8'))
+      with open('c.proto', 'wb') as f:
+        f.write(bytes('// c.proto\n', 'utf-8'))
+
+      cmake = CMakeHelper(directory, CMAKE_VARS)
+
+      # Load the WORKSPACE
+      cmake.context.process_workspace_content(
+          os.path.join(directory, 'WORKSPACE'), """
+workspace(name = "com_google_tensorstore")
+""")
+
+      # Load the BUILD file
+      cmake.context.process_build_content(
+          os.path.join(directory, 'BUILD.bazel'), """
+load("@com_github_grpc_grpc//bazel:generate_cc.bzl", "generate_cc")
+
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "a",
+    srcs = ["a.cc"],
+    hdrs = ["a.h"],
+    deps = [":cc_grpc" ],
+)
+
+proto_library(
+    name = "c_proto",
+    cc_api_version = 2,
+    srcs = [ "c.proto" ],
+)
+
+# Mimic cc_grpc_library
+
+generate_cc(
+   name = "cc__grpc_codegen",
+   srcs = [ ":c_proto" ],
+   plugin = "@com_github_grpc_grpc//src/compiler:grpc_cpp_plugin",
+   flags = [ "services_namespace=grpc_gen" ],
+   visibility = ["//visibility:private"]
+)
+
+cc_library(
+  name = "cc_grpc",
+  srcs = [":cc__grpc_codegen"],
+  hdrs = [":cc__grpc_codegen"],
+  deps = ["@com_github_grpc_grpc//:grpc++_codegen_proto"],
+)
+
+""")
+
+      cmake.context.analyze_default_targets()
+      cmake_text = cmake.get_text()
+
+      # There's output for A
+      self.assertIn(
+          f"""
+add_library(CMakeProject_a)
+target_sources(CMakeProject_a PRIVATE "{directory}/a.cc")
+set_property(TARGET CMakeProject_a PROPERTY LINKER_LANGUAGE "CXX")
+target_link_libraries(CMakeProject_a PUBLIC "CMakeProject::cc_grpc" "Threads::Threads" "m")
+target_include_directories(CMakeProject_a PUBLIC "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>" "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
+target_compile_features(CMakeProject_a PUBLIC cxx_std_17)
+add_library(CMakeProject::a ALIAS CMakeProject_a)
+""", cmake_text)
+
+      # There's grpc output
+      self.assertIn(
+          f"""
+add_custom_command(
+  OUTPUT "_cmake_binary_dir_/c.grpc.pb.h" "_cmake_binary_dir_/c.grpc.pb.cc"
+  COMMAND protobuf::protoc
+  ARGS --experimental_allow_proto3_optional
+      -I "${PROJECT_SOURCE_DIR}"
+      --plugin=protoc-gen-grpc="$<TARGET_FILE:gRPC::grpc_cpp_plugin>"
+      --grpc_out=services_namespace=grpc_gen:${PROJECT_BINARY_DIR}
+      "{directory}/c.proto"
+  DEPENDS "gRPC::grpc_cpp_plugin" "protobuf::protoc" "{directory}/c.proto"
+  COMMENT "Running protoc (grpc) on c.proto"
+  VERBATIM)
+add_custom_target(CMakeProject_cc__grpc_codegen DEPENDS "_cmake_binary_dir_/c.grpc.pb.h" "_cmake_binary_dir_/c.grpc.pb.cc")
+""", cmake_text)
 
 
 if __name__ == '__main__':

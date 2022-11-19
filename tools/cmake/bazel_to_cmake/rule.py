@@ -124,7 +124,8 @@ class AttrModule:
           setattr(ctx.attr, name, None)
           return
         assert package is not None
-        label = package.get_label(context.evaluate_configurable(value))
+        label = package.get_label(package.get_configurable(value))
+        assert not isinstance(label, list)
         setattr(ctx.attr, name, context.get_target_info(label))
 
       return impl
@@ -149,7 +150,7 @@ class AttrModule:
 
       def impl(ctx: RuleCtx):
         assert package is not None
-        labels = package.get_label_list(context.evaluate_configurable(value))
+        labels = package.get_label_list(package.get_configurable_list(name))
         setattr(ctx.attr, name,
                 [context.get_target_info(label) for label in labels])
 
@@ -192,6 +193,7 @@ def rule(self: BuildFileLibraryGlobals,
          executable: bool = False,
          output_to_genfiles: bool = False,
          doc: str = ""):
+  # https://bazel.build/rules/lib/globals#rule
   del executable
   del output_to_genfiles
   del doc
@@ -203,7 +205,7 @@ def rule(self: BuildFileLibraryGlobals,
 
     package = context.current_package
     assert package is not None
-    label = package.get_label(name)
+    label = package.get_label(package.get_configurable(name))
 
     outs: List[Label] = []
     attr_impls = [

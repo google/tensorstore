@@ -30,3 +30,6 @@ class RulesCcDefsLibrary(BazelGlobals):
   @property
   def bazel_proto_lang_toolchain(self):
     return IgnoredObject()
+
+  def bazel_ProtoInfo(self, **kwargs):
+    return IgnoredObject()

@@ -41,7 +41,7 @@ def apply_location_substitutions(package: Package, cmd: str,
   def replace_label(m: Match[str]) -> str:
     key = m.group(1)
     target = package.get_label(m.group(2))
-    paths = package.context.get_file_paths(target)
+    paths = package.context.get_file_paths(target, None)
 
     def _get_relpath(path: str):
       rel_path = os.path.relpath(path, relative_to)

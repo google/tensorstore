@@ -155,7 +155,15 @@ def main():
   )
 
   if context.errors:
-    print("\n".join(context.errors), file=sys.stderr)
+    error_str = "\n".join(context.errors)
+    print(
+        f"""
+---------------------------------------------------
+bazel_to_cmake.py encountered errors
+---------------------------------------------------
+{error_str}
+""",
+        file=sys.stderr)
     return 1
 
   if args.build_rules_output:

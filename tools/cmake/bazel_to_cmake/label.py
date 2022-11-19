@@ -44,9 +44,6 @@ class ParsedLabel(NamedTuple):
   def __str__(self) -> str:
     return f"@{self.repo_name}//{self.package_name}:{self.target_name}"
 
-  @property
-  def package_and_target_name(self) -> str:
-    return f"//{self.package_name}:{self.target_name}"
 
 
 def parse_label(target: Union[Label, LabelLike]) -> ParsedLabel:

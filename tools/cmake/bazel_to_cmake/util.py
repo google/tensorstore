@@ -17,6 +17,8 @@ import glob
 import os
 import pathlib
 import re
+from .starlark.bazel_glob import glob_pattern_to_regexp
+
 from typing import Optional, List, Set
 
 
@@ -39,37 +41,6 @@ def write_file_if_not_already_equal(path: str, content: bytes):
     pass
   os.makedirs(os.path.dirname(path), exist_ok=True)
   pathlib.Path(path).write_bytes(content)
-
-
-def glob_pattern_to_regexp(glob_pattern: str) -> str:
-  """Computes a regular expression for a (recursive) glob pattern.
-
-  This is used to efficiently evaluate exclusion criteria.
-
-  Args:
-    glob_pattern: Glob pattern with "*" and "**".  Note that "[]" is not
-      supported.
-
-  Returns:
-    Corresponding regular expression.
-
-  """
-  regexp_parts = []
-
-  for i, part in enumerate(glob_pattern.split("/")):
-    sep_prefix = "/" if i > 0 else ""
-    if part == "**":
-      regexp_parts.append("(?:")
-      regexp_parts.append(sep_prefix)
-      regexp_parts.append(".*)?")
-      continue
-    regexp_parts.append(sep_prefix)
-    for x in re.split(r"(\*)", part):
-      if x == "*":
-        regexp_parts.append("[^/]*")
-      else:
-        regexp_parts.append(re.escape(x))
-  return "".join(regexp_parts)
 
 
 # https://cmake.org/cmake/help/latest/command/if.html#basic-expressions

@@ -19,7 +19,6 @@ import pathlib
 import re
 from typing import Any, Dict, List, Optional, Set, cast
 
-from . import cmake_builder
 from .cmake_builder import CMakeBuilder
 from .cmake_builder import quote_list
 from .configurable import Configurable
@@ -29,6 +28,7 @@ from .evaluation import register_native_build_rule
 from .label import CMakeTarget
 from .label import Label
 from .label import RelativeLabel
+from .protoc_helper import protoc_compile_protos_impl
 from .provider import CMakeDepsProvider
 from .provider import CMakeTargetPair
 from .provider import FilesProvider
@@ -107,11 +107,17 @@ def _handle_cc_common_options(
 ) -> Dict[str, Any]:
   if custom_target_deps is None:
     custom_target_deps = []
-  resolved_srcs = _package.context.get_targets_file_paths(
-      _package.get_label_list(srcs), custom_target_deps)
-  if src_required and not resolved_srcs:
-    resolved_srcs = [_package.context.get_dummy_source()]
-  cmake_deps = set(_package.context.get_deps(_package.get_label_list(deps)))
+
+  resolved_srcs = _package.get_label_list(_package.get_configurable_list(srcs))
+  resolved_deps = _package.get_label_list(_package.get_configurable_list(deps))
+
+  srcs_file_paths = _package.context.get_targets_file_paths(
+      resolved_srcs, custom_target_deps)
+
+  if src_required and not srcs_file_paths:
+    srcs_file_paths = [_package.context.get_dummy_source()]
+
+  cmake_deps = set(_package.context.get_deps(resolved_deps))
 
   # Since Bazel implicitly adds a dependency on the C math library, also add
   # it here.
@@ -131,7 +137,7 @@ def _handle_cc_common_options(
   add_compile_options("CXX", _package.repo.workspace.cxxopts)
 
   result: Dict[str, Any] = {
-      "srcs": set(resolved_srcs),
+      "srcs": set(srcs_file_paths),
       "deps": cmake_deps,
       "custom_target_deps": set(custom_target_deps),
       "extra_public_compile_options": extra_public_compile_options,
@@ -188,19 +194,22 @@ def _cc_library_impl(
     alwayslink: bool = False,
     **kwargs,
 ):
+  resolved_hdrs = _package.get_label_list(_package.get_configurable_list(hdrs))
+  resolved_textual_hdrs = _package.get_label_list(
+      _package.get_configurable_list(textual_hdrs))
+
   context = _package.context
   cmake_target_pair = _package.context.generate_cmake_target_pair(
       _target, generate_alias=True)
   custom_target_deps: List[CMakeTarget] = []
-  resolved_hdrs = context.get_targets_file_paths(
-      _package.get_label_list(hdrs), custom_target_deps=custom_target_deps)
-  resolved_textual_hdrs = context.get_targets_file_paths(
-      _package.get_label_list(textual_hdrs),
-      custom_target_deps=custom_target_deps)
+  hdrs_file_paths = context.get_targets_file_paths(
+      resolved_hdrs, custom_target_deps=custom_target_deps)
+  textual_hdrs_file_paths = context.get_targets_file_paths(
+      resolved_textual_hdrs, custom_target_deps=custom_target_deps)
   emit_cc_library(
       context.builder,
       cmake_target_pair,
-      hdrs=set(resolved_hdrs + resolved_textual_hdrs),
+      hdrs=set(hdrs_file_paths + textual_hdrs_file_paths),
       alwayslink=alwayslink,
       **_handle_cc_common_options(
           _package, custom_target_deps=custom_target_deps, **kwargs),
@@ -356,13 +365,14 @@ def _cc_proto_library_impl(_package: Package,
                            deps: Optional[List[RelativeLabel]] = None,
                            **kwargs):
   del kwargs
+  resolved_deps = _package.get_label_list(_package.get_configurable_list(deps))
+
   context = _package.context
   cmake_target_pair = context.generate_cmake_target_pair(
       _label, generate_alias=True)
-  dep_targets = _package.get_label_list(deps)
   dep_library_targets = [
       _get_cc_proto_library_target(_package.context, dep_target)
-      for dep_target in dep_targets
+      for dep_target in resolved_deps
   ]
   emit_cc_library(
       context.builder,
@@ -405,53 +415,25 @@ def _get_cc_proto_library_target(context: EvaluationContext,
 
 def _get_single_cc_proto_target(context: EvaluationContext, proto_src: Label,
                                 deps: Set[Label]) -> Label:
-  protoc_output_target = proto_src + "__cc_protoc"
   cc_library_target = proto_src + "__cc_proto"
 
   info = context.get_optional_target_info(cc_library_target)
   if info is not None:
     return cc_library_target
 
-  proto_suffix = ".proto"
-  assert proto_src.endswith(proto_suffix)
-  proto_prefix = proto_src[:-len(proto_suffix)]
-  generated_pb_h = f"{proto_prefix}.pb.h"
-  generated_pb_cc = f"{proto_prefix}.pb.cc"
-
-  cmake_protoc_target_pair = context.generate_cmake_target_pair(
-      protoc_output_target, generate_alias=False)
-  cmake_protoc_deps = CMakeDepsProvider([cmake_protoc_target_pair.target])
+  protoc_output_target = proto_src + "__cc_protoc"
+  generated = protoc_compile_protos_impl(
+      context,
+      protoc_output_target,
+      proto_src,
+      plugin=None,
+      add_files_provider=False)
 
   cmake_cc_target_pair = context.generate_cmake_target_pair(
       cc_library_target, generate_alias=True)
 
-  generated_pb_h_path = context.get_generated_file_path(generated_pb_h)
-  generated_pb_cc_path = context.get_generated_file_path(generated_pb_cc)
-
-  context.add_analyzed_target(
-      generated_pb_h,
-      TargetInfo(FilesProvider([generated_pb_h_path]), cmake_protoc_deps))
-  context.add_analyzed_target(
-      generated_pb_cc,
-      TargetInfo(FilesProvider([generated_pb_cc_path]), cmake_protoc_deps))
-
-  context.add_analyzed_target(protoc_output_target,
-                              TargetInfo(cmake_protoc_deps))
-
   context.add_analyzed_target(cc_library_target,
                               TargetInfo(*cmake_cc_target_pair.as_providers()))
-
-  cmake_deps: List[CMakeTarget] = []
-  proto_src_files = context.get_file_paths(proto_src, cmake_deps)
-  assert len(proto_src_files) == 1
-  proto_src_file = proto_src_files[0]
-  _emit_cc_proto_generate(
-      context.builder,
-      cmake_protoc_target_pair.target,
-      proto_src=proto_src_file,
-      cmake_deps=cmake_deps,
-      generated_pb_h=generated_pb_h_path,
-      generated_pb_cc=generated_pb_cc_path)
 
   cc_deps = [
       _get_cc_proto_library_target(context, proto_dep) for proto_dep in deps
@@ -463,37 +445,11 @@ def _get_single_cc_proto_target(context: EvaluationContext, proto_src: Label,
   emit_cc_library(
       context.builder,
       cmake_cc_target_pair,
-      hdrs=set([generated_pb_h_path]),
-      srcs=set([generated_pb_cc_path]),
+      hdrs=set(filter(lambda x: x.endswith(".h"), generated.paths)),
+      srcs=set(filter(lambda x: not x.endswith(".h"), generated.paths)),
       deps=set(cmake_cc_deps),
   )
   context.builder.addtext(
-      f"add_dependencies({cmake_cc_target_pair.target} {cmake_protoc_target_pair.target})\n"
+      f"add_dependencies({cmake_cc_target_pair.target} {context.get_dep(protoc_output_target)[0]})\n"
   )
   return cc_library_target
-
-
-def _emit_cc_proto_generate(
-    _builder: CMakeBuilder,
-    cmake_target: str,
-    proto_src: str,
-    generated_pb_h: str,
-    generated_pb_cc: str,
-    cmake_deps: List[str],
-):
-  """Generates a C++ library corresponding to a Protobuf."""
-  cmake_deps.append("protobuf::protoc")
-  cmake_deps.append(proto_src)
-  _builder.addtext(f"""
-add_custom_command(
-  OUTPUT {quote_list([generated_pb_h, generated_pb_cc])}
-  COMMAND protobuf::protoc
-  ARGS --experimental_allow_proto3_optional
-      --cpp_out "${{PROJECT_BINARY_DIR}}"
-      -I "${{PROJECT_SOURCE_DIR}}"
-      {cmake_builder.quote_path(proto_src)}
-  DEPENDS {quote_list(cmake_deps)}
-  COMMENT "Running cpp protocol buffer compiler on {proto_src}"
-  VERBATIM)
-add_custom_target({cmake_target} DEPENDS {quote_list([generated_pb_h, generated_pb_cc])})
-""")

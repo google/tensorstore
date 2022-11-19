@@ -84,6 +84,10 @@ def add_platform_constraints(workspace: Workspace) -> None:
   workspace._analyzed_targets["@bazel_tools//tools/cpp:compiler"] = TargetInfo(
       BuildSettingProvider(bazel_compiler))
 
+  workspace._analyzed_targets[
+      "@bazel_tools//tools/python:python_version"] = TargetInfo(
+          BuildSettingProvider("PY3"))
+
   config_settings = {}
   for setting_list in _CMAKE_SYSTEM_NAME_CONFIG_SETTINGS.values():
     for setting in setting_list:

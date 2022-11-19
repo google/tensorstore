@@ -69,10 +69,12 @@ Similar to the real Bazel, evaluation is performed in several phases:
 # pylint: disable=relative-beyond-top-level,protected-access,missing-function-docstring,invalid-name,g-doc-args,g-doc-return-or-yield
 
 import collections
+import enum
 import importlib
+import inspect
 import os
 import pathlib
-from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Set, Tuple, Type, TypeVar, cast
+from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Set, Tuple, Type, TypeVar, Union, cast
 
 from . import cmake_builder
 from .cmake_builder import CMakeBuilder
@@ -93,6 +95,9 @@ from .provider import CMakeTargetPair
 from .provider import ConditionProvider
 from .provider import FilesProvider
 from .provider import TargetInfo
+from .starlark.depset import depset as starlark_depset
+from .starlark.provider import provider as starlark_provider
+from .starlark.struct import struct as starlark_struct
 from .util import cmake_is_true
 from .workspace import Repository
 
@@ -104,6 +109,20 @@ RuleImpl = Callable[[], None]
 class RuleInfo(NamedTuple):
   outs: List[Label]
   impl: RuleImpl
+  kind: str
+
+  def __getitem__(self, item):
+    return getattr(self, item, None)
+
+
+class Phase(enum.Enum):
+  LOADING_WORKSPACE = 1
+  LOADING_BUILD = 2
+  ANALYZE = 3
+
+
+def _is_configurable(label: Any) -> bool:
+  return isinstance(label, Select) or isinstance(label, SelectExpression)
 
 
 class EvaluationContext:
@@ -117,7 +136,7 @@ class EvaluationContext:
     self.current_package_name: Optional[str] = None
     self.current_repository_name: Optional[str] = None
     self.current_package: Optional[Package] = None
-    self._processing_workspace = True
+    self._phase: Phase = Phase.LOADING_WORKSPACE
     self.loaded_files: Set[str] = set()
     self._loaded_libraries: Dict[Tuple[Label, bool], Dict[str, Any]] = dict()
     self._wrote_dummy_source = False
@@ -125,8 +144,9 @@ class EvaluationContext:
     self.required_dep_packages: Set[str] = set()
     self.errors: List[str] = []
     # Maps targets to their rules.
+    self._unanalyzed_rules: Set[Label] = set()
+    self._all_rules: Dict[Label, RuleInfo] = {}
     self._unanalyzed_targets: Dict[Label, Label] = {}
-    self._unanalyzed_rules: Dict[Label, RuleInfo] = {}
     self._targets_to_analyze: Set[Label] = set()
     self._call_after_workspace_loading: List[Callable[[], None]] = []
     self._call_after_analysis: List[Callable[[], None]] = []
@@ -159,9 +179,13 @@ class EvaluationContext:
       analyze_by_default: Whether to analyze by default, as opposed to only if
         it is a dependency of another target being analyzed.
     """
-    if rule_label in self._unanalyzed_rules:
+    if rule_label in self._all_rules:
       raise ValueError(f"Duplicate rule: {rule_label}")
-    self._unanalyzed_rules[rule_label] = RuleInfo(outs or [], impl)
+    # kind is assigned from caller function name
+    kind = inspect.currentframe().f_back.f_code.co_name
+    r = RuleInfo(outs or [], impl, kind)
+    self._all_rules[rule_label] = r
+    self._unanalyzed_rules.add(rule_label)
     if outs:
       for out in outs:
         if (out in self.workspace._analyzed_targets or
@@ -178,6 +202,8 @@ class EvaluationContext:
     This must be called by the `RuleImpl` function for the rule_label and each
     output target.
     """
+    assert target is not None
+    assert info is not None
     self.workspace._analyzed_targets[target] = info
 
   def get_optional_target_info(self, target: Label) -> Optional[TargetInfo]:
@@ -188,8 +214,13 @@ class EvaluationContext:
     unanalyzed_targets = self._unanalyzed_targets
     rule_label = unanalyzed_targets.get(target)
     if rule_label is not None:
+      rule_info = self._all_rules.get(rule_label, None)
+      if rule_info is None:
+        raise ValueError(f"Error analyzing {rule_label}: Not found")
+      if rule_label not in self._unanalyzed_rules:
+        raise ValueError(f"Error analyzing {rule_label}: Already analyzed")
       try:
-        rule_info = self._unanalyzed_rules.pop(rule_label)
+        self._unanalyzed_rules.remove(rule_label)
         rule_info.impl()
         for target in rule_info.outs:
           unanalyzed_targets.pop(target, None)
@@ -253,13 +284,16 @@ class EvaluationContext:
             parsed.package_name, parsed.target_name))
 
   def evaluate_condition(self, target: Label) -> bool:
+    assert self._phase == Phase.ANALYZE
     return self.get_target_info(target)[ConditionProvider].value
 
   def evaluate_build_setting(self, target: Label) -> Any:
+    assert self._phase == Phase.ANALYZE
     return self.get_target_info(target)[BuildSettingProvider].value
 
   def evaluate_configurable(self, configurable: Configurable[T]) -> T:
     """Evaluates a `Configurable` expression."""
+    assert self._phase == Phase.ANALYZE
     if isinstance(configurable, Select):
       return self._evaluate_select(configurable)
     if isinstance(configurable, SelectExpression):
@@ -293,7 +327,7 @@ class EvaluationContext:
   def get_file_paths(
       self,
       target: Label,
-      custom_target_deps: Optional[List[CMakeTarget]] = None,
+      custom_target_deps: Optional[List[CMakeTarget]],
   ) -> List[str]:
     info = self.get_target_info(target)
     if custom_target_deps is not None:
@@ -379,6 +413,7 @@ class EvaluationContext:
     Note that any targets that are skipped will not be available for use as
     dependencies of targets defined in other repositories.
     """
+    self._phase = Phase.ANALYZE
     for target in targets:
       self.get_target_info(target)
 
@@ -404,7 +439,7 @@ class EvaluationContext:
 
     3. Otherwise, ignore the library, i.e. return `IgnoredLibrary()`.
     """
-    is_workspace = self._processing_workspace
+    is_workspace = (self._phase == Phase.LOADING_WORKSPACE)
     key = (library_target, is_workspace)
     library = self._loaded_libraries.get(key)
     if library is not None:
@@ -428,10 +463,10 @@ class EvaluationContext:
 
     library_path = self.get_source_file_path(library_target)
     assert library_path is not None
-    print(f"Using bzl library: {parsed} at {library_path}")
+    print(f"Using library: {parsed} at {library_path}")
 
     content = self._load(library_path)
-   
+
     # Switch packages and parse the library
     old = self._set_current(None, parsed.repo_name, parsed.package_name)
     scope_type = BazelWorkspaceGlobals if is_workspace else BuildFileLibraryGlobals
@@ -465,7 +500,7 @@ class EvaluationContext:
     package_name = build_file_path[(
         1 + len(self.repo.source_directory)):build_file_path.rfind("/")]
     package = Package(self, self.repo, package_name)
-    self._processing_workspace = False
+    self._phase = Phase.LOADING_BUILD
     self._set_current(package, self.repo.bazel_repo_name, package_name)
     scope = BuildFileGlobals(context=self, path=build_file_path)
     exec(compile(content, build_file_path, "exec"), scope)  # pylint: disable=exec-used
@@ -487,7 +522,7 @@ class EvaluationContext:
     assert (workspace_file_path.endswith("WORKSPACE") or
             workspace_file_path.endswith("WORKSPACE.bazel"))
     assert self.repo.top_level
-    self._processing_workspace = True
+    self._phase = Phase.LOADING_WORKSPACE
 
     self.current_package_name = ""
     self.current_package = None
@@ -497,7 +532,7 @@ class EvaluationContext:
       callback()
 
   def call_after_workspace_loading(self, callback: Callable[[], None]) -> None:
-    assert self._processing_workspace
+    assert self._phase == Phase.LOADING_WORKSPACE
     self._call_after_workspace_loading.append(callback)
 
   def call_after_analysis(self, callback: Callable[[], None]) -> None:
@@ -510,6 +545,7 @@ class StarlarkLabel(LabelLike):
   This holds a reference to the `EvaluationContext` in order to compute
   `workspace_root`.
   """
+  __slots__ = ("_context", "workspace_name", "package", "name")
 
   def __init__(self, context: EvaluationContext, target: Label):
     parsed = parse_label(target)
@@ -549,7 +585,7 @@ class BazelGlobals(dict):
 
   Derived classes can define a `bazel_<name>` property/method to implement the
   `<name>` Starlark global.
-  
+
   Reference:
     https://github.com/bazelbuild/starlark/blob/master/spec.md#built-in-constants-and-functions
   """
@@ -600,14 +636,6 @@ class BazelGlobals(dict):
   def bazel_fail(self, *args):
     raise ValueError(" ".join([str(x) for x in args]))
 
-  def bazel_struct(self, **kwargs):
-    """https://bazel.build/rules/lib/struct"""
-    # NOTE: We should install this struct in a distinct module.
-    fields = sorted(kwargs.keys())
-    typename = "".join([x.title() for x in fields])
-    struct_cls = collections.namedtuple(typename, fields)
-    return struct_cls(**kwargs)
-
   bazel_all = staticmethod(all)
   bazel_any = staticmethod(any)
   bazel_bool = staticmethod(bool)
@@ -635,6 +663,8 @@ class BazelGlobals(dict):
   bazel_type = staticmethod(type)
   bazel_zip = staticmethod(zip)
 
+  bazel_depset = staticmethod(starlark_depset)
+  bazel_struct = staticmethod(starlark_struct)
 
 class BazelNativeWorkspaceRules:
   """Defines the `native` global accessible when evaluating workspace files."""
@@ -685,6 +715,8 @@ class BuildFileLibraryGlobals(BazelGlobals):
         for condition, value in conditions.items()
     })
 
+  bazel_provider = staticmethod(starlark_provider)
+
   @property
   def bazel_cc_common(self):
     return CcCommonModule
@@ -695,13 +727,6 @@ class BuildFileGlobals(BuildFileLibraryGlobals):
 
   def bazel_licenses(self, *args, **kwargs):
     pass
-
-  def bazel_package(self, **kwargs):
-    default_visibility = kwargs.get("default_visibility")
-    if default_visibility:
-      package = self._context.current_package
-      assert package is not None
-      package.default_visibility = package.get_label_list(default_visibility)
 
 
 class IgnoredObject:
@@ -779,19 +804,36 @@ class Package:
     return self.repo.workspace
 
   def get_label(self, target: RelativeLabel) -> Label:
+    assert target is not None
     return resolve_label(target, self.repo.repo_mapping,
                          self.repo_and_package_name)
 
-  def get_label_list(
-      self,
-      targets: Optional[Configurable[List[RelativeLabel]]] = None
-  ) -> List[Label]:
+  def get_label_list(self,
+                     targets: Optional[List[RelativeLabel]]) -> List[Label]:
     if targets is None:
       return []
-    return [
-        self.get_label(target)
-        for target in self.context.evaluate_configurable(targets)
-    ]
+    assert isinstance(targets, list)
+    return [self.get_label(t) for t in targets]
+
+  def get_configurable(self, target: Configurable[T]) -> T:
+    assert target is not None
+    assert not isinstance(target, list)
+    return self.context.evaluate_configurable(target)
+
+  def get_configurable_list(
+      self, target: Optional[Union[Configurable[List[T]],
+                                   List[Configurable[T]]]]
+  ) -> List[T]:
+    if target is None:
+      return []
+    # The expected output is a list; to get that the input can either be a
+    # list of configurables or a configurable of a list.
+    if isinstance(target, list):
+      return [self.context.evaluate_configurable(t) for t in target]
+    else:
+      target_list = self.context.evaluate_configurable(target)
+      assert isinstance(target_list, list)
+      return target_list
 
   @property
   def repo_and_package_name(self):
