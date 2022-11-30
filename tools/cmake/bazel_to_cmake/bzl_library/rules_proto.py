@@ -16,9 +16,9 @@
 # pylint: disable=relative-beyond-top-level
 
 from .. import native_rules
-from ..evaluation import BazelGlobals
-from ..evaluation import IgnoredObject
-from ..evaluation import register_bzl_library
+from ..starlark.bazel_globals import BazelGlobals
+from ..starlark.bazel_globals import register_bzl_library
+from ..starlark.ignored import IgnoredObject
 
 
 @register_bzl_library("@rules_proto//proto:defs.bzl", build=True)

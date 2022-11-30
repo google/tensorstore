@@ -15,8 +15,8 @@
 
 # pylint: disable=invalid-name,missing-function-docstring,relative-beyond-top-level,g-long-lambda
 
-from ..evaluation import BazelGlobals
-from ..evaluation import register_bzl_library
+from ..starlark.bazel_globals import BazelGlobals
+from ..starlark.bazel_globals import register_bzl_library
 
 
 @register_bzl_library(

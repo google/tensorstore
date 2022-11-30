@@ -18,27 +18,26 @@ https://bazel.build/rules/lib/globals#rule
 Currently this just supports a very limited set of functionality.
 """
 
-# pylint: disable=relative-beyond-top-level,missing-function-docstring,protected-access,invalid-name
+# pylint: disable=relative-beyond-top-level,missing-function-docstring,protected-access,invalid-name,g-importing-member,g-short-docstring-punctuation
 
-from typing import Optional, List, Dict
+from .select import Configurable
+from typing import Any, Callable, Dict, List, NamedTuple, Optional, cast
 
-from .evaluation import BuildFileLibraryGlobals
-from .evaluation import EvaluationContext
-from .evaluation import IgnoredObject
-from .evaluation import Package
+from .bazel_globals import BuildFileLibraryGlobals
+from .bazel_target import TargetId
+from .common_providers import ConditionProvider
+from .common_providers import FilesProvider
+from .ignored import IgnoredObject
+from .invocation_context import InvocationContext
 from .label import Label
 from .label import RelativeLabel
-from .provider import ConditionProvider
-from .provider import FilesProvider
 from .provider import TargetInfo
-from .util import write_file_if_not_already_equal
+from ..util import write_file_if_not_already_equal
 
 
-class File:
+class File(NamedTuple):
   """Represents a file for use by rule implementations."""
-
-  def __init__(self, path: str):
-    self.path = path
+  path: str
 
 
 class RuleCtxAttr:
@@ -56,8 +55,9 @@ class RuleCtxActions:
 
 class RuleCtx:
 
-  def __init__(self, package: Package):
-    self._package = package
+  def __init__(self, context: InvocationContext, label: Label):
+    self._context: InvocationContext = context
+    self.label = label
     self.attr = RuleCtxAttr()
     self.outputs = RuleCtxAttr()
     self.actions = RuleCtxActions(self)
@@ -81,78 +81,93 @@ class AttrModule:
              doc: str = "",
              mandatory: bool = False,
              values: Optional[List[str]] = None):
+    # https://bazel.build/rules/lib/attr#string
     del doc
     del values
 
-    def handle(context: EvaluationContext, name: str, value: Optional[str],
-               outs: List[Label]):
-      del outs
+    def handle(context: InvocationContext, name: str, value: Optional[str],
+               outs: List[TargetId]):
       if mandatory and value is None:
         raise ValueError(f"Attribute {name} not specified")
       if value is None:
         value = default
 
+      del outs
+      del context
+
       def impl(ctx: RuleCtx):
-        setattr(ctx.attr, name, context.evaluate_configurable(value))
+        setattr(ctx.attr, name, ctx._context.evaluate_configurable(value))
 
       return impl
 
     return Attr(handle)
 
   @staticmethod
-  def label(default: Optional[str] = None,
-            mandatory: bool = False,
+  def label(default: Optional[Configurable[RelativeLabel]] = None,
             doc: str = "",
             executable: bool = False,
+            allow_files: Any = None,
+            allow_single_file: Any = None,
+            mandatory: bool = False,
             **kwargs):
+    """https://bazel.build/rules/lib/attr#label"""
     del doc
     del executable
+    del allow_files
+    del allow_single_file
     del kwargs
 
-    def handle(context: EvaluationContext, name: str, value: Optional[str],
-               outs: List[Label]):
-      del outs
+    def handle(context: InvocationContext, name: str,
+               value: Optional[Configurable[RelativeLabel]],
+               outs: List[TargetId]):
       if mandatory and value is None:
         raise ValueError(f"Attribute {name} not specified")
       if value is None:
         value = default
-      package = context.current_package
-      assert package is not None
+
+      del outs
+      del context
 
       def impl(ctx: RuleCtx):
         if value is None:
           setattr(ctx.attr, name, None)
           return
-        assert package is not None
-        label = package.get_label(package.get_configurable(value))
-        assert not isinstance(label, list)
-        setattr(ctx.attr, name, context.get_target_info(label))
+        relative = cast(RelativeLabel,
+                        ctx._context.evaluate_configurable(value))
+        target_id = ctx._context.resolve_target_or_label(relative)
+        setattr(ctx.attr, name, ctx._context.get_target_info(target_id))
 
       return impl
 
     return Attr(handle)
 
   @staticmethod
-  def label_list(default: Optional[List[RelativeLabel]] = None,
+  def label_list(allow_empty=True,
+                 *,
+                 default: Optional[Configurable[List[RelativeLabel]]] = None,
                  mandatory: bool = False,
                  **kwargs):
+    """https://bazel.build/rules/lib/attr#label_list"""
     del kwargs
+    del allow_empty
 
-    def handle(context: EvaluationContext, name: str,
-               value: Optional[List[RelativeLabel]], outs: List[Label]):
-      del outs
+    def handle(context: InvocationContext, name: str,
+               value: Optional[Configurable[List[RelativeLabel]]],
+               outs: List[TargetId]):
       if mandatory and value is None:
         raise ValueError(f"Attribute {name} not specified")
       if value is None:
         value = default
-      package = context.current_package
-      assert package is not None
+
+      del outs
+      del context
 
       def impl(ctx: RuleCtx):
-        assert package is not None
-        labels = package.get_label_list(package.get_configurable_list(name))
+        targets = ctx._context.resolve_target_or_label_list(
+            ctx._context.evaluate_configurable_list(value))
+
         setattr(ctx.attr, name,
-                [context.get_target_info(label) for label in labels])
+                [ctx._context.get_target_info(target) for target in targets])
 
       return impl
 
@@ -160,26 +175,31 @@ class AttrModule:
 
   @staticmethod
   def output(doc: str = "", mandatory: bool = False):
+    """https://bazel.build/rules/lib/attr#output"""
     del doc
 
-    def handle(context: EvaluationContext, name: str, value: Optional[str],
-               outs: List[Label]):
+    def handle(context: InvocationContext, name: str,
+               value: Optional[RelativeLabel], outs: List[TargetId]):
       if mandatory and value is None:
         raise ValueError(f"Attribute {name} not specified")
-      package = context.current_package
-      assert package is not None
 
+      target = None
       if value is not None:
-        target = package.get_label(value)
+        target = context.resolve_target_or_label(value)
         outs.append(target)
 
+      del outs
+      del value
+      del context
+
       def impl(ctx: RuleCtx):
-        if value is None:
+        if target is None:
           setattr(ctx.attr, name, None)
           setattr(ctx.outputs, name, None)
           return
-        path = context.get_generated_file_path(target)
-        context.add_analyzed_target(target, TargetInfo(FilesProvider([path])))
+        path = ctx._context.get_generated_file_path(target)
+        ctx._context.add_analyzed_target(target,
+                                         TargetInfo(FilesProvider([path])))
         setattr(ctx.outputs, name, File(path))
 
       return impl
@@ -187,44 +207,49 @@ class AttrModule:
     return Attr(handle)
 
 
+def _rule_impl(_context: InvocationContext, target: TargetId,
+               attr_impls: List[Callable[[RuleCtx], None]],
+               implementation: Callable[[RuleCtx], Any]):
+  ctx = RuleCtx(_context, Label(target, _context.resolve_source_root))
+  for attr in attr_impls:
+    attr(ctx)
+  _context.add_analyzed_target(target, TargetInfo())
+  implementation(ctx)
+
+
 def rule(self: BuildFileLibraryGlobals,
-         attrs: Dict[str, Attr],
-         implementation,
+         implementation: Callable[[RuleCtx], Any],
+         attrs: Optional[Dict[str, Attr]] = None,
          executable: bool = False,
          output_to_genfiles: bool = False,
          doc: str = ""):
-  # https://bazel.build/rules/lib/globals#rule
+  """https://bazel.build/rules/lib/globals#rule"""
   del executable
   del output_to_genfiles
   del doc
-  context = self._context
 
   def rule_func(name: str,
                 visibility: Optional[List[RelativeLabel]] = None,
                 **rule_kwargs):
+    # snaptshot the invocation context.
+    context = self._context.snapshot()
+    target = context.resolve_target(context.evaluate_configurable(name))
 
-    package = context.current_package
-    assert package is not None
-    label = package.get_label(package.get_configurable(name))
+    outs: List[TargetId] = []
 
-    outs: List[Label] = []
-    attr_impls = [
-        attr_obj._handle(context, attr_name, rule_kwargs.pop(attr_name, None),
-                         outs) for attr_name, attr_obj in attrs.items()
-    ]
-
-    def impl():
-      ctx = RuleCtx(package)
-      for attr_impl in attr_impls:
-        attr_impl(ctx)
-      context.add_analyzed_target(label, TargetInfo())
-      implementation(ctx)
+    if attrs is not None:
+      attr_impls = [
+          attr_obj._handle(context, attr_name, rule_kwargs.pop(attr_name, None),
+                           outs) for attr_name, attr_obj in attrs.items()
+      ]
+    else:
+      attr_impls = []
 
     context.add_rule(
-        label,
-        impl,
+        target,
+        lambda: _rule_impl(context, target, attr_impls, implementation),
         outs=outs,
-        analyze_by_default=package.analyze_by_default(visibility))
+        visibility=visibility)
 
   return rule_func
 

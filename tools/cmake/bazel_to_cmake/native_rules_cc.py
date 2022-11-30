@@ -21,20 +21,22 @@ from typing import Any, Dict, List, Optional, Set, cast
 
 from .cmake_builder import CMakeBuilder
 from .cmake_builder import quote_list
-from .configurable import Configurable
-from .evaluation import EvaluationContext
-from .evaluation import Package
-from .evaluation import register_native_build_rule
-from .label import CMakeTarget
-from .label import Label
-from .label import RelativeLabel
+from .cmake_target import CMakeTarget
+from .cmake_target import CMakeTargetPair
+from .evaluation import EvaluationState
+from .package import Package
+from .package import Visibility
 from .protoc_helper import protoc_compile_protos_impl
-from .provider import CMakeDepsProvider
-from .provider import CMakeTargetPair
-from .provider import FilesProvider
-from .provider import ProtoLibraryProvider
-from .provider import TargetInfo
+from .starlark.bazel_globals import register_native_build_rule
+from .starlark.bazel_target import TargetId
+from .starlark.common_providers import ProtoLibraryProvider
+from .starlark.invocation_context import InvocationContext
+from .starlark.label import RelativeLabel
+from .starlark.provider import TargetInfo
+from .starlark.select import Configurable
 from .variable_substitution import apply_location_substitutions
+
+_SEP = "\n        "
 
 
 def _emit_cc_common_options(
@@ -60,14 +62,14 @@ def _emit_cc_common_options(
   include_dirs = [
       f"$<BUILD_INTERFACE:{include_dir}>" for include_dir in include_dirs
   ]
-  public_scope = "INTERFACE" if interface_only else "PUBLIC"
+  public_context = "INTERFACE" if interface_only else "PUBLIC"
   if local_defines and not interface_only:
     _builder.addtext(
         f"target_compile_definitions({target_name} PRIVATE {quote_list(local_defines)})\n"
     )
   if defines:
     _builder.addtext(
-        f"target_compile_definitions({target_name} {public_scope} {quote_list(defines)})\n"
+        f"target_compile_definitions({target_name} {public_context} {quote_list(defines)})\n"
     )
   if copts and not interface_only:
     _builder.addtext(
@@ -79,24 +81,24 @@ def _emit_cc_common_options(
     if linkopts:
       link_libs.extend(linkopts)
     _builder.addtext(
-        f"target_link_libraries({target_name} {public_scope} {quote_list(link_libs)})\n"
+        f"target_link_libraries({target_name} {public_context}{_SEP}{quote_list(link_libs, separator=_SEP)})\n"
     )
   _builder.addtext(
-      f"target_include_directories({target_name} {public_scope} {quote_list(include_dirs)})\n"
+      f"target_include_directories({target_name} {public_context}{_SEP}{quote_list(include_dirs, separator=_SEP)})\n"
   )
   _builder.addtext(
-      f"target_compile_features({target_name} {public_scope} cxx_std_17)\n")
+      f"target_compile_features({target_name} {public_context} cxx_std_17)\n")
   if custom_target_deps:
     _builder.addtext(
         f"add_dependencies({target_name} {quote_list(custom_target_deps)})\n")
   if extra_public_compile_options:
     _builder.addtext(
-        f"target_compile_options({target_name} {public_scope} {quote_list(extra_public_compile_options)})\n"
+        f"target_compile_options({target_name} {public_context} {quote_list(extra_public_compile_options)})\n"
     )
 
 
 def _handle_cc_common_options(
-    _package: Package,
+    _context: InvocationContext,
     src_required=False,
     custom_target_deps: Optional[List[CMakeTarget]] = None,
     srcs: Optional[Configurable[List[RelativeLabel]]] = None,
@@ -107,24 +109,26 @@ def _handle_cc_common_options(
 ) -> Dict[str, Any]:
   if custom_target_deps is None:
     custom_target_deps = []
+  state = _context.access(EvaluationState)
 
-  resolved_srcs = _package.get_label_list(_package.get_configurable_list(srcs))
-  resolved_deps = _package.get_label_list(_package.get_configurable_list(deps))
-
-  srcs_file_paths = _package.context.get_targets_file_paths(
-      resolved_srcs, custom_target_deps)
+  resolved_srcs = _context.resolve_target_or_label_list(
+      _context.evaluate_configurable_list(srcs))
+  resolved_deps = _context.resolve_target_or_label_list(
+      _context.evaluate_configurable_list(deps))
+  srcs_file_paths = state.get_targets_file_paths(resolved_srcs,
+                                                 custom_target_deps)
 
   if src_required and not srcs_file_paths:
-    srcs_file_paths = [_package.context.get_dummy_source()]
+    srcs_file_paths = [state.get_dummy_source()]
 
-  cmake_deps = set(_package.context.get_deps(resolved_deps))
+  cmake_deps = set(state.get_deps(resolved_deps))
 
   # Since Bazel implicitly adds a dependency on the C math library, also add
   # it here.
-  if _package.repo.workspace.cmake_vars["CMAKE_SYSTEM_NAME"] != "Windows":
-    cmake_deps.add("m")
+  if state.workspace.cmake_vars["CMAKE_SYSTEM_NAME"] != "Windows":
+    cmake_deps.add(CMakeTarget("m"))
 
-  cmake_deps.add("Threads::Threads")
+  cmake_deps.add(CMakeTarget("Threads::Threads"))
 
   extra_public_compile_options = []
 
@@ -133,8 +137,8 @@ def _handle_cc_common_options(
       extra_public_compile_options.append(
           f"$<$<COMPILE_LANGUAGE:{lang}>:{option}>")
 
-  add_compile_options("C,CXX", _package.repo.workspace.copts)
-  add_compile_options("CXX", _package.repo.workspace.cxxopts)
+  add_compile_options("C,CXX", state.workspace.copts)
+  add_compile_options("CXX", state.workspace.cxxopts)
 
   result: Dict[str, Any] = {
       "srcs": set(srcs_file_paths),
@@ -146,76 +150,75 @@ def _handle_cc_common_options(
     value = kwargs.get(k)
     if value is None:
       value = []
-    result[k] = _package.context.evaluate_configurable(cast(Any, value))
+    result[k] = _context.evaluate_configurable_list(cast(Any, value))
 
-  result["defines"].extend(_package.repo.workspace.cdefines)
+  result["defines"].extend(state.workspace.cdefines)
 
-  if includes is None:
-    include_dirs = []
-  else:
-    include_dirs = _package.context.evaluate_configurable(includes)
+  include_dirs = _context.evaluate_configurable_list(includes)
 
   if strip_include_prefix is not None:
     include_dirs.append(strip_include_prefix)
 
+  package = _context.access(Package)
   resolved_includes: List[str] = []
   for include in include_dirs:
     resolved_includes.append(
         str(
-            pathlib.PurePosixPath(_package.repo.source_directory).joinpath(
-                _package.package_name, include)))
+            pathlib.PurePosixPath(package.repository.source_directory).joinpath(
+                package.package_id.package_name, include)))
     resolved_includes.append(
         str(
-            pathlib.PurePosixPath(_package.repo.cmake_binary_dir).joinpath(
-                _package.package_name, include)))
-  result["includes"] = resolved_includes
+            pathlib.PurePosixPath(package.repository.cmake_binary_dir).joinpath(
+                package.package_id.package_name, include)))
+  result["includes"] = sorted(set(resolved_includes))
   return result
 
 
 @register_native_build_rule
-def cc_library(self: EvaluationContext,
+def cc_library(self: InvocationContext,
                name: str,
                visibility: Optional[List[RelativeLabel]] = None,
                **kwargs):
-  package = self.current_package
-  assert package is not None
-  target = package.get_label(name)
-  self.add_rule(
+  context = self.snapshot()
+  target = context.resolve_target(name)
+  context.add_rule(
       target,
-      lambda: _cc_library_impl(cast(Package, package), target, **kwargs),
-      analyze_by_default=package.analyze_by_default(visibility))
+      lambda: _cc_library_impl(context, target, **kwargs),
+      visibility=visibility)
 
 
 def _cc_library_impl(
-    _package: Package,
-    _target: Label,
+    _context: InvocationContext,
+    _target: TargetId,
     hdrs: Optional[Configurable[List[RelativeLabel]]] = None,
     textual_hdrs: Optional[Configurable[List[RelativeLabel]]] = None,
     alwayslink: bool = False,
     **kwargs,
 ):
-  resolved_hdrs = _package.get_label_list(_package.get_configurable_list(hdrs))
-  resolved_textual_hdrs = _package.get_label_list(
-      _package.get_configurable_list(textual_hdrs))
+  resolved_hdrs = _context.resolve_target_or_label_list(
+      _context.evaluate_configurable_list(hdrs))
+  resolved_textual_hdrs = _context.resolve_target_or_label_list(
+      _context.evaluate_configurable_list(textual_hdrs))
 
-  context = _package.context
-  cmake_target_pair = _package.context.generate_cmake_target_pair(
+  state = _context.access(EvaluationState)
+
+  cmake_target_pair = state.generate_cmake_target_pair(
       _target, generate_alias=True)
   custom_target_deps: List[CMakeTarget] = []
-  hdrs_file_paths = context.get_targets_file_paths(
+  hdrs_file_paths = state.get_targets_file_paths(
       resolved_hdrs, custom_target_deps=custom_target_deps)
-  textual_hdrs_file_paths = context.get_targets_file_paths(
+  textual_hdrs_file_paths = state.get_targets_file_paths(
       resolved_textual_hdrs, custom_target_deps=custom_target_deps)
   emit_cc_library(
-      context.builder,
+      _context.access(CMakeBuilder),
       cmake_target_pair,
       hdrs=set(hdrs_file_paths + textual_hdrs_file_paths),
       alwayslink=alwayslink,
       **_handle_cc_common_options(
-          _package, custom_target_deps=custom_target_deps, **kwargs),
+          _context, custom_target_deps=custom_target_deps, **kwargs),
   )
-  context.add_analyzed_target(_target,
-                              TargetInfo(*cmake_target_pair.as_providers()))
+  _context.add_analyzed_target(_target,
+                               TargetInfo(*cmake_target_pair.as_providers()))
 
 
 def emit_cc_library(
@@ -227,18 +230,18 @@ def emit_cc_library(
     **kwargs,
 ):
   """Generates a C++ library target."""
-  cc_srcs = [x for x in srcs if not re.search(r"\.(?:h|inc)$", x)]
+  cc_srcs = sorted([x for x in srcs if not re.search(r"\.(?:h|inc)$", x)])
   header_only = not cc_srcs
   del hdrs
 
   target_name = _cmake_target_pair.target
   assert target_name is not None
-  alias_name = _cmake_target_pair.alias
-  assert alias_name is not None
+  assert _cmake_target_pair.alias is not None
+
   if not header_only:
     _builder.addtext(f"""\n
 add_library({target_name})
-target_sources({target_name} PRIVATE {quote_list(cc_srcs)})
+target_sources({target_name} PRIVATE{_SEP}{quote_list(cc_srcs , separator=_SEP)})
 set_property(TARGET {target_name} PROPERTY LINKER_LANGUAGE "CXX")
 """)
   else:
@@ -249,87 +252,95 @@ add_library({target_name} INTERFACE)
       _builder, target_name=target_name, interface_only=header_only, **kwargs)
   _builder.add_library_alias(
       target_name=target_name,
-      alias_name=alias_name,
+      alias_name=_cmake_target_pair.alias,
       alwayslink=alwayslink,
       interface_only=header_only,
   )
 
 
 @register_native_build_rule
-def cc_binary(self: EvaluationContext,
+def cc_binary(self: InvocationContext,
               name: str,
               visibility: Optional[List[RelativeLabel]] = None,
               **kwargs):
-  package = self.current_package
-  assert package is not None
-  target = package.get_label(name)
-  self.add_rule(
+  context = self.snapshot()
+  target = context.resolve_target(name)
+
+  resolved_visibility = context.resolve_target_or_label_list(visibility or [])
+  if kwargs.get("testonly"):
+    analyze_by_default = context.access(Visibility).analyze_test_by_default(
+        resolved_visibility)
+  else:
+    analyze_by_default = context.access(Visibility).analyze_by_default(
+        resolved_visibility)
+
+  context.add_rule(
       target,
-      lambda: _cc_binary_impl(cast(Package, package), target, **kwargs),
-      analyze_by_default=package.analyze_by_default(visibility))
+      lambda: _cc_binary_impl(context, target, **kwargs),
+      analyze_by_default=analyze_by_default)
 
 
-def _cc_binary_impl(_package: Package, _target: Label, **kwargs):
-  cmake_target_pair = _package.context.generate_cmake_target_pair(
-      _target, generate_alias=True)
+def _cc_binary_impl(_context: InvocationContext, _target: TargetId, **kwargs):
+  cmake_target_pair = _context.access(
+      EvaluationState).generate_cmake_target_pair(
+          _target, generate_alias=True)
   _emit_cc_binary(
-      _package.context.builder,
+      _context.access(CMakeBuilder),
       cmake_target_pair,
-      **_handle_cc_common_options(_package, src_required=True, **kwargs),
+      **_handle_cc_common_options(_context, src_required=True, **kwargs),
   )
-  _package.context.add_analyzed_target(
-      _target, TargetInfo(*cmake_target_pair.as_providers()))
+  _context.add_analyzed_target(_target,
+                               TargetInfo(*cmake_target_pair.as_providers()))
 
 
 def _emit_cc_binary(_builder: CMakeBuilder, _cmake_target_pair: CMakeTargetPair,
                     srcs: Set[str], **kwargs):
   target_name = _cmake_target_pair.target
-  alias_name = cast(CMakeTarget, _cmake_target_pair.alias)
+  assert _cmake_target_pair.alias is not None
   _builder.addtext(f"""\n
 add_executable({target_name} "")
-add_executable({alias_name} ALIAS {target_name})
-target_sources({target_name} PRIVATE {quote_list(srcs)})
+add_executable({_cmake_target_pair.alias} ALIAS {target_name})
+target_sources({target_name} PRIVATE{_SEP}{quote_list(sorted(srcs), separator=_SEP)})
 """)
   _emit_cc_common_options(_builder, target_name=target_name, **kwargs)
 
 
 @register_native_build_rule
-def cc_test(self: EvaluationContext,
+def cc_test(self: InvocationContext,
             name: str,
             visibility: Optional[List[RelativeLabel]] = None,
             **kwargs):
-  package = self.current_package
-  assert package is not None
-  target = package.get_label(name)
+  context = self.snapshot()
+  target = context.resolve_target(name)
 
-  self.add_rule(
+  resolved_visibility = context.resolve_target_or_label_list(visibility or [])
+  context.add_rule(
       target,
-      lambda: _cc_test_impl(cast(Package, package), target, **kwargs),
-      analyze_by_default=package.analyze_test_by_default(visibility))
+      lambda: _cc_test_impl(context, target, **kwargs),
+      analyze_by_default=context.access(Visibility).analyze_test_by_default(
+          resolved_visibility))
 
 
-def _cc_test_impl(_package: Package,
-                  _target: Label,
+def _cc_test_impl(_context: InvocationContext,
+                  _target: TargetId,
                   args: Optional[Configurable[List[str]]] = None,
                   **kwargs):
-  cmake_target_pair = _package.context.generate_cmake_target_pair(
+  state = _context.access(EvaluationState)
+  cmake_target_pair = state.generate_cmake_target_pair(
       _target, generate_alias=True)
-  resolved_args = []
-  if args:
-    resolved_args = _package.context.evaluate_configurable(args)
-    resolved_args = [
-        apply_location_substitutions(
-            _package, arg, relative_to=_package.repo.source_directory)
-        for arg in resolved_args
-    ]
+  resolved_args = [
+      apply_location_substitutions(
+          _context, arg, relative_to=state.repo.source_directory)
+      for arg in _context.evaluate_configurable_list(args)
+  ]
   _emit_cc_test(
-      _package.context.builder,
+      _context.access(CMakeBuilder),
       cmake_target_pair,
       args=resolved_args,
-      **_handle_cc_common_options(_package, src_required=True, **kwargs),
+      **_handle_cc_common_options(_context, src_required=True, **kwargs),
   )
-  _package.context.add_analyzed_target(
-      _target, TargetInfo(*cmake_target_pair.as_providers()))
+  _context.add_analyzed_target(_target,
+                               TargetInfo(*cmake_target_pair.as_providers()))
 
 
 def _emit_cc_test(_builder: CMakeBuilder,
@@ -347,81 +358,89 @@ def _emit_cc_test(_builder: CMakeBuilder,
 
 
 @register_native_build_rule
-def cc_proto_library(self: EvaluationContext,
+def cc_proto_library(self: InvocationContext,
                      name: str,
                      visibility: Optional[List[RelativeLabel]] = None,
                      **kwargs):
-  package = self.current_package
-  assert package is not None
-  label = package.get_label(name)
-  self.add_rule(
-      label,
-      lambda: _cc_proto_library_impl(cast(Package, package), label, **kwargs),
-      analyze_by_default=package.analyze_by_default(visibility))
+  context = self.snapshot()
+  target = context.resolve_target(name)
+  context.add_rule(
+      target,
+      lambda: _cc_proto_library_impl(context, target, **kwargs),
+      visibility=visibility)
 
 
-def _cc_proto_library_impl(_package: Package,
-                           _label: Label,
+def _cc_proto_library_impl(_context: InvocationContext,
+                           _label: TargetId,
                            deps: Optional[List[RelativeLabel]] = None,
                            **kwargs):
   del kwargs
-  resolved_deps = _package.get_label_list(_package.get_configurable_list(deps))
+  resolved_deps = _context.resolve_target_or_label_list(
+      _context.evaluate_configurable_list(deps))
 
-  context = _package.context
-  cmake_target_pair = context.generate_cmake_target_pair(
+  state = _context.access(EvaluationState)
+  cmake_target_pair = state.generate_cmake_target_pair(
       _label, generate_alias=True)
+
   dep_library_targets = [
-      _get_cc_proto_library_target(_package.context, dep_target)
+      _get_cc_proto_library_target(_context, dep_target)
       for dep_target in resolved_deps
   ]
   emit_cc_library(
-      context.builder,
+      _context.access(CMakeBuilder),
       cmake_target_pair,
       hdrs=set(),
       srcs=set(),
-      deps=set(context.get_deps(dep_library_targets)),
+      deps=set(state.get_deps(dep_library_targets)),
   )
-  context.add_analyzed_target(_label,
-                              TargetInfo(*cmake_target_pair.as_providers()))
+  _context.add_analyzed_target(_label,
+                               TargetInfo(*cmake_target_pair.as_providers()))
 
 
-def _get_cc_proto_library_target(context: EvaluationContext,
-                                 proto_target: Label) -> Label:
+def _get_cc_proto_library_target(context: InvocationContext,
+                                 proto_target: TargetId) -> TargetId:
   proto_info = context.get_target_info(proto_target).get(ProtoLibraryProvider)
   if proto_info is None:
     # This could be external; defer to get_deps.
     return proto_target
 
-  cc_deps = [
+  cc_deps: List[TargetId] = [
       _get_single_cc_proto_target(context, proto_src, proto_info.deps)
       for proto_src in proto_info.srcs
   ]
   if len(cc_deps) == 1:
     return cc_deps[0]
 
-  cc_library_target = proto_target + "__cc_proto_library"
-  cmake_target_pair = context.generate_cmake_target_pair(
+  cc_library_target = proto_target.get_target_id(proto_target.target_name +
+                                                 "__cc_proto_library")
+
+  state = context.access(EvaluationState)
+  cmake_target_pair = state.generate_cmake_target_pair(
       cc_library_target, generate_alias=True)
 
   emit_cc_library(
-      context.builder,
+      context.access(CMakeBuilder),
       cmake_target_pair,
       hdrs=set(),
       srcs=set(),
-      deps=set(context.get_deps(cc_deps)),
+      deps=set(state.get_deps(cc_deps)),
   )
   return cc_library_target
 
 
-def _get_single_cc_proto_target(context: EvaluationContext, proto_src: Label,
-                                deps: Set[Label]) -> Label:
-  cc_library_target = proto_src + "__cc_proto"
+def _get_single_cc_proto_target(context: InvocationContext, proto_src: TargetId,
+                                deps: List[TargetId]) -> TargetId:
 
-  info = context.get_optional_target_info(cc_library_target)
+  cc_library_target = proto_src.get_target_id(proto_src.target_name +
+                                              "__cc_proto")
+  protoc_output_target = proto_src.get_target_id(proto_src.target_name +
+                                                 "__cc_protoc")
+
+  state = context.access(EvaluationState)
+  info = state.get_optional_target_info(cc_library_target)
   if info is not None:
     return cc_library_target
 
-  protoc_output_target = proto_src + "__cc_protoc"
   generated = protoc_compile_protos_impl(
       context,
       protoc_output_target,
@@ -429,27 +448,28 @@ def _get_single_cc_proto_target(context: EvaluationContext, proto_src: Label,
       plugin=None,
       add_files_provider=False)
 
-  cmake_cc_target_pair = context.generate_cmake_target_pair(
+  cmake_cc_target_pair = state.generate_cmake_target_pair(
       cc_library_target, generate_alias=True)
 
   context.add_analyzed_target(cc_library_target,
                               TargetInfo(*cmake_cc_target_pair.as_providers()))
 
-  cc_deps = [
+  cc_deps: List[TargetId] = [
       _get_cc_proto_library_target(context, proto_dep) for proto_dep in deps
   ]
-  cc_deps.append("@com_google_protobuf//:protobuf")
+  cc_deps.append(proto_src.parse_target("@com_google_protobuf//:protobuf"))
 
-  cmake_cc_deps = context.get_deps(cc_deps)
+  cmake_cc_deps = state.get_deps(cc_deps)
+  builder = context.access(CMakeBuilder)
 
   emit_cc_library(
-      context.builder,
+      builder,
       cmake_cc_target_pair,
       hdrs=set(filter(lambda x: x.endswith(".h"), generated.paths)),
       srcs=set(filter(lambda x: not x.endswith(".h"), generated.paths)),
       deps=set(cmake_cc_deps),
   )
-  context.builder.addtext(
-      f"add_dependencies({cmake_cc_target_pair.target} {context.get_dep(protoc_output_target)[0]})\n"
+  builder.addtext(
+      f"add_dependencies({cmake_cc_target_pair.target} {state.get_dep(protoc_output_target)[0]})\n"
   )
   return cc_library_target

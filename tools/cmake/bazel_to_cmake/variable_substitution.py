@@ -13,18 +13,20 @@
 # limitations under the License.
 """Implements $(location) and Make variable substitution."""
 
-# pylint: disable=relative-beyond-top-level
+# pylint: disable=relative-beyond-top-level,invalid-name
 
 import os
 import re
 from typing import Optional, List, Dict, Callable, Match
 
 from . import cmake_builder
-from .evaluation import Package
-from .label import Label
+from .evaluation import EvaluationState
+from .starlark.bazel_target import parse_absolute_target
+from .starlark.bazel_target import TargetId
+from .starlark.invocation_context import InvocationContext
 
 
-def apply_location_substitutions(package: Package, cmd: str,
+def apply_location_substitutions(_context: InvocationContext, cmd: str,
                                  relative_to: str) -> str:
   """Substitues $(location) references in `cmd`.
 
@@ -40,8 +42,8 @@ def apply_location_substitutions(package: Package, cmd: str,
 
   def replace_label(m: Match[str]) -> str:
     key = m.group(1)
-    target = package.get_label(m.group(2))
-    paths = package.context.get_file_paths(target, None)
+    target = _context.resolve_target(m.group(2))
+    paths = _context.access(EvaluationState).get_file_paths(target, None)
 
     def _get_relpath(path: str):
       rel_path = os.path.relpath(path, relative_to)
@@ -64,14 +66,18 @@ def apply_location_substitutions(package: Package, cmd: str,
 MakeVariableSubstitutions = Dict[str, str]
 Toolchain = Callable[[cmake_builder.CMakeBuilder], MakeVariableSubstitutions]
 
-TOOLCHAINS: Dict[Label, Toolchain] = {}
+TOOLCHAINS: Dict[TargetId, Toolchain] = {}
 
 
 def register_toolchain(target: str) -> Callable[[Toolchain], Toolchain]:
   """Registers a toolchain for use with `apply_make_variable_substitutions."""
 
+  target_id = parse_absolute_target(target)
+
   def register(toolchain: Toolchain) -> Toolchain:
-    TOOLCHAINS[target] = toolchain
+    assert toolchain is not None
+    TOOLCHAINS[target_id] = toolchain
+    print(f"Added toolchain {target_id.as_label()}")
     return toolchain
 
   return register
@@ -81,7 +87,7 @@ def apply_make_variable_substitutions(
     builder: cmake_builder.CMakeBuilder,
     cmd: str,
     substitutions: MakeVariableSubstitutions,
-    toolchains: Optional[List[Label]] = None) -> str:
+    toolchains: Optional[List[TargetId]] = None) -> str:
   """Applies Bazel Make variable substitutions.
 
   Args:
@@ -95,7 +101,7 @@ def apply_make_variable_substitutions(
   for toolchain in (toolchains or []):
     toolchain_impl = TOOLCHAINS.get(toolchain)
     if toolchain_impl is None:
-      raise ValueError(f"Toolchain not defined: {toolchain}")
+      raise ValueError(f"Toolchain not defined: {repr(toolchain)}")
     substitutions.update(toolchain_impl(builder))
 
   substitutions["$$"] = "\\$"

@@ -18,16 +18,17 @@
 import io
 import os
 import pathlib
-from typing import Dict
 
-from .. import cmake_builder
-from ..evaluation import BazelGlobals
-from ..evaluation import EvaluationContext
-from ..evaluation import register_bzl_library
+from ..cmake_builder import CMakeBuilder
+from ..cmake_builder import FETCH_CONTENT_DECLARE_SECTION
+from ..cmake_builder import quote_string
+from ..evaluation import EvaluationState
 from .helpers import update_target_mapping
 from .helpers import write_bazel_to_cmake_cmakelists
-from ..label import CMakeTarget
-from ..label import Label
+from ..starlark.bazel_globals import BazelGlobals
+from ..starlark.bazel_globals import register_bzl_library
+from ..starlark.bazel_target import RepositoryId
+from ..starlark.invocation_context import InvocationContext
 
 
 @register_bzl_library(
@@ -38,15 +39,8 @@ class ThirdPartyLocalMirrorLibrary(BazelGlobals):
     _local_mirror_impl(self._context, **kwargs)
 
 
-def _get_third_party_dir(context: EvaluationContext) -> str:
-  return os.path.join(context.repo.cmake_binary_dir, "third_party")
-
-
-def _local_mirror_impl(_context: EvaluationContext, **kwargs):
-  bazel_name = kwargs["name"]
+def _local_mirror_impl(_context: InvocationContext, **kwargs):
   cmake_name = kwargs.get("cmake_name")
-  builder = _context.builder
-  repo = _context.repo
   if not cmake_name:
     return
 
@@ -54,14 +48,19 @@ def _local_mirror_impl(_context: EvaluationContext, **kwargs):
   if bazel_to_cmake is None:
     return
 
-  repo.workspace.bazel_to_cmake_deps[bazel_name] = cmake_name
-  reverse_target_mapping: Dict[CMakeTarget, Label] = {}
-  new_base_package = update_target_mapping(repo, reverse_target_mapping, kwargs)
+  builder = _context.access(CMakeBuilder)
+  state = _context.access(EvaluationState)
+  new_repository_id = RepositoryId(kwargs["name"])
+
+  state.workspace.bazel_to_cmake_deps[new_repository_id] = cmake_name
+
+  update_target_mapping(state.repo, new_repository_id.get_package_id(""),
+                        kwargs)
 
   for lang in kwargs.pop("cmake_languages", []):
     builder.addtext(
         f"enable_language({lang})\n",
-        section=cmake_builder.FETCH_CONTENT_DECLARE_SECTION,
+        section=FETCH_CONTENT_DECLARE_SECTION,
         unique=True,
     )
 
@@ -70,7 +69,7 @@ def _local_mirror_impl(_context: EvaluationContext, **kwargs):
   if not files:
     return
 
-  local_mirror_dir = os.path.join(repo.cmake_binary_dir, "local_mirror",
+  local_mirror_dir = os.path.join(state.repo.cmake_binary_dir, "local_mirror",
                                   cmake_name)
   os.makedirs(local_mirror_dir, exist_ok=True)
 
@@ -91,39 +90,34 @@ def _local_mirror_impl(_context: EvaluationContext, **kwargs):
     if not urls:
       continue
     out.write(
-        f"file(DOWNLOAD {cmake_builder.quote_string(urls[0])} {cmake_builder.quote_string(str(file_path))}"
-    )
+        f"file(DOWNLOAD {quote_string(urls[0])} {quote_string(str(file_path))}")
     sha256 = file_sha256.get(file)
-    if sha256:
-      out.write(f"\n     EXPECTED_HASH SHA256={sha256}")
-    out.write(")\n\n")
+    if not sha256:
+      raise ValueError(
+          f"local_mirror requires SHA256 for downloaded file: {file}")
+    out.write(f"\n     EXPECTED_HASH SHA256={sha256})\n\n")
 
   cmaketxt_path = pathlib.Path(os.path.join(local_mirror_dir, "CMakeLists.txt"))
 
   builder.addtext(
-      f"# Loading {new_base_package}\n",
-      section=cmake_builder.FETCH_CONTENT_DECLARE_SECTION)
+      f"# Loading {new_repository_id.repository_name}\n",
+      section=FETCH_CONTENT_DECLARE_SECTION)
+  builder.addtext(out.getvalue(), section=FETCH_CONTENT_DECLARE_SECTION)
   builder.addtext(
-      out.getvalue(), section=cmake_builder.FETCH_CONTENT_DECLARE_SECTION)
-  builder.addtext(
-      f"add_subdirectory({cmake_builder.quote_string(str(cmaketxt_path.parent))} _local_mirror_configs EXCLUDE_FROM_ALL)\n",
-      section=cmake_builder.FETCH_CONTENT_DECLARE_SECTION)
+      f"add_subdirectory({quote_string(str(cmaketxt_path.parent))} _local_mirror_configs EXCLUDE_FROM_ALL)\n",
+      section=FETCH_CONTENT_DECLARE_SECTION)
 
   # Now write the nested CMakeLists.txt file
   out = io.StringIO()
   out.write(f'set(CMAKE_MESSAGE_INDENT "[{cmake_name}] ")\n')
 
   if kwargs.get("cmakelists_prefix"):
-    out.write(kwargs.get("cmakelists_prefix"))
+    out.write(str(kwargs.get("cmakelists_prefix")))
 
   write_bazel_to_cmake_cmakelists(
-      _new_cmakelists=out,
-      _patch_commands=[],
-      _context=_context,
-      _repo=repo,
-      **kwargs)
+      _context=_context, _new_cmakelists=out, _patch_commands=[], **kwargs)
 
   if kwargs.get("cmakelists_suffix"):
-    out.write(kwargs.get("cmakelists_suffix"))
+    out.write(str(kwargs.get("cmakelists_suffix")))
 
   cmaketxt_path.write_text(out.getvalue(), encoding="utf-8")

@@ -12,14 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import struct as m
+# pylint: disable=g-importing-member
+
+from .struct import Struct
 import unittest
 
 
 class TestStruct(unittest.TestCase):
 
   def test_struct(self):
-    x = m.struct(doc='foo', id=1)
+    x = Struct(doc='foo', id=1)
     self.assertEqual(x.doc, 'foo')
     self.assertEqual(x.id, 1)
     self.assertEqual("struct(doc='foo',id=1)", str(repr(x)))
@@ -27,14 +29,10 @@ class TestStruct(unittest.TestCase):
       x.doc = 'bar'
 
   def test_struct_add(self):
-    x = m.struct(doc='foo', id=1)
-    y = m.struct(a=1, b='bar')
+    x = Struct(doc='foo', id=1)
+    y = Struct(a=1, b='bar')
     self.assertNotEqual(x, y)
     z = x + y
     self.assertEqual(z.a, 1)
     with self.assertRaises(Exception) as _:
       z + x
-
-
-if __name__ == '__main__':
-  unittest.main()

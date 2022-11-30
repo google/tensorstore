@@ -16,8 +16,8 @@
 # pylint: disable=relative-beyond-top-level,missing-class-docstring
 
 from .. import native_rules_cc
-from ..evaluation import BazelGlobals
-from ..evaluation import register_bzl_library
+from ..starlark.bazel_globals import BazelGlobals
+from ..starlark.bazel_globals import register_bzl_library
 
 
 @register_bzl_library("@rules_cc//cc:defs.bzl", build=True)

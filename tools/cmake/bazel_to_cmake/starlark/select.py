@@ -13,14 +13,19 @@
 # limitations under the License.
 """Defines `select`-related data structures."""
 
-# pylint: disable=relative-beyond-top-level
+# pylint: disable=missing-function-docstring,relative-beyond-top-level
 
 import operator
 from typing import TypeVar, Generic, List, Union, cast, Dict, Callable
 
-from .label import Label
+from .bazel_target import TargetId
 
 T = TypeVar("T")
+TestCondition = Callable[[TargetId], bool]
+
+
+def _is_conditions_default(target: TargetId) -> bool:
+  return target.package_name == "conditions" and target.target_name == "default"
 
 
 class _ConfigurableBase(Generic[T]):
@@ -37,12 +42,37 @@ class _ConfigurableBase(Generic[T]):
     return SelectExpression(operator.add,
                             cast(List[Configurable[T]], [other, self]))
 
+  def evaluate(self, test_condition: TestCondition) -> T:
+    raise ValueError("Bad Configurable")
+
 
 class Select(_ConfigurableBase[T]):
   """Represents a parsed (but not evaluated) `select` expression."""
 
-  def __init__(self, conditions: Dict[Label, T]):
+  def __init__(self, conditions: Dict[TargetId, T]):
     self.conditions = conditions
+
+  def __repr__(self):
+    return f"select({repr(self.conditions)})"
+
+  def evaluate(self, test_condition: TestCondition) -> T:
+    has_default = False
+    default_value = None
+    matches = []
+    for condition, value in self.conditions.items():
+      if _is_conditions_default(condition):
+        has_default = True
+        default_value = value
+        continue
+      if test_condition(condition):
+        matches.append((condition, value))
+    if len(matches) > 1:
+      raise ValueError(f"More than one matching condition: {matches!r}")
+    if len(matches) == 1:
+      return matches[0][1]
+    if has_default:
+      return cast(T, default_value)
+    raise ValueError("No matching condition")
 
 
 class SelectExpression(_ConfigurableBase[T]):
@@ -55,6 +85,19 @@ class SelectExpression(_ConfigurableBase[T]):
   ):
     self.op = op
     self.operands = operands
+
+  def __repr__(self):
+    return f"SelectExpression({repr(self.op), repr(self.operands)})"
+
+  def evaluate(self, test_condition: TestCondition) -> T:
+
+    def _try_evaluate(t: Union[T, Configurable[T]]) -> T:
+      if isinstance(t, _ConfigurableBase):
+        return t.evaluate(test_condition)
+      else:
+        return t
+
+    return self.op(*(_try_evaluate(operand) for operand in self.operands))
 
 
 Configurable = Union[T, Select[T], SelectExpression[T]]

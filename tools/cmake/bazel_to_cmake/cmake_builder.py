@@ -18,7 +18,7 @@
 import collections
 import json
 import os
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple, Sequence
 
 
 def quote_string(x: str) -> str:
@@ -38,12 +38,12 @@ def quote_path(x: str) -> str:
   return quote_string(x)
 
 
-def quote_list(y) -> str:
-  return " ".join(quote_string(x) for x in y)
+def quote_list(y: Sequence[str], separator: str = " ") -> str:
+  return separator.join(quote_string(x) for x in y)
 
 
-def quote_path_list(y) -> str:
-  return " ".join(quote_path(x) for x in y)
+def quote_path_list(y: Sequence[str], separator: str = " ") -> str:
+  return separator.join(quote_path(x) for x in y)
 
 
 INCLUDE_SECTION = 0

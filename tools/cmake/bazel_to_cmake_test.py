@@ -17,15 +17,16 @@
 
 import os
 import pathlib
+import sys
 import tempfile
 import unittest
 
 from bazel_to_cmake import native_rules  # pylint: disable=unused-import
 from bazel_to_cmake import native_rules_cc  # pylint: disable=unused-import
-from bazel_to_cmake import rule  # pylint: disable=unused-import
 from bazel_to_cmake.bzl_library import default as _  # pylint: disable=unused-import
-from bazel_to_cmake.evaluation import EvaluationContext
+from bazel_to_cmake.evaluation import EvaluationState
 from bazel_to_cmake.platforms import add_platform_constraints
+from bazel_to_cmake.starlark import rule  # pylint: disable=unused-import
 from bazel_to_cmake.workspace import Repository
 from bazel_to_cmake.workspace import Workspace
 
@@ -47,6 +48,7 @@ class CMakeHelper:
     self.directory = directory
     self.workspace = Workspace(cmake_vars)
     workspace = self.workspace
+    workspace.save_workspace = '_workspace.pickle'
     add_platform_constraints(workspace)
     workspace.add_module('bazel_to_cmake.native_rules')
     workspace.add_module('bazel_to_cmake.native_rules_cc')
@@ -62,6 +64,7 @@ class CMakeHelper:
         'gRPC::grpc_cpp_plugin', 'gRPC')
     workspace.set_bazel_target_mapping('@com_google_protobuf//:protobuf',
                                        'protobuf::libprotobuf', 'protobuf')
+    workspace.load_modules()
 
     self.repository = Repository(
         workspace=self.workspace,
@@ -74,24 +77,26 @@ class CMakeHelper:
     repo = self.repository
 
     # Setup root workspace.
-    workspace.bazel_to_cmake_deps[
-        repo.bazel_repo_name] = repo.cmake_project_name
-    workspace.exclude_repo_targets(repo.bazel_repo_name)
+    workspace.bazel_to_cmake_deps[repo.repository_id] = repo.cmake_project_name
+    workspace.exclude_repo_targets(repo.repository_id)
 
     # Setup repo mapping.
     repo.repo_mapping['upb'] = 'com_google_upb'
 
-    self.context = EvaluationContext(repo, save_workspace=False)
-    self.builder = self.context.builder
+    self.state = EvaluationState(repo)
+    self.builder = self.state.builder
 
   def get_text(self):
     return self.builder.as_text()
+
+  def analyze(self):
+    self.state.analyze(self.state.targets_to_analyze)
 
 
 class CMakeBuilder(unittest.TestCase):
 
   def test_basic(self):
-    self.maxDiff = None
+    self.maxDiff = None  # pylint: disable=invalid-name
     # bazel_to_cmake checks file existence before returning a
     with tempfile.TemporaryDirectory(prefix='src') as directory:
       os.chdir(directory)
@@ -99,19 +104,21 @@ class CMakeBuilder(unittest.TestCase):
         f.write(bytes('// a.h\n', 'utf-8'))
       with open('a.cc', 'wb') as f:
         f.write(bytes('// a.cc\n', 'utf-8'))
+      with open('a_test.cc', 'wb') as f:
+        f.write(bytes('// a_test.cc\n', 'utf-8'))
       with open('c.proto', 'wb') as f:
         f.write(bytes('// c.proto\n', 'utf-8'))
 
       cmake = CMakeHelper(directory, CMAKE_VARS)
 
       # Load the WORKSPACE
-      cmake.context.process_workspace_content(
+      cmake.state.process_workspace_content(
           os.path.join(directory, 'WORKSPACE'), """
 workspace(name = "com_google_tensorstore")
 """)
 
       # Load the BUILD file
-      cmake.context.process_build_content(
+      cmake.state.process_build_content(
           os.path.join(directory, 'BUILD.bazel'), """
 
 package(default_visibility = ["//visibility:public"])
@@ -141,20 +148,35 @@ cc_proto_library(
     name = "cc_proto",
     deps = [ ":c_proto" ],
 )
+
+cc_test(
+   name = "a_test",
+   srcs = ["a_test.cc"],
+   deps = [ ":a" ],
+   visibility = [ "//visibility:private" ],
+)
+
 """)
 
-      cmake.context.analyze_default_targets()
+      cmake.analyze()
       cmake_text = cmake.get_text()
 
       # There's output for A
       self.assertIn(
           f"""
 add_library(CMakeProject_a)
-target_sources(CMakeProject_a PRIVATE "{directory}/a.cc")
+target_sources(CMakeProject_a PRIVATE
+        "{directory}/a.cc")
 set_property(TARGET CMakeProject_a PROPERTY LINKER_LANGUAGE "CXX")
 target_compile_definitions(CMakeProject_a PRIVATE "FOO")
-target_link_libraries(CMakeProject_a PUBLIC "CMakeProject::b" "CMakeProject::cc_proto" "Threads::Threads" "m")
-target_include_directories(CMakeProject_a PUBLIC "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>" "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
+target_link_libraries(CMakeProject_a PUBLIC
+        "CMakeProject::b"
+        "CMakeProject::cc_proto"
+        "Threads::Threads"
+        "m")
+target_include_directories(CMakeProject_a PUBLIC
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>"
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
 target_compile_features(CMakeProject_a PUBLIC cxx_std_17)
 add_library(CMakeProject::a ALIAS CMakeProject_a)
 """, cmake_text)
@@ -169,14 +191,17 @@ add_custom_command(
       -I "${PROJECT_SOURCE_DIR}"
       --cpp_out=${PROJECT_BINARY_DIR}
       "{directory}/c.proto"
-  DEPENDS "protobuf::protoc" "{directory}/c.proto"
+  DEPENDS "{directory}/c.proto" "protobuf::protoc"
   COMMENT "Running protoc (cpp) on c.proto"
   VERBATIM)
 add_custom_target(CMakeProject_c.proto__cc_protoc DEPENDS "_cmake_binary_dir_/c.pb.h" "_cmake_binary_dir_/c.pb.cc")
 """, cmake_text)
 
+      # The test, even though private, is built because the repo is top-level.
+      self.assertIn('add_executable(CMakeProject_a_test', cmake_text)
+
   def test_starlark_primitives(self):
-    self.maxDiff = None
+    self.maxDiff = None  # pylint: disable=invalid-name
     # bazel_to_cmake checks file existence before returning a
     with tempfile.TemporaryDirectory(prefix='src') as directory:
       os.chdir(directory)
@@ -206,7 +231,6 @@ T=all([True, False])
 T=any([True, False])
 T=sorted([2,1, 3])
 T=reversed([1,2,3])
-T=set([1, 2, 3])
 T=dict([('one', 2), (3, 4)])
 T=range(0, 5, 10)
 T=list(range(5))
@@ -218,6 +242,9 @@ T=dir({})
 T=hasattr("", "find")
 T=struct(x=1, y='a')
 T=repr(T)
+native.repository_name()
+native.package_name()
+print(Label("@foo//bar:baz"))
 
 """, 'utf-8'))
       with open('b_r.h', 'wb') as f:
@@ -229,13 +256,13 @@ T=repr(T)
       cmake = CMakeHelper(directory, CMAKE_VARS)
 
       # Load the WORKSPACE
-      cmake.context.process_workspace_content(
+      cmake.state.process_workspace_content(
           os.path.join(directory, 'WORKSPACE'), """
 workspace(name = "com_google_tensorstore")
 """)
 
       # Load the BUILD file
-      cmake.context.process_build_content(
+      cmake.state.process_build_content(
           os.path.join(directory, 'BUILD.bazel'), """
 
 package(default_visibility = ["//visibility:public"])
@@ -266,17 +293,22 @@ config_setting(
 
 """)
 
-      cmake.context.analyze_default_targets()
+      cmake.analyze()
       cmake_text = cmake.get_text()
 
       # There's output for A
       self.assertIn(
           f"""
 add_library(CMakeProject_a)
-target_sources(CMakeProject_a PRIVATE "{directory}/b_r.cc")
+target_sources(CMakeProject_a PRIVATE
+        "{directory}/b_r.cc")
 set_property(TARGET CMakeProject_a PROPERTY LINKER_LANGUAGE "CXX")
-target_link_libraries(CMakeProject_a PUBLIC "Threads::Threads" "m")
-target_include_directories(CMakeProject_a PUBLIC "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>" "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
+target_link_libraries(CMakeProject_a PUBLIC
+        "Threads::Threads"
+        "m")
+target_include_directories(CMakeProject_a PUBLIC
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>"
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
 target_compile_features(CMakeProject_a PUBLIC cxx_std_17)
 add_library(CMakeProject::a ALIAS CMakeProject_a)
 """, cmake_text)
@@ -300,7 +332,7 @@ add_library(CMakeProject::a ALIAS CMakeProject_a)
       cmake = CMakeHelper(directory, cmake_vars)
 
       # Load the WORKSPACE
-      cmake.context.process_workspace_content(
+      cmake.state.process_workspace_content(
           os.path.join(directory, 'WORKSPACE'), '''
 workspace(name = "com_google_tensorstore")
 
@@ -336,7 +368,7 @@ cc_library(
 ''')
 
       # Load the BUILD file
-      cmake.context.process_build_content(
+      cmake.state.process_build_content(
           os.path.join(directory, 'BUILD.bazel'), """
 
 package(default_visibility = ["//visibility:public"])
@@ -352,7 +384,7 @@ cc_library(
 )
 """)
 
-      cmake.context.analyze_default_targets()
+      cmake.analyze()
       cmake_text = cmake.get_text()
       all_files = [str(x) for x in sorted(pathlib.Path('.').glob('**/*'))]
 
@@ -380,7 +412,7 @@ cc_library(
       cmake = CMakeHelper(directory, cmake_vars)
 
       # Load the WORKSPACE
-      cmake.context.process_workspace_content(
+      cmake.state.process_workspace_content(
           os.path.join(directory, 'WORKSPACE'), '''
 workspace(name = "com_google_tensorstore")
 
@@ -438,7 +470,7 @@ cc_library(
 ''')
 
       # Load the BUILD file
-      cmake.context.process_build_content(
+      cmake.state.process_build_content(
           os.path.join(directory, 'BUILD.bazel'), """
 
 package(default_visibility = ["//visibility:public"])
@@ -454,7 +486,7 @@ cc_library(
 )
 """)
 
-      cmake.context.analyze_default_targets()
+      cmake.analyze()
       cmake_text = cmake.get_text()
       all_files = [str(x) for x in sorted(pathlib.Path('.').glob('**/*'))]
 
@@ -475,7 +507,7 @@ file(DOWNLOAD "https://raw.githubusercontent.com/bufbuild/protoc-gen-validate/26
           cmake_text)
 
   def test_grpc_generate_cc(self):
-    self.maxDiff = None
+    self.maxDiff = None  # pylint: disable=invalid-name
     # bazel_to_cmake checks file existence before returning a
     with tempfile.TemporaryDirectory(prefix='src') as directory:
       os.chdir(directory)
@@ -489,13 +521,13 @@ file(DOWNLOAD "https://raw.githubusercontent.com/bufbuild/protoc-gen-validate/26
       cmake = CMakeHelper(directory, CMAKE_VARS)
 
       # Load the WORKSPACE
-      cmake.context.process_workspace_content(
+      cmake.state.process_workspace_content(
           os.path.join(directory, 'WORKSPACE'), """
 workspace(name = "com_google_tensorstore")
 """)
 
       # Load the BUILD file
-      cmake.context.process_build_content(
+      cmake.state.process_build_content(
           os.path.join(directory, 'BUILD.bazel'), """
 load("@com_github_grpc_grpc//bazel:generate_cc.bzl", "generate_cc")
 
@@ -533,17 +565,23 @@ cc_library(
 
 """)
 
-      cmake.context.analyze_default_targets()
+      cmake.analyze()
       cmake_text = cmake.get_text()
 
       # There's output for A
       self.assertIn(
           f"""
 add_library(CMakeProject_a)
-target_sources(CMakeProject_a PRIVATE "{directory}/a.cc")
+target_sources(CMakeProject_a PRIVATE
+        "{directory}/a.cc")
 set_property(TARGET CMakeProject_a PROPERTY LINKER_LANGUAGE "CXX")
-target_link_libraries(CMakeProject_a PUBLIC "CMakeProject::cc_grpc" "Threads::Threads" "m")
-target_include_directories(CMakeProject_a PUBLIC "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>" "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
+target_link_libraries(CMakeProject_a PUBLIC
+        "CMakeProject::cc_grpc"
+        "Threads::Threads"
+        "m")
+target_include_directories(CMakeProject_a PUBLIC
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>"
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
 target_compile_features(CMakeProject_a PUBLIC cxx_std_17)
 add_library(CMakeProject::a ALIAS CMakeProject_a)
 """, cmake_text)
@@ -559,7 +597,7 @@ add_custom_command(
       --plugin=protoc-gen-grpc="$<TARGET_FILE:gRPC::grpc_cpp_plugin>"
       --grpc_out=services_namespace=grpc_gen:${PROJECT_BINARY_DIR}
       "{directory}/c.proto"
-  DEPENDS "gRPC::grpc_cpp_plugin" "protobuf::protoc" "{directory}/c.proto"
+  DEPENDS "{directory}/c.proto" "gRPC::grpc_cpp_plugin" "protobuf::protoc"
   COMMENT "Running protoc (grpc) on c.proto"
   VERBATIM)
 add_custom_target(CMakeProject_cc__grpc_codegen DEPENDS "_cmake_binary_dir_/c.grpc.pb.h" "_cmake_binary_dir_/c.grpc.pb.cc")
@@ -567,4 +605,4 @@ add_custom_target(CMakeProject_cc__grpc_codegen DEPENDS "_cmake_binary_dir_/c.gr
 
 
 if __name__ == '__main__':
-  unittest.main()
+  print(f'Invoke using python3 -m unittest {sys.argv[0]}')

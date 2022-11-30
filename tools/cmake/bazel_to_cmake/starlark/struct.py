@@ -16,12 +16,18 @@
 https://bazel.build/rules/lib/struct
 """
 
+# pylint: disable=missing-function-docstring
+
 
 class Struct(object):
 
   def __init__(self, **kwargs):
-    self.__dict__['_fields'] = sorted(kwargs.keys())
+    self.__dict__['_hidden_fields'] = sorted(kwargs.keys())
     self.__dict__.update(kwargs)
+
+  @property
+  def _fields(self):
+    return self.__dict__['_hidden_fields']
 
   def __repr__(self):
     kwargs_repr = ','.join(
@@ -64,7 +70,3 @@ class Struct(object):
 
   def __delattr__(self, *ignored):
     raise NotImplementedError
-
-
-def struct(**kwargs):
-  return Struct(**kwargs)

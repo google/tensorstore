@@ -18,21 +18,22 @@
 import hashlib
 import os
 import pathlib
-from typing import Optional, List, Set, cast
+from typing import List, Optional, Set, cast
 
 from ..cmake_builder import CMakeBuilder
 from ..cmake_builder import quote_list
 from ..cmake_builder import quote_path
 from ..cmake_builder import quote_path_list
 from ..cmake_builder import quote_string
-from ..configurable import Configurable
-from ..evaluation import BazelGlobals
-from ..evaluation import Package
-from ..evaluation import register_bzl_library
-from ..label import CMakeTarget
-from ..label import Label
-from ..label import RelativeLabel
-from ..provider import TargetInfo
+from ..cmake_target import CMakeTarget
+from ..evaluation import EvaluationState
+from ..starlark.bazel_globals import BazelGlobals
+from ..starlark.bazel_globals import register_bzl_library
+from ..starlark.bazel_target import TargetId
+from ..starlark.invocation_context import InvocationContext
+from ..starlark.invocation_context import RelativeLabel
+from ..starlark.provider import TargetInfo
+from ..starlark.select import Configurable
 from ..util import cmake_is_true
 
 
@@ -44,19 +45,17 @@ class RulesNasmLibrary(BazelGlobals):
                          name: str,
                          visibility: Optional[List[RelativeLabel]] = None,
                          **kwargs):
-    context = self._context
-    package = context.current_package
-    assert package is not None
-    label = package.get_label(name)
+    context = self._context.snapshot()
+    target = context.resolve_target(name)
     context.add_rule(
-        label,
-        lambda: _nasm_library_impl(cast(Package, package), label, **kwargs),
-        analyze_by_default=package.analyze_by_default(visibility))
+        target,
+        lambda: _nasm_library_impl(context, target, **kwargs),
+        visibility=visibility)
 
 
 def _nasm_library_impl(
-    _package: Package,
-    _label: Label,
+    _context: InvocationContext,
+    _target: TargetId,
     srcs: Optional[Configurable[List[RelativeLabel]]] = None,
     flags: Optional[Configurable[List[str]]] = None,
     includes: Optional[Configurable[List[RelativeLabel]]] = None,
@@ -64,34 +63,46 @@ def _nasm_library_impl(
     **kwargs,
 ):
   del kwargs
-  context = _package.context
-  cmake_target_pair = context.generate_cmake_target_pair(
-      _label, generate_alias=True)
+  state = _context.access(EvaluationState)
+
+  # Construct a package prefix string to compare against the include target.
+  package_prefix_str = _context.caller_repository_name
+  if _context.caller_package_id.package_name:
+    package_prefix_str += "/"
+
+  cmake_target_pair = state.generate_cmake_target_pair(
+      _target, generate_alias=True)
   cmake_deps: List[CMakeTarget] = []
-  resolved_srcs = context.get_targets_file_paths(
-      _package.get_label_list(srcs), cmake_deps)
-  resolved_flags = context.evaluate_configurable(flags or [])
-  resolved_includes = []
-  for include_target in _package.get_label_list(includes or []):
-    include_files = context.get_file_paths(include_target, cmake_deps)
-    for include_file in include_files:
-      resolved_includes.append(str(pathlib.PurePosixPath(include_file).parent))
-      # Get include target relative to current package, so that if `includes =
-      # ["a/b/whatever.asm"]` then it can be found as either "whatever.asm" or
-      # "a/b/whatever.asm".
-      package_prefix = _package.repo_and_package_name
-      if _package.package_name:
-        package_prefix += "/"
-      if include_target.startswith(package_prefix):
-        relative_target = include_target[len(package_prefix):].replace(":", "/")
-        if include_file.endswith(relative_target):
-          resolved_includes.append(
-              include_file[:-len(relative_target)].rstrip("/"))
-  resolved_includes = list(
-      {resolved_include: 1 for resolved_include in resolved_includes})
+
+  resolved_flags = _context.evaluate_configurable(flags or [])
+
+  resolved_srcs = _context.resolve_target_or_label_list(
+      _context.evaluate_configurable_list(srcs or []))
+  src_files = set(state.get_targets_file_paths(resolved_srcs, cmake_deps))
+
+  resolved_includes = _context.resolve_target_or_label_list(
+      _context.evaluate_configurable_list(includes or []))
+
+  all_includes = set()
+  for include_target in resolved_includes:
+    # Get include target relative to current package, so that if `includes =
+    # ["a/b/whatever.asm"]` then it can be found as either "whatever.asm" or
+    # "a/b/whatever.asm".
+    include_target_str = include_target.as_label()
+    if include_target_str.startswith(package_prefix_str):
+      relative_target = include_target_str[len(package_prefix_str):].replace(
+          ":", "/")
+
+    for include_file in state.get_file_paths(include_target, cmake_deps):
+      all_includes.add(str(pathlib.PurePosixPath(include_file).parent))
+      if relative_target and include_file.endswith(relative_target):
+        all_includes.add(include_file[:-len(relative_target)].rstrip("/"))
+
   use_builtin_rule = True
-  if (cmake_is_true(context.workspace.cmake_vars.get("MSVC_IDE")) or
-      cmake_is_true(context.workspace.cmake_vars.get("XCODE"))):
+
+  workspace = state.workspace
+  if (cmake_is_true(workspace.cmake_vars.get("MSVC_IDE")) or
+      cmake_is_true(workspace.cmake_vars.get("XCODE"))):
     # The "Xcode" generator does not support nasm at all.  The "Visual Studio *"
     # generators support nasm but pass "/DWIN32" which is problematic for some
     # packages.
@@ -105,32 +116,32 @@ def _nasm_library_impl(
   # handle a library containing only object file as sources.  As a workaround,
   # add a dummy C file.
   dummy_source: Optional[str] = None
-  if context.workspace.cmake_vars[
+  if workspace.cmake_vars[
       "CMAKE_CXX_COMPILER_ID"] == "MSVC" or not use_builtin_rule:
-    dummy_source = _package.context.get_dummy_source()
+    dummy_source = state.get_dummy_source()
   _emit_nasm_library(
-      context.builder,
+      _context.access(CMakeBuilder),
       target_name=cmake_target_pair.target,
-      alias_name=cast(CMakeTarget, cmake_target_pair.alias),
+      alias_name=cmake_target_pair.alias,
       cmake_deps=cmake_deps,
-      srcs=set(resolved_srcs),
+      srcs=src_files,
       flags=resolved_flags,
-      includes=resolved_includes,
+      includes=all_includes,
       alwayslink=alwayslink,
       dummy_source=dummy_source,
       use_builtin_rule=use_builtin_rule,
   )
-  context.add_analyzed_target(_label,
-                              TargetInfo(*cmake_target_pair.as_providers()))
+  _context.add_analyzed_target(_target,
+                               TargetInfo(*cmake_target_pair.as_providers()))
 
 
 def _emit_nasm_library(
     _builder: CMakeBuilder,
-    target_name: str,
-    alias_name: str,
+    target_name: CMakeTarget,
+    alias_name: Optional[CMakeTarget],
     cmake_deps: List[CMakeTarget],
     srcs: Set[str],
-    includes: List[str],
+    includes: Set[str],
     flags: List[str],
     dummy_source: Optional[str],
     alwayslink: bool,
@@ -166,7 +177,7 @@ def _emit_nasm_library(
       _builder.addtext(f"""
 add_custom_command(
   OUTPUT {quote_string(src_obj_expr)}
-  DEPENDS {quote_path_list(all_srcs + cmake_deps)}
+  DEPENDS {quote_path_list(all_srcs + cast(List[str], cmake_deps))}
   COMMAND ${{CMAKE_ASM_NASM_COMPILER}}
           -f ${{CMAKE_ASM_NASM_OBJECT_FORMAT}}
           ${{CMAKE_ASM_NASM_FLAGS}}
@@ -179,10 +190,10 @@ add_custom_command(
     _builder.addtext(
         f"""target_sources({target_name} PRIVATE {quote_list(all_src_obj_exprs + dummy_sources)})\n"""
     )
-
-  _builder.add_library_alias(
-      target_name=target_name,
-      alias_name=alias_name,
-      alwayslink=alwayslink,
-      interface_only=False,
-  )
+  if alias_name:
+    _builder.add_library_alias(
+        target_name=target_name,
+        alias_name=alias_name,
+        alwayslink=alwayslink,
+        interface_only=False,
+    )

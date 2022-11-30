@@ -17,9 +17,10 @@
 
 from typing import Dict, List, Tuple
 
-from .provider import BuildSettingProvider
-from .provider import ConditionProvider
-from .provider import TargetInfo
+from .starlark.bazel_target import parse_absolute_target
+from .starlark.common_providers import BuildSettingProvider
+from .starlark.common_providers import ConditionProvider
+from .starlark.provider import TargetInfo
 from .workspace import Workspace
 
 # See https://cmake.org/cmake/help/latest/variable/CMAKE_LANG_COMPILER_ID.html
@@ -81,14 +82,15 @@ def add_platform_constraints(workspace: Workspace) -> None:
 
   bazel_compiler = _CMAKE_COMPILER_ID_TO_BAZEL_COMPILER.get(
       cmake_cxx_compiler_id, "compiler")
-  workspace._analyzed_targets["@bazel_tools//tools/cpp:compiler"] = TargetInfo(
-      BuildSettingProvider(bazel_compiler))
+  workspace._analyzed_targets[parse_absolute_target(
+      "@bazel_tools//tools/cpp:compiler")] = TargetInfo(
+          BuildSettingProvider(bazel_compiler))
 
-  workspace._analyzed_targets[
-      "@bazel_tools//tools/python:python_version"] = TargetInfo(
+  workspace._analyzed_targets[parse_absolute_target(
+      "@bazel_tools//tools/python:python_version")] = TargetInfo(
           BuildSettingProvider("PY3"))
 
-  config_settings = {}
+  config_settings: Dict[str, bool] = {}
   for setting_list in _CMAKE_SYSTEM_NAME_CONFIG_SETTINGS.values():
     for setting in setting_list:
       config_settings[setting] = False
@@ -103,7 +105,8 @@ def add_platform_constraints(workspace: Workspace) -> None:
     config_settings[setting] = True
 
   for target, value in config_settings.items():
-    workspace._analyzed_targets[target] = TargetInfo(ConditionProvider(value))
+    workspace._analyzed_targets[parse_absolute_target(target)] = TargetInfo(
+        ConditionProvider(value))
 
   workspace.values.update(
       _CMAKE_SYSTEM_PROCESSOR_VALUES.get(cmake_system_processor, []))

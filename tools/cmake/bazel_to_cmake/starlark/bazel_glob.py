@@ -13,6 +13,8 @@
 # limitations under the License.
 """bazel glob function."""
 
+# pylint: disable=missing-function-docstring
+
 import glob as _glob
 import os
 import pathlib

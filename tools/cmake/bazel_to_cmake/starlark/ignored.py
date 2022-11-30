@@ -11,21 +11,25 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Implement ignored objects and libraries."""
 
-# pylint: disable=g-importing-member
-
-import unittest
-
-from .depset import DepSet
+# pylint: disable=missing-function-docstring,relative-beyond-top-level
 
 
-class TestDepset(unittest.TestCase):
+class IgnoredObject:
 
-  def test_basic(self):
-    x = DepSet(direct=['a', 'b', 'c'], transitive=None)
-    self.assertEqual(sorted(x.to_list()), ['a', 'b', 'c'])
-    y = DepSet(direct=['1', '2', '3'], transitive=None)
-    z = x + y
-    self.assertEqual(sorted(z.to_list()), ['1', '2', '3', 'a', 'b', 'c'])
-    w = DepSet(['w'], transitive=[x])
-    self.assertEqual(sorted(w.to_list()), ['a', 'b', 'c', 'w'])
+  def __call__(self, *args, **kwargs):
+    return self
+
+  def __getattr__(self, attr):
+    return self
+
+
+class IgnoredLibrary(dict):
+  """Special globals object used for ignored libraries.
+
+  All attributes evaluate to a no-op function.
+  """
+
+  def __missing__(self, key):
+    return IgnoredObject()

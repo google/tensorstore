@@ -12,14 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# pylint: disable=g-importing-member,invalid-name
+
 import unittest
-import provider as m
+
+from .provider import provider
 
 
 class TestProvider(unittest.TestCase):
 
   def test_generic_provider(self):
-    X = m.provider(doc='foo')
+    X = provider(doc='foo')
     x = X(a=1, b=2)
     self.assertEqual(x.a, 1)
     self.assertEqual(x.b, 2)
@@ -30,7 +33,7 @@ class TestProvider(unittest.TestCase):
       x.a = 2
 
   def test_restricted_provider(self):
-    Y = m.provider(doc='bar', fields=['a', 'b'])
+    Y = provider(doc='bar', fields=['a', 'b'])
     x = Y(a=1, b=2)
     self.assertEqual(x.a, 1)
     self.assertEqual(x.b, 2)
@@ -44,7 +47,3 @@ class TestProvider(unittest.TestCase):
     # Invalid field.
     with self.assertRaises(Exception) as _:
       Y(c=2)
-
-
-if __name__ == '__main__':
-  unittest.main()

@@ -17,6 +17,8 @@ https://bazel.build/rules/lib/depset
 https://bazel.build/rules/lib/globals#depset
 """
 
+# pylint: disable=missing-function-docstring
+
 import itertools
 
 

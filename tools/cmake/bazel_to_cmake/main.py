@@ -24,9 +24,9 @@ import sys
 from . import cmake_builder
 from . import native_rules  # pylint: disable=unused-import
 from . import native_rules_cc  # pylint: disable=unused-import
-from . import rule  # pylint: disable=unused-import
 from .bzl_library import default as _  # pylint: disable=unused-import
-from .evaluation import EvaluationContext
+from .cmake_target import CMakeTarget
+from .evaluation import EvaluationState
 from .platforms import add_platform_constraints
 from .util import get_matching_build_files
 from .workspace import Repository
@@ -79,7 +79,8 @@ def main():
           f"Failed to decode cmake_vars as JSON: {args.cmake_vars}") from e
     assert isinstance(cmake_vars, dict)
 
-    workspace = Workspace(cmake_vars=cmake_vars)
+    workspace = Workspace(
+        cmake_vars=cmake_vars, save_workspace=args.save_workspace)
     add_platform_constraints(workspace)
     workspace.values.update(("define", x) for x in args.define)
 
@@ -89,6 +90,7 @@ def main():
     for module in args.module:
       workspace.add_module(module)
 
+  workspace.load_modules()
   repo = Repository(
       workspace=workspace,
       source_directory=os.getcwd(),
@@ -99,15 +101,18 @@ def main():
   )
 
   if args.load_workspace:
-    workspace.exclude_repo_targets(repo.bazel_repo_name)
+    workspace.exclude_repo_targets(repo.repository_id)
 
-  workspace.bazel_to_cmake_deps[repo.bazel_repo_name] = repo.cmake_project_name
+  workspace.bazel_to_cmake_deps[repo.repository_id] = repo.cmake_project_name
   for target in args.ignore_library:
-    workspace.ignore_library(repo.get_label(target))
+    workspace.ignore_library(repo.repository_id.parse_target(target))
 
-  context = EvaluationContext(repo, save_workspace=args.save_workspace)
-  context.target_aliases.update(dict(args.target_alias))
-  builder = context.builder
+  state = EvaluationState(repo)
+  for k, v in dict(args.target_alias).items():
+    target = repo.repository_id.parse_target(k)
+    state.target_aliases[target] = CMakeTarget(v)
+
+  builder = state.builder
 
   for x, y in args.repo_mapping:
     assert x.startswith("@")
@@ -116,7 +121,7 @@ def main():
 
   if repo.top_level:
     # Load the WORKSPACE
-    context.process_workspace()
+    state.process_workspace()
 
   # Load build files.
   include_packages = args.include_package or ["**"]
@@ -130,14 +135,17 @@ def main():
                      f"include_packages={include_packages!r} and " +
                      f"exclude_packages={exclude_packages!r}")
   for build_file in build_files:
-    context.process_build_file(build_file)
+    state.process_build_file(build_file)
 
+  # Analyze the requested or default targets.
   if args.target:
-    context.analyze([repo.get_label(target) for target in args.target])
+    targets_to_analyze = sorted(
+        [repo.repository_id.parse_target(t) for t in args.target])
   else:
-    context.analyze_default_targets()
+    targets_to_analyze = state.targets_to_analyze
+  state.analyze(targets_to_analyze)
 
-  input_files = set(context.loaded_files)
+  input_files = set(state.loaded_files)
 
   # Add bazel_to_cmake's own source files to the list of input files.
   input_files.add(os.path.abspath(__file__))
@@ -149,13 +157,14 @@ def main():
   # Mark all of the Bazel files and `bazel_to_cmake` itself as dependencies of
   # the CMake configure step.  If any of those files change, the CMake configure
   # step will be re-run before building any target.
+  sep = "\n    "
   builder.addtext(
-      f"set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS {cmake_builder.quote_list(sorted(input_files))})\n",
+      f"set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS {cmake_builder.quote_list(sorted(input_files), separator=sep)})\n",
       section=0,
   )
 
-  if context.errors:
-    error_str = "\n".join(context.errors)
+  if state.errors:
+    error_str = "\n".join(state.errors)
     print(
         f"""
 ---------------------------------------------------

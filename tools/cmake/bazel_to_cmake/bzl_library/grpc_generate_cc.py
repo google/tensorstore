@@ -18,13 +18,15 @@
 
 from typing import List, Optional, cast
 
-from ..evaluation import BazelGlobals
-from ..evaluation import Package
-from ..evaluation import register_bzl_library
-from ..label import Label
-from ..label import RelativeLabel
 from ..protoc_helper import protoc_compile_protos_impl
-from ..provider import ProtoLibraryProvider
+from ..starlark.bazel_globals import BazelGlobals
+from ..starlark.bazel_globals import register_bzl_library
+from ..starlark.bazel_target import TargetId
+from ..starlark.common_providers import ProtoLibraryProvider
+from ..starlark.invocation_context import InvocationContext
+from ..starlark.invocation_context import RelativeLabel
+from ..starlark.label import as_target_id
+from ..starlark.select import Configurable
 
 
 @register_bzl_library(
@@ -35,42 +37,40 @@ class GrpcGenerateCcLibrary(BazelGlobals):
                         name: str,
                         visibility: Optional[List[RelativeLabel]] = None,
                         **kwargs):
-    _context = self._context
-    package = _context.current_package
-    assert package is not None
-    label = package.get_label(name)
-    _context.add_rule(
-        label,
-        lambda: _generate_cc_impl(cast(Package, package), label, **kwargs),
+    context = self._context.snapshot()
+    target = context.resolve_target(name)
+    context.add_rule(
+        target,
+        lambda: _generate_cc_impl(context, target, **kwargs),
         analyze_by_default=False)
 
 
-def _generate_cc_impl(_package: Package,
-                      _label: Label,
-                      srcs: Optional[List[RelativeLabel]] = None,
-                      plugin: Optional[RelativeLabel] = None,
+def _generate_cc_impl(_context: InvocationContext,
+                      _target: TargetId,
+                      srcs: Optional[Configurable[List[RelativeLabel]]] = None,
+                      plugin: Optional[Configurable[RelativeLabel]] = None,
                       flags: Optional[List[str]] = None,
                       **kwargs):
   del kwargs
 
-  resolved_srcs = _package.get_label_list(_package.get_configurable_list(srcs))
-
-  _context = _package.context
+  resolved_srcs = _context.resolve_target_or_label_list(
+      _context.evaluate_configurable_list(srcs))
   assert len(resolved_srcs) == 1
-  info = _context.get_optional_target_info(
-      resolved_srcs[0]).get(ProtoLibraryProvider)
 
+  info = _context.get_target_info(resolved_srcs[0]).get(ProtoLibraryProvider)
   assert info is not None
   assert len(info.srcs) == 1
+  proto_src: TargetId = as_target_id(next(iter(info.srcs)))
 
-  if plugin:
-    plugin = _package.get_label(_package.get_configurable(plugin))
-  proto_src = next(iter(info.srcs))
+  resolved_plugin = None
+  if plugin is not None:
+    resolved_plugin = _context.resolve_target_or_label(
+        cast(RelativeLabel, _context.evaluate_configurable(plugin)))
 
   protoc_compile_protos_impl(
       _context,
-      _label,
+      _target,
       proto_src,
-      plugin=plugin,
+      plugin=resolved_plugin,
       add_files_provider=True,
       flags=flags)

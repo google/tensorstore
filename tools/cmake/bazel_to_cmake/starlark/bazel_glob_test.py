@@ -12,11 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# pylint: disable=g-importing-member
+
 import os
 import tempfile
 import unittest
 
-import bazel_glob as m
+from .bazel_glob import glob
 
 
 class GlobTest(unittest.TestCase):
@@ -42,13 +44,9 @@ class GlobTest(unittest.TestCase):
           f.write('')
 
       self.assertEqual(
-          m.glob(directory, ['**/*.cc']),
+          glob(directory, ['**/*.cc']),
           sorted([
               'a/a1.cc',
               'a/a2.cc',
               'a/c/ac.cc',
           ]))
-
-
-if __name__ == '__main__':
-  unittest.main()

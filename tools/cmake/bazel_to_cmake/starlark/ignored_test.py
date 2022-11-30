@@ -16,16 +16,12 @@
 
 import unittest
 
-from .depset import DepSet
+from .ignored import IgnoredLibrary
 
 
-class TestDepset(unittest.TestCase):
+class TestIgnored(unittest.TestCase):
 
-  def test_basic(self):
-    x = DepSet(direct=['a', 'b', 'c'], transitive=None)
-    self.assertEqual(sorted(x.to_list()), ['a', 'b', 'c'])
-    y = DepSet(direct=['1', '2', '3'], transitive=None)
-    z = x + y
-    self.assertEqual(sorted(z.to_list()), ['1', '2', '3', 'a', 'b', 'c'])
-    w = DepSet(['w'], transitive=[x])
-    self.assertEqual(sorted(w.to_list()), ['a', 'b', 'c', 'w'])
+  def test_ignored(self):
+    x = IgnoredLibrary()
+    x['foo']()
+    x['foo'].foo.bar.baz()

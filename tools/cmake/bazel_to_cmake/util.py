@@ -17,9 +17,9 @@ import glob
 import os
 import pathlib
 import re
-from .starlark.bazel_glob import glob_pattern_to_regexp
+from typing import List, Optional, Set
 
-from typing import Optional, List, Set
+from .starlark.bazel_glob import glob_pattern_to_regexp
 
 
 def write_file_if_not_already_equal(path: str, content: bytes):
