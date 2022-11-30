@@ -73,7 +73,7 @@ nasm_one_file = rule(
         "_nasm": attr.label(
             default = "@nasm//:nasm",
             executable = True,
-            cfg = "host",
+            cfg = "exec",
         ),
     },
     outputs = {"out": "%{name}.o"},
