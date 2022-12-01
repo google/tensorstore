@@ -129,7 +129,10 @@ class Phase(enum.Enum):
 def _get_kind(currentframe) -> Optional[str]:
   if not currentframe:
     return None
-  return currentframe.f_back.f_code.co_name
+  kind = currentframe.f_back.f_back.f_code.co_name
+  if kind.startswith("bazel_"):
+    kind = kind[len("bazel_"):]
+  return kind
 
 
 class EvaluationState:

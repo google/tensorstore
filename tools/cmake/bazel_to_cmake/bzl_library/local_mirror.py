@@ -95,7 +95,7 @@ def _local_mirror_impl(_context: InvocationContext, **kwargs):
     if not sha256:
       raise ValueError(
           f"local_mirror requires SHA256 for downloaded file: {file}")
-    out.write(f"\n     EXPECTED_HASH SHA256={sha256})\n\n")
+    out.write(f"""\n     EXPECTED_HASH "SHA256={sha256}")\n\n""")
 
   cmaketxt_path = pathlib.Path(os.path.join(local_mirror_dir, "CMakeLists.txt"))
 

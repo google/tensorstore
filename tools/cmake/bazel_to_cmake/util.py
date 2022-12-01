@@ -65,6 +65,13 @@ def cmake_is_true(value: Optional[str]) -> bool:
   return not _CMAKE_FALSE_PATTERN.fullmatch(value)
 
 
+def cmake_is_windows(value: Optional[str]) -> bool:
+  """Determines if a string is considered by CMake to be TRUE."""
+  if value is None:
+    return False
+  return value.startswith("Windows")
+
+
 def _get_build_patterns(package_patterns: List[str]):
   patterns = []
   for package_pattern in package_patterns:

@@ -267,10 +267,10 @@ def _get_fetch_content_invocation(
   out = io.StringIO()
   out.write(f"FetchContent_Declare({cmake_name}")
   if urls:
-    out.write(f" URL {quote_string(urls[0])}")
+    out.write(f"\n    URL {quote_string(urls[0])}")
   if sha256:
     hash_str = f"SHA256={sha256}"
-    out.write(f" URL_HASH {quote_string(hash_str)}")
+    out.write(f"\n    URL_HASH {quote_string(hash_str)}")
 
   patch_commands = []
   for patch in patches or ():
@@ -306,8 +306,8 @@ def _get_fetch_content_invocation(
       f"""{quote_path(cmake_command)} -E copy {quote_path(new_cmakelists_path)} CMakeLists.txt"""
   )
   patch_command = " && ".join(patch_commands)
-  out.write(f" PATCH_COMMAND {patch_command}")
-  out.write(" OVERRIDE_FIND_PACKAGE)\n")
+  out.write(f"\n    PATCH_COMMAND {patch_command}")
+  out.write("\n    OVERRIDE_FIND_PACKAGE)\n")
   return out.getvalue()
 
 

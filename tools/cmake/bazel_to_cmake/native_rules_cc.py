@@ -411,8 +411,8 @@ def _get_cc_proto_library_target(context: InvocationContext,
   if len(cc_deps) == 1:
     return cc_deps[0]
 
-  cc_library_target = proto_target.get_target_id(proto_target.target_name +
-                                                 "__cc_proto_library")
+  cc_library_target = proto_target.get_target_id(
+      f"{proto_target.target_name}__cc_proto_library")
 
   state = context.access(EvaluationState)
   cmake_target_pair = state.generate_cmake_target_pair(

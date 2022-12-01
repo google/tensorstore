@@ -1,0 +1,40 @@
+# NOTE: ":h_file" should work as well as "s.h", right?
+cc_library(
+    name = "a",
+    srcs = ["a.cc"],
+    hdrs = ["a.h"],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "h_file",
+    srcs = select({
+        "//conditions:default": ["x.h"],
+        "//:other": ["y.h"],
+    }),
+    outs = ["a.h"],
+    cmd = "cp $< $@",
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "other",
+    values = {"cpu": "darwin_arm64"},
+)
+
+proto_library(
+    name = "c_proto",
+    srcs = ["c.proto"],
+    cc_api_version = 2,
+)
+
+cc_proto_library(
+    name = "c_proto_cc",
+    deps = [":c_proto"],
+)
+
+cc_test(
+    name = "a_test",
+    srcs = ["a.cc"],
+    deps = [":c_proto_cc"],
+)

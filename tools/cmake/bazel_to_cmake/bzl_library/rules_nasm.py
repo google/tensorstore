@@ -154,13 +154,12 @@ def _emit_nasm_library(
   if use_builtin_rule:
     _builder.addtext(
         f"""target_sources({target_name} PRIVATE {quote_list(all_srcs + dummy_sources)})
-  target_include_directories({target_name} PRIVATE {quote_list(sorted(includes))})
-  set_source_files_properties(
+target_include_directories({target_name} PRIVATE {quote_list(sorted(includes))})
+set_source_files_properties(
     {quote_list(all_srcs)}
     PROPERTIES
       LANGUAGE ASM_NASM
-      COMPILE_OPTIONS {quote_string(";".join(flags))})
-  """)
+      COMPILE_OPTIONS {quote_string(";".join(flags))})\n""")
     if cmake_deps:
       _builder.addtext(
           f"add_dependencies({target_name} {quote_list(sorted(cmake_deps))})\n")

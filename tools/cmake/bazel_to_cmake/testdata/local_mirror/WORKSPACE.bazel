@@ -1,0 +1,49 @@
+workspace(name = "bazel_test_repo")
+
+load("@com_google_tensorstore//bazel:local_mirror.bzl", "local_mirror")
+
+_BUILD = '''
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])
+
+proto_library(
+    name = "validate_proto",
+    srcs = ["validate.proto"],
+)
+
+cc_proto_library(
+    name = "validate_cc",
+    deps = [":validate_proto"],
+)
+
+cc_library(
+    name = "b",
+    srcs = ["b.cc"],
+    hdrs = ["b.h"],
+)
+'''
+
+local_mirror(
+    name = "local_proto_mirror",
+
+    bazel_to_cmake = {},
+    cmake_name = "lpm",
+    cmake_target_mapping = {
+        "@local_proto_mirror//:validate_cc": "lpm::validate_cc",
+    },
+    files = [ "b.h", "b.cc", "validate.proto", "BUILD.bazel" ],
+    file_url = {
+        "validate.proto": [
+            "https://raw.githubusercontent.com/bufbuild/protoc-gen-validate/2682ad06cca00550030e177834f58a2bc06eb61e/validate/validate.proto",
+        ],
+    },
+    file_sha256 = {
+        "validate.proto": "bf7ca2ac45a75b8b9ff12f38efd7f48ee460ede1a7919d60c93fad3a64fc2eee",
+    },
+    file_content = {
+        "b.h": "// b",
+        "b.cc": "// b.cc",
+        "BUILD.bazel": _BUILD,
+    }
+)

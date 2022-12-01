@@ -39,6 +39,7 @@ from ..starlark.invocation_context import RelativeLabel
 from ..starlark.provider import TargetInfo
 from ..starlark.select import Configurable
 from ..util import cmake_is_true
+from ..util import cmake_is_windows
 from ..util import write_file_if_not_already_equal
 
 
@@ -142,11 +143,12 @@ def _expand_template_impl(
           CMakeDepsProvider([cmake_target_pair.dep]),
           FilesProvider([out_file])))
 
-  template_target = _context.resolve_target_or_label(
+  resolved_template = _context.resolve_target_or_label(
       cast(RelativeLabel, _context.evaluate_configurable(template)))
 
   deps: List[CMakeTarget] = []
-  template_paths = state.get_file_paths(template_target, deps)
+  template_paths = state.get_file_paths(resolved_template, deps)
+
   assert len(template_paths) == 1
   template_path = template_paths[0]
   script_path = os.path.join(os.path.dirname(__file__), "expand_template.py")
@@ -224,7 +226,7 @@ def _write_file_impl(
     _target: TargetId,
     _out_target: TargetId,
     content: Configurable[List[str]],
-    newline: str,
+    newline: Configurable[str],
     **kwargs,
 ):
   del kwargs
@@ -232,8 +234,13 @@ def _write_file_impl(
   _context.add_analyzed_target(_out_target,
                                TargetInfo(FilesProvider([out_file])))
   _context.add_analyzed_target(_target, TargetInfo())
-  if newline == "unix" or (newline == "auto" and _context.access(
-      EvaluationState).workspace.cmake_vars["CMAKE_SYSTEM_NAME"] != "Windows"):
+
+  resolved_newline = _context.evaluate_configurable(newline)
+
+  if resolved_newline == "unix" or (
+      resolved_newline == "auto" and not cmake_is_windows(
+          _context.access(
+              EvaluationState).workspace.cmake_vars["CMAKE_SYSTEM_NAME"])):
     nl = "\n"
   else:
     nl = "\r\n"

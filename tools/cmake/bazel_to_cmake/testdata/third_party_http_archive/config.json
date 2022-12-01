@@ -1,0 +1,11 @@
+{
+    "files": [
+        "_cmake_binary_dir_/third_party/CMakeLists.txt",
+        "_cmake_binary_dir_/third_party/half-proxy-CMakeLists.txt",
+        "_find_pkg_redirects_/half-extra.cmake",
+        "build_rules.cmake"
+    ],
+    "modules": [
+        ".bzl_library.third_party_http_archive"
+    ]
+}

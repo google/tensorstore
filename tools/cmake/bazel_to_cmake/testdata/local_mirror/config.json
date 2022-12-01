@@ -1,0 +1,12 @@
+{
+    "files": [
+        "_cmake_binary_dir_/local_mirror/lpm/BUILD.bazel",
+        "_cmake_binary_dir_/local_mirror/lpm/CMakeLists.txt",
+        "_cmake_binary_dir_/local_mirror/lpm/b.cc",
+        "_cmake_binary_dir_/local_mirror/lpm/b.h",
+        "build_rules.cmake"
+    ],
+    "modules": [
+        ".bzl_library.local_mirror"
+    ]
+}

@@ -1,0 +1,8 @@
+{
+    "files": [
+        "build_rules.cmake"
+    ],
+    "modules": [
+        ".bzl_library.rules_nasm"
+    ]
+}

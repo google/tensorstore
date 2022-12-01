@@ -1,0 +1,10 @@
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "a",
+    srcs = ["a.cc"],
+    deps = [
+        "@local_proto_mirror//:b",
+        "@local_proto_mirror//:validate_cc",
+    ],
+)

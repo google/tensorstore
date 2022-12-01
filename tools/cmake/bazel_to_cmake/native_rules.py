@@ -245,7 +245,7 @@ def _emit_genrule(
     message: Optional[str] = None,
 ):
   if message:
-    optional_message_text = f"COMMENT {cmake_builder.quote_string(message)}"
+    optional_message_text = f"COMMENT {cmake_builder.quote_string(message)}\n  "
   else:
     optional_message_text = ""
   builder.addtext(f"""
@@ -253,8 +253,7 @@ add_custom_command(
   OUTPUT {cmake_builder.quote_list(out_files)}
   DEPENDS {cmake_builder.quote_list(cast(List[str], cmake_deps))}
   COMMAND {cmd_text}
-  {optional_message_text}
-  VERBATIM
+  {optional_message_text}VERBATIM
   WORKING_DIRECTORY "${{CMAKE_CURRENT_SOURCE_DIR}}"
 )
 add_custom_target({cmake_target} DEPENDS {cmake_builder.quote_list(out_files)})

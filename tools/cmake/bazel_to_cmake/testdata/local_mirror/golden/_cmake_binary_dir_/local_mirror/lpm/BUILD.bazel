@@ -1,0 +1,20 @@
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])
+
+proto_library(
+    name = "validate_proto",
+    srcs = ["validate.proto"],
+)
+
+cc_proto_library(
+    name = "validate_cc",
+    deps = [":validate_proto"],
+)
+
+cc_library(
+    name = "b",
+    srcs = ["b.cc"],
+    hdrs = ["b.h"],
+)

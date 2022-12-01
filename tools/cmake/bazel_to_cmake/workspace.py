@@ -170,7 +170,10 @@ class Workspace:
   def load_modules(self):
     """Load modules added by add_module."""
     for module_name in self._modules:
-      importlib.import_module(module_name)
+      if module_name.startswith("."):
+        importlib.import_module(module_name, package=__package__)
+      else:
+        importlib.import_module(module_name)
 
 
 class Repository:
