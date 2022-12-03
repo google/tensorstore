@@ -28,7 +28,7 @@ namespace {
 struct RiegeliJsonOutputAdapter
     : public ::nlohmann::detail::output_adapter_protocol<char> {
   RiegeliJsonOutputAdapter(riegeli::Writer& writer) : writer_(writer) {}
-  void write_character(char c) final { writer_.WriteChar(c); }
+  void write_character(char c) final { writer_.Write(c); }
   void write_characters(const char* s, size_t length) final {
     writer_.Write(std::string_view(s, length));
   }
