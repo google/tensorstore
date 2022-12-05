@@ -30,4 +30,7 @@ def repo():
             "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/protocolbuffers/upb/archive/f3a0cc49da29dbdbd09b3325c2834139540f00fa.tar.gz",
             "https://github.com/protocolbuffers/upb/archive/f3a0cc49da29dbdbd09b3325c2834139540f00fa.tar.gz",  # main(2022-11-18)
         ],
+        repo_mapping = {
+            "@com_google_googleapis": "",  # Exclude googleapis; within upb it is only needed for test cases.
+        },
     )

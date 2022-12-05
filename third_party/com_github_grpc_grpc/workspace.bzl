@@ -39,6 +39,7 @@ def repo():
             "@com_googlesource_code_re2": "@com_google_re2",
             "@com_github_google_benchmark": "@com_google_benchmark",
             "@com_github_cncf_udpa": "@local_proto_mirror",
+            "@com_google_googleapis": "@local_proto_mirror",
         },
     )
     for key in GRPC_NATIVE_BINDINGS.keys():
