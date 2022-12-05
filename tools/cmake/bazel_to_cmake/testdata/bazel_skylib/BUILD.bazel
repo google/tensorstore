@@ -27,7 +27,10 @@ expand_template(
 
 copy_file(
     name = "config_copy_rule",
-    src = "config2.h",
+    src = select({
+        ":any_os": "config2.h",
+        "//conditions:default": "config2.h",
+    }),
     out = "config3.h",
     allow_symlink = True,
 )

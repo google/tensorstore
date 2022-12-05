@@ -74,6 +74,7 @@ ABSL_CMAKE_MAPPING = {
     "@com_google_absl//absl/functional:bind_front": "absl::bind_front",
     "@com_google_absl//absl/functional:function_ref": "absl::function_ref",
     "@com_google_absl//absl/hash:hash": "absl::hash",
+    "@com_google_absl//absl/log:log": "absl::log",
     "@com_google_absl//absl/log:die_if_null": "absl::die_if_null",
     "@com_google_absl//absl/log:check": "absl::check",
     "@com_google_absl//absl/memory:memory": "absl::memory",

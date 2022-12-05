@@ -67,15 +67,31 @@ def write_bazel_to_cmake_cmakelists(
     bazel_to_cmake: Dict[str, Any],
     cmake_target_mapping: Optional[Dict[str, str]] = None,
     build_file: Optional[RelativeLabel] = None,
+    cmake_extra_build_file: Optional[RelativeLabel] = None,
     repo_mapping: Optional[Dict[str, str]] = None,
     **kwargs):
   """Writes a nested CMakeLists.txt which invokes bazel_to_cmake.py."""
+  if kwargs.get("build_file_content") is not None:
+    raise ValueError("build_file_content not allowed.")
   del kwargs
+
   workspace = _context.access(EvaluationState).workspace
+  cmake_command = workspace.cmake_vars["CMAKE_COMMAND"]
+  bazel_to_cmake_args = []
+
+  if cmake_extra_build_file is not None:
+    # Labelize build file.
+    build_file_path = _context.get_source_file_path(
+        _context.resolve_target_or_label(cmake_extra_build_file))
+
+    assert build_file_path is not None
+    quoted_build_path = quote_path(build_file_path)
+    _patch_commands.append(
+        f"""{quote_path(cmake_command)} -E copy {quoted_build_path} extraBUILD.bazel"""
+    )
+    bazel_to_cmake_args.append("--extra-build=extraBUILD.bazel")
 
   if build_file is not None:
-    cmake_command = workspace.cmake_vars["CMAKE_COMMAND"]
-
     # Labelize build file.
     build_file_path = _context.get_source_file_path(
         _context.resolve_target_or_label(build_file))
@@ -85,17 +101,19 @@ def write_bazel_to_cmake_cmakelists(
     _patch_commands.append(
         f"""{quote_path(cmake_command)} -E copy {quoted_build_path} BUILD.bazel"""
     )
+
   bazel_to_cmake_path = os.path.abspath(sys.argv[0])
   assert workspace.save_workspace is not None
-  bazel_to_cmake_args = [
+  bazel_to_cmake_args.extend([
       f"--load-workspace {quote_path(workspace.save_workspace)}",
       f"--cmake-project-name {cmake_name}",
       '--cmake-binary-dir "${CMAKE_CURRENT_BINARY_DIR}"',
       f"--bazel-repo-name {name}",
       '--build-rules-output "${CMAKE_CURRENT_BINARY_DIR}/build_rules.cmake"'
-  ]
+  ])
   for mapped, orig in (repo_mapping or {}).items():
-    bazel_to_cmake_args.append(f"--repo-mapping {mapped} {orig}")
+    bazel_to_cmake_args.append(
+        f"--repo-mapping {quote_string(mapped)} {quote_string(orig)}")
   for include_package in bazel_to_cmake.get("include", []):
     bazel_to_cmake_args.append(
         quote_string("--include-package=" + include_package))

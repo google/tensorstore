@@ -37,7 +37,6 @@ from .starlark.bazel_globals import register_native_build_rule
 from .starlark.bazel_target import TargetId
 from .starlark.common_providers import ConditionProvider
 from .starlark.common_providers import FilesProvider
-from .starlark.common_providers import ProtoLibraryProvider
 from .starlark.invocation_context import InvocationContext
 from .starlark.label import RelativeLabel
 from .starlark.provider import Provider
@@ -111,28 +110,6 @@ def filegroup(self: InvocationContext, name: str, srcs: List[RelativeLabel],
     _context.add_analyzed_target(target, TargetInfo(*providers))
 
   _context.add_rule(target, impl, analyze_by_default=False)
-
-
-@register_native_build_rule
-def proto_library(self: InvocationContext,
-                  name: str,
-                  srcs: Optional[List[RelativeLabel]],
-                  deps: Optional[List[RelativeLabel]] = None,
-                  visibility: Optional[List[RelativeLabel]] = None,
-                  **kwargs):
-  del kwargs
-  _context = self.snapshot()
-  target = _context.resolve_target(name)
-
-  def impl():
-    resolved_srcs = _context.resolve_target_or_label_list(
-        _context.evaluate_configurable_list(srcs))
-    resolved_deps = _context.resolve_target_or_label_list(
-        _context.evaluate_configurable_list(deps))
-    _context.add_analyzed_target(
-        target, TargetInfo(ProtoLibraryProvider(resolved_srcs, resolved_deps)))
-
-  _context.add_rule(target, impl, visibility=visibility)
 
 
 @register_native_build_rule
@@ -311,18 +288,25 @@ def config_setting(
 
 
 @register_native_build_rule
-def alias(self: InvocationContext, name: str,
-          actual: Configurable[RelativeLabel], **kwargs):
-  # Aliases are not analyzed by default.
+def alias(self: InvocationContext,
+          name: str,
+          actual: Configurable[RelativeLabel],
+          visibility: Optional[List[RelativeLabel]] = None,
+          **kwargs):
   del kwargs
-  _context = self.snapshot()
-  target = _context.resolve_target(name)
+  context = self.snapshot()
+  target = context.resolve_target(name)
+  context.add_rule(
+      target,
+      lambda: _alias_impl(context, target, actual),
+      visibility=visibility)
 
-  def impl():
-    resolved = _context.resolve_target(_context.evaluate_configurable(actual))
-    _context.add_analyzed_target(target, _context.get_target_info(resolved))
 
-  _context.add_rule(target, impl, analyze_by_default=False)
+def _alias_impl(_context: InvocationContext, _target: TargetId,
+                actual: Configurable[RelativeLabel]):
+  resolved = _context.resolve_target(_context.evaluate_configurable(actual))
+  target_info = _context.get_target_info(resolved)
+  _context.add_analyzed_target(_target, target_info)
 
 
 @register_native_build_rule

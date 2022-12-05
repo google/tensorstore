@@ -23,10 +23,11 @@ import tempfile
 from typing import Any, Dict, List
 import unittest
 
+from . import native_rules  # pylint: disable=unused-import
+from . import native_rules_cc  # pylint: disable=unused-import
+from . import native_rules_proto  # pylint: disable=unused-import
 from .cmake_target import CMakeTarget
 from .evaluation import EvaluationState
-from .native_rules import *  # pylint: disable=unused-import,wildcard-import
-from .native_rules_cc import *  # pylint: disable=unused-import,wildcard-import
 from parameterized import parameterized
 from .platforms import add_platform_constraints
 from .starlark import rule  # pylint: disable=unused-import
@@ -49,7 +50,7 @@ CMAKE_VARS = {
 
 
 def testdata_parameters():
-  """Returns config tuples for the 'testdata' subdir."""
+  """Returns config tuples by reading config.json from the 'testdata' subdir."""
   testdata = pathlib.Path(__file__).resolve().with_name('testdata')
   result = []
   for x in testdata.iterdir():
@@ -63,12 +64,6 @@ def testdata_parameters():
     config['source_directory'] = str(x)
     result.append((x.name, config))
   return result
-
-
-def write_config_json(path: str, config: Dict[str, Any]):
-  """Writes config.json."""
-  with pathlib.Path(os.path.join(path, 'config.json')).open('w') as f:
-    json.dump(config, f, sort_keys=True, indent=4)
 
 
 def get_files_list(source_directory: str) -> List[pathlib.Path]:
@@ -134,8 +129,26 @@ class GoldenTest(unittest.TestCase):
           CMakeTarget('gRPC::grpc_cpp_plugin'), 'gRPC')
 
       workspace.set_bazel_target_mapping(  #
+          '@com_google_protobuf//:protoc', CMakeTarget('protobuf::protoc'),
+          'Protobuf')
+
+      workspace.set_bazel_target_mapping(  #
           '@com_google_protobuf//:protobuf',
-          CMakeTarget('protobuf::libprotobuf'), 'protobuf')
+          CMakeTarget('protobuf::libprotobuf'), 'Protobuf')
+
+      workspace.set_bazel_target_mapping(
+          '@com_google_upb//upbc:protoc-gen-upbdefs',
+          CMakeTarget('upb::protoc-gen-upbdefs'), 'upb')
+
+      workspace.set_bazel_target_mapping(  #
+          '@com_google_upb//upbc:protoc-gen-upb',
+          CMakeTarget('protobuf::protoc-gen-upb'), 'upb')
+
+      workspace.set_bazel_target_mapping(  #
+          '@com_google_upb//:generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me',
+          CMakeTarget(
+              'upb::generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me'
+          ), 'upb')
 
       # Load specified modules.
       for x in config.get('modules', []):
@@ -201,13 +214,10 @@ class GoldenTest(unittest.TestCase):
           shutil.rmtree(golden_directory)
         except FileNotFoundError:
           pass
-        config['files'] = []
         for x in files:
           dest_path = os.path.join(golden_directory, x)
           os.makedirs(os.path.dirname(dest_path), exist_ok=True)
           shutil.copyfile(x, dest_path)
-          config['files'].append(x)
-        write_config_json(source_directory, config)
 
       # Assert files exist.
       golden_files = get_files_list(golden_directory)

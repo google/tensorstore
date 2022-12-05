@@ -15,7 +15,7 @@
 
 # pylint: disable=relative-beyond-top-level
 
-from .. import native_rules
+from .. import native_rules_proto
 from ..starlark.bazel_globals import BazelGlobals
 from ..starlark.bazel_globals import register_bzl_library
 from ..starlark.ignored import IgnoredObject
@@ -25,7 +25,7 @@ from ..starlark.ignored import IgnoredObject
 class RulesCcDefsLibrary(BazelGlobals):
 
   def bazel_proto_library(self, **kwargs):
-    return native_rules.proto_library(self._context, **kwargs)
+    return native_rules_proto.proto_library(self._context, **kwargs)
 
   @property
   def bazel_proto_lang_toolchain(self):

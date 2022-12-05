@@ -104,7 +104,7 @@ def _local_mirror_impl(_context: InvocationContext, **kwargs):
       section=FETCH_CONTENT_DECLARE_SECTION)
   builder.addtext(out.getvalue(), section=FETCH_CONTENT_DECLARE_SECTION)
   builder.addtext(
-      f"add_subdirectory({quote_string(str(cmaketxt_path.parent))} _local_mirror_configs EXCLUDE_FROM_ALL)\n",
+      f"add_subdirectory({quote_string(str(cmaketxt_path.parent))} EXCLUDE_FROM_ALL)\n",
       section=FETCH_CONTENT_DECLARE_SECTION)
 
   # Now write the nested CMakeLists.txt file
@@ -121,3 +121,23 @@ def _local_mirror_impl(_context: InvocationContext, **kwargs):
     out.write(str(kwargs.get("cmakelists_suffix")))
 
   cmaketxt_path.write_text(out.getvalue(), encoding="utf-8")
+
+  # Clients rely on find_package; provide a -config.cmake file
+  # for that.
+  cmake_find_package_redirects_dir = state.workspace.cmake_vars[
+      "CMAKE_FIND_PACKAGE_REDIRECTS_DIR"]
+  if (kwargs.get("cmake_package_redirect_extra") is not None or
+      kwargs.get("cmake_package_aliases") is not None or
+      kwargs.get("cmake_package_redirect_libraries") is not None):
+    # No aliases, etc. allowed for local_mirror.
+    raise ValueError("CMake options not supported by local_mirror")
+
+  config_path = os.path.join(cmake_find_package_redirects_dir,
+                             f"{cmake_name.lower()}-config.cmake")
+  pathlib.Path(config_path).write_text(
+      f"""
+set({cmake_name.lower()}_ROOT_DIR {local_mirror_dir})
+set({cmake_name.lower()}_FOUND ON)
+set({cmake_name.upper()}_FOUND ON)
+""",
+      encoding="utf-8")

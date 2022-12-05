@@ -1,4 +1,4 @@
-find_package(protobuf REQUIRED)
+find_package(Protobuf REQUIRED)
 
 add_custom_command(
   OUTPUT "_cmake_binary_dir_/a.h"
@@ -34,26 +34,27 @@ add_custom_command(
   DEPENDS "${TEST_DIRECTORY}/c.proto" "protobuf::protoc"
   COMMENT "Running protoc (cpp) on c.proto"
   VERBATIM)
-add_custom_target(CMakeProject_c.proto__cc_protoc DEPENDS "_cmake_binary_dir_/c.pb.h" "_cmake_binary_dir_/c.pb.cc")
+add_custom_target(CMakeProject_c.proto__cpp_protoc DEPENDS "_cmake_binary_dir_/c.pb.h" "_cmake_binary_dir_/c.pb.cc")
 
 
-add_library(CMakeProject_c.proto__cc_proto)
-target_sources(CMakeProject_c.proto__cc_proto PRIVATE
+add_library(CMakeProject_c.proto__cpp_proto)
+target_sources(CMakeProject_c.proto__cpp_proto PRIVATE
         "_cmake_binary_dir_/c.pb.cc")
-set_property(TARGET CMakeProject_c.proto__cc_proto PROPERTY LINKER_LANGUAGE "CXX")
-target_link_libraries(CMakeProject_c.proto__cc_proto PUBLIC
+set_property(TARGET CMakeProject_c.proto__cpp_proto PROPERTY LINKER_LANGUAGE "CXX")
+target_link_libraries(CMakeProject_c.proto__cpp_proto PUBLIC
         "protobuf::libprotobuf")
-target_include_directories(CMakeProject_c.proto__cc_proto PUBLIC
+target_include_directories(CMakeProject_c.proto__cpp_proto PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>"
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
-target_compile_features(CMakeProject_c.proto__cc_proto PUBLIC cxx_std_17)
-add_library(CMakeProject::c.proto__cc_proto ALIAS CMakeProject_c.proto__cc_proto)
-add_dependencies(CMakeProject_c.proto__cc_proto CMakeProject_c.proto__cc_protoc)
+target_compile_features(CMakeProject_c.proto__cpp_proto PUBLIC cxx_std_17)
+add_library(CMakeProject::c.proto__cpp_proto ALIAS CMakeProject_c.proto__cpp_proto)
+add_dependencies(CMakeProject_c.proto__cpp_proto CMakeProject_c.proto__cpp_protoc)
 
 
 add_library(CMakeProject_c_proto_cc INTERFACE)
 target_link_libraries(CMakeProject_c_proto_cc INTERFACE
-        "CMakeProject::c.proto__cc_proto")
+        "CMakeProject::c.proto__cpp_proto"
+        "protobuf::libprotobuf")
 target_include_directories(CMakeProject_c_proto_cc INTERFACE
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>"
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")

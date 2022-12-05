@@ -22,6 +22,7 @@ generate_cc(
     flags = ["services_namespace=grpc_gen"],
     plugin = "@com_github_grpc_grpc//src/compiler:grpc_cpp_plugin",
     visibility = ["//visibility:private"],
+    well_known_protos = False,
 )
 
 cc_library(

@@ -116,9 +116,6 @@ class RuleInfo(NamedTuple):
   impl: RuleImpl
   kind: Optional[str]
 
-  def __getitem__(self, item):
-    return getattr(self, item, None)
-
 
 class Phase(enum.Enum):
   LOADING_WORKSPACE = 1
@@ -368,6 +365,11 @@ class EvaluationState:
             self.add_required_dep_package(package)
       return info[CMakeDepsProvider].targets
 
+    # target_aliases can specify dependency targets to link against.
+    cmake_alias_target = self.target_aliases.get(target_id)
+    if cmake_alias_target is not None:
+      return [cmake_alias_target]
+
     cmake_project_name = self.workspace.bazel_to_cmake_deps.get(
         target_id.repository_id)
     if cmake_project_name is not None:
@@ -482,8 +484,6 @@ class EvaluationState:
 
   def process_build_content(self, build_file_path: str, content: str):
     """Processes a single package (BUILD file content)."""
-    assert (build_file_path.endswith("BUILD") or
-            build_file_path.endswith("BUILD.bazel"))
     assert build_file_path.startswith(self.repo.source_directory)
     self._phase = Phase.LOADING_BUILD
 

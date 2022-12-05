@@ -20,17 +20,38 @@ import json
 import os
 import pickle
 import sys
+from typing import List, Set, Union
 
 from . import cmake_builder
 from . import native_rules  # pylint: disable=unused-import
 from . import native_rules_cc  # pylint: disable=unused-import
+from . import native_rules_proto  # pylint: disable=unused-import
 from .bzl_library import default as _  # pylint: disable=unused-import
 from .cmake_target import CMakeTarget
 from .evaluation import EvaluationState
 from .platforms import add_platform_constraints
+from .starlark.bazel_target import TargetId
 from .util import get_matching_build_files
 from .workspace import Repository
 from .workspace import Workspace
+
+
+def maybe_expand_special_targets(t: TargetId, available: Union[Set[TargetId],
+                                                               List[TargetId]]):
+  # Handle special targets t, :all, :... from the available targets.
+  result: List[TargetId] = []
+  if t.target_name == "all":
+    for u in available:
+      if u.package_id == t.package_id:
+        result.append(u)
+  elif t.target_name == "...":
+    prefix = t.package_name + "/"
+    for u in available:
+      if u.package_name.startswith(prefix):
+        result.append(u)
+  else:
+    result.append(t)
+  return result
 
 
 def main():
@@ -44,6 +65,8 @@ def main():
   ap.add_argument("--include-package", action="append", default=[])
   ap.add_argument("--exclude-package", action="append", default=[])
   ap.add_argument("--repo-mapping", nargs=2, action="append", default=[])
+  ap.add_argument("--extra-build", action="append", default=[])
+  ap.add_argument("--exclude-target", action="append", default=[])
 
   # Used for sub-projects only.
   ap.add_argument("--load-workspace")
@@ -116,8 +139,9 @@ def main():
 
   for x, y in args.repo_mapping:
     assert x.startswith("@")
-    assert y.startswith("@")
-    repo.repo_mapping[x[1:]] = y[1:]
+    if y.startswith("@"):
+      y = y[1:]
+    repo.repo_mapping[x[1:]] = y
 
   if repo.top_level:
     # Load the WORKSPACE
@@ -130,6 +154,9 @@ def main():
       root_dir=repo.source_directory,
       include_packages=include_packages,
       exclude_packages=exclude_packages)
+  if args.extra_build:
+    build_files.extend(args.extra_build)
+
   if not build_files:
     raise ValueError(f"No build files in {repo.source_directory!r} match " +
                      f"include_packages={include_packages!r} and " +
@@ -138,12 +165,23 @@ def main():
     state.process_build_file(build_file)
 
   # Analyze the requested or default targets.
+  default_targets_to_analyze = set(state.targets_to_analyze)
   if args.target:
-    targets_to_analyze = sorted(
-        [repo.repository_id.parse_target(t) for t in args.target])
+    targets_to_analyze = set()
+    for t in args.target:
+      targets_to_analyze.update(
+          maybe_expand_special_targets(
+              repo.repository_id.parse_target(t), default_targets_to_analyze))
   else:
-    targets_to_analyze = state.targets_to_analyze
-  state.analyze(targets_to_analyze)
+    targets_to_analyze = default_targets_to_analyze
+
+  if args.exclude_target:
+    for t in args.exclude_target:
+      for u in maybe_expand_special_targets(
+          repo.repository_id.parse_target(t), targets_to_analyze):
+        targets_to_analyze.discard(u)
+
+  state.analyze(sorted(targets_to_analyze))
 
   input_files = set(state.loaded_files)
 

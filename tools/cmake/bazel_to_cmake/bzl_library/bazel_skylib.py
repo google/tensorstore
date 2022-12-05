@@ -38,6 +38,7 @@ from ..starlark.invocation_context import InvocationContext
 from ..starlark.invocation_context import RelativeLabel
 from ..starlark.provider import TargetInfo
 from ..starlark.select import Configurable
+from ..starlark.select import Select
 from ..util import cmake_is_true
 from ..util import cmake_is_windows
 from ..util import write_file_if_not_already_equal
@@ -48,6 +49,24 @@ class BazelSelectsWrapper:
 
   def __init__(self, context: InvocationContext):
     self._context = context
+
+  def with_or_dict(self, input_dict):
+    output_dict = {}
+    for (key, value) in input_dict.items():
+      if isinstance(key, tuple):
+        for config_setting in key:
+          if config_setting in output_dict.keys():
+            raise ValueError(f"key {config_setting} appears multiple times")
+          output_dict[config_setting] = value
+      else:
+        if key in output_dict.keys():
+          raise ValueError(f"key {key} appears multiple times")
+        output_dict[key] = value
+    return output_dict
+
+  def with_or(self, input_dict, no_match_error=None):
+    del no_match_error
+    return Select(self.with_or_dict(input_dict))
 
   def config_setting_group(
       self,

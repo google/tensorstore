@@ -51,10 +51,11 @@ def cc_grpc_library(name, srcs, deps, visibility = None, service_namespace = Non
     # TODO: Derive the output names here?
     # TODO: Support mock generation.
     flags = []
-    if service_namespace is not None:
+    if service_namespace:
         flags.append("services_namespace=" + service_namespace)
 
     generate_cc(
+        well_known_protos = False,
         name = codegen_grpc_target,
         visibility = ["//visibility:private"],
         srcs = srcs,

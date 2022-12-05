@@ -2,10 +2,6 @@
     "excludes": [
         "_cmake_binary_dir_/CMakeProject_config2_h.subs.json"
     ],
-    "files": [
-        "_cmake_binary_dir_/config.h",
-        "build_rules.cmake"
-    ],
     "modules": [
         ".bzl_library.bazel_skylib"
     ],

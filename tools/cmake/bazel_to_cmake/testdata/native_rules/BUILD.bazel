@@ -30,7 +30,10 @@ proto_library(
 
 cc_proto_library(
     name = "c_proto_cc",
-    deps = [":c_proto"],
+    deps = [
+        ":c_proto",
+        "@com_google_protobuf//:timestamp_proto",
+    ],
 )
 
 cc_test(

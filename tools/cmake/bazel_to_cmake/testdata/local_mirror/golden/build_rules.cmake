@@ -2,7 +2,7 @@
 file(DOWNLOAD "https://raw.githubusercontent.com/bufbuild/protoc-gen-validate/2682ad06cca00550030e177834f58a2bc06eb61e/validate/validate.proto" "_cmake_binary_dir_/local_mirror/lpm/validate.proto"
      EXPECTED_HASH "SHA256=bf7ca2ac45a75b8b9ff12f38efd7f48ee460ede1a7919d60c93fad3a64fc2eee")
 
-add_subdirectory("_cmake_binary_dir_/local_mirror/lpm" _local_mirror_configs EXCLUDE_FROM_ALL)
+add_subdirectory("_cmake_binary_dir_/local_mirror/lpm" EXCLUDE_FROM_ALL)
 find_package(lpm REQUIRED)
 
 

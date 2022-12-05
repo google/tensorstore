@@ -1,0 +1,1 @@
+workspace(name = "bazel_test_repo")

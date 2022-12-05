@@ -125,9 +125,15 @@ class InvocationContext(object):
   ) -> List[T]:
     if configurable is None:
       return []
-    evaluated: List[T] = self.evaluate_configurable(configurable)
-    assert isinstance(evaluated, list)
-    return evaluated
+    if isinstance(configurable, list):
+      # This occurs when a single configurable is put into a list, as happens
+      # in the bazel_skylib.copy_file rule.
+      return cast(List[T],
+                  [self.evaluate_configurable(x) for x in configurable])
+    else:
+      evaluated: List[T] = self.evaluate_configurable(configurable)
+      assert isinstance(evaluated, list)
+      return evaluated
 
   def resolve_target(
       self,
