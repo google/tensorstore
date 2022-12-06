@@ -1,4 +1,11 @@
 add_library(CMakeProject_asm_library)
+
+get_filename_component(_nasm_compiler_barename "${CMAKE_ASM_NASM_COMPILER}" NAME)
+if (_nasm_compiler_barename STREQUAL "yasm")
+  message(WARNING "CMake found YASM assembler. Please install 'nasm' instead.")
+endif()
+unset(_nasm_compiler_barename)
+
 target_sources(CMakeProject_asm_library PRIVATE "${TEST_DIRECTORY}/a.asm")
 target_include_directories(CMakeProject_asm_library PRIVATE "${TEST_DIRECTORY}" "${TEST_DIRECTORY}/include")
 set_source_files_properties(

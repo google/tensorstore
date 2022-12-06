@@ -28,7 +28,7 @@ macro(bazel_to_cmake)
     if (NOT "${x}" MATCHES "^_")
       string(REPLACE "\\" "\\\\" value "${x}")
       string(REPLACE "\"" "\\\"" value "${value}")
-      string(APPEND _bazel_to_cmake_vars_json ",\"${value}\":")
+      string(APPEND _bazel_to_cmake_vars_json ",\n\"${value}\":")
       string(REPLACE "\\" "\\\\" value "${${x}}")
       string(REPLACE "\"" "\\\"" value "${value}")
       string(REPLACE "\n" "\\n" value "${value}")
@@ -45,19 +45,37 @@ macro(bazel_to_cmake)
   unset(_bazel_to_cmake_vars_json)
   unset(_bazel_to_cmake_vars)
 
+  if (${BAZEL_TO_CMAKE_COMMAND})
+    set(_bazel_to_cmake_command "${BAZEL_TO_CMAKE_COMMAND}")
+  else()
+    set(_bazel_to_cmake_command "${_bazel_to_cmake_dir}/bazel_to_cmake.py")
+  endif()
+
   set(_bazel_to_cmake_args "${ARGN}")
+
+  message(VERBOSE "Invoking bazel_to_cmake Using:")
+  message(VERBOSE "WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}")
+  message(VERBOSE "${Python3_EXECUTABLE} ${_bazel_to_cmake_command}")
+  message(VERBOSE "--cmake-vars ${CMAKE_CURRENT_BINARY_DIR}/bazel_to_cmake_vars.json")
+  message(VERBOSE "--cmake-binary-dir ${CMAKE_CURRENT_BINARY_DIR}")
+  message(VERBOSE "--build-rules-output ${CMAKE_CURRENT_BINARY_DIR}/build_rules.cmake")
+  message(VERBOSE "--save-workspace ${CMAKE_CURRENT_BINARY_DIR}/bazel_workspace_info.pickle")
+  string(REPLACE ";" " " _bazel_to_cmake_args_str "${_bazel_to_cmake_args}")
+  message(VERBOSE "${_bazel_to_cmake_args_str}")
+  unset(_bazel_to_cmake_args_str)
+
   execute_process(
-    COMMAND "${Python3_EXECUTABLE}"
-    "${_bazel_to_cmake_dir}/bazel_to_cmake.py"
-    --cmake-vars "${CMAKE_CURRENT_BINARY_DIR}/bazel_to_cmake_vars.json"
-    --cmake-binary-dir "${CMAKE_CURRENT_BINARY_DIR}"
-    --build-rules-output "${CMAKE_CURRENT_BINARY_DIR}/build_rules.cmake"
-    --save-workspace "${CMAKE_CURRENT_BINARY_DIR}/bazel_workspace_info.pickle"
-    ${_bazel_to_cmake_args}
+    COMMAND "${Python3_EXECUTABLE}" "${_bazel_to_cmake_command}"
+      --cmake-vars "${CMAKE_CURRENT_BINARY_DIR}/bazel_to_cmake_vars.json"
+      --cmake-binary-dir "${CMAKE_CURRENT_BINARY_DIR}"
+      --build-rules-output "${CMAKE_CURRENT_BINARY_DIR}/build_rules.cmake"
+      --save-workspace "${CMAKE_CURRENT_BINARY_DIR}/bazel_workspace_info.pickle"
+      ${_bazel_to_cmake_args}
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
     COMMAND_ERROR_IS_FATAL ANY
-    )
+  )
 
+  unset(_bazel_to_cmake_command)
   unset(_bazel_to_cmake_args)
 
   include("${CMAKE_CURRENT_BINARY_DIR}/build_rules.cmake")

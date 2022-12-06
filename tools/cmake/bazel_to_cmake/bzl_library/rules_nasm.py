@@ -135,6 +135,16 @@ def _nasm_library_impl(
                                TargetInfo(*cmake_target_pair.as_providers()))
 
 
+_EMIT_YASM_CHECK = """
+get_filename_component(_nasm_compiler_barename "${CMAKE_ASM_NASM_COMPILER}" NAME)
+if (_nasm_compiler_barename STREQUAL "yasm")
+  message(WARNING "CMake found YASM assembler. Please install 'nasm' instead.")
+endif()
+unset(_nasm_compiler_barename)
+
+"""
+
+
 def _emit_nasm_library(
     _builder: CMakeBuilder,
     target_name: CMakeTarget,
@@ -152,6 +162,7 @@ def _emit_nasm_library(
   dummy_sources = [dummy_source] if dummy_source is not None else []
   _builder.addtext(f"add_library({target_name})\n")
   if use_builtin_rule:
+    _builder.addtext(_EMIT_YASM_CHECK, unique=True)
     _builder.addtext(
         f"""target_sources({target_name} PRIVATE {quote_list(all_srcs + dummy_sources)})
 target_include_directories({target_name} PRIVATE {quote_list(sorted(includes))})

@@ -72,6 +72,13 @@ def cmake_is_windows(value: Optional[str]) -> bool:
   return value.startswith("Windows")
 
 
+def cmake_logging_is_verbose(value: Optional[str]) -> bool:
+  if value is None:
+    return False
+  value = value.lower()
+  return "verbose" in value or "debug" in value or "trace" in value
+
+
 def _get_build_patterns(package_patterns: List[str]):
   patterns = []
   for package_pattern in package_patterns:

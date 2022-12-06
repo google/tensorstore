@@ -46,6 +46,7 @@ CMAKE_VARS = {
     'CMAKE_COMMAND': 'cmake',
     'PROJECT_IS_TOP_LEVEL': 'YES',
     'CMAKE_FIND_PACKAGE_REDIRECTS_DIR': '_find_pkg_redirects_',
+    'CMAKE_MESSAGE_LOG_LEVEL': 'VERBOSE',
 }
 
 

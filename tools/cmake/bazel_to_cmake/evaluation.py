@@ -103,6 +103,7 @@ from .starlark.select import Configurable
 from .starlark.select import Select
 from .starlark.select import SelectExpression
 from .util import cmake_is_true
+from .util import cmake_logging_is_verbose
 from .workspace import Repository
 from .workspace import Workspace
 
@@ -157,6 +158,8 @@ class EvaluationState:
     self.public_only = not (self.repo.top_level and cmake_is_true(
         self.workspace.cmake_vars["PROJECT_IS_TOP_LEVEL"]))
     self._phase: Phase = Phase.LOADING_WORKSPACE
+    self._verbose = cmake_logging_is_verbose(
+        self.workspace.cmake_vars.get("CMAKE_MESSAGE_LOG_LEVEL"))
 
   @property
   def targets_to_analyze(self) -> List[TargetId]:
@@ -170,7 +173,8 @@ class EvaluationState:
     """
     self._phase = Phase.ANALYZE
     for target in targets:
-      print(f"Analyze: {target.as_label()}")
+      if self._verbose:
+        print(f"Analyze: {target.as_label()}")
       assert isinstance(target, TargetId)
       self.get_target_info(target)
 
@@ -428,7 +432,8 @@ class EvaluationState:
 
     if target_id in self.workspace.ignored_libraries:
       # Specifically ignored.
-      print(f"Ignoring library: {target_id.as_label()}")
+      if self._verbose:
+        print(f"Ignoring library: {target_id.as_label()}")
       library = IgnoredLibrary()
       self._loaded_libraries[key] = library
       return library
@@ -441,12 +446,14 @@ class EvaluationState:
 
     if target_id.repository_id not in self.workspace.repos:
       # Unknown repository, ignore.
-      print(f"Unknown library: {target_id.as_label()}")
+      if self._verbose:
+        print(f"Unknown library: {target_id.as_label()}")
       return IgnoredLibrary()
 
     library_path = self.get_source_file_path(target_id)
     assert library_path is not None
-    print(f"Using library: {target_id.as_label()} at {library_path}")
+    if self._verbose:
+      print(f"Using library: {target_id.as_label()} at {library_path}")
 
     scope_type = BazelWorkspaceGlobals if is_workspace else BuildFileLibraryGlobals
     library = scope_type(self._evaluation_context, target_id, library_path)
@@ -472,7 +479,8 @@ class EvaluationState:
     return library
 
   def _load(self, path: str) -> str:
-    print(f"Loading {path}")
+    if self._verbose:
+      print(f"Loading {path}")
     self.loaded_files.add(path)
     return pathlib.Path(path).read_text(encoding="utf-8")
 

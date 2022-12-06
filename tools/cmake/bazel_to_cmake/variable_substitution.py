@@ -77,7 +77,6 @@ def register_toolchain(target: str) -> Callable[[Toolchain], Toolchain]:
   def register(toolchain: Toolchain) -> Toolchain:
     assert toolchain is not None
     TOOLCHAINS[target_id] = toolchain
-    print(f"Added toolchain {target_id.as_label()}")
     return toolchain
 
   return register
