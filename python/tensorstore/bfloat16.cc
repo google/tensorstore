@@ -771,7 +771,7 @@ bool Initialize() {
   NPyBfloat16_ArrFuncs.argmax = NPyBfloat16_ArgMaxFunc;
   NPyBfloat16_ArrFuncs.argmin = NPyBfloat16_ArgMinFunc;
 
-  Py_TYPE(&NPyBfloat16_Descr) = &PyArrayDescr_Type;
+  Py_SET_TYPE(&NPyBfloat16_Descr, &PyArrayDescr_Type);
   npy_bfloat16 = PyArray_RegisterDataType(&NPyBfloat16_Descr);
   bfloat16_type_ptr = &bfloat16_type;
   if (npy_bfloat16 < 0) {
