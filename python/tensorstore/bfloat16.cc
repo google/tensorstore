@@ -50,6 +50,14 @@ int npy_bfloat16 = NPY_NOTYPE;
 
 namespace {
 
+// https://bugs.python.org/issue39573  Py_SET_TYPE() added to Python 3.9.0a4
+#if PY_VERSION_HEX < 0x030900A4 && !defined(Py_SET_TYPE)
+template<typename T>
+static inline void Py_SET_TYPE(T *ob, PyTypeObject *type) {
+    reinterpret_cast<PyObject*>(ob)->ob_type = type;
+}
+#endif
+
 using bfloat16 = tensorstore::bfloat16_t;
 
 struct PyDecrefDeleter {
@@ -771,7 +779,7 @@ bool Initialize() {
   NPyBfloat16_ArrFuncs.argmax = NPyBfloat16_ArgMaxFunc;
   NPyBfloat16_ArrFuncs.argmin = NPyBfloat16_ArgMinFunc;
 
-  Py_TYPE(&NPyBfloat16_Descr) = &PyArrayDescr_Type;
+  Py_SET_TYPE(&NPyBfloat16_Descr, &PyArrayDescr_Type);
   npy_bfloat16 = PyArray_RegisterDataType(&NPyBfloat16_Descr);
   bfloat16_type_ptr = &bfloat16_type;
   if (npy_bfloat16 < 0) {
