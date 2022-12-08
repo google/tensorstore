@@ -23,9 +23,9 @@
 #include <gtest/gtest.h>
 #include "absl/flags/flag.h"
 #include "absl/status/status.h"
-#include "riegeli/bytes/cfile_reader.h"
 #include "riegeli/bytes/cord_reader.h"
 #include "riegeli/bytes/cord_writer.h"
+#include "riegeli/bytes/fd_reader.h"
 #include "riegeli/bytes/read_all.h"
 #include "riegeli/bytes/string_reader.h"
 #include "tensorstore/data_type.h"
@@ -168,10 +168,8 @@ TEST_F(TiffTest, ReadMultiPage) {
     std::string filename = tensorstore::internal::JoinPath(
         absl::GetFlag(FLAGS_tensorstore_test_data_dir),
         "tiff/D75_08b_3page.tiff");
-    TENSORSTORE_ASSERT_OK(riegeli::ReadAll(
-        riegeli::CFileReader(
-            filename, riegeli::CFileReaderBase::Options().set_mode("rb")),
-        file_data));
+    TENSORSTORE_ASSERT_OK(
+        riegeli::ReadAll(riegeli::FdReader(filename), file_data));
   }
   riegeli::CordReader cord_reader(&file_data);
 

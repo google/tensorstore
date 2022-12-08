@@ -28,7 +28,8 @@
 #include "absl/strings/match.h"
 #include "absl/strings/str_join.h"
 #include <nlohmann/json.hpp>
-#include "riegeli/bytes/cfile_writer.h"
+#include "riegeli/bytes/fd_writer.h"
+#include "riegeli/bytes/std_io.h"
 #include "tensorstore/array.h"
 #include "tensorstore/context.h"
 #include "tensorstore/data_type.h"
@@ -50,14 +51,6 @@
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
-
-#if defined(_MSC_VER)
-#include <cstdio>
-// Use stdio for output.
-#else
-#include "riegeli/bytes/std_io.h"
-// Use riegeli::StdOut for output.
-#endif
 
 namespace {
 
@@ -185,17 +178,12 @@ absl::Status Run(tensorstore::Spec input_spec, std::string output_filename) {
 
   // Maybe output to stdout.
   if (output_filename == "-" || absl::StartsWith(output_filename, "-.")) {
-#if defined(_MSC_VER)
-    output =
-        std::make_unique<riegeli::CFileWriter<riegeli::UnownedCFile>>(stdout);
-#else
     // TODO: Also check istty.
     output = std::make_unique<riegeli::StdOut>();
-#endif
-    if (!output->ok()) return output->status();
   } else {
-    output = std::make_unique<riegeli::CFileWriter<>>(output_filename);
+    output = std::make_unique<riegeli::FdWriter<>>(output_filename);
   }
+  if (!output->ok()) return output->status();
 
   // And encode the image.
   TENSORSTORE_RETURN_IF_ERROR(writer->Initialize(output.get()));

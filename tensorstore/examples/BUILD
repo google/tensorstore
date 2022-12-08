@@ -101,10 +101,6 @@ tensorstore_cc_binary(
     name = "extract_slice",
     srcs = ["extract_slice.cc"],
     deps = [
-        "@com_google_absl//absl/flags:flag",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
-        "@com_github_nlohmann_json//:nlohmann_json",
         "//tensorstore",
         "//tensorstore:all_drivers",
         "//tensorstore:array",
@@ -126,11 +122,11 @@ tensorstore_cc_binary(
         "//tensorstore/util:span",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
-        "@com_google_riegeli//riegeli/bytes:cfile_writer",
-    ] + select({
-        "@platforms//os:windows": [],
-        "//conditions:default": [
-            "@com_google_riegeli//riegeli/bytes:std_io",
-        ],
-    }),
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_riegeli//riegeli/bytes:fd_writer",
+        "@com_google_riegeli//riegeli/bytes:std_io",
+    ],
 )

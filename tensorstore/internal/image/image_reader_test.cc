@@ -29,8 +29,8 @@
 #include "absl/strings/cord.h"
 #include "absl/strings/match.h"
 #include "absl/strings/string_view.h"
-#include "riegeli/bytes/cfile_reader.h"
 #include "riegeli/bytes/cord_reader.h"
+#include "riegeli/bytes/fd_reader.h"
 #include "riegeli/bytes/read_all.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/image/avif_reader.h"
@@ -116,10 +116,8 @@ class ReaderTest : public ::testing::TestWithParam<TestParam> {
 
   tensorstore::Result<absl::Cord> ReadEntireFile(std::string filename) {
     absl::Cord file_data;
-    TENSORSTORE_RETURN_IF_ERROR(riegeli::ReadAll(
-        riegeli::CFileReader(
-            filename, riegeli::CFileReaderBase::Options().set_mode("rb")),
-        file_data));
+    TENSORSTORE_RETURN_IF_ERROR(
+        riegeli::ReadAll(riegeli::FdReader(filename), file_data));
     return file_data;
   }
 

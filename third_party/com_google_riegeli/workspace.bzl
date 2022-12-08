@@ -24,11 +24,11 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_riegeli",
-        strip_prefix = "riegeli-b235d1077b35fd0dbcb212f05a3c8ae89b4784ff",
+        strip_prefix = "riegeli-4512ad845a3d678e21a014af4f1d4f6fa910e6b4",
         urls = [
-            "https://github.com/google/riegeli/archive/b235d1077b35fd0dbcb212f05a3c8ae89b4784ff.tar.gz",  # master(2022-12-01)
+            "https://github.com/google/riegeli/archive/4512ad845a3d678e21a014af4f1d4f6fa910e6b4.tar.gz",  # master(2022-12-08)
         ],
-        sha256 = "21227d8f3750b95bf44a5a448991edba2b9fe42ef4e1e51dc00229a25ff75101",
+        sha256 = "9050366b283a9c2cadc828cd702b01ed76e7055b2d21d452358aec93d4304333",
         cmake_name = "riegeli",
         bazel_to_cmake = {
             "include": ["riegeli/**"],
