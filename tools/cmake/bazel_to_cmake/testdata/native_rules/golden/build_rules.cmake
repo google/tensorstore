@@ -24,36 +24,45 @@ target_compile_features(CMakeProject_a PUBLIC cxx_std_17)
 add_dependencies(CMakeProject_a "CMakeProject_h_file")
 add_library(CMakeProject::a ALIAS CMakeProject_a)
 
+add_custom_target(CMakeProject_c_proto)
+list(APPEND CMakeProject_c_proto_INCLUDES ${TEST_DIRECTORY})
+
+set_target_properties(CMakeProject_c_proto PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${CMakeProject_c_proto_INCLUDES}")
+
 add_custom_command(
   OUTPUT "_cmake_binary_dir_/c.pb.h" "_cmake_binary_dir_/c.pb.cc"
   COMMAND protobuf::protoc
   ARGS --experimental_allow_proto3_optional
-      -I "${PROJECT_SOURCE_DIR}"
-      --cpp_out=${PROJECT_BINARY_DIR}
+       --cpp_out=:_cmake_binary_dir_
+      "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_c_proto,INTERFACE_INCLUDE_DIRECTORIES>,;-I>"
       "${TEST_DIRECTORY}/c.proto"
-  DEPENDS "${TEST_DIRECTORY}/c.proto" "protobuf::protoc"
+  DEPENDS "${TEST_DIRECTORY}/c.proto" "CMakeProject_c_proto" "protobuf::protoc"
   COMMENT "Running protoc (cpp) on c.proto"
+  COMMAND_EXPAND_LISTS
   VERBATIM)
 add_custom_target(CMakeProject_c.proto__cpp_protoc DEPENDS "_cmake_binary_dir_/c.pb.h" "_cmake_binary_dir_/c.pb.cc")
+set_target_properties(CMakeProject_c.proto__cpp_protoc PROPERTIES INTERFACE_INCLUDE_DIRECTORIES _cmake_binary_dir_)
 
 
-add_library(CMakeProject_c.proto__cpp_proto)
-target_sources(CMakeProject_c.proto__cpp_proto PRIVATE
+add_library(CMakeProject_c_proto__cpp_library)
+target_sources(CMakeProject_c_proto__cpp_library PRIVATE
         "_cmake_binary_dir_/c.pb.cc")
-set_property(TARGET CMakeProject_c.proto__cpp_proto PROPERTY LINKER_LANGUAGE "CXX")
-target_link_libraries(CMakeProject_c.proto__cpp_proto PUBLIC
+set_property(TARGET CMakeProject_c_proto__cpp_library PROPERTY LINKER_LANGUAGE "CXX")
+target_link_libraries(CMakeProject_c_proto__cpp_library PUBLIC
         "protobuf::libprotobuf")
-target_include_directories(CMakeProject_c.proto__cpp_proto PUBLIC
+target_include_directories(CMakeProject_c_proto__cpp_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>"
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
-target_compile_features(CMakeProject_c.proto__cpp_proto PUBLIC cxx_std_17)
-add_library(CMakeProject::c.proto__cpp_proto ALIAS CMakeProject_c.proto__cpp_proto)
-add_dependencies(CMakeProject_c.proto__cpp_proto CMakeProject_c.proto__cpp_protoc)
+target_compile_features(CMakeProject_c_proto__cpp_library PUBLIC cxx_std_17)
+add_dependencies(CMakeProject_c_proto__cpp_library "CMakeProject_c.proto__cpp_protoc")
+add_library(CMakeProject::c_proto__cpp_library ALIAS CMakeProject_c_proto__cpp_library)
+target_include_directories(CMakeProject_c_proto__cpp_library PUBLIC
+         $<BUILD_INTERFACE:$<TARGET_PROPERTY:CMakeProject_c.proto__cpp_protoc,INTERFACE_INCLUDE_DIRECTORIES>>)
 
 
 add_library(CMakeProject_c_proto_cc INTERFACE)
 target_link_libraries(CMakeProject_c_proto_cc INTERFACE
-        "CMakeProject::c.proto__cpp_proto"
+        "CMakeProject::c_proto__cpp_library"
         "protobuf::libprotobuf")
 target_include_directories(CMakeProject_c_proto_cc INTERFACE
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>"

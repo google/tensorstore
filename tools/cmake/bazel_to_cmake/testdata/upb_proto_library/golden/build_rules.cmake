@@ -1,35 +1,47 @@
 find_package(Protobuf REQUIRED)
 find_package(upb REQUIRED)
 
+add_custom_target(CMakeProject_c_proto)
+list(APPEND CMakeProject_c_proto_INCLUDES ${TEST_DIRECTORY})
+
+set_target_properties(CMakeProject_c_proto PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${CMakeProject_c_proto_INCLUDES}")
+
 add_custom_command(
-  OUTPUT "_cmake_binary_dir_/c.upbdefs.h" "_cmake_binary_dir_/c.upbdefs.cc"
+  OUTPUT "_cmake_binary_dir_/c.upb.h" "_cmake_binary_dir_/c.upb.c"
   COMMAND protobuf::protoc
   ARGS --experimental_allow_proto3_optional
-      -I "${PROJECT_SOURCE_DIR}"
-      --plugin=protoc-gen-upbdefs="$<TARGET_FILE:upb::protoc-gen-upbdefs>"
-      --upbdefs_out=${PROJECT_BINARY_DIR}
+       --plugin=protoc-gen-upb=$<TARGET_FILE:protobuf::protoc-gen-upb>
+       --upb_out=:_cmake_binary_dir_
+      "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_c_proto,INTERFACE_INCLUDE_DIRECTORIES>,;-I>"
       "${TEST_DIRECTORY}/c.proto"
-  DEPENDS "${TEST_DIRECTORY}/c.proto" "protobuf::protoc" "upb::protoc-gen-upbdefs"
-  COMMENT "Running protoc (upbdefs) on c.proto"
+  DEPENDS "${TEST_DIRECTORY}/c.proto" "CMakeProject_c_proto" "protobuf::protoc" "protobuf::protoc-gen-upb"
+  COMMENT "Running protoc (upb) on c.proto"
+  COMMAND_EXPAND_LISTS
   VERBATIM)
-add_custom_target(CMakeProject_c.proto__upbdefs_protoc DEPENDS "_cmake_binary_dir_/c.upbdefs.h" "_cmake_binary_dir_/c.upbdefs.cc")
+add_custom_target(CMakeProject_c.proto__upb_protoc DEPENDS "_cmake_binary_dir_/c.upb.h" "_cmake_binary_dir_/c.upb.c")
+set_target_properties(CMakeProject_c.proto__upb_protoc PROPERTIES INTERFACE_INCLUDE_DIRECTORIES _cmake_binary_dir_)
 
 
-add_library(CMakeProject_c.proto__upbdefs_proto)
-target_sources(CMakeProject_c.proto__upbdefs_proto PRIVATE
-        "_cmake_binary_dir_/c.upbdefs.cc")
-set_property(TARGET CMakeProject_c.proto__upbdefs_proto PROPERTY LINKER_LANGUAGE "CXX")
-target_include_directories(CMakeProject_c.proto__upbdefs_proto PUBLIC
+add_library(CMakeProject_c_proto__upb_library)
+target_sources(CMakeProject_c_proto__upb_library PRIVATE
+        "_cmake_binary_dir_/c.upb.c")
+set_property(TARGET CMakeProject_c_proto__upb_library PROPERTY LINKER_LANGUAGE "CXX")
+target_link_libraries(CMakeProject_c_proto__upb_library PUBLIC
+        "upb::generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me"
+        "upb::port")
+target_include_directories(CMakeProject_c_proto__upb_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>"
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
-target_compile_features(CMakeProject_c.proto__upbdefs_proto PUBLIC cxx_std_17)
-add_library(CMakeProject::c.proto__upbdefs_proto ALIAS CMakeProject_c.proto__upbdefs_proto)
-add_dependencies(CMakeProject_c.proto__upbdefs_proto CMakeProject_c.proto__upbdefs_protoc)
+target_compile_features(CMakeProject_c_proto__upb_library PUBLIC cxx_std_17)
+add_dependencies(CMakeProject_c_proto__upb_library "CMakeProject_c.proto__upb_protoc")
+add_library(CMakeProject::c_proto__upb_library ALIAS CMakeProject_c_proto__upb_library)
+target_include_directories(CMakeProject_c_proto__upb_library PUBLIC
+         $<BUILD_INTERFACE:$<TARGET_PROPERTY:CMakeProject_c.proto__upb_protoc,INTERFACE_INCLUDE_DIRECTORIES>>)
 
 
 add_library(CMakeProject_c_upb_proto INTERFACE)
 target_link_libraries(CMakeProject_c_upb_proto INTERFACE
-        "CMakeProject::c.proto__upbdefs_proto")
+        "CMakeProject::c_proto__upb_library")
 target_include_directories(CMakeProject_c_upb_proto INTERFACE
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>"
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
@@ -37,36 +49,42 @@ target_compile_features(CMakeProject_c_upb_proto INTERFACE cxx_std_17)
 add_library(CMakeProject::c_upb_proto ALIAS CMakeProject_c_upb_proto)
 
 add_custom_command(
-  OUTPUT "_cmake_binary_dir_/c.upb.h" "_cmake_binary_dir_/c.upb.cc"
+  OUTPUT "_cmake_binary_dir_/c.upbdefs.h" "_cmake_binary_dir_/c.upbdefs.c"
   COMMAND protobuf::protoc
   ARGS --experimental_allow_proto3_optional
-      -I "${PROJECT_SOURCE_DIR}"
-      --plugin=protoc-gen-upb="$<TARGET_FILE:protobuf::protoc-gen-upb>"
-      --upb_out=${PROJECT_BINARY_DIR}
+       --plugin=protoc-gen-upbdefs=$<TARGET_FILE:upb::protoc-gen-upbdefs>
+       --upbdefs_out=:_cmake_binary_dir_
+      "-I$<JOIN:$<TARGET_PROPERTY:CMakeProject_c_proto,INTERFACE_INCLUDE_DIRECTORIES>,;-I>"
       "${TEST_DIRECTORY}/c.proto"
-  DEPENDS "${TEST_DIRECTORY}/c.proto" "protobuf::protoc" "protobuf::protoc-gen-upb"
-  COMMENT "Running protoc (upb) on c.proto"
+  DEPENDS "${TEST_DIRECTORY}/c.proto" "CMakeProject_c_proto" "protobuf::protoc" "upb::protoc-gen-upbdefs"
+  COMMENT "Running protoc (upbdefs) on c.proto"
+  COMMAND_EXPAND_LISTS
   VERBATIM)
-add_custom_target(CMakeProject_c.proto__upb_protoc DEPENDS "_cmake_binary_dir_/c.upb.h" "_cmake_binary_dir_/c.upb.cc")
+add_custom_target(CMakeProject_c.proto__upbdefs_protoc DEPENDS "_cmake_binary_dir_/c.upbdefs.h" "_cmake_binary_dir_/c.upbdefs.c")
+set_target_properties(CMakeProject_c.proto__upbdefs_protoc PROPERTIES INTERFACE_INCLUDE_DIRECTORIES _cmake_binary_dir_)
 
 
-add_library(CMakeProject_c.proto__upb_proto)
-target_sources(CMakeProject_c.proto__upb_proto PRIVATE
-        "_cmake_binary_dir_/c.upb.cc")
-set_property(TARGET CMakeProject_c.proto__upb_proto PROPERTY LINKER_LANGUAGE "CXX")
-target_link_libraries(CMakeProject_c.proto__upb_proto PUBLIC
-        "upb::generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me")
-target_include_directories(CMakeProject_c.proto__upb_proto PUBLIC
+add_library(CMakeProject_c_proto__upbdefs_library)
+target_sources(CMakeProject_c_proto__upbdefs_library PRIVATE
+        "_cmake_binary_dir_/c.upbdefs.c")
+set_property(TARGET CMakeProject_c_proto__upbdefs_library PROPERTY LINKER_LANGUAGE "CXX")
+target_link_libraries(CMakeProject_c_proto__upbdefs_library PUBLIC
+        "upb::generated_reflection_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me"
+        "upb::port")
+target_include_directories(CMakeProject_c_proto__upbdefs_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>"
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
-target_compile_features(CMakeProject_c.proto__upb_proto PUBLIC cxx_std_17)
-add_library(CMakeProject::c.proto__upb_proto ALIAS CMakeProject_c.proto__upb_proto)
-add_dependencies(CMakeProject_c.proto__upb_proto CMakeProject_c.proto__upb_protoc)
+target_compile_features(CMakeProject_c_proto__upbdefs_library PUBLIC cxx_std_17)
+add_dependencies(CMakeProject_c_proto__upbdefs_library "CMakeProject_c.proto__upbdefs_protoc")
+add_library(CMakeProject::c_proto__upbdefs_library ALIAS CMakeProject_c_proto__upbdefs_library)
+target_include_directories(CMakeProject_c_proto__upbdefs_library PUBLIC
+         $<BUILD_INTERFACE:$<TARGET_PROPERTY:CMakeProject_c.proto__upbdefs_protoc,INTERFACE_INCLUDE_DIRECTORIES>>)
 
 
 add_library(CMakeProject_c_upb_proto_reflection INTERFACE)
 target_link_libraries(CMakeProject_c_upb_proto_reflection INTERFACE
-        "CMakeProject::c.proto__upb_proto")
+        "CMakeProject::c_proto__upb_library"
+        "CMakeProject::c_proto__upbdefs_library")
 target_include_directories(CMakeProject_c_upb_proto_reflection INTERFACE
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>"
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")

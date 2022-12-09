@@ -114,6 +114,8 @@ ABSL_CMAKE_MAPPING = {
     # Internal targets mapping
     "@com_google_absl//absl/base:endian": "absl::base",
     "@com_google_absl//absl/base:config": "absl::base",
+    "@com_google_absl//absl/container:layout": "absl::layout",
+    "@com_google_absl//absl/strings:internal": "absl::strings_internal",
     # Not available in abseil CMakeLists.txt
     "@com_google_absl//absl/debugging:leak_check_disable": "",
     # Testonly targets

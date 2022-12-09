@@ -20,7 +20,9 @@ import os
 import pathlib
 
 from ..cmake_builder import CMakeBuilder
-from ..cmake_builder import FETCH_CONTENT_DECLARE_SECTION
+from ..cmake_builder import ENABLE_LANGUAGES_SECTION
+from ..cmake_builder import FETCH_CONTENT_MAKE_AVAILABLE_SECTION
+from ..cmake_builder import LOCAL_MIRROR_DOWNLOAD_SECTION
 from ..cmake_builder import quote_string
 from ..evaluation import EvaluationState
 from .helpers import update_target_mapping
@@ -43,24 +45,22 @@ def _local_mirror_impl(_context: InvocationContext, **kwargs):
   cmake_name = kwargs.get("cmake_name")
   if not cmake_name:
     return
-
-  bazel_to_cmake = kwargs.get("bazel_to_cmake")
-  if bazel_to_cmake is None:
-    return
-
-  builder = _context.access(CMakeBuilder)
-  state = _context.access(EvaluationState)
   new_repository_id = RepositoryId(kwargs["name"])
 
-  state.workspace.bazel_to_cmake_deps[new_repository_id] = cmake_name
+  state = _context.access(EvaluationState)
+  state.workspace.set_cmake_project_name(new_repository_id, cmake_name)
+
+  if kwargs.get("bazel_to_cmake") is None:
+    return
 
   update_target_mapping(state.repo, new_repository_id.get_package_id(""),
                         kwargs)
 
+  builder = _context.access(CMakeBuilder)
   for lang in kwargs.pop("cmake_languages", []):
     builder.addtext(
         f"enable_language({lang})\n",
-        section=FETCH_CONTENT_DECLARE_SECTION,
+        section=ENABLE_LANGUAGES_SECTION,
         unique=True,
     )
 
@@ -101,11 +101,11 @@ def _local_mirror_impl(_context: InvocationContext, **kwargs):
 
   builder.addtext(
       f"# Loading {new_repository_id.repository_name}\n",
-      section=FETCH_CONTENT_DECLARE_SECTION)
-  builder.addtext(out.getvalue(), section=FETCH_CONTENT_DECLARE_SECTION)
+      section=LOCAL_MIRROR_DOWNLOAD_SECTION)
+  builder.addtext(out.getvalue(), section=LOCAL_MIRROR_DOWNLOAD_SECTION)
   builder.addtext(
       f"add_subdirectory({quote_string(str(cmaketxt_path.parent))} EXCLUDE_FROM_ALL)\n",
-      section=FETCH_CONTENT_DECLARE_SECTION)
+      section=FETCH_CONTENT_MAKE_AVAILABLE_SECTION - 1)
 
   # Now write the nested CMakeLists.txt file
   out = io.StringIO()

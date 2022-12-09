@@ -300,7 +300,7 @@ def _bool_flag_impl(_context: InvocationContext, _target: TargetId,
 
   cmake_name = str(
       label_to_generated_cmake_target(_target,
-                                      repo.cmake_project_name)).upper()
+                                      repo._cmake_project_name)).upper()
   existing_value = repo.workspace.cmake_vars.get(cmake_name)
   default_value = _context.evaluate_configurable(build_setting_default)
   if existing_value is None:
@@ -319,7 +319,7 @@ def _string_flag_impl(_context: InvocationContext, _target: TargetId,
 
   cmake_name = str(
       label_to_generated_cmake_target(_target,
-                                      repo.cmake_project_name)).upper()
+                                      repo._cmake_project_name)).upper()
   existing_value = repo.workspace.cmake_vars.get(cmake_name)
   default_value = _context.evaluate_configurable(build_setting_default)
   if existing_value is None:

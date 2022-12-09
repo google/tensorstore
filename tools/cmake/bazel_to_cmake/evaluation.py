@@ -103,7 +103,6 @@ from .starlark.select import Configurable
 from .starlark.select import Select
 from .starlark.select import SelectExpression
 from .util import cmake_is_true
-from .util import cmake_logging_is_verbose
 from .workspace import Repository
 from .workspace import Workspace
 
@@ -153,13 +152,13 @@ class EvaluationState:
     self._all_rules: Dict[TargetId, RuleInfo] = {}
     self._unanalyzed_targets: Dict[TargetId, TargetId] = {}
     self._targets_to_analyze: Set[TargetId] = set()
+    self._analyzed_targets: Dict[TargetId, TargetInfo] = {}
     self._call_after_workspace_loading: List[Callable[[], None]] = []
     self._call_after_analysis: List[Callable[[], None]] = []
     self.public_only = not (self.repo.top_level and cmake_is_true(
         self.workspace.cmake_vars["PROJECT_IS_TOP_LEVEL"]))
     self._phase: Phase = Phase.LOADING_WORKSPACE
-    self._verbose = cmake_logging_is_verbose(
-        self.workspace.cmake_vars.get("CMAKE_MESSAGE_LOG_LEVEL"))
+    self._verbose = self.workspace._verbose
 
   @property
   def targets_to_analyze(self) -> List[TargetId]:
@@ -211,8 +210,8 @@ class EvaluationState:
     self._all_rules[rule_id] = r
     self._unanalyzed_rules.add(rule_id)
     for out_id in r.outs:
-      if (out_id in self.workspace._analyzed_targets or
-          out_id in self._unanalyzed_targets):
+      if (out_id in self._unanalyzed_targets or
+          out_id in self._analyzed_targets):
         raise ValueError(f"Duplicate output: {out_id.as_label()}")
       self._unanalyzed_targets[out_id] = rule_id
     self._unanalyzed_targets[rule_id] = rule_id
@@ -227,44 +226,52 @@ class EvaluationState:
     """
     assert isinstance(target_id, TargetId)
     assert info is not None
-    self.workspace._analyzed_targets[target_id] = info
+    self._analyzed_targets[target_id] = info
+
+    # Persist build settings and conditions globally
+    if info.get(BuildSettingProvider) is not None or info.get(
+        ConditionProvider) is not None:
+      self.workspace.set_persistent_target_info(target_id, info)
 
   def get_optional_target_info(self,
                                target_id: TargetId) -> Optional[TargetInfo]:
     assert isinstance(target_id, TargetId)
-    analyzed_targets = self.workspace._analyzed_targets
+    analyzed_targets = self._analyzed_targets
     info = analyzed_targets.get(target_id)
     if info is not None:
       return info
-    unanalyzed_targets = self._unanalyzed_targets
-    rule_id = unanalyzed_targets.get(target_id)
-    if rule_id is not None:
-      rule_info = self._all_rules.get(rule_id, None)
-      if rule_info is None:
-        raise ValueError(f"Error analyzing {rule_id.as_label()}: Not found")
-      if rule_id not in self._unanalyzed_rules:
-        raise ValueError(
-            f"Error analyzing {rule_id.as_label()}: Already analyzed")
-      try:
-        self._unanalyzed_rules.remove(rule_id)
-        rule_info.impl()
-        for out_id in rule_info.outs:
-          unanalyzed_targets.pop(out_id, None)
-          assert out_id in analyzed_targets
-        unanalyzed_targets.pop(rule_id)
-        assert rule_id in analyzed_targets
-      except Exception as e:
-        raise ValueError(
-            f"Error analyzing {rule_id.as_label()}  with {rule_info}") from e
-      return analyzed_targets[target_id]
 
-    # Check if it exists as a source file.
-    source_path = self.get_source_file_path(target_id)
-    if source_path is None or not os.path.isfile(source_path):
-      return None
-    info = TargetInfo(FilesProvider([source_path]))
-    analyzed_targets[target_id] = info
-    return info
+    unanalyzed_targets = self._unanalyzed_targets
+    if target_id not in unanalyzed_targets:
+      # Is this a global persistent target?
+      info = self.workspace._persisted_targets.get(target_id)
+      if info is not None:
+        return info
+      # Is this a source file?
+      source_path = self.get_source_file_path(target_id)
+      if source_path is None or not os.path.isfile(source_path):
+        return None
+      info = TargetInfo(FilesProvider([source_path]))
+      analyzed_targets[target_id] = info
+      return info
+
+    rule_id = unanalyzed_targets.get(target_id)
+    assert rule_id is not None
+    rule_info = self._all_rules.get(rule_id, None)
+    if rule_info is None:
+      raise ValueError(f"Error analyzing {rule_id.as_label()}: Not found")
+    try:
+      self._unanalyzed_rules.remove(rule_id)
+      rule_info.impl()
+      for out_id in rule_info.outs:
+        unanalyzed_targets.pop(out_id, None)
+        assert out_id in analyzed_targets
+      unanalyzed_targets.pop(rule_id)
+      assert rule_id in analyzed_targets
+    except Exception as e:
+      raise ValueError(
+          f"Error analyzing {rule_id.as_label()}  with {rule_info}") from e
+    return analyzed_targets[target_id]
 
   def get_target_info(self, target_id: TargetId) -> TargetInfo:
     assert isinstance(target_id, TargetId)
@@ -297,10 +304,10 @@ class EvaluationState:
       target_id: TargetId,
       generate_alias: bool = False) -> CMakeTargetPair:
     assert isinstance(target_id, TargetId)
-    repo = self.workspace.repos.get(target_id.repository_id)
-    if repo is None:
+    cmake_project = self.workspace.get_cmake_project_name(
+        target_id.repository_id)
+    if cmake_project is None:
       raise ValueError(f"Unknown repo in target {target_id.as_label()}")
-    cmake_project = repo.cmake_project_name
     cmake_target = label_to_generated_cmake_target(target_id, cmake_project,
                                                    False)
     cmake_alias_target: Optional[CMakeTarget] = None
@@ -309,6 +316,13 @@ class EvaluationState:
       if cmake_alias_target is None:
         cmake_alias_target = label_to_generated_cmake_target(
             target_id, cmake_project, True)
+    # If we're making a cmake name for a persisted target, assume that the
+    # persisted target name is the alias.
+    info = self.workspace._persisted_targets.get(TargetId)
+    if info is not None:
+      deps = info.get(CMakeDepsProvider)
+      if deps is not None:
+        cmake_alias_target = deps.targets[0]
     return CMakeTargetPair(cmake_target, cmake_alias_target)
 
   def evaluate_condition(self, target_id: TargetId) -> bool:
@@ -374,16 +388,15 @@ class EvaluationState:
     if cmake_alias_target is not None:
       return [cmake_alias_target]
 
-    cmake_project_name = self.workspace.bazel_to_cmake_deps.get(
+    cmake_project_name = self.workspace.get_cmake_project_name(
         target_id.repository_id)
     if cmake_project_name is not None:
       assert not isinstance(cmake_project_name, bool)
       if cmake_project_name not in self.workspace.repo_cmake_packages:
         self.add_required_dep_package(cmake_project_name)
-      return [
-          label_to_generated_cmake_target(
-              target_id, cmake_project_name, alias=True)
-      ]
+      cmake_target = label_to_generated_cmake_target(
+          target_id, cmake_project_name, alias=True)
+      return [cmake_target]
 
     # not handled.
     self.errors.append(f"Missing mapping for {target_id.as_label()}")
@@ -506,8 +519,12 @@ class EvaluationState:
 
     scope = BuildFileGlobals(self._evaluation_context, build_target,
                              build_file_path)
-
-    exec(compile(content, build_file_path, "exec"), scope)  # pylint: disable=exec-used
+    try:
+      exec(compile(content, build_file_path, "exec"), scope)  # pylint: disable=exec-used
+    except Exception as e:
+      raise RuntimeError(
+          f"While processing {repr(package.package_id)} ({build_file_path})"
+      ) from e
 
   def process_workspace(self):
     """Processes the WORKSPACE."""

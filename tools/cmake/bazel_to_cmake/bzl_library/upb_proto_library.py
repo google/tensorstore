@@ -35,18 +35,21 @@ from ..starlark.provider import TargetInfo
 from ..starlark.select import Configurable
 
 _UPB = PluginSettings(
-    TargetId("@com_google_upb//upbc:protoc-gen-upb"), "upb", ".upb", [
+    TargetId("@com_google_upb//upbc:protoc-gen-upb"), "upb",
+    [".upb.h", ".upb.c"], [
         TargetId(
             "@com_google_upb//:generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me"
-        )
+        ),
+        TargetId("@com_google_upb//:port")
     ])
 
 _UPBDEFS = PluginSettings(
-    TargetId("@com_google_upb//upbc:protoc-gen-upbdefs"), "upbdefs", ".upbdefs",
-    [
+    TargetId("@com_google_upb//upbc:protoc-gen-upbdefs"), "upbdefs",
+    [".upbdefs.h", ".upbdefs.c"], [
         TargetId(
             "@com_google_upb//:generated_reflection_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me"
-        )
+        ),
+        TargetId("@com_google_upb//:port")
     ])
 
 
@@ -84,7 +87,7 @@ class UpbProtoLibrary(BazelGlobals):
     target = context.resolve_target(name)
     context.add_rule(
         target,
-        lambda: _upb_proto_impl(context, target, _UPBDEFS, **kwargs),
+        lambda: _upb_proto_impl(context, target, False, **kwargs),
         visibility=visibility)
 
   def bazel_upb_proto_reflection_library(
@@ -96,7 +99,7 @@ class UpbProtoLibrary(BazelGlobals):
     target = context.resolve_target(name)
     context.add_rule(
         target,
-        lambda: _upb_proto_impl(context, target, _UPB, **kwargs),
+        lambda: _upb_proto_impl(context, target, True, **kwargs),
         visibility=visibility)
 
   bazel__FastTableEnabledInfo = staticmethod(_FastTableEnabledInfo)
@@ -132,8 +135,7 @@ class UpbProtoLibrary(BazelGlobals):
 
 
 def _upb_proto_impl(_context: InvocationContext, _target: TargetId,
-                    _plugin_settings: PluginSettings, deps: List[RelativeLabel],
-                    **kwargs):
+                    build_upbdeps: bool, deps: List[RelativeLabel], **kwargs):
   del kwargs
   resolved_deps = _context.resolve_target_or_label_list(
       _context.evaluate_configurable_list(deps))
@@ -144,9 +146,16 @@ def _upb_proto_impl(_context: InvocationContext, _target: TargetId,
 
   dep_library_targets = [
       get_proto_plugin_library_target(
-          _context, plugin_settings=_plugin_settings, target=dep_target)
+          _context, plugin_settings=_UPB, target=dep_target)
       for dep_target in resolved_deps
   ]
+  if build_upbdeps:
+    dep_library_targets += [
+        get_proto_plugin_library_target(
+            _context, plugin_settings=_UPBDEFS, target=dep_target)
+        for dep_target in resolved_deps
+    ]
+
   emit_cc_library(
       _context.access(CMakeBuilder),
       cmake_target_pair,

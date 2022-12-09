@@ -123,10 +123,6 @@ def main():
       top_level=args.save_workspace is not None,
   )
 
-  if args.load_workspace:
-    workspace.exclude_repo_targets(repo.repository_id)
-
-  workspace.bazel_to_cmake_deps[repo.repository_id] = repo.cmake_project_name
   for target in args.ignore_library:
     workspace.ignore_library(repo.repository_id.parse_target(target))
 
@@ -144,7 +140,7 @@ def main():
     repo.repo_mapping[x[1:]] = y
 
   if repo.top_level:
-    # Load the WORKSPACE
+    # Load the WORKSPACE file
     state.process_workspace()
 
   # Load build files.

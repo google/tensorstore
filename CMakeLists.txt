@@ -25,6 +25,11 @@ set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 # overriding a prior `set(<var>)` call.
 set(CMAKE_POLICY_DEFAULT_CMP0126 NEW)
 
+# Do not add the current directory to build commands by default.
+# This is defensive, as the setting may be inherited from parents,
+# and it has been known to cause errors in Abseil CMake builds.
+set(CMAKE_INCLUDE_CURRENT_DIR OFF)
+
 # Set all outputs to a single /bin directory.
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 

@@ -82,13 +82,13 @@ def add_platform_constraints(workspace: Workspace) -> None:
 
   bazel_compiler = _CMAKE_COMPILER_ID_TO_BAZEL_COMPILER.get(
       cmake_cxx_compiler_id, "compiler")
-  workspace._analyzed_targets[parse_absolute_target(
-      "@bazel_tools//tools/cpp:compiler")] = TargetInfo(
-          BuildSettingProvider(bazel_compiler))
+  workspace.set_persistent_target_info(
+      parse_absolute_target("@bazel_tools//tools/cpp:compiler"),
+      TargetInfo(BuildSettingProvider(bazel_compiler)))
 
-  workspace._analyzed_targets[parse_absolute_target(
-      "@bazel_tools//tools/python:python_version")] = TargetInfo(
-          BuildSettingProvider("PY3"))
+  workspace.set_persistent_target_info(
+      parse_absolute_target("@bazel_tools//tools/python:python_version"),
+      TargetInfo(BuildSettingProvider("PY3")))
 
   config_settings: Dict[str, bool] = {}
   for setting_list in _CMAKE_SYSTEM_NAME_CONFIG_SETTINGS.values():
@@ -105,8 +105,8 @@ def add_platform_constraints(workspace: Workspace) -> None:
     config_settings[setting] = True
 
   for target, value in config_settings.items():
-    workspace._analyzed_targets[parse_absolute_target(target)] = TargetInfo(
-        ConditionProvider(value))
+    workspace.set_persistent_target_info(
+        parse_absolute_target(target), TargetInfo(ConditionProvider(value)))
 
   workspace.values.update(
       _CMAKE_SYSTEM_PROCESSOR_VALUES.get(cmake_system_processor, []))

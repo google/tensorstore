@@ -77,6 +77,28 @@ class AttrModule:
   """Defines rule attribute types."""
 
   @staticmethod
+  def bool(default: bool = False, doc: str = "", mandatory: bool = False):
+    # https://bazel.build/rules/lib/attr#bool
+    del doc
+
+    def handle(context: InvocationContext, name: str, value: Optional[bool],
+               outs: List[TargetId]):
+      if mandatory and value is None:
+        raise ValueError(f"Attribute {name} not specified")
+      if value is None:
+        value = default
+
+      del outs
+      del context
+
+      def impl(ctx: RuleCtx):
+        setattr(ctx.attr, name, ctx._context.evaluate_configurable(value))
+
+      return impl
+
+    return Attr(handle)
+
+  @staticmethod
   def string(default: str = "",
              doc: str = "",
              mandatory: bool = False,
@@ -263,3 +285,4 @@ setattr(BuildFileLibraryGlobals, "bazel_rule", rule)
 setattr(BuildFileLibraryGlobals, "bazel_platform_common", PlatformCommonModule)
 setattr(BuildFileLibraryGlobals, "bazel_CcInfo", IgnoredObject())
 setattr(BuildFileLibraryGlobals, "bazel_ProtoInfo", IgnoredObject())
+setattr(BuildFileLibraryGlobals, "bazel_DefaultInfo", IgnoredObject())

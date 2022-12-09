@@ -207,6 +207,7 @@ import pathlib
 from typing import Any, Dict, List, Optional
 
 from ..cmake_builder import CMakeBuilder
+from ..cmake_builder import ENABLE_LANGUAGES_SECTION
 from ..cmake_builder import FETCH_CONTENT_DECLARE_SECTION
 from ..cmake_builder import FETCH_CONTENT_MAKE_AVAILABLE_SECTION
 from ..cmake_builder import OPTIONS_SECTION
@@ -418,20 +419,17 @@ def _third_party_http_archive_impl(_context: InvocationContext, **kwargs):
     return
   if not kwargs.get("urls"):
     return
-
-  builder = _context.access(CMakeBuilder)
-  state = _context.access(EvaluationState)
   new_repository_id = RepositoryId(kwargs["name"])
 
-  bazel_to_cmake = kwargs.get("bazel_to_cmake")
-  if bazel_to_cmake is not None:
-    state.workspace.bazel_to_cmake_deps[new_repository_id] = cmake_name
+  state = _context.access(EvaluationState)
+  state.workspace.set_cmake_project_name(new_repository_id, cmake_name)
 
   reverse_target_mapping: Dict[CMakeTarget, str] = update_target_mapping(
       state.repo, new_repository_id.get_package_id(""), kwargs)
 
   # TODO(jbms): Use some criteria (e.g. presence of system_build_file option) to
   # determine whether to support a system library, rather than always using it.
+  builder = _context.access(CMakeBuilder)
   if True or kwargs.get("system_build_file"):
     use_system_option = f"TENSORSTORE_USE_SYSTEM_{cmake_name.upper()}"
     builder.addtext(
@@ -445,7 +443,7 @@ def _third_party_http_archive_impl(_context: InvocationContext, **kwargs):
   for lang in kwargs.pop("cmake_languages", []):
     builder.addtext(
         f"enable_language({lang})\n",
-        section=FETCH_CONTENT_DECLARE_SECTION,
+        section=ENABLE_LANGUAGES_SECTION,
         unique=True,
     )
 

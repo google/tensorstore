@@ -17,46 +17,70 @@
 
 import os
 import re
-from typing import Optional, List, Dict, Callable, Match
+from typing import Callable, Dict, List, Match, Optional
 
 from . import cmake_builder
+from .cmake_target import CMakeDepsProvider
+from .cmake_target import CMakeTarget
+from .cmake_target import CMakeTargetProvider
 from .evaluation import EvaluationState
 from .starlark.bazel_target import parse_absolute_target
 from .starlark.bazel_target import TargetId
+from .starlark.common_providers import FilesProvider
 from .starlark.invocation_context import InvocationContext
 
 
-def apply_location_substitutions(_context: InvocationContext, cmd: str,
-                                 relative_to: str) -> str:
+def apply_location_substitutions(
+    _context: InvocationContext,
+    cmd: str,
+    relative_to: str,
+    custom_target_deps: Optional[List[CMakeTarget]] = None) -> str:
   """Substitues $(location) references in `cmd`.
 
   https://bazel.build/reference/be/make-variables#predefined_label_variables
 
   Args:
-    package: Package to use for label resolution.
+    _context: InvocationContext used for label resolution.
     cmd: Source string.
     relative_to: Working directory.
+    custom_target_deps: cmake target dependencies for the genrule
+
   Returns:
     Modified string.
   """
 
+  def _get_relpath(path: str):
+    rel_path = os.path.relpath(path, relative_to)
+    if os.sep != "/":
+      rel_path = rel_path.replace(os.sep, "/")
+    return rel_path
+
+  state = _context.access(EvaluationState)
+
   def replace_label(m: Match[str]) -> str:
     key = m.group(1)
     target = _context.resolve_target(m.group(2))
-    paths = _context.access(EvaluationState).get_file_paths(target, None)
 
-    def _get_relpath(path: str):
-      rel_path = os.path.relpath(path, relative_to)
-      if os.sep != "/":
-        rel_path = rel_path.replace(os.sep, "/")
-      return rel_path
+    info = state.get_target_info(target)
+    if custom_target_deps is not None:
+      cmake_info = info.get(CMakeDepsProvider)
+      if cmake_info is not None:
+        custom_target_deps.extend(cmake_info.targets)
 
-    rel_paths = [_get_relpath(path) for path in paths]
-    if not key.endswith("s"):
-      if len(rel_paths) != 1:
-        raise ValueError("Expected single file but received: {rel_paths}")
-      return rel_paths[0]
-    return " ".join(rel_paths)
+    files_provider = info.get(FilesProvider)
+    if files_provider is not None:
+      rel_paths = [_get_relpath(path) for path in files_provider.paths]
+      if not key.endswith("s"):
+        if len(rel_paths) != 1:
+          raise ValueError("Expected single file but received: {rel_paths}")
+        return rel_paths[0]
+      return " ".join(rel_paths)
+
+    cmake_target_provider = info.get(CMakeTargetProvider)
+    if cmake_target_provider is not None:
+      return cmake_target_provider.target
+    raise ValueError(
+        f"apply_location_substitutions failed for {target} info {repr(info)}")
 
   return re.sub(
       r"\$\((location|locations|execpath|execpaths|rootpath|rootpaths)\s+([^)]+)\)",
@@ -94,6 +118,7 @@ def apply_make_variable_substitutions(
     cmd: Input string.
     substitutions: Substitutions to apply.
     toolchains: Toolchains defining additional substitutions.
+
   Returns:
     Substituted string.
   """

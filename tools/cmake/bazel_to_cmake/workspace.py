@@ -17,6 +17,7 @@
 
 import argparse
 import importlib
+import json
 import pathlib
 import platform
 import re
@@ -31,6 +32,7 @@ from .starlark.bazel_target import RepositoryId
 from .starlark.bazel_target import TargetId
 from .starlark.provider import Provider
 from .starlark.provider import TargetInfo
+from .util import cmake_logging_verbose_level
 
 # Maps `platform.system()` value to Bazel host platform name for use in
 # .bazelrc.
@@ -74,7 +76,7 @@ class Workspace:
     self.cmake_vars = cmake_vars
     self.save_workspace = save_workspace
     # Maps bazel repo names to CMake project name/prefix.
-    self.bazel_to_cmake_deps: Dict[RepositoryId, str] = {}
+    self._bazel_to_cmake_name: Dict[RepositoryId, str] = {}
     self.repos: Dict[RepositoryId, Repository] = {}
     self.repo_cmake_packages: Set[str] = set()
     self.host_platform_name = _PLATFORM_NAME_TO_BAZEL_PLATFORM.get(
@@ -85,23 +87,52 @@ class Workspace:
     self.cdefines: List[str] = []
     self.ignored_libraries: Set[TargetId] = set()
     self._modules: Set[str] = set()
-    self._analyzed_targets: Dict[TargetId, TargetInfo] = {}
+    self._persisted_targets: Dict[TargetId, TargetInfo] = {}
+    self._verbose = cmake_logging_verbose_level(
+        cmake_vars.get("CMAKE_MESSAGE_LOG_LEVEL"))
+    if self._verbose > 1:
+      print(json.dumps(cmake_vars, sort_keys=True, indent="  "))
 
-  def set_bazel_target_mapping(self,
-                               target: Union[str, TargetId],
-                               cmake_target: Optional[CMakeTarget],
-                               cmake_package: Optional[str] = None):
+  def set_cmake_project_name(self, repository_id: RepositoryId,
+                             cmake_project_name: str):
+    """Sets the CMake project name associated with a Bazel repository."""
+    if repository_id in self._bazel_to_cmake_name:
+      assert self._bazel_to_cmake_name[repository_id] == cmake_project_name
+    elif self._verbose:
+      print(f"Workspace mapping {repository_id} => {cmake_project_name}")
+    self._bazel_to_cmake_name[repository_id] = cmake_project_name
+
+  def get_cmake_project_name(self,
+                             repository_id: RepositoryId) -> Optional[str]:
+    """Gets the CMake project name associated with a Bazel repository."""
+    return self._bazel_to_cmake_name.get(repository_id)
+
+  def set_persistent_target_info(self, target: TargetId, info: TargetInfo):
+    """Records a persistent mapping from Target to TargetInfo.
+
+    Generally this is used to set global build settings and cmake aliases.
+    """
+    if self._verbose > 1:
+      print(f"Persisting {target} => {info}")
+    self._persisted_targets[target] = info
+
+  def set_persistent_target_mapping(self,
+                                    target: Union[str, TargetId],
+                                    cmake_target: Optional[CMakeTarget],
+                                    cmake_package: Optional[str] = None):
     """Records a mapping from a Bazel target to a CMake target."""
     if not isinstance(target, TargetId):
       target = parse_absolute_target(str(target))
+    assert isinstance(target, TargetId)
     providers: List[Provider] = []
     if cmake_target is not None:
       providers.append(CMakeDepsProvider([cmake_target]))
+    if cmake_package is None:
+      cmake_package = self.get_cmake_project_name(target.repository_id)
     if cmake_package is not None:
+      self.set_cmake_project_name(target.repository_id, cmake_package)
       providers.append(CMakePackageDepsProvider([cmake_package]))
-
-    assert isinstance(target, TargetId)
-    self._analyzed_targets[target] = TargetInfo(*providers)
+    self.set_persistent_target_info(target, TargetInfo(*providers))
 
   def ignore_library(self, target: TargetId) -> None:
     """Marks a bzl library to be ignored.
@@ -113,20 +144,6 @@ class Workspace:
     """
     assert isinstance(target, TargetId)
     self.ignored_libraries.add(target)
-
-  def exclude_repo_targets(self, repository_id: RepositoryId):
-    """Deletes any stored `TargetInfo` for targets under the specified repo.
-
-    When loading a dependency, some target aliases may have been defined by the
-    top-level project.  They must be removed in order to allow the real target
-    to be analyzed.
-    """
-    targets_to_delete = [
-        target for target in self._analyzed_targets
-        if target.repository_id == repository_id
-    ]
-    for target in targets_to_delete:
-      del self._analyzed_targets[target]
 
   def load_bazelrc(self, path: str) -> None:
     """Loads options from a `.bazelrc` file.
@@ -203,7 +220,7 @@ class Repository:
     assert bazel_repo_name
     self.workspace = workspace
     self.repository_id = RepositoryId(bazel_repo_name)
-    self.cmake_project_name = cmake_project_name
+    self._cmake_project_name = cmake_project_name
     self.cmake_binary_dir = str(pathlib.PurePath(cmake_binary_dir).as_posix())
     self.source_directory = str(pathlib.PurePath(source_directory).as_posix())
     self.repo_mapping: Dict[str, str] = {}
@@ -212,6 +229,8 @@ class Repository:
     if top_level:
       workspace.repos[RepositoryId("")] = self
     workspace.repo_cmake_packages.add(cmake_project_name)
+    workspace.set_cmake_project_name(self.repository_id,
+                                     self._cmake_project_name)
 
   def __repr__(self):
     return f"<{self.__class__.__name__}>: {self.__dict__}"

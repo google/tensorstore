@@ -31,7 +31,8 @@ from ..starlark.select import Configurable
 
 _GRPC = PluginSettings(
     TargetId("@com_github_grpc_grpc//src/compiler:grpc_cpp_plugin"), "grpc",
-    ".grpc.pb", [TargetId("@com_github_grpc_grpc//:grpc++_codegen_proto")])
+    [".grpc.pb.h", ".grpc.pb.cc"],
+    [TargetId("@com_github_grpc_grpc//:grpc++_codegen_proto")])
 
 
 @register_bzl_library(
@@ -63,8 +64,10 @@ def _generate_cc_impl(_context: InvocationContext,
   resolved_srcs = _context.resolve_target_or_label_list(
       _context.evaluate_configurable_list(srcs))
   assert len(resolved_srcs) == 1
+  proto_library_target = resolved_srcs[0]
 
-  info = _context.get_target_info(resolved_srcs[0]).get(ProtoLibraryProvider)
+  info = _context.get_target_info(proto_library_target).get(
+      ProtoLibraryProvider)
   assert info is not None
   assert len(info.srcs) == 1
   proto_src: TargetId = as_target_id(next(iter(info.srcs)))
@@ -74,13 +77,13 @@ def _generate_cc_impl(_context: InvocationContext,
     resolved_plugin = _context.resolve_target_or_label(
         cast(RelativeLabel, _context.evaluate_configurable(plugin)))
     plugin_settings = PluginSettings(
-        resolved_plugin, "grpc", ".grpc.pb",
+        resolved_plugin, "grpc", [".grpc.pb.h", ".grpc.pb.cc"],
         [TargetId("@com_github_grpc_grpc//:grpc++_codegen_proto")])
 
   protoc_compile_protos_impl(
       _context,
       target=_target,
       proto_src=proto_src,
+      proto_library_target=proto_library_target,
       plugin_settings=plugin_settings,
-      add_files_provider=True,
       flags=flags)

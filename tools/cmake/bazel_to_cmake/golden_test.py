@@ -46,7 +46,7 @@ CMAKE_VARS = {
     'CMAKE_COMMAND': 'cmake',
     'PROJECT_IS_TOP_LEVEL': 'YES',
     'CMAKE_FIND_PACKAGE_REDIRECTS_DIR': '_find_pkg_redirects_',
-    'CMAKE_MESSAGE_LOG_LEVEL': 'VERBOSE',
+    'CMAKE_MESSAGE_LOG_LEVEL': 'TRACE',
 }
 
 
@@ -121,31 +121,31 @@ class GoldenTest(unittest.TestCase):
       add_platform_constraints(workspace)
 
       # Add default mappings used in proto code.
-      workspace.set_bazel_target_mapping(
+      workspace.set_persistent_target_mapping(
           '@com_github_grpc_grpc//:grpc++_codegen_proto',
           CMakeTarget('gRPC::gRPC_codegen'), 'gRPC')
 
-      workspace.set_bazel_target_mapping(
+      workspace.set_persistent_target_mapping(
           '@com_github_grpc_grpc//src/compiler:grpc_cpp_plugin',
           CMakeTarget('gRPC::grpc_cpp_plugin'), 'gRPC')
 
-      workspace.set_bazel_target_mapping(  #
+      workspace.set_persistent_target_mapping(  #
           '@com_google_protobuf//:protoc', CMakeTarget('protobuf::protoc'),
           'Protobuf')
 
-      workspace.set_bazel_target_mapping(  #
+      workspace.set_persistent_target_mapping(  #
           '@com_google_protobuf//:protobuf',
           CMakeTarget('protobuf::libprotobuf'), 'Protobuf')
 
-      workspace.set_bazel_target_mapping(
+      workspace.set_persistent_target_mapping(
           '@com_google_upb//upbc:protoc-gen-upbdefs',
           CMakeTarget('upb::protoc-gen-upbdefs'), 'upb')
 
-      workspace.set_bazel_target_mapping(  #
+      workspace.set_persistent_target_mapping(  #
           '@com_google_upb//upbc:protoc-gen-upb',
           CMakeTarget('protobuf::protoc-gen-upb'), 'upb')
 
-      workspace.set_bazel_target_mapping(  #
+      workspace.set_persistent_target_mapping(  #
           '@com_google_upb//:generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me',
           CMakeTarget(
               'upb::generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me'
@@ -156,6 +156,7 @@ class GoldenTest(unittest.TestCase):
         workspace.add_module(x)
       workspace.load_modules()
 
+      # Setup root workspace.
       repository = Repository(
           workspace=workspace,
           source_directory=directory,
@@ -164,11 +165,6 @@ class GoldenTest(unittest.TestCase):
           cmake_binary_dir='_cmake_binary_dir_',
           top_level=True,
       )
-
-      # Setup root workspace.
-      workspace.bazel_to_cmake_deps[
-          repository.repository_id] = repository.cmake_project_name
-      workspace.exclude_repo_targets(repository.repository_id)
 
       # Setup repo mapping.
       for x in config.get('repo_mapping', []):

@@ -90,8 +90,11 @@ def glob(self: InvocationContext,
 
 
 @register_native_build_rule
-def filegroup(self: InvocationContext, name: str, srcs: List[RelativeLabel],
+def filegroup(self: InvocationContext,
+              name: str,
+              srcs: Optional[List[RelativeLabel]] = None,
               **kwargs):
+  # https://bazel.build/reference/be/general#filegroup
   del kwargs
   _context = self.snapshot()
   target = _context.resolve_target(name)
@@ -194,7 +197,10 @@ def _genrule_impl(_context: InvocationContext,
   #   "$(@D)"
   cmd_text = _context.evaluate_configurable(cmd)
   cmd_text = apply_location_substitutions(
-      _context, cmd_text, relative_to=source_directory)
+      _context,
+      cmd_text,
+      relative_to=source_directory,
+      custom_target_deps=cmake_deps)
 
   builder = _context.access(CMakeBuilder)
 

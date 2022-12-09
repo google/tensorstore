@@ -48,7 +48,7 @@ def update_target_mapping(
     for relative_label, cmake_target in target_mapping.items():
       target = remap_target_repo(
           root_package_id.parse_target(relative_label), repo_mapping)
-      repo.workspace.set_bazel_target_mapping(
+      repo.workspace.set_persistent_target_mapping(
           target, CMakeTarget(cmake_target), cmake_package=cmake_name)
       target_str = target.as_label()
       reverse_target_mapping.setdefault(CMakeTarget(cmake_target), target_str)
