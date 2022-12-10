@@ -141,8 +141,7 @@ def _upb_proto_impl(_context: InvocationContext, _target: TargetId,
       _context.evaluate_configurable_list(deps))
 
   state = _context.access(EvaluationState)
-  cmake_target_pair = state.generate_cmake_target_pair(
-      _target, generate_alias=True)
+  cmake_target_pair = state.generate_cmake_target_pair(_target)
 
   dep_library_targets = [
       get_proto_plugin_library_target(

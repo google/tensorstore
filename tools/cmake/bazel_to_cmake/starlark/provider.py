@@ -44,6 +44,9 @@ class TargetInfo:
   def get(self, provider_type: Type[P]) -> Optional[P]:
     return cast(Optional[P], self._providers.get(provider_type))
 
+  def __iter__(self):
+    return iter(self._providers.values())
+
   def __repr__(self):
     return ('{' + ', '.join(repr(value) for value in self._providers.values()) +
             '}')

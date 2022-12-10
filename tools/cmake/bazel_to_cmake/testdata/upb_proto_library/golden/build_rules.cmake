@@ -30,8 +30,8 @@ target_link_libraries(CMakeProject_c_proto__upb_library PUBLIC
         "upb::generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me"
         "upb::port")
 target_include_directories(CMakeProject_c_proto__upb_library PUBLIC
-        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>"
-        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_c_proto__upb_library PUBLIC cxx_std_17)
 add_dependencies(CMakeProject_c_proto__upb_library "CMakeProject_c.proto__upb_protoc")
 add_library(CMakeProject::c_proto__upb_library ALIAS CMakeProject_c_proto__upb_library)
@@ -43,8 +43,8 @@ add_library(CMakeProject_c_upb_proto INTERFACE)
 target_link_libraries(CMakeProject_c_upb_proto INTERFACE
         "CMakeProject::c_proto__upb_library")
 target_include_directories(CMakeProject_c_upb_proto INTERFACE
-        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>"
-        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_c_upb_proto INTERFACE cxx_std_17)
 add_library(CMakeProject::c_upb_proto ALIAS CMakeProject_c_upb_proto)
 
@@ -72,8 +72,8 @@ target_link_libraries(CMakeProject_c_proto__upbdefs_library PUBLIC
         "upb::generated_reflection_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me"
         "upb::port")
 target_include_directories(CMakeProject_c_proto__upbdefs_library PUBLIC
-        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>"
-        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_c_proto__upbdefs_library PUBLIC cxx_std_17)
 add_dependencies(CMakeProject_c_proto__upbdefs_library "CMakeProject_c.proto__upbdefs_protoc")
 add_library(CMakeProject::c_proto__upbdefs_library ALIAS CMakeProject_c_proto__upbdefs_library)
@@ -86,8 +86,8 @@ target_link_libraries(CMakeProject_c_upb_proto_reflection INTERFACE
         "CMakeProject::c_proto__upb_library"
         "CMakeProject::c_proto__upbdefs_library")
 target_include_directories(CMakeProject_c_upb_proto_reflection INTERFACE
-        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>"
-        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_c_upb_proto_reflection INTERFACE cxx_std_17)
 add_library(CMakeProject::c_upb_proto_reflection ALIAS CMakeProject_c_upb_proto_reflection)
 
@@ -102,7 +102,7 @@ target_link_libraries(CMakeProject_a PUBLIC
         "Threads::Threads"
         "m")
 target_include_directories(CMakeProject_a PUBLIC
-        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>"
-        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_a PUBLIC cxx_std_17)
 add_library(CMakeProject::a ALIAS CMakeProject_a)

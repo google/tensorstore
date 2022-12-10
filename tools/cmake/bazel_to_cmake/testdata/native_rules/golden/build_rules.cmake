@@ -1,9 +1,22 @@
 find_package(Protobuf REQUIRED)
 
+
+add_executable(CMakeProject_bb "")
+add_executable(CMakeProject::bb ALIAS CMakeProject_bb)
+target_sources(CMakeProject_bb PRIVATE
+        "${TEST_DIRECTORY}/a.cc")
+target_link_libraries(CMakeProject_bb PUBLIC
+        "Threads::Threads"
+        "m")
+target_include_directories(CMakeProject_bb PUBLIC
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
+target_compile_features(CMakeProject_bb PUBLIC cxx_std_17)
+
 add_custom_command(
   OUTPUT "_cmake_binary_dir_/a.h"
-  DEPENDS "${TEST_DIRECTORY}/x.h"
-  COMMAND cp x.h _cmake_binary_dir_/a.h
+  DEPENDS "${TEST_DIRECTORY}/x.h" "CMakeProject::bb"
+  COMMAND bash -c "$<TARGET_FILE:CMakeProject_bb> $(dirname $(dirname \"x.h\" )) $(dirname \"x.h\" ) \"x.h\" \"_cmake_binary_dir_/a.h\""
   VERBATIM
   WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
@@ -18,8 +31,8 @@ target_link_libraries(CMakeProject_a PUBLIC
         "Threads::Threads"
         "m")
 target_include_directories(CMakeProject_a PUBLIC
-        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>"
-        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_a PUBLIC cxx_std_17)
 add_dependencies(CMakeProject_a "CMakeProject_h_file")
 add_library(CMakeProject::a ALIAS CMakeProject_a)
@@ -51,8 +64,8 @@ set_property(TARGET CMakeProject_c_proto__cpp_library PROPERTY LINKER_LANGUAGE "
 target_link_libraries(CMakeProject_c_proto__cpp_library PUBLIC
         "protobuf::libprotobuf")
 target_include_directories(CMakeProject_c_proto__cpp_library PUBLIC
-        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>"
-        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_c_proto__cpp_library PUBLIC cxx_std_17)
 add_dependencies(CMakeProject_c_proto__cpp_library "CMakeProject_c.proto__cpp_protoc")
 add_library(CMakeProject::c_proto__cpp_library ALIAS CMakeProject_c_proto__cpp_library)
@@ -65,8 +78,8 @@ target_link_libraries(CMakeProject_c_proto_cc INTERFACE
         "CMakeProject::c_proto__cpp_library"
         "protobuf::libprotobuf")
 target_include_directories(CMakeProject_c_proto_cc INTERFACE
-        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>"
-        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_c_proto_cc INTERFACE cxx_std_17)
 add_library(CMakeProject::c_proto_cc ALIAS CMakeProject_c_proto_cc)
 
@@ -80,7 +93,7 @@ target_link_libraries(CMakeProject_a_test PUBLIC
         "Threads::Threads"
         "m")
 target_include_directories(CMakeProject_a_test PUBLIC
-        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>"
-        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_a_test PUBLIC cxx_std_17)
 add_test(NAME CMakeProject_a_test COMMAND CMakeProject_a_test WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})

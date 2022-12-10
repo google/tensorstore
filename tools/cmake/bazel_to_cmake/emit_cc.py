@@ -30,6 +30,7 @@ from .starlark.label import RelativeLabel
 from .starlark.select import Configurable
 
 _SEP = "\n        "
+_BASE_INCLUDE_DIRS = ["${PROJECT_SOURCE_DIR}", "${PROJECT_BINARY_DIR}"]
 
 
 def _emit_cc_common_options(
@@ -49,11 +50,10 @@ def _emit_cc_common_options(
   """Emits CMake rules for common C++ target options."""
   del kwargs
 
-  include_dirs = ["${PROJECT_SOURCE_DIR}", "${PROJECT_BINARY_DIR}"]
-  if includes is not None:
-    include_dirs.extend(includes)
+  # PROJECT_BINARY_DIR and PROJECT_SOURCE_DIR should be in includes
   include_dirs = [
-      f"$<BUILD_INTERFACE:{include_dir}>" for include_dir in include_dirs
+      f"$<BUILD_INTERFACE:{include_dir}>"
+      for include_dir in sorted(set(_BASE_INCLUDE_DIRS + (includes or [])))
   ]
   public_context = "INTERFACE" if interface_only else "PUBLIC"
   if local_defines and not interface_only:
@@ -97,6 +97,7 @@ def handle_cc_common_options(
     srcs: Optional[Configurable[List[RelativeLabel]]] = None,
     deps: Optional[Configurable[List[RelativeLabel]]] = None,
     includes: Optional[Configurable[List[str]]] = None,
+    include_prefix: Optional[str] = None,
     strip_include_prefix: Optional[str] = None,
     **kwargs,
 ) -> Dict[str, Any]:
@@ -147,23 +148,32 @@ def handle_cc_common_options(
 
   result["defines"].extend(state.workspace.cdefines)
 
-  include_dirs = _context.evaluate_configurable_list(includes)
-
-  if strip_include_prefix is not None:
-    include_dirs.append(strip_include_prefix)
-
   package = _context.access(Package)
-  resolved_includes: List[str] = []
-  for include in include_dirs:
-    resolved_includes.append(
-        str(
-            pathlib.PurePosixPath(package.repository.source_directory).joinpath(
-                package.package_id.package_name, include)))
-    resolved_includes.append(
-        str(
-            pathlib.PurePosixPath(package.repository.cmake_binary_dir).joinpath(
-                package.package_id.package_name, include)))
-  result["includes"] = sorted(set(resolved_includes))
+
+  # This include manipulation is pretty hacky. Basically if strip_include_prefix
+  # is set, then add -I {PACKAGE_DIR}/{strip_include_prefix}; likewise if
+  # include_prefix is set, then compute a path suffix and add it as
+  # {PACKAGE_DIR}/{computed_prefix}. This is likely to break when both are
+  # specified; bazel, I think, creates a path symlink to achieve the same thing.
+  include_dirs: List[str] = []
+  if strip_include_prefix is not None:
+    include_dirs.extend(
+        f"{i}/{strip_include_prefix}" for i in _BASE_INCLUDE_DIRS)
+
+  if include_prefix is not None:
+    if package.package_id.package_name.endswith(include_prefix):
+      computed_prefix = str(
+          pathlib.PurePosixPath(
+              package.package_id.package_name[:-len(include_prefix)]))
+      include_dirs.extend(f"{i}/{computed_prefix}" for i in _BASE_INCLUDE_DIRS)
+
+  source_dir = pathlib.PurePosixPath(package.repository.source_directory)
+  binary_dir = pathlib.PurePosixPath(package.repository.cmake_binary_dir)
+  for i in _context.evaluate_configurable_list(includes):
+    include_dirs.append(str(source_dir.joinpath(i)))
+    include_dirs.append(str(binary_dir.joinpath(i)))
+
+  result["includes"] = include_dirs
   return result
 
 

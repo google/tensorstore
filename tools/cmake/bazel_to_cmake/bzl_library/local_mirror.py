@@ -48,7 +48,7 @@ def _local_mirror_impl(_context: InvocationContext, **kwargs):
   new_repository_id = RepositoryId(kwargs["name"])
 
   state = _context.access(EvaluationState)
-  state.workspace.set_cmake_project_name(new_repository_id, cmake_name)
+  state.workspace.set_cmake_package_name(new_repository_id, cmake_name)
 
   if kwargs.get("bazel_to_cmake") is None:
     return

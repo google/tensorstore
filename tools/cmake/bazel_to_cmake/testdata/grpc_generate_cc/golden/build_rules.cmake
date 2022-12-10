@@ -31,8 +31,8 @@ target_link_libraries(CMakeProject_cc_grpc PUBLIC
         "gRPC::gRPC_codegen"
         "m")
 target_include_directories(CMakeProject_cc_grpc PUBLIC
-        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>"
-        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_cc_grpc PUBLIC cxx_std_17)
 add_dependencies(CMakeProject_cc_grpc "CMakeProject_cc__grpc_codegen")
 add_library(CMakeProject::cc_grpc ALIAS CMakeProject_cc_grpc)
@@ -47,7 +47,7 @@ target_link_libraries(CMakeProject_a PUBLIC
         "Threads::Threads"
         "m")
 target_include_directories(CMakeProject_a PUBLIC
-        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>"
-        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_a PUBLIC cxx_std_17)
 add_library(CMakeProject::a ALIAS CMakeProject_a)

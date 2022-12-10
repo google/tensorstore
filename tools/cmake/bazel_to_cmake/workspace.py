@@ -27,6 +27,8 @@ from typing import Dict, List, Optional, Set, Tuple, Union
 from .cmake_target import CMakeDepsProvider
 from .cmake_target import CMakePackageDepsProvider
 from .cmake_target import CMakeTarget
+from .cmake_target import CMakeTargetPairProvider
+from .cmake_target import label_to_generated_cmake_target
 from .starlark.bazel_target import parse_absolute_target
 from .starlark.bazel_target import RepositoryId
 from .starlark.bazel_target import TargetId
@@ -93,7 +95,7 @@ class Workspace:
     if self._verbose > 1:
       print(json.dumps(cmake_vars, sort_keys=True, indent="  "))
 
-  def set_cmake_project_name(self, repository_id: RepositoryId,
+  def set_cmake_package_name(self, repository_id: RepositoryId,
                              cmake_project_name: str):
     """Sets the CMake project name associated with a Bazel repository."""
     if repository_id in self._bazel_to_cmake_name:
@@ -102,7 +104,7 @@ class Workspace:
       print(f"Workspace mapping {repository_id} => {cmake_project_name}")
     self._bazel_to_cmake_name[repository_id] = cmake_project_name
 
-  def get_cmake_project_name(self,
+  def get_cmake_package_name(self,
                              repository_id: RepositoryId) -> Optional[str]:
     """Gets the CMake project name associated with a Bazel repository."""
     return self._bazel_to_cmake_name.get(repository_id)
@@ -112,9 +114,12 @@ class Workspace:
 
     Generally this is used to set global build settings and cmake aliases.
     """
-    if self._verbose > 1:
-      print(f"Persisting {target} => {info}")
-    self._persisted_targets[target] = info
+    if target in self._persisted_targets:
+      print(f"Target exists {target} => {info}")
+    else:
+      if self._verbose > 1:
+        print(f"Persisting {target} => {info}")
+      self._persisted_targets[target] = info
 
   def set_persistent_target_mapping(self,
                                     target: Union[str, TargetId],
@@ -125,13 +130,21 @@ class Workspace:
       target = parse_absolute_target(str(target))
     assert isinstance(target, TargetId)
     providers: List[Provider] = []
+
+    if cmake_package is None:
+      cmake_package = self.get_cmake_package_name(target.repository_id)
+    if cmake_package is not None:
+      self.set_cmake_package_name(target.repository_id, cmake_package)
+      providers.append(CMakePackageDepsProvider([cmake_package]))
     if cmake_target is not None:
       providers.append(CMakeDepsProvider([cmake_target]))
-    if cmake_package is None:
-      cmake_package = self.get_cmake_project_name(target.repository_id)
+
     if cmake_package is not None:
-      self.set_cmake_project_name(target.repository_id, cmake_package)
-      providers.append(CMakePackageDepsProvider([cmake_package]))
+      ctarget = label_to_generated_cmake_target(target, cmake_package)
+      if cmake_target is not None:
+        ctarget = ctarget.with_alias(cmake_target)
+      providers.append(CMakeTargetPairProvider(ctarget))
+
     self.set_persistent_target_info(target, TargetInfo(*providers))
 
   def ignore_library(self, target: TargetId) -> None:
@@ -225,11 +238,12 @@ class Repository:
     self.source_directory = str(pathlib.PurePath(source_directory).as_posix())
     self.repo_mapping: Dict[str, str] = {}
     self.top_level = top_level
+    self.bindings: Dict[TargetId, TargetId] = {}
     workspace.repos[self.repository_id] = self
     if top_level:
       workspace.repos[RepositoryId("")] = self
     workspace.repo_cmake_packages.add(cmake_project_name)
-    workspace.set_cmake_project_name(self.repository_id,
+    workspace.set_cmake_package_name(self.repository_id,
                                      self._cmake_project_name)
 
   def __repr__(self):

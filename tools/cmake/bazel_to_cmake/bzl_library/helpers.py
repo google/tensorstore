@@ -76,7 +76,6 @@ def write_bazel_to_cmake_cmakelists(
   del kwargs
 
   workspace = _context.access(EvaluationState).workspace
-  cmake_command = workspace.cmake_vars["CMAKE_COMMAND"]
   bazel_to_cmake_args = []
 
   if cmake_extra_build_file is not None:
@@ -87,8 +86,7 @@ def write_bazel_to_cmake_cmakelists(
     assert build_file_path is not None
     quoted_build_path = quote_path(build_file_path)
     _patch_commands.append(
-        f"""{quote_path(cmake_command)} -E copy {quoted_build_path} extraBUILD.bazel"""
-    )
+        f"""${{CMAKE_COMMAND}} -E copy {quoted_build_path} extraBUILD.bazel""")
     bazel_to_cmake_args.append("--extra-build=extraBUILD.bazel")
 
   if build_file is not None:
@@ -99,8 +97,7 @@ def write_bazel_to_cmake_cmakelists(
     assert build_file_path is not None
     quoted_build_path = quote_path(build_file_path)
     _patch_commands.append(
-        f"""{quote_path(cmake_command)} -E copy {quoted_build_path} BUILD.bazel"""
-    )
+        f"""${{CMAKE_COMMAND}} -E copy {quoted_build_path} BUILD.bazel""")
 
   bazel_to_cmake_path = os.path.abspath(sys.argv[0])
   assert workspace.save_workspace is not None
@@ -123,11 +120,10 @@ def write_bazel_to_cmake_cmakelists(
   if bazel_to_cmake.get("aliased_targets_only"):
     for target in (cmake_target_mapping or {}):
       bazel_to_cmake_args.append(f"--target {quote_string(target)}")
-  for bazel_target, cmake_alias in (cmake_target_mapping or {}).items():
-    bazel_to_cmake_args.append(
-        f"--target-alias {quote_string(bazel_target)} {quote_string(cmake_alias)}"
-    )
   bazel_to_cmake_args.extend(bazel_to_cmake.get("args", []))
+
+  # NOTE: Aliases from cmake_target_mappings are inserted into the Workspace
+  # when the top-level bazel / cmake package is loaded.
 
   _new_cmakelists.write(f"""
 project({quote_string(cmake_name)})

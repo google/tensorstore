@@ -62,8 +62,7 @@ def _cc_library_impl(
 
   state = _context.access(EvaluationState)
 
-  cmake_target_pair = state.generate_cmake_target_pair(
-      _target, generate_alias=True)
+  cmake_target_pair = state.generate_cmake_target_pair(_target)
   custom_target_deps: List[CMakeTarget] = []
   hdrs_file_paths = state.get_targets_file_paths(
       resolved_hdrs, custom_target_deps=custom_target_deps)
@@ -105,8 +104,7 @@ def cc_binary(self: InvocationContext,
 
 def _cc_binary_impl(_context: InvocationContext, _target: TargetId, **kwargs):
   cmake_target_pair = _context.access(
-      EvaluationState).generate_cmake_target_pair(
-          _target, generate_alias=True)
+      EvaluationState).generate_cmake_target_pair(_target)
   emit_cc_binary(
       _context.access(CMakeBuilder),
       cmake_target_pair,
@@ -137,8 +135,7 @@ def _cc_test_impl(_context: InvocationContext,
                   args: Optional[Configurable[List[str]]] = None,
                   **kwargs):
   state = _context.access(EvaluationState)
-  cmake_target_pair = state.generate_cmake_target_pair(
-      _target, generate_alias=True)
+  cmake_target_pair = state.generate_cmake_target_pair(_target)
   resolved_args = [
       apply_location_substitutions(
           _context, arg, relative_to=state.repo.source_directory)

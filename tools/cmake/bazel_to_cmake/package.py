@@ -14,7 +14,6 @@
 """Package metadata and Visibility utilities."""
 
 import enum
-import pathlib
 from typing import List, Optional
 
 from .starlark.bazel_target import TargetId
@@ -39,9 +38,6 @@ class Package:
     assert repository
     self.repository = repository
     self.package_id = repository.repository_id.get_package_id(package_name)
-    self.package_directory = str(
-        pathlib.PurePosixPath(
-            repository.source_directory).joinpath(package_name))
     self._default_visibility: List[TargetId] = []
 
     # Whether analyze by default returns only public targets.

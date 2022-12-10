@@ -22,11 +22,8 @@ https://github.com/bazelbuild/bazel/tree/master/src/main/starlark/builtins_bzl/c
 
 # pylint: disable=relative-beyond-top-level,invalid-name,missing-function-docstring,g-long-lambda
 
-import os
-from typing import Dict, List, Optional, cast
+from typing import Dict, List, Optional
 
-from . import cmake_builder
-from .cmake_builder import CMakeBuilder
 from .cmake_target import CMakeDepsProvider
 from .cmake_target import CMakeTarget
 from .evaluation import EvaluationState
@@ -42,8 +39,6 @@ from .starlark.label import RelativeLabel
 from .starlark.provider import Provider
 from .starlark.provider import TargetInfo
 from .starlark.select import Configurable
-from .variable_substitution import apply_location_substitutions
-from .variable_substitution import apply_make_variable_substitutions
 
 
 @register_native_build_rule
@@ -113,134 +108,6 @@ def filegroup(self: InvocationContext,
     _context.add_analyzed_target(target, TargetInfo(*providers))
 
   _context.add_rule(target, impl, analyze_by_default=False)
-
-
-@register_native_build_rule
-def genrule(self: InvocationContext,
-            name: str,
-            outs: List[RelativeLabel],
-            visibility: Optional[List[RelativeLabel]] = None,
-            **kwargs):
-  _context = self.snapshot()
-  target = _context.resolve_target(name)
-  out_targets = _context.resolve_target_or_label_list(outs)
-
-  _context.add_rule(
-      target,
-      lambda: _genrule_impl(_context, target, out_targets, **kwargs),
-      outs=out_targets,
-      visibility=visibility)
-
-
-def _get_relative_path(path: str, relative_to: str) -> str:
-  rel_path = os.path.relpath(path, relative_to)
-  if os.sep != "/":
-    rel_path = rel_path.replace(os.sep, "/")
-  return rel_path
-
-
-def _genrule_impl(_context: InvocationContext,
-                  _label: TargetId,
-                  _out_targets: List[TargetId],
-                  cmd: Configurable[str],
-                  srcs: Optional[Configurable[List[RelativeLabel]]] = None,
-                  message: Optional[Configurable[str]] = None,
-                  toolchains: Optional[List[RelativeLabel]] = None,
-                  **kwargs):
-  # Resolve srcs & toolchains
-  resolved_srcs = _context.resolve_target_or_label_list(
-      _context.evaluate_configurable_list(srcs))
-  resolved_toolchains = _context.resolve_target_or_label_list(
-      _context.evaluate_configurable_list(toolchains))
-
-  state = _context.access(EvaluationState)
-
-  cmake_target_pair = state.generate_cmake_target_pair(
-      _label, generate_alias=False)
-  cmake_deps_provider = CMakeDepsProvider([cmake_target_pair.target])
-  out_files: List[str] = []
-  for out_target in _out_targets:
-    out_file = state.get_generated_file_path(out_target)
-    out_files.append(out_file)
-    _context.add_analyzed_target(
-        out_target, TargetInfo(FilesProvider([out_file]), cmake_deps_provider))
-  del kwargs
-  message_text = ""
-  if message is not None:
-    message_text = _context.evaluate_configurable(message)
-  cmake_deps: List[CMakeTarget] = []
-  src_files = state.get_targets_file_paths(resolved_srcs, cmake_deps)
-  cmake_deps.extend(cast(List[CMakeTarget], src_files))
-
-  source_directory = _context.resolve_source_root(
-      _context.caller_package_id.repository_id)
-  relative_source_paths = [
-      _get_relative_path(path, source_directory) for path in src_files
-  ]
-  relative_out_paths = [
-      _get_relative_path(path, source_directory) for path in out_files
-  ]
-  substitutions = {
-      "$(SRCS)": " ".join(relative_source_paths),
-      "$(OUTS)": " ".join(relative_out_paths),
-  }
-  if len(out_files) == 1:
-    substitutions["$@"] = relative_out_paths[0]
-  if len(src_files) == 1:
-    substitutions["$<"] = relative_source_paths[0]
-  # TODO(jbms): Add missing variables, including:
-  #   "$(BINDIR)"
-  #   "$(GENDIR)"
-  #   "$(COMPILATION_MODE)"
-  #   "$(TARGET_CPU)"
-  #   "$(RULEDIR)"
-  #   "$(@D)"
-  cmd_text = _context.evaluate_configurable(cmd)
-  cmd_text = apply_location_substitutions(
-      _context,
-      cmd_text,
-      relative_to=source_directory,
-      custom_target_deps=cmake_deps)
-
-  builder = _context.access(CMakeBuilder)
-
-  cmd_text = apply_make_variable_substitutions(
-      builder,
-      cmd_text,
-      substitutions=substitutions,
-      toolchains=resolved_toolchains)
-  _emit_genrule(
-      builder=builder,
-      cmake_target=cmake_deps_provider.targets[0],
-      out_files=out_files,
-      cmake_deps=cmake_deps,
-      cmd_text=cmd_text,
-      message=message_text)
-  _context.add_analyzed_target(_label, TargetInfo(cmake_deps_provider))
-
-
-def _emit_genrule(
-    builder: CMakeBuilder,
-    cmake_target: str,
-    out_files: List[str],
-    cmake_deps: List[CMakeTarget],
-    cmd_text: str,
-    message: Optional[str] = None,
-):
-  if message:
-    optional_message_text = f"COMMENT {cmake_builder.quote_string(message)}\n  "
-  else:
-    optional_message_text = ""
-  builder.addtext(f"""
-add_custom_command(
-  OUTPUT {cmake_builder.quote_list(out_files)}
-  DEPENDS {cmake_builder.quote_list(cast(List[str], cmake_deps))}
-  COMMAND {cmd_text}
-  {optional_message_text}VERBATIM
-  WORKING_DIRECTORY "${{CMAKE_CURRENT_SOURCE_DIR}}"
-)
-add_custom_target({cmake_target} DEPENDS {cmake_builder.quote_list(out_files)})
-""")
 
 
 @register_native_build_rule

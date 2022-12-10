@@ -264,7 +264,6 @@ def _get_fetch_content_invocation(
   """Convert `third_party_http_archive` options to CMake FetchContent invocation.
   """
   state = _context.access(EvaluationState)
-  cmake_command = state.workspace.cmake_vars["CMAKE_COMMAND"]
   out = io.StringIO()
   out.write(f"FetchContent_Declare({cmake_name}")
   if urls:
@@ -291,7 +290,7 @@ def _get_fetch_content_invocation(
     patch_commands.extend(patch_cmds)
   if remove_paths:
     remove_arg = " ".join(quote_path(path) for path in remove_paths)
-    patch_commands.append(f"{quote_path(cmake_command)} -E rm -rf {remove_arg}")
+    patch_commands.append(f"${{CMAKE_COMMAND}} -E rm -rf {remove_arg}")
   new_cmakelists_path = os.path.join(
       _get_third_party_dir(state.repo), f"{cmake_name}-proxy-CMakeLists.txt")
   pathlib.Path(new_cmakelists_path).write_text(
@@ -304,7 +303,7 @@ def _get_fetch_content_invocation(
           **kwargs),
       encoding="utf-8")
   patch_commands.append(
-      f"""{quote_path(cmake_command)} -E copy {quote_path(new_cmakelists_path)} CMakeLists.txt"""
+      f"""${{CMAKE_COMMAND}} -E copy {quote_path(new_cmakelists_path)} CMakeLists.txt"""
   )
   patch_command = " && ".join(patch_commands)
   out.write(f"\n    PATCH_COMMAND {patch_command}")
@@ -327,7 +326,6 @@ def _get_subproject_cmakelists(_context: InvocationContext,
                                cmake_aliases: Optional[Dict[str, str]] = None,
                                **kwargs) -> str:
   new_cmakelists = io.StringIO()
-  cmake_command = _repo.workspace.cmake_vars["CMAKE_COMMAND"]
   new_cmakelists.write(f'set(CMAKE_MESSAGE_INDENT "[{cmake_name}] ")\n')
 
   # Workaround for https://gitlab.kitware.com/cmake/cmake/-/issues/24013
@@ -381,8 +379,7 @@ unset(_prop)
   else:
     if not cmake_source_subdir:
       _patch_commands.append(
-          f"{quote_path(cmake_command)} -E copy CMakeLists.txt orig_CMakeLists.cmake"
-      )
+          "${CMAKE_COMMAND} -E copy CMakeLists.txt orig_CMakeLists.cmake")
     for k, v in (cmake_settings or {}).items():
       new_cmakelists.write(f"""set({k} "{v}")\n""")
     if cmake_source_subdir:
@@ -422,7 +419,7 @@ def _third_party_http_archive_impl(_context: InvocationContext, **kwargs):
   new_repository_id = RepositoryId(kwargs["name"])
 
   state = _context.access(EvaluationState)
-  state.workspace.set_cmake_project_name(new_repository_id, cmake_name)
+  state.workspace.set_cmake_package_name(new_repository_id, cmake_name)
 
   reverse_target_mapping: Dict[CMakeTarget, str] = update_target_mapping(
       state.repo, new_repository_id.get_package_id(""), kwargs)
@@ -507,7 +504,8 @@ find_dependency({cmake_name})
       t: Optional[str] = reverse_target_mapping.get(cmake_target)
       if t is not None:
         cmake_target = label_to_generated_cmake_target(
-            parse_absolute_target(t), cmake_name)
+            parse_absolute_target(t), cmake_name).target
+
       for suffix in ("LIBRARY", "LIBRARIES"):
         extra_aliases += f"set({var_prefix}_{suffix} {cmake_target})\n"
         if var_prefix != var_prefix.upper():

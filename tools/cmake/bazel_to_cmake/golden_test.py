@@ -25,6 +25,7 @@ import unittest
 
 from . import native_rules  # pylint: disable=unused-import
 from . import native_rules_cc  # pylint: disable=unused-import
+from . import native_rules_genrule  # pylint: disable=unused-import
 from . import native_rules_proto  # pylint: disable=unused-import
 from .cmake_target import CMakeTarget
 from .evaluation import EvaluationState

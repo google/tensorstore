@@ -70,8 +70,7 @@ def _nasm_library_impl(
   if _context.caller_package_id.package_name:
     package_prefix_str += "/"
 
-  cmake_target_pair = state.generate_cmake_target_pair(
-      _target, generate_alias=True)
+  cmake_target_pair = state.generate_cmake_target_pair(_target)
   cmake_deps: List[CMakeTarget] = []
 
   resolved_flags = _context.evaluate_configurable(flags or [])

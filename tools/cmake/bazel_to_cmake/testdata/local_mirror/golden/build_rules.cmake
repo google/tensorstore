@@ -16,7 +16,7 @@ target_link_libraries(CMakeProject_a PUBLIC
         "lpm::validate_cc"
         "m")
 target_include_directories(CMakeProject_a PUBLIC
-        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>"
-        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_a PUBLIC cxx_std_17)
 add_library(CMakeProject::a ALIAS CMakeProject_a)

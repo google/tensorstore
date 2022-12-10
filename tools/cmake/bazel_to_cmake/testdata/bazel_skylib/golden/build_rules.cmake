@@ -1,4 +1,6 @@
 
+# bazel_to_cmake wrote _cmake_binary_dir_/config.h
+
 add_custom_command(
 OUTPUT "_cmake_binary_dir_/config2.h"
 COMMAND ${Python3_EXECUTABLE} "${SCRIPT_DIRECTORY}/bzl_library/expand_template.py"
@@ -13,7 +15,7 @@ add_custom_target(CMakeProject_config2_h DEPENDS "_cmake_binary_dir_/config2.h")
 add_custom_command(
   OUTPUT "_cmake_binary_dir_/config3.h"
   DEPENDS "CMakeProject_config2_h" "_cmake_binary_dir_/config2.h"
-  COMMAND "cmake" -E copy _cmake_binary_dir_/config2.h _cmake_binary_dir_/config3.h
+  COMMAND ${CMAKE_COMMAND} -E copy "_cmake_binary_dir_/config2.h" "_cmake_binary_dir_/config3.h"
   VERBATIM
   WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )

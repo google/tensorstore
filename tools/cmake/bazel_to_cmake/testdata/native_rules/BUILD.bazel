@@ -6,6 +6,13 @@ cc_library(
     visibility = ["//visibility:public"],
 )
 
+cc_binary(
+    name = "bb",
+    srcs = ["a.cc"],
+    hdrs = ["a.h"],
+    visibility = ["//visibility:public"],
+)
+
 genrule(
     name = "h_file",
     srcs = select({
@@ -13,7 +20,8 @@ genrule(
         "//:other": ["y.h"],
     }),
     outs = ["a.h"],
-    cmd = "cp $< $@",
+    cmd = "$(location :bb) $$(dirname $$(dirname $< )) $$(dirname $< ) $< $@ ",
+    tools = [":bb"],
     visibility = ["//visibility:public"],
 )
 

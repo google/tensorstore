@@ -38,6 +38,7 @@ empty_rule = rule(
         "a_string": attr.string(default = "b"),
         "a_label": attr.label(allow_files = [".header"]),
         "a_labellist": attr.label_list(),
+        "a_bool": attr.bool(default = False),
         "out": attr.output(),
     },
 )

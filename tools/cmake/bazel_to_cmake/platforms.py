@@ -24,7 +24,7 @@ from .starlark.provider import TargetInfo
 from .workspace import Workspace
 
 # See https://cmake.org/cmake/help/latest/variable/CMAKE_LANG_COMPILER_ID.html
-_CMAKE_COMPILER_ID_TO_BAZEL_COMPILER = {
+_CMAKE_COMPILER_ID_TO_BAZEL_COMPILER: Dict[str, str] = {
     "GNU": "compiler",
     "Clang": "clang",
     "MSVC": "msvc-cl",
@@ -33,7 +33,7 @@ _CMAKE_COMPILER_ID_TO_BAZEL_COMPILER = {
 
 # Values for CMAKE_SYSTEM_NAME
 # https://gitlab.kitware.com/cmake/cmake/-/issues/21489#note_1077167
-_CMAKE_SYSTEM_NAME_CONFIG_SETTINGS = {
+_CMAKE_SYSTEM_NAME_CONFIG_SETTINGS: Dict[str, List[str]] = {
     "Windows": ["@platforms//os:windows"],
     "Linux": ["@platforms//os:linux"],
     "iOS": ["@platforms//os:ios"],
@@ -47,7 +47,7 @@ _CMAKE_SYSTEM_NAME_CONFIG_SETTINGS = {
     "QNX": ["@platforms//os:qnx"],
 }
 
-_CMAKE_SYSTEM_PROCESSOR_CONFIG_SETTINGS = {
+_CMAKE_SYSTEM_PROCESSOR_CONFIG_SETTINGS: Dict[str, List[str]] = {
     "AMD64": ["@platforms//cpu:x86_64"],
     "X86": ["@platforms//cpu:x86_32"],
     "ARM64": ["@platforms//cpu:arm64", "@platforms//cpu:aarch64"],
@@ -82,6 +82,7 @@ def add_platform_constraints(workspace: Workspace) -> None:
 
   bazel_compiler = _CMAKE_COMPILER_ID_TO_BAZEL_COMPILER.get(
       cmake_cxx_compiler_id, "compiler")
+
   workspace.set_persistent_target_info(
       parse_absolute_target("@bazel_tools//tools/cpp:compiler"),
       TargetInfo(BuildSettingProvider(bazel_compiler)))

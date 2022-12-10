@@ -8,7 +8,6 @@ execute_process(
         --cmake-binary-dir "${CMAKE_CURRENT_BINARY_DIR}"
         --bazel-repo-name local_proto_mirror
         --build-rules-output "${CMAKE_CURRENT_BINARY_DIR}/build_rules.cmake"
-        --target-alias "@local_proto_mirror//:validate_cc" "lpm::validate_cc"
   WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
   COMMAND_ERROR_IS_FATAL ANY)
 include("${CMAKE_CURRENT_BINARY_DIR}/build_rules.cmake")

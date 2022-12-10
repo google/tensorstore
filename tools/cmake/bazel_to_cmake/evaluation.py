@@ -81,6 +81,7 @@ from .cmake_target import CMakeDepsProvider
 from .cmake_target import CMakePackageDepsProvider
 from .cmake_target import CMakeTarget
 from .cmake_target import CMakeTargetPair
+from .cmake_target import CMakeTargetPairProvider
 from .cmake_target import label_to_generated_cmake_target
 from .package import Package
 from .package import Visibility
@@ -144,9 +145,11 @@ class EvaluationState:
     self.loaded_files: Set[str] = set()
     self._loaded_libraries: Dict[Tuple[TargetId, bool], Dict[str, Any]] = dict()
     self._wrote_dummy_source = False
-    self.target_aliases: Dict[TargetId, CMakeTarget] = {}
     self.required_dep_packages: Set[str] = set()
     self.errors: List[str] = []
+    # Tracks CMakeTargetPairs provided by get_dep() which don't have
+    # corresponding rules in this repo.
+    self._cmake_dep_pairs: Dict[TargetId, CMakeTargetPair] = {}
     # Maps targets to their rules.
     self._unanalyzed_rules: Set[TargetId] = set()
     self._all_rules: Dict[TargetId, RuleInfo] = {}
@@ -228,10 +231,18 @@ class EvaluationState:
     assert info is not None
     self._analyzed_targets[target_id] = info
 
-    # Persist build settings and conditions globally
-    if info.get(BuildSettingProvider) is not None or info.get(
-        ConditionProvider) is not None:
-      self.workspace.set_persistent_target_info(target_id, info)
+    if info.get(CMakeTargetPairProvider) is not None:
+      self._cmake_dep_pairs.pop(target_id, None)
+
+  def visit_analyzed_targets(self, visitor: Callable[[TargetId, TargetInfo],
+                                                     None]):
+    for target, info in self._analyzed_targets.items():
+      visitor(target, info)
+
+  def visit_cmake_dep_pairs(self, visitor: Callable[[TargetId, CMakeTargetPair],
+                                                    None]):
+    for target, info in self._cmake_dep_pairs.items():
+      visitor(target, info)
 
   def get_optional_target_info(self,
                                target_id: TargetId) -> Optional[TargetInfo]:
@@ -299,32 +310,6 @@ class EvaluationState:
         pathlib.PurePosixPath(repo.cmake_binary_dir).joinpath(
             target_id.package_name, target_id.target_name))
 
-  def generate_cmake_target_pair(
-      self,
-      target_id: TargetId,
-      generate_alias: bool = False) -> CMakeTargetPair:
-    assert isinstance(target_id, TargetId)
-    cmake_project = self.workspace.get_cmake_project_name(
-        target_id.repository_id)
-    if cmake_project is None:
-      raise ValueError(f"Unknown repo in target {target_id.as_label()}")
-    cmake_target = label_to_generated_cmake_target(target_id, cmake_project,
-                                                   False)
-    cmake_alias_target: Optional[CMakeTarget] = None
-    if generate_alias:
-      cmake_alias_target = self.target_aliases.get(target_id)
-      if cmake_alias_target is None:
-        cmake_alias_target = label_to_generated_cmake_target(
-            target_id, cmake_project, True)
-    # If we're making a cmake name for a persisted target, assume that the
-    # persisted target name is the alias.
-    info = self.workspace._persisted_targets.get(TargetId)
-    if info is not None:
-      deps = info.get(CMakeDepsProvider)
-      if deps is not None:
-        cmake_alias_target = deps.targets[0]
-    return CMakeTargetPair(cmake_target, cmake_alias_target)
-
   def evaluate_condition(self, target_id: TargetId) -> bool:
     assert isinstance(target_id, TargetId)
     assert self._phase == Phase.ANALYZE
@@ -371,32 +356,72 @@ class EvaluationState:
   def add_required_dep_package(self, package: str) -> None:
     self.required_dep_packages.add(package)
 
+  def generate_cmake_target_pair(self, target_id: TargetId) -> CMakeTargetPair:
+    assert isinstance(target_id, TargetId)
+
+    cmake_target = self._cmake_dep_pairs.get(target_id)
+    if cmake_target is not None:
+      return cmake_target
+
+    # If we're making a cmake name for a persisted target, assume that the
+    # persisted target name is the alias.
+    info = self.workspace._persisted_targets.get(target_id)
+    if info is not None:
+      provider = info.get(CMakeTargetPairProvider)
+      if provider is not None:
+        return provider.target_pair
+
+    cmake_package = self.workspace.get_cmake_package_name(
+        target_id.repository_id)
+    if cmake_package is None:
+      raise ValueError(f"Unknown repo in target {target_id.as_label()}")
+    return label_to_generated_cmake_target(target_id, cmake_package)
+
+  def _maybe_add_package_deps(self, p: Optional[CMakePackageDepsProvider]):
+    if p is not None:
+      for package in p.packages:
+        if package not in self.workspace.repo_cmake_packages:
+          assert not isinstance(package, bool)
+          self.add_required_dep_package(package)
+
   def get_dep(self, target_id: TargetId) -> List[CMakeTarget]:
     """Maps a Bazel target to the corresponding CMake target."""
+    # Local target.
     info = self.get_optional_target_info(target_id)
     if info is not None:
-      package_deps = info.get(CMakePackageDepsProvider)
-      if package_deps is not None:
-        for package in package_deps.packages:
-          if package not in self.workspace.repo_cmake_packages:
-            assert not isinstance(package, bool)
-            self.add_required_dep_package(package)
-      return info[CMakeDepsProvider].targets
+      self._maybe_add_package_deps(info.get(CMakePackageDepsProvider))
+      if info.get(CMakeDepsProvider):
+        return info[CMakeDepsProvider].targets
+      elif info.get(CMakeTargetPairProvider):
+        print(info)
+        return [info[CMakeTargetPairProvider].dep]
 
-    # target_aliases can specify dependency targets to link against.
-    cmake_alias_target = self.target_aliases.get(target_id)
-    if cmake_alias_target is not None:
-      return [cmake_alias_target]
+    # Persisted target.
+    info = self.workspace._persisted_targets.get(target_id)
+    if info is not None:
+      self._maybe_add_package_deps(info.get(CMakePackageDepsProvider))
+      provider = info.get(CMakeDepsProvider)
+      if provider is not None:
+        return provider.targets
+      target_pair = info.get(CMakeTargetPairProvider)
+      if target_pair is not None:
+        return [target_pair.dep]
 
-    cmake_project_name = self.workspace.get_cmake_project_name(
+    # Previously tracked target.
+    cmake_target = self._cmake_dep_pairs.get(target_id)
+    if cmake_target is not None:
+      return [cmake_target.dep]
+
+    # New untracked target.
+    cmake_package = self.workspace.get_cmake_package_name(
         target_id.repository_id)
-    if cmake_project_name is not None:
-      assert not isinstance(cmake_project_name, bool)
-      if cmake_project_name not in self.workspace.repo_cmake_packages:
-        self.add_required_dep_package(cmake_project_name)
-      cmake_target = label_to_generated_cmake_target(
-          target_id, cmake_project_name, alias=True)
-      return [cmake_target]
+    if cmake_package is not None:
+      assert not isinstance(cmake_package, bool)
+      if cmake_package not in self.workspace.repo_cmake_packages:
+        self.add_required_dep_package(cmake_package)
+      cmake_target = label_to_generated_cmake_target(target_id, cmake_package)
+      self._cmake_dep_pairs[target_id] = cmake_target
+      return [cmake_target.dep]
 
     # not handled.
     self.errors.append(f"Missing mapping for {target_id.as_label()}")
@@ -567,6 +592,7 @@ class EvaluationState:
 
 
 class EvaluationContext(InvocationContext):
+  """Implements InvocationContext interface for EvaluationState."""
 
   __slots__ = ("_state", "_caller_package_id", "_caller_package")
 
@@ -634,12 +660,19 @@ class EvaluationContext(InvocationContext):
   def resolve_repo_mapping(
       self, target_id: TargetId,
       mapping_repository_id: Optional[RepositoryId]) -> TargetId:
+    # Resolve repository mappings
     if mapping_repository_id is None:
       assert self._caller_package_id
       mapping_repository_id = self._caller_package_id.repository_id
-    return remap_target_repo(
+    target = remap_target_repo(
         target_id,
         self._get_repository(mapping_repository_id).repo_mapping)
+    # Resolve bindings.
+    if target.package_name == "external":
+      repo = self._get_repository(target.repository_id)
+      while target in repo.bindings:
+        target = repo.bindings[target]
+    return target
 
   def load_library(self, target: TargetId) -> Dict[str, Any]:
     return self._state.load_library(target)

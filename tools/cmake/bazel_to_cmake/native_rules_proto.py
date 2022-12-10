@@ -42,6 +42,7 @@ from .cmake_target import CMakeDepsProvider
 from .cmake_target import CMakeTarget
 from .emit_cc import emit_cc_library
 from .evaluation import EvaluationState
+from .package import Package
 from .starlark.bazel_globals import register_native_build_rule
 from .starlark.bazel_target import TargetId
 from .starlark.common_providers import FilesProvider
@@ -150,8 +151,7 @@ def get_proto_plugin_library_target(_context: InvocationContext, *,
   ]
   cc_deps.extend(plugin_settings.deps)
 
-  cmake_cc_target_pair = state.generate_cmake_target_pair(
-      cc_library_target, generate_alias=True)
+  cmake_cc_target_pair = state.generate_cmake_target_pair(cc_library_target)
   _context.add_analyzed_target(cc_library_target,
                                TargetInfo(*cmake_cc_target_pair.as_providers()))
 
@@ -209,12 +209,12 @@ def protoc_compile_protos_impl(
   if strip_import_prefix:
     include_dir = str(
         pathlib.PurePosixPath(
-            _context.caller_package.repository.cmake_binary_dir).joinpath(
+            _context.access(Package).repository.cmake_binary_dir).joinpath(
                 strip_import_prefix))
   else:
     include_dir = str(
         pathlib.PurePosixPath(
-            _context.caller_package.repository.cmake_binary_dir))
+            _context.access(Package).repository.cmake_binary_dir))
 
   # Construct protoc args. plugin-naming is special; protoc expects it
   # to be protoc-gen-<something>, and then uses <something>_out as the
@@ -238,8 +238,7 @@ def protoc_compile_protos_impl(
       f"--{plugin_settings.name}_out={joined_flags}:{include_dir}")
 
   # Add Providers and generated file targets to the context.
-  protoc_target_pair = state.generate_cmake_target_pair(
-      target, generate_alias=False)
+  protoc_target_pair = state.generate_cmake_target_pair(target).with_alias(None)
 
   protoc_deps = CMakeDepsProvider([protoc_target_pair.target])
 
@@ -260,7 +259,7 @@ def protoc_compile_protos_impl(
 
   # Resolve the dependencies library
   cmake_include_target = state.generate_cmake_target_pair(
-      proto_library_target, generate_alias=False).target
+      proto_library_target).target
 
   _emit_protoc_generate(
       _context.access(CMakeBuilder),
@@ -347,8 +346,7 @@ def _proto_library_impl(_context: InvocationContext,
 
   state = _context.access(EvaluationState)
 
-  cmake_name = state.generate_cmake_target_pair(
-      _target, generate_alias=False).target
+  cmake_name = state.generate_cmake_target_pair(_target).target
 
   # Validate src properties: files ending in .proto within the same repo.
   for t in resolved_srcs:
@@ -361,8 +359,7 @@ def _proto_library_impl(_context: InvocationContext,
   cmake_proto_deps = []
   for d in resolved_deps:
     state.get_optional_target_info(d)
-    cmake_proto_deps.append(
-        state.generate_cmake_target_pair(d, generate_alias=False).target)
+    cmake_proto_deps.append(state.generate_cmake_target_pair(d).target)
 
   # In order to propagate the includes to our compile targets, each
   # proto_library() becomes a custom CMake target which contains an
@@ -437,8 +434,7 @@ def _cc_proto_library_impl(_context: InvocationContext,
       _context.evaluate_configurable_list(deps))
 
   state = _context.access(EvaluationState)
-  cmake_target_pair = state.generate_cmake_target_pair(
-      _target, generate_alias=True)
+  cmake_target_pair = state.generate_cmake_target_pair(_target)
 
   # Typically there is a single proto dep in a cc_library_target, multiple are
   # supported, thus we resolve each library target here.

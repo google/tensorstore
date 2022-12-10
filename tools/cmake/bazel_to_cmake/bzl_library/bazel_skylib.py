@@ -19,7 +19,7 @@ import json
 import os
 from typing import Any, Dict, List, Optional, cast
 
-from .. import native_rules
+from .. import native_rules_genrule
 from ..cmake_builder import CMakeBuilder
 from ..cmake_builder import quote_list
 from ..cmake_builder import quote_path
@@ -39,6 +39,7 @@ from ..starlark.invocation_context import RelativeLabel
 from ..starlark.provider import TargetInfo
 from ..starlark.select import Configurable
 from ..starlark.select import Select
+from ..starlark.toolchain import CMAKE_TOOLCHAIN
 from ..util import cmake_is_true
 from ..util import cmake_is_windows
 from ..util import write_file_if_not_already_equal
@@ -152,8 +153,7 @@ def _expand_template_impl(
 ):
   state: EvaluationState = _context.access(EvaluationState)
 
-  cmake_target_pair = state.generate_cmake_target_pair(
-      _target, generate_alias=False)
+  cmake_target_pair = state.generate_cmake_target_pair(_target).with_alias(None)
   out_file = _context.get_generated_file_path(_out_target)
 
   _context.add_analyzed_target(
@@ -209,16 +209,15 @@ class BazelSkylibCopyFileLibrary(BazelGlobals):
                       visibility: Optional[List[RelativeLabel]] = None,
                       **kwargs):
     del kwargs
-    cmake_command = self._context.access(
-        EvaluationState).workspace.cmake_vars["CMAKE_COMMAND"]
 
-    native_rules.genrule(
+    native_rules_genrule.genrule(
         self._context,
         name=name,
         outs=[out],
         srcs=[src],
         visibility=visibility,
-        cmd=f"{quote_path(cmake_command)} -E copy $< $@")
+        toolchains=[CMAKE_TOOLCHAIN],
+        cmd="$(CMAKE_COMMAND) -E copy $< $@")
 
 
 @register_bzl_library("@bazel_skylib//rules:write_file.bzl", build=True)
@@ -252,6 +251,7 @@ def _write_file_impl(
   out_file = _context.get_generated_file_path(_out_target)
   _context.add_analyzed_target(_out_target,
                                TargetInfo(FilesProvider([out_file])))
+
   _context.add_analyzed_target(_target, TargetInfo())
 
   resolved_newline = _context.evaluate_configurable(newline)
@@ -264,6 +264,9 @@ def _write_file_impl(
   else:
     nl = "\r\n"
   text = nl.join(cast(Any, _context.evaluate_configurable_list(content))) + nl
+
+  _context.access(CMakeBuilder).addtext(
+      f"\n# bazel_to_cmake wrote {out_file}\n")
   write_file_if_not_already_equal(out_file, text.encode("utf-8"))
 
 
@@ -300,7 +303,7 @@ def _bool_flag_impl(_context: InvocationContext, _target: TargetId,
 
   cmake_name = str(
       label_to_generated_cmake_target(_target,
-                                      repo._cmake_project_name)).upper()
+                                      repo._cmake_project_name).target).upper()
   existing_value = repo.workspace.cmake_vars.get(cmake_name)
   default_value = _context.evaluate_configurable(build_setting_default)
   if existing_value is None:
@@ -319,7 +322,7 @@ def _string_flag_impl(_context: InvocationContext, _target: TargetId,
 
   cmake_name = str(
       label_to_generated_cmake_target(_target,
-                                      repo._cmake_project_name)).upper()
+                                      repo._cmake_project_name).target).upper()
   existing_value = repo.workspace.cmake_vars.get(cmake_name)
   default_value = _context.evaluate_configurable(build_setting_default)
   if existing_value is None:
