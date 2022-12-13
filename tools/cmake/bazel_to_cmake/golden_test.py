@@ -122,35 +122,35 @@ class GoldenTest(unittest.TestCase):
       add_platform_constraints(workspace)
 
       # Add default mappings used in proto code.
-      workspace.set_persistent_target_mapping(
-          '@com_github_grpc_grpc//:grpc++_codegen_proto',
-          CMakeTarget('gRPC::gRPC_codegen'), 'gRPC')
+      workspace.persist_cmake_name(
+          '@com_github_grpc_grpc//:grpc++_codegen_proto', 'gRPC',
+          CMakeTarget('gRPC::gRPC_codegen'))
 
-      workspace.set_persistent_target_mapping(
-          '@com_github_grpc_grpc//src/compiler:grpc_cpp_plugin',
-          CMakeTarget('gRPC::grpc_cpp_plugin'), 'gRPC')
+      workspace.persist_cmake_name(
+          '@com_github_grpc_grpc//src/compiler:grpc_cpp_plugin', 'gRPC',
+          CMakeTarget('gRPC::grpc_cpp_plugin'))
 
-      workspace.set_persistent_target_mapping(  #
-          '@com_google_protobuf//:protoc', CMakeTarget('protobuf::protoc'),
-          'Protobuf')
+      workspace.persist_cmake_name('@com_google_protobuf//:protoc', 'Protobuf',
+                                   CMakeTarget('protobuf::protoc'))
 
-      workspace.set_persistent_target_mapping(  #
-          '@com_google_protobuf//:protobuf',
-          CMakeTarget('protobuf::libprotobuf'), 'Protobuf')
+      workspace.persist_cmake_name('@com_google_protobuf//:protobuf',
+                                   'Protobuf',
+                                   CMakeTarget('protobuf::libprotobuf'))
 
-      workspace.set_persistent_target_mapping(
-          '@com_google_upb//upbc:protoc-gen-upbdefs',
-          CMakeTarget('upb::protoc-gen-upbdefs'), 'upb')
+      workspace.persist_cmake_name('@com_google_upb//upbc:protoc-gen-upbdefs',
+                                   'upb',
+                                   CMakeTarget('upb::protoc-gen-upbdefs'))
 
-      workspace.set_persistent_target_mapping(  #
-          '@com_google_upb//upbc:protoc-gen-upb',
-          CMakeTarget('protobuf::protoc-gen-upb'), 'upb')
+      workspace.persist_cmake_name('@com_google_upb//upbc:protoc-gen-upb',
+                                   'upb',
+                                   CMakeTarget('protobuf::protoc-gen-upb'))
 
-      workspace.set_persistent_target_mapping(  #
+      workspace.persist_cmake_name(
           '@com_google_upb//:generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me',
+          'upb',
           CMakeTarget(
               'upb::generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me'
-          ), 'upb')
+          ))
 
       # Load specified modules.
       for x in config.get('modules', []):

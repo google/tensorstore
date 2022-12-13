@@ -12,6 +12,7 @@ VERBATIM
 )
 add_custom_target(CMakeProject_config2_h DEPENDS "_cmake_binary_dir_/config2.h")
 
+# @bazel_test_repo//:config_copy_rule
 add_custom_command(
   OUTPUT "_cmake_binary_dir_/config3.h"
   DEPENDS "CMakeProject_config2_h" "_cmake_binary_dir_/config2.h"

@@ -70,8 +70,12 @@ def _local_mirror_impl(_context: InvocationContext, **kwargs):
     return
 
   local_mirror_dir = os.path.join(state.repo.cmake_binary_dir, "local_mirror",
-                                  cmake_name)
+                                  cmake_name.lower())
   os.makedirs(local_mirror_dir, exist_ok=True)
+
+  local_build_dir = os.path.join(state.repo.cmake_binary_dir,
+                                 "_build_local_mirror", cmake_name.lower())
+  os.makedirs(local_build_dir, exist_ok=True)
 
   # Augment the CMakeLists.txt file with file(DOWNLOAD).
   out = io.StringIO()
@@ -97,14 +101,12 @@ def _local_mirror_impl(_context: InvocationContext, **kwargs):
           f"local_mirror requires SHA256 for downloaded file: {file}")
     out.write(f"""\n     EXPECTED_HASH "SHA256={sha256}")\n\n""")
 
-  cmaketxt_path = pathlib.Path(os.path.join(local_mirror_dir, "CMakeLists.txt"))
-
   builder.addtext(
       f"# Loading {new_repository_id.repository_name}\n",
       section=LOCAL_MIRROR_DOWNLOAD_SECTION)
   builder.addtext(out.getvalue(), section=LOCAL_MIRROR_DOWNLOAD_SECTION)
   builder.addtext(
-      f"add_subdirectory({quote_string(str(cmaketxt_path.parent))} EXCLUDE_FROM_ALL)\n",
+      f"add_subdirectory({quote_string(str(local_mirror_dir))} {quote_string(str(local_build_dir))} EXCLUDE_FROM_ALL)\n",
       section=FETCH_CONTENT_MAKE_AVAILABLE_SECTION - 1)
 
   # Now write the nested CMakeLists.txt file
@@ -120,6 +122,7 @@ def _local_mirror_impl(_context: InvocationContext, **kwargs):
   if kwargs.get("cmakelists_suffix"):
     out.write(str(kwargs.get("cmakelists_suffix")))
 
+  cmaketxt_path = pathlib.Path(os.path.join(local_mirror_dir, "CMakeLists.txt"))
   cmaketxt_path.write_text(out.getvalue(), encoding="utf-8")
 
   # Clients rely on find_package; provide a -config.cmake file
@@ -136,7 +139,6 @@ def _local_mirror_impl(_context: InvocationContext, **kwargs):
                              f"{cmake_name.lower()}-config.cmake")
   pathlib.Path(config_path).write_text(
       f"""
-set({cmake_name.lower()}_ROOT_DIR {local_mirror_dir})
 set({cmake_name.lower()}_FOUND ON)
 set({cmake_name.upper()}_FOUND ON)
 """,

@@ -24,7 +24,6 @@ from .cmake_builder import quote_list
 from .cmake_target import CMakeTarget
 from .cmake_target import CMakeTargetPair
 from .evaluation import EvaluationState
-from .package import Package
 from .starlark.invocation_context import InvocationContext
 from .starlark.label import RelativeLabel
 from .starlark.select import Configurable
@@ -148,30 +147,42 @@ def handle_cc_common_options(
 
   result["defines"].extend(state.workspace.cdefines)
 
-  package = _context.access(Package)
+  # This include manipulation is pretty hacky.
+  #   https://bazel.build/reference/be/c-cpp#cc_library.includes
+  #
+  # When absolute, includes and strip_include_prefix are repository relative,
+  # otherwise they are package relative.
+  current_package_name = _context.caller_package_id.package_name
 
-  # This include manipulation is pretty hacky. Basically if strip_include_prefix
-  # is set, then add -I {PACKAGE_DIR}/{strip_include_prefix}; likewise if
-  # include_prefix is set, then compute a path suffix and add it as
-  # {PACKAGE_DIR}/{computed_prefix}. This is likely to break when both are
-  # specified; bazel, I think, creates a path symlink to achieve the same thing.
   include_dirs: List[str] = []
+
+  relative_package_path = pathlib.PurePosixPath(current_package_name)
+  for include in _context.evaluate_configurable_list(includes):
+    include_path = str(
+        relative_package_path.joinpath(pathlib.PurePosixPath(include)))
+    if include_path[0] == "/":
+      include_path = include_path[1:]
+    include_dirs.extend(f"{i}/{include_path}" for i in _BASE_INCLUDE_DIRS)
+
   if strip_include_prefix is not None:
-    include_dirs.extend(
-        f"{i}/{strip_include_prefix}" for i in _BASE_INCLUDE_DIRS)
+    include_path = str(
+        relative_package_path.joinpath(
+            pathlib.PurePosixPath(strip_include_prefix)))
+    if include_path[0] == "/":
+      include_path = include_path[1:]
+    include_dirs.extend(f"{i}/{include_path}" for i in _BASE_INCLUDE_DIRS)
 
   if include_prefix is not None:
-    if package.package_id.package_name.endswith(include_prefix):
+    # "When set, the headers in the hdrs attribute of this rule are accessable
+    # at is the value of this attribute prepended to their repository-relative
+    # path."
+    #
+    # Bazel may create a symlink tree to support this and strip_include_prefix;
+    # for known cases this appears to work.
+    if current_package_name.endswith(include_prefix):
       computed_prefix = str(
-          pathlib.PurePosixPath(
-              package.package_id.package_name[:-len(include_prefix)]))
+          pathlib.PurePosixPath(current_package_name[:-len(include_prefix)]))
       include_dirs.extend(f"{i}/{computed_prefix}" for i in _BASE_INCLUDE_DIRS)
-
-  source_dir = pathlib.PurePosixPath(package.repository.source_directory)
-  binary_dir = pathlib.PurePosixPath(package.repository.cmake_binary_dir)
-  for i in _context.evaluate_configurable_list(includes):
-    include_dirs.append(str(source_dir.joinpath(i)))
-    include_dirs.append(str(binary_dir.joinpath(i)))
 
   result["includes"] = include_dirs
   return result
@@ -192,33 +203,33 @@ def emit_cc_library(
 
   target_name = _cmake_target_pair.target
   assert target_name is not None
-  assert _cmake_target_pair.alias is not None
 
   if not header_only:
-    _builder.addtext(f"""\n
+    _builder.addtext(f"""
 add_library({target_name})
 target_sources({target_name} PRIVATE{_SEP}{quote_list(cc_srcs , separator=_SEP)})
 set_property(TARGET {target_name} PROPERTY LINKER_LANGUAGE "CXX")
 """)
   else:
-    _builder.addtext(f"""\n
+    _builder.addtext(f"""
 add_library({target_name} INTERFACE)
 """)
   _emit_cc_common_options(
       _builder, target_name=target_name, interface_only=header_only, **kwargs)
-  _builder.add_library_alias(
-      target_name=target_name,
-      alias_name=_cmake_target_pair.alias,
-      alwayslink=alwayslink,
-      interface_only=header_only,
-  )
+  if _cmake_target_pair.alias is not None:
+    _builder.add_library_alias(
+        target_name=target_name,
+        alias_name=_cmake_target_pair.alias,
+        alwayslink=alwayslink,
+        interface_only=header_only,
+    )
 
 
 def emit_cc_binary(_builder: CMakeBuilder, _cmake_target_pair: CMakeTargetPair,
                    srcs: Set[str], **kwargs):
   target_name = _cmake_target_pair.target
   assert _cmake_target_pair.alias is not None
-  _builder.addtext(f"""\n
+  _builder.addtext(f"""
 add_executable({target_name} "")
 add_executable({_cmake_target_pair.alias} ALIAS {target_name})
 target_sources({target_name} PRIVATE{_SEP}{quote_list(sorted(srcs), separator=_SEP)})

@@ -9,7 +9,7 @@ FetchContent_Declare(half
 add_subdirectory("_cmake_binary_dir_/third_party" _third_party_configs EXCLUDE_FROM_ALL)
 find_package(half REQUIRED)
 
-
+# @bazel_test_repo//:a
 add_library(CMakeProject_a)
 target_sources(CMakeProject_a PRIVATE
         "${TEST_DIRECTORY}/a.cc")

@@ -68,13 +68,18 @@ def _cc_library_impl(
       resolved_hdrs, custom_target_deps=custom_target_deps)
   textual_hdrs_file_paths = state.get_targets_file_paths(
       resolved_textual_hdrs, custom_target_deps=custom_target_deps)
+
+  common_options = handle_cc_common_options(
+      _context, custom_target_deps=custom_target_deps, **kwargs)
+  builder = _context.access(CMakeBuilder)
+  builder.addtext(f"\n# {_target.as_label()}")
+
   emit_cc_library(
-      _context.access(CMakeBuilder),
+      builder,
       cmake_target_pair,
       hdrs=set(hdrs_file_paths + textual_hdrs_file_paths),
       alwayslink=alwayslink,
-      **handle_cc_common_options(
-          _context, custom_target_deps=custom_target_deps, **kwargs),
+      **common_options,
   )
   _context.add_analyzed_target(_target,
                                TargetInfo(*cmake_target_pair.as_providers()))
@@ -105,10 +110,16 @@ def cc_binary(self: InvocationContext,
 def _cc_binary_impl(_context: InvocationContext, _target: TargetId, **kwargs):
   cmake_target_pair = _context.access(
       EvaluationState).generate_cmake_target_pair(_target)
+
+  common_options = handle_cc_common_options(
+      _context, src_required=True, **kwargs)
+  builder = _context.access(CMakeBuilder)
+  builder.addtext(f"\n# {_target.as_label()}")
+
   emit_cc_binary(
       _context.access(CMakeBuilder),
       cmake_target_pair,
-      **handle_cc_common_options(_context, src_required=True, **kwargs),
+      **common_options,
   )
   _context.add_analyzed_target(_target,
                                TargetInfo(*cmake_target_pair.as_providers()))
@@ -141,11 +152,17 @@ def _cc_test_impl(_context: InvocationContext,
           _context, arg, relative_to=state.repo.source_directory)
       for arg in _context.evaluate_configurable_list(args)
   ]
+
+  common_options = handle_cc_common_options(
+      _context, src_required=True, **kwargs)
+  builder = _context.access(CMakeBuilder)
+  builder.addtext(f"\n# {_target.as_label()}")
+
   emit_cc_test(
       _context.access(CMakeBuilder),
       cmake_target_pair,
       args=resolved_args,
-      **handle_cc_common_options(_context, src_required=True, **kwargs),
+      **common_options,
   )
   _context.add_analyzed_target(_target,
                                TargetInfo(*cmake_target_pair.as_providers()))

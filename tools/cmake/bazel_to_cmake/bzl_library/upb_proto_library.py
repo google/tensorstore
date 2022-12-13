@@ -143,24 +143,28 @@ def _upb_proto_impl(_context: InvocationContext, _target: TargetId,
   state = _context.access(EvaluationState)
   cmake_target_pair = state.generate_cmake_target_pair(_target)
 
-  dep_library_targets = [
-      get_proto_plugin_library_target(
-          _context, plugin_settings=_UPB, target=dep_target)
-      for dep_target in resolved_deps
-  ]
+  # Typically there is a single proto dep in a cc_library_target, multiple are
+  # supported, thus we resolve each library target here.
+  library_deps = []
+  for dep_target in resolved_deps:
+    lib_target = get_proto_plugin_library_target(
+        _context, plugin_settings=_UPB, target=dep_target)
+    library_deps.extend(state.get_dep(lib_target, alias=False))
   if build_upbdeps:
-    dep_library_targets += [
-        get_proto_plugin_library_target(
-            _context, plugin_settings=_UPBDEFS, target=dep_target)
-        for dep_target in resolved_deps
-    ]
+    for dep_target in resolved_deps:
+      lib_target = get_proto_plugin_library_target(
+          _context, plugin_settings=_UPBDEFS, target=dep_target)
+      library_deps.extend(state.get_dep(lib_target, alias=False))
+
+  builder = _context.access(CMakeBuilder)
+  builder.addtext(f"\n# {_target.as_label()}")
 
   emit_cc_library(
-      _context.access(CMakeBuilder),
+      builder,
       cmake_target_pair,
       hdrs=set(),
       srcs=set(),
-      deps=set(state.get_deps(dep_library_targets)),
+      deps=set(library_deps),
   )
   _context.add_analyzed_target(_target,
                                TargetInfo(*cmake_target_pair.as_providers()))

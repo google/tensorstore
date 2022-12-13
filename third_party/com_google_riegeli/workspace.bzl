@@ -33,16 +33,16 @@ def repo():
         bazel_to_cmake = {
             "include": ["riegeli/**"],
             "exclude": [
-                "riegeli/tensorflow/**",
-                "riegeli/snappy/**",
-                "riegeli/records/**",
                 "riegeli/brotli/**",
-                "riegeli/chunk_encoding/**",
-                "riegeli/lz4/**",
-                "riegeli/digests/**",
                 "riegeli/bzip2/**",
-                "riegeli/zstd/**",
+                "riegeli/chunk_encoding/**",
+                "riegeli/digests/**",
+                "riegeli/lz4/**",
+                "riegeli/records/**",
+                "riegeli/snappy/**",
+                "riegeli/tensorflow/**",
                 "riegeli/zlib/**",
+                "riegeli/zstd/**",
             ],
         },
     )

@@ -29,7 +29,6 @@ from . import native_rules_genrule  # pylint: disable=unused-import
 from . import native_rules_proto  # pylint: disable=unused-import
 from .bzl_library import default as _  # pylint: disable=unused-import
 from .cmake_target import CMakeTargetPair
-from .cmake_target import CMakeTargetPairProvider
 from .evaluation import EvaluationState
 from .platforms import add_platform_constraints
 from .starlark.bazel_target import TargetId
@@ -194,12 +193,12 @@ def main():
   # In verbose mode, print any global targets that have not been analyzed.
   if workspace._verbose and args.target:
     missing = []
-    for t in workspace._persisted_targets.keys():
+    for t in workspace._persisted_canonical_name.keys():
       if t.repository_id == repo.repository_id and t not in targets_to_analyze:
         missing.append(t.as_label())
     if missing:
       missing = " ".join(missing)
-      print("--targets missing: {missing}")
+      print(f"--targets missing: {missing}")
 
   input_files = set(state.loaded_files)
   builder = state.builder
@@ -245,13 +244,13 @@ bazel_to_cmake.py encountered errors
           info.get(ConditionProvider) is not None):
         workspace.set_persistent_target_info(target, info)
 
+    state.visit_analyzed_targets(_persist_targetinfo)
+
     # * third_party cmake target names.
     def _persist_cmakepairs(target: TargetId, cmake_pair: CMakeTargetPair):
       if target.repository_id != repo.repository_id:
-        workspace.set_persistent_target_info(
-            target, TargetInfo(CMakeTargetPairProvider(cmake_pair)))
+        workspace.set_persisted_canonical_name(target, cmake_pair)
 
-    state.visit_analyzed_targets(_persist_targetinfo)
     state.visit_cmake_dep_pairs(_persist_cmakepairs)
 
     with open(args.save_workspace, "wb") as f:

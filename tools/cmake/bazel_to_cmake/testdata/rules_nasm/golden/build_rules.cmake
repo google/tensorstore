@@ -15,7 +15,7 @@ set_source_files_properties(
       COMPILE_OPTIONS "-w+all;-D__x86_64__;-felf64;-DELF;-DPIC")
 add_library(CMakeProject::asm_library ALIAS CMakeProject_asm_library)
 
-
+# @bazel_test_repo//:a
 add_library(CMakeProject_a)
 target_sources(CMakeProject_a PRIVATE
         "${TEST_DIRECTORY}/a.cc")

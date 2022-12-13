@@ -70,7 +70,7 @@ def _get_relative_path(path: str, relative_to: str) -> str:
 
 
 def _genrule_impl(_context: InvocationContext,
-                  _label: TargetId,
+                  _target: TargetId,
                   _out_targets: List[TargetId],
                   cmd: Configurable[str],
                   srcs: Optional[Configurable[List[RelativeLabel]]] = None,
@@ -86,7 +86,7 @@ def _genrule_impl(_context: InvocationContext,
 
   state = _context.access(EvaluationState)
 
-  cmake_target_pair = state.generate_cmake_target_pair(_label).with_alias(None)
+  cmake_target_pair = state.generate_cmake_target_pair(_target).with_alias(None)
 
   # Add outputs with a dependency on this target.
   cmake_deps_provider = CMakeDepsProvider([cmake_target_pair.target])
@@ -117,8 +117,9 @@ def _genrule_impl(_context: InvocationContext,
   ]
 
   package_binary_dir = str(
-      pathlib.PurePosixPath(_context.resolve_output_root(
-          _label.repository_id)).joinpath(_label.package_name))
+      pathlib.PurePosixPath(
+          _context.resolve_output_root(_target.repository_id)).joinpath(
+              _target.package_name))
 
   substitutions = {
       "SRCS":
@@ -129,7 +130,7 @@ def _genrule_impl(_context: InvocationContext,
           _get_relative_path(package_binary_dir, source_directory),
       "GENDIR":
           _get_relative_path(
-              _context.resolve_output_root(_label.repository_id),
+              _context.resolve_output_root(_target.repository_id),
               source_directory),
   }
 
@@ -151,14 +152,17 @@ def _genrule_impl(_context: InvocationContext,
       custom_target_deps=cmake_deps,
       substitutions=substitutions,
       toolchains=resolved_toolchains)
+
+  builder = _context.access(CMakeBuilder)
+  builder.addtext(f"\n# {_target.as_label()}")
   _emit_genrule(
-      builder=_context.access(CMakeBuilder),
+      builder=builder,
       cmake_target=cmake_deps_provider.targets[0],
       out_files=out_files,
       cmake_deps=cmake_deps,
       cmd_text=cmd_text,
       message=message_text)
-  _context.add_analyzed_target(_label, TargetInfo(cmake_deps_provider))
+  _context.add_analyzed_target(_target, TargetInfo(cmake_deps_provider))
 
 
 _QUOTED_VAR = re.compile(r"(^[$]{[A-Z0-9_]+})|(^\"[$]{[A-Z0-9_]+}\")")

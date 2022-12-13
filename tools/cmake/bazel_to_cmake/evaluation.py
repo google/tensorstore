@@ -201,7 +201,7 @@ class EvaluationState:
       analyze_by_default: Whether to analyze by default, as opposed to only if
         it is a dependency of another target being analyzed.
     """
-    assert isinstance(rule_id, TargetId)
+    assert isinstance(rule_id, TargetId), f"Requires TargetId: {repr(rule_id)}"
     if rule_id in self._all_rules:
       raise ValueError(f"Duplicate rule: {rule_id.as_label()}")
     if outs is None:
@@ -227,7 +227,8 @@ class EvaluationState:
     This must be called by the `RuleImpl` function for the rule_label and each
     output target.
     """
-    assert isinstance(target_id, TargetId)
+    assert isinstance(target_id,
+                      TargetId), f"Requires TargetId: {repr(target_id)}"
     assert info is not None
     self._analyzed_targets[target_id] = info
 
@@ -246,7 +247,8 @@ class EvaluationState:
 
   def get_optional_target_info(self,
                                target_id: TargetId) -> Optional[TargetInfo]:
-    assert isinstance(target_id, TargetId)
+    assert isinstance(target_id,
+                      TargetId), f"Requires TargetId: {repr(target_id)}"
     analyzed_targets = self._analyzed_targets
     info = analyzed_targets.get(target_id)
     if info is not None:
@@ -255,7 +257,7 @@ class EvaluationState:
     unanalyzed_targets = self._unanalyzed_targets
     if target_id not in unanalyzed_targets:
       # Is this a global persistent target?
-      info = self.workspace._persisted_targets.get(target_id)
+      info = self.workspace._persisted_target_info.get(target_id)
       if info is not None:
         return info
       # Is this a source file?
@@ -353,11 +355,11 @@ class EvaluationState:
       files.extend(self.get_file_paths(target, custom_target_deps))
     return sorted(set(files))
 
-  def add_required_dep_package(self, package: str) -> None:
-    self.required_dep_packages.add(package)
-
-  def generate_cmake_target_pair(self, target_id: TargetId) -> CMakeTargetPair:
-    assert isinstance(target_id, TargetId)
+  def generate_cmake_target_pair(self,
+                                 target_id: TargetId,
+                                 alias: bool = True) -> CMakeTargetPair:
+    assert isinstance(target_id,
+                      TargetId), f"Requires TargetId: {repr(target_id)}"
 
     cmake_target = self._cmake_dep_pairs.get(target_id)
     if cmake_target is not None:
@@ -365,17 +367,21 @@ class EvaluationState:
 
     # If we're making a cmake name for a persisted target, assume that the
     # persisted target name is the alias.
-    info = self.workspace._persisted_targets.get(target_id)
-    if info is not None:
-      provider = info.get(CMakeTargetPairProvider)
-      if provider is not None:
-        return provider.target_pair
+    cmake_target_pair = self.workspace._persisted_canonical_name.get(target_id)
+    if cmake_target_pair is not None:
+      return cmake_target_pair
 
     cmake_package = self.workspace.get_cmake_package_name(
         target_id.repository_id)
     if cmake_package is None:
       raise ValueError(f"Unknown repo in target {target_id.as_label()}")
-    return label_to_generated_cmake_target(target_id, cmake_package)
+    pair = label_to_generated_cmake_target(target_id, cmake_package)
+    if not alias:
+      pair = pair.with_alias(None)
+    return pair
+
+  def add_required_dep_package(self, package: str) -> None:
+    self.required_dep_packages.add(package)
 
   def _maybe_add_package_deps(self, p: Optional[CMakePackageDepsProvider]):
     if p is not None:
@@ -384,9 +390,13 @@ class EvaluationState:
           assert not isinstance(package, bool)
           self.add_required_dep_package(package)
 
-  def get_dep(self, target_id: TargetId) -> List[CMakeTarget]:
+  def get_dep(self,
+              target_id: TargetId,
+              alias: bool = True) -> List[CMakeTarget]:
     """Maps a Bazel target to the corresponding CMake target."""
     # Local target.
+    assert isinstance(target_id,
+                      TargetId), f"Requires TargetId: {repr(target_id)}"
     info = self.get_optional_target_info(target_id)
     if info is not None:
       self._maybe_add_package_deps(info.get(CMakePackageDepsProvider))
@@ -396,36 +406,14 @@ class EvaluationState:
         print(info)
         return [info[CMakeTargetPairProvider].dep]
 
-    # Persisted target.
-    info = self.workspace._persisted_targets.get(target_id)
-    if info is not None:
-      self._maybe_add_package_deps(info.get(CMakePackageDepsProvider))
-      provider = info.get(CMakeDepsProvider)
-      if provider is not None:
-        return provider.targets
-      target_pair = info.get(CMakeTargetPairProvider)
-      if target_pair is not None:
-        return [target_pair.dep]
-
-    # Previously tracked target.
-    cmake_target = self._cmake_dep_pairs.get(target_id)
-    if cmake_target is not None:
-      return [cmake_target.dep]
-
     # New untracked target.
-    cmake_package = self.workspace.get_cmake_package_name(
-        target_id.repository_id)
-    if cmake_package is not None:
-      assert not isinstance(cmake_package, bool)
-      if cmake_package not in self.workspace.repo_cmake_packages:
-        self.add_required_dep_package(cmake_package)
-      cmake_target = label_to_generated_cmake_target(target_id, cmake_package)
-      self._cmake_dep_pairs[target_id] = cmake_target
-      return [cmake_target.dep]
-
-    # not handled.
-    self.errors.append(f"Missing mapping for {target_id.as_label()}")
-    return []
+    cmake_target = self.generate_cmake_target_pair(target_id, alias)
+    if target_id not in self._cmake_dep_pairs:
+      self.add_required_dep_package(cmake_target.cmake_package)
+      # If it's not persisted, track it now.
+      if target_id not in self.workspace._persisted_canonical_name:
+        self._cmake_dep_pairs[target_id] = cmake_target
+    return [cmake_target.dep]
 
   def get_deps(self, targets: List[TargetId]) -> List[CMakeTarget]:
     deps: List[CMakeTarget] = []
