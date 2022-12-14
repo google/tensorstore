@@ -1,5 +1,5 @@
-load("//python/tensorstore:pytype.bzl", "pytype_strict_binary", "pytype_strict_test")
-load("//python/tensorstore:pytest.bzl", "tensorstore_pytest_test")
+load("//bazel:pytype.bzl", "pytype_strict_binary", "pytype_strict_test")
+load("//bazel:pytest.bzl", "tensorstore_pytest_test")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 load("//docs:doctest.bzl", "doctest_test")
 
@@ -58,6 +58,7 @@ config_setting(
 
 pytype_strict_test(
     name = "build_docs",
+    timeout = "long",
     srcs = ["build_docs.py"],
     args = select({
         ":no_minify_setting": ["--no-minify"],

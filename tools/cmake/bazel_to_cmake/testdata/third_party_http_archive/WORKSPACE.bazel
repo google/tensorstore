@@ -1,0 +1,22 @@
+workspace(name = "bazel_test_repo")
+
+load("@com_google_tensorstore//third_party:repo.bzl", "third_party_http_archive")
+
+
+third_party_http_archive(
+    name = "net_sourceforge_half",
+    urls = [
+        "https://storage.googleapis.com/tensorstore-bazel-mirror/sourceforge.net/projects/half/files/half/2.1.0/half-2.1.0.zip",
+        "https://sourceforge.net/projects/half/files/half/2.1.0/half-2.1.0.zip",
+    ],
+    sha256 = "ad1788afe0300fa2b02b0d1df128d857f021f92ccf7c8bddd07812685fa07a25",
+    build_file = Label("//:half.BUILD.bazel"),
+    cmake_name = "half",
+    cmake_target_mapping = {
+        "@net_sourceforge_half//:half": "half::half",
+    },
+    bazel_to_cmake = {},
+    cmakelists_prefix = "# << prefix >>",
+    cmakelists_suffix = "# << suffix >>",
+    cmake_package_aliases = ["Whole"],
+)

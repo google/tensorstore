@@ -34,16 +34,16 @@ absl::Status ExpectedError(const ::nlohmann::json& j,
                            std::string_view type_name) {
   if (j.is_discarded()) {
     return absl::InvalidArgumentError(
-        StrCat("Expected ", type_name, ", but member is missing"));
+        tensorstore::StrCat("Expected ", type_name, ", but member is missing"));
   }
-  return absl::InvalidArgumentError(
-      StrCat("Expected ", type_name, ", but received: ", j.dump()));
+  return absl::InvalidArgumentError(tensorstore::StrCat(
+      "Expected ", type_name, ", but received: ", j.dump()));
 }
 
 absl::Status ValidationError(const ::nlohmann::json& j,
                              std::string_view type_name) {
-  return absl::InvalidArgumentError(
-      StrCat("Validation of ", type_name, " failed, received: ", j.dump()));
+  return absl::InvalidArgumentError(tensorstore::StrCat(
+      "Validation of ", type_name, " failed, received: ", j.dump()));
 }
 
 template <typename T>
@@ -77,9 +77,9 @@ absl::Status JsonRequireIntegerImpl<T>::Execute(const ::nlohmann::json& json,
       return internal_json::ExpectedError(json, kTypeName);
     }
   }
-  return absl::InvalidArgumentError(StrCat("Expected integer in the range [",
-                                           min_value, ", ", max_value,
-                                           "], but received: ", json.dump()));
+  return absl::InvalidArgumentError(
+      tensorstore::StrCat("Expected integer in the range [", min_value, ", ",
+                          max_value, "], but received: ", json.dump()));
 }
 template struct JsonRequireIntegerImpl<std::int64_t>;
 template struct JsonRequireIntegerImpl<std::uint64_t>;

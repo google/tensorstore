@@ -25,7 +25,6 @@
 
 #include "absl/status/status.h"
 #include "absl/types/optional.h"
-#include "riegeli/base/base.h"
 #include "riegeli/bytes/reader.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/image/avif_common.h"
@@ -270,8 +269,8 @@ absl::Status AvifDefaultDecodeRGB(avifImage* image, const ImageInfo& info,
   auto transform_result = avifImageYUVToRGB(image, &rgb_image);
   if (transform_result != AVIF_RESULT_OK) {
     return absl::DataLossError(
-        StrCat("Failed to convert AVIF YUV to RGB image: ",
-               avifResultToString(transform_result)));
+        tensorstore::StrCat("Failed to convert AVIF YUV to RGB image: ",
+                            avifResultToString(transform_result)));
   }
   return absl::OkStatus();
 }
@@ -334,8 +333,8 @@ absl::Status AvifReader::Initialize(riegeli::Reader* reader) {
 
   avifResult result = avifDecoderParse(decoder.get());
   if (result != AVIF_RESULT_OK) {
-    return absl::InvalidArgumentError(
-        StrCat("Failed to parse AVIF stream: ", avifResultToString(result)));
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Failed to parse AVIF stream: ", avifResultToString(result)));
   }
   if (decoder->imageCount != 1) {
     return absl::InvalidArgumentError(
@@ -345,8 +344,8 @@ absl::Status AvifReader::Initialize(riegeli::Reader* reader) {
   // Only read the first image even if there are multiple.
   result = avifDecoderNextImage(decoder.get());
   if (result != AVIF_RESULT_OK) {
-    return absl::DataLossError(
-        StrCat("Failed to decode AVIF image: ", avifResultToString(result)));
+    return absl::DataLossError(tensorstore::StrCat(
+        "Failed to decode AVIF image: ", avifResultToString(result)));
   }
 
   decoder_ = std::move(decoder);

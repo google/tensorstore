@@ -22,11 +22,11 @@
 #include <system_error>  // NOLINT
 
 #include "absl/random/random.h"
-#include "absl/strings/str_cat.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal {
@@ -82,8 +82,8 @@ absl::Status RetryWithBackoff(
 
   // Return AbortedError, so that it doesn't get retried again somewhere
   // at a higher level.
-  return absl::AbortedError(
-      StrCat("All ", max_retries, " retry attempts failed: ", status));
+  return absl::AbortedError(tensorstore::StrCat(
+      "All ", max_retries, " retry attempts failed: ", status));
 }
 
 }  // namespace internal

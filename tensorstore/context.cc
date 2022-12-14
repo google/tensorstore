@@ -28,6 +28,7 @@
 #include "tensorstore/serialization/json_bindable.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/quote_string.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_context {
@@ -340,8 +341,8 @@ class ResourceReference : public ResourceSpecImplBase {
       }
       if (!c->parent_) {
         if (referent != provider_->id_) {
-          return absl::InvalidArgumentError(
-              StrCat("Resource not defined: ", QuoteString(referent)));
+          return absl::InvalidArgumentError(tensorstore::StrCat(
+              "Resource not defined: ", QuoteString(referent)));
         }
         // Create default.
         auto default_spec = MakeDefaultResourceSpec(*provider_, provider_->id_);
@@ -411,8 +412,8 @@ std::string_view ParseResourceProvider(std::string_view key) {
 }
 
 absl::Status ProviderNotRegisteredError(std::string_view key) {
-  return absl::InvalidArgumentError(
-      StrCat("Invalid context resource identifier: ", QuoteString(key)));
+  return absl::InvalidArgumentError(tensorstore::StrCat(
+      "Invalid context resource identifier: ", QuoteString(key)));
 }
 
 Result<ResourceSpecImplPtr> ResourceSpecFromJson(
@@ -425,9 +426,9 @@ Result<ResourceSpecImplPtr> ResourceSpecFromJson(
   } else if (auto* s = j.get_ptr<const std::string*>()) {
     auto provider_id = ParseResourceProvider(*s);
     if (provider_id != provider.id_) {
-      return absl::InvalidArgumentError(StrCat("Invalid reference to ",
-                                               QuoteString(provider.id_),
-                                               " resource: ", QuoteString(*s)));
+      return absl::InvalidArgumentError(tensorstore::StrCat(
+          "Invalid reference to ", QuoteString(provider.id_),
+          " resource: ", QuoteString(*s)));
     }
     impl.reset(new ResourceReference(*s));
   } else {
@@ -611,7 +612,7 @@ BuilderImpl::~BuilderImpl() {
       // Find the first number `i` such that `<id>#<i>` is unused.
       size_t i = 0;
       while (true) {
-        key = StrCat(resource->spec_->provider_->id_, "#", i);
+        key = tensorstore::StrCat(resource->spec_->provider_->id_, "#", i);
         if (!ids.count(key)) break;
         ++i;
       }

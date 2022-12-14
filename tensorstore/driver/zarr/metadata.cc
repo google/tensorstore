@@ -30,6 +30,7 @@
 #include "tensorstore/internal/json_binding/std_optional.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/serialization/json_bindable.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_zarr {
@@ -67,7 +68,7 @@ Result<double> DecodeFloat(const nlohmann::json& j) {
     value = j.get<double>();
   } else {
     return absl::InvalidArgumentError(
-        StrCat("Invalid floating-point value: ", j.dump()));
+        tensorstore::StrCat("Invalid floating-point value: ", j.dump()));
   }
   return value;
 }
@@ -157,8 +158,8 @@ Result<std::vector<SharedArray<const void>>> ParseFillValue(
       !absl::Base64Unescape(j.get<std::string>(), &b64_decoded) ||
       static_cast<Index>(b64_decoded.size()) != dtype.bytes_per_outer_element) {
     return absl::InvalidArgumentError(
-        StrCat("Expected ", dtype.bytes_per_outer_element,
-               " base64-encoded bytes, but received: ", j.dump()));
+        tensorstore::StrCat("Expected ", dtype.bytes_per_outer_element,
+                            " base64-encoded bytes, but received: ", j.dump()));
   }
   for (size_t field_i = 0; field_i < dtype.fields.size(); ++field_i) {
     auto& field = dtype.fields[field_i];
@@ -236,14 +237,14 @@ Result<ZarrChunkLayout> ComputeChunkLayout(const ZarrDType& dtype,
   layout.fields.resize(dtype.fields.size());
   layout.num_outer_elements = ProductOfExtents(chunk_shape);
   if (layout.num_outer_elements == std::numeric_limits<Index>::max()) {
-    return absl::InvalidArgumentError(
-        StrCat("Product of chunk dimensions ", chunk_shape, " is too large"));
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Product of chunk dimensions ", chunk_shape, " is too large"));
   }
   if (internal::MulOverflow(dtype.bytes_per_outer_element,
                             layout.num_outer_elements,
                             &layout.bytes_per_chunk)) {
     return absl::InvalidArgumentError(
-        StrCat("Total number of bytes per chunk is too large"));
+        tensorstore::StrCat("Total number of bytes per chunk is too large"));
   }
 
   for (std::size_t field_i = 0; field_i < dtype.fields.size(); ++field_i) {
@@ -364,7 +365,7 @@ Result<absl::InlinedVector<SharedArrayView<const void>, 1>> DecodeChunk(
   }
   if (static_cast<Index>(buffer.size()) !=
       metadata.chunk_layout.bytes_per_chunk) {
-    return absl::InvalidArgumentError(StrCat(
+    return absl::InvalidArgumentError(tensorstore::StrCat(
         "Uncompressed chunk is ", buffer.size(), " bytes, but should be ",
         metadata.chunk_layout.bytes_per_chunk, " bytes"));
   }

@@ -1,6 +1,6 @@
 # TensorStore driver adapter that performs data type conversion
 
-load("//tensorstore:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
+load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
 load("//docs:doctest.bzl", "doctest_test")
 
 package(default_visibility = ["//visibility:public"])

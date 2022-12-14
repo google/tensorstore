@@ -20,6 +20,7 @@
 #include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/util/division.h"
 #include "tensorstore/util/span.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_index_space {
@@ -99,8 +100,9 @@ absl::Status GetIntervalSliceInfo(
     TENSORSTORE_RETURN_IF_ERROR(
         compute_input_domain_slice(i, input_dim),
         MaybeAnnotateStatus(
-            _, StrCat("Computing interval slice for input dimension ",
-                      input_dim)));
+            _,
+            tensorstore::StrCat("Computing interval slice for input dimension ",
+                                input_dim)));
   }
   return absl::OkStatus();
 }
@@ -125,15 +127,15 @@ absl::Status ApplyOffsetsAndStridesToOutputIndexMaps(
         Index offset;
         if (internal::MulOverflow(slice_info.offset, map.stride(), &offset) ||
             internal::AddOverflow(offset, map.offset(), &map.offset())) {
-          return absl::InvalidArgumentError(
-              StrCat("Integer overflow computing offset for output dimension ",
-                     output_dim));
+          return absl::InvalidArgumentError(tensorstore::StrCat(
+              "Integer overflow computing offset for output dimension ",
+              output_dim));
         }
         if (internal::MulOverflow(slice_info.stride, map.stride(),
                                   &map.stride())) {
-          return absl::InvalidArgumentError(
-              StrCat("Integer overflow computing stride for output dimension ",
-                     output_dim));
+          return absl::InvalidArgumentError(tensorstore::StrCat(
+              "Integer overflow computing stride for output dimension ",
+              output_dim));
         }
         break;
       }
@@ -245,7 +247,8 @@ Result<IndexTransform<>> ApplyStrideOp(IndexTransform<> transform,
     TENSORSTORE_RETURN_IF_ERROR(
         compute_input_domain(i, input_dim),
         MaybeAnnotateStatus(
-            _, StrCat("Applying stride to input dimension ", input_dim)));
+            _, tensorstore::StrCat("Applying stride to input dimension ",
+                                   input_dim)));
   }
   TENSORSTORE_RETURN_IF_ERROR(
       ApplyOffsetsAndStridesToOutputIndexMaps(rep.get(), input_dimension_info));

@@ -17,10 +17,9 @@
 #include <numeric>
 
 #include "absl/status/status.h"
-#include "absl/strings/escaping.h"
-#include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "tensorstore/index_space/dimension_identifier.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_index_space {
@@ -29,8 +28,8 @@ absl::Status CheckAndNormalizeDimensions(DimensionIndex input_rank,
                                          span<DimensionIndex> dimensions) {
   if (dimensions.size() > input_rank) {
     return absl::InvalidArgumentError(
-        StrCat("Number of dimensions (", dimensions.size(),
-               ") exceeds input rank (", input_rank, ")."));
+        tensorstore::StrCat("Number of dimensions (", dimensions.size(),
+                            ") exceeds input rank (", input_rank, ")."));
   }
 
   std::vector<DimensionIndex> error_dimensions;
@@ -47,9 +46,9 @@ absl::Status CheckAndNormalizeDimensions(DimensionIndex input_rank,
     }
   }
   if (!error_dimensions.empty()) {
-    return absl::InvalidArgumentError(
-        StrCat("Input dimensions {", absl::StrJoin(error_dimensions, ", "),
-               "} specified more than once"));
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Input dimensions {", absl::StrJoin(error_dimensions, ", "),
+        "} specified more than once"));
   }
 
   return absl::OkStatus();
@@ -145,8 +144,8 @@ Result<DimensionIndex> GetNumNewDimensions(const DimRangeSpec& spec) {
       }
     }
   }
-  return absl::InvalidArgumentError(
-      StrCat("`", spec, "` is not a valid specification for new dimensions"));
+  return absl::InvalidArgumentError(tensorstore::StrCat(
+      "`", spec, "` is not a valid specification for new dimensions"));
 }
 }  // namespace
 

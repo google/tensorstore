@@ -73,9 +73,18 @@ def execute_doctests(*args, **kwargs) -> Tuple[str, str]:
       os.chdir(orig_cwd)
 
 
-def execute_doctests_with_temp_dir(filename: str, verbose: bool,
+def execute_doctests_with_temp_dir(filename: str,
+                                   verbose: bool,
                                    use_pdb: bool = False) -> Tuple[str, str]:
-  orig_text = pathlib.Path(filename).read_text()
+  try:
+    orig_text = pathlib.Path(filename).read_text()
+  except FileNotFoundError:
+    if os.name == 'nt' and len(filename) >= 260:
+      # Running on a Windows machine and the filename exceeds MAX_PATH,
+      # so try and open with a UNC path, which is not subject to the limit.
+      orig_text = pathlib.Path(u'\\\\?\\' + filename).read_text()
+    else:
+      raise
 
   # New text assembled
   new_text = ''
@@ -205,10 +214,13 @@ def _get_diff(orig_text: str, new_text: str, filename: str) -> str:
   return out.getvalue()
 
 
-def update_doctests(filename: str, verbose: bool, in_place: bool,
-                    print_expected: bool, use_pdb: bool = False) -> None:
-  orig_text, new_text = execute_doctests(filename=filename, verbose=verbose,
-                                         use_pdb=use_pdb)
+def update_doctests(filename: str,
+                    verbose: bool,
+                    in_place: bool,
+                    print_expected: bool,
+                    use_pdb: bool = False) -> None:
+  orig_text, new_text = execute_doctests(
+      filename=filename, verbose=verbose, use_pdb=use_pdb)
   if in_place:
     with open(filename, 'w') as f:
       f.write(new_text)
@@ -242,7 +254,6 @@ def execute(code: str, context: dict, json_output: bool) -> None:  # pylint: dis
     code: The Python code to execute.
     context: Context object.
     json_output: Whether to pretty-print value of last expression as JSON.
-
   """
 
   # On Python >= 3.8, where there is built-in support for top-level await, a
@@ -334,14 +345,17 @@ def main(argv):
     os.chdir(bazel_working_dir)
   ap = argparse.ArgumentParser()
   ap.add_argument('path', nargs='*')
-  ap.add_argument('--in-place', '-i', action='store_true',
-                  help='Update files in place.')
-  ap.add_argument('--verbose', '-v', action='store_true',
-                  help='Print examples as they are executed')
-  ap.add_argument('--stdout', action='store_true',
-                  help='Print expected content to stdout.')
-  ap.add_argument('--pdb', action='store_true',
-                  help='Run PDB in the case of a failure.')
+  ap.add_argument(
+      '--in-place', '-i', action='store_true', help='Update files in place.')
+  ap.add_argument(
+      '--verbose',
+      '-v',
+      action='store_true',
+      help='Print examples as they are executed')
+  ap.add_argument(
+      '--stdout', action='store_true', help='Print expected content to stdout.')
+  ap.add_argument(
+      '--pdb', action='store_true', help='Run PDB in the case of a failure.')
   args = ap.parse_args(argv[1:])
   # Resolve all paths as absolute paths since we change the current directory
   # while running the tests.

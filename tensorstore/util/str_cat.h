@@ -20,44 +20,42 @@
 
 #include <sstream>
 #include <string>
-#include <string_view>
+#include <tuple>
 #include <type_traits>
+#include <utility>
 
 #include "absl/strings/str_cat.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/util/span.h"
 
 namespace tensorstore {
+namespace internal_strcat {
 
-namespace internal {
+// Requires is a sfinae helper that detects callability.
+// Example:
+//  if constexpr (Requires<T>([](auto&& v) -> decltype(v.begin()){})) {
+//     t.begin();
+//  }
+template <typename... T, typename F>
+constexpr bool Requires(F) {
+  return std::is_invocable_v<F, T...>;
+}
+
+/// Converts arbitrary input values to a type supported by `absl::StrCat`.
+template <typename T>
+auto ToAlphaNumOrString(const T& x);
 
 /// Converts the argument to a string representation using `operator<<`.
 template <typename T>
-std::string ToStringUsingOstream(const T& x) {
+std::string StringifyUsingOstream(const T& x) {
   std::ostringstream ostr;
   ostr << x;
   return ostr.str();
 }
 
-/// Converts arbitrary input values to a type supported by `absl::StrCat`.
-template <typename T>
-auto ToAlphaNumOrString(const T& x) {
-  if constexpr (std::is_same_v<T, std::nullptr_t>) {
-    return "null";
-  } else if constexpr (std::is_convertible_v<T, absl::AlphaNum> &&
-                       (!std::is_enum_v<T> || !IsOstreamable<T>)) {
-    return absl::AlphaNum(x);
-  } else {
-    // Note: Return type is `std::string` in this case.  If it were
-    // `absl::AlphaNum`, the `AlphaNum` would hold an invalid reference to a
-    // temporary string.
-    return internal::ToStringUsingOstream(x);
-  }
-}
-
 /// Converts std::tuple<...> values to strings.
 template <typename... T>
-std::string ToAlphaNumOrString(const std::tuple<T...>& x) {
+std::string StringifyTuple(const std::tuple<T...>& x) {
   return std::apply(
       [](const auto&... item) {
         std::string result = "{";
@@ -72,12 +70,56 @@ std::string ToAlphaNumOrString(const std::tuple<T...>& x) {
 
 /// Converts std::pair<...> values to strings.
 template <typename A, typename B>
-std::string ToAlphaNumOrString(const std::pair<A, B>& x) {
+std::string StringifyPair(const std::pair<A, B>& x) {
   return absl::StrCat("{", ToAlphaNumOrString(x.first), ", ",
                       ToAlphaNumOrString(x.second), "}");
 }
 
-}  // namespace internal
+/// Converts container<T> values to strings.
+template <typename Iterator>
+std::string StringifyContainer(Iterator begin, Iterator end) {
+  /// NOTE: Consider a PrintableContainer wrapper type.
+  std::string result = "{";
+  if (begin != end) {
+    absl::StrAppend(&result, ToAlphaNumOrString(*begin++));
+  }
+  for (; begin != end; ++begin) {
+    absl::StrAppend(&result, ", ", ToAlphaNumOrString(*begin));
+  }
+  absl::StrAppend(&result, "}");
+  return result;
+}
+
+/// Converts arbitrary input values to a type supported by `absl::StrCat`.
+template <typename T>
+auto ToAlphaNumOrString(const T& x) {
+  if constexpr (std::is_same_v<T, std::nullptr_t>) {
+    return "null";
+  } else if constexpr (std::is_convertible_v<T, absl::AlphaNum> &&
+                       !std::is_enum_v<T>) {
+    return x;
+  } else if constexpr (internal::IsOstreamable<T>) {
+    return StringifyUsingOstream(x);
+  } else if constexpr (Requires<const T>(
+                           [](auto&& v) -> decltype(StringifyPair(v)) {})) {
+    return StringifyPair(x);
+  } else if constexpr (Requires<const T>(
+                           [](auto&& v) -> decltype(StringifyTuple(v)) {})) {
+    return StringifyTuple(x);
+  } else if constexpr (Requires<const T>(
+                           [](auto&& v) -> decltype(v.begin(), v.end()) {})) {
+    return StringifyContainer(x.begin(), x.end());
+  } else if constexpr (std::is_enum_v<T>) {
+    // Non-streamable enum
+    using I = typename std::underlying_type<T>::type;
+    return static_cast<I>(x);
+  } else {
+    // Fallback to streamed output to generate an error.
+    return StringifyUsingOstream(x);
+  }
+}
+
+}  // namespace internal_strcat
 
 /// Prints a string representation of a span.
 ///
@@ -86,7 +128,7 @@ std::string ToAlphaNumOrString(const std::pair<A, B>& x) {
 /// \id span
 template <typename Element, std::ptrdiff_t N>
 std::enable_if_t<internal::IsOstreamable<Element>, std::ostream&> operator<<(
-    std::ostream& os, span<Element, N> s) {
+    std::ostream& os, ::tensorstore::span<Element, N> s) {
   os << "{";
   std::ptrdiff_t size = s.size();
   for (std::ptrdiff_t i = 0; i < size; ++i) {
@@ -103,7 +145,7 @@ std::enable_if_t<internal::IsOstreamable<Element>, std::ostream&> operator<<(
 /// \ingroup string-utilities
 template <typename... Arg>
 std::string StrCat(const Arg&... arg) {
-  return absl::StrCat(internal::ToAlphaNumOrString(arg)...);
+  return absl::StrCat(internal_strcat::ToAlphaNumOrString(arg)...);
 }
 
 /// Appends a string representation of arg... to `*result`.
@@ -125,7 +167,7 @@ std::string StrCat(const Arg&... arg) {
 /// \ingroup string-utilities
 template <typename... Arg>
 void StrAppend(std::string* result, const Arg&... arg) {
-  return absl::StrAppend(result, internal::ToAlphaNumOrString(arg)...);
+  return absl::StrAppend(result, internal_strcat::ToAlphaNumOrString(arg)...);
 }
 
 }  // namespace tensorstore

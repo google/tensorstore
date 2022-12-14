@@ -18,6 +18,7 @@
 
 #include "absl/container/fixed_array.h"
 #include "tensorstore/index_space/dimension_identifier.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_index_space {
@@ -160,13 +161,13 @@ Result<TransformRep::Ptr<>> MakeTransformFromIndexArrays(
     span<const SharedArrayView<const Index>> index_arrays) {
   const DimensionIndex num_indexed_dims = dimensions->size();
   if (index_arrays.size() != num_indexed_dims) {
-    return absl::InvalidArgumentError(StrCat(
+    return absl::InvalidArgumentError(tensorstore::StrCat(
         "Number of selected dimensions (", num_indexed_dims,
         ") does not equal number of index arrays (", index_arrays.size(), ")"));
   }
   if (index_arrays.empty()) {
     return absl::InvalidArgumentError(
-        StrCat("At least one index array must be specified"));
+        tensorstore::StrCat("At least one index array must be specified"));
   }
   absl::FixedArray<Index, internal::kNumInlinedDims> shape(
       index_arrays[0].rank(), 1);
@@ -180,12 +181,12 @@ Result<TransformRep::Ptr<>> MakeTransformFromIndexArrays(
   if (error) {
     std::string shape_msg;
     for (DimensionIndex i = 0; i < index_arrays.size(); ++i) {
-      StrAppend(&shape_msg, (shape_msg.empty() ? "" : ", "),
-                index_arrays[i].shape());
+      tensorstore::StrAppend(&shape_msg, (shape_msg.empty() ? "" : ", "),
+                             index_arrays[i].shape());
     }
     return absl::InvalidArgumentError(
-        StrCat("Index arrays with shapes ", shape_msg,
-               " cannot be broadcast to a common shape"));
+        tensorstore::StrCat("Index arrays with shapes ", shape_msg,
+                            " cannot be broadcast to a common shape"));
   }
 
   const DimensionIndex num_new_dims = shape.size();
@@ -211,7 +212,7 @@ Result<TransformRep::Ptr<>> MakeTransformFromOuterIndexArrays(
     span<const SharedArrayView<const Index>> index_arrays) {
   const DimensionIndex num_indexed_dims = dimensions->size();
   if (index_arrays.size() != num_indexed_dims) {
-    return absl::InvalidArgumentError(StrCat(
+    return absl::InvalidArgumentError(tensorstore::StrCat(
         "Number of selected dimensions (", num_indexed_dims,
         ") does not equal number of index arrays (", index_arrays.size(), ")"));
   }
@@ -316,9 +317,9 @@ Result<TransformRep::Ptr<>> MakeTransformFromIndexVectorArray(
   const DimensionIndex num_indexed_dims = dimensions->size();
   if (index_vector_array.shape()[vector_dimension] != num_indexed_dims) {
     return absl::InvalidArgumentError(
-        StrCat("Number of selected dimensions (", num_indexed_dims,
-               ") does not equal index vector length (",
-               index_vector_array.shape()[vector_dimension], ")"));
+        tensorstore::StrCat("Number of selected dimensions (", num_indexed_dims,
+                            ") does not equal index vector length (",
+                            index_vector_array.shape()[vector_dimension], ")"));
   }
   const DimensionIndex num_new_dims = index_vector_array.rank() - 1;
   const auto get_index_vector_array_dim = [&](DimensionIndex new_dim) {

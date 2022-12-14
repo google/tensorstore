@@ -1,0 +1,21 @@
+diff --git a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
+index 7f4bb3ac71..7435ffc4be 100644
+--- a/bazel/grpc_build_system.bzl
++++ b/bazel/grpc_build_system.bzl
+@@ -31,8 +31,14 @@
+ load("//bazel:copts.bzl", "GRPC_DEFAULT_COPTS")
+ load("//bazel:experiments.bzl", "EXPERIMENTS")
+ load("@upb//bazel:upb_proto_library.bzl", "upb_proto_library", "upb_proto_reflection_library")
+-load("@build_bazel_rules_apple//apple:ios.bzl", "ios_unit_test")
+-load("@build_bazel_rules_apple//apple/testing/default_runner:ios_test_runner.bzl", "ios_test_runner")
++#load("@build_bazel_rules_apple//apple:ios.bzl", "ios_unit_test")
++#load("@build_bazel_rules_apple//apple/testing/default_runner:ios_test_runner.bzl", "ios_test_runner")
++
++def ios_unit_test(**kwargs):
++    pass
++
++def ios_test_runner(**kwargs):
++    pass
+ 
+ # The set of pollers to test against if a test exercises polling
+ POLLERS = ["epoll1", "poll"]

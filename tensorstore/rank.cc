@@ -20,7 +20,7 @@ namespace tensorstore {
 
 std::string StaticCastTraits<DimensionIndex>::Describe(DimensionIndex value) {
   if (value == dynamic_rank) return "dynamic rank";
-  return StrCat("rank of ", value);
+  return tensorstore::StrCat("rank of ", value);
 }
 
 absl::Status ValidateRank(DimensionIndex rank) {

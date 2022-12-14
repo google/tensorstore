@@ -1,4 +1,4 @@
-load("//tensorstore:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
+load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
 
 package(
     default_visibility = ["//tensorstore:internal_packages"],
@@ -17,6 +17,7 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
+        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@se_curl//:curl",
@@ -112,6 +113,7 @@ tensorstore_cc_test(
         ":transport_test_utils",
         "//tensorstore/internal:logging",
         "//tensorstore/internal:thread",
+        "//tensorstore/util:assert_macros",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",
@@ -127,6 +129,7 @@ tensorstore_cc_test(
         ":transport_test_utils",
         "//tensorstore/internal:logging",
         "//tensorstore/internal:thread",
+        "//tensorstore/util:assert_macros",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",
@@ -167,7 +170,7 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore/internal:logging",
         "//tensorstore/util:assert_macros",
+        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/container:flat_hash_map",
-        "@com_google_absl//absl/strings",
     ],
 )

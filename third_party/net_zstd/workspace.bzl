@@ -31,10 +31,13 @@ def repo():
         system_build_file = Label("//third_party:net_zstd/system.BUILD.bazel"),
         cmake_name = "Zstd",
         bazel_to_cmake = {},
+        cmake_languages = ["C", "ASM"],
         cmake_target_mapping = {
             ":zstdlib": "Zstd::Zstd",
         },
         cmake_package_redirect_libraries = {
             "Zstd": "Zstd::Zstd",
         },
+        # NOTE: Verify if this helps: https://github.com/google/tensorstore/issues/69
+        # cmakelists_prefix = 'SET(CMAKE_ASM_COMPILER "${CMAKE_C_COMPILER}")\n',
     )

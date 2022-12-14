@@ -229,9 +229,9 @@ TEST(ToJsonTest, Translation) {
 
 void TestRoundTripJson(const ::nlohmann::json& json) {
   SCOPED_TRACE(json.dump());
-  auto parse_result = tensorstore::ParseIndexTransform(json);
-  ASSERT_EQ(absl::OkStatus(), GetStatus(parse_result));
-  EXPECT_EQ(json, ::nlohmann::json(*parse_result));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto parsed,
+                                   tensorstore::ParseIndexTransform(json));
+  EXPECT_EQ(json, ::nlohmann::json(parsed));
 }
 
 TEST(RoundTripJsonTest, Labels) {

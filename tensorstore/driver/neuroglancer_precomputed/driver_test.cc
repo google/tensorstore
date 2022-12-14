@@ -157,19 +157,16 @@ TEST(DriverTest, Create) {
                 MatchesStatus(absl::StatusCode::kOutOfRange));
 
     // Issue a valid write.
-    EXPECT_EQ(
-        absl::OkStatus(),
-        GetStatus(tensorstore::Write(
-                      tensorstore::MakeArray<std::uint16_t>(
-                          {{{{0x9871, 0x9872}, {0x9881, 0x9882}},
-                            {{0x9971, 0x9972}, {0x9981, 0x9982}},
-                            {{0x9A71, 0x9A72}, {0x9A81, 0x9A82}}},
-                           {{{0xA871, 0xA872}, {0xA881, 0xA882}},
-                            {{0xA971, 0xA972}, {0xA981, 0xA982}},
-                            {{0xAA71, 0xAA72}, {0xAA81, 0xAA82}}}}),
-                      ChainResult(store, tensorstore::AllDims().SizedInterval(
-                                             {9, 8, 7, 1}, {2, 3, 2, 2})))
-                      .commit_future.result()));
+    TENSORSTORE_EXPECT_OK(tensorstore::Write(
+        tensorstore::MakeArray<std::uint16_t>(
+            {{{{0x9871, 0x9872}, {0x9881, 0x9882}},
+              {{0x9971, 0x9972}, {0x9981, 0x9982}},
+              {{0x9A71, 0x9A72}, {0x9A81, 0x9A82}}},
+             {{{0xA871, 0xA872}, {0xA881, 0xA882}},
+              {{0xA971, 0xA972}, {0xA981, 0xA982}},
+              {{0xAA71, 0xAA72}, {0xAA81, 0xAA82}}}}),
+        ChainResult(store, tensorstore::AllDims().SizedInterval(
+                               {9, 8, 7, 1}, {2, 3, 2, 2}))));
 
     // Issue an out-of-bounds write.
     EXPECT_THAT(

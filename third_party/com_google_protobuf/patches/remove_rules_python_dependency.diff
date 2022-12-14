@@ -1,28 +1,27 @@
-diff --git a/BUILD.bazel b/BUILD.bazel
-index a0c93676a..82d2a741b 100644
---- a/BUILD.bazel
-+++ b/BUILD.bazel
-@@ -4,7 +4,6 @@
+diff -u -ur a/BUILD.bazel b/BUILD.bazel
+--- a/BUILD.bazel	2022-12-09 19:55:15.000000000 +0000
++++ b/BUILD.bazel	2022-12-09 23:27:05.305464712 +0000
+@@ -4,7 +4,7 @@
  load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_test")
  load("@rules_pkg//:mappings.bzl", "pkg_files", "strip_prefix")
  load("@rules_proto//proto:defs.bzl", "proto_lang_toolchain", "proto_library")
 -load("@rules_python//python:defs.bzl", "py_library")
++# load("@rules_python//python:defs.bzl", "py_library")
  load("@rules_java//java:defs.bzl", "java_binary", "java_lite_proto_library", "java_proto_library")
  load("//build_defs:cpp_opts.bzl", "COPTS", "LINK_OPTS", "PROTOC_LINK_OPTS")
  load(
- 
-diff --git a/protobuf.bzl b/protobuf.bzl
-index 971612812..7692b0a77 100644
---- a/protobuf.bzl
-+++ b/protobuf.bzl
-@@ -1,7 +1,9 @@
+diff -u -ur a/protobuf.bzl b/protobuf.bzl
+--- a/protobuf.bzl	2022-12-09 19:55:16.000000000 +0000
++++ b/protobuf.bzl	2022-12-09 23:27:49.377533696 +0000
+@@ -1,7 +1,10 @@
  load("@bazel_skylib//lib:versions.bzl", "versions")
  load("@rules_cc//cc:defs.bzl", "cc_library")
  load("@rules_proto//proto:defs.bzl", "ProtoInfo")
 -load("@rules_python//python:defs.bzl", "py_library", "py_test")
++# load("@rules_python//python:defs.bzl", "py_library", "py_test")
 +
 +py_library = native.py_library
 +py_test = native.py_test
-
+ 
  def _GetPath(ctx, path):
      if ctx.label.workspace_root:

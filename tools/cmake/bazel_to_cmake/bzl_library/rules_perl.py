@@ -16,11 +16,12 @@
 # pylint: disable=relative-beyond-top-level
 
 from ..cmake_builder import CMakeBuilder
-from ..variable_substitution import MakeVariableSubstitutions
-from ..variable_substitution import register_toolchain
+from ..starlark.invocation_context import InvocationContext
+from ..starlark.toolchain import MakeVariableSubstitutions
+from ..starlark.toolchain import register_toolchain
 
 
 @register_toolchain("@rules_perl//:current_toolchain")
-def _perl_toolchain(builder: CMakeBuilder) -> MakeVariableSubstitutions:
-  builder.find_package("Perl")
-  return {"$(PERL)": "${PERL_EXECUTABLE}"}
+def _perl_toolchain(context: InvocationContext) -> MakeVariableSubstitutions:
+  context.access(CMakeBuilder).find_package("Perl")
+  return {"PERL": "${PERL_EXECUTABLE}"}

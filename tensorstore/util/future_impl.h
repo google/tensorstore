@@ -33,7 +33,6 @@
 #include "tensorstore/internal/tagged_ptr.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 
@@ -177,7 +176,7 @@ class FutureStateBase {
   virtual ~FutureStateBase();
 
   virtual bool has_value() = 0;
-  virtual absl::Status GetStatusCopy() = 0;
+  virtual const absl::Status& status() const& noexcept = 0;
 
   /// Registers a ready callback.
   ///
@@ -486,11 +485,7 @@ class FutureState : public FutureStateBase {
   ~FutureState() override {}
 
   bool has_value() final { return result.has_value(); };
-  absl::Status GetStatusCopy() final {
-    // FIXME: This should be a feature of Result<T>
-    if (result.has_value()) return absl::OkStatus();
-    return result.status();
-  }
+  const absl::Status& status() const& noexcept final { return result.status(); }
 
   Result<T> result;
 };
@@ -929,7 +924,7 @@ struct FutureLinkPropagateFirstErrorPolicy {
   static bool OnFutureReady(FutureStateBase* future_state,
                             FutureState<PromiseValue>* promise_state) {
     if (future_state->has_value()) return true;
-    promise_state->SetResult(future_state->GetStatusCopy());
+    promise_state->SetResult(future_state->status());
     return false;
   }
 };

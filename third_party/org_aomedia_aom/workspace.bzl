@@ -25,11 +25,11 @@ def repo():
         third_party_http_archive,
         name = "org_aomedia_aom",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/aomedia.googlesource.com/aom/+archive/287164de79516c25c8c84fd544f67752c170082a.tar.gz",
-            # "https://aomedia.googlesource.com/aom/+archive/287164de79516c25c8c84fd544f67752c170082a.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/aomedia.googlesource.com/aom/+archive/d730cef03ac754f2b6a233e926cd925d8ce8de81.tar.gz",  # main(2022-11-01)
+            # "https://aomedia.googlesource.com/aom/+archive/d730cef03ac754f2b6a233e926cd925d8ce8de81.tar.gz
         ],
         # googlesource does not cache archive files; the sha256 is only valid for the mirror.
-        sha256 = "7508dcde9e260621862639fb6a2d3154bcbd10e65d43f107595c6a6aaed55455",
+        sha256 = "7f87960be61edb846e25b7d10e4e41aef6d652f62270e19172e7cafae9b536ad",
         build_file = Label("//third_party:org_aomedia_aom/libaom.BUILD.bazel"),
         cmake_name = "aom",
         cmake_languages = ["ASM"],

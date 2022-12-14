@@ -18,7 +18,7 @@
 import collections
 import json
 import os
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple, Sequence
 
 
 def quote_string(x: str) -> str:
@@ -38,13 +38,19 @@ def quote_path(x: str) -> str:
   return quote_string(x)
 
 
-def quote_list(y) -> str:
-  return " ".join(quote_string(x) for x in y)
+def quote_list(y: Sequence[str], separator: str = " ") -> str:
+  return separator.join(quote_string(x) for x in y)
+
+
+def quote_path_list(y: Sequence[str], separator: str = " ") -> str:
+  return separator.join(quote_path(x) for x in y)
 
 
 INCLUDE_SECTION = 0
 FIND_PACKAGE_SECTION = 1
 OPTIONS_SECTION = 10
+ENABLE_LANGUAGES_SECTION = 11
+LOCAL_MIRROR_DOWNLOAD_SECTION = 20
 FETCH_CONTENT_DECLARE_SECTION = 30
 FETCH_CONTENT_MAKE_AVAILABLE_SECTION = 40
 FIND_DEP_PACKAGE_SECTION = 50
@@ -93,6 +99,10 @@ class CMakeBuilder:
     if unique:
       key = (section, text)
       if key in self._unique:
+        return
+      # FIND_PACKAGE / FIND_DEP_PACKAGE are special.
+      if (section == FIND_DEP_PACKAGE_SECTION and
+          (FIND_PACKAGE_SECTION, text) in self._unique):
         return
       self._unique.add(key)
     self._sections[section].append(text)

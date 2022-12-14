@@ -111,7 +111,7 @@ GetItemHelperClass<Parent, Tag> DefineSubscriptMethod(
     return Helper{std::move(self)};
   });
   helper_class.def("__repr__", [method_name](const Helper& self) {
-    return StrCat(pybind11::repr(self.parent), ".", method_name);
+    return tensorstore::StrCat(pybind11::repr(self.parent), ".", method_name);
   });
   helper_class.attr("__iter__") = pybind11::none();
   return {helper_class};

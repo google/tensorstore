@@ -306,10 +306,8 @@ TEST(CastTest, StringToInt32Dynamic) {
   EXPECT_EQ(store.read_write_mode(), ReadWriteMode::read_write);
   auto cast_store = Cast(store, dtype_v<std::int32_t>).value();
   EXPECT_EQ(cast_store.read_write_mode(), ReadWriteMode::write);
-  EXPECT_EQ(absl::OkStatus(),
-            GetStatus(tensorstore::Write(MakeArray<std::int32_t>({1, 2, 3}),
-                                         cast_store)
-                          .commit_future.result()));
+  TENSORSTORE_EXPECT_OK(
+      tensorstore::Write(MakeArray<std::int32_t>({1, 2, 3}), cast_store));
   EXPECT_EQ(tensorstore::Read<zero_origin>(store).result(),
             MakeArray<std::string>({"1", "2", "3"}));
 }
@@ -326,10 +324,8 @@ TEST(CastTest, OpenInt32ToInt64) {
   EXPECT_EQ(store.read_write_mode(), ReadWriteMode::read_write);
   EXPECT_EQ(tensorstore::Read<zero_origin>(store).result(),
             MakeArray<std::int64_t>({1, 2, 3}));
-  EXPECT_EQ(absl::OkStatus(),
-            GetStatus(tensorstore::Write(
-                          tensorstore::MakeScalarArray<std::int64_t>(10), store)
-                          .commit_future.result()));
+  TENSORSTORE_EXPECT_OK(tensorstore::Write(
+      tensorstore::MakeScalarArray<std::int64_t>(10), store));
   EXPECT_EQ(tensorstore::Read<zero_origin>(store).result(),
             MakeArray<std::int64_t>({10, 10, 10}));
 }

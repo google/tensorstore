@@ -20,7 +20,6 @@
 #include <utility>
 #include <vector>
 
-#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/path.h"
@@ -41,7 +40,7 @@ HttpRequest HttpRequestBuilder::BuildRequest() { return std::move(request_); }
 
 HttpRequestBuilder& HttpRequestBuilder::AddUserAgentPrefix(
     std::string_view prefix) {
-  request_.user_agent_ = absl::StrCat(prefix, request_.user_agent_);
+  request_.user_agent_ = tensorstore::StrCat(prefix, request_.user_agent_);
   return *this;
 }
 
@@ -52,7 +51,7 @@ HttpRequestBuilder& HttpRequestBuilder::AddHeader(std::string header) {
 
 HttpRequestBuilder& HttpRequestBuilder::AddQueryParameter(
     std::string_view key, std::string_view value) {
-  std::string parameter = absl::StrCat(
+  std::string parameter = tensorstore::StrCat(
       query_parameter_separator_, internal::PercentEncodeUriComponent(key), "=",
       internal::PercentEncodeUriComponent(value));
   query_parameter_separator_ = "&";
@@ -67,10 +66,10 @@ HttpRequestBuilder& HttpRequestBuilder::EnableAcceptEncoding() {
 
 std::string GetRangeHeader(OptionalByteRangeRequest byte_range) {
   if (byte_range.exclusive_max) {
-    return StrCat("Range: bytes=", byte_range.inclusive_min, "-",
-                  *byte_range.exclusive_max - 1);
+    return tensorstore::StrCat("Range: bytes=", byte_range.inclusive_min, "-",
+                               *byte_range.exclusive_max - 1);
   } else {
-    return StrCat("Range: bytes=", byte_range.inclusive_min, "-");
+    return tensorstore::StrCat("Range: bytes=", byte_range.inclusive_min, "-");
   }
 }
 

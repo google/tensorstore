@@ -29,7 +29,6 @@
 #include <utility>
 #include <vector>
 
-#include "absl/hash/hash.h"
 #include <nlohmann/json.hpp>
 #include "python/tensorstore/array_type_caster.h"
 #include "python/tensorstore/dim_expression.h"
@@ -43,7 +42,6 @@
 #include "python/tensorstore/serialization.h"
 #include "python/tensorstore/status.h"
 #include "tensorstore/array.h"
-#include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dimension_identifier.h"
@@ -57,7 +55,6 @@
 #include "tensorstore/rank.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/assert_macros.h"
-#include "tensorstore/util/bit_span.h"
 #include "tensorstore/util/element_pointer.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/span.h"
@@ -143,8 +140,9 @@ namespace {
 DimensionIndex NormalizePythonDimensionIndex(PythonDimensionIndex i,
                                              DimensionIndex size) {
   if (i.value < -size || i.value >= size) {
-    throw py::index_error(StrCat("Index ", i.value, " is outside valid range [",
-                                 -size, ", ", size, ")"));
+    throw py::index_error(tensorstore::StrCat("Index ", i.value,
+                                              " is outside valid range [",
+                                              -size, ", ", size, ")"));
   }
   if (i.value < 0) i.value += size;
   return i.value;
@@ -177,8 +175,8 @@ IndexTransformBuilder<> InitializeIndexTransformBuilder(
   const char* input_rank_field = nullptr;
   if (input_rank) {
     if (!IsValidRank(*input_rank)) {
-      throw py::value_error(
-          StrCat("Invalid ", input_rank_field_name, ": ", *input_rank));
+      throw py::value_error(tensorstore::StrCat(
+          "Invalid ", input_rank_field_name, ": ", *input_rank));
     }
     input_rank_field = input_rank_field_name;
   }
@@ -186,16 +184,17 @@ IndexTransformBuilder<> InitializeIndexTransformBuilder(
   const auto check_rank = [&](DimensionIndex rank, const char* field_name) {
     if (!input_rank) {
       if (!IsValidRank(rank)) {
-        throw py::value_error(StrCat("Rank specified by `", field_name, "` (",
-                                     rank, ") exceeds maximum rank of ",
-                                     kMaxRank));
+        throw py::value_error(
+            tensorstore::StrCat("Rank specified by `", field_name, "` (", rank,
+                                ") exceeds maximum rank of ", kMaxRank));
       }
       input_rank = rank;
       input_rank_field = field_name;
     } else if (*input_rank != rank) {
-      throw py::value_error(StrCat("Rank specified by `", field_name, "` (",
-                                   rank, ") does not match rank specified by `",
-                                   input_rank_field, "` (", *input_rank, ")"));
+      throw py::value_error(
+          tensorstore::StrCat("Rank specified by `", field_name, "` (", rank,
+                              ") does not match rank specified by `",
+                              input_rank_field, "` (", *input_rank, ")"));
     }
   };
   if (input_inclusive_min) {
@@ -208,8 +207,9 @@ IndexTransformBuilder<> InitializeIndexTransformBuilder(
   const auto check_upper_bound = [&](DimensionIndex rank,
                                      const char* field_name) {
     if (upper_bound_field) {
-      throw py::value_error(StrCat("Cannot specify both `", upper_bound_field,
-                                   "` and `", field_name, "`"));
+      throw py::value_error(tensorstore::StrCat("Cannot specify both `",
+                                                upper_bound_field, "` and `",
+                                                field_name, "`"));
     } else {
       upper_bound_field = field_name;
     }
@@ -233,7 +233,8 @@ IndexTransformBuilder<> InitializeIndexTransformBuilder(
     check_rank(input_labels->size(), input_labels_field_name);
   }
   if (!input_rank) {
-    throw py::value_error(StrCat("Must specify `", input_rank_field_name, "`"));
+    throw py::value_error(
+        tensorstore::StrCat("Must specify `", input_rank_field_name, "`"));
   }
   if (output_rank && !IsValidRank(*output_rank)) {
     throw py::value_error(
@@ -306,14 +307,16 @@ void SetOutputIndexMaps(
 std::string OutputIndexMapToString(const OutputIndexMap& m) {
   switch (m.method) {
     case OutputIndexMethod::constant:
-      return StrCat("OutputIndexMap(offset=", m.offset, ")");
+      return tensorstore::StrCat("OutputIndexMap(offset=", m.offset, ")");
     case OutputIndexMethod::single_input_dimension:
-      return StrCat("OutputIndexMap(offset=", m.offset, ", stride=", m.stride,
-                    ", input_dimension=", m.input_dimension, ")");
+      return tensorstore::StrCat("OutputIndexMap(offset=", m.offset,
+                                 ", stride=", m.stride,
+                                 ", input_dimension=", m.input_dimension, ")");
     case OutputIndexMethod::array:
-      return StrCat("OutputIndexMap(offset=", m.offset, ", stride=", m.stride,
-                    ", index_array=", m.index_array,
-                    ", index_range=", m.index_range, ")");
+      return tensorstore::StrCat("OutputIndexMap(offset=", m.offset,
+                                 ", stride=", m.stride,
+                                 ", index_array=", m.index_array,
+                                 ", index_range=", m.index_range, ")");
   }
   TENSORSTORE_UNREACHABLE;  // COV_NF_LINE
 }
@@ -1074,7 +1077,7 @@ Group:
 )");
 
   cls.def(
-      "__repr__", [](const IndexDomain<>& d) { return StrCat(d); },
+      "__repr__", [](const IndexDomain<>& d) { return tensorstore::StrCat(d); },
       "Returns the string representation.");
 
   cls.def(
@@ -1654,10 +1657,10 @@ Group:
       "__call__",
       [](const IndexTransform<>& self, SequenceParameter<Index> indices) {
         if (static_cast<DimensionIndex>(indices.size()) != self.input_rank()) {
-          throw std::invalid_argument(
-              StrCat("input indices vector of length ", indices.size(),
-                     " cannot be used with index transform with input rank ",
-                     self.input_rank()));
+          throw std::invalid_argument(tensorstore::StrCat(
+              "input indices vector of length ", indices.size(),
+              " cannot be used with index transform with input rank ",
+              self.input_rank()));
         }
         Index output_indices[kMaxRank];
         ThrowStatusException(self.TransformIndices(
@@ -1688,7 +1691,8 @@ Group:
       py::arg("indices"));
 
   cls.def(
-      "__repr__", [](const IndexTransform<>& t) { return StrCat(t); },
+      "__repr__",
+      [](const IndexTransform<>& t) { return tensorstore::StrCat(t); },
       "Returns the string representation.");
 
   cls.def(
@@ -2530,7 +2534,8 @@ Group:
 )");
 
   cls.def(
-      "__str__", [](const IndexDomainDimension<>& x) { return StrCat(x); },
+      "__str__",
+      [](const IndexDomainDimension<>& x) { return tensorstore::StrCat(x); },
       R"(
 Returns the string representation of the interval.
 

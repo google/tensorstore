@@ -142,18 +142,17 @@ class Result : private internal_result::ResultStorage<T>,
                 "T must not be cv-qualified");
 
   using Base = internal_result::ResultStorage<T>;
+  using Base::status_;
 
  public:
   /// The type of the contained success value.
   using value_type = T;
 
   /// Equal to `T&`, or `void` if `T` is void.
-  using reference_type =
-      typename internal_result::ResultStorage<T>::reference_type;
+  using reference_type = T&;
 
   /// Equal to `const T&`, or `void` if `T` is `void`.
-  using const_reference_type =
-      typename internal_result::ResultStorage<T>::const_reference_type;
+  using const_reference_type = const T&;
 
   /// Always equal to `absl::Status`.
   using error_type = absl::Status;
@@ -166,9 +165,8 @@ class Result : private internal_result::ResultStorage<T>,
   /// Constructs an error Result with a code of `absl::StatusCode::kUnknown`.
   ///
   /// \id default
-  explicit Result() : Base(internal_result::noinit_t{}) {
-    this->construct_status(absl::UnknownError(""));
-  }
+  explicit Result()
+      : Base(internal_result::status_t{}, absl::StatusCode::kUnknown, "") {}
 
   /// Constructs from an existing result.
   ///
@@ -188,25 +186,13 @@ class Result : private internal_result::ResultStorage<T>,
   ///
   /// \pre `!status` unless `T` is `void`.
   /// \id status
-  Result(const absl::Status& status) : Base(internal_result::noinit_t{}) {
-    if constexpr (std::is_void_v<value_type>) {
-      if (status.ok()) {
-        this->construct_value();
-        return;
-      }
-    }
-    TENSORSTORE_CHECK(!status.ok());
-    this->construct_status(status);
+  Result(const absl::Status& status)
+      : Base(internal_result::status_t{}, status) {
+    TENSORSTORE_CHECK(!status_.ok());
   }
-  Result(absl::Status&& status) : Base(internal_result::noinit_t{}) {
-    if constexpr (std::is_void_v<value_type>) {
-      if (status.ok()) {
-        this->construct_value();
-        return;
-      }
-    }
-    TENSORSTORE_CHECK(!status.ok());
-    this->construct_status(status);
+  Result(absl::Status&& status)
+      : Base(internal_result::status_t{}, std::move(status)) {
+    TENSORSTORE_CHECK(!status_.ok());
   }
 
   /// Assigns from a status object.
@@ -214,23 +200,11 @@ class Result : private internal_result::ResultStorage<T>,
   /// \pre `!status` unless `T` is `void`.
   /// \id status
   Result& operator=(const absl::Status& status) {
-    if constexpr (std::is_void_v<value_type>) {
-      if (status.ok()) {
-        this->emplace_value();
-        return *this;
-      }
-    }
     TENSORSTORE_CHECK(!status.ok());
     this->assign_status(status);
     return *this;
   }
   Result& operator=(absl::Status&& status) {
-    if constexpr (std::is_void_v<value_type>) {
-      if (status.ok()) {
-        this->emplace_value();
-        return *this;
-      }
-    }
     TENSORSTORE_CHECK(!status.ok());
     this->assign_status(std::move(status));
     return *this;
@@ -263,7 +237,7 @@ class Result : private internal_result::ResultStorage<T>,
                std::add_const_t<std::add_lvalue_reference_t<U>>, T> &&        //
            !internal_result::is_constructible_convertible_from<T, Result<U>>  //
            )>* = nullptr>
-  Result(const Result<U>& rhs) : Base(internal_result::noinit_t{}) {
+  Result(const Result<U>& rhs) {
     construct_from(rhs);
   }
   template <
@@ -274,7 +248,7 @@ class Result : private internal_result::ResultStorage<T>,
            std::is_convertible_v<std::add_rvalue_reference_t<U>, T> &&        //
            !internal_result::is_constructible_convertible_from<T, Result<U>>  //
            )>* = nullptr>
-  Result(Result<U>&& rhs) : Base(internal_result::noinit_t{}) {
+  Result(Result<U>&& rhs) {
     construct_from(std::move(rhs));
   }
 
@@ -289,7 +263,7 @@ class Result : private internal_result::ResultStorage<T>,
                std::add_const_t<std::add_lvalue_reference_t<U>>, T> &&        //
            !internal_result::is_constructible_convertible_from<T, Result<U>>  //
            )>* = nullptr>
-  explicit Result(const Result<U>& rhs) : Base(internal_result::noinit_t{}) {
+  explicit Result(const Result<U>& rhs) {
     construct_from(rhs);
   }
 
@@ -302,7 +276,7 @@ class Result : private internal_result::ResultStorage<T>,
            !std::is_convertible_v<std::add_rvalue_reference_t<U>, T> &&       //
            !internal_result::is_constructible_convertible_from<T, Result<U>>  //
            )>* = nullptr>
-  explicit Result(Result<U>&& rhs) : Base(internal_result::noinit_t{}) {
+  explicit Result(Result<U>&& rhs) {
     construct_from(std::move(rhs));
   }
 
@@ -333,53 +307,6 @@ class Result : private internal_result::ResultStorage<T>,
                                                                >)>* = nullptr>
   Result& operator=(Result<U>&& rhs) {
     this->assign_from(std::move(rhs));
-    return *this;
-  }
-
-  // Constructs a Result<void> from a Result<U>.
-  template <typename V,  //
-            std::enable_if_t<internal_result::result_void_conversion<T, V>>* =
-                nullptr>
-  Result(const Result<V>& rhs) : Base(internal_result::noinit_t{}) {
-    if (rhs.has_value()) {
-      this->construct_value();
-    } else {
-      this->construct_status(rhs.status());
-    }
-  }
-  template <typename V,  //
-            std::enable_if_t<internal_result::result_void_conversion<T, V>>* =
-                nullptr>
-  Result(Result<V>&& rhs) : Base(internal_result::noinit_t{}) {
-    if (rhs.has_value()) {
-      this->construct_value();
-    } else {
-      this->construct_status(std::move(rhs).status());
-    }
-  }
-
-  // Conversion to Result<void> assignment.
-  template <typename V,  //
-            std::enable_if_t<internal_result::result_void_conversion<T, V>>* =
-                nullptr>
-  Result& operator=(const Result<V>& rhs) {
-    if (rhs.has_value()) {
-      this->emplace_value();
-    } else {
-      this->assign_status(rhs.status());
-    }
-    return *this;
-  }
-
-  template <typename V,  //
-            std::enable_if_t<internal_result::result_void_conversion<T, V>>* =
-                nullptr>
-  Result& operator=(Result<V>&& rhs) {
-    if (rhs.has_value()) {
-      this->emplace_value();
-    } else {
-      this->assign_status(std::move(rhs).status());
-    }
     return *this;
   }
 
@@ -452,9 +379,7 @@ class Result : private internal_result::ResultStorage<T>,
   reference_type emplace(Args&&... args) {
     static_assert(sizeof...(Args) == 0 || !std::is_void_v<T>);
     this->emplace_value(std::forward<Args>(args)...);
-    if constexpr (!std::is_void_v<value_type>) {
-      return this->value_;
-    }
+    return this->value_;
   }
   template <typename U, typename... Args>
   reference_type emplace(std::initializer_list<U> il, Args&&... args) {
@@ -473,9 +398,9 @@ class Result : private internal_result::ResultStorage<T>,
   ///
   /// `value()` is valid only iff `has_value()` is `true`. `status()` is valid
   /// iff `has_value()` is false.
-  constexpr bool ok() const { return has_value(); }
-  constexpr bool has_value() const { return this->has_value_; }
-  explicit constexpr operator bool() const noexcept { return has_value(); }
+  bool ok() const { return status_.ok(); }
+  bool has_value() const { return status_.ok(); }
+  explicit operator bool() const noexcept { return status_.ok(); }
 
   /// Checked value accessor.
   ///
@@ -484,31 +409,25 @@ class Result : private internal_result::ResultStorage<T>,
   /// \pre `has_value() == true`
   const_reference_type value() const& noexcept TENSORSTORE_LIFETIME_BOUND {
     if (!has_value()) TENSORSTORE_CHECK_OK(status());
-    if constexpr (!std::is_void_v<value_type>) {
-      return this->value_;
-    }
+    return this->value_;
   }
   reference_type value() & noexcept TENSORSTORE_LIFETIME_BOUND {
     if (!has_value()) TENSORSTORE_CHECK_OK(status());
-    if constexpr (!std::is_void_v<value_type>) {
-      return this->value_;
-    }
+    return this->value_;
   }
   value_type value() && noexcept {
     if (!has_value()) TENSORSTORE_CHECK_OK(status());
-    if constexpr (!std::is_void_v<value_type>) {
-      return std::move(this->value_);
-    }
+    return std::move(this->value_);
   }
 
   /// Returns the error status.
   const absl::Status& status() const& noexcept TENSORSTORE_LIFETIME_BOUND {
-    TENSORSTORE_CHECK(!has_value());
-    return this->status_;
+    return status_;
   }
   absl::Status status() && {
-    TENSORSTORE_CHECK(!has_value());
-    return std::move(this->status_);
+    // Note: This relies on the fact that the moved-from `absl::Status` does not
+    // have a status code of `absl::StatusCode::kOk`.
+    return status_.ok() ? absl::OkStatus() : std::move(status_);
   }
 
   /// Returns a pointer to the contained value.
@@ -657,7 +576,7 @@ class Result : private internal_result::ResultStorage<T>,
     if (other.has_value()) {
       this->construct_value(std::forward<Other>(other).value());
     } else {
-      this->construct_status(std::forward<Other>(other).status());
+      status_ = std::forward<Other>(other).status();
     }
   }
 
@@ -680,6 +599,80 @@ class Result : private internal_result::ResultStorage<T>,
     }
 #endif
   }
+};
+
+// Specialization of `Result` for `void`.  This just wraps a plain
+// `absl::Status` to provide the same API as `Result`.
+template <>
+class Result<void> {
+ public:
+  using value_type = void;
+  using reference_type = void;
+  using const_reference_type = void;
+  using error_type = absl::Status;
+
+  template <typename U>
+  using rebind = Result<U>;
+
+  explicit Result() : status_(absl::Status(absl::StatusCode::kUnknown, "")) {}
+
+  Result(const absl::Status& status) : status_(status) {}
+  Result(absl::Status&& status) : status_(std::move(status)) {}
+
+  template <typename T>
+  Result(const Result<T>& other) : status_(other.status()) {}
+
+  template <typename T>
+  Result(Result<T>&& other) : status_(std::move(other).status()) {}
+
+  Result(std::in_place_t) {}
+
+  Result& operator=(const absl::Status& status) {
+    status_ = status;
+    return *this;
+  }
+
+  Result& operator=(absl::Status&& status) {
+    status_ = std::move(status);
+    return *this;
+  }
+
+  template <typename T>
+  Result& operator=(const Result<T>& other) {
+    status_ = other.status();
+    return *this;
+  }
+
+  template <typename T>
+  Result& operator=(Result<T>&& other) {
+    status_ = std::move(other).status();
+    return *this;
+  }
+
+  void emplace() { status_ = absl::OkStatus(); }
+
+  void IgnoreResult() const {}
+
+  bool ok() const { return status_.ok(); }
+  bool has_value() const { return status_.ok(); }
+  explicit operator bool() const noexcept { return status_.ok(); }
+
+  void value() const { TENSORSTORE_CHECK_OK(status()); }
+
+  const absl::Status& status() const& noexcept TENSORSTORE_LIFETIME_BOUND {
+    return status_;
+  }
+
+  absl::Status&& status() && { return std::move(status_); }
+
+  friend bool operator==(const Result& a, const Result& b) {
+    return a.status_ == b.status_;
+  }
+
+  friend bool operator!=(const Result& a, const Result& b) { return !(a == b); }
+
+ private:
+  absl::Status status_;
 };
 
 /// Returns a Result<T> with a (possibly-default) value.
@@ -726,11 +719,11 @@ inline Result<U> MakeResult(absl::Status status) {
 /// \id result
 template <typename T>
 inline absl::Status GetStatus(const Result<T>& result) {
-  return result.has_value() ? absl::Status() : result.status();
+  return result.status();
 }
 template <typename T>
 inline absl::Status GetStatus(Result<T>&& result) {
-  return result.has_value() ? absl::Status() : std::move(result).status();
+  return std::move(result).status();
 }
 
 /// UnwrapResult returns the value contained by the Result<T> instance,

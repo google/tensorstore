@@ -24,11 +24,11 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_absl",
-        strip_prefix = "abseil-cpp-90965f4c9662a73f2eb9c345b3a5431f40fd86d3",
+        strip_prefix = "abseil-cpp-1db72eb03e3685742c62abea9d13ddab2adcdf01",
         urls = [
-            "https://github.com/abseil/abseil-cpp/archive/90965f4c9662a73f2eb9c345b3a5431f40fd86d3.tar.gz",  # master(2022-10-12)
+            "https://github.com/abseil/abseil-cpp/archive/1db72eb03e3685742c62abea9d13ddab2adcdf01.tar.gz",  # master(2022-10-28)
         ],
-        sha256 = "a74295fd02bbeeb0c516287c1ed4a5d744664f295f565fdb3943aa268d8bba02",
+        sha256 = "706d3c86b01eb4701225331035afa110a53e3212968c86606002a3791bfd3c69",
         cmake_name = "absl",
         cmake_target_mapping = ABSL_CMAKE_MAPPING,
         cmake_settings = {
@@ -70,9 +70,13 @@ ABSL_CMAKE_MAPPING = {
     "@com_google_absl//absl/flags:parse": "absl::flags_parse",
     "@com_google_absl//absl/flags:reflection": "absl::flags_reflection",
     "@com_google_absl//absl/flags:usage": "absl::flags_usage",
+    "@com_google_absl//absl/functional:any_invocable": "absl::any_invocable",
     "@com_google_absl//absl/functional:bind_front": "absl::bind_front",
     "@com_google_absl//absl/functional:function_ref": "absl::function_ref",
     "@com_google_absl//absl/hash:hash": "absl::hash",
+    "@com_google_absl//absl/log:log": "absl::log",
+    "@com_google_absl//absl/log:die_if_null": "absl::die_if_null",
+    "@com_google_absl//absl/log:check": "absl::check",
     "@com_google_absl//absl/memory:memory": "absl::memory",
     "@com_google_absl//absl/meta:meta": "absl::meta",
     "@com_google_absl//absl/meta:type_traits": "absl::type_traits",
@@ -110,6 +114,8 @@ ABSL_CMAKE_MAPPING = {
     # Internal targets mapping
     "@com_google_absl//absl/base:endian": "absl::base",
     "@com_google_absl//absl/base:config": "absl::base",
+    "@com_google_absl//absl/container:layout": "absl::layout",
+    "@com_google_absl//absl/strings:internal": "absl::strings_internal",
     # Not available in abseil CMakeLists.txt
     "@com_google_absl//absl/debugging:leak_check_disable": "",
     # Testonly targets

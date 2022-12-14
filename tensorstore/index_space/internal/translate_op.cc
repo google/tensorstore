@@ -17,6 +17,7 @@
 #include "absl/container/fixed_array.h"
 #include "absl/status/status.h"
 #include "tensorstore/internal/integer_overflow.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_index_space {
@@ -46,9 +47,9 @@ absl::Status TranslateOutputOffsetsUsingInputOffsets(
         Index new_offset;
         if (internal::MulOverflow(offset_change, map.stride(), &new_offset) ||
             internal::SubOverflow(map.offset(), new_offset, &map.offset())) {
-          return absl::InvalidArgumentError(
-              StrCat("Integer overflow computing output offset for dimension ",
-                     output_dim, "."));
+          return absl::InvalidArgumentError(tensorstore::StrCat(
+              "Integer overflow computing output offset for dimension ",
+              output_dim, "."));
         }
         break;
       }

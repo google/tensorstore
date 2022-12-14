@@ -34,6 +34,7 @@
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future_impl.h"  // IWYU pragma: export
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 
@@ -459,9 +460,9 @@ class AnyFuture {
   /// (when a value is present) or a copy of result.status().
   ///
   /// \dchecks `!null()`
-  absl::Status status() const {
+  const absl::Status& status() const& noexcept TENSORSTORE_LIFETIME_BOUND {
     Wait();
-    return rep().GetStatusCopy();
+    return rep().status();
   }
 
   /// Executes `callback` with the signature `void (AnyFuture)` when this
@@ -817,7 +818,7 @@ class Future : public AnyFuture {
     return result().value();
   }
 
-  /// Returns a copy of `result().status()`
+  /// Equivalent to `result().status()`.
   using AnyFuture::status;
 
  private:
@@ -1391,7 +1392,6 @@ MapFutureError(Executor&& executor, Func func, Future<T> future) {
                    Callback{std::make_tuple(std::move(func))},
                    std::move(future));
 }
-
 
 /// If `promise` does not already have a result set, sets its result to `result`
 /// and sets `promise.result_needed() = false`.

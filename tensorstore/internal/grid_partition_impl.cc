@@ -823,9 +823,9 @@ absl::Status PrePartitionIndexTransformOverGrid(
   for (DimensionIndex input_dim = 0; input_dim < input_rank; ++input_dim) {
     const IndexInterval domain = index_transform.input_domain()[input_dim];
     if (!IsFinite(domain)) {
-      return absl::InvalidArgumentError(StrCat("Input dimension ", input_dim,
-                                               " has unbounded domain ", domain,
-                                               "."));
+      return absl::InvalidArgumentError(
+          tensorstore::StrCat("Input dimension ", input_dim,
+                              " has unbounded domain ", domain, "."));
     }
   }
 
@@ -836,12 +836,14 @@ absl::Status PrePartitionIndexTransformOverGrid(
     const OutputIndexMapRef<> map =
         index_transform.output_index_map(output_dim);
     if (map.method() != OutputIndexMethod::single_input_dimension) continue;
-    auto status = GetStatus(GetAffineTransformRange(
-        index_transform.input_domain()[map.input_dimension()], map.offset(),
-        map.stride()));
+    auto status = GetAffineTransformRange(
+                      index_transform.input_domain()[map.input_dimension()],
+                      map.offset(), map.stride())
+                      .status();
     if (!status.ok()) {
       return MaybeAnnotateStatus(
-          status, StrCat("Computing range of output dimension ", output_dim));
+          status, tensorstore::StrCat("Computing range of output dimension ",
+                                      output_dim));
     }
   }
 

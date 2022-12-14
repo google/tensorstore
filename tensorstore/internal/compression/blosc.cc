@@ -26,9 +26,9 @@ namespace blosc {
 absl::Status Encode(const absl::Cord& input, absl::Cord* output,
                     const Options& options) {
   if (input.size() > BLOSC_MAX_BUFFERSIZE) {
-    return absl::InvalidArgumentError(
-        StrCat("Blosc compression input of ", input.size(),
-               " bytes exceeds maximum size of ", BLOSC_MAX_BUFFERSIZE));
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Blosc compression input of ", input.size(),
+        " bytes exceeds maximum size of ", BLOSC_MAX_BUFFERSIZE));
   }
   // Blosc requires a contiguous input and output buffer.
   absl::Cord input_copy(input);
@@ -44,7 +44,8 @@ absl::Status Encode(const absl::Cord& input, absl::Cord* output,
                              options.compressor, options.blocksize,
                              /*numinternalthreads=*/1);
   if (n < 0) {
-    return absl::InternalError(StrCat("Internal blosc error: ", n));
+    return absl::InternalError(
+        tensorstore::StrCat("Internal blosc error: ", n));
   }
   output_buffer.resize(n);
   output->Append(std::move(output_buffer).Build());
@@ -66,7 +67,7 @@ absl::Status Decode(const absl::Cord& input, absl::Cord* output) {
       blosc_decompress_ctx(input_flat.data(), output_buffer.data(), nbytes,
                            /*numinternalthreads=*/1);
   if (n <= 0) {
-    return absl::InvalidArgumentError(StrCat("Blosc error: ", n));
+    return absl::InvalidArgumentError(tensorstore::StrCat("Blosc error: ", n));
   }
   output->Append(std::move(output_buffer).Build());
   return absl::OkStatus();

@@ -880,14 +880,14 @@ void NumpyIndexingSpec::Builder::Finalize() {
 
 std::string OptionallyImplicitIndexRepr(Index value) {
   if (value == kImplicit) return "None";
-  return StrCat(value);
+  return tensorstore::StrCat(value);
 }
 
 std::string IndexVectorRepr(internal_index_space::IndexVectorOrScalarView x,
                             bool implicit, bool subscript) {
   if (!x.pointer) {
     if (implicit) return OptionallyImplicitIndexRepr(x.size_or_scalar);
-    return StrCat(x.size_or_scalar);
+    return tensorstore::StrCat(x.size_or_scalar);
   }
   if (x.size_or_scalar == 0) {
     return subscript ? "()" : "[]";
@@ -897,18 +897,18 @@ std::string IndexVectorRepr(internal_index_space::IndexVectorOrScalarView x,
   if (!subscript) out = "[";
   for (size_t i = 0; i < x.size_or_scalar; ++i) {
     if (implicit) {
-      StrAppend(&out, (i == 0 ? "" : ","),
-                OptionallyImplicitIndexRepr(x.pointer[i]));
+      tensorstore::StrAppend(&out, (i == 0 ? "" : ","),
+                             OptionallyImplicitIndexRepr(x.pointer[i]));
     } else {
-      StrAppend(&out, (i == 0 ? "" : ","), x.pointer[i]);
+      tensorstore::StrAppend(&out, (i == 0 ? "" : ","), x.pointer[i]);
     }
   }
   if (subscript) {
     if (x.size_or_scalar == 1) {
-      StrAppend(&out, ",");
+      tensorstore::StrAppend(&out, ",");
     }
   } else {
-    StrAppend(&out, "]");
+    tensorstore::StrAppend(&out, "]");
   }
   return out;
 }

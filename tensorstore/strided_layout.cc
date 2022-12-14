@@ -18,7 +18,6 @@
 #include <limits>
 #include <ostream>
 
-#include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -33,8 +32,8 @@ void PrintToOstream(
 }
 
 std::string DescribeForCast(DimensionIndex rank) {
-  return StrCat("strided layout with ",
-                StaticCastTraits<DimensionIndex>::Describe(rank));
+  return tensorstore::StrCat("strided layout with ",
+                             StaticCastTraits<DimensionIndex>::Describe(rank));
 }
 
 bool StridedLayoutsEqual(StridedLayoutView<dynamic_rank, offset_origin> a,

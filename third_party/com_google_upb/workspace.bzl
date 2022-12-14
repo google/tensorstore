@@ -24,10 +24,13 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_upb",
-        sha256 = "d0fe259d650bf9547e75896a1307bfc7034195e4ae89f5139814d295991ba681",
-        strip_prefix = "upb-bef53686ec702607971bd3ea4d4fefd80c6cc6e8",
+        sha256 = "ac79e4540f04a6de945cd827b2e1be71f7d232c46f7d09621de2da1003c763d9",
+        strip_prefix = "upb-f3a0cc49da29dbdbd09b3325c2834139540f00fa",
         urls = [
-            "https://storage.googleapis.com/grpc-bazel-mirror/github.com/protocolbuffers/upb/archive/bef53686ec702607971bd3ea4d4fefd80c6cc6e8.tar.gz",
-            "https://github.com/protocolbuffers/upb/archive/bef53686ec702607971bd3ea4d4fefd80c6cc6e8.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/protocolbuffers/upb/archive/f3a0cc49da29dbdbd09b3325c2834139540f00fa.tar.gz",
+            "https://github.com/protocolbuffers/upb/archive/f3a0cc49da29dbdbd09b3325c2834139540f00fa.tar.gz",  # main(2022-11-18)
         ],
+        repo_mapping = {
+            "@com_google_googleapis": "",  # Exclude googleapis; within upb it is only needed for test cases.
+        },
     )

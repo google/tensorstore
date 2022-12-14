@@ -28,7 +28,8 @@
 #include "absl/strings/match.h"
 #include "absl/strings/str_join.h"
 #include <nlohmann/json.hpp>
-#include "riegeli/bytes/cfile_writer.h"
+#include "riegeli/bytes/fd_writer.h"
+#include "riegeli/bytes/std_io.h"
 #include "tensorstore/array.h"
 #include "tensorstore/context.h"
 #include "tensorstore/data_type.h"
@@ -51,14 +52,6 @@
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
-#if defined(_MSC_VER)
-#include <cstdio>
-// Use stdio for output.
-#else
-#include "riegeli/bytes/std_io.h"
-// Use riegeli::StdOut for output.
-#endif
-
 namespace {
 
 using ::tensorstore::Context;
@@ -75,8 +68,8 @@ template <typename InputArray>
 absl::Status Validate(const InputArray& input) {
   std::vector<std::string> errors;
   if (input.rank() != 2 && input.rank() != 3) {
-    errors.push_back(
-        StrCat("expected input of rank 2 or 3, not ", input.rank()));
+    errors.push_back(tensorstore::StrCat("expected input of rank 2 or 3, not ",
+                                         input.rank()));
   }
 
   // Validate data types
@@ -88,18 +81,18 @@ absl::Status Validate(const InputArray& input) {
   // Validate shapes
   auto input_shape = input.domain().shape();
   if (input_shape[0] <= 0 || input_shape[1] <= 0) {
-    errors.push_back(
-        StrCat("input.shape of ", input_shape, " has invalid x,y dimensions"));
+    errors.push_back(tensorstore::StrCat("input.shape of ", input_shape,
+                                         " has invalid x,y dimensions"));
   }
   auto c = input.rank() - 1;
   if (input.rank() > 2 && input_shape[c] != 1 && input_shape[c] != 3) {
-    errors.push_back(
-        StrCat("input.shape of ", input_shape, " has invalid c dimension"));
+    errors.push_back(tensorstore::StrCat("input.shape of ", input_shape,
+                                         " has invalid c dimension"));
   }
 
   if (!errors.empty()) {
-    return absl::InvalidArgumentError(
-        StrCat("tensorstore validation failed: ", absl::StrJoin(errors, ", ")));
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "tensorstore validation failed: ", absl::StrJoin(errors, ", ")));
   }
   return absl::OkStatus();
 }
@@ -185,17 +178,12 @@ absl::Status Run(tensorstore::Spec input_spec, std::string output_filename) {
 
   // Maybe output to stdout.
   if (output_filename == "-" || absl::StartsWith(output_filename, "-.")) {
-#if defined(_MSC_VER)
-    output =
-        std::make_unique<riegeli::CFileWriter<riegeli::UnownedCFile>>(stdout);
-#else
     // TODO: Also check istty.
     output = std::make_unique<riegeli::StdOut>();
-#endif
-    if (!output->ok()) return output->status();
   } else {
-    output = std::make_unique<riegeli::CFileWriter<>>(output_filename);
+    output = std::make_unique<riegeli::FdWriter<>>(output_filename);
   }
+  if (!output->ok()) return output->status();
 
   // And encode the image.
   TENSORSTORE_RETURN_IF_ERROR(writer->Initialize(output.get()));

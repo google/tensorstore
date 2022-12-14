@@ -14,8 +14,8 @@
 
 #include "tensorstore/serialization/protobuf.h"
 
-#include "google/protobuf/message_lite.h"
 #include "absl/status/status.h"
+#include "google/protobuf/message_lite.h"
 #include "riegeli/messages/message_parse.h"
 #include "riegeli/messages/message_serialize.h"
 #include "tensorstore/serialization/serialization.h"

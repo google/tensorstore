@@ -35,7 +35,6 @@ using ::tensorstore::CodecSpec;
 using ::tensorstore::DataType;
 using ::tensorstore::DataTypeId;
 using ::tensorstore::dtype_v;
-using ::tensorstore::GetStatus;
 using ::tensorstore::Index;
 using ::tensorstore::kDataTypes;
 using ::tensorstore::MatchesJson;
@@ -990,7 +989,7 @@ TEST(ValidateMetadataCompatibilityTest, Basic) {
     EXPECT_THAT(ValidateMetadataCompatibility(a, b, 1, {{11, 12, 13}}),
                 MatchesStatus(absl::StatusCode::kFailedPrecondition,
                               ".*\\[11,12,13\\].*"));
-    TENSORSTORE_EXPECT_OK(GetStatus(Validate(a, b, 1, {{8, 9, 10}})));
+    TENSORSTORE_EXPECT_OK(Validate(a, b, 1, {{8, 9, 10}}));
   }
 
   {

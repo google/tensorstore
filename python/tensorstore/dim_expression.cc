@@ -48,17 +48,18 @@ namespace py = ::pybind11;
 void AppendDimensionSelectionRepr(std::string* out,
                                   span<const DynamicDimSpec> dims) {
   if (dims.empty()) {
-    StrAppend(out, "()");
+    tensorstore::StrAppend(out, "()");
   }
   for (size_t i = 0; i < dims.size(); ++i) {
     const auto& d = dims[i];
     if (auto* index = std::get_if<DimensionIndex>(&d)) {
-      StrAppend(out, (i == 0 ? "" : ","), *index);
+      tensorstore::StrAppend(out, (i == 0 ? "" : ","), *index);
     } else if (auto* label = std::get_if<std::string>(&d)) {
-      StrAppend(out, (i == 0 ? "" : ","), "'", absl::CHexEscape(*label), "'");
+      tensorstore::StrAppend(out, (i == 0 ? "" : ","), "'",
+                             absl::CHexEscape(*label), "'");
     } else {
       const auto& slice = std::get<DimRangeSpec>(d);
-      StrAppend(out, (i == 0 ? "" : ","), slice);
+      tensorstore::StrAppend(out, (i == 0 ? "" : ","), slice);
     }
   }
 }
@@ -66,7 +67,7 @@ void AppendDimensionSelectionRepr(std::string* out,
 std::string DimensionSelection::repr() const {
   std::string out = "d[";
   AppendDimensionSelectionRepr(&out, dims);
-  StrAppend(&out, "]");
+  tensorstore::StrAppend(&out, "]");
   return out;
 }
 
@@ -105,7 +106,7 @@ class PythonTranslateOp : public PythonDimExpression {
   }
 
   std::string repr() const override {
-    return StrCat(
+    return tensorstore::StrCat(
         parent_->repr(), ".translate_", op_suffix(), "[",
         IndexVectorRepr(indices_, /*implicit=*/true, /*subscript=*/true), "]");
   }
@@ -134,7 +135,7 @@ class PythonStrideOp : public PythonDimExpression {
       : parent_(std::move(parent)), strides_(std::move(strides)) {}
 
   std::string repr() const override {
-    return StrCat(
+    return tensorstore::StrCat(
         parent_->repr(), ".stride[",
         IndexVectorRepr(strides_, /*implicit=*/true, /*subscript=*/true), "]");
   }
@@ -162,11 +163,12 @@ class PythonLabelOp : public PythonDimExpression {
       : parent_(std::move(parent)), labels_(std::move(labels).value) {}
 
   std::string repr() const override {
-    std::string r = StrCat(parent_->repr(), ".label[");
+    std::string r = tensorstore::StrCat(parent_->repr(), ".label[");
     for (size_t i = 0; i < labels_.size(); ++i) {
-      StrAppend(&r, i == 0 ? "" : ",", "'", absl::CHexEscape(labels_[i]), "'");
+      tensorstore::StrAppend(&r, i == 0 ? "" : ",", "'",
+                             absl::CHexEscape(labels_[i]), "'");
     }
-    StrAppend(&r, "]");
+    tensorstore::StrAppend(&r, "]");
     return r;
   }
 
@@ -192,7 +194,7 @@ class PythonDiagonalOp : public PythonDimExpression {
       : parent_(std::move(parent)) {}
 
   std::string repr() const override {
-    return StrCat(parent_->repr(), ".diagonal");
+    return tensorstore::StrCat(parent_->repr(), ".diagonal");
   }
 
   Result<IndexTransform<>> Apply(IndexTransform<> transform,
@@ -218,9 +220,9 @@ class PythonTransposeOp : public PythonDimExpression {
         target_dim_specs_(std::move(target_dim_specs).value) {}
 
   std::string repr() const override {
-    std::string out = StrCat(parent_->repr(), ".transpose[");
+    std::string out = tensorstore::StrCat(parent_->repr(), ".transpose[");
     AppendDimensionSelectionRepr(&out, target_dim_specs_);
-    StrAppend(&out, "]");
+    tensorstore::StrAppend(&out, "]");
     return out;
   }
 
@@ -248,8 +250,9 @@ class PythonIndexOp : public PythonDimExpression {
                          NumpyIndexingSpec spec)
       : parent_(std::move(parent)), spec_(std::move(spec)) {}
   std::string repr() const override {
-    return StrCat(parent_->repr(), GetIndexingModePrefix(spec_.mode), "[",
-                  IndexingSpecRepr(spec_), "]");
+    return tensorstore::StrCat(parent_->repr(),
+                               GetIndexingModePrefix(spec_.mode), "[",
+                               IndexingSpecRepr(spec_), "]");
   }
 
   Result<IndexTransform<>> Apply(IndexTransform<> transform,
@@ -279,8 +282,9 @@ class PythonInitialIndexOp : public PythonDimExpression {
       std::shared_ptr<const DimensionSelection> parent, NumpyIndexingSpec spec)
       : parent_(std::move(parent)), spec_(std::move(spec)) {}
   std::string repr() const override {
-    return StrCat(parent_->repr(), GetIndexingModePrefix(spec_.mode), "[",
-                  IndexingSpecRepr(spec_), "]");
+    return tensorstore::StrCat(parent_->repr(),
+                               GetIndexingModePrefix(spec_.mode), "[",
+                               IndexingSpecRepr(spec_), "]");
   }
 
   Result<IndexTransform<>> Apply(IndexTransform<> transform,

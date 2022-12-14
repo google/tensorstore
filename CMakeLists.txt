@@ -25,6 +25,11 @@ set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 # overriding a prior `set(<var>)` call.
 set(CMAKE_POLICY_DEFAULT_CMP0126 NEW)
 
+# Do not add the current directory to build commands by default.
+# This is defensive, as the setting may be inherited from parents,
+# and it has been known to cause errors in Abseil CMake builds.
+set(CMAKE_INCLUDE_CURRENT_DIR OFF)
+
 # Set all outputs to a single /bin directory.
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
@@ -73,6 +78,7 @@ if(MSVC AND CMAKE_CXX_COMPILER_LAUNCHER MATCHES "sccache")
 endif()
 
 include(bazel_to_cmake)
+include(btc_protobuf)
 
 bazel_to_cmake(
   --cmake-project-name tensorstore
@@ -82,11 +88,12 @@ bazel_to_cmake(
   "--exclude-package=tensorstore/examples/python/**"
   --ignore-library "//third_party:python/python_configure.bzl"
   --ignore-library "//docs:doctest.bzl"
-  --ignore-library "//tensorstore:non_compile.bzl"
+  --ignore-library "//bazel:non_compile.bzl"
   --ignore-library "@com_google_protobuf//:protobuf.bzl"
   --bazelrc .bazelrc
-  --module bazel_to_cmake.bzl_library.third_party_http_archive
+  --module bazel_to_cmake.bzl_library.local_mirror
   --module bazel_to_cmake.bzl_library.rules_nasm
+  --module bazel_to_cmake.bzl_library.third_party_http_archive
 )
 
 if(TENSORSTORE_DEBUG_DUMP_TARGETS)

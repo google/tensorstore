@@ -15,7 +15,6 @@
 #include "tensorstore/driver/driver.h"
 
 #include "absl/status/status.h"
-#include "absl/strings/str_cat.h"
 #include "tensorstore/context.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/kvs_backed_chunk_driver.h"

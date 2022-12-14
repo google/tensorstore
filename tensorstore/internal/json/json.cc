@@ -44,11 +44,11 @@ namespace internal_json {
   return ::nlohmann::json(::nlohmann::json::value_t::discarded);
 }
 absl::Status JsonExtraMembersError(const ::nlohmann::json::object_t& j_obj) {
-  return absl::InvalidArgumentError(
-      StrCat("Object includes extra members: ",
-             absl::StrJoin(j_obj, ",", [](std::string* out, const auto& p) {
-               *out += QuoteString(p.first);
-             })));
+  return absl::InvalidArgumentError(tensorstore::StrCat(
+      "Object includes extra members: ",
+      absl::StrJoin(j_obj, ",", [](std::string* out, const auto& p) {
+        *out += QuoteString(p.first);
+      })));
 }
 
 ::nlohmann::json ParseJson(std::string_view str) {
@@ -70,8 +70,8 @@ absl::Status JsonParseArray(
   for (DimensionIndex i = 0; i < size; ++i) {
     auto status = element_callback(j[i], i);
     if (!status.ok()) {
-      return MaybeAnnotateStatus(status,
-                                 StrCat("Error parsing value at position ", i));
+      return MaybeAnnotateStatus(
+          status, tensorstore::StrCat("Error parsing value at position ", i));
     }
   }
   return absl::OkStatus();
@@ -80,9 +80,9 @@ absl::Status JsonParseArray(
 absl::Status JsonValidateArrayLength(std::ptrdiff_t parsed_size,
                                      std::ptrdiff_t expected_size) {
   if (parsed_size != expected_size) {
-    return absl::InvalidArgumentError(StrCat("Array has length ", parsed_size,
-                                             " but should have length ",
-                                             expected_size));
+    return absl::InvalidArgumentError(
+        tensorstore::StrCat("Array has length ", parsed_size,
+                            " but should have length ", expected_size));
   }
   return absl::OkStatus();
 }

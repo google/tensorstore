@@ -24,7 +24,7 @@ def repo():
         name = "libwebp",
         urls = [
             "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/webmproject/libwebp/archive/refs/tags/v1.2.4.tar.gz",
-            "https://github.com/webmproject/libwebp/archive/refs/tags/v1.2.4.tar.gz",
+            "https://github.com/webmproject/libwebp/archive/v1.2.4.tar.gz",
         ],
         sha256 = "dfe7bff3390cd4958da11e760b65318f0a48c32913e4d5bc5e8d55abaaa2d32e",
         strip_prefix = "libwebp-1.2.4",

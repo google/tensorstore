@@ -1,4 +1,4 @@
-load("//tensorstore:tensorstore.bzl", "tensorstore_cc_library")
+load("//bazel:tensorstore.bzl", "tensorstore_cc_library")
 load("//docs:doctest.bzl", "doctest_test")
 
 package(default_visibility = ["//visibility:public"])
@@ -29,7 +29,6 @@ tensorstore_cc_library(
         "//tensorstore:index",
         "//tensorstore/driver",
         "//tensorstore/driver/image:driver_impl",
-        "//tensorstore/internal/image:riegeli_block_writer",
         "//tensorstore/internal/image:tiff",
         "//tensorstore/internal/json_binding",
         "//tensorstore/serialization",
@@ -39,6 +38,7 @@ tensorstore_cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:cord",
         "@com_google_riegeli//riegeli/bytes:cord_reader",
+        "@com_google_riegeli//riegeli/bytes:cord_writer",
     ],
     alwayslink = True,
 )

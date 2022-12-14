@@ -17,8 +17,8 @@
 
 #include <type_traits>
 
-#include "google/protobuf/message_lite.h"
 #include "absl/status/status.h"
+#include "google/protobuf/message_lite.h"
 #include "tensorstore/serialization/fwd.h"
 
 namespace tensorstore {

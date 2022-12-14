@@ -32,6 +32,7 @@
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/serialization/json_bindable.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_n5 {
@@ -94,7 +95,7 @@ absl::Status ValidateMetadata(N5Metadata& metadata) {
   const Index max_num_elements =
       (static_cast<std::size_t>(1) << 31) / metadata.dtype.size();
   if (ProductOfExtents(span(metadata.chunk_shape)) > max_num_elements) {
-    return absl::InvalidArgumentError(StrCat(
+    return absl::InvalidArgumentError(tensorstore::StrCat(
         "\"blockSize\" of ", span(metadata.chunk_shape), " with data type of ",
         metadata.dtype, " exceeds maximum chunk size of 2GB"));
   }
@@ -195,8 +196,8 @@ Result<SharedArrayView<const void>> DecodeChunk(const N5Metadata& metadata,
   const std::size_t header_size = GetChunkHeaderSize(metadata);
   if (buffer.size() < header_size) {
     return absl::InvalidArgumentError(
-        StrCat("Expected header of length ", header_size,
-               ", but chunk has size ", buffer.size()));
+        tensorstore::StrCat("Expected header of length ", header_size,
+                            ", but chunk has size ", buffer.size()));
   }
   auto header_cord = buffer.Subcord(0, header_size);
   auto header = header_cord.Flatten();
@@ -208,13 +209,13 @@ Result<SharedArrayView<const void>> DecodeChunk(const N5Metadata& metadata,
       return absl::InvalidArgumentError("varlength chunks not supported");
     default:
       return absl::InvalidArgumentError(
-          StrCat("Unexpected N5 chunk mode: ", mode));
+          tensorstore::StrCat("Unexpected N5 chunk mode: ", mode));
   }
   std::uint16_t num_dims = absl::big_endian::Load16(header.data() + 2);
   if (num_dims != metadata.rank) {
-    return absl::InvalidArgumentError(StrCat("Received chunk with ", num_dims,
-                                             " dimensions but expected ",
-                                             metadata.rank));
+    return absl::InvalidArgumentError(
+        tensorstore::StrCat("Received chunk with ", num_dims,
+                            " dimensions but expected ", metadata.rank));
   }
   Array<const void, dynamic_rank(internal::kNumInlinedDims)> encoded_array;
   encoded_array.layout().set_rank(metadata.rank);
@@ -224,7 +225,7 @@ Result<SharedArrayView<const void>> DecodeChunk(const N5Metadata& metadata,
   }
   for (DimensionIndex i = 0; i < num_dims; ++i) {
     if (encoded_array.shape()[i] > metadata.chunk_layout.shape()[i]) {
-      return absl::InvalidArgumentError(StrCat(
+      return absl::InvalidArgumentError(tensorstore::StrCat(
           "Received chunk of size ", encoded_array.shape(),
           " which exceeds blockSize of ", metadata.chunk_layout.shape()));
     }
@@ -243,7 +244,7 @@ Result<SharedArrayView<const void>> DecodeChunk(const N5Metadata& metadata,
   const std::size_t expected_data_size =
       encoded_array.num_elements() * metadata.dtype.size();
   if (buffer.size() - decoded_offset != expected_data_size) {
-    return absl::InvalidArgumentError(StrCat(
+    return absl::InvalidArgumentError(tensorstore::StrCat(
         "Uncompressed chunk data has length ", buffer.size() - decoded_offset,
         ", but expected length to be ", expected_data_size));
   }
@@ -652,9 +653,9 @@ absl::Status ValidateMetadataSchema(const N5Metadata& metadata,
 
 absl::Status ValidateDataType(DataType dtype) {
   if (!absl::c_linear_search(kSupportedDataTypes, dtype.id())) {
-    return absl::InvalidArgumentError(
-        StrCat(dtype, " data type is not one of the supported data types: ",
-               GetSupportedDataTypes()));
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        dtype, " data type is not one of the supported data types: ",
+        GetSupportedDataTypes()));
   }
   return absl::OkStatus();
 }

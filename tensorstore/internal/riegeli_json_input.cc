@@ -26,7 +26,7 @@ struct RiegeliJsonInputAdapter {
   using char_type = char;
   std::char_traits<char>::int_type get_character() {
     char c;
-    if (!reader.ReadChar(c)) return std::char_traits<char>::eof();
+    if (!reader.Read(c)) return std::char_traits<char>::eof();
     return std::char_traits<char>::to_int_type(c);
   }
 

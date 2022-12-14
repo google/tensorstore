@@ -118,7 +118,6 @@
 #include "tensorstore/kvstore/file/util.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
-#include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/registry.h"
 #include "tensorstore/kvstore/url_registry.h"
 #include "tensorstore/util/execution/any_receiver.h"
@@ -201,7 +200,7 @@ auto& file_lock_contention = internal_metrics::Counter<int64_t>::New(
 absl::Status ValidateKey(std::string_view key) {
   if (!IsKeyValid(key, kLockSuffix)) {
     return absl::InvalidArgumentError(
-        absl::StrCat("Invalid key: ", tensorstore::QuoteString(key)));
+        tensorstore::StrCat("Invalid key: ", tensorstore::QuoteString(key)));
   }
   return absl::OkStatus();
 }
@@ -373,7 +372,7 @@ struct ReadTask {
       }
       if (n == 0) {
         return absl::UnavailableError(
-            StrCat("Length changed while reading: ", full_path));
+            tensorstore::StrCat("Length changed while reading: ", full_path));
       }
       return StatusFromErrno("Error reading file: ", full_path);
     }
@@ -393,7 +392,7 @@ struct WriteLockHelper {
   ///
   /// \param path Full path to the key.
   WriteLockHelper(const std::string& path)
-      : lock_path(StrCat(path, kLockSuffix)) {}
+      : lock_path(tensorstore::StrCat(path, kLockSuffix)) {}
 
   /// Opens or Creates the lock file.
   Result<UniqueFileDescriptor> OpenLockFile(FileInfo* info) {
@@ -598,8 +597,8 @@ struct PathRangeVisitor {
       absl::FunctionRef<absl::Status(bool fully_contained)> handle_dir_at) {
     auto status = VisitImpl(is_cancelled, handle_file_at, handle_dir_at);
     if (!status.ok()) {
-      return MaybeAnnotateStatus(status,
-                                 StrCat("While processing: ", GetFullPath()));
+      return MaybeAnnotateStatus(
+          status, tensorstore::StrCat("While processing: ", GetFullPath()));
     }
     return absl::OkStatus();
   }
@@ -674,7 +673,7 @@ struct PathRangeVisitor {
     for (const auto& entry : pending_dirs) {
       const char* slash =
           (!path.empty() && path[path.size() - 1] != '/') ? "/" : "";
-      StrAppend(&path, slash, entry.iterator->path_component());
+      tensorstore::StrAppend(&path, slash, entry.iterator->path_component());
     }
     return path;
   }

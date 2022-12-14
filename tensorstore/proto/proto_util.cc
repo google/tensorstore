@@ -19,12 +19,12 @@
 #include <utility>
 #include <vector>
 
+#include "absl/strings/string_view.h"
 #include "google/protobuf/io/tokenizer.h"
 #include "google/protobuf/io/zero_copy_stream_impl_lite.h"
 #include "google/protobuf/message.h"
 #include "google/protobuf/text_format.h"
-#include "absl/strings/str_cat.h"
-#include "absl/strings/string_view.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace {
@@ -41,14 +41,14 @@ class ErrorCollector : public google::protobuf::io::ErrorCollector {
                 const std::string& message) override {
     // Proto parsing uses a line of -1 to indicate errors not associated with a
     // specific line.
-    errors.emplace_back(absl::StrCat("Line: ", std::max(1, line + 1),
-                                     ", col: ", column + 1, ": ", message));
+    errors.emplace_back(tensorstore::StrCat(
+        "Line: ", std::max(1, line + 1), ", col: ", column + 1, ": ", message));
   }
 
   void AddWarning(int line, google::protobuf::io::ColumnNumber column,
                   const std::string& message) override {
-    errors.emplace_back(absl::StrCat("Line: ", std::max(1, line + 1),
-                                     ", col: ", column + 1, ": ", message));
+    errors.emplace_back(tensorstore::StrCat(
+        "Line: ", std::max(1, line + 1), ", col: ", column + 1, ": ", message));
   }
 
   std::vector<std::string> errors;

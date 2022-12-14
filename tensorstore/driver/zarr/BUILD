@@ -1,4 +1,4 @@
-load("//tensorstore:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
+load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
 load("//docs:doctest.bzl", "doctest_test")
 
 package(default_visibility = ["//visibility:public"])
@@ -181,6 +181,7 @@ tensorstore_cc_library(
         "//tensorstore/util:extents",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
+        "//tensorstore/util:str_cat",
         "@com_github_nlohmann_json//:nlohmann_json",
     ],
 )
@@ -220,6 +221,7 @@ tensorstore_cc_library(
         "//tensorstore/serialization:json",
         "//tensorstore/util:endian",
         "//tensorstore/util:result",
+        "//tensorstore/util:str_cat",
         "//tensorstore/util/garbage_collection",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/container:inlined_vector",
@@ -274,6 +276,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
+        "//tensorstore/util:str_cat",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/status",
     ],
@@ -313,14 +316,13 @@ tensorstore_cc_library(
         "//tensorstore/driver:kvs_backed_chunk_driver",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/index_space:transform_broadcastable_array",
-        "//tensorstore/internal:path",
         "//tensorstore/internal:type_traits",
         "//tensorstore/internal/cache:chunk_cache",
         "//tensorstore/internal/cache_key",
         "//tensorstore/internal/json_binding",
-        "//tensorstore/kvstore",
         "//tensorstore/util:future",
         "//tensorstore/util:span",
+        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/status",
     ],
     alwayslink = 1,

@@ -51,8 +51,8 @@ pybind11::dtype GetNumpyDtype(int type_num) {
 DataType GetDataTypeOrThrow(std::string_view name) {
   auto d = GetDataType(name);
   if (!d.valid()) {
-    throw py::value_error(
-        StrCat("No TensorStore data type with name: ", QuoteString(name)));
+    throw py::value_error(tensorstore::StrCat(
+        "No TensorStore data type with name: ", QuoteString(name)));
   }
   return d;
 }
@@ -74,9 +74,9 @@ py::dtype GetNumpyDtypeOrThrow(DataType dtype) {
   if (type_num != -1) {
     return GetNumpyDtype(type_num);
   }
-  throw py::value_error(
-      StrCat("No NumPy dtype corresponding to TensorStore data type: ",
-             QuoteString(dtype.name())));
+  throw py::value_error(tensorstore::StrCat(
+      "No NumPy dtype corresponding to TensorStore data type: ",
+      QuoteString(dtype.name())));
 }
 
 DataType GetDataType(pybind11::dtype dt) {
@@ -95,9 +95,9 @@ DataType GetDataType(pybind11::dtype dt) {
 DataType GetDataTypeOrThrow(py::dtype dt) {
   auto dtype = GetDataType(dt);
   if (dtype.valid()) return dtype;
-  throw py::value_error(
-      StrCat("No TensorStore data type corresponding to NumPy dtype: ",
-             py::cast<std::string>(py::repr(dt))));
+  throw py::value_error(tensorstore::StrCat(
+      "No TensorStore data type corresponding to NumPy dtype: ",
+      py::cast<std::string>(py::repr(dt))));
 }
 
 py::object GetTypeObjectOrThrow(DataType dtype) {
@@ -151,7 +151,7 @@ Overload:
       "name", [](DataType self) { return std::string(self.name()); });
 
   cls.def("__repr__", [](DataType self) {
-    return StrCat("dtype(", QuoteString(self.name()), ")");
+    return tensorstore::StrCat("dtype(", QuoteString(self.name()), ")");
   });
 
   EnablePicklingFromSerialization(cls);

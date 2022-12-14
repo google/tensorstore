@@ -1,0 +1,5 @@
+syntax = "proto2";
+
+package grpc_generate_cc;
+
+option java_multiple_files = true;

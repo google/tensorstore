@@ -23,7 +23,6 @@
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/serialization/std_optional.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -46,9 +45,9 @@ std::ostream& operator<<(std::ostream& os, const ByteRange& r) {
 Result<ByteRange> OptionalByteRangeRequest::Validate(std::uint64_t size) const {
   assert(SatisfiesInvariants());
   if (exclusive_max && *exclusive_max > size) {
-    return absl::OutOfRangeError(StrCat("Requested byte range ", *this,
-                                        " is not valid for value of size ",
-                                        size));
+    return absl::OutOfRangeError(
+        tensorstore::StrCat("Requested byte range ", *this,
+                            " is not valid for value of size ", size));
   }
   return ByteRange{inclusive_min, exclusive_max.value_or(size)};
 }

@@ -43,19 +43,29 @@ using ::tensorstore::internal_zarr::ZarrDType;
 
 void CheckBaseDType(std::string dtype, DataType r, endian e,
                     std::vector<Index> flexible_shape) {
-  auto result = ParseBaseDType(dtype);
-  ASSERT_EQ(absl::OkStatus(), GetStatus(result)) << dtype;
-  EXPECT_EQ(*result, (ZarrDType::BaseDType{dtype, r, e, flexible_shape}));
+  EXPECT_THAT(ParseBaseDType(dtype), ::testing::Optional(ZarrDType::BaseDType{
+                                         dtype, r, e, flexible_shape}))
+      << dtype;
 }
 
 TEST(ParseBaseDType, Success) {
   CheckBaseDType("|b1", dtype_v<bool>, endian::native, {});
+  CheckBaseDType("<b1", dtype_v<bool>, endian::native, {});
+  CheckBaseDType(">b1", dtype_v<bool>, endian::native, {});
   CheckBaseDType("|S150", dtype_v<char>, endian::native, {150});
+  CheckBaseDType(">S150", dtype_v<char>, endian::native, {150});
+  CheckBaseDType("<S150", dtype_v<char>, endian::native, {150});
   CheckBaseDType("|S9223372036854775807", dtype_v<char>, endian::native,
                  {9223372036854775807});
   CheckBaseDType("|V150", dtype_v<std::byte>, endian::native, {150});
+  CheckBaseDType("<V150", dtype_v<std::byte>, endian::native, {150});
+  CheckBaseDType(">V150", dtype_v<std::byte>, endian::native, {150});
   CheckBaseDType("|i1", dtype_v<std::int8_t>, endian::native, {});
+  CheckBaseDType("<i1", dtype_v<std::int8_t>, endian::native, {});
+  CheckBaseDType(">i1", dtype_v<std::int8_t>, endian::native, {});
   CheckBaseDType("|u1", dtype_v<std::uint8_t>, endian::native, {});
+  CheckBaseDType("<u1", dtype_v<std::uint8_t>, endian::native, {});
+  CheckBaseDType(">u1", dtype_v<std::uint8_t>, endian::native, {});
   CheckBaseDType("<i2", dtype_v<std::int16_t>, endian::little, {});
   CheckBaseDType("<i4", dtype_v<std::int32_t>, endian::little, {});
   CheckBaseDType("<i8", dtype_v<std::int64_t>, endian::little, {});
@@ -88,11 +98,6 @@ TEST(ParseBaseDType, Failure) {
   EXPECT_THAT(ParseBaseDType(""),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Unsupported zarr dtype: \"\""));
-  EXPECT_THAT(ParseBaseDType("<b1"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Unsupported zarr dtype: \"<b1\""));
-  EXPECT_THAT(ParseBaseDType(">b1"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("|f4"),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("|f8"),
@@ -105,17 +110,11 @@ TEST(ParseBaseDType, Failure) {
               MatchesStatus(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("|i2"),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
-  EXPECT_THAT(ParseBaseDType("<i1"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
-  EXPECT_THAT(ParseBaseDType(">i1"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("<i9"),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("<u9"),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("<S"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument));
-  EXPECT_THAT(ParseBaseDType("<V3"),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
   EXPECT_THAT(ParseBaseDType("|S999999999999999999999999999"),
               MatchesStatus(absl::StatusCode::kInvalidArgument));
@@ -139,11 +138,10 @@ TEST(ParseBaseDType, Failure) {
 
 void CheckDType(const ::nlohmann::json& json, const ZarrDType& expected) {
   SCOPED_TRACE(json.dump());
-  auto result = ParseDType(json);
-  ASSERT_EQ(absl::OkStatus(), GetStatus(result));
-  EXPECT_EQ(*result, expected);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto dtype, ParseDType(json));
+  EXPECT_EQ(expected, dtype);
   // Check round trip.
-  EXPECT_EQ(json, ::nlohmann::json(*result));
+  EXPECT_EQ(json, ::nlohmann::json(dtype));
 }
 
 TEST(ParseDType, SimpleStringBool) {

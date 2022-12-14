@@ -25,9 +25,8 @@
 #include "absl/status/status.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
-#include "absl/strings/str_cat.h"
 #include "tensorstore/util/quote_string.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_http {
@@ -186,11 +185,11 @@ absl::Status HttpResponseCodeToStatus(const HttpResponse& response) {
 
   const auto pos = (std::max)(response.payload.size(),
                               static_cast<std::string::size_type>(256));
-  auto message =
-      absl::StrCat("HTTP response code: ", response.status_code,
-                   ((pos < response.payload.size()) ? " with body (clipped): "
-                                                    : " with body: "),
-                   response.payload.Subcord(0, pos).Flatten());
+  auto message = tensorstore::StrCat(
+      "HTTP response code: ", response.status_code,
+      ((pos < response.payload.size()) ? " with body (clipped): "
+                                       : " with body: "),
+      response.payload.Subcord(0, pos).Flatten());
 
   // TODO: use absl::Status::SetPayload to store the http response code.
   return absl::Status(code, message);
@@ -212,13 +211,15 @@ Result<ByteRange> GetHttpResponseByteRange(
   // "bytes <inclusive_start>-<inclusive_end>/<total_size>"
   std::string prefix;
   if (byte_range_request.exclusive_max) {
-    prefix = absl::StrCat("bytes ", byte_range_request.inclusive_min, "-",
-                          *byte_range_request.exclusive_max - 1, "/");
+    prefix =
+        tensorstore::StrCat("bytes ", byte_range_request.inclusive_min, "-",
+                            *byte_range_request.exclusive_max - 1, "/");
   } else {
-    prefix = absl::StrCat("bytes ", byte_range_request.inclusive_min, "-");
+    prefix =
+        tensorstore::StrCat("bytes ", byte_range_request.inclusive_min, "-");
   }
   if (!absl::StartsWith(it->second, prefix)) {
-    return absl::UnknownError(StrCat(
+    return absl::UnknownError(tensorstore::StrCat(
         "Unexpected Content-Range header received: ", QuoteString(it->second)));
   }
   return ByteRange{0, response.payload.size()};

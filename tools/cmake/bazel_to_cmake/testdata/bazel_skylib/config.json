@@ -1,0 +1,13 @@
+{
+    "excludes": [
+        "_cmake_binary_dir_/CMakeProject_config2_h.subs.json"
+    ],
+    "modules": [
+        ".bzl_library.bazel_skylib"
+    ],
+    "targets": [
+        "//:config3.h",
+        "//:config2_h",
+        "//:config_h"
+    ]
+}

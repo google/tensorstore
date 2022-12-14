@@ -37,9 +37,9 @@ Result<DimensionIndex> NormalizeDimensionIndex(DimensionIndex index,
                                                DimensionIndex rank) {
   assert(rank >= 0);
   if (index < -rank || index >= rank) {
-    return absl::InvalidArgumentError(StrCat("Dimension index ", index,
-                                             " is outside valid range [-", rank,
-                                             ", ", rank, ")"));
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Dimension index ", index, " is outside valid range [-", rank, ", ",
+        rank, ")"));
   }
   return index >= 0 ? index : index + rank;
 }
@@ -48,9 +48,9 @@ Result<DimensionIndex> NormalizeDimensionExclusiveStopIndex(
     DimensionIndex index, DimensionIndex rank) {
   assert(rank >= 0);
   if (index < -rank - 1 || index > rank) {
-    return absl::InvalidArgumentError(
-        StrCat("Dimension exclusive stop index ", index,
-               " is outside valid range [-", rank + 1, ", ", rank, "]"));
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Dimension exclusive stop index ", index, " is outside valid range [-",
+        rank + 1, ", ", rank, "]"));
   }
   return index >= 0 ? index : index + rank;
 }
@@ -64,13 +64,13 @@ Result<DimensionIndex> NormalizeDimensionLabel(std::string_view label,
   const DimensionIndex dim =
       std::find(labels.begin(), labels.end(), label) - labels.begin();
   if (dim == labels.size()) {
-    return absl::InvalidArgumentError(
-        StrCat("Label ", QuoteString(label), " does not match one of {",
-               absl::StrJoin(labels, ", ",
-                             [](std::string* out, std::string_view x) {
-                               *out += QuoteString(x);
-                             }),
-               "}"));
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Label ", QuoteString(label), " does not match one of {",
+        absl::StrJoin(labels, ", ",
+                      [](std::string* out, std::string_view x) {
+                        *out += QuoteString(x);
+                      }),
+        "}"));
   }
   return dim;
 }
@@ -120,7 +120,8 @@ absl::Status NormalizeDimRangeSpec(const DimRangeSpec& spec,
         NormalizeDimensionExclusiveStopIndex(*spec.exclusive_stop, rank));
     if ((step > 0 && exclusive_stop < inclusive_start) ||
         (step < 0 && exclusive_stop > inclusive_start)) {
-      return absl::InvalidArgumentError(StrCat(spec, " is not a valid range"));
+      return absl::InvalidArgumentError(
+          tensorstore::StrCat(spec, " is not a valid range"));
     }
   } else if (step > 0) {
     exclusive_stop = rank;

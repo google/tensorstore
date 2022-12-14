@@ -1,8 +1,13 @@
-load(":pybind11.bzl", "pybind11_cc_googletest_test", "pybind11_cc_library", "pybind11_py_extension")
-load(":pytest.bzl", "tensorstore_pytest_test")
-load(":pytype.bzl", "pytype_strict_binary")
+load(
+    "//bazel:pybind11.bzl",
+    "pybind11_cc_googletest_test",
+    "pybind11_cc_library",
+    "pybind11_py_extension",
+)
+load("//bazel:pytest.bzl", "tensorstore_pytest_test")
+load("//bazel:pytype.bzl", "pytype_strict_binary")
+load("//bazel:tensorstore.bzl", "tensorstore_cc_library")
 load("//docs:doctest.bzl", "doctest_test")
-load("//tensorstore:tensorstore.bzl", "tensorstore_cc_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -282,7 +287,6 @@ pybind11_cc_library(
         ":status",
         ":subscript_method",
         "//tensorstore:array",
-        "//tensorstore:data_type",
         "//tensorstore:index",
         "//tensorstore:index_interval",
         "//tensorstore:rank",
@@ -301,7 +305,6 @@ pybind11_cc_library(
         "//tensorstore/util:str_cat",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_github_pybind_pybind11//:pybind11",
-        "@com_google_absl//absl/hash",
     ],
 )
 
@@ -337,7 +340,6 @@ pybind11_cc_library(
         "//tensorstore/util:element_pointer",
         "//tensorstore/util:iterate",
         "//tensorstore/util:span",
-        "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "@com_github_pybind_pybind11//:pybind11",
         "@com_google_absl//absl/status",
@@ -403,7 +405,6 @@ pybind11_cc_library(
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_github_pybind_pybind11//:pybind11",
         "@com_google_absl//absl/hash",
-        "@com_google_absl//absl/strings",
     ],
 )
 

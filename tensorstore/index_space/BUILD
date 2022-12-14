@@ -1,5 +1,5 @@
-load("//tensorstore:tensorstore.bzl", "tensorstore_cc_binary", "tensorstore_cc_library", "tensorstore_cc_test")
-load("//tensorstore:non_compile.bzl", "cc_with_non_compile_test")
+load("//bazel:tensorstore.bzl", "tensorstore_cc_binary", "tensorstore_cc_library", "tensorstore_cc_test")
+load("//bazel:non_compile.bzl", "cc_with_non_compile_test")
 
 package(default_visibility = ["//tensorstore:internal_packages"])
 
@@ -43,6 +43,7 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
+        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/container:fixed_array",
         "@com_google_absl//absl/status",
     ],
@@ -234,6 +235,7 @@ tensorstore_cc_library(
         ":dimension_index_buffer",
         ":index_transform",
         "//tensorstore:index",
+        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
     ],
@@ -292,6 +294,7 @@ tensorstore_cc_library(
         "//tensorstore:rank",
         "//tensorstore/internal:meta",
         "//tensorstore/util:result",
+        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/container:fixed_array",
     ],
 )
@@ -477,6 +480,7 @@ tensorstore_cc_library(
         "//tensorstore/util:division",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
+        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/container:fixed_array",
         "@com_google_absl//absl/status",
     ],
@@ -585,6 +589,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:string_like",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
+        "//tensorstore/util:str_cat",
     ],
 )
 
@@ -722,6 +727,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:integer_overflow",
         "//tensorstore/internal:meta",
         "//tensorstore/util:result",
+        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/container:fixed_array",
         "@com_google_absl//absl/status",
     ],
@@ -826,9 +832,9 @@ tensorstore_cc_library(
         "//tensorstore:rank",
         "//tensorstore/internal:element_copy_function",
         "//tensorstore/internal:elementwise_function",
-        "//tensorstore/internal:tagged_ptr",
         "//tensorstore/util:iterate",
         "//tensorstore/util:result",
+        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/status",
     ],
 )
@@ -862,6 +868,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:integer_overflow",
         "//tensorstore/internal:meta",
         "//tensorstore/util:result",
+        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/container:fixed_array",
         "@com_google_absl//absl/status",
     ],
@@ -892,6 +899,7 @@ tensorstore_cc_library(
         "//tensorstore:rank",
         "//tensorstore/internal:meta",
         "//tensorstore/util:result",
+        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/container:fixed_array",
         "@com_google_absl//absl/status",
     ],

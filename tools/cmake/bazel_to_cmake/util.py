@@ -17,7 +17,9 @@ import glob
 import os
 import pathlib
 import re
-from typing import Optional, List, Set
+from typing import List, Optional, Set
+
+from .starlark.bazel_glob import glob_pattern_to_regexp
 
 
 def write_file_if_not_already_equal(path: str, content: bytes):
@@ -41,37 +43,6 @@ def write_file_if_not_already_equal(path: str, content: bytes):
   pathlib.Path(path).write_bytes(content)
 
 
-def glob_pattern_to_regexp(glob_pattern: str) -> str:
-  """Computes a regular expression for a (recursive) glob pattern.
-
-  This is used to efficiently evaluate exclusion criteria.
-
-  Args:
-    glob_pattern: Glob pattern with "*" and "**".  Note that "[]" is not
-      supported.
-
-  Returns:
-    Corresponding regular expression.
-
-  """
-  regexp_parts = []
-
-  for i, part in enumerate(glob_pattern.split("/")):
-    sep_prefix = "/" if i > 0 else ""
-    if part == "**":
-      regexp_parts.append("(?:")
-      regexp_parts.append(sep_prefix)
-      regexp_parts.append(".*)?")
-      continue
-    regexp_parts.append(sep_prefix)
-    for x in part.split(r"(\*)"):
-      if x == "*":
-        regexp_parts.append("[^/]*")
-      else:
-        regexp_parts.append(re.escape(x))
-  return "".join(regexp_parts)
-
-
 # https://cmake.org/cmake/help/latest/command/if.html#basic-expressions
 # CMake considers any of the following a "false constant":
 # - "0"
@@ -92,6 +63,28 @@ def cmake_is_true(value: Optional[str]) -> bool:
   if value is None:
     return False
   return not _CMAKE_FALSE_PATTERN.fullmatch(value)
+
+
+def cmake_is_windows(value: Optional[str]) -> bool:
+  """Determines if a string is considered by CMake to be TRUE."""
+  if value is None:
+    return False
+  return value.startswith("Windows")
+
+
+def cmake_logging_verbose_level(value: Optional[str]) -> int:
+  """Returns the logging verbosity level based on CMAKE_MESSAGE_LOG_LEVEL."""
+  if value is None:
+    return 0
+  value = value.lower()
+  if "verbose" in value:
+    return 1
+  elif "debug" in value:
+    return 2
+  elif "trace" in value:
+    return 3
+  else:
+    return 0
 
 
 def _get_build_patterns(package_patterns: List[str]):

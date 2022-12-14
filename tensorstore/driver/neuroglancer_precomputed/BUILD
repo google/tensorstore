@@ -1,6 +1,6 @@
 # Neuroglancer precomputed format TensorStore driver
 
-load("//tensorstore:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
+load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
 load("//docs:doctest.bzl", "doctest_test")
 
 package(default_visibility = ["//visibility:public"])
@@ -30,7 +30,6 @@ tensorstore_cc_library(
         ":metadata",
         "//tensorstore:array",
         "//tensorstore:index",
-        "//tensorstore/internal:container_to_shared",
         "//tensorstore/internal:data_type_endian_conversion",
         "//tensorstore/internal:flat_cord_builder",
         "//tensorstore/internal/compression:neuroglancer_compressed_segmentation",
@@ -40,6 +39,7 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
+        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/algorithm:container",
         "@com_google_riegeli//riegeli/bytes:cord_reader",
         "@com_google_riegeli//riegeli/bytes:cord_writer",
@@ -116,6 +116,7 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:span_json",
         "//tensorstore/util:status",
+        "//tensorstore/util:str_cat",
         "//tensorstore/util/garbage_collection",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/algorithm:container",
@@ -167,7 +168,6 @@ tensorstore_cc_library(
         "//tensorstore/util:division",
         "//tensorstore/util:future",
         "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
     ],
     alwayslink = 1,
 )

@@ -21,6 +21,7 @@
 #include "absl/strings/str_replace.h"
 #include "tensorstore/index_space/internal/identity_transform.h"
 #include "tensorstore/util/dimension_set.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_index_space {
@@ -89,9 +90,10 @@ absl::Status PropagateBoundsImpl(BoxView<> b,
         // `a` in this case.
         TENSORSTORE_RETURN_IF_ERROR(
             CheckContains(b_bounds_oi.effective_interval(), map.offset()),
-            MaybeAnnotateStatus(_, StrCat("Checking bounds of constant output "
-                                          "index map for dimension ",
-                                          b_dim)));
+            MaybeAnnotateStatus(
+                _, tensorstore::StrCat("Checking bounds of constant output "
+                                       "index map for dimension ",
+                                       b_dim)));
       }
       continue;
     }
@@ -103,8 +105,9 @@ absl::Status PropagateBoundsImpl(BoxView<> b,
     TENSORSTORE_ASSIGN_OR_RETURN(
         OptionallyImplicitIndexInterval propagated_a_bounds,
         GetAffineTransformDomain(b_bounds_oi, map.offset(), map.stride()),
-        MaybeAnnotateStatus(_, StrCat("Propagating bounds from dimension ",
-                                      b_dim, " to input dimension ", a_dim)));
+        MaybeAnnotateStatus(
+            _, tensorstore::StrCat("Propagating bounds from dimension ", b_dim,
+                                   " to input dimension ", a_dim)));
     propagated_a_bounds = IntersectPreferringExplicit(
         propagated_a_bounds,
         OptionallyImplicitIndexInterval{a[a_dim],

@@ -1,0 +1,36 @@
+set(CMAKE_MESSAGE_INDENT "[half] ")
+
+get_property(_prop DIRECTORY "${TEST_DIRECTORY}" PROPERTY COMPILE_DEFINITIONS)
+set_property(DIRECTORY PROPERTY COMPILE_DEFINITIONS "${_prop}")
+unset(_prop)
+
+get_property(_prop DIRECTORY "${TEST_DIRECTORY}" PROPERTY COMPILE_OPTIONS)
+set_property(DIRECTORY PROPERTY COMPILE_OPTIONS "${_prop}")
+unset(_prop)
+
+get_property(_prop DIRECTORY "${TEST_DIRECTORY}" PROPERTY INCLUDE_DIRECTORIES)
+set_property(DIRECTORY PROPERTY INCLUDE_DIRECTORIES "${_prop}")
+unset(_prop)
+
+get_property(_prop DIRECTORY "${TEST_DIRECTORY}" PROPERTY LINK_DIRECTORIES)
+set_property(DIRECTORY PROPERTY LINK_DIRECTORIES "${_prop}")
+unset(_prop)
+
+get_property(_prop DIRECTORY "${TEST_DIRECTORY}" PROPERTY LINK_OPTIONS)
+set_property(DIRECTORY PROPERTY LINK_OPTIONS "${_prop}")
+unset(_prop)
+unset(half_BINARY_DIR)
+unset(half_SOURCE_DIR)
+# << prefix >>
+project("half")
+execute_process(
+  COMMAND ${Python3_EXECUTABLE} "${TEST_DIRECTORY}/bazel_to_cmake.py"
+        --load-workspace "_workspace.pickle"
+        --cmake-project-name half
+        --cmake-binary-dir "${CMAKE_CURRENT_BINARY_DIR}"
+        --bazel-repo-name net_sourceforge_half
+        --build-rules-output "${CMAKE_CURRENT_BINARY_DIR}/build_rules.cmake"
+  WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+  COMMAND_ERROR_IS_FATAL ANY)
+include("${CMAKE_CURRENT_BINARY_DIR}/build_rules.cmake")
+# << suffix >>

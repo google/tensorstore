@@ -30,6 +30,6 @@ def repo():
             "https://storage.googleapis.com/grpc-bazel-mirror/github.com/c-ares/c-ares/archive/6654436a307a5a686b008c1d4c93b0085da6e6d8.tar.gz",
             "https://github.com/c-ares/c-ares/archive/6654436a307a5a686b008c1d4c93b0085da6e6d8.tar.gz",
         ],
-        build_file = Label("@com_github_grpc_grpc//third_party:cares/cares.BUILD"),
+        build_file = Label("//third_party:com_github_cares_cares/cares.BUILD.bazel"),
         system_build_file = Label("//third_party:com_github_cares_cares/system.BUILD.bazel"),
     )

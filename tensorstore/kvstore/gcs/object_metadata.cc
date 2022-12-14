@@ -22,14 +22,13 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/numbers.h"
-#include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/json_binding/absl_time.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_storage_gcs {
@@ -125,7 +124,7 @@ Result<ObjectMetadata> ParseObjectMetadata(std::string_view source) {
   auto json = internal::ParseJson(source);
   if (json.is_discarded()) {
     return absl::InvalidArgumentError(
-        absl::StrCat("Failed to parse object metadata: ", source));
+        tensorstore::StrCat("Failed to parse object metadata: ", source));
   }
 
   return jb::FromJson<ObjectMetadata>(std::move(json));

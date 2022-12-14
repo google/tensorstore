@@ -19,6 +19,7 @@
 #include "absl/algorithm/container.h"
 #include "tensorstore/internal/compression/zlib.h"
 #include "tensorstore/internal/cord_util.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace neuroglancer_uint64_sharded {
@@ -32,8 +33,8 @@ Result<std::vector<MinishardIndexEntry>> DecodeMinishardIndex(
     decoded_input = input;
   }
   if ((decoded_input.size() % 24) != 0) {
-    return absl::InvalidArgumentError(
-        StrCat("Invalid minishard index length: ", decoded_input.size()));
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Invalid minishard index length: ", decoded_input.size()));
   }
   std::vector<MinishardIndexEntry> result(decoded_input.size() / 24);
   static_assert(sizeof(MinishardIndexEntry) == 24);
@@ -51,9 +52,9 @@ Result<std::vector<MinishardIndexEntry>> DecodeMinishardIndex(
                                                16 * result.size());
     entry.byte_range.exclusive_max = byte_offset;
     if (!entry.byte_range.SatisfiesInvariants()) {
-      return absl::InvalidArgumentError(
-          StrCat("Invalid byte range in minishard index for chunk ",
-                 entry.chunk_id.value, ": ", entry.byte_range));
+      return absl::InvalidArgumentError(tensorstore::StrCat(
+          "Invalid byte range in minishard index for chunk ",
+          entry.chunk_id.value, ": ", entry.byte_range));
     }
   }
   absl::c_sort(result,
@@ -89,15 +90,15 @@ Result<absl::Cord> DecodeData(const absl::Cord& input,
 
 Result<ByteRange> DecodeShardIndexEntry(std::string_view input) {
   if (input.size() != 16) {
-    return absl::FailedPreconditionError(
-        StrCat("Expected 16 bytes, but received: ", input.size(), " bytes"));
+    return absl::FailedPreconditionError(tensorstore::StrCat(
+        "Expected 16 bytes, but received: ", input.size(), " bytes"));
   }
   ByteRange r;
   r.inclusive_min = absl::little_endian::Load64(input.data());
   r.exclusive_max = absl::little_endian::Load64(input.data() + 8);
   if (!r.SatisfiesInvariants()) {
     return absl::FailedPreconditionError(
-        StrCat("Shard index specified invalid byte range: ", r));
+        tensorstore::StrCat("Shard index specified invalid byte range: ", r));
   }
   return r;
 }
@@ -113,8 +114,8 @@ DecodeMinishardIndexAndAdjustByteRanges(const absl::Cord& encoded,
     if (!result.ok()) {
       return MaybeAnnotateStatus(
           result.status(),
-          StrCat("Error decoding minishard index entry for chunk ",
-                 entry.chunk_id.value));
+          tensorstore::StrCat("Error decoding minishard index entry for chunk ",
+                              entry.chunk_id.value));
     }
     entry.byte_range = std::move(result).value();
   }
@@ -131,10 +132,10 @@ absl::Status SplitMinishard(const ShardingSpec& sharding_spec,
     if (prev_chunk_id &&
         existing_entry.chunk_id.value == prev_chunk_id->value) {
       return absl::FailedPreconditionError(
-          StrCat("Chunk ", existing_entry.chunk_id.value,
-                 " occurs more than once in the minishard index "
-                 "for minishard ",
-                 minishard));
+          tensorstore::StrCat("Chunk ", existing_entry.chunk_id.value,
+                              " occurs more than once in the minishard index "
+                              "for minishard ",
+                              minishard));
     }
     prev_chunk_id = existing_entry.chunk_id;
     const auto GetChunkByteRange = [&]() -> Result<ByteRange> {

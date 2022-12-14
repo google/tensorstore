@@ -19,12 +19,12 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "riegeli/bytes/cord_reader.h"
+#include "riegeli/bytes/cord_writer.h"
 #include "tensorstore/array.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/image/driver_impl.h"
 #include "tensorstore/driver/registry.h"
 #include "tensorstore/index.h"
-#include "tensorstore/internal/image/riegeli_block_writer.h"
 #include "tensorstore/internal/image/tiff_reader.h"
 #include "tensorstore/internal/image/tiff_writer.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
@@ -38,7 +38,6 @@ namespace tensorstore {
 namespace internal_image_driver {
 namespace {
 
-using ::tensorstore::internal::RiegeliBlockWriter;
 using ::tensorstore::internal_image::ImageInfo;
 using ::tensorstore::internal_image::TiffReader;
 using ::tensorstore::internal_image::TiffWriter;
@@ -74,12 +73,14 @@ struct TiffSpecialization : public TiffReadOptions {
       return absl::InvalidArgumentError(
           "\"tiff\" driver cannot write to specified page");
     }
-    RiegeliBlockWriter riegeli_writer;
 
     auto shape_yxc = array_yxc.shape();
     ImageInfo info{/*.height =*/static_cast<int32_t>(shape_yxc[0]),
                    /*.width =*/static_cast<int32_t>(shape_yxc[1]),
                    /*.num_components =*/static_cast<int32_t>(shape_yxc[2])};
+
+    absl::Cord output;
+    riegeli::CordWriter riegeli_writer(&output);
 
     TiffWriter writer;
     TENSORSTORE_RETURN_IF_ERROR(writer.Initialize(&riegeli_writer));
@@ -88,7 +89,7 @@ struct TiffSpecialization : public TiffReadOptions {
                   reinterpret_cast<const unsigned char*>(array_yxc.data()),
                   array_yxc.num_elements() * array_yxc.dtype().size())));
     TENSORSTORE_RETURN_IF_ERROR(writer.Done());
-    return riegeli_writer.ConvertToCord();
+    return output;
   }
 
   Result<SharedArray<uint8_t, 3>> DecodeImage(absl::Cord value) {

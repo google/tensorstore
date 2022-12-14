@@ -18,97 +18,58 @@ load(
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 
+# NOTE: Switch back to a tagged release with darwin-arm64
+# NOTE: When updating grpc, also update:
+#   upb
 def repo():
     maybe(
         third_party_http_archive,
         name = "com_github_grpc_grpc",
-        sha256 = "20e02152bc63c53dd9148325d32b2fac4d38e74e86d832fb7950452c00a52faa",
-        strip_prefix = "grpc-1.48.0",
+        sha256 = "9164010d67b9080d26c2f93d4bb457231ec5a7d687dffe43d1ddf924e4b5ca6b",
+        strip_prefix = "grpc-a02cc7d88ae45abf7ccb742c7c61345f7ef6d0d2",
         urls = [
-            "https://github.com/grpc/grpc/archive/v1.48.0.zip",
+            "https://github.com/grpc/grpc/archive/a02cc7d88ae45abf7ccb742c7c61345f7ef6d0d2.tar.gz",  # master(2022-11-18)
         ],
+        patches = [
+            "//third_party:com_github_grpc_grpc/patches/update_build_system.diff",
+        ],
+        patch_args = ["-p1"],
         repo_mapping = {
             "@upb": "@com_google_upb",
+            "@com_googlesource_code_re2": "@com_google_re2",
+            "@com_github_google_benchmark": "@com_google_benchmark",
+            "@com_github_cncf_udpa": "@local_proto_mirror",
+            "@com_google_googleapis": "@local_proto_mirror",
         },
     )
+    for key in GRPC_NATIVE_BINDINGS.keys():
+        native.bind(name = key, actual = GRPC_NATIVE_BINDINGS[key])
 
-    # Aliases (unfortunately) required by gRPC
-    native.bind(
-        name = "upb_lib",
-        actual = "@com_google_upb//:upb",
-    )
+# Aliases (unfortunately) required by gRPC.
+GRPC_NATIVE_BINDINGS = {
+    "cares": "@com_github_cares_cares//:ares",
+    "grpc++_codegen_proto": "@com_github_grpc_grpc//:grpc++_codegen_proto",
+    "grpc_cpp_plugin": "@com_github_grpc_grpc//src/compiler:grpc_cpp_plugin",
+    "protobuf": "@com_google_protobuf//:protobuf",
+    "protobuf_clib": "@com_google_protobuf//:protoc_lib",
+    "protobuf_headers": "@com_google_protobuf//:protobuf_headers",
+    "protocol_compiler": "@com_google_protobuf//:protoc",
 
-    native.bind(
-        name = "upb_lib_descriptor",
-        actual = "@com_google_upb//:descriptor_upb_proto",
-    )
+    # upb mappings.
+    "upb_json_lib": "@com_google_upb//:json",
+    "upb_lib": "@com_google_upb//:upb",
+    "upb_lib_descriptor": "@com_google_upb//:descriptor_upb_proto",
+    "upb_lib_descriptor_reflection": "@com_google_upb//:descriptor_upb_proto_reflection",
+    "upb_reflection": "@com_google_upb//:reflection",
+    "upb_textformat_lib": "@com_google_upb//:textformat",
 
-    native.bind(
-        name = "upb_lib_descriptor_reflection",
-        actual = "@com_google_upb//:descriptor_upb_proto_reflection",
-    )
-
-    native.bind(
-        name = "upb_textformat_lib",
-        actual = "@com_google_upb//:textformat",
-    )
-
-    native.bind(
-        name = "upb_json_lib",
-        actual = "@com_google_upb//:json",
-    )
-
-    native.bind(
-        name = "protocol_compiler",
-        actual = "@com_google_protobuf//:protoc",
-    )
-
-    native.bind(
-        name = "absl",
-        actual = "@com_google_absl//absl",
-    )
-
-    native.bind(
-        name = "absl-base",
-        actual = "@com_google_absl//absl/base",
-    )
-
-    native.bind(
-        name = "absl-time",
-        actual = "@com_google_absl//absl/time:time",
-    )
-
-    native.bind(
-        name = "libssl",
-        actual = "@com_google_boringssl//:ssl",
-    )
-
-    native.bind(
-        name = "madler_zlib",
-        actual = "@net_zlib//:zlib",
-    )
-
-    native.bind(
-        name = "protobuf",
-        actual = "@com_google_protobuf//:protobuf",
-    )
-
-    native.bind(
-        name = "protobuf_clib",
-        actual = "@com_google_protobuf//:protoc_lib",
-    )
-
-    native.bind(
-        name = "protobuf_headers",
-        actual = "@com_google_protobuf//:protobuf_headers",
-    )
-
-    native.bind(
-        name = "re2",
-        actual = "@com_google_re2//:re2",
-    )
-
-    native.bind(
-        name = "cares",
-        actual = "@com_github_cares_cares//:ares",
-    )
+    # These exist to be used by grpc_build_system.bzl
+    "benchmark": "@com_google_benchmark//:benchmark",
+    "gtest": "@com_google_googletest//:gtest",
+    "libcrypto": "@com_google_boringssl//:crypto",
+    "libssl": "@com_google_boringssl//:ssl",
+    "libuv": "@com_github_libuv_libuv//:libuv",
+    "libuv_test": "@com_github_libuv_libuv//:libuv_test",
+    "madler_zlib": "@net_zlib//:zlib",
+    "re2": "@com_google_re2//:re2",
+}

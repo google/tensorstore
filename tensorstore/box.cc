@@ -19,14 +19,15 @@
 
 #include "absl/status/status.h"
 #include "tensorstore/serialization/serialization.h"
-#include "tensorstore/serialization/span.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/serialization/span.h"  // IWYU pragma: keep
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_box {
 
 std::string DescribeForCast(DimensionIndex rank) {
-  return StrCat("box with ", StaticCastTraits<DimensionIndex>::Describe(rank));
+  return tensorstore::StrCat("box with ",
+                             StaticCastTraits<DimensionIndex>::Describe(rank));
 }
 
 std::ostream& PrintToOstream(std::ostream& os, const BoxView<>& view) {

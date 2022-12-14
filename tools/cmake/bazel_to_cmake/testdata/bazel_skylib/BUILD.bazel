@@ -1,0 +1,62 @@
+load("@bazel_skylib//lib:selects.bzl", "selects")
+load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
+
+package(default_visibility = ["//visibility:public"])
+
+# NOTE: The rule labels, such as ":config_h" should work as well as
+# the rule outputs, I think.
+
+write_file(
+    name = "config_h",
+    out = "config.h",
+    content = ["// config.h"],
+    newline = select({
+        ":any_os": "unix",
+        "//conditions:default": "unix",
+    }),
+)
+
+expand_template(
+    name = "config2_h",
+    out = "config2.h",
+    substitutions = {},
+    template = "config.h",
+)
+
+copy_file(
+    name = "config_copy_rule",
+    src = select({
+        ":any_os": "config2.h",
+        "//conditions:default": "config2.h",
+    }),
+    out = "config3.h",
+    allow_symlink = True,
+)
+
+# Config settings
+
+config_setting(
+    name = "linux",
+    constraint_values = ["@platforms//os:linux"],
+)
+
+config_setting(
+    name = "macos",
+    constraint_values = ["@platforms//os:macos"],
+)
+
+config_setting(
+    name = "windows",
+    constraint_values = ["@platforms//os:windows"],
+)
+
+selects.config_setting_group(
+    name = "any_os",
+    match_any = [
+        ":windows",
+        ":macos",
+        ":linux",
+    ],
+)

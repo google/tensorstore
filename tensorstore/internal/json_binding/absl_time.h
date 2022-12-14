@@ -58,14 +58,15 @@ constexpr inline auto DurationBinder = [](auto is_loading, const auto& options,
                                           auto* obj,
                                           ::nlohmann::json* j) -> absl::Status {
   if constexpr (is_loading) {
-    if (!j->is_string()) {
-      return internal_json::ExpectedError(*j, "Duration formatted as a string");
+    if (j->is_string()) {
+      std::string error;
+      if (absl::ParseDuration(j->get_ref<std::string const&>(), obj)) {
+        return absl::OkStatus();
+      }
     }
-    std::string error;
-    if (absl::ParseDuration(j->get_ref<std::string const&>(), obj)) {
-      return absl::OkStatus();
-    }
-    return internal_json::ExpectedError(*j, "Duration formatted as a string");
+    return internal_json::ExpectedError(
+        *j,
+        R"(Duration formatted as a string using time units "ns", "us" "ms", "s", "m", or "h".)");
   } else {
     *j = absl::FormatDuration(*obj);
     return absl::OkStatus();

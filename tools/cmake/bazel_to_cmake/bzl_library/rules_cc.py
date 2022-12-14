@@ -15,22 +15,23 @@
 
 # pylint: disable=relative-beyond-top-level,missing-class-docstring
 
-from .. import native_rules
-from ..evaluation import BazelGlobals
-from ..evaluation import register_bzl_library
+from .. import native_rules_cc
+from .. import native_rules_proto
+from ..starlark.bazel_globals import BazelGlobals
+from ..starlark.bazel_globals import register_bzl_library
 
 
 @register_bzl_library("@rules_cc//cc:defs.bzl", build=True)
 class RulesCcDefsLibrary(BazelGlobals):
 
   def bazel_cc_library(self, **kwargs):
-    return native_rules.cc_library(self._context, **kwargs)
+    return native_rules_cc.cc_library(self._context, **kwargs)
 
   def bazel_cc_binary(self, **kwargs):
-    return native_rules.cc_binary(self._context, **kwargs)
+    return native_rules_cc.cc_binary(self._context, **kwargs)
 
   def bazel_cc_test(self, **kwargs):
-    return native_rules.cc_test(self._context, **kwargs)
+    return native_rules_cc.cc_test(self._context, **kwargs)
 
   def bazel_cc_proto_library(self, **kwargs):
-    return native_rules.cc_proto_library(self._context, **kwargs)
+    return native_rules_proto.cc_proto_library(self._context, **kwargs)

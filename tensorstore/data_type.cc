@@ -20,14 +20,12 @@
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/data_type_conversion.h"
-#include "tensorstore/internal/exception_macros.h"
 #include "tensorstore/internal/json/value_as.h"
 #include "tensorstore/internal/preprocessor/defer.h"
 #include "tensorstore/internal/preprocessor/expand.h"
 #include "tensorstore/internal/utf8.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/division.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -97,7 +95,7 @@ std::shared_ptr<void> AllocateAndConstructShared<void>(
 
 std::string StaticCastTraits<DataType>::Describe(DataType dtype) {
   if (!dtype.valid()) return "dynamic data type";
-  return StrCat("data type of ", dtype);
+  return tensorstore::StrCat("data type of ", dtype);
 }
 
 namespace internal_data_type {
@@ -434,13 +432,13 @@ Result<DataTypeConversionLookupResult> GetDataTypeConverterOrError(
     if (!!(lookup_result.flags & DataTypeConversionFlags::kSupported)) {
       if (!!(required_flags & DataTypeConversionFlags::kSafeAndImplicit) &&
           !(lookup_result.flags & DataTypeConversionFlags::kSafeAndImplicit)) {
-        return absl::InvalidArgumentError(
-            StrCat("Explicit data type conversion required to convert ", from,
-                   " -> ", to));
+        return absl::InvalidArgumentError(tensorstore::StrCat(
+            "Explicit data type conversion required to convert ", from, " -> ",
+            to));
       }
     }
     return absl::InvalidArgumentError(
-        StrCat("Cannot convert ", from, " -> ", to));
+        tensorstore::StrCat("Cannot convert ", from, " -> ", to));
   }
   return lookup_result;
 }

@@ -90,6 +90,7 @@
 ///       }
 ///     };
 
+#include <optional>
 #include <type_traits>
 
 #include "absl/status/status.h"
@@ -168,6 +169,32 @@ struct ContextBindingTraits<Spec,
            spec_member),
        ...);
     });
+  }
+};
+
+/// Specialization of `ContextBindingTraits` for std::optional<T>.
+template <typename Spec>
+struct ContextBindingTraits<std::optional<Spec>> {
+  using BaseTraits = ContextBindingTraits<Spec>;
+
+  static absl::Status Bind(std::optional<Spec>& spec, const Context& context) {
+    if (spec.has_value()) {
+      TENSORSTORE_RETURN_IF_ERROR(BaseTraits::Bind(spec.value(), context));
+    }
+    return absl::OkStatus();
+  }
+
+  static void Unbind(std::optional<Spec>& spec,
+                     const ContextSpecBuilder& builder) {
+    if (spec.has_value()) {
+      BaseTraits::Unbind(spec.value(), builder);
+    }
+  }
+
+  static void Strip(std::optional<Spec>& spec) {
+    if (spec.has_value()) {
+      BaseTraits::Strip(spec.value());
+    }
   }
 };
 

@@ -55,15 +55,15 @@ absl::Status ValidateAndIntersectBounds(BoxView<> inner,
     IndexIntervalRef outer_bounds = combined[dim];
     auto inner_bounds = inner[dim];
     if (!predicate(outer_bounds, inner_bounds)) {
-      StrAppend(&error, error.empty() ? "" : ", ", "in dimension ", dim,
-                " bounds ", inner_bounds, " vs. propagated bounds, ",
-                outer_bounds);
+      tensorstore::StrAppend(&error, error.empty() ? "" : ", ", "in dimension ",
+                             dim, " bounds ", inner_bounds,
+                             " vs. propagated bounds, ", outer_bounds);
     } else {
       outer_bounds = Intersect(outer_bounds, inner_bounds);
     }
   }
   if (!error.empty()) {
-    return absl::OutOfRangeError(StrCat(
+    return absl::OutOfRangeError(tensorstore::StrCat(
         "Propagated bounds are incompatible with existing bounds ", error));
   }
   return absl::OkStatus();

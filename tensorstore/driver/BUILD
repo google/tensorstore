@@ -1,4 +1,4 @@
-load("//tensorstore:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
+load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
 load("//docs:doctest.bzl", "doctest_test")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 
@@ -198,6 +198,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:source_location",
         "//tensorstore/internal:test_util",
         "//tensorstore/util:status_testutil",
+        "//tensorstore/util:str_cat",
         "//tensorstore/util/execution:sync_flow_sender",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/algorithm:container",
@@ -266,8 +267,8 @@ tensorstore_cc_library(
         "//tensorstore/serialization:absl_time",
         "//tensorstore/util:future",
         "//tensorstore/util:iterate_over_index_range",
-        "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
+        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/container:fixed_array",
         "@com_google_absl//absl/container:inlined_vector",
         "@com_google_absl//absl/status",

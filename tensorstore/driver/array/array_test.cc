@@ -121,7 +121,7 @@ TEST(ArrayDriverTest, ReadDomainMismatch) {
       {/*.progress_function=*/[&read_progress](ReadProgress progress) {
         read_progress.push_back(progress);
       }});
-  EXPECT_THAT(GetStatus(future.result()),
+  EXPECT_THAT(future.result(),
               MatchesStatus(absl::StatusCode::kInvalidArgument, kMismatchRE));
   EXPECT_THAT(read_progress, ::testing::ElementsAre());
 }
@@ -149,9 +149,8 @@ TEST(ArrayDriverTest, ReadCopyTransformError) {
       }});
   // Error occurs due to the invalid index of 1 in the index array, which is
   // validated when copying from the ReadChunk to the target array.
-  EXPECT_THAT(GetStatus(future.result()),
-              MatchesStatus(absl::StatusCode::kOutOfRange,
-                            ".* is outside valid range .*"));
+  EXPECT_THAT(future.result(), MatchesStatus(absl::StatusCode::kOutOfRange,
+                                             ".* is outside valid range .*"));
   EXPECT_THAT(read_progress, ::testing::ElementsAre());
 }
 
@@ -173,8 +172,8 @@ TEST(ArrayDriverTest, Write) {
       {/*.progress_function=*/[&write_progress](WriteProgress progress) {
         write_progress.push_back(progress);
       }});
-  EXPECT_EQ(absl::OkStatus(), GetStatus(write_result.copy_future.result()));
-  EXPECT_EQ(absl::OkStatus(), GetStatus(write_result.commit_future.result()));
+  TENSORSTORE_EXPECT_OK(write_result.copy_future);
+  TENSORSTORE_EXPECT_OK(write_result.commit_future);
   EXPECT_EQ(tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 7, 8}}),
             array);
   EXPECT_THAT(write_progress, ::testing::ElementsAre(WriteProgress{2, 2, 0},
@@ -201,9 +200,9 @@ TEST(ArrayDriverTest, WriteDomainMismatch) {
       {/*.progress_function=*/[&write_progress](WriteProgress progress) {
         write_progress.push_back(progress);
       }});
-  EXPECT_THAT(GetStatus(write_result.copy_future.result()),
+  EXPECT_THAT(write_result.copy_future.result(),
               MatchesStatus(absl::StatusCode::kInvalidArgument, kMismatchRE));
-  EXPECT_THAT(GetStatus(write_result.commit_future.result()),
+  EXPECT_THAT(write_result.commit_future.result(),
               MatchesStatus(absl::StatusCode::kInvalidArgument, kMismatchRE));
   EXPECT_THAT(write_progress, ::testing::ElementsAre());
 }
@@ -235,8 +234,8 @@ TEST(ArrayDriverTest, Copy) {
       {/*.progress_function=*/[&progress](CopyProgress p) {
         progress.push_back(p);
       }});
-  EXPECT_EQ(absl::OkStatus(), GetStatus(write_result.copy_future.result()));
-  EXPECT_EQ(absl::OkStatus(), GetStatus(write_result.commit_future.result()));
+  TENSORSTORE_EXPECT_OK(write_result.copy_future);
+  TENSORSTORE_EXPECT_OK(write_result.commit_future);
   EXPECT_EQ(tensorstore::MakeOffsetArray<int>({1, 4}, {{7, 1, 3}, {7, 4, 6}}),
             array_b);
   EXPECT_THAT(progress, ::testing::ElementsAre(CopyProgress{4, 4, 0, 0},
@@ -264,10 +263,10 @@ TEST(ArrayDriverTest, CopyDomainMismatch) {
       {/*.progress_function=*/[&progress](CopyProgress p) {
         progress.push_back(p);
       }});
-  EXPECT_THAT(GetStatus(write_result.copy_future.result()),
+  EXPECT_THAT(write_result.copy_future,
               MatchesStatus(absl::StatusCode::kInvalidArgument, kMismatchRE));
-  EXPECT_EQ(GetStatus(write_result.copy_future.result()),
-            GetStatus(write_result.commit_future.result()));
+  EXPECT_EQ(write_result.copy_future.status(),
+            write_result.commit_future.status());
   EXPECT_THAT(progress, ::testing::ElementsAre());
 }
 
@@ -324,7 +323,7 @@ TEST(FromArrayTest, ReadBroadcast) {
   auto store = tensorstore::FromArray(context, array).value();
   auto dest_array = tensorstore::AllocateArray<int>({2, 2, 3});
   auto future = Read(store, dest_array);
-  EXPECT_EQ(absl::OkStatus(), GetStatus(future.result()));
+  TENSORSTORE_EXPECT_OK(future);
   EXPECT_EQ(tensorstore::MakeArray<int>(
                 {{{1, 2, 3}, {4, 5, 6}}, {{1, 2, 3}, {4, 5, 6}}}),
             dest_array);
@@ -342,7 +341,7 @@ TEST(FromArrayTest, ReadAlignByLabel) {
   tensorstore::Future<void> future =
       Read(ChainResult(store, tensorstore::AllDims().Label("x", "y")),
            ChainResult(dest_array, tensorstore::AllDims().Label("y", "x")));
-  EXPECT_EQ(absl::OkStatus(), GetStatus(future.result()));
+  TENSORSTORE_EXPECT_OK(future);
   EXPECT_EQ(tensorstore::MakeArray<int>({{1, 4}, {2, 5}, {3, 6}}), dest_array);
 }
 
@@ -358,7 +357,7 @@ TEST(FromArrayTest, ReadIntoNewArray) {
           ReadProgressFunction{[&read_progress](ReadProgress progress) {
             read_progress.push_back(progress);
           }}});
-  EXPECT_EQ(absl::OkStatus(), GetStatus(future.result()));
+  TENSORSTORE_EXPECT_OK(future);
   auto read_array = future.value();
   EXPECT_EQ(array, read_array);
   EXPECT_THAT(read_progress, ::testing::ElementsAre(ReadProgress{6, 6}));
@@ -379,7 +378,7 @@ TEST(FromArrayTest, ReadDomainMismatch) {
            ReadProgressFunction{[&read_progress](ReadProgress progress) {
              read_progress.push_back(progress);
            }});
-  EXPECT_THAT(GetStatus(future.result()),
+  EXPECT_THAT(future.result(),
               MatchesStatus(absl::StatusCode::kInvalidArgument, kMismatchRE));
   EXPECT_THAT(read_progress, ::testing::ElementsAre());
 }
@@ -398,9 +397,8 @@ TEST(FromArrayTest, ReadCopyTransformError) {
       ReadProgressFunction{[&read_progress](ReadProgress progress) {
         read_progress.push_back(progress);
       }});
-  EXPECT_THAT(
-      GetStatus(future.result()),
-      MatchesStatus(absl::StatusCode::kOutOfRange, kOutsideValidRangeRE));
+  EXPECT_THAT(future.result(), MatchesStatus(absl::StatusCode::kOutOfRange,
+                                             kOutsideValidRangeRE));
   EXPECT_THAT(read_progress, ::testing::ElementsAre());
 }
 
@@ -416,8 +414,8 @@ TEST(FromArrayTest, Write) {
       WriteProgressFunction{[&write_progress](WriteProgress progress) {
         write_progress.push_back(progress);
       }});
-  EXPECT_EQ(absl::OkStatus(), GetStatus(write_result.copy_future.result()));
-  EXPECT_EQ(absl::OkStatus(), GetStatus(write_result.commit_future.result()));
+  TENSORSTORE_EXPECT_OK(write_result.copy_future);
+  TENSORSTORE_EXPECT_OK(write_result.commit_future);
   EXPECT_EQ(tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 7, 8}}),
             array);
   EXPECT_THAT(write_progress, ::testing::ElementsAre(WriteProgress{2, 2, 0},
@@ -433,8 +431,8 @@ TEST(FromArrayTest, WriteBroadcast) {
       tensorstore::MakeScalarArray<int>(42),
       ChainResult(store,
                   tensorstore::Dims(0, 1).SizedInterval({2, 3}, {1, 2})));
-  EXPECT_EQ(absl::OkStatus(), GetStatus(write_result.copy_future.result()));
-  EXPECT_EQ(absl::OkStatus(), GetStatus(write_result.commit_future.result()));
+  TENSORSTORE_EXPECT_OK(write_result.copy_future);
+  TENSORSTORE_EXPECT_OK(write_result.commit_future);
   EXPECT_EQ(tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 42, 42}}),
             array);
 }
@@ -453,9 +451,9 @@ TEST(FromArrayTest, WriteDomainMismatch) {
       WriteProgressFunction{[&write_progress](WriteProgress progress) {
         write_progress.push_back(progress);
       }});
-  EXPECT_THAT(GetStatus(write_result.copy_future.result()),
+  EXPECT_THAT(write_result.copy_future.result(),
               MatchesStatus(absl::StatusCode::kInvalidArgument, kMismatchRE));
-  EXPECT_THAT(GetStatus(write_result.commit_future.result()),
+  EXPECT_THAT(write_result.commit_future.result(),
               MatchesStatus(absl::StatusCode::kInvalidArgument, kMismatchRE));
   EXPECT_THAT(write_progress, ::testing::ElementsAre());
 }
@@ -476,8 +474,8 @@ TEST(FromArrayTest, Copy) {
                                {1, 5}, {2, 2})),
       CopyProgressFunction{
           [&progress](CopyProgress p) { progress.push_back(p); }});
-  EXPECT_EQ(absl::OkStatus(), GetStatus(write_result.copy_future.result()));
-  EXPECT_EQ(absl::OkStatus(), GetStatus(write_result.commit_future.result()));
+  TENSORSTORE_EXPECT_OK(write_result.copy_future);
+  TENSORSTORE_EXPECT_OK(write_result.commit_future);
   EXPECT_EQ(tensorstore::MakeOffsetArray<int>({1, 4}, {{7, 1, 3}, {7, 4, 6}}),
             array_b);
   EXPECT_THAT(progress, ::testing::ElementsAre(CopyProgress{4, 4, 0, 0},
@@ -498,8 +496,8 @@ TEST(FromArrayTest, CopyBroadcast) {
                   tensorstore::Dims(0).IndexSlice(1)),
       ChainResult(store_b,
                   tensorstore::Dims(0, 1).SizedInterval({1, 5}, {2, 2})));
-  EXPECT_EQ(absl::OkStatus(), GetStatus(write_result.copy_future.result()));
-  EXPECT_EQ(absl::OkStatus(), GetStatus(write_result.commit_future.result()));
+  TENSORSTORE_EXPECT_OK(write_result.copy_future);
+  TENSORSTORE_EXPECT_OK(write_result.commit_future);
   EXPECT_EQ(tensorstore::MakeOffsetArray<int>({1, 4}, {{7, 1, 3}, {7, 1, 3}}),
             array_b);
 }
@@ -517,10 +515,10 @@ TEST(FromArrayTest, CopyDomainMismatch) {
       store_a, store_b, CopyProgressFunction{[&progress](CopyProgress p) {
         progress.push_back(p);
       }});
-  EXPECT_THAT(GetStatus(write_result.copy_future.result()),
+  EXPECT_THAT(write_result.copy_future.result(),
               MatchesStatus(absl::StatusCode::kInvalidArgument, kMismatchRE));
-  EXPECT_EQ(GetStatus(write_result.copy_future.result()),
-            GetStatus(write_result.commit_future.result()));
+  EXPECT_EQ(write_result.copy_future.status(),
+            write_result.commit_future.status());
   EXPECT_THAT(progress, ::testing::ElementsAre());
 }
 
@@ -528,10 +526,8 @@ TEST(FromArrayTest, ReadDataTypeConversion) {
   auto context = Context::Default();
   auto source = tensorstore::MakeArray<std::int32_t>({1, 2, 3});
   auto dest = tensorstore::AllocateArray<std::int64_t>({3});
-  EXPECT_EQ(
-      absl::OkStatus(),
-      GetStatus(tensorstore::Read(tensorstore::FromArray(context, source), dest)
-                    .result()));
+  TENSORSTORE_EXPECT_OK(
+      tensorstore::Read(tensorstore::FromArray(context, source), dest));
   EXPECT_EQ(dest, tensorstore::MakeArray<std::int64_t>({1, 2, 3}));
 }
 
@@ -552,10 +548,8 @@ TEST(FromArrayTest, WriteDataTypeConversion) {
   auto context = Context::Default();
   auto source = tensorstore::MakeArray<std::int32_t>({1, 2, 3});
   auto dest = tensorstore::AllocateArray<std::int64_t>({3});
-  EXPECT_EQ(absl::OkStatus(),
-            GetStatus(tensorstore::Write(source,
-                                         tensorstore::FromArray(context, dest))
-                          .commit_future.result()));
+  TENSORSTORE_EXPECT_OK(
+      tensorstore::Write(source, tensorstore::FromArray(context, dest)));
   EXPECT_EQ(dest, tensorstore::MakeArray<std::int64_t>({1, 2, 3}));
 }
 
@@ -577,10 +571,9 @@ TEST(FromArrayTest, CopyDataTypeConversion) {
   auto context = Context::Default();
   auto source = tensorstore::MakeArray<std::int32_t>({1, 2, 3});
   auto dest = tensorstore::AllocateArray<std::int64_t>({3});
-  EXPECT_EQ(absl::OkStatus(),
-            GetStatus(tensorstore::Copy(tensorstore::FromArray(context, source),
-                                        tensorstore::FromArray(context, dest))
-                          .commit_future.result()));
+  TENSORSTORE_EXPECT_OK(
+      tensorstore::Copy(tensorstore::FromArray(context, source),
+                        tensorstore::FromArray(context, dest)));
   EXPECT_EQ(dest, tensorstore::MakeArray<std::int64_t>({1, 2, 3}));
 }
 

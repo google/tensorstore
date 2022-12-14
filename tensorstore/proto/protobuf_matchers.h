@@ -193,16 +193,16 @@
 #include <string>   // NOLINT
 #include <vector>   // NOLINT
 
+#include <gmock/gmock.h>
+#include "absl/strings/string_view.h"
+#include "google/protobuf/descriptor.h"
 #include "google/protobuf/io/zero_copy_stream.h"
 #include "google/protobuf/io/zero_copy_stream_impl.h"
 #include "google/protobuf/io/zero_copy_stream_impl_lite.h"
-#include "google/protobuf/descriptor.h"
 #include "google/protobuf/message.h"
 #include "google/protobuf/text_format.h"
 #include "google/protobuf/util/field_comparator.h"
 #include "google/protobuf/util/message_differencer.h"
-#include <gmock/gmock.h>
-#include "absl/strings/string_view.h"
 #include "tensorstore/internal/logging.h"
 #include "tensorstore/util/assert_macros.h"
 

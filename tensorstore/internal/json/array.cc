@@ -166,15 +166,15 @@ Result<SharedArray<void>> JsonParseNestedArrayImpl(
       // The new element is not an array: handle leaf case.
       if (!array.data()) allocate_array();
       if (path.size() != static_cast<std::size_t>(array.rank())) {
-        return absl::InvalidArgumentError(StrCat(
+        return absl::InvalidArgumentError(tensorstore::StrCat(
             "Expected rank-", shape_or_position.size(),
             " array, but found non-array element ", j->dump(), " at position ",
             span(shape_or_position.data(), path.size()), "."));
       }
       TENSORSTORE_RETURN_IF_ERROR(
           decode_element(*j, pointer.get()),
-          MaybeAnnotateStatus(_,
-                              StrCat("Error parsing array element at position ",
+          MaybeAnnotateStatus(
+              _, tensorstore::StrCat("Error parsing array element at position ",
                                      span(shape_or_position))));
       pointer += byte_stride;
     } else {
@@ -193,15 +193,15 @@ Result<SharedArray<void>> JsonParseNestedArrayImpl(
           return array;
         }
       } else if (path.size() > static_cast<size_t>(array.rank())) {
-        return absl::InvalidArgumentError(StrCat(
+        return absl::InvalidArgumentError(tensorstore::StrCat(
             "Expected rank-", array.rank(), " array, but found array element ",
             j->dump(), " at position ", span(shape_or_position), "."));
       } else if (array.shape()[path.size() - 1] != size) {
-        return absl::InvalidArgumentError(
-            StrCat("Expected array of shape ", array.shape(),
-                   ", but found array element ", j->dump(), " of length ", size,
-                   " at position ",
-                   span(shape_or_position.data(), path.size() - 1), "."));
+        return absl::InvalidArgumentError(tensorstore::StrCat(
+            "Expected array of shape ", array.shape(),
+            ", but found array element ", j->dump(), " of length ", size,
+            " at position ", span(shape_or_position.data(), path.size() - 1),
+            "."));
       }
 
       // Process first element of the array.
@@ -237,8 +237,8 @@ Result<SharedArray<void>> JsonParseNestedArrayImpl(
 Result<::nlohmann::json> JsonEncodeNestedArray(ArrayView<const void> array) {
   auto convert = internal::GetDataTypeConverter(array.dtype(), dtype_v<json_t>);
   if (!(convert.flags & DataTypeConversionFlags::kSupported)) {
-    return absl::InvalidArgumentError(StrCat("Conversion from ", array.dtype(),
-                                             " to JSON is not implemented"));
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Conversion from ", array.dtype(), " to JSON is not implemented"));
   }
   bool error = false;
   absl::Status status;
@@ -270,8 +270,8 @@ Result<SharedArray<void>> JsonParseNestedArray(const ::nlohmann::json& j,
                                                DimensionIndex rank_constraint) {
   auto convert = internal::GetDataTypeConverter(dtype_v<json_t>, dtype);
   if (!(convert.flags & DataTypeConversionFlags::kSupported)) {
-    return absl::InvalidArgumentError(
-        StrCat("Conversion from JSON to ", dtype, " is not implemented"));
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Conversion from JSON to ", dtype, " is not implemented"));
   }
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto array,

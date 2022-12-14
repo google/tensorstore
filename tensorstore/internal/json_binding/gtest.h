@@ -49,7 +49,8 @@ void TestJsonBinderRoundTrip(
     ToJsonOptions to_json_options = IncludeDefaults{false},
     FromJsonOptions from_json_options = {}) {
   for (const auto& [value, j] : round_trips) {
-    SCOPED_TRACE(StrCat("value=", ::testing::PrintToString(value), ", j=", j));
+    SCOPED_TRACE(tensorstore::StrCat("value=", ::testing::PrintToString(value),
+                                     ", j=", j));
     EXPECT_THAT(internal_json_binding::ToJson(value, binder, to_json_options),
                 ::testing::Optional(MatchesJson(j)));
     EXPECT_THAT(
@@ -78,7 +79,7 @@ void TestJsonBinderRoundTripJsonOnly(
     ToJsonOptions to_json_options = IncludeDefaults{false},
     FromJsonOptions from_json_options = {}) {
   for (const auto& j : round_trips) {
-    SCOPED_TRACE(StrCat("j=", j));
+    SCOPED_TRACE(tensorstore::StrCat("j=", j));
     auto result =
         internal_json_binding::FromJson<T>(j, binder, from_json_options);
     TENSORSTORE_EXPECT_OK(result) << "FromJson";
@@ -107,7 +108,7 @@ void TestJsonBinderRoundTripJsonOnlyInexact(
     ToJsonOptions to_json_options = IncludeDefaults{false},
     FromJsonOptions from_json_options = {}) {
   for (const auto& [a, b] : round_trips) {
-    SCOPED_TRACE(StrCat("a=", a, ", b=", b));
+    SCOPED_TRACE(tensorstore::StrCat("a=", a, ", b=", b));
     auto a_result =
         internal_json_binding::FromJson<T>(a, binder, from_json_options);
     TENSORSTORE_EXPECT_OK(a_result) << "FromJson: a=" << a;
@@ -142,7 +143,7 @@ void TestJsonBinderToJson(
     Binder binder = internal_json_binding::DefaultBinder<>,
     ToJsonOptions to_json_options = IncludeDefaults{false}) {
   for (const auto& [value, matcher] : to_json_cases) {
-    SCOPED_TRACE(StrCat("value=", value));
+    SCOPED_TRACE(tensorstore::StrCat("value=", value));
     EXPECT_THAT(internal_json_binding::ToJson(value, binder, to_json_options),
                 matcher);
   }

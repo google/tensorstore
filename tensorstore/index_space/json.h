@@ -143,6 +143,7 @@
 #include "tensorstore/internal/json_binding/std_array.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 
@@ -269,10 +270,10 @@ constexpr auto BoundsBinder() {
       }
       // Uses the same format as internal_json::ExpectedError
       return absl::InvalidArgumentError(
-          StrCat("Expected 64-bit signed integer",
-                 kNegInfinity != 0 ? " or \"-inf\"" : "",
-                 kPosInfinity != 0 ? " or \"+inf\"" : "",
-                 ", but received: ", j->dump()));
+          tensorstore::StrCat("Expected 64-bit signed integer",
+                              kNegInfinity != 0 ? " or \"-inf\"" : "",
+                              kPosInfinity != 0 ? " or \"+inf\"" : "",
+                              ", but received: ", j->dump()));
     } else {
       if (kNegInfinity != 0 && *obj == kNegInfinity) {
         *j = "-inf";

@@ -77,10 +77,10 @@ TEST(WriteTest, ChunkError) {
       {/*.progress_function=*/[&write_progress](WriteProgress progress) {
         write_progress.push_back(progress);
       }});
-  EXPECT_THAT(GetStatus(write_result.copy_future.result()),
+  EXPECT_THAT(write_result.copy_future.result(),
               MatchesStatus(absl::StatusCode::kUnknown, "Chunk error"));
-  EXPECT_EQ(GetStatus(write_result.copy_future.result()),
-            GetStatus(write_result.commit_future.result()));
+  EXPECT_EQ(write_result.copy_future.status(),
+            write_result.commit_future.status());
 }
 
 }  // namespace

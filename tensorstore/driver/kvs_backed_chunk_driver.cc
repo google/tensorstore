@@ -28,7 +28,7 @@
 #include "tensorstore/internal/unowned_to_shared.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/util/iterate_over_index_range.h"
-#include "tensorstore/util/quote_string.h"
+#include "tensorstore/util/str_cat.h"
 
 #ifdef TENSORSTORE_KVS_DRIVER_DEBUG
 #define TENSORSTORE_KVS_DRIVER_DEBUG_LOG(...) TENSORSTORE_LOG(__VA_ARGS__)
@@ -126,18 +126,18 @@ absl::Status ShapeConstraintError(DimensionIndex output_dim,
                                   DimensionIndex affected_exclusive_max) {
   assert(affected_inclusive_min != affected_exclusive_max);
   if (affected_inclusive_min < affected_exclusive_max) {
-    return absl::FailedPreconditionError(
-        StrCat("Resize operation would also affect output dimension ",
-               output_dim, " over the interval ",
-               IndexInterval::UncheckedHalfOpen(affected_inclusive_min,
-                                                affected_exclusive_max),
-               " but `resize_tied_bounds` was not specified"));
+    return absl::FailedPreconditionError(tensorstore::StrCat(
+        "Resize operation would also affect output dimension ", output_dim,
+        " over the interval ",
+        IndexInterval::UncheckedHalfOpen(affected_inclusive_min,
+                                         affected_exclusive_max),
+        " but `resize_tied_bounds` was not specified"));
   }
-  return absl::FailedPreconditionError(
-      StrCat("Resize operation would also affect output dimension ", output_dim,
-             " over the out-of-bounds interval ",
-             IndexInterval::UncheckedHalfOpen(affected_exclusive_max,
-                                              affected_inclusive_min)));
+  return absl::FailedPreconditionError(tensorstore::StrCat(
+      "Resize operation would also affect output dimension ", output_dim,
+      " over the out-of-bounds interval ",
+      IndexInterval::UncheckedHalfOpen(affected_exclusive_max,
+                                       affected_inclusive_min)));
 }
 
 IndexInterval GetNewIndexInterval(IndexInterval existing,
@@ -213,15 +213,15 @@ absl::Status ValidateExpandShrinkConstraints(
         cur_interval, new_inclusive_min[i], new_exclusive_max[i]);
     if (shrink_only && !Contains(cur_interval, new_interval)) {
       return absl::FailedPreconditionError(
-          StrCat("Resize operation would expand output dimension ", i, " from ",
-                 cur_interval, " to ", new_interval,
-                 " but `shrink_only` was specified"));
+          tensorstore::StrCat("Resize operation would expand output dimension ",
+                              i, " from ", cur_interval, " to ", new_interval,
+                              " but `shrink_only` was specified"));
     }
     if (expand_only && !Contains(new_interval, cur_interval)) {
       return absl::FailedPreconditionError(
-          StrCat("Resize operation would shrink output dimension ", i, " from ",
-                 cur_interval, " to ", new_interval,
-                 " but `expand_only` was specified"));
+          tensorstore::StrCat("Resize operation would shrink output dimension ",
+                              i, " from ", cur_interval, " to ", new_interval,
+                              " but `expand_only` was specified"));
     }
   }
   return absl::OkStatus();
@@ -817,7 +817,7 @@ struct HandleWroteMetadata {
     auto& base = *(PrivateOpenState*)state.get();  // Cast to private base
     auto& result = future.result();
     TENSORSTORE_KVS_DRIVER_DEBUG_LOG("HandleWroteMetadata: state=", state.get(),
-                                     ", status=", GetStatus(result));
+                                     ", status=", result.status());
     if (!result) {
       // Creation of new array metadata failed.
       if (result.status().code() != absl::StatusCode::kAlreadyExists ||
@@ -1333,10 +1333,10 @@ Result<ResizeParameters> GetResizeParameters(
       }
       const Index new_inclusive_min = new_output_inclusive_min[output_dim];
       if (!ImplicitOrEqual(new_inclusive_min, dim_bounds.inclusive_min())) {
-        return absl::FailedPreconditionError(
-            StrCat("Cannot change inclusive lower bound of output dimension ",
-                   output_dim, ", which is fixed at ",
-                   dim_bounds.inclusive_min(), ", to ", new_inclusive_min));
+        return absl::FailedPreconditionError(tensorstore::StrCat(
+            "Cannot change inclusive lower bound of output dimension ",
+            output_dim, ", which is fixed at ", dim_bounds.inclusive_min(),
+            ", to ", new_inclusive_min));
       }
     }
     if (!base_implicit_upper_bounds[output_dim]) {
@@ -1347,10 +1347,10 @@ Result<ResizeParameters> GetResizeParameters(
       }
       const Index new_exclusive_max = new_output_exclusive_max[output_dim];
       if (!ImplicitOrEqual(new_exclusive_max, dim_bounds.exclusive_max())) {
-        return absl::FailedPreconditionError(
-            StrCat("Cannot change exclusive upper bound of output dimension ",
-                   output_dim, ", which is fixed at ",
-                   dim_bounds.exclusive_max(), ", to ", new_exclusive_max));
+        return absl::FailedPreconditionError(tensorstore::StrCat(
+            "Cannot change exclusive upper bound of output dimension ",
+            output_dim, ", which is fixed at ", dim_bounds.exclusive_max(),
+            ", to ", new_exclusive_max));
       }
     }
     if (transaction_mode == TransactionMode::atomic_isolated &&

@@ -23,7 +23,7 @@
 #include "tensorstore/internal/path.h"
 #include "tensorstore/kvstore/neuroglancer_uint64_sharded/murmurhash3.h"
 #include "tensorstore/util/division.h"
-#include "tensorstore/util/quote_string.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace neuroglancer_uint64_sharded {
@@ -182,7 +182,7 @@ Result<ByteRange> GetAbsoluteShardByteRange(ByteRange relative_range,
                             &result.inclusive_min) ||
       internal::AddOverflow(relative_range.exclusive_max, offset,
                             &result.exclusive_max)) {
-    return absl::FailedPreconditionError(StrCat(
+    return absl::FailedPreconditionError(tensorstore::StrCat(
         "Byte range ", relative_range,
         " relative to the end of the shard index (", offset, ") is not valid"));
   }

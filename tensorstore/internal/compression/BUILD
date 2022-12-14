@@ -1,4 +1,4 @@
-load("//tensorstore:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
+load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
 
 package(
     default_visibility = ["//tensorstore:internal_packages"],
@@ -27,6 +27,7 @@ tensorstore_cc_library(
         ":json_specified_compressor",
         "//tensorstore/internal/json_binding",
         "//tensorstore/util:quote_string",
+        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/status",
         "@org_blosc_cblosc//:blosc",
     ],

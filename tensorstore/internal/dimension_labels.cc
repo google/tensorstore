@@ -44,7 +44,7 @@ absl::Status ValidateDimensionLabelsAreUnique(span<const std::string> labels) {
   }
   if (!error.empty()) {
     return absl::InvalidArgumentError(
-        StrCat("Dimension label(s) ", error, " not unique"));
+        tensorstore::StrCat("Dimension label(s) ", error, " not unique"));
   }
 
   return absl::OkStatus();

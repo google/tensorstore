@@ -232,14 +232,14 @@ std::string IndexingSpecRepr(const NumpyIndexingSpec& self) {
     if (i != 0) r += ",";
     const auto& term = self.terms[i];
     if (auto* index = std::get_if<Index>(&term)) {
-      StrAppend(&r, *index);
+      tensorstore::StrAppend(&r, *index);
       continue;
     }
     if (auto* s = std::get_if<NumpyIndexingSpec::Slice>(&term)) {
-      if (s->start != kImplicit) StrAppend(&r, s->start);
+      if (s->start != kImplicit) tensorstore::StrAppend(&r, s->start);
       r += ':';
-      if (s->stop != kImplicit) StrAppend(&r, s->stop);
-      if (s->step != 1) StrAppend(&r, ":", s->step);
+      if (s->stop != kImplicit) tensorstore::StrAppend(&r, s->stop);
+      if (s->step != 1) tensorstore::StrAppend(&r, ":", s->step);
       continue;
     }
     if (std::holds_alternative<NumpyIndexingSpec::NewAxis>(term)) {

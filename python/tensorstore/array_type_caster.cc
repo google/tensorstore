@@ -37,7 +37,6 @@
 #include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -227,8 +226,8 @@ void AssignArrayLayout(pybind11::array array_obj, DimensionIndex rank,
   std::copy_n(array_obj.shape(), rank, shape);
   for (DimensionIndex i = 0; i < rank; ++i) {
     if (shape[i] < 0 || shape[i] > kMaxFiniteIndex) {
-      throw std::out_of_range(
-          StrCat("Array shape[", i, "]=", shape[i], " is not valid"));
+      throw std::out_of_range(tensorstore::StrCat(
+          "Array shape[", i, "]=", shape[i], " is not valid"));
     }
   }
   std::copy_n(array_obj.strides(), rank, byte_strides);
@@ -237,9 +236,9 @@ void AssignArrayLayout(pybind11::array array_obj, DimensionIndex rank,
 pybind11::object GetNumpyArrayImpl(SharedArrayView<const void> value,
                                    bool is_const) {
   if (value.rank() > NPY_MAXDIMS) {
-    throw std::out_of_range(StrCat("Array of rank ", value.rank(),
-                                   " (which is greater than ", NPY_MAXDIMS,
-                                   ") cannot be converted to NumPy array"));
+    throw std::out_of_range(tensorstore::StrCat(
+        "Array of rank ", value.rank(), " (which is greater than ", NPY_MAXDIMS,
+        ") cannot be converted to NumPy array"));
   }
   if (const DataTypeId id = value.dtype().id();
       id != DataTypeId::custom &&
@@ -352,9 +351,9 @@ bool ConvertToArrayImpl(pybind11::handle src,
     if (max_rank == 0 && obj.ndim() != 0) {
       if (data_type_constraint != dtype_v<tensorstore::json_t>) {
         if (no_throw) return false;
-        throw pybind11::value_error(
-            StrCat("Expected array of rank 0, but received array of rank ",
-                   obj.ndim()));
+        throw pybind11::value_error(tensorstore::StrCat(
+            "Expected array of rank 0, but received array of rank ",
+            obj.ndim()));
       }
       // For json data type, the user may have specified a Python value like
       // `[1, 2, 3]` which is intended to be interpreted as a single JSON value

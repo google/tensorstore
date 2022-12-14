@@ -1,4 +1,4 @@
-load("//tensorstore:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
+load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
 
 package(default_visibility = [":__subpackages__"])
 
@@ -49,7 +49,6 @@ tensorstore_cc_library(
         "//tensorstore/util/execution",
         "//tensorstore/util/execution:any_receiver",
         "//tensorstore/util/garbage_collection",
-        "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/time",

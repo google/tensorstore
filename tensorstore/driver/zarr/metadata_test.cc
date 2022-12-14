@@ -67,18 +67,15 @@ void TestFillValueRoundTrip(
     const ::nlohmann::json& dtype, const ::nlohmann::json& encoded_fill_value,
     std::vector<tensorstore::SharedArray<const void>> fill_values,
     std::vector<tensorstore::ArrayMatcher> fill_values_matcher) {
-  auto parsed_dtype = ParseDType(dtype);
-  ASSERT_EQ(absl::OkStatus(), GetStatus(parsed_dtype))
-      << "dtype=" << dtype.dump();
+  SCOPED_TRACE(tensorstore::StrCat("dtype=", dtype.dump()));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto parsed_dtype, ParseDType(dtype));
   EXPECT_THAT(
-      ParseFillValue(encoded_fill_value, *parsed_dtype),
+      ParseFillValue(encoded_fill_value, parsed_dtype),
       ::testing::Optional(::testing::ElementsAreArray(fill_values_matcher)))
-      << "dtype=" << dtype.dump()
-      << ", encoded_fill_value=" << encoded_fill_value.dump()
+      << "encoded_fill_value=" << encoded_fill_value.dump()
       << ", fill_values=" << ::testing::PrintToString(fill_values);
-  EXPECT_EQ(encoded_fill_value, EncodeFillValue(*parsed_dtype, fill_values))
-      << "dtype=" << dtype.dump()
-      << ", encoded_fill_value=" << encoded_fill_value.dump()
+  EXPECT_EQ(encoded_fill_value, EncodeFillValue(parsed_dtype, fill_values))
+      << "encoded_fill_value=" << encoded_fill_value.dump()
       << ", fill_values=" << ::testing::PrintToString(fill_values);
 }
 

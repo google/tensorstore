@@ -27,16 +27,16 @@ using ::tensorstore::MatchesStatus;
 using ::tensorstore::internal_zarr::Compressor;
 
 TEST(ParseCompressorTest, Null) {
-  auto compressor_result = Compressor::FromJson(nullptr);
-  EXPECT_EQ(absl::OkStatus(), GetStatus(compressor_result));
-  EXPECT_EQ(nullptr, ::nlohmann::json(*compressor_result));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto compressor,
+                                   Compressor::FromJson(nullptr));
+  EXPECT_EQ(nullptr, ::nlohmann::json(compressor));
 }
 
 TEST(ParseCompressorTest, ZlibSuccess) {
-  auto compressor_result = Compressor::FromJson({{"id", "zlib"}, {"level", 5}});
-  EXPECT_EQ(absl::OkStatus(), GetStatus(compressor_result));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto compressor, Compressor::FromJson({{"id", "zlib"}, {"level", 5}}));
   EXPECT_EQ((::nlohmann::json{{"id", "zlib"}, {"level", 5}}),
-            ::nlohmann::json(*compressor_result));
+            ::nlohmann::json(compressor));
 }
 
 TEST(ParseCompressorTest, ZlibFailure) {

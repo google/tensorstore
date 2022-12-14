@@ -21,6 +21,7 @@
 #include "absl/status/status.h"
 #include "tensorstore/index_space/dimension_identifier.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_index_space {
@@ -248,9 +249,9 @@ Result<IndexTransform<>> ApplyTranspose(IndexTransform<> transform,
                                         bool domain_only) {
   if (static_cast<DimensionIndex>(dimensions->size()) !=
       transform.input_rank()) {
-    return absl::InvalidArgumentError(
-        StrCat("Number of dimensions (", dimensions->size(),
-               ") must equal input_rank (", transform.input_rank(), ")."));
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Number of dimensions (", dimensions->size(),
+        ") must equal input_rank (", transform.input_rank(), ")."));
   }
   TransformRep::Ptr<> rep =
       PermuteDims(TransformAccess::rep_ptr<container>(std::move(transform)),
@@ -266,10 +267,10 @@ Result<IndexTransform<>> ApplyTransposeTo(
   const DimensionIndex input_rank = transform.input_rank();
   if (static_cast<DimensionIndex>(dimensions->size()) !=
       target_dimensions.size()) {
-    return absl::InvalidArgumentError(
-        StrCat("Number of selected dimensions (", dimensions->size(),
-               ") must equal number of target dimensions (",
-               target_dimensions.size(), ")"));
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Number of selected dimensions (", dimensions->size(),
+        ") must equal number of target dimensions (", target_dimensions.size(),
+        ")"));
   }
   // Specifies whether a given existing dimension index occurs in `*dimensions`.
   absl::FixedArray<bool, internal::kNumInlinedDims> seen_existing_dim(
@@ -284,8 +285,8 @@ Result<IndexTransform<>> ApplyTransposeTo(
         const DimensionIndex target_dim,
         NormalizeDimensionIndex(target_dimensions[i], input_rank));
     if (permutation[target_dim] != -1) {
-      return absl::InvalidArgumentError(
-          StrCat("Target dimension ", target_dim, " occurs more than once"));
+      return absl::InvalidArgumentError(tensorstore::StrCat(
+          "Target dimension ", target_dim, " occurs more than once"));
     }
     seen_existing_dim[orig_dim] = true;
     permutation[target_dim] = orig_dim;

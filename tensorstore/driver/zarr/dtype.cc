@@ -17,6 +17,7 @@
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/util/extents.h"
 #include "tensorstore/util/quote_string.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_zarr {
@@ -37,14 +38,26 @@ Result<ZarrDType::BaseDType> ParseBaseDType(std::string_view dtype) {
     const char type_indicator = dtype[1];
     const std::string_view suffix = dtype.substr(2);
     endian endian_value;
+    switch (endian_indicator) {
+      case '<':
+        endian_value = endian::little;
+        break;
+      case '>':
+        endian_value = endian::big;
+        break;
+      case '|':
+        endian_value = endian::native;
+        break;
+      default:
+        goto error;
+    }
     switch (type_indicator) {
       case 'b':
         if (suffix != "1") goto error;
         ABSL_FALLTHROUGH_INTENDED;
       case 'S':
       case 'V':
-        // Single byte types must have endian indicator of '|'.
-        if (endian_indicator != '|') goto error;
+        // Single byte types ignore the endian indicator.
         endian_value = endian::native;
         break;
       case 'i':
@@ -55,19 +68,17 @@ Result<ZarrDType::BaseDType> ParseBaseDType(std::string_view dtype) {
           endian_value = endian::native;
           break;
         } else if (suffix == "1") {
-          goto error;
+          endian_value = endian::native;
+          break;
         }
+        // Fallthrough if size is greater than 1 byte.
         [[fallthrough]];
       case 'f':
       case 'c':
       case 'm':
       case 'M':
         // Endian indicator must be '<' or '>'.
-        if (endian_indicator == '<') {
-          endian_value = endian::little;
-        } else if (endian_indicator == '>') {
-          endian_value = endian::big;
-        } else {
+        if (endian_indicator == '|') {
           goto error;
         }
         break;
@@ -145,7 +156,7 @@ Result<ZarrDType::BaseDType> ParseBaseDType(std::string_view dtype) {
   }
 error:
   return absl::InvalidArgumentError(
-      StrCat("Unsupported zarr dtype: ", QuoteString(dtype)));
+      tensorstore::StrCat("Unsupported zarr dtype: ", QuoteString(dtype)));
 }
 
 namespace {
@@ -182,7 +193,7 @@ Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value) {
             x,
             [&](std::ptrdiff_t size) {
               if (size < 2 || size > 3) {
-                return absl::InvalidArgumentError(StrCat(
+                return absl::InvalidArgumentError(tensorstore::StrCat(
                     "Expected array of size 2 or 3, but received: ", x.dump()));
               }
               return absl::OkStatus();
@@ -193,7 +204,7 @@ Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value) {
                   if (internal_json::JsonRequireValueAs(v, &field.name).ok()) {
                     if (!field.name.empty()) return absl::OkStatus();
                   }
-                  return absl::InvalidArgumentError(StrCat(
+                  return absl::InvalidArgumentError(tensorstore::StrCat(
                       "Expected non-empty string, but received: ", v.dump()));
                 case 1: {
                   std::string dtype_string;
@@ -235,7 +246,7 @@ absl::Status ValidateDType(ZarrDType& dtype) {
     if (std::any_of(
             dtype.fields.begin(), dtype.fields.begin() + field_i,
             [&](const ZarrDType::Field& f) { return f.name == field.name; })) {
-      return absl::InvalidArgumentError(StrCat(
+      return absl::InvalidArgumentError(tensorstore::StrCat(
           "Field name ", QuoteString(field.name), " occurs more than once"));
     }
     field.field_shape.resize(field.flexible_shape.size() +
@@ -246,7 +257,7 @@ absl::Status ValidateDType(ZarrDType& dtype) {
 
     field.num_inner_elements = ProductOfExtents(span(field.field_shape));
     if (field.num_inner_elements == std::numeric_limits<Index>::max()) {
-      return absl::InvalidArgumentError(StrCat(
+      return absl::InvalidArgumentError(tensorstore::StrCat(
           "Product of dimensions ", span(field.field_shape), " is too large"));
     }
     if (internal::MulOverflow(field.num_inner_elements,

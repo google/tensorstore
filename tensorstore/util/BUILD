@@ -1,5 +1,5 @@
-load("//tensorstore:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
-load("//tensorstore:non_compile.bzl", "cc_with_non_compile_test")
+load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
+load("//bazel:non_compile.bzl", "cc_with_non_compile_test")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -323,6 +323,7 @@ tensorstore_cc_library(
     deps = [
         ":executor",
         ":result",
+        ":span",
         ":status",
         "//tensorstore/internal:attributes",
         "//tensorstore/internal:intrusive_linked_list",
@@ -646,6 +647,7 @@ tensorstore_cc_test(
     size = "small",
     srcs = ["str_cat_test.cc"],
     deps = [
+        ":span",
         ":str_cat",
         "@com_google_googletest//:gtest_main",
     ],

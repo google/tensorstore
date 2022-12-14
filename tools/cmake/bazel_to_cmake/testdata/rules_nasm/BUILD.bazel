@@ -1,0 +1,31 @@
+load("@com_google_tensorstore//bazel:rules_nasm.bzl", "nasm_library")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])
+
+NASM_FLAGS = [
+    "-w+all",
+    "-D__x86_64__",
+    "-felf64",
+    "-DELF",
+    "-DPIC",
+]
+
+nasm_library(
+    name = "asm_library",
+    srcs = [
+        "a.asm",
+    ],
+    flags = NASM_FLAGS,
+    includes = [
+        "include/b.inc",
+    ],
+)
+
+cc_library(
+    name = "a",
+    srcs = ["a.cc"],
+    hdrs = ["a.h"],
+    deps = [":asm_library"],
+)

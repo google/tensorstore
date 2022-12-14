@@ -241,7 +241,7 @@ TEST(IterateOverTransformedArrayTest, EarlyStoppingWithoutStatus) {
         return true;
       },
       /*constraints=*/{}, array_a, array_b);
-  ASSERT_EQ(absl::OkStatus(), GetStatus(result));
+  TENSORSTORE_ASSERT_OK(result);
   EXPECT_FALSE(result->success);
   EXPECT_EQ(2, result->count);
   EXPECT_EQ(MakeArray<float>({5, 6, 7, 9}), array_a);
@@ -267,7 +267,7 @@ TEST(IterateOverTransformedArrayTest, EarlyStoppingWithStatus) {
       },
       &status,
       /*constraints=*/{}, array_a, array_b);
-  ASSERT_EQ(absl::OkStatus(), GetStatus(result));
+  TENSORSTORE_ASSERT_OK(result);
   EXPECT_THAT(status, MatchesStatus(absl::StatusCode::kUnknown, "7 8"));
   EXPECT_FALSE(result->success);
   EXPECT_EQ(2, result->count);

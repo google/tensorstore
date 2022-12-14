@@ -22,22 +22,19 @@
 #include <utility>
 
 #include "absl/status/status.h"
-#include "absl/strings/str_cat.h"
 #include "absl/synchronization/mutex.h"
-#include "absl/time/clock.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/curl_handle.h"
-#include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/std_array.h"
 #include "tensorstore/internal/oauth2/oauth_utils.h"
 #include "tensorstore/internal/path.h"
-#include "tensorstore/internal/retry.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_oauth2 {
@@ -115,8 +112,8 @@ GceAuthProvider::GetDefaultServiceAccountInfoIfRunningOnGce(
   auto info_response = internal::ParseJson(response.payload.Flatten());
   if (info_response.is_discarded()) {
     return absl::InvalidArgumentError(
-        absl::StrCat("Failed to parse service account response: ",
-                     response.payload.Flatten()));
+        tensorstore::StrCat("Failed to parse service account response: ",
+                            response.payload.Flatten()));
   }
   return jb::FromJson<ServiceAccountInfo>(info_response,
                                           ServiceAccountInfoBinder);
@@ -127,8 +124,8 @@ absl::Status GceAuthProvider::Refresh() {
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto response,
       IssueRequest(
-          absl::StrCat("/computeMetadata/v1/instance/service-accounts/",
-                       service_account_email_, "/token"),
+          tensorstore::StrCat("/computeMetadata/v1/instance/service-accounts/",
+                              service_account_email_, "/token"),
           false));
   TENSORSTORE_RETURN_IF_ERROR(HttpResponseCodeToStatus(response));
   TENSORSTORE_ASSIGN_OR_RETURN(auto result, internal_oauth2::ParseOAuthResponse(

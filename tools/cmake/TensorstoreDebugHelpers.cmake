@@ -83,7 +83,7 @@ endfunction()
 # Get all propreties that cmake supports
 if(NOT CMAKE_PROPERTY_LIST)
     execute_process(COMMAND cmake --help-property-list OUTPUT_VARIABLE CMAKE_PROPERTY_LIST)
-    
+
     # Convert command output into a CMake list
     string(REGEX REPLACE ";" "\\\\;" CMAKE_PROPERTY_LIST "${CMAKE_PROPERTY_LIST}")
     string(REGEX REPLACE "\n" ";" CMAKE_PROPERTY_LIST "${CMAKE_PROPERTY_LIST}")
@@ -93,11 +93,13 @@ if(NOT CMAKE_PROPERTY_LIST)
 
     list(REMOVE_DUPLICATES CMAKE_PROPERTY_LIST)
 endif()
-    
+
+
 function(print_properties)
     message("CMAKE_PROPERTY_LIST = ${CMAKE_PROPERTY_LIST}")
 endfunction()
-    
+
+
 function(print_target_properties target)
     if(NOT TARGET ${target})
       message(STATUS "There is no target named '${target}'")
@@ -113,6 +115,7 @@ function(print_target_properties target)
         endif()
     endforeach()
 endfunction()
+
 
 function(print_source_properties source target)
     foreach(property ${CMAKE_PROPERTY_LIST})

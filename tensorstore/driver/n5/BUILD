@@ -1,6 +1,6 @@
 # N5 TensorStore driver
 
-load("//tensorstore:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
+load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
 load("//docs:doctest.bzl", "doctest_test")
 
 package(default_visibility = ["//visibility:public"])
@@ -218,6 +218,7 @@ tensorstore_cc_library(
         "//tensorstore/serialization:json",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
+        "//tensorstore/util:str_cat",
         "//tensorstore/util/garbage_collection",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/algorithm:container",
@@ -259,14 +260,12 @@ tensorstore_cc_library(
         "//tensorstore/driver",
         "//tensorstore/driver:kvs_backed_chunk_driver",
         "//tensorstore/index_space:index_transform",
-        "//tensorstore/internal:path",
         "//tensorstore/internal/cache:chunk_cache",
         "//tensorstore/internal/json_binding",
-        "//tensorstore/kvstore",
         "//tensorstore/util:constant_vector",
         "//tensorstore/util:future",
+        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
     ],
     alwayslink = 1,
 )

@@ -219,10 +219,10 @@ class Box : public internal_box::BoxStorage<Rank> {
  public:
   /// Compile-time rank, or `dynamic_rank` if the rank is specified at run time.
   constexpr static DimensionIndex static_rank =
-      RankConstraint::FromInlineRank(Rank);
+      (Rank < 0) ? dynamic_rank : Rank;
 
   /// Type that represents the static or dynamic rank.
-  using RankType = StaticOrDynamicRank<static_rank>;
+  using RankType = StaticOrDynamicRank<Rank>;
 
   /// Constructs a rank-0 box (if `static_rank == dynamic_rank`), or otherwise
   /// an unbounded box of rank `static_rank`.

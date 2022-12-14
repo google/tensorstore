@@ -33,6 +33,30 @@ allOf:
   required:
   - bucket
 definitions:
+  experimental_gcs_rate_limiter:
+    $id: Context.experimental_gcs_rate_limiter
+    description: >-
+      Experimental rate limiter configuration for Google Cloud Storage reads and
+      writes.
+    type: object
+    properties:
+      read_rate:
+        type: number
+        description: >-
+          The maximum rate or read and/or list calls issued per second.
+          See <https://cloud.google.com/storage/docs/request-rate#ramp-up>
+      write_rate:
+        type: number
+        description: >-
+          The maximum rate of write and/or delete calls issued per second.
+          See <https://cloud.google.com/storage/docs/request-rate#ramp-up>
+      doubling_time:
+        type: string
+        description:
+          The time interval over which the initial rates scale to 2x. The cases
+          where this setting is useful depend on details to the storage buckets.
+          See <https://cloud.google.com/storage/docs/request-rate#ramp-up>
+        default: "0"
   gcs_request_concurrency:
     $id: Context.gcs_request_concurrency
     description: >-

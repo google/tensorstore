@@ -17,15 +17,15 @@
 #include <algorithm>
 #include <string>
 
-#include "google/protobuf/io/tokenizer.h"
-#include "google/protobuf/descriptor.h"
-#include "google/protobuf/message.h"
-#include "google/protobuf/text_format.h"
-#include "google/protobuf/util/message_differencer.h"
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
+#include "google/protobuf/descriptor.h"
+#include "google/protobuf/io/tokenizer.h"
+#include "google/protobuf/message.h"
+#include "google/protobuf/text_format.h"
+#include "google/protobuf/util/message_differencer.h"
 #include "re2/re2.h"
 
 namespace protobuf_matchers {

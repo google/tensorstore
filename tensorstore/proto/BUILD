@@ -1,4 +1,4 @@
-load("//tensorstore:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_proto_library", "tensorstore_cc_test", "tensorstore_proto_library")
+load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_proto_library", "tensorstore_cc_test", "tensorstore_proto_library")
 
 package(default_visibility = ["//tensorstore:internal_packages"])
 
@@ -54,7 +54,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:unaligned_data_type_functions",
         "//tensorstore/util:dimension_set",
         "//tensorstore/util:result",
-        "//tensorstore/util:status",
+        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/status",
         "@com_google_riegeli//riegeli/bytes:string_reader",
         "@com_google_riegeli//riegeli/bytes:string_writer",
@@ -91,6 +91,7 @@ tensorstore_cc_library(
     hdrs = ["encode_time.h"],
     deps = [
         "//tensorstore/util:result",
+        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/time",
         "@com_google_protobuf//:protobuf",
     ],
@@ -117,16 +118,12 @@ tensorstore_cc_library(
         "//tensorstore:rank",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/internal:logging",
-        "//tensorstore/internal:type_traits",
         "//tensorstore/internal/json:array",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:dimension_indexed",
-        "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
         "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/container:fixed_array",
         "@com_google_absl//absl/container:flat_hash_set",
-        "@com_google_absl//absl/container:inlined_vector",
         "@com_google_absl//absl/status",
     ],
 )
@@ -222,7 +219,7 @@ tensorstore_cc_library(
     srcs = ["proto_util.cc"],
     hdrs = ["proto_util.h"],
     deps = [
-        "//tensorstore/internal:logging",
+        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/strings",
         "@com_google_protobuf//:protobuf",
     ],
@@ -248,13 +245,11 @@ tensorstore_cc_library(
         ":proto_util",
         "//tensorstore:json_serialization_options_base",
         "//tensorstore/internal:json_fwd",
-        "//tensorstore/internal:path",
         "//tensorstore/internal:type_traits",
         "//tensorstore/internal/json:value_as",
         "//tensorstore/internal/json_binding",
         "//tensorstore/util:str_cat",
         "@com_github_nlohmann_json//:nlohmann_json",
-        "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_protobuf//:protobuf",
     ],
@@ -272,5 +267,17 @@ tensorstore_cc_test(
         "//tensorstore/internal:json_fwd",
         "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "parse_text_proto_or_die",
+    hdrs = ["parse_text_proto_or_die.h"],
+    deps = [
+        ":proto_util",
+        "//tensorstore/internal:log_message",
+        "//tensorstore/internal:source_location",
+        "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/strings",
     ],
 )

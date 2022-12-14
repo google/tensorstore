@@ -25,10 +25,8 @@
 #include <vector>
 
 #include "absl/status/status.h"
-#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/types/optional.h"
-#include "riegeli/base/base.h"
 #include "riegeli/bytes/reader.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/image/image_info.h"
@@ -37,6 +35,7 @@
 #include "tensorstore/util/endian.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 
 // Include libpng last
 #include <png.h>
@@ -138,8 +137,8 @@ absl::Status PngReader::Context::Initialize() {
   assert(height < std::numeric_limits<int32_t>::max());
   // num_components is between [1,4] inclusive.
   if (bit_depth > 16) {
-    return absl::InvalidArgumentError(
-        absl::StrCat("Failed to decode PNG: bit_depth (", bit_depth, ")"));
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Failed to decode PNG: bit_depth (", bit_depth, ")"));
   }
   return absl::OkStatus();
 }

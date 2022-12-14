@@ -18,7 +18,7 @@
 #include "absl/status/status.h"
 #include "tensorstore/internal/compression/zlib.h"
 #include "tensorstore/internal/flat_cord_builder.h"
-#include "tensorstore/util/endian.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace neuroglancer_uint64_sharded {
@@ -105,9 +105,9 @@ Result<ByteRange> ShardEncoder::WriteUnindexedEntry(std::uint64_t minishard,
                                                     bool compress) {
   if (minishard != cur_minishard_) {
     if (minishard < cur_minishard_) {
-      return absl::InvalidArgumentError(StrCat("Minishard ", minishard,
-                                               " cannot be written after ",
-                                               cur_minishard_));
+      return absl::InvalidArgumentError(
+          tensorstore::StrCat("Minishard ", minishard,
+                              " cannot be written after ", cur_minishard_));
     }
     TENSORSTORE_RETURN_IF_ERROR(FinalizeMinishard());
     cur_minishard_ = minishard;

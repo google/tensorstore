@@ -1,4 +1,4 @@
-load("//tensorstore:tensorstore.bzl", "tensorstore_cc_compile_test", "tensorstore_cc_library")
+load("//bazel:tensorstore.bzl", "tensorstore_cc_compile_test", "tensorstore_cc_library")
 
 package(
     default_visibility = ["//tensorstore:internal_packages"],

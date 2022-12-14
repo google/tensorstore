@@ -22,11 +22,11 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_protobuf",
-        strip_prefix = "protobuf-3.21.2",
+        strip_prefix = "protobuf-3.21.11",
         urls = [
-            "https://github.com/protocolbuffers/protobuf/releases/download/v21.2/protobuf-cpp-3.21.2.tar.gz",
+            "https://github.com/protocolbuffers/protobuf/releases/download/v21.11/protobuf-cpp-3.21.11.tar.gz",
         ],
-        sha256 = "c8944d00f72d850c91f1873213b09724c74a798ba3d5c23dc3c39f279a25c7d4",
+        sha256 = "96f0ab99b7414e44e7bf9b218bb59510d61549ca68e648f19e3622f9999bec00",
         patches = [
             # protobuf uses rules_python, but we just use the native python rules.
             "//third_party:com_google_protobuf/patches/remove_rules_python_dependency.diff",
@@ -39,12 +39,33 @@ def repo():
         # https://github.com/protocolbuffers/protobuf/blob/master/CMakeLists.txt
         cmake_name = "Protobuf",
         bazel_to_cmake = {
-            "include": ["", "build_defs"],
-            "aliased_targets_only": True,
+            "args": [
+                "--target=//:protoc",
+                "--target=//:protobuf",
+                "--target=//:protobuf_lite",
+                "--target=//:protobuf_headers",
+            ],
+            "exclude": [
+                "cmake/**",
+                "conformance/**",
+                "docs/**",
+                "editors/**",
+                "examples/**",
+                "kokoro/**",
+                "pkg/**",
+                "toolchain/**",
+                # Disable languages
+                "csharp/**",
+                "java/**",
+                "objectivec/**",
+                "php/**",
+                "ruby/**",
+            ],
         },
         cmake_target_mapping = {
             "@com_google_protobuf//:protoc": "protobuf::protoc",
             "@com_google_protobuf//:protobuf": "protobuf::libprotobuf",
             "@com_google_protobuf//:protobuf_lite": "protobuf::libprotobuf-lite",
+            "@com_google_protobuf//:protobuf_headers": "protobuf::protobuf_headers",
         },
     )

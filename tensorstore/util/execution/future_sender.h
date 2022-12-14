@@ -107,7 +107,7 @@ submit(Future<T>& f, Receiver receiver) {
     if (result.has_value()) {
       execution::set_value(r, result.value());
     } else {
-      auto status = tensorstore::GetStatus(ready);
+      auto status = ready.status();
       if (status.code() == absl::StatusCode::kCancelled) {
         execution::set_cancel(r);
       } else {

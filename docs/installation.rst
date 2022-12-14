@@ -237,6 +237,18 @@ requirements<cmake-build-dependencies>` are listed below.
    Python is used to generate the CMake build rules automatically from the Bazel
    build rules as part of the CMake configuration step.
 
+Supported generators
+~~~~~~~~~~~~~~~~~~~~
+
+The following CMake generators are supported:
+
+- Ninja and Ninja Multi-Config
+- Makefile generators
+- Visual Studio generators
+- Xcode (targetting arm64 only)
+
+The Ninja generator is recommended because it provides the fastest builds.
+
 Third-party dependencies
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -267,6 +279,10 @@ When using CMake, it is often helpful to use a build caching tool like `sccache
 sccache, specify ``-DCMAKE_{C,CXX}_COMPILER_LAUNCHER=ccache`` when invoking
 CMake.
 
+.. note::
+
+   Caching is only supported by the Ninja and Makefile generators.
+
 Development
 -----------
 
@@ -295,7 +311,7 @@ Build dependencies
 TensorStore is written in C++ and is compatible with the following C++
 compilers:
 
-- GCC 9 or later (Linux)
+- GCC 10 or later (Linux)
 - Clang 8 or later (Linux)
 - Microsoft Visual Studio 2019 version 16.10 (MSVC 14.29.30037) or later
 - Clang-cl 9 or later (Windows)

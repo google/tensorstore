@@ -356,9 +356,9 @@ Result<CastDataTypeConversions> GetCastDataTypeConversions(
     result.input = GetDataTypeConverter(source_dtype, target_dtype);
     if (!(result.input.flags & DataTypeConversionFlags::kSupported)) {
       if ((required_mode & ReadWriteMode::read) == ReadWriteMode::read) {
-        return absl::InvalidArgumentError(
-            StrCat("Read access requires unsupported ", source_dtype, " -> ",
-                   target_dtype, " conversion"));
+        return absl::InvalidArgumentError(tensorstore::StrCat(
+            "Read access requires unsupported ", source_dtype, " -> ",
+            target_dtype, " conversion"));
       }
       result.mode &= ~ReadWriteMode::read;
     }
@@ -367,16 +367,16 @@ Result<CastDataTypeConversions> GetCastDataTypeConversions(
     result.output = GetDataTypeConverter(target_dtype, source_dtype);
     if (!(result.output.flags & DataTypeConversionFlags::kSupported)) {
       if ((required_mode & ReadWriteMode::write) == ReadWriteMode::write) {
-        return absl::InvalidArgumentError(
-            StrCat("Write access requires unsupported ", target_dtype, " -> ",
-                   source_dtype, " conversion"));
+        return absl::InvalidArgumentError(tensorstore::StrCat(
+            "Write access requires unsupported ", target_dtype, " -> ",
+            source_dtype, " conversion"));
       }
       result.mode &= ~ReadWriteMode::write;
     }
   }
   if (result.mode == ReadWriteMode{}) {
-    return absl::InvalidArgumentError(
-        StrCat("Cannot convert ", source_dtype, " <-> ", target_dtype));
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Cannot convert ", source_dtype, " <-> ", target_dtype));
   }
   return result;
 }

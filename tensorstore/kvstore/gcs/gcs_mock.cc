@@ -24,7 +24,6 @@
 
 #include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
-#include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/substitute.h"
 #include "absl/synchronization/mutex.h"
@@ -36,6 +35,7 @@
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace {
@@ -88,9 +88,9 @@ GCSMockStorageBucket::GCSMockStorageBucket(
     std::optional<std::string> requestor_pays_project_id)
     : bucket_(bucket),
       bucket_prefix_(
-          absl::StrCat("storage.googleapis.com/storage/v1/b/", bucket)),
-      upload_prefix_(
-          absl::StrCat("storage.googleapis.com/upload/storage/v1/b/", bucket)),
+          tensorstore::StrCat("storage.googleapis.com/storage/v1/b/", bucket)),
+      upload_prefix_(tensorstore::StrCat(
+          "storage.googleapis.com/upload/storage/v1/b/", bucket)),
       requestor_pays_project_id_(std::move(requestor_pays_project_id)) {}
 
 // Responds to a "www.google.apis/storage/v1/b/bucket" request.
@@ -107,7 +107,7 @@ Future<HttpResponse> GCSMockStorageBucket::IssueRequest(
     return std::move(std::get<HttpResponse>(match_result));
   }
   return absl::UnimplementedError(
-      absl::StrCat("Mock cannot satisfy the request: ", request.url()));
+      tensorstore::StrCat("Mock cannot satisfy the request: ", request.url()));
 }
 
 std::variant<std::monostate, HttpResponse, absl::Status>
@@ -409,7 +409,7 @@ HttpResponse GCSMockStorageBucket::ObjectMetadataResponse(
   std::string data = ObjectMetadata(object).dump();
   HttpResponse response{200, absl::Cord(std::move(data))};
   response.headers.insert(
-      {"content-length", absl::StrCat(response.payload.size())});
+      {"content-length", tensorstore::StrCat(response.payload.size())});
   response.headers.insert({"content-type", "application/json"});
   return response;
 }
@@ -417,35 +417,37 @@ HttpResponse GCSMockStorageBucket::ObjectMetadataResponse(
 ::nlohmann::json GCSMockStorageBucket::ObjectMetadata(const Object& object) {
   return {
       {"kind", "storage#object"},
-      {"id", absl::StrCat(bucket_, "/", object.name, "/", object.generation)},
+      {"id",
+       tensorstore::StrCat(bucket_, "/", object.name, "/", object.generation)},
       {"selfLink",
-       absl::StrCat("https://www.googleapis.com/storage/v1/b/", bucket_, "/o/",
-                    internal::PercentEncodeUriComponent(object.name))},
+       tensorstore::StrCat("https://www.googleapis.com/storage/v1/b/", bucket_,
+                           "/o/",
+                           internal::PercentEncodeUriComponent(object.name))},
       {"name", object.name},
       {"bucket", bucket_},
-      {"generation", absl::StrCat(object.generation)},
+      {"generation", tensorstore::StrCat(object.generation)},
       {"metageneration", "1"},
       {"contentType", "application/octet-stream"},
       {"timeCreated", "2018-10-24T00:41:38.264Z"},
       {"updated", "2018-10-24T00:41:38.264Z"},
       {"storageClass", "MULTI_REGIONAL"},
       {"timeStorageClassUpdated", "2018-10-24T00:41:38.264Z"},
-      {"size", absl::StrCat(object.data.size())},
+      {"size", tensorstore::StrCat(object.data.size())},
       {"mediaLink",
-       absl::StrCat("https://www.googleapis.com/download/storage/v1/b/",
-                    bucket_, "/o/",
-                    internal::PercentEncodeUriComponent(object.name),
-                    "?generation=", object.generation, "&alt=media")},
+       tensorstore::StrCat("https://www.googleapis.com/download/storage/v1/b/",
+                           bucket_, "/o/",
+                           internal::PercentEncodeUriComponent(object.name),
+                           "?generation=", object.generation, "&alt=media")},
   };
 }
 
 HttpResponse GCSMockStorageBucket::ObjectMediaResponse(const Object& object) {
   HttpResponse response{200, object.data};
   response.headers.insert(
-      {"content-length", absl::StrCat(response.payload.size())});
+      {"content-length", tensorstore::StrCat(response.payload.size())});
   response.headers.insert({"content-type", "application/octet-stream"});
   response.headers.insert(
-      {"x-goog-generation", absl::StrCat(object.generation)});
+      {"x-goog-generation", tensorstore::StrCat(object.generation)});
   response.headers.insert({"x-goog-metageneration", "1"});
   response.headers.insert({"x-goog-storage-class", "MULTI_REGIONAL"});
   // todo: x-goog-hash

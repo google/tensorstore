@@ -1,0 +1,9 @@
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])
+
+cc_library(
+    name = "a",
+    srcs = ["a.cc"],
+    deps = ["@net_sourceforge_half//:half"],
+)

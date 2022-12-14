@@ -21,11 +21,9 @@
 #include <string_view>
 
 #include "absl/status/status.h"
-#include "absl/strings/str_cat.h"
 #include <curl/curl.h>
 #include "tensorstore/internal/logging.h"
-#include "tensorstore/util/assert_macros.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_http {
@@ -77,7 +75,8 @@ std::shared_ptr<CurlHandleFactory> GetDefaultCurlHandleFactory() {
 
 /// Returns the default CurlUserAgent.
 std::string GetCurlUserAgentSuffix() {
-  static std::string agent = absl::StrCat("tensorstore/0.1 ", curl_version());
+  static std::string agent =
+      tensorstore::StrCat("tensorstore/0.1 ", curl_version());
   return agent;
 }
 
@@ -123,8 +122,8 @@ absl::Status CurlCodeToStatus(CURLcode code, std::string_view detail) {
   }
   return absl::Status(
       error_code,
-      absl::StrCat("CURL error[", code, "] ", curl_easy_strerror(code),
-                   detail.empty() ? "" : ": ", detail));
+      tensorstore::StrCat("CURL error[", code, "] ", curl_easy_strerror(code),
+                          detail.empty() ? "" : ": ", detail));
 }
 
 /// Returns a absl::Status object for a corresponding CURLcode.
@@ -132,9 +131,9 @@ absl::Status CurlMCodeToStatus(CURLMcode code, std::string_view detail) {
   if (code == CURLM_OK) {
     return absl::OkStatus();
   }
-  return absl::InternalError(absl::StrCat("CURLM error[", code, "] ",
-                                          curl_multi_strerror(code),
-                                          detail.empty() ? "" : ": ", detail));
+  return absl::InternalError(
+      tensorstore::StrCat("CURLM error[", code, "] ", curl_multi_strerror(code),
+                          detail.empty() ? "" : ": ", detail));
 }
 
 int32_t CurlGetResponseCode(CURL* handle) {

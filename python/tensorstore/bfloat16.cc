@@ -18,11 +18,11 @@
 
 #include <type_traits>
 
-#include "absl/strings/str_cat.h"
 #include "python/tensorstore/bfloat16.h"
 #include "python/tensorstore/data_type.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/util/bfloat16.h"
+#include "tensorstore/util/str_cat.h"
 
 // This implementation is based on code from Tensorflow:
 // https://github.com/tensorflow/tensorflow/blob/master/tensorflow/python/lib/core/bfloat16.cc
@@ -49,6 +49,14 @@ namespace internal_python {
 int npy_bfloat16 = NPY_NOTYPE;
 
 namespace {
+
+// https://bugs.python.org/issue39573  Py_SET_TYPE() added to Python 3.9.0a4
+#if PY_VERSION_HEX < 0x030900A4 && !defined(Py_SET_TYPE)
+template<typename T>
+static inline void Py_SET_TYPE(T *ob, PyTypeObject *type) {
+    reinterpret_cast<PyObject*>(ob)->ob_type = type;
+}
+#endif
 
 using bfloat16 = tensorstore::bfloat16_t;
 
@@ -333,14 +341,14 @@ PyObject* PyBfloat16_RichCompare(PyObject* a, PyObject* b, int op) {
 // Implementation of repr() for PyBfloat16.
 PyObject* PyBfloat16_Repr(PyObject* self) {
   bfloat16 x = reinterpret_cast<PyBfloat16*>(self)->value;
-  std::string v = absl::StrCat(static_cast<float>(x));
+  std::string v = tensorstore::StrCat(static_cast<float>(x));
   return PyUnicode_FromString(v.c_str());
 }
 
 // Implementation of str() for PyBfloat16.
 PyObject* PyBfloat16_Str(PyObject* self) {
   bfloat16 x = reinterpret_cast<PyBfloat16*>(self)->value;
-  std::string v = absl::StrCat(static_cast<float>(x));
+  std::string v = tensorstore::StrCat(static_cast<float>(x));
   return PyUnicode_FromString(v.c_str());
 }
 
@@ -771,7 +779,7 @@ bool Initialize() {
   NPyBfloat16_ArrFuncs.argmax = NPyBfloat16_ArgMaxFunc;
   NPyBfloat16_ArrFuncs.argmin = NPyBfloat16_ArgMinFunc;
 
-  Py_TYPE(&NPyBfloat16_Descr) = &PyArrayDescr_Type;
+  Py_SET_TYPE(&NPyBfloat16_Descr, &PyArrayDescr_Type);
   npy_bfloat16 = PyArray_RegisterDataType(&NPyBfloat16_Descr);
   bfloat16_type_ptr = &bfloat16_type;
   if (npy_bfloat16 < 0) {

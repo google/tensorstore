@@ -23,7 +23,6 @@
 #include <vector>
 
 #include "absl/status/status.h"
-#include "riegeli/base/base.h"
 #include "riegeli/bytes/writer.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/image/image_info.h"

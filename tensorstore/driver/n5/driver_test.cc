@@ -393,7 +393,7 @@ TEST(N5DriverTest, Resize) {
       auto resize_future =
           Resize(store, span<const Index>({kImplicit, kImplicit}),
                  span<const Index>({3, 2}), resize_mode);
-      ASSERT_EQ(absl::OkStatus(), GetStatus(resize_future.result()));
+      TENSORSTORE_ASSERT_OK(resize_future);
       EXPECT_EQ(tensorstore::BoxView({3, 2}),
                 resize_future.value().domain().box());
 
@@ -426,13 +426,9 @@ TEST(N5DriverTest, ResizeMetadataOnly) {
       tensorstore::Open(json_spec, context, tensorstore::OpenMode::create,
                         tensorstore::ReadWriteMode::read_write)
           .result());
-  EXPECT_EQ(
-      absl::OkStatus(),
-      GetStatus(tensorstore::Write(
-                    tensorstore::MakeArray<std::int8_t>({{1, 2, 3}, {4, 5, 6}}),
-                    store | tensorstore::AllDims().TranslateSizedInterval(
-                                {2, 1}, {2, 3}))
-                    .commit_future.result()));
+  TENSORSTORE_EXPECT_OK(tensorstore::Write(
+      tensorstore::MakeArray<std::int8_t>({{1, 2, 3}, {4, 5, 6}}),
+      store | tensorstore::AllDims().TranslateSizedInterval({2, 1}, {2, 3})));
   // Check that key value store has expected contents.
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto kvs, kvstore::Open(storage_spec, context).result());
@@ -449,7 +445,7 @@ TEST(N5DriverTest, ResizeMetadataOnly) {
   auto resize_future =
       Resize(store, span<const Index>({kImplicit, kImplicit}),
              span<const Index>({3, 2}), tensorstore::resize_metadata_only);
-  ASSERT_EQ(absl::OkStatus(), GetStatus(resize_future.result()));
+  TENSORSTORE_ASSERT_OK(resize_future);
   EXPECT_EQ(tensorstore::BoxView({3, 2}), resize_future.value().domain().box());
 
   ::nlohmann::json resized_metadata_json = metadata_json;
