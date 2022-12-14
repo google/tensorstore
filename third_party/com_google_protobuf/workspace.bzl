@@ -22,11 +22,11 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_protobuf",
-        strip_prefix = "protobuf-3.21.9",
+        strip_prefix = "protobuf-3.21.11",
         urls = [
-            "https://github.com/protocolbuffers/protobuf/releases/download/v21.9/protobuf-cpp-3.21.9.tar.gz",
+            "https://github.com/protocolbuffers/protobuf/releases/download/v21.11/protobuf-cpp-3.21.11.tar.gz",
         ],
-        sha256 = "bddc5dd16da45c89a510704683e02ba08c30af78fe092d255cf25b9b01259405",
+        sha256 = "96f0ab99b7414e44e7bf9b218bb59510d61549ca68e648f19e3622f9999bec00",
         patches = [
             # protobuf uses rules_python, but we just use the native python rules.
             "//third_party:com_google_protobuf/patches/remove_rules_python_dependency.diff",
