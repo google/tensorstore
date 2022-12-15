@@ -1,0 +1,155 @@
+// Copyright 2021 The TensorStore Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package tensorstore_grpc.kvstore;
+
+import "google/protobuf/timestamp.proto";
+import "tensorstore/kvstore/grpc/common.proto";
+
+// option cc_api_version = 2;
+
+// Proto-api for a remote key-value store
+service KvStoreService {
+  /// Attempts to read the specified key.
+  rpc Read(ReadRequest) returns (ReadResponse);
+
+  /// Performs an optionally-conditional write.
+  rpc Write(WriteRequest) returns (WriteResponse);
+
+  /// Performs an optionally-conditional delete.
+  rpc Delete(DeleteRequest) returns (DeleteResponse);
+
+  /// List keys in the key-value store.
+  ///
+  /// The keys are emitted in arbitrary order.
+  rpc List(ListRequest) returns (stream ListResponse);
+}
+
+/// See tensorstore/kvstore/operations.h
+///   kvstore::ReadOptions
+message ReadRequest {
+  bytes key = 1;
+
+  /// The read is aborted if the generation associated with the stored `key`
+  /// matches `if_not_equal`.  The special values of
+  /// `StorageGeneration::Unknown()` (the default) or
+  /// `StorageGeneration::NoValue()` disable this condition.
+  bytes generation_if_not_equal = 2;
+
+  /// The read is aborted if the generation associated with `key` does not
+  /// match `if_equal`.  This is primarily useful in conjunction with a
+  /// `byte_range` request to ensure consistency.
+  ///
+  /// - The special value of `StorageGeneration::Unknown()` (the default)
+  ///   disables this condition.
+  ///
+  /// - The special value of `StorageGeneration::NoValue()` specifies a
+  ///   condition that the value not exist.  This condition is valid but of
+  ///   limited use since the only possible read results are "not found" and
+  ///   "aborted".
+  bytes generation_if_equal = 3;
+
+  /// Cached data may be used without validation if not older than
+  /// `staleness_bound`.  Cached data older than `staleness_bound` must be
+  /// validated before being returned.  A value of `absl::InfiniteFuture()`
+  /// (the default) indicates that the result must be current as of the time
+  /// the `Read` request was made, i.e. it is equivalent to specifying the
+  /// value of `absl::Now()` just before invoking `Read`.
+  google.protobuf.Timestamp staleness_bound = 4;
+
+  /// Optionally request just the specified byte range.
+  ByteRange byte_range = 5;
+}
+
+message ReadResponse {
+  /// Optionally, a non-ok status message may be returned.
+  StatusMessage status = 1;
+
+  /// Generation and timestamp are returned.
+  GenerationAndTimestamp generation_and_timestamp = 2;
+
+  enum State {
+    /// Indicates an unspecified value, used when a conditional read was
+    /// requested and the condition was not satisfied.  The `value` member
+    /// must be empty.
+    UNSPECIFIED = 0;
+    /// Indicates a missing value (not an error).  The `value` member must be
+    /// empty.
+    MISSING = 1;
+    /// Indicates a value is present.
+    VALUE = 2;
+  }
+  State state = 3;
+
+  bytes value = 4 ; // [ctype = CORD]
+}
+
+/// See tensorstore/kvstore/operations.h
+///   kvstore::WriteOptions
+message WriteRequest {
+  bytes key = 1;
+
+  /// The write is aborted if the existing generation associated with the
+  /// stored `key` does not match `if_equal`.
+  ///
+  /// - The special value of `StorageGeneration::Unknown()` (the default)
+  ///   disables this condition.
+  ///
+  /// - The special value of `StorageGeneration::NoValue()` specifies a
+  ///   condition that the `key` does not have an existing value.
+  bytes generation_if_equal = 2;
+
+  bytes value = 3 ; // [ctype = CORD]
+}
+
+message WriteResponse {
+  /// Optionally, a non-ok status message may be returned.
+  StatusMessage status = 1;
+
+  /// Generation and timestamp are returned.
+  GenerationAndTimestamp generation_and_timestamp = 2;
+}
+
+/// See tensorstore/kvstore/operations.h
+///   kvstore::WriteOptions
+message DeleteRequest {
+  bytes key = 1;
+  KeyRange range = 2;
+  bytes generation_if_equal = 3;
+}
+
+message DeleteResponse {
+  /// Optionally, a non-ok status message may be returned.
+  StatusMessage status = 1;
+
+  /// Generation and timestamp are returned.
+  GenerationAndTimestamp generation_and_timestamp = 2;
+}
+
+/// See tensorstore/kvstore/operations.h
+///   kvstore::ListOptions
+message ListRequest {
+  KeyRange range = 1;
+  uint64 strip_prefix_length = 2;
+}
+
+message ListResponse {
+  /// Optionally, a non-ok status message may be returned.
+  StatusMessage status = 1;
+
+  /// Generation and timestamp are returned.
+  repeated bytes key = 2;
+}

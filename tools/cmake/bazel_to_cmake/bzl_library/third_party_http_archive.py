@@ -427,8 +427,10 @@ def _third_party_http_archive_impl(_context: InvocationContext, **kwargs):
   # TODO(jbms): Use some criteria (e.g. presence of system_build_file option) to
   # determine whether to support a system library, rather than always using it.
   builder = _context.access(CMakeBuilder)
-  if True or kwargs.get("system_build_file"):
+  if kwargs.get("cmake_enable_system_package", True):
     use_system_option = f"TENSORSTORE_USE_SYSTEM_{cmake_name.upper()}"
+    use_system_option = use_system_option.replace("-", "")
+
     builder.addtext(
         f"""option({use_system_option} "Use an installed version of {cmake_name}")\n""",
         section=OPTIONS_SECTION,

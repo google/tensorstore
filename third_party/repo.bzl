@@ -145,6 +145,7 @@ def third_party_http_archive(
         cmakelists_suffix = None,
         cmake_package_aliases = None,
         cmake_extra_build_file = None,
+        cmake_enable_system_package = True,
         **kwargs):
     _third_party_http_archive(name = name, **kwargs)
 

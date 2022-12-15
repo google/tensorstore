@@ -1,7 +1,23 @@
-diff --git a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
-index 7f4bb3ac71..7435ffc4be 100644
---- a/bazel/grpc_build_system.bzl
-+++ b/bazel/grpc_build_system.bzl
+# Copyright 2022 The TensorStore Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# NOTE: The second patch to includes has no change, but is intended to signal
+# whether we still need a workaround in bazel_to_cmake/emit_cc.py
+#
+diff -u -ur a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
+--- a/bazel/grpc_build_system.bzl	2022-11-18 19:10:37.000000000 +0000
++++ b/bazel/grpc_build_system.bzl	2022-12-09 23:33:09.003435262 +0000
 @@ -31,8 +31,14 @@
  load("//bazel:copts.bzl", "GRPC_DEFAULT_COPTS")
  load("//bazel:experiments.bzl", "EXPERIMENTS")
@@ -19,3 +35,23 @@ index 7f4bb3ac71..7435ffc4be 100644
  
  # The set of pollers to test against if a test exercises polling
  POLLERS = ["epoll1", "poll"]
+@@ -97,7 +103,7 @@
+         "grpc_opencensus_plugin": PUBLIC,
+         "grpcpp_gcp_observability": PUBLIC,
+         "grpc_resolver_fake": PRIVATE,
+-        "grpc++_test": PRIVATE,
++        "grpc++_test": PUBLIC,
+         "http": PRIVATE,
+         "httpcli": PRIVATE,
+         "iomgr_timer": PRIVATE,
+@@ -188,8 +194,8 @@
+         linkopts = linkopts,
+         includes = [
+             "include",
+-            "src/core/ext/upb-generated",  # Once upb code-gen issue is resolved, remove this.
+-            "src/core/ext/upbdefs-generated",  # Once upb code-gen issue is resolved, remove this.
++            "src/core/ext/upb-generated",  ## Once upb code-gen issue is resolved, remove this.
++            "src/core/ext/upbdefs-generated",  ## Once upb code-gen issue is resolved, remove this.
+         ],
+         alwayslink = alwayslink,
+         data = data,

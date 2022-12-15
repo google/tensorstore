@@ -1,0 +1,19 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: kvstore/grpc
+allOf:
+- $ref: KvStore
+- type: object
+  properties:
+    driver:
+      const: grpc
+    address:
+      type: string
+      title: gRPC Service Address.
+      description: |
+        An address of the grpc service.
+    timeout:
+      type: string
+      description: >-
+        Timeout for requests to the gRPC service.
+  required:
+  - address

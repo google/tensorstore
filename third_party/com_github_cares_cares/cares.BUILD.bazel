@@ -1,37 +1,9 @@
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
 
-config_setting(
-    name = "darwin",
-    values = {"cpu": "darwin"},
-)
-
-config_setting(
-    name = "darwin_x86_64",
-    values = {"cpu": "darwin_x86_64"},
-)
-
-config_setting(
-    name = "darwin_arm64",
-    values = {"cpu": "darwin_arm64"},
-)
-
-config_setting(
-    name = "darwin_arm64e",
-    values = {"cpu": "darwin_arm64e"},
-)
-
-config_setting(
-    name = "windows",
-    values = {"cpu": "x64_windows"},
-)
-
 CONFIG_SRC = select({
-    ":darwin": "@com_google_tensorstore//third_party:com_github_cares_cares/config/darwin.h",
-    ":darwin_x86_64": "@com_google_tensorstore//third_party:com_github_cares_cares/config/darwin.h",
-    ":darwin_arm64": "@com_google_tensorstore//third_party:com_github_cares_cares/config/darwin.h",
-    ":darwin_arm64e": "@com_google_tensorstore//third_party:com_github_cares_cares/config/darwin.h",
-    ":windows": "@com_google_tensorstore//third_party:com_github_cares_cares/config/windows.h",
+    "@platforms//os:macos": "@com_google_tensorstore//third_party:com_github_cares_cares/config/darwin.h",
+    "@platforms//os:windows": "@com_google_tensorstore//third_party:com_github_cares_cares/config/windows.h",
     "//conditions:default": "@com_google_tensorstore//third_party:com_github_cares_cares/config/linux.h",
 })
 
@@ -87,7 +59,7 @@ expand_template(
     name = "ares_build_h",
     out = "ares_build.h",
     substitutions = select({
-        ":windows": WIN_SUBSTITUTIONS,
+        "@platforms//os:windows": WIN_SUBSTITUTIONS,
         "//conditions:default": DEFAULT_SUBSTITUTIONS,
     }),
     template = "include/ares_build.h.cmake",
@@ -187,7 +159,7 @@ cc_library(
         "-D_HAS_EXCEPTIONS=0",
         "-DHAVE_CONFIG_H",
     ] + select({
-        ":windows": [
+        "@platforms//os:windows": [
             "-DNOMINMAX",
             "-D_CRT_SECURE_NO_DEPRECATE",
             "-D_CRT_NONSTDC_NO_DEPRECATE",
@@ -201,7 +173,7 @@ cc_library(
         "include",
     ],
     linkopts = select({
-        ":windows": ["-defaultlib:ws2_32.lib"],
+        "@platforms//os:windows": ["-defaultlib:ws2_32.lib"],
         "//conditions:default": [],
     }),
     linkstatic = 1,

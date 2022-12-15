@@ -31,14 +31,12 @@ from .package import Visibility
 from .starlark import rule  # pylint: disable=unused-import
 from .starlark.bazel_glob import glob as starlark_glob
 from .starlark.bazel_globals import register_native_build_rule
-from .starlark.bazel_target import TargetId
 from .starlark.common_providers import ConditionProvider
 from .starlark.common_providers import FilesProvider
 from .starlark.invocation_context import InvocationContext
 from .starlark.label import RelativeLabel
 from .starlark.provider import Provider
 from .starlark.provider import TargetInfo
-from .starlark.select import Configurable
 
 
 @register_native_build_rule
@@ -158,28 +156,6 @@ def config_setting(
         target, TargetInfo(ConditionProvider(evaluated_condition)))
 
   _context.add_rule(target, impl, analyze_by_default=True)
-
-
-@register_native_build_rule
-def alias(self: InvocationContext,
-          name: str,
-          actual: Configurable[RelativeLabel],
-          visibility: Optional[List[RelativeLabel]] = None,
-          **kwargs):
-  del kwargs
-  context = self.snapshot()
-  target = context.resolve_target(name)
-  context.add_rule(
-      target,
-      lambda: _alias_impl(context, target, actual),
-      visibility=visibility)
-
-
-def _alias_impl(_context: InvocationContext, _target: TargetId,
-                actual: Configurable[RelativeLabel]):
-  resolved = _context.resolve_target(_context.evaluate_configurable(actual))
-  target_info = _context.get_target_info(resolved)
-  _context.add_analyzed_target(_target, target_info)
 
 
 @register_native_build_rule

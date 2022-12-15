@@ -2,7 +2,9 @@ find_package(Protobuf REQUIRED)
 find_package(upb REQUIRED)
 
 # @bazel_test_repo//:c_proto
-add_custom_target(CMakeProject_c_proto)
+add_library(CMakeProject_c_proto INTERFACE)
+target_sources(CMakeProject_c_proto INTERFACE
+        "${TEST_DIRECTORY}/c.proto")
 list(APPEND CMakeProject_c_proto_IMPORT_DIRS "${TEST_DIRECTORY}")
 set_property(TARGET CMakeProject_c_proto PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${CMakeProject_c_proto_IMPORT_DIRS})
 

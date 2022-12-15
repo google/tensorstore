@@ -57,3 +57,18 @@ proto_library(
     srcs = ["c.proto"],
     cc_api_version = 2,
 )
+
+alias(
+    name = "c_proto_alias",
+    actual = ":c_proto",
+)
+
+alias(
+    name = "c_proto_cc_alias",
+    actual = ":c_proto_cc",
+)
+
+alias(
+    name = "a_alias",
+    actual = ":a",
+)

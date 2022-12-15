@@ -1,0 +1,19 @@
+# Since bazel_to_cmake doesn't have a global view of targets, it cannot apply
+# aspects to collect the proto_library() sources in order to build e.g. upbdefs.
+# As a workaround the upb targets are injected into the reposoitory here so that
+# other upb libraries can link to the common protos.
+#
+#  These also become the "well-known-protos" depdendencies for upb/upbdefs.
+
+load("@com_google_upb//bazel:upb_proto_library.bzl", "upb_proto_library", "upb_proto_reflection_library")
+
+
+upb_proto_library(
+    name = "compiler_plugin_proto_ubp",
+    deps = [ "@com_google_protobuf//:compiler_plugin_proto" ],
+)
+
+upb_proto_reflection_library(
+    name = "compiler_plugin_proto_ubpdefs",
+    deps = [ "@com_google_protobuf//:compiler_plugin_proto" ],
+)

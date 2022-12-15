@@ -30,7 +30,42 @@ def repo():
             "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/protocolbuffers/upb/archive/f3a0cc49da29dbdbd09b3325c2834139540f00fa.tar.gz",
             "https://github.com/protocolbuffers/upb/archive/f3a0cc49da29dbdbd09b3325c2834139540f00fa.tar.gz",  # main(2022-11-18)
         ],
+        patches = [
+            "//third_party:com_google_upb/patches/build.diff",
+        ],
+        patch_args = ["-p1"],
         repo_mapping = {
             "@com_google_googleapis": "",  # Exclude googleapis; within upb it is only needed for test cases.
+        },
+        cmake_name = "upb",
+        # CMake support in upb is experimental; however we only need upb support for gRPC.
+        cmake_enable_system_package = False,
+        cmake_target_mapping = {
+            "//:reflection": "upb::reflection",
+            "//:textformat": "upb::textformat",
+            "//:upb": "upb::upb",
+        },
+        bazel_to_cmake = {
+            "args": [
+                "--ignore-library=@com_google_upb//bazel:amalgamation.bzl",
+                "--ignore-library=@com_google_upb//bazel:py_proto_library.bzl",
+                "--ignore-library=@com_google_upb//lua:lua_proto_library.bzl",
+                "--ignore-library=@com_google_upb//protos/bazel:upb_cc_proto_library.bzl",
+                "--ignore-library=@com_google_upb//python/dist:dist.bzl",
+                "--ignore-library=@com_google_upb//python:py_extension.bzl",
+                "--target=//:json",
+                "--target=//:reflection",
+                "--target=//:textformat",
+                "--target=//:message",
+                "--target=//:upb",
+                "--target=//:port",
+                "--target=//upbc:protoc-gen-upb",
+                "--target=//upbc:protoc-gen-upbdefs",
+                # support libraries
+                "--target=//:generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me",
+                "--target=//:generated_reflection_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me",
+                "--target=//:upb_proto_library_copts__for_generated_code_only_do_not_use",
+            ],
+            "exclude": ["lua/**", "protos/**", "python/**", "benchmarks/**", "cmake/**"],
         },
     )

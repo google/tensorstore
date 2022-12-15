@@ -66,6 +66,7 @@ class PluginSettings(NamedTuple):
 
 
 PROTO_COMPILER = TargetId("@com_google_protobuf//:protoc")
+_SEP = "\n        "
 
 _CC = PluginSettings(None, "cpp", [".pb.h", ".pb.cc"],
                      [TargetId("@com_google_protobuf//:protobuf")])
@@ -97,10 +98,10 @@ _WELL_KNOWN_PROTO_TARGETS = {
     "cpp":
         TargetId("@com_google_protobuf//:protobuf"),  # wkt_cc_proto
     "upb":
-        TargetId("@local_proto_mirror//google/protobuf:well_known_protos_ubp"),
+        TargetId("@local_proto_mirror//google/protobuf:well_known_protos_upb"),
     "upbdefs":
         TargetId(
-            "@local_proto_mirror//google/protobuf:well_known_protos_ubpdefs"),
+            "@local_proto_mirror//google/protobuf:well_known_protos_upbdefs"),
 }
 
 _OTHER_CORE_PROTOS = {
@@ -120,9 +121,10 @@ class ProtocOutputTuple(NamedTuple):
 def get_proto_output_dir(_context: InvocationContext,
                          strip_import_prefix: Optional[str]) -> str:
   """Construct the output path for the proto compiler.
-  
+
   This is typically a path relative to ${PROJECT_BINARY_DIR} where the
-  protocol compiler will output copied protos."""
+  protocol compiler will output copied protos.
+  """
   output_dir = "${PROJECT_BINARY_DIR}"
   if strip_import_prefix is not None:
     relative_package_path = pathlib.PurePosixPath(
@@ -188,6 +190,8 @@ def get_proto_plugin_library_target(_context: InvocationContext, *,
   ]
   cc_deps.extend(plugin_settings.deps)
 
+  # NOTE: Consider using generator expressions to add to the library target.
+  # Something like  $<TARGET_PROPERTY:target,INTERFACE_SOURCES>
   cmake_deps: List[CMakeTarget] = []
   proto_src_files = []
   for src in proto_info.srcs:
@@ -272,11 +276,15 @@ def _proto_library_impl(_context: InvocationContext,
 
   cmake_name = state.generate_cmake_target_pair(_target, alias=False).target
 
-  # Validate src properties: files ending in .proto within the same repo.
-  for t in resolved_srcs:
-    assert t.target_name.endswith(".proto"), f"{t} must end in .proto"
+  # Validate src properties: files ending in .proto within the same repo,
+  # and add them to the proto_src_files.
+  cmake_deps: List[CMakeTarget] = []
+  proto_src_files = []
+  for proto in resolved_srcs:
+    assert proto.target_name.endswith(".proto"), f"{proto} must end in .proto"
     # Verify that the source is in the same repository as the proto_library rule
-    assert t.repository_id == _target.repository_id
+    assert proto.repository_id == _target.repository_id
+    proto_src_files.extend(state.get_file_paths(proto, cmake_deps))
 
   # Resolve deps. When using system protobuffers, well-known-proto targets need
   # 'Protobuf_IMPORT_DIRS' added to their transitive includes.
@@ -309,11 +317,13 @@ def _proto_library_impl(_context: InvocationContext,
 
   includes_name = f"{cmake_name}_IMPORT_DIRS"
   includes_literal = "${" + includes_name + "}"
+  quoted_srcs = quote_list(sorted(set(proto_src_files)), separator=_SEP)
 
   out = io.StringIO()
   out.write(f"""
 # {_target.as_label()}
-add_custom_target({cmake_name})""")
+add_library({cmake_name} INTERFACE)
+target_sources({cmake_name} INTERFACE{_SEP}{quoted_srcs})""")
   if import_vars or import_targets:
     out.write(f"""
 btc_transitive_import_dirs(

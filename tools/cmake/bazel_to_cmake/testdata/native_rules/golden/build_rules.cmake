@@ -38,8 +38,14 @@ target_compile_features(CMakeProject_a PUBLIC cxx_std_17)
 add_dependencies(CMakeProject_a "CMakeProject_h_file")
 add_library(CMakeProject::a ALIAS CMakeProject_a)
 
+# @bazel_test_repo//:a_alias
+add_library(CMakeProject_a_alias ALIAS CMakeProject_a)
+add_library(CMakeProject::a_alias ALIAS CMakeProject_a)
+
 # @bazel_test_repo//:c_proto
-add_custom_target(CMakeProject_c_proto)
+add_library(CMakeProject_c_proto INTERFACE)
+target_sources(CMakeProject_c_proto INTERFACE
+        "${TEST_DIRECTORY}/c.proto")
 btc_transitive_import_dirs(
     OUT_VAR CMakeProject_c_proto_IMPORT_DIRS
     IMPORT_DIRS "${TEST_DIRECTORY}"
@@ -96,6 +102,12 @@ target_compile_features(CMakeProject_a_test PUBLIC cxx_std_17)
 add_test(NAME CMakeProject_a_test COMMAND CMakeProject_a_test WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 # @bazel_test_repo//:c_proto_2
-add_custom_target(CMakeProject_c_proto_2)
+add_library(CMakeProject_c_proto_2 INTERFACE)
+target_sources(CMakeProject_c_proto_2 INTERFACE
+        "${TEST_DIRECTORY}/c.proto")
 list(APPEND CMakeProject_c_proto_2_IMPORT_DIRS "${TEST_DIRECTORY}")
 set_property(TARGET CMakeProject_c_proto_2 PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${CMakeProject_c_proto_2_IMPORT_DIRS})
+
+# @bazel_test_repo//:c_proto_cc_alias
+add_library(CMakeProject_c_proto_cc_alias ALIAS CMakeProject_c_proto_cc)
+add_library(CMakeProject::c_proto_cc_alias ALIAS CMakeProject_c_proto_cc)

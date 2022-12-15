@@ -41,6 +41,47 @@ def repo():
             "@com_github_cncf_udpa": "@local_proto_mirror",
             "@com_google_googleapis": "@local_proto_mirror",
         },
+        cmake_name = "gRPC",
+        # We currently use grpc++_test, which is not public. Fix that, test, and enable.
+        cmake_enable_system_package = False,
+        bazel_to_cmake = {
+            "args": [
+                "--ignore-library=@com_github_grpc_grpc//bazel:objc_grpc_library.bzl",
+                "--ignore-library=@com_github_grpc_grpc//bazel:cython_library.bzl",
+                "--ignore-library=@com_github_grpc_grpc//bazel:python_rules.bzl",
+                "--ignore-library=@com_github_grpc_grpc//bazel:generate_objc.bzl",
+                "--exclude-target=@com_github_grpc_grpc//:grpc_cel_engine",
+                "--target=//:grpc",
+                "--target=//:grpc++",
+                "--target=//:grpc++_codegen_proto",
+                "--target=//:grpc++_public_hdrs",
+                "--target=//:grpc++_test",
+                "--target=//src/compiler:grpc_cpp_plugin",
+                "--bind=@com_google_protobuf//:protobuf_headers=@com_google_protobuf//:protobuf",
+            ] + ["--bind=" + k + "=" + v for k, v in GRPC_NATIVE_BINDINGS.items()],
+            "exclude": [
+                "src/android/**",
+                "src/csharp/**",
+                "src/objective-c/**",
+                "src/php/**",
+                "src/ruby/**",
+                "src/python/**",
+                "src/proto/grpc/testing/**",
+                "test/**",
+                "third_party/android/**",
+                "third_party/objective_c/**",
+                "third_party/py/**",
+                "third_party/toolchains/**",
+                "third_party/upb/**",
+                "tools/**",
+            ],
+        },
+        cmake_target_mapping = {
+            "//:grpc": "gRPC::grpc",
+            "//:grpc++": "gRPC::grpc++",
+            "//:grpc++_test": "gRPC::grpc_test_util",
+            "//src/compiler:grpc_cpp_plugin": "gRPC::grpc_cpp_plugin",
+        },
     )
     for key in GRPC_NATIVE_BINDINGS.keys():
         native.bind(name = key, actual = GRPC_NATIVE_BINDINGS[key])

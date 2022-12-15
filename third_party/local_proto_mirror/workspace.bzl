@@ -99,6 +99,7 @@ def repo():
             "xds/service/orca/v3/orca.proto": "90150a0294c560212990d61a23cb0f0aec8033101cb9ca00f2fdaf8dccc8489b",
         },
         file_url = {
+            # https://github.com/protocolbuffers/protobuf
             "google/protobuf/any.proto": ["https://raw.githubusercontent.com/protocolbuffers/protobuf/60b71498d70a5645324385269c518b95c8c2feb0/src/google/protobuf/any.proto"],
             "google/protobuf/api.proto": ["https://raw.githubusercontent.com/protocolbuffers/protobuf/60b71498d70a5645324385269c518b95c8c2feb0/src/google/protobuf/api.proto"],
             "google/protobuf/descriptor.proto": ["https://raw.githubusercontent.com/protocolbuffers/protobuf/60b71498d70a5645324385269c518b95c8c2feb0/src/google/protobuf/descriptor.proto"],
@@ -110,14 +111,14 @@ def repo():
             "google/protobuf/timestamp.proto": ["https://raw.githubusercontent.com/protocolbuffers/protobuf/60b71498d70a5645324385269c518b95c8c2feb0/src/google/protobuf/timestamp.proto"],
             "google/protobuf/type.proto": ["https://raw.githubusercontent.com/protocolbuffers/protobuf/60b71498d70a5645324385269c518b95c8c2feb0/src/google/protobuf/type.proto"],
             "google/protobuf/wrappers.proto": ["https://raw.githubusercontent.com/protocolbuffers/protobuf/60b71498d70a5645324385269c518b95c8c2feb0/src/google/protobuf/wrappers.proto"],
-            #
+            # https://github.com/googleapis/googleapis
             "google/rpc/code.proto": ["https://raw.githubusercontent.com/googleapis/googleapis/83c3605afb5a39952bf0a0809875d41cf2a558ca/google/rpc/code.proto"],
             "google/rpc/error_details.proto": ["https://raw.githubusercontent.com/googleapis/googleapis/83c3605afb5a39952bf0a0809875d41cf2a558ca/google/rpc/error_details.proto"],
             "google/rpc/status.proto": ["https://raw.githubusercontent.com/googleapis/googleapis/83c3605afb5a39952bf0a0809875d41cf2a558ca/google/rpc/status.proto"],
-            #
+            # https://github.com/cncf/xds
             "xds/service/orca/v3/orca.proto": ["https://raw.githubusercontent.com/cncf/xds/1e77728a1eaa11d6c931ec2ccd6e95f516a7ef94/xds/service/orca/v3/orca.proto"],
             "xds/data/orca/v3/orca_load_report.proto": ["https://raw.githubusercontent.com/cncf/xds/1e77728a1eaa11d6c931ec2ccd6e95f516a7ef94/xds/data/orca/v3/orca_load_report.proto"],
-            #
+            # https://github.com/envoyproxy/protoc-gen-validate
             "validate/validate.proto": ["https://raw.githubusercontent.com/bufbuild/protoc-gen-validate/2682ad06cca00550030e177834f58a2bc06eb61e/validate/validate.proto"],
         },
         file_content = _BUILD_FILE_CONTENT,
@@ -164,6 +165,11 @@ proto_library(
     ],
 )
 
+load("@com_google_upb//bazel:upb_proto_library.bzl", "upb_proto_library", "upb_proto_reflection_library")
+
+upb_proto_library(name = "validate_proto_upb", deps = [":validate_proto"])
+upb_proto_reflection_library(name = "validate_proto_upbdef", deps = [":validate_proto"])
+
 """,
     "xds/data/orca/v3/BUILD.bazel": """
 package(default_visibility = ["//visibility:public"])
@@ -177,6 +183,11 @@ proto_library(
         "//validate:validate_proto",
     ],
 )
+
+load("@com_google_upb//bazel:upb_proto_library.bzl", "upb_proto_library", "upb_proto_reflection_library")
+
+upb_proto_library(name = "pkg_upb", deps = [":pkg"])
+upb_proto_reflection_library(name = "pkg_upbdef", deps = [":pkg"])
 
 """,
     "xds/service/orca/v3/BUILD.bazel": """
@@ -193,6 +204,11 @@ proto_library(
         "@com_google_protobuf//:duration_proto",
     ],
 )
+
+load("@com_google_upb//bazel:upb_proto_library.bzl", "upb_proto_library", "upb_proto_reflection_library")
+
+upb_proto_library(name = "pkg_upb", deps = [":pkg"])
+upb_proto_reflection_library(name = "pkg_upbdef", deps = [":pkg"])
 
 """,
     "google/rpc/BUILD.bazel": """
@@ -235,6 +251,38 @@ cc_proto_library(
     deps = [":status_proto"],
 )
 
+load("@com_google_upb//bazel:upb_proto_library.bzl", "upb_proto_library", "upb_proto_reflection_library")
+
+upb_proto_library(
+    name = "code_upb_proto",
+    deps = [":code_proto"],
+)
+
+upb_proto_library(
+    name = "error_details_upb_proto",
+    deps = [":error_details_proto"],
+)
+
+upb_proto_library(
+    name = "status_upb_proto",
+    deps = [":status_proto"],
+)
+
+upb_proto_reflection_library(
+    name = "code_upbdef_proto",
+    deps = [":code_proto"],
+)
+
+upb_proto_reflection_library(
+    name = "error_details_upbdef_proto",
+    deps = [":error_details_proto"],
+)
+
+upb_proto_reflection_library(
+    name = "status_upbdef_proto",
+    deps = [":status_proto"],
+)
+
 """,
     "google/protobuf/BUILD.bazel": """
 
@@ -243,6 +291,12 @@ package(default_visibility = ["//visibility:public"])
 
 # Since bazel_to_cmake doesn't have a global view of targets, it cannot apply
 # aspects to collect the proto_library() sources in order to build e.g. upbdefs.
+# As a workaround the upb targets are injected into the reposoitory here so that
+# other upb libraries can link to the common protos.
+#
+#  These also become the "well-known-protos" depdendencies for upb/upbdefs.
+
+load("@com_google_upb//bazel:upb_proto_library.bzl", "upb_proto_library", "upb_proto_reflection_library")
 
 proto_library(
     name = "well_known_protos",
@@ -259,6 +313,16 @@ proto_library(
         "type.proto",
         "wrappers.proto",
     ],
+)
+
+upb_proto_library(
+    name = "well_known_protos_upb",
+    deps = [ ":well_known_protos" ],
+)
+
+upb_proto_reflection_library(
+    name = "well_known_protos_upbdefs",
+    deps = [ ":well_known_protos" ],
 )
 
 """,

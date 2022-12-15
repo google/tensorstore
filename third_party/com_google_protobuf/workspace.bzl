@@ -38,13 +38,15 @@ def repo():
         # https://cmake.org/cmake/help/latest/module/FindProtobuf.html
         # https://github.com/protocolbuffers/protobuf/blob/master/CMakeLists.txt
         cmake_name = "Protobuf",
+        cmake_extra_build_file = Label("//third_party:com_google_protobuf/cmake_extra.BUILD.bazel"),
         bazel_to_cmake = {
             "args": [
                 "--target=//:protoc",
+                "--target=//:protoc_lib",
                 "--target=//:protobuf",
                 "--target=//:protobuf_lite",
                 "--target=//:protobuf_headers",
-            ],
+            ] + ["--target=//:" + x + "_proto" for x in _WELL_KNOWN_TYPES],
             "exclude": [
                 "cmake/**",
                 "conformance/**",
@@ -63,9 +65,27 @@ def repo():
             ],
         },
         cmake_target_mapping = {
-            "@com_google_protobuf//:protoc": "protobuf::protoc",
-            "@com_google_protobuf//:protobuf": "protobuf::libprotobuf",
-            "@com_google_protobuf//:protobuf_lite": "protobuf::libprotobuf-lite",
-            "@com_google_protobuf//:protobuf_headers": "protobuf::protobuf_headers",
+            "//:protobuf": "protobuf::libprotobuf",
+            "//:protobuf_lite": "protobuf::libprotobuf-lite",
+            "//:protoc": "protobuf::protoc",
+            "//:protoc_lib": "protobuf::libprotoc",
         },
     )
+
+_WELL_KNOWN_TYPES = [
+    "any",
+    "api",
+    "duration",
+    "empty",
+    "field_mask",
+    "source_context",
+    "struct",
+    "timestamp",
+    "type",
+    "wrappers",
+    # Descriptor.proto isn't considered "well known", but is available via
+    # :protobuf and :protobuf_wkt
+    "descriptor",
+    # compiler_plugin.proto is needed to build grpc and upb.
+    "compiler_plugin",
+]

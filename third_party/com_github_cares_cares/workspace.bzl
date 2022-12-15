@@ -32,4 +32,11 @@ def repo():
         ],
         build_file = Label("//third_party:com_github_cares_cares/cares.BUILD.bazel"),
         system_build_file = Label("//third_party:com_github_cares_cares/system.BUILD.bazel"),
+        cmake_name = "c-ares",
+        cmake_target_mapping = {
+            "//:ares": "c-ares::cares",
+        },
+        bazel_to_cmake = {
+            "aliased_targets_only": True,
+        },
     )

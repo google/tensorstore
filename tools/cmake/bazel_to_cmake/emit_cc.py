@@ -147,7 +147,7 @@ def handle_cc_common_options(
 
   result["defines"].extend(state.workspace.cdefines)
 
-  # This include manipulation is pretty hacky.
+  # This include manipulation is a best effort that works for known cases.
   #   https://bazel.build/reference/be/c-cpp#cc_library.includes
   #
   # When absolute, includes and strip_include_prefix are repository relative,
@@ -158,6 +158,13 @@ def handle_cc_common_options(
 
   relative_package_path = pathlib.PurePosixPath(current_package_name)
   for include in _context.evaluate_configurable_list(includes):
+    # gRPC hack: grpc build_system.bzl adds the following includes to
+    # all targets; bazel currently requires them, however they interfere in
+    # the CMake build, so remove them.
+    if (_context.caller_package_id.repository_id.repository_name
+        == "com_github_grpc_grpc" and include
+        in ["src/core/ext/upb-generated", "src/core/ext/upbdefs-generated"]):
+      continue
     include_path = str(
         relative_package_path.joinpath(pathlib.PurePosixPath(include)))
     if include_path[0] == "/":
