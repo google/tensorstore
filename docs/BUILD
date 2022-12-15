@@ -72,6 +72,7 @@ pytype_strict_test(
     tags = [
         "manual",
         "nosan",
+        "notap",
         "optonly",
     ],
     deps = [
@@ -110,7 +111,10 @@ tensorstore_pytest_test(
         "conftest.py",
         "doctest_test.py",
     ],
-    tags = ["manual"],
+    tags = [
+        "manual",
+        "notap",
+    ],
     tests = ["doctest_test.py"],
     deps = [
         "//docs/tensorstore_sphinx_ext:json_pprint",
@@ -123,4 +127,8 @@ tensorstore_pytest_test(
 doctest_test(
     name = "doctest_test",
     srcs = glob(["python/**/*.rst"]),
+    tags = [
+        "manual",
+        "notap",
+    ],
 )

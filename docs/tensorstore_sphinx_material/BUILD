@@ -64,9 +64,11 @@ genrule(
 
 nodejs_binary(
     name = "build_js",
-    srcs = ["build_js.js"] + glob([
-        "src/assets/javascripts/**",
+    srcs = [
+        "build_js.js",
         "tsconfig.json",
+    ] + glob([
+        "src/assets/javascripts/**",
         "typings/**/*.d.ts",
     ]),
     entry_point = ":build_js.js",
