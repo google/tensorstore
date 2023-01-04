@@ -36,7 +36,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 
-SUPPORTED_PYTHON_VERSIONS = ("3.7", "3.8", "3.9")
+SUPPORTED_PYTHON_VERSIONS = ("3.7", "3.8", "3.9", "3.10", "3.11")
 
 
 @functools.cache
