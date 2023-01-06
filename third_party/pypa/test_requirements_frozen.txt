@@ -1,5 +1,5 @@
 # DO NOT EDIT: Generated from test_requirements.txt by generate_workspace.py
-numpy==1.21.6
+numpy==1.24.1
 pytest==7.2.0
 pytest-asyncio==0.20.3
 cloudpickle==2.2.0

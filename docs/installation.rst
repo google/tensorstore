@@ -375,7 +375,7 @@ CMake build
 In addition to a `supported C++ toolchain<build-dependencies>`, the following
 system dependencies are also required for the `CMake build<cmake-build>`:
 
-- Python 3.7 or later
+- Python 3.8 or later
 - CMake 3.24 or later
 - `Perl <https://www.perl.org/>`__, for building libaom from source (default).
   Must be in ``PATH``.  Not required if ``-DTENSORSTORE_USE_SYSTEM_LIBAOM=ON``

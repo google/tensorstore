@@ -12,6 +12,7 @@ def repo():
     repo_pypa_alabaster()
     repo_pypa_apache_beam()
     repo_pypa_appnope()
+    repo_pypa_asttokens()
     repo_pypa_attrs()
     repo_pypa_babel()
     repo_pypa_backcall()
@@ -26,6 +27,7 @@ def repo():
     repo_pypa_docopt()
     repo_pypa_docutils()
     repo_pypa_exceptiongroup()
+    repo_pypa_executing()
     repo_pypa_fastavro()
     repo_pypa_fasteners()
     repo_pypa_gin_config()
@@ -35,7 +37,6 @@ def repo():
     repo_pypa_httplib2()
     repo_pypa_idna()
     repo_pypa_imagesize()
-    repo_pypa_importlib_metadata()
     repo_pypa_importlib_resources()
     repo_pypa_iniconfig()
     repo_pypa_ipython()
@@ -57,6 +58,7 @@ def repo():
     repo_pypa_proto_plus()
     repo_pypa_protobuf()
     repo_pypa_ptyprocess()
+    repo_pypa_pure_eval()
     repo_pypa_pyarrow()
     repo_pypa_pydot()
     repo_pypa_pygments()
@@ -80,6 +82,7 @@ def repo():
     repo_pypa_sphinxcontrib_jsmath()
     repo_pypa_sphinxcontrib_qthelp()
     repo_pypa_sphinxcontrib_serializinghtml()
+    repo_pypa_stack_data()
     repo_pypa_tomli()
     repo_pypa_traitlets()
     repo_pypa_typing_extensions()
@@ -167,12 +170,24 @@ def repo_pypa_appnope():
         requirement = "appnope==0.1.3",
     )
 
+def repo_pypa_asttokens():
+    repo_pypa_six()
+    maybe(
+        third_party_python_package,
+        name = "pypa_asttokens",
+        target = "asttokens",
+        requirement = "asttokens==2.2.1",
+        deps = [
+            "@pypa_six//:six",
+        ],
+    )
+
 def repo_pypa_attrs():
     maybe(
         third_party_python_package,
         name = "pypa_attrs",
         target = "attrs",
-        requirement = "attrs==22.1.0",
+        requirement = "attrs==22.2.0",
     )
 
 def repo_pypa_babel():
@@ -280,7 +295,15 @@ def repo_pypa_exceptiongroup():
         third_party_python_package,
         name = "pypa_exceptiongroup",
         target = "exceptiongroup",
-        requirement = "exceptiongroup==1.0.4",
+        requirement = "exceptiongroup==1.1.0",
+    )
+
+def repo_pypa_executing():
+    maybe(
+        third_party_python_package,
+        name = "pypa_executing",
+        target = "executing",
+        requirement = "executing==1.2.0",
     )
 
 def repo_pypa_fastavro():
@@ -367,27 +390,13 @@ def repo_pypa_imagesize():
         requirement = "imagesize==1.4.1",
     )
 
-def repo_pypa_importlib_metadata():
-    repo_pypa_typing_extensions()
-    repo_pypa_zipp()
-    maybe(
-        third_party_python_package,
-        name = "pypa_importlib_metadata",
-        target = "importlib_metadata",
-        requirement = "importlib-metadata==5.1.0",
-        deps = [
-            "@pypa_typing_extensions//:typing_extensions",
-            "@pypa_zipp//:zipp",
-        ],
-    )
-
 def repo_pypa_importlib_resources():
     repo_pypa_zipp()
     maybe(
         third_party_python_package,
         name = "pypa_importlib_resources",
         target = "importlib_resources",
-        requirement = "importlib-resources==5.10.1",
+        requirement = "importlib-resources==5.10.2",
         deps = [
             "@pypa_zipp//:zipp",
         ],
@@ -412,13 +421,13 @@ def repo_pypa_ipython():
     repo_pypa_pickleshare()
     repo_pypa_prompt_toolkit()
     repo_pypa_pygments()
-    repo_pypa_setuptools()
+    repo_pypa_stack_data()
     repo_pypa_traitlets()
     maybe(
         third_party_python_package,
         name = "pypa_ipython",
         target = "ipython",
-        requirement = "ipython==7.34.0",
+        requirement = "ipython==8.8.0",
         deps = [
             "@pypa_appnope//:appnope",
             "@pypa_backcall//:backcall",
@@ -430,7 +439,7 @@ def repo_pypa_ipython():
             "@pypa_pickleshare//:pickleshare",
             "@pypa_prompt_toolkit//:prompt_toolkit",
             "@pypa_pygments//:pygments",
-            "@pypa_setuptools//:setuptools",
+            "@pypa_stack_data//:stack_data",
             "@pypa_traitlets//:traitlets",
         ],
     )
@@ -461,11 +470,9 @@ def repo_pypa_jinja2():
 
 def repo_pypa_jsonschema():
     repo_pypa_attrs()
-    repo_pypa_importlib_metadata()
     repo_pypa_importlib_resources()
     repo_pypa_pkgutil_resolve_name()
     repo_pypa_pyrsistent()
-    repo_pypa_typing_extensions()
     maybe(
         third_party_python_package,
         name = "pypa_jsonschema",
@@ -473,11 +480,9 @@ def repo_pypa_jsonschema():
         requirement = "jsonschema==4.17.3",
         deps = [
             "@pypa_attrs//:attrs",
-            "@pypa_importlib_metadata//:importlib_metadata",
             "@pypa_importlib_resources//:importlib_resources",
             "@pypa_pkgutil_resolve_name//:pkgutil_resolve_name",
             "@pypa_pyrsistent//:pyrsistent",
-            "@pypa_typing_extensions//:typing_extensions",
         ],
     )
 
@@ -506,7 +511,7 @@ def repo_pypa_numpy():
         third_party_python_package,
         name = "pypa_numpy",
         target = "numpy",
-        requirement = "numpy==1.21.6",
+        requirement = "numpy==1.24.1",
     )
 
 def repo_pypa_objsize():
@@ -522,7 +527,7 @@ def repo_pypa_orjson():
         third_party_python_package,
         name = "pypa_orjson",
         target = "orjson",
-        requirement = "orjson==3.8.3",
+        requirement = "orjson==3.8.4",
     )
 
 def repo_pypa_packaging():
@@ -570,15 +575,11 @@ def repo_pypa_pkgutil_resolve_name():
     )
 
 def repo_pypa_pluggy():
-    repo_pypa_importlib_metadata()
     maybe(
         third_party_python_package,
         name = "pypa_pluggy",
         target = "pluggy",
         requirement = "pluggy==1.0.0",
-        deps = [
-            "@pypa_importlib_metadata//:importlib_metadata",
-        ],
     )
 
 def repo_pypa_prompt_toolkit():
@@ -610,7 +611,7 @@ def repo_pypa_protobuf():
         third_party_python_package,
         name = "pypa_protobuf",
         target = "protobuf",
-        requirement = "protobuf==4.21.11",
+        requirement = "protobuf==4.21.12",
     )
 
 def repo_pypa_ptyprocess():
@@ -619,6 +620,14 @@ def repo_pypa_ptyprocess():
         name = "pypa_ptyprocess",
         target = "ptyprocess",
         requirement = "ptyprocess==0.7.0",
+    )
+
+def repo_pypa_pure_eval():
+    maybe(
+        third_party_python_package,
+        name = "pypa_pure_eval",
+        target = "pure_eval",
+        requirement = "pure-eval==0.2.2",
     )
 
 def repo_pypa_pyarrow():
@@ -650,7 +659,7 @@ def repo_pypa_pygments():
         third_party_python_package,
         name = "pypa_pygments",
         target = "pygments",
-        requirement = "pygments==2.13.0",
+        requirement = "pygments==2.14.0",
     )
 
 def repo_pypa_pymongo():
@@ -678,14 +687,13 @@ def repo_pypa_pyrsistent():
         third_party_python_package,
         name = "pypa_pyrsistent",
         target = "pyrsistent",
-        requirement = "pyrsistent==0.19.2",
+        requirement = "pyrsistent==0.19.3",
     )
 
 def repo_pypa_pytest():
     repo_pypa_attrs()
     repo_pypa_colorama()
     repo_pypa_exceptiongroup()
-    repo_pypa_importlib_metadata()
     repo_pypa_iniconfig()
     repo_pypa_packaging()
     repo_pypa_pluggy()
@@ -699,7 +707,6 @@ def repo_pypa_pytest():
             "@pypa_attrs//:attrs",
             "@pypa_colorama//:colorama",
             "@pypa_exceptiongroup//:exceptiongroup",
-            "@pypa_importlib_metadata//:importlib_metadata",
             "@pypa_iniconfig//:iniconfig",
             "@pypa_packaging//:packaging",
             "@pypa_pluggy//:pluggy",
@@ -709,7 +716,6 @@ def repo_pypa_pytest():
 
 def repo_pypa_pytest_asyncio():
     repo_pypa_pytest()
-    repo_pypa_typing_extensions()
     maybe(
         third_party_python_package,
         name = "pypa_pytest_asyncio",
@@ -717,7 +723,6 @@ def repo_pypa_pytest_asyncio():
         requirement = "pytest-asyncio==0.20.3",
         deps = [
             "@pypa_pytest//:pytest",
-            "@pypa_typing_extensions//:typing_extensions",
         ],
     )
 
@@ -738,7 +743,7 @@ def repo_pypa_pytz():
         third_party_python_package,
         name = "pypa_pytz",
         target = "pytz",
-        requirement = "pytz==2022.6",
+        requirement = "pytz==2022.7",
     )
 
 def repo_pypa_pyyaml():
@@ -891,6 +896,22 @@ def repo_pypa_sphinxcontrib_serializinghtml():
         requirement = "sphinxcontrib-serializinghtml==1.1.5",
     )
 
+def repo_pypa_stack_data():
+    repo_pypa_asttokens()
+    repo_pypa_executing()
+    repo_pypa_pure_eval()
+    maybe(
+        third_party_python_package,
+        name = "pypa_stack_data",
+        target = "stack_data",
+        requirement = "stack-data==0.6.2",
+        deps = [
+            "@pypa_asttokens//:asttokens",
+            "@pypa_executing//:executing",
+            "@pypa_pure_eval//:pure_eval",
+        ],
+    )
+
 def repo_pypa_tomli():
     maybe(
         third_party_python_package,
@@ -904,7 +925,7 @@ def repo_pypa_traitlets():
         third_party_python_package,
         name = "pypa_traitlets",
         target = "traitlets",
-        requirement = "traitlets==5.6.0",
+        requirement = "traitlets==5.8.0",
     )
 
 def repo_pypa_typing_extensions():
