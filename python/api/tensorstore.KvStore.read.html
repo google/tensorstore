@@ -37,7 +37,7 @@ epoch.">staleness_bound</span> </a> </li> </ul> </nav> </li> <li class=md-nav__i
 <span class=go>KvStore.ReadResult(state=&#39;missing&#39;, value=b&#39;&#39;, stamp=KvStore.TimestampedStorageGeneration(...))</span>
 <span class=gp>&gt;&gt;&gt; </span><span class=n>store</span><span class=p>[</span><span class=sa>b</span><span class=s1>&#39;b&#39;</span><span class=p>]</span>
 <span class=gt>Traceback (most recent call last):</span>
-    <span class=o>...</span>
+<span class=w>    </span><span class=o>...</span>
 <span class=gr>KeyError...</span>
 </code></pre></div> </div> <div class="doctest highlight-default notranslate"><div class=highlight><pre><span></span><code><span class=gp>&gt;&gt;&gt; </span><span class=n>store</span><span class=p>[</span><span class=sa>b</span><span class=s1>&#39;a&#39;</span><span class=p>]</span> <span class=o>=</span> <span class=sa>b</span><span class=s1>&#39;value&#39;</span>
 <span class=gp>&gt;&gt;&gt; </span><span class=n>store</span><span class=p>[</span><span class=sa>b</span><span class=s1>&#39;b&#39;</span><span class=p>]</span> <span class=o>=</span> <span class=sa>b</span><span class=s1>&#39;value&#39;</span>
