@@ -44,6 +44,7 @@
 #include "tensorstore/internal/grid_partition.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/memory.h"
+#include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/nditerable.h"
 #include "tensorstore/rank.h"
@@ -63,6 +64,11 @@
 
 namespace tensorstore {
 namespace internal {
+
+auto& num_writes = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/cache/chunk_cache/writes", "Number of writes to ChunkCache.");
+auto& num_reads = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/cache/chunk_cache/reads", "Number of reads from ChunkCache.");
 
 ChunkGridSpecification::Component::Component(SharedArray<const void> fill_value,
                                              Box<> component_bounds)
@@ -466,6 +472,7 @@ void ChunkCache::Read(
         if (!state->promise.result_needed()) {
           return absl::CancelledError("");
         }
+        num_reads.Increment();
         TENSORSTORE_ASSIGN_OR_RETURN(
             auto cell_to_source, ComposeTransforms(transform, cell_transform));
         auto entry = GetEntryForCell(grid_cell_indices);
@@ -517,6 +524,7 @@ void ChunkCache::Write(
       [&](span<const Index> grid_cell_indices,
           IndexTransformView<> cell_transform) {
         if (cancelled) return absl::CancelledError("");
+        num_writes.Increment();
         TENSORSTORE_ASSIGN_OR_RETURN(
             auto cell_to_dest, ComposeTransforms(transform, cell_transform));
         auto entry = GetEntryForCell(grid_cell_indices);

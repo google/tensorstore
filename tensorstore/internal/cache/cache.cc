@@ -35,6 +35,7 @@
 #include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/internal/intrusive_linked_list.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/util/assert_macros.h"
 
@@ -46,6 +47,13 @@
 
 namespace tensorstore {
 namespace internal_cache {
+
+auto& hit_count = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/cache/hit_count", "Number of cache hits.");
+auto& miss_count = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/cache/miss_count", "Number of cache misses.");
+auto& evict_count = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/cache/evict_count", "Number of evictions from the cache.");
 
 using ::tensorstore::internal::PinnedCacheEntry;
 
@@ -111,6 +119,7 @@ void UnregisterEntryFromPool(CacheEntryImpl* entry,
 }
 
 void EvictEntry(CacheEntryImpl* entry) noexcept ABSL_NO_THREAD_SAFETY_ANALYSIS {
+  evict_count.Increment();
   auto* pool = entry->cache_->pool_;
   DebugAssertMutexHeld(&pool->mutex_);
   UnregisterEntryFromPool(entry, pool);
@@ -330,6 +339,7 @@ PinnedCacheEntry<Cache> GetCacheEntryInternal(internal::Cache* cache,
     absl::MutexLock lock(&cache_impl->pool_->mutex_);
     auto it = cache_impl->entries_.find(key);
     if (it != cache_impl->entries_.end()) {
+      hit_count.Increment();
       auto* entry_impl = *it;
       if (entry_impl->reference_count_.fetch_add(
               1, std::memory_order_acq_rel) == 0) {
@@ -345,6 +355,7 @@ PinnedCacheEntry<Cache> GetCacheEntryInternal(internal::Cache* cache,
           PinnedCacheEntry<Cache>(Access::StaticCast<Cache::Entry>(entry_impl),
                                   internal::adopt_object_ref);
     } else {
+      miss_count.Increment();
       std::string temp_key(key);  // May throw, done before allocating entry.
       auto* entry_impl =
           Access::StaticCast<CacheEntryImpl>(cache->DoAllocateEntry());
