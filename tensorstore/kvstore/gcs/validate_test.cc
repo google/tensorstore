@@ -63,12 +63,9 @@ TEST(ValidateTest, IsValidObjectName) {
   EXPECT_FALSE(IsValidObjectName("foo\rbar"));
   EXPECT_FALSE(IsValidObjectName("foo\nbar"));
 
-  // Disabled
-  EXPECT_FALSE(IsValidObjectName("foo[bar"));
-  EXPECT_FALSE(IsValidObjectName("foo]bar"));
-  EXPECT_FALSE(IsValidObjectName("foo*bar"));
-  EXPECT_FALSE(IsValidObjectName("foo?bar"));
-  EXPECT_FALSE(IsValidObjectName("foo#bar"));
+  // Allowed, but discouraged.
+  EXPECT_TRUE(IsValidObjectName("foo[*?#]"));
+
   // ascii iscontrol
   EXPECT_FALSE(IsValidObjectName("foo\004bar"));
   EXPECT_FALSE(IsValidObjectName("foo\tbar"));

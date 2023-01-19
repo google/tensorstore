@@ -79,8 +79,6 @@ bool IsValidObjectName(std::string_view name) {
     if (ch == '\r' || ch == '\n') return false;
     // While not prohibited, the following are strongly discouraged.
     if (absl::ascii_iscntrl(ch)) return false;
-    if (ch == '[' || ch == ']' || ch == '*' || ch == '?' || ch == '#')
-      return false;
   }
 
   return internal::IsValidUtf8(name);
