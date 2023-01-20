@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <limits>
 
+#include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "riegeli/varint/varint_reading.h"
 #include "riegeli/varint/varint_writing.h"
@@ -48,7 +49,7 @@ bool CompareArraysEqual(
 void CopyArrayImplementation(
     const ArrayView<const void, dynamic_rank, offset_origin>& source,
     const ArrayView<void, dynamic_rank, offset_origin>& dest) {
-  TENSORSTORE_CHECK(source.dtype() == dest.dtype());
+  ABSL_CHECK_EQ(source.dtype(), dest.dtype());
   internal::IterateOverArrays({&source.dtype()->copy_assign, nullptr},
                               /*status=*/nullptr,
                               /*constraints=*/skip_repeated_elements, source,

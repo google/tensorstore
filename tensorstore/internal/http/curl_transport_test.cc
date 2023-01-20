@@ -31,10 +31,11 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/container/flat_hash_map.h"
+#include "absl/log/absl_check.h"
+#include "absl/log/absl_log.h"
 #include "absl/strings/str_cat.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/transport_test_utils.h"
-#include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/thread.h"
 #include "tensorstore/util/assert_macros.h"
 
@@ -55,7 +56,7 @@ class CurlTransportTest : public ::testing::Test {
   static void SetUpTestCase() {
 #ifdef _WIN32
     WSADATA wsaData;
-    TENSORSTORE_CHECK(WSAStartup(MAKEWORD(2, 2), &wsaData) == 0);
+    ABSL_CHECK(WSAStartup(MAKEWORD(2, 2), &wsaData) == 0);
 #endif
   }
   static void TearDownTestCase() {
@@ -73,10 +74,10 @@ TEST_F(CurlTransportTest, Http1) {
   // NOTE: It would be nice to expand this to provide, e.g. HTTP2 functionality.
 
   auto socket = CreateBoundSocket();
-  TENSORSTORE_CHECK(socket.has_value());
+  ABSL_CHECK(socket.has_value());
 
   auto hostport = FormatSocketAddress(*socket);
-  TENSORSTORE_CHECK(!hostport.empty());
+  ABSL_CHECK(!hostport.empty());
 
   static constexpr char kResponse[] =  //
       "HTTP/1.1 200 OK\r\n"
@@ -88,7 +89,7 @@ TEST_F(CurlTransportTest, Http1) {
   std::string initial_request;
   tensorstore::internal::Thread serve_thread({"serve_thread"}, [&] {
     auto client_fd = AcceptNonBlocking(*socket);
-    TENSORSTORE_CHECK(client_fd.has_value());
+    ABSL_CHECK(client_fd.has_value());
     initial_request = ReceiveAvailable(*client_fd);
     AssertSend(*client_fd, kResponse);
     CloseSocket(*client_fd);
@@ -105,9 +106,9 @@ TEST_F(CurlTransportTest, Http1) {
           .BuildRequest(),
       absl::Cord("Hello"));
 
-  TENSORSTORE_LOG(response.status());
+  ABSL_LOG(INFO) << response.status();
 
-  TENSORSTORE_LOG("Wait on server");
+  ABSL_LOG(INFO) << "Wait on server";
   serve_thread.Join();
   CloseSocket(*socket);
 
@@ -135,10 +136,10 @@ TEST_F(CurlTransportTest, Http1Resend) {
   auto transport = ::tensorstore::internal_http::GetDefaultHttpTransport();
 
   auto socket = CreateBoundSocket();
-  TENSORSTORE_CHECK(socket.has_value());
+  ABSL_CHECK(socket.has_value());
 
   auto hostport = FormatSocketAddress(*socket);
-  TENSORSTORE_CHECK(!hostport.empty());
+  ABSL_CHECK(!hostport.empty());
 
   // Include content-length to allow connection reuse.
   static constexpr char kResponse[] =  //
@@ -159,15 +160,16 @@ TEST_F(CurlTransportTest, Http1Resend) {
 
     for (int i = 0; i < 3; i++) {
       if (!client_fd.has_value()) {
-        TENSORSTORE_LOG("S: Waiting on listen");
+        ABSL_LOG(INFO) << "S: Waiting on listen";
         client_fd = AcceptNonBlocking(*socket);
-        TENSORSTORE_CHECK(client_fd.has_value());
+        ABSL_CHECK(client_fd.has_value());
       }
 
       while (seen_requests[i].empty()) {
         seen_requests[i] = ReceiveAvailable(*client_fd);
       }
-      TENSORSTORE_LOG("S: request ", i, " size=", seen_requests[i].size());
+      ABSL_LOG(INFO) << "S: request " << i
+                     << " size=" << seen_requests[i].size();
 
       if (i == 1) {
         // Terminate the connection after receiving the second request
@@ -188,7 +190,7 @@ TEST_F(CurlTransportTest, Http1Resend) {
 
   // Issue 2 requests.
   for (int i = 0; i < 2; ++i) {
-    TENSORSTORE_LOG("C: send ", i);
+    ABSL_LOG(INFO) << "C: send " << i;
 
     auto future = transport->IssueRequest(
         HttpRequestBuilder("POST", absl::StrCat("http://", hostport, "/"))
@@ -200,14 +202,14 @@ TEST_F(CurlTransportTest, Http1Resend) {
             .BuildRequest(),
         absl::Cord("Hello"));
 
-    TENSORSTORE_LOG("C: ", i, " ", future.status());
+    ABSL_LOG(INFO) << "C: " << i << " " << future.status();
 
     EXPECT_EQ(200, future.value().status_code);
     EXPECT_EQ("<html>\n<body>\n<h1>Hello, World!</h1>\n</body>\n</html>\n",
               future.value().payload);
   }
 
-  TENSORSTORE_LOG("Wait on server");
+  ABSL_LOG(INFO) << "Wait on server";
   serve_thread.Join();
   CloseSocket(*socket);
 

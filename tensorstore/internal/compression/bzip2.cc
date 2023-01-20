@@ -14,10 +14,10 @@
 
 #include "tensorstore/internal/compression/bzip2.h"
 
+#include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "tensorstore/internal/compression/cord_stream_manager.h"
 #include "tensorstore/util/assert_macros.h"
-#include "tensorstore/util/status.h"
 
 // Include this last since it defines many macros.
 #include <bzlib.h>
@@ -42,7 +42,7 @@ void Encode(const absl::Cord& input, absl::Cord* output,
                                // Default work factor, which affects performance
                                // but not the compressed result.
                                /*workFactor=*/0);
-  TENSORSTORE_CHECK(err == BZ_OK);
+  ABSL_CHECK_EQ(err, BZ_OK);
   struct StreamWrapper {
     bz_stream* stream;
     ~StreamWrapper() { BZ2_bzCompressEnd(stream); }
@@ -57,7 +57,7 @@ void Encode(const absl::Cord& input, absl::Cord* output,
       return;
     case BZ_SEQUENCE_ERROR:
     default:
-      TENSORSTORE_CHECK(false);
+      ABSL_CHECK(false);
   }
 }
 
@@ -67,7 +67,7 @@ absl::Status Decode(const absl::Cord& input, absl::Cord* output) {
   int err = BZ2_bzDecompressInit(&stream, /*verbosity=*/0,
                                  // No need to reduce memory usage.
                                  /*small=*/0);
-  TENSORSTORE_CHECK(err == BZ_OK);
+  ABSL_CHECK_EQ(err, BZ_OK);
   struct StreamWrapper {
     bz_stream* stream;
     ~StreamWrapper() { BZ2_bzDecompressEnd(stream); }
@@ -96,7 +96,7 @@ absl::Status Decode(const absl::Cord& input, absl::Cord* output) {
     case BZ_MEM_ERROR:
     case BZ_PARAM_ERROR:
     default:
-      TENSORSTORE_CHECK(false);
+      ABSL_CHECK(false);
   }
   TENSORSTORE_UNREACHABLE;
 }

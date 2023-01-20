@@ -18,6 +18,7 @@
 #include <csetjmp>
 #include <memory>
 
+#include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
 #include "tensorstore/internal/image/image_view.h"
@@ -138,7 +139,7 @@ JpegWriter::~JpegWriter() = default;
 
 absl::Status JpegWriter::InitializeImpl(riegeli::Writer* writer,
                                         const JpegWriterOptions& options) {
-  TENSORSTORE_CHECK(writer != nullptr);
+  ABSL_CHECK(writer != nullptr);
 
   writer_ = std::move(writer);
   options_ = options;
@@ -155,7 +156,7 @@ absl::Status JpegWriter::Encode(const ImageInfo& info,
   if (writer_ == nullptr) {
     return absl::InternalError("JPEG writer not initialized");
   }
-  TENSORSTORE_CHECK(source.size() == ImageRequiredBytes(info));
+  ABSL_CHECK(source.size() == ImageRequiredBytes(info));
 
   if (info.width > std::numeric_limits<JDIMENSION>::max() ||
       info.height > std::numeric_limits<JDIMENSION>::max()) {

@@ -18,12 +18,12 @@
 #include <random>
 
 #include "absl/algorithm/container.h"
+#include "absl/log/absl_log.h"
 #include "absl/random/bit_gen_ref.h"
 #include "absl/random/random.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
-#include "tensorstore/internal/logging.h"
 
 namespace tensorstore {
 namespace internal {
@@ -64,8 +64,8 @@ IndexTransform<> ApplyRandomDimExpression(absl::BitGenRef gen,
         const Index size =
             absl::Uniform<Index>(absl::IntervalClosedClosed, gen, 1, 3);
         if (log) {
-          TENSORSTORE_LOG("Dims(", dim, ").AddNew().SizedInterval(", origin,
-                          ", ", size, ")");
+          ABSL_LOG(INFO) << "Dims(" << dim << ").AddNew().SizedInterval("
+                         << origin << ", " << size << ")";
         }
         return (transform | Dims(dim).AddNew().SizedInterval(origin, size))
             .value();
@@ -78,7 +78,8 @@ IndexTransform<> ApplyRandomDimExpression(absl::BitGenRef gen,
           stride *= -1;
         }
         if (log) {
-          TENSORSTORE_LOG("Dims(", input_dim, ").Stride(", stride, ")");
+          ABSL_LOG(INFO) << "Dims(" << input_dim << ").Stride(" << stride
+                         << ")";
         }
         return (transform | Dims(input_dim).Stride(stride)).value();
       }
@@ -88,7 +89,8 @@ IndexTransform<> ApplyRandomDimExpression(absl::BitGenRef gen,
           i = absl::Uniform<Index>(absl::IntervalClosedClosed, gen, -10, 10);
         }
         if (log) {
-          TENSORSTORE_LOG("AllDims().TranslateBy(", span(translation), ")");
+          ABSL_LOG(INFO) << "AllDims().TranslateBy(" << span(translation)
+                         << ")";
         }
         return (transform | AllDims().TranslateBy(translation)).value();
       }
@@ -104,7 +106,7 @@ IndexTransform<> ApplyRandomDimExpression(absl::BitGenRef gen,
                                  transform.domain()[dim].exclusive_max());
 
         if (log) {
-          TENSORSTORE_LOG("Dims(", dim, ").IndexSlice(", slice, ")");
+          ABSL_LOG(INFO) << "Dims(" << dim << ").IndexSlice(" << slice << ")";
         }
         return (transform | Dims(dim).IndexSlice(slice)).value();
       }
@@ -121,8 +123,8 @@ IndexTransform<> ApplyRandomDimExpression(absl::BitGenRef gen,
         auto end = absl::Uniform<Index>(absl::IntervalClosedClosed, gen, start,
                                         interval.inclusive_max());
         if (log) {
-          TENSORSTORE_LOG("Dims(", dim, ").ClosedInterval(", start, ", ", end,
-                          ")");
+          ABSL_LOG(INFO) << "Dims(" << dim << ").ClosedInterval(" << start
+                         << ", " << end << ")";
         }
         return (transform | Dims(dim).ClosedInterval(start, end)).value();
       }
@@ -148,8 +150,8 @@ IndexTransform<> ApplyRandomDimExpression(absl::BitGenRef gen,
               index_range.exclusive_max());
         }
         if (log) {
-          TENSORSTORE_LOG("Dims(", input_dim, ").IndexArraySlice(", new_array,
-                          ")");
+          ABSL_LOG(INFO) << "Dims(" << input_dim << ").IndexArraySlice("
+                         << new_array << ")";
         }
         return (transform | Dims(input_dim).IndexArraySlice(new_array)).value();
       }
@@ -157,7 +159,7 @@ IndexTransform<> ApplyRandomDimExpression(absl::BitGenRef gen,
         std::vector<DimensionIndex> dims(transform.input_rank());
         std::iota(dims.begin(), dims.end(), DimensionIndex(0));
         std::shuffle(dims.begin(), dims.end(), gen);
-        if (log) TENSORSTORE_LOG("AllDims().Transpose(", span(dims), ")");
+        if (log) ABSL_LOG(INFO) << "AllDims().Transpose(" << span(dims) << ")";
         return (transform | AllDims().Transpose(dims)).value();
       }
       case ExpressionKind::kDiagonal: {
@@ -165,7 +167,7 @@ IndexTransform<> ApplyRandomDimExpression(absl::BitGenRef gen,
           DimensionIndex dim1 = sample_input_dim(), dim2 = sample_input_dim();
           if (dim1 == dim2) continue;
           if (log) {
-            TENSORSTORE_LOG("Dims(", dim1, ", ", dim2, ").Diagonal()");
+            ABSL_LOG(INFO) << "Dims(" << dim1 << ", " << dim2 << ").Diagonal()";
           }
           return (transform | Dims(dim1, dim2).Diagonal()).value();
         }

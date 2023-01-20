@@ -14,6 +14,8 @@
 
 #include "tensorstore/context.h"
 
+#include "absl/log/absl_check.h"
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_join.h"
 #include "absl/synchronization/mutex.h"
@@ -21,7 +23,6 @@
 #include "tensorstore/context_resource_provider.h"
 #include "tensorstore/internal/heterogeneous_container.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/serialization/json.h"
@@ -251,8 +252,8 @@ Result<ResourceImplStrongPtr> GetOrCreateResourceStrongPtr(
   if (!spec.provider_) {
     // The provider was not linked in, despite linking in code that depends on
     // it.  This indicates a build configuration error.
-    TENSORSTORE_LOG_FATAL("Context resource provider not registered for: ",
-                          QuoteString(spec.key_));
+    ABSL_LOG(FATAL) << "Context resource provider not registered for: "
+                    << QuoteString(spec.key_);
   }
   const std::string_view key = spec.key_;
   if (key.empty()) {
@@ -375,7 +376,7 @@ void RegisterContextResourceProvider(
   absl::MutexLock lock(&registry.mutex_);
   auto id = provider->id_;
   if (!registry.providers_.insert(std::move(provider)).second) {
-    TENSORSTORE_LOG_FATAL("Provider ", QuoteString(id), " already registered");
+    ABSL_LOG(FATAL) << "Provider " << QuoteString(id) << " already registered";
   }
 }
 
@@ -391,8 +392,8 @@ const ResourceProviderImplBase& GetProviderOrDie(std::string_view id) {
   auto* provider = GetProvider(id);
   if (!provider) {
     // Indicates a build configuration problem.
-    TENSORSTORE_LOG_FATAL("Context resource provider ", QuoteString(id),
-                          " not registered");
+    ABSL_LOG(FATAL) << "Context resource provider " << QuoteString(id)
+                    << " not registered";
   }
   return *provider;
 }
@@ -1009,7 +1010,7 @@ bool EncodeContextSpecBuilder(serialization::EncodeSink& sink,
     deps.emplace_back(resource, entry.spec);
     entry.shared = true;
   }
-  TENSORSTORE_CHECK(internal_context::Access::impl(builder)->use_count() == 1);
+  ABSL_CHECK_EQ(internal_context::Access::impl(builder)->use_count(), 1);
   // Rely on builder's destructor to update all of the spec keys in
   // `deps`.
   builder = internal::ContextSpecBuilder();

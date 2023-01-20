@@ -22,6 +22,7 @@
 #include <utility>
 #include <variant>
 
+#include "absl/log/absl_log.h"
 #include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_split.h"
@@ -30,7 +31,6 @@
 #include "tensorstore/internal/http/curl_handle.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
-#include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/util/executor.h"
@@ -304,7 +304,7 @@ GCSMockStorageBucket::HandleInsertRequest(std::string_view path,
     obj.generation = ++next_generation_;
     obj.data = payload;
 
-    TENSORSTORE_LOG("Uploaded: ", obj.name, " ", obj.generation);
+    ABSL_LOG(INFO) << "Uploaded: " << obj.name << " " << obj.generation;
 
     return ObjectMetadataResponse(obj);
   } while (false);
@@ -395,7 +395,7 @@ GCSMockStorageBucket::HandleDeleteRequest(std::string_view path,
       }
     }
 
-    TENSORSTORE_LOG("Deleted: ", name, " ", it->second.generation);
+    ABSL_LOG(INFO) << "Deleted: " << name << " " << it->second.generation;
 
     data_.erase(it);
     return HttpResponse{204, absl::Cord()};

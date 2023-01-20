@@ -23,11 +23,11 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/flags/flag.h"
+#include "absl/log/absl_log.h"
 #include "tensorstore/array.h"
 #include "tensorstore/array_testutil.h"
 #include "tensorstore/context.h"
 #include "tensorstore/index.h"
-#include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/open.h"
 #include "tensorstore/util/status.h"
@@ -52,7 +52,7 @@ TEST_P(GoldenFileTest, Read) {
   std::string path = GetPath();
   std::vector<Index> shape({5, 4});
 
-  TENSORSTORE_LOG(path);
+  ABSL_LOG(INFO) << path;
 
   auto context = tensorstore::Context::Default();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,

@@ -25,6 +25,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/flags/flag.h"
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/match.h"
@@ -40,7 +41,6 @@
 #include "tensorstore/internal/image/png_reader.h"
 #include "tensorstore/internal/image/tiff_reader.h"
 #include "tensorstore/internal/image/webp_reader.h"
-#include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
@@ -127,7 +127,7 @@ class ReaderTest : public ::testing::TestWithParam<TestParam> {
 TEST_P(ReaderTest, ReadImage) {
   const auto& filename = GetParam().filename;
   ASSERT_FALSE(reader.get() == nullptr) << filename;
-  TENSORSTORE_LOG(filename);
+  ABSL_LOG(INFO) << filename;
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(absl::Cord file_data,
                                    ReadEntireFile(GetFilename()));

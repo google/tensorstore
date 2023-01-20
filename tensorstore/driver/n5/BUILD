@@ -153,12 +153,12 @@ tensorstore_cc_test(
         "//tensorstore:context",
         "//tensorstore:index",
         "//tensorstore:open",
-        "//tensorstore/internal:logging",
         "//tensorstore/internal:path",
         "//tensorstore/kvstore/file",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
         "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/log:absl_log",
         "@com_google_googletest//:gtest_main",
     ],
 )

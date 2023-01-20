@@ -19,10 +19,10 @@
 #include <memory>
 #include <optional>
 
+#include "absl/log/absl_check.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "tensorstore/data_type.h"
-#include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/schedule_at.h"
 #include "tensorstore/kvstore/gcs/rate_limiter.h"
 
@@ -60,7 +60,7 @@ ScalingRateLimiter::ScalingRateLimiter(double initial_rate,
       a_(GetLogA(doubling_time)),
       last_update_(start_time_),
       clock_now_([]() { return absl::Now(); }) {
-  TENSORSTORE_CHECK(initial_rate > std::numeric_limits<double>::min());
+  ABSL_CHECK_GT(initial_rate, std::numeric_limits<double>::min());
   absl::MutexLock l(&mutex_);
   internal::intrusive_linked_list::Initialize(RateLimiterNodeAccessor{},
                                               &head_);

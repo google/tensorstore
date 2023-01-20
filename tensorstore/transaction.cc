@@ -17,6 +17,7 @@
 #include "absl/functional/function_ref.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/transaction_impl.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal {

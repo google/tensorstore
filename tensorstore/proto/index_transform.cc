@@ -25,7 +25,6 @@
 #include "tensorstore/internal/json/array.h"
 #include "tensorstore/internal/json_binding/dimension_indexed.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/logging.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/proto/index_transform.pb.h"
 #include "tensorstore/rank.h"

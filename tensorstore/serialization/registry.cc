@@ -14,7 +14,8 @@
 
 #include "tensorstore/serialization/registry.h"
 
-#include "tensorstore/internal/logging.h"
+#include "absl/log/absl_log.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace serialization {
@@ -24,11 +25,11 @@ Registry::~Registry() = default;
 
 void Registry::Add(const Entry& entry) {
   if (!by_id_.insert(&entry).second) {
-    TENSORSTORE_LOG_FATAL("Duplicate serializable id registration: ", entry.id);
+    ABSL_LOG(FATAL) << "Duplicate serializable id registration: " << entry.id;
   }
   if (!by_type_.insert(&entry).second) {
-    TENSORSTORE_LOG_FATAL("Duplicate serializable type registration: ",
-                          entry.type.name());
+    ABSL_LOG(FATAL) << "Duplicate serializable type registration: "
+                    << entry.type.name();
   }
 }
 

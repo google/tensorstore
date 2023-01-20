@@ -194,6 +194,8 @@
 #include <vector>   // NOLINT
 
 #include <gmock/gmock.h>
+#include "absl/log/absl_check.h"
+#include "absl/log/absl_log.h"
 #include "absl/strings/string_view.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/io/zero_copy_stream.h"
@@ -203,8 +205,6 @@
 #include "google/protobuf/text_format.h"
 #include "google/protobuf/util/field_comparator.h"
 #include "google/protobuf/util/message_differencer.h"
-#include "tensorstore/internal/logging.h"
-#include "tensorstore/util/assert_macros.h"
 
 namespace protobuf_matchers {
 namespace internal {
@@ -286,9 +286,9 @@ Proto MakePartialProtoFromAscii(const std::string& str) {
   Proto proto;
   std::string error_text;
   if (!ParsePartialFromAscii(str, &proto, &error_text)) {
-    TENSORSTORE_LOG_FATAL("Failed to parse \"", str, "\" as a ",
-                          proto.GetDescriptor()->full_name(), ":\n",
-                          error_text);
+    ABSL_LOG(FATAL) << "Failed to parse \"" << str << "\" as a "
+                    << proto.GetDescriptor()->full_name() << ":\n"
+                    << error_text;
   }
   return proto;
 }
@@ -384,8 +384,7 @@ class ProtoMatcherBase {
 
   // Sets the margin of error for approximate floating point comparison.
   void SetMargin(double margin) {
-    TENSORSTORE_CHECK(margin >= 0.0 &&
-                      "Using a negative margin for Approximately");
+    ABSL_CHECK_GE(margin, 0.0) << "Using a negative margin for Approximately";
     comp_->has_custom_margin = true;
     comp_->float_margin = margin;
   }
@@ -393,8 +392,8 @@ class ProtoMatcherBase {
   // Sets the relative fraction of error for approximate floating point
   // comparison.
   void SetFraction(double fraction) {
-    TENSORSTORE_CHECK(0.0 <= fraction && fraction < 1.0 &&
-                      "Fraction for Approximately must be >= 0.0 and < 1.0");
+    ABSL_CHECK(0.0 <= fraction && fraction < 1.0)
+        << "Fraction for Approximately must be >= 0.0 and < 1.0";
     comp_->has_custom_fraction = true;
     comp_->float_fraction = fraction;
   }
@@ -498,11 +497,10 @@ class ProtoMatcher : public ProtoMatcherBase {
         expected_(CloneProto2(expected)) {
     if (must_be_initialized) {
       if (!expected.IsInitialized()) {
-        TENSORSTORE_LOG_FATAL(
-            "The protocol buffer given to *InitializedProto() "
-            "must itself be initialized, but required fields "
-            "are missing: ",
-            expected.InitializationErrorString());
+        ABSL_LOG(FATAL) << "The protocol buffer given to *InitializedProto() "
+                           "must itself be initialized, but required fields "
+                           "are missing: "
+                        << expected.InitializationErrorString();
       }
     }
   }
@@ -827,8 +825,7 @@ class TupleProtoMatcher {
 
   // Sets the margin of error for approximate floating point comparison.
   void SetMargin(double margin) {
-    TENSORSTORE_CHECK(margin >= 0.0 &&
-                      "Using a negative margin for Approximately");
+    ABSL_CHECK(margin >= 0.0) << "Using a negative margin for Approximately";
     comp_->has_custom_margin = true;
     comp_->float_margin = margin;
   }
@@ -836,8 +833,8 @@ class TupleProtoMatcher {
   // Sets the relative fraction of error for approximate floating point
   // comparison.
   void SetFraction(double fraction) {
-    TENSORSTORE_CHECK(0.0 <= fraction && fraction <= 1.0 &&
-                      "Fraction for Relatively must be >= 0.0 and < 1.0");
+    ABSL_CHECK(0.0 <= fraction && fraction <= 1.0)
+        << "Fraction for Relatively must be >= 0.0 and < 1.0";
     comp_->has_custom_fraction = true;
     comp_->float_fraction = fraction;
   }

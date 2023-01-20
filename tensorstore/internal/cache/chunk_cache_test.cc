@@ -27,6 +27,7 @@
 #include "absl/base/attributes.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/inlined_vector.h"
+#include "absl/log/absl_check.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_split.h"
@@ -146,9 +147,8 @@ absl::Cord EncodeRaw(const ChunkGridSpecification& grid,
        ++component_i) {
     const auto& spec = component_specs[component_i];
     auto array = MakeCopy(component_arrays[component_i]);
-    TENSORSTORE_CHECK(
-        tensorstore::internal::RangesEqual(array.shape(), spec.shape()));
-    TENSORSTORE_CHECK(array.dtype() == spec.dtype());
+    ABSL_CHECK(tensorstore::internal::RangesEqual(array.shape(), spec.shape()));
+    ABSL_CHECK(array.dtype() == spec.dtype());
     const size_t num_bytes = spec.num_elements() * spec.dtype().size();
     value.append(reinterpret_cast<const char*>(array.data()), num_bytes);
   }
@@ -278,7 +278,7 @@ std::vector<Index> ParseKey(std::string_view key) {
   std::vector<Index> result;
   for (auto s : absl::StrSplit(key, ',')) {
     Index i = 0;
-    TENSORSTORE_CHECK(absl::SimpleAtoi(s, &i));
+    ABSL_CHECK(absl::SimpleAtoi(s, &i));
     result.push_back(i);
   }
   return result;

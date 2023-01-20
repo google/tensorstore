@@ -21,6 +21,7 @@
 
 #include <stdio.h>
 
+#include "absl/log/absl_check.h"
 #include "tensorstore/internal/os_error_code.h"
 #include "tensorstore/kvstore/file/file_util.h"
 #include "tensorstore/util/quote_string.h"
@@ -379,7 +380,7 @@ Result<std::string> GetCwd() {
       // It is not valid for `size` to exactly equal `new_size`, since that
       // would simultaneously mean `size` was insufficient but also the correct
       // size.
-      TENSORSTORE_CHECK(new_size != size);
+      ABSL_CHECK_NE(new_size, size);
 
       if (new_size > size) {
         size = new_size;

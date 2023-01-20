@@ -27,6 +27,8 @@
 #include <utility>
 
 #include "absl/base/attributes.h"
+#include "absl/log/absl_check.h"
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
 #include "riegeli/bytes/reader.h"
@@ -67,7 +69,7 @@ tmsize_t ReadProc(thandle_t data, void* buf, tmsize_t len) {
   auto* reader = static_cast<TiffReader::Context*>(data)->reader_;
   assert(reader != nullptr);
   size_t read;
-  // TENSORSTORE_LOG("tiff read ", reader->pos(), " ", len);
+  // ABSL_LOG(INFO) << "tiff read " << reader->pos() << " " << len;
   if (!reader->Read(len, static_cast<char*>(buf), &read) && !reader->ok()) {
     errno = EBADF;
     return -1;
@@ -87,16 +89,16 @@ toff_t SeekProc(thandle_t data, toff_t pos, int whence) {
 
   switch (whence) {
     case SEEK_SET:
-      // TENSORSTORE_LOG("tiff seek ", pos);
+      // ABSL_LOG(INFO) << "tiff seek " << pos;
       reader->Seek(pos);
       break;
     case SEEK_CUR:
-      // TENSORSTORE_LOG("tiff skip ", reader->pos(), " ", pos);
+      // ABSL_LOG(INFO) << "tiff skip "<< reader->pos()<< " "<< pos;
       reader->Skip(pos);
       break;
     case SEEK_END:
       assert(pos <= 0);
-      // TENSORSTORE_LOG("tiff seek_end ", pos);
+      // ABSL_LOG(INFO) << "tiff seek_end "<< pos;
       if (auto size = reader->Size(); size) {
         reader->Seek(*size - static_cast<uint64_t>(-pos));
       } else {
@@ -426,7 +428,7 @@ absl::Status TiffReader::Context::DefaultDecode(
     tensorstore::span<unsigned char> data) {
   TiffImageInfo info;
   TENSORSTORE_RETURN_IF_ERROR(GetTIFFImageInfo(tiff_, info));
-  TENSORSTORE_CHECK(data.size() == ImageRequiredBytes(info));
+  ABSL_CHECK_EQ(data.size(), ImageRequiredBytes(info));
 
   // Additional fields checks (beyond the info)
   uint32_t compress_tag = 0;
@@ -489,7 +491,7 @@ TiffReader::TiffReader(TiffReader&& src) = default;
 TiffReader& TiffReader::operator=(TiffReader&& src) = default;
 
 absl::Status TiffReader::Initialize(riegeli::Reader* reader) {
-  TENSORSTORE_CHECK(reader != nullptr);
+  ABSL_CHECK(reader != nullptr);
   context_ = nullptr;
 
   auto context = std::make_unique<TiffReader::Context>(reader);

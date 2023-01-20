@@ -15,9 +15,16 @@
 #include "tensorstore/internal/subprocess.h"
 
 #include <cstring>
+#include <string>
+#include <string_view>
+#include <vector>
 
 #include <gtest/gtest.h>
-#include "tensorstore/internal/logging.h"
+#include "absl/log/absl_log.h"
+#include "absl/status/status.h"
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -91,7 +98,7 @@ TEST(SubprocessTest, Drop) {
 
 int main(int argc, char* argv[]) {
   program_name = new std::string(argv[0]);
-  TENSORSTORE_LOG(*program_name);
+  ABSL_LOG(INFO) << *program_name;
 
   for (int i = 1; i < argc; i++) {
     if (std::string_view(argv[i]) == kSubprocessArg) {

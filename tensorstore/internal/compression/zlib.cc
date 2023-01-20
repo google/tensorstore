@@ -14,10 +14,10 @@
 
 #include "tensorstore/internal/compression/zlib.h"
 
+#include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "tensorstore/internal/compression/cord_stream_manager.h"
 #include "tensorstore/util/assert_macros.h"
-#include "tensorstore/util/status.h"
 
 // Include zlib header last because it defines a bunch of poorly-named macros.
 #include <zlib.h>
@@ -71,7 +71,7 @@ absl::Status ProcessZlib(const absl::Cord& input, absl::Cord* output, int level,
   int err = Op::Init(&s, level, header_option);
   if (err != Z_OK) {
     // Terminate if allocating even the small amount of memory required fails.
-    TENSORSTORE_CHECK(false);
+    ABSL_CHECK(false);
   }
   struct StreamDestroyer {
     z_stream* s;
@@ -96,11 +96,11 @@ absl::Status ProcessZlib(const absl::Cord& input, absl::Cord* output, int level,
     case Z_DATA_ERROR:
     case Z_BUF_ERROR:
       if (!Op::kDataErrorPossible) {
-        TENSORSTORE_CHECK(false);
+        ABSL_CHECK(false);
       }
       return absl::InvalidArgumentError("Error decoding zlib-compressed data");
     default:
-      TENSORSTORE_CHECK(false);
+      ABSL_CHECK(false);
   }
   TENSORSTORE_UNREACHABLE;
 }

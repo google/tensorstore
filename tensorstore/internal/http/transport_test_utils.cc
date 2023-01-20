@@ -42,7 +42,8 @@
 #include <string_view>
 
 #include "absl/container/flat_hash_map.h"
-#include "tensorstore/internal/logging.h"
+#include "absl/log/absl_check.h"
+#include "absl/log/absl_log.h"
 #include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -216,22 +217,22 @@ std::string ReceiveAvailable(socket_t client_fd) {
     if (r < 0) {
       // WaitForRead calls select() on the socket, so we
       // should not see EAGAIN nor EWOULDBLOCK.
-      TENSORSTORE_LOG("recv error: ", get_socket_errno());
+      ABSL_LOG(INFO) << "recv error: " << get_socket_errno();
       break;
     }
     // No data here would be unexpected since WaitForRead calls select().
-    TENSORSTORE_CHECK(r > 0);
+    ABSL_CHECK_GT(r, 0);
     data.append(buf, r);
   }
-  TENSORSTORE_LOG("recv ", data.size(), ": ", data);
+  ABSL_LOG(INFO) << "recv " << data.size() << ": " << data;
   return data;
 }
 
 int AssertSend(socket_t client_fd, std::string_view data) {
-  TENSORSTORE_LOG("send ", data.size(), ":", data);
+  ABSL_LOG(INFO) << "send " << data.size() << ":" << data;
   int err = send(client_fd, data.data(), data.size(), 0);
   if (err < 0) {
-    TENSORSTORE_LOG("send error:", get_socket_errno());
+    ABSL_LOG(INFO) << "send error:" << get_socket_errno();
   }
   assert(err == data.size());
   return err;

@@ -17,12 +17,12 @@
 #include <type_traits>
 
 #include "absl/flags/flag.h"
+#include "absl/log/absl_log.h"
 #include "absl/strings/string_view.h"
 #include "grpcpp/server.h"  // third_party
 #include "grpcpp/server_builder.h"  // third_party
 #include "tensorstore/internal/init_tensorstore.h"
 #include "tensorstore/internal/json_fwd.h"
-#include "tensorstore/internal/logging.h"
 #include "tensorstore/kvstore/grpc/common.h"
 #include "tensorstore/kvstore/grpc/kvstore_service.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -53,13 +53,12 @@ int main(int argc, char** argv) {
   auto kv = tensorstore::kvstore::Open(absl::GetFlag(FLAGS_kvstore_spec).value)
                 .result();
   if (!kv.ok()) {
-    TENSORSTORE_LOG(kv.status());
-    TENSORSTORE_LOG("Failed to open --kvstore");
+    ABSL_LOG(INFO) << "Failed to open kvstore:" << kv.status();
     return 2;
   }
   auto service_impl = std::make_shared<KvStoreServiceImpl>(*kv);
 
-  TENSORSTORE_LOG("Starting Service");
+  ABSL_LOG(INFO) << "Starting Service";
 
   std::string bind_address = absl::GetFlag(FLAGS_bind_address);
   if (bind_address.empty()) {
@@ -77,8 +76,8 @@ int main(int argc, char** argv) {
 
     builder.AddListeningPort(bind_address, creds, &listening_port);
 
-    TENSORSTORE_LOG("Listening on ", bind_address, " with port ",
-                    listening_port);
+    ABSL_LOG(INFO) << "Listening on " << bind_address << " with port "
+                   << listening_port;
     server = builder.BuildAndStart();
   }
 

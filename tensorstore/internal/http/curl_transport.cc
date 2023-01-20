@@ -23,6 +23,7 @@
 #include <string_view>
 #include <utility>
 
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
@@ -32,7 +33,6 @@
 #include "tensorstore/internal/http/curl_handle.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
-#include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/gauge.h"
 #include "tensorstore/internal/no_destructor.h"
@@ -254,8 +254,9 @@ struct CurlRequestState {
     if (code == CURLE_OK) {
       return absl::OkStatus();
     }
-    TENSORSTORE_LOG("Error [", code, "]=", curl_easy_strerror(code),
-                    " in curl operation\n", error_buffer_);
+    ABSL_LOG(WARNING) << "Error [" << code << "]=" << curl_easy_strerror(code)
+                      << " in curl operation\n"
+                      << error_buffer_;
     return ::tensorstore::internal_http::CurlCodeToStatus(code, error_buffer_);
   }
 
@@ -383,7 +384,7 @@ void MultiTransportImpl::FinishRequest(CURL* e, CURLcode code) {
   std::unique_ptr<CurlRequestState> state(GetStatePointer(e));
 
   if (code == CURLE_HTTP2) {
-    TENSORSTORE_LOG("CURLE_HTTP2 ", state->error_buffer_);
+    ABSL_LOG(WARNING) << "CURLE_HTTP2 " << state->error_buffer_;
     // If there was an error in the HTTP2 framing, try and force
     // CURL to close the connection stream.
     // https://curl.haxx.se/libcurl/c/CURLOPT_FORBID_REUSE.html
@@ -473,7 +474,7 @@ void MultiTransportImpl::Run() {
         curl_multi_poll(multi_.get(), nullptr, 0, timeout_ms, &numfds);
     if (mcode != CURLM_OK) {
       auto status = CurlMCodeToStatus(mcode, "in CurlMultiTransport");
-      TENSORSTORE_LOG("Error [", mcode, "] ", status, "\n");
+      ABSL_LOG(WARNING) << "Error [" << mcode << "] " << status;
     }
   }
 }

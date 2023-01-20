@@ -25,6 +25,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
 #include "absl/synchronization/mutex.h"
@@ -39,7 +40,6 @@
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_gtest.h"
-#include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/oauth2/google_auth_provider.h"
 #include "tensorstore/internal/oauth2/google_auth_test_utils.h"
@@ -243,7 +243,7 @@ TEST(GcsKeyValueStoreTest, Basic) {
 TEST(GcsKeyValueStoreTest, Retry) {
   for (int max_retries : {2, 3, 4}) {
     for (bool fail : {false, true}) {
-      TENSORSTORE_LOG(max_retries, fail ? " fail" : " success");
+      ABSL_LOG(INFO) << max_retries << (fail ? " fail" : " success");
 
       // Setup mocks for:
       // https://www.googleapis.com/kvstore/v1/b/my-bucket/o/test

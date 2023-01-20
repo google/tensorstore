@@ -20,6 +20,7 @@
 #include <utility>
 
 #include <gmock/gmock.h>
+#include "absl/log/absl_check.h"
 #include "grpcpp/create_channel.h"  // third_party
 #include "grpcpp/grpcpp.h"  // third_party
 #include "grpcpp/security/server_credentials.h"  // third_party
@@ -62,7 +63,7 @@ class MockGrpcServer {
 
   // Initializes the gRPC server with local credentials.
   MockGrpcServer() : server_(BuildServer()) {
-    TENSORSTORE_CHECK(server_);
+    ABSL_CHECK(server_);
     stub_ = NewStub();
   }
 

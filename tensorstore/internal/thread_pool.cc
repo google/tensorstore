@@ -19,6 +19,7 @@
 #include <utility>
 
 #include "absl/base/thread_annotations.h"
+#include "absl/log/absl_check.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
@@ -257,7 +258,7 @@ void ManagedTaskQueue::TaskDone() {
 }  // namespace
 
 Executor DetachedThreadPool(std::size_t num_threads) {
-  TENSORSTORE_CHECK(num_threads > 0);
+  ABSL_CHECK_GT(num_threads, 0);
   static internal::NoDestructor<SharedThreadPool> pool_;
   intrusive_ptr_increment(pool_.get());
   IntrusivePtr<ManagedTaskQueue> managed_task_queue(new ManagedTaskQueue(

@@ -63,6 +63,7 @@ tensorstore_cc_library(
         "@com_google_absl//absl/container:node_hash_map",
         "@com_google_absl//absl/functional:function_ref",
         "@com_google_absl//absl/hash",
+        "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/synchronization",
     ],
 )
@@ -108,8 +109,8 @@ cc_library(
     deps = [
         ":collect",
         ":metrics_cc_proto",
-        "//tensorstore/internal:logging",
         "//tensorstore/util:span",
+        "@com_google_absl//absl/log:absl_log",
     ],
 )
 
@@ -138,6 +139,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/poly",
         "//tensorstore/util:assert_macros",
         "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/synchronization",
     ],

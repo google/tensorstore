@@ -27,6 +27,7 @@
 #include "tensorstore/internal/unowned_to_shared.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/executor.h"
+#include "tensorstore/util/str_cat.h"
 
 // Include this Python header last since it defines some macros that are not
 // properly prefixed and we want to avoid problems with any other headers.

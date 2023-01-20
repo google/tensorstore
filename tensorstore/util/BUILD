@@ -8,23 +8,7 @@ licenses(["notice"])
 tensorstore_cc_library(
     name = "assert_macros",
     hdrs = ["assert_macros.h"],
-    deps = [
-        "//tensorstore/internal:log_message",
-        "//tensorstore/internal:source_location",
-        "@com_google_absl//absl/base:core_headers",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "assert_macros_test",
-    size = "small",
-    srcs = [
-        "assert_macros_test.cc",
-    ],
-    deps = [
-        ":assert_macros",
-        "@com_google_googletest//:gtest_main",
-    ],
+    deps = [],
 )
 
 tensorstore_cc_library(
@@ -324,7 +308,6 @@ tensorstore_cc_library(
         ":executor",
         ":result",
         ":span",
-        ":status",
         "//tensorstore/internal:attributes",
         "//tensorstore/internal:intrusive_linked_list",
         "//tensorstore/internal:intrusive_ptr",
@@ -488,13 +471,13 @@ tensorstore_cc_library(
         ":assert_macros",
         ":status",
         "//tensorstore/internal:attributes",
-        "//tensorstore/internal:logging",
         "//tensorstore/internal:type_traits",
         "//tensorstore/internal/preprocessor:cat",
         "//tensorstore/internal/preprocessor:expand",
-        "//tensorstore/util/execution",
         "@com_google_absl//absl/base:config",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/log:absl_check",
+        "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/utility",
     ],
@@ -530,9 +513,8 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore/internal:attributes",
         "//tensorstore/internal:gdb_scripting",
-        "//tensorstore/internal:log_message",
-        "//tensorstore/internal:source_location",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/log:absl_log",
     ],
 )
 

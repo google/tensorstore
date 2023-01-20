@@ -21,6 +21,8 @@
 #include <utility>
 #include <vector>
 
+#include "absl/log/absl_check.h"
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
@@ -29,7 +31,6 @@
 #include "tensorstore/internal/image/avif_common.h"
 #include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/image/image_view.h"
-#include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
@@ -79,7 +80,7 @@ void FillYUVImage(const ImageInfo& info,
     avifImageAllocatePlanes(image, AVIF_PLANES_ALL);
     assert(image->alphaRowBytes > 0);
   } else {
-    TENSORSTORE_LOG_FATAL("Wrong num_channels for FillYUVImage");
+    ABSL_LOG(FATAL) << "Wrong num_channels for FillYUVImage";
   }
 
   // Copy source image into avif image.
@@ -193,14 +194,14 @@ absl::Status AvifAddImage(avifEncoder* encoder,
   }
 
 #if 0
-  TENSORSTORE_LOG("avifImageUsesU16 ", avifImageUsesU16(image.get()));
-  TENSORSTORE_LOG("yuvFormat ", image->yuvFormat);
-  TENSORSTORE_LOG("yuvRange ", image->yuvRange);
-  TENSORSTORE_LOG("colorPrimaries ", image->colorPrimaries);
-  TENSORSTORE_LOG("transferCharacteristics ", image->transferCharacteristics);
-  TENSORSTORE_LOG("matrixCoefficients ", image->matrixCoefficients);
-  TENSORSTORE_LOG("alphaPremultiplied ", image->alphaPremultiplied);
-  TENSORSTORE_LOG("alphaRowBytes ", image->alphaRowBytes);
+  ABSL_LOG(INFO) <<"avifImageUsesU16 "<< avifImageUsesU16(image.get());
+  ABSL_LOG(INFO) <<"yuvFormat "<< image->yuvFormat;
+  ABSL_LOG(INFO) <<"yuvRange "<< image->yuvRange;
+  ABSL_LOG(INFO) <<"colorPrimaries "<< image->colorPrimaries;
+  ABSL_LOG(INFO) <<"transferCharacteristics "<< image->transferCharacteristics;
+  ABSL_LOG(INFO) <<"matrixCoefficients "<< image->matrixCoefficients;
+  ABSL_LOG(INFO) <<"alphaPremultiplied "<< image->alphaPremultiplied;
+  ABSL_LOG(INFO) <<"alphaRowBytes "<< image->alphaRowBytes;
 #endif
 
   /// For more options, see libavif/src/codec_aom.c
@@ -244,7 +245,7 @@ absl::Status AvifFinish(avifEncoder* encoder, riegeli::Writer* writer) {
 
 absl::Status AvifWriter::InitializeImpl(riegeli::Writer* writer,
                                         const AvifWriterOptions& options) {
-  TENSORSTORE_CHECK(writer != nullptr);
+  ABSL_CHECK(writer != nullptr);
   if (encoder_) {
     return absl::InternalError("Initialize() already called");
   }
@@ -319,7 +320,7 @@ absl::Status AvifWriter::Encode(const ImageInfo& info,
   if (!encoder_) {
     return absl::InternalError("AVIF writer not initialized");
   }
-  TENSORSTORE_CHECK(source.size() == ImageRequiredBytes(info));
+  ABSL_CHECK_EQ(source.size(), ImageRequiredBytes(info));
   return AvifAddImage(encoder_.get(), options_, info, source);
 }
 

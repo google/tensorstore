@@ -19,6 +19,7 @@
 
 #include <new>
 
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "grpcpp/grpcpp.h"  // third_party
 #include "grpcpp/server_context.h"  // third_party
@@ -109,7 +110,7 @@ class StreamHandler : public HandlerBase,
   Handler::Reactor* Method(grpc::CallbackServerContext* context, \
                            const Handler::Request* request,      \
                            Handler::Response* response) {        \
-    /*TENSORSTORE_LOG(#Method);*/                                \
+    /*ABSL_LOG(INFO) << #Method;*/                               \
     IntrusivePtr<Handler> handler(                               \
         new Handler(context, request, response, __VA_ARGS__));   \
     assert(handler->use_count() == 2);                           \
@@ -122,7 +123,7 @@ class StreamHandler : public HandlerBase,
 #define TENSORSTORE_GRPC_STREAM_HANDLER(Method, Handler, ...)                  \
   Handler::Reactor* Method(grpc::CallbackServerContext* context,               \
                            const Handler::Request* request) {                  \
-    /*TENSORSTORE_LOG(#Method);*/                                              \
+    /*ABSL_LOG(INFO) << #Method;*/                                             \
     IntrusivePtr<Handler> handler(new Handler(context, request, __VA_ARGS__)); \
     assert(handler->use_count() == 2);                                         \
     handler->Run();                                                            \

@@ -18,7 +18,8 @@
 
 #include <windows.h>
 
-#include "tensorstore/internal/logging.h"
+#include "absl/log/absl_check.h"
+#include "absl/log/absl_log.h"
 #include "tensorstore/util/assert_macros.h"
 
 namespace tensorstore {
@@ -28,15 +29,15 @@ TestConcurrentLock::TestConcurrentLock() {
   mutex_ = ::CreateMutexA(/*lpMutexAttributes=*/nullptr,
                           /*bInitialOwner=*/FALSE,
                           /*lpName=*/"TensorStoreTestConcurrentMutex");
-  TENSORSTORE_CHECK(mutex_ != nullptr);
+  ABSL_CHECK(mutex_ != nullptr);
   if (::WaitForSingleObject(mutex_, 1 /*ms*/) != 0) {
-    TENSORSTORE_LOG("Waiting on WIN32 Concurrent Lock");
+    ABSL_LOG(INFO) << "Waiting on WIN32 Concurrent Lock";
     ::WaitForSingleObject(mutex_, INFINITE);
   }
 }
 
 TestConcurrentLock::~TestConcurrentLock() {
-  TENSORSTORE_CHECK(::ReleaseMutex(mutex_));
+  ABSL_CHECK(::ReleaseMutex(mutex_));
   ::CloseHandle(mutex_);
 }
 

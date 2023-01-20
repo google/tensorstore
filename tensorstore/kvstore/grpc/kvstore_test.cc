@@ -14,8 +14,8 @@
 
 #include "tensorstore/kvstore/kvstore.h"
 
+#include "absl/log/absl_log.h"
 #include "tensorstore/internal/init_tensorstore.h"
-#include "tensorstore/internal/logging.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/util/json_absl_flag.h"
@@ -37,8 +37,7 @@ int main(int argc, char** argv) {
   auto kv = tensorstore::kvstore::Open(absl::GetFlag(FLAGS_kvstore_spec).value)
                 .result();
   if (!kv.ok()) {
-    TENSORSTORE_LOG(kv.status());
-    TENSORSTORE_LOG("Failed to open --kvstore");
+    ABSL_LOG(INFO) << "Failed to open kvstore: " << kv.status();
     return 2;
   }
 

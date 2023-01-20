@@ -25,10 +25,9 @@
 #include <type_traits>
 
 #include "absl/base/optimization.h"
+#include "absl/log/absl_log.h"
 #include "tensorstore/internal/attributes.h"
 #include "tensorstore/internal/gdb_scripting.h"
-#include "tensorstore/internal/log_message.h"
-#include "tensorstore/internal/source_location.h"
 
 TENSORSTORE_GDB_AUTO_SCRIPT("span_gdb.py")
 
@@ -385,8 +384,7 @@ class span {
     if (ABSL_PREDICT_TRUE(i < size() && i >= 0)) {
       return *(data() + i);
     }
-    ::tensorstore::internal::LogMessageFatal(
-        i >= 0 ? "span.at() i >= size()" : "span.at() i < 0", TENSORSTORE_LOC);
+    ABSL_LOG(FATAL) << "span.at(" << i << (i >= 0 ? ") >= size()" : ") i < 0");
   }
 
   /// Returns a reference to the first element.

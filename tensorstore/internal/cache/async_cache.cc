@@ -19,6 +19,7 @@
 #include <mutex>  // NOLINT
 #include <utility>
 
+#include "absl/log/absl_log.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
@@ -26,10 +27,8 @@
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/intrusive_linked_list.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/no_destructor.h"
-#include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/transaction.h"
@@ -103,14 +102,14 @@ void EntryOrNodeStartRead(EntryOrNode& entry_or_node,
                 std::is_same_v<EntryOrNode, TransactionNode>);
   auto& request_state = entry_or_node.read_request_state_;
   if (request_state.queued.null()) {
-    TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(
-        entry_or_node, "EntryOrNodeStartRead: no pending read request");
+    ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+        << entry_or_node << "EntryOrNodeStartRead: no pending read request";
     return;
   }
   if (!request_state.queued.result_needed()) {
-    TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(
-        entry_or_node,
-        "EntryOrNodeStartRead: pending read request was cancelled");
+    ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+        << entry_or_node
+        << "EntryOrNodeStartRead: pending read request was cancelled";
     request_state.queued = Promise<void>();
     request_state.queued_time = absl::InfinitePast();
     return;
@@ -120,8 +119,8 @@ void EntryOrNodeStartRead(EntryOrNode& entry_or_node,
   request_state.issued = std::move(request_state.queued);
   lock.unlock();
   AcquireReadRequestReference(entry_or_node);
-  TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(entry_or_node,
-                                    "EntryOrNodeStartRead: calling DoRead");
+  ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+      << entry_or_node << "EntryOrNodeStartRead: calling DoRead";
   entry_or_node.DoRead(staleness_bound);
 }
 
@@ -174,14 +173,14 @@ void MaybeStartReadOrWriteback(Entry& entry, UniqueWriterLock<Entry> lock) {
       lock.unlock();
       switch (existing_prepare_for_commit_state) {
         case PrepareForCommitState::kNone:
-          TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(*committing_transaction_node,
-                                            "PrepareDone");
+          ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+              << *committing_transaction_node << "PrepareDone";
           committing_transaction_node->PrepareDone();
           [[fallthrough]];
         case PrepareForCommitState::kPrepareDoneCalled:
           if (read_request_issued) return;
-          TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(*committing_transaction_node,
-                                            "ReadyForCommit");
+          ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+              << *committing_transaction_node << "ReadyForCommit";
           committing_transaction_node->ReadyForCommit();
           break;
         case PrepareForCommitState::kReadyForCommitCalled:
@@ -453,8 +452,8 @@ void AsyncCache::Entry::WriterUnlock() {
   update.lock = std::move(lock);
   if (flags & kSizeChanged) {
     update.new_size = GetTotalSize(*this);
-    TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(
-        *this, "Entry::WriterUnlock: new_size=", *update.new_size);
+    ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+        << *this << "Entry::WriterUnlock: new_size=" << *update.new_size;
   }
   if (flags & (kStateChanged | kMarkWritebackRequested)) {
     if (num_implicit_transactions_ == 0) {
@@ -482,24 +481,27 @@ size_t AsyncCache::DoGetSizeInBytes(Cache::Entry* base_entry) {
 }
 
 Future<const void> AsyncCache::Entry::Read(absl::Time staleness_bound) {
-  TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(*this,
-                                    "Read: staleness_bound=", staleness_bound);
+  ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+      << *this << "Read: staleness_bound=" << staleness_bound;
   return RequestRead(*this, staleness_bound);
 }
 
 void AsyncCache::Entry::ReadSuccess(ReadState&& read_state) {
-  TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(*this, "ReadSuccess: ", read_state.stamp);
+  ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+      << *this << "ReadSuccess: " << read_state.stamp;
   internal::EntryOrNodeReadSuccess(*this, std::move(read_state));
 }
 
 void AsyncCache::Entry::ReadError(absl::Status error) {
-  TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(*this, "ReadError: error=", error);
+  ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+      << *this << "ReadError: error=" << error;
   internal::EntryOrNodeReadError(*this, std::move(error));
 }
 
 void AsyncCache::DoRequestWriteback(PinnedEntry base_entry) {
   auto& entry = static_cast<Entry&>(*base_entry);
-  TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(entry, "DoRequestWriteack");
+  ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+      << entry << "DoRequestWriteack";
   WeakTransactionNodePtr<TransactionNode> implicit_transaction_node;
   {
     UniqueWriterLock lock(entry);
@@ -519,8 +521,8 @@ AsyncCache::TransactionNode::TransactionNode(Entry& entry)
 
 Future<const void> AsyncCache::TransactionNode::Read(
     absl::Time staleness_bound) {
-  TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(*this,
-                                    "Read: staleness_bound=", staleness_bound);
+  ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+      << *this << "Read: staleness_bound=" << staleness_bound;
   if (reads_committed_ && (prepare_for_commit_state_ !=
                            PrepareForCommitState::kReadyForCommitCalled)) {
     return RequestRead(GetOwningEntry(*this), staleness_bound);
@@ -529,17 +531,20 @@ Future<const void> AsyncCache::TransactionNode::Read(
 }
 
 void AsyncCache::TransactionNode::ReadSuccess(ReadState&& read_state) {
-  TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(*this, "ReadSuccess: ", read_state.stamp);
+  ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+      << *this << "ReadSuccess: " << read_state.stamp;
   internal::EntryOrNodeReadSuccess(*this, std::move(read_state));
 }
 
 void AsyncCache::TransactionNode::ReadError(absl::Status error) {
-  TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(*this, "ReadError: error=", error);
+  ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+      << *this << "ReadError: error=" << error;
   internal::EntryOrNodeReadError(*this, std::move(error));
 }
 
 void AsyncCache::TransactionNode::PrepareForCommit() {
-  TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(*this, "PrepareForCommit");
+  ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+      << *this << "PrepareForCommit";
   // Acquire reference to be released by `Commit`.
   intrusive_ptr_increment(this);
   auto& entry = GetOwningEntry(*this);
@@ -560,8 +565,8 @@ void AsyncCache::TransactionNode::PrepareForCommit() {
                                         entry.committing_transaction_node_,
                                         this);
     if (entry.committing_transaction_node_->transaction() != transaction()) {
-      TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(*this,
-                                        "Commit: enqueuing for writeback");
+      ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+          << *this << "Commit: enqueuing for writeback";
       return;
     }
     // PrepareDone on the prior node in this same transaction must have been
@@ -580,7 +585,7 @@ void AsyncCache::TransactionNode::PrepareForCommit() {
 }
 
 void AsyncCache::TransactionNode::Abort() {
-  TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(*this, "Abort");
+  ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG) << *this << "Abort";
   auto& entry = GetOwningEntry(*this);
   UniqueWriterLock lock(entry);
   TransactionNodeDestroyer destroyer(*this);
@@ -589,8 +594,8 @@ void AsyncCache::TransactionNode::Abort() {
 }
 
 void AsyncCache::TransactionNode::WritebackSuccess(ReadState&& read_state) {
-  TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(*this,
-                                    "WritebackSuccess: ", read_state.stamp);
+  ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+      << *this << "WritebackSuccess: " << read_state.stamp;
   auto& entry = GetOwningEntry(*this);
   const size_t read_state_size = GetReadStateSize(entry, read_state.data.get());
   UniqueWriterLock lock{entry};
@@ -611,7 +616,7 @@ void AsyncCache::TransactionNode::WritebackSuccess(ReadState&& read_state) {
 }
 
 void AsyncCache::TransactionNode::WritebackError() {
-  TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(*this, "WritebackError");
+  ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG) << *this << "WritebackError";
   ResolveIssuedWriteback(*this, UniqueWriterLock{GetOwningEntry(*this)});
 }
 
@@ -633,9 +638,9 @@ AsyncCache::Entry::GetTransactionNodeImpl(OpenTransactionPtr& transaction) {
           node.SetTransaction(GetOrCreateOpenTransaction(transaction));
         }
         assert(node.transaction() == transaction.get());
-        TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(
-            node, "New node, implicit=", implicit_transaction,
-            ", transaction=", transaction.get());
+        ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+            << node << "New node, implicit=" << implicit_transaction
+            << ", transaction=" << transaction.get();
         node.initialized_status_ = node.Register();
       }
       if (!node.initialized_status_.ok()) {
@@ -772,7 +777,7 @@ void AsyncCache::TransactionNode::Commit() { intrusive_ptr_decrement(this); }
 void AsyncCache::TransactionNode::WriterLock() { mutex_.WriterLock(); }
 
 void AsyncCache::TransactionNode::WriterUnlock() {
-  TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(*this, "unlock");
+  ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG) << *this << "unlock";
   UniqueWriterLock lock(mutex_, std::adopt_lock);
   if (!size_updated_) return;
   size_updated_ = false;
@@ -808,25 +813,27 @@ void AsyncCache::TransactionNode::DoApply(ApplyOptions options,
 }
 
 void AsyncCache::TransactionNode::Revoke() {
-  TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(*this, "Revoke");
+  ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG) << *this << "Revoke";
   revoked_.store(true, std::memory_order_release);
 }
 
 void AsyncCache::TransactionNode::InvalidateReadState() {
   assert(this->transaction()->commit_started());
-  TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(*this, "InvalidateReadState");
+  ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+      << *this << "InvalidateReadState";
   this->read_request_state_.read_state = ReadState{};
 }
 
 AsyncCache::TransactionNode::~TransactionNode() {
-  TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(*this, "~TransactionNode");
+  ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+      << *this << "~TransactionNode";
   Cache::PinnedEntry(static_cast<Cache::Entry*>(associated_data()),
                      adopt_object_ref);
 }
 
 #ifdef TENSORSTORE_ASYNC_CACHE_DEBUG
 AsyncCache::Entry::~Entry() {
-  TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(*this, "~Entry");
+  ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG) << *this << "~Entry";
 }
 #endif
 

@@ -18,6 +18,7 @@
 #include <type_traits>
 
 #include "absl/container/inlined_vector.h"
+#include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/internal/deep_copy_transform_rep_ptr.h"
@@ -571,7 +572,7 @@ class IndexTransformBuilder {
   template <std::size_t N>
   IndexTransformBuilder& implicit_lower_bounds(const bool (&x)[N]) {
     static_assert(InputRank == dynamic_rank || InputRank == N);
-    TENSORSTORE_CHECK(N == input_rank() && "range size mismatch");
+    ABSL_CHECK_EQ(N, input_rank()) << "range size mismatch";
     return implicit_lower_bounds(DimensionSet(x));
   }
 
@@ -601,7 +602,7 @@ class IndexTransformBuilder {
   template <std::size_t N>
   IndexTransformBuilder& implicit_upper_bounds(const bool (&x)[N]) {
     static_assert(InputRank == dynamic_rank || InputRank == N);
-    TENSORSTORE_CHECK(N == input_rank() && "range size mismatch");
+    ABSL_CHECK_EQ(N, input_rank()) << "range size mismatch";
     return implicit_upper_bounds(DimensionSet(x));
   }
 
@@ -804,8 +805,8 @@ class IndexTransformBuilder {
   void AssignOutput(
       DimensionIndex output_dim, Index offset, Index stride,
       internal_index_space::OutputIndexMapInitializer initializer) {
-    TENSORSTORE_CHECK(output_dim >= 0 && output_dim < output_rank() &&
-                      "invalid output dimension");
+    ABSL_CHECK(output_dim >= 0 && output_dim < output_rank())
+        << "invalid output dimension";
     output_index_maps_[output_dim] = std::move(initializer);
     auto& map = rep_->output_index_maps()[output_dim];
     map.offset() = offset;
@@ -824,11 +825,11 @@ void AssignRange(const Range& range, span<Element> dest) {
   auto it = begin(range);
   auto last = end(range);
   for (std::ptrdiff_t i = 0; i < dest.size(); ++i) {
-    TENSORSTORE_CHECK(it != last && "range size mismatch");
+    ABSL_CHECK(it != last) << "range size mismatch";
     dest[i] = static_cast<Element>(*it);
     ++it;
   }
-  TENSORSTORE_CHECK(it == last && "range size mismatch");
+  ABSL_CHECK(it == last) << "range size mismatch";
 }
 
 /// Initializes all output `offset` and `stride` values with `0`.

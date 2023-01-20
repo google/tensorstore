@@ -24,11 +24,11 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_absl",
-        strip_prefix = "abseil-cpp-1db72eb03e3685742c62abea9d13ddab2adcdf01",
+        strip_prefix = "abseil-cpp-29b2a750258c7ba85204c121c6054aa2004b4818",
         urls = [
-            "https://github.com/abseil/abseil-cpp/archive/1db72eb03e3685742c62abea9d13ddab2adcdf01.tar.gz",  # master(2022-10-28)
+            "https://github.com/abseil/abseil-cpp/archive/29b2a750258c7ba85204c121c6054aa2004b4818.tar.gz",  # master(2023-01-20)
         ],
-        sha256 = "706d3c86b01eb4701225331035afa110a53e3212968c86606002a3791bfd3c69",
+        sha256 = "5442e44358fd1dc658b36bbde5ab1ca09de5e0cf3e97f3012081f2741991ece7",
         cmake_name = "absl",
         cmake_target_mapping = ABSL_CMAKE_MAPPING,
         cmake_settings = {
@@ -74,6 +74,8 @@ ABSL_CMAKE_MAPPING = {
     "@com_google_absl//absl/functional:bind_front": "absl::bind_front",
     "@com_google_absl//absl/functional:function_ref": "absl::function_ref",
     "@com_google_absl//absl/hash:hash": "absl::hash",
+    "@com_google_absl//absl/log:absl_check": "absl::absl_check",
+    "@com_google_absl//absl/log:absl_log": "absl::absl_log",
     "@com_google_absl//absl/log:log": "absl::log",
     "@com_google_absl//absl/log:die_if_null": "absl::die_if_null",
     "@com_google_absl//absl/log:check": "absl::check",

@@ -27,6 +27,7 @@
 #include <limits>
 #include <type_traits>
 
+#include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "tensorstore/box.h"
 #include "tensorstore/data_type.h"
@@ -1619,7 +1620,7 @@ ArrayIterateResult IterateOverArrays(
     ElementwiseClosure<sizeof...(Array), absl::Status*> closure,
     absl::Status* status, IterationConstraints constraints,
     const Array&... array) {
-  TENSORSTORE_CHECK(ArraysHaveSameShapes(array...));
+  ABSL_CHECK(ArraysHaveSameShapes(array...));
   const std::array<std::ptrdiff_t, sizeof...(Array)> element_sizes{
       {array.dtype().size()...}};
   return IterateOverStridedLayouts(

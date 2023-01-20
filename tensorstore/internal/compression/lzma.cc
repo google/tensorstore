@@ -14,6 +14,7 @@
 
 #include "tensorstore/internal/compression/lzma.h"
 
+#include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "tensorstore/internal/compression/cord_stream_manager.h"
 #include "tensorstore/util/assert_macros.h"
@@ -58,7 +59,7 @@ absl::Status GetInitErrorStatus(::lzma_ret r) {
     case LZMA_UNSUPPORTED_CHECK:
     case LZMA_PROG_ERROR:
     default:
-      TENSORSTORE_CHECK(false);
+      ABSL_CHECK(false);
   }
 }
 
@@ -71,7 +72,7 @@ absl::Status GetEncodeErrorStatus(::lzma_ret r) {
     case LZMA_MEMLIMIT_ERROR:
     case LZMA_MEM_ERROR:
     default:
-      TENSORSTORE_CHECK(false);
+      ABSL_CHECK(false);
   }
 }
 
@@ -89,7 +90,7 @@ absl::Status GetDecodeErrorStatus(::lzma_ret r) {
     case LZMA_MEM_ERROR:
     case LZMA_MEMLIMIT_ERROR:
     default:
-      TENSORSTORE_CHECK(false);
+      ABSL_CHECK(false);
   }
 }
 

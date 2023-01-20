@@ -27,6 +27,7 @@
 #include "absl/container/node_hash_map.h"
 #include "absl/functional/function_ref.h"
 #include "absl/hash/hash.h"
+#include "absl/log/absl_check.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/metrics/collect.h"
 #include "tensorstore/internal/metrics/metadata.h"
@@ -132,8 +133,8 @@ class AbstractMetricBase {
       : metric_name_(std::move(metric_name)),
         metadata_(std::move(metadata)),
         field_names_(std::move(field_names)) {
-    TENSORSTORE_CHECK(IsValidMetricName(metric_name_));
-    TENSORSTORE_CHECK(std::apply(
+    ABSL_CHECK(IsValidMetricName(metric_name_));
+    ABSL_CHECK(std::apply(
         [&](const auto&... item) {
           return true && (IsValidMetricLabel(item) && ...);
         },

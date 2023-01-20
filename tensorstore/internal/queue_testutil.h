@@ -19,7 +19,9 @@
 #include <queue>
 #include <utility>
 
+#include "absl/log/absl_check.h"
 #include "absl/synchronization/mutex.h"
+#include "absl/time/time.h"
 #include "tensorstore/util/assert_macros.h"
 
 namespace tensorstore {
@@ -38,7 +40,7 @@ class ConcurrentQueue {
     absl::MutexLock lock(&mutex_);
     // If 5 seconds isn't enough, assume the test has failed.  This avoids
     // delaying failure until the entire test times out.
-    TENSORSTORE_CHECK(mutex_.AwaitWithTimeout(
+    ABSL_CHECK(mutex_.AwaitWithTimeout(
         absl::Condition(
             +[](std::queue<T>* q) { return !q->empty(); }, &queue_),
         absl::Seconds(5)));

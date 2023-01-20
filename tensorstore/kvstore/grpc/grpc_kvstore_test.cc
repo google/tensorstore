@@ -37,7 +37,6 @@
 #include "grpcpp/test/mock_stream.h"  // third_party
 #include "tensorstore/internal/concurrent_testutil.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/logging.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"

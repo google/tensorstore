@@ -19,6 +19,7 @@
 
 #include "absl/base/call_once.h"
 #include "absl/flags/marshalling.h"
+#include "absl/log/absl_log.h"
 #include "absl/time/time.h"
 #include "tensorstore/context_resource_provider.h"
 #include "tensorstore/internal/env.h"
@@ -27,7 +28,6 @@
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/std_array.h"
 #include "tensorstore/internal/json_binding/std_optional.h"
-#include "tensorstore/internal/logging.h"
 #include "tensorstore/kvstore/gcs/admission_queue.h"
 #include "tensorstore/kvstore/gcs/scaling_rate_limiter.h"
 
@@ -99,7 +99,8 @@ Result<GcsConcurrencyResource::Resource> GcsConcurrencyResource::Create(
   }
 
   absl::call_once(shared_once_, [&] {
-    TENSORSTORE_LOG("Using default AdmissionQueue with limit ", shared_limit_);
+    ABSL_LOG(INFO) << "Using default AdmissionQueue with limit "
+                   << shared_limit_;
     shared_resource_.queue = std::make_shared<AdmissionQueue>(shared_limit_);
   });
   return shared_resource_;

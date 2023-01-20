@@ -20,9 +20,10 @@
 #include <utility>
 
 #include "absl/base/optimization.h"
+#include "absl/log/absl_check.h"
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "tensorstore/internal/attributes.h"
-#include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/preprocessor/cat.h"
 #include "tensorstore/internal/preprocessor/expand.h"
 #include "tensorstore/internal/type_traits.h"
@@ -188,11 +189,11 @@ class Result : private internal_result::ResultStorage<T>,
   /// \id status
   Result(const absl::Status& status)
       : Base(internal_result::status_t{}, status) {
-    TENSORSTORE_CHECK(!status_.ok());
+    ABSL_CHECK(!status_.ok());
   }
   Result(absl::Status&& status)
       : Base(internal_result::status_t{}, std::move(status)) {
-    TENSORSTORE_CHECK(!status_.ok());
+    ABSL_CHECK(!status_.ok());
   }
 
   /// Assigns from a status object.
@@ -200,12 +201,12 @@ class Result : private internal_result::ResultStorage<T>,
   /// \pre `!status` unless `T` is `void`.
   /// \id status
   Result& operator=(const absl::Status& status) {
-    TENSORSTORE_CHECK(!status.ok());
+    ABSL_CHECK(!status.ok());
     this->assign_status(status);
     return *this;
   }
   Result& operator=(absl::Status&& status) {
-    TENSORSTORE_CHECK(!status.ok());
+    ABSL_CHECK(!status.ok());
     this->assign_status(std::move(status));
     return *this;
   }
@@ -595,7 +596,7 @@ class Result : private internal_result::ResultStorage<T>,
   inline void assert_has_value() const {
 #if !defined(NDEBUG)
     if (!has_value()) {
-      TENSORSTORE_LOG_FATAL("assert_has_value: ", this->status_);
+      ABSL_LOG(FATAL) << "assert_has_value: " << this->status_;
     }
 #endif
   }

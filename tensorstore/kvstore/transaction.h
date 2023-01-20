@@ -85,7 +85,6 @@
 /// operations to efficiently take into account the current modified state.
 
 #include "tensorstore/internal/intrusive_red_black_tree.h"
-#include "tensorstore/internal/logging.h"
 #include "tensorstore/kvstore/read_modify_write.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/spec.h"

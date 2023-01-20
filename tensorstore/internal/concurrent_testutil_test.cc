@@ -14,8 +14,12 @@
 
 #include "tensorstore/internal/concurrent_testutil.h"
 
+#include <atomic>
+#include <type_traits>
+
 #include <gtest/gtest.h>
-#include "tensorstore/internal/logging.h"
+#include "absl/log/absl_log.h"
+#include "absl/synchronization/mutex.h"
 
 namespace {
 
@@ -45,7 +49,7 @@ TEST(TestConcurrent, EnsureContentionHappens) {
         }
       });
   int contended = (kIterations * kN) - uncontended;
-  TENSORSTORE_LOG("Contended in ", contended, " of 2000 iterations.");
+  ABSL_LOG(INFO) << "Contended in " << contended << " of 2000 iterations.";
 
   // This would be flaky; see above.
   // EXPECT_NE(0, contended);

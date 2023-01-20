@@ -23,6 +23,7 @@
 #include <string>
 #include <utility>
 
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/time/clock.h"
@@ -45,7 +46,6 @@
 #include "tensorstore/internal/json_binding/absl_time.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/logging.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
@@ -353,7 +353,7 @@ class GrpcKeyValueStore
     if (!stub_) {
       // Create a communication channel with credentials, then use that
       // to construct a gprc stub.
-      TENSORSTORE_LOG("grpc_kvstore address=", spec_.address);
+      ABSL_LOG(INFO) << "grpc_kvstore address=" << spec_.address;
       channel_ = grpc::CreateChannel(spec_.address,
                                      spec_.credentials->GetCredentials());
       stub_ = KvStoreService::NewStub(channel_);

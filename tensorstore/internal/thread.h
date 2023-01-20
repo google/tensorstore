@@ -21,6 +21,7 @@
 #include <thread>  // NOLINT
 #include <utility>
 
+#include "absl/log/absl_check.h"
 #include "tensorstore/util/assert_macros.h"
 
 namespace tensorstore {
@@ -53,7 +54,7 @@ class Thread {
   Thread(const Thread &other) = delete;
   Thread &operator=(const Thread &other) = delete;
 
-  ~Thread() { TENSORSTORE_CHECK(!thread_.joinable()); }
+  ~Thread() { ABSL_CHECK(!thread_.joinable()); }
 
   // Static method that starts a detached thread. Creates a thread without
   // returning externally visible Thread object. Allows execution to continue
@@ -68,7 +69,7 @@ class Thread {
   // by *this finishes execution. Not applicable to detached threads, since
   // StartDetach method does not return Thread object.
   void Join() {
-    TENSORSTORE_CHECK(this_thread_id() != get_id());
+    ABSL_CHECK_NE(this_thread_id(), get_id());
     thread_.join();
   }
 

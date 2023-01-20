@@ -34,7 +34,6 @@
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/init_tensorstore.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/generation.h"

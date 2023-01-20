@@ -19,6 +19,7 @@
 #include <string>
 #include <string_view>
 
+#include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include <openssl/crypto.h>
 #include <openssl/evp.h>
@@ -26,7 +27,6 @@
 #include <openssl/rand.h>
 #include "python/tensorstore/python_imports.h"
 #include "python/tensorstore/status.h"
-#include "tensorstore/util/assert_macros.h"
 
 namespace tensorstore {
 namespace internal_python {
@@ -53,9 +53,7 @@ namespace py = ::pybind11;
 ///    but unpickling legitimate exception values is unlikely to have harmful
 ///    side effects.
 struct StatusPayloadKeys {
-  StatusPayloadKeys() {
-    TENSORSTORE_CHECK(RAND_bytes(keys, kTotalKeyLength) == 1);
-  }
+  StatusPayloadKeys() { ABSL_CHECK_EQ(1, RAND_bytes(keys, kTotalKeyLength)); }
 
   /// Size of key used as the payload identifier.
   constexpr static size_t kPayloadIdSize = 32;
@@ -81,11 +79,10 @@ struct StatusPayloadKeys {
                    unsigned char (&hmac)[kHmacSize]) const {
     unsigned int md_len = kHmacSize;
     // Computing HMAC should never fail.
-    TENSORSTORE_CHECK(
-        HMAC(EVP_sha256(), keys, kHmacKeySize,
-             reinterpret_cast<const unsigned char*>(message.data()),
-             message.size(), hmac, &md_len) &&
-        md_len == kHmacSize);
+    ABSL_CHECK(HMAC(EVP_sha256(), keys, kHmacKeySize,
+                    reinterpret_cast<const unsigned char*>(message.data()),
+                    message.size(), hmac, &md_len) &&
+               md_len == kHmacSize);
   }
 
   /// Validates that `payload` begins with the expected MAC (message

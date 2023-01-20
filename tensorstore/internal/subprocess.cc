@@ -14,8 +14,6 @@
 
 #include "tensorstore/internal/subprocess.h"
 
-#include <vector>
-
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -34,13 +32,20 @@
 #endif
 
 #include <algorithm>
+#include <atomic>
 #include <cstring>
 #include <iostream>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 
+#include "absl/log/absl_check.h"
+#include "absl/log/absl_log.h"
+#include "absl/status/status.h"
 #include "absl/strings/match.h"
-#include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/os_error_code.h"
-#include "tensorstore/util/assert_macros.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal {
@@ -203,7 +208,7 @@ struct Subprocess::Impl {
 Subprocess::Impl::~Impl() {
   // If stdin were a pipe, close it here.
   if (pid_t pid = child_pid_; pid != -1) {
-    TENSORSTORE_LOG("Subprocess may have zombie pid: ", pid);
+    ABSL_LOG(INFO) << "Subprocess may have zombie pid: " << pid;
   }
 }
 
@@ -246,7 +251,7 @@ Result<int> Subprocess::Impl::Join() {
       int exit_code = -1;
       if (child_pid_.exchange(-1) == pid) {
         exit_code_ = exit_code;
-        TENSORSTORE_LOG("Child terminated by signal ", WTERMSIG(status));
+        ABSL_LOG(INFO) << "Child terminated by signal " << WTERMSIG(status);
       }
       return exit_code;
     }
@@ -304,14 +309,15 @@ Result<Subprocess> SpawnSubprocess(const SubprocessOptions& options) {
   pid_t child_pid = 0;
   int err = posix_spawn(&child_pid, argv[0], &file_actions, nullptr,
                         const_cast<char* const*>(argv.data()), envp.data());
-  TENSORSTORE_LOG("posix_spawn ", argv[0], " err:", err, " pid: ", child_pid);
+  ABSL_LOG(INFO) << "posix_spawn " << argv[0] << " err:" << err
+                 << " pid: " << child_pid;
 
   posix_spawn_file_actions_destroy(&file_actions);
   if (err != 0) {
     return StatusFromOsError(GetLastErrorCode(), "posix_spawn ",
                              options.executable, " failed");
   }
-  TENSORSTORE_CHECK(child_pid > 0);
+  ABSL_CHECK_GT(child_pid, 0);
 
   auto impl = std::make_shared<Subprocess::Impl>();
   impl->child_pid_ = child_pid;

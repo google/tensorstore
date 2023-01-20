@@ -62,6 +62,7 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "@com_github_grpc_grpc//:grpc++",
         "@com_github_grpc_grpc//:grpc++_public_hdrs",
+        "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/time",
         "@com_google_protobuf//:protobuf",
@@ -82,7 +83,6 @@ tensorstore_cc_library(
         "//tensorstore/internal:concurrency_resource",
         "//tensorstore/internal:context_binding",
         "//tensorstore/internal:intrusive_ptr",
-        "//tensorstore/internal:logging",
         "//tensorstore/internal/cache_key",
         "//tensorstore/internal/grpc:client_credentials",
         "//tensorstore/internal/grpc:utils",
@@ -104,6 +104,7 @@ tensorstore_cc_library(
         "//tensorstore/util/garbage_collection",
         "@com_github_grpc_grpc//:grpc++",
         "@com_github_grpc_grpc//:grpc++_public_hdrs",
+        "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/time",
@@ -121,7 +122,6 @@ tensorstore_cc_test(
         ":kvstore_cc_proto",
         "//tensorstore/internal:concurrent_testutil",
         "//tensorstore/internal:intrusive_ptr",
-        "//tensorstore/internal:logging",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:byte_range",
         "//tensorstore/kvstore:generation",
@@ -156,7 +156,6 @@ tensorstore_cc_library(
         ":kvstore_cc_proto",
         "//tensorstore/internal:init_tensorstore",
         "//tensorstore/internal:intrusive_ptr",
-        "//tensorstore/internal:logging",
         "//tensorstore/internal:type_traits",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:all_drivers",  # build_cleaner: keep
@@ -191,7 +190,6 @@ tensorstore_cc_test(
         "//tensorstore:context",
         "//tensorstore/internal:concurrent_testutil",
         "//tensorstore/internal:intrusive_ptr",
-        "//tensorstore/internal:logging",
         "//tensorstore/internal:test_util",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:all_drivers",  # build_cleaner: keep
@@ -229,13 +227,13 @@ cc_binary(
         ":kvstore_service",
         "//tensorstore/internal:init_tensorstore",
         "//tensorstore/internal:json_fwd",
-        "//tensorstore/internal:logging",
         "//tensorstore/kvstore",
         "//tensorstore/util:json_absl_flag",
         "//tensorstore/util:result",
         "@com_github_grpc_grpc//:grpc++",
         "@com_github_grpc_grpc//:grpc++_public_hdrs",
         "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/strings",
     ],
 )
@@ -247,10 +245,10 @@ cc_binary(
     deps = [
         ":grpc_kvstore",  # build_cleaner: keep
         "//tensorstore/internal:init_tensorstore",
-        "//tensorstore/internal:logging",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:all_drivers",  # build_cleaner: keep
         "//tensorstore/kvstore:test_util",
         "//tensorstore/util:json_absl_flag",
+        "@com_google_absl//absl/log:absl_log",
     ],
 )

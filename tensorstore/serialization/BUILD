@@ -51,12 +51,12 @@ tensorstore_cc_library(
         ":serialization",
         "//tensorstore/internal:heterogeneous_container",
         "//tensorstore/internal:intrusive_ptr",
-        "//tensorstore/internal:logging",
         "//tensorstore/internal:no_destructor",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "//tensorstore/util/garbage_collection",
+        "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status",
     ],
 )
@@ -131,8 +131,9 @@ tensorstore_cc_library(
     deps = [
         ":serialization",
         "//tensorstore/internal:heterogeneous_container",
-        "//tensorstore/internal:logging",
         "//tensorstore/internal:no_destructor",
+        "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status",
     ],
 )

@@ -20,9 +20,9 @@
 #include <string>
 #include <string_view>
 
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include <curl/curl.h>
-#include "tensorstore/internal/logging.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -140,8 +140,8 @@ int32_t CurlGetResponseCode(CURL* handle) {
   long code = 0;  // NOLINT
   auto e = curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &code);
   if (e != CURLE_OK) {
-    TENSORSTORE_LOG("Error [", e, "]=", curl_easy_strerror(e),
-                    " in curl operation");
+    ABSL_LOG(WARNING) << "Error [" << e << "]=" << curl_easy_strerror(e)
+                      << " in curl operation";
   }
   return static_cast<int32_t>(code);
 }

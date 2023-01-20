@@ -132,6 +132,7 @@ tensorstore_cc_binary(
         "//tensorstore/internal:data_type_random_generator",
         "//tensorstore/internal:global_initializer",
         "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/random",
         "@com_google_benchmark//:benchmark",
         "@com_google_benchmark//:benchmark_main",

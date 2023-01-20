@@ -27,6 +27,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/functional/function_ref.h"
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include <nlohmann/json.hpp>
@@ -35,7 +36,6 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/internal/json_gtest.h"
-#include "tensorstore/internal/logging.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/generation.h"
@@ -67,7 +67,7 @@ class Cleanup {
     // Delete everything that we're going to use before starting.
     // This is helpful if, for instance, we run against a persistent
     // service and the test crashed half-way through last time.
-    TENSORSTORE_LOG("Cleanup");
+    ABSL_LOG(INFO) << "Cleanup";
     for (const auto& to_remove : objects_) {
       kvstore::Delete(store_, to_remove).result();
     }
@@ -106,34 +106,34 @@ void TestKeyValueStoreUnconditionalOps(
   const absl::Cord value("1234");
 
   // Test unconditional read of missing key.
-  TENSORSTORE_LOG("Test unconditional read of missing key");
+  ABSL_LOG(INFO) << "Test unconditional read of missing key";
   EXPECT_THAT(kvstore::Read(store, key).result(),
               MatchesKvsReadResultNotFound());
 
   // Test unconditional write of empty value.
   {
-    TENSORSTORE_LOG("Test unconditional write of empty value");
+    ABSL_LOG(INFO) << "Test unconditional write of empty value";
     auto write_result = kvstore::Write(store, key, absl::Cord()).result();
     ASSERT_THAT(write_result, MatchesRegularTimestampedStorageGeneration());
 
     // Test unconditional read.
-    TENSORSTORE_LOG("Test unconditional read of empty value");
+    ABSL_LOG(INFO) << "Test unconditional read of empty value";
     EXPECT_THAT(kvstore::Read(store, key).result(),
                 MatchesKvsReadResult(absl::Cord(), write_result->generation));
   }
 
   // Test unconditional write.
-  TENSORSTORE_LOG("Test unconditional write of non-empty value");
+  ABSL_LOG(INFO) << "Test unconditional write of non-empty value";
   auto write_result = kvstore::Write(store, key, value).result();
   ASSERT_THAT(write_result, MatchesRegularTimestampedStorageGeneration());
 
   // Test unconditional read.
-  TENSORSTORE_LOG("Test unconditional read of non-empty value");
+  ABSL_LOG(INFO) << "Test unconditional read of non-empty value";
   EXPECT_THAT(kvstore::Read(store, key).result(),
               MatchesKvsReadResult(value, write_result->generation));
 
   // Test unconditional byte range read.
-  TENSORSTORE_LOG("Test unconditional byte range read");
+  ABSL_LOG(INFO) << "Test unconditional byte range read";
   {
     kvstore::ReadOptions options;
     options.byte_range.inclusive_min = 1;
@@ -143,7 +143,7 @@ void TestKeyValueStoreUnconditionalOps(
   }
 
   // Test unconditional byte range read.
-  TENSORSTORE_LOG("Test unconditional byte range read with exclusive_max");
+  ABSL_LOG(INFO) << "Test unconditional byte range read with exclusive_max";
   {
     kvstore::ReadOptions options;
     options.byte_range.inclusive_min = 1;
@@ -153,7 +153,7 @@ void TestKeyValueStoreUnconditionalOps(
         MatchesKvsReadResult(absl::Cord("23"), write_result->generation));
   }
 
-  TENSORSTORE_LOG("Test unconditional byte range read with invalid range");
+  ABSL_LOG(INFO) << "Test unconditional byte range read with invalid range";
   {
     kvstore::ReadOptions options;
     options.byte_range.inclusive_min = 1;
@@ -163,7 +163,7 @@ void TestKeyValueStoreUnconditionalOps(
   }
 
   // Test unconditional delete.
-  TENSORSTORE_LOG("Test unconditional delete");
+  ABSL_LOG(INFO) << "Test unconditional delete";
   EXPECT_THAT(kvstore::Delete(store, key).result(),
               MatchesKnownTimestampedStorageGeneration());
 
@@ -178,7 +178,7 @@ void TestKeyValueStoreConditionalReadOps(
   const auto missing_key = get_key("test1a");
   const StorageGeneration mismatch = GetMismatchStorageGeneration(store);
 
-  TENSORSTORE_LOG("Test conditional read, missing");
+  ABSL_LOG(INFO) << "Test conditional read, missing";
   {
     kvstore::ReadOptions options;
     options.if_not_equal = mismatch;
@@ -186,8 +186,8 @@ void TestKeyValueStoreConditionalReadOps(
                 MatchesKvsReadResultNotFound());
   }
 
-  TENSORSTORE_LOG(
-      "Test conditional read, matching if_equal=StorageGeneration::NoValue");
+  ABSL_LOG(INFO)
+      << "Test conditional read, matching if_equal=StorageGeneration::NoValue";
   {
     kvstore::ReadOptions options;
     options.if_equal = StorageGeneration::NoValue();
@@ -199,7 +199,7 @@ void TestKeyValueStoreConditionalReadOps(
   // `if_not_equal=StorageGeneration::NoValue()`, which should return
   // `StorageGeneration::NoValue()` even though the `if_not_equal` condition
   // does not hold.
-  TENSORSTORE_LOG("Test conditional read, StorageGeneration::NoValue");
+  ABSL_LOG(INFO) << "Test conditional read, StorageGeneration::NoValue";
   {
     kvstore::ReadOptions options;
     options.if_not_equal = StorageGeneration::NoValue();
@@ -219,8 +219,8 @@ void TestKeyValueStoreConditionalReadOps(
                                MatchesTimestampedStorageGeneration(
                                    ::testing::Not(mismatch))));
 
-  TENSORSTORE_LOG("Test conditional read, matching `if_not_equal` generation ",
-                  write_result->generation);
+  ABSL_LOG(INFO) << "Test conditional read, matching `if_not_equal` generation "
+                 << write_result->generation;
   {
     kvstore::ReadOptions options;
     options.if_not_equal = write_result->generation;
@@ -228,8 +228,8 @@ void TestKeyValueStoreConditionalReadOps(
                 MatchesKvsReadResultAborted());
   }
 
-  TENSORSTORE_LOG(
-      "Test conditional read, mismatched `if_not_equal` generation");
+  ABSL_LOG(INFO)
+      << "Test conditional read, mismatched `if_not_equal` generation";
   {
     kvstore::ReadOptions options;
     options.if_not_equal = mismatch;
@@ -237,8 +237,8 @@ void TestKeyValueStoreConditionalReadOps(
                 MatchesKvsReadResult(value, write_result->generation));
   }
 
-  TENSORSTORE_LOG(
-      "Test conditional read, if_not_equal=StorageGeneration::NoValue");
+  ABSL_LOG(INFO)
+      << "Test conditional read, if_not_equal=StorageGeneration::NoValue";
   {
     kvstore::ReadOptions options;
     options.if_not_equal = StorageGeneration::NoValue();
@@ -246,8 +246,8 @@ void TestKeyValueStoreConditionalReadOps(
                 MatchesKvsReadResult(value, write_result->generation));
   }
 
-  TENSORSTORE_LOG("Test conditional read, matching `if_equal` generation ",
-                  write_result->generation);
+  ABSL_LOG(INFO) << "Test conditional read, matching `if_equal` generation "
+                 << write_result->generation;
   {
     kvstore::ReadOptions options;
     options.if_equal = write_result->generation;
@@ -255,8 +255,8 @@ void TestKeyValueStoreConditionalReadOps(
                 MatchesKvsReadResult(value, write_result->generation));
   }
 
-  TENSORSTORE_LOG(
-      "Test conditional read, mismatched `if_not_equal` generation");
+  ABSL_LOG(INFO)
+      << "Test conditional read, mismatched `if_not_equal` generation";
   {
     kvstore::ReadOptions options;
     options.if_not_equal = mismatch;
@@ -264,7 +264,7 @@ void TestKeyValueStoreConditionalReadOps(
                 MatchesKvsReadResult(value, write_result->generation));
   }
 
-  TENSORSTORE_LOG("Test conditional read, mismatched `if_equal` generation");
+  ABSL_LOG(INFO) << "Test conditional read, mismatched `if_equal` generation";
   {
     kvstore::ReadOptions options;
     options.if_equal = mismatch;
@@ -272,8 +272,8 @@ void TestKeyValueStoreConditionalReadOps(
                 MatchesKvsReadResultAborted());
   }
 
-  TENSORSTORE_LOG(
-      "Test conditional read, mismatched if_equal=StorageGeneration::NoValue");
+  ABSL_LOG(INFO) << "Test conditional read, mismatched "
+                    "if_equal=StorageGeneration::NoValue";
   {
     kvstore::ReadOptions options;
     options.if_equal = StorageGeneration::NoValue();
@@ -281,8 +281,8 @@ void TestKeyValueStoreConditionalReadOps(
                 MatchesKvsReadResultAborted());
   }
 
-  TENSORSTORE_LOG(
-      "Test conditional read, if_not_equal=StorageGeneration::NoValue");
+  ABSL_LOG(INFO)
+      << "Test conditional read, if_not_equal=StorageGeneration::NoValue";
   {
     kvstore::ReadOptions options;
     options.if_not_equal = StorageGeneration::NoValue();
@@ -310,18 +310,18 @@ void TestKeyValueStoreConditionalWriteOps(
                                MatchesTimestampedStorageGeneration(
                                    ::testing::Not(mismatch))));
 
-  TENSORSTORE_LOG("Test conditional write, non-existent key");
+  ABSL_LOG(INFO) << "Test conditional write, non-existent key";
   EXPECT_THAT(
       kvstore::Write(store, key1, value, {mismatch}).result(),
       MatchesTimestampedStorageGeneration(StorageGeneration::Unknown()));
 
-  TENSORSTORE_LOG("Test conditional write, mismatched generation");
+  ABSL_LOG(INFO) << "Test conditional write, mismatched generation";
   EXPECT_THAT(
       kvstore::Write(store, key2, value, {mismatch}).result(),
       MatchesTimestampedStorageGeneration(StorageGeneration::Unknown()));
 
-  TENSORSTORE_LOG("Test conditional write, matching generation ",
-                  write_result->generation);
+  ABSL_LOG(INFO) << "Test conditional write, matching generation "
+                 << write_result->generation;
   {
     auto write_conditional =
         kvstore::Write(store, key2, value, {write_result->generation}).result();
@@ -333,15 +333,15 @@ void TestKeyValueStoreConditionalWriteOps(
                 MatchesKvsReadResult(value, write_conditional->generation));
   }
 
-  TENSORSTORE_LOG(
-      "Test conditional write, existing key, StorageGeneration::NoValue");
+  ABSL_LOG(INFO)
+      << "Test conditional write, existing key, StorageGeneration::NoValue";
   EXPECT_THAT(
       kvstore::Write(store, key2, value, {StorageGeneration::NoValue()})
           .result(),
       MatchesTimestampedStorageGeneration(StorageGeneration::Unknown()));
 
-  TENSORSTORE_LOG(
-      "Test conditional write, non-existent key StorageGeneration::NoValue");
+  ABSL_LOG(INFO)
+      << "Test conditional write, non-existent key StorageGeneration::NoValue";
   {
     auto write_conditional =
         kvstore::Write(store, key3, value, {StorageGeneration::NoValue()})
@@ -382,7 +382,7 @@ void TestKeyValueStoreConditionalDeleteOps(
   EXPECT_THAT(kvstore::Read(store, key4).result(),
               MatchesKvsReadResult(existing_value));
 
-  TENSORSTORE_LOG("Test conditional delete, non-existent key");
+  ABSL_LOG(INFO) << "Test conditional delete, non-existent key";
   EXPECT_THAT(
       kvstore::Delete(store, key1, {mismatch}).result(),
       MatchesTimestampedStorageGeneration(StorageGeneration::Unknown()));
@@ -391,7 +391,7 @@ void TestKeyValueStoreConditionalDeleteOps(
   EXPECT_THAT(kvstore::Read(store, key4).result(),
               MatchesKvsReadResult(existing_value));
 
-  TENSORSTORE_LOG("Test conditional delete, mismatched generation");
+  ABSL_LOG(INFO) << "Test conditional delete, mismatched generation";
   EXPECT_THAT(
       kvstore::Delete(store, key2, {mismatch}).result(),
       MatchesTimestampedStorageGeneration(StorageGeneration::Unknown()));
@@ -400,7 +400,7 @@ void TestKeyValueStoreConditionalDeleteOps(
   EXPECT_THAT(kvstore::Read(store, key4).result(),
               MatchesKvsReadResult(existing_value));
 
-  TENSORSTORE_LOG("Test conditional delete, matching generation");
+  ABSL_LOG(INFO) << "Test conditional delete, matching generation";
   ASSERT_THAT(kvstore::Delete(store, key2, {last_generation}).result(),
               MatchesKnownTimestampedStorageGeneration());
 
@@ -410,14 +410,14 @@ void TestKeyValueStoreConditionalDeleteOps(
   EXPECT_THAT(kvstore::Read(store, key4).result(),
               MatchesKvsReadResult(existing_value));
 
-  TENSORSTORE_LOG(
-      "Test conditional delete, non-existent key StorageGeneration::NoValue");
+  ABSL_LOG(INFO)
+      << "Test conditional delete, non-existent key StorageGeneration::NoValue";
   EXPECT_THAT(
       kvstore::Delete(store, key3, {StorageGeneration::NoValue()}).result(),
       MatchesKnownTimestampedStorageGeneration());
 
-  TENSORSTORE_LOG(
-      "Test conditional delete, existing key, StorageGeneration::NoValue");
+  ABSL_LOG(INFO)
+      << "Test conditional delete, existing key, StorageGeneration::NoValue";
   EXPECT_THAT(kvstore::Read(store, key2).result(),
               MatchesKvsReadResultNotFound());
   EXPECT_THAT(kvstore::Read(store, key4).result(),
@@ -426,7 +426,7 @@ void TestKeyValueStoreConditionalDeleteOps(
       kvstore::Delete(store, key4, {StorageGeneration::NoValue()}).result(),
       MatchesTimestampedStorageGeneration(StorageGeneration::Unknown()));
 
-  TENSORSTORE_LOG("Test conditional delete, matching generation");
+  ABSL_LOG(INFO) << "Test conditional delete, matching generation";
   {
     auto gen = GetStorageGeneration(store, key4);
     EXPECT_THAT(kvstore::Delete(store, key4, {gen}).result(),

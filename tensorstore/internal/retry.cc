@@ -17,15 +17,14 @@
 #include <algorithm>
 #include <cassert>
 #include <functional>
-#include <optional>
 #include <string>
 #include <system_error>  // NOLINT
 
+#include "absl/log/absl_log.h"
 #include "absl/random/random.h"
+#include "absl/status/status.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
-#include "tensorstore/internal/logging.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -71,10 +70,10 @@ absl::Status RetryWithBackoff(
 
     // NOTE: Figure out a way to enable better logging when we want it.
     if (false) {
-      TENSORSTORE_LOG(
-          "The operation failed and will be automatically retried in ",
-          absl::ToDoubleSeconds(delay), " seconds (attempt ", attempt + 1,
-          " out of ", max_retries, "), caused by: ", status);
+      ABSL_LOG(INFO)
+          << "The operation failed and will be automatically retried in "
+          << absl::ToDoubleSeconds(delay) << " seconds (attempt " << attempt + 1
+          << " out of " << max_retries << "), caused by: " << status;
     }
 
     absl::SleepFor(delay);

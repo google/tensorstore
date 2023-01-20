@@ -24,6 +24,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/log/absl_log.h"
 #include "absl/random/random.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
@@ -221,9 +222,9 @@ void MaybeLogResponse(const char* description,
 #ifdef TENSORSTORE_INTERNAL_GCS_LOG_RESPONSES
   if (result.ok()) {
     for (auto& [key, value] : result->headers) {
-      TENSORSTORE_LOG(description, ": ", key, ": ", value);
+      ABSL_LOG(INFO) << description << ": " << key, ": " << value;
     }
-    TENSORSTORE_LOG(description, ": Response: ", result->payload);
+    ABSL_LOG(INFO) << description << ": Response: " << result->payload;
   }
 #endif
 }
@@ -374,7 +375,8 @@ class GcsKeyValueStore
                                     const HttpRequest& request,
                                     const absl::Cord& payload) {
 #ifdef TENSORSTORE_INTERNAL_GCS_LOG_REQUESTS
-    TENSORSTORE_LOG(description, " ", request.url(), " size=", payload.size());
+    ABSL_LOG(INFO) << description << " " << request.url()
+                   << " size=" << payload.size();
 #endif
     return transport_->IssueRequest(request, payload);
   }
@@ -420,7 +422,7 @@ Future<kvstore::DriverPtr> GcsKeyValueStoreSpec::DoOpen() const {
 
   // NOTE: Remove temporary logging use of experimental feature.
   if (data_.rate_limiter.has_value()) {
-    TENSORSTORE_LOG("Using experimental_gcs_rate_limiter");
+    ABSL_LOG(INFO) << "Using experimental_gcs_rate_limiter";
   }
   if (const auto& project_id = data_.user_project->project_id) {
     driver->encoded_user_project_ =

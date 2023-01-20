@@ -28,7 +28,6 @@
 #include "tensorstore/internal/json_binding/std_array.h"  // IWYU pragma: keep
 #include "tensorstore/internal/json_binding/std_optional.h"  // IWYU pragma: keep
 #include "tensorstore/internal/json_metadata_matching.h"
-#include "tensorstore/internal/logging.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/serialization/json_bindable.h"

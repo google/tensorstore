@@ -19,8 +19,8 @@
 #include <string_view>
 #include <vector>
 
+#include "absl/log/absl_log.h"
 #include "absl/strings/str_join.h"
-#include "tensorstore/internal/log_message.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/proto/proto_util.h"
 #include "tensorstore/util/str_cat.h"
@@ -45,12 +45,9 @@ class ParseTextProtoOrDie {
     std::vector<std::string> errors;
 
     if (!TryParseTextProto(text_proto_, &message)) {
-      ::tensorstore::internal::LogMessageFatal(
-          ::tensorstore::StrCat("Failed to parse ", message.GetTypeName(),
-                                " from textproto:\n", text_proto_,
-                                "\nWith errors: ", absl::StrJoin(errors, "\n"))
-              .c_str(),
-          loc_);
+      ABSL_LOG(INFO).AtLocation(loc_.file_name(), loc_.line())
+          << "Failed to parse " << message.GetTypeName() << " from textproto:\n"
+          << text_proto_ << "\nWith errors: " << absl::StrJoin(errors, "\n");
     }
     return message;
   }

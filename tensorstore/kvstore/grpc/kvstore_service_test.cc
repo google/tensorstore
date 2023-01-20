@@ -38,7 +38,6 @@
 #include "tensorstore/context.h"
 #include "tensorstore/internal/concurrent_testutil.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/test_util.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"

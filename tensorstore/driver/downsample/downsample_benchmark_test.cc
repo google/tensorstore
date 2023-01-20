@@ -14,6 +14,7 @@
 
 #include <vector>
 
+#include "absl/log/absl_check.h"
 #include "absl/random/random.h"
 #include <benchmark/benchmark.h>
 #include "tensorstore/array.h"
@@ -57,9 +58,9 @@ void BenchmarkDownsample(::benchmark::State& state, DataType dtype,
   const Index num_elements = base_domain.num_elements();
   Index total_elements = 0;
   while (state.KeepRunningBatch(num_elements)) {
-    TENSORSTORE_CHECK(DownsampleArray(base_array, downsampled_array,
-                                      downsample_factors, downsample_method)
-                          .ok());
+    ABSL_CHECK(DownsampleArray(base_array, downsampled_array,
+                               downsample_factors, downsample_method)
+                   .ok());
     total_elements += num_elements;
   }
   state.SetItemsProcessed(total_elements);

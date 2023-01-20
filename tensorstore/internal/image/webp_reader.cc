@@ -23,6 +23,7 @@
 #include <string>
 #include <utility>
 
+#include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "absl/types/optional.h"
 #include "riegeli/bytes/reader.h"
@@ -158,7 +159,7 @@ WebPReader::WebPReader(WebPReader&& src) = default;
 WebPReader& WebPReader::operator=(WebPReader&& src) = default;
 
 absl::Status WebPReader::Initialize(riegeli::Reader* reader) {
-  TENSORSTORE_CHECK(reader != nullptr);
+  ABSL_CHECK(reader != nullptr);
 
   /// Check the signature. "RIFF....WEBP", etc.
   if (!reader->Pull(12) || (memcmp("RIFF", reader->cursor(), 4) != 0 ||

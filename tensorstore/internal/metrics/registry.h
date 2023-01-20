@@ -22,12 +22,12 @@
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/log/absl_check.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/metrics/collect.h"
 #include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/metrics/metric_hook.h"
 #include "tensorstore/internal/poly/poly.h"
-#include "tensorstore/util/assert_macros.h"
 
 namespace tensorstore {
 namespace internal_metrics {
@@ -44,7 +44,7 @@ class MetricRegistry {
   /// string, must be unique, and must ultimately be a string literal.
   void AddGeneric(std::string_view metric_name, MetricRegistry::Metric m,
                   std::shared_ptr<void> hook = nullptr) {
-    TENSORSTORE_CHECK(IsValidMetricName(metric_name));
+    ABSL_CHECK(IsValidMetricName(metric_name));
     AddInternal(metric_name, m, std::move(hook));
   }
 

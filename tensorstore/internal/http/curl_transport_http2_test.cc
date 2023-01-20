@@ -29,14 +29,14 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/container/flat_hash_map.h"
+#include "absl/log/absl_check.h"
+#include "absl/log/absl_log.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/str_cat.h"
 #include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/transport_test_utils.h"
-#include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/thread.h"
-#include "tensorstore/util/assert_macros.h"
 
 using ::tensorstore::internal_http::HttpRequestBuilder;
 using ::tensorstore::transport_test_utils::AcceptNonBlocking;
@@ -93,7 +93,8 @@ class Http2Session {
   absl::flat_hash_map<int32_t, Stream> completed;
 
   void OnStreamHeader(int32_t stream_id, std::string key, std::string value) {
-    TENSORSTORE_LOG("http2 header <", stream_id, ">: ", key, " ", value);
+    ABSL_LOG(INFO) << "http2 header <" << stream_id << ">: " << key << " "
+                   << value;
     streams[stream_id].headers.emplace_back(std::move(key), std::move(value));
   }
 
@@ -112,19 +113,19 @@ class Http2Session {
   size_t Send(const char* data, size_t length) {
     int err = send(client_fd_, data, length, 0);
     if (err < 0) {
-      TENSORSTORE_LOG("send error:", get_socket_errno());
+      ABSL_LOG(INFO) << "send error:" << get_socket_errno();
       return NGHTTP2_ERR_CALLBACK_FAILURE;
     }
-    TENSORSTORE_CHECK(err > 0);
+    ABSL_CHECK_GT(err, 0);
     return err;
   }
 
   // Callbacks for nghttp2_session:
   static ssize_t Send(nghttp2_session* session, const uint8_t* data,
                       size_t length, int flags, void* user_data) {
-    TENSORSTORE_LOG("http2 send ", length, ":",
-                    absl::BytesToHexString(std::string_view(
-                        reinterpret_cast<const char*>(data), length)));
+    ABSL_LOG(INFO) << "http2 send " << length << ":"
+                   << absl::BytesToHexString(std::string_view(
+                          reinterpret_cast<const char*>(data), length));
     return static_cast<Http2Session*>(user_data)->Send(
         reinterpret_cast<const char*>(data), length);
   }
@@ -133,7 +134,8 @@ class Http2Session {
                          void* user_data) {
     const auto stream_id = frame->hd.stream_id;
     const auto type = frame->hd.type;
-    TENSORSTORE_LOG("http2 frame send <", stream_id, ">: ", kFrameName[type]);
+    ABSL_LOG(INFO) << "http2 frame send <" << stream_id
+                   << ">: " << kFrameName[type];
     return 0;
   }
 
@@ -141,12 +143,13 @@ class Http2Session {
                          void* user_data) {
     const auto stream_id = frame->hd.stream_id;
     const auto type = frame->hd.type;
-    TENSORSTORE_LOG("http2 frame recv <", stream_id, ">: ", kFrameName[type]);
+    ABSL_LOG(INFO) << "http2 frame recv <" << stream_id
+                   << ">: " << kFrameName[type];
 
     if ((type == NGHTTP2_DATA || type == NGHTTP2_HEADERS) &&
         (frame->hd.flags & NGHTTP2_FLAG_END_STREAM)) {
       // The request is done.
-      TENSORSTORE_LOG("http2 stream done <", stream_id, ">");
+      ABSL_LOG(INFO) << "http2 stream done <" << stream_id << ">";
 
       // Update local stream tracking.
       static_cast<Http2Session*>(user_data)->OnStreamDone(stream_id);
@@ -159,8 +162,8 @@ class Http2Session {
                                 void* user_data) {
     const auto stream_id = frame->hd.stream_id;
     const auto type = frame->hd.type;
-    TENSORSTORE_LOG("http2 frame recv invalid <", stream_id,
-                    ">: ", kFrameName[type], " code=", lib_error_code);
+    ABSL_LOG(INFO) << "http2 frame recv invalid <" << stream_id
+                   << ">: " << kFrameName[type] << " code=" << lib_error_code;
     return 0;
   }
 
@@ -177,7 +180,7 @@ class Http2Session {
   static int OnDataChunkRecv(nghttp2_session* session, uint8_t flags,
                              int32_t stream_id, const uint8_t* data, size_t len,
                              void* user_data) {
-    TENSORSTORE_LOG("http2 recv chunk <", stream_id, ">");
+    ABSL_LOG(INFO) << "http2 recv chunk <" << stream_id << ">";
     static_cast<Http2Session*>(user_data)->OnStreamData(
         stream_id, reinterpret_cast<const char*>(data), len);
     return 0;
@@ -185,7 +188,7 @@ class Http2Session {
 
   static int OnStreamClose(nghttp2_session* session, int32_t stream_id,
                            uint32_t error_code, void* user_data) {
-    TENSORSTORE_LOG("http2 stream close  <", stream_id, ">");
+    ABSL_LOG(INFO) << "http2 stream close  <" << stream_id << ">";
     return 0;
   }
 
@@ -213,7 +216,7 @@ class Http2Session {
   Http2Session(socket_t client, std::string_view settings)
       : client_fd_(client) {
     nghttp2_session_callbacks* callbacks;
-    TENSORSTORE_CHECK(0 == nghttp2_session_callbacks_new(&callbacks));
+    ABSL_CHECK_EQ(0, nghttp2_session_callbacks_new(&callbacks));
     nghttp2_session_callbacks_set_send_callback(callbacks, &Http2Session::Send);
     nghttp2_session_callbacks_set_on_header_callback(callbacks,
                                                      &Http2Session::OnHeader);
@@ -235,11 +238,11 @@ class Http2Session {
     auto result = nghttp2_session_upgrade2(
         session_, reinterpret_cast<const uint8_t*>(settings.data()),
         settings.size(), false, nullptr);
-    TENSORSTORE_CHECK(0 == result);
+    ABSL_CHECK_EQ(0, result);
 
     // Queue a settings
     result = nghttp2_submit_settings(session_, NGHTTP2_FLAG_NONE, nullptr, 0);
-    TENSORSTORE_CHECK(0 == result);
+    ABSL_CHECK_EQ(0, result);
   }
 
   ~Http2Session() { nghttp2_session_del(session_); }
@@ -263,15 +266,15 @@ class Http2Session {
       if (r < 0) {
         // WaitForRead calls select() on the socket, so we
         // should not see EAGAIN nor EWOULDBLOCK.
-        TENSORSTORE_LOG("recv error: ", get_socket_errno());
+        ABSL_LOG(INFO) << "recv error: " << get_socket_errno();
         return false;
       }
       // No data here would be unexpected since WaitForRead calls select().
-      TENSORSTORE_CHECK(r > 0);
-      TENSORSTORE_LOG("socket recv: ", r);
+      ABSL_CHECK_GT(r, 0);
+      ABSL_LOG(INFO) << "socket recv: " << r;
       auto result = nghttp2_session_mem_recv(
           session_, reinterpret_cast<const uint8_t*>(buf), r);
-      TENSORSTORE_CHECK(result >= 0);
+      ABSL_CHECK_GE(result, 0);
     }
     return true;
   }
@@ -279,9 +282,9 @@ class Http2Session {
   void SendResponse(int32_t stream_id,
                     std::vector<std::pair<std::string, std::string>> headers,
                     std::string_view data) {
-    TENSORSTORE_CHECK(stream_id >= 0);
-    TENSORSTORE_LOG("http2 respond <", stream_id,
-                    ">: ", absl::BytesToHexString(data));
+    ABSL_CHECK_GE(stream_id, 0);
+    ABSL_LOG(INFO) << "http2 respond <" << stream_id
+                   << ">: " << absl::BytesToHexString(data);
 
     const size_t num_headers = headers.size();
     std::unique_ptr<nghttp2_nv[]> nvs(new nghttp2_nv[num_headers]);
@@ -302,7 +305,7 @@ class Http2Session {
     auto result =
         nghttp2_submit_response(session_, stream_id, nvs.get(), num_headers,
                                 data.empty() ? nullptr : &data_provider);
-    TENSORSTORE_CHECK(0 == result);
+    ABSL_CHECK_EQ(0, result);
   }
 };
 
@@ -311,7 +314,7 @@ class CurlTransportTest : public ::testing::Test {
   static void SetUpTestCase() {
 #ifdef _WIN32
     WSADATA wsaData;
-    TENSORSTORE_CHECK(WSAStartup(MAKEWORD(2, 2), &wsaData) == 0);
+    ABSL_CHECK_EQ(0, WSAStartup(MAKEWORD(2, 2), &wsaData));
 #endif
   }
   static void TearDownTestCase() {
@@ -327,10 +330,10 @@ TEST_F(CurlTransportTest, Http2) {
   // This test sets up a simple single-request tcp/ip service which allows
   // us to mock a simple HTTP/2 server.
   auto socket = CreateBoundSocket();
-  TENSORSTORE_CHECK(socket.has_value());
+  ABSL_CHECK(socket.has_value());
 
   auto hostport = FormatSocketAddress(*socket);
-  TENSORSTORE_CHECK(!hostport.empty());
+  ABSL_CHECK(!hostport.empty());
 
   static constexpr char kSwitchProtocols[] =  // 69
       "HTTP/1.1 101 Switching Protocols\r\n"  // 35
@@ -346,7 +349,7 @@ TEST_F(CurlTransportTest, Http2) {
 
   tensorstore::internal::Thread serve_thread({"serve_thread"}, [&] {
     auto client_fd = AcceptNonBlocking(*socket);
-    TENSORSTORE_CHECK(client_fd.has_value());
+    ABSL_CHECK(client_fd.has_value());
     initial_request = ReceiveAvailable(*client_fd);
 
     // Manually upgrade the h2c to HTTP/2
@@ -400,7 +403,7 @@ TEST_F(CurlTransportTest, Http2) {
         absl::Cord("Hello"));
 
     // Waits for the response.
-    TENSORSTORE_LOG(response.status());
+    ABSL_LOG(INFO) << response.status();
 
     EXPECT_THAT(initial_request, HasSubstr("/?name=dragon&age=1234"));
     EXPECT_THAT(initial_request,
@@ -429,7 +432,7 @@ TEST_F(CurlTransportTest, Http2) {
         absl::Cord());
 
     // Waits for the response.
-    TENSORSTORE_LOG(response.status());
+    ABSL_LOG(INFO) << response.status();
   }
 
   serve_thread.Join();

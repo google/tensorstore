@@ -20,9 +20,9 @@
 #include <string>
 
 #include "absl/container/flat_hash_set.h"
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
-#include "tensorstore/internal/logging.h"
 
 // Include libtiff last.
 // See: http://www.libtiff.org/man/index.html
@@ -55,7 +55,7 @@ void TensorstoreTiffWarningHandler(thandle_t data, const char* file,
   char buf[128];
   vsnprintf(buf, sizeof(buf), format, ap);
   buf[sizeof(buf) - 1] = 0;
-  TENSORSTORE_LOG("libtiff warn ", file, ": ", buf);
+  ABSL_LOG(WARNING) << "libtiff warn " << file << ": " << buf;
 }
 
 void TensorstoreTiffErrorHandler(thandle_t data, const char* file,
@@ -64,7 +64,7 @@ void TensorstoreTiffErrorHandler(thandle_t data, const char* file,
   vsnprintf(buf, sizeof(buf), format, ap);
   buf[sizeof(buf) - 1] = 0;
 
-  TENSORSTORE_LOG("libtiff error ", file, ": ", buf);
+  ABSL_LOG(ERROR) << "libtiff error " << file << ": " << buf;
 
   if (data) {
     auto* hook = GetLibTIFFErrorHook();

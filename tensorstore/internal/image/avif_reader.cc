@@ -23,6 +23,8 @@
 #include <string>
 #include <utility>
 
+#include "absl/log/absl_check.h"
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/types/optional.h"
 #include "riegeli/bytes/reader.h"
@@ -30,8 +32,6 @@
 #include "tensorstore/internal/image/avif_common.h"
 #include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/image/image_view.h"
-#include "tensorstore/internal/logging.h"
-#include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -279,19 +279,19 @@ absl::Status AvifDefaultDecode(avifDecoder* decoder,
                                tensorstore::span<unsigned char> dest,
                                const AvifReaderOptions& options) {
   auto info = AvifGetImageInfo(decoder);
-  TENSORSTORE_CHECK(dest.size() == ImageRequiredBytes(info));
+  ABSL_CHECK(dest.size() == ImageRequiredBytes(info));
 
   avifImage* image = decoder->image;
 
 #if 0
-  TENSORSTORE_LOG("avifImageUsesU16 ", avifImageUsesU16(image.get()));
-  TENSORSTORE_LOG("yuvFormat ", image->yuvFormat);
-  TENSORSTORE_LOG("yuvRange ", image->yuvRange);
-  TENSORSTORE_LOG("colorPrimaries ", image->colorPrimaries);
-  TENSORSTORE_LOG("transferCharacteristics ", image->transferCharacteristics);
-  TENSORSTORE_LOG("matrixCoefficients ", image->matrixCoefficients);
-  TENSORSTORE_LOG("alphaPremultiplied ", image->alphaPremultiplied);
-  TENSORSTORE_LOG("alphaRowBytes ", image->alphaRowBytes);
+  ABSL_LOG(INFO) <<"avifImageUsesU16 "<< avifImageUsesU16(image.get());
+  ABSL_LOG(INFO) <<"yuvFormat "<< image->yuvFormat;
+  ABSL_LOG(INFO) <<"yuvRange " <<image->yuvRange;
+  ABSL_LOG(INFO) <<"colorPrimaries "<< image->colorPrimaries;
+  ABSL_LOG(INFO) <<"transferCharacteristics "<< image->transferCharacteristics;
+  ABSL_LOG(INFO) <<"matrixCoefficients "<< image->matrixCoefficients;
+  ABSL_LOG(INFO) <<"alphaPremultiplied "<< image->alphaPremultiplied;
+  ABSL_LOG(INFO) <<"alphaRowBytes "<< image->alphaRowBytes;
 #endif
 
   if (image->yuvFormat == AVIF_PIXEL_FORMAT_YUV400 ||
@@ -307,7 +307,7 @@ absl::Status AvifDefaultDecode(avifDecoder* decoder,
 }  // namespace
 
 absl::Status AvifReader::Initialize(riegeli::Reader* reader) {
-  TENSORSTORE_CHECK(reader != nullptr);
+  ABSL_CHECK(reader != nullptr);
 
   decoder_ = nullptr;
 
@@ -324,7 +324,7 @@ absl::Status AvifReader::Initialize(riegeli::Reader* reader) {
   }
 
   auto* io = AvifRiegeli::Create(reader);
-  TENSORSTORE_CHECK(io != nullptr);
+  ABSL_CHECK(io != nullptr);
 
   // decoding defaults to AVIF_CODEC_CHOICE_AUTO; if we want more control
   // over the decoder, add that here.

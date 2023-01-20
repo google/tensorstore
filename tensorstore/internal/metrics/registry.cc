@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/log/absl_check.h"
 #include "absl/strings/match.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/metrics/collect.h"
@@ -32,9 +33,9 @@ namespace internal_metrics {
 void MetricRegistry::AddInternal(std::string_view metric_name,
                                  MetricRegistry::Metric m,
                                  std::shared_ptr<void> hook) {
-  TENSORSTORE_CHECK(m);
+  ABSL_CHECK(m);
   absl::MutexLock l(&mu_);
-  TENSORSTORE_CHECK(
+  ABSL_CHECK(
       entries_.try_emplace(metric_name, Entry{std::move(m), std::move(hook)})
           .second);
 }

@@ -21,6 +21,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
@@ -29,7 +30,6 @@
 #include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/internal/oauth2/fixed_token_auth_provider.h"
 #include "tensorstore/internal/oauth2/gce_auth_provider.h"
@@ -131,7 +131,7 @@ Result<std::unique_ptr<AuthProvider>> GetDefaultGoogleAuthProvider(
   // 1. Check to see if the test environment variable is set.
   auto var = GetEnv(kGoogleAuthTokenForTesting);
   if (var) {
-    TENSORSTORE_LOG("Using GOOGLE_AUTH_TOKEN_FOR_TESTING");
+    ABSL_LOG(INFO) << "Using GOOGLE_AUTH_TOKEN_FOR_TESTING";
     result.reset(new FixedTokenAuthProvider(std::move(*var)));
     return std::move(result);
   }
@@ -144,14 +144,14 @@ Result<std::unique_ptr<AuthProvider>> GetDefaultGoogleAuthProvider(
   }
 
   if (credentials_filename.ok()) {
-    TENSORSTORE_LOG("Using credentials at ", *credentials_filename);
+    ABSL_LOG(INFO) << "Using credentials at " << *credentials_filename;
 
     std::ifstream credentials_fstream(*credentials_filename);
     auto json = ::nlohmann::json::parse(credentials_fstream, nullptr, false);
 
     auto refresh_token = internal_oauth2::ParseRefreshToken(json);
     if (refresh_token.ok()) {
-      TENSORSTORE_LOG("Using OAuth2 AuthProvider");
+      ABSL_LOG(INFO) << "Using OAuth2 AuthProvider";
       result.reset(new OAuth2AuthProvider(*refresh_token, kOAuthV3Url,
                                           std::move(transport)));
       return std::move(result);
@@ -160,7 +160,7 @@ Result<std::unique_ptr<AuthProvider>> GetDefaultGoogleAuthProvider(
     auto service_account =
         internal_oauth2::ParseGoogleServiceAccountCredentials(json);
     if (service_account.ok()) {
-      TENSORSTORE_LOG("Using ServiceAccount AuthProvider");
+      ABSL_LOG(INFO) << "Using ServiceAccount AuthProvider";
       result.reset(new GoogleServiceAccountAuthProvider(*service_account,
                                                         std::move(transport)));
       return std::move(result);
@@ -176,18 +176,19 @@ Result<std::unique_ptr<AuthProvider>> GetDefaultGoogleAuthProvider(
           GceAuthProvider::GetDefaultServiceAccountInfoIfRunningOnGce(
               transport.get());
       gce_service_account.ok()) {
-    TENSORSTORE_LOG("Running on GCE, using service account ",
-                    gce_service_account->email);
+    ABSL_LOG(INFO) << "Running on GCE, using service account "
+                   << gce_service_account->email;
     result.reset(
         new GceAuthProvider(std::move(transport), *gce_service_account));
     return std::move(result);
   }
   if (!credentials_filename.ok()) {
-    TENSORSTORE_LOG(credentials_filename.status().message(),
-                    ". You may specify a credentials file using $",
-                    kGoogleApplicationCredentials,
-                    ", or to use Google application default credentials, run: "
-                    "gcloud auth application-default login");
+    ABSL_LOG(ERROR)
+        << credentials_filename.status().message()
+        << ". You may specify a credentials file using $"
+        << kGoogleApplicationCredentials
+        << ", or to use Google application default credentials, run: "
+           "gcloud auth application-default login";
   }
 
   // Return a failure code.

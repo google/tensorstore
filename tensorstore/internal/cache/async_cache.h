@@ -22,11 +22,11 @@
 #include <cstddef>
 
 #include "absl/base/thread_annotations.h"
+#include "absl/strings/str_format.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/intrusive_red_black_tree.h"
-#include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/tagged_ptr.h"
 #include "tensorstore/kvstore/generation.h"
@@ -36,6 +36,10 @@
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
+
+#ifndef TENSORSTORE_ASYNC_CACHE_DEBUG
+#define TENSORSTORE_ASYNC_CACHE_DEBUG 0
+#endif
 
 namespace tensorstore {
 namespace internal {
@@ -509,6 +513,17 @@ class AsyncCache : public Cache {
     /// Set if the entry state should be changed to `writeback_requested` when
     /// `mutex_` is next unlocked.
     constexpr static Flags kMarkWritebackRequested = 4;
+
+    // AbslStringify is used to dump the Entry to the ABSL_LOG sink.
+    // Example:
+    //   ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG) << *entry
+    template <typename Sink>
+    friend void AbslStringify(Sink& sink, const Entry& entry) {
+      auto& owning_cache = GetOwningCache(const_cast<Entry&>(entry));
+      absl::Format(&sink, "[%s: entry=%p, key=%s] ",
+                   typeid(owning_cache).name(), &entry,
+                   tensorstore::QuoteString(entry.key()));
+    }
   };
 
   /// Base transaction node class.  Derived classes must define a nested
@@ -875,6 +890,24 @@ class AsyncCache : public Cache {
     /// node is in the `committing_transaction_node_` list.
     PrepareForCommitState prepare_for_commit_state_ =
         PrepareForCommitState::kNone;
+
+    // AbslStringify is used to dump the TransactionNode to the ABSL_LOG sink.
+    // Example:
+    //   ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG) << *node
+    template <typename Sink>
+    friend void AbslStringify(Sink& sink, const TransactionNode& node) {
+      auto& entry = GetOwningEntry(node);
+      auto& owning_cache = GetOwningCache(entry);
+      const auto* txn = node.transaction();
+      absl::Format(
+          &sink, "[%s: entry=%p, key=%s, node=%p, transaction=%p%s, phase=%d] ",
+          typeid(owning_cache).name(), &entry,
+          tensorstore::QuoteString(entry.key()), &node, txn,
+          txn == nullptr                ? ""
+          : txn->implicit_transaction() ? " (implicit)"
+                                        : " (explicit)",
+          node.phase());
+    }
   };
 
   /// Derived classes should override this to return the size of any additional
@@ -906,44 +939,6 @@ class AsyncCache : public Cache {
   /// }
   virtual TransactionNode* DoAllocateTransactionNode(Entry& entry) = 0;
 };
-
-#ifdef TENSORSTORE_ASYNC_CACHE_DEBUG
-template <typename EntryOrNode, typename... T>
-void AsyncCacheDebugLog(tensorstore::SourceLocation loc,
-                        EntryOrNode& entry_or_node, const T&... arg) {
-  auto& entry = GetOwningEntry(entry_or_node);
-  std::string node_desc;
-  if constexpr (std::is_base_of_v<AsyncCache::TransactionNode, EntryOrNode>) {
-    node_desc = tensorstore::StrCat(
-        ", node=", &entry_or_node,
-        ", transaction=", entry_or_node.transaction(),
-        entry_or_node.transaction()->implicit_transaction() ? " (implicit)"
-                                                            : " (explicit)",
-        ", phase=", entry_or_node.phase());
-  }
-  tensorstore::internal::LogMessage(
-      tensorstore::StrCat("[", typeid(GetOwningCache(entry)).name(),
-                          ": entry=", &entry,
-                          ", key=", tensorstore::QuoteString(entry.key()),
-                          node_desc, "] ", arg...)
-          .c_str(),
-      loc);
-}
-
-/// Logs a debugging message associated with an `AsyncCache::Entry` or
-/// `AsyncCache::TransactionNode`.
-///
-/// This macro is intended to be called like a function, where the first
-/// parameter is an `AsyncCache::Entry&` or `AsyncCache::TransactionNode&`, and
-/// the remaining parameters are passed to `tensorstore::StrCat` to generate a
-/// message.
-#define TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(...)                                 \
-  do {                                                                         \
-    ::tensorstore::internal::AsyncCacheDebugLog(TENSORSTORE_LOC, __VA_ARGS__); \
-  } while (false)
-#else
-#define TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(...) while (false)
-#endif
 
 }  // namespace internal
 }  // namespace tensorstore

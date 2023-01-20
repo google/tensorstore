@@ -23,6 +23,8 @@
 #include <string_view>
 #include <utility>
 
+#include "absl/log/absl_check.h"
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "riegeli/bytes/writer.h"
 #include "tensorstore/data_type.h"
@@ -84,16 +86,16 @@ toff_t SeekProc(thandle_t data, toff_t pos, int whence) {
 
   switch (whence) {
     case SEEK_SET:
-      // TENSORSTORE_LOG("tiff seek ", pos);
+      // ABSL_LOG(INFO) << "tiff seek "<< pos;
       target_pos = pos;
       break;
     case SEEK_CUR:
-      // TENSORSTORE_LOG("tiff skip ", writer->pos(), " ", pos);
+      // ABSL_LOG(INFO) <<"tiff skip "<< writer->pos()<< " "<< pos;
       target_pos = writer->pos() + pos;
       break;
     case SEEK_END:
       assert(pos <= 0);
-      // TENSORSTORE_LOG("tiff seek_end ", writer->pos(), " ", pos);
+      // ABSL_LOG(INFO) <<"tiff seek_end "<< writer->pos()<< " "<< pos;
       if (writer_size) {
         target_pos = *writer_size - static_cast<uint64_t>(-pos);
       } else {
@@ -218,7 +220,7 @@ TiffWriter& TiffWriter::operator=(TiffWriter&& src) = default;
 
 absl::Status TiffWriter::InitializeImpl(riegeli::Writer* writer,
                                         const TiffWriterOptions& options) {
-  TENSORSTORE_CHECK(writer != nullptr);
+  ABSL_CHECK(writer != nullptr);
   if (context_) {
     return absl::InternalError("Initialize() already called");
   }
@@ -236,7 +238,7 @@ absl::Status TiffWriter::Encode(const ImageInfo& info,
   if (!context_) {
     return absl::InternalError("TIFF writer not initialized");
   }
-  TENSORSTORE_CHECK(source.size() == ImageRequiredBytes(info));
+  ABSL_CHECK_EQ(source.size(), ImageRequiredBytes(info));
   return context_->WriteImage(info, source);
 }
 

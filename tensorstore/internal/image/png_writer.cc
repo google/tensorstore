@@ -21,12 +21,12 @@
 #include <utility>
 #include <vector>
 
+#include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "riegeli/bytes/writer.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/image/image_view.h"
-#include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 
@@ -91,13 +91,13 @@ void PngWriter::Context::Initialize(const PngWriterOptions& options) {
   options_ = options;
   png_ptr_ =
       png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
-  TENSORSTORE_CHECK(png_ptr_ != nullptr);
+  ABSL_CHECK(png_ptr_ != nullptr);
 
   // Redirect error and warning messages to the error state.
   png_set_error_fn(png_ptr_, &last_error_, &ErrorFunction, &WarningFunction);
 
   info_ptr_ = png_create_info_struct(png_ptr_);
-  TENSORSTORE_CHECK(info_ptr_ != nullptr);
+  ABSL_CHECK(info_ptr_ != nullptr);
 
   png_set_write_fn(png_ptr_, writer_, &WriteFunction, &FlushFunction);
 }
@@ -185,7 +185,7 @@ PngWriter& PngWriter::operator=(PngWriter&& src) = default;
 
 absl::Status PngWriter::InitializeImpl(riegeli::Writer* writer,
                                        const PngWriterOptions& options) {
-  TENSORSTORE_CHECK(writer != nullptr);
+  ABSL_CHECK(writer != nullptr);
   if (context_) {
     return absl::InternalError("Initialize() already called");
   }
@@ -200,7 +200,7 @@ absl::Status PngWriter::Encode(const ImageInfo& info,
   if (!context_) {
     return absl::InternalError("AVIF reader not initialized");
   }
-  TENSORSTORE_CHECK(source.size() == ImageRequiredBytes(info));
+  ABSL_CHECK_EQ(source.size(), ImageRequiredBytes(info));
   return context_->Encode(info, source);
 }
 

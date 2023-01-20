@@ -14,6 +14,7 @@
 
 #include "tensorstore/internal/image/bmp_reader.h"
 
+#include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
 #include "riegeli/bytes/limiting_reader.h"
@@ -436,7 +437,7 @@ BmpReader::BmpReader(BmpReader&& src) = default;
 BmpReader& BmpReader::operator=(BmpReader&& src) = default;
 
 absl::Status BmpReader::Initialize(riegeli::Reader* reader) {
-  TENSORSTORE_CHECK(reader != nullptr);
+  ABSL_CHECK(reader != nullptr);
   reader_ = reader;
 
   auto header = std::make_unique<BmpHeader>();

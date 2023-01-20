@@ -225,12 +225,12 @@ class CacheEntry : private internal_cache::CacheEntryImpl {
   using OwningCache = internal::Cache;
 
   /// Returns the key for this entry.
-  std::string_view key() { return key_; }
+  const std::string_view key() const { return key_; }
 
   /// Returns the number of references to this cache entry.
   ///
   /// This is intended for testing and debugging.
-  std::uint32_t use_count() {
+  std::uint32_t use_count() const {
     return reference_count_.load(std::memory_order_acquire);
   }
 

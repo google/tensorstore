@@ -19,6 +19,7 @@
 #include <utility>
 
 #include "absl/container/fixed_array.h"
+#include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/internal/transform_rep_impl.h"
@@ -137,9 +138,9 @@ void OutputIndexMap::Assign(DimensionIndex rank, const OutputIndexMap& other) {
 
 TransformRep::Ptr<> TransformRep::Allocate(
     DimensionIndex input_rank_capacity, DimensionIndex output_rank_capacity) {
-  TENSORSTORE_CHECK(input_rank_capacity >= 0 && output_rank_capacity >= 0 &&
-                    input_rank_capacity <= kMaxRank &&
-                    output_rank_capacity <= kMaxRank);
+  ABSL_CHECK(input_rank_capacity >= 0 && output_rank_capacity >= 0 &&
+             input_rank_capacity <= kMaxRank &&
+             output_rank_capacity <= kMaxRank);
   const size_t total_size =
       // header size
       sizeof(TransformRep) +

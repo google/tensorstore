@@ -105,7 +105,6 @@ tensorstore_cc_library(
         "//tensorstore/index_space:index_transform",
         "//tensorstore/internal:bit_operations",
         "//tensorstore/internal:json_metadata_matching",
-        "//tensorstore/internal:logging",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/internal/json_binding:data_type",

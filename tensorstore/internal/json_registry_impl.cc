@@ -16,19 +16,23 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
+#include <type_traits>
 #include <typeindex>
 #include <typeinfo>
+#include <utility>
 
 #include "absl/container/flat_hash_set.h"
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/internal/json_registry.h"
-#include "tensorstore/internal/logging.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_json_registry {
@@ -43,13 +47,13 @@ void JsonRegistryImpl::Register(std::unique_ptr<Entry> entry) {
   {
     auto [it, inserted] = entries_by_type_.insert(entry.get());
     if (!inserted) {
-      TENSORSTORE_LOG_FATAL((*it)->type->name(), " already registered");
+      ABSL_LOG(FATAL) << (*it)->type->name() << " already registered";
     }
   }
   {
     auto [it, inserted] = entries_.insert(std::move(entry));
     if (!inserted) {
-      TENSORSTORE_LOG_FATAL(QuoteString((*it)->id), " already registered");
+      ABSL_LOG(FATAL) << QuoteString((*it)->id) << " already registered";
     }
   }
 }

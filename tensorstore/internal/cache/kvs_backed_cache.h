@@ -25,6 +25,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/time/time.h"
@@ -102,16 +103,16 @@ class KvsBackedCache : public Parent {
       std::shared_ptr<const void> existing_read_data_;
       void set_value(kvstore::ReadResult read_result) {
         if (read_result.aborted()) {
-          TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(
-              *entry_or_node_,
-              "Value has not changed, stamp=", read_result.stamp);
+          ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+              << *entry_or_node_
+              << "Value has not changed, stamp=" << read_result.stamp;
           // Value has not changed.
           entry_or_node_->ReadSuccess(AsyncCache::ReadState{
               std::move(existing_read_data_), std::move(read_result.stamp)});
           return;
         }
-        TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(*entry_or_node_,
-                                          "DoDecode: ", read_result.stamp);
+        ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+            << *entry_or_node_ << "DoDecode: " << read_result.stamp;
         struct DecodeReceiverImpl {
           EntryOrNode* self_;
           TimestampedStorageGeneration stamp_;
@@ -239,16 +240,16 @@ class KvsBackedCache : public Parent {
     void KvsWriteback(
         ReadModifyWriteSource::WritebackOptions options,
         ReadModifyWriteSource::WritebackReceiver receiver) override {
-      TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(
-          *this, "KvsWriteback: if_not_equal=", options.if_not_equal,
-          ", staleness_bound=", options.staleness_bound,
-          ", mode=", options.writeback_mode);
+      ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+          << *this << "KvsWriteback: if_not_equal=" << options.if_not_equal
+          << ", staleness_bound=" << options.staleness_bound
+          << ", mode=" << options.writeback_mode;
       auto read_state = AsyncCache::ReadLock<void>(*this).read_state();
       if (!StorageGeneration::IsUnknown(options.if_not_equal) &&
           options.if_not_equal == read_state.stamp.generation &&
           read_state.stamp.time >= options.staleness_bound) {
-        TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(
-            *this, "KvsWriteback: skipping because condition is satisfied");
+        ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+            << *this << "KvsWriteback: skipping because condition is satisfied";
         kvstore::ReadResult read_result;
         read_result.stamp = std::move(read_state.stamp);
         return execution::set_value(receiver, std::move(read_result));
@@ -301,7 +302,8 @@ class KvsBackedCache : public Parent {
             }
             return execution::set_value(receiver_, std::move(update.stamp));
           }
-          TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(*self_, "DoEncode");
+          ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+              << *self_ << "DoEncode";
           auto update_data =
               std::static_pointer_cast<const typename Derived::ReadData>(
                   update.data);

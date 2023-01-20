@@ -28,6 +28,7 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/container/inlined_vector.h"
 #include "absl/hash/hash.h"
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
@@ -52,7 +53,6 @@
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/staleness_bound.h"  // IWYU pragma: keep
 #include "tensorstore/internal/json_binding/std_array.h"  // IWYU pragma: keep
-#include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/tagged_ptr.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/open_mode.h"
@@ -402,7 +402,7 @@ absl::Status StackDriver::InitializeGridIndices(
   IterateOverIndexRange<>(
       span<const Index>(start), grid_.shape(), [this](span<const Index> key) {
         if (auto it = grid_to_layer_.find(key); it == grid_to_layer_.end()) {
-          TENSORSTORE_LOG("\"stack\" driver missing grid cell: ", key);
+          ABSL_LOG(INFO) << "\"stack\" driver missing grid cell: " << key;
         }
       });
 #endif

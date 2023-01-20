@@ -18,7 +18,7 @@
 #include <string>
 #include <variant>
 
-#include "tensorstore/internal/logging.h"
+#include "absl/log/absl_log.h"
 
 namespace tensorstore {
 namespace internal_metrics {
@@ -43,7 +43,7 @@ void AddCounter(const CollectedMetric::Counter& metric,
   } else if (std::holds_alternative<double>(metric.value)) {
     proto.mutable_double_counter()->set_value(std::get<double>(metric.value));
   } else {
-    TENSORSTORE_LOG_FATAL("Unsupported counter");
+    ABSL_LOG(FATAL) << "Unsupported counter";
   }
 }
 
@@ -60,7 +60,7 @@ void AddGauge(const CollectedMetric::Gauge& metric,
     dest->set_max_value(std::get<double>(metric.max_value));
 
   } else {
-    TENSORSTORE_LOG_FATAL("Unsupported gauge");
+    ABSL_LOG(FATAL) << "Unsupported gauge";
   }
 }
 
@@ -75,7 +75,7 @@ void AddValue(const CollectedMetric::Value& metric,
     proto.mutable_string_value()->set_value(
         std::get<std::string>(metric.value));
   } else {
-    TENSORSTORE_LOG_FATAL("Unsupported value");
+    ABSL_LOG(FATAL) << "Unsupported value";
   }
 }
 

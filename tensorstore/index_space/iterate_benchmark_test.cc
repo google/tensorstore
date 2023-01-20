@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "absl/log/absl_check.h"
 #include <benchmark/benchmark.h>
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
@@ -44,8 +45,8 @@ std::ostream& operator<<(std::ostream& os, const BenchmarkArrayConfig& config) {
 tensorstore::TransformedSharedArray<char> Allocate(
     const BenchmarkArrayConfig& config, span<const Index> copy_shape) {
   const DimensionIndex rank = config.shape.size();
-  TENSORSTORE_CHECK(rank == static_cast<DimensionIndex>(config.order.size()) &&
-                    rank == static_cast<DimensionIndex>(config.indexed.size()));
+  ABSL_CHECK(rank == static_cast<DimensionIndex>(config.order.size()) &&
+             rank == static_cast<DimensionIndex>(config.indexed.size()));
   std::vector<Index> alloc_shape(rank);
   for (DimensionIndex i = 0; i < rank; ++i) {
     alloc_shape[config.order[i]] = config.shape[i];
@@ -85,9 +86,8 @@ std::ostream& operator<<(std::ostream& os, const BenchmarkConfig& config) {
 
 void BenchmarkCopy(const BenchmarkConfig& config, ::benchmark::State& state) {
   const DimensionIndex rank = config.copy_shape.size();
-  TENSORSTORE_CHECK(
-      rank == static_cast<DimensionIndex>(config.source.shape.size()) &&
-      rank == static_cast<DimensionIndex>(config.source.order.size()));
+  ABSL_CHECK(rank == static_cast<DimensionIndex>(config.source.shape.size()) &&
+             rank == static_cast<DimensionIndex>(config.source.order.size()));
   auto source = Allocate(config.source, config.copy_shape);
   auto dest = Allocate(config.dest, config.copy_shape);
 
@@ -95,7 +95,7 @@ void BenchmarkCopy(const BenchmarkConfig& config, ::benchmark::State& state) {
       tensorstore::ProductOfExtents(span(config.copy_shape));
 
   while (state.KeepRunningBatch(num_elements)) {
-    TENSORSTORE_CHECK(IterateOverTransformedArrays(
+    ABSL_CHECK(IterateOverTransformedArrays(
         [&](const char* source_ptr, char* dest_ptr) {
           *dest_ptr = *source_ptr;
         },

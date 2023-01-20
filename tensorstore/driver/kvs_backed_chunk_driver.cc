@@ -15,6 +15,7 @@
 #include "tensorstore/driver/kvs_backed_chunk_driver.h"
 
 #include "absl/container/fixed_array.h"
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "tensorstore/driver/kvs_backed_chunk_driver_impl.h"
 #include "tensorstore/internal/box_difference.h"
@@ -23,19 +24,14 @@
 #include "tensorstore/internal/cache_key/cache_key.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/json_binding/staleness_bound.h"
-#include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/unowned_to_shared.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/util/iterate_over_index_range.h"
 #include "tensorstore/util/str_cat.h"
 
-#ifdef TENSORSTORE_KVS_DRIVER_DEBUG
-#define TENSORSTORE_KVS_DRIVER_DEBUG_LOG(...) TENSORSTORE_LOG(__VA_ARGS__)
-#else
-#define TENSORSTORE_KVS_DRIVER_DEBUG_LOG(...) \
-  do {                                        \
-  } while (false)
+#ifndef TENSORSTORE_KVS_DRIVER_DEBUG
+#define TENSORSTORE_KVS_DRIVER_DEBUG 0
 #endif
 
 namespace tensorstore {
@@ -730,8 +726,8 @@ Result<std::size_t> ValidateOpenRequest(OpenState* state,
 Result<internal::Driver::Handle> CreateTensorStoreFromMetadata(
     OpenState::Ptr state, std::shared_ptr<const void> metadata,
     std::size_t component_index) {
-  TENSORSTORE_KVS_DRIVER_DEBUG_LOG("CreateTensorStoreFromMetadata: state=",
-                                   state.get());
+  ABSL_LOG_IF(INFO, TENSORSTORE_KVS_DRIVER_DEBUG)
+      << "CreateTensorStoreFromMetadata: state=" << state.get();
   auto& base = *(PrivateOpenState*)state.get();  // Cast to private base
   // TODO(jbms): The read-write mode should be determined based on the kvstore
   // mode, once that is exposed.
@@ -816,8 +812,9 @@ struct HandleWroteMetadata {
                   ReadyFuture<const void> future) {
     auto& base = *(PrivateOpenState*)state.get();  // Cast to private base
     auto& result = future.result();
-    TENSORSTORE_KVS_DRIVER_DEBUG_LOG("HandleWroteMetadata: state=", state.get(),
-                                     ", status=", result.status());
+    ABSL_LOG_IF(INFO, TENSORSTORE_KVS_DRIVER_DEBUG)
+        << "HandleWroteMetadata: state=" << state.get()
+        << ", status=" << result.status();
     if (!result) {
       // Creation of new array metadata failed.
       if (result.status().code() != absl::StatusCode::kAlreadyExists ||
@@ -844,7 +841,8 @@ struct HandleWroteMetadata {
 /// Attempts to create new array.
 void CreateMetadata(OpenState::Ptr state,
                     Promise<internal::Driver::Handle> promise) {
-  TENSORSTORE_KVS_DRIVER_DEBUG_LOG("CreateMetadata: state=", state.get());
+  ABSL_LOG_IF(INFO, TENSORSTORE_KVS_DRIVER_DEBUG)
+      << "CreateMetadata: state=" << state.get();
   auto state_ptr = state.get();
   auto& base = *(PrivateOpenState*)state.get();  // Cast to private base
   internal::OpenTransactionPtr transaction = base.transaction_;
@@ -898,7 +896,8 @@ struct HandleReadMetadata {
 struct GetMetadataForOpen {
   OpenState::Ptr state;
   void operator()(Promise<internal::Driver::Handle> promise) {
-    TENSORSTORE_KVS_DRIVER_DEBUG_LOG("GetMetadataForOpen: state=", state.get());
+    ABSL_LOG_IF(INFO, TENSORSTORE_KVS_DRIVER_DEBUG)
+        << "GetMetadataForOpen: state=" << state.get();
     auto& base = *(PrivateOpenState*)state.get();  // Cast to private base
     auto state_ptr = state.get();
     if (base.spec_->open) {
@@ -934,8 +933,8 @@ struct HandleKeyValueStoreReady {
   OpenState::Ptr state;
   void operator()(Promise<internal::Driver::Handle> promise,
                   ReadyFuture<const void> store) {
-    TENSORSTORE_KVS_DRIVER_DEBUG_LOG("Metadata kvstore ready: state=",
-                                     state.get());
+    ABSL_LOG_IF(INFO, TENSORSTORE_KVS_DRIVER_DEBUG)
+        << "Metadata kvstore ready: state=" << state.get();
     auto& base = *(PrivateOpenState*)state.get();  // Cast to private base
     auto* state_ptr = state.get();
     if (base.spec_->delete_existing) {
@@ -1073,7 +1072,8 @@ void MetadataCache::TransactionNode::DoApply(ApplyOptions options,
     if (!future.result().ok()) {
       return execution::set_error(receiver, future.result().status());
     }
-    TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(*this, "Apply metadata");
+    ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+        << *this << "Apply metadata";
     auto read_state = AsyncCache::ReadLock<void>(*this).read_state();
     std::shared_ptr<const void> new_data;
     if (auto result = this->GetUpdatedMetadata(read_state.data); result.ok()) {
@@ -1102,7 +1102,8 @@ void MetadataCache::TransactionNode::InvalidateReadState() {
 
 void MetadataCache::Entry::DoEncode(std::shared_ptr<const void> data,
                                     EncodeReceiver receiver) {
-  TENSORSTORE_ASYNC_CACHE_DEBUG_LOG(*this, "Encoding metadata");
+  ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+      << *this << "Encoding metadata";
   auto& entry = GetOwningEntry(*this);
   auto& cache = GetOwningCache(entry);
   if (auto encoded_result = cache.EncodeMetadata(entry.key(), data.get());
@@ -1196,15 +1197,15 @@ internal::CachePtr<MetadataCache> GetOrCreateMetadataCache(OpenState* state) {
   return internal::GetOrCreateAsyncInitializedCache<MetadataCache>(
       **state->cache_pool(), base.metadata_cache_key_,
       [&] {
-        TENSORSTORE_KVS_DRIVER_DEBUG_LOG("Creating metadata cache: open_state=",
-                                         state);
+        ABSL_LOG_IF(INFO, TENSORSTORE_KVS_DRIVER_DEBUG)
+            << "Creating metadata cache: open_state=" << state;
         return state->GetMetadataCache(
             {base.spec_->data_copy_concurrency, base.spec_->cache_pool});
       },
       [&](Promise<void> initialized,
           internal::CachePtr<MetadataCache> metadata_cache) {
-        TENSORSTORE_KVS_DRIVER_DEBUG_LOG(
-            "Opening metadata kvstore: open_state=", state);
+        ABSL_LOG_IF(INFO, TENSORSTORE_KVS_DRIVER_DEBUG)
+            << "Opening metadata kvstore: open_state=" << state;
         // The cache didn't previously exist.  Open the kvstore.
         LinkValue(
             [state = OpenState::Ptr(state),
@@ -1226,7 +1227,8 @@ internal::CachePtr<MetadataCache> GetOrCreateMetadataCache(OpenState* state) {
 }  // namespace
 
 Future<internal::Driver::Handle> OpenDriver(OpenState::Ptr state) {
-  TENSORSTORE_KVS_DRIVER_DEBUG_LOG("OpenDriver: open_state=", state.get());
+  ABSL_LOG_IF(INFO, TENSORSTORE_KVS_DRIVER_DEBUG)
+      << "OpenDriver: open_state=" << state.get();
   // TODO(jbms): possibly determine these options from the open options.
   auto& base = *(PrivateOpenState*)state.get();  // Cast to private base
   auto& spec = *base.spec_;

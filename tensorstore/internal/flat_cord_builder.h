@@ -17,8 +17,11 @@
 
 #include <cstdlib>
 #include <string_view>
+#include <utility>
 
+#include "absl/log/absl_check.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/string_view.h"
 #include "tensorstore/util/assert_macros.h"
 
 namespace tensorstore {
@@ -35,7 +38,7 @@ class FlatCordBuilder {
   FlatCordBuilder() = default;
   explicit FlatCordBuilder(size_t size)
       : data_(static_cast<char*>(::malloc(size))), size_(size) {
-    TENSORSTORE_CHECK(size == 0 || data_);
+    ABSL_CHECK(size == 0 || data_);
   }
   FlatCordBuilder(const FlatCordBuilder&) = delete;
   FlatCordBuilder& operator=(const FlatCordBuilder&) = delete;
@@ -62,7 +65,7 @@ class FlatCordBuilder {
   void resize(size_t new_size) {
     data_ = static_cast<char*>(::realloc(data_, new_size));
     size_ = new_size;
-    TENSORSTORE_CHECK(new_size == 0 || data_);
+    ABSL_CHECK(new_size == 0 || data_);
   }
 
   absl::Cord Build() && {

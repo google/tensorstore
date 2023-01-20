@@ -22,14 +22,13 @@
 #include <utility>
 #include <vector>
 
+#include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "riegeli/bytes/writer.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/image/image_view.h"
-#include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
 
 // Include libavif last
 #include <webp/encode.h>
@@ -66,7 +65,7 @@ absl::Status EncodeWebP(riegeli::Writer* writer,
   config.quality = options.quality;
   config.method = 6;
   config.exact = (info.num_components == 4) ? 1 : 0;  // Keep alpha channel.
-  TENSORSTORE_CHECK(WebPValidateConfig(&config));
+  ABSL_CHECK(WebPValidateConfig(&config));
 
   WebPPicture pic;
   WebPPictureInit(&pic);
@@ -103,7 +102,7 @@ absl::Status EncodeWebP(riegeli::Writer* writer,
 
 absl::Status WebPWriter::InitializeImpl(riegeli::Writer* writer,
                                         const WebPWriterOptions& options) {
-  TENSORSTORE_CHECK(writer != nullptr);
+  ABSL_CHECK(writer != nullptr);
   if (writer_) {
     return absl::InternalError("Initialize() already called");
   }
@@ -121,7 +120,7 @@ absl::Status WebPWriter::Encode(const ImageInfo& info,
   if (!writer_) {
     return absl::InternalError("WEBP writer not initialized");
   }
-  TENSORSTORE_CHECK(source.size() == ImageRequiredBytes(info));
+  ABSL_CHECK_EQ(source.size(), ImageRequiredBytes(info));
   return EncodeWebP(writer_, options_, info, source);
 }
 

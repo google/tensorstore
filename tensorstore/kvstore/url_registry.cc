@@ -17,6 +17,7 @@
 #include <string_view>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/no_destructor.h"
@@ -42,7 +43,7 @@ UrlSchemeRegistration::UrlSchemeRegistration(std::string_view scheme,
   auto& registry = GetUrlSchemeRegistry();
   absl::MutexLock lock(&registry.mutex);
   if (!registry.handlers.emplace(scheme, handler).second) {
-    TENSORSTORE_LOG_FATAL(scheme, " already registered");
+    ABSL_LOG(FATAL) << scheme << " already registered";
   }
 }
 

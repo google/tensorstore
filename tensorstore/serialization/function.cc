@@ -16,9 +16,9 @@
 
 #include <string_view>
 
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "tensorstore/internal/heterogeneous_container.h"
-#include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/status.h"
@@ -51,8 +51,8 @@ SerializableFunctionRegistry& GetSerializableFunctionRegistry() {
 
 void RegisterSerializableFunction(const RegisteredSerializableFunction& r) {
   if (!GetSerializableFunctionRegistry().insert(&r).second) {
-    TENSORSTORE_LOG_FATAL("Duplicate SerializableFunction registration: id=",
-                          r.id, ", signature=", r.signature->name());
+    ABSL_LOG(FATAL) << "Duplicate SerializableFunction registration: id="
+                    << r.id << ", signature=" << r.signature->name();
   }
 }
 

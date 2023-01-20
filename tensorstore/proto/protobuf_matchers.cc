@@ -19,6 +19,8 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/log/absl_check.h"
+#include "absl/log/absl_log.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "google/protobuf/descriptor.h"
@@ -99,10 +101,10 @@ std::vector<const google::protobuf::FieldDescriptor*> GetFieldDescriptors(
   }
 
   if (remaining_descriptors.empty()) {
-    TENSORSTORE_LOG_FATAL("Could not find fields for proto ",
-                          proto_descriptor->full_name(),
-                          " with fully qualified names: ",
-                          JoinStringPieces(remaining_descriptors, ","));
+    ABSL_LOG(FATAL) << "Could not find fields for proto "
+                    << proto_descriptor->full_name()
+                    << " with fully qualified names: "
+                    << JoinStringPieces(remaining_descriptors, ",");
   }
   return ignore_descriptors;
 }
@@ -200,9 +202,10 @@ ParseFieldPathOrDie(const std::string& relative_field_path,
   while (!input.empty()) {
     // Consume a dot, except on the first iteration.
     if (input.size() < relative_field_path.size() && !Consume(&input, ".")) {
-      TENSORSTORE_LOG_FATAL(
-          "Cannot parse field path '", relative_field_path, "' at offset ",
-          relative_field_path.size() - input.size(), ": expected '.'");
+      ABSL_LOG(FATAL) << "Cannot parse field path '" << relative_field_path
+                      << "' at offset "
+                      << relative_field_path.size() - input.size()
+                      << ": expected '.'";
     }
     // Try to consume a field name. If that fails, consume an extension name.
     google::protobuf::util::MessageDifferencer::SpecificField field;
@@ -212,53 +215,53 @@ ParseFieldPathOrDie(const std::string& relative_field_path,
       if (field_path.empty()) {
         field.field = root_descriptor.FindFieldByName(name);
         if (!field.field) {
-          TENSORSTORE_LOG_FATAL("No such field '", name, "' in message '",
-                                root_descriptor.full_name(), "'");
+          ABSL_LOG(FATAL) << "No such field '" << name << "' in message '"
+                          << root_descriptor.full_name() << "'";
         }
       } else {
         const google::protobuf::util::MessageDifferencer::SpecificField& parent =
             field_path.back();
         field.field = parent.field->message_type()->FindFieldByName(name);
         if (!field.field) {
-          TENSORSTORE_LOG_FATAL("No such field '", name, "' in '",
-                                parent.field->full_name(), "'");
+          ABSL_LOG(FATAL) << "No such field '" << name << "' in '"
+                          << parent.field->full_name() << "'";
         }
       }
     } else if (RE2::Consume(&input, extension_regex, &name)) {
       field.field =
           google::protobuf::DescriptorPool::generated_pool()->FindExtensionByName(name);
       if (!field.field) {
-        TENSORSTORE_LOG_FATAL("No such extension '", name, "'");
+        ABSL_LOG(FATAL) << "No such extension '" << name << "'";
       }
       if (field_path.empty()) {
         if (!root_descriptor.IsExtensionNumber(field.field->number())) {
-          TENSORSTORE_LOG_FATAL("Extension '", name,
-                                "' does not extend message '",
-                                root_descriptor.full_name(), "'");
+          ABSL_LOG(FATAL) << "Extension '" << name
+                          << "' does not extend message '"
+                          << root_descriptor.full_name() << "'";
         }
       } else {
         const google::protobuf::util::MessageDifferencer::SpecificField& parent =
             field_path.back();
         if (!parent.field->message_type()->IsExtensionNumber(
                 field.field->number())) {
-          TENSORSTORE_LOG_FATAL("Extension '", name, "' does not extend '",
-                                parent.field->full_name(), "'");
+          ABSL_LOG(FATAL) << "Extension '" << name << "' does not extend '"
+                          << parent.field->full_name() << "'";
         }
       }
     } else {
-      TENSORSTORE_LOG_FATAL("Cannot parse field path '", relative_field_path,
-                            "' at offset ",
-                            relative_field_path.size() - input.size(),
-                            ": expected field or extension");
+      ABSL_LOG(FATAL) << "Cannot parse field path '" << relative_field_path
+                      << "' at offset "
+                      << relative_field_path.size() - input.size()
+                      << ": expected field or extension";
     }
     field_path.push_back(field);
   }
 
-  TENSORSTORE_CHECK(!field_path.empty());
+  ABSL_CHECK(!field_path.empty());
   if (field_path.back().index == -1) {
-    TENSORSTORE_LOG_FATAL(
-        "Terminally ignoring fields by index is currently not supported ('",
-        relative_field_path, "')");
+    ABSL_LOG(FATAL)
+        << "Terminally ignoring fields by index is currently not supported ('"
+        << relative_field_path << "')";
   }
   return field_path;
 }

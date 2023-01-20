@@ -30,6 +30,7 @@
 #include "tensorstore/internal/json_binding/unit.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/quote_string.h"
+#include "tensorstore/util/str_cat.h"
 #include "tensorstore/util/unit.h"
 
 namespace tensorstore {

@@ -27,7 +27,6 @@
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dimension_units.h"
 #include "tensorstore/index_space/json.h"
-#include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/proto/array.h"
 #include "tensorstore/proto/index_transform.h"

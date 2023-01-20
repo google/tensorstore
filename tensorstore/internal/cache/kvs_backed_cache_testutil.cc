@@ -28,6 +28,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/log/absl_log.h"
 #include "absl/random/random.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
@@ -38,7 +39,6 @@
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache/kvs_backed_cache.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/test_util.h"
@@ -236,7 +236,7 @@ void KvsRandomOperationTester::PerformRandomAction(
   if (barrier_probability > 0 && absl::Bernoulli(gen, barrier_probability)) {
     transaction->Barrier();
     if (log) {
-      TENSORSTORE_LOG("Barrier");
+      ABSL_LOG(INFO) << "Barrier";
     }
   }
   if (absl::Bernoulli(gen, write_probability)) {
@@ -246,16 +246,16 @@ void KvsRandomOperationTester::PerformRandomAction(
     std::string append = tensorstore::StrCat(", ", ++write_number);
     SimulateWrite(key, clear, append);
     if (log) {
-      TENSORSTORE_LOG("Write: key=", QuoteString(key),
-                      ", cache_key=", cache->cache_identifier(),
-                      ", clear=", clear, ", append=\"", append, "\"");
+      ABSL_LOG(INFO) << "Write: key=" << QuoteString(key)
+                     << ", cache_key=" << cache->cache_identifier()
+                     << ", clear=" << clear << ", append=\"" << append << "\"";
     }
     TENSORSTORE_EXPECT_OK(
         GetCacheEntry(cache, key)->Modify(transaction, clear, append));
   } else {
     KeyRange range{SampleKeyOrEmpty(), SampleKeyOrEmpty()};
     if (log) {
-      TENSORSTORE_LOG("DeleteRange: ", range);
+      ABSL_LOG(INFO) << "DeleteRange: " << range;
     }
     SimulateDeleteRange(range);
     TENSORSTORE_EXPECT_OK(
@@ -266,7 +266,7 @@ void KvsRandomOperationTester::PerformRandomAction(
 void KvsRandomOperationTester::PerformRandomActions() {
   const size_t num_actions = absl::Uniform(gen, 1u, 100u);
   if (log) {
-    TENSORSTORE_LOG("--PerformRandomActions-- ", num_actions);
+    ABSL_LOG(INFO) << "--PerformRandomActions-- " << num_actions;
   }
 
   auto transaction = Transaction(tensorstore::isolated);

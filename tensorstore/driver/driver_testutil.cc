@@ -17,6 +17,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/algorithm/container.h"
+#include "absl/log/absl_log.h"
 #include "absl/random/bit_gen_ref.h"
 #include "absl/random/random.h"
 #include <nlohmann/json.hpp>
@@ -28,7 +29,6 @@
 #include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/internal/data_type_random_generator.h"
 #include "tensorstore/internal/json_gtest.h"
-#include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/nditerable_transformed_array.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/test_util.h"
@@ -252,7 +252,7 @@ void DriverRandomOperationTester::TestBasicFunctionality(
     auto transform = GetRandomTransform(gen, options.expected_domain);
     auto random_array = MakeRandomArray(gen, transform.domain().box(),
                                         options.initial_value.dtype());
-    if (log) TENSORSTORE_LOG("i = ", i);
+    if (log) ABSL_LOG(INFO) << "i = " << i;
     SCOPED_TRACE(tensorstore::StrCat("i=", i));
     SCOPED_TRACE(tensorstore::StrCat("transform=", transform));
     SCOPED_TRACE(tensorstore::StrCat("original_domain=",

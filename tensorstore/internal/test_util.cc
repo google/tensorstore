@@ -14,21 +14,27 @@
 
 #include "tensorstore/internal/test_util.h"
 
-#include <cstdint>
-#include <cstdio>
+#include <functional>
 #include <iterator>
+#include <optional>
+#include <random>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include <gtest/gtest.h>
+#include "absl/log/absl_check.h"
+#include "absl/log/absl_log.h"
 #include "absl/random/random.h"
+#include "absl/status/status.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/numbers.h"
 #include "tensorstore/internal/env.h"
-#include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/os_error_code.h"
 #include "tensorstore/internal/path.h"
+#include "tensorstore/internal/source_location.h"
 #include "tensorstore/kvstore/file/file_util.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -68,7 +74,7 @@ namespace {
 std::string TemporaryDirectoryPath() {
   std::error_code ec;
   auto base_dir = std::filesystem::temp_directory_path(ec);
-  TENSORSTORE_CHECK(!ec);
+  ABSL_CHECK(!ec);
   return base_dir.generic_string();
 }
 
@@ -194,7 +200,7 @@ ScopedTemporaryDirectory::ScopedTemporaryDirectory() {
       "tmp_tensorstore_test_", std::string_view(data, std::size(data)));
   path_ = tensorstore::internal::JoinPath(TemporaryDirectoryPath(), basename);
 
-  TENSORSTORE_CHECK(MakeDirectory(path_));
+  ABSL_CHECK(MakeDirectory(path_));
 }
 
 ScopedTemporaryDirectory::~ScopedTemporaryDirectory() {
@@ -236,13 +242,14 @@ unsigned int GetRandomSeedForTest(const char* env_var) {
   unsigned int seed;
   if (auto env_seed = internal::GetEnv(env_var)) {
     if (absl::SimpleAtoi(*env_seed, &seed)) {
-      TENSORSTORE_LOG("Using deterministic random seed ", env_var, "=", seed);
+      ABSL_LOG(INFO) << "Using deterministic random seed " << env_var << "="
+                     << seed;
       return seed;
     }
   }
   seed = std::random_device()();
-  TENSORSTORE_LOG("Define environment variable ", env_var, "=", seed,
-                  " for deterministic seeding");
+  ABSL_LOG(INFO) << "Define environment variable " << env_var << "=" << seed
+                 << " for deterministic seeding";
   return seed;
 }
 

@@ -24,6 +24,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
 #include "absl/types/optional.h"
@@ -31,7 +32,6 @@
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/image/image_view.h"
-#include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/endian.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
@@ -97,14 +97,14 @@ absl::Status PngReader::Context::Initialize() {
   // Create the PNG struct and PNG info objects.
   png_ptr_ =
       png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
-  TENSORSTORE_CHECK(png_ptr_ != nullptr);
+  ABSL_CHECK(png_ptr_ != nullptr);
 
   png_set_error_fn(png_ptr_, &last_error_, &ErrorFunction, &WarningFunction);
   info_ptr_ = png_create_info_struct(png_ptr_);
-  TENSORSTORE_CHECK(info_ptr_ != nullptr);
+  ABSL_CHECK(info_ptr_ != nullptr);
 
   end_info_ptr_ = png_create_info_struct(png_ptr_);
-  TENSORSTORE_CHECK(end_info_ptr_ != nullptr);
+  ABSL_CHECK(end_info_ptr_ != nullptr);
 
   png_set_read_fn(png_ptr_, reader_, &ReadFunction);
   // png_set_sig_bytes(png_ptr_, kPngBytesToCheck);
@@ -234,7 +234,7 @@ PngReader::PngReader(PngReader&& src) = default;
 PngReader& PngReader::operator=(PngReader&& src) = default;
 
 absl::Status PngReader::Initialize(riegeli::Reader* reader) {
-  TENSORSTORE_CHECK(reader != nullptr);
+  ABSL_CHECK(reader != nullptr);
 
   /// Check the signature.  TODO: Move to a static method somewhere.
   constexpr const unsigned char kSignature[] = {0x89, 0x50, 0x4E, 0x47,

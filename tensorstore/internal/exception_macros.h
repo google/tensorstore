@@ -16,12 +16,13 @@
 #define TENSORSTORE_INTERNAL_EXCEPTION_MACROS_H_
 
 #include "absl/base/macros.h"
+#include "absl/log/absl_check.h"
 #include "tensorstore/util/assert_macros.h"
 
 #if ABSL_HAVE_EXCEPTIONS
 #define TENSORSTORE_THROW_BAD_ALLOC throw std::bad_alloc()
 #else
-#define TENSORSTORE_THROW_BAD_ALLOC TENSORSTORE_CHECK(false && "Out of memory.")
+#define TENSORSTORE_THROW_BAD_ALLOC ABSL_CHECK(false && "Out of memory.")
 #endif
 
 #endif  // TENSORSTORE_INTERNAL_EXCEPTION_MACROS_H_

@@ -18,6 +18,7 @@
 #include <csetjmp>
 #include <memory>
 
+#include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
 #include "riegeli/bytes/reader.h"
@@ -250,7 +251,7 @@ absl::Status JpegReader::Context::Decode(tensorstore::span<unsigned char> dest,
 
   // Validate the image is compatible.
   auto info = GetJpegImageInfo(&cinfo_);
-  TENSORSTORE_CHECK(dest.size() == ImageRequiredBytes(info));
+  ABSL_CHECK_EQ(dest.size(), ImageRequiredBytes(info));
 
   ImageView dest_view(info, dest);
   bool ok = [&]() {
@@ -293,7 +294,7 @@ JpegReader::JpegReader(JpegReader&& src) = default;
 JpegReader& JpegReader::operator=(JpegReader&& src) = default;
 
 absl::Status JpegReader::Initialize(riegeli::Reader* reader) {
-  TENSORSTORE_CHECK(reader != nullptr);
+  ABSL_CHECK(reader != nullptr);
   if (context_) {
     context_ = nullptr;
   }

@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
 #include "absl/synchronization/mutex.h"
@@ -30,7 +31,6 @@
 #include "tensorstore/context.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/logging.h"
 #include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
@@ -265,12 +265,9 @@ Future<DriverPtr> Open(DriverSpecPtr spec, DriverOpenOptions&& options) {
           driver->cache_identifier_ = std::move(cache_key);
         }
 #ifdef TENSORSTORE_KVSTORE_OPEN_CACHE_DEBUG
-        if (p.second) {
-          TENSORSTORE_LOG("Inserted kvstore into cache: ",
-                          QuoteString(cache_key));
-        } else {
-          TENSORSTORE_LOG("Reusing cached kvstore: ", QuoteString(cache_key));
-        }
+        ABSL_LOG(INFO) << (p.second ? "Inserted kvstore into cache: "
+                                    : "Reusing cached kvstore: ")
+                       << QuoteString(cache_key);
 #endif
         return DriverPtr(p.first->second);
       },
@@ -293,8 +290,8 @@ void Driver::DestroyLastReference() {
       assert(it->second == this);
       open_cache.map.erase(it);
 #ifdef TENSORSTORE_KVSTORE_OPEN_CACHE_DEBUG
-      TENSORSTORE_LOG("Removed kvstore from open cache: ",
-                      QuoteString(cache_identifier_));
+      ABSL_LOG(INFO) << "Removed kvstore from open cache: "
+                     << QuoteString(cache_identifier_);
 #endif
     }
   } else {
