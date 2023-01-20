@@ -5,13 +5,15 @@ package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
+EXTRA_DRIVERS = []
+
 DRIVERS = [
     "file",
     "gcs",
     "http",
     "memory",
     "neuroglancer_uint64_sharded",
-]
+] + EXTRA_DRIVERS
 
 filegroup(
     name = "doc_sources",
@@ -24,14 +26,14 @@ filegroup(
     ],
 )
 
-EXTRA_DRIVERS = []
+EXTRA_DRIVER_TARGETS = []
 
 tensorstore_cc_library(
     name = "all_drivers",
     deps = [
         "//tensorstore/kvstore/" + driver
         for driver in DRIVERS
-    ] + EXTRA_DRIVERS,
+    ] + EXTRA_DRIVER_TARGETS,
     alwayslink = True,
 )
 

@@ -120,6 +120,9 @@ struct ListOptions {
 
   /// Length of prefix to strip from keys.
   size_t strip_prefix_length = 0;
+
+  /// Staleness bound on list results.
+  absl::Time staleness_bound = absl::InfiniteFuture();
 };
 
 /// Attempts to read the value for the key `store.path + key`.

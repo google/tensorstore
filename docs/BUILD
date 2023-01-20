@@ -66,6 +66,8 @@ pytype_strict_test(
     }) + [
         # Treat warnings as errors
         "-W",
+        # Keep going after the first warning.
+        "--keep-going",
     ],
     data = [":doc_sources"],
     python_version = "PY3",

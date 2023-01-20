@@ -943,6 +943,32 @@ constexpr inline bool IsCallbackInvocableWithReadyFutures =
      std::is_invocable_v<Callback, PromiseType,
                          internal_future::ReadyFutureType<Futures>...>);
 
+inline size_t FutureReferenceCount(const AnyFuture& future) {
+  auto* ptr = FutureAccess::rep_pointer(future).get();
+  return ptr ? ptr->future_reference_count_.load(std::memory_order_acquire) : 0;
+}
+
+inline size_t PromiseReferenceCount(const AnyFuture& future) {
+  auto* ptr = FutureAccess::rep_pointer(future).get();
+  return ptr ? ptr->promise_reference_count_.load(std::memory_order_acquire)
+             : 0;
+}
+
+template <typename T>
+size_t FutureReferenceCount(const Promise<T>& promise) {
+  auto* ptr = FutureAccess::rep_pointer(promise).get();
+  return ptr ? ptr->future_reference_count_.load(std::memory_order_acquire) : 0;
+}
+
+template <typename T>
+size_t PromiseReferenceCount(const Promise<T>& promise) {
+  auto* ptr = FutureAccess::rep_pointer(promise).get();
+  return ptr ? ptr->promise_reference_count_.load(std::memory_order_acquire)
+             : 0;
+}
+
+constexpr size_t kFutureReferencesPerLink = 2;
+
 }  // namespace internal_future
 
 /// Creates a "link", which ties a `promise` to one or more `future` objects and

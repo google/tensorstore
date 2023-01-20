@@ -135,6 +135,11 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(Spec, [](auto is_loading,
       TENSORSTORE_ASSIGN_OR_RETURN(*obj, Spec::FromUrl(*s));
       return absl::OkStatus();
     }
+  } else {
+    if (!obj->valid()) {
+      *j = ::nlohmann::json::value_t::discarded;
+      return absl::OkStatus();
+    }
   }
   namespace jb = tensorstore::internal_json_binding;
   auto& registry = internal_kvstore::GetDriverRegistry();
@@ -214,6 +219,9 @@ namespace kvstore {
 Driver::~Driver() = default;
 
 Future<KvStore> Open(Spec spec, OpenOptions&& options) {
+  if (!spec.valid()) {
+    return absl::InvalidArgumentError("Cannot open null kvstore spec");
+  }
   return MapFutureValue(
       InlineExecutor{},
       [path = std::move(spec.path),
