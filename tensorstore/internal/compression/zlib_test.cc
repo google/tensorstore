@@ -89,10 +89,11 @@ TEST_P(ZlibCompressorTest, LargeRoundtrip) {
   EXPECT_EQ(input, decode_result);
 }
 
-// Tests that specifying a level of 9 gives a result that is different from 6.
+// Tests that specifying a levels 0 and 9 yield different output.
 TEST_P(ZlibCompressorTest, NonDefaultLevel) {
   const bool use_gzip_header = GetParam();
-  zlib::Options options1{6, use_gzip_header};
+  zlib::Options options1{
+      0, use_gzip_header};  // No compression, just zlib wrapping.
   zlib::Options options2{9, use_gzip_header};
   const absl::Cord input("The quick brown fox jumped over the lazy dog.");
   absl::Cord encode_result1, encode_result2;

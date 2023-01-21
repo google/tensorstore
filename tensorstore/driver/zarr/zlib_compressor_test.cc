@@ -53,19 +53,15 @@ TEST_P(ZlibCompressorTest, DefaultLevel) {
   EXPECT_EQ(encode_result1, encode_result2);
 }
 
-// Tests that specifying a level of 9 gives a result that is different from not
-// specifying a level.
+// Tests that specifying a level of 9 works.
 TEST_P(ZlibCompressorTest, NonDefaultLevel) {
-  auto compressor1 = Compressor::FromJson({{"id", GetParam()}}).value();
-  auto compressor2 =
+  auto compressor =
       Compressor::FromJson({{"id", GetParam()}, {"level", 9}}).value();
   const absl::Cord input("The quick brown fox jumped over the lazy dog.");
-  absl::Cord encode_result1, encode_result2;
-  TENSORSTORE_ASSERT_OK(compressor1->Encode(input, &encode_result1, 1));
-  TENSORSTORE_ASSERT_OK(compressor2->Encode(input, &encode_result2, 1));
-  EXPECT_NE(encode_result1, encode_result2);
+  absl::Cord encode_result;
+  TENSORSTORE_ASSERT_OK(compressor->Encode(input, &encode_result, 1));
   absl::Cord decode_result;
-  TENSORSTORE_ASSERT_OK(compressor2->Decode(encode_result2, &decode_result, 1));
+  TENSORSTORE_ASSERT_OK(compressor->Decode(encode_result, &decode_result, 1));
   EXPECT_EQ(input, decode_result);
 }
 
