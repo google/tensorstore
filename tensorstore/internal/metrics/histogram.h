@@ -42,15 +42,38 @@ namespace internal_metrics {
 template <typename Bucketer>
 class HistogramCell;
 
+/// DefaultBucketer buckets by powers of 2:
+///  n<0: bucket 0
+///  n=0: bucket 1
+///  n>0: bucket 1 + log2(n)
+struct DefaultBucketer {
+  /// Name of Bucketer.
+  static constexpr const char kTag[] = "default_histogram";
+
+  /// Number of buckets.
+  static constexpr size_t Max = 65;
+
+  /// Mapping from value to bucket in the range [0 .. Max-1].
+  static size_t BucketForValue(double value) {
+    static constexpr double kTop = static_cast<double>(1ull << 63);
+    if (value >= kTop) return Max - 1;                 // Inf.
+    if (value < 0 || !std::isfinite(value)) return 0;  // <0, NaN
+    size_t v = absl::bit_width(static_cast<uint64_t>(value)) + 1;
+    return (v >= Max) ? (Max - 1) : v;
+  }
+};
+
 /// A Histogram metric records a distribution value.
 ///
-/// Each histogram has one or more Cells, which are described by Fields...,
-/// which may be int, string, or bool.
+/// A Histogram Cell is described by a Bucketer and a set of Fields.
+/// The Bucketer maps a value to one of a fixed set of buckets (as in
+/// DefaultBucketer). The set of Fields... for each Cell may be int, string, or
+/// bool.
 ///
 /// Example:
 ///   namespace {
-///   auto* animals = Histogram<DefaultBucketer,
-///       std::string>::New("/animal/weight", "category");
+///   auto* animals = Histogram<DefaultBucketer, std::string>::New(
+///        "/animal/weight", "category");
 ///   }
 ///
 ///   animals->Observe(1.0, "cat");
@@ -153,19 +176,6 @@ class ABSL_CACHELINE_ALIGNED Histogram {
               std::move(field_names)) {}
 
   Impl impl_;
-};
-
-struct DefaultBucketer {
-  static constexpr const char kTag[] = "default_histogram";
-
-  static constexpr size_t Max = 32;
-
-  static size_t BucketForValue(double value) {
-    if (value < 0) return 0;    // <0
-    if (value < 1.0) return 1;  // <1
-    size_t v = absl::bit_width(static_cast<uint64_t>(value)) + 1;
-    return (v >= Max) ? (Max - 1) : v;
-  }
 };
 
 template <typename Bucketer>

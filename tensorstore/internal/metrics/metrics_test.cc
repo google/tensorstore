@@ -218,7 +218,7 @@ TEST(MetricTest, Histogram) {
   ASSERT_EQ(1, metric.histograms.size());
   EXPECT_TRUE(metric.histograms[0].fields.empty());
   EXPECT_EQ(1003, metric.histograms[0].sum);
-  EXPECT_EQ(0, metric.histograms[0].buckets[0]);  // -inf
+  EXPECT_EQ(0, metric.histograms[0].buckets[0]);  // [-inf..0)
   EXPECT_EQ(0, metric.histograms[0].buckets[1]);  // <1
   EXPECT_EQ(1, metric.histograms[0].buckets[2]);  // <2
   EXPECT_EQ(1, metric.histograms[0].buckets[3]);  // <4

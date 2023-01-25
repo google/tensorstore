@@ -311,6 +311,39 @@ TEST(ProtobufTest, FromRegistry) {
                       bucket: 0
                       bucket: 0
                       bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
                     }
                   }
                 }
@@ -325,6 +358,39 @@ TEST(ProtobufTest, FromRegistry) {
                       count: 1
                       sum: -1
                       bucket: 1
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
                       bucket: 0
                       bucket: 0
                       bucket: 0
@@ -395,6 +461,39 @@ TEST(ProtobufTest, FromRegistry) {
                       bucket: 0
                       bucket: 0
                       bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
                     }
                   }
                   instance {
@@ -405,6 +504,39 @@ TEST(ProtobufTest, FromRegistry) {
                       bucket: 0
                       bucket: 0
                       bucket: 1
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
                       bucket: 0
                       bucket: 0
                       bucket: 0
@@ -445,6 +577,39 @@ TEST(ProtobufTest, FromRegistry) {
                       bucket: 0
                       bucket: 0
                       bucket: 1
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
+                      bucket: 0
                       bucket: 0
                       bucket: 0
                       bucket: 0
