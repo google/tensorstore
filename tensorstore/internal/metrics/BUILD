@@ -22,7 +22,6 @@ tensorstore_cc_library(
     hdrs = ["collect.h"],
     deps = [
         ":metadata",
-        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/functional:function_ref",
         "@com_google_absl//absl/strings",
     ],

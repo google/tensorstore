@@ -14,8 +14,8 @@
 
 #include "tensorstore/internal/metrics/collect.h"
 
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_metrics {
@@ -26,75 +26,77 @@ void FormatCollectedMetric(
         handle_line) {
   std::string field_names;
   if (!metric.field_names.empty()) {
-    field_names =
-        tensorstore::StrCat("<", absl::StrJoin(metric.field_names, ", "), ">");
+    field_names = absl::StrJoin(metric.field_names, ", ");
   }
+  auto metric_name_with_fields = [&](auto& v) -> std::string {
+    if (v.fields.empty()) return std::string(metric.metric_name);
+    return absl::StrCat(metric.metric_name, "<", field_names, ">[",
+                        absl::StrJoin(v.fields, ", "), "]");
+  };
+
   if (!metric.counters.empty()) {
     for (const auto& v : metric.counters) {
-      std::string fields;
-      if (!v.fields.empty()) {
-        fields = tensorstore::StrCat("[", absl::StrJoin(v.fields, ", "), "]");
-      }
       std::visit(
           [&](auto x) {
             handle_line(
                 /*has_value=*/x != 0,
-                tensorstore::StrCat(metric.metric_name, field_names, fields,
-                                    "=", x));
+                absl::StrCat(metric_name_with_fields(v), "=", x));
           },
           v.value);
     }
   }
   if (!metric.gauges.empty()) {
     for (const auto& v : metric.gauges) {
-      std::string fields;
-      if (!v.fields.empty()) {
-        fields = tensorstore::StrCat("[", absl::StrJoin(v.fields, ", "), "]");
-      }
       bool has_value = false;
-      std::string value;
+      std::string line = metric_name_with_fields(v);
       std::visit(
           [&](auto x) {
             has_value = (x != 0);
-            value = tensorstore::StrCat("={value=", x);
+            absl::StrAppend(&line, "={value=", x);
           },
           v.value);
       std::visit(
           [&](auto x) {
             has_value |= (x != 0);
-            absl::StrAppend(&value, ", max=", x, "}");
+            absl::StrAppend(&line, ", max=", x, "}");
           },
           v.max_value);
-      handle_line(has_value, tensorstore::StrCat(metric.metric_name,
-                                                 field_names, fields, value));
+      handle_line(has_value, std::move(line));
     }
   }
   if (!metric.histograms.empty()) {
     for (auto& v : metric.histograms) {
-      std::string fields;
-      if (!v.fields.empty()) {
-        fields = tensorstore::StrCat("[", absl::StrJoin(v.fields, ", "), "]");
+      std::string line = metric_name_with_fields(v);
+      absl::StrAppend(&line, "={count=", v.count, " sum=", v.sum, " buckets=[");
+
+      // find the last bucket with data.
+      size_t end = v.buckets.size();
+      while (end > 0 && v.buckets[end - 1] == 0) end--;
+
+      // element 0 is typically the underflow bucket.
+      auto it = v.buckets.begin();
+      if (end > 0) {
+        absl::StrAppend(&line, *it);
       }
-      handle_line(
-          /*has_value=*/v.count || v.sum,
-          tensorstore::StrCat(metric.metric_name, field_names, fields,
-                              "={count=", v.count, " sum=", v.sum, " buckets=[",
-                              absl::StrJoin(v.buckets, ","), "]}"));
+      // every 10 elements insert an extra space.
+      for (size_t i = 1; i < end;) {
+        size_t j = std::min(i + 10, end);
+        absl::StrAppend(&line, ",  ");
+        absl::StrAppend(&line, absl::StrJoin(it + i, it + j, ","));
+        i = j;
+      }
+      absl::StrAppend(&line, "]}");
+      handle_line(/*has_value=*/v.count || v.sum, std::move(line));
     }
   }
   if (!metric.values.empty()) {
     for (auto& v : metric.values) {
-      std::string fields;
-      if (!v.fields.empty()) {
-        fields = tensorstore::StrCat("[", absl::StrJoin(v.fields, ", "), "]");
-      }
       std::visit(
           [&](auto x) {
             decltype(x) d{};
             handle_line(
                 /*has_value=*/x != d,
-                tensorstore::StrCat(metric.metric_name, field_names, fields,
-                                    "=", x));
+                absl::StrCat(metric_name_with_fields(v), "=", x));
           },
           v.value);
     }
