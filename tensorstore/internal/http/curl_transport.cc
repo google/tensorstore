@@ -25,6 +25,7 @@
 
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include <curl/curl.h>
@@ -35,9 +36,9 @@
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/gauge.h"
+#include "tensorstore/internal/metrics/histogram.h"
 #include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/internal/thread.h"
-#include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/future.h"
 
 namespace tensorstore {
@@ -62,6 +63,10 @@ auto& http_response_bytes = internal_metrics::Counter<int64_t>::New(
 auto& http_active = internal_metrics::Gauge<int64_t>::New(
     "/tensorstore/http/active", "HTTP requests considered active");
 
+auto& http_request_latency_ms =
+    internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
+        "/tensorstore/http/request_latency_ms", "HTTP request latency (ms)");
+
 // Cached configuration from environment variables.
 struct CurlConfig {
   bool verbose = std::getenv("TENSORSTORE_CURL_VERBOSE") != nullptr;
@@ -85,6 +90,7 @@ struct CurlRequestState {
   HttpResponse response_;
   Promise<HttpResponse> promise_;
   char error_buffer_[CURL_ERROR_SIZE] = {0};
+  absl::Time start_time_;
 
   CurlRequestState(CurlHandleFactory* factory)
       : factory_(factory), handle_(factory->CreateHandle()) {
@@ -154,6 +160,8 @@ struct CurlRequestState {
 
   void Setup(const HttpRequest& request, absl::Cord payload,
              absl::Duration request_timeout, absl::Duration connect_timeout) {
+    start_time_ = absl::Now();
+
     // For thread safety, don't use signals to time out name resolves (when
     // async name resolution is not supported).
     //
@@ -391,6 +399,8 @@ void MultiTransportImpl::FinishRequest(CURL* e, CURLcode code) {
     state->SetForbidReuse();
   }
 
+  auto latency = absl::Now() - state->start_time_;
+  http_request_latency_ms.Observe(absl::ToInt64Milliseconds(latency));
   http_request_completed.Increment();
 
   if (code != CURLE_OK) {

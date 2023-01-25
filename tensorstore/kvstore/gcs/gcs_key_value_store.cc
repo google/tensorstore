@@ -44,6 +44,7 @@
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/metrics/counter.h"
+#include "tensorstore/internal/metrics/histogram.h"
 #include "tensorstore/internal/oauth2/auth_provider.h"
 #include "tensorstore/internal/oauth2/google_auth_provider.h"
 #include "tensorstore/internal/path.h"
@@ -58,13 +59,11 @@
 #include "tensorstore/kvstore/gcs/rate_limiter.h"
 #include "tensorstore/kvstore/gcs/validate.h"
 #include "tensorstore/kvstore/generation.h"
-#include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/registry.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/url_registry.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
-#include "tensorstore/util/execution/sender.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
@@ -136,8 +135,18 @@ auto& gcs_retries = internal_metrics::Counter<int64_t>::New(
 auto& gcs_read = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/gcs/read", "GCS driver kvstore::Read calls");
 
+auto& gcs_read_latency_ms =
+    internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
+        "/tensorstore/kvstore/gcs/read_latency_ms",
+        "GCS driver kvstore::Read latency (ms)");
+
 auto& gcs_write = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/gcs/write", "GCS driver kvstore::Write calls");
+
+auto& gcs_write_latency_ms =
+    internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
+        "/tensorstore/kvstore/gcs/write_latency_ms",
+        "GCS driver kvstore::Write latency (ms)");
 
 auto& gcs_delete_range = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/gcs/delete_range",
@@ -573,6 +582,8 @@ struct ReadTask : public RateLimiterNode,
 
   Result<kvstore::ReadResult> FinishResponse(const HttpResponse& httpresponse) {
     gcs_bytes_read.IncrementBy(httpresponse.payload.size());
+    auto latency = absl::Now() - start_time_;
+    gcs_read_latency_ms.Observe(absl::ToInt64Milliseconds(latency));
 
     // Parse `Date` header from response to correctly handle cached responses.
     // The GCS servers always send a `date` header.
@@ -778,6 +789,8 @@ struct WriteTask : public RateLimiterNode,
         }
     }
 
+    auto latency = absl::Now() - start_time_;
+    gcs_write_latency_ms.Observe(absl::ToInt64Milliseconds(latency));
     gcs_bytes_written.IncrementBy(value.size());
 
     // TODO: Avoid parsing the entire metadata & only extract the
