@@ -52,7 +52,10 @@ pytype_strict_test(
         # Keep going after the first warning.
         "--keep-going",
     ],
-    data = [":doc_sources"],
+    data = [":doc_sources"] + glob(
+        ["cached_external_resources/**"],
+        allow_empty = True,
+    ),
     env = {
         "TENSORSTORE_SPECIAL_CPU_USER_LIMITS": "forge-00=4",
     },
@@ -62,7 +65,6 @@ pytype_strict_test(
         "manual",
         "nosan",
         "optonly",
-        "requires-net:external",
     ],
     deps = [
         "//docs/tensorstore_sphinx_ext:doctest",

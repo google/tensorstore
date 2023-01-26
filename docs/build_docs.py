@@ -229,6 +229,12 @@ def run(args: argparse.Namespace, unknown: List[str]):
       # Show full tracebacks for errors.
       '-T',
   ]
+
+  cache_dir = os.path.join(runfiles_dir, DOCS_ROOT, "cached_external_resources", "data")
+  cache_env_key = "SPHINX_IMMATERIAL_EXTERNAL_RESOURCE_CACHE_DIR"
+  if os.path.exists(cache_dir) and cache_env_key not in os.environ:
+    os.environ[cache_env_key] = cache_dir
+
   if args.sphinx_help:
     sphinx_args.append('--help')
   if args.pdb_on_error:
