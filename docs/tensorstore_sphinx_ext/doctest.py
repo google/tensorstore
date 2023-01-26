@@ -34,7 +34,7 @@ import docutils.nodes
 import sphinx.application
 import sphinx.util.docutils
 
-from . import sphinx_utils
+from sphinx_immaterial import sphinx_utils
 
 JSON_OUTPUT_FLAG = doctest.register_optionflag('JSON_OUTPUT')
 """Flag that indicates output should be pretty-printed as JSON."""

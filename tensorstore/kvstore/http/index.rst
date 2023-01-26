@@ -35,7 +35,7 @@ headers are used to revalidate cached responses.
 TLS CA certificates
 -------------------
 
-For `https://` URLs, TensorStore depends on the system certificate authority
+For ``https://`` URLs, TensorStore depends on the system certificate authority
 (CA) store to secure connections.  In many cases it will work by default without
 any additional configuration, but if you receive an error like:
 

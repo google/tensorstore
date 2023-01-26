@@ -15,9 +15,9 @@ allOf:
         translate the domain by specifying an `IndexTransform` via
         the `TensorStore.transform` property of `.base`.
 
-        Translating the domain of the downsampled view by a given ``offset`` is
-        equivalent to translating the domain of `.base` by ``offset *
-        downsample_factors``.  However, there is no translation of the
+        Translating the domain of the downsampled view by a given :literal:`offset` is
+        equivalent to translating the domain of `.base` by :python:`offset *
+        downsample_factors`.  However, there is no translation of the
         downsampled view that is exactly equivalent to translating the domain of
         `.base` by an offset that is not a multiple of `.downsample_factors`.
     downsample_factors:
@@ -47,8 +47,8 @@ definitions:
       - const: "stride"
         description: |
           Downsampling is performed by striding: reading a given position
-          ``position`` in the downsampled view is exactly equivalent to
-          reading ``position * downsample_factors`` in the original view.
+          :python:`position` in the downsampled view is exactly equivalent to
+          reading :python:`position * downsample_factors` in the original view.
           This method supports all data types and is quite efficient (there is
           no additional buffering of data).  It is equivalent to applying a
           striding index transform to `driver/downsample.base`; while it offers no
@@ -62,21 +62,21 @@ definitions:
           `driver/downsample.base`.
       - const: "median"
         description: |
-          Downsampling computes the median value: reading a given ``position``
+          Downsampling computes the median value: reading a given :literal:`position`
           in the downsampled view returns the median value within the
-          rectangular region ``[position * downsample_factors, (position + 1)
-          * downsample_factors)`` of the original view.  Only non-complex
+          rectangular region :python:`[position * downsample_factors, (position + 1)
+          * downsample_factors)` of the original view.  Only non-complex
           numeric data types and bool are supported.  The computed median
           value is always a value present in the original data.  In the case
           that the rectangular region contains an odd number of elements, the
           lower value is always used.  For example, the median computed for
-          :json:`[4.0, 3.0, 1.0, 2.0]` is :json:`2.0`.
+          ``[4.0, 3.0, 1.0, 2.0]`` is ``2.0``.
       - const: "mode"
         description: |
           Downsampling computes the mode (most frequent value): reading a
-          given ``position`` in the downsampled view returns the mode within
-          the rectangular region ``[position * downsample_factors, (position +
-          1) * downsample_factors)`` of the original view.  All data types are
+          given :literal:`position` in the downsampled view returns the mode within
+          the rectangular region :python:`[position * downsample_factors, (position +
+          1) * downsample_factors)` of the original view.  All data types are
           supported.  In the case of a tie, for non-complex numeric data types
           and bool, the lowest value (among the set of common frequent values)
           is chosen.  For strings, the lexicographically smallest value is
@@ -85,9 +85,9 @@ definitions:
       - const: "mean"
         description: |
           Downsampling is performed by arithmetic mean (averaging): reading a
-          given ``position`` in the downsampled view returns the arithmetic
-          mean within the rectangular region ``[position * downsample_factors,
-          (position + 1) * downsample_factors)`` of the original view, where
+          given :literal:`position` in the downsampled view returns the arithmetic
+          mean within the rectangular region :python`[position * downsample_factors,
+          (position + 1) * downsample_factors)` of the original view, where
           the average is computed only over positions that are within the
           bounds of the original view.  Only numeric data types and
           :json:`"bool"` are supported.  For integer data types, the means are
@@ -97,20 +97,20 @@ definitions:
 
           Note that the blocks used for averaging start with an origin of 0 in
           all dimensions.  For example, downsampling a 1-dimensional TensorStore
-          with a downsample factor of 3 averages the intervals ``[0, 3)``, ``[3,
-          6)``, ``[6, 9)``, etc.  To use a different offset, translate the
-          domain of `driver/downsample.base`.
+          with a downsample factor of 3 averages the intervals :python:`[0, 3)`,
+          :python:`[3, 6)`, :python:`[6, 9)`, etc.  To use a different offset,
+          translate the domain of `driver/downsample.base`.
       - const: "min"
         description: |
           Downsampling computes the minimum value: reading a given
-          ``position`` in the downsampled view returns the minimum value
-          within the rectangular region ``[position * downsample_factors,
-          (position + 1) * downsample_factors)`` of the original view.  Only
+          :literal:`position` in the downsampled view returns the minimum value
+          within the rectangular region :python:`[position * downsample_factors,
+          (position + 1) * downsample_factors)` of the original view.  Only
           non-complex numeric data types and bool are supported.
       - const: "max"
         description: |
           Downsampling computes the maximum value: reading a given
-          ``position`` in the downsampled view returns the maximum value
-          within the rectangular region ``[position * downsample_factors,
-          (position + 1) * downsample_factors)`` of the original view.  Only
+          :literal:`position` in the downsampled view returns the maximum value
+          within the rectangular region :python:`[position * downsample_factors,
+          (position + 1) * downsample_factors)` of the original view.  Only
           non-complex numeric data types and bool are supported.

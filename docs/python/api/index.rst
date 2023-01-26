@@ -1,28 +1,39 @@
-:duplicate-local-toc:
-
 .. _python-api:
 
 API reference
 =============
 
-.. tensorstore-python-apidoc::
-   :fullname: tensorstore
-   :objtype: module
+Core
+----
 
-   Core
-   ====
+.. python-apigen-group:: core
 
-   Indexing
-   ========
+Indexing
+--------
 
-   Spec
-   ====
+.. python-apigen-group:: indexing
 
-   Views
-   =====
+Spec
+----
 
-   Data types
-   ==========
+.. python-apigen-group:: spec
 
-   Asynchronous support
-   ====================
+Views
+-----
+
+.. python-apigen-group:: views
+
+Virtual views
+^^^^^^^^^^^^^
+
+.. python-apigen-group:: virtual-views
+
+Data types
+----------
+
+.. python-apigen-group:: data-types
+
+Asynchronous support
+---------------------
+
+.. python-apigen-group:: asynchronous-support

@@ -17,17 +17,17 @@ allOf:
         be specified using `Context.gcs_user_project`.
     gcs_request_concurrency:
       $ref: ContextResource
-      description: >-
+      description: |-
         Specifies or references a previously defined
         `Context.gcs_request_concurrency`.
     gcs_user_project:
       $ref: ContextResource
-      description: >-
+      description: |-
         Specifies or references a previously defined
         `Context.gcs_user_project`.
     gcs_request_retries:
       $ref: ContextResource
-      description: >-
+      description: |-
         Specifies or references a previously defined
         `Context.gcs_request_retries`.
   required:
@@ -35,19 +35,19 @@ allOf:
 definitions:
   experimental_gcs_rate_limiter:
     $id: Context.experimental_gcs_rate_limiter
-    description: >-
+    description: |-
       Experimental rate limiter configuration for Google Cloud Storage reads and
       writes.
     type: object
     properties:
       read_rate:
         type: number
-        description: >-
+        description: |-
           The maximum rate or read and/or list calls issued per second.
           See <https://cloud.google.com/storage/docs/request-rate#ramp-up>
       write_rate:
         type: number
-        description: >-
+        description: |-
           The maximum rate of write and/or delete calls issued per second.
           See <https://cloud.google.com/storage/docs/request-rate#ramp-up>
       doubling_time:
@@ -59,7 +59,7 @@ definitions:
         default: "0"
   gcs_request_concurrency:
     $id: Context.gcs_request_concurrency
-    description: >-
+    description: |-
       Specifies a limit on the number of concurrent requests to Google Cloud
       Storage.
     type: object
@@ -69,9 +69,9 @@ definitions:
         - type: integer
           minimum: 1
         - const: "shared"
-        description: >-
+        description: |-
           The maximum number of concurrent requests.  If the special value of
-          :json:`"shared"` is specified, a shared global limit specified by
+          ``"shared"`` is specified, a shared global limit specified by
           environment variable :envvar:`TENSORSTORE_GCS_REQUEST_CONCURRENCY`,
           which defaults to 32.
         default: "shared"
@@ -89,7 +89,7 @@ definitions:
       project_id:
         type: string
         title: |
-          Google Cloud project id, e.g. :json:`"my-project"`.  The Google Cloud
+          Google Cloud project id, e.g. ``"my-project"``.  The Google Cloud
           account that is used must have appropriate permissions to bill to the
           specified project.
   gcs_request_retries:
@@ -103,17 +103,17 @@ definitions:
       max_retries:
         type: integer
         minimum: 1
-        description: >-
+        description: |-
           Maximum number of attempts in the case of transient errors.
         default: 32
       initial_delay:
         type: string
-        description: >-
+        description: |-
           Initial backoff delay for transient errors.
         default: "1s"
       max_delay:
         type: string
-        description: >-
+        description: |-
           Maximum backoff delay for transient errors.
         default: "32s"
   url:
@@ -122,7 +122,7 @@ definitions:
     - $ref: KvStoreUrl
     - type: string
     title: |
-      ``gs://`` KvStore URL scheme
+      :literal:`gs://` KvStore URL scheme
     description: |
       Google Cloud Storage-based key-value stores may be specified using the
       :file:`gs://{bucket}/{path}` URL syntax, as supported by `gsutil
@@ -137,12 +137,12 @@ definitions:
 
             * - URL representation
               - JSON representation
-            * - :json:`"gs://my-bucket"`
+            * - ``"gs://my-bucket"``
               - .. code-block:: json
 
                    {"driver": "gcs",
                     "bucket": "my-bucket"}
-            * - :json:`"gs://bucket/path/to/dataset"`
+            * - ``"gs://bucket/path/to/dataset"``
               - .. code-block:: json
 
                    {"driver": "gcs",

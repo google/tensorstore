@@ -604,7 +604,7 @@ Args:
   source: Source array, :ref:`broadcast-compatible<index-domain-alignment>` with
     :python:`self.domain` and with a data type convertible to
     :python:`self.dtype`.  May be an existing :py:obj:`TensorStore` or any
-    `array_like`, including a scalar.
+    :py:obj:`~numpy.typing.ArrayLike`, including a scalar.
 
 Returns:
 
@@ -1321,7 +1321,7 @@ Args:
   source: Source array, :ref:`broadcast-compatible<index-domain-alignment>` with
     :python:`self[indices].domain` and with a data type convertible to
     :python:`self.dtype`.  May be an existing :py:obj:`TensorStore` or any
-    `array_like`, including a scalar.
+    :py:obj:`~numpy.typing.ArrayLike`, including a scalar.
 
 Transactional writes are also supported:
 
@@ -1452,7 +1452,7 @@ Args:
   source: Source array, :ref:`broadcast-compatible<index-domain-alignment>` with
     :python:`self.oindex[indices].domain` and with a data type convertible to
     :python:`self.dtype`.  May be an existing :py:obj:`TensorStore` or any
-    `array_like`, including a scalar.
+    :py:obj:`~numpy.typing.ArrayLike`, including a scalar.
 
 .. warning::
 
@@ -1576,7 +1576,7 @@ Args:
   source: Source array, :ref:`broadcast-compatible<index-domain-alignment>` with
     :python:`self.vindex[indices].domain` and with a data type convertible to
     :python:`self.dtype`.  May be an existing :py:obj:`TensorStore` or any
-    `array_like`, including a scalar.
+    :py:obj:`~numpy.typing.ArrayLike`, including a scalar.
 
 .. warning::
 
@@ -1739,7 +1739,7 @@ Args:
   source: Source array, :ref:`broadcast-compatible<index-domain-alignment>` with
     :python:`self.domain[transform]` and with a data type convertible to
     :python:`self.dtype`.  May be an existing :py:obj:`TensorStore` or any
-    `array_like`, including a scalar.
+    :py:obj:`~numpy.typing.ArrayLike`, including a scalar.
 
 .. warning::
 
@@ -1872,7 +1872,7 @@ Args:
   source: Source array, :ref:`broadcast-compatible<index-domain-alignment>` with
     :python:`self.domain[transform]` and with a data type convertible to
     :python:`self.dtype`.  May be an existing :py:obj:`TensorStore` or any
-    `array_like`, including a scalar.
+    :py:obj:`~numpy.typing.ArrayLike`, including a scalar.
 
 .. warning::
 

@@ -309,5 +309,5 @@ Examples:
 .. note::
 
    The alignment behavior supported by TensorStore is fully compatible with
-   :py:obj:`NumPy broadcasting<numpy:numpy.doc.broadcasting>` but additionally
-   is extended to support non-zero origins and labeled dimensions.
+   `NumPy broadcasting<numpy:basics.broadcasting>` but additionally is extended
+   to support non-zero origins and labeled dimensions.

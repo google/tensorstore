@@ -7,7 +7,7 @@ intended use case.
 Python API
 ----------
 
-The TensorStore `Python API<python-api>` requires Python 3.5 or later (Python 2
+The TensorStore `Python API<python-api>` requires Python 3.8 or later (Python 2
 is not supported).
 
 Installation from PyPI package

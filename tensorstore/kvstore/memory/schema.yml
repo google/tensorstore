@@ -8,20 +8,20 @@ allOf:
       const: memory
     memory_key_value_store:
       $ref: ContextResource
-      description: >-
+      description: |-
         Specifies or references a previously defined
         `Context.memory_key_value_store`.
     atomic:
       type: boolean
       default: true
-      description: >-
-        Support atomic multi-key transactions.  If set to :json:`false`, the
+      description: |-
+        Support atomic multi-key transactions.  If set to ``false``, the
         transaction behavior matches that of the `kvstore/file` and
         `kvstore/gcs` drivers, which may be useful for testing purposes.
 definitions:
   memory_key_value_store:
     $id: Context.memory_key_value_store
-    description: >-
+    description: |-
       Represents the in-memory key-value store.  If multiple `kvstore/memory`
       specifications reference the same `Context.memory_key_value_store`, they
       all refer to the same in-memory set of key/value pairs.
@@ -33,7 +33,7 @@ definitions:
     - type: string
     type: string
     title: |
-      ``memory://`` KvStore URL scheme
+      :literal:`memory://` KvStore URL scheme
     description: |
       In-memory key-value stores may be specified using the custom
       :file:`memory://{path}` URL syntax.
@@ -47,7 +47,7 @@ definitions:
 
             * - URL representation
               - JSON representation
-            * - :json:`"memory://"`
-              - :json:`{"driver": "memory"}`
-            * - :json:`"memory://path/to/dataset"`
-              - :json:`{"driver": "memory", "path": "path/to/dataset"}`
+            * - ``"memory://"``
+              - ``{"driver": "memory"}``
+            * - ``"memory://path/to/dataset"``
+              - ``{"driver": "memory", "path": "path/to/dataset"}``

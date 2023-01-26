@@ -10,7 +10,7 @@ allOf:
       type: string
       title: Base URL.
       description: |
-        Must have a scheme of ``http`` or ``https``.  May include a query
+        Must have a scheme of :literal:`http` or :literal:`https`.  May include a query
         string, which will be included in all requests.  Must not include a
         fragment.  Any characters not allowed in a URL must be
         :wikipedia:`percent encoded<Percent-encoding>`.
@@ -64,18 +64,18 @@ allOf:
         Each header should be specified using the normal HTTP header
         :json:`"name: value"` syntax.  The header name is case-insensitive while
         the header value is case-sensitive.  Refer to :rfc:`7230#section-3.2`
-        for details.  The obsolete line folding syntax ``CRLF 1*( SP / HTAB )``
-        is not supported.  Multiple headers with the same ``name`` are allowed.
+        for details.  The obsolete line folding syntax :literal:`CRLF 1*( SP / HTAB )`
+        is not supported.  Multiple headers with the same :literal:`name` are allowed.
       examples:
         - ["Authorization: Bearer XXXXX"]
     http_request_concurrency:
       $ref: ContextResource
-      description: >-
+      description: |-
         Specifies or references a previously defined
         `Context.http_request_concurrency`.
     http_request_retries:
       $ref: ContextResource
-      description: >-
+      description: |-
         Specifies or references a previously defined
         `Context.http_request_retries`.
   required:
@@ -85,7 +85,7 @@ allOf:
 definitions:
   http_request_concurrency:
     $id: Context.http_request_concurrency
-    description: >-
+    description: |-
       Specifies a limit on the number of concurrent HTTP requests.
     type: object
     properties:
@@ -94,7 +94,7 @@ definitions:
         - type: integer
           minimum: 1
         - const: "shared"
-        description: >-
+        description: |-
           The maximum number of concurrent requests.  If the special value of
           :json:`"shared"` is specified, a shared global limit of 32 applies.
         default: "shared"
@@ -107,17 +107,17 @@ definitions:
       max_retries:
         type: integer
         minimum: 1
-        description: >-
+        description: |-
           Maximum number of attempts in the case of transient errors.
         default: 32
       initial_delay:
         type: string
-        description: >-
+        description: |-
           Initial backoff delay for transient errors.
         default: "1s"
       max_delay:
         type: string
-        description: >-
+        description: |-
           Maximum backoff delay for transient errors.
         default: "32s"
   url:
@@ -126,7 +126,7 @@ definitions:
     - $ref: KvStoreUrl
     - type: string
     title: |
-      ``http://`` and ``https://`` KvStore URL scheme
+      :literal:`http://` and :literal:`https://` KvStore URL scheme
     description: |
       HTTP key-value stores may be specified using regular HTTP URL syntax.
 
@@ -139,13 +139,13 @@ definitions:
 
             * - URL representation
               - JSON representation
-            * - :json:`"http://example.com"`
+            * - ``"http://example.com"``
               - .. code-block:: json
 
                    {"driver": "http",
                     "base_url": "http://example.com",
                     "path": "/"}
-            * - :json:`"https://example.com:8080/path/to/data%20base?query=value"`
+            * - ``"https://example.com:8080/path/to/data%20base?query=value"``
               - .. code-block:: json
 
                    {"driver": "http",

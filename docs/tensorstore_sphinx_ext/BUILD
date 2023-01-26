@@ -18,57 +18,12 @@ pytype_strict_library(
 )
 
 pytype_strict_library(
-    name = "sphinx_utils",
-    srcs = ["sphinx_utils.py"],
-    deps = [
-        ":__init__",
-        "@pypa_docutils//:docutils",
-        "@pypa_sphinx//:sphinx",
-    ],
-)
-
-pytype_strict_library(
-    name = "jsonschema_sphinx",
-    srcs = ["jsonschema_sphinx.py"],
-    deps = [
-        ":__init__",
-        ":json_pprint",
-        ":sphinx_utils",
-        "@pypa_docutils//:docutils",
-        "@pypa_jsonschema//:jsonschema",
-        "@pypa_pyyaml//:pyyaml",
-        "@pypa_sphinx//:sphinx",
-    ],
-)
-
-pytype_strict_library(
-    name = "autosummary",
-    srcs = ["autosummary.py"],
-    deps = [
-        ":__init__",
-        ":sphinx_utils",
-        "@pypa_docutils//:docutils",
-        "@pypa_sphinx//:sphinx",
-    ],
-)
-
-pytype_strict_library(
-    name = "autodoc",
-    srcs = ["autodoc.py"],
-    deps = [
-        ":__init__",
-        "@pypa_docutils//:docutils",
-        "@pypa_sphinx//:sphinx",
-    ],
-)
-
-pytype_strict_library(
     name = "doctest",
     srcs = ["doctest.py"],
     deps = [
         ":__init__",
-        ":sphinx_utils",
         "@pypa_docutils//:docutils",
         "@pypa_sphinx//:sphinx",
+        "@pypa_sphinx_immaterial//:sphinx_immaterial",
     ],
 )

@@ -13,6 +13,13 @@
 # limitations under the License.
 """Sphinx configuration for TensorStore."""
 
+from typing import Optional, NamedTuple
+
+import docutils.nodes
+import sphinx.addnodes
+import sphinx.domains.python
+import sphinx.environment
+
 project = 'TensorStore'
 copyright = '2020 The TensorStore Authors'  # pylint: disable=redefined-builtin
 
@@ -36,15 +43,17 @@ html_show_copyright = False
 
 extensions = [
     'sphinx.ext.extlinks',
-    'tensorstore_sphinx_material.sphinx_material',
-    'tensorstore_sphinx_ext.jsonschema_sphinx',
+    'sphinx_immaterial',
     'sphinx.ext.intersphinx',
     'sphinx.ext.autodoc',
+    'sphinx.ext.napoleon',
     'sphinx.ext.doctest',
-    'tensorstore_sphinx_ext.autodoc',
-    'tensorstore_sphinx_ext.autosummary',
     'tensorstore_sphinx_ext.doctest',
     'sphinx.ext.mathjax',
+    'sphinx_immaterial.apidoc.format_signatures',
+    'sphinx_immaterial.apidoc.cpp.cppreference',
+    'sphinx_immaterial.apidoc.json.domain',
+    'sphinx_immaterial.apidoc.python.apigen',
 ]
 
 exclude_patterns = [
@@ -57,7 +66,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 language = 'en'
 
-html_theme = 'sphinx_material'
+html_theme = 'sphinx_immaterial'
 
 html_title = 'TensorStore'
 
@@ -78,11 +87,7 @@ html_theme_options = {
         'google/tensorstore',
     'repo_type':
         'github',
-    'globaltoc_depth':
-        -1,
     'globaltoc_collapse':
-        True,
-    'globaltoc_includehidden':
         True,
     'features': [
         'navigation.expand',
@@ -94,7 +99,11 @@ html_theme_options = {
         'navigation.top',
         # 'search.highlight',
         # 'search.share',
+        "toc.follow",
+        "toc.sticky",
     ],
+    'toc_title_is_page_title':
+        True,
     'palette': [
         {
             'media': '(prefers-color-scheme: dark)',
@@ -173,3 +182,111 @@ extlinks = {
 napoleon_numpy_docstring = False
 napoleon_use_admonition_for_examples = True
 napoleon_use_admonition_for_notes = True
+
+json_schemas = [
+    "*schema.yml",
+    "**/*schema.yml",
+]
+
+json_schema_rst_prolog = """
+.. default-role:: json:schema
+
+.. default-literal-role:: json
+
+.. highlight:: json
+"""
+
+python_apigen_modules = {"tensorstore": "python/api/tensorstore."}
+
+python_apigen_default_groups = [
+    ("class:.*", "Classes"),
+    (r".*:.*\.__(init|new)__", "Constructors"),
+    (r".*:.*\.__eq__", "Comparison operators"),
+    (r".*:.*\.__(str|repr)__", "String representation"),
+]
+
+python_apigen_rst_prolog = """
+.. default-role:: py:obj
+
+.. default-literal-role:: python
+
+.. highlight:: python
+
+"""
+
+python_module_names_to_strip_from_xrefs = ["tensorstore"]
+
+python_type_aliases = {
+    "dtype": "numpy.dtype",
+    "Real": "numbers.Real",
+}
+
+python_strip_property_prefix = True
+
+
+# Monkey patch Sphinx to generate custom cross references for specific type
+# annotations.
+#
+# The Sphinx Python domain generates a `py:class` cross reference for type
+# annotations.  However, in some cases in the TensorStore documentation, type
+# annotations are used to refer to targets that are not actual Python classes,
+# such as `DownsampleMethod`, `DimSelectionLike`, or `NumpyIndexingSpec`.
+# Additionally, some types like `numpy.typing.ArrayLike` are `py:data` objects
+# and can't be referenced as `py:class`.
+class TypeXrefTarget(NamedTuple):
+  domain: str
+  reftype: str
+  target: str
+  title: str
+
+
+python_type_to_xref_mappings = {
+    "numpy.typing.ArrayLike":
+        TypeXrefTarget("py", "data", "numpy.typing.ArrayLike", "ArrayLike"),
+    "NumpyIndexingSpec":
+        TypeXrefTarget("std", "ref", "python-numpy-style-indexing",
+                       "NumpyIndexingSpec"),
+    "DimSelectionLike":
+        TypeXrefTarget("std", "ref", "python-dim-selections",
+                       "DimSelectionLike"),
+    "DownsampleMethod":
+        TypeXrefTarget("json", "schema", "DownsampleMethod",
+                       "DownsampleMethod"),
+}
+
+_orig_python_type_to_xref = sphinx.domains.python.type_to_xref
+
+
+def _python_type_to_xref(
+    target: str, env: Optional[sphinx.environment.BuildEnvironment] = None,
+    suppress_prefix: bool = False) -> sphinx.addnodes.pending_xref:
+  xref_info = python_type_to_xref_mappings.get(target)
+  if xref_info is not None:
+    return sphinx.addnodes.pending_xref(
+        '',
+        docutils.nodes.Text(xref_info.title),
+        refdomain=xref_info.domain,
+        reftype=xref_info.reftype,
+        reftarget=xref_info.target,
+        refspecific=False,
+        refexplicit=True,
+        refwarn=True,
+    )
+  return _orig_python_type_to_xref(target, env, suppress_prefix)
+
+
+sphinx.domains.python.type_to_xref = _python_type_to_xref
+
+
+def setup(app):
+
+  # Exclude pybind11-builtin base class when displaying base classes.
+  #
+  # This base class is purely an implementation detail and not helpful to
+  # display to users.
+  def _autodoc_process_bases(app, name, obj, options, bases):
+    bases[:] = [
+        base for base in bases if base.__module__ != "pybind11_builtins"
+    ]
+
+  app.connect("autodoc-process-bases", _autodoc_process_bases)

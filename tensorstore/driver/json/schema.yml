@@ -18,7 +18,7 @@ allOf:
       oneOf:
       - $ref: KvStore
       - $ref: KvStoreUrl
-      description: >-
+      description: |-
         Specifies the underlying storage mechanism.
     path:
       type: string
@@ -28,21 +28,21 @@ allOf:
       title: |
         Additional path to the JSON file within the `KvStore` specified by
         `.kvstore`.
-      description: >-
+      description: |-
         This is joined as an additional :json:`"/"`-separated path component
         after any :json:schema:`~KvStore.path` member directly within
         `.kvstore`.  This is supported for backwards compatibility only; the
         :json:schema:`KvStore.path` member should be used instead.
     cache_pool:
       $ref: ContextResource
-      description: >-
+      description: |-
         Specifies or references a previously defined `Context.cache_pool`.  It
         is normally more convenient to specify a default `~Context.cache_pool`
         in the `.context`.
       default: cache_pool
     data_copy_concurrency:
       $ref: ContextResource
-      description: >-
+      description: |-
         Specifies or references a previously defined
         `Context.data_copy_concurrency`.  It is normally more
         convenient to specify a default `~Context.data_copy_concurrency` in

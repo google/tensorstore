@@ -11,7 +11,7 @@ allOf:
       title: Path to root directory on local filesystem.
     file_io_concurrency:
       $ref: ContextResource
-      description: >-
+      description: |-
         Specifies or references a previously defined
         `Context.file_io_concurrency`.
   required:
@@ -25,7 +25,7 @@ definitions:
     - $ref: KvStoreUrl
     - type: string
     title: |
-      ``file://`` KvStore URL scheme
+      :literal:`file://` KvStore URL scheme
     description: |
       File-based key-value stores may be specified using the widely-supported
       :file:`file://{path}` URL syntax.
@@ -39,12 +39,12 @@ definitions:
 
             * - URL representation
               - JSON representation
-            * - :json:`"file:///tmp/dataset/"`
+            * - ``"file:///tmp/dataset/"``
               - .. code-block:: json
 
                    {"driver": "file",
                     "path": "/tmp/dataset/"}
-            * - :json:`"file://C:/Users/abc/dataset/"`
+            * - ``"file://C:/Users/abc/dataset/"``
               - .. code-block:: json
 
                    {"driver": "file",

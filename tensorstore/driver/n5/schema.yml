@@ -18,10 +18,10 @@ allOf:
 
         Arbitrary additional members may also be specified in addition to the
         ones listed here.  When creating a new array, they will be included in
-        the ``attributes.json`` file as additional N5 attributes, but will not
+        the :file:`attributes.json` file as additional N5 attributes, but will not
         be validated in any way.  When opening an existing array, all additional
         members that are specified must be present with identical values in the
-        existing ``attributes.json`` file, or the open operation will fail.
+        existing :file:`attributes.json` file, or the open operation will fail.
       allOf:
       - type: object
         properties:

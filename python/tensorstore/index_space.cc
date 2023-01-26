@@ -326,7 +326,7 @@ using OutputIndexMapRangeContainer =
 
 auto MakeIndexDomainClass(py::module m) {
   return py::class_<IndexDomain<>>(m, "IndexDomain", R"(
-`Domain<index-domain>` (including bounds and optional dimension labels) of an N-dimensional :ref:`index space<index-space>`.
+:ref:`Domain<index-domain>` (including bounds and optional dimension labels) of an N-dimensional :ref:`index space<index-space>`.
 
 Logically, an :py:class:`.IndexDomain` is the cartesian product of a sequence of `Dim` objects.
 
@@ -2025,9 +2025,9 @@ Constructs an unbounded interval ``(-inf, +inf)``.
 Args:
   label: :ref:`Dimension label<dimension-labels>`.
   implicit_lower: Indicates whether the lower bound is
-    `implicit<implicit-bounds>`.
+    :ref:`implicit<implicit-bounds>`.
   implicit_upper: Indicates whether the upper bound is
-    `implicit<implicit-bounds>`.
+    :ref:`implicit<implicit-bounds>`.
 
 Examples:
 
@@ -2074,9 +2074,9 @@ Args:
   label: :ref:`Dimension label<dimension-labels>`.
   inclusive_min: Inclusive lower bound.  Defaults to :python:`0`.
   implicit_lower: Indicates whether the lower bound is
-    `implicit<implicit-bounds>`.
+    :ref:`implicit<implicit-bounds>`.
   implicit_upper: Indicates whether the upper bound is
-    `implicit<implicit-bounds>`.  Defaults to :python:`False` if
+    :ref:`implicit<implicit-bounds>`.  Defaults to :python:`False` if
     :python:`size` is specified, otherwise :python:`True`.
 
 Examples:
@@ -2110,17 +2110,17 @@ Overload:
                 label.value_or(""));
           }),
           R"(
-Constructs a half-open interval ``[inclusive_min, exclusive_max)```.
+Constructs a half-open interval ``[inclusive_min, exclusive_max)``.
 
 Args:
   inclusive_min: Inclusive lower bound.
   exclusive_max: Exclusive upper bound.
   label: :ref:`Dimension label<dimension-labels>`.
   implicit_lower: Indicates whether the lower bound is
-    `implicit<implicit-bounds>`.  Defaults to :python:`False` if
+    :ref:`implicit<implicit-bounds>`.  Defaults to :python:`False` if
     ``inclusive_min`` is specified, otherwise :python:`True`.
   implicit_upper: Indicates whether the upper bound is
-    `implicit<implicit-bounds>`.  Defaults to :python:`False` if
+    :ref:`implicit<implicit-bounds>`.  Defaults to :python:`False` if
     ``exclusive_max`` is specified, otherwise :python:`True`.
 
 Examples:
@@ -2162,10 +2162,10 @@ Args:
   inclusive_max: Inclusive upper bound.
   label: :ref:`Dimension label<dimension-labels>`.
   implicit_lower: Indicates whether the lower bound is
-    `implicit<implicit-bounds>`.  Defaults to :python:`False` if
+    :ref:`implicit<implicit-bounds>`.  Defaults to :python:`False` if
     ``inclusive_min`` is specified, otherwise :python:`True`.
   implicit_upper: Indicates whether the upper bound is
-    `implicit<implicit-bounds>`.  Defaults to :python:`False` if
+    :ref:`implicit<implicit-bounds>`.  Defaults to :python:`False` if
     ``exclusive_max`` is specified, otherwise :python:`True`.
 
 Examples:
@@ -2852,7 +2852,7 @@ void DefineOutputIndexMapsAttributes(
 auto MakeOutputIndexMethodClass(py::module m) {
   return py::enum_<OutputIndexMethod>(m, "OutputIndexMethod",
                                       R"(
-Indicates the `output index method<output-index-methods>` of an :py:class:`OutputIndexMap`.
+Indicates the :ref:`output index method<output-index-methods>` of an :py:class:`OutputIndexMap`.
 
 See also:
   - :py:obj:`IndexTransform.output`

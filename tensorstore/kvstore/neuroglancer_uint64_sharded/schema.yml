@@ -15,7 +15,7 @@ allOf:
       $ref: kvstore/neuroglancer_uint64_sharded/ShardingSpec
     cache_pool:
       $ref: ContextResource
-      description: >-
+      description: |-
         Specifies or references a previously defined `Context.cache_pool`.  It
         is normally more convenient to specify a default `~Context.cache_pool`
         in the `.context`.
@@ -30,7 +30,7 @@ allOf:
       default: cache_pool
     data_copy_concurrency:
       $ref: ContextResource
-      description: >-
+      description: |-
         Specifies or references a previously defined
         `Context.data_copy_concurrency`.  It is normally more
         convenient to specify a default `~Context.data_copy_concurrency` in
@@ -45,7 +45,7 @@ definitions:
     $id: 'kvstore/neuroglancer_uint64_sharded/ShardingSpec'
     title: Sharding metadata
     type: object
-    description: >-
+    description: |-
       Specifies the sharded format within the
       `kvstore/neuroglancer_uint64_sharded.metadata` and
       `driver/neuroglancer_precomputed.scale_metadata` properties.
@@ -54,7 +54,7 @@ definitions:
         const: neuroglancer_uint64_sharded_v1
       preshift_bits:
         type: integer
-        title: >-
+        title: |-
           Number of low-order bits of the chunk ID that do not contribute to the
           hashed chunk ID.
         minimum: 0
@@ -63,45 +63,44 @@ definitions:
         enum:
         - identity
         - murmurhash3_x86_128
-        title: >-
+        title: |-
           Specifies the hash function used to map chunk IDs to shards.
       minishard_bits:
         type: integer
-        title: >-
+        title: |-
           Number of bits of the hashed chunk ID that determine the minishard
           number.
-        description: >-
+        description: |-
           The number of minishards within each shard is equal to
           :math:`2^{\mathrm{minishard\_bits}}`.  The minishard number is equal
-          to bits ``[0, minishard_bits)`` of the hashed chunk id.
+          to bits :python:`[0, minishard_bits)` of the hashed chunk id.
         minimum: 0
         maximum: 64
       shard_bits:
         type: integer
-        title: >-
+        title: |-
           Number of bits of the hashed chunk ID that determine the shard number.
-        description: >-
+        description: |-
           The number of shards is equal to :math:`2^{\mathrm{shard\_bits}}`.
-          The shard number is equal to bits ``[minishard_bits,
-          minishard_bits+shard_bits)`` of the hashed chunk ID.
+          The shard number is equal to bits :python:`[minishard_bits,
+          minishard_bits+shard_bits)` of the hashed chunk ID.
         minimum: 0
         maximum: 64
       minishard_index_encoding:
-        title: >-
+        title: |-
           Specifies the encoding of the minishard index.
-        description: >-
-          Normally :json:`"gzip"` is a good choice.
+        description: |-
+          Normally ``"gzip"`` is a good choice.
         enum:
         - raw
         - gzip
         default: raw
       data_encoding:
-        title: >-
+        title: |-
           Specifies the encoding of the data chunks.
-        description: >-
-          Normally :json:`"gzip"` is a good choice, unless the volume uses
-          :json:`"jpeg"`
-          `~driver/neuroglancer_precomputed.scale_metadata.encoding`.
+        description: |-
+          Normally ``"gzip"`` is a good choice, unless the volume uses
+          ``"jpeg"`` `~driver/neuroglancer_precomputed.scale_metadata.encoding`.
         enum:
         - raw
         - gzip

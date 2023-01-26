@@ -18,7 +18,7 @@ dimensions<dimension-labels>` and non-zero origins.
    *view* of the original object, represented as a new object of the
    same type with a different `tensorstore.IndexDomain`.  Indexing
    operations never implicitly perform I/O or copy data.  This differs
-   from `NumPy indexing<numpy:numpy.doc.indexing>`, where basic
+   from `NumPy indexing<numpy:basics.indexing>`, where basic
    indexing results in a view of the original data, but advanced
    indexing always results in a copy.
 

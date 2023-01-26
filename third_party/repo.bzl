@@ -191,6 +191,19 @@ cc_library(
                 result.stderr,
                 result.stdout,
             ))
+
+        # Create missing __init__.py files in order to support namespace
+        # packages, such as `sphinxcontrib`.
+        result = ctx.execute([
+            get_python_bin(ctx),
+            ctx.path(ctx.attr._create_init_files).realpath,
+        ])
+        if result.return_code != 0:
+            fail("Failed to install create init files for: %s\n%s%s" % (
+                ctx.attr.requirement,
+                result.stderr,
+                result.stdout,
+            ))
         build_file_content += """
 py_library(
   name = """ + repr(ctx.attr.target) + """,
@@ -222,6 +235,9 @@ _third_party_python_package_attrs = {
     "requirement": attr.string(),
     "target": attr.string(),
     "deps": attr.string_list(),
+    "_create_init_files": attr.label(
+        default = Label("//third_party:pypa/create_init_files.py"),
+    ),
 }
 
 third_party_python_package = repository_rule(

@@ -573,7 +573,8 @@ Handle for *consuming* the result of an asynchronous operation.
 
 This type supports several different patterns for consuming results:
 
-- Asynchronously with :py:mod:`asyncio`, using the `await<python:await>` keyword:
+- Asynchronously with :py:mod:`asyncio`, using the :ref:`await<python:await>`
+  keyword:
 
       >>> future = ts.open({
       ...     'driver': 'array',
@@ -620,7 +621,7 @@ This type supports several different patterns for consuming results:
       Callback: { [0, 3) }
 
 If an error occurs, instead of returning a value, :py:obj:`.result()` or
-`await<python:await>` will raise an exception.
+:ref:`await<python:await>` will raise an exception.
 
 This type supports a subset of the interfaces of
 :py:class:`python:concurrent.futures.Future` and

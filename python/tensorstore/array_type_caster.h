@@ -125,7 +125,7 @@ bool ConvertToArrayImpl(pybind11::handle src,
 ///     conversion of `src` to an array.  If `false`, it is an error if `src` is
 ///     not an existing NumPy array with suitable data type to which `*out` can
 ///     refer directly.
-/// \param src The Python object to convert, may be any `array_like` type as
+/// \param src The Python object to convert, may be any `ArrayLike` type as
 ///     defined by NumPy.
 /// \param out[out] Pointer to `SharedArray` to be set to the converted result.
 /// \param data_type_constraint If specified, constrains the allowed data types.
@@ -166,8 +166,8 @@ std::conditional_t<NoThrow, bool, void> ConvertToArray(
 /// \param out Target array.
 void CopyFromNumpyArray(pybind11::handle src, ArrayView<void> out);
 
-/// Wraps an unvalidated `py::object` but displays as "array_like" in pybind11
-/// function signatures.
+/// Wraps an unvalidated `py::object` but displays as "numpy.typing.ArrayLike"
+/// in pybind11 function signatures.
 ///
 /// This is used as the argument type to pybind11-exposed functions in place of
 /// e.g. `SharedArray` when custom conversion is required, e.g. because there
@@ -177,7 +177,7 @@ struct ArrayArgumentPlaceholder {
   pybind11::object value;
 
   constexpr static auto tensorstore_pybind11_type_name_override =
-      pybind11::detail::_("array_like");
+      pybind11::detail::_("numpy.typing.ArrayLike");
 };
 
 pybind11::object GetNumpyArrayImpl(SharedArrayView<const void> value,
@@ -209,7 +209,7 @@ namespace detail {
 template <typename Element, tensorstore::DimensionIndex Rank>
 struct type_caster<tensorstore::SharedArray<Element, Rank>> {
   using T = tensorstore::SharedArray<Element, Rank>;
-  PYBIND11_TYPE_CASTER(T, _("array_like"));
+  PYBIND11_TYPE_CASTER(T, _("numpy.typing.ArrayLike"));
 
   bool load(handle src, bool convert) {
     return tensorstore::internal_python::ConvertToArray<Element, Rank,

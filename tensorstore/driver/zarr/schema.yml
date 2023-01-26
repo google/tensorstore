@@ -98,7 +98,7 @@ allOf:
       default: ".zarray"
       title: Specifies the key under which to store the array metadata in JSON format.
       description: |
-        By default, the array metadata is stored under the ``.zarray`` key as
+        By default, the array metadata is stored under the :file:`.zarray` key as
         required by the `Zarr storage specification
         <https://zarr.readthedocs.io/en/stable/spec/v2.html#metadata>`__.  In
         rare cases it may be useful to specify a non-default value,

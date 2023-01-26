@@ -15,9 +15,11 @@
 
 import argparse
 import contextlib
+import getpass
 import glob
 import os
 import pathlib
+import platform
 import re
 import sys
 import tempfile
@@ -187,7 +189,6 @@ def _prepare_source_tree(runfiles_dir: str):
     # Exclude theme and extension directories from temporary directory since
     # they are not needed and slow down file globbing.
     excluded_paths = frozenset([
-        os.path.join(abs_docs_root, 'tensorstore_sphinx_material'),
         os.path.join(abs_docs_root, 'tensorstore_sphinx_ext'),
     ])
 
@@ -209,27 +210,16 @@ def _prepare_source_tree(runfiles_dir: str):
     create_symlinks(os.path.join(runfiles_dir, DOCS_ROOT), temp_src_dir)
     source_cpp_root = os.path.abspath(os.path.join(runfiles_dir, CPP_ROOT))
     for name in ['driver', 'kvstore']:
-      os.symlink(
-          os.path.join(source_cpp_root, name), os.path.join(temp_src_dir, name))
+      os.symlink(os.path.join(source_cpp_root, name),
+                 os.path.join(temp_src_dir, name))
     yield temp_src_dir
-
-
-def _minify_html(paths: List[str]) -> None:
-  print('Minifying %d html output files' % (len(paths),))
-  import htmlmin
-  for p in paths:
-    content = pathlib.Path(p).read_text(encoding='utf-8')
-    content = htmlmin.minify(content, remove_comments=True)
-    pathlib.Path(p).write_text(content, encoding='utf-8')
 
 
 def run(args: argparse.Namespace, unknown: List[str]):
   # Ensure tensorstore sphinx extensions can be imported as absolute modules.
   sys.path.insert(0, os.path.abspath(DOCS_ROOT))
-  # For some reason, the way bazel sets up import paths causes `import
-  # sphinxcontrib.serializinghtml` not to work unless we first import
-  # `sphinxcontrib.applehelp`.
-  import sphinxcontrib.applehelp
+  runfiles_dir = os.getcwd()
+
   sphinx_args = [
       # Always write all files (incremental mode not used)
       '-a',
@@ -243,11 +233,36 @@ def run(args: argparse.Namespace, unknown: List[str]):
     sphinx_args.append('--help')
   if args.pdb_on_error:
     sphinx_args.append('-P')
-  else:
-    sphinx_args += ['-j', 'auto']
-  runfiles_dir = os.getcwd()
-  output_dir = os.path.join(
-      os.getenv('BUILD_WORKING_DIRECTORY', os.getcwd()), args.output)
+  elif not args.profile:
+    # Use the system number of CPU cores as the number of threads to use, by
+    # default.
+    num_cpus_str = 'auto'
+    # Allow this limit to be overridden based on the username.  This is useful
+    # for CI builds run on shared machines where not all CPU cores are available
+    # to be used.
+    special_cpu_limits = {}
+    for term in os.environ.get(
+        'TENSORSTORE_SPECIAL_CPU_USER_LIMITS', '').split(' '):
+      term = term.strip()
+      if not term:
+        continue
+      parts = term.split('=', 2)
+      assert len(parts) == 2
+      special_cpu_limits[parts[0]] = parts[1]
+    if special_cpu_limits:
+      try:
+        username = getpass.getuser()
+        if username in special_cpu_limits:
+          num_cpus_str = special_cpu_limits[username]
+          print('Using special CPU limit of %s due to username of %s' %
+                (num_cpus_str, username))
+      except Exception as e:
+        # Ignore failure to determine username.
+        if special_cpu_limits:
+          print("Failed to determine current username: %s" % (e,))
+    sphinx_args += ['-j', num_cpus_str]
+  output_dir = os.path.join(os.getenv('BUILD_WORKING_DIRECTORY', os.getcwd()),
+                            args.output)
   os.makedirs(output_dir, exist_ok=True)
   with _prepare_source_tree(runfiles_dir) as temp_src_dir:
     # Use a separate temporary directory for the doctrees, since we don't want
@@ -266,41 +281,53 @@ def run(args: argparse.Namespace, unknown: List[str]):
       if os.path.exists(buildinfo_path):
         os.remove(buildinfo_path)
 
-      if args.minify:
-        # Minify HTML
-        html_output = glob.glob(
-            os.path.join(output_dir, '**/*.html'), recursive=True)
-        _minify_html(paths=html_output)
       print('Output written to: %s' % (os.path.abspath(output_dir),))
-      sys.exit(result)
+      if not args.profile:
+        sys.exit(result)
+
+
+_WINDOWS_UNC_PREFIX = "\\\\?\\"
+
+
+def _strip_windows_unc_path_prefix(p: str) -> str:
+  if p.startswith(_WINDOWS_UNC_PREFIX):
+    p = p[len(_WINDOWS_UNC_PREFIX):]
+  return p
 
 
 def main():
+  if platform.system() == 'Windows':
+    # Bazel uses UNC `\\?\` paths to specify Python import directories on
+    # Windows, and jinja2 does not correctly UNC paths
+    # (https://github.com/pallets/jinja/issues/1675).  As a workaround, convert
+    # UNC paths to regular paths.
+    sys.path[:] = [_strip_windows_unc_path_prefix(p) for p in sys.path]
   ap = argparse.ArgumentParser()
   default_output = os.environ.get('TEST_UNDECLARED_OUTPUTS_DIR', None)
-  ap.add_argument(
-      '--output',
-      '-o',
-      help='Output directory',
-      default=default_output,
-      required=default_output is None)
-  ap.add_argument(
-      '-P',
-      dest='pdb_on_error',
-      action='store_true',
-      help='Run pdb on exception')
-  ap.add_argument('--no-minify', dest='minify', action='store_false')
-  ap.add_argument(
-      '--sphinx-help',
-      action='store_true',
-      help='Show sphinx build command-line help')
+  ap.add_argument('--output', '-o', help='Output directory',
+                  default=default_output, required=default_output is None)
+  ap.add_argument('-P', dest='pdb_on_error', action='store_true',
+                  help='Run pdb on exception')
+  ap.add_argument('--sphinx-help', action='store_true',
+                  help='Show sphinx build command-line help')
   ap.add_argument('--pdb', action='store_true', help='Run under pdb')
+  ap.add_argument('--profile', type=str,
+                  help='Write performance profile to the specified file.')
+  ap.add_argument('--exclude', action='append', default=[],
+                  help='Glob pattern of sources to exclude')
   args, unknown = ap.parse_known_args()
+  def do_run():
+    run(args, unknown)
+
   if args.pdb:
     import pdb
-    pdb.runcall(run, args, unknown)
+    pdb.runcall(do_run)
+  elif args.profile:
+    import cProfile
+    cProfile.runctx('do_run()', globals=globals(), locals=locals(),
+                    filename=args.profile)
   else:
-    run(args, unknown)
+    do_run()
 
 
 if __name__ == '__main__':

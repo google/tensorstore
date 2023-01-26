@@ -17,7 +17,7 @@ allOf:
           as well as compatible domains.
       data_copy_concurrency:
         $ref: ContextResource
-        description: >-
+        description: |-
           Specifies or references a previously defined
           `Context.data_copy_concurrency`.  It is normally more convenient to
           specify a default `~Context.data_copy_concurrency` in the `.context`.

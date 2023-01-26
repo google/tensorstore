@@ -77,13 +77,13 @@ definitions:
     description: |
       The quantity is specified as the combination of:
 
-      - A numerical ``multiplier``, represented as a `double-precision
+      - A numerical :literal:`multiplier`, represented as a `double-precision
         floating-point number
         <https://en.wikipedia.org/wiki/Double-precision_floating-point_format>`_.
         A multiplier of ``1`` may be used to indicate a quanity equal to a
         single base unit.
 
-      - A ``base_unit``, represented as a string.  An empty string may be used
+      - A :literal:`base_unit`, represented as a string.  An empty string may be used
         to indicate a dimensionless quantity.  In general, TensorStore does not
         interpret the base unit string; some drivers impose additional
         constraints on the base unit, while other drivers may store the
@@ -94,15 +94,15 @@ definitions:
 
       Three JSON formats are supported:
 
-      - The canonical format, as a two-element ``[multiplier, base_unit]``
+      - The canonical format, as a two-element :python:`[multiplier, base_unit]`
         array.  This format is always used by TensorStore when returning the
         JSON representation of a unit.
 
       - A single string.  If the string contains a leading number, it is parsed
-        as the ``multiplier`` and the remaining portion, after stripping leading
-        and trailing whitespace, is used as the ``base_unit``.  If there is no
-        leading number, the ``multiplier`` is 1 and the entire string, after
-        stripping leading and trailing whitespace, is used as the ``base_unit``.
+        as the :literal:`multiplier` and the remaining portion, after stripping leading
+        and trailing whitespace, is used as the :literal:`base_unit`.  If there is no
+        leading number, the :literal:`multiplier` is 1 and the entire string, after
+        stripping leading and trailing whitespace, is used as the :literal:`base_unit`.
 
       - A single number, to indicate a dimension-less unit with the specified
         multiplier.

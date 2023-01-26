@@ -1,7 +1,6 @@
 # Packages required to build the documentation.
-sphinx==4.2.0
+sphinx
+sphinx-immaterial
 jsonschema
 pyyaml
-docutils<0.18
-htmlmin
 markupsafe

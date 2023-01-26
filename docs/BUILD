@@ -1,6 +1,5 @@
 load("//bazel:pytype.bzl", "pytype_strict_binary", "pytype_strict_test")
 load("//bazel:pytest.bzl", "tensorstore_pytest_test")
-load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 load("//docs:doctest.bzl", "doctest_test")
 
 package(
@@ -43,49 +42,34 @@ genrule(
     ],
 )
 
-bool_flag(
-    name = "no_minify",
-    build_setting_default = False,
-)
-
-config_setting(
-    name = "no_minify_setting",
-    flag_values = {
-        ":no_minify": "True",
-    },
-    visibility = ["//docs:__subpackages__"],
-)
-
 pytype_strict_test(
     name = "build_docs",
     timeout = "long",
     srcs = ["build_docs.py"],
-    args = select({
-        ":no_minify_setting": ["--no-minify"],
-        "//conditions:default": [],
-    }) + [
+    args = [
         # Treat warnings as errors
         "-W",
         # Keep going after the first warning.
         "--keep-going",
     ],
     data = [":doc_sources"],
+    env = {
+        "TENSORSTORE_SPECIAL_CPU_USER_LIMITS": "forge-00=4",
+    },
     python_version = "PY3",
     tags = [
+        "cpu:4",
         "manual",
         "nosan",
-        "notap",
         "optonly",
+        "requires-net:external",
     ],
     deps = [
-        "//docs/tensorstore_sphinx_ext:autodoc",
-        "//docs/tensorstore_sphinx_ext:autosummary",
         "//docs/tensorstore_sphinx_ext:doctest",
-        "//docs/tensorstore_sphinx_ext:jsonschema_sphinx",
-        "//docs/tensorstore_sphinx_material",
         "//python/tensorstore",
-        "@pypa_htmlmin//:htmlmin",
+        "@pypa_pyyaml//:pyyaml",  # buildcleaner: keep
         "@pypa_sphinx//:sphinx",
+        "@pypa_sphinx_immaterial//:sphinx_immaterial",
     ],
 )
 
@@ -115,7 +99,6 @@ tensorstore_pytest_test(
     ],
     tags = [
         "manual",
-        "notap",
     ],
     tests = ["doctest_test.py"],
     deps = [
@@ -129,8 +112,4 @@ tensorstore_pytest_test(
 doctest_test(
     name = "doctest_test",
     srcs = glob(["python/**/*.rst"]),
-    tags = [
-        "manual",
-        "notap",
-    ],
 )

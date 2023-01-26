@@ -13,7 +13,7 @@ allOf:
         An address of the grpc service.
     timeout:
       type: string
-      description: >-
+      description: |-
         Timeout for requests to the gRPC service.
   required:
   - address

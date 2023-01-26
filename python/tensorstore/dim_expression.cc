@@ -314,9 +314,9 @@ ClsDimExpression MakeDimExpressionClass(py::module m) {
   return ClsDimExpression(m, "DimExpression", R"(
 Specifies an advanced indexing operation.
 
-`Dimension expressions<python-dim-expressions>` permit indexing using
-`dimension labels<dimension-labels>`, and also support additional operations
-that cannot be performed with plain `python-numpy-style-indexing`.
+:ref:`Dimension expressions<python-dim-expressions>` permit indexing using
+:ref:`dimension labels<dimension-labels>`, and also support additional operations
+that cannot be performed with plain :ref:`python-numpy-style-indexing`.
 
 Group:
   Indexing
@@ -457,7 +457,7 @@ dimensions:
 -----------------------------------------------------------
 
 Specifying a value of :py:obj:`.newaxis` (equal to `None`) adds a new
-dummy/singleton dimension with `implicit bounds<implicit-bounds>`
+dummy/singleton dimension with :ref:`implicit bounds<implicit-bounds>`
 :math:`[0, 1)`:
 
    >>> transform = ts.IndexTransform(input_labels=['x', 'y'])
@@ -563,8 +563,8 @@ An indexing spec consisting solely of an `Ellipsis` term has no effect:
 :ref:`Integer array indexing<python-indexing-integer-array>`
 ------------------------------------------------------------
 
-Specifying an `array_like` *index array* of integer values selects the
-coordinates given by the elements of the array of the selected dimension:
+Specifying an `~numpy.typing.ArrayLike` *index array* of integer values selects
+the coordinates given by the elements of the array of the selected dimension:
 
     >>> x = ts.array([[1, 2, 3], [4, 5, 6]], dtype=ts.int32)
     >>> x = x[ts.d[:].label['x', 'y']]
@@ -581,10 +581,10 @@ coordinates given by the elements of the array of the selected dimension:
       },
     })
 
-As in the example above, if only a single
-index array term is specified, the dimensions of the index array are added to
-the result domain in place of the selected dimension, consistent with
-`direct NumPy-style indexing<python-indexing-integer-array>` in the default
+As in the example above, if only a single index array term is specified, the
+dimensions of the index array are added to the result domain in place of the
+selected dimension, consistent with
+:ref:`direct NumPy-style indexing<python-indexing-integer-array>` in the default
 index array mode.
 
 However, when using NumPy-style indexing with a dimension expression, if more
@@ -617,10 +617,9 @@ dimensions are not well-defined for dimension expressions:
 :ref:`Boolean array indexing<python-indexing-boolean-array>`
 ------------------------------------------------------------
 
-Specifying an `array_like` of `bool` values is equivalent to
-specifying a sequence of integer index arrays containing the
-coordinates of `True` values (in C order), e.g. as obtained from
-`numpy.nonzero`:
+Specifying an `~numpy.typing.ArrayLike` of `bool` values is equivalent to
+specifying a sequence of integer index arrays containing the coordinates of
+`True` values (in C order), e.g. as obtained from `numpy.nonzero`:
 
 Specifying a 1-d `bool` array is equivalent to a single index array of the
 non-zero coordinates:
@@ -1345,13 +1344,13 @@ Group:
 ClsDimensionSelection MakeDimensionSelectionClass(py::module m) {
   return ClsDimensionSelection(m, "d",
                                R"(
-Specifies a dimension selection, for starting a `dimension expression<python-dim-expressions>`.
+Specifies a dimension selection, for starting a :ref:`dimension expression<python-dim-expressions>`.
 
 A dimension selection specifies a sequence of dimensions, either by index or
-`label<dimension-labels>`.
+:ref:`label<dimension-labels>`.
 
 :ref:`python-dim-selections` may be used as part of a
-`dimension expression<python-dim-expression-construction>` to specify the
+:ref:`dimension expression<python-dim-expression-construction>` to specify the
 dimensions to which an indexing operation applies.
 
 Group:

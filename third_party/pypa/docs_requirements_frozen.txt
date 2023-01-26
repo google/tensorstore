@@ -1,7 +1,6 @@
 # DO NOT EDIT: Generated from docs_requirements.txt by generate_workspace.py
-sphinx==4.2.0
+sphinx==6.1.3
+sphinx-immaterial==0.11.3
 jsonschema==4.17.3
 pyyaml==6.0
-docutils==0.17.1
-htmlmin==0.1.12
-markupsafe==2.1.1
+markupsafe==2.1.2

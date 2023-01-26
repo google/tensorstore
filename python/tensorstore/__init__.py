@@ -20,7 +20,7 @@ from ._tensorstore import *
 from ._tensorstore import _Decodable
 
 newaxis = None
-"""Alias for `None` used in `indexing expressions<python-indexing>` to specify a new singleton dimension.
+"""Alias for `None` used in :ref:`indexing expressions<python-indexing>` to specify a new singleton dimension.
 
 Example:
 
@@ -41,7 +41,7 @@ Group:
 """
 
 inf: int
-"""Special constant equal to :math:`2^{62}-1` that indicates an unbounded `index domain<index-domain>`.
+"""Special constant equal to :math:`2^{62}-1` that indicates an unbounded :ref:`index domain<index-domain>`.
 
 Example:
 

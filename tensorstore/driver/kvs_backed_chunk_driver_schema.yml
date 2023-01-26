@@ -1,6 +1,6 @@
 $schema: http://json-schema.org/draft-07/schema#
 $id: KeyValueStoreBackedChunkDriver
-description: >-
+description: |-
   Common options supported by all chunked storage drivers.
 allOf:
 - $ref: TensorStore
@@ -10,7 +10,7 @@ allOf:
       oneOf:
       - $ref: KvStore
       - $ref: KvStoreUrl
-      description: >-
+      description: |-
         Specifies the underlying storage mechanism.
     path:
       type: string
@@ -19,50 +19,50 @@ allOf:
       - path/to/data
       deprecated: true
       title: |
-        Additional path within the :json:schema:`KvStore` specified by
+        Additional path within the `KvStore` specified by
         `.kvstore`.
-      description: >-
-        This is joined as an additional :json:`"/"`-separated path component
-        after any :json:schema:`~KvStore.path` member directly within
+      description: |-
+        This is joined as an additional ``"/"``-separated path component
+        after any `~KvStore.path` member directly within
         `.kvstore`.  This is supported for backwards compatibility only; the
-        :json:schema:`KvStore.path` member should be used instead.
+        `KvStore.path` member should be used instead.
     open:
       type: boolean
-      description: >-
+      description: |-
         Open an existing TensorStore.  If neither `.open` nor
-        `.create` is specified, defaults to :json:`true`.
+        `.create` is specified, defaults to ``true``.
     create:
       type: boolean
-      description: >-
-        Create a new TensorStore.  Specify :json:`true` for both `.open`
+      description: |-
+        Create a new TensorStore.  Specify ``true`` for both `.open`
         and `.create` to permit either opening an existing TensorStore
         or creating a new TensorStore if it does not already exist.
       default: false
     delete_existing:
       type: boolean
-      description: >-
+      description: |-
         Delete any existing data at the specified path before creating
         a new TensorStore.  Requires that `.create` is
-        :json:`true`, and that `.open` is :json:`false`.
+        ``true``, and that `.open` is ``false``.
       default: false
     assume_metadata:
       type: boolean
-      description: >-
+      description: |-
         Skip reading the metadata if possible.  Instead, just assume any
         necessary metadata based on constraints in the spec, using the same
         defaults for any unspecified metadata as when creating a new
-        TensorStore.  Requires that `.open` is :json:`true` and that
-        `.delete_existing` is :json:`false`.
-
+        TensorStore.  Requires that `.open` is ``true`` and that
+        `.delete_existing` is ``false``.
+        
         .. warning::
-
+        
            This option can lead to data corruption if the assumed metadata does
            not match the stored metadata, or multiple concurrent writers use
            different assumed metadata.
       default: false
     cache_pool:
       $ref: ContextResource
-      description: >-
+      description: |-
         Specifies or references a previously defined
         `Context.cache_pool`.  It is normally more convenient to
         specify a default `~Context.cache_pool` in the
@@ -70,7 +70,7 @@ allOf:
       default: cache_pool
     data_copy_concurrency:
       $ref: ContextResource
-      description: >-
+      description: |-
         Specifies or references a previously defined
         `Context.data_copy_concurrency`.  It is normally more convenient to
         specify a default `~Context.data_copy_concurrency` in the `.context`.
@@ -83,9 +83,9 @@ allOf:
         metadata older than the specified time is revalidated prior to use.  The
         metadata is used to check the bounds of every read or write operation.
 
-        Specifying :json:`true` means that the metadata will be revalidated
+        Specifying ``true`` means that the metadata will be revalidated
         prior to every read or write operation.  With the default value of
-        :json:`"open"`, any cached metadata is revalidated when the TensorStore
+        ``"open"``, any cached metadata is revalidated when the TensorStore
         is opened but is not rechecked for each read or write operation.
     recheck_cached_data:
       $ref: CacheRevalidationBound
@@ -96,11 +96,11 @@ allOf:
         read operation.  Partial chunk writes are always consistent regardless
         of the value of this option.
 
-        The default value of :json:`true` means that cached data is revalidated
+        The default value of ``true`` means that cached data is revalidated
         on every read.  To enable in-memory data caching, you must both specify
         a `~Context.cache_pool` with a non-zero
-        `~Context.cache_pool.total_bytes_limit` and also specify :json:`false`,
-        :json:`"open"`, or an explicit time bound for `.recheck_cached_data`.
+        `~Context.cache_pool.total_bytes_limit` and also specify ``false``,
+        ``"open"``, or an explicit time bound for `.recheck_cached_data`.
   required:
   - kvstore
 definitions:
@@ -109,17 +109,17 @@ definitions:
     description: Determines under what circumstances cached data is revalidated.
     oneOf:
     - const: true
-      description: >-
+      description: |-
         Revalidate cached data at every operation.
     - const: false
-      description: >-
+      description: |-
         Assume cached data is always fresh and never revalidate.
     - const: open
-      description: >-
+      description: |-
         Revalidate cached data older than the time at which the TensorStore was
         opened.
     - type: number
-      description: >-
+      description: |-
         Revalidate cached data older than the specified time in seconds since
         the unix epoch.
 
