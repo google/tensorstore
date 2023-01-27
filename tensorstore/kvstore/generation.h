@@ -93,6 +93,7 @@ struct StorageGeneration {
   ///
   ///     gen_id + (kBaseGeneration|kNoValue|kDirty)
   std::string value;
+
   // In the case of multiple layers of modifications, e.g. the
   // neuroglancer_precomputed uint64_sharded_key_value_store, where we need to
   // separately track whether an individual chunk within a shard is dirty, but
@@ -331,6 +332,12 @@ struct StorageGeneration {
   constexpr static auto ApplyMembers = [](auto&& x, auto f) {
     return f(x.value);
   };
+
+  /// Abseil hash support.
+  template <typename H>
+  friend H AbslHashValue(H h, const StorageGeneration& x) {
+    return H::combine(std::move(h), x.value);
+  }
 };
 
 /// Combines a local timestamp with a StorageGeneration indicating the local
