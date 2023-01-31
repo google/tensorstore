@@ -296,5 +296,19 @@ Box<> MakeRandomBox(absl::BitGenRef gen, const MakeRandomBoxParameters& p) {
   return box;
 }
 
+Box<> ChooseRandomBoxPosition(absl::BitGenRef gen, BoxView<> outer,
+                              span<const Index> shape) {
+  assert(outer.rank() == shape.size());
+  const DimensionIndex rank = outer.rank();
+  tensorstore::Box<> chunk(rank);
+  for (DimensionIndex i = 0; i < rank; i++) {
+    assert(outer.shape()[i] >= shape[i]);
+    auto origin = absl::Uniform(gen, outer[i].inclusive_min(),
+                                outer[i].exclusive_max() - shape[i]);
+    chunk[i] = IndexInterval::UncheckedSized(origin, shape[i]);
+  }
+  return chunk;
+}
+
 }  // namespace internal
 }  // namespace tensorstore

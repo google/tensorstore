@@ -198,6 +198,9 @@ class DriverRandomOperationTester {
   void TestBasicFunctionality(TransactionMode transaction_mode,
                               size_t num_iterations);
 
+  void TestConcurrentWrites(TransactionMode transaction_mode,
+                            size_t num_iterations);
+
   void TestMultiTransactionWrite(TransactionMode mode, size_t num_transactions,
                                  size_t num_iterations, bool use_random_values);
 
@@ -205,6 +208,67 @@ class DriverRandomOperationTester {
   TensorStoreDriverBasicFunctionalityTestOptions options;
   bool log = true;
 };
+
+// Options for `TestDriverWriteReadChunks`.
+struct TestDriverWriteReadChunksOptions {
+  // Context spec to use when opening `tensorstore_spec`.
+  tensorstore::Context::Spec context_spec;
+  // TensorStore spec to use to open or create the store.
+  tensorstore::Spec tensorstore_spec;
+
+  // Strategy to use for choosing a sequence of chunks.
+  enum Strategy {
+    // Partition the domain into a regular grid with a cell shape of
+    // `chunk_shape`, and select chunks in lexicographic (row major) order.
+    kSequential,
+    // Choose rectangular regions with a shape of `chunk_shape` and randomly
+    // sampled start positions (not aligned to a grid).
+    kRandom,
+  };
+
+  // Strategy to use for choosing which chunks to read and write.
+  Strategy strategy = kRandom;
+
+  // Specifies the chunk shape.  Mutually exclusive with `chunk_bytes`.
+  std::optional<std::vector<Index>> chunk_shape;
+
+  // Specifies the (approximate) number of bytes per chunk.  A chunk shape is
+  // chosen automatically based on this constraint.  Mutually exclusive with
+  // `chunk_shape`.
+  std::optional<size_t> chunk_bytes;
+
+  // Number of bytes to read.  If negative, specifies a multiple of the total
+  // number of bytes within the full domain of the TensorStore.
+  int64_t total_read_bytes = -1;
+
+  // Number of bytes to write.  If negative, specifies a multiple of the total
+  // number of bytes within the full domain of the TensorStore.
+  int64_t total_write_bytes = -2;
+
+  // Number of times to repeat the reads.
+  int64_t repeat_reads = 1;
+
+  // Number of times to repeat the writes.
+  int64_t repeat_writes = 1;
+};
+
+// Tests concurrently reading and/or writing multiple chunks.
+absl::Status TestDriverWriteReadChunks(
+    absl::BitGenRef gen, const TestDriverWriteReadChunksOptions& options);
+
+// Tests concurrently reading or writing multiple chunks.
+//
+// Args:
+//   gen: Random source.
+//   ts: TensorStore on which to operate.
+//   chunk_shape: Chunk shape to use.
+//   total_bytes: (Approximate) total number of bytes to read/write.
+//   strategy: Strategy for selecting chunks to read or write.
+//   read: If `true`, perform reads.  If `false`, perform fwrites.
+absl::Status TestDriverReadOrWriteChunks(
+    absl::BitGenRef gen, tensorstore::TensorStore<> ts,
+    span<const Index> chunk_shape, int64_t total_bytes,
+    TestDriverWriteReadChunksOptions::Strategy strategy, bool read);
 
 void TestTensorStoreCreateWithSchemaImpl(::nlohmann::json json_spec,
                                          const Schema& schema);

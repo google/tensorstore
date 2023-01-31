@@ -1,4 +1,3 @@
-load("//tools/build_defs/license:license.bzl", "license")
 load(
     "//bazel:pybind11.bzl",
     "pybind11_cc_googletest_test",
@@ -10,15 +9,7 @@ load("//bazel:pytype.bzl", "pytype_strict_binary")
 load("//bazel:tensorstore.bzl", "tensorstore_cc_library")
 load("//docs:doctest.bzl", "doctest_test")
 
-package(
-    default_applicable_licenses = ["//python/tensorstore:license"],
-    default_visibility = ["//visibility:public"],
-)
-
-license(
-    name = "license",
-    package_name = "tensorstore",
-)
+package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 

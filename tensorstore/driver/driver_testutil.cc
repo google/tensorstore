@@ -36,6 +36,7 @@
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/execution/sync_flow_sender.h"
+#include "tensorstore/util/iterate_over_index_range.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -394,6 +395,214 @@ void DriverRandomOperationTester::TestMultiTransactionWrite(
                                      Read(store).result());
     options.compare_arrays(expected_value, read_full_result);
   }
+}
+
+void DriverRandomOperationTester::TestConcurrentWrites(
+    TransactionMode transaction_mode, size_t num_iterations) {
+  SCOPED_TRACE(tensorstore::StrCat("create_spec=", options.create_spec));
+  Transaction transaction(transaction_mode);
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::Open(options.create_spec, context, transaction,
+                                    tensorstore::OpenMode::create)
+                      .result());
+  ASSERT_EQ(options.expected_domain, store.domain());
+  // Create random rank-0 array (containing just a single value).
+  auto random_array = MakeRandomArray(gen, Box<>(), store.dtype());
+  auto [promise, future] = PromiseFuturePair<void>::Make(absl::Status());
+  // Perform `num_iterations` concurrent writes.
+  for (std::size_t i = 0; i < num_iterations; ++i) {
+    auto transform = GetRandomTransform(gen, options.expected_domain);
+    LinkError(
+        promise,
+        tensorstore::Write(random_array, store | transform).commit_future);
+  }
+  promise = {};
+  // Wait for writes to complete.
+  TENSORSTORE_ASSERT_OK(future);
+}
+
+absl::Status TestDriverWriteReadChunks(
+    absl::BitGenRef gen, const TestDriverWriteReadChunksOptions& options) {
+  Context context(options.context_spec);
+  const auto is_write = options.total_write_bytes != 0;
+  tensorstore::OpenMode open_mode = is_write
+                                        ? tensorstore::OpenMode::open_or_create
+                                        : tensorstore::OpenMode::open;
+
+  tensorstore::ReadWriteMode read_write_mode =
+      is_write ? tensorstore::ReadWriteMode::read_write
+               : tensorstore::ReadWriteMode::read;
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto ts, tensorstore::Open(options.tensorstore_spec, context, open_mode,
+                                 read_write_mode)
+                   .result());
+  ABSL_LOG(INFO) << "ts_spec=" << ts.spec().value();
+
+  Index chunk_shape[kMaxRank] = {0};
+  if (options.chunk_shape) {
+    // --chunk_size holds a list of shapes. Any unspecified shape
+    // elements are defaulted to the tensorstore domain shape
+    if (options.chunk_shape->size() > ts.rank()) {
+      return absl::InvalidArgumentError(
+          "chunk_shape exceeds the TensorStore rank.");
+    }
+    std::copy(options.chunk_shape->begin(), options.chunk_shape->end(),
+              chunk_shape);
+    for (DimensionIndex i = 0; i < ts.rank(); i++) {
+      if (chunk_shape[i] == 0) {
+        // fallback to domain shape.
+        chunk_shape[i] = ts.domain().shape()[i];
+      }
+    }
+  } else if (options.chunk_bytes) {
+    // --chunk_size holds a single value. BenchmarkChunkShape selects the
+    // shape with a hypercube side ratio as close to 1 as possible
+    // (--chunk_size is assumed to be bytes; convert to number of
+    // elements).
+    TENSORSTORE_RETURN_IF_ERROR(tensorstore::internal::ChooseChunkShape(
+        /*shape_constraints=*/tensorstore::ChunkLayout::GridView(
+            tensorstore::ChunkLayout::ChunkElementsBase(
+                *options.chunk_bytes / ts.dtype().size(), false)),
+        ts.domain().box(), span<Index>(chunk_shape, ts.rank())));
+  } else {
+    return absl::InvalidArgumentError(
+        "--chunk_shape or --chunk_bytes must be set.");
+  }
+
+  ABSL_LOG(INFO) << "read/write shape " << span(chunk_shape, ts.rank());
+
+  ABSL_LOG(INFO) << "Starting writes: " << options.repeat_writes;
+  for (int64_t i = 0; i < options.repeat_writes; i++) {
+    TENSORSTORE_RETURN_IF_ERROR(
+        TestDriverReadOrWriteChunks(gen, ts, span(chunk_shape, ts.rank()),
+                                    options.total_write_bytes, options.strategy,
+                                    /*read=*/false));
+  }
+
+  ABSL_LOG(INFO) << "Starting reads: " << options.repeat_reads;
+  for (int64_t i = 0; i < options.repeat_reads; i++) {
+    TENSORSTORE_RETURN_IF_ERROR(
+        TestDriverReadOrWriteChunks(gen, ts, span(chunk_shape, ts.rank()),
+                                    options.total_read_bytes, options.strategy,
+                                    /*read=*/true));
+  }
+  return absl::OkStatus();
+}
+
+namespace {
+
+void ForEachChunk(BoxView<> domain, DataType dtype, absl::BitGenRef gen,
+                  span<const Index> chunk_shape, int64_t total_bytes,
+                  TestDriverWriteReadChunksOptions::Strategy strategy,
+                  absl::FunctionRef<void(BoxView<> box)> callback) {
+  if (total_bytes == 0) return;
+
+  const DimensionIndex rank = domain.rank();
+  assert(rank == chunk_shape.size());
+  Index range_extent[kMaxRank] = {};
+  for (size_t i = 0; i < rank; i++) {
+    range_extent[i] = domain.shape()[i] / chunk_shape[i];
+  }
+
+  const int64_t chunk_bytes = ProductOfExtents(chunk_shape) * dtype.size();
+
+  switch (strategy) {
+    case TestDriverWriteReadChunksOptions::kSequential: {
+      // Sequential writes.
+      int64_t current_bytes = 0;
+      Box<> target(rank);
+
+      while (current_bytes < total_bytes) {
+        IterateOverIndexRange(
+            span(range_extent, rank), [&](span<const Index> indices) -> bool {
+              for (DimensionIndex i = 0; i < rank; i++) {
+                target[i] = IndexInterval::UncheckedSized(
+                    indices[i] * chunk_shape[i], chunk_shape[i]);
+              }
+              callback(target);
+              current_bytes += chunk_bytes;
+              return current_bytes < total_bytes;
+            });
+      }
+      break;
+    }
+    case TestDriverWriteReadChunksOptions::kRandom: {
+      // random writes
+      for (int64_t i = 0; i < total_bytes; i += chunk_bytes) {
+        callback(ChooseRandomBoxPosition(gen, domain, chunk_shape));
+      }
+      break;
+    }
+    default:
+      ABSL_LOG(FATAL) << "Invalid strategy";
+  }
+}
+
+}  // namespace
+
+absl::Status TestDriverReadOrWriteChunks(
+    absl::BitGenRef gen, tensorstore::TensorStore<> ts,
+    span<const Index> chunk_shape, int64_t total_bytes,
+    TestDriverWriteReadChunksOptions::Strategy strategy, bool read) {
+  if (total_bytes == 0) return absl::OkStatus();
+
+  if (total_bytes < 0) {
+    total_bytes = ts.domain().num_elements() * ts.dtype().size() * -total_bytes;
+  }
+
+  const auto rank = ts.rank();
+  Index range_extent[kMaxRank] = {};
+  for (size_t i = 0; i < rank; i++) {
+    range_extent[i] = ts.domain().shape()[i] / chunk_shape[i];
+  }
+
+  SharedOffsetArray<const void> array;
+  if (!read) {
+    array = MakeRandomArray(gen, tensorstore::Box<>(chunk_shape), ts.dtype());
+  }
+  const int64_t array_size = array.num_elements() * ts.dtype().size();
+
+  // Record the bytes and chunks completed.
+  std::atomic<int64_t> bytes_completed = 0;
+  std::atomic<int64_t> chunks_completed = 0;
+  auto value_lambda = [&, sz = array_size](Promise<void> a_promise,
+                                           AnyFuture a_future) {
+    bytes_completed.fetch_add(sz);
+    chunks_completed.fetch_add(1);
+  };
+
+  auto start_time = absl::Now();
+  auto op = PromiseFuturePair<void>::Make(absl::OkStatus());
+  ForEachChunk(
+      ts.domain().box(), ts.dtype(), gen, chunk_shape, total_bytes, strategy,
+      [&](BoxView<> target) {
+        if (read) {
+          LinkValue(value_lambda, op.promise,
+                    Read(ts | AllDims().BoxSlice(target).TranslateTo(0)));
+
+        } else {
+          LinkValue(value_lambda, op.promise,
+                    Write(array, ts | AllDims().BoxSlice(target).TranslateTo(0))
+                        .commit_future);
+        }
+      });
+
+  // Wait until all operations complete.
+  op.promise = {};
+  TENSORSTORE_RETURN_IF_ERROR(op.future.result());
+
+  auto elapsed_s =
+      absl::FDivDuration(absl::Now() - start_time, absl::Seconds(1));
+  double bytes_mb = static_cast<double>(bytes_completed.load()) / 1e6;
+
+  ABSL_LOG(INFO) << (read ? "Read" : "Write") << " summary: "
+                 << absl::StrFormat(
+                        "%d bytes in %.0f ms:  %.3f MB/second (%d chunks)",
+                        bytes_completed.load(), elapsed_s * 1e3,
+                        bytes_mb / elapsed_s, chunks_completed.load());
+
+  return absl::OkStatus();
 }
 
 void RegisterTensorStoreDriverBasicFunctionalityTest(

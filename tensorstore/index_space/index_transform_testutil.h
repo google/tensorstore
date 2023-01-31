@@ -110,6 +110,10 @@ struct MakeRandomBoxParameters {
 /// Generates a random box with the specified constraints.
 Box<> MakeRandomBox(absl::BitGenRef gen, const MakeRandomBoxParameters& p = {});
 
+/// Chooses a random box of the specified `shape` within `outer`.
+Box<> ChooseRandomBoxPosition(absl::BitGenRef gen, BoxView<> outer,
+                              span<const Index> shape);
+
 }  // namespace internal
 }  // namespace tensorstore
 

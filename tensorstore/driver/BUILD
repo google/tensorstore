@@ -195,6 +195,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:queue_testutil",
         "//tensorstore/internal:source_location",
         "//tensorstore/internal:test_util",
+        "//tensorstore/util:iterate_over_index_range",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",
         "//tensorstore/util/execution:sync_flow_sender",
