@@ -374,10 +374,12 @@ class TransactionNodeDestroyer {
       entry.flags_ |= Entry::kSizeChanged;
       entry.write_state_size_ -=
           (node.write_state_size_ + node.read_request_state_.read_state_size);
-      if (entry.implicit_transaction_node_.tag()) {
+      if (entry.implicit_transaction_node_
+              .tag<AsyncCache::Entry::kImplicitTransactionCommitBlock>()) {
         commit_block_to_release_.reset(
             entry.implicit_transaction_node_->transaction());
-        entry.implicit_transaction_node_.set_tag(0);
+        entry.implicit_transaction_node_
+            .set_tag<AsyncCache::Entry::kImplicitTransactionCommitBlock>(0);
         assert(entry.num_implicit_transactions_ <= 2);
       }
       if (entry.implicit_transaction_node_.get() == &node) {
@@ -505,7 +507,8 @@ void AsyncCache::DoRequestWriteback(PinnedEntry base_entry) {
   WeakTransactionNodePtr<TransactionNode> implicit_transaction_node;
   {
     UniqueWriterLock lock(entry);
-    if (entry.implicit_transaction_node_) {
+    if (entry.implicit_transaction_node_
+            .tag<Entry::kImplicitTransactionInitialized>()) {
       implicit_transaction_node.reset(entry.implicit_transaction_node_.get());
     } else {
       return;
@@ -554,7 +557,8 @@ void AsyncCache::TransactionNode::PrepareForCommit() {
   }
   if (this == entry.implicit_transaction_node_.get()) {
     // Commit block must have been released.
-    assert(entry.implicit_transaction_node_.tag() == 0);
+    assert(entry.implicit_transaction_node_
+               .tag<Entry::kImplicitTransactionCommitBlock>() == 0);
     entry.implicit_transaction_node_ = nullptr;
     entry.flags_ |= Entry::kMarkWritebackRequested;
   }
@@ -656,14 +660,17 @@ AsyncCache::Entry::GetTransactionNodeImpl(OpenTransactionPtr& transaction) {
       } else if (implicit_transaction) {
         UniqueWriterLock lock(entry);
         if (entry.ShareImplicitTransactionNodes()) {
+          assert(entry.implicit_transaction_node_.get() == &node);
+          entry.implicit_transaction_node_
+              .set_tag<kImplicitTransactionInitialized>(1);
           if (++entry.num_implicit_transactions_ != 1) {
             // Prevent this new implicit transaction from being committed until
             // the existing implicit transaction has been committed, in order to
             // avoid a build-up of implicit transactions, which would waste
             // memory.
             node.transaction()->AcquireCommitBlock();
-            assert(entry.implicit_transaction_node_.get() == &node);
-            entry.implicit_transaction_node_.set_tag(1);
+            entry.implicit_transaction_node_
+                .set_tag<kImplicitTransactionCommitBlock>(1);
             assert(entry.num_implicit_transactions_ == 2);
           }
           entry.flags_ |= Entry::kStateChanged;
@@ -688,7 +695,8 @@ AsyncCache::Entry::GetTransactionNodeImpl(OpenTransactionPtr& transaction) {
           // Allocate new implicit transaction node if there is not already one.
           if (!implicit_transaction_node_ ||
               implicit_transaction_node_.get() == stale_node.get()) {
-            if (implicit_transaction_node_.tag()) {
+            if (implicit_transaction_node_
+                    .tag<kImplicitTransactionCommitBlock>()) {
               release_commit_block = true;
             }
             implicit_transaction_node_ =

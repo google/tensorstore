@@ -856,4 +856,48 @@ TEST_F(MockStoreTest, MultipleKeyValueStoreAtomicError) {
   }
 }
 
+// MockKeyValueStore that calls an arbitrary function before invoking the normal
+// `ReadModifyWrite` function.
+//
+// Since this is called while initializing a `KvsBackedCache::TransactionNode`,
+// it can be used to test for initialization-related race conditions.
+class InitializationRaceTestingKvstore : public MockKeyValueStore {
+ public:
+  std::function<void()> on_read_modify_write;
+
+  absl::Status ReadModifyWrite(
+      tensorstore::internal::OpenTransactionPtr& transaction, size_t& phase,
+      Key key, ReadModifyWriteSource& source) override {
+    if (on_read_modify_write) on_read_modify_write();
+    return MockKeyValueStore::ReadModifyWrite(transaction, phase,
+                                              std::move(key), source);
+  }
+};
+
+// Tests that `AsyncCache::DoRequestWriteback` on an entry can be safely called
+// before the entry's `implicit_transaction_node_` has been fully initialized.
+TEST(InitializeTest, Basic) {
+  auto mock_kvstore = tensorstore::internal::MakeIntrusivePtr<
+      InitializationRaceTestingKvstore>();
+  CachePool::StrongPtr pool = CachePool::Make(CachePool::Limits{});
+  kvstore::DriverPtr memory_store = tensorstore::GetMemoryKeyValueStore();
+  auto cache = pool->GetCache<KvsBackedTestCache>(
+      "", [&] { return std::make_unique<KvsBackedTestCache>(mock_kvstore); });
+  auto entry = GetCacheEntry(cache, "a");
+  mock_kvstore->on_read_modify_write = [&] {
+    cache->DoRequestWriteback(entry);
+  };
+
+  {
+    Transaction transaction{tensorstore::no_transaction};
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto open_transaction,
+        tensorstore::internal::AcquireOpenTransactionPtrOrError(transaction));
+    TENSORSTORE_ASSERT_OK(entry->Modify(open_transaction, true, "abc"));
+  }
+
+  auto req = mock_kvstore->write_requests.pop();
+  req(memory_store);
+}
+
 }  // namespace

@@ -475,9 +475,18 @@ class AsyncCache : public Cache {
     /// The current implicit transaction node used for non-transactional writes.
     /// There may be additional implicit transactions in flight.
     ///
-    /// The tag bit is set to 1 if this entry has acquired a commit block on
-    /// `implicit_transaction_node->transaction()`.
-    internal::TaggedPtr<TransactionNode, 1> implicit_transaction_node_;
+    /// See `kImplicitTransactionCommitBlock` and
+    /// `kImplicitTransactionInitialized` for the meaning of the tag bits.
+    internal::TaggedPtr<TransactionNode, 2> implicit_transaction_node_;
+
+    /// Specifies the bit of `implicit_transaction_node_.tag()` that indicates
+    /// whether this entry has acquired a commit block on
+    /// `implicit_transaction_node_->transaction()`.
+    constexpr static size_t kImplicitTransactionCommitBlock = 0;
+
+    /// Specifies the bit of `implicit_transaction_node_.tag()` that indicates
+    /// whether `implicit_transaction_node_->SetTransaction` has been called.
+    constexpr static size_t kImplicitTransactionInitialized = 1;
 
     using TransactionTree =
         internal::intrusive_red_black_tree::Tree<TransactionNode,
