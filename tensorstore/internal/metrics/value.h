@@ -134,6 +134,11 @@ class ABSL_CACHELINE_ALIGNED Value {
     return impl_.CollectCells(on_cell);
   }
 
+  /// Expose an individual cell, which avoids frequent lookups.
+  Cell& GetCell(typename FieldTraits<Fields>::param_type... labels) {
+    return *impl_.GetCell(labels...);
+  }
+
  private:
   Value(std::string metric_name, MetricMetadata metadata,
         typename Impl::field_names_type field_names)

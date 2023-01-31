@@ -90,9 +90,11 @@ tensorstore_cc_library(
 
 tensorstore_cc_library(
     name = "kvs_backed_cache",
+    srcs = ["kvs_backed_cache.cc"],
     hdrs = ["kvs_backed_cache.h"],
     deps = [
         ":async_cache",
+        "//tensorstore/internal/metrics",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:generation",
         "//tensorstore/util:assert_macros",

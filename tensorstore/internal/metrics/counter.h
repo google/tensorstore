@@ -93,7 +93,7 @@ class ABSL_CACHELINE_ALIGNED Counter {
 
   /// Increment the counter by 1.
   void Increment(typename FieldTraits<Fields>::param_type... labels) {
-    impl_.GetCell(labels...)->IncrementBy(1);
+    impl_.GetCell(labels...)->Increment();
   }
 
   /// Increment the counter by value (must be > 0).
@@ -135,6 +135,11 @@ class ABSL_CACHELINE_ALIGNED Counter {
     return impl_.CollectCells(on_cell);
   }
 
+  /// Expose an individual cell, which avoids frequent lookups.
+  Cell& GetCell(typename FieldTraits<Fields>::param_type... labels) {
+    return *impl_.GetCell(labels...);
+  }
+
  private:
   Counter(std::string metric_name, MetricMetadata metadata,
           typename Impl::field_names_type field_names)
@@ -163,6 +168,8 @@ class ABSL_CACHELINE_ALIGNED CounterCell<double> : public CounterTag {
     }
   }
 
+  void Increment() { IncrementBy(1); }
+
   double Get() const { return value_; }
 
  private:
@@ -180,6 +187,8 @@ class ABSL_CACHELINE_ALIGNED CounterCell<int64_t> : public CounterTag {
     if (value <= 0) return;
     value_.fetch_add(value);
   }
+
+  void Increment() { IncrementBy(1); }
 
   int64_t Get() const { return value_; }
 

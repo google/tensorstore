@@ -44,6 +44,11 @@
 namespace tensorstore {
 namespace internal {
 
+/// KvsBackedCache metric increment functions.
+void KvsBackedCache_IncrementReadUnchangedMetric();
+void KvsBackedCache_IncrementReadChangedMetric();
+void KvsBackedCache_IncrementReadErrorMetric();
+
 /// Base class that integrates an `AsyncCache` with a `kvstore::Driver`.
 ///
 /// Each cache entry is assumed to correspond one-to-one with a key in a
@@ -53,18 +58,20 @@ namespace internal {
 /// `KvsBackedCache<Parent>`, where `Parent` is the desired base class.  The
 /// derived class is responsible for defining:
 ///
-/// 1. `DoDecode`, which decodes an `std::optional<absl::Cord>` read from the
-///   `kvstore::Driver` into an `std::shared_ptr<const ReadData>` object (see
-///   `DoDecode`);
+/// 1. `DoDecode`, which decodes an `std::optional<absl::Cord>` read from
+///    the `kvstore::Driver` into an `std::shared_ptr<const ReadData>` object
+///    (see `DoDecode`);
 ///
 /// 2. (if writing is supported) `DoEncode`, which encodes an
 ///    `std::shared_ptr<const ReadData>` object into an
-///    `std::optional<absl::Cord>` to write it back to the `kvstore::Driver`.
+///    `std::optional<absl::Cord>` to write it back to the
+///    `kvstore::Driver`.
 ///
 /// 3. overrides `GetKeyValueStoreKey` if necessary.
 ///
-/// This class takes care of reading from and writing to the `kvstore::Driver`,
-/// and handling the timestamps and `StorageGeneration` values.
+/// This class takes care of reading from and writing to the
+/// `kvstore::Driver`, and handling the timestamps and `StorageGeneration`
+/// values.
 ///
 /// \tparam Parent Parent class, must inherit from (or equal) `AsyncCache`.
 template <typename Derived, typename Parent>
@@ -98,6 +105,24 @@ class KvsBackedCache : public Parent {
     }
 
     template <typename EntryOrNode>
+    struct DecodeReceiverImpl {
+      EntryOrNode* self_;
+      TimestampedStorageGeneration stamp_;
+      void set_error(absl::Status error) {
+        self_->ReadError(
+            GetOwningEntry(*self_).AnnotateError(error,
+                                                 /*reading=*/true));
+      }
+      void set_cancel() { set_error(absl::CancelledError("")); }
+      void set_value(std::shared_ptr<const void> data) {
+        AsyncCache::ReadState read_state;
+        read_state.stamp = std::move(stamp_);
+        read_state.data = std::move(data);
+        self_->ReadSuccess(std::move(read_state));
+      }
+    };
+
+    template <typename EntryOrNode>
     struct ReadReceiverImpl {
       EntryOrNode* entry_or_node_;
       std::shared_ptr<const void> existing_read_data_;
@@ -106,6 +131,7 @@ class KvsBackedCache : public Parent {
           ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
               << *entry_or_node_
               << "Value has not changed, stamp=" << read_result.stamp;
+          KvsBackedCache_IncrementReadUnchangedMetric();
           // Value has not changed.
           entry_or_node_->ReadSuccess(AsyncCache::ReadState{
               std::move(existing_read_data_), std::move(read_result.stamp)});
@@ -113,28 +139,14 @@ class KvsBackedCache : public Parent {
         }
         ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
             << *entry_or_node_ << "DoDecode: " << read_result.stamp;
-        struct DecodeReceiverImpl {
-          EntryOrNode* self_;
-          TimestampedStorageGeneration stamp_;
-          void set_error(absl::Status error) {
-            self_->ReadError(
-                GetOwningEntry(*self_).AnnotateError(error,
-                                                     /*reading=*/true));
-          }
-          void set_cancel() { set_error(absl::CancelledError("")); }
-          void set_value(std::shared_ptr<const void> data) {
-            AsyncCache::ReadState read_state;
-            read_state.stamp = std::move(stamp_);
-            read_state.data = std::move(data);
-            self_->ReadSuccess(std::move(read_state));
-          }
-        };
+        KvsBackedCache_IncrementReadChangedMetric();
         GetOwningEntry(*entry_or_node_)
             .DoDecode(std::move(read_result).optional_value(),
-                      DecodeReceiverImpl{entry_or_node_,
-                                         std::move(read_result.stamp)});
+                      DecodeReceiverImpl<EntryOrNode>{
+                          entry_or_node_, std::move(read_result.stamp)});
       }
       void set_error(absl::Status error) {
+        KvsBackedCache_IncrementReadErrorMetric();
         entry_or_node_->ReadError(GetOwningEntry(*entry_or_node_)
                                       .AnnotateError(error, /*reading=*/true));
       }

@@ -94,7 +94,7 @@ class ABSL_CACHELINE_ALIGNED Gauge {
 
   /// Increment the counter by 1.
   void Increment(typename FieldTraits<Fields>::param_type... labels) {
-    impl_.GetCell(labels...)->IncrementBy(1);
+    impl_.GetCell(labels...)->Increment();
   }
 
   /// Increment the counter by value .
@@ -105,7 +105,7 @@ class ABSL_CACHELINE_ALIGNED Gauge {
 
   /// Decrement the counter by 1.
   void Decrement(typename FieldTraits<Fields>::param_type... labels) {
-    impl_.GetCell(labels...)->DecrementBy(1);
+    impl_.GetCell(labels...)->Decrement();
   }
   /// Decrement the counter by value .
   void DecrementBy(value_type value,
@@ -157,6 +157,11 @@ class ABSL_CACHELINE_ALIGNED Gauge {
     return impl_.CollectCells(on_cell);
   }
 
+  /// Expose an individual cell, which avoids frequent lookups.
+  Cell& GetCell(typename FieldTraits<Fields>::param_type... labels) {
+    return *impl_.GetCell(labels...);
+  }
+
  private:
   Gauge(std::string metric_name, MetricMetadata metadata,
         typename Impl::field_names_type field_names)
@@ -191,6 +196,9 @@ class ABSL_CACHELINE_ALIGNED GaugeCell<double> : public GaugeTag {
     SetMax(value);
   }
 
+  void Increment() { IncrementBy(1); }
+  void Decrement() { DecrementBy(1); }
+
   double Get() const { return value_; }
   double GetMax() const { return max_; }
 
@@ -222,6 +230,9 @@ class ABSL_CACHELINE_ALIGNED GaugeCell<int64_t> : public GaugeTag {
     value_ = value;
     SetMax(value);
   }
+
+  void Increment() { IncrementBy(1); }
+  void Decrement() { DecrementBy(1); }
 
   int64_t Get() const { return value_; }
   int64_t GetMax() const { return max_; }
