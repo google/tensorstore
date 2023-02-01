@@ -100,18 +100,20 @@ tensorstore_cc_test(
     ],
 )
 
-cc_test(
-    name = "image_stack_test",
-    srcs = ["image_stack_test.cc"],
+tensorstore_cc_test(
+    name = "integration_test",
+    srcs = ["integration_test.cc"],
     deps = [
         ":stack",  # build_cleaner: keep
         "//tensorstore",
         "//tensorstore:array_testutil",
         "//tensorstore:context",
+        "//tensorstore:data_type",
         "//tensorstore:index",
         "//tensorstore:open",
         "//tensorstore:progress",
         "//tensorstore/driver/image/png",  # build_cleaner: keep
+        "//tensorstore/driver/neuroglancer_precomputed",  # build_cleaner: keep
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore/memory",  # build_cleaner: keep

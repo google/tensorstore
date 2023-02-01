@@ -594,6 +594,13 @@ Result<IndexDomain<>> IntersectIndexDomains(IndexDomainView<> a,
 Result<IndexDomain<>> ConstrainIndexDomain(IndexDomainView<> a,
                                            IndexDomainView<> b);
 
+/// Returns `true` if all dimensions of `domain` have finite bounds.
+///
+/// \relates IndexDomain
+inline bool IsFinite(IndexDomainView<> domain) {
+  return IsFinite(domain.box());
+}
+
 namespace internal_index_space {
 std::string DescribeDomainForCast(DimensionIndex rank);
 }  // namespace internal_index_space

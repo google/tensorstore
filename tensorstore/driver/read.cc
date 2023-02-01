@@ -202,6 +202,13 @@ struct DriverReadIntoNewInitiateOp {
                   ReadyFuture<IndexTransform<>> source_transform_future) {
     IndexTransform<> source_transform =
         std::move(source_transform_future.value());
+
+    if (!IsFinite(source_transform.domain())) {
+      promise.SetResult(absl::InvalidArgumentError(tensorstore::StrCat(
+          "Read requires a finite domain, got ", source_transform.domain())));
+      return;
+    }
+
     auto array = AllocateArray(source_transform.domain().box(),
                                target_layout_order, default_init, target_dtype);
     auto& r = promise.raw_result() = std::move(array);

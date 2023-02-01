@@ -48,6 +48,8 @@ std::ostream& operator<<(std::ostream& os, DataType r) {
 
 void* AllocateAndConstruct(std::ptrdiff_t n,
                            ElementInitialization initialization, DataType r) {
+  assert(n >= 0);
+  assert(n < kInfSize);
   std::size_t alignment =
       RoundUpTo(static_cast<std::size_t>(r->alignment), sizeof(void*));
   std::size_t total_size =

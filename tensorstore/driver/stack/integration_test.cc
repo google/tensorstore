@@ -23,6 +23,7 @@
 #include <nlohmann/json.hpp>
 #include "tensorstore/array_testutil.h"
 #include "tensorstore/context.h"
+#include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -112,7 +113,7 @@ static constexpr unsigned char kPng[] = {
     0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
 };
 
-class ImageDriverReadTest : public ::testing::Test {
+class ImageDriverIntegrationTest : public ::testing::Test {
  public:
   tensorstore::Result<tensorstore::Context> PrepareTest() {
     absl::Cord data = absl::MakeCordFromExternal(
@@ -132,7 +133,7 @@ class ImageDriverReadTest : public ::testing::Test {
   }
 };
 
-TEST_F(ImageDriverReadTest, OpenImageStack) {
+TEST_F(ImageDriverIntegrationTest, OpenImageStack) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto context, PrepareTest());
 
   ::nlohmann::json spec{
@@ -182,7 +183,7 @@ TEST_F(ImageDriverReadTest, OpenImageStack) {
                                    tensorstore::Read<>(store).result());
 }
 
-TEST_F(ImageDriverReadTest, Transform) {
+TEST_F(ImageDriverIntegrationTest, Transform) {
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto context, PrepareTest());
 
@@ -261,6 +262,145 @@ TEST_F(ImageDriverReadTest, Transform) {
 
     EXPECT_EQ(d.domain(), tensorstore::BoxView({0}, {2}));
     EXPECT_THAT(d, (tensorstore::MatchesArray<uint8_t, 2>({44, 102})));
+  }
+}
+
+TEST(IntegrationTest, NeuroglancerPrecomputed_InferredDTypeAndDomain) {
+  auto context = tensorstore::Context::Default();
+
+  ::nlohmann::json spec{
+      {"driver", "stack"},
+      {
+          "layers",
+          {
+              {
+                  {"driver", "neuroglancer_precomputed"},
+                  {"kvstore",
+                   {
+                       {"driver", "memory"},
+                   }},
+                  {"multiscale_metadata",
+                   {
+                       {"data_type", "int32"},
+                       {"num_channels", 3},
+                       {"type", "image"},
+                   }},
+                  {"scale_metadata",
+                   {
+                       {"resolution", {1, 1, 1}},
+                       {"encoding", "raw"},
+                       {"chunk_size", {2, 2, 2}},
+                       {"size", {16, 16, 1}},
+                   }},
+                  {"create", true},
+              },
+          },
+      },
+  };
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, (tensorstore::Open(spec, context, tensorstore::OpenMode::open,
+                                     tensorstore::ReadWriteMode::read)
+                       .result()));
+  EXPECT_EQ(store.dtype(), tensorstore::dtype_t<std::int32_t>());
+  EXPECT_THAT(store.domain().origin(), ::testing::ElementsAre(0, 0, 0, 0));
+  EXPECT_THAT(store.domain().shape(), ::testing::ElementsAre(16, 16, 1, 3));
+}
+
+TEST(IntegrationTest, NeuroglancerPrecomputed) {
+  auto context = tensorstore::Context::Default();
+
+  // Create a neuroglancer_precomputed tensorstore for later use.
+  {
+    ::nlohmann::json spec{
+        {"driver", "neuroglancer_precomputed"},
+        {"kvstore",
+         {
+             {"driver", "memory"},
+         }},
+        {"multiscale_metadata",
+         {
+             {"data_type", "int32"},
+             {"num_channels", 3},
+             {"type", "image"},
+         }},
+        {"scale_metadata",
+         {
+             {"resolution", {1, 1, 1}},
+             {"encoding", "raw"},
+             {"chunk_size", {2, 2, 2}},
+             {"size", {16, 16, 3}},
+         }},
+        {"create", true},
+    };
+
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store, (tensorstore::Open(spec, context,
+                                       tensorstore::OpenMode::open |
+                                           tensorstore::OpenMode::create,
+                                       tensorstore::ReadWriteMode::read_write)
+                         .result()));
+  }
+
+  // Missing dtype.
+  {
+    ::nlohmann::json spec{
+        {"driver", "stack"},
+        {
+            "layers",
+            {
+                {
+                    {"driver", "neuroglancer_precomputed"},
+                    {"kvstore",
+                     {
+                         {"driver", "memory"},
+                     }},
+                    {
+                        "transform",
+                        {
+                            {"input_inclusive_min", {0, 0, 0, 0}},
+                            {"input_exclusive_max", {16, 16, 1, 3}},
+                        },
+                    },
+                },
+            },
+        },
+    };
+    EXPECT_THAT(tensorstore::Open(spec, context).result(),
+                tensorstore::MatchesStatus(
+                    absl::StatusCode::kInvalidArgument,
+                    ".*Unable to infer \"dtype\" in \"stack\" driver.*"));
+  }
+
+  // Missing transform results in an unbounded domain, which may be opened,
+  // however reading the entire tensorstore will fail.
+  {
+    ::nlohmann::json spec{
+        {"driver", "stack"},
+        {
+            "layers",
+            {
+                {
+                    {"driver", "neuroglancer_precomputed"},
+                    {"dtype", "int32"},
+                    {"kvstore",
+                     {
+                         {"driver", "memory"},
+                     }},
+                },
+            },
+        },
+    };
+
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store, (tensorstore::Open(spec, context,
+                                       tensorstore::OpenMode::open |
+                                           tensorstore::OpenMode::create,
+                                       tensorstore::ReadWriteMode::read_write)
+                         .result()));
+
+    EXPECT_THAT(tensorstore::Read(store).result(),
+                tensorstore::MatchesStatus(absl::StatusCode::kInvalidArgument));
   }
 }
 

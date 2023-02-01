@@ -100,8 +100,7 @@ using ::tensorstore::internal::WriteChunk;
 //
 // To implement fill_value, we may need to do the following:
 // 1. In the unspecified case, convert the datatype in GetFillValue() from
-// `json`
-//    to the dtype of the driver.
+//    `json` to the dtype of the driver.
 // 2. Clean the options when propagating them to each layer. Some layers error
 //    when fill_value is set.
 // 3. Handle missing cells on read (see UnmappedReadOp) to submit chunks for
@@ -358,6 +357,11 @@ Future<internal::Driver::Handle> StackDriverSpec::Open(
   if (read_write_mode == ReadWriteMode::dynamic) {
     read_write_mode = ReadWriteMode::read_write;
   }
+  if (!schema.dtype().valid()) {
+    return absl::InvalidArgumentError(
+        "Unable to infer \"dtype\" in \"stack\" driver");
+  }
+
   TENSORSTORE_ASSIGN_OR_RETURN(auto domains, GetEffectiveDomainsForLayers());
 
   auto driver_ptr =
