@@ -433,14 +433,14 @@ ImageDriver<Specialization>::GetBoundSpec(
 template <typename Specialization>
 Future<IndexTransform<>> ImageDriver<Specialization>::ResolveBounds(
     internal::OpenTransactionPtr transaction, IndexTransform<> transform,
-    ResolveBoundsOptions options) {
+    ResolveBoundsOptions /*options*/) {
   if (transaction) {
     return absl::UnimplementedError(Specialization::kTransactionError);
   }
   return MapFuture(
       data_copy_executor(),
       [self = internal::IntrusivePtr<DriverType>(this),
-       transform = std::move(transform), options = std::move(options)](
+       transform = std::move(transform)](
           const Result<void>& result) -> Result<IndexTransform<>> {
         if (!result.ok()) {
           return result.status();
