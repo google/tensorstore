@@ -1,0 +1,149 @@
+load("@bazel_skylib//lib:selects.bzl", "selects")
+
+package(default_visibility = ["//visibility:private"])
+
+licenses(["notice"])  # BSD/MIT-like license (for zlib)
+
+ZLIB_LOCAL_DEFINES = select({
+    "@platforms//cpu:x86_64": ["UNALIGNED_OK"],
+    "//conditions:default": [],
+}) + select({
+    "@platforms//os:windows": [
+        "_CRT_SECURE_NO_DEPRECATE",
+        "_CRT_NONSTDC_NO_DEPRECATE",
+        "X86_WINDOWS",
+    ],
+    "//conditions:default": [
+        "HAVE_UNISTD_H",
+        "HAVE_STDINT_H",
+        "HAVE_STDDEF_H",
+        "X86_NOT_WINDOWS",
+    ],
+}) + select({
+    ":zlib_x86_optimizations": [
+        "ADLER32_SIMD_SSSE3",
+        "CRC32_SIMD_SSE42_PCLMUL",
+        "INFLATE_CHUNK_SIMD_SSE2",
+        "INFLATE_CHUNK_READ_64LE",  # requires x86_64
+        "DEFLATE_SLIDE_HASH_SSE2",
+    ],
+    ":zlib_arm64_optimizations": [
+        "ADLER32_SIMD_NEON",
+        "CRC32_ARMV8_CRC32",
+        "INFLATE_CHUNK_SIMD_NEON",
+        "INFLATE_CHUNK_READ_64LE",  # requires arm64
+        "DEFLATE_SLIDE_HASH_NEON",
+    ],
+    "//conditions:default": [],
+})
+
+cc_library(
+    name = "zlib",
+    srcs = glob(["*.h"]) + [
+        "adler32.c",
+        "compress.c",
+        "crc32.c",
+        "deflate.c",
+        "gzclose.c",
+        "gzlib.c",
+        "gzread.c",
+        "gzwrite.c",
+        "infback.c",
+        "inffast.c",
+        "inftrees.c",
+        "trees.c",
+        "uncompr.c",
+        "zutil.c",
+    ] + select({
+        "//conditions:default": ["inflate.c"],
+        ":zlib_optimizations": [
+            "adler32_simd.c",
+            "cpu_features.c",
+            "crc32_simd.c",
+            "crc_folding.c",
+            "contrib/optimizations/inflate.c",
+            "contrib/optimizations/inffast_chunk.c",
+        ],
+    }),
+    hdrs = ["zlib.h"],
+    copts = select({
+        ":clang_or_gcc_x86": [
+            "-mssse3",
+            "-msse4.2",
+            "-mpclmul",
+        ],
+        "//conditions:default": [],
+    }),
+    defines = [ "CHROMIUM_ZLIB_NO_CHROMECONF" ],
+    local_defines = ZLIB_LOCAL_DEFINES,
+    strip_include_prefix = ".",
+    visibility = ["//visibility:public"],
+    deps = select({
+        "//conditions:default": [],
+        ":zlib_optimizations": [":zlib_opt_includes"],
+    }),
+)
+
+cc_library(
+    name = "zlib_opt_includes",
+    hdrs = glob(["contrib/optimizations/*.h"]),
+    defines = [ "CHROMIUM_ZLIB_NO_CHROMECONF" ],
+    local_defines = ZLIB_LOCAL_DEFINES,
+    strip_include_prefix = "contrib/optimizations",
+    visibility = ["//visibility:private"],
+)
+
+# config for enabling optimized inflate routines.
+selects.config_setting_group(
+    name = "zlib_optimizations",
+    match_any = [
+        ":zlib_arm64_optimizations",
+        ":zlib_x86_optimizations",
+    ],
+)
+
+alias(
+    name = "zlib_x86_optimizations",
+    actual = "@platforms//cpu:x86_64",
+)
+
+alias(
+    name = "zlib_arm64_optimizations",
+    actual = "@platforms//cpu:arm64",
+)
+
+selects.config_setting_group(
+    name = "clang_or_gcc_x86",
+    match_all = [
+        ":compiler_clang_or_gcc",
+        "@platforms//cpu:x86_64",
+    ],
+)
+
+selects.config_setting_group(
+    name = "clang_or_gcc_arm",
+    match_all = [
+        ":compiler_clang_or_gcc",
+        "@platforms//cpu:arm64",
+    ],
+)
+
+selects.config_setting_group(
+    name = "compiler_clang_or_gcc",
+    match_any = [
+        ":compiler_clang",
+        ":compiler_gcc",
+    ],
+)
+
+[
+    alias(
+        name = name,
+        actual = "@com_google_tensorstore//:{target}".format(target = name),
+    )
+    for name in [
+        "compiler_clang",
+        "compiler_gcc",
+        "compiler_msvc",
+    ]
+]

@@ -18,16 +18,22 @@ load(
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 
+# Using chromium-zlib, source from: https://chromium.googlesource.com/chromium/src/third_party/zlib/
+
 def repo():
     maybe(
         third_party_http_archive,
         name = "net_zlib",
-        sha256 = "b3a24de97a8fdbc835b9833169501030b8977031bcb54b3b3ac13740f846ab30",
-        strip_prefix = "zlib-1.2.13",
+        # We use the chromium fork of zlib, but generally it tracks here:
+        doc_name = "chromium-zlib",
+        doc_version = "2d44c51ada6d325b85b53427b02dabf44648bca4",
+        doc_homepage = "https://chromium.googlesource.com/chromium/src/third_party/zlib/",
+        # googlesource does not cache archive files; the sha256 is only valid for the mirror.
+        sha256 = "85505c8b767804558a562d4e2d0496f3acdd7eb1152ff7e4cdc122d67115f8fe",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/zlib.net/zlib-1.2.13.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/chromium.googlesource.com/chromium/src/third_party/zlib/+archive/2d44c51ada6d325b85b53427b02dabf44648bca4.tar.gz",
         ],
-        build_file = Label("//third_party:net_zlib/bundled.BUILD.bazel"),
+        build_file = Label("//third_party:net_zlib/zlib.BUILD.bazel"),
         system_build_file = Label("//third_party:net_zlib/system.BUILD.bazel"),
         cmake_name = "ZLIB",
         bazel_to_cmake = {},
