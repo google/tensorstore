@@ -27,7 +27,6 @@
 #include "tensorstore/internal/preprocessor/cat.h"
 #include "tensorstore/internal/preprocessor/expand.h"
 #include "tensorstore/internal/type_traits.h"
-#include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/result_impl.h"  // IWYU pragma: export
 #include "tensorstore/util/status.h"
 
@@ -92,12 +91,14 @@ using PipelineResultType =
 using std::in_place;
 using std::in_place_t;
 
-/// `Result<T>` implements a value-or-error concept using the existing
-/// absl::Status mechanism. It provides a discriminated union of a usable value,
-/// `T`, or an error `absl::Status` explaining why the value is not present.
+/// `Result<T>` implements a value-or-error concept providing a discriminated
+/// union of a usable value, `T`, or an `absl::Status` error describing why the
+/// value is not present. `Result<void>` is permitted, which becomes a wrapper
+/// for `absl::Status`, and which enables use of `Result<T>` in a wide variety
+/// of template contexts.
 ///
-/// The primary use case for Result<T> is as the return value of a
-/// function which might fail.
+/// The primary use case for `Result<T>` is as the return value of a
+/// function which may fail.
 ///
 /// Initialization with a non-error `absl::Status` is only allowed for
 /// `Result<void>`, otherwise non-error `absl::Status` initilization is
@@ -106,15 +107,15 @@ using std::in_place_t;
 /// Conversion from `Result<T>` to `Result<void>` is allowed; the status
 /// is retained but any value is discarded by such a conversion.
 ///
-/// There are quite a few similar classes extant:
-///
 /// Assignment operators always destroy the existing value and reconstruct the
 /// value. This may be surprising, since it is unlike `std::optional` and many
 /// other monadic C++ types.
 ///
-/// - The StatusOr concept used by Google protocol buffers.
+/// There are quite a few similar classes extant:
 ///
-/// - An `std::variant<T, absl::Status>`, except that it allows ``T=void``.
+/// - The `absl::StatusOr<T>` concept used by Google.
+///
+/// - An `std::variant<T, absl::Status>`.
 ///
 /// - The proposed ``std::expected<>``, except that the error type is not
 ///   template-selectable.
@@ -435,29 +436,29 @@ class Result : private internal_result::ResultStorage<T>,
   ///
   /// \pre has_value() == true
   template <typename U = T>
-  constexpr const U* operator->() const noexcept {
+  constexpr const U* operator->() const noexcept TENSORSTORE_LIFETIME_BOUND {
     assert_has_value();
     return &this->value_;
   }
   template <typename U = T>
-  constexpr U* operator->() noexcept {
+  constexpr U* operator->() noexcept TENSORSTORE_LIFETIME_BOUND {
     assert_has_value();
     return &this->value_;
   }
 
   /// Returns a reference to the contained value.
   template <typename U = T>
-  constexpr const U& operator*() const& noexcept {
+  constexpr const U& operator*() const& noexcept TENSORSTORE_LIFETIME_BOUND {
     assert_has_value();
     return this->value_;
   }
   template <typename U = T>
-  constexpr U& operator*() & noexcept {
+  constexpr U& operator*() & noexcept TENSORSTORE_LIFETIME_BOUND {
     assert_has_value();
     return this->value_;
   }
   template <typename U = T>
-  constexpr U&& operator*() && noexcept {
+  constexpr U&& operator*() && noexcept TENSORSTORE_LIFETIME_BOUND {
     assert_has_value();
     return std::move(this->value_);
   }
