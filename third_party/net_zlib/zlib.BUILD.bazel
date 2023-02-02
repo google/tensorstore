@@ -67,10 +67,13 @@ cc_library(
     }),
     hdrs = ["zlib.h"],
     copts = select({
-        ":clang_or_gcc_x86": [
+        ":clang_or_gcc_x86_64": [
             "-mssse3",
             "-msse4.2",
             "-mpclmul",
+        ],
+        ":clang_or_gcc_arm64": [
+            "-march=armv8-a+crc+crypto",
         ],
         "//conditions:default": [],
     }),
@@ -113,7 +116,7 @@ alias(
 )
 
 selects.config_setting_group(
-    name = "clang_or_gcc_x86",
+    name = "clang_or_gcc_x86_64",
     match_all = [
         ":compiler_clang_or_gcc",
         "@platforms//cpu:x86_64",
@@ -121,7 +124,7 @@ selects.config_setting_group(
 )
 
 selects.config_setting_group(
-    name = "clang_or_gcc_arm",
+    name = "clang_or_gcc_arm64",
     match_all = [
         ":compiler_clang_or_gcc",
         "@platforms//cpu:arm64",
