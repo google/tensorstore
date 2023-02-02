@@ -25,8 +25,8 @@ def repo():
         third_party_http_archive,
         name = "rules_perl",
         urls = [
-            "https://github.com/bazelbuild/rules_perl/archive/43d2db0aafe595fe0ac61b808c9c13ea9769ce03.tar.gz",
+            "https://github.com/bazelbuild/rules_perl/archive/7f10dada09fcba1dc79a6a91da2facc25e72bd7d.tar.gz",  # main(2023-02-02)
         ],
-        sha256 = "0c0cc01b158321c3c84af49409393c14b66070249d0affb78a88ca594b2aa9c2",
-        strip_prefix = "rules_perl-43d2db0aafe595fe0ac61b808c9c13ea9769ce03",
+        sha256 = "391edb08802860ba733d402c6376cfe1002b598b90d2240d9d302ecce2289a64",
+        strip_prefix = "rules_perl-7f10dada09fcba1dc79a6a91da2facc25e72bd7d",
     )
