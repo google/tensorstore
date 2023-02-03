@@ -17,7 +17,6 @@
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/transformed_array.h"
-#include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/str_cat.h"

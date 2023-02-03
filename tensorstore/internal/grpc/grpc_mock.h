@@ -26,7 +26,6 @@
 #include "grpcpp/security/server_credentials.h"  // third_party
 #include "grpcpp/server.h"  // third_party
 #include "grpcpp/server_builder.h"  // third_party
-#include "tensorstore/util/assert_macros.h"
 
 namespace tensorstore {
 namespace grpc_mocker {

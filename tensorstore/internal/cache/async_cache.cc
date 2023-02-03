@@ -19,6 +19,7 @@
 #include <mutex>  // NOLINT
 #include <utility>
 
+#include "absl/base/optimization.h"
 #include "absl/log/absl_log.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
@@ -33,7 +34,6 @@
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/future.h"
-#include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
@@ -817,7 +817,7 @@ absl::Status AsyncCache::TransactionNode::DoInitialize(
 
 void AsyncCache::TransactionNode::DoApply(ApplyOptions options,
                                           ApplyReceiver receiver) {
-  TENSORSTORE_UNREACHABLE;
+  ABSL_UNREACHABLE();  // COV_NF_LINE
 }
 
 void AsyncCache::TransactionNode::Revoke() {

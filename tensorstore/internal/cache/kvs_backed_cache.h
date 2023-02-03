@@ -25,6 +25,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "absl/base/optimization.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
@@ -35,7 +36,6 @@
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_modify_write.h"
-#include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/future_sender.h"  // IWYU pragma: keep
 #include "tensorstore/util/future.h"
@@ -150,7 +150,7 @@ class KvsBackedCache : public Parent {
         entry_or_node_->ReadError(GetOwningEntry(*entry_or_node_)
                                       .AnnotateError(error, /*reading=*/true));
       }
-      void set_cancel() { TENSORSTORE_UNREACHABLE; }
+      void set_cancel() { ABSL_UNREACHABLE(); }  // COV_NF_LINE
     };
 
     /// Implements reading for the `AsyncCache` interface.
@@ -194,7 +194,7 @@ class KvsBackedCache : public Parent {
     virtual void DoEncode(
         std::shared_ptr<const typename Derived::ReadData> read_data,
         EncodeReceiver receiver) {
-      TENSORSTORE_UNREACHABLE;
+      ABSL_UNREACHABLE();  // COV_NF_LINE;
     }
 
     absl::Status AnnotateError(const absl::Status& error, bool reading) {
@@ -275,7 +275,7 @@ class KvsBackedCache : public Parent {
                                                        /*reading=*/false);
           execution::set_error(receiver_, std::move(error));
         }
-        void set_cancel() { TENSORSTORE_UNREACHABLE; }
+        void set_cancel() { ABSL_UNREACHABLE(); }  // COV_NF_LINE
         void set_value(std::optional<absl::Cord> value) {
           kvstore::ReadResult read_result;
           read_result.stamp = std::move(update_.stamp);
@@ -300,7 +300,7 @@ class KvsBackedCache : public Parent {
         void set_error(absl::Status error) {
           execution::set_error(receiver_, std::move(error));
         }
-        void set_cancel() { TENSORSTORE_UNREACHABLE; }
+        void set_cancel() { ABSL_UNREACHABLE(); }  // COV_NF_LINE
         void set_value(AsyncCache::ReadState update) {
           if (!StorageGeneration::NotEqualOrUnspecified(update.stamp.generation,
                                                         if_not_equal_)) {

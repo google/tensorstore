@@ -14,6 +14,7 @@
 
 #include "tensorstore/virtual_chunked.h"
 
+#include "absl/base/optimization.h"
 #include "absl/status/status.h"
 #include "absl/time/time.h"
 #include "tensorstore/box.h"
@@ -330,7 +331,7 @@ void VirtualChunkedCache::TransactionNode::InitiateWriteback(
       self.SetError(std::move(error));
       self.WritebackError();
     }
-    void set_cancel() { TENSORSTORE_UNREACHABLE; }
+    void set_cancel() { ABSL_UNREACHABLE(); }  // COV_NF_LINE
   };
   AsyncCache::TransactionNode::ApplyOptions apply_options;
   apply_options.staleness_bound = staleness_bound;

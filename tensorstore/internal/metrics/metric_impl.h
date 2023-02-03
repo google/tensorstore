@@ -32,7 +32,6 @@
 #include "tensorstore/internal/metrics/collect.h"
 #include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/type_traits.h"
-#include "tensorstore/util/assert_macros.h"
 
 namespace tensorstore {
 namespace internal_metrics {

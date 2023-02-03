@@ -30,7 +30,6 @@
 
 #include "tensorstore/index.h"
 #include "tensorstore/static_cast.h"
-#include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 

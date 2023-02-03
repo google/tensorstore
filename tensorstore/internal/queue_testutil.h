@@ -22,7 +22,6 @@
 #include "absl/log/absl_check.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
-#include "tensorstore/util/assert_macros.h"
 
 namespace tensorstore {
 namespace internal {

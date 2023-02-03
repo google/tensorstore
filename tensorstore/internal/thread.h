@@ -22,7 +22,6 @@
 #include <utility>
 
 #include "absl/log/absl_check.h"
-#include "tensorstore/util/assert_macros.h"
 
 namespace tensorstore {
 namespace internal {

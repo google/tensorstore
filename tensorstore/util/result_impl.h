@@ -25,7 +25,6 @@
 #include "absl/status/status.h"
 #include "absl/utility/utility.h"
 #include "tensorstore/internal/type_traits.h"
-#include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/status.h"
 
 // IWYU pragma: private, include "third_party/tensorstore/util/result.h"

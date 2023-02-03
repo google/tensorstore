@@ -25,7 +25,6 @@
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/metrics/collect.h"
 #include "tensorstore/internal/no_destructor.h"
-#include "tensorstore/util/assert_macros.h"
 
 namespace tensorstore {
 namespace internal_metrics {

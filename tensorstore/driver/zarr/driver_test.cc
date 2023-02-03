@@ -16,6 +16,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/base/optimization.h"
 #include "tensorstore/context.h"
 #include "tensorstore/driver/driver_testutil.h"
 #include "tensorstore/index_space/dim_expression.h"
@@ -34,8 +35,6 @@
 #include "tensorstore/kvstore/mock_kvstore.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/open.h"
-#include "tensorstore/util/assert_macros.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -1826,7 +1825,7 @@ std::ostream& operator<<(std::ostream& os, RecheckOption recheck_option) {
     case RecheckOption::kExplicitEpochBound:
       return os << "kExplicitEpochBound";
   }
-  TENSORSTORE_UNREACHABLE;
+  ABSL_UNREACHABLE();  // COV_NF_LINE
 }
 
 ::nlohmann::json GetRecheckBound(absl::Time before_modify_time,
@@ -1848,7 +1847,7 @@ std::ostream& operator<<(std::ostream& os, RecheckOption recheck_option) {
     case RecheckOption::kExplicitEpochBound:
       return 0;
   }
-  TENSORSTORE_UNREACHABLE;
+  ABSL_UNREACHABLE();  // COV_NF_LINE
 }
 
 /// Performs a sequence of reads and modifications to test the behavior of the

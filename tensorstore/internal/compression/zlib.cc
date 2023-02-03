@@ -14,10 +14,10 @@
 
 #include "tensorstore/internal/compression/zlib.h"
 
+#include "absl/base/optimization.h"
 #include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "tensorstore/internal/compression/cord_stream_manager.h"
-#include "tensorstore/util/assert_macros.h"
 
 // Include zlib header last because it defines a bunch of poorly-named macros.
 #include <zlib.h>
@@ -102,7 +102,7 @@ absl::Status ProcessZlib(const absl::Cord& input, absl::Cord* output, int level,
     default:
       ABSL_CHECK(false);
   }
-  TENSORSTORE_UNREACHABLE;
+  ABSL_UNREACHABLE();  // COV_NF_LINE
 }
 
 }  // namespace

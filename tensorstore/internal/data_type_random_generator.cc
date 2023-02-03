@@ -22,6 +22,7 @@
 #include <random>
 #include <string>
 
+#include "absl/base/optimization.h"
 #include "absl/random/bit_gen_ref.h"
 #include "absl/random/random.h"
 #include <nlohmann/json.hpp>
@@ -30,7 +31,6 @@
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/elementwise_function.h"
-#include "tensorstore/util/assert_macros.h"
 
 namespace tensorstore {
 namespace internal {
@@ -130,7 +130,7 @@ struct SampleRandomValue<json_t> {
         return out;
       }
       default:
-        TENSORSTORE_UNREACHABLE;  // COV_NF_LINE
+        ABSL_UNREACHABLE();  // COV_NF_LINE
     }
   }
 };

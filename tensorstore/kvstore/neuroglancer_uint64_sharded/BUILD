@@ -59,6 +59,7 @@ tensorstore_cc_library(
         "//tensorstore/util:span",
         "//tensorstore/util:str_cat",
         "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/strings:str_format",
     ],

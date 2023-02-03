@@ -6,12 +6,6 @@ package(default_visibility = ["//visibility:public"])
 licenses(["notice"])
 
 tensorstore_cc_library(
-    name = "assert_macros",
-    hdrs = ["assert_macros.h"],
-    deps = [],
-)
-
-tensorstore_cc_library(
     name = "bit_span",
     hdrs = ["bit_span.h"],
     deps = [
@@ -468,7 +462,6 @@ tensorstore_cc_library(
         "result_impl.h",
     ],
     deps = [
-        ":assert_macros",
         ":status",
         "//tensorstore/internal:attributes",
         "//tensorstore/internal:type_traits",
@@ -562,7 +555,6 @@ tensorstore_cc_library(
         "status.h",
     ],
     deps = [
-        ":assert_macros",
         "//tensorstore/internal:source_location",
         "//tensorstore/internal:type_traits",
         "//tensorstore/internal/preprocessor:expand",

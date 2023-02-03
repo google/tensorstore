@@ -14,10 +14,10 @@
 
 #include "tensorstore/internal/compression/bzip2.h"
 
+#include "absl/base/optimization.h"
 #include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "tensorstore/internal/compression/cord_stream_manager.h"
-#include "tensorstore/util/assert_macros.h"
 
 // Include this last since it defines many macros.
 #include <bzlib.h>
@@ -98,7 +98,7 @@ absl::Status Decode(const absl::Cord& input, absl::Cord* output) {
     default:
       ABSL_CHECK(false);
   }
-  TENSORSTORE_UNREACHABLE;
+  ABSL_UNREACHABLE();  // COV_NF_LINE
 }
 
 }  // namespace bzip2

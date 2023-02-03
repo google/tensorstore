@@ -14,6 +14,7 @@
 
 #include "tensorstore/transaction.h"
 
+#include "absl/base/optimization.h"
 #include "absl/functional/function_ref.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/transaction_impl.h"
@@ -389,7 +390,7 @@ absl::Status TransactionState::Node::Register() {
     case kAbortRequested:
       return GetCancelledError();
     default:
-      TENSORSTORE_UNREACHABLE;
+      ABSL_UNREACHABLE();  // COV_NF_LINE
   }
   if (phase_ == kInvalidPhase) {
     // Duplicate `Transaction::phase()` logic rather than call it, since we are
@@ -421,7 +422,7 @@ TransactionState::GetOrCreateMultiPhaseNode(
     case kAbortRequested:
       return GetCancelledError();
     default:
-      TENSORSTORE_UNREACHABLE;
+      ABSL_UNREACHABLE();  // COV_NF_LINE
   }
   return OpenTransactionNodePtr<Node>(
       nodes_

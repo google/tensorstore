@@ -31,6 +31,7 @@
 #include <variant>
 #include <vector>
 
+#include "absl/base/optimization.h"
 #include "absl/status/status.h"
 #include "python/tensorstore/array_type_caster.h"
 #include "python/tensorstore/data_type.h"
@@ -51,13 +52,11 @@
 #include "tensorstore/rank.h"
 #include "tensorstore/static_cast.h"
 #include "tensorstore/strided_layout.h"
-#include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/bit_span.h"
 #include "tensorstore/util/byte_strided_pointer.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -90,7 +89,7 @@ std::string_view GetIndexingModePrefix(NumpyIndexingSpec::Mode mode) {
     case NumpyIndexingSpec::Mode::kVindex:
       return ".vindex";
   }
-  TENSORSTORE_UNREACHABLE;  // COV_NF_LINE
+  ABSL_UNREACHABLE();  // COV_NF_LINE
 }
 
 NumpyIndexingSpec ParseIndexingSpec(pybind11::handle obj,

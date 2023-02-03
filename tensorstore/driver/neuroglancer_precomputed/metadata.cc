@@ -15,6 +15,7 @@
 #include "tensorstore/driver/neuroglancer_precomputed/metadata.h"
 
 #include "absl/algorithm/container.h"
+#include "absl/base/optimization.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_split.h"
@@ -34,7 +35,6 @@
 #include "tensorstore/serialization/std_map.h"  // IWYU pragma: keep
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/span_json.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -58,7 +58,7 @@ std::string_view to_string(ScaleMetadata::Encoding e) {
     case E::compressed_segmentation:
       return "compressed_segmentation";
   }
-  TENSORSTORE_UNREACHABLE;  // COV_NF_LINE
+  ABSL_UNREACHABLE();  // COV_NF_LINE
 }
 
 namespace {

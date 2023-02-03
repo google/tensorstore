@@ -15,6 +15,7 @@
 #include "tensorstore/driver/neuroglancer_precomputed/chunk_encoding.h"
 
 #include "absl/algorithm/container.h"
+#include "absl/base/optimization.h"
 #include "riegeli/bytes/cord_reader.h"
 #include "riegeli/bytes/cord_writer.h"
 #include "tensorstore/internal/compression/neuroglancer_compressed_segmentation.h"
@@ -164,7 +165,7 @@ Result<SharedArrayView<const void>> DecodeCompressedSegmentationChunk(
           static_cast<std::uint64_t*>(full_decoded_array.data()));
       break;
     default:
-      TENSORSTORE_UNREACHABLE;  // COV_NF_LINE
+      ABSL_UNREACHABLE();  // COV_NF_LINE
   }
   if (!success) {
     return absl::InvalidArgumentError(
@@ -214,7 +215,7 @@ Result<SharedArrayView<const void>> DecodeChunk(
           metadata.dtype, chunk_shape, chunk_layout,
           scale_metadata.compressed_segmentation_block_size, std::move(buffer));
   }
-  TENSORSTORE_UNREACHABLE;  // COV_NF_LINE
+  ABSL_UNREACHABLE();  // COV_NF_LINE
 }
 
 absl::Cord EncodeRawChunk(DataType dtype, span<const Index, 4> shape,
@@ -284,7 +285,7 @@ Result<absl::Cord> EncodeCompressedSegmentationChunk(
           &out);
       break;
     default:
-      TENSORSTORE_UNREACHABLE;  // COV_NF_LINE
+      ABSL_UNREACHABLE();  // COV_NF_LINE
   }
   return absl::Cord(std::move(out));
 }
@@ -309,7 +310,7 @@ Result<absl::Cord> EncodeChunk(span<const Index> chunk_indices,
           metadata.dtype, partial_chunk_shape, array,
           scale_metadata.compressed_segmentation_block_size);
   }
-  TENSORSTORE_UNREACHABLE;  // COV_NF_LINE
+  ABSL_UNREACHABLE();  // COV_NF_LINE
 }
 
 }  // namespace internal_neuroglancer_precomputed

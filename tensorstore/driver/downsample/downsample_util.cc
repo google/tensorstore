@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <vector>
 
+#include "absl/base/optimization.h"
 #include "absl/container/fixed_array.h"
 #include "absl/container/inlined_vector.h"
 #include "absl/strings/str_join.h"
@@ -675,7 +676,7 @@ IndexInterval DownsampleInterval(IndexInterval base_interval,
             FloorOfRatio(base_interval.inclusive_min(), downsample_factor);
         break;
       default:
-        TENSORSTORE_UNREACHABLE;
+        ABSL_UNREACHABLE();  // COV_NF_LINE
     }
   }
   Index inclusive_max;

@@ -20,6 +20,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/base/optimization.h"
 #include "absl/container/inlined_vector.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
@@ -49,7 +50,6 @@
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace {
@@ -163,7 +163,7 @@ class BenchmarkCache : public tensorstore::internal::ChunkCache {
       return Base::TransactionNode::DoInitialize(transaction);
     }
     void DoRead(absl::Time staleness_bound) override {
-      TENSORSTORE_UNREACHABLE;
+      ABSL_UNREACHABLE();  // COV_NF_LINE
     }
     void Commit() override {
       struct ApplyReceiver {
@@ -182,8 +182,10 @@ class BenchmarkCache : public tensorstore::internal::ChunkCache {
               {std::move(update.data),
                {StorageGeneration::FromString("gen"), absl::Now()}});
         }
-        void set_error(absl::Status error) { TENSORSTORE_UNREACHABLE; }
-        void set_cancel() { TENSORSTORE_UNREACHABLE; }
+        void set_error(absl::Status error) {
+          ABSL_UNREACHABLE();
+        }                                          // COV_NF_LINE
+        void set_cancel() { ABSL_UNREACHABLE(); }  // COV_NF_LINE
       };
       AsyncCache::TransactionNode::ApplyOptions apply_options;
       apply_options.staleness_bound = absl::InfinitePast();

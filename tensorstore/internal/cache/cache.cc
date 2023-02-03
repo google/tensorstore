@@ -37,7 +37,6 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/mutex.h"
-#include "tensorstore/util/assert_macros.h"
 
 // A CacheEntry owns a strong reference to the Cache that contains it only if
 // its reference count is > 0.

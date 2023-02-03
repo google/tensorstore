@@ -28,6 +28,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/base/optimization.h"
 #include "absl/log/absl_log.h"
 #include "absl/random/random.h"
 #include "absl/status/status.h"
@@ -49,9 +50,7 @@
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/transaction_impl.h"
-#include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/execution/execution.h"
-#include "tensorstore/util/execution/sender.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
@@ -115,7 +114,7 @@ Future<absl::Cord> KvsBackedTestCache::Entry::ReadValue(
   struct Receiver {
     Promise<absl::Cord> promise_;
 
-    void set_cancel() { TENSORSTORE_UNREACHABLE; }
+    void set_cancel() { ABSL_UNREACHABLE(); }  // COV_NF_LINE
     void set_error(absl::Status status) { promise_.SetResult(status); }
     void set_value(AsyncCache::ReadState update) {
       promise_.SetResult(*static_cast<const ReadData*>(update.data.get()));

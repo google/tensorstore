@@ -17,20 +17,20 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
+#include "absl/base/optimization.h"
 #include "python/tensorstore/array_type_caster.h"
 #include "python/tensorstore/future.h"
 #include "python/tensorstore/gil_safe.h"
 #include "python/tensorstore/result_type_caster.h"
-#include "python/tensorstore/serialization.h"
+#include "python/tensorstore/serialization.h"  // IWYU pragma: keep
 #include "python/tensorstore/spec.h"
 #include "python/tensorstore/status.h"
 #include "python/tensorstore/tensorstore_class.h"
 #include "python/tensorstore/time.h"
-#include "python/tensorstore/transaction.h"
+#include "python/tensorstore/transaction.h"  // IWYU pragma: keep
 #include "python/tensorstore/type_name_override.h"
 #include "python/tensorstore/virtual_chunked.h"
 #include "tensorstore/index_space/index_domain_builder.h"
-#include "tensorstore/util/assert_macros.h"
 #include "tensorstore/virtual_chunked.h"
 
 namespace tensorstore {
@@ -250,19 +250,17 @@ struct FunctionAdapterBase {
           },
           std::move(optional_timestamp_future));
     }
-    TENSORSTORE_UNREACHABLE;
+    ABSL_UNREACHABLE();  // COV_NF_LINE
   }
 };
 
-struct ReadFunctionAdapter
-    : public FunctionAdapterBase<true> {
+struct ReadFunctionAdapter : public FunctionAdapterBase<true> {
   // Use an id that starts with a number to ensure it does not conflict with any
   // user-defined `SerializableFunction` id.
   constexpr static const char id[] = "0python:tensorstore.virtual_chunked.read";
 };
 
-struct WriteFunctionAdapter
-    : public FunctionAdapterBase<false> {
+struct WriteFunctionAdapter : public FunctionAdapterBase<false> {
   constexpr static const char id[] =
       "0python:tensorstore.virtual_chunked.write";
 };

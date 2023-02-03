@@ -38,7 +38,6 @@
 #include "tensorstore/kvstore/registry.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/transaction.h"
-#include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/any_sender.h"
 #include "tensorstore/util/execution/collecting_sender.h"

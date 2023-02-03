@@ -18,10 +18,10 @@
 #include <memory>
 #include <string>
 
+#include "absl/base/optimization.h"
 #include "absl/container/inlined_vector.h"
 #include "absl/strings/escaping.h"
 #include "tensorstore/driver/zarr/compressor.h"
-#include "tensorstore/internal/container_to_shared.h"
 #include "tensorstore/internal/data_type_endian_conversion.h"
 #include "tensorstore/internal/flat_cord_builder.h"
 #include "tensorstore/internal/json_binding/dimension_indexed.h"
@@ -292,7 +292,7 @@ constexpr auto MetadataJsonBinder = [](auto maybe_optional) {
         }
         return &*obj->dtype;
       }
-      TENSORSTORE_UNREACHABLE;
+      ABSL_UNREACHABLE();  // COV_NF_LINE
     };
 
     return jb::Object(

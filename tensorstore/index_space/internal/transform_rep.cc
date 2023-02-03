@@ -18,6 +18,7 @@
 #include <new>
 #include <utility>
 
+#include "absl/base/optimization.h"
 #include "absl/container/fixed_array.h"
 #include "absl/log/absl_check.h"
 #include "absl/status/status.h"
@@ -25,7 +26,6 @@
 #include "tensorstore/index_space/internal/transform_rep_impl.h"
 #include "tensorstore/internal/dimension_labels.h"
 #include "tensorstore/internal/integer_overflow.h"
-#include "tensorstore/internal/memory.h"
 #include "tensorstore/util/division.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/str_cat.h"
@@ -314,7 +314,7 @@ bool AreIndexMapsEqual(const OutputIndexMap& a, const OutputIndexMap& b,
                      index_array_data_b.byte_strides));
     }
   }
-  TENSORSTORE_UNREACHABLE;  // COV_NF_LINE
+  ABSL_UNREACHABLE();  // COV_NF_LINE
 }
 
 bool AreDomainsEqual(TransformRep* a, TransformRep* b) {

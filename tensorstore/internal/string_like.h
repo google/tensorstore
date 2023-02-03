@@ -21,7 +21,7 @@
 #include <string_view>
 #include <type_traits>
 
-#include "tensorstore/util/assert_macros.h"
+#include "absl/base/optimization.h"
 #include "tensorstore/util/span.h"
 
 namespace tensorstore {
@@ -66,8 +66,7 @@ class StringLikeSpan {
       case 2:
         return string_views_[i];
       default:
-        assert(false);
-        TENSORSTORE_UNREACHABLE;
+        ABSL_UNREACHABLE();  // COV_NF_LINE
     }
   }
 

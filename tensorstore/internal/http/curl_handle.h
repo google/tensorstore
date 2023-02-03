@@ -25,7 +25,6 @@
 #include "absl/status/status.h"
 #include <curl/curl.h>  // IWYU pragma: export
 #include "tensorstore/internal/attributes.h"
-#include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"

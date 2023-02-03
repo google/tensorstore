@@ -26,6 +26,7 @@
 #include <utility>
 
 #include "absl/base/attributes.h"
+#include "absl/base/optimization.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "absl/utility/utility.h"
@@ -1422,7 +1423,7 @@ CallbackPointer MakeLink(Callback&& callback, Promise<PromiseValue> promise,
       return link->GetCallbackPointer();
     }
   }
-  TENSORSTORE_UNREACHABLE;  // COV_NF_LINE
+  ABSL_UNREACHABLE();  // COV_NF_LINE
 }
 
 /// Overload for the case of zero futures.

@@ -22,6 +22,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/base/optimization.h"
 #include "absl/container/fixed_array.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/inlined_vector.h"
@@ -179,7 +180,7 @@ absl::Status ForEachConnectedSet(
         return has_edge;
       }
     }
-    TENSORSTORE_UNREACHABLE;  // COV_NF_LINE
+    ABSL_UNREACHABLE();  // COV_NF_LINE
   };
 
   /// Returns `true` if, and only if, the output dimension
@@ -216,7 +217,7 @@ absl::Status ForEachConnectedSet(
         return false;
       }
     }
-    TENSORSTORE_UNREACHABLE;  // COV_NF_LINE
+    ABSL_UNREACHABLE();  // COV_NF_LINE
   };
 
   // Loop until all grid dimensions are part of a connected set.

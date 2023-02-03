@@ -14,6 +14,7 @@
 
 #include "tensorstore/kvstore/transaction.h"
 
+#include "absl/base/optimization.h"
 #include "absl/container/btree_map.h"
 #include "absl/functional/function_ref.h"
 #include "tensorstore/kvstore/driver.h"
@@ -397,7 +398,7 @@ void StartWriteback(ReadModifyWriteEntry& entry, absl::Time staleness_bound) {
       void set_error(absl::Status error) {
         ReportWritebackError(Controller{entry_}, "writing", error);
       }
-      void set_cancel() { TENSORSTORE_UNREACHABLE; }  // COV_NF_LINE
+      void set_cancel() { ABSL_UNREACHABLE(); }  // COV_NF_LINE
       void set_value(ReadResult read_result) {
         ReceiveWritebackCommon(*entry_, read_result.stamp.generation);
         entry_->multi_phase().Writeback(*entry_, std::move(read_result));
@@ -460,7 +461,7 @@ void StartWriteback(ReadModifyWriteEntry& entry, absl::Time staleness_bound) {
       ReportWritebackError(Controller{state_->GetLastReadModifyWriteEntry()},
                            "writing", error);
     }
-    void set_cancel() { TENSORSTORE_UNREACHABLE; }  // COV_NF_LINE
+    void set_cancel() { ABSL_UNREACHABLE(); }  // COV_NF_LINE
     void set_value(ReadResult read_result) {
       auto& entry = *state_->entry;
       ReceiveWritebackCommon(entry, read_result.stamp.generation);

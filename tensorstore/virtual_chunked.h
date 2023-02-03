@@ -253,6 +253,7 @@
 #include "tensorstore/serialization/function.h"
 #include "tensorstore/staleness_bound.h"
 #include "tensorstore/tensorstore.h"
+#include "tensorstore/transaction.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/option.h"
 

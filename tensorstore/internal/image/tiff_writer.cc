@@ -30,7 +30,6 @@
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/image/image_view.h"
-#include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 

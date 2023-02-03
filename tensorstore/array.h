@@ -35,7 +35,6 @@
 #include "tensorstore/rank.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/strided_layout.h"
-#include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/element_pointer.h"
 #include "tensorstore/util/element_traits.h"
 #include "tensorstore/util/garbage_collection/fwd.h"

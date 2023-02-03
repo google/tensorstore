@@ -29,6 +29,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/base/optimization.h"
 #include <nlohmann/json.hpp>
 #include "python/tensorstore/array_type_caster.h"
 #include "python/tensorstore/dim_expression.h"
@@ -54,7 +55,6 @@
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/strided_layout.h"
-#include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/element_pointer.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/span.h"
@@ -76,7 +76,7 @@ bool operator==(const OutputIndexMap& a, const OutputIndexMap& b) {
       return a.stride == b.stride && a.index_array == b.index_array &&
              a.index_range == b.index_range;
   }
-  TENSORSTORE_UNREACHABLE;  // COV_NF_LINE
+  ABSL_UNREACHABLE();  // COV_NF_LINE
 }
 
 HomogeneousTuple<Index> GetExclusiveMax(IndexDomainView<> domain) {
@@ -318,7 +318,7 @@ std::string OutputIndexMapToString(const OutputIndexMap& m) {
                                  ", index_array=", m.index_array,
                                  ", index_range=", m.index_range, ")");
   }
-  TENSORSTORE_UNREACHABLE;  // COV_NF_LINE
+  ABSL_UNREACHABLE();  // COV_NF_LINE
 }
 
 using OutputIndexMapRangeContainer =
@@ -2775,7 +2775,7 @@ Overload:
                 IndexDomainDimension<>(OptionallyImplicitIndexInterval(
                     self.index_range, false, false)));
         }
-        TENSORSTORE_UNREACHABLE;  // COV_NF_LINE
+        ABSL_UNREACHABLE();  // COV_NF_LINE
       },
       [](py::tuple t) {
         OutputIndexMap map;

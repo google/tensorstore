@@ -188,7 +188,6 @@ tensorstore_cc_library(
     deps = [
         ":image",
         "//tensorstore:data_type",
-        "//tensorstore/util:assert_macros",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
         "@com_google_absl//absl/base:core_headers",
@@ -330,7 +329,6 @@ cc_library(
     deps = [
         ":image",
         "//tensorstore:data_type",
-        "//tensorstore/util:assert_macros",
         "//tensorstore/util:span",
         "//tensorstore/util:str_cat",
         "@com_google_absl//absl/log:absl_check",

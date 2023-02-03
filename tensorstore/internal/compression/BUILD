@@ -55,8 +55,8 @@ tensorstore_cc_library(
     hdrs = ["bzip2.h"],
     deps = [
         ":cord_stream_manager",
-        "//tensorstore/util:assert_macros",
         "//tensorstore/util:status",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:cord",
@@ -117,8 +117,8 @@ tensorstore_cc_library(
     hdrs = ["lzma.h"],
     deps = [
         ":cord_stream_manager",
-        "//tensorstore/util:assert_macros",
         "//tensorstore/util:status",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:cord",
@@ -178,8 +178,8 @@ tensorstore_cc_library(
     hdrs = ["zlib.h"],
     deps = [
         ":cord_stream_manager",
-        "//tensorstore/util:assert_macros",
         "//tensorstore/util:status",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:cord",

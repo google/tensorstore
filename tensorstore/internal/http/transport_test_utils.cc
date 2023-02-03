@@ -44,7 +44,6 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
-#include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {

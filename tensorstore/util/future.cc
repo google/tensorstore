@@ -597,7 +597,7 @@ Future<void> WaitAllFuture(tensorstore::span<const AnyFuture> futures) {
                 f[7]);
       return std::move(result);
   }
-  TENSORSTORE_UNREACHABLE;
+  ABSL_UNREACHABLE();  // COV_NF_LINE
 }
 
 }  // namespace tensorstore

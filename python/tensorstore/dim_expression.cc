@@ -24,6 +24,7 @@
 #include <variant>
 #include <vector>
 
+#include "absl/base/optimization.h"
 #include "absl/strings/escaping.h"
 #include "python/tensorstore/dim_expression.h"
 #include "python/tensorstore/numpy_indexing_spec.h"
@@ -34,7 +35,6 @@
 #include "tensorstore/index_space/dimension_identifier.h"
 #include "tensorstore/index_space/dimension_index_buffer.h"
 #include "tensorstore/index_space/index_transform.h"
-#include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
@@ -102,7 +102,7 @@ class PythonTranslateOp : public PythonDimExpression {
       case TranslateOpKind::kTranslateBackwardBy:
         return "backward_by";
     }
-    TENSORSTORE_UNREACHABLE;
+    ABSL_UNREACHABLE();  // COV_NF_LINE
   }
 
   std::string repr() const override {

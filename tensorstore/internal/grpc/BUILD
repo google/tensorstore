@@ -88,7 +88,6 @@ tensorstore_cc_library(
     testonly = 1,
     hdrs = ["grpc_mock.h"],
     deps = [
-        "//tensorstore/util:assert_macros",
         "@com_github_grpc_grpc//:grpc++",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_googletest//:gtest",

@@ -247,13 +247,13 @@ pybind11_cc_library(
         "//tensorstore/index_space:dimension_identifier",
         "//tensorstore/index_space:dimension_index_buffer",
         "//tensorstore/index_space:index_transform",
-        "//tensorstore/util:assert_macros",
         "//tensorstore/util:executor",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "@com_github_pybind_pybind11//:pybind11",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/strings",
     ],
 )
@@ -296,7 +296,6 @@ pybind11_cc_library(
         "//tensorstore/index_space:index_transform",
         "//tensorstore/index_space:output_index_method",
         "//tensorstore/internal/json_binding",
-        "//tensorstore/util:assert_macros",
         "//tensorstore/util:bit_span",
         "//tensorstore/util:element_pointer",
         "//tensorstore/util:executor",
@@ -305,6 +304,7 @@ pybind11_cc_library(
         "//tensorstore/util:str_cat",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_github_pybind_pybind11//:pybind11",
+        "@com_google_absl//absl/base:core_headers",
     ],
 )
 
@@ -581,15 +581,14 @@ pybind11_cc_library(
         "//tensorstore/index_space:dimension_index_buffer",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/index_space:numpy_indexing_spec",
-        "//tensorstore/util:assert_macros",
         "//tensorstore/util:bit_span",
         "//tensorstore/util:byte_strided_pointer",
         "//tensorstore/util:iterate",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
-        "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "@com_github_pybind_pybind11//:pybind11",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/status",
     ],
 )
@@ -878,9 +877,9 @@ pybind11_cc_library(
         ":type_name_override",
         "//tensorstore:virtual_chunked",
         "//tensorstore/index_space:index_transform",
-        "//tensorstore/util:assert_macros",
         "//tensorstore/util:executor",
         "@com_github_pybind_pybind11//:pybind11",
+        "@com_google_absl//absl/base:core_headers",
     ],
 )
 

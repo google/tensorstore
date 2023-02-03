@@ -161,10 +161,9 @@ tensorstore_cc_test(
         "//tensorstore/kvstore:mock_kvstore",
         "//tensorstore/kvstore:test_util",
         "//tensorstore/kvstore/memory",
-        "//tensorstore/util:assert_macros",
-        "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -183,6 +182,7 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:str_cat",
         "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/base:core_headers",
     ],
 )
 
@@ -212,7 +212,6 @@ tensorstore_cc_library(
         ":zlib_compressor",
         "//tensorstore:array",
         "//tensorstore:data_type",
-        "//tensorstore/internal:container_to_shared",
         "//tensorstore/internal:data_type_endian_conversion",
         "//tensorstore/internal:flat_cord_builder",
         "//tensorstore/internal/json_binding",
@@ -224,6 +223,7 @@ tensorstore_cc_library(
         "//tensorstore/util:str_cat",
         "//tensorstore/util/garbage_collection",
         "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:inlined_vector",
         "@com_google_absl//absl/strings",
     ],

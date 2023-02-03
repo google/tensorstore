@@ -27,7 +27,6 @@
 #include "tensorstore/internal/preprocessor/expand.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/type_traits.h"
-#include "tensorstore/util/assert_macros.h"
 
 namespace tensorstore {
 namespace internal {

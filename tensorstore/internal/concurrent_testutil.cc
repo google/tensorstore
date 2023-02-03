@@ -20,7 +20,6 @@
 
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
-#include "tensorstore/util/assert_macros.h"
 
 namespace tensorstore {
 namespace internal {

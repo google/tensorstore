@@ -20,6 +20,7 @@
 #include <thread>  // NOLINT
 #include <utility>
 
+#include "absl/base/optimization.h"
 #include "absl/base/thread_annotations.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
@@ -28,7 +29,6 @@
 #include "tensorstore/internal/metrics/histogram.h"
 #include "tensorstore/internal/metrics/value.h"
 #include "tensorstore/internal/no_destructor.h"
-#include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/executor.h"
 
 namespace tensorstore {
@@ -66,7 +66,7 @@ class DeadlineTaskQueue {
       : next_wakeup_(absl::InfiniteFuture()),
         thread_(&DeadlineTaskQueue::Run, this) {}
 
-  ~DeadlineTaskQueue() { TENSORSTORE_UNREACHABLE; }
+  ~DeadlineTaskQueue() { ABSL_UNREACHABLE(); }  // COV_NF_LINE
 
   void ScheduleAt(absl::Time target_time, ExecutorTask task);
 

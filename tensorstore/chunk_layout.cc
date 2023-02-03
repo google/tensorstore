@@ -809,7 +809,8 @@ constexpr auto DimensionIndexedFixedArrayJsonBinder(
     DimensionIndex& rank, ElementBinder element_binder) {
   return jb::DimensionIndexedVector(
       &rank,
-      /*get_size=*/[](auto& x) -> size_t { TENSORSTORE_UNREACHABLE; },
+      /*get_size=*/
+      [](auto& x) -> size_t { ABSL_UNREACHABLE(); },  // COV_NF_LINE
       /*set_size=*/[](auto& x, size_t n) { return absl::OkStatus(); },
       /*get_element=*/
       [](auto& x, size_t i) -> decltype(auto) { return (&x)[i]; },

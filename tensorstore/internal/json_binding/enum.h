@@ -21,6 +21,7 @@
 #include <utility>
 #include <variant>
 
+#include "absl/base/optimization.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_join.h"
 #include "tensorstore/internal/json/json.h"
@@ -28,7 +29,6 @@
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_fwd.h"
-#include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -79,7 +79,7 @@ constexpr auto Enum(const std::pair<EnumValue, JsonValue> (&values)[N]) {
                 *out += ::nlohmann::json(p.second).dump();
               })));
     } else {
-      TENSORSTORE_UNREACHABLE;
+      ABSL_UNREACHABLE();  // COV_NF_LINE
     }
   };
 }

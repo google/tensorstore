@@ -14,6 +14,7 @@
 
 #include "tensorstore/index_space/index_transform_builder.h"
 
+#include "absl/base/optimization.h"
 #include "absl/status/status.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/internal/transform_rep_impl.h"
@@ -108,7 +109,7 @@ absl::Status SetOutputIndexMapsAndValidateTransformRep(
       }
       break;
     default:
-      TENSORSTORE_UNREACHABLE;  // COV_NF_LINE
+      ABSL_UNREACHABLE();  // COV_NF_LINE
   }
 
   const bool domain_is_explicitly_empty = IsDomainExplicitlyEmpty(data);

@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <string_view>
 
+#include "absl/base/optimization.h"
 #include "absl/status/status.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/numbers.h"
@@ -238,7 +239,7 @@ Result<::nlohmann::json*> Dereference(::nlohmann::json& full_value,
                   tensorstore::StrCat("JSON Pointer ", quoted_pointer(),
                                       " refers to non-existent object member"));
             case kCreate:
-              TENSORSTORE_UNREACHABLE;  // COV_NF_LINE
+              ABSL_UNREACHABLE();  // COV_NF_LINE
           }
         }
         sub_value = &it->second;

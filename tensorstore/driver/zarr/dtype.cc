@@ -14,6 +14,7 @@
 
 #include "tensorstore/driver/zarr/dtype.h"
 
+#include "absl/base/optimization.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/util/extents.h"
 #include "tensorstore/util/quote_string.h"
@@ -229,7 +230,7 @@ Result<ZarrDType> ParseDTypeNoDerived(const nlohmann::json& value) {
                       });
                 }
                 default:
-                  TENSORSTORE_UNREACHABLE;  // COV_NF_LINE
+                  ABSL_UNREACHABLE();  // COV_NF_LINE
               }
             });
       });

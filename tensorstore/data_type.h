@@ -57,7 +57,6 @@
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/static_cast.h"
-#include "tensorstore/util/assert_macros.h"
 #include "tensorstore/util/bfloat16.h"
 #include "tensorstore/util/byte_strided_pointer.h"
 #include "tensorstore/util/result.h"

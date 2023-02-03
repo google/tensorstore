@@ -14,11 +14,10 @@
 
 #include "tensorstore/internal/compression/lzma.h"
 
+#include "absl/base/optimization.h"
 #include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "tensorstore/internal/compression/cord_stream_manager.h"
-#include "tensorstore/util/assert_macros.h"
-#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace lzma {
@@ -61,6 +60,7 @@ absl::Status GetInitErrorStatus(::lzma_ret r) {
     default:
       ABSL_CHECK(false);
   }
+  ABSL_UNREACHABLE();
 }
 
 absl::Status GetEncodeErrorStatus(::lzma_ret r) {
@@ -74,6 +74,7 @@ absl::Status GetEncodeErrorStatus(::lzma_ret r) {
     default:
       ABSL_CHECK(false);
   }
+  ABSL_UNREACHABLE();
 }
 
 absl::Status GetDecodeErrorStatus(::lzma_ret r) {
@@ -92,6 +93,7 @@ absl::Status GetDecodeErrorStatus(::lzma_ret r) {
     default:
       ABSL_CHECK(false);
   }
+  ABSL_UNREACHABLE();
 }
 
 namespace xz {

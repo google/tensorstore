@@ -37,7 +37,6 @@
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/transport_test_utils.h"
 #include "tensorstore/internal/thread.h"
-#include "tensorstore/util/assert_macros.h"
 
 using ::tensorstore::internal_http::HttpRequestBuilder;
 using ::tensorstore::transport_test_utils::AcceptNonBlocking;

@@ -156,7 +156,6 @@ tensorstore_cc_library(
     deps = [
         ":multi_barrier",
         ":thread",
-        "//tensorstore/util:assert_macros",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/log:absl_log",
     ],
@@ -273,8 +272,8 @@ tensorstore_cc_library(
         "//tensorstore:box",
         "//tensorstore:contiguous_layout",
         "//tensorstore:data_type",
-        "//tensorstore/util:assert_macros",
         "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/random",
         "@com_google_absl//absl/random:bit_gen_ref",
     ],
@@ -400,7 +399,6 @@ tensorstore_cc_library(
     name = "exception_macros",
     hdrs = ["exception_macros.h"],
     deps = [
-        "//tensorstore/util:assert_macros",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/log:absl_check",
     ],
@@ -421,7 +419,6 @@ tensorstore_cc_library(
     name = "flat_cord_builder",
     hdrs = ["flat_cord_builder.h"],
     deps = [
-        "//tensorstore/util:assert_macros",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
@@ -484,6 +481,7 @@ tensorstore_cc_library(
         "//tensorstore/util:span",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:fixed_array",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:inlined_vector",
@@ -693,6 +691,7 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:str_cat",
         "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
     ],
@@ -1451,7 +1450,6 @@ tensorstore_cc_library(
     testonly = 1,
     hdrs = ["queue_testutil.h"],
     deps = [
-        "//tensorstore/util:assert_macros",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/time",
@@ -1555,8 +1553,8 @@ tensorstore_cc_library(
     name = "string_like",
     hdrs = ["string_like.h"],
     deps = [
-        "//tensorstore/util:assert_macros",
         "//tensorstore/util:span",
+        "@com_google_absl//absl/base:core_headers",
     ],
 )
 
@@ -1649,10 +1647,7 @@ tensorstore_cc_library(
     name = "thread",
     srcs = ["thread.cc"],
     hdrs = ["thread.h"],
-    deps = [
-        "//tensorstore/util:assert_macros",
-        "@com_google_absl//absl/log:absl_check",
-    ],
+    deps = ["@com_google_absl//absl/log:absl_check"],
 )
 
 tensorstore_cc_test(
@@ -1839,7 +1834,6 @@ tensorstore_cc_library(
         ":type_traits",
         "//tensorstore/internal/metrics",
         "//tensorstore/internal/poly",
-        "//tensorstore/util:assert_macros",
         "//tensorstore/util:executor",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/synchronization",

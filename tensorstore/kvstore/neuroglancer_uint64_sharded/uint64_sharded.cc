@@ -16,6 +16,7 @@
 
 #include <algorithm>
 
+#include "absl/base/optimization.h"
 #include "absl/strings/str_format.h"
 #include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/internal/json_binding/enum.h"
@@ -143,7 +144,7 @@ std::uint64_t HashChunkId(ShardingSpec::HashFunction h, std::uint64_t key) {
       return (static_cast<std::uint64_t>(out[1]) << 32) | out[0];
     }
   }
-  TENSORSTORE_UNREACHABLE;  // COV_NF_LINE
+  ABSL_UNREACHABLE();  // COV_NF_LINE
 }
 
 ChunkCombinedShardInfo GetChunkShardInfo(const ShardingSpec& sharding_spec,
