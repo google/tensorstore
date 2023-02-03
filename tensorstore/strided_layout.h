@@ -620,10 +620,10 @@ class StridedLayout
   /// elements if `container_kind == container` and
   /// `array_origin_kind == offset_origin`.
   /// \membergroup Accessors
-  span<const Index, static_rank> origin() const {
+  span<const Index, RankConstraint::FromInlineRank(Rank)> origin() const {
     return const_cast<StridedLayout*>(this)->origin();
   }
-  span<MaybeConstOriginIndex, static_rank> origin() {
+  span<MaybeConstOriginIndex, RankConstraint::FromInlineRank(Rank)> origin() {
     return Access::origin(this);
   }
 
@@ -632,10 +632,10 @@ class StridedLayout
   /// For the non-const overload, the returned `span` has non-const `Index`
   /// elements if `container_kind == container`.
   /// \membergroup Accessors
-  span<const Index, static_rank> byte_strides() const {
+  span<const Index, RankConstraint::FromInlineRank(Rank)> byte_strides() const {
     return const_cast<StridedLayout*>(this)->byte_strides();
   }
-  span<MaybeConstIndex, static_rank> byte_strides() {
+  span<MaybeConstIndex, RankConstraint::FromInlineRank(Rank)> byte_strides() {
     return Access::byte_strides(this);
   }
 
@@ -644,10 +644,12 @@ class StridedLayout
   /// For the non-const overload, the returned `span` has non-const `Index`
   /// elements if `container_kind == container`.
   /// \membergroup Accessors
-  span<const Index, static_rank> shape() const {
+  span<const Index, RankConstraint::FromInlineRank(Rank)> shape() const {
     return const_cast<StridedLayout*>(this)->shape();
   }
-  span<MaybeConstIndex, static_rank> shape() { return Access::shape(this); }
+  span<MaybeConstIndex, RankConstraint::FromInlineRank(Rank)> shape() {
+    return Access::shape(this);
+  }
 
   /// Returns the byte offset of the origin.
   ///
@@ -743,7 +745,7 @@ class StridedLayout
   /// Returns the domain of the layout.
   ///
   /// \membergroup Accessors
-  BoxView<static_rank> domain() const {
+  BoxView<RankConstraint::FromInlineRank(Rank)> domain() const {
     return BoxView<static_rank>(this->origin(), this->shape());
   }
 
