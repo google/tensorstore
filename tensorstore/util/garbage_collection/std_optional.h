@@ -23,7 +23,9 @@ namespace tensorstore {
 namespace garbage_collection {
 
 template <typename T>
-struct GarbageCollection<std::optional<T>>
+struct GarbageCollection<
+    std::optional<T>,
+    std::enable_if_t<!std::is_trivially_destructible_v<std::optional<T>>>>
     : public OptionalGarbageCollection<std::optional<T>> {};
 
 }  // namespace garbage_collection
