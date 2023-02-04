@@ -17,6 +17,7 @@
 #include "absl/base/optimization.h"
 #include "absl/container/btree_map.h"
 #include "absl/functional/function_ref.h"
+#include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/util/execution/future_sender.h"  // IWYU pragma: keep
 
@@ -24,6 +25,10 @@ namespace tensorstore {
 namespace internal_kvstore {
 
 namespace {
+
+auto& kvstore_transaction_retries = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/transaction_retries",
+    "Count of kvstore transaction retries");
 
 template <typename Controller>
 void ReportWritebackError(Controller controller, std::string_view action,
@@ -36,51 +41,59 @@ template <typename Controller>
 void PerformWriteback(Driver* driver, Controller controller,
                       ReadResult read_result) {
   if (!StorageGeneration::IsDirty(read_result.stamp.generation)) {
+    // The read is not dirty.
     if (!StorageGeneration::IsConditional(read_result.stamp.generation) ||
         read_result.stamp.time > controller.GetTransactionNode()
                                      .transaction()
                                      ->commit_start_time()) {
+      // The read was not conditional, or the read timestamp is after the
+      // transaction commit timestamp.
       controller.Success(std::move(read_result.stamp));
-    } else {
-      ReadOptions read_options;
-      read_options.if_not_equal =
-          StorageGeneration::Clean(std::move(read_result.stamp.generation));
-      read_options.byte_range = {0, 0};
-      auto future = driver->Read(controller.GetKey(), std::move(read_options));
-      future.Force();
-      std::move(future).ExecuteWhenReady(
-          [controller](ReadyFuture<ReadResult> future) mutable {
-            auto& r = future.result();
-            if (!r.ok()) {
-              ReportWritebackError(controller, "reading", r.status());
-            } else if (r->aborted()) {
-              controller.Success(std::move(r->stamp));
-            } else {
-              controller.Retry(r->stamp.time);
-            }
-          });
+      return;
     }
-  } else {
-    WriteOptions write_options;
-    assert(!read_result.aborted());
-    write_options.if_equal =
+    // This is a conditional read or stale read; but not a dirty read, so
+    // reissue the read.
+    ReadOptions read_options;
+    read_options.if_not_equal =
         StorageGeneration::Clean(std::move(read_result.stamp.generation));
-    auto future = driver->Write(controller.GetKey(),
-                                std::move(read_result).optional_value(),
-                                std::move(write_options));
+    read_options.byte_range = {0, 0};
+    auto future = driver->Read(controller.GetKey(), std::move(read_options));
     future.Force();
     std::move(future).ExecuteWhenReady(
-        [controller](ReadyFuture<TimestampedStorageGeneration> future) mutable {
+        [controller](ReadyFuture<ReadResult> future) mutable {
           auto& r = future.result();
           if (!r.ok()) {
-            ReportWritebackError(controller, "writing", r.status());
-          } else if (StorageGeneration::IsUnknown(r->generation)) {
-            controller.Retry(r->time);
+            ReportWritebackError(controller, "reading", r.status());
+          } else if (r->aborted()) {
+            controller.Success(std::move(r->stamp));
           } else {
-            controller.Success(std::move(*r));
+            controller.Retry(r->stamp.time);
           }
         });
+    return;
   }
+
+  // This is a dirty entry, so attempt a conditional write if the generation
+  // matches.
+  WriteOptions write_options;
+  assert(!read_result.aborted());
+  write_options.if_equal =
+      StorageGeneration::Clean(std::move(read_result.stamp.generation));
+  auto future = driver->Write(controller.GetKey(),
+                              std::move(read_result).optional_value(),
+                              std::move(write_options));
+  future.Force();
+  std::move(future).ExecuteWhenReady(
+      [controller](ReadyFuture<TimestampedStorageGeneration> future) mutable {
+        auto& r = future.result();
+        if (!r.ok()) {
+          ReportWritebackError(controller, "writing", r.status());
+        } else if (StorageGeneration::IsUnknown(r->generation)) {
+          controller.Retry(r->time);
+        } else {
+          controller.Success(std::move(*r));
+        }
+      });
 }
 
 void StartWriteback(ReadModifyWriteEntry& entry,
@@ -348,7 +361,10 @@ struct Controller {
       EntryDone(single_phase_mutation, /*error=*/true);
     }
   }
-  void Retry(absl::Time time) { StartWriteback(*entry_, time); }
+  void Retry(absl::Time time) {
+    kvstore_transaction_retries.Increment();
+    StartWriteback(*entry_, time);
+  }
 };
 
 void ReceiveWritebackCommon(ReadModifyWriteEntry& entry,

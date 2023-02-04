@@ -196,6 +196,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:path",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
+        "//tensorstore/internal/metrics",
         "//tensorstore/serialization",
         "//tensorstore/serialization:registry",
         "//tensorstore/util:executor",
