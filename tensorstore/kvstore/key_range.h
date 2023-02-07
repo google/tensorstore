@@ -106,6 +106,9 @@ class KeyRange {
     return !exclusive_max.empty() && inclusive_min >= exclusive_max;
   }
 
+  /// Returns `true` if the range contains all keys.
+  bool full() const { return exclusive_max.empty() && inclusive_min.empty(); }
+
   /// Compares two ranges for equality.
   friend bool operator==(const KeyRange& a, const KeyRange& b) {
     return a.inclusive_min == b.inclusive_min &&

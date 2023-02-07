@@ -42,6 +42,7 @@ TEST(KeyRangeTest, Comparison) {
 
 TEST(KeyRangeTest, Full) {
   KeyRange full;
+  EXPECT_TRUE(full.full());
   EXPECT_EQ(std::string(), full.inclusive_min);
   EXPECT_EQ(std::string(), full.exclusive_max);
   EXPECT_EQ(full, KeyRange({}, {}));
