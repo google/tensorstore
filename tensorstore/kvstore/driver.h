@@ -70,6 +70,10 @@ class DriverSpec : public internal::AtomicReferenceCount<DriverSpec> {
   // Replaces any context resources with default context resource specs.
   virtual void StripContext() = 0;
 
+  // Modifies this `DriverSpec` according to `options`.  This must only be
+  // called if `use_count() == 1`.
+  virtual absl::Status ApplyOptions(DriverSpecOptions&& options);
+
   // Encodes any relevant parameters as a cache key.  This should only include
   // parameters relevant after the `Driver` is open that determine whether two
   // `Driver` objects may be used interchangeably.  Parameters that only affect

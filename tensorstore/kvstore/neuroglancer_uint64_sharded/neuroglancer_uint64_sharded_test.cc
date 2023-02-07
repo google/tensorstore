@@ -1593,11 +1593,10 @@ TEST(ShardedKeyValueStoreTest, SpecRoundtrip) {
       {"minishard_index_encoding", "raw"}};
   tensorstore::internal::KeyValueStoreSpecRoundtripOptions options;
   options.roundtrip_key = std::string(8, '\0');
-  tensorstore::internal::TestKeyValueStoreSpecRoundtrip(
-      {{"driver", "neuroglancer_uint64_sharded"},
-       {"base", {{"driver", "memory"}, {"path", "abc/"}}},
-       {"metadata", sharding_spec_json}},
-      options);
+  options.full_spec = {{"driver", "neuroglancer_uint64_sharded"},
+                       {"base", {{"driver", "memory"}, {"path", "abc/"}}},
+                       {"metadata", sharding_spec_json}};
+  tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
 }
 
 }  // namespace

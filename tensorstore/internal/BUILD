@@ -1775,6 +1775,7 @@ tensorstore_cc_library(
     hdrs = ["open_mode_spec.h"],
     deps = [
         "//tensorstore:open_mode",
+        "//tensorstore:open_options",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
     ],

@@ -53,6 +53,10 @@ Result<std::string> DriverSpec::ToUrl(std::string_view path) const {
   return absl::UnimplementedError("URL representation not supported");
 }
 
+absl::Status DriverSpec::ApplyOptions(DriverSpecOptions&& options) {
+  return absl::OkStatus();
+}
+
 ContextBindingState DriverSpecPtr::context_binding_state() const {
   return get()->context_binding_state_;
 }
@@ -104,6 +108,15 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(Spec, [](auto is_loading,
       }))(is_loading, options, obj, j);
 })
 
+absl::Status DriverSpecPtr::Set(DriverSpecOptions&& options) {
+  if (options.minimal_spec) {
+    if ((*this)->use_count() != 1) *this = (*this)->Clone();
+    TENSORSTORE_RETURN_IF_ERROR(
+        const_cast<DriverSpec*>(get())->ApplyOptions(std::move(options)));
+  }
+  return absl::OkStatus();
+}
+
 absl::Status DriverSpecPtr::Set(SpecConvertOptions&& options) {
   internal::ApplyContextBindingMode(
       *this, options.context_binding_mode,
@@ -111,7 +124,7 @@ absl::Status DriverSpecPtr::Set(SpecConvertOptions&& options) {
   if (options.context) {
     TENSORSTORE_RETURN_IF_ERROR(BindContext(options.context));
   }
-  return absl::OkStatus();
+  return Set(static_cast<DriverSpecOptions&&>(options));
 }
 
 absl::Status DriverSpecPtr::BindContext(const Context& context) {

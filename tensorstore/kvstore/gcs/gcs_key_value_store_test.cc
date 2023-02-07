@@ -423,8 +423,9 @@ TEST(GcsKeyValueStoreTest, SpecRoundtrip) {
   GCSMockStorageBucket bucket("my-bucket");
   mock_transport->buckets_.push_back(&bucket);
 
-  tensorstore::internal::TestKeyValueStoreSpecRoundtrip(
-      {{"driver", kDriver}, {"bucket", "my-bucket"}});
+  tensorstore::internal::KeyValueStoreSpecRoundtripOptions options;
+  options.full_spec = {{"driver", kDriver}, {"bucket", "my-bucket"}};
+  tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
 }
 
 TEST(GcsKeyValueStoreTest, InvalidSpec) {

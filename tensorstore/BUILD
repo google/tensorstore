@@ -461,6 +461,7 @@ tensorstore_cc_library(
     deps = [
         ":context",
         ":open_mode",
+        ":open_options",
         ":rank",
         ":spec",
         ":tensorstore",
@@ -474,15 +475,7 @@ tensorstore_cc_library(
     name = "open_mode",
     srcs = ["open_mode.cc"],
     hdrs = ["open_mode.h"],
-    deps = [
-        ":context",
-        ":schema",
-        ":staleness_bound",
-        ":transaction",
-        "//tensorstore/kvstore",
-        "//tensorstore/util:option",
-        "@com_google_absl//absl/status",
-    ],
+    deps = ["@com_google_absl//absl/status"],
 )
 
 tensorstore_cc_test(
@@ -493,6 +486,21 @@ tensorstore_cc_test(
         ":open_mode",
         "//tensorstore/util:str_cat",
         "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "open_options",
+    hdrs = ["open_options.h"],
+    deps = [
+        ":context",
+        ":open_mode",
+        ":schema",
+        ":staleness_bound",
+        ":transaction",
+        "//tensorstore/kvstore",
+        "//tensorstore/util:option",
+        "@com_google_absl//absl/status",
     ],
 )
 

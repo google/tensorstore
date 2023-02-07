@@ -33,11 +33,13 @@ namespace kvstore {
 /// Refer to the documentation of `KvStore::spec` for details.
 ///
 /// \relates Spec
-struct SpecRequestOptions {
+struct SpecRequestOptions : public DriverSpecOptions {
   ContextBindingMode context_binding_mode = ContextBindingMode::unspecified;
 
   template <typename T>
-  constexpr static bool IsOption = false;
+  constexpr static bool IsOption = DriverSpecOptions::IsOption<T>;
+
+  using DriverSpecOptions::Set;
 
   void Set(ContextBindingMode value) {
     if (value > context_binding_mode) context_binding_mode = value;

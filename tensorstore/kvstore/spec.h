@@ -24,6 +24,7 @@
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/json_serialization_options.h"
+#include "tensorstore/open_mode.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
@@ -32,12 +33,25 @@
 namespace tensorstore {
 namespace kvstore {
 
+/// Options for mutating `Spec` objects that are handled directly by drivers.
+struct DriverSpecOptions {
+  bool minimal_spec = false;
+
+  template <typename T>
+  constexpr static bool IsOption = false;
+
+  void Set(MinimalSpec value) { minimal_spec = value.minimal_spec(); }
+};
+
+template <>
+constexpr inline bool DriverSpecOptions::IsOption<MinimalSpec> = true;
+
 /// Options that may be specified for modifying an existing `Spec`.
 ///
 /// Refer to the documentation of `Spec::Set` for details.
 ///
 /// \relates Spec
-struct SpecConvertOptions {
+struct SpecConvertOptions : public DriverSpecOptions {
   /// Specifies the context binding mode.
   ContextBindingMode context_binding_mode = ContextBindingMode::unspecified;
 
@@ -51,7 +65,9 @@ struct SpecConvertOptions {
   /// - `Context`
   /// - `ContextBindingMode`
   template <typename T>
-  constexpr static bool IsOption = false;
+  constexpr static bool IsOption = DriverSpecOptions::IsOption<T>;
+
+  using DriverSpecOptions::Set;
 
   void Set(Context value) { context = std::move(value); }
   void Set(ContextBindingMode value) {
@@ -126,6 +142,7 @@ class DriverSpecPtr : public internal::IntrusivePtr<const DriverSpec> {
     (options.Set(option), ...);
     return Set(std::move(options));
   }
+  absl::Status Set(DriverSpecOptions&& options);
   absl::Status Set(SpecConvertOptions&& options);
 
   // For compatibility with `tensorstore::internal::EncodeCacheKey`.

@@ -504,23 +504,24 @@ void TestKeyValueStoreDeleteRangeFromBeginning(const KvStore& store) {
 }
 
 void TestKeyValueStoreSpecRoundtrip(
-    ::nlohmann::json json_spec,
     const KeyValueStoreSpecRoundtripOptions& options) {
-  SCOPED_TRACE(tensorstore::StrCat("json_spec=", json_spec.dump()));
+  const auto& expected_minimal_spec = options.minimal_spec.is_discarded()
+                                          ? options.full_spec
+                                          : options.minimal_spec;
+  const auto& create_spec = options.create_spec.is_discarded()
+                                ? options.full_spec
+                                : options.create_spec;
+  SCOPED_TRACE(tensorstore::StrCat("full_spec=", options.full_spec.dump()));
+  SCOPED_TRACE(tensorstore::StrCat("create_spec=", create_spec.dump()));
+  SCOPED_TRACE(
+      tensorstore::StrCat("minimal_spec=", expected_minimal_spec.dump()));
   auto context = Context::Default();
-
-  ::nlohmann::json derived_spec;
 
   // Open and populate roundtrip_key.
   {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        auto store, kvstore::Open(json_spec, context).result());
-    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        auto spec,
-        store.spec(kvstore::SpecRequestOptions{options.spec_request_options}));
-    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        derived_spec, spec.ToJson(options.json_serialization_options));
-    EXPECT_THAT(derived_spec, MatchesJson(json_spec));
+        auto store, kvstore::Open(create_spec, context).result());
+
     if (options.check_write_read) {
       ASSERT_THAT(
           kvstore::Write(store, options.roundtrip_key, options.roundtrip_value)
@@ -529,17 +530,38 @@ void TestKeyValueStoreSpecRoundtrip(
       EXPECT_THAT(kvstore::Read(store, options.roundtrip_key).result(),
                   MatchesKvsReadResult(options.roundtrip_value));
     }
+
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto spec,
+        store.spec(kvstore::SpecRequestOptions{options.spec_request_options}));
+    EXPECT_THAT(spec.ToJson(options.json_serialization_options),
+                ::testing::Optional(MatchesJson(options.full_spec)));
+
+    auto minimal_spec_obj = spec;
+    TENSORSTORE_ASSERT_OK(minimal_spec_obj.Set(tensorstore::MinimalSpec{true}));
+    EXPECT_THAT(minimal_spec_obj.ToJson(options.json_serialization_options),
+                ::testing::Optional(MatchesJson(expected_minimal_spec)));
   }
 
   ASSERT_TRUE(options.check_write_read || !options.check_data_persists);
 
   // Reopen and verify contents.
   if (options.check_data_persists) {
-    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        auto store, kvstore::Open(derived_spec, context).result());
-    TENSORSTORE_ASSERT_OK(store.spec());
-    EXPECT_THAT(kvstore::Read(store, options.roundtrip_key).result(),
-                MatchesKvsReadResult(options.roundtrip_value));
+    // Reopen with full_spec
+    {
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+          auto store, kvstore::Open(options.full_spec, context).result());
+      TENSORSTORE_ASSERT_OK(store.spec());
+      EXPECT_THAT(kvstore::Read(store, options.roundtrip_key).result(),
+                  MatchesKvsReadResult(options.roundtrip_value));
+    }
+    if (!options.minimal_spec.is_discarded()) {
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+          auto store, kvstore::Open(expected_minimal_spec, context).result());
+      TENSORSTORE_ASSERT_OK(store.spec());
+      EXPECT_THAT(kvstore::Read(store, options.roundtrip_key).result(),
+                  MatchesKvsReadResult(options.roundtrip_value));
+    }
   }
 }
 

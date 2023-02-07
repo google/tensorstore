@@ -418,12 +418,11 @@ TEST(SpecTest, SpecRoundtrip) {
   tensorstore::internal::KeyValueStoreSpecRoundtripOptions options;
   options.check_write_read = false;
   options.check_data_persists = false;
-  tensorstore::internal::TestKeyValueStoreSpecRoundtrip(
-      {{"driver", "http"},
-       {"base_url", "https://example.com?query"},
-       {"headers", {"a: b"}},
-       {"path", "/abc"}},
-      options);
+  options.full_spec = {{"driver", "http"},
+                       {"base_url", "https://example.com?query"},
+                       {"headers", {"a: b"}},
+                       {"path", "/abc"}};
+  tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
 }
 
 TEST(SpecTest, NormalizeSpecRelativePath) {

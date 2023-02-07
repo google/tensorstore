@@ -201,27 +201,28 @@ TEST(MemoryKeyValueStoreTest, Open) {
 }
 
 TEST(MemoryKeyValueStoreTest, SpecRoundtrip) {
-  tensorstore::internal::TestKeyValueStoreSpecRoundtrip({
+  tensorstore::internal::KeyValueStoreSpecRoundtripOptions options;
+  options.full_spec = {
       {"driver", "memory"},
-  });
+  };
+  tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
 }
 
 TEST(MemoryKeyValueStoreTest, SpecRoundtripWithContextSpec) {
   tensorstore::internal::KeyValueStoreSpecRoundtripOptions options;
   options.spec_request_options.Set(tensorstore::unbind_context);
+  options.full_spec = {
+      {"driver", "memory"},
+      {"memory_key_value_store", "memory_key_value_store#a"},
+      {"context",
+       {
+           {"memory_key_value_store#a", ::nlohmann::json::object_t()},
+       }},
+  };
   // Since spec includes context resources, if we re-open we get a different
   // context resource.
   options.check_data_persists = false;
-  tensorstore::internal::TestKeyValueStoreSpecRoundtrip(
-      {
-          {"driver", "memory"},
-          {"memory_key_value_store", "memory_key_value_store#a"},
-          {"context",
-           {
-               {"memory_key_value_store#a", ::nlohmann::json::object_t()},
-           }},
-      },
-      options);
+  tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
 }
 
 TEST(MemoryKeyValueStoreTest, InvalidSpec) {

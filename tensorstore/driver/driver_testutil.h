@@ -39,7 +39,7 @@ namespace internal {
 struct TestTensorStoreDriverSpecRoundtripOptions {
   std::string test_name;
   ::nlohmann::json full_spec;
-  ::nlohmann::json create_spec{::nlohmann::json::value_t::discarded};
+  ::nlohmann::json create_spec = ::nlohmann::json::value_t::discarded;
   ::nlohmann::json minimal_spec;
   SpecRequestOptions spec_request_options;
   JsonSerializationOptions to_json_options;

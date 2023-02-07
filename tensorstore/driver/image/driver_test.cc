@@ -30,6 +30,7 @@
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/open.h"
+#include "tensorstore/open_options.h"
 #include "tensorstore/progress.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/tensorstore.h"

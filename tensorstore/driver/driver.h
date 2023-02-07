@@ -57,6 +57,7 @@
 #include "tensorstore/internal/tagged_ptr.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/open_mode.h"
+#include "tensorstore/open_options.h"
 #include "tensorstore/resize_options.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/serialization/fwd.h"

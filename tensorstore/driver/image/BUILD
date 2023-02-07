@@ -69,6 +69,7 @@ tensorstore_cc_test(
         "//tensorstore:context",
         "//tensorstore:index",
         "//tensorstore:open",
+        "//tensorstore:open_options",
         "//tensorstore:progress",
         "//tensorstore:strided_layout",
         "//tensorstore/driver/image/avif",  # build_cleaner: keep

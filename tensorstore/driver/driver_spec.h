@@ -34,6 +34,7 @@
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/open_mode.h"
+#include "tensorstore/open_options.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/transaction.h"

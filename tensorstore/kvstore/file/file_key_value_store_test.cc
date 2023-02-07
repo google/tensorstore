@@ -488,8 +488,9 @@ TEST(FileKeyValueStoreTest, List) {
 TEST(FileKeyValueStoreTest, SpecRoundtrip) {
   tensorstore::internal::ScopedTemporaryDirectory tempdir;
   std::string root = tempdir.path() + "/root";
-  tensorstore::internal::TestKeyValueStoreSpecRoundtrip(
-      {{"driver", "file"}, {"path", root}});
+  tensorstore::internal::KeyValueStoreSpecRoundtripOptions options;
+  options.full_spec = {{"driver", "file"}, {"path", root}};
+  tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
 }
 
 TEST(FileKeyValueStoreTest, InvalidSpec) {

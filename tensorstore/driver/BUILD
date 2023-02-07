@@ -102,6 +102,7 @@ tensorstore_cc_library(
         "//tensorstore:json_serialization_options",
         "//tensorstore:json_serialization_options_base",
         "//tensorstore:open_mode",
+        "//tensorstore:open_options",
         "//tensorstore:progress",
         "//tensorstore:rank",
         "//tensorstore:read_write_options",

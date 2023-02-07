@@ -66,6 +66,16 @@ void TestKeyValueStoreDeleteRangeToEnd(const KvStore& store);
 void TestKeyValueStoreDeleteRangeFromBeginning(const KvStore& store);
 
 struct KeyValueStoreSpecRoundtripOptions {
+  // Spec that round trips with default options.
+  ::nlohmann::json full_spec;
+
+  // Specifies spec for initially creating the kvstore.  Defaults to
+  // `full_spec`.
+  ::nlohmann::json create_spec = ::nlohmann::json::value_t::discarded;
+
+  // Specifies spec returned when `MinimalSpec{true}` is specified.  Defaults to
+  // `full_spec`.
+  ::nlohmann::json minimal_spec = ::nlohmann::json::value_t::discarded;
   kvstore::SpecRequestOptions spec_request_options;
   JsonSerializationOptions json_serialization_options;
   // Checks reading and writing.
@@ -79,12 +89,21 @@ struct KeyValueStoreSpecRoundtripOptions {
   absl::Cord roundtrip_value = absl::Cord("myvalue");
 };
 
-/// Tests that calling `kvstore::Open` with `spec` returns a `KvStore` whose
-/// `spec()` method returns `spec`, and that data persists when re-opening using
-/// the same `spec` after closing.
+/// Tests that the KvStore spec round-trips in several ways.
+///
+/// - Tests that calling `kvstore::Open` with `options.create_spec` returns a
+///   `KvStore` whose `spec()` method returns `options.full_spec`.
+///
+/// - Tests that applying the `MinimalSpec` option to `option.full_spec` results
+///   in `options.minimal_spec`.
+///
+/// - If `options.check_data_persists`, tests that data persists when re-opened
+///   using `options.minimal_spec`.
+///
+/// - If `options.check_data_persists`, tests that data persists when re-opened
+///   using `options.full_spec`.
 void TestKeyValueStoreSpecRoundtrip(
-    ::nlohmann::json json_spec,
-    const KeyValueStoreSpecRoundtripOptions& options = {});
+    const KeyValueStoreSpecRoundtripOptions& options);
 
 /// Tests that the KvStore spec constructed from `json_spec` corresponds to the
 /// URL representation `url`.

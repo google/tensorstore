@@ -22,6 +22,7 @@
 
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/open_mode.h"
+#include "tensorstore/open_options.h"
 
 namespace tensorstore {
 namespace internal {

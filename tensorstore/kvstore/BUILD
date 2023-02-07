@@ -189,6 +189,7 @@ tensorstore_cc_library(
         ":key_range",
         "//tensorstore:context",
         "//tensorstore:json_serialization_options",
+        "//tensorstore:open_mode",
         "//tensorstore:transaction",
         "//tensorstore/internal:context_binding",
         "//tensorstore/internal:intrusive_ptr",
