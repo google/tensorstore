@@ -159,6 +159,9 @@ tensorstore_cc_library(
     name = "kvstore",
     srcs = [
         "kvstore.cc",
+        "operations.cc",
+        "read_result.cc",
+        "spec.cc",
         "transaction.cc",
         "url_registry.cc",
     ],
