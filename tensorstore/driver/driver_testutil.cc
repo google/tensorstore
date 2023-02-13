@@ -551,12 +551,6 @@ absl::Status TestDriverReadOrWriteChunks(
     total_bytes = ts.domain().num_elements() * ts.dtype().size() * -total_bytes;
   }
 
-  const auto rank = ts.rank();
-  Index range_extent[kMaxRank] = {};
-  for (size_t i = 0; i < rank; i++) {
-    range_extent[i] = ts.domain().shape()[i] / chunk_shape[i];
-  }
-
   SharedOffsetArray<const void> array;
   if (!read) {
     array = MakeRandomArray(gen, tensorstore::Box<>(chunk_shape), ts.dtype());
