@@ -321,7 +321,7 @@ def repo_pypa_fastavro():
         third_party_python_package,
         name = "pypa_fastavro",
         target = "fastavro",
-        requirement = "fastavro==1.7.0",
+        requirement = "fastavro==1.7.1",
     )
 
 def repo_pypa_fasteners():
@@ -345,7 +345,7 @@ def repo_pypa_grpcio():
         third_party_python_package,
         name = "pypa_grpcio",
         target = "grpcio",
-        requirement = "grpcio==1.51.1",
+        requirement = "grpcio==1.52.0",
     )
 
 def repo_pypa_hdfs():
@@ -441,7 +441,7 @@ def repo_pypa_ipython():
         third_party_python_package,
         name = "pypa_ipython",
         target = "ipython",
-        requirement = "ipython==8.8.0",
+        requirement = "ipython==8.10.0",
         deps = [
             "@pypa_appnope//:appnope",
             "@pypa_backcall//:backcall",
@@ -525,7 +525,7 @@ def repo_pypa_numpy():
         third_party_python_package,
         name = "pypa_numpy",
         target = "numpy",
-        requirement = "numpy==1.24.1",
+        requirement = "numpy==1.24.2",
     )
 
 def repo_pypa_objsize():
@@ -541,7 +541,7 @@ def repo_pypa_orjson():
         third_party_python_package,
         name = "pypa_orjson",
         target = "orjson",
-        requirement = "orjson==3.8.5",
+        requirement = "orjson==3.8.6",
     )
 
 def repo_pypa_packaging():
@@ -650,7 +650,7 @@ def repo_pypa_pyarrow():
         third_party_python_package,
         name = "pypa_pyarrow",
         target = "pyarrow",
-        requirement = "pyarrow==10.0.1",
+        requirement = "pyarrow==11.0.0",
         deps = [
             "@pypa_numpy//:numpy",
         ],
@@ -844,7 +844,7 @@ def repo_pypa_sphinx():
         third_party_python_package,
         name = "pypa_sphinx",
         target = "sphinx",
-        requirement = "sphinx==6.1.3",
+        requirement = "sphinx==6.0.1",
         deps = [
             "@pypa_alabaster//:alabaster",
             "@pypa_babel//:babel",
@@ -893,7 +893,7 @@ def repo_pypa_sphinxcontrib_applehelp():
         third_party_python_package,
         name = "pypa_sphinxcontrib_applehelp",
         target = "sphinxcontrib_applehelp",
-        requirement = "sphinxcontrib-applehelp==1.0.3",
+        requirement = "sphinxcontrib-applehelp==1.0.4",
     )
 
 def repo_pypa_sphinxcontrib_devhelp():
@@ -909,7 +909,7 @@ def repo_pypa_sphinxcontrib_htmlhelp():
         third_party_python_package,
         name = "pypa_sphinxcontrib_htmlhelp",
         target = "sphinxcontrib_htmlhelp",
-        requirement = "sphinxcontrib-htmlhelp==2.0.0",
+        requirement = "sphinxcontrib-htmlhelp==2.0.1",
     )
 
 def repo_pypa_sphinxcontrib_jsmath():
@@ -965,7 +965,7 @@ def repo_pypa_traitlets():
         third_party_python_package,
         name = "pypa_traitlets",
         target = "traitlets",
-        requirement = "traitlets==5.8.1",
+        requirement = "traitlets==5.9.0",
     )
 
 def repo_pypa_typing_extensions():
@@ -1005,7 +1005,7 @@ def repo_pypa_zipp():
         third_party_python_package,
         name = "pypa_zipp",
         target = "zipp",
-        requirement = "zipp==3.11.0",
+        requirement = "zipp==3.13.0",
     )
 
 def repo_pypa_zstandard():

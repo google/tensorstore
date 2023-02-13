@@ -1,5 +1,6 @@
 # Packages required to build the documentation.
-sphinx
+# Exclude sphinx 6.1 due to https://github.com/sphinx-doc/sphinx/issues/11163
+sphinx<6.1
 sphinx-immaterial
 jsonschema
 pyyaml
