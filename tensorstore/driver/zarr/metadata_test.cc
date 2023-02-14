@@ -192,6 +192,12 @@ TEST(ParseFillValueTest, IntegerSuccess) {
                          {MakeScalarArray<std::uint32_t>(310000000)});
   TestFillValueRoundTrip("<u8", 31000000000,
                          {MakeScalarArray<std::uint64_t>(31000000000)});
+  EXPECT_THAT(ParseFillValue(5.0, ParseDType("|i1").value()),
+              ::testing::Optional(::testing::ElementsAre(
+                  tensorstore::MatchesScalarArray<int8_t>(5))));
+  EXPECT_THAT(ParseFillValue(5.0, ParseDType("|u1").value()),
+              ::testing::Optional(::testing::ElementsAre(
+                  tensorstore::MatchesScalarArray<uint8_t>(5))));
 }
 
 TEST(ParseFillValueTest, IntegerFailure) {

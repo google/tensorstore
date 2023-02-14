@@ -101,8 +101,7 @@ struct JsonRequireIntegerImpl {
 ///   64-bit integer and uint64_t cannot include a negative prefix.
 ///
 /// \param json The value to parse.
-/// \param strict If `true`, string conversions and double -> integer
-///     conversions are not permitted.
+/// \param strict If `true`, string conversions are not permitted.
 template <typename T>
 std::optional<T> JsonValueAs(const ::nlohmann::json& j, bool strict = false) {
   static_assert(!std::is_same_v<T, T>, "Target type not supported.");
@@ -138,8 +137,7 @@ std::optional<std::string> JsonValueAs<std::string>(const ::nlohmann::json& j,
 /// \param result A pointer to an assigned value (may be nullptr)
 /// \param is_valid A function or lambda taking T, returning true when
 ///     valid.
-/// \param strict If `true`, string conversions and double -> integer
-///     conversions are not permitted.
+/// \param strict If `true`, string conversions are not permitted.
 template <typename T, typename ValidateFn>
 std::enable_if_t<!std::is_same_v<ValidateFn, bool>, absl::Status>
 JsonRequireValueAs(const ::nlohmann::json& j, T* result, ValidateFn is_valid,
@@ -175,8 +173,7 @@ absl::Status JsonRequireValueAs(const ::nlohmann::json& j, T* result,
 /// \param json The JSON value.
 /// \param result[out] Non-null pointer to location where result is stored on
 ///     success.
-/// \param strict If `true`, conversions from string and double are not
-///     permitted.
+/// \param strict If `true`, conversions from string are not permitted.
 /// \param min_value The minimum allowed value (inclusive).
 /// \param max_value The maximum allowed value (inclusive).
 /// \returns `absl::Status()` if successful.

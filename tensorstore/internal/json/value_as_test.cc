@@ -193,9 +193,6 @@ TEST(JsonValueAsTest, Int64FromDouble) {
   EXPECT_EQ(
       -0x8000000000000000,
       JsonValueAs<int64_t>(::nlohmann::json(-9223372036854775808.0 /*=2^63*/)));
-
-  const bool kStrict = true;
-  EXPECT_EQ(std::nullopt, JsonValueAs<int64_t>(::nlohmann::json(1.0), kStrict));
 }
 
 TEST(JsonValueAsTest, Int64FromString) {
@@ -205,7 +202,6 @@ TEST(JsonValueAsTest, Int64FromString) {
   EXPECT_EQ(0x7fffffffffffffff,
             JsonValueAs<int64_t>(::nlohmann::json("9223372036854775807")));
 
-  // TODO(jbms): Fix this inconsistency (conversion from double is allowed).
   EXPECT_FALSE(JsonValueAs<int64_t>(::nlohmann::json("0.0")));
   EXPECT_FALSE(JsonValueAs<int64_t>(::nlohmann::json("0a")));
   EXPECT_FALSE(JsonValueAs<int64_t>(::nlohmann::json("0x0")));
@@ -235,17 +231,12 @@ TEST(JsonValueAsTest, Uint64FromDouble) {
   // uint64.
   EXPECT_EQ(18446744073709549568u,
             JsonValueAs<uint64_t>(::nlohmann::json(18446744073709549568.0)));
-
-  const bool kStrict = true;
-  EXPECT_EQ(std::nullopt,
-            JsonValueAs<uint64_t>(::nlohmann::json(1.0), kStrict));
 }
 
 TEST(JsonValueAsTest, Uint64FromString) {
   EXPECT_EQ(0xffffffffffffffffu,
             JsonValueAs<uint64_t>(::nlohmann::json("18446744073709551615")));
 
-  // TODO(jbms): Fix this inconsistency (conversion from double is allowed).
   EXPECT_FALSE(JsonValueAs<uint64_t>(::nlohmann::json("0.0")));
   EXPECT_FALSE(JsonValueAs<uint64_t>(::nlohmann::json("0a")));
   EXPECT_FALSE(JsonValueAs<uint64_t>(::nlohmann::json("0x0")));

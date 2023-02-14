@@ -116,14 +116,14 @@ std::optional<int64_t> JsonValueAs<int64_t>(const ::nlohmann::json& j,
     }
   } else if (j.is_number_integer()) {
     return j.get<std::int64_t>();
+  } else if (j.is_number_float()) {
+    auto x = j.get<double>();
+    if (x >= -9223372036854775808.0 /*=-2^63*/ &&
+        x < 9223372036854775808.0 /*=2^63*/ && x == std::floor(x)) {
+      return static_cast<std::int64_t>(x);
+    }
   } else if (!strict) {
-    if (j.is_number_float()) {
-      auto x = j.get<double>();
-      if (x >= -9223372036854775808.0 /*=-2^63*/ &&
-          x < 9223372036854775808.0 /*=2^63*/ && x == std::floor(x)) {
-        return static_cast<std::int64_t>(x);
-      }
-    } else if (j.is_string()) {
+    if (j.is_string()) {
       int64_t result = 0;
       if (absl::SimpleAtoi(j.get_ref<std::string const&>(), &result)) {
         return result;
@@ -143,15 +143,13 @@ std::optional<uint64_t> JsonValueAs<uint64_t>(const ::nlohmann::json& j,
     if (x >= 0) {
       return static_cast<uint64_t>(x);
     }
-  } else if (!strict) {
-    // Fallback numeric parsing.
-    if (j.is_number_float()) {
-      double x = j.get<double>();
-      if (x >= 0.0 && x < 18446744073709551616.0 /*=2^64*/ &&
-          x == std::floor(x)) {
-        return static_cast<uint64_t>(x);
-      }
+  } else if (j.is_number_float()) {
+    double x = j.get<double>();
+    if (x >= 0.0 && x < 18446744073709551616.0 /*=2^64*/ &&
+        x == std::floor(x)) {
+      return static_cast<uint64_t>(x);
     }
+  } else if (!strict) {
     if (j.is_string()) {
       uint64_t result = 0;
       if (absl::SimpleAtoi(j.get_ref<std::string const&>(), &result)) {
