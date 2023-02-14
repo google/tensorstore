@@ -43,6 +43,7 @@ pybind11_py_extension(
         ":gil_safe",
         ":index_space",
         ":kvstore",
+        ":metrics",
         ":numpy",
         ":python_imports",
         ":serialization",
@@ -54,7 +55,6 @@ pybind11_py_extension(
         ":virtual_chunked",
         ":write_futures",
         "//tensorstore:all_drivers",
-        "//tensorstore/util:executor",
         "@com_github_pybind_pybind11//:pybind11",
     ],
 )
@@ -952,5 +952,30 @@ tensorstore_pytest_test(
         ":tensorstore",
         "@pypa_cloudpickle//:cloudpickle",
         "@pypa_numpy//:numpy",
+    ],
+)
+
+pybind11_cc_library(
+    name = "metrics",
+    srcs = ["metrics.cc"],
+    deps = [
+        ":json_type_caster",
+        ":tensorstore_module_components",
+        "//tensorstore/internal:global_initializer",
+        "//tensorstore/internal/metrics:collect",
+        "//tensorstore/internal/metrics:registry",
+        "//tensorstore/util:str_cat",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_github_pybind_pybind11//:pybind11",
+    ],
+    alwayslink = True,
+)
+
+tensorstore_pytest_test(
+    name = "metrics_test",
+    size = "small",
+    srcs = ["tests/metrics_test.py"],
+    deps = [
+        ":tensorstore",
     ],
 )
