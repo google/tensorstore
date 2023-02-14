@@ -11,6 +11,7 @@ tensorstore_cc_library(
     hdrs = [
         "absl_time.h",
         "cache_key.h",
+        "fwd.h",
         "std_optional.h",
         "std_variant.h",
         "std_vector.h",

@@ -39,6 +39,13 @@ struct ApplyMembers<T[N]> {
 template <typename T, size_t N>
 struct ApplyMembers<std::array<T, N>> : public ApplyMembers<T[N]> {};
 
+template <typename T, size_t N>
+constexpr static bool SerializeUsingMemcpy<T[N]> = SerializeUsingMemcpy<T>;
+
+template <typename T, size_t N>
+constexpr static bool SerializeUsingMemcpy<std::array<T, N>> =
+    SerializeUsingMemcpy<T>;
+
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_UTIL_APPLY_MEMBERS_STD_ARRAY_H_

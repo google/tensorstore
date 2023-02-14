@@ -39,6 +39,10 @@ struct ApplyMembers<std::complex<T>> {
   }
 };
 
+template <typename T>
+constexpr inline bool SerializeUsingMemcpy<std::complex<T>> =
+    SerializeUsingMemcpy<T>;
+
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_UTIL_APPLY_MEMBERS_STD_COMPLEX_H_

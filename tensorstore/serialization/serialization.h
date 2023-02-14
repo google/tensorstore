@@ -128,13 +128,7 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
-namespace half_float {
-class half;
-}
-
 namespace tensorstore {
-
-class bfloat16_t;
 
 namespace serialization {
 
@@ -458,10 +452,7 @@ struct MemcpySerializer {
 /// Use `MemcpySerializer` by default for built-in integer, floating-point, and
 /// enum types, as well as for `bfloat16_t` and `float16_t`.
 template <typename T>
-struct Serializer<
-    T, std::enable_if_t<std::is_integral_v<T> || std::is_floating_point_v<T> ||
-                        std::is_enum_v<T> || std::is_same_v<T, bfloat16_t> ||
-                        std::is_same_v<T, half_float::half>>>
+struct Serializer<T, std::enable_if_t<SerializeUsingMemcpy<T>>>
     : public MemcpySerializer<T> {};
 
 /// Serializer for `bool`.
@@ -562,7 +553,8 @@ struct ApplyMembersSerializer {
 
 template <typename T>
 struct Serializer<
-    T, std::enable_if_t<(SupportsApplyMembers<T> && !IsNonSerializable<T>)>>
+    T, std::enable_if_t<(SupportsApplyMembers<T> && !IsNonSerializable<T> &&
+                         !SerializeUsingMemcpy<T>)>>
     : public ApplyMembersSerializer<T> {};
 
 /// Serializes a container type.
@@ -570,8 +562,6 @@ struct Serializer<
 /// The size is encoded followed by each element.  If the size will be already
 /// known at decoding time, you can avoid redundantly encoding the size by using
 /// `SpanSerializer` instead.
-///
-/// TODO(jbms): Use optimized encoding for fixed-size elements
 template <typename T, typename ValueType = typename T::value_type,
           typename ElementSerializer = Serializer<ValueType>>
 struct ContainerSerializer {

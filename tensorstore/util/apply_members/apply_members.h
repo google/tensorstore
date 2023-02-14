@@ -64,7 +64,13 @@
 
 #include "absl/base/attributes.h"
 
+namespace half_float {
+class half;
+}
+
 namespace tensorstore {
+
+class bfloat16_t;
 
 /// Provides access to the members of aggregate types.
 ///
@@ -129,6 +135,17 @@ struct ApplyMembers<T, std::enable_if_t<std::is_empty_v<T>>> {
 template <typename T>
 constexpr inline bool SupportsApplyMembers =
     internal_apply_members::SupportsApplyMembersImpl<T>::value;
+
+/// Evaluates to `true` if `T` can be safely serialized via memcpy.
+template <typename T, typename SFINAE = void>
+constexpr inline bool SerializeUsingMemcpy =
+    std::is_integral_v<T> || std::is_floating_point_v<T> || std::is_enum_v<T>;
+
+template <>
+constexpr inline bool SerializeUsingMemcpy<bfloat16_t> = true;
+
+template <>
+constexpr inline bool SerializeUsingMemcpy<half_float::half> = true;
 
 }  // namespace tensorstore
 

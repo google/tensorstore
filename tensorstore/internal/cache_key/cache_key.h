@@ -20,6 +20,7 @@
 #include <type_traits>
 #include <typeinfo>
 
+#include "tensorstore/internal/cache_key/fwd.h"
 #include "tensorstore/util/apply_members/apply_members.h"
 
 namespace tensorstore {
@@ -49,7 +50,7 @@ void EncodeCacheKey(std::string* out, const U&... u);
 // argument-dependent lookup (ADL).
 inline void EncodeCacheKeyAdl() {}
 
-template <typename T, typename SFINAE = void>
+template <typename T, typename SFINAE>
 struct CacheKeyEncoder {
   static void Encode(std::string* out, const T& value) {
     EncodeCacheKeyAdl(out, value);
@@ -57,8 +58,7 @@ struct CacheKeyEncoder {
 };
 
 template <typename T>
-struct CacheKeyEncoder<
-    T, std::enable_if_t<std::is_arithmetic_v<T> || std::is_enum_v<T>>> {
+struct CacheKeyEncoder<T, std::enable_if_t<SerializeUsingMemcpy<T>>> {
   static void Encode(std::string* out, T value) {
     out->append(reinterpret_cast<const char*>(&value), sizeof(value));
   }
@@ -98,7 +98,8 @@ constexpr inline bool IsCacheKeyExcludes<CacheKeyExcludes<T>> = true;
 
 template <typename T>
 struct CacheKeyEncoder<
-    T, std::enable_if_t<SupportsApplyMembers<T> && !IsCacheKeyExcludes<T>>> {
+    T, std::enable_if_t<SupportsApplyMembers<T> && !IsCacheKeyExcludes<T> &&
+                        !SerializeUsingMemcpy<T>>> {
   static void Encode(std::string* out, const T& v) {
     ApplyMembers<T>::Apply(
         v, [&out](auto&&... x) { (internal::EncodeCacheKey(out, x), ...); });
