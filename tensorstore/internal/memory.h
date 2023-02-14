@@ -57,8 +57,9 @@ inline T* to_address(T* x) {
 
 inline std::nullptr_t to_address(std::nullptr_t) { return nullptr; }
 
-// MSVC 2019 already defines an rvalue static_pointer_cast
-#ifndef _MSC_VER
+// C++20 already defines an rvalue static_pointer_cast.  MSVC also defines it
+// even in C++17 mode.
+#if __cplusplus <= 201703L && !defined(_MSC_VER)
 /// Additional overload of static_pointer_cast for the no-op case that avoids an
 /// extra copy.
 template <typename T>

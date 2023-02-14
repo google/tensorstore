@@ -749,8 +749,6 @@ struct CopyOnly {
 
   CopyOnly(CopyOnly const&) = default;
   CopyOnly& operator=(const CopyOnly&) = default;
-  CopyOnly(CopyOnly&&) = delete;
-  CopyOnly& operator=(CopyOnly&&) = delete;
 
   int value;
 };
