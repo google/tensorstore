@@ -40,8 +40,6 @@ struct PythonTensorStoreObject
 
 using PythonTensorStore = PythonTensorStoreObject::Handle;
 
-void RegisterTensorStoreBindings(pybind11::module m, Executor defer);
-
 }  // namespace internal_python
 }  // namespace tensorstore
 

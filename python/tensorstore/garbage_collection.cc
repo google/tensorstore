@@ -18,6 +18,8 @@
 
 #include "python/tensorstore/garbage_collection.h"
 #include "python/tensorstore/gil_safe.h"
+#include "python/tensorstore/tensorstore_module_components.h"
+#include "tensorstore/internal/global_initializer.h"
 
 namespace py = ::pybind11;
 
@@ -213,11 +215,20 @@ pybind11::handle PythonWeakRef::get_value_or_throw() const {
   return h;
 }
 
-void RegisterGarbageCollectionBindings() {
+namespace {
+
+void RegisterGarbageCollectionBindings(pybind11::module_ m, Executor defer) {
   if (PyType_Ready(&WeakRefAdapterType) != 0) {
     throw py::error_already_set();
   }
 }
+
+TENSORSTORE_GLOBAL_INITIALIZER {
+  RegisterPythonComponent(RegisterGarbageCollectionBindings,
+                          /*priority=*/-2000);
+}
+
+}  // namespace
 
 }  // namespace internal_python
 

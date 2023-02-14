@@ -34,7 +34,6 @@
 
 #include "python/tensorstore/bfloat16.h"
 #include "tensorstore/data_type.h"
-#include "tensorstore/util/executor.h"
 
 namespace tensorstore {
 namespace internal_python {
@@ -153,9 +152,6 @@ DataType GetDataType(pybind11::dtype dt);
 ///
 /// \throws `pybind11::value_error` if there is no corresponding DataType.
 DataType GetDataTypeOrThrow(pybind11::dtype dt);
-
-/// Defines the Python types and constants.
-void RegisterDataTypeBindings(pybind11::module m, Executor defer);
 
 /// Wrapper type used to indicate parameters that may be specified either as
 /// `tensorstore.dtype` objects or any compatible type (such as a numpy data

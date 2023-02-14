@@ -28,7 +28,6 @@
 #include "python/tensorstore/status.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/serialization/serialization.h"
-#include "tensorstore/util/executor.h"
 
 /// \file
 ///
@@ -265,11 +264,6 @@ void EnableGarbageCollectedObjectPicklingFromSerialization(
         return typename Self::Handle(std::move(value));
       }));
 }
-
-/// Registers (private) global bindings needed by serialization.
-///
-/// This is to be called exactly once during module initialization.
-void RegisterSerializationBindings(pybind11::module_ m, Executor defer);
 
 struct PythonHandleDirectSerializer {
   [[nodiscard]] static bool Encode(serialization::EncodeSink& sink,

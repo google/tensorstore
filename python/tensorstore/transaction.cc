@@ -17,7 +17,9 @@
 // inclusion constraints are satisfied.
 
 #include "python/tensorstore/future.h"
+#include "python/tensorstore/tensorstore_module_components.h"
 #include "python/tensorstore/transaction.h"
+#include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/executor.h"
 
@@ -312,7 +314,6 @@ Group:
             }
           });
 }
-}  // namespace
 
 void RegisterTransactionBindings(pybind11::module m, Executor defer) {
   defer([cls = MakeTransactionClass(m)]() mutable {
@@ -320,5 +321,10 @@ void RegisterTransactionBindings(pybind11::module m, Executor defer) {
   });
 }
 
+TENSORSTORE_GLOBAL_INITIALIZER {
+  RegisterPythonComponent(RegisterTransactionBindings, /*priority=*/-500);
+}
+
+}  // namespace
 }  // namespace internal_python
 }  // namespace tensorstore

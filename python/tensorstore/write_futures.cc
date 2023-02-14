@@ -21,7 +21,9 @@
 #include <new>
 #include <utility>
 
+#include "python/tensorstore/tensorstore_module_components.h"
 #include "python/tensorstore/write_futures.h"
+#include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/util/executor.h"
 
 namespace tensorstore {
@@ -158,6 +160,17 @@ void DefineWriteFuturesAttributes(WriteFuturesCls& cls) {
         py::reinterpret_borrow<py::object>(self.commit_future)};
   });
 }
+
+void RegisterWriteFuturesBindings(pybind11::module m, Executor defer) {
+  defer([cls = MakeWriteFuturesClass(m)]() mutable {
+    DefineWriteFuturesAttributes(cls);
+  });
+}
+
+TENSORSTORE_GLOBAL_INITIALIZER {
+  RegisterPythonComponent(RegisterWriteFuturesBindings, /*priority=*/-400);
+}
+
 }  // namespace
 
 PythonWriteFutures::PythonWriteFutures(
@@ -177,12 +190,6 @@ PythonWriteFutures::PythonWriteFutures(
   obj.copy_future = copy_future.release().ptr();
   obj.commit_future = commit_future.release().ptr();
   value = self;
-}
-
-void RegisterWriteFuturesBindings(pybind11::module m, Executor defer) {
-  defer([cls = MakeWriteFuturesClass(m)]() mutable {
-    DefineWriteFuturesAttributes(cls);
-  });
 }
 
 }  // namespace internal_python

@@ -25,12 +25,13 @@
 #include "python/tensorstore/serialization.h"  // IWYU pragma: keep
 #include "python/tensorstore/spec.h"
 #include "python/tensorstore/status.h"
+#include "python/tensorstore/tensorstore_module_components.h"
 #include "python/tensorstore/tensorstore_class.h"
 #include "python/tensorstore/time.h"
 #include "python/tensorstore/transaction.h"  // IWYU pragma: keep
 #include "python/tensorstore/type_name_override.h"
-#include "python/tensorstore/virtual_chunked.h"
 #include "tensorstore/index_space/index_domain_builder.h"
+#include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/virtual_chunked.h"
 
 namespace tensorstore {
@@ -264,8 +265,6 @@ struct WriteFunctionAdapter : public FunctionAdapterBase<false> {
   constexpr static const char id[] =
       "0python:tensorstore.virtual_chunked.write";
 };
-
-}  // namespace
 
 void RegisterVirtualChunkedBindings(pybind11::module m, Executor defer) {
   defer([cls = MakeVirtualChunkedReadParametersClass(m)]() mutable {
@@ -525,5 +524,10 @@ different than binding the transaction to an existing virtual chunked view.
   });
 }
 
+TENSORSTORE_GLOBAL_INITIALIZER {
+  RegisterPythonComponent(RegisterVirtualChunkedBindings, /*priority=*/-300);
+}
+
+}  // namespace
 }  // namespace internal_python
 }  // namespace tensorstore

@@ -482,8 +482,6 @@ typename Future<T>::result_type& InterruptibleWait(
   return future.result();
 }
 
-void RegisterFutureBindings(pybind11::module m, Executor defer);
-
 /// Attempts to convert a `FutureLike` Python object to a `Future`.
 ///
 /// \param src Source python object.  Supported types are: a

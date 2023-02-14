@@ -47,7 +47,6 @@
 #include "tensorstore/index_space/output_index_map.h"
 #include "tensorstore/index_space/output_index_method.h"
 #include "tensorstore/util/bit_span.h"
-#include "tensorstore/util/executor.h"
 #include "tensorstore/util/span.h"
 
 namespace tensorstore {
@@ -91,8 +90,6 @@ struct OutputIndexMap {
     }
   }
 };
-
-void RegisterIndexSpaceBindings(pybind11::module m, Executor defer);
 
 template <size_t NumAssign>
 struct IndexTransformOperationDocstrings {

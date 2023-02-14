@@ -26,13 +26,10 @@
 #include "python/tensorstore/garbage_collection.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/read_result.h"
-#include "tensorstore/util/executor.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
 
 namespace tensorstore {
 namespace internal_python {
-
-void RegisterKvStoreBindings(pybind11::module m, Executor defer);
 
 struct PythonKvStoreSpecObject
     : public GarbageCollectedPythonObject<PythonKvStoreSpecObject,

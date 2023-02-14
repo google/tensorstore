@@ -25,10 +25,13 @@
 #include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/serialization.h"
+#include "python/tensorstore/tensorstore_module_components.h"
 #include "tensorstore/context.h"
 #include "tensorstore/context_impl.h"
+#include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/json/pprint_python.h"
 #include "tensorstore/json_serialization_options.h"
+#include "tensorstore/util/executor.h"
 
 namespace tensorstore {
 namespace internal_python {
@@ -325,9 +328,7 @@ Group:
                    UntypedContextResourceImplPtrNonNullDirectSerializer>{});
 }
 
-}  // namespace
-
-void RegisterContextBindings(pybind11::module m, Executor defer) {
+void RegisterContextBindings(pybind11::module_ m, Executor defer) {
   auto cls_context = MakeContextClass(m);
   defer([cls_context]() mutable { DefineContextAttributes(cls_context); });
 
@@ -340,5 +341,10 @@ void RegisterContextBindings(pybind11::module m, Executor defer) {
   });
 }
 
+TENSORSTORE_GLOBAL_INITIALIZER {
+  RegisterPythonComponent(RegisterContextBindings, /*priority=*/-750);
+}
+
+}  // namespace
 }  // namespace internal_python
 }  // namespace tensorstore

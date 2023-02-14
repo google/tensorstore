@@ -136,8 +136,6 @@ class DimensionSelection : public PythonDimExpression {
 /// sequences thereof.
 bool CastToDimensionSelection(pybind11::handle src, DimensionSelection& out);
 
-void RegisterDimExpressionBindings(pybind11::module m, Executor defer);
-
 /// Wrapper type used to indicate parameters to pybind11-wrapped functions that
 /// may be specified either as `tensorstore.d` objects, or anything supported by
 /// `CastToDimensionSelection`.

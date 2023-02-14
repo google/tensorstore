@@ -36,12 +36,9 @@
 #include "python/tensorstore/unit.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/spec.h"
-#include "tensorstore/util/executor.h"
 
 namespace tensorstore {
 namespace internal_python {
-
-void RegisterSpecBindings(pybind11::module m, Executor defer);
 
 struct PythonSpecObject
     : public GarbageCollectedPythonObject<PythonSpecObject, Spec> {

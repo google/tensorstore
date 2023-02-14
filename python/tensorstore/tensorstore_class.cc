@@ -39,6 +39,7 @@
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/serialization.h"
 #include "python/tensorstore/spec.h"
+#include "python/tensorstore/tensorstore_module_components.h"
 #include "python/tensorstore/tensorstore_class.h"
 #include "python/tensorstore/transaction.h"
 #include "python/tensorstore/write_futures.h"
@@ -49,6 +50,7 @@
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/array/array.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/json/pprint_python.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
@@ -779,13 +781,15 @@ writes to be read:
         if (shrink_only) {
           options.mode = options.mode | tensorstore::shrink_only;
         }
-        return PythonFutureWrapper<TensorStore<>>(tensorstore::Resize(
-            self.value,
-            std::vector<Index>(inclusive_min.value().begin(),
-                               inclusive_min.value().end()),
-            std::vector<Index>(exclusive_max.value().begin(),
-                               exclusive_max.value().end()),
-            options), self.reference_manager());
+        return PythonFutureWrapper<TensorStore<>>(
+            tensorstore::Resize(
+                self.value,
+                std::vector<Index>(inclusive_min.value().begin(),
+                                   inclusive_min.value().end()),
+                std::vector<Index>(exclusive_max.value().begin(),
+                                   exclusive_max.value().end()),
+                options),
+            self.reference_manager());
       },
       R"(
 Resizes the current domain, persistently modifying the stored representation.
@@ -2519,8 +2523,6 @@ Group:
   });
 }
 
-}  // namespace
-
 void RegisterTensorStoreBindings(pybind11::module m, Executor defer) {
   defer([cls = MakeTensorStoreClass(m), m]() mutable {
     DefineTensorStoreAttributes(cls);
@@ -2528,5 +2530,10 @@ void RegisterTensorStoreBindings(pybind11::module m, Executor defer) {
   });
 }
 
+TENSORSTORE_GLOBAL_INITIALIZER {
+  RegisterPythonComponent(RegisterTensorStoreBindings, /*priority=*/-1000);
+}
+
+}  // namespace
 }  // namespace internal_python
 }  // namespace tensorstore

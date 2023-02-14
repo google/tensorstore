@@ -24,17 +24,18 @@
 #include "python/tensorstore/index_space.h"
 #include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/keyword_arguments.h"
+#include "python/tensorstore/tensorstore_module_components.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/index_space/index_domain_builder.h"
+#include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/json/pprint_python.h"
 #include "tensorstore/util/executor.h"
 
 namespace tensorstore {
 namespace internal_python {
+namespace {
 
 namespace py = pybind11;
-
-namespace {
 
 /// Obtains the chunk grid template and returns it as an index domain (that is
 /// the only Python type we have to represent a rectangular region).
@@ -612,8 +613,6 @@ Alias for :py:obj:`.rank`.
       "Compares two chunk grids for equality.", py::arg("other"));
 }
 
-}  // namespace
-
 void RegisterChunkLayoutBindings(pybind11::module m, Executor defer) {
   auto cls_chunk_layout = MakeChunkLayoutClass(m);
   defer([cls_chunk_layout]() mutable {
@@ -624,6 +623,11 @@ void RegisterChunkLayoutBindings(pybind11::module m, Executor defer) {
   });
 }
 
+TENSORSTORE_GLOBAL_INITIALIZER {
+  RegisterPythonComponent(RegisterChunkLayoutBindings, /*priority=*/-650);
+}
+
+}  // namespace
 }  // namespace internal_python
 }  // namespace tensorstore
 

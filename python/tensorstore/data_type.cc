@@ -31,7 +31,9 @@
 #include "python/tensorstore/data_type.h"
 #include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/serialization.h"
+#include "python/tensorstore/tensorstore_module_components.h"
 #include "tensorstore/data_type.h"
+#include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/str_cat.h"
@@ -185,7 +187,6 @@ Overload:
       [](DataType self, DataTypeLike other) { return self == other.value; },
       py::arg("other"));
 }
-}  // namespace
 
 void RegisterDataTypeBindings(pybind11::module m, Executor defer) {
   if (!internal_python::RegisterNumpyBfloat16()) {
@@ -203,6 +204,10 @@ void RegisterDataTypeBindings(pybind11::module m, Executor defer) {
   }
 }
 
+TENSORSTORE_GLOBAL_INITIALIZER {
+  RegisterPythonComponent(RegisterDataTypeBindings, /*priority=*/-800);
+}
+}  // namespace
 }  // namespace internal_python
 }  // namespace tensorstore
 

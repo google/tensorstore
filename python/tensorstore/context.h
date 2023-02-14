@@ -27,12 +27,9 @@
 #include "python/tensorstore/result_type_caster.h"
 #include "tensorstore/context.h"
 #include "tensorstore/context_impl.h"
-#include "tensorstore/util/executor.h"
 
 namespace tensorstore {
 namespace internal_python {
-
-void RegisterContextBindings(pybind11::module m, Executor defer);
 
 // Type alias for use with `PYBIND11_DECLARE_HOLDER_TYPE` below.
 //

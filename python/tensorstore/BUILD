@@ -9,7 +9,7 @@ load("//bazel:pytype.bzl", "pytype_strict_binary")
 load("//bazel:tensorstore.bzl", "tensorstore_cc_library")
 load("//docs:doctest.bzl", "doctest_test")
 
-package(default_visibility = ["//visibility:public"])
+package(default_visibility = ["//tensorstore:internal_packages"])
 
 licenses(["notice"])
 
@@ -30,7 +30,7 @@ doctest_test(
 
 pybind11_py_extension(
     name = "_tensorstore",
-    srcs = ["tensorstore.cc"],
+    srcs = ["tensorstore_module.cc"],
     imports = [".."],
     deps = [
         ":chunk_layout",
@@ -48,11 +48,23 @@ pybind11_py_extension(
         ":serialization",
         ":spec",
         ":tensorstore_class",
+        ":tensorstore_module_components",
         ":transaction",
         ":unit",
         ":virtual_chunked",
         ":write_futures",
         "//tensorstore:all_drivers",
+        "//tensorstore/util:executor",
+        "@com_github_pybind_pybind11//:pybind11",
+    ],
+)
+
+pybind11_cc_library(
+    name = "tensorstore_module_components",
+    srcs = ["tensorstore_module_components.cc"],
+    hdrs = ["tensorstore_module_components.h"],
+    deps = [
+        "//tensorstore/internal:no_destructor",
         "//tensorstore/util:executor",
         "@com_github_pybind_pybind11//:pybind11",
     ],
@@ -72,6 +84,7 @@ py_library(
     name = "tensorstore",
     srcs = ["__init__.py"],
     srcs_version = "PY3ONLY",
+    visibility = ["//visibility:public"],
     deps = [
         ":_tensorstore",
         "@pypa_numpy//:numpy",
@@ -242,11 +255,13 @@ pybind11_cc_library(
         ":numpy_indexing_spec",
         ":sequence_parameter",
         ":subscript_method",
+        ":tensorstore_module_components",
         "//tensorstore:index",
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/index_space:dimension_identifier",
         "//tensorstore/index_space:dimension_index_buffer",
         "//tensorstore/index_space:index_transform",
+        "//tensorstore/internal:global_initializer",
         "//tensorstore/util:executor",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
@@ -256,6 +271,7 @@ pybind11_cc_library(
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/strings",
     ],
+    alwayslink = True,
 )
 
 tensorstore_pytest_test(
@@ -286,6 +302,7 @@ pybind11_cc_library(
         ":serialization",
         ":status",
         ":subscript_method",
+        ":tensorstore_module_components",
         "//tensorstore:array",
         "//tensorstore:index",
         "//tensorstore:index_interval",
@@ -295,6 +312,7 @@ pybind11_cc_library(
         "//tensorstore/index_space:dimension_index_buffer",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/index_space:output_index_method",
+        "//tensorstore/internal:global_initializer",
         "//tensorstore/internal/json_binding",
         "//tensorstore/util:bit_span",
         "//tensorstore/util:element_pointer",
@@ -306,6 +324,7 @@ pybind11_cc_library(
         "@com_github_pybind_pybind11//:pybind11",
         "@com_google_absl//absl/base:core_headers",
     ],
+    alwayslink = True,
 )
 
 pybind11_cc_library(
@@ -365,6 +384,7 @@ pybind11_cc_library(
         ":result_type_caster",
         ":sequence_parameter",
         ":serialization",
+        ":tensorstore_module_components",
         ":unit",
         "//tensorstore:data_type",
         "//tensorstore:index",
@@ -374,6 +394,7 @@ pybind11_cc_library(
         "//tensorstore:spec",
         "//tensorstore/driver",
         "//tensorstore/index_space:index_transform",
+        "//tensorstore/internal:global_initializer",
         "//tensorstore/internal:json_fwd",
         "//tensorstore/internal/json:pprint_python",
         "//tensorstore/util:executor",
@@ -381,6 +402,7 @@ pybind11_cc_library(
         "//tensorstore/util:str_cat",
         "@com_github_pybind_pybind11//:pybind11",
     ],
+    alwayslink = True,
 )
 
 pybind11_cc_library(
@@ -397,7 +419,9 @@ pybind11_cc_library(
         ":json_type_caster",
         ":numpy",
         ":serialization",
+        ":tensorstore_module_components",
         "//tensorstore:data_type",
+        "//tensorstore/internal:global_initializer",
         "//tensorstore/util:bfloat16",
         "//tensorstore/util:executor",
         "//tensorstore/util:quote_string",
@@ -406,6 +430,7 @@ pybind11_cc_library(
         "@com_github_pybind_pybind11//:pybind11",
         "@com_google_absl//absl/hash",
     ],
+    alwayslink = True,
 )
 
 pybind11_cc_library(
@@ -428,6 +453,7 @@ pybind11_cc_library(
         ":result_type_caster",
         ":serialization",
         ":spec",
+        ":tensorstore_module_components",
         ":transaction",
         ":write_futures",
         "//tensorstore",
@@ -445,12 +471,14 @@ pybind11_cc_library(
         "//tensorstore:strided_layout",
         "//tensorstore/driver/array",
         "//tensorstore/index_space:index_transform",
+        "//tensorstore/internal:global_initializer",
         "//tensorstore/internal/json:pprint_python",
         "//tensorstore/util:executor",
         "//tensorstore/util:future",
         "//tensorstore/util:result",
         "@com_github_pybind_pybind11//:pybind11",
     ],
+    alwayslink = True,
 )
 
 pybind11_cc_library(
@@ -462,12 +490,15 @@ pybind11_cc_library(
         ":json_type_caster",
         ":result_type_caster",
         ":serialization",
+        ":tensorstore_module_components",
         "//tensorstore:context",
         "//tensorstore:json_serialization_options",
+        "//tensorstore/internal:global_initializer",
         "//tensorstore/internal/json:pprint_python",
         "//tensorstore/util:executor",
         "@com_github_pybind_pybind11//:pybind11",
     ],
+    alwayslink = True,
 )
 
 pybind11_cc_library(
@@ -492,12 +523,15 @@ pybind11_cc_library(
     deps = [
         ":define_heap_type",
         ":gil_safe",
+        ":tensorstore_module_components",
+        "//tensorstore/internal:global_initializer",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:tagged_ptr",
         "//tensorstore/util/garbage_collection",
         "@com_github_pybind_pybind11//:pybind11",
         "@com_google_absl//absl/container:flat_hash_set",
     ],
+    alwayslink = True,
 )
 
 pybind11_cc_library(
@@ -512,7 +546,9 @@ pybind11_cc_library(
         ":python_value_or_exception",
         ":result_type_caster",
         ":status",
+        ":tensorstore_module_components",
         ":type_name_override",
+        "//tensorstore/internal:global_initializer",
         "//tensorstore/internal:intrusive_linked_list",
         "//tensorstore/serialization",
         "//tensorstore/util:executor",
@@ -521,6 +557,7 @@ pybind11_cc_library(
         "@com_github_pybind_pybind11//:pybind11",
         "@com_google_absl//absl/functional:function_ref",
     ],
+    alwayslink = True,
 )
 
 pybind11_cc_library(
@@ -549,10 +586,13 @@ pybind11_cc_library(
     hdrs = ["write_futures.h"],
     deps = [
         ":future",
+        ":tensorstore_module_components",
         "//tensorstore:progress",
+        "//tensorstore/internal:global_initializer",
         "//tensorstore/util:executor",
         "@com_github_pybind_pybind11//:pybind11",
     ],
+    alwayslink = True,
 )
 
 pybind11_cc_library(
@@ -698,10 +738,13 @@ pybind11_cc_library(
     hdrs = ["transaction.h"],
     deps = [
         ":future",
+        ":tensorstore_module_components",
         "//tensorstore:transaction",
+        "//tensorstore/internal:global_initializer",
         "//tensorstore/util:executor",
         "@com_github_pybind_pybind11//:pybind11",
     ],
+    alwayslink = True,
 )
 
 pybind11_cc_library(
@@ -714,13 +757,16 @@ pybind11_cc_library(
         ":spec",
         ":status",
         ":tensorstore_class",
+        ":tensorstore_module_components",
         "//tensorstore:downsample",
         "//tensorstore:downsample_method",
         "//tensorstore:spec",
         "//tensorstore/driver/downsample:downsample_method_json_binder",
+        "//tensorstore/internal:global_initializer",
         "//tensorstore/util:executor",
         "@com_github_pybind_pybind11//:pybind11",
     ],
+    alwayslink = True,
 )
 
 pybind11_cc_library(
@@ -738,13 +784,16 @@ pybind11_cc_library(
         ":json_type_caster",
         ":keyword_arguments",
         ":sequence_parameter",
+        ":tensorstore_module_components",
         "//tensorstore:chunk_layout",
         "//tensorstore/index_space:index_transform",
+        "//tensorstore/internal:global_initializer",
         "//tensorstore/internal/json:pprint_python",
         "//tensorstore/util:executor",
         "@com_github_pybind_pybind11//:pybind11",
         "@com_google_absl//absl/status",
     ],
+    alwayslink = True,
 )
 
 pybind11_cc_library(
@@ -780,6 +829,8 @@ pybind11_cc_library(
         ":result_type_caster",
         ":serialization",
         ":status",
+        ":tensorstore_module_components",
+        "//tensorstore/internal:global_initializer",
         "//tensorstore/internal/json_binding:unit",
         "//tensorstore/util:executor",
         "//tensorstore/util:quote_string",
@@ -787,6 +838,7 @@ pybind11_cc_library(
         "//tensorstore/util:unit",
         "@com_github_pybind_pybind11//:pybind11",
     ],
+    alwayslink = True,
 )
 
 pybind11_cc_library(
@@ -806,6 +858,8 @@ pybind11_cc_library(
         ":gil_safe",
         ":result_type_caster",
         ":status",
+        ":tensorstore_module_components",
+        "//tensorstore/internal:global_initializer",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:no_destructor",
         "//tensorstore/internal:unowned_to_shared",
@@ -818,6 +872,7 @@ pybind11_cc_library(
         "@com_google_riegeli//riegeli/bytes:string_reader",
         "@local_config_python//:python_headers",  # build_cleaner: keep
     ],
+    alwayslink = True,
 )
 
 pybind11_cc_library(
@@ -833,14 +888,17 @@ pybind11_cc_library(
         ":result_type_caster",
         ":serialization",
         ":status",
+        ":tensorstore_module_components",
         ":time",
         ":transaction",
+        "//tensorstore/internal:global_initializer",
         "//tensorstore/internal/json:pprint_python",
         "//tensorstore/kvstore",
         "//tensorstore/util:executor",
         "//tensorstore/util/garbage_collection",
         "@com_github_pybind_pybind11//:pybind11",
     ],
+    alwayslink = True,
 )
 
 tensorstore_pytest_test(
@@ -862,7 +920,6 @@ tensorstore_cc_library(
 pybind11_cc_library(
     name = "virtual_chunked",
     srcs = ["virtual_chunked.cc"],
-    hdrs = ["virtual_chunked.h"],
     deps = [
         ":array_type_caster",
         ":future",
@@ -872,15 +929,18 @@ pybind11_cc_library(
         ":spec",
         ":status",
         ":tensorstore_class",
+        ":tensorstore_module_components",
         ":time",
         ":transaction",
         ":type_name_override",
         "//tensorstore:virtual_chunked",
         "//tensorstore/index_space:index_transform",
+        "//tensorstore/internal:global_initializer",
         "//tensorstore/util:executor",
         "@com_github_pybind_pybind11//:pybind11",
         "@com_google_absl//absl/base:core_headers",
     ],
+    alwayslink = True,
 )
 
 tensorstore_pytest_test(

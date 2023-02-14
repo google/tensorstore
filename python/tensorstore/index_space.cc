@@ -42,6 +42,7 @@
 #include "python/tensorstore/sequence_parameter.h"
 #include "python/tensorstore/serialization.h"
 #include "python/tensorstore/status.h"
+#include "python/tensorstore/tensorstore_module_components.h"
 #include "tensorstore/array.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
@@ -52,6 +53,7 @@
 #include "tensorstore/index_space/json.h"
 #include "tensorstore/index_space/output_index_map.h"
 #include "tensorstore/index_space/output_index_method.h"
+#include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/strided_layout.h"
@@ -2874,8 +2876,6 @@ void DefineOutputIndexMethodAttributes(py::enum_<OutputIndexMethod>& cls) {
   cls.value("array", OutputIndexMethod::array);
 }
 
-}  // namespace
-
 void RegisterIndexSpaceBindings(pybind11::module m, Executor defer) {
   m.attr("inf") = kInfIndex;
 
@@ -2902,5 +2902,10 @@ void RegisterIndexSpaceBindings(pybind11::module m, Executor defer) {
   });
 }
 
+TENSORSTORE_GLOBAL_INITIALIZER {
+  RegisterPythonComponent(RegisterIndexSpaceBindings, /*priority=*/-900);
+}
+
+}  // namespace
 }  // namespace internal_python
 }  // namespace tensorstore

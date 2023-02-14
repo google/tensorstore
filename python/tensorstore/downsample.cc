@@ -21,15 +21,18 @@
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/spec.h"
 #include "python/tensorstore/status.h"
+#include "python/tensorstore/tensorstore_module_components.h"
 #include "python/tensorstore/tensorstore_class.h"
 #include "tensorstore/downsample.h"
 #include "tensorstore/downsample_method.h"
 #include "tensorstore/driver/downsample/downsample_method_json_binder.h"
+#include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/spec.h"
 #include "tensorstore/util/executor.h"
 
 namespace tensorstore {
 namespace internal_python {
+namespace {
 
 namespace py = ::pybind11;
 
@@ -73,6 +76,11 @@ Overload:
   });
 }
 
+TENSORSTORE_GLOBAL_INITIALIZER {
+  RegisterPythonComponent(RegisterDownsampleBindings, /*priority=*/-350);
+}
+
+}  // namespace
 }  // namespace internal_python
 }  // namespace tensorstore
 

@@ -33,11 +33,13 @@
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/serialization.h"
 #include "python/tensorstore/spec.h"
+#include "python/tensorstore/tensorstore_module_components.h"
 #include "python/tensorstore/unit.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/driver.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/json/pprint_python.h"
 #include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/json_serialization_options.h"
@@ -49,10 +51,9 @@
 
 namespace tensorstore {
 namespace internal_python {
+namespace {
 
 namespace py = pybind11;
-
-namespace {
 
 std::optional<DimensionIndex> RankToOptional(DimensionIndex rank) {
   if (rank == dynamic_rank) return std::nullopt;
@@ -1756,8 +1757,6 @@ Converts to the :json:schema:`JSON representation<Codec>`.
       cls, internal::CodecSpecNonNullDirectSerializer{});
 }
 
-}  // namespace
-
 void RegisterSpecBindings(pybind11::module m, Executor defer) {
   defer([cls = MakeSpecClass(m)]() mutable { DefineSpecAttributes(cls); });
   defer([cls = MakeSchemaClass(m)]() mutable { DefineSchemaAttributes(cls); });
@@ -1766,6 +1765,11 @@ void RegisterSpecBindings(pybind11::module m, Executor defer) {
   });
 }
 
+TENSORSTORE_GLOBAL_INITIALIZER {
+  RegisterPythonComponent(RegisterSpecBindings, /*priority=*/-700);
+}
+
+}  // namespace
 }  // namespace internal_python
 }  // namespace tensorstore
 

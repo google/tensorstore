@@ -30,11 +30,13 @@
 #include "python/tensorstore/numpy_indexing_spec.h"
 #include "python/tensorstore/sequence_parameter.h"
 #include "python/tensorstore/subscript_method.h"
+#include "python/tensorstore/tensorstore_module_components.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/dimension_identifier.h"
 #include "tensorstore/index_space/dimension_index_buffer.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
@@ -1394,8 +1396,6 @@ Examples:
       py::arg("other"));
 }
 
-}  // namespace
-
 void RegisterDimExpressionBindings(pybind11::module m, Executor defer) {
   defer([cls = MakeDimExpressionClass(m)]() mutable {
     DefineDimExpressionAttributes(cls);
@@ -1407,6 +1407,12 @@ void RegisterDimExpressionBindings(pybind11::module m, Executor defer) {
 
   m.attr("newaxis") = py::none();
 }
+
+TENSORSTORE_GLOBAL_INITIALIZER {
+  RegisterPythonComponent(RegisterDimExpressionBindings, /*priority=*/-850);
+}
+
+}  // namespace
 
 bool CastToDimensionSelection(py::handle src, DimensionSelection& out) {
   if (PyUnicode_Check(src.ptr())) {

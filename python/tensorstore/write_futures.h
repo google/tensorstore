@@ -29,7 +29,6 @@
 
 #include "python/tensorstore/future.h"
 #include "tensorstore/progress.h"
-#include "tensorstore/util/executor.h"
 
 namespace tensorstore {
 namespace internal_python {
@@ -78,8 +77,6 @@ struct PythonWriteFutures {
   explicit PythonWriteFutures(WriteFutures write_futures,
                               const PythonObjectReferenceManager& manager);
 };
-
-void RegisterWriteFuturesBindings(pybind11::module m, Executor defer);
 
 }  // namespace internal_python
 }  // namespace tensorstore

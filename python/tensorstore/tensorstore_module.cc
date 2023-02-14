@@ -23,25 +23,9 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
-#include "python/tensorstore/chunk_layout.h"
-#include "python/tensorstore/virtual_chunked.h"
-#include "python/tensorstore/context.h"
-#include "python/tensorstore/data_type.h"
-#include "python/tensorstore/dim_expression.h"
-#include "python/tensorstore/downsample.h"
-#include "python/tensorstore/future.h"
-#include "python/tensorstore/garbage_collection.h"
 #include "python/tensorstore/gil_safe.h"
-#include "python/tensorstore/index_space.h"
-#include "python/tensorstore/kvstore.h"
 #include "python/tensorstore/python_imports.h"
-#include "python/tensorstore/serialization.h"
-#include "python/tensorstore/spec.h"
-#include "python/tensorstore/tensorstore_class.h"
-#include "python/tensorstore/transaction.h"
-#include "python/tensorstore/unit.h"
-#include "python/tensorstore/write_futures.h"
-#include "tensorstore/util/executor.h"
+#include "python/tensorstore/tensorstore_module_components.h"
 
 namespace tensorstore {
 namespace internal_python {
@@ -76,39 +60,7 @@ PYBIND11_MODULE(_tensorstore, m) {
 
   internal_python::InitializePythonImports();
   internal_python::SetupExitHandler();
-  internal_python::RegisterGarbageCollectionBindings();
-
-  std::vector<ExecutorTask> deferred_registration_tasks;
-
-  // Executor used to defer definition of functions and methods until after all
-  // classes have been registered.
-  //
-  // pybind11 requires that any class parameter types are registered before the
-  // function/method in order to include the correct type name in the generated
-  // signature.
-  auto defer = [&](ExecutorTask task) {
-    deferred_registration_tasks.push_back(std::move(task));
-  };
-
-  RegisterTensorStoreBindings(m, defer);
-  RegisterIndexSpaceBindings(m, defer);
-  RegisterDimExpressionBindings(m, defer);
-  RegisterDataTypeBindings(m, defer);
-  RegisterContextBindings(m, defer);
-  RegisterSpecBindings(m, defer);
-  RegisterChunkLayoutBindings(m, defer);
-  RegisterUnitBindings(m, defer);
-  RegisterKvStoreBindings(m, defer);
-  RegisterTransactionBindings(m, defer);
-  RegisterFutureBindings(m, defer);
-  RegisterWriteFuturesBindings(m, defer);
-  RegisterDownsampleBindings(m, defer);
-  RegisterVirtualChunkedBindings(m, defer);
-  RegisterSerializationBindings(m, defer);
-
-  for (auto& task : deferred_registration_tasks) {
-    task();
-  }
+  internal_python::InitializePythonComponents(m);
 }
 
 }  // namespace

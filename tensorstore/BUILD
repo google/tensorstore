@@ -776,6 +776,7 @@ tensorstore_cc_library(
 package_group(
     name = "internal_packages",
     packages = [
+        "//...",
         "//python/tensorstore/...",
         "//tensorstore/...",
     ],

@@ -25,8 +25,10 @@
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/serialization.h"
 #include "python/tensorstore/status.h"
+#include "python/tensorstore/tensorstore_module_components.h"
 #include "python/tensorstore/time.h"
 #include "python/tensorstore/transaction.h"
+#include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/json/pprint_python.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
@@ -34,10 +36,9 @@
 
 namespace tensorstore {
 namespace internal_python {
+namespace {
 
 namespace py = ::pybind11;
-
-namespace {
 
 py::bytes CordToPython(const absl::Cord& value) {
   return py::bytes(std::string(value));
@@ -1373,8 +1374,6 @@ Generation and timestamp associated with the value.
   EnablePicklingFromSerialization(cls);
 }
 
-}  // namespace
-
 void RegisterKvStoreBindings(pybind11::module m, Executor defer) {
   auto kvstore_cls = MakeKvStoreClass(m);
   defer([kvstore_cls]() mutable { DefineKvStoreAttributes(kvstore_cls); });
@@ -1392,6 +1391,11 @@ void RegisterKvStoreBindings(pybind11::module m, Executor defer) {
   });
 }
 
+TENSORSTORE_GLOBAL_INITIALIZER {
+  RegisterPythonComponent(RegisterKvStoreBindings, /*priority=*/-550);
+}
+
+}  // namespace
 }  // namespace internal_python
 }  // namespace tensorstore
 

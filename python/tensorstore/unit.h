@@ -23,7 +23,6 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
-#include "tensorstore/util/executor.h"
 #include "tensorstore/util/unit.h"
 
 namespace tensorstore {
@@ -35,8 +34,6 @@ namespace internal_python {
 struct UnitLike {
   Unit value;
 };
-
-void RegisterUnitBindings(pybind11::module m, Executor defer);
 
 }  // namespace internal_python
 }  // namespace tensorstore

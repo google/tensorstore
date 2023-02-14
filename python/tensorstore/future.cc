@@ -27,6 +27,8 @@
 #include "python/tensorstore/future.h"
 #include "python/tensorstore/gil_safe.h"
 #include "python/tensorstore/python_imports.h"
+#include "python/tensorstore/tensorstore_module_components.h"
+#include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 
@@ -1016,16 +1018,21 @@ Group:
   Constructors
 )");
 }
-}  // namespace
-
-PyTypeObject* PythonFutureObject::python_type = nullptr;
-PyTypeObject* PythonPromiseObject::python_type = nullptr;
 
 void RegisterFutureBindings(pybind11::module m, Executor defer) {
   defer([cls = MakeFutureClass(m)]() mutable { DefineFutureAttributes(cls); });
   defer(
       [cls = MakePromiseClass(m)]() mutable { DefinePromiseAttributes(cls); });
 }
+
+TENSORSTORE_GLOBAL_INITIALIZER {
+  RegisterPythonComponent(RegisterFutureBindings, /*priority=*/-450);
+}
+
+}  // namespace
+
+PyTypeObject* PythonFutureObject::python_type = nullptr;
+PyTypeObject* PythonPromiseObject::python_type = nullptr;
 
 py::object GetCurrentThreadAsyncioEventLoop() {
   if (auto loop =

@@ -21,8 +21,10 @@
 #include "python/tensorstore/gil_safe.h"
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/serialization.h"
+#include "python/tensorstore/tensorstore_module_components.h"
 #include "riegeli/bytes/cord_writer.h"
 #include "riegeli/bytes/string_reader.h"
+#include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/internal/unowned_to_shared.h"
 #include "tensorstore/serialization/serialization.h"
@@ -396,6 +398,26 @@ pybind11::object MakeGlobalPicklableFunction(pybind11::object module,
   return self;
 }
 
+void RegisterSerializationBindings(pybind11::module_ m, Executor defer) {
+  if (PyType_Ready(&DecodableObjectType) != 0) {
+    throw py::error_already_set();
+  }
+  if (PyType_Ready(&EncodableObjectType) != 0) {
+    throw py::error_already_set();
+  }
+  if (PyType_Ready(&GlobalPicklableFunctionObjectType) != 0) {
+    throw py::error_already_set();
+  }
+  m.attr("_Decodable") = py::reinterpret_borrow<py::object>(
+      reinterpret_cast<PyObject*>(&DecodableObjectType));
+  m.attr("_Encodable") = py::reinterpret_borrow<py::object>(
+      reinterpret_cast<PyObject*>(&EncodableObjectType));
+}
+
+TENSORSTORE_GLOBAL_INITIALIZER {
+  RegisterPythonComponent(RegisterSerializationBindings, /*priority=*/0);
+}
+
 }  // namespace
 
 void DefineUnpickleMethod(pybind11::handle cls, pybind11::object function) {
@@ -474,22 +496,6 @@ pybind11::object MakeReduceSingleArgumentReturnValue(pybind11::object callable,
   PyTuple_SET_ITEM(reduce_val.ptr(), 0, callable.release().ptr());
   PyTuple_SET_ITEM(reduce_val.ptr(), 1, reduce_args.release().ptr());
   return reduce_val;
-}
-
-void RegisterSerializationBindings(pybind11::module_ m, Executor defer) {
-  if (PyType_Ready(&DecodableObjectType) != 0) {
-    throw py::error_already_set();
-  }
-  if (PyType_Ready(&EncodableObjectType) != 0) {
-    throw py::error_already_set();
-  }
-  if (PyType_Ready(&GlobalPicklableFunctionObjectType) != 0) {
-    throw py::error_already_set();
-  }
-  m.attr("_Decodable") = py::reinterpret_borrow<py::object>(
-      reinterpret_cast<PyObject*>(&DecodableObjectType));
-  m.attr("_Encodable") = py::reinterpret_borrow<py::object>(
-      reinterpret_cast<PyObject*>(&EncodableObjectType));
 }
 
 }  // namespace internal_python
