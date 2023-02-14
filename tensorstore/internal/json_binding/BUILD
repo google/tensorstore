@@ -250,6 +250,33 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "raw_bytes_hex",
+    srcs = ["raw_bytes_hex.cc"],
+    hdrs = ["raw_bytes_hex.h"],
+    deps = [
+        "//tensorstore:json_serialization_options_base",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "raw_bytes_hex_test",
+    size = "small",
+    srcs = ["raw_bytes_hex_test.cc"],
+    deps = [
+        ":gtest",
+        ":json_binding",
+        ":raw_bytes_hex",
+        "//tensorstore/internal:json_fwd",
+        "//tensorstore/util:status_testutil",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
     name = "staleness_bound",
     srcs = ["staleness_bound.cc"],
     hdrs = ["staleness_bound.h"],
