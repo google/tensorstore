@@ -895,10 +895,13 @@ class AsyncCache : public Cache {
       kReadyForCommitCalled,
     };
 
-    /// Tracks the current state after `PrepareForCommit` is called and this
-    /// node is in the `committing_transaction_node_` list.
-    PrepareForCommitState prepare_for_commit_state_ =
-        PrepareForCommitState::kNone;
+    // Tracks the current state after `PrepareForCommit` is called and this
+    // node is in the `committing_transaction_node_` list.
+    //
+    // Note: `std::atomic` is used by while writes are protected by the entry's
+    // mutex, reads may occur without holding the entry's mutex.
+    std::atomic<PrepareForCommitState> prepare_for_commit_state_{
+        PrepareForCommitState::kNone};
 
     // AbslStringify is used to dump the TransactionNode to the ABSL_LOG sink.
     // Example:

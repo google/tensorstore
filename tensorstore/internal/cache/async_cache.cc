@@ -135,8 +135,11 @@ void MaybeStartReadOrWriteback(Entry& entry, UniqueWriterLock<Entry> lock) {
           entry.committing_transaction_node_) {
     TransactionNode* next;
     while (true) {
+      // It is safe to use `std::memory_order_relaxed` since writes are already
+      // protected by the entry's mutex.
       const auto existing_prepare_for_commit_state =
-          committing_transaction_node->prepare_for_commit_state_;
+          committing_transaction_node->prepare_for_commit_state_.load(
+              std::memory_order_relaxed);
       const bool read_request_issued = !read_request_state.issued.null();
       // Determine the transitions we will make on `prepare_for_commit_state_`.
       // We need to update `prepare_for_commit_state_` while holding the `lock`,
@@ -166,7 +169,7 @@ void MaybeStartReadOrWriteback(Entry& entry, UniqueWriterLock<Entry> lock) {
           PendingWritebackQueueAccessor::GetNext(committing_transaction_node);
       if (next == committing_transaction_node ||
           next->transaction() != committing_transaction_node->transaction() ||
-          next->prepare_for_commit_state_ ==
+          next->prepare_for_commit_state_.load(std::memory_order_relaxed) ==
               PrepareForCommitState::kReadyForCommitCalled) {
         next = nullptr;
       }
@@ -213,7 +216,8 @@ void SetReadState(EntryOrNode& entry_or_node, ReadState&& read_state,
                 std::is_same_v<EntryOrNode, TransactionNode>);
   if constexpr (std::is_same_v<EntryOrNode, TransactionNode>) {
     if (entry_or_node.reads_committed_) {
-      assert(entry_or_node.prepare_for_commit_state_ ==
+      assert(entry_or_node.prepare_for_commit_state_.load(
+                 std::memory_order_relaxed) ==
              PrepareForCommitState::kReadyForCommitCalled);
       SetReadState(GetOwningEntry(entry_or_node), std::move(read_state),
                    read_state_size);
@@ -408,7 +412,7 @@ void ResolveIssuedWriteback(AsyncCache::TransactionNode& node,
   auto& entry = GetOwningEntry(node);
 
   // Writeback of this transaction must have been in progress.
-  assert(node.prepare_for_commit_state_ ==
+  assert(node.prepare_for_commit_state_.load(std::memory_order_relaxed) ==
          PrepareForCommitState::kReadyForCommitCalled);
   assert(entry.committing_transaction_node_ &&
          entry.committing_transaction_node_->transaction() ==
@@ -526,8 +530,9 @@ Future<const void> AsyncCache::TransactionNode::Read(
     absl::Time staleness_bound) {
   ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
       << *this << "Read: staleness_bound=" << staleness_bound;
-  if (reads_committed_ && (prepare_for_commit_state_ !=
-                           PrepareForCommitState::kReadyForCommitCalled)) {
+  if (reads_committed_ &&
+      (prepare_for_commit_state_.load(std::memory_order_acquire) !=
+       PrepareForCommitState::kReadyForCommitCalled)) {
     return RequestRead(GetOwningEntry(*this), staleness_bound);
   }
   return RequestRead(*this, staleness_bound);
@@ -576,7 +581,8 @@ void AsyncCache::TransactionNode::PrepareForCommit() {
     // PrepareDone on the prior node in this same transaction must have been
     // called already, as otherwise `PrepareForCommit` would not have been
     // invoked on this node yet.
-    assert(entry.committing_transaction_node_->prepare_for_commit_state_ >=
+    assert(entry.committing_transaction_node_->prepare_for_commit_state_.load(
+               std::memory_order_relaxed) >=
            PrepareForCommitState::kPrepareDoneCalled);
   } else {
     // No node is already being committed.
