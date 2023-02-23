@@ -378,13 +378,14 @@ class Result : private internal_result::ResultStorage<T>,
   ///   opt.emplace(arg1,arg2,arg3);  // Constructs Foo(arg1,arg2,arg3)
   ///
   template <typename... Args>
-  reference_type emplace(Args&&... args) {
+  T& emplace(Args&&... args) TENSORSTORE_LIFETIME_BOUND {
     static_assert(sizeof...(Args) == 0 || !std::is_void_v<T>);
     this->emplace_value(std::forward<Args>(args)...);
     return this->value_;
   }
   template <typename U, typename... Args>
-  reference_type emplace(std::initializer_list<U> il, Args&&... args) {
+  T& emplace(std::initializer_list<U> il,
+             Args&&... args) TENSORSTORE_LIFETIME_BOUND {
     this->emplace_value(il, std::forward<Args>(args)...);
     return this->value_;
   }
@@ -409,15 +410,15 @@ class Result : private internal_result::ResultStorage<T>,
   /// Terminates the process if `*this` represents a failure state.
   ///
   /// \pre `has_value() == true`
-  const_reference_type value() const& noexcept TENSORSTORE_LIFETIME_BOUND {
+  const T& value() const& noexcept TENSORSTORE_LIFETIME_BOUND {
     if (!has_value()) TENSORSTORE_CHECK_OK(status());
     return this->value_;
   }
-  reference_type value() & noexcept TENSORSTORE_LIFETIME_BOUND {
+  T& value() & noexcept TENSORSTORE_LIFETIME_BOUND {
     if (!has_value()) TENSORSTORE_CHECK_OK(status());
     return this->value_;
   }
-  value_type value() && noexcept {
+  T value() && noexcept {
     if (!has_value()) TENSORSTORE_CHECK_OK(status());
     return std::move(this->value_);
   }
@@ -426,7 +427,7 @@ class Result : private internal_result::ResultStorage<T>,
   const absl::Status& status() const& noexcept TENSORSTORE_LIFETIME_BOUND {
     return status_;
   }
-  absl::Status status() && {
+  absl::Status status() && noexcept {
     // Note: This relies on the fact that the moved-from `absl::Status` does not
     // have a status code of `absl::StatusCode::kOk`.
     return status_.ok() ? absl::OkStatus() : std::move(status_);
@@ -476,7 +477,7 @@ class Result : private internal_result::ResultStorage<T>,
   ///    return !x.ok() ? x.status() : Result<U>(y(x.value()))
   ///
   template <typename Func>
-  inline FlatResult<std::invoke_result_t<Func&&, reference_type>>  //
+  inline FlatResult<std::invoke_result_t<Func&&, T&>>  //
   operator|(Func&& func) const& {
     if (!ok()) return status();
     return static_cast<Func&&>(func)(value());

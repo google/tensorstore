@@ -84,9 +84,7 @@ tensorstore_cc_test(
     deps = [
         ":gcs",
         "//tensorstore:context",
-        "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:json_gtest",
-        "//tensorstore/internal:mutex",
         "//tensorstore/internal:path",
         "//tensorstore/internal:schedule_at",
         "//tensorstore/internal/http",

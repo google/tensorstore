@@ -26,7 +26,6 @@
 #include "absl/strings/cord.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/json_fwd.h"
-#include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/generation_testutil.h"
 #include "tensorstore/kvstore/kvstore.h"

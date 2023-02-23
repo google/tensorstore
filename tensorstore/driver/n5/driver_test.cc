@@ -19,13 +19,12 @@
 #include "tensorstore/driver/driver_testutil.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_domain_builder.h"
-#include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/parse_json_matches.h"
 #include "tensorstore/kvstore/kvstore.h"
+#include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/open.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -42,7 +41,6 @@ using ::tensorstore::kImplicit;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::Schema;
 using ::tensorstore::span;
-using ::tensorstore::StrCat;
 using ::tensorstore::internal::GetMap;
 using ::tensorstore::internal::ParseJsonMatches;
 using ::tensorstore::internal::TestSpecSchema;
@@ -357,7 +355,7 @@ TEST(N5DriverTest, Resize) {
               {{"cache_pool",
                 {{"total_bytes_limit", enable_cache ? 10000000 : 0}}}})
               .value());
-      SCOPED_TRACE(StrCat("resize_mode=", resize_mode));
+      SCOPED_TRACE(tensorstore::StrCat("resize_mode=", resize_mode));
       // Create the store.i
       ::nlohmann::json storage_spec{{"driver", "memory"}};
       ::nlohmann::json metadata_json = GetBasicResizeMetadata();
@@ -722,14 +720,14 @@ TEST(N5DriverTest, InvalidSpecInvalidMemberType) {
   for (auto member_name : {"kvstore", "path", "metadata"}) {
     auto spec = GetJsonSpec();
     spec[member_name] = 5;
-    EXPECT_THAT(
-        tensorstore::Open(spec, tensorstore::OpenMode::create,
-                          tensorstore::ReadWriteMode::read_write)
-            .result(),
-        MatchesStatus(absl::StatusCode::kInvalidArgument,
-                      StrCat("Error parsing object member \"", member_name,
-                             "\": "
-                             "Expected .*, but received: 5")));
+    EXPECT_THAT(tensorstore::Open(spec, tensorstore::OpenMode::create,
+                                  tensorstore::ReadWriteMode::read_write)
+                    .result(),
+                MatchesStatus(absl::StatusCode::kInvalidArgument,
+                              tensorstore::StrCat(
+                                  "Error parsing object member \"", member_name,
+                                  "\": "
+                                  "Expected .*, but received: 5")));
   }
 }
 

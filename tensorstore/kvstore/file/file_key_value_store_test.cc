@@ -30,22 +30,20 @@
 #include "absl/synchronization/notification.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
-#include "tensorstore/internal/file_io_concurrency_resource.h"
 #include "tensorstore/internal/test_util.h"
 #include "tensorstore/internal/thread.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/generation_testutil.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
+#include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender_testutil.h"
-#include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 // Include system headers last to reduce impact of macros.
 #ifndef _WIN32
@@ -57,7 +55,6 @@ namespace {
 
 namespace kvstore = tensorstore::kvstore;
 using ::tensorstore::CompletionNotifyingReceiver;
-using ::tensorstore::Context;
 using ::tensorstore::KeyRange;
 using ::tensorstore::KvStore;
 using ::tensorstore::MatchesStatus;
