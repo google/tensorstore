@@ -464,26 +464,27 @@ TEST(ResultTest, Message) {
 TEST(ResultTest, Value) {
   static_assert(
       std::is_same_v<decltype(std::declval<const Result<int>&>().value()),
-                     const int&>,
-      "");
+                     const int&>);
   static_assert(
-      std::is_same_v<decltype(std::declval<Result<int>&>().value()), int&>, "");
-  static_assert(
-      std::is_same_v<decltype(std::declval<Result<int>&&>().value()), int>, "");
+      std::is_same_v<decltype(std::declval<Result<int>&>().value()), int&>);
 
   static_assert(
-      std::is_same_v<decltype(*std::declval<const Result<int>&>()), const int&>,
-      "");
-  static_assert(std::is_same_v<decltype(*std::declval<Result<int>&>()), int&>,
-                "");
+      std::is_same_v<decltype(std::declval<const Result<int>&&>().value()),
+                     const int&&>);
+  static_assert(
+      std::is_same_v<decltype(std::declval<Result<int>&&>().value()), int&&>);
+
+  static_assert(std::is_same_v<decltype(*std::declval<Result<int>&>()), int&>);
+
+  static_assert(
+      std::is_same_v<decltype(*std::declval<Result<int>&&>()), int&&>);
 
   static_assert(
       std::is_same_v<decltype(std::declval<const Result<int>&>().operator->()),
-                     const int*>,
-      "");
+                     const int*>);
   static_assert(
-      std::is_same_v<decltype(std::declval<Result<int>&>().operator->()), int*>,
-      "");
+      std::is_same_v<decltype(std::declval<Result<int>&>().operator->()),
+                     int*>);
 
   Result<int> result = 3;
   EXPECT_EQ(3, result.value());
@@ -499,6 +500,31 @@ TEST(ResultTest, Value) {
   EXPECT_EQ(3, static_cast<const Result<std::vector<int>>&>(result2)->size());
   std::vector<int> vec2 = std::move(result2).value();
   EXPECT_EQ(data, vec2.data());
+}
+
+TEST(ResultTest, ValueConstRvalueRef) {
+  static_assert(
+      std::is_same_v<decltype(std::declval<const Result<int>&&>().value()),
+                     const int&&>);
+  static_assert(std::is_same_v<decltype(*std::declval<const Result<int>&&>()),
+                               const int&&>);
+
+  // Tests ::value and ::operator* const&&
+  auto get_const = []() -> Result<std::vector<int>> {
+    return std::vector<int>({1, 2, 3});
+  };
+
+  std::vector<int> v;
+  if (const auto& x = get_const(); x.ok()) {
+    v = std::move(x).value();
+  }
+  EXPECT_THAT(v, ::testing::ElementsAre(1, 2, 3));
+
+  v.clear();
+  if (const auto& x = get_const(); x.ok()) {
+    v = *std::move(x);
+  }
+  EXPECT_THAT(v, ::testing::ElementsAre(1, 2, 3));
 }
 
 TEST(ResultTest, Emplace) {
@@ -999,20 +1025,17 @@ static_assert(std::is_same_v<UnwrapQualifiedResultType<Result<int>&&>, int&&>);
 /// or similar.
 
 static_assert(std::is_same_v<int, typename tensorstore::internal_result::
-                                      UnwrapResultHelper<int>::type>,
-              "");
+                                      UnwrapResultHelper<int>::type>);
 
 static_assert(
     std::is_same_v<Result<int>, typename tensorstore::internal_result::
-                                    UnwrapResultHelper<int>::result_type>,
-    "");
+                                    UnwrapResultHelper<int>::result_type>);
 
 static_assert(std::is_same_v<Result<int>, FlatResult<Result<int>>>);
 static_assert(std::is_same_v<Result<int>, FlatResult<int>>);
 static_assert(
     std::is_same_v<Result<int>,
-                   tensorstore::FlatResult<std::invoke_result_t<int()>>>,
-    "");
+                   tensorstore::FlatResult<std::invoke_result_t<int()>>>);
 
 TEST(ChainResultTest, Example) {
   auto func1 = [](int x) -> float { return 1.0f + x; };

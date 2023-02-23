@@ -1060,9 +1060,9 @@ TEST(DriverTest, JpegQuality) {
                                               0, array.shape()))
             .result());
     size_t size = 0;
-    for (const auto& [key, value] :
-         GetMap(kvstore::Open({{"driver", "memory"}}, context).value())
-             .value()) {
+    auto entries =
+        GetMap(kvstore::Open({{"driver", "memory"}}, context).value()).value();
+    for (const auto& [key, value] : entries) {
       size += value.size();
     }
     return size;

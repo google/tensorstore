@@ -418,7 +418,11 @@ class Result : private internal_result::ResultStorage<T>,
     if (!has_value()) TENSORSTORE_CHECK_OK(status());
     return this->value_;
   }
-  T value() && noexcept {
+  const T&& value() const&& noexcept TENSORSTORE_LIFETIME_BOUND {
+    if (!has_value()) TENSORSTORE_CHECK_OK(status());
+    return std::move(this->value_);
+  }
+  T&& value() && noexcept TENSORSTORE_LIFETIME_BOUND {
     if (!has_value()) TENSORSTORE_CHECK_OK(status());
     return std::move(this->value_);
   }
@@ -436,30 +440,29 @@ class Result : private internal_result::ResultStorage<T>,
   /// Returns a pointer to the contained value.
   ///
   /// \pre has_value() == true
-  template <typename U = T>
-  constexpr const U* operator->() const noexcept TENSORSTORE_LIFETIME_BOUND {
+  constexpr const T* operator->() const noexcept TENSORSTORE_LIFETIME_BOUND {
     assert_has_value();
     return &this->value_;
   }
-  template <typename U = T>
-  constexpr U* operator->() noexcept TENSORSTORE_LIFETIME_BOUND {
+  constexpr T* operator->() noexcept TENSORSTORE_LIFETIME_BOUND {
     assert_has_value();
     return &this->value_;
   }
 
   /// Returns a reference to the contained value.
-  template <typename U = T>
-  constexpr const U& operator*() const& noexcept TENSORSTORE_LIFETIME_BOUND {
+  constexpr const T& operator*() const& noexcept TENSORSTORE_LIFETIME_BOUND {
     assert_has_value();
     return this->value_;
   }
-  template <typename U = T>
-  constexpr U& operator*() & noexcept TENSORSTORE_LIFETIME_BOUND {
+  constexpr T& operator*() & noexcept TENSORSTORE_LIFETIME_BOUND {
     assert_has_value();
     return this->value_;
   }
-  template <typename U = T>
-  constexpr U&& operator*() && noexcept TENSORSTORE_LIFETIME_BOUND {
+  constexpr const T&& operator*() const&& noexcept TENSORSTORE_LIFETIME_BOUND {
+    assert_has_value();
+    return std::move(this->value_);
+  }
+  constexpr T&& operator*() && noexcept TENSORSTORE_LIFETIME_BOUND {
     assert_has_value();
     return std::move(this->value_);
   }
@@ -483,7 +486,7 @@ class Result : private internal_result::ResultStorage<T>,
     return static_cast<Func&&>(func)(value());
   }
   template <typename Func>
-  inline FlatResult<std::invoke_result_t<Func&&, T>>  //
+  inline FlatResult<std::invoke_result_t<Func&&, T&&>>  //
   operator|(Func&& func) && {
     if (!ok()) return status();
     return static_cast<Func&&>(func)(value());
