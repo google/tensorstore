@@ -100,7 +100,6 @@
 #include "absl/strings/cord.h"
 #include "absl/strings/match.h"
 #include "absl/time/clock.h"
-#include "absl/time/time.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/internal/cache_key/cache_key.h"
@@ -112,7 +111,6 @@
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/os_error_code.h"
 #include "tensorstore/internal/path.h"
-#include "tensorstore/internal/type_traits.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/file/unique_handle.h"
 #include "tensorstore/kvstore/file/util.h"
@@ -196,6 +194,75 @@ auto& file_list = internal_metrics::Counter<int64_t>::New(
 auto& file_lock_contention = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/file/lock_contention",
     "file driver write lock contention");
+
+struct FileKeyValueStoreSpecData {
+  Context::Resource<internal::FileIoConcurrencyResource> file_io_concurrency;
+
+  constexpr static auto ApplyMembers = [](auto& x, auto f) {
+    return f(x.file_io_concurrency);
+  };
+
+  // TODO(jbms): Storing a UNIX path as a JSON string presents a challenge
+  // because UNIX paths are byte strings, and while it is common to use
+  // UTF-8 encoding it is not required that the path be a valid UTF-8
+  // string.  On MS Windows, there is a related problem that path names
+  // are stored as UCS-2 may contain invalid surrogate pairs.
+  //
+  // However, while supporting such paths is important for general purpose
+  // software like a file backup tool, it is relatively unlikely that the
+  // user will want to use such a path as the root of a file-backed
+  // KeyValueStore.
+  //
+  // If we do want to support such paths, there are various options
+  // including base64-encoding, or using NUL as an escape sequence (taking
+  // advantage of the fact that valid paths on all operating systems
+  // cannot contain NUL characters).
+  constexpr static auto default_json_binder = jb::Object(jb::Member(
+      internal::FileIoConcurrencyResource::id,
+      jb::Projection<&FileKeyValueStoreSpecData::file_io_concurrency>()));
+};
+
+class FileKeyValueStoreSpec
+    : public internal_kvstore::RegisteredDriverSpec<FileKeyValueStoreSpec,
+                                                    FileKeyValueStoreSpecData> {
+ public:
+  static constexpr char id[] = "file";
+
+  Future<kvstore::DriverPtr> DoOpen() const override;
+
+  Result<std::string> ToUrl(std::string_view path) const override {
+    return tensorstore::StrCat(id, "://", internal::PercentEncodeUriPath(path));
+  }
+};
+
+class FileKeyValueStore
+    : public internal_kvstore::RegisteredDriver<FileKeyValueStore,
+                                                FileKeyValueStoreSpec> {
+ public:
+  Future<ReadResult> Read(Key key, ReadOptions options) override;
+
+  Future<TimestampedStorageGeneration> Write(Key key,
+                                             std::optional<Value> value,
+                                             WriteOptions options) override;
+
+  Future<const void> DeleteRange(KeyRange range) override;
+
+  void ListImpl(ListOptions options,
+                AnyFlowReceiver<absl::Status, Key> receiver) override;
+
+  const Executor& executor() { return spec_.file_io_concurrency->executor; }
+
+  std::string DescribeKey(std::string_view key) override {
+    return tensorstore::StrCat("local file ", tensorstore::QuoteString(key));
+  }
+
+  absl::Status GetBoundSpecData(FileKeyValueStoreSpecData& spec) const {
+    spec = spec_;
+    return absl::OkStatus();
+  }
+
+  SpecData spec_;
+};
 
 absl::Status ValidateKey(std::string_view key) {
   if (!IsKeyValid(key, kLockSuffix)) {
@@ -335,52 +402,6 @@ Result<UniqueFileDescriptor> OpenValueFile(const char* path,
   return fd;
 }
 
-/// Implements `FileKeyValueStore::Read`.
-struct ReadTask {
-  std::string full_path;
-  kvstore::ReadOptions options;
-
-  Result<ReadResult> operator()() const {
-    ReadResult read_result;
-    read_result.stamp.time = absl::Now();
-    std::int64_t size;
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto fd,
-        OpenValueFile(full_path.c_str(), &read_result.stamp.generation, &size));
-    if (!fd.valid()) {
-      read_result.state = ReadResult::kMissing;
-      return read_result;
-    }
-    if (read_result.stamp.generation == options.if_not_equal ||
-        (!StorageGeneration::IsUnknown(options.if_equal) &&
-         read_result.stamp.generation != options.if_equal)) {
-      return read_result;
-    }
-    TENSORSTORE_ASSIGN_OR_RETURN(auto byte_range,
-                                 options.byte_range.Validate(size));
-    read_result.state = ReadResult::kValue;
-    internal::FlatCordBuilder buffer(byte_range.size());
-    std::size_t offset = 0;
-    while (offset < buffer.size()) {
-      std::ptrdiff_t n = internal_file_util::ReadFromFile(
-          fd.get(), buffer.data() + offset, buffer.size() - offset,
-          byte_range.inclusive_min + offset);
-      if (n > 0) {
-        file_bytes_read.IncrementBy(n);
-        offset += n;
-        continue;
-      }
-      if (n == 0) {
-        return absl::UnavailableError(
-            tensorstore::StrCat("Length changed while reading: ", full_path));
-      }
-      return StatusFromErrno("Error reading file: ", full_path);
-    }
-    read_result.value = std::move(buffer).Build();
-    return read_result;
-  }
-};
-
 /// Helper class to acquire write lock for the specified path.
 struct WriteLockHelper {
   std::string lock_path;  // Composed write lock file path.
@@ -441,6 +462,171 @@ struct WriteLockHelper {
     return absl::OkStatus();
   }
 };
+
+struct PathRangeVisitor {
+  KeyRange range;
+  std::string prefix;
+
+  PathRangeVisitor(KeyRange range)
+      : range(std::move(range)), prefix(LongestDirectoryPrefix(this->range)) {}
+
+  struct PendingDir {
+    std::unique_ptr<internal_file_util::DirectoryIterator> iterator;
+    /// Indicates whether this directory is fully (rather than partially)
+    /// contained in `range`.  If `true`, we can save the cost of checking
+    /// whether every (recursive) child entry is contained in `range`.
+    bool fully_contained;
+  };
+
+  std::vector<PendingDir> pending_dirs;
+
+  absl::Status Visit(
+      absl::FunctionRef<bool()> is_cancelled,
+      absl::FunctionRef<absl::Status()> handle_file_at,
+      absl::FunctionRef<absl::Status(bool fully_contained)> handle_dir_at) {
+    auto status = VisitImpl(is_cancelled, handle_file_at, handle_dir_at);
+    if (!status.ok()) {
+      return MaybeAnnotateStatus(
+          status, tensorstore::StrCat("While processing: ", GetFullPath()));
+    }
+    return absl::OkStatus();
+  }
+
+  absl::Status VisitImpl(
+      absl::FunctionRef<bool()> is_cancelled,
+      absl::FunctionRef<absl::Status()> handle_file_at,
+      absl::FunctionRef<absl::Status(bool fully_contained)> handle_dir_at) {
+    // First, try and open the prefix as a directory.
+    TENSORSTORE_RETURN_IF_ERROR(EnqueueDirectory());
+
+    // As long there are pending directories, look at the top of the stack.
+    for (; !pending_dirs.empty();) {
+      if (is_cancelled()) {
+        return absl::CancelledError("");
+      }
+      bool fully_contained = pending_dirs.back().fully_contained;
+      if (auto& iterator = *pending_dirs.back().iterator; iterator.Next()) {
+        const std::string_view name_view = iterator.path_component();
+        if (name_view != "." && name_view != "..") {
+          if (iterator.is_directory()) {
+            if (fully_contained ||
+                tensorstore::IntersectsPrefix(range, GetFullDirPath())) {
+              TENSORSTORE_RETURN_IF_ERROR(EnqueueDirectory());
+            }
+          } else {
+            // Treat the entry as a file; while this may not be strictly the
+            // case, it is a reasonable default.
+            if (fully_contained ||
+                tensorstore::Contains(range, GetFullPath())) {
+              TENSORSTORE_RETURN_IF_ERROR(handle_file_at());
+            }
+          }
+        }
+        continue;
+      }
+
+      // No more entries were encountered in the directory, so finish handling
+      // the current directory.
+      pending_dirs.pop_back();
+      TENSORSTORE_RETURN_IF_ERROR(handle_dir_at(fully_contained));
+    }
+
+    return absl::OkStatus();
+  }
+
+  internal_file_util::DirectoryIterator::Entry GetCurrentEntry() {
+    if (pending_dirs.empty()) {
+      return internal_file_util::DirectoryIterator::Entry::FromPath(prefix);
+    } else {
+      return pending_dirs.back().iterator->GetEntry();
+    }
+  }
+
+  absl::Status EnqueueDirectory() {
+    std::unique_ptr<internal_file_util::DirectoryIterator> iterator;
+    if (!internal_file_util::DirectoryIterator::Make(GetCurrentEntry(),
+                                                     &iterator)) {
+      return StatusFromErrno("Failed to open directory");
+    }
+    if (iterator) {
+      bool fully_contained =
+          (!pending_dirs.empty() && pending_dirs.back().fully_contained) ||
+          tensorstore::ContainsPrefix(range, GetFullDirPath());
+      pending_dirs.push_back({std::move(iterator), fully_contained});
+    }
+    return absl::OkStatus();
+  }
+
+  std::string GetFullPath() {
+    std::string path = prefix;
+    for (const auto& entry : pending_dirs) {
+      const char* slash =
+          (!path.empty() && path[path.size() - 1] != '/') ? "/" : "";
+      tensorstore::StrAppend(&path, slash, entry.iterator->path_component());
+    }
+    return path;
+  }
+
+  std::string GetFullDirPath() {
+    std::string path = GetFullPath();
+    if (!path.empty() && path.back() != '/') {
+      path += '/';
+    }
+    return path;
+  }
+};
+
+/// Implements `FileKeyValueStore::Read`.
+struct ReadTask {
+  std::string full_path;
+  kvstore::ReadOptions options;
+
+  Result<ReadResult> operator()() const {
+    ReadResult read_result;
+    read_result.stamp.time = absl::Now();
+    std::int64_t size;
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto fd,
+        OpenValueFile(full_path.c_str(), &read_result.stamp.generation, &size));
+    if (!fd.valid()) {
+      read_result.state = ReadResult::kMissing;
+      return read_result;
+    }
+    if (read_result.stamp.generation == options.if_not_equal ||
+        (!StorageGeneration::IsUnknown(options.if_equal) &&
+         read_result.stamp.generation != options.if_equal)) {
+      return read_result;
+    }
+    TENSORSTORE_ASSIGN_OR_RETURN(auto byte_range,
+                                 options.byte_range.Validate(size));
+    read_result.state = ReadResult::kValue;
+    internal::FlatCordBuilder buffer(byte_range.size());
+    std::size_t offset = 0;
+    while (offset < buffer.size()) {
+      std::ptrdiff_t n = internal_file_util::ReadFromFile(
+          fd.get(), buffer.data() + offset, buffer.size() - offset,
+          byte_range.inclusive_min + offset);
+      if (n > 0) {
+        file_bytes_read.IncrementBy(n);
+        offset += n;
+        continue;
+      }
+      if (n == 0) {
+        return absl::UnavailableError(
+            tensorstore::StrCat("Length changed while reading: ", full_path));
+      }
+      return StatusFromErrno("Error reading file: ", full_path);
+    }
+    read_result.value = std::move(buffer).Build();
+    return read_result;
+  }
+};
+
+Future<ReadResult> FileKeyValueStore::Read(Key key, ReadOptions options) {
+  file_read.Increment();
+  TENSORSTORE_RETURN_IF_ERROR(ValidateKey(key));
+  return MapFuture(executor(), ReadTask{std::move(key), std::move(options)});
+}
 
 /// Implements `FileKeyValueStore::Write`.
 struct WriteTask {
@@ -574,119 +760,20 @@ struct DeleteTask {
   }
 };
 
-struct PathRangeVisitor {
-  KeyRange range;
-  std::string prefix;
-
-  PathRangeVisitor(KeyRange range)
-      : range(std::move(range)), prefix(LongestDirectoryPrefix(this->range)) {}
-
-  struct PendingDir {
-    std::unique_ptr<internal_file_util::DirectoryIterator> iterator;
-    /// Indicates whether this directory is fully (rather than partially)
-    /// contained in `range`.  If `true`, we can save the cost of checking
-    /// whether every (recursive) child entry is contained in `range`.
-    bool fully_contained;
-  };
-
-  std::vector<PendingDir> pending_dirs;
-
-  absl::Status Visit(
-      absl::FunctionRef<bool()> is_cancelled,
-      absl::FunctionRef<absl::Status()> handle_file_at,
-      absl::FunctionRef<absl::Status(bool fully_contained)> handle_dir_at) {
-    auto status = VisitImpl(is_cancelled, handle_file_at, handle_dir_at);
-    if (!status.ok()) {
-      return MaybeAnnotateStatus(
-          status, tensorstore::StrCat("While processing: ", GetFullPath()));
-    }
-    return absl::OkStatus();
+Future<TimestampedStorageGeneration> FileKeyValueStore::Write(
+    Key key, std::optional<Value> value, WriteOptions options) {
+  file_write.Increment();
+  TENSORSTORE_RETURN_IF_ERROR(ValidateKey(key));
+  if (value) {
+    return MapFuture(executor(), WriteTask{std::move(key), std::move(*value),
+                                           std::move(options)});
+  } else {
+    return MapFuture(executor(),
+                     DeleteTask{std::move(key), std::move(options)});
   }
+}
 
-  absl::Status VisitImpl(
-      absl::FunctionRef<bool()> is_cancelled,
-      absl::FunctionRef<absl::Status()> handle_file_at,
-      absl::FunctionRef<absl::Status(bool fully_contained)> handle_dir_at) {
-    // First, try and open the prefix as a directory.
-    TENSORSTORE_RETURN_IF_ERROR(EnqueueDirectory());
-
-    // As long there are pending directories, look at the top of the stack.
-    for (; !pending_dirs.empty();) {
-      if (is_cancelled()) {
-        return absl::CancelledError("");
-      }
-      bool fully_contained = pending_dirs.back().fully_contained;
-      if (auto& iterator = *pending_dirs.back().iterator; iterator.Next()) {
-        const std::string_view name_view = iterator.path_component();
-        if (name_view != "." && name_view != "..") {
-          if (iterator.is_directory()) {
-            if (fully_contained ||
-                tensorstore::IntersectsPrefix(range, GetFullDirPath())) {
-              TENSORSTORE_RETURN_IF_ERROR(EnqueueDirectory());
-            }
-          } else {
-            // Treat the entry as a file; while this may not be strictly the
-            // case, it is a reasonable default.
-            if (fully_contained ||
-                tensorstore::Contains(range, GetFullPath())) {
-              TENSORSTORE_RETURN_IF_ERROR(handle_file_at());
-            }
-          }
-        }
-        continue;
-      }
-
-      // No more entries were encountered in the directory, so finish handling
-      // the current directory.
-      pending_dirs.pop_back();
-      TENSORSTORE_RETURN_IF_ERROR(handle_dir_at(fully_contained));
-    }
-
-    return absl::OkStatus();
-  }
-
-  internal_file_util::DirectoryIterator::Entry GetCurrentEntry() {
-    if (pending_dirs.empty()) {
-      return internal_file_util::DirectoryIterator::Entry::FromPath(prefix);
-    } else {
-      return pending_dirs.back().iterator->GetEntry();
-    }
-  }
-
-  absl::Status EnqueueDirectory() {
-    std::unique_ptr<internal_file_util::DirectoryIterator> iterator;
-    if (!internal_file_util::DirectoryIterator::Make(GetCurrentEntry(),
-                                                     &iterator)) {
-      return StatusFromErrno("Failed to open directory");
-    }
-    if (iterator) {
-      bool fully_contained =
-          (!pending_dirs.empty() && pending_dirs.back().fully_contained) ||
-          tensorstore::ContainsPrefix(range, GetFullDirPath());
-      pending_dirs.push_back({std::move(iterator), fully_contained});
-    }
-    return absl::OkStatus();
-  }
-
-  std::string GetFullPath() {
-    std::string path = prefix;
-    for (const auto& entry : pending_dirs) {
-      const char* slash =
-          (!path.empty() && path[path.size() - 1] != '/') ? "/" : "";
-      tensorstore::StrAppend(&path, slash, entry.iterator->path_component());
-    }
-    return path;
-  }
-
-  std::string GetFullDirPath() {
-    std::string path = GetFullPath();
-    if (!path.empty() && path.back() != '/') {
-      path += '/';
-    }
-    return path;
-  }
-};
-
+/// Implements `FileKeyValueStore::DeleteRange`.
 struct DeleteRangeTask {
   KeyRange range;
 
@@ -724,6 +811,16 @@ struct DeleteRangeTask {
   }
 };
 
+Future<const void> FileKeyValueStore::DeleteRange(KeyRange range) {
+  file_delete_range.Increment();
+  if (range.empty()) return absl::OkStatus();  // Converted to a ReadyFuture.
+  TENSORSTORE_RETURN_IF_ERROR(ValidateKeyRange(range));
+  return PromiseFuturePair<void>::Link(
+             WithExecutor(executor(), DeleteRangeTask{std::move(range)}))
+      .future;
+}
+
+/// Implements `FileKeyValueStore:::List`.
 struct ListTask {
   KeyRange range;
   size_t strip_prefix_length;
@@ -760,110 +857,24 @@ struct ListTask {
   }
 };
 
-struct FileKeyValueStoreSpecData {
-  Context::Resource<internal::FileIoConcurrencyResource> file_io_concurrency;
-
-  constexpr static auto ApplyMembers = [](auto& x, auto f) {
-    return f(x.file_io_concurrency);
-  };
-
-  // TODO(jbms): Storing a UNIX path as a JSON string presents a challenge
-  // because UNIX paths are byte strings, and while it is common to use
-  // UTF-8 encoding it is not required that the path be a valid UTF-8
-  // string.  On MS Windows, there is a related problem that path names
-  // are stored as UCS-2 may contain invalid surrogate pairs.
-  //
-  // However, while supporting such paths is important for general purpose
-  // software like a file backup tool, it is relatively unlikely that the
-  // user will want to use such a path as the root of a file-backed
-  // KeyValueStore.
-  //
-  // If we do want to support such paths, there are various options
-  // including base64-encoding, or using NUL as an escape sequence (taking
-  // advantage of the fact that valid paths on all operating systems
-  // cannot contain NUL characters).
-  constexpr static auto default_json_binder = jb::Object(jb::Member(
-      internal::FileIoConcurrencyResource::id,
-      jb::Projection<&FileKeyValueStoreSpecData::file_io_concurrency>()));
-};
-
-class FileKeyValueStoreSpec
-    : public internal_kvstore::RegisteredDriverSpec<FileKeyValueStoreSpec,
-                                                    FileKeyValueStoreSpecData> {
- public:
-  static constexpr char id[] = "file";
-
-  Future<kvstore::DriverPtr> DoOpen() const override;
-
-  Result<std::string> ToUrl(std::string_view path) const override {
-    return tensorstore::StrCat(id, "://", internal::PercentEncodeUriPath(path));
+void FileKeyValueStore::ListImpl(ListOptions options,
+                                 AnyFlowReceiver<absl::Status, Key> receiver) {
+  file_list.Increment();
+  if (options.range.empty()) {
+    execution::set_starting(receiver, [] {});
+    execution::set_done(receiver);
+    execution::set_stopping(receiver);
+    return;
   }
-};
-
-class FileKeyValueStore
-    : public internal_kvstore::RegisteredDriver<FileKeyValueStore,
-                                                FileKeyValueStoreSpec> {
- public:
-  Future<ReadResult> Read(Key key, ReadOptions options) override {
-    file_read.Increment();
-    TENSORSTORE_RETURN_IF_ERROR(ValidateKey(key));
-    return MapFuture(executor(), ReadTask{std::move(key), std::move(options)});
+  if (auto error = ValidateKeyRange(options.range); !error.ok()) {
+    execution::set_starting(receiver, [] {});
+    execution::set_error(receiver, std::move(error));
+    execution::set_stopping(receiver);
+    return;
   }
-
-  Future<TimestampedStorageGeneration> Write(Key key,
-                                             std::optional<Value> value,
-                                             WriteOptions options) override {
-    file_write.Increment();
-    TENSORSTORE_RETURN_IF_ERROR(ValidateKey(key));
-    if (value) {
-      return MapFuture(executor(), WriteTask{std::move(key), std::move(*value),
-                                             std::move(options)});
-    } else {
-      return MapFuture(executor(),
-                       DeleteTask{std::move(key), std::move(options)});
-    }
-  }
-
-  Future<const void> DeleteRange(KeyRange range) override {
-    file_delete_range.Increment();
-    if (range.empty()) return absl::OkStatus();  // Converted to a ReadyFuture.
-    TENSORSTORE_RETURN_IF_ERROR(ValidateKeyRange(range));
-    return PromiseFuturePair<void>::Link(
-               WithExecutor(executor(), DeleteRangeTask{std::move(range)}))
-        .future;
-  }
-
-  void ListImpl(ListOptions options,
-                AnyFlowReceiver<absl::Status, Key> receiver) override {
-    file_list.Increment();
-    if (options.range.empty()) {
-      execution::set_starting(receiver, [] {});
-      execution::set_done(receiver);
-      execution::set_stopping(receiver);
-      return;
-    }
-    if (auto error = ValidateKeyRange(options.range); !error.ok()) {
-      execution::set_starting(receiver, [] {});
-      execution::set_error(receiver, std::move(error));
-      execution::set_stopping(receiver);
-      return;
-    }
-    executor()(ListTask{std::move(options.range), options.strip_prefix_length,
-                        std::move(receiver)});
-  }
-  const Executor& executor() { return spec_.file_io_concurrency->executor; }
-
-  std::string DescribeKey(std::string_view key) override {
-    return tensorstore::StrCat("local file ", tensorstore::QuoteString(key));
-  }
-
-  absl::Status GetBoundSpecData(FileKeyValueStoreSpecData& spec) const {
-    spec = spec_;
-    return absl::OkStatus();
-  }
-
-  SpecData spec_;
-};
+  executor()(ListTask{std::move(options.range), options.strip_prefix_length,
+                      std::move(receiver)});
+}
 
 Future<kvstore::DriverPtr> FileKeyValueStoreSpec::DoOpen() const {
   auto driver_ptr = internal::MakeIntrusivePtr<FileKeyValueStore>();

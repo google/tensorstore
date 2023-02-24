@@ -26,7 +26,6 @@ tensorstore_cc_library(
         "//tensorstore/internal:flat_cord_builder",
         "//tensorstore/internal:os_error_code",
         "//tensorstore/internal:path",
-        "//tensorstore/internal:type_traits",
         "//tensorstore/internal/cache_key",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
