@@ -20,6 +20,35 @@
 namespace tensorstore {
 namespace internal_metrics {
 
+bool IsCollectedMetricNonZero(const CollectedMetric& metric) {
+  struct IsNonZero {
+    bool operator()(int64_t x) { return x != 0; }
+    bool operator()(double x) { return x != 0; }
+    bool operator()(const std::string& x) { return !x.empty(); }
+  };
+
+  if (!metric.gauges.empty()) {
+    for (const auto& v : metric.gauges) {
+      if (std::visit(IsNonZero{}, v.value)) return true;
+      if (std::visit(IsNonZero{}, v.max_value)) return true;
+    }
+  } else if (!metric.values.empty()) {
+    for (const auto& v : metric.values) {
+      if (std::visit(IsNonZero{}, v.value)) return true;
+    }
+  } else if (!metric.counters.empty()) {
+    for (const auto& v : metric.counters) {
+      if (std::visit(IsNonZero{}, v.value)) return true;
+    }
+  } else if (!metric.histograms.empty()) {
+    for (const auto& v : metric.histograms) {
+      if (v.count != 0) return true;
+      if (v.sum != 0) return true;
+    }
+  }
+  return false;
+}
+
 void FormatCollectedMetric(
     const CollectedMetric& metric,
     absl::FunctionRef<void(bool has_value, std::string formatted_line)>

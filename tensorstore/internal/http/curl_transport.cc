@@ -51,11 +51,12 @@ auto& http_request_started = internal_metrics::Counter<int64_t>::New(
 auto& http_request_completed = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/http/request_completed", "HTTP requests completed");
 
-auto& http_request_errors = internal_metrics::Counter<int64_t, int>::New(
-    "/tensorstore/http/request_errors", "code", "HTTP requests with errors");
-
 auto& http_request_bytes = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/http/request_bytes", "HTTP request bytes transmitted");
+
+auto& http_response_codes = internal_metrics::Counter<int64_t, int>::New(
+    "/tensorstore/http/response_codes", "code",
+    "HTTP response status code counts");
 
 auto& http_response_bytes = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/http/response_bytes", "HTTP response bytes received");
@@ -271,9 +272,9 @@ struct CurlRequestState {
   static std::size_t CurlWriteCallback(void* contents, std::size_t size,
                                        std::size_t nmemb, void* userdata) {
     auto* self = static_cast<CurlRequestState*>(userdata);
-    http_response_bytes.IncrementBy(size);
     auto data =
         std::string_view(static_cast<char const*>(contents), size * nmemb);
+    http_response_bytes.IncrementBy(data.size());
     self->response_.payload.Append(data);
     return data.size();
   }
@@ -407,7 +408,7 @@ void MultiTransportImpl::FinishRequest(CURL* e, CURLcode code) {
     state->promise_.SetResult(state->CurlCodeToStatus(code));
   } else {
     state->response_.status_code = CurlGetResponseCode(e);
-    http_request_errors.Increment(state->response_.status_code);
+    http_response_codes.Increment(state->response_.status_code);
     state->promise_.SetResult(std::move(state->response_));
   }
 }

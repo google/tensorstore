@@ -97,12 +97,15 @@ namespace {
 }
 
 std::vector<::nlohmann::json> CollectMatchingMetrics(
-    std::string metric_prefix) {
+    std::string metric_prefix, bool include_zero_metrics) {
   std::vector<::nlohmann::json> lines;
 
   for (const auto& metric :
        internal_metrics::GetMetricRegistry().CollectWithPrefix(metric_prefix)) {
-    lines.push_back(CollectedMetricToJson(metric));
+    if (include_zero_metrics ||
+        internal_metrics::IsCollectedMetricNonZero(metric)) {
+      lines.push_back(CollectedMetricToJson(metric));
+    }
   }
 
   std::sort(std::begin(lines), std::end(lines));
@@ -113,10 +116,17 @@ std::vector<::nlohmann::json> CollectMatchingMetrics(
 
 void RegisterMetricBindings(pybind11::module_ m, Executor defer) {
   m.def("experimental_collect_matching_metrics", &CollectMatchingMetrics,
-        pybind11::arg("metric_prefix"), R"(
+        pybind11::arg("metric_prefix") = "",
+        pybind11::arg("include_zero_metrics") = false, R"(
+
 Collects metrics with a matching prefix.
 
-Returns a :py:obj:`list` of a :py:obj:`dict` of metrics.
+Args:
+  metric_prefix: Prefix of the metric name.
+  include_zero_metrics: Indicate whether zero-valued metrics are included.
+
+Returns:
+  :py:obj:`list` of a :py:obj:`dict` of metrics.
 
 Group:
   Experimental

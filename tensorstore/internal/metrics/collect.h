@@ -61,6 +61,9 @@ struct CollectedMetric {
   std::vector<Value> values;
 };
 
+/// Returns whether a collected metric is non-zero
+bool IsCollectedMetricNonZero(const CollectedMetric& metric);
+
 /// Invokes handle_line on one or more formatted CollectedMetric lines.
 void FormatCollectedMetric(
     const CollectedMetric& metric,
