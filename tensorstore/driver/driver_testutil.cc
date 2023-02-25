@@ -24,7 +24,6 @@
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform.h"
-#include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/index_transform_testutil.h"
 #include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/internal/data_type_random_generator.h"
@@ -471,8 +470,8 @@ absl::Status TestDriverWriteReadChunks(
   }
 
   ABSL_LOG(INFO) << "read/write shape " << span(chunk_shape, ts.rank());
-
-  ABSL_LOG(INFO) << "Starting writes: " << options.repeat_writes;
+  ABSL_LOG(INFO) << "Starting writes: " << options.repeat_writes
+                 << ", total_write_bytes=" << options.total_write_bytes;
   for (int64_t i = 0; i < options.repeat_writes; i++) {
     TENSORSTORE_RETURN_IF_ERROR(
         TestDriverReadOrWriteChunks(gen, ts, span(chunk_shape, ts.rank()),
@@ -480,7 +479,8 @@ absl::Status TestDriverWriteReadChunks(
                                     /*read=*/false));
   }
 
-  ABSL_LOG(INFO) << "Starting reads: " << options.repeat_reads;
+  ABSL_LOG(INFO) << "Starting reads: " << options.repeat_reads
+                 << ", total_read_bytes=" << options.total_read_bytes;
   for (int64_t i = 0; i < options.repeat_reads; i++) {
     TENSORSTORE_RETURN_IF_ERROR(
         TestDriverReadOrWriteChunks(gen, ts, span(chunk_shape, ts.rank()),
@@ -495,7 +495,7 @@ namespace {
 void ForEachChunk(BoxView<> domain, DataType dtype, absl::BitGenRef gen,
                   span<const Index> chunk_shape, int64_t total_bytes,
                   TestDriverWriteReadChunksOptions::Strategy strategy,
-                  absl::FunctionRef<void(BoxView<> box)> callback) {
+                  absl::FunctionRef<int64_t(BoxView<> box)> callback) {
   if (total_bytes == 0) return;
 
   const DimensionIndex rank = domain.rank();
@@ -505,12 +505,10 @@ void ForEachChunk(BoxView<> domain, DataType dtype, absl::BitGenRef gen,
     range_extent[i] = domain.shape()[i] / chunk_shape[i];
   }
 
-  const int64_t chunk_bytes = ProductOfExtents(chunk_shape) * dtype.size();
-
+  int64_t current_bytes = 0;
   switch (strategy) {
     case TestDriverWriteReadChunksOptions::kSequential: {
-      // Sequential writes.
-      int64_t current_bytes = 0;
+      // Sequential reads/writes.
       Box<> target(rank);
 
       while (current_bytes < total_bytes) {
@@ -520,17 +518,17 @@ void ForEachChunk(BoxView<> domain, DataType dtype, absl::BitGenRef gen,
                 target[i] = IndexInterval::UncheckedSized(
                     indices[i] * chunk_shape[i], chunk_shape[i]);
               }
-              callback(target);
-              current_bytes += chunk_bytes;
+              current_bytes += callback(target);
               return current_bytes < total_bytes;
             });
       }
       break;
     }
     case TestDriverWriteReadChunksOptions::kRandom: {
-      // random writes
-      for (int64_t i = 0; i < total_bytes; i += chunk_bytes) {
-        callback(ChooseRandomBoxPosition(gen, domain, chunk_shape));
+      // Random reads/writes.
+      while (current_bytes < total_bytes) {
+        current_bytes +=
+            callback(ChooseRandomBoxPosition(gen, domain, chunk_shape));
       }
       break;
     }
@@ -550,27 +548,26 @@ absl::Status TestDriverReadOrWriteChunks(
   if (total_bytes < 0) {
     total_bytes = ts.domain().num_elements() * ts.dtype().size() * -total_bytes;
   }
+  const int64_t chunk_bytes = ProductOfExtents(chunk_shape) * ts.dtype().size();
+
+  // Record the bytes and chunks completed.
+  std::atomic<int64_t> bytes_completed = 0;
+  std::atomic<int64_t> chunks_completed = 0;
+  auto value_lambda = [&](Promise<void> a_promise, AnyFuture a_future) {
+    bytes_completed.fetch_add(chunk_bytes);
+    chunks_completed.fetch_add(1);
+  };
 
   SharedOffsetArray<const void> array;
   if (!read) {
     array = MakeRandomArray(gen, tensorstore::Box<>(chunk_shape), ts.dtype());
   }
-  const int64_t array_size = array.num_elements() * ts.dtype().size();
-
-  // Record the bytes and chunks completed.
-  std::atomic<int64_t> bytes_completed = 0;
-  std::atomic<int64_t> chunks_completed = 0;
-  auto value_lambda = [&, sz = array_size](Promise<void> a_promise,
-                                           AnyFuture a_future) {
-    bytes_completed.fetch_add(sz);
-    chunks_completed.fetch_add(1);
-  };
 
   auto start_time = absl::Now();
   auto op = PromiseFuturePair<void>::Make(absl::OkStatus());
   ForEachChunk(
       ts.domain().box(), ts.dtype(), gen, chunk_shape, total_bytes, strategy,
-      [&](BoxView<> target) {
+      [&](BoxView<> target) -> int64_t {
         if (read) {
           LinkValue(value_lambda, op.promise,
                     Read(ts | AllDims().BoxSlice(target).TranslateTo(0)));
@@ -580,21 +577,24 @@ absl::Status TestDriverReadOrWriteChunks(
                     Write(array, ts | AllDims().BoxSlice(target).TranslateTo(0))
                         .commit_future);
         }
+        return chunk_bytes;
       });
 
   // Wait until all operations complete.
   op.promise = {};
+  op.future.Wait();
   TENSORSTORE_RETURN_IF_ERROR(op.future.result());
 
   auto elapsed_s =
       absl::FDivDuration(absl::Now() - start_time, absl::Seconds(1));
   double bytes_mb = static_cast<double>(bytes_completed.load()) / 1e6;
 
-  ABSL_LOG(INFO) << (read ? "Read" : "Write") << " summary: "
-                 << absl::StrFormat(
-                        "%d bytes in %.0f ms:  %.3f MB/second (%d chunks)",
-                        bytes_completed.load(), elapsed_s * 1e3,
-                        bytes_mb / elapsed_s, chunks_completed.load());
+  ABSL_LOG(INFO)
+      << (read ? "Read" : "Write") << " summary: "
+      << absl::StrFormat(
+             "%d bytes in %.0f ms:  %.3f MB/second (%d chunks of %d bytes)",
+             bytes_completed.load(), elapsed_s * 1e3, bytes_mb / elapsed_s,
+             chunks_completed.load(), chunk_bytes);
 
   return absl::OkStatus();
 }
