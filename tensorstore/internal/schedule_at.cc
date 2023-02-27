@@ -29,6 +29,7 @@
 #include "tensorstore/internal/metrics/histogram.h"
 #include "tensorstore/internal/metrics/value.h"
 #include "tensorstore/internal/no_destructor.h"
+#include "tensorstore/internal/tracing/tracing.h"
 #include "tensorstore/util/executor.h"
 
 namespace tensorstore {
@@ -51,6 +52,8 @@ auto& schedule_at_insert_histogram_ms =
 struct DeadlineTask {
   absl::Time deadline;
   ExecutorTask task;
+  TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS internal_tracing::TraceContext
+      trace_context;
 };
 
 /// Comparison for constructing a min-heap.
@@ -94,9 +97,13 @@ void DeadlineTaskQueue::ScheduleAt(absl::Time target_time, ExecutorTask task) {
   schedule_at_insert_histogram_ms.Observe(
       absl::ToInt64Milliseconds(target_time - absl::Now()));
 
+  internal_tracing::TraceContext tc =
+      internal_tracing::TraceContext(internal_tracing::TraceContext::kThread);
+
   // Enqueue the task.
   absl::MutexLock l(&mutex_);
-  heap_.emplace_back(DeadlineTask{std::move(target_time), std::move(task)});
+  heap_.emplace_back(
+      DeadlineTask{std::move(target_time), std::move(task), std::move(tc)});
   std::push_heap(heap_.begin(), heap_.end(), Compare{});
 }
 
@@ -126,10 +133,14 @@ void DeadlineTaskQueue::Run() {
     }  // MutexLock
 
     // Execute functions without lock
+    internal_tracing::TraceContext base =
+        internal_tracing::TraceContext(internal_tracing::TraceContext::kThread);
     for (auto& r : runnable) {
       schedule_at_queued_ops.Decrement();
+      internal_tracing::SwapCurrentTraceContext(&r.trace_context);
       r.task();
     }
+    internal_tracing::SwapCurrentTraceContext(&base);
     runnable.clear();
   }
 }

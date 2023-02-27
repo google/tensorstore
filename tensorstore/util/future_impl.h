@@ -32,6 +32,7 @@
 #include "absl/utility/utility.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/tagged_ptr.h"
+#include "tensorstore/internal/tracing/tracing.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/util/result.h"
 
@@ -524,7 +525,9 @@ class CallbackBase : public CallbackListNode {
       kLinkCallback = 3;
 
   explicit CallbackBase(SharedStatePointer shared_state)
-      : shared_state_(shared_state), reference_count_(2) {}
+      : shared_state_(shared_state),
+        reference_count_(2),
+        trace_context_(internal_tracing::TraceContext::kThread) {}
 
   virtual ~CallbackBase();
 
@@ -572,6 +575,11 @@ class CallbackBase : public CallbackListNode {
   /// function object itself (contained in a derived class) may be destroyed
   /// before this object itself is destroyed.
   std::atomic<std::size_t> reference_count_;
+
+  /// Tracing context for the callback, initialized when the callback is
+  /// created.
+  TENSORSTORE_ATTRIBUTE_NO_UNIQUE_ADDRESS internal_tracing::TraceContext
+      trace_context_;
 };
 
 struct CallbackPointerTraits {
@@ -665,9 +673,11 @@ class ReadyCallback final : public ReadyCallbackBase {
       : ReadyCallbackBase(state), callback_(std::forward<U>(u)) {}
 
   void OnReady() noexcept override {
+    internal_tracing::SwapCurrentTraceContext(&trace_context_);
     std::move(callback_)(
         FutureAccess::Construct<ReadyType>(TakeStatePointer()));
     callback_.~Callback();
+    internal_tracing::SwapCurrentTraceContext(&trace_context_);
   }
 
   void OnUnregistered() noexcept override {
@@ -699,9 +709,11 @@ class ForceCallback final : public ForceCallbackBase {
         callback_(std::forward<U>(u)) {}
 
   void OnForced() noexcept override {
+    internal_tracing::SwapCurrentTraceContext(&trace_context_);
     std::move(callback_)(
         FutureAccess::Construct<Promise<T>>(TakeStatePointer()));
     callback_.~Callback();
+    internal_tracing::SwapCurrentTraceContext(&trace_context_);
   }
 
   void OnUnregistered() noexcept override {
@@ -731,8 +743,10 @@ struct ResultNotNeededCallback final : public ResultNotNeededCallbackBase {
       : ResultNotNeededCallbackBase(state), callback_(std::forward<U>(u)) {}
 
   void OnResultNotNeeded() noexcept override {
+    internal_tracing::SwapCurrentTraceContext(&trace_context_);
     std::move(callback_)();
     callback_.~Callback();
+    internal_tracing::SwapCurrentTraceContext(&trace_context_);
   }
   void OnUnregistered() noexcept override { callback_.~Callback(); }
   void DestroyCallback() noexcept override { delete this; }

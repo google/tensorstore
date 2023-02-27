@@ -29,10 +29,10 @@
 #include "absl/status/status.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include <benchmark/benchmark.h>
 #include "tensorstore/internal/concurrent_testutil.h"
 #include "tensorstore/internal/metrics/collect.h"
 #include "tensorstore/internal/metrics/registry.h"
-#include "tensorstore/internal/type_traits.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future_impl.h"
 #include "tensorstore/util/result.h"
@@ -1876,5 +1876,19 @@ TEST(FutureTest, Live) {
       0, std::get<int64_t>(
              registry.Collect("/tensorstore/futures/live")->gauges[0].value));
 }
+
+static void BM_Future_ExecuteWhenReady(benchmark::State& state) {
+  int num_callbacks = state.range(0);
+  for (auto _ : state) {
+    auto pair = PromiseFuturePair<int>::Make();
+    for (int i = 0; i < num_callbacks; i++) {
+      pair.future.ExecuteWhenReady(
+          [](ReadyFuture<int> a) { benchmark::DoNotOptimize(a.value()); });
+    }
+    pair.promise.SetResult(1);
+    pair.future.Wait();
+  }
+}
+BENCHMARK(BM_Future_ExecuteWhenReady)->Range(0, 256);
 
 }  // namespace
