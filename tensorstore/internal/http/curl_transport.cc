@@ -18,7 +18,9 @@
 
 #include <clocale>
 #include <cstddef>
+#include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -26,6 +28,7 @@
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/numbers.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include <curl/curl.h>
@@ -64,9 +67,14 @@ auto& http_response_bytes = internal_metrics::Counter<int64_t>::New(
 auto& http_active = internal_metrics::Gauge<int64_t>::New(
     "/tensorstore/http/active", "HTTP requests considered active");
 
-auto& http_request_latency_ms =
+auto& http_total_time_ms =
     internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
-        "/tensorstore/http/request_latency_ms", "HTTP request latency (ms)");
+        "/tensorstore/http/total_time_ms", "HTTP total latency (ms)");
+
+auto& http_first_byte_latency_us =
+    internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
+        "/tensorstore/http/first_byte_latency_us",
+        "HTTP first byte received latency (us)");
 
 // Cached configuration from environment variables.
 struct CurlConfig {
@@ -91,7 +99,6 @@ struct CurlRequestState {
   HttpResponse response_;
   Promise<HttpResponse> promise_;
   char error_buffer_[CURL_ERROR_SIZE] = {0};
-  absl::Time start_time_;
 
   CurlRequestState(CurlHandleFactory* factory)
       : factory_(factory), handle_(factory->CreateHandle()) {
@@ -161,8 +168,6 @@ struct CurlRequestState {
 
   void Setup(const HttpRequest& request, absl::Cord payload,
              absl::Duration request_timeout, absl::Duration connect_timeout) {
-    start_time_ = absl::Now();
-
     // For thread safety, don't use signals to time out name resolves (when
     // async name resolution is not supported).
     //
@@ -322,6 +327,28 @@ class MultiTransportImpl {
  public:
   explicit MultiTransportImpl(std::shared_ptr<CurlHandleFactory> factory)
       : factory_(factory), multi_(factory_->CreateMultiHandle()) {
+    // Without any option, the CURL library multiplexes up to 100 http/2 streams
+    // over a single connection. In practice there's a tradeoff between
+    // concurrent streams and latency/throughput of requests. Empirical tests
+    // suggest that using a small number of streams per connection increases
+    // throughput of large transfers, which is common in tensorstore.
+    static long max_concurrent_streams = []() -> long {
+      auto env = internal::GetEnv("TENSORSTORE_HTTP2_MAX_CONCURRENT_STREAMS");
+      if (env) {
+        uint32_t limit = 0;
+        if (absl::SimpleAtoi(*env, &limit) && limit > 0 && limit < 1000) {
+          return limit;
+        } else {
+          ABSL_LOG(WARNING)
+              << "Failed to parse TENSORSTORE_HTTP2_MAX_CONCURRENT_STREAMS: "
+              << *env;
+        }
+      }
+      return 4;  // New default streams.
+    }();
+
+    curl_multi_setopt(multi_.get(), CURLMOPT_MAX_CONCURRENT_STREAMS,
+                      max_concurrent_streams);
     thread_ = internal::Thread({"curl_handler"}, [this] { Run(); });
   }
 
@@ -400,9 +427,25 @@ void MultiTransportImpl::FinishRequest(CURL* e, CURLcode code) {
     state->SetForbidReuse();
   }
 
-  auto latency = absl::Now() - state->start_time_;
-  http_request_latency_ms.Observe(absl::ToInt64Milliseconds(latency));
+  // NOTE: Consider recording curl getinfo options:
+  // https://curl.se/libcurl/c/easy_getinfo_options.html
   http_request_completed.Increment();
+  // Record the first byte latency.
+  {
+    curl_off_t first_byte_us = 0;
+    if (CURLE_OK ==
+        curl_easy_getinfo(e, CURLINFO_STARTTRANSFER_TIME_T, &first_byte_us)) {
+      http_first_byte_latency_us.Observe(first_byte_us);
+    }
+  }
+  // Record the total time.
+  {
+    curl_off_t total_time_us = 0;
+    if (CURLE_OK ==
+        curl_easy_getinfo(e, CURLINFO_TOTAL_TIME_T, &total_time_us)) {
+      http_total_time_ms.Observe(total_time_us / 1000);
+    }
+  }
 
   if (code != CURLE_OK) {
     state->promise_.SetResult(state->CurlCodeToStatus(code));

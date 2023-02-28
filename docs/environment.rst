@@ -129,3 +129,9 @@ Google Cloud Storage
    Specifies the concurrency level used by the shared Context
    :json:schema:`Context.gcs_request_concurrency` resource. Defaults to 32.
 
+
+.. envvar:: TENSORSTORE_HTTP2_MAX_CONCURRENT_STREAMS
+
+   Specifies the maximum number of concurrent streams per HTTP/2 connection,
+   without limiting the total number of active connections.  When unset, a
+   default of 4 concurrent streams are permitted.
