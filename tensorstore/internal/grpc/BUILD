@@ -93,3 +93,16 @@ tensorstore_cc_library(
         "@com_google_googletest//:gtest",
     ],
 )
+
+tensorstore_cc_library(
+    name = "peer_address",
+    srcs = ["peer_address.cc"],
+    hdrs = ["peer_address.h"],
+    deps = [
+        "//tensorstore/util:result",
+        "//tensorstore/util:str_cat",
+        "@com_github_grpc_grpc//:grpc++",
+        "@com_google_absl//absl/status",
+        "@com_google_re2//:re2",
+    ],
+)
