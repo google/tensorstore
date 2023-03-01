@@ -67,7 +67,6 @@
 
 // protos
 
-#include "google/protobuf/timestamp.pb.h"
 #include "tensorstore/kvstore/grpc/common.pb.h"
 #include "tensorstore/kvstore/grpc/kvstore.grpc.pb.h"
 #include "tensorstore/kvstore/grpc/kvstore.pb.h"

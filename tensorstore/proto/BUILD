@@ -108,7 +108,9 @@ tensorstore_cc_test(
     deps = [
         ":encode_time",
         "//tensorstore/util:status_testutil",
+        "//tensorstore/util:str_cat",
         "@com_google_googletest//:gtest_main",
+        "@com_google_protobuf//:protobuf",
     ],
 )
 
@@ -271,7 +273,7 @@ tensorstore_cc_test(
     ],
 )
 
-cc_library(
+tensorstore_cc_library(
     name = "parse_text_proto_or_die",
     hdrs = ["parse_text_proto_or_die.h"],
     deps = [

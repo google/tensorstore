@@ -15,7 +15,6 @@
 #ifndef TENSORSTORE_KVSTORE_GRPC_COMMON_H_
 #define TENSORSTORE_KVSTORE_GRPC_COMMON_H_
 
-#include "google/protobuf/timestamp.pb.h"
 #include "absl/status/status.h"
 #include "absl/time/time.h"
 #include "tensorstore/kvstore/generation.h"
@@ -23,11 +22,6 @@
 #include "tensorstore/util/result.h"
 
 namespace tensorstore_grpc {
-
-/// Converts between an absl::Time and a google.protobuf.Timestamp
-void EncodeTimestamp(absl::Time t, google::protobuf::Timestamp* proto);
-tensorstore::Result<absl::Time> DecodeTimestamp(
-    const google::protobuf::Timestamp& proto);
 
 /// Encodes a GenerationAndTimestamp protocol buffer
 void EncodeGenerationAndTimestamp(

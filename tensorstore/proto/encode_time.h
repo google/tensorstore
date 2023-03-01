@@ -15,6 +15,7 @@
 #ifndef TENSORSTORE_PROTO_ENCODE_TIME_H_
 #define TENSORSTORE_PROTO_ENCODE_TIME_H_
 
+#include "google/protobuf/duration.pb.h"
 #include "google/protobuf/timestamp.pb.h"
 #include "absl/time/time.h"
 #include "tensorstore/util/result.h"
@@ -27,6 +28,13 @@ void AbslTimeToProto(absl::Time t, google::protobuf::Timestamp* proto);
 
 /// Decodes a google.protobuf.Timestamp-compatible pb into an absl::Time.
 Result<absl::Time> ProtoToAbslTime(const google::protobuf::Timestamp& proto);
+
+/// Encodes an `absl::Duration` into a google.protobuf.Duration
+void AbslDurationToProto(absl::Duration d, google::protobuf::Duration* proto);
+
+/// Decodes a google.protobuf.Timestamp-compatible pb into an absl::Time.
+Result<absl::Duration> ProtoToAbslDuration(
+    const google::protobuf::Duration& proto);
 
 }  // namespace internal
 }  // namespace tensorstore

@@ -14,6 +14,8 @@
 
 #include "tensorstore/proto/encode_time.h"
 
+#include "google/protobuf/duration.pb.h"
+#include "google/protobuf/timestamp.pb.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -54,6 +56,45 @@ tensorstore::Result<absl::Time> ProtoToAbslTime(
     return absl::InvalidArgumentError(tensorstore::StrCat("nanos=", ns));
   }
   return absl::FromUnixSeconds(sec) + absl::Nanoseconds(ns);
+}
+
+void AbslDurationToProto(absl::Duration d, google::protobuf::Duration* proto) {
+  if (d == absl::InfiniteDuration()) {
+    proto->set_seconds(0x7FFFFFFFFFFFFFFFll);
+    proto->set_nanos(0);
+  } else if (d == -absl::InfiniteDuration()) {
+    proto->set_seconds(0x8000000000000000ll);
+    proto->set_nanos(0);
+  } else {
+    const int64_t s = absl::IDivDuration(d, absl::Seconds(1), &d);
+    const int64_t n = absl::IDivDuration(d, absl::Nanoseconds(1), &d);
+    proto->set_seconds(s);
+    proto->set_nanos(n);
+  }
+}
+
+Result<absl::Duration> ProtoToAbslDuration(
+    const google::protobuf::Duration& proto) {
+  const auto sec = proto.seconds();
+  // Interpret sintinels as positive/negative infinity.
+  if (sec == 0x7FFFFFFFFFFFFFFFll) {
+    return absl::InfiniteDuration();
+  }
+  if (sec == 0x8000000000000000ll) {
+    return -absl::InfiniteDuration();
+  }
+  const auto ns = proto.nanos();
+  if (sec < -315576000000 || sec > 315576000000) {
+    return absl::InvalidArgumentError(tensorstore::StrCat("seconds=", sec));
+  }
+  if (ns < -999999999 || ns > 999999999) {
+    return absl::InvalidArgumentError(tensorstore::StrCat("nanos=", ns));
+  }
+  if ((sec < 0 && ns > 0) || (sec > 0 && ns < 0)) {
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Sign mismatch between seconds=", sec, ", nanos=", ns));
+  }
+  return absl::Seconds(sec) + absl::Nanoseconds(ns);
 }
 
 }  // namespace internal

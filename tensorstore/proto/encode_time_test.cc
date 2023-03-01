@@ -14,12 +14,17 @@
 
 #include "tensorstore/proto/encode_time.h"
 
+#include "google/protobuf/duration.pb.h"
+#include "google/protobuf/timestamp.pb.h"
 #include <gtest/gtest.h>
 #include "tensorstore/util/status_testutil.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace {
 
+using ::tensorstore::internal::AbslDurationToProto;
 using ::tensorstore::internal::AbslTimeToProto;
+using ::tensorstore::internal::ProtoToAbslDuration;
 using ::tensorstore::internal::ProtoToAbslTime;
 
 TEST(EncodeTimestamp, Basic) {
@@ -43,6 +48,27 @@ TEST(EncodeTimestamp, Basic) {
   result = roundtrip(now);
   TENSORSTORE_ASSERT_OK(result);
   EXPECT_EQ(now, *result);
+}
+
+TEST(EncodeDuration, Basic) {
+  auto roundtrip = [](absl::Duration d) {
+    google::protobuf::Duration proto;
+    AbslDurationToProto(d, &proto);
+    return ProtoToAbslDuration(proto);
+  };
+
+  auto test_roundtrip = [&](absl::Duration d) {
+    SCOPED_TRACE(tensorstore::StrCat("duration=", d));
+    EXPECT_THAT(roundtrip(d), ::testing::Optional(d));
+  };
+
+  test_roundtrip(absl::InfiniteDuration());
+  test_roundtrip(-absl::InfiniteDuration());
+  test_roundtrip(absl::Seconds(5));
+  test_roundtrip(absl::Seconds(-5));
+  test_roundtrip(absl::ZeroDuration());
+  test_roundtrip(absl::Milliseconds(12345));
+  test_roundtrip(absl::Milliseconds(-12345));
 }
 
 }  // namespace
