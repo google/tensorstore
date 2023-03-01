@@ -600,6 +600,7 @@ struct ReadTask : public RateLimiterNode,
       case 412:
         // "Failed precondition": indicates the ifGenerationMatch condition
         // did not hold.
+        // NOTE: This is returned even when the object does not exist.
         read_result.stamp.generation = StorageGeneration::Unknown();
         return read_result;
       case 304:

@@ -87,7 +87,9 @@ bool IsValidObjectName(std::string_view name) {
 // Returns whether the StorageGeneration is valid for blob_kvstore.
 bool IsValidStorageGeneration(const StorageGeneration& gen) {
   return StorageGeneration::IsUnknown(gen) ||
-         StorageGeneration::IsNoValue(gen) || StorageGeneration::IsUint64(gen);
+         StorageGeneration::IsNoValue(gen) ||
+         (StorageGeneration::IsUint64(gen) &&
+          StorageGeneration::ToUint64(gen) > 0);
 }
 
 }  // namespace internal_storage_gcs

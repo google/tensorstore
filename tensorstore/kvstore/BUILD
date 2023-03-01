@@ -263,7 +263,6 @@ tensorstore_cc_library(
         "//tensorstore:context",
         "//tensorstore:data_type",
         "//tensorstore:json_serialization_options",
-        "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:json_fwd",
         "//tensorstore/internal:json_gtest",
         "//tensorstore/util:future",

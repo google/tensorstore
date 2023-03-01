@@ -33,7 +33,6 @@
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/data_type.h"
-#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/json_serialization_options.h"
@@ -177,14 +176,7 @@ void TestKeyValueStoreConditionalReadOps(
     absl::FunctionRef<std::string(std::string key)> get_key) {
   const auto missing_key = get_key("test1a");
   const StorageGeneration mismatch = GetMismatchStorageGeneration(store);
-
-  ABSL_LOG(INFO) << "Test conditional read, missing";
-  {
-    kvstore::ReadOptions options;
-    options.if_not_equal = mismatch;
-    EXPECT_THAT(kvstore::Read(store, missing_key, options).result(),
-                MatchesKvsReadResultNotFound());
-  }
+  ABSL_LOG(INFO) << "... Conditional read of missing values.";
 
   ABSL_LOG(INFO)
       << "Test conditional read, matching if_equal=StorageGeneration::NoValue";
@@ -195,17 +187,38 @@ void TestKeyValueStoreConditionalReadOps(
                 MatchesKvsReadResultNotFound());
   }
 
+  ABSL_LOG(INFO) << "Test conditional read, if_equal mismatch";
+  {
+    kvstore::ReadOptions options;
+    options.if_equal = mismatch;
+    EXPECT_THAT(
+        kvstore::Read(store, missing_key, options).result(),
+        testing::AnyOf(MatchesKvsReadResultNotFound(),   /// Common result
+                       MatchesKvsReadResultAborted()));  /// GCS result
+  }
+
   // Test conditional read of a non-existent object using
   // `if_not_equal=StorageGeneration::NoValue()`, which should return
   // `StorageGeneration::NoValue()` even though the `if_not_equal` condition
   // does not hold.
-  ABSL_LOG(INFO) << "Test conditional read, StorageGeneration::NoValue";
+  ABSL_LOG(INFO) << "Test conditional read, matching "
+                    "if_not_equal=StorageGeneration::NoValue";
   {
     kvstore::ReadOptions options;
     options.if_not_equal = StorageGeneration::NoValue();
     EXPECT_THAT(kvstore::Read(store, missing_key, options).result(),
                 MatchesKvsReadResultNotFound());
   }
+
+  ABSL_LOG(INFO) << "Test conditional read, if_not_equal mismatch";
+  {
+    kvstore::ReadOptions options;
+    options.if_not_equal = mismatch;
+    EXPECT_THAT(kvstore::Read(store, missing_key, options).result(),
+                MatchesKvsReadResultNotFound());
+  }
+
+  ABSL_LOG(INFO) << "... Conditional read of existing values.";
 
   // Write a value.
   const absl::Cord value("five by five");
@@ -219,7 +232,8 @@ void TestKeyValueStoreConditionalReadOps(
                                MatchesTimestampedStorageGeneration(
                                    ::testing::Not(mismatch))));
 
-  ABSL_LOG(INFO) << "Test conditional read, matching `if_not_equal` generation "
+  // if_not_equal tests
+  ABSL_LOG(INFO) << "Test conditional read, if_not_equal matching "
                  << write_result->generation;
   {
     kvstore::ReadOptions options;
@@ -228,8 +242,7 @@ void TestKeyValueStoreConditionalReadOps(
                 MatchesKvsReadResultAborted());
   }
 
-  ABSL_LOG(INFO)
-      << "Test conditional read, mismatched `if_not_equal` generation";
+  ABSL_LOG(INFO) << "Test conditional read, if_not_equal mismatched";
   {
     kvstore::ReadOptions options;
     options.if_not_equal = mismatch;
@@ -246,7 +259,8 @@ void TestKeyValueStoreConditionalReadOps(
                 MatchesKvsReadResult(value, write_result->generation));
   }
 
-  ABSL_LOG(INFO) << "Test conditional read, matching `if_equal` generation "
+  /// if_equal tests
+  ABSL_LOG(INFO) << "Test conditional read, if_equal matching "
                  << write_result->generation;
   {
     kvstore::ReadOptions options;
@@ -255,16 +269,7 @@ void TestKeyValueStoreConditionalReadOps(
                 MatchesKvsReadResult(value, write_result->generation));
   }
 
-  ABSL_LOG(INFO)
-      << "Test conditional read, mismatched `if_not_equal` generation";
-  {
-    kvstore::ReadOptions options;
-    options.if_not_equal = mismatch;
-    EXPECT_THAT(kvstore::Read(store, key, options).result(),
-                MatchesKvsReadResult(value, write_result->generation));
-  }
-
-  ABSL_LOG(INFO) << "Test conditional read, mismatched `if_equal` generation";
+  ABSL_LOG(INFO) << "Test conditional read, if_equal mismatched";
   {
     kvstore::ReadOptions options;
     options.if_equal = mismatch;
@@ -281,14 +286,7 @@ void TestKeyValueStoreConditionalReadOps(
                 MatchesKvsReadResultAborted());
   }
 
-  ABSL_LOG(INFO)
-      << "Test conditional read, if_not_equal=StorageGeneration::NoValue";
-  {
-    kvstore::ReadOptions options;
-    options.if_not_equal = StorageGeneration::NoValue();
-    EXPECT_THAT(kvstore::Read(store, key, options).result(),
-                MatchesKvsReadResult(value, write_result->generation));
-  }
+  // NOTE: Add tests for both if_equal and if_not_equal set.
 }
 
 void TestKeyValueStoreConditionalWriteOps(
