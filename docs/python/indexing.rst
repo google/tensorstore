@@ -805,6 +805,45 @@ there are a few differences to be aware of:
   result in an error.  In NumPy, out-of-bounds indices specified by a
   `slice` are silently truncated.
 
+- In TensorStore, indexing a dimension with a `slice` (with
+  :python:`step` of :python:`1` or `None`) restricts the domain of that
+  dimension but does not translate its origin such that the new lower
+  bound is 0. In contrast, NumPy does not support non-zero origins and
+  therefore `slice` operations always result in the lower bound being
+  translated to :python:`0` in NumPy.
+
+  .. doctest::
+
+    >>> x = ts.array(np.arange(10, dtype=np.int64))
+    >>> y = x[2:]
+    >>> y[:4]  # still excludes the first two elements
+    TensorStore({
+      'array': [2, 3],
+      'context': {'data_copy_concurrency': {}},
+      'driver': 'array',
+      'dtype': 'int64',
+      'transform': {
+        'input_exclusive_max': [4],
+        'input_inclusive_min': [2],
+        'output': [{'input_dimension': 0, 'offset': -2}],
+      },
+    })
+
+  To obtain the behavior of NumPy, the dimensions can be explicitly
+  translated to have an origin of :python:`0`:
+
+  .. doctest::
+
+    >>> z = y[ts.d[:].translate_to[0]]
+    >>> z[:4]  # relative to the new origin
+    TensorStore({
+      'array': [2, 3, 4, 5],
+      'context': {'data_copy_concurrency': {}},
+      'driver': 'array',
+      'dtype': 'int64',
+      'transform': {'input_exclusive_max': [4], 'input_inclusive_min': [0]},
+    })
+
 - To specify a sequence of indexing terms when using the syntax
   :python:`obj[expr]` in TensorStore, :python:`expr` must be a `tuple`. In
   NumPy, for compatibility with its predecessor library *Numeric*, if
@@ -1507,4 +1546,3 @@ indexing<python-numpy-style-indexing>` applied directly to a
 
 - When using outer indexing mode, i.e. :python:`dexpr.oindex[iexpr]`,
   zero-rank boolean arrays are not permitted.
-
