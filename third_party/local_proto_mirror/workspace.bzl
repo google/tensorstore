@@ -56,6 +56,7 @@ def repo():
         local_mirror,
         name = "local_proto_mirror",
         files = [
+            "imports.bzl",
             "google/protobuf/BUILD.bazel",
             "google/protobuf/any.proto",
             "google/protobuf/api.proto",
@@ -358,6 +359,90 @@ upb_proto_reflection_library(
     name = "well_known_protos_upbdefs",
     deps = [ ":well_known_protos" ],
 )
+
+""",
+    "imports.bzl": """
+# Rules used by com_google_googleapis to build additional targets.
+load(
+    "@com_google_tensorstore//bazel:tensorstore.bzl",
+    _tensorstore_cc_proto_library = "tensorstore_cc_proto_library",
+)
+load(
+    "@com_google_tensorstore//bazel:cc_grpc_library.bzl",
+    _cc_grpc_library = "cc_grpc_library",
+)
+
+cc_grpc_library = _cc_grpc_library
+cc_proto_library = _ensorstore_cc_proto_library
+
+def proto_library_with_info(**kwargs):
+    pass
+
+def moved_proto_library(**kwargs):
+    pass
+
+def go_gapic_assembly_pkg(**kwargs):
+    pass
+
+def go_gapic_library(**kwargs):
+    pass
+
+def go_proto_library(**kwargs):
+    pass
+
+def go_test(**kwargs):
+    pass
+
+def java_gapic_assembly_gradle_pkg(**kwargs):
+    pass
+
+def java_gapic_library(**kwargs):
+    pass
+
+def java_gapic_test(**kwargs):
+    pass
+
+def java_grpc_library(**kwargs):
+    pass
+
+def java_proto_library(**kwargs):
+    pass
+
+def nodejs_gapic_assembly_pkg(**kwargs):
+    pass
+
+def nodejs_gapic_library(**kwargs):
+    pass
+
+def php_gapic_assembly_pkg(**kwargs):
+    pass
+
+def php_gapic_library(**kwargs):
+    pass
+
+def php_grpc_library(**kwargs):
+    pass
+
+def php_proto_library(**kwargs):
+    pass
+
+def py_gapic_assembly_pkg(**kwargs):
+    pass
+
+def py_gapic_library(**kwargs):
+    pass
+
+def ruby_cloud_gapic_library(**kwargs):
+    pass
+
+def ruby_gapic_assembly_pkg(**kwargs):
+    pass
+
+def ruby_grpc_library(**kwargs):
+    pass
+
+def ruby_proto_library(**kwargs):
+    pass
 
 """,
 }
