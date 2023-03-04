@@ -20,10 +20,8 @@ TargetId: Identify a target in a package and repository.
 
 # pylint: disable=missing-function-docstring,relative-beyond-top-level
 
-import builtins
-import operator
 import os
-from typing import Dict, NamedTuple, Optional, Union, Tuple, cast
+from typing import Dict, NamedTuple, Optional
 
 
 class RepositoryId(NamedTuple):
@@ -63,25 +61,18 @@ class RepositoryId(NamedTuple):
         target_name=os.path.basename(package))
 
 
-class PackageId(tuple):
+class PackageId(NamedTuple):
   """PackageId identifies a package in a repository."""
-  __slots__ = ()
 
-  repository_name = builtins.property(operator.itemgetter(0))
-  package_name = builtins.property(operator.itemgetter(1))
+  repository_name: str
+  package_name: str
 
-  def __new__(cls,
-              repository_name: Union[str, Tuple[str, str]],
-              package_name: Optional[str] = None):
-    if None not in [repository_name, package_name]:
-      return tuple.__new__(cls, (repository_name, package_name))
-    elif isinstance(repository_name, tuple) and len(repository_name) == 2:
-      return tuple.__new__(cls, repository_name)
-    else:
-      return parse_absolute_target(cast(str, repository_name)).package_id
+  @staticmethod
+  def parse(package_label: str) -> "PackageId":
+    return parse_absolute_target(package_label).package_id
 
   def __repr__(self) -> str:
-    return f'PackageId("@{self.repository_name}//{self.package_name}")'
+    return f'PackageId.parse("@{self.repository_name}//{self.package_name}")'
 
   @property
   def repository_id(self) -> RepositoryId:
@@ -111,29 +102,19 @@ class PackageId(tuple):
         target_name=target)
 
 
-class TargetId(tuple):
+class TargetId(NamedTuple):
   """TargetId identifies a target in a package."""
-  __slots__ = ()
 
-  repository_name = builtins.property(operator.itemgetter(0))
-  package_name = builtins.property(operator.itemgetter(1))
-  target_name = builtins.property(operator.itemgetter(2))
+  repository_name: str
+  package_name: str
+  target_name: str
 
-  def __new__(cls,
-              repository_name: Union[str, Tuple[str, str, str]],
-              package_name: Optional[str] = None,
-              target_name: Optional[str] = None):
-    if None not in [repository_name, package_name, target_name]:
-      return tuple.__new__(cls, (repository_name, package_name, target_name))
-    elif isinstance(repository_name, tuple) and len(repository_name) == 3:
-      return tuple.__new__(cls, repository_name)
-    elif package_name is not None or target_name is not None:
-      raise ValueError('PackageId cannot be constructed')
-    else:
-      return parse_absolute_target(cast(str, repository_name))
+  @staticmethod
+  def parse(label: str) -> "TargetId":
+    return parse_absolute_target(label)
 
   def __repr__(self) -> str:
-    return f'TargetId({self.as_label()})'
+    return f'TargetId.parse({self.as_label()})'
 
   def as_label(self) -> str:
     return f'@{self.repository_name}//{self.package_name}:{self.target_name}'
@@ -150,10 +131,7 @@ class TargetId(tuple):
         repository_name=self.repository_name, package_name=self.package_name)
 
   def get_target_id(self, target_name: str) -> 'TargetId':
-    return TargetId(
-        repository_name=self.repository_name,
-        package_name=self.package_name,
-        target_name=target_name)
+    return self._replace(target_name=target_name)
 
   def parse_target(self, target: str) -> 'TargetId':
     return self.package_id.parse_target(target)

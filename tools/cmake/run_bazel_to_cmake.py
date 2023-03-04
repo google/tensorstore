@@ -35,7 +35,7 @@ The current CMake configuration is used to synthesize an appropriate set of
 
 import sys
 
-import bazel_to_cmake.main
+import bazel_to_cmake.main  # type: ignore[import-error]
 
 if __name__ == "__main__":
   sys.exit(bazel_to_cmake.main.main())

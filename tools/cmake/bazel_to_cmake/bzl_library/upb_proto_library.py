@@ -35,21 +35,21 @@ from ..starlark.provider import TargetInfo
 from ..starlark.select import Configurable
 
 _UPB = PluginSettings(
-    TargetId("@com_google_upb//upbc:protoc-gen-upb"), "upb",
+    TargetId.parse("@com_google_upb//upbc:protoc-gen-upb"), "upb",
     [".upb.h", ".upb.c"], [
-        TargetId(
+        TargetId.parse(
             "@com_google_upb//:generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me"
         ),
-        TargetId("@com_google_upb//:port")
+        TargetId.parse("@com_google_upb//:port")
     ])
 
 _UPBDEFS = PluginSettings(
-    TargetId("@com_google_upb//upbc:protoc-gen-upbdefs"), "upbdefs",
+    TargetId.parse("@com_google_upb//upbc:protoc-gen-upbdefs"), "upbdefs",
     [".upbdefs.h", ".upbdefs.c"], [
-        TargetId(
+        TargetId.parse(
             "@com_google_upb//:generated_reflection_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me"
         ),
-        TargetId("@com_google_upb//:port")
+        TargetId.parse("@com_google_upb//:port")
     ])
 
 
@@ -102,7 +102,7 @@ class UpbProtoLibrary(BazelGlobals):
         lambda: _upb_proto_impl(context, target, True, **kwargs),
         visibility=visibility)
 
-  bazel__FastTableEnabledInfo = staticmethod(_FastTableEnabledInfo)
+  bazel__FastTableEnabledInfo = staticmethod(_FastTableEnabledInfo)  # pylint: disable=invalid-name  # type: ignore[not-callable]
 
   def bazel_upb_fasttable_enabled(self, name: str, **kwargs):
     # Really a proxy for bool_flag, but just set it to False.
@@ -117,7 +117,7 @@ class UpbProtoLibrary(BazelGlobals):
 
     context.add_rule(target, impl, analyze_by_default=True)
 
-  bazel_UpbProtoLibraryCoptsInfo = staticmethod(UpbProtoLibraryCoptsInfo)
+  bazel_UpbProtoLibraryCoptsInfo = staticmethod(UpbProtoLibraryCoptsInfo)  # pylint: disable=invalid-name  # type: ignore[not-callable]
 
   def bazel_upb_proto_library_copts(self, name: str,
                                     copts: Configurable[List[str]], **kwargs):

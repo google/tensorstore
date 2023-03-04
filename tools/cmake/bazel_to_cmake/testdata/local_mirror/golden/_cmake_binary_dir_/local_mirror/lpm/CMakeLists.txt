@@ -2,7 +2,7 @@ set(CMAKE_MESSAGE_INDENT "[lpm] ")
 
 project("lpm")
 execute_process(
-  COMMAND ${Python3_EXECUTABLE} "${TEST_DIRECTORY}/bazel_to_cmake.py"
+  COMMAND ${Python3_EXECUTABLE} "run_bazel_to_cmake.py"
         --load-workspace "_workspace.pickle"
         --cmake-project-name lpm
         --cmake-binary-dir "${CMAKE_CURRENT_BINARY_DIR}"

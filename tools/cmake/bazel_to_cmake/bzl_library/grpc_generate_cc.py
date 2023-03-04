@@ -37,9 +37,9 @@ from ..starlark.select import Configurable
 
 _SEP = "\n        "
 _GRPC = PluginSettings(
-    TargetId("@com_github_grpc_grpc//src/compiler:grpc_cpp_plugin"), "grpc",
-    [".grpc.pb.h", ".grpc.pb.cc"],
-    [TargetId("@com_github_grpc_grpc//:grpc++_codegen_proto")])
+    TargetId.parse("@com_github_grpc_grpc//src/compiler:grpc_cpp_plugin"),
+    "grpc", [".grpc.pb.h", ".grpc.pb.cc"],
+    [TargetId.parse("@com_github_grpc_grpc//:grpc++_codegen_proto")])
 
 
 @register_bzl_library(
@@ -87,7 +87,7 @@ def _generate_cc_impl(_context: InvocationContext,
         cast(RelativeLabel, _context.evaluate_configurable(plugin)))
     plugin_settings = PluginSettings(
         resolved_plugin, "grpc", [".grpc.pb.h", ".grpc.pb.cc"],
-        [TargetId("@com_github_grpc_grpc//:grpc++_codegen_proto")])
+        [TargetId.parse("@com_github_grpc_grpc//:grpc++_codegen_proto")])
 
   cmake_deps.extend(state.get_dep(PROTO_COMPILER))
 
@@ -106,6 +106,7 @@ def _generate_cc_impl(_context: InvocationContext,
           TargetInfo(FilesProvider([generated_path]), protoc_deps))
       generated_paths.append(generated_path)
 
+  assert plugin_settings.plugin is not None
   plugin_name = state.get_dep(plugin_settings.plugin)
   if len(plugin_name) != 1:
     raise ValueError(
@@ -119,6 +120,9 @@ def _generate_cc_impl(_context: InvocationContext,
 
   import_target = state.generate_cmake_target_pair(resolved_srcs[0]).target
   cmake_name = cmake_target_pair.target
+
+  if flags is None:
+    flags = []
 
   builder = _context.access(CMakeBuilder)
   builder.addtext(f"""

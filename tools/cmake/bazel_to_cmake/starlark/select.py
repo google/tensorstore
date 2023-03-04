@@ -76,7 +76,7 @@ class Select(_ConfigurableBase[T]):
 
 
 class SelectExpression(_ConfigurableBase[T]):
-  """Represents an expression true involving `select` expressions."""
+  """Represents an expression involving `select` terms."""
 
   def __init__(
       self,

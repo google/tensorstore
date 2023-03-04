@@ -14,36 +14,35 @@
 
 # pylint: disable=g-importing-member,invalid-name
 
-import unittest
+import pytest
 
 from .provider import provider
 
 
-class TestProvider(unittest.TestCase):
+def test_generic_provider():
+  X = provider(doc='foo')
+  x = X(a=1, b=2)
+  assert x.a == 1
+  assert x.b == 2
+  assert 'struct(a=1,b=2)' == str(repr(x))
+  y = X(c=1)
+  # Cannot assign
+  with pytest.raises(Exception):
+    x.a = 2
 
-  def test_generic_provider(self):
-    X = provider(doc='foo')
-    x = X(a=1, b=2)
-    self.assertEqual(x.a, 1)
-    self.assertEqual(x.b, 2)
-    self.assertEqual('struct(a=1,b=2)', str(repr(x)))
-    y = X(c=1)
-    # Cannot assign
-    with self.assertRaises(Exception) as context:
-      x.a = 2
 
-  def test_restricted_provider(self):
-    Y = provider(doc='bar', fields=['a', 'b'])
-    x = Y(a=1, b=2)
-    self.assertEqual(x.a, 1)
-    self.assertEqual(x.b, 2)
-    self.assertEqual('struct(a=1,b=2)', str(repr(x)))
-    Y(b=2)
+def test_restricted_provider():
+  Y = provider(doc='bar', fields=['a', 'b'])
+  x = Y(a=1, b=2)
+  assert x.a == 1
+  assert x.b == 2
+  assert 'struct(a=1,b=2)' == str(repr(x))
+  Y(b=2)
 
-    # Cannot assign
-    with self.assertRaises(Exception) as _:
-      x.a = 2
+  # Cannot assign
+  with pytest.raises(Exception):
+    x.a = 2
 
-    # Invalid field.
-    with self.assertRaises(Exception) as _:
-      Y(c=2)
+  # Invalid field.
+  with pytest.raises(Exception):
+    Y(c=2)

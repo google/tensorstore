@@ -132,6 +132,7 @@ class Workspace:
 
     Generally this is used to set global build settings and cmake aliases.
     """
+    assert cmake_target_pair.cmake_package is not None
     self.set_cmake_package_name(target.repository_id,
                                 cmake_target_pair.cmake_package)
     if target in self._persisted_canonical_name:

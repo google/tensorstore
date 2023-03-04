@@ -15,7 +15,6 @@
 # pylint: disable=g-importing-member,wildcard-import
 
 from typing import Any, Dict, List, Optional
-import unittest
 
 from .bazel_globals import BuildFileGlobals
 from .bazel_globals import BuildFileLibraryGlobals
@@ -66,13 +65,13 @@ class MyRuleContext(InvocationContext):
 
   def __init__(self):
     self.output = []
-    self.rule_target = TargetId("@foo//:rule.bzl")
+    self.rule_target = TargetId.parse("@foo//:rule.bzl")
     self.rule_scope = BuildFileLibraryGlobals(self, self.rule_target, "")
     self.rule_scope["print"] = self._my_print
-    self.build_target = TargetId("@bar//:BUILD.bazel")
+    self.build_target = TargetId.parse("@bar//:BUILD.bazel")
     self.build_scope = BuildFileGlobals(self, self.build_target, "")
     self.build_scope["print"] = self._my_print
-    self.rules: Dict[RuleImpl] = {}
+    self.rules: Dict[TargetId, RuleImpl] = {}
 
   def _my_print(self, *args):
     for x in args:
@@ -117,19 +116,16 @@ class MyRuleContext(InvocationContext):
     return TargetInfo()
 
 
-class RuleTest(unittest.TestCase):
+def test_rule():
+  ctx = MyRuleContext()
 
-  def test_rule(self):
-    self.maxDiff = None  # pylint: disable=invalid-name
-    ctx = MyRuleContext()
+  # Compile the .bzl library
+  exec(compile(RULE_BZL, "rule", "exec"), ctx.rule_scope)  # pylint: disable=exec-used
 
-    # Compile the .bzl library
-    exec(compile(RULE_BZL, "rule", "exec"), ctx.rule_scope)  # pylint: disable=exec-used
+  # Compile the BUILD file.
+  exec(compile(BUILD_BAZEL, "build", "exec"), ctx.build_scope)  # pylint: disable=exec-used
 
-    # Compile the BUILD file.
-    exec(compile(BUILD_BAZEL, "build", "exec"), ctx.build_scope)  # pylint: disable=exec-used
+  for _, impl in ctx.rules.items():
+    impl()
 
-    for _, impl in ctx.rules.items():
-      impl()
-
-    self.assertEqual(ctx.joined_output, OUTPUT)
+  assert ctx.joined_output == OUTPUT

@@ -14,36 +14,37 @@
 
 # pylint: disable=g-importing-member
 
-from .select import Select
-import unittest
+import pytest
+
+from .select import Select, SelectExpression  # pylint: disable=multiple-import
 
 from .bazel_target import TargetId
 
 
-class TestSelect(unittest.TestCase):
+def test_basic():
+  left = Select({
+      TargetId.parse('@//conditions:default'): ['a'],
+      TargetId.parse('@foo//bar:baz'): ['b']
+  })
+  right = Select({
+      TargetId.parse('@//conditions:default'): ['c'],
+      TargetId.parse('@foo//bar:baz'): ['d']
+  })
+  added = left + ['x'] + right
 
-  def test_basic(self):
-    left = Select({
-        TargetId('@//conditions:default'): ['a'],
-        TargetId('@foo//bar:baz'): ['b']
-    })
-    right = Select({
-        TargetId('@//conditions:default'): ['c'],
-        TargetId('@foo//bar:baz'): ['d']
-    })
-    added = left + ['x'] + right
+  assert isinstance(added, SelectExpression)
+  x = added.evaluate(lambda x: False)
+  assert x == ['a', 'x', 'c']
 
-    x = added.evaluate(lambda x: False)
-    self.assertEqual(x, ['a', 'x', 'c'])
 
-  def test_failure(self):
-    cases = Select({
-        TargetId('@foo//bar:baz'): ['b'],
-        TargetId('@foo//bar:ball'): ['c'],
-    })
-    with self.assertRaises(Exception) as _:
-      # Returns false for all cases, raising an error
-      cases.evaluate(lambda x: False)
-    with self.assertRaises(Exception) as _:
-      # Returns true for all cases, raising an error
-      cases.evaluate(lambda x: True)
+def test_failure():
+  cases = Select({
+      TargetId.parse('@foo//bar:baz'): ['b'],
+      TargetId.parse('@foo//bar:ball'): ['c'],
+  })
+  with pytest.raises(Exception):
+    # Returns false for all cases, raising an error
+    cases.evaluate(lambda x: False)
+  with pytest.raises(Exception):
+    # Returns true for all cases, raising an error
+    cases.evaluate(lambda x: True)

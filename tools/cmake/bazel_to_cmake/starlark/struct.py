@@ -16,6 +16,8 @@
 https://bazel.build/rules/lib/struct
 """
 
+from typing import Any
+
 # pylint: disable=missing-function-docstring
 
 
@@ -70,3 +72,6 @@ class Struct(object):
 
   def __delattr__(self, *ignored):
     raise NotImplementedError
+
+  def __getattr__(self, attr: str) -> Any:
+    return self.__dict__[attr]

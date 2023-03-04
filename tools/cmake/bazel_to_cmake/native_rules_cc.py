@@ -186,7 +186,8 @@ def alias(self: InvocationContext,
 
 def _alias_impl(_context: InvocationContext, _target: TargetId,
                 actual: Configurable[RelativeLabel]):
-  resolved = _context.resolve_target(_context.evaluate_configurable(actual))
+  resolved = _context.resolve_target_or_label(
+      _context.evaluate_configurable(actual))
   target_info = _context.get_target_info(resolved)
   _context.add_analyzed_target(_target, target_info)
 

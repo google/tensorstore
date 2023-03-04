@@ -14,25 +14,25 @@
 
 # pylint: disable=g-importing-member
 
+import pytest
+
 from .struct import Struct
-import unittest
 
 
-class TestStruct(unittest.TestCase):
+def test_struct():
+  x = Struct(doc='foo', id=1)
+  assert x.doc == 'foo'
+  assert x.id == 1
+  assert "struct(doc='foo',id=1)" == str(repr(x))
+  with pytest.raises(Exception):
+    x.doc = 'bar'
 
-  def test_struct(self):
-    x = Struct(doc='foo', id=1)
-    self.assertEqual(x.doc, 'foo')
-    self.assertEqual(x.id, 1)
-    self.assertEqual("struct(doc='foo',id=1)", str(repr(x)))
-    with self.assertRaises(Exception) as _:
-      x.doc = 'bar'
 
-  def test_struct_add(self):
-    x = Struct(doc='foo', id=1)
-    y = Struct(a=1, b='bar')
-    self.assertNotEqual(x, y)
-    z = x + y
-    self.assertEqual(z.a, 1)
-    with self.assertRaises(Exception) as _:
-      z + x
+def test_struct_add():
+  x = Struct(doc='foo', id=1)
+  y = Struct(a=1, b='bar')
+  assert x != y
+  z = x + y
+  assert z.a == 1
+  with pytest.raises(Exception):
+    z + x

@@ -19,7 +19,7 @@ import pathlib
 from .select import Configurable
 from .select import Select
 from .select import SelectExpression
-from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, cast
+from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union, cast
 
 from .bazel_target import PackageId
 from .bazel_target import RepositoryId
@@ -114,9 +114,12 @@ class InvocationContext(object):
   def evaluate_configurable(self, configurable: Configurable[T]) -> T:
     """Evaluates a `Configurable` expression."""
     assert configurable is not None
-    if isinstance(configurable, Select) or isinstance(configurable,
-                                                      SelectExpression):
-      return cast(T, configurable.evaluate(self.evaluate_condition))
+    if (isinstance(configurable, Select) or
+        isinstance(configurable, SelectExpression)):
+      return cast(
+          T,
+          cast(Union[Select[T], SelectExpression[T]],
+               configurable).evaluate(self.evaluate_condition))
     return cast(T, configurable)
 
   def evaluate_configurable_list(
@@ -125,13 +128,14 @@ class InvocationContext(object):
   ) -> List[T]:
     if configurable is None:
       return []
+    assert configurable is not None
     if isinstance(configurable, list):
       # This occurs when a single configurable is put into a list, as happens
       # in the bazel_skylib.copy_file rule.
       return cast(List[T],
                   [self.evaluate_configurable(x) for x in configurable])
     else:
-      evaluated: List[T] = self.evaluate_configurable(configurable)
+      evaluated = self.evaluate_configurable(configurable)
       assert isinstance(evaluated, list)
       return evaluated
 

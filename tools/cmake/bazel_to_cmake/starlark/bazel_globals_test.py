@@ -15,7 +15,6 @@
 # pylint: disable=g-importing-member
 
 from typing import Any, Dict, List, Optional
-import unittest
 
 from .bazel_globals import BazelWorkspaceGlobals
 from .bazel_globals import BuildFileLibraryGlobals
@@ -77,7 +76,7 @@ Label("@foo//:x")
 class MyContext(InvocationContext):
 
   def __init__(self):
-    self._caller_package_id = PackageId("@foo//bar/baz")
+    self._caller_package_id = PackageId.parse("@foo//bar/baz")
 
   @property
   def caller_package_id(self):
@@ -102,30 +101,29 @@ class MyContext(InvocationContext):
     pass
 
 
-class GlobalsTest(unittest.TestCase):
+def test_workspace_globals():
 
-  def test_workspace_globals(self):
-    self.maxDiff = None  # pylint: disable=invalid-name
-    scope = BazelWorkspaceGlobals(MyContext(), TargetId("@foo//:WORKSPACE"),
-                                  "foo/WORKSPACE")
+  scope = BazelWorkspaceGlobals(MyContext(), TargetId.parse("@foo//:WORKSPACE"),
+                                "foo/WORKSPACE")
 
-    output = []
-    scope["print"] = output.append
+  output: List[str] = []
+  scope["print"] = output.append
 
-    exec(compile(WORKSPACE_GLOBALS, "foo", "exec"), scope)  # pylint: disable=exec-used
+  exec(compile(WORKSPACE_GLOBALS, "foo", "exec"), scope)  # pylint: disable=exec-used
 
-    scope["print_stuff"]("x")
-    self.assertEqual("\n".join(repr(x) for x in output), WORKSPACE_OUTPUT)
+  scope["print_stuff"]("x")
+  assert "\n".join(repr(x) for x in output) == WORKSPACE_OUTPUT
 
-  def test_build_file_library_globals(self):
-    self.maxDiff = None  # pylint: disable=invalid-name
-    scope = BuildFileLibraryGlobals(MyContext(), TargetId("@foo//:file.bzl"),
-                                    "foo/file.bzl")
 
-    output = []
-    scope["print"] = output.append
+def test_build_file_library_globals():
+  scope = BuildFileLibraryGlobals(MyContext(),
+                                  TargetId.parse("@foo//:file.bzl"),
+                                  "foo/file.bzl")
 
-    exec(compile(WORKSPACE_GLOBALS, "foo", "exec"), scope)  # pylint: disable=exec-used
+  output: List[str] = []
+  scope["print"] = output.append
 
-    scope["print_stuff"]("x")
-    self.assertEqual("\n".join(repr(x) for x in output), WORKSPACE_OUTPUT)
+  exec(compile(WORKSPACE_GLOBALS, "foo", "exec"), scope)  # pylint: disable=exec-used
+
+  scope["print_stuff"]("x")
+  assert "\n".join(repr(x) for x in output) == WORKSPACE_OUTPUT

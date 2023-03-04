@@ -90,7 +90,6 @@ bazel_to_cmake(
   --ignore-library "//docs:doctest.bzl"
   --ignore-library "//bazel:non_compile.bzl"
   --ignore-library "@com_google_protobuf//:protobuf.bzl"
-  --define "grpc_no_xds=true"
   --bazelrc .bazelrc
   --module bazel_to_cmake.bzl_library.grpc_generate_cc
   --module bazel_to_cmake.bzl_library.local_mirror

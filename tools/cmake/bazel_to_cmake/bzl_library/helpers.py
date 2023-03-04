@@ -39,7 +39,7 @@ def update_target_mapping(
     kwargs: Dict[str, Any],
 ) -> Dict[CMakeTarget, str]:
   """Updates kwargs[cmake_target_mapping] with resolved labels."""
-  cmake_name = kwargs.get("cmake_name")
+  cmake_name: str = kwargs["cmake_name"]
   repo_mapping: Dict[str, str] = kwargs.get("repo_mapping", {})
   target_mapping: Optional[Dict[str, str]] = kwargs.get("cmake_target_mapping")
   reverse_target_mapping: Dict[CMakeTarget, str] = {}
@@ -70,7 +70,7 @@ def write_bazel_to_cmake_cmakelists(
     cmake_extra_build_file: Optional[RelativeLabel] = None,
     repo_mapping: Optional[Dict[str, str]] = None,
     **kwargs):
-  """Writes a nested CMakeLists.txt which invokes bazel_to_cmake.py."""
+  """Writes a nested CMakeLists.txt which invokes `run_bazel_to_cmake.py`."""
   if kwargs.get("build_file_content") is not None:
     raise ValueError("build_file_content not allowed.")
   del kwargs

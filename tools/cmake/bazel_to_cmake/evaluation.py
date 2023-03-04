@@ -409,6 +409,9 @@ class EvaluationState:
     # New untracked target.
     cmake_target = self.generate_cmake_target_pair(target_id, alias)
     if target_id not in self._cmake_dep_pairs:
+      assert cmake_target.cmake_package is not None
+      if cmake_target.cmake_package == self.repo._cmake_project_name:
+        raise ValueError(f"Missing {target_id}")
       self.add_required_dep_package(cmake_target.cmake_package)
       # If it's not persisted, track it now.
       if target_id not in self.workspace._persisted_canonical_name:

@@ -65,11 +65,11 @@ class PluginSettings(NamedTuple):
   deps: List[TargetId]
 
 
-PROTO_COMPILER = TargetId("@com_google_protobuf//:protoc")
+PROTO_COMPILER = TargetId.parse("@com_google_protobuf//:protoc")
 _SEP = "\n        "
 
 _CC = PluginSettings(None, "cpp", [".pb.h", ".pb.cc"],
-                     [TargetId("@com_google_protobuf//:protobuf")])
+                     [TargetId.parse("@com_google_protobuf//:protobuf")])
 
 _WELL_KNOWN_TYPES = [
     "any",
@@ -87,27 +87,30 @@ _WELL_KNOWN_TYPES = [
     "descriptor"
 ]
 
-_WELL_KNOWN_PROTOS: Set[TargetId] = set(
-    [TargetId(f"@com_google_protobuf//:{x}_proto") for x in _WELL_KNOWN_TYPES] +
-    [
-        TargetId(f"@com_google_protobuf//src/google/protobuf:{x}_proto")
-        for x in _WELL_KNOWN_TYPES
-    ])
+_WELL_KNOWN_PROTOS: Set[TargetId] = set([
+    TargetId.parse(f"@com_google_protobuf//:{x}_proto")
+    for x in _WELL_KNOWN_TYPES
+] + [
+    TargetId.parse(f"@com_google_protobuf//src/google/protobuf:{x}_proto")
+    for x in _WELL_KNOWN_TYPES
+])
 
 _WELL_KNOWN_PROTO_TARGETS = {
     "cpp":
-        TargetId("@com_google_protobuf//:protobuf"),  # wkt_cc_proto
+        TargetId.parse("@com_google_protobuf//:protobuf"),  # wkt_cc_proto
     "upb":
-        TargetId("@local_proto_mirror//google/protobuf:well_known_protos_upb"),
+        TargetId.parse(
+            "@local_proto_mirror//google/protobuf:well_known_protos_upb"),
     "upbdefs":
-        TargetId(
+        TargetId.parse(
             "@local_proto_mirror//google/protobuf:well_known_protos_upbdefs"),
 }
 
 _OTHER_CORE_PROTOS = {
     ("cpp",
-     TargetId("@com_google_protobuf//src/google/protobuf/compiler:plugin")):
-        TargetId(
+     TargetId.parse("@com_google_protobuf//src/google/protobuf/compiler:plugin")
+    ):
+        TargetId.parse(
             "@com_google_protobuf//src/google/protobuf/compiler:code_generator")
 }
 
@@ -180,6 +183,8 @@ def get_proto_plugin_library_target(_context: InvocationContext, *,
   # Get our cmake name; note that proto libraries do not have aliases.
   cmake_target_pair = state.generate_cmake_target_pair(
       cc_library_target, alias=False)
+
+  assert proto_info is not None
 
   # Library target not found; run the protoc compiler and build the library
   # target here.
@@ -328,12 +333,12 @@ target_sources({cmake_name} INTERFACE{_SEP}{quoted_srcs})""")
     out.write(f"""
 btc_transitive_import_dirs(
     OUT_VAR {includes_name}
-    IMPORT_DIRS {quote_list(includes)}
+    IMPORT_DIRS {quote_list(sorted(includes))}
     IMPORT_TARGETS {import_targets}
     IMPORT_VARS {import_vars}
 )""")
   else:
-    out.write(f"\nlist(APPEND {includes_name} {quote_list(includes)})")
+    out.write(f"\nlist(APPEND {includes_name} {quote_list(sorted(includes))})")
   out.write(f"""
 set_property(TARGET {cmake_name} PROPERTY INTERFACE_INCLUDE_DIRECTORIES {includes_literal})
 """)

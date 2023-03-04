@@ -15,38 +15,32 @@
 # pylint: disable=g-importing-member
 
 import os
-import tempfile
-import unittest
 
 from .bazel_glob import glob
 
 
-class GlobTest(unittest.TestCase):
+def test_basic(tmpdir):
+  paths = set([
+      'BUILD',
+      'a/a1.cc',
+      'a/a2.cc',
+      'a/b/BUILD',
+      'a/b/ab1.cc',
+      'a/b/c/abc.cc',
+      'a/c/ac.cc',
+  ])
 
-  def test_basic(self):
-    paths = set([
-        'BUILD',
-        'a/a1.cc',
-        'a/a2.cc',
-        'a/b/BUILD',
-        'a/b/ab1.cc',
-        'a/b/c/abc.cc',
-        'a/c/ac.cc',
-    ])
+  directory = str(tmpdir)
+  os.chdir(directory)
+  for filename in paths:
+    d = os.path.dirname(filename)
+    if d:
+      os.makedirs(d, exist_ok=True)
+    with open(filename, 'w') as f:
+      f.write('')
 
-    with tempfile.TemporaryDirectory(prefix='glob') as directory:
-      os.chdir(directory)
-      for filename in paths:
-        d = os.path.dirname(filename)
-        if d:
-          os.makedirs(d, exist_ok=True)
-        with open(filename, 'w') as f:
-          f.write('')
-
-      self.assertEqual(
-          glob(directory, ['**/*.cc']),
-          sorted([
-              'a/a1.cc',
-              'a/a2.cc',
-              'a/c/ac.cc',
-          ]))
+  assert glob(directory, ['**/*.cc']) == sorted([
+      'a/a1.cc',
+      'a/a2.cc',
+      'a/c/ac.cc',
+  ])

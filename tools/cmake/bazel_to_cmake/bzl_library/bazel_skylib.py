@@ -17,7 +17,7 @@
 
 import json
 import os
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, Optional, Tuple, TypeVar, Union, cast
 
 from .. import native_rules_genrule
 from ..cmake_builder import CMakeBuilder
@@ -44,6 +44,8 @@ from ..util import cmake_is_true
 from ..util import cmake_is_windows
 from ..util import write_file_if_not_already_equal
 
+T = TypeVar("T")
+
 
 class BazelSelectsWrapper:
   """Defines the `selects` object for `BazelSkylibSelectsLibrary`."""
@@ -51,8 +53,10 @@ class BazelSelectsWrapper:
   def __init__(self, context: InvocationContext):
     self._context = context
 
-  def with_or_dict(self, input_dict):
-    output_dict = {}
+  def with_or_dict(
+      self, input_dict: Dict[Union[RelativeLabel, Tuple[RelativeLabel, ...]], T]
+  ) -> Dict[RelativeLabel, T]:
+    output_dict: Dict[RelativeLabel, T] = {}
     for (key, value) in input_dict.items():
       if isinstance(key, tuple):
         for config_setting in key:
@@ -65,9 +69,16 @@ class BazelSelectsWrapper:
         output_dict[key] = value
     return output_dict
 
-  def with_or(self, input_dict, no_match_error=None):
+  def with_or(self,
+              input_dict: Dict[Union[RelativeLabel, Tuple[RelativeLabel, ...]],
+                               T],
+              no_match_error=None) -> Select[T]:
     del no_match_error
-    return Select(self.with_or_dict(input_dict))
+    conditions = self.with_or_dict(input_dict)
+    return Select({
+        self._context.resolve_target_or_label(condition): value
+        for condition, value in conditions.items()
+    })
 
   def config_setting_group(
       self,

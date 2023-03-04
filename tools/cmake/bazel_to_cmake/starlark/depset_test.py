@@ -14,18 +14,14 @@
 
 # pylint: disable=g-importing-member
 
-import unittest
-
 from .depset import DepSet
 
 
-class TestDepset(unittest.TestCase):
-
-  def test_basic(self):
-    x = DepSet(direct=['a', 'b', 'c'], transitive=None)
-    self.assertEqual(sorted(x.to_list()), ['a', 'b', 'c'])
-    y = DepSet(direct=['1', '2', '3'], transitive=None)
-    z = x + y
-    self.assertEqual(sorted(z.to_list()), ['1', '2', '3', 'a', 'b', 'c'])
-    w = DepSet(['w'], transitive=[x])
-    self.assertEqual(sorted(w.to_list()), ['a', 'b', 'c', 'w'])
+def test_basic():
+  x = DepSet(direct=['a', 'b', 'c'], transitive=None)
+  assert sorted(x.to_list()) == ['a', 'b', 'c']
+  y = DepSet(direct=['1', '2', '3'], transitive=None)
+  z = x + y
+  assert sorted(z.to_list()) == ['1', '2', '3', 'a', 'b', 'c']
+  w = DepSet(['w'], transitive=[x])
+  assert sorted(w.to_list()) == ['a', 'b', 'c', 'w']

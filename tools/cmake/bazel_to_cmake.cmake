@@ -48,7 +48,7 @@ macro(bazel_to_cmake)
   if (${BAZEL_TO_CMAKE_COMMAND})
     set(_bazel_to_cmake_command "${BAZEL_TO_CMAKE_COMMAND}")
   else()
-    set(_bazel_to_cmake_command "${_bazel_to_cmake_dir}/bazel_to_cmake.py")
+    set(_bazel_to_cmake_command "${_bazel_to_cmake_dir}/run_bazel_to_cmake.py")
   endif()
 
   set(_bazel_to_cmake_args "${ARGN}")

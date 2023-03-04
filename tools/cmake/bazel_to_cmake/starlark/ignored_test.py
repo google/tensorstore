@@ -14,14 +14,10 @@
 
 # pylint: disable=g-importing-member
 
-import unittest
-
 from .ignored import IgnoredLibrary
 
 
-class TestIgnored(unittest.TestCase):
-
-  def test_ignored(self):
-    x = IgnoredLibrary()
-    x['foo']()
-    x['foo'].foo.bar.baz()
+def test_ignored():
+  x = IgnoredLibrary()
+  x['foo']()
+  x['foo'].foo.bar.baz()

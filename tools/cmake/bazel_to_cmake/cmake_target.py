@@ -14,53 +14,25 @@
 """CMake Provider types."""
 
 import re
-from typing import NewType, List, Optional, Tuple, Union
+from typing import List, NamedTuple, NewType, Optional
 
 from .starlark.bazel_target import TargetId
 from .starlark.provider import Provider
 
 _SPLIT_RE = re.compile("[:/]+")
 
-CMakePairTupleType = Tuple[Optional[str], str, Optional[str]]
 CMakeTarget = NewType("CMakeTarget", str)
 
 
-class CMakeTargetPair(tuple):
-  """CMakeTargetPair identifies a cmake target, optionally with an alias."""
-  __slots__ = ()
-  __str__ = None
+class CMakeTargetPair(NamedTuple):
+  """CMakeTarget identifies a cmake target, optionally with an alias."""
 
-  def __new__(cls,
-              cmake_package: Union[Optional[str], CMakePairTupleType],
-              target: Optional[CMakeTarget] = None,
-              alias: Optional[CMakeTarget] = None):
-    if target is not None:
-      return tuple.__new__(cls, (cmake_package, target, alias))
-    elif isinstance(
-        cmake_package,
-        tuple) and len(cmake_package) == 3 and cmake_package[1] is not None:
-      return tuple.__new__(cls, cmake_package)
-    else:
-      raise ValueError(
-          f"""CMakeTargetPair.__new__({cmake_package},{target},{alias})""")
-
-  def __repr__(self) -> str:
-    return f"{self.__class__.__name__}({repr(self.cmake_package)},{repr(self.target)},{repr(self.alias)})"
+  cmake_package: Optional[str]
+  target: CMakeTarget
+  alias: Optional[CMakeTarget] = None
 
   def with_alias(self, alias: Optional[CMakeTarget]) -> "CMakeTargetPair":
-    return CMakeTargetPair(self.cmake_package, self.target, alias)
-
-  @property
-  def cmake_package(self) -> Optional[str]:
-    return self.__getitem__(0)
-
-  @property
-  def target(self) -> CMakeTarget:
-    return self.__getitem__(1)
-
-  @property
-  def alias(self) -> Optional[CMakeTarget]:
-    return self.__getitem__(2)
+    return self._replace(alias=alias)
 
   @property
   def dep(self) -> CMakeTarget:
@@ -69,6 +41,9 @@ class CMakeTargetPair(tuple):
   def as_providers(self):
     return (CMakeTargetPairProvider(self), CMakeTargetProvider(self.target),
             CMakeDepsProvider([self.dep]))
+
+  def __str__(self) -> str:
+    raise NotImplementedError
 
 
 def label_to_generated_cmake_target(target_id: TargetId,

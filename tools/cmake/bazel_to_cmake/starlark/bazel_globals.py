@@ -78,34 +78,34 @@ class BazelGlobals(dict):
   def bazel_fail(self, *args):
     raise ValueError(" ".join([str(x) for x in args]))
 
-  bazel_all = staticmethod(all)
-  bazel_any = staticmethod(any)
-  bazel_bool = staticmethod(bool)
-  bazel_bytes = staticmethod(bytes)
-  bazel_dict = staticmethod(dict)
-  bazel_dir = staticmethod(dir)
-  bazel_enumerate = staticmethod(enumerate)
-  bazel_float = staticmethod(float)
-  bazel_getattr = staticmethod(getattr)
-  bazel_hasattr = staticmethod(hasattr)
-  bazel_hash = staticmethod(hash)
-  bazel_int = staticmethod(int)
-  bazel_len = staticmethod(len)
-  bazel_list = staticmethod(list)
-  bazel_max = staticmethod(max)
-  bazel_min = staticmethod(min)
-  bazel_print = staticmethod(print)
-  bazel_range = staticmethod(range)
-  bazel_repr = staticmethod(repr)
-  bazel_reversed = staticmethod(reversed)
-  bazel_sorted = staticmethod(sorted)
-  bazel_str = staticmethod(str)
-  bazel_tuple = staticmethod(tuple)
-  bazel_type = staticmethod(type)
-  bazel_zip = staticmethod(zip)
+  bazel_all = staticmethod(all)  # type: ignore[not-callable]
+  bazel_any = staticmethod(any)  # type: ignore[not-callable]
+  bazel_bool = staticmethod(bool)  # type: ignore[not-callable]
+  bazel_bytes = staticmethod(bytes)  # type: ignore[not-callable]
+  bazel_dict = staticmethod(dict)  # type: ignore[not-callable]
+  bazel_dir = staticmethod(dir)  # type: ignore[not-callable]
+  bazel_enumerate = staticmethod(enumerate)  # type: ignore[not-callable]
+  bazel_float = staticmethod(float)  # type: ignore[not-callable]
+  bazel_getattr = staticmethod(getattr)  # type: ignore[not-callable]
+  bazel_hasattr = staticmethod(hasattr)  # type: ignore[not-callable]
+  bazel_hash = staticmethod(hash)  # type: ignore[not-callable]
+  bazel_int = staticmethod(int)  # type: ignore[not-callable]
+  bazel_len = staticmethod(len)  # type: ignore[not-callable]
+  bazel_list = staticmethod(list)  # type: ignore[not-callable]
+  bazel_max = staticmethod(max)  # type: ignore[not-callable]
+  bazel_min = staticmethod(min)  # type: ignore[not-callable]
+  bazel_print = staticmethod(print)  # type: ignore[not-callable]
+  bazel_range = staticmethod(range)  # type: ignore[not-callable]
+  bazel_repr = staticmethod(repr)  # type: ignore[not-callable]
+  bazel_reversed = staticmethod(reversed)  # type: ignore[not-callable]
+  bazel_sorted = staticmethod(sorted)  # type: ignore[not-callable]
+  bazel_str = staticmethod(str)  # type: ignore[not-callable]
+  bazel_tuple = staticmethod(tuple)  # type: ignore[not-callable]
+  bazel_type = staticmethod(type)  # type: ignore[not-callable]
+  bazel_zip = staticmethod(zip)  # type: ignore[not-callable]
 
-  bazel_depset = staticmethod(DepSet)
-  bazel_struct = staticmethod(Struct)
+  bazel_depset = staticmethod(DepSet)  # type: ignore[not-callable]
+  bazel_struct = staticmethod(Struct)  # type: ignore[not-callable]
 
 
 class BazelNativeWorkspaceRules:
