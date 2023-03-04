@@ -1831,14 +1831,15 @@ tensorstore_cc_library(
     srcs = ["schedule_at.cc"],
     hdrs = ["schedule_at.h"],
     deps = [
-        ":attributes",
+        ":intrusive_red_black_tree",
         ":no_destructor",
-        ":type_traits",
+        ":tagged_ptr",
+        ":thread",
         "//tensorstore/internal/metrics",
-        "//tensorstore/internal/poly",
         "//tensorstore/internal/tracing",
-        "//tensorstore/util:executor",
+        "//tensorstore/util:stop_token",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/functional:any_invocable",
         "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/time",
     ],
@@ -1846,10 +1847,12 @@ tensorstore_cc_library(
 
 tensorstore_cc_test(
     name = "schedule_at_test",
+    size = "small",
     srcs = ["schedule_at_test.cc"],
     deps = [
         ":schedule_at",
         "//tensorstore/util:executor",
+        "//tensorstore/util:stop_token",
         "@com_google_absl//absl/synchronization",
         "@com_google_googletest//:gtest_main",
     ],

@@ -87,7 +87,7 @@ struct NodeBase : public NodeBase<void> {};
 
 /// intrusive_linked_list accessor that re-uses the storage of `NodeBase<>` for
 /// a linked list node.
-template <typename T, typename Tag>
+template <typename T, typename Tag = void>
 struct LinkedListAccessor {
   using Node = T*;
   static Node Downcast(NodeBase<>* node) {
