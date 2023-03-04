@@ -3,8 +3,6 @@ find_package(Protobuf REQUIRED)
 # @bazel_test_repo//:bb
 add_executable(CMakeProject_bb "")
 add_executable(CMakeProject::bb ALIAS CMakeProject_bb)
-target_sources(CMakeProject_bb PRIVATE
-        "${TEST_DIRECTORY}/a.cc")
 target_link_libraries(CMakeProject_bb PUBLIC
         "Threads::Threads"
         "m")
@@ -12,6 +10,8 @@ target_include_directories(CMakeProject_bb PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_bb PUBLIC cxx_std_17)
+target_sources(CMakeProject_bb PRIVATE
+        "${TEST_DIRECTORY}/a.cc")
 
 # @bazel_test_repo//:h_file
 add_custom_command(
@@ -25,8 +25,6 @@ add_custom_target(CMakeProject_h_file DEPENDS "_cmake_binary_dir_/a.h")
 
 # @bazel_test_repo//:a
 add_library(CMakeProject_a)
-target_sources(CMakeProject_a PRIVATE
-        "${TEST_DIRECTORY}/a.cc")
 set_property(TARGET CMakeProject_a PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_a PUBLIC
         "Threads::Threads"
@@ -36,6 +34,8 @@ target_include_directories(CMakeProject_a PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_a PUBLIC cxx_std_17)
 add_dependencies(CMakeProject_a "CMakeProject_h_file")
+target_sources(CMakeProject_a PRIVATE
+        "${TEST_DIRECTORY}/a.cc")
 add_library(CMakeProject::a ALIAS CMakeProject_a)
 
 # @bazel_test_repo//:a_alias
@@ -56,8 +56,6 @@ set_property(TARGET CMakeProject_c_proto PROPERTY INTERFACE_INCLUDE_DIRECTORIES 
 
 # @bazel_test_repo//:c_proto__cpp_library
 add_library(CMakeProject_c_proto__cpp_library)
-target_sources(CMakeProject_c_proto__cpp_library PRIVATE
-        "${TEST_DIRECTORY}/c.proto")
 set_property(TARGET CMakeProject_c_proto__cpp_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_c_proto__cpp_library PUBLIC
         "protobuf::libprotobuf")
@@ -65,6 +63,8 @@ target_include_directories(CMakeProject_c_proto__cpp_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_c_proto__cpp_library PUBLIC cxx_std_17)
+target_sources(CMakeProject_c_proto__cpp_library PRIVATE
+        "${TEST_DIRECTORY}/c.proto")
 
 btc_protobuf(
     TARGET CMakeProject_c_proto__cpp_library
@@ -89,8 +89,6 @@ add_library(CMakeProject::c_proto_cc ALIAS CMakeProject_c_proto_cc)
 # @bazel_test_repo//:a_test
 add_executable(CMakeProject_a_test "")
 add_executable(CMakeProject::a_test ALIAS CMakeProject_a_test)
-target_sources(CMakeProject_a_test PRIVATE
-        "${TEST_DIRECTORY}/a.cc")
 target_link_libraries(CMakeProject_a_test PUBLIC
         "CMakeProject::c_proto_cc"
         "Threads::Threads"
@@ -99,6 +97,8 @@ target_include_directories(CMakeProject_a_test PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_a_test PUBLIC cxx_std_17)
+target_sources(CMakeProject_a_test PRIVATE
+        "${TEST_DIRECTORY}/a.cc")
 add_test(NAME CMakeProject_a_test COMMAND CMakeProject_a_test WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 # @bazel_test_repo//:c_proto_2

@@ -1,4 +1,5 @@
 load("//third_party:bazel_skylib/workspace.bzl", repo_bazel_skylib = "repo")
+load("//third_party:blake3/workspace.bzl", repo_blake3 = "repo")
 load("//third_party:com_github_cares_cares/workspace.bzl", repo_com_github_cares_cares = "repo")
 load("//third_party:com_github_grpc_grpc/workspace.bzl", repo_com_github_grpc_grpc = "repo")
 load("//third_party:com_github_nlohmann_json/workspace.bzl", repo_com_github_nlohmann_json = "repo")
@@ -39,6 +40,7 @@ load("//third_party:se_curl/workspace.bzl", repo_se_curl = "repo")
 
 def third_party_dependencies():
     repo_bazel_skylib()
+    repo_blake3()
     repo_com_github_cares_cares()
     repo_com_github_grpc_grpc()
     repo_com_github_nlohmann_json()

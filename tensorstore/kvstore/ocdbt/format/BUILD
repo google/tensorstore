@@ -1,0 +1,132 @@
+load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
+
+package(
+    default_visibility = ["//tensorstore:internal_packages"],
+)
+
+licenses(["notice"])
+
+tensorstore_cc_library(
+    name = "format",
+    srcs = [
+        "btree.cc",
+        "btree_node_encoder.cc",
+        "codec_util.cc",
+        "config.cc",
+        "config_codec.cc",
+        "indirect_data_reference.cc",
+        "manifest.cc",
+        "version_tree.cc",
+    ],
+    hdrs = [
+        "btree.h",
+        "btree_codec.h",
+        "btree_node_encoder.h",
+        "codec_util.h",
+        "config.h",
+        "config_codec.h",
+        "indirect_data_reference.h",
+        "indirect_data_reference_codec.h",
+        "manifest.h",
+        "version_tree.h",
+        "version_tree_codec.h",
+    ],
+    deps = [
+        "//tensorstore/internal:integer_overflow",
+        "//tensorstore/internal:path",
+        "//tensorstore/internal:type_traits",
+        "//tensorstore/internal/estimate_heap_usage",
+        "//tensorstore/kvstore/ocdbt:debug_log",
+        "//tensorstore/util:division",
+        "//tensorstore/util:quote_string",
+        "//tensorstore/util:result",
+        "//tensorstore/util:span",
+        "//tensorstore/util:status",
+        "//tensorstore/util:str_cat",
+        "//tensorstore/util/apply_members",
+        "@com_google_absl//absl/functional:function_ref",
+        "@com_google_absl//absl/log:absl_check",
+        "@com_google_absl//absl/log:absl_log",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/time",
+        "@com_google_boringssl//:crypto",
+        "@com_google_riegeli//riegeli/bytes:cord_reader",
+        "@com_google_riegeli//riegeli/bytes:cord_writer",
+        "@com_google_riegeli//riegeli/bytes:reader",
+        "@com_google_riegeli//riegeli/bytes:writer",
+        "@com_google_riegeli//riegeli/endian:endian_reading",
+        "@com_google_riegeli//riegeli/endian:endian_writing",
+        "@com_google_riegeli//riegeli/varint:varint_reading",
+        "@com_google_riegeli//riegeli/varint:varint_writing",
+        "@com_google_riegeli//riegeli/zstd:zstd_reader",
+        "@com_google_riegeli//riegeli/zstd:zstd_writer",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "manifest_test",
+    size = "small",
+    srcs = ["manifest_test.cc"],
+    deps = [
+        ":format",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status_testutil",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "btree_test",
+    size = "small",
+    srcs = ["btree_test.cc"],
+    deps = [
+        ":format",
+        "//tensorstore/util:quote_string",
+        "//tensorstore/util:status_testutil",
+        "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "dump",
+    srcs = ["dump.cc"],
+    hdrs = ["dump.h"],
+    deps = [
+        ":format",
+        "//tensorstore:json_serialization_options_base",
+        "//tensorstore/internal/json:value_as",
+        "//tensorstore/internal/json_binding",
+        "//tensorstore/internal/json_binding:bindable",
+        "//tensorstore/kvstore/ocdbt:config",
+        "//tensorstore/util:quote_string",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "//tensorstore/util:str_cat",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_re2//:re2",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "dump_test",
+    size = "small",
+    srcs = ["dump_test.cc"],
+    deps = [
+        ":dump",
+        ":format",
+        "//tensorstore/internal:json_gtest",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status_testutil",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

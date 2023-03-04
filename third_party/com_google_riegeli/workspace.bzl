@@ -42,7 +42,6 @@ def repo():
                 "riegeli/snappy/**",
                 "riegeli/tensorflow/**",
                 "riegeli/zlib/**",
-                "riegeli/zstd/**",
             ],
         },
     )

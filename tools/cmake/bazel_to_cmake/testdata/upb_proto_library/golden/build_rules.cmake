@@ -10,8 +10,6 @@ set_property(TARGET CMakeProject_c_proto PROPERTY INTERFACE_INCLUDE_DIRECTORIES 
 
 # @bazel_test_repo//:c_proto__upb_library
 add_library(CMakeProject_c_proto__upb_library)
-target_sources(CMakeProject_c_proto__upb_library PRIVATE
-        "${TEST_DIRECTORY}/c.proto")
 set_property(TARGET CMakeProject_c_proto__upb_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_c_proto__upb_library PUBLIC
         "upb::generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me"
@@ -20,6 +18,8 @@ target_include_directories(CMakeProject_c_proto__upb_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_c_proto__upb_library PUBLIC cxx_std_17)
+target_sources(CMakeProject_c_proto__upb_library PRIVATE
+        "${TEST_DIRECTORY}/c.proto")
 
 btc_protobuf(
     TARGET CMakeProject_c_proto__upb_library
@@ -44,8 +44,6 @@ add_library(CMakeProject::c_upb_proto ALIAS CMakeProject_c_upb_proto)
 
 # @bazel_test_repo//:c_proto__upbdefs_library
 add_library(CMakeProject_c_proto__upbdefs_library)
-target_sources(CMakeProject_c_proto__upbdefs_library PRIVATE
-        "${TEST_DIRECTORY}/c.proto")
 set_property(TARGET CMakeProject_c_proto__upbdefs_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_c_proto__upbdefs_library PUBLIC
         "upb::generated_reflection_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me"
@@ -54,6 +52,8 @@ target_include_directories(CMakeProject_c_proto__upbdefs_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_c_proto__upbdefs_library PUBLIC cxx_std_17)
+target_sources(CMakeProject_c_proto__upbdefs_library PRIVATE
+        "${TEST_DIRECTORY}/c.proto")
 
 btc_protobuf(
     TARGET CMakeProject_c_proto__upbdefs_library
@@ -79,8 +79,6 @@ add_library(CMakeProject::c_upb_proto_reflection ALIAS CMakeProject_c_upb_proto_
 
 # @bazel_test_repo//:a
 add_library(CMakeProject_a)
-target_sources(CMakeProject_a PRIVATE
-        "${TEST_DIRECTORY}/a.cc")
 set_property(TARGET CMakeProject_a PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_a PUBLIC
         "CMakeProject::c_upb_proto"
@@ -91,4 +89,6 @@ target_include_directories(CMakeProject_a PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_a PUBLIC cxx_std_17)
+target_sources(CMakeProject_a PRIVATE
+        "${TEST_DIRECTORY}/a.cc")
 add_library(CMakeProject::a ALIAS CMakeProject_a)

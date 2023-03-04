@@ -55,6 +55,7 @@ pybind11_py_extension(
         ":virtual_chunked",
         ":write_futures",
         "//tensorstore:all_drivers",
+        "//tensorstore/kvstore/ocdbt/python",
         "@com_github_pybind_pybind11//:pybind11",
     ],
 )

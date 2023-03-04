@@ -1,0 +1,90 @@
+// Copyright 2022 The TensorStore Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include "tensorstore/kvstore/ocdbt/io/indirect_data_kvstore_driver.h"
+
+#include <cassert>
+#include <cstring>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <utility>
+
+#include "absl/log/absl_log.h"
+#include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/kvstore/byte_range.h"
+#include "tensorstore/kvstore/driver.h"
+#include "tensorstore/kvstore/kvstore.h"
+#include "tensorstore/kvstore/ocdbt/debug_log.h"
+#include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
+#include "tensorstore/kvstore/operations.h"
+#include "tensorstore/kvstore/spec.h"
+#include "tensorstore/util/future.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/str_cat.h"
+
+namespace tensorstore {
+namespace internal_ocdbt {
+
+namespace {
+
+class IndirectDataKvStoreDriver : public kvstore::Driver {
+ public:
+  explicit IndirectDataKvStoreDriver(kvstore::KvStore base)
+      : base_(std::move(base)) {}
+
+  Future<ReadResult> Read(Key key, ReadOptions options) override {
+    assert(key.size() == sizeof(IndirectDataReference));
+    IndirectDataReference ref;
+    std::memcpy(&ref, key.data(), sizeof(IndirectDataReference));
+    TENSORSTORE_ASSIGN_OR_RETURN(auto byte_range,
+                                 options.byte_range.Validate(ref.length));
+    options.byte_range = byte_range.inclusive_min + ref.offset;
+    // Note: No need to check for overflow in computing `exclusive_max` because
+    // `offset` and `length` are validated when the `IndirectDataReference` is
+    // decoded.
+    options.byte_range.exclusive_max = byte_range.exclusive_max + ref.offset;
+    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+        << "read: " << ref << " " << options.byte_range;
+
+    return kvstore::Read(base_, GetDataFilePath(ref.file_id),
+                         std::move(options));
+  }
+
+  std::string DescribeKey(std::string_view key) override {
+    assert(key.size() == sizeof(IndirectDataReference));
+    IndirectDataReference ref;
+    std::memcpy(&ref, key.data(), sizeof(IndirectDataReference));
+    return tensorstore::StrCat(
+        "Byte range ", ByteRange{ref.offset, ref.offset + ref.length}, " of ",
+        base_.driver->DescribeKey(
+            tensorstore::StrCat(base_.path, GetDataFilePath(ref.file_id))));
+  }
+
+  void GarbageCollectionVisit(
+      garbage_collection::GarbageCollectionVisitor& visitor) const final {
+    // No-op
+  }
+
+  kvstore::KvStore base_;
+};
+
+}  // namespace
+
+kvstore::DriverPtr MakeIndirectDataKvStoreDriver(kvstore::KvStore base) {
+  return internal::MakeIntrusivePtr<IndirectDataKvStoreDriver>(std::move(base));
+}
+
+}  // namespace internal_ocdbt
+}  // namespace tensorstore

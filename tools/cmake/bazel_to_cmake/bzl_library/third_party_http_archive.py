@@ -440,6 +440,10 @@ def _third_party_http_archive_impl(_context: InvocationContext, **kwargs):
 
   builder.include("FetchContent")
   for lang in kwargs.pop("cmake_languages", []):
+    # Only enable `ASM_MASM` when using MSVC.
+    if (lang == "ASM_MASM" and
+        state.workspace.cmake_vars["CMAKE_CXX_COMPILER_ID"] != "MSVC"):
+      continue
     builder.addtext(
         f"enable_language({lang})\n",
         section=ENABLE_LANGUAGES_SECTION,

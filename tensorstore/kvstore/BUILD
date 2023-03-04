@@ -13,6 +13,7 @@ DRIVERS = [
     "http",
     "memory",
     "neuroglancer_uint64_sharded",
+    "ocdbt",
 ] + EXTRA_DRIVERS
 
 filegroup(

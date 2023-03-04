@@ -1,0 +1,107 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: kvstore/ocdbt
+allOf:
+- $ref: KvStore
+- type: object
+  properties:
+    driver:
+      const: ocdbt
+    base:
+      $ref: KvStore
+      title: Underlying key-value store.
+    coordinator:
+      $ref: ContextResource
+      description: |
+        Specifies or references a previously defined
+        `Context.ocdbt_coordinator`.
+    config:
+      type: object
+      title: "Constrains the database configuration."
+      description: |
+        When creating a new database, a configuration is chosen subject to any
+        constraints specified, using the default values indicated below for any
+        unspecified options.  When opening an existing database, the
+        configuration must match any specified constraints.
+      properties:
+        uuid:
+          type: string
+          title: "Unique 128-bit identifier for the database, specified as 32 hex digits."
+          description: |
+            If not specified, it is randomly generated when the database is first created.
+        max_inline_value_bytes:
+          type: integer
+          minimum: 0
+          maximum: 1048576
+          default: 100
+          title: "Maximum number of value bytes to store inline in a B+tree leaf node."
+          description: |
+            Values larger than the specified limit are stored out-of-line in a
+            data file.
+        max_decoded_node_bytes:
+          type: integer
+          minimum: 0
+          maximum: 4294967295
+          default: 83951616
+          title: "Maximum size of an (uncompressed) B+tree node."
+          description: |
+            Nodes are split to ensure they do not exceed this limit.
+        version_tree_arity_log2:
+          type: integer
+          minimum: 1
+          maximum: 16
+          default: 4
+          title: "Base-2 logarithm of the arity of the tree of versions."
+          description: |
+            The list of database versions is stored as a tree data structure of
+            the specified arity.
+        compression:
+          oneOf:
+          - $ref: kvstore/ocdbt/Compression/zstd
+          - const: null
+          default: {"id": "zstd", "level": 0}
+          title: "Compression method used to encode the manifest and B+Tree nodes."
+    cache_pool:
+      $ref: ContextResource
+      description: |-
+        Specifies or references a previously defined `Context.cache_pool`.  It
+        is normally more convenient to specify a default `~Context.cache_pool`
+        in the `.context`.
+      default: cache_pool
+    data_copy_concurrency:
+      $ref: ContextResource
+      description: |-
+        Specifies or references a previously defined
+        `Context.data_copy_concurrency`.  It is normally more
+        convenient to specify a default `~Context.data_copy_concurrency` in
+        the `.context`.
+      default: data_copy_concurrency
+  required:
+  - base
+title: JSON specification of OCDBT key-value store.
+definitions:
+  zstd_compression:
+    $id: kvstore/ocdbt/Compression/zstd
+    type: object
+    title: "Specifies `Zstandard <https://www.zstd.net>`__ compression."
+    properties:
+      id:
+        const: "zstd"
+      level:
+        type: integer
+        title: "Compression level."
+    required:
+    - id
+  ocdbt_coordinator:
+    $id: Context.ocdbt_coordinator
+    title: Enables distributed coordination for OCDBT.
+    type: object
+    properties:
+      address:
+        type: string
+        title: Address of gRPC coordinator server.
+        description: Must be specified to use distributed coordination.
+      lease_duration:
+        type: string
+        title: |
+          Duration of lease to request from coordinator for B+tree key ranges.
+        default: "10s"

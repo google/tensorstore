@@ -27,14 +27,25 @@ from .evaluation import EvaluationState
 from .starlark.invocation_context import InvocationContext
 from .starlark.label import RelativeLabel
 from .starlark.select import Configurable
+from .workspace import Workspace
 
 _SEP = "\n        "
 _BASE_INCLUDE_DIRS = ["${PROJECT_SOURCE_DIR}", "${PROJECT_BINARY_DIR}"]
+_HEADER_SRC_PATTERN = r"\.(?:h|inc)$"
+_ASM_SRC_PATTERN = r"\.(?:s|S|asm)$"
+
+
+def default_asm_dialect(workspace: Workspace) -> str:
+  """Returns the ASM dialect to use for ASM `srcs` to `cc_*`."""
+  if workspace.cmake_vars["CMAKE_CXX_COMPILER_ID"] == "MSVC":
+    return "ASM_MASM"
+  return "ASM"
 
 
 def _emit_cc_common_options(
     _builder: CMakeBuilder,
     target_name: str,
+    asm_dialect: Optional[str] = None,
     deps: Optional[Set[str]] = None,
     copts: Optional[List[str]] = None,
     linkopts: Optional[List[str]] = None,
@@ -44,6 +55,7 @@ def _emit_cc_common_options(
     custom_target_deps: Optional[List[str]] = None,
     extra_public_compile_options: Optional[List[str]] = None,
     interface_only: bool = False,
+    srcs: Optional[List[str]] = None,
     **kwargs,
 ):
   """Emits CMake rules for common C++ target options."""
@@ -87,6 +99,21 @@ def _emit_cc_common_options(
     _builder.addtext(
         f"target_compile_options({target_name} {public_context} {quote_list(extra_public_compile_options)})\n"
     )
+  if srcs:
+    non_header_srcs = [x for x in srcs if not re.search(_HEADER_SRC_PATTERN, x)]
+    _builder.addtext(
+        f"target_sources({target_name} PRIVATE{_SEP}{quote_list(non_header_srcs , separator=_SEP)})\n"
+    )
+
+    asm_srcs = [x for x in srcs if re.search(_ASM_SRC_PATTERN, x)]
+    if asm_srcs:
+      if asm_dialect is None:
+        raise ValueError(
+            f"asm_dialect must be specified for ASM srcs: {asm_srcs!r}")
+      _builder.addtext(f"""set_source_files_properties(
+    {quote_list(asm_srcs)}
+    PROPERTIES
+      LANGUAGE {asm_dialect})\n""")
 
 
 def handle_cc_common_options(
@@ -138,6 +165,7 @@ def handle_cc_common_options(
       "deps": cmake_deps,
       "custom_target_deps": set(custom_target_deps),
       "extra_public_compile_options": extra_public_compile_options,
+      "asm_dialect": default_asm_dialect(state.workspace),
   }
   for k in ["copts", "linkopts", "defines", "local_defines"]:
     value = kwargs.get(k)
@@ -204,8 +232,7 @@ def emit_cc_library(
     **kwargs,
 ):
   """Generates a C++ library target."""
-  cc_srcs = sorted([x for x in srcs if not re.search(r"\.(?:h|inc)$", x)])
-  header_only = not cc_srcs
+  header_only = all(re.search(_HEADER_SRC_PATTERN, x) for x in srcs)
   del hdrs
 
   target_name = _cmake_target_pair.target
@@ -214,7 +241,6 @@ def emit_cc_library(
   if not header_only:
     _builder.addtext(f"""
 add_library({target_name})
-target_sources({target_name} PRIVATE{_SEP}{quote_list(cc_srcs , separator=_SEP)})
 set_property(TARGET {target_name} PROPERTY LINKER_LANGUAGE "CXX")
 """)
   else:
@@ -222,7 +248,11 @@ set_property(TARGET {target_name} PROPERTY LINKER_LANGUAGE "CXX")
 add_library({target_name} INTERFACE)
 """)
   _emit_cc_common_options(
-      _builder, target_name=target_name, interface_only=header_only, **kwargs)
+      _builder,
+      target_name=target_name,
+      interface_only=header_only,
+      srcs=sorted(srcs),
+      **kwargs)
   if _cmake_target_pair.alias is not None:
     _builder.add_library_alias(
         target_name=target_name,
@@ -239,9 +269,9 @@ def emit_cc_binary(_builder: CMakeBuilder, _cmake_target_pair: CMakeTargetPair,
   _builder.addtext(f"""
 add_executable({target_name} "")
 add_executable({_cmake_target_pair.alias} ALIAS {target_name})
-target_sources({target_name} PRIVATE{_SEP}{quote_list(sorted(srcs), separator=_SEP)})
 """)
-  _emit_cc_common_options(_builder, target_name=target_name, **kwargs)
+  _emit_cc_common_options(
+      _builder, target_name=target_name, srcs=sorted(srcs), **kwargs)
 
 
 def emit_cc_test(_builder: CMakeBuilder,
