@@ -36,10 +36,10 @@ namespace tensorstore {
 ///
 ///     auto context = Context::Default();
 ///
-///     auto creds = grpc::experimental::LocalServerCredentials(LOCAL_TCP);
-///     tensorstore::GrpcServerCredentials::Use(context, creds);
+///     tensorstore::GrpcServerCredentials::Use(context,
+///          grpc::experimental::LocalServerCredentials(LOCAL_TCP));
 ///
-struct GrpcServerCredentials
+struct GrpcServerCredentials final
     : public internal::ContextResourceTraits<GrpcServerCredentials> {
   static constexpr char id[] = "grpc_server_credentials";
 

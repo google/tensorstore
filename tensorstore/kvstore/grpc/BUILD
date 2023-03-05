@@ -144,71 +144,59 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
-    name = "kvstore_service",
-    srcs = ["kvstore_service.cc"],
-    hdrs = ["kvstore_service.h"],
+    name = "kvstore_server",
+    srcs = ["kvstore_server.cc"],
+    hdrs = ["kvstore_server.h"],
     deps = [
         ":common",
         ":common_cc_proto",
         ":kvstore_cc_grpc",
         ":kvstore_cc_proto",
-        "//tensorstore/internal:init_tensorstore",
+        "//tensorstore:json_serialization_options",
         "//tensorstore/internal:intrusive_ptr",
-        "//tensorstore/internal:type_traits",
+        "//tensorstore/internal/grpc:server_credentials",
+        "//tensorstore/internal/json_binding",
+        "//tensorstore/internal/json_binding:bindable",
+        "//tensorstore/internal/metrics",
         "//tensorstore/kvstore",
-        "//tensorstore/kvstore:all_drivers",  # build_cleaner: keep
         "//tensorstore/kvstore:byte_range",
         "//tensorstore/kvstore:generation",
         "//tensorstore/kvstore:key_range",
         "//tensorstore/proto:encode_time",
         "//tensorstore/util:future",
         "//tensorstore/util:result",
+        "//tensorstore/util:span",
         "//tensorstore/util/execution",
         "//tensorstore/util/execution:any_receiver",
-        "//tensorstore/util/execution:any_sender",
-        "@com_github_grpc_grpc//:grpc++",  # build_cleaner: keep
-        "@com_github_grpc_grpc//:grpc++_public_hdrs",  # build_cleaner: keep
+        "@com_github_grpc_grpc//:grpc++",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/synchronization",
-        "@com_google_absl//absl/time",
     ],
 )
 
 tensorstore_cc_test(
-    name = "kvstore_service_test",
-    srcs = ["kvstore_service_test.cc"],
+    name = "kvstore_server_test",
+    srcs = ["kvstore_server_test.cc"],
     deps = [
         ":grpc_kvstore",
-        ":kvstore_cc_grpc",
-        ":kvstore_service",  # build_cleaner: keep
+        ":kvstore_server",
         "//tensorstore:context",
-        "//tensorstore/internal:concurrent_testutil",
-        "//tensorstore/internal:intrusive_ptr",
-        "//tensorstore/internal:test_util",
         "//tensorstore/kvstore",
-        "//tensorstore/kvstore:all_drivers",  # build_cleaner: keep
-        "//tensorstore/kvstore:generation",
         "//tensorstore/kvstore:key_range",
         "//tensorstore/kvstore:test_util",
+        "//tensorstore/kvstore/memory",  # build_cleaner: keep
         "//tensorstore/util:future",
         "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util/execution",
         "//tensorstore/util/execution:any_receiver",
-        "//tensorstore/util/execution:any_sender",
         "//tensorstore/util/execution:sender_testutil",
-        "@com_github_grpc_grpc//:grpc",
         "@com_github_grpc_grpc//:grpc++",
-        "@com_github_grpc_grpc//:grpc++_public_hdrs",
         "@com_github_nlohmann_json//:nlohmann_json",
-        "@com_google_absl//absl/log:die_if_null",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
-        "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -216,19 +204,18 @@ tensorstore_cc_test(
 ###############################
 
 cc_binary(
-    name = "kvstore_service_main",
+    name = "kvstore_server_main",
     testonly = 1,
-    srcs = ["kvstore_service_main.cc"],
+    srcs = ["kvstore_server_main.cc"],
     deps = [
-        ":common",
-        ":kvstore_service",
+        ":kvstore_server",
         "//tensorstore/internal:init_tensorstore",
-        "//tensorstore/internal:json_fwd",
-        "//tensorstore/kvstore",
+        "//tensorstore/internal/grpc:client_credentials",
+        "//tensorstore/internal/grpc:server_credentials",
+        "//tensorstore/kvstore:all_drivers",  # build_cleaner: keep
         "//tensorstore/util:json_absl_flag",
         "//tensorstore/util:result",
         "@com_github_grpc_grpc//:grpc++",
-        "@com_github_grpc_grpc//:grpc++_public_hdrs",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/strings",

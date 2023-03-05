@@ -21,11 +21,17 @@
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/json_binding/bindable.h"
-#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 
 /// Wraps a JSON-bindable type for use as an `ABSL_FLAG` type.
+///
+/// Declaration example:
+///   ABSL_FLAG(tensorstore::JsonAbslFlag<tensorstore::Spec>, spec,
+///             {}, "tensorstore JSON specification");
+///
+/// Use example:
+///   auto ts = tensorstore::Open(absl::GetFlag(FLAGS_spec).value);
 ///
 /// \tparam T Type that supports JSON serialization.
 template <typename T>

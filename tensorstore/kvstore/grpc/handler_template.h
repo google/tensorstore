@@ -105,30 +105,4 @@ class StreamHandler : public HandlerBase,
 };
 
 }  // namespace tensorstore_grpc
-
-#define TENSORSTORE_GRPC_HANDLER(Method, Handler, ...)           \
-  Handler::Reactor* Method(grpc::CallbackServerContext* context, \
-                           const Handler::Request* request,      \
-                           Handler::Response* response) {        \
-    /*ABSL_LOG(INFO) << #Method;*/                               \
-    IntrusivePtr<Handler> handler(                               \
-        new Handler(context, request, response, __VA_ARGS__));   \
-    assert(handler->use_count() == 2);                           \
-    handler->Run();                                              \
-    assert(handler->use_count() > 0);                            \
-    if (handler->use_count() == 1) return nullptr;               \
-    return handler.get();                                        \
-  }
-
-#define TENSORSTORE_GRPC_STREAM_HANDLER(Method, Handler, ...)                  \
-  Handler::Reactor* Method(grpc::CallbackServerContext* context,               \
-                           const Handler::Request* request) {                  \
-    /*ABSL_LOG(INFO) << #Method;*/                                             \
-    IntrusivePtr<Handler> handler(new Handler(context, request, __VA_ARGS__)); \
-    assert(handler->use_count() == 2);                                         \
-    handler->Run();                                                            \
-    if (handler->use_count() == 1) return nullptr;                             \
-    return handler.get();                                                      \
-  }
-
 #endif

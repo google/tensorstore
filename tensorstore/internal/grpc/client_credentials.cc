@@ -17,16 +17,12 @@
 #include <memory>
 #include <utility>
 
-// Placeholder for internal channel credential  // net
-// Placeholder for internal credential options  // net
 #include "absl/base/attributes.h"
 #include "absl/base/const_init.h"
 #include "absl/synchronization/mutex.h"
 #include "grpcpp/security/credentials.h"  // third_party
 #include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"
-#include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace {
@@ -43,7 +39,7 @@ const internal::ContextResourceRegistration<GrpcClientCredentials>
 //   ::grpc::experimental::LocalCredentials(LOCAL_TCP)
 //   ::grpc::GoogleDefaultCredentials();
 
-/*  static*/
+/* static */
 bool GrpcClientCredentials::Use(
     tensorstore::Context context,
     std::shared_ptr<::grpc::ChannelCredentials> credentials) {
@@ -56,11 +52,8 @@ bool GrpcClientCredentials::Use(
 
 std::shared_ptr<::grpc::ChannelCredentials>
 GrpcClientCredentials::Resource::GetCredentials() {
-  {
-    absl::MutexLock l(&credentials_mu);
-    if (credentials_) return credentials_;
-  }
-
+  absl::MutexLock l(&credentials_mu);
+  if (credentials_) return credentials_;
   return grpc::InsecureChannelCredentials();
 }
 

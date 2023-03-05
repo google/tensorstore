@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/kvstore/grpc/kvstore_service.h"
+#include "tensorstore/kvstore/grpc/kvstore_server.h"
 
 #include <stddef.h>
 
@@ -28,13 +28,17 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/synchronization/mutex.h"
-#include "absl/time/time.h"
+#include "grpcpp/server.h"  // third_party
+#include "grpcpp/server_builder.h"  // third_party
 #include "grpcpp/server_context.h"  // third_party
+#include "grpcpp/support/server_callback.h"  // third_party
 #include "grpcpp/support/status.h"  // third_party
 #include <nlohmann/json.hpp>
-#include "tensorstore/internal/init_tensorstore.h"
+#include "tensorstore/internal/grpc/server_credentials.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/type_traits.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/internal/json_binding/std_array.h"
+#include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/grpc/common.h"
@@ -46,23 +50,15 @@
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/proto/encode_time.h"
 #include "tensorstore/util/execution/any_receiver.h"
-#include "tensorstore/util/execution/any_sender.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 
 // grpc/proto
-
 #include "tensorstore/kvstore/grpc/kvstore.grpc.pb.h"
 #include "tensorstore/kvstore/grpc/kvstore.pb.h"
 
 using ::grpc::CallbackServerContext;
-using ::tensorstore::PromiseFuturePair;
-using ::tensorstore::TimestampedStorageGeneration;
-using ::tensorstore::internal::IntrusivePtr;
-using ::tensorstore::internal::ProtoToAbslTime;
-using ::tensorstore::kvstore::Key;
-using ::tensorstore::kvstore::ReadResult;
 using ::tensorstore_grpc::EncodeGenerationAndTimestamp;
 using ::tensorstore_grpc::Handler;
 using ::tensorstore_grpc::StreamHandler;
@@ -76,7 +72,23 @@ using ::tensorstore_grpc::kvstore::WriteRequest;
 using ::tensorstore_grpc::kvstore::WriteResponse;
 using ::tensorstore_grpc::kvstore::grpc_gen::KvStoreService;
 
+namespace jb = ::tensorstore::internal_json_binding;
+
+namespace tensorstore {
 namespace {
+
+auto& read_metric = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/grpc_server/read", "KvStoreService::Read calls");
+
+auto& write_metric = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/grpc_server/write", "KvStoreService::Write calls");
+
+auto& delete_metric = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/grpc_server/delete", "KvStoreService::Delete calls");
+
+auto& list_metric = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/grpc_server/list", "KvStoreService::List calls");
+
 [[maybe_unused]] inline void MyCopyTo(const absl::Cord& src, std::string* dst) {
   absl::CopyCordToString(src, dst);
 }
@@ -89,11 +101,11 @@ class ReadHandler final : public Handler<ReadRequest, ReadResponse> {
 
  public:
   ReadHandler(CallbackServerContext* grpc_context, const Request* request,
-              Response* response, tensorstore::KvStore kvstore)
+              Response* response, KvStore kvstore)
       : Base(grpc_context, request, response), kvstore_(std::move(kvstore)) {}
 
   void Run() {
-    tensorstore::kvstore::ReadOptions options{};
+    kvstore::ReadOptions options{};
     options.if_equal.value = request()->generation_if_equal();
     options.if_not_equal.value = request()->generation_if_not_equal();
 
@@ -108,10 +120,10 @@ class ReadHandler final : public Handler<ReadRequest, ReadResponse> {
     if (request()->has_staleness_bound()) {
       TENSORSTORE_ASSIGN_OR_RETURN(
           options.staleness_bound,
-          ProtoToAbslTime(request()->staleness_bound()), Finish(_));
+          internal::ProtoToAbslTime(request()->staleness_bound()), Finish(_));
     }
 
-    IntrusivePtr<ReadHandler> self{this};
+    internal::IntrusivePtr<ReadHandler> self{this};
     future_ =
         PromiseFuturePair<void>::Link(
             [self = std::move(self)](tensorstore::Promise<void> promise,
@@ -129,7 +141,7 @@ class ReadHandler final : public Handler<ReadRequest, ReadResponse> {
     Finish(::grpc::Status(::grpc::StatusCode::CANCELLED, ""));
   }
 
-  absl::Status HandleResult(const tensorstore::Result<ReadResult>& result) {
+  absl::Status HandleResult(const Result<kvstore::ReadResult>& result) {
     auto status = result.status();
     if (status.ok()) {
       auto& r = result.value();
@@ -144,8 +156,8 @@ class ReadHandler final : public Handler<ReadRequest, ReadResponse> {
   }
 
  private:
-  tensorstore::KvStore kvstore_;
-  tensorstore::Future<void> future_;
+  KvStore kvstore_;
+  Future<void> future_;
 };
 
 class WriteHandler final : public Handler<WriteRequest, WriteResponse> {
@@ -153,24 +165,22 @@ class WriteHandler final : public Handler<WriteRequest, WriteResponse> {
 
  public:
   WriteHandler(CallbackServerContext* grpc_context, const Request* request,
-               Response* response, tensorstore::KvStore kvstore)
+               Response* response, KvStore kvstore)
       : Base(grpc_context, request, response), kvstore_(std::move(kvstore)) {}
 
   void Run() {
     tensorstore::kvstore::WriteOptions options{};
     options.if_equal.value = request()->generation_if_equal();
 
-    IntrusivePtr<WriteHandler> self{this};
+    internal::IntrusivePtr<WriteHandler> self{this};
     future_ =
         PromiseFuturePair<void>::Link(
-            [self = std::move(self)](tensorstore::Promise<void> promise,
-                                     auto write_result) {
+            [self = std::move(self)](Promise<void> promise, auto write_result) {
               if (!promise.result_needed()) return;
               promise.SetResult(self->HandleResult(write_result.result()));
             },
-            tensorstore::kvstore::Write(kvstore_, request()->key(),
-                                        absl::Cord(request()->value()),
-                                        options))
+            kvstore::Write(kvstore_, request()->key(),
+                           absl::Cord(request()->value()), options))
             .future;
   }
 
@@ -191,8 +201,8 @@ class WriteHandler final : public Handler<WriteRequest, WriteResponse> {
   }
 
  private:
-  tensorstore::KvStore kvstore_;
-  tensorstore::Future<void> future_;
+  KvStore kvstore_;
+  Future<void> future_;
 };
 
 class DeleteHandler final : public Handler<DeleteRequest, DeleteResponse> {
@@ -200,12 +210,12 @@ class DeleteHandler final : public Handler<DeleteRequest, DeleteResponse> {
 
  public:
   DeleteHandler(CallbackServerContext* grpc_context, const Request* request,
-                Response* response, tensorstore::KvStore kvstore)
+                Response* response, KvStore kvstore)
       : Base(grpc_context, request, response), kvstore_(std::move(kvstore)) {}
 
   void Run() {
-    IntrusivePtr<DeleteHandler> self{this};
-    auto callback = [self = std::move(self)](tensorstore::Promise<void> promise,
+    internal::IntrusivePtr<DeleteHandler> self{this};
+    auto callback = [self = std::move(self)](Promise<void> promise,
                                              auto del_result) {
       if (!promise.result_needed()) return;
       promise.SetResult(self->HandleResult(del_result.result()));
@@ -214,13 +224,12 @@ class DeleteHandler final : public Handler<DeleteRequest, DeleteResponse> {
     if (request()->has_range()) {
       future_ = PromiseFuturePair<void>::Link(
                     std::move(callback),
-                    tensorstore::kvstore::DeleteRange(
-                        kvstore_, tensorstore::KeyRange(
-                                      request()->range().inclusive_min(),
-                                      request()->range().exclusive_max())))
+                    kvstore::DeleteRange(
+                        kvstore_, KeyRange(request()->range().inclusive_min(),
+                                           request()->range().exclusive_max())))
                     .future;
     } else if (!request()->key().empty()) {
-      tensorstore::kvstore::WriteOptions options{};
+      kvstore::WriteOptions options{};
       options.if_equal.value = request()->generation_if_equal();
 
       future_ =
@@ -335,7 +344,7 @@ class ListHandler final : public StreamHandler<ListRequest, ListResponse> {
 
   /// AnyFlowReceiver methods.
   [[maybe_unused]] friend void set_starting(
-      IntrusivePtr<ListHandler>& self, tensorstore::AnyCancelReceiver cancel) {
+      internal::IntrusivePtr<ListHandler>& self, AnyCancelReceiver cancel) {
     absl::MutexLock l(&self->mu_);
     self->cancel_ = std::move(cancel);
     self->done_ = false;
@@ -343,26 +352,28 @@ class ListHandler final : public StreamHandler<ListRequest, ListResponse> {
     self->estimated_size_ = 0;
   }
 
-  [[maybe_unused]] friend void set_value(IntrusivePtr<ListHandler>& self,
-                                         Key key) {
+  [[maybe_unused]] friend void set_value(
+      internal::IntrusivePtr<ListHandler>& self, kvstore::Key key) {
     absl::MutexLock l(&self->mu_);
     self->current_->add_key(key);
     self->estimated_size_ += key.size();
     self->MaybeWrite();
   }
 
-  [[maybe_unused]] friend void set_done(IntrusivePtr<ListHandler>& self) {
+  [[maybe_unused]] friend void set_done(
+      internal::IntrusivePtr<ListHandler>& self) {
     self->cancel_ = [] {};
   }
 
-  [[maybe_unused]] friend void set_error(IntrusivePtr<ListHandler>& self,
-                                         absl::Status s) {
+  [[maybe_unused]] friend void set_error(
+      internal::IntrusivePtr<ListHandler>& self, absl::Status s) {
     absl::MutexLock l(&self->mu_);
     self->cancel_ = [] {};
     self->status_ = s;
   }
 
-  [[maybe_unused]] friend void set_stopping(IntrusivePtr<ListHandler>& self) {
+  [[maybe_unused]] friend void set_stopping(
+      internal::IntrusivePtr<ListHandler>& self) {
     absl::MutexLock l(&self->mu_);
     self->done_ = true;
     self->MaybeWrite();
@@ -386,7 +397,7 @@ void ListHandler::Run() {
                                         request()->range().exclusive_max());
   options.strip_prefix_length = request()->strip_prefix_length();
 
-  IntrusivePtr<ListHandler> self{this};
+  internal::IntrusivePtr<ListHandler> self{this};
   tensorstore::execution::submit(
       tensorstore::kvstore::List(self->kvstore_, options), self);
 }
@@ -394,15 +405,127 @@ void ListHandler::Run() {
 // ---------------------------------------
 
 }  // namespace
-namespace tensorstore_grpc {
+namespace grpc_kvstore {
 
-KvStoreServiceImpl::KvStoreServiceImpl(tensorstore::KvStore kvstore)
-    : kvstore_(std::move(kvstore)) {}
+TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
+    KvStoreServer::Spec,
+    jb::Object(jb::Member("base", jb::Projection<&KvStoreServer::Spec::base>()),
+               jb::Initialize([](auto* obj) {
+                 internal::EnsureDirectoryPath(obj->base.path);
+                 return absl::OkStatus();
+               }),
+               jb::Member("bind_addresses",
+                          jb::Projection<&KvStoreServer::Spec::bind_addresses>(
+                              jb::DefaultInitializedValue()))));
 
-TENSORSTORE_GRPC_HANDLER(KvStoreServiceImpl::Read, ReadHandler, kvstore_);
-TENSORSTORE_GRPC_HANDLER(KvStoreServiceImpl::Write, WriteHandler, kvstore_);
-TENSORSTORE_GRPC_HANDLER(KvStoreServiceImpl::Delete, DeleteHandler, kvstore_);
-TENSORSTORE_GRPC_STREAM_HANDLER(KvStoreServiceImpl::List, ListHandler,
-                                kvstore_);
+/// Default forwarding implementation of tensorstore_grpc::KvStoreService.
+class KvStoreServer::Impl final : public KvStoreService::CallbackService {
+ public:
+  Impl(KvStore kvstore) : kvstore_(std::move(kvstore)) {}
 
-}  // namespace tensorstore_grpc
+  ::grpc::ServerUnaryReactor* Read(::grpc::CallbackServerContext* context,
+                                   const ReadRequest* request,
+                                   ReadResponse* response) override {
+    read_metric.Increment();
+    internal::IntrusivePtr<ReadHandler> handler(
+        new ReadHandler(context, request, response, kvstore_));
+    assert(handler->use_count() == 2);
+    handler->Run();
+    assert(handler->use_count() > 0);
+    if (handler->use_count() == 1) return nullptr;
+    return handler.get();
+  }
+
+  ::grpc::ServerUnaryReactor* Write(::grpc::CallbackServerContext* context,
+                                    const WriteRequest* request,
+                                    WriteResponse* response) override {
+    write_metric.Increment();
+    internal::IntrusivePtr<WriteHandler> handler(
+        new WriteHandler(context, request, response, kvstore_));
+    assert(handler->use_count() == 2);
+    handler->Run();
+    assert(handler->use_count() > 0);
+    if (handler->use_count() == 1) return nullptr;
+    return handler.get();
+  }
+
+  ::grpc::ServerUnaryReactor* Delete(::grpc::CallbackServerContext* context,
+                                     const DeleteRequest* request,
+                                     DeleteResponse* response) override {
+    delete_metric.Increment();
+    internal::IntrusivePtr<DeleteHandler> handler(
+        new DeleteHandler(context, request, response, kvstore_));
+    assert(handler->use_count() == 2);
+    handler->Run();
+    assert(handler->use_count() > 0);
+    if (handler->use_count() == 1) return nullptr;
+    return handler.get();
+  }
+
+  ::grpc::ServerWriteReactor< ::tensorstore_grpc::kvstore::ListResponse>* List(
+      ::grpc::CallbackServerContext* context,
+      const ListRequest* request) override {
+    list_metric.Increment();
+    internal::IntrusivePtr<ListHandler> handler(
+        new ListHandler(context, request, kvstore_));
+    assert(handler->use_count() == 2);
+    handler->Run();
+    if (handler->use_count() == 1) return nullptr;
+    return handler.get();
+  }
+
+  // Accessor
+  const KvStore& kvstore() const { return kvstore_; }
+
+ private:
+  friend class KvStoreServer;
+  KvStore kvstore_;
+  std::vector<int> listening_ports_;
+  std::unique_ptr<grpc::Server> server_;
+};
+
+KvStoreServer::KvStoreServer() = default;
+KvStoreServer::~KvStoreServer() = default;
+KvStoreServer::KvStoreServer(KvStoreServer&&) = default;
+KvStoreServer& KvStoreServer::operator=(KvStoreServer&&) = default;
+
+tensorstore::span<const int> KvStoreServer::ports() const {
+  return impl_->listening_ports_;
+}
+
+int KvStoreServer::port() const { return impl_->listening_ports_.front(); }
+
+/// Waits for the server to shutdown.
+void KvStoreServer::Wait() { impl_->server_->Wait(); }
+
+tensorstore::Result<KvStoreServer> KvStoreServer::Start(Spec spec,
+                                                        Context context) {
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto kv, tensorstore::kvstore::Open(spec.base, context).result());
+
+  auto impl = std::make_unique<KvStoreServer::Impl>(std::move(kv));
+
+  /// FIXME: Use a bound spec for credentials.
+  auto creds = context.GetResource<tensorstore::GrpcServerCredentials>()
+                   .value()
+                   ->GetCredentials();
+
+  grpc::ServerBuilder builder;
+  builder.RegisterService(impl.get());
+  if (spec.bind_addresses.empty()) {
+    spec.bind_addresses.push_back("[::]:0");
+  }
+  impl->listening_ports_.resize(spec.bind_addresses.size());
+  for (size_t i = 0; i < spec.bind_addresses.size(); ++i) {
+    builder.AddListeningPort(spec.bind_addresses[i], creds,
+                             &impl->listening_ports_[i]);
+  }
+  impl->server_ = builder.BuildAndStart();
+
+  KvStoreServer server;
+  server.impl_ = std::move(impl);
+  return server;
+}
+
+}  // namespace grpc_kvstore
+}  // namespace tensorstore
