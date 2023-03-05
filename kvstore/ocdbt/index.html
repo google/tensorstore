@@ -1,0 +1,2539 @@
+
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      <link rel="icon" href="../../_static/logo.svg">
+    
+    
+      
+        <title>ocdbt Key-Value Store driver - TensorStore</title>
+      
+    
+    
+      
+        
+        
+      
+      
+
+    
+    
+    
+      
+        
+        
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+        <link rel="stylesheet" type="text/css" href="../../_static/sphinx_immaterial_theme.fa3fbbd75cfdd7cef.min.css" />
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="green" data-md-color-accent="light-blue">
+  
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&"object"==typeof palette.color)for(var key of Object.keys(palette.color))document.body.setAttribute("data-md-color-"+key,palette.color[key])</script>
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#json-kvstore/ocdbt" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../index.html" title="TensorStore" class="md-header__button md-logo" aria-label="TensorStore" data-md-component="logo">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 132.0 132.0"><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="2.0" x2="130.8" y2="2.0"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="16.2" x2="130.8" y2="16.2"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="30.4" x2="130.8" y2="30.4"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="44.7" x2="130.8" y2="44.7"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="58.9" x2="130.8" y2="58.9"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="73.1" x2="130.8" y2="73.1"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="87.3" x2="130.8" y2="87.3"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="101.6" x2="130.8" y2="101.6"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="115.8" x2="130.8" y2="115.8"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="130.0" x2="130.8" y2="130.0"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="2.0" y2="130.0" x2="2.0"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="16.2" y2="130.0" x2="16.2"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="30.4" y2="130.0" x2="30.4"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="44.7" y2="130.0" x2="44.7"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="58.9" y2="130.0" x2="58.9"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="73.1" y2="130.0" x2="73.1"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="87.3" y2="130.0" x2="87.3"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="101.6" y2="130.0" x2="101.6"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="115.8" y2="130.0" x2="115.8"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="130.0" y2="130.0" x2="130.0"/><rect fill="currentColor" x="3.5" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="17.7" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="46.2" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="60.4" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="17.7" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="74.6" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="88.8" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="103.1" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="46.2" width="11.2" height="11.2"/><rect fill="currentColor" x="60.4" y="46.2" width="11.2" height="11.2"/><rect fill="currentColor" x="117.3" y="46.2" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="60.4" width="11.2" height="11.2"/><rect fill="currentColor" x="74.6" y="60.4" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="74.6" width="11.2" height="11.2"/><rect fill="currentColor" x="88.8" y="74.6" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="88.8" width="11.2" height="11.2"/><rect fill="currentColor" x="103.1" y="88.8" width="11.2" height="11.2"/><rect fill="currentColor" x="60.4" y="103.1" width="11.2" height="11.2"/><rect fill="currentColor" x="117.3" y="103.1" width="11.2" height="11.2"/><rect fill="currentColor" x="74.6" y="117.3" width="11.2" height="11.2"/><rect fill="currentColor" x="88.8" y="117.3" width="11.2" height="11.2"/><rect fill="currentColor" x="103.1" y="117.3" width="11.2" height="11.2"/></svg>
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            TensorStore
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ocdbt Key-Value Store driver
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      <form class="md-header__option" data-md-component="palette">
+        
+          
+          
+          <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="green" data-md-color-accent="light-blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+          
+            <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_2" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7M9 21a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1H9v1Z"/></svg>
+            </label>
+          
+        
+          
+          
+          <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="green" data-md-color-accent="light-blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_2">
+          
+            <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7M9 21v-1h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1m3-17a5 5 0 0 0-5 5c0 2.05 1.23 3.81 3 4.58V16h4v-2.42c1.77-.77 3-2.53 3-4.58a5 5 0 0 0-5-5Z"/></svg>
+            </label>
+          
+        
+      </form>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/google/tensorstore/" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    google/tensorstore
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../index.html" title="TensorStore" class="md-nav__button md-logo" aria-label="TensorStore" data-md-component="logo">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 132.0 132.0"><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="2.0" x2="130.8" y2="2.0"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="16.2" x2="130.8" y2="16.2"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="30.4" x2="130.8" y2="30.4"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="44.7" x2="130.8" y2="44.7"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="58.9" x2="130.8" y2="58.9"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="73.1" x2="130.8" y2="73.1"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="87.3" x2="130.8" y2="87.3"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="101.6" x2="130.8" y2="101.6"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="115.8" x2="130.8" y2="115.8"/><line stroke="currentColor" stroke-width="1.5" x1="1.25" y1="130.0" x2="130.8" y2="130.0"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="2.0" y2="130.0" x2="2.0"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="16.2" y2="130.0" x2="16.2"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="30.4" y2="130.0" x2="30.4"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="44.7" y2="130.0" x2="44.7"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="58.9" y2="130.0" x2="58.9"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="73.1" y2="130.0" x2="73.1"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="87.3" y2="130.0" x2="87.3"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="101.6" y2="130.0" x2="101.6"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="115.8" y2="130.0" x2="115.8"/><line stroke="currentColor" stroke-width="1.5" y1="2" x1="130.0" y2="130.0" x2="130.0"/><rect fill="currentColor" x="3.5" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="17.7" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="46.2" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="60.4" y="3.5" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="17.7" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="74.6" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="88.8" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="103.1" y="31.9" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="46.2" width="11.2" height="11.2"/><rect fill="currentColor" x="60.4" y="46.2" width="11.2" height="11.2"/><rect fill="currentColor" x="117.3" y="46.2" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="60.4" width="11.2" height="11.2"/><rect fill="currentColor" x="74.6" y="60.4" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="74.6" width="11.2" height="11.2"/><rect fill="currentColor" x="88.8" y="74.6" width="11.2" height="11.2"/><rect fill="currentColor" x="31.9" y="88.8" width="11.2" height="11.2"/><rect fill="currentColor" x="103.1" y="88.8" width="11.2" height="11.2"/><rect fill="currentColor" x="60.4" y="103.1" width="11.2" height="11.2"/><rect fill="currentColor" x="117.3" y="103.1" width="11.2" height="11.2"/><rect fill="currentColor" x="74.6" y="117.3" width="11.2" height="11.2"/><rect fill="currentColor" x="88.8" y="117.3" width="11.2" height="11.2"/><rect fill="currentColor" x="103.1" y="117.3" width="11.2" height="11.2"/></svg>
+    </a>
+    TensorStore
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/google/tensorstore/" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    google/tensorstore
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+  
+  
+  
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_1" type="checkbox" id="__nav_1" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_1">
+          <span class="md-ellipsis">Python API</span>
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Python API" data-md-level="1">
+        <label class="md-nav__title" for="__nav_1">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">Python API</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/tutorial.html" class="md-nav__link">
+        <span class="md-ellipsis">Tutorial</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/indexing.html" class="md-nav__link">
+        <span class="md-ellipsis">Indexing</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python/api/index.html" class="md-nav__link">
+        <span class="md-ellipsis">API reference</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_2" type="checkbox" id="__nav_2" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_2">
+          <span class="md-ellipsis">Setup</span>
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Setup" data-md-level="1">
+        <label class="md-nav__title" for="__nav_2">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">Setup</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation.html" class="md-nav__link">
+        <span class="md-ellipsis">Building and Installing</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../environment.html" class="md-nav__link">
+        <span class="md-ellipsis">Environment variables</span>
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+    
+      
+      
+      
+
+  
+  
+    
+  
+  
+    
+      
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3">
+          <span class="md-ellipsis">JSON</span>
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="JSON" data-md-level="1">
+        <label class="md-nav__title" for="__nav_3">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">JSON</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../spec.html" class="md-nav__link">
+        <span class="md-ellipsis">JSON Spec</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../index_space.html" class="md-nav__link">
+        <span class="md-ellipsis">Index space</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../schema.html" class="md-nav__link">
+        <span class="md-ellipsis">Schema</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../context.html" class="md-nav__link">
+        <span class="md-ellipsis">Context framework</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../driver/index.html" class="md-nav__link">
+        <span class="md-ellipsis">Drivers</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_3_6" type="checkbox" id="__nav_3_6" checked>
+      
+      
+      
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="../index.html"><span class="md-ellipsis">Key-<wbr>Value Storage Layer</span></a>
+          
+            <label for="__nav_3_6">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
+          
+        </div>
+      
+      <nav class="md-nav" aria-label="Key-Value Storage Layer" data-md-level="2">
+        <label class="md-nav__title" for="__nav_3_6">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">Key-<wbr>Value Storage Layer</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_3_6_1" type="checkbox" id="__nav_3_6_1" checked>
+      
+      
+      
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="../index.html#drivers"><span class="md-ellipsis">Drivers</span></a>
+          
+            <label for="__nav_3_6_1">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
+          
+        </div>
+      
+      <nav class="md-nav" aria-label="Drivers" data-md-level="3">
+        <label class="md-nav__title" for="__nav_3_6_1">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">Drivers</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../file/index.html" class="md-nav__link">
+        <span class="md-ellipsis">file Key-<wbr>Value Store driver</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gcs/index.html" class="md-nav__link">
+        <span class="md-ellipsis">gcs Key-<wbr>Value Store driver</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../http/index.html" class="md-nav__link">
+        <span class="md-ellipsis">http Key-<wbr>Value Store driver</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../memory/index.html" class="md-nav__link">
+        <span class="md-ellipsis">memory Key-<wbr>Value Store driver</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../neuroglancer_uint64_sharded/index.html" class="md-nav__link">
+        <span class="md-ellipsis">neuroglancer_<wbr>uint64_<wbr>sharded Key-<wbr>Value Store driver</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+    
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          <span class="md-ellipsis">ocdbt Key-<wbr>Value Store driver</span>
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="#" class="md-nav__link md-nav__link--active">
+        <span class="md-ellipsis">ocdbt Key-<wbr>Value Store driver</span>
+      </a>
+      
+        
+
+  
+
+<nav class="md-nav md-nav--secondary">
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      <span class="md-ellipsis">ocdbt Key-<wbr>Value Store driver</span>
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt" class="md-nav__link">
+    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="kvstore/ocdbt (JSON type) — JSON specification of OCDBT key-value store." class="md-ellipsis">kvstore/ocdbt</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="kvstore/ocdbt">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#extends-json-kvstore/ocdbt" class="md-nav__link">
+    <span class="md-ellipsis">Extends</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#required-members-json-kvstore/ocdbt" class="md-nav__link">
+    <span class="md-ellipsis">Required members</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Required members">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt.driver" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.driver (JSON member)" class="md-ellipsis">driver</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt.base" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.base (JSON member) — Underlying key-value store." class="md-ellipsis">base</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#optional-members-json-kvstore/ocdbt" class="md-nav__link">
+    <span class="md-ellipsis">Optional members</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Optional members">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt.path" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.path (JSON member) — Key prefix within the key-value store." class="md-ellipsis">path</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt.context" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.context (JSON member)" class="md-ellipsis">context</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt.coordinator" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.coordinator (JSON member)" class="md-ellipsis">coordinator</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt.config" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.config (JSON member) — Constrains the database configuration." class="md-ellipsis">config</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="config">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#optional-members-json-kvstore/ocdbt.config" class="md-nav__link">
+    <span class="md-ellipsis">Optional members</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Optional members">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt.config.uuid" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.config.uuid (JSON member) — Unique 128-bit identifier for the database, specified as 32 hex digits." class="md-ellipsis">uuid</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt.config.max_inline_value_bytes" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.config.max_inline_value_bytes (JSON member) — Maximum number of value bytes to store inline in a B+tree leaf node." class="md-ellipsis">max_<wbr>inline_<wbr>value_<wbr>bytes</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt.config.max_decoded_node_bytes" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.config.max_decoded_node_bytes (JSON member) — Maximum size of an (uncompressed) B+tree node." class="md-ellipsis">max_<wbr>decoded_<wbr>node_<wbr>bytes</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt.config.version_tree_arity_log2" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.config.version_tree_arity_log2 (JSON member) — Base-2 logarithm of the arity of the tree of versions." class="md-ellipsis">version_<wbr>tree_<wbr>arity_<wbr>log2</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt.config.compression" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.config.compression (JSON member) — Compression method used to encode the manifest and B+Tree nodes." class="md-ellipsis">compression</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt.cache_pool" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.cache_pool (JSON member)" class="md-ellipsis">cache_<wbr>pool</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt.data_copy_concurrency" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.data_copy_concurrency (JSON member)" class="md-ellipsis">data_<wbr>copy_<wbr>concurrency</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt/Compression/zstd" class="md-nav__link">
+    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="kvstore/ocdbt/Compression/zstd (JSON type) — Specifies Zstandard compression." class="md-ellipsis">kvstore/ocdbt/Compression/zstd</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="kvstore/ocdbt/Compression/zstd">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#required-members-json-kvstore/ocdbt/Compression/zstd" class="md-nav__link">
+    <span class="md-ellipsis">Required members</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Required members">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt/Compression/zstd.id" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt/Compression/zstd.id (JSON member)" class="md-ellipsis">id</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#optional-members-json-kvstore/ocdbt/Compression/zstd" class="md-nav__link">
+    <span class="md-ellipsis">Optional members</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Optional members">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt/Compression/zstd.level" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt/Compression/zstd.level (JSON member) — Compression level." class="md-ellipsis">level</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#json-Context.ocdbt_coordinator" class="md-nav__link">
+    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="Context.ocdbt_coordinator (JSON type) — Enables distributed coordination for OCDBT." class="md-ellipsis">Context.<wbr>ocdbt_<wbr>coordinator</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Context.ocdbt_coordinator">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#optional-members-json-Context.ocdbt_coordinator" class="md-nav__link">
+    <span class="md-ellipsis">Optional members</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Optional members">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#json-Context.ocdbt_coordinator.address" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="Context.ocdbt_coordinator.address (JSON member) — Address of gRPC coordinator server." class="md-ellipsis">address</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-Context.ocdbt_coordinator.lease_duration" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="Context.ocdbt_coordinator.lease_duration (JSON member) — Duration of lease to request from coordinator for B+tree key ranges." class="md-ellipsis">lease_<wbr>duration</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#storage-format" class="md-nav__link">
+    <span class="md-ellipsis">Storage format</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Storage format">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#manifest-format" class="md-nav__link">
+    <span class="md-ellipsis">Manifest format</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Manifest format">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#manifest-header" class="md-nav__link">
+    <span class="md-ellipsis">Manifest header</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#manifest-configuration" class="md-nav__link">
+    <span class="md-ellipsis">Manifest configuration</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#compression-configuration" class="md-nav__link">
+    <span class="md-ellipsis">Compression configuration</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Compression configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#zstd-compression-configuration" class="md-nav__link">
+    <span class="md-ellipsis">Zstd compression configuration</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#manifest-version-tree" class="md-nav__link">
+    <span class="md-ellipsis">Manifest version tree</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#version-tree-node-format" class="md-nav__link">
+    <span class="md-ellipsis">Version tree node format</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Version tree node format">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#version-tree-node-outer-header" class="md-nav__link">
+    <span class="md-ellipsis">Version tree node outer header</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#version-tree-node-inner-header" class="md-nav__link">
+    <span class="md-ellipsis">Version tree node inner header</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#version-tree-leaf-node-entries-format-height-0" class="md-nav__link">
+    <span class="md-ellipsis">Version tree leaf node entries format <wbr>(height = 0)</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#interior-version-tree-node-entries-height-0" class="md-nav__link">
+    <span class="md-ellipsis">Interior version tree node entries <wbr>(height &gt; 0)</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#b-tree-node-format" class="md-nav__link">
+    <span class="md-ellipsis">B+tree node format</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="B+tree node format">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#b-tree-node-outer-header" class="md-nav__link">
+    <span class="md-ellipsis">B+tree node outer header</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#b-tree-node-inner-header" class="md-nav__link">
+    <span class="md-ellipsis">B+tree node inner header</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#leaf-b-tree-node-format-height-0" class="md-nav__link">
+    <span class="md-ellipsis">Leaf B+tree node format <wbr>(height = 0)</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#interior-b-tree-node-format-height-0" class="md-nav__link">
+    <span class="md-ellipsis">Interior B+tree node format <wbr>(height &gt; 0)</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+  
+
+<nav class="md-nav md-nav--secondary">
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      <span class="md-ellipsis">ocdbt Key-<wbr>Value Store driver</span>
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt" class="md-nav__link">
+    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="kvstore/ocdbt (JSON type) — JSON specification of OCDBT key-value store." class="md-ellipsis">kvstore/ocdbt</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="kvstore/ocdbt">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#extends-json-kvstore/ocdbt" class="md-nav__link">
+    <span class="md-ellipsis">Extends</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#required-members-json-kvstore/ocdbt" class="md-nav__link">
+    <span class="md-ellipsis">Required members</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Required members">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt.driver" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.driver (JSON member)" class="md-ellipsis">driver</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt.base" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.base (JSON member) — Underlying key-value store." class="md-ellipsis">base</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#optional-members-json-kvstore/ocdbt" class="md-nav__link">
+    <span class="md-ellipsis">Optional members</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Optional members">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt.path" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.path (JSON member) — Key prefix within the key-value store." class="md-ellipsis">path</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt.context" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.context (JSON member)" class="md-ellipsis">context</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt.coordinator" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.coordinator (JSON member)" class="md-ellipsis">coordinator</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt.config" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.config (JSON member) — Constrains the database configuration." class="md-ellipsis">config</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="config">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#optional-members-json-kvstore/ocdbt.config" class="md-nav__link">
+    <span class="md-ellipsis">Optional members</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Optional members">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt.config.uuid" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.config.uuid (JSON member) — Unique 128-bit identifier for the database, specified as 32 hex digits." class="md-ellipsis">uuid</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt.config.max_inline_value_bytes" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.config.max_inline_value_bytes (JSON member) — Maximum number of value bytes to store inline in a B+tree leaf node." class="md-ellipsis">max_<wbr>inline_<wbr>value_<wbr>bytes</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt.config.max_decoded_node_bytes" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.config.max_decoded_node_bytes (JSON member) — Maximum size of an (uncompressed) B+tree node." class="md-ellipsis">max_<wbr>decoded_<wbr>node_<wbr>bytes</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt.config.version_tree_arity_log2" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.config.version_tree_arity_log2 (JSON member) — Base-2 logarithm of the arity of the tree of versions." class="md-ellipsis">version_<wbr>tree_<wbr>arity_<wbr>log2</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt.config.compression" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.config.compression (JSON member) — Compression method used to encode the manifest and B+Tree nodes." class="md-ellipsis">compression</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt.cache_pool" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.cache_pool (JSON member)" class="md-ellipsis">cache_<wbr>pool</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt.data_copy_concurrency" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt.data_copy_concurrency (JSON member)" class="md-ellipsis">data_<wbr>copy_<wbr>concurrency</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt/Compression/zstd" class="md-nav__link">
+    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="kvstore/ocdbt/Compression/zstd (JSON type) — Specifies Zstandard compression." class="md-ellipsis">kvstore/ocdbt/Compression/zstd</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="kvstore/ocdbt/Compression/zstd">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#required-members-json-kvstore/ocdbt/Compression/zstd" class="md-nav__link">
+    <span class="md-ellipsis">Required members</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Required members">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt/Compression/zstd.id" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt/Compression/zstd.id (JSON member)" class="md-ellipsis">id</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#optional-members-json-kvstore/ocdbt/Compression/zstd" class="md-nav__link">
+    <span class="md-ellipsis">Optional members</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Optional members">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/ocdbt/Compression/zstd.level" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/ocdbt/Compression/zstd.level (JSON member) — Compression level." class="md-ellipsis">level</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#json-Context.ocdbt_coordinator" class="md-nav__link">
+    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="Context.ocdbt_coordinator (JSON type) — Enables distributed coordination for OCDBT." class="md-ellipsis">Context.<wbr>ocdbt_<wbr>coordinator</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Context.ocdbt_coordinator">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#optional-members-json-Context.ocdbt_coordinator" class="md-nav__link">
+    <span class="md-ellipsis">Optional members</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Optional members">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#json-Context.ocdbt_coordinator.address" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="Context.ocdbt_coordinator.address (JSON member) — Address of gRPC coordinator server." class="md-ellipsis">address</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-Context.ocdbt_coordinator.lease_duration" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="Context.ocdbt_coordinator.lease_duration (JSON member) — Duration of lease to request from coordinator for B+tree key ranges." class="md-ellipsis">lease_<wbr>duration</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#storage-format" class="md-nav__link">
+    <span class="md-ellipsis">Storage format</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Storage format">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#manifest-format" class="md-nav__link">
+    <span class="md-ellipsis">Manifest format</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Manifest format">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#manifest-header" class="md-nav__link">
+    <span class="md-ellipsis">Manifest header</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#manifest-configuration" class="md-nav__link">
+    <span class="md-ellipsis">Manifest configuration</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#compression-configuration" class="md-nav__link">
+    <span class="md-ellipsis">Compression configuration</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Compression configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#zstd-compression-configuration" class="md-nav__link">
+    <span class="md-ellipsis">Zstd compression configuration</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#manifest-version-tree" class="md-nav__link">
+    <span class="md-ellipsis">Manifest version tree</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#version-tree-node-format" class="md-nav__link">
+    <span class="md-ellipsis">Version tree node format</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Version tree node format">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#version-tree-node-outer-header" class="md-nav__link">
+    <span class="md-ellipsis">Version tree node outer header</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#version-tree-node-inner-header" class="md-nav__link">
+    <span class="md-ellipsis">Version tree node inner header</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#version-tree-leaf-node-entries-format-height-0" class="md-nav__link">
+    <span class="md-ellipsis">Version tree leaf node entries format <wbr>(height = 0)</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#interior-version-tree-node-entries-height-0" class="md-nav__link">
+    <span class="md-ellipsis">Interior version tree node entries <wbr>(height &gt; 0)</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#b-tree-node-format" class="md-nav__link">
+    <span class="md-ellipsis">B+tree node format</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="B+tree node format">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#b-tree-node-outer-header" class="md-nav__link">
+    <span class="md-ellipsis">B+tree node outer header</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#b-tree-node-inner-header" class="md-nav__link">
+    <span class="md-ellipsis">B+tree node inner header</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#leaf-b-tree-node-format-height-0" class="md-nav__link">
+    <span class="md-ellipsis">Leaf B+tree node format <wbr>(height = 0)</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#interior-b-tree-node-format-height-0" class="md-nav__link">
+    <span class="md-ellipsis">Interior B+tree node format <wbr>(height &gt; 0)</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset" role="main">
+                  
+
+
+<h1 id="ocdbt-key-value-store-driver"><span id="ocdbt-kvstore-driver"></span><code class="docutils literal notranslate"><span class="pre">ocdbt</span></code> Key-Value Store driver<a class="headerlink" href="#ocdbt-key-value-store-driver" title="Permalink to this heading">¶</a></h1>
+<div class="warning admonition">
+<p class="admonition-title">Warning</p>
+<p>This driver is experimental and the format is not yet stable.</p>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">ocdbt</span></code> driver implements an Optionally-Cooperative Distributed B+Tree on
+top of a base key-value store.</p>
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-kvstore/ocdbt">
+<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">kvstore/ocdbt</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-kvstore/ocdbt" title="Permalink to this definition">¶</a></dt>
+<dd><span><p>JSON specification of OCDBT key-value store.</p>
+  </span><dl class="field-list simple">
+<dt class="field-odd" id="extends-json-kvstore/ocdbt">Extends<span class="colon">:</span><a class="headerlink" href="#extends-json-kvstore/ocdbt" title="Permalink to this headline">¶</a></dt>
+<dd class="field-odd noindent"><ul class="simple">
+<li><p><a class="reference internal" href="../index.html#json-KvStore" title="KvStore (JSON type) — Key-value store specification."><code class="xref json json-schema docutils literal notranslate"><span class="pre">KvStore</span></code></a> — Key-value store specification.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="field-list">
+<dt class="field-odd" id="required-members-json-kvstore/ocdbt">Required members<span class="colon">:</span><a class="headerlink" href="#required-members-json-kvstore/ocdbt" title="Permalink to this headline">¶</a></dt>
+<dd class="field-odd noindent"><dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-kvstore/ocdbt.driver">
+<span class="sig-name descname"><span class="pre">driver</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;ocdbt&quot;</span></code><a class="headerlink" href="#json-kvstore/ocdbt.driver" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-kvstore/ocdbt.base">
+<span class="sig-name descname"><span class="pre">base</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../index.html#json-KvStore" title="KvStore (JSON type) — Key-value store specification."><span class="pre">KvStore</span></a></span><a class="headerlink" href="#json-kvstore/ocdbt.base" title="Permalink to this definition">¶</a></dt>
+<dd><span><p>Underlying key-value store.</p>
+  </span></dd></dl>
+
+</dd>
+</dl>
+<dl class="field-list">
+<dt class="field-odd" id="optional-members-json-kvstore/ocdbt">Optional members<span class="colon">:</span><a class="headerlink" href="#optional-members-json-kvstore/ocdbt" title="Permalink to this headline">¶</a></dt>
+<dd class="field-odd noindent"><dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-kvstore/ocdbt.path">
+<span class="sig-name descname"><span class="pre">path</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><a class="headerlink" href="#json-kvstore/ocdbt.path" title="Permalink to this definition">¶</a></dt>
+<dd><span><p>Key prefix within the key-value store.</p>
+  </span><p>If the prefix is intended to correspond to a Unix-style directory path, it
+should end with <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;/&quot;</span></code>.</p>
+</dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-kvstore/ocdbt.context">
+<span class="sig-name descname"><span class="pre">context</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-Context" title="Context (JSON type)"><span class="pre">Context</span></a></span><a class="headerlink" href="#json-kvstore/ocdbt.context" title="Permalink to this definition">¶</a></dt>
+<dd><p>Specifies context resources that augment/override the parent context.</p>
+</dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-kvstore/ocdbt.coordinator">
+<span class="sig-name descname"><span class="pre">coordinator</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><a class="headerlink" href="#json-kvstore/ocdbt.coordinator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Specifies or references a previously defined
+<a class="reference internal" href="#json-Context.ocdbt_coordinator" title="Context.ocdbt_coordinator (JSON type) — Enables distributed coordination for OCDBT."><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.ocdbt_coordinator</span></code></a>.</p>
+</dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-kvstore/ocdbt.config">
+<span class="sig-name descname"><span class="pre">config</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-kvstore/ocdbt.config" title="Permalink to this definition">¶</a></dt>
+<dd><span><p>Constrains the database configuration.</p>
+  </span><p>When creating a new database, a configuration is chosen subject to any
+constraints specified, using the default values indicated below for any
+unspecified options.  When opening an existing database, the
+configuration must match any specified constraints.</p>
+<dl class="field-list">
+<dt class="field-odd" id="optional-members-json-kvstore/ocdbt.config">Optional members<span class="colon">:</span><a class="headerlink" href="#optional-members-json-kvstore/ocdbt.config" title="Permalink to this headline">¶</a></dt>
+<dd class="field-odd noindent"><dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-kvstore/ocdbt.config.uuid">
+<span class="sig-name descname"><span class="pre">uuid</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><a class="headerlink" href="#json-kvstore/ocdbt.config.uuid" title="Permalink to this definition">¶</a></dt>
+<dd><span><p>Unique 128-bit identifier for the database, specified as 32 hex digits.</p>
+  </span><p>If not specified, it is randomly generated when the database is first created.</p>
+</dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-kvstore/ocdbt.config.max_inline_value_bytes">
+<span class="sig-name descname"><span class="pre">max_inline_value_bytes</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">0</span></code><span class="p"><span class="pre">,</span> </span><code class="code json docutils literal highlight highlight-json"><span class="mi">1048576</span></code><span class="p"><span class="pre">]</span></span></sub><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="mi">100</span></code><a class="headerlink" href="#json-kvstore/ocdbt.config.max_inline_value_bytes" title="Permalink to this definition">¶</a></dt>
+<dd><span><p>Maximum number of value bytes to store inline in a B+tree leaf node.</p>
+  </span><p>Values larger than the specified limit are stored out-of-line in a
+data file.</p>
+</dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-kvstore/ocdbt.config.max_decoded_node_bytes">
+<span class="sig-name descname"><span class="pre">max_decoded_node_bytes</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">0</span></code><span class="p"><span class="pre">,</span> </span><code class="code json docutils literal highlight highlight-json"><span class="mi">4294967295</span></code><span class="p"><span class="pre">]</span></span></sub><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="mi">83951616</span></code><a class="headerlink" href="#json-kvstore/ocdbt.config.max_decoded_node_bytes" title="Permalink to this definition">¶</a></dt>
+<dd><span><p>Maximum size of an (uncompressed) B+tree node.</p>
+  </span><p>Nodes are split to ensure they do not exceed this limit.</p>
+</dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-kvstore/ocdbt.config.version_tree_arity_log2">
+<span class="sig-name descname"><span class="pre">version_tree_arity_log2</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">1</span></code><span class="p"><span class="pre">,</span> </span><code class="code json docutils literal highlight highlight-json"><span class="mi">16</span></code><span class="p"><span class="pre">]</span></span></sub><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="mi">4</span></code><a class="headerlink" href="#json-kvstore/ocdbt.config.version_tree_arity_log2" title="Permalink to this definition">¶</a></dt>
+<dd><span><p>Base-2 logarithm of the arity of the tree of versions.</p>
+  </span><p>The list of database versions is stored as a tree data structure of
+the specified arity.</p>
+</dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight sig-wrap json" id="json-kvstore/ocdbt.config.compression">
+<span class="sig-name descname"><span class="pre">compression</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="#json-kvstore/ocdbt/Compression/zstd" title="kvstore/ocdbt/Compression/zstd (JSON type) — Specifies Zstandard compression."><span class="pre">kvstore/ocdbt/Compression/zstd</span></a></span><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="kc">null</span></code><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="p">{</span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;zstd&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;level&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">}</span></code><a class="headerlink" href="#json-kvstore/ocdbt.config.compression" title="Permalink to this definition">¶</a></dt>
+<dd><span><p>Compression method used to encode the manifest and B+Tree nodes.</p>
+  </span></dd></dl>
+
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-kvstore/ocdbt.cache_pool">
+<span class="sig-name descname"><span class="pre">cache_pool</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;cache_pool&quot;</span></code><a class="headerlink" href="#json-kvstore/ocdbt.cache_pool" title="Permalink to this definition">¶</a></dt>
+<dd><p>Specifies or references a previously defined <a class="reference internal" href="../../context.html#json-Context.cache_pool" title="Context.cache_pool (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.cache_pool</span></code></a>.  It
+is normally more convenient to specify a default <a class="reference internal" href="../../context.html#json-Context.cache_pool" title="Context.cache_pool (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">cache_pool</span></code></a>
+in the <a class="reference internal" href="#json-kvstore/ocdbt.context" title="kvstore/ocdbt.context (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">context</span></code></a>.</p>
+</dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-kvstore/ocdbt.data_copy_concurrency">
+<span class="sig-name descname"><span class="pre">data_copy_concurrency</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;data_copy_concurrency&quot;</span></code><a class="headerlink" href="#json-kvstore/ocdbt.data_copy_concurrency" title="Permalink to this definition">¶</a></dt>
+<dd><p>Specifies or references a previously defined
+<a class="reference internal" href="../../context.html#json-Context.data_copy_concurrency" title="Context.data_copy_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.data_copy_concurrency</span></code></a>.  It is normally more
+convenient to specify a default <a class="reference internal" href="../../context.html#json-Context.data_copy_concurrency" title="Context.data_copy_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">data_copy_concurrency</span></code></a> in
+the <a class="reference internal" href="#json-kvstore/ocdbt.context" title="kvstore/ocdbt.context (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">context</span></code></a>.</p>
+</dd></dl>
+
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-kvstore/ocdbt/Compression/zstd">
+<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">kvstore/ocdbt/Compression/zstd</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-kvstore/ocdbt/Compression/zstd" title="Permalink to this definition">¶</a></dt>
+<dd><span><p>Specifies <a class="reference external" href="https://www.zstd.net">Zstandard</a> compression.</p>
+  </span><dl class="field-list">
+<dt class="field-odd" id="required-members-json-kvstore/ocdbt/Compression/zstd">Required members<span class="colon">:</span><a class="headerlink" href="#required-members-json-kvstore/ocdbt/Compression/zstd" title="Permalink to this headline">¶</a></dt>
+<dd class="field-odd noindent"><dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-kvstore/ocdbt/Compression/zstd.id">
+<span class="sig-name descname"><span class="pre">id</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;zstd&quot;</span></code><a class="headerlink" href="#json-kvstore/ocdbt/Compression/zstd.id" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd>
+</dl>
+<dl class="field-list">
+<dt class="field-odd" id="optional-members-json-kvstore/ocdbt/Compression/zstd">Optional members<span class="colon">:</span><a class="headerlink" href="#optional-members-json-kvstore/ocdbt/Compression/zstd" title="Permalink to this headline">¶</a></dt>
+<dd class="field-odd noindent"><dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-kvstore/ocdbt/Compression/zstd.level">
+<span class="sig-name descname"><span class="pre">level</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><a class="headerlink" href="#json-kvstore/ocdbt/Compression/zstd.level" title="Permalink to this definition">¶</a></dt>
+<dd><span><p>Compression level.</p>
+  </span></dd></dl>
+
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-Context.ocdbt_coordinator">
+<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">Context.ocdbt_coordinator</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-Context.ocdbt_coordinator" title="Permalink to this definition">¶</a></dt>
+<dd><span><p>Enables distributed coordination for OCDBT.</p>
+  </span><dl class="field-list">
+<dt class="field-odd" id="optional-members-json-Context.ocdbt_coordinator">Optional members<span class="colon">:</span><a class="headerlink" href="#optional-members-json-Context.ocdbt_coordinator" title="Permalink to this headline">¶</a></dt>
+<dd class="field-odd noindent"><dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-Context.ocdbt_coordinator.address">
+<span class="sig-name descname"><span class="pre">address</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><a class="headerlink" href="#json-Context.ocdbt_coordinator.address" title="Permalink to this definition">¶</a></dt>
+<dd><span><p>Address of gRPC coordinator server.</p>
+  </span><p>Must be specified to use distributed coordination.</p>
+</dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-Context.ocdbt_coordinator.lease_duration">
+<span class="sig-name descname"><span class="pre">lease_duration</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;10s&quot;</span></code><a class="headerlink" href="#json-Context.ocdbt_coordinator.lease_duration" title="Permalink to this definition">¶</a></dt>
+<dd><span><p>Duration of lease to request from coordinator for B+tree key ranges.</p>
+  </span></dd></dl>
+
+</dd>
+</dl>
+</dd></dl>
+
+<h2 id="storage-format">Storage format<a class="headerlink" href="#storage-format" title="Permalink to this heading">¶</a></h2>
+<p>The database is represented by the following entries within a prefix of an
+underlying key-value store:</p>
+<ul>
+<li><p><code class="file docutils literal notranslate"><span class="pre">manifest.ocdbt</span></code></p>
+<p>Stores the encoded <em>manifest</em>, which specifies the database configuration and
+the tree of versions.</p>
+</li>
+<li><p><code class="file docutils literal notranslate"><span class="pre">d/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</span></code></p>
+<p>Log-structured data files that store:</p>
+<ul class="simple">
+<li><p>Out-of-line raw values too large to store inline in a B+tree node;</p></li>
+<li><p>Encoded version tree nodes;</p></li>
+<li><p>Encoded B+Tree nodes.</p></li>
+</ul>
+<p>The <code class="file docutils literal notranslate"><span class="pre">xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</span></code> portion of the filename is the
+lowercase hex representation of a 128-bit random identifier.</p>
+</li>
+</ul>
+<p>To read a key from the database, a client first reads the manifest file, then
+traverses the version tree to locate the root B+tree node of the desired
+version, then traverses the B+tree to locate the leaf node entry for the desired
+key.  If the value is small and is stored inline in the leaf B+tree node, it is
+immediately available from the leaf node.  Otherwise, the leaf node contains a
+pointer to the value and it must be read separately from a data file.</p>
+<h3 id="manifest-format"><span id="ocdbt-manifest-format"></span>Manifest format<a class="headerlink" href="#manifest-format" title="Permalink to this heading">¶</a></h3>
+<p>An encoded manifest consists of:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#ocdbt-manifest-header"><span class="std std-ref">Manifest header</span></a></p></li>
+<li><p>Remaining data is compressed according to the specified <a class="reference internal" href="#ocdbt-manifest-compression-format"><span class="std std-ref">compression_format</span></a>:</p>
+<ul>
+<li><p><a class="reference internal" href="#ocdbt-manifest-config"><span class="std std-ref">Manifest configuration</span></a></p></li>
+<li><p><a class="reference internal" href="#ocdbt-manifest-version-tree"><span class="std std-ref">Manifest version tree</span></a></p></li>
+</ul>
+</li>
+</ul>
+<h4 id="manifest-header"><span id="ocdbt-manifest-header"></span>Manifest header<a class="headerlink" href="#manifest-header" title="Permalink to this heading">¶</a></h4>
+<table class="docutils data align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Binary format</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-manifest-magic-value"><span class="std std-ref">magic_value</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">uint32be</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-manifest-version"><span class="std std-ref">version</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-manifest-compression-format"><span class="std std-ref">compression_format</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<dl class="simple" id="ocdbt-manifest-magic-value">
+<dt><code class="docutils literal notranslate"><span class="pre">magic_value</span></code></dt><dd><p>Must equal <code class="docutils literal notranslate"><span class="pre">0x0cdb3a2a</span></code></p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-manifest-version">
+<dt><code class="docutils literal notranslate"><span class="pre">version</span></code></dt><dd><p>Must equal <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-manifest-compression-format">
+<dt><code class="docutils literal notranslate"><span class="pre">compression_format</span></code></dt><dd><p><code class="docutils literal notranslate"><span class="pre">0</span></code> for uncompressed, <code class="docutils literal notranslate"><span class="pre">1</span></code> for zstd.</p>
+</dd>
+</dl>
+<h4 id="manifest-configuration"><span id="ocdbt-manifest-config"></span>Manifest configuration<a class="headerlink" href="#manifest-configuration" title="Permalink to this heading">¶</a></h4>
+<table class="docutils data align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Binary format</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-config-uuid"><span class="std std-ref">uuid</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubyte[16]</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-config-max-inline-value-bytes"><span class="std std-ref">max_inline_value_bytes</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-config-max-decoded-node-bytes"><span class="std std-ref">max_decoded_note_bytes</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-config-version-tree-arity-log2"><span class="std std-ref">version_tree_arity_log2</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">uint8</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-config-compression-method"><span class="std std-ref">compression_method</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-config-compression-configuration"><span class="std std-ref">Compression configuration</span></a></p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<dl class="simple" id="ocdbt-config-uuid">
+<dt><code class="docutils literal notranslate"><span class="pre">uuid</span></code></dt><dd><p>Unique 128-bit identifier for the database.  If not specified explicitly, is
+randomly generated when the database is first created.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-config-max-inline-value-bytes">
+<dt><code class="docutils literal notranslate"><span class="pre">max_inline_value_bytes</span></code></dt><dd><p>Maximum size of a value to store inline within a B+Tree node.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-config-max-decoded-node-bytes">
+<dt><code class="docutils literal notranslate"><span class="pre">max_decoded_note_bytes</span></code></dt><dd><p>Maximum (uncompressed) size of a B+Tree node.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-config-version-tree-arity-log2">
+<dt><code class="docutils literal notranslate"><span class="pre">version_tree_arity_log2</span></code></dt><dd><p>Base-2 logarithm of the arity of the version tree.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-config-compression-method">
+<dt><code class="docutils literal notranslate"><span class="pre">compression_method</span></code></dt><dd><p><code class="docutils literal notranslate"><span class="pre">0</span></code> for compressed, <code class="docutils literal notranslate"><span class="pre">1</span></code> for Zstandard.</p>
+</dd>
+</dl>
+<h4 id="compression-configuration"><span id="ocdbt-config-compression-configuration"></span>Compression configuration<a class="headerlink" href="#compression-configuration" title="Permalink to this heading">¶</a></h4>
+<p>If the <a class="reference internal" href="#ocdbt-config-compression-method"><span class="std std-ref">compression_method</span></a> is not <code class="docutils literal notranslate"><span class="pre">0</span></code>, it is followed by
+the method-specific configuration.</p>
+<h5 id="zstd-compression-configuration">Zstd compression configuration<a class="headerlink" href="#zstd-compression-configuration" title="Permalink to this heading">¶</a></h5>
+<table class="docutils data align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Binary format</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-config-zstd-level"><span class="std std-ref">level</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">int32le</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<dl class="simple" id="ocdbt-config-zstd-level">
+<dt><code class="docutils literal notranslate"><span class="pre">level</span></code></dt><dd><p>Compresion level to use when writing.</p>
+</dd>
+</dl>
+<h4 id="manifest-version-tree"><span id="ocdbt-manifest-version-tree"></span>Manifest version tree<a class="headerlink" href="#manifest-version-tree" title="Permalink to this heading">¶</a></h4>
+<p>Following the compression configuration, the manifest specifies references to
+B+tree roots and version tree nodes.</p>
+<table class="docutils data align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Binary format</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-manifest-version-tree-inline-versions"><span class="std std-ref">inline_versions</span></a></p></td>
+<td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-node-entry-array"><span class="std std-ref">Version tree leaf node entries format (height = 0)</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-manifest-version-tree-version-nodes"><span class="std std-ref">version_nodes</span></a></p></td>
+<td><p><a class="reference internal" href="#ocdbt-version-tree-interior-node-entry-array"><span class="std std-ref">Interior version tree node entries (height &gt; 0)</span></a></p></td>
+</tr>
+</tbody>
+</table>
+<dl id="ocdbt-manifest-version-tree-inline-versions">
+<dt><code class="docutils literal notranslate"><span class="pre">inline_versions</span></code></dt><dd><p>References to the most recent versions.</p>
+<p>Older versions are referenced indirectly via
+<a class="reference internal" href="#ocdbt-manifest-version-tree-version-nodes"><span class="std std-ref">version_nodes</span></a>.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-manifest-version-tree-version-nodes">
+<dt><code class="docutils literal notranslate"><span class="pre">version_nodes</span></code></dt><dd><p>References to version tree interior nodes for versions older than those
+referenced from <a class="reference internal" href="#ocdbt-manifest-version-tree-inline-versions"><span class="std std-ref">inline_versions</span></a>.</p>
+</dd>
+</dl>
+<h3 id="version-tree-node-format"><span id="ocdbt-version-tree"></span>Version tree node format<a class="headerlink" href="#version-tree-node-format" title="Permalink to this heading">¶</a></h3>
+<p>An encoded version tree node consists of:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#ocdbt-version-tree-outer-header"><span class="std std-ref">Version tree node outer header</span></a></p></li>
+<li><p>Remaining data is compressed according to the specified <a class="reference internal" href="#ocdbt-version-tree-compression-format"><span class="std std-ref">compression_format</span></a>:</p>
+<ul>
+<li><p><a class="reference internal" href="#ocdbt-version-tree-inner-header"><span class="std std-ref">Version tree node inner header</span></a></p></li>
+<li><p><a class="reference internal" href="#ocdbt-version-tree-leaf-node-entry-array"><span class="std std-ref">Leaf node entries</span></a> or
+<a class="reference internal" href="#ocdbt-version-tree-interior-node-entry-array"><span class="std std-ref">Interior node entries</span></a>,
+depending on the <a class="reference internal" href="#ocdbt-version-tree-height"><span class="std std-ref">height</span></a>.</p></li>
+</ul>
+</li>
+</ul>
+<h4 id="version-tree-node-outer-header"><span id="ocdbt-version-tree-outer-header"></span>Version tree node outer header<a class="headerlink" href="#version-tree-node-outer-header" title="Permalink to this heading">¶</a></h4>
+<table class="docutils data align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Binary format</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-version-tree-magic-value"><span class="std std-ref">magic_value</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">uint32be</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-version-tree-version"><span class="std std-ref">version</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-version-tree-compression-format"><span class="std std-ref">compression_format</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<dl class="simple" id="ocdbt-version-tree-magic-value">
+<dt><code class="docutils literal notranslate"><span class="pre">magic_value</span></code></dt><dd><p>Must equal <code class="docutils literal notranslate"><span class="pre">0x0cdb1234</span></code>.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-version-tree-version">
+<dt><code class="docutils literal notranslate"><span class="pre">version</span></code></dt><dd><p>Must equal <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-version-tree-compression-format">
+<dt><code class="docutils literal notranslate"><span class="pre">compression_format</span></code></dt><dd><p><code class="docutils literal notranslate"><span class="pre">0</span></code> for uncompressed, <code class="docutils literal notranslate"><span class="pre">1</span></code> for zstd.</p>
+</dd>
+</dl>
+<p>The remaining data is encoded according to the specified
+<a class="reference internal" href="#ocdbt-version-tree-compression-format"><span class="std std-ref">compression_format</span></a>.</p>
+<h4 id="version-tree-node-inner-header"><span id="ocdbt-version-tree-inner-header"></span>Version tree node inner header<a class="headerlink" href="#version-tree-node-inner-header" title="Permalink to this heading">¶</a></h4>
+<table class="docutils data align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Binary format</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-version-tree-version-tree-arity-log2"><span class="std std-ref">version_tree_arity_log2</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">uint8</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-version-tree-height"><span class="std std-ref">height</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">uint8</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<dl class="simple" id="ocdbt-version-tree-version-tree-arity-log2">
+<dt><code class="docutils literal notranslate"><span class="pre">version_tree_arity_log2</span></code></dt><dd><p>Base-2 logarithm of the version tree node arity.  Must match the arity
+specified in the manifest from which this node was reached.</p>
+</dd>
+</dl>
+<dl id="ocdbt-version-tree-height">
+<dt><code class="docutils literal notranslate"><span class="pre">height</span></code></dt><dd><p>Height of this version tree node.  Leaf nodes have a height of 0.</p>
+<p>It is required that</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><code><span class="n">height</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">version_tree_arity_log2</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">64</span>
+</code></pre></div>
+</div>
+</dd>
+</dl>
+<p>The format of the remaining data depends on the value of <code class="docutils literal notranslate"><span class="pre">height</span></code>.</p>
+<h4 id="version-tree-leaf-node-entries-format-height-0"><span id="ocdbt-version-tree-leaf-node-entry-array"></span>Version tree leaf node entries format (<code class="docutils literal notranslate"><span class="pre">height</span> <span class="pre">=</span> <span class="pre">0</span></code>)<a class="headerlink" href="#version-tree-leaf-node-entries-format-height-0" title="Permalink to this heading">¶</a></h4>
+<p>The same encoded representation is used for both the entries of a leaf
+<a class="reference internal" href="#ocdbt-version-tree"><span class="std std-ref">version tree node</span></a> and for the
+<a class="reference internal" href="#ocdbt-manifest-version-tree-inline-versions"><span class="std std-ref">inline_versions</span></a> specified in the
+<a class="reference internal" href="#ocdbt-manifest-version-tree"><span class="std std-ref">manfiest</span></a>.</p>
+<table class="docutils data align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Binary format</p></th>
+<th class="head"><p>Count</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-num-versions"><span class="std std-ref">num_versions</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+<td><p>1</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-generation-number"><span class="std std-ref">generation_number[i]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-num-versions"><span class="std std-ref">num_versions</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-root-height"><span class="std std-ref">root_height[i]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">uint8</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-num-versions"><span class="std std-ref">num_versions</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-data-file-id"><span class="std std-ref">data_file_id[i]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubyte[16]</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-num-versions"><span class="std std-ref">num_versions</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-data-file-offset"><span class="std std-ref">data_file_offset[i]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-num-versions"><span class="std std-ref">num_versions</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-data-file-length"><span class="std std-ref">data_file_length[i]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-num-versions"><span class="std std-ref">num_versions</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-num-keys"><span class="std std-ref">num_keys[i]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-num-versions"><span class="std std-ref">num_versions</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-num-tree-bytes"><span class="std std-ref">num_tree_bytes[i]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-num-versions"><span class="std std-ref">num_versions</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-num-indirect-value-bytes"><span class="std std-ref">num_indirect_value_bytes[i]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-num-versions"><span class="std std-ref">num_versions</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-commit-time"><span class="std std-ref">commit_time[i]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">uint64le</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-num-versions"><span class="std std-ref">num_versions</span></a></p></td>
+</tr>
+</tbody>
+</table>
+<dl id="ocdbt-version-tree-leaf-num-versions">
+<dt><code class="docutils literal notranslate"><span class="pre">num_versions</span></code></dt><dd><p>Number of B+tree roots that are referenced.  The value is constrained based on
+the value of <code class="docutils literal notranslate"><span class="pre">generation_number[num_versions-1]</span></code>, the latest generation
+number referenced from the version tree node, and
+<a class="reference internal" href="#ocdbt-version-tree-version-tree-arity-log2"><span class="std std-ref">version_tree_arity_log2</span></a>:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><code><span class="mi">1</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">num_versions</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="p">(</span><span class="n">generation_number</span><span class="p">[</span><span class="n">num_versions</span><span class="mi">-1</span><span class="p">]</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span>
+<span class="w">                   </span><span class="o">%</span><span class="w"> </span><span class="p">(</span><span class="mi">1</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">version_tree_arity_log2</span><span class="p">)</span>
+<span class="w">                   </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span>
+</code></pre></div>
+</div>
+<div class="note admonition">
+<p class="admonition-title">Note</p>
+<p>The same computation of <code class="docutils literal notranslate"><span class="pre">num_versions</span></code> applies to both leaf node entries
+included in a <a class="reference internal" href="#ocdbt-version-tree"><span class="std std-ref">version tree node</span></a>, and
+<a class="reference internal" href="#ocdbt-manifest-version-tree-inline-versions"><span class="std std-ref">inline_versions</span></a> included in the
+<a class="reference internal" href="#ocdbt-manifest-version-tree"><span class="std std-ref">manfiest</span></a>.  In the former case, the and
+<a class="reference internal" href="#ocdbt-version-tree-version-tree-arity-log2"><span class="std std-ref">version_tree_arity_log2</span></a> value is obtained from
+the version node.  In the latter case, the
+<a class="reference internal" href="#ocdbt-config-version-tree-arity-log2"><span class="std std-ref">version_tree_arity_log2</span></a> value is taken from the
+manifest.</p>
+</div>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-version-tree-leaf-generation-number">
+<dt><code class="docutils literal notranslate"><span class="pre">generation_number[i]</span></code></dt><dd><p>Generation number of the referenced B+tree root.  Must not be 0.  The
+generation numbers must be strictly increasing, i.e. if <code class="docutils literal notranslate"><span class="pre">i</span> <span class="pre">&lt;</span> <span class="pre">j</span></code>, then
+<code class="docutils literal notranslate"><span class="pre">generation_number[i]</span> <span class="pre">&lt;</span> <span class="pre">generation_number[j]</span></code>.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-version-tree-leaf-root-height">
+<dt><code class="docutils literal notranslate"><span class="pre">root_height[i]</span></code></dt><dd><p>Height of the referenced B+tree root.  Must be 0 if there is no root node.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-version-tree-leaf-commit-time">
+<dt><code class="docutils literal notranslate"><span class="pre">commit_time[i]</span></code></dt><dd><p>Time at which the generation was created, in milliseconds since the Unix
+epoch (excluding leap seconds).</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-version-tree-leaf-data-file-id">
+<dt><code class="docutils literal notranslate"><span class="pre">data_file_id[i]</span></code></dt><dd><p>Specifies the data file containing the encoded root B+tree node.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-version-tree-leaf-data-file-offset">
+<dt><code class="docutils literal notranslate"><span class="pre">data_file_offset[i]</span></code></dt><dd><p>Specifies the starting byte offset within
+<a class="reference internal" href="#ocdbt-version-tree-leaf-data-file-id"><span class="std std-ref">data_file_id[i]</span></a> of the encoded root B+tree node.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-version-tree-leaf-data-file-length">
+<dt><code class="docutils literal notranslate"><span class="pre">data_file_length[i]</span></code></dt><dd><p>Specifies the byte length within <a class="reference internal" href="#ocdbt-version-tree-leaf-data-file-id"><span class="std std-ref">data_file_id[i]</span></a>
+of the encoded root B+tree node.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-version-tree-leaf-num-keys">
+<dt><code class="docutils literal notranslate"><span class="pre">num_keys[i]</span></code></dt><dd><p>Specifies the total number of (leaf-node) keys within the B+tree.  Note
+that if there is more than one path from the root to a given leaf node,
+the leaf node’s keys are counted more than once.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-version-tree-leaf-num-tree-bytes">
+<dt><code class="docutils literal notranslate"><span class="pre">num_tree_bytes[i]</span></code></dt><dd><p>Specifies the total encoded size in bytes of all B+tree nodes reachable
+from the root, including the root itself.  A given node is counted once
+for each unique path within the tree to it; if there is more than one
+path to a node, its size is counted multiple times.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-version-tree-leaf-num-indirect-value-bytes">
+<dt><code class="docutils literal notranslate"><span class="pre">num_indirect_value_bytes[i]</span></code></dt><dd><p>Specifies the total size in bytes of all indirectly-stored values in the
+B+tree.  If the same stored value is referenced from multiple keys, its
+size is counted multiple times.</p>
+</dd>
+</dl>
+<h4 id="interior-version-tree-node-entries-height-0"><span id="ocdbt-version-tree-interior-node-entry-array"></span>Interior version tree node entries (<code class="docutils literal notranslate"><span class="pre">height</span> <span class="pre">&gt;</span> <span class="pre">0</span></code>)<a class="headerlink" href="#interior-version-tree-node-entries-height-0" title="Permalink to this heading">¶</a></h4>
+<p>The same encoded representation is used for both the entries of an interior
+<a class="reference internal" href="#ocdbt-version-tree"><span class="std std-ref">version tree node</span></a> and for the
+<a class="reference internal" href="#ocdbt-manifest-version-tree-version-nodes"><span class="std std-ref">version_nodes</span></a> version tree nodes specified in
+the <a class="reference internal" href="#ocdbt-manifest-version-tree"><span class="std std-ref">manfiest</span></a>, but the interpretation
+differs, as described below.</p>
+<table class="docutils data align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Binary format</p></th>
+<th class="head"><p>Count</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-version-tree-interior-num-children"><span class="std std-ref">num_children</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+<td><p>1</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-version-tree-interior-generation-number"><span class="std std-ref">generation_number[i]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-version-tree-interior-num-children"><span class="std std-ref">num_children</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-version-tree-interior-data-file-id"><span class="std std-ref">data_file_id[i]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubyte[16]</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-version-tree-interior-num-children"><span class="std std-ref">num_children</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-version-tree-interior-data-file-offset"><span class="std std-ref">data_file_offset[i]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-version-tree-interior-num-children"><span class="std std-ref">num_children</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-version-tree-interior-data-file-length"><span class="std std-ref">data_file_length[i]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-version-tree-interior-num-children"><span class="std std-ref">num_children</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-version-tree-interior-num-generations"><span class="std std-ref">num_generations[i]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-version-tree-interior-num-children"><span class="std std-ref">num_children</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-version-tree-interior-commit-time"><span class="std std-ref">commit_time[i]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">uint64le</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-version-tree-interior-num-children"><span class="std std-ref">num_children</span></a></p></td>
+</tr>
+</tbody>
+</table>
+<p>When the encoded representation is used to specify
+<a class="reference internal" href="#ocdbt-manifest-version-tree-version-nodes"><span class="std std-ref">version_nodes</span></a> in the manifest, there is one
+additional field:</p>
+<table class="docutils data align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Binary format</p></th>
+<th class="head"><p>Count</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-version-tree-interior-child-height"><span class="std std-ref">entry_height[i]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">uint8</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-version-tree-interior-num-children"><span class="std std-ref">num_children</span></a></p></td>
+</tr>
+</tbody>
+</table>
+<dl id="ocdbt-version-tree-interior-num-children">
+<dt><code class="docutils literal notranslate"><span class="pre">num_children</span></code></dt><dd><p>Number of version tree nodes that are referenced.</p>
+<ul>
+<li><p>When this encoded representation is used to specify the entries of an interior
+<a class="reference internal" href="#ocdbt-version-tree"><span class="std std-ref">version tree node</span></a>, <code class="docutils literal notranslate"><span class="pre">num_children</span></code> is constrained by:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><code><span class="mi">1</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">num_children</span>
+<span class="w">  </span><span class="o">&lt;=</span><span class="w"> </span><span class="p">((</span><span class="n">generation_number</span><span class="p">[</span><span class="n">num_children</span><span class="mi">-1</span><span class="p">]</span>
+<span class="w">       </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="p">(</span><span class="n">version_tree_arity_log2</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">height</span><span class="p">))</span>
+<span class="w">      </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span>
+<span class="w">      </span><span class="o">%</span><span class="w"> </span><span class="p">(</span><span class="mi">1</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">version_tree_arity_log2</span><span class="p">)</span>
+<span class="w">     </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span>
+</code></pre></div>
+</div>
+<p><a class="reference internal" href="#ocdbt-version-tree-version-tree-arity-log2"><span class="std std-ref">version_tree_arity_log2</span></a> and
+<a class="reference internal" href="#ocdbt-version-tree-height"><span class="std std-ref">height</span></a> are obtained from the version tree node.</p>
+</li>
+</ul>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-version-tree-interior-generation-number">
+<dt><code class="docutils literal notranslate"><span class="pre">generation_number[i]</span></code></dt><dd><p>Latest B+tree root generation number referenced within this subtree. Must not
+be 0.  The generation numbers must be strictly increasing, i.e. if <code class="docutils literal notranslate"><span class="pre">i</span> <span class="pre">&lt;</span> <span class="pre">j</span></code>,
+then <code class="docutils literal notranslate"><span class="pre">generation_number[i]</span> <span class="pre">&lt;</span> <span class="pre">generation_number[j]</span></code>.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-version-tree-interior-data-file-id">
+<dt><code class="docutils literal notranslate"><span class="pre">data_file_id[i]</span></code></dt><dd><p>Specifies the data file containing the encoded version tree node.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-version-tree-interior-data-file-offset">
+<dt><code class="docutils literal notranslate"><span class="pre">data_file_offset[i]</span></code></dt><dd><p>Specifies the starting byte offset within <code class="docutils literal notranslate"><span class="pre">data_file_id[i]</span></code> of the encoded
+version tree node.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-version-tree-interior-data-file-length">
+<dt><code class="docutils literal notranslate"><span class="pre">data_file_length[i]</span></code></dt><dd><p>Specifies the byte length within <code class="docutils literal notranslate"><span class="pre">data_file_id[i]</span></code> of the encoded version
+tree node.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-version-tree-interior-num-generations">
+<dt><code class="docutils literal notranslate"><span class="pre">num_generations[i]</span></code></dt><dd><p>Total number of B+tree roots referenced within this subtree.</p>
+</dd>
+</dl>
+<dl id="ocdbt-version-tree-interior-commit-time">
+<dt><code class="docutils literal notranslate"><span class="pre">commit_time[i]</span></code></dt><dd><p>Commit time, in milliseconds since the Unix epoch (excluding leap
+seconds), of the earlier B+tree root referenced within this subtree.</p>
+<div class="note admonition">
+<p class="admonition-title">Note</p>
+<p>This is the <em>earliest</em> commit time referenced within this subtree, in
+contrast with <code class="docutils literal notranslate"><span class="pre">generation_number[i]</span></code>, which specifies the <em>latest</em>
+generation number referenced within this subtree.</p>
+</div>
+</dd>
+</dl>
+<dl id="ocdbt-version-tree-interior-child-height">
+<dt><code class="docutils literal notranslate"><span class="pre">entry_height[i]</span></code></dt><dd><p>Specifies the height of the referenced version tree node.</p>
+<p>This field is only present when the encoded representation is used to specify
+<a class="reference internal" href="#ocdbt-manifest-version-tree-version-nodes"><span class="std std-ref">version_nodes</span></a> in the manifest.  The heights
+must be decreasing, i.e. <code class="docutils literal notranslate"><span class="pre">entry_height[i]</span> <span class="pre">&gt;</span> <span class="pre">entry_height[j]</span></code> if <code class="docutils literal notranslate"><span class="pre">i</span> <span class="pre">&lt;</span> <span class="pre">j</span></code>.</p>
+<p>When the encoded representaiton is used to specify the entries of an interior
+version tree node, this field is not present and instead, for the purpose of
+this specification, <code class="docutils literal notranslate"><span class="pre">entry_height[i]</span></code> is implicitly equal to <code class="docutils literal notranslate"><span class="pre">height</span> <span class="pre">-</span> <span class="pre">1</span></code>,
+where <a class="reference internal" href="#ocdbt-version-tree-height"><span class="std std-ref">height</span></a> is obtained from the version tree node.</p>
+</dd>
+</dl>
+<h3 id="b-tree-node-format">B+tree node format<a class="headerlink" href="#b-tree-node-format" title="Permalink to this heading">¶</a></h3>
+<p>An encoded B+tree node consists of:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#ocdbt-btree-outer-header"><span class="std std-ref">B+tree node outer header</span></a></p></li>
+<li><p>Remaining data is compressed according to the specified <a class="reference internal" href="#ocdbt-btree-compression-format"><span class="std std-ref">compression_format</span></a>:</p>
+<ul>
+<li><p><a class="reference internal" href="#ocdbt-btree-inner-header"><span class="std std-ref">B+tree node inner header</span></a></p></li>
+<li><p><a class="reference internal" href="#ocdbt-btree-leaf-node-entry-array"><span class="std std-ref">Leaf node entries</span></a> or
+<a class="reference internal" href="#ocdbt-btree-interior-node-entry-array"><span class="std std-ref">Interior node entries</span></a>,
+depending on the <a class="reference internal" href="#ocdbt-btree-node-height"><span class="std std-ref">height</span></a>.</p></li>
+</ul>
+</li>
+</ul>
+<h4 id="b-tree-node-outer-header"><span id="ocdbt-btree-outer-header"></span>B+tree node outer header<a class="headerlink" href="#b-tree-node-outer-header" title="Permalink to this heading">¶</a></h4>
+<table class="docutils data align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Binary format</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-magic-value"><span class="std std-ref">magic_value</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">uint32be</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-btree-version"><span class="std std-ref">version</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-compression-format"><span class="std std-ref">compression_format</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<dl class="simple" id="ocdbt-btree-magic-value">
+<dt><code class="docutils literal notranslate"><span class="pre">magic_value</span></code></dt><dd><p>Must equal <code class="docutils literal notranslate"><span class="pre">0x0cdb20de</span></code>.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-btree-version">
+<dt><code class="docutils literal notranslate"><span class="pre">version</span></code></dt><dd><p>Must equal <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-btree-compression-format">
+<dt><code class="docutils literal notranslate"><span class="pre">compression_format</span></code></dt><dd><p><code class="docutils literal notranslate"><span class="pre">0</span></code> for uncompressed, <code class="docutils literal notranslate"><span class="pre">1</span></code> for zstd.</p>
+</dd>
+</dl>
+<p>The remaining data is encoded according to the specified
+<a class="reference internal" href="#ocdbt-btree-compression-format"><span class="std std-ref">compression_format</span></a>.</p>
+<h4 id="b-tree-node-inner-header"><span id="ocdbt-btree-inner-header"></span>B+tree node inner header<a class="headerlink" href="#b-tree-node-inner-header" title="Permalink to this heading">¶</a></h4>
+<table class="docutils data align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Binary format</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-node-height"><span class="std std-ref">height</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">uint8</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<dl class="simple" id="ocdbt-btree-node-height">
+<dt><code class="docutils literal notranslate"><span class="pre">height</span></code></dt><dd><p>Height of this B+tree node.  Leaf nodes have a height of 0.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-btree-node-num-entries">
+<dt><code class="docutils literal notranslate"><span class="pre">num_entries</span></code></dt><dd><p>Number of children (if <code class="docutils literal notranslate"><span class="pre">height</span> <span class="pre">&gt;</span> <span class="pre">0</span></code>) or key/value pairs (if <code class="docutils literal notranslate"><span class="pre">height</span> <span class="pre">==</span> <span class="pre">0</span></code>)
+referenced from this node.</p>
+</dd>
+</dl>
+<p>The format of the remaining data depends on the value of <code class="docutils literal notranslate"><span class="pre">height</span></code>.</p>
+<h4 id="leaf-b-tree-node-format-height-0"><span id="ocdbt-btree-leaf-node-entry-array"></span>Leaf B+tree node format (<code class="docutils literal notranslate"><span class="pre">height</span> <span class="pre">=</span> <span class="pre">0</span></code>)<a class="headerlink" href="#leaf-b-tree-node-format-height-0" title="Permalink to this heading">¶</a></h4>
+<div class="note admonition">
+<p class="admonition-title">Note</p>
+<p>B+tree leaf nodes do not directly store the full key for each key/value
+entry.  Instead, only the <code class="docutils literal notranslate"><span class="pre">relative_key</span></code> for each entry is stored; the
+prefix that must be prepended to this <code class="docutils literal notranslate"><span class="pre">relative_key</span></code> to obtain the full
+<code class="docutils literal notranslate"><span class="pre">key</span></code> is defined by the path from the root node to the leaf node.</p>
+</div>
+<table class="docutils data align-default">
+<tbody>
+<tr class="row-odd"><td><p>Field</p></td>
+<td><p>Binary format</p></td>
+<td><p>Count</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-leaf-node-key-prefix-length"><span class="std std-ref">key_prefix_length[i]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a> - 1</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-btree-leaf-node-key-suffix-length"><span class="std std-ref">key_suffix_length[i]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-leaf-node-key-suffix"><span class="std std-ref">key_suffix[i]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">byte[key_suffix_length[i]]</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-btree-leaf-node-encoded-value-length"><span class="std std-ref">encoded_value_length[i]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-leaf-node-data-file-id"><span class="std std-ref">data_file_id[j]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubyte[16]</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-btree-leaf-node-num-indirect-entries"><span class="std std-ref">num_indirect_entries</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-btree-leaf-node-data-file-offset"><span class="std std-ref">data_file_offset[j]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-btree-leaf-node-num-indirect-entries"><span class="std std-ref">num_indirect_entries</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-leaf-node-value"><span class="std std-ref">value[j]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">byte[direct_value_length[j]]</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-btree-leaf-node-num-direct-entries"><span class="std std-ref">num_direct_entries</span></a></p></td>
+</tr>
+</tbody>
+</table>
+<dl class="simple" id="ocdbt-btree-leaf-node-key-prefix-length">
+<dt><code class="docutils literal notranslate"><span class="pre">key_prefix_length[i]</span></code></dt><dd><p>Length in bytes of common prefix of <code class="docutils literal notranslate"><span class="pre">relative_key[i]</span></code> and
+<code class="docutils literal notranslate"><span class="pre">relative_key[i+1]</span></code>.  For the first key, no common prefix is stored.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-btree-leaf-node-key-suffix-length">
+<dt><code class="docutils literal notranslate"><span class="pre">key_suffix_length[i]</span></code></dt><dd><p>Length in bytes of each relative key, excluding the length of the common
+prefix with the previous key.  For the first key, the total length is
+stored, since there is no previous key.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-btree-leaf-node-key-suffix">
+<dt><code class="docutils literal notranslate"><span class="pre">key_suffix[i]</span></code></dt><dd><p>Relative key for the entry, excluding the common prefix with the previous
+key.  For the first key, the entire key is stored.  Note that the
+suffixes for all keys are concatenated in the encoded representation.</p>
+</dd>
+</dl>
+<dl id="ocdbt-btree-leaf-node-encoded-value-length">
+<dt><code class="docutils literal notranslate"><span class="pre">encoded_value_length[i]</span></code></dt><dd><p>Encoded length in bytes of the value for this key/value entry.  The
+actual length is given by:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><code><span class="n">value_length</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">encoded_value_length</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="mi">1</span>
+</code></pre></div>
+</div>
+<p>The least significant bit indicates how the value is stored:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">0</span></code> if the value is stored inline in this leaf node,</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">1</span></code> if the value is stored out-of-line.</p></li>
+</ul>
+<p>Based on this column, the following derived values are defined:</p>
+<dl class="simple" id="ocdbt-btree-leaf-node-num-direct-entries">
+<dt><code class="docutils literal notranslate"><span class="pre">num_direct_entries</span></code></dt><dd><p>The number of entries for which
+<code class="docutils literal notranslate"><span class="pre">(encode_value_length[i]</span> <span class="pre">&amp;</span> <span class="pre">1)</span> <span class="pre">==</span> <span class="pre">0</span></code>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">direct_entries</span></code></dt><dd><p>The array of indices of direct values.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">direct_value_length[j]</span></code></dt><dd><p>Equal to <code class="docutils literal notranslate"><span class="pre">value_length[direct_values[j]]</span></code>.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-btree-leaf-node-num-indirect-entries">
+<dt><code class="docutils literal notranslate"><span class="pre">num_indirect_entries</span></code></dt><dd><p>Equal to <code class="docutils literal notranslate"><span class="pre">num_entries</span> <span class="pre">-</span> <span class="pre">num_direct_entries</span></code>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">indirect_entries</span></code></dt><dd><p>The array of indices of indirect values.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-btree-leaf-node-data-file-id">
+<dt><code class="docutils literal notranslate"><span class="pre">data_file_id[j]</span></code></dt><dd><p>Specifies the dstarting byte offset within <code class="docutils literal notranslate"><span class="pre">data_file_id[j]</span></code> of the
+value for entry <code class="docutils literal notranslate"><span class="pre">indirect_values[j]</span></code>.  Only stored for entries with
+out-of-line values.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-btree-leaf-node-data-file-offset">
+<dt><code class="docutils literal notranslate"><span class="pre">data_file_offset[j]</span></code></dt><dd><p>Specifies the starting byte offset within <code class="docutils literal notranslate"><span class="pre">data_file_id[j]</span></code> of the
+value for entry <code class="docutils literal notranslate"><span class="pre">indirect_values[j]</span></code>.  Only stored for entries with
+out-of-line values.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-btree-leaf-node-value">
+<dt><code class="docutils literal notranslate"><span class="pre">value[j]</span></code></dt><dd><p>Specifies the value for entry <code class="docutils literal notranslate"><span class="pre">direct_values[j]</span></code>.  Only stored for
+entries with inline values.  Note that all direct values are concatenated
+in the encoded representation.</p>
+</dd>
+</dl>
+<h4 id="interior-b-tree-node-format-height-0"><span id="ocdbt-btree-interior-node-entry-array"></span>Interior B+tree node format (<code class="docutils literal notranslate"><span class="pre">height</span> <span class="pre">&gt;</span> <span class="pre">0</span></code>)<a class="headerlink" href="#interior-b-tree-node-format-height-0" title="Permalink to this heading">¶</a></h4>
+<div class="note admonition">
+<p class="admonition-title">Note</p>
+<p>B+tree interior nodes do not directly store the full starting key for each
+child node.  Instead, only the <code class="docutils literal notranslate"><span class="pre">relative_key</span></code> for each child node is
+stored; the prefix that must be prepended to this <code class="docutils literal notranslate"><span class="pre">relative_key</span></code> to obtain
+the full <code class="docutils literal notranslate"><span class="pre">key</span></code> is defined by the path from the root node.</p>
+</div>
+<table class="docutils data align-default">
+<tbody>
+<tr class="row-odd"><td><p>Field</p></td>
+<td><p>Binary format</p></td>
+<td><p>Count</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-interior-node-subtree-common-prefix-length"><span class="std std-ref">subtree_common_prefix_length[i]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-btree-interior-node-key-prefix-length"><span class="std std-ref">key_prefix_length[i]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a> - 1</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-interior-node-key-suffix-length"><span class="std std-ref">key_suffix_length[i]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-btree-interior-node-key-suffix"><span class="std std-ref">key_suffix[i]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">byte[key_suffix_length[i]]</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-interior-node-data-file-id"><span class="std std-ref">data_file_id[i]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubyte[16]</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-btree-interior-node-data-file-offset"><span class="std std-ref">data_file_offset[i]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-interior-node-data-file-length"><span class="std std-ref">data_file_length[i]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-btree-interior-node-num-keys"><span class="std std-ref">num_keys[i]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-interior-node-num-tree-bytes"><span class="std std-ref">num_tree_bytes[i]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-btree-interior-node-num-indirect-value-bytes"><span class="std std-ref">num_indirect_value_bytes[i]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a></p></td>
+</tr>
+</tbody>
+</table>
+<dl class="simple" id="ocdbt-btree-interior-node-subtree-common-prefix-length">
+<dt><code class="docutils literal notranslate"><span class="pre">subtree_common_prefix_length[i]</span></code></dt><dd><p>Length in bytes of the prefix of <code class="docutils literal notranslate"><span class="pre">relative_key[i]</span></code> that is common to
+all keys within the subtree rooted at this child node.  This prefix
+serves as an implicit prefix of all keys within the subtree rooted at the
+child.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-btree-interior-node-key-prefix-length">
+<dt><code class="docutils literal notranslate"><span class="pre">key_prefix_length[i]</span></code></dt><dd><p>Length in bytes of common prefix of <code class="docutils literal notranslate"><span class="pre">relative_key[i]</span></code> and
+<code class="docutils literal notranslate"><span class="pre">relative_key[i+1]</span></code>.  For the first key, no common prefix is stored.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-btree-interior-node-key-suffix-length">
+<dt><code class="docutils literal notranslate"><span class="pre">key_suffix_length[i]</span></code></dt><dd><p>Length in bytes of each relative key, excluding the length of the common
+prefix with the previous key.  For the first key, the total length is
+stored, since there is no previous key.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-btree-interior-node-key-suffix">
+<dt><code class="docutils literal notranslate"><span class="pre">key_suffix[i]</span></code></dt><dd><p>Relative key for the entry, excluding the common prefix with the previous
+key.  For the first key, the entire key is stored.  Note that the
+suffixes for all keys are concatenated in the encoded representation.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-btree-interior-node-data-file-id">
+<dt><code class="docutils literal notranslate"><span class="pre">data_file_id[i]</span></code></dt><dd><p>Specifies the data file containing the encoded child B+tree node.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-btree-interior-node-data-file-offset">
+<dt><code class="docutils literal notranslate"><span class="pre">data_file_offset[i]</span></code></dt><dd><p>Specifies the starting byte offset within <code class="docutils literal notranslate"><span class="pre">data_file_id[i]</span></code> of the
+encoded child B+tree node.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-btree-interior-node-data-file-length">
+<dt><code class="docutils literal notranslate"><span class="pre">data_file_length[i]</span></code></dt><dd><p>Specifies the byte length within <code class="docutils literal notranslate"><span class="pre">data_file_id[i]</span></code> of the encoded child
+B+tree node.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-btree-interior-node-num-keys">
+<dt><code class="docutils literal notranslate"><span class="pre">num_keys[i]</span></code></dt><dd><p>Specifies the total number of (leaf-node) keys within the subtree rooted
+at the child node.  Note that if there is more than one path from the
+child node to a given leaf node, the leaf node’s keys are counted more
+than once.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-btree-interior-node-num-tree-bytes">
+<dt><code class="docutils literal notranslate"><span class="pre">num_tree_bytes[i]</span></code></dt><dd><p>Specifies the total encoded size in bytes of all B+tree nodes reachable
+from the child, including the child itself.  A given node is counted once
+for each unique path within the tree to it; if there is more than one
+path to a node, its size is counted multiple times.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-btree-interior-node-num-indirect-value-bytes">
+<dt><code class="docutils literal notranslate"><span class="pre">num_indirect_value_bytes[i]</span></code></dt><dd><p>Specifies the total size in bytes of all indirectly-stored values in the
+subtree rooted at the child node.  If the same stored value is referenced
+from multiple keys, its size is counted multiple times.</p>
+</dd>
+</dl>
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+        </div>
+        
+          <a href="#" class="md-top md-icon" data-md-component="top" hidden>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12Z"/></svg>
+            Back to top
+          </a>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+    <nav class="md-footer__inner md-grid" aria-label="Footer" >
+      
+        
+        <a href="../neuroglancer_uint64_sharded/index.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: neuroglancer_uint64_sharded Key-Value Store driver" rel="prev">
+          <div class="md-footer__button md-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+          </div>
+          <div class="md-footer__title">
+            <div class="md-ellipsis">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              neuroglancer_uint64_sharded Key-Value Store driver
+            </div>
+          </div>
+        </a>
+      
+      
+    </nav>
+  
+  
+  
+  <div class="md-footer-meta md-typeset">
+    
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.expand", "navigation.sections", "navigation.top", "toc.follow", "toc.sticky"], "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "Search", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version.title": "Select version"}}</script>
+    
+      
+        <script src="../../_static/sphinx_immaterial_theme.cea6a0c1d5b0618cf.min.js"></script>
+    
+  </body>
+</html>
