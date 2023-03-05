@@ -1659,7 +1659,7 @@ compatibility with NumPy, but are rarely useful.</p>
 <h3 id="differences-compared-to-numpy-indexing"><span id="python-indexing-numpy-comparison"></span>Differences compared to NumPy indexing<a class="headerlink" href="#differences-compared-to-numpy-indexing" title="Permalink to this heading">¶</a></h3>
 <p>TensorStore indexing has near-perfect compatibility with NumPy, but
 there are a few differences to be aware of:</p>
-<ul class="simple">
+<ul>
 <li><p>Negative indices have no special meaning in TensorStore, and simply
 refer to negative positions.  TensorStore does not support an
 equivalent shortcut syntax to specify a position <code class="docutils literal notranslate"><span class="pre">n</span></code> relative to
@@ -1668,6 +1668,42 @@ explicitly, e.g. <code class="code highlight python docutils literal highlight-p
 <li><p>In TensorStore, out-of-bounds intervals specified by a <a class="reference external" href="https://docs.python.org/3/library/functions.html#slice" title="(in Python v3.11)"><code class="xref any docutils literal notranslate"><span class="pre">slice</span></code></a>
 result in an error.  In NumPy, out-of-bounds indices specified by a
 <a class="reference external" href="https://docs.python.org/3/library/functions.html#slice" title="(in Python v3.11)"><code class="xref any docutils literal notranslate"><span class="pre">slice</span></code></a> are silently truncated.</p></li>
+<li><p>In TensorStore, indexing a dimension with a <a class="reference external" href="https://docs.python.org/3/library/functions.html#slice" title="(in Python v3.11)"><code class="xref any docutils literal notranslate"><span class="pre">slice</span></code></a> (with
+<code class="code highlight python docutils literal highlight-python"><span class="n">step</span></code> of <code class="code highlight python docutils literal highlight-python"><span class="mi">1</span></code> or <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><code class="xref any docutils literal notranslate"><span class="pre">None</span></code></a>) restricts the domain of that
+dimension but does not translate its origin such that the new lower
+bound is 0. In contrast, NumPy does not support non-zero origins and
+therefore <a class="reference external" href="https://docs.python.org/3/library/functions.html#slice" title="(in Python v3.11)"><code class="xref any docutils literal notranslate"><span class="pre">slice</span></code></a> operations always result in the lower bound being
+translated to <code class="code highlight python docutils literal highlight-python"><span class="mi">0</span></code> in NumPy.</p>
+<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">y</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">2</span><span class="p">:]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">y</span><span class="p">[:</span><span class="mi">4</span><span class="p">]</span>  <span class="c1"># still excludes the first two elements</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [2, 3],</span>
+<span class="go">  &#39;context&#39;: {&#39;data_copy_concurrency&#39;: {}},</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int64&#39;,</span>
+<span class="go">  &#39;transform&#39;: {</span>
+<span class="go">    &#39;input_exclusive_max&#39;: [4],</span>
+<span class="go">    &#39;input_inclusive_min&#39;: [2],</span>
+<span class="go">    &#39;output&#39;: [{&#39;input_dimension&#39;: 0, &#39;offset&#39;: -2}],</span>
+<span class="go">  },</span>
+<span class="go">})</span>
+</code></pre></div>
+</div>
+<p>To obtain the behavior of NumPy, the dimensions can be explicitly
+translated to have an origin of <code class="code highlight python docutils literal highlight-python"><span class="mi">0</span></code>:</p>
+<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">z</span> <span class="o">=</span> <span class="n">y</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[:]</span><span class="o">.</span><span class="n">translate_to</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">z</span><span class="p">[:</span><span class="mi">4</span><span class="p">]</span>  <span class="c1"># relative to the new origin</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [2, 3, 4, 5],</span>
+<span class="go">  &#39;context&#39;: {&#39;data_copy_concurrency&#39;: {}},</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int64&#39;,</span>
+<span class="go">  &#39;transform&#39;: {&#39;input_exclusive_max&#39;: [4], &#39;input_inclusive_min&#39;: [0]},</span>
+<span class="go">})</span>
+</code></pre></div>
+</div>
+</li>
 <li><p>To specify a sequence of indexing terms when using the syntax
 <code class="code highlight python docutils literal highlight-python"><span class="n">obj</span><span class="p">[</span><span class="n">expr</span><span class="p">]</span></code> in TensorStore, <code class="code highlight python docutils literal highlight-python"><span class="n">expr</span></code> must be a <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)"><code class="xref any docutils literal notranslate"><span class="pre">tuple</span></code></a>. In
 NumPy, for compatibility with its predecessor library <em>Numeric</em>, if
