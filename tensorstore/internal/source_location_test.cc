@@ -21,15 +21,17 @@ namespace {
 using ::tensorstore::SourceLocation;
 
 std::uint64_t TakesSourceLocation(
-    SourceLocation loc TENSORSTORE_LOC_CURRENT_DEFAULT_ARG) {
+    SourceLocation loc = tensorstore::SourceLocation::current()) {
   return loc.line();
 }
 
 TEST(SourceLocationTest, Basic) {
-  constexpr tensorstore::SourceLocation loc = TENSORSTORE_LOC;
+  constexpr tensorstore::SourceLocation loc =
+      tensorstore::SourceLocation::current();
   EXPECT_NE(0, loc.line());
+  EXPECT_NE(1, loc.line());
 
-  EXPECT_NE(0, TakesSourceLocation(TENSORSTORE_LOC));
+  EXPECT_NE(1, TakesSourceLocation(tensorstore::SourceLocation::current()));
 }
 
 }  // namespace

@@ -20,8 +20,6 @@
 #include <type_traits>
 #include <utility>
 
-#include "absl/base/attributes.h"
-#include "absl/base/optimization.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
 #include "tensorstore/internal/preprocessor/expand.h"
@@ -29,6 +27,12 @@
 #include "tensorstore/internal/type_traits.h"
 
 namespace tensorstore {
+
+/// Add a source location to the status.
+void MaybeAddSourceLocation(
+    absl::Status& status,
+    SourceLocation loc = tensorstore::SourceLocation::current());
+
 namespace internal {
 
 absl::Status MaybeAnnotateStatusImpl(absl::Status source,
@@ -42,23 +46,19 @@ absl::Status MaybeAnnotateStatusImpl(absl::Status source,
 /// If status is not `absl::StatusCode::kOk`, then converts the status code.
 inline absl::Status MaybeConvertStatusTo(
     absl::Status status, absl::StatusCode code,
-    SourceLocation loc TENSORSTORE_LOC_CURRENT_DEFAULT_ARG) {
-  if (status.code() == code) return status;
+    SourceLocation loc = tensorstore::SourceLocation::current()) {
+  if (status.code() == code) {
+    MaybeAddSourceLocation(status, loc);
+    return status;
+  }
   return MaybeAnnotateStatusImpl(std::move(status), {}, code, loc);
 }
-#if !TENSORSTORE_HAVE_SOURCE_LOCATION_CURRENT
-inline absl::Status MaybeConvertStatusTo(absl::Status status,
-                                         absl::StatusCode code) {
-  if (status.code() == code) return status;
-  return MaybeAnnotateStatusImpl(std::move(status), {}, code, std::nullopt);
-}
-#endif
 
 /// Converts `kInvalidArgument` and `kOutOfRange` errors to
 /// `kFailedPrecondition` errors.
 inline absl::Status ConvertInvalidArgumentToFailedPrecondition(
     absl::Status status,
-    SourceLocation loc TENSORSTORE_LOC_CURRENT_DEFAULT_ARG) {
+    SourceLocation loc = tensorstore::SourceLocation::current()) {
   if (status.code() == absl::StatusCode::kInvalidArgument ||
       status.code() == absl::StatusCode::kOutOfRange) {
     return MaybeAnnotateStatusImpl(std::move(status), {},
@@ -66,18 +66,6 @@ inline absl::Status ConvertInvalidArgumentToFailedPrecondition(
   }
   return status;
 }
-#if !TENSORSTORE_HAVE_SOURCE_LOCATION_CURRENT
-inline absl::Status ConvertInvalidArgumentToFailedPrecondition(
-    absl::Status status) {
-  if (status.code() == absl::StatusCode::kInvalidArgument ||
-      status.code() == absl::StatusCode::kOutOfRange) {
-    return MaybeAnnotateStatusImpl(std::move(status), {},
-                                   absl::StatusCode::kFailedPrecondition,
-                                   std::nullopt);
-  }
-  return status;
-}
-#endif
 
 /// Returns `f(args...)`, converting a `void` return to `absl::Status`.
 template <typename F, typename... Args>
@@ -103,22 +91,16 @@ std::optional<std::string> AddStatusPayload(absl::Status& status,
                                             absl::string_view prefix,
                                             absl::Cord value);
 
-/// If status is not `absl::StatusCode::kOk`, then annotate the status message.
+/// If status is not `absl::StatusCode::kOk`, then annotate the status
+/// message.
 ///
 /// \ingroup error handling
 inline absl::Status MaybeAnnotateStatus(
     absl::Status source, std::string_view message,
-    SourceLocation loc TENSORSTORE_LOC_CURRENT_DEFAULT_ARG) {
+    SourceLocation loc = tensorstore::SourceLocation::current()) {
   return internal::MaybeAnnotateStatusImpl(std::move(source), message,
                                            std::nullopt, loc);
 }
-#if !TENSORSTORE_HAVE_SOURCE_LOCATION_CURRENT
-inline absl::Status MaybeAnnotateStatus(absl::Status source,
-                                        std::string_view message) {
-  return internal::MaybeAnnotateStatusImpl(std::move(source), message,
-                                           std::nullopt, std::nullopt);
-}
-#endif
 
 /// Overload for the case of a bare absl::Status argument.
 ///
@@ -185,15 +167,15 @@ inline absl::Status GetStatus(absl::Status&& status) {
 ///    ``TENSORSTORE_CHECK_OK(foo<1,2>())``.
 ///
 /// \ingroup error handling
-#define TENSORSTORE_CHECK_OK(...)                                            \
-  do {                                                                       \
-    [](const ::absl::Status& tensorstore_check_ok_condition) {               \
-      if (ABSL_PREDICT_FALSE(!tensorstore_check_ok_condition.ok())) {        \
-        ::tensorstore::internal::FatalStatus("Status not ok: " #__VA_ARGS__, \
-                                             tensorstore_check_ok_condition, \
-                                             TENSORSTORE_LOC);               \
-      }                                                                      \
-    }(::tensorstore::GetStatus((__VA_ARGS__)));                              \
+#define TENSORSTORE_CHECK_OK(...)                                           \
+  do {                                                                      \
+    [](const ::absl::Status& tensorstore_check_ok_condition) {              \
+      if (ABSL_PREDICT_FALSE(!tensorstore_check_ok_condition.ok())) {       \
+        ::tensorstore::internal::FatalStatus(                               \
+            "Status not ok: " #__VA_ARGS__, tensorstore_check_ok_condition, \
+            tensorstore::SourceLocation::current());                        \
+      }                                                                     \
+    }(::tensorstore::GetStatus((__VA_ARGS__)));                             \
   } while (false)
 // We use a lambda in the definition above to ensure that all uses of the
 // condition argument occurs within a single top-level expression.  This ensures

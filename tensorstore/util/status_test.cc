@@ -14,15 +14,15 @@
 
 #include "tensorstore/util/status.h"
 
-#include <system_error>
-
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace {
 
+using ::tensorstore::MatchesStatus;
 using ::tensorstore::MaybeAnnotateStatus;
 using ::tensorstore::internal::InvokeForStatus;
 using ::tensorstore::internal::MaybeAnnotateStatusImpl;
@@ -36,72 +36,73 @@ TEST(StatusTest, StrCat) {
 
 TEST(StatusTest, MaybeAnnotateStatusImpl) {
   // Just change the code.
-  EXPECT_EQ(
-      MaybeAnnotateStatusImpl(absl::UnknownError("Boo"), {},
-                              absl::StatusCode::kInternal, TENSORSTORE_LOC),
-      absl::InternalError("Boo"));
+  EXPECT_THAT(MaybeAnnotateStatusImpl(absl::UnknownError("Boo"), {},
+                                      absl::StatusCode::kInternal,
+                                      tensorstore::SourceLocation::current()),
+              MatchesStatus(absl::StatusCode::kInternal, "Boo"));
 
   // Just change the message.
-  EXPECT_EQ(MaybeAnnotateStatusImpl(absl::UnknownError("Boo"), "Annotated", {},
-                                    TENSORSTORE_LOC),
-            absl::UnknownError("Annotated: Boo"));
+  EXPECT_THAT(
+      MaybeAnnotateStatusImpl(absl::UnknownError("Boo"), "Annotated", {},
+                              tensorstore::SourceLocation::current()),
+      MatchesStatus(absl::StatusCode::kUnknown, "Annotated: Boo"));
 
   // Change both code and message
-  EXPECT_EQ(
-      MaybeAnnotateStatusImpl(absl::UnknownError("Boo"), "Annotated",
-                              absl::StatusCode::kInternal, TENSORSTORE_LOC),
-      absl::InternalError("Annotated: Boo"));
+  EXPECT_THAT(MaybeAnnotateStatusImpl(absl::UnknownError("Boo"), "Annotated",
+                                      absl::StatusCode::kInternal,
+                                      tensorstore::SourceLocation::current()),
+              MatchesStatus(absl::StatusCode::kInternal, "Annotated: Boo"));
 }
 
 TEST(StatusTest, MaybeAnnotateStatus) {
-  EXPECT_EQ(absl::OkStatus(),  //
-            MaybeAnnotateStatus(absl::OkStatus(), "Annotated"));
+  EXPECT_THAT(MaybeAnnotateStatus(absl::OkStatus(), "Annotated"),
+              tensorstore::IsOk());
 
-  EXPECT_EQ(
-      absl::OkStatus(),  //
-      MaybeAnnotateStatus(absl::OkStatus(), "Annotated", TENSORSTORE_LOC));
+  EXPECT_THAT(MaybeAnnotateStatus(absl::OkStatus(), "Annotated",
+                                  tensorstore::SourceLocation::current()),
+              ::tensorstore::IsOk());
 
   auto bar_status = absl::UnknownError("Bar");
   bar_status.SetPayload("a", absl::Cord("b"));
   auto status = MaybeAnnotateStatus(bar_status, "Annotated");
   EXPECT_TRUE(status.GetPayload("a").has_value());
 
-  // EXEPCT_EQ also verifies status.payloads.
-  auto expected = absl::UnknownError("Annotated: Bar");
-  expected.SetPayload("a", absl::Cord("b"));
-  EXPECT_EQ(expected, status);
+  EXPECT_THAT(status,
+              MatchesStatus(absl::StatusCode::kUnknown, "Annotated: Bar"));
+  EXPECT_THAT(tensorstore::StrCat(status), testing::HasSubstr("a='b'"));
 }
 
 TEST(StatusTest, MaybeConvertStatusTo) {
   EXPECT_EQ(absl::OkStatus(),  //
             MaybeConvertStatusTo(absl::OkStatus(),
                                  absl::StatusCode::kDeadlineExceeded));
-  EXPECT_EQ(absl::InternalError("Boo"),  //
-            MaybeConvertStatusTo(absl::UnknownError("Boo"),
-                                 absl::StatusCode::kInternal));
+  EXPECT_THAT(MaybeConvertStatusTo(absl::UnknownError("Boo"),
+                                   absl::StatusCode::kInternal),
+              MatchesStatus(absl::StatusCode::kInternal, "Boo"));
 }
 
 TEST(StatusTest, InvokeForStatus) {
   int count = 0;
 
   auto a = [&](int i) { count += i; };
-  EXPECT_EQ(absl::OkStatus(), InvokeForStatus(a, 1));
+  EXPECT_THAT(InvokeForStatus(a, 1), ::tensorstore::IsOk());
   EXPECT_EQ(1, count);
 
   auto b = [&](int i, absl::Status s) {
     count += i;
     return s;
   };
-  EXPECT_EQ(absl::OkStatus(), InvokeForStatus(b, 2, absl::OkStatus()));
+  EXPECT_THAT(InvokeForStatus(b, 2, absl::OkStatus()), ::tensorstore::IsOk());
   EXPECT_EQ(3, count);
 
-  EXPECT_EQ(absl::UnknownError("A"),
-            InvokeForStatus(b, 4, absl::UnknownError("A")));
+  EXPECT_THAT(InvokeForStatus(b, 4, absl::UnknownError("A")),
+              MatchesStatus(absl::StatusCode::kUnknown, "A"));
+
   EXPECT_EQ(7, count);
 
   auto c = [](int& i, int j) { i += j; };
-  EXPECT_EQ(absl::OkStatus(),
-            InvokeForStatus(std::move(c), std::ref(count), 8));
+  EXPECT_THAT(InvokeForStatus(std::move(c), std::ref(count), 8),
+              ::tensorstore::IsOk());
   EXPECT_EQ(15, count);
 }
 
@@ -110,9 +111,12 @@ TEST(StatusTest, ReturnIfError) {
     TENSORSTORE_RETURN_IF_ERROR(s);
     return absl::UnknownError("No error");
   };
-  EXPECT_EQ(absl::UnknownError("No error"), Helper(absl::Status()));
-  EXPECT_EQ(absl::UnknownError("Got error"),
-            Helper(absl::UnknownError("Got error")));
+
+  EXPECT_THAT(Helper(absl::Status()),
+              MatchesStatus(absl::StatusCode::kUnknown, "No error"));
+
+  EXPECT_THAT(Helper(absl::UnknownError("Got error")),
+              MatchesStatus(absl::StatusCode::kUnknown, "Got error"));
 }
 
 TEST(StatusTest, ReturnIfErrorAnnotate) {
@@ -120,9 +124,11 @@ TEST(StatusTest, ReturnIfErrorAnnotate) {
     TENSORSTORE_RETURN_IF_ERROR(s, MaybeAnnotateStatus(_, "Annotated"));
     return absl::UnknownError("No error");
   };
-  EXPECT_EQ(absl::UnknownError("No error"), Helper(absl::Status()));
-  EXPECT_EQ(absl::UnknownError("Annotated: Got error"),
-            Helper(absl::UnknownError("Got error")));
+  EXPECT_THAT(Helper(absl::Status()),
+              MatchesStatus(absl::StatusCode::kUnknown, "No error"));
+  EXPECT_THAT(
+      Helper(absl::UnknownError("Got error")),
+      MatchesStatus(absl::StatusCode::kUnknown, "Annotated: Got error"));
 }
 
 }  // namespace

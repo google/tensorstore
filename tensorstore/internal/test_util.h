@@ -61,10 +61,10 @@ class ScopedCurrentWorkingDirectory {
 };
 
 /// Registers a GoogleTest case dynamically.
-void RegisterGoogleTestCaseDynamically(std::string test_suite_name,
-                                       std::string test_name,
-                                       std::function<void()> test_func,
-                                       SourceLocation loc);
+void RegisterGoogleTestCaseDynamically(
+    std::string test_suite_name, std::string test_name,
+    std::function<void()> test_func,
+    SourceLocation loc = tensorstore::SourceLocation::current());
 
 /// Returns a seed for a random number generator, which will either be obtained
 /// from `env_var` if specified, or randomly generated and logged.

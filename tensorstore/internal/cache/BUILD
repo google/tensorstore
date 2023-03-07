@@ -141,7 +141,6 @@ tensorstore_cc_library(
         "//tensorstore:transaction",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:mutex",
-        "//tensorstore/internal:source_location",
         "//tensorstore/internal:test_util",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:generation",

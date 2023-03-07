@@ -65,8 +65,9 @@ tensorstore_cc_library(
     srcs = ["utils.cc"],
     hdrs = ["utils.h"],
     deps = [
+        "//tensorstore/internal:source_location",
+        "//tensorstore/util:status",
         "@com_github_grpc_grpc//:grpc++",
-        "@com_github_grpc_grpc//:grpc++_public_hdrs",
         "@com_google_absl//absl/status",
     ],
 )

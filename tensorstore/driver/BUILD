@@ -194,7 +194,6 @@ tensorstore_cc_library(
         "//tensorstore/internal:json_gtest",
         "//tensorstore/internal:nditerable_transformed_array",
         "//tensorstore/internal:queue_testutil",
-        "//tensorstore/internal:source_location",
         "//tensorstore/internal:test_util",
         "//tensorstore/util:iterate_over_index_range",
         "//tensorstore/util:status_testutil",

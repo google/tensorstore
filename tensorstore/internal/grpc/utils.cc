@@ -17,6 +17,8 @@
 #include <string>
 
 #include "absl/status/status.h"
+#include "tensorstore/internal/source_location.h"
+#include "tensorstore/util/status.h"
 
 // Verify that the grpc and absl status codes are equivalent.
 
@@ -46,11 +48,12 @@ TENSORSTORE_STATUS_ASSERT(UNAUTHENTICATED, kUnauthenticated);
 namespace tensorstore {
 namespace internal {
 
-absl::Status GrpcStatusToAbslStatus(grpc::Status s) {
+absl::Status GrpcStatusToAbslStatus(grpc::Status s, SourceLocation loc) {
   if (s.ok()) return absl::OkStatus();
-
   auto absl_code = static_cast<absl::StatusCode>(s.error_code());
-  return absl::Status(absl_code, s.error_message());
+  absl::Status status(absl_code, s.error_message());
+  MaybeAddSourceLocation(status, loc);
+  return status;
 }
 
 grpc::Status AbslStatusToGrpcStatus(const absl::Status& status) {

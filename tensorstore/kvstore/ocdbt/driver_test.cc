@@ -208,8 +208,7 @@ TENSORSTORE_GLOBAL_INITIALIZER {
                         .result());
                 tensorstore::internal::TestKeyValueStoreBasicFunctionality(
                     store);
-              },
-              TENSORSTORE_LOC);
+              });
         }
       }
     }

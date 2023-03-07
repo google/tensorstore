@@ -199,6 +199,8 @@ tensorstore_cc_library(
         "//tensorstore/internal:json_registry",
         "//tensorstore/internal:no_destructor",
         "//tensorstore/internal:path",
+        "//tensorstore/internal:source_location",
+        "//tensorstore/internal:tagged_ptr",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/internal/metrics",

@@ -18,12 +18,14 @@
 #include <grpcpp/support/status.h>
 
 #include "absl/status/status.h"
+#include "tensorstore/internal/source_location.h"
 
 namespace tensorstore {
 namespace internal {
 
 /// Converts a grpc::Status to an absl::Status
-absl::Status GrpcStatusToAbslStatus(grpc::Status s);
+absl::Status GrpcStatusToAbslStatus(
+    grpc::Status s, SourceLocation loc = SourceLocation::current());
 
 /// Converts an absl::Status to a grpc::Status
 grpc::Status AbslStatusToGrpcStatus(const absl::Status& status);

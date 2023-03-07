@@ -279,7 +279,6 @@ tensorstore_cc_library(
     deps = [
         ":proto_util",
         "//tensorstore/internal:source_location",
-        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/strings",
     ],

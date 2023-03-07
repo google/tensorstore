@@ -23,7 +23,6 @@
 #include "absl/strings/str_join.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/proto/proto_util.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 
@@ -35,12 +34,13 @@ namespace tensorstore {
 ///
 class ParseTextProtoOrDie {
  public:
-  ParseTextProtoOrDie(std::string text_proto,
-                      SourceLocation loc TENSORSTORE_LOC_CURRENT_DEFAULT_ARG)
+  ParseTextProtoOrDie(
+      std::string text_proto,
+      SourceLocation loc = tensorstore::SourceLocation::current())
       : text_proto_(std::move(text_proto)), loc_(std::move(loc)) {}
 
   template <class T>
-  operator T() {
+  T As() {
     T message;
     std::vector<std::string> errors;
 
@@ -50,6 +50,11 @@ class ParseTextProtoOrDie {
           << text_proto_ << "\nWith errors: " << absl::StrJoin(errors, "\n");
     }
     return message;
+  }
+
+  template <class T>
+  operator T() {
+    return this->template As<T>();
   }
 
  private:

@@ -30,6 +30,27 @@
 #include "tensorstore/internal/source_location.h"
 
 namespace tensorstore {
+
+void MaybeAddSourceLocation(absl::Status& status, SourceLocation loc) {
+  constexpr const char kSourceLocationKey[] = "source locations";
+#if TENSORSTORE_HAVE_SOURCE_LOCATION_CURRENT
+  if (loc.line() <= 1) return;
+  std::string_view filename(loc.file_name());
+  if (auto idx = filename.find("tensorstore"); idx != std::string::npos) {
+    filename.remove_prefix(idx);
+  }
+
+  auto payload = status.GetPayload(kSourceLocationKey);
+  if (!payload.has_value()) {
+    status.SetPayload(kSourceLocationKey, absl::Cord(absl::StrFormat(
+                                              "%s:%d", filename, loc.line())));
+  } else {
+    payload->Append(absl::StrFormat(",%s:%d", filename, loc.line()));
+    status.SetPayload(kSourceLocationKey, std::move(*payload));
+  }
+#endif
+}
+
 namespace internal {
 
 absl::Status MaybeAnnotateStatusImpl(absl::Status source,
@@ -57,13 +78,9 @@ absl::Status MaybeAnnotateStatusImpl(absl::Status source,
   source.ForEachPayload([&](absl::string_view name, const absl::Cord& value) {
     dest.SetPayload(name, value);
   });
-
-  /// TODO: Consider adding the source locations to the status,
-  /// however if we do, it may cause some tests to fail by changing the
-  /// status.ToString() output.
-  //  dest.SetPayload(
-  //      absl::StrFormat("loc/%02d", count + 1),
-  //      absl::Cord(absl::StrFormat("%s:%d", loc.file_name(), loc.line())));
+  if (loc) {
+    MaybeAddSourceLocation(dest, *loc);
+  }
   return dest;
 }
 

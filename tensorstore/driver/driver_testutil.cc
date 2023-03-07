@@ -29,7 +29,6 @@
 #include "tensorstore/internal/data_type_random_generator.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/nditerable_transformed_array.h"
-#include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/test_util.h"
 #include "tensorstore/open.h"
 #include "tensorstore/tensorstore.h"
@@ -140,8 +139,7 @@ void RegisterTensorStoreDriverSpecRoundtripTest(
     internal::RegisterGoogleTestCaseDynamically(
         "TensorStoreDriverSpecRoundtripTest",
         tensorstore::StrCat(options.test_name, "/transaction_mode=", mode),
-        [=] { TestTensorStoreDriverSpecRoundtrip(options, mode); },
-        TENSORSTORE_LOC);
+        [=] { TestTensorStoreDriverSpecRoundtrip(options, mode); });
   };
   RegisterVariant(no_transaction);
   for (auto transaction_mode : options.supported_transaction_modes) {
@@ -621,8 +619,7 @@ void RegisterTensorStoreDriverBasicFunctionalityTest(
               "TENSORSTORE_INTERNAL_DRIVER_BASIC_FUNCTIONALITY")};
           DriverRandomOperationTester tester(gen, std::move(options));
           tester.TestBasicFunctionality(mode, num_iterations);
-        },
-        TENSORSTORE_LOC);
+        });
   };
   RegisterVariant(no_transaction, 20);
   for (auto transaction_mode : options.supported_transaction_modes) {
@@ -643,8 +640,7 @@ void RegisterTensorStoreDriverBasicFunctionalityTest(
             DriverRandomOperationTester tester(gen, std::move(options));
             tester.TestMultiTransactionWrite(transaction_mode, num_transactions,
                                              num_iterations, use_random_values);
-          },
-          TENSORSTORE_LOC);
+          });
     };
     RegisterMultiTransaction(/*num_transactions=*/2, /*num_iterations=*/3,
                              /*use_random_values=*/false);
@@ -780,7 +776,7 @@ void RegisterTensorStoreDriverResizeTest(
     internal::RegisterGoogleTestCaseDynamically(
         "TensorStoreDriverResizeTest",
         tensorstore::StrCat(options.test_name, "/transaction_mode=", mode),
-        [=] { TestMetadataOnlyResize(options, mode); }, TENSORSTORE_LOC);
+        [=] { TestMetadataOnlyResize(options, mode); });
   };
   RegisterVariant(no_transaction);
   for (auto transaction_mode : options.supported_transaction_modes) {

@@ -47,7 +47,6 @@
 #include "absl/status/status.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 

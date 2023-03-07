@@ -84,12 +84,20 @@
 /// operations.  This makes it possible for subsequent `ReadModifyWrite`
 /// operations to efficiently take into account the current modified state.
 
+#include <atomic>
+#include <string>
+
+#include "absl/status/status.h"
+#include "absl/synchronization/mutex.h"
+#include "absl/time/time.h"
 #include "tensorstore/internal/intrusive_red_black_tree.h"
+#include "tensorstore/internal/source_location.h"
+#include "tensorstore/internal/tagged_ptr.h"
 #include "tensorstore/kvstore/read_modify_write.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/transaction.h"
-#include "tensorstore/util/quote_string.h"
+#include "tensorstore/util/quote_string.h"  // IWYU pragma: keep
 
 namespace tensorstore {
 namespace internal_kvstore {
@@ -672,10 +680,10 @@ Future<TimestampedStorageGeneration> WriteViaTransaction(
 ///
 ///     MutationEntry &entry = ...;
 ///     TENSORSTORE_KVSTORE_DEBUG_LOG(entry, "Information", to, "include");
-#define TENSORSTORE_KVSTORE_DEBUG_LOG(...)                          \
-  do {                                                              \
-    tensorstore::internal_kvstore::KvstoreDebugLog(TENSORSTORE_LOC, \
-                                                   __VA_ARGS__);    \
+#define TENSORSTORE_KVSTORE_DEBUG_LOG(...)                    \
+  do {                                                        \
+    tensorstore::internal_kvstore::KvstoreDebugLog(           \
+        tensorstore::SourceLocation::current(), __VA_ARGS__); \
   } while (false)
 
 template <typename... T>

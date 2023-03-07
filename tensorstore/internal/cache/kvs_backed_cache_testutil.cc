@@ -39,9 +39,7 @@
 #include "tensorstore/internal/cache/async_cache.h"
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache/kvs_backed_cache.h"
-#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/mutex.h"
-#include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/test_util.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/generation_testutil.h"
@@ -292,8 +290,7 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
   using ::testing::StrEq;
   auto suite_name = options.test_name + "/KvsBackedCacheBasicTransactionalTest";
   RegisterGoogleTestCaseDynamically(
-      suite_name, "ReadCached",
-      [=] {
+      suite_name, "ReadCached", [=] {
         auto kvstore = options.get_store();
         auto cache = KvsBackedTestCache::Make(kvstore);
         auto get_key = options.get_key_getter();
@@ -327,12 +324,10 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
         EXPECT_THAT(AsyncCache::ReadLock<absl::Cord>(*entry).stamp(),
                     tensorstore::internal::MatchesTimestampedStorageGeneration(
                         read_generation, ::testing::Ge(read_time)));
-      },
-      TENSORSTORE_LOC);
+      });
 
   RegisterGoogleTestCaseDynamically(
-      suite_name, "WriteAfterRead",
-      [=] {
+      suite_name, "WriteAfterRead", [=] {
         auto kvstore = options.get_store();
         auto cache = KvsBackedTestCache::Make(kvstore);
         auto get_key = options.get_key_getter();
@@ -401,12 +396,10 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
                   absl::Cord("ghi"),
                   AsyncCache::ReadLock<absl::Cord>(*entry).stamp().generation));
         }
-      },
-      TENSORSTORE_LOC);
+      });
 
   RegisterGoogleTestCaseDynamically(
-      suite_name, "DecodeErrorDuringRead",
-      [=] {
+      suite_name, "DecodeErrorDuringRead", [=] {
         auto kvstore = options.get_store();
         auto cache = KvsBackedTestCache::Make(kvstore);
         auto get_key = options.get_key_getter();
@@ -436,12 +429,10 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
           EXPECT_THAT(AsyncCache::ReadLock<absl::Cord>(*entry).data(),
                       Pointee(absl::Cord("ccc")));
         }
-      },
-      TENSORSTORE_LOC);
+      });
 
   RegisterGoogleTestCaseDynamically(
-      suite_name, "DecodeErrorDuringWriteback",
-      [=] {
+      suite_name, "DecodeErrorDuringWriteback", [=] {
         auto kvstore = options.get_store();
         auto cache = KvsBackedTestCache::Make(kvstore);
         auto get_key = options.get_key_getter();
@@ -465,12 +456,10 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
                                               ": existing value contains Z")));
         EXPECT_THAT(kvstore->Read(a_key).result(),
                     MatchesKvsReadResult(absl::Cord("Z")));
-      },
-      TENSORSTORE_LOC);
+      });
 
   RegisterGoogleTestCaseDynamically(
-      suite_name, "UnconditionalWriteback",
-      [=] {
+      suite_name, "UnconditionalWriteback", [=] {
         auto kvstore = options.get_store();
         auto cache = KvsBackedTestCache::Make(kvstore);
         auto get_key = options.get_key_getter();
@@ -498,12 +487,10 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
             MatchesKvsReadResult(
                 absl::Cord("def"),
                 AsyncCache::ReadLock<absl::Cord>(*entry).stamp().generation));
-      },
-      TENSORSTORE_LOC);
+      });
 
   RegisterGoogleTestCaseDynamically(
-      suite_name, "BarrierThenUnconditionalWriteback",
-      [=] {
+      suite_name, "BarrierThenUnconditionalWriteback", [=] {
         auto kvstore = options.get_store();
         auto cache = KvsBackedTestCache::Make(kvstore);
         auto get_key = options.get_key_getter();
@@ -532,12 +519,10 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
             MatchesKvsReadResult(
                 absl::Cord("def"),
                 AsyncCache::ReadLock<absl::Cord>(*entry).stamp().generation));
-      },
-      TENSORSTORE_LOC);
+      });
 
   RegisterGoogleTestCaseDynamically(
-      suite_name, "EncodeError",
-      [=] {
+      suite_name, "EncodeError", [=] {
         auto kvstore = options.get_store();
         auto cache = KvsBackedTestCache::Make(kvstore);
         auto get_key = options.get_key_getter();
@@ -569,13 +554,11 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
             MatchesKvsReadResult(
                 absl::Cord("abc"),
                 AsyncCache::ReadLock<absl::Cord>(*entry).stamp().generation));
-      },
-      TENSORSTORE_LOC);
+      });
 
   if (!options.multi_key_atomic_supported) {
     RegisterGoogleTestCaseDynamically(
-        suite_name, "AtomicError",
-        [=] {
+        suite_name, "AtomicError", [=] {
           auto kvstore = options.get_store();
           auto cache = KvsBackedTestCache::Make(kvstore);
           auto get_key = options.get_key_getter();
@@ -610,13 +593,11 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
                         " and read/write ", kvstore->DescribeKey(b_key),
                         " as single atomic transaction")));
           }
-        },
-        TENSORSTORE_LOC);
+        });
   }
 
   RegisterGoogleTestCaseDynamically(
-      suite_name, "TwoNodes",
-      [=] {
+      suite_name, "TwoNodes", [=] {
         auto kvstore = options.get_store();
         auto cache_x = KvsBackedTestCache::Make(kvstore, {}, "x");
         auto cache_y = KvsBackedTestCache::Make(kvstore, {}, "y");
@@ -636,12 +617,10 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
         TENSORSTORE_ASSERT_OK(transaction.CommitAsync());
         EXPECT_THAT(kvstore->Read(a_key).result(),
                     MatchesKvsReadResult(absl::Cord("abcdef")));
-      },
-      TENSORSTORE_LOC);
+      });
 
   RegisterGoogleTestCaseDynamically(
-      suite_name, "ThreeNodes",
-      [=] {
+      suite_name, "ThreeNodes", [=] {
         auto kvstore = options.get_store();
         auto cache_x = KvsBackedTestCache::Make(kvstore, {}, "x");
         auto cache_y = KvsBackedTestCache::Make(kvstore, {}, "y");
@@ -664,12 +643,10 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
         TENSORSTORE_ASSERT_OK(transaction.CommitAsync());
         EXPECT_THAT(kvstore->Read(a_key).result(),
                     MatchesKvsReadResult(absl::Cord("defghi")));
-      },
-      TENSORSTORE_LOC);
+      });
 
   RegisterGoogleTestCaseDynamically(
-      suite_name, "WriteThenClearThenRevokeThenRead",
-      [=] {
+      suite_name, "WriteThenClearThenRevokeThenRead", [=] {
         auto kvstore = options.get_store();
         auto cache_x = KvsBackedTestCache::Make(kvstore, {}, "x");
         auto cache_y = KvsBackedTestCache::Make(kvstore, {}, "y");
@@ -690,13 +667,11 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
                           .result(),
                       ::testing::Optional(absl::Cord()));
         }
-      },
-      TENSORSTORE_LOC);
+      });
 
   if (options.delete_range_supported) {
     RegisterGoogleTestCaseDynamically(
-        suite_name, "WriteThenDeleteRangeThenRead",
-        [=] {
+        suite_name, "WriteThenDeleteRangeThenRead", [=] {
           auto kvstore = options.get_store();
           auto cache_x = KvsBackedTestCache::Make(kvstore, {}, "x");
           auto cache_y = KvsBackedTestCache::Make(kvstore, {}, "y");
@@ -727,13 +702,11 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
                             .result(),
                         ::testing::Optional(absl::Cord()));
           }
-        },
-        TENSORSTORE_LOC);
+        });
   }
 
   RegisterGoogleTestCaseDynamically(
-      suite_name, "RandomOperationTest/SinglePhase",
-      [=] {
+      suite_name, "RandomOperationTest/SinglePhase", [=] {
         std::minstd_rand gen{internal::GetRandomSeedForTest(
             "TENSORSTORE_INTERNAL_KVS_TESTUTIL_SINGLEPHASE")};
 
@@ -744,12 +717,10 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
         }
         tester.barrier_probability = 0;
         tester.PerformRandomActions();
-      },
-      TENSORSTORE_LOC);
+      });
 
   RegisterGoogleTestCaseDynamically(
-      suite_name, "RandomOperationTest/MultiPhase",
-      [=] {
+      suite_name, "RandomOperationTest/MultiPhase", [=] {
         std::minstd_rand gen{internal::GetRandomSeedForTest(
             "TENSORSTORE_INTERNAL_KVS_TESTUTIL_MULTIPHASE")};
 
@@ -759,8 +730,7 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
           tester.write_probability = 1;
         }
         tester.PerformRandomActions();
-      },
-      TENSORSTORE_LOC);
+      });
 }
 
 }  // namespace internal
