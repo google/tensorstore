@@ -65,7 +65,10 @@ cc_library(
             "contrib/optimizations/inffast_chunk.c",
         ],
     }),
-    hdrs = ["zlib.h"],
+    hdrs = [
+        "zconf.h",
+        "zlib.h",
+    ],
     copts = select({
         ":clang_or_gcc_x86_64": [
             "-mssse3",
@@ -77,7 +80,7 @@ cc_library(
         ],
         "//conditions:default": [],
     }),
-    defines = [ "CHROMIUM_ZLIB_NO_CHROMECONF" ],
+    defines = ["CHROMIUM_ZLIB_NO_CHROMECONF"],
     local_defines = ZLIB_LOCAL_DEFINES,
     strip_include_prefix = ".",
     visibility = ["//visibility:public"],
@@ -90,7 +93,7 @@ cc_library(
 cc_library(
     name = "zlib_opt_includes",
     hdrs = glob(["contrib/optimizations/*.h"]),
-    defines = [ "CHROMIUM_ZLIB_NO_CHROMECONF" ],
+    defines = ["CHROMIUM_ZLIB_NO_CHROMECONF"],
     local_defines = ZLIB_LOCAL_DEFINES,
     strip_include_prefix = "contrib/optimizations",
     visibility = ["//visibility:private"],
