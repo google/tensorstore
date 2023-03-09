@@ -127,7 +127,7 @@ struct PendingReadHash {
   }
 };
 
-class CoalesceKvStoreDriver : public kvstore::Driver {
+class CoalesceKvStoreDriver final : public kvstore::Driver {
  public:
   explicit CoalesceKvStoreDriver(kvstore::DriverPtr base, size_t threshold)
       : base_(std::move(base)), threshold_(threshold) {}
@@ -159,7 +159,7 @@ class CoalesceKvStoreDriver : public kvstore::Driver {
   }
 
   void ListImpl(ListOptions options,
-                AnyFlowReceiver<absl::Status, Key> receiver) {
+                AnyFlowReceiver<absl::Status, Key> receiver) override {
     return base_->ListImpl(std::move(options), std::move(receiver));
   }
 

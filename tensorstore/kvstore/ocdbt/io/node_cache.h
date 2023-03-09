@@ -76,7 +76,7 @@ class DecodedIndirectDataCache
         return;
       }
       GetOwningCache(*this).executor()(
-          [this, value = std::move(*value),
+          [value = std::move(*value),
            receiver = std::move(receiver)]() mutable {
             auto read_data = std::make_shared<T>();
             TENSORSTORE_ASSIGN_OR_RETURN(
