@@ -89,8 +89,11 @@ tensorstore_cc_library(
     testonly = 1,
     hdrs = ["grpc_mock.h"],
     deps = [
+        "@com_github_grpc_grpc//:gpr",
         "@com_github_grpc_grpc//:grpc++",
         "@com_google_absl//absl/log:absl_check",
+        "@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest",
     ],
 )

@@ -71,16 +71,15 @@ tensorstore_cc_library(
 tensorstore_cc_library(
     name = "grpc_kvstore",
     srcs = ["grpc_kvstore.cc"],
-    hdrs = ["grpc_kvstore.h"],
     deps = [
         ":common",
         ":common_cc_proto",
         ":kvstore_cc_grpc",
         ":kvstore_cc_proto",
         "//tensorstore:context",
-        "//tensorstore:json_serialization_options_base",
         "//tensorstore/internal:concurrency_resource",
         "//tensorstore/internal:context_binding",
+        "//tensorstore/internal:data_copy_concurrency_resource",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal/cache_key",
         "//tensorstore/internal/grpc:client_credentials",
@@ -115,11 +114,11 @@ tensorstore_cc_test(
     name = "grpc_kvstore_test",
     srcs = ["grpc_kvstore_test.cc"],
     deps = [
-        ":grpc_kvstore",
+        ":grpc_kvstore",  # build_cleaner: keep
         ":kvstore_cc_grpc",
         ":kvstore_cc_proto",
-        "//tensorstore/internal:concurrent_testutil",
-        "//tensorstore/internal:intrusive_ptr",
+        ":mock_kvstore_service",
+        "//tensorstore/internal/grpc:grpc_mock",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:byte_range",
         "//tensorstore/kvstore:generation",
@@ -134,8 +133,6 @@ tensorstore_cc_test(
         "//tensorstore/util/execution:any_sender",
         "//tensorstore/util/execution:sender_testutil",
         "@com_github_grpc_grpc//:grpc++_public_hdrs",
-        "@com_github_grpc_grpc//:grpc++_test",
-        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/time",
@@ -198,6 +195,20 @@ tensorstore_cc_test(
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/strings:cord",
         "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "mock_kvstore_service",
+    testonly = 1,
+    hdrs = [
+        "mock_kvstore_service.h",
+    ],
+    deps = [
+        ":kvstore_cc_grpc",
+        ":kvstore_cc_proto",
+        "//tensorstore/internal/grpc:grpc_mock",
+        "@com_github_grpc_grpc//:grpc++",
     ],
 )
 

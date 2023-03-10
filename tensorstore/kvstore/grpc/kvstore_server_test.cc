@@ -109,8 +109,12 @@ TEST_F(KvStoreTest, List) {
 
   {
     std::vector<std::string> log;
-    tensorstore::execution::submit(store.driver->List({}),
-                                   tensorstore::LoggingReceiver{&log});
+    absl::Notification notification;
+    tensorstore::execution::submit(
+        store.driver->List({}),
+        tensorstore::CompletionNotifyingReceiver{
+            &notification, tensorstore::LoggingReceiver{&log}});
+    notification.WaitForNotification();
     EXPECT_THAT(log, ::testing::ElementsAre("set_starting", "set_done",
                                             "set_stopping"));
   }
@@ -125,9 +129,13 @@ TEST_F(KvStoreTest, List) {
   // Listing the entire stream works.
   {
     std::vector<std::string> log;
-    tensorstore::execution::submit(store.driver->List({}),
-                                   tensorstore::LoggingReceiver{&log});
+    absl::Notification notification;
+    tensorstore::execution::submit(
+        store.driver->List({}),
+        tensorstore::CompletionNotifyingReceiver{
+            &notification, tensorstore::LoggingReceiver{&log}});
 
+    notification.WaitForNotification();
     EXPECT_THAT(
         log, ::testing::UnorderedElementsAre(
                  "set_starting", "set_value: a/d", "set_value: a/c/z/f",
@@ -138,10 +146,13 @@ TEST_F(KvStoreTest, List) {
   // Listing a subset of the stream works.
   {
     std::vector<std::string> log;
+    absl::Notification notification;
     tensorstore::execution::submit(
         store.driver->List({KeyRange::Prefix("a/c/")}),
-        tensorstore::LoggingReceiver{&log});
+        tensorstore::CompletionNotifyingReceiver{
+            &notification, tensorstore::LoggingReceiver{&log}});
 
+    notification.WaitForNotification();
     EXPECT_THAT(log, ::testing::UnorderedElementsAre(
                          "set_starting", "set_value: a/c/z/f",
                          "set_value: a/c/y", "set_value: a/c/z/e",
@@ -158,9 +169,12 @@ TEST_F(KvStoreTest, List) {
 
   {
     std::vector<std::string> log;
-    tensorstore::execution::submit(store.driver->List({}),
-                                   CancelOnStarting{{&log}});
+    absl::Notification notification;
+    tensorstore::execution::submit(
+        store.driver->List({}), tensorstore::CompletionNotifyingReceiver{
+                                    &notification, CancelOnStarting{{&log}}});
 
+    notification.WaitForNotification();
     EXPECT_THAT(log, ::testing::ElementsAre("set_starting", "set_done",
                                             "set_stopping"));
   }
@@ -185,9 +199,12 @@ TEST_F(KvStoreTest, List) {
 
   {
     std::vector<std::string> log;
+    absl::Notification notification;
     tensorstore::execution::submit(store.driver->List({}),
-                                   CancelAfter2{{&log}});
+                                   tensorstore::CompletionNotifyingReceiver{
+                                       &notification, CancelAfter2{{&log}}});
 
+    notification.WaitForNotification();
     EXPECT_THAT(log,
                 ::testing::ElementsAre(
                     "set_starting",

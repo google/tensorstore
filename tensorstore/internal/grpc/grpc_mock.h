@@ -17,10 +17,13 @@
 
 #include <memory>
 #include <string>
-#include <utility>
 
 #include <gmock/gmock.h>
 #include "absl/log/absl_check.h"
+#include "absl/strings/str_format.h"
+#include "absl/time/time.h"
+#include "grpc/support/log.h"
+#include "grpcpp/completion_queue.h"  // third_party
 #include "grpcpp/create_channel.h"  // third_party
 #include "grpcpp/grpcpp.h"  // third_party
 #include "grpcpp/security/server_credentials.h"  // third_party
@@ -54,6 +57,13 @@ namespace grpc_mocker {
 //
 //  EchoClient client(mock_service.stub());
 //
+// NOTE: Tests using the MockGrpcServer may expose a race condition in gRPC
+// which leads to a crash related to grpc_completion_queue_next, pthrea_join,
+// or CallbackAlternativeCQ.  This can happen when a callback handler releases
+// the last reference to a gRPC channel / stub, which may trigger gRPC to
+// shutdown an internal threadpool, which just happens to be the threadpool
+// the callback uses to run.
+// See: https://github.com/grpc/grpc/pull/32584
 template <typename ServiceImpl>
 class MockGrpcServer {
  public:
@@ -61,20 +71,23 @@ class MockGrpcServer {
   using ServiceStub = typename ServiceType::Stub;
 
   // Initializes the gRPC server with local credentials.
-  MockGrpcServer() : server_(BuildServer()) {
+  MockGrpcServer() {
+    BuildServer();
     ABSL_CHECK(server_);
     stub_ = NewStub();
   }
 
   ~MockGrpcServer() {
-    server_->Shutdown();
+    server_->Shutdown(absl::ToChronoTime(absl::Now()));
     server_->Wait();
   }
 
   // Listening server address.
-  const std::string& server_address() const { return server_address_; }
+  std::string server_address() const {
+    return absl::StrFormat("localhost:%d", port_);
+  }
 
-  // Service accessor; use to sett EXPECT_CALL expectations.
+  // Service accessor; use to set EXPECT_CALL expectations.
   ServiceImpl* service() { return &service_; }
 
   // Provides access to a stub which is connected to the mock server using local
@@ -84,39 +97,57 @@ class MockGrpcServer {
 
   // Creates a stub that communicates with the mock server using local
   // credentials.
-  std::shared_ptr<ServiceStub> NewStub() {
+  std::unique_ptr<ServiceStub> NewStub() {
     return ServiceType::NewStub(::grpc::CreateChannel(
-        server_address_, ::grpc::experimental::LocalCredentials(LOCAL_TCP)));
+        server_address(), ::grpc::experimental::LocalCredentials(LOCAL_TCP)));
+  }
+
+  void Shutdown(absl::Time deadline = absl::InfiniteFuture()) {
+    server_->Shutdown(absl::ToChronoTime(deadline));
   }
 
  private:
   // Setup the gRPC server.
-  std::unique_ptr<::grpc::Server> BuildServer() {
-    int port;
-    auto server =
-        grpc::ServerBuilder{}
-            .AddListeningPort(
-                "[::1]:0",
-                grpc::experimental::LocalServerCredentials(LOCAL_TCP), &port)
-            .RegisterService(&service_)
-            .BuildAndStart();
+  void BuildServer() {
+    gpr_set_log_verbosity(GPR_LOG_SEVERITY_INFO);
 
-    server_address_ = absl::StrFormat("[::1]:%d", port);
-    return server;
+    assert(!server_);
+
+    ::grpc::ServerBuilder builder;
+
+    // Use a single server-side thread and completion queue.
+    builder.SetSyncServerOption(::grpc::ServerBuilder::NUM_CQS, 1)
+        .SetSyncServerOption(::grpc::ServerBuilder::MIN_POLLERS, 1)
+        .SetSyncServerOption(::grpc::ServerBuilder::MAX_POLLERS, 1);
+
+    builder.AddListeningPort(
+        "localhost:0", grpc::experimental::LocalServerCredentials(LOCAL_TCP),
+        &port_);
+    builder.RegisterService(&service_);
+    server_ = builder.BuildAndStart();
   }
 
   ServiceImpl service_;
 
   // Local server addrress.
-  std::string server_address_;
-
-  const std::unique_ptr<::grpc::Server> server_;
+  int port_ = 0;
+  std::unique_ptr<::grpc::Server> server_;
   std::shared_ptr<ServiceStub> stub_;
 };
 
 #define TENSORSTORE_GRPC_MOCK(method, request, response) \
   MOCK_METHOD(::grpc::Status, method,                    \
               (::grpc::ServerContext*, const request*, response*))
+
+#define TENSORSTORE_GRPC_CLIENT_STREAMING_MOCK(method, request, response) \
+  MOCK_METHOD(                                                            \
+      ::grpc::Status, method,                                             \
+      (::grpc::ServerContext*, ::grpc::ServerReader<request>*, response*))
+
+#define TENSORSTORE_GRPC_SERVER_STREAMING_MOCK(method, request, response) \
+  MOCK_METHOD(::grpc::Status, method,                                     \
+              (::grpc::ServerContext*, const request*,                    \
+               ::grpc::ServerWriter<response>*))
 
 }  // namespace grpc_mocker
 }  // namespace tensorstore
