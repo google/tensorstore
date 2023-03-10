@@ -191,6 +191,7 @@ tensorstore_cc_library(
         "//tensorstore/kvstore/ocdbt/non_distributed:write_nodes",
         "//tensorstore/util:bit_vec",
         "//tensorstore/util:division",
+        "//tensorstore/util:executor",
         "//tensorstore/util:future",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",

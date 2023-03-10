@@ -19,6 +19,7 @@
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/ocdbt/distributed/cooperator_impl.h"
 #include "tensorstore/kvstore/ocdbt/non_distributed/create_new_manifest.h"
+#include "tensorstore/util/executor.h"
 
 namespace tensorstore {
 namespace internal_ocdbt_cooperator {
@@ -39,14 +40,18 @@ void GetManifestForWritingFromPeer(
     grpc_gen::GetOrCreateManifestRequest request;
     grpc_gen::GetOrCreateManifestResponse response;
   };
+  auto executor = server->io_handle_->executor;
+
   auto state = internal::MakeIntrusivePtr<RequestState>();
   state->promise = std::move(promise);
   state->server = std::move(server);
   state->lease = std::move(lease);
   auto* state_ptr = state.get();
+
   state_ptr->lease->peer_stub->async()->GetOrCreateManifest(
       &state_ptr->client_context, &state_ptr->request, &state_ptr->response,
-      [state = std::move(state)](::grpc::Status s) {
+      WithExecutor(std::move(executor), [state = std::move(state)](
+                                            ::grpc::Status s) {
         auto status = internal::GrpcStatusToAbslStatus(s);
         if (ShouldRevokeLeaseAndRetryAfterError(status)) {
           StartGetManifestForWriting(std::move(state->promise),
@@ -57,7 +62,7 @@ void GetManifestForWritingFromPeer(
         } else {
           state->promise.SetResult(state->server->clock_());
         }
-      });
+      }));
 }
 
 Future<const absl::Time> GetManifestAvailableFuture(

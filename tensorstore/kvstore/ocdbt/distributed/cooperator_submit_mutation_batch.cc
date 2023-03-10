@@ -186,56 +186,60 @@ struct SubmitMutationBatchOperation
           riegeli::StringWriter{state->request.add_mutations()}));
     }
     state->submit_time = state->server->clock_();
+    auto executor = state->server->io_handle_->executor;
     state_ptr->lease_node->peer_stub->async()->Write(
         &*state_ptr->client_context, &state_ptr->request, &state_ptr->response,
-        [state = std::move(state)](::grpc::Status s) {
-          auto status = internal::GrpcStatusToAbslStatus(s);
-          ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
-              << "[Port=" << state->server->listening_port_
-              << "] SendToPeer: " << state->node_identifier
-              << ", status=" << status;
-          if (!status.ok()) {
-            if (absl::IsUnavailable(status) ||
-                absl::IsFailedPrecondition(status) ||
-                absl::IsCancelled(status)) {
-              QueryLease(std::move(state));
-            } else {
-              state->promise.SetResult(status);
-            }
-            return;
-          }
-          GenerationNumber new_generation = state->response.root_generation();
-          if (!IsValidGenerationNumber(new_generation)) {
-            state->promise.SetResult(absl::InternalError(tensorstore::StrCat(
-                "Invalid root_generation (", new_generation,
-                ") in response from cooperator: ",
-                tensorstore::QuoteString(state->lease_node->peer_address))));
-            return;
-          }
-          BitVec<> conditions(state->batch_request.mutations.size());
-          assert(conditions.size() == state->request.mutations().size());
-          std::string_view response_conditions_matched =
-              state->response.conditions_matched();
-          const size_t expected_conditions_matched_bytes =
-              tensorstore::CeilOfRatio<size_t>(conditions.size(), 8);
-          if (response_conditions_matched.size() !=
-              expected_conditions_matched_bytes) {
-            state->promise.SetResult(absl::InternalError(tensorstore::StrCat(
-                "Invalid conditions_matched response from cooperator ",
-                tensorstore::QuoteString(state->lease_node->peer_address),
-                ": batch_size=", state->batch_request.mutations.size(),
-                ", expected_bytes=", expected_conditions_matched_bytes,
-                ", actual_bytes=", response_conditions_matched.size())));
-            return;
-          }
-          conditions.bit_span().DeepAssign(BitSpan<const unsigned char>(
-              reinterpret_cast<const unsigned char*>(
-                  response_conditions_matched.data()),
-              0, state->batch_request.mutations.size()));
-          state->promise.SetResult(
-              MutationBatchResponse{state->response.root_generation(),
-                                    std::move(conditions), state->submit_time});
-        });
+        WithExecutor(std::move(executor),
+                     [state = std::move(state)](::grpc::Status s) {
+                       OnPeerWriteResponse(std::move(state),
+                                           internal::GrpcStatusToAbslStatus(s));
+                     }));
+  }
+
+  static void OnPeerWriteResponse(Ptr state, absl::Status status) {
+    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+        << "[Port=" << state->server->listening_port_
+        << "] SendToPeer: " << state->node_identifier << ", status=" << status;
+    if (!status.ok()) {
+      if (absl::IsUnavailable(status) || absl::IsFailedPrecondition(status) ||
+          absl::IsCancelled(status)) {
+        QueryLease(std::move(state));
+      } else {
+        state->promise.SetResult(status);
+      }
+      return;
+    }
+    GenerationNumber new_generation = state->response.root_generation();
+    if (!IsValidGenerationNumber(new_generation)) {
+      state->promise.SetResult(absl::InternalError(tensorstore::StrCat(
+          "Invalid root_generation (", new_generation,
+          ") in response from cooperator: ",
+          tensorstore::QuoteString(state->lease_node->peer_address))));
+      return;
+    }
+    BitVec<> conditions(state->batch_request.mutations.size());
+    assert(conditions.size() == state->request.mutations().size());
+    std::string_view response_conditions_matched =
+        state->response.conditions_matched();
+    const size_t expected_conditions_matched_bytes =
+        tensorstore::CeilOfRatio<size_t>(conditions.size(), 8);
+    if (response_conditions_matched.size() !=
+        expected_conditions_matched_bytes) {
+      state->promise.SetResult(absl::InternalError(tensorstore::StrCat(
+          "Invalid conditions_matched response from cooperator ",
+          tensorstore::QuoteString(state->lease_node->peer_address),
+          ": batch_size=", state->batch_request.mutations.size(),
+          ", expected_bytes=", expected_conditions_matched_bytes,
+          ", actual_bytes=", response_conditions_matched.size())));
+      return;
+    }
+    conditions.bit_span().DeepAssign(
+        BitSpan<const unsigned char>(reinterpret_cast<const unsigned char*>(
+                                         response_conditions_matched.data()),
+                                     0, state->batch_request.mutations.size()));
+    state->promise.SetResult(
+        MutationBatchResponse{state->response.root_generation(),
+                              std::move(conditions), state->submit_time});
   }
 };
 
