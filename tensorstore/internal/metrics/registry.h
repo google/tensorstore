@@ -37,8 +37,8 @@ namespace internal_metrics {
 /// that collection happens under lock, limiting collection parallelism.
 class MetricRegistry {
  public:
-  using Metric =
-      poly::Poly<sizeof(void*), /*Copyable=*/true, CollectedMetric() const>;
+  using Metric = poly::Poly<sizeof(void*), /*Copyable=*/true,
+                            std::optional<CollectedMetric>() const>;
 
   /// Add a generic metric to be collected. Metric name must be a path-style
   /// string, must be unique, and must ultimately be a string literal.
@@ -54,7 +54,10 @@ class MetricRegistry {
   void Add(const Collectable* metric) {
     std::shared_ptr<void> hook = RegisterMetricHook(metric);
     AddInternal(
-        metric->metric_name(), [metric] { return metric->Collect(); },
+        metric->metric_name(),
+        [metric]() -> std::optional<CollectedMetric> {
+          return metric->Collect();
+        },
         std::move(hook));
   }
 
