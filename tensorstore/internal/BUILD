@@ -1647,7 +1647,10 @@ tensorstore_cc_library(
     name = "thread",
     srcs = ["thread.cc"],
     hdrs = ["thread.h"],
-    deps = ["@com_google_absl//absl/log:absl_check"],
+    deps = [
+        "@com_google_absl//absl/functional:any_invocable",
+        "@com_google_absl//absl/log:absl_check",
+    ],
 )
 
 tensorstore_cc_test(

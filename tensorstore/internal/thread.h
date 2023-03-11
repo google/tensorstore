@@ -27,7 +27,7 @@ namespace tensorstore {
 namespace internal {
 
 /// Helper functions to set the thread name.
-void TrySetCurrentThreadName(const char *name);
+void TrySetCurrentThreadName(const char* name);
 
 // Tensorstore-specific Thread class to be used instead of std::thread.
 // This exposes a limited subset of the std::thread api.
@@ -36,7 +36,7 @@ class Thread {
   using Id = std::thread::id;
 
   struct Options {
-    const char *name = nullptr;
+    const char* name = nullptr;
   };
 
   Thread() = default;
@@ -44,14 +44,15 @@ class Thread {
   // Creates a joinable thread with a functor (std::function or function
   // pointer) and optional arguments.
   template <class Function, class... Args>
-  explicit Thread(Options options, Function &&f, Args &&...args)
-      : Thread(private_t{}, options, f, args...) {}
+  explicit Thread(Options options, Function&& f, Args&&... args)
+      : Thread(private_t{}, options, std::forward<Function>(f),
+               std::forward<Args>(args)...) {}
 
   // Allow move, disallow copy.
-  Thread(Thread &&other) noexcept = default;
-  Thread &operator=(Thread &&other) = default;
-  Thread(const Thread &other) = delete;
-  Thread &operator=(const Thread &other) = delete;
+  Thread(Thread&& other) noexcept = default;
+  Thread& operator=(Thread&& other) = default;
+  Thread(const Thread& other) = delete;
+  Thread& operator=(const Thread& other) = delete;
 
   ~Thread() { ABSL_CHECK(!thread_.joinable()); }
 
@@ -60,8 +61,10 @@ class Thread {
   // independently of the caller thread. Any resources allocated by
   // StartDetached will be freed once the thread exits.
   template <class Function, class... Args>
-  static void StartDetached(Options options, Function &&f, Args &&...args) {
-    Thread(private_t{}, options, f, args...).thread_.detach();
+  static void StartDetached(Options options, Function&& f, Args&&... args) {
+    Thread(private_t{}, options, std::forward<Function>(f),
+           std::forward<Args>(args)...)
+        .thread_.detach();
   }
 
   // Joins the thread, blocking the current thread until the thread identified
@@ -85,7 +88,7 @@ class Thread {
   // and optional arguments. Used by public constructor and by StartDetached
   // factory method.
   template <class Function, class... Args>
-  Thread(private_t, Options options, Function &&f, Args &&...args)
+  Thread(private_t, Options options, Function&& f, Args&&... args)
       : thread_(
             [name = options.name, fn = std::bind(std::forward<Function>(f),
                                                  std::forward<Args>(args)...)] {
