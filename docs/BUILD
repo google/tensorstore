@@ -37,7 +37,7 @@ genrule(
     name = "generate_logo_rule",
     outs = ["_templates/logo.svg"],
     cmd = "./$(location :generate_logo) $@",
-    exec_tools = [
+    tools = [
         ":generate_logo",
     ],
 )
