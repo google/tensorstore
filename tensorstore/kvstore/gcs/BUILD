@@ -18,15 +18,13 @@ tensorstore_cc_library(
     name = "gcs",
     srcs = [
         "gcs_key_value_store.cc",
-        "gcs_resource.cc",
-        "gcs_resource.h",
         "object_metadata.cc",
     ],
     hdrs = ["object_metadata.h"],
     deps = [
         ":admission_queue",
+        ":gcs_resource",
         ":rate_limiter",
-        ":scaling_rate_limiter",
         ":validate",
         "//tensorstore:context",
         "//tensorstore/internal:concurrency_resource",
@@ -60,8 +58,6 @@ tensorstore_cc_library(
         "//tensorstore/util/execution:any_receiver",
         "//tensorstore/util/garbage_collection",
         "@com_github_nlohmann_json//:nlohmann_json",
-        "@com_google_absl//absl/base",
-        "@com_google_absl//absl/flags:marshalling",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/random",
         "@com_google_absl//absl/status",
@@ -149,6 +145,28 @@ tensorstore_cc_test(
         "//tensorstore/util:executor",
         "@com_google_googletest//:gtest_main",
     ],
+)
+
+tensorstore_cc_library(
+    name = "gcs_resource",
+    srcs = ["gcs_resource.cc"],
+    hdrs = ["gcs_resource.h"],
+    deps = [
+        ":admission_queue",
+        ":rate_limiter",
+        ":scaling_rate_limiter",
+        "//tensorstore:context",
+        "//tensorstore/internal:env",
+        "//tensorstore/internal:retries_context_resource",
+        "//tensorstore/internal/json_binding",
+        "//tensorstore/internal/json_binding:absl_time",
+        "//tensorstore/internal/json_binding:bindable",
+        "@com_google_absl//absl/base",
+        "@com_google_absl//absl/flags:marshalling",
+        "@com_google_absl//absl/log:absl_log",
+        "@com_google_absl//absl/time",
+    ],
+    alwayslink = 1,
 )
 
 tensorstore_cc_library(
