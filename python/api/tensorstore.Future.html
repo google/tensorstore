@@ -1359,6 +1359,28 @@ keyword:</p>
 <a class="reference external" href="https://docs.python.org/3/library/asyncio-future.html#asyncio.Future" title="(in Python v3.11)"><code class="docutils literal notranslate"><span class="pre">asyncio.Future</span></code></a>.  Unlike those types, however,
 <a class="reference internal" href="#" title="tensorstore.Future (Python class) — Handle for consuming the result of an asynchronous operation."><code class="xref py py-class docutils literal notranslate"><span class="pre">Future</span></code></a> provides only the <em>consumer</em> interface.  The corresponding
 <em>producer</em> interface is provided by <a class="reference internal" href="tensorstore.Promise.html" title="tensorstore.Promise (Python class) — Handle for producing the result of an asynchronous operation."><code class="xref py py-class docutils literal notranslate"><span class="pre">Promise</span></code></a>.</p>
+<div class="warning admonition">
+<p class="admonition-title">Warning</p>
+<p>While this class is designed to interoperate with <a class="reference external" href="https://docs.python.org/3/library/asyncio.html#module-asyncio" title="(in Python v3.11)"><code class="xref py py-mod docutils literal notranslate"><span class="pre">asyncio</span></code></a>, it
+cannot be used with functions such as <a class="reference external" href="https://docs.python.org/3/library/asyncio-task.html#asyncio.wait" title="(in Python v3.11)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">asyncio.wait</span></code></a> that require an
+<a class="reference external" href="https://docs.python.org/3/library/asyncio-future.html#asyncio.Future" title="(in Python v3.11)"><code class="docutils literal notranslate"><span class="pre">asyncio.Future</span></code></a>, because <a class="reference internal" href="tensorstore.Future.add_done_callback.html" title="tensorstore.Future.add_done_callback (Python method) — Registers a callback to be invoked upon completion of the asynchronous operation."><code class="xref py py-obj docutils literal notranslate"><span class="pre">add_done_callback</span></code></a> does
+not guarantee that the callback is invoked from the current event loop.  To
+convert to a real <a class="reference external" href="https://docs.python.org/3/library/asyncio-future.html#asyncio.Future" title="(in Python v3.11)"><code class="docutils literal notranslate"><span class="pre">asyncio.Future</span></code></a>, use
+<a class="reference external" href="https://docs.python.org/3/library/asyncio-future.html#asyncio.ensure_future" title="(in Python v3.11)"><code class="docutils literal notranslate"><span class="pre">asyncio.ensure_future</span></code></a>:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">dataset</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">({</span>
+<span class="gp">... </span>    <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;zarr&#39;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="s1">&#39;memory://&#39;</span>
+<span class="gp">... </span><span class="p">},</span>
+<span class="gp">... </span>                        <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">uint32</span><span class="p">,</span>
+<span class="gp">... </span>                        <span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="mi">70</span><span class="p">,</span> <span class="mi">80</span><span class="p">],</span>
+<span class="gp">... </span>                        <span class="n">create</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">wait</span><span class="p">([</span>
+<span class="gp">... </span>    <span class="n">asyncio</span><span class="o">.</span><span class="n">ensure_future</span><span class="p">(</span><span class="n">dataset</span><span class="p">[</span><span class="n">i</span> <span class="o">*</span> <span class="mi">5</span><span class="p">]</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">i</span><span class="p">))</span>
+<span class="gp">... </span>    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+<span class="gp">... </span><span class="p">])</span>
+</code></pre></div>
+</div>
+</div>
 <div class="seealso admonition">
 <p class="admonition-title">See also</p>
 <ul class="simple">
@@ -1377,7 +1399,7 @@ keyword:</p>
 <h2 id="callback-interface">Callback interface<a class="headerlink" href="#callback-interface" title="Permalink to this heading">¶</a></h2>
 <dl class="py method summary objdesc">
 <dt class="sig sig-object highlight py">
-<a class="sig-name descname pseudo-toc-entry reference internal" href="tensorstore.Future.add_done_callback.html" title="tensorstore.Future.add_done_callback (Python method) — Registers a callback to be invoked upon completion of the asynchronous operation."><span class="sig-name descname pseudo-toc-entry"><span class="pre">add_done_callback</span></span></a><span class="sig-paren">(</span><span class="sig-param-decl"><em class="sig-param"><span class="n"><span class="pre">callback</span></span></em></span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a></span></span></span></dt>
+<a class="sig-name descname pseudo-toc-entry reference internal" href="tensorstore.Future.add_done_callback.html" title="tensorstore.Future.add_done_callback (Python method) — Registers a callback to be invoked upon completion of the asynchronous operation."><span class="sig-name descname pseudo-toc-entry"><span class="pre">add_done_callback</span></span></a><span class="sig-paren">(</span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.Future.add_done_callback.html#p-callback" title="tensorstore.Future.add_done_callback.callback (Python parameter) — Callback to invoke with self when this future becomes ready."><span class="n"><span class="pre">callback</span></span></a></em></span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a></span></span></span></dt>
 <dd><p>Registers a callback to be invoked upon completion of the asynchronous operation.</p>
 </dd></dl>
 
