@@ -168,11 +168,21 @@ config_setting(
     },
 )
 
+config_setting(
+    name = "compiler_unknown",
+    flag_values = {
+        "@bazel_tools//tools/cpp:compiler": "compiler",
+    },
+)
+
 selects.config_setting_group(
     name = "compiler_gcc",
     match_any = [
         ":compiler_regular_gcc",
         ":compiler_mingw_gcc",
+        # To workaround https://github.com/bazelbuild/bazel/issues/17794, assume
+        # any unknown compiler is GCC.
+        ":compiler_unknown",
     ],
 )
 
