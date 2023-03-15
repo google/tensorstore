@@ -668,7 +668,9 @@ issue multiple writes concurrently and then wait on all of them jointly:
     ...     dtype=ts.uint32,
     ...     shape=[70, 80],
     ...     create=True)
-    >>> await asyncio.wait([dataset[i * 5].write(i) for i in range(10)])
+    >>> await asyncio.wait([
+    ...     asyncio.ensure_future(dataset[i * 5].write(i)) for i in range(10)
+    ... ])
 
 This can also be accomplished with synchronous blocking:
 

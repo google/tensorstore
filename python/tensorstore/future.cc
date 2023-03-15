@@ -631,6 +631,27 @@ This type supports a subset of the interfaces of
 :py:class:`Future` provides only the *consumer* interface.  The corresponding
 *producer* interface is provided by :py:class:`Promise`.
 
+.. warning::
+
+   While this class is designed to interoperate with :py:mod:`asyncio`, it
+   cannot be used with functions such as :py:obj:`asyncio.wait` that require an
+   :py:class:`python:asyncio.Future`, because :py:obj:`.add_done_callback` does
+   not guarantee that the callback is invoked from the current event loop.  To
+   convert to a real :py:class:`python:asyncio.Future`, use
+   :py:obj:`python:asyncio.ensure_future`:
+
+       >>> dataset = await ts.open({
+       ...     'driver': 'zarr',
+       ...     'kvstore': 'memory://'
+       ... },
+       ...                         dtype=ts.uint32,
+       ...                         shape=[70, 80],
+       ...                         create=True)
+       >>> await asyncio.wait([
+       ...     asyncio.ensure_future(dataset[i * 5].write(i))
+       ...     for i in range(10)
+       ... ])
+
 See also:
   - :py:class:`WriteFutures`
 
@@ -736,6 +757,19 @@ Warning:
       py::arg("callback"),
       R"(
 Registers a callback to be invoked upon completion of the asynchronous operation.
+
+Args:
+  callback: Callback to invoke with :python:`self` when this future becomes
+    ready.
+
+.. warning::
+
+   Unlike :py:obj:`python:asyncio.Future.add_done_callback`, but like
+   :py:obj:`python:concurrent.futures.Future.add_done_callback`, the
+   :py:param:`.callback` may be invoked from any thread.  If using
+   :py:mod:`asyncio` and :py:param:`.callback` needs to be invoked from a
+   particular event loop, wrap :py:param:`.callback` with
+   :py:obj:`python:asyncio.loop.call_soon_threadsafe`.
 
 Group:
   Callback interface

@@ -110,6 +110,9 @@ def execute_doctests_with_temp_dir(filename: str,
 
   prev_line = 0
 
+  loop = asyncio.new_event_loop()
+  asyncio.set_event_loop(loop)
+
   for example in doctest.DocTestParser().parse(orig_text, filename):
     if isinstance(example, str):
       new_text += example
