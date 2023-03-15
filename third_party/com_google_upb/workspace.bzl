@@ -34,9 +34,6 @@ def repo():
             "//third_party:com_google_upb/patches/build.diff",
         ],
         patch_args = ["-p1"],
-        repo_mapping = {
-            "@com_google_googleapis": "",  # Exclude googleapis; within upb it is only needed for test cases.
-        },
         cmake_name = "upb",
         # CMake support in upb is experimental; however we only need upb support for gRPC.
         cmake_enable_system_package = False,

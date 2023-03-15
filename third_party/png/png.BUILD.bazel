@@ -60,7 +60,7 @@ cc_library(
     ],
     linkopts = libpng_linkopts,
     local_defines = libpng_local_defines,
-    strip_include_prefix = "",
+    strip_include_prefix = ".",
     visibility = ["//visibility:public"],
     deps = ["@net_zlib//:zlib"],
 )

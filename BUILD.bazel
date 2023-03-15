@@ -123,7 +123,7 @@ config_setting(
 config_setting(
     name = "compiler_gcc",
     flag_values = {
-        "@bazel_tools//tools/cpp:compiler": "compiler",
+        "@bazel_tools//tools/cpp:compiler": "gcc",
     },
 )
 

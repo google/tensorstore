@@ -25,7 +25,8 @@ from .workspace import Workspace
 
 # See https://cmake.org/cmake/help/latest/variable/CMAKE_LANG_COMPILER_ID.html
 _CMAKE_COMPILER_ID_TO_BAZEL_COMPILER: Dict[str, str] = {
-    "GNU": "compiler",
+    "GNU": "gcc",
+    "AppleClang": "clang",
     "Clang": "clang",
     "MSVC": "msvc-cl",
 }
@@ -81,7 +82,11 @@ def add_platform_constraints(workspace: Workspace) -> None:
   cmake_system_processor = workspace.cmake_vars["CMAKE_SYSTEM_PROCESSOR"]
 
   bazel_compiler = _CMAKE_COMPILER_ID_TO_BAZEL_COMPILER.get(
-      cmake_cxx_compiler_id, "compiler")
+      cmake_cxx_compiler_id)
+  if bazel_compiler is None:
+    raise ValueError(
+        f"Unknown CMAKE_CXX_COMPILER_ID={cmake_cxx_compiler_id}, " +
+        f"known values are {sorted(_CMAKE_COMPILER_ID_TO_BAZEL_COMPILER)}")
 
   workspace.set_persistent_target_info(
       parse_absolute_target("@bazel_tools//tools/cpp:compiler"),

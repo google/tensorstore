@@ -124,7 +124,7 @@ cc_library(
         "jstdhuff.c",  # should have been named .inc
     ],
     copts = LIBJPEGTURBO_COPTS,
-    strip_include_prefix = "",
+    strip_include_prefix = ".",
     visibility = ["//visibility:public"],
     deps = select({
         "@platforms//cpu:x86_64": [":simd_x86_64"],

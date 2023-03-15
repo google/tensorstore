@@ -40,7 +40,7 @@ from .workspace import Workspace
 UPDATE_GOLDENS = (os.getenv('UPDATE_GOLDENS') == '1')
 
 CMAKE_VARS = {
-    'CMAKE_CXX_COMPILER_ID': 'clang',
+    'CMAKE_CXX_COMPILER_ID': 'Clang',
     'CMAKE_SYSTEM_NAME': 'Linux',
     'CMAKE_SYSTEM_PROCESSOR': 'AMD64',
     'CMAKE_COMMAND': 'cmake',

@@ -1,10 +1,6 @@
 # Enable using platform specific build settings
 build --enable_platform_specific_config
 
-# Workaround for building with Redhat devtoolset-9
-# https://github.com/google/tensorstore/issues/2
-build --incompatible_linkopts_to_linklibs
-
 # Ensure the cache is not invalidated by changes to $PATH
 build --incompatible_strict_action_env=true
 

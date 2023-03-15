@@ -17,5 +17,5 @@ cc_library(
         "randtable.c",
     ],
     hdrs = ["bzlib.h"],
-    strip_include_prefix = "",
+    strip_include_prefix = ".",
 )
