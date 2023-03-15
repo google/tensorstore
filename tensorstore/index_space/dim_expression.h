@@ -2015,18 +2015,25 @@ class DimExpression {
   /// \id transform
   template <DimensionIndex InputRank, DimensionIndex OutputRank,
             ContainerKind CKind>
-  Result<NewTransformType<InputRank, OutputRank>> operator()(
-      IndexTransform<InputRank, OutputRank, CKind> transform,
-      DimensionIndexBuffer* selection_output =
-          &internal::GetLValue(DimensionIndexBuffer())) const {
+#ifdef _MSC_VER
+  // Specifying a return type here triggers a bug in MSVC 14.35.32215.
+  // https://developercommunity.visualstudio.com/t/constexpr-evaluation-sometimes-seems-to/10307697
+  auto
+#else
+  Result<NewTransformType<InputRank, OutputRank>>
+#endif
+  operator()(IndexTransform<InputRank, OutputRank, CKind> transform,
+             DimensionIndexBuffer* selection_output =
+                 &internal::GetLValue(DimensionIndexBuffer())) const {
     // NONITPICK: internal
     // NONITPICK: internal::GetLValue
+    using R = Result<NewTransformType<InputRank, OutputRank>>;
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto result,
         DimExpressionHelper::Apply(*this, std::move(transform),
-                                   selection_output, /*domain_only=*/false));
-    return NewTransformType<InputRank, OutputRank>(unchecked,
-                                                   std::move(result));
+                                   selection_output, /*domain_only=*/false),
+        R(_));
+    return R(std::in_place, unchecked, std::move(result));
   }
 
   /// Applies this DimExpression to the specified index domain.
@@ -2040,18 +2047,26 @@ class DimExpression {
   ///     dimension selection or one of the chained operations.
   /// \id domain
   template <DimensionIndex Rank, ContainerKind CKind>
-  Result<NewDomainType<Rank>> operator()(
-      IndexDomain<Rank, CKind> domain,
-      DimensionIndexBuffer* selection_output =
-          &internal::GetLValue(DimensionIndexBuffer())) const {
+#ifdef _MSC_VER
+  // Specifying the return type here triggers a bug in MSVC 14.35.32215.
+  // https://developercommunity.visualstudio.com/t/constexpr-evaluation-sometimes-seems-to/10307697
+  auto
+#else
+  Result<NewDomainType<Rank>>
+#endif
+  operator()(IndexDomain<Rank, CKind> domain,
+             DimensionIndexBuffer* selection_output =
+                 &internal::GetLValue(DimensionIndexBuffer())) const {
     // NONITPICK: internal
     // NONITPICK: internal::GetLValue
+    using R = Result<NewDomainType<Rank>>;
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto result,
         DimExpressionHelper::Apply(*this, Access::transform(std::move(domain)),
-                                   selection_output, /*domain_only=*/true));
-    return Access::Make<NewDomainType<Rank>>(
-        Access::rep_ptr(std::move(result)));
+                                   selection_output, /*domain_only=*/true),
+        R(_));
+    return R(
+        Access::Make<NewDomainType<Rank>>(Access::rep_ptr(std::move(result))));
   }
 
   /// Applies this DimExpression to an object with an associated index space

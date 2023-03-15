@@ -72,28 +72,43 @@ class DimExpressionHelper {
   /// selection was specified, the rank of the dimension selection may or may
   /// not depend on the `input_rank` of the transform.
   ///
-  /// \tparam LastOp the last operation in the sequence.
-  /// \tparam FirstPriorOp the next to last operation in the sequence.
-  /// \tparam PriorOp.... the prior operations in the sequence.
+  /// \tparam Op The operation sequence.
   /// \param input_rank static input rank of the index transform to which the
   ///     DimExpression will be applied, or `dynamic_rank` if it is unknown.
   /// \scheck `input_rank` is compatible with the operation sequence.
   /// \returns The static rank of the dimension selection after applying the
   ///     sequence of operations to an index transform with the specified
   ///     `input_rank`.
-  template <typename LastOp, typename FirstPriorOp, typename... PriorOp>
+  template <typename... Op>
   constexpr static DimensionIndex GetStaticSelectionRank(
       DimensionIndex input_rank) {
-    return LastOp::GetStaticSelectionRank(
-        GetStaticSelectionRank<FirstPriorOp, PriorOp...>(input_rank));
+    DimensionIndex selection_rank = input_rank;
+#ifndef _MSC_VER
+    // The folding expression below evaluates terms in reverse order due to
+    // right-to-left evaluation order of `operator=`.
+    [[maybe_unused]] int dummy = 0;
+    (dummy = ... =
+         (selection_rank = Op::GetStaticSelectionRank(selection_rank), 0));
+    return selection_rank;
+#else
+    // Use recursive implementation to workaround
+    // https://developercommunity.visualstudio.com/t/operator-incorrectly-evaluated-left-to/10307305
+    return GetStaticSelectionRankRecursive<Op...>(selection_rank);
+#endif
   }
 
-  /// Overload for the base case of an empty operation sequence.
-  template <typename DimensionSelection>
-  constexpr static DimensionIndex GetStaticSelectionRank(
+#ifdef _MSC_VER
+  template <typename LastOp, typename... PriorOp>
+  constexpr static DimensionIndex GetStaticSelectionRankRecursive(
       DimensionIndex input_rank) {
-    return DimensionSelection::GetStaticSelectionRank(input_rank);
+    if constexpr (sizeof...(PriorOp) == 0) {
+      return LastOp::GetStaticSelectionRank(input_rank);
+    } else {
+      return LastOp::GetStaticSelectionRank(
+          GetStaticSelectionRankRecursive<PriorOp...>(input_rank));
+    }
   }
+#endif
 
   /// Returns the static rank of the resultant index transform.
   ///
@@ -103,9 +118,36 @@ class DimExpressionHelper {
   template <typename... Op>
   constexpr static DimensionIndex GetNewStaticInputRank(
       DimensionIndex input_rank) {
-    return DimExpressionHelper::GetNewStaticInputRankRecursive<Op...>(
-        input_rank, input_rank);
+    DimensionIndex selection_rank = input_rank;
+#ifndef _MSC_VER
+    // The folding expression below evaluates terms in reverse order due to
+    // right-to-left evaluation order of `operator=`.
+    [[maybe_unused]] int dummy = 0;
+    (dummy = ... =
+         (input_rank = Op::GetNewStaticInputRank(input_rank, selection_rank),
+          selection_rank = Op::GetStaticSelectionRank(selection_rank), 0));
+    return input_rank;
+#else
+    return GetNewStaticInputRankRecursive<Op...>(input_rank, selection_rank);
+#endif
   }
+
+#ifdef _MSC_VER
+  template <typename LastOp, typename... PriorOp>
+  constexpr static DimensionIndex GetNewStaticInputRankRecursive(
+      DimensionIndex input_rank, DimensionIndex& selection_rank) {
+    if constexpr (sizeof...(PriorOp) == 0) {
+      selection_rank = LastOp::GetStaticSelectionRank(input_rank);
+      return input_rank;
+    } else {
+      input_rank = GetNewStaticInputRankRecursive<PriorOp...>(input_rank,
+                                                              selection_rank);
+      input_rank = LastOp::GetNewStaticInputRank(input_rank, selection_rank);
+      selection_rank = LastOp::GetStaticSelectionRank(selection_rank);
+      return input_rank;
+    }
+  }
+#endif
 
   /// Type of index transform obtained by applying a DimExpression.
   ///
@@ -116,12 +158,8 @@ class DimExpressionHelper {
   /// \tparam Op... Sequence of operations that will be applied.
   /// \schecks `InputRank` is compatible with `DimExpression<Op...>`.
   template <DimensionIndex InputRank, DimensionIndex OutputRank, typename... Op>
-  using NewTransformType = std::enable_if_t<
-      (sizeof...(Op) > 1 &&
-       // Note: Condition below is always satisfied; the real test is whether
-       // `GetStaticSelectionRank` is a valid constant expression.
-       GetStaticSelectionRank<Op...>(InputRank) >= -1),
-      IndexTransform<GetNewStaticInputRank<Op...>(InputRank), OutputRank>>;
+  using NewTransformType =
+      IndexTransform<GetNewStaticInputRank<Op...>(InputRank), OutputRank>;
 
   /// Type of index domain obtained by applying a DimExpression.
   ///
@@ -130,13 +168,7 @@ class DimExpressionHelper {
   /// \tparam Op... Sequence of operations that will be applied.
   /// \schecks `Rank` is compatible with `DimExpression<Op...>`.
   template <DimensionIndex Rank, typename... Op>
-  using NewDomainType =
-      std::enable_if_t<(sizeof...(Op) > 1 &&
-                        // Note: Condition below is always satisfied; the real
-                        // test is whether `GetStaticSelectionRank` is a valid
-                        // constant expression.
-                        GetStaticSelectionRank<Op...>(Rank) >= -1),
-                       IndexDomain<GetNewStaticInputRank<Op...>(Rank)>>;
+  using NewDomainType = IndexDomain<GetNewStaticInputRank<Op...>(Rank)>;
 
   /// Applies a DimExpression to an index transform.
   template <typename LastOp, typename PriorOp0, typename PriorOp1,
@@ -160,23 +192,6 @@ class DimExpressionHelper {
     TENSORSTORE_RETURN_IF_ERROR(GetDimensions<Op::selected_dimensions_are_new>(
         expr.parent_.last_op_, transform, dimensions));
     return expr.last_op_.Apply(std::move(transform), dimensions, domain_only);
-  }
-
-  /// Recursive helper function used by GetNewStaticInputRank.
-  template <typename LastOp, typename FirstPriorOp, typename... PriorOp>
-  constexpr static DimensionIndex GetNewStaticInputRankRecursive(
-      DimensionIndex input_rank, DimensionIndex selection_rank) {
-    return LastOp::GetNewStaticInputRank(
-        GetNewStaticInputRankRecursive<FirstPriorOp, PriorOp...>(
-            input_rank, selection_rank),
-        GetStaticSelectionRank<FirstPriorOp, PriorOp...>(input_rank));
-  }
-
-  /// Overload for the base case of no operations.
-  template <typename DimensionSelection>
-  constexpr static DimensionIndex GetNewStaticInputRankRecursive(
-      DimensionIndex input_rank, DimensionIndex selection_rank) {
-    return input_rank;
   }
 
   /// Sets `*output` to the selection of existing dimensions.

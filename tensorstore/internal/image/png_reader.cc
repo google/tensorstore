@@ -200,7 +200,6 @@ absl::Status PngReader::Context::Decode(tensorstore::span<unsigned char> dest) {
            dest_view.row_stride_bytes());
 
     if (png_get_interlace_type(png_ptr_, info_ptr_) != PNG_INTERLACE_NONE) {
-      std::vector<uint8_t*> row_ptrs;
       // Interleaved images require that allocation of an image-sized buffer.
       row_ptrs.resize(height);
       for (int y = 0; y < height; ++y) {

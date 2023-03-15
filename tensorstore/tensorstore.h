@@ -493,7 +493,10 @@ Resize(
     ResizeOptions options = {}) {
   using Store = UnwrapResultType<StoreResult>;
   return MapResult(
-      [&](auto&& store) -> Future<Store> {
+      // Capture `inclusive_min` and `exclusive_max` by value to avoid code
+      // generation bug in MSVC 14.35.32215 that leads to `inclusive_min` and
+      // `exclusive_max` not being passed properly.
+      [&, inclusive_min, exclusive_max](auto&& store) -> Future<Store> {
         using internal::TensorStoreAccess;
         if (inclusive_min.size() != store.rank() ||
             exclusive_max.size() != store.rank()) {

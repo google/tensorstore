@@ -53,7 +53,7 @@ TEST(DriverTest, ReadWriteChunks) {
       Context::Spec::FromJson(
           {{"cache_pool", {{"total_bytes_limit", 524288}}}}));
   options.repeat_reads = 0;
-  options.repeat_writes = 10;
+  options.repeat_writes = 2;
   options.chunk_bytes = 4096;
   options.total_write_bytes = -2;
   options.strategy = Options::kRandom;

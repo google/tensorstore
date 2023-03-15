@@ -82,6 +82,13 @@ class DimensionList {
     }
   }
 
+  // Dimension selections don't by themselves alter the input rank of the
+  // transform.
+  constexpr static DimensionIndex GetNewStaticInputRank(
+      DimensionIndex input_rank, DimensionIndex selection_rank) {
+    return input_rank;
+  }
+
   Container container;
 };
 
@@ -95,6 +102,13 @@ class AllDims {
 
   constexpr static DimensionIndex GetStaticSelectionRank(
       DimensionIndex input_rank) {
+    return input_rank;
+  }
+
+  // Dimension selections don't by themselves alter the input rank of the
+  // transform.
+  constexpr static DimensionIndex GetNewStaticInputRank(
+      DimensionIndex input_rank, DimensionIndex selection_rank) {
     return input_rank;
   }
 };

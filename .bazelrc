@@ -1,9 +1,6 @@
 # Enable using platform specific build settings
 build --enable_platform_specific_config
 
-# Ensure the cache is not invalidated by changes to $PATH
-build --incompatible_strict_action_env=true
-
 # Use platforms to select toolchains (https://github.com/bazelbuild/bazel/issues/7260)
 build --incompatible_enable_cc_toolchain_resolution
 
@@ -44,6 +41,10 @@ build:gcc_or_clang --copt='-Wno-unused-but-set-parameter'
 build:gcc_or_clang --host_copt='-Wno-unused-but-set-parameter'
 build:gcc_or_clang --copt='-Wno-maybe-uninitialized'
 build:gcc_or_clang --host_copt='-Wno-maybe-uninitialized'
+
+# Not applicable in C++17 but still warned about.
+build:gcc_or_clang --copt='-Wno-sequence-point'
+build:gcc_or_clang --host_copt='-Wno-sequence-point'
 
 # disable warnings from clang about unknown warnings
 build:gcc_or_clang --copt='-Wno-unknown-warning-option'

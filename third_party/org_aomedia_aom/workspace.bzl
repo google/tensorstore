@@ -31,6 +31,11 @@ def repo():
         # googlesource does not cache archive files; the sha256 is only valid for the mirror.
         sha256 = "7f87960be61edb846e25b7d10e4e41aef6d652f62270e19172e7cafae9b536ad",
         build_file = Label("//third_party:org_aomedia_aom/libaom.BUILD.bazel"),
+        patches = [
+            # https://bugs.chromium.org/p/aomedia/issues/detail?id=3395
+            "//third_party:org_aomedia_aom/patches/fix-3395.diff",
+        ],
+        patch_args = ["-p1"],
         cmake_name = "aom",
         cmake_languages = ["ASM"],
         bazel_to_cmake = {},

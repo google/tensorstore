@@ -154,6 +154,7 @@ cc_with_non_compile_test(
 
 tensorstore_cc_test(
     name = "dim_expression_test",
+    size = "small",
     srcs = ["dim_expression_test.cc"],
     deps = [
         ":dim_expression",
@@ -981,6 +982,7 @@ tensorstore_cc_library(
 
 tensorstore_cc_test(
     name = "dimension_units_test",
+    size = "small",
     srcs = ["dimension_units_test.cc"],
     deps = [
         ":dimension_units",

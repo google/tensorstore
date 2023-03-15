@@ -48,6 +48,9 @@ using ::tensorstore::internal::GetCastMode;
 using ::tensorstore::internal::TestSpecSchema;
 using ::tensorstore::internal::TestTensorStoreCreateCheckSchema;
 
+#ifndef _MSC_VER
+// This test if an expression is constexpr does not work on MSVC in optimized
+// builds.
 template <class T>
 constexpr void test_helper(T&& t) {}
 
@@ -64,6 +67,7 @@ static_assert(!TENSORSTORE_IS_CONSTEXPR(
     GetCastMode<std::byte, std::string>(ReadWriteMode::write)));
 static_assert(!TENSORSTORE_IS_CONSTEXPR(
     GetCastMode<std::byte, std::string>(ReadWriteMode::read_write)));
+#endif  // !defined(_MSC_VER)
 
 // Read/write supported
 static_assert(GetCastMode<std::int32_t, float>(ReadWriteMode::dynamic) ==
@@ -80,8 +84,10 @@ static_assert(GetCastMode<std::int32_t, std::string>(ReadWriteMode::dynamic) ==
               ReadWriteMode::read);
 static_assert(GetCastMode<std::int32_t, std::string>(ReadWriteMode::read) ==
               ReadWriteMode::read);
+#ifndef _MSC_VER
 static_assert(!TENSORSTORE_IS_CONSTEXPR(
     GetCastMode<std::int32_t, std::string>(ReadWriteMode::write)));
+#endif  // !defined(_MSC_VER)
 static_assert(GetCastMode<std::int32_t, std::string>(
                   ReadWriteMode::read_write) == ReadWriteMode::read);
 
@@ -90,8 +96,10 @@ static_assert(GetCastMode<std::string, std::int32_t>(ReadWriteMode::dynamic) ==
               ReadWriteMode::write);
 static_assert(GetCastMode<std::string, std::int32_t>(ReadWriteMode::write) ==
               ReadWriteMode::write);
+#ifndef _MSC_VER
 static_assert(!TENSORSTORE_IS_CONSTEXPR(
     GetCastMode<std::string, std::int32_t>(ReadWriteMode::read)));
+#endif  // !defined(_MSC_VER)
 static_assert(GetCastMode<std::string, std::int32_t>(
                   ReadWriteMode::read_write) == ReadWriteMode::write);
 
