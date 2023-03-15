@@ -21,13 +21,12 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         ":dav1d_core",
-        ":dav1d_entrypoints",
         ":dav1d_16bit",
         ":dav1d_8bit",
         ":headers",
     ] + select({
-        ":arm64": [],
-        "//conditions:default": [":dav1d_asm_x86"],
+        "@platforms//cpu:arm64": [],
+        "@platforms//cpu:x86_64": [":dav1d_asm_x86"],
     }),
 )
 
@@ -42,8 +41,7 @@ X86_ASM_SRCS = glob(
 
 ARM_ASM_SRCS = glob(
     [
-        "src/arm/cpu.c",
-        "src/arm/refmvs_init.c",
+        "src/arm/*.c",
         "src/arm/64/*.S",
     ],
     exclude = [
@@ -53,81 +51,40 @@ ARM_ASM_SRCS = glob(
 )
 
 # TMPL_SRCS are compiled for BITDEPTH=8 and BITDEPTH=16
-TMPL_SRCS = select({
-    ":arm64": glob([
-        "src/*_tmpl.c",
-        "src/arm/*_tmpl.c",
-    ]),
-    "//conditions:default": glob([
-        "src/*_tmpl.c",
-        "src/x86/*_tmpl.c",
-    ]),
+TMPL_SRCS = glob(["src/*_tmpl.c"]) + select({
+    "@platforms//cpu:arm64": glob(["src/arm/*_tmpl.c"]),
+    "@platforms//cpu:x86_64": glob(["src/x86/*_tmpl.c"]),
 })
 
-ENTRYPOINT_SRCS = [
-    "src/lib.c",  #entrypoint
-    "src/thread_task.c",  # entrypoint
-]
-
-DAV1D_SRCS = [
-    "src/cdf.c",
-    "src/cpu.c",
-    "src/data.c",
-    "src/decode.c",
-    "src/dequant_tables.c",
-    "src/getbits.c",
-    "src/intra_edge.c",
-    "src/itx_1d.c",
-    "src/lf_mask.c",
-    "src/log.c",
-    "src/mem.c",
-    "src/msac.c",
-    "src/obu.c",
-    "src/picture.c",
-    "src/qm.c",
-    "src/ref.c",
-    "src/refmvs.c",
-    "src/scan.c",
-    "src/tables.c",
-    "src/warpmv.c",
-    "src/wedge.c",
-] + select({
-    "@platforms//os:windows": [
-        "src/win32/thread.c",
-    ],
+DAV1D_SRCS = glob(
+    include = ["src/*.c"],
+    exclude = ["src/*_tmpl.c"],
+) + select({
+    "@platforms//os:windows": glob(["src/win32/*.c"]),
     "//conditions:default": [],
 }) + select({
-    ":arm64": ARM_ASM_SRCS,
-    "//conditions:default": [
-        "src/x86/cpu.c",
-        "src/x86/msac_init.c",
-        "src/x86/refmvs_init.c",
-    ],
+    "@platforms//cpu:arm64": ARM_ASM_SRCS,
+    "@platforms//cpu:x86_64": glob(
+        ["src/x86/*.c"],
+        exclude = ["src/x86/*_tmpl.c"],
+    ),
 })
 
 TEXTUAL_HDRS = select({
-    ":arm64": glob([
+    "@platforms//cpu:arm64": glob([
         "src/*.h",
         "src/arm/*.h",
         "src/arm/asm.S",
         "src/arm/64/*_tmpl.S",
         "src/arm/64/util.S",
     ]),
-    "//conditions:default": glob([
+    "@platforms//cpu:x86_64": glob([
         "src/*.h",
         "src/x86/*.h",
     ]),
 })
 
 # Notes on copts/defines for x86:
-#
-# STACK_ALIGNMENT: Misalignment (or missing flags) can cause hard to diagnose
-# errors that are a result of stack corruption.
-#
-# x86 Windows platform uses 16-byte stack alignment.
-# x86 Unix-like platforms should be configured for 32-byte stack alignment.
-# The -mstackrealign flag in :dav1d_entrypoints allows realignment to happen
-# there, so functions then rely on the proper stack alignment.
 #
 # -fvisibility=hidden: The NASM function symbols are marked .hidden, so the
 # other libraries should be built with this flag and `linkstatic = 1` in order to
@@ -145,64 +102,30 @@ MSVC_COPTS = [
     "-D_POSIX_C_SOURCE=200112L",
 ]
 
-COMMON_COPTS = [
-    "-std=c99",
+GCC_CLANG_COPTS = [
+    "-std=c11",
     "-fomit-frame-pointer",
     "-ffast-math",
     "-fPIC",
     "-fvisibility=hidden",
 ]
 
-ARM64_COPTS = COMMON_COPTS + [
-    "-DNEON_INTRINSICS",
-]
-
-X86_COPTS = COMMON_COPTS + [
-    "-msse2",
-    "-mfpmath=sse",
-]
-
-CLANG_ALIGN_OPTS = ["-mstack-alignment=32"]
-
-CLANG_REALIGN_OPTS = ["-mstackrealign"]
-
-GCC_ALIGN_OPTS = ["-mpreferred-stack-boundary=6"]
-
-GCC_REALIGN_OPTS = ["-mincoming-stack-boundary=4"]
-
-REALIGN_OPTS = select({
-    ":linux_x86_64_clang": CLANG_REALIGN_OPTS,
-    ":linux_x86_64_gcc": GCC_REALIGN_OPTS,
-    ":macos_x86_64": CLANG_REALIGN_OPTS,
-    "//conditions:default": [],
-})
-
 COPTS = select({
-    ":windows_x86_64_msvc": MSVC_COPTS,
-    ":linux_x86_64_clang": X86_COPTS + CLANG_ALIGN_OPTS + [
+    ":compiler_msvc": MSVC_COPTS,
+    "//conditions:default": GCC_CLANG_COPTS,
+}) + select({
+    "@platforms//cpu:arm64": ["-DNEON_INTRINSICS"],
+    "//conditions:default": [],
+}) + select({
+    "@platforms//os:linux": [
         "-D_FILE_OFFSET_BITS=64",
         "-D_GNU_SOURCE",
     ],
-    ":linux_x86_64_gcc": X86_COPTS + GCC_ALIGN_OPTS + [
-        "-D_FILE_OFFSET_BITS=64",
-        "-D_GNU_SOURCE",
-    ],
-    ":macos_x86_64": X86_COPTS + CLANG_ALIGN_OPTS + [
+    "@platforms//os:macos": [
         "-D_FILE_OFFSET_BITS=64",
         "-D_DARWIN_C_SOURCE",
     ],
-    ":macos_arm64": ARM64_COPTS + [
-        "-D_FILE_OFFSET_BITS=64",
-        "-D_DARWIN_C_SOURCE",
-    ],
-    ":linux_arm64_clang": ARM64_COPTS + [
-        "-D_FILE_OFFSET_BITS=64",
-        "-D_GNU_SOURCE",
-    ],
-    ":linux_arm64_gcc": ARM64_COPTS + [
-        "-D_FILE_OFFSET_BITS=64",
-        "-D_GNU_SOURCE",
-    ],
+    "//conditions:default": [],
 })
 
 cc_library(
@@ -214,16 +137,6 @@ cc_library(
     deps = [
         ":headers",
     ],
-    alwayslink = 1,
-)
-
-cc_library(
-    name = "dav1d_entrypoints",
-    srcs = ENTRYPOINT_SRCS,
-    copts = COPTS + REALIGN_OPTS,
-    linkstatic = 1,
-    textual_hdrs = TEXTUAL_HDRS,
-    deps = [":headers"],
     alwayslink = 1,
 )
 
@@ -309,7 +222,7 @@ cc_library(
         "include",
         "include/dav1d",
     ] + select({
-        "@platforms//os:windows": ["include/compat/msvc"],
+        ":compiler_msvc": ["include/compat/msvc"],
         "//conditions:default": [],
     }),
 )
@@ -329,7 +242,7 @@ expand_template(
     name = "build_vcs_version_h",
     out = "build/vcs_version.h",
     substitutions = {
-        "@VCS_TAG@": "0.9.2",
+        "@VCS_TAG@": "1.1.0",
     },
     template = "include/vcs_version.h.in",
 )
@@ -344,26 +257,15 @@ X86_64_CONFIG_ASM = [
     "",
 ]
 
-ALIGN32_CONFIG_ASM = [
-    "%define STACK_ALIGNMENT 32",
-    "",
-]
-
-ALIGN16_CONFIG_ASM = [
-    "%define STACK_ALIGNMENT 16",
-    "",
-]
-
 DARWIN_CONFIG_ASM = [
-    "%define STACK_ALIGNMENT 32",
     "%define PREFIX 1",
     "",
 ]
 
 CONFIG_ASM = select({
-    "@platforms//os:windows": X86_64_CONFIG_ASM + ALIGN16_CONFIG_ASM,
+    "@platforms//os:windows": X86_64_CONFIG_ASM,
     "@platforms//os:macos": X86_64_CONFIG_ASM + DARWIN_CONFIG_ASM,
-    "//conditions:default": X86_64_CONFIG_ASM + ALIGN32_CONFIG_ASM,
+    "//conditions:default": X86_64_CONFIG_ASM,
 })
 
 write_file(
@@ -394,10 +296,6 @@ X86_64_CONFIG_H = [
     "",
 ]
 
-ALIGN32_CONFIG_H = ["#define STACK_ALIGNMENT 32"]
-
-ALIGN16_CONFIG_H = ["#define STACK_ALIGNMENT 16"]
-
 DARWIN_CONFIG_H = ["#define PREFIX 1"]
 
 ARM64_CONFIG_H = [
@@ -422,14 +320,16 @@ CONFIG_END_H = [
     "#define CONFIG_LOG 0",
     "#define ENDIANNESS_BIG 0",
     "",
-    "#if defined(_MSC_VER)",
+    "#if defined(_WIN32)",
     "#  define HAVE_ALIGNED_MALLOC 1",
     "#  define HAVE_IO_H 1",
     "#  define UNICODE 1",
     "#  define _CRT_DECLARE_NONSTDC_NAMES 1",
     "#  define _UNICODE 1",
+    "#if !defined(__MINGW32__)",
     "#  define fseeko _fseeki64",
     "#  define ftello _ftelli64",
+    "#endif /* !defined(__MINGW32__) */",
     "#else",
     "#  define HAVE_CLOCK_GETTIME 1",
     "#  define HAVE_DLSYM 1",
@@ -442,14 +342,11 @@ CONFIG_END_H = [
 ]
 
 CONFIG_H = CONFIG_START_H + select({
-    ":linux_x86_64_clang": X86_64_CONFIG_H + ALIGN32_CONFIG_H,
-    ":linux_arm64_clang": ARM64_CONFIG_H,
-    ":linux_x86_64_gcc": X86_64_CONFIG_H + ALIGN32_CONFIG_H,
-    ":linux_arm64_gcc": ARM64_CONFIG_H,
-    ":macos_x86_64": X86_64_CONFIG_H + ALIGN32_CONFIG_H + DARWIN_CONFIG_H,
-    ":macos_arm64": ARM64_CONFIG_H + DARWIN_CONFIG_H,
-    ":windows_x86_64_msvc": X86_64_CONFIG_H + ALIGN16_CONFIG_H,
-    "//conditions:default": ["#error \"bad config\""],
+    "@platforms//cpu:x86_64": X86_64_CONFIG_H,
+    "@platforms//cpu:arm64": ARM64_CONFIG_H,
+}) + select({
+    "@platforms//os:macos": DARWIN_CONFIG_H,
+    "//conditions:default": [],
 }) + CONFIG_END_H
 
 write_file(
@@ -459,21 +356,9 @@ write_file(
     newline = "unix",
 )
 
-# Config settings
-[
-    alias(
-        name = name,
-        actual = "@com_google_tensorstore//:{target}".format(target = name),
-    )
-    for name in [
-        "linux_x86_64_clang",
-        "linux_arm64_clang",
-        "linux_x86_64_gcc",
-        "linux_arm64_gcc",
-        "macos_x86_64",
-        "macos_arm64",
-        "windows_x86_64_msvc",
-        "arm64",
-        "x86_64",
-    ]
-]
+config_setting(
+    name = "compiler_msvc",
+    flag_values = {
+        "@bazel_tools//tools/cpp:compiler": "msvc-cl",
+    },
+)

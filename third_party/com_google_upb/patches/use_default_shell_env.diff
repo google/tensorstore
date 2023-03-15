@@ -1,0 +1,12 @@
+diff --git a/bazel/upb_proto_library.bzl b/bazel/upb_proto_library.bzl
+index e7ebb72d..e9c956f0 100644
+--- a/bazel/upb_proto_library.bzl
++++ b/bazel/upb_proto_library.bzl
+@@ -254,6 +254,7 @@ def _compile_upb_protos(ctx, generator, proto_info, proto_sources):
+                     [_get_real_short_path(file) for file in proto_sources],
+         progress_message = "Generating upb protos for :" + ctx.label.name,
+         mnemonic = "GenUpbProtos",
++        use_default_shell_env = True,
+     )
+     return GeneratedSrcsInfo(
+         srcs = srcs,

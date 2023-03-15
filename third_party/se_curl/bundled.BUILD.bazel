@@ -48,7 +48,7 @@ cc_library(
         "include/curl_config.h",
     ],
     copts = ["-I" + package_relative_path("lib")] + select({
-                "@platforms//os:windows": [],
+                ":compiler_msvc": [],
                 "//conditions:default": [
                     "-Wno-string-plus-int",
                 ],
@@ -75,10 +75,20 @@ cc_library(
             "-DEFAULTLIB:advapi32.lib",
             "-DEFAULTLIB:crypt32.lib",
             "-DEFAULTLIB:Normaliz.lib",
+            "-DEFAULTLIB:bcrypt.lib",
         ],
         "//conditions:default": [
             "-lrt",
         ],
+    }) + select({
+        ":compiler_mingw-gcc": [
+            "-lws2_32",
+            "-ladvapi32",
+            "-lcrypt32",
+            "-lNormaliz",
+            "-lbcrypt",
+        ],
+        "//conditions:default": [],
     }),
     local_defines = [
         "BUILDING_LIBCURL",
@@ -382,4 +392,18 @@ write_file(
         "#endif  // EXTERNAL_CURL_INCLUDE_CURL_CONFIG_H_",
     ],
     newline = "unix",
+)
+
+config_setting(
+    name = "compiler_msvc",
+    flag_values = {
+        "@bazel_tools//tools/cpp:compiler": "msvc-cl",
+    },
+)
+
+config_setting(
+    name = "compiler_mingw-gcc",
+    flag_values = {
+        "@bazel_tools//tools/cpp:compiler": "mingw-gcc",
+    },
 )

@@ -33,6 +33,6 @@ def repo():
         cmake_languages = ["C"],
         bazel_to_cmake = {},
         cmake_target_mapping = {
-            "@org_sourceware_bzip2//:bzip2": "BZip2::BZip2",
+            "@org_sourceware_bzip2//:bz2lib": "BZip2::BZip2",
         },
     )

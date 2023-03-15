@@ -24,9 +24,9 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_googletest",
-        urls = ["https://github.com/google/googletest/archive/6b63c98ac43efc992122f1da12aaf0a0e0658206.zip"],  # main(2022-11-08)
-        sha256 = "133d8d8f78a6a74d974fc31050b7e2e6af07fde013a0bf3bb517d1e63d55b2ff",
-        strip_prefix = "googletest-6b63c98ac43efc992122f1da12aaf0a0e0658206",
+        urls = ["https://github.com/google/googletest/archive/a798c2f10200b6293a5cc236b5f41b26c1ae7378.zip"],  # main(2023-03-07)
+        sha256 = "65789e4fd5bb28ca6a87667ca9f7eea923f82c8c7e48d6677e06b74504720c84",
+        strip_prefix = "googletest-a798c2f10200b6293a5cc236b5f41b26c1ae7378",
         repo_mapping = {
             "@com_googlesource_code_re2": "@com_google_re2",
         },

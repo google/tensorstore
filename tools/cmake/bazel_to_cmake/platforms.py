@@ -21,6 +21,7 @@ from .starlark.bazel_target import parse_absolute_target
 from .starlark.common_providers import BuildSettingProvider
 from .starlark.common_providers import ConditionProvider
 from .starlark.provider import TargetInfo
+from .util import cmake_is_true
 from .workspace import Workspace
 
 # See https://cmake.org/cmake/help/latest/variable/CMAKE_LANG_COMPILER_ID.html
@@ -87,6 +88,9 @@ def add_platform_constraints(workspace: Workspace) -> None:
     raise ValueError(
         f"Unknown CMAKE_CXX_COMPILER_ID={cmake_cxx_compiler_id}, " +
         f"known values are {sorted(_CMAKE_COMPILER_ID_TO_BAZEL_COMPILER)}")
+  if (cmake_is_true(workspace.cmake_vars.get("MINGW")) and
+      workspace.cmake_vars["CMAKE_CXX_COMPILER_ID"] == "GNU"):
+    bazel_compiler = "mingw-gcc"
 
   workspace.set_persistent_target_info(
       parse_absolute_target("@bazel_tools//tools/cpp:compiler"),

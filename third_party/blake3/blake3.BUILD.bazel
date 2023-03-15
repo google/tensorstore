@@ -18,10 +18,10 @@ cc_library(
             "c/blake3_sse41_x86-64_windows_msvc.asm",
         ],
         ":windows_x86_64_mingw-gcc": [
-            "c/blake3_avx2_x86-64_windows_gnu.asm",
-            "c/blake3_avx512_x86-64_windows_gnu.asm",
-            "c/blake3_sse2_x86-64_windows_gnu.asm",
-            "c/blake3_sse41_x86-64_windows_gnu.asm",
+            "c/blake3_avx2_x86-64_windows_gnu.S",
+            "c/blake3_avx512_x86-64_windows_gnu.S",
+            "c/blake3_sse2_x86-64_windows_gnu.S",
+            "c/blake3_sse41_x86-64_windows_gnu.S",
         ],
         "@platforms//cpu:arm64": [
             "c/blake3_neon.c",

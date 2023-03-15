@@ -32,6 +32,11 @@ def repo():
         ],
         patches = [
             "//third_party:com_google_upb/patches/build.diff",
+            # When using a toolchain on Windows where the runtime libraries are
+            # not installed system-wide, it is necessary to specify
+            # `use_default_shell_env = True` in order to be able to execute
+            # compiled binaries.
+            "//third_party:com_google_upb/patches/use_default_shell_env.diff",
         ],
         patch_args = ["-p1"],
         cmake_name = "upb",

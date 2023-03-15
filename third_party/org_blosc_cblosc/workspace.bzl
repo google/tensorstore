@@ -29,6 +29,11 @@ def repo():
         sha256 = "abdf8ad8e5f8a876d67b38d16ff0c40c0456cdce1dcbafe58b589671ff55d31a",
         build_file = Label("//third_party:org_blosc_cblosc/bundled.BUILD.bazel"),
         system_build_file = Label("//third_party:org_blosc_cblosc/system.BUILD.bazel"),
+        patches = [
+            # https://github.com/Blosc/c-blosc/pull/362
+            "//third_party:org_blosc_cblosc/patches/fix-mingw64.diff",
+        ],
+        patch_args = ["-p1"],
         cmake_name = "Blosc",
         bazel_to_cmake = {},
         cmake_target_mapping = {

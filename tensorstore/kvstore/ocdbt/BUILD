@@ -218,7 +218,7 @@ tensorstore_cc_binary(
 
 tensorstore_cc_test(
     name = "zarr_test",
-    size = "small",
+    size = "medium",
     srcs = ["zarr_test.cc"],
     deps = [
         ":ocdbt",

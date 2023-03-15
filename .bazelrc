@@ -18,55 +18,51 @@ build --define=absl=1
 build --define=grpc_no_xds=true
 
 # Configure C++17 mode
-build:linux --cxxopt=-std=c++17 --cxxopt=-fsized-deallocation
-build:linux --host_cxxopt=-std=c++17 --host_cxxopt=-fsized-deallocation
+#
+# Note: We can't use --cxxopt because of
+# https://github.com/bazelbuild/bazel/issues/15550
+build:gcc_or_clang --per_file_copt=.*\\.cc$,.*\\.cpp$@-std=c++17,-fsized-deallocation
+build:gcc_or_clang --host_per_file_copt=.*\\.cc$,.*\\.cpp$@-std=c++17,-fsized-deallocation
 
-build:macos --cxxopt=-std=c++17 --cxxopt=-fsized-deallocation
-build:macos --host_cxxopt=-std=c++17 --host_cxxopt=-fsized-deallocation
-
-build:freebsd --cxxopt=-std=c++17 --cxxopt=-fsized-deallocation
-build:freebsd --host_cxxopt=-std=c++17 --host_cxxopt=-fsized-deallocation
-
-build:windows --cxxopt=/std:c++17
-build:windows --host_cxxopt=/std:c++17
+build:msvc --per_file_copt=.*\\.cc$,.*\\.cpp$@/std:c++17
+build:msvc --host_per_file_copt=.*\\.cc$,.*\\.cpp$@/std:c++17
 
 # Use colors
-build:linux --copt=-fdiagnostics-color=always
-build:linux --host_copt=-fdiagnostics-color=always
-build:macos --copt=-fdiagnostics-color=always
-build:macos --host_copt=-fdiagnostics-color=always
-build:freebsd --copt=-fdiagnostics-color=always
-build:freebsd --host_copt=-fdiagnostics-color=always
+build:gcc_or_clang --copt=-fdiagnostics-color=always
+build:gcc_or_clang --host_copt=-fdiagnostics-color=always
 
 # disable deprecated-declarations warnings
-build:linux --copt='-Wno-deprecated-declarations'
-build:linux --host_copt='-Wno-deprecated-declarations'
-build:macos --copt='-Wno-deprecated-declarations'
-build:macos --host_copt='-Wno-deprecated-declarations'
-build:freebsd --copt='-Wno-deprecated-declarations'
-build:freebsd --host_copt='-Wno-deprecated-declarations'
+build:gcc_or_clang --copt='-Wno-deprecated-declarations'
+build:gcc_or_clang --host_copt='-Wno-deprecated-declarations'
 
 # disable mixed sign comparison warnings
-build:linux --copt='-Wno-sign-compare'
-build:linux --host_copt='-Wno-sign-compare'
-build:macos --copt='-Wno-sign-compare'
-build:macos --host_copt='-Wno-sign-compare'
-build:freebsd --copt='-Wno-sign-compare'
-build:freebsd --host_copt='-Wno-sign-compare'
+build:gcc_or_clang --copt='-Wno-sign-compare'
+build:gcc_or_clang --host_copt='-Wno-sign-compare'
 
 # disable spurious warnings from gcc
-build:linux --copt='-Wno-unused-but-set-parameter'
-build:linux --host_copt='-Wno-unused-but-set-parameter'
-build:linux --copt='-Wno-maybe-uninitialized'
-build:linux --host_copt='-Wno-maybe-uninitialized'
+build:gcc_or_clang --copt='-Wno-unused-but-set-parameter'
+build:gcc_or_clang --host_copt='-Wno-unused-but-set-parameter'
+build:gcc_or_clang --copt='-Wno-maybe-uninitialized'
+build:gcc_or_clang --host_copt='-Wno-maybe-uninitialized'
 
 # disable warnings from clang about unknown warnings
-build:linux --copt='-Wno-unknown-warning-option'
-build:linux --host_copt='-Wno-unknown-warning-option'
+build:gcc_or_clang --copt='-Wno-unknown-warning-option'
+build:gcc_or_clang --host_copt='-Wno-unknown-warning-option'
+
+# ----------------------------------------
+# Linux and FreeBSD configuration settings
+# ----------------------------------------
+
+# Assume GCC or Clang on Linux
+build:linux --config=gcc_or_clang
+build:freebsd --config=gcc_or_clang
 
 # ------------------------------
 # MacOS configuration settings
 # ------------------------------
+
+# We can safely assume Clang or GCC on macOS (almost surely Clang).
+build:macos --config=gcc_or_clang
 
 # Workaround for https://github.com/abseil/abseil-cpp/issues/848
 # Root cause: https://github.com/bazelbuild/bazel/issues/4341
@@ -81,19 +77,37 @@ build:macos --features=-supports_dynamic_linker
 # symlinks.
 startup --windows_enable_symlinks
 
-build:windows --enable_runfiles=true --build_python_zip=false
+# By default assume MSVC on Windows.
+build:windows --config=msvc
+build:windows --config=windows_common
+
+# Fix https://github.com/bazelbuild/bazel/issues/17068
+#
+# In Bazel 6.0.0, `archive_param_file` was accidentally disabled by
+# default for Windows.
+build:windows_common --features=archive_param_file
+build:windows_common --features=linker_param_file
+build:windows_common --features=compiler_param_file
+
+# Define mingw configuration.
+#
+# Unfortunately, with `--incompatible_enable_cc_toolchain_resolution`
+# specified, it is inconvenient to use mingw.
+#
+# https://bazel.build/configure/windows#clang
+build:windows_x86_64_mingw --noenable_platform_specific_config --config=windows_common --config=gcc_or_clang
+build:windows_x86_64_mingw --extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows_mingw
+build:windows_x86_64_mingw --extra_execution_platforms=//tools/bazel_platforms:windows_x86_64_mingw
+# Prevent "file too big" / "too many sections" errors.
+build:windows_x86_64_mingw --copt=-Wa,-mbig-obj
+build:windows_x86_64_mingw --host_copt=-Wa,-mbig-obj
+
+build:windows_common --enable_runfiles=true --build_python_zip=false
 
 # Disable warning regarding `msvc::no_unique_address`
-build:windows --copt=/wd4848
-build:windows --host_copt=/wd4848
+build:msvc --copt=/wd4848
+build:msvc --host_copt=/wd4848
 
 # Make MSVC conform to the C++ standard regarding hidden friends
-build:windows --copt=/Zc:hiddenFriend
-build:windows --host_copt=/Zc:hiddenFriend
-
-# Windows 10 RS1 required for rename/delete with POSIX semantics
-build:windows --copt=-D_WIN32_WINNT=0x0A000002
-build:windows --host_copt=-D_WIN32_WINNT=0x0A000002
-
-# More verbose windows failures.
-build:windows --verbose_failures
+build:msvc --copt=/Zc:hiddenFriend
+build:msvc --host_copt=/Zc:hiddenFriend

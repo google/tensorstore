@@ -60,7 +60,7 @@ tensorstore_cc_library(
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:cord",
-        "@org_sourceware_bzip2//:bzip2",
+        "@org_sourceware_bzip2//:bz2lib",
     ],
 )
 

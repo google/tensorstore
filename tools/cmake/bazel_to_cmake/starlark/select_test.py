@@ -37,6 +37,30 @@ def test_basic():
   assert x == ['a', 'x', 'c']
 
 
+def test_or():
+  left = Select({
+      TargetId.parse('@//conditions:default'): {
+          'a': 'a_value'
+      },
+      TargetId.parse('@foo//bar:baz'): {
+          'b': 'b_value'
+      }
+  })
+  right = Select({
+      TargetId.parse('@//conditions:default'): {
+          'c': 'c_value'
+      },
+      TargetId.parse('@foo//bar:baz'): {
+          'd': 'd_value'
+      }
+  })
+  added = left | {'e': 'e_value'} | right
+
+  assert isinstance(added, SelectExpression)
+  x = added.evaluate(lambda x: False)
+  assert x == {'a': 'a_value', 'e': 'e_value', 'c': 'c_value'}
+
+
 def test_failure():
   cases = Select({
       TargetId.parse('@foo//bar:baz'): ['b'],

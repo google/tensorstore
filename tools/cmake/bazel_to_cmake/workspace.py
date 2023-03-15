@@ -31,6 +31,7 @@ from .starlark.bazel_target import parse_absolute_target
 from .starlark.bazel_target import RepositoryId
 from .starlark.bazel_target import TargetId
 from .starlark.provider import TargetInfo
+from .util import cmake_is_true
 from .util import cmake_logging_verbose_level
 
 # Maps `platform.system()` value to Bazel host platform name for use in
@@ -187,18 +188,45 @@ class Workspace:
   def add_bazelrc(self, options: Dict[str, List[str]]) -> None:
     """Updates options based on a parsed `.bazelrc` file.
 
-    This currently only uses `--define` options.
+    This currently only uses `--define`, `--copt`, and `--cxxopt` options.
     """
     build_options = []
     build_options.extend(options.get("build", []))
-    if self.host_platform_name is not None:
-      build_options.extend(options.get(f"build:{self.host_platform_name}", []))
+    host_platform_name = self.host_platform_name
+    if (host_platform_name == "windows" and
+        cmake_is_true(self.cmake_vars.get("MINGW"))):
+      host_platform_name = "windows_x86_64_mingw"
+    if host_platform_name is not None:
+      build_options.extend(options.get(f"build:{host_platform_name}", []))
+
+    class ConfigAction(argparse.Action):
+
+      def __call__(self,  # type: ignore[override]
+                   parser: argparse.ArgumentParser,
+                   namespace: argparse.Namespace,
+                   values: str,
+                   option_string: Optional[str] = None):
+        parser.parse_known_args(
+            options.get(f"build:{values}", []), namespace=namespace)
 
     ap = argparse.ArgumentParser()
     ap.add_argument("--copt", action="append", default=[])
     ap.add_argument("--cxxopt", action="append", default=[])
+    ap.add_argument("--per_file_copt", action="append", default=[])
     ap.add_argument("--define", action="append", default=[])
+    ap.add_argument("--config", action=ConfigAction)
     args, _ = ap.parse_known_args(build_options)
+
+    def translate_per_file_copt_to_cxxopt():
+      # Translate `per_file_copt` options, which are used to workaround
+      # https://github.com/bazelbuild/bazel/issues/15550, back to `cxxopt`.
+      cxxopt_prefix = r".*\.cc$,.*\.cpp$@"
+
+      for value in args.per_file_copt:
+        if value.startswith(cxxopt_prefix):
+          args.cxxopt.extend(value[len(cxxopt_prefix):].split(","))
+
+    translate_per_file_copt_to_cxxopt()
 
     self.values.update(("define", x) for x in args.define)
 

@@ -315,6 +315,8 @@ compilers:
 - Clang 8 or later (Linux)
 - Microsoft Visual Studio 2019 version 16.10 (MSVC 14.29.30037) or later
 - Clang-cl 9 or later (Windows)
+- Mingw64 GCC 12 or later (Windows); CMake only, Bazel is not supported, and
+  ``lld`` is recommended over ``ld`` for speed.
 - Apple Xcode 11.3.1 or later (earlier versions of XCode 11 have a code
   generation bug related to stack alignment)
 

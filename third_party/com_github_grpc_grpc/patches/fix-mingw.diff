@@ -1,0 +1,53 @@
+diff --git a/BUILD b/BUILD
+index 5911bd218d..cd1b45d361 100644
+--- a/BUILD
++++ b/BUILD
+@@ -138,6 +138,13 @@ config_setting(
+     values = {"cpu": "x64_windows_msvc"},
+ )
+ 
++config_setting(
++    name = "mingw-gcc",
++    flag_values = {
++        "@bazel_tools//tools/cpp:compiler": "mingw-gcc",
++    },
++)
++
+ config_setting(
+     name = "mac_x86_64",
+     values = {"cpu": "darwin"},
+diff --git a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
+index fdfbf94ab4..8c6ac04928 100644
+--- a/bazel/grpc_build_system.bzl
++++ b/bazel/grpc_build_system.bzl
+@@ -54,6 +54,12 @@ def if_windows(a):
+         "//conditions:default": [],
+     })
+ 
++def if_mingw(a):
++    return select({
++        "//:mingw-gcc": a,
++        "//conditions:default": [],
++    })
++
+ def _get_external_deps(external_deps):
+     ret = []
+     for dep in external_deps:
+@@ -159,7 +165,7 @@ def grpc_cc_library(
+     copts = []
+     if language.upper() == "C":
+         copts = copts + if_not_windows(["-std=c11"])
+-    linkopts = if_not_windows(["-pthread"]) + if_windows(["-defaultlib:ws2_32.lib"])
++    linkopts = if_not_windows(["-pthread"]) + if_windows(["-defaultlib:ws2_32.lib"]) + if_mingw(["-lws2_32"])
+     if select_deps:
+         for select_deps_entry in select_deps:
+             deps += select(select_deps_entry)
+@@ -445,7 +451,7 @@ def grpc_cc_test(name, srcs = [], deps = [], external_deps = [], args = [], data
+     test_args = {
+         "data": data,
+         "copts": GRPC_DEFAULT_COPTS + copts,
+-        "linkopts": if_not_windows(["-pthread"]) + if_windows(["-defaultlib:ws2_32.lib"]),
++        "linkopts": if_not_windows(["-pthread"]) + if_windows(["-defaultlib:ws2_32.lib"]) + if_mingw(["-lws2_32"]),
+         "size": size,
+         "timeout": timeout,
+         "exec_compatible_with": exec_compatible_with,

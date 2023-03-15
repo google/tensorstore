@@ -24,11 +24,11 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_absl",
-        strip_prefix = "abseil-cpp-29b2a750258c7ba85204c121c6054aa2004b4818",
+        strip_prefix = "abseil-cpp-807763a7f57dcf0ba4af7c3b218013e8f525e811",
         urls = [
-            "https://github.com/abseil/abseil-cpp/archive/29b2a750258c7ba85204c121c6054aa2004b4818.tar.gz",  # master(2023-01-20)
+            "https://github.com/abseil/abseil-cpp/archive/807763a7f57dcf0ba4af7c3b218013e8f525e811.tar.gz",  # master(2023-03-03)
         ],
-        sha256 = "5442e44358fd1dc658b36bbde5ab1ca09de5e0cf3e97f3012081f2741991ece7",
+        sha256 = "6ef0749e88e4887f0e1c01fffcae6711696b9af022acc1c7a99f6de3f87df697",
         cmake_name = "absl",
         cmake_target_mapping = ABSL_CMAKE_MAPPING,
         cmake_settings = {
@@ -114,8 +114,8 @@ ABSL_CMAKE_MAPPING = {
     "@com_google_absl//absl/types:variant": "absl::variant",
     "@com_google_absl//absl/utility:utility": "absl::utility",
     # Internal targets mapping
-    "@com_google_absl//absl/base:endian": "absl::base",
-    "@com_google_absl//absl/base:config": "absl::base",
+    "@com_google_absl//absl/base:endian": "absl::endian",
+    "@com_google_absl//absl/base:config": "absl::config",
     "@com_google_absl//absl/container:layout": "absl::layout",
     "@com_google_absl//absl/strings:internal": "absl::strings_internal",
     # Not available in abseil CMakeLists.txt

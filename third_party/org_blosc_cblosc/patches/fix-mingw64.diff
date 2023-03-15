@@ -1,0 +1,55 @@
+From 9fd0a36636b7775e22f6d07068b75644cf17c1eb Mon Sep 17 00:00:00 2001
+From: Jeremy Maitin-Shepard <jbms@google.com>
+Date: Sat, 25 Feb 2023 20:56:40 -0800
+Subject: [PATCH] Always use inline assembly for _xgetbv on GCC/Clang
+
+This reverts the change to blosc/shuffle.c in
+0b8608b5d12ca96d4ac4525b36a62062b2286fd4.
+
+The _xgetbv intrinsic defined by GCC and Clang can only be used when
+built with support for the xsave target feature.  Therefore,
+attempting to use it from blosc_get_cpu_features results in a compiler
+error:
+
+error: inlining failed in call to 'always_inline' '_xgetbv': target specific option mismatch
+
+On most platforms, the intrinsic was not being used because
+immintrin.h was not getting transitively included in shuffle.c.  However, on
+mingw64 it does get transitively included in shuffle.c, which leads to
+the error.
+
+In order to be able to use the intrinsic, it would need to be used
+from a separate function that is built with xsave support.  That is
+more complicated than just using the inline assembly version.
+---
+ blosc/shuffle.c | 7 -------
+ 1 file changed, 7 deletions(-)
+
+diff --git a/blosc/shuffle.c b/blosc/shuffle.c
+index 576e897..a83057e 100644
+--- a/blosc/shuffle.c
++++ b/blosc/shuffle.c
+@@ -182,8 +182,6 @@ blosc_internal_cpuidex(int32_t cpuInfo[4], int32_t function_id, int32_t subfunct
+ 
+ #define _XCR_XFEATURE_ENABLED_MASK 0
+ 
+-#if !(defined(_IMMINTRIN_H_INCLUDED) && (BLOSC_GCC_VERSION >= 900))
+-
+ /* Reads the content of an extended control register.
+    https://software.intel.com/en-us/articles/how-to-detect-new-instruction-support-in-the-4th-generation-intel-core-processor-family
+ */
+@@ -203,11 +201,6 @@ blosc_internal_xgetbv(uint32_t xcr) {
+   return ((uint64_t)edx << 32) | eax;
+ }
+ 
+-#else
+-
+-#define blosc_internal_xgetbv _xgetbv
+-
+-#endif  // !(defined(_IMMINTRIN_H_INCLUDED) && (BLOSC_GCC_VERSION >= 900))
+ #endif  /* defined(_MSC_FULL_VER) */
+ 
+ #ifndef _XCR_XFEATURE_ENABLED_MASK
+-- 
+2.39.2.637.g21b0678d19-goog
+

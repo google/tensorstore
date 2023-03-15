@@ -242,7 +242,9 @@
 #define HAVE_STDLIB_H
 
 /* Define to 1 if you have the strcasecmp function. */
-/* #undef HAVE_STRCASECMP */
+#ifdef __MINGW32__
+#define HAVE_STRCASECMP
+#endif
 
 /* Define to 1 if you have the strcmpi function. */
 #define HAVE_STRCMPI
@@ -260,7 +262,9 @@
 #define HAVE_STRING_H
 
 /* Define to 1 if you have the strncasecmp function. */
-/* #undef HAVE_STRNCASECMP */
+#ifdef __MINGW32__
+#define HAVE_STRNCASECMP
+#endif
 
 /* Define to 1 if you have the strncmpi function. */
 /* #undef HAVE_STRNCMPI */

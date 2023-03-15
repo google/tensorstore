@@ -24,24 +24,27 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_riegeli",
-        strip_prefix = "riegeli-4512ad845a3d678e21a014af4f1d4f6fa910e6b4",
+        strip_prefix = "riegeli-8bfa2cb12715cad7b7f65fa8122f41b5ab5a7103",
         urls = [
-            "https://github.com/google/riegeli/archive/4512ad845a3d678e21a014af4f1d4f6fa910e6b4.tar.gz",  # master(2022-12-08)
+            "https://github.com/google/riegeli/archive/8bfa2cb12715cad7b7f65fa8122f41b5ab5a7103.tar.gz",  # master(2023-03-14)
         ],
-        sha256 = "9050366b283a9c2cadc828cd702b01ed76e7055b2d21d452358aec93d4304333",
+        sha256 = "3d90afaf477e782fc993394d3f4036d1323772e3745baf45b8674a0da07f8469",
+        repo_mapping = {
+            "@zlib": "@net_zlib",
+            "@bzip2": "@org_sourceware_bzip2",
+            "@xz": "@org_tukaani_xz",
+        },
         cmake_name = "riegeli",
         bazel_to_cmake = {
             "include": ["riegeli/**"],
             "exclude": [
                 "riegeli/brotli/**",
-                "riegeli/bzip2/**",
                 "riegeli/chunk_encoding/**",
                 "riegeli/digests/**",
                 "riegeli/lz4/**",
                 "riegeli/records/**",
                 "riegeli/snappy/**",
                 "riegeli/tensorflow/**",
-                "riegeli/zlib/**",
             ],
         },
     )

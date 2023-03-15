@@ -30,7 +30,7 @@ LIBAOM_HEADERS_PATTERN = [
 ]
 
 LIBAOM_HEADERS = select({
-    ":arm64": glob(
+    "@platforms//cpu:arm64": glob(
         LIBAOM_HEADERS_PATTERN + [
             "av1/common/arm/*.h",
             "aom_dsp/arm/*.h",
@@ -46,7 +46,7 @@ LIBAOM_HEADERS = select({
             "**/*ssse3.h",
         ],
     ),
-    "//conditions:default": glob(
+    "@platforms//cpu:x86_64": glob(
         LIBAOM_HEADERS_PATTERN + [
             "av1/common/x86/*.h",
             "av1/encoder/x86/*.h",
@@ -65,23 +65,17 @@ LIBAOM_COPTS = select({
         "/W3",
         "/wd4996",
     ],
-    "@platforms//os:macos": [
-        "-std=c99",
-        "-Wno-implicit-function-declaration",
-    ],
-    ":compiler_clang": [
-        "-std=c99",
-    ],
-    # Assume GCC by default.
     "//conditions:default": [
         "-std=c99",
+        "-Wno-implicit-function-declaration",
         "-Wno-array-parameter",
         "-Wno-stringop-overread",
         "-Wno-stringop-overflow",
     ],
 }) + select({
-    ":arm64": [
+    "@platforms//cpu:arm64": [
         "-DNEON_INTRINSICS",
+        "-march=armv8-a+crc",
     ],
     # armv7 may need -fpu=neon as well.
     "//conditions:default": [],
@@ -158,11 +152,10 @@ AV1_SRCS = glob(
         "av1/encoder/tune_vmaf.c",
     ],
 ) + select({
-    ":arm64": glob(
+    "@platforms//cpu:arm64": glob(
         include = [
             "av1/common/arm/*.c",
-            "av1/decoder/arm/neon/*.c",
-            "av1/encoder/arm/neon/*.c",
+            "av1/encoder/arm/**/*.c",
         ],
         exclude = [
             "av1/encoder/arm/neon/av1_temporal_denoiser_neon.c",
@@ -214,10 +207,15 @@ cc_library(
         ":vector",
         ":args_helper",
     ] + select({
-        ":arm64": [],
-        "//conditions:default": [
+        "@platforms//cpu:arm64": [],
+        "@platforms//cpu:x86_64": [
             ":av1_x86_asm",
-        ] + [":av1_x86_{x}".format(x = x) for x in AV1_SRC_PATTERNS.keys()],
+            ":av1_x86_sse42",
+            ":av1_x86_avx",
+        ],
+    }) + select({
+        ":have_avx2_intrinsics": [":av1_x86_avx2"],
+        "//conditions:default": [],
     }),
     alwayslink = 1,
 )
@@ -258,7 +256,7 @@ DSP_SRCS = glob(
         "aom_dsp/vmaf.c",
     ],
 ) + select({
-    ":arm64": glob(["aom_dsp/arm/*_neon.c"]),
+    "@platforms//cpu:arm64": glob(["aom_dsp/arm/*_neon.c"]),
     "//conditions:default": ["aom_dsp/x86/aom_asm_stubs.c"],
 })
 
@@ -284,8 +282,8 @@ cc_library(
         ":fastfeat",
         ":vector",
     ] + select({
-        ":arm64": [],
-        "//conditions:default": [
+        "@platforms//cpu:arm64": [],
+        "@platforms//cpu:x86_64": [
             ":dsp_x86_asm",
         ] + [":dsp_x86_{x}".format(x = x) for x in DSP_SRC_PATTERNS.keys()],
     }),
@@ -339,7 +337,7 @@ CODEC_SRCS = glob(["aom/src/*.c"]) + [
     "aom_util/aom_thread.c",
     "aom_util/debug_util.c",
 ] + select({
-    ":arm64": [
+    "@platforms//cpu:arm64": [
         "aom_ports/arm_cpudetect.c",
     ],
     "//conditions:default": [],
@@ -352,7 +350,7 @@ CODEC_HDRS = glob([
     "aom_util/aom_thread.h",
     "aom_util/debug_util.h",
 ] + select({
-    ":arm64": [
+    "@platforms//cpu:arm64": [
         "aom_ports/arm.h",
     ],
     "//conditions:default": [],
@@ -370,7 +368,7 @@ cc_library(
         ":config",
         ":args_helper",
     ] + select({
-        ":arm64": [],
+        "@platforms//cpu:arm64": [],
         "//conditions:default": [
             ":codec_x86_asm",
         ],
@@ -454,25 +452,20 @@ cc_library(
         "config/aom_version.h",
         "config/av1_rtcd.h",
     ],
-    #    deps = [":aom_dsp_rtcd", ":aom_scale_rtcd", ":av1_rtcd"],
 )
 
 CONFIG_SUBSTITUTIONS = select({
-    ":arm64": {
-        "${ARM64}": "1",
-        "${X86_64}": "0",
-        "${PTHREAD}": "1",
-    },
-    "@platforms//os:windows": {
-        "${ARM64}": "0",
-        "${X86_64}": "1",
-        "${PTHREAD}": "0",
-    },
-    "//conditions:default": {
-        "${ARM64}": "0",
-        "${X86_64}": "1",
-        "${PTHREAD}": "1",
-    },
+    "@platforms//cpu:arm64": {"${ARM64}": "1"},
+    "//conditions:default": {"${ARM64}": "0"},
+}) | select({
+    "@platforms//cpu:x86_64": {"${X86_64}": "1"},
+    "//conditions:default": {"${X86_64}": "0"},
+}) | select({
+    "@platforms//os:windows": {"${PTHREAD}": "0"},
+    "//conditions:default": {"${PTHREAD}": "1"},
+}) | select({
+    ":have_avx2_intrinsics": {"${HAVE_AVX2}": "1"},
+    "//conditions:default": {"${HAVE_AVX2}": "0"},
 })
 
 expand_template(
@@ -524,12 +517,15 @@ write_file(
 # Note: Depends on perl.
 
 RTCD_CMD = select({
-    ":arm64": (
-        "$(PERL) $(location build/cmake/rtcd.pl) --arch=arm "
+    "@platforms//cpu:arm64": (
+        "$(PERL) $(location build/cmake/rtcd.pl) --arch=arm64 "
     ),
-    "//conditions:default": (
+    "@platforms//cpu:x86_64": (
         "$(PERL) $(location build/cmake/rtcd.pl) --arch=x86_64 "
     ),
+}) + select({
+    ":have_avx2_intrinsics": "",
+    "//conditions:default": "--disable-avx2 ",
 })
 
 [
@@ -560,14 +556,41 @@ RTCD_CMD = select({
 ]
 
 # Config settings
-[
-    alias(
-        name = name,
-        actual = "@com_google_tensorstore//:{target}".format(target = name),
-    )
-    for name in [
-        "compiler_msvc",
-        "compiler_clang",
-        "arm64",
-    ]
-]
+
+config_setting(
+    name = "compiler_msvc",
+    flag_values = {
+        "@bazel_tools//tools/cpp:compiler": "msvc-cl",
+    },
+)
+
+config_setting(
+    name = "compiler_clang",
+    flag_values = {
+        "@bazel_tools//tools/cpp:compiler": "clang",
+    },
+)
+
+config_setting(
+    name = "compiler_mingw_gcc",
+    flag_values = {
+        "@bazel_tools//tools/cpp:compiler": "mingw-gcc",
+    },
+)
+
+# Constraint that indicates whether avx2 intrinsics can be used (subject to
+# runtime CPU detection).
+alias(
+    name = "have_avx2_intrinsics",
+    actual = select({
+        # mingw gcc does not correctly align the stack to 32 bytes, which makes
+        # avx2 intrinsics unusable.
+        #
+        # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=54412
+        #
+        # In this case map to `:compiler_msvc` which we know to be unsatisfied.
+        ":compiler_mingw_gcc": ":compiler_msvc",
+        # Enable by default on x86_64.
+        "//conditions:default": "@platforms//cpu:x86_64",
+    }),
+)

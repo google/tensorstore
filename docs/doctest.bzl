@@ -35,6 +35,10 @@ def _write_wrapper_impl(ctx):
                       for src in ctx.files.srcs
                   ]) + "' " +  #
                   ") > " + ctx.outputs.executable.path,
+        # Run action with a non-empty PATH / LD_LIBRARY_PATH.  Otherwise, `bash`
+        # and other programs used by the above command may not be able to find
+        # the shared libraries on which they depend.
+        use_default_shell_env = True,
     )
 
     return [

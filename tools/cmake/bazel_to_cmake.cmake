@@ -53,17 +53,6 @@ macro(bazel_to_cmake)
 
   set(_bazel_to_cmake_args "${ARGN}")
 
-  message(VERBOSE "Invoking bazel_to_cmake Using:")
-  message(VERBOSE "WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}")
-  message(VERBOSE "${Python3_EXECUTABLE} ${_bazel_to_cmake_command}")
-  message(VERBOSE "--cmake-vars ${CMAKE_CURRENT_BINARY_DIR}/bazel_to_cmake_vars.json")
-  message(VERBOSE "--cmake-binary-dir ${CMAKE_CURRENT_BINARY_DIR}")
-  message(VERBOSE "--build-rules-output ${CMAKE_CURRENT_BINARY_DIR}/build_rules.cmake")
-  message(VERBOSE "--save-workspace ${CMAKE_CURRENT_BINARY_DIR}/bazel_workspace_info.pickle")
-  string(REPLACE ";" " " _bazel_to_cmake_args_str "${_bazel_to_cmake_args}")
-  message(VERBOSE "${_bazel_to_cmake_args_str}")
-  unset(_bazel_to_cmake_args_str)
-
   execute_process(
     COMMAND "${Python3_EXECUTABLE}" "${_bazel_to_cmake_command}"
       --cmake-vars "${CMAKE_CURRENT_BINARY_DIR}/bazel_to_cmake_vars.json"

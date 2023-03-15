@@ -17,6 +17,45 @@
 // Defined before including <stdio.h> to ensure `::rand_s` is defined.
 #define _CRT_RAND_S
 
+// Windows 10 1607 ("Redstone 1") is required for FileDispositionInfoEx,
+// FileRenameInfoEx.
+//
+// In `minwinbase.h`, those definitions are conditioned on:
+//
+//     #if _WIN32_WINNT >= 0x0A000002
+//
+// Therefore, we ensure that `_WIN32_WINNT` is at least that value.
+//
+// This condition appears to be a mistake in `minwinbase.h`:
+//
+// According to the documentation here
+// https://learn.microsoft.com/en-us/windows/win32/winprog/using-the-windows-headers,
+// `_WIN32_WINNT` seems to be intended to have coarse granularity and mostly
+// only specifies major versions of Windows.  The highest documented value (as
+// of 2023-03-09) is `_WIN32_WINNT_WIN10 = 0x0A00`.
+//
+// The `NTDDI_VERSION` macro seems to be intended to specify a version
+// requirement at a finer granularity, and `0x0A000002` is the value of
+// `NTDDI_WIN10_RS1`.  It appears that the condition should have been
+// `#if NTDDI_VERSION >= 0x0A000002` instead.
+//
+// Here we ensure both `_WIN32_WINNT` and `NTDDI_VERSION` are at least
+// `0x0A000002`, in case `minwinbase.h` is ever fixed to condition on
+// `NTDDI_VERSION` instead.
+#if _WIN32_WINNT < 0x0A000002
+#ifdef _WIN32_WINNT
+#undef _WIN32_WINNT
+#endif
+#define _WIN32_WINNT 0x0A000002  // NTDDI_WIN10_RS1
+#endif
+
+#if NTDDI_VERSION < 0x0A000002
+#ifdef NTDDI_VERSION
+#undef NTDDI_VERSION
+#endif
+#define NTDDI_VERSION 0x0A000002
+#endif
+
 #include "tensorstore/kvstore/file/windows_file_util.h"
 
 #include <stdio.h>
@@ -26,13 +65,6 @@
 #include "tensorstore/kvstore/file/file_util.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/str_cat.h"
-
-// Windows 10 1607 required for FileDispositionInfoEx, FileRenameInfoEx
-#if defined(NTDDI_VERSION) && (NTDDI_VERSION < NTDDI_WIN10_RS1)
-// NTDDI_VERSION should be >= NTDDI_WIN10_RS1
-// _WIN32_WINNT  should be >= _WIN32_WINNT_WIN10
-#error "NTDDI_VERSION must be WIN10 "
-#endif
 
 namespace tensorstore {
 namespace internal_file_util {

@@ -20,7 +20,7 @@ cc_library(
         "-I" + package_relative_path("lib"),
         "-I" + package_relative_path("lib/includes"),
     ] + select({
-        "@platforms//os:windows": [],
+        ":compiler_msvc": [],
         "//conditions:default": [
             "-Wno-string-plus-int",
         ],
@@ -173,4 +173,11 @@ write_file(
         "#endif  // EXTERNAL_NGHTTP2_CONFIG_H_",
     ],
     newline = "unix",
+)
+
+config_setting(
+    name = "compiler_msvc",
+    flag_values = {
+        "@bazel_tools//tools/cpp:compiler": "msvc-cl",
+    },
 )

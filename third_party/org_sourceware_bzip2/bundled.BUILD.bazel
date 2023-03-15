@@ -5,7 +5,7 @@ licenses(["notice"])
 exports_files(["LICENSE"])
 
 cc_library(
-    name = "bzip2",
+    name = "bz2lib",
     srcs = [
         "blocksort.c",
         "bzlib.c",

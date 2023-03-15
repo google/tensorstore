@@ -154,14 +154,14 @@ cc_binary(
         "x86/regs.h",
         "x86/regvals.c",
     ] + select({
-        "@platforms//os:windows": ["config/msvc.h"],
+        ":compiler_msvc": ["config/msvc.h"],
         "//conditions:default": ["config/config.h"],
     }) + select({
         ":have_strlcpy": [],
         "//conditions:default": ["stdlib/strlcpy.c"],
     }),
     copts = select({
-        "@platforms//os:windows": ["/O2"],
+        ":compiler_msvc": ["/O2"],
         "//conditions:default": [
             "-w",
             "-std=c99",
@@ -169,7 +169,7 @@ cc_binary(
         ],
     }),
     defines = select({
-        "@platforms//os:windows": [],
+        ":compiler_msvc": [],
         "//conditions:default": [
             "HAVE_CONFIG_H",
         ],
@@ -214,14 +214,10 @@ CONFIG_H = [
     "#define HAVE_GETUID 1",
     "#define HAVE_INTTYPES_H 1",
     "#define HAVE_MEMORY_H 1",
-    "#define HAVE_MMAP 1",
-    "",
-] + select({
-    ":have_mempcpy": ["#define HAVE_MEMPCPY 1"],
-    "//conditions:default": [],
-}) + [
+    "#if defined(__linux__) || defined(__MINGW32__)",
+    "#define HAVE_MEMPCPY 1",
+    "#endif /* defined(__linux__) || defined(__MINGW32__) */",
     "#define HAVE_PATHCONF 1",
-    "#define HAVE_REALPATH 1",
     "#define HAVE_SNPRINTF 1",
     "#define HAVE_STAT 1",
     "#define HAVE_STDBOOL_H 1",
@@ -246,17 +242,21 @@ CONFIG_H = [
     "#define HAVE_DECL_STRNCASECMP 1",
     "#define HAVE_STRNLEN 1",
     "#define HAVE_DECL_STRNLEN 1",
-    "#define HAVE_STRSEP 1",
-    "#define HAVE_DECL_STRSEP 1",
     "#define HAVE_STRUCT_STAT 1",
     "#define HAVE_SYSCONF 1",
+    "#if !defined(_WIN32)",
+    "#define HAVE_STRSEP 1",
+    "#define HAVE_DECL_STRSEP 1",
     "#define HAVE_SYS_MMAN_H 1",
+    "#define HAVE_UNISTD_H 1",
+    "#define HAVE_MMAP 1",
+    "#define HAVE_REALPATH 1",
+    "#endif /* !defined(_WIN32) */",
     "#define HAVE_SYS_PARAM_H 1",
     "#define HAVE_SYS_STAT_H 1",
     "#define HAVE_SYS_TYPES_H 1",
     "#define HAVE_TYPEOF 1",
     "#define HAVE_UINTPTR_T 1",
-    "#define HAVE_UNISTD_H 1",
     "#define HAVE_VSNPRINTF 1",
     "#define HAVE___BUILTIN_BSWAP16 1",
     "#define HAVE___BUILTIN_BSWAP32 1",
@@ -298,7 +298,13 @@ config_setting(
     constraint_values = ["@platforms//os:macos"],
 )
 
-config_setting(
-    name = "have_mempcpy",
-    constraint_values = ["@platforms//os:linux"],
-)
+# Config settings
+[
+    alias(
+        name = name,
+        actual = "@com_google_tensorstore//:{target}".format(target = name),
+    )
+    for name in [
+        "compiler_msvc",
+    ]
+]

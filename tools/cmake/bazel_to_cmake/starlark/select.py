@@ -42,6 +42,14 @@ class _ConfigurableBase(Generic[T]):
     return SelectExpression(operator.add,
                             cast(List[Configurable[T]], [other, self]))
 
+  def __or__(self, other: "Configurable[T]") -> "Configurable[T]":
+    return SelectExpression(operator.or_,
+                            cast(List[Configurable[T]], [self, other]))
+
+  def __ror__(self, other: "Configurable[T]") -> "Configurable[T]":
+    return SelectExpression(operator.or_,
+                            cast(List[Configurable[T]], [other, self]))
+
   def evaluate(self, test_condition: TestCondition) -> T:
     raise ValueError("Bad Configurable")
 

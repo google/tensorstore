@@ -32,6 +32,7 @@ def repo():
         ],
         patches = [
             "//third_party:com_github_grpc_grpc/patches/update_build_system.diff",
+            "//third_party:com_github_grpc_grpc/patches/fix-mingw.diff",
         ],
         patch_args = ["-p1"],
         repo_mapping = {

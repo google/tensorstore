@@ -68,7 +68,7 @@ cc_library(
         "libtiff/tiffvers.h",
     ],
     copts = select({
-        "@platforms//os:windows": [],
+        ":compiler_msvc": [],
         "//conditions:default": [
             "-Wno-format",
             "-Wno-format-extra-args",
@@ -229,4 +229,11 @@ write_file(
         "#endif // _TIFF_CONFIG_H_",
     ],
     newline = "unix",
+)
+
+config_setting(
+    name = "compiler_msvc",
+    flag_values = {
+        "@bazel_tools//tools/cpp:compiler": "msvc-cl",
+    },
 )

@@ -21,23 +21,65 @@ exports_files(glob(["*"]))
 #        "macos_x86_64",
 #        "macos_arm64",
 #        "windows_x86_64_msvc",
+#        "windows_x86_64_mingw_gcc",
 #        "compiler_msvc",
 #        "compiler_clang",
 #        "compiler_gcc",
 #        "arm64",
 #        "x86_64",
+#        "linux",
+#        "macos",
+#        "windows",
 #    ]
 #]
 
-# Combined settings:
+# Combined os / cpu settings
 #
-# :linux_x86_64_clang
-# :linux_arm64_clang
-# :linux_x86_64_gcc
-# :linux_arm64_gcc
+# :linux_x86_64
 # :macos_x86_64
 # :macos_arm64
+# :windows_x86_64
+
+selects.config_setting_group(
+    name = "linux_x86_64",
+    match_all = [
+        ":linux",
+        ":x86_64",
+    ],
+)
+
+selects.config_setting_group(
+    name = "macos_x86_64",
+    match_all = [
+        ":macos",
+        ":x86_64",
+    ],
+)
+
+selects.config_setting_group(
+    name = "macos_arm64",
+    match_all = [
+        ":macos",
+        ":arm64",
+    ],
+)
+
+selects.config_setting_group(
+    name = "windows_x86_64",
+    match_all = [
+        ":windows",
+        ":x86_64",
+    ],
+)
+
+# Combined os / cpu / compiler settings
+#
+# :linux_arm64_clang
+# :linux_x86_64_clang
+# :linux_arm64_gcc
+# :linux_x86_64_gcc
 # :windows_x86_64_msvc
+# :windows_x86_64_mingw_gcc
 
 selects.config_setting_group(
     name = "linux_arm64_clang",
@@ -76,26 +118,18 @@ selects.config_setting_group(
 )
 
 selects.config_setting_group(
-    name = "macos_x86_64",
+    name = "windows_x86_64_msvc",
     match_all = [
-        ":macos",
+        ":compiler_msvc",
+        ":windows",
         ":x86_64",
     ],
 )
 
 selects.config_setting_group(
-    name = "macos_arm64",
+    name = "windows_x86_64_mingw_gcc",
     match_all = [
-        ":macos",
-        ":arm64",
-    ],
-)
-
-selects.config_setting_group(
-    name = "windows_x86_64_msvc",
-    match_all = [
-        ":compiler_msvc",
-        ":windows",
+        ":compiler_mingw_gcc",
         ":x86_64",
     ],
 )
@@ -105,7 +139,7 @@ selects.config_setting_group(
 # :compiler_msvc
 # :compiler_clang
 # :compiler_gcc
-#
+
 config_setting(
     name = "compiler_msvc",
     flag_values = {
@@ -121,10 +155,25 @@ config_setting(
 )
 
 config_setting(
-    name = "compiler_gcc",
+    name = "compiler_regular_gcc",
     flag_values = {
         "@bazel_tools//tools/cpp:compiler": "gcc",
     },
+)
+
+config_setting(
+    name = "compiler_mingw_gcc",
+    flag_values = {
+        "@bazel_tools//tools/cpp:compiler": "mingw-gcc",
+    },
+)
+
+selects.config_setting_group(
+    name = "compiler_gcc",
+    match_any = [
+        ":compiler_regular_gcc",
+        ":compiler_mingw_gcc",
+    ],
 )
 
 # Cpu settings
