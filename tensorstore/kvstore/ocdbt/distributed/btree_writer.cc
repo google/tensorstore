@@ -457,8 +457,8 @@ void WriterCommitOperation::StagePending() {
   const auto max_inline_value_bytes = config.max_inline_value_bytes;
   for (auto& write_request : staged_.write_requests) {
     auto& mutation = *write_request.mutation;
-    if (mutation.new_entry) {
-      auto& value_ref = mutation.new_entry->value_reference;
+    if (mutation.mode == BtreeNodeWriteMutation::kAddNew) {
+      auto& value_ref = mutation.new_entry.value_reference;
       if (auto* value = std::get_if<absl::Cord>(&value_ref); value) {
         if (value->size() > max_inline_value_bytes) {
           auto v = std::move(*value);
@@ -664,11 +664,17 @@ void WriterCommitOperation::SubmitRequests(
             stamp.time = r->time;
             if (conditions_matched[i]) {
               auto& mutation = *request.mutation;
-              if (mutation.new_entry) {
-                stamp.generation = internal_ocdbt::ComputeStorageGeneration(
-                    mutation.new_entry->value_reference);
-              } else {
-                stamp.generation = StorageGeneration::NoValue();
+              switch (mutation.mode) {
+                case BtreeNodeWriteMutation::kRetainExisting:
+                  stamp.generation = mutation.existing_generation;
+                  break;
+                case BtreeNodeWriteMutation::kDeleteExisting:
+                  stamp.generation = StorageGeneration::NoValue();
+                  break;
+                case BtreeNodeWriteMutation::kAddNew:
+                  stamp.generation = internal_ocdbt::ComputeStorageGeneration(
+                      mutation.new_entry.value_reference);
+                  break;
               }
             }
             request.promise.SetResult(std::move(stamp));
@@ -709,8 +715,10 @@ Future<TimestampedStorageGeneration> DistributedBtreeWriter::Write(
   request.promise = std::move(promise);
 
   bool needs_inline_value_pass = false;
+  request.mutation->mode = value ? BtreeNodeWriteMutation::kAddNew
+                                 : BtreeNodeWriteMutation::kDeleteExisting;
   if (value) {
-    auto& new_entry = request.mutation->new_entry.emplace();
+    auto& new_entry = request.mutation->new_entry;
     auto& value_ref = new_entry.value_reference;
     if (auto* config = writer.io_handle_->config_state->GetExistingConfig();
         !config || value->size() <= config->max_inline_value_bytes) {

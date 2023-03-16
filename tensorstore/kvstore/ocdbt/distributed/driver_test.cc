@@ -210,4 +210,10 @@ TEST_F(DistributedTest, TwoCooperatorsManifestDeleted) {
               MatchesStatus(absl::StatusCode::kFailedPrecondition));
 }
 
+// Tests that if a batch of writes leaves a node unmodified, it is not
+// rewritten.
+TEST_F(DistributedTest, UnmodifiedNode) {
+  tensorstore::internal_ocdbt::TestUnmodifiedNode(Context(context_spec));
+}
+
 }  // namespace

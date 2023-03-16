@@ -26,6 +26,10 @@ namespace internal_ocdbt {
 
 Result<std::shared_ptr<const Manifest>> ReadManifest(OcdbtDriver& driver);
 
+// Tests that if a batch of writes leaves a node unmodified, it is not
+// rewritten.
+void TestUnmodifiedNode(const Context& context = {});
+
 }  // namespace internal_ocdbt
 }  // namespace tensorstore
 

@@ -190,20 +190,29 @@ struct NodeCommitOperation
   // node.
   //
   // Sends a mutation request to the parent.
+  //
+  // If `new_entries` is `std::nullopt`, merely ensures that the existing entry
+  // for the node corresponding to `commit_op` is unchanged.
   static void UpdateParent(
       NodeCommitOperation::Ptr commit_op,
-      std::vector<InteriorNodeEntryData<std::string>> new_entries);
+      std::optional<std::vector<InteriorNodeEntryData<std::string>>>
+          new_entries);
 
   // Called if the existing node corresponding to `commit_op` is the root node.
   //
   // Calls `WriteNewManifest` to update the manifest directly.
+  //
+  // If `new_entries` is `std::nullopt`, merely ensures that the existing
+  // manifest is unchanged.
   static void UpdateRoot(
       NodeCommitOperation::Ptr commit_op,
-      std::vector<InteriorNodeEntryData<std::string>> new_entries);
+      std::optional<std::vector<InteriorNodeEntryData<std::string>>>
+          new_entries);
 
   // Called asynchronously by `UpdateRoot` to update the manifest.
-  static void WriteNewManifest(NodeCommitOperation::Ptr commit_op,
-                               const BtreeGenerationReference& new_generation);
+  static void WriteNewManifest(
+      NodeCommitOperation::Ptr commit_op,
+      std::optional<BtreeGenerationReference> new_generation);
 
   // Restarts the commit, in the case that the manifest was concurrently
   // modified.
@@ -574,17 +583,18 @@ void NodeCommitOperation::ApplyMutationsForEntry(
     node_encoder.AddEntry(/*existing=*/true, Entry(*existing_it));
   }
 
-  // FIXME: handle modified == false
-  static_cast<void>(modified);
-
+  std::optional<std::vector<InteriorNodeEntryData<std::string>>> new_entries;
   bool may_be_root =
       commit_op->mutation_requests->lease_node->node_identifier.range.full();
-  TENSORSTORE_ASSIGN_OR_RETURN(auto encoded_nodes,
-                               node_encoder.Finalize(may_be_root),
-                               commit_op->SetError(_));
-  auto new_entries = internal_ocdbt::WriteNodes(*commit_op->server->io_handle_,
-                                                commit_op->flush_promise,
-                                                std::move(encoded_nodes));
+
+  if (modified) {
+    TENSORSTORE_ASSIGN_OR_RETURN(auto encoded_nodes,
+                                 node_encoder.Finalize(may_be_root),
+                                 commit_op->SetError(_));
+    new_entries = internal_ocdbt::WriteNodes(*commit_op->server->io_handle_,
+                                             commit_op->flush_promise,
+                                             std::move(encoded_nodes));
+  }
 
   if (may_be_root) {
     UpdateRoot(std::move(commit_op), std::move(new_entries));
@@ -616,12 +626,17 @@ NodeCommitOperation::ResolveMutationsForKey(
                                               mutation.existing_generation)) {
       // `if_equal` condition was satisfied, write will be marked as having
       // completed successfully.
-      if (mutation.has_new_entries()) {
-        effective_request = &*mutation_it;
-        existing_generation = StorageGeneration::Unknown();
-      } else {
-        effective_request = nullptr;
-        existing_generation = StorageGeneration::NoValue();
+      switch (mutation.mode) {
+        case BtreeNodeWriteMutation::kAddNew:
+          effective_request = &*mutation_it;
+          existing_generation = StorageGeneration::Unknown();
+          break;
+        case BtreeNodeWriteMutation::kDeleteExisting:
+          effective_request = nullptr;
+          existing_generation = StorageGeneration::NoValue();
+          break;
+        case BtreeNodeWriteMutation::kRetainExisting:
+          break;
       }
       bit_ref = true;
     } else {
@@ -639,11 +654,19 @@ NodeCommitOperation::ResolveMutationsForKey(
 
 void NodeCommitOperation::UpdateParent(
     NodeCommitOperation::Ptr commit_op,
-    std::vector<InteriorNodeEntryData<std::string>> new_entries) {
+    std::optional<std::vector<InteriorNodeEntryData<std::string>>>
+        new_entries) {
   auto mutation = internal::MakeIntrusivePtr<BtreeInteriorNodeWriteMutation>();
   mutation->existing_range = commit_op->key_range;
   mutation->existing_generation = commit_op->node_generation;
-  mutation->new_entries = std::move(new_entries);
+  if (new_entries.has_value()) {
+    mutation->mode = new_entries->empty()
+                         ? BtreeNodeWriteMutation::kDeleteExisting
+                         : BtreeNodeWriteMutation::kAddNew;
+    mutation->new_entries = std::move(*new_entries);
+  } else {
+    mutation->mode = BtreeNodeWriteMutation::kRetainExisting;
+  }
   MutationBatchRequest batch_request;
   batch_request.root_generation =
       commit_op->existing_manifest->latest_generation();
@@ -689,19 +712,23 @@ void NodeCommitOperation::UpdateParent(
 
 void NodeCommitOperation::UpdateRoot(
     NodeCommitOperation::Ptr commit_op,
-    std::vector<InteriorNodeEntryData<std::string>> new_entries) {
-  TENSORSTORE_ASSIGN_OR_RETURN(
-      auto new_generation,
-      internal_ocdbt::WriteRootNode(*commit_op->server->io_handle_,
-                                    commit_op->flush_promise, commit_op->height,
-                                    std::move(new_entries)),
-      commit_op->SetError(_));
-  WriteNewManifest(std::move(commit_op), new_generation);
+    std::optional<std::vector<InteriorNodeEntryData<std::string>>>
+        new_entries) {
+  std::optional<BtreeGenerationReference> new_generation;
+  if (new_entries) {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        new_generation,
+        internal_ocdbt::WriteRootNode(
+            *commit_op->server->io_handle_, commit_op->flush_promise,
+            commit_op->height, std::move(*new_entries)),
+        commit_op->SetError(_));
+  }
+  WriteNewManifest(std::move(commit_op), std::move(new_generation));
 }
 
 void NodeCommitOperation::WriteNewManifest(
     NodeCommitOperation::Ptr commit_op,
-    const BtreeGenerationReference& new_generation) {
+    std::optional<BtreeGenerationReference> new_generation) {
   ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
       << "[Port=" << commit_op->server->listening_port_
       << "] WriteNewManifest: Initiate";
@@ -722,11 +749,15 @@ void NodeCommitOperation::WriteNewManifest(
                   << ", current=" << existing_manifest->latest_generation();
               return absl::AbortedError("");
             }
+            if (!new_generation) {
+              // Leave manifest unmodified.
+              return existing_manifest;
+            }
             auto [promise, future] =
                 PromiseFuturePair<std::shared_ptr<const Manifest>>::Make();
             auto new_manifest_future = internal_ocdbt::CreateNewManifest(
                 commit_op->server->io_handle_, commit_op->existing_manifest,
-                new_generation);
+                *new_generation);
             LinkValue(
                 [commit_op](Promise<std::shared_ptr<const Manifest>> promise,
                             ReadyFuture<std::pair<std::shared_ptr<Manifest>,

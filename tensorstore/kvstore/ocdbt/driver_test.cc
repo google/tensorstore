@@ -215,4 +215,10 @@ TENSORSTORE_GLOBAL_INITIALIZER {
   }
 }
 
+// Tests that if a batch of writes leaves a node unmodified, it is not
+// rewritten.
+TEST(OcdbtTest, UnmodifiedNode) {
+  tensorstore::internal_ocdbt::TestUnmodifiedNode();
+}
+
 }  // namespace

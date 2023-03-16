@@ -92,24 +92,28 @@ struct BtreeLeafNodeWriteMutationCodec {
   [[nodiscard]] bool operator()(IO& io, Value&& value) {
     static_assert(std::is_same_v<IO, riegeli::Writer> ||
                   std::is_same_v<IO, riegeli::Reader>);
-    uint8_t has_new_entry;
+    size_t mode;
     if constexpr (std::is_same_v<IO, riegeli::Writer>) {
-      has_new_entry = value.new_entry.has_value();
+      mode = static_cast<size_t>(value.mode);
     }
     if (!KeyCodec{}(io, value.key) ||
         !GenerationCodec{}(io, value.existing_generation.value) ||
-        !LittleEndianCodec<uint8_t>{}(io, has_new_entry)) {
+        !SizeCodec{}(io, mode)) {
       return false;
     }
-    if (!has_new_entry) return true;
     if constexpr (std::is_same_v<IO, riegeli::Reader>) {
-      value.new_entry.emplace();
+      if (mode > BtreeNodeWriteMutation::kAddNew) {
+        io.Fail(absl::InvalidArgumentError(
+            absl::StrFormat("Invalid mutation mode: %d", mode)));
+      }
+      value.mode = static_cast<BtreeNodeWriteMutation::Mode>(mode);
     }
+    if (mode <= BtreeNodeWriteMutation::kDeleteExisting) return true;
     // Reuse the `LeafNodeValueReferenceArrayCodec` to write a single
     // `LeafNodeValueReference`.
     return LeafNodeValueReferenceArrayCodec{[](auto& e) -> decltype(auto) {
       return (e.value_reference);
-    }}(io, span(&*value.new_entry, 1));
+    }}(io, span(&value.new_entry, 1));
   }
 };
 
@@ -118,13 +122,17 @@ struct BtreeInteriorNodeWriteMutationCodec {
   [[nodiscard]] bool operator()(IO& io, Value&& value) {
     static_assert(std::is_same_v<IO, riegeli::Writer> ||
                   std::is_same_v<IO, riegeli::Reader>);
+    size_t mode;
     size_t num_entries;
     if constexpr (std::is_same_v<IO, riegeli::Writer>) {
       num_entries = value.new_entries.size();
+      // Encode the mutation mode and number of new entries together.
+      mode =
+          static_cast<size_t>(value.mode) + (num_entries ? num_entries - 1 : 0);
     }
     if (!KeyRangeCodec{}(io, value.existing_range) ||
         !GenerationCodec{}(io, value.existing_generation.value) ||
-        !SizeCodec{}(io, num_entries)) {
+        !SizeCodec{}(io, mode)) {
       return false;
     }
 
@@ -132,6 +140,14 @@ struct BtreeInteriorNodeWriteMutationCodec {
       if (value.existing_range.empty()) {
         io.Fail(absl::InvalidArgumentError("empty key range"));
         return false;
+      }
+      if (mode < BtreeNodeWriteMutation::kAddNew) {
+        value.mode = static_cast<BtreeNodeWriteMutation::Mode>(mode);
+        num_entries = 0;
+      } else {
+        value.mode = BtreeNodeWriteMutation::kAddNew;
+        num_entries =
+            mode - static_cast<size_t>(BtreeNodeWriteMutation::kDeleteExisting);
       }
     }
 
@@ -198,8 +214,9 @@ absl::Status BtreeInteriorNodeWriteMutation::EncodeTo(
 
 bool AddNewEntries(BtreeNodeEncoder<LeafNodeEntry>& encoder,
                    const BtreeLeafNodeWriteMutation& mutation) {
-  if (!mutation.new_entry) return false;
-  auto& new_entry = *mutation.new_entry;
+  assert(mutation.mode != BtreeNodeWriteMutation::kRetainExisting);
+  if (mutation.mode != BtreeNodeWriteMutation::kAddNew) return false;
+  auto& new_entry = mutation.new_entry;
   LeafNodeEntry entry;
   entry.key = mutation.key;
   entry.value_reference = new_entry.value_reference;
@@ -209,6 +226,7 @@ bool AddNewEntries(BtreeNodeEncoder<LeafNodeEntry>& encoder,
 
 bool AddNewEntries(BtreeNodeEncoder<InteriorNodeEntry>& encoder,
                    const BtreeInteriorNodeWriteMutation& mutation) {
+  assert(mutation.mode != BtreeNodeWriteMutation::kRetainExisting);
   for (const auto& new_entry : mutation.new_entries) {
     AddNewInteriorEntry(encoder, new_entry);
   }

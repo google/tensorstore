@@ -182,10 +182,14 @@ tensorstore_cc_library(
         ":io_handle",
         ":ocdbt",
         "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/kvstore",
+        "//tensorstore/kvstore:test_util",
         "//tensorstore/kvstore/ocdbt/format",
         "//tensorstore/util:future",
         "//tensorstore/util:result",
+        "//tensorstore/util:status_testutil",
         "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest",
     ],
 )
 

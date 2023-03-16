@@ -37,6 +37,19 @@ struct BtreeNodeWriteMutation
   virtual ~BtreeNodeWriteMutation() = default;
   using Ptr = internal::IntrusivePtr<const BtreeNodeWriteMutation>;
   virtual absl::Status EncodeTo(riegeli::Writer&& writer) const = 0;
+
+  enum Mode : uint8_t {
+    // Retain existing value.  This mutation merely checks that the
+    // `existing_generation` matches.
+    kRetainExisting = 0,
+
+    // Delete existing value.
+    kDeleteExisting = 1,
+
+    // Replace existing value with new entry/entries.
+    kAddNew = 2,
+  };
+  Mode mode;
 };
 
 struct BtreeLeafNodeWriteMutation : public BtreeNodeWriteMutation {
@@ -45,11 +58,13 @@ struct BtreeLeafNodeWriteMutation : public BtreeNodeWriteMutation {
   struct NewEntry {
     LeafNodeValueReference value_reference;
   };
-  std::optional<NewEntry> new_entry;
+
+  // `new_entry` is meaningful only if
+  // `BtreeNodeWriteMutation::mode == kAddNew`.
+  NewEntry new_entry;
 
   std::string_view inclusive_min() const { return key; }
   std::string_view key_or_range() const { return key; }
-  bool has_new_entries() const { return new_entry.has_value(); }
 
   absl::Status DecodeFrom(riegeli::Reader& reader);
   absl::Status EncodeTo(riegeli::Writer&& writer) const override;
@@ -58,13 +73,15 @@ struct BtreeLeafNodeWriteMutation : public BtreeNodeWriteMutation {
 struct BtreeInteriorNodeWriteMutation : public BtreeNodeWriteMutation {
   KeyRange existing_range;
   StorageGeneration existing_generation;
+
+  // Invariant: `new_entries` is non-empty, if and only if,
+  // `BtreeNodeWriteMutation::mode == kAddNew`.
   std::vector<InteriorNodeEntryData<std::string>> new_entries;
 
   std::string_view inclusive_min() const {
     return existing_range.inclusive_min;
   }
   const KeyRange& key_or_range() const { return existing_range; }
-  bool has_new_entries() const { return !new_entries.empty(); }
 
   absl::Status DecodeFrom(riegeli::Reader& reader);
   absl::Status EncodeTo(riegeli::Writer&& writer) const override;

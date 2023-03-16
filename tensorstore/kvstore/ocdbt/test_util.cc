@@ -16,13 +16,18 @@
 
 #include <memory>
 
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
 #include "absl/time/time.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/ocdbt/driver.h"
 #include "tensorstore/kvstore/ocdbt/format/manifest.h"
 #include "tensorstore/kvstore/ocdbt/io_handle.h"
+#include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/status_testutil.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
@@ -32,6 +37,38 @@ Result<std::shared_ptr<const Manifest>> ReadManifest(OcdbtDriver& driver) {
       auto manifest_with_time,
       driver.io_handle_->GetManifest(absl::InfiniteFuture()).result());
   return manifest_with_time.manifest;
+}
+
+void TestUnmodifiedNode(const Context& context) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::kvstore::Open(
+                      {{"driver", "ocdbt"}, {"base", "memory://"}}, context)
+                      .result());
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "testa", absl::Cord("a")));
+
+  auto& driver = static_cast<OcdbtDriver&>(*store.driver);
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto manifest, ReadManifest(driver));
+    ASSERT_TRUE(manifest);
+    auto& version = manifest->latest_version();
+    EXPECT_EQ(2, version.generation_number);
+  }
+
+  {
+    kvstore::WriteOptions options;
+    options.if_equal = StorageGeneration::NoValue();
+    EXPECT_THAT(
+        kvstore::Write(store, "testa", absl::Cord("a"), options).result(),
+        internal::MatchesTimestampedStorageGeneration(
+            StorageGeneration::Unknown()));
+  }
+
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto manifest, ReadManifest(driver));
+    ASSERT_TRUE(manifest);
+    auto& version = manifest->latest_version();
+    EXPECT_EQ(2, version.generation_number);
+  }
 }
 
 }  // namespace internal_ocdbt
