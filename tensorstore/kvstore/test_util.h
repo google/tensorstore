@@ -64,6 +64,9 @@ void TestKeyValueStoreDeleteRangeToEnd(const KvStore& store);
 /// Tests DeleteRange on `store`, which should be empty.
 void TestKeyValueStoreDeleteRangeFromBeginning(const KvStore& store);
 
+/// Tests List on `store`, which should be empty.
+void TestKeyValueStoreList(const KvStore& store);
+
 struct KeyValueStoreSpecRoundtripOptions {
   // Spec that round trips with default options.
   ::nlohmann::json full_spec;

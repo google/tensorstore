@@ -20,6 +20,7 @@
 #include <variant>
 #include <vector>
 
+#include "absl/strings/str_format.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/util/result.h"
@@ -37,6 +38,17 @@ class HttpRequest {
   const std::string& method() const { return method_; }
   const std::vector<std::string>& headers() const { return headers_; }
   const bool accept_encoding() const { return accept_encoding_; }
+
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const HttpRequest& request) {
+    absl::Format(&sink, "HttpRequest{%s %s user_agent=%s", request.method_,
+                 request.url_, request.user_agent_);
+    for (const auto& v : request.headers_) {
+      sink.Append(", ");
+      sink.Append(v);
+    }
+    sink.Append("}");
+  }
 
  private:
   friend class HttpRequestBuilder;

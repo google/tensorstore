@@ -26,7 +26,6 @@
 #include <errno.h>
 #endif
 
-#include <cstdio>
 #include <optional>
 #include <string>
 
@@ -47,7 +46,10 @@ inline int get_socket_errno() { return errno; }
 #endif  // _WIN32
 
 // Creates a socket bound to localhost on an open port.
-std::optional<socket_t> CreateBoundSocket();
+std::optional<socket_t> CreateBoundSocket(uint16_t port = 0);
+
+// Returns the port of a bound socket.
+std::optional<uint16_t> TryGetPort(socket_t sock);
 
 // Formats a socket address as a host:port / [host]:port.
 std::string FormatSocketAddress(socket_t sock);
@@ -69,6 +71,9 @@ int AssertSend(socket_t client_fd, std::string_view data);
 
 // Close the socket
 void CloseSocket(socket_t fd);
+
+// Attempts to pick an unused port.
+std::optional<uint16_t> TryPickUnusedPort();
 
 }  // namespace transport_test_utils
 }  // namespace tensorstore

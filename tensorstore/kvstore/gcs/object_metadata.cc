@@ -25,6 +25,7 @@
 #include "absl/strings/str_split.h"
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
+#include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/json_binding/absl_time.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/util/result.h"
@@ -33,6 +34,7 @@
 namespace tensorstore {
 namespace internal_storage_gcs {
 
+using ::tensorstore::internal_http::TryParseIntHeader;
 using ::tensorstore::internal_json_binding::DefaultInitializedValue;
 
 namespace jb = tensorstore::internal_json_binding;
@@ -78,29 +80,12 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(ObjectMetadata,
 void SetObjectMetadataFromHeaders(
     const std::multimap<std::string, std::string>& headers,
     ObjectMetadata* result) {
-  auto set_int64_value = [&](const char* header, int64_t& output) {
-    auto it = headers.find(header);
-    if (it != headers.end()) {
-      int64_t v = 0;
-      if (absl::SimpleAtoi(it->second, &v)) {
-        output = v;
-      }
-    }
-  };
-
-  auto set_uint64_value = [&](const char* header, uint64_t& output) {
-    auto it = headers.find(header);
-    if (it != headers.end()) {
-      uint64_t v = 0;
-      if (absl::SimpleAtoi(it->second, &v)) {
-        output = v;
-      }
-    }
-  };
-
-  set_uint64_value("content-length", result->size);
-  set_int64_value("x-goog-generation", result->generation);
-  set_int64_value("x-goog-metageneration", result->metageneration);
+  result->size =
+      TryParseIntHeader<uint64_t>(headers, "content-length").value_or(0);
+  result->generation =
+      TryParseIntHeader<int64_t>(headers, "x-goog-generation").value_or(0);
+  result->metageneration =
+      TryParseIntHeader<uint64_t>(headers, "x-goog-metageneration").value_or(0);
 
   // Ignore: content-type, x-goog-storage-class
 

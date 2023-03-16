@@ -17,13 +17,17 @@
 #include <set>
 #include <utility>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/container/flat_hash_set.h"
-#include "tensorstore/util/status.h"
+#include "absl/status/status.h"
+#include "tensorstore/util/status_testutil.h"
 
 namespace {
 
+using ::tensorstore::IsOkAndHolds;
 using ::tensorstore::internal_http::AppendHeaderData;
+using ::tensorstore::internal_http::HttpResponse;
 
 TEST(AppendHeaderData, BadHeaders) {
   std::multimap<std::string, std::string> headers;
@@ -130,6 +134,29 @@ TEST(HttpResponseCodeToStatusTest, AllCodes) {
     EXPECT_EQ(absl::StatusCode::kUnknown,
               HttpResponseCodeToStatus({i, {}, {}}).code())
         << i;
+  }
+}
+
+TEST(HttpResponse, ParseContentRangeHeader) {
+  {
+    HttpResponse response;
+    response.status_code = 206;
+    response.headers.emplace(std::string("content-range"),
+                             std::string("bytes 10-20/100"));
+
+    EXPECT_THAT(ParseContentRangeHeader(response),
+                IsOkAndHolds(testing::Eq(
+                    std::tuple<size_t, size_t, size_t>(10, 20, 100))));
+  }
+
+  {
+    HttpResponse response;
+    response.status_code = 206;
+    response.headers.emplace(std::string("content-range"),
+                             std::string("bytes 1-abc/100"));
+
+    EXPECT_THAT(ParseContentRangeHeader(response),
+                tensorstore::MatchesStatus(absl::StatusCode::kUnknown));
   }
 }
 

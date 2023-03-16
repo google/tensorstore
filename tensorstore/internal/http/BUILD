@@ -68,13 +68,13 @@ tensorstore_cc_library(
         "//tensorstore/util:future",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
-        "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/time",
+        "@com_google_re2//:re2",
     ],
 )
 
@@ -98,8 +98,9 @@ tensorstore_cc_test(
     ],
     deps = [
         ":http",
-        "//tensorstore/util:status",
+        "//tensorstore/util:status_testutil",
         "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -166,11 +167,14 @@ tensorstore_cc_library(
     testonly = 1,
     srcs = ["transport_test_utils.cc"],
     hdrs = ["transport_test_utils.h"],
-    visibility = ["//visibility:private"],
     deps = [
+        "//tensorstore/internal:no_destructor",
         "//tensorstore/util:str_cat",
         "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/log:absl_log",
+        "@com_google_absl//absl/random",
+        "@com_google_absl//absl/random:distributions",
     ],
 )

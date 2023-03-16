@@ -93,6 +93,7 @@ using ::tensorstore::internal_http::HttpRequest;
 using ::tensorstore::internal_http::HttpRequestBuilder;
 using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_http::HttpTransport;
+using ::tensorstore::internal_http::TryParseIntHeader;
 using ::tensorstore::internal_storage_gcs::GcsConcurrencyResource;
 using ::tensorstore::internal_storage_gcs::GcsRateLimiterResource;
 using ::tensorstore::internal_storage_gcs::GcsRequestRetries;
@@ -107,10 +108,13 @@ using ::tensorstore::internal_storage_gcs::RateLimiterNode;
 using ::tensorstore::kvstore::Key;
 using ::tensorstore::kvstore::ListOptions;
 
-// Uncomment to log all http requests.
-// #define TENSORSTORE_INTERNAL_GCS_LOG_REQUESTS
-// Uncomment to log all http responses
-// #define TENSORSTORE_INTERNAL_GCS_LOG_RESPONSES
+#ifndef TENSORSTORE_INTERNAL_GCS_LOG_REQUESTS
+#define TENSORSTORE_INTERNAL_GCS_LOG_REQUESTS 0
+#endif
+
+#ifndef TENSORSTORE_INTERNAL_GCS_LOG_RESPONSES
+#define TENSORSTORE_INTERNAL_GCS_LOG_RESPONSES 0
+#endif
 
 namespace {
 static constexpr char kUriScheme[] = "gs";
@@ -224,18 +228,6 @@ bool IsRetriable(const absl::Status& status) {
     return true;
   }
   return false;
-}
-
-void MaybeLogResponse(const char* description,
-                      const Result<HttpResponse>& result) {
-#ifdef TENSORSTORE_INTERNAL_GCS_LOG_RESPONSES
-  if (result.ok()) {
-    for (auto& [key, value] : result->headers) {
-      ABSL_LOG(INFO) << description << ": " << key, ": " << value;
-    }
-    ABSL_LOG(INFO) << description << ": Response: " << result->payload;
-  }
-#endif
 }
 
 struct GcsKeyValueStoreSpecData {
@@ -377,17 +369,6 @@ class GcsKeyValueStore
 
   std::string DescribeKey(std::string_view key) override {
     return GetGcsUrl(spec_.bucket, key);
-  }
-
-  // Wrap transport to allow our old mocking to work.
-  Future<HttpResponse> IssueRequest(const char* description,
-                                    const HttpRequest& request,
-                                    const absl::Cord& payload) {
-#ifdef TENSORSTORE_INTERNAL_GCS_LOG_REQUESTS
-    ABSL_LOG(INFO) << description << " " << request.url()
-                   << " size=" << payload.size();
-#endif
-    return transport_->IssueRequest(request, payload);
   }
 
   // Apply default backoff/retry logic to the task.
@@ -541,7 +522,10 @@ struct ReadTask : public RateLimiterNode,
     }
     auto request = request_builder.EnableAcceptEncoding().BuildRequest();
     start_time_ = absl::Now();
-    auto future = owner->IssueRequest("ReadTask", request, {});
+
+    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_GCS_LOG_REQUESTS)
+        << "ReadTask: " << request;
+    auto future = owner->transport_->IssueRequest(request, {});
     future.ExecuteWhenReady([self = IntrusivePtr<ReadTask>(this)](
                                 ReadyFuture<HttpResponse> response) {
       self->OnResponse(response.result());
@@ -552,7 +536,8 @@ struct ReadTask : public RateLimiterNode,
     if (!promise.result_needed()) {
       return;
     }
-    MaybeLogResponse("ReadTask", response);
+    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_GCS_LOG_RESPONSES && response.ok())
+        << "ReadTask " << *response;
 
     absl::Status status = [&]() -> absl::Status {
       if (!response.ok()) return response.status();
@@ -610,9 +595,37 @@ struct ReadTask : public RateLimiterNode,
         return read_result;
     }
 
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto byte_range,
-        GetHttpResponseByteRange(httpresponse, options.byte_range));
+    // Validate returned content length.
+    ByteRange byte_range;
+    if (httpresponse.status_code != 206) {
+      // Server ignored the range request.
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          byte_range, options.byte_range.Validate(httpresponse.payload.size()));
+    } else {
+      // Server should return a parseable content-range header.
+      TENSORSTORE_ASSIGN_OR_RETURN(auto content_range_tuple,
+                                   ParseContentRangeHeader(httpresponse));
+
+      size_t target_size = httpresponse.payload.size();
+      if (options.byte_range.exclusive_max) {
+        target_size = *options.byte_range.exclusive_max -
+                      options.byte_range.inclusive_min;
+      }
+      if (options.byte_range.inclusive_min !=
+              std::get<0>(content_range_tuple) ||
+          target_size > httpresponse.payload.size()) {
+        // Return an error when the response does not start at the requested
+        // offset of when the response is smaller than the desired size.
+        auto stored_length = TryParseIntHeader<size_t>(
+            httpresponse.headers, "x-goog-stored-content-length");
+        return absl::OutOfRangeError(tensorstore::StrCat(
+            "Requested byte range ", options.byte_range,
+            " was not satisfied by GCS object with size ",
+            stored_length.value_or(std::get<2>(content_range_tuple))));
+      }
+      byte_range = ByteRange{0, target_size};
+    }
+
     read_result.state = kvstore::ReadResult::kValue;
     read_result.value = internal::GetSubCord(httpresponse.payload, byte_range);
 
@@ -724,7 +737,11 @@ struct WriteTask : public RateLimiterNode,
             .AddHeader(tensorstore::StrCat("Content-Length: ", value.size()))
             .BuildRequest();
     start_time_ = absl::Now();
-    auto future = owner->IssueRequest("WriteTask", request, value);
+
+    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_GCS_LOG_REQUESTS)
+        << "WriteTask: " << request << " size=" << value.size();
+
+    auto future = owner->transport_->IssueRequest(request, value);
     future.ExecuteWhenReady([self = IntrusivePtr<WriteTask>(this)](
                                 ReadyFuture<HttpResponse> response) {
       self->OnResponse(response.result());
@@ -735,7 +752,9 @@ struct WriteTask : public RateLimiterNode,
     if (!promise.result_needed()) {
       return;
     }
-    MaybeLogResponse("WriteTask", response);
+    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_GCS_LOG_RESPONSES && response.ok())
+        << "WriteTask " << *response;
+
     absl::Status status = [&]() -> absl::Status {
       if (!response.ok()) return response.status();
       switch (response.value().status_code) {
@@ -869,7 +888,11 @@ struct DeleteTask : public RateLimiterNode,
 
     auto request = request_builder.BuildRequest();
     start_time_ = absl::Now();
-    auto future = owner->IssueRequest("DeleteTask", request, {});
+
+    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_GCS_LOG_REQUESTS)
+        << "DeleteTask: " << request;
+
+    auto future = owner->transport_->IssueRequest(request, {});
     future.ExecuteWhenReady([self = IntrusivePtr<DeleteTask>(this)](
                                 ReadyFuture<HttpResponse> response) {
       self->OnResponse(response.result());
@@ -880,7 +903,8 @@ struct DeleteTask : public RateLimiterNode,
     if (!promise.result_needed()) {
       return;
     }
-    MaybeLogResponse("DeleteTask", response);
+    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_GCS_LOG_RESPONSES && response.ok())
+        << "DeleteTask " << *response;
 
     absl::Status status = [&]() -> absl::Status {
       if (!response.ok()) return response.status();
@@ -1069,7 +1093,10 @@ struct ListTask : public RateLimiterNode,
       request_builder.AddHeader(auth_header->value());
     auto request = request_builder.BuildRequest();
 
-    auto future = owner_->IssueRequest("List", request, {});
+    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_GCS_LOG_REQUESTS)
+        << "List: " << request;
+
+    auto future = owner_->transport_->IssueRequest(request, {});
     future.ExecuteWhenReady(WithExecutor(
         owner_->executor(), [self = IntrusivePtr<ListTask>(this)](
                                 ReadyFuture<HttpResponse> response) {
@@ -1096,7 +1123,9 @@ struct ListTask : public RateLimiterNode,
     if (is_cancelled()) {
       return absl::CancelledError();
     }
-    MaybeLogResponse("List", response);
+    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_GCS_LOG_RESPONSES && response.ok())
+        << "List " << *response;
+
     absl::Status status =
         response.ok() ? HttpResponseCodeToStatus(*response) : response.status();
     if (!status.ok() && IsRetriable(status)) {

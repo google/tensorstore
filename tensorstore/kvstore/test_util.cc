@@ -19,7 +19,6 @@
 #include <optional>
 #include <string>
 #include <string_view>
-#include <tuple>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -30,6 +29,7 @@
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/synchronization/notification.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/data_type.h"
@@ -44,6 +44,8 @@
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/spec.h"
+#include "tensorstore/util/execution/execution.h"
+#include "tensorstore/util/execution/sender_testutil.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
@@ -443,6 +445,131 @@ void TestKeyValueStoreBasicFunctionality(
   TestKeyValueStoreConditionalReadOps(store, get_key);
   TestKeyValueStoreConditionalWriteOps(store, get_key);
   TestKeyValueStoreConditionalDeleteOps(store, get_key);
+}
+
+/// Tests List on `store`, which should be empty.
+void TestKeyValueStoreList(const KvStore& store) {
+  ABSL_LOG(INFO) << "Test list, empty";
+  {
+    absl::Notification notification;
+    std::vector<std::string> log;
+    tensorstore::execution::submit(
+        kvstore::List(store, {}),
+        CompletionNotifyingReceiver{&notification,
+                                    tensorstore::LoggingReceiver{&log}});
+    notification.WaitForNotification();
+    EXPECT_THAT(log, ::testing::ElementsAre("set_starting", "set_done",
+                                            "set_stopping"));
+  }
+
+  ABSL_LOG(INFO) << "Test list: ... write elements ...";
+
+  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "a/b", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "a/d", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "a/c/x", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "a/c/y", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "a/c/z/e", absl::Cord("xyz")));
+  TENSORSTORE_EXPECT_OK(kvstore::Write(store, "a/c/z/f", absl::Cord("xyz")));
+
+  // Listing the entire stream works.
+  ABSL_LOG(INFO) << "Test list, entire stream";
+  {
+    absl::Notification notification;
+    std::vector<std::string> log;
+    tensorstore::execution::submit(
+        kvstore::List(store, {}),
+        CompletionNotifyingReceiver{&notification,
+                                    tensorstore::LoggingReceiver{&log}});
+    notification.WaitForNotification();
+
+    EXPECT_THAT(
+        log, ::testing::UnorderedElementsAre(
+                 "set_starting", "set_value: a/d", "set_value: a/c/z/f",
+                 "set_value: a/c/y", "set_value: a/c/z/e", "set_value: a/c/x",
+                 "set_value: a/b", "set_done", "set_stopping"));
+  }
+
+  // Listing a subset of the stream works.
+  ABSL_LOG(INFO) << "Test list, prefix range";
+  {
+    absl::Notification notification;
+    std::vector<std::string> log;
+    tensorstore::execution::submit(
+        kvstore::List(store, {KeyRange::Prefix("a/c/")}),
+        CompletionNotifyingReceiver{&notification,
+                                    tensorstore::LoggingReceiver{&log}});
+    notification.WaitForNotification();
+
+    EXPECT_THAT(log, ::testing::UnorderedElementsAre(
+                         "set_starting", "set_value: a/c/z/f",
+                         "set_value: a/c/y", "set_value: a/c/z/e",
+                         "set_value: a/c/x", "set_done", "set_stopping"));
+  }
+
+  // Cancellation immediately after starting yields nothing..
+  struct CancelOnStarting : public tensorstore::LoggingReceiver {
+    void set_starting(tensorstore::AnyCancelReceiver do_cancel) {
+      this->tensorstore::LoggingReceiver::set_starting({});
+      do_cancel();
+    }
+  };
+
+  ABSL_LOG(INFO) << "Test list, cancel on start";
+  {
+    absl::Notification notification;
+    std::vector<std::string> log;
+    tensorstore::execution::submit(
+        kvstore::List(store, {}),
+        CompletionNotifyingReceiver{&notification, CancelOnStarting{{&log}}});
+    notification.WaitForNotification();
+
+    EXPECT_THAT(log, ::testing::ElementsAre("set_starting", "set_done",
+                                            "set_stopping"));
+  }
+
+  // Cancellation in the middle of the stream stops the stream.
+  struct CancelAfter2 : public tensorstore::LoggingReceiver {
+    using Key = kvstore::Key;
+    tensorstore::AnyCancelReceiver cancel;
+
+    void set_starting(tensorstore::AnyCancelReceiver do_cancel) {
+      this->cancel = std::move(do_cancel);
+      this->tensorstore::LoggingReceiver::set_starting({});
+    }
+
+    void set_value(Key k) {
+      this->tensorstore::LoggingReceiver::set_value(std::move(k));
+      if (this->log->size() == 2) {
+        this->cancel();
+      }
+    }
+  };
+
+  ABSL_LOG(INFO) << "Test list, cancel after 2";
+  {
+    absl::Notification notification;
+    std::vector<std::string> log;
+    tensorstore::execution::submit(
+        kvstore::List(store, {}),
+        CompletionNotifyingReceiver{&notification, CancelAfter2{{&log}}});
+    notification.WaitForNotification();
+
+    EXPECT_THAT(log,
+                ::testing::ElementsAre(
+                    "set_starting",
+                    ::testing::AnyOf("set_value: a/d", "set_value: a/c/z/f",
+                                     "set_value: a/c/y", "set_value: a/c/z/e",
+                                     "set_value: a/c/x", "set_value: a/b"),
+                    "set_done", "set_stopping"));
+  }
+
+  ABSL_LOG(INFO) << "Test list: ... delete elements ...";
+  TENSORSTORE_EXPECT_OK(kvstore::Delete(store, "a/b"));
+  TENSORSTORE_EXPECT_OK(kvstore::Delete(store, "a/d"));
+  TENSORSTORE_EXPECT_OK(kvstore::Delete(store, "a/c/x"));
+  TENSORSTORE_EXPECT_OK(kvstore::Delete(store, "a/c/y"));
+  TENSORSTORE_EXPECT_OK(kvstore::Delete(store, "a/c/z/e"));
+  TENSORSTORE_EXPECT_OK(kvstore::Delete(store, "a/c/z/f"));
 }
 
 void TestKeyValueStoreDeleteRange(const KvStore& store) {

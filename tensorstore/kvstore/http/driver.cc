@@ -332,9 +332,36 @@ struct ReadTask {
         return read_result;
     }
 
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto byte_range,
-        GetHttpResponseByteRange(httpresponse, options.byte_range));
+    // Validate returned content length.
+    ByteRange byte_range;
+    if (httpresponse.status_code != 206) {
+      // Server ignored the range request.
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          byte_range, options.byte_range.Validate(httpresponse.payload.size()));
+    } else {
+      // Server should return a parseable content-range header.
+      TENSORSTORE_ASSIGN_OR_RETURN(auto content_range_tuple,
+                                   ParseContentRangeHeader(httpresponse));
+
+      size_t target_size = httpresponse.payload.size();
+      if (options.byte_range.exclusive_max) {
+        target_size = *options.byte_range.exclusive_max -
+                      options.byte_range.inclusive_min;
+      }
+      if (options.byte_range.inclusive_min !=
+              std::get<0>(content_range_tuple) ||
+          target_size > httpresponse.payload.size()) {
+        // Return an error when the response does not start at the requested
+        // offset of when the response is smaller than the desired size.
+        return absl::OutOfRangeError(
+            tensorstore::StrCat("Requested byte range ", options.byte_range,
+                                " was not satisfied by HTTP response of size ",
+                                std::get<2>(content_range_tuple)));
+      }
+
+      byte_range = ByteRange{0, target_size};
+    }
+
     read_result.state = kvstore::ReadResult::kValue;
     read_result.value = internal::GetSubCord(httpresponse.payload, byte_range);
 

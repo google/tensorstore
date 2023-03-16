@@ -17,13 +17,15 @@
 
 #include <cstddef>
 #include <map>
+#include <optional>
 #include <string>
 #include <string_view>
 
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
-#include "tensorstore/kvstore/byte_range.h"
-#include "tensorstore/util/status.h"
+#include "absl/strings/numbers.h"
+#include "absl/strings/str_format.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal_http {
@@ -38,17 +40,45 @@ struct HttpResponse {
   int32_t status_code;
   absl::Cord payload;
   std::multimap<std::string, std::string> headers;
+
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const HttpResponse& response) {
+    absl::Format(&sink, "HttpResponse{code=%d, headers=<",
+                 response.status_code);
+    const char* sep = "";
+    for (const auto& kv : response.headers) {
+      sink.Append(sep);
+      sink.Append(kv.first);
+      sink.Append("=");
+      sink.Append(kv.second);
+      sep = ", ";
+    }
+    absl::Format(&sink, ">, body=%v}", response.payload);
+  }
 };
 
 /// Returns an `absl::Status` object for a corresponding
 /// HttpResponse.status_code.
 absl::Status HttpResponseCodeToStatus(const HttpResponse& response);
 
-/// Determines the portion of the response, if any, that corresponds to the
-/// requested byte range, based on the presence of an HTTP 206 Partial Content
-/// status code and a `Content-Range` header.
-Result<ByteRange> GetHttpResponseByteRange(
-    const HttpResponse& response, OptionalByteRangeRequest byte_range_request);
+/// Parses the "content-range" header, which can be used to determine the
+/// portion of an object returned by an HTTP request (with status code 206).
+/// Returned tuple fields are {start, end, total_length}
+Result<std::tuple<size_t, size_t, size_t>> ParseContentRangeHeader(
+    const HttpResponse& response);
+
+/// Attempts to parse a header using SimpleAtoi.
+template <typename T>
+std::optional<T> TryParseIntHeader(
+    const std::multimap<std::string, std::string>& headers,
+    const std::string& header) {
+  auto it = headers.find(header);
+  T result;
+  if (it != headers.end() && absl::SimpleAtoi(it->second, &result)) {
+    return result;
+  }
+  return std::nullopt;
+}
 
 }  // namespace internal_http
 }  // namespace tensorstore

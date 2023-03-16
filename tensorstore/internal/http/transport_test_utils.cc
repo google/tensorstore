@@ -42,12 +42,65 @@
 #include <string_view>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
+#include "absl/random/distributions.h"
+#include "absl/random/random.h"
+#include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace transport_test_utils {
+namespace {
+
+bool IsPortAvailable(uint16_t port) {
+  struct sockaddr_storage peer_addr;
+  memset(&peer_addr, 0, sizeof(peer_addr));
+  socklen_t peer_len = 0;
+
+  // Succeeds if either the IPv4 or IPv6 port can be bound.
+  socket_t sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+  if (sock < 0) {
+    sock = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
+    if (sock < 0) {
+      return false;
+    }
+    peer_len = sizeof(sockaddr_in6);
+    auto* addr = reinterpret_cast<struct sockaddr_in6*>(&peer_addr);
+    *addr = {};
+    addr->sin6_family = AF_INET6;
+    addr->sin6_port = ntohs(port);
+  } else {
+    peer_len = sizeof(sockaddr_in);
+    auto* addr = reinterpret_cast<struct sockaddr_in*>(&peer_addr);
+    *addr = {};
+    addr->sin_family = AF_INET;
+    addr->sin_port = ntohs(port);
+  }
+
+#ifndef _WIN32
+  // On non-WIN32, set socket as close on exec.  Ignore errors.
+  fcntl(sock, F_SETFD, FD_CLOEXEC);
+#endif
+
+  // Make 'reuse address' option available
+  int yes = 1;
+  setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char*>(&yes),
+             sizeof(yes));
+#ifdef SO_REUSEPORT
+  setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, reinterpret_cast<char*>(&yes),
+             sizeof(yes));
+#endif
+
+  // Try binding to port.
+  int err =
+      ::bind(sock, reinterpret_cast<struct sockaddr*>(&peer_addr), peer_len);
+  CloseSocket(sock);
+  return err == 0;
+}
+
+}  // namespace
 
 // Platform specific defines.
 #ifdef _WIN32
@@ -56,8 +109,23 @@ static constexpr socket_t kInvalidSocket = INVALID_SOCKET;
 static constexpr socket_t kInvalidSocket = -1;
 #endif  // _WIN32
 
-std::optional<socket_t> CreateBoundSocket() {
-  auto try_open_socket = [](struct addrinfo* rp) -> socket_t {
+std::optional<uint16_t> TryGetPort(socket_t sock) {
+  struct sockaddr_storage peer_addr;
+  socklen_t peer_len = sizeof(peer_addr);
+  if (getsockname(sock, (struct sockaddr*)&peer_addr, &peer_len)) {
+    return std::nullopt;
+  }
+  if (reinterpret_cast<struct sockaddr*>(&peer_addr)->sa_family == AF_INET) {
+    return ntohs(reinterpret_cast<struct sockaddr_in*>(&peer_addr)->sin_port);
+  } else if (reinterpret_cast<struct sockaddr*>(&peer_addr)->sa_family ==
+             AF_INET6) {
+    return ntohs(reinterpret_cast<struct sockaddr_in6*>(&peer_addr)->sin6_port);
+  }
+  return std::nullopt;
+}
+
+std::optional<socket_t> CreateBoundSocket(uint16_t port) {
+  auto try_open_socket = [](struct addrinfo* rp, uint16_t port) -> socket_t {
     // Create a socket
     //
     // NOTE: On WIN32 we could use WSASocket to prevent the socket from being
@@ -82,9 +150,9 @@ std::optional<socket_t> CreateBoundSocket() {
 
     // Ensure port is set to 0.
     if (rp->ai_family == AF_INET) {
-      ((struct sockaddr_in*)rp->ai_addr)->sin_port = 0;
+      ((struct sockaddr_in*)rp->ai_addr)->sin_port = htons(port);
     } else if (rp->ai_family == AF_INET6) {
-      ((struct sockaddr_in6*)rp->ai_addr)->sin6_port = 0;
+      ((struct sockaddr_in6*)rp->ai_addr)->sin6_port = htons(port);
     }
 
     // bind and listen
@@ -117,7 +185,7 @@ std::optional<socket_t> CreateBoundSocket() {
   // ipv4 sockets, and on the second pass try and open ipv6 sockets.
   for (auto* rp = result; rp; rp = rp->ai_next) {
     if (rp->ai_family == AF_INET) {
-      auto sock = try_open_socket(rp);
+      auto sock = try_open_socket(rp, port);
       if (sock != kInvalidSocket) {
         freeaddrinfo(result);
         return sock;
@@ -126,7 +194,7 @@ std::optional<socket_t> CreateBoundSocket() {
   }
   for (auto* rp = result; rp; rp = rp->ai_next) {
     if (rp->ai_family == AF_INET6) {
-      auto sock = try_open_socket(rp);
+      auto sock = try_open_socket(rp, port);
       if (sock != kInvalidSocket) {
         freeaddrinfo(result);
         return sock;
@@ -245,6 +313,27 @@ void CloseSocket(socket_t fd) {
 #else
   close(fd);
 #endif
+}
+
+std::optional<uint16_t> TryPickUnusedPort() {
+  // Used ports tracks the ports handed out by this process to avoid
+  // returning duplicates as they may not be immediately opened on retrieval.
+  static internal::NoDestructor<absl::flat_hash_set<uint16_t>> used_ports;
+
+  static constexpr uint16_t kMin = 32768;
+  static constexpr uint16_t kMax = 60999;
+
+  absl::BitGen bitgen;
+  for (int i = 0; i < 100; i++) {
+    uint16_t port = absl::Uniform(bitgen, kMin, kMax);
+    if (used_ports->count(port) != 0) continue;
+
+    if (IsPortAvailable(port)) {
+      used_ports->insert(port);
+      return port;
+    }
+  }
+  return std::nullopt;
 }
 
 }  // namespace transport_test_utils
