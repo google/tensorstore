@@ -11,8 +11,8 @@ licenses(["notice"])
 filegroup(
     name = "doc_sources",
     srcs = [
-        "conf.py",
         "_templates/logo.svg",
+        "conf.py",
     ] + glob([
         "**/*.rst",
         "**/*.yml",
