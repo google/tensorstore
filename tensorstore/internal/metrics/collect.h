@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "absl/functional/function_ref.h"
+#include <nlohmann/json.hpp>
 #include "tensorstore/internal/metrics/metadata.h"
 
 namespace tensorstore {
@@ -69,6 +70,9 @@ void FormatCollectedMetric(
     const CollectedMetric& metric,
     absl::FunctionRef<void(bool has_value, std::string formatted_line)>
         handle_line);
+
+/// Converts a CollectedMetric to json.
+::nlohmann::json CollectedMetricToJson(const CollectedMetric& metric);
 
 }  // namespace internal_metrics
 }  // namespace tensorstore

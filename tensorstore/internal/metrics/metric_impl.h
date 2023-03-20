@@ -220,6 +220,13 @@ class AbstractMetric : public AbstractMetricBase<sizeof...(Fields)> {
     }
   }
 
+  void Reset() {
+    absl::MutexLock l(&mu_);
+    for (auto& [k, v] : impl_) {
+      v.Reset();
+    }
+  }
+
  private:
   // NOTE: It would be nice to have a lock-free hashtable here.
   mutable absl::Mutex mu_;
@@ -256,6 +263,8 @@ class AbstractMetric<Cell> : public AbstractMetricBase<0> {
     on_cell(impl_, g);
   }
 
+  void Reset() { impl_.Reset(); }
+
  private:
   Cell impl_;
 };
@@ -288,6 +297,12 @@ class AbstractMetric<Cell, bool> : public AbstractMetricBase<1> {
   void CollectCells(CollectCellFn on_cell) const {
     on_cell(true_impl_, field_values_type{true});
     on_cell(false_impl_, field_values_type{false});
+  }
+
+  void Reset() {
+    // not thread safe
+    true_impl_.Reset();
+    false_impl_.Reset();
   }
 
  private:

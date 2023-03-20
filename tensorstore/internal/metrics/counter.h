@@ -140,6 +140,8 @@ class ABSL_CACHELINE_ALIGNED Counter {
     return *impl_.GetCell(labels...);
   }
 
+  void Reset() { impl_.Reset(); }
+
  private:
   Counter(std::string metric_name, MetricMetadata metadata,
           typename Impl::field_names_type field_names)
@@ -172,6 +174,8 @@ class ABSL_CACHELINE_ALIGNED CounterCell<double> : public CounterTag {
 
   double Get() const { return value_; }
 
+  void Reset() { value_ = 0.0; }
+
  private:
   std::atomic<double> value_{0.0};
 };
@@ -191,6 +195,8 @@ class ABSL_CACHELINE_ALIGNED CounterCell<int64_t> : public CounterTag {
   void Increment() { IncrementBy(1); }
 
   int64_t Get() const { return value_; }
+
+  void Reset() { value_ = 0; }
 
  private:
   std::atomic<int64_t> value_{0};

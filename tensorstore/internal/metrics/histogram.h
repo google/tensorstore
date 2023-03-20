@@ -174,6 +174,8 @@ class ABSL_CACHELINE_ALIGNED Histogram {
     return *impl_.GetCell(labels...);
   }
 
+  void Reset() { impl_.Reset(); }
+
  private:
   Histogram(std::string metric_name, MetricMetadata metadata,
             typename Impl::field_names_type field_names)
@@ -210,6 +212,15 @@ class ABSL_CACHELINE_ALIGNED HistogramCell : public Bucketer {
   int64_t GetBucket(size_t idx) const {
     if (idx >= Max) return 0;
     return buckets_[idx];
+  }
+
+  void Reset() {
+    // There is potential inconsistency between count/sum/bucket
+    sum_ = 0.0;
+    count_ = 0;
+    for (auto& b : buckets_) {
+      b = 0;
+    }
   }
 
  private:

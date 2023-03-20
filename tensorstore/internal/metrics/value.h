@@ -139,6 +139,8 @@ class ABSL_CACHELINE_ALIGNED Value {
     return *impl_.GetCell(labels...);
   }
 
+  void Reset() { impl_.Reset(); }
+
  private:
   Value(std::string metric_name, MetricMetadata metadata,
         typename Impl::field_names_type field_names)
@@ -161,6 +163,8 @@ class ABSL_CACHELINE_ALIGNED AtomicValueCell : public ValueTag {
   void Set(T value) { value_ = value; }
   T Get() const { return value_; }
 
+  void Reset() { Set(T()); }
+
  private:
   std::atomic<T> value_{};
 };
@@ -180,6 +184,7 @@ class ABSL_CACHELINE_ALIGNED MutexValueCell : public ValueTag {
     absl::MutexLock l(&m_);
     return value_;
   }
+  void Reset() { Set(T()); }
 
  private:
   friend class Value<T>;

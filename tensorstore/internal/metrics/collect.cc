@@ -132,5 +132,68 @@ void FormatCollectedMetric(
   }
 }
 
+/// Converts a CollectedMetric to json.
+::nlohmann::json CollectedMetricToJson(const CollectedMetric& metric) {
+  ::nlohmann::json::object_t result;
+  result["name"] = metric.metric_name;
+
+  auto set_field_keys = [&](auto& v, ::nlohmann::json::object_t& h) {
+    assert(metric.field_names.size() == v.fields.size());
+    for (size_t i = 0; i < metric.field_names.size(); ++i) {
+      if (metric.field_names[i] == "value" ||
+          metric.field_names[i] == "count" ||
+          metric.field_names[i] == "max_value" ||
+          metric.field_names[i] == "sum") {
+        h[absl::StrCat("_", metric.field_names[i])] = v.fields[i];
+      } else {
+        h[std::string(metric.field_names[i])] = v.fields[i];
+      }
+    }
+  };
+
+  std::vector<::nlohmann::json> values;
+  if (!metric.gauges.empty()) {
+    for (const auto& v : metric.gauges) {
+      ::nlohmann::json::object_t tmp{};
+      set_field_keys(v, tmp);
+      std::visit([&](auto x) { tmp["value"] = x; }, v.value);
+      std::visit([&](auto x) { tmp["max_value"] = x; }, v.max_value);
+      values.push_back(std::move(tmp));
+    }
+  } else if (!metric.values.empty()) {
+    for (const auto& v : metric.values) {
+      ::nlohmann::json::object_t tmp{};
+      set_field_keys(v, tmp);
+      std::visit([&](auto x) { tmp["value"] = x; }, v.value);
+      values.push_back(std::move(tmp));
+    }
+  } else if (!metric.counters.empty()) {
+    for (const auto& v : metric.counters) {
+      ::nlohmann::json::object_t tmp{};
+      set_field_keys(v, tmp);
+      std::visit([&](auto x) { tmp["count"] = x; }, v.value);
+      values.push_back(std::move(tmp));
+    }
+  } else if (!metric.histograms.empty()) {
+    for (const auto& v : metric.histograms) {
+      ::nlohmann::json::object_t tmp{};
+      set_field_keys(v, tmp);
+      tmp["count"] = v.count;
+      tmp["sum"] = v.sum;
+
+      size_t end = v.buckets.size();
+      while (end > 0 && v.buckets[end - 1] == 0) end--;
+
+      auto it = v.buckets.begin();
+      for (size_t i = 0; i < end; ++i) {
+        tmp[absl::StrCat(i)] = *it++;
+      }
+      values.push_back(std::move(tmp));
+    }
+  }
+  result["values"] = std::move(values);
+  return result;
+}
+
 }  // namespace internal_metrics
 }  // namespace tensorstore

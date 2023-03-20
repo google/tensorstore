@@ -162,6 +162,8 @@ class ABSL_CACHELINE_ALIGNED Gauge {
     return *impl_.GetCell(labels...);
   }
 
+  void Reset() { impl_.Reset(); }
+
  private:
   Gauge(std::string metric_name, MetricMetadata metadata,
         typename Impl::field_names_type field_names)
@@ -202,6 +204,13 @@ class ABSL_CACHELINE_ALIGNED GaugeCell<double> : public GaugeTag {
   double Get() const { return value_; }
   double GetMax() const { return max_; }
 
+  void Reset() {
+    // not thread safe
+    value_ = 0.0;
+    max_ = 0.0;
+    SetMax(value_.load());
+  }
+
  private:
   inline void SetMax(double value) {
     double h = max_.load(std::memory_order_relaxed);
@@ -236,6 +245,13 @@ class ABSL_CACHELINE_ALIGNED GaugeCell<int64_t> : public GaugeTag {
 
   int64_t Get() const { return value_; }
   int64_t GetMax() const { return max_; }
+
+  void Reset() {
+    // not thread safe
+    value_ = 0;
+    max_ = 0;
+    SetMax(value_.load());
+  }
 
  private:
   inline void SetMax(int64_t value) {

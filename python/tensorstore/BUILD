@@ -965,8 +965,6 @@ pybind11_cc_library(
         "//tensorstore/internal:global_initializer",
         "//tensorstore/internal/metrics:collect",
         "//tensorstore/internal/metrics:registry",
-        "//tensorstore/util:str_cat",
-        "@com_github_nlohmann_json//:nlohmann_json",
         "@com_github_pybind_pybind11//:pybind11",
     ],
     alwayslink = True,

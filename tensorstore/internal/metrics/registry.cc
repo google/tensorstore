@@ -46,7 +46,7 @@ std::vector<CollectedMetric> MetricRegistry::CollectWithPrefix(
   absl::MutexLock l(&mu_);
   for (auto& kv : entries_) {
     if (prefix.empty() || absl::StartsWith(kv.first, prefix)) {
-      auto opt_metric = kv.second.poly();
+      auto opt_metric = kv.second.poly(CollectMetricTag{});
       if (opt_metric.has_value()) {
         all.emplace_back(std::move(*opt_metric));
         assert(all.back().metric_name == kv.first);
@@ -60,7 +60,7 @@ std::optional<CollectedMetric> MetricRegistry::Collect(std::string_view name) {
   absl::MutexLock l(&mu_);
   auto it = entries_.find(name);
   if (it == entries_.end()) return std::nullopt;
-  auto opt_metric = it->second.poly();
+  auto opt_metric = it->second.poly(CollectMetricTag{});
   assert(!opt_metric.has_value() || opt_metric->metric_name == it->first);
   return opt_metric;
 }
@@ -68,6 +68,13 @@ std::optional<CollectedMetric> MetricRegistry::Collect(std::string_view name) {
 MetricRegistry& GetMetricRegistry() {
   static internal::NoDestructor<MetricRegistry> registry;
   return *registry;
+}
+
+void MetricRegistry::Reset() {
+  absl::MutexLock l(&mu_);
+  for (auto& [k, v] : entries_) {
+    v.poly(ResetMetricTag{});
+  }
 }
 
 }  // namespace internal_metrics

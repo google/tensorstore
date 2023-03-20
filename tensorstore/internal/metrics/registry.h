@@ -15,10 +15,10 @@
 #ifndef TENSORSTORE_INTERNAL_METRICS_REGISTRY_H_
 #define TENSORSTORE_INTERNAL_METRICS_REGISTRY_H_
 
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string_view>
-#include <utility>
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
@@ -37,28 +37,48 @@ namespace internal_metrics {
 /// that collection happens under lock, limiting collection parallelism.
 class MetricRegistry {
  public:
-  using Metric = poly::Poly<sizeof(void*), /*Copyable=*/true,
-                            std::optional<CollectedMetric>() const>;
+  struct CollectMetricTag {};
+  struct ResetMetricTag {};
+
+  template <typename T>
+  struct CollectableWrapper {
+    T* metric;
+    std::optional<CollectedMetric> operator()(CollectMetricTag) const {
+      return metric->Collect();
+    }
+    void operator()(ResetMetricTag) { metric->Reset(); }
+  };
+
+  using Metric =
+      poly::Poly<sizeof(void*), /*Copyable=*/true,
+                 std::optional<CollectedMetric>(CollectMetricTag) const,
+                 void(ResetMetricTag)>;
 
   /// Add a generic metric to be collected. Metric name must be a path-style
-  /// string, must be unique, and must ultimately be a string literal.
-  void AddGeneric(std::string_view metric_name, MetricRegistry::Metric m,
+  /// string, must be unique, and must ultimately be a string literal.  This
+  /// metric doesn't support reset.
+  /// TODO(ChromeHearts) - add suppport for custom Reset()
+  void AddGeneric(std::string_view metric_name,
+                  std::function<std::optional<CollectedMetric>()>&& collect,
                   std::shared_ptr<void> hook = nullptr) {
     ABSL_CHECK(IsValidMetricName(metric_name));
-    AddInternal(metric_name, m, std::move(hook));
+    AddInternal(
+        metric_name,
+        [collect = std::move(collect)](auto p) {
+          if constexpr (std::is_same_v<decltype(p), CollectMetricTag>)
+            return collect();
+          // ignore  ResetMetricTag
+        },
+        std::move(hook));
   }
 
   /// Add a metric which is collectable via metric->Collect()
   /// Metric name must be a path-style string, and must be unique.
   template <typename Collectable>
-  void Add(const Collectable* metric) {
+  void Add(Collectable* metric) {
     std::shared_ptr<void> hook = RegisterMetricHook(metric);
-    AddInternal(
-        metric->metric_name(),
-        [metric]() -> std::optional<CollectedMetric> {
-          return metric->Collect();
-        },
-        std::move(hook));
+    AddInternal(metric->metric_name(), CollectableWrapper<Collectable>{metric},
+                std::move(hook));
   }
 
   /// Collect an individual metric.
@@ -67,6 +87,9 @@ class MetricRegistry {
   /// Collect metrics that begin with the specified prefix.
   /// The result is not ordered.
   std::vector<CollectedMetric> CollectWithPrefix(std::string_view prefix);
+
+  // Reset all the metrics in the registry
+  void Reset();
 
  private:
   void AddInternal(std::string_view metric_name, MetricRegistry::Metric m,
