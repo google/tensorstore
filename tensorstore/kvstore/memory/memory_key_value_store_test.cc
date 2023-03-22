@@ -53,115 +53,29 @@ TEST(MemoryKeyValueStoreTest, Basic) {
   tensorstore::internal::TestKeyValueStoreBasicFunctionality(store);
 }
 
+TEST(MemoryKeyValueStoreTest, DeletePrefix) {
+  auto store = tensorstore::GetMemoryKeyValueStore();
+  tensorstore::internal::TestKeyValueStoreDeletePrefix(store);
+}
+
 TEST(MemoryKeyValueStoreTest, DeleteRange) {
   auto store = tensorstore::GetMemoryKeyValueStore();
-  TENSORSTORE_EXPECT_OK(store->Write("a/b", absl::Cord("xyz")));
-  TENSORSTORE_EXPECT_OK(store->Write("a/d", absl::Cord("xyz")));
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/x", absl::Cord("xyz")));
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/y", absl::Cord("xyz")));
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/e", absl::Cord("xyz")));
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/f", absl::Cord("xyz")));
+  tensorstore::internal::TestKeyValueStoreDeleteRange(store);
+}
 
-  TENSORSTORE_EXPECT_OK(store->DeleteRange(KeyRange::Prefix("a/c")));
+TEST(MemoryKeyValueStoreTest, DeleteRangeToEnd) {
+  auto store = tensorstore::GetMemoryKeyValueStore();
+  tensorstore::internal::TestKeyValueStoreDeleteRangeToEnd(store);
+}
 
-  EXPECT_EQ("xyz", store->Read("a/b").value().value);
-  EXPECT_EQ("xyz", store->Read("a/d").value().value);
-
-  EXPECT_THAT(store->Read("a/c/x").result(), MatchesKvsReadResultNotFound());
-  EXPECT_THAT(store->Read("a/c/y").result(), MatchesKvsReadResultNotFound());
-  EXPECT_THAT(store->Read("a/c/z/e").result(), MatchesKvsReadResultNotFound());
-  EXPECT_THAT(store->Read("a/c/z/f").result(), MatchesKvsReadResultNotFound());
+TEST(MemoryKeyValueStoreTest, DeleteRangeFromBeginning) {
+  auto store = tensorstore::GetMemoryKeyValueStore();
+  tensorstore::internal::TestKeyValueStoreDeleteRangeFromBeginning(store);
 }
 
 TEST(MemoryKeyValueStoreTest, List) {
   auto store = tensorstore::GetMemoryKeyValueStore();
-
-  {
-    std::vector<std::string> log;
-    tensorstore::execution::submit(store->List({}),
-                                   tensorstore::LoggingReceiver{&log});
-    EXPECT_THAT(log, ::testing::ElementsAre("set_starting", "set_done",
-                                            "set_stopping"));
-  }
-
-  TENSORSTORE_EXPECT_OK(store->Write("a/b", absl::Cord("xyz")));
-  TENSORSTORE_EXPECT_OK(store->Write("a/d", absl::Cord("xyz")));
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/x", absl::Cord("xyz")));
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/y", absl::Cord("xyz")));
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/e", absl::Cord("xyz")));
-  TENSORSTORE_EXPECT_OK(store->Write("a/c/z/f", absl::Cord("xyz")));
-
-  // Listing the entire stream works.
-  {
-    std::vector<std::string> log;
-    tensorstore::execution::submit(store->List({}),
-                                   tensorstore::LoggingReceiver{&log});
-
-    EXPECT_THAT(
-        log, ::testing::UnorderedElementsAre(
-                 "set_starting", "set_value: a/d", "set_value: a/c/z/f",
-                 "set_value: a/c/y", "set_value: a/c/z/e", "set_value: a/c/x",
-                 "set_value: a/b", "set_done", "set_stopping"));
-  }
-
-  // Listing a subset of the stream works.
-  {
-    std::vector<std::string> log;
-    tensorstore::execution::submit(store->List({KeyRange::Prefix("a/c/")}),
-                                   tensorstore::LoggingReceiver{&log});
-
-    EXPECT_THAT(log, ::testing::UnorderedElementsAre(
-                         "set_starting", "set_value: a/c/z/f",
-                         "set_value: a/c/y", "set_value: a/c/z/e",
-                         "set_value: a/c/x", "set_done", "set_stopping"));
-  }
-
-  // Cancellation immediately after starting yields nothing..
-  struct CancelOnStarting : public tensorstore::LoggingReceiver {
-    void set_starting(tensorstore::AnyCancelReceiver do_cancel) {
-      this->tensorstore::LoggingReceiver::set_starting({});
-      do_cancel();
-    }
-  };
-
-  {
-    std::vector<std::string> log;
-    tensorstore::execution::submit(store->List({}), CancelOnStarting{{&log}});
-
-    EXPECT_THAT(log, ::testing::ElementsAre("set_starting", "set_done",
-                                            "set_stopping"));
-  }
-
-  // Cancellation in the middle of the stream stops the stream.
-  struct CancelAfter2 : public tensorstore::LoggingReceiver {
-    using Key = tensorstore::kvstore::Key;
-    tensorstore::AnyCancelReceiver cancel;
-
-    void set_starting(tensorstore::AnyCancelReceiver do_cancel) {
-      this->cancel = std::move(do_cancel);
-      this->tensorstore::LoggingReceiver::set_starting({});
-    }
-
-    void set_value(Key k) {
-      this->tensorstore::LoggingReceiver::set_value(std::move(k));
-      if (this->log->size() == 2) {
-        this->cancel();
-      }
-    }
-  };
-
-  {
-    std::vector<std::string> log;
-    tensorstore::execution::submit(store->List({}), CancelAfter2{{&log}});
-
-    EXPECT_THAT(log,
-                ::testing::ElementsAre(
-                    "set_starting",
-                    ::testing::AnyOf("set_value: a/d", "set_value: a/c/z/f",
-                                     "set_value: a/c/y", "set_value: a/c/z/e",
-                                     "set_value: a/c/x", "set_value: a/b"),
-                    "set_done", "set_stopping"));
-  }
+  tensorstore::internal::TestKeyValueStoreList(store);
 }
 
 TEST(MemoryKeyValueStoreTest, Open) {
