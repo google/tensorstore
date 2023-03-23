@@ -21,6 +21,7 @@ tensorstore_cc_library(
 
 tensorstore_cc_library(
     name = "blosc_compressor",
+    srcs = ["blosc_compressor.cc"],
     hdrs = ["blosc_compressor.h"],
     deps = [
         ":blosc",
@@ -29,6 +30,12 @@ tensorstore_cc_library(
         "//tensorstore/util:quote_string",
         "//tensorstore/util:str_cat",
         "@com_google_absl//absl/status",
+        "@com_google_riegeli//riegeli/bytes:cord_reader",
+        "@com_google_riegeli//riegeli/bytes:cord_writer",
+        "@com_google_riegeli//riegeli/bytes:read_all",
+        "@com_google_riegeli//riegeli/bytes:reader",
+        "@com_google_riegeli//riegeli/bytes:write",
+        "@com_google_riegeli//riegeli/bytes:writer",
         "@org_blosc_cblosc//:blosc",
     ],
 )
@@ -79,6 +86,7 @@ tensorstore_cc_library(
         "//tensorstore:json_serialization_options",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:json_registry",
+        "//tensorstore/util:status",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:cord",
         "@com_google_riegeli//riegeli/bytes:cord_reader",
@@ -87,35 +95,6 @@ tensorstore_cc_library(
         "@com_google_riegeli//riegeli/bytes:reader",
         "@com_google_riegeli//riegeli/bytes:write",
         "@com_google_riegeli//riegeli/bytes:writer",
-    ],
-)
-
-tensorstore_cc_library(
-    name = "lzma",
-    srcs = ["lzma.cc"],
-    hdrs = ["lzma.h"],
-    deps = [
-        ":cord_stream_manager",
-        "//tensorstore/util:status",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:cord",
-        "@org_tukaani_xz//:liblzma",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "lzma_test",
-    size = "small",
-    srcs = ["lzma_test.cc"],
-    deps = [
-        ":lzma",
-        "//tensorstore/util:status",
-        "//tensorstore/util:status_testutil",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_absl//absl/strings:cord_test_helpers",
-        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -142,12 +121,31 @@ tensorstore_cc_test(
 
 tensorstore_cc_library(
     name = "xz_compressor",
+    srcs = ["xz_compressor.cc"],
     hdrs = ["xz_compressor.h"],
     deps = [
         ":json_specified_compressor",
-        ":lzma",
-        "@com_google_absl//absl/status",
+        "@com_google_riegeli//riegeli/bytes:cord_reader",
+        "@com_google_riegeli//riegeli/bytes:cord_writer",
+        "@com_google_riegeli//riegeli/bytes:reader",
+        "@com_google_riegeli//riegeli/bytes:writer",
+        "@com_google_riegeli//riegeli/xz:xz_reader",
+        "@com_google_riegeli//riegeli/xz:xz_writer",
+        "@org_tukaani_xz//:liblzma",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "xz_compressor_test",
+    size = "small",
+    srcs = ["xz_compressor_test.cc"],
+    deps = [
+        ":xz_compressor",
+        "//tensorstore/util:status_testutil",
         "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/strings:cord_test_helpers",
+        "@com_google_googletest//:gtest_main",
+        "@org_tukaani_xz//:liblzma",
     ],
 )
 

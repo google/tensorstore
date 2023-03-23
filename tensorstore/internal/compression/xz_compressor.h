@@ -18,27 +18,36 @@
 /// \file Define an XZ-format JsonSpecifiedCompressor.
 
 #include <cstddef>
-#include <string>
 
-#include "absl/status/status.h"
-#include "absl/strings/cord.h"
+#include <lzma.h>
 #include "tensorstore/internal/compression/json_specified_compressor.h"
-#include "tensorstore/internal/compression/lzma.h"
 
 namespace tensorstore {
 namespace internal {
 
-class XzCompressor : public internal::JsonSpecifiedCompressor,
-                     public tensorstore::lzma::xz::Options {
+/// Options for the XZ format, which is a variant of LZMA with simplified
+/// options.
+struct XzOptions {
+  /// Specifies compression level.  Must be a number in `[0, 9]`.
+  int level = 6;
+
+  /// Specifies whether to use LZMA_PRESET_EXTREME, to provide marginal
+  /// improvements in compression ratio at the cost of slower encoding.
+  bool extreme = false;
+
+  /// Specifies the integrity check to use.
+  ::lzma_check check = LZMA_CHECK_CRC64;
+};
+
+class XzCompressor : public JsonSpecifiedCompressor, public XzOptions {
  public:
-  absl::Status Encode(const absl::Cord& input, absl::Cord* output,
-                      std::size_t element_size) const override {
-    return tensorstore::lzma::xz::Encode(input, output, *this);
-  }
-  absl::Status Decode(const absl::Cord& input, absl::Cord* output,
-                      std::size_t element_size) const override {
-    return tensorstore::lzma::xz::Decode(input, output);
-  }
+  std::unique_ptr<riegeli::Writer> GetWriter(
+      std::unique_ptr<riegeli::Writer> base_writer,
+      size_t element_bytes) const override;
+
+  std::unique_ptr<riegeli::Reader> GetReader(
+      std::unique_ptr<riegeli::Reader> base_reader,
+      size_t element_bytes) const override;
 };
 
 }  // namespace internal

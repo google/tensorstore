@@ -33,7 +33,7 @@ struct Registration {
     RegisterCompressor<XzCompressor>(
         "xz", jb::Object(jb::Member(
                   "preset",
-                  jb::Projection(&XzCompressor::preset,
+                  jb::Projection(&XzCompressor::level,
                                  jb::DefaultValue<jb::kAlwaysIncludeDefaults>(
                                      [](auto* v) { *v = 6; },
                                      jb::Integer<std::uint32_t>(0, 9))))));

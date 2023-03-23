@@ -16,7 +16,6 @@
 #define TENSORSTORE_INTERNAL_COMPRESSION_JSON_SPECIFIED_COMPRESSOR_H_
 
 #include <cstddef>
-#include <string>
 
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
@@ -40,7 +39,8 @@ class JsonSpecifiedCompressor
 
   /// Returns a writer that encodes the compression format.
   virtual std::unique_ptr<riegeli::Writer> GetWriter(
-      std::unique_ptr<riegeli::Writer> base_writer, size_t element_bytes) const;
+      std::unique_ptr<riegeli::Writer> base_writer,
+      size_t element_bytes) const = 0;
 
   /// Returns a reader that decodes the compression format.
   ///
@@ -49,7 +49,8 @@ class JsonSpecifiedCompressor
   ///     compressor, e.g. `4` if `input` is actually a sequence of `int32_t`
   ///     values.  Must be `> 0`.
   virtual std::unique_ptr<riegeli::Reader> GetReader(
-      std::unique_ptr<riegeli::Reader> base_reader, size_t element_bytes) const;
+      std::unique_ptr<riegeli::Reader> base_reader,
+      size_t element_bytes) const = 0;
 
   /// Encodes `input`.
   ///
@@ -60,8 +61,8 @@ class JsonSpecifiedCompressor
   ///     compressor, e.g. `4` if `input` is actually a sequence of `int32_t`
   ///     values.  Must be `> 0`.
   /// \returns `absl::Status()` on success, or an error if encoding fails.
-  virtual absl::Status Encode(const absl::Cord& input, absl::Cord* output,
-                              std::size_t element_bytes) const;
+  absl::Status Encode(const absl::Cord& input, absl::Cord* output,
+                      std::size_t element_bytes) const;
 
   /// Decodes `input`.
   ///
@@ -73,8 +74,8 @@ class JsonSpecifiedCompressor
   ///     values.  Must be `> 0`.
   /// \returns `absl::Status()` on success, or an error if decoding fails.
   /// \error `absl::StatusCode::kInvalidArgument` if `input` is invalid.
-  virtual absl::Status Decode(const absl::Cord& input, absl::Cord* output,
-                              std::size_t element_bytes) const;
+  absl::Status Decode(const absl::Cord& input, absl::Cord* output,
+                      std::size_t element_bytes) const;
 
   using ToJsonOptions = JsonSerializationOptions;
   using FromJsonOptions = JsonSerializationOptions;

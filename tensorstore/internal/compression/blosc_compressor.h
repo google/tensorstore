@@ -19,11 +19,9 @@
 
 #include <cstddef>
 #include <string>
-#include <string_view>
 
 #include "absl/status/status.h"
 #include <blosc.h>
-#include "tensorstore/internal/compression/blosc.h"
 #include "tensorstore/internal/compression/json_specified_compressor.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/util/quote_string.h"
@@ -32,19 +30,15 @@
 namespace tensorstore {
 namespace internal {
 
-class BloscCompressor : public internal::JsonSpecifiedCompressor {
+class BloscCompressor : public JsonSpecifiedCompressor {
  public:
-  absl::Status Encode(const absl::Cord& input, absl::Cord* output,
-                      std::size_t element_size) const override {
-    return blosc::Encode(
-        input, output,
-        blosc::Options{codec.c_str(), level, shuffle, blocksize, element_size});
-  }
+  std::unique_ptr<riegeli::Writer> GetWriter(
+      std::unique_ptr<riegeli::Writer> base_writer,
+      size_t element_bytes) const override;
 
-  absl::Status Decode(const absl::Cord& input, absl::Cord* output,
-                      std::size_t element_size) const override {
-    return blosc::Decode(input, output);
-  }
+  std::unique_ptr<riegeli::Reader> GetReader(
+      std::unique_ptr<riegeli::Reader> base_reader,
+      size_t element_bytes) const override;
 
   static constexpr auto CodecBinder() {
     namespace jb = tensorstore::internal_json_binding;

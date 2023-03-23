@@ -30,8 +30,7 @@ struct ZstdOptions {
   int level = 0;
 };
 
-class ZstdCompressor : public internal::JsonSpecifiedCompressor,
-                       public ZstdOptions {
+class ZstdCompressor : public JsonSpecifiedCompressor, public ZstdOptions {
  public:
   std::unique_ptr<riegeli::Writer> GetWriter(
       std::unique_ptr<riegeli::Writer> base_writer,
