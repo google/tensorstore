@@ -16,6 +16,7 @@
 
 #include <cassert>
 #include <memory>
+#include <random>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -23,6 +24,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/random/random.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_format.h"
@@ -173,25 +175,30 @@ TEST_F(DistributedTest, MultipleCooperatorsManyWrites) {
   ::nlohmann::json kvs_spec{
       {"driver", "ocdbt"},
       {"base", base_kvs_store_spec},
-      {"config", {{"max_decoded_node_bytes", 1}}},
+      {"config", {{"max_decoded_node_bytes", 500}}},
   };
   constexpr size_t kNumCooperators = 3;
-  constexpr size_t kNumWrites = 100;
+  constexpr size_t kNumWrites = 30;
+  constexpr size_t kIterations = 5;
   std::vector<kvstore::KvStore> stores;
   for (size_t i = 0; i < kNumCooperators; ++i) {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto store, kvstore::Open(kvs_spec, Context(context_spec)).result());
     stores.push_back(store);
   }
-  std::vector<tensorstore::AnyFuture> write_futures;
-  for (size_t i = 0; i < kNumWrites; ++i) {
-    write_futures.push_back(kvstore::Write(stores[i % kNumCooperators],
-                                           absl::StrFormat("%08d", i),
-                                           absl::Cord("a")));
-    absl::SleepFor(absl::Milliseconds(1));
-  }
-  for (auto& future : write_futures) {
-    TENSORSTORE_ASSERT_OK(future.status());
+  std::minstd_rand gen{tensorstore::internal::GetRandomSeedForTest(
+      "TENSORSTORE_OCDBT_DRIVER_TEST_SEED")};
+  for (size_t iter = 0; iter < kIterations; ++iter) {
+    std::vector<tensorstore::AnyFuture> write_futures;
+    for (size_t i = 0; i < kNumWrites; ++i) {
+      auto k = absl::Uniform<uint16_t>(gen);
+      write_futures.push_back(kvstore::Write(stores[i % kNumCooperators],
+                                             absl::StrFormat("%04x", k),
+                                             absl::Cord("a")));
+    }
+    for (auto& future : write_futures) {
+      TENSORSTORE_ASSERT_OK(future.status());
+    }
   }
 }
 

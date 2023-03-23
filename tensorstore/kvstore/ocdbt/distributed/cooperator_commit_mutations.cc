@@ -509,9 +509,8 @@ void NodeCommitOperation::ApplyMutationsForEntry(
                 mutation.existing_range.inclusive_min);
           }
         } else {
-          if constexpr (std::is_same_v<Entry, LeafNodeEntry>) {
-            c = compare_existing_and_new_keys(existing_it->key, mutation.key);
-          }
+          c = compare_existing_and_new_keys(existing_it->key,
+                                            mutation.inclusive_min());
         }
       }
 
