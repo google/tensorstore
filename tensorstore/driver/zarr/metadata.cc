@@ -21,6 +21,12 @@
 #include "absl/base/optimization.h"
 #include "absl/container/inlined_vector.h"
 #include "absl/strings/escaping.h"
+#include "riegeli/bytes/cord_reader.h"
+#include "riegeli/bytes/cord_writer.h"
+#include "riegeli/bytes/read_all.h"
+#include "riegeli/bytes/reader.h"
+#include "riegeli/bytes/write.h"
+#include "riegeli/bytes/writer.h"
 #include "tensorstore/driver/zarr/compressor.h"
 #include "tensorstore/internal/data_type_endian_conversion.h"
 #include "tensorstore/internal/flat_cord_builder.h"
@@ -358,10 +364,11 @@ Result<absl::InlinedVector<SharedArrayView<const void>, 1>> DecodeChunk(
     const ZarrMetadata& metadata, absl::Cord buffer) {
   const size_t num_fields = metadata.dtype.fields.size();
   if (metadata.compressor) {
-    absl::Cord decoded;
-    TENSORSTORE_RETURN_IF_ERROR(metadata.compressor->Decode(
-        buffer, &decoded, metadata.dtype.bytes_per_outer_element));
-    buffer = std::move(decoded);
+    std::unique_ptr<riegeli::Reader> reader =
+        std::make_unique<riegeli::CordReader<absl::Cord>>(std::move(buffer));
+    reader = metadata.compressor->GetReader(
+        std::move(reader), metadata.dtype.bytes_per_outer_element);
+    TENSORSTORE_RETURN_IF_ERROR(riegeli::ReadAll(std::move(reader), buffer));
   }
   if (static_cast<Index>(buffer.size()) !=
       metadata.chunk_layout.bytes_per_chunk) {
@@ -453,8 +460,12 @@ Result<absl::Cord> EncodeChunk(
   }
   if (metadata.compressor) {
     absl::Cord encoded;
-    TENSORSTORE_RETURN_IF_ERROR(metadata.compressor->Encode(
-        output, &encoded, metadata.dtype.bytes_per_outer_element));
+    std::unique_ptr<riegeli::Writer> writer =
+        std::make_unique<riegeli::CordWriter<absl::Cord*>>(&encoded);
+    writer = metadata.compressor->GetWriter(
+        std::move(writer), metadata.dtype.bytes_per_outer_element);
+    TENSORSTORE_RETURN_IF_ERROR(
+        riegeli::Write(std::move(output), std::move(writer)));
     return encoded;
   }
   return output;

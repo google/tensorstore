@@ -18,30 +18,32 @@
 /// \file Defines a bzip2 JsonSpecifiedCompressor.
 
 #include <cstddef>
-#include <string>
+#include <memory>
 
-#include "absl/status/status.h"
-#include "absl/strings/cord.h"
-#include "tensorstore/internal/compression/bzip2.h"
+#include "riegeli/bytes/reader.h"
+#include "riegeli/bytes/writer.h"
 #include "tensorstore/internal/compression/json_specified_compressor.h"
 
 namespace tensorstore {
 namespace internal {
 
+struct Bzip2Options {
+  /// Determines the block size, which affects the compression level and memory
+  /// usage.  Must be in the range `[1, 9]`.  The actual block size is
+  /// `100000 * level`.
+  int level = 1;
+};
+
 class Bzip2Compressor : public internal::JsonSpecifiedCompressor,
-                        public bzip2::Options {
+                        public Bzip2Options {
  public:
-  absl::Status Encode(const absl::Cord& input, absl::Cord* output,
-                      std::size_t element_size) const override {
-    // element_size is not used for bzip2 compression.
-    bzip2::Encode(input, output, *this);
-    return absl::OkStatus();
-  }
-  absl::Status Decode(const absl::Cord& input, absl::Cord* output,
-                      std::size_t element_size) const override {
-    // element_size is not used for bzip2 compression.
-    return bzip2::Decode(input, output);
-  }
+  std::unique_ptr<riegeli::Writer> GetWriter(
+      std::unique_ptr<riegeli::Writer> base_writer,
+      size_t element_bytes) const override;
+
+  virtual std::unique_ptr<riegeli::Reader> GetReader(
+      std::unique_ptr<riegeli::Reader> base_reader,
+      size_t element_bytes) const override;
 };
 
 }  // namespace internal

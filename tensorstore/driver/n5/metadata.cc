@@ -20,6 +20,12 @@
 #include "absl/base/internal/endian.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_join.h"
+#include "riegeli/bytes/cord_reader.h"
+#include "riegeli/bytes/cord_writer.h"
+#include "riegeli/bytes/read_all.h"
+#include "riegeli/bytes/reader.h"
+#include "riegeli/bytes/write.h"
+#include "riegeli/bytes/writer.h"
 #include "tensorstore/codec_spec_registry.h"
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/internal/data_type_endian_conversion.h"
@@ -235,9 +241,12 @@ Result<SharedArrayView<const void>> DecodeChunk(const N5Metadata& metadata,
     // TODO(jbms): Change compressor interface to allow the output size to be
     // specified.
     absl::Cord decoded;
-    TENSORSTORE_RETURN_IF_ERROR(metadata.compressor->Decode(
-        buffer.Subcord(header_size, buffer.size() - header_size), &decoded,
-        metadata.dtype.size()));
+    std::unique_ptr<riegeli::Reader> reader =
+        std::make_unique<riegeli::CordReader<absl::Cord>>(
+            buffer.Subcord(header_size, buffer.size() - header_size));
+    reader = metadata.compressor->GetReader(std::move(reader),
+                                            metadata.dtype.size());
+    TENSORSTORE_RETURN_IF_ERROR(riegeli::ReadAll(std::move(reader), decoded));
     buffer = std::move(decoded);
     decoded_offset = 0;
   }
@@ -293,8 +302,12 @@ Result<absl::Cord> EncodeChunk(span<const Index> chunk_indices,
   auto encoded_cord = std::move(encoded).Build();
   if (metadata.compressor) {
     absl::Cord compressed;
-    TENSORSTORE_RETURN_IF_ERROR(metadata.compressor->Encode(
-        std::move(encoded_cord), &compressed, metadata.dtype.size()));
+    std::unique_ptr<riegeli::Writer> writer =
+        std::make_unique<riegeli::CordWriter<absl::Cord*>>(&compressed);
+    writer = metadata.compressor->GetWriter(std::move(writer),
+                                            metadata.dtype.size());
+    TENSORSTORE_RETURN_IF_ERROR(
+        riegeli::Write(std::move(encoded_cord), std::move(writer)));
     encoded_cord = std::move(compressed);
   }
   internal::FlatCordBuilder header(GetChunkHeaderSize(metadata));

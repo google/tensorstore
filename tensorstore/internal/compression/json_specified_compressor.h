@@ -20,6 +20,8 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "riegeli/bytes/reader.h"
+#include "riegeli/bytes/writer.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_registry_fwd.h"
 #include "tensorstore/json_serialization_options.h"
@@ -32,9 +34,22 @@ namespace internal {
 class JsonSpecifiedCompressor
     : public AtomicReferenceCount<JsonSpecifiedCompressor> {
  public:
-  using Ptr = IntrusivePtr<JsonSpecifiedCompressor>;
+  using Ptr = IntrusivePtr<const JsonSpecifiedCompressor>;
 
   virtual ~JsonSpecifiedCompressor();
+
+  /// Returns a writer that encodes the compression format.
+  virtual std::unique_ptr<riegeli::Writer> GetWriter(
+      std::unique_ptr<riegeli::Writer> base_writer, size_t element_bytes) const;
+
+  /// Returns a reader that decodes the compression format.
+  ///
+  /// \param base_reader Reader from which encoded input should be read.
+  /// \param element_bytes Specifies the element size as a hint to the
+  ///     compressor, e.g. `4` if `input` is actually a sequence of `int32_t`
+  ///     values.  Must be `> 0`.
+  virtual std::unique_ptr<riegeli::Reader> GetReader(
+      std::unique_ptr<riegeli::Reader> base_reader, size_t element_bytes) const;
 
   /// Encodes `input`.
   ///
@@ -46,7 +61,7 @@ class JsonSpecifiedCompressor
   ///     values.  Must be `> 0`.
   /// \returns `absl::Status()` on success, or an error if encoding fails.
   virtual absl::Status Encode(const absl::Cord& input, absl::Cord* output,
-                              std::size_t element_bytes) const = 0;
+                              std::size_t element_bytes) const;
 
   /// Decodes `input`.
   ///
@@ -59,13 +74,13 @@ class JsonSpecifiedCompressor
   /// \returns `absl::Status()` on success, or an error if decoding fails.
   /// \error `absl::StatusCode::kInvalidArgument` if `input` is invalid.
   virtual absl::Status Decode(const absl::Cord& input, absl::Cord* output,
-                              std::size_t element_bytes) const = 0;
+                              std::size_t element_bytes) const;
 
   using ToJsonOptions = JsonSerializationOptions;
   using FromJsonOptions = JsonSerializationOptions;
 
-  using Registry =
-      JsonRegistry<JsonSpecifiedCompressor, FromJsonOptions, ToJsonOptions>;
+  using Registry = JsonRegistry<JsonSpecifiedCompressor, FromJsonOptions,
+                                ToJsonOptions, Ptr>;
 };
 
 }  // namespace internal

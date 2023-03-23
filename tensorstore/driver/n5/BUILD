@@ -223,6 +223,12 @@ tensorstore_cc_library(
         "@com_google_absl//absl/base:endian",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+        "@com_google_riegeli//riegeli/bytes:cord_reader",
+        "@com_google_riegeli//riegeli/bytes:cord_writer",
+        "@com_google_riegeli//riegeli/bytes:read_all",
+        "@com_google_riegeli//riegeli/bytes:reader",
+        "@com_google_riegeli//riegeli/bytes:write",
+        "@com_google_riegeli//riegeli/bytes:writer",
     ],
     alwayslink = 1,
 )

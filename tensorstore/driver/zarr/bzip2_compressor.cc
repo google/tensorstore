@@ -34,7 +34,7 @@ struct Registration {
         "bz2", jb::Object(jb::Member(
                    "level",
                    jb::Projection(
-                       &Bzip2Compressor::block_size_100k,
+                       &Bzip2Compressor::level,
                        jb::DefaultValue<jb::kAlwaysIncludeDefaults>(
                            [](auto* v) { *v = 1; }, jb::Integer<int>(1, 9))))));
   }

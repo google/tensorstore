@@ -50,42 +50,15 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
-    name = "bzip2",
-    srcs = ["bzip2.cc"],
-    hdrs = ["bzip2.h"],
-    deps = [
-        ":cord_stream_manager",
-        "//tensorstore/util:status",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:cord",
-        "@org_sourceware_bzip2//:bz2lib",
-    ],
-)
-
-tensorstore_cc_library(
     name = "bzip2_compressor",
+    srcs = ["bzip2_compressor.cc"],
     hdrs = ["bzip2_compressor.h"],
     deps = [
-        ":bzip2",
         ":json_specified_compressor",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:cord",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "bzip2_test",
-    size = "small",
-    srcs = ["bzip2_test.cc"],
-    deps = [
-        ":bzip2",
-        "//tensorstore/util:status",
-        "//tensorstore/util:status_testutil",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_absl//absl/strings:cord_test_helpers",
-        "@com_google_googletest//:gtest_main",
+        "@com_google_riegeli//riegeli/bytes:reader",
+        "@com_google_riegeli//riegeli/bytes:writer",
+        "@com_google_riegeli//riegeli/bzip2:bzip2_reader",
+        "@com_google_riegeli//riegeli/bzip2:bzip2_writer",
     ],
 )
 
@@ -108,6 +81,12 @@ tensorstore_cc_library(
         "//tensorstore/internal:json_registry",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:cord",
+        "@com_google_riegeli//riegeli/bytes:cord_reader",
+        "@com_google_riegeli//riegeli/bytes:cord_writer",
+        "@com_google_riegeli//riegeli/bytes:read_all",
+        "@com_google_riegeli//riegeli/bytes:reader",
+        "@com_google_riegeli//riegeli/bytes:write",
+        "@com_google_riegeli//riegeli/bytes:writer",
     ],
 )
 
@@ -189,12 +168,15 @@ tensorstore_cc_library(
 
 tensorstore_cc_library(
     name = "zlib_compressor",
+    srcs = ["zlib_compressor.cc"],
     hdrs = ["zlib_compressor.h"],
     deps = [
         ":json_specified_compressor",
         ":zlib",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:cord",
+        "@com_google_riegeli//riegeli/bytes:reader",
+        "@com_google_riegeli//riegeli/bytes:writer",
+        "@com_google_riegeli//riegeli/zlib:zlib_reader",
+        "@com_google_riegeli//riegeli/zlib:zlib_writer",
     ],
 )
 
