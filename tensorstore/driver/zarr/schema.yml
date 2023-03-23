@@ -272,3 +272,25 @@ definitions:
           description: |
             A level of 1 indicates the smallest buffer (fastest), while level 9
             indicates the best compression ratio (slowest).
+  compressor-zstd:
+    $id: 'driver/zarr/Compressor/zstd'
+    description: |
+      Specifies `Zstd <https://facebook.github.io/zstd>`_ compression.
+    allOf:
+    - $ref: 'driver/zarr/Compressor'
+    - type: object
+      properties:
+        id:
+          const: zstd
+        level:
+          type: integer
+          minimum: -131072
+          maximum: 22
+          default: 1
+          title: Specifies the compression level to use.
+          description: |
+            A higher compression level provides improved density but reduced
+            compression speed.
+    examples:
+    - id: zstd
+      level: 6

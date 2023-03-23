@@ -27,6 +27,7 @@ tensorstore_cc_library(
         ":bzip2_compressor",
         ":driver",
         ":zlib_compressor",
+        ":zstd_compressor",
     ],
 )
 
@@ -352,6 +353,32 @@ tensorstore_cc_test(
     deps = [
         ":compressor",
         ":zlib_compressor",
+        "//tensorstore/internal:json_gtest",
+        "//tensorstore/util:status",
+        "//tensorstore/util:status_testutil",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "zstd_compressor",
+    srcs = ["zstd_compressor.cc"],
+    deps = [
+        ":compressor",
+        "//tensorstore/internal/compression:zstd_compressor",
+        "//tensorstore/internal/json_binding",
+        "@com_google_riegeli//riegeli/zstd:zstd_writer",
+    ],
+    alwayslink = 1,
+)
+
+tensorstore_cc_test(
+    name = "zstd_compressor_test",
+    size = "small",
+    srcs = ["zstd_compressor_test.cc"],
+    deps = [
+        ":compressor",
+        ":zstd_compressor",
         "//tensorstore/internal:json_gtest",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",

@@ -193,3 +193,16 @@ tensorstore_cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+tensorstore_cc_library(
+    name = "zstd_compressor",
+    srcs = ["zstd_compressor.cc"],
+    hdrs = ["zstd_compressor.h"],
+    deps = [
+        ":json_specified_compressor",
+        "@com_google_riegeli//riegeli/bytes:reader",
+        "@com_google_riegeli//riegeli/bytes:writer",
+        "@com_google_riegeli//riegeli/zstd:zstd_reader",
+        "@com_google_riegeli//riegeli/zstd:zstd_writer",
+    ],
+)

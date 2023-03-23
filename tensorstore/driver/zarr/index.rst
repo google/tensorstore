@@ -32,6 +32,7 @@ The following compressors are supported:
 .. json:schema:: driver/zarr/Compressor/zlib
 .. json:schema:: driver/zarr/Compressor/blosc
 .. json:schema:: driver/zarr/Compressor/bz2
+.. json:schema:: driver/zarr/Compressor/zstd
 
 Mapping to TensorStore Schema
 -----------------------------
