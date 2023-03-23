@@ -739,6 +739,10 @@ void NodeCommitOperation::WriteNewManifest(
           [commit_op = commit_op,
            new_generation](std::shared_ptr<const Manifest> existing_manifest)
               -> Future<std::shared_ptr<const Manifest>> {
+            if (!existing_manifest) {
+              return internal_ocdbt_cooperator::
+                  ManifestUnexpectedlyDeletedError(*commit_op->server);
+            }
             if (existing_manifest->latest_generation() !=
                 commit_op->existing_manifest->latest_generation()) {
               ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)

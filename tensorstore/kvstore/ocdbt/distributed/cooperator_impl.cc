@@ -31,6 +31,7 @@
 #include "grpcpp/support/server_callback.h"  // third_party
 #include "grpcpp/support/status.h"  // third_party
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/ocdbt/debug_log.h"
 #include "tensorstore/kvstore/ocdbt/distributed/btree_node_identifier.h"
@@ -114,6 +115,12 @@ void NoLeaseError(grpc::ServerUnaryReactor* reactor) {
 bool ShouldRevokeLeaseAndRetryAfterError(const absl::Status& status) {
   return absl::IsUnavailable(status) || absl::IsFailedPrecondition(status) ||
          absl::IsCancelled(status);
+}
+
+absl::Status ManifestUnexpectedlyDeletedError(Cooperator& server) {
+  return kvstore::Driver::AnnotateErrorWithKeyDescription(
+      server.io_handle_->DescribeLocation(), "reading",
+      absl::FailedPreconditionError("Manifest unexpectedly deleted"));
 }
 
 }  // namespace internal_ocdbt_cooperator

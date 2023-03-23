@@ -165,6 +165,10 @@ void MaybeCommit(
 // - `CANCELLED`: indicates that the cooperator server was exiting.
 bool ShouldRevokeLeaseAndRetryAfterError(const absl::Status& status);
 
+// Returns an error for the case that the manifest was deleted after it was
+// previously successfully read.
+absl::Status ManifestUnexpectedlyDeletedError(Cooperator& server);
+
 }  // namespace internal_ocdbt_cooperator
 }  // namespace tensorstore
 

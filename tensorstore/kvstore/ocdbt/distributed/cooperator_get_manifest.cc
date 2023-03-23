@@ -50,19 +50,19 @@ void GetManifestForWritingFromPeer(
 
   state_ptr->lease->peer_stub->async()->GetOrCreateManifest(
       &state_ptr->client_context, &state_ptr->request, &state_ptr->response,
-      WithExecutor(std::move(executor), [state = std::move(state)](
-                                            ::grpc::Status s) {
-        auto status = internal::GrpcStatusToAbslStatus(s);
-        if (ShouldRevokeLeaseAndRetryAfterError(status)) {
-          StartGetManifestForWriting(std::move(state->promise),
-                                     std::move(state->server),
-                                     std::move(state->lease));
-        } else if (!status.ok()) {
-          state->promise.SetResult(std::move(status));
-        } else {
-          state->promise.SetResult(state->server->clock_());
-        }
-      }));
+      WithExecutor(std::move(executor),
+                   [state = std::move(state)](::grpc::Status s) {
+                     auto status = internal::GrpcStatusToAbslStatus(s);
+                     if (ShouldRevokeLeaseAndRetryAfterError(status)) {
+                       StartGetManifestForWriting(std::move(state->promise),
+                                                  std::move(state->server),
+                                                  std::move(state->lease));
+                     } else if (!status.ok()) {
+                       state->promise.SetResult(std::move(status));
+                     } else {
+                       state->promise.SetResult(state->server->clock_());
+                     }
+                   }));
 }
 
 Future<const absl::Time> GetManifestAvailableFuture(
@@ -154,10 +154,8 @@ Future<ManifestWithTime> GetManifestForWriting(
                       return;
                     }
                     promise.SetResult(
-                        kvstore::Driver::AnnotateErrorWithKeyDescription(
-                            server->io_handle_->DescribeLocation(), "reading",
-                            absl::FailedPreconditionError(
-                                "Manifest unexpectedly deleted")));
+                        internal_ocdbt_cooperator::
+                            ManifestUnexpectedlyDeletedError(*server));
                   },
                   std::move(promise), std::move(read_future));
             },

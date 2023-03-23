@@ -544,11 +544,6 @@ void CommitOperation::Start(NonDistributedBtreeWriter& writer) {
       // Therefore, it must not move out its `commit_op`.
       [commit_op](std::shared_ptr<const Manifest> existing_manifest)
           -> Future<std::shared_ptr<const Manifest>> {
-        if (existing_manifest) {
-          auto& config_state = *commit_op->writer_->io_handle_->config_state;
-          TENSORSTORE_RETURN_IF_ERROR(
-              config_state.ValidateNewConfig(existing_manifest->config));
-        }
         auto [promise, future] =
             PromiseFuturePair<std::shared_ptr<const Manifest>>::Make();
         commit_op->existing_manifest_ = std::move(existing_manifest);

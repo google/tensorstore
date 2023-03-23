@@ -108,7 +108,17 @@ class IoHandleImpl : public IoHandle {
 
   Future<const ManifestWithTime> ReadModifyWriteManifest(
       ManifestUpdateFunction update_function) const final {
-    return manifest_cache_entry_->Update(std::move(update_function));
+    return manifest_cache_entry_->Update(
+        [config_state = this->config_state,
+         update_function = std::move(update_function)](
+            std::shared_ptr<const Manifest> existing_manifest)
+            -> Future<std::shared_ptr<const Manifest>> {
+          if (existing_manifest) {
+            TENSORSTORE_RETURN_IF_ERROR(
+                config_state->ValidateNewConfig(existing_manifest->config));
+          }
+          return update_function(std::move(existing_manifest));
+        });
   }
 
   Future<const void> WriteData(absl::Cord data,

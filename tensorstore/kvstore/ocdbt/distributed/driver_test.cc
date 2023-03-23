@@ -216,4 +216,20 @@ TEST_F(DistributedTest, UnmodifiedNode) {
   tensorstore::internal_ocdbt::TestUnmodifiedNode(Context(context_spec));
 }
 
+TEST_F(DistributedTest, ManifestDeleted) {
+  auto context = Context(context_spec);
+  ::nlohmann::json base_kvs_store_spec = "memory://";
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      kvstore::Open({{"driver", "ocdbt"}, {"base", base_kvs_store_spec}},
+                    context)
+          .result());
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "testa", absl::Cord("a")));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto base_store, kvstore::Open(base_kvs_store_spec, context).result());
+  TENSORSTORE_ASSERT_OK(kvstore::Delete(base_store, "manifest.ocdbt"));
+  EXPECT_THAT(kvstore::Write(store, "testb", absl::Cord("b")).result(),
+              MatchesStatus(absl::StatusCode::kFailedPrecondition));
+}
+
 }  // namespace
