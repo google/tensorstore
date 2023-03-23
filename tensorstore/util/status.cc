@@ -18,6 +18,7 @@
 #endif
 
 #include <cstdio>
+#include <exception>
 #include <optional>
 #include <string>
 #include <string_view>
