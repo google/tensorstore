@@ -14,11 +14,16 @@
 
 #include "tensorstore/internal/compression/blosc_compressor.h"
 
+#include <cstddef>
+#include <memory>
+#include <string>
+#include <utility>
+
 #include "absl/status/status.h"
-#include "riegeli/bytes/cord_reader.h"
-#include "riegeli/bytes/cord_writer.h"
 #include "riegeli/bytes/read_all.h"
 #include "riegeli/bytes/reader.h"
+#include "riegeli/bytes/string_reader.h"
+#include "riegeli/bytes/string_writer.h"
 #include "riegeli/bytes/write.h"
 #include "riegeli/bytes/writer.h"
 #include "tensorstore/internal/compression/blosc.h"
@@ -27,25 +32,22 @@ namespace tensorstore {
 namespace internal {
 namespace {
 
-// Buffers writes to a `absl::Cord`, and then in `Done`, calls `blosc::Encode`
+// Buffers writes to a `std::string`, and then in `Done`, calls `blosc::Encode`
 // and forwards the result to another `Writer`.
-class BloscDeferredWriter : public riegeli::CordWriter<absl::Cord> {
-  using Base = riegeli::CordWriter<absl::Cord>;
-
+class BloscDeferredWriter : public riegeli::StringWriter<std::string> {
  public:
   explicit BloscDeferredWriter(blosc::Options options,
                                std::unique_ptr<riegeli::Writer> base_writer)
       : options_(std::move(options)), base_writer_(std::move(base_writer)) {}
 
   void Done() override {
-    Base::Done();
-    absl::Cord output;
-    auto status = blosc::Encode(dest(), &output, options_);
-    if (!status.ok()) {
-      Fail(std::move(status));
+    StringWriter::Done();
+    auto output = blosc::Encode(dest(), options_);
+    if (!output.ok()) {
+      Fail(std::move(output).status());
       return;
     }
-    status = riegeli::Write(std::move(output), std::move(base_writer_));
+    auto status = riegeli::Write(*std::move(output), std::move(base_writer_));
     if (!status.ok()) {
       Fail(std::move(status));
       return;
@@ -68,16 +70,13 @@ std::unique_ptr<riegeli::Writer> BloscCompressor::GetWriter(
 
 std::unique_ptr<riegeli::Reader> BloscCompressor::GetReader(
     std::unique_ptr<riegeli::Reader> base_reader, size_t element_bytes) const {
-  absl::Cord input;
+  std::string input;
   auto status = riegeli::ReadAll(std::move(base_reader), input);
-  absl::Cord output;
-  if (status.ok()) {
-    status = blosc::Decode(input, &output);
-  }
-  auto reader =
-      std::make_unique<riegeli::CordReader<absl::Cord>>(std::move(output));
-  if (!status.ok()) {
-    reader->Fail(std::move(status));
+  auto output = status.ok() ? blosc::Decode(input) : std::move(status);
+  auto reader = std::make_unique<riegeli::StringReader<std::string>>(
+      output.ok() ? std::move(*output) : std::string());
+  if (!output.ok()) {
+    reader->Fail(std::move(output).status());
   }
   return reader;
 }

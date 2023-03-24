@@ -14,63 +14,57 @@
 
 #include "tensorstore/internal/compression/blosc.h"
 
+#include <cstddef>
+#include <string>
+#include <string_view>
+
 #include "absl/status/status.h"
 #include <blosc.h>
-#include "tensorstore/internal/flat_cord_builder.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace blosc {
 
-absl::Status Encode(const absl::Cord& input, absl::Cord* output,
-                    const Options& options) {
+Result<std::string> Encode(std::string_view input, const Options& options) {
   if (input.size() > BLOSC_MAX_BUFFERSIZE) {
     return absl::InvalidArgumentError(tensorstore::StrCat(
         "Blosc compression input of ", input.size(),
         " bytes exceeds maximum size of ", BLOSC_MAX_BUFFERSIZE));
   }
-  // Blosc requires a contiguous input and output buffer.
-  absl::Cord input_copy(input);
-  auto input_flat = input_copy.Flatten();
-  internal::FlatCordBuilder output_buffer(input.size() + BLOSC_MAX_OVERHEAD);
+  std::string output(input.size() + BLOSC_MAX_OVERHEAD, '\0');
   int shuffle = options.shuffle;
   if (shuffle == -1) {
     shuffle = options.element_size == 1 ? BLOSC_BITSHUFFLE : BLOSC_SHUFFLE;
   }
-  int n = blosc_compress_ctx(options.clevel, shuffle, options.element_size,
-                             input_flat.size(), input_flat.data(),
-                             output_buffer.data(), output_buffer.size(),
-                             options.compressor, options.blocksize,
-                             /*numinternalthreads=*/1);
+  const int n = blosc_compress_ctx(
+      options.clevel, shuffle, options.element_size, input.size(), input.data(),
+      output.data(), output.size(), options.compressor, options.blocksize,
+      /*numinternalthreads=*/1);
   if (n < 0) {
     return absl::InternalError(
         tensorstore::StrCat("Internal blosc error: ", n));
   }
-  output_buffer.resize(n);
-  output->Append(std::move(output_buffer).Build());
-  return absl::OkStatus();
+  output.erase(n);
+  return output;
 }
 
-absl::Status Decode(const absl::Cord& input, absl::Cord* output) {
+Result<std::string> Decode(std::string_view input) {
   size_t nbytes;
-  // Blosc requires a contiguous input and output buffer.
-  absl::Cord input_copy(input);
-  auto input_flat = input_copy.Flatten();
-  if (blosc_cbuffer_validate(input_flat.data(), input_flat.size(), &nbytes) !=
-      0) {
+  if (blosc_cbuffer_validate(input.data(), input.size(), &nbytes) != 0) {
     return absl::InvalidArgumentError("Invalid blosc-compressed data");
   }
-  internal::FlatCordBuilder output_buffer(nbytes);
-  if (nbytes == 0) return absl::OkStatus();
-  const int n =
-      blosc_decompress_ctx(input_flat.data(), output_buffer.data(), nbytes,
-                           /*numinternalthreads=*/1);
-  if (n <= 0) {
-    return absl::InvalidArgumentError(tensorstore::StrCat("Blosc error: ", n));
+  std::string output(nbytes, '\0');
+  if (nbytes > 0) {
+    const int n =
+        blosc_decompress_ctx(input.data(), output.data(), output.size(),
+                             /*numinternalthreads=*/1);
+    if (n <= 0) {
+      return absl::InvalidArgumentError(
+          tensorstore::StrCat("Blosc error: ", n));
+    }
   }
-  output->Append(std::move(output_buffer).Build());
-  return absl::OkStatus();
+  return output;
 }
 
 }  // namespace blosc

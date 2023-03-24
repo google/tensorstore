@@ -14,13 +14,33 @@
 
 /// End-to-end tests of the zarr driver.
 
+#include <complex>
+#include <cstdint>
+#include <iostream>
+#include <string>
+#include <string_view>
+#include <tuple>
+#include <utility>
+#include <vector>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/base/optimization.h"
+#include "absl/status/status.h"
+#include "absl/strings/cord.h"
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
+#include "tensorstore/array.h"
+#include "tensorstore/box.h"
+#include "tensorstore/chunk_layout.h"
 #include "tensorstore/context.h"
+#include "tensorstore/data_type.h"
 #include "tensorstore/driver/driver_testutil.h"
+#include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_domain_builder.h"
+#include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/compression/blosc.h"
@@ -28,13 +48,26 @@
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/json_binding/gtest.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/parse_json_matches.h"
+#include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/memory/memory_key_value_store.h"
 #include "tensorstore/kvstore/mock_kvstore.h"
+#include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/open.h"
+#include "tensorstore/open_mode.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/resize_options.h"
+#include "tensorstore/schema.h"
+#include "tensorstore/spec.h"
+#include "tensorstore/transaction.h"
+#include "tensorstore/util/bfloat16.h"
+#include "tensorstore/util/dimension_set.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -64,9 +97,9 @@ using ::testing::ElementsAreArray;
 using ::testing::Pair;
 using ::testing::UnorderedElementsAreArray;
 
-absl::Cord Bytes(std::vector<unsigned char> values) {
-  return absl::Cord(std::string_view(
-      reinterpret_cast<const char*>(values.data()), values.size()));
+std::string Bytes(std::vector<unsigned char> values) {
+  return std::string(reinterpret_cast<const char*>(values.data()),
+                     values.size());
 }
 
 ::nlohmann::json GetJsonSpec() {
@@ -873,7 +906,7 @@ TEST(ZarrDriverTest, CreateBfloat16) {
                }))),
           Pair("prefix/1.1",  //
                ::testing::MatcherCast<absl::Cord>(
-                   ::testing::Matcher<std::string>(::testing::ElementsAreArray({
+                   ::testing::Matcher<std::string>(ElementsAreArray({
                        0x80, 0x3f,  //
                        0x00, 0x40,  //
                        0x40, 0x40,  //

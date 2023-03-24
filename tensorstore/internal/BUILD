@@ -303,8 +303,9 @@ tensorstore_cc_library(
     srcs = ["decoded_matches.cc"],
     hdrs = ["decoded_matches.h"],
     deps = [
-        "//tensorstore/util:status",
+        "//tensorstore/util:result",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:cord",
         "@com_google_googletest//:gtest",
     ],
 )
@@ -315,7 +316,9 @@ tensorstore_cc_test(
     srcs = ["decoded_matches_test.cc"],
     deps = [
         ":decoded_matches",
-        "//tensorstore/util:status",
+        "//tensorstore/util:result",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:cord",
         "@com_google_googletest//:gtest_main",
     ],
 )

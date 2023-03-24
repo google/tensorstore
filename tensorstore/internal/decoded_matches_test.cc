@@ -14,34 +14,36 @@
 
 #include "tensorstore/internal/decoded_matches.h"
 
+#include <cstddef>
 #include <sstream>
 #include <string>
 #include <string_view>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "tensorstore/util/status.h"
+#include "absl/status/status.h"
+#include "absl/strings/cord.h"
+#include "tensorstore/util/result.h"
 
 namespace {
 
 using ::tensorstore::internal::DecodedMatches;
 
-absl::Status Stride2Decoder(const absl::Cord& input, absl::Cord* dest) {
+tensorstore::Result<std::string> Stride2Decoder(std::string_view input) {
   if (input.size() % 2 != 0) {
     return absl::InvalidArgumentError("");
   }
-  dest->Clear();
+  std::string output;
   for (std::size_t i = 0; i < input.size(); i += 2) {
-    char x = input[i];
-    dest->Append(std::string_view(&x, 1));
+    output += input[i];
   }
-  return absl::OkStatus();
+  return output;
 }
 
 TEST(DecodedMatchesTest, Describe) {
   std::ostringstream ss;
-  DecodedMatches(absl::Cord("x"), Stride2Decoder).DescribeTo(&ss);
-  EXPECT_EQ("when decoded is equal to x", ss.str());
+  DecodedMatches("x", Stride2Decoder).DescribeTo(&ss);
+  EXPECT_EQ("when decoded is equal to \"x\"", ss.str());
 }
 
 TEST(DecodedMatchesTest, ExplainValueMatcher) {
@@ -54,20 +56,19 @@ TEST(DecodedMatchesTest, ExplainValueMatcher) {
 
 TEST(DecodedMatchesTest, ExplainDecodeError) {
   ::testing::StringMatchResultListener listener;
-  ::testing::ExplainMatchResult(DecodedMatches(absl::Cord("x"), Stride2Decoder),
+  ::testing::ExplainMatchResult(DecodedMatches("x", Stride2Decoder),
                                 absl::Cord("xyz"), &listener);
   EXPECT_EQ("Failed to decode value: INVALID_ARGUMENT: ", listener.str());
 }
 
 TEST(DecodedMatchesTest, Matches) {
-  EXPECT_THAT(absl::Cord("abcd"),
-              DecodedMatches(absl::Cord("ac"), Stride2Decoder));
+  EXPECT_THAT(absl::Cord("abcd"), DecodedMatches("ac", Stride2Decoder));
   EXPECT_THAT(absl::Cord("abc"),
-              ::testing::Not(DecodedMatches(absl::Cord("ac"), Stride2Decoder)));
+              ::testing::Not(DecodedMatches("ac", Stride2Decoder)));
   EXPECT_THAT(absl::Cord("abcd"),
-              ::testing::Not(DecodedMatches(absl::Cord("ab"), Stride2Decoder)));
+              ::testing::Not(DecodedMatches("ab", Stride2Decoder)));
   EXPECT_THAT(absl::Cord("abcd"),
-              DecodedMatches(::testing::Not(absl::Cord("ab")), Stride2Decoder));
+              DecodedMatches(::testing::Not("ab"), Stride2Decoder));
 }
 
 }  // namespace

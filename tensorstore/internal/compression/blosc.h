@@ -19,8 +19,7 @@
 #include <string>
 #include <string_view>
 
-#include "absl/status/status.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/util/result.h"
 
 /// Convenience interface to the blosc library.
 
@@ -58,23 +57,19 @@ struct Options {
   std::size_t element_size;
 };
 
-/// Compresses `input` and append the result to `*output`.
+/// Compresses `input`.
 ///
 /// \param input The input data to compress.
-/// \param output[in,out] Output cord to which compressed data will be appended.
 /// \param options Specifies compression options.
 /// \error `absl::StatusCode::kInvalidArgument` if `input.size()` exceeds
 ///     `BLOSC_MAX_BUFFERSIZE`.
-absl::Status Encode(const absl::Cord& input, absl::Cord* output,
-                    const Options& options);
+Result<std::string> Encode(std::string_view input, const Options& options);
 
-/// Decompresses `input` and append the result to `*output`.
+/// Decompresses `input`.
 ///
 /// \param input The input data to decompress.
-/// \param output[in,out] Output cord to which decompressed data will be
-///     appended.
 /// \error `absl::StatusCode::kInvalidArgument` if `input` is corrupt.
-absl::Status Decode(const absl::Cord& input, absl::Cord* output);
+Result<std::string> Decode(std::string_view input);
 
 }  // namespace blosc
 }  // namespace tensorstore

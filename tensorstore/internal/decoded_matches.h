@@ -20,8 +20,8 @@
 #include <string_view>
 
 #include <gtest/gtest.h>
-#include "absl/status/status.h"
-#include "tensorstore/util/status.h"
+#include "absl/strings/cord.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal {
@@ -36,12 +36,11 @@ namespace internal {
 /// Example usage:
 ///
 ///     EXPECT_THAT(some_blosc_compressed_string,
-///                 DecodedMatches(absl::Cord("expected value"),
+///                 DecodedMatches("expected value",
 ///                                &blosc::Decode));
 ::testing::Matcher<absl::Cord> DecodedMatches(
-    ::testing::Matcher<absl::Cord> value_matcher,
-    std::function<absl::Status(const absl::Cord& input, absl::Cord* output)>
-        decoder);
+    ::testing::Matcher<std::string_view> value_matcher,
+    std::function<Result<std::string>(std::string_view)> decoder);
 
 }  // namespace internal
 }  // namespace tensorstore

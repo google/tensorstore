@@ -18,10 +18,13 @@
 /// \file Define a blosc JsonSpecifiedCompressor.
 
 #include <cstddef>
+#include <memory>
 #include <string>
 
 #include "absl/status/status.h"
 #include <blosc.h>
+#include "riegeli/bytes/reader.h"
+#include "riegeli/bytes/writer.h"
 #include "tensorstore/internal/compression/json_specified_compressor.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/util/quote_string.h"
