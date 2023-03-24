@@ -1,5 +1,6 @@
 load(
     "//bazel:tensorstore.bzl",
+    "tensorstore_cc_binary",
     "tensorstore_cc_library",
     "tensorstore_cc_proto_library",
     "tensorstore_cc_test",
@@ -87,6 +88,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:absl_time",
         "//tensorstore/internal/json_binding:bindable",
+        "//tensorstore/internal/metrics",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:byte_range",
         "//tensorstore/kvstore:generation",
@@ -214,7 +216,7 @@ tensorstore_cc_library(
 
 ###############################
 
-cc_binary(
+tensorstore_cc_binary(
     name = "kvstore_server_main",
     testonly = 1,
     srcs = ["kvstore_server_main.cc"],
@@ -230,20 +232,5 @@ cc_binary(
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/strings",
-    ],
-)
-
-cc_binary(
-    name = "kvstore_test",
-    testonly = 1,
-    srcs = ["kvstore_test.cc"],
-    deps = [
-        ":grpc_kvstore",  # build_cleaner: keep
-        "//tensorstore/internal:init_tensorstore",
-        "//tensorstore/kvstore",
-        "//tensorstore/kvstore:all_drivers",  # build_cleaner: keep
-        "//tensorstore/kvstore:test_util",
-        "//tensorstore/util:json_absl_flag",
-        "@com_google_absl//absl/log:absl_log",
     ],
 )

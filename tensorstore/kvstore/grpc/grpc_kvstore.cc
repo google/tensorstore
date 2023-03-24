@@ -45,6 +45,7 @@
 #include "tensorstore/internal/json_binding/absl_time.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
@@ -86,6 +87,26 @@ using ::tensorstore_grpc::kvstore::grpc_gen::KvStoreService;
 
 namespace tensorstore {
 namespace {
+
+auto& grpc_read = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/grpc_kvstore/read",
+    "grpc driver kvstore::Read calls");
+
+auto& grpc_write = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/grpc_kvstore/write",
+    "grpc driver kvstore::Write calls");
+
+auto& grpc_delete = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/grpc_kvstore/delete",
+    "grpc driver kvstore::Write calls");
+
+auto& grpc_delete_range = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/grpc_kvstore/delete_range",
+    "grpc driver kvstore::DeleteRange calls");
+
+auto& grpc_list = internal_metrics::Counter<int64_t>::New(
+    "/tensorstore/kvstore/grpc_kvstore/list",
+    "grpc driver kvstore::List calls");
 
 namespace jb = tensorstore::internal_json_binding;
 
@@ -370,6 +391,7 @@ struct ListTask {
 /// Key value store operations.
 Future<kvstore::ReadResult> GrpcKeyValueStore::Read(Key key,
                                                     ReadOptions options) {
+  grpc_read.Increment();
   auto task = internal::MakeIntrusivePtr<ReadTask>();
   task->driver = internal::IntrusivePtr<GrpcKeyValueStore>(this);
   return task->Start(std::move(key), options);
@@ -378,11 +400,13 @@ Future<kvstore::ReadResult> GrpcKeyValueStore::Read(Key key,
 Future<TimestampedStorageGeneration> GrpcKeyValueStore::Write(
     Key key, std::optional<Value> value, WriteOptions options) {
   if (value) {
+    grpc_write.Increment();
     auto task = internal::MakeIntrusivePtr<WriteTask>();
     task->driver = internal::IntrusivePtr<GrpcKeyValueStore>(this);
     return task->Start(std::move(key), value.value(), options);
   } else {
     // empty value is delete.
+    grpc_delete.Increment();
     auto task = internal::MakeIntrusivePtr<DeleteTask>();
     task->driver = internal::IntrusivePtr<GrpcKeyValueStore>(this);
     return task->Start(std::move(key), options);
@@ -391,6 +415,7 @@ Future<TimestampedStorageGeneration> GrpcKeyValueStore::Write(
 
 Future<const void> GrpcKeyValueStore::DeleteRange(KeyRange range) {
   if (range.empty()) return absl::OkStatus();
+  grpc_delete_range.Increment();
   auto task = internal::MakeIntrusivePtr<DeleteTask>();
   task->driver = internal::IntrusivePtr<GrpcKeyValueStore>(this);
 
@@ -411,6 +436,7 @@ void GrpcKeyValueStore::ListImpl(ListOptions options,
     execution::set_stopping(receiver);
     return;
   }
+  grpc_list.Increment();
   auto task = std::make_unique<ListTask>();
   task->driver = internal::IntrusivePtr<GrpcKeyValueStore>(this);
   task->receiver = std::move(receiver);

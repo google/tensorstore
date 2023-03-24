@@ -338,3 +338,54 @@ tensorstore_cc_binary(
         "@com_google_absl//absl/flags:flag",
     ],
 )
+
+tensorstore_cc_binary(
+    name = "kvstore_benchmark",
+    srcs = ["kvstore_benchmark.cc"],
+    deps = [
+        ":all_drivers",
+        ":generation",
+        ":kvstore",
+        "//tensorstore:data_type",
+        "//tensorstore/internal:init_tensorstore",
+        "//tensorstore/internal/metrics",
+        "//tensorstore/internal/metrics:collect",
+        "//tensorstore/internal/metrics:registry",
+        "//tensorstore/kvstore/grpc:grpc_kvstore",  # Experimental
+        "//tensorstore/util:division",
+        "//tensorstore/util:future",
+        "//tensorstore/util:json_absl_flag",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/log:absl_check",
+        "@com_google_absl//absl/log:absl_log",
+        "@com_google_absl//absl/random",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/time",
+    ],
+)
+
+tensorstore_cc_binary(
+    name = "live_kvstore_test",
+    testonly = 1,
+    srcs = ["live_kvstore_test.cc"],
+    deps = [
+        ":all_drivers",
+        ":kvstore",
+        ":test_util",
+        "//tensorstore:context",
+        "//tensorstore/internal/metrics:collect",
+        "//tensorstore/internal/metrics:registry",
+        "//tensorstore/kvstore/grpc:grpc_kvstore",  # Experimental
+        "//tensorstore/util:json_absl_flag",
+        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest",
+    ],
+)
