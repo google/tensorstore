@@ -86,6 +86,7 @@ tensorstore_cc_test(
     ],
     deps = [
         ":http",
+        "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest_main",
     ],
 )

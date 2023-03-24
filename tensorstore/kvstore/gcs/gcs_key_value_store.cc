@@ -93,7 +93,6 @@ using ::tensorstore::internal_http::HttpRequest;
 using ::tensorstore::internal_http::HttpRequestBuilder;
 using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_http::HttpTransport;
-using ::tensorstore::internal_http::TryParseIntHeader;
 using ::tensorstore::internal_storage_gcs::GcsConcurrencyResource;
 using ::tensorstore::internal_storage_gcs::GcsRateLimiterResource;
 using ::tensorstore::internal_storage_gcs::GcsRequestRetries;
@@ -515,11 +514,7 @@ struct ReadTask : public RateLimiterNode,
       request_builder.AddHeader(*maybe_auth_header.value());
     }
 
-    if (options.byte_range.inclusive_min != 0 ||
-        options.byte_range.exclusive_max) {
-      request_builder.AddHeader(
-          internal_http::GetRangeHeader(options.byte_range));
-    }
+    internal_http::AddRangeHeader(request_builder, options.byte_range);
     auto request = request_builder.EnableAcceptEncoding().BuildRequest();
     start_time_ = absl::Now();
 
@@ -595,39 +590,32 @@ struct ReadTask : public RateLimiterNode,
         return read_result;
     }
 
-    // Validate returned content length.
-    ByteRange byte_range;
+    size_t payload_size = httpresponse.payload.size();
     if (httpresponse.status_code != 206) {
-      // Server ignored the range request.
-      TENSORSTORE_ASSIGN_OR_RETURN(
-          byte_range, options.byte_range.Validate(httpresponse.payload.size()));
+      // This may or may not have been a range request; attempt to validate.
+      TENSORSTORE_ASSIGN_OR_RETURN(auto byte_range,
+                                   options.byte_range.Validate(payload_size));
+      read_result.state = kvstore::ReadResult::kValue;
+      read_result.value =
+          internal::GetSubCord(httpresponse.payload, byte_range);
     } else {
       // Server should return a parseable content-range header.
       TENSORSTORE_ASSIGN_OR_RETURN(auto content_range_tuple,
                                    ParseContentRangeHeader(httpresponse));
 
-      size_t target_size = httpresponse.payload.size();
-      if (options.byte_range.exclusive_max) {
-        target_size = *options.byte_range.exclusive_max -
-                      options.byte_range.inclusive_min;
-      }
       if (options.byte_range.inclusive_min !=
               std::get<0>(content_range_tuple) ||
-          target_size > httpresponse.payload.size()) {
+          payload_size != options.byte_range.size().value_or(payload_size)) {
         // Return an error when the response does not start at the requested
         // offset of when the response is smaller than the desired size.
-        auto stored_length = TryParseIntHeader<size_t>(
-            httpresponse.headers, "x-goog-stored-content-length");
         return absl::OutOfRangeError(tensorstore::StrCat(
             "Requested byte range ", options.byte_range,
-            " was not satisfied by GCS object with size ",
-            stored_length.value_or(std::get<2>(content_range_tuple))));
+            " was not satisfied by GCS response of size ", payload_size));
       }
-      byte_range = ByteRange{0, target_size};
+      // assert(payload_size == std::get<2>(content_range_tuple));
+      read_result.state = kvstore::ReadResult::kValue;
+      read_result.value = httpresponse.payload;
     }
-
-    read_result.state = kvstore::ReadResult::kValue;
-    read_result.value = internal::GetSubCord(httpresponse.payload, byte_range);
 
     // TODO: Avoid parsing the entire metadata & only extract the
     // generation field.

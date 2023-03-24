@@ -16,6 +16,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/time/time.h"
 
 namespace {
 
@@ -35,6 +36,54 @@ TEST(HttpRequestBuilder, BuildRequest) {
   EXPECT_EQ("test", request.user_agent());
   EXPECT_EQ("GET", request.method());
   EXPECT_THAT(request.headers(), testing::ElementsAre("X-foo: bar"));
+}
+
+TEST(HttpRequestBuilder, AddCacheControlMaxAgeHeader) {
+  HttpRequestBuilder builder("GET", "http://127.0.0.1:0/");
+  EXPECT_FALSE(AddCacheControlMaxAgeHeader(builder, absl::InfiniteDuration()));
+  EXPECT_TRUE(AddCacheControlMaxAgeHeader(builder, absl::ZeroDuration()));
+  EXPECT_TRUE(AddCacheControlMaxAgeHeader(builder, absl::Seconds(10)));
+  EXPECT_TRUE(AddCacheControlMaxAgeHeader(builder, -absl::Seconds(10)));
+
+  auto request = builder.BuildRequest();
+
+  EXPECT_THAT(request.headers(),
+              testing::ElementsAre("cache-control: no-cache",
+                                   "cache-control: max-age=10",
+                                   "cache-control: no-cache"));
+}
+
+TEST(HttpRequestBuilder, AddStalenessBoundCacheControlHeader) {
+  const absl::Time kFutureTime = absl::Now() + absl::Minutes(525600);
+  HttpRequestBuilder builder("GET", "http://127.0.0.1:0/");
+  EXPECT_FALSE(
+      AddStalenessBoundCacheControlHeader(builder, absl::InfinitePast()));
+  // staleness is in the future => no-cache.
+  EXPECT_TRUE(
+      AddStalenessBoundCacheControlHeader(builder, absl::InfiniteFuture()));
+  EXPECT_TRUE(AddStalenessBoundCacheControlHeader(builder, kFutureTime));
+  // staleness is in the past => max-age
+  EXPECT_TRUE(AddStalenessBoundCacheControlHeader(
+      builder, absl::Now() - absl::Milliseconds(5900)));
+
+  auto request = builder.BuildRequest();
+
+  EXPECT_THAT(
+      request.headers(),
+      testing::ElementsAre("cache-control: no-cache", "cache-control: no-cache",
+                           ::testing::AnyOf("cache-control: max-age=5",
+                                            "cache-control: max-age=4")));
+}
+
+TEST(HttpRequestBuilder, AddRangeHeader) {
+  HttpRequestBuilder builder("GET", "http://127.0.0.1:0/");
+  EXPECT_FALSE(AddRangeHeader(builder, {}));
+  EXPECT_TRUE(AddRangeHeader(builder, {1}));
+  EXPECT_TRUE(AddRangeHeader(builder, {1, 2}));
+
+  auto request = builder.BuildRequest();
+  EXPECT_THAT(request.headers(),
+              testing::ElementsAre("Range: bytes=1-", "Range: bytes=1-1"));
 }
 
 }  // namespace

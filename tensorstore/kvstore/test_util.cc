@@ -154,7 +154,27 @@ void TestKeyValueStoreUnconditionalOps(
         MatchesKvsReadResult(absl::Cord("23"), write_result->generation));
   }
 
-  ABSL_LOG(INFO) << "Test unconditional byte range read with invalid range";
+  // Test unconditional byte range read.
+  ABSL_LOG(INFO) << "Test unconditional byte range read with size 0";
+  {
+    kvstore::ReadOptions options;
+    options.byte_range.inclusive_min = 1;
+    options.byte_range.exclusive_max = 1;
+    EXPECT_THAT(kvstore::Read(store, key, options).result(),
+                MatchesKvsReadResult(absl::Cord(""), write_result->generation));
+  }
+
+  ABSL_LOG(INFO) << "Test unconditional byte range read, min too large";
+  {
+    kvstore::ReadOptions options;
+    options.byte_range.inclusive_min = 10;
+    options.byte_range.exclusive_max = 11;
+    EXPECT_THAT(kvstore::Read(store, key, options).result(),
+                testing::AnyOf(MatchesStatus(absl::StatusCode::kOutOfRange)));
+  }
+
+  ABSL_LOG(INFO)
+      << "Test unconditional byte range read, max exceeds value size";
   {
     kvstore::ReadOptions options;
     options.byte_range.inclusive_min = 1;

@@ -108,7 +108,7 @@ absl::StatusCode HttpResponseCodeToStatusCode(const HttpResponse& response) {
       // The requested range had no overlap with the available range.
       // This doesn't indicate an error, but we should produce an empty response
       // body. (Not all servers do; GCS returns a short error message body.)
-      return absl::StatusCode::kFailedPrecondition;
+      return absl::StatusCode::kOutOfRange;
 
     // UNAVAILABLE indicates a problem that can go away if the request
     // is just retried without any modification. 308 return codes are intended

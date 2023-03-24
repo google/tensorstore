@@ -22,8 +22,6 @@
 #include "absl/status/status.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/serialization/test_util.h"
-#include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -37,8 +35,8 @@ using ::tensorstore::internal::GetSubCord;
 using ::tensorstore::serialization::TestSerializationRoundTrip;
 
 TEST(ByteRangeTest, SatisfiesInvariants) {
-  EXPECT_TRUE((ByteRange{0, 1}).SatisfiesInvariants());
   EXPECT_TRUE((ByteRange{0, 0}).SatisfiesInvariants());
+  EXPECT_TRUE((ByteRange{0, 1}).SatisfiesInvariants());
   EXPECT_TRUE((ByteRange{0, 100}).SatisfiesInvariants());
   EXPECT_TRUE((ByteRange{10, 100}).SatisfiesInvariants());
   EXPECT_TRUE((ByteRange{100, 100}).SatisfiesInvariants());
@@ -131,20 +129,28 @@ TEST(OptionalByteRangeRequestTest, Ostream) {
 }
 
 TEST(OptionalByteRangeRequestTest, Validate) {
+  // Default constructed OptionalByteRangeRequest Validate calls succeed.
+  EXPECT_THAT(OptionalByteRangeRequest().Validate(0),
+              ::testing::Optional(ByteRange{0, 0}));
+  EXPECT_THAT(OptionalByteRangeRequest().Validate(1),
+              ::testing::Optional(ByteRange{0, 1}));
+
   EXPECT_THAT(OptionalByteRangeRequest(5, 10).Validate(20),
               ::testing::Optional(ByteRange{5, 10}));
   EXPECT_THAT(OptionalByteRangeRequest(5, 10).Validate(10),
               ::testing::Optional(ByteRange{5, 10}));
   EXPECT_THAT(OptionalByteRangeRequest(5).Validate(10),
               ::testing::Optional(ByteRange{5, 10}));
+
   EXPECT_THAT(OptionalByteRangeRequest(5, 10).Validate(9),
               MatchesStatus(absl::StatusCode::kOutOfRange,
                             "Requested byte range \\[5, 10\\) is not valid for "
                             "value of size 9"));
+
   EXPECT_THAT(
-      OptionalByteRangeRequest(15, 15).Validate(9),
+      OptionalByteRangeRequest(10, 15).Validate(9),
       MatchesStatus(absl::StatusCode::kOutOfRange,
-                    "Requested byte range \\[15, 15\\) is not valid for "
+                    "Requested byte range \\[10, 15\\) is not valid for "
                     "value of size 9"));
 }
 

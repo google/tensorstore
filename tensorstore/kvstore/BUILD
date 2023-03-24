@@ -45,7 +45,6 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore/serialization",
         "//tensorstore/util:result",
-        "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:cord",
@@ -60,8 +59,6 @@ tensorstore_cc_test(
         ":byte_range",
         "//tensorstore/serialization",
         "//tensorstore/serialization:test_util",
-        "//tensorstore/util:result",
-        "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",
         "@com_google_absl//absl/status",

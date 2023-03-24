@@ -19,13 +19,10 @@
 #include <cstdint>
 #include <optional>
 #include <ostream>
-#include <string>
-#include <utility>
 
 #include "absl/strings/cord.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 
@@ -95,6 +92,15 @@ struct OptionalByteRangeRequest {
   /// \invariant `exclusive_max >= inclusive_min`
   std::optional<std::uint64_t> exclusive_max;
 
+  /// Returns the number of bytes contained in the range.
+  ///
+  /// \dchecks `SatisfiesInvariants()`
+  std::optional<std::uint64_t> size() const {
+    assert(SatisfiesInvariants());
+    if (exclusive_max) return *exclusive_max - inclusive_min;
+    return std::nullopt;
+  }
+
   /// Compares for equality.
   friend bool operator==(const OptionalByteRangeRequest& a,
                          const OptionalByteRangeRequest& b) {
@@ -115,10 +121,10 @@ struct OptionalByteRangeRequest {
     return (!exclusive_max || exclusive_max >= inclusive_min);
   }
 
-  /// Validates that `*this` is a valid byte range for a value of the specified
-  /// `size`.
+  /// Returns a `ByteRange` for an object of size.
   ///
-  /// \error `absl::StatusCode::kOutOfRange` if `*this` is not valid.
+  /// \error `absl::StatusCode::kOutOfRange` if `inclusive_min` or
+  ///   `*exclusive_max` are not within the object size.
   Result<ByteRange> Validate(std::uint64_t size) const;
 
   constexpr static auto ApplyMembers = [](auto&& x, auto f) {
@@ -138,7 +144,6 @@ inline absl::Cord GetSubCord(const absl::Cord& s, ByteRange r) {
 }
 
 }  // namespace internal
-
 }  // namespace tensorstore
 
 TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(tensorstore::ByteRange)

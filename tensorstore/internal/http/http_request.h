@@ -17,7 +17,6 @@
 
 #include <string>
 #include <string_view>
-#include <variant>
 #include <vector>
 
 #include "absl/strings/str_format.h"
@@ -94,8 +93,14 @@ class HttpRequestBuilder {
   char const* query_parameter_separator_;
 };
 
-/// Returns an HTTP Range header for requesting the specified byte range.
-std::string GetRangeHeader(OptionalByteRangeRequest byte_range);
+/// Adds a `range` header to the http request if the byte_range
+/// is specified.
+bool AddRangeHeader(HttpRequestBuilder& request_builder,
+                    OptionalByteRangeRequest byte_range);
+
+/// Adds a `cache-control` header specifying `max-age` or `no-cache`.
+bool AddCacheControlMaxAgeHeader(HttpRequestBuilder& request_builder,
+                                 absl::Duration max_age);
 
 /// `strptime`-compatible format string for the HTTP date header.
 ///
@@ -105,8 +110,8 @@ std::string GetRangeHeader(OptionalByteRangeRequest byte_range);
 constexpr const char kHttpTimeFormat[] = "%a, %d %b %E4Y %H:%M:%S GMT";
 
 /// Adds a `cache-control` header consistent with `staleness_bound`.
-void AddStalenessBoundCacheControlHeader(HttpRequestBuilder& request_builder,
-                                         const absl::Time& staleness_bound);
+bool AddStalenessBoundCacheControlHeader(HttpRequestBuilder& request_builder,
+                                         absl::Time staleness_bound);
 
 }  // namespace internal_http
 }  // namespace tensorstore

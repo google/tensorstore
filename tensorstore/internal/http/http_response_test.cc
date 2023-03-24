@@ -115,9 +115,15 @@ TEST(HttpResponseCodeToStatusTest, AllCodes) {
               HttpResponseCodeToStatus({code, {}, {}}).code())
         << code;
   }
-  for (auto code : {302, 303, 304, 307, 412, 413, 416}) {
+  for (auto code : {302, 303, 304, 307, 412, 413}) {
     seen.insert(code);
     EXPECT_EQ(absl::StatusCode::kFailedPrecondition,
+              HttpResponseCodeToStatus({code, {}, {}}).code())
+        << code;
+  }
+  for (auto code : {416}) {
+    seen.insert(code);
+    EXPECT_EQ(absl::StatusCode::kOutOfRange,
               HttpResponseCodeToStatus({code, {}, {}}).code())
         << code;
   }

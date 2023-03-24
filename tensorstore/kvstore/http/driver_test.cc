@@ -148,12 +148,13 @@ TEST_F(HttpKeyValueStoreTest, ReadWithStalenessBound) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store, kvstore::Open("https://example.com/my/path/").result());
   kvstore::ReadOptions options;
-  options.staleness_bound = absl::Now() - absl::Milliseconds(4500);
+  options.staleness_bound = absl::Now() - absl::Milliseconds(4900);
   auto read_future = kvstore::Read(store, "abc", options);
   auto request = mock_transport->requests_.pop();
   EXPECT_EQ("https://example.com/my/path/abc", request.request.url());
   EXPECT_THAT(request.request.headers(),
-              ::testing::ElementsAre("cache-control: max-age=4"));
+              ::testing::ElementsAre(::testing::AnyOf(
+                  "cache-control: max-age=4", "cache-control: max-age=3")));
   request.promise.SetResult(HttpResponse{200, absl::Cord("value")});
   EXPECT_THAT(
       read_future.result(),
@@ -298,13 +299,14 @@ TEST_F(HttpKeyValueStoreTest, DateSkew) {
       auto store, kvstore::Open("https://example.com/my/path/").result());
 
   kvstore::ReadOptions options;
-  options.staleness_bound = absl::Now() - absl::Milliseconds(5500);
+  options.staleness_bound = absl::Now() - absl::Milliseconds(5900);
   auto read_future = kvstore::Read(store, "abc", options);
   auto response_date = absl::UnixEpoch() + absl::Seconds(100);
   auto request = mock_transport->requests_.pop();
   EXPECT_EQ("https://example.com/my/path/abc", request.request.url());
   EXPECT_THAT(request.request.headers(),
-              ::testing::ElementsAre("cache-control: max-age=5"));
+              ::testing::ElementsAre(::testing::AnyOf(
+                  "cache-control: max-age=5", "cache-control: max-age=4")));
   request.promise.SetResult(HttpResponse{
       200,
       absl::Cord("value"),

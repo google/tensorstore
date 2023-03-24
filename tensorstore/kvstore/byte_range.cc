@@ -44,7 +44,7 @@ std::ostream& operator<<(std::ostream& os, const ByteRange& r) {
 
 Result<ByteRange> OptionalByteRangeRequest::Validate(std::uint64_t size) const {
   assert(SatisfiesInvariants());
-  if (exclusive_max && *exclusive_max > size) {
+  if (inclusive_min > size || (exclusive_max && *exclusive_max > size)) {
     return absl::OutOfRangeError(
         tensorstore::StrCat("Requested byte range ", *this,
                             " is not valid for value of size ", size));
