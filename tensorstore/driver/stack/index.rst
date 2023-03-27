@@ -4,7 +4,7 @@
 The ``stack`` driver specifies a TensorStore backed by a sequence of layered
 drivers, where each underlying layer describes it's bounds via a transform.
 
-- The TensorStore for a stack driver has staic bounds, which may be derived
+- The TensorStore for a stack driver has static bounds, which may be derived
   from the underlying :json:schema:`~driver/stack.layers`
 
 - Reading is supported if the :json:schema:`~driver/stack.layers` TensorStore
