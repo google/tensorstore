@@ -91,6 +91,16 @@ class MetricRegistry {
   // Reset all the metrics in the registry
   void Reset();
 
+  /// invoked with a metric prefix
+  using CollectHook =
+      std::function<void(std::string_view, std::vector<CollectedMetric>&)>;
+
+  /// A CollectHook is called post-collection with the prefix.
+  void AddCollectHook(CollectHook&& hook) {
+    absl::MutexLock lock(&mu_);
+    collect_hooks_.push_back(std::move(hook));
+  }
+
  private:
   void AddInternal(std::string_view metric_name, MetricRegistry::Metric m,
                    std::shared_ptr<void> hook = nullptr);
@@ -101,6 +111,7 @@ class MetricRegistry {
   };
   absl::Mutex mu_;
   absl::flat_hash_map<std::string_view, Entry> entries_;
+  std::vector<CollectHook> collect_hooks_ ABSL_GUARDED_BY(mu_);
 };
 
 /// Returns the global metric registry. Typically this will be the only registry

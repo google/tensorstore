@@ -53,6 +53,10 @@ std::vector<CollectedMetric> MetricRegistry::CollectWithPrefix(
       }
     }
   }
+  for (auto& hook : collect_hooks_) {
+    hook(prefix, all);
+  }
+
   return all;
 }
 
