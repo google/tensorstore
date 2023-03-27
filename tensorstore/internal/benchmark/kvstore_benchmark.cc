@@ -19,7 +19,7 @@
 
 # 1 GB file
 
-bazel run -c opt //tensorstore/kvstore/kvstore_benchmark -- \
+bazel run -c opt //tensorstore/internal/benchmark:kvstore_benchmark -- \
   --kvstore_spec='"file:///tmp/tensorstore_kvstore_benchmark"' \
   --clean_before_write \
   --repeat_writes=10 \
@@ -27,7 +27,7 @@ bazel run -c opt //tensorstore/kvstore/kvstore_benchmark -- \
 
 # 4 GB memory, 4MB chunks
 
-bazel run -c opt //tensorstore/kvstore/kvstore_benchmark -- \
+bazel run -c opt //tensorstore/internal/benchmark:kvstore_benchmark -- \
   --kvstore_spec='"memory://abc/"' \
   --chunk_size=4194304 \
   --total_bytes=4294967296 \
