@@ -249,6 +249,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:attributes",
         "//tensorstore/internal:type_traits",
         "//tensorstore/internal/poly",
+        "@com_google_absl//absl/functional:any_invocable",
     ],
 )
 

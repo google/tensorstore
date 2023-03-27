@@ -105,7 +105,7 @@ TEST(AnySenderWithExecutor, SetValue) {
       tensorstore::LoggingReceiver{&log});
   EXPECT_THAT(log, ::testing::ElementsAre());
   EXPECT_EQ(1, queue.size());
-  queue[0]();
+  std::move(queue[0])();
   EXPECT_THAT(log, ::testing::ElementsAre("set_value: 3, hello"));
 }
 
@@ -120,7 +120,7 @@ TEST(AnySenderWithExecutor, SetCancel) {
       tensorstore::LoggingReceiver{&log});
   EXPECT_THAT(log, ::testing::ElementsAre());
   EXPECT_EQ(1, queue.size());
-  queue[0]();
+  std::move(queue[0])();
   EXPECT_THAT(log, ::testing::ElementsAre("set_cancel"));
 }
 
@@ -135,7 +135,7 @@ TEST(AnySenderWithExecutor, SetError) {
       tensorstore::LoggingReceiver{&log});
   EXPECT_THAT(log, ::testing::ElementsAre());
   EXPECT_EQ(1, queue.size());
-  queue[0]();
+  std::move(queue[0])();
   EXPECT_THAT(log, ::testing::ElementsAre("set_error: 3"));
 }
 

@@ -19,10 +19,10 @@
 /// Minimal task executor support.
 
 #include <functional>
-#include <tuple>
 #include <type_traits>
 #include <utility>
 
+#include "absl/functional/any_invocable.h"
 #include "tensorstore/internal/attributes.h"
 #include "tensorstore/internal/poly/poly.h"
 #include "tensorstore/internal/type_traits.h"
@@ -39,7 +39,7 @@ namespace tensorstore {
 /// Type-erased nullary function type that supports move construction.
 ///
 /// \relates Executor
-using ExecutorTask = poly::Poly<0, /*Copyable=*/false, void()>;
+using ExecutorTask = absl::AnyInvocable<void() &&>;
 
 /// Function object that is callable with nullary noexcept functions.
 ///

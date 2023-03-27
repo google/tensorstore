@@ -64,7 +64,7 @@ void InitializePythonComponents(pybind11::module_ m) {
   }
 
   for (auto& task : deferred_registration_tasks) {
-    task();
+    std::move(task)();
   }
 }
 

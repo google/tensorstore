@@ -181,7 +181,7 @@ void SharedThreadPool::StartThread() {
           // Execute task with mutex unlocked.
           {
             ScopedWriterUnlock unlock(self->mutex_);
-            task.callback();
+            std::move(task.callback)();
             task.managed_queue->TaskDone();
             // Ensure the task destructor runs while the mutex is unlocked.
             task = QueuedTask{};
