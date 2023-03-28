@@ -2,9 +2,7 @@ load("//bazel:pytype.bzl", "pytype_strict_binary", "pytype_strict_test")
 load("//bazel:pytest.bzl", "tensorstore_pytest_test")
 load("//docs:doctest.bzl", "doctest_test")
 
-package(
-    default_visibility = ["//visibility:public"],
-)
+package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 

@@ -2,9 +2,7 @@
 
 load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
 
-package(
-    default_visibility = ["//tensorstore:internal_packages"],
-)
+package(default_visibility = ["//tensorstore:internal_packages"])
 
 licenses(["notice"])
 

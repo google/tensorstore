@@ -1,8 +1,6 @@
 load("//bazel:pytype.bzl", "pytype_strict_library")
 
-package(
-    default_visibility = ["//docs:__subpackages__"],
-)
+package(default_visibility = ["//docs:__subpackages__"])
 
 licenses(["notice"])
 
