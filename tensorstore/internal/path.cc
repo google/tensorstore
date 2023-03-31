@@ -147,7 +147,7 @@ constexpr AsciiSet kUriPathUnreservedChars{
     "abcdefghijklmnopqrstuvwxyz"
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     "0123456789"
-    "-_.!~*'():@&=+$,;/"};
+    "-_.!~*'():@&=+,;/"};
 
 /// Percent encodes any characters in `src` that are not in `unreserved`.
 void PercentEncodeReserved(std::string_view src, std::string& dest,

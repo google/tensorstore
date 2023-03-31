@@ -10,6 +10,7 @@ EXTRA_DRIVERS = []
 DRIVERS = [
     "file",
     "gcs",
+    "s3",
     "http",
     "memory",
     "neuroglancer_uint64_sharded",

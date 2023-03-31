@@ -157,7 +157,7 @@ TEST(PercentEncodeUriPathTest, NoOp) {
       "abcdefghijklmnopqrstuvwxyz"
       "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
       "0123456789"
-      "-_.!~*'():@&=+$,;/";
+      "-_.!~*'():@&=+,;/";
   EXPECT_THAT(PercentEncodeUriPath(s), ::testing::Eq(s));
 }
 
@@ -197,6 +197,14 @@ TEST(ParseGenericUriTest, PathOnly) {
 TEST(ParseGenericUriTest, GsScheme) {
   auto parsed = ParseGenericUri("gs://bucket/path");
   EXPECT_EQ("gs", parsed.scheme);
+  EXPECT_EQ("bucket/path", parsed.authority_and_path);
+  EXPECT_EQ("", parsed.query);
+  EXPECT_EQ("", parsed.fragment);
+}
+
+TEST(ParseGenericUriTest, S3Scheme) {
+  auto parsed = ParseGenericUri("s3://bucket/path");
+  EXPECT_EQ("s3", parsed.scheme);
   EXPECT_EQ("bucket/path", parsed.authority_and_path);
   EXPECT_EQ("", parsed.query);
   EXPECT_EQ("", parsed.fragment);
