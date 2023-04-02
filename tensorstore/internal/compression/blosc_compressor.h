@@ -27,6 +27,7 @@
 #include "riegeli/bytes/writer.h"
 #include "tensorstore/internal/compression/json_specified_compressor.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/str_cat.h"
 
