@@ -198,4 +198,11 @@ TEST(KeyRangeTest, RemovePrefix) {
               ::testing::Eq(KeyRange("a", "")));
 }
 
+TEST(KeyRangeTest, Singleton) {
+  auto r = KeyRange::Singleton("x");
+  EXPECT_TRUE(Contains(r, "x"));
+  EXPECT_FALSE(Contains(r, KeyRange::Successor("x")));
+  EXPECT_EQ(KeyRange("x", KeyRange::Successor("x")), r);
+}
+
 }  // namespace

@@ -39,6 +39,11 @@ std::string KeyRange::Successor(std::string_view key) {
   return successor;
 }
 
+KeyRange KeyRange::Singleton(std::string key) {
+  auto exclusive_max = Successor(key);
+  return KeyRange(std::move(key), std::move(exclusive_max));
+}
+
 std::string KeyRange::PrefixExclusiveMax(std::string prefix) {
   while (!prefix.empty()) {
     auto& last_byte = prefix.back();
