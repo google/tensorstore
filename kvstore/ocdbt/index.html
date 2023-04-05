@@ -952,6 +952,13 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#manifest-footer" class="md-nav__link">
+    <span class="md-ellipsis">Manifest footer</span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -993,6 +1000,13 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#version-tree-node-footer" class="md-nav__link">
+    <span class="md-ellipsis">Version tree node footer</span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1030,6 +1044,13 @@
           <li class="md-nav__item">
   <a href="#interior-b-tree-node-format-height-0" class="md-nav__link">
     <span class="md-ellipsis">Interior B+tree node format <wbr>(height &gt; 0)</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#b-tree-node-footer" class="md-nav__link">
+    <span class="md-ellipsis">B+tree node footer</span>
   </a>
   
 </li>
@@ -1407,6 +1428,13 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#manifest-footer" class="md-nav__link">
+    <span class="md-ellipsis">Manifest footer</span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1448,6 +1476,13 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#version-tree-node-footer" class="md-nav__link">
+    <span class="md-ellipsis">Version tree node footer</span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1485,6 +1520,13 @@
           <li class="md-nav__item">
   <a href="#interior-b-tree-node-format-height-0" class="md-nav__link">
     <span class="md-ellipsis">Interior B+tree node format <wbr>(height &gt; 0)</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#b-tree-node-footer" class="md-nav__link">
+    <span class="md-ellipsis">B+tree node footer</span>
   </a>
   
 </li>
@@ -1717,12 +1759,13 @@ pointer to the value and it must be read separately from a data file.</p>
 <p>An encoded manifest consists of:</p>
 <ul class="simple">
 <li><p><a class="reference internal" href="#ocdbt-manifest-header"><span class="std std-ref">Manifest header</span></a></p></li>
-<li><p>Remaining data is compressed according to the specified <a class="reference internal" href="#ocdbt-manifest-compression-format"><span class="std std-ref">compression_format</span></a>:</p>
+<li><p>Body compressed according to the specified <a class="reference internal" href="#ocdbt-manifest-compression-format"><span class="std std-ref">compression_format</span></a>:</p>
 <ul>
 <li><p><a class="reference internal" href="#ocdbt-manifest-config"><span class="std std-ref">Manifest configuration</span></a></p></li>
 <li><p><a class="reference internal" href="#ocdbt-manifest-version-tree"><span class="std std-ref">Manifest version tree</span></a></p></li>
 </ul>
 </li>
+<li><p><a class="reference internal" href="#ocdbt-manifest-footer"><span class="std std-ref">Manifest footer</span></a></p></li>
 </ul>
 <h4 id="manifest-header"><span id="ocdbt-manifest-header"></span>Manifest header<a class="headerlink" href="#manifest-header" title="Permalink to this heading">¶</a></h4>
 <table class="docutils data align-default">
@@ -1735,10 +1778,13 @@ pointer to the value and it must be read separately from a data file.</p>
 <tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-manifest-magic-value"><span class="std std-ref">magic_value</span></a></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">uint32be</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-manifest-version"><span class="std std-ref">version</span></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-manifest-length"><span class="std std-ref">length</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">uint64le</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-manifest-version"><span class="std std-ref">version</span></a></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-manifest-compression-format"><span class="std std-ref">compression_format</span></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-manifest-compression-format"><span class="std std-ref">compression_format</span></a></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 </tr>
 </tbody>
@@ -1747,8 +1793,17 @@ pointer to the value and it must be read separately from a data file.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">magic_value</span></code></dt><dd><p>Must equal <code class="docutils literal notranslate"><span class="pre">0x0cdb3a2a</span></code></p>
 </dd>
 </dl>
+<dl class="simple" id="ocdbt-manifest-length">
+<dt><code class="docutils literal notranslate"><span class="pre">length</span></code></dt><dd><p>Length in bytes of entire manifest, including this header.</p>
+</dd>
+</dl>
 <dl class="simple" id="ocdbt-manifest-version">
 <dt><code class="docutils literal notranslate"><span class="pre">version</span></code></dt><dd><p>Must equal <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-manifest-crc32c-checksum">
+<dt><code class="docutils literal notranslate"><span class="pre">crc32c_checksum</span></code></dt><dd><p>CRC32C checksum of entire manifest, Length in bytes of entire manifest, including <a class="reference internal" href="#ocdbt-manifest-header"><span class="std std-ref">this
+header</span></a>.</p>
 </dd>
 </dl>
 <dl class="simple" id="ocdbt-manifest-compression-format">
@@ -1853,11 +1908,28 @@ B+tree roots and version tree nodes.</p>
 referenced from <a class="reference internal" href="#ocdbt-manifest-version-tree-inline-versions"><span class="std std-ref">inline_versions</span></a>.</p>
 </dd>
 </dl>
+<h4 id="manifest-footer"><span id="ocdbt-manifest-footer"></span>Manifest footer<a class="headerlink" href="#manifest-footer" title="Permalink to this heading">¶</a></h4>
+<table class="docutils data align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Binary format</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-manifest-crc32c-checksum"><span class="std std-ref">crc32c_checksum</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">uint32le</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<dl class="simple" id="ocdbt-manifest-crc32-checksum">
+<dt><code class="docutils literal notranslate"><span class="pre">crc32c_checksum</span></code></dt><dd><p>CRC-32C checksum of the entire manifest, excluding the checksum itself.</p>
+</dd>
+</dl>
 <h3 id="version-tree-node-format"><span id="ocdbt-version-tree"></span>Version tree node format<a class="headerlink" href="#version-tree-node-format" title="Permalink to this heading">¶</a></h3>
 <p>An encoded version tree node consists of:</p>
 <ul class="simple">
 <li><p><a class="reference internal" href="#ocdbt-version-tree-outer-header"><span class="std std-ref">Version tree node outer header</span></a></p></li>
-<li><p>Remaining data is compressed according to the specified <a class="reference internal" href="#ocdbt-version-tree-compression-format"><span class="std std-ref">compression_format</span></a>:</p>
+<li><p>Body compressed according to the specified <a class="reference internal" href="#ocdbt-version-tree-compression-format"><span class="std std-ref">compression_format</span></a>:</p>
 <ul>
 <li><p><a class="reference internal" href="#ocdbt-version-tree-inner-header"><span class="std std-ref">Version tree node inner header</span></a></p></li>
 <li><p><a class="reference internal" href="#ocdbt-version-tree-leaf-node-entry-array"><span class="std std-ref">Leaf node entries</span></a> or
@@ -1865,6 +1937,7 @@ referenced from <a class="reference internal" href="#ocdbt-manifest-version-tree
 depending on the <a class="reference internal" href="#ocdbt-version-tree-height"><span class="std std-ref">height</span></a>.</p></li>
 </ul>
 </li>
+<li><p><a class="reference internal" href="#ocdbt-version-tree-footer"><span class="std std-ref">Version tree node footer</span></a></p></li>
 </ul>
 <h4 id="version-tree-node-outer-header"><span id="ocdbt-version-tree-outer-header"></span>Version tree node outer header<a class="headerlink" href="#version-tree-node-outer-header" title="Permalink to this heading">¶</a></h4>
 <table class="docutils data align-default">
@@ -1877,16 +1950,23 @@ depending on the <a class="reference internal" href="#ocdbt-version-tree-height"
 <tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-version-tree-magic-value"><span class="std std-ref">magic_value</span></a></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">uint32be</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-version-tree-version"><span class="std std-ref">version</span></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-version-tree-length"><span class="std std-ref">length</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">uint64le</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-version-tree-version"><span class="std std-ref">version</span></a></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-version-tree-compression-format"><span class="std std-ref">compression_format</span></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-version-tree-compression-format"><span class="std std-ref">compression_format</span></a></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 </tr>
 </tbody>
 </table>
 <dl class="simple" id="ocdbt-version-tree-magic-value">
 <dt><code class="docutils literal notranslate"><span class="pre">magic_value</span></code></dt><dd><p>Must equal <code class="docutils literal notranslate"><span class="pre">0x0cdb1234</span></code>.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-version-tree-length">
+<dt><code class="docutils literal notranslate"><span class="pre">length</span></code></dt><dd><p>Length in bytes of entire version tree node, including this header.</p>
 </dd>
 </dl>
 <dl class="simple" id="ocdbt-version-tree-version">
@@ -2181,11 +2261,28 @@ this specification, <code class="docutils literal notranslate"><span class="pre"
 where <a class="reference internal" href="#ocdbt-version-tree-height"><span class="std std-ref">height</span></a> is obtained from the version tree node.</p>
 </dd>
 </dl>
+<h4 id="version-tree-node-footer"><span id="ocdbt-version-tree-footer"></span>Version tree node footer<a class="headerlink" href="#version-tree-node-footer" title="Permalink to this heading">¶</a></h4>
+<table class="docutils data align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Binary format</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-version-tree-crc32c-checksum"><span class="std std-ref">crc32c_checksum</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">uint32le</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<dl class="simple" id="ocdbt-version-tree-crc32c-checksum">
+<dt><code class="docutils literal notranslate"><span class="pre">crc32c_checksum</span></code></dt><dd><p>CRC-32C checksum of the entire version tree node, excluding the checksum itself.</p>
+</dd>
+</dl>
 <h3 id="b-tree-node-format">B+tree node format<a class="headerlink" href="#b-tree-node-format" title="Permalink to this heading">¶</a></h3>
 <p>An encoded B+tree node consists of:</p>
 <ul class="simple">
 <li><p><a class="reference internal" href="#ocdbt-btree-outer-header"><span class="std std-ref">B+tree node outer header</span></a></p></li>
-<li><p>Remaining data is compressed according to the specified <a class="reference internal" href="#ocdbt-btree-compression-format"><span class="std std-ref">compression_format</span></a>:</p>
+<li><p>Body compressed according to the specified <a class="reference internal" href="#ocdbt-btree-compression-format"><span class="std std-ref">compression_format</span></a>:</p>
 <ul>
 <li><p><a class="reference internal" href="#ocdbt-btree-inner-header"><span class="std std-ref">B+tree node inner header</span></a></p></li>
 <li><p><a class="reference internal" href="#ocdbt-btree-leaf-node-entry-array"><span class="std std-ref">Leaf node entries</span></a> or
@@ -2193,6 +2290,7 @@ where <a class="reference internal" href="#ocdbt-version-tree-height"><span clas
 depending on the <a class="reference internal" href="#ocdbt-btree-node-height"><span class="std std-ref">height</span></a>.</p></li>
 </ul>
 </li>
+<li><p><a class="reference internal" href="#ocdbt-btree-footer"><span class="std std-ref">B+tree node footer</span></a></p></li>
 </ul>
 <h4 id="b-tree-node-outer-header"><span id="ocdbt-btree-outer-header"></span>B+tree node outer header<a class="headerlink" href="#b-tree-node-outer-header" title="Permalink to this heading">¶</a></h4>
 <table class="docutils data align-default">
@@ -2205,16 +2303,23 @@ depending on the <a class="reference internal" href="#ocdbt-btree-node-height"><
 <tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-magic-value"><span class="std std-ref">magic_value</span></a></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">uint32be</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-btree-version"><span class="std std-ref">version</span></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-btree-length"><span class="std std-ref">length</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">uint64le</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-version"><span class="std std-ref">version</span></a></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-compression-format"><span class="std std-ref">compression_format</span></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-btree-compression-format"><span class="std std-ref">compression_format</span></a></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 </tr>
 </tbody>
 </table>
 <dl class="simple" id="ocdbt-btree-magic-value">
 <dt><code class="docutils literal notranslate"><span class="pre">magic_value</span></code></dt><dd><p>Must equal <code class="docutils literal notranslate"><span class="pre">0x0cdb20de</span></code>.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-btree-length">
+<dt><code class="docutils literal notranslate"><span class="pre">length</span></code></dt><dd><p>Length in bytes of entire B+tree node, including this header.</p>
 </dd>
 </dl>
 <dl class="simple" id="ocdbt-btree-version">
@@ -2473,6 +2578,23 @@ path to a node, its size is counted multiple times.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">num_indirect_value_bytes[i]</span></code></dt><dd><p>Specifies the total size in bytes of all indirectly-stored values in the
 subtree rooted at the child node.  If the same stored value is referenced
 from multiple keys, its size is counted multiple times.</p>
+</dd>
+</dl>
+<h4 id="b-tree-node-footer"><span id="ocdbt-btree-footer"></span>B+tree node footer<a class="headerlink" href="#b-tree-node-footer" title="Permalink to this heading">¶</a></h4>
+<table class="docutils data align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Binary format</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-crc32c-checksum"><span class="std std-ref">crc32c_checksum</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">uint32le</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<dl class="simple" id="ocdbt-btree-crc32c-checksum">
+<dt><code class="docutils literal notranslate"><span class="pre">crc32c_checksum</span></code></dt><dd><p>CRC-32C checksum of the entire B+tree node, excluding the checksum itself.</p>
 </dd>
 </dl>
 
