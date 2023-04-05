@@ -142,7 +142,7 @@ Result<ChunkLayout> Driver::GetChunkLayout(IndexTransformView<> transform) {
 
 Result<CodecSpec> Driver::GetCodec() { return CodecSpec{}; }
 
-KvStore Driver::GetKvstore() { return {}; }
+KvStore Driver::GetKvstore(const Transaction& transaction) { return {}; }
 
 Result<SharedArray<const void>> Driver::GetFillValue(
     IndexTransformView<> transform) {
@@ -224,11 +224,7 @@ Result<Schema> GetSchema(const Driver::Handle& handle) {
 
 KvStore GetKvstore(const DriverHandle& handle) {
   if (!handle.valid()) return {};
-  auto kvs = handle.driver->GetKvstore();
-  if (kvs.valid()) {
-    kvs.transaction = handle.transaction;
-  }
-  return kvs;
+  return handle.driver->GetKvstore(handle.transaction);
 }
 
 Result<TransformedDriverSpec> GetTransformedDriverSpec(

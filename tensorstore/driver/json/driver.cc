@@ -257,7 +257,7 @@ class JsonDriverSpec
 class JsonDriver : public RegisteredDriver<JsonDriver,
                                            /*Parent=*/internal::Driver> {
  public:
-  KvStore GetKvstore() override;
+  KvStore GetKvstore(const Transaction& transaction) override;
 
   Result<ChunkLayout> GetChunkLayout(IndexTransformView<> transform) override {
     ChunkLayout layout;
@@ -352,10 +352,10 @@ Result<TransformedDriverSpec> JsonDriver::GetBoundSpec(
   return spec;
 }
 
-KvStore JsonDriver::GetKvstore() {
+KvStore JsonDriver::GetKvstore(const Transaction& transaction) {
   auto& cache = GetOwningCache(*cache_entry_);
   return KvStore(kvstore::DriverPtr(cache.kvstore_driver()),
-                 std::string(cache_entry_->key()));
+                 std::string(cache_entry_->key()), transaction);
 }
 
 /// TensorStore Driver ReadChunk implementation for the case of a

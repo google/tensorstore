@@ -282,10 +282,10 @@ class ImageDriver
   using CacheType = ImageCache<Specialization>;
   using LockType = internal::AsyncCache::ReadLock<typename CacheType::ReadData>;
 
-  KvStore GetKvstore() override {
+  KvStore GetKvstore(const Transaction& transaction) override {
     auto& cache = GetOwningCache(*cache_entry_);
     return KvStore(kvstore::DriverPtr(cache.kvstore_driver()),
-                   std::string(cache_entry_->key()));
+                   std::string(cache_entry_->key()), transaction);
   }
 
   // FIXME: Current image formats are restricted to rank3 (y,x,channels) and

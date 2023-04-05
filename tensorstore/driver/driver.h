@@ -150,7 +150,7 @@ class Driver : public AtomicReferenceCount<Driver> {
 
   /// Returns the associated KeyValueStore path, or an invalid (null) path if
   /// there is none.
-  virtual KvStore GetKvstore();
+  virtual KvStore GetKvstore(const Transaction& transaction);
 
   /// Returns the Executor to use for data copying to/from this Driver (e.g. for
   /// Read and Write operations).
