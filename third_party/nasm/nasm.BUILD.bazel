@@ -161,11 +161,10 @@ cc_binary(
         "//conditions:default": ["stdlib/strlcpy.c"],
     }),
     copts = select({
-        ":compiler_msvc": ["/O2"],
+        ":compiler_msvc": [],
         "//conditions:default": [
             "-w",
             "-std=c99",
-            "-O2",
         ],
     }),
     defines = select({
