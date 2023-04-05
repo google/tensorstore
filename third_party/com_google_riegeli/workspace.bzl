@@ -29,6 +29,11 @@ def repo():
             "https://github.com/google/riegeli/archive/81c414981883a606ef4865e6b49353d516aa605d.tar.gz",  # master(2023-04-01)
         ],
         sha256 = "d17b323ce1c8bdf73d9947ad13384ce8aa72adce6ead9b66dd4e6dbf2f013e50",
+        patches = [
+            # Use absl crc32c rather than separate crc32c library.
+            "//third_party:com_google_riegeli/patches/absl-crc32c.diff",
+        ],
+        patch_args = ["-p1"],
         repo_mapping = {
             "@zlib": "@net_zlib",
             "@bzip2": "@org_sourceware_bzip2",
@@ -40,7 +45,6 @@ def repo():
             "exclude": [
                 "riegeli/brotli/**",
                 "riegeli/chunk_encoding/**",
-                "riegeli/digests/**",
                 "riegeli/lz4/**",
                 "riegeli/records/**",
                 "riegeli/snappy/**",

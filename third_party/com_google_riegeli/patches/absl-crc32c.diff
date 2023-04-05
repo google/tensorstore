@@ -1,0 +1,38 @@
+diff --git a/riegeli/digests/BUILD b/riegeli/digests/BUILD
+index 8236f0a9..df9e107c 100644
+--- a/riegeli/digests/BUILD
++++ b/riegeli/digests/BUILD
+@@ -66,8 +66,8 @@ cc_library(
+     hdrs = ["crc32c_digester.h"],
+     deps = [
+         "//riegeli/base:arithmetic",
++        "@com_google_absl//absl/crc:crc32c",
+         "@com_google_absl//absl/strings",
+-        "@crc32c",
+     ],
+ )
+ 
+diff --git a/riegeli/digests/crc32c_digester.h b/riegeli/digests/crc32c_digester.h
+index 296ce0e6..f2bae85b 100644
+--- a/riegeli/digests/crc32c_digester.h
++++ b/riegeli/digests/crc32c_digester.h
+@@ -17,8 +17,8 @@
+ 
+ #include <stdint.h>
+ 
++#include "absl/crc/crc32c.h"
+ #include "absl/strings/string_view.h"
+-#include "crc32c/crc32c.h"
+ #include "riegeli/base/arithmetic.h"
+ 
+ namespace riegeli {
+@@ -50,8 +50,7 @@ class Crc32cDigester {
+ // Implementation details follow.
+ 
+ inline void Crc32cDigester::Write(absl::string_view src) {
+-  crc_ = crc32c::Extend(crc_, reinterpret_cast<const uint8_t*>(src.data()),
+-                        src.size());
++  crc_ = static_cast<uint32_t>(absl::ExtendCrc32c(absl::crc32c_t{crc_}, src));
+ }
+ 
+ }  // namespace riegeli

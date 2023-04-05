@@ -57,6 +57,7 @@ ABSL_CMAKE_MAPPING = {
     "@com_google_absl//absl/container:inlined_vector": "absl::inlined_vector",
     "@com_google_absl//absl/container:node_hash_map": "absl::node_hash_map",
     "@com_google_absl//absl/container:node_hash_set": "absl::node_hash_set",
+    "@com_google_absl//absl/crc:crc32c": "absl::crc32c",
     "@com_google_absl//absl/debugging:debugging": "absl::debugging",
     "@com_google_absl//absl/debugging:failure_signal_handler": "absl::failure_signal_handler",
     "@com_google_absl//absl/debugging:leak_check": "absl::leak_check",

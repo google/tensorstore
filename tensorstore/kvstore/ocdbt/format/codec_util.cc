@@ -19,6 +19,8 @@
 #include <string>
 #include <variant>
 
+#include "absl/base/internal/endian.h"
+#include "absl/crc/crc32c.h"
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
@@ -27,6 +29,9 @@
 #include "riegeli/bytes/cord_writer.h"
 #include "riegeli/bytes/reader.h"
 #include "riegeli/bytes/writer.h"
+#include "riegeli/digests/crc32c_digester.h"
+#include "riegeli/digests/digesting_reader.h"
+#include "riegeli/digests/digesting_writer.h"
 #include "riegeli/endian/endian_reading.h"
 #include "riegeli/endian/endian_writing.h"
 #include "riegeli/varint/varint_reading.h"
@@ -81,7 +86,8 @@ absl::Status DecodeWithOptionalCompression(
     uint32_t max_version_number,
     absl::FunctionRef<bool(riegeli::Reader& reader, uint32_t version)>
         decode_decompressed) {
-  riegeli::CordReader reader{encoded};
+  riegeli::DigestingReader<riegeli::Crc32cDigester, riegeli::CordReader<>>
+      reader{std::tuple(&encoded)};
   bool success = [&] {
     {
       uint32_t magic;
@@ -92,6 +98,17 @@ absl::Status DecodeWithOptionalCompression(
         reader.Fail(absl::DataLossError(absl::StrFormat(
             "Expected to start with hex bytes %08x but received: 0x%08x",
             expected_magic, magic)));
+        return false;
+      }
+
+      uint64_t length;
+      if (!riegeli::ReadLittleEndian<uint64_t>(reader, length)) {
+        return false;
+      }
+      if (length != encoded.size()) {
+        reader.Fail(absl::DataLossError(absl::StrFormat(
+            "Length in header (%d) does not match actual length (%d)", length,
+            encoded.size())));
         return false;
       }
     }
@@ -128,9 +145,21 @@ absl::Status DecodeWithOptionalCompression(
             "Unsupported compression format: %d", compression_format)));
         return false;
     }
+
+    [[maybe_unused]] uint32_t expected_digest;
+    if (!riegeli::ReadLittleEndian<uint32_t>(reader, expected_digest)) {
+      return false;
+    }
     return success;
   }();
-  return internal_ocdbt::FinalizeReader(reader, success);
+  TENSORSTORE_RETURN_IF_ERROR(internal_ocdbt::FinalizeReader(reader, success));
+  // The CRC-32C digest of `M + CRC32C(M)`, where `CRC32C_as_uint32le(M)` is
+  // guaranteed to result in the following constant.
+  if (reader.Digest() != 0x48674bc7) {
+    return absl::DataLossError(
+        absl::StrFormat("CRC-32C checksum verification failed"));
+  }
+  return absl::OkStatus();
 }
 
 Result<absl::Cord> EncodeWithOptionalCompression(
@@ -139,22 +168,54 @@ Result<absl::Cord> EncodeWithOptionalCompression(
   absl::Cord encoded;
   riegeli::CordWriter<> writer{&encoded};
   bool success = [&] {
-    if (!riegeli::WriteBigEndian<uint32_t>(magic, writer)) return false;
-    if (!riegeli::WriteVarint32(version_number, writer)) return false;
+    char header[12];
+    absl::big_endian::Store32(header, magic);
+
+    // Leave 12-byte placeholder to be filled in later.
+    if (!writer.WriteZeros(12)) return false;
+
+    // Compute CRC-32C digest of remaining data.
+    riegeli::DigestingWriter<riegeli::Crc32cDigester> digesting_writer(&writer);
+    if (!riegeli::WriteVarint32(version_number, digesting_writer)) return false;
     if (std::holds_alternative<Config::NoCompression>(config.compression)) {
-      if (!riegeli::WriteVarint32(0, writer)) return false;
-      return encode(writer);
+      if (!riegeli::WriteVarint32(0, digesting_writer)) return false;
+      if (!encode(digesting_writer)) return false;
+    } else {
+      if (!riegeli::WriteVarint32(1, digesting_writer)) return false;
+      const auto& zstd_config =
+          std::get<Config::ZstdCompression>(config.compression);
+      riegeli::ZstdWriter<> zstd_writer{
+          &digesting_writer,
+          riegeli::ZstdWriter<>::Options().set_compression_level(
+              zstd_config.level)};
+      if (!encode(zstd_writer) || !zstd_writer.Close()) {
+        digesting_writer.Fail(zstd_writer.status());
+        return false;
+      }
     }
-    if (!riegeli::WriteVarint32(1, writer)) return false;
-    const auto& zstd_config =
-        std::get<Config::ZstdCompression>(config.compression);
-    riegeli::ZstdWriter<> zstd_writer{
-        &writer, riegeli::ZstdWriter<>::Options().set_compression_level(
-                     zstd_config.level)};
-    if (!encode(zstd_writer) || !zstd_writer.Close()) {
-      writer.Fail(zstd_writer.status());
-      return false;
+    if (!digesting_writer.Close()) {
+      writer.Fail(digesting_writer.status());
     }
+
+    // Complete `header` by filling in length.
+    auto length = writer.pos() + 4;
+    absl::little_endian::Store64(header + 4, length);
+
+    std::string_view header_string_view(header, sizeof(header));
+
+    // Compute overall digest of header plus the remaining data.
+    uint32_t digest = digesting_writer.Digest();
+    digest = static_cast<uint32_t>(absl::ConcatCrc32c(
+        absl::ComputeCrc32c(header_string_view), absl::crc32c_t(digest),
+        length - header_string_view.size() - 4));
+
+    // Append the digest.
+    if (!riegeli::WriteLittleEndian<uint32_t>(digest, writer)) return false;
+
+    // Replace the placeholder zero bytes with the header.
+    if (!writer.Seek(0)) return false;
+    if (!writer.Write(header_string_view)) return false;
+
     return true;
   }();
   TENSORSTORE_RETURN_IF_ERROR(internal_ocdbt::FinalizeWriter(writer, success));
