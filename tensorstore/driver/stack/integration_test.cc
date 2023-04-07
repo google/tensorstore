@@ -184,7 +184,6 @@ TEST_F(ImageDriverIntegrationTest, OpenImageStack) {
 }
 
 TEST_F(ImageDriverIntegrationTest, Transform) {
-
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto context, PrepareTest());
 
   ::nlohmann::json spec{
