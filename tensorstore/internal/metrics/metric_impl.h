@@ -145,8 +145,8 @@ class AbstractMetricBase {
   AbstractMetricBase(const AbstractMetricBase&) = delete;
   AbstractMetricBase& operator=(const AbstractMetricBase&) = delete;
 
-  const std::string_view metric_name() const { return metric_name_; }
-  const MetricMetadata metadata() const { return metadata_; }
+  std::string_view metric_name() const { return metric_name_; }
+  MetricMetadata metadata() const { return metadata_; }
   const field_names_type& field_names() const { return field_names_; }
 
   std::vector<std::string_view> field_names_vector() const {

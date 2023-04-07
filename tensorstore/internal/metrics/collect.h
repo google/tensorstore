@@ -34,32 +34,23 @@ struct CollectedMetric {
   MetricMetadata metadata;
   std::string_view tag;
 
-  struct Counter {
-    std::vector<std::string> fields;
-    std::variant<int64_t, double> value;
-  };
-  std::vector<Counter> counters;
-
-  struct Gauge {
-    std::vector<std::string> fields;
-    std::variant<int64_t, double> value;
-    std::variant<int64_t, double> max_value;
-  };
-  std::vector<Gauge> gauges;
-
-  struct Histogram {
-    std::vector<std::string> fields;
-    int64_t count;
-    double sum;
-    std::vector<int64_t> buckets;
-  };
-  std::vector<Histogram> histograms;
-
+  // Representation of a Gauge, Counter, or Value metric.
   struct Value {
     std::vector<std::string> fields;
     std::variant<int64_t, double, std::string> value;
+    std::variant<std::monostate, int64_t, double> max_value = std::monostate{};
   };
   std::vector<Value> values;
+
+  // Representation of a Histogram metric.
+  struct Histogram {
+    std::vector<std::string> fields;
+    int64_t count;
+    double mean;
+    double sum_of_squared_deviation;
+    std::vector<int64_t> buckets;
+  };
+  std::vector<Histogram> histograms;
 };
 
 /// Returns whether a collected metric is non-zero

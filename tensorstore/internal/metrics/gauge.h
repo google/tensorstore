@@ -87,10 +87,10 @@ class ABSL_CACHELINE_ALIGNED Gauge {
     return *absl::IgnoreLeak(gauge.release());
   }
 
-  const auto tag() const { return Cell::kTag; }
-  const auto metric_name() const { return impl_.metric_name(); }
-  const auto field_names() const { return impl_.field_names(); }
-  const MetricMetadata metadata() const { return impl_.metadata(); }
+  auto tag() const { return Cell::kTag; }
+  auto metric_name() const { return impl_.metric_name(); }
+  const auto& field_names() const { return impl_.field_names(); }
+  MetricMetadata metadata() const { return impl_.metadata(); }
 
   /// Increment the counter by 1.
   void Increment(typename FieldTraits<Fields>::param_type... labels) {
@@ -139,12 +139,12 @@ class ABSL_CACHELINE_ALIGNED Gauge {
     result.metadata = impl_.metadata();
     result.field_names = impl_.field_names_vector();
     impl_.CollectCells([&result](const Cell& cell, const auto& fields) {
-      result.gauges.emplace_back(std::apply(
+      result.values.emplace_back(std::apply(
           [&](const auto&... item) {
             std::vector<std::string> fields;
             fields.reserve(sizeof...(item));
             (fields.push_back(tensorstore::StrCat(item)), ...);
-            return CollectedMetric::Gauge{std::move(fields), cell.Get(),
+            return CollectedMetric::Value{std::move(fields), cell.Get(),
                                           cell.GetMax()};
           },
           fields));

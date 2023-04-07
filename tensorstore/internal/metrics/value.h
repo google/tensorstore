@@ -88,10 +88,10 @@ class ABSL_CACHELINE_ALIGNED Value {
     return *absl::IgnoreLeak(value.release());
   }
 
-  const auto tag() const { return Cell::kTag; }
-  const auto metric_name() const { return impl_.metric_name(); }
-  const auto field_names() const { return impl_.field_names(); }
-  const MetricMetadata metadata() const { return impl_.metadata(); }
+  auto tag() const { return Cell::kTag; }
+  auto metric_name() const { return impl_.metric_name(); }
+  const auto& field_names() const { return impl_.field_names(); }
+  MetricMetadata metadata() const { return impl_.metadata(); }
 
   /// Set the value.
   void Set(value_type value,

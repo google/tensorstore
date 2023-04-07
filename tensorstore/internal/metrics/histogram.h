@@ -17,6 +17,8 @@
 
 #include <array>
 #include <atomic>
+#include <cmath>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -52,14 +54,16 @@ struct DefaultBucketer {
 
   /// Number of buckets.
   static constexpr size_t Max = 65;
+  static constexpr size_t UnderflowBucket = 0;
+  static constexpr size_t OverflowBucket = 64;
 
   /// Mapping from value to bucket in the range [0 .. Max-1].
   static size_t BucketForValue(double value) {
-    static constexpr double kTop = static_cast<double>(1ull << 63);
-    if (value >= kTop) return Max - 1;                 // Inf.
-    if (value < 0 || !std::isfinite(value)) return 0;  // <0, NaN
+    static constexpr double kMaximumValue = static_cast<double>(1ull << 63);
+    if (value < 0) return UnderflowBucket;
+    if (value >= kMaximumValue) return OverflowBucket;
     size_t v = absl::bit_width(static_cast<uint64_t>(value)) + 1;
-    return (v >= Max) ? (Max - 1) : v;
+    return (v >= Max) ? OverflowBucket : v;
   }
 };
 
@@ -106,10 +110,10 @@ class ABSL_CACHELINE_ALIGNED Histogram {
     return *absl::IgnoreLeak(histogram.release());
   }
 
-  const auto tag() const { return Cell::kTag; }
-  const auto metric_name() const { return impl_.metric_name(); }
-  const auto field_names() const { return impl_.field_names(); }
-  const MetricMetadata metadata() const { return impl_.metadata(); }
+  auto tag() const { return Cell::kTag; }
+  auto metric_name() const { return impl_.metric_name(); }
+  const auto& field_names() const { return impl_.field_names(); }
+  MetricMetadata metadata() const { return impl_.metadata(); }
 
   /// Observe a histogram value.
   void Observe(value_type value,
@@ -117,9 +121,9 @@ class ABSL_CACHELINE_ALIGNED Histogram {
     impl_.GetCell(labels...)->Observe(value);
   }
 
-  value_type GetSum(typename FieldTraits<Fields>::param_type... labels) const {
+  value_type GetMean(typename FieldTraits<Fields>::param_type... labels) const {
     auto* cell = impl_.FindCell(labels...);
-    return cell ? cell->GetSum() : value_type{};
+    return cell ? cell->GetMean() : value_type{};
   }
 
   count_type GetCount(
@@ -148,16 +152,7 @@ class ABSL_CACHELINE_ALIGNED Histogram {
             std::vector<std::string> fields;
             fields.reserve(sizeof...(item));
             (fields.emplace_back(tensorstore::StrCat(item)), ...);
-
-            int64_t count = 0;
-            std::vector<int64_t> buckets;
-            buckets.reserve(cell.Max);
-            for (size_t i = 0; i < cell.Max; i++) {
-              buckets.push_back(cell.GetBucket(i));
-              count += buckets.back();
-            }
-            return CollectedMetric::Histogram{
-                std::move(fields), count, cell.GetSum(), std::move(buckets)};
+            return cell.Collect(std::move(fields));
           },
           fields));
     });
@@ -195,37 +190,83 @@ class ABSL_CACHELINE_ALIGNED HistogramCell : public Bucketer {
   HistogramCell() = default;
 
   void Observe(double value) {
+    if (!std::isfinite(value)) return;  // Ignore INF, NaN.
     size_t idx = Bucketer::BucketForValue(value);
     if (idx < 0 || idx >= Max) return;
 
-    double v = sum_.load();
-    while (!sum_.compare_exchange_weak(v, v + value)) {
-      // repeat
+    // Use bit0 of count as a spinlock.
+    uint64_t count = AcquireCountSpinlock();
+    uint64_t new_count = count + 2;
+
+    // Compute a new mean using the method of provisional means.
+    double mean = mean_.load(std::memory_order_relaxed);
+    double new_mean = mean + (value - mean) / (new_count >> 1);
+    mean_.store(new_mean, std::memory_order_relaxed);
+    if (new_count > 2) {
+      double ssd_delta = (value - mean) * (value - new_mean);
+      sum_squared_deviation_.store(
+          sum_squared_deviation_.load(std::memory_order_relaxed) + ssd_delta);
     }
-    count_.fetch_add(1);
-    buckets_[idx].fetch_add(1);
+    count_ = new_count;  // release spinlock
+
+    buckets_[idx].fetch_add(1, std::memory_order_relaxed);
   }
 
   // There is potential inconsistency between count/sum/bucket
-  double GetSum() const { return sum_; }
-  int64_t GetCount() const { return count_; }
+  double GetMean() const { return mean_.load(std::memory_order_relaxed); }
+  int64_t GetCount() const {
+    return static_cast<int64_t>(count_.load(std::memory_order_relaxed) >> 1);
+  }
+  int64_t GetSSD() const {
+    return sum_squared_deviation_.load(std::memory_order_relaxed);
+  }
+
   int64_t GetBucket(size_t idx) const {
     if (idx >= Max) return 0;
     return buckets_[idx];
   }
 
   void Reset() {
-    // There is potential inconsistency between count/sum/bucket
-    sum_ = 0.0;
-    count_ = 0;
+    // Use bit0 of count as a spinlock.
+    AcquireCountSpinlock();
+    mean_.store(0, std::memory_order_relaxed);
+    sum_squared_deviation_.store(0, std::memory_order_relaxed);
     for (auto& b : buckets_) {
-      b = 0;
+      b.store(0, std::memory_order_relaxed);
     }
+    count_ = 0;  // release spinlock
+  }
+
+  CollectedMetric::Histogram Collect(std::vector<std::string> fields) const {
+    std::vector<int64_t> buckets;
+    buckets.reserve(Bucketer::Max);
+    uint64_t count = AcquireCountSpinlock();
+    double mean = mean_.load(std::memory_order_relaxed);
+    double ssd = sum_squared_deviation_.load(std::memory_order_relaxed);
+    count_ = count;  // release spinlock before iterating over buckets
+    int64_t bucket_count = 0;
+    for (auto& b : buckets_) {
+      int64_t x = b.load(std::memory_order_relaxed);
+      buckets.push_back(x);
+      bucket_count += x;
+    }
+    return CollectedMetric::Histogram{std::move(fields), bucket_count, mean,
+                                      ssd, std::move(buckets)};
   }
 
  private:
-  std::atomic<double> sum_{0.0};
-  std::atomic<int64_t> count_{0};
+  // Acquires the bit-0 spinlock on count_.
+  uint64_t AcquireCountSpinlock() const {
+    uint64_t count;
+    do {
+      count = count_.fetch_or(1);
+    } while (count & 1);
+    return count;
+  }
+
+  mutable std::atomic<uint64_t> count_{0};  // mutable for spinlock.
+  std::atomic<double> mean_{0.0};
+  std::atomic<double> sum_squared_deviation_{0.0};
   std::array<std::atomic<int64_t>, Max> buckets_{};
 };
 

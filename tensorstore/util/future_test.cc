@@ -1862,19 +1862,19 @@ TEST(FutureTest, Live) {
   auto& registry = tensorstore::internal_metrics::GetMetricRegistry();
   EXPECT_EQ(
       0, std::get<int64_t>(
-             registry.Collect("/tensorstore/futures/live")->gauges[0].value));
+             registry.Collect("/tensorstore/futures/live")->values[0].value));
 
   /// While the future is active we expect that the live metric has a value.
   {
     auto [promise, future] = PromiseFuturePair<int>::Make();
     EXPECT_NE(
         0, std::get<int64_t>(
-               registry.Collect("/tensorstore/futures/live")->gauges[0].value));
+               registry.Collect("/tensorstore/futures/live")->values[0].value));
   }
 
   EXPECT_EQ(
       0, std::get<int64_t>(
-             registry.Collect("/tensorstore/futures/live")->gauges[0].value));
+             registry.Collect("/tensorstore/futures/live")->values[0].value));
 }
 
 static void BM_Future_ExecuteWhenReady(benchmark::State& state) {

@@ -19,31 +19,24 @@
 
 namespace tensorstore {
 namespace internal_metrics {
+namespace {
+struct IsNonZero {
+  bool operator()(int64_t x) { return x != 0; }
+  bool operator()(double x) { return x != 0; }
+  bool operator()(const std::string& x) { return !x.empty(); }
+  bool operator()(std::monostate) { return false; }
+};
+}  // namespace
 
 bool IsCollectedMetricNonZero(const CollectedMetric& metric) {
-  struct IsNonZero {
-    bool operator()(int64_t x) { return x != 0; }
-    bool operator()(double x) { return x != 0; }
-    bool operator()(const std::string& x) { return !x.empty(); }
-  };
-
-  if (!metric.gauges.empty()) {
-    for (const auto& v : metric.gauges) {
-      if (std::visit(IsNonZero{}, v.value)) return true;
-      if (std::visit(IsNonZero{}, v.max_value)) return true;
-    }
-  } else if (!metric.values.empty()) {
+  if (!metric.values.empty()) {
     for (const auto& v : metric.values) {
       if (std::visit(IsNonZero{}, v.value)) return true;
-    }
-  } else if (!metric.counters.empty()) {
-    for (const auto& v : metric.counters) {
-      if (std::visit(IsNonZero{}, v.value)) return true;
+      if (std::visit(IsNonZero{}, v.max_value)) return true;
     }
   } else if (!metric.histograms.empty()) {
     for (const auto& v : metric.histograms) {
       if (v.count != 0) return true;
-      if (v.sum != 0) return true;
     }
   }
   return false;
@@ -63,40 +56,43 @@ void FormatCollectedMetric(
                         absl::StrJoin(v.fields, ", "), "]");
   };
 
-  if (!metric.counters.empty()) {
-    for (const auto& v : metric.counters) {
-      std::visit(
-          [&](auto x) {
-            handle_line(
-                /*has_value=*/x != 0,
-                absl::StrCat(metric_name_with_fields(v), "=", x));
-          },
-          v.value);
-    }
-  }
-  if (!metric.gauges.empty()) {
-    for (const auto& v : metric.gauges) {
+  if (!metric.values.empty()) {
+    for (auto& v : metric.values) {
       bool has_value = false;
       std::string line = metric_name_with_fields(v);
-      std::visit(
-          [&](auto x) {
-            has_value = (x != 0);
-            absl::StrAppend(&line, "={value=", x);
-          },
-          v.value);
-      std::visit(
-          [&](auto x) {
-            has_value |= (x != 0);
-            absl::StrAppend(&line, ", max=", x, "}");
-          },
-          v.max_value);
+      if (std::holds_alternative<std::monostate>(v.max_value)) {
+        // A Normal value.
+        std::visit(
+            [&](auto x) {
+              has_value |= IsNonZero{}(x);
+              absl::StrAppend(&line, "=", x);
+            },
+            v.value);
+      } else {
+        // A Gauge-like value.
+        std::visit(
+            [&](auto x) {
+              has_value |= IsNonZero{}(x);
+              absl::StrAppend(&line, "={value=", x);
+            },
+            v.value);
+        std::visit(
+            [&](auto x) {
+              has_value |= IsNonZero{}(x);
+              if constexpr (!std::is_same<decltype(x), std::monostate>::value) {
+                absl::StrAppend(&line, ", max=", x, "}");
+              }
+            },
+            v.max_value);
+      }
       handle_line(has_value, std::move(line));
     }
   }
   if (!metric.histograms.empty()) {
     for (auto& v : metric.histograms) {
       std::string line = metric_name_with_fields(v);
-      absl::StrAppend(&line, "={count=", v.count, " sum=", v.sum, " buckets=[");
+      absl::StrAppend(&line, "={count=", v.count, " mean=", v.mean,
+                      " buckets=[");
 
       // find the last bucket with data.
       size_t end = v.buckets.size();
@@ -115,19 +111,7 @@ void FormatCollectedMetric(
         i = j;
       }
       absl::StrAppend(&line, "]}");
-      handle_line(/*has_value=*/v.count || v.sum, std::move(line));
-    }
-  }
-  if (!metric.values.empty()) {
-    for (auto& v : metric.values) {
-      std::visit(
-          [&](auto x) {
-            decltype(x) d{};
-            handle_line(
-                /*has_value=*/x != d,
-                absl::StrCat(metric_name_with_fields(v), "=", x));
-          },
-          v.value);
+      handle_line(/*has_value=*/v.count, std::move(line));
     }
   }
 }
@@ -152,26 +136,20 @@ void FormatCollectedMetric(
   };
 
   std::vector<::nlohmann::json> values;
-  if (!metric.gauges.empty()) {
-    for (const auto& v : metric.gauges) {
-      ::nlohmann::json::object_t tmp{};
-      set_field_keys(v, tmp);
-      std::visit([&](auto x) { tmp["value"] = x; }, v.value);
-      std::visit([&](auto x) { tmp["max_value"] = x; }, v.max_value);
-      values.push_back(std::move(tmp));
-    }
-  } else if (!metric.values.empty()) {
+  if (!metric.values.empty()) {
     for (const auto& v : metric.values) {
       ::nlohmann::json::object_t tmp{};
       set_field_keys(v, tmp);
-      std::visit([&](auto x) { tmp["value"] = x; }, v.value);
-      values.push_back(std::move(tmp));
-    }
-  } else if (!metric.counters.empty()) {
-    for (const auto& v : metric.counters) {
-      ::nlohmann::json::object_t tmp{};
-      set_field_keys(v, tmp);
-      std::visit([&](auto x) { tmp["count"] = x; }, v.value);
+      std::visit([&tmp](auto x) { tmp["value"] = x; }, v.value);
+      if (!std::holds_alternative<std::monostate>(v.max_value)) {
+        std::visit(
+            [&tmp](auto x) {
+              if constexpr (!std::is_same<decltype(x), std::monostate>::value) {
+                tmp["max_value"] = x;
+              }
+            },
+            v.max_value);
+      }
       values.push_back(std::move(tmp));
     }
   } else if (!metric.histograms.empty()) {
@@ -179,7 +157,8 @@ void FormatCollectedMetric(
       ::nlohmann::json::object_t tmp{};
       set_field_keys(v, tmp);
       tmp["count"] = v.count;
-      tmp["sum"] = v.sum;
+      tmp["mean"] = v.mean;
+      tmp["sum_of_squared_deviation"] = v.sum_of_squared_deviation;
 
       size_t end = v.buckets.size();
       while (end > 0 && v.buckets[end - 1] == 0) end--;
