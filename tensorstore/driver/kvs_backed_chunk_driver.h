@@ -507,7 +507,7 @@ class KvsDriverBase : public internal::ChunkCacheDriver {
 
   Result<CodecSpec> GetCodec() override;
 
-  KvStore GetKvstore() override;
+  KvStore GetKvstore(const Transaction& transaction) override;
 
   /// Base class intended for use in implementing
   /// `tensorstore::garbage_collection::GarbageCollection<Derived>`

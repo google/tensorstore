@@ -700,11 +700,11 @@ Result<CodecSpec> KvsDriverBase::GetCodec() {
 
 kvstore::Spec KvsDriverSpec::GetKvstore() const { return store; }
 
-KvStore KvsDriverBase::GetKvstore() {
+KvStore KvsDriverBase::GetKvstore(const Transaction& transaction) {
   auto* cache = this->cache();
   auto* metadata_cache = cache->metadata_cache();
   return KvStore{kvstore::DriverPtr(metadata_cache->base_store()),
-                 cache->GetBaseKvstorePath()};
+                 cache->GetBaseKvstorePath(), transaction};
 }
 
 namespace {

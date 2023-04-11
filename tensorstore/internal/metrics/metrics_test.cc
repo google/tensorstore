@@ -48,9 +48,9 @@ TEST(MetricTest, CounterInt) {
 
     EXPECT_EQ("/tensorstore/counter1", metric.metric_name);
     EXPECT_TRUE(metric.field_names.empty());
-    ASSERT_EQ(1, metric.counters.size());
-    EXPECT_TRUE(metric.counters[0].fields.empty());
-    EXPECT_EQ(3, std::get<int64_t>(metric.counters[0].value));
+    ASSERT_EQ(1, metric.values.size());
+    EXPECT_TRUE(metric.values[0].fields.empty());
+    EXPECT_EQ(3, std::get<int64_t>(metric.values[0].value));
   }
   {
     auto metric = GetMetricRegistry().Collect("/tensorstore/counter1");
@@ -58,9 +58,9 @@ TEST(MetricTest, CounterInt) {
 
     EXPECT_EQ("/tensorstore/counter1", metric->metric_name);
     EXPECT_TRUE(metric->field_names.empty());
-    ASSERT_EQ(1, metric->counters.size());
-    EXPECT_TRUE(metric->counters[0].fields.empty());
-    EXPECT_EQ(3, std::get<int64_t>(metric->counters[0].value));
+    ASSERT_EQ(1, metric->values.size());
+    EXPECT_TRUE(metric->values[0].fields.empty());
+    EXPECT_EQ(3, std::get<int64_t>(metric->values[0].value));
   }
 }
 
@@ -72,9 +72,9 @@ TEST(MetricTest, CounterDouble) {
   auto metric = counter.Collect();
   EXPECT_EQ("/tensorstore/counter2", metric.metric_name);
   EXPECT_TRUE(metric.field_names.empty());
-  ASSERT_EQ(1, metric.counters.size());
-  EXPECT_TRUE(metric.counters[0].fields.empty());
-  EXPECT_EQ(3, std::get<double>(metric.counters[0].value));
+  ASSERT_EQ(1, metric.values.size());
+  EXPECT_TRUE(metric.values[0].fields.empty());
+  EXPECT_EQ(3, std::get<double>(metric.values[0].value));
 }
 
 TEST(MetricTest, CounterIntFields) {
@@ -90,14 +90,14 @@ TEST(MetricTest, CounterIntFields) {
   EXPECT_EQ("/tensorstore/counter3", metric.metric_name);
   EXPECT_THAT(metric.field_names, ::testing::ElementsAre("field1"));
 
-  ASSERT_EQ(2, metric.counters.size());
-  std::sort(metric.counters.begin(), metric.counters.end(),
+  ASSERT_EQ(2, metric.values.size());
+  std::sort(metric.values.begin(), metric.values.end(),
             [](auto& a, auto& b) { return a.fields < b.fields; });
 
-  EXPECT_THAT(metric.counters[0].fields, ::testing::ElementsAre("a"));
-  EXPECT_EQ(1, std::get<int64_t>(metric.counters[0].value));
-  EXPECT_THAT(metric.counters[1].fields, ::testing::ElementsAre("b"));
-  EXPECT_EQ(2, std::get<int64_t>(metric.counters[1].value));
+  EXPECT_THAT(metric.values[0].fields, ::testing::ElementsAre("a"));
+  EXPECT_EQ(1, std::get<int64_t>(metric.values[0].value));
+  EXPECT_THAT(metric.values[1].fields, ::testing::ElementsAre("b"));
+  EXPECT_EQ(2, std::get<int64_t>(metric.values[1].value));
 }
 
 TEST(MetricTest, CounterDoubleFields) {
@@ -111,14 +111,14 @@ TEST(MetricTest, CounterDoubleFields) {
   EXPECT_EQ("/tensorstore/counter4", metric.metric_name);
   EXPECT_THAT(metric.field_names, ::testing::ElementsAre("field1"));
 
-  ASSERT_EQ(2, metric.counters.size());
-  std::sort(metric.counters.begin(), metric.counters.end(),
+  ASSERT_EQ(2, metric.values.size());
+  std::sort(metric.values.begin(), metric.values.end(),
             [](auto& a, auto& b) { return a.fields < b.fields; });
 
-  EXPECT_THAT(metric.counters[0].fields, ::testing::ElementsAre("1"));
-  EXPECT_EQ(1, std::get<double>(metric.counters[0].value));
-  EXPECT_THAT(metric.counters[1].fields, ::testing::ElementsAre("2"));
-  EXPECT_EQ(2, std::get<double>(metric.counters[1].value));
+  EXPECT_THAT(metric.values[0].fields, ::testing::ElementsAre("1"));
+  EXPECT_EQ(1, std::get<double>(metric.values[0].value));
+  EXPECT_THAT(metric.values[1].fields, ::testing::ElementsAre("2"));
+  EXPECT_EQ(2, std::get<double>(metric.values[1].value));
 }
 
 TEST(MetricTest, GaugeInt) {
@@ -134,9 +134,9 @@ TEST(MetricTest, GaugeInt) {
 
   EXPECT_EQ("/tensorstore/gauge1", metric.metric_name);
   EXPECT_TRUE(metric.field_names.empty());
-  ASSERT_EQ(1, metric.gauges.size());
-  EXPECT_TRUE(metric.gauges[0].fields.empty());
-  EXPECT_EQ(6, std::get<int64_t>(metric.gauges[0].value));
+  ASSERT_EQ(1, metric.values.size());
+  EXPECT_TRUE(metric.values[0].fields.empty());
+  EXPECT_EQ(6, std::get<int64_t>(metric.values[0].value));
 }
 
 TEST(MetricTest, GaugeDouble) {
@@ -149,9 +149,9 @@ TEST(MetricTest, GaugeDouble) {
 
   EXPECT_EQ("/tensorstore/gauge2", metric.metric_name);
   EXPECT_TRUE(metric.field_names.empty());
-  ASSERT_EQ(1, metric.gauges.size());
-  EXPECT_TRUE(metric.gauges[0].fields.empty());
-  EXPECT_EQ(6, std::get<double>(metric.gauges[0].value));
+  ASSERT_EQ(1, metric.values.size());
+  EXPECT_TRUE(metric.values[0].fields.empty());
+  EXPECT_EQ(6, std::get<double>(metric.values[0].value));
 }
 
 TEST(MetricTest, GaugeIntFields) {
@@ -165,18 +165,18 @@ TEST(MetricTest, GaugeIntFields) {
   EXPECT_EQ(3, gauge.GetMax("b"));
 
   auto metric = gauge.Collect();
-  std::sort(metric.gauges.begin(), metric.gauges.end(),
+  std::sort(metric.values.begin(), metric.values.end(),
             [](auto& a, auto& b) { return a.fields < b.fields; });
 
   EXPECT_EQ("/tensorstore/gauge3", metric.metric_name);
   EXPECT_THAT(metric.field_names, ::testing::ElementsAre("field1"));
-  ASSERT_EQ(2, metric.gauges.size());
-  EXPECT_THAT(metric.gauges[0].fields, ::testing::ElementsAre("a"));
-  EXPECT_EQ(3, std::get<int64_t>(metric.gauges[0].value));
-  EXPECT_EQ(3, std::get<int64_t>(metric.gauges[0].max_value));
-  EXPECT_THAT(metric.gauges[1].fields, ::testing::ElementsAre("b"));
-  EXPECT_EQ(3, std::get<int64_t>(metric.gauges[1].value));
-  EXPECT_EQ(3, std::get<int64_t>(metric.gauges[1].max_value));
+  ASSERT_EQ(2, metric.values.size());
+  EXPECT_THAT(metric.values[0].fields, ::testing::ElementsAre("a"));
+  EXPECT_EQ(3, std::get<int64_t>(metric.values[0].value));
+  EXPECT_EQ(3, std::get<int64_t>(metric.values[0].max_value));
+  EXPECT_THAT(metric.values[1].fields, ::testing::ElementsAre("b"));
+  EXPECT_EQ(3, std::get<int64_t>(metric.values[1].value));
+  EXPECT_EQ(3, std::get<int64_t>(metric.values[1].max_value));
 }
 
 TEST(MetricTest, GaugeDoubleFields) {
@@ -187,18 +187,18 @@ TEST(MetricTest, GaugeDoubleFields) {
   gauge.Set(3, true);
 
   auto metric = gauge.Collect();
-  std::sort(metric.gauges.begin(), metric.gauges.end(),
+  std::sort(metric.values.begin(), metric.values.end(),
             [](auto& a, auto& b) { return a.fields < b.fields; });
 
   EXPECT_EQ("/tensorstore/gauge4", metric.metric_name);
   EXPECT_THAT(metric.field_names, ::testing::ElementsAre("field1"));
-  ASSERT_EQ(2, metric.gauges.size());
-  EXPECT_THAT(metric.gauges[0].fields, ::testing::ElementsAre("0"));
-  EXPECT_EQ(3, std::get<double>(metric.gauges[0].value));
-  EXPECT_EQ(3, std::get<double>(metric.gauges[0].max_value));
-  EXPECT_THAT(metric.gauges[1].fields, ::testing::ElementsAre("1"));
-  EXPECT_EQ(3, std::get<double>(metric.gauges[1].value));
-  EXPECT_EQ(3, std::get<double>(metric.gauges[1].max_value));
+  ASSERT_EQ(2, metric.values.size());
+  EXPECT_THAT(metric.values[0].fields, ::testing::ElementsAre("0"));
+  EXPECT_EQ(3, std::get<double>(metric.values[0].value));
+  EXPECT_EQ(3, std::get<double>(metric.values[0].max_value));
+  EXPECT_THAT(metric.values[1].fields, ::testing::ElementsAre("1"));
+  EXPECT_EQ(3, std::get<double>(metric.values[1].value));
+  EXPECT_EQ(3, std::get<double>(metric.values[1].max_value));
 }
 
 TEST(MetricTest, Histogram) {
@@ -209,7 +209,7 @@ TEST(MetricTest, Histogram) {
   histogram.Observe(1000);
 
   EXPECT_EQ(3, histogram.GetCount());
-  EXPECT_EQ(1003, histogram.GetSum());
+  EXPECT_NEAR(334.333333, histogram.GetMean(), 0.001);
 
   auto metric = histogram.Collect();
 
@@ -217,7 +217,7 @@ TEST(MetricTest, Histogram) {
   EXPECT_TRUE(metric.field_names.empty());
   ASSERT_EQ(1, metric.histograms.size());
   EXPECT_TRUE(metric.histograms[0].fields.empty());
-  EXPECT_EQ(1003, metric.histograms[0].sum);
+  EXPECT_NEAR(334.333333, metric.histograms[0].mean, 0.001);
   EXPECT_EQ(0, metric.histograms[0].buckets[0]);  // [-inf..0)
   EXPECT_EQ(0, metric.histograms[0].buckets[1]);  // <1
   EXPECT_EQ(1, metric.histograms[0].buckets[2]);  // <2

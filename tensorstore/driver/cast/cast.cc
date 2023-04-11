@@ -187,7 +187,9 @@ class CastDriver
     return base_driver_->GetDimensionUnits();
   }
 
-  KvStore GetKvstore() override { return base_driver_->GetKvstore(); }
+  KvStore GetKvstore(const Transaction& transaction) override {
+    return base_driver_->GetKvstore(transaction);
+  }
 
   explicit CastDriver(internal::DriverPtr base, DataType target_dtype,
                       DataTypeConversionLookupResult input_conversion,

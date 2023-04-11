@@ -35,45 +35,24 @@ void AddFields(const T& metric, metrics_proto::MetricInstance& proto) {
   for (auto& x : metric.fields) proto.add_field(x);
 }
 
-void AddCounter(const CollectedMetric::Counter& metric,
-                metrics_proto::MetricInstance& proto) {
-  AddFields(metric, proto);
-  if (std::holds_alternative<int64_t>(metric.value)) {
-    proto.mutable_int_counter()->set_value(std::get<int64_t>(metric.value));
-  } else if (std::holds_alternative<double>(metric.value)) {
-    proto.mutable_double_counter()->set_value(std::get<double>(metric.value));
-  } else {
-    ABSL_LOG(FATAL) << "Unsupported counter";
-  }
-}
-
-void AddGauge(const CollectedMetric::Gauge& metric,
-              metrics_proto::MetricInstance& proto) {
-  AddFields(metric, proto);
-  if (std::holds_alternative<int64_t>(metric.value)) {
-    auto* dest = proto.mutable_int_gauge();
-    dest->set_value(std::get<int64_t>(metric.value));
-    dest->set_max_value(std::get<int64_t>(metric.max_value));
-  } else if (std::holds_alternative<double>(metric.value)) {
-    auto* dest = proto.mutable_double_gauge();
-    dest->set_value(std::get<double>(metric.value));
-    dest->set_max_value(std::get<double>(metric.max_value));
-
-  } else {
-    ABSL_LOG(FATAL) << "Unsupported gauge";
-  }
-}
-
 void AddValue(const CollectedMetric::Value& metric,
               metrics_proto::MetricInstance& proto) {
   AddFields(metric, proto);
   if (std::holds_alternative<int64_t>(metric.value)) {
-    proto.mutable_int_value()->set_value(std::get<int64_t>(metric.value));
+    auto* dest = proto.mutable_int_value();
+    dest->set_value(std::get<int64_t>(metric.value));
+    if (std::holds_alternative<int64_t>(metric.max_value)) {
+      dest->set_max_value(std::get<int64_t>(metric.max_value));
+    }
   } else if (std::holds_alternative<double>(metric.value)) {
-    proto.mutable_double_value()->set_value(std::get<double>(metric.value));
+    auto* dest = proto.mutable_double_value();
+    dest->set_value(std::get<double>(metric.value));
+    if (std::holds_alternative<double>(metric.max_value)) {
+      dest->set_max_value(std::get<double>(metric.max_value));
+    }
   } else if (std::holds_alternative<std::string>(metric.value)) {
-    proto.mutable_string_value()->set_value(
-        std::get<std::string>(metric.value));
+    auto* dest = proto.mutable_string_value();
+    dest->set_value(std::get<std::string>(metric.value));
   } else {
     ABSL_LOG(FATAL) << "Unsupported value";
   }
@@ -84,9 +63,21 @@ void AddHistogram(const CollectedMetric::Histogram& metric,
   AddFields(metric, proto);
   auto* hist = proto.mutable_histogram();
   hist->set_count(metric.count);
-  hist->set_sum(metric.sum);
+  hist->set_mean(metric.mean);
+  if (metric.count > 1) {
+    hist->set_sum_of_squared_deviation(metric.sum_of_squared_deviation);
+  }
+
+  // Run-length encode zeros; -N == N zero values.
+  int n_zeros = 0;
   for (auto x : metric.buckets) {
-    hist->add_bucket(x);
+    if (x == 0) {
+      n_zeros++;
+    } else {
+      if (n_zeros > 0) hist->add_bucket(-n_zeros);
+      n_zeros = 0;
+      hist->add_bucket(x);
+    }
   }
 }
 
@@ -101,17 +92,11 @@ void CollectedMetricToProto(const CollectedMetric& metric,
   }
   SetMetadata(metric.metadata, *proto.mutable_metadata());
 
-  for (auto& x : metric.counters) {
-    AddCounter(x, *proto.add_instance());
-  }
-  for (auto& x : metric.gauges) {
-    AddGauge(x, *proto.add_instance());
+  for (auto& x : metric.values) {
+    AddValue(x, *proto.add_instance());
   }
   for (auto& x : metric.histograms) {
     AddHistogram(x, *proto.add_instance());
-  }
-  for (auto& x : metric.values) {
-    AddValue(x, *proto.add_instance());
   }
 }
 
@@ -144,15 +129,11 @@ void SortProtoCollection(metrics_proto::MetricCollection& proto) {
               return p1->field(i) < p2->field(i);
             }
           }
-          return std::make_tuple(p1->field_size(), p1->has_int_counter(),
-                                 p1->has_double_counter(), p1->has_int_gauge(),
-                                 p1->has_double_gauge(), p1->has_int_value(),
+          return std::make_tuple(p1->field_size(), p1->has_int_value(),
                                  p1->has_double_value(), p1->has_string_value(),
                                  p1->has_histogram(),
                                  reinterpret_cast<uintptr_t>(p1)) <
-                 std::make_tuple(p2->field_size(), p2->has_int_counter(),
-                                 p2->has_double_counter(), p2->has_int_gauge(),
-                                 p2->has_double_gauge(), p2->has_int_value(),
+                 std::make_tuple(p2->field_size(), p2->has_int_value(),
                                  p2->has_double_value(), p2->has_string_value(),
                                  p2->has_histogram(),
                                  reinterpret_cast<uintptr_t>(p2));

@@ -1,0 +1,13 @@
+diff --git a/upbc/file_layout.cc b/upbc/file_layout.cc
+index fab686f9..2815081d 100644
+--- a/upbc/file_layout.cc
++++ b/upbc/file_layout.cc
+@@ -264,7 +264,7 @@ void FilePlatformLayout::BuildExtensions(const protobuf::FileDescriptor* fd) {
+     e.EncodeExtension(static_cast<upb_FieldType>(f->type()), f->number(),
+                       GetFieldModifiers(f));
+     upb_MiniTableExtension& ext = extension_map_[f];
+-    upb_MiniTableSub sub;
++    upb_MiniTableSub sub = {};
+     // The extendee may be from another file, so we build a temporary MiniTable
+     // for it, just for the purpose of building the extension.
+     // Note, we are not caching so this could use more memory than is necessary.

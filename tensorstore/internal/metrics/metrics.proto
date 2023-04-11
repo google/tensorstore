@@ -16,30 +16,14 @@ syntax = "proto3";
 
 package tensorstore.metrics_proto;
 
-message IntCounter {
-  int64 value = 1;
-}
-
-message DoubleCounter {
-  double value = 1;
-}
-
-message IntGauge {
+message IntValue {
   int64 value = 1;
   int64 max_value = 2;
 }
 
-message DoubleGauge {
-  double value = 1;
-  double max_value = 2;
-}
-
-message IntValue {
-  int64 value = 1;
-}
-
 message DoubleValue {
   double value = 1;
+  double max_value = 2;
 }
 
 message StringValue {
@@ -48,23 +32,21 @@ message StringValue {
 
 message Histogram {
   int64 count = 1;
-  double sum = 2;
-  repeated int64 bucket = 3 [packed = true];
+  double mean = 2;
+  double sum_of_squared_deviation = 3;
+
+  // Buckets are run-length encoded, where negative values indicate a run of
+  // zero values.
+  repeated int64 bucket = 5 [packed = true];
 }
 
 message MetricInstance {
   repeated string field = 1;
 
   oneof kind {
-    IntCounter int_counter = 2;
-    DoubleCounter double_counter = 3;
-
-    IntGauge int_gauge = 4;
-    DoubleGauge double_gauge = 5;
-
-    IntValue int_value = 6;
-    DoubleValue double_value = 7;
-    StringValue string_value = 8;
+    IntValue int_value = 2;
+    DoubleValue double_value = 3;
+    StringValue string_value = 4;
 
     Histogram histogram = 9;
   }

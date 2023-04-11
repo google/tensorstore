@@ -79,6 +79,9 @@ class KeyRange {
   /// This is equal to `key` with a `0` (NUL) byte appended.
   static std::string Successor(std::string_view key);
 
+  /// Returns a range containing the single specified `key`.
+  static KeyRange Singleton(std::string key);
+
   /// Returns the `exclusive_max` value representing the upper bound for keys
   /// that start with `prefix`.
   static std::string PrefixExclusiveMax(std::string prefix);

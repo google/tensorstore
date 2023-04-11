@@ -37,6 +37,13 @@ def repo():
             # `use_default_shell_env = True` in order to be able to execute
             # compiled binaries.
             "//third_party:com_google_upb/patches/use_default_shell_env.diff",
+            # Fixes https://github.com/google/tensorstore/issues/86
+            #
+            # Without this patch, upb copies an uninitialized value, but the
+            # copy is never actually used.  That is technically undefined
+            # behavior.  In normal builds it is benign but in certain MSVC
+            # sanitizer builds it leads to an error.
+            "//third_party:com_google_upb/patches/fix-uninitialized-value-copy.diff",
         ],
         patch_args = ["-p1"],
         cmake_name = "upb",

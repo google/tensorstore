@@ -30,6 +30,7 @@
 
 namespace {
 
+using ::protobuf_matchers::Approximately;
 using ::protobuf_matchers::EqualsProto;
 using ::protobuf_matchers::IgnoringRepeatedFieldOrdering;
 using ::tensorstore::internal_metrics::CollectedMetric;
@@ -46,59 +47,38 @@ TEST(ProtobufTest, BasicConversion) {
   metric.tag = "tag";
 
   /// NOTE: A single metric must not mix counters...
-  metric.counters.emplace_back(
-      CollectedMetric::Counter{{"a", "b"}, int64_t{1}});
-  metric.counters.emplace_back(CollectedMetric::Counter{{"a", "b"}, 1.2});
 
-  metric.gauges.emplace_back(
-      CollectedMetric::Gauge{{"c", "d"}, int64_t{1}, int64_t{2}});
-  metric.gauges.emplace_back(CollectedMetric::Gauge{{"e", "g"}, 2.3, 3.4});
+  // Gauges.
+  metric.values.emplace_back(
+      CollectedMetric::Value{{"c", "d"}, int64_t{1}, int64_t{2}});
+  metric.values.emplace_back(CollectedMetric::Value{{"e", "g"}, 2.3, 3.4});
 
-  metric.histograms.emplace_back(
-      CollectedMetric::Histogram{{"h"}, 10, 11, {1, 1, 1, 1, 1}});
-
+  // Counters.
   metric.values.emplace_back(CollectedMetric::Value{{}, int64_t{1}});
   metric.values.emplace_back(CollectedMetric::Value{{"i"}, 1.2});
   metric.values.emplace_back(CollectedMetric::Value{{}, "boo"});
 
+  // Histograms.
+  metric.histograms.emplace_back(CollectedMetric::Histogram{
+      {"h"}, /*count*/ 10, /*mean*/ 1, /*ssd*/ 1, {1, 1, 1, 1, 1}});
+
   tensorstore::metrics_proto::Metric proto;
   tensorstore::internal_metrics::CollectedMetricToProto(metric, proto);
 
-  EXPECT_THAT(proto, IgnoringRepeatedFieldOrdering(EqualsProto(R"pb(
+  EXPECT_THAT(proto,
+              IgnoringRepeatedFieldOrdering(Approximately(EqualsProto(R"pb(
                 metric_name: "abc"
                 tag: "tag"
                 metadata {}
                 instance {
-                  field: "a"
-                  field: "b"
-                  int_counter { value: 1 }
-                }
-                instance {
-                  field: "a"
-                  field: "b"
-                  double_counter { value: 1.2 }
-                }
-                instance {
                   field: "c"
                   field: "d"
-                  int_gauge { value: 1 max_value: 2 }
+                  int_value { value: 1 max_value: 2 }
                 }
                 instance {
                   field: "e"
                   field: "g"
-                  double_gauge { value: 2.3 max_value: 3.4 }
-                }
-                instance {
-                  field: "h"
-                  histogram {
-                    count: 10
-                    sum: 11
-                    bucket: 1
-                    bucket: 1
-                    bucket: 1
-                    bucket: 1
-                    bucket: 1
-                  }
+                  double_value { value: 2.3 max_value: 3.4 }
                 }
                 instance { int_value { value: 1 } }
                 instance {
@@ -106,7 +86,20 @@ TEST(ProtobufTest, BasicConversion) {
                   double_value { value: 1.2 }
                 }
                 instance { string_value { value: "boo" } }
-              )pb")));
+                instance {
+                  field: "h"
+                  histogram {
+                    count: 10
+                    mean: 1
+                    sum_of_squared_deviation: 1
+                    bucket: 1
+                    bucket: 1
+                    bucket: 1
+                    bucket: 1
+                    bucket: 1
+                  }
+                }
+              )pb"))));
 }
 
 TEST(ProtobufTest, FromRegistry) {
@@ -190,18 +183,18 @@ TEST(ProtobufTest, FromRegistry) {
 
   tensorstore::internal_metrics::SortProtoCollection(metric);
 
-  EXPECT_THAT(metric, EqualsProto(R"pb(
+  EXPECT_THAT(metric, Approximately(EqualsProto(R"pb(
                 metric {
                   metric_name: "/protobuf_test/counter1"
                   tag: "counter"
                   metadata { description: "A metric" }
-                  instance { int_counter { value: 3 } }
+                  instance { int_value { value: 3 } }
                 }
                 metric {
                   metric_name: "/protobuf_test/counter2"
                   tag: "counter"
                   metadata { description: "A metric" }
-                  instance { double_counter { value: 3 } }
+                  instance { double_value { value: 3 } }
                 }
                 metric {
                   metric_name: "/protobuf_test/counter3"
@@ -210,11 +203,11 @@ TEST(ProtobufTest, FromRegistry) {
                   metadata { description: "A metric" }
                   instance {
                     field: "a"
-                    int_counter { value: 1 }
+                    int_value { value: 1 }
                   }
                   instance {
                     field: "b"
-                    int_counter { value: 2 }
+                    int_value { value: 2 }
                   }
                 }
                 metric {
@@ -224,24 +217,24 @@ TEST(ProtobufTest, FromRegistry) {
                   metadata { description: "A metric" }
                   instance {
                     field: "1"
-                    double_counter { value: 1 }
+                    double_value { value: 1 }
                   }
                   instance {
                     field: "2"
-                    double_counter { value: 2 }
+                    double_value { value: 2 }
                   }
                 }
                 metric {
                   metric_name: "/protobuf_test/gauge1"
                   tag: "gauge"
                   metadata { description: "A metric" }
-                  instance { int_gauge { value: 6 max_value: 6 } }
+                  instance { int_value { value: 6 max_value: 6 } }
                 }
                 metric {
                   metric_name: "/protobuf_test/gauge2"
                   tag: "gauge"
                   metadata { description: "A metric" }
-                  instance { double_gauge { value: 6 max_value: 6 } }
+                  instance { double_value { value: 6 max_value: 6 } }
                 }
                 metric {
                   metric_name: "/protobuf_test/gauge3"
@@ -250,11 +243,11 @@ TEST(ProtobufTest, FromRegistry) {
                   metadata { description: "A metric" }
                   instance {
                     field: "a"
-                    int_gauge { value: 3 max_value: 3 }
+                    int_value { value: 3 max_value: 3 }
                   }
                   instance {
                     field: "b"
-                    int_gauge { value: 3 max_value: 3 }
+                    int_value { value: 3 max_value: 3 }
                   }
                 }
                 metric {
@@ -264,11 +257,11 @@ TEST(ProtobufTest, FromRegistry) {
                   metadata { description: "A metric" }
                   instance {
                     field: "0"
-                    double_gauge { value: 3 max_value: 3 }
+                    double_value { value: 3 max_value: 3 }
                   }
                   instance {
                     field: "1"
-                    double_gauge { value: 3 max_value: 3 }
+                    double_value { value: 3 max_value: 3 }
                   }
                 }
                 metric {
@@ -278,72 +271,13 @@ TEST(ProtobufTest, FromRegistry) {
                   instance {
                     histogram {
                       count: 3
-                      sum: 1003
-                      bucket: 0
-                      bucket: 0
+                      mean: 334.33333333333331
+                      sum_of_squared_deviation: 664668.66666666674
+                      bucket: -2
                       bucket: 1
                       bucket: 1
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
+                      bucket: -7
                       bucket: 1
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
                     }
                   }
                 }
@@ -354,291 +288,19 @@ TEST(ProtobufTest, FromRegistry) {
                   metadata { description: "A metric" }
                   instance {
                     field: "1"
-                    histogram {
-                      count: 1
-                      sum: -1
-                      bucket: 1
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                    }
+                    histogram { count: 1 mean: -1 bucket: 1 }
                   }
                   instance {
                     field: "2"
-                    histogram {
-                      count: 1
-                      sum: 0.11
-                      bucket: 0
-                      bucket: 1
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                    }
+                    histogram { count: 1 mean: 0.11 bucket: -1 bucket: 1 }
                   }
                   instance {
                     field: "3"
-                    histogram {
-                      count: 1
-                      sum: 1.2
-                      bucket: 0
-                      bucket: 0
-                      bucket: 1
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                    }
+                    histogram { count: 1 mean: 1.2 bucket: -2 bucket: 1 }
                   }
                   instance {
                     field: "4"
-                    histogram {
-                      count: 1
-                      sum: 2.1
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 1
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                      bucket: 0
-                    }
+                    histogram { count: 1 mean: 2.1 bucket: -3 bucket: 1 }
                   }
                 }
                 metric {
@@ -653,7 +315,7 @@ TEST(ProtobufTest, FromRegistry) {
                   metadata { description: "A metric" }
                   instance { string_value { value: "foo" } }
                 }
-              )pb"));
+              )pb")));
 }
 
 }  // namespace

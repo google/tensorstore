@@ -68,11 +68,13 @@ Similar to the real Bazel, evaluation is performed in several phases:
 
 # pylint: disable=relative-beyond-top-level,protected-access,missing-function-docstring,invalid-name,g-doc-args,g-doc-return-or-yield
 
+import ast
 import copy
 import enum
 import inspect
 import os
 import pathlib
+import sys
 from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Set, Tuple, Type, TypeVar, cast
 
 from . import cmake_builder
@@ -106,6 +108,9 @@ from .starlark.select import SelectExpression
 from .util import cmake_is_true
 from .workspace import Repository
 from .workspace import Workspace
+
+if sys.version_info < (3, 9):
+  from . import dict_union_polyfill  # pylint: disable=g-import-not-at-top
 
 T = TypeVar("T")
 
@@ -497,7 +502,7 @@ class EvaluationState:
       # Load the library content.
       content = self._load(library_path)
       # Parse and evaluate the starlark script as a library.
-      exec(compile(content, library_path, "exec"), library)  # pylint: disable=exec-used
+      _exec_module(content, library_path, library)
     except Exception as e:
       raise RuntimeError(
           f"While loading {target_id.as_label()} ({library_path})") from e
@@ -536,7 +541,7 @@ class EvaluationState:
     scope = BuildFileGlobals(self._evaluation_context, build_target,
                              build_file_path)
     try:
-      exec(compile(content, build_file_path, "exec"), scope)  # pylint: disable=exec-used
+      _exec_module(content, build_file_path, scope)
     except Exception as e:
       raise RuntimeError(
           f"While processing {repr(package.package_id)} ({build_file_path})"
@@ -570,7 +575,7 @@ class EvaluationState:
     scope = BazelWorkspaceGlobals(self._evaluation_context, workspace_target_id,
                                   workspace_file_path)
 
-    exec(compile(content, workspace_file_path, "exec"), scope)  # pylint: disable=exec-used
+    _exec_module(content, workspace_file_path, scope)
     for callback in self._call_after_workspace_loading:
       callback()
 
@@ -687,3 +692,17 @@ class EvaluationContext(InvocationContext):
 
   def add_analyzed_target(self, target_id: TargetId, info: TargetInfo) -> None:
     self._state.add_analyzed_target(target_id, info)
+
+
+def _exec_module(source: str, filename: str, scope: Dict[str, Any]) -> None:
+  """Executes Python code with the specified `scope`.
+
+  Polyfills support for dict union operator (PEP 584) on Python 3.8.
+  """
+  tree = ast.parse(source, filename)
+  if sys.version_info < (3, 9):
+    # Apply AST transformations to support `dict.__or__`. (PEP 584)
+    tree = ast.fix_missing_locations(
+        dict_union_polyfill.ASTTransformer().visit(tree))
+  code = compile(tree, filename=filename, mode="exec")
+  exec(code, scope)  # pylint: disable=exec-used

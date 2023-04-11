@@ -24,7 +24,11 @@ BLOSC_LOCAL_DEFINES = select({
     "HAVE_SNAPPY",
 ]
 
-BLOSC_COPTS = ["-I" + package_relative_path("blosc")]
+BLOSC_COPTS = ["-I" + package_relative_path("blosc")] + select({
+    ":compiler_gcc": ["-Wno-unused-function"],
+    ":compiler_clang": ["-Wno-unused-function"],
+    "//conditions:default": [],
+})
 
 cc_library(
     name = "blosc_common",
@@ -161,9 +165,14 @@ cc_library(
     }),
 )
 
-config_setting(
-    name = "compiler_msvc",
-    flag_values = {
-        "@bazel_tools//tools/cpp:compiler": "msvc-cl",
-    },
-)
+[
+    alias(
+        name = name,
+        actual = "@com_google_tensorstore//:{target}".format(target = name),
+    )
+    for name in [
+        "compiler_gcc",
+        "compiler_clang",
+        "compiler_msvc",
+    ]
+]

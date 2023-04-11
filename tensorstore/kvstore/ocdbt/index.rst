@@ -58,13 +58,18 @@ Manifest format
 
 .. |header_compression_format| replace:: |varint|
 
+.. |header_length_format| replace:: ``uint64le``
+
+.. |crc32c_format| replace:: ``uint32le``
+
 An encoded manifest consists of:
 
 - :ref:`ocdbt-manifest-header`
-- Remaining data is compressed according to the specified :ref:`ocdbt-manifest-compression-format`:
+- Body compressed according to the specified :ref:`ocdbt-manifest-compression-format`:
 
   - :ref:`ocdbt-manifest-config`
   - :ref:`ocdbt-manifest-version-tree`
+- :ref:`ocdbt-manifest-footer`
 
 .. _ocdbt-manifest-header:
 
@@ -76,6 +81,8 @@ Manifest header
 +========================================+===========================+
 |:ref:`ocdbt-manifest-magic-value`       ||header_magic_format|      |
 +----------------------------------------+---------------------------+
+|:ref:`ocdbt-manifest-length`            ||header_length_format|     |
++----------------------------------------+---------------------------+
 |:ref:`ocdbt-manifest-version`           ||header_version_format|    |
 +----------------------------------------+---------------------------+
 |:ref:`ocdbt-manifest-compression-format`||header_compression_format||
@@ -86,10 +93,21 @@ Manifest header
 ``magic_value``
   Must equal ``0x0cdb3a2a``
 
+.. _ocdbt-manifest-length:
+
+``length``
+  Length in bytes of entire manifest, including this header.
+
 .. _ocdbt-manifest-version:
 
 ``version``
   Must equal ``0``.
+
+.. _ocdbt-manifest-crc32c-checksum:
+
+``crc32c_checksum``
+  CRC32C checksum of entire manifest, Length in bytes of entire manifest, including `this
+  header<ocdbt-manifest-header>`.
 
 .. _ocdbt-manifest-compression-format:
 
@@ -197,6 +215,22 @@ B+tree roots and version tree nodes.
   References to version tree interior nodes for versions older than those
   referenced from `ocdbt-manifest-version-tree-inline-versions`.
 
+.. _ocdbt-manifest-footer:
+
+Manifest footer
+~~~~~~~~~~~~~~~
+
++-------------------------------------+---------------+
+|Field                                |Binary format  |
++=====================================+===============+
+|:ref:`ocdbt-manifest-crc32c-checksum`||crc32c_format||
++-------------------------------------+---------------+
+
+.. _ocdbt-manifest-crc32-checksum:
+
+``crc32c_checksum``
+  CRC-32C checksum of the entire manifest, excluding the checksum itself.
+
 .. _ocdbt-version-tree:
 
 Version tree node format
@@ -205,12 +239,13 @@ Version tree node format
 An encoded version tree node consists of:
 
 - :ref:`ocdbt-version-tree-outer-header`
-- Remaining data is compressed according to the specified :ref:`ocdbt-version-tree-compression-format`:
+- Body compressed according to the specified :ref:`ocdbt-version-tree-compression-format`:
 
   - :ref:`ocdbt-version-tree-inner-header`
   - :ref:`Leaf node entries<ocdbt-version-tree-leaf-node-entry-array>` or
     :ref:`Interior node entries<ocdbt-version-tree-interior-node-entry-array>`,
     depending on the :ref:`ocdbt-version-tree-height`.
+- :ref:`ocdbt-version-tree-footer`
 
 .. _ocdbt-version-tree-outer-header:
 
@@ -222,6 +257,8 @@ Version tree node outer header
 +============================================+===========================+
 |:ref:`ocdbt-version-tree-magic-value`       ||header_magic_format|      |
 +--------------------------------------------+---------------------------+
+|:ref:`ocdbt-version-tree-length`            ||header_length_format|     |
++--------------------------------------------+---------------------------+
 |:ref:`ocdbt-version-tree-version`           ||header_version_format|    |
 +--------------------------------------------+---------------------------+
 |:ref:`ocdbt-version-tree-compression-format`||header_compression_format||
@@ -231,6 +268,11 @@ Version tree node outer header
 
 ``magic_value``
   Must equal ``0x0cdb1234``.
+
+.. _ocdbt-version-tree-length:
+
+``length``
+  Length in bytes of entire version tree node, including this header.
 
 .. _ocdbt-version-tree-version:
 
@@ -519,18 +561,35 @@ additional field:
   this specification, ``entry_height[i]`` is implicitly equal to ``height - 1``,
   where :ref:`ocdbt-version-tree-height` is obtained from the version tree node.
 
+.. _ocdbt-version-tree-footer:
+
+Version tree node footer
+~~~~~~~~~~~~~~~~~~~~~~~~
+
++-----------------------------------------+---------------+
+|Field                                    |Binary format  |
++=========================================+===============+
+|:ref:`ocdbt-version-tree-crc32c-checksum`||crc32c_format||
++-----------------------------------------+---------------+
+
+.. _ocdbt-version-tree-crc32c-checksum:
+
+``crc32c_checksum``
+  CRC-32C checksum of the entire version tree node, excluding the checksum itself.
+
 B+tree node format
 ^^^^^^^^^^^^^^^^^^
 
 An encoded B+tree node consists of:
 
 - :ref:`ocdbt-btree-outer-header`
-- Remaining data is compressed according to the specified :ref:`ocdbt-btree-compression-format`:
+- Body compressed according to the specified :ref:`ocdbt-btree-compression-format`:
 
   - :ref:`ocdbt-btree-inner-header`
   - :ref:`Leaf node entries<ocdbt-btree-leaf-node-entry-array>` or
     :ref:`Interior node entries<ocdbt-btree-interior-node-entry-array>`,
     depending on the :ref:`ocdbt-btree-node-height`.
+- :ref:`ocdbt-btree-footer`
 
 .. _ocdbt-btree-outer-header:
 
@@ -542,6 +601,8 @@ B+tree node outer header
 +============================================+===========================+
 |:ref:`ocdbt-btree-magic-value`              ||header_magic_format|      |
 +--------------------------------------------+---------------------------+
+|:ref:`ocdbt-btree-length`                   ||header_length_format|     |
++--------------------------------------------+---------------------------+
 |:ref:`ocdbt-btree-version`                  ||header_version_format|    |
 +--------------------------------------------+---------------------------+
 |:ref:`ocdbt-btree-compression-format`       ||header_compression_format||
@@ -551,6 +612,11 @@ B+tree node outer header
 
 ``magic_value``
   Must equal ``0x0cdb20de``.
+
+.. _ocdbt-btree-length:
+
+``length``
+  Length in bytes of entire B+tree node, including this header.
 
 .. _ocdbt-btree-version:
 
@@ -803,3 +869,19 @@ Interior B+tree node format (``height > 0``)
   Specifies the total size in bytes of all indirectly-stored values in the
   subtree rooted at the child node.  If the same stored value is referenced
   from multiple keys, its size is counted multiple times.
+
+.. _ocdbt-btree-footer:
+
+B+tree node footer
+~~~~~~~~~~~~~~~~~~
+
++----------------------------------+---------------+
+|Field                             |Binary format  |
++==================================+===============+
+|:ref:`ocdbt-btree-crc32c-checksum`||crc32c_format||
++----------------------------------+---------------+
+
+.. _ocdbt-btree-crc32c-checksum:
+
+``crc32c_checksum``
+  CRC-32C checksum of the entire B+tree node, excluding the checksum itself.

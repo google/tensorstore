@@ -15,6 +15,8 @@
 
 # pylint: disable=invalid-name,missing-function-docstring,relative-beyond-top-level,g-importing-member
 
+import sys
+
 from .select import Select
 from .struct import Struct
 from typing import Dict, Optional, Tuple, Type, TypeVar
@@ -26,6 +28,9 @@ from .invocation_context import InvocationContext
 from .label import Label
 from .label import RelativeLabel
 from .provider import provider
+
+if sys.version_info < (3, 9):
+  from .. import dict_union_polyfill
 
 T = TypeVar("T")
 
@@ -82,7 +87,16 @@ class BazelGlobals(dict):
   bazel_any = staticmethod(any)  # type: ignore[not-callable]
   bazel_bool = staticmethod(bool)  # type: ignore[not-callable]
   bazel_bytes = staticmethod(bytes)  # type: ignore[not-callable]
-  bazel_dict = staticmethod(dict)  # type: ignore[not-callable]
+
+  if sys.version_info < (3, 9):
+    # Polyfill dict union operator (PEP 584)
+    bazel_dict = staticmethod(
+        dict_union_polyfill.DictWithUnion)  # type: ignore[not-callable]
+    bazel___DictWithUnion = staticmethod(
+        dict_union_polyfill.DictWithUnion)  # type: ignore[not-callable]
+  else:
+    bazel_dict = staticmethod(dict)  # type: ignore[not-callable]
+
   bazel_dir = staticmethod(dir)  # type: ignore[not-callable]
   bazel_enumerate = staticmethod(enumerate)  # type: ignore[not-callable]
   bazel_float = staticmethod(float)  # type: ignore[not-callable]

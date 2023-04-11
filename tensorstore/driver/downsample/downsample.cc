@@ -335,7 +335,9 @@ class DownsampleDriver
                                          std::move(dimension_units));
   }
 
-  KvStore GetKvstore() override { return base_driver_->GetKvstore(); }
+  KvStore GetKvstore(const Transaction& transaction) override {
+    return base_driver_->GetKvstore(transaction);
+  }
 
   Result<IndexTransform<>> GetStridedBaseTransform() {
     return base_transform_ | tensorstore::AllDims().Stride(downsample_factors_);
