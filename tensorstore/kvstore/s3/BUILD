@@ -51,4 +51,28 @@ tensorstore_cc_test(
     ],
 )
 
+tensorstore_cc_library(
+    name = "validate",
+    srcs = [
+        "validate.cc",
+    ],
+    hdrs = ["validate.h"],
+    deps = [
+        "//tensorstore/internal:utf8",
+        "//tensorstore/kvstore:generation",
+        "@com_google_absl//absl/strings",
+        "@com_google_re2//:re2",
+    ],
+)
 
+tensorstore_cc_test(
+    name = "validate_test",
+    size = "small",
+    srcs = [
+        "validate_test.cc",
+    ],
+    deps = [
+        ":validate",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
