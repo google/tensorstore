@@ -1,5 +1,4 @@
 #include <algorithm>
-#include <sstream>
 #include <set>
 
 #include "absl/log/absl_check.h"
@@ -190,15 +189,7 @@ std::string SigningString(
 
     SHA256Digester sha256;
     sha256.Write(canonical_request);
-    auto digest = sha256.Digest();
-
-    std::ostringstream oss;
-
-    for(int b: digest) {
-        oss << std::hex << std::setw(2) << std::setfill('0') << int(b);
-    }
-
-    cord.Append(oss.str());
+    cord.Append(sha256.HexDigest(false));
 
     std::string result;
     absl::CopyCordToString(cord, &result);
@@ -225,12 +216,14 @@ std::string Signature(
     ComputeHmac(date_region_service_key, "aws4_request", signing_key);
     ComputeHmac(signing_key, signing_string, final_key);
 
-    std::ostringstream oss;
+    std::string result(2 * kHmacSize, '0');
 
-    for(auto b: final_key) {
-        oss << std::hex << std::setw(2) << std::setfill('0') << int(b);
+    for(int i=0; i < kHmacSize; ++i) {
+        result[2*i + 0] = IntToHexDigit(final_key[i] / 16, false);
+        result[2*i + 1] = IntToHexDigit(final_key[i] % 16, false);
     }
-    return oss.str();
+
+    return result;
 }
 
 std::string Authorizationheader(

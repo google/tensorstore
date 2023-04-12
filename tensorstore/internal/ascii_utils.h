@@ -28,7 +28,14 @@ inline int HexDigitToInt(char c) {
   }
   return x & 0xf;
 }
-inline char IntToHexDigit(int x) { return "0123456789ABCDEF"[x]; }
+inline char IntToHexDigit(int x, bool upper=true)
+{
+    if(upper) {
+        return "0123456789ABCDEF"[x];
+    } else {
+        return "0123456789abcdef"[x];
+    }
+}
 
 /// Set of ASCII characters (0-127) represented as a bit vector.
 class AsciiSet {
