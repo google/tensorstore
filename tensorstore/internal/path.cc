@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "tensorstore/internal/ascii_utils.h"
 #include "tensorstore/internal/path.h"
 
 #include <initializer_list>
@@ -20,6 +21,11 @@
 
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
+
+using ::tensorstore::internal_ascii_utils::AsciiSet;
+using ::tensorstore::internal_ascii_utils::HexDigitToInt;
+using ::tensorstore::internal_ascii_utils::IntToHexDigit;
+
 
 namespace {
 
@@ -97,45 +103,6 @@ void AppendPathComponent(std::string& path, std::string_view component) {
 }
 
 namespace {
-inline int HexDigitToInt(char c) {
-  assert(absl::ascii_isxdigit(c));
-  int x = static_cast<unsigned char>(c);
-  if (x > '9') {
-    x += 9;
-  }
-  return x & 0xf;
-}
-inline char IntToHexDigit(int x) { return "0123456789ABCDEF"[x]; }
-
-/// Set of ASCII characters (0-127) represented as a bit vector.
-class AsciiSet {
- public:
-  /// Constructs an empty set.
-  constexpr AsciiSet() : bitvec_{0, 0} {}
-
-  /// Constructs a set of the characters in `s`.
-  constexpr AsciiSet(std::string_view s) : bitvec_{0, 0} {
-    for (char c : s) {
-      Set(c);
-    }
-  }
-
-  /// Adds a character to the set.
-  constexpr void Set(char c) {
-    auto uc = static_cast<unsigned char>(c);
-    bitvec_[(uc & 64) ? 1 : 0] |= static_cast<uint64_t>(1) << (uc & 63);
-  }
-
-  /// Returns `true` if `c` is in the set.
-  constexpr bool Test(char c) const {
-    auto uc = static_cast<unsigned char>(c);
-    if (uc >= 128) return false;
-    return (bitvec_[(uc & 64) ? 1 : 0] >> (uc & 63)) & 1;
-  }
-
- private:
-  uint64_t bitvec_[2];
-};
 
 constexpr AsciiSet kUriUnreservedChars{
     "abcdefghijklmnopqrstuvwxyz"

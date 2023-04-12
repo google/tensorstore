@@ -1368,6 +1368,12 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "ascii_utils",
+    hdrs = ["ascii_utils.h"],
+    # srcs = ["ascii_utils.cc"],
+)
+
+tensorstore_cc_library(
     name = "no_destructor",
     hdrs = ["no_destructor.h"],
 )
@@ -1432,6 +1438,7 @@ tensorstore_cc_library(
         "path.h",
     ],
     deps = [
+        ":ascii_utils",
         "@com_google_absl//absl/strings",
     ],
 )
