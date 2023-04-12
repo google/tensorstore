@@ -18,7 +18,7 @@
 #include "absl/strings/ascii.h"
 
 namespace tensorstore {
-namespace internal_ascii_utils {
+namespace internal {
 
 inline int HexDigitToInt(char c) {
   assert(absl::ascii_isxdigit(c));
@@ -65,6 +65,6 @@ void PercentEncodeReserved(std::string_view src, std::string& dest,
 
 
 } // namespace tensorstore {
-} //namespace internal_ascii_utils {
+} //namespace internal {
 
 #endif // TENSORSTORE_INTERNAL_ASCII_UTILS_H_

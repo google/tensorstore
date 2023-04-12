@@ -15,7 +15,7 @@
 #include "tensorstore/internal/ascii_utils.h"
 
 namespace tensorstore {
-namespace internal_ascii_utils {
+namespace internal {
 
 /// Percent encodes any characters in `src` that are not in `unreserved`.
 void PercentEncodeReserved(std::string_view src, std::string& dest,
@@ -42,4 +42,4 @@ void PercentEncodeReserved(std::string_view src, std::string& dest,
 }
 
 } // namespace tensorstore
-} // namespace internal_ascii_utils
+} // namespace internal

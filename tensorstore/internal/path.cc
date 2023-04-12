@@ -22,9 +22,9 @@
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
 
-using ::tensorstore::internal_ascii_utils::AsciiSet;
-using ::tensorstore::internal_ascii_utils::HexDigitToInt;
-using ::tensorstore::internal_ascii_utils::IntToHexDigit;
+using ::tensorstore::internal::AsciiSet;
+using ::tensorstore::internal::HexDigitToInt;
+using ::tensorstore::internal::IntToHexDigit;
 
 
 namespace {

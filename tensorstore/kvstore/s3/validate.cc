@@ -22,7 +22,7 @@
 #include "tensorstore/internal/utf8.h"
 #include "tensorstore/kvstore/s3/validate.h"
 
-using ::tensorstore::internal_ascii_utils::AsciiSet;
+using ::tensorstore::internal::AsciiSet;
 
 namespace tensorstore {
 namespace internal_storage_s3 {

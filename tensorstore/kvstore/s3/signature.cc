@@ -18,9 +18,9 @@
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 
-using ::tensorstore::internal_ascii_utils::IntToHexDigit;
-using ::tensorstore::internal_ascii_utils::PercentEncodeReserved;
-using ::tensorstore::internal_ascii_utils::AsciiSet;
+using ::tensorstore::internal::IntToHexDigit;
+using ::tensorstore::internal::PercentEncodeReserved;
+using ::tensorstore::internal::AsciiSet;
 using ::tensorstore::internal::SHA256Digester;
 using ::tensorstore::internal::ParseGenericUri;
 using ::tensorstore::internal::ParsedGenericUri;
