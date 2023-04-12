@@ -18,13 +18,42 @@
 
 #include "re2/re2.h"
 
+#include "tensorstore/internal/ascii_utils.h"
 #include "tensorstore/internal/utf8.h"
 #include "tensorstore/kvstore/s3/validate.h"
+
+using ::tensorstore::internal_ascii_utils::AsciiSet;
 
 namespace tensorstore {
 namespace internal_storage_s3 {
 
 RE2 ip_address_re("^\\d+\\.\\d+\\.\\d+\\.\\d+$");
+
+constexpr AsciiSet kS3BucketValidChars{
+    "abcdefghijklmnopqrstuvwxyz"
+    "0123456789"
+    ".-"};
+
+constexpr AsciiSet kOldS3BucketValidChars{
+    "abcdefghijklmnopqrstuvwxyz"
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    "0123456789"
+    ".-_"};
+
+constexpr AsciiSet kS3ObjectSafeChars{
+    "abcdefghijklmnopqrstuvwxyz"
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    "0123456789"
+    "!-_.*'()"};
+
+constexpr AsciiSet kS3ObjectSpecialChars{
+    "&$@=;/:+ ,?"
+    "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f"
+    "\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f"
+    "\x7f"};
+
+constexpr AsciiSet kS3ObjectDiscouragedChars{
+    "\\{}[]<>^%`\">~#|"};
 
 
 // Returns whether the bucket name is valid.
@@ -57,18 +86,13 @@ BucketNameType ClassifyBucketName(std::string_view bucket) {
   // reserved for Object Lambda Access
   if(absl::EndsWith(bucket, "--ol-s3")) return BucketNameType::Invalid;
 
-  unsigned char last_char = '\0';
+  std::string_view::value_type last_char = '\0';
 
-  for (const auto ch : bucket) {
-    // Bucket names can consist only of lowercase letters, numbers, dots (.), and hyphens (-).
-    // except for old us-east-1 bucket names which can contain uppercase characters and underscores
-    if (ch != '.' && ch != '-' && !absl::ascii_isdigit(ch) &&
-        (old_us_east ? ch != '_' && !absl::ascii_isalpha(ch) : !absl::ascii_islower(ch)))
-        return BucketNameType::Invalid;
-
-    if(ch == '.' and last_char == '.') {
-        return BucketNameType::Invalid;
-    }
+  for (const auto ch: bucket) {
+    if(old_us_east ? !kOldS3BucketValidChars.Test(ch) : !kS3BucketValidChars.Test(ch) ||
+       (ch == '.' && last_char == '.')) {
+         return BucketNameType::Invalid;
+       }
 
     last_char = ch;
   }
@@ -83,7 +107,15 @@ bool IsValidBucketName(std::string_view bucket) {
 // Returns whether the object name is a valid S3 object name.
 // https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-keys.html
 bool IsValidObjectName(std::string_view name) {
-  return true;
+  if (name.empty() || name.size() > 1024) return false;
+
+  for(const auto ch: name) {
+    if (kS3ObjectDiscouragedChars.Test(ch) || (ch >= 128 && ch <= 255)) {
+        return false;
+    }
+  }
+
+  return internal::IsValidUtf8(name);
 }
 
 }  // namespace internal_storage_s3

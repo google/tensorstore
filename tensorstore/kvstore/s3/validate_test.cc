@@ -88,19 +88,15 @@ TEST(ValidateTest, IsValidObjectName) {
   EXPECT_TRUE(IsValidObjectName("foo.bar"));
 
   EXPECT_FALSE(IsValidObjectName(""));
-  EXPECT_FALSE(IsValidObjectName("."));
-  EXPECT_FALSE(IsValidObjectName(".."));
-  EXPECT_FALSE(IsValidObjectName(".well-known/acme-challenge"));
+  EXPECT_TRUE(IsValidObjectName("."));
+  EXPECT_TRUE(IsValidObjectName(".."));
 
-  EXPECT_FALSE(IsValidObjectName("foo\rbar"));
-  EXPECT_FALSE(IsValidObjectName("foo\nbar"));
+  EXPECT_TRUE(IsValidObjectName("foo\rbar"));
+  EXPECT_TRUE(IsValidObjectName("foo\nbar"));
 
-  // Allowed, but discouraged.
-  EXPECT_TRUE(IsValidObjectName("foo[*?#]"));
-
-  // ascii iscontrol
-  EXPECT_FALSE(IsValidObjectName("foo\004bar"));
-  EXPECT_FALSE(IsValidObjectName("foo\tbar"));
+  // Discouraged
+  EXPECT_FALSE(IsValidObjectName("[foo]"));
+  EXPECT_FALSE(IsValidObjectName("{foo}"));
 
   // Not utf-8
   EXPECT_FALSE(IsValidObjectName("\xfe\xfe\xff\xff"));
