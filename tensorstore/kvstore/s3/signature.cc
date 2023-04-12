@@ -61,6 +61,7 @@ constexpr AsciiSet kUriUnreservedChars{
     "0123456789"
     "-._~"};
 
+// NOTE: Only adds "/" to kUriUnreservedChars
 constexpr AsciiSet kUriObjectKeyReservedChars{
     "abcdefghijklmnopqrstuvwxyz"
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
