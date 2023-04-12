@@ -9,16 +9,18 @@
 #include "absl/strings/str_split.h"
 #include "absl/strings/strip.h"
 #include "absl/time/time.h"
+
 #include "tensorstore/kvstore/s3/signature.h"
-#include "tensorstore/internal/path.h"
+#include "tensorstore/internal/ascii_utils.h"
 #include "tensorstore/internal/digest/sha256.h"
 #include "tensorstore/util/result.h"
 
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 
-using ::tensorstore::internal::PercentEncodeUriPath;
-using ::tensorstore::internal::PercentEncodeUriComponent;
+using ::tensorstore::internal_ascii_utils::IntToHexDigit;
+using ::tensorstore::internal_ascii_utils::PercentEncodeReserved;
+using ::tensorstore::internal_ascii_utils::AsciiSet;
 using ::tensorstore::internal::SHA256Digester;
 using ::tensorstore::internal::ParseGenericUri;
 using ::tensorstore::internal::ParsedGenericUri;
@@ -50,13 +52,41 @@ void ComputeHmac(unsigned char (&key)[kHmacSize], std::string_view message, unsi
 }
 
 
-/// https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
+namespace {
 
+// See description of function UriEncode at this URL
+// https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
+constexpr AsciiSet kUriUnreservedChars{
+    "abcdefghijklmnopqrstuvwxyz"
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    "0123456789"
+    "-._~"};
+
+constexpr AsciiSet kUriObjectKeyReservedChars{
+    "abcdefghijklmnopqrstuvwxyz"
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    "0123456789"
+    "/-._~"};
+}
+
+std::string UriEncode(std::string_view src) {
+    std::string dest;
+    PercentEncodeReserved(src, dest, kUriUnreservedChars);
+    return dest;
+}
+
+std::string UriObjectKeyEncode(std::string_view src) {
+    std::string dest;
+    PercentEncodeReserved(src, dest, kUriObjectKeyReservedChars);
+    return dest;
+}
+
+/// https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
 Result<std::string> CanonicalRequest(
-    const std::string & http_method,
+    std::string_view http_method,
     const ParsedGenericUri & uri,
     const std::map<std::string, std::string> & headers,
-    const std::string & payload_hash)
+    std::string_view payload_hash)
 {
 
     // Convert headers and query strings to lower case.
@@ -95,7 +125,7 @@ Result<std::string> CanonicalRequest(
     absl::Cord cord;
     cord.Append(http_method);
     cord.Append("\n");
-    cord.Append(PercentEncodeUriPath(uri.authority_and_path.substr(end_of_bucket)));
+    cord.Append(UriObjectKeyEncode(uri.authority_and_path.substr(end_of_bucket)));
     cord.Append("\n");
 
     // Query string
@@ -103,9 +133,9 @@ Result<std::string> CanonicalRequest(
         if(!first) {
             cord.Append("&");
         }
-        cord.Append(PercentEncodeUriComponent(it->first));
+        cord.Append(UriEncode(it->first));
         cord.Append("=");
-        cord.Append(PercentEncodeUriComponent(it->second));
+        cord.Append(UriEncode(it->second));
     }
 
     cord.Append("\n");
@@ -138,11 +168,10 @@ Result<std::string> CanonicalRequest(
 }
 
 /// https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
-
 std::string SigningString(
-    const std::string & canonical_request,
+    std::string_view canonical_request,
     const absl::Time & time,
-    const std::string & aws_region)
+    std::string_view aws_region)
 {
     absl::Cord cord;
     absl::TimeZone utc = absl::UTCTimeZone();
@@ -177,10 +206,10 @@ std::string SigningString(
 }
 
 std::string Signature(
-    const std::string & aws_secret_access_key,
-    const std::string & aws_region,
+    std::string_view aws_secret_access_key,
+    std::string_view aws_region,
     const absl::Time & time,
-    const std::string & signing_string)
+    std::string_view signing_string)
 {
     absl::TimeZone utc = absl::UTCTimeZone();
 
@@ -190,7 +219,7 @@ std::string Signature(
     unsigned char signing_key[kHmacSize];
     unsigned char final_key[kHmacSize];
 
-    ComputeHmac("AWS4" + aws_secret_access_key, absl::FormatTime("%Y%m%d", time, utc), date_key);
+    ComputeHmac(absl::StrFormat("AWS4%s",aws_secret_access_key), absl::FormatTime("%Y%m%d", time, utc), date_key);
     ComputeHmac(date_key, aws_region, date_region_key);
     ComputeHmac(date_region_key, "s3", date_region_service_key);
     ComputeHmac(date_region_service_key, "aws4_request", signing_key);
@@ -203,6 +232,7 @@ std::string Signature(
     }
     return oss.str();
 }
+
 std::string Authorizationheader(
     const std::string & aws_access_key,
     const std::string & aws_region,

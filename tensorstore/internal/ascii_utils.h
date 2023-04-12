@@ -60,6 +60,10 @@ class AsciiSet {
   uint64_t bitvec_[2];
 };
 
+void PercentEncodeReserved(std::string_view src, std::string& dest,
+                           AsciiSet unreserved);
+
+
 } // namespace tensorstore {
 } //namespace internal_ascii_utils {
 

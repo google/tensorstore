@@ -13,3 +13,33 @@
 // limitations under the License.
 
 #include "tensorstore/internal/ascii_utils.h"
+
+namespace tensorstore {
+namespace internal_ascii_utils {
+
+/// Percent encodes any characters in `src` that are not in `unreserved`.
+void PercentEncodeReserved(std::string_view src, std::string& dest,
+                           AsciiSet unreserved) {
+  size_t num_escaped = 0;
+  for (char c : src) {
+    if (!unreserved.Test(c)) ++num_escaped;
+  }
+  if (num_escaped == 0) {
+    dest = src;
+    return;
+  }
+  dest.clear();
+  dest.reserve(src.size() + 2 * num_escaped);
+  for (char c : src) {
+    if (unreserved.Test(c)) {
+      dest += c;
+    } else {
+      dest += '%';
+      dest += IntToHexDigit(static_cast<unsigned char>(c) / 16);
+      dest += IntToHexDigit(static_cast<unsigned char>(c) % 16);
+    }
+  }
+}
+
+} // namespace tensorstore
+} // namespace internal_ascii_utils

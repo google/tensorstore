@@ -21,6 +21,7 @@
 
 #include <map>
 #include <string>
+#include <string_view>
 
 #include "absl/strings/cord.h"
 #include "absl/time/time.h"
@@ -34,21 +35,21 @@ namespace internal_storage_s3 {
 
 
 Result<std::string> CanonicalRequest(
-    const std::string & http_method,
+    std::string_view http_method,
     const ParsedGenericUri & uri,
     const std::map<std::string, std::string> & headers,
-    const std::string & payload_hash);
+    std::string_view payload_hash);
 
 std::string SigningString(
-    const std::string & canonical_request,
+    std::string_view canonical_request,
     const absl::Time & time,
-    const std::string & aws_region);
+    std::string_view aws_region);
 
 std::string Signature(
-    const std::string & aws_secret_access_key,
-    const std::string & aws_region,
+    std::string_view aws_secret_access_key,
+    std::string_view aws_region,
     const absl::Time & time,
-    const std::string & signing_string);
+    std::string_view signing_string);
 
 } // namespace tensorstore
 } // namespace internal_storage_s3

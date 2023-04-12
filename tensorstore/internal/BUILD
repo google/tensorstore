@@ -1370,7 +1370,10 @@ tensorstore_cc_test(
 tensorstore_cc_library(
     name = "ascii_utils",
     hdrs = ["ascii_utils.h"],
-    # srcs = ["ascii_utils.cc"],
+    srcs = ["ascii_utils.cc"],
+    deps = [
+        "@com_google_absl//absl/strings",
+    ]
 )
 
 tensorstore_cc_library(

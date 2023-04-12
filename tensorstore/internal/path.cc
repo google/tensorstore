@@ -114,31 +114,8 @@ constexpr AsciiSet kUriPathUnreservedChars{
     "abcdefghijklmnopqrstuvwxyz"
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     "0123456789"
-    "-_.!~*'():@&=+,;/"};
+    "-_.!~*'():@&=+$,;/"};
 
-/// Percent encodes any characters in `src` that are not in `unreserved`.
-void PercentEncodeReserved(std::string_view src, std::string& dest,
-                           AsciiSet unreserved) {
-  size_t num_escaped = 0;
-  for (char c : src) {
-    if (!unreserved.Test(c)) ++num_escaped;
-  }
-  if (num_escaped == 0) {
-    dest = src;
-    return;
-  }
-  dest.clear();
-  dest.reserve(src.size() + 2 * num_escaped);
-  for (char c : src) {
-    if (unreserved.Test(c)) {
-      dest += c;
-    } else {
-      dest += '%';
-      dest += IntToHexDigit(static_cast<unsigned char>(c) / 16);
-      dest += IntToHexDigit(static_cast<unsigned char>(c) % 16);
-    }
-  }
-}
 }  // namespace
 
 void PercentDecode(std::string_view src, std::string& dest) {

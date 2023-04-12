@@ -157,7 +157,7 @@ TEST(PercentEncodeUriPathTest, NoOp) {
       "abcdefghijklmnopqrstuvwxyz"
       "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
       "0123456789"
-      "-_.!~*'():@&=+,;/";
+      "-_.!~*'():@&=+$,;/";
   EXPECT_THAT(PercentEncodeUriPath(s), ::testing::Eq(s));
 }
 
