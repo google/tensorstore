@@ -143,7 +143,7 @@ immediate error:
    >>> a[4]
    Traceback (most recent call last):
        ...
-   IndexError: Checking bounds of constant output index map for dimension 0: Index 4 is outside valid range [0, 4)
+   IndexError: OUT_OF_RANGE: Checking bounds of constant output index map for dimension 0: Index 4 is outside valid range [0, 4)...
 
 Specifying an index outside the `implicit bounds<implicit-bounds>` of
 a dimension is permitted:
@@ -159,7 +159,7 @@ a dimension is permitted:
    >>> a[4]
    Traceback (most recent call last):
        ...
-   IndexError: Checking bounds of constant output index map for dimension 0: Index 4 is outside valid range (-inf, 4)
+   IndexError: OUT_OF_RANGE: Checking bounds of constant output index map for dimension 0: Index 4 is outside valid range (-inf, 4)...
 
 While implicit bounds do not constrain indexing operations, the bounds
 will still be checked by any subsequent read or write operation, which
@@ -264,7 +264,7 @@ dimension:
    >>> a[3:12]
    Traceback (most recent call last):
        ...
-   IndexError: Computing interval slice for dimension 0: Slice interval [3, 12) is not contained within domain [0, 10)
+   IndexError: OUT_OF_RANGE: Computing interval slice for dimension 0: Slice interval [3, 12) is not contained within domain [0, 10)...
 
 .. warning::
 
@@ -451,7 +451,7 @@ indexing expression:
    >>> a[..., 1, ...]
    Traceback (most recent call last):
        ...
-   IndexError: An index can only have a single ellipsis (`...`)
+   IndexError: An index can only have a single ellipsis (`...`)...
 
 As a complete indexing expression , `Ellipsis` has no effect and is
 equivalent to the empty tuple :python:`()`, but can still be useful

@@ -130,12 +130,13 @@ def execute_doctests_with_temp_dir(filename: str,
               # Add 2 due to extra `async def foo` wrapping.
               # Subtract 4 due to ">>> "
               'column_limit': 80 + 2 - example.indent - 4,
-          })
+          },
+      )
     except Exception as e:  # pylint: disable=broad-except
       print(f'{filename}:{example.lineno}: {e}')
       sys.exit(1)
     del valid
-    formatted = textwrap.dedent(formatted[len(async_prefix):]).strip()
+    formatted = textwrap.dedent(formatted[len(async_prefix) :]).strip()
 
     for i, line in enumerate(formatted.splitlines()):
       prompt = '>>> ' if i == 0 else '... '
@@ -171,17 +172,26 @@ def execute_doctests_with_temp_dir(filename: str,
     except:  # pylint: disable=bare-except
       exc_type, exc_value, _ = sys.exc_info()
       success = False
+      message = traceback.format_exception_only(exc_type, exc_value)[-1]
+      # The status payloads are formatted like [key='...'], and may vary between
+      # google and non-google environments, so when present, replace the payload
+      # contents with an ellipses match pattern.
+      payload = re.search(r'\s?\[[^=\]\[\']+=\'', message)
+      if payload:
+        message = message[:payload.start()] + '...'
+
       actual_output = (
-          'Traceback (most recent call last):\n    ...\n' +
-          traceback.format_exception_only(exc_type, exc_value)[-1] + '\n')
+          f'Traceback (most recent call last):\n    ...\n{message}\n'
+      )
     finally:
       sys.stdout = orig_stdout
 
     output = None
 
     if example.want:
-      if doctest.OutputChecker().check_output(example.want, actual_output,
-                                              doctest.ELLIPSIS):
+      if doctest.OutputChecker().check_output(
+          example.want, actual_output, doctest.ELLIPSIS
+      ):
         # Preserve existing output if it matches (in case it contains ellipses).
         output = example.want
       else:
@@ -223,7 +233,8 @@ def update_doctests(filename: str,
                     print_expected: bool,
                     use_pdb: bool = False) -> None:
   orig_text, new_text = execute_doctests(
-      filename=filename, verbose=verbose, use_pdb=use_pdb)
+      filename=filename, verbose=verbose, use_pdb=use_pdb
+  )
   if in_place:
     with open(filename, 'w') as f:
       f.write(new_text)
@@ -236,7 +247,8 @@ def update_doctests(filename: str,
 def pytest_generate_tests(metafunc):
   metafunc.parametrize(
       'doctest_filename',
-      [x for l in metafunc.config.getoption('doctests') for x in l])  # pylint: disable=g-complex-comprehension
+      [x for l in metafunc.config.getoption('doctests') for x in l],  # pylint: disable=g-complex-comprehension
+  )
 
 
 def test_doctest(doctest_filename: str) -> None:
@@ -321,8 +333,9 @@ def _ast_asyncify(code: str, wrapper_name: str) -> ast.Module:
   Returns:
     The resultant module AST.
   """
-  wrapped_code = ('async def __wrapper__():\n' +
-                  textwrap.indent(code, ' ' * 8) + '\n')
+  wrapped_code = (
+      'async def __wrapper__():\n' + textwrap.indent(code, ' ' * 8) + '\n'
+  )
   tree = ast.parse(wrapped_code)
   function_def = tree.body[0]
   function_def.name = wrapper_name
@@ -349,16 +362,20 @@ def main(argv):
   ap = argparse.ArgumentParser()
   ap.add_argument('path', nargs='*')
   ap.add_argument(
-      '--in-place', '-i', action='store_true', help='Update files in place.')
+      '--in-place', '-i', action='store_true', help='Update files in place.'
+  )
   ap.add_argument(
       '--verbose',
       '-v',
       action='store_true',
-      help='Print examples as they are executed')
+      help='Print examples as they are executed',
+  )
   ap.add_argument(
-      '--stdout', action='store_true', help='Print expected content to stdout.')
+      '--stdout', action='store_true', help='Print expected content to stdout.'
+  )
   ap.add_argument(
-      '--pdb', action='store_true', help='Run PDB in the case of a failure.')
+      '--pdb', action='store_true', help='Run PDB in the case of a failure.'
+  )
   args = ap.parse_args(argv[1:])
   # Resolve all paths as absolute paths since we change the current directory
   # while running the tests.
@@ -375,4 +392,5 @@ def main(argv):
 
 if __name__ == '__main__':
   import absl.app
+
   absl.app.run(main)
