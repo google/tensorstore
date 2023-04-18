@@ -1086,7 +1086,7 @@ immediate error:</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">a</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span>
 <span class="gt">Traceback (most recent call last):</span>
 <span class="w">    </span><span class="o">...</span>
-<span class="gr">IndexError</span>: <span class="n">Checking bounds of constant output index map for dimension 0: Index 4 is outside valid range [0, 4)</span>
+<span class="gr">IndexError</span>: <span class="n">OUT_OF_RANGE: Checking bounds of constant output index map for dimension 0: Index 4 is outside valid range [0, 4)...</span>
 </code></pre></div>
 </div>
 <p>Specifying an index outside the <a class="reference internal" href="../index_space.html#implicit-bounds"><span class="std std-ref">implicit bounds</span></a> of
@@ -1100,7 +1100,7 @@ a dimension is permitted:</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">a</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span>
 <span class="gt">Traceback (most recent call last):</span>
 <span class="w">    </span><span class="o">...</span>
-<span class="gr">IndexError</span>: <span class="n">Checking bounds of constant output index map for dimension 0: Index 4 is outside valid range (-inf, 4)</span>
+<span class="gr">IndexError</span>: <span class="n">OUT_OF_RANGE: Checking bounds of constant output index map for dimension 0: Index 4 is outside valid range (-inf, 4)...</span>
 </code></pre></div>
 </div>
 <p>While implicit bounds do not constrain indexing operations, the bounds
@@ -1189,7 +1189,7 @@ dimension:</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">a</span><span class="p">[</span><span class="mi">3</span><span class="p">:</span><span class="mi">12</span><span class="p">]</span>
 <span class="gt">Traceback (most recent call last):</span>
 <span class="w">    </span><span class="o">...</span>
-<span class="gr">IndexError</span>: <span class="n">Computing interval slice for dimension 0: Slice interval [3, 12) is not contained within domain [0, 10)</span>
+<span class="gr">IndexError</span>: <span class="n">OUT_OF_RANGE: Computing interval slice for dimension 0: Slice interval [3, 12) is not contained within domain [0, 10)...</span>
 </code></pre></div>
 </div>
 <div class="warning admonition">
@@ -1352,7 +1352,7 @@ indexing expression:</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">a</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
 <span class="gt">Traceback (most recent call last):</span>
 <span class="w">    </span><span class="o">...</span>
-<span class="gr">IndexError</span>: <span class="n">An index can only have a single ellipsis (`...`)</span>
+<span class="gr">IndexError</span>: <span class="n">An index can only have a single ellipsis (`...`)...</span>
 </code></pre></div>
 </div>
 <p>As a complete indexing expression , <a class="reference external" href="https://docs.python.org/3/library/constants.html#Ellipsis" title="(in Python v3.11)"><code class="xref any docutils literal notranslate"><span class="pre">Ellipsis</span></code></a> has no effect and is
