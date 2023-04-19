@@ -884,11 +884,11 @@ Interior B+tree node format (``height > 0``)
 +-------------------------------------------------------------+-------------------------------------------+---------------------------------------+
 |Field                                                        |Binary format                              |Count                                  |
 +-------------------------------------------------------------+-------------------------------------------+---------------------------------------+
-|:ref:`ocdbt-btree-interior-node-subtree-common-prefix-length`||varint|                                   |:ref:`ocdbt-btree-node-num-entries`    |
-+-------------------------------------------------------------+-------------------------------------------+---------------------------------------+
 |:ref:`ocdbt-btree-interior-node-key-prefix-length`           ||varint|                                   |:ref:`ocdbt-btree-node-num-entries` - 1|
 +-------------------------------------------------------------+-------------------------------------------+---------------------------------------+
 |:ref:`ocdbt-btree-interior-node-key-suffix-length`           ||varint|                                   |:ref:`ocdbt-btree-node-num-entries`    |
++-------------------------------------------------------------+-------------------------------------------+---------------------------------------+
+|:ref:`ocdbt-btree-interior-node-subtree-common-prefix-length`||varint|                                   |:ref:`ocdbt-btree-node-num-entries`    |
 +-------------------------------------------------------------+-------------------------------------------+---------------------------------------+
 |:ref:`ocdbt-btree-interior-node-key-suffix`                  |``byte[key_suffix_length[i]]``             |:ref:`ocdbt-btree-node-num-entries`    |
 +-------------------------------------------------------------+-------------------------------------------+---------------------------------------+
@@ -905,14 +905,6 @@ Interior B+tree node format (``height > 0``)
 |:ref:`ocdbt-btree-interior-node-num-indirect-value-bytes`    ||num_indirect_value_bytes_statistic_format||:ref:`ocdbt-btree-node-num-entries`    |
 +-------------------------------------------------------------+-------------------------------------------+---------------------------------------+
 
-.. _ocdbt-btree-interior-node-subtree-common-prefix-length:
-
-``subtree_common_prefix_length[i]``
-  Length in bytes of the prefix of ``relative_key[i]`` that is common to
-  all keys within the subtree rooted at this child node.  This prefix
-  serves as an implicit prefix of all keys within the subtree rooted at the
-  child.
-
 .. _ocdbt-btree-interior-node-key-prefix-length:
 
 ``key_prefix_length[i]``
@@ -925,6 +917,14 @@ Interior B+tree node format (``height > 0``)
   Length in bytes of each relative key, excluding the length of the common
   prefix with the previous key.  For the first key, the total length is
   stored, since there is no previous key.
+
+.. _ocdbt-btree-interior-node-subtree-common-prefix-length:
+
+``subtree_common_prefix_length[i]``
+  Length in bytes of the prefix of ``relative_key[i]`` that is common to
+  all keys within the subtree rooted at this child node.  This prefix
+  serves as an implicit prefix of all keys within the subtree rooted at the
+  child.
 
 .. _ocdbt-btree-interior-node-key-suffix:
 

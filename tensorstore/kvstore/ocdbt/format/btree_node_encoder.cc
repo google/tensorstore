@@ -87,11 +87,16 @@ void GetCommonPrefixLengthOfEntries(
                             last.existing, last.entry.key);
 }
 
+// Write the key-related field columns for `ocdbt-btree-leaf-node-entry-array`
+// and `ocdbt-btree-interior-node-entry-array`.
+//
+// See the format documentation in `index.rst`.  The corresponding read function
+// is `ReadKeys` in `btree.cc`.  Refer to the
 template <typename Entry>
 bool WriteKeys(riegeli::Writer& writer, KeyLength excluded_prefix_length,
                span<typename BtreeNodeEncoder<Entry>::BufferedEntry> entries,
                std::string_view existing_prefix) {
-  // Write key prefix length
+  // Write `key_prefix_length` column
   for (auto& entry : entries.subspan(1)) {
     if (!riegeli::WriteVarint32(
             entry.common_prefix_with_next_entry_length - excluded_prefix_length,
@@ -100,7 +105,7 @@ bool WriteKeys(riegeli::Writer& writer, KeyLength excluded_prefix_length,
     }
   }
 
-  // Write key suffix length
+  // Write `key_suffix_length` column
   for (auto& e : entries) {
     size_t key_length =
         (e.existing ? existing_prefix.size() : 0) + e.entry.key.size();
@@ -111,7 +116,19 @@ bool WriteKeys(riegeli::Writer& writer, KeyLength excluded_prefix_length,
     }
   }
 
-  // Write keys
+  if constexpr (std::is_same_v<Entry, InteriorNodeEntry>) {
+    // Write `subtree_common_prefix_length` column
+    for (auto& e : entries) {
+      KeyLength subtree_common_prefix_length =
+          e.entry.subtree_common_prefix_length +
+          (e.existing ? existing_prefix.size() : 0) - excluded_prefix_length;
+      if (!riegeli::WriteVarint32(subtree_common_prefix_length, writer)) {
+        return false;
+      }
+    }
+  }
+
+  // Write `key_suffix` column
   for (auto& e : entries) {
     if (e.existing) {
       size_t existing_prefix_skip = std::min(
@@ -224,40 +241,20 @@ bool EncodeEntriesInner(
   entries.front().common_prefix_with_next_entry_length =
       info.excluded_prefix_length;
 
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
-      << "Encoding node: height=" << static_cast<int>(height)
-      << ", inclusive_min_key="
-      << tensorstore::QuoteString(info.inclusive_min_key)
-      << ", excluded_prefix_length=" << info.excluded_prefix_length;
+#if TENSORSTORE_INTERNAL_OCDBT_DEBUG
+  ABSL_LOG(INFO) << "Encoding node: height=" << static_cast<int>(height)
+                 << ", inclusive_min_key="
+                 << tensorstore::QuoteString(info.inclusive_min_key)
+                 << ", excluded_prefix_length=" << info.excluded_prefix_length;
 
-  if constexpr (std::is_same_v<Entry, InteriorNodeEntry>) {
-    for (auto& entry : entries) {
-      KeyLength subtree_common_prefix_length =
-          entry.entry.subtree_common_prefix_length +
-          (entry.existing ? existing_prefix.size() : 0) -
-          info.excluded_prefix_length;
-      if (!riegeli::WriteVarint32(subtree_common_prefix_length, writer)) {
-        return false;
-      }
-      ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
-          << "  Entry: key="
-          << tensorstore::QuoteString(tensorstore::StrCat(
-                 entry.existing ? existing_prefix : std::string_view(),
-                 entry.entry.key))
-          << ", subtree_common_prefix_length=" << subtree_common_prefix_length;
-    }
-  } else {
-#if defined(TENSORSTORE_INTERNAL_OCDBT_DEBUG) && \
-    TENSORSTORE_INTERNAL_OCDBT_DEBUG
-    for (auto& entry : entries) {
-      ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
-          << "  Entry: key="
-          << tensorstore::QuoteString(tensorstore::StrCat(
-                 entry.existing ? existing_prefix : std::string_view(),
-                 entry.entry.key));
-    }
-#endif  // TENSORSTORE_INTERNAL_OCDBT_DEBUG
+  for (auto& entry : entries) {
+    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+        << "  Entry: key="
+        << tensorstore::QuoteString(tensorstore::StrCat(
+               entry.existing ? existing_prefix : std::string_view(),
+               entry.entry.key));
   }
+#endif  // TENSORSTORE_INTERNAL_OCDBT_DEBUG
 
   // Keys
   if (!WriteKeys<Entry>(writer, info.excluded_prefix_length, entries,

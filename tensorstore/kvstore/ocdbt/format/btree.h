@@ -45,6 +45,8 @@ namespace internal_ocdbt {
 /// In-memory representation of the length of a key.
 using KeyLength = uint16_t;
 
+constexpr KeyLength kMaxKeyLength = 65535;
+
 /// In-memory representation of statistics over a b+tree subtree.
 ///
 /// These are included with every stored reference to a b+tree node.
