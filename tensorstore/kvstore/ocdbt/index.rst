@@ -782,7 +782,9 @@ Leaf B+tree node format (``height = 0``)
 +-------------------------------------------------+--------------------------------+-------------------------------------------------+
 |:ref:`ocdbt-btree-leaf-node-key-suffix`          |``byte[key_suffix_length[i]]``  |:ref:`ocdbt-btree-node-num-entries`              |
 +-------------------------------------------------+--------------------------------+-------------------------------------------------+
-|:ref:`ocdbt-btree-leaf-node-encoded-value-length`||varint|                        |:ref:`ocdbt-btree-node-num-entries`              |
+|:ref:`ocdbt-btree-leaf-node-value-length`        ||varint|                        |:ref:`ocdbt-btree-node-num-entries`              |
++-------------------------------------------------+--------------------------------+-------------------------------------------------+
+|:ref:`ocdbt-btree-leaf-node-value-kind`          ||varint|                        |:ref:`ocdbt-btree-node-num-entries`              |
 +-------------------------------------------------+--------------------------------+-------------------------------------------------+
 |:ref:`ocdbt-btree-leaf-node-data-file-id`        ||data_file_id_format|           |:ref:`ocdbt-btree-leaf-node-num-indirect-entries`|
 +-------------------------------------------------+--------------------------------+-------------------------------------------------+
@@ -812,17 +814,15 @@ Leaf B+tree node format (``height = 0``)
   key.  For the first key, the entire key is stored.  Note that the
   suffixes for all keys are concatenated in the encoded representation.
 
-.. _ocdbt-btree-leaf-node-encoded-value-length:
+.. _ocdbt-btree-leaf-node-value-length:
 
-``encoded_value_length[i]``
-  Encoded length in bytes of the value for this key/value entry.  The
-  actual length is given by:
+``value_length[i]``
+  Length in bytes of the value for this key/value entry.
 
-  .. code-block:: cpp
+.. _ocdbt-btree-leaf-node-value-kind:
 
-     value_length[i] = encoded_value_length[i] >> 1
-
-  The least significant bit indicates how the value is stored:
+``value_kind[i]``
+  Indicates how the value is stored:
 
   - ``0`` if the value is stored inline in this leaf node,
   - ``1`` if the value is stored out-of-line.
@@ -832,8 +832,7 @@ Leaf B+tree node format (``height = 0``)
   .. _ocdbt-btree-leaf-node-num-direct-entries:
 
   ``num_direct_entries``
-    The number of entries for which
-    ``(encode_value_length[i] & 1) == 0``.
+    The number of entries for which ``value_kind[i] == 0``.
 
   ``direct_entries``
     The array of indices of direct values.
@@ -851,16 +850,16 @@ Leaf B+tree node format (``height = 0``)
 
 .. _ocdbt-btree-leaf-node-data-file-id:
 
-``data_file_id[j]``
-  Specifies the data file containing the value for entry ``indirect_values[j]``,
+``data_file_id[k]``
+  Specifies the data file containing the value for entry ``indirect_values[k]``,
   as an index into the :ref:`data file table<ocdbt-data-file-table>`.  Only
   stored for entries with out-of-line values.
 
 .. _ocdbt-btree-leaf-node-data-file-offset:
 
-``data_file_offset[j]``
-  Specifies the starting byte offset within ``data_file_id[j]`` of the
-  value for entry ``indirect_values[j]``.  Only stored for entries with
+``data_file_offset[k]``
+  Specifies the starting byte offset within ``data_file_id[k]`` of the
+  value for entry ``indirect_values[k]``.  Only stored for entries with
   out-of-line values.
 
 .. _ocdbt-btree-leaf-node-value:

@@ -98,7 +98,11 @@ struct BtreeNodeReference {
 /// In-memory representation of a b+tree node height.
 using BtreeNodeHeight = uint8_t;
 
-using LeafNodeValueReference = std::variant<IndirectDataReference, absl::Cord>;
+using LeafNodeValueReference = std::variant<absl::Cord, IndirectDataReference>;
+
+using LeafNodeValueKind = uint8_t;
+constexpr LeafNodeValueKind kInlineValue = 0;
+constexpr LeafNodeValueKind kOutOfLineValue = 1;
 
 /// In-memory representation of a single key/value entry in a b+tree leaf node.
 struct LeafNodeEntry {

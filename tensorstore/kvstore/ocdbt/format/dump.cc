@@ -192,8 +192,8 @@ constexpr auto BinaryCordBinder = [](auto is_loading, const auto& options,
 };
 
 constexpr auto LeafNodeValueReferenceBinder = jb::Variant(
-    jb::Member("indirect_value", IndirectDataReferenceBinder("value")),
-    jb::Member("inline_value", BinaryCordBinder));
+    jb::Member("inline_value", BinaryCordBinder),
+    jb::Member("indirect_value", IndirectDataReferenceBinder("value")));
 
 constexpr auto BtreeLeafNodeEntryBinder(std::string_view key_prefix) {
   return

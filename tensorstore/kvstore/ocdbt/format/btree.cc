@@ -173,54 +173,10 @@ bool ReadBtreeLeafNode(riegeli::Reader& reader,
     return false;
   }
 
-  // Read value references.  The length indicates whether it is an inline or
-  // indirect value.
-
-  // First read lengths.
-  for (auto& entry : entries) {
-    auto& data_ref = entry.value_reference.emplace<IndirectDataReference>();
-    if (!DataFileLengthCodec{}(reader, data_ref.length)) return false;
-    if ((data_ref.length & 1) == 0 &&
-        (data_ref.length >> 1) > kMaxInlineValueLength) {
-      reader.Fail(absl::DataLossError(
-          absl::StrFormat("Inline value length of %d exceeds maximum of %d",
-                          data_ref.length >> 1, kMaxInlineValueLength)));
-      return false;
-    }
-  }
-
-  // Read file_ids for indirect values.
-  for (auto& entry : entries) {
-    auto& data_ref = std::get<IndirectDataReference>(entry.value_reference);
-    if (data_ref.length & 1) {
-      if (!DataFileIdCodec<riegeli::Reader>{data_file_table}(
-              reader, data_ref.file_id)) {
-        return false;
-      }
-    }
-  }
-
-  // Read offsets for indirect values.
-  for (auto& entry : entries) {
-    auto& data_ref = std::get<IndirectDataReference>(entry.value_reference);
-    if (data_ref.length & 1) {
-      if (!DataFileOffsetCodec{}(reader, data_ref.offset)) return false;
-    }
-  }
-
-  // Read values for direct values.
-  for (auto& entry : entries) {
-    auto& data_ref = std::get<IndirectDataReference>(entry.value_reference);
-    uint64_t length = data_ref.length >> 1;
-    if (data_ref.length & 1) {
-      data_ref.length = length;
-      continue;
-    }
-    auto& value = entry.value_reference.emplace<absl::Cord>();
-    if (!reader.Read(length, value)) return false;
-  }
-
-  return true;
+  return LeafNodeValueReferenceArrayCodec{data_file_table,
+                                          [](auto& entry) -> decltype(auto) {
+                                            return (entry.value_reference);
+                                          }}(reader, entries);
 }
 
 bool ReadBtreeInteriorNode(riegeli::Reader& reader,

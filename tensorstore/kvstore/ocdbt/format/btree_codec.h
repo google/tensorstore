@@ -113,55 +113,65 @@ struct LeafNodeValueReferenceArrayCodec {
   const DataFileTable& data_file_table;
   Getter getter;
   template <typename Entries>
-  [[nodiscard]] bool operator()(riegeli::Reader& reader,
-                                const Entries& entries) {
+  [[nodiscard]] bool operator()(riegeli::Reader& reader, Entries&& entries) {
+    std::vector<uint64_t> value_lengths(entries.size());
     // First read lengths.
-    for (auto& entry : entries) {
+    for (auto& length : value_lengths) {
+      if (!DataFileLengthCodec{}(reader, length)) return false;
+    }
+
+    // Read value kinds
+    for (size_t i = 0; i < entries.size(); ++i) {
+      auto& entry = entries[i];
       auto& value_reference = getter(entry);
-      auto& data_ref =
-          value_reference.template emplace<IndirectDataReference>();
-      if (!DataFileLengthCodec{}(reader, data_ref.length)) return false;
-      if ((data_ref.length & 1) == 0 &&
-          (data_ref.length >> 1) > kMaxInlineValueLength) {
-        reader.Fail(absl::DataLossError(
-            absl::StrFormat("Inline value length of %d exceeds maximum of %d",
-                            data_ref.length >> 1, kMaxInlineValueLength)));
+      LeafNodeValueKind value_kind;
+      if (!reader.ReadByte(value_kind)) return false;
+      if (value_kind > kOutOfLineValue) {
+        reader.Fail(absl::DataLossError(absl::StrFormat(
+            "value_kind[%d]=%d is outside valid range [0, 1]", i, value_kind)));
         return false;
+      }
+      if (value_kind == kInlineValue) {
+        if (value_lengths[i] > kMaxInlineValueLength) {
+          reader.Fail(absl::DataLossError(absl::StrFormat(
+              "value_length[%d]=%d exceeds maximum of %d for an inline value",
+              i, value_lengths[i], kMaxInlineValueLength)));
+          return false;
+        }
+        value_reference.template emplace<absl::Cord>();
+      } else {
+        auto& data_ref =
+            value_reference.template emplace<IndirectDataReference>();
+        data_ref.length = value_lengths[i];
       }
     }
 
     // Read file_ids for indirect values.
     for (auto& entry : entries) {
       auto& value_reference = getter(entry);
-      auto& data_ref = std::get<IndirectDataReference>(value_reference);
-      if (data_ref.length & 1) {
-        if (!DataFileIdCodec<riegeli::Reader>{data_file_table}(
-                reader, data_ref.file_id)) {
-          return false;
-        }
+      auto* data_ref = std::get_if<IndirectDataReference>(&value_reference);
+      if (!data_ref) continue;
+      if (!DataFileIdCodec<riegeli::Reader>{data_file_table}(
+              reader, data_ref->file_id)) {
+        return false;
       }
     }
 
     // Read offsets for indirect values.
     for (auto& entry : entries) {
       auto& value_reference = getter(entry);
-      auto& data_ref = std::get<IndirectDataReference>(value_reference);
-      if (data_ref.length & 1) {
-        if (!DataFileOffsetCodec{}(reader, data_ref.offset)) return false;
-      }
+      auto* data_ref = std::get_if<IndirectDataReference>(&value_reference);
+      if (!data_ref) continue;
+      if (!DataFileOffsetCodec{}(reader, data_ref->offset)) return false;
     }
 
     // Read values for direct values.
-    for (auto& entry : entries) {
+    for (size_t i = 0; i < entries.size(); ++i) {
+      auto& entry = entries[i];
       auto& value_reference = getter(entry);
-      auto& data_ref = std::get<IndirectDataReference>(value_reference);
-      uint64_t length = data_ref.length >> 1;
-      if (data_ref.length & 1) {
-        data_ref.length = length;
-        continue;
-      }
-      auto& value = value_reference.template emplace<absl::Cord>();
-      if (!reader.Read(length, value)) return false;
+      auto* value = std::get_if<absl::Cord>(&value_reference);
+      if (!value) continue;
+      if (!reader.Read(value_lengths[i], *value)) return false;
     }
     return true;
   }
@@ -171,16 +181,21 @@ struct LeafNodeValueReferenceArrayCodec {
     // length
     for (auto& entry : entries) {
       auto& value_reference = getter(entry);
-      uint64_t encoded_length;
+      uint64_t length;
       if (auto* data_ref =
               std::get_if<IndirectDataReference>(&value_reference)) {
-        encoded_length = (data_ref->length << 1) | 1;
-
+        length = data_ref->length;
       } else {
-        uint64_t length = std::get<absl::Cord>(value_reference).size();
-        encoded_length = length << 1;
+        length = std::get<absl::Cord>(value_reference).size();
       }
-      if (!DataFileLengthCodec{}(writer, encoded_length)) return false;
+      if (!DataFileLengthCodec{}(writer, length)) return false;
+    }
+
+    // value kind
+    for (auto& entry : entries) {
+      auto& value_reference = getter(entry);
+      LeafNodeValueKind value_kind = value_reference.index();
+      if (!writer.WriteByte(value_kind)) return false;
     }
 
     // file_ids for indirect values
