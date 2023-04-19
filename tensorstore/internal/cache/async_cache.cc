@@ -494,7 +494,8 @@ Future<const void> AsyncCache::Entry::Read(absl::Time staleness_bound) {
 
 void AsyncCache::Entry::ReadSuccess(ReadState&& read_state) {
   ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
-      << *this << "ReadSuccess: " << read_state.stamp;
+      << *this << "ReadSuccess: " << read_state.stamp
+      << ", data=" << read_state.data.get();
   internal::EntryOrNodeReadSuccess(*this, std::move(read_state));
 }
 
@@ -540,7 +541,8 @@ Future<const void> AsyncCache::TransactionNode::Read(
 
 void AsyncCache::TransactionNode::ReadSuccess(ReadState&& read_state) {
   ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
-      << *this << "ReadSuccess: " << read_state.stamp;
+      << *this << "ReadSuccess: " << read_state.stamp
+      << ", data=" << read_state.data.get();
   internal::EntryOrNodeReadSuccess(*this, std::move(read_state));
 }
 
@@ -605,7 +607,8 @@ void AsyncCache::TransactionNode::Abort() {
 
 void AsyncCache::TransactionNode::WritebackSuccess(ReadState&& read_state) {
   ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
-      << *this << "WritebackSuccess: " << read_state.stamp;
+      << *this << "WritebackSuccess: " << read_state.stamp
+      << ", data=" << read_state.data.get();
   auto& entry = GetOwningEntry(*this);
   const size_t read_state_size = GetReadStateSize(entry, read_state.data.get());
   UniqueWriterLock lock{entry};
