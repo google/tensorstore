@@ -214,6 +214,7 @@ tensorstore_cc_library(
         "//tensorstore/util/execution:any_receiver",
         "//tensorstore/util/execution:any_sender",
         "//tensorstore/util/execution:collecting_sender",
+        "//tensorstore/util/execution:future_collecting_receiver",
         "//tensorstore/util/execution:future_sender",
         "//tensorstore/util/execution:sender",
         "//tensorstore/util/execution:sender_util",
