@@ -148,9 +148,15 @@ absl::Status CreateConfig(const ConfigConstraints& constraints,
                SupportedFeatures{}) {
       config.manifest_kind = ManifestKind::kNumbered;
     } else {
+#if 0
       return absl::InvalidArgumentError(
           "Cannot choose OCDBT manifest_kind automatically because no kind is "
           "known to be safe with the underlying key-value store");
+#else
+      // For compatibility with existing code, temporarily default to
+      // single-file manifest even if unsafe.
+      config.manifest_kind = ManifestKind::kSingle;
+#endif
     }
   }
   config.max_inline_value_bytes = constraints.max_inline_value_bytes.value_or(

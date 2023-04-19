@@ -233,6 +233,8 @@ TEST(OcdbtTest, UnmodifiedNode) {
   tensorstore::internal_ocdbt::TestUnmodifiedNode();
 }
 
+// Disable this test until the corresponding error is re-enabled.
+#if 0
 TEST(OcdbtTest, NoSuitableManifestKind) {
   auto context = Context::Default();
 
@@ -266,6 +268,7 @@ TEST(OcdbtTest, NoSuitableManifestKind) {
       MatchesStatus(absl::StatusCode::kInvalidArgument,
                     ".*Cannot choose OCDBT manifest_kind automatically .*"));
 }
+#endif
 
 TEST(OcdbtTest, ChooseNumberedManifestKind) {
   auto context = Context::Default();
