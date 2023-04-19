@@ -50,17 +50,23 @@ void ForEachManifestVersionTreeNodeRef(
                            GenerationNumber max_generation_number,
                            VersionTreeHeight height)>
         callback) {
+  // Determine max generation number of the height 1 node referenced from the
+  // manifest (this excludes the final generations that are stored inline in the
+  // manifest).
+  generation_number = (generation_number - 1) >> version_tree_arity_log2
+                                                     << version_tree_arity_log2;
   VersionTreeHeight height = 1;
-  while (true) {
-    generation_number = ((generation_number - 1) >> version_tree_arity_log2);
-    if (!generation_number) break;
-    GenerationNumber max_generation_number =
-        generation_number << (height * version_tree_arity_log2);
-    GenerationNumber min_generation_number =
-        max_generation_number -
-        ((GenerationNumber(1) << (height * version_tree_arity_log2)) - 1);
-    callback(min_generation_number, max_generation_number, height);
+  while (generation_number) {
+    // Round `generation_number - 1` down to the nearest multiple of
+    // `2**(((height + 1) * version_tree_arity_log2))`.
+    GenerationNumber next_generation_number =
+        (generation_number - 1)                    //
+        >> (height + 1) * version_tree_arity_log2  //
+               << (height + 1) * version_tree_arity_log2;
+    GenerationNumber min_generation_number = next_generation_number + 1;
+    callback(min_generation_number, generation_number, height);
     ++height;
+    generation_number = next_generation_number;
   }
 }
 

@@ -84,6 +84,7 @@ tensorstore_cc_test(
         ":format",
         "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/strings:str_format",
         "@com_google_googletest//:gtest_main",
     ],
 )

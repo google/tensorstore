@@ -423,7 +423,7 @@ Version tree node inner header
 
   .. code-block:: cpp
 
-     height * version_tree_arity_log2 < 64
+     (height + 1) * version_tree_arity_log2 < 64
 
 .. _ocdbt-version-tree-data-file-table:
 

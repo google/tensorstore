@@ -175,7 +175,7 @@ struct VersionTreeNode {
 /// Returns the maximum version tree height.
 inline VersionTreeHeight GetMaxVersionTreeHeight(
     VersionTreeArityLog2 version_tree_arity_log2) {
-  return 63 / version_tree_arity_log2;
+  return 63 / version_tree_arity_log2 - 1;
 }
 
 /// Returns the min/max range of generation numbers that may be stored in the
