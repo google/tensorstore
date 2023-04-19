@@ -271,7 +271,7 @@ struct CommitOperation
 
     void ApplyMutations() final {
       ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
-          << "ApplyMutations: height=" << height_
+          << "ApplyMutations: height=" << static_cast<int>(height_)
           << ", num_mutations=" << mutations_.size();
       if (mutations_.empty()) {
         if (!commit_op_->existing_manifest_) {
@@ -340,7 +340,7 @@ struct CommitOperation
 
     void ApplyMutations() final {
       ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
-          << "ApplyMutations: height=" << height_
+          << "ApplyMutations: height=" << static_cast<int>(height_)
           << ", num_mutations=" << mutations_.size();
       if (mutations_.empty()) {
         // There are no mutations to the key range of this node.  Therefore,
@@ -688,7 +688,8 @@ void CommitOperation::VisitNode(VisitNodeParameters&& params) {
     assert(params.inclusive_min_key_suffix.empty());
   }
   ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
-      << "VisitNode: " << params.key_range << ", height=" << height
+      << "VisitNode: " << params.key_range
+      << ", height=" << static_cast<int>(height)
       << ", inclusive_min_key_suffix="
       << tensorstore::QuoteString(params.inclusive_min_key_suffix)
       << ", full_prefix=" << tensorstore::QuoteString(params.full_prefix);
