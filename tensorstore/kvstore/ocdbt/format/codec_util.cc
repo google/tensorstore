@@ -28,6 +28,7 @@
 #include "absl/strings/str_format.h"
 #include "riegeli/bytes/cord_reader.h"
 #include "riegeli/bytes/cord_writer.h"
+#include "riegeli/bytes/limiting_reader.h"
 #include "riegeli/bytes/reader.h"
 #include "riegeli/bytes/writer.h"
 #include "riegeli/digests/crc32c_digester.h"
@@ -87,27 +88,44 @@ absl::Status DecodeWithOptionalCompression(
     uint32_t max_version_number,
     absl::FunctionRef<bool(riegeli::Reader& reader, uint32_t version)>
         decode_decompressed) {
-  riegeli::DigestingReader<riegeli::Crc32cDigester, riegeli::CordReader<>>
-      reader{std::tuple(&encoded)};
+  constexpr size_t kMinLength = 4     // magic
+                                + 8   // length
+                                + 4;  // crc32.
+
+  if (encoded.size() < kMinLength) {
+    return absl::DataLossError(
+        absl::StrFormat("Encoded length (%d) is less than minimum length (%d)",
+                        encoded.size(), kMinLength));
+  }
+
+  riegeli::CordReader<> reader{&encoded};
+
+  // Reserve the final 4 bytes for the crc32
+  riegeli::DigestingReader<riegeli::Crc32cDigester, riegeli::LimitingReader<>>
+      digesting_reader{std::tuple(
+          &reader,
+          riegeli::LimitingReaderBase::Options().set_exact(true).set_max_length(
+              encoded.size() - 4))};
+
   bool success = [&] {
     {
       uint32_t magic;
-      if (!riegeli::ReadBigEndian<uint32_t>(reader, magic)) {
+      if (!riegeli::ReadBigEndian<uint32_t>(digesting_reader, magic)) {
         return false;
       }
       if (magic != expected_magic) {
-        reader.Fail(absl::DataLossError(absl::StrFormat(
+        digesting_reader.Fail(absl::DataLossError(absl::StrFormat(
             "Expected to start with hex bytes %08x but received: 0x%08x",
             expected_magic, magic)));
         return false;
       }
 
       uint64_t length;
-      if (!riegeli::ReadLittleEndian<uint64_t>(reader, length)) {
+      if (!riegeli::ReadLittleEndian<uint64_t>(digesting_reader, length)) {
         return false;
       }
       if (length != encoded.size()) {
-        reader.Fail(absl::DataLossError(absl::StrFormat(
+        digesting_reader.Fail(absl::DataLossError(absl::StrFormat(
             "Length in header (%d) does not match actual length (%d)", length,
             encoded.size())));
         return false;
@@ -115,50 +133,51 @@ absl::Status DecodeWithOptionalCompression(
     }
 
     uint32_t version;
-    if (!ReadVarintChecked(reader, version)) return false;
+    if (!ReadVarintChecked(digesting_reader, version)) return false;
     if (version > max_version_number) {
-      reader.Fail(absl::DataLossError(
+      digesting_reader.Fail(absl::DataLossError(
           absl::StrFormat("Maximum supported version is %d but received: %d",
                           max_version_number, version)));
       return false;
     }
 
     uint32_t compression_format;
-    if (!ReadVarintChecked(reader, compression_format)) return false;
+    if (!ReadVarintChecked(digesting_reader, compression_format)) return false;
 
     bool success;
     switch (compression_format) {
       case 0:
         // Uncompressed
-        success = decode_decompressed(reader, version);
+        success = decode_decompressed(digesting_reader, version);
         break;
       case 1: {
-        riegeli::ZstdReader<> zstd_reader(&reader);
+        riegeli::ZstdReader<> zstd_reader(&digesting_reader);
         success = decode_decompressed(zstd_reader, version) &&
                   zstd_reader.VerifyEndAndClose();
         if (!success && !zstd_reader.ok()) {
-          reader.Fail(zstd_reader.status());
+          digesting_reader.Fail(zstd_reader.status());
         }
         break;
       }
       default:
-        reader.Fail(absl::DataLossError(absl::StrFormat(
+        digesting_reader.Fail(absl::DataLossError(absl::StrFormat(
             "Unsupported compression format: %d", compression_format)));
         return false;
     }
 
-    [[maybe_unused]] uint32_t expected_digest;
-    if (!riegeli::ReadLittleEndian<uint32_t>(reader, expected_digest)) {
-      return false;
-    }
     return success;
   }();
-  TENSORSTORE_RETURN_IF_ERROR(internal_ocdbt::FinalizeReader(reader, success));
-  // The CRC-32C digest of `M + CRC32C(M)`, where `CRC32C_as_uint32le(M)` is
-  // guaranteed to result in the following constant.
-  if (reader.Digest() != 0x48674bc7) {
-    return absl::DataLossError(
-        absl::StrFormat("CRC-32C checksum verification failed"));
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal_ocdbt::FinalizeReader(digesting_reader, success));
+
+  uint32_t expected_digest;
+  // Length was already checked previously.
+  ABSL_CHECK(riegeli::ReadLittleEndian<uint32_t>(reader, expected_digest));
+
+  if (digesting_reader.Digest() != expected_digest) {
+    return absl::DataLossError(absl::StrFormat(
+        "CRC-32C checksum verification failed: expected=%d, actual=%d",
+        expected_digest, digesting_reader.Digest()));
   }
   return absl::OkStatus();
 }

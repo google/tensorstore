@@ -61,6 +61,7 @@ tensorstore_cc_library(
         "@com_google_boringssl//:crypto",
         "@com_google_riegeli//riegeli/bytes:cord_reader",
         "@com_google_riegeli//riegeli/bytes:cord_writer",
+        "@com_google_riegeli//riegeli/bytes:limiting_reader",
         "@com_google_riegeli//riegeli/bytes:reader",
         "@com_google_riegeli//riegeli/bytes:writer",
         "@com_google_riegeli//riegeli/digests:crc32c_digester",

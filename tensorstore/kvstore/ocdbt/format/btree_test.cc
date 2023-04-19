@@ -23,7 +23,9 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/strings/cord.h"
+#include "tensorstore/kvstore/ocdbt/format/btree_codec.h"
 #include "tensorstore/kvstore/ocdbt/format/btree_node_encoder.h"
+#include "tensorstore/kvstore/ocdbt/format/codec_util.h"
 #include "tensorstore/kvstore/ocdbt/format/config.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/status_testutil.h"
@@ -31,6 +33,7 @@
 
 namespace {
 
+using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
 using ::tensorstore::internal_ocdbt::BtreeNode;
 using ::tensorstore::internal_ocdbt::BtreeNodeEncoder;
@@ -206,6 +209,70 @@ TEST(BtreeNodeTest, InteriorNodeBasePath) {
   entries[3].node.location.file_id.base_path = "xyz/abc1";
   EXPECT_THAT(decoded_node.entries,
               ::testing::VariantWith<std::vector<InteriorNodeEntry>>(entries));
+}
+
+absl::Cord EncodeRawBtree(const std::vector<unsigned char>& data) {
+  using ::tensorstore::internal_ocdbt::kBtreeNodeFormatVersion;
+  using ::tensorstore::internal_ocdbt::kBtreeNodeMagic;
+  Config config;
+  config.compression = Config::NoCompression{};
+  return EncodeWithOptionalCompression(
+             config, kBtreeNodeMagic, kBtreeNodeFormatVersion,
+             [&](riegeli::Writer& writer) -> bool {
+               return writer.Write(std::string_view(
+                   reinterpret_cast<const char*>(data.data()), data.size()));
+             })
+      .value();
+}
+
+absl::Status RoundTripRawBtree(const std::vector<unsigned char>& data) {
+  return DecodeBtreeNode(EncodeRawBtree(data), {}).status();
+}
+
+TEST(BtreeNodeTest, CorruptTruncateBodyZeroSize) {
+  EXPECT_THAT(
+      RoundTripRawBtree({}),
+      MatchesStatus(absl::StatusCode::kDataLoss,
+                    "Error decoding b-tree node: Unexpected end of data; .*"));
+}
+
+TEST(BtreeNodeTest, CorruptLeafTruncatedNumEntries) {
+  EXPECT_THAT(
+      RoundTripRawBtree({
+          0,  // height
+      }),
+      MatchesStatus(absl::StatusCode::kDataLoss,
+                    "Error decoding b-tree node: Unexpected end of data; .*"));
+}
+
+TEST(BtreeNodeTest, CorruptLeafZeroNumEntries) {
+  EXPECT_THAT(
+      RoundTripRawBtree({
+          // Inner header
+          0,  // height
+          // Data file table
+          0,  // num_bases
+          0,  // num_files
+          // Leaf node
+          0,  // num_entries
+      }),
+      MatchesStatus(absl::StatusCode::kDataLoss,
+                    "Error decoding b-tree node: Empty b-tree node; .*"));
+}
+
+TEST(BtreeNodeTest, CorruptInteriorZeroNumEntries) {
+  EXPECT_THAT(
+      RoundTripRawBtree({
+          // Inner header
+          1,  // height
+          // Data file table
+          0,  // num_bases
+          0,  // num_files
+          // Interior node
+          0,  // num_entries
+      }),
+      MatchesStatus(absl::StatusCode::kDataLoss,
+                    "Error decoding b-tree node: Empty b-tree node; .*"));
 }
 
 }  // namespace
