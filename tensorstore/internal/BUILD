@@ -1676,6 +1676,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/tracing",
         "//tensorstore/util:executor",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/functional:any_invocable",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/time",
