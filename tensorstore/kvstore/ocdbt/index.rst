@@ -660,7 +660,9 @@ additional field:
 
      This is the *earliest* commit time referenced within this subtree, in
      contrast with ``generation_number[i]``, which specifies the *latest*
-     generation number referenced within this subtree.
+     generation number referenced within this subtree.  Storing the earliest
+     commit time, rather than the latest commit time, enables more efficient
+     queries for the latest generation with ``commit_time<=T``.
 
 .. _ocdbt-version-tree-interior-child-height:
 

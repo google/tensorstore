@@ -82,6 +82,10 @@ struct Manifest {
   };
 };
 
+inline GenerationNumber GetLatestGeneration(const Manifest* manifest) {
+  return manifest ? manifest->latest_generation() : 0;
+}
+
 /// Pairs a `Manifest` with its storage timestamp.
 struct ManifestWithTime {
   std::shared_ptr<const Manifest> manifest;

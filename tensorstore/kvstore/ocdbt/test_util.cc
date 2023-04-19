@@ -32,6 +32,10 @@
 namespace tensorstore {
 namespace internal_ocdbt {
 
+IoHandle::Ptr GetOcdbtIoHandle(kvstore::Driver& driver) {
+  return dynamic_cast<OcdbtDriver&>(driver).io_handle_;
+}
+
 Result<std::shared_ptr<const Manifest>> ReadManifest(OcdbtDriver& driver) {
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto manifest_with_time,

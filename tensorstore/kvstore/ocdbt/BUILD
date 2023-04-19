@@ -164,6 +164,7 @@ tensorstore_cc_test(
         "//tensorstore/kvstore:test_util",
         "//tensorstore/kvstore/memory",
         "//tensorstore/kvstore/ocdbt/format",
+        "//tensorstore/kvstore/ocdbt/non_distributed:list_versions",
         "//tensorstore/util:future",
         "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
@@ -234,6 +235,28 @@ tensorstore_cc_test(
         "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
         "@com_google_absl//absl/random",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "read_version_test",
+    size = "small",
+    srcs = ["read_version_test.cc"],
+    deps = [
+        ":ocdbt",
+        ":test_util",
+        "//tensorstore/kvstore",
+        "//tensorstore/kvstore:generation_testutil",
+        "//tensorstore/kvstore/memory",
+        "//tensorstore/kvstore/ocdbt/format",
+        "//tensorstore/kvstore/ocdbt/non_distributed:create_new_manifest",
+        "//tensorstore/kvstore/ocdbt/non_distributed:list_versions",
+        "//tensorstore/kvstore/ocdbt/non_distributed:read_version",
+        "//tensorstore/util:span",
+        "//tensorstore/util:status_testutil",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/strings:str_format",
         "@com_google_googletest//:gtest_main",
     ],
 )

@@ -33,6 +33,20 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
+    name = "read_version",
+    srcs = ["read_version.cc"],
+    hdrs = ["read_version.h"],
+    deps = [
+        "//tensorstore/kvstore/ocdbt:debug_log",
+        "//tensorstore/kvstore/ocdbt:io_handle",
+        "//tensorstore/kvstore/ocdbt/format",
+        "//tensorstore/util:future",
+        "@com_google_absl//absl/log:absl_log",
+        "@com_google_absl//absl/time",
+    ],
+)
+
+tensorstore_cc_library(
     name = "list",
     srcs = ["list.cc"],
     hdrs = ["list.h"],
@@ -54,6 +68,23 @@ tensorstore_cc_library(
         "//tensorstore/util/execution:any_receiver",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "list_versions",
+    srcs = ["list_versions.cc"],
+    hdrs = ["list_versions.h"],
+    deps = [
+        "//tensorstore/kvstore/ocdbt:debug_log",
+        "//tensorstore/kvstore/ocdbt:io_handle",
+        "//tensorstore/kvstore/ocdbt/format",
+        "//tensorstore/util:future",
+        "//tensorstore/util/execution",
+        "//tensorstore/util/execution:any_receiver",
+        "//tensorstore/util/execution:sync_flow_sender",
+        "@com_google_absl//absl/log:absl_log",
+        "@com_google_absl//absl/time",
     ],
 )
 

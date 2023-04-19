@@ -1,4 +1,4 @@
-// Copyright 2022 The TensorStore Authors
+// Copyright 2023 The TensorStore Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,27 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_KVSTORE_OCDBT_TEST_UTIL_H_
-#define TENSORSTORE_KVSTORE_OCDBT_TEST_UTIL_H_
+#ifndef TENSORSTORE_KVSTORE_OCDBT_NON_DISTRIBUTED_READ_VERSION_H_
+#define TENSORSTORE_KVSTORE_OCDBT_NON_DISTRIBUTED_READ_VERSION_H_
 
-#include <memory>
+#include <variant>
 
-#include "tensorstore/kvstore/ocdbt/driver.h"
-#include "tensorstore/kvstore/ocdbt/format/manifest.h"
-#include "tensorstore/util/result.h"
+#include "absl/time/time.h"
+#include "tensorstore/kvstore/ocdbt/format/version_tree.h"
+#include "tensorstore/kvstore/ocdbt/io_handle.h"
+#include "tensorstore/util/future.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
 
-IoHandle::Ptr GetOcdbtIoHandle(kvstore::Driver& driver);
-
-Result<std::shared_ptr<const Manifest>> ReadManifest(OcdbtDriver& driver);
-
-// Tests that if a batch of writes leaves a node unmodified, it is not
-// rewritten.
-void TestUnmodifiedNode(const Context& context = {});
+// Returns the root for the specified version.
+Future<BtreeGenerationReference> ReadVersion(
+    ReadonlyIoHandle::Ptr io_handle, VersionSpec version_spec,
+    absl::Time staleness_bound = absl::Now());
 
 }  // namespace internal_ocdbt
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_KVSTORE_OCDBT_TEST_UTIL_H_
+#endif  // TENSORSTORE_KVSTORE_OCDBT_NON_DISTRIBUTED_READ_VERSION_H_
