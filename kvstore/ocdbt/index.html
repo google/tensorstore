@@ -2604,15 +2604,15 @@ the full <code class="docutils literal notranslate"><span class="pre">key</span>
 <td><p>Binary format</p></td>
 <td><p>Count</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-interior-node-subtree-common-prefix-length"><span class="std std-ref">subtree_common_prefix_length[i]</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
-<td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a></p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-btree-interior-node-key-prefix-length"><span class="std std-ref">key_prefix_length[i]</span></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-interior-node-key-prefix-length"><span class="std std-ref">key_prefix_length[i]</span></a></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a> - 1</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-interior-node-key-suffix-length"><span class="std std-ref">key_suffix_length[i]</span></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-btree-interior-node-key-suffix-length"><span class="std std-ref">key_suffix_length[i]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-interior-node-subtree-common-prefix-length"><span class="std std-ref">subtree_common_prefix_length[i]</span></a></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a></p></td>
 </tr>
@@ -2646,13 +2646,6 @@ the full <code class="docutils literal notranslate"><span class="pre">key</span>
 </tr>
 </tbody>
 </table>
-<dl class="simple" id="ocdbt-btree-interior-node-subtree-common-prefix-length">
-<dt><code class="docutils literal notranslate"><span class="pre">subtree_common_prefix_length[i]</span></code></dt><dd><p>Length in bytes of the prefix of <code class="docutils literal notranslate"><span class="pre">relative_key[i]</span></code> that is common to
-all keys within the subtree rooted at this child node.  This prefix
-serves as an implicit prefix of all keys within the subtree rooted at the
-child.</p>
-</dd>
-</dl>
 <dl class="simple" id="ocdbt-btree-interior-node-key-prefix-length">
 <dt><code class="docutils literal notranslate"><span class="pre">key_prefix_length[i]</span></code></dt><dd><p>Length in bytes of common prefix of <code class="docutils literal notranslate"><span class="pre">relative_key[i]</span></code> and
 <code class="docutils literal notranslate"><span class="pre">relative_key[i+1]</span></code>.  For the first key, no common prefix is stored.</p>
@@ -2662,6 +2655,13 @@ child.</p>
 <dt><code class="docutils literal notranslate"><span class="pre">key_suffix_length[i]</span></code></dt><dd><p>Length in bytes of each relative key, excluding the length of the common
 prefix with the previous key.  For the first key, the total length is
 stored, since there is no previous key.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-btree-interior-node-subtree-common-prefix-length">
+<dt><code class="docutils literal notranslate"><span class="pre">subtree_common_prefix_length[i]</span></code></dt><dd><p>Length in bytes of the prefix of <code class="docutils literal notranslate"><span class="pre">relative_key[i]</span></code> that is common to
+all keys within the subtree rooted at this child node.  This prefix
+serves as an implicit prefix of all keys within the subtree rooted at the
+child.</p>
 </dd>
 </dl>
 <dl class="simple" id="ocdbt-btree-interior-node-key-suffix">
