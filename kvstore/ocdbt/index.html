@@ -965,6 +965,13 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#data-file-table-format" class="md-nav__link">
+    <span class="md-ellipsis">Data file table format</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#version-tree-node-format" class="md-nav__link">
     <span class="md-ellipsis">Version tree node format</span>
   </a>
@@ -1441,6 +1448,13 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#data-file-table-format" class="md-nav__link">
+    <span class="md-ellipsis">Data file table format</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#version-tree-node-format" class="md-nav__link">
     <span class="md-ellipsis">Version tree node format</span>
   </a>
@@ -1747,6 +1761,14 @@ the tree of versions.</p>
 </ul>
 <p>The <code class="file docutils literal notranslate"><span class="pre">xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</span></code> portion of the filename is the
 lowercase hex representation of a 128-bit random identifier.</p>
+<div class="note admonition">
+<p class="admonition-title">Note</p>
+<p>The format allows the data files to actually have any arbitrary relative
+path; the <code class="file docutils literal notranslate"><span class="pre">d/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</span></code> naming scheme is used
+when writing new data files, but other paths may be used in
+specially-constructed OCDBT databases to refer to exsiting data (both in
+OCDBT format and in other formats).</p>
+</div>
 </li>
 </ul>
 <p>To read a key from the database, a client first reads the manifest file, then
@@ -1889,14 +1911,23 @@ B+tree roots and version tree nodes.</p>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-manifest-version-tree-inline-versions"><span class="std std-ref">inline_versions</span></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-manifest-data-file-table"><span class="std std-ref">data_file_table</span></a></p></td>
+<td><p><a class="reference internal" href="#ocdbt-data-file-table"><span class="std std-ref">Data file table format</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-manifest-version-tree-inline-versions"><span class="std std-ref">inline_versions</span></a></p></td>
 <td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-node-entry-array"><span class="std std-ref">Version tree leaf node entries format (height = 0)</span></a></p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-manifest-version-tree-version-nodes"><span class="std std-ref">version_nodes</span></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-manifest-version-tree-version-nodes"><span class="std std-ref">version_nodes</span></a></p></td>
 <td><p><a class="reference internal" href="#ocdbt-version-tree-interior-node-entry-array"><span class="std std-ref">Interior version tree node entries (height &gt; 0)</span></a></p></td>
 </tr>
 </tbody>
 </table>
+<dl class="simple" id="ocdbt-manifest-data-file-table">
+<dt><code class="docutils literal notranslate"><span class="pre">data_file_table</span></code></dt><dd><p>Table specifying the data files referenced by
+<a class="reference internal" href="#ocdbt-manifest-version-tree-inline-versions"><span class="std std-ref">inline_versions</span></a> and
+<a class="reference internal" href="#ocdbt-manifest-version-tree-version-nodes"><span class="std std-ref">version_nodes</span></a>.</p>
+</dd>
+</dl>
 <dl id="ocdbt-manifest-version-tree-inline-versions">
 <dt><code class="docutils literal notranslate"><span class="pre">inline_versions</span></code></dt><dd><p>References to the most recent versions.</p>
 <p>Older versions are referenced indirectly via
@@ -1923,6 +1954,81 @@ referenced from <a class="reference internal" href="#ocdbt-manifest-version-tree
 </table>
 <dl class="simple" id="ocdbt-manifest-crc32-checksum">
 <dt><code class="docutils literal notranslate"><span class="pre">crc32c_checksum</span></code></dt><dd><p>CRC-32C checksum of the entire manifest, excluding the checksum itself.</p>
+</dd>
+</dl>
+<h3 id="data-file-table-format"><span id="ocdbt-data-file-table"></span>Data file table format<a class="headerlink" href="#data-file-table-format" title="Permalink to this heading">¶</a></h3>
+<p>Logically, the data file table is a list of <code class="docutils literal notranslate"><span class="pre">(base_path[i],</span> <span class="pre">relative_path[i])</span></code>
+pairs of byte strings.  The full data file path, relative to the root of the
+OCDBT database, is <code class="docutils literal notranslate"><span class="pre">full_path[i]</span> <span class="pre">=</span> <span class="pre">transitive_path</span> <span class="pre">+</span> <span class="pre">base_path[i]</span> <span class="pre">+</span> <span class="pre">relative_path[i]</span></code>, where
+<code class="docutils literal notranslate"><span class="pre">transitive_path</span></code> is the transitive file path specified by the parent node:</p>
+<ul class="simple">
+<li><p>For the data file table specified in the manifest, the transitive path is the
+empty string.</p></li>
+<li><p>If a node is accessed using a data file path of <code class="docutils literal notranslate"><span class="pre">transitive_path</span> <span class="pre">+</span>
+<span class="pre">base_path[i]</span> <span class="pre">+</span> <span class="pre">relative_path[i]</span></code>, the transitive path that applies to any
+child nodes is equal to <code class="docutils literal notranslate"><span class="pre">transitive_path</span> <span class="pre">+</span> <span class="pre">base_path[i]</span></code>; that is, the
+<code class="docutils literal notranslate"><span class="pre">base_path[i]</span></code> is the additional transitive portion of the path.</p></li>
+</ul>
+<p>The maximum length of <code class="docutils literal notranslate"><span class="pre">full_path[i]</span></code> is 65535 bytes.</p>
+<p>Prefix compression is used to encode the combined <code class="docutils literal notranslate"><span class="pre">path[i]</span> <span class="pre">=</span> <span class="pre">base_path[i]</span> <span class="pre">+</span>
+<span class="pre">relative_path[i]</span></code>.</p>
+<table class="docutils data align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Binary format</p></th>
+<th class="head"><p>Count</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-data-file-table-num-files"><span class="std std-ref">num_files</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+<td><p>1</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-data-file-table-path-prefix-length"><span class="std std-ref">path_prefix_length[i]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-data-file-table-num-files"><span class="std std-ref">num_files</span></a> - 1</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-data-file-table-path-suffix-length"><span class="std std-ref">path_suffix_length[i]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-data-file-table-num-files"><span class="std std-ref">num_files</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-data-file-table-base-path-length"><span class="std std-ref">base_path_length[i]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-data-file-table-num-files"><span class="std std-ref">num_files</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-data-file-table-path-suffix"><span class="std std-ref">path_suffix[i]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">byte[path_suffix_length[i]]</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-data-file-table-num-files"><span class="std std-ref">num_files</span></a></p></td>
+</tr>
+</tbody>
+</table>
+<dl class="simple" id="ocdbt-data-file-table-num-files">
+<dt><code class="docutils literal notranslate"><span class="pre">num_files</span></code></dt><dd><p>Number of data files specified in the table.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-data-file-table-path-prefix-length">
+<dt><code class="docutils literal notranslate"><span class="pre">path_prefix_length[i]</span></code></dt><dd><p>Length in bytes of common prefix of <code class="docutils literal notranslate"><span class="pre">path[i]</span></code> and <code class="docutils literal notranslate"><span class="pre">path[i+1]</span></code>.  For the
+first path, no common prefix is stored, and implicitly
+<code class="docutils literal notranslate"><span class="pre">path_prefix_length[-1]</span></code> is defined to be <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-data-file-table-path-suffix-length">
+<dt><code class="docutils literal notranslate"><span class="pre">path_suffix_length[i]</span></code></dt><dd><p>Length in bytes of <code class="docutils literal notranslate"><span class="pre">path_suffix[i]</span></code>.  This is equal to <code class="docutils literal notranslate"><span class="pre">length(path[i])</span> <span class="pre">-</span>
+<span class="pre">path_prefix_length[i-1]</span></code>.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-data-file-table-base-path-length">
+<dt><code class="docutils literal notranslate"><span class="pre">base_path_length[i]</span></code></dt><dd><p>Length in bytes of <code class="docutils literal notranslate"><span class="pre">base_path[i]</span></code>.  To simplify decoding, it is required
+that if <code class="docutils literal notranslate"><span class="pre">path_prefix_length[i-1]</span> <span class="pre">&gt;</span> <span class="pre">min(base_path_length[i],</span>
+<span class="pre">base_path_length[i-1])</span></code>, then <code class="docutils literal notranslate"><span class="pre">base_path[i]</span> <span class="pre">=</span> <span class="pre">base_path[i-1]</span></code>.  That is,
+the common prefix must not extend past the end of the current or previous base
+path unless the base path is equal to the previous base path.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-data-file-table-path-suffix">
+<dt><code class="docutils literal notranslate"><span class="pre">path_suffix[i]</span></code></dt><dd><p>Path suffix value.  This is equal to <code class="docutils literal notranslate"><span class="pre">path[i]</span></code> with the first
+<code class="docutils literal notranslate"><span class="pre">path_prefix_length[i-1]</span></code> bytes excluded.  For <code class="docutils literal notranslate"><span class="pre">i</span> <span class="pre">=</span> <span class="pre">0</span></code>, <code class="docutils literal notranslate"><span class="pre">path_suffix[i]</span> <span class="pre">=</span>
+<span class="pre">path[i]</span></code>.</p>
 </dd>
 </dl>
 <h3 id="version-tree-node-format"><span id="ocdbt-version-tree"></span>Version tree node format<a class="headerlink" href="#version-tree-node-format" title="Permalink to this heading">¶</a></h3>
@@ -1993,6 +2099,9 @@ depending on the <a class="reference internal" href="#ocdbt-version-tree-height"
 <tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-version-tree-height"><span class="std std-ref">height</span></a></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">uint8</span></code></p></td>
 </tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-version-tree-data-file-table"><span class="std std-ref">data_file_table</span></a></p></td>
+<td><p><a class="reference internal" href="#ocdbt-data-file-table"><span class="std std-ref">Data file table format</span></a></p></td>
+</tr>
 </tbody>
 </table>
 <dl class="simple" id="ocdbt-version-tree-version-tree-arity-log2">
@@ -2006,6 +2115,10 @@ specified in the manifest from which this node was reached.</p>
 <div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><code><span class="n">height</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">version_tree_arity_log2</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">64</span>
 </code></pre></div>
 </div>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-version-tree-data-file-table">
+<dt><code class="docutils literal notranslate"><span class="pre">data_file_table</span></code></dt><dd><p>Table specifying the data files referenced by the node entries.</p>
 </dd>
 </dl>
 <p>The format of the remaining data depends on the value of <code class="docutils literal notranslate"><span class="pre">height</span></code>.</p>
@@ -2035,7 +2148,7 @@ specified in the manifest from which this node was reached.</p>
 <td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-num-versions"><span class="std std-ref">num_versions</span></a></p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-data-file-id"><span class="std std-ref">data_file_id[i]</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">ubyte[16]</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-num-versions"><span class="std std-ref">num_versions</span></a></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-version-tree-leaf-data-file-offset"><span class="std std-ref">data_file_offset[i]</span></a></p></td>
@@ -2103,7 +2216,8 @@ epoch (excluding leap seconds).</p>
 </dd>
 </dl>
 <dl class="simple" id="ocdbt-version-tree-leaf-data-file-id">
-<dt><code class="docutils literal notranslate"><span class="pre">data_file_id[i]</span></code></dt><dd><p>Specifies the data file containing the encoded root B+tree node.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">data_file_id[i]</span></code></dt><dd><p>Specifies the data file containing the encoded root B+tree node, as an index
+into the <a class="reference internal" href="#ocdbt-data-file-table"><span class="std std-ref">data file table</span></a>.</p>
 </dd>
 </dl>
 <dl class="simple" id="ocdbt-version-tree-leaf-data-file-offset">
@@ -2158,7 +2272,7 @@ differs, as described below.</p>
 <td><p><a class="reference internal" href="#ocdbt-version-tree-interior-num-children"><span class="std std-ref">num_children</span></a></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-version-tree-interior-data-file-id"><span class="std std-ref">data_file_id[i]</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">ubyte[16]</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-version-tree-interior-num-children"><span class="std std-ref">num_children</span></a></p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-version-tree-interior-data-file-offset"><span class="std std-ref">data_file_offset[i]</span></a></p></td>
@@ -2222,7 +2336,8 @@ then <code class="docutils literal notranslate"><span class="pre">generation_num
 </dd>
 </dl>
 <dl class="simple" id="ocdbt-version-tree-interior-data-file-id">
-<dt><code class="docutils literal notranslate"><span class="pre">data_file_id[i]</span></code></dt><dd><p>Specifies the data file containing the encoded version tree node.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">data_file_id[i]</span></code></dt><dd><p>Specifies the data file containing the encoded version tree node, as an index
+into the <a class="reference internal" href="#ocdbt-data-file-table"><span class="std std-ref">data file table</span></a>.</p>
 </dd>
 </dl>
 <dl class="simple" id="ocdbt-version-tree-interior-data-file-offset">
@@ -2343,13 +2458,20 @@ depending on the <a class="reference internal" href="#ocdbt-btree-node-height"><
 <tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-node-height"><span class="std std-ref">height</span></a></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">uint8</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-btree-node-data-file-table"><span class="std std-ref">data_file_table</span></a></p></td>
+<td><p><a class="reference internal" href="#ocdbt-data-file-table"><span class="std std-ref">Data file table format</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 </tr>
 </tbody>
 </table>
 <dl class="simple" id="ocdbt-btree-node-height">
 <dt><code class="docutils literal notranslate"><span class="pre">height</span></code></dt><dd><p>Height of this B+tree node.  Leaf nodes have a height of 0.</p>
+</dd>
+</dl>
+<dl class="simple" id="ocdbt-btree-node-data-file-table">
+<dt><code class="docutils literal notranslate"><span class="pre">data_file_table</span></code></dt><dd><p>Table specifying the data files referenced by the node entries.</p>
 </dd>
 </dl>
 <dl class="simple" id="ocdbt-btree-node-num-entries">
@@ -2389,7 +2511,7 @@ prefix that must be prepended to this <code class="docutils literal notranslate"
 <td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-leaf-node-data-file-id"><span class="std std-ref">data_file_id[j]</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">ubyte[16]</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-btree-leaf-node-num-indirect-entries"><span class="std std-ref">num_indirect_entries</span></a></p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-btree-leaf-node-data-file-offset"><span class="std std-ref">data_file_offset[j]</span></a></p></td>
@@ -2449,9 +2571,9 @@ actual length is given by:</p>
 </dd>
 </dl>
 <dl class="simple" id="ocdbt-btree-leaf-node-data-file-id">
-<dt><code class="docutils literal notranslate"><span class="pre">data_file_id[j]</span></code></dt><dd><p>Specifies the dstarting byte offset within <code class="docutils literal notranslate"><span class="pre">data_file_id[j]</span></code> of the
-value for entry <code class="docutils literal notranslate"><span class="pre">indirect_values[j]</span></code>.  Only stored for entries with
-out-of-line values.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">data_file_id[j]</span></code></dt><dd><p>Specifies the data file containing the value for entry <code class="docutils literal notranslate"><span class="pre">indirect_values[j]</span></code>,
+as an index into the <a class="reference internal" href="#ocdbt-data-file-table"><span class="std std-ref">data file table</span></a>.  Only
+stored for entries with out-of-line values.</p>
 </dd>
 </dl>
 <dl class="simple" id="ocdbt-btree-leaf-node-data-file-offset">
@@ -2497,7 +2619,7 @@ the full <code class="docutils literal notranslate"><span class="pre">key</span>
 <td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-interior-node-data-file-id"><span class="std std-ref">data_file_id[i]</span></a></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">ubyte[16]</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a></p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-btree-interior-node-data-file-offset"><span class="std std-ref">data_file_offset[i]</span></a></p></td>
@@ -2547,7 +2669,8 @@ suffixes for all keys are concatenated in the encoded representation.</p>
 </dd>
 </dl>
 <dl class="simple" id="ocdbt-btree-interior-node-data-file-id">
-<dt><code class="docutils literal notranslate"><span class="pre">data_file_id[i]</span></code></dt><dd><p>Specifies the data file containing the encoded child B+tree node.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">data_file_id[i]</span></code></dt><dd><p>Specifies the data file containing the encoded child B+tree node, as an index
+into the <a class="reference internal" href="#ocdbt-data-file-table"><span class="std std-ref">data file table</span></a>.</p>
 </dd>
 </dl>
 <dl class="simple" id="ocdbt-btree-interior-node-data-file-offset">
