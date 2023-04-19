@@ -105,6 +105,7 @@ struct Cooperator : public grpc_gen::Cooperator::CallbackService,
 
   int listening_port_;
   std::unique_ptr<grpc::Server> server_;
+  internal_ocdbt::RpcSecurityMethod::Ptr security_;
   Clock clock_;
 
   internal_ocdbt::IoHandle::Ptr io_handle_;

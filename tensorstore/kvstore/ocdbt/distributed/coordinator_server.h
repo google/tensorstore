@@ -23,6 +23,7 @@
 #include "absl/time/time.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/json_serialization_options.h"
+#include "tensorstore/kvstore/ocdbt/distributed/rpc_security.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 
@@ -68,6 +69,10 @@ class CoordinatorServer {
   struct Spec {
     TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(Spec, JsonSerializationOptions,
                                             JsonSerializationOptions);
+
+    /// Security method to use.
+    internal_ocdbt::RpcSecurityMethod::Ptr security;
+
     /// List of addresses to bind.
     ///
     /// Each bind address must include a port number, but the port number may be

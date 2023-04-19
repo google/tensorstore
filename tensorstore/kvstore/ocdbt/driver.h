@@ -36,6 +36,7 @@
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/ocdbt/btree_writer.h"
 #include "tensorstore/kvstore/ocdbt/config.h"
+#include "tensorstore/kvstore/ocdbt/distributed/rpc_security.h"
 #include "tensorstore/kvstore/ocdbt/io_handle.h"
 #include "tensorstore/kvstore/registry.h"
 #include "tensorstore/kvstore/spec.h"
@@ -58,6 +59,7 @@ struct OcdbtCoordinatorResource
   struct Spec {
     std::optional<std::string> address;
     std::optional<absl::Duration> lease_duration;
+    RpcSecurityMethod::Ptr security;
   };
   using Resource = Spec;
 };

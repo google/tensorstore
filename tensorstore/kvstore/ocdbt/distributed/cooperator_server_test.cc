@@ -28,6 +28,7 @@
 #include "tensorstore/kvstore/ocdbt/config.h"
 #include "tensorstore/kvstore/ocdbt/distributed/cooperator.h"
 #include "tensorstore/kvstore/ocdbt/distributed/coordinator_server.h"
+#include "tensorstore/kvstore/ocdbt/distributed/rpc_security.h"
 #include "tensorstore/kvstore/ocdbt/io/io_handle_impl.h"
 #include "tensorstore/kvstore/ocdbt/io_handle.h"
 #include "tensorstore/util/result.h"
@@ -56,6 +57,8 @@ class CooperatorServerTest : public ::testing::Test {
   internal_ocdbt_cooperator::CooperatorPtr cooperator_;
 
   CooperatorServerTest() {
+    auto security =
+        ::tensorstore::internal_ocdbt::GetInsecureRpcSecurityMethod();
     auto cache_pool = CachePool::Make({});
     auto data_copy_concurrency =
         Context::Default()
@@ -70,6 +73,7 @@ class CooperatorServerTest : public ::testing::Test {
 
     {
       CoordinatorServer::Options options;
+      options.spec.security = security;
       options.spec.bind_addresses.push_back("localhost:0");
       TENSORSTORE_CHECK_OK_AND_ASSIGN(
           coordinator_server_, CoordinatorServer::Start(std::move(options)));
@@ -83,6 +87,7 @@ class CooperatorServerTest : public ::testing::Test {
       options.io_handle = io_handle_;
       options.bind_addresses.push_back("localhost:0");
       options.coordinator_address = coordinator_address;
+      options.security = security;
       options.lease_duration = absl::Seconds(10);
       TENSORSTORE_CHECK_OK_AND_ASSIGN(
           cooperator_, internal_ocdbt_cooperator::Start(std::move(options)));

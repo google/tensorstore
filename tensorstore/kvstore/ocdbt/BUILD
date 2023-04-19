@@ -86,6 +86,7 @@ tensorstore_cc_library(
         "//tensorstore/kvstore:generation",
         "//tensorstore/kvstore:key_range",
         "//tensorstore/kvstore/ocdbt/distributed:btree_writer",
+        "//tensorstore/kvstore/ocdbt/distributed:rpc_security",
         "//tensorstore/kvstore/ocdbt/io:io_handle_impl",
         "//tensorstore/kvstore/ocdbt/non_distributed:btree_writer",
         "//tensorstore/kvstore/ocdbt/non_distributed:list",

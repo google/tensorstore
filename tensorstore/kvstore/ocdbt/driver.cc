@@ -41,6 +41,8 @@
 #include "tensorstore/kvstore/ocdbt/btree_writer.h"
 #include "tensorstore/kvstore/ocdbt/config.h"
 #include "tensorstore/kvstore/ocdbt/distributed/btree_writer.h"
+#include "tensorstore/kvstore/ocdbt/distributed/rpc_security.h"
+#include "tensorstore/kvstore/ocdbt/distributed/rpc_security_registry.h"
 #include "tensorstore/kvstore/ocdbt/io/io_handle_impl.h"
 #include "tensorstore/kvstore/ocdbt/io_handle.h"
 #include "tensorstore/kvstore/ocdbt/non_distributed/btree_writer.h"
@@ -73,7 +75,9 @@ struct OcdbtCoordinatorResourceTraits
     namespace jb = tensorstore::internal_json_binding;
     return jb::Object(
         jb::Member("address", jb::Projection<&Spec::address>()),
-        jb::Member("lease_duration", jb::Projection<&Spec::lease_duration>()));
+        jb::Member("lease_duration", jb::Projection<&Spec::lease_duration>()),
+        jb::Member("security", jb::Projection<&Spec::security>(
+                                   RpcSecurityMethodJsonBinder)));
   }
   static Result<Resource> Create(
       const Spec& spec, internal::ContextResourceCreationContext context) {
@@ -162,6 +166,8 @@ Future<kvstore::DriverPtr> OcdbtDriverSpec::DoOpen() const {
         DistributedBtreeWriterOptions options;
         options.io_handle = driver->io_handle_;
         options.coordinator_address = *driver->coordinator_->address;
+        assert(driver->coordinator_->security);
+        options.security = driver->coordinator_->security;
         options.lease_duration = driver->coordinator_->lease_duration.value_or(
             kDefaultLeaseDuration);
 

@@ -14,10 +14,12 @@ tensorstore_cc_library(
     deps = [
         ":coordinator_cc_grpc",
         ":coordinator_cc_proto",
+        ":rpc_security",
         "//tensorstore:json_serialization_options",
         "//tensorstore/internal:heterogeneous_container",
         "//tensorstore/internal:intrusive_red_black_tree",
         "//tensorstore/internal/grpc:peer_address",
+        "//tensorstore/internal/grpc:utils",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/kvstore/ocdbt:debug_log",
@@ -46,6 +48,7 @@ tensorstore_cc_test(
         ":coordinator_cc_grpc",
         ":coordinator_server",
         ":lease_cache_for_cooperator",
+        ":rpc_security",
         "//tensorstore/kvstore:key_range",
         "//tensorstore/util:future",
         "//tensorstore/util:result",
@@ -108,6 +111,7 @@ tensorstore_cc_library(
         ":cooperator_cc_grpc",
         ":coordinator_cc_grpc",
         ":coordinator_cc_proto",
+        ":rpc_security",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:intrusive_red_black_tree",
         "//tensorstore/internal/grpc:utils",
@@ -177,6 +181,7 @@ tensorstore_cc_library(
         ":cooperator_cc_proto",
         ":coordinator_cc_grpc",
         ":lease_cache_for_cooperator",
+        ":rpc_security",
         "//tensorstore/internal:heterogeneous_container",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:mutex",
@@ -214,6 +219,7 @@ tensorstore_cc_test(
     deps = [
         ":cooperator",
         ":coordinator_server",
+        ":rpc_security",
         "//tensorstore:context",
         "//tensorstore/internal:data_copy_concurrency_resource",
         "//tensorstore/internal:intrusive_ptr",
@@ -239,6 +245,7 @@ tensorstore_cc_library(
         ":btree_node_identifier",
         ":btree_node_write_mutation",
         ":cooperator",
+        ":rpc_security",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:mutex",
         "//tensorstore/kvstore",
@@ -295,5 +302,23 @@ tensorstore_cc_test(
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "rpc_security",
+    srcs = ["rpc_security.cc"],
+    hdrs = [
+        "rpc_security.h",
+        "rpc_security_registry.h",
+    ],
+    deps = [
+        "//tensorstore:json_serialization_options",
+        "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/internal:json_registry",
+        "//tensorstore/internal:no_destructor",
+        "//tensorstore/internal/json_binding",
+        "//tensorstore/internal/json_binding:bindable",
+        "@com_github_grpc_grpc//:grpc++",
     ],
 )
