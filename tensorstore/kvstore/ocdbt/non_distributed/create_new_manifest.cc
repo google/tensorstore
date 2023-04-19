@@ -118,7 +118,17 @@ CreateNewManifest(IoHandle::Ptr io_handle,
                   std::shared_ptr<const Manifest> existing_manifest,
                   BtreeGenerationReference new_generation) {
   ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG) << "CreateNewManifest";
-  new_generation.commit_time = absl::Now();
+  auto commit_time = absl::Now();
+  if (existing_manifest) {
+    // Ensure that `commit_time` is monotonically increasing.
+    commit_time = std::max(
+        commit_time, static_cast<absl::Time>(
+                         existing_manifest->latest_version().commit_time) +
+                         absl::Nanoseconds(1));
+  }
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      new_generation.commit_time, CommitTime::FromAbslTime(commit_time),
+      internal::ConvertInvalidArgumentToFailedPrecondition(_));
   GenerationNumber existing_generation =
       existing_manifest ? existing_manifest->latest_generation() : 0;
 
@@ -335,7 +345,9 @@ Future<const ManifestWithTime> EnsureExistingManifest(IoHandle::Ptr io_handle) {
         ref.root_height = 0;
         ref.root.statistics = {};
         ref.root.location = IndirectDataReference::Missing();
-        ref.commit_time = absl::Now();
+        TENSORSTORE_ASSIGN_OR_RETURN(
+            ref.commit_time, CommitTime::FromAbslTime(absl::Now()),
+            internal::ConvertInvalidArgumentToFailedPrecondition(_));
         ref.generation_number = 1;
         new_manifest->versions.push_back(ref);
         return new_manifest;

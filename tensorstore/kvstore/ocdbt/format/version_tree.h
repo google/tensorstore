@@ -61,14 +61,14 @@ constexpr VersionTreeArityLog2 kMaxVersionTreeArityLog2 = 16;
 struct CommitTime {
   CommitTime() = default;
 
-  explicit CommitTime(uint64_t ms_since_unix_epoch)
-      : value(ms_since_unix_epoch) {}
+  constexpr explicit CommitTime(uint64_t ns_since_unix_epoch)
+      : value(ns_since_unix_epoch) {}
 
-  CommitTime(absl::Time time);
+  static Result<CommitTime> FromAbslTime(absl::Time time);
 
   explicit operator absl::Time() const;
 
-  /// Milliseconds since Unix epoch.
+  /// Nanoseconds since Unix epoch.
   using Value = uint64_t;
   Value value;
   constexpr static auto ApplyMembers = [](auto&& x, auto f) {

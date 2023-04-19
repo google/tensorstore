@@ -15,6 +15,7 @@
 #include "tensorstore/kvstore/ocdbt/format/version_tree.h"
 
 #include <cassert>
+#include <limits>
 #include <ostream>
 #include <string>
 #include <utility>
@@ -42,13 +43,19 @@
 namespace tensorstore {
 namespace internal_ocdbt {
 
-CommitTime::CommitTime(absl::Time time)
-    : value(absl::ToInt64Milliseconds(time - absl::UnixEpoch())) {}
+Result<CommitTime> CommitTime::FromAbslTime(absl::Time time) {
+  if (time < absl::FromUnixNanos(0) ||
+      time > absl::FromUnixNanos(std::numeric_limits<int64_t>::max())) {
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Cannot represent ", time, " as 64-bit nanoseconds since Unix epoch."));
+  }
+  return CommitTime(absl::ToUnixNanos(time));
+}
 
 using absl::Time;
 
 CommitTime::operator Time() const {
-  return absl::UnixEpoch() + absl::Milliseconds(value);
+  return absl::UnixEpoch() + absl::Nanoseconds(value);
 }
 
 namespace {
@@ -285,7 +292,7 @@ std::ostream& operator<<(std::ostream& os, const VersionTreeNode& e) {
 }
 
 std::ostream& operator<<(std::ostream& os, CommitTime x) {
-  return os << absl::UnixEpoch() + absl::Milliseconds(x.value);
+  return os << static_cast<absl::Time>(x);
 }
 
 absl::Status ValidateVersionTreeLeafNodeEntries(

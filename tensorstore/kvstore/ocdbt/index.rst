@@ -7,8 +7,8 @@
 
    This driver is experimental and the format is not yet stable.
 
-The ``ocdbt`` driver implements an Optionally-Cooperative Distributed B+Tree on
-top of a base key-value store.
+The ``ocdbt`` driver implements an Optionally-Cooperative Distributed B+Tree
+(OCDBT) on top of a base key-value store.
 
 .. json:schema:: kvstore/ocdbt
 
@@ -16,11 +16,29 @@ top of a base key-value store.
 
 .. json:schema:: Context.ocdbt_coordinator
 
+Concepts
+--------
+
+An OCDBT database is stored as a collection of entries/files within a
+prefix/directory of a base key-value store.
+
+It is a versioned key-value store:
+
+- Each version is identified by:
+
+  - a 64-bit generation number, which increases sequentially from 1, and;
+
+  - a nanosecond-precision commit timestamp that increases monotonically with
+    the generation number.
+
+- Versioning is managed automatically: each batch of writes results in the
+  creation of a new version.
+
 Storage format
 --------------
 
-The database is represented by the following entries within a prefix of an
-underlying key-value store:
+The database is represented by the following entries within a prefix/directory
+of an underlying key-value store:
 
 - :file:`manifest.ocdbt`
 
@@ -500,7 +518,7 @@ The same encoded representation is used for both the entries of a leaf
 .. _ocdbt-version-tree-leaf-commit-time:
 
 ``commit_time[i]``
-  Time at which the generation was created, in milliseconds since the Unix
+  Time at which the generation was created, in nanoseconds since the Unix
   epoch (excluding leap seconds).
 
 .. _ocdbt-version-tree-leaf-data-file-id:
