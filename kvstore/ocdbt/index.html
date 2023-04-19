@@ -2506,19 +2506,23 @@ prefix that must be prepended to this <code class="docutils literal notranslate"
 <td><p><code class="docutils literal notranslate"><span class="pre">byte[key_suffix_length[i]]</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a></p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-btree-leaf-node-encoded-value-length"><span class="std std-ref">encoded_value_length[i]</span></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-btree-leaf-node-value-length"><span class="std std-ref">value_length[i]</span></a></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a></p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-leaf-node-data-file-id"><span class="std std-ref">data_file_id[j]</span></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-leaf-node-value-kind"><span class="std std-ref">value_kind[i]</span></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
+<td><p><a class="reference internal" href="#ocdbt-btree-node-num-entries"><span class="std std-ref">num_entries</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-btree-leaf-node-data-file-id"><span class="std std-ref">data_file_id[k]</span></a></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-btree-leaf-node-num-indirect-entries"><span class="std std-ref">num_indirect_entries</span></a></p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-btree-leaf-node-data-file-offset"><span class="std std-ref">data_file_offset[j]</span></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-leaf-node-data-file-offset"><span class="std std-ref">data_file_offset[k]</span></a></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">varint</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-btree-leaf-node-num-indirect-entries"><span class="std std-ref">num_indirect_entries</span></a></p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#ocdbt-btree-leaf-node-value"><span class="std std-ref">value[j]</span></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ocdbt-btree-leaf-node-value"><span class="std std-ref">value[j]</span></a></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">byte[direct_value_length[j]]</span></code></p></td>
 <td><p><a class="reference internal" href="#ocdbt-btree-leaf-node-num-direct-entries"><span class="std std-ref">num_direct_entries</span></a></p></td>
 </tr>
@@ -2541,21 +2545,19 @@ key.  For the first key, the entire key is stored.  Note that the
 suffixes for all keys are concatenated in the encoded representation.</p>
 </dd>
 </dl>
-<dl id="ocdbt-btree-leaf-node-encoded-value-length">
-<dt><code class="docutils literal notranslate"><span class="pre">encoded_value_length[i]</span></code></dt><dd><p>Encoded length in bytes of the value for this key/value entry.  The
-actual length is given by:</p>
-<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><code><span class="n">value_length</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">encoded_value_length</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="mi">1</span>
-</code></pre></div>
-</div>
-<p>The least significant bit indicates how the value is stored:</p>
+<dl class="simple" id="ocdbt-btree-leaf-node-value-length">
+<dt><code class="docutils literal notranslate"><span class="pre">value_length[i]</span></code></dt><dd><p>Length in bytes of the value for this key/value entry.</p>
+</dd>
+</dl>
+<dl id="ocdbt-btree-leaf-node-value-kind">
+<dt><code class="docutils literal notranslate"><span class="pre">value_kind[i]</span></code></dt><dd><p>Indicates how the value is stored:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">0</span></code> if the value is stored inline in this leaf node,</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">1</span></code> if the value is stored out-of-line.</p></li>
 </ul>
 <p>Based on this column, the following derived values are defined:</p>
 <dl class="simple" id="ocdbt-btree-leaf-node-num-direct-entries">
-<dt><code class="docutils literal notranslate"><span class="pre">num_direct_entries</span></code></dt><dd><p>The number of entries for which
-<code class="docutils literal notranslate"><span class="pre">(encode_value_length[i]</span> <span class="pre">&amp;</span> <span class="pre">1)</span> <span class="pre">==</span> <span class="pre">0</span></code>.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">num_direct_entries</span></code></dt><dd><p>The number of entries for which <code class="docutils literal notranslate"><span class="pre">value_kind[i]</span> <span class="pre">==</span> <span class="pre">0</span></code>.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">direct_entries</span></code></dt><dd><p>The array of indices of direct values.</p>
 </dd>
@@ -2571,14 +2573,14 @@ actual length is given by:</p>
 </dd>
 </dl>
 <dl class="simple" id="ocdbt-btree-leaf-node-data-file-id">
-<dt><code class="docutils literal notranslate"><span class="pre">data_file_id[j]</span></code></dt><dd><p>Specifies the data file containing the value for entry <code class="docutils literal notranslate"><span class="pre">indirect_values[j]</span></code>,
+<dt><code class="docutils literal notranslate"><span class="pre">data_file_id[k]</span></code></dt><dd><p>Specifies the data file containing the value for entry <code class="docutils literal notranslate"><span class="pre">indirect_values[k]</span></code>,
 as an index into the <a class="reference internal" href="#ocdbt-data-file-table"><span class="std std-ref">data file table</span></a>.  Only
 stored for entries with out-of-line values.</p>
 </dd>
 </dl>
 <dl class="simple" id="ocdbt-btree-leaf-node-data-file-offset">
-<dt><code class="docutils literal notranslate"><span class="pre">data_file_offset[j]</span></code></dt><dd><p>Specifies the starting byte offset within <code class="docutils literal notranslate"><span class="pre">data_file_id[j]</span></code> of the
-value for entry <code class="docutils literal notranslate"><span class="pre">indirect_values[j]</span></code>.  Only stored for entries with
+<dt><code class="docutils literal notranslate"><span class="pre">data_file_offset[k]</span></code></dt><dd><p>Specifies the starting byte offset within <code class="docutils literal notranslate"><span class="pre">data_file_id[k]</span></code> of the
+value for entry <code class="docutils literal notranslate"><span class="pre">indirect_values[k]</span></code>.  Only stored for entries with
 out-of-line values.</p>
 </dd>
 </dl>
