@@ -22,6 +22,7 @@
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/memory/memory_key_value_store.h"
 #include "tensorstore/kvstore/ocdbt/config.h"
@@ -63,7 +64,9 @@ class CooperatorServerTest : public ::testing::Test {
     base_kvstore_ = tensorstore::GetMemoryKeyValueStore();
     io_handle_ =
         MakeIoHandle(data_copy_concurrency, *cache_pool, base_kvstore_,
-                     MakeIntrusivePtr<ConfigState>(ConfigConstraints{}));
+                     MakeIntrusivePtr<ConfigState>(
+                         ConfigConstraints{},
+                         base_kvstore_.driver->GetSupportedFeatures({})));
 
     {
       CoordinatorServer::Options options;

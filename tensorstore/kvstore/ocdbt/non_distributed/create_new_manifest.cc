@@ -144,7 +144,8 @@ CreateNewManifest(IoHandle::Ptr io_handle,
 
   auto new_manifest = std::make_shared<Manifest>();
   if (!existing_manifest) {
-    io_handle->config_state->CreateNewConfig(new_manifest->config);
+    TENSORSTORE_ASSIGN_OR_RETURN(new_manifest->config,
+                                 io_handle->config_state->CreateNewConfig());
     new_manifest->versions.push_back(new_generation);
     return ManifestWithFlushFuture{new_manifest, {}};
   }
@@ -332,26 +333,48 @@ CreateNewManifest(IoHandle::Ptr io_handle,
   return op_value_future;
 }
 
-Future<const ManifestWithTime> EnsureExistingManifest(IoHandle::Ptr io_handle) {
-  auto* io_handle_ptr = io_handle.get();
-  return io_handle_ptr->ReadModifyWriteManifest(
+Future<absl::Time> EnsureExistingManifest(IoHandle::Ptr io_handle) {
+  auto read_future = io_handle->GetManifest(absl::InfinitePast());
+  auto [promise, future] = PromiseFuturePair<absl::Time>::Make();
+  LinkValue(
       [io_handle = std::move(io_handle)](
-          std::shared_ptr<const Manifest> existing_manifest)
-          -> Future<std::shared_ptr<const Manifest>> {
-        if (existing_manifest) return existing_manifest;
+          Promise<absl::Time> promise,
+          ReadyFuture<const ManifestWithTime> future) mutable {
+        auto& manifest_with_time = future.value();
+        if (manifest_with_time.manifest) {
+          promise.SetResult(manifest_with_time.time);
+          return;
+        }
+
         auto new_manifest = std::make_shared<Manifest>();
-        io_handle->config_state->CreateNewConfig(new_manifest->config);
+        TENSORSTORE_ASSIGN_OR_RETURN(new_manifest->config,
+                                     io_handle->config_state->CreateNewConfig(),
+                                     static_cast<void>(promise.SetResult(_)));
         BtreeGenerationReference ref;
         ref.root_height = 0;
         ref.root.statistics = {};
         ref.root.location = IndirectDataReference::Missing();
         TENSORSTORE_ASSIGN_OR_RETURN(
             ref.commit_time, CommitTime::FromAbslTime(absl::Now()),
-            internal::ConvertInvalidArgumentToFailedPrecondition(_));
+            static_cast<void>(promise.SetResult(
+                internal::ConvertInvalidArgumentToFailedPrecondition(_))));
         ref.generation_number = 1;
         new_manifest->versions.push_back(ref);
-        return new_manifest;
-      });
+
+        auto update_future = io_handle->TryUpdateManifest(
+            /*old_manifest=*/{}, /*new_manifest=*/std::move(new_manifest),
+            /*time=*/absl::Now());
+        LinkValue(
+            [io_handle = std::move(io_handle)](
+                Promise<absl::Time> promise,
+                ReadyFuture<TryUpdateManifestResult> future) mutable {
+              auto& result = future.value();
+              promise.SetResult(result.time);
+            },
+            std::move(promise), std::move(update_future));
+      },
+      std::move(promise), std::move(read_future));
+  return std::move(future);
 }
 
 }  // namespace internal_ocdbt

@@ -107,13 +107,8 @@ void StartGetManifestForWriting(
                                         std::move(lease_node));
         } else {
           // Create initial manifest locally.
-          LinkValue(
-              [](Promise<absl::Time> promise,
-                 ReadyFuture<const ManifestWithTime> future) {
-                promise.SetResult(future.value().time);
-              },
-              std::move(promise),
-              internal_ocdbt::EnsureExistingManifest(server->io_handle_));
+          LinkResult(std::move(promise), internal_ocdbt::EnsureExistingManifest(
+                                             server->io_handle_));
         }
       },
       std::move(promise), std::move(lease_future));

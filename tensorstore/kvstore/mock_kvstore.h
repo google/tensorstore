@@ -76,6 +76,10 @@ class MockKeyValueStore : public kvstore::Driver {
   struct ListRequest {
     ListOptions options;
     AnyFlowReceiver<absl::Status, Key> receiver;
+
+    void operator()(kvstore::DriverPtr target) {
+      target->ListImpl(options, std::move(receiver));
+    }
   };
 
   Future<ReadResult> Read(Key key, ReadOptions options) override;

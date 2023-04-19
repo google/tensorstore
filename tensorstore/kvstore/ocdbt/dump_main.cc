@@ -22,6 +22,8 @@
 #include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
 #include <nlohmann/json.hpp>
+#include "tensorstore/internal/cache/cache_pool_resource.h"
+#include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/init_tensorstore.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json/pprint_python.h"
@@ -35,6 +37,7 @@
 #include "tensorstore/kvstore/ocdbt/format/manifest.h"
 #include "tensorstore/kvstore/ocdbt/format/version_tree.h"
 #include "tensorstore/kvstore/ocdbt/io/indirect_data_kvstore_driver.h"
+#include "tensorstore/kvstore/ocdbt/io/io_handle_impl.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/util/future.h"
@@ -70,14 +73,25 @@ absl::Status RunDumpCommand() {
   }
   internal::EnsureDirectoryPath(kvs_spec->path);
   TENSORSTORE_ASSIGN_OR_RETURN(auto kvs, kvstore::Open(*kvs_spec).result());
+
   std::string node_identifier = absl::GetFlag(FLAGS_node);
   if (node_identifier.empty()) {
     // Print manifest.
+    auto context = Context::Default();
 
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto encoded, ReadKey(kvs.driver.get(), GetManifestPath(kvs.path)));
-    TENSORSTORE_ASSIGN_OR_RETURN(auto manifest, DecodeManifest(encoded));
-    PrintValue(Dump(manifest));
+    auto io_handle = internal_ocdbt::MakeIoHandle(
+        context.GetResource<internal::DataCopyConcurrencyResource>().value(),
+        **context.GetResource<internal::CachePoolResource>().value(), kvs,
+        /*config_state=*/
+        internal::MakeIntrusivePtr<ConfigState>());
+
+    TENSORSTORE_ASSIGN_OR_RETURN(auto manifest_with_time,
+                                 io_handle->GetManifest(absl::Now()).result());
+
+    if (!manifest_with_time.manifest) {
+      return absl::NotFoundError("Manifest not found");
+    }
+    PrintValue(Dump(*manifest_with_time.manifest));
     return absl::OkStatus();
   }
 

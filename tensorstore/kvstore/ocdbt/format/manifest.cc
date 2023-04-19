@@ -157,14 +157,25 @@ bool ReadManifestVersionTreeNodes(
   return true;
 }
 
-Result<absl::Cord> EncodeManifest(const Manifest& manifest) {
+Result<absl::Cord> EncodeManifest(const Manifest& manifest,
+                                  bool encode_as_single) {
 #ifndef NDEBUG
-  CheckManifestInvariants(manifest);
+  CheckManifestInvariants(manifest, encode_as_single);
 #endif
   return EncodeWithOptionalCompression(
       manifest.config, kManifestMagic, kManifestFormatVersion,
       [&](riegeli::Writer& writer) -> bool {
-        if (!ConfigCodec{}(writer, manifest.config)) return false;
+        if (encode_as_single) {
+          Config new_config = manifest.config;
+          new_config.manifest_kind = ManifestKind::kSingle;
+          if (!ConfigCodec{}(writer, new_config)) return false;
+        } else {
+          if (!ConfigCodec{}(writer, manifest.config)) return false;
+          if (manifest.config.manifest_kind != ManifestKind::kSingle) {
+            // This is a config-only manifest.
+            return true;
+          }
+        }
         DataFileTableBuilder data_file_table;
         internal_ocdbt::AddDataFiles(data_file_table, manifest.versions);
         internal_ocdbt::AddDataFiles(data_file_table,
@@ -192,6 +203,10 @@ Result<Manifest> DecodeManifest(const absl::Cord& encoded) {
       encoded, kManifestMagic, kManifestFormatVersion,
       [&](riegeli::Reader& reader, uint32_t version) -> bool {
         if (!ConfigCodec{}(reader, manifest.config)) return false;
+        if (manifest.config.manifest_kind != ManifestKind::kSingle) {
+          // This is a config-only manifest.
+          return true;
+        }
         DataFileTable data_file_table;
         if (!ReadDataFileTable(reader, /*base_path=*/{}, data_file_table)) {
           return false;
@@ -224,25 +239,38 @@ bool operator==(const Manifest& a, const Manifest& b) {
 }
 
 std::ostream& operator<<(std::ostream& os, const Manifest& e) {
-  return os << "{config=" << e.config
-            << ", versions=" << tensorstore::span(e.versions)
-            << ", version_tree_nodes="
-            << tensorstore::span(e.version_tree_nodes) << "}";
+  os << "{config=" << e.config;
+  if (e.config.manifest_kind == ManifestKind::kSingle) {
+    os << ", versions=" << tensorstore::span(e.versions)
+       << ", version_tree_nodes=" << tensorstore::span(e.version_tree_nodes);
+  }
+  return os << "}";
 }
 
 std::string GetManifestPath(std::string_view base_path) {
-  return tensorstore::internal::JoinPath(base_path, "manifest.ocdbt");
+  return tensorstore::StrCat(base_path, "manifest.ocdbt");
+}
+
+std::string GetNumberedManifestPath(std::string_view base_path,
+                                    GenerationNumber generation_number) {
+  return absl::StrFormat("%smanifest.%016x", base_path, generation_number);
 }
 
 #ifndef NDEBUG
-void CheckManifestInvariants(const Manifest& manifest) {
+void CheckManifestInvariants(const Manifest& manifest, bool assume_single) {
   assert(manifest.config.version_tree_arity_log2 > 0);
   assert(manifest.config.version_tree_arity_log2 <= kMaxVersionTreeArityLog2);
-  TENSORSTORE_CHECK_OK(ValidateVersionTreeLeafNodeEntries(
-      manifest.config.version_tree_arity_log2, manifest.versions));
-  TENSORSTORE_CHECK_OK(ValidateManifestVersionTreeNodes(
-      manifest.config.version_tree_arity_log2,
-      manifest.versions.back().generation_number, manifest.version_tree_nodes));
+  if (manifest.config.manifest_kind == ManifestKind::kSingle || assume_single) {
+    TENSORSTORE_CHECK_OK(ValidateVersionTreeLeafNodeEntries(
+        manifest.config.version_tree_arity_log2, manifest.versions));
+    TENSORSTORE_CHECK_OK(ValidateManifestVersionTreeNodes(
+        manifest.config.version_tree_arity_log2,
+        manifest.versions.back().generation_number,
+        manifest.version_tree_nodes));
+  } else {
+    assert(manifest.versions.empty());
+    assert(manifest.version_tree_nodes.empty());
+  }
 }
 #endif  // NDEBUG
 

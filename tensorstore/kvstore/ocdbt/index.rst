@@ -3,10 +3,6 @@
 ``ocdbt`` Key-Value Store driver
 ================================
 
-.. warning::
-
-   This driver is experimental and the format is not yet stable.
-
 The ``ocdbt`` driver implements an Optionally-Cooperative Distributed B+Tree
 (OCDBT) on top of a base key-value store.
 
@@ -42,10 +38,18 @@ of an underlying key-value store:
 
 - :file:`manifest.ocdbt`
 
-  Stores the encoded *manifest*, which specifies the database configuration and
-  the tree of versions.
+  Stores the encoded *manifest*, which specifies the database configuration and,
+  depending on the `manifest kind<ocdbt-manifest-kind>`, optionally the tree of
+  versions.
 
-- :file:`d/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`
+- :file:`manifest.{xxxxxxxxxxxxxxxx}`
+
+  Stores encoded manifests when using the :ref:`numbered manifest
+  kind<ocdbt-manifest-kind-numbered>`.  The :file:`{xxxxxxxxxxxxxxxx}` portion
+  of the filename specifies the latest generation number referenced from the
+  stored manifest, as a 16-digit (0-padded) lowercase hexadecimal number.
+
+- :file:`d/{xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx}`
 
   Log-structured data files that store:
 
@@ -53,7 +57,7 @@ of an underlying key-value store:
   - Encoded version tree nodes;
   - Encoded B+Tree nodes.
 
-  The :file:`xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx` portion of the filename is the
+  The :file:`{xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx}` portion of the filename is the
   lowercase hex representation of a 128-bit random identifier.
 
   .. note::
@@ -70,6 +74,48 @@ version, then traverses the B+tree to locate the leaf node entry for the desired
 key.  If the value is small and is stored inline in the leaf B+tree node, it is
 immediately available from the leaf node.  Otherwise, the leaf node contains a
 pointer to the value and it must be read separately from a data file.
+
+.. _ocdbt-manifest-kind:
+
+Manifest kinds
+^^^^^^^^^^^^^^
+
+Several different ways of storing the manifest are supported, in order to
+support atomic updates despite the various limitations of underlying key-value
+stores.
+
+.. _ocdbt-manifest-kind-single:
+
+Single file
+~~~~~~~~~~~
+
+The *single file* method simply stores the manifest as a single key,
+:file:`manifest.ocdbt`, in the underlying key-value store, that stores both the
+database configuration and the version tree.  This manifest file is replaced on
+each commit to the database.
+
+This is the most efficient method, but is only safe for concurrent writes if the
+underlying key-value store supports atomic writes to a single key.
+
+Supported base key-value stores include:
+- :ref:`file<file-kvstore-driver>`
+- :ref:`gcs<gcs-kvstore-driver>`
+
+.. _ocdbt-manifest-kind-numbered:
+
+Numbered file
+~~~~~~~~~~~~~
+
+The *numbered file* method stores the database configuration in the
+:file:`manifest.ocdbt` file, while the version tree is stored in
+:file:`manifest.{xxxxxxxxxxxxxxxx}` files that are written for each commit.
+
+Only a small number of manifests are retained at any given time; older manifests
+are deleted automatically.
+
+This method is safe for concurrent writes if the underlying key-value store
+supports atomic writes to a single key, conditioned on the key not already being
+present.
 
 .. _ocdbt-manifest-format:
 
@@ -91,10 +137,14 @@ Manifest format
 An encoded manifest consists of:
 
 - :ref:`ocdbt-manifest-header`
-- Body compressed according to the specified :ref:`ocdbt-manifest-compression-format`:
+- Body compressed according to the specified
+  :ref:`ocdbt-manifest-compression-format`:
 
   - :ref:`ocdbt-manifest-config`
-  - :ref:`ocdbt-manifest-version-tree`
+  - :ref:`ocdbt-manifest-version-tree`, present only if
+    :ref:`ocdbt-config-manifest-kind` is
+    :ref:`ocdbt-config-manifest-kind-single`.
+
 - :ref:`ocdbt-manifest-footer`
 
 .. _ocdbt-manifest-header:
@@ -150,6 +200,8 @@ Manifest configuration
 +=============================================+==============+
 |:ref:`ocdbt-config-uuid`                     |``ubyte[16]`` |
 +---------------------------------------------+--------------+
+|:ref:`ocdbt-config-manifest-kind`            ||varint|      |
++---------------------------------------------+--------------+
 |:ref:`ocdbt-config-max-inline-value-bytes`   ||varint|      |
 +---------------------------------------------+--------------+
 |:ref:`ocdbt-config-max-decoded-node-bytes`   ||varint|      |
@@ -166,6 +218,30 @@ Manifest configuration
 ``uuid``
   Unique 128-bit identifier for the database.  If not specified explicitly, is
   randomly generated when the database is first created.
+
+.. _ocdbt-config-manifest-kind:
+
+``manifest_kind``
+  Specifies the kind of manifest that is present.  Valid values are:
+
+  .. _ocdbt-config-manifest-kind-single:
+
+  ``0`` (``single``)
+    Both the :ref:`configuration<ocdbt-manifest-config>` and :ref:`version
+    tree<ocdbt-manifest-version-tree>` are present in the manifest.  When using
+    the :ref:`single file<ocdbt-manifest-kind-single>` manifest kind, this is
+    set in the :file:`manifest.ocdbt` file.  When using :ref:`numbered
+    file<ocdbt-manifest-kind-numbered>` manifest kind, this is set in the
+    :file:`manifest.{xxxxxxxxxxxxxxxx}` files.
+
+  .. _ocdbt-config-manifest-kind-numbered:
+
+  ``1`` (``numbered``)
+    Indicates the :ref:`numbered file<ocdbt-manifest-kind-numbered>` manifest
+    kind.  This manifest stores only the
+    :ref:`configuration<ocdbt-manifest-config>`.  The :ref:`version
+    tree<ocdbt-manifest-version-tree>` must be retrieved from the numbered
+    :file:`manifest.{xxxxxxxxxxxxxxxx}` files.
 
 .. _ocdbt-config-max-inline-value-bytes:
 

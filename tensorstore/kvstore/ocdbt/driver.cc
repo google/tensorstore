@@ -134,6 +134,11 @@ Future<kvstore::DriverPtr> OcdbtDriverSpec::DoOpen() const {
           kvstore::KvStore& base_kvstore) -> Result<kvstore::DriverPtr> {
         auto driver = internal::MakeIntrusivePtr<OcdbtDriver>();
         driver->base_ = std::move(base_kvstore);
+
+        auto supported_manifest_features =
+            driver->base_.driver->GetSupportedFeatures(KeyRange::Prefix(
+                tensorstore::StrCat(driver->base_.path, "manifest.")));
+
         driver->cache_pool_ = spec->data_.cache_pool;
         driver->data_copy_concurrency_ = spec->data_.data_copy_concurrency;
         driver->experimental_read_coalescing_threshold_bytes_ =
@@ -141,7 +146,8 @@ Future<kvstore::DriverPtr> OcdbtDriverSpec::DoOpen() const {
         driver->io_handle_ = internal_ocdbt::MakeIoHandle(
             driver->data_copy_concurrency_, **driver->cache_pool_,
             driver->base_,
-            internal::MakeIntrusivePtr<ConfigState>(spec->data_.config),
+            internal::MakeIntrusivePtr<ConfigState>(
+                spec->data_.config, supported_manifest_features),
             driver->experimental_read_coalescing_threshold_bytes_);
         driver->btree_writer_ =
             MakeNonDistributedBtreeWriter(driver->io_handle_);

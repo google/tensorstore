@@ -48,8 +48,20 @@ struct Uuid {
 /// These options impact how data is written, and therefore must be known before
 /// any data can be written.
 struct Config {
+  enum class ManifestKind {
+    kSingle = 0,
+    kNumbered = 1,
+  };
+
+  constexpr static ManifestKind kMaxManifestKind = ManifestKind::kNumbered;
+
+  friend std::ostream& operator<<(std::ostream& os, ManifestKind);
+
   /// Unique identifier of the database.
   Uuid uuid;
+
+  /// Specifies how the version tree is stored.
+  ManifestKind manifest_kind = ManifestKind::kSingle;
 
   /// Maximum value size in bytes that will be stored inline within a leaf node.
   uint32_t max_inline_value_bytes = 100;
@@ -90,6 +102,8 @@ struct Config {
   friend bool operator!=(const Config& a, const Config& b) { return !(a == b); }
   friend std::ostream& operator<<(std::ostream& os, const Config& x);
 };
+
+using ManifestKind = Config::ManifestKind;
 
 constexpr size_t kMaxInlineValueLength = 1024 * 1024;
 
