@@ -56,6 +56,7 @@ namespace jb = tensorstore::internal_json_binding;
 using ::tensorstore::internal_kvstore::DeleteRangeEntry;
 using ::tensorstore::internal_kvstore::kReadModifyWrite;
 using ::tensorstore::kvstore::ReadResult;
+using ::tensorstore::kvstore::SupportedFeatures;
 
 TimestampedStorageGeneration GenerationNow(StorageGeneration generation) {
   return TimestampedStorageGeneration{std::move(generation), absl::Now()};
@@ -206,6 +207,12 @@ class MemoryDriver
     // inheritance.
     spec = spec_;
     return absl::Status();
+  }
+
+  SupportedFeatures GetSupportedFeatures(
+      const KeyRange& key_range) const final {
+    return SupportedFeatures::kSingleKeyAtomicReadModifyWrite |
+           SupportedFeatures::kAtomicWriteWithoutOverwrite;
   }
 
   /// In simple cases, such as the "memory" driver, the `Driver` can simply

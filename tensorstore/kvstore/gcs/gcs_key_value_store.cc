@@ -106,6 +106,7 @@ using ::tensorstore::internal_storage_gcs::RateLimiter;
 using ::tensorstore::internal_storage_gcs::RateLimiterNode;
 using ::tensorstore::kvstore::Key;
 using ::tensorstore::kvstore::ListOptions;
+using ::tensorstore::kvstore::SupportedFeatures;
 
 #ifndef TENSORSTORE_INTERNAL_GCS_LOG_REQUESTS
 #define TENSORSTORE_INTERNAL_GCS_LOG_REQUESTS 0
@@ -368,6 +369,12 @@ class GcsKeyValueStore
 
   std::string DescribeKey(std::string_view key) override {
     return GetGcsUrl(spec_.bucket, key);
+  }
+
+  SupportedFeatures GetSupportedFeatures(
+      const KeyRange& key_range) const final {
+    return SupportedFeatures::kSingleKeyAtomicReadModifyWrite |
+           SupportedFeatures::kAtomicWriteWithoutOverwrite;
   }
 
   // Apply default backoff/retry logic to the task.

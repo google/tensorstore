@@ -171,6 +171,7 @@ tensorstore_cc_library(
         "read_result.h",
         "registry.h",
         "spec.h",
+        "supported_features.h",
         "transaction.h",
         "url_registry.h",
     ],

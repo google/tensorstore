@@ -111,6 +111,9 @@ class OcdbtDriver
 
   absl::Status GetBoundSpecData(OcdbtDriverSpecData& spec) const;
 
+  kvstore::SupportedFeatures GetSupportedFeatures(
+      const KeyRange& key_range) const final;
+
   const Executor& executor() { return data_copy_concurrency_->executor; }
 
   IoHandle::Ptr io_handle_;

@@ -191,6 +191,12 @@ absl::Status OcdbtDriver::GetBoundSpecData(OcdbtDriverSpecData& spec) const {
   return absl::Status();
 }
 
+kvstore::SupportedFeatures OcdbtDriver::GetSupportedFeatures(
+    const KeyRange& key_range) const {
+  return kvstore::SupportedFeatures::kSingleKeyAtomicReadModifyWrite |
+         kvstore::SupportedFeatures::kAtomicWriteWithoutOverwrite;
+}
+
 Future<kvstore::ReadResult> OcdbtDriver::Read(kvstore::Key key,
                                               kvstore::ReadOptions options) {
   ocdbt_read.Increment();
