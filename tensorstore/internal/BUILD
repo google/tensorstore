@@ -1881,3 +1881,19 @@ tensorstore_cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+tensorstore_cc_library(
+    name = "ref_counted_string",
+    srcs = ["ref_counted_string.cc"],
+    hdrs = ["ref_counted_string.h"],
+)
+
+tensorstore_cc_test(
+    name = "ref_counted_string_test",
+    size = "small",
+    srcs = ["ref_counted_string_test.cc"],
+    deps = [
+        ":ref_counted_string",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
