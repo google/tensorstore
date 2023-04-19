@@ -44,14 +44,6 @@
 namespace tensorstore {
 namespace internal_ocdbt {
 namespace {
-size_t FindCommonPrefixLength(std::string_view a, std::string_view b) {
-  size_t max_length = std::min(a.size(), b.size());
-  for (size_t prefix_length = 0; prefix_length < max_length; ++prefix_length) {
-    if (a[prefix_length] != b[prefix_length]) return prefix_length;
-  }
-  return max_length;
-}
-
 size_t FindExistingNotExistingCommonPrefixLength(
     std::string_view existing_prefix, std::string_view existing_key,
     std::string_view new_key) {
@@ -188,6 +180,13 @@ bool EncodeEntriesInner(
     }
   }
 
+  DataFileTableBuilder data_file_table;
+  for (const auto& entry : entries) {
+    internal_ocdbt::AddDataFiles(data_file_table, entry.entry);
+  }
+
+  if (!data_file_table.Finalize(writer)) return false;
+
   // num_entries
   if (!riegeli::WriteVarint32(entries.size(), writer)) return false;
 
@@ -267,9 +266,10 @@ bool EncodeEntriesInner(
   }
 
   if constexpr (std::is_same_v<Entry, LeafNodeEntry>) {
-    if (!LeafNodeValueReferenceArrayCodec{[](auto& e) -> decltype(auto) {
-          return (e.entry.value_reference);
-        }}(writer, entries)) {
+    if (!LeafNodeValueReferenceArrayCodec{data_file_table,
+                                          [](auto& e) -> decltype(auto) {
+                                            return (e.entry.value_reference);
+                                          }}(writer, entries)) {
       return false;
     }
 
@@ -281,9 +281,10 @@ bool EncodeEntriesInner(
       }
     }
   } else {
-    if (!BtreeNodeReferenceArrayCodec{[](auto& e) -> decltype(auto) {
-          return (e.entry.node);
-        }}(writer, entries)) {
+    if (!BtreeNodeReferenceArrayCodec{data_file_table,
+                                      [](auto& e) -> decltype(auto) {
+                                        return (e.entry.node);
+                                      }}(writer, entries)) {
       return false;
     }
   }

@@ -30,6 +30,7 @@
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
 #include "tensorstore/kvstore/ocdbt/format/codec_util.h"
 #include "tensorstore/kvstore/ocdbt/format/config.h"
+#include "tensorstore/kvstore/ocdbt/format/data_file_id_codec.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference_codec.h"
 #include "tensorstore/kvstore/ocdbt/format/version_tree_codec.h"
@@ -77,10 +78,12 @@ GetVersionTreeLeafNodeRangeContainingGeneration(
 
 [[nodiscard]] bool ReadVersionTreeLeafNode(
     VersionTreeArityLog2 version_tree_arity_log2, riegeli::Reader& reader,
+    const DataFileTable& data_file_table,
     VersionTreeNode::LeafNodeEntries& entries) {
   const size_t max_num_entries = static_cast<size_t>(1)
                                  << version_tree_arity_log2;
-  if (!VersionTreeLeafNodeEntryArrayCodec{max_num_entries}(reader, entries)) {
+  if (!VersionTreeLeafNodeEntryArrayCodec<DataFileTable>{
+          data_file_table, max_num_entries}(reader, entries)) {
     return false;
   }
   TENSORSTORE_RETURN_IF_ERROR(
@@ -91,10 +94,12 @@ GetVersionTreeLeafNodeRangeContainingGeneration(
 
 [[nodiscard]] bool WriteVersionTreeNodeEntries(
     const Config& config, riegeli::Writer& writer,
+    const DataFileTableBuilder& data_file_table,
     const VersionTreeNode::LeafNodeEntries& entries) {
   assert(!entries.empty());
   const size_t max_num_entries = size_t(1) << config.version_tree_arity_log2;
-  if (!VersionTreeLeafNodeEntryArrayCodec{max_num_entries}(writer, entries)) {
+  if (!VersionTreeLeafNodeEntryArrayCodec<DataFileTableBuilder>{
+          data_file_table, max_num_entries}(writer, entries)) {
     return false;
   }
   return true;
@@ -102,10 +107,12 @@ GetVersionTreeLeafNodeRangeContainingGeneration(
 
 [[nodiscard]] bool WriteVersionTreeNodeEntries(
     const Config& config, riegeli::Writer& writer,
+    const DataFileTableBuilder& data_file_table,
     const VersionTreeNode::InteriorNodeEntries& entries) {
   const size_t max_num_entries = size_t(1) << config.version_tree_arity_log2;
-  if (!VersionTreeInteriorNodeEntryArrayCodec{
-          max_num_entries, /*include_entry_height=*/false}(writer, entries)) {
+  if (!VersionTreeInteriorNodeEntryArrayCodec<DataFileTableBuilder>{
+          data_file_table, max_num_entries, /*include_entry_height=*/false}(
+          writer, entries)) {
     return false;
   }
   return true;
@@ -113,7 +120,8 @@ GetVersionTreeLeafNodeRangeContainingGeneration(
 
 [[nodiscard]] bool ReadVersionTreeInteriorNode(
     VersionTreeArityLog2 version_tree_arity_log2, riegeli::Reader& reader,
-    VersionTreeHeight height, VersionTreeNode::InteriorNodeEntries& entries) {
+    const DataFileTable& data_file_table, VersionTreeHeight height,
+    VersionTreeNode::InteriorNodeEntries& entries) {
   auto max_height = GetMaxVersionTreeHeight(version_tree_arity_log2);
   if (height > max_height) {
     reader.Fail(absl::DataLossError(absl::StrFormat(
@@ -122,8 +130,9 @@ GetVersionTreeLeafNodeRangeContainingGeneration(
     return false;
   }
   const size_t max_arity = (size_t(1) << version_tree_arity_log2);
-  if (!VersionTreeInteriorNodeEntryArrayCodec{
-          max_arity, /*include_entry_height=*/false}(reader, entries)) {
+  if (!VersionTreeInteriorNodeEntryArrayCodec<DataFileTable>{
+          data_file_table, max_arity, /*include_entry_height=*/false}(
+          reader, entries)) {
     return false;
   }
 
@@ -138,7 +147,8 @@ GetVersionTreeLeafNodeRangeContainingGeneration(
   return true;
 }
 
-Result<VersionTreeNode> DecodeVersionTreeNode(const absl::Cord& encoded) {
+Result<VersionTreeNode> DecodeVersionTreeNode(const absl::Cord& encoded,
+                                              const BasePath& base_path) {
   VersionTreeNode node;
   auto status = DecodeWithOptionalCompression(
       encoded, kVersionTreeNodeMagic, kVersionTreeNodeFormatVersion,
@@ -148,13 +158,18 @@ Result<VersionTreeNode> DecodeVersionTreeNode(const absl::Cord& encoded) {
             !reader.ReadByte(node.height)) {
           return false;
         }
+        DataFileTable data_file_table;
+        if (!ReadDataFileTable(reader, base_path, data_file_table)) {
+          return false;
+        }
         if (node.height == 0) {
           return ReadVersionTreeLeafNode(
-              node.version_tree_arity_log2, reader,
+              node.version_tree_arity_log2, reader, data_file_table,
               node.entries.emplace<VersionTreeNode::LeafNodeEntries>());
         } else {
           return ReadVersionTreeInteriorNode(
-              node.version_tree_arity_log2, reader, node.height,
+              node.version_tree_arity_log2, reader, data_file_table,
+              node.height,
               node.entries.emplace<VersionTreeNode::InteriorNodeEntries>());
         }
       });
@@ -182,9 +197,17 @@ Result<absl::Cord> EncodeVersionTreeNode(const Config& config,
             !VersionTreeHeightCodec{}(writer, node.height)) {
           return false;
         }
+        DataFileTableBuilder data_file_table;
+        std::visit(
+            [&](auto& entries) {
+              internal_ocdbt::AddDataFiles(data_file_table, entries);
+            },
+            node.entries);
+        if (!data_file_table.Finalize(writer)) return false;
         return std::visit(
             [&](auto& entries) {
-              return WriteVersionTreeNodeEntries(config, writer, entries);
+              return WriteVersionTreeNodeEntries(config, writer,
+                                                 data_file_table, entries);
             },
             node.entries);
       });

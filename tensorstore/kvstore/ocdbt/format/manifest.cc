@@ -30,6 +30,7 @@
 #include "tensorstore/kvstore/ocdbt/format/codec_util.h"
 #include "tensorstore/kvstore/ocdbt/format/config.h"
 #include "tensorstore/kvstore/ocdbt/format/config_codec.h"
+#include "tensorstore/kvstore/ocdbt/format/data_file_id_codec.h"
 #include "tensorstore/kvstore/ocdbt/format/version_tree.h"
 #include "tensorstore/kvstore/ocdbt/format/version_tree_codec.h"
 #include "tensorstore/util/result.h"
@@ -133,13 +134,14 @@ absl::Status ValidateManifestVersionTreeNodes(
 
 bool ReadManifestVersionTreeNodes(
     riegeli::Reader& reader, VersionTreeArityLog2 version_tree_arity_log2,
+    const DataFileTable& data_file_table,
     std::vector<VersionNodeReference>& version_tree_nodes,
     GenerationNumber last_generation_number) {
   const size_t max_num_entries =
       GetMaxVersionTreeHeight(version_tree_arity_log2);
-  if (!VersionTreeInteriorNodeEntryArrayCodec{
-          max_num_entries, /*include_entry_height=*/true}(reader,
-                                                          version_tree_nodes)) {
+  if (!VersionTreeInteriorNodeEntryArrayCodec<DataFileTable>{
+          data_file_table, max_num_entries, /*include_entry_height=*/true}(
+          reader, version_tree_nodes)) {
     return false;
   }
   TENSORSTORE_RETURN_IF_ERROR(
@@ -157,12 +159,19 @@ Result<absl::Cord> EncodeManifest(const Manifest& manifest) {
       manifest.config, kManifestMagic, kManifestFormatVersion,
       [&](riegeli::Writer& writer) -> bool {
         if (!ConfigCodec{}(writer, manifest.config)) return false;
+        DataFileTableBuilder data_file_table;
+        internal_ocdbt::AddDataFiles(data_file_table, manifest.versions);
+        internal_ocdbt::AddDataFiles(data_file_table,
+                                     manifest.version_tree_nodes);
+        if (!data_file_table.Finalize(writer)) return false;
         if (!WriteVersionTreeNodeEntries(manifest.config, writer,
-                                         manifest.versions)) {
+                                         data_file_table, manifest.versions)) {
           return false;
         }
-        if (!VersionTreeInteriorNodeEntryArrayCodec{
-                /*max_num_entries=*/GetMaxVersionTreeHeight(
+        if (!VersionTreeInteriorNodeEntryArrayCodec<DataFileTableBuilder>{
+                data_file_table,
+                /*max_num_entries=*/
+                GetMaxVersionTreeHeight(
                     manifest.config.version_tree_arity_log2),
                 /*include_height=*/true}(writer, manifest.version_tree_nodes)) {
           return false;
@@ -177,13 +186,18 @@ Result<Manifest> DecodeManifest(const absl::Cord& encoded) {
       encoded, kManifestMagic, kManifestFormatVersion,
       [&](riegeli::Reader& reader, uint32_t version) -> bool {
         if (!ConfigCodec{}(reader, manifest.config)) return false;
+        DataFileTable data_file_table;
+        if (!ReadDataFileTable(reader, /*base_path=*/{}, data_file_table)) {
+          return false;
+        }
         if (!ReadVersionTreeLeafNode(manifest.config.version_tree_arity_log2,
-                                     reader, manifest.versions)) {
+                                     reader, data_file_table,
+                                     manifest.versions)) {
           return false;
         }
         if (!ReadManifestVersionTreeNodes(
                 reader, manifest.config.version_tree_arity_log2,
-                manifest.version_tree_nodes,
+                data_file_table, manifest.version_tree_nodes,
                 manifest.versions.back().generation_number)) {
           return false;
         }

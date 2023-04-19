@@ -100,10 +100,8 @@ class IoHandleImpl : public IoHandle {
   Future<kvstore::ReadResult> ReadIndirectData(
       const IndirectDataReference& ref,
       kvstore::ReadOptions read_options) const final {
-    return indirect_data_kvstore_driver_->Read(
-        std::string(reinterpret_cast<const char*>(&ref),
-                    sizeof(IndirectDataReference)),
-        std::move(read_options));
+    return indirect_data_kvstore_driver_->Read(ref.EncodeCacheKey(),
+                                               std::move(read_options));
   }
 
   Future<const ManifestWithTime> ReadModifyWriteManifest(
@@ -148,9 +146,8 @@ IoHandle::Ptr MakeIoHandle(
   impl->base_kvstore_ = base_kvstore;
   impl->config_state = std::move(config_state);
   impl->executor = data_copy_concurrency->executor;
-  auto data_directory = GetDataDirectoryPath(base_kvstore.path);
   auto data_kvstore =
-      kvstore::KvStore(driver_with_optional_coalescing, data_directory);
+      kvstore::KvStore(driver_with_optional_coalescing, base_kvstore.path);
   impl->indirect_data_writer_ =
       internal_ocdbt::MakeIndirectDataWriter(data_kvstore);
   impl->indirect_data_kvstore_driver_ =

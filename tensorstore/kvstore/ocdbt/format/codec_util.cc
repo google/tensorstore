@@ -14,6 +14,7 @@
 
 #include "tensorstore/kvstore/ocdbt/format/codec_util.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <limits>
 #include <string>
@@ -235,6 +236,14 @@ absl::Status FinalizeWriter(riegeli::Writer& writer, bool success) {
     return absl::OkStatus();
   }
   return writer.status();
+}
+
+size_t FindCommonPrefixLength(std::string_view a, std::string_view b) {
+  size_t max_length = std::min(a.size(), b.size());
+  for (size_t prefix_length = 0; prefix_length < max_length; ++prefix_length) {
+    if (a[prefix_length] != b[prefix_length]) return prefix_length;
+  }
+  return max_length;
 }
 
 }  // namespace internal_ocdbt

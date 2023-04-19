@@ -91,22 +91,22 @@ absl::Status RunDumpCommand() {
         "Invalid node type: ", tensorstore::QuoteString(node_ref.label)));
   }
 
-  auto indirect_kvs = MakeIndirectDataKvStoreDriver(
-      KvStore{kvs.driver, GetDataDirectoryPath(kvs.path)});
-
-  std::string_view indirect_kvs_key(
-      reinterpret_cast<const char*>(&node_ref.location),
-      sizeof(node_ref.location));
+  auto indirect_kvs = MakeIndirectDataKvStoreDriver(kvs);
 
   TENSORSTORE_ASSIGN_OR_RETURN(
-      auto encoded, ReadKey(indirect_kvs.get(), std::string(indirect_kvs_key)));
+      auto encoded,
+      ReadKey(indirect_kvs.get(), node_ref.location.EncodeCacheKey()));
   if (node_ref.label == "value") {
     std::cout << encoded;
   } else if (node_ref.label == "btreenode") {
-    TENSORSTORE_ASSIGN_OR_RETURN(auto node, DecodeBtreeNode(encoded));
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto node,
+        DecodeBtreeNode(encoded, node_ref.location.file_id.base_path));
     PrintValue(Dump(node));
   } else {
-    TENSORSTORE_ASSIGN_OR_RETURN(auto node, DecodeVersionTreeNode(encoded));
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto node,
+        DecodeVersionTreeNode(encoded, node_ref.location.file_id.base_path));
     PrintValue(Dump(node));
   }
   return absl::OkStatus();

@@ -31,6 +31,7 @@
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
 #include "tensorstore/kvstore/ocdbt/format/codec_util.h"
 #include "tensorstore/kvstore/ocdbt/format/config.h"
+#include "tensorstore/kvstore/ocdbt/format/data_file_id_codec.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference_codec.h"
 
@@ -75,13 +76,15 @@ BtreeNodeStatisticsArrayCodec(Getter) -> BtreeNodeStatisticsArrayCodec<Getter>;
 
 using KeyLengthCodec = VarintCodec<KeyLength>;
 
-template <typename Getter>
+template <typename DataFileTable, typename Getter>
 struct BtreeNodeReferenceArrayCodec {
+  const DataFileTable& data_file_table;
   Getter getter;
   bool allow_missing = false;
   template <typename IO, typename Vec>
   [[nodiscard]] bool operator()(IO& io, Vec&& vec) const {
-    if (!IndirectDataReferenceArrayCodec{[&](auto& entry) -> decltype(auto) {
+    if (!IndirectDataReferenceArrayCodec{data_file_table,
+                                         [&](auto& entry) -> decltype(auto) {
                                            return (getter(entry).location);
                                          },
                                          allow_missing}(io, vec)) {
@@ -100,12 +103,14 @@ struct BtreeNodeReferenceArrayCodec {
   }
 };
 
-template <typename Getter>
-BtreeNodeReferenceArrayCodec(Getter, bool allow_missing = false)
-    -> BtreeNodeReferenceArrayCodec<Getter>;
+template <typename DataFileTable, typename Getter>
+BtreeNodeReferenceArrayCodec(const DataFileTable&, Getter,
+                             bool allow_missing = false)
+    -> BtreeNodeReferenceArrayCodec<DataFileTable, Getter>;
 
-template <typename Getter>
+template <typename DataFileTable, typename Getter>
 struct LeafNodeValueReferenceArrayCodec {
+  const DataFileTable& data_file_table;
   Getter getter;
   template <typename Entries>
   [[nodiscard]] bool operator()(riegeli::Reader& reader,
@@ -130,7 +135,10 @@ struct LeafNodeValueReferenceArrayCodec {
       auto& value_reference = getter(entry);
       auto& data_ref = std::get<IndirectDataReference>(value_reference);
       if (data_ref.length & 1) {
-        if (!DataFileIdCodec{}(reader, data_ref.file_id)) return false;
+        if (!DataFileIdCodec<riegeli::Reader>{data_file_table}(
+                reader, data_ref.file_id)) {
+          return false;
+        }
       }
     }
 
@@ -180,7 +188,10 @@ struct LeafNodeValueReferenceArrayCodec {
       auto& value_reference = getter(entry);
       if (auto* data_ref =
               std::get_if<IndirectDataReference>(&value_reference)) {
-        if (!DataFileIdCodec{}(writer, data_ref->file_id)) return false;
+        if (!DataFileIdCodec<riegeli::Writer>{data_file_table}(
+                writer, data_ref->file_id)) {
+          return false;
+        }
       }
     }
 
@@ -204,9 +215,26 @@ struct LeafNodeValueReferenceArrayCodec {
   }
 };
 
-template <typename Getter>
-LeafNodeValueReferenceArrayCodec(Getter)
-    -> LeafNodeValueReferenceArrayCodec<Getter>;
+template <typename DataFileTable, typename Getter>
+LeafNodeValueReferenceArrayCodec(const DataFileTable&, Getter)
+    -> LeafNodeValueReferenceArrayCodec<DataFileTable, Getter>;
+
+template <typename Key>
+void AddDataFiles(DataFileTableBuilder& data_file_table,
+                  const InteriorNodeEntryData<Key>& entry) {
+  internal_ocdbt::AddDataFiles(data_file_table, entry.node.location);
+}
+
+inline void AddDataFiles(DataFileTableBuilder& data_file_table,
+                         const LeafNodeValueReference& value) {
+  auto* location = std::get_if<IndirectDataReference>(&value);
+  if (location) internal_ocdbt::AddDataFiles(data_file_table, *location);
+}
+
+inline void AddDataFiles(DataFileTableBuilder& data_file_table,
+                         const LeafNodeEntry& entry) {
+  internal_ocdbt::AddDataFiles(data_file_table, entry.value_reference);
+}
 
 }  // namespace internal_ocdbt
 }  // namespace tensorstore

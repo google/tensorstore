@@ -208,22 +208,26 @@ struct BtreeNode {
   };
 };
 
-/// Approximate size in bytes of the in-memory representation of a leaf node
-/// entry, excluding the variable-length key and value data.
+/// Functions for estimating the size of the in-memory representation of a
+/// B+tree node entry.
 ///
 /// This is used to calculate when to split nodes.  For that reason, it should
-/// be stable, and is therefore hard coded rather than simply set to
-constexpr size_t kLeafNodeFixedSize = 8     // generation number
-                                      + 8   // key pointer
+/// be stable, and is therefore hard coded rather than simply set to the actual
+/// in-memory size.
+///
+/// This counts the full size of each `DataFileId`, even though the `DataFileId`
+/// may often be shared, to simplify the splitting calculations.
+
+/// Approximate size in bytes of the in-memory representation of a leaf node
+/// entry, excluding the variable-length key and value data.
+constexpr size_t kLeafNodeFixedSize = 8     // key pointer
                                       + 8;  // key size
 
 constexpr size_t kInteriorNodeFixedSize =
-    8                               // generation number
-    + 8                             // key pointer
+    +8                              // key pointer
     + 8                             // key size
     + 8                             // child data length
     + 8                             // child data offset
-    + sizeof(DataFileId)            // child file_id
     + sizeof(BtreeNodeStatistics);  // statistics
 
 /// Estimates the approximate size in bytes on the in-memory representation of
@@ -232,9 +236,10 @@ inline size_t GetLeafNodeDataSize(const LeafNodeEntry& entry) {
   if (auto* value = std::get_if<absl::Cord>(&entry.value_reference)) {
     return value->size();
   } else {
-    return sizeof(DataFileId)  // DataFileId
-           + 8                 // offset
-           + 8;                // length
+    auto& ref = std::get<IndirectDataReference>(entry.value_reference);
+    return 8    // offset
+           + 8  // length
+           + ref.file_id.size();
   }
 }
 
@@ -248,7 +253,7 @@ inline size_t EstimateDecodedEntrySizeExcludingKey(const LeafNodeEntry& entry) {
 /// an interior node entry.
 inline size_t EstimateDecodedEntrySizeExcludingKey(
     const InteriorNodeEntry& entry) {
-  return kInteriorNodeFixedSize;
+  return kInteriorNodeFixedSize + entry.node.location.file_id.size();
 }
 
 /// Validates that a b+tree node has the expected height and min key.
@@ -259,7 +264,8 @@ absl::Status ValidateBtreeNodeReference(const BtreeNode& node,
                                         std::string_view inclusive_min_key);
 
 /// Decodes a b+tree node.
-Result<BtreeNode> DecodeBtreeNode(const absl::Cord& encoded);
+Result<BtreeNode> DecodeBtreeNode(const absl::Cord& encoded,
+                                  const BasePath& base_path);
 
 /// Function object where `ComparePrefixedKeyToUnprefixedKey{prefix}(a, b)`
 /// returns `(prefix + a).compare(b)`.

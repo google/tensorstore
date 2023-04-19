@@ -38,6 +38,14 @@ underlying key-value store:
   The :file:`xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx` portion of the filename is the
   lowercase hex representation of a 128-bit random identifier.
 
+  .. note::
+
+     The format allows the data files to actually have any arbitrary relative
+     path; the :file:`d/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx` naming scheme is used
+     when writing new data files, but other paths may be used in
+     specially-constructed OCDBT databases to refer to exsiting data (both in
+     OCDBT format and in other formats).
+
 To read a key from the database, a client first reads the manifest file, then
 traverses the version tree to locate the root B+tree node of the desired
 version, then traverses the B+tree to locate the leaf node entry for the desired
@@ -193,13 +201,22 @@ B+tree roots and version tree nodes.
 
 .. |generation_number_format| replace:: |varint|
 
-+------------------------------------------------------+---------------------------------------------------+
-|Field                                                 |Binary format                                      |
-+======================================================+===================================================+
-|:ref:`ocdbt-manifest-version-tree-inline-versions`    |:ref:`ocdbt-version-tree-leaf-node-entry-array`    |
-+------------------------------------------------------+---------------------------------------------------+
-|:ref:`ocdbt-manifest-version-tree-version-nodes`      |:ref:`ocdbt-version-tree-interior-node-entry-array`|
-+------------------------------------------------------+---------------------------------------------------+
++--------------------------------------------------+---------------------------------------------------+
+|Field                                             |Binary format                                      |
++==================================================+===================================================+
+|:ref:`ocdbt-manifest-data-file-table`             |:ref:`ocdbt-data-file-table`                       |
++--------------------------------------------------+---------------------------------------------------+
+|:ref:`ocdbt-manifest-version-tree-inline-versions`|:ref:`ocdbt-version-tree-leaf-node-entry-array`    |
++--------------------------------------------------+---------------------------------------------------+
+|:ref:`ocdbt-manifest-version-tree-version-nodes`  |:ref:`ocdbt-version-tree-interior-node-entry-array`|
++--------------------------------------------------+---------------------------------------------------+
+
+.. _ocdbt-manifest-data-file-table:
+
+``data_file_table``
+  Table specifying the data files referenced by
+  :ref:`ocdbt-manifest-version-tree-inline-versions` and
+  :ref:`ocdbt-manifest-version-tree-version-nodes`.
 
 .. _ocdbt-manifest-version-tree-inline-versions:
 
@@ -230,6 +247,77 @@ Manifest footer
 
 ``crc32c_checksum``
   CRC-32C checksum of the entire manifest, excluding the checksum itself.
+
+.. _ocdbt-data-file-table:
+
+Data file table format
+^^^^^^^^^^^^^^^^^^^^^^
+
+Logically, the data file table is a list of ``(base_path[i], relative_path[i])``
+pairs of byte strings.  The full data file path, relative to the root of the
+OCDBT database, is ``full_path[i] = transitive_path + base_path[i] + relative_path[i]``, where
+``transitive_path`` is the transitive file path specified by the parent node:
+
+- For the data file table specified in the manifest, the transitive path is the
+  empty string.
+
+- If a node is accessed using a data file path of ``transitive_path +
+  base_path[i] + relative_path[i]``, the transitive path that applies to any
+  child nodes is equal to ``transitive_path + base_path[i]``; that is, the
+  ``base_path[i]`` is the additional transitive portion of the path.
+
+The maximum length of ``full_path[i]`` is 65535 bytes.
+
+Prefix compression is used to encode the combined ``path[i] = base_path[i] +
+relative_path[i]``.
+
++-----------------------------------------------+-------------------------------+------------------------------------------+
+|Field                                          |Binary format                  |Count                                     |
++===============================================+===============================+==========================================+
+|:ref:`ocdbt-data-file-table-num-files`         ||varint|                       |1                                         |
++-----------------------------------------------+-------------------------------+------------------------------------------+
+|:ref:`ocdbt-data-file-table-path-prefix-length`||varint|                       |:ref:`ocdbt-data-file-table-num-files` - 1|
++-----------------------------------------------+-------------------------------+------------------------------------------+
+|:ref:`ocdbt-data-file-table-path-suffix-length`||varint|                       |:ref:`ocdbt-data-file-table-num-files`    |
++-----------------------------------------------+-------------------------------+------------------------------------------+
+|:ref:`ocdbt-data-file-table-base-path-length`  ||varint|                       |:ref:`ocdbt-data-file-table-num-files`    |
++-----------------------------------------------+-------------------------------+------------------------------------------+
+|:ref:`ocdbt-data-file-table-path-suffix`       |``byte[path_suffix_length[i]]``|:ref:`ocdbt-data-file-table-num-files`    |
++-----------------------------------------------+-------------------------------+------------------------------------------+
+
+.. _ocdbt-data-file-table-num-files:
+
+``num_files``
+  Number of data files specified in the table.
+
+.. _ocdbt-data-file-table-path-prefix-length:
+
+``path_prefix_length[i]``
+  Length in bytes of common prefix of ``path[i]`` and ``path[i+1]``.  For the
+  first path, no common prefix is stored, and implicitly
+  ``path_prefix_length[-1]`` is defined to be ``0``.
+
+.. _ocdbt-data-file-table-path-suffix-length:
+
+``path_suffix_length[i]``
+  Length in bytes of ``path_suffix[i]``.  This is equal to ``length(path[i]) -
+  path_prefix_length[i-1]``.
+  
+.. _ocdbt-data-file-table-base-path-length:
+
+``base_path_length[i]``
+  Length in bytes of ``base_path[i]``.  To simplify decoding, it is required
+  that if ``path_prefix_length[i-1] > min(base_path_length[i],
+  base_path_length[i-1])``, then ``base_path[i] = base_path[i-1]``.  That is,
+  the common prefix must not extend past the end of the current or previous base
+  path unless the base path is equal to the previous base path.
+
+.. _ocdbt-data-file-table-path-suffix:
+
+``path_suffix[i]``
+  Path suffix value.  This is equal to ``path[i]`` with the first
+  ``path_prefix_length[i-1]`` bytes excluded.  For ``i = 0``, ``path_suffix[i] =
+  path[i]``.
 
 .. _ocdbt-version-tree:
 
@@ -292,13 +380,15 @@ The remaining data is encoded according to the specified
 Version tree node inner header
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-+-------------------------------------------------+--------------------------+
-|Field                                            |Binary format             |
-+=================================================+==========================+
-|:ref:`ocdbt-version-tree-version-tree-arity-log2`|``uint8``                 |
-+-------------------------------------------------+--------------------------+
-|:ref:`ocdbt-version-tree-height`                 |``uint8``                 |
-+-------------------------------------------------+--------------------------+
++-------------------------------------------------+----------------------------+
+|Field                                            |Binary format               |
++=================================================+============================+
+|:ref:`ocdbt-version-tree-version-tree-arity-log2`|``uint8``                   |
++-------------------------------------------------+----------------------------+
+|:ref:`ocdbt-version-tree-height`                 |``uint8``                   |
++-------------------------------------------------+----------------------------+
+|:ref:`ocdbt-version-tree-data-file-table`        |:ref:`ocdbt-data-file-table`|
++-------------------------------------------------+----------------------------+
 
 .. _ocdbt-version-tree-version-tree-arity-log2:
 
@@ -317,6 +407,11 @@ Version tree node inner header
 
      height * version_tree_arity_log2 < 64
 
+.. _ocdbt-version-tree-data-file-table:
+
+``data_file_table``
+  Table specifying the data files referenced by the node entries.
+
 The format of the remaining data depends on the value of ``height``.
 
 .. _ocdbt-version-tree-leaf-node-entry-array:
@@ -329,7 +424,7 @@ The same encoded representation is used for both the entries of a leaf
 :ref:`ocdbt-manifest-version-tree-inline-versions` specified in the
 :ref:`manfiest<ocdbt-manifest-version-tree>`.
 
-.. |data_file_id_format| replace:: ``ubyte[16]``
+.. |data_file_id_format| replace:: |varint|
 
 .. |data_file_offset_format| replace:: |varint|
 
@@ -411,7 +506,8 @@ The same encoded representation is used for both the entries of a leaf
 .. _ocdbt-version-tree-leaf-data-file-id:
 
 ``data_file_id[i]``
-  Specifies the data file containing the encoded root B+tree node.
+  Specifies the data file containing the encoded root B+tree node, as an index
+  into the :ref:`data file table<ocdbt-data-file-table>`.
 
 .. _ocdbt-version-tree-leaf-data-file-offset:
 
@@ -516,7 +612,8 @@ additional field:
 .. _ocdbt-version-tree-interior-data-file-id:
 
 ``data_file_id[i]``
-  Specifies the data file containing the encoded version tree node.
+  Specifies the data file containing the encoded version tree node, as an index
+  into the :ref:`data file table<ocdbt-data-file-table>`.
 
 .. _ocdbt-version-tree-interior-data-file-offset:
 
@@ -636,18 +733,25 @@ The remaining data is encoded according to the specified
 B+tree node inner header
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-+-----------------------------------+-------------+
-|Field                              |Binary format|
-+===================================+=============+
-|:ref:`ocdbt-btree-node-height`     |``uint8``    |
-+-----------------------------------+-------------+
-|:ref:`ocdbt-btree-node-num-entries`||varint|     |
-+-----------------------------------+-------------+
++---------------------------------------+----------------------------+
+|Field                                  |Binary format               |
++=======================================+============================+
+|:ref:`ocdbt-btree-node-height`         |``uint8``                   |
++---------------------------------------+----------------------------+
+|:ref:`ocdbt-btree-node-data-file-table`|:ref:`ocdbt-data-file-table`|
++---------------------------------------+----------------------------+
+|:ref:`ocdbt-btree-node-num-entries`    ||varint|                    |
++---------------------------------------+----------------------------+
 
 .. _ocdbt-btree-node-height:
 
 ``height``
   Height of this B+tree node.  Leaf nodes have a height of 0.
+
+.. _ocdbt-btree-node-data-file-table:
+
+``data_file_table``
+  Table specifying the data files referenced by the node entries.
 
 .. _ocdbt-btree-node-num-entries:
 
@@ -748,9 +852,9 @@ Leaf B+tree node format (``height = 0``)
 .. _ocdbt-btree-leaf-node-data-file-id:
 
 ``data_file_id[j]``
-  Specifies the dstarting byte offset within ``data_file_id[j]`` of the
-  value for entry ``indirect_values[j]``.  Only stored for entries with
-  out-of-line values.
+  Specifies the data file containing the value for entry ``indirect_values[j]``,
+  as an index into the :ref:`data file table<ocdbt-data-file-table>`.  Only
+  stored for entries with out-of-line values.
 
 .. _ocdbt-btree-leaf-node-data-file-offset:
 
@@ -833,7 +937,8 @@ Interior B+tree node format (``height > 0``)
 .. _ocdbt-btree-interior-node-data-file-id:
 
 ``data_file_id[i]``
-  Specifies the data file containing the encoded child B+tree node.
+  Specifies the data file containing the encoded child B+tree node, as an index
+  into the :ref:`data file table<ocdbt-data-file-table>`.
 
 .. _ocdbt-btree-interior-node-data-file-offset:
 

@@ -31,14 +31,18 @@
 
 namespace {
 
+using ::tensorstore::Result;
 using ::tensorstore::internal_ocdbt::BtreeNode;
 using ::tensorstore::internal_ocdbt::BtreeNodeEncoder;
 using ::tensorstore::internal_ocdbt::Config;
 using ::tensorstore::internal_ocdbt::DecodeBtreeNode;
+using ::tensorstore::internal_ocdbt::EncodedNode;
+using ::tensorstore::internal_ocdbt::InteriorNodeEntry;
 using ::tensorstore::internal_ocdbt::LeafNodeEntry;
 
-void TestBtreeNodeRoundTrip(const Config& config, const BtreeNode& node) {
-  std::visit(
+Result<std::vector<EncodedNode>> EncodeExistingNode(const Config& config,
+                                                    const BtreeNode& node) {
+  return std::visit(
       [&](const auto& entries) {
         using Entry = typename std::decay_t<decltype(entries)>::value_type;
         BtreeNodeEncoder<Entry> encoder(config, /*height=*/node.height,
@@ -47,20 +51,28 @@ void TestBtreeNodeRoundTrip(const Config& config, const BtreeNode& node) {
           encoder.AddEntry(/*existing=*/true, Entry(entry));
         }
 
-        TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-            auto encoded_nodes, encoder.Finalize(/*may_be_root=*/false));
+        return encoder.Finalize(/*may_be_root=*/false);
+      },
+      node.entries);
+}
 
-        ASSERT_EQ(1, encoded_nodes.size());
-        auto& encoded_node = encoded_nodes[0];
-        EXPECT_EQ(node.key_prefix,
-                  encoded_node.info.inclusive_min_key.substr(
-                      0, encoded_node.info.excluded_prefix_length));
-        SCOPED_TRACE(tensorstore::StrCat(
-            "data=",
-            tensorstore::QuoteString(std::string(encoded_node.encoded_node))));
+void TestBtreeNodeRoundTrip(const Config& config, const BtreeNode& node) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto encoded_nodes,
+                                   EncodeExistingNode(config, node));
+  ASSERT_EQ(1, encoded_nodes.size());
+  auto& encoded_node = encoded_nodes[0];
+  EXPECT_EQ(node.key_prefix, encoded_node.info.inclusive_min_key.substr(
+                                 0, encoded_node.info.excluded_prefix_length));
+  SCOPED_TRACE(tensorstore::StrCat(
+      "data=",
+      tensorstore::QuoteString(std::string(encoded_node.encoded_node))));
 
+  std::visit(
+      [&](const auto& entries) {
+        using Entry = typename std::decay_t<decltype(entries)>::value_type;
         TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-            auto decoded_node, DecodeBtreeNode(encoded_nodes[0].encoded_node));
+            auto decoded_node,
+            DecodeBtreeNode(encoded_nodes[0].encoded_node, /*base_path=*/{}));
 
         EXPECT_EQ(node.key_prefix,
                   tensorstore::StrCat(
@@ -92,41 +104,108 @@ TEST(BtreeNodeTest, InteriorNodeRoundTrip) {
   BtreeNode node;
   node.height = 2;
   auto& entries = node.entries.emplace<BtreeNode::InteriorNodeEntries>();
-  entries.push_back({/*.key =*/"abc",
-                     /*.subtree_common_prefix_length =*/1,
-                     /*.node =*/
-                     {
-                         /*.location =*/
-                         {
-                             /*.file_id =*/{{0, 1, 2, 3, 4, 5, 6, 7}},
-                             /*.offset =*/5,
-                             /*.length =*/6,
-                         },
-                         /*.statistics =*/
-                         {
-                             /*.num_indirect_value_bytes =*/100,
-                             /*.num_tree_bytes =*/200,
-                             /*.num_keys =*/5,
-                         },
-                     }});
-  entries.push_back({/*.key =*/"def",
-                     /*.subtree_common_prefix_length =*/1,
-                     /*.node =*/
-                     {
-                         /*.location =*/
-                         {
-                             /*.file_id =*/{{8, 9, 10, 11, 12, 13, 14, 15}},
-                             /*.offset =*/42,
-                             /*.length =*/9,
-                         },
-                         /*.statistics =*/
-                         {
-                             /*.num_indirect_value_bytes =*/101,
-                             /*.num_tree_bytes =*/220,
-                             /*.num_keys =*/8,
-                         },
-                     }});
+  {
+    InteriorNodeEntry entry;
+    entry.key = "abc";
+    entry.subtree_common_prefix_length = 1;
+    entry.node.location.file_id.base_path = "abc";
+    entry.node.location.file_id.relative_path = "def";
+    entry.node.location.offset = 5;
+    entry.node.location.length = 6;
+    entry.node.statistics.num_indirect_value_bytes = 100;
+    entry.node.statistics.num_tree_bytes = 200;
+    entry.node.statistics.num_keys = 5;
+    entries.push_back(entry);
+  }
+  {
+    InteriorNodeEntry entry;
+    entry.key = "def";
+    entry.subtree_common_prefix_length = 1;
+    entry.node.location.file_id.base_path = "abc1";
+    entry.node.location.file_id.relative_path = "def1";
+    entry.node.location.offset = 42;
+    entry.node.location.length = 9;
+    entry.node.statistics.num_indirect_value_bytes = 101;
+    entry.node.statistics.num_tree_bytes = 220;
+    entry.node.statistics.num_keys = 8;
+    entries.push_back(entry);
+  }
   TestBtreeNodeRoundTrip(config, node);
+}
+
+TEST(BtreeNodeTest, InteriorNodeBasePath) {
+  Config config;
+  BtreeNode node;
+  node.height = 2;
+  auto& entries = node.entries.emplace<BtreeNode::InteriorNodeEntries>();
+  {
+    InteriorNodeEntry entry;
+    entry.key = "abc";
+    entry.subtree_common_prefix_length = 1;
+    entry.node.location.file_id.base_path = "abc";
+    entry.node.location.file_id.relative_path = "def";
+    entry.node.location.offset = 5;
+    entry.node.location.length = 6;
+    entry.node.statistics.num_indirect_value_bytes = 100;
+    entry.node.statistics.num_tree_bytes = 200;
+    entry.node.statistics.num_keys = 5;
+    entries.push_back(entry);
+  }
+  {
+    InteriorNodeEntry entry;
+    entry.key = "def";
+    entry.subtree_common_prefix_length = 1;
+    entry.node.location.file_id.base_path = "abc1";
+    entry.node.location.file_id.relative_path = "def1";
+    entry.node.location.offset = 42;
+    entry.node.location.length = 9;
+    entry.node.statistics.num_indirect_value_bytes = 101;
+    entry.node.statistics.num_tree_bytes = 220;
+    entry.node.statistics.num_keys = 8;
+    entries.push_back(entry);
+  }
+  {
+    InteriorNodeEntry entry;
+    entry.key = "ghi";
+    entry.subtree_common_prefix_length = 1;
+    entry.node.location.file_id.base_path = "abc1";
+    entry.node.location.file_id.relative_path = "def2";
+    entry.node.location.offset = 43;
+    entry.node.location.length = 10;
+    entry.node.statistics.num_indirect_value_bytes = 102;
+    entry.node.statistics.num_tree_bytes = 230;
+    entry.node.statistics.num_keys = 9;
+    entries.push_back(entry);
+  }
+  {
+    InteriorNodeEntry entry;
+    entry.key = "jkl";
+    entry.subtree_common_prefix_length = 1;
+    entry.node.location.file_id.base_path = "abc1";
+    entry.node.location.file_id.relative_path = "def1";
+    entry.node.location.offset = 43;
+    entry.node.location.length = 10;
+    entry.node.statistics.num_indirect_value_bytes = 102;
+    entry.node.statistics.num_tree_bytes = 230;
+    entry.node.statistics.num_keys = 9;
+    entries.push_back(entry);
+  }
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto encoded_nodes,
+                                   EncodeExistingNode(config, node));
+  ASSERT_EQ(1, encoded_nodes.size());
+  auto& encoded_node = encoded_nodes[0];
+  EXPECT_EQ(node.key_prefix, encoded_node.info.inclusive_min_key.substr(
+                                 0, encoded_node.info.excluded_prefix_length));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto decoded_node,
+      DecodeBtreeNode(encoded_nodes[0].encoded_node, /*base_path=*/"xyz/"));
+  entries[0].node.location.file_id.base_path = "xyz/abc";
+  entries[1].node.location.file_id.base_path = "xyz/abc1";
+  entries[2].node.location.file_id.base_path = "xyz/abc1";
+  entries[3].node.location.file_id.base_path = "xyz/abc1";
+  EXPECT_THAT(decoded_node.entries,
+              ::testing::VariantWith<std::vector<InteriorNodeEntry>>(entries));
 }
 
 }  // namespace

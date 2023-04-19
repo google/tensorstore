@@ -202,7 +202,8 @@ absl::Status ValidateVersionTreeLeafNodeEntries(
     const VersionTreeNode::LeafNodeEntries& entries);
 
 /// Decodes a version tree node, and validates invariants.
-Result<VersionTreeNode> DecodeVersionTreeNode(const absl::Cord& encoded);
+Result<VersionTreeNode> DecodeVersionTreeNode(const absl::Cord& encoded,
+                                              const BasePath& base_path);
 
 /// Encodes a version tree node.
 ///

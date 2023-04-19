@@ -30,11 +30,19 @@ namespace tensorstore {
 namespace internal_ocdbt {
 
 namespace {
-void EncodeIndirectDataReference(const IndirectDataReference& ref,
-                                 unsigned char buffer[32]) {
-  std::memcpy(&buffer[0], &ref.file_id, sizeof(DataFileId));
-  absl::little_endian::Store64(&buffer[16], ref.offset);
-  absl::little_endian::Store64(&buffer[24], ref.length);
+void EncodeIndirectDataReference(blake3_hasher& hasher,
+                                 const IndirectDataReference& ref) {
+  char header[32];
+  absl::little_endian::Store64(&header[0], ref.offset);
+  absl::little_endian::Store64(&header[8], ref.length);
+  const size_t base_path_size = ref.file_id.base_path.size();
+  absl::little_endian::Store64(&header[16], base_path_size);
+  const size_t relative_path_size = ref.file_id.relative_path.size();
+  absl::little_endian::Store64(&header[24], relative_path_size);
+  blake3_hasher_update(&hasher, header, sizeof(header));
+  blake3_hasher_update(&hasher, ref.file_id.base_path.data(), base_path_size);
+  blake3_hasher_update(&hasher, ref.file_id.relative_path.data(),
+                       relative_path_size);
 }
 
 void UpdateBlake3FromCord(blake3_hasher& hasher, const absl::Cord& cord) {
@@ -42,25 +50,30 @@ void UpdateBlake3FromCord(blake3_hasher& hasher, const absl::Cord& cord) {
     blake3_hasher_update(&hasher, chunk.data(), chunk.size());
   }
 }
+StorageGeneration GenerationFromHasher(blake3_hasher& hasher) {
+  StorageGeneration generation;
+  generation.value.resize(21);
+  generation.value[20] = StorageGeneration::kBaseGeneration;
+  blake3_hasher_finalize(
+      &hasher, reinterpret_cast<uint8_t*>(generation.value.data()), 20);
+  return generation;
+}
 }  // namespace
 
 StorageGeneration ComputeStorageGeneration(const LeafNodeValueReference& ref) {
-  StorageGeneration generation;
+  blake3_hasher hasher;
+  blake3_hasher_init(&hasher);
+  char mode;
   if (auto* location = std::get_if<IndirectDataReference>(&ref)) {
-    generation.value.resize(33);
-    EncodeIndirectDataReference(
-        *location, reinterpret_cast<uint8_t*>(generation.value.data()));
-    generation.value[32] = StorageGeneration::kBaseGeneration;
+    mode = 0;
+    blake3_hasher_update(&hasher, &mode, 1);
+    EncodeIndirectDataReference(hasher, *location);
   } else {
-    generation.value.resize(21);
-    blake3_hasher hasher;
-    blake3_hasher_init(&hasher);
+    mode = 1;
+    blake3_hasher_update(&hasher, &mode, 1);
     UpdateBlake3FromCord(hasher, std::get<absl::Cord>(ref));
-    blake3_hasher_finalize(
-        &hasher, reinterpret_cast<uint8_t*>(generation.value.data()), 20);
-    generation.value[20] = StorageGeneration::kBaseGeneration;
   }
-  return generation;
+  return GenerationFromHasher(hasher);
 }
 
 StorageGeneration ComputeStorageGeneration(
@@ -68,36 +81,22 @@ StorageGeneration ComputeStorageGeneration(
     std::string_view subtree_common_prefix) {
   blake3_hasher hasher;
   blake3_hasher_init(&hasher);
-  unsigned char buffer[32];
-  EncodeIndirectDataReference(location, buffer);
-  blake3_hasher_update(&hasher, buffer, 32);
+  EncodeIndirectDataReference(hasher, location);
   blake3_hasher_update(&hasher, subtree_common_prefix.data(),
                        subtree_common_prefix.size());
-  StorageGeneration generation;
-  generation.value.resize(21);
-  blake3_hasher_finalize(
-      &hasher, reinterpret_cast<uint8_t*>(generation.value.data()), 20);
-  generation.value[20] = StorageGeneration::kBaseGeneration;
-  return generation;
+  return GenerationFromHasher(hasher);
 }
 
 StorageGeneration ComputeStorageGeneration(
     const InteriorNodeEntry& entry, std::string_view subtree_common_prefix) {
   blake3_hasher hasher;
   blake3_hasher_init(&hasher);
-  unsigned char buffer[32];
-  EncodeIndirectDataReference(entry.node.location, buffer);
-  blake3_hasher_update(&hasher, buffer, 32);
+  EncodeIndirectDataReference(hasher, entry.node.location);
   blake3_hasher_update(&hasher, subtree_common_prefix.data(),
                        subtree_common_prefix.size());
   blake3_hasher_update(&hasher, entry.key.data(),
                        entry.subtree_common_prefix_length);
-  StorageGeneration generation;
-  generation.value.resize(21);
-  blake3_hasher_finalize(
-      &hasher, reinterpret_cast<uint8_t*>(generation.value.data()), 20);
-  generation.value[20] = StorageGeneration::kBaseGeneration;
-  return generation;
+  return GenerationFromHasher(hasher);
 }
 
 }  // namespace internal_ocdbt

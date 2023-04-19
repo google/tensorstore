@@ -33,6 +33,7 @@
 #include "tensorstore/kvstore/ocdbt/format/btree_codec.h"
 #include "tensorstore/kvstore/ocdbt/format/codec_util.h"
 #include "tensorstore/kvstore/ocdbt/format/config.h"
+#include "tensorstore/kvstore/ocdbt/format/data_file_id_codec.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference_codec.h"
 #include "tensorstore/util/quote_string.h"
@@ -148,7 +149,9 @@ bool ReadKeys(riegeli::Reader& reader, std::string_view& common_prefix,
   return true;
 }
 
-bool ReadBtreeLeafNode(riegeli::Reader& reader, std::string_view& prefix,
+bool ReadBtreeLeafNode(riegeli::Reader& reader,
+                       const DataFileTable& data_file_table,
+                       std::string_view& prefix,
                        BtreeNode::KeyBuffer& key_buffer,
                        BtreeNode::LeafNodeEntries& entries,
                        KeyLength max_common_prefix_length) {
@@ -190,7 +193,10 @@ bool ReadBtreeLeafNode(riegeli::Reader& reader, std::string_view& prefix,
   for (auto& entry : entries) {
     auto& data_ref = std::get<IndirectDataReference>(entry.value_reference);
     if (data_ref.length & 1) {
-      if (!DataFileIdCodec{}(reader, data_ref.file_id)) return false;
+      if (!DataFileIdCodec<riegeli::Reader>{data_file_table}(
+              reader, data_ref.file_id)) {
+        return false;
+      }
     }
   }
 
@@ -217,7 +223,9 @@ bool ReadBtreeLeafNode(riegeli::Reader& reader, std::string_view& prefix,
   return true;
 }
 
-bool ReadBtreeInteriorNode(riegeli::Reader& reader, std::string_view& prefix,
+bool ReadBtreeInteriorNode(riegeli::Reader& reader,
+                           const DataFileTable& data_file_table,
+                           std::string_view& prefix,
                            BtreeNode::KeyBuffer& key_buffer,
                            BtreeNode::InteriorNodeEntries& entries,
                            KeyLength max_common_prefix_length) {
@@ -260,9 +268,10 @@ bool ReadBtreeInteriorNode(riegeli::Reader& reader, std::string_view& prefix,
     entry.subtree_common_prefix_length -= common_prefix_length;
   }
 
-  if (!BtreeNodeReferenceArrayCodec{[](auto& entry) -> decltype(auto) {
-        return (entry.node);
-      }}(reader, entries)) {
+  if (!BtreeNodeReferenceArrayCodec{data_file_table,
+                                    [](auto& entry) -> decltype(auto) {
+                                      return (entry.node);
+                                    }}(reader, entries)) {
     return false;
   }
 
@@ -270,29 +279,33 @@ bool ReadBtreeInteriorNode(riegeli::Reader& reader, std::string_view& prefix,
 }
 
 [[nodiscard]] bool ReadBtreeNodeInner(
-    riegeli::Reader& reader, BtreeNode& node,
+    riegeli::Reader& reader, const BasePath& base_path, BtreeNode& node,
     KeyLength max_common_prefix_length =
         std::numeric_limits<KeyLength>::max()) {
+  DataFileTable data_file_table;
+  if (!ReadDataFileTable(reader, base_path, data_file_table)) return false;
   if (node.height == 0) {
-    return ReadBtreeLeafNode(reader, node.key_prefix, node.key_buffer,
+    return ReadBtreeLeafNode(reader, data_file_table, node.key_prefix,
+                             node.key_buffer,
                              node.entries.emplace<BtreeNode::LeafNodeEntries>(),
                              max_common_prefix_length);
   } else {
     return ReadBtreeInteriorNode(
-        reader, node.key_prefix, node.key_buffer,
+        reader, data_file_table, node.key_prefix, node.key_buffer,
         node.entries.emplace<BtreeNode::InteriorNodeEntries>(),
         max_common_prefix_length);
   }
 }
 }  // namespace
 
-Result<BtreeNode> DecodeBtreeNode(const absl::Cord& encoded) {
+Result<BtreeNode> DecodeBtreeNode(const absl::Cord& encoded,
+                                  const BasePath& base_path) {
   BtreeNode node;
   auto status = DecodeWithOptionalCompression(
       encoded, kBtreeNodeMagic, kBtreeNodeFormatVersion,
       [&](riegeli::Reader& reader, uint32_t version) -> bool {
         if (!reader.ReadByte(node.height)) return false;
-        return ReadBtreeNodeInner(reader, node);
+        return ReadBtreeNodeInner(reader, base_path, node);
       });
   if (!status.ok()) {
     return tensorstore::MaybeAnnotateStatus(status,

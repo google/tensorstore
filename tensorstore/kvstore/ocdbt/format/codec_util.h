@@ -28,6 +28,7 @@
 
 #include <cstdint>
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
@@ -153,6 +154,9 @@ absl::Status FinalizeReader(riegeli::Reader& reader, bool success);
 
 /// Closes `writer` if `success == true`.
 absl::Status FinalizeWriter(riegeli::Writer& writer, bool success);
+
+/// Returns the longest common prefix of `a` and `b`.
+size_t FindCommonPrefixLength(std::string_view a, std::string_view b);
 
 }  // namespace internal_ocdbt
 }  // namespace tensorstore

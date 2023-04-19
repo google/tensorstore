@@ -39,7 +39,8 @@ Manifest GetSimpleManifest() {
   Manifest manifest;
 
   auto& x = manifest.versions.emplace_back();
-  x.root.location.file_id = {{0, 1, 2, 3, 4, 5, 6, 7}};
+  x.root.location.file_id.base_path = "abc";
+  x.root.location.file_id.relative_path = "defgh";
   x.root.location.offset = 10;
   x.root.location.length = 42;
   x.generation_number = 1;
@@ -57,7 +58,8 @@ TEST(ManifestTest, RoundTripNonZeroHeight) {
   Manifest manifest;
   {
     auto& x = manifest.versions.emplace_back();
-    x.root.location.file_id = {{0, 1, 2, 3, 4, 5, 6, 7}};
+    x.root.location.file_id.base_path = "abc";
+    x.root.location.file_id.relative_path = "defgh";
     x.root.location.offset = 10;
     x.root.location.length = 42;
     x.generation_number = 1;
@@ -129,7 +131,8 @@ TEST(ManifestTest, RoundTripMultipleVersions) {
   //   - 1 up to 8 (eventually up to 16) (height 3)
   {
     auto& x = manifest.versions.emplace_back();
-    x.root.location.file_id = {{0, 1, 2, 3, 4, 5, 6, 7}};
+    x.root.location.file_id.base_path = "abc";
+    x.root.location.file_id.relative_path = "defgh";
     x.root.location.offset = 10;
     x.root.location.length = 42;
     x.generation_number = 15;
@@ -141,7 +144,8 @@ TEST(ManifestTest, RoundTripMultipleVersions) {
   }
   {
     auto& x = manifest.version_tree_nodes.emplace_back();
-    x.location.file_id = {{0, 1, 2, 3, 4, 5, 6, 7}};
+    x.location.file_id.base_path = "abc";
+    x.location.file_id.relative_path = "defgh";
     x.location.offset = 10;
     x.location.length = 42;
     x.generation_number = 8;
@@ -151,7 +155,8 @@ TEST(ManifestTest, RoundTripMultipleVersions) {
   }
   {
     auto& x = manifest.version_tree_nodes.emplace_back();
-    x.location.file_id = {{0, 1, 2, 3, 4, 5, 6, 7}};
+    x.location.file_id.base_path = "abc";
+    x.location.file_id.relative_path = "defgh1";
     x.location.offset = 10;
     x.location.length = 42;
     x.generation_number = 12;
@@ -161,7 +166,8 @@ TEST(ManifestTest, RoundTripMultipleVersions) {
   }
   {
     auto& x = manifest.version_tree_nodes.emplace_back();
-    x.location.file_id = {{0, 1, 2, 3, 4, 5, 6, 7}};
+    x.location.file_id.base_path = "abc1";
+    x.location.file_id.relative_path = "defgh";
     x.location.offset = 10;
     x.location.length = 42;
     x.generation_number = 14;
