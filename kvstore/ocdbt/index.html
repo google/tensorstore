@@ -896,6 +896,13 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#concepts" class="md-nav__link">
+    <span class="md-ellipsis">Concepts</span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#storage-format" class="md-nav__link">
     <span class="md-ellipsis">Storage format</span>
   </a>
@@ -1379,6 +1386,13 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#concepts" class="md-nav__link">
+    <span class="md-ellipsis">Concepts</span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#storage-format" class="md-nav__link">
     <span class="md-ellipsis">Storage format</span>
   </a>
@@ -1574,8 +1588,8 @@
 <p class="admonition-title">Warning</p>
 <p>This driver is experimental and the format is not yet stable.</p>
 </div>
-<p>The <code class="docutils literal notranslate"><span class="pre">ocdbt</span></code> driver implements an Optionally-Cooperative Distributed B+Tree on
-top of a base key-value store.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">ocdbt</span></code> driver implements an Optionally-Cooperative Distributed B+Tree
+(OCDBT) on top of a base key-value store.</p>
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-kvstore/ocdbt">
 <em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">kvstore/ocdbt</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-kvstore/ocdbt" title="Permalink to this definition">¶</a></dt>
@@ -1744,9 +1758,24 @@ the <a class="reference internal" href="#json-kvstore/ocdbt.context" title="kvst
 </dl>
 </dd></dl>
 
+<h2 id="concepts">Concepts<a class="headerlink" href="#concepts" title="Permalink to this heading">¶</a></h2>
+<p>An OCDBT database is stored as a collection of entries/files within a
+prefix/directory of a base key-value store.</p>
+<p>It is a versioned key-value store:</p>
+<ul class="simple">
+<li><p>Each version is identified by:</p>
+<ul>
+<li><p>a 64-bit generation number, which increases sequentially from 1, and;</p></li>
+<li><p>a nanosecond-precision commit timestamp that increases monotonically with
+the generation number.</p></li>
+</ul>
+</li>
+<li><p>Versioning is managed automatically: each batch of writes results in the
+creation of a new version.</p></li>
+</ul>
 <h2 id="storage-format">Storage format<a class="headerlink" href="#storage-format" title="Permalink to this heading">¶</a></h2>
-<p>The database is represented by the following entries within a prefix of an
-underlying key-value store:</p>
+<p>The database is represented by the following entries within a prefix/directory
+of an underlying key-value store:</p>
 <ul>
 <li><p><code class="file docutils literal notranslate"><span class="pre">manifest.ocdbt</span></code></p>
 <p>Stores the encoded <em>manifest</em>, which specifies the database configuration and
@@ -2211,7 +2240,7 @@ generation numbers must be strictly increasing, i.e. if <code class="docutils li
 </dd>
 </dl>
 <dl class="simple" id="ocdbt-version-tree-leaf-commit-time">
-<dt><code class="docutils literal notranslate"><span class="pre">commit_time[i]</span></code></dt><dd><p>Time at which the generation was created, in milliseconds since the Unix
+<dt><code class="docutils literal notranslate"><span class="pre">commit_time[i]</span></code></dt><dd><p>Time at which the generation was created, in nanoseconds since the Unix
 epoch (excluding leap seconds).</p>
 </dd>
 </dl>
