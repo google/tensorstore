@@ -20,7 +20,6 @@ tensorstore_cc_library(
     ],
     hdrs = ["object_metadata.h"],
     deps = [
-        ":admission_queue",
         ":gcs_resource",
         ":rate_limiter",
         ":validate",

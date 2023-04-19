@@ -15,13 +15,7 @@
 #ifndef TENSORSTORE_KVSTORE_GCS_SCALING_RATE_LIMITER_H_
 #define TENSORSTORE_KVSTORE_GCS_SCALING_RATE_LIMITER_H_
 
-#include <assert.h>
-#include <stddef.h>
-
 #include <cstdint>
-#include <limits>
-#include <memory>
-#include <optional>
 
 #include "absl/base/thread_annotations.h"
 #include "absl/synchronization/mutex.h"

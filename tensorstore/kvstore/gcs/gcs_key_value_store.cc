@@ -12,15 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <assert.h>
-
 #include <atomic>
-#include <map>
+#include <cassert>
 #include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -53,7 +50,6 @@
 #include "tensorstore/internal/schedule_at.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
-#include "tensorstore/kvstore/gcs/admission_queue.h"
 #include "tensorstore/kvstore/gcs/gcs_resource.h"
 #include "tensorstore/kvstore/gcs/object_metadata.h"
 #include "tensorstore/kvstore/gcs/rate_limiter.h"
@@ -72,13 +68,13 @@
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
-/// Support for ApplyMembers protocols
-#include "tensorstore/internal/cache_key/std_optional.h"  // IWYU pragma: keep
-#include "tensorstore/internal/json_binding/std_array.h"  // IWYU pragma: keep
-#include "tensorstore/internal/json_binding/std_optional.h"  // IWYU pragma: keep
-#include "tensorstore/serialization/fwd.h"  // IWYU pragma: keep
-#include "tensorstore/serialization/std_optional.h"  // IWYU pragma: keep
-#include "tensorstore/util/garbage_collection/std_optional.h"  // IWYU pragma: keep
+/// specializations
+#include "tensorstore/internal/cache_key/std_optional.h"
+#include "tensorstore/internal/json_binding/std_array.h"
+#include "tensorstore/internal/json_binding/std_optional.h"
+#include "tensorstore/serialization/fwd.h"
+#include "tensorstore/serialization/std_optional.h"
+#include "tensorstore/util/garbage_collection/std_optional.h"
 
 // GCS reference links are:
 //
