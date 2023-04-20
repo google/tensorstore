@@ -18,7 +18,6 @@
 /// \file
 /// S3 Request Builder
 
-#include <map>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -32,6 +31,7 @@
 #include "absl/strings/str_join.h"
 #include "tensorstore/internal/ascii_utils.h"
 #include "tensorstore/internal/http/http_request.h"
+#include "tensorstore/internal/path.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/internal/digest/sha256.h"
 #include "tensorstore/kvstore/s3/validate.h"
@@ -42,6 +42,7 @@
 
 using ::tensorstore::internal_http::HttpRequest;
 using ::tensorstore::internal::IntToHexDigit;
+using ::tensorstore::internal::ParseGenericUri;
 using ::tensorstore::internal::SHA256Digester;
 
 namespace tensorstore {
@@ -77,127 +78,6 @@ void ComputeHmac(unsigned char (&key)[kHmacSize], std::string_view message, unsi
 
 class S3RequestBuilder {
  public:
-  class CanonicalRequestBuilder {
-   public:
-    explicit CanonicalRequestBuilder(std::string_view method, std::string endpoint_url) :
-     method_(method), url_(endpoint_url) {}
-
-    CanonicalRequestBuilder& AddQueryParameter(std::string_view key, std::string_view value) {
-      queries_.insert({std::string(key), std::string(value)});
-      return *this;
-    }
-
-    CanonicalRequestBuilder& AddHeader(std::string_view key, std::string_view value) {
-      headers_.insert({
-        std::string(absl::AsciiStrToLower(key)),
-        std::string(absl::StripAsciiWhitespace(value))});
-      return *this;
-    }
-
-    CanonicalRequestBuilder& AddPayloadHash(std::string_view payload_hash) {
-      payload_hash_ = std::string(payload_hash);
-      return *this;
-    }
-
-    std::string BuildCanonicalRequest();
-
-   private:
-    std::string method_;
-    std::string url_;
-    std::optional<std::string> payload_hash_;
-    std::map<std::string, std::string> queries_;
-    std::map<std::string, std::string> headers_;
-  };
-
-  class AuthorizationHeaderBuilder {
-   public:
-    explicit AuthorizationHeaderBuilder(
-          std::string_view aws_access_key,
-          std::string_view aws_region,
-          const absl::Time & time,
-          std::string_view signature)
-      : aws_access_key_(aws_access_key),
-        aws_region_(aws_region),
-        time_(time),
-        signature_(signature) {}
-
-    AuthorizationHeaderBuilder& AddHeaderName(std::string_view header_name) {
-      header_names_.insert(std::string(header_name));
-      return *this;
-    }
-
-    std::string BuildAuthorizationHeader() {
-      return absl::StrFormat(
-        "Authorization: AWS4-HMAC-SHA256 Credential=%s"
-        "/%s/%s/s3/aws4_request,"
-        "SignedHeaders=%s,Signature=%s",
-          aws_access_key_,
-          absl::FormatTime("%Y%m%d", time_, absl::UTCTimeZone()),
-          aws_region_,
-          absl::StrJoin(header_names_, ";"),
-          signature_
-      );
-    }
-
-   private:
-    std::string aws_access_key_;
-    std::string aws_region_;
-    absl::Time time_;
-    std::string signature_;
-    std::set<std::string> header_names_;
-  };
-
- /// https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
-  static std::string SigningString(
-    std::string_view canonical_request,
-    const absl::Time & time,
-    std::string_view aws_region)
-  {
-    absl::TimeZone utc = absl::UTCTimeZone();
-    SHA256Digester sha256;
-    sha256.Write(canonical_request);
-
-    return absl::StrFormat(
-      "AWS4-HMAC-SHA256\n"
-      "%s\n"
-      "%s/%s/s3/aws4_request\n"
-      "%s",
-        absl::FormatTime("%Y%m%dT%H%M%SZ", time, utc),
-        absl::FormatTime("%Y%m%d", time, utc), aws_region,
-        sha256.HexDigest(false));
-  }
-
-  static std::string Signature(
-    std::string_view aws_secret_access_key,
-    std::string_view aws_region,
-    const absl::Time & time,
-    std::string_view signing_string)
-  {
-    absl::TimeZone utc = absl::UTCTimeZone();
-    unsigned char date_key[kHmacSize];
-    unsigned char date_region_key[kHmacSize];
-    unsigned char date_region_service_key[kHmacSize];
-    unsigned char signing_key[kHmacSize];
-    unsigned char final_key[kHmacSize];
-
-    ComputeHmac(absl::StrFormat("AWS4%s",aws_secret_access_key),
-                absl::FormatTime("%Y%m%d", time, utc), date_key);
-    ComputeHmac(date_key, aws_region, date_region_key);
-    ComputeHmac(date_region_key, "s3", date_region_service_key);
-    ComputeHmac(date_region_service_key, "aws4_request", signing_key);
-    ComputeHmac(signing_key, signing_string, final_key);
-
-    std::string result(2 * kHmacSize, '0');
-
-    for(int i=0; i < kHmacSize; ++i) {
-        result[2*i + 0] = IntToHexDigit(final_key[i] / 16, false);
-        result[2*i + 1] = IntToHexDigit(final_key[i] % 16, false);
-    }
-
-    return result;
-  }
-
- public:
   explicit S3RequestBuilder(std::string_view method, std::string endpoint_url);
 
   /// Adds a prefix to the user-agent string.
@@ -213,36 +93,38 @@ class S3RequestBuilder {
   /// response.
   S3RequestBuilder& EnableAcceptEncoding();
 
-  S3RequestBuilder& AddAwsAccessKey(std::string_view aws_access_key) {
-    aws_access_key_ = aws_access_key;
-    return *this;
-  }
-
-  S3RequestBuilder& AddAwsSecretKey(std::string_view aws_secret_key) {
-    aws_secret_key_ = aws_secret_key;
-    return *this;
-  }
-
-  S3RequestBuilder& AddAwsRegion(std::string_view aws_region) {
-    aws_region_ = aws_region;
-    return *this;
-  }
-
-  S3RequestBuilder& AddTimeStamp(std::optional<absl::Time> timestamp) {
-    timestamp_ = timestamp;
-    return *this;
-  }
-
   HttpRequest BuildRequest();
 
+  /// https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
+  static std::string SigningString(
+    std::string_view canonical_request,
+    std::string_view aws_region,
+    const absl::Time & time);
+
+  static std::string Signature(
+    std::string_view aws_secret_access_key,
+    std::string_view aws_region,
+    std::string_view signing_string,
+    const absl::Time & time);
+
+  static std::string CanonicalRequest(
+    std::string_view url,
+    std::string_view method,
+    std::string_view payload_hash,
+    const std::vector<std::string> & headers,
+    const std::vector<std::pair<std::string, std::string>> & queries);
+
+  static std::string AuthorizationHeader(
+    std::string_view aws_access_key,
+    std::string_view aws_region,
+    std::string_view signature,
+    const std::vector<std::string> & headers,
+    const absl::Time & time);
  private:
   HttpRequest request_;
   char const* query_parameter_separator_;
-  std::string aws_access_key_;
-  std::string aws_secret_key_;
-  std::string aws_region_;
-  std::optional<absl::Time> timestamp_;
-  CanonicalRequestBuilder canonical_builder;
+  std::vector<std::pair<std::string, std::string>> encoded_queries_;
+
 };
 
 } // namespace internal_storage_s3

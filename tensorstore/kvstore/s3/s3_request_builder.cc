@@ -67,66 +67,16 @@ std::string UriObjectKeyEncode(std::string_view src) {
     return dest;
 }
 
-
-
-std::string S3RequestBuilder::CanonicalRequestBuilder::BuildCanonicalRequest() {
-    auto uri = ParseGenericUri(url_);
-    std::size_t end_of_bucket = uri.authority_and_path.find('/');
-    assert(end_of_bucket != std::string_view::npos);
-    auto path = uri.authority_and_path.substr(end_of_bucket);
-    assert(path.size() > 0);
-
-    absl::Cord cord;
-    cord.Append(method_);
-    cord.Append("\n");
-    cord.Append(UriObjectKeyEncode(path));
-    cord.Append("\n");
-
-    // Query string
-    for(auto [it, first] = std::tuple{queries_.begin(), true}; it != queries_.end(); ++it, first=false) {
-     if(!first) cord.Append("&");
-     cord.Append(UriEncode(it->first));
-     cord.Append("=");
-     cord.Append(UriEncode(it->second));
-    }
-
-    cord.Append("\n");
-
-    // Headers
-    for(auto it = headers_.begin(); it != headers_.end(); ++it) {
-      cord.Append(it->first);
-      cord.Append(":");
-      cord.Append(absl::StripAsciiWhitespace(it->second));
-      cord.Append("\n");
-    }
-
-    cord.Append("\n");
-
-    // Signed headers
-    for(auto [it, first] = std::tuple{headers_.begin(), true}; it != headers_.end(); ++it, first=false) {
-      if(!first) cord.Append(";");
-      cord.Append(it->first);
-    }
-
-    cord.Append("\n");
-    assert(payload_hash_.has_value());
-    cord.Append(payload_hash_.value());
-
-    std::string result;
-    absl::CopyCordToString(cord, &result);
-    return result;
-}
-
-
 S3RequestBuilder::S3RequestBuilder(std::string_view method,
                                    std::string endpoint_url)
-    : query_parameter_separator_("?"),
-      canonical_builder(method, endpoint_url) {
+    : query_parameter_separator_("?") {
   request_.method_ = method;
   request_.url_ = std::move(endpoint_url);
 }
 
-HttpRequest S3RequestBuilder::BuildRequest() { return std::move(request_); }
+HttpRequest S3RequestBuilder::BuildRequest() {
+  return std::move(request_);
+}
 
 S3RequestBuilder& S3RequestBuilder::AddUserAgentPrefix(std::string_view prefix) {
   request_.user_agent_ = tensorstore::StrCat(prefix, request_.user_agent_);
@@ -134,30 +84,20 @@ S3RequestBuilder& S3RequestBuilder::AddUserAgentPrefix(std::string_view prefix) 
 }
 
 S3RequestBuilder& S3RequestBuilder::AddHeader(std::string header) {
-  std::size_t split_pos = header.find(':');
-  assert(split_pos != std::string::npos);
-
-  auto key = header.substr(0, split_pos + 1);
-  auto value = absl::StripAsciiWhitespace(std::string_view(header).substr(split_pos + 1));
-
-  assert(!key.empty());
-  assert(!value.empty());
-
-  canonical_builder.AddHeader(key, value);
   request_.headers_.emplace_back(std::move(header));
-
   return *this;
 }
 
 S3RequestBuilder& S3RequestBuilder::AddQueryParameter(
     std::string_view key, std::string_view value) {
-  std::string enc_value = UriEncode(value);
-  std::string parameter = tensorstore::StrCat(
+  auto enc_value = UriEncode(value);
+  auto enc_key = UriEncode(key);
+  auto parameter = tensorstore::StrCat(
       query_parameter_separator_,
-      UriEncode(key), "=", enc_value);
-  canonical_builder.AddQueryParameter(UriEncode(absl::AsciiStrToLower(key)), enc_value);
+      enc_key, "=", enc_value);
   query_parameter_separator_ = "&";
   request_.url_.append(parameter);
+  encoded_queries_.push_back({enc_key, enc_value});
   return *this;
 }
 
@@ -219,6 +159,142 @@ bool AddStalenessBoundCacheControlHeader(S3RequestBuilder& request_builder,
   }
   return AddCacheControlMaxAgeHeader(request_builder, duration);
 }
+
+
+/// https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
+std::string S3RequestBuilder::SigningString(
+  std::string_view canonical_request,
+  std::string_view aws_region,
+  const absl::Time & time)
+{
+  absl::TimeZone utc = absl::UTCTimeZone();
+  SHA256Digester sha256;
+  sha256.Write(canonical_request);
+
+  return absl::StrFormat(
+    "AWS4-HMAC-SHA256\n"
+    "%s\n"
+    "%s/%s/s3/aws4_request\n"
+    "%s",
+      absl::FormatTime("%Y%m%dT%H%M%SZ", time, utc),
+      absl::FormatTime("%Y%m%d", time, utc), aws_region,
+      sha256.HexDigest(false));
+}
+
+std::string S3RequestBuilder::Signature(
+  std::string_view aws_secret_access_key,
+  std::string_view aws_region,
+  std::string_view signing_string,
+  const absl::Time & time)
+{
+  absl::TimeZone utc = absl::UTCTimeZone();
+  unsigned char date_key[kHmacSize];
+  unsigned char date_region_key[kHmacSize];
+  unsigned char date_region_service_key[kHmacSize];
+  unsigned char signing_key[kHmacSize];
+  unsigned char final_key[kHmacSize];
+
+  ComputeHmac(absl::StrFormat("AWS4%s",aws_secret_access_key),
+              absl::FormatTime("%Y%m%d", time, utc), date_key);
+  ComputeHmac(date_key, aws_region, date_region_key);
+  ComputeHmac(date_region_key, "s3", date_region_service_key);
+  ComputeHmac(date_region_service_key, "aws4_request", signing_key);
+  ComputeHmac(signing_key, signing_string, final_key);
+
+  std::string result(2 * kHmacSize, '0');
+
+  for(int i=0; i < kHmacSize; ++i) {
+      result[2*i + 0] = IntToHexDigit(final_key[i] / 16, false);
+      result[2*i + 1] = IntToHexDigit(final_key[i] % 16, false);
+  }
+
+  return result;
+}
+
+std::string S3RequestBuilder::CanonicalRequest(
+  std::string_view url,
+  std::string_view method,
+  std::string_view payload_hash,
+  const std::vector<std::string> & headers,
+  const std::vector<std::pair<std::string, std::string>> & queries)
+{
+  auto uri = ParseGenericUri(url);
+  std::size_t end_of_bucket = uri.authority_and_path.find('/');
+  assert(end_of_bucket != std::string_view::npos);
+  auto path = uri.authority_and_path.substr(end_of_bucket);
+  assert(path.size() > 0);
+
+  absl::Cord cord;
+  cord.Append(method);
+  cord.Append("\n");
+  cord.Append(UriObjectKeyEncode(path));
+  cord.Append("\n");
+
+  // Query string
+  for(auto [it, first] = std::tuple{queries.begin(), true}; it != queries.end(); ++it, first=false) {
+    if(!first) cord.Append("&");
+    cord.Append(UriEncode(it->first));
+    cord.Append("=");
+    cord.Append(UriEncode(it->second));
+  }
+
+  cord.Append("\n");
+
+  // Headers
+  for(auto header: headers) {
+    auto delim_pos = header.find(':');
+    assert(delim_pos != std::string::npos && delim_pos + 1 != std::string::npos);
+    cord.Append(header.substr(0, delim_pos));
+    cord.Append(":");
+    cord.Append(absl::StripAsciiWhitespace(header.substr(delim_pos + 1)));
+    cord.Append("\n");
+  }
+
+  cord.Append("\n");
+
+  // Signed headers
+  for(auto [it, first] = std::tuple{headers.begin(), true}; it != headers.end(); ++it, first=false) {
+    if(!first) cord.Append(";");
+    auto header = std::string_view(*it);
+    auto delim_pos = header.find(':');
+    assert(delim_pos != std::string::npos);
+    cord.Append(header.substr(0, delim_pos));
+  }
+
+  cord.Append("\n");
+  cord.Append(payload_hash);
+
+  std::string result;
+  absl::CopyCordToString(cord, &result);
+  return result;
+}
+
+std::string S3RequestBuilder::AuthorizationHeader(
+  std::string_view aws_access_key,
+  std::string_view aws_region,
+  std::string_view signature,
+  const std::vector<std::string> & headers,
+  const absl::Time & time) {
+
+  std::vector<std::string_view> header_names;
+  for(auto & header: headers) {
+    std::size_t delim_pos = header.find(':');
+    assert(delim_pos != std::string::npos);
+    header_names.push_back(std::string_view(header).substr(0, delim_pos));
+  }
+
+  return absl::StrFormat(
+    "Authorization: AWS4-HMAC-SHA256 Credential=%s"
+    "/%s/%s/s3/aws4_request,"
+    "SignedHeaders=%s,Signature=%s",
+      aws_access_key,
+      absl::FormatTime("%Y%m%d", time, absl::UTCTimeZone()),
+      aws_region,
+      absl::StrJoin(header_names, ";"),
+      signature
+  );
+}
+
 
 } // namespace internal_storage_s3
 } // namespace tensorstore

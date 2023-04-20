@@ -27,6 +27,7 @@ using ::tensorstore::internal_http::HttpRequest;
 
 namespace {
 
+
 TEST(S3RequestBuilderTest, AWS4SignatureGetExample) {
     // https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
     // These values from worked exapmle in "Example: GET Object" Section
@@ -44,13 +45,14 @@ TEST(S3RequestBuilderTest, AWS4SignatureGetExample) {
     auto host = absl::StrFormat("%s.s3.amazonaws.com", bucket);
     auto x_amz_date = absl::FormatTime("%Y%m%dT%H%M%SZ\n", time, utc);
 
-    auto canonical_request = S3RequestBuilder::CanonicalRequestBuilder("GET", url)
-                        .AddHeader("Host", host)
-                        .AddHeader("Range", "bytes=0-9")
-                        .AddHeader("x-amz-content-sha256", payload_hash)
-                        .AddHeader("x-amz-date", x_amz_date)
-                        .AddPayloadHash(payload_hash)
-                        .BuildCanonicalRequest();
+    std::vector<std::string> headers = {
+        absl::StrCat("host: ", host),
+        "range: bytes=0-9",
+        absl::StrCat("x-amz-content-sha256: ", payload_hash),
+        absl::StrCat("x-amz-date: ", x_amz_date)
+    };
+
+    auto canonical_request = S3RequestBuilder::CanonicalRequest(url, "GET", payload_hash, headers, {});
 
     auto expected_canonical_request =
         "GET\n"
@@ -66,7 +68,7 @@ TEST(S3RequestBuilderTest, AWS4SignatureGetExample) {
 
     EXPECT_EQ(canonical_request, expected_canonical_request);
 
-    auto signing_string = S3RequestBuilder::SigningString(canonical_request, time, aws_region);
+    auto signing_string = S3RequestBuilder::SigningString(canonical_request, aws_region, time);
 
     auto expected_signing_string =
         "AWS4-HMAC-SHA256\n"
@@ -77,7 +79,7 @@ TEST(S3RequestBuilderTest, AWS4SignatureGetExample) {
     EXPECT_EQ(signing_string, expected_signing_string);
 
     auto expected_signature = "f0e8bdb87c964420e857bd35b5d6ed310bd44f0170aba48dd91039c6036bdb41";
-    auto signature = S3RequestBuilder::Signature(aws_secret_access_key, aws_region, time, expected_signing_string);
+    auto signature = S3RequestBuilder::Signature(aws_secret_access_key, aws_region, expected_signing_string, time);
     EXPECT_EQ(signature, expected_signature);
 
     auto expected_auth_header =
@@ -86,12 +88,7 @@ TEST(S3RequestBuilderTest, AWS4SignatureGetExample) {
         "SignedHeaders=host;range;x-amz-content-sha256;x-amz-date,"
         "Signature=f0e8bdb87c964420e857bd35b5d6ed310bd44f0170aba48dd91039c6036bdb41";
 
-    auto auth_header = S3RequestBuilder::AuthorizationHeaderBuilder(aws_access_key, aws_region, time, signature)
-                            .AddHeaderName("host")
-                            .AddHeaderName("range")
-                            .AddHeaderName("x-amz-content-sha256")
-                            .AddHeaderName("x-amz-date")
-                            .BuildAuthorizationHeader();
+    auto auth_header = S3RequestBuilder::AuthorizationHeader(aws_access_key, aws_region, signature, headers, time);
     EXPECT_EQ(auth_header, expected_auth_header);
 }
 
@@ -113,14 +110,15 @@ TEST(S3RequestBuilderTest, AWS4SignaturePutExample) {
     auto host = absl::StrFormat("%s.s3.amazonaws.com", bucket);
     auto x_amz_date = absl::FormatTime("%Y%m%dT%H%M%SZ\n", time, utc);
 
-    auto canonical_request = S3RequestBuilder::CanonicalRequestBuilder("PUT", url)
-                        .AddHeader("Host", host)
-                        .AddHeader("Date", "Fri, 24 May 2013 00:00:00 GMT")
-                        .AddHeader("x-amz-content-sha256", payload_hash)
-                        .AddHeader("x-amz-date", x_amz_date)
-                        .AddHeader("x-amz-storage-class", "REDUCED_REDUNDANCY")
-                        .AddPayloadHash(payload_hash)
-                        .BuildCanonicalRequest();
+    std::vector<std::string> headers = {
+        "date: Fri, 24 May 2013 00:00:00 GMT",
+        absl::StrCat("host: ", host),
+        absl::StrCat("x-amz-content-sha256: ", payload_hash),
+        absl::StrCat("x-amz-date: ", x_amz_date),
+        absl::StrCat("x-amz-storage-class: REDUCED_REDUNDANCY")
+    };
+
+    auto canonical_request = S3RequestBuilder::CanonicalRequest(url, "PUT", payload_hash, headers, {});
 
     auto expected_canonical_request =
         "PUT\n"
@@ -138,7 +136,7 @@ TEST(S3RequestBuilderTest, AWS4SignaturePutExample) {
 
     EXPECT_EQ(canonical_request, expected_canonical_request);
 
-    auto signing_string = S3RequestBuilder::SigningString(canonical_request, time, aws_region);
+    auto signing_string = S3RequestBuilder::SigningString(canonical_request, aws_region, time);
     auto expected_signing_string =
         "AWS4-HMAC-SHA256\n"
         "20130524T000000Z\n"
@@ -147,7 +145,7 @@ TEST(S3RequestBuilderTest, AWS4SignaturePutExample) {
     EXPECT_EQ(signing_string, expected_signing_string);
 
     auto expected_signature = "98ad721746da40c64f1a55b78f14c238d841ea1380cd77a1b5971af0ece108bd";
-    auto signature = S3RequestBuilder::Signature(aws_secret_access_key, aws_region, time, expected_signing_string);
+    auto signature = S3RequestBuilder::Signature(aws_secret_access_key, aws_region, expected_signing_string, time);
     EXPECT_EQ(signature, expected_signature);
 
     auto expected_auth_header =
@@ -156,13 +154,7 @@ TEST(S3RequestBuilderTest, AWS4SignaturePutExample) {
         "SignedHeaders=date;host;x-amz-content-sha256;x-amz-date;x-amz-storage-class,"
         "Signature=98ad721746da40c64f1a55b78f14c238d841ea1380cd77a1b5971af0ece108bd";
 
-    auto auth_header = S3RequestBuilder::AuthorizationHeaderBuilder(aws_access_key, aws_region, time, signature)
-                            .AddHeaderName("host")
-                            .AddHeaderName("date")
-                            .AddHeaderName("x-amz-content-sha256")
-                            .AddHeaderName("x-amz-date")
-                            .AddHeaderName("x-amz-storage-class")
-                            .BuildAuthorizationHeader();
+    auto auth_header = S3RequestBuilder::AuthorizationHeader(aws_access_key, aws_region, signature, headers, time);
     EXPECT_EQ(auth_header, expected_auth_header);
 }
 
