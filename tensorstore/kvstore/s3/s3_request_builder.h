@@ -32,7 +32,6 @@
 #include "absl/strings/str_join.h"
 #include "tensorstore/internal/ascii_utils.h"
 #include "tensorstore/internal/http/http_request.h"
-#include "tensorstore/internal/path.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/internal/digest/sha256.h"
 #include "tensorstore/kvstore/s3/validate.h"
@@ -42,10 +41,7 @@
 #include "absl/time/time.h"
 
 using ::tensorstore::internal_http::HttpRequest;
-using ::tensorstore::internal_http::HttpRequestBuilder;
 using ::tensorstore::internal::IntToHexDigit;
-using ::tensorstore::internal::ParseGenericUri;
-using ::tensorstore::internal::ParsedGenericUri;
 using ::tensorstore::internal::SHA256Digester;
 
 namespace tensorstore {
@@ -132,7 +128,7 @@ class S3RequestBuilder {
 
     std::string BuildAuthorizationHeader() {
       return absl::StrFormat(
-        "AWS4-HMAC-SHA256 Credential=%s"
+        "Authorization: AWS4-HMAC-SHA256 Credential=%s"
         "/%s/%s/s3/aws4_request,"
         "SignedHeaders=%s,Signature=%s",
           aws_access_key_,
