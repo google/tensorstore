@@ -80,12 +80,17 @@ HttpRequest S3RequestBuilder::BuildRequest(
     std::string_view aws_region,
     std::string_view payload_hash,
     const absl::Time & time) {
+
+
+  auto headers = request_.headers();
+  std::sort(std::begin(headers), std::end(headers));
+  std::sort(std::begin(encoded_queries_), std::end(encoded_queries_));
   auto canonical_request = CanonicalRequest(request_.url(), request_.method(),
-                                            payload_hash, request_.headers(),
+                                            payload_hash, headers,
                                             encoded_queries_);
   auto signing_string = SigningString(canonical_request, aws_region, time);
   auto signature = Signature(aws_secret_access_key, aws_region, signing_string, time);
-  auto auth_header = AuthorizationHeader(aws_access_key, aws_region, signature, request_.headers(), time);
+  auto auth_header = AuthorizationHeader(aws_access_key, aws_region, signature, headers, time);
   request_.headers_.emplace_back(std::move(auth_header));
   return std::move(request_);
 }

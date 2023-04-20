@@ -92,7 +92,7 @@ TEST(S3RequestBuilderTest, AWS4SignatureGetExample) {
     EXPECT_EQ(auth_header, expected_auth_header);
 
     auto s3_builder = S3RequestBuilder("GET", url);
-    for(auto & header: headers) s3_builder.AddHeader(header);
+    for(auto it = headers.rbegin(); it != headers.rend(); ++it) s3_builder.AddHeader(*it);
     auto request = s3_builder.BuildRequest(aws_access_key, aws_secret_access_key,
                                            aws_region, payload_hash, time);
 
@@ -166,7 +166,7 @@ TEST(S3RequestBuilderTest, AWS4SignaturePutExample) {
     EXPECT_EQ(auth_header, expected_auth_header);
 
     auto s3_builder = S3RequestBuilder("PUT", url);
-    for(auto & header: headers) s3_builder.AddHeader(header);
+    for(auto it = headers.rbegin(); it != headers.rend(); ++it) s3_builder.AddHeader(*it);
     auto request = s3_builder.BuildRequest(aws_access_key, aws_secret_access_key,
                                            aws_region, payload_hash, time);
 
