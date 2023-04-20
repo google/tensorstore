@@ -74,7 +74,19 @@ S3RequestBuilder::S3RequestBuilder(std::string_view method,
   request_.url_ = std::move(endpoint_url);
 }
 
-HttpRequest S3RequestBuilder::BuildRequest() {
+HttpRequest S3RequestBuilder::BuildRequest(
+    std::string_view aws_access_key,
+    std::string_view aws_secret_access_key,
+    std::string_view aws_region,
+    std::string_view payload_hash,
+    const absl::Time & time) {
+  auto canonical_request = CanonicalRequest(request_.url(), request_.method(),
+                                            payload_hash, request_.headers(),
+                                            encoded_queries_);
+  auto signing_string = SigningString(canonical_request, aws_region, time);
+  auto signature = Signature(aws_secret_access_key, aws_region, signing_string, time);
+  auto auth_header = AuthorizationHeader(aws_access_key, aws_region, signature, request_.headers(), time);
+  request_.headers_.emplace_back(std::move(auth_header));
   return std::move(request_);
 }
 

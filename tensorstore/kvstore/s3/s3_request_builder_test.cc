@@ -79,7 +79,7 @@ TEST(S3RequestBuilderTest, AWS4SignatureGetExample) {
     EXPECT_EQ(signing_string, expected_signing_string);
 
     auto expected_signature = "f0e8bdb87c964420e857bd35b5d6ed310bd44f0170aba48dd91039c6036bdb41";
-    auto signature = S3RequestBuilder::Signature(aws_secret_access_key, aws_region, expected_signing_string, time);
+    auto signature = S3RequestBuilder::Signature(aws_secret_access_key, aws_region, signing_string, time);
     EXPECT_EQ(signature, expected_signature);
 
     auto expected_auth_header =
@@ -90,6 +90,14 @@ TEST(S3RequestBuilderTest, AWS4SignatureGetExample) {
 
     auto auth_header = S3RequestBuilder::AuthorizationHeader(aws_access_key, aws_region, signature, headers, time);
     EXPECT_EQ(auth_header, expected_auth_header);
+
+    auto s3_builder = S3RequestBuilder("GET", url);
+    for(auto & header: headers) s3_builder.AddHeader(header);
+    auto request = s3_builder.BuildRequest(aws_access_key, aws_secret_access_key,
+                                           aws_region, payload_hash, time);
+
+    EXPECT_THAT(request.headers(), ::testing::Contains(auth_header));
+
 }
 
 
@@ -145,7 +153,7 @@ TEST(S3RequestBuilderTest, AWS4SignaturePutExample) {
     EXPECT_EQ(signing_string, expected_signing_string);
 
     auto expected_signature = "98ad721746da40c64f1a55b78f14c238d841ea1380cd77a1b5971af0ece108bd";
-    auto signature = S3RequestBuilder::Signature(aws_secret_access_key, aws_region, expected_signing_string, time);
+    auto signature = S3RequestBuilder::Signature(aws_secret_access_key, aws_region, signing_string, time);
     EXPECT_EQ(signature, expected_signature);
 
     auto expected_auth_header =
@@ -156,6 +164,13 @@ TEST(S3RequestBuilderTest, AWS4SignaturePutExample) {
 
     auto auth_header = S3RequestBuilder::AuthorizationHeader(aws_access_key, aws_region, signature, headers, time);
     EXPECT_EQ(auth_header, expected_auth_header);
+
+    auto s3_builder = S3RequestBuilder("PUT", url);
+    for(auto & header: headers) s3_builder.AddHeader(header);
+    auto request = s3_builder.BuildRequest(aws_access_key, aws_secret_access_key,
+                                           aws_region, payload_hash, time);
+
+    EXPECT_THAT(request.headers(), ::testing::Contains(auth_header));
 }
 
 }

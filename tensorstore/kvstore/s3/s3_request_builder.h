@@ -93,7 +93,9 @@ class S3RequestBuilder {
   /// response.
   S3RequestBuilder& EnableAcceptEncoding();
 
-  HttpRequest BuildRequest();
+  HttpRequest BuildRequest(std::string_view aws_access_key, std::string_view aws_secret_access_key,
+                           std::string_view aws_region, std::string_view payload_hash,
+                           const absl::Time & time);
 
   /// https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
   static std::string SigningString(
