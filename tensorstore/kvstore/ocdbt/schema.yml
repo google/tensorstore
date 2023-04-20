@@ -28,6 +28,21 @@ allOf:
           title: "Unique 128-bit identifier for the database, specified as 32 hex digits."
           description: |
             If not specified, it is randomly generated when the database is first created.
+        manifest_kind:
+          title: "Manifest format to use."
+          oneOf:
+          - const: "single"
+            title: |
+              :ref:`Single-file manifest format<ocdbt-manifest-kind-single>`
+          - const: "numbered"
+            title: |
+              :ref:`Numbered-file manifest format<ocdbt-manifest-kind-numbered>`
+          description: |
+            If not specified, the format is chosen automatically when creating
+            the database based on the capabilities of the underlying kvstore.
+            If the capabilities of the underlying kvstore are such that no
+            format safely supports concurrent writes, then it is an error not to
+            specify a value when creating the database.
         max_inline_value_bytes:
           type: integer
           minimum: 0

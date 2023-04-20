@@ -139,6 +139,15 @@ py::object GetExceptionFromStatus(const absl::Status& status) noexcept {
   return {};
 }
 
+std::string GetMessageFromStatus(const absl::Status& status) {
+  std::string message = status.ToString();
+  // Remove INVALID_ARGUMENT: from Status message.
+  if (status.code() == absl::StatusCode::kInvalidArgument) {
+    return message.substr(std::string_view("INVALID_ARGUMENT: ").size());
+  }
+  return message;
+}
+
 }  // namespace
 
 pybind11::handle GetExceptionType(absl::StatusCode error_code,
@@ -177,7 +186,7 @@ void ThrowStatusException(const absl::Status& status,
     throw py::error_already_set();
   }
   throw DynamicPythonException(GetExceptionType(status.code(), policy),
-                               std::string{status.message()});
+                               GetMessageFromStatus(status));
 }
 
 void SetErrorIndicatorFromStatus(const absl::Status& status,
@@ -187,7 +196,7 @@ void SetErrorIndicatorFromStatus(const absl::Status& status,
     PyErr_SetObject(reinterpret_cast<PyObject*>(exc.ptr()->ob_type), exc.ptr());
     return;
   }
-  std::string_view message = status.message();
+  std::string message = GetMessageFromStatus(status);
   if (py::object python_message = py::reinterpret_steal<py::object>(
           PyUnicode_FromStringAndSize(message.data(), message.size()))) {
     PyErr_SetObject(GetExceptionType(status.code(), policy).ptr(),
@@ -201,7 +210,7 @@ pybind11::object GetStatusPythonException(const absl::Status& status,
   if (auto exc = GetExceptionFromStatus(status); exc.ptr()) {
     return exc;
   }
-  return GetExceptionType(status.code(), policy)(status.ToString());
+  return GetExceptionType(status.code(), policy)(GetMessageFromStatus(status));
 }
 
 absl::Status GetStatusFromPythonException(pybind11::handle exc) noexcept {

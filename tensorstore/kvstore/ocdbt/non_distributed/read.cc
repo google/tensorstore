@@ -51,7 +51,8 @@ namespace internal_ocdbt {
 
 namespace {
 
-// Asynchronous operation state used to implement `internal_ocdbt::Read`.
+// Asynchronous operation state used to implement
+// `internal_ocdbt::NonDistributedRead`.
 //
 // The read operation is implemented as follows:
 //

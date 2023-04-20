@@ -169,6 +169,7 @@ using ::tensorstore::internal_file_util::kLockSuffix;
 using ::tensorstore::internal_file_util::LongestDirectoryPrefix;
 using ::tensorstore::internal_file_util::UniqueFileDescriptor;
 using ::tensorstore::kvstore::ReadResult;
+using ::tensorstore::kvstore::SupportedFeatures;
 
 auto& file_bytes_read = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/file/bytes_read",
@@ -259,6 +260,12 @@ class FileKeyValueStore
   absl::Status GetBoundSpecData(FileKeyValueStoreSpecData& spec) const {
     spec = spec_;
     return absl::OkStatus();
+  }
+
+  SupportedFeatures GetSupportedFeatures(
+      const KeyRange& key_range) const final {
+    return SupportedFeatures::kSingleKeyAtomicReadModifyWrite |
+           SupportedFeatures::kAtomicWriteWithoutOverwrite;
   }
 
   SpecData spec_;

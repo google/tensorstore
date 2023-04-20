@@ -25,6 +25,7 @@
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/ocdbt/format/config.h"
+#include "tensorstore/kvstore/supported_features.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
@@ -35,6 +36,7 @@ struct ConfigConstraints {
   explicit ConfigConstraints(const Config& config);
 
   std::optional<Uuid> uuid;
+  std::optional<ManifestKind> manifest_kind;
   std::optional<uint32_t> max_inline_value_bytes;
   std::optional<uint32_t> max_decoded_node_bytes;
   std::optional<uint8_t> version_tree_arity_log2;
@@ -52,8 +54,9 @@ struct ConfigConstraints {
                                           IncludeDefaults)
 
   constexpr static auto ApplyMembers = [](auto&& x, auto f) {
-    return f(x.uuid, x.max_inline_value_bytes, x.max_decoded_node_bytes,
-             x.version_tree_arity_log2, x.compression);
+    return f(x.uuid, x.manifest_kind, x.max_inline_value_bytes,
+             x.max_decoded_node_bytes, x.version_tree_arity_log2,
+             x.compression);
   };
 };
 
@@ -75,17 +78,21 @@ struct ConfigConstraints {
 /// option like `recheck_cached_metadata`.
 class ConfigState : public internal::AtomicReferenceCount<ConfigState> {
  public:
-  explicit ConfigState(const ConfigConstraints& constraints);
+  ConfigState();
+  explicit ConfigState(
+      const ConfigConstraints& constraints,
+      kvstore::SupportedFeatures supported_features_for_manifest);
   absl::Status ValidateNewConfig(const Config& config);
   const Config* GetExistingConfig() const;
-  void CreateNewConfig(Config& config);
+  Result<Config> CreateNewConfig();
   ConfigConstraints GetConstraints() const;
 
  private:
-  std::atomic<bool> config_set_;
   mutable absl::Mutex mutex_;
   ConfigConstraints constraints_;
   Config config_;
+  kvstore::SupportedFeatures supported_features_for_manifest_;
+  std::atomic<bool> config_set_{false};
 };
 
 using ConfigStatePtr = internal::IntrusivePtr<ConfigState>;
@@ -93,7 +100,9 @@ using ConfigStatePtr = internal::IntrusivePtr<ConfigState>;
 absl::Status ValidateConfig(const Config& config,
                             const ConfigConstraints& constraints);
 
-void CreateConfig(const ConfigConstraints& constraints, Config& config);
+absl::Status CreateConfig(const ConfigConstraints& constraints,
+                          kvstore::SupportedFeatures supported_features,
+                          Config& config);
 
 }  // namespace internal_ocdbt
 }  // namespace tensorstore

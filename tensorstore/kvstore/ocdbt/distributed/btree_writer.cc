@@ -225,6 +225,9 @@ class DistributedBtreeWriter : public BtreeWriter {
   // Address of the coordinator server.
   std::string coordinator_address_;
 
+  // Security method to use with coordinator and cooperators.
+  RpcSecurityMethod::Ptr security_;
+
   // Lease duration to use.
   absl::Duration lease_duration_;
 
@@ -382,6 +385,7 @@ void WriterCommitOperation::StartCommit(DistributedBtreeWriter& writer,
     internal_ocdbt_cooperator::Options cooperator_options;
     cooperator_options.io_handle = writer.io_handle_;
     cooperator_options.coordinator_address = writer.coordinator_address_;
+    cooperator_options.security = writer.security_;
     cooperator_options.lease_duration = writer.lease_duration_;
     cooperator_options.storage_identifier = writer.storage_identifier_;
     TENSORSTORE_ASSIGN_OR_RETURN(
@@ -769,6 +773,8 @@ BtreeWriterPtr MakeDistributedBtreeWriter(
   writer->non_distributed_writer_ =
       MakeNonDistributedBtreeWriter(writer->io_handle_);
   writer->coordinator_address_ = std::move(options.coordinator_address);
+  writer->security_ = std::move(options.security);
+  assert(writer->security_);
   writer->lease_duration_ = options.lease_duration;
   writer->storage_identifier_ = std::move(options.storage_identifier);
   return writer;

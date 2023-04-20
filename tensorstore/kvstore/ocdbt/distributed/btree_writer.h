@@ -20,6 +20,7 @@
 #include "absl/time/time.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/kvstore/ocdbt/btree_writer.h"
+#include "tensorstore/kvstore/ocdbt/distributed/rpc_security.h"
 #include "tensorstore/kvstore/ocdbt/io_handle.h"
 
 namespace tensorstore {
@@ -28,6 +29,7 @@ namespace internal_ocdbt {
 struct DistributedBtreeWriterOptions {
   IoHandle::Ptr io_handle;
   std::string coordinator_address;
+  RpcSecurityMethod::Ptr security;
   absl::Duration lease_duration;
 
   // Unique identifier of base kvstore, e.g. base kvstore JSON spec.

@@ -52,6 +52,7 @@ namespace {
 
 using ::tensorstore::internal::ConvertInvalidArgumentToFailedPrecondition;
 using ::tensorstore::internal::IntrusivePtr;
+using ::tensorstore::kvstore::SupportedFeatures;
 
 /// Read-only KeyValueStore for retrieving a minishard index
 ///
@@ -1109,6 +1110,12 @@ class ShardedKeyValueStore
         " in ",
         base_kvstore_driver()->DescribeKey(
             GetShardKey(sharding_spec, key_prefix(), shard_info.shard)));
+  }
+
+  SupportedFeatures GetSupportedFeatures(
+      const KeyRange& key_range) const final {
+    return base_kvstore_driver()->GetSupportedFeatures(
+        KeyRange::Prefix(key_prefix()));
   }
 
   kvstore::Driver* base_kvstore_driver() const {

@@ -25,6 +25,7 @@
 /// - root b+tree node (represented by `BtreeNode`).
 
 #include <cstdint>
+#include <limits>
 #include <ostream>
 #include <utility>
 #include <variant>
@@ -37,6 +38,7 @@
 #include "tensorstore/kvstore/ocdbt/format/config.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
@@ -61,25 +63,47 @@ constexpr VersionTreeArityLog2 kMaxVersionTreeArityLog2 = 16;
 struct CommitTime {
   CommitTime() = default;
 
-  explicit CommitTime(uint64_t ms_since_unix_epoch)
-      : value(ms_since_unix_epoch) {}
+  constexpr explicit CommitTime(uint64_t ns_since_unix_epoch)
+      : value(ns_since_unix_epoch) {}
 
-  CommitTime(absl::Time time);
+  static Result<CommitTime> FromAbslTime(absl::Time time);
 
   explicit operator absl::Time() const;
 
-  /// Milliseconds since Unix epoch.
+  /// Nanoseconds since Unix epoch.
   using Value = uint64_t;
   Value value;
   constexpr static auto ApplyMembers = [](auto&& x, auto f) {
     return f(x.value);
   };
 
+  constexpr static CommitTime min() { return CommitTime{0}; }
+  constexpr static CommitTime max() {
+    return CommitTime{std::numeric_limits<Value>::max()};
+  }
+
   friend bool operator==(CommitTime a, CommitTime b) {
     return a.value == b.value;
   }
+  friend bool operator<(CommitTime a, CommitTime b) {
+    return a.value < b.value;
+  }
+  friend bool operator<=(CommitTime a, CommitTime b) {
+    return a.value <= b.value;
+  }
+  friend bool operator>(CommitTime a, CommitTime b) {
+    return a.value > b.value;
+  }
+  friend bool operator>=(CommitTime a, CommitTime b) {
+    return a.value >= b.value;
+  }
   friend bool operator!=(CommitTime a, CommitTime b) { return !(a == b); }
   friend std::ostream& operator<<(std::ostream& os, CommitTime x);
+
+  template <typename Sink>
+  friend void AbslStringify(Sink&& sink, CommitTime x) {
+    sink.Append(absl::FormatTime(static_cast<absl::Time>(x)));
+  }
 };
 
 /// In-memory representation of a reference to a b+tree version.
@@ -175,7 +199,7 @@ struct VersionTreeNode {
 /// Returns the maximum version tree height.
 inline VersionTreeHeight GetMaxVersionTreeHeight(
     VersionTreeArityLog2 version_tree_arity_log2) {
-  return 63 / version_tree_arity_log2;
+  return 63 / version_tree_arity_log2 - 1;
 }
 
 /// Returns the min/max range of generation numbers that may be stored in the
@@ -202,7 +226,8 @@ absl::Status ValidateVersionTreeLeafNodeEntries(
     const VersionTreeNode::LeafNodeEntries& entries);
 
 /// Decodes a version tree node, and validates invariants.
-Result<VersionTreeNode> DecodeVersionTreeNode(const absl::Cord& encoded);
+Result<VersionTreeNode> DecodeVersionTreeNode(const absl::Cord& encoded,
+                                              const BasePath& base_path);
 
 /// Encodes a version tree node.
 ///
@@ -217,6 +242,141 @@ Result<absl::Cord> EncodeVersionTreeNode(const Config& config,
 absl::Status ValidateVersionTreeNodeReference(
     const VersionTreeNode& node, const Config& config,
     GenerationNumber last_generation_number, VersionTreeHeight height);
+
+// Specifies an inclusive upper bound on a version's commit time.
+struct CommitTimeUpperBound {
+  CommitTime commit_time;
+};
+
+// Specifies a version.
+//
+// - `GenerationNumber` indicates an exact generation number.
+//
+// - `CommitTime` indicates an exact commit time.
+//
+// - `CommitTimeUpperBound` indicates an inclusive upper bound on the commit
+// time.
+using VersionSpec =
+    std::variant<GenerationNumber, CommitTime, CommitTimeUpperBound>;
+
+inline bool IsVersionSpecExact(VersionSpec version_spec) {
+  return !std::holds_alternative<CommitTimeUpperBound>(version_spec);
+}
+
+std::string FormatVersionSpec(VersionSpec version_spec);
+
+// Compares `version_spec` to `ref`.
+//
+// Returns:
+//
+//   `-1` if `version_spec` is older than `ref`.
+//   `0` if `version_spec` exactly matches `ref`.
+//   `1` if `version_spec` is newer than `ref`.
+//
+// This function treats `CommitTimeUpperBound` the same as `CommitTime`.
+int CompareVersionSpecToVersion(VersionSpec version_spec,
+                                const BtreeGenerationReference& ref);
+
+inline int CompareVersionSpecToVersion(GenerationNumber generation_number,
+                                       const BtreeGenerationReference& ref) {
+  return generation_number < ref.generation_number      ? -1
+         : (generation_number == ref.generation_number) ? 0
+                                                        : 1;
+}
+
+inline int CompareVersionSpecToVersion(CommitTime commit_time,
+                                       const BtreeGenerationReference& ref) {
+  return commit_time < ref.commit_time      ? -1
+         : (commit_time == ref.commit_time) ? 0
+                                            : 1;
+}
+
+inline int CompareVersionSpecToVersion(CommitTimeUpperBound commit_time,
+                                       const BtreeGenerationReference& ref) {
+  return CompareVersionSpecToVersion(commit_time.commit_time, ref);
+}
+
+/// Finds the generation with the specified `generation_number`.
+///
+/// Returns `nullptr` if not present.
+const BtreeGenerationReference* FindVersion(
+    span<const BtreeGenerationReference> versions,
+    GenerationNumber generation_number);
+
+const BtreeGenerationReference* FindVersion(
+    span<const BtreeGenerationReference> versions, CommitTime commit_time);
+
+const BtreeGenerationReference* FindVersion(
+    span<const BtreeGenerationReference> versions,
+    CommitTimeUpperBound commit_time);
+
+const BtreeGenerationReference* FindVersion(
+    span<const BtreeGenerationReference> versions, VersionSpec version_spec);
+
+span<const BtreeGenerationReference>::iterator FindVersionLowerBound(
+    span<const BtreeGenerationReference> versions,
+    GenerationNumber generation_number);
+
+inline span<const BtreeGenerationReference>::iterator FindVersionLowerBound(
+    VersionTreeArityLog2 version_tree_arity_log2,
+    span<const BtreeGenerationReference> versions,
+    GenerationNumber generation_number) {
+  return internal_ocdbt::FindVersionLowerBound(versions, generation_number);
+}
+
+span<const BtreeGenerationReference>::iterator FindVersionLowerBound(
+    span<const BtreeGenerationReference> versions, CommitTime commit_time);
+
+span<const BtreeGenerationReference>::iterator FindVersionUpperBound(
+    span<const BtreeGenerationReference> versions,
+    GenerationNumber generation_number);
+
+span<const BtreeGenerationReference>::iterator FindVersionUpperBound(
+    span<const BtreeGenerationReference> versions, CommitTime commit_time);
+
+const VersionNodeReference* FindVersion(
+    VersionTreeArityLog2 version_tree_arity_log2,
+    span<const VersionNodeReference> children,
+    GenerationNumber generation_number);
+
+const VersionNodeReference* FindVersion(
+    VersionTreeArityLog2 version_tree_arity_log2,
+    span<const VersionNodeReference> children, CommitTime commit_time);
+
+const VersionNodeReference* FindVersion(
+    span<const VersionNodeReference> children, CommitTime commit_time);
+
+inline const VersionNodeReference* FindVersion(
+    VersionTreeArityLog2 version_tree_arity_log2,
+    span<const VersionNodeReference> children, CommitTime commit_time) {
+  return FindVersion(children, commit_time);
+}
+
+inline const VersionNodeReference* FindVersion(
+    VersionTreeArityLog2 version_tree_arity_log2,
+    span<const VersionNodeReference> children,
+    CommitTimeUpperBound commit_time) {
+  return FindVersion(children, commit_time.commit_time);
+}
+
+const VersionNodeReference* FindVersion(
+    VersionTreeArityLog2 version_tree_arity_log2,
+    span<const VersionNodeReference> children, VersionSpec version_spec);
+
+span<const VersionNodeReference>::iterator FindVersionLowerBound(
+    VersionTreeArityLog2 version_tree_arity_log2,
+    span<const VersionNodeReference> children,
+    GenerationNumber generation_number);
+
+span<const VersionNodeReference>::iterator FindVersionLowerBound(
+    span<const VersionNodeReference> children, CommitTime commit_time);
+
+span<const VersionNodeReference>::iterator FindVersionUpperBound(
+    span<const VersionNodeReference> children,
+    GenerationNumber generation_number);
+
+span<const VersionNodeReference>::iterator FindVersionUpperBound(
+    span<const VersionNodeReference> children, CommitTime commit_time);
 
 #ifndef NDEBUG
 /// Checks invariants.

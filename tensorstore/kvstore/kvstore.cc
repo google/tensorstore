@@ -92,6 +92,11 @@ Result<DriverSpecPtr> Driver::GetBoundSpec() const {
       "KeyValueStore does not support JSON representation");
 }
 
+SupportedFeatures Driver::GetSupportedFeatures(
+    const KeyRange& key_range) const {
+  return SupportedFeatures::kNone;
+}
+
 void Driver::EncodeCacheKey(std::string* out) const {
   internal::EncodeCacheKey(out, reinterpret_cast<std::uintptr_t>(this));
 }

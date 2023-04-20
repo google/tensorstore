@@ -30,6 +30,7 @@
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
+#include "tensorstore/kvstore/mock_kvstore.h"
 #include "tensorstore/kvstore/ocdbt/config.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
 #include "tensorstore/kvstore/ocdbt/format/config.h"
@@ -48,13 +49,18 @@
 namespace {
 
 namespace kvstore = ::tensorstore::kvstore;
+using ::tensorstore::Context;
 using ::tensorstore::KeyRange;
+using ::tensorstore::MatchesStatus;
 using ::tensorstore::internal::GetMap;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
+using ::tensorstore::internal::MockKeyValueStore;
 using ::tensorstore::internal_ocdbt::Config;
 using ::tensorstore::internal_ocdbt::ConfigConstraints;
+using ::tensorstore::internal_ocdbt::ManifestKind;
 using ::tensorstore::internal_ocdbt::OcdbtDriver;
 using ::tensorstore::internal_ocdbt::ReadManifest;
+using ::tensorstore::kvstore::SupportedFeatures;
 
 TEST(OcdbtTest, WriteSingleKey) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto base_store,
@@ -182,36 +188,42 @@ TEST(OcdbtTest, Spec) {
   tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
 }
 
+// TODO(jbms): Consider refactoring into TEST_P.
 TENSORSTORE_GLOBAL_INITIALIZER {
+  const auto register_test_case = [](ConfigConstraints config) {
+    tensorstore::internal::RegisterGoogleTestCaseDynamically(
+        "OcdbtBasicFunctionalityTest", config.ToJson().value().dump(),
+        [config] {
+          TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+              auto store,
+              tensorstore::kvstore::Open({{"driver", "ocdbt"},
+                                          {"base", "memory://"},
+                                          {"config", config.ToJson().value()}})
+                  .result());
+          tensorstore::internal::TestKeyValueStoreBasicFunctionality(store);
+        });
+  };
   for (const auto max_decoded_node_bytes : {0, 1, 1048576}) {
     for (const auto max_inline_value_bytes : {0, 1, 1048576}) {
       for (const auto version_tree_arity_log2 : {1, 16}) {
         for (const auto compression :
              std::initializer_list<Config::Compression>{
                  Config::NoCompression{}, Config::ZstdCompression{0}}) {
-          Config config;
+          ConfigConstraints config;
           config.max_decoded_node_bytes = max_decoded_node_bytes;
           config.max_inline_value_bytes = max_inline_value_bytes;
           config.version_tree_arity_log2 = version_tree_arity_log2;
           config.compression = compression;
-
-          tensorstore::internal::RegisterGoogleTestCaseDynamically(
-              "OcdbtBasicFunctionalityTest", tensorstore::StrCat(config),
-              [config] {
-                TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-                    auto store,
-                    tensorstore::kvstore::Open(
-                        {{"driver", "ocdbt"},
-                         {"base", "memory://"},
-                         {"config",
-                          ConfigConstraints(config).ToJson().value()}})
-                        .result());
-                tensorstore::internal::TestKeyValueStoreBasicFunctionality(
-                    store);
-              });
+          register_test_case(config);
         }
       }
     }
+  }
+
+  {
+    ConfigConstraints config;
+    config.manifest_kind = ManifestKind::kNumbered;
+    register_test_case(config);
   }
 }
 
@@ -219,6 +231,129 @@ TENSORSTORE_GLOBAL_INITIALIZER {
 // rewritten.
 TEST(OcdbtTest, UnmodifiedNode) {
   tensorstore::internal_ocdbt::TestUnmodifiedNode();
+}
+
+// Disable this test until the corresponding error is re-enabled.
+#if 0
+TEST(OcdbtTest, NoSuitableManifestKind) {
+  auto context = Context::Default();
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto base_store,
+                                   kvstore::Open("memory://").result());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto mock_key_value_store_resource,
+      context.GetResource<tensorstore::internal::MockKeyValueStoreResource>());
+  MockKeyValueStore* mock_key_value_store =
+      mock_key_value_store_resource->get();
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto ocdbt_store,
+      kvstore::Open(
+          {{"driver", "ocdbt"}, {"base", {{"driver", "mock_key_value_store"}}}},
+          context)
+          .result());
+
+  auto write_future = kvstore::Write(ocdbt_store, "a", absl::Cord("b"));
+  write_future.Force();
+
+  {
+    auto req = mock_key_value_store->read_requests.pop();
+    EXPECT_EQ("manifest.ocdbt", req.key);
+    req(base_store.driver);
+  }
+
+  EXPECT_THAT(
+      write_future.result(),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    ".*Cannot choose OCDBT manifest_kind automatically .*"));
+}
+#endif
+
+TEST(OcdbtTest, ChooseNumberedManifestKind) {
+  auto context = Context::Default();
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto base_store,
+                                   kvstore::Open("memory://").result());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto mock_key_value_store_resource,
+      context.GetResource<tensorstore::internal::MockKeyValueStoreResource>());
+  MockKeyValueStore* mock_key_value_store =
+      mock_key_value_store_resource->get();
+  mock_key_value_store->supported_features =
+      SupportedFeatures::kAtomicWriteWithoutOverwrite;
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto ocdbt_store,
+      kvstore::Open(
+          {{"driver", "ocdbt"}, {"base", {{"driver", "mock_key_value_store"}}}},
+          context)
+          .result());
+
+  auto write_future = kvstore::Write(ocdbt_store, "a", absl::Cord("b"));
+  write_future.Force();
+
+  {
+    auto req = mock_key_value_store->read_requests.pop();
+    EXPECT_EQ("manifest.ocdbt", req.key);
+    req(base_store.driver);
+  }
+
+  {
+    auto req = mock_key_value_store->write_requests.pop();
+    EXPECT_EQ("manifest.ocdbt", req.key);
+    req(base_store.driver);
+  }
+
+  {
+    auto req = mock_key_value_store->write_requests.pop();
+    EXPECT_EQ("manifest.0000000000000001", req.key);
+    req(base_store.driver);
+  }
+
+  {
+    auto req = mock_key_value_store->list_requests.pop();
+    req(base_store.driver);
+  }
+
+  {
+    auto req = mock_key_value_store->write_requests.pop();
+    EXPECT_THAT(req.key, ::testing::StartsWith("d/"));
+    req(base_store.driver);
+  }
+
+  {
+    auto req = mock_key_value_store->write_requests.pop();
+    EXPECT_EQ("manifest.0000000000000002", req.key);
+    req(base_store.driver);
+  }
+
+  {
+    auto req = mock_key_value_store->list_requests.pop();
+    req(base_store.driver);
+  }
+
+  TENSORSTORE_EXPECT_OK(write_future);
+}
+
+TEST(OcdbtTest, NumberedManifest) {
+  auto context = Context::Default();
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto base_store, kvstore::Open("memory://", context).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto ocdbt_store,
+      kvstore::Open({{"driver", "ocdbt"},
+                     {"config", {{"manifest_kind", "numbered"}}},
+                     {"base", "memory://"}},
+                    context)
+          .result());
+  TENSORSTORE_ASSERT_OK(kvstore::Write(ocdbt_store, "a", absl::Cord("b")));
+  EXPECT_THAT(kvstore::ListFuture(base_store).result(),
+              ::testing::Optional(::testing::UnorderedElementsAre(
+                  "manifest.ocdbt", "manifest.0000000000000001",
+                  "manifest.0000000000000002", ::testing::StartsWith("d/"))));
 }
 
 }  // namespace

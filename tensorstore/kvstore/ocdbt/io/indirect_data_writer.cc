@@ -100,11 +100,10 @@ void MaybeFlush(IndirectDataWriter& self, UniqueWriterLock<absl::Mutex> lock) {
 
   indirect_data_writer_histogram.Observe(buffer.size());
   ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
-      << "Flushing " << buffer.size() << " bytes to "
-      << GetDataFilePath(data_file_id);
+      << "Flushing " << buffer.size() << " bytes to " << data_file_id;
 
-  auto write_future = kvstore::Write(
-      self.kvstore_, GetDataFilePath(data_file_id), std::move(buffer));
+  auto write_future =
+      kvstore::Write(self.kvstore_, data_file_id.FullPath(), std::move(buffer));
   write_future.Force();
   write_future.ExecuteWhenReady(
       [promise = std::move(promise),
@@ -112,8 +111,8 @@ void MaybeFlush(IndirectDataWriter& self, UniqueWriterLock<absl::Mutex> lock) {
           ReadyFuture<TimestampedStorageGeneration> future) {
         auto& r = future.result();
         ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
-            << "Done flushing data to " << GetDataFilePath(self->data_file_id_)
-            << ": " << r.status();
+            << "Done flushing data to " << self->data_file_id_ << ": "
+            << r.status();
         if (!r.ok()) {
           promise.SetResult(r.status());
         } else if (StorageGeneration::IsUnknown(r->generation)) {

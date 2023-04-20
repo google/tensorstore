@@ -32,11 +32,11 @@ namespace internal {
 /// time is no longer the current time.
 ///
 /// This is used to ensure consistent testing.
-inline absl::Time UniqueNow() {
+inline absl::Time UniqueNow(absl::Duration epsilon = absl::Nanoseconds(1)) {
   absl::Time t = absl::Now();
   do {
     absl::SleepFor(absl::Milliseconds(1));
-  } while (absl::Now() == t);
+  } while (absl::Now() < t + epsilon);
   return t;
 }
 

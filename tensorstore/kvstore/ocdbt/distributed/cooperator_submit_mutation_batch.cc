@@ -325,6 +325,10 @@ grpc::ServerUnaryReactor* Cooperator::Write(
     grpc::CallbackServerContext* context, const grpc_gen::WriteRequest* request,
     grpc_gen::WriteResponse* response) {
   auto* reactor = context->DefaultReactor();
+  if (auto status = security_->ValidateServerRequest(context); !status.ok()) {
+    reactor->Finish(internal::AbslStatusToGrpcStatus(status));
+    return reactor;
+  }
   if (!internal::IncrementReferenceCountIfNonZero(*this)) {
     // Shutting down
     reactor->Finish(

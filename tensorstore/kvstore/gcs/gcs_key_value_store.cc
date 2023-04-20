@@ -12,15 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <assert.h>
-
 #include <atomic>
-#include <map>
+#include <cassert>
 #include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -53,7 +50,6 @@
 #include "tensorstore/internal/schedule_at.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
-#include "tensorstore/kvstore/gcs/admission_queue.h"
 #include "tensorstore/kvstore/gcs/gcs_resource.h"
 #include "tensorstore/kvstore/gcs/object_metadata.h"
 #include "tensorstore/kvstore/gcs/rate_limiter.h"
@@ -72,13 +68,13 @@
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
-/// Support for ApplyMembers protocols
-#include "tensorstore/internal/cache_key/std_optional.h"  // IWYU pragma: keep
-#include "tensorstore/internal/json_binding/std_array.h"  // IWYU pragma: keep
-#include "tensorstore/internal/json_binding/std_optional.h"  // IWYU pragma: keep
-#include "tensorstore/serialization/fwd.h"  // IWYU pragma: keep
-#include "tensorstore/serialization/std_optional.h"  // IWYU pragma: keep
-#include "tensorstore/util/garbage_collection/std_optional.h"  // IWYU pragma: keep
+/// specializations
+#include "tensorstore/internal/cache_key/std_optional.h"
+#include "tensorstore/internal/json_binding/std_array.h"
+#include "tensorstore/internal/json_binding/std_optional.h"
+#include "tensorstore/serialization/fwd.h"
+#include "tensorstore/serialization/std_optional.h"
+#include "tensorstore/util/garbage_collection/std_optional.h"
 
 // GCS reference links are:
 //
@@ -97,6 +93,7 @@ using ::tensorstore::internal_storage_gcs::GcsConcurrencyResource;
 using ::tensorstore::internal_storage_gcs::GcsRateLimiterResource;
 using ::tensorstore::internal_storage_gcs::GcsRequestRetries;
 using ::tensorstore::internal_storage_gcs::GcsUserProjectResource;
+using ::tensorstore::internal_storage_gcs::IsRetriable;
 using ::tensorstore::internal_storage_gcs::IsValidBucketName;
 using ::tensorstore::internal_storage_gcs::IsValidObjectName;
 using ::tensorstore::internal_storage_gcs::IsValidStorageGeneration;
@@ -106,6 +103,7 @@ using ::tensorstore::internal_storage_gcs::RateLimiter;
 using ::tensorstore::internal_storage_gcs::RateLimiterNode;
 using ::tensorstore::kvstore::Key;
 using ::tensorstore::kvstore::ListOptions;
+using ::tensorstore::kvstore::SupportedFeatures;
 
 #ifndef TENSORSTORE_INTERNAL_GCS_LOG_REQUESTS
 #define TENSORSTORE_INTERNAL_GCS_LOG_REQUESTS 0
@@ -217,16 +215,6 @@ std::string BucketUploadRoot(std::string_view bucket) {
   const char kVersion[] = "v1";
   return tensorstore::StrCat(GetGcsBaseUrl(), "/upload/storage/", kVersion,
                              "/b/", bucket);
-}
-
-/// Returns whether the absl::Status is a retriable request.
-bool IsRetriable(const absl::Status& status) {
-  if (status.code() == absl::StatusCode::kDeadlineExceeded ||
-      status.code() == absl::StatusCode::kUnavailable) {
-    gcs_retries.Increment();
-    return true;
-  }
-  return false;
 }
 
 struct GcsKeyValueStoreSpecData {
@@ -370,6 +358,12 @@ class GcsKeyValueStore
     return GetGcsUrl(spec_.bucket, key);
   }
 
+  SupportedFeatures GetSupportedFeatures(
+      const KeyRange& key_range) const final {
+    return SupportedFeatures::kSingleKeyAtomicReadModifyWrite |
+           SupportedFeatures::kAtomicWriteWithoutOverwrite;
+  }
+
   // Apply default backoff/retry logic to the task.
   // Returns whether the task will be retried. On false, max retries have
   // been met or exceeded.  On true, `task->Retry()` will be scheduled to run
@@ -378,6 +372,7 @@ class GcsKeyValueStore
   bool BackoffForAttemptAsync(int attempt, Task* task) {
     if (attempt >= spec_.retries->max_retries) return false;
     // https://cloud.google.com/storage/docs/retry-strategy#exponential-backoff
+    gcs_retries.Increment();
     auto delay = internal::BackoffForAttempt(
         attempt, spec_.retries->initial_delay, spec_.retries->max_delay,
         /*jitter=*/std::min(absl::Seconds(1), spec_.retries->initial_delay));

@@ -15,7 +15,6 @@
 #ifndef TENSORSTORE_KVSTORE_OCDBT_FORMAT_INDIRECT_DATA_REFERENCE_H_
 #define TENSORSTORE_KVSTORE_OCDBT_FORMAT_INDIRECT_DATA_REFERENCE_H_
 
-#include <array>
 #include <cstdint>
 #include <iosfwd>
 #include <limits>
@@ -23,57 +22,28 @@
 #include <string_view>
 
 #include "tensorstore/internal/type_traits.h"
+#include "tensorstore/kvstore/ocdbt/format/data_file_id.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
-
-/// Identifies a data file by a 128-bit (random) identifier.
-///
-/// 128 bits is sufficient to ensure that random ids can be generated without a
-/// need to check for collisions.
-///
-/// The corresponding key in the underlying kvstore is obtained from
-/// `GetDataFilePath`.
-struct DataFileId {
-  using Value = std::array<uint8_t, 16>;
-  Value value;
-
-  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
-    return f(x.value);
-  };
-
-  friend std::ostream& operator<<(std::ostream& os, const DataFileId& x);
-
-  friend bool operator==(const DataFileId& a, const DataFileId& b) {
-    return a.value == b.value;
-  }
-  friend bool operator!=(const DataFileId& a, const DataFileId& b) {
-    return !(a == b);
-  }
-};
-
-/// Generates a random data file id.
-DataFileId GenerateDataFileId();
-
-/// Returns the kvstore key for a given file identifier.
-///
-/// This key is relative to the data directory path returned by
-/// `GetDataDirectoryPath`.
-///
-/// Equal to the 32-character lowercase hex representation of `file_id`.
-std::string GetDataFilePath(DataFileId file_id);
-
-/// Returns the path to the data directory in the underlying kvstore given a
-/// base directory path.
-///
-/// Equal to `base_path + "d/"`.
-std::string GetDataDirectoryPath(std::string_view base_path);
 
 /// In-memory representation of a given byte range within a given data file.
 struct IndirectDataReference {
   DataFileId file_id;
   uint64_t offset;
   uint64_t length;
+
+  /// Encodes as a string key.
+  friend void EncodeCacheKeyAdl(std::string* out,
+                                const IndirectDataReference& self);
+  std::string EncodeCacheKey() const {
+    std::string out;
+    EncodeCacheKeyAdl(&out, *this);
+    return out;
+  }
+
+  /// Decodes from the result of `EncodeCacheKey`.
+  bool DecodeCacheKey(std::string_view encoded);
 
   /// Returns the special value that indicates an invalid/null reference.
   ///

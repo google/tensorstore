@@ -175,6 +175,11 @@ class CoalesceKvStoreDriver final : public kvstore::Driver {
     return base_->GetBoundSpec();
   }
 
+  kvstore::SupportedFeatures GetSupportedFeatures(
+      const KeyRange& key_range) const final {
+    return base_->GetSupportedFeatures(key_range);
+  }
+
   void GarbageCollectionVisit(
       garbage_collection::GarbageCollectionVisitor& visitor) const override {
     return base_->GarbageCollectionVisit(visitor);

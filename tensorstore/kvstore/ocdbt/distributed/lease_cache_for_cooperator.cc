@@ -71,6 +71,7 @@ class LeaseCacheForCooperator::Impl
   // LeaseTree leases_by_expiration_time_ ABSL_GUARDED_BY(mutex_);
 
   std::shared_ptr<grpc_gen::Coordinator::StubInterface> coordinator_stub_;
+  RpcSecurityMethod::Ptr security_;
   int32_t cooperator_port_;
   absl::Duration lease_duration_;
 };
@@ -85,7 +86,7 @@ LeaseCacheForCooperator::Impl::GetCooperatorStub(const std::string& address) {
   grpc::ChannelArguments args;
   args.SetInt(GRPC_ARG_ENABLE_RETRIES, 0);
   stub = tensorstore::internal_ocdbt::grpc_gen::Cooperator::NewStub(
-      grpc::CreateCustomChannel(address, grpc::InsecureChannelCredentials(),
+      grpc::CreateCustomChannel(address, security_->GetClientCredentials(),
                                 args));
   return stub;
 }
@@ -250,6 +251,7 @@ LeaseCacheForCooperator::LeaseCacheForCooperator(Options&& options) {
   impl_.reset(new Impl);
   impl_->clock_ = std::move(options.clock);
   impl_->coordinator_stub_ = std::move(options.coordinator_stub);
+  impl_->security_ = std::move(options.security);
   impl_->cooperator_port_ = options.cooperator_port;
   impl_->lease_duration_ = options.lease_duration;
 }

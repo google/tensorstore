@@ -22,6 +22,8 @@
 #include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
 #include <nlohmann/json.hpp>
+#include "tensorstore/internal/cache/cache_pool_resource.h"
+#include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/init_tensorstore.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json/pprint_python.h"
@@ -35,6 +37,7 @@
 #include "tensorstore/kvstore/ocdbt/format/manifest.h"
 #include "tensorstore/kvstore/ocdbt/format/version_tree.h"
 #include "tensorstore/kvstore/ocdbt/io/indirect_data_kvstore_driver.h"
+#include "tensorstore/kvstore/ocdbt/io/io_handle_impl.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/util/future.h"
@@ -70,14 +73,25 @@ absl::Status RunDumpCommand() {
   }
   internal::EnsureDirectoryPath(kvs_spec->path);
   TENSORSTORE_ASSIGN_OR_RETURN(auto kvs, kvstore::Open(*kvs_spec).result());
+
   std::string node_identifier = absl::GetFlag(FLAGS_node);
   if (node_identifier.empty()) {
     // Print manifest.
+    auto context = Context::Default();
 
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto encoded, ReadKey(kvs.driver.get(), GetManifestPath(kvs.path)));
-    TENSORSTORE_ASSIGN_OR_RETURN(auto manifest, DecodeManifest(encoded));
-    PrintValue(Dump(manifest));
+    auto io_handle = internal_ocdbt::MakeIoHandle(
+        context.GetResource<internal::DataCopyConcurrencyResource>().value(),
+        **context.GetResource<internal::CachePoolResource>().value(), kvs,
+        /*config_state=*/
+        internal::MakeIntrusivePtr<ConfigState>());
+
+    TENSORSTORE_ASSIGN_OR_RETURN(auto manifest_with_time,
+                                 io_handle->GetManifest(absl::Now()).result());
+
+    if (!manifest_with_time.manifest) {
+      return absl::NotFoundError("Manifest not found");
+    }
+    PrintValue(Dump(*manifest_with_time.manifest));
     return absl::OkStatus();
   }
 
@@ -91,22 +105,22 @@ absl::Status RunDumpCommand() {
         "Invalid node type: ", tensorstore::QuoteString(node_ref.label)));
   }
 
-  auto indirect_kvs = MakeIndirectDataKvStoreDriver(
-      KvStore{kvs.driver, GetDataDirectoryPath(kvs.path)});
-
-  std::string_view indirect_kvs_key(
-      reinterpret_cast<const char*>(&node_ref.location),
-      sizeof(node_ref.location));
+  auto indirect_kvs = MakeIndirectDataKvStoreDriver(kvs);
 
   TENSORSTORE_ASSIGN_OR_RETURN(
-      auto encoded, ReadKey(indirect_kvs.get(), std::string(indirect_kvs_key)));
+      auto encoded,
+      ReadKey(indirect_kvs.get(), node_ref.location.EncodeCacheKey()));
   if (node_ref.label == "value") {
     std::cout << encoded;
   } else if (node_ref.label == "btreenode") {
-    TENSORSTORE_ASSIGN_OR_RETURN(auto node, DecodeBtreeNode(encoded));
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto node,
+        DecodeBtreeNode(encoded, node_ref.location.file_id.base_path));
     PrintValue(Dump(node));
   } else {
-    TENSORSTORE_ASSIGN_OR_RETURN(auto node, DecodeVersionTreeNode(encoded));
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto node,
+        DecodeVersionTreeNode(encoded, node_ref.location.file_id.base_path));
     PrintValue(Dump(node));
   }
   return absl::OkStatus();

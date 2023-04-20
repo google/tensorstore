@@ -31,6 +31,7 @@
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/std_array.h"
 #include "tensorstore/internal/json_binding/std_variant.h"
+#include "tensorstore/internal/path.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/ocdbt/config.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
@@ -48,20 +49,17 @@ namespace internal_ocdbt {
 Result<LabeledIndirectDataReference> LabeledIndirectDataReference::Parse(
     std::string_view s) {
   LabeledIndirectDataReference r;
-  static LazyRE2 kPattern = {"([^:]+):([a-f0-9]+):([0-9]+):([0-9]+)"};
-  std::string_view data_key;
-  if (!RE2::FullMatch(s, *kPattern, &r.label, &data_key, &r.location.offset,
+  static LazyRE2 kPattern = {"([^:]+):([^:]+):([^:]+):([0-9]+):([0-9]+)"};
+  std::string_view encoded_base_path, encoded_relative_path;
+  if (!RE2::FullMatch(s, *kPattern, &r.label, &encoded_base_path,
+                      &encoded_relative_path, &r.location.offset,
                       &r.location.length)) {
     return absl::InvalidArgumentError(tensorstore::StrCat(
         "Invalid indirect data reference: ", tensorstore::QuoteString(s)));
   }
-  auto data_bytes = absl::HexStringToBytes(data_key);
-  if (data_bytes.size() != r.location.file_id.value.size()) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Invalid data file id: ", tensorstore::QuoteString(data_key)));
-  }
-  std::memcpy(r.location.file_id.value.data(), data_bytes.data(),
-              data_bytes.size());
+  r.location.file_id.base_path = internal::PercentDecode(encoded_base_path);
+  r.location.file_id.relative_path =
+      internal::PercentDecode(encoded_relative_path);
   return r;
 }
 
@@ -82,26 +80,31 @@ constexpr auto ConfigBinder = jb::Compose<ConfigConstraints>(
       return absl::OkStatus();
     });
 
-constexpr auto LabeledIndirectDataReferenceBinder =
-    [](auto is_loading, const auto& options, auto* obj, auto* j) {
-      if constexpr (is_loading) {
-        if (auto* s = j->template get_ptr<const std::string*>()) {
-          TENSORSTORE_ASSIGN_OR_RETURN(*obj,
-                                       LabeledIndirectDataReference::Parse(*s));
-        } else {
-          return internal_json::ExpectedError(*j, "string");
-        }
-      } else {
-        if (obj->location.IsMissing()) {
-          *j = ::nlohmann::json::value_t::discarded;
-        } else {
-          *j = tensorstore::StrCat(
-              obj->label, ":", GetDataFilePath(obj->location.file_id), ":",
-              obj->location.offset, ":", obj->location.length);
-        }
-      }
-      return absl::OkStatus();
-    };
+constexpr auto LabeledIndirectDataReferenceBinder = [](auto is_loading,
+                                                       const auto& options,
+                                                       auto* obj, auto* j) {
+  if constexpr (is_loading) {
+    if (auto* s = j->template get_ptr<const std::string*>()) {
+      TENSORSTORE_ASSIGN_OR_RETURN(*obj,
+                                   LabeledIndirectDataReference::Parse(*s));
+    } else {
+      return internal_json::ExpectedError(*j, "string");
+    }
+  } else {
+    if (obj->location.IsMissing()) {
+      *j = ::nlohmann::json::value_t::discarded;
+    } else {
+      *j = tensorstore::StrCat(
+          obj->label, ":",
+          internal::PercentEncodeUriComponent(obj->location.file_id.base_path),
+          ":",
+          internal::PercentEncodeUriComponent(
+              obj->location.file_id.relative_path),
+          ":", obj->location.offset, ":", obj->location.length);
+    }
+  }
+  return absl::OkStatus();
+};
 
 constexpr auto IndirectDataReferenceBinder(std::string_view label) {
   return jb::Compose<LabeledIndirectDataReference>(
@@ -189,8 +192,8 @@ constexpr auto BinaryCordBinder = [](auto is_loading, const auto& options,
 };
 
 constexpr auto LeafNodeValueReferenceBinder = jb::Variant(
-    jb::Member("indirect_value", IndirectDataReferenceBinder("value")),
-    jb::Member("inline_value", BinaryCordBinder));
+    jb::Member("inline_value", BinaryCordBinder),
+    jb::Member("indirect_value", IndirectDataReferenceBinder("value")));
 
 constexpr auto BtreeLeafNodeEntryBinder(std::string_view key_prefix) {
   return

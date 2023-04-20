@@ -27,6 +27,7 @@
 #include "tensorstore/kvstore/ocdbt/distributed/btree_node_identifier.h"
 #include "tensorstore/kvstore/ocdbt/distributed/cooperator.grpc.pb.h"
 #include "tensorstore/kvstore/ocdbt/distributed/coordinator.grpc.pb.h"
+#include "tensorstore/kvstore/ocdbt/distributed/rpc_security.h"
 #include "tensorstore/util/future.h"
 
 namespace tensorstore {
@@ -67,6 +68,7 @@ class LeaseCacheForCooperator {
   struct Options {
     Clock clock;
     std::shared_ptr<grpc_gen::Coordinator::StubInterface> coordinator_stub;
+    RpcSecurityMethod::Ptr security;
     int32_t cooperator_port;
     absl::Duration lease_duration;
   };

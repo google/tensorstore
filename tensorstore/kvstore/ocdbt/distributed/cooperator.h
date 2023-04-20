@@ -24,6 +24,7 @@
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/ocdbt/distributed/btree_node_identifier.h"
 #include "tensorstore/kvstore/ocdbt/distributed/btree_node_write_mutation.h"
+#include "tensorstore/kvstore/ocdbt/distributed/rpc_security.h"
 #include "tensorstore/kvstore/ocdbt/format/manifest.h"
 #include "tensorstore/kvstore/ocdbt/format/version_tree.h"
 #include "tensorstore/kvstore/ocdbt/io_handle.h"
@@ -75,6 +76,7 @@ struct MutationBatchResponse {
 struct Options {
   std::vector<std::string> bind_addresses;
   std::string coordinator_address;
+  internal_ocdbt::RpcSecurityMethod::Ptr security;
   Clock clock;
   internal_ocdbt::IoHandle::Ptr io_handle;
   absl::Duration lease_duration;

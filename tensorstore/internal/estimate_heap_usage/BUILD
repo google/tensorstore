@@ -25,6 +25,7 @@ tensorstore_cc_test(
     srcs = ["estimate_heap_usage_test.cc"],
     deps = [
         ":estimate_heap_usage",
+        "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/util/apply_members",
         "@com_google_absl//absl/strings:cord",
         "@com_google_googletest//:gtest_main",

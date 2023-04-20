@@ -40,10 +40,21 @@ struct CompressionConfigCodec {
                                 const Config::Compression& value) const;
 };
 
+struct ManifestKindCodec {
+  [[nodiscard]] bool operator()(riegeli::Reader& reader,
+                                ManifestKind& value) const;
+
+  [[nodiscard]] bool operator()(riegeli::Writer& writer,
+                                ManifestKind value) const {
+    return writer.WriteByte(static_cast<uint8_t>(value));
+  }
+};
+
 struct ConfigCodec {
   template <typename IO, typename T>
   [[nodiscard]] bool operator()(IO& io, T&& value) const {
     return UuidCodec{}(io, value.uuid) &&
+           ManifestKindCodec{}(io, value.manifest_kind) &&
            MaxInlineValueBytesCodec{}(io, value.max_inline_value_bytes) &&
            MaxDecodedNodeBytesCodec{}(io, value.max_decoded_node_bytes) &&
            VersionTreeArityLog2Codec{}(io, value.version_tree_arity_log2) &&

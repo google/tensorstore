@@ -12,6 +12,8 @@ tensorstore_cc_library(
         "codec_util.cc",
         "config.cc",
         "config_codec.cc",
+        "data_file_id.cc",
+        "data_file_id_codec.cc",
         "indirect_data_reference.cc",
         "manifest.cc",
         "version_tree.cc",
@@ -23,6 +25,8 @@ tensorstore_cc_library(
         "codec_util.h",
         "config.h",
         "config_codec.h",
+        "data_file_id.h",
+        "data_file_id_codec.h",
         "indirect_data_reference.h",
         "indirect_data_reference_codec.h",
         "manifest.h",
@@ -32,6 +36,7 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore/internal:integer_overflow",
         "//tensorstore/internal:path",
+        "//tensorstore/internal:ref_counted_string",
         "//tensorstore/internal:type_traits",
         "//tensorstore/internal/estimate_heap_usage",
         "//tensorstore/kvstore/ocdbt:debug_log",
@@ -43,6 +48,7 @@ tensorstore_cc_library(
         "//tensorstore/util:str_cat",
         "//tensorstore/util/apply_members",
         "@com_google_absl//absl/base:endian",
+        "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/crc:crc32c",
         "@com_google_absl//absl/functional:function_ref",
         "@com_google_absl//absl/log:absl_check",
@@ -55,6 +61,7 @@ tensorstore_cc_library(
         "@com_google_boringssl//:crypto",
         "@com_google_riegeli//riegeli/bytes:cord_reader",
         "@com_google_riegeli//riegeli/bytes:cord_writer",
+        "@com_google_riegeli//riegeli/bytes:limiting_reader",
         "@com_google_riegeli//riegeli/bytes:reader",
         "@com_google_riegeli//riegeli/bytes:writer",
         "@com_google_riegeli//riegeli/digests:crc32c_digester",
@@ -77,6 +84,7 @@ tensorstore_cc_test(
         ":format",
         "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/strings:str_format",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -102,6 +110,7 @@ tensorstore_cc_library(
     deps = [
         ":format",
         "//tensorstore:json_serialization_options_base",
+        "//tensorstore/internal:path",
         "//tensorstore/internal/json:value_as",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
@@ -131,5 +140,22 @@ tensorstore_cc_test(
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/strings:cord",
         "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "data_file_id_codec_test",
+    size = "small",
+    srcs = ["data_file_id_codec_test.cc"],
+    deps = [
+        ":format",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_riegeli//riegeli/bytes:cord_reader",
+        "@com_google_riegeli//riegeli/bytes:cord_writer",
+        "@com_google_riegeli//riegeli/varint:varint_writing",
     ],
 )

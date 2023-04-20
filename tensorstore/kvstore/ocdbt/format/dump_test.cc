@@ -42,12 +42,10 @@ using ::tensorstore::internal_ocdbt::Manifest;
 
 TEST(LabeledIndirectDataReferenceTest, Parse) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto value, LabeledIndirectDataReference::Parse(
-                      "btreenode:34edddd694efd82b24fc00e405479672:1:36"));
+      auto value,
+      LabeledIndirectDataReference::Parse("btreenode:abc:def%20:1:36"));
   EXPECT_EQ("btreenode", value.label);
-  EXPECT_EQ((DataFileId{{{0x34, 0xed, 0xdd, 0xd6, 0x94, 0xef, 0xd8, 0x2b, 0x24,
-                          0xfc, 0x00, 0xe4, 0x05, 0x47, 0x96, 0x72}}}),
-            value.location.file_id);
+  EXPECT_EQ((DataFileId{"abc", "def "}), value.location.file_id);
   EXPECT_EQ(1, value.location.offset);
   EXPECT_EQ(36, value.location.length);
 }
@@ -65,7 +63,7 @@ TEST(DumpTest, Manifest) {
   //   - 1 up to 8 (eventually up to 16) (height 3)
   {
     auto& x = manifest.versions.emplace_back();
-    x.root.location.file_id = {{0, 1, 2, 3, 4, 5, 6, 7}};
+    x.root.location.file_id = {"abc", "def"};
     x.root.location.offset = 10;
     x.root.location.length = 42;
     x.generation_number = 15;
@@ -77,7 +75,7 @@ TEST(DumpTest, Manifest) {
   }
   {
     auto& x = manifest.version_tree_nodes.emplace_back();
-    x.location.file_id = {{0, 1, 2, 3, 4, 5, 6, 7}};
+    x.location.file_id = {"abc", "def"};
     x.location.offset = 10;
     x.location.length = 42;
     x.generation_number = 8;
@@ -87,7 +85,7 @@ TEST(DumpTest, Manifest) {
   }
   {
     auto& x = manifest.version_tree_nodes.emplace_back();
-    x.location.file_id = {{0, 1, 2, 3, 4, 5, 6, 7}};
+    x.location.file_id = {"abc", "def"};
     x.location.offset = 10;
     x.location.length = 42;
     x.generation_number = 12;
@@ -97,7 +95,7 @@ TEST(DumpTest, Manifest) {
   }
   {
     auto& x = manifest.version_tree_nodes.emplace_back();
-    x.location.file_id = {{0, 1, 2, 3, 4, 5, 6, 7}};
+    x.location.file_id = {"abc", "def"};
     x.location.offset = 10;
     x.location.length = 42;
     x.generation_number = 14;
@@ -105,51 +103,47 @@ TEST(DumpTest, Manifest) {
     x.commit_time = CommitTime{8};
     x.num_generations = 2;
   }
-  EXPECT_THAT(
-      Dump(manifest),
-      MatchesJson({
-          {"config",
-           {{"uuid", "000102030405060708090a0b0c0d0e0f"},
-            {"compression", {{"id", "zstd"}}},
-            {"max_decoded_node_bytes", 8388608},
-            {"max_inline_value_bytes", 100},
-            {"version_tree_arity_log2", 1}}},
-          {"version_tree_nodes",
-           {{
-                {"commit_time", 1},
-                {"generation_number", 8},
-                {"height", 3},
-                {"location",
-                 "versionnode:00010203040506070000000000000000:10:42"},
-                {"num_generations", 8},
-            },
-            {
-                {"commit_time", 5},
-                {"generation_number", 12},
-                {"height", 2},
-                {"location",
-                 "versionnode:00010203040506070000000000000000:10:42"},
-                {"num_generations", 4},
-            },
-            {
-                {"commit_time", 8},
-                {"generation_number", 14},
-                {"height", 1},
-                {"location",
-                 "versionnode:00010203040506070000000000000000:10:42"},
-                {"num_generations", 2},
-            }}},
-          {"versions",
-           {{{"commit_time", 10},
-             {"root",
-              {{"location", "btreenode:00010203040506070000000000000000:10:42"},
-               {"statistics",
-                {{"num_indirect_value_bytes", 101},
-                 {"num_keys", 8},
-                 {"num_tree_bytes", 220}}}}},
-             {"generation_number", 15},
-             {"root_height", 0}}}},
-      }));
+  EXPECT_THAT(Dump(manifest),
+              MatchesJson({
+                  {"config",
+                   {{"uuid", "000102030405060708090a0b0c0d0e0f"},
+                    {"compression", {{"id", "zstd"}}},
+                    {"max_decoded_node_bytes", 8388608},
+                    {"max_inline_value_bytes", 100},
+                    {"version_tree_arity_log2", 1}}},
+                  {"version_tree_nodes",
+                   {{
+                        {"commit_time", 1},
+                        {"generation_number", 8},
+                        {"height", 3},
+                        {"location", "versionnode:abc:def:10:42"},
+                        {"num_generations", 8},
+                    },
+                    {
+                        {"commit_time", 5},
+                        {"generation_number", 12},
+                        {"height", 2},
+                        {"location", "versionnode:abc:def:10:42"},
+                        {"num_generations", 4},
+                    },
+                    {
+                        {"commit_time", 8},
+                        {"generation_number", 14},
+                        {"height", 1},
+                        {"location", "versionnode:abc:def:10:42"},
+                        {"num_generations", 2},
+                    }}},
+                  {"versions",
+                   {{{"commit_time", 10},
+                     {"root",
+                      {{"location", "btreenode:abc:def:10:42"},
+                       {"statistics",
+                        {{"num_indirect_value_bytes", 101},
+                         {"num_keys", 8},
+                         {"num_tree_bytes", 220}}}}},
+                     {"generation_number", 15},
+                     {"root_height", 0}}}},
+              }));
 }
 
 TEST(DumpTest, BtreeLeafNode) {
@@ -163,7 +157,7 @@ TEST(DumpTest, BtreeLeafNode) {
                      /*.value_reference =*/absl::Cord("value2")});
   entries.push_back({/*.key =*/"e",
                      /*.value_reference =*/
-                     IndirectDataReference{{{0, 1, 2, 3, 4, 5, 6, 7}}, 1, 25}});
+                     IndirectDataReference{{"abc", "def"}, 1, 25}});
   EXPECT_THAT(
       Dump(node),
       MatchesJson({
@@ -184,8 +178,7 @@ TEST(DumpTest, BtreeLeafNode) {
                                'a', 'b', 'd'}}},
                },
                {
-                   {"indirect_value",
-                    "value:00010203040506070000000000000000:1:25"},
+                   {"indirect_value", "value:abc:def:1:25"},
                    {"key", ::nlohmann::json::binary_t{std::vector<uint8_t>{
                                'a', 'b', 'e'}}},
                },
@@ -204,7 +197,7 @@ TEST(DumpTest, BtreeInteriorNode) {
                      {
                          /*.location =*/
                          {
-                             /*.file_id =*/{{0, 1, 2, 3, 4, 5, 6, 7}},
+                             /*.file_id =*/{"abc", "def"},
                              /*.offset =*/5,
                              /*.length =*/6,
                          },
@@ -221,7 +214,7 @@ TEST(DumpTest, BtreeInteriorNode) {
                      {
                          /*.location =*/
                          {
-                             /*.file_id =*/{{8, 9, 10, 11, 12, 13, 14, 15}},
+                             /*.file_id =*/{"ghi", "jkl"},
                              /*.offset =*/42,
                              /*.length =*/9,
                          },
@@ -238,7 +231,7 @@ TEST(DumpTest, BtreeInteriorNode) {
       MatchesJson({
           {"entries",
            {
-               {{"location", "btreenode:00010203040506070000000000000000:5:6"},
+               {{"location", "btreenode:abc:def:5:6"},
                 {"key", ::nlohmann::json::binary_t{std::vector<uint8_t>{
                             'a', 'b', 'c'}}},
                 {"subtree_common_prefix",
@@ -250,8 +243,7 @@ TEST(DumpTest, BtreeInteriorNode) {
                      {"num_tree_bytes", 200}},
                 }},
                {
-                   {"location",
-                    "btreenode:08090a0b0c0d0e0f0000000000000000:42:9"},
+                   {"location", "btreenode:ghi:jkl:42:9"},
                    {"key", ::nlohmann::json::binary_t{std::vector<uint8_t>{
                                'd', 'e', 'f'}}},
                    {"subtree_common_prefix",

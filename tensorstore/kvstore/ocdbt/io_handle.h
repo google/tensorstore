@@ -67,23 +67,26 @@ class ReadonlyIoHandle
   virtual ~ReadonlyIoHandle();
 };
 
+struct TryUpdateManifestResult {
+  absl::Time time;
+  bool success;
+};
+
 /// Abstract interface used by operation implementations to write the OCDBT data
 /// structures for a single database.
 class IoHandle : public ReadonlyIoHandle {
  public:
   using Ptr = internal::IntrusivePtr<const IoHandle>;
 
-  /// Function that computes a new manifest from an existing one.
-  using ManifestUpdateFunction =
-      std::function<Future<std::shared_ptr<const Manifest>>(
-          std::shared_ptr<const Manifest> existing)>;
-
-  /// Performs an atomic read-modify-write operation on the manifest.
+  /// Performs an atomic update operation on the manifest.
   ///
-  /// The returned `Future` resolves to the new manifest and its timestamp on
-  /// success.
-  virtual Future<const ManifestWithTime> ReadModifyWriteManifest(
-      ManifestUpdateFunction update_function) const = 0;
+  /// The specified `time` is a staleness bound (normally set to `absl::Now()`).
+  /// In the particular case that `old_manifest` equals `new_manifest`
+  /// (i.e. just confirming that `new_manifest` is up to date), then `time`
+  /// serves as a `staleness_bound` for that check.
+  virtual Future<TryUpdateManifestResult> TryUpdateManifest(
+      std::shared_ptr<const Manifest> old_manifest,
+      std::shared_ptr<const Manifest> new_manifest, absl::Time time) const = 0;
 
   /// Writes data for later retrieval via an `IndirectDataReference`, populating
   /// `ref` with its location.

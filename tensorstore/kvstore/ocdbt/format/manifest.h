@@ -45,6 +45,17 @@ namespace internal_ocdbt {
 /// Equal to `base_path + "manifest"`.
 std::string GetManifestPath(std::string_view base_path);
 
+/// Returns the path to the numbered manifest given a base directory path.
+///
+/// Equal to `base_path + "manifest.XXXXXXXXXXXXXXXX"`.
+std::string GetNumberedManifestPath(std::string_view base_path,
+                                    GenerationNumber generation_number);
+
+// Number of manifests to keep.
+//
+// TODO(jbms): Add time-based criteria in addition to this.
+constexpr GenerationNumber kNumNumberedManifestsToKeep = 128;
+
 /// In-memory representation of a manifest.
 struct Manifest {
   /// Database configuration.
@@ -82,6 +93,10 @@ struct Manifest {
   };
 };
 
+inline GenerationNumber GetLatestGeneration(const Manifest* manifest) {
+  return manifest ? manifest->latest_generation() : 0;
+}
+
 /// Pairs a `Manifest` with its storage timestamp.
 struct ManifestWithTime {
   std::shared_ptr<const Manifest> manifest;
@@ -92,7 +107,8 @@ struct ManifestWithTime {
 Result<Manifest> DecodeManifest(const absl::Cord& encoded);
 
 /// Encodes the manifest.
-Result<absl::Cord> EncodeManifest(const Manifest& manifest);
+Result<absl::Cord> EncodeManifest(const Manifest& manifest,
+                                  bool encode_as_single = false);
 
 /// Iterates over the version tree nodes that may be referenced from the
 /// manifest with the given latest `generation_number`.
@@ -115,7 +131,8 @@ void ForEachManifestVersionTreeNodeRef(
 /// These invariants are all verified by `DecodeManifest` using a separate code
 /// path.  However, this is used in debug mode by `EncodeManifest` to verify
 /// invariants before writing.
-void CheckManifestInvariants(const Manifest& manifest);
+void CheckManifestInvariants(const Manifest& manifest,
+                             bool assume_single = false);
 #endif  // NDEBUG
 
 }  // namespace internal_ocdbt

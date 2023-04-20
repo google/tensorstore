@@ -1557,7 +1557,7 @@ Example:
     >>> schema[transform]
     Traceback (most recent call last):
         ...
-    IndexError: Rank 3 -> 3 transform cannot be composed with rank 1 -> 2 transform.
+    IndexError: Rank 3 -> 3 transform cannot be composed with rank 1 -> 2 transform...
 
 Args:
 

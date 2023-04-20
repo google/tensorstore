@@ -15,9 +15,6 @@
 #ifndef TENSORSTORE_KVSTORE_GCS_RATE_LIMITED_NODE_H_
 #define TENSORSTORE_KVSTORE_GCS_RATE_LIMITED_NODE_H_
 
-#include <cassert>
-#include <clocale>
-
 #include "absl/base/thread_annotations.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/intrusive_linked_list.h"

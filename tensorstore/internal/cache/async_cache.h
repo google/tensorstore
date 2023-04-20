@@ -922,6 +922,23 @@ class AsyncCache : public Cache {
     }
   };
 
+  template <typename EntryOrNode>
+  struct ReadReceiver {
+    EntryOrNode* entry_or_node;
+    void set_value(AsyncCache::ReadState&& read_state) {
+      entry_or_node->ReadSuccess(std::move(read_state));
+    }
+
+    void set_error(absl::Status error) {
+      entry_or_node->ReadError(std::move(error));
+    }
+
+    void set_cancel() {
+      // Not normally used.
+      set_error(absl::CancelledError(""));
+    }
+  };
+
   /// Derived classes should override this to return the size of any additional
   /// heap allocations that are unaffected by changes to the read state, write
   /// state, or writeback state.
