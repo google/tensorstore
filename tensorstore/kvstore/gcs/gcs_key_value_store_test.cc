@@ -767,6 +767,7 @@ TEST(GcsKeyValueStoreTest, RateLimited) {
                                          context)
                                          .result());
 
+    kvstore::Read(store, "xyz").Wait();
     mock_transport->reset();
     std::vector<tensorstore::Future<kvstore::ReadResult>> futures;
     for (size_t i = 0; i < 100; ++i) {

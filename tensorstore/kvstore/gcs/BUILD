@@ -215,6 +215,7 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore/internal:utf8",
         "//tensorstore/kvstore:generation",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
     ],
 )

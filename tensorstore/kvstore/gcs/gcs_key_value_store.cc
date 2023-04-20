@@ -93,6 +93,7 @@ using ::tensorstore::internal_storage_gcs::GcsConcurrencyResource;
 using ::tensorstore::internal_storage_gcs::GcsRateLimiterResource;
 using ::tensorstore::internal_storage_gcs::GcsRequestRetries;
 using ::tensorstore::internal_storage_gcs::GcsUserProjectResource;
+using ::tensorstore::internal_storage_gcs::IsRetriable;
 using ::tensorstore::internal_storage_gcs::IsValidBucketName;
 using ::tensorstore::internal_storage_gcs::IsValidObjectName;
 using ::tensorstore::internal_storage_gcs::IsValidStorageGeneration;
@@ -214,16 +215,6 @@ std::string BucketUploadRoot(std::string_view bucket) {
   const char kVersion[] = "v1";
   return tensorstore::StrCat(GetGcsBaseUrl(), "/upload/storage/", kVersion,
                              "/b/", bucket);
-}
-
-/// Returns whether the absl::Status is a retriable request.
-bool IsRetriable(const absl::Status& status) {
-  if (status.code() == absl::StatusCode::kDeadlineExceeded ||
-      status.code() == absl::StatusCode::kUnavailable) {
-    gcs_retries.Increment();
-    return true;
-  }
-  return false;
 }
 
 struct GcsKeyValueStoreSpecData {
@@ -381,6 +372,7 @@ class GcsKeyValueStore
   bool BackoffForAttemptAsync(int attempt, Task* task) {
     if (attempt >= spec_.retries->max_retries) return false;
     // https://cloud.google.com/storage/docs/retry-strategy#exponential-backoff
+    gcs_retries.Increment();
     auto delay = internal::BackoffForAttempt(
         attempt, spec_.retries->initial_delay, spec_.retries->max_delay,
         /*jitter=*/std::min(absl::Seconds(1), spec_.retries->initial_delay));
