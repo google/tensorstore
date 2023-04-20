@@ -94,10 +94,6 @@ TEST(ValidateTest, IsValidObjectName) {
   EXPECT_TRUE(IsValidObjectName("foo\rbar"));
   EXPECT_TRUE(IsValidObjectName("foo\nbar"));
 
-  // Discouraged
-  EXPECT_FALSE(IsValidObjectName("[foo]"));
-  EXPECT_FALSE(IsValidObjectName("{foo}"));
-
   // Not utf-8
   EXPECT_FALSE(IsValidObjectName("\xfe\xfe\xff\xff"));
   EXPECT_FALSE(IsValidObjectName("\xfc\x80\x80\x80\x80\xaf"));

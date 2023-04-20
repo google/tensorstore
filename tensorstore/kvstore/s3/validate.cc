@@ -52,10 +52,6 @@ constexpr AsciiSet kS3ObjectSpecialChars{
     "\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f"
     "\x7f"};
 
-constexpr AsciiSet kS3ObjectDiscouragedChars{
-    "\\{}[]<>^%`\">~#|"};
-
-
 // Returns whether the bucket name is valid.
 // https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html
 BucketNameType ClassifyBucketName(std::string_view bucket) {
@@ -108,13 +104,6 @@ bool IsValidBucketName(std::string_view bucket) {
 // https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-keys.html
 bool IsValidObjectName(std::string_view name) {
   if (name.empty() || name.size() > 1024) return false;
-
-  for(const auto ch: name) {
-    if (kS3ObjectDiscouragedChars.Test(ch) || (ch >= 128 && ch <= 255)) {
-        return false;
-    }
-  }
-
   return internal::IsValidUtf8(name);
 }
 
