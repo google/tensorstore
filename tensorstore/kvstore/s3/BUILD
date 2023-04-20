@@ -62,7 +62,6 @@ tensorstore_cc_library(
     ],
     hdrs = ["validate.h"],
     deps = [
-        "//tensorstore/internal:ascii_utils",
         "//tensorstore/internal:utf8",
         "//tensorstore/kvstore:generation",
         "@com_google_absl//absl/strings",

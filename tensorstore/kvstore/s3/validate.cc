@@ -18,39 +18,15 @@
 
 #include "re2/re2.h"
 
-#include "tensorstore/internal/ascii_utils.h"
 #include "tensorstore/internal/utf8.h"
 #include "tensorstore/kvstore/s3/validate.h"
-
-using ::tensorstore::internal::AsciiSet;
 
 namespace tensorstore {
 namespace internal_storage_s3 {
 
-RE2 ip_address_re("^\\d+\\.\\d+\\.\\d+\\.\\d+$");
-
-constexpr AsciiSet kS3BucketValidChars{
-    "abcdefghijklmnopqrstuvwxyz"
-    "0123456789"
-    ".-"};
-
-constexpr AsciiSet kOldS3BucketValidChars{
-    "abcdefghijklmnopqrstuvwxyz"
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    "0123456789"
-    ".-_"};
-
-constexpr AsciiSet kS3ObjectSafeChars{
-    "abcdefghijklmnopqrstuvwxyz"
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    "0123456789"
-    "!-_.*'()"};
-
-constexpr AsciiSet kS3ObjectSpecialChars{
-    "&$@=;/:+ ,?"
-    "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f"
-    "\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f"
-    "\x7f"};
+RE2 kIpAddress("^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$");
+RE2 kS3BucketValidChars{"^[a-z0-9\\.-]+$"};         // Current
+RE2 kOldS3BucketValidChars{"^[a-zA-Z0-9\\.-_]+$"};  // Old us-east-1 style
 
 // Returns whether the bucket name is valid.
 // https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html
@@ -58,39 +34,31 @@ BucketNameType ClassifyBucketName(std::string_view bucket) {
   if (bucket.size() < 3 || bucket.size() > 255) return BucketNameType::Invalid;
   bool old_us_east = bucket.size() > 63;
 
-  // Bucket names must start and end with a number or letter.
-  if (!absl::ascii_isdigit(*bucket.begin()) &&
-    (old_us_east ?
-      !absl::ascii_isalpha(*bucket.begin()) :
-      !absl::ascii_islower(*bucket.begin()))) {
-    return BucketNameType::Invalid;
-  }
-
-  // Bucket names must start and end with a number or letter.
-  if (!absl::ascii_isdigit(*bucket.rbegin()) &&
-    (old_us_east ?
-      !absl::ascii_isalpha(*bucket.rbegin()) :
-      !absl::ascii_islower(*bucket.rbegin()))) {
-    return BucketNameType::Invalid;
-  }
-
   // No IP Address styles
-  if(RE2::FullMatch(bucket, ip_address_re)) return BucketNameType::Invalid;
+  if(RE2::FullMatch(bucket, kIpAddress)) return BucketNameType::Invalid;
   if(absl::StartsWith(bucket, "xn--")) return BucketNameType::Invalid;
   // reserved for access point alias names
   if(absl::EndsWith(bucket, "-s3alias")) return BucketNameType::Invalid;
   // reserved for Object Lambda Access
   if(absl::EndsWith(bucket, "--ol-s3")) return BucketNameType::Invalid;
 
-  std::string_view::value_type last_char = '\0';
+  // Bucket name is a series of labels split by .
+  // https://web.archive.org/web/20170121163958/http://docs.aws.amazon.com/AmazonS3/latest/dev/BucketRestrictions.html
+  for (std::string_view v : absl::StrSplit(bucket, absl::ByChar('.'))) {
+    if (v.empty()) return BucketNameType::Invalid;
+    // Bucket names must start and end with a number or letter.
+    if (!absl::ascii_isdigit(*v.begin()) &&
+        (old_us_east ? !absl::ascii_isalpha(*v.begin()) : !absl::ascii_islower(*v.begin()))) {
+      return BucketNameType::Invalid;
+    }
+    if (!absl::ascii_isdigit(*v.rbegin()) &&
+        (old_us_east ? !absl::ascii_isalpha(*v.rbegin()) : !absl::ascii_islower(*v.rbegin()))) {
+      return BucketNameType::Invalid;
+    }
 
-  for (const auto ch: bucket) {
-    if(old_us_east ? !kOldS3BucketValidChars.Test(ch) : !kS3BucketValidChars.Test(ch) ||
-       (ch == '.' && last_char == '.')) {
-         return BucketNameType::Invalid;
-       }
-
-    last_char = ch;
+    if(old_us_east ? !RE2::FullMatch(v, kOldS3BucketValidChars) : !RE2::FullMatch(v, kS3BucketValidChars)) {
+      return BucketNameType::Invalid;
+    }
   }
 
   return old_us_east ? BucketNameType::OldUSEast1 : BucketNameType::Standard;
