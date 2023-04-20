@@ -33,6 +33,7 @@
 #include "tensorstore/kvstore/ocdbt/format/btree_codec.h"
 #include "tensorstore/kvstore/ocdbt/format/codec_util.h"
 #include "tensorstore/kvstore/ocdbt/format/config.h"
+#include "tensorstore/kvstore/ocdbt/format/data_file_id_codec.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference_codec.h"
 #include "tensorstore/util/quote_string.h"
@@ -49,7 +50,7 @@ namespace {
 bool ReadKeyPrefixLengths(riegeli::Reader& reader,
                           span<KeyLength> prefix_lengths,
                           KeyLength& common_prefix_length) {
-  KeyLength min_prefix_length = std::numeric_limits<KeyLength>::max();
+  KeyLength min_prefix_length = kMaxKeyLength;
   for (auto& prefix_length : prefix_lengths) {
     if (!KeyLengthCodec{}(reader, prefix_length)) return false;
     min_prefix_length = std::min(min_prefix_length, prefix_length);
@@ -66,29 +67,46 @@ bool ReadKeySuffixLengths(riegeli::Reader& reader,
   return true;
 }
 
+// Read the key-related field columns for `ocdbt-btree-leaf-node-entry-array`
+// and `ocdbt-btree-interior-node-entry-array`.
+//
+// See the format documentation in `index.rst`.  The corresponding write
+// function is `WriteKeys` in `btree_node_encoder.cc`.
 template <typename Entry>
 bool ReadKeys(riegeli::Reader& reader, std::string_view& common_prefix,
-              BtreeNode::KeyBuffer& key_buffer, span<Entry> entries,
-              KeyLength max_common_prefix_length) {
+              BtreeNode::KeyBuffer& key_buffer, span<Entry> entries) {
   const size_t num_entries = entries.size();
   KeyLength common_prefix_length;
-  std::vector<KeyLength> key_length_buffer(num_entries * 2 - 1);
-  span<KeyLength> prefix_lengths(key_length_buffer.data() + num_entries,
-                                 num_entries - 1);
-  span<KeyLength> suffix_lengths(key_length_buffer.data(), num_entries);
-  if (!ReadKeyPrefixLengths(reader, prefix_lengths, common_prefix_length)) {
+  std::vector<KeyLength> key_length_buffer(num_entries * 2);
+  span<KeyLength> prefix_lengths(key_length_buffer.data(), num_entries);
+  span<KeyLength> suffix_lengths(key_length_buffer.data() + num_entries,
+                                 num_entries);
+  // Read `key_prefix_length` column.
+  if (!ReadKeyPrefixLengths(reader, prefix_lengths.subspan(1),
+                            common_prefix_length)) {
     return false;
   }
+  // Read `key_suffix_length` column.
   if (!ReadKeySuffixLengths(reader, suffix_lengths)) return false;
-  common_prefix_length =
-      std::min(common_prefix_length, max_common_prefix_length);
+  if constexpr (std::is_same_v<Entry, InteriorNodeEntry>) {
+    // Read `subtree_common_prefix_length` column.
+    for (auto& entry : entries) {
+      if (!KeyLengthCodec{}(reader, entry.subtree_common_prefix_length)) {
+        return false;
+      }
+      common_prefix_length =
+          std::min(common_prefix_length, entry.subtree_common_prefix_length);
+    }
+  }
   common_prefix_length = std::min(suffix_lengths[0], common_prefix_length);
 
-  size_t key_buffer_size = suffix_lengths[0];
+  size_t key_buffer_size = common_prefix_length;
 
-  // First verify that lengths are valid.
-  for (size_t i = 1, prev_length = suffix_lengths[0]; i < num_entries; ++i) {
-    size_t prefix_length = prefix_lengths[i - 1];
+  // Verify that lengths are valid, calculate the size required for the
+  // `key_buffer`, and for interior nodes, adjust `subtree_common_prefix_length`
+  // to exclude `common_prefix_length`.
+  for (size_t i = 0, prev_length = 0; i < num_entries; ++i) {
+    size_t prefix_length = prefix_lengths[i];
     if (prefix_length > prev_length) {
       reader.Fail(absl::DataLossError(absl::StrFormat(
           "Child %d: Prefix length of %d exceeds previous key length %d", i,
@@ -96,15 +114,27 @@ bool ReadKeys(riegeli::Reader& reader, std::string_view& common_prefix,
       return false;
     }
     size_t suffix_length = suffix_lengths[i];
-    if (prefix_length + suffix_length > std::numeric_limits<KeyLength>::max()) {
+    size_t key_length = prefix_length + suffix_length;
+    if (key_length > kMaxKeyLength) {
       reader.Fail(absl::DataLossError(
           absl::StrFormat("Child %d: Key length %d exceeds limit of %d", i,
-                          prefix_length + suffix_length,
-                          std::numeric_limits<KeyLength>::max())));
+                          key_length, kMaxKeyLength)));
       return false;
     }
-    prev_length = prefix_length + suffix_length;
-    key_buffer_size += prev_length - common_prefix_length;
+    if constexpr (std::is_same_v<Entry, InteriorNodeEntry>) {
+      auto& entry = entries[i];
+      if (entry.subtree_common_prefix_length > key_length) {
+        reader.Fail(absl::DataLossError(absl::StrFormat(
+            "Key %d: subtree common prefix length of %d exceeds key length of "
+            "%d",
+            i, entry.subtree_common_prefix_length, key_length)));
+        return false;
+      }
+      assert(entry.subtree_common_prefix_length >= common_prefix_length);
+      entry.subtree_common_prefix_length -= common_prefix_length;
+    }
+    prev_length = key_length;
+    key_buffer_size += key_length - common_prefix_length;
   }
 
   key_buffer = BtreeNode::KeyBuffer(key_buffer_size);
@@ -119,7 +149,7 @@ bool ReadKeys(riegeli::Reader& reader, std::string_view& common_prefix,
     return s;
   };
 
-  // Read first key and extract common prefix.
+  // Read first `key_suffix` and extract common prefix.
   {
     size_t key_length = suffix_lengths[0];
     if (!reader.Pull(key_length)) return false;
@@ -130,9 +160,9 @@ bool ReadKeys(riegeli::Reader& reader, std::string_view& common_prefix,
     reader.move_cursor(key_length);
   }
 
-  // Read remaining keys.
+  // Read remaining `key_suffix` values.
   for (size_t i = 1; i < num_entries; ++i) {
-    size_t prefix_length = prefix_lengths[i - 1] - common_prefix_length;
+    size_t prefix_length = prefix_lengths[i] - common_prefix_length;
     size_t suffix_length = suffix_lengths[i];
     if (!reader.Pull(suffix_length)) return false;
     auto prev_key = std::string_view(entries[i - 1].key);
@@ -148,151 +178,60 @@ bool ReadKeys(riegeli::Reader& reader, std::string_view& common_prefix,
   return true;
 }
 
-bool ReadBtreeLeafNode(riegeli::Reader& reader, std::string_view& prefix,
-                       BtreeNode::KeyBuffer& key_buffer,
-                       BtreeNode::LeafNodeEntries& entries,
-                       KeyLength max_common_prefix_length) {
-  uint32_t num_entries;
-  if (!ReadVarintChecked(reader, num_entries)) return false;
-  if (num_entries == 0) {
-    reader.Fail(absl::DataLossError("Empty b-tree node"));
-    return false;
-  }
-  if (num_entries > kMaxNodeArity) {
-    reader.Fail(absl::DataLossError(
-        absl::StrFormat("B-tree node has arity %d, which exceeds limit of %d",
-                        num_entries, kMaxNodeArity)));
-    return false;
-  }
+template <typename Entry>
+bool ReadBtreeNodeEntries(riegeli::Reader& reader,
+                          const DataFileTable& data_file_table,
+                          uint64_t num_entries, BtreeNode& node) {
+  auto& entries = node.entries.emplace<std::vector<Entry>>();
   entries.resize(num_entries);
-  if (!ReadKeys<LeafNodeEntry>(reader, prefix, key_buffer, entries,
-                               max_common_prefix_length)) {
+  if (!ReadKeys<Entry>(reader, node.key_prefix, node.key_buffer, entries)) {
     return false;
   }
-
-  // Read value references.  The length indicates whether it is an inline or
-  // indirect value.
-
-  // First read lengths.
-  for (auto& entry : entries) {
-    auto& data_ref = entry.value_reference.emplace<IndirectDataReference>();
-    if (!DataFileLengthCodec{}(reader, data_ref.length)) return false;
-    if ((data_ref.length & 1) == 0 &&
-        (data_ref.length >> 1) > kMaxInlineValueLength) {
-      reader.Fail(absl::DataLossError(
-          absl::StrFormat("Inline value length of %d exceeds maximum of %d",
-                          data_ref.length >> 1, kMaxInlineValueLength)));
-      return false;
-    }
-  }
-
-  // Read file_ids for indirect values.
-  for (auto& entry : entries) {
-    auto& data_ref = std::get<IndirectDataReference>(entry.value_reference);
-    if (data_ref.length & 1) {
-      if (!DataFileIdCodec{}(reader, data_ref.file_id)) return false;
-    }
-  }
-
-  // Read offsets for indirect values.
-  for (auto& entry : entries) {
-    auto& data_ref = std::get<IndirectDataReference>(entry.value_reference);
-    if (data_ref.length & 1) {
-      if (!DataFileOffsetCodec{}(reader, data_ref.offset)) return false;
-    }
-  }
-
-  // Read values for direct values.
-  for (auto& entry : entries) {
-    auto& data_ref = std::get<IndirectDataReference>(entry.value_reference);
-    uint64_t length = data_ref.length >> 1;
-    if (data_ref.length & 1) {
-      data_ref.length = length;
-      continue;
-    }
-    auto& value = entry.value_reference.emplace<absl::Cord>();
-    if (!reader.Read(length, value)) return false;
-  }
-
-  return true;
-}
-
-bool ReadBtreeInteriorNode(riegeli::Reader& reader, std::string_view& prefix,
-                           BtreeNode::KeyBuffer& key_buffer,
-                           BtreeNode::InteriorNodeEntries& entries,
-                           KeyLength max_common_prefix_length) {
-  uint32_t num_entries;
-  if (!ReadVarintChecked(reader, num_entries)) return false;
-  if (num_entries == 0) {
-    reader.Fail(absl::DataLossError("Empty b-tree node"));
-    return false;
-  }
-  if (num_entries > kMaxNodeArity) {
-    reader.Fail(absl::DataLossError(
-        absl::StrFormat("B-tree node has arity %d, which exceeds limit of %d",
-                        num_entries, kMaxNodeArity)));
-    return false;
-  }
-  entries.resize(num_entries);
-  KeyLength min_subtree_common_prefix_length = max_common_prefix_length;
-  for (auto& entry : entries) {
-    if (!KeyLengthCodec{}(reader, entry.subtree_common_prefix_length)) {
-      return false;
-    }
-    min_subtree_common_prefix_length = std::min(
-        min_subtree_common_prefix_length, entry.subtree_common_prefix_length);
-  }
-  if (!ReadKeys<InteriorNodeEntry>(reader, prefix, key_buffer, entries,
-                                   min_subtree_common_prefix_length)) {
-    return false;
-  }
-  size_t common_prefix_length = prefix.size();
-  for (size_t i = 0; i < entries.size(); ++i) {
-    auto& entry = entries[i];
-    KeyLength key_length = entry.key.size() + common_prefix_length;
-    if (entry.subtree_common_prefix_length > key_length) {
-      reader.Fail(absl::DataLossError(absl::StrFormat(
-          "Key %d: subtree common prefix length of %d exceeds key length of %d",
-          i, entry.subtree_common_prefix_length, key_length)));
-      return false;
-    }
-    assert(entry.subtree_common_prefix_length >= common_prefix_length);
-    entry.subtree_common_prefix_length -= common_prefix_length;
-  }
-
-  if (!BtreeNodeReferenceArrayCodec{[](auto& entry) -> decltype(auto) {
-        return (entry.node);
-      }}(reader, entries)) {
-    return false;
-  }
-
-  return true;
-}
-
-[[nodiscard]] bool ReadBtreeNodeInner(
-    riegeli::Reader& reader, BtreeNode& node,
-    KeyLength max_common_prefix_length =
-        std::numeric_limits<KeyLength>::max()) {
-  if (node.height == 0) {
-    return ReadBtreeLeafNode(reader, node.key_prefix, node.key_buffer,
-                             node.entries.emplace<BtreeNode::LeafNodeEntries>(),
-                             max_common_prefix_length);
+  if constexpr (std::is_same_v<Entry, InteriorNodeEntry>) {
+    return BtreeNodeReferenceArrayCodec{data_file_table,
+                                        [](auto& entry) -> decltype(auto) {
+                                          return (entry.node);
+                                        }}(reader, entries);
   } else {
-    return ReadBtreeInteriorNode(
-        reader, node.key_prefix, node.key_buffer,
-        node.entries.emplace<BtreeNode::InteriorNodeEntries>(),
-        max_common_prefix_length);
+    return LeafNodeValueReferenceArrayCodec{data_file_table,
+                                            [](auto& entry) -> decltype(auto) {
+                                              return (entry.value_reference);
+                                            }}(reader, entries);
   }
 }
+
 }  // namespace
 
-Result<BtreeNode> DecodeBtreeNode(const absl::Cord& encoded) {
+Result<BtreeNode> DecodeBtreeNode(const absl::Cord& encoded,
+                                  const BasePath& base_path) {
   BtreeNode node;
   auto status = DecodeWithOptionalCompression(
       encoded, kBtreeNodeMagic, kBtreeNodeFormatVersion,
       [&](riegeli::Reader& reader, uint32_t version) -> bool {
         if (!reader.ReadByte(node.height)) return false;
-        return ReadBtreeNodeInner(reader, node);
+        DataFileTable data_file_table;
+        if (!ReadDataFileTable(reader, base_path, data_file_table)) {
+          return false;
+        }
+        uint32_t num_entries;
+        if (!ReadVarintChecked(reader, num_entries)) return false;
+        if (num_entries == 0) {
+          reader.Fail(absl::DataLossError("Empty b-tree node"));
+          return false;
+        }
+        if (num_entries > kMaxNodeArity) {
+          reader.Fail(absl::DataLossError(absl::StrFormat(
+              "B-tree node has arity %d, which exceeds limit of %d",
+              num_entries, kMaxNodeArity)));
+          return false;
+        }
+        if (node.height == 0) {
+          return ReadBtreeNodeEntries<LeafNodeEntry>(reader, data_file_table,
+                                                     num_entries, node);
+        } else {
+          return ReadBtreeNodeEntries<InteriorNodeEntry>(
+              reader, data_file_table, num_entries, node);
+        }
       });
   if (!status.ok()) {
     return tensorstore::MaybeAnnotateStatus(status,

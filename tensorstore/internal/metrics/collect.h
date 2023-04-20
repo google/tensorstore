@@ -37,7 +37,7 @@ struct CollectedMetric {
   // Representation of a Gauge, Counter, or Value metric.
   struct Value {
     std::vector<std::string> fields;
-    std::variant<int64_t, double, std::string> value;
+    std::variant<std::monostate, int64_t, double, std::string> value;
     std::variant<std::monostate, int64_t, double> max_value = std::monostate{};
   };
   std::vector<Value> values;

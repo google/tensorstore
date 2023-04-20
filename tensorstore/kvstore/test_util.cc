@@ -70,7 +70,7 @@ class Cleanup {
     // service and the test crashed half-way through last time.
     ABSL_LOG(INFO) << "Cleanup";
     for (const auto& to_remove : objects_) {
-      kvstore::Delete(store_, to_remove).result();
+      TENSORSTORE_CHECK_OK(kvstore::Delete(store_, to_remove).result());
     }
   }
 

@@ -46,7 +46,7 @@ Result<CooperatorPtr> Start(Options&& options) {
 
   grpc::ServerBuilder builder;
   builder.RegisterService(impl.get());
-  auto creds = grpc::InsecureServerCredentials();
+  auto creds = options.security->GetServerCredentials();
   const auto add_listening_port = [&](const std::string& address) {
     builder.AddListeningPort(address, creds, &impl->listening_port_);
   };
@@ -57,6 +57,7 @@ Result<CooperatorPtr> Start(Options&& options) {
       add_listening_port(bind_address);
     }
   }
+  impl->security_ = options.security;
   impl->server_ = builder.BuildAndStart();
   impl->storage_identifier_ = std::move(options.storage_identifier);
 
@@ -67,7 +68,8 @@ Result<CooperatorPtr> Start(Options&& options) {
     cache_options.coordinator_stub =
         tensorstore::internal_ocdbt::grpc_gen::Coordinator::NewStub(
             grpc::CreateChannel(options.coordinator_address,
-                                grpc::InsecureChannelCredentials()));
+                                options.security->GetClientCredentials()));
+    cache_options.security = options.security;
     cache_options.cooperator_port = impl->listening_port_;
     cache_options.lease_duration = options.lease_duration;
     impl->lease_cache_ = LeaseCacheForCooperator(std::move(cache_options));

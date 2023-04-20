@@ -98,11 +98,9 @@ struct ListOperation : public internal::AtomicReferenceCount<ListOperation> {
 
     auto [list_promise, list_future] =
         PromiseFuturePair<void>::Make(absl::OkStatus());
-    Link(
-        [](Promise<void> promise, ReadyFuture<void> future) {
-          SetDeferredResult(promise, future.result());
-        },
-        std::move(cancel_promise), std::move(list_future));
+    Link([](Promise<void> promise,
+            ReadyFuture<void> future) { promise.SetResult(future.result()); },
+         std::move(cancel_promise), std::move(list_future));
 
     auto* op_ptr = op.get();
 
@@ -123,7 +121,7 @@ struct ListOperation : public internal::AtomicReferenceCount<ListOperation> {
           static_cast<void>(SetDeferredResult(promise, _)));
       const auto* manifest = manifest_with_time.manifest.get();
       if (!manifest || manifest->latest_version().root.location.IsMissing()) {
-        // Manifest not preset or btree is empty.
+        // Manifest not present or btree is empty.
         return;
       }
       auto& latest_version = manifest->versions.back();

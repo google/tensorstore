@@ -24,9 +24,7 @@ namespace internal_ocdbt {
 /// Adapts a base kvstore to read byte ranges specified by
 /// `IndirectDataReference` keys.
 ///
-/// All keys must be have a length of `sizeof(IndirectDataReference)`, and
-/// directly encode `IndirectDataReference` values using the native in-memory
-/// representation, i.e. `memcpy`.
+/// Keys must be obtained from `IndirectDataReference::EncodeCacheKey`.
 ///
 /// The returned kvstore may be used with `KvsBackedCache`.
 ///

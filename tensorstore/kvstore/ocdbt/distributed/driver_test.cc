@@ -64,9 +64,13 @@ class DistributedTest : public ::testing::Test {
   std::string coordinator_address_;
   Context::Spec context_spec;
   DistributedTest() {
+    ::nlohmann::json security_json = ::nlohmann::json::value_t::discarded;
     {
       CoordinatorServer::Options options;
-      options.spec.bind_addresses.push_back("localhost:0");
+      options.spec = CoordinatorServer::Spec::FromJson(
+                         {{"bind_addresses", {"localhost:0"}},
+                          {"security", security_json}})
+                         .value();
       TENSORSTORE_CHECK_OK_AND_ASSIGN(
           coordinator_server_, CoordinatorServer::Start(std::move(options)));
     }
@@ -77,8 +81,9 @@ class DistributedTest : public ::testing::Test {
 
     TENSORSTORE_CHECK_OK_AND_ASSIGN(
         context_spec,
-        Context::Spec::FromJson(
-            {{"ocdbt_coordinator", {{"address", coordinator_address_}}}}));
+        Context::Spec::FromJson({{"ocdbt_coordinator",
+                                  {{"address", coordinator_address_},
+                                   {"security", security_json}}}}));
   }
 };
 

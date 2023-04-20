@@ -15,11 +15,7 @@
 #ifndef TENSORSTORE_KVSTORE_GCS_ADMISSION_QUEUE_H_
 #define TENSORSTORE_KVSTORE_GCS_ADMISSION_QUEUE_H_
 
-#include <stddef.h>
-
-#include <limits>
-#include <memory>
-#include <optional>
+#include <cstddef>
 
 #include "absl/base/thread_annotations.h"
 #include "absl/synchronization/mutex.h"

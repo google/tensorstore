@@ -91,5 +91,18 @@ bool CompressionConfigCodec::operator()(
   return true;
 }
 
+bool ManifestKindCodec::operator()(riegeli::Reader& reader,
+                                   ManifestKind& value) const {
+  uint8_t manifest_kind;
+  if (!reader.ReadByte(manifest_kind)) return false;
+  if (manifest_kind > static_cast<size_t>(Config::kMaxManifestKind)) {
+    reader.Fail(absl::DataLossError(
+        absl::StrFormat("Invalid manifest_kind %d", manifest_kind)));
+    return false;
+  }
+  value = static_cast<ManifestKind>(manifest_kind);
+  return true;
+}
+
 }  // namespace internal_ocdbt
 }  // namespace tensorstore

@@ -19,24 +19,26 @@
 ///
 /// Internal codecs for `IndirectDataReference` and related types.
 
+#include <vector>
+
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
 #include "riegeli/bytes/reader.h"
 #include "riegeli/bytes/writer.h"
 #include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/kvstore/ocdbt/format/codec_util.h"
+#include "tensorstore/kvstore/ocdbt/format/data_file_id_codec.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
 
-using DataFileIdCodec = RawBytesCodec<DataFileId>;
-
 using DataFileOffsetCodec = VarintCodec<uint64_t>;
 using DataFileLengthCodec = VarintCodec<uint64_t>;
 
-template <typename Getter>
+template <typename DataFileTable, typename Getter>
 struct IndirectDataReferenceArrayCodec {
+  const DataFileTable& data_file_table;
   Getter getter;
   bool allow_missing = false;
   template <typename IO, typename Vec>
@@ -44,7 +46,9 @@ struct IndirectDataReferenceArrayCodec {
     static_assert(std::is_same_v<IO, riegeli::Reader> ||
                   std::is_same_v<IO, riegeli::Writer>);
     for (auto& entry : vec) {
-      if (!DataFileIdCodec{}(io, getter(entry).file_id)) return false;
+      if (!DataFileIdCodec<IO>{data_file_table}(io, getter(entry).file_id)) {
+        return false;
+      }
     }
 
     for (auto& entry : vec) {
@@ -73,9 +77,23 @@ struct IndirectDataReferenceArrayCodec {
   }
 };
 
-template <typename Getter>
-IndirectDataReferenceArrayCodec(Getter, bool allow_missing = false)
-    -> IndirectDataReferenceArrayCodec<Getter>;
+template <typename DataFileTable, typename Getter>
+IndirectDataReferenceArrayCodec(const DataFileTable&, Getter,
+                                bool allow_missing = false)
+    -> IndirectDataReferenceArrayCodec<DataFileTable, Getter>;
+
+inline void AddDataFiles(DataFileTableBuilder& data_file_table,
+                         const IndirectDataReference& ref) {
+  data_file_table.Add(ref.file_id);
+}
+
+template <typename T>
+void AddDataFiles(DataFileTableBuilder& data_file_table,
+                  const std::vector<T>& entries) {
+  for (const auto& entry : entries) {
+    AddDataFiles(data_file_table, entry);
+  }
+}
 
 }  // namespace internal_ocdbt
 }  // namespace tensorstore

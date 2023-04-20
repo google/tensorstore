@@ -141,12 +141,11 @@ class NonDistributedBtreeWriter : public BtreeWriter {
   bool commit_in_progress_;
 };
 
-using ManifestPromise = Promise<std::shared_ptr<const Manifest>>;
-
 struct CommitOperation
     : public internal::AtomicReferenceCount<CommitOperation> {
   using Ptr = internal::IntrusivePtr<CommitOperation>;
   NonDistributedBtreeWriter::Ptr writer_;
+  Future<void> future_;
   std::shared_ptr<const Manifest> existing_manifest_;
   std::shared_ptr<const Manifest> new_manifest_;
 
@@ -181,6 +180,13 @@ struct CommitOperation
   //   writer: Writer with pending mutations to commit.
   static void Start(NonDistributedBtreeWriter& writer);
 
+  // Reads the existing manifest.
+  static void ReadManifest(CommitOperation::Ptr commit_op,
+                           absl::Time staleness_bound);
+
+  // Fails the commit operation.
+  static void Fail(CommitOperation::Ptr commit_op, const absl::Status& error);
+
   // "Stages" all pending mutations by merging them into the `StagedMutations`
   // data structure.
   //
@@ -192,7 +198,7 @@ struct CommitOperation
   // that visits nodes with a key range that intersects the key range of a
   // staged mutation.
   static void TraverseBtreeStartingFromRoot(CommitOperation::Ptr commit_op,
-                                            ManifestPromise promise);
+                                            Promise<void> promise);
 
   // Specifies a mutation to an interior node.
   //
@@ -253,7 +259,7 @@ struct CommitOperation
     }
 
     CommitOperation::Ptr commit_op_;
-    ManifestPromise promise_;
+    Promise<void> promise_;
     absl::Mutex mutex_;
     std::vector<InteriorNodeMutation> mutations_;
     // Full implicit key prefix of existing subtree.
@@ -271,7 +277,7 @@ struct CommitOperation
 
     void ApplyMutations() final {
       ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
-          << "ApplyMutations: height=" << height_
+          << "ApplyMutations: height=" << static_cast<int>(height_)
           << ", num_mutations=" << mutations_.size();
       if (mutations_.empty()) {
         if (!commit_op_->existing_manifest_) {
@@ -340,7 +346,7 @@ struct CommitOperation
 
     void ApplyMutations() final {
       ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
-          << "ApplyMutations: height=" << height_
+          << "ApplyMutations: height=" << static_cast<int>(height_)
           << ", num_mutations=" << mutations_.size();
       if (mutations_.empty()) {
         // There are no mutations to the key range of this node.  Therefore,
@@ -438,7 +444,7 @@ struct CommitOperation
     VisitNodeReferenceParameters params;
 
     void operator()(
-        ManifestPromise promise,
+        Promise<void> promise,
         ReadyFuture<const std::shared_ptr<const BtreeNode>> read_future) {
       TENSORSTORE_ASSIGN_OR_RETURN(
           auto node, read_future.result(),
@@ -510,7 +516,7 @@ struct CommitOperation
   // Called once a new root node has been generated.
   //
   // Writes new version tree nodes as needed.
-  static void CreateNewManifest(ManifestPromise promise,
+  static void CreateNewManifest(Promise<void> promise,
                                 CommitOperation::Ptr commit_op,
                                 const BtreeGenerationReference& new_generation);
 
@@ -518,8 +524,11 @@ struct CommitOperation
   // tree nodes have been written.
   //
   // Ensures all indirect writes are flushed, and then marks `promise` as ready.
-  static void NewManifestReady(ManifestPromise promise,
+  static void NewManifestReady(Promise<void> promise,
                                CommitOperation::Ptr commit_op);
+
+  // Attempts to write the new manifest.
+  static void WriteNewManifest(CommitOperation::Ptr commit_op);
 };
 
 void CommitOperation::MaybeStart(NonDistributedBtreeWriter& writer,
@@ -538,63 +547,69 @@ void CommitOperation::MaybeStart(NonDistributedBtreeWriter& writer,
 void CommitOperation::Start(NonDistributedBtreeWriter& writer) {
   auto commit_op = internal::MakeIntrusivePtr<CommitOperation>();
   commit_op->writer_.reset(&writer);
+  ReadManifest(std::move(commit_op), absl::InfinitePast());
+}
 
-  auto manifest_commit_future = writer.io_handle_->ReadModifyWriteManifest(
-      // Note: The update function below may be called more than once.
-      // Therefore, it must not move out its `commit_op`.
-      [commit_op](std::shared_ptr<const Manifest> existing_manifest)
-          -> Future<std::shared_ptr<const Manifest>> {
-        auto [promise, future] =
-            PromiseFuturePair<std::shared_ptr<const Manifest>>::Make();
-        commit_op->existing_manifest_ = std::move(existing_manifest);
-        auto& executor = commit_op->writer_->io_handle_->executor;
-        executor([commit_op, promise = std::move(promise)]() mutable {
-          StagePending(*commit_op);
-          TraverseBtreeStartingFromRoot(std::move(commit_op),
-                                        std::move(promise));
-        });
-        return std::move(future);
-      });
-
-  manifest_commit_future.ExecuteWhenReady(WithExecutor(
-      writer.io_handle_->executor,
-      [commit_op =
-           std::move(commit_op)](ReadyFuture<const ManifestWithTime> future) {
+void CommitOperation::ReadManifest(CommitOperation::Ptr commit_op,
+                                   absl::Time staleness_bound) {
+  auto read_future =
+      commit_op->writer_->io_handle_->GetManifest(staleness_bound);
+  read_future.Force();
+  read_future.ExecuteWhenReady(
+      [commit_op = std::move(commit_op)](
+          ReadyFuture<const ManifestWithTime> future) mutable {
         auto& r = future.result();
-        ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
-            << "Manifest written: " << GetStatus(r);
-        auto& writer = *commit_op->writer_;
         if (!r.ok()) {
-          CommitFailed(commit_op->staged_, r.status());
-          PendingRequests pending;
-          {
-            UniqueWriterLock lock(writer.mutex_);
-            writer.commit_in_progress_ = false;
-            std::swap(pending, writer.pending_);
-          }
-          // Normally, if an error occurs while committing, the error should
-          // only propagate to the requests included in the commit; any
-          // subsequent requests should be retried.  Although it is likely they
-          // will fail as well, there isn't a risk of an infinite loop.
-
-          // However, when there is no existing manifest, we first perform an
-          // initial commit leaving all of the requests as pending (since we do
-          // not yet know the final configuration).  In this case, if an error
-          // occurs, we must fail the pending requests that led to the commit,
-          // as otherwise we may get stuck in an infinite loop.
-
-          // FIXME: ideally only abort requests that were added before this
-          // commit started.
-          AbortPendingRequestsWithError(pending, r.status());
+          Fail(std::move(commit_op), r.status());
           return;
         }
-        CommitSuccessful(commit_op->staged_, r->time);
-        UniqueWriterLock lock(writer.mutex_);
-        writer.commit_in_progress_ = false;
-        if (!writer.pending_.requests.empty()) {
-          CommitOperation::MaybeStart(writer, std::move(lock));
-        }
-      }));
+        commit_op->existing_manifest_ = r->manifest;
+        auto& executor = commit_op->writer_->io_handle_->executor;
+        executor([commit_op]() mutable {
+          StagePending(*commit_op);
+          auto [promise, future] =
+              PromiseFuturePair<void>::Make(absl::OkStatus());
+          TraverseBtreeStartingFromRoot(commit_op, std::move(promise));
+          future.Force();
+          future.ExecuteWhenReady([commit_op = std::move(commit_op)](
+                                      ReadyFuture<void> future) mutable {
+            auto& r = future.result();
+            if (!r.ok()) {
+              Fail(std::move(commit_op), r.status());
+              return;
+            }
+            WriteNewManifest(std::move(commit_op));
+          });
+        });
+      });
+}
+
+void CommitOperation::Fail(CommitOperation::Ptr commit_op,
+                           const absl::Status& error) {
+  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+      << "Commit failed: " << error;
+  CommitFailed(commit_op->staged_, error);
+  auto& writer = *commit_op->writer_;
+  PendingRequests pending;
+  {
+    UniqueWriterLock lock(writer.mutex_);
+    writer.commit_in_progress_ = false;
+    std::swap(pending, writer.pending_);
+  }
+  // Normally, if an error occurs while committing, the error should
+  // only propagate to the requests included in the commit; any
+  // subsequent requests should be retried.  Although it is likely they
+  // will fail as well, there isn't a risk of an infinite loop.
+
+  // However, when there is no existing manifest, we first perform an
+  // initial commit leaving all of the requests as pending (since we do
+  // not yet know the final configuration).  In this case, if an error
+  // occurs, we must fail the pending requests that led to the commit,
+  // as otherwise we may get stuck in an infinite loop.
+
+  // FIXME: ideally only abort requests that were added before this
+  // commit started.
+  AbortPendingRequestsWithError(pending, error);
 }
 
 void CommitOperation::StagePending(CommitOperation& commit_op) {
@@ -634,8 +649,10 @@ void CommitOperation::StagePending(CommitOperation& commit_op) {
 }
 
 void CommitOperation::TraverseBtreeStartingFromRoot(
-    CommitOperation::Ptr commit_op, ManifestPromise promise) {
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG) << "Manifest ready";
+    CommitOperation::Ptr commit_op, Promise<void> promise) {
+  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+      << "Manifest ready: generation_number="
+      << GetLatestGeneration(commit_op->existing_manifest_.get());
   auto* commit_op_ptr = commit_op.get();
   auto parent_state = internal::MakeIntrusivePtr<RootNodeTraversalState>();
   parent_state->promise_ = std::move(promise);
@@ -688,7 +705,8 @@ void CommitOperation::VisitNode(VisitNodeParameters&& params) {
     assert(params.inclusive_min_key_suffix.empty());
   }
   ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
-      << "VisitNode: " << params.key_range << ", height=" << height
+      << "VisitNode: " << params.key_range
+      << ", height=" << static_cast<int>(height)
       << ", inclusive_min_key_suffix="
       << tensorstore::QuoteString(params.inclusive_min_key_suffix)
       << ", full_prefix=" << tensorstore::QuoteString(params.full_prefix);
@@ -941,14 +959,14 @@ Result<std::vector<EncodedNode>> CommitOperation::EncodeUpdatedInteriorNodes(
 }
 
 void CommitOperation::CreateNewManifest(
-    ManifestPromise promise, CommitOperation::Ptr commit_op,
+    Promise<void> promise, CommitOperation::Ptr commit_op,
     const BtreeGenerationReference& new_generation) {
   auto future = internal_ocdbt::CreateNewManifest(
       commit_op->writer_->io_handle_, commit_op->existing_manifest_,
       new_generation);
   LinkValue(
       [commit_op = std::move(commit_op)](
-          ManifestPromise promise,
+          Promise<void> promise,
           ReadyFuture<std::pair<std::shared_ptr<Manifest>, Future<const void>>>
               future) mutable {
         auto& create_result = future.value();
@@ -963,21 +981,46 @@ void CommitOperation::CreateNewManifest(
       std::move(promise), std::move(future));
 }
 
-void CommitOperation::NewManifestReady(ManifestPromise promise,
+void CommitOperation::NewManifestReady(Promise<void> promise,
                                        CommitOperation::Ptr commit_op) {
   ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG) << "NewManifestReady";
   auto flush_future = std::move(commit_op->flush_promise_).future();
   if (flush_future.null()) {
-    promise.SetResult(commit_op->new_manifest_);
     return;
   }
   flush_future.Force();
-  LinkValue(
-      [commit_op = std::move(commit_op)](ManifestPromise promise,
-                                         ReadyFuture<const void> flush_future) {
-        promise.SetResult(commit_op->new_manifest_);
-      },
-      std::move(promise), std::move(flush_future));
+  LinkError(std::move(promise), std::move(flush_future));
+}
+
+void CommitOperation::WriteNewManifest(CommitOperation::Ptr commit_op) {
+  auto& writer = *commit_op->writer_;
+  auto update_future = writer.io_handle_->TryUpdateManifest(
+      commit_op->existing_manifest_, commit_op->new_manifest_, absl::Now());
+  update_future.Force();
+  update_future.ExecuteWhenReady(WithExecutor(
+      writer.io_handle_->executor,
+      [commit_op =
+           std::move(commit_op)](ReadyFuture<TryUpdateManifestResult> future) {
+        auto& r = future.result();
+        ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+            << "Manifest written: " << r.status()
+            << ", success=" << (r.ok() ? r->success : false);
+        auto& writer = *commit_op->writer_;
+        if (!r.ok()) {
+          Fail(std::move(commit_op), r.status());
+          return;
+        }
+        if (!r->success) {
+          ReadManifest(std::move(commit_op), r->time);
+          return;
+        }
+        CommitSuccessful(commit_op->staged_, r->time);
+        UniqueWriterLock lock(writer.mutex_);
+        writer.commit_in_progress_ = false;
+        if (!writer.pending_.requests.empty()) {
+          CommitOperation::MaybeStart(writer, std::move(lock));
+        }
+      }));
 }
 
 }  // namespace

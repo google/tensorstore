@@ -39,6 +39,18 @@ std::ostream& operator<<(std::ostream& os, const Uuid& value) {
                               value.value.size()));
 }
 
+std::ostream& operator<<(std::ostream& os, ManifestKind x) {
+  switch (x) {
+    case ManifestKind::kSingle:
+      os << "single";
+      break;
+    case ManifestKind::kNumbered:
+      os << "numbered";
+      break;
+  }
+  return os;
+}
+
 std::ostream& operator<<(std::ostream& os, Config::NoCompression) {
   return os << "raw";
 }
@@ -57,7 +69,7 @@ std::ostream& operator<<(std::ostream& os, const Config::Compression& x) {
 }
 
 bool operator==(const Config& a, const Config& b) {
-  return a.uuid == b.uuid &&
+  return a.uuid == b.uuid && a.manifest_kind == b.manifest_kind &&
          a.max_inline_value_bytes == b.max_inline_value_bytes &&
          a.max_decoded_node_bytes == b.max_decoded_node_bytes &&
          a.version_tree_arity_log2 == b.version_tree_arity_log2 &&
@@ -65,7 +77,7 @@ bool operator==(const Config& a, const Config& b) {
 }
 
 std::ostream& operator<<(std::ostream& os, const Config& x) {
-  return os << "{uuid=" << x.uuid
+  return os << "{uuid=" << x.uuid << ", manifest_kind=" << x.manifest_kind
             << ", max_inline_value_bytes=" << x.max_inline_value_bytes
             << ", max_decoded_node_bytes=" << x.max_decoded_node_bytes
             << ", version_tree_arity_log2="

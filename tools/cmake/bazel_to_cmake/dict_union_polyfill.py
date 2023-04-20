@@ -41,6 +41,7 @@ class DictWithUnion(dict):
       return NotImplemented
     new = DictWithUnion(self)
     new.update(other)
+    return new
 
   def __ror__(self, other):
     if not isinstance(other, dict):

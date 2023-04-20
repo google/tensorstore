@@ -109,11 +109,25 @@ struct BtreeLeafNodeWriteMutationCodec {
       value.mode = static_cast<BtreeNodeWriteMutation::Mode>(mode);
     }
     if (mode <= BtreeNodeWriteMutation::kDeleteExisting) return true;
+    using DataFileTableOrBuilder =
+        std::conditional_t<std::is_same_v<IO, riegeli::Reader>, DataFileTable,
+                           DataFileTableBuilder>;
+    DataFileTableOrBuilder data_file_table;
+    if constexpr (std::is_same_v<IO, riegeli::Reader>) {
+      if (!ReadDataFileTable(io, /*base_path=*/{}, data_file_table)) {
+        return false;
+      }
+    } else {
+      internal_ocdbt::AddDataFiles(data_file_table,
+                                   value.new_entry.value_reference);
+      if (!data_file_table.Finalize(io)) return false;
+    }
     // Reuse the `LeafNodeValueReferenceArrayCodec` to write a single
     // `LeafNodeValueReference`.
-    return LeafNodeValueReferenceArrayCodec{[](auto& e) -> decltype(auto) {
-      return (e.value_reference);
-    }}(io, span(&value.new_entry, 1));
+    return LeafNodeValueReferenceArrayCodec{data_file_table,
+                                            [](auto& e) -> decltype(auto) {
+                                              return (e.value_reference);
+                                            }}(io, span(&value.new_entry, 1));
   }
 };
 
@@ -151,6 +165,21 @@ struct BtreeInteriorNodeWriteMutationCodec {
       }
     }
 
+    if (num_entries == 0) return true;
+
+    using DataFileTableOrBuilder =
+        std::conditional_t<std::is_same_v<IO, riegeli::Reader>, DataFileTable,
+                           DataFileTableBuilder>;
+    DataFileTableOrBuilder data_file_table;
+    if constexpr (std::is_same_v<IO, riegeli::Reader>) {
+      if (!ReadDataFileTable(io, /*base_path=*/{}, data_file_table)) {
+        return false;
+      }
+    } else {
+      internal_ocdbt::AddDataFiles(data_file_table, value.new_entries);
+      if (!data_file_table.Finalize(io)) return false;
+    }
+
     constexpr size_t kMaxInitialSize = 1000;
     if constexpr (std::is_same_v<IO, riegeli::Reader>) {
       value.new_entries.resize(std::min(num_entries, kMaxInitialSize));
@@ -178,9 +207,10 @@ struct BtreeInteriorNodeWriteMutationCodec {
         }
       }
 
-      if (!BtreeNodeReferenceArrayCodec{[](auto& e) -> decltype(auto) {
-            return (e.node);
-          }}(io, value.new_entries)) {
+      if (!BtreeNodeReferenceArrayCodec{data_file_table,
+                                        [](auto& e) -> decltype(auto) {
+                                          return (e.node);
+                                        }}(io, value.new_entries)) {
         return false;
       }
     }

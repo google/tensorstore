@@ -31,6 +31,7 @@
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
 #include "tensorstore/kvstore/ocdbt/format/codec_util.h"
 #include "tensorstore/kvstore/ocdbt/format/config.h"
+#include "tensorstore/kvstore/ocdbt/format/data_file_id_codec.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference_codec.h"
 
@@ -75,13 +76,15 @@ BtreeNodeStatisticsArrayCodec(Getter) -> BtreeNodeStatisticsArrayCodec<Getter>;
 
 using KeyLengthCodec = VarintCodec<KeyLength>;
 
-template <typename Getter>
+template <typename DataFileTable, typename Getter>
 struct BtreeNodeReferenceArrayCodec {
+  const DataFileTable& data_file_table;
   Getter getter;
   bool allow_missing = false;
   template <typename IO, typename Vec>
   [[nodiscard]] bool operator()(IO& io, Vec&& vec) const {
-    if (!IndirectDataReferenceArrayCodec{[&](auto& entry) -> decltype(auto) {
+    if (!IndirectDataReferenceArrayCodec{data_file_table,
+                                         [&](auto& entry) -> decltype(auto) {
                                            return (getter(entry).location);
                                          },
                                          allow_missing}(io, vec)) {
@@ -100,60 +103,75 @@ struct BtreeNodeReferenceArrayCodec {
   }
 };
 
-template <typename Getter>
-BtreeNodeReferenceArrayCodec(Getter, bool allow_missing = false)
-    -> BtreeNodeReferenceArrayCodec<Getter>;
+template <typename DataFileTable, typename Getter>
+BtreeNodeReferenceArrayCodec(const DataFileTable&, Getter,
+                             bool allow_missing = false)
+    -> BtreeNodeReferenceArrayCodec<DataFileTable, Getter>;
 
-template <typename Getter>
+template <typename DataFileTable, typename Getter>
 struct LeafNodeValueReferenceArrayCodec {
+  const DataFileTable& data_file_table;
   Getter getter;
   template <typename Entries>
-  [[nodiscard]] bool operator()(riegeli::Reader& reader,
-                                const Entries& entries) {
+  [[nodiscard]] bool operator()(riegeli::Reader& reader, Entries&& entries) {
+    std::vector<uint64_t> value_lengths(entries.size());
     // First read lengths.
-    for (auto& entry : entries) {
+    for (auto& length : value_lengths) {
+      if (!DataFileLengthCodec{}(reader, length)) return false;
+    }
+
+    // Read value kinds
+    for (size_t i = 0; i < entries.size(); ++i) {
+      auto& entry = entries[i];
       auto& value_reference = getter(entry);
-      auto& data_ref =
-          value_reference.template emplace<IndirectDataReference>();
-      if (!DataFileLengthCodec{}(reader, data_ref.length)) return false;
-      if ((data_ref.length & 1) == 0 &&
-          (data_ref.length >> 1) > kMaxInlineValueLength) {
-        reader.Fail(absl::DataLossError(
-            absl::StrFormat("Inline value length of %d exceeds maximum of %d",
-                            data_ref.length >> 1, kMaxInlineValueLength)));
+      LeafNodeValueKind value_kind;
+      if (!reader.ReadByte(value_kind)) return false;
+      if (value_kind > kOutOfLineValue) {
+        reader.Fail(absl::DataLossError(absl::StrFormat(
+            "value_kind[%d]=%d is outside valid range [0, 1]", i, value_kind)));
         return false;
+      }
+      if (value_kind == kInlineValue) {
+        if (value_lengths[i] > kMaxInlineValueLength) {
+          reader.Fail(absl::DataLossError(absl::StrFormat(
+              "value_length[%d]=%d exceeds maximum of %d for an inline value",
+              i, value_lengths[i], kMaxInlineValueLength)));
+          return false;
+        }
+        value_reference.template emplace<absl::Cord>();
+      } else {
+        auto& data_ref =
+            value_reference.template emplace<IndirectDataReference>();
+        data_ref.length = value_lengths[i];
       }
     }
 
     // Read file_ids for indirect values.
     for (auto& entry : entries) {
       auto& value_reference = getter(entry);
-      auto& data_ref = std::get<IndirectDataReference>(value_reference);
-      if (data_ref.length & 1) {
-        if (!DataFileIdCodec{}(reader, data_ref.file_id)) return false;
+      auto* data_ref = std::get_if<IndirectDataReference>(&value_reference);
+      if (!data_ref) continue;
+      if (!DataFileIdCodec<riegeli::Reader>{data_file_table}(
+              reader, data_ref->file_id)) {
+        return false;
       }
     }
 
     // Read offsets for indirect values.
     for (auto& entry : entries) {
       auto& value_reference = getter(entry);
-      auto& data_ref = std::get<IndirectDataReference>(value_reference);
-      if (data_ref.length & 1) {
-        if (!DataFileOffsetCodec{}(reader, data_ref.offset)) return false;
-      }
+      auto* data_ref = std::get_if<IndirectDataReference>(&value_reference);
+      if (!data_ref) continue;
+      if (!DataFileOffsetCodec{}(reader, data_ref->offset)) return false;
     }
 
     // Read values for direct values.
-    for (auto& entry : entries) {
+    for (size_t i = 0; i < entries.size(); ++i) {
+      auto& entry = entries[i];
       auto& value_reference = getter(entry);
-      auto& data_ref = std::get<IndirectDataReference>(value_reference);
-      uint64_t length = data_ref.length >> 1;
-      if (data_ref.length & 1) {
-        data_ref.length = length;
-        continue;
-      }
-      auto& value = value_reference.template emplace<absl::Cord>();
-      if (!reader.Read(length, value)) return false;
+      auto* value = std::get_if<absl::Cord>(&value_reference);
+      if (!value) continue;
+      if (!reader.Read(value_lengths[i], *value)) return false;
     }
     return true;
   }
@@ -163,16 +181,21 @@ struct LeafNodeValueReferenceArrayCodec {
     // length
     for (auto& entry : entries) {
       auto& value_reference = getter(entry);
-      uint64_t encoded_length;
+      uint64_t length;
       if (auto* data_ref =
               std::get_if<IndirectDataReference>(&value_reference)) {
-        encoded_length = (data_ref->length << 1) | 1;
-
+        length = data_ref->length;
       } else {
-        uint64_t length = std::get<absl::Cord>(value_reference).size();
-        encoded_length = length << 1;
+        length = std::get<absl::Cord>(value_reference).size();
       }
-      if (!DataFileLengthCodec{}(writer, encoded_length)) return false;
+      if (!DataFileLengthCodec{}(writer, length)) return false;
+    }
+
+    // value kind
+    for (auto& entry : entries) {
+      auto& value_reference = getter(entry);
+      LeafNodeValueKind value_kind = value_reference.index();
+      if (!writer.WriteByte(value_kind)) return false;
     }
 
     // file_ids for indirect values
@@ -180,7 +203,10 @@ struct LeafNodeValueReferenceArrayCodec {
       auto& value_reference = getter(entry);
       if (auto* data_ref =
               std::get_if<IndirectDataReference>(&value_reference)) {
-        if (!DataFileIdCodec{}(writer, data_ref->file_id)) return false;
+        if (!DataFileIdCodec<riegeli::Writer>{data_file_table}(
+                writer, data_ref->file_id)) {
+          return false;
+        }
       }
     }
 
@@ -204,9 +230,26 @@ struct LeafNodeValueReferenceArrayCodec {
   }
 };
 
-template <typename Getter>
-LeafNodeValueReferenceArrayCodec(Getter)
-    -> LeafNodeValueReferenceArrayCodec<Getter>;
+template <typename DataFileTable, typename Getter>
+LeafNodeValueReferenceArrayCodec(const DataFileTable&, Getter)
+    -> LeafNodeValueReferenceArrayCodec<DataFileTable, Getter>;
+
+template <typename Key>
+void AddDataFiles(DataFileTableBuilder& data_file_table,
+                  const InteriorNodeEntryData<Key>& entry) {
+  internal_ocdbt::AddDataFiles(data_file_table, entry.node.location);
+}
+
+inline void AddDataFiles(DataFileTableBuilder& data_file_table,
+                         const LeafNodeValueReference& value) {
+  auto* location = std::get_if<IndirectDataReference>(&value);
+  if (location) internal_ocdbt::AddDataFiles(data_file_table, *location);
+}
+
+inline void AddDataFiles(DataFileTableBuilder& data_file_table,
+                         const LeafNodeEntry& entry) {
+  internal_ocdbt::AddDataFiles(data_file_table, entry.value_reference);
+}
 
 }  // namespace internal_ocdbt
 }  // namespace tensorstore

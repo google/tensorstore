@@ -209,10 +209,13 @@ struct NodeCommitOperation
       std::optional<std::vector<InteriorNodeEntryData<std::string>>>
           new_entries);
 
-  // Called asynchronously by `UpdateRoot` to update the manifest.
-  static void WriteNewManifest(
+  // Called asynchronously by `UpdateRoot` to create the new manifest.
+  static void CreateNewManifest(
       NodeCommitOperation::Ptr commit_op,
       std::optional<BtreeGenerationReference> new_generation);
+
+  // Called asynchronously by `CreateNewManifest` to write the new manifest.
+  static void WriteNewManifest(NodeCommitOperation::Ptr commit_op);
 
   // Restarts the commit, in the case that the manifest was concurrently
   // modified.
@@ -722,95 +725,79 @@ void NodeCommitOperation::UpdateRoot(
             commit_op->height, std::move(*new_entries)),
         commit_op->SetError(_));
   }
-  WriteNewManifest(std::move(commit_op), std::move(new_generation));
+  CreateNewManifest(std::move(commit_op), std::move(new_generation));
 }
 
-void NodeCommitOperation::WriteNewManifest(
+void NodeCommitOperation::CreateNewManifest(
     NodeCommitOperation::Ptr commit_op,
     std::optional<BtreeGenerationReference> new_generation) {
   ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
       << "[Port=" << commit_op->server->listening_port_
       << "] WriteNewManifest: Initiate";
-  auto manifest_commit_future =
-      commit_op->server->io_handle_->ReadModifyWriteManifest(
-          // Note: The update function below may be called more than once.
-          // Therefore, it must not move out its `commit_op`.
-          [commit_op = commit_op,
-           new_generation](std::shared_ptr<const Manifest> existing_manifest)
-              -> Future<std::shared_ptr<const Manifest>> {
-            if (!existing_manifest) {
-              return internal_ocdbt_cooperator::
-                  ManifestUnexpectedlyDeletedError(*commit_op->server);
-            }
-            if (existing_manifest->latest_generation() !=
-                commit_op->existing_manifest->latest_generation()) {
-              ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
-                  << "[Port=" << commit_op->server->listening_port_
-                  << "] WriteNewManifest: Manifest generation mismatch, "
-                     "expected="
-                  << commit_op->existing_manifest->latest_generation()
-                  << ", current=" << existing_manifest->latest_generation();
-              return absl::AbortedError("");
-            }
-            if (!new_generation) {
-              // Leave manifest unmodified.
-              return existing_manifest;
-            }
-            auto [promise, future] =
-                PromiseFuturePair<std::shared_ptr<const Manifest>>::Make();
-            auto new_manifest_future = internal_ocdbt::CreateNewManifest(
-                commit_op->server->io_handle_, commit_op->existing_manifest,
-                *new_generation);
-            LinkValue(
-                [commit_op](Promise<std::shared_ptr<const Manifest>> promise,
-                            ReadyFuture<std::pair<std::shared_ptr<Manifest>,
-                                                  Future<const void>>>
-                                future) mutable {
-                  auto [manifest, manifest_flush_future] = future.value();
-                  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
-                      << "[Port=" << commit_op->server->listening_port_
-                      << "] WriteNewManifest: New manifest generated.  root="
-                      << manifest->latest_version().root << ", root_height="
-                      << static_cast<int>(
-                             manifest->latest_version().root_height);
-                  commit_op->new_manifest = manifest;
-                  promise.raw_result() = std::move(manifest);
-                  commit_op->flush_promise.Link(
-                      std::move(manifest_flush_future));
 
-                  auto flush_future =
-                      std::move(commit_op->flush_promise).future();
+  if (!new_generation) {
+    // Leave manifest unmodified.
+    commit_op->new_manifest = commit_op->existing_manifest;
+    WriteNewManifest(std::move(commit_op));
+    return;
+  }
 
-                  if (!flush_future.null()) {
-                    LinkValue(
-                        [](Promise<std::shared_ptr<const Manifest>> promise,
-                           ReadyFuture<const void> future) {
-                          ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
-                              << "WriteNewManifest: Flushed indirect writes";
-                        },
-                        std::move(promise), std::move(flush_future));
-                  }
-                },
-                std::move(promise), std::move(new_manifest_future));
-            return future;
-          });
-  manifest_commit_future.Force();
-  manifest_commit_future.ExecuteWhenReady(
+  auto new_manifest_future = internal_ocdbt::CreateNewManifest(
+      commit_op->server->io_handle_, commit_op->existing_manifest,
+      *new_generation);
+  new_manifest_future.Force();
+  new_manifest_future.ExecuteWhenReady(
       [commit_op = std::move(commit_op)](
-          ReadyFuture<const ManifestWithTime> future) mutable {
+          ReadyFuture<std::pair<std::shared_ptr<Manifest>, Future<const void>>>
+              future) mutable {
+        auto [manifest, manifest_flush_future] = future.value();
+        ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+            << "[Port=" << commit_op->server->listening_port_
+            << "] WriteNewManifest: New manifest generated.  root="
+            << manifest->latest_version().root << ", root_height="
+            << static_cast<int>(manifest->latest_version().root_height);
+        commit_op->new_manifest = manifest;
+        commit_op->flush_promise.Link(std::move(manifest_flush_future));
+
+        auto flush_future = std::move(commit_op->flush_promise).future();
+        if (flush_future.null()) {
+          WriteNewManifest(std::move(commit_op));
+          return;
+        }
+        flush_future.Force();
+        flush_future.ExecuteWhenReady(
+            [commit_op =
+                 std::move(commit_op)](ReadyFuture<const void> future) mutable {
+              ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+                  << "WriteNewManifest: Flushed indirect writes";
+              WriteNewManifest(std::move(commit_op));
+            });
+      });
+}
+
+void NodeCommitOperation::WriteNewManifest(NodeCommitOperation::Ptr commit_op) {
+  auto update_future = commit_op->server->io_handle_->TryUpdateManifest(
+      commit_op->existing_manifest, commit_op->new_manifest,
+      /*time=*/absl::Now());
+  update_future.Force();
+  update_future.ExecuteWhenReady(
+      [commit_op =
+           std::move(commit_op)](ReadyFuture<TryUpdateManifestResult> future) {
         auto& r = future.result();
         ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
             << "[Port=" << commit_op->server->listening_port_
-            << "] WriteNewManifest: New manifest flushed: " << r.status();
+            << "] WriteNewManifest: New manifest flushed: " << r.status()
+            << ", success=" << (r.ok() ? r->success : false);
         if (!r.ok()) {
-          if (absl::IsAborted(r.status())) {
-            RetryCommit(std::move(commit_op));
-            return;
-          }
           commit_op->SetError(r.status());
           return;
         }
-        commit_op->SetSuccess(r->manifest->latest_generation(), r->time);
+        if (!r->success) {
+          RetryCommit(std::move(commit_op));
+          return;
+        }
+        commit_op->SetSuccess(commit_op->new_manifest->latest_generation(),
+                              r->time);
       });
 }
 

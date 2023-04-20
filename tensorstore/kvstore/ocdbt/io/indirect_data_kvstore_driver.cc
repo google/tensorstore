@@ -45,9 +45,8 @@ class IndirectDataKvStoreDriver : public kvstore::Driver {
       : base_(std::move(base)) {}
 
   Future<ReadResult> Read(Key key, ReadOptions options) override {
-    assert(key.size() == sizeof(IndirectDataReference));
     IndirectDataReference ref;
-    std::memcpy(&ref, key.data(), sizeof(IndirectDataReference));
+    ABSL_CHECK(ref.DecodeCacheKey(key));
     TENSORSTORE_ASSIGN_OR_RETURN(auto byte_range,
                                  options.byte_range.Validate(ref.length));
     options.byte_range = byte_range.inclusive_min + ref.offset;
@@ -58,18 +57,16 @@ class IndirectDataKvStoreDriver : public kvstore::Driver {
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
         << "read: " << ref << " " << options.byte_range;
 
-    return kvstore::Read(base_, GetDataFilePath(ref.file_id),
-                         std::move(options));
+    return kvstore::Read(base_, ref.file_id.FullPath(), std::move(options));
   }
 
   std::string DescribeKey(std::string_view key) override {
-    assert(key.size() == sizeof(IndirectDataReference));
     IndirectDataReference ref;
-    std::memcpy(&ref, key.data(), sizeof(IndirectDataReference));
+    ABSL_CHECK(ref.DecodeCacheKey(key));
     return tensorstore::StrCat(
         "Byte range ", ByteRange{ref.offset, ref.offset + ref.length}, " of ",
         base_.driver->DescribeKey(
-            tensorstore::StrCat(base_.path, GetDataFilePath(ref.file_id))));
+            tensorstore::StrCat(base_.path, ref.file_id.FullPath())));
   }
 
   void GarbageCollectionVisit(

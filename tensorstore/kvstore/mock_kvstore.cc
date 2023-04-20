@@ -72,6 +72,11 @@ Future<const void> MockKeyValueStore::DeleteRange(KeyRange range) {
   return future;
 }
 
+kvstore::SupportedFeatures MockKeyValueStore::GetSupportedFeatures(
+    const KeyRange& range) const {
+  return supported_features;
+}
+
 void MockKeyValueStore::GarbageCollectionVisit(
     garbage_collection::GarbageCollectionVisitor& visitor) const {
   // No-op
@@ -155,7 +160,12 @@ class RegisteredMockKeyValueStore
     return base()->ReadModifyWrite(transaction, phase, std::move(key), source);
   }
 
-  MockKeyValueStore* base() { return base_->get(); }
+  kvstore::SupportedFeatures GetSupportedFeatures(
+      const KeyRange& range) const override {
+    return base()->GetSupportedFeatures(range);
+  }
+
+  MockKeyValueStore* base() const { return base_->get(); }
 
   Context::Resource<MockKeyValueStoreResource> base_;
 };

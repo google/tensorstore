@@ -20,7 +20,6 @@
 #include "absl/status/status.h"
 #include "tensorstore/context.h"
 #include "tensorstore/driver/driver.h"
-#include "tensorstore/driver/registry.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/open_options.h"
 #include "tensorstore/rank.h"

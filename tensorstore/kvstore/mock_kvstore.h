@@ -44,6 +44,8 @@ class MockKeyValueStore : public kvstore::Driver {
     return MakeIntrusivePtr<MockKeyValueStore>();
   }
 
+  kvstore::SupportedFeatures supported_features = {};
+
   struct ReadRequest {
     Promise<ReadResult> promise;
     Key key;
@@ -74,6 +76,10 @@ class MockKeyValueStore : public kvstore::Driver {
   struct ListRequest {
     ListOptions options;
     AnyFlowReceiver<absl::Status, Key> receiver;
+
+    void operator()(kvstore::DriverPtr target) {
+      target->ListImpl(options, std::move(receiver));
+    }
   };
 
   Future<ReadResult> Read(Key key, ReadOptions options) override;
@@ -86,6 +92,9 @@ class MockKeyValueStore : public kvstore::Driver {
                 AnyFlowReceiver<absl::Status, Key> receiver) override;
 
   Future<const void> DeleteRange(KeyRange range) override;
+
+  kvstore::SupportedFeatures GetSupportedFeatures(
+      const KeyRange& range) const override;
 
   void GarbageCollectionVisit(
       garbage_collection::GarbageCollectionVisitor& visitor) const final;

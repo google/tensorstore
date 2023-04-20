@@ -21,6 +21,7 @@
 /// memory usage.
 
 #include <cstddef>
+#include <memory>
 #include <string>
 #include <type_traits>
 
@@ -105,6 +106,36 @@ struct HeapUsageEstimator<absl::Cord> {
     return x.size();
   }
 };
+
+template <typename T>
+struct PointerHeapUsageEstimator {
+  static size_t EstimateHeapUsage(const T& x, size_t max_depth) {
+    if (!x) return 0;
+    size_t total = sizeof(*x);
+    if (max_depth > 0) {
+      total += internal::EstimateHeapUsage(*x);
+    }
+    return total;
+  }
+};
+
+// TODO(jbms): Properly account for overhead
+template <typename T>
+struct HeapUsageEstimator<std::shared_ptr<T>>
+    : public PointerHeapUsageEstimator<std::shared_ptr<T>> {};
+
+// TODO(jbms): Properly account for overhead
+template <typename T>
+struct HeapUsageEstimator<std::unique_ptr<T>>
+    : public PointerHeapUsageEstimator<std::unique_ptr<T>> {};
+
+template <typename T, typename R>
+class IntrusivePtr;
+
+// TODO(jbms): Properly account for overhead
+template <typename T, typename R>
+struct HeapUsageEstimator<IntrusivePtr<T, R>>
+    : public PointerHeapUsageEstimator<IntrusivePtr<T, R>> {};
 
 }  // namespace internal
 }  // namespace tensorstore

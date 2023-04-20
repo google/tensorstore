@@ -208,3 +208,28 @@ tensorstore_cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+tensorstore_cc_library(
+    name = "future_collecting_receiver",
+    hdrs = ["future_collecting_receiver.h"],
+    deps = [
+        ":execution",
+        "//tensorstore/util:future",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "future_collecting_receiver_test",
+    size = "small",
+    srcs = ["future_collecting_receiver_test.cc"],
+    deps = [
+        ":execution",
+        ":future_collecting_receiver",
+        ":sender_testutil",
+        ":sender_util",
+        "//tensorstore/util:span",
+        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/status",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

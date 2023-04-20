@@ -22,6 +22,7 @@
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_modify_write.h"
 #include "tensorstore/kvstore/spec.h"
+#include "tensorstore/kvstore/supported_features.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/execution/any_receiver.h"
@@ -291,6 +292,11 @@ class Driver {
   /// For drivers that do support a JSON representation, this is defined
   /// automatically by `internal_kvstore::RegisteredDriver` in `registry.h`.
   virtual Result<DriverSpecPtr> GetBoundSpec() const;
+
+  /// Returns the features that are known to be supported for all keys within
+  /// the given key range.
+  virtual SupportedFeatures GetSupportedFeatures(
+      const KeyRange& key_range) const;
 
   virtual void GarbageCollectionVisit(
       garbage_collection::GarbageCollectionVisitor& visitor) const = 0;

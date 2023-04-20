@@ -48,7 +48,7 @@ CreateNewManifest(IoHandle::Ptr io_handle,
                   BtreeGenerationReference new_generation);
 
 // Writes a new empty manifest if one does not already exist.
-Future<const ManifestWithTime> EnsureExistingManifest(IoHandle::Ptr io_handle);
+Future<absl::Time> EnsureExistingManifest(IoHandle::Ptr io_handle);
 
 }  // namespace internal_ocdbt
 }  // namespace tensorstore

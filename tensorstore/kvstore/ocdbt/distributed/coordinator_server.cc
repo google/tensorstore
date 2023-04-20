@@ -36,6 +36,7 @@
 #include "grpcpp/server_context.h"  // third_party
 #include "grpcpp/support/server_callback.h"  // third_party
 #include "tensorstore/internal/grpc/peer_address.h"
+#include "tensorstore/internal/grpc/utils.h"
 #include "tensorstore/internal/heterogeneous_container.h"
 #include "tensorstore/internal/intrusive_red_black_tree.h"
 #include "tensorstore/internal/json_binding/bindable.h"
@@ -44,6 +45,8 @@
 #include "tensorstore/kvstore/ocdbt/debug_log.h"
 #include "tensorstore/kvstore/ocdbt/distributed/coordinator.grpc.pb.h"
 #include "tensorstore/kvstore/ocdbt/distributed/coordinator.pb.h"
+#include "tensorstore/kvstore/ocdbt/distributed/rpc_security.h"
+#include "tensorstore/kvstore/ocdbt/distributed/rpc_security_registry.h"
 #include "tensorstore/proto/encode_time.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
@@ -68,6 +71,9 @@ namespace jb = ::tensorstore::internal_json_binding;
 TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
     CoordinatorServer::Spec,
     jb::Object(
+        jb::Member("security",
+                   jb::Projection<&CoordinatorServer::Spec::security>(
+                       internal_ocdbt::RpcSecurityMethodJsonBinder)),
         jb::Member("bind_addresses",
                    jb::Projection<&CoordinatorServer::Spec::bind_addresses>(
                        jb::DefaultInitializedValue()))));
@@ -82,6 +88,7 @@ class CoordinatorServer::Impl
  public:
   std::vector<int> listening_ports_;
   std::unique_ptr<grpc::Server> server_;
+  internal_ocdbt::RpcSecurityMethod::Ptr security_;
   Clock clock_;
 
   grpc::ServerUnaryReactor* RequestLease(
@@ -121,6 +128,10 @@ grpc::ServerUnaryReactor* CoordinatorServer::Impl::RequestLease(
     const internal_ocdbt::grpc_gen::LeaseRequest* request,
     internal_ocdbt::grpc_gen::LeaseResponse* response) {
   auto* reactor = context->DefaultReactor();
+  if (auto status = security_->ValidateServerRequest(context); !status.ok()) {
+    reactor->Finish(internal::AbslStatusToGrpcStatus(status));
+    return reactor;
+  }
   auto peer_address = internal::GetGrpcPeerAddressAndPort(context);
   if (!peer_address.ok()) {
     reactor->Finish(grpc::Status(grpc::StatusCode::INTERNAL,
@@ -204,7 +215,7 @@ Result<CoordinatorServer> CoordinatorServer::Start(Options options) {
   }
   grpc::ServerBuilder builder;
   builder.RegisterService(impl.get());
-  auto creds = grpc::InsecureServerCredentials();
+  auto creds = options.spec.security->GetServerCredentials();
   if (options.spec.bind_addresses.empty()) {
     options.spec.bind_addresses.push_back("[::]:0");
   }
@@ -213,6 +224,7 @@ Result<CoordinatorServer> CoordinatorServer::Start(Options options) {
     builder.AddListeningPort(options.spec.bind_addresses[i], creds,
                              &impl->listening_ports_[i]);
   }
+  impl->security_ = options.spec.security;
   impl->server_ = builder.BuildAndStart();
   CoordinatorServer server;
   server.impl_ = std::move(impl);

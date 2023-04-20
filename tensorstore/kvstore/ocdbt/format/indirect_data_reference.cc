@@ -14,33 +14,53 @@
 
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
 
+#include <string.h>
+
 #include <ostream>
 #include <string>
 #include <string_view>
 
-#include "absl/log/absl_check.h"
-#include "absl/strings/escaping.h"
-#include <openssl/rand.h>
-#include "tensorstore/util/str_cat.h"
-
 namespace tensorstore {
 namespace internal_ocdbt {
 
-DataFileId GenerateDataFileId() {
-  DataFileId file_id;
-  ABSL_CHECK(RAND_bytes(reinterpret_cast<unsigned char*>(file_id.value.data()),
-                        file_id.value.size()));
-  return file_id;
+void EncodeCacheKeyAdl(std::string* out, const IndirectDataReference& self) {
+  const size_t total_size = sizeof(uint64_t) * 4 + self.file_id.size();
+  out->resize(out->size() + total_size);
+  char* buf_ptr = out->data() + out->size() - total_size;
+  memcpy(buf_ptr, &self.offset, sizeof(uint64_t));
+  buf_ptr += sizeof(uint64_t);
+  memcpy(buf_ptr, &self.length, sizeof(uint64_t));
+  buf_ptr += sizeof(uint64_t);
+  const uint64_t base_path_length = self.file_id.base_path.size();
+  memcpy(buf_ptr, &base_path_length, sizeof(uint64_t));
+  buf_ptr += sizeof(uint64_t);
+  const uint64_t relative_path_length = self.file_id.relative_path.size();
+  memcpy(buf_ptr, &relative_path_length, sizeof(uint64_t));
+  buf_ptr += sizeof(uint64_t);
+  memcpy(buf_ptr, self.file_id.base_path.data(), base_path_length);
+  buf_ptr += base_path_length;
+  memcpy(buf_ptr, self.file_id.relative_path.data(), relative_path_length);
 }
 
-std::string GetDataFilePath(DataFileId file_id) {
-  return absl::BytesToHexString(
-      std::string_view(reinterpret_cast<const char*>(file_id.value.data()),
-                       file_id.value.size()));
-}
-
-std::string GetDataDirectoryPath(std::string_view base_path) {
-  return tensorstore::StrCat(base_path, "d/");
+bool IndirectDataReference::DecodeCacheKey(std::string_view encoded) {
+  if (encoded.size() < sizeof(uint64_t) * 4) return false;
+  memcpy(&offset, encoded.data(), sizeof(uint64_t));
+  encoded.remove_prefix(sizeof(uint64_t));
+  memcpy(&length, encoded.data(), sizeof(uint64_t));
+  encoded.remove_prefix(sizeof(uint64_t));
+  uint64_t base_path_length;
+  memcpy(&base_path_length, encoded.data(), sizeof(uint64_t));
+  encoded.remove_prefix(sizeof(uint64_t));
+  uint64_t relative_path_length;
+  memcpy(&relative_path_length, encoded.data(), sizeof(uint64_t));
+  encoded.remove_prefix(sizeof(uint64_t));
+  if (base_path_length > encoded.size() ||
+      encoded.size() - base_path_length != relative_path_length) {
+    return false;
+  }
+  file_id.base_path = encoded.substr(0, base_path_length);
+  file_id.relative_path = encoded.substr(base_path_length);
+  return true;
 }
 
 bool operator==(const IndirectDataReference& a,
@@ -50,10 +70,6 @@ bool operator==(const IndirectDataReference& a,
 std::ostream& operator<<(std::ostream& os, const IndirectDataReference& x) {
   return os << "{file_id=" << x.file_id << ", offset=" << x.offset
             << ", length=" << x.length << "}";
-}
-
-std::ostream& operator<<(std::ostream& os, const DataFileId& x) {
-  return os << GetDataFilePath(x);
 }
 
 }  // namespace internal_ocdbt

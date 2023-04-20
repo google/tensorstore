@@ -75,12 +75,15 @@ class DecodedIndirectDataCache
         execution::set_error(receiver, absl::NotFoundError(""));
         return;
       }
+      IndirectDataReference ref;
+      ABSL_CHECK(ref.DecodeCacheKey(this->key()));
+
       GetOwningCache(*this).executor()(
-          [value = std::move(*value),
+          [value = std::move(*value), base_path = ref.file_id.base_path,
            receiver = std::move(receiver)]() mutable {
             auto read_data = std::make_shared<T>();
             TENSORSTORE_ASSIGN_OR_RETURN(
-                *read_data, Derived::Decode(value),
+                *read_data, Derived::Decode(value, base_path),
                 static_cast<void>(execution::set_error(receiver, _)));
             execution::set_value(receiver, std::move(read_data));
           });
@@ -98,9 +101,7 @@ class DecodedIndirectDataCache
 
   internal::PinnedCacheEntry<DecodedIndirectDataCache<Derived, T>> GetEntry(
       const IndirectDataReference& ref) {
-    return GetCacheEntry(
-        this,
-        std::string_view(reinterpret_cast<const char*>(&ref), sizeof(ref)));
+    return GetCacheEntry(this, ref.EncodeCacheKey());
   }
 
   Future<const std::shared_ptr<const T>> ReadEntry(
@@ -145,8 +146,9 @@ class BtreeNodeCache
  public:
   using Base::Base;
 
-  static Result<BtreeNode> Decode(const absl::Cord& encoded) {
-    return DecodeBtreeNode(encoded);
+  static Result<BtreeNode> Decode(const absl::Cord& encoded,
+                                  const BasePath& base_path) {
+    return DecodeBtreeNode(encoded, base_path);
   }
 };
 
@@ -159,8 +161,9 @@ class VersionTreeNodeCache
  public:
   using Base::Base;
 
-  static Result<VersionTreeNode> Decode(const absl::Cord& encoded) {
-    return DecodeVersionTreeNode(encoded);
+  static Result<VersionTreeNode> Decode(const absl::Cord& encoded,
+                                        const BasePath& base_path) {
+    return DecodeVersionTreeNode(encoded, base_path);
   }
 };
 

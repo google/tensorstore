@@ -24,11 +24,14 @@
 #include "tensorstore/internal/estimate_heap_usage/std_optional.h"
 #include "tensorstore/internal/estimate_heap_usage/std_variant.h"
 #include "tensorstore/internal/estimate_heap_usage/std_vector.h"
+#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/util/apply_members/std_tuple.h"
 
 namespace {
 
+using ::tensorstore::internal::AtomicReferenceCount;
 using ::tensorstore::internal::EstimateHeapUsage;
+using ::tensorstore::internal::IntrusivePtr;
 
 TEST(EstimateHeapUsageTest, Trivial) {
   EXPECT_EQ(0, EstimateHeapUsage(5));
@@ -54,6 +57,32 @@ TEST(EstimateHeapUsageTest, Optional) {
   EXPECT_EQ(0, EstimateHeapUsage(std::optional<std::string>()));
   auto o = std::optional<std::string>(std::in_place, 1000, 'x');
   EXPECT_EQ(o->capacity(), EstimateHeapUsage(o));
+}
+
+TEST(EstimateHeapUsageTest, UniquePtr) {
+  std::unique_ptr<int> ptr;
+  EXPECT_EQ(0, EstimateHeapUsage(ptr));
+  ptr.reset(new int);
+  EXPECT_EQ(sizeof(int), EstimateHeapUsage(ptr));
+}
+
+TEST(EstimateHeapUsageTest, SharedPtr) {
+  std::shared_ptr<int> ptr;
+  EXPECT_EQ(0, EstimateHeapUsage(ptr));
+  ptr.reset(new int);
+  EXPECT_EQ(sizeof(int), EstimateHeapUsage(ptr));
+}
+
+struct Foo : public AtomicReferenceCount<Foo> {
+  int x;
+  constexpr static auto ApplyMembers = [](auto& x, auto f) { return f(x.x); };
+};
+
+TEST(EstimateHeapUsageTest, IntrusivePtr) {
+  IntrusivePtr<Foo> ptr;
+  EXPECT_EQ(0, EstimateHeapUsage(ptr));
+  ptr.reset(new Foo);
+  EXPECT_EQ(sizeof(Foo), EstimateHeapUsage(ptr));
 }
 
 TEST(EstimateHeapUsageTest, Vector) {

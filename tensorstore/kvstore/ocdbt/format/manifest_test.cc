@@ -14,7 +14,9 @@
 
 #include "tensorstore/kvstore/ocdbt/format/manifest.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/strings/str_format.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
 #include "tensorstore/kvstore/ocdbt/format/config.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
@@ -25,9 +27,31 @@
 namespace {
 
 using ::tensorstore::MatchesStatus;
+using ::tensorstore::Result;
 using ::tensorstore::internal_ocdbt::CommitTime;
 using ::tensorstore::internal_ocdbt::DecodeManifest;
 using ::tensorstore::internal_ocdbt::Manifest;
+
+Result<absl::Time> RoundTripCommitTime(absl::Time time) {
+  TENSORSTORE_ASSIGN_OR_RETURN(auto commit_time,
+                               CommitTime::FromAbslTime(time));
+  return static_cast<absl::Time>(commit_time);
+}
+
+TEST(CommitTimeTest, Simple) {
+  EXPECT_THAT(RoundTripCommitTime(absl::FromUnixNanos(0)),
+              ::testing::Optional(absl::FromUnixNanos(0)));
+  EXPECT_THAT(RoundTripCommitTime(absl::FromUnixNanos(-1)),
+              MatchesStatus(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(RoundTripCommitTime(
+                  absl::FromUnixNanos(std::numeric_limits<int64_t>::max())),
+              ::testing::Optional(
+                  absl::FromUnixNanos(std::numeric_limits<int64_t>::max())));
+  EXPECT_THAT(RoundTripCommitTime(
+                  absl::FromUnixNanos(std::numeric_limits<int64_t>::max()) +
+                  absl::Nanoseconds(1)),
+              MatchesStatus(absl::StatusCode::kInvalidArgument));
+}
 
 void TestManifestRoundTrip(const Manifest& manifest) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto encoded, EncodeManifest(manifest));
@@ -39,7 +63,8 @@ Manifest GetSimpleManifest() {
   Manifest manifest;
 
   auto& x = manifest.versions.emplace_back();
-  x.root.location.file_id = {{0, 1, 2, 3, 4, 5, 6, 7}};
+  x.root.location.file_id.base_path = "abc";
+  x.root.location.file_id.relative_path = "defgh";
   x.root.location.offset = 10;
   x.root.location.length = 42;
   x.generation_number = 1;
@@ -57,7 +82,8 @@ TEST(ManifestTest, RoundTripNonZeroHeight) {
   Manifest manifest;
   {
     auto& x = manifest.versions.emplace_back();
-    x.root.location.file_id = {{0, 1, 2, 3, 4, 5, 6, 7}};
+    x.root.location.file_id.base_path = "abc";
+    x.root.location.file_id.relative_path = "defgh";
     x.root.location.offset = 10;
     x.root.location.length = 42;
     x.generation_number = 1;
@@ -129,7 +155,8 @@ TEST(ManifestTest, RoundTripMultipleVersions) {
   //   - 1 up to 8 (eventually up to 16) (height 3)
   {
     auto& x = manifest.versions.emplace_back();
-    x.root.location.file_id = {{0, 1, 2, 3, 4, 5, 6, 7}};
+    x.root.location.file_id.base_path = "abc";
+    x.root.location.file_id.relative_path = "defgh";
     x.root.location.offset = 10;
     x.root.location.length = 42;
     x.generation_number = 15;
@@ -141,7 +168,8 @@ TEST(ManifestTest, RoundTripMultipleVersions) {
   }
   {
     auto& x = manifest.version_tree_nodes.emplace_back();
-    x.location.file_id = {{0, 1, 2, 3, 4, 5, 6, 7}};
+    x.location.file_id.base_path = "abc";
+    x.location.file_id.relative_path = "defgh";
     x.location.offset = 10;
     x.location.length = 42;
     x.generation_number = 8;
@@ -151,7 +179,8 @@ TEST(ManifestTest, RoundTripMultipleVersions) {
   }
   {
     auto& x = manifest.version_tree_nodes.emplace_back();
-    x.location.file_id = {{0, 1, 2, 3, 4, 5, 6, 7}};
+    x.location.file_id.base_path = "abc";
+    x.location.file_id.relative_path = "defgh1";
     x.location.offset = 10;
     x.location.length = 42;
     x.generation_number = 12;
@@ -161,7 +190,8 @@ TEST(ManifestTest, RoundTripMultipleVersions) {
   }
   {
     auto& x = manifest.version_tree_nodes.emplace_back();
-    x.location.file_id = {{0, 1, 2, 3, 4, 5, 6, 7}};
+    x.location.file_id.base_path = "abc1";
+    x.location.file_id.relative_path = "defgh";
     x.location.offset = 10;
     x.location.length = 42;
     x.generation_number = 14;
@@ -171,5 +201,106 @@ TEST(ManifestTest, RoundTripMultipleVersions) {
   }
   TestManifestRoundTrip(manifest);
 }
+
+namespace for_each_manifest_version_tree_node_ref {
+using ::tensorstore::internal_ocdbt::ForEachManifestVersionTreeNodeRef;
+using ::tensorstore::internal_ocdbt::GenerationNumber;
+using ::tensorstore::internal_ocdbt::VersionTreeArityLog2;
+using R = std::tuple<GenerationNumber, GenerationNumber, int>;
+
+std::vector<R> GetRanges(GenerationNumber generation_number,
+                         VersionTreeArityLog2 version_tree_arity_log2) {
+  std::vector<R> results;
+  ForEachManifestVersionTreeNodeRef(
+      generation_number, version_tree_arity_log2,
+      [&](GenerationNumber min_generation_number,
+          GenerationNumber max_generation_number, VersionTreeArityLog2 height) {
+        results.emplace_back(min_generation_number, max_generation_number,
+                             height);
+      });
+  return results;
+}
+
+TEST(ForEachManifestVersionTreeNodeRefTest, SimpleCases) {
+  EXPECT_THAT(GetRanges(8, 2), ::testing::ElementsAre(R{1, 4, 1}));
+  EXPECT_THAT(GetRanges(9, 2), ::testing::ElementsAre(R{1, 8, 1}));
+  EXPECT_THAT(GetRanges(17, 2), ::testing::ElementsAre(R{1, 16, 1}));
+  EXPECT_THAT(GetRanges(30, 2),
+              ::testing::ElementsAre(R{17, 28, 1}, R{1, 16, 2}));
+  EXPECT_THAT(GetRanges(43, 2),
+              ::testing::ElementsAre(R{33, 40, 1}, R{1, 32, 2}));
+  EXPECT_THAT(GetRanges(17, 1),
+              ::testing::ElementsAre(R{13, 16, 1}, R{9, 12, 2}, R{1, 8, 3}));
+}
+
+class ForEachManifestVersionTreeNodeRefPropertyTest
+    : public ::testing::TestWithParam<std::tuple<GenerationNumber, int>> {};
+
+TEST_P(ForEachManifestVersionTreeNodeRefPropertyTest, Properties) {
+  auto [generation_number, version_tree_arity_log2] = GetParam();
+
+  auto range = GetRanges(generation_number, version_tree_arity_log2);
+  SCOPED_TRACE(
+      absl::StrFormat("generation_number=%d, version_tree_arity_log2=%d",
+                      generation_number, version_tree_arity_log2));
+  SCOPED_TRACE(::testing::PrintToString(range));
+  for (size_t i = 0; i < range.size(); ++i) {
+    auto [min_gen, max_gen, height] = range[i];
+    SCOPED_TRACE(
+        absl::StrFormat("i=%d,height=%d,min_generation=%d,max_generation=%d", i,
+                        height, min_gen, max_gen));
+    EXPECT_EQ(height, i + 1);
+    EXPECT_LT(max_gen, generation_number);
+    EXPECT_GT(max_gen, 0);
+    EXPECT_GT(min_gen, 0);
+    EXPECT_LT(min_gen, max_gen);
+    EXPECT_EQ(
+        0, max_gen % (GenerationNumber(1) << height * version_tree_arity_log2));
+    if (i == 0) {
+      EXPECT_GE(max_gen + (GenerationNumber(1) << version_tree_arity_log2),
+                generation_number);
+    }
+    if (i > 0) {
+      auto [prev_min_gen, prev_max_gen, prev_height] = range[i - 1];
+      EXPECT_EQ(prev_min_gen, max_gen + 1);
+    }
+  }
+}
+
+std::string PrintPropertyTestValue(
+    const ::testing::TestParamInfo<std::tuple<GenerationNumber, int>>& info) {
+  const auto [generation_number, version_tree_arity_log2] = info.param;
+  return absl::StrFormat("%d_%d", generation_number, version_tree_arity_log2);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    Combinations, ForEachManifestVersionTreeNodeRefPropertyTest,
+    ::testing::Combine(::testing::ValuesIn<GenerationNumber>({
+                           1,
+                           2,
+                           101,
+                           12345,
+                           567890,
+                       }),
+                       ::testing::ValuesIn<int>({
+                           1,
+                           2,
+                           3,
+                           4,
+                       })),
+    PrintPropertyTestValue);
+
+INSTANTIATE_TEST_SUITE_P(
+    Simple, ForEachManifestVersionTreeNodeRefPropertyTest,
+    (::testing::ValuesIn<std::tuple<GenerationNumber, int>>({
+        {8, 2},
+        {9, 2},
+        {17, 2},
+        {43, 2},
+        {17, 1},
+    })),
+    PrintPropertyTestValue);
+
+}  // namespace for_each_manifest_version_tree_node_ref
 
 }  // namespace

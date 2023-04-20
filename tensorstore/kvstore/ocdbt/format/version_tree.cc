@@ -15,6 +15,7 @@
 #include "tensorstore/kvstore/ocdbt/format/version_tree.h"
 
 #include <cassert>
+#include <limits>
 #include <ostream>
 #include <string>
 #include <utility>
@@ -30,6 +31,7 @@
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
 #include "tensorstore/kvstore/ocdbt/format/codec_util.h"
 #include "tensorstore/kvstore/ocdbt/format/config.h"
+#include "tensorstore/kvstore/ocdbt/format/data_file_id_codec.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference_codec.h"
 #include "tensorstore/kvstore/ocdbt/format/version_tree_codec.h"
@@ -41,25 +43,31 @@
 namespace tensorstore {
 namespace internal_ocdbt {
 
-CommitTime::CommitTime(absl::Time time)
-    : value(absl::ToInt64Milliseconds(time - absl::UnixEpoch())) {}
+Result<CommitTime> CommitTime::FromAbslTime(absl::Time time) {
+  if (time < absl::FromUnixNanos(0) ||
+      time > absl::FromUnixNanos(std::numeric_limits<int64_t>::max())) {
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Cannot represent ", time, " as 64-bit nanoseconds since Unix epoch."));
+  }
+  return CommitTime(absl::ToUnixNanos(time));
+}
 
 using absl::Time;
 
 CommitTime::operator Time() const {
-  return absl::UnixEpoch() + absl::Milliseconds(value);
+  return absl::UnixEpoch() + absl::Nanoseconds(value);
 }
 
 namespace {
 /// Returns the minimum generation number that may be stored in a version tree
 /// leaf node ending with the specified generation number.
-GenerationNumber GetMinVersionTreeLeafNodeGenerationNumber(
-    VersionTreeArityLog2 version_tree_arity_log2,
+GenerationNumber GetMinVersionTreeNodeGenerationNumber(
+    VersionTreeArityLog2 version_tree_arity_log2, VersionTreeHeight height,
     GenerationNumber last_generation_number) {
   assert(last_generation_number != 0);
   return last_generation_number -
          (last_generation_number - 1) %
-             (GenerationNumber(1) << version_tree_arity_log2);
+             (GenerationNumber(1) << (version_tree_arity_log2 * (height + 1)));
 }
 }  // namespace
 
@@ -67,8 +75,8 @@ std::pair<GenerationNumber, GenerationNumber>
 GetVersionTreeLeafNodeRangeContainingGeneration(
     VersionTreeArityLog2 version_tree_arity_log2,
     GenerationNumber generation_number) {
-  auto min_generation_number = GetMinVersionTreeLeafNodeGenerationNumber(
-      version_tree_arity_log2, generation_number);
+  auto min_generation_number = GetMinVersionTreeNodeGenerationNumber(
+      version_tree_arity_log2, 0, generation_number);
   auto max_generation_number =
       min_generation_number +
       ((GenerationNumber(1) << version_tree_arity_log2) - 1);
@@ -77,10 +85,12 @@ GetVersionTreeLeafNodeRangeContainingGeneration(
 
 [[nodiscard]] bool ReadVersionTreeLeafNode(
     VersionTreeArityLog2 version_tree_arity_log2, riegeli::Reader& reader,
+    const DataFileTable& data_file_table,
     VersionTreeNode::LeafNodeEntries& entries) {
   const size_t max_num_entries = static_cast<size_t>(1)
                                  << version_tree_arity_log2;
-  if (!VersionTreeLeafNodeEntryArrayCodec{max_num_entries}(reader, entries)) {
+  if (!VersionTreeLeafNodeEntryArrayCodec<DataFileTable>{
+          data_file_table, max_num_entries}(reader, entries)) {
     return false;
   }
   TENSORSTORE_RETURN_IF_ERROR(
@@ -91,10 +101,12 @@ GetVersionTreeLeafNodeRangeContainingGeneration(
 
 [[nodiscard]] bool WriteVersionTreeNodeEntries(
     const Config& config, riegeli::Writer& writer,
+    const DataFileTableBuilder& data_file_table,
     const VersionTreeNode::LeafNodeEntries& entries) {
   assert(!entries.empty());
   const size_t max_num_entries = size_t(1) << config.version_tree_arity_log2;
-  if (!VersionTreeLeafNodeEntryArrayCodec{max_num_entries}(writer, entries)) {
+  if (!VersionTreeLeafNodeEntryArrayCodec<DataFileTableBuilder>{
+          data_file_table, max_num_entries}(writer, entries)) {
     return false;
   }
   return true;
@@ -102,10 +114,12 @@ GetVersionTreeLeafNodeRangeContainingGeneration(
 
 [[nodiscard]] bool WriteVersionTreeNodeEntries(
     const Config& config, riegeli::Writer& writer,
+    const DataFileTableBuilder& data_file_table,
     const VersionTreeNode::InteriorNodeEntries& entries) {
   const size_t max_num_entries = size_t(1) << config.version_tree_arity_log2;
-  if (!VersionTreeInteriorNodeEntryArrayCodec{
-          max_num_entries, /*include_entry_height=*/false}(writer, entries)) {
+  if (!VersionTreeInteriorNodeEntryArrayCodec<DataFileTableBuilder>{
+          data_file_table, max_num_entries, /*include_entry_height=*/false}(
+          writer, entries)) {
     return false;
   }
   return true;
@@ -113,7 +127,8 @@ GetVersionTreeLeafNodeRangeContainingGeneration(
 
 [[nodiscard]] bool ReadVersionTreeInteriorNode(
     VersionTreeArityLog2 version_tree_arity_log2, riegeli::Reader& reader,
-    VersionTreeHeight height, VersionTreeNode::InteriorNodeEntries& entries) {
+    const DataFileTable& data_file_table, VersionTreeHeight height,
+    VersionTreeNode::InteriorNodeEntries& entries) {
   auto max_height = GetMaxVersionTreeHeight(version_tree_arity_log2);
   if (height > max_height) {
     reader.Fail(absl::DataLossError(absl::StrFormat(
@@ -122,8 +137,9 @@ GetVersionTreeLeafNodeRangeContainingGeneration(
     return false;
   }
   const size_t max_arity = (size_t(1) << version_tree_arity_log2);
-  if (!VersionTreeInteriorNodeEntryArrayCodec{
-          max_arity, /*include_entry_height=*/false}(reader, entries)) {
+  if (!VersionTreeInteriorNodeEntryArrayCodec<DataFileTable>{
+          data_file_table, max_arity, /*include_entry_height=*/false}(
+          reader, entries)) {
     return false;
   }
 
@@ -138,7 +154,8 @@ GetVersionTreeLeafNodeRangeContainingGeneration(
   return true;
 }
 
-Result<VersionTreeNode> DecodeVersionTreeNode(const absl::Cord& encoded) {
+Result<VersionTreeNode> DecodeVersionTreeNode(const absl::Cord& encoded,
+                                              const BasePath& base_path) {
   VersionTreeNode node;
   auto status = DecodeWithOptionalCompression(
       encoded, kVersionTreeNodeMagic, kVersionTreeNodeFormatVersion,
@@ -148,13 +165,18 @@ Result<VersionTreeNode> DecodeVersionTreeNode(const absl::Cord& encoded) {
             !reader.ReadByte(node.height)) {
           return false;
         }
+        DataFileTable data_file_table;
+        if (!ReadDataFileTable(reader, base_path, data_file_table)) {
+          return false;
+        }
         if (node.height == 0) {
           return ReadVersionTreeLeafNode(
-              node.version_tree_arity_log2, reader,
+              node.version_tree_arity_log2, reader, data_file_table,
               node.entries.emplace<VersionTreeNode::LeafNodeEntries>());
         } else {
           return ReadVersionTreeInteriorNode(
-              node.version_tree_arity_log2, reader, node.height,
+              node.version_tree_arity_log2, reader, data_file_table,
+              node.height,
               node.entries.emplace<VersionTreeNode::InteriorNodeEntries>());
         }
       });
@@ -182,9 +204,17 @@ Result<absl::Cord> EncodeVersionTreeNode(const Config& config,
             !VersionTreeHeightCodec{}(writer, node.height)) {
           return false;
         }
+        DataFileTableBuilder data_file_table;
+        std::visit(
+            [&](auto& entries) {
+              internal_ocdbt::AddDataFiles(data_file_table, entries);
+            },
+            node.entries);
+        if (!data_file_table.Finalize(writer)) return false;
         return std::visit(
             [&](auto& entries) {
-              return WriteVersionTreeNodeEntries(config, writer, entries);
+              return WriteVersionTreeNodeEntries(config, writer,
+                                                 data_file_table, entries);
             },
             node.entries);
       });
@@ -262,7 +292,7 @@ std::ostream& operator<<(std::ostream& os, const VersionTreeNode& e) {
 }
 
 std::ostream& operator<<(std::ostream& os, CommitTime x) {
-  return os << absl::UnixEpoch() + absl::Milliseconds(x.value);
+  return os << static_cast<absl::Time>(x);
 }
 
 absl::Status ValidateVersionTreeLeafNodeEntries(
@@ -306,8 +336,8 @@ absl::Status ValidateVersionTreeLeafNodeEntries(
   const GenerationNumber first_generation_number =
       entries.front().generation_number;
   const GenerationNumber min_generation_number =
-      GetMinVersionTreeLeafNodeGenerationNumber(version_tree_arity_log2,
-                                                last_generation_number);
+      GetMinVersionTreeNodeGenerationNumber(version_tree_arity_log2, 0,
+                                            last_generation_number);
   if (first_generation_number < min_generation_number) {
     return absl::DataLossError(
         absl::StrFormat("Generation range [%d, %d] exceeds maximum of [%d, %d]",
@@ -395,6 +425,211 @@ bool VersionTreeArityLog2Codec::operator()(riegeli::Reader& reader,
     return false;
   }
   return true;
+}
+
+namespace {
+std::string FormatVersionSpec(GenerationNumber generation_number) {
+  return absl::StrFormat("generation_number=%d", generation_number);
+}
+std::string FormatVersionSpec(CommitTime commit_time) {
+  return absl::StrFormat("commit_time=%v", commit_time);
+}
+std::string FormatVersionSpec(CommitTimeUpperBound commit_time) {
+  return absl::StrFormat("commit_time<=%v", commit_time.commit_time);
+}
+}  // namespace
+
+std::string FormatVersionSpec(VersionSpec version_spec) {
+  return std::visit([&](auto version) { return FormatVersionSpec(version); },
+                    version_spec);
+}
+
+int CompareVersionSpecToVersion(VersionSpec version_spec,
+                                const BtreeGenerationReference& ref) {
+  return std::visit(
+      [&](auto version) { return CompareVersionSpecToVersion(version, ref); },
+      version_spec);
+}
+
+span<const BtreeGenerationReference>::iterator FindVersionLowerBound(
+    span<const BtreeGenerationReference> versions,
+    GenerationNumber generation_number) {
+  return std::lower_bound(versions.begin(), versions.end(), generation_number,
+                          [](const BtreeGenerationReference& ref,
+                             GenerationNumber generation_number) {
+                            return ref.generation_number < generation_number;
+                          });
+}
+
+span<const BtreeGenerationReference>::iterator FindVersionUpperBound(
+    span<const BtreeGenerationReference> versions,
+    GenerationNumber generation_number) {
+  return std::upper_bound(versions.begin(), versions.end(), generation_number,
+                          [](GenerationNumber generation_number,
+                             const BtreeGenerationReference& ref) {
+                            return generation_number < ref.generation_number;
+                          });
+}
+
+const BtreeGenerationReference* FindVersion(
+    span<const BtreeGenerationReference> versions,
+    GenerationNumber generation_number) {
+  auto it = FindVersionLowerBound(versions, generation_number);
+  if (it == versions.end()) return nullptr;
+  const auto* ref = &*it;
+  // `ref` is the first version where
+  // `ref->generation_number >= generation_number`.  Verify that the generation
+  // numbers are equal.
+  if (ref->generation_number != generation_number) return nullptr;
+  return ref;
+}
+
+span<const BtreeGenerationReference>::iterator FindVersionLowerBound(
+    span<const BtreeGenerationReference> versions, CommitTime commit_time) {
+  return std::lower_bound(
+      versions.begin(), versions.end(), commit_time,
+      [](const BtreeGenerationReference& ref, CommitTime commit_time) {
+        return ref.commit_time < commit_time;
+      });
+}
+
+span<const BtreeGenerationReference>::iterator FindVersionUpperBound(
+    span<const BtreeGenerationReference> versions, CommitTime commit_time) {
+  return std::upper_bound(
+      versions.begin(), versions.end(), commit_time,
+      [](CommitTime commit_time, const BtreeGenerationReference& ref) {
+        return commit_time < ref.commit_time;
+      });
+}
+
+const BtreeGenerationReference* FindVersion(
+    span<const BtreeGenerationReference> versions, CommitTime commit_time) {
+  auto it = FindVersionLowerBound(versions, commit_time);
+  if (it == versions.end()) return nullptr;
+  const auto* ref = &*it;
+  // `ref` is the first version where `ref->commit_time >= commit_time`.
+  // Verify that the commit times are equal.
+  if (ref->commit_time != commit_time) return nullptr;
+  return ref;
+}
+
+const BtreeGenerationReference* FindVersion(
+    span<const BtreeGenerationReference> versions,
+    CommitTimeUpperBound commit_time) {
+  auto it = std::lower_bound(
+      versions.begin(), versions.end(), commit_time.commit_time,
+      [](const BtreeGenerationReference& ref, CommitTime commit_time) {
+        return ref.commit_time <= commit_time;
+      });
+  // `it` is the first version where
+  // `it->commit_time > commit_time.commit_time`.
+  //
+  // Therefore, `it[-1]` (if valid) is the last version that satisfies
+  // `it->commit_time <= commit_time.commit_time`.
+  if (it == versions.begin()) return nullptr;
+  return &it[-1];
+}
+
+const BtreeGenerationReference* FindVersion(
+    span<const BtreeGenerationReference> versions, VersionSpec version_spec) {
+  return std::visit(
+      [&](auto version) { return FindVersion(versions, version); },
+      version_spec);
+}
+
+span<const VersionNodeReference>::iterator FindVersionLowerBound(
+    VersionTreeArityLog2 version_tree_arity_log2,
+    span<const VersionNodeReference> children,
+    GenerationNumber generation_number) {
+  auto it = std::lower_bound(
+      children.begin(), children.end(), generation_number,
+      [&](const VersionNodeReference& ref, GenerationNumber generation_number) {
+        return GetMinVersionTreeNodeGenerationNumber(
+                   version_tree_arity_log2, ref.height,
+                   ref.generation_number) <= generation_number;
+      });
+  if (it != children.begin()) --it;
+  return it;
+}
+
+span<const VersionNodeReference>::iterator FindVersionUpperBound(
+    span<const VersionNodeReference> children,
+    GenerationNumber generation_number) {
+  return std::upper_bound(
+      children.begin(), children.end(), generation_number,
+      [](GenerationNumber generation_number, const VersionNodeReference& ref) {
+        return generation_number < ref.generation_number;
+      });
+}
+
+const VersionNodeReference* FindVersion(
+    VersionTreeArityLog2 version_tree_arity_log2,
+    span<const VersionNodeReference> children,
+    GenerationNumber generation_number) {
+  auto it = std::lower_bound(
+      children.begin(), children.end(), generation_number,
+      [](const VersionNodeReference& ref, GenerationNumber generation_number) {
+        return ref.generation_number < generation_number;
+      });
+  if (it == children.end()) return nullptr;
+  // `ref` is the first version where
+  // `ref->generation_number >= generation_number`.  Verify that
+  // `generation_number` is potentially contained within the subtree rooted at
+  // `ref`.
+  const auto* ref = &*it;
+  if (GetMinVersionTreeNodeGenerationNumber(
+          version_tree_arity_log2, ref->height, ref->generation_number) >
+      generation_number) {
+    return nullptr;
+  }
+  return ref;
+}
+
+span<const VersionNodeReference>::iterator FindVersionLowerBound(
+    span<const VersionNodeReference> children, CommitTime commit_time) {
+  auto it = std::lower_bound(
+      children.begin(), children.end(), commit_time,
+      [](const VersionNodeReference& ref, CommitTime commit_time) {
+        return ref.commit_time <= commit_time;
+      });
+  if (it != children.begin()) --it;
+  return it;
+}
+
+span<const VersionNodeReference>::iterator FindVersionUpperBound(
+    span<const VersionNodeReference> children, CommitTime commit_time) {
+  return std::upper_bound(
+      children.begin(), children.end(), commit_time,
+      [](CommitTime commit_time, const VersionNodeReference& ref) {
+        return commit_time < ref.commit_time;
+      });
+}
+
+const VersionNodeReference* FindVersion(
+    span<const VersionNodeReference> children, CommitTime commit_time) {
+  auto it = std::lower_bound(
+      children.begin(), children.end(), commit_time,
+      [](const VersionNodeReference& ref, CommitTime commit_time) {
+        return ref.commit_time <= commit_time;
+      });
+  if (it == children.begin()) return nullptr;
+  return &it[-1];
+}
+
+const VersionNodeReference* FindVersion(
+    span<const VersionNodeReference> children,
+    CommitTimeUpperBound commit_time) {
+  return FindVersion(children, commit_time.commit_time);
+}
+
+const VersionNodeReference* FindVersion(
+    VersionTreeArityLog2 version_tree_arity_log2,
+    span<const VersionNodeReference> children, VersionSpec version_spec) {
+  return std::visit(
+      [&](auto version) {
+        return FindVersion(version_tree_arity_log2, children, version);
+      },
+      version_spec);
 }
 
 #ifndef NDEBUG

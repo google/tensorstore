@@ -24,6 +24,8 @@
 namespace tensorstore {
 namespace internal_ocdbt {
 
+IoHandle::Ptr GetOcdbtIoHandle(kvstore::Driver& driver);
+
 Result<std::shared_ptr<const Manifest>> ReadManifest(OcdbtDriver& driver);
 
 // Tests that if a batch of writes leaves a node unmodified, it is not

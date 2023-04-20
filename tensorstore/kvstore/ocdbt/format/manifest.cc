@@ -30,6 +30,7 @@
 #include "tensorstore/kvstore/ocdbt/format/codec_util.h"
 #include "tensorstore/kvstore/ocdbt/format/config.h"
 #include "tensorstore/kvstore/ocdbt/format/config_codec.h"
+#include "tensorstore/kvstore/ocdbt/format/data_file_id_codec.h"
 #include "tensorstore/kvstore/ocdbt/format/version_tree.h"
 #include "tensorstore/kvstore/ocdbt/format/version_tree_codec.h"
 #include "tensorstore/util/result.h"
@@ -49,17 +50,23 @@ void ForEachManifestVersionTreeNodeRef(
                            GenerationNumber max_generation_number,
                            VersionTreeHeight height)>
         callback) {
+  // Determine max generation number of the height 1 node referenced from the
+  // manifest (this excludes the final generations that are stored inline in the
+  // manifest).
+  generation_number = (generation_number - 1) >> version_tree_arity_log2
+                                                     << version_tree_arity_log2;
   VersionTreeHeight height = 1;
-  while (true) {
-    generation_number = ((generation_number - 1) >> version_tree_arity_log2);
-    if (!generation_number) break;
-    GenerationNumber max_generation_number =
-        generation_number << (height * version_tree_arity_log2);
-    GenerationNumber min_generation_number =
-        max_generation_number -
-        ((GenerationNumber(1) << (height * version_tree_arity_log2)) - 1);
-    callback(min_generation_number, max_generation_number, height);
+  while (generation_number) {
+    // Round `generation_number - 1` down to the nearest multiple of
+    // `2**(((height + 1) * version_tree_arity_log2))`.
+    GenerationNumber next_generation_number =
+        (generation_number - 1)                    //
+        >> (height + 1) * version_tree_arity_log2  //
+               << (height + 1) * version_tree_arity_log2;
+    GenerationNumber min_generation_number = next_generation_number + 1;
+    callback(min_generation_number, generation_number, height);
     ++height;
+    generation_number = next_generation_number;
   }
 }
 
@@ -133,13 +140,14 @@ absl::Status ValidateManifestVersionTreeNodes(
 
 bool ReadManifestVersionTreeNodes(
     riegeli::Reader& reader, VersionTreeArityLog2 version_tree_arity_log2,
+    const DataFileTable& data_file_table,
     std::vector<VersionNodeReference>& version_tree_nodes,
     GenerationNumber last_generation_number) {
   const size_t max_num_entries =
       GetMaxVersionTreeHeight(version_tree_arity_log2);
-  if (!VersionTreeInteriorNodeEntryArrayCodec{
-          max_num_entries, /*include_entry_height=*/true}(reader,
-                                                          version_tree_nodes)) {
+  if (!VersionTreeInteriorNodeEntryArrayCodec<DataFileTable>{
+          data_file_table, max_num_entries, /*include_entry_height=*/true}(
+          reader, version_tree_nodes)) {
     return false;
   }
   TENSORSTORE_RETURN_IF_ERROR(
@@ -149,20 +157,38 @@ bool ReadManifestVersionTreeNodes(
   return true;
 }
 
-Result<absl::Cord> EncodeManifest(const Manifest& manifest) {
+Result<absl::Cord> EncodeManifest(const Manifest& manifest,
+                                  bool encode_as_single) {
 #ifndef NDEBUG
-  CheckManifestInvariants(manifest);
+  CheckManifestInvariants(manifest, encode_as_single);
 #endif
   return EncodeWithOptionalCompression(
       manifest.config, kManifestMagic, kManifestFormatVersion,
       [&](riegeli::Writer& writer) -> bool {
-        if (!ConfigCodec{}(writer, manifest.config)) return false;
+        if (encode_as_single) {
+          Config new_config = manifest.config;
+          new_config.manifest_kind = ManifestKind::kSingle;
+          if (!ConfigCodec{}(writer, new_config)) return false;
+        } else {
+          if (!ConfigCodec{}(writer, manifest.config)) return false;
+          if (manifest.config.manifest_kind != ManifestKind::kSingle) {
+            // This is a config-only manifest.
+            return true;
+          }
+        }
+        DataFileTableBuilder data_file_table;
+        internal_ocdbt::AddDataFiles(data_file_table, manifest.versions);
+        internal_ocdbt::AddDataFiles(data_file_table,
+                                     manifest.version_tree_nodes);
+        if (!data_file_table.Finalize(writer)) return false;
         if (!WriteVersionTreeNodeEntries(manifest.config, writer,
-                                         manifest.versions)) {
+                                         data_file_table, manifest.versions)) {
           return false;
         }
-        if (!VersionTreeInteriorNodeEntryArrayCodec{
-                /*max_num_entries=*/GetMaxVersionTreeHeight(
+        if (!VersionTreeInteriorNodeEntryArrayCodec<DataFileTableBuilder>{
+                data_file_table,
+                /*max_num_entries=*/
+                GetMaxVersionTreeHeight(
                     manifest.config.version_tree_arity_log2),
                 /*include_height=*/true}(writer, manifest.version_tree_nodes)) {
           return false;
@@ -177,13 +203,22 @@ Result<Manifest> DecodeManifest(const absl::Cord& encoded) {
       encoded, kManifestMagic, kManifestFormatVersion,
       [&](riegeli::Reader& reader, uint32_t version) -> bool {
         if (!ConfigCodec{}(reader, manifest.config)) return false;
+        if (manifest.config.manifest_kind != ManifestKind::kSingle) {
+          // This is a config-only manifest.
+          return true;
+        }
+        DataFileTable data_file_table;
+        if (!ReadDataFileTable(reader, /*base_path=*/{}, data_file_table)) {
+          return false;
+        }
         if (!ReadVersionTreeLeafNode(manifest.config.version_tree_arity_log2,
-                                     reader, manifest.versions)) {
+                                     reader, data_file_table,
+                                     manifest.versions)) {
           return false;
         }
         if (!ReadManifestVersionTreeNodes(
                 reader, manifest.config.version_tree_arity_log2,
-                manifest.version_tree_nodes,
+                data_file_table, manifest.version_tree_nodes,
                 manifest.versions.back().generation_number)) {
           return false;
         }
@@ -204,25 +239,38 @@ bool operator==(const Manifest& a, const Manifest& b) {
 }
 
 std::ostream& operator<<(std::ostream& os, const Manifest& e) {
-  return os << "{config=" << e.config
-            << ", versions=" << tensorstore::span(e.versions)
-            << ", version_tree_nodes="
-            << tensorstore::span(e.version_tree_nodes) << "}";
+  os << "{config=" << e.config;
+  if (e.config.manifest_kind == ManifestKind::kSingle) {
+    os << ", versions=" << tensorstore::span(e.versions)
+       << ", version_tree_nodes=" << tensorstore::span(e.version_tree_nodes);
+  }
+  return os << "}";
 }
 
 std::string GetManifestPath(std::string_view base_path) {
-  return tensorstore::internal::JoinPath(base_path, "manifest.ocdbt");
+  return tensorstore::StrCat(base_path, "manifest.ocdbt");
+}
+
+std::string GetNumberedManifestPath(std::string_view base_path,
+                                    GenerationNumber generation_number) {
+  return absl::StrFormat("%smanifest.%016x", base_path, generation_number);
 }
 
 #ifndef NDEBUG
-void CheckManifestInvariants(const Manifest& manifest) {
+void CheckManifestInvariants(const Manifest& manifest, bool assume_single) {
   assert(manifest.config.version_tree_arity_log2 > 0);
   assert(manifest.config.version_tree_arity_log2 <= kMaxVersionTreeArityLog2);
-  TENSORSTORE_CHECK_OK(ValidateVersionTreeLeafNodeEntries(
-      manifest.config.version_tree_arity_log2, manifest.versions));
-  TENSORSTORE_CHECK_OK(ValidateManifestVersionTreeNodes(
-      manifest.config.version_tree_arity_log2,
-      manifest.versions.back().generation_number, manifest.version_tree_nodes));
+  if (manifest.config.manifest_kind == ManifestKind::kSingle || assume_single) {
+    TENSORSTORE_CHECK_OK(ValidateVersionTreeLeafNodeEntries(
+        manifest.config.version_tree_arity_log2, manifest.versions));
+    TENSORSTORE_CHECK_OK(ValidateManifestVersionTreeNodes(
+        manifest.config.version_tree_arity_log2,
+        manifest.versions.back().generation_number,
+        manifest.version_tree_nodes));
+  } else {
+    assert(manifest.versions.empty());
+    assert(manifest.version_tree_nodes.empty());
+  }
 }
 #endif  // NDEBUG
 

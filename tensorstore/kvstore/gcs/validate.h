@@ -17,6 +17,7 @@
 
 #include <string_view>
 
+#include "absl/status/status.h"
 #include "tensorstore/kvstore/generation.h"
 
 namespace tensorstore {
@@ -31,6 +32,15 @@ bool IsValidObjectName(std::string_view name);
 
 // Returns whether the StorageGeneration is valid for GCS.
 bool IsValidStorageGeneration(const StorageGeneration& gen);
+
+/// Returns whether the absl::Status is a retriable request.
+/// https://github.com/googleapis/google-cloud-cpp/blob/main/google/cloud/storage/retry_policy.h
+inline bool IsRetriable(const absl::Status& status) {
+  // Exclude InternalError until instances are encountered.
+  return (status.code() == absl::StatusCode::kDeadlineExceeded ||
+          status.code() == absl::StatusCode::kResourceExhausted ||
+          status.code() == absl::StatusCode::kUnavailable);
+}
 
 }  // namespace internal_storage_gcs
 }  // namespace tensorstore

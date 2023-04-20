@@ -15,15 +15,17 @@
 #include <algorithm>
 #include <cassert>
 #include <queue>
-#include <thread>  // NOLINT
 #include <utility>
 
 #include "absl/base/thread_annotations.h"
+#include "absl/functional/any_invocable.h"
 #include "absl/log/absl_check.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/metrics/counter.h"
+#include "tensorstore/internal/metrics/gauge.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/internal/thread.h"
@@ -39,7 +41,35 @@ constexpr absl::Duration kThreadExitDelay = absl::Milliseconds(5);
 constexpr absl::Duration kThreadIdleBeforeExit = absl::Seconds(20);
 constexpr absl::Duration kOverseerIdleBeforeExit = absl::Seconds(20);
 
+auto& thread_pool_queued_ops = internal_metrics::Gauge<int64_t>::New(
+    "/tensorstore/thread_pool/queued_ops",
+    "Operations in flight on the managed thread pool");
+
+auto& thread_pool_total_queue_time_ns = internal_metrics::Counter<double>::New(
+    "/tensorstore/thread_pool/total_queue_time_ns",
+    "Total queue time in in all tensorstore::DetachedThreadPool instances");
+
+auto& thread_pool_max_delay_ns = internal_metrics::MaxGauge<int64_t>::New(
+    "/tensorstore/thread_pool/max_delay_ns",
+    "Max queue time in all tensorstore::DetachedThreadPool instances.");
+
 class SharedThreadPool;
+class ManagedTaskQueue;
+
+struct InFlightTask {
+  absl::AnyInvocable<void() &&> callback;
+  int64_t start_nanos;
+  IntrusivePtr<ManagedTaskQueue> managed_queue;
+
+  void Run() {
+    int64_t delay_ns = absl::GetCurrentTimeNanos() - start_nanos;
+    std::move(callback)();
+    callback = {};  // Ensure the task destructor runs.
+    thread_pool_total_queue_time_ns.IncrementBy(delay_ns);
+    thread_pool_max_delay_ns.Set(delay_ns);
+    thread_pool_queued_ops.Decrement();
+  }
+};
 
 class ManagedTaskQueue : public AtomicReferenceCount<ManagedTaskQueue> {
  public:
@@ -49,7 +79,7 @@ class ManagedTaskQueue : public AtomicReferenceCount<ManagedTaskQueue> {
   /// Enqueues a task.  Never blocks.
   ///
   /// Thread safety: safe to call concurrently from multiple threads.
-  void AddTask(ExecutorTask task);
+  void AddTask(InFlightTask task);
 
   /// Called by `SharedThreadPool` when a task previously enqueued on the
   /// `SharedThreadPool` completes.
@@ -62,7 +92,7 @@ class ManagedTaskQueue : public AtomicReferenceCount<ManagedTaskQueue> {
   const std::size_t thread_limit_;
   absl::Mutex mutex_;
   std::size_t num_threads_in_use_ ABSL_GUARDED_BY(mutex_);
-  std::queue<ExecutorTask> queue_ ABSL_GUARDED_BY(mutex_);
+  std::queue<InFlightTask> queue_ ABSL_GUARDED_BY(mutex_);
 };
 
 /// Dynamically-sized thread pool shared by multiple `ManagedTaskQueue` objects.
@@ -80,8 +110,7 @@ class ManagedTaskQueue : public AtomicReferenceCount<ManagedTaskQueue> {
 class SharedThreadPool : public AtomicReferenceCount<SharedThreadPool> {
  public:
   /// Enqueues a task on the thread pool.
-  void AddTask(ExecutorTask task, IntrusivePtr<ManagedTaskQueue> managed_queue)
-      ABSL_LOCKS_EXCLUDED(mutex_);
+  void AddTask(InFlightTask task) ABSL_LOCKS_EXCLUDED(mutex_);
 
  private:
   /// Called when the task queue becomes non-empty and `idle_threads_ == 0`.
@@ -102,14 +131,10 @@ class SharedThreadPool : public AtomicReferenceCount<SharedThreadPool> {
     return !queue_.empty() && idle_threads_ == 0;
   }
 
-  struct QueuedTask {
-    IntrusivePtr<ManagedTaskQueue> managed_queue;
-    ExecutorTask callback;
-  };
   absl::Mutex mutex_;
   /// Signaled when `queue_blocked()` changes from `false` to `true`.
   absl::CondVar overseer_condvar_;
-  std::queue<QueuedTask> queue_ ABSL_GUARDED_BY(mutex_);
+  std::queue<InFlightTask> queue_ ABSL_GUARDED_BY(mutex_);
   std::size_t idle_threads_ ABSL_GUARDED_BY(mutex_);
   bool has_overseer_thread_ ABSL_GUARDED_BY(mutex_) = false;
   absl::Time last_thread_start_time_ ABSL_GUARDED_BY(mutex_) =
@@ -120,10 +145,9 @@ class SharedThreadPool : public AtomicReferenceCount<SharedThreadPool> {
       absl::InfiniteFuture();
 };
 
-void SharedThreadPool::AddTask(ExecutorTask task,
-                               IntrusivePtr<ManagedTaskQueue> managed_queue) {
+void SharedThreadPool::AddTask(InFlightTask task) {
   absl::MutexLock lock(&mutex_);
-  queue_.push({std::move(managed_queue), std::move(task)});
+  queue_.push(std::move(task));
   if (idle_threads_ == 0) {
     HandleQueueBlocked();
   }
@@ -172,7 +196,8 @@ void SharedThreadPool::StartThread() {
               }
             }
           }
-          auto task = std::move(self->queue_.front());
+
+          InFlightTask task = std::move(self->queue_.front());
           self->queue_.pop();
           if (--self->idle_threads_ == 0 && !self->queue_.empty()) {
             self->HandleQueueBlocked();
@@ -181,11 +206,10 @@ void SharedThreadPool::StartThread() {
           // Execute task with mutex unlocked.
           {
             ScopedWriterUnlock unlock(self->mutex_);
-            std::move(task.callback)();
+            task.Run();
             task.managed_queue->TaskDone();
-            // Ensure the task destructor runs while the mutex is unlocked.
-            task = QueuedTask{};
           }
+
           ++self->idle_threads_;
         }
       });
@@ -226,7 +250,7 @@ ManagedTaskQueue::ManagedTaskQueue(IntrusivePtr<SharedThreadPool> pool,
       thread_limit_(thread_limit),
       num_threads_in_use_(0) {}
 
-void ManagedTaskQueue::AddTask(ExecutorTask task) {
+void ManagedTaskQueue::AddTask(InFlightTask task) {
   {
     absl::MutexLock lock(&mutex_);
     if (num_threads_in_use_ < thread_limit_) {
@@ -236,11 +260,11 @@ void ManagedTaskQueue::AddTask(ExecutorTask task) {
       return;
     }
   }
-  pool_->AddTask(std::move(task), IntrusivePtr<ManagedTaskQueue>(this));
+  pool_->AddTask(std::move(task));
 }
 
 void ManagedTaskQueue::TaskDone() {
-  ExecutorTask task;
+  InFlightTask task;
   {
     absl::MutexLock lock(&mutex_);
     if (queue_.empty()) {
@@ -251,7 +275,7 @@ void ManagedTaskQueue::TaskDone() {
     task = std::move(queue_.front());
     queue_.pop();
   }
-  pool_->AddTask(std::move(task), IntrusivePtr<ManagedTaskQueue>(this));
+  pool_->AddTask(std::move(task));
 }
 
 }  // namespace
@@ -264,7 +288,9 @@ Executor DetachedThreadPool(std::size_t num_threads) {
       IntrusivePtr<SharedThreadPool>(pool_.get()), num_threads));
   return
       [managed_task_queue = std::move(managed_task_queue)](ExecutorTask task) {
-        managed_task_queue->AddTask(std::move(task));
+        thread_pool_queued_ops.Increment();
+        managed_task_queue->AddTask(InFlightTask{
+            std::move(task), absl::GetCurrentTimeNanos(), managed_task_queue});
       };
 }
 

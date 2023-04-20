@@ -32,6 +32,7 @@
 #include "tensorstore/kvstore/ocdbt/format/btree_codec.h"
 #include "tensorstore/kvstore/ocdbt/format/codec_util.h"
 #include "tensorstore/kvstore/ocdbt/format/config.h"
+#include "tensorstore/kvstore/ocdbt/format/data_file_id_codec.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference_codec.h"
 #include "tensorstore/kvstore/ocdbt/format/version_tree.h"
 
@@ -92,7 +93,9 @@ struct VersionTreeNumEntriesCodec {
   }
 };
 
+template <typename DataFileTable>
 struct VersionTreeLeafNodeEntryArrayCodec {
+  const DataFileTable& data_file_table;
   size_t max_num_entries;
   template <typename IO, typename T>
   [[nodiscard]] bool operator()(IO& io, T&& value) const {
@@ -113,7 +116,7 @@ struct VersionTreeLeafNodeEntryArrayCodec {
     }
 
     if (!BtreeNodeReferenceArrayCodec{
-            [](auto& v) -> decltype(auto) { return (v.root); },
+            data_file_table, [](auto& v) -> decltype(auto) { return (v.root); },
             /*allow_missing=*/true}(io, value)) {
       return false;
     }
@@ -125,7 +128,9 @@ struct VersionTreeLeafNodeEntryArrayCodec {
   }
 };
 
+template <typename DataFileTable>
 struct VersionTreeInteriorNodeEntryArrayCodec {
+  const DataFileTable& data_file_table;
   size_t max_num_entries;
   bool include_entry_height = false;
 
@@ -141,9 +146,10 @@ struct VersionTreeInteriorNodeEntryArrayCodec {
       }
     }
 
-    if (!IndirectDataReferenceArrayCodec{[](auto& entry) -> decltype(auto) {
-          return (entry.location);
-        }}(io, value)) {
+    if (!IndirectDataReferenceArrayCodec{data_file_table,
+                                         [](auto& entry) -> decltype(auto) {
+                                           return (entry.location);
+                                         }}(io, value)) {
       return false;
     }
 
@@ -176,11 +182,23 @@ struct VersionTreeArityLog2Codec {
 
 [[nodiscard]] bool ReadVersionTreeLeafNode(
     VersionTreeArityLog2 version_tree_arity_log2, riegeli::Reader& reader,
+    const DataFileTable& data_file_table,
     VersionTreeNode::LeafNodeEntries& entries);
 
 [[nodiscard]] bool WriteVersionTreeNodeEntries(
     const Config& config, riegeli::Writer& writer,
+    const DataFileTableBuilder& data_file_table,
     const VersionTreeNode::LeafNodeEntries& entries);
+
+inline void AddDataFiles(DataFileTableBuilder& data_file_table,
+                         const BtreeGenerationReference& entry) {
+  internal_ocdbt::AddDataFiles(data_file_table, entry.root.location);
+}
+
+inline void AddDataFiles(DataFileTableBuilder& data_file_table,
+                         const VersionNodeReference& entry) {
+  internal_ocdbt::AddDataFiles(data_file_table, entry.location);
+}
 
 }  // namespace internal_ocdbt
 }  // namespace tensorstore

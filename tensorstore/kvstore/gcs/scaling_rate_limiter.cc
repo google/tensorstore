@@ -11,13 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #include "tensorstore/kvstore/gcs/scaling_rate_limiter.h"
 
-#include <stddef.h>
-
+#include <cassert>
 #include <limits>
-#include <memory>
-#include <optional>
 
 #include "absl/log/absl_check.h"
 #include "absl/synchronization/mutex.h"

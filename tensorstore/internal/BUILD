@@ -1676,6 +1676,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/tracing",
         "//tensorstore/util:executor",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/functional:any_invocable",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/time",
@@ -1878,6 +1879,22 @@ tensorstore_cc_test(
     deps = [
         ":multi_barrier",
         ":thread",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "ref_counted_string",
+    srcs = ["ref_counted_string.cc"],
+    hdrs = ["ref_counted_string.h"],
+)
+
+tensorstore_cc_test(
+    name = "ref_counted_string_test",
+    size = "small",
+    srcs = ["ref_counted_string_test.cc"],
+    deps = [
+        ":ref_counted_string",
         "@com_google_googletest//:gtest_main",
     ],
 )
