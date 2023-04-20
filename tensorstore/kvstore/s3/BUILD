@@ -14,38 +14,42 @@ filegroup(
 
 tensorstore_cc_library(
     name = "s3",
-    srcs = [
-        "s3_key_value_store.cc",
-    ],
+    srcs = ["s3_key_value_store.cc"],
     hdrs = [],
-    deps = [],
+    deps = [
+        "@com_google_absl//absl/strings",
+        "//tensorstore/internal/http",
+    ],
     alwayslink = 1,
 )
 
+
 tensorstore_cc_library(
-    name = "signature",
-    srcs = ["signature.cc"],
-    hdrs = ["signature.h"],
+    name = "s3_request_builder",
+    srcs = [
+        "s3_request_builder.cc",
+    ],
+    hdrs = [
+        "s3_request_builder.h",
+    ],
     deps = [
         "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/strings",
-        "@com_google_boringssl//:crypto",
+        "//tensorstore/internal/http",
+        "//tensorstore/internal:ascii_utils",
         "//tensorstore/internal/digest:sha256",
         "//tensorstore/internal:path",
-        "//tensorstore/util:result",
+        ":validate"
     ],
+    alwayslink = 1,
 )
 
-
 tensorstore_cc_test(
-    name = "signature_test",
+    name = "s3_request_builder_test",
     size = "small",
-    srcs = ["signature_test.cc"],
+    srcs = ["s3_request_builder_test.cc"],
     deps = [
-        ":s3",
-        ":signature",
+        ":s3_request_builder",
         "@com_google_googletest//:gtest_main",
         "//tensorstore/util:status_testutil",
     ],

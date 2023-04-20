@@ -25,6 +25,11 @@
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
+
+namespace internal_storage_s3 {
+  class S3RequestBuilder;
+}
+
 namespace internal_http {
 
 /// HttpRequest encapsulates a single HTTP request.
@@ -51,6 +56,7 @@ class HttpRequest {
 
  private:
   friend class HttpRequestBuilder;
+  friend class ::tensorstore::internal_storage_s3::S3RequestBuilder;
 
   std::string url_;
   std::string method_;
@@ -87,6 +93,7 @@ class HttpRequestBuilder {
   /// Enables sending Accept-Encoding header and transparently decoding the
   /// response.
   HttpRequestBuilder& EnableAcceptEncoding();
+
 
  private:
   HttpRequest request_;
