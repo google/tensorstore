@@ -26,6 +26,30 @@ struct IsNonZero {
   bool operator()(const std::string& x) { return !x.empty(); }
   bool operator()(std::monostate) { return false; }
 };
+
+struct VisitStrAppend {
+  std::string* line;
+  const char* before;
+  const char* after;
+
+  void operator()(int64_t x) { absl::StrAppend(line, before, x, after); }
+  void operator()(double x) { absl::StrAppend(line, before, x, after); }
+  void operator()(const std::string& x) {
+    absl::StrAppend(line, before, x, after);
+  }
+  void operator()(std::monostate) {}
+};
+
+struct VisitJsonDictify {
+  ::nlohmann::json::object_t& dest;
+  const char* key;
+
+  void operator()(int64_t x) { dest[key] = x; }
+  void operator()(double x) { dest[key] = x; }
+  void operator()(const std::string& x) { dest[key] = x; }
+  void operator()(std::monostate) {}
+};
+
 }  // namespace
 
 bool IsCollectedMetricNonZero(const CollectedMetric& metric) {
@@ -60,30 +84,22 @@ void FormatCollectedMetric(
     for (auto& v : metric.values) {
       bool has_value = false;
       std::string line = metric_name_with_fields(v);
-      if (std::holds_alternative<std::monostate>(v.max_value)) {
-        // A Normal value.
-        std::visit(
-            [&](auto x) {
-              has_value |= IsNonZero{}(x);
-              absl::StrAppend(&line, "=", x);
-            },
-            v.value);
+      if (std::holds_alternative<std::monostate>(v.max_value) &&
+          std::holds_alternative<std::monostate>(v.value)) {
       } else {
-        // A Gauge-like value.
-        std::visit(
-            [&](auto x) {
-              has_value |= IsNonZero{}(x);
-              absl::StrAppend(&line, "={value=", x);
-            },
-            v.value);
-        std::visit(
-            [&](auto x) {
-              has_value |= IsNonZero{}(x);
-              if constexpr (!std::is_same<decltype(x), std::monostate>::value) {
-                absl::StrAppend(&line, ", max=", x, "}");
-              }
-            },
-            v.max_value);
+        has_value |= std::visit(IsNonZero{}, v.value);
+        has_value |= std::visit(IsNonZero{}, v.max_value);
+        if (std::holds_alternative<std::monostate>(v.max_value)) {
+          // A value.
+          std::visit(VisitStrAppend{&line, "=", ""}, v.value);
+        } else if (std::holds_alternative<std::monostate>(v.value)) {
+          // A max_value.
+          std::visit(VisitStrAppend{&line, "=", ""}, v.max_value);
+        } else {
+          // A composite value + max_value
+          std::visit(VisitStrAppend{&line, "={value=", ""}, v.value);
+          std::visit(VisitStrAppend{&line, ", max=", "}"}, v.max_value);
+        }
       }
       handle_line(has_value, std::move(line));
     }
@@ -140,16 +156,8 @@ void FormatCollectedMetric(
     for (const auto& v : metric.values) {
       ::nlohmann::json::object_t tmp{};
       set_field_keys(v, tmp);
-      std::visit([&tmp](auto x) { tmp["value"] = x; }, v.value);
-      if (!std::holds_alternative<std::monostate>(v.max_value)) {
-        std::visit(
-            [&tmp](auto x) {
-              if constexpr (!std::is_same<decltype(x), std::monostate>::value) {
-                tmp["max_value"] = x;
-              }
-            },
-            v.max_value);
-      }
+      std::visit(VisitJsonDictify{tmp, "value"}, v.value);
+      std::visit(VisitJsonDictify{tmp, "max_value"}, v.max_value);
       values.push_back(std::move(tmp));
     }
   } else if (!metric.histograms.empty()) {

@@ -34,6 +34,7 @@ using ::tensorstore::internal_metrics::DefaultBucketer;
 using ::tensorstore::internal_metrics::Gauge;
 using ::tensorstore::internal_metrics::GetMetricRegistry;
 using ::tensorstore::internal_metrics::Histogram;
+using ::tensorstore::internal_metrics::MaxGauge;
 using ::tensorstore::internal_metrics::Value;
 
 TEST(MetricTest, CounterInt) {
@@ -199,6 +200,20 @@ TEST(MetricTest, GaugeDoubleFields) {
   EXPECT_THAT(metric.values[1].fields, ::testing::ElementsAre("1"));
   EXPECT_EQ(3, std::get<double>(metric.values[1].value));
   EXPECT_EQ(3, std::get<double>(metric.values[1].max_value));
+}
+
+TEST(MetricTest, MaxGauge) {
+  auto& gauge = MaxGauge<double>::New("/tensorstore/max_gauge", "A metric");
+  gauge.Set(3);
+  gauge.Set(7);
+
+  auto metric = gauge.Collect();
+
+  EXPECT_EQ("/tensorstore/max_gauge", metric.metric_name);
+  EXPECT_TRUE(metric.field_names.empty());
+  ASSERT_EQ(1, metric.values.size());
+  EXPECT_TRUE(metric.values[0].fields.empty());
+  EXPECT_EQ(7, std::get<double>(metric.values[0].max_value));
 }
 
 TEST(MetricTest, Histogram) {

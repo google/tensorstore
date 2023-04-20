@@ -49,7 +49,7 @@ auto& thread_pool_total_queue_time_ns = internal_metrics::Counter<double>::New(
     "/tensorstore/thread_pool/total_queue_time_ns",
     "Total queue time in in all tensorstore::DetachedThreadPool instances");
 
-auto& thread_pool_max_delay_ns = internal_metrics::Gauge<int64_t>::New(
+auto& thread_pool_max_delay_ns = internal_metrics::MaxGauge<int64_t>::New(
     "/tensorstore/thread_pool/max_delay_ns",
     "Max queue time in all tensorstore::DetachedThreadPool instances.");
 

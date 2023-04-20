@@ -37,9 +37,10 @@
 namespace tensorstore {
 namespace internal_metrics {
 
-/// GaugeCell holds an individual gauge metric value.
 template <typename T>
 class GaugeCell;
+template <typename T>
+class MaxCell;
 
 /// A Gauge metric represents values that can increase and decrease.
 ///
@@ -173,6 +174,108 @@ class ABSL_CACHELINE_ALIGNED Gauge {
   Impl impl_;
 };
 
+/// A MaxGauge metric tracks the max of a value.
+///
+/// MaxGauge may be used where only the max of a Gauge value is desired.
+///
+/// MaxGauge is parameterized by the type, int64_t or double.
+/// Each gauge has one or more Cells, which are described by Fields...,
+/// which may be int, string, or bool.
+///
+/// Example:
+///   namespace {
+///   auto* max_delay = MaxGauge<double>::New("/my/scheduler/max_delay");
+///   }
+///
+///   max_delay->Set(33.5);
+///   max_delay->Set(44.2);
+///
+template <typename T, typename... Fields>
+class ABSL_CACHELINE_ALIGNED MaxGauge {
+  static_assert(std::is_same_v<T, int64_t> || std::is_same_v<T, double>);
+  using Cell = MaxCell<T>;
+  using Impl = AbstractMetric<Cell, Fields...>;
+
+ public:
+  using value_type = T;
+
+  static std::unique_ptr<MaxGauge> Allocate(
+      std::string_view metric_name,
+      typename internal::FirstType<std::string_view, Fields>... field_names,
+      MetricMetadata metadata) {
+    return absl::WrapUnique(new MaxGauge(std::string(metric_name),
+                                         std::move(metadata),
+                                         {std::string(field_names)...}));
+  }
+
+  static MaxGauge& New(
+      std::string_view metric_name,
+      typename internal::FirstType<std::string_view, Fields>... field_names,
+      MetricMetadata metadata) {
+    auto gauge = Allocate(metric_name, field_names..., metadata);
+    GetMetricRegistry().Add(gauge.get());
+    return *absl::IgnoreLeak(gauge.release());
+  }
+
+  auto tag() const { return Cell::kTag; }
+  auto metric_name() const { return impl_.metric_name(); }
+  const auto& field_names() const { return impl_.field_names(); }
+  MetricMetadata metadata() const { return impl_.metadata(); }
+
+  /// Set the counter to the value.
+  void Set(value_type value,
+           typename FieldTraits<Fields>::param_type... labels) {
+    impl_.GetCell(labels...)->Set(value);
+  }
+
+  /// Get the counter.
+  value_type Get(typename FieldTraits<Fields>::param_type... labels) const {
+    auto* cell = impl_.FindCell(labels...);
+    return cell ? cell->Get() : value_type{};
+  }
+
+  /// Collect the gauge.
+  CollectedMetric Collect() const {
+    CollectedMetric result{};
+    result.tag = Cell::kTag;
+    result.metric_name = impl_.metric_name();
+    result.metadata = impl_.metadata();
+    result.field_names = impl_.field_names_vector();
+    impl_.CollectCells([&result](const Cell& cell, const auto& fields) {
+      result.values.emplace_back(std::apply(
+          [&](const auto&... item) {
+            std::vector<std::string> fields;
+            fields.reserve(sizeof...(item));
+            (fields.push_back(tensorstore::StrCat(item)), ...);
+            return CollectedMetric::Value{std::move(fields), {}, cell.Get()};
+          },
+          fields));
+    });
+    return result;
+  }
+
+  /// Collect the individual Cells: on_cell is invoked for each entry.
+  void CollectCells(typename Impl::CollectCellFn on_cell) const {
+    return impl_.CollectCells(on_cell);
+  }
+
+  /// Expose an individual cell, which avoids frequent lookups.
+  Cell& GetCell(typename FieldTraits<Fields>::param_type... labels) {
+    return *impl_.GetCell(labels...);
+  }
+
+  void Reset() { impl_.Reset(); }
+
+ private:
+  MaxGauge(std::string metric_name, MetricMetadata metadata,
+           typename Impl::field_names_type field_names)
+      : impl_(std::move(metric_name), std::move(metadata),
+              std::move(field_names)) {}
+
+  Impl impl_;
+};
+
+// GaugeCell
 struct GaugeTag {
   static constexpr const char kTag[] = "gauge";
 };
@@ -263,6 +366,29 @@ class ABSL_CACHELINE_ALIGNED GaugeCell<int64_t> : public GaugeTag {
 
   std::atomic<int64_t> value_{0};
   std::atomic<int64_t> max_{0};
+};
+
+template <typename T>
+class ABSL_CACHELINE_ALIGNED MaxCell {
+ public:
+  using value_type = T;
+  static constexpr const char kTag[] = "max_gauge";
+
+  MaxCell() = default;
+
+  inline void Set(value_type value) {
+    value_type h = max_.load(std::memory_order_relaxed);
+    while (h < value && !max_.compare_exchange_weak(h, value)) {
+      // repeat
+    }
+  }
+
+  value_type Get() const { return max_; }
+
+  void Reset() { max_ = 0; }
+
+ private:
+  std::atomic<T> max_{0};
 };
 
 }  // namespace internal_metrics

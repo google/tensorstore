@@ -37,20 +37,35 @@ void AddFields(const T& metric, metrics_proto::MetricInstance& proto) {
 
 void AddValue(const CollectedMetric::Value& metric,
               metrics_proto::MetricInstance& proto) {
+  if (std::holds_alternative<std::monostate>(metric.value) &&
+      std::holds_alternative<std::monostate>(metric.max_value)) {
+    // no value.
+    return;
+  }
   AddFields(metric, proto);
-  if (std::holds_alternative<int64_t>(metric.value)) {
-    auto* dest = proto.mutable_int_value();
-    dest->set_value(std::get<int64_t>(metric.value));
-    if (std::holds_alternative<int64_t>(metric.max_value)) {
-      dest->set_max_value(std::get<int64_t>(metric.max_value));
-    }
-  } else if (std::holds_alternative<double>(metric.value)) {
+
+  if (std::holds_alternative<double>(metric.value) ||
+      std::holds_alternative<double>(metric.max_value)) {
+    // double value/max_value.
     auto* dest = proto.mutable_double_value();
-    dest->set_value(std::get<double>(metric.value));
+    if (std::holds_alternative<double>(metric.value)) {
+      dest->set_value(std::get<double>(metric.value));
+    }
     if (std::holds_alternative<double>(metric.max_value)) {
       dest->set_max_value(std::get<double>(metric.max_value));
     }
+  } else if (std::holds_alternative<int64_t>(metric.value) ||
+             std::holds_alternative<int64_t>(metric.max_value)) {
+    // int value/max_value.
+    auto* dest = proto.mutable_int_value();
+    if (std::holds_alternative<int64_t>(metric.value)) {
+      dest->set_value(std::get<int64_t>(metric.value));
+    }
+    if (std::holds_alternative<int64_t>(metric.max_value)) {
+      dest->set_max_value(std::get<int64_t>(metric.max_value));
+    }
   } else if (std::holds_alternative<std::string>(metric.value)) {
+    // string value.
     auto* dest = proto.mutable_string_value();
     dest->set_value(std::get<std::string>(metric.value));
   } else {
