@@ -23,11 +23,6 @@
 namespace tensorstore {
 namespace internal {
 
-namespace {
-constexpr char kIntToHexLower [] = "0123456789abcdef";
-constexpr char kIntToHexUpper [] = "0123456789ABCDEF";
-}
-
 /// Riegeli-compatible SHA256 digester.
 class SHA256Digester {
  public:
@@ -43,20 +38,6 @@ class SHA256Digester {
     DigestType digest;
     SHA256_Final(digest.data(), &ctx_);
     return digest;
-  }
-
-  std::string HexDigest(bool upper=true) {
-    uint8_t digest[SHA256_DIGEST_LENGTH];
-    std::string result(2 * SHA256_DIGEST_LENGTH, '0');
-    SHA256_Final(digest, &ctx_);
-    const char * int2hex = upper ? kIntToHexUpper : kIntToHexLower;
-
-    for(int i=0; i < SHA256_DIGEST_LENGTH; ++i) {
-      result[2*i + 0] = int2hex[digest[i] / 16];
-      result[2*i + 1] = int2hex[digest[i] % 16];
-    }
-
-    return result;
   }
 
  private:

@@ -16,8 +16,9 @@
 #include <string>
 #include <string_view>
 
-#include "absl/strings/str_split.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/escaping.h"
+#include "absl/strings/str_split.h"
 #include "absl/status/status.h"
 #include "absl/time/time.h"
 #include "tensorstore/kvstore/s3/s3_request_builder.h"
@@ -187,6 +188,10 @@ std::string S3RequestBuilder::SigningString(
   absl::TimeZone utc = absl::UTCTimeZone();
   SHA256Digester sha256;
   sha256.Write(canonical_request);
+  const auto digest = sha256.Digest();
+  auto digest_sv = std::string_view(
+    reinterpret_cast<const char *>(digest.begin()),
+    digest.size());
 
   return absl::StrFormat(
     "AWS4-HMAC-SHA256\n"
@@ -195,7 +200,7 @@ std::string S3RequestBuilder::SigningString(
     "%s",
       absl::FormatTime("%Y%m%dT%H%M%SZ", time, utc),
       absl::FormatTime("%Y%m%d", time, utc), aws_region,
-      sha256.HexDigest(false));
+      absl::BytesToHexString(digest_sv));
 }
 
 std::string S3RequestBuilder::Signature(
