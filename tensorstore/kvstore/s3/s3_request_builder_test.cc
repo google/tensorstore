@@ -173,4 +173,80 @@ TEST(S3RequestBuilderTest, AWS4SignaturePutExample) {
     EXPECT_THAT(request.headers(), ::testing::Contains(auth_header));
 }
 
+
+TEST(S3RequestBuilderTest, AWS4SignatureListObjectsExample) {
+    // https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
+    // These values from worked exapmle in "Example: GET Object" Section
+    auto cs = absl::CivilSecond(2013, 5, 24, 0, 0, 0);
+    auto utc = absl::UTCTimeZone();
+    auto time = absl::FromCivil(cs, utc);
+
+    auto aws_access_key = "AKIAIOSFODNN7EXAMPLE";
+    auto aws_secret_access_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+    auto aws_region = "us-east-1";
+    auto bucket = "examplebucket";
+    auto payload_hash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+
+    auto url = absl::StrFormat("https://%s/", bucket);
+    auto host = absl::StrFormat("%s.s3.amazonaws.com", bucket);
+    auto x_amz_date = absl::FormatTime("%Y%m%dT%H%M%SZ\n", time, utc);
+
+    std::vector<std::string> headers = {
+        absl::StrCat("host: ", host),
+        absl::StrCat("x-amz-content-sha256: ", payload_hash),
+        absl::StrCat("x-amz-date: ", x_amz_date)
+    };
+
+    std::vector<std::pair<std::string, std::string>> queries = {
+        { "max-keys", "2" },
+        { "prefix", "J"},
+    };
+
+    auto canonical_request = S3RequestBuilder::CanonicalRequest(url, "GET", payload_hash, headers, queries);
+
+    auto expected_canonical_request =
+        "GET\n"
+        "/\n"
+        "max-keys=2&prefix=J\n"
+        "host:examplebucket.s3.amazonaws.com\n"
+        "x-amz-content-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\n"
+        "x-amz-date:20130524T000000Z\n"
+        "\n"
+        "host;x-amz-content-sha256;x-amz-date\n"
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+
+    EXPECT_EQ(canonical_request, expected_canonical_request);
+
+    auto signing_string = S3RequestBuilder::SigningString(canonical_request, aws_region, time);
+
+    auto expected_signing_string =
+        "AWS4-HMAC-SHA256\n"
+        "20130524T000000Z\n"
+        "20130524/us-east-1/s3/aws4_request\n"
+        "df57d21db20da04d7fa30298dd4488ba3a2b47ca3a489c74750e0f1e7df1b9b7";
+
+    EXPECT_EQ(signing_string, expected_signing_string);
+
+    auto expected_signature = "34b48302e7b5fa45bde8084f4b7868a86f0a534bc59db6670ed5711ef69dc6f7";
+    auto signature = S3RequestBuilder::Signature(aws_secret_access_key, aws_region, signing_string, time);
+    EXPECT_EQ(signature, expected_signature);
+
+    auto expected_auth_header =
+        "Authorization: AWS4-HMAC-SHA256 "
+        "Credential=AKIAIOSFODNN7EXAMPLE/20130524/us-east-1/s3/aws4_request,"
+        "SignedHeaders=host;x-amz-content-sha256;x-amz-date,"
+        "Signature=34b48302e7b5fa45bde8084f4b7868a86f0a534bc59db6670ed5711ef69dc6f7";
+
+    auto auth_header = S3RequestBuilder::AuthorizationHeader(aws_access_key, aws_region, signature, headers, time);
+    EXPECT_EQ(auth_header, expected_auth_header);
+
+    auto s3_builder = S3RequestBuilder("GET", url);
+    for(auto it = headers.rbegin(); it != headers.rend(); ++it) s3_builder.AddHeader(*it);
+    for(auto it = queries.rbegin(); it != queries.rend(); ++it) s3_builder.AddQueryParameter(it->first, it->second);
+    auto request = s3_builder.BuildRequest(aws_access_key, aws_secret_access_key,
+                                           aws_region, payload_hash, time);
+
+    EXPECT_THAT(request.headers(), ::testing::Contains(auth_header));
+
+}
 }

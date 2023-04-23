@@ -82,13 +82,32 @@ HttpRequest S3RequestBuilder::BuildRequest(
     std::string_view payload_hash,
     const absl::Time & time) {
 
+  auto url = std::string_view(request_.url());
+  auto query_pos = url.find('?');
+  std::vector<std::pair<std::string, std::string>> queries;
+
+  if(query_pos != std::string::npos && query_pos + 1 != std::string::npos) {
+    auto query = url.substr(query_pos + 1);
+    std::vector<std::string_view> query_bits = absl::StrSplit(query, '&');
+
+    for(auto query_bit: query_bits) {
+      std::vector<std::string_view> key_values = absl::StrSplit(query_bit, '=');
+      assert(key_values.size() == 1 || key_values.size() == 2);
+
+      if(key_values.size() == 1) {
+        queries.push_back({std::string(key_values[0]), ""});
+      } else if(key_values.size() == 2) {
+        queries.push_back({std::string(key_values[0]), std::string(key_values[1])});
+      }
+    }
+  }
 
   auto headers = request_.headers();
   std::sort(std::begin(headers), std::end(headers));
-  std::sort(std::begin(encoded_queries_), std::end(encoded_queries_));
+  std::sort(std::begin(queries), std::end(queries));
   auto canonical_request = CanonicalRequest(request_.url(), request_.method(),
                                             payload_hash, headers,
-                                            encoded_queries_);
+                                            queries);
   auto signing_string = SigningString(canonical_request, aws_region, time);
   auto signature = Signature(aws_secret_access_key, aws_region, signing_string, time);
   auto auth_header = AuthorizationHeader(aws_access_key, aws_region, signature, headers, time);
@@ -115,7 +134,6 @@ S3RequestBuilder& S3RequestBuilder::AddQueryParameter(
       enc_key, "=", enc_value);
   query_parameter_separator_ = "&";
   request_.url_.append(parameter);
-  encoded_queries_.push_back({enc_key, enc_value});
   return *this;
 }
 

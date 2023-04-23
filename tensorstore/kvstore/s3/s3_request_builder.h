@@ -125,8 +125,6 @@ class S3RequestBuilder {
  private:
   HttpRequest request_;
   char const* query_parameter_separator_;
-  std::vector<std::pair<std::string, std::string>> encoded_queries_;
-
 };
 
 } // namespace internal_storage_s3
