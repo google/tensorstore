@@ -23,7 +23,7 @@ def repo():
         third_party_http_archive,
         name = "org_sourceware_bzip2",
         urls = [
-            "https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz",
         ],
         strip_prefix = "bzip2-1.0.8",
         sha256 = "ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269",

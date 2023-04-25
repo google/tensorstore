@@ -26,7 +26,7 @@ def repo():
         name = "com_google_absl",
         strip_prefix = "abseil-cpp-807763a7f57dcf0ba4af7c3b218013e8f525e811",
         urls = [
-            "https://github.com/abseil/abseil-cpp/archive/807763a7f57dcf0ba4af7c3b218013e8f525e811.tar.gz",  # master(2023-03-03)
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/abseil/abseil-cpp/archive/807763a7f57dcf0ba4af7c3b218013e8f525e811.tar.gz",  # master(2023-03-03)
         ],
         sha256 = "6ef0749e88e4887f0e1c01fffcae6711696b9af022acc1c7a99f6de3f87df697",
         cmake_name = "absl",

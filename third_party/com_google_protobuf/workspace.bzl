@@ -24,7 +24,7 @@ def repo():
         name = "com_google_protobuf",
         strip_prefix = "protobuf-3.21.11",
         urls = [
-            "https://github.com/protocolbuffers/protobuf/releases/download/v21.11/protobuf-cpp-3.21.11.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/protocolbuffers/protobuf/releases/download/v21.11/protobuf-cpp-3.21.11.tar.gz",
         ],
         sha256 = "96f0ab99b7414e44e7bf9b218bb59510d61549ca68e648f19e3622f9999bec00",
         patches = [
