@@ -15,6 +15,9 @@
 #ifndef TENSORSTORE_UTIL_EXECUTION_FUTURE_COLLECTING_RECEIVER_H_
 #define TENSORSTORE_UTIL_EXECUTION_FUTURE_COLLECTING_RECEIVER_H_
 
+#include <utility>
+
+#include "absl/status/status.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/future.h"
 

@@ -62,7 +62,7 @@ class StopToken {
     return state_ != nullptr;
   }
 
-  /// Detects whether a stop has been requested on the assoicated StopState.
+  /// Detects whether a stop has been requested on the associated StopState.
   [[nodiscard]] bool stop_requested() const noexcept {
     return state_ != nullptr && state_->stop_requested();
   }

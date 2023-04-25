@@ -22,6 +22,7 @@
 
 #include <atomic>
 #include <cassert>
+#include <cstddef>
 #include <tuple>
 #include <type_traits>
 #include <utility>

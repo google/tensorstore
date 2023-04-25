@@ -15,9 +15,10 @@
 #ifndef TENSORSTORE_STALENESS_BOUND_H_
 #define TENSORSTORE_STALENESS_BOUND_H_
 
+#include <ostream>
+
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
-#include "tensorstore/internal/type_traits.h"
 
 namespace tensorstore {
 

@@ -18,8 +18,8 @@
 #include <cassert>
 #include <cmath>
 #include <cstdint>
-#include <cstring>
 #include <limits>
+#include <type_traits>
 
 #include "tensorstore/internal/bit_operations.h"
 #include "tensorstore/internal/json_fwd.h"
@@ -72,7 +72,7 @@ class bfloat16_t {
             typename = std::enable_if_t<std::is_convertible_v<T, float>>>
   explicit bfloat16_t(T x) {
     if constexpr (std::is_same_v<T, bool>) {
-      rep_ = uint16_t(x) * 0x3f80;
+      rep_ = static_cast<uint16_t>(x) * 0x3f80;
     } else if constexpr (std::is_integral_v<T>) {
       *this = internal::NumericFloat32ToBfloat16RoundNearestEven(
           static_cast<float>(x));
@@ -595,7 +595,7 @@ inline bfloat16_t Float32ToBfloat16Truncate(float v) {
     // Set bit 21 (second to highest fraction bit) to 1, to ensure the truncated
     // fraction still indicates a NaN.  This preserves the sign and also
     // preserves the high bit of the fraction (quiet/signalling NaN bit).
-    bits |= (uint32_t(1) << 21);
+    bits |= (static_cast<uint32_t>(1) << 21);
   }
   return bit_cast<bfloat16_t, uint16_t>(bits >> 16);
 }

@@ -15,6 +15,7 @@
 #ifndef TENSORSTORE_UTIL_CONSTANT_BIT_VECTOR_H_
 #define TENSORSTORE_UTIL_CONSTANT_BIT_VECTOR_H_
 
+#include <cstddef>
 #include <type_traits>
 
 #include "tensorstore/util/bit_span.h"

@@ -16,16 +16,19 @@
 #define TENSORSTORE_OPEN_H_
 
 #include <type_traits>
+#include <utility>
 
-#include "absl/status/status.h"
-#include "tensorstore/context.h"
+#include <nlohmann/json.hpp>
 #include "tensorstore/driver/driver.h"
+#include "tensorstore/index.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/open_options.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/spec.h"
 #include "tensorstore/tensorstore.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/util/future.h"
+#include "tensorstore/util/option.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 

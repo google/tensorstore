@@ -22,11 +22,13 @@
 
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <type_traits>
 #include <utility>
 
 #include "tensorstore/util/bit_span.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 
