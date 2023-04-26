@@ -16,6 +16,7 @@
 #define TENSORSTORE_PROGRESS_H_
 
 #include <iosfwd>
+#include <utility>
 
 #include "absl/status/status.h"
 #include "tensorstore/index.h"

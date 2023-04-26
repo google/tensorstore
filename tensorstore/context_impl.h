@@ -20,11 +20,18 @@
 /// Context implementation details not required by `context.h`, but required by
 /// `context.cc` and by the Python Context bindings.
 
+#include <memory>
+#include <string_view>
+
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
+#include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/internal/heterogeneous_container.h"
+#include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/json_serialization_options.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal_context {

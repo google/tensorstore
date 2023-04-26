@@ -42,8 +42,10 @@
 #include <ostream>
 #include <string>
 #include <system_error>  // NOLINT
+#include <utility>
 
 #include <gmock/gmock.h>
+#include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"

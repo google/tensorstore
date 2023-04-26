@@ -16,6 +16,7 @@
 #define TENSORSTORE_OPEN_MODE_H_
 
 #include <iosfwd>
+#include <string_view>
 
 #include "absl/status/status.h"
 

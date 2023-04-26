@@ -26,15 +26,18 @@
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <string>
+#include <string_view>
 
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
+#include "absl/time/time.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/intrusive_red_black_tree.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/util/future.h"
-#include "tensorstore/util/garbage_collection/garbage_collection.h"
+#include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {

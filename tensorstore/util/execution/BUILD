@@ -215,6 +215,7 @@ tensorstore_cc_library(
     deps = [
         ":execution",
         "//tensorstore/util:future",
+        "@com_google_absl//absl/status",
     ],
 )
 

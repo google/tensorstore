@@ -15,7 +15,6 @@
 #ifndef TENSORSTORE_UTIL_APPLY_MEMBERS_STD_PAIR_H_
 #define TENSORSTORE_UTIL_APPLY_MEMBERS_STD_PAIR_H_
 
-#include <type_traits>
 #include <utility>
 
 #include "tensorstore/util/apply_members/apply_members.h"

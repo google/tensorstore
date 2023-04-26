@@ -20,7 +20,10 @@
 
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/cast/cast.h"
+#include "tensorstore/index.h"
+#include "tensorstore/open_mode.h"
 #include "tensorstore/tensorstore.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 

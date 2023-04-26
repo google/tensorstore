@@ -34,6 +34,7 @@ tensorstore_cc_library(
     hdrs = ["bit_vec.h"],
     deps = [
         ":bit_span",
+        ":small_bit_set",
         ":span",
         "@com_google_absl//absl/base:core_headers",
     ],
@@ -236,7 +237,6 @@ tensorstore_cc_library(
     name = "endian",
     hdrs = ["endian.h"],
     deps = [
-        "//tensorstore:index",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/base:endian",
     ],
@@ -271,7 +271,6 @@ tensorstore_cc_library(
         "//tensorstore:index",
         "//tensorstore:rank",
         "//tensorstore/internal:integer_overflow",
-        "//tensorstore/internal:meta",
         "//tensorstore/internal:type_traits",
         "@com_google_absl//absl/base:core_headers",
     ],
@@ -359,6 +358,7 @@ tensorstore_cc_library(
         "//tensorstore:contiguous_layout",
         "//tensorstore:index",
         "//tensorstore/internal:elementwise_function",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:inlined_vector",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/utility",

@@ -15,12 +15,12 @@
 #ifndef TENSORSTORE_UTIL_ENDIAN_H_
 #define TENSORSTORE_UTIL_ENDIAN_H_
 
+#include <cstdint>
 #include <cstring>
 #include <ostream>
 
 #include "absl/base/attributes.h"
 #include "absl/base/internal/endian.h"
-#include "tensorstore/index.h"
 
 namespace tensorstore {
 

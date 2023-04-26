@@ -15,24 +15,30 @@
 #ifndef TENSORSTORE_SCHEMA_H_
 #define TENSORSTORE_SCHEMA_H_
 
+#include <cstddef>
 #include <iosfwd>
-#include <memory>
+#include <optional>
 #include <type_traits>
-#include <vector>
+#include <utility>
 
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/codec_spec.h"
+#include "tensorstore/container_kind.h"
+#include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dimension_units.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/json_serialization_options.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/serialization/fwd.h"
-#include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/unit.h"
 

@@ -15,6 +15,7 @@
 #ifndef TENSORSTORE_UTIL_EXECUTION_FUTURE_SENDER_H_
 #define TENSORSTORE_UTIL_EXECUTION_FUTURE_SENDER_H_
 
+#include <functional>
 #include <type_traits>
 #include <utility>
 

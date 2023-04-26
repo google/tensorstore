@@ -24,23 +24,38 @@
 /// compile-time specification of extents and/or strides is not supported.
 
 #include <algorithm>
-#include <limits>
+#include <array>
+#include <cstddef>
+#include <iosfwd>
+#include <memory>
+#include <string>
 #include <type_traits>
+#include <utility>
 
 #include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "tensorstore/box.h"
+#include "tensorstore/container_kind.h"
+#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
+#include "tensorstore/index.h"
+#include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/internal/meta.h"
+#include "tensorstore/internal/type_traits.h"
+#include "tensorstore/internal/void_wrapper.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/serialization/fwd.h"
+#include "tensorstore/static_cast.h"
 #include "tensorstore/strided_layout.h"
+#include "tensorstore/util/byte_strided_pointer.h"
 #include "tensorstore/util/element_pointer.h"
 #include "tensorstore/util/element_traits.h"
+#include "tensorstore/util/extents.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 

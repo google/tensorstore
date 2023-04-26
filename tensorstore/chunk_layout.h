@@ -16,20 +16,28 @@
 #define TENSORSTORE_CHUNK_LAYOUT_H_
 
 #include <iosfwd>
+#include <memory>
+#include <string_view>
+#include <type_traits>
+#include <utility>
 
+#include "absl/status/status.h"
 #include "tensorstore/box.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/index.h"
-#include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/integer_range.h"
+#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
+#include "tensorstore/internal/type_traits.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/serialization/fwd.h"
+#include "tensorstore/strided_layout.h"
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/maybe_hard_constraint.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 
@@ -140,7 +148,7 @@ class ChunkLayout {
   constexpr static internal::IntegerRange<Usage> kUsages =
       internal::IntegerRange<Usage>::Inclusive(kWrite, kCodec);
 
-  constexpr static size_t kNumUsages = 3;
+  constexpr static std::size_t kNumUsages = 3;
 
   constexpr static double kDefaultAspectRatioValue = 0;
   constexpr static Index kDefaultShapeValue = 0;

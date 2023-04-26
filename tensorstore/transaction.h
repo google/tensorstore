@@ -23,8 +23,10 @@
 #include <cstddef>
 #include <cstdint>
 #include <iosfwd>
+#include <utility>
 
 #include "absl/status/status.h"
+#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/transaction_impl.h"
 #include "tensorstore/util/future.h"

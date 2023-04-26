@@ -17,7 +17,6 @@
 
 #include <array>
 #include <cstddef>
-#include <type_traits>
 #include <utility>
 
 #include "tensorstore/util/apply_members/apply_members.h"

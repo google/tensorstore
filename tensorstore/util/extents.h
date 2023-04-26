@@ -23,7 +23,6 @@
 #include "absl/base/optimization.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/integer_overflow.h"
-#include "tensorstore/internal/meta.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/util/span.h"
@@ -160,7 +159,7 @@ struct SpanStaticExtentHelper<span<Ts, Extent>...>
 }  // namespace internal_extents
 
 /// `std::ptrdiff_t`-valued metafunction with a
-/// ``static constepxr ptrdiff_t value`` member that is equal to the common
+/// ``static constexpr ptrdiff_t value`` member that is equal to the common
 /// static extent of ``X0, Xs...`` if ``X0, Xs...`` are all
 /// `span`-compatible types with the same static extent.
 ///
