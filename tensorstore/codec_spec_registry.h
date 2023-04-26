@@ -20,6 +20,7 @@
 /// Interface for registering an `internal::CodecDriverSpec`.
 
 #include "tensorstore/codec_spec.h"
+#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_registry.h"
 #include "tensorstore/json_serialization_options.h"
 

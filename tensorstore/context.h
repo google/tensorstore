@@ -22,7 +22,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
-#include <type_traits>
 #include <utility>
 
 #include "absl/status/status.h"
@@ -36,6 +35,7 @@
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 

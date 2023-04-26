@@ -17,8 +17,8 @@
 
 #include <array>
 #include <cassert>
+#include <cstddef>
 #include <iosfwd>
-#include <optional>
 
 #include "absl/status/status.h"
 #include "tensorstore/contiguous_layout.h"
@@ -26,7 +26,6 @@
 #include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/util/byte_strided_pointer.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 

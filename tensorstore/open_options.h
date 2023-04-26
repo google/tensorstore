@@ -15,6 +15,8 @@
 #ifndef TENSORSTORE_OPEN_OPTIONS_H_
 #define TENSORSTORE_OPEN_OPTIONS_H_
 
+#include <utility>
+
 #include "absl/status/status.h"
 #include "tensorstore/context.h"
 #include "tensorstore/kvstore/spec.h"

@@ -16,24 +16,44 @@
 #define TENSORSTORE_TENSORSTORE_H_
 
 #include <string>
+#include <type_traits>
+#include <utility>
 
+#include "tensorstore/array.h"
 #include "tensorstore/chunk_layout.h"
+#include "tensorstore/codec_spec.h"
+#include "tensorstore/data_type.h"
 #include "tensorstore/driver/copy.h"
 #include "tensorstore/driver/driver.h"
+#include "tensorstore/driver/driver_handle.h"
 #include "tensorstore/driver/read.h"
 #include "tensorstore/driver/write.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_space/dimension_units.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_transform.h"
-#include "tensorstore/index_space/transformed_array.h"
+#include "tensorstore/internal/type_traits.h"
+#include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/open_mode.h"
+#include "tensorstore/open_options.h"
 #include "tensorstore/progress.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/read_write_options.h"
 #include "tensorstore/resize_options.h"
+#include "tensorstore/schema.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/spec.h"
+#include "tensorstore/static_cast.h"
+#include "tensorstore/strided_layout.h"
 #include "tensorstore/tensorstore_impl.h"  // IWYU pragma: export
+#include "tensorstore/transaction.h"
+#include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/garbage_collection/fwd.h"
+#include "tensorstore/util/option.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 

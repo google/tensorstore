@@ -24,8 +24,8 @@
 /// `dynamic_rank = -1` is specified as the "static rank".
 
 #include <cassert>
-#include <cstddef>
 #include <initializer_list>
+#include <string>
 #include <type_traits>
 
 #include "tensorstore/index.h"

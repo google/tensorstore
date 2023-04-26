@@ -97,7 +97,6 @@ StorageGeneration GetMismatchStorageGeneration(const KvStore& store) {
   return StorageGeneration::FromValues(uint64_t{/*3.*/ 1415926535897932});
 }
 
-}  // namespace
 
 void TestKeyValueStoreUnconditionalOps(
     const KvStore& store,
@@ -458,6 +457,54 @@ void TestKeyValueStoreConditionalDeleteOps(
   }
 }
 
+void TestKeyValueStoreStalenessBoundOps(
+    const KvStore& store,
+    absl::FunctionRef<std::string(std::string key)> get_key) {
+  const auto key = get_key("stale");
+  Cleanup cleanup(store, {key});
+  const absl::Cord value1("1234");
+  const absl::Cord value2("abcd");
+
+  kvstore::ReadOptions read_options;
+  read_options.staleness_bound = absl::Now();
+
+  // Test read of missing key
+  ABSL_LOG(INFO) << "Test staleness_bound read of missing key";
+  EXPECT_THAT(kvstore::Read(store, key, read_options).result(),
+              MatchesKvsReadResultNotFound());
+
+  auto write_result1 = kvstore::Write(store, key, value1).result();
+  ASSERT_THAT(write_result1, MatchesRegularTimestampedStorageGeneration());
+
+  // kvstore currently are not expected to cache missing values, even with
+  // staleness_bound, however neuroglancer_uint64_sharded_test does.
+  ABSL_LOG(INFO) << "Test staleness_bound read: value1";
+  EXPECT_THAT(
+      kvstore::Read(store, key, read_options).result(),
+      testing::AnyOf(MatchesKvsReadResultNotFound(),
+                     MatchesKvsReadResult(value1, write_result1->generation)));
+
+  // Updating staleness_bound should guarantee a read.
+  read_options.staleness_bound = absl::Now();
+
+  ABSL_LOG(INFO) << "Test unconditional read: value1";
+  EXPECT_THAT(kvstore::Read(store, key).result(),
+              MatchesKvsReadResult(value1, write_result1->generation));
+
+  // Generally same-host writes should invalidate staleness_bound in a kvstore.
+  auto write_result2 = kvstore::Write(store, key, value2).result();
+  ASSERT_THAT(write_result2, MatchesRegularTimestampedStorageGeneration());
+
+  // However allow either version to satisfy this test.
+  ABSL_LOG(INFO) << "Test staleness_bound read: value2";
+  EXPECT_THAT(kvstore::Read(store, key, read_options).result(),
+              ::testing::AnyOf(
+                  MatchesKvsReadResult(value1, write_result1->generation),
+                  MatchesKvsReadResult(value2, write_result2->generation)));
+}
+
+}  // namespace
+
 void TestKeyValueStoreBasicFunctionality(
     const KvStore& store,
     absl::FunctionRef<std::string(std::string key)> get_key) {
@@ -465,6 +512,7 @@ void TestKeyValueStoreBasicFunctionality(
   TestKeyValueStoreConditionalReadOps(store, get_key);
   TestKeyValueStoreConditionalWriteOps(store, get_key);
   TestKeyValueStoreConditionalDeleteOps(store, get_key);
+  TestKeyValueStoreStalenessBoundOps(store, get_key);
 }
 
 /// Tests List on `store`, which should be empty.

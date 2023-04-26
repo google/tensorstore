@@ -20,7 +20,10 @@
 /// specific constant values.
 
 #include <array>
+#include <cassert>
+#include <cstddef>
 #include <string>
+#include <type_traits>
 
 #include "tensorstore/rank.h"
 #include "tensorstore/util/span.h"

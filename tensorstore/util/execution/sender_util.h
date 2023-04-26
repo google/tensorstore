@@ -17,7 +17,6 @@
 
 #include <atomic>
 #include <iterator>
-#include <tuple>
 #include <utility>
 
 #include "tensorstore/util/execution/execution.h"

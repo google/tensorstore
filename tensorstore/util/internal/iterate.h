@@ -18,11 +18,15 @@
 #define TENSORSTORE_INTERNAL_ITERATE_H_
 
 #include <array>
+#include <cstddef>
 
 #include "absl/container/inlined_vector.h"
 #include "absl/status/status.h"
 #include "tensorstore/index.h"
+#include "tensorstore/internal/elementwise_function.h"
+#include "tensorstore/util/byte_strided_pointer.h"
 #include "tensorstore/util/iterate.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 namespace internal_iterate {

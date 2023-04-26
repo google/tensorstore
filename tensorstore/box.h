@@ -20,7 +20,9 @@
 /// spaces.
 
 #include <cassert>
+#include <cstddef>
 #include <iosfwd>
+#include <string>
 #include <type_traits>
 
 #include "tensorstore/index.h"
@@ -29,8 +31,10 @@
 #include "tensorstore/internal/gdb_scripting.h"
 #include "tensorstore/internal/multi_vector.h"
 #include "tensorstore/internal/multi_vector_view.h"
+#include "tensorstore/internal/type_traits.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/serialization/fwd.h"
+#include "tensorstore/static_cast.h"
 #include "tensorstore/util/constant_vector.h"
 #include "tensorstore/util/extents.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
@@ -413,7 +417,7 @@ class Box : public internal_box::BoxStorage<Rank> {
   // where ``U`` is the return type.
 };
 
-Box(DimensionIndex rank)->Box<>;
+Box(DimensionIndex rank) -> Box<>;
 
 template <DimensionIndex Rank>
 Box(std::integral_constant<DimensionIndex, Rank> rank) -> Box<Rank>;
@@ -653,7 +657,7 @@ class BoxView : public internal_box::BoxViewStorage<Rank, Mutable> {
   }
 };
 
-BoxView(DimensionIndex rank)->BoxView<>;
+BoxView(DimensionIndex rank) -> BoxView<>;
 
 template <DimensionIndex Rank>
 BoxView(std::integral_constant<DimensionIndex, Rank> rank) -> BoxView<Rank>;

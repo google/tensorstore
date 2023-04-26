@@ -23,8 +23,8 @@
 /// BitRef/BitIterator.
 
 #include <algorithm>
+#include <cassert>
 #include <cstddef>
-#include <iterator>
 #include <type_traits>
 
 #include "tensorstore/internal/attributes.h"

@@ -25,7 +25,9 @@
 
 #include <climits>
 #include <cmath>
+#include <limits>
 #include <ostream>
+#include <type_traits>
 
 #include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/serialization/fwd.h"
@@ -360,7 +362,7 @@ class Rational {
     if (r.d_ == 1) return t < r.n_;
 
     // Determine relative order by expanding each value to its simple continued
-    // fraction representation using the Euclidian GCD algorithm.
+    // fraction representation using the Euclidean GCD algorithm.
 
     ContinuedFraction ts{t}, rs{r};
     bool reverse = false;

@@ -22,9 +22,14 @@
 #include <array>
 #include <cstddef>
 #include <type_traits>
+#include <utility>
 
+#include "absl/base/attributes.h"
+#include "absl/container/inlined_vector.h"
+#include "tensorstore/index.h"
 #include "tensorstore/util/internal/iterate.h"
 #include "tensorstore/util/iterate.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 

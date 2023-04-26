@@ -15,6 +15,8 @@
 #ifndef TENSORSTORE_READ_WRITE_OPTIONS_H_
 #define TENSORSTORE_READ_WRITE_OPTIONS_H_
 
+#include <utility>
+
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/index_space/alignment.h"
 #include "tensorstore/progress.h"

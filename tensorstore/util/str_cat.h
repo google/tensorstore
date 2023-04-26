@@ -18,6 +18,8 @@
 /// \file
 /// Provides generic conversion to string representation.
 
+#include <cstddef>
+#include <ostream>
 #include <sstream>
 #include <string>
 #include <tuple>

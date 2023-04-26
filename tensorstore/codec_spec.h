@@ -17,13 +17,16 @@
 
 #include <iosfwd>
 #include <type_traits>
+#include <utility>
 
+#include "absl/status/status.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/std_optional.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 
