@@ -53,6 +53,7 @@ bazel run -c opt //tensorstore/internal/benchmark:kvstore_benchmark -- \
 #include <string.h>
 
 #include <algorithm>
+#include <atomic>
 #include <iostream>
 #include <optional>
 #include <string>
@@ -72,11 +73,13 @@ bazel run -c opt //tensorstore/internal/benchmark:kvstore_benchmark -- \
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
+#include "tensorstore/context.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/init_tensorstore.h"
 #include "tensorstore/internal/metrics/collect.h"
 #include "tensorstore/internal/metrics/registry.h"
 #include "tensorstore/internal/metrics/value.h"
+#include "tensorstore/internal/path.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
@@ -437,9 +440,7 @@ void DoReadBenchmark(Context context, kvstore::Spec kvstore_spec,
 
 void DoKvstoreBenchmark() {
   auto kvstore_spec = absl::GetFlag(FLAGS_kvstore_spec).value;
-  if (!kvstore_spec.path.empty() && kvstore_spec.path.back() != '/') {
-    kvstore_spec.AppendSuffix("/");
-  }
+  internal::EnsureDirectoryPath(kvstore_spec.path);
 
   Context context(absl::GetFlag(FLAGS_context_spec).value);
 
