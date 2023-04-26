@@ -79,7 +79,8 @@ void ComputeHmac(unsigned char (&key)[kHmacSize], std::string_view message, unsi
 
 class S3RequestBuilder {
  public:
-  explicit S3RequestBuilder(std::string_view method, std::string endpoint_url);
+  explicit S3RequestBuilder(std::string_view method, std::string endpoint_url) :
+    builder_(method, endpoint_url, UriEncode) {};
 
   /// Adds a prefix to the user-agent string.
   S3RequestBuilder & AddUserAgentPrefix(std::string_view prefix) {

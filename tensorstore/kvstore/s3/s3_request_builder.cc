@@ -69,10 +69,6 @@ std::string UriObjectKeyEncode(std::string_view src) {
     return dest;
 }
 
-S3RequestBuilder::S3RequestBuilder(std::string_view method,
-                                   std::string endpoint_url)
-    : builder_(method, endpoint_url, UriEncode) {}
-
 HttpRequest S3RequestBuilder::BuildRequest(
     std::string_view aws_access_key,
     std::string_view aws_secret_access_key,
