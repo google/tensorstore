@@ -250,9 +250,9 @@ struct ReadTask {
         request_builder.AddHeader(header);
       }
 
-      internal_http::AddStalenessBoundCacheControlHeader(
-          request_builder, options.staleness_bound);
-      internal_http::AddRangeHeader(request_builder, options.byte_range);
+      bool ignored_result;
+      request_builder.AddStalenessBoundCacheControlHeader(options.staleness_bound, ignored_result);
+      request_builder.AddRangeHeader(options.byte_range, ignored_result);
 
       if (StorageGeneration::IsCleanValidValue(options.if_equal)) {
         request_builder.AddHeader(tensorstore::StrCat(

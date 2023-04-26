@@ -77,9 +77,13 @@ TEST(HttpRequestBuilder, AddStalenessBoundCacheControlHeader) {
 
 TEST(HttpRequestBuilder, AddRangeHeader) {
   HttpRequestBuilder builder("GET", "http://127.0.0.1:0/");
-  EXPECT_FALSE(AddRangeHeader(builder, {}));
-  EXPECT_TRUE(AddRangeHeader(builder, {1}));
-  EXPECT_TRUE(AddRangeHeader(builder, {1, 2}));
+  bool result;
+  builder.AddRangeHeader({}, result);
+  EXPECT_FALSE(result);
+  builder.AddRangeHeader({1}, result);
+  EXPECT_TRUE(result);
+  builder.AddRangeHeader({1, 2});
+  EXPECT_TRUE(result);
 
   auto request = builder.BuildRequest();
   EXPECT_THAT(request.headers(),

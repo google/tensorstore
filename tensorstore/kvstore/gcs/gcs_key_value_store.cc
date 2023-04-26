@@ -509,7 +509,9 @@ struct ReadTask : public RateLimiterNode,
       request_builder.AddHeader(*maybe_auth_header.value());
     }
 
-    internal_http::AddRangeHeader(request_builder, options.byte_range);
+    bool result;
+
+    request_builder.AddRangeHeader(options.byte_range, result);
     auto request = request_builder.EnableAcceptEncoding().BuildRequest();
     start_time_ = absl::Now();
 

@@ -21,7 +21,6 @@
 
 #include "absl/strings/str_format.h"
 #include "absl/time/time.h"
-#include "tensorstore/internal/path.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -29,8 +28,9 @@ namespace tensorstore {
 namespace internal_http {
 
 HttpRequestBuilder::HttpRequestBuilder(std::string_view method,
-                                       std::string base_url)
-    : query_parameter_separator_("?") {
+                                       std::string base_url,
+                                       absl::FunctionRef<std::string(std::string_view)> uri_encoder)
+    : query_parameter_separator_("?"), uri_encoder_(uri_encoder) {
   request_.method_ = method;
   request_.url_ = std::move(base_url);
 }
@@ -51,8 +51,7 @@ HttpRequestBuilder& HttpRequestBuilder::AddHeader(std::string header) {
 HttpRequestBuilder& HttpRequestBuilder::AddQueryParameter(
     std::string_view key, std::string_view value) {
   std::string parameter = tensorstore::StrCat(
-      query_parameter_separator_, internal::PercentEncodeUriComponent(key), "=",
-      internal::PercentEncodeUriComponent(value));
+      query_parameter_separator_, uri_encoder_(key), "=", uri_encoder_(value));
   query_parameter_separator_ = "&";
   request_.url_.append(parameter);
   return *this;
@@ -63,49 +62,52 @@ HttpRequestBuilder& HttpRequestBuilder::EnableAcceptEncoding() {
   return *this;
 }
 
-bool AddRangeHeader(HttpRequestBuilder& request_builder,
-                    OptionalByteRangeRequest byte_range) {
+HttpRequestBuilder& HttpRequestBuilder::AddRangeHeader(
+        OptionalByteRangeRequest byte_range, bool & result) {
   // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Range
   if (byte_range.exclusive_max) {
     assert(byte_range.SatisfiesInvariants());
-    request_builder.AddHeader(absl::StrFormat("Range: bytes=%d-%d",
-                                              byte_range.inclusive_min,
-                                              *byte_range.exclusive_max - 1));
-    return true;
+
+    AddHeader(absl::StrFormat("Range: bytes=%d-%d",
+                              byte_range.inclusive_min,
+                              *byte_range.exclusive_max - 1));
+    result = true;
+    return *this;
   }
   if (byte_range.inclusive_min > 0) {
-    request_builder.AddHeader(
-        absl::StrFormat("Range: bytes=%d-", byte_range.inclusive_min));
-    return true;
+    AddHeader(absl::StrFormat("Range: bytes=%d-", byte_range.inclusive_min));
+    result = true;
+    return *this;
   }
-  return false;
+  result = false;
+  return *this;
 }
 
-bool AddCacheControlMaxAgeHeader(HttpRequestBuilder& request_builder,
-                                 absl::Duration max_age) {
+HttpRequestBuilder& HttpRequestBuilder::AddCacheControlMaxAgeHeader(absl::Duration max_age, bool & result) {
   // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cache-Control
   if (max_age >= absl::InfiniteDuration()) {
-    return false;
+    result = false;
+    return *this;
   }
 
   // Since max-age is specified as an integer number of seconds, always
   // round down to ensure our requirement is met.
   auto max_age_seconds = absl::ToInt64Seconds(max_age);
   if (max_age_seconds > 0) {
-    request_builder.AddHeader(
-        absl::StrFormat("cache-control: max-age=%d", max_age_seconds));
+    AddHeader(absl::StrFormat("cache-control: max-age=%d", max_age_seconds));
   } else {
-    request_builder.AddHeader("cache-control: no-cache");
+    AddHeader("cache-control: no-cache");
   }
-  return true;
+  result = true;
+  return *this;
 }
 
-bool AddStalenessBoundCacheControlHeader(HttpRequestBuilder& request_builder,
-                                         absl::Time staleness_bound) {
+HttpRequestBuilder& HttpRequestBuilder::AddStalenessBoundCacheControlHeader(absl::Time staleness_bound, bool & result) {
   // `absl::InfiniteFuture()`  indicates that the result must be current.
   // `absl::InfinitePast()`  disables the cache-control header.
   if (staleness_bound == absl::InfinitePast()) {
-    return false;
+    result = false;
+    return *this;
   }
   absl::Time now;
   absl::Duration duration = absl::ZeroDuration();
@@ -114,7 +116,8 @@ bool AddStalenessBoundCacheControlHeader(HttpRequestBuilder& request_builder,
     // the max age is in the past.
     duration = now - staleness_bound;
   }
-  return AddCacheControlMaxAgeHeader(request_builder, duration);
+  AddCacheControlMaxAgeHeader(duration, result);
+  return *this;
 }
 
 }  // namespace internal_http

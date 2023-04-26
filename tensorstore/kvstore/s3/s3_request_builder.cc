@@ -31,6 +31,7 @@
 using ::tensorstore::internal::AsciiSet;
 using ::tensorstore::internal::ParseGenericUri;
 using ::tensorstore::internal::ParsedGenericUri;
+using namespace ::tensorstore::internal_http;
 using ::tensorstore::internal_storage_s3::IsValidBucketName;
 
 namespace tensorstore {
@@ -70,10 +71,7 @@ std::string UriObjectKeyEncode(std::string_view src) {
 
 S3RequestBuilder::S3RequestBuilder(std::string_view method,
                                    std::string endpoint_url)
-    : query_parameter_separator_("?") {
-  request_.method_ = method;
-  request_.url_ = std::move(endpoint_url);
-}
+    : builder_(method, endpoint_url, UriEncode) {}
 
 HttpRequest S3RequestBuilder::BuildRequest(
     std::string_view aws_access_key,
@@ -81,6 +79,8 @@ HttpRequest S3RequestBuilder::BuildRequest(
     std::string_view aws_region,
     std::string_view payload_hash,
     const absl::Time & time) {
+
+  auto & request_ = builder_.request_;
 
   auto url = std::string_view(request_.url());
   auto query_pos = url.find('?');
@@ -114,88 +114,6 @@ HttpRequest S3RequestBuilder::BuildRequest(
   request_.headers_.emplace_back(std::move(auth_header));
   return std::move(request_);
 }
-
-S3RequestBuilder& S3RequestBuilder::AddUserAgentPrefix(std::string_view prefix) {
-  request_.user_agent_ = tensorstore::StrCat(prefix, request_.user_agent_);
-  return *this;
-}
-
-S3RequestBuilder& S3RequestBuilder::AddHeader(std::string header) {
-  request_.headers_.emplace_back(std::move(header));
-  return *this;
-}
-
-S3RequestBuilder& S3RequestBuilder::AddQueryParameter(
-    std::string_view key, std::string_view value) {
-  auto enc_value = UriEncode(value);
-  auto enc_key = UriEncode(key);
-  auto parameter = tensorstore::StrCat(
-      query_parameter_separator_,
-      enc_key, "=", enc_value);
-  query_parameter_separator_ = "&";
-  request_.url_.append(parameter);
-  return *this;
-}
-
-S3RequestBuilder& S3RequestBuilder::EnableAcceptEncoding() {
-  request_.accept_encoding_ = true;
-  return *this;
-}
-
-bool AddRangeHeader(S3RequestBuilder& request_builder,
-                    OptionalByteRangeRequest byte_range) {
-  // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Range
-  if (byte_range.exclusive_max) {
-    assert(byte_range.SatisfiesInvariants());
-    request_builder.AddHeader(absl::StrFormat("Range: bytes=%d-%d",
-                                              byte_range.inclusive_min,
-                                              *byte_range.exclusive_max - 1));
-    return true;
-  }
-  if (byte_range.inclusive_min > 0) {
-    request_builder.AddHeader(
-        absl::StrFormat("Range: bytes=%d-", byte_range.inclusive_min));
-    return true;
-  }
-  return false;
-}
-
-bool AddCacheControlMaxAgeHeader(S3RequestBuilder& request_builder,
-                                 absl::Duration max_age) {
-  // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cache-Control
-  if (max_age >= absl::InfiniteDuration()) {
-    return false;
-  }
-
-  // Since max-age is specified as an integer number of seconds, always
-  // round down to ensure our requirement is met.
-  auto max_age_seconds = absl::ToInt64Seconds(max_age);
-  if (max_age_seconds > 0) {
-    request_builder.AddHeader(
-        absl::StrFormat("cache-control: max-age=%d", max_age_seconds));
-  } else {
-    request_builder.AddHeader("cache-control: no-cache");
-  }
-  return true;
-}
-
-bool AddStalenessBoundCacheControlHeader(S3RequestBuilder& request_builder,
-                                         absl::Time staleness_bound) {
-  // `absl::InfiniteFuture()`  indicates that the result must be current.
-  // `absl::InfinitePast()`  disables the cache-control header.
-  if (staleness_bound == absl::InfinitePast()) {
-    return false;
-  }
-  absl::Time now;
-  absl::Duration duration = absl::ZeroDuration();
-  if (staleness_bound != absl::InfiniteFuture() &&
-      (now = absl::Now()) > staleness_bound) {
-    // the max age is in the past.
-    duration = now - staleness_bound;
-  }
-  return AddCacheControlMaxAgeHeader(request_builder, duration);
-}
-
 
 /// https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
 std::string S3RequestBuilder::SigningString(

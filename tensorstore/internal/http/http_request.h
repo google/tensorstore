@@ -19,8 +19,10 @@
 #include <string_view>
 #include <vector>
 
+#include "absl/functional/function_ref.h"
 #include "absl/strings/str_format.h"
 #include "tensorstore/internal/http/http_response.h"
+#include "tensorstore/internal/path.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/util/result.h"
 
@@ -68,11 +70,16 @@ class HttpRequest {
 /// Implements the builder pattern for HttpRequest.
 class HttpRequestBuilder {
  public:
-  /// Creates a request builder, using the specified method and url.
+  using UriEncodeFunctor = absl::FunctionRef<std::string(std::string_view)>;
+  /// Creates a request builder, using the specified method, url and URI encoding function.
   ///
   /// The method should be an HTTP method, like "GET", "POST", "PUT", "HEAD",
   /// etc.
-  explicit HttpRequestBuilder(std::string_view method, std::string base_url);
+  explicit HttpRequestBuilder(std::string_view method, std::string base_url)
+    : HttpRequestBuilder(method, base_url,
+        [](std::string_view d) { return internal::PercentEncodeUriComponent(d); }) {}
+
+  explicit HttpRequestBuilder(std::string_view method, std::string base_url, UriEncodeFunctor uri_encoder);
 
   /// Creates an http request with the given payload.
   ///
@@ -94,20 +101,21 @@ class HttpRequestBuilder {
   /// response.
   HttpRequestBuilder& EnableAcceptEncoding();
 
+  /// Adds a `range` header to the http request if the byte_range
+  /// is specified.
+  HttpRequestBuilder& AddRangeHeader(OptionalByteRangeRequest byte_range, bool & result);
+  /// Adds a `cache-control` header specifying `max-age` or `no-cache`.
+  HttpRequestBuilder& AddCacheControlMaxAgeHeader(absl::Duration max_age, bool & result);
+  /// Adds a `cache-control` header consistent with `staleness_bound`.
+  HttpRequestBuilder& AddStalenessBoundCacheControlHeader(absl::Time staleness_bound, bool & result);
 
  private:
+  friend class ::tensorstore::internal_storage_s3::S3RequestBuilder;
   HttpRequest request_;
   char const* query_parameter_separator_;
+  absl::FunctionRef<std::string(std::string_view)> uri_encoder_;
 };
 
-/// Adds a `range` header to the http request if the byte_range
-/// is specified.
-bool AddRangeHeader(HttpRequestBuilder& request_builder,
-                    OptionalByteRangeRequest byte_range);
-
-/// Adds a `cache-control` header specifying `max-age` or `no-cache`.
-bool AddCacheControlMaxAgeHeader(HttpRequestBuilder& request_builder,
-                                 absl::Duration max_age);
 
 /// `strptime`-compatible format string for the HTTP date header.
 ///
@@ -116,9 +124,6 @@ bool AddCacheControlMaxAgeHeader(HttpRequestBuilder& request_builder,
 /// Note that the time zone is always UTC and is specified as "GMT".
 constexpr const char kHttpTimeFormat[] = "%a, %d %b %E4Y %H:%M:%S GMT";
 
-/// Adds a `cache-control` header consistent with `staleness_bound`.
-bool AddStalenessBoundCacheControlHeader(HttpRequestBuilder& request_builder,
-                                         absl::Time staleness_bound);
 
 }  // namespace internal_http
 }  // namespace tensorstore

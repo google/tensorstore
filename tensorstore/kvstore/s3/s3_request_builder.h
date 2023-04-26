@@ -41,6 +41,7 @@
 #include "absl/time/time.h"
 
 using ::tensorstore::internal_http::HttpRequest;
+using ::tensorstore::internal_http::HttpRequestBuilder;
 using ::tensorstore::internal::IntToHexDigit;
 using ::tensorstore::internal::ParseGenericUri;
 using ::tensorstore::internal::SHA256Digester;
@@ -81,17 +82,47 @@ class S3RequestBuilder {
   explicit S3RequestBuilder(std::string_view method, std::string endpoint_url);
 
   /// Adds a prefix to the user-agent string.
-  S3RequestBuilder & AddUserAgentPrefix(std::string_view prefix);
+  S3RequestBuilder & AddUserAgentPrefix(std::string_view prefix) {
+    builder_.AddUserAgentPrefix(prefix);
+    return *this;
+  }
 
   /// Adds request headers.
-  S3RequestBuilder & AddHeader(std::string header);
+  S3RequestBuilder & AddHeader(std::string header) {
+    builder_.AddHeader(header);
+    return *this;
+  }
 
   /// Adds a parameter for a request.
-  S3RequestBuilder& AddQueryParameter(std::string_view key, std::string_view value);
+  S3RequestBuilder& AddQueryParameter(std::string_view key, std::string_view value) {
+    builder_.AddQueryParameter(key, value);
+    return *this;
+  }
 
   /// Enables sending Accept-Encoding header and transparently decoding the
   /// response.
-  S3RequestBuilder& EnableAcceptEncoding();
+  S3RequestBuilder& EnableAcceptEncoding() {
+    builder_.EnableAcceptEncoding();
+    return *this;
+  }
+
+  /// Adds a `range` header to the http request if the byte_range
+  /// is specified.
+  S3RequestBuilder& AddRangeHeader(OptionalByteRangeRequest byte_range, bool & result) {
+    builder_.AddRangeHeader(byte_range, result);
+    return *this;
+  };
+  /// Adds a `cache-control` header specifying `max-age` or `no-cache`.
+  S3RequestBuilder& AddCacheControlMaxAgeHeader(absl::Duration max_age, bool & result) {
+    builder_.AddCacheControlMaxAgeHeader(max_age, result);
+    return *this;
+  };
+  /// Adds a `cache-control` header consistent with `staleness_bound`.
+  S3RequestBuilder& AddStalenessBoundCacheControlHeader(absl::Time staleness_bound, bool & result) {
+    builder_.AddStalenessBoundCacheControlHeader(staleness_bound, result);
+    return *this;
+  }
+
 
   HttpRequest BuildRequest(std::string_view aws_access_key, std::string_view aws_secret_access_key,
                            std::string_view aws_region, std::string_view payload_hash,
@@ -123,7 +154,7 @@ class S3RequestBuilder {
     const std::vector<std::string> & headers,
     const absl::Time & time);
  private:
-  HttpRequest request_;
+  HttpRequestBuilder builder_;
   char const* query_parameter_separator_;
 };
 
