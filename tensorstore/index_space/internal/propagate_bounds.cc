@@ -14,13 +14,28 @@
 
 #include "tensorstore/index_space/internal/propagate_bounds.h"
 
+#include <algorithm>
+#include <cassert>
 #include <sstream>
+#include <string>
+#include <utility>
 
 #include "absl/container/fixed_array.h"
 #include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/str_replace.h"
+#include "tensorstore/box.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/internal/identity_transform.h"
+#include "tensorstore/index_space/internal/transform_rep.h"
+#include "tensorstore/index_space/output_index_method.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/util/dimension_set.h"
+#include "tensorstore/util/iterate.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -230,7 +245,6 @@ absl::Status PropagateBounds(BoxView<> b, DimensionSet b_implicit_lower_bounds,
     internal_index_space::PrintToOstream(os, a_to_b);
     std::string str = os.str();
     absl::StrReplaceAll({{"\n", " "}}, &str);
-
     AddStatusPayload(status, "transform", absl::Cord(str));
     AddStatusPayload(status, "domain", absl::Cord(tensorstore::StrCat(b)));
   }

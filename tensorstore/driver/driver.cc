@@ -16,13 +16,11 @@
 
 #include <assert.h>
 
-#include <optional>
-#include <string>
 #include <string_view>
 #include <utility>
-#include <vector>
 
 #include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include "tensorstore/array.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/codec_spec.h"
@@ -38,6 +36,7 @@
 #include "tensorstore/internal/tagged_ptr.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/open_mode.h"
+#include "tensorstore/open_options.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/resize_options.h"
 #include "tensorstore/schema.h"
@@ -45,7 +44,6 @@
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/execution/execution.h"
-#include "tensorstore/util/execution/sender.h"
 #include "tensorstore/util/execution/sender_util.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
@@ -56,7 +54,6 @@
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
-#include "tensorstore/util/unit.h"
 
 namespace tensorstore {
 namespace internal {

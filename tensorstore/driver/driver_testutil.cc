@@ -14,27 +14,73 @@
 
 #include "tensorstore/driver/driver_testutil.h"
 
+#include <algorithm>
+#include <atomic>
+#include <cassert>
+#include <cstddef>
+#include <memory>
+#include <random>
+#include <utility>
+#include <vector>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/algorithm/container.h"
 #include "absl/log/absl_log.h"
 #include "absl/random/bit_gen_ref.h"
 #include "absl/random/random.h"
+#include "absl/status/status.h"
+#include "absl/strings/str_format.h"
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
 #include <nlohmann/json.hpp>
+#include "tensorstore/array.h"
+#include "tensorstore/box.h"
+#include "tensorstore/chunk_layout.h"
+#include "tensorstore/context.h"
+#include "tensorstore/contiguous_layout.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/driver/chunk.h"
+#include "tensorstore/driver/driver.h"
+#include "tensorstore/driver/driver_handle.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dim_expression.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_testutil.h"
 #include "tensorstore/index_space/transformed_array.h"
+#include "tensorstore/internal/arena.h"
 #include "tensorstore/internal/data_type_random_generator.h"
 #include "tensorstore/internal/json_gtest.h"
+#include "tensorstore/internal/lock_collection.h"
+#include "tensorstore/internal/nditerable.h"
 #include "tensorstore/internal/nditerable_transformed_array.h"
 #include "tensorstore/internal/test_util.h"
+#include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/open.h"
+#include "tensorstore/open_mode.h"
+#include "tensorstore/open_options.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/resize_options.h"
+#include "tensorstore/schema.h"
+#include "tensorstore/spec.h"
+#include "tensorstore/strided_layout.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/transaction.h"
+#include "tensorstore/util/constant_vector.h"
+#include "tensorstore/util/element_pointer.h"
+#include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/sync_flow_sender.h"
+#include "tensorstore/util/extents.h"
+#include "tensorstore/util/future.h"
+#include "tensorstore/util/garbage_collection/garbage_collection.h"
+#include "tensorstore/util/iterate.h"
 #include "tensorstore/util/iterate_over_index_range.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -191,8 +237,8 @@ IndexTransform<> GetRandomTransform(absl::BitGenRef gen,
         absl::c_iota(values, domain[i].inclusive_min());
         std::minstd_rand derived_rng(absl::Uniform<uint32_t>(gen));
         absl::c_shuffle(values, derived_rng);
-        values.resize(absl::Uniform(absl::IntervalClosedClosed, gen,
-                                    std::size_t(1), values.size()));
+        values.resize(absl::Uniform(absl::IntervalClosedClosed, gen, size_t(1),
+                                    values.size()));
         ApplyExpression(
             Dims(i).OuterIndexArraySlice(MakeCopy(MakeArrayView((values)))));
         break;
@@ -246,7 +292,7 @@ void DriverRandomOperationTester::TestBasicFunctionality(
 
   constexpr auto kMaxWaitDuration = absl::Seconds(20);
 
-  for (std::size_t i = 0; i < num_iterations; ++i) {
+  for (size_t i = 0; i < num_iterations; ++i) {
     auto transform = GetRandomTransform(gen, options.expected_domain);
     auto random_array = MakeRandomArray(gen, transform.domain().box(),
                                         options.initial_value.dtype());
@@ -408,7 +454,7 @@ void DriverRandomOperationTester::TestConcurrentWrites(
   auto random_array = MakeRandomArray(gen, Box<>(), store.dtype());
   auto [promise, future] = PromiseFuturePair<void>::Make(absl::Status());
   // Perform `num_iterations` concurrent writes.
-  for (std::size_t i = 0; i < num_iterations; ++i) {
+  for (size_t i = 0; i < num_iterations; ++i) {
     auto transform = GetRandomTransform(gen, options.expected_domain);
     LinkError(
         promise,

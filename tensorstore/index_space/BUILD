@@ -351,10 +351,13 @@ tensorstore_cc_library(
         ":transform_array_constraints",
         "//tensorstore:array",
         "//tensorstore:box",
+        "//tensorstore:container_kind",
+        "//tensorstore:data_type",
         "//tensorstore:index",
         "//tensorstore:index_interval",
         "//tensorstore:json_serialization_options",
         "//tensorstore:rank",
+        "//tensorstore:static_cast",
         "//tensorstore:strided_layout",
         "//tensorstore/internal:dimension_labels",
         "//tensorstore/internal:elementwise_function",
@@ -390,6 +393,7 @@ tensorstore_cc_library(
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
     ],
 )
 
