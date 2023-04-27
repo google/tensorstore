@@ -16,21 +16,27 @@
 #include <string>
 #include <string_view>
 
+#include <openssl/evp.h>
+#include <openssl/hmac.h>
+
+
 #include "absl/strings/cord.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/str_split.h"
 #include "absl/status/status.h"
-#include "absl/time/time.h"
 #include "tensorstore/kvstore/s3/s3_request_builder.h"
 #include "tensorstore/kvstore/s3/validate.h"
 #include "tensorstore/internal/ascii_utils.h"
 #include "tensorstore/internal/path.h"
+#include "tensorstore/internal/digest/sha256.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/str_cat.h"
 
 using ::tensorstore::internal::AsciiSet;
+using ::tensorstore::internal::IntToHexDigit;
 using ::tensorstore::internal::ParseGenericUri;
 using ::tensorstore::internal::ParsedGenericUri;
+using ::tensorstore::internal::SHA256Digester;
 using namespace ::tensorstore::internal_http;
 using ::tensorstore::internal_storage_s3::IsValidBucketName;
 
@@ -54,6 +60,32 @@ constexpr AsciiSet kUriObjectKeyReservedChars{
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     "0123456789"
     "/-._~"};
+
+
+/// Size of HMAC (size of SHA256 digest).
+constexpr static size_t kHmacSize = 32;
+
+void ComputeHmac(std::string_view key, std::string_view message, unsigned char (&hmac)[kHmacSize]) {
+    unsigned int md_len = kHmacSize;
+    // Computing HMAC should never fail.
+    ABSL_CHECK(HMAC(EVP_sha256(),
+                    reinterpret_cast<const unsigned char*>(key.data()),
+                    key.size(),
+                    reinterpret_cast<const unsigned char*>(message.data()),
+                    message.size(), hmac, &md_len) &&
+               md_len == kHmacSize);
+}
+
+void ComputeHmac(unsigned char (&key)[kHmacSize], std::string_view message, unsigned char (&hmac)[kHmacSize]){
+    unsigned int md_len = kHmacSize;
+    // Computing HMAC should never fail.
+    ABSL_CHECK(HMAC(EVP_sha256(), key, kHmacSize,
+                    reinterpret_cast<const unsigned char*>(message.data()),
+                    message.size(), hmac, &md_len) &&
+               md_len == kHmacSize);
+}
+
+
 }
 
 

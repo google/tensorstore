@@ -18,64 +18,26 @@
 /// \file
 /// S3 Request Builder
 
-#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
 
-#include <openssl/evp.h>
-#include <openssl/hmac.h>
-
-#include "absl/log/absl_check.h"
-#include "absl/strings/str_format.h"
-#include "absl/strings/str_join.h"
-#include "tensorstore/internal/ascii_utils.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/kvstore/byte_range.h"
-#include "tensorstore/internal/digest/sha256.h"
 #include "tensorstore/kvstore/s3/validate.h"
 #include "tensorstore/util/result.h"
 
-#include "absl/strings/str_split.h"
 #include "absl/time/time.h"
 
 using ::tensorstore::internal_http::HttpRequest;
 using ::tensorstore::internal_http::HttpRequestBuilder;
-using ::tensorstore::internal::IntToHexDigit;
-using ::tensorstore::internal::ParseGenericUri;
-using ::tensorstore::internal::SHA256Digester;
 
 namespace tensorstore {
 namespace internal_storage_s3 {
 
 std::string UriEncode(std::string_view src);
 std::string UriObjectKeyEncode(std::string_view src);
-
-/// Size of HMAC (size of SHA256 digest).
-constexpr static size_t kHmacSize = 32;
-
-void ComputeHmac(std::string_view key, std::string_view message, unsigned char (&hmac)[kHmacSize]) {
-    unsigned int md_len = kHmacSize;
-    // Computing HMAC should never fail.
-    ABSL_CHECK(HMAC(EVP_sha256(),
-                    reinterpret_cast<const unsigned char*>(key.data()),
-                    key.size(),
-                    reinterpret_cast<const unsigned char*>(message.data()),
-                    message.size(), hmac, &md_len) &&
-               md_len == kHmacSize);
-}
-
-void ComputeHmac(unsigned char (&key)[kHmacSize], std::string_view message, unsigned char (&hmac)[kHmacSize]){
-    unsigned int md_len = kHmacSize;
-    // Computing HMAC should never fail.
-    ABSL_CHECK(HMAC(EVP_sha256(), key, kHmacSize,
-                    reinterpret_cast<const unsigned char*>(message.data()),
-                    message.size(), hmac, &md_len) &&
-               md_len == kHmacSize);
-}
-
-
 
 class S3RequestBuilder {
  public:
