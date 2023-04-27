@@ -16,10 +16,12 @@
 #define TENSORSTORE_STATUS_H_
 
 #include <optional>
+#include <string>
 #include <string_view>
 #include <type_traits>
 #include <utility>
 
+#include "absl/base/optimization.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
 #include "tensorstore/internal/preprocessor/expand.h"
@@ -27,14 +29,13 @@
 #include "tensorstore/internal/type_traits.h"
 
 namespace tensorstore {
-
-/// Add a source location to the status.
-void MaybeAddSourceLocation(
-    absl::Status& status,
-    SourceLocation loc = tensorstore::SourceLocation::current());
-
 namespace internal {
 
+/// Add the SourceLocation to the Status.
+void MaybeAddSourceLocationImpl(absl::Status& status, SourceLocation loc);
+
+/// Returns a copy of `source` with `prefix_message` appended, possibly changing
+/// the status code and adding a source location.
 absl::Status MaybeAnnotateStatusImpl(absl::Status source,
                                      std::string_view prefix_message,
                                      std::optional<absl::StatusCode> new_code,
@@ -48,7 +49,7 @@ inline absl::Status MaybeConvertStatusTo(
     absl::Status status, absl::StatusCode code,
     SourceLocation loc = tensorstore::SourceLocation::current()) {
   if (status.code() == code) {
-    MaybeAddSourceLocation(status, loc);
+    if (!status.message().empty()) MaybeAddSourceLocationImpl(status, loc);
     return status;
   }
   return MaybeAnnotateStatusImpl(std::move(status), {}, code, loc);
@@ -83,12 +84,21 @@ inline absl::Status InvokeForStatus(F&& f, Args&&... args) {
 
 }  // namespace internal
 
+/// Add a source location to the status.
+inline void MaybeAddSourceLocation(
+    absl::Status& status,
+    SourceLocation loc = tensorstore::SourceLocation::current()) {
+  // Don't add locations to purely control flow status OBJECTS.
+  if (status.message().empty()) return;
+  internal::MaybeAddSourceLocationImpl(status, loc);
+}
+
 /// Adds value to status usiung `status.SetPayload`.
 /// Iterates through payloads like `prefix` and `prefix[N]`, and if value
 /// is not found, adds to the status payload, returning prefix.
 /// If the payload already exists, returns std::nullopt.
 std::optional<std::string> AddStatusPayload(absl::Status& status,
-                                            absl::string_view prefix,
+                                            std::string_view prefix,
                                             absl::Cord value);
 
 /// If status is not `absl::StatusCode::kOk`, then annotate the status
@@ -155,7 +165,7 @@ inline absl::Status GetStatus(absl::Status&& status) {
 #define TENSORSTORE_INTERNAL_RETURN_IF_ERROR_IMPL(expr, error_expr, ...) \
   for (absl::Status _ = ::tensorstore::GetStatus(expr);                  \
        ABSL_PREDICT_FALSE(!_.ok());)                                     \
-  return error_expr /**/
+  return ::tensorstore::MaybeAddSourceLocation(_), error_expr /**/
 
 /// Logs an error and terminates the program if the specified `absl::Status` is
 /// an error status.

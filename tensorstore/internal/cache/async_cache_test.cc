@@ -14,22 +14,24 @@
 
 #include "tensorstore/internal/cache/async_cache.h"
 
+#include <cstddef>
 #include <memory>
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/concurrent_testutil.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/memory.h"
 #include "tensorstore/internal/queue_testutil.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/generation_testutil.h"
+#include "tensorstore/transaction.h"
 #include "tensorstore/util/future.h"
-#include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
@@ -38,7 +40,6 @@ namespace {
 
 using ::tensorstore::Future;
 using ::tensorstore::no_transaction;
-using ::tensorstore::StorageGeneration;
 using ::tensorstore::Transaction;
 using ::tensorstore::UniqueWriterLock;
 using ::tensorstore::internal::AsyncCache;
@@ -783,13 +784,14 @@ TEST(AsyncCacheTest, DoInitializeTransactionError) {
   auto cache = pool->GetCache<TestCache>(
       "", [&] { return std::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
-  auto error = absl::UnknownError("initialize");
-  entry->do_initialize_transaction_error = error;
+  entry->do_initialize_transaction_error = absl::UnknownError("initialize");
 
   // Test implicit transaction error.
   {
     OpenTransactionPtr transaction;
-    EXPECT_EQ(error, GetTransactionNode(*entry, transaction).status());
+    EXPECT_THAT(
+        GetTransactionNode(*entry, transaction).status(),
+        tensorstore::MatchesStatus(absl::StatusCode::kUnknown, "initialize.*"));
   }
 
   // Test explicit transaction error.
@@ -798,7 +800,9 @@ TEST(AsyncCacheTest, DoInitializeTransactionError) {
         auto transaction,
         tensorstore::internal::AcquireOpenTransactionPtrOrError(
             Transaction(tensorstore::isolated)));
-    EXPECT_EQ(error, GetTransactionNode(*entry, transaction).status());
+    EXPECT_THAT(
+        GetTransactionNode(*entry, transaction).status(),
+        tensorstore::MatchesStatus(absl::StatusCode::kUnknown, "initialize.*"));
   }
 }
 

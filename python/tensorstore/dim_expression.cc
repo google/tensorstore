@@ -17,16 +17,19 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
+#include <cstddef>
 #include <memory>
-#include <new>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <variant>
 #include <vector>
 
 #include "absl/base/optimization.h"
+#include "absl/status/status.h"
 #include "absl/strings/escaping.h"
 #include "python/tensorstore/dim_expression.h"
+#include "python/tensorstore/index.h"
 #include "python/tensorstore/numpy_indexing_spec.h"
 #include "python/tensorstore/sequence_parameter.h"
 #include "python/tensorstore/subscript_method.h"
@@ -36,6 +39,7 @@
 #include "tensorstore/index_space/dimension_identifier.h"
 #include "tensorstore/index_space/dimension_index_buffer.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/internal/numpy_indexing_spec.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
@@ -518,7 +522,7 @@ label:
    >>> transform[ts.d['x'][ts.newaxis]]
    Traceback (most recent call last):
        ...
-   IndexError: New dimensions cannot be specified by label
+   IndexError: New dimensions cannot be specified by label...
 
 .. seealso::
 
