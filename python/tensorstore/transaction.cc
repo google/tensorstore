@@ -16,12 +16,17 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
+#include "python/tensorstore/transaction.h"  // IWYU pragma: keep
+
+// Other headers
 #include "python/tensorstore/future.h"
+#include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/tensorstore_module_components.h"
-#include "python/tensorstore/transaction.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/executor.h"
+#include "tensorstore/util/future.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal_python {

@@ -23,11 +23,11 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
-#include <memory>
-#include <string>
 #include <utility>
 
+#include "python/tensorstore/define_heap_type.h"
 #include "python/tensorstore/future.h"
+#include "python/tensorstore/garbage_collection.h"
 #include "tensorstore/progress.h"
 
 namespace tensorstore {

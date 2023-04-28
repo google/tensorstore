@@ -16,19 +16,32 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
+#include "python/tensorstore/serialization.h"
+
+// Other headers
+#include <cstddef>
+#include <memory>
+#include <string_view>
+#include <typeinfo>
+#include <utility>
+
 #include "absl/container/flat_hash_map.h"
+#include "absl/status/status.h"
 #include "python/tensorstore/garbage_collection.h"
 #include "python/tensorstore/gil_safe.h"
 #include "python/tensorstore/result_type_caster.h"
-#include "python/tensorstore/serialization.h"
+#include "python/tensorstore/status.h"
 #include "python/tensorstore/tensorstore_module_components.h"
 #include "riegeli/bytes/cord_writer.h"
 #include "riegeli/bytes/string_reader.h"
+#include "riegeli/bytes/writer.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/internal/unowned_to_shared.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/executor.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 // Include this Python header last since it defines some macros that are not
@@ -94,7 +107,7 @@ struct EncodableObject {
 ///
 /// This is the counterpart to `tensorstore.Encodable`: the `__new__` method for
 /// this type is returned by the `__reduce__` method of `tensorstore._Encodable`
-/// to use for reconsructing the object.
+/// to use for reconstructing the object.
 ///
 /// Since objects of this type are created during unpickling before we know the
 /// actual C++ type or decode function, we just store the pickled representation

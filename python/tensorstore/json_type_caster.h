@@ -23,7 +23,7 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
-#include <nlohmann/json.hpp>
+#include <nlohmann/json.hpp>  // IWYU pragma: keep
 
 namespace tensorstore {
 namespace internal_python {

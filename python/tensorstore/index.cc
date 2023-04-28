@@ -16,11 +16,13 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
+#include "python/tensorstore/index.h"
+
+// Other headers
 #include <string>
 #include <variant>
 #include <vector>
 
-#include "python/tensorstore/index.h"
 #include "python/tensorstore/sequence_parameter.h"
 #include "tensorstore/index.h"
 #include "tensorstore/util/str_cat.h"

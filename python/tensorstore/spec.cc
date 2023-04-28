@@ -17,6 +17,9 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
+#include "python/tensorstore/spec.h"
+
+// Other headers
 #include <new>
 #include <optional>
 #include <string>
@@ -32,7 +35,6 @@
 #include "python/tensorstore/kvstore.h"
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/serialization.h"
-#include "python/tensorstore/spec.h"
 #include "python/tensorstore/tensorstore_module_components.h"
 #include "python/tensorstore/unit.h"
 #include "tensorstore/data_type.h"

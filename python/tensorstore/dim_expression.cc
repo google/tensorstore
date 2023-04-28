@@ -17,7 +17,9 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
-#include <cstddef>
+#include "python/tensorstore/dim_expression.h"
+
+// Other headers
 #include <memory>
 #include <string>
 #include <string_view>
@@ -28,7 +30,6 @@
 #include "absl/base/optimization.h"
 #include "absl/status/status.h"
 #include "absl/strings/escaping.h"
-#include "python/tensorstore/dim_expression.h"
 #include "python/tensorstore/index.h"
 #include "python/tensorstore/numpy_indexing_spec.h"
 #include "python/tensorstore/sequence_parameter.h"

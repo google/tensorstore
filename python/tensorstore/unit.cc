@@ -17,23 +17,27 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
+#include "python/tensorstore/unit.h"
+// Other headers
+
 #include <string>
 #include <string_view>
 #include <utility>
 #include <variant>
 
-#include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/serialization.h"
-#include "python/tensorstore/status.h"
 #include "python/tensorstore/tensorstore_module_components.h"
-#include "python/tensorstore/unit.h"
 #include "tensorstore/internal/global_initializer.h"
-#include "tensorstore/internal/json_binding/unit.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/str_cat.h"
 #include "tensorstore/util/unit.h"
+
+// specializations
+#include "python/tensorstore/json_type_caster.h"  // IWYU pragma: keep
+#include "tensorstore/internal/json_binding/unit.h"  // IWYU pragma: keep
 
 namespace tensorstore {
 namespace internal_python {

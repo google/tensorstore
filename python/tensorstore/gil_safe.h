@@ -23,6 +23,7 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
+#include <memory>
 #include <utility>
 
 #include "absl/status/status.h"

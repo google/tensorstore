@@ -16,9 +16,11 @@
 // numpy.h must be included first to ensure the header inclusion order
 // constraints are satisfied.
 
+#include "python/tensorstore/bfloat16.h"
+
+// Other headers
 #include <type_traits>
 
-#include "python/tensorstore/bfloat16.h"
 #include "python/tensorstore/data_type.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/util/bfloat16.h"
