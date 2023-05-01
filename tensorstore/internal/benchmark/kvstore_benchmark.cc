@@ -19,7 +19,8 @@
 
 # 1 GB file
 
-bazel run -c opt //tensorstore/internal/benchmark:kvstore_benchmark -- \
+bazel run -c opt //tensorstore/internal/benchmark:kvstore_benchmark
+-- \
   --kvstore_spec='"file:///tmp/tensorstore_kvstore_benchmark"' \
   --clean_before_write \
   --repeat_writes=10 \
@@ -27,7 +28,8 @@ bazel run -c opt //tensorstore/internal/benchmark:kvstore_benchmark -- \
 
 # 4 GB memory, 4MB chunks
 
-bazel run -c opt //tensorstore/internal/benchmark:kvstore_benchmark -- \
+bazel run -c opt //tensorstore/internal/benchmark:kvstore_benchmark
+-- \
   --kvstore_spec='"memory://abc/"' \
   --chunk_size=4194304 \
   --total_bytes=4294967296 \
@@ -75,6 +77,7 @@ bazel run -c opt //tensorstore/internal/benchmark:kvstore_benchmark -- \
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/data_type.h"
+#include "tensorstore/internal/benchmark/metric_utils.h"
 #include "tensorstore/internal/init_tensorstore.h"
 #include "tensorstore/internal/metrics/collect.h"
 #include "tensorstore/internal/metrics/registry.h"
@@ -123,9 +126,6 @@ ABSL_FLAG(tensorstore::JsonAbslFlag<tensorstore::kvstore::Spec>,
           "KvStore spec for writing the metric data in json.  See examples at "
           "the start of the source file.");
 
-ABSL_FLAG(std::string, metric_kvstore_key, "",
-          "key used to store the metric data");
-
 ABSL_FLAG(bool, per_operation_metrics, false,
           "Whether to collect per-operation metrics.");
 
@@ -139,25 +139,6 @@ auto& write_throughput = internal_metrics::Value<double>::New(
 auto& read_throughput = internal_metrics::Value<double>::New(
     "/tensorstore/kvstore_benchmark/read_throughput",
     "the read throughput in this test");
-
-void DumpMetrics(std::string_view prefix) {
-  std::vector<std::string> lines;
-  for (const auto& metric :
-       internal_metrics::GetMetricRegistry().CollectWithPrefix(prefix)) {
-    internal_metrics::FormatCollectedMetric(
-        metric, [&lines](bool has_value, std::string line) {
-          if (has_value) lines.emplace_back(std::move(line));
-        });
-  }
-
-  // `lines` is unordered, which isn't great for benchmark comparison.
-  std::sort(std::begin(lines), std::end(lines));
-  std::cout << std::endl;
-  for (const auto& l : lines) {
-    std::cout << l << std::endl;
-  }
-  std::cout << std::endl;
-}
 
 ::nlohmann::json StartMetrics() {
   ::nlohmann::json json_metrics = ::nlohmann::json::array();
@@ -177,30 +158,10 @@ void DumpMetrics(std::string_view prefix) {
   json_metrics.emplace_back(
       ::nlohmann::json{{"name", "/context_spec"},
                        {"values", {absl::GetFlag(FLAGS_context_spec).value}}});
+
   json_metrics.emplace_back(::nlohmann::json{
       {"name", "/per_operation_metrics"},
       {"values", {absl::GetFlag(FLAGS_per_operation_metrics)}}});
-
-  return json_metrics;
-}
-
-::nlohmann::json CollectMetricsToJson(std::string id, std::string_view prefix) {
-  auto json_metrics = ::nlohmann::json::array();
-
-  // Add an identifier for each collection.
-  if (!id.empty()) {
-    json_metrics.emplace_back(
-        ::nlohmann::json{{"name", "/identifier"}, {"values", {id}}});
-  }
-
-  // collect metrics
-  for (auto& metric :
-       internal_metrics::GetMetricRegistry().CollectWithPrefix(prefix)) {
-    if (internal_metrics::IsCollectedMetricNonZero(metric)) {
-      json_metrics.emplace_back(
-          internal_metrics::CollectedMetricToJson(metric));
-    }
-  }
 
   return json_metrics;
 }
@@ -212,40 +173,11 @@ void PerOperationMetricCollection(::nlohmann::json* all_metrics,
     return;
   }
   if (absl::GetFlag(FLAGS_metric_kvstore_spec).value.valid()) {
-    all_metrics->emplace_back(
-        CollectMetricsToJson(std::move(id), "/tensorstore/"));
+    all_metrics->emplace_back(tensorstore::internal::CollectMetricsToJson(
+        std::move(id), "/tensorstore/"));
   } else {
-    DumpMetrics("/tensorstore/");
+    tensorstore::internal::DumpMetrics("/tensorstore/");
   }
-}
-
-// Finalize metrics. When --per_operation_metrics is false, collect (or dump),
-// and output them to the --metric_kvstore_spec if set.
-void FinishMetricCollection(::nlohmann::json all_metrics) {
-  auto kvstore_spec = absl::GetFlag(FLAGS_metric_kvstore_spec).value;
-
-  if (!kvstore_spec.valid()) {
-    if (!absl::GetFlag(FLAGS_per_operation_metrics)) {
-      DumpMetrics("");
-    }
-    return;
-  }
-
-  all_metrics.emplace_back(CollectMetricsToJson("final", ""));
-
-  TENSORSTORE_CHECK_OK_AND_ASSIGN(auto kvstore,
-                                  kvstore::Open(kvstore_spec).result());
-
-  // the key should be unique in each kvstore_benchmark run
-  auto key = absl::GetFlag(FLAGS_metric_kvstore_key);
-  if (key.empty()) {
-    key = absl::FormatTime(absl::Now(), absl::UTCTimeZone());
-  }
-  TENSORSTORE_CHECK_OK(
-      kvstore::Write(kvstore, key, absl::Cord(all_metrics.dump())).result());
-
-  std::cout << "Dumped metrics to: " << kvstore_spec.path << " with key=" << key
-            << std::endl;
 }
 
 void MaybeCleanExisting(Context context, kvstore::Spec kvstore_spec) {
@@ -452,7 +384,12 @@ void DoKvstoreBenchmark() {
   auto prepared = DoWriteBenchmark(context, kvstore_spec, &all_metrics);
   DoReadBenchmark(context, kvstore_spec, std::move(prepared), &all_metrics);
 
-  FinishMetricCollection(std::move(all_metrics));
+  auto is_written = internal::WriteMetricCollectionToKvstore(
+      std::move(all_metrics), absl::GetFlag(FLAGS_metric_kvstore_spec).value);
+
+  if (!is_written && !absl::GetFlag(FLAGS_per_operation_metrics)) {
+    internal::DumpMetrics("/tensorstore");
+  }
 }
 
 }  // namespace

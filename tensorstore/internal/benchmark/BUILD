@@ -1,8 +1,20 @@
-load("//bazel:tensorstore.bzl", "tensorstore_cc_binary")
+load("//bazel:tensorstore.bzl", "tensorstore_cc_binary", "tensorstore_cc_library")
 
 package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
+
+tensorstore_cc_library(
+    name = "metric_utils",
+    srcs = ["metric_utils.cc"],
+    hdrs = ["metric_utils.h"],
+    deps = [
+        "//tensorstore/internal/metrics:registry",
+        "//tensorstore/kvstore",
+        "//tensorstore/util:status",
+        "@com_github_nlohmann_json//:nlohmann_json",
+    ],
+)
 
 tensorstore_cc_binary(
     name = "ts_benchmark",
@@ -34,6 +46,7 @@ tensorstore_cc_binary(
     name = "kvstore_benchmark",
     srcs = ["kvstore_benchmark.cc"],
     deps = [
+        ":metric_utils",
         "//tensorstore:context",
         "//tensorstore:data_type",
         "//tensorstore/internal:init_tensorstore",
