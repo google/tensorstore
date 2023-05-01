@@ -14,11 +14,20 @@
 
 #include "tensorstore/internal/benchmark/metric_utils.h"
 
+#include <algorithm>
+#include <iostream>
+#include <string>
+#include <tuple>
+#include <vector>
+
+#include "tensorstore/internal/metrics/collect.h"
 #include "tensorstore/internal/metrics/registry.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/util/status.h"
+
+using ::tensorstore::internal_metrics::CollectedMetric;
 
 namespace tensorstore {
 namespace internal {
@@ -32,9 +41,14 @@ namespace internal {
         ::nlohmann::json{{"name", "/identifier"}, {"values", {id}}});
   }
 
-  // collect metrics
-  for (auto& metric :
-       internal_metrics::GetMetricRegistry().CollectWithPrefix(prefix)) {
+  auto collected_metrics =
+      internal_metrics::GetMetricRegistry().CollectWithPrefix(prefix);
+  std::sort(collected_metrics.begin(), collected_metrics.end(),
+            [](const CollectedMetric& a, const CollectedMetric& b) {
+              return std::tie(a.metric_name, a.field_names) <
+                     std::tie(b.metric_name, b.field_names);
+            });
+  for (auto& metric : collected_metrics) {
     if (internal_metrics::IsCollectedMetricNonZero(metric)) {
       json_metrics.emplace_back(
           internal_metrics::CollectedMetricToJson(metric));

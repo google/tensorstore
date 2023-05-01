@@ -9,6 +9,7 @@ tensorstore_cc_library(
     srcs = ["metric_utils.cc"],
     hdrs = ["metric_utils.h"],
     deps = [
+        "//tensorstore/internal/metrics:collect",
         "//tensorstore/internal/metrics:registry",
         "//tensorstore/kvstore",
         "//tensorstore/util:status",
@@ -21,14 +22,13 @@ tensorstore_cc_binary(
     testonly = True,
     srcs = ["ts_benchmark.cc"],
     deps = [
+        ":metric_utils",
         "//tensorstore:all_drivers",
         "//tensorstore:context",
         "//tensorstore:index",
         "//tensorstore:spec",
         "//tensorstore/driver:driver_testutil",
         "//tensorstore/internal:init_tensorstore",
-        "//tensorstore/internal/metrics:collect",
-        "//tensorstore/internal/metrics:registry",
         "//tensorstore/kvstore:all_drivers",
         "//tensorstore/kvstore/grpc:grpc_kvstore",  # Experimental
         "//tensorstore/util:json_absl_flag",
@@ -52,7 +52,6 @@ tensorstore_cc_binary(
         "//tensorstore/internal:init_tensorstore",
         "//tensorstore/internal:path",
         "//tensorstore/internal/metrics",
-        "//tensorstore/internal/metrics:collect",
         "//tensorstore/internal/metrics:registry",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:all_drivers",
@@ -80,13 +79,12 @@ cc_binary(
     name = "kvstore_duration",
     srcs = ["kvstore_duration.cc"],
     deps = [
+        ":metric_utils",
         "//tensorstore:context",
         "//tensorstore/internal:init_tensorstore",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:path",
         "//tensorstore/internal/metrics",
-        "//tensorstore/internal/metrics:collect",
-        "//tensorstore/internal/metrics:registry",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:all_drivers",
         "//tensorstore/kvstore/grpc:grpc_kvstore",  # Experimental

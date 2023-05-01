@@ -79,7 +79,6 @@ bazel run -c opt //tensorstore/internal/benchmark:kvstore_benchmark
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/benchmark/metric_utils.h"
 #include "tensorstore/internal/init_tensorstore.h"
-#include "tensorstore/internal/metrics/collect.h"
 #include "tensorstore/internal/metrics/registry.h"
 #include "tensorstore/internal/metrics/value.h"
 #include "tensorstore/internal/path.h"
@@ -173,10 +172,10 @@ void PerOperationMetricCollection(::nlohmann::json* all_metrics,
     return;
   }
   if (absl::GetFlag(FLAGS_metric_kvstore_spec).value.valid()) {
-    all_metrics->emplace_back(tensorstore::internal::CollectMetricsToJson(
-        std::move(id), "/tensorstore/"));
+    all_metrics->emplace_back(
+        internal::CollectMetricsToJson(std::move(id), "/tensorstore/"));
   } else {
-    tensorstore::internal::DumpMetrics("/tensorstore/");
+    internal::DumpMetrics("/tensorstore/");
   }
 }
 

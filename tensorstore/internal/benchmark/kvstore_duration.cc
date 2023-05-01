@@ -22,7 +22,6 @@ bazel run -c opt //tensorstore/internal/benchmark:kvstore_duration
   --kvstore_spec='"file:///tmp/kvstore"' --duration=1m
 */
 
-#include <algorithm>
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
@@ -46,10 +45,9 @@ bazel run -c opt //tensorstore/internal/benchmark:kvstore_duration
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
+#include "tensorstore/internal/benchmark/metric_utils.h"
 #include "tensorstore/internal/init_tensorstore.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/metrics/collect.h"
-#include "tensorstore/internal/metrics/registry.h"
 #include "tensorstore/internal/metrics/value.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -84,24 +82,6 @@ auto& read_throughput = internal_metrics::Value<double>::New(
     "/tensorstore/kvstore_benchmark/read_throughput",
     "the read throughput in this test");
 
-void DumpMetrics(std::string_view prefix) {
-  std::vector<std::string> lines;
-  for (const auto& metric :
-       internal_metrics::GetMetricRegistry().CollectWithPrefix(prefix)) {
-    internal_metrics::FormatCollectedMetric(
-        metric, [&lines](bool has_value, std::string line) {
-          if (has_value) lines.emplace_back(std::move(line));
-        });
-  }
-
-  // `lines` is unordered, which isn't great for benchmark comparison.
-  std::sort(std::begin(lines), std::end(lines));
-  std::cout << std::endl;
-  for (const auto& l : lines) {
-    std::cout << l << std::endl;
-  }
-  std::cout << std::endl;
-}
 
 struct ReadState : public internal::AtomicReferenceCount<ReadState> {
   std::vector<std::string> keys;
@@ -211,7 +191,8 @@ void Run() {
   Context context(absl::GetFlag(FLAGS_context_spec).value);
 
   DoDurationBenchmark(context, kvstore_spec);
-  DumpMetrics("");
+
+  internal::DumpMetrics("");
 }
 
 }  // namespace
