@@ -41,19 +41,19 @@ namespace internal_storage_s3 {
 /// If not specified, requests to normal buckets are billed to the account
 /// that owns the bucket, and requests to "requestor pays"-enabled buckets
 /// fail.
-struct S3RequesterAccountResource
-    : public internal::ContextResourceTraits<S3RequesterAccountResource> {
-  static constexpr char id[] = "s3_requester_account";
+struct S3RequesterPaysResource
+    : public internal::ContextResourceTraits<S3RequesterPaysResource> {
+  static constexpr char id[] = "s3_requester_pays";
   struct Spec {
-    std::optional<std::string> requester_account;
+    bool requester_pays;
   };
   using Resource = Spec;
 
-  static Spec Default() { return {}; }
+  static Spec Default() { return {false}; }
   static constexpr auto JsonBinder() {
     namespace jb = tensorstore::internal_json_binding;
     return jb::Object(
-        jb::Member("requester_account", jb::Projection(&Spec::requester_account)));
+        jb::Member("requester_pays", jb::Projection(&Spec::requester_pays)));
   }
   static Result<Resource> Create(
       const Spec& spec, internal::ContextResourceCreationContext context) {

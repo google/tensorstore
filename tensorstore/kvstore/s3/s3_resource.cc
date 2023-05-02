@@ -42,8 +42,8 @@ namespace tensorstore {
 namespace internal_storage_s3 {
 namespace {
 
-const internal::ContextResourceRegistration<S3RequesterAccountResource>
-    s3_requester_account_registration;
+const internal::ContextResourceRegistration<S3RequesterPaysResource>
+    s3_requester_pays_registration;
 
 const internal::ContextResourceRegistration<S3RequestRetries>
     s3_request_retries_registration;

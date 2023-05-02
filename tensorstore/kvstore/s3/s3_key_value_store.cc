@@ -55,7 +55,7 @@ using ::tensorstore::internal::IntrusivePtr;
 using ::tensorstore::internal::DataCopyConcurrencyResource;
 using ::tensorstore::internal_storage_s3::S3ConcurrencyResource;
 using ::tensorstore::internal_storage_s3::S3RateLimiterResource;
-using ::tensorstore::internal_storage_s3::S3RequesterAccountResource;
+using ::tensorstore::internal_storage_s3::S3RequesterPaysResource;
 using ::tensorstore::internal_storage_s3::S3RequestRetries;
 using ::tensorstore::internal_storage_s3::IsValidBucketName;
 using ::tensorstore::internal_storage_s3::UriEncode;
@@ -106,7 +106,7 @@ auto& s3_list = internal_metrics::Counter<int64_t>::New(
 struct S3KeyValueStoreSpecData {
   std::string bucket;
 
-  std::optional<Context::Resource<S3RequesterAccountResource>> requester_account;
+  std::optional<Context::Resource<S3RequesterPaysResource>> requester_pays;
   Context::Resource<S3ConcurrencyResource> request_concurrency;
   std::optional<Context::Resource<S3RateLimiterResource>> rate_limiter;
   Context::Resource<S3RequestRetries> retries;
@@ -114,7 +114,7 @@ struct S3KeyValueStoreSpecData {
 
   constexpr static auto ApplyMembers = [](auto& x, auto f) {
     return f(x.bucket, x.request_concurrency, x.rate_limiter,
-             x.requester_account, x.retries, x.data_copy_concurrency);
+             x.requester_pays, x.retries, x.data_copy_concurrency);
   };
 
   constexpr static auto default_json_binder = jb::Object(
@@ -136,11 +136,11 @@ struct S3KeyValueStoreSpecData {
       jb::Member(S3RateLimiterResource::id,
                  jb::Projection<&S3KeyValueStoreSpecData::rate_limiter>()),
 
-      // `requester_account` account to use for billing is obtained from the
+      // `requester_pays` account to use for billing is obtained from the
       // `context` since it is not part of the identity of the resource being
       // accessed.
-      jb::Member(S3RequesterAccountResource::id,
-                 jb::Projection<&S3KeyValueStoreSpecData::requester_account>()),
+      jb::Member(S3RequesterPaysResource::id,
+                 jb::Projection<&S3KeyValueStoreSpecData::requester_pays>()),
       jb::Member(S3RequestRetries::id,
                  jb::Projection<&S3KeyValueStoreSpecData::retries>()),
       jb::Member(DataCopyConcurrencyResource::id,
@@ -215,8 +215,8 @@ Result<kvstore::Spec> ParseS3Url(std::string_view url) {
   driver_spec->data_.bucket = bucket;
   driver_spec->data_.request_concurrency =
       Context::Resource<S3ConcurrencyResource>::DefaultSpec();
-  driver_spec->data_.requester_account =
-      Context::Resource<S3RequesterAccountResource>::DefaultSpec();
+  driver_spec->data_.requester_pays =
+      Context::Resource<S3RequesterPaysResource>::DefaultSpec();
   driver_spec->data_.retries =
       Context::Resource<S3RequestRetries>::DefaultSpec();
   driver_spec->data_.data_copy_concurrency =
