@@ -36,11 +36,7 @@ using ::tensorstore::internal_storage_gcs::RateLimiter;
 namespace tensorstore {
 namespace internal_storage_s3 {
 
-/// Optionally specifies an AWS Account to which all requests are billed.
-///
-/// If not specified, requests to normal buckets are billed to the account
-/// that owns the bucket, and requests to "requestor pays"-enabled buckets
-/// fail.
+/// Specifies whether the requester should be billed for request to a bucket
 struct S3RequesterPaysResource
     : public internal::ContextResourceTraits<S3RequesterPaysResource> {
   static constexpr char id[] = "s3_requester_pays";
@@ -64,6 +60,85 @@ struct S3RequesterPaysResource
     return resource;
   }
 };
+
+
+/// Specifies S3 endpoint url
+struct S3Endpoint : public internal::ContextResourceTraits<S3Endpoint> {
+ public:
+  static constexpr char id[] = "s3_endpoint";
+  struct Spec {
+    std::optional<std::string> endpoint;
+  };
+  using Resource = Spec;
+
+  static Spec Default() { return {}; }
+  static constexpr auto JsonBinder() {
+    namespace jb = tensorstore::internal_json_binding;
+    return jb::Object(
+        jb::Member("endpoint", jb::Projection(&Spec::endpoint)));
+  }
+  static Result<Resource> Create(
+      const Spec& spec, internal::ContextResourceCreationContext context) {
+    return spec;
+  }
+  static Spec GetSpec(const Resource& resource,
+                      const internal::ContextSpecBuilder& builder) {
+    return resource;
+  }
+};
+
+
+/// Specifies S3 path
+struct S3Path : public internal::ContextResourceTraits<S3Path> {
+ public:
+  static constexpr char id[] = "s3_path";
+  struct Spec {
+    std::optional<std::string> path;
+  };
+  using Resource = Spec;
+
+  static Spec Default() { return {}; }
+  static constexpr auto JsonBinder() {
+    namespace jb = tensorstore::internal_json_binding;
+    return jb::Object(
+        jb::Member("path", jb::Projection(&Spec::path)));
+  }
+  static Result<Resource> Create(
+      const Spec& spec, internal::ContextResourceCreationContext context) {
+    return spec;
+  }
+  static Spec GetSpec(const Resource& resource,
+                      const internal::ContextSpecBuilder& builder) {
+    return resource;
+  }
+};
+
+
+/// Specifies S3 profile
+struct S3Profile : public internal::ContextResourceTraits<S3Profile> {
+ public:
+  static constexpr char id[] = "s3_profile";
+  struct Spec {
+    std::optional<std::string> profile;
+  };
+  using Resource = Spec;
+
+  static Spec Default() { return {}; }
+  static constexpr auto JsonBinder() {
+    namespace jb = tensorstore::internal_json_binding;
+    return jb::Object(
+        jb::Member("profile", jb::Projection(&Spec::profile)));
+  }
+  static Result<Resource> Create(
+      const Spec& spec, internal::ContextResourceCreationContext context) {
+    return spec;
+  }
+  static Spec GetSpec(const Resource& resource,
+                      const internal::ContextSpecBuilder& builder) {
+    return resource;
+  }
+};
+
 
 /// Specifies a limit on the number of retries.
 struct S3RequestRetries : public internal::RetriesResource<S3RequestRetries> {

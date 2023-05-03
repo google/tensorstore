@@ -54,6 +54,15 @@ const internal::ContextResourceRegistration<S3ConcurrencyResource>
 const internal::ContextResourceRegistration<S3RateLimiterResource>
     s3_rate_limiter_registration;
 
+const internal::ContextResourceRegistration<S3Endpoint>
+    s3_endpoint_registration;
+
+const internal::ContextResourceRegistration<S3Path>
+    s3_path_registration;
+
+const internal::ContextResourceRegistration<S3Profile>
+    s3_profile_registration;
+
 constexpr size_t kDefaultRequestConcurrency = 32;
 
 std::optional<size_t> GetEnvS3RequestConcurrency() {

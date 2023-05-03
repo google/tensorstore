@@ -57,6 +57,9 @@ using ::tensorstore::internal_storage_s3::S3ConcurrencyResource;
 using ::tensorstore::internal_storage_s3::S3RateLimiterResource;
 using ::tensorstore::internal_storage_s3::S3RequesterPaysResource;
 using ::tensorstore::internal_storage_s3::S3RequestRetries;
+using ::tensorstore::internal_storage_s3::S3Endpoint;
+using ::tensorstore::internal_storage_s3::S3Profile;
+using ::tensorstore::internal_storage_s3::S3Path;
 using ::tensorstore::internal_storage_s3::IsValidBucketName;
 using ::tensorstore::internal_storage_s3::UriEncode;
 
@@ -106,7 +109,11 @@ auto& s3_list = internal_metrics::Counter<int64_t>::New(
 struct S3KeyValueStoreSpecData {
   std::string bucket;
 
-  std::optional<Context::Resource<S3RequesterPaysResource>> requester_pays;
+  Context::Resource<S3RequesterPaysResource> requester_pays;
+  Context::Resource<S3Endpoint> endpoint;
+  Context::Resource<S3Path> path;
+  Context::Resource<S3Profile> profile;
+
   Context::Resource<S3ConcurrencyResource> request_concurrency;
   std::optional<Context::Resource<S3RateLimiterResource>> rate_limiter;
   Context::Resource<S3RequestRetries> retries;
@@ -114,7 +121,8 @@ struct S3KeyValueStoreSpecData {
 
   constexpr static auto ApplyMembers = [](auto& x, auto f) {
     return f(x.bucket, x.request_concurrency, x.rate_limiter,
-             x.requester_pays, x.retries, x.data_copy_concurrency);
+             x.requester_pays, x.endpoint, x.path, x.profile,
+             x.retries, x.data_copy_concurrency);
   };
 
   constexpr static auto default_json_binder = jb::Object(
@@ -130,17 +138,19 @@ struct S3KeyValueStoreSpecData {
                        return absl::OkStatus();
                      }))),
 
-      jb::Member(
-          S3ConcurrencyResource::id,
-          jb::Projection<&S3KeyValueStoreSpecData::request_concurrency>()),
-      jb::Member(S3RateLimiterResource::id,
-                 jb::Projection<&S3KeyValueStoreSpecData::rate_limiter>()),
-
-      // `requester_pays` account to use for billing is obtained from the
-      // `context` since it is not part of the identity of the resource being
-      // accessed.
       jb::Member(S3RequesterPaysResource::id,
                  jb::Projection<&S3KeyValueStoreSpecData::requester_pays>()),
+      jb::Member(S3Endpoint::id,
+                 jb::Projection<&S3KeyValueStoreSpecData::endpoint>()),
+      jb::Member(S3Profile::id,
+                 jb::Projection<&S3KeyValueStoreSpecData::profile>()),
+      jb::Member(S3Path::id,
+                 jb::Projection<&S3KeyValueStoreSpecData::profile>()),
+
+      jb::Member(S3ConcurrencyResource::id,
+                 jb::Projection<&S3KeyValueStoreSpecData::request_concurrency>()),
+      jb::Member(S3RateLimiterResource::id,
+                 jb::Projection<&S3KeyValueStoreSpecData::rate_limiter>()),
       jb::Member(S3RequestRetries::id,
                  jb::Projection<&S3KeyValueStoreSpecData::retries>()),
       jb::Member(DataCopyConcurrencyResource::id,
@@ -207,7 +217,7 @@ Result<kvstore::Spec> ParseS3Url(std::string_view url) {
     return absl::InvalidArgumentError(
         tensorstore::StrCat("Invalid S3 bucket name: ", QuoteString(bucket)));
   }
-  std::string_view encoded_path =
+  std::string_view path =
       (end_of_bucket == std::string_view::npos)
           ? std::string_view{}
           : parsed.authority_and_path.substr(end_of_bucket + 1);
@@ -222,8 +232,7 @@ Result<kvstore::Spec> ParseS3Url(std::string_view url) {
   driver_spec->data_.data_copy_concurrency =
       Context::Resource<DataCopyConcurrencyResource>::DefaultSpec();
 
-  return {std::in_place, std::move(driver_spec),
-          std::string(parsed.authority_and_path.substr(end_of_bucket + 1))};
+  return {std::in_place, std::move(driver_spec), std::string(path)};
 }
 
 
