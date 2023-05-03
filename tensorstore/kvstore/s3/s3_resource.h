@@ -123,7 +123,7 @@ struct S3Profile : public internal::ContextResourceTraits<S3Profile> {
   };
   using Resource = Spec;
 
-  static Spec Default() { return {}; }
+  static Spec Default() { return {"default"}; }
   static constexpr auto JsonBinder() {
     namespace jb = tensorstore::internal_json_binding;
     return jb::Object(
