@@ -15,23 +15,23 @@
 #ifndef TENSORSTORE_KVSTORE_GCS_GCS_MOCK_H_
 #define TENSORSTORE_KVSTORE_GCS_GCS_MOCK_H_
 
-#include <stdint.h>
-
+#include <cassert>
+#include <cstdint>
 #include <map>
 #include <optional>
+#include <random>
 #include <string>
 #include <string_view>
 #include <variant>
 
+#include "absl/base/thread_annotations.h"
 #include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include "absl/synchronization/mutex.h"
+#include <nlohmann/json.hpp>
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
-#include "tensorstore/internal/http/http_transport.h"
-#include "tensorstore/internal/path.h"
-#include "tensorstore/kvstore/test_util.h"
-#include "tensorstore/util/executor.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/util/future.h"
 
 namespace tensorstore {
 
@@ -89,7 +89,7 @@ class GCSMockStorageBucket {
   std::variant<std::monostate, internal_http::HttpResponse, absl::Status>
   HandleDeleteRequest(std::string_view path, const ParamMap& params);
 
-  // Construct an ojbect metadata response.
+  // Construct an object metadata response.
   internal_http::HttpResponse ObjectMetadataResponse(const Object& object);
 
   // Construct an object media response.
@@ -100,7 +100,16 @@ class GCSMockStorageBucket {
   // Triggers a guaranteed error for the next `count` requests.
   void TriggerErrors(int64_t count) {
     assert(count >= 0);
+    absl::MutexLock l(&mutex_);
     next_error_count_ += count;
+    p_error_ = 0;
+  }
+
+  // Sets the error rate on the mock interface.
+  void SetErrorRate(double p_error) {
+    assert(p_error >= 0 && p_error <= 1);
+    absl::MutexLock l(&mutex_);
+    p_error_ = p_error;
   }
 
  private:
@@ -111,7 +120,10 @@ class GCSMockStorageBucket {
   absl::Mutex mutex_;
   int64_t next_generation_ = 123;
   int64_t request_count_ = 0;
-  int64_t next_error_count_ = 0;
+
+  int64_t next_error_count_ ABSL_GUARDED_BY(mutex_) = 0;
+  double p_error_ ABSL_GUARDED_BY(mutex_) = 0.05;
+  std::minstd_rand urbg_ ABSL_GUARDED_BY(mutex_);
 
   using Map = std::map<std::string, Object, std::less<>>;
   Map data_;

@@ -22,19 +22,17 @@
 #include <utility>
 #include <variant>
 
+#include "absl/hash/hash.h"
 #include "absl/log/absl_log.h"
+#include "absl/random/distributions.h"
 #include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/substitute.h"
 #include "absl/synchronization/mutex.h"
-#include "tensorstore/internal/http/curl_handle.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/path.h"
-#include "tensorstore/kvstore/test_util.h"
-#include "tensorstore/util/executor.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -91,7 +89,8 @@ GCSMockStorageBucket::GCSMockStorageBucket(
           tensorstore::StrCat("storage.googleapis.com/storage/v1/b/", bucket)),
       upload_prefix_(tensorstore::StrCat(
           "storage.googleapis.com/upload/storage/v1/b/", bucket)),
-      requestor_pays_project_id_(std::move(requestor_pays_project_id)) {}
+      requestor_pays_project_id_(std::move(requestor_pays_project_id)),
+      urbg_(absl::Hash<std::string_view>{}(bucket)) {}
 
 // Responds to a "www.google.apis/storage/v1/b/bucket" request.
 Future<HttpResponse> GCSMockStorageBucket::IssueRequest(
@@ -139,9 +138,8 @@ GCSMockStorageBucket::Match(const HttpRequest& request, absl::Cord payload) {
   if (next_error_count_ > 0) {
     trigger_error = true;
     --next_error_count_;
-  }
-  if (request_count_++ % 5 == 0) {
-    trigger_error = true;
+  } else if (p_error_ > 0) {
+    trigger_error = absl::Bernoulli(urbg_, p_error_);
   }
   if (trigger_error) {
     return HttpResponse{429, absl::Cord()};

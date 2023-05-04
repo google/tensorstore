@@ -112,6 +112,13 @@ inline absl::Status MaybeAnnotateStatus(
                                            std::nullopt, loc);
 }
 
+inline absl::Status MaybeAnnotateStatus(
+    absl::Status source, std::string_view message, absl::StatusCode new_code,
+    SourceLocation loc = tensorstore::SourceLocation::current()) {
+  return internal::MaybeAnnotateStatusImpl(std::move(source), message, new_code,
+                                           loc);
+}
+
 /// Overload for the case of a bare absl::Status argument.
 ///
 /// \returns `status`

@@ -14,8 +14,6 @@
 
 #include "tensorstore/internal/http/http_response.h"
 
-#include <ctype.h>
-
 #include <algorithm>
 #include <iterator>
 #include <string>
@@ -24,9 +22,10 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/ascii.h"
-#include "absl/strings/match.h"
 #include "re2/re2.h"
+#include "tensorstore/internal/source_location.h"
 #include "tensorstore/util/quote_string.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -178,7 +177,8 @@ std::size_t AppendHeaderData(std::multimap<std::string, std::string>& headers,
   return size;
 }
 
-absl::Status HttpResponseCodeToStatus(const HttpResponse& response) {
+absl::Status HttpResponseCodeToStatus(const HttpResponse& response,
+                                      SourceLocation loc) {
   auto code = HttpResponseCodeToStatusCode(response);
   if (code == absl::StatusCode::kOk) {
     return absl::OkStatus();
@@ -192,8 +192,9 @@ absl::Status HttpResponseCodeToStatus(const HttpResponse& response) {
                                        : " with body: "),
       response.payload.Subcord(0, pos).Flatten());
 
-  // TODO: use absl::Status::SetPayload to store the http response code.
-  return absl::Status(code, message);
+  absl::Status status(code, message);
+  MaybeAddSourceLocation(status, loc);
+  return status;
 }
 
 Result<std::tuple<size_t, size_t, size_t>> ParseContentRangeHeader(

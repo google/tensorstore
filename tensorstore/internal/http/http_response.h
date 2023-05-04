@@ -25,6 +25,7 @@
 #include "absl/strings/cord.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_format.h"
+#include "tensorstore/internal/source_location.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
@@ -59,7 +60,9 @@ struct HttpResponse {
 
 /// Returns an `absl::Status` object for a corresponding
 /// HttpResponse.status_code.
-absl::Status HttpResponseCodeToStatus(const HttpResponse& response);
+absl::Status HttpResponseCodeToStatus(
+    const HttpResponse& response,
+    SourceLocation loc = ::tensorstore::SourceLocation::current());
 
 /// Parses the "content-range" header, which can be used to determine the
 /// portion of an object returned by an HTTP request (with status code 206).
