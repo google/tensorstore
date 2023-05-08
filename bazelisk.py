@@ -457,6 +457,11 @@ def execute_bazel(bazel_path, argv):
 
 
 def get_bazel_path():
+    
+    # If Bazel already exists, skip Bazelisk wrapper.
+    if "BAZEL_PATH" in os.environ:
+        return os.environ["BAZEL_PATH"]
+
     bazelisk_directory = get_bazelisk_directory()
     maybe_makedirs(bazelisk_directory)
 
