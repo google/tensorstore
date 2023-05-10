@@ -20,6 +20,9 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
+#include "python/tensorstore/index_space.h"
+
+// Other headers
 #include <algorithm>
 #include <memory>
 #include <new>
@@ -34,7 +37,6 @@
 #include "python/tensorstore/array_type_caster.h"
 #include "python/tensorstore/dim_expression.h"
 #include "python/tensorstore/homogeneous_tuple.h"
-#include "python/tensorstore/index_space.h"
 #include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/numpy_indexing_spec.h"
 #include "python/tensorstore/python_imports.h"

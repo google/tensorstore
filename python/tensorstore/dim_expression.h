@@ -24,18 +24,14 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
-#include <memory>
-#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
 
 #include "python/tensorstore/index.h"
-#include "tensorstore/index.h"
 #include "tensorstore/index_space/dimension_identifier.h"
 #include "tensorstore/index_space/dimension_index_buffer.h"
 #include "tensorstore/index_space/index_transform.h"
-#include "tensorstore/util/executor.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {

@@ -17,13 +17,19 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
-#include <memory>
-#include <new>
+#include "python/tensorstore/write_futures.h"
+
+// Other headers
+#include <optional>
 #include <utility>
 
+#include "python/tensorstore/define_heap_type.h"
+#include "python/tensorstore/future.h"
+#include "python/tensorstore/garbage_collection.h"
 #include "python/tensorstore/tensorstore_module_components.h"
-#include "python/tensorstore/write_futures.h"
+#include "python/tensorstore/type_name_override.h"
 #include "tensorstore/internal/global_initializer.h"
+#include "tensorstore/progress.h"
 #include "tensorstore/util/executor.h"
 
 namespace tensorstore {

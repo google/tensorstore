@@ -17,21 +17,29 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
+#include "python/tensorstore/context.h"
+
+// Other headers
 #include <optional>
+#include <string>
 #include <utility>
 
-#include "python/tensorstore/context.h"
-#include "python/tensorstore/intrusive_ptr_holder.h"
-#include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/serialization.h"
+#include "python/tensorstore/status.h"
 #include "python/tensorstore/tensorstore_module_components.h"
 #include "tensorstore/context.h"
 #include "tensorstore/context_impl.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/json/pprint_python.h"
 #include "tensorstore/json_serialization_options.h"
+#include "tensorstore/json_serialization_options_base.h"
+#include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/executor.h"
+
+// specializations
+#include "python/tensorstore/intrusive_ptr_holder.h"
+#include "python/tensorstore/json_type_caster.h"
 
 namespace tensorstore {
 namespace internal_python {

@@ -26,7 +26,7 @@ def repo():
         name = "com_google_re2",
         strip_prefix = "re2-698890e31fade80eac8d4e7f160b74b3621211ee",
         urls = [
-            "https://github.com/google/re2/archive/698890e31fade80eac8d4e7f160b74b3621211ee.tar.gz",  # abseil(2022-07-20)
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/google/re2/archive/698890e31fade80eac8d4e7f160b74b3621211ee.tar.gz",  # abseil(2022-07-20)
         ],
         sha256 = "41758cb9ff49a51862d3c2e3ef45962eeda31bfbb54b4f834e811856f238c5fc",
         repo_mapping = {

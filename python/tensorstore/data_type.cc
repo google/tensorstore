@@ -20,6 +20,9 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
+#include "python/tensorstore/data_type.h"
+
+// Other headers
 #include <array>
 #include <new>
 #include <string>
@@ -28,7 +31,6 @@
 
 #include "absl/hash/hash.h"
 #include <nlohmann/json.hpp>
-#include "python/tensorstore/data_type.h"
 #include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/serialization.h"
 #include "python/tensorstore/tensorstore_module_components.h"

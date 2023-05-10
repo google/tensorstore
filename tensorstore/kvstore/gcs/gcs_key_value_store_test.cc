@@ -12,15 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <stddef.h>
-
 #include <algorithm>
+#include <cstddef>
 #include <string>
 #include <string_view>
 #include <tuple>
 #include <type_traits>
 #include <utility>
-#include <variant>
 #include <vector>
 
 #include <gmock/gmock.h>
@@ -50,7 +48,6 @@
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender_testutil.h"
-#include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
@@ -158,9 +155,9 @@ struct DefaultHttpTransportSetter {
 Context DefaultTestContext() {
   // Opens the gcs driver with small exponential backoff values.
   return Context{Context::Spec::FromJson({{"gcs_request_retries",
-                                           {{"max_retries", 3},
+                                           {{"max_retries", 4},
                                             {"initial_delay", "1ms"},
-                                            {"max_delay", "10ms"}}}})
+                                            {"max_delay", "5ms"}}}})
                      .value()};
 }
 
@@ -522,6 +519,7 @@ TEST(GcsKeyValueStoreTest, DeleteRange) {
   DefaultHttpTransportSetter mock_transport_setter{mock_transport};
 
   GCSMockStorageBucket bucket("my-bucket");
+  bucket.SetErrorRate(0.02);
   mock_transport->buckets_.push_back(&bucket);
 
   auto context = DefaultTestContext();

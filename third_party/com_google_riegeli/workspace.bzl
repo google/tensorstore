@@ -26,7 +26,7 @@ def repo():
         name = "com_google_riegeli",
         strip_prefix = "riegeli-81c414981883a606ef4865e6b49353d516aa605d",
         urls = [
-            "https://github.com/google/riegeli/archive/81c414981883a606ef4865e6b49353d516aa605d.tar.gz",  # master(2023-04-01)
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/google/riegeli/archive/81c414981883a606ef4865e6b49353d516aa605d.tar.gz",  # master(2023-04-01)
         ],
         sha256 = "d17b323ce1c8bdf73d9947ad13384ce8aa72adce6ead9b66dd4e6dbf2f013e50",
         patches = [

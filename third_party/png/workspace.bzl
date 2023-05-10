@@ -28,7 +28,7 @@ def repo():
         # system png.
         name = "png",
         urls = [
-            "https://github.com/glennrp/libpng/archive/v1.6.37.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/glennrp/libpng/archive/v1.6.37.tar.gz",
         ],
         sha256 = "ca74a0dace179a8422187671aee97dd3892b53e168627145271cad5b5ac81307",
         strip_prefix = "libpng-1.6.37",

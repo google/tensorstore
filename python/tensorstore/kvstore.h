@@ -22,6 +22,8 @@
 #include <pybind11/pybind11.h>
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
+#include <string>
+#include <vector>
 
 #include "python/tensorstore/garbage_collection.h"
 #include "tensorstore/kvstore/kvstore.h"

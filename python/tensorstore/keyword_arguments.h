@@ -52,6 +52,7 @@
 #include <pybind11/pybind11.h>
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
+#include <string_view>
 
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_split.h"

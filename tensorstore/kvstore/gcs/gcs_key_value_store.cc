@@ -48,6 +48,7 @@
 #include "tensorstore/internal/retries_context_resource.h"
 #include "tensorstore/internal/retry.h"
 #include "tensorstore/internal/schedule_at.h"
+#include "tensorstore/internal/source_location.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/gcs/gcs_resource.h"
@@ -369,8 +370,16 @@ class GcsKeyValueStore
   // been met or exceeded.  On true, `task->Retry()` will be scheduled to run
   // after a suitable backoff period.
   template <typename Task>
-  bool BackoffForAttemptAsync(int attempt, Task* task) {
-    if (attempt >= spec_.retries->max_retries) return false;
+  absl::Status BackoffForAttemptAsync(
+      absl::Status status, int attempt, Task* task,
+      SourceLocation loc = ::tensorstore::SourceLocation::current()) {
+    if (attempt >= spec_.retries->max_retries) {
+      return MaybeAnnotateStatus(
+          status,
+          tensorstore::StrCat("All ", attempt, " retry attempts failed"),
+          absl::StatusCode::kAborted, loc);
+    }
+
     // https://cloud.google.com/storage/docs/retry-strategy#exponential-backoff
     gcs_retries.Increment();
     auto delay = internal::BackoffForAttempt(
@@ -380,7 +389,8 @@ class GcsKeyValueStore
                WithExecutor(executor(), [task = IntrusivePtr<Task>(task)] {
                  task->Retry();
                }));
-    return true;
+
+    return absl::OkStatus();
   }
 
   SpecData spec_;
@@ -542,11 +552,10 @@ struct ReadTask : public RateLimiterNode,
     }();
 
     if (!status.ok() && IsRetriable(status)) {
-      if (owner->BackoffForAttemptAsync(attempt_++, this)) {
+      status = owner->BackoffForAttemptAsync(status, attempt_++, this);
+      if (status.ok()) {
         return;
       }
-      status = absl::AbortedError(
-          tensorstore::StrCat("All retry attempts failed: ", status));
     }
     if (!status.ok()) {
       promise.SetResult(status);
@@ -760,11 +769,10 @@ struct WriteTask : public RateLimiterNode,
     }();
 
     if (!status.ok() && IsRetriable(status)) {
-      if (owner->BackoffForAttemptAsync(attempt_++, this)) {
+      status = owner->BackoffForAttemptAsync(status, attempt_++, this);
+      if (status.ok()) {
         return;
       }
-      status = absl::AbortedError(
-          tensorstore::StrCat("All retry attempts failed: ", status));
     }
     if (!status.ok()) {
       promise.SetResult(status);
@@ -904,11 +912,10 @@ struct DeleteTask : public RateLimiterNode,
     }();
 
     if (!status.ok() && IsRetriable(status)) {
-      if (owner->BackoffForAttemptAsync(attempt_++, this)) {
+      status = owner->BackoffForAttemptAsync(status, attempt_++, this);
+      if (status.ok()) {
         return;
       }
-      status = absl::AbortedError(
-          tensorstore::StrCat("All retry attempts failed: ", status));
     }
     if (!status.ok()) {
       promise.SetResult(status);
@@ -1112,11 +1119,7 @@ struct ListTask : public RateLimiterNode,
     absl::Status status =
         response.ok() ? HttpResponseCodeToStatus(*response) : response.status();
     if (!status.ok() && IsRetriable(status)) {
-      if (owner_->BackoffForAttemptAsync(attempt_++, this)) {
-        return absl::OkStatus();
-      }
-      return absl::AbortedError(
-          tensorstore::StrCat("All retry attempts failed: ", status));
+      return owner_->BackoffForAttemptAsync(status, attempt_++, this);
     }
     auto payload = response->payload;
     auto j = internal::ParseJson(payload.Flatten());

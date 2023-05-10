@@ -14,15 +14,33 @@
 
 #include "tensorstore/index_space/internal/compose_transforms.h"
 
+#include <cassert>
 #include <sstream>
+#include <string>
+#include <utility>
 
 #include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/str_replace.h"
+#include "tensorstore/box.h"
+#include "tensorstore/container_kind.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/internal/propagate_bounds.h"
 #include "tensorstore/index_space/internal/transform_array.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
 #include "tensorstore/index_space/internal/transform_rep_impl.h"
+#include "tensorstore/index_space/output_index_method.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/static_cast.h"
+#include "tensorstore/strided_layout.h"
+#include "tensorstore/util/element_pointer.h"
+#include "tensorstore/util/iterate.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {

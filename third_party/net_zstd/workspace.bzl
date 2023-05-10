@@ -24,7 +24,7 @@ def repo():
         name = "net_zstd",
         strip_prefix = "zstd-1.5.5",
         urls = [
-            "https://github.com/facebook/zstd/archive/v1.5.5.zip",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/facebook/zstd/archive/v1.5.5.zip",
         ],
         sha256 = "c5c8daa1d40dabc51790c62a5b86af2b36dfc4e1a738ff10dc4a46ea4e68ee51",
         build_file = Label("//third_party:net_zstd/bundled.BUILD.bazel"),

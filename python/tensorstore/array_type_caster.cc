@@ -21,13 +21,19 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
+#include "python/tensorstore/array_type_caster.h"
+
+// Other headers
 #include <algorithm>
+#include <cassert>
+#include <cstddef>
+#include <exception>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <utility>
 
 #include "absl/status/status.h"
-#include "python/tensorstore/array_type_caster.h"
 #include "python/tensorstore/data_type.h"
 #include "python/tensorstore/json_type_caster.h"
 #include "tensorstore/array.h"
@@ -35,6 +41,8 @@
 #include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/elementwise_function.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/strided_layout.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/str_cat.h"

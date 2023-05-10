@@ -559,6 +559,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:source_location",
         "//tensorstore/internal:type_traits",
         "//tensorstore/internal/preprocessor:expand",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",

@@ -18,6 +18,9 @@
 
 #include "python/tensorstore/python_value_or_exception.h"
 
+// Other headers
+#include <cassert>
+
 namespace tensorstore {
 namespace internal_python {
 

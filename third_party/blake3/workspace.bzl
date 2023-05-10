@@ -25,7 +25,7 @@ def repo():
         strip_prefix = "BLAKE3-64747d48ffe9d1fbf4b71e94cabeb8a211461081",
         sha256 = "4d467f68a61a3ce4fd83b1b00cb7698cb58a3b6ec1635b3e6d5602f1413f28df",
         urls = [
-            "https://github.com/BLAKE3-team/blake3/archive/64747d48ffe9d1fbf4b71e94cabeb8a211461081.tar.gz",  # master(2023-03-01)
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/BLAKE3-team/blake3/archive/64747d48ffe9d1fbf4b71e94cabeb8a211461081.tar.gz",  # master(2023-03-01)
         ],
         build_file = Label("//third_party:blake3/blake3.BUILD.bazel"),
         system_build_file = Label("//third_party:blake3/system.BUILD.bazel"),

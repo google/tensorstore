@@ -854,7 +854,7 @@ internal_result::ChainResultType<T, Func0, Func...> ChainResult(
                 "TENSORSTORE_ASSIGN_OR_RETURN requires a Result value."); \
   if (ABSL_PREDICT_FALSE(!temp)) {                                        \
     auto _ = std::move(temp).status();                                    \
-    static_cast<void>(_);                                                 \
+    ::tensorstore::MaybeAddSourceLocation(_);                             \
     return (error_expr);                                                  \
   }                                                                       \
   decl = std::move(*temp);                                                \

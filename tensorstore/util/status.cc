@@ -17,6 +17,7 @@
 #include "tensorstore/util/status.h"
 #endif
 
+#include <array>
 #include <cstdio>
 #include <exception>
 #include <optional>
@@ -31,8 +32,10 @@
 #include "tensorstore/internal/source_location.h"
 
 namespace tensorstore {
+namespace internal {
 
-void MaybeAddSourceLocation(absl::Status& status, SourceLocation loc) {
+/// Add a source location to the status.
+void MaybeAddSourceLocationImpl(absl::Status& status, SourceLocation loc) {
   constexpr const char kSourceLocationKey[] = "source locations";
 #if TENSORSTORE_HAVE_SOURCE_LOCATION_CURRENT
   if (loc.line() <= 1) return;
@@ -46,13 +49,11 @@ void MaybeAddSourceLocation(absl::Status& status, SourceLocation loc) {
     status.SetPayload(kSourceLocationKey, absl::Cord(absl::StrFormat(
                                               "%s:%d", filename, loc.line())));
   } else {
-    payload->Append(absl::StrFormat(",%s:%d", filename, loc.line()));
+    payload->Append(absl::StrFormat("\n%s:%d", filename, loc.line()));
     status.SetPayload(kSourceLocationKey, std::move(*payload));
   }
 #endif
 }
-
-namespace internal {
 
 absl::Status MaybeAnnotateStatusImpl(absl::Status source,
                                      std::string_view prefix_message,
@@ -76,7 +77,7 @@ absl::Status MaybeAnnotateStatusImpl(absl::Status source,
                                            : to_join[0]);
 
   // Preserve the payloads.
-  source.ForEachPayload([&](absl::string_view name, const absl::Cord& value) {
+  source.ForEachPayload([&](auto name, const absl::Cord& value) {
     dest.SetPayload(name, value);
   });
   if (loc) {
@@ -95,7 +96,7 @@ absl::Status MaybeAnnotateStatusImpl(absl::Status source,
 }  // namespace internal
 
 std::optional<std::string> AddStatusPayload(absl::Status& status,
-                                            absl::string_view prefix,
+                                            std::string_view prefix,
                                             absl::Cord value) {
   std::string payload_id(prefix);
   int i = 1;

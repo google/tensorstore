@@ -22,7 +22,9 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_snappy",
-        urls = ["https://github.com/google/snappy/archive/984b191f0fefdeb17050b42a90b7625999c13b8d.tar.gz"],  # main(2022-10-12)
+        urls = [
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/google/snappy/archive/984b191f0fefdeb17050b42a90b7625999c13b8d.tar.gz",  # main(2022-10-12)
+        ],
         sha256 = "2e458b7017cd58dcf1469ab315389e85e7f445bd035188f2983f81fb19ecfb29",
         strip_prefix = "snappy-984b191f0fefdeb17050b42a90b7625999c13b8d",
         build_file = Label("//third_party:com_google_snappy/bundled.BUILD.bazel"),

@@ -17,22 +17,48 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
+#include <optional>
+#include <string>
+#include <string_view>
+#include <type_traits>
+#include <utility>
+
 #include "absl/base/optimization.h"
+#include "absl/status/status.h"
+#include "absl/time/time.h"
 #include "python/tensorstore/array_type_caster.h"
+#include "python/tensorstore/context.h"
+#include "python/tensorstore/data_type.h"
 #include "python/tensorstore/future.h"
+#include "python/tensorstore/garbage_collection.h"
 #include "python/tensorstore/gil_safe.h"
+#include "python/tensorstore/keyword_arguments.h"
 #include "python/tensorstore/result_type_caster.h"
-#include "python/tensorstore/serialization.h"  // IWYU pragma: keep
 #include "python/tensorstore/spec.h"
 #include "python/tensorstore/status.h"
-#include "python/tensorstore/tensorstore_module_components.h"
 #include "python/tensorstore/tensorstore_class.h"
+#include "python/tensorstore/tensorstore_module_components.h"
 #include "python/tensorstore/time.h"
-#include "python/tensorstore/transaction.h"  // IWYU pragma: keep
 #include "python/tensorstore/type_name_override.h"
+#include "tensorstore/array.h"
+#include "tensorstore/container_kind.h"
+#include "tensorstore/context.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/internal/global_initializer.h"
+#include "tensorstore/kvstore/generation.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/strided_layout.h"
+#include "tensorstore/tensorstore.h"
+#include "tensorstore/transaction.h"
+#include "tensorstore/util/executor.h"
+#include "tensorstore/util/future.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/virtual_chunked.h"
+
+// specializations
+#include "python/tensorstore/serialization.h"  // IWYU pragma: keep
+#include "python/tensorstore/transaction.h"    // IWYU pragma: keep
 
 namespace tensorstore {
 namespace internal_python {

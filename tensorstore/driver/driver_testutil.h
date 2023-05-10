@@ -15,22 +15,41 @@
 #ifndef TENSORSTORE_DRIVER_DRIVER_TESTUTIL_H_
 #define TENSORSTORE_DRIVER_DRIVER_TESTUTIL_H_
 
+#include <cstddef>
+#include <functional>
+#include <optional>
 #include <string>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "absl/random/bit_gen_ref.h"
+#include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
+#include "tensorstore/box.h"
+#include "tensorstore/context.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/chunk.h"
 #include "tensorstore/driver/driver.h"
 #include "tensorstore/driver/driver_handle.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/internal/queue_testutil.h"
 #include "tensorstore/json_serialization_options.h"
+#include "tensorstore/open_mode.h"
+#include "tensorstore/open_options.h"
+#include "tensorstore/schema.h"
+#include "tensorstore/spec.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/transaction.h"
+#include "tensorstore/util/element_pointer.h"
+#include "tensorstore/util/executor.h"
+#include "tensorstore/util/future.h"
+#include "tensorstore/util/garbage_collection/garbage_collection.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace tensorstore {

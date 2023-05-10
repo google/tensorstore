@@ -17,19 +17,39 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
-#include "python/tensorstore/array_type_caster.h"
 #include "python/tensorstore/chunk_layout.h"
+
+// Other headers
+#include <optional>
+#include <string>
+#include <string_view>
+#include <utility>
+
+#include "absl/status/status.h"
 #include "python/tensorstore/chunk_layout_keyword_arguments.h"
 #include "python/tensorstore/homogeneous_tuple.h"
-#include "python/tensorstore/index_space.h"
-#include "python/tensorstore/json_type_caster.h"
+#include "python/tensorstore/index.h"
 #include "python/tensorstore/keyword_arguments.h"
+#include "python/tensorstore/result_type_caster.h"
+#include "python/tensorstore/status.h"
 #include "python/tensorstore/tensorstore_module_components.h"
 #include "tensorstore/chunk_layout.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/json/pprint_python.h"
+#include "tensorstore/json_serialization_options_base.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/util/executor.h"
+#include "tensorstore/util/maybe_hard_constraint.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
+
+// specializations
+#include "python/tensorstore/array_type_caster.h"
+#include "python/tensorstore/json_type_caster.h"
 
 namespace tensorstore {
 namespace internal_python {
