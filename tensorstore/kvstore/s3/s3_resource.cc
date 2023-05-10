@@ -57,9 +57,6 @@ const internal::ContextResourceRegistration<S3RateLimiterResource>
 const internal::ContextResourceRegistration<S3Endpoint>
     s3_endpoint_registration;
 
-const internal::ContextResourceRegistration<S3Path>
-    s3_path_registration;
-
 const internal::ContextResourceRegistration<S3Profile>
     s3_profile_registration;
 

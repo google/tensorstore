@@ -59,7 +59,6 @@ using ::tensorstore::internal_storage_s3::S3RequesterPaysResource;
 using ::tensorstore::internal_storage_s3::S3RequestRetries;
 using ::tensorstore::internal_storage_s3::S3Endpoint;
 using ::tensorstore::internal_storage_s3::S3Profile;
-using ::tensorstore::internal_storage_s3::S3Path;
 using ::tensorstore::internal_storage_s3::IsValidBucketName;
 using ::tensorstore::internal_storage_s3::UriEncode;
 
@@ -111,7 +110,6 @@ struct S3KeyValueStoreSpecData {
 
   Context::Resource<S3RequesterPaysResource> requester_pays;
   Context::Resource<S3Endpoint> endpoint;
-  Context::Resource<S3Path> path;
   Context::Resource<S3Profile> profile;
 
   Context::Resource<S3ConcurrencyResource> request_concurrency;
@@ -121,7 +119,7 @@ struct S3KeyValueStoreSpecData {
 
   constexpr static auto ApplyMembers = [](auto& x, auto f) {
     return f(x.bucket, x.request_concurrency, x.rate_limiter,
-             x.requester_pays, x.endpoint, x.path, x.profile,
+             x.requester_pays, x.endpoint, x.profile,
              x.retries, x.data_copy_concurrency);
   };
 
@@ -143,8 +141,6 @@ struct S3KeyValueStoreSpecData {
       jb::Member(S3Endpoint::id,
                  jb::Projection<&S3KeyValueStoreSpecData::endpoint>()),
       jb::Member(S3Profile::id,
-                 jb::Projection<&S3KeyValueStoreSpecData::profile>()),
-      jb::Member(S3Path::id,
                  jb::Projection<&S3KeyValueStoreSpecData::profile>()),
 
       jb::Member(S3ConcurrencyResource::id,
@@ -234,7 +230,6 @@ Result<kvstore::Spec> ParseS3Url(std::string_view url) {
 
   driver_spec->data_.profile = Context::Resource<S3Profile>::DefaultSpec();
   driver_spec->data_.endpoint = Context::Resource<S3Endpoint>::DefaultSpec();
-  driver_spec->data_.path = Context::Resource<S3Path>::FromJson({{"path", path}}).value();
 
   return {std::in_place, std::move(driver_spec), std::string(path)};
 }

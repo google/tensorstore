@@ -88,32 +88,6 @@ struct S3Endpoint : public internal::ContextResourceTraits<S3Endpoint> {
 };
 
 
-/// Specifies S3 path
-struct S3Path : public internal::ContextResourceTraits<S3Path> {
- public:
-  static constexpr char id[] = "s3_path";
-  struct Spec {
-    std::optional<std::string> path;
-  };
-  using Resource = Spec;
-
-  static Spec Default() { return {std::nullopt}; }
-  static constexpr auto JsonBinder() {
-    namespace jb = tensorstore::internal_json_binding;
-    return jb::Object(
-        jb::Member("path", jb::Projection(&Spec::path)));
-  }
-  static Result<Resource> Create(
-      const Spec& spec, internal::ContextResourceCreationContext context) {
-    return spec;
-  }
-  static Spec GetSpec(const Resource& resource,
-                      const internal::ContextSpecBuilder& builder) {
-    return resource;
-  }
-};
-
-
 /// Specifies S3 profile
 struct S3Profile : public internal::ContextResourceTraits<S3Profile> {
  public:
