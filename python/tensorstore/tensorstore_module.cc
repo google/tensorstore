@@ -23,6 +23,8 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
+#include <string>
+
 #include "python/tensorstore/gil_safe.h"
 #include "python/tensorstore/python_imports.h"
 #include "python/tensorstore/tensorstore_module_components.h"

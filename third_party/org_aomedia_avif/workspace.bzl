@@ -26,7 +26,7 @@ def repo():
         third_party_http_archive,
         name = "org_aomedia_avif",
         urls = [
-            "https://github.com/AOMediaCodec/libavif/archive/88d98ec7a85d6eebbe6ee3630b0701d3d7fcff7b.tar.gz",  # main(2022-11-01)
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/AOMediaCodec/libavif/archive/88d98ec7a85d6eebbe6ee3630b0701d3d7fcff7b.tar.gz",  # main(2022-11-01)
         ],
         sha256 = "7dc8c044b36d72c496eb6d48e9f03675505dbc7ae05b6b12d51a6f09fddaa0f3",
         strip_prefix = "libavif-88d98ec7a85d6eebbe6ee3630b0701d3d7fcff7b",

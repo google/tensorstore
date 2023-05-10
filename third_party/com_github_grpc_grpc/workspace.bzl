@@ -28,7 +28,7 @@ def repo():
         sha256 = "9164010d67b9080d26c2f93d4bb457231ec5a7d687dffe43d1ddf924e4b5ca6b",
         strip_prefix = "grpc-a02cc7d88ae45abf7ccb742c7c61345f7ef6d0d2",
         urls = [
-            "https://github.com/grpc/grpc/archive/a02cc7d88ae45abf7ccb742c7c61345f7ef6d0d2.tar.gz",  # master(2022-11-18)
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/grpc/grpc/archive/a02cc7d88ae45abf7ccb742c7c61345f7ef6d0d2.tar.gz",  # master(2022-11-18)
         ],
         patches = [
             "//third_party:com_github_grpc_grpc/patches/update_build_system.diff",

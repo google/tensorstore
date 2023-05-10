@@ -23,7 +23,7 @@ def repo():
         name = "com_github_pybind_pybind11",
         strip_prefix = "pybind11-2.10.1",
         urls = [
-            "https://github.com/pybind/pybind11/archive/v2.10.1.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/pybind/pybind11/archive/v2.10.1.tar.gz",
         ],
         sha256 = "111014b516b625083bef701df7880f78c2243835abdb263065b6b59b960b6bad",
         build_file = Label("//third_party:com_github_pybind_pybind11/bundled.BUILD.bazel"),

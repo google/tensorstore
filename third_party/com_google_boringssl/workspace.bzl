@@ -26,7 +26,7 @@ def repo():
         name = "com_google_boringssl",
         strip_prefix = "boringssl-098695591f3a2665fccef83a3732ecfc99acdcdd",
         urls = [
-            "https://github.com/google/boringssl/archive/098695591f3a2665fccef83a3732ecfc99acdcdd.tar.gz",  # master-with-bazel(2022-07-20)
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/google/boringssl/archive/098695591f3a2665fccef83a3732ecfc99acdcdd.tar.gz",  # master-with-bazel(2022-07-20)
         ],
         sha256 = "e141448cf6f686b6e9695f6b6459293fd602c8d51efe118a83106752cf7e1280",
         system_build_file = Label("//third_party:com_google_boringssl/system.BUILD.bazel"),

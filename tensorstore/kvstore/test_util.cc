@@ -29,6 +29,7 @@
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_format.h"
 #include "absl/synchronization/notification.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
@@ -96,7 +97,6 @@ StorageGeneration GetMismatchStorageGeneration(const KvStore& store) {
   // Also, the generation looks like a nanosecond timestamp.
   return StorageGeneration::FromValues(uint64_t{/*3.*/ 1415926535897932});
 }
-
 
 void TestKeyValueStoreUnconditionalOps(
     const KvStore& store,
@@ -641,10 +641,34 @@ void TestKeyValueStoreList(const KvStore& store) {
 }
 
 void TestKeyValueStoreDeleteRange(const KvStore& store) {
+  std::vector<AnyFuture> futures;
   for (auto key : {"a/a", "a/b", "a/c/a", "a/c/b", "b/a", "b/b"}) {
-    TENSORSTORE_EXPECT_OK(kvstore::Write(store, key, absl::Cord()).result());
+    futures.push_back(kvstore::Write(store, key, absl::Cord()));
   }
+  for (auto& f : futures) {
+    TENSORSTORE_EXPECT_OK(f.status());
+  }
+  futures.clear();
+
   TENSORSTORE_EXPECT_OK(kvstore::DeleteRange(store, KeyRange("a/b", "b/aa")));
+  EXPECT_THAT(
+      kvstore::ListFuture(store).result(),
+      ::testing::Optional(::testing::UnorderedElementsAre("a/a", "b/b")));
+
+  // Construct a lot of nested values.
+  for (auto a : {"m", "n", "o", "p"}) {
+    for (auto b : {"p", "q", "r", "s"}) {
+      for (auto c : {"s", "t", "u", "v"}) {
+        futures.push_back(
+            kvstore::Write(store, absl::StrFormat("%s/%s/%s/data", a, b, c),
+                           absl::Cord("abc")));
+      }
+    }
+  }
+  for (auto& f : futures) {
+    TENSORSTORE_EXPECT_OK(f.status());
+  }
+  TENSORSTORE_EXPECT_OK(kvstore::DeleteRange(store, KeyRange("l", "z")));
   EXPECT_THAT(
       kvstore::ListFuture(store).result(),
       ::testing::Optional(::testing::UnorderedElementsAre("a/a", "b/b")));

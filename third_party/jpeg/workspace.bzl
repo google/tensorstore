@@ -27,7 +27,7 @@ def repo():
         name = "jpeg",
         strip_prefix = "libjpeg-turbo-2.1.4",
         urls = [
-            "https://github.com/libjpeg-turbo/libjpeg-turbo/archive/2.1.4.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/libjpeg-turbo/libjpeg-turbo/archive/2.1.4.tar.gz",
         ],
         sha256 = "a78b05c0d8427a90eb5b4eb08af25309770c8379592bb0b8a863373128e6143f",
         build_file = Label("//third_party:jpeg/bundled.BUILD.bazel"),

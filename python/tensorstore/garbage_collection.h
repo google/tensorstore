@@ -46,6 +46,8 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
+#include <utility>
+
 #include "absl/container/flat_hash_set.h"
 #include "python/tensorstore/define_heap_type.h"
 #include "tensorstore/internal/intrusive_ptr.h"

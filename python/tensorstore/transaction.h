@@ -23,6 +23,7 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
+#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/executor.h"
 

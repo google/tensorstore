@@ -16,11 +16,13 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
+#include "python/tensorstore/gil_safe.h"
+
+// Other headers
 #include <thread>
 
 #include "absl/base/thread_annotations.h"
 #include "absl/synchronization/mutex.h"
-#include "python/tensorstore/gil_safe.h"
 #include "python/tensorstore/python_imports.h"
 
 namespace tensorstore {

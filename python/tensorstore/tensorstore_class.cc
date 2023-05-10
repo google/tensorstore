@@ -18,30 +18,30 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
-#include <cstdint>
-#include <memory>
-#include <new>
+#include "python/tensorstore/tensorstore_class.h"
+
+// Other headers
 #include <optional>
 #include <string>
 #include <utility>
+#include <variant>
+#include <vector>
 
+#include "absl/status/status.h"
 #include "python/tensorstore/array_type_caster.h"
 #include "python/tensorstore/context.h"
 #include "python/tensorstore/data_type.h"
+#include "python/tensorstore/define_heap_type.h"
 #include "python/tensorstore/future.h"
-#include "python/tensorstore/gil_safe.h"
 #include "python/tensorstore/homogeneous_tuple.h"
 #include "python/tensorstore/index.h"
 #include "python/tensorstore/index_space.h"
-#include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/keyword_arguments.h"
-#include "python/tensorstore/kvstore.h"
 #include "python/tensorstore/result_type_caster.h"
+#include "python/tensorstore/sequence_parameter.h"
 #include "python/tensorstore/serialization.h"
 #include "python/tensorstore/spec.h"
 #include "python/tensorstore/tensorstore_module_components.h"
-#include "python/tensorstore/tensorstore_class.h"
-#include "python/tensorstore/transaction.h"
 #include "python/tensorstore/write_futures.h"
 #include "tensorstore/array.h"
 #include "tensorstore/cast.h"
@@ -49,20 +49,33 @@
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/array/array.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/json/pprint_python.h"
+#include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
+#include "tensorstore/open_options.h"
 #include "tensorstore/progress.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/resize_options.h"
+#include "tensorstore/schema.h"
 #include "tensorstore/spec.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/tensorstore.h"
+#include "tensorstore/transaction.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
-#include "tensorstore/util/result.h"
+#include "tensorstore/util/unit.h"
+
+// specializations
+#include "python/tensorstore/gil_safe.h"
+#include "python/tensorstore/json_type_caster.h"
+#include "python/tensorstore/kvstore.h"
+#include "python/tensorstore/transaction.h"
+#include "python/tensorstore/unit.h"
 
 namespace tensorstore {
 namespace internal_python {

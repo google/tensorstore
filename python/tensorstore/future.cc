@@ -17,18 +17,24 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
-#include <functional>
-#include <memory>
-#include <new>
-#include <string>
+#include "python/tensorstore/future.h"
+
+// Other headers
+#include <algorithm>
+#include <cassert>
+#include <cerrno>
+#include <cstddef>
+#include <optional>
 #include <utility>
 
+#include "absl/status/status.h"
+#include "absl/time/time.h"
 #include "python/tensorstore/define_heap_type.h"
-#include "python/tensorstore/future.h"
 #include "python/tensorstore/gil_safe.h"
 #include "python/tensorstore/python_imports.h"
 #include "python/tensorstore/tensorstore_module_components.h"
 #include "tensorstore/internal/global_initializer.h"
+#include "tensorstore/serialization/fwd.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 

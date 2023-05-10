@@ -17,12 +17,14 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
+#include "python/tensorstore/json_type_caster.h"
+
+// Other headers
 #include <string>
 #include <utility>
 #include <vector>
 
 #include <nlohmann/json.hpp>
-#include "python/tensorstore/json_type_caster.h"
 
 namespace tensorstore {
 namespace internal_python {

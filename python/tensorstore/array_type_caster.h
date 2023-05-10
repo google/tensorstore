@@ -38,7 +38,6 @@
 #include "tensorstore/static_cast.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/element_pointer.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_python {

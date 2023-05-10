@@ -20,13 +20,13 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
+#include "python/tensorstore/numpy_indexing_spec.h"
+
+// Other headers
 #include <algorithm>
-#include <cassert>
-#include <memory>
-#include <numeric>
+#include <cstddef>
 #include <string>
 #include <string_view>
-#include <type_traits>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -36,26 +36,17 @@
 #include "python/tensorstore/array_type_caster.h"
 #include "python/tensorstore/data_type.h"
 #include "python/tensorstore/index.h"
-#include "python/tensorstore/numpy_indexing_spec.h"
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/status.h"
 #include "tensorstore/array.h"
-#include "tensorstore/container_kind.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
-#include "tensorstore/index_interval.h"
-#include "tensorstore/index_space/dimension_identifier.h"
-#include "tensorstore/index_space/dimension_index_buffer.h"
-#include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/internal/numpy_indexing_spec.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/static_cast.h"
-#include "tensorstore/strided_layout.h"
-#include "tensorstore/util/bit_span.h"
 #include "tensorstore/util/byte_strided_pointer.h"
 #include "tensorstore/util/iterate.h"
-#include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/str_cat.h"
 

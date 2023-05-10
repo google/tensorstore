@@ -24,7 +24,7 @@ def repo():
         name = "com_google_googleapis",
         strip_prefix = "googleapis-61220850831d674c6a025e5e315f18f0922a352e",
         urls = [
-            "https://github.com/googleapis/googleapis/archive/61220850831d674c6a025e5e315f18f0922a352e.tar.gz",  # master(2023-02-28)
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/googleapis/googleapis/archive/61220850831d674c6a025e5e315f18f0922a352e.tar.gz",  # master(2023-02-28)
         ],
         sha256 = "870ae54700826bb9d7ef4a5c6696dc0feb032f7a50842961ed77ff5034d0d2b2",
         repo_mapping = {

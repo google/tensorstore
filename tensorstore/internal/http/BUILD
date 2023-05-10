@@ -62,10 +62,12 @@ tensorstore_cc_library(
     ],
     deps = [
         "//tensorstore/internal:path",
+        "//tensorstore/internal:source_location",
         "//tensorstore/kvstore:byte_range",
         "//tensorstore/util:future",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
+        "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",

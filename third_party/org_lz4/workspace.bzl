@@ -24,7 +24,7 @@ def repo():
         name = "org_lz4",
         strip_prefix = "lz4-1.9.4",
         urls = [
-            "https://github.com/lz4/lz4/archive/v1.9.4.zip",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/lz4/lz4/archive/v1.9.4.zip",
         ],
         sha256 = "37e63d56fb9cbe2e430c7f737a404cd4b98637b05e1467459d5c8fe1a4364cc3",
         build_file = Label("//third_party:org_lz4/bundled.BUILD.bazel"),

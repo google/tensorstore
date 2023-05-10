@@ -23,6 +23,7 @@ import pathlib
 import re
 import subprocess
 import tarfile
+import tempfile
 import time
 from typing import Optional, Tuple
 import urllib.parse
@@ -35,6 +36,59 @@ import requests
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 
+_TENSORSTORE_MIRROR = 'tensorstore-bazel-mirror'
+
+
+def _is_mirror_url(url: str) -> Tuple[str, bool]:
+  for prefix in [
+      'https://mirror.bazel.build/',
+      'https://storage.googleapis.com/tensorstore-bazel-mirror/',
+      'https://storage.googleapis.com/grpc-bazel-mirror/',
+  ]:
+    if url.startswith(prefix):
+      return 'https://' + url[len(prefix) :], True
+  return url, False
+
+
+def mirror_url(url: str) -> Tuple[str, str, Optional[str]]:
+  """Mirrors the provided url to the tensorstore mirror bucket."""
+
+  url, _ = _is_mirror_url(url)
+  if url.startswith('https://'):
+    suffix = url[8:]
+  elif url.startswith('http://'):
+    suffix = url[7:]
+  else:
+    raise ValueError(f'Failed to mirror non-url: {url}')
+  dest_bucket = f'gs://{_TENSORSTORE_MIRROR}/{suffix}'
+  mirror = f'https://storage.googleapis.com/{_TENSORSTORE_MIRROR}/{suffix}'
+  cmd = subprocess.run(['gsutil', '-q', 'stat', dest_bucket], check=False)
+  if cmd.returncode == 0:
+    return url, mirror
+  print(f'Mirroring {url} to {dest_bucket}')
+  try:
+    with tempfile.NamedTemporaryFile(delete=True) as temp:
+      filename = temp.name
+    cmd = subprocess.run(['wget', '-O', filename, url], check=True)
+    cmd = subprocess.run(
+        [
+            'gsutil',
+            '-h',
+            'Cache-Control:public, max-age=31536000',
+            'cp',
+            '-n',
+            filename,
+            dest_bucket,
+        ],
+        check=True,
+    )
+  except subprocess.CalledProcessError as exc:
+    raise ValueError(f'Mirroring {url} failed') from exc
+  finally:
+    os.remove(filename)
+
+  return url, mirror
+
 
 @functools.cache
 def _get_session():
@@ -44,17 +98,6 @@ def _get_session():
   s.mount('http://', adapter)
   s.mount('https://', adapter)
   return s
-
-
-def _is_mirror(url: str) -> Tuple[bool, str]:
-  for prefix in [
-      'https://mirror.bazel.build/',
-      'https://storage.googleapis.com/tensorstore-bazel-mirror/',
-      'https://storage.googleapis.com/grpc-bazel-mirror/'
-  ]:
-    if url.startswith(prefix):
-      return (True, 'https://' + url[len(prefix):])
-  return (False, url)
 
 
 class WorkspaceDict(dict):
@@ -108,13 +151,16 @@ class WorkspaceDict(dict):
 
 class WorkspaceFile:
   """Holds the contents of a workspace.bzl file and the parse methods."""
+
   URL_RE = re.compile(r'"(https://[^"]*)"')
   STRIP_PREFIX_RE = re.compile('strip_prefix = "([^"]*)-([^-"]*)"')
   SHA256_RE = re.compile('sha256 = "([^"]*)"')
   GITHUB_REPO_RE = re.compile(
-      r'https://(?:api\.)?github\.com/(?:repos/)?([^/]+)/([^/]+)/(.*)')
-  DATE_RE = re.compile(r'# ([a-z\-_]+)\(([0-9]{4}-[0-9]{2}-[0-9]{2})\)$',
-                       re.MULTILINE)
+      r'https://(?:api\.)?github\.com/(?:repos/)?([^/]+)/([^/]+)/(.*)'
+  )
+  DATE_RE = re.compile(
+      r'# ([a-z\-_]+)\(([0-9]{4}-[0-9]{2}-[0-9]{2})\)$', re.MULTILINE
+  )
 
   def __init__(self, name: str, filename: pathlib.Path):
     self._name = name
@@ -128,28 +174,28 @@ class WorkspaceFile:
     exec(self._content, self._workspace_dict)
     self._repo_args = self._workspace_dict.get_args()
 
-    # Choose a preferred url
+    # Extract url, mirrored url.
     self._url = None
-    self._mirror = False
-    for u in self._repo_args['urls']:
-      (mirror, u) = _is_mirror(u)
-      if mirror:
-        self._mirror = True
-        if not self._url:
-          self._url = u
-      else:
+    self._mirror = None
+    for url in self._repo_args.get('urls', []):
+      u, m = _is_mirror_url(url)
+      if m:
+        self._mirror = url
+      if not self._url:
         self._url = u
+      elif self._url != u:
+        print(f'Unexpected url {self._url} in {self._name}: {u}')
 
   def _update_github_fields(self):
     """Updates the .github properties.
 
-       Extract .github fields from url formats like:
-https://github.com/protocolbuffers/protobuf/releases/download/v3.19.1/protobuf-cpp-3.19.1.tar.gz",
-https://api.github.com/repos/abseil/abseil-cpp/tarball/20211102.0
-https://api.github.com/repos/abseil/abseil-cpp/tarball/refs/tags/20211102.0
-https://github.com/pybind/pybind11/archive/refs/tags/archive/pr2672_test_unique_ptr_member.zip
-https://github.com/pybind/pybind11/archive/56322dafc9d4d248c46bd1755568df01fbea4994.tar.gz
-"""
+           Extract .github fields from url formats like:
+    https://github.com/protocolbuffers/protobuf/releases/download/v3.19.1/protobuf-cpp-3.19.1.tar.gz",
+    https://api.github.com/repos/abseil/abseil-cpp/tarball/20211102.0
+    https://api.github.com/repos/abseil/abseil-cpp/tarball/refs/tags/20211102.0
+    https://github.com/pybind/pybind11/archive/refs/tags/archive/pr2672_test_unique_ptr_member.zip
+    https://github.com/pybind/pybind11/archive/56322dafc9d4d248c46bd1755568df01fbea4994.tar.gz
+    """
     if self._github_fields_updated:
       return
     self._github_fields_updated = True  # run_once
@@ -189,7 +235,7 @@ https://github.com/pybind/pybind11/archive/56322dafc9d4d248c46bd1755568df01fbea4
     return self._url
 
   @property
-  def mirror(self) -> bool:
+  def mirror(self) -> Optional[str]:
     return self._mirror
 
   @property
@@ -298,7 +344,8 @@ def make_url_pattern(url: str, version: str) -> str:
   """
   replacement_temp = 'XXXXXXXXXXXXXXX'
   return re.escape(url.replace(version, replacement_temp)).replace(
-      replacement_temp, '([^/"\']+)')
+      replacement_temp, '([^/"\']+)'
+  )
 
 
 @functools.cache
@@ -316,7 +363,8 @@ def git_references(github_org, github_repo):
   # Check for new version
   tag_output = subprocess.check_output(
       ['git', 'ls-remote', f'https://github.com/{github_org}/{github_repo}'],
-      encoding='utf-8')
+      encoding='utf-8',
+  )
   for line in tag_output.splitlines():
     line = line.strip()
     if not line:
@@ -332,8 +380,8 @@ def git_references(github_org, github_repo):
 
 
 def update_github_workspace(
-    workspace: WorkspaceFile,
-    github_release: bool) -> Optional[Tuple[str, str, str]]:
+    workspace: WorkspaceFile, github_release: bool
+) -> Optional[Tuple[str, str, str]]:
   """Updates a single github workspace.bzl file for dependency `identifier`.
 
   Args:
@@ -359,7 +407,8 @@ def update_github_workspace(
 
     new_url, new_version = get_latest_download(
         f'https://github.com/{github_org}/{github_repo}/releases/',
-        make_url_pattern(workspace.url, existing_version))
+        make_url_pattern(workspace.url, existing_version),
+    )
     return (new_url, new_version, None)
 
   # url refers to specific commit on a branch, and the workspace.bzl file has a
@@ -368,7 +417,8 @@ def update_github_workspace(
     if not workspace.date_m:
       if workspace.is_github_commit:
         print(
-            f'{workspace.name} appears to be a commit reference without a branch'
+            f'{workspace.name} appears to be a commit reference without a'
+            ' branch'
         )
       return None
     branch = str(workspace.date_m.group(1))
@@ -376,7 +426,8 @@ def update_github_workspace(
     all_refs = git_references(github_org, github_repo)
     if key not in all_refs:
       print(
-          f'{workspace.name} appears to be missing branch "{branch}" on https://github.com/{github_org}/{github_repo}'
+          f'{workspace.name} appears to be missing branch "{branch}" on'
+          f' https://github.com/{github_org}/{github_repo}'
       )
       return None
     new_version = all_refs[key]
@@ -405,7 +456,7 @@ def update_github_workspace(
     for ref_name in git_references(github_org, github_repo):
       if not ref_name.startswith(ref_prefix):
         continue
-      ver_str = ref_name[len(ref_prefix):]
+      ver_str = ref_name[len(ref_prefix) :]
       v = packaging.version.parse(ver_str)
       versions.append((v, ver_str))
     if not versions:
@@ -459,7 +510,8 @@ def update_github_workspace(
 
 
 def update_non_github_workspace(
-    workspace: WorkspaceFile) -> Optional[Tuple[str, str, str]]:
+    workspace: WorkspaceFile,
+) -> Optional[Tuple[str, str, str]]:
   """Updates a single non-github workspace.bzl file for dependency `identifier`.
 
   Args:
@@ -475,7 +527,8 @@ def update_non_github_workspace(
 
   new_url, new_version = get_latest_download(
       os.path.dirname(workspace.url) + '/',
-      make_url_pattern(workspace.url, existing_version))
+      make_url_pattern(workspace.url, existing_version),
+  )
 
   if new_version == existing_version:
     return (workspace.url, new_version, None)
@@ -483,8 +536,12 @@ def update_non_github_workspace(
   return (new_url, new_version, None)
 
 
-def update_workspace(workspace_bzl_file: pathlib.Path, identifier: str,
-                     github_release: bool, dry_run: bool) -> None:
+def update_workspace(
+    workspace_bzl_file: pathlib.Path,
+    identifier: str,
+    github_release: bool,
+    dry_run: bool,
+) -> None:
   """Updates a single workspace.bzl file for dependency `identifier`.
 
   Args:
@@ -498,14 +555,15 @@ def update_workspace(workspace_bzl_file: pathlib.Path, identifier: str,
   if not workspace.url:
     print('Workspace url not found: %r' % (identifier,))
     return
+  url = workspace.url
 
-  if (workspace.url.startswith('https://github.com/') or
-      workspace.url.startswith('https://api.github.com/')):
+  if url.startswith('https://github.com/') or url.startswith(
+      'https://api.github.com/'
+  ):
     new = update_github_workspace(workspace, github_release)
   else:
     new = update_non_github_workspace(workspace)
 
-  url = workspace.url
   new_url, new_version, new_date = new if new else (None, None, None)
 
   if new_url is None:
@@ -513,24 +571,21 @@ def update_workspace(workspace_bzl_file: pathlib.Path, identifier: str,
     print('   Old URL: %s' % (url,))
     return
 
-  if new_url == url:
+  if new_url == workspace.url:
     return
 
   print('Updating %s' % (identifier,))
   print('   Old URL: %s' % (url,))
   print('   New URL: %s' % (new_url,))
 
-  if workspace.mirror:
-    print('Cannot update mirrored repo %s' % (identifier,))
-    print('   Old URL: %s' % (url,))
-    print('   New URL: %s' % (new_url,))
-
   if dry_run:
     return
 
   # Retrieve the new repository to checksum and extract
   # the repository prefix.
-  r = _get_session().get(new_url)
+  new_url, mirrored_url = mirror_url(url)
+
+  r = _get_session().get(mirrored_url)
   r.raise_for_status()
   new_h = hashlib.sha256(r.content).hexdigest()
 
@@ -545,23 +600,32 @@ def update_workspace(workspace_bzl_file: pathlib.Path, identifier: str,
   if end != -1:
     folder = folder[0:end]
 
-  # Update the workspace content and write it out
+  # Update the workspace content; always use a mirrored url.
   new_workspace_content = workspace.content
-  new_workspace_content = new_workspace_content.replace(url, new_url)
+  if workspace.mirror:
+    new_workspace_content = new_workspace_content.replace(
+        workspace.mirror, mirrored_url
+    )
+    new_workspace_content = new_workspace_content.replace(url, new_url)
+  else:
+    new_workspace_content = new_workspace_content.replace(url, mirrored_url)
 
   # update sha256 =
   new_workspace_content = new_workspace_content.replace(
-      workspace.sha256_m.group(0), 'sha256 = "' + new_h + '"')
+      workspace.sha256_m.group(0), 'sha256 = "' + new_h + '"'
+  )
 
   # update strip_prefix =
   if workspace.strip_prefix_m:
     new_workspace_content = new_workspace_content.replace(
-        workspace.strip_prefix_m.group(0), f'strip_prefix = "{folder}"')
+        workspace.strip_prefix_m.group(0), f'strip_prefix = "{folder}"'
+    )
 
   # update date comment
   if new_date is not None and workspace.date_m:
     new_workspace_content = new_workspace_content.replace(
-        workspace.date_m.group(0), '# ' + new_date)
+        workspace.date_m.group(0), '# ' + new_date
+    )
 
   workspace_bzl_file.write_text(new_workspace_content)
 
@@ -572,15 +636,18 @@ def main():
   ap.add_argument(
       'dependencies',
       nargs='*',
-      help='Dependencies to update.  All are updated by default.')
+      help='Dependencies to update.  All are updated by default.',
+  )
   ap.add_argument(
       '--github-release',
       action='store_true',
-      help='Prefer updates to latest github release.')
+      help='Prefer updates to latest github release.',
+  )
   ap.add_argument(
       '--dry-run',
       action='store_true',
-      help='Show changes that would be made but do not modify workspace files.')
+      help='Show changes that would be made but do not modify workspace files.',
+  )
   args = ap.parse_args()
   dependencies = args.dependencies
   if not dependencies:
@@ -599,7 +666,8 @@ def main():
         workspace_bzl_file,
         name,
         github_release=args.github_release,
-        dry_run=args.dry_run)
+        dry_run=args.dry_run,
+    )
 
 
 if __name__ == '__main__':

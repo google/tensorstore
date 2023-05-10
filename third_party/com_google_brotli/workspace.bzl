@@ -22,7 +22,9 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_brotli",
-        urls = ["https://github.com/google/brotli/archive/6d03dfbedda1615c4cba1211f8d81735575209c8.zip"],  # master(2022-11-08)
+        urls = [
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/google/brotli/archive/6d03dfbedda1615c4cba1211f8d81735575209c8.zip",  # master(2022-11-08)
+        ],
         sha256 = "73a89a4a5ad295eed881795f2767ee9f7542946011f4b30385bcf2caef899df3",
         strip_prefix = "brotli-6d03dfbedda1615c4cba1211f8d81735575209c8",
         system_build_file = Label("//third_party:com_google_brotli/system.BUILD.bazel"),

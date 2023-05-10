@@ -17,17 +17,24 @@
 // inclusion constraints are satisfied.
 
 #include "python/tensorstore/downsample.h"
+
+// Other headers
+#include <string_view>
+#include <vector>
+
 #include "python/tensorstore/index.h"
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/spec.h"
 #include "python/tensorstore/status.h"
-#include "python/tensorstore/tensorstore_module_components.h"
 #include "python/tensorstore/tensorstore_class.h"
+#include "python/tensorstore/tensorstore_module_components.h"
 #include "tensorstore/downsample.h"
 #include "tensorstore/downsample_method.h"
 #include "tensorstore/driver/downsample/downsample_method_json_binder.h"
+#include "tensorstore/index.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/spec.h"
+#include "tensorstore/tensorstore.h"
 #include "tensorstore/util/executor.h"
 
 namespace tensorstore {

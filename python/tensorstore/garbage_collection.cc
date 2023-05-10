@@ -17,9 +17,17 @@
 // inclusion constraints are satisfied.
 
 #include "python/tensorstore/garbage_collection.h"
+
+// Other headers
+#include <cassert>
+#include <typeinfo>
+#include <utility>
+
 #include "python/tensorstore/gil_safe.h"
 #include "python/tensorstore/tensorstore_module_components.h"
 #include "tensorstore/internal/global_initializer.h"
+#include "tensorstore/util/executor.h"
+#include "tensorstore/util/garbage_collection/garbage_collection.h"
 
 namespace py = ::pybind11;
 

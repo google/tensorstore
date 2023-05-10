@@ -22,7 +22,9 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_benchmark",
-        urls = ["https://github.com/google/benchmark/archive/v1.7.0.zip"],
+        urls = [
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/google/benchmark/archive/v1.7.0.zip",
+        ],
         sha256 = "e0e6a0f2a5e8971198e5d382507bfe8e4be504797d75bb7aec44b5ea368fa100",
         strip_prefix = "benchmark-1.7.0",
         cmake_name = "benchmark",

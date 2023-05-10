@@ -102,7 +102,6 @@ bazel run -c opt //tensorstore/internal/benchmark:ts_benchmark -- \
 #include <stdint.h>
 
 #include <algorithm>
-#include <iostream>
 #include <optional>
 #include <string>
 #include <utility>
@@ -119,9 +118,8 @@ bazel run -c opt //tensorstore/internal/benchmark:ts_benchmark -- \
 #include "tensorstore/context.h"
 #include "tensorstore/driver/driver_testutil.h"
 #include "tensorstore/index.h"
+#include "tensorstore/internal/benchmark/metric_utils.h"
 #include "tensorstore/internal/init_tensorstore.h"
-#include "tensorstore/internal/metrics/collect.h"
-#include "tensorstore/internal/metrics/registry.h"
 #include "tensorstore/spec.h"
 #include "tensorstore/util/json_absl_flag.h"
 #include "tensorstore/util/result.h"
@@ -221,27 +219,6 @@ namespace {
 using ::tensorstore::internal::TestDriverWriteReadChunks;
 using ::tensorstore::internal::TestDriverWriteReadChunksOptions;
 
-void DumpAllMetrics() {
-  std::vector<std::string> lines;
-  for (const auto& metric :
-       internal_metrics::GetMetricRegistry().CollectWithPrefix("")) {
-    internal_metrics::FormatCollectedMetric(
-        metric, [&lines](bool has_value, std::string line) {
-          if (has_value) lines.emplace_back(std::move(line));
-        });
-  }
-
-  // `lines` is unordered, which isn't great for benchmark comparison.
-  std::sort(std::begin(lines), std::end(lines));
-  std::cout << std::endl;
-  for (const auto& l : lines) {
-    std::cout << l << std::endl;
-  }
-  std::cout << std::endl;
-}
-
-//////////////////////////////////////////////////////////////////////////////
-
 void DoTsBenchmark() {
   using Options = TestDriverWriteReadChunksOptions;
   Options options;
@@ -279,7 +256,7 @@ void DoTsBenchmark() {
   absl::InsecureBitGen gen;
   TENSORSTORE_CHECK_OK(TestDriverWriteReadChunks(gen, options));
 
-  DumpAllMetrics();
+  internal::DumpMetrics("");
 }
 
 }  // namespace

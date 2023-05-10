@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "absl/time/time.h"
+#include "python/tensorstore/time.h"
 
 #include <limits>
 
-#include "python/tensorstore/time.h"
+#include "absl/time/time.h"
 
 namespace tensorstore {
 namespace internal_python {
