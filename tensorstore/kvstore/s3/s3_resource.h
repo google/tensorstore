@@ -71,7 +71,7 @@ struct S3Endpoint : public internal::ContextResourceTraits<S3Endpoint> {
   };
   using Resource = Spec;
 
-  static Spec Default() { return {}; }
+  static Spec Default() { return {std::nullopt}; }
   static constexpr auto JsonBinder() {
     namespace jb = tensorstore::internal_json_binding;
     return jb::Object(
@@ -97,7 +97,7 @@ struct S3Path : public internal::ContextResourceTraits<S3Path> {
   };
   using Resource = Spec;
 
-  static Spec Default() { return {}; }
+  static Spec Default() { return {std::nullopt}; }
   static constexpr auto JsonBinder() {
     namespace jb = tensorstore::internal_json_binding;
     return jb::Object(

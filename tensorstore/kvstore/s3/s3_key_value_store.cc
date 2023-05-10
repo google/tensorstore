@@ -232,6 +232,10 @@ Result<kvstore::Spec> ParseS3Url(std::string_view url) {
   driver_spec->data_.data_copy_concurrency =
       Context::Resource<DataCopyConcurrencyResource>::DefaultSpec();
 
+  driver_spec->data_.profile = Context::Resource<S3Profile>::DefaultSpec();
+  driver_spec->data_.endpoint = Context::Resource<S3Endpoint>::DefaultSpec();
+  driver_spec->data_.path = Context::Resource<S3Path>::FromJson({{"path", path}}).value();
+
   return {std::in_place, std::move(driver_spec), std::string(path)};
 }
 
