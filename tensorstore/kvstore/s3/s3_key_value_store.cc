@@ -19,15 +19,24 @@
 #include <utility>
 #include <vector>
 
+#include "absl/strings/match.h"
+
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
+#include "tensorstore/internal/http/curl_transport.h"
+#include "tensorstore/internal/http/http_request.h"
+#include "tensorstore/internal/http/http_response.h"
+#include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/histogram.h"
+#include "tensorstore/internal/retry.h"
+#include "tensorstore/internal/schedule_at.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/registry.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/url_registry.h"
+#include "tensorstore/kvstore/gcs/validate.h"
 #include "tensorstore/kvstore/s3/s3_resource.h"
 #include "tensorstore/kvstore/s3/s3_request_builder.h"
 #include "tensorstore/kvstore/s3/validate.h"
@@ -53,17 +62,33 @@
 
 using ::tensorstore::internal::IntrusivePtr;
 using ::tensorstore::internal::DataCopyConcurrencyResource;
+using ::tensorstore::internal::ScheduleAt;
+using ::tensorstore::internal_http::HttpRequest;
+using ::tensorstore::internal_http::HttpResponse;
+using ::tensorstore::internal_http::HttpTransport;
+using ::tensorstore::internal_storage_gcs::IsRetriable;
+using ::tensorstore::internal_storage_gcs::RateLimiter;
+using ::tensorstore::internal_storage_gcs::RateLimiterNode;
 using ::tensorstore::internal_storage_s3::S3ConcurrencyResource;
 using ::tensorstore::internal_storage_s3::S3RateLimiterResource;
-using ::tensorstore::internal_storage_s3::S3RequesterPaysResource;
 using ::tensorstore::internal_storage_s3::S3RequestRetries;
-using ::tensorstore::internal_storage_s3::S3Endpoint;
-using ::tensorstore::internal_storage_s3::S3Profile;
+using ::tensorstore::internal_storage_s3::S3RequestBuilder;
 using ::tensorstore::internal_storage_s3::IsValidBucketName;
+using ::tensorstore::internal_storage_s3::IsValidObjectName;
 using ::tensorstore::internal_storage_s3::UriEncode;
+
+#ifndef TENSORSTORE_INTERNAL_S3_LOG_REQUESTS
+#define TENSORSTORE_INTERNAL_S3_LOG_REQUESTS 1
+#endif
+
+#ifndef TENSORSTORE_INTERNAL_S3_LOG_RESPONSES
+#define TENSORSTORE_INTERNAL_S3_LOG_RESPONSES 1
+#endif
+
 
 namespace {
 static constexpr char kUriScheme[] = "s3";
+static constexpr char kDotAmazonAwsDotCom[] = ".amazonaws.com";
 }  // namespace
 
 namespace tensorstore {
@@ -107,10 +132,9 @@ auto& s3_list = internal_metrics::Counter<int64_t>::New(
 
 struct S3KeyValueStoreSpecData {
   std::string bucket;
-
-  Context::Resource<S3RequesterPaysResource> requester_pays;
-  Context::Resource<S3Endpoint> endpoint;
-  Context::Resource<S3Profile> profile;
+  bool requester_pays;
+  std::string endpoint;
+  std::string profile;
 
   Context::Resource<S3ConcurrencyResource> request_concurrency;
   std::optional<Context::Resource<S3RateLimiterResource>> rate_limiter;
@@ -136,13 +160,18 @@ struct S3KeyValueStoreSpecData {
                        return absl::OkStatus();
                      }))),
 
-      jb::Member(S3RequesterPaysResource::id,
-                 jb::Projection<&S3KeyValueStoreSpecData::requester_pays>()),
-      jb::Member(S3Endpoint::id,
+      jb::Member("requester_pays",
+                 jb::Projection<&S3KeyValueStoreSpecData::requester_pays>(
+                    jb::DefaultValue<jb::kAlwaysIncludeDefaults>(
+                      [](auto* v) { *v = false; })
+                  )),
+      jb::OptionalMember("endpoint",
                  jb::Projection<&S3KeyValueStoreSpecData::endpoint>()),
-      jb::Member(S3Profile::id,
-                 jb::Projection<&S3KeyValueStoreSpecData::profile>()),
-
+      jb::Member("profile",
+                 jb::Projection<&S3KeyValueStoreSpecData::profile>(
+                    jb::DefaultValue<jb::kAlwaysIncludeDefaults>(
+                      [](auto* v) { *v = "default"; })
+                  )),
       jb::Member(S3ConcurrencyResource::id,
                  jb::Projection<&S3KeyValueStoreSpecData::request_concurrency>()),
       jb::Member(S3RateLimiterResource::id,
@@ -177,18 +206,96 @@ class S3KeyValueStore
     : public internal_kvstore::RegisteredDriver<S3KeyValueStore,
                                                 S3KeyValueStoreSpec> {
  public:
+  const std::string & endpoint() const { return endpoint_; }
+  bool is_aws_endpoint() const { return absl::EndsWith(endpoint_, kDotAmazonAwsDotCom); }
+
   absl::Status GetBoundSpecData(SpecData& spec) const {
     spec = spec_;
     return absl::OkStatus();
   }
 
-   SpecData spec_;
+  const Executor& executor() const {
+    return spec_.data_copy_concurrency->executor;
+  }
+
+  RateLimiter& read_rate_limiter() {
+    if (spec_.rate_limiter.has_value()) {
+      return *(spec_.rate_limiter.value()->read_limiter);
+    }
+    return no_rate_limiter_;
+  }
+  RateLimiter& write_rate_limiter() {
+    if (spec_.rate_limiter.has_value()) {
+      return *(spec_.rate_limiter.value()->write_limiter);
+    }
+    return no_rate_limiter_;
+  }
+
+  RateLimiter& admission_queue() { return *spec_.request_concurrency->queue; }
+
+
+// Apply default backoff/retry logic to the task.
+  // Returns whether the task will be retried. On false, max retries have
+  // been met or exceeded.  On true, `task->Retry()` will be scheduled to run
+  // after a suitable backoff period.
+  template <typename Task>
+  absl::Status BackoffForAttemptAsync(
+      absl::Status status, int attempt, Task* task,
+      SourceLocation loc = ::tensorstore::SourceLocation::current()) {
+    if (attempt >= spec_.retries->max_retries) {
+      return MaybeAnnotateStatus(
+          status,
+          tensorstore::StrCat("All ", attempt, " retry attempts failed"),
+          absl::StatusCode::kAborted, loc);
+    }
+
+    // https://cloud.google.com/storage/docs/retry-strategy#exponential-backoff
+    s3_retries.Increment();
+    auto delay = internal::BackoffForAttempt(
+        attempt, spec_.retries->initial_delay, spec_.retries->max_delay,
+        /*jitter=*/std::min(absl::Seconds(1), spec_.retries->initial_delay));
+    ScheduleAt(absl::Now() + delay,
+               WithExecutor(executor(), [task = IntrusivePtr<Task>(task)] {
+                 task->Retry();
+               }));
+
+    return absl::OkStatus();
+  }
+
+
+  std::shared_ptr<HttpTransport> transport_;
+  internal_storage_gcs::NoRateLimiter no_rate_limiter_;
+  std::string endpoint_;  // endpoint url
+  SpecData spec_;
 };
 
 
 Future<kvstore::DriverPtr> S3KeyValueStoreSpec::DoOpen() const {
   auto driver = internal::MakeIntrusivePtr<S3KeyValueStore>();
   driver->spec_ = data_;
+
+  if(data_.endpoint.size() == 0) {
+    driver->endpoint_ = tensorstore::StrCat("https://", data_.bucket, kDotAmazonAwsDotCom);
+  } else {
+    auto parsed = internal::ParseGenericUri(data_.endpoint);
+    if(parsed.scheme != "http" || parsed.scheme != "https") {
+      return absl::InvalidArgumentError(
+        tensorstore::StrCat("Endpoint ", data_.endpoint,
+                            " has invalid schema ", parsed.scheme,
+                            ". Should be http(s)."));
+    }
+    if(!parsed.query.empty()) {
+      return absl::InvalidArgumentError(
+        tensorstore::StrCat("Query in endpoint unsupported ", data_.endpoint));
+    }
+    if(!parsed.fragment.empty()) {
+      return absl::InvalidArgumentError(
+        tensorstore::StrCat("Fragment in endpoint unsupported ", data_.endpoint));
+    }
+
+    driver->endpoint_ = data_.endpoint;
+    driver->transport_ = internal_http::GetDefaultHttpTransport();
+  }
 
   // NOTE: Remove temporary logging use of experimental feature.
   if (data_.rate_limiter.has_value()) {
@@ -221,15 +328,14 @@ Result<kvstore::Spec> ParseS3Url(std::string_view url) {
   driver_spec->data_.bucket = bucket;
   driver_spec->data_.request_concurrency =
       Context::Resource<S3ConcurrencyResource>::DefaultSpec();
-  driver_spec->data_.requester_pays =
-      Context::Resource<S3RequesterPaysResource>::DefaultSpec();
   driver_spec->data_.retries =
       Context::Resource<S3RequestRetries>::DefaultSpec();
   driver_spec->data_.data_copy_concurrency =
       Context::Resource<DataCopyConcurrencyResource>::DefaultSpec();
 
-  driver_spec->data_.profile = Context::Resource<S3Profile>::DefaultSpec();
-  driver_spec->data_.endpoint = Context::Resource<S3Endpoint>::DefaultSpec();
+  driver_spec->data_.requester_pays = true;
+  driver_spec->data_.profile = "default";
+  driver_spec->data_.endpoint = tensorstore::StrCat("https://", bucket, ".s3.amazonaws.com");
 
   return {std::in_place, std::move(driver_spec), std::string(path)};
 }

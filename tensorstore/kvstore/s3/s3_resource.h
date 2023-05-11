@@ -62,58 +62,6 @@ struct S3RequesterPaysResource
 };
 
 
-/// Specifies S3 endpoint url
-struct S3Endpoint : public internal::ContextResourceTraits<S3Endpoint> {
- public:
-  static constexpr char id[] = "s3_endpoint";
-  struct Spec {
-    std::optional<std::string> endpoint;
-  };
-  using Resource = Spec;
-
-  static Spec Default() { return {std::nullopt}; }
-  static constexpr auto JsonBinder() {
-    namespace jb = tensorstore::internal_json_binding;
-    return jb::Object(
-        jb::Member("endpoint", jb::Projection(&Spec::endpoint)));
-  }
-  static Result<Resource> Create(
-      const Spec& spec, internal::ContextResourceCreationContext context) {
-    return spec;
-  }
-  static Spec GetSpec(const Resource& resource,
-                      const internal::ContextSpecBuilder& builder) {
-    return resource;
-  }
-};
-
-
-/// Specifies S3 profile
-struct S3Profile : public internal::ContextResourceTraits<S3Profile> {
- public:
-  static constexpr char id[] = "s3_profile";
-  struct Spec {
-    std::optional<std::string> profile;
-  };
-  using Resource = Spec;
-
-  static Spec Default() { return {"default"}; }
-  static constexpr auto JsonBinder() {
-    namespace jb = tensorstore::internal_json_binding;
-    return jb::Object(
-        jb::Member("profile", jb::Projection(&Spec::profile)));
-  }
-  static Result<Resource> Create(
-      const Spec& spec, internal::ContextResourceCreationContext context) {
-    return spec;
-  }
-  static Spec GetSpec(const Resource& resource,
-                      const internal::ContextSpecBuilder& builder) {
-    return resource;
-  }
-};
-
-
 /// Specifies a limit on the number of retries.
 struct S3RequestRetries : public internal::RetriesResource<S3RequestRetries> {
   static constexpr char id[] = "s3_request_retries";

@@ -74,12 +74,31 @@ static constexpr char kUriScheme[] = "s3";
 static constexpr char kDriver[] = "s3";
 
 Context DefaultTestContext() {
-  // Opens the gcs driver with small exponential backoff values.
+  // Opens the s3 driver with small exponential backoff values.
   return Context{Context::Spec::FromJson({{"s3_request_retries",
                                            {{"max_retries", 3},
                                             {"initial_delay", "1ms"},
                                             {"max_delay", "10ms"}}}})
                      .value()};
+}
+
+TEST(S3KeyValueStoreTest, Basic) {
+  auto context = DefaultTestContext();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      kvstore::Open({{"driver", kDriver}, {"bucket", "abcdefgh"}}, context)
+          .result());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec, store.spec());
+  EXPECT_THAT(spec.ToJson(tensorstore::IncludeDefaults{false}),
+              ::testing::Optional(
+                  MatchesJson({{"driver", kDriver}, {"bucket", "abcdefgh"},
+                               {"endpoint", ""}, {"profile", "default",},
+                               {"requester_pays", false}})));
+
+  // TODO(sjperkins):
+  // Reintroduce when Read, Write, List and Delete are implemented
+  // tensorstore::internal::TestKeyValueStoreBasicFunctionality(store);
 }
 
 TEST(S3KeyValueStoreTest, BadBucketNames) {
