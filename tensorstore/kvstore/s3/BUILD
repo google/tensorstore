@@ -42,8 +42,8 @@ tensorstore_cc_library(
 
 tensorstore_cc_library(
     name = "s3",
-    srcs = ["s3_key_value_store.cc"],
-    hdrs = [],
+    srcs = ["s3_key_value_store.cc", "object_metadata.cc"],
+    hdrs = ["object_metadata.h"],
     deps = [
         "//tensorstore/kvstore",
         ":s3_resource",
@@ -55,6 +55,23 @@ tensorstore_cc_library(
         "//tensorstore/internal:retry",
     ],
     alwayslink = 1,
+)
+
+
+tensorstore_cc_test(
+    name = "object_metadata_test",
+    size = "small",
+    srcs = [
+        "object_metadata_test.cc",
+    ],
+    deps = [
+        ":s3",
+        "//tensorstore/kvstore:test_util",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest_main",
+    ],
 )
 
 

@@ -83,6 +83,12 @@ std::optional<T> TryParseIntHeader(
   return std::nullopt;
 }
 
+/// Attempts to parse a header using SimpleAtob.
+std::optional<bool> TryParseBoolHeader(
+    const std::multimap<std::string, std::string>& headers,
+    const std::string& header);
+
+
 }  // namespace internal_http
 }  // namespace tensorstore
 

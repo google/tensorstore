@@ -254,7 +254,7 @@ class S3KeyValueStore
     auto delay = internal::BackoffForAttempt(
         attempt, spec_.retries->initial_delay, spec_.retries->max_delay,
         /*jitter=*/std::min(absl::Seconds(1), spec_.retries->initial_delay));
-    ScheduleAt(absl::Now() + delay,
+        ScheduleAt(absl::Now() + delay,
                WithExecutor(executor(), [task = IntrusivePtr<Task>(task)] {
                  task->Retry();
                }));

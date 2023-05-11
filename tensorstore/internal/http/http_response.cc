@@ -222,5 +222,17 @@ Result<std::tuple<size_t, size_t, size_t>> ParseContentRangeHeader(
   return result;
 }
 
+std::optional<bool> TryParseBoolHeader(
+    const std::multimap<std::string, std::string>& headers,
+    const std::string& header) {
+  auto it = headers.find(header);
+  bool result;
+  if (it != headers.end() && absl::SimpleAtob(it->second, &result)) {
+    return result;
+  }
+  return std::nullopt;
+}
+
+
 }  // namespace internal_http
 }  // namespace tensorstore
