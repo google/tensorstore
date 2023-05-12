@@ -37,30 +37,29 @@
 ///
 
 #include <algorithm>
+#include <array>
 #include <complex>
 #include <cstddef>
 #include <cstdint>
 #include <iosfwd>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <typeindex>
 #include <typeinfo>
 
 #include "absl/status/status.h"
 #include <half.hpp>
+#include "tensorstore/index.h"
 #include "tensorstore/internal/bit_operations.h"
 #include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/internal/integer_types.h"
 #include "tensorstore/internal/json_fwd.h"
-#include "tensorstore/internal/memory.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/static_cast.h"
 #include "tensorstore/util/bfloat16.h"
-#include "tensorstore/util/byte_strided_pointer.h"
-#include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 #include "tensorstore/util/utf8_string.h"
 
@@ -91,39 +90,43 @@ using char_t = char;
 /// Opaque byte value.  Intended to represent opaque binary data.
 ///
 /// \ingroup data types
-using byte_t = std::byte;
+using byte_t = ::std::byte;
 /// Signed and unsigned integer types.
 ///
 /// \ingroup data types
-using int8_t = std::int8_t;
+using int8_t = ::std::int8_t;
 ///
 /// \ingroup data types
-using uint8_t = std::uint8_t;
+using uint8_t = ::std::uint8_t;
 ///
 /// \ingroup data types
-using int16_t = std::int16_t;
+using int16_t = ::std::int16_t;
 ///
 /// \ingroup data types
-using uint16_t = std::uint16_t;
+using uint16_t = ::std::uint16_t;
 ///
 /// \ingroup data types
-using int32_t = std::int32_t;
+using int32_t = ::std::int32_t;
 ///
 /// \ingroup data types
-using uint32_t = std::uint32_t;
+using uint32_t = ::std::uint32_t;
 ///
 /// \ingroup data types
-using int64_t = std::int64_t;
+using int64_t = ::std::int64_t;
 ///
 /// \ingroup data types
-using uint64_t = std::uint64_t;
+using uint64_t = ::std::uint64_t;
 // TODO(jbms): consider adding 128-bit integer types
+/// :wikipedia:`bfloat16 floating-point format<Bfloat16_floating-point_format>`
+/// half-precision floating-point data type.
+///
+/// \ingroup data types
+using bfloat16_t = ::tensorstore::BFloat16;
 /// :wikipedia:`IEEE 754 binary16<Half-precision_floating-point_format>`
 /// half-precision floating-point data type.
 ///
 /// \ingroup data types
-using float16_t = half_float::half;
-
+using float16_t = ::half_float::half;
 /// :wikipedia:`IEEE 754 binary32<Single-precision_floating-point_format>`
 /// single-precision floating-point data type.
 ///
@@ -137,7 +140,7 @@ using float64_t = double;
 /// Complex number based on `float32_t`.
 ///
 /// \ingroup data types
-using complex64_t = std::complex<float32_t>;
+using complex64_t = ::std::complex<float32_t>;
 /// Complex number based on `float64_t`.
 ///
 /// \ingroup data types

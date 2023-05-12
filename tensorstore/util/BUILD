@@ -67,7 +67,6 @@ tensorstore_cc_test(
     srcs = ["bfloat16_test.cc"],
     deps = [
         ":bfloat16",
-        "//tensorstore:data_type",
         "//tensorstore/internal:bit_operations",
         "//tensorstore/internal:json_gtest",
         "@com_google_googletest//:gtest_main",

@@ -67,10 +67,8 @@
 namespace half_float {
 class half;
 }
-
 namespace tensorstore {
-
-class bfloat16_t;
+class BFloat16;
 
 /// Provides access to the members of aggregate types.
 ///
@@ -142,7 +140,7 @@ constexpr inline bool SerializeUsingMemcpy =
     std::is_integral_v<T> || std::is_floating_point_v<T> || std::is_enum_v<T>;
 
 template <>
-constexpr inline bool SerializeUsingMemcpy<bfloat16_t> = true;
+constexpr inline bool SerializeUsingMemcpy<BFloat16> = true;
 
 template <>
 constexpr inline bool SerializeUsingMemcpy<half_float::half> = true;

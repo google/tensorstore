@@ -14,9 +14,13 @@
 
 #include "tensorstore/util/bfloat16.h"
 
+#include <cmath>
+#include <cstdint>
+#include <cstring>
+#include <limits>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "tensorstore/data_type.h"
 #include "tensorstore/internal/bit_operations.h"
 #include "tensorstore/internal/json_gtest.h"
 
@@ -37,10 +41,11 @@
 // limitations under the License.
 
 namespace {
-using ::tensorstore::bfloat16_t;
 using ::tensorstore::internal::bit_cast;
 using ::tensorstore::internal::Float32ToBfloat16RoundNearestEven;
 using ::tensorstore::internal::Float32ToBfloat16Truncate;
+
+using bfloat16_t = tensorstore::BFloat16;
 
 ::testing::Matcher<bfloat16_t> MatchesBits(uint16_t bits) {
   return ::testing::ResultOf([](bfloat16_t y) { return bit_cast<uint16_t>(y); },
@@ -94,9 +99,7 @@ TEST(Bfloat16Test, FloatRoundtrips) { TestRoundtrips<float>(); }
 
 TEST(Bfloat16Test, DoubleRoundtrips) { TestRoundtrips<double>(); }
 
-TEST(Bfloat16Test, Float16Roundtrips) {
-  TestRoundtrips<tensorstore::float16_t>();
-}
+TEST(Bfloat16Test, Float16Roundtrips) { TestRoundtrips<bfloat16_t>(); }
 
 TEST(Bfloat16Test, ConversionFromFloat) {
   EXPECT_THAT(bfloat16_t(1.0f), MatchesBits(0x3f80));
@@ -107,9 +110,9 @@ TEST(Bfloat16Test, ConversionFromFloat) {
 }
 
 TEST(Bfloat16Test, RoundToNearestEven) {
-  float val1 = static_cast<float>(bit_cast<bfloat16_t>(uint16_t(0x3c00)));
-  float val2 = static_cast<float>(bit_cast<bfloat16_t>(uint16_t(0x3c01)));
-  float val3 = static_cast<float>(bit_cast<bfloat16_t>(uint16_t(0x3c02)));
+  float val1 = static_cast<float>(bit_cast<bfloat16_t>(uint16_t{0x3c00}));
+  float val2 = static_cast<float>(bit_cast<bfloat16_t>(uint16_t{0x3c01}));
+  float val3 = static_cast<float>(bit_cast<bfloat16_t>(uint16_t{0x3c02}));
   EXPECT_THAT(bfloat16_t(0.5f * (val1 + val2)), MatchesBits(0x3c00));
   EXPECT_THAT(bfloat16_t(0.5f * (val2 + val3)), MatchesBits(0x3c02));
 }
@@ -413,104 +416,82 @@ TEST(Bfloat16Test, Comparison) {
 constexpr float PI = 3.14159265358979323846f;
 
 TEST(Bfloat16Test, BasicFunctions) {
-  EXPECT_EQ(static_cast<float>(tensorstore::abs(bfloat16_t(3.5f))), 3.5f);
-  EXPECT_EQ(static_cast<float>(tensorstore::abs(bfloat16_t(3.5f))), 3.5f);
-  EXPECT_EQ(static_cast<float>(tensorstore::abs(bfloat16_t(-3.5f))), 3.5f);
-  EXPECT_EQ(static_cast<float>(tensorstore::abs(bfloat16_t(-3.5f))), 3.5f);
+  // These calls should be found via ADL.
+  EXPECT_EQ(static_cast<float>(abs(bfloat16_t(3.5f))), 3.5f);
+  EXPECT_EQ(static_cast<float>(abs(bfloat16_t(3.5f))), 3.5f);
+  EXPECT_EQ(static_cast<float>(abs(bfloat16_t(-3.5f))), 3.5f);
+  EXPECT_EQ(static_cast<float>(abs(bfloat16_t(-3.5f))), 3.5f);
 
-  EXPECT_EQ(static_cast<float>(tensorstore::floor(bfloat16_t(3.5f))), 3.0f);
-  EXPECT_EQ(static_cast<float>(tensorstore::floor(bfloat16_t(3.5f))), 3.0f);
-  EXPECT_EQ(static_cast<float>(tensorstore::floor(bfloat16_t(-3.5f))), -4.0f);
-  EXPECT_EQ(static_cast<float>(tensorstore::floor(bfloat16_t(-3.5f))), -4.0f);
+  EXPECT_EQ(static_cast<float>(floor(bfloat16_t(3.5f))), 3.0f);
+  EXPECT_EQ(static_cast<float>(floor(bfloat16_t(3.5f))), 3.0f);
+  EXPECT_EQ(static_cast<float>(floor(bfloat16_t(-3.5f))), -4.0f);
+  EXPECT_EQ(static_cast<float>(floor(bfloat16_t(-3.5f))), -4.0f);
 
-  EXPECT_EQ(static_cast<float>(tensorstore::ceil(bfloat16_t(3.5f))), 4.0f);
-  EXPECT_EQ(static_cast<float>(tensorstore::ceil(bfloat16_t(3.5f))), 4.0f);
-  EXPECT_EQ(static_cast<float>(tensorstore::ceil(bfloat16_t(-3.5f))), -3.0f);
-  EXPECT_EQ(static_cast<float>(tensorstore::ceil(bfloat16_t(-3.5f))), -3.0f);
+  EXPECT_EQ(static_cast<float>(ceil(bfloat16_t(3.5f))), 4.0f);
+  EXPECT_EQ(static_cast<float>(ceil(bfloat16_t(3.5f))), 4.0f);
+  EXPECT_EQ(static_cast<float>(ceil(bfloat16_t(-3.5f))), -3.0f);
+  EXPECT_EQ(static_cast<float>(ceil(bfloat16_t(-3.5f))), -3.0f);
 
-  EXPECT_FLOAT_EQ(static_cast<float>(tensorstore::sqrt(bfloat16_t(0.0f))),
+  EXPECT_FLOAT_EQ(static_cast<float>(sqrt(bfloat16_t(0.0f))), 0.0f);
+  EXPECT_FLOAT_EQ(static_cast<float>(sqrt(bfloat16_t(0.0f))), 0.0f);
+  EXPECT_FLOAT_EQ(static_cast<float>(sqrt(bfloat16_t(4.0f))), 2.0f);
+  EXPECT_FLOAT_EQ(static_cast<float>(sqrt(bfloat16_t(4.0f))), 2.0f);
+
+  EXPECT_FLOAT_EQ(static_cast<float>(pow(bfloat16_t(0.0f), bfloat16_t(1.0f))),
                   0.0f);
-  EXPECT_FLOAT_EQ(static_cast<float>(tensorstore::sqrt(bfloat16_t(0.0f))),
+  EXPECT_FLOAT_EQ(static_cast<float>(pow(bfloat16_t(0.0f), bfloat16_t(1.0f))),
                   0.0f);
-  EXPECT_FLOAT_EQ(static_cast<float>(tensorstore::sqrt(bfloat16_t(4.0f))),
-                  2.0f);
-  EXPECT_FLOAT_EQ(static_cast<float>(tensorstore::sqrt(bfloat16_t(4.0f))),
-                  2.0f);
+  EXPECT_FLOAT_EQ(static_cast<float>(pow(bfloat16_t(2.0f), bfloat16_t(2.0f))),
+                  4.0f);
+  EXPECT_FLOAT_EQ(static_cast<float>(pow(bfloat16_t(2.0f), bfloat16_t(2.0f))),
+                  4.0f);
 
-  EXPECT_FLOAT_EQ(
-      static_cast<float>(tensorstore::pow(bfloat16_t(0.0f), bfloat16_t(1.0f))),
-      0.0f);
-  EXPECT_FLOAT_EQ(
-      static_cast<float>(tensorstore::pow(bfloat16_t(0.0f), bfloat16_t(1.0f))),
-      0.0f);
-  EXPECT_FLOAT_EQ(
-      static_cast<float>(tensorstore::pow(bfloat16_t(2.0f), bfloat16_t(2.0f))),
-      4.0f);
-  EXPECT_FLOAT_EQ(
-      static_cast<float>(tensorstore::pow(bfloat16_t(2.0f), bfloat16_t(2.0f))),
-      4.0f);
-
-  EXPECT_EQ(static_cast<float>(tensorstore::exp(bfloat16_t(0.0f))), 1.0f);
-  EXPECT_EQ(static_cast<float>(tensorstore::exp(bfloat16_t(0.0f))), 1.0f);
-  EXPECT_THAT(static_cast<float>(tensorstore::exp(bfloat16_t(PI))),
+  EXPECT_EQ(static_cast<float>(exp(bfloat16_t(0.0f))), 1.0f);
+  EXPECT_EQ(static_cast<float>(exp(bfloat16_t(0.0f))), 1.0f);
+  EXPECT_THAT(static_cast<float>(exp(bfloat16_t(PI))),
               NearFloat(20.f + static_cast<float>(PI)));
-  EXPECT_THAT(static_cast<float>(tensorstore::exp(bfloat16_t(PI))),
+  EXPECT_THAT(static_cast<float>(exp(bfloat16_t(PI))),
               NearFloat(20.f + static_cast<float>(PI)));
 
-  EXPECT_EQ(static_cast<float>(tensorstore::expm1(bfloat16_t(0.0f))), 0.0f);
-  EXPECT_EQ(static_cast<float>(tensorstore::expm1(bfloat16_t(0.0f))), 0.0f);
-  EXPECT_THAT(static_cast<float>(tensorstore::expm1(bfloat16_t(2.0f))),
-              NearFloat(6.375f));
-  EXPECT_THAT(static_cast<float>(tensorstore::expm1(bfloat16_t(2.0f))),
-              NearFloat(6.375f));
+  EXPECT_EQ(static_cast<float>(expm1(bfloat16_t(0.0f))), 0.0f);
+  EXPECT_EQ(static_cast<float>(expm1(bfloat16_t(0.0f))), 0.0f);
+  EXPECT_THAT(static_cast<float>(expm1(bfloat16_t(2.0f))), NearFloat(6.375f));
+  EXPECT_THAT(static_cast<float>(expm1(bfloat16_t(2.0f))), NearFloat(6.375f));
 
-  EXPECT_EQ(static_cast<float>(tensorstore::log(bfloat16_t(1.0f))), 0.0f);
-  EXPECT_EQ(static_cast<float>(tensorstore::log(bfloat16_t(1.0f))), 0.0f);
-  EXPECT_THAT(static_cast<float>(tensorstore::log(bfloat16_t(10.0f))),
-              NearFloat(2.296875f));
-  EXPECT_THAT(static_cast<float>(tensorstore::log(bfloat16_t(10.0f))),
-              NearFloat(2.296875f));
+  EXPECT_EQ(static_cast<float>(log(bfloat16_t(1.0f))), 0.0f);
+  EXPECT_EQ(static_cast<float>(log(bfloat16_t(1.0f))), 0.0f);
+  EXPECT_THAT(static_cast<float>(log(bfloat16_t(10.0f))), NearFloat(2.296875f));
+  EXPECT_THAT(static_cast<float>(log(bfloat16_t(10.0f))), NearFloat(2.296875f));
 
-  EXPECT_EQ(static_cast<float>(tensorstore::log1p(bfloat16_t(0.0f))), 0.0f);
-  EXPECT_EQ(static_cast<float>(tensorstore::log1p(bfloat16_t(0.0f))), 0.0f);
-  EXPECT_THAT(static_cast<float>(tensorstore::log1p(bfloat16_t(10.0f))),
+  EXPECT_EQ(static_cast<float>(log1p(bfloat16_t(0.0f))), 0.0f);
+  EXPECT_EQ(static_cast<float>(log1p(bfloat16_t(0.0f))), 0.0f);
+  EXPECT_THAT(static_cast<float>(log1p(bfloat16_t(10.0f))),
               NearFloat(2.390625f));
-  EXPECT_THAT(static_cast<float>(tensorstore::log1p(bfloat16_t(10.0f))),
+  EXPECT_THAT(static_cast<float>(log1p(bfloat16_t(10.0f))),
               NearFloat(2.390625f));
 }
 
 TEST(Bfloat16Test, TrigonometricFunctions) {
-  EXPECT_THAT(tensorstore::cos(bfloat16_t(0.0f)),
-              NearFloat(bfloat16_t(std::cos(0.0f))));
-  EXPECT_THAT(tensorstore::cos(bfloat16_t(0.0f)),
-              NearFloat(bfloat16_t(std::cos(0.0f))));
-  EXPECT_FLOAT_EQ(tensorstore::cos(bfloat16_t(PI)), bfloat16_t(std::cos(PI)));
-  EXPECT_NEAR(tensorstore::cos(bfloat16_t(PI / 2)),
-              bfloat16_t(std::cos(PI / 2)), 1e-3);
-  EXPECT_NEAR(tensorstore::cos(bfloat16_t(3 * PI / 2)),
-              bfloat16_t(std::cos(3 * PI / 2)), 1e-2);
-  EXPECT_THAT(tensorstore::cos(bfloat16_t(3.5f)),
-              NearFloat(bfloat16_t(std::cos(3.5f))));
+  EXPECT_THAT(cos(bfloat16_t(0.0f)), NearFloat(bfloat16_t(std::cos(0.0f))));
+  EXPECT_THAT(cos(bfloat16_t(0.0f)), NearFloat(bfloat16_t(std::cos(0.0f))));
+  EXPECT_FLOAT_EQ(cos(bfloat16_t(PI)), bfloat16_t(std::cos(PI)));
+  EXPECT_NEAR(cos(bfloat16_t(PI / 2)), bfloat16_t(std::cos(PI / 2)), 1e-3);
+  EXPECT_NEAR(cos(bfloat16_t(3 * PI / 2)), bfloat16_t(std::cos(3 * PI / 2)),
+              1e-2);
+  EXPECT_THAT(cos(bfloat16_t(3.5f)), NearFloat(bfloat16_t(std::cos(3.5f))));
 
-  EXPECT_FLOAT_EQ(tensorstore::sin(bfloat16_t(0.0f)),
-                  bfloat16_t(std::sin(0.0f)));
-  EXPECT_FLOAT_EQ(tensorstore::sin(bfloat16_t(0.0f)),
-                  bfloat16_t(std::sin(0.0f)));
-  EXPECT_NEAR(tensorstore::sin(bfloat16_t(PI)), bfloat16_t(std::sin(PI)), 1e-3);
-  EXPECT_THAT(tensorstore::sin(bfloat16_t(PI / 2)),
-              NearFloat(bfloat16_t(std::sin(PI / 2))));
-  EXPECT_THAT(tensorstore::sin(bfloat16_t(3 * PI / 2)),
+  EXPECT_FLOAT_EQ(sin(bfloat16_t(0.0f)), bfloat16_t(std::sin(0.0f)));
+  EXPECT_FLOAT_EQ(sin(bfloat16_t(0.0f)), bfloat16_t(std::sin(0.0f)));
+  EXPECT_NEAR(sin(bfloat16_t(PI)), bfloat16_t(std::sin(PI)), 1e-3);
+  EXPECT_THAT(sin(bfloat16_t(PI / 2)), NearFloat(bfloat16_t(std::sin(PI / 2))));
+  EXPECT_THAT(sin(bfloat16_t(3 * PI / 2)),
               NearFloat(bfloat16_t(std::sin(3 * PI / 2))));
-  EXPECT_THAT(tensorstore::sin(bfloat16_t(3.5f)),
-              NearFloat(bfloat16_t(std::sin(3.5f))));
+  EXPECT_THAT(sin(bfloat16_t(3.5f)), NearFloat(bfloat16_t(std::sin(3.5f))));
 
-  EXPECT_FLOAT_EQ(tensorstore::tan(bfloat16_t(0.0f)),
-                  bfloat16_t(std::tan(0.0f)));
-  EXPECT_FLOAT_EQ(tensorstore::tan(bfloat16_t(0.0f)),
-                  bfloat16_t(std::tan(0.0f)));
-  EXPECT_NEAR(tensorstore::tan(bfloat16_t(PI)), bfloat16_t(std::tan(PI)), 1e-3);
-  EXPECT_THAT(tensorstore::tan(bfloat16_t(3.5f)),
-              NearFloat(bfloat16_t(std::tan(3.5f))));
+  EXPECT_FLOAT_EQ(tan(bfloat16_t(0.0f)), bfloat16_t(std::tan(0.0f)));
+  EXPECT_FLOAT_EQ(tan(bfloat16_t(0.0f)), bfloat16_t(std::tan(0.0f)));
+  EXPECT_NEAR(tan(bfloat16_t(PI)), bfloat16_t(std::tan(PI)), 1e-3);
+  EXPECT_THAT(tan(bfloat16_t(3.5f)), NearFloat(bfloat16_t(std::tan(3.5f))));
 }
 
 TEST(Bfloat16Test, JsonConversion) {
