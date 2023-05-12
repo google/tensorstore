@@ -424,6 +424,7 @@ pybind11_cc_library(
         ":tensorstore_module_components",
         "//tensorstore:data_type",
         "//tensorstore/internal:global_initializer",
+        "//tensorstore/internal:type_traits",
         "//tensorstore/util:bfloat16",
         "//tensorstore/util:executor",
         "//tensorstore/util:quote_string",

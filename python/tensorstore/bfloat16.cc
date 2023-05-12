@@ -19,10 +19,11 @@
 #include "python/tensorstore/bfloat16.h"
 
 // Other headers
+#include <memory>
 #include <type_traits>
 
 #include "python/tensorstore/data_type.h"
-#include "tensorstore/data_type.h"
+#include "tensorstore/internal/type_traits.h"
 #include "tensorstore/util/bfloat16.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -54,13 +55,13 @@ namespace {
 
 // https://bugs.python.org/issue39573  Py_SET_TYPE() added to Python 3.9.0a4
 #if PY_VERSION_HEX < 0x030900A4 && !defined(Py_SET_TYPE)
-template<typename T>
-static inline void Py_SET_TYPE(T *ob, PyTypeObject *type) {
-    reinterpret_cast<PyObject*>(ob)->ob_type = type;
+template <typename T>
+static inline void Py_SET_TYPE(T* ob, PyTypeObject* type) {
+  reinterpret_cast<PyObject*>(ob)->ob_type = type;
 }
 #endif
 
-using bfloat16 = tensorstore::bfloat16_t;
+using bfloat16 = ::tensorstore::BFloat16;
 
 struct PyDecrefDeleter {
   void operator()(PyObject* p) const { Py_DECREF(p); }
