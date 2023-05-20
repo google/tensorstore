@@ -256,8 +256,13 @@ Result<S3Credentials> S3CredentialProvider::GetCredentials() const {
  std::vector<std::string> errors = {"Unable to obtain S3 credentials"};
 
  for(auto & source: sources_) {
-  auto credentials = source->GetCredentials(context_);
-  if(credentials.ok()) return credentials;
+   auto credentials = source->GetCredentials(context_);
+
+   if(credentials.ok()) {
+     ABSL_LOG(INFO) << "Using credentials from " << source->Provenance();
+     return credentials;
+   }
+
    errors.push_back(credentials.status().ToString());
   }
 

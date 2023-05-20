@@ -67,22 +67,26 @@ struct S3CredentialContext {
 class S3CredentialSource {
 public:
  virtual Result<S3Credentials> GetCredentials(const S3CredentialContext & context) = 0;
+ virtual std::string Provenance() const = 0;
 };
 
 class EnvironmentCredentialSource : public S3CredentialSource {
 public:
  Result<S3Credentials> GetCredentials(const S3CredentialContext & context) override;
+ std::string Provenance() const override { return "Environment Variables"; }
 };
 
 class FileCredentialSource : public S3CredentialSource {
 public:
  Result<S3Credentials> GetCredentials(const S3CredentialContext & context) override;
+ std::string Provenance() const override { return "Credentials File"; }
 };
 
 class EC2MetadataCredentialSource : public S3CredentialSource {
 public:
  Result<S3Credentials> GetCredentials(const S3CredentialContext & context) override
     { return S3Credentials().MakeResult(); }
+ std::string Provenance() const override { return "EC2 Metadata Server"; }
 };
 
 class S3CredentialProvider {
