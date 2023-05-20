@@ -60,40 +60,39 @@ public:
 }
 };
 
+struct S3CredentialContext {
+  std::string profile_;
+};
+
 class S3CredentialSource {
-protected:
- absl::Time last_accessed_;
 public:
- S3CredentialSource() : last_accessed_(absl::Now()) {};
- virtual void Refresh() {};
- virtual S3Credentials GetCredentials() = 0;
+ virtual Result<S3Credentials> GetCredentials(const S3CredentialContext & context) = 0;
 };
 
 class EnvironmentCredentialSource : public S3CredentialSource {
 public:
- S3Credentials GetCredentials() override { return S3Credentials(); }
+ Result<S3Credentials> GetCredentials(const S3CredentialContext & context) override;
 };
 
 class FileCredentialSource : public S3CredentialSource {
-private:
- std::string filename_;
- std::string profile_;
 public:
- FileCredentialSource(std::string_view filename="", std::string_view profile="")
-    : filename_(filename), profile_(profile) {}
- S3Credentials GetCredentials() override { return S3Credentials(); }
+ Result<S3Credentials> GetCredentials(const S3CredentialContext & context) override;
 };
 
 class EC2MetadataCredentialSource : public S3CredentialSource {
 public:
- S3Credentials GetCredentials() override { return S3Credentials(); }
+ Result<S3Credentials> GetCredentials(const S3CredentialContext & context) override
+    { return S3Credentials().MakeResult(); }
 };
 
 class S3CredentialProvider {
 private:
   std::vector<std::unique_ptr<S3CredentialSource>> sources_;
+  S3CredentialContext context_;
 
 public:
+  void SetProfile(std::string_view profile) { context_.profile_ = profile; }
+
   S3CredentialProvider() {}
   static S3CredentialProvider DefaultS3CredentialProvider() {
     auto provider = S3CredentialProvider();
@@ -102,9 +101,11 @@ public:
     provider.sources_.emplace_back(std::make_unique<EC2MetadataCredentialSource>());
     return provider;
   }
+
+  Result<S3Credentials> GetCredentials() const;
 };
 
-Result<S3Credentials> GetCredentials(const std::string & profile="");
+Result<S3Credentials> GetS3Credentials(const std::string & profile="");
 
 }
 }

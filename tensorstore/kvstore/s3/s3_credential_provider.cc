@@ -70,18 +70,22 @@ constexpr char kEnvAwsCredentialsFile[] = "AWS_SHARED_CREDENTIALS_FILE";
 constexpr char kDefaultAwsDirectory[] = ".aws";
 constexpr char kDefaultAwsCredentialsFile[] = "credentials";
 
-
+/// Returns whether the given path points to a readable file.
+bool IsFile(const std::string& filename) {
+  std::ifstream fstream(filename.c_str());
+  return fstream.good();
+}
 
 /// https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html#cli-configure-files-format
 Result<S3Credentials> ParseCredentialsFile(
-    const std::string& file_name,
-    const std::string& profile) {
-  std::ifstream file_stream(file_name);
+    const std::string & filename,
+    std::string_view profile) {
+  std::ifstream file_stream(filename);
 
   if (!file_stream) {
     return absl::NotFoundError(
         tensorstore::StrCat("Could not open the credentials file "
-                            "in location [", file_name, "]"));
+                            "in location [", filename, "]"));
   }
 
   S3Credentials credentials;
@@ -116,20 +120,56 @@ Result<S3Credentials> ParseCredentialsFile(
   return credentials;
 }
 
-/// Returns whether the given path points to a readable file.
-bool IsFile(const std::string& filename) {
-  std::ifstream fstream(filename.c_str());
-  return fstream.good();
+
+Result<S3Credentials> EnvironmentCredentialSource::GetCredentials(const S3CredentialContext & context) {
+    auto access_key = GetEnv(kEnvAwsAccessKeyId);
+    S3Credentials credentials;
+
+    if(access_key.has_value()) {
+        credentials.SetAccessKey(*access_key);
+        auto secret_key = GetEnv(kEnvAwsSecretAccessKey);
+
+        if(secret_key.has_value()) {
+            credentials.SetSecretKey(*secret_key);
+        }
+
+        auto session_token = GetEnv(kEnvAwsSessionToken);
+
+        if(session_token.has_value()) {
+            credentials.SetSessionToken(*session_token);
+        }
+    }
+
+    return credentials.MakeResult();
 }
 
-/// Returns the filename referred to by kDefaultAwsCredentialsFile
-Result<std::string> GetEnvironmentVariableFilename() {
-    auto env = GetEnv(kDefaultAwsCredentialsFile);
-    if(!env || IsFile(*env)) {
-    return absl::NotFoundError(tensorstore::StrCat(
-        "$", kDefaultAwsCredentialsFile, " is not set or corrupt."));
-  }
-  return *env;
+Result<S3Credentials> FileCredentialSource::GetCredentials(const S3CredentialContext & context) {
+    auto credentials_file = GetEnv(kEnvAwsCredentialsFile);
+
+    if(!credentials_file) {
+        auto home_dir = GetEnv("HOME");
+        if(!home_dir) return absl::NotFoundError("Could not read $HOME");
+        credentials_file = JoinPath(*home_dir, kDefaultAwsDirectory, kDefaultAwsCredentialsFile);
+    }
+
+    if(!IsFile(*credentials_file)) {
+        return absl::NotFoundError(
+            tensorstore::StrCat("Could not find the credentials file "
+                                "at location [", *credentials_file, "]"));
+    }
+
+    std::string_view profile = context.profile_;
+
+    if(profile.empty()) {
+        auto env_profile = GetEnv(kEnvAwsDefaultProfile);
+        if(!env_profile) env_profile = GetEnv(kEnvAwsProfile);
+        profile = !env_profile ? kDefaultAwsProfile : *env_profile;
+    }
+
+    TENSORSTORE_ASSIGN_OR_RETURN(auto credentials,
+                                 ParseCredentialsFile(*credentials_file, profile));
+
+    return credentials.MakeResult();
 }
 
 
@@ -207,6 +247,23 @@ Result<S3Credentials> GetS3Credentials(const std::string & profile) {
 
     return absl::NotFoundError(absl::StrJoin(errors, "\n"));
 }
+
+Result<S3Credentials> S3CredentialProvider::GetCredentials() const {
+ if(sources_.size() == 0) {
+  return absl::NotFoundError("No S3 credential sources registered");
+ }
+
+ std::vector<std::string> errors = {"Unable to obtain S3 credentials"};
+
+ for(auto & source: sources_) {
+  auto credentials = source->GetCredentials(context_);
+  if(credentials.ok()) return credentials;
+   errors.push_back(credentials.status().ToString());
+  }
+
+  return absl::NotFoundError(absl::StrJoin(errors, "\n"));
+}
+
 
 }
 }
