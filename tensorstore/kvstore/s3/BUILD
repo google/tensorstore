@@ -39,6 +39,50 @@ tensorstore_cc_library(
     alwayslink = 1,
 )
 
+tensorstore_cc_library(
+    name = "s3_credential_provider",
+    srcs = ["s3_credential_provider.cc"],
+    hdrs = ["s3_credential_provider.h"],
+    deps = [
+        "//tensorstore/internal:env",
+        "//tensorstore/internal:no_destructor",
+        "//tensorstore/internal:path",
+        "//tensorstore/internal/http",
+        "//tensorstore/internal/http:curl_handle",
+        "//tensorstore/internal/http:curl_transport",
+        "//tensorstore/internal/json_binding",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/log:absl_log",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/synchronization",
+        "@com_google_absl//absl/time",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "s3_credential_provider_test",
+    size = "small",
+    srcs = ["s3_credential_provider_test.cc"],
+    deps = [
+        ":s3_credential_provider",
+        "//tensorstore/internal:env",
+        "//tensorstore/internal:path",
+        "//tensorstore/internal:test_util",
+        "//tensorstore/internal/http",
+        "//tensorstore/internal/http:curl_handle",
+        "//tensorstore/internal/http:curl_transport",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "//tensorstore/util:status_testutil",
+        "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
 
 tensorstore_cc_library(
     name = "s3",
