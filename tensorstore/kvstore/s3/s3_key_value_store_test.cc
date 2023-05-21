@@ -106,7 +106,7 @@ TEST(S3KeyValueStoreTest, BadBucketNames) {
   for (auto bucket :
        {"a", "_abc", "abc_", "ABC", "a..b", "a.-.b"}) {
     EXPECT_FALSE(
-        kvstore::Open({{"driver", kDriver}, {"bucket", bucket}}, context)
+        kvstore::Open({{"driver", kDriver}, {"bucket", bucket}, {"endpoint", "https://i.dont.exist"}}, context)
             .result())
         << "bucket: " << bucket;
   }
@@ -116,10 +116,11 @@ TEST(S3KeyValueStoreTest, BadBucketNames) {
         "1234567891234567890123456789123456789012345678912345678901"
         "23456789123456789.B"}) {
     EXPECT_TRUE(
-        kvstore::Open({{"driver", kDriver}, {"bucket", bucket}}, context)
+        kvstore::Open({{"driver", kDriver}, {"bucket", bucket}, {"endpoint", "https://i.dont.exist"}}, context)
             .result())
         << "bucket: " << bucket;
   }
 }
+
 
 };
