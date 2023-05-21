@@ -37,7 +37,7 @@
 using ::tensorstore::Result;
 
 namespace tensorstore {
-namespace internal_storage_s3 {
+namespace internal_auth_s3 {
 
 using ::tensorstore::internal::GetEnv;
 using ::tensorstore::internal::JoinPath;
@@ -75,24 +75,24 @@ bool IsFile(const std::string& filename) {
 }
 
 Result<std::string> GetS3CredentialsFileName() {
-    std::string result;
+  std::string result;
 
-    auto credentials_file = GetEnv(kEnvAwsCredentialsFile);
-    if(!credentials_file) {
-        auto home_dir = GetEnv("HOME");
-        if(!home_dir) {
-            return absl::NotFoundError("Could not read $HOME");
-        }
-        result = JoinPath(*home_dir, kDefaultAwsDirectory, kDefaultAwsCredentialsFile);
-    } else {
-        result = *credentials_file;
+  auto credentials_file = GetEnv(kEnvAwsCredentialsFile);
+  if(!credentials_file) {
+    auto home_dir = GetEnv("HOME");
+    if(!home_dir) {
+      return absl::NotFoundError("Could not read $HOME");
     }
-    if(!IsFile(result)) {
-        return absl::NotFoundError(
-            tensorstore::StrCat("Could not find the credentials file at "
-                                "location [", result, "]"));
-    }
-    return result;
+    result = JoinPath(*home_dir, kDefaultAwsDirectory, kDefaultAwsCredentialsFile);
+  } else {
+    result = *credentials_file;
+  }
+  if(!IsFile(result)) {
+    return absl::NotFoundError(
+      tensorstore::StrCat("Could not find the credentials file at "
+                          "location [", result, "]"));
+  }
+  return result;
 }
 
 /// https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html#cli-configure-files-format
@@ -115,23 +115,23 @@ Result<S3Credentials> FileCredentialProvider::GetCredentials() {
     if(sline.empty() || sline[0] == '#') continue;
 
     if(sline[0] == '[' && sline[sline.size() - 1] == ']') {
-        section_name = absl::StripAsciiWhitespace(sline.substr(1, sline.size() - 2));
-        continue;
+      section_name = absl::StripAsciiWhitespace(sline.substr(1, sline.size() - 2));
+      continue;
     }
 
     if(section_name == profile_) {
-        std::vector<std::string_view> key_value = absl::StrSplit(sline, '=');
-        if(key_value.size() != 2) continue; // Malformed, ignore
-        auto key = absl::StripAsciiWhitespace(key_value[0]);
-        auto value = absl::StripAsciiWhitespace(key_value[1]);
+      std::vector<std::string_view> key_value = absl::StrSplit(sline, '=');
+      if(key_value.size() != 2) continue; // Malformed, ignore
+      auto key = absl::StripAsciiWhitespace(key_value[0]);
+      auto value = absl::StripAsciiWhitespace(key_value[1]);
 
-        if(key == kCfgAwsAccessKeyId) {
-            credentials.SetAccessKey(value);
-        } else if(key == kCfgAwsSecretAccessKeyId) {
-            credentials.SetSecretKey(value);
-        } else if(key == kCfgAwsSessionTokenn) {
-            credentials.SetSessionToken(value);
-        }
+      if(key == kCfgAwsAccessKeyId) {
+          credentials.SetAccessKey(value);
+      } else if(key == kCfgAwsSecretAccessKeyId) {
+          credentials.SetSecretKey(value);
+      } else if(key == kCfgAwsSessionTokenn) {
+          credentials.SetSessionToken(value);
+      }
     }
   }
 
@@ -214,10 +214,8 @@ Result<std::unique_ptr<CredentialProvider>> GetS3CredentialProvider(
     if(credentials.ok()) return credentials;
   }
 
-  return internal_storage_s3::GetDefaultS3CredentialProvider(profile, transport);
+  return internal_auth_s3::GetDefaultS3CredentialProvider(profile, transport);
 }
 
-
-
-}
-}
+} // namespace internal_auth_s3
+} // namespace tensorstore

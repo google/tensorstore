@@ -44,8 +44,8 @@ using ::tensorstore::StrCat;
 using ::tensorstore::internal::JoinPath;
 using ::tensorstore::internal::SetEnv;
 using ::tensorstore::internal::UnsetEnv;
-using ::tensorstore::internal_storage_s3::CredentialProvider;
-using ::tensorstore::internal_storage_s3::GetS3CredentialProvider;
+using ::tensorstore::internal_auth_s3::CredentialProvider;
+using ::tensorstore::internal_auth_s3::GetS3CredentialProvider;
 
 
 class TestData : public tensorstore::internal::ScopedTemporaryDirectory {
@@ -154,9 +154,5 @@ TEST_F(S3CredentialProviderTest, ProviderS3CredentialsFromFileDefaultProfileOver
     ASSERT_EQ(credentials.GetSecretKey(), "wJalrXUtnFEMI/K7MDENG/bPxRfiCZEXAMPLEKEY");
     ASSERT_EQ(credentials.GetSessionToken(), "");
 }
-
-
-
-
 
 }

@@ -31,7 +31,7 @@
 using ::tensorstore::Result;
 
 namespace tensorstore {
-namespace internal_storage_s3 {
+namespace internal_auth_s3 {
 
 
 class S3Credentials {
@@ -103,6 +103,6 @@ Result<std::unique_ptr<CredentialProvider>> GetS3CredentialProvider(
     std::shared_ptr<internal_http::HttpTransport> transport =
         internal_http::GetDefaultHttpTransport());
 
-} // namespace internal_storage_s3
+} // namespace internal_auth_s3
 } // namespace tensorstore
 #endif
