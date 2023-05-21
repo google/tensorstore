@@ -104,7 +104,8 @@ using ::tensorstore::kvstore::SupportedFeatures;
 
 namespace {
 static constexpr char kUriScheme[] = "s3";
-static constexpr char kDotAmazonAwsDotCom[] = ".amazonaws.com";
+static constexpr char kDotS3DotAmazonAwsDotCom[] = ".s3.amazonaws.com";
+static constexpr char kAmzBucketRegionHeader[] = "x-amz-bucket-region";
 }  // namespace
 
 namespace tensorstore {
@@ -237,7 +238,22 @@ class S3KeyValueStore
                                                 S3KeyValueStoreSpec> {
  public:
   const std::string & endpoint() const { return endpoint_; }
-  bool is_aws_endpoint() const { return absl::EndsWith(endpoint_, kDotAmazonAwsDotCom); }
+  bool IsAwsEndpoint() const { return absl::EndsWith(endpoint_, kDotS3DotAmazonAwsDotCom); }
+
+  Result<std::string> GetAwsRegion() const {
+    if(!IsAwsEndpoint()) return "";
+    auto future = transport_->IssueRequest(HttpRequestBuilder("GET", endpoint()).BuildRequest(),
+                                           absl::Cord());
+    if(!future.status().ok()) return future.status();
+    auto & headers = future.value().headers;
+
+    if(auto it = headers.find(kAmzBucketRegionHeader);
+       it != headers.end()) {
+      return it->second;
+    }
+
+    return absl::InvalidArgumentError(tensorstore::StrCat(spec_.bucket, " does not exist"));
+  }
 
   Future<ReadResult> Read(Key key, ReadOptions options) override;
 
@@ -336,7 +352,7 @@ Future<kvstore::DriverPtr> S3KeyValueStoreSpec::DoOpen() const {
   driver->spec_ = data_;
 
   if(data_.endpoint.empty()) {
-    driver->endpoint_ = tensorstore::StrCat("https://", data_.bucket, kDotAmazonAwsDotCom);
+    driver->endpoint_ = tensorstore::StrCat("https://", data_.bucket, kDotS3DotAmazonAwsDotCom);
   } else {
     auto parsed = internal::ParseGenericUri(data_.endpoint);
     if(parsed.scheme != "http" || parsed.scheme != "https") {
@@ -437,11 +453,17 @@ struct ReadTask : public RateLimiterNode,
     start_time_ = absl::Now();
     bool result;
 
+    auto maybe_aws_region = owner->GetAwsRegion();
+    if(!maybe_aws_region.ok()) {
+      promise.SetResult(maybe_aws_region.status());
+      return;
+    }
+
     request_builder.AddRangeHeader(options.byte_range, result);
     auto request = request_builder.EnableAcceptEncoding().BuildRequest(
                     credentials.GetAccessKey(),
                     credentials.GetSecretKey(),
-                    "aws_region",
+                    *maybe_aws_region,
                     kEmptySha256,
                     start_time_);
 
@@ -647,6 +669,12 @@ struct WriteTask : public RateLimiterNode,
       credentials = std::move(*maybe_credentials.value());
     }
 
+    auto maybe_aws_region = owner->GetAwsRegion();
+    if(!maybe_aws_region.ok()) {
+      promise.SetResult(maybe_aws_region.status());
+      return;
+    }
+
     start_time_ = absl::Now();
 
     auto request =
@@ -656,7 +684,7 @@ struct WriteTask : public RateLimiterNode,
             .BuildRequest(
               credentials.GetAccessKey(),
               credentials.GetAccessKey(),
-              "aws_region",
+              *maybe_aws_region,
               payload_sha256(value),
               start_time_);
 
@@ -811,12 +839,18 @@ struct DeleteTask : public RateLimiterNode,
       credentials = std::move(*maybe_credentials.value());
     }
 
+    auto maybe_aws_region = owner->GetAwsRegion();
+    if(!maybe_aws_region.ok()) {
+      promise.SetResult(maybe_aws_region.status());
+      return;
+    }
+
     start_time_ = absl::Now();
 
     auto request = request_builder.BuildRequest(
       credentials.GetAccessKey(),
       credentials.GetSecretKey(),
-      "aws_region",
+      *maybe_aws_region,
       kEmptySha256,
       start_time_);
 
