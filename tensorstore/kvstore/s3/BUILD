@@ -90,8 +90,9 @@ tensorstore_cc_library(
     hdrs = ["object_metadata.h"],
     deps = [
         "//tensorstore/kvstore",
-        ":s3_resource",
+        ":s3_credential_provider",
         ":s3_request_builder",
+        ":s3_resource",
         ":validate",
         "@com_google_absl//absl/strings",
         "//tensorstore/kvstore/gcs:validate",

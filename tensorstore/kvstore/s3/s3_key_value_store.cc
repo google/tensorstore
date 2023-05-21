@@ -39,6 +39,7 @@
 #include "tensorstore/kvstore/gcs/validate.h"
 #include "tensorstore/kvstore/s3/s3_resource.h"
 #include "tensorstore/kvstore/s3/s3_request_builder.h"
+#include "tensorstore/kvstore/s3/s3_credential_provider.h"
 #include "tensorstore/kvstore/s3/object_metadata.h"
 #include "tensorstore/kvstore/s3/validate.h"
 #include "tensorstore/util/execution/any_receiver.h"
@@ -67,6 +68,9 @@ using ::tensorstore::internal::ScheduleAt;
 using ::tensorstore::internal_http::HttpRequest;
 using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_http::HttpTransport;
+using ::tensorstore::internal_auth_s3::S3Credentials;
+using ::tensorstore::internal_auth_s3::CredentialProvider;
+using ::tensorstore::internal_auth_s3::GetS3CredentialProvider;
 using ::tensorstore::internal_storage_gcs::IsRetriable;
 using ::tensorstore::internal_storage_gcs::RateLimiter;
 using ::tensorstore::internal_storage_gcs::RateLimiterNode;
@@ -253,6 +257,23 @@ class S3KeyValueStore
 
   RateLimiter& admission_queue() { return *spec_.request_concurrency->queue; }
 
+  Result<std::optional<S3Credentials>> GetCredentials() {
+    if(!credential_provider_) {
+      auto result = GetS3CredentialProvider(spec_.profile, transport_);
+      if(!result.ok() && absl::IsNotFound(result.status())) {
+        credential_provider_ = nullptr;
+      } else {
+        TENSORSTORE_RETURN_IF_ERROR(result);
+        credential_provider_ = std::move(*result);
+      }
+    }
+    if(!*credential_provider_) return std::nullopt;
+    auto credential_result_ = (*credential_provider_)->GetCredentials();
+    if(!credential_result_.ok() && absl::IsNotFound(credential_result_.status())) {
+      return std::nullopt;
+    }
+    return credential_result_;
+  }
 
 // Apply default backoff/retry logic to the task.
   // Returns whether the task will be retried. On false, max retries have
@@ -287,6 +308,9 @@ class S3KeyValueStore
   internal_storage_gcs::NoRateLimiter no_rate_limiter_;
   std::string endpoint_;  // endpoint url
   SpecData spec_;
+
+  absl::Mutex credential_provider_mutex_;
+  std::optional<std::shared_ptr<CredentialProvider>> credential_provider_;
 };
 
 
@@ -380,27 +404,26 @@ struct ReadTask : public RateLimiterNode,
     // AddUniqueQueryParameterToDisableCaching(media_url);
 
     // TODO: Configure timeouts.
-    // auto maybe_auth_header = owner->GetAuthHeader();
-    // if (!maybe_auth_header.ok()) {
-    //   promise.SetResult(maybe_auth_header.status());
-    //   return;
-    // }
+    auto maybe_credentials = owner->GetCredentials();
+    if (!maybe_credentials.ok()) {
+      promise.SetResult(maybe_credentials.status());
+      return;
+    }
 
     S3RequestBuilder request_builder("GET", endpoint);
+    S3Credentials credentials;
 
-    // TODO(sjperkins). Revisit this functionality
-    // HttpRequestBuilder request_builder("GET", media_url);
-    // if (maybe_auth_header.value().has_value()) {
-    //   request_builder.AddHeader(*maybe_auth_header.value());
-    // }
+    if (maybe_credentials.value().has_value()) {
+      credentials = std::move(*maybe_credentials.value());
+    }
 
     start_time_ = absl::Now();
     bool result;
 
     request_builder.AddRangeHeader(options.byte_range, result);
     auto request = request_builder.EnableAcceptEncoding().BuildRequest(
-                    "aws_access_key",
-                    "aws_secret_access_key",
+                    credentials.GetAccessKey(),
+                    credentials.GetSecretKey(),
                     "aws_region",
                     "payload_hash1234567890abcdef",
                     start_time_);
@@ -595,18 +618,17 @@ struct WriteTask : public RateLimiterNode,
     // it on the uri for a requestor pays bucket.
     // AddUserProjectParam(&upload_url, true, owner->encoded_user_project());
 
-    // auto maybe_auth_header = owner->GetAuthHeader();
-    // if (!maybe_auth_header.ok()) {
-    //   promise.SetResult(maybe_auth_header.status());
-    //   return;
-    // }
+    auto maybe_credentials = owner->GetCredentials();
+    if (!maybe_credentials.ok()) {
+      promise.SetResult(maybe_credentials.status());
+      return;
+    }
     S3RequestBuilder request_builder("POST", upload_url);
+    S3Credentials credentials;
 
-    // TODO(sjperkins). Revisit this functionality
-    // if (maybe_auth_header.value().has_value()) {
-    //   request_builder.AddHeader(*maybe_auth_header.value());
-    // }
-
+    if (maybe_credentials.value().has_value()) {
+      credentials = std::move(*maybe_credentials.value());
+    }
 
     start_time_ = absl::Now();
 
@@ -615,8 +637,8 @@ struct WriteTask : public RateLimiterNode,
             .AddHeader("Content-Type: application/octet-stream")
             .AddHeader(tensorstore::StrCat("Content-Length: ", value.size()))
             .BuildRequest(
-              "aws_access_key",
-              "aws_secret_key",
+              credentials.GetAccessKey(),
+              credentials.GetAccessKey(),
               "aws_region",
               "1234567890abdef",
               start_time_);
@@ -760,23 +782,23 @@ struct DeleteTask : public RateLimiterNode,
     // it on the uri for a requestor pays bucket.
     // AddUserProjectParam(&delete_url, has_query, owner->encoded_user_project());
 
-    // auto maybe_auth_header = owner->GetAuthHeader();
-    // if (!maybe_auth_header.ok()) {
-    //   promise.SetResult(maybe_auth_header.status());
-    //   return;
-    // }
+    auto maybe_credentials = owner->GetCredentials();
+    if (!maybe_credentials.ok()) {
+      promise.SetResult(maybe_credentials.status());
+      return;
+    }
     S3RequestBuilder request_builder("DELETE", delete_url);
+    S3Credentials credentials;
 
-    // TODO(sjperkins). Revisit this functionality
-    // if (maybe_auth_header.value().has_value()) {
-    //   request_builder.AddHeader(*maybe_auth_header.value());
-    // }
+    if (maybe_credentials.value().has_value()) {
+      credentials = std::move(*maybe_credentials.value());
+    }
 
     start_time_ = absl::Now();
 
     auto request = request_builder.BuildRequest(
-      "aws_access_key",
-      "aws_secret_key",
+      credentials.GetAccessKey(),
+      credentials.GetSecretKey(),
       "aws_region",
       "1234567890abcdefpayload",
       start_time_);

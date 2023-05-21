@@ -88,7 +88,11 @@ class FileCredentialProvider : public CredentialProvider {
 };
 
 class EC2MetadataCredentialProvider : public CredentialProvider {
+ private:
+  std::shared_ptr<internal_http::HttpTransport> transport_;
  public:
+  EC2MetadataCredentialProvider(std::shared_ptr<internal_http::HttpTransport> transport)
+    : transport_(transport) {}
   virtual Result<S3Credentials> GetCredentials() override
     { return absl::UnimplementedError("EC2 Metadata Server"); }
 };

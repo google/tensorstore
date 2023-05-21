@@ -177,7 +177,7 @@ Result<std::unique_ptr<CredentialProvider>> GetDefaultS3CredentialProvider(
   // 3. Obtain credentials from EC2 Metadata server
   if(false) {
     ABSL_LOG(INFO) << "Using EC2 Metadata Service S3CredentialProvider";
-    return std::make_unique<EC2MetadataCredentialProvider>();
+    return std::make_unique<EC2MetadataCredentialProvider>(transport);
   }
 
   return absl::NotFoundError(
