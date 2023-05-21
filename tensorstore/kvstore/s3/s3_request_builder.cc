@@ -108,6 +108,9 @@ HttpRequest S3RequestBuilder::BuildRequest(
     std::string_view payload_hash,
     const absl::Time & time) {
 
+  AddHeader(tensorstore::StrCat("x-amz-content-sha256: ", payload_hash));
+  AddHeader(absl::FormatTime("x-amz-date: %Y%m%dT%H%M%SZ\n", time, absl::UTCTimeZone()));
+
   auto & request_ = builder_.request_;
 
   auto url = std::string_view(request_.url());
