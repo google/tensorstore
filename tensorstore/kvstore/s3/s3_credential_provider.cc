@@ -29,6 +29,7 @@
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/path.h"
+#include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
@@ -42,26 +43,23 @@ using ::tensorstore::internal::GetEnv;
 using ::tensorstore::internal::JoinPath;
 using ::tensorstore::internal_http::HttpRequestBuilder;
 
-///
 // https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html
-// AWS user identifier environment variable
+// AWS user identifier
 constexpr char kEnvAwsAccessKeyId[] = "AWS_ACCESS_KEY_ID";
 constexpr char kCfgAwsAccessKeyId[] = "aws_access_key_id";
 
-// AWS user password environment variable
+// AWS user password
 constexpr char kEnvAwsSecretAccessKey[] = "AWS_SECRET_ACCESS_KEY";
 constexpr char kCfgAwsSecretAccessKeyId[] = "aws_secret_access_key";
 
-// AWS session token environment variable
+// AWS session token
 constexpr char kEnvAwsSessionToken[] = "AWS_SESSION_TOKEN";
 constexpr char kCfgAwsSessionTokenn[] = "aws_session_token";
 
 // AWS Profile environment variables
 constexpr char kEnvAwsProfile[] = "AWS_PROFILE";
 constexpr char kEnvAwsDefaultProfile[] = "AWS_DEFAULT_PROFILE";
-
-// Default AWS profile
-constexpr char kDefaultAwsProfile[] = "default";
+constexpr char kDefaultProfile[] = "default";
 
 // Credentials file environment variable
 constexpr char kEnvAwsCredentialsFile[] = "AWS_SHARED_CREDENTIALS_FILE";
@@ -76,23 +74,43 @@ bool IsFile(const std::string& filename) {
   return fstream.good();
 }
 
-/// https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html#cli-configure-files-format
-Result<S3Credentials> ParseCredentialsFile(
-    const std::string & filename,
-    std::string_view profile) {
-  std::ifstream file_stream(filename);
+Result<std::string> GetS3CredentialsFileName() {
+    std::string result;
 
-  if (!file_stream) {
+    auto credentials_file = GetEnv(kEnvAwsCredentialsFile);
+    if(!credentials_file) {
+        auto home_dir = GetEnv("HOME");
+        if(!home_dir) {
+            return absl::NotFoundError("Could not read $HOME");
+        }
+        result = JoinPath(*home_dir, kDefaultAwsDirectory, kDefaultAwsCredentialsFile);
+    } else {
+        result = *credentials_file;
+    }
+    if(!IsFile(result)) {
+        return absl::NotFoundError(
+            tensorstore::StrCat("Could not find the credentials file at "
+                                "location [", result, "]"));
+    }
+    return result;
+}
+
+/// https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html#cli-configure-files-format
+Result<S3Credentials> FileCredentialProvider::GetCredentials() {
+  absl::ReaderMutexLock lock(&mutex_);
+  std::ifstream ifs(filename_);
+
+  if (!ifs) {
     return absl::NotFoundError(
         tensorstore::StrCat("Could not open the credentials file "
-                            "in location [", filename, "]"));
+                            "at location [", filename_, "]"));
   }
 
   S3Credentials credentials;
   std::string section_name;
   std::string line;
 
-  while (std::getline(file_stream, line)) {
+  while (std::getline(ifs, line)) {
     auto sline = absl::StripAsciiWhitespace(line);
     if(sline.empty() || sline[0] == '#') continue;
 
@@ -101,7 +119,7 @@ Result<S3Credentials> ParseCredentialsFile(
         continue;
     }
 
-    if(section_name == profile) {
+    if(section_name == profile_) {
         std::vector<std::string_view> key_value = absl::StrSplit(sline, '=');
         if(key_value.size() != 2) continue; // Malformed, ignore
         auto key = absl::StripAsciiWhitespace(key_value[0]);
@@ -120,154 +138,85 @@ Result<S3Credentials> ParseCredentialsFile(
   return credentials;
 }
 
+Result<std::unique_ptr<CredentialProvider>> GetDefaultS3CredentialProvider(
+    std::string_view profile,
+    std::shared_ptr<internal_http::HttpTransport> transport) {
 
-Result<S3Credentials> EnvironmentCredentialSource::GetCredentials(const S3CredentialContext & context) {
-    auto access_key = GetEnv(kEnvAwsAccessKeyId);
+  // 1. Obtain credentials from environment variables
+  if(auto access_key = GetEnv(kEnvAwsAccessKeyId); access_key.has_value()) {
+    ABSL_LOG(INFO) << "Using Environment Variable S3CredentialProvider";
     S3Credentials credentials;
+    credentials.SetAccessKey(*access_key);
+    auto secret_key = GetEnv(kEnvAwsSecretAccessKey);
 
-    if(access_key.has_value()) {
-        credentials.SetAccessKey(*access_key);
-        auto secret_key = GetEnv(kEnvAwsSecretAccessKey);
-
-        if(secret_key.has_value()) {
-            credentials.SetSecretKey(*secret_key);
-        }
-
-        auto session_token = GetEnv(kEnvAwsSessionToken);
-
-        if(session_token.has_value()) {
-            credentials.SetSessionToken(*session_token);
-        }
+    if(secret_key.has_value()) {
+      credentials.SetSecretKey(*secret_key);
     }
 
-    return credentials.MakeResult();
-}
+    auto session_token = GetEnv(kEnvAwsSessionToken);
 
-Result<S3Credentials> FileCredentialSource::GetCredentials(const S3CredentialContext & context) {
-    auto credentials_file = GetEnv(kEnvAwsCredentialsFile);
-
-    if(!credentials_file) {
-        auto home_dir = GetEnv("HOME");
-        if(!home_dir) return absl::NotFoundError("Could not read $HOME");
-        credentials_file = JoinPath(*home_dir, kDefaultAwsDirectory, kDefaultAwsCredentialsFile);
+    if(session_token.has_value()) {
+      credentials.SetSessionToken(*session_token);
     }
 
-    if(!IsFile(*credentials_file)) {
-        return absl::NotFoundError(
-            tensorstore::StrCat("Could not find the credentials file "
-                                "at location [", *credentials_file, "]"));
-    }
-
-    std::string_view profile = context.profile_;
-
-    if(profile.empty()) {
-        auto env_profile = GetEnv(kEnvAwsDefaultProfile);
-        if(!env_profile) env_profile = GetEnv(kEnvAwsProfile);
-        profile = !env_profile ? kDefaultAwsProfile : *env_profile;
-    }
-
-    TENSORSTORE_ASSIGN_OR_RETURN(auto credentials,
-                                 ParseCredentialsFile(*credentials_file, profile));
-
-    return credentials.MakeResult();
-}
-
-
-Result<S3Credentials> GetS3CredentialsFromEnvironment() {
-    auto access_key = GetEnv(kEnvAwsAccessKeyId);
-    S3Credentials credentials;
-
-    if(access_key.has_value()) {
-        credentials.SetAccessKey(*access_key);
-        auto secret_key = GetEnv(kEnvAwsSecretAccessKey);
-
-        if(secret_key.has_value()) {
-            credentials.SetSecretKey(*secret_key);
-        }
-
-        auto session_token = GetEnv(kEnvAwsSessionToken);
-
-        if(session_token.has_value()) {
-            credentials.SetSessionToken(*session_token);
-        }
-    }
-
-    return credentials.MakeResult();
-}
-
-Result<S3Credentials> GetS3CredentialsFromConfigFileProfile(std::string profile) {
-    auto credentials_file = GetEnv(kEnvAwsCredentialsFile);
-
-    if(!credentials_file) {
-        auto home_dir = GetEnv("HOME");
-
-        if(!home_dir) {
-            return absl::NotFoundError("Could not read $HOME");
-        }
-
-        credentials_file = JoinPath(*home_dir, kDefaultAwsDirectory, kDefaultAwsCredentialsFile);
-    }
-
-    if(!IsFile(*credentials_file)) {
-        return absl::NotFoundError(
-            tensorstore::StrCat("Could not find the credentials file in the "
-                                "standard location [", *credentials_file, "]"));
-    }
-
-    if(profile.empty()) {
-        auto env_profile = GetEnv(kEnvAwsDefaultProfile);
-        if(!env_profile) env_profile = GetEnv(kEnvAwsProfile);
-        profile = !env_profile ? kDefaultAwsProfile : *env_profile;
-    }
-
-    TENSORSTORE_ASSIGN_OR_RETURN(auto credentials,
-                                 ParseCredentialsFile(*credentials_file, profile));
-    return credentials.MakeResult();
-}
-
-Result<S3Credentials> GetS3CredentialsFromEC2Metadata() {
-    return absl::UnimplementedError("EC2 Metadata credential extraction not implemented");
-}
-
-Result<S3Credentials> GetS3Credentials(const std::string & profile) {
-    std::vector<Result<S3Credentials>> credentials = {
-        GetS3CredentialsFromEnvironment(),
-        GetS3CredentialsFromConfigFileProfile(profile),
-        GetS3CredentialsFromEC2Metadata()};
-
-    for(auto & credential: credentials) {
-        if(credential.ok()) return credential;
-    }
-
-    std::vector<std::string> errors = {"No valid S3 credentials were found."};
-
-    for(auto & credential: credentials) {
-        errors.push_back(credential.status().ToString());
-    }
-
-    return absl::NotFoundError(absl::StrJoin(errors, "\n"));
-}
-
-Result<S3Credentials> S3CredentialProvider::GetCredentials() const {
- if(sources_.size() == 0) {
-  return absl::NotFoundError("No S3 credential sources registered");
- }
-
- std::vector<std::string> errors = {"Unable to obtain S3 credentials"};
-
- for(auto & source: sources_) {
-   auto credentials = source->GetCredentials(context_);
-
-   if(credentials.ok()) {
-     ABSL_LOG(INFO) << "Using credentials from " << source->Provenance();
-     return credentials;
-   }
-
-   errors.push_back(credentials.status().ToString());
+    return std::make_unique<EnvironmentCredentialProvider>(std::move(credentials));
   }
 
-  return absl::NotFoundError(absl::StrJoin(errors, "\n"));
+  // 2. Obtain credentials from AWS_SHARED_CREDENTIALS_FILE or ~/.aws/credentials
+  if(auto credentials_file = GetS3CredentialsFileName(); credentials_file.ok()) {
+    std::optional<std::string> env_profile;  // value must not outlive view
+    if(profile.empty()) {
+        env_profile = GetEnv(kEnvAwsDefaultProfile);
+        if(!env_profile) env_profile = GetEnv(kEnvAwsProfile);
+        profile = !env_profile ? kDefaultProfile : *env_profile;
+    }
+    ABSL_LOG(INFO) << "Using File S3CredentialProvider with profile " << profile;
+    return std::make_unique<FileCredentialProvider>(credentials_file.value(), profile);
+  }
+
+  // 3. Obtain credentials from EC2 Metadata server
+  if(false) {
+    ABSL_LOG(INFO) << "Using EC2 Metadata Service S3CredentialProvider";
+    return std::make_unique<EC2MetadataCredentialProvider>();
+  }
+
+  return absl::NotFoundError(
+    "No credentials provided in environment variables, "
+    "credentials file not found and not running on AWS.");
 }
+
+struct CredentialProviderRegistry {
+ std::vector<std::pair<int, S3CredentialProvider>> providers;
+ absl::Mutex mutex;
+};
+
+CredentialProviderRegistry& GetS3ProviderRegistry() {
+ static internal::NoDestructor<CredentialProviderRegistry> registry;
+ return *registry;
+}
+
+
+void RegisterS3CredentialProviderProvider(S3CredentialProvider provider, int priority) {
+  auto& registry = GetS3ProviderRegistry();
+  absl::WriterMutexLock lock(&registry.mutex);
+  registry.providers.emplace_back(priority, std::move(provider));
+  std::sort(registry.providers.begin(), registry.providers.end(),
+            [](const auto& a, const auto& b) { return a.first < b.first; });
+}
+
+Result<std::unique_ptr<CredentialProvider>> GetS3CredentialProvider(
+    std::string_view profile,
+    std::shared_ptr<internal_http::HttpTransport> transport) {
+  auto& registry = GetS3ProviderRegistry();
+  absl::WriterMutexLock lock(&registry.mutex);
+  for(const auto& provider : registry.providers) {
+    auto credentials = provider.second();
+    if(credentials.ok()) return credentials;
+  }
+
+  return internal_storage_s3::GetDefaultS3CredentialProvider(profile, transport);
+}
+
 
 
 }

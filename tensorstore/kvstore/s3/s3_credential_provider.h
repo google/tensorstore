@@ -15,10 +15,17 @@
 #ifndef TENSORSTORE_KVSTORE_S3_S3_CREDENTIAL_PROVIDER_H_
 #define TENSORSTORE_KVSTORE_S3_S3_CREDENTIAL_PROVIDER_H
 
+#include <functional>
 #include <string>
 #include <string_view>
 #include <map>
+#include <memory>
 
+#include "absl/synchronization/mutex.h"
+#include "absl/time/time.h"
+#include "tensorstore/internal/http/curl_handle.h"
+#include "tensorstore/internal/http/curl_transport.h"
+#include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/util/result.h"
 
 using ::tensorstore::Result;
@@ -34,9 +41,12 @@ private:
  std::string session_token_;
 
 public:
-  explicit S3Credentials() {}
-  explicit S3Credentials(std::string_view access_key, std::string_view secret_key, std::string_view session_token)
-    : access_key_(access_key), secret_key_(secret_key), session_token_(session_token)
+  explicit S3Credentials(std::string_view access_key="",
+                         std::string_view secret_key="",
+                         std::string_view session_token="")
+    : access_key_(access_key),
+      secret_key_(secret_key),
+      session_token_(session_token)
     {}
 
   void SetAccessKey(std::string_view access_key) { access_key_ = access_key; }
@@ -47,71 +57,52 @@ public:
   const std::string & GetSecretKey() const { return secret_key_; }
   const std::string & GetSessionToken() const { return session_token_; }
 
-  Result<S3Credentials> MakeResult() {
-    if(!access_key_.empty() && !secret_key_.empty()) {
-        return std::move(*this);
-    } else if(access_key_.empty()) {
-        return absl::InvalidArgumentError("No access key was found");
-    } else if (secret_key_.empty()) {
-        return absl::InvalidArgumentError("No secret key was found");
-    }
-
-    return absl::InternalError("S3Credentials in invalid state");
-}
+  bool IsValid() const { return !access_key_.empty(); }
 };
 
-struct S3CredentialContext {
+class CredentialProvider {
+ public:
+  virtual ~CredentialProvider() = default;
+  virtual Result<S3Credentials> GetCredentials() = 0;
+};
+
+class EnvironmentCredentialProvider : public CredentialProvider {
+ private:
+  S3Credentials credentials_;
+ public:
+  EnvironmentCredentialProvider(const S3Credentials & credentials)
+    : credentials_(credentials) {}
+  virtual Result<S3Credentials> GetCredentials() override
+    { return credentials_; }
+};
+
+class FileCredentialProvider : public CredentialProvider {
+ private:
+  absl::Mutex mutex_;
+  std::string filename_;
   std::string profile_;
+ public:
+  FileCredentialProvider(std::string_view filename, std::string_view profile) :
+    filename_(filename), profile_(profile) {}
+  virtual Result<S3Credentials> GetCredentials() override;
 };
 
-class S3CredentialSource {
-public:
- virtual Result<S3Credentials> GetCredentials(const S3CredentialContext & context) = 0;
- virtual std::string Provenance() const = 0;
+class EC2MetadataCredentialProvider : public CredentialProvider {
+ public:
+  virtual Result<S3Credentials> GetCredentials() override
+    { return absl::UnimplementedError("EC2 Metadata Server"); }
 };
 
-class EnvironmentCredentialSource : public S3CredentialSource {
-public:
- Result<S3Credentials> GetCredentials(const S3CredentialContext & context) override;
- std::string Provenance() const override { return "Environment Variables"; }
-};
+using S3CredentialProvider =
+    std::function<Result<std::unique_ptr<CredentialProvider>>()>;
 
-class FileCredentialSource : public S3CredentialSource {
-public:
- Result<S3Credentials> GetCredentials(const S3CredentialContext & context) override;
- std::string Provenance() const override { return "Credentials File"; }
-};
+void RegisterS3CredentialProviderProvider(S3CredentialProvider provider, int priority);
 
-class EC2MetadataCredentialSource : public S3CredentialSource {
-public:
- Result<S3Credentials> GetCredentials(const S3CredentialContext & context) override
-    { return S3Credentials().MakeResult(); }
- std::string Provenance() const override { return "EC2 Metadata Server"; }
-};
+Result<std::unique_ptr<CredentialProvider>> GetS3CredentialProvider(
+    std::string_view profile="",
+    std::shared_ptr<internal_http::HttpTransport> transport =
+        internal_http::GetDefaultHttpTransport());
 
-class S3CredentialProvider {
-private:
-  std::vector<std::unique_ptr<S3CredentialSource>> sources_;
-  S3CredentialContext context_;
-
-public:
-  void SetProfile(std::string_view profile) { context_.profile_ = profile; }
-
-  S3CredentialProvider() {}
-  static S3CredentialProvider DefaultS3CredentialProvider() {
-    auto provider = S3CredentialProvider();
-    provider.sources_.emplace_back(std::make_unique<EnvironmentCredentialSource>());
-    provider.sources_.emplace_back(std::make_unique<FileCredentialSource>());
-    provider.sources_.emplace_back(std::make_unique<EC2MetadataCredentialSource>());
-    return provider;
-  }
-
-  Result<S3Credentials> GetCredentials() const;
-};
-
-Result<S3Credentials> GetS3Credentials(const std::string & profile="");
-
-}
-}
-
+} // namespace internal_storage_s3
+} // namespace tensorstore
 #endif
