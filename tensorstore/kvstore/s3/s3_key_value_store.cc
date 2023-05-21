@@ -19,6 +19,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
 
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
@@ -30,6 +31,7 @@
 #include "tensorstore/internal/metrics/histogram.h"
 #include "tensorstore/internal/retry.h"
 #include "tensorstore/internal/schedule_at.h"
+#include "tensorstore/internal/digest/sha256.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
@@ -65,6 +67,7 @@
 using ::tensorstore::internal::IntrusivePtr;
 using ::tensorstore::internal::DataCopyConcurrencyResource;
 using ::tensorstore::internal::ScheduleAt;
+using ::tensorstore::internal::SHA256Digester;
 using ::tensorstore::internal_http::HttpRequest;
 using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_http::HttpTransport;
@@ -142,6 +145,20 @@ auto& s3_delete_range = internal_metrics::Counter<int64_t>::New(
 
 auto& s3_list = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/s3/list", "S3 driver kvstore::List calls");
+
+static constexpr char kEmptySha256[] =
+  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+
+std::string payload_sha256(const absl::Cord & cord=absl::Cord()) {
+  SHA256Digester sha256;
+  sha256.Write(cord);
+  const auto digest = sha256.Digest();
+  auto digest_sv = std::string_view(
+    reinterpret_cast<const char *>(digest.begin()),
+    digest.size());
+
+  return absl::BytesToHexString(digest_sv);
+}
 
 struct S3KeyValueStoreSpecData {
   std::string bucket;
@@ -318,7 +335,7 @@ Future<kvstore::DriverPtr> S3KeyValueStoreSpec::DoOpen() const {
   auto driver = internal::MakeIntrusivePtr<S3KeyValueStore>();
   driver->spec_ = data_;
 
-  if(data_.endpoint.size() == 0) {
+  if(data_.endpoint.empty()) {
     driver->endpoint_ = tensorstore::StrCat("https://", data_.bucket, kDotAmazonAwsDotCom);
   } else {
     auto parsed = internal::ParseGenericUri(data_.endpoint);
@@ -388,7 +405,7 @@ struct ReadTask : public RateLimiterNode,
       return;
     }
 
-    // TODO(sjperkins). Revisit this functionality
+    // TODO(sjperkins). Introduce S3 versioning logic here
     /// Reads contents of a S3 object.
     // std::string media_url = tensorstore::StrCat(resource, "?alt=media");
 
@@ -425,7 +442,7 @@ struct ReadTask : public RateLimiterNode,
                     credentials.GetAccessKey(),
                     credentials.GetSecretKey(),
                     "aws_region",
-                    "payload_hash1234567890abcdef",
+                    kEmptySha256,
                     start_time_);
 
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS)
@@ -521,7 +538,7 @@ struct ReadTask : public RateLimiterNode,
             "Requested byte range ", options.byte_range,
             " was not satisfied by s3 response of size ", payload_size));
       }
-      // assert(payload_size == std::get<2>(content_range_tuple));
+      assert(payload_size == std::get<2>(content_range_tuple));
       read_result.state = kvstore::ReadResult::kValue;
       read_result.value = httpresponse.payload;
     }
@@ -543,7 +560,7 @@ Future<kvstore::ReadResult> S3KeyValueStore::Read(Key key,
   if (!IsValidObjectName(key)) {
     return absl::InvalidArgumentError("Invalid S3 object name");
   }
-  // TODO(sjperkins). Revisit this functionality
+    // TODO(sjperkins). Introduce S3 versioning logic here
   // if (!IsValidStorageGeneration(options.if_equal) ||
   //     !IsValidStorageGeneration(options.if_not_equal)) {
   //   return absl::InvalidArgumentError("Malformed StorageGeneration");
@@ -609,7 +626,7 @@ struct WriteTask : public RateLimiterNode,
     std::string upload_url =
         tensorstore::StrCat(owner->endpoint_, "/", encoded_object_name);
 
-    // TODO(sjperkins). Revisit this functionality
+    // TODO(sjperkins). Introduce S3 versioning logic here
     // Add the ifGenerationNotMatch condition.
     // AddGenerationParam(&upload_url, true, "ifGenerationMatch",
     //                    options.if_equal);
@@ -640,7 +657,7 @@ struct WriteTask : public RateLimiterNode,
               credentials.GetAccessKey(),
               credentials.GetAccessKey(),
               "aws_region",
-              "1234567890abdef",
+              payload_sha256(value),
               start_time_);
 
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS)
@@ -723,7 +740,7 @@ struct WriteTask : public RateLimiterNode,
     auto parsed_object_metadata = ParseObjectMetadata(payload.Flatten());
     TENSORSTORE_RETURN_IF_ERROR(parsed_object_metadata);
 
-    // TODO(sjperkins). Revisit this functionality
+    // TODO(sjperkins). Introduce S3 versioning logic here
     // r.generation =
     //     StorageGeneration::FromUint64(parsed_object_metadata->generation);
     return r;
@@ -766,14 +783,14 @@ struct DeleteTask : public RateLimiterNode,
         });
   }
 
-  /// Removes an object from GCS.
+  /// Removes an object from S3.
   void Retry() {
     if (!promise.result_needed()) {
       return;
     }
     std::string delete_url = resource;
 
-    // TODO(sjperkins). Revisit this functionality
+    // TODO(sjperkins). Introduce S3 versioning logic here
     // Add the ifGenerationNotMatch condition.
     // bool has_query = AddGenerationParam(&delete_url, false, "ifGenerationMatch",
     //                                     options.if_equal);
@@ -800,7 +817,7 @@ struct DeleteTask : public RateLimiterNode,
       credentials.GetAccessKey(),
       credentials.GetSecretKey(),
       "aws_region",
-      "1234567890abcdefpayload",
+      kEmptySha256,
       start_time_);
 
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS)
@@ -874,7 +891,7 @@ Future<TimestampedStorageGeneration> S3KeyValueStore::Write(
   if (!IsValidObjectName(key)) {
     return absl::InvalidArgumentError("Invalid S3 object name");
   }
-  // TODO(sjperkins). Revisit this functionality
+    // TODO(sjperkins). Introduce S3 versioning logic here
   // if (!IsValidStorageGeneration(options.if_equal)) {
   //   return absl::InvalidArgumentError("Malformed StorageGeneration");
   // }
@@ -941,7 +958,7 @@ struct ListTask : public RateLimiterNode,
     // Construct the base LIST url. This will be modified to include the
     // nextPageToken
     base_list_url_ = resource_;
-    // TODO(sjperkins). Revisit this functionality
+    // TODO(sjperkins). Introduce S3 versioning logic here
     // has_query_parameters_ = AddUserProjectParam(&base_list_url_, false,
     //                                             owner_->encoded_user_project());
     if (auto& inclusive_min = options_.range.inclusive_min;
@@ -998,25 +1015,27 @@ struct ListTask : public RateLimiterNode,
     }
 
     // TODO(sjperkins). Revisit this functionality
-    // auto auth_header = owner_->GetAuthHeader();
-    // if (!auth_header.ok()) {
-    //   execution::set_error(receiver_, std::move(auth_header).status());
-    //   execution::set_stopping(receiver_);
-    //   return;
-    // }
+    auto maybe_credentials = owner_->GetCredentials();
+    if(!maybe_credentials.ok()) {
+      execution::set_error(receiver_, std::move(maybe_credentials).status());
+      execution::set_stopping(receiver_);
+      return;
+    }
 
     S3RequestBuilder request_builder("GET", list_url);
-    // TODO(sjperkins). Revisit this functionality
-    // if (auth_header->has_value())
-    //   request_builder.AddHeader(auth_header->value());
+    S3Credentials credentials;
+
+    if(maybe_credentials.value().has_value()) {
+      credentials = std::move(*maybe_credentials.value());
+    }
 
     start_time_ = absl::Now();
 
     auto request = request_builder.BuildRequest(
-      "aws_access_key",
-      "aws_secret_key",
+      credentials.GetAccessKey(),
+      credentials.GetSecretKey(),
       "aws_region",
-      "1234567890abcdef",
+      kEmptySha256,
       start_time_);
 
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS)
@@ -1153,17 +1172,6 @@ Future<const void> S3KeyValueStore::DeleteRange(KeyRange range) {
                              std::move(op.promise)});
   return std::move(op.future);
 }
-
-
-
-
-
-
-
-
-
-
-
 
 Result<kvstore::Spec> ParseS3Url(std::string_view url) {
   auto parsed = internal::ParseGenericUri(url);

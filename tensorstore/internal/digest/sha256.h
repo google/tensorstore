@@ -20,6 +20,8 @@
 
 #include <openssl/sha.h>
 
+#include "absl/strings/cord.h"
+
 namespace tensorstore {
 namespace internal {
 
@@ -30,6 +32,10 @@ class SHA256Digester {
 
   void Write(std::string_view src) {
     SHA256_Update(&ctx_, src.data(), src.size());
+  }
+
+  void Write(const absl::Cord & cord) {
+    for(std::string_view chunk: cord.Chunks()) Write(chunk);
   }
 
   using DigestType = std::array<uint8_t, SHA256_DIGEST_LENGTH>;
