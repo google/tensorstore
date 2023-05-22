@@ -43,7 +43,7 @@ TEST(S3RequestBuilderTest, AWS4SignatureGetExample) {
 
     auto url = absl::StrFormat("https://%s/test.txt", bucket);
     auto host = absl::StrFormat("%s.s3.amazonaws.com", bucket);
-    auto x_amz_date = absl::FormatTime("%Y%m%dT%H%M%SZ\n", time, utc);
+    auto x_amz_date = absl::FormatTime("%Y%m%dT%H%M%SZ", time, utc);
 
     std::vector<std::string> headers = {
         absl::StrCat("host: ", host),
@@ -116,7 +116,7 @@ TEST(S3RequestBuilderTest, AWS4SignaturePutExample) {
 
     auto url = absl::StrFormat("s3://%s/test$file.text", bucket);
     auto host = absl::StrFormat("%s.s3.amazonaws.com", bucket);
-    auto x_amz_date = absl::FormatTime("%Y%m%dT%H%M%SZ\n", time, utc);
+    auto x_amz_date = absl::FormatTime("%Y%m%dT%H%M%SZ", time, utc);
 
     std::vector<std::string> headers = {
         "date: Fri, 24 May 2013 00:00:00 GMT",
@@ -189,7 +189,7 @@ TEST(S3RequestBuilderTest, AWS4SignatureListObjectsExample) {
 
     auto url = absl::StrFormat("https://%s/", bucket);
     auto host = absl::StrFormat("%s.s3.amazonaws.com", bucket);
-    auto x_amz_date = absl::FormatTime("%Y%m%dT%H%M%SZ\n", time, utc);
+    auto x_amz_date = absl::FormatTime("%Y%m%dT%H%M%SZ", time, utc);
 
     std::vector<std::string> headers = {
         absl::StrCat("host: ", host),
