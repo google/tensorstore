@@ -84,21 +84,21 @@ Context DefaultTestContext() {
 
 TEST(S3KeyValueStoreTest, Basic) {
   auto context = DefaultTestContext();
+  auto bucket = "i-dont-exist";
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
-      kvstore::Open({{"driver", kDriver}, {"bucket", "abcdefgh"}}, context)
+      kvstore::Open({{"driver", kDriver}, {"bucket", bucket}, {"path", "tensorstore/test/"}}, context)
           .result());
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec, store.spec());
   EXPECT_THAT(spec.ToJson(tensorstore::IncludeDefaults{false}),
               ::testing::Optional(
-                  MatchesJson({{"driver", kDriver}, {"bucket", "abcdefgh"},
+                  MatchesJson({{"driver", kDriver}, {"bucket", bucket},
+                               {"path", "tensorstore/test/"},
                                {"endpoint", ""}, {"profile", "default",},
                                {"requester_pays", false}})));
 
-  // TODO(sjperkins):
-  // Reintroduce when Read, Write, List and Delete are implemented
-  // tensorstore::internal::TestKeyValueStoreBasicFunctionality(store);
+  tensorstore::internal::TestKeyValueStoreBasicFunctionality(store);
 }
 
 TEST(S3KeyValueStoreTest, BadBucketNames) {
