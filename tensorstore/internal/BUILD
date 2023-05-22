@@ -1578,6 +1578,7 @@ tensorstore_cc_library(
     deps = [
         ":os_error_code",
         "//tensorstore/util:result",
+        "//tensorstore/util:status",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status",
