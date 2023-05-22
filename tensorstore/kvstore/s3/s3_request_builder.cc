@@ -230,7 +230,7 @@ std::string S3RequestBuilder::CanonicalRequest(
   for(auto header: headers) {
     auto delim_pos = header.find(':');
     assert(delim_pos != std::string::npos && delim_pos + 1 != std::string::npos);
-    cord.Append(header.substr(0, delim_pos));
+    cord.Append(absl::AsciiStrToLower(header.substr(0, delim_pos)));
     cord.Append(":");
     cord.Append(absl::StripAsciiWhitespace(header.substr(delim_pos + 1)));
     cord.Append("\n");
@@ -244,7 +244,7 @@ std::string S3RequestBuilder::CanonicalRequest(
     auto header = std::string_view(*it);
     auto delim_pos = header.find(':');
     assert(delim_pos != std::string::npos);
-    cord.Append(header.substr(0, delim_pos));
+    cord.Append(absl::AsciiStrToLower(header.substr(0, delim_pos)));
   }
 
   cord.Append("\n");
