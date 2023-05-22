@@ -104,7 +104,7 @@ using ::tensorstore::kvstore::SupportedFeatures;
 
 namespace {
 static constexpr char kUriScheme[] = "s3";
-static constexpr char kDotS3DotAmazonAwsDotCom[] = ".s3.amazonaws.com";
+static constexpr char kDotAmazonAwsDotCom[] = ".amazonaws.com";
 static constexpr char kAmzBucketRegionHeader[] = "x-amz-bucket-region";
 }  // namespace
 
@@ -238,7 +238,7 @@ class S3KeyValueStore
                                                 S3KeyValueStoreSpec> {
  public:
   const std::string & endpoint() const { return endpoint_; }
-  bool IsAwsEndpoint() const { return absl::EndsWith(endpoint_, kDotS3DotAmazonAwsDotCom); }
+  bool IsAwsEndpoint() const { return absl::EndsWith(endpoint_, kDotAmazonAwsDotCom); }
 
   Future<ReadResult> Read(Key key, ReadOptions options) override;
 
@@ -333,34 +333,29 @@ class S3KeyValueStore
 };
 
 
-Result<std::string> GetAwsRegion(
-    std::string_view bucket,
-    std::string_view endpoint,
-    const std::shared_ptr<internal_http::HttpTransport> & transport) {
-
-  // aws_region doesn't apply for non aws endpoint
-  if(!absl::EndsWith(endpoint, kDotS3DotAmazonAwsDotCom)) return "";
-  auto future = transport->IssueRequest(
-        HttpRequestBuilder("GET", std::string(endpoint)).BuildRequest(),
-        absl::Cord());
-  if(!future.status().ok()) return future.status();
-  auto & headers = future.value().headers;
-
-  if(auto it = headers.find(kAmzBucketRegionHeader);
-      it != headers.end()) {
-    return it->second;
-  }
-
-  return absl::InvalidArgumentError(tensorstore::StrCat(bucket, " does not exist"));
-}
-
-
 Future<kvstore::DriverPtr> S3KeyValueStoreSpec::DoOpen() const {
   auto driver = internal::MakeIntrusivePtr<S3KeyValueStore>();
   driver->spec_ = data_;
+  driver->transport_ = internal_http::GetDefaultHttpTransport();
 
   if(absl::StripAsciiWhitespace(data_.endpoint).empty()) {
-    driver->endpoint_ = tensorstore::StrCat("https://", data_.bucket, kDotS3DotAmazonAwsDotCom);
+    // Assume AWS
+    // Make global request to get bucket region from response headers,
+    // then create region specific endpoint
+    auto url = tensorstore::StrCat("https://", data_.bucket, ".s3", kDotAmazonAwsDotCom);
+    auto future = driver->transport_->IssueRequest(
+            HttpRequestBuilder("GET", url).BuildRequest(),
+            absl::Cord());
+    if(!future.status().ok()) return future.status();
+    auto & headers = future.value().headers;
+    if(auto it = headers.find(kAmzBucketRegionHeader); it !=headers.end()) {
+      driver->aws_region_ = it->second;
+      driver->endpoint_ = tensorstore::StrCat(
+        "http://", data_.bucket, ".s3.", driver->aws_region_, kDotAmazonAwsDotCom);
+    } else {
+      return absl::InvalidArgumentError(
+        tensorstore::StrCat("bucket ", data_.bucket, " does not exist"));
+    }
   } else {
     auto parsed = internal::ParseGenericUri(data_.endpoint);
     if(parsed.scheme != "http" && parsed.scheme != "https") {
@@ -378,15 +373,11 @@ Future<kvstore::DriverPtr> S3KeyValueStoreSpec::DoOpen() const {
         tensorstore::StrCat("Fragment in endpoint unsupported ", data_.endpoint));
     }
 
+    driver->aws_region_ = "";
     driver->endpoint_ = data_.endpoint;
   }
 
-  driver->transport_ = internal_http::GetDefaultHttpTransport();
-  TENSORSTORE_ASSIGN_OR_RETURN(driver->aws_region_,
-                               GetAwsRegion(data_.bucket,
-                                            driver->endpoint_,
-                                            driver->transport_));
-
+  ABSL_LOG(INFO) << "S3 driver using endpoint [" << driver->endpoint_ << "]";
 
   // NOTE: Remove temporary logging use of experimental feature.
   if (data_.rate_limiter.has_value()) {
@@ -468,12 +459,16 @@ struct ReadTask : public RateLimiterNode,
     bool result;
 
     request_builder.AddRangeHeader(options.byte_range, result);
-    auto request = request_builder.EnableAcceptEncoding().BuildRequest(
-                    credentials.GetAccessKey(),
-                    credentials.GetSecretKey(),
-                    owner->aws_region_,
-                    kEmptySha256,
-                    start_time_);
+    auto request = request_builder
+            .EnableAcceptEncoding()
+            .AddHeader(absl::StrCat("x-amz-content-sha256: ", kEmptySha256))
+            .AddHeader(absl::FormatTime("%Y%m%dT%H%M%SZ", start_time_, absl::UTCTimeZone()))
+            .BuildRequest(
+              credentials.GetAccessKey(),
+              credentials.GetSecretKey(),
+              owner->aws_region_,
+              kEmptySha256,
+              start_time_);
 
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS)
         << "ReadTask: " << request;
@@ -678,16 +673,19 @@ struct WriteTask : public RateLimiterNode,
     }
 
     start_time_ = absl::Now();
+    auto payload_hash = payload_sha256(value);
 
     auto request =
         request_builder  //
             .AddHeader("Content-Type: application/octet-stream")
             .AddHeader(tensorstore::StrCat("Content-Length: ", value.size()))
+            .AddHeader(absl::StrCat("x-amz-content-sha256: ", payload_hash))
+            .AddHeader(absl::FormatTime("%Y%m%dT%H%M%SZ", start_time_, absl::UTCTimeZone()))
             .BuildRequest(
               credentials.GetAccessKey(),
-              credentials.GetAccessKey(),
+              credentials.GetSecretKey(),
               owner->aws_region_,
-              payload_sha256(value),
+              payload_hash,
               start_time_);
 
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS)
@@ -843,12 +841,15 @@ struct DeleteTask : public RateLimiterNode,
 
     start_time_ = absl::Now();
 
-    auto request = request_builder.BuildRequest(
-      credentials.GetAccessKey(),
-      credentials.GetSecretKey(),
-      owner->aws_region_,
-      kEmptySha256,
-      start_time_);
+    auto request = request_builder
+        .AddHeader(absl::StrCat("x-amz-content-sha256: ", kEmptySha256))
+        .AddHeader(absl::FormatTime("%Y%m%dT%H%M%SZ", start_time_, absl::UTCTimeZone()))
+        .BuildRequest(
+          credentials.GetAccessKey(),
+          credentials.GetSecretKey(),
+          owner->aws_region_,
+          kEmptySha256,
+          start_time_);
 
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS)
         << "DeleteTask: " << request;
@@ -1061,12 +1062,15 @@ struct ListTask : public RateLimiterNode,
 
     start_time_ = absl::Now();
 
-    auto request = request_builder.BuildRequest(
-      credentials.GetAccessKey(),
-      credentials.GetSecretKey(),
-      owner_->aws_region_,
-      kEmptySha256,
-      start_time_);
+    auto request = request_builder
+        .AddHeader(absl::StrCat("x-amz-content-sha256: ", kEmptySha256))
+        .AddHeader(absl::FormatTime("%Y%m%dT%H%M%SZ", start_time_, absl::UTCTimeZone()))
+        .BuildRequest(
+          credentials.GetAccessKey(),
+          credentials.GetSecretKey(),
+          owner_->aws_region_,
+          kEmptySha256,
+          start_time_);
 
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS)
         << "List: " << request;
