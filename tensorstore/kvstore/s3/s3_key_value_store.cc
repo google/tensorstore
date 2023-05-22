@@ -461,8 +461,9 @@ struct ReadTask : public RateLimiterNode,
     request_builder.AddRangeHeader(options.byte_range, result);
     auto request = request_builder
             .EnableAcceptEncoding()
+            .AddHeader(absl::StrCat("host: ", std::string(internal::ParseGenericUri(owner->endpoint_).authority_and_path)))
             .AddHeader(absl::StrCat("x-amz-content-sha256: ", kEmptySha256))
-            .AddHeader(absl::FormatTime("%Y%m%dT%H%M%SZ", start_time_, absl::UTCTimeZone()))
+            .AddHeader(absl::FormatTime("x-amz-date: %Y%m%dT%H%M%SZ", start_time_, absl::UTCTimeZone()))
             .BuildRequest(
               credentials.GetAccessKey(),
               credentials.GetSecretKey(),
@@ -679,8 +680,9 @@ struct WriteTask : public RateLimiterNode,
         request_builder  //
             .AddHeader("Content-Type: application/octet-stream")
             .AddHeader(tensorstore::StrCat("Content-Length: ", value.size()))
+            .AddHeader(absl::StrCat("host: ", std::string(internal::ParseGenericUri(owner->endpoint_).authority_and_path)))
             .AddHeader(absl::StrCat("x-amz-content-sha256: ", payload_hash))
-            .AddHeader(absl::FormatTime("%Y%m%dT%H%M%SZ", start_time_, absl::UTCTimeZone()))
+            .AddHeader(absl::FormatTime("x-amz-date: %Y%m%dT%H%M%SZ", start_time_, absl::UTCTimeZone()))
             .BuildRequest(
               credentials.GetAccessKey(),
               credentials.GetSecretKey(),
@@ -842,8 +844,9 @@ struct DeleteTask : public RateLimiterNode,
     start_time_ = absl::Now();
 
     auto request = request_builder
+        .AddHeader(absl::StrCat("host: ", std::string(internal::ParseGenericUri(owner->endpoint_).authority_and_path)))
         .AddHeader(absl::StrCat("x-amz-content-sha256: ", kEmptySha256))
-        .AddHeader(absl::FormatTime("%Y%m%dT%H%M%SZ", start_time_, absl::UTCTimeZone()))
+        .AddHeader(absl::FormatTime("x-amz-date: %Y%m%dT%H%M%SZ", start_time_, absl::UTCTimeZone()))
         .BuildRequest(
           credentials.GetAccessKey(),
           credentials.GetSecretKey(),
@@ -1063,8 +1066,9 @@ struct ListTask : public RateLimiterNode,
     start_time_ = absl::Now();
 
     auto request = request_builder
+        .AddHeader(absl::StrCat("host: ", std::string(internal::ParseGenericUri(owner_->endpoint_).authority_and_path)))
         .AddHeader(absl::StrCat("x-amz-content-sha256: ", kEmptySha256))
-        .AddHeader(absl::FormatTime("%Y%m%dT%H%M%SZ", start_time_, absl::UTCTimeZone()))
+        .AddHeader(absl::FormatTime("x-amz-date: %Y%m%dT%H%M%SZ", start_time_, absl::UTCTimeZone()))
         .BuildRequest(
           credentials.GetAccessKey(),
           credentials.GetSecretKey(),
