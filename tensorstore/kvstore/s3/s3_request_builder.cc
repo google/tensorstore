@@ -180,7 +180,7 @@ std::string S3RequestBuilder::Signature(
   unsigned char signing_key[kHmacSize];
   unsigned char final_key[kHmacSize];
 
-  ComputeHmac(absl::StrFormat("AWS4%s",aws_secret_access_key),
+  ComputeHmac(absl::StrCat("AWS4",aws_secret_access_key),
               absl::FormatTime("%Y%m%d", time, utc), date_key);
   ComputeHmac(date_key, aws_region, date_region_key);
   ComputeHmac(date_region_key, "s3", date_region_service_key);
