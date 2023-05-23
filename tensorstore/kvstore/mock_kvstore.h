@@ -18,6 +18,7 @@
 #include <optional>
 
 #include "absl/status/status.h"
+#include <nlohmann/json.hpp>
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/queue_testutil.h"
 #include "tensorstore/kvstore/driver.h"
@@ -103,6 +104,16 @@ class MockKeyValueStore : public kvstore::Driver {
   ConcurrentQueue<WriteRequest> write_requests;
   ConcurrentQueue<ListRequest> list_requests;
   ConcurrentQueue<DeleteRangeRequest> delete_range_requests;
+
+  // If set to `true`, all requests are logged to `request_log`.  In conjunction
+  // with `forward_to`, tests can set this option and then validate that
+  // `request_log.pop_all()` contains the expected sequence of operations.
+  bool log_requests = false;
+  mutable ConcurrentQueue<::nlohmann::json> request_log;
+
+  // If set, all requests are forwarded immediately rather than added to the
+  // various queues.
+  kvstore::DriverPtr forward_to;
 };
 
 /// Context resource for a `MockKeyValueStore`.

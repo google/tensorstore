@@ -20,11 +20,13 @@
 #include <utility>
 
 #include "absl/status/status.h"
+#include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/queue_testutil.h"
+#include "tensorstore/internal/utf8.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
@@ -47,6 +49,33 @@ namespace jb = tensorstore::internal_json_binding;
 
 Future<kvstore::ReadResult> MockKeyValueStore::Read(Key key,
                                                     ReadOptions options) {
+  if (log_requests) {
+    ::nlohmann::json::object_t log_entry;
+    log_entry.emplace("type", "read");
+    log_entry.emplace("key", key);
+    if (!StorageGeneration::IsUnknown(options.if_equal)) {
+      log_entry.emplace("if_equal", options.if_equal.value);
+    }
+    if (!StorageGeneration::IsUnknown(options.if_not_equal)) {
+      log_entry.emplace("if_not_equal", options.if_not_equal.value);
+    }
+    if (options.staleness_bound != absl::InfiniteFuture()) {
+      log_entry.emplace("staleness_bound",
+                        absl::FormatTime(options.staleness_bound));
+    }
+    if (options.byte_range.inclusive_min != 0) {
+      log_entry.emplace("byte_range_inclusive_min",
+                        options.byte_range.inclusive_min);
+    }
+    if (options.byte_range.exclusive_max) {
+      log_entry.emplace("byte_range_exclusive_max",
+                        *options.byte_range.exclusive_max);
+    }
+    request_log.push(std::move(log_entry));
+  }
+  if (forward_to) {
+    return forward_to->Read(std::move(key), std::move(options));
+  }
   auto [promise, future] = PromiseFuturePair<ReadResult>::Make();
   read_requests.push({std::move(promise), std::move(key), std::move(options)});
   return future;
@@ -54,6 +83,28 @@ Future<kvstore::ReadResult> MockKeyValueStore::Read(Key key,
 
 Future<TimestampedStorageGeneration> MockKeyValueStore::Write(
     Key key, std::optional<Value> value, WriteOptions options) {
+  if (log_requests) {
+    ::nlohmann::json::object_t log_entry;
+    log_entry.emplace("type", value ? "write" : "delete");
+    log_entry.emplace("key", key);
+    if (value) {
+      std::string value_str(*value);
+      if (internal::IsValidUtf8(value_str)) {
+        log_entry.emplace("value", std::move(value_str));
+      } else {
+        log_entry.emplace(
+            "value", std::vector<uint8_t>(value_str.begin(), value_str.end()));
+      }
+    }
+    if (!StorageGeneration::IsUnknown(options.if_equal)) {
+      log_entry.emplace("if_equal", options.if_equal.value);
+    }
+    request_log.push(std::move(log_entry));
+  }
+  if (forward_to) {
+    return forward_to->Write(std::move(key), std::move(value),
+                             std::move(options));
+  }
   auto [promise, future] =
       PromiseFuturePair<TimestampedStorageGeneration>::Make();
   write_requests.push({std::move(promise), std::move(key), std::move(value),
@@ -63,10 +114,39 @@ Future<TimestampedStorageGeneration> MockKeyValueStore::Write(
 
 void MockKeyValueStore::ListImpl(ListOptions options,
                                  AnyFlowReceiver<absl::Status, Key> receiver) {
+  if (log_requests) {
+    ::nlohmann::json::object_t log_entry;
+    log_entry.emplace("type", "list");
+    log_entry.emplace("range",
+                      ::nlohmann::json::array_t{options.range.inclusive_min,
+                                                options.range.exclusive_max});
+    if (options.strip_prefix_length) {
+      log_entry.emplace("strip_prefix_length", options.strip_prefix_length);
+    }
+    if (options.staleness_bound != absl::InfiniteFuture()) {
+      log_entry.emplace("staleness_bound",
+                        absl::FormatTime(options.staleness_bound));
+    }
+    request_log.push(std::move(log_entry));
+  }
+  if (forward_to) {
+    forward_to->ListImpl(std::move(options), std::move(receiver));
+    return;
+  }
   list_requests.push({options, std::move(receiver)});
 }
 
 Future<const void> MockKeyValueStore::DeleteRange(KeyRange range) {
+  if (log_requests) {
+    ::nlohmann::json::object_t log_entry;
+    log_entry.emplace("type", "delete_range");
+    log_entry.emplace("range", ::nlohmann::json::array_t{range.inclusive_min,
+                                                         range.exclusive_max});
+    request_log.push(std::move(log_entry));
+  }
+  if (forward_to) {
+    return forward_to->DeleteRange(std::move(range));
+  }
   auto [promise, future] = PromiseFuturePair<void>::Make();
   delete_range_requests.push({std::move(promise), std::move(range)});
   return future;
@@ -74,6 +154,13 @@ Future<const void> MockKeyValueStore::DeleteRange(KeyRange range) {
 
 kvstore::SupportedFeatures MockKeyValueStore::GetSupportedFeatures(
     const KeyRange& range) const {
+  if (log_requests) {
+    ::nlohmann::json::object_t log_entry;
+    log_entry.emplace("type", "supported_features");
+    log_entry.emplace("range", ::nlohmann::json::array_t{range.inclusive_min,
+                                                         range.exclusive_max});
+    request_log.push(std::move(log_entry));
+  }
   return supported_features;
 }
 
