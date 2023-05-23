@@ -351,7 +351,7 @@ Future<kvstore::DriverPtr> S3KeyValueStoreSpec::DoOpen() const {
     if(auto it = headers.find(kAmzBucketRegionHeader); it !=headers.end()) {
       driver->aws_region_ = it->second;
       driver->endpoint_ = tensorstore::StrCat(
-        "http://", data_.bucket, ".s3.", driver->aws_region_, kDotAmazonAwsDotCom);
+        "https://", data_.bucket, ".s3.", driver->aws_region_, kDotAmazonAwsDotCom);
     } else {
       return absl::InvalidArgumentError(
         tensorstore::StrCat("bucket ", data_.bucket, " does not exist"));
