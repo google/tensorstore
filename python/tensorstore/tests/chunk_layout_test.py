@@ -13,6 +13,8 @@
 # limitations under the License.
 """Tests for tensorstore.ChunkLayout."""
 
+import pickle
+
 import numpy as np
 import pytest
 import tensorstore as ts
@@ -45,6 +47,11 @@ def test_grid_update():
   assert grid.shape == (2, 3, None)
   with pytest.raises(ValueError):
     grid.update(shape=[4, None, None])
+
+
+def test_pickle_grid():
+  x = ts.ChunkLayout.Grid(shape=[10, 12])
+  assert pickle.loads(pickle.dumps(x)) == x
 
 
 def test_json():
@@ -125,3 +132,14 @@ def test_tensorstore_layout():
       chunk=ts.ChunkLayout.Grid(shape=[10, 11]),
       inner_order=[0, 1],
   )
+
+
+def test_pickle_chunk_layout():
+  x = ts.ChunkLayout(
+      write_chunk=ts.ChunkLayout.Grid(shape=[10, 12]),
+      read_chunk=ts.ChunkLayout.Grid(shape=[0, 6]),
+      codec_chunk=ts.ChunkLayout.Grid(shape=[0, 3]),
+      inner_order=[1, 0],
+      grid_origin=[1, 2],
+  )
+  assert pickle.loads(pickle.dumps(x)) == x

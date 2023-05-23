@@ -807,6 +807,7 @@ pybind11_cc_library(
         ":keyword_arguments",
         ":result_type_caster",
         ":sequence_parameter",
+        ":serialization",
         ":status",
         ":tensorstore_module_components",
         "//tensorstore:chunk_layout",

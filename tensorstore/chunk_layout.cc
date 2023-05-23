@@ -2053,3 +2053,8 @@ TENSORSTORE_DEFINE_SERIALIZER_SPECIALIZATION(
     tensorstore::ChunkLayout,
     tensorstore::serialization::JsonBindableSerializer<
         tensorstore::ChunkLayout>())
+
+TENSORSTORE_DEFINE_SERIALIZER_SPECIALIZATION(
+    tensorstore::ChunkLayout::Grid,
+    tensorstore::serialization::JsonBindableSerializer<
+        tensorstore::ChunkLayout::Grid>())

@@ -31,6 +31,7 @@
 #include "python/tensorstore/index.h"
 #include "python/tensorstore/keyword_arguments.h"
 #include "python/tensorstore/result_type_caster.h"
+#include "python/tensorstore/serialization.h"
 #include "python/tensorstore/status.h"
 #include "python/tensorstore/tensorstore_module_components.h"
 #include "tensorstore/chunk_layout.h"
@@ -474,6 +475,7 @@ Group:
         return self == other;
       },
       "Compares two chunk layouts for equality.", py::arg("other"));
+  EnablePicklingFromSerialization(cls);
 }
 
 auto MakeChunkLayoutGridClass(py::class_<ChunkLayout>& cls_chunk_layout) {
@@ -631,6 +633,7 @@ Alias for :py:obj:`.rank`.
         return self == other;
       },
       "Compares two chunk grids for equality.", py::arg("other"));
+  EnablePicklingFromSerialization(cls);
 }
 
 void RegisterChunkLayoutBindings(pybind11::module m, Executor defer) {

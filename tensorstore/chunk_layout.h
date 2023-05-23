@@ -1178,6 +1178,9 @@ absl::Status ChooseReadWriteChunkGrid(const ChunkLayout& constraints,
 }  // namespace tensorstore
 
 TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(tensorstore::ChunkLayout)
+TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(tensorstore::ChunkLayout::Grid)
 TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(tensorstore::ChunkLayout)
+TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(
+    tensorstore::ChunkLayout::Grid)
 
 #endif  // TENSORSTORE_CHUNK_LAYOUT_H_
