@@ -593,8 +593,7 @@ Future<kvstore::ReadResult> S3KeyValueStore::Read(Key key,
   // }
 
   auto encoded_object_name = UriObjectKeyEncode(key);
-  std::string resource = tensorstore::internal::JoinPath(endpoint_, "/",
-                                                         encoded_object_name);
+  std::string resource = tensorstore::StrCat(endpoint_, "/", encoded_object_name);
 
   auto op = PromiseFuturePair<ReadResult>::Make();
   auto state = internal::MakeIntrusivePtr<ReadTask>(
@@ -941,8 +940,7 @@ Future<TimestampedStorageGeneration> S3KeyValueStore::Write(
     intrusive_ptr_increment(state.get());  // adopted by WriteTask::Start.
     write_rate_limiter().Admit(state.get(), &WriteTask::Start);
   } else {
-    std::string resource = tensorstore::internal::JoinPath(
-        endpoint_, "/", encoded_object_name);
+    std::string resource = tensorstore::StrCat(endpoint_, "/", encoded_object_name);
 
     auto state = internal::MakeIntrusivePtr<DeleteTask>(
         IntrusivePtr<S3KeyValueStore>(this), std::move(resource),
@@ -1162,7 +1160,7 @@ void S3KeyValueStore::ListImpl(ListOptions options,
   auto state = internal::MakeIntrusivePtr<ListTask>(
       IntrusivePtr<S3KeyValueStore>(this), std::move(options),
       std::move(receiver),
-      /*resource=*/tensorstore::internal::JoinPath(endpoint_, "/"));
+      /*resource=*/tensorstore::StrCat(endpoint_, "/"));
 
   intrusive_ptr_increment(state.get());  // adopted by ListTask::Start.
   read_rate_limiter().Admit(state.get(), &ListTask::Start);
