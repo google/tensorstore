@@ -29,31 +29,30 @@
 namespace {
 
 using ::tensorstore::AllocateAndConstructShared;
-using ::tensorstore::bfloat16_t;
-using ::tensorstore::bool_t;
-using ::tensorstore::byte_t;
-using ::tensorstore::char_t;
-using ::tensorstore::complex128_t;
-using ::tensorstore::complex64_t;
 using ::tensorstore::DataType;
+using ::tensorstore::DataTypeId;
 using ::tensorstore::DataTypeIdOf;
 using ::tensorstore::dtype_v;
-using ::tensorstore::float16_t;
-using ::tensorstore::float32_t;
-using ::tensorstore::float64_t;
 using ::tensorstore::Index;
 using ::tensorstore::IsElementType;
 using ::tensorstore::IsTrivial;
-using ::tensorstore::json_t;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::StaticDataTypeCast;
-using ::tensorstore::string_t;
 using ::tensorstore::unchecked;
-using ::tensorstore::ustring_t;
 using ::tensorstore::internal::IterationBufferKind;
 using ::tensorstore::internal::IterationBufferPointer;
 using ::tensorstore::serialization::SerializationRoundTrip;
 using ::tensorstore::serialization::TestSerializationRoundTrip;
+
+#define X(T)                                                \
+  using ::tensorstore::T;                                   \
+  static_assert(static_cast<int>(DataTypeId::T) >= 0 &&     \
+                static_cast<int>(DataTypeId::T) <           \
+                    static_cast<int>(DataTypeId::num_ids)); \
+  /**/
+
+TENSORSTORE_FOR_EACH_DATA_TYPE(X)
+#undef X
 
 namespace is_element_type_tests {
 struct ClassT {};
@@ -79,11 +78,12 @@ static_assert(IsElementType<int ClassT::*>);
 static_assert(IsElementType<int (ClassT::*)(int)>);
 }  // namespace is_element_type_tests
 
-struct X {
-  constexpr static int constant_value = 0;
-  std::shared_ptr<const int> value =
-      std::shared_ptr<const int>(std::shared_ptr<void>{}, &constant_value);
-};
+TEST(ElementOperationsTest, DataTypeIdOrder) {
+  int i = 0;
+#define X(T) EXPECT_EQ(i++, static_cast<int>(DataTypeId::T));
+  TENSORSTORE_FOR_EACH_DATA_TYPE(X)
+#undef X
+}
 
 TEST(ElementOperationsTest, UnsignedIntBasic) {
   DataType r = dtype_v<unsigned int>;
@@ -345,6 +345,12 @@ TEST(ElementOperationsTest, FloatCompareSameValue) {
                    IterationBufferPointer{arr2, sizeof(float) * 3},
                    /*status=*/nullptr));
 }
+
+struct X {
+  constexpr static int constant_value = 0;
+  std::shared_ptr<const int> value =
+      std::shared_ptr<const int>(std::shared_ptr<void>{}, &constant_value);
+};
 
 TEST(ElementOperationsTest, Class) {
   DataType r = dtype_v<X>;

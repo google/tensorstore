@@ -265,17 +265,95 @@ struct NumericUstringConvertDataType {
 
 }  // namespace internal_data_type
 
-#define TENSORSTORE_INTERNAL_INHERITED_CONVERT1(TO, FROM, PARENT) \
-  template <>                                                     \
-  struct ConvertDataType<FROM, TO> : public PARENT {};            \
+#define TENSORSTORE_INTERNAL_CONVERT_INT(T)                          \
+  template <>                                                        \
+  struct ConvertDataType<T, string_t>                                \
+      : public internal_data_type::NumericStringConvertDataType {};  \
+  template <>                                                        \
+  struct ConvertDataType<T, ustring_t>                               \
+      : public internal_data_type::NumericUstringConvertDataType {}; \
+  template <>                                                        \
+  struct ConvertDataType<json_t, T>                                  \
+      : public internal_data_type::JsonIntegerConvertDataType {};    \
   /**/
 
-#define TENSORSTORE_INTERNAL_INHERITED_CONVERT(...)                            \
-  TENSORSTORE_PP_EXPAND1(TENSORSTORE_INTERNAL_INHERITED_CONVERT1(__VA_ARGS__)) \
+#define TENSORSTORE_INTERNAL_CONVERT_FLOAT(T)                        \
+  template <>                                                        \
+  struct ConvertDataType<T, string_t>                                \
+      : public internal_data_type::NumericStringConvertDataType {};  \
+  template <>                                                        \
+  struct ConvertDataType<T, ustring_t>                               \
+      : public internal_data_type::NumericUstringConvertDataType {}; \
+  template <>                                                        \
+  struct ConvertDataType<json_t, T>                                  \
+      : public internal_data_type::JsonFloatConvertDataType {};      \
   /**/
+
+TENSORSTORE_FOR_EACH_INT_DATA_TYPE(TENSORSTORE_INTERNAL_CONVERT_INT)
+TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(TENSORSTORE_INTERNAL_CONVERT_FLOAT)
+
+#undef TENSORSTORE_INTERNAL_CONVERT_INT
+#undef TENSORSTORE_INTERNAL_CONVERT_FLOAT
+
+#define TENSORSTORE_INTERNAL_INHERITED_CONVERT(FROM, TO, PARENT) \
+  template <>                                                    \
+  struct ConvertDataType<FROM, TO> : public PARENT {};           \
+  /**/
+
+// [BEGIN GENERATED: generate_data_type.py]
+
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    complex64_t, int8_t, internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    complex64_t, uint8_t, internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    complex64_t, int16_t, internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    complex64_t, uint16_t, internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    complex64_t, int32_t, internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    complex64_t, uint32_t, internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    complex64_t, int64_t, internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    complex64_t, uint64_t, internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    complex128_t, int8_t, internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    complex128_t, uint8_t, internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    complex128_t, int16_t, internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    complex128_t, uint16_t, internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    complex128_t, int32_t, internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    complex128_t, uint32_t, internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    complex128_t, int64_t, internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    complex128_t, uint64_t, internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    complex64_t, float16_t, internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    complex64_t, bfloat16_t, internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    complex64_t, float32_t, internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    complex64_t, float64_t, internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    complex128_t, float16_t, internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    complex128_t, bfloat16_t, internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    complex128_t, float32_t, internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    complex128_t, float64_t, internal_data_type::ComplexNumericConvertDataType)
+
+// [END GENERATED: generate_data_type.py]
 
 // TODO(jbms): implement json -> complex conversion
-
 // TODO(jbms): implement string -> number conversion
 // TODO(jbms): implement string -> complex conversion
 
@@ -285,47 +363,6 @@ struct ConvertDataType<ustring_t, json_t> {
     *to = from->utf8;
   }
 };
-
-#define TENSORSTORE_INTERNAL_DEFINE_CONVERSIONS_FROM_INT(X, ...)        \
-  TENSORSTORE_INTERNAL_INHERITED_CONVERT(                               \
-      string_t, X, internal_data_type::NumericStringConvertDataType);   \
-  TENSORSTORE_INTERNAL_INHERITED_CONVERT(                               \
-      ustring_t, X, internal_data_type::NumericUstringConvertDataType); \
-  /**/
-
-TENSORSTORE_PP_EXPAND(TENSORSTORE_FOR_EACH_INTEGER_DATA_TYPE(
-    TENSORSTORE_INTERNAL_DEFINE_CONVERSIONS_FROM_INT))
-#undef TENSORSTORE_INTERNAL_DEFINE_CONVERSIONS_FROM_INT
-
-#define TENSORSTORE_INTERNAL_DEFINE_CONVERSIONS_FROM_FLOAT(X, ...)      \
-  TENSORSTORE_INTERNAL_INHERITED_CONVERT(                               \
-      string_t, X, internal_data_type::NumericStringConvertDataType);   \
-  TENSORSTORE_INTERNAL_INHERITED_CONVERT(                               \
-      ustring_t, X, internal_data_type::NumericUstringConvertDataType); \
-  /**/
-TENSORSTORE_PP_EXPAND(TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(
-    TENSORSTORE_INTERNAL_DEFINE_CONVERSIONS_FROM_FLOAT))
-#undef TENSORSTORE_INTERNAL_DEFINE_CONVERSIONS_FROM_FLOAT
-
-#define TENSORSTORE_INTERNAL_DEFINE_CONVERSIONS_FROM_COMPLEX(X, ...) \
-  TENSORSTORE_PP_DEFER(TENSORSTORE_FOR_EACH_INTEGER_DATA_TYPE_ID)    \
-  ()(TENSORSTORE_INTERNAL_INHERITED_CONVERT, X,                      \
-     internal_data_type::ComplexNumericConvertDataType);             \
-  TENSORSTORE_PP_DEFER(TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE_ID)      \
-  ()(TENSORSTORE_INTERNAL_INHERITED_CONVERT, X,                      \
-     internal_data_type::ComplexNumericConvertDataType);             \
-  /**/
-TENSORSTORE_PP_EXPAND(TENSORSTORE_FOR_EACH_COMPLEX_DATA_TYPE(
-    TENSORSTORE_INTERNAL_DEFINE_CONVERSIONS_FROM_COMPLEX))
-#undef TENSORSTORE_INTERNAL_DEFINE_CONVERSIONS_FROM_COMPLEX
-
-TENSORSTORE_FOR_EACH_INTEGER_DATA_TYPE(
-    TENSORSTORE_INTERNAL_INHERITED_CONVERT, json_t,
-    internal_data_type::JsonIntegerConvertDataType)
-
-TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(
-    TENSORSTORE_INTERNAL_INHERITED_CONVERT, json_t,
-    internal_data_type::JsonFloatConvertDataType)
 
 template <>
 struct ConvertDataType<json_t, bool> {

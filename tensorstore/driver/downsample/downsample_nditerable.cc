@@ -293,9 +293,10 @@ struct IsOrderingSupported {
   };                                                               \
   /**/
 
-TENSORSTORE_INTERNAL_SPECIALIZE_ORDERING_SUPPORTED(bool)
+TENSORSTORE_FOR_EACH_BOOL_DATA_TYPE(
+    TENSORSTORE_INTERNAL_SPECIALIZE_ORDERING_SUPPORTED)
 
-TENSORSTORE_FOR_EACH_INTEGER_DATA_TYPE(
+TENSORSTORE_FOR_EACH_INT_DATA_TYPE(
     TENSORSTORE_INTERNAL_SPECIALIZE_ORDERING_SUPPORTED)
 
 TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(
@@ -1012,7 +1013,7 @@ class DownsampledNDIterable : public NDIterable::Base<DownsampledNDIterable> {
     absl::FixedArray<DirectionPref, internal::kNumInlinedDims> base_prefs(
         base_rank_);
 
-    // kCanSkip imposes no constraipnts.  The call to
+    // kCanSkip imposes no constraints.  The call to
     // `base_.UpdateDirectionPrefs` adds constraints.
     std::fill(base_prefs.begin(), base_prefs.end(), DirectionPref::kCanSkip);
     base_.UpdateDirectionPrefs(base_prefs.data());
