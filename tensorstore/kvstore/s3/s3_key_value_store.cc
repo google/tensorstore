@@ -665,7 +665,12 @@ struct WriteTask : public RateLimiterNode,
       promise.SetResult(maybe_credentials.status());
       return;
     }
-    S3RequestBuilder request_builder("POST", upload_url);
+
+    // TODO(sjperkins).
+    // This was changed from POST to PUT as a basic POST does not work
+    // Some more headers need to be added to allow POST to work:
+    // https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-authentication-HTTPPOST.html
+    S3RequestBuilder request_builder("PUT", upload_url);
     S3Credentials credentials;
 
     if (maybe_credentials.value().has_value()) {
