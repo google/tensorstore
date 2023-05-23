@@ -29,6 +29,7 @@
 #include "tensorstore/index_space/transform_broadcastable_array.h"
 #include "tensorstore/internal/cache/chunk_cache.h"
 #include "tensorstore/internal/cache_key/cache_key.h"
+#include "tensorstore/internal/grid_storage_statistics.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/tensorstore.h"
@@ -92,7 +93,6 @@ class MetadataCache : public internal_kvs_backed_chunk_driver::MetadataCache {
         ::nlohmann::json(*static_cast<const ZarrMetadata*>(metadata)).dump());
   }
 };
-
 
 class ZarrDriverSpec
     : public internal::RegisteredDriverSpec<ZarrDriverSpec,
@@ -246,6 +246,10 @@ class ZarrDriver : public internal_kvs_backed_chunk_driver::RegisteredKvsDriver<
     return TransformOutputBroadcastableArray(transform, fill_value,
                                              output_domain);
   }
+
+  Future<ArrayStorageStatistics> GetStorageStatistics(
+      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
+      GetArrayStorageStatisticsOptions options) override;
 };
 
 Future<internal::Driver::Handle> ZarrDriverSpec::Open(
@@ -426,11 +430,50 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
 
   std::string GetBaseKvstorePath() override { return key_prefix_; }
 
- private:
   std::string key_prefix_;
   DimensionSeparator dimension_separator_;
   std::string metadata_key_;
 };
+
+Future<ArrayStorageStatistics> ZarrDriver::GetStorageStatistics(
+    internal::OpenTransactionPtr transaction, IndexTransform<> transform,
+    GetArrayStorageStatisticsOptions options) {
+  auto* cache = static_cast<DataCache*>(this->cache());
+  auto [promise, future] = PromiseFuturePair<ArrayStorageStatistics>::Make();
+  auto metadata_future =
+      ResolveMetadata(transaction, metadata_staleness_bound_.time);
+  LinkValue(
+      WithExecutor(
+          cache->executor(),
+          [cache = internal::CachePtr<DataCache>(cache),
+           transform = std::move(transform),
+           component_index = this->component_index(),
+           transaction = std::move(transaction),
+           staleness_bound = this->data_staleness_bound().time,
+           options](Promise<ArrayStorageStatistics> promise,
+                    ReadyFuture<MetadataCache::MetadataPtr> future) {
+            auto* metadata =
+                static_cast<const ZarrMetadata*>(future.value().get());
+            auto& grid = cache->grid();
+            auto& component = grid.components[component_index];
+            LinkResult(
+                std::move(promise),
+                internal::GetStorageStatisticsForRegularGridWithBase10Keys(
+                    KvStore{kvstore::DriverPtr(cache->kvstore_driver()),
+                            cache->GetBaseKvstorePath(),
+                            internal::TransactionState::ToTransaction(
+                                std::move(transaction))},
+                    transform, /*grid_output_dimensions=*/
+                    component.chunked_to_cell_dimensions,
+                    /*chunk_shape=*/grid.chunk_shape,
+                    /*shape=*/metadata->shape,
+                    /*dimension_separator=*/
+                    GetDimensionSeparatorChar(cache->dimension_separator_),
+                    staleness_bound, options));
+          }),
+      std::move(promise), std::move(metadata_future));
+  return std::move(future);
+}
 
 class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
  public:

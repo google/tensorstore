@@ -210,6 +210,10 @@ class ArrayDriver
 
   Result<DimensionUnitsVector> GetDimensionUnits() override;
 
+  Future<ArrayStorageStatistics> GetStorageStatistics(
+      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
+      GetArrayStorageStatisticsOptions options) override;
+
  private:
   Context::Resource<DataCopyConcurrencyResource> data_copy_concurrency_;
   SharedArray<void> data_;
@@ -364,6 +368,21 @@ Result<ChunkLayout> ArrayDriver::GetChunkLayout(
 
 Result<DimensionUnitsVector> ArrayDriver::GetDimensionUnits() {
   return dimension_units_;
+}
+
+Future<ArrayStorageStatistics> ArrayDriver::GetStorageStatistics(
+    internal::OpenTransactionPtr transaction, IndexTransform<> transform,
+    GetArrayStorageStatisticsOptions options) {
+  // This driver always fully stores the data.
+  ArrayStorageStatistics statistics;
+  statistics.mask = options.mask;
+  if (statistics.mask & ArrayStorageStatistics::query_not_stored) {
+    statistics.not_stored = false;
+  }
+  if (statistics.mask & ArrayStorageStatistics::query_fully_stored) {
+    statistics.fully_stored = true;
+  }
+  return statistics;
 }
 
 Future<internal::Driver::Handle> ArrayDriverSpec::Open(

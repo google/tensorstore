@@ -264,6 +264,7 @@ tensorstore_cc_library(
         "//tensorstore/driver",
         "//tensorstore/driver:kvs_backed_chunk_driver",
         "//tensorstore/index_space:index_transform",
+        "//tensorstore/internal:grid_storage_statistics",
         "//tensorstore/internal/cache:chunk_cache",
         "//tensorstore/internal/json_binding",
         "//tensorstore/util:constant_vector",
@@ -310,6 +311,17 @@ tensorstore_cc_test(
         "//tensorstore/util:span",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "storage_statistics_test",
+    size = "small",
+    srcs = ["storage_statistics_test.cc"],
+    deps = [
+        ":driver",
+        "//tensorstore/driver/zarr:storage_statistics_test_util",
         "@com_google_googletest//:gtest_main",
     ],
 )

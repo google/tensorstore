@@ -39,6 +39,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:nditerable_transformed_array",
         "//tensorstore/internal/json_binding",
         "//tensorstore/serialization",
+        "//tensorstore/util:executor",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util/execution:any_receiver",

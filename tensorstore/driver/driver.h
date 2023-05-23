@@ -44,6 +44,7 @@
 
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
+#include "tensorstore/array_storage_statistics.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/codec_spec.h"
 #include "tensorstore/data_type.h"
@@ -237,6 +238,14 @@ class Driver : public AtomicReferenceCount<Driver> {
                                           span<const Index> exclusive_max,
                                           ResizeOptions options);
 
+  /// Computes statistics of the data stored over the output range of
+  /// `transform`
+  ///
+  /// Default implementation fails with `kUnimplemented`.
+  virtual Future<ArrayStorageStatistics> GetStorageStatistics(
+      OpenTransactionPtr transaction, IndexTransform<> transform,
+      GetArrayStorageStatisticsOptions options);
+
   virtual ~Driver();
 };
 
@@ -276,6 +285,9 @@ Result<Schema> GetSchema(const Driver::Handle& handle);
 
 /// Returns the associated kvstore, with transaction bound.
 KvStore GetKvstore(const DriverHandle& handle);
+
+Future<ArrayStorageStatistics> GetStorageStatistics(
+    const DriverHandle& handle, GetArrayStorageStatisticsOptions options);
 
 Result<TransformedDriverSpec> GetTransformedDriverSpec(
     const DriverHandle& handle, SpecRequestOptions&& options);

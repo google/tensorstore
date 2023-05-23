@@ -107,6 +107,13 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "array_storage_statistics",
+    srcs = ["array_storage_statistics.cc"],
+    hdrs = ["array_storage_statistics.h"],
+    deps = ["@com_google_absl//absl/time"],
+)
+
+tensorstore_cc_library(
     name = "box",
     srcs = ["box.cc"],
     hdrs = ["box.h"],

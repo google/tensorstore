@@ -141,6 +141,15 @@ Result<CodecSpec> Driver::GetCodec() { return CodecSpec{}; }
 
 KvStore Driver::GetKvstore(const Transaction& transaction) { return {}; }
 
+Future<ArrayStorageStatistics> GetStorageStatistics(
+    const DriverHandle& handle, GetArrayStorageStatisticsOptions options) {
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto open_transaction,
+      internal::AcquireOpenTransactionPtrOrError(handle.transaction));
+  return handle.driver->GetStorageStatistics(std::move(open_transaction),
+                                             handle.transform, options);
+}
+
 Result<SharedArray<const void>> Driver::GetFillValue(
     IndexTransformView<> transform) {
   return {std::in_place};
@@ -175,6 +184,12 @@ Future<IndexTransform<>> Driver::Resize(OpenTransactionPtr transaction,
                                         span<const Index> exclusive_max,
                                         ResizeOptions options) {
   return absl::UnimplementedError("Resize not supported");
+}
+
+Future<ArrayStorageStatistics> Driver::GetStorageStatistics(
+    OpenTransactionPtr transaction, IndexTransform<> transform,
+    GetArrayStorageStatisticsOptions options) {
+  return absl::UnimplementedError("Storage statistics not supported");
 }
 
 Result<ChunkLayout> GetChunkLayout(const Driver::Handle& handle) {

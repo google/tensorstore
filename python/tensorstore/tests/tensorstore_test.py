@@ -69,9 +69,7 @@ async def test_resize():
               "chunks": (1, 1),
               "dtype": arr.dtype.str,
           }
-      },
-      open=True,
-      create=True)
+      }, open=True, create=True)
   await t.write(arr)
   await t.resize(exclusive_max=(3, 2))
   a = await t.read()
@@ -358,3 +356,30 @@ async def test_assume_metadata():
       "kvstore": "memory://",
   }, dtype=ts.uint32, shape=[2, 3, 4], open=True, assume_metadata=True)
   assert await t.kvstore.list() == []
+
+
+async def test_storage_statistics():
+  t = await ts.open({
+      "driver": "zarr",
+      "kvstore": "memory://",
+  }, dtype=ts.uint8, shape=[100, 200, 300],
+                    chunk_layout=ts.ChunkLayout(read_chunk_shape=[10, 20, 30]),
+                    create=True)
+
+  transformed = t[(1, 1, 1):(20, 5, 5)]
+  assert await transformed.storage_statistics(
+      query_not_stored=True
+  ) == ts.TensorStore.StorageStatistics(not_stored=True)
+  await transformed.write(42)
+  assert await transformed.storage_statistics(
+      query_not_stored=True
+  ) == ts.TensorStore.StorageStatistics(not_stored=False)
+  assert await transformed.storage_statistics(
+      query_not_stored=True,
+      query_fully_stored=True) == ts.TensorStore.StorageStatistics(
+          not_stored=False, fully_stored=True)
+
+
+async def test_storage_statistics_pickle():
+  x = ts.TensorStore.StorageStatistics(not_stored=True, fully_stored=False)
+  assert pickle.loads(pickle.dumps(x)) == x

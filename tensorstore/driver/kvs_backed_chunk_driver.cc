@@ -95,6 +95,8 @@ Result<CodecSpec> DataCache::GetCodec(const void* metadata,
 
 namespace {
 
+using MetadataPtr = std::shared_ptr<const void>;
+
 // Address of this variable is used to signal an invalid metadata value.
 const char invalid_metadata = 0;
 
@@ -313,16 +315,16 @@ Future<IndexTransform<>> KvsDriverBase::ResolveBounds(
                        metadata_staleness_bound_, options);
 }
 
-Future<IndexTransform<>> KvsDriverBase::ResolveBounds(
-    internal::OpenTransactionPtr transaction, IndexTransform<> transform,
-    StalenessBound metadata_staleness_bound, ResolveBoundsOptions options) {
+Future<MetadataPtr> KvsDriverBase::ResolveMetadata(
+    internal::OpenTransactionPtr transaction,
+    absl::Time metadata_staleness_bound) {
   auto* cache = this->cache();
-  const bool skip_read = assume_metadata_time_ >= metadata_staleness_bound.time;
+  const bool skip_read = assume_metadata_time_ >= metadata_staleness_bound;
   const auto handle_assume_metadata =
-      [&](auto& entry_or_node) -> Result<IndexTransform<>> {
+      [&](auto& entry_or_node) -> Result<MetadataPtr> {
     // Don't issue a read request, but check if there is already newer cached
     // metadata available.
-    std::shared_ptr<const void> new_metadata;
+    MetadataPtr new_metadata;
     bool has_cache_entry = false;
     if (MetadataCache::ReadLock<void> lock(entry_or_node);
         lock.stamp().time > assume_metadata_time_) {
@@ -359,13 +361,9 @@ Future<IndexTransform<>> KvsDriverBase::ResolveBounds(
     // check in step 3 that finds the metadata missing, a subsequent call to
     // `ResolveBounds` in step 2 will fail.
     if (new_metadata) {
-      return ResolveBoundsFromMetadata(cache, new_metadata.get(),
-                                       component_index(), std::move(transform),
-                                       options);
+      return new_metadata;
     } else {
-      return ResolveBoundsFromMetadata(cache, cache->initial_metadata_.get(),
-                                       component_index(), std::move(transform),
-                                       options);
+      return cache->initial_metadata_;
     }
   };
   if (transaction) {
@@ -373,14 +371,11 @@ Future<IndexTransform<>> KvsDriverBase::ResolveBounds(
         auto node,
         GetTransactionNode(*cache->metadata_cache_entry_, transaction));
     if (skip_read) return handle_assume_metadata(*node);
-    auto read_future = node->Read(metadata_staleness_bound.time);
+    auto read_future = node->Read(metadata_staleness_bound);
     return MapFuture(
         cache->executor(),
-        [cache = internal::CachePtr<DataCache>(cache), node = std::move(node),
-         transform = std::move(transform),
-         component_index = this->component_index(),
-         options = std::move(options)](
-            const Result<void>& result) -> Result<IndexTransform<>> {
+        [cache = internal::CachePtr<DataCache>(cache), node = std::move(node)](
+            const Result<void>& result) -> Result<MetadataPtr> {
           TENSORSTORE_RETURN_IF_ERROR(result);
           TENSORSTORE_ASSIGN_OR_RETURN(
               auto new_metadata, node->GetUpdatedMetadata(),
@@ -388,28 +383,39 @@ Future<IndexTransform<>> KvsDriverBase::ResolveBounds(
                                                           /*reading=*/false));
           TENSORSTORE_RETURN_IF_ERROR(
               ValidateNewMetadata(cache.get(), new_metadata.get()));
-          return ResolveBoundsFromMetadata(cache.get(), new_metadata.get(),
-                                           component_index,
-                                           std::move(transform), options);
+          return new_metadata;
         },
         std::move(read_future));
   }
   if (skip_read) return handle_assume_metadata(*cache->metadata_cache_entry_);
   return MapFuture(
       cache->executor(),
-      [cache = internal::CachePtr<DataCache>(cache),
-       transform = std::move(transform),
-       component_index = this->component_index(), options = std::move(options)](
-          const Result<void>& result) -> Result<IndexTransform<>> {
+      [cache = internal::CachePtr<DataCache>(cache)](
+          const Result<void>& result) -> Result<MetadataPtr> {
         TENSORSTORE_RETURN_IF_ERROR(result);
         auto new_metadata = cache->metadata_cache_entry_->GetMetadata();
         TENSORSTORE_RETURN_IF_ERROR(
             ValidateNewMetadata(cache.get(), new_metadata.get()));
+        return new_metadata;
+      },
+      cache->metadata_cache_entry_->Read(metadata_staleness_bound));
+}
+
+Future<IndexTransform<>> KvsDriverBase::ResolveBounds(
+    internal::OpenTransactionPtr transaction, IndexTransform<> transform,
+    StalenessBound metadata_staleness_bound, ResolveBoundsOptions options) {
+  auto* cache = this->cache();
+  return MapFutureValue(
+      cache->executor(),
+      [cache = internal::CachePtr<DataCache>(cache),
+       component_index = component_index(), options = std::move(options),
+       transform =
+           std::move(transform)](const MetadataPtr& new_metadata) mutable {
         return ResolveBoundsFromMetadata(cache.get(), new_metadata.get(),
                                          component_index, std::move(transform),
                                          options);
       },
-      cache->metadata_cache_entry_->Read(metadata_staleness_bound.time));
+      ResolveMetadata(std::move(transaction), metadata_staleness_bound.time));
 }
 
 namespace {

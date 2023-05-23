@@ -343,6 +343,7 @@ tensorstore_cc_library(
         "//tensorstore/driver:kvs_backed_chunk_driver",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/index_space:transform_broadcastable_array",
+        "//tensorstore/internal:grid_storage_statistics",
         "//tensorstore/internal:type_traits",
         "//tensorstore/internal/cache:chunk_cache",
         "//tensorstore/internal/cache_key",
@@ -402,6 +403,38 @@ tensorstore_cc_test(
         "//tensorstore/internal:json_gtest",
         "//tensorstore/util:status",
         "//tensorstore/util:status_testutil",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "storage_statistics_test_util",
+    testonly = True,
+    srcs = ["storage_statistics_test_util.cc"],
+    hdrs = ["storage_statistics_test_util.h"],
+    deps = [
+        "//tensorstore:context",
+        "//tensorstore:data_type",
+        "//tensorstore:open",
+        "//tensorstore/index_space:dim_expression",
+        "//tensorstore/internal:json_gtest",
+        "//tensorstore/kvstore:mock_kvstore",
+        "//tensorstore/kvstore/memory",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status_testutil",
+        "//tensorstore/util:str_cat",
+        "@com_google_googletest//:gtest",
+    ],
+    alwayslink = True,
+)
+
+tensorstore_cc_test(
+    name = "storage_statistics_test",
+    size = "small",
+    srcs = ["storage_statistics_test.cc"],
+    deps = [
+        ":driver",
+        ":storage_statistics_test_util",
         "@com_google_googletest//:gtest_main",
     ],
 )

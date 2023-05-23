@@ -37,6 +37,7 @@
 #include "tensorstore/spec.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/sender_util.h"
+#include "tensorstore/util/executor.h"
 #include "tensorstore/util/garbage_collection/std_vector.h"  // IWYU pragma: keep
 
 namespace tensorstore {
@@ -339,9 +340,9 @@ class DownsampleDriver
     return base_driver_->GetKvstore(transaction);
   }
 
-  Result<IndexTransform<>> GetStridedBaseTransform() {
-    return base_transform_ | tensorstore::AllDims().Stride(downsample_factors_);
-  }
+  Future<ArrayStorageStatistics> GetStorageStatistics(
+      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
+      GetArrayStorageStatisticsOptions options) override;
 
   explicit DownsampleDriver(DriverPtr base, IndexTransform<> base_transform,
                             span<const Index> downsample_factors,
@@ -362,6 +363,10 @@ class DownsampleDriver
   void Read(OpenTransactionPtr transaction, IndexTransform<> transform,
             AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver)
       override;
+
+  Result<IndexTransform<>> GetStridedBaseTransform() {
+    return base_transform_ | tensorstore::AllDims().Stride(downsample_factors_);
+  }
 
   Future<IndexTransform<>> ResolveBounds(OpenTransactionPtr transaction,
                                          IndexTransform<> transform,
@@ -929,6 +934,59 @@ void DownsampleDriver::Read(
                 std::move(transaction), std::move(propagated.transform),
                 ReadReceiverImpl{std::move(state)});
           });
+}
+
+Future<ArrayStorageStatistics> DownsampleDriver::GetStorageStatistics(
+    internal::OpenTransactionPtr transaction, IndexTransform<> transform,
+    GetArrayStorageStatisticsOptions options) {
+  if (downsample_method_ == DownsampleMethod::kStride) {
+    // Stride-based downsampling just relies on the normal `IndexTransform`
+    // machinery.
+    TENSORSTORE_ASSIGN_OR_RETURN(auto strided_transform,
+                                 GetStridedBaseTransform() | transform);
+    return base_driver_->GetStorageStatistics(std::move(transaction),
+                                              std::move(strided_transform),
+                                              std::move(options));
+  }
+
+  auto [promise, future] = PromiseFuturePair<ArrayStorageStatistics>::Make();
+
+  auto base_resolve_future = base_driver_->ResolveBounds(
+      transaction, base_transform_, {fix_resizable_bounds});
+
+  LinkValue(
+      WithExecutor(
+          data_copy_executor(),
+          [self = IntrusivePtr<DownsampleDriver>(this),
+           transaction = std::move(transaction),
+           transform = std::move(transform), options = std::move(options)](
+              Promise<ArrayStorageStatistics> promise,
+              ReadyFuture<IndexTransform<>> future) mutable {
+            IndexTransform<> base_transform = std::move(future.value());
+            TENSORSTORE_ASSIGN_OR_RETURN(
+                auto propagated,
+                internal_downsample::PropagateIndexTransformDownsampling(
+                    transform, base_transform.domain().box(),
+                    self->downsample_factors_),
+                static_cast<void>(promise.SetResult(_)));
+            // The domain of `propagated.transform`, when downsampled by
+            // `propagated.input_downsample_factors`, matches
+            // `transform.domain()`.
+
+            // Compute the read request for `base_driver_`.
+            TENSORSTORE_ASSIGN_OR_RETURN(
+                propagated.transform,
+                ComposeTransforms(self->base_transform_, propagated.transform),
+                static_cast<void>(promise.SetResult(_)));
+
+            LinkResult(
+                std::move(promise),
+                self->base_driver_->GetStorageStatistics(
+                    std::move(transaction), std::move(propagated.transform),
+                    std::move(options)));
+          }),
+      std::move(promise), std::move(base_resolve_future));
+  return std::move(future);
 }
 
 const internal::DriverRegistration<DownsampleDriverSpec> driver_registration;

@@ -191,6 +191,13 @@ class CastDriver
     return base_driver_->GetKvstore(transaction);
   }
 
+  Future<ArrayStorageStatistics> GetStorageStatistics(
+      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
+      GetArrayStorageStatisticsOptions options) override {
+    return base_driver_->GetStorageStatistics(
+        std::move(transaction), std::move(transform), std::move(options));
+  }
+
   explicit CastDriver(internal::DriverPtr base, DataType target_dtype,
                       DataTypeConversionLookupResult input_conversion,
                       DataTypeConversionLookupResult output_conversion)

@@ -28,6 +28,7 @@
 #include <vector>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "python/tensorstore/array_type_caster.h"
 #include "python/tensorstore/context.h"
 #include "python/tensorstore/data_type.h"
@@ -41,7 +42,9 @@
 #include "python/tensorstore/sequence_parameter.h"
 #include "python/tensorstore/serialization.h"
 #include "python/tensorstore/spec.h"
+#include "python/tensorstore/tensorstore_class.h"
 #include "python/tensorstore/tensorstore_module_components.h"
+#include "python/tensorstore/transaction.h"
 #include "python/tensorstore/write_futures.h"
 #include "tensorstore/array.h"
 #include "tensorstore/cast.h"
@@ -54,6 +57,8 @@
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/json/pprint_python.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/internal/json_binding/std_optional.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
@@ -62,6 +67,7 @@
 #include "tensorstore/rank.h"
 #include "tensorstore/resize_options.h"
 #include "tensorstore/schema.h"
+#include "tensorstore/serialization/std_optional.h"
 #include "tensorstore/spec.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/tensorstore.h"
@@ -2034,6 +2040,70 @@ See also:
         ValueOrThrow(internal_python::InterruptibleWait(
             IssueCopyOrWrite(self.value, std::move(source)).commit_future));
       });
+
+  cls.def(
+      "storage_statistics",
+      [](Self& self, bool query_not_stored, bool query_fully_stored) {
+        GetArrayStorageStatisticsOptions options;
+        if (query_not_stored)
+          options.Set(ArrayStorageStatistics::query_not_stored);
+        if (query_fully_stored)
+          options.Set(ArrayStorageStatistics::query_fully_stored);
+        return PythonFutureWrapper<ArrayStorageStatistics>(
+            tensorstore::GetStorageStatistics(self.value, options),
+            self.reference_manager());
+      },
+      R"(
+Obtains statistics of the data stored for the :py:obj:`.domain`.
+
+Only the specific information indicated by the parameters will be returned.  If
+no query options are specified, no information will be computed.
+
+Example:
+
+    >>> store = await ts.open({
+    ...     "driver": "zarr",
+    ...     "kvstore": "memory://"
+    ... },
+    ...                       shape=(100, 200),
+    ...                       dtype=ts.uint32,
+    ...                       create=True)
+    >>> await store.storage_statistics(query_not_stored=True)
+    TensorStore.StorageStatistics(not_stored=True, fully_stored=None)
+    >>> await store[10:20, 30:40].write(5)
+    >>> await store.storage_statistics(query_not_stored=True)
+    TensorStore.StorageStatistics(not_stored=False, fully_stored=None)
+    >>> await store.storage_statistics(query_not_stored=True,
+    ...                                query_fully_stored=True)
+    TensorStore.StorageStatistics(not_stored=False, fully_stored=True)
+    >>> await store[10:20, 30:40].storage_statistics(query_fully_stored=True)
+    TensorStore.StorageStatistics(not_stored=None, fully_stored=True)
+
+Args:
+
+  query_not_stored: Check whether there is data stored for *any* element of the
+    :py:obj:`.domain`.
+
+  query_fully_stored: Check whether there is data stored for *all* elements of
+    the :py:obj:`.domain`.
+
+    .. warning::
+
+         Enabling this option may significantly increase the cost of the
+         :py:obj:`.storage_statistics` query.
+
+Returns:
+  The requested statistics.
+
+Raises:
+  NotImplementedError: If the :ref:`driver<tensorstore-drivers>` does not
+    support this operation.
+
+Group:
+  I/O
+)",
+      py::kw_only(), py::arg("query_not_stored") = false,
+      py::arg("query_fully_stored") = false);
 }
 
 void DefineTensorStoreFunctions(py::module m) {
@@ -2538,10 +2608,130 @@ Group:
   });
 }
 
+using ArrayStorageStatisticsCls = py::class_<ArrayStorageStatistics>;
+
+ArrayStorageStatisticsCls DefineArrayStorageStatisticsClass(py::handle m) {
+  return ArrayStorageStatisticsCls(m, "StorageStatistics", R"(
+Statistics related to the storage of an array specified by a :py:class:`TensorStore`.
+
+.. seealso::
+
+   :py:obj:`tensorstore.TensorStore.storage_statistics`
+
+These statistics provide information about the elements of an array that are
+*stored*, but depending on the :ref:`driver<tensorstore-drivers>`, whether data
+is stored for a given element is not necessarily equivalent to whether that
+element has been successfully written:
+
+- There are cases where an element may be stored even if it has not been
+  explicitly written.  For example, when using a
+  :ref:`chunked storage driver<chunked-drivers>`, an entire chunk must be stored
+  in order to store any element within the chunk, and it is not possible to
+  determine which elements of the chunk were explicitly written.  If any chunk
+  corresponding to a region that intersects the domain is stored, then
+  :py:obj:`.not_stored` will be :python:`False`, even if no element actually within
+  the domain was explicitly written.  Similarly, if at least one element of each
+  chunk that intersects the domain is stored, then :py:obj:`.fully_stored` will be
+  :python:`True`, even if no element of the domain was every explicitly written.
+
+- Some drivers may not store chunks that are entirely equal to the
+  :py:obj:`TensorStore.fill_value`.  With such drivers, if all elements of the
+  domain are equal to the fill value, even if some or all of the elements have
+  been explicitly written, :py:obj:`.not_stored` may be :python:`True`.
+
+Group:
+  I/O
+)");
+}
+
+template <bool ArrayStorageStatistics::*Member,
+          ArrayStorageStatistics::Mask MaskEntry>
+struct ArrayStorageStatisticsAccessor {
+  constexpr static inline auto Get =
+      [](const ArrayStorageStatistics& self) -> std::optional<bool> {
+    if (self.mask & MaskEntry) return self.*Member;
+    return {};
+  };
+
+  constexpr static inline auto Set = [](ArrayStorageStatistics& self,
+                                        std::optional<bool> value) {
+    if (value) {
+      self.mask = self.mask | MaskEntry;
+      self.*Member = *value;
+    } else {
+      self.mask = self.mask & ~MaskEntry;
+      self.*Member = {};
+    }
+  };
+};
+
+void DefineArrayStorageStatisticsAttributes(ArrayStorageStatisticsCls& cls) {
+  using Self = ArrayStorageStatistics;
+  using NotStored =
+      ArrayStorageStatisticsAccessor<&ArrayStorageStatistics::not_stored,
+                                     ArrayStorageStatistics::query_not_stored>;
+  using FullyStored = ArrayStorageStatisticsAccessor<
+      &ArrayStorageStatistics::fully_stored,
+      ArrayStorageStatistics::query_fully_stored>;
+
+  cls.def(py::init([](std::optional<bool> not_stored,
+                      std::optional<bool> fully_stored) {
+            ArrayStorageStatistics x;
+            NotStored::Set(x, not_stored);
+            FullyStored::Set(x, fully_stored);
+            return x;
+          }),
+          R"(
+Constructs from attribute values.
+)",
+          py::kw_only(), py::arg("not_stored") = std::nullopt,
+          py::arg("fully_stored") = std::nullopt);
+  cls.def_property("not_stored", NotStored::Get, NotStored::Set,
+                   R"(
+Indicates whether *no* data is stored for the specified :py:obj:`~TensorStore.domain`.
+
+For the statistics returned by :py:obj:`TensorStore.storage_statistics`, if
+:py:param:`~TensorStore.storage_statistics.query_not_stored` is not set to
+:python:`True`, then this will be `None`.
+
+If :python:`False`, it is guaranteed that all elements within the domain are equal
+to the :py:obj:`~TensorStore.fill_value`.
+)");
+
+  cls.def_property("fully_stored", FullyStored::Get, FullyStored::Set,
+                   R"(
+Indicates whether data is stored for *all* elements of the specified :py:obj:~TensorStore.domain`.
+
+For the statistics returned by :py:obj:`TensorStore.storage_statistics`, if
+:py:param:`~TensorStore.storage_statistics.query_fully_stored` is not set to
+:python:`True`, then this will be `None`.
+)");
+
+  cls.def("__eq__",
+          [](const Self& self, const Self& other) { return self == other; });
+
+  cls.def("__repr__", [](const Self& self) {
+    const auto get_json = [&](auto getter) -> std::string {
+      if (auto value = getter(self); value) {
+        return PrettyPrintJsonAsPython(*value);
+      }
+      return "None";
+    };
+    return absl::StrFormat(
+        "TensorStore.StorageStatistics(not_stored=%s, fully_stored=%s)",
+        get_json(NotStored::Get), get_json(FullyStored::Get));
+  });
+  EnablePicklingFromSerialization(cls);
+}
+
 void RegisterTensorStoreBindings(pybind11::module m, Executor defer) {
-  defer([cls = MakeTensorStoreClass(m), m]() mutable {
+  auto tensorstore_cls = MakeTensorStoreClass(m);
+  defer([cls = tensorstore_cls, m]() mutable {
     DefineTensorStoreAttributes(cls);
     DefineTensorStoreFunctions(m);
+  });
+  defer([cls = DefineArrayStorageStatisticsClass(tensorstore_cls)]() mutable {
+    DefineArrayStorageStatisticsAttributes(cls);
   });
 }
 

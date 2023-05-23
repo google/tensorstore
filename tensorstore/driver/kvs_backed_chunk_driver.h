@@ -479,6 +479,11 @@ class KvsDriverBase : public internal::ChunkCacheDriver {
   };
   explicit KvsDriverBase(Initializer&& initializer);
 
+  /// Queries the current metadata, as of `metadata_staleness_bound`.
+  Future<MetadataCache::MetadataPtr> ResolveMetadata(
+      internal::OpenTransactionPtr transaction,
+      absl::Time metadata_staleness_bound);
+
   /// Forwards to `ResolveBound` overload below with
   /// `metadata_staleness_bound_`.
   Future<IndexTransform<>> ResolveBounds(

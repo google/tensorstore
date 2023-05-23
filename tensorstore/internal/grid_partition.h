@@ -145,12 +145,59 @@ absl::Status PartitionIndexTransformOverRegularGrid(
 ///
 absl::Status PartitionIndexTransformOverGrid(
     span<const DimensionIndex> grid_output_dimensions,
-    absl::FunctionRef<Index(DimensionIndex, Index, IndexInterval*)>
+    absl::FunctionRef<Index(DimensionIndex grid_dim, Index output_index,
+                            IndexInterval* cell_bounds)>
         output_to_grid_cell,
     IndexTransformView<> transform,
     absl::FunctionRef<absl::Status(span<const Index> grid_cell_indices,
                                    IndexTransformView<> cell_transform)>
         func);
+
+// Computes the set of grid cells that intersect the output range of
+// `transform`, and returns them as a set of lexicographical ranges.
+//
+// This computes the same set of grid cells as
+// `PartitionIndexTransformOverGrid`, but differs in that it does not compute
+// the `cell_transform` for each grid cell, and combines grid cells into ranges
+// when possible.
+//
+// Args:
+//   grid_output_dimensions: Output dimensions of `transform` corresponding to
+//     each grid dimension.
+//   grid_bounds: Bounds of grid indices along each dimension.
+//   output_to_grid_cell: Computes the grid cell corresponding to a given output
+//     index.
+//   transform: Index transform.
+//   callback: Called for each grid cell range.  Any error return aborts
+//     iteration and is propagated.  The grid cell range consists of all
+//     `grid_indices` that satisfy the following constraints:
+//
+//     - `grid_indices[i] == outer_prefix[i]` for
+//       `0 <= i < outer_prefix.size()`, i.e. the grid indices for the first
+//       `outer_prefix.size()` dimensions must exactly match `outer_prefix`.
+//       Note that `outer_prefix` may be empty.
+//
+//     - `Contains(inner_interval, grid_indices[outer_prefix.size()])` if
+//       `outer_prefix.size() < grid_indices.size()`, i.e. the first dimension
+//       not constrained by `outer_prefix`, if any, is constrained by
+//       `inner_interval`.  If `outer_prefix.size() == grid_bounds.rank()`, then
+//       `inner_interval` is ignored.
+//
+//     - The `grid_indices[i]` for any remaining dimensions
+//       `i > outer_prefix.size()` are unconstrained, i.e. they are constrained
+//       only by the common `grid_bounds[i]`.
+//
+//     The unusual form of these constraints is due to the requirement that the
+//     grid cell range be a single lexicographical range.
+absl::Status GetGridCellRanges(
+    span<const DimensionIndex> grid_output_dimensions, BoxView<> grid_bounds,
+    absl::FunctionRef<Index(DimensionIndex grid_dim, Index output_index,
+                            IndexInterval* cell_bounds)>
+        output_to_grid_cell,
+    IndexTransformView<> transform,
+    absl::FunctionRef<absl::Status(span<const Index> outer_prefix,
+                                   IndexInterval inner_interval)>
+        callback);
 
 }  // namespace internal
 }  // namespace tensorstore

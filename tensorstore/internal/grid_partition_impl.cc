@@ -33,6 +33,7 @@
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/internal/integer_overflow.h"
+#include "tensorstore/internal/regular_grid.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/byte_strided_pointer.h"
