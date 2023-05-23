@@ -39,6 +39,7 @@ using ::tensorstore::MatchesStatus;
 using ::tensorstore::MutableBoxView;
 using ::tensorstore::span;
 using ::tensorstore::StaticRankCast;
+using ::tensorstore::SubBoxView;
 using ::tensorstore::unchecked;
 using ::tensorstore::serialization::TestSerializationRoundTrip;
 using ::testing::ElementsAre;
@@ -782,6 +783,20 @@ TEST(BoxSerializationTest, StaticRank) {
 TEST(BoxSerializationTest, DynamicRank) {
   TestSerializationRoundTrip(Box<>());
   TestSerializationRoundTrip(Box({1, 2, 3}, {4, 5, 6}));
+}
+
+TEST(BoxTest, SubBoxView) {
+  Box<> b({1, 2, 3}, {4, 5, 6});
+  const Box<>& b_const = b;
+  BoxView<> b_view = b;
+  MutableBoxView<> b_mut_view = b;
+  EXPECT_EQ(Box<>({2, 3}, {5, 6}), SubBoxView(b, 1));
+  EXPECT_EQ(Box<>({2}, {5}), SubBoxView(b, 1, 2));
+  static_assert(std::is_same_v<decltype(SubBoxView(b, 1)), MutableBoxView<>>);
+  static_assert(std::is_same_v<decltype(SubBoxView(b_const, 1)), BoxView<>>);
+  static_assert(std::is_same_v<decltype(SubBoxView(b_view, 1)), BoxView<>>);
+  static_assert(
+      std::is_same_v<decltype(SubBoxView(b_mut_view, 1)), MutableBoxView<>>);
 }
 
 }  // namespace

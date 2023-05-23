@@ -879,6 +879,26 @@ std::enable_if_t<HasBoxDomain<BoxType>, bool> ContainsPartial(
       BoxView<BoxType::static_rank>(GetBoxDomainOf(box)), span(indices));
 }
 
+/// Returns a view of the sub-box corresponding to the specified dimension
+/// range.
+///
+/// \params box The existing box from which to extract the sub-box.
+/// \param  begin Inclusive start dimension of the sub-box.
+/// \param end Exclusive end dimension of the sub-box.  The default value of
+///     `-1` is treated the same as `box.rank()`.
+template <typename BoxType>
+std::enable_if_t<IsBoxLike<BoxType>,
+                 BoxView<dynamic_rank, IsMutableBoxLike<BoxType>>>
+SubBoxView(BoxType&& box, DimensionIndex begin = 0, DimensionIndex end = -1) {
+  if (end == -1) {
+    end = box.rank();
+  }
+  assert(begin >= 0 && begin <= end && begin <= box.rank() &&
+         end <= box.rank());
+  return BoxView<dynamic_rank, IsMutableBoxLike<BoxType>>(
+      end - begin, box.origin().data() + begin, box.shape().data() + begin);
+}
+
 namespace serialization {
 
 struct RankSerializer {
