@@ -15,11 +15,14 @@
 #include "tensorstore/internal/http/transport_test_utils.h"
 
 #ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <winsock.h>
 #include <ws2tcpip.h>
 
 #pragma comment(lib, "ws2_32.lib")
-
-#else
+#else  // !_WIN32
 
 #include <arpa/inet.h>
 #include <fcntl.h>
@@ -41,12 +44,14 @@
 #include <cstring>
 #include <string_view>
 
+#include "absl/base/call_once.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/random/distributions.h"
 #include "absl/random/random.h"
+#include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -333,8 +338,21 @@ std::optional<uint16_t> TryPickUnusedPort() {
       return port;
     }
   }
+
+  ABSL_LOG(INFO) << "No unused port found. " << used_ports->size();
   return std::nullopt;
 }
 
 }  // namespace transport_test_utils
 }  // namespace tensorstore
+
+#ifdef _WIN32
+// Called via atexit()
+static void TensorstoreCleanupWinsock() { WSACleanup(); }
+
+TENSORSTORE_GLOBAL_INITIALIZER {
+  WSADATA winsock;
+  WSAStartup(MAKEWORD(2, 2), &winsock);
+  atexit(TensorstoreCleanupWinsock);
+}
+#endif

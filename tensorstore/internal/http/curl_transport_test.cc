@@ -52,17 +52,6 @@ namespace {
 
 class CurlTransportTest : public ::testing::Test {
  public:
-  static void SetUpTestCase() {
-#ifdef _WIN32
-    WSADATA wsaData;
-    ABSL_CHECK(WSAStartup(MAKEWORD(2, 2), &wsaData) == 0);
-#endif
-  }
-  static void TearDownTestCase() {
-#ifdef _WIN32
-    WSACleanup();
-#endif
-  }
 };
 
 TEST_F(CurlTransportTest, Http1) {
