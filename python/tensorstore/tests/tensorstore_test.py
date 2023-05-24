@@ -383,3 +383,17 @@ async def test_storage_statistics():
 async def test_storage_statistics_pickle():
   x = ts.TensorStore.StorageStatistics(not_stored=True, fully_stored=False)
   assert pickle.loads(pickle.dumps(x)) == x
+
+
+async def test_tensorstore_ocdbt_zarr_repr():
+  arr = ts.open(
+      {
+          "driver": "zarr",
+          "kvstore": {
+              "driver": "ocdbt",
+              "base": "memory://",
+              "path": "my_array/"
+          }
+      }, shape=[1000, 2000, 3000], dtype=ts.float32, open=True,
+      create=True).result()
+  repr(arr)

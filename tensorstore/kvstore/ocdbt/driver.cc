@@ -166,8 +166,10 @@ Future<kvstore::DriverPtr> OcdbtDriverSpec::DoOpen() const {
         DistributedBtreeWriterOptions options;
         options.io_handle = driver->io_handle_;
         options.coordinator_address = *driver->coordinator_->address;
-        assert(driver->coordinator_->security);
         options.security = driver->coordinator_->security;
+        if (!options.security) {
+          options.security = GetInsecureRpcSecurityMethod();
+        }
         options.lease_duration = driver->coordinator_->lease_duration.value_or(
             kDefaultLeaseDuration);
 

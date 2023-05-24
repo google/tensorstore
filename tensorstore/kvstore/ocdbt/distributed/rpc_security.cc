@@ -66,11 +66,11 @@ TENSORSTORE_DEFINE_JSON_BINDER(
     [](auto is_loading, const auto& options, auto* obj, ::nlohmann::json* j) {
       if constexpr (is_loading) {
         if (j->is_discarded()) {
-          *obj = GetInsecureRpcSecurityMethod();
+          *obj = nullptr;
           return absl::OkStatus();
         }
       } else {
-        if (obj->get() == &GetInsecureRpcSecurityMethodSingleton()) {
+        if (obj->get() == nullptr) {
           *j = ::nlohmann::json::value_t::discarded;
           return absl::OkStatus();
         }
