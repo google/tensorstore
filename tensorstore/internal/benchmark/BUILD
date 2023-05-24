@@ -9,6 +9,7 @@ tensorstore_cc_library(
     srcs = ["metric_utils.cc"],
     hdrs = ["metric_utils.h"],
     deps = [
+        "//tensorstore/internal/json",
         "//tensorstore/internal/metrics:collect",
         "//tensorstore/internal/metrics:registry",
         "//tensorstore/kvstore",
