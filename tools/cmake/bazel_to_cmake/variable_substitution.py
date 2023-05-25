@@ -18,7 +18,7 @@
 import io
 import os
 import re
-from typing import List, Optional, Match
+from typing import List, Match, Optional
 
 from .cmake_target import CMakeDepsProvider
 from .cmake_target import CMakeTarget
@@ -30,16 +30,21 @@ from .starlark.toolchain import get_toolchain_substitutions
 from .starlark.toolchain import MakeVariableSubstitutions
 
 _LOCATION_RE = re.compile(
-    r"^(location|locations|execpath|execpaths|rootpath|rootpaths)\s+(.*)$")
+    r"^(location|locations|execpath|execpaths|rootpath|rootpaths)\s+(.*)$"
+)
 
 _LOCATION_SUB_RE = re.compile(
     r"\$\((location|locations|execpath|execpaths|rootpath|rootpaths)\s+([^)]+)\)"
 )
 
 
-def _get_location_replacement(_context: InvocationContext, relative_to: str,
-                              custom_target_deps: Optional[List[CMakeTarget]],
-                              key: str, label: str) -> str:
+def _get_location_replacement(
+    _context: InvocationContext,
+    relative_to: str,
+    custom_target_deps: Optional[List[CMakeTarget]],
+    key: str,
+    label: str,
+) -> str:
   """Returns a $(location) replacement for the given key and label."""
 
   def _get_relpath(path: str):
@@ -70,7 +75,8 @@ def _get_location_replacement(_context: InvocationContext, relative_to: str,
     return f"$<TARGET_FILE:{cmake_target_provider.target}>"
 
   raise ValueError(
-      f"apply_location_substitutions failed for {target} info {repr(info)}")
+      f"apply_location_substitutions failed for {target} info {repr(info)}"
+  )
 
 
 def _apply_location_and_make_variable_substitutions(
@@ -87,14 +93,16 @@ def _apply_location_and_make_variable_substitutions(
   if toolchains is None:
     toolchains = []
 
-  substitutions = get_toolchain_substitutions(_context, toolchains,
-                                              substitutions)
+  substitutions = get_toolchain_substitutions(
+      _context, toolchains, substitutions
+  )
 
   def _get_replacement(name):
     replacement = substitutions.get(name)
     if replacement is None:
       raise ValueError(
-          f"Undefined make variable: '{name}' in {cmd} with {substitutions}")
+          f"Undefined make variable: '{name}' in {cmd} with {substitutions}"
+      )
     return replacement
 
   # NOTE: location and make variable substitutions do not compose well since
@@ -113,15 +121,20 @@ def _apply_location_and_make_variable_substitutions(
         # Multi character literal.
         j = cmd.find(")", i + 2)
         assert j > (i + 2)
-        name = cmd[i + 2:j]
+        name = cmd[i + 2 : j]
         m = None
         if enable_location:
-          m = _LOCATION_RE.fullmatch(cmd[i + 2:j])
+          m = _LOCATION_RE.fullmatch(cmd[i + 2 : j])
         if m:
           out.write(
-              _get_location_replacement(_context, relative_to,
-                                        custom_target_deps, m.group(1),
-                                        m.group(2)))
+              _get_location_replacement(
+                  _context,
+                  relative_to,
+                  custom_target_deps,
+                  m.group(1),
+                  m.group(2),
+              )
+          )
         else:
           out.write(_get_replacement(name))
       elif cmd[j] == "$":
@@ -130,7 +143,7 @@ def _apply_location_and_make_variable_substitutions(
       else:
         # Single letter literal.
         out.write(_get_replacement(cmd[j]))
-      cmd = cmd[j + 1:]
+      cmd = cmd[j + 1 :]
 
   return _do_replacements(cmd)
 
@@ -139,7 +152,8 @@ def apply_make_variable_substitutions(
     _context: InvocationContext,
     cmd: str,
     substitutions: MakeVariableSubstitutions,
-    toolchains: Optional[List[TargetId]] = None) -> str:
+    toolchains: Optional[List[TargetId]] = None,
+) -> str:
   """Applies Bazel Make variable substitutions.
 
   Args:
@@ -158,14 +172,19 @@ def apply_make_variable_substitutions(
       custom_target_deps=None,
       substitutions=substitutions,
       toolchains=toolchains,
-      enable_location=False)
+      enable_location=False,
+  )
 
 
 def apply_location_and_make_variable_substitutions(
-    _context: InvocationContext, *, cmd: str, relative_to: str,
+    _context: InvocationContext,
+    *,
+    cmd: str,
+    relative_to: str,
     custom_target_deps: Optional[List[CMakeTarget]],
     substitutions: MakeVariableSubstitutions,
-    toolchains: Optional[List[TargetId]]) -> str:
+    toolchains: Optional[List[TargetId]],
+) -> str:
   """Applies $(location) and Bazel Make variable substitutions."""
   return _apply_location_and_make_variable_substitutions(
       _context,
@@ -174,14 +193,16 @@ def apply_location_and_make_variable_substitutions(
       custom_target_deps=custom_target_deps,
       substitutions=substitutions,
       toolchains=toolchains,
-      enable_location=True)
+      enable_location=True,
+  )
 
 
 def apply_location_substitutions(
     _context: InvocationContext,
     cmd: str,
     relative_to: str,
-    custom_target_deps: Optional[List[CMakeTarget]] = None) -> str:
+    custom_target_deps: Optional[List[CMakeTarget]] = None,
+) -> str:
   """Substitues $(location) references in `cmd`.
 
   https://bazel.build/reference/be/make-variables#predefined_label_variables
@@ -197,7 +218,8 @@ def apply_location_substitutions(
   """
 
   def _replace(m: Match[str]) -> str:
-    return _get_location_replacement(_context, relative_to, custom_target_deps,
-                                     m.group(1), m.group(2))
+    return _get_location_replacement(
+        _context, relative_to, custom_target_deps, m.group(1), m.group(2)
+    )
 
   return _LOCATION_SUB_RE.sub(_replace, cmd)

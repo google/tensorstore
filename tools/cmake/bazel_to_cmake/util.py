@@ -55,7 +55,8 @@ def write_file_if_not_already_equal(path: str, content: bytes):
 # - ending in "-NOTFOUND"
 _CMAKE_FALSE_PATTERN = re.compile(
     r"0|[oO][fF][fF]|[nN][oO]|[fF][aA][lL][sS][eE]|[nN]|[iI][gG][nN][oO][rR][eE]|NOTFOUND||.*-NOTFOUND",
-    re.DOTALL)
+    re.DOTALL,
+)
 
 
 def cmake_is_true(value: Optional[str]) -> bool:
@@ -98,8 +99,9 @@ def _get_build_patterns(package_patterns: List[str]):
   return patterns
 
 
-def get_matching_build_files(root_dir: str, include_packages: List[str],
-                             exclude_packages: List[str]) -> List[str]:
+def get_matching_build_files(
+    root_dir: str, include_packages: List[str], exclude_packages: List[str]
+) -> List[str]:
   """Returns the relative path of matching BUILD files.
 
   Args:
@@ -115,9 +117,14 @@ def get_matching_build_files(root_dir: str, include_packages: List[str],
   if os.sep != "/":
     root_dir = root_dir.replace(os.sep, "/")
   include_patterns = _get_build_patterns(include_packages)
-  exclude_regexp = re.compile("(?:" + "|".join(
-      glob_pattern_to_regexp(pattern)
-      for pattern in _get_build_patterns(exclude_packages)) + ")")
+  exclude_regexp = re.compile(
+      "(?:"
+      + "|".join(
+          glob_pattern_to_regexp(pattern)
+          for pattern in _get_build_patterns(exclude_packages)
+      )
+      + ")"
+  )
   root_prefix = root_dir.rstrip("/") + "/"
   build_file_set: Set[str] = set()
   for include_pattern in include_patterns:
@@ -127,7 +134,7 @@ def get_matching_build_files(root_dir: str, include_packages: List[str],
       if os.sep != "/":
         build_path = build_path.replace(os.sep, "/")
       assert build_path.startswith(root_prefix)
-      relative_build_path = build_path[len(root_prefix):]
+      relative_build_path = build_path[len(root_prefix) :]
       if exclude_regexp.fullmatch(relative_build_path):
         continue
       build_file_set.add(relative_build_path)

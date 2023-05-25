@@ -50,13 +50,16 @@ def package_name(self: InvocationContext):
 
 
 @register_native_build_rule
-def package(self: InvocationContext,
-            default_visibility: Optional[List[RelativeLabel]] = None,
-            **kwargs):
+def package(
+    self: InvocationContext,
+    default_visibility: Optional[List[RelativeLabel]] = None,
+    **kwargs,
+):
   del kwargs
   if default_visibility:
     self.access(Visibility).set_default_visibility(
-        self.resolve_target_or_label_list(default_visibility))
+        self.resolve_target_or_label_list(default_visibility)
+    )
 
 
 @register_native_build_rule
@@ -69,24 +72,28 @@ def package_group(self: InvocationContext, **kwargs):
 @register_native_build_rule
 def existing_rule(self: InvocationContext, name: str):
   target = self.resolve_target(name)
-  return self.access(EvaluationState)._all_rules.get(target, None)  # pylint: disable=protected-access
+  # pylint: disable-next=protected-access
+  return self.access(EvaluationState)._all_rules.get(target, None)
 
 
 @register_native_build_rule
-def glob(self: InvocationContext,
-         include: List[str],
-         exclude: Optional[List[str]] = None,
-         allow_empty: bool = True) -> List[str]:
-
+def glob(
+    self: InvocationContext,
+    include: List[str],
+    exclude: Optional[List[str]] = None,
+    allow_empty: bool = True,
+) -> List[str]:
   package_directory = self.get_source_package_dir(self.caller_package_id)
   return starlark_glob(package_directory, include, exclude, allow_empty)
 
 
 @register_native_build_rule
-def filegroup(self: InvocationContext,
-              name: str,
-              srcs: Optional[List[RelativeLabel]] = None,
-              **kwargs):
+def filegroup(
+    self: InvocationContext,
+    name: str,
+    srcs: Optional[List[RelativeLabel]] = None,
+    **kwargs,
+):
   # https://bazel.build/reference/be/general#filegroup
   del kwargs
   _context = self.snapshot()
@@ -94,7 +101,8 @@ def filegroup(self: InvocationContext,
 
   def impl() -> None:
     resolved_srcs = _context.resolve_target_or_label_list(
-        _context.evaluate_configurable_list(srcs))
+        _context.evaluate_configurable_list(srcs)
+    )
     cmake_deps: List[CMakeTarget] = []
 
     state = _context.access(EvaluationState)
@@ -128,16 +136,20 @@ def config_setting(
   target = _context.resolve_target(name)
 
   def impl():
-
     def evaluate() -> bool:
       if flag_values:
         for flag, value in flag_values.items():
-          if _context.evaluate_build_setting(
-              _context.resolve_target_or_label(flag)) != value:
+          if (
+              _context.evaluate_build_setting(
+                  _context.resolve_target_or_label(flag)
+              )
+              != value
+          ):
             return False
       if constraint_values:
         for constraint in _context.resolve_target_or_label_list(
-            constraint_values):
+            constraint_values
+        ):
           if not _context.evaluate_condition(constraint):
             return False
       workspace_values = _context.access(EvaluationState).workspace.values
@@ -153,7 +165,8 @@ def config_setting(
 
     evaluated_condition = evaluate()
     _context.add_analyzed_target(
-        target, TargetInfo(ConditionProvider(evaluated_condition)))
+        target, TargetInfo(ConditionProvider(evaluated_condition))
+    )
 
   _context.add_rule(target, impl, analyze_by_default=True)
 

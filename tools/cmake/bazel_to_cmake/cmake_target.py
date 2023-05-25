@@ -39,15 +39,19 @@ class CMakeTargetPair(NamedTuple):
     return self.alias or self.target
 
   def as_providers(self):
-    return (CMakeTargetPairProvider(self), CMakeTargetProvider(self.target),
-            CMakeDepsProvider([self.dep]))
+    return (
+        CMakeTargetPairProvider(self),
+        CMakeTargetProvider(self.target),
+        CMakeDepsProvider([self.dep]),
+    )
 
   def __str__(self) -> str:
     raise NotImplementedError
 
 
-def label_to_generated_cmake_target(target_id: TargetId,
-                                    cmake_project: str) -> CMakeTargetPair:
+def label_to_generated_cmake_target(
+    target_id: TargetId, cmake_project: str
+) -> CMakeTargetPair:
   """Computes the generated CMake target corresponding to a Bazel target."""
 
   parts: List[str] = []
@@ -60,9 +64,11 @@ def label_to_generated_cmake_target(target_id: TargetId,
     parts = parts[:-1]
   target_name = "_".join(parts)
 
-  return CMakeTargetPair(cmake_project,
-                         CMakeTarget(f"{cmake_project}_{target_name}"),
-                         CMakeTarget(f"{cmake_project}::{target_name}"))
+  return CMakeTargetPair(
+      cmake_project,
+      CMakeTarget(f"{cmake_project}_{target_name}"),
+      CMakeTarget(f"{cmake_project}::{target_name}"),
+  )
 
 
 class CMakeTargetPairProvider(Provider):

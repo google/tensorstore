@@ -16,7 +16,7 @@
 # pylint: disable=relative-beyond-top-level
 
 import os
-from typing import Optional, List
+from typing import List, Optional
 
 import pytest
 
@@ -42,8 +42,8 @@ class MyContext(InvocationContext):
     return self._caller_package_id
 
   def resolve_repo_mapping(
-      self, target: TargetId,
-      mapping_repository_id: Optional[RepositoryId]) -> TargetId:
+      self, target: TargetId, mapping_repository_id: Optional[RepositoryId]
+  ) -> TargetId:
     return target
 
   def resolve_source_root(self, repository_id: RepositoryId) -> str:
@@ -55,7 +55,8 @@ class MyContext(InvocationContext):
       providers.append(FilesProvider([__file__]))
     if "file" in repr(target_id):
       providers.append(
-          FilesProvider([f"{target_id.package_name}/{target_id.target_name}"]))
+          FilesProvider([f"{target_id.package_name}/{target_id.target_name}"])
+      )
     if "cmake" in repr(target_id):
       providers.append(CMakeTargetProvider(CMakeTarget(target_id.target_name)))
     if "none" in repr(target_id):
@@ -71,20 +72,24 @@ def test_apply_make_variable_substitutions():
 
   subs = {"foo": "bar", "@": "x", "<": "y"}
 
-  assert "bar x" == apply_make_variable_substitutions(ctx, "$(foo) $@", subs,
-                                                      [])
+  assert "bar x" == apply_make_variable_substitutions(
+      ctx, "$(foo) $@", subs, []
+  )
 
   assert "$(location bar) x" == apply_make_variable_substitutions(
-      ctx, "$$(location $(foo)) $@", subs, [])
+      ctx, "$$(location $(foo)) $@", subs, []
+  )
 
   assert "${bar} x" == apply_make_variable_substitutions(
-      ctx, "$${bar} $@", subs, [])
+      ctx, "$${bar} $@", subs, []
+  )
 
   assert "${CMAKE_COMMAND} x" == apply_make_variable_substitutions(
       ctx,
       "$(CMAKE_COMMAND) $@",
       subs,
-      toolchains=[TargetId.parse(CMAKE_TOOLCHAIN)])
+      toolchains=[TargetId.parse(CMAKE_TOOLCHAIN)],
+  )
 
 
 def test_apply_location_substitutions():
@@ -99,10 +104,13 @@ def test_apply_location_substitutions():
     apply_location_substitutions(ctx, "$(location an/empty/target)", "", [])
 
   assert "$(frob my/file/a.h) $@" == apply_location_substitutions(
-      ctx, "$(frob my/file/a.h) $@", "")
+      ctx, "$(frob my/file/a.h) $@", ""
+  )
 
   assert "variable_substitution_test.py $@" == apply_location_substitutions(
-      ctx, "$(location my/self/a.h) $@", relative_to)
+      ctx, "$(location my/self/a.h) $@", relative_to
+  )
 
   assert "$<TARGET_FILE:cmake/target> $@" == apply_location_substitutions(
-      ctx, "$(location cmake/target) $@", relative_to)
+      ctx, "$(location cmake/target) $@", relative_to
+  )

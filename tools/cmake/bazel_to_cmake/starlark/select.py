@@ -16,7 +16,7 @@
 # pylint: disable=missing-function-docstring,relative-beyond-top-level
 
 import operator
-from typing import TypeVar, Generic, List, Union, cast, Dict, Callable
+from typing import Callable, Dict, Generic, List, TypeVar, Union, cast
 
 from .bazel_target import TargetId
 
@@ -35,20 +35,24 @@ class _ConfigurableBase(Generic[T]):
   """
 
   def __add__(self, other: "Configurable[T]") -> "Configurable[T]":
-    return SelectExpression(operator.add,
-                            cast(List[Configurable[T]], [self, other]))
+    return SelectExpression(
+        operator.add, cast(List[Configurable[T]], [self, other])
+    )
 
   def __radd__(self, other: "Configurable[T]") -> "Configurable[T]":
-    return SelectExpression(operator.add,
-                            cast(List[Configurable[T]], [other, self]))
+    return SelectExpression(
+        operator.add, cast(List[Configurable[T]], [other, self])
+    )
 
   def __or__(self, other: "Configurable[T]") -> "Configurable[T]":
-    return SelectExpression(operator.or_,
-                            cast(List[Configurable[T]], [self, other]))
+    return SelectExpression(
+        operator.or_, cast(List[Configurable[T]], [self, other])
+    )
 
   def __ror__(self, other: "Configurable[T]") -> "Configurable[T]":
-    return SelectExpression(operator.or_,
-                            cast(List[Configurable[T]], [other, self]))
+    return SelectExpression(
+        operator.or_, cast(List[Configurable[T]], [other, self])
+    )
 
   def evaluate(self, test_condition: TestCondition) -> T:
     raise ValueError("Bad Configurable")
@@ -98,7 +102,6 @@ class SelectExpression(_ConfigurableBase[T]):
     return f"SelectExpression({repr(self.op), repr(self.operands)})"
 
   def evaluate(self, test_condition: TestCondition) -> T:
-
     def _try_evaluate(t: Union[T, Configurable[T]]) -> T:
       if isinstance(t, _ConfigurableBase):
         return t.evaluate(test_condition)

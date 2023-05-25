@@ -27,17 +27,17 @@ from .bazel_target import TargetId
 
 def test_parse_absolute_target():
   assert TargetId(
-      repository_name='foo', package_name='bar',
-      target_name='bar') == parse_absolute_target('@foo//bar')
+      repository_name='foo', package_name='bar', target_name='bar'
+  ) == parse_absolute_target('@foo//bar')
   assert TargetId(
-      repository_name='foo', package_name='',
-      target_name='bar') == parse_absolute_target('@foo//:bar')
+      repository_name='foo', package_name='', target_name='bar'
+  ) == parse_absolute_target('@foo//:bar')
   assert TargetId(
-      repository_name='foo', package_name='bar',
-      target_name='baz') == parse_absolute_target('@foo//bar:baz')
+      repository_name='foo', package_name='bar', target_name='baz'
+  ) == parse_absolute_target('@foo//bar:baz')
   assert TargetId(
-      repository_name='foo', package_name='',
-      target_name='foo') == parse_absolute_target('@foo')
+      repository_name='foo', package_name='', target_name='foo'
+  ) == parse_absolute_target('@foo')
 
   with pytest.raises(Exception):
     parse_absolute_target('')
@@ -48,29 +48,30 @@ def test_parse_absolute_target():
 def test_parse_repository_relative_label():
   repo = RepositoryId('repo')
   assert PackageId(
-      repository_name='repo', package_name='x') == repo.get_package_id('x')
+      repository_name='repo', package_name='x'
+  ) == repo.get_package_id('x')
 
   # Absolute label
   assert TargetId(
-      repository_name='foo', package_name='bar',
-      target_name='bar') == repo.parse_target('@foo//bar')
+      repository_name='foo', package_name='bar', target_name='bar'
+  ) == repo.parse_target('@foo//bar')
   assert TargetId(
-      repository_name='foo', package_name='',
-      target_name='bar') == repo.parse_target('@foo//:bar')
+      repository_name='foo', package_name='', target_name='bar'
+  ) == repo.parse_target('@foo//:bar')
   assert TargetId(
-      repository_name='foo', package_name='',
-      target_name='foo') == repo.parse_target('@foo')
+      repository_name='foo', package_name='', target_name='foo'
+  ) == repo.parse_target('@foo')
 
   # Relative label
   assert TargetId(
-      repository_name='repo', package_name='bar',
-      target_name='bar') == repo.parse_target('//bar')
+      repository_name='repo', package_name='bar', target_name='bar'
+  ) == repo.parse_target('//bar')
   assert TargetId(
-      repository_name='repo', package_name='bar/baz',
-      target_name='baz') == repo.parse_target('//bar/baz')
+      repository_name='repo', package_name='bar/baz', target_name='baz'
+  ) == repo.parse_target('//bar/baz')
   assert TargetId(
-      repository_name='repo', package_name='bar',
-      target_name='baz') == repo.parse_target('//bar:baz')
+      repository_name='repo', package_name='bar', target_name='baz'
+  ) == repo.parse_target('//bar:baz')
 
   with pytest.raises(Exception):
     repo.parse_target('')
@@ -85,25 +86,25 @@ def test_parse_package_relative_label():
 
   # Absolute label
   assert TargetId(
-      repository_name='foo', package_name='bar',
-      target_name='bar') == repo.parse_target('@foo//bar')
+      repository_name='foo', package_name='bar', target_name='bar'
+  ) == repo.parse_target('@foo//bar')
   assert TargetId(
-      repository_name='foo', package_name='',
-      target_name='bar') == repo.parse_target('@foo//:bar')
+      repository_name='foo', package_name='', target_name='bar'
+  ) == repo.parse_target('@foo//:bar')
   assert TargetId(
-      repository_name='foo', package_name='',
-      target_name='foo') == repo.parse_target('@foo')
+      repository_name='foo', package_name='', target_name='foo'
+  ) == repo.parse_target('@foo')
 
   # Relative label
   assert TargetId(
-      repository_name='repo', package_name='bar',
-      target_name='bar') == repo.parse_target('//bar')
+      repository_name='repo', package_name='bar', target_name='bar'
+  ) == repo.parse_target('//bar')
   assert TargetId(
-      repository_name='repo', package_name='bar/baz',
-      target_name='baz') == repo.parse_target('//bar/baz')
+      repository_name='repo', package_name='bar/baz', target_name='baz'
+  ) == repo.parse_target('//bar/baz')
   assert TargetId(
-      repository_name='repo', package_name='bar',
-      target_name='baz') == repo.parse_target('//bar:baz')
+      repository_name='repo', package_name='bar', target_name='baz'
+  ) == repo.parse_target('//bar:baz')
 
   with pytest.raises(Exception):
     repo.parse_target('')
@@ -113,20 +114,23 @@ def test_parse_package_relative_label():
 
 def test_remap_target():
   base = TargetId(
-      repository_name='relative', package_name='package', target_name='name')
+      repository_name='relative', package_name='package', target_name='name'
+  )
 
   assert base == remap_target_repo(base, {})
   assert base == remap_target_repo(base, {'other': 'other'})
   assert TargetId(
-      repository_name='absolute', package_name='package',
-      target_name='name') == remap_target_repo(base, {'relative': 'absolute'})
+      repository_name='absolute', package_name='package', target_name='name'
+  ) == remap_target_repo(base, {'relative': 'absolute'})
 
 
 def test_pickle_unpickle():
   assert TargetId('foo', 'bar', 'baz') == pickle.loads(
-      pickle.dumps(TargetId('foo', 'bar', 'baz')))
+      pickle.dumps(TargetId('foo', 'bar', 'baz'))
+  )
   assert PackageId('foo', 'bar') == pickle.loads(
-      pickle.dumps(PackageId('foo', 'bar')))
+      pickle.dumps(PackageId('foo', 'bar'))
+  )
   assert RepositoryId('foo') == pickle.loads(pickle.dumps(RepositoryId('foo')))
 
 

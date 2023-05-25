@@ -57,7 +57,7 @@ class BazelSelectsWrapper:
       self, input_dict: Dict[Union[RelativeLabel, Tuple[RelativeLabel, ...]], T]
   ) -> Dict[RelativeLabel, T]:
     output_dict: Dict[RelativeLabel, T] = {}
-    for (key, value) in input_dict.items():
+    for key, value in input_dict.items():
       if isinstance(key, tuple):
         for config_setting in key:
           if config_setting in output_dict.keys():
@@ -69,16 +69,19 @@ class BazelSelectsWrapper:
         output_dict[key] = value
     return output_dict
 
-  def with_or(self,
-              input_dict: Dict[Union[RelativeLabel, Tuple[RelativeLabel, ...]],
-                               T],
-              no_match_error=None) -> Select[T]:
+  def with_or(
+      self,
+      input_dict: Dict[Union[RelativeLabel, Tuple[RelativeLabel, ...]], T],
+      no_match_error=None,
+  ) -> Select[T]:
     del no_match_error
     conditions = self.with_or_dict(input_dict)
-    return Select({
-        self._context.resolve_target_or_label(condition): value
-        for condition, value in conditions.items()
-    })
+    return Select(
+        {
+            self._context.resolve_target_or_label(condition): value
+            for condition, value in conditions.items()
+        }
+    )
 
   def config_setting_group(
       self,
@@ -106,26 +109,33 @@ class BazelSelectsWrapper:
 
     context.add_rule(
         target,
-        lambda: _config_settings_group_impl(context, target, resolved_match_all,
-                                            resolved_match_any),
-        analyze_by_default=True)
+        lambda: _config_settings_group_impl(
+            context, target, resolved_match_all, resolved_match_any
+        ),
+        analyze_by_default=True,
+    )
 
 
-def _config_settings_group_impl(_context: InvocationContext, _target: TargetId,
-                                match_all: Optional[List[TargetId]],
-                                match_any: Optional[List[TargetId]]):
-
+def _config_settings_group_impl(
+    _context: InvocationContext,
+    _target: TargetId,
+    match_all: Optional[List[TargetId]],
+    match_any: Optional[List[TargetId]],
+):
   def evaluate() -> bool:
     if match_all is not None:
       return all(
-          _context.evaluate_condition(condition) for condition in match_all)
+          _context.evaluate_condition(condition) for condition in match_all
+      )
     if match_any is not None:
       return any(
-          _context.evaluate_condition(condition) for condition in match_any)
+          _context.evaluate_condition(condition) for condition in match_any
+      )
     return False
 
-  _context.add_analyzed_target(_target,
-                               TargetInfo(ConditionProvider(evaluate())))
+  _context.add_analyzed_target(
+      _target, TargetInfo(ConditionProvider(evaluate()))
+  )
 
 
 @register_bzl_library("@bazel_skylib//lib:selects.bzl", build=True)
@@ -139,11 +149,13 @@ class BazelSkylibSelectsLibrary(BazelGlobals):
 @register_bzl_library("@bazel_skylib//rules:expand_template.bzl", build=True)
 class BazelSkylibExpandTemplateLibrary(BazelGlobals):
 
-  def bazel_expand_template(self,
-                            name: str,
-                            out: RelativeLabel,
-                            visibility: Optional[List[RelativeLabel]] = None,
-                            **kwargs):
+  def bazel_expand_template(
+      self,
+      name: str,
+      out: RelativeLabel,
+      visibility: Optional[List[RelativeLabel]] = None,
+      **kwargs,
+  ):
     context = self._context.snapshot()
     target = context.resolve_target(name)
     out_target: TargetId = context.resolve_target_or_label(out)
@@ -152,7 +164,8 @@ class BazelSkylibExpandTemplateLibrary(BazelGlobals):
         target,
         lambda: _expand_template_impl(context, target, out_target, **kwargs),
         outs=[out_target],
-        visibility=visibility)
+        visibility=visibility,
+    )
 
 
 def _expand_template_impl(
@@ -170,11 +183,13 @@ def _expand_template_impl(
   _context.add_analyzed_target(
       _out_target,
       TargetInfo(
-          CMakeDepsProvider([cmake_target_pair.dep]),
-          FilesProvider([out_file])))
+          CMakeDepsProvider([cmake_target_pair.dep]), FilesProvider([out_file])
+      ),
+  )
 
   resolved_template = _context.resolve_target_or_label(
-      cast(RelativeLabel, _context.evaluate_configurable(template)))
+      cast(RelativeLabel, _context.evaluate_configurable(template))
+  )
 
   deps: List[CMakeTarget] = []
   template_paths = state.get_file_paths(resolved_template, deps)
@@ -184,11 +199,13 @@ def _expand_template_impl(
   script_path = os.path.join(os.path.dirname(__file__), "expand_template.py")
   # Write substitutions to a file because CMake does not handle special
   # characters like "\n" in command lines properly.
-  subs_path = os.path.join(state.repo.cmake_binary_dir,
-                           f"{cmake_target_pair.target}.subs.json")
+  subs_path = os.path.join(
+      state.repo.cmake_binary_dir, f"{cmake_target_pair.target}.subs.json"
+  )
   write_file_if_not_already_equal(
       subs_path,
-      json.dumps(_context.evaluate_configurable(substitutions)).encode("utf-8"))
+      json.dumps(_context.evaluate_configurable(substitutions)).encode("utf-8"),
+  )
   deps.append(CMakeTarget(template_path))
   deps.append(CMakeTarget(script_path))
   deps.append(CMakeTarget(subs_path))
@@ -206,19 +223,22 @@ VERBATIM
 )
 add_custom_target({cmake_target_pair.target} DEPENDS {quote_path(out_file)})
 """)
-  _context.add_analyzed_target(_target,
-                               TargetInfo(*cmake_target_pair.as_providers()))
+  _context.add_analyzed_target(
+      _target, TargetInfo(*cmake_target_pair.as_providers())
+  )
 
 
 @register_bzl_library("@bazel_skylib//rules:copy_file.bzl", build=True)
 class BazelSkylibCopyFileLibrary(BazelGlobals):
 
-  def bazel_copy_file(self,
-                      name: str,
-                      out: RelativeLabel,
-                      src: Configurable[RelativeLabel],
-                      visibility: Optional[List[RelativeLabel]] = None,
-                      **kwargs):
+  def bazel_copy_file(
+      self,
+      name: str,
+      out: RelativeLabel,
+      src: Configurable[RelativeLabel],
+      visibility: Optional[List[RelativeLabel]] = None,
+      **kwargs,
+  ):
     del kwargs
 
     native_rules_genrule.genrule(
@@ -228,17 +248,20 @@ class BazelSkylibCopyFileLibrary(BazelGlobals):
         srcs=[src],
         visibility=visibility,
         toolchains=[CMAKE_TOOLCHAIN],
-        cmd="$(CMAKE_COMMAND) -E copy $< $@")
+        cmd="$(CMAKE_COMMAND) -E copy $< $@",
+    )
 
 
 @register_bzl_library("@bazel_skylib//rules:write_file.bzl", build=True)
 class BazelSkylibWriteFileLibrary(BazelGlobals):
 
-  def bazel_write_file(self,
-                       name: str,
-                       out: str,
-                       visibility: Optional[List[RelativeLabel]] = None,
-                       **kwargs):
+  def bazel_write_file(
+      self,
+      name: str,
+      out: str,
+      visibility: Optional[List[RelativeLabel]] = None,
+      **kwargs,
+  ):
     context = self._context.snapshot()
     target = context.resolve_target(name)
     out_target: TargetId = context.resolve_target(out)
@@ -247,7 +270,8 @@ class BazelSkylibWriteFileLibrary(BazelGlobals):
         target,
         lambda: _write_file_impl(context, target, out_target, **kwargs),
         outs=[out_target],
-        visibility=visibility)
+        visibility=visibility,
+    )
 
 
 def _write_file_impl(
@@ -260,61 +284,78 @@ def _write_file_impl(
 ):
   del kwargs
   out_file = _context.get_generated_file_path(_out_target)
-  _context.add_analyzed_target(_out_target,
-                               TargetInfo(FilesProvider([out_file])))
+  _context.add_analyzed_target(
+      _out_target, TargetInfo(FilesProvider([out_file]))
+  )
 
   _context.add_analyzed_target(_target, TargetInfo())
 
   resolved_newline = _context.evaluate_configurable(newline)
 
   if resolved_newline == "unix" or (
-      resolved_newline == "auto" and not cmake_is_windows(
-          _context.access(
-              EvaluationState).workspace.cmake_vars["CMAKE_SYSTEM_NAME"])):
+      resolved_newline == "auto"
+      and not cmake_is_windows(
+          _context.access(EvaluationState).workspace.cmake_vars[
+              "CMAKE_SYSTEM_NAME"
+          ]
+      )
+  ):
     nl = "\n"
   else:
     nl = "\r\n"
   text = nl.join(cast(Any, _context.evaluate_configurable_list(content))) + nl
 
   _context.access(CMakeBuilder).addtext(
-      f"\n# bazel_to_cmake wrote {out_file}\n")
+      f"\n# bazel_to_cmake wrote {out_file}\n"
+  )
   write_file_if_not_already_equal(out_file, text.encode("utf-8"))
 
 
 @register_bzl_library("@bazel_skylib//rules:common_settings.bzl", build=True)
 class BazelSkylibCommonSettingsLibrary(BazelGlobals):
 
-  def bazel_bool_flag(self,
-                      name: str,
-                      visibility: Optional[List[RelativeLabel]] = None,
-                      **kwargs):
+  def bazel_bool_flag(
+      self,
+      name: str,
+      visibility: Optional[List[RelativeLabel]] = None,
+      **kwargs,
+  ):
     context = self._context.snapshot()
     target = context.resolve_target(name)
     context.add_rule(
         target,
         lambda: _bool_flag_impl(context, target, **kwargs),
-        visibility=visibility)
+        visibility=visibility,
+    )
 
-  def bazel_string_flag(self,
-                        name: str,
-                        visibility: Optional[List[RelativeLabel]] = None,
-                        **kwargs):
+  def bazel_string_flag(
+      self,
+      name: str,
+      visibility: Optional[List[RelativeLabel]] = None,
+      **kwargs,
+  ):
     context = self._context.snapshot()
     target = context.resolve_target(name)
     context.add_rule(
         target,
         lambda: _string_flag_impl(context, target, **kwargs),
-        visibility=visibility)
+        visibility=visibility,
+    )
 
 
-def _bool_flag_impl(_context: InvocationContext, _target: TargetId,
-                    build_setting_default: Configurable[bool], **kwargs):
+def _bool_flag_impl(
+    _context: InvocationContext,
+    _target: TargetId,
+    build_setting_default: Configurable[bool],
+    **kwargs,
+):
   del kwargs
   repo = _context.access(EvaluationState).repo
 
   cmake_name = str(
-      label_to_generated_cmake_target(_target,
-                                      repo._cmake_project_name).target).upper()
+      # pylint: disable-next=protected-access
+      label_to_generated_cmake_target(_target, repo._cmake_project_name).target
+  ).upper()
   existing_value = repo.workspace.cmake_vars.get(cmake_name)
   default_value = _context.evaluate_configurable(build_setting_default)
   if existing_value is None:
@@ -322,18 +363,24 @@ def _bool_flag_impl(_context: InvocationContext, _target: TargetId,
   else:
     value = cmake_is_true(existing_value)
   _context.access(CMakeBuilder).addtext(
-      f"""option({cmake_name} "" {"ON" if default_value else "OFF"})\n""")
+      f"""option({cmake_name} "" {"ON" if default_value else "OFF"})\n"""
+  )
   _context.add_analyzed_target(_target, TargetInfo(BuildSettingProvider(value)))
 
 
-def _string_flag_impl(_context: InvocationContext, _target: TargetId,
-                      build_setting_default: Configurable[str], **kwargs):
+def _string_flag_impl(
+    _context: InvocationContext,
+    _target: TargetId,
+    build_setting_default: Configurable[str],
+    **kwargs,
+):
   del kwargs
   repo = _context.access(EvaluationState).repo
 
   cmake_name = str(
-      label_to_generated_cmake_target(_target,
-                                      repo._cmake_project_name).target).upper()
+      # pylint: disable-next=protected-access
+      label_to_generated_cmake_target(_target, repo._cmake_project_name).target
+  ).upper()
   existing_value = repo.workspace.cmake_vars.get(cmake_name)
   default_value = _context.evaluate_configurable(build_setting_default)
   if existing_value is None:
@@ -341,5 +388,6 @@ def _string_flag_impl(_context: InvocationContext, _target: TargetId,
   else:
     value = existing_value
   _context.access(CMakeBuilder).addtext(
-      f"""option({cmake_name} "" {quote_string(value)})\n""")
+      f"""option({cmake_name} "" {quote_string(value)})\n"""
+  )
   _context.add_analyzed_target(_target, TargetInfo(BuildSettingProvider(value)))

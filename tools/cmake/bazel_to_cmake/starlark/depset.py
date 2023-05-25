@@ -29,8 +29,8 @@ class DepSet(set):
 
     Args:
       direct: The direct elements to add to the depset.
-      order: The order of elements in this depset. Not supported by the
-          testing framework.
+      order: The order of elements in this depset. Not supported by the testing
+        framework.
       transitive: A list of depsets to unroll into the new depset.
 
     Returns:

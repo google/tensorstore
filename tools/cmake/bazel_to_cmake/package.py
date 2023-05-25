@@ -41,8 +41,9 @@ class Package:
     self._default_visibility: List[TargetId] = []
 
     # Whether analyze by default returns only public targets.
-    if (repository.top_level and
-        cmake_is_true(repository.workspace.cmake_vars["PROJECT_IS_TOP_LEVEL"])):
+    if repository.top_level and cmake_is_true(
+        repository.workspace.cmake_vars["PROJECT_IS_TOP_LEVEL"]
+    ):
       self.analyze_mode = AnalyzeMode.EVERYTHING
       self.test_analyze_mode = AnalyzeMode.EVERYTHING
     else:
@@ -68,12 +69,14 @@ class Visibility:
     self._package = package
 
   def set_default_visibility(self, visibility: List[TargetId]):
-    self._package._default_visibility = visibility  # pylint: disable=protected-access
+    # pylint: disable-next=protected-access
+    self._package._default_visibility = visibility
 
   def analyze_by_default(self, visibility: Optional[List[TargetId]]):
     return (self._package.analyze_mode == AnalyzeMode.EVERYTHING) or (
-        self._package.analyze_mode == AnalyzeMode.PUBLIC_ONLY and
-        self.is_public(visibility))
+        self._package.analyze_mode == AnalyzeMode.PUBLIC_ONLY
+        and self.is_public(visibility)
+    )
 
   def analyze_test_by_default(self, visibility: Optional[List[TargetId]]):
     # Treat tests as private regardless of actual visibility.

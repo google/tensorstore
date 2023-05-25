@@ -18,7 +18,7 @@
 import collections
 import json
 import os
-from typing import Dict, List, Optional, Set, Tuple, Sequence
+from typing import Dict, List, Optional, Sequence, Set, Tuple
 
 
 def quote_string(x: str) -> str:
@@ -73,7 +73,8 @@ class CMakeBuilder:
 
   def find_package(self, name, section=FIND_PACKAGE_SECTION):
     self.addtext(
-        f"find_package({name} REQUIRED)\n", section=section, unique=True)
+        f"find_package({name} REQUIRED)\n", section=section, unique=True
+    )
 
   @property
   def default_section(self) -> int:
@@ -89,10 +90,9 @@ class CMakeBuilder:
 
     return "".join(sections)
 
-  def addtext(self,
-              text: str,
-              section: Optional[int] = None,
-              unique: bool = False):
+  def addtext(
+      self, text: str, section: Optional[int] = None, unique: bool = False
+  ):
     """Adds raw text to the cmake file."""
     if section is None:
       section = self.default_section
@@ -101,8 +101,10 @@ class CMakeBuilder:
       if key in self._unique:
         return
       # FIND_PACKAGE / FIND_DEP_PACKAGE are special.
-      if (section == FIND_DEP_PACKAGE_SECTION and
-          (FIND_PACKAGE_SECTION, text) in self._unique):
+      if (
+          section == FIND_DEP_PACKAGE_SECTION
+          and (FIND_PACKAGE_SECTION, text) in self._unique
+      ):
         return
       self._unique.add(key)
     self._sections[section].append(text)

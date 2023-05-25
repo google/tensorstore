@@ -16,9 +16,6 @@
 # pylint: disable=invalid-name,missing-function-docstring,relative-beyond-top-level,g-importing-member
 
 import sys
-
-from .select import Select
-from .struct import Struct
 from typing import Dict, Optional, Tuple, Type, TypeVar
 
 from .bazel_target import parse_absolute_target
@@ -28,6 +25,8 @@ from .invocation_context import InvocationContext
 from .label import Label
 from .label import RelativeLabel
 from .provider import provider
+from .select import Select
+from .struct import Struct
 
 if sys.version_info < (3, 9):
   from .. import dict_union_polyfill
@@ -45,8 +44,9 @@ class BazelGlobals(dict):
     https://github.com/bazelbuild/starlark/blob/master/spec.md#built-in-constants-and-functions
   """
 
-  def __init__(self, context: InvocationContext, target_id: TargetId,
-               path: str):
+  def __init__(
+      self, context: InvocationContext, target_id: TargetId, path: str
+  ):
     self._context = context
     # For all files, BUILD, WORKSPACE, and .bzl, the target_id is the target
     # of the file itself, which is not the context of the calling function.
@@ -67,7 +67,8 @@ class BazelGlobals(dict):
     assert isinstance(label_string, str)
     repository_id = self._target_id.repository_id
     target_id = self._context.resolve_repo_mapping(
-        repository_id.parse_target(label_string), repository_id)
+        repository_id.parse_target(label_string), repository_id
+    )
 
     return Label(target_id, self._context.resolve_source_root)
 
@@ -91,9 +92,11 @@ class BazelGlobals(dict):
   if sys.version_info < (3, 9):
     # Polyfill dict union operator (PEP 584)
     bazel_dict = staticmethod(
-        dict_union_polyfill.DictWithUnion)  # type: ignore[not-callable]
+        dict_union_polyfill.DictWithUnion
+    )  # type: ignore[not-callable]
     bazel___DictWithUnion = staticmethod(
-        dict_union_polyfill.DictWithUnion)  # type: ignore[not-callable]
+        dict_union_polyfill.DictWithUnion
+    )  # type: ignore[not-callable]
   else:
     bazel_dict = staticmethod(dict)  # type: ignore[not-callable]
 
@@ -154,7 +157,6 @@ class BazelNativeBuildRules:
 
 
 class CcCommonModule:
-
   do_not_use_tools_cpp_compiler_present = True
 
 
@@ -166,10 +168,12 @@ class BuildFileLibraryGlobals(BazelGlobals):
     return BazelNativeBuildRules(self._context)
 
   def bazel_select(self, conditions: Dict[RelativeLabel, T]) -> Select[T]:
-    return Select({
-        self._context.resolve_target_or_label(condition): value
-        for condition, value in conditions.items()
-    })
+    return Select(
+        {
+            self._context.resolve_target_or_label(condition): value
+            for condition, value in conditions.items()
+        }
+    )
 
   bazel_provider = staticmethod(provider)
 
@@ -189,15 +193,15 @@ _BZL_LIBRARIES: Dict[Tuple[TargetId, bool], Type[BazelGlobals]] = {}
 
 
 def get_bazel_library(
-    key: Tuple[TargetId, bool]) -> Optional[Type[BazelGlobals]]:
+    key: Tuple[TargetId, bool]
+) -> Optional[Type[BazelGlobals]]:
   """Returns the target library, if registered."""
   return _BZL_LIBRARIES.get(key)
 
 
-def register_bzl_library(target: str,
-                         workspace: bool = False,
-                         build: bool = False):
-
+def register_bzl_library(
+    target: str, workspace: bool = False, build: bool = False
+):
   target_id = parse_absolute_target(target)
 
   def register(library: Type[BazelGlobals]):

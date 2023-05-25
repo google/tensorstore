@@ -33,15 +33,19 @@ class Struct(object):
 
   def __repr__(self):
     kwargs_repr = ','.join(
-        f'{k}={repr(self.__dict__.get(k))}' for k in self._fields)
+        f'{k}={repr(self.__dict__.get(k))}' for k in self._fields
+    )
     return f'struct({kwargs_repr})'
 
   def __add__(self, addend: 'Struct'):
     """In Starlark, struct + struct = struct."""
     common_fields = set(self._fields) & set(addend._fields)
     if common_fields:
-      raise ValueError('Cannot concat structs with common field(s): {}'.format(
-          ', '.join(common_fields)))
+      raise ValueError(
+          'Cannot concat structs with common field(s): {}'.format(
+              ', '.join(common_fields)
+          )
+      )
 
     fields = {k: self.__dict__.get(k) for k in self._fields}
     fields.update({k: addend.__dict__.get(k) for k in addend._fields})

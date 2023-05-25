@@ -20,7 +20,8 @@ from ..starlark.bazel_globals import register_bzl_library
 
 
 @register_bzl_library(
-    "@bazel_tools//tools/build_defs/repo:utils.bzl", workspace=True)
+    "@bazel_tools//tools/build_defs/repo:utils.bzl", workspace=True
+)
 class BazelToolsRepoUtilsLibrary(BazelGlobals):
 
   def bazel_maybe(self, fn, **kwargs):

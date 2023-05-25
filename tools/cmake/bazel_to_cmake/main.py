@@ -40,8 +40,10 @@ from .workspace import Repository
 from .workspace import Workspace
 
 
-def maybe_expand_special_targets(t: TargetId, available: Union[Set[TargetId],
-                                                               List[TargetId]]):
+def maybe_expand_special_targets(
+    t: TargetId,
+    available: Union[Set[TargetId], List[TargetId]],
+):
   # Handle special targets t, :all, :... from the available targets.
   result: List[TargetId] = []
   if t.target_name == "all":
@@ -59,7 +61,6 @@ def maybe_expand_special_targets(t: TargetId, available: Union[Set[TargetId],
 
 
 def main():
-
   ap = argparse.ArgumentParser()
   # Used for top-level project and dependencies.
   ap.add_argument("--bazel-repo-name", required=True)
@@ -103,11 +104,13 @@ def main():
         cmake_vars = json.load(f)
     except Exception as e:
       raise ValueError(
-          f"Failed to decode cmake_vars as JSON: {args.cmake_vars}") from e
+          f"Failed to decode cmake_vars as JSON: {args.cmake_vars}"
+      ) from e
     assert isinstance(cmake_vars, dict)
 
     workspace = Workspace(
-        cmake_vars=cmake_vars, save_workspace=args.save_workspace)
+        cmake_vars=cmake_vars, save_workspace=args.save_workspace
+    )
     add_platform_constraints(workspace)
     workspace.values.update(("define", x) for x in args.define)
 
@@ -145,8 +148,9 @@ def main():
     i = name.find("=")
     assert i > 0
     target = repo.repository_id.get_package_id("external").parse_target(
-        name[:i])
-    actual = repo.repository_id.parse_target(name[i + 1:])
+        name[:i]
+    )
+    actual = repo.repository_id.parse_target(name[i + 1 :])
     assert target not in repo.bindings
     repo.bindings[target] = actual
 
@@ -160,14 +164,17 @@ def main():
   build_files = get_matching_build_files(
       root_dir=repo.source_directory,
       include_packages=include_packages,
-      exclude_packages=exclude_packages)
+      exclude_packages=exclude_packages,
+  )
   if args.extra_build:
     build_files.extend(args.extra_build)
 
   if not build_files:
-    raise ValueError(f"No build files in {repo.source_directory!r} match " +
-                     f"include_packages={include_packages!r} and " +
-                     f"exclude_packages={exclude_packages!r}")
+    raise ValueError(
+        f"No build files in {repo.source_directory!r} match "
+        + f"include_packages={include_packages!r} and "
+        + f"exclude_packages={exclude_packages!r}"
+    )
   for build_file in build_files:
     state.process_build_file(build_file)
 
@@ -178,14 +185,17 @@ def main():
     for t in args.target:
       targets_to_analyze.update(
           maybe_expand_special_targets(
-              repo.repository_id.parse_target(t), default_targets_to_analyze))
+              repo.repository_id.parse_target(t), default_targets_to_analyze
+          )
+      )
   else:
     targets_to_analyze = default_targets_to_analyze
 
   if args.exclude_target:
     for t in args.exclude_target:
       for u in maybe_expand_special_targets(
-          repo.repository_id.parse_target(t), targets_to_analyze):
+          repo.repository_id.parse_target(t), targets_to_analyze
+      ):
         targets_to_analyze.discard(u)
 
   state.analyze(sorted(targets_to_analyze))
@@ -215,7 +225,8 @@ def main():
   # step will be re-run before building any target.
   sep = "\n    "
   builder.addtext(
-      f"set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS {cmake_builder.quote_list(sorted(input_files), separator=sep)})\n",
+      "set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS"
+      f" {cmake_builder.quote_list(sorted(input_files), separator=sep)})\n",
       section=0,
   )
 
@@ -228,7 +239,8 @@ bazel_to_cmake.py encountered errors
 ---------------------------------------------------
 {error_str}
 """,
-        file=sys.stderr)
+        file=sys.stderr,
+    )
     return 1
 
   if args.build_rules_output:
@@ -240,8 +252,10 @@ bazel_to_cmake.py encountered errors
     # In order to generate consistent target names persist the following:
     # * Build and configuration settings.
     def _persist_targetinfo(target: TargetId, info: TargetInfo):
-      if (info.get(BuildSettingProvider) is not None or
-          info.get(ConditionProvider) is not None):
+      if (
+          info.get(BuildSettingProvider) is not None
+          or info.get(ConditionProvider) is not None
+      ):
         workspace.set_persistent_target_info(target, info)
 
     state.visit_analyzed_targets(_persist_targetinfo)

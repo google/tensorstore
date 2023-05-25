@@ -83,8 +83,8 @@ class MyContext(InvocationContext):
     return self._caller_package_id
 
   def resolve_repo_mapping(
-      self, target: TargetId,
-      mapping_repository_id: Optional[RepositoryId]) -> TargetId:
+      self, target: TargetId, mapping_repository_id: Optional[RepositoryId]
+  ) -> TargetId:
     return target
 
   def resolve_source_root(self, repository_id: RepositoryId) -> str:
@@ -93,18 +93,20 @@ class MyContext(InvocationContext):
   def load_library(self, target: TargetId) -> Dict[str, Any]:
     return IgnoredLibrary()
 
-  def add_rule(self,
-               rule_id: TargetId,
-               impl: RuleImpl,
-               outs: Optional[List[TargetId]] = None,
-               **kwargs) -> None:
+  def add_rule(
+      self,
+      rule_id: TargetId,
+      impl: RuleImpl,
+      outs: Optional[List[TargetId]] = None,
+      **kwargs,
+  ) -> None:
     pass
 
 
 def test_workspace_globals():
-
-  scope = BazelWorkspaceGlobals(MyContext(), TargetId.parse("@foo//:WORKSPACE"),
-                                "foo/WORKSPACE")
+  scope = BazelWorkspaceGlobals(
+      MyContext(), TargetId.parse("@foo//:WORKSPACE"), "foo/WORKSPACE"
+  )
 
   output: List[str] = []
   scope["print"] = output.append
@@ -116,9 +118,9 @@ def test_workspace_globals():
 
 
 def test_build_file_library_globals():
-  scope = BuildFileLibraryGlobals(MyContext(),
-                                  TargetId.parse("@foo//:file.bzl"),
-                                  "foo/file.bzl")
+  scope = BuildFileLibraryGlobals(
+      MyContext(), TargetId.parse("@foo//:file.bzl"), "foo/file.bzl"
+  )
 
   output: List[str] = []
   scope["print"] = output.append

@@ -13,7 +13,7 @@
 # limitations under the License.
 """Implement the Label type for bazel."""
 
-from typing import Union, Callable
+from typing import Callable, Union
 
 from .bazel_target import RepositoryId
 from .bazel_target import TargetId
@@ -47,13 +47,17 @@ RelativeLabel = Union[str, "Label"]
 class Label:
   """Corresponds to the Bazel `Label` type.
 
-    This holds a reference to the `InvocationContext` in order to compute
-    `workspace_root`.
+  This holds a reference to the `InvocationContext` in order to compute
+  `workspace_root`.
   """
+
   __slots__ = ("target_id", "_resolve_workspace")
 
-  def __init__(self, target_id: TargetId,
-               resolve_workspace: Callable[[RepositoryId], str]):
+  def __init__(
+      self,
+      target_id: TargetId,
+      resolve_workspace: Callable[[RepositoryId], str],
+  ):
     # Rely on the constructor function to apply the the repository mapping.
     self.target_id = target_id
     self._resolve_workspace = resolve_workspace
@@ -74,7 +78,7 @@ class Label:
     return f"{self.target_id.as_label()}"
 
   def __repr__(self) -> str:
-    return f"Label(\"{self}\")"
+    return f'Label("{self}")'
 
   @property
   def workspace_root(self) -> str:

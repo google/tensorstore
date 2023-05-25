@@ -18,7 +18,7 @@ https://bazel.build/rules/lib/globals#provider
 
 # pylint: disable=missing-function-docstring,relative-beyond-top-level,missing-class-docstring
 
-from typing import TypeVar, Type, Optional, cast
+from typing import Optional, Type, TypeVar, cast
 
 
 class Provider:
@@ -30,6 +30,7 @@ P = TypeVar('P', bound=Provider)
 
 class TargetInfo:
   """Providers associated with an analyzed Bazel target."""
+
   __slots__ = ('_providers',)
 
   def __init__(self, *args: Provider):
@@ -48,8 +49,9 @@ class TargetInfo:
     return iter(self._providers.values())
 
   def __repr__(self):
-    return ('{' + ', '.join(repr(value) for value in self._providers.values()) +
-            '}')
+    return (
+        '{' + ', '.join(repr(value) for value in self._providers.values()) + '}'
+    )
 
 
 class GenericProvider(Provider):
@@ -64,7 +66,8 @@ class GenericProvider(Provider):
 
   def __repr__(self):
     kwargs_repr = ','.join(
-        f'{k}={repr(self.__dict__.get(k))}' for k in self._fields)
+        f'{k}={repr(self.__dict__.get(k))}' for k in self._fields
+    )
     return f'struct({kwargs_repr})'
 
   def __eq__(self, other):

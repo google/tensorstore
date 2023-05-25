@@ -217,8 +217,6 @@ from ..cmake_builder import quote_string
 from ..cmake_target import CMakeTarget
 from ..cmake_target import label_to_generated_cmake_target
 from ..evaluation import EvaluationState
-from .helpers import update_target_mapping
-from .helpers import write_bazel_to_cmake_cmakelists
 from ..starlark.bazel_globals import BazelGlobals
 from ..starlark.bazel_globals import register_bzl_library
 from ..starlark.bazel_target import parse_absolute_target
@@ -227,10 +225,13 @@ from ..starlark.invocation_context import InvocationContext
 from ..starlark.label import Label
 from ..util import cmake_is_true
 from ..workspace import Repository
+from .helpers import update_target_mapping
+from .helpers import write_bazel_to_cmake_cmakelists
 
 
 @register_bzl_library(
-    "@com_google_tensorstore//third_party:repo.bzl", workspace=True)
+    "@com_google_tensorstore//third_party:repo.bzl", workspace=True
+)
 class ThirdPartyRepoLibrary(BazelGlobals):
 
   def bazel_third_party_http_archive(self, **kwargs):
@@ -261,8 +262,7 @@ def _get_fetch_content_invocation(
     remove_paths: Optional[List[str]] = None,
     **kwargs,
 ) -> str:
-  """Convert `third_party_http_archive` options to CMake FetchContent invocation.
-  """
+  """Convert `third_party_http_archive` options to CMake FetchContent invocation."""
   state = _context.access(EvaluationState)
   out = io.StringIO()
   out.write(f"FetchContent_Declare({cmake_name}")
@@ -274,10 +274,10 @@ def _get_fetch_content_invocation(
 
   patch_commands = []
   for patch in patches or ():
-
     # Labelize build file.
     patch_path = _context.get_source_file_path(
-        _context.resolve_target_or_label(patch))
+        _context.resolve_target_or_label(patch)
+    )
 
     assert patch_path is not None
     quoted_patch_path = quote_path(patch_path)
@@ -292,7 +292,8 @@ def _get_fetch_content_invocation(
     remove_arg = " ".join(quote_path(path) for path in remove_paths)
     patch_commands.append(f"${{CMAKE_COMMAND}} -E rm -rf {remove_arg}")
   new_cmakelists_path = os.path.join(
-      _get_third_party_dir(state.repo), f"{cmake_name}-proxy-CMakeLists.txt")
+      _get_third_party_dir(state.repo), f"{cmake_name}-proxy-CMakeLists.txt"
+  )
   pathlib.Path(new_cmakelists_path).write_text(
       _get_subproject_cmakelists(
           _context=_context,
@@ -300,8 +301,10 @@ def _get_fetch_content_invocation(
           _patch_commands=patch_commands,
           name=name,
           cmake_name=cmake_name,
-          **kwargs),
-      encoding="utf-8")
+          **kwargs,
+      ),
+      encoding="utf-8",
+  )
   patch_commands.append(
       f"""${{CMAKE_COMMAND}} -E copy {quote_path(new_cmakelists_path)} CMakeLists.txt"""
   )
@@ -311,20 +314,21 @@ def _get_fetch_content_invocation(
   return out.getvalue()
 
 
-def _get_subproject_cmakelists(_context: InvocationContext,
-                               _repo: Repository,
-                               _patch_commands: List[str],
-                               name: str,
-                               cmake_name: str,
-                               cmakelists_prefix: Optional[str] = None,
-                               cmakelists_suffix: Optional[str] = None,
-                               bazel_to_cmake: Optional[Dict[str, Any]] = None,
-                               cmake_target_mapping: Optional[Dict[str,
-                                                                   str]] = None,
-                               cmake_source_subdir: Optional[str] = None,
-                               cmake_settings: Optional[Dict[str, str]] = None,
-                               cmake_aliases: Optional[Dict[str, str]] = None,
-                               **kwargs) -> str:
+def _get_subproject_cmakelists(
+    _context: InvocationContext,
+    _repo: Repository,
+    _patch_commands: List[str],
+    name: str,
+    cmake_name: str,
+    cmakelists_prefix: Optional[str] = None,
+    cmakelists_suffix: Optional[str] = None,
+    bazel_to_cmake: Optional[Dict[str, Any]] = None,
+    cmake_target_mapping: Optional[Dict[str, str]] = None,
+    cmake_source_subdir: Optional[str] = None,
+    cmake_settings: Optional[Dict[str, str]] = None,
+    cmake_aliases: Optional[Dict[str, str]] = None,
+    **kwargs,
+) -> str:
   new_cmakelists = io.StringIO()
   new_cmakelists.write(f'set(CMAKE_MESSAGE_INDENT "[{cmake_name}] ")\n')
 
@@ -375,19 +379,23 @@ unset(_prop)
         cmake_name=cmake_name,
         bazel_to_cmake=bazel_to_cmake,
         cmake_target_mapping=cmake_target_mapping,
-        **kwargs)
+        **kwargs,
+    )
   else:
     if not cmake_source_subdir:
       _patch_commands.append(
-          "${CMAKE_COMMAND} -E copy CMakeLists.txt orig_CMakeLists.cmake")
+          "${CMAKE_COMMAND} -E copy CMakeLists.txt orig_CMakeLists.cmake"
+      )
     for k, v in (cmake_settings or {}).items():
       new_cmakelists.write(f"""set({k} "{v}")\n""")
     if cmake_source_subdir:
       new_cmakelists.write(
-          f"""add_subdirectory({quote_path(cmake_source_subdir)})\n""")
+          f"""add_subdirectory({quote_path(cmake_source_subdir)})\n"""
+      )
     else:
       new_cmakelists.write(
-          """include("${CMAKE_CURRENT_LIST_DIR}/orig_CMakeLists.cmake")\n""")
+          """include("${CMAKE_CURRENT_LIST_DIR}/orig_CMakeLists.cmake")\n"""
+      )
   for alias_target, orig_target in (cmake_aliases or {}).items():
     new_cmakelists.write(f"""
 get_property(_aliased TARGET {orig_target} PROPERTY ALIASED_TARGET)
@@ -422,7 +430,8 @@ def _third_party_http_archive_impl(_context: InvocationContext, **kwargs):
   state.workspace.set_cmake_package_name(new_repository_id, cmake_name)
 
   reverse_target_mapping: Dict[CMakeTarget, str] = update_target_mapping(
-      state.repo, new_repository_id.get_package_id(""), kwargs)
+      state.repo, new_repository_id.get_package_id(""), kwargs
+  )
 
   # TODO(jbms): Use some criteria (e.g. presence of system_build_file option) to
   # determine whether to support a system library, rather than always using it.
@@ -441,8 +450,10 @@ def _third_party_http_archive_impl(_context: InvocationContext, **kwargs):
   builder.include("FetchContent")
   for lang in kwargs.pop("cmake_languages", []):
     # Only enable `ASM_MASM` when using MSVC.
-    if (lang == "ASM_MASM" and
-        state.workspace.cmake_vars["CMAKE_CXX_COMPILER_ID"] != "MSVC"):
+    if (
+        lang == "ASM_MASM"
+        and state.workspace.cmake_vars["CMAKE_CXX_COMPILER_ID"] != "MSVC"
+    ):
       continue
     builder.addtext(
         f"enable_language({lang})\n",
@@ -465,15 +476,18 @@ def _third_party_http_archive_impl(_context: InvocationContext, **kwargs):
     # At the end of the analysis phase, emit additional code to call
     # `FetchContent_MakeAvailable`.
     state.call_after_analysis(
-        lambda: _emit_fetch_content_make_available(_context))
+        lambda: _emit_fetch_content_make_available(_context)
+    )
   fetch_content_packages.append(cmake_name)
 
   builder.addtext(
       f"# Loading {new_repository_id.repository_name}\n",
-      section=FETCH_CONTENT_DECLARE_SECTION)
+      section=FETCH_CONTENT_DECLARE_SECTION,
+  )
   builder.addtext(
       _get_fetch_content_invocation(
-          _context=_context, _builder=builder, _repo=state.repo, **kwargs),
+          _context=_context, _builder=builder, _repo=state.repo, **kwargs
+      ),
       section=FETCH_CONTENT_DECLARE_SECTION,
   )
 
@@ -483,24 +497,29 @@ def _third_party_http_archive_impl(_context: InvocationContext, **kwargs):
     package_aliases.append(cmake_name.upper())
   package_aliases = sorted(set(package_aliases))
   cmake_find_package_redirects_dir = state.workspace.cmake_vars[
-      "CMAKE_FIND_PACKAGE_REDIRECTS_DIR"]
+      "CMAKE_FIND_PACKAGE_REDIRECTS_DIR"
+  ]
   for alias in package_aliases:
     if alias.lower() == cmake_name.lower():
       continue
-    config_path = os.path.join(cmake_find_package_redirects_dir,
-                               f"{alias.lower()}-config.cmake")
-    config_path_alt = os.path.join(cmake_find_package_redirects_dir,
-                                   f"{alias}Config.cmake")
+    config_path = os.path.join(
+        cmake_find_package_redirects_dir, f"{alias.lower()}-config.cmake"
+    )
+    config_path_alt = os.path.join(
+        cmake_find_package_redirects_dir, f"{alias}Config.cmake"
+    )
     if not os.path.exists(config_path) and not os.path.exists(config_path_alt):
       pathlib.Path(config_path).write_text(
           f"""
 include(CMakeFindDependencyMacro)
 find_dependency({cmake_name})
 """,
-          encoding="utf-8")
+          encoding="utf-8",
+      )
 
   cmake_package_redirect_libraries = kwargs.get(
-      "cmake_package_redirect_libraries", {})
+      "cmake_package_redirect_libraries", {}
+  )
   if extra or package_aliases or cmake_package_redirect_libraries:
     extra_aliases = ""
     for alias in package_aliases:
@@ -510,23 +529,35 @@ find_dependency({cmake_name})
       t: Optional[str] = reverse_target_mapping.get(cmake_target)
       if t is not None:
         cmake_target = label_to_generated_cmake_target(
-            parse_absolute_target(t), cmake_name).target
+            parse_absolute_target(t), cmake_name
+        ).target
 
       for suffix in ("LIBRARY", "LIBRARIES"):
         extra_aliases += f"set({var_prefix}_{suffix} {cmake_target})\n"
         if var_prefix != var_prefix.upper():
-          extra_aliases += f"set({var_prefix.upper()}_{suffix} {cmake_target})\n"
+          extra_aliases += (
+              f"set({var_prefix.upper()}_{suffix} {cmake_target})\n"
+          )
       for suffix in ("INCLUDE_DIR", "INCLUDE_DIRS"):
-        extra_aliases += f"get_property({var_prefix}_{suffix} TARGET {cmake_target} PROPERTY INTERFACE_INCLUDE_DIRECTORIES)\n"
+        extra_aliases += (
+            f"get_property({var_prefix}_{suffix} TARGET {cmake_target} PROPERTY"
+            " INTERFACE_INCLUDE_DIRECTORIES)\n"
+        )
         if var_prefix != var_prefix.upper():
-          extra_aliases += f"get_property({var_prefix.upper()}_{suffix} TARGET {cmake_target} PROPERTY INTERFACE_INCLUDE_DIRECTORIES)\n"
-    extra_path = os.path.join(cmake_find_package_redirects_dir,
-                              f"{cmake_name.lower()}-extra.cmake")
-    extra_path_alt = os.path.join(cmake_find_package_redirects_dir,
-                                  f"{cmake_name}Extra.cmake")
+          extra_aliases += (
+              f"get_property({var_prefix.upper()}_{suffix} TARGET"
+              f" {cmake_target} PROPERTY INTERFACE_INCLUDE_DIRECTORIES)\n"
+          )
+    extra_path = os.path.join(
+        cmake_find_package_redirects_dir, f"{cmake_name.lower()}-extra.cmake"
+    )
+    extra_path_alt = os.path.join(
+        cmake_find_package_redirects_dir, f"{cmake_name}Extra.cmake"
+    )
     if not os.path.exists(extra_path) and not os.path.exists(extra_path_alt):
       pathlib.Path(extra_path).write_text(
-          extra + "\n" + extra_aliases, encoding="utf-8")
+          extra + "\n" + extra_aliases, encoding="utf-8"
+      )
 
 
 def _emit_fetch_content_make_available(_context: InvocationContext):
@@ -546,8 +577,9 @@ def _emit_fetch_content_make_available(_context: InvocationContext):
   state = _context.access(EvaluationState)
 
   third_party_dir = _get_third_party_dir(state.repo)
-  fetch_content_packages: List[str] = getattr(state,
-                                              _FETCH_CONTENT_PACKAGES_KEY)
+  fetch_content_packages: List[str] = getattr(
+      state, _FETCH_CONTENT_PACKAGES_KEY
+  )
   # When a subdirectory is added to CMake, it has both a "source directory" and
   # a "binary directory", corresponding to `CMAKE_CURRENT_SOURCE_DIR` and
   # `CMAKE_CURRENT_BINARY_DIR`, respectively, when evaluating the subdirectory
@@ -561,16 +593,23 @@ def _emit_fetch_content_make_available(_context: InvocationContext):
   # this binary directory is not actually used for much, since no targets are
   # defined in this sub-directory.
   _context.access(CMakeBuilder).addtext(
-      f"add_subdirectory({quote_path(third_party_dir)} _third_party_configs EXCLUDE_FROM_ALL)\n",
+      f"add_subdirectory({quote_path(third_party_dir)} _third_party_configs"
+      " EXCLUDE_FROM_ALL)\n",
       section=FETCH_CONTENT_MAKE_AVAILABLE_SECTION,
-      unique=True)
+      unique=True,
+  )
   make_available_args = quote_list(
-      sorted(pkg for pkg in fetch_content_packages
-             if pkg in state.required_dep_packages))
+      sorted(
+          pkg
+          for pkg in fetch_content_packages
+          if pkg in state.required_dep_packages
+      )
+  )
   third_party_cmakelists_path = os.path.join(third_party_dir, "CMakeLists.txt")
   pathlib.Path(third_party_cmakelists_path).write_text(
       f"""
 include(FetchContent)
 FetchContent_MakeAvailable({make_available_args})
 """,
-      encoding="utf-8")
+      encoding="utf-8",
+  )

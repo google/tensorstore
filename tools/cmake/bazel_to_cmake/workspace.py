@@ -80,7 +80,8 @@ class Workspace:
     self.repos: Dict[RepositoryId, Repository] = {}
     self.repo_cmake_packages: Set[str] = set()
     self.host_platform_name = _PLATFORM_NAME_TO_BAZEL_PLATFORM.get(
-        platform.system())
+        platform.system()
+    )
     self.values: Set[Tuple[str, str]] = set()
     self.copts: List[str] = []
     self.cxxopts: List[str] = []
@@ -97,12 +98,14 @@ class Workspace:
 
     # Log level
     self._verbose = cmake_logging_verbose_level(
-        cmake_vars.get("CMAKE_MESSAGE_LOG_LEVEL"))
+        cmake_vars.get("CMAKE_MESSAGE_LOG_LEVEL")
+    )
     if self._verbose > 1:
       print(json.dumps(cmake_vars, sort_keys=True, indent="  "))
 
-  def set_cmake_package_name(self, repository_id: RepositoryId,
-                             cmake_project_name: str):
+  def set_cmake_package_name(
+      self, repository_id: RepositoryId, cmake_project_name: str
+  ):
     """Sets the CMake project name associated with a Bazel repository."""
     if repository_id in self._bazel_to_cmake_name:
       assert self._bazel_to_cmake_name[repository_id] == cmake_project_name
@@ -110,8 +113,9 @@ class Workspace:
       print(f"Workspace mapping {repository_id} => {cmake_project_name}")
     self._bazel_to_cmake_name[repository_id] = cmake_project_name
 
-  def get_cmake_package_name(self,
-                             repository_id: RepositoryId) -> Optional[str]:
+  def get_cmake_package_name(
+      self, repository_id: RepositoryId
+  ) -> Optional[str]:
     """Gets the CMake project name associated with a Bazel repository."""
     return self._bazel_to_cmake_name.get(repository_id)
 
@@ -127,15 +131,17 @@ class Workspace:
         print(f"Persisting {target} => {repr(info)}")
       self._persisted_target_info[target] = info
 
-  def set_persisted_canonical_name(self, target: TargetId,
-                                   cmake_target_pair: CMakeTargetPair):
+  def set_persisted_canonical_name(
+      self, target: TargetId, cmake_target_pair: CMakeTargetPair
+  ):
     """Records a persistent mapping from Target to CMakeTargetPair.
 
     Generally this is used to set global build settings and cmake aliases.
     """
     assert cmake_target_pair.cmake_package is not None
-    self.set_cmake_package_name(target.repository_id,
-                                cmake_target_pair.cmake_package)
+    self.set_cmake_package_name(
+        target.repository_id, cmake_target_pair.cmake_package
+    )
     if target in self._persisted_canonical_name:
       print(f"Target exists {target} => {repr(cmake_target_pair)}")
     else:
@@ -143,11 +149,13 @@ class Workspace:
         print(f"Persisting {target} => {repr(cmake_target_pair)}")
       self._persisted_canonical_name[target] = cmake_target_pair
 
-  def persist_cmake_name(self,
-                         target: Union[str, TargetId],
-                         cmake_package: str,
-                         cmake_alias: CMakeTarget,
-                         cmake_target: Optional[CMakeTarget] = None):
+  def persist_cmake_name(
+      self,
+      target: Union[str, TargetId],
+      cmake_package: str,
+      cmake_alias: CMakeTarget,
+      cmake_target: Optional[CMakeTarget] = None,
+  ):
     """Records a mapping from a Bazel target to a CMake target.
 
     Typically the persistent name will be a cmake_package and a cmake_alias,
@@ -160,12 +168,15 @@ class Workspace:
 
     if cmake_target is not None and cmake_alias is not None:
       self.set_persisted_canonical_name(
-          target, CMakeTargetPair(cmake_package, cmake_target, cmake_alias))
+          target, CMakeTargetPair(cmake_package, cmake_target, cmake_alias)
+      )
     else:
       self.set_persisted_canonical_name(
           target,
-          label_to_generated_cmake_target(
-              target, cmake_package).with_alias(cmake_alias))
+          label_to_generated_cmake_target(target, cmake_package).with_alias(
+              cmake_alias
+          ),
+      )
 
   def ignore_library(self, target: TargetId) -> None:
     """Marks a bzl library to be ignored.
@@ -193,21 +204,25 @@ class Workspace:
     build_options = []
     build_options.extend(options.get("build", []))
     host_platform_name = self.host_platform_name
-    if (host_platform_name == "windows" and
-        cmake_is_true(self.cmake_vars.get("MINGW"))):
+    if host_platform_name == "windows" and cmake_is_true(
+        self.cmake_vars.get("MINGW")
+    ):
       host_platform_name = "windows_x86_64_mingw"
     if host_platform_name is not None:
       build_options.extend(options.get(f"build:{host_platform_name}", []))
 
     class ConfigAction(argparse.Action):
 
-      def __call__(self,  # type: ignore[override]
-                   parser: argparse.ArgumentParser,
-                   namespace: argparse.Namespace,
-                   values: str,
-                   option_string: Optional[str] = None):
+      def __call__(
+          self,  # type: ignore[override]
+          parser: argparse.ArgumentParser,
+          namespace: argparse.Namespace,
+          values: str,
+          option_string: Optional[str] = None,
+      ):
         parser.parse_known_args(
-            options.get(f"build:{values}", []), namespace=namespace)
+            options.get(f"build:{values}", []), namespace=namespace
+        )
 
     ap = argparse.ArgumentParser()
     ap.add_argument("--copt", action="append", default=[])
@@ -224,7 +239,7 @@ class Workspace:
 
       for value in args.per_file_copt:
         if value.startswith(cxxopt_prefix):
-          args.cxxopt.extend(value[len(cxxopt_prefix):].split(","))
+          args.cxxopt.extend(value[len(cxxopt_prefix) :].split(","))
 
     translate_per_file_copt_to_cxxopt()
 
@@ -232,7 +247,8 @@ class Workspace:
 
     def filter_copts(opts):
       return [
-          opt for opt in opts
+          opt
+          for opt in opts
           if re.match("^(?:[-/]std|-fdiagnostics-color=|[-/]D)", opt) is None
       ]
 
@@ -290,8 +306,9 @@ class Repository:
     if top_level:
       workspace.repos[RepositoryId("")] = self
     workspace.repo_cmake_packages.add(cmake_project_name)
-    workspace.set_cmake_package_name(self.repository_id,
-                                     self._cmake_project_name)
+    workspace.set_cmake_package_name(
+        self.repository_id, self._cmake_project_name
+    )
 
   def __repr__(self):
     return f"<{self.__class__.__name__}>: {self.__dict__}"

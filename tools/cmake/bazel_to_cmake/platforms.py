@@ -83,22 +83,28 @@ def add_platform_constraints(workspace: Workspace) -> None:
   cmake_system_processor = workspace.cmake_vars["CMAKE_SYSTEM_PROCESSOR"]
 
   bazel_compiler = _CMAKE_COMPILER_ID_TO_BAZEL_COMPILER.get(
-      cmake_cxx_compiler_id)
+      cmake_cxx_compiler_id
+  )
   if bazel_compiler is None:
     raise ValueError(
-        f"Unknown CMAKE_CXX_COMPILER_ID={cmake_cxx_compiler_id}, " +
-        f"known values are {sorted(_CMAKE_COMPILER_ID_TO_BAZEL_COMPILER)}")
-  if (cmake_is_true(workspace.cmake_vars.get("MINGW")) and
-      workspace.cmake_vars["CMAKE_CXX_COMPILER_ID"] == "GNU"):
+        f"Unknown CMAKE_CXX_COMPILER_ID={cmake_cxx_compiler_id}, "
+        + f"known values are {sorted(_CMAKE_COMPILER_ID_TO_BAZEL_COMPILER)}"
+    )
+  if (
+      cmake_is_true(workspace.cmake_vars.get("MINGW"))
+      and workspace.cmake_vars["CMAKE_CXX_COMPILER_ID"] == "GNU"
+  ):
     bazel_compiler = "mingw-gcc"
 
   workspace.set_persistent_target_info(
       parse_absolute_target("@bazel_tools//tools/cpp:compiler"),
-      TargetInfo(BuildSettingProvider(bazel_compiler)))
+      TargetInfo(BuildSettingProvider(bazel_compiler)),
+  )
 
   workspace.set_persistent_target_info(
       parse_absolute_target("@bazel_tools//tools/python:python_version"),
-      TargetInfo(BuildSettingProvider("PY3")))
+      TargetInfo(BuildSettingProvider("PY3")),
+  )
 
   config_settings: Dict[str, bool] = {}
   for setting_list in _CMAKE_SYSTEM_NAME_CONFIG_SETTINGS.values():
@@ -110,20 +116,24 @@ def add_platform_constraints(workspace: Workspace) -> None:
       config_settings[setting] = False
 
   for setting in _CMAKE_SYSTEM_NAME_CONFIG_SETTINGS.get(
-      cmake_system_name, []) + _CMAKE_SYSTEM_PROCESSOR_CONFIG_SETTINGS.get(
-          cmake_system_processor, []):
+      cmake_system_name, []
+  ) + _CMAKE_SYSTEM_PROCESSOR_CONFIG_SETTINGS.get(cmake_system_processor, []):
     config_settings[setting] = True
 
   for target, value in config_settings.items():
     workspace.set_persistent_target_info(
-        parse_absolute_target(target), TargetInfo(ConditionProvider(value)))
+        parse_absolute_target(target), TargetInfo(ConditionProvider(value))
+    )
 
   workspace.values.update(
-      _CMAKE_SYSTEM_PROCESSOR_VALUES.get(cmake_system_processor, []))
+      _CMAKE_SYSTEM_PROCESSOR_VALUES.get(cmake_system_processor, [])
+  )
 
   workspace.values.update(
       _CMAKE_SYSTEM_NAME_AND_PROCESSOR_VALUES.get(
-          (cmake_system_name, cmake_system_processor), []))
+          (cmake_system_name, cmake_system_processor), []
+      )
+  )
 
   if cmake_system_name == "Windows":
     # Bazel defines this by default.
