@@ -32,11 +32,12 @@ namespace internal_metrics {
 void MetricRegistry::AddInternal(std::string_view metric_name,
                                  MetricRegistry::Metric m,
                                  std::shared_ptr<void> hook) {
-  ABSL_CHECK(m);
+  ABSL_CHECK(m) << metric_name;
   absl::MutexLock l(&mu_);
   ABSL_CHECK(
       entries_.try_emplace(metric_name, Entry{std::move(m), std::move(hook)})
-          .second);
+          .second)
+      << metric_name;
 }
 
 std::vector<CollectedMetric> MetricRegistry::CollectWithPrefix(
