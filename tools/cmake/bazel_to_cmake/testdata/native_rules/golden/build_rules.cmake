@@ -1,6 +1,6 @@
 find_package(Protobuf REQUIRED)
 
-# @bazel_test_repo//:bb
+# @native_rules_test_repo//:bb
 add_executable(CMakeProject_bb "")
 add_executable(CMakeProject::bb ALIAS CMakeProject_bb)
 target_link_libraries(CMakeProject_bb PUBLIC
@@ -13,7 +13,7 @@ target_compile_features(CMakeProject_bb PUBLIC cxx_std_17)
 target_sources(CMakeProject_bb PRIVATE
         "${TEST_DIRECTORY}/a.cc")
 
-# @bazel_test_repo//:h_file
+# @native_rules_test_repo//:h_file
 add_custom_command(
   OUTPUT "_cmake_binary_dir_/a.h"
   DEPENDS "${TEST_DIRECTORY}/x.h" "CMakeProject::bb"
@@ -23,7 +23,7 @@ add_custom_command(
 )
 add_custom_target(CMakeProject_h_file DEPENDS "_cmake_binary_dir_/a.h")
 
-# @bazel_test_repo//:a
+# @native_rules_test_repo//:a
 add_library(CMakeProject_a)
 set_property(TARGET CMakeProject_a PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_a PUBLIC
@@ -38,11 +38,11 @@ target_sources(CMakeProject_a PRIVATE
         "${TEST_DIRECTORY}/a.cc")
 add_library(CMakeProject::a ALIAS CMakeProject_a)
 
-# @bazel_test_repo//:a_alias
+# @native_rules_test_repo//:a_alias
 add_library(CMakeProject_a_alias ALIAS CMakeProject_a)
 add_library(CMakeProject::a_alias ALIAS CMakeProject_a)
 
-# @bazel_test_repo//:c_proto
+# @native_rules_test_repo//:c_proto
 add_library(CMakeProject_c_proto INTERFACE)
 target_sources(CMakeProject_c_proto INTERFACE
         "${TEST_DIRECTORY}/c.proto")
@@ -54,7 +54,7 @@ btc_transitive_import_dirs(
 )
 set_property(TARGET CMakeProject_c_proto PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${CMakeProject_c_proto_IMPORT_DIRS})
 
-# @bazel_test_repo//:c_proto__cpp_library
+# @native_rules_test_repo//:c_proto__cpp_library
 add_library(CMakeProject_c_proto__cpp_library)
 set_property(TARGET CMakeProject_c_proto__cpp_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_c_proto__cpp_library PUBLIC
@@ -76,7 +76,7 @@ btc_protobuf(
     DEPENDENCIES "protobuf::protoc"
 )
 
-# @bazel_test_repo//:c_proto_cc
+# @native_rules_test_repo//:c_proto_cc
 add_library(CMakeProject_c_proto_cc INTERFACE)
 target_link_libraries(CMakeProject_c_proto_cc INTERFACE
         "CMakeProject_c_proto__cpp_library")
@@ -86,7 +86,7 @@ target_include_directories(CMakeProject_c_proto_cc INTERFACE
 target_compile_features(CMakeProject_c_proto_cc INTERFACE cxx_std_17)
 add_library(CMakeProject::c_proto_cc ALIAS CMakeProject_c_proto_cc)
 
-# @bazel_test_repo//:a_test
+# @native_rules_test_repo//:a_test
 add_executable(CMakeProject_a_test "")
 add_executable(CMakeProject::a_test ALIAS CMakeProject_a_test)
 target_link_libraries(CMakeProject_a_test PUBLIC
@@ -101,13 +101,13 @@ target_sources(CMakeProject_a_test PRIVATE
         "${TEST_DIRECTORY}/a.cc")
 add_test(NAME CMakeProject_a_test COMMAND CMakeProject_a_test WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
-# @bazel_test_repo//:c_proto_2
+# @native_rules_test_repo//:c_proto_2
 add_library(CMakeProject_c_proto_2 INTERFACE)
 target_sources(CMakeProject_c_proto_2 INTERFACE
         "${TEST_DIRECTORY}/c.proto")
 list(APPEND CMakeProject_c_proto_2_IMPORT_DIRS "${TEST_DIRECTORY}")
 set_property(TARGET CMakeProject_c_proto_2 PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${CMakeProject_c_proto_2_IMPORT_DIRS})
 
-# @bazel_test_repo//:c_proto_cc_alias
+# @native_rules_test_repo//:c_proto_cc_alias
 add_library(CMakeProject_c_proto_cc_alias ALIAS CMakeProject_c_proto_cc)
 add_library(CMakeProject::c_proto_cc_alias ALIAS CMakeProject_c_proto_cc)

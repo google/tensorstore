@@ -157,7 +157,7 @@ def remap_target_repo(target: TargetId,
   """Apply a repository mapping to a TargetId."""
   if mapping is None:
     return target
-  new_repository_name = mapping.get(target.repository_name)
+  new_repository_name = mapping.get(target.repository_name, None)
   if new_repository_name is None:
     return target
 

@@ -9,7 +9,7 @@ FetchContent_Declare(half
 add_subdirectory("_cmake_binary_dir_/third_party" _third_party_configs EXCLUDE_FROM_ALL)
 find_package(half REQUIRED)
 
-# @bazel_test_repo//:a
+# @third_party_http_archive_test_repo//:a
 add_library(CMakeProject_a)
 set_property(TARGET CMakeProject_a PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_a PUBLIC

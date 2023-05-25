@@ -19,7 +19,7 @@ import os
 import pathlib
 import shutil
 import sys
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 import pytest
 
@@ -37,7 +37,7 @@ from .workspace import Workspace
 # NOTE: Consider adding failure tests as well as the success tests.
 
 # Set to 1 to update the golden files.
-UPDATE_GOLDENS = (os.getenv('UPDATE_GOLDENS') == '1')
+UPDATE_GOLDENS = os.getenv('UPDATE_GOLDENS') == '1'
 
 CMAKE_VARS = {
     'CMAKE_CXX_COMPILER_ID': 'Clang',
@@ -50,13 +50,13 @@ CMAKE_VARS = {
 }
 
 
-def testdata_parameters():
+def testdata_parameters() -> List[Tuple[str, Dict[str, Any]]]:
   """Returns config tuples by reading config.json from the 'testdata' subdir."""
   if UPDATE_GOLDENS:
     testdata = pathlib.Path(__file__).resolve().with_name('testdata')
   else:
     testdata = pathlib.Path(__file__).with_name('testdata').resolve()
-  result = []
+  result: List[Tuple[str, Dict[str, Any]]] = []
   for x in testdata.iterdir():
     if '__' in str(x):
       continue
@@ -74,7 +74,7 @@ def get_files_list(source_directory: str) -> List[pathlib.Path]:
   """Returns non-golden files under source directory."""
   files = []
   try:
-    include_goldens = ('golden' in source_directory)
+    include_goldens = 'golden' in source_directory
     p = pathlib.Path(source_directory)
     for x in sorted(p.glob('**/*')):
       if not x.is_file():
@@ -103,8 +103,7 @@ def compare_files(golden, generated):
 
 
 @pytest.mark.parametrize('test_name,config', testdata_parameters())
-def test_golden(test_name, config, tmpdir):
-
+def test_golden(test_name: str, config: Dict[str, Any], tmpdir):
   # Start with the list of source files.
   source_directory = config['source_directory']
   del config['source_directory']
@@ -119,34 +118,59 @@ def test_golden(test_name, config, tmpdir):
   # Workspace setup
   workspace = Workspace(CMAKE_VARS)
   workspace.save_workspace = '_workspace.pickle'
+  workspace._verbose = 3
   add_platform_constraints(workspace)
 
   # Add default mappings used in proto code.
-  workspace.persist_cmake_name('@com_github_grpc_grpc//:grpc++_codegen_proto',
-                               'gRPC', CMakeTarget('gRPC::gRPC_codegen'))
+  workspace.persist_cmake_name(
+      '@com_github_grpc_grpc//:grpc++_codegen_proto',
+      'gRPC',
+      CMakeTarget('gRPC::gRPC_codegen'),
+  )
 
   workspace.persist_cmake_name(
-      '@com_github_grpc_grpc//src/compiler:grpc_cpp_plugin', 'gRPC',
-      CMakeTarget('gRPC::grpc_cpp_plugin'))
+      '@com_github_grpc_grpc//src/compiler:grpc_cpp_plugin',
+      'gRPC',
+      CMakeTarget('gRPC::grpc_cpp_plugin'),
+  )
 
-  workspace.persist_cmake_name('@com_google_protobuf//:protoc', 'Protobuf',
-                               CMakeTarget('protobuf::protoc'))
+  workspace.persist_cmake_name(
+      '@com_google_protobuf//:protoc',
+      'Protobuf',
+      CMakeTarget('protobuf::protoc'),
+  )
 
-  workspace.persist_cmake_name('@com_google_protobuf//:protobuf', 'Protobuf',
-                               CMakeTarget('protobuf::libprotobuf'))
+  workspace.persist_cmake_name(
+      '@com_google_protobuf//:protobuf',
+      'Protobuf',
+      CMakeTarget('protobuf::libprotobuf'),
+  )
 
-  workspace.persist_cmake_name('@com_google_upb//upbc:protoc-gen-upbdefs',
-                               'upb', CMakeTarget('upb::protoc-gen-upbdefs'))
+  workspace.persist_cmake_name(
+      '@com_google_upb//upbc:protoc-gen-upbdefs',
+      'upb',
+      CMakeTarget('upb::protoc-gen-upbdefs'),
+  )
 
-  workspace.persist_cmake_name('@com_google_upb//upbc:protoc-gen-upb', 'upb',
-                               CMakeTarget('protobuf::protoc-gen-upb'))
+  workspace.persist_cmake_name(
+      '@com_google_upb//upbc:protoc-gen-upb',
+      'upb',
+      CMakeTarget('protobuf::protoc-gen-upb'),
+  )
 
   workspace.persist_cmake_name(
       '@com_google_upb//:generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me',
       'upb',
       CMakeTarget(
           'upb::generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me'
-      ))
+      ),
+  )
+
+  workspace.persist_cmake_name(
+      '@com_google_protobuf//:any_protoc',
+      'Protobuf',
+      CMakeTarget('protobuf::any_proto'),
+  )
 
   # Load specified modules.
   for x in config.get('modules', []):
@@ -157,7 +181,7 @@ def test_golden(test_name, config, tmpdir):
   repository = Repository(
       workspace=workspace,
       source_directory=directory,
-      bazel_repo_name='bazel_test_repo',
+      bazel_repo_name=f'{test_name}_test_repo',
       cmake_project_name='CMakeProject',
       cmake_binary_dir='_cmake_binary_dir_',
       top_level=True,
@@ -176,9 +200,12 @@ def test_golden(test_name, config, tmpdir):
   if config.get('targets') is None:
     targets_to_analyze = state.targets_to_analyze
   else:
-    targets_to_analyze = sorted([
-        repository.repository_id.parse_target(t) for t in config.get('targets')
-    ])
+    targets_to_analyze = sorted(
+        [
+            repository.repository_id.parse_target(t)
+            for t in config.get('targets')
+        ]
+    )
   state.analyze(targets_to_analyze)
 
   # Write generated file
@@ -217,4 +244,6 @@ def test_golden(test_name, config, tmpdir):
   assert len(golden_files) > 0  # pylint: disable=g-explicit-length-test
   for x in golden_files:
     compare_files(
-        os.path.join(golden_directory, str(x)), os.path.join(directory, str(x)))
+        os.path.join(golden_directory, str(x)), os.path.join(directory, str(x))
+    )
+  return None

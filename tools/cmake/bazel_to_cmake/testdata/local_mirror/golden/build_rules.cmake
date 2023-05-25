@@ -5,7 +5,7 @@ file(DOWNLOAD "https://raw.githubusercontent.com/bufbuild/protoc-gen-validate/26
 add_subdirectory("_cmake_binary_dir_/local_mirror/lpm" "_cmake_binary_dir_/_build_local_mirror/lpm" EXCLUDE_FROM_ALL)
 find_package(lpm REQUIRED)
 
-# @bazel_test_repo//:a
+# @local_mirror_test_repo//:a
 add_library(CMakeProject_a)
 set_property(TARGET CMakeProject_a PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_a PUBLIC
