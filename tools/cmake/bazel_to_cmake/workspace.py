@@ -143,10 +143,10 @@ class Workspace:
         target.repository_id, cmake_target_pair.cmake_package
     )
     if target in self._persisted_canonical_name:
-      print(f"Target exists {target} => {repr(cmake_target_pair)}")
+      print(f"Target exists {target.as_label()} => {repr(cmake_target_pair)}")
     else:
       if self._verbose > 1:
-        print(f"Persisting {target} => {repr(cmake_target_pair)}")
+        print(f"Persisting {target.as_label()} => {repr(cmake_target_pair)}")
       self._persisted_canonical_name[target] = cmake_target_pair
 
   def persist_cmake_name(
@@ -309,6 +309,8 @@ class Repository:
     workspace.set_cmake_package_name(
         self.repository_id, self._cmake_project_name
     )
+    if workspace._verbose:  # pylint: disable=protected-access
+      print(repr(self))
 
   def __repr__(self):
     return f"<{self.__class__.__name__}>: {self.__dict__}"

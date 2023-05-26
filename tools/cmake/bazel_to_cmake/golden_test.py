@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 # pylint: disable=relative-beyond-top-level,wildcard-import
 
 import json
@@ -36,7 +37,9 @@ from .workspace import Workspace
 
 # NOTE: Consider adding failure tests as well as the success tests.
 
-# Set to 1 to update the golden files.
+# To update, run:
+#   UPDATE_GOLDENS=1 python3 -m pytest bazel_to_cmake/golden_test.py
+#
 UPDATE_GOLDENS = os.getenv('UPDATE_GOLDENS') == '1'
 
 CMAKE_VARS = {
@@ -50,7 +53,7 @@ CMAKE_VARS = {
 }
 
 
-def testdata_parameters() -> List[Tuple[str, Dict[str, Any]]]:
+def parameters() -> List[Tuple[str, Dict[str, Any]]]:
   """Returns config tuples by reading config.json from the 'testdata' subdir."""
   if UPDATE_GOLDENS:
     testdata = pathlib.Path(__file__).resolve().with_name('testdata')
@@ -102,7 +105,7 @@ def compare_files(golden, generated):
       assert list(left) == list(right)
 
 
-@pytest.mark.parametrize('test_name,config', testdata_parameters())
+@pytest.mark.parametrize('test_name,config', parameters())
 def test_golden(test_name: str, config: Dict[str, Any], tmpdir):
   # Start with the list of source files.
   source_directory = config['source_directory']
@@ -194,7 +197,9 @@ def test_golden(test_name: str, config: Dict[str, Any], tmpdir):
   # Evaluate the WORKSPACE and BUILD files
   state = EvaluationState(repository)
   state.process_workspace()
-  state.process_build_file(os.path.join(directory, 'BUILD.bazel'))
+
+  for build_file in config.get('build_files', ['BUILD.bazel']):
+    state.process_build_file(os.path.join(directory, build_file))
 
   # Analyze
   if config.get('targets') is None:
@@ -243,7 +248,7 @@ def test_golden(test_name: str, config: Dict[str, Any], tmpdir):
   golden_files = get_files_list(golden_directory)
   assert len(golden_files) > 0  # pylint: disable=g-explicit-length-test
   for x in golden_files:
-    compare_files(
-        os.path.join(golden_directory, str(x)), os.path.join(directory, str(x))
-    )
-  return None
+    # Assert on file contents.
+    expected_file = os.path.join(golden_directory, str(x))
+    actual_file = os.path.join(directory, str(x))
+    compare_files(expected_file, actual_file)

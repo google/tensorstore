@@ -85,6 +85,7 @@ def main():
   ap.add_argument("--cmake-vars")
   ap.add_argument("--bazelrc", action="append", default=[])
   ap.add_argument("--module", action="append", default=[])
+  ap.add_argument("--verbose", type=int, default=0)
 
   args = ap.parse_args()
 
@@ -120,6 +121,11 @@ def main():
     for module in args.module:
       workspace.add_module(module)
 
+  # pylint: disable-next=protected-access
+  if args.verbose > workspace._verbose:
+    # pylint: disable-next=protected-access
+    workspace._verbose = args.verbose
+
   workspace.load_modules()
   repo = Repository(
       workspace=workspace,
@@ -153,6 +159,9 @@ def main():
     actual = repo.repository_id.parse_target(name[i + 1 :])
     assert target not in repo.bindings
     repo.bindings[target] = actual
+    # pylint: disable-next=protected-access
+    if workspace._verbose:
+      print(f"bind: {target.as_label()} -> {actual.as_label()}")
 
   if repo.top_level:
     # Load the WORKSPACE file
@@ -225,8 +234,8 @@ def main():
   # step will be re-run before building any target.
   sep = "\n    "
   builder.addtext(
-      "set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS"
-      f" {cmake_builder.quote_list(sorted(input_files), separator=sep)})\n",
+      "set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "
+      f"{cmake_builder.quote_list(sorted(input_files), separator=sep)})\n",
       section=0,
   )
 

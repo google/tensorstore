@@ -1,1 +1,3 @@
-{}
+{
+  "build_files": ["BUILD.bazel", "subdir/BUILD.bazel"]
+}

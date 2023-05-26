@@ -111,3 +111,24 @@ set_property(TARGET CMakeProject_c_proto_2 PROPERTY INTERFACE_INCLUDE_DIRECTORIE
 # @native_rules_test_repo//:c_proto_cc_alias
 add_library(CMakeProject_c_proto_cc_alias ALIAS CMakeProject_c_proto_cc)
 add_library(CMakeProject::c_proto_cc_alias ALIAS CMakeProject_c_proto_cc)
+
+# @native_rules_test_repo//:subdir_x
+add_library(CMakeProject_subdir_x)
+set_property(TARGET CMakeProject_subdir_x PROPERTY LINKER_LANGUAGE "CXX")
+target_link_libraries(CMakeProject_subdir_x PUBLIC
+        "Threads::Threads"
+        "m")
+target_include_directories(CMakeProject_subdir_x PUBLIC
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
+target_compile_features(CMakeProject_subdir_x PUBLIC cxx_std_17)
+target_sources(CMakeProject_subdir_x PRIVATE
+        "${TEST_DIRECTORY}/subdir/x.cc")
+add_library(CMakeProject::subdir_x ALIAS CMakeProject_subdir_x)
+
+# @native_rules_test_repo//subdir:z_proto
+add_library(CMakeProject_subdir_z_proto INTERFACE)
+target_sources(CMakeProject_subdir_z_proto INTERFACE
+        "${TEST_DIRECTORY}/subdir/z.proto")
+list(APPEND CMakeProject_subdir_z_proto_IMPORT_DIRS "${TEST_DIRECTORY}")
+set_property(TARGET CMakeProject_subdir_z_proto PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${CMakeProject_subdir_z_proto_IMPORT_DIRS})

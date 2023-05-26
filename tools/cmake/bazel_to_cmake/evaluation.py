@@ -223,13 +223,15 @@ class EvaluationState:
     r = RuleInfo(outs, impl, kind)
     self._all_rules[rule_id] = r
     self._unanalyzed_rules.add(rule_id)
+    self._unanalyzed_targets[rule_id] = rule_id
     for out_id in r.outs:
       if out_id in self._unanalyzed_targets or out_id in self._analyzed_targets:
         raise ValueError(f"Duplicate output: {out_id.as_label()}")
       self._unanalyzed_targets[out_id] = rule_id
-    self._unanalyzed_targets[rule_id] = rule_id
     if analyze_by_default:
       self._targets_to_analyze.add(rule_id)
+    if self._verbose:
+      print(f"add_rule: {rule_id.as_label()} as {r}")
 
   def add_analyzed_target(self, target_id: TargetId, info: TargetInfo) -> None:
     """Adds the `TargetInfo' for an analyzed target.
@@ -245,6 +247,10 @@ class EvaluationState:
 
     if info.get(CMakeTargetPairProvider) is not None:
       self._cmake_dep_pairs.pop(target_id, None)
+    if (self._verbose > 1) or (
+        self._verbose and info.get(FilesProvider) is not None
+    ):
+      print(f"add_analyzed_target: {target_id.as_label()} with {info}")
 
   def visit_analyzed_targets(
       self, visitor: Callable[[TargetId, TargetInfo], None]
@@ -258,55 +264,89 @@ class EvaluationState:
     for target, info in self._cmake_dep_pairs.items():
       visitor(target, info)
 
-  def get_optional_target_info(
-      self, target_id: TargetId
+  def _get_target_info(
+      self, target_id: TargetId, optional: bool
   ) -> Optional[TargetInfo]:
     assert isinstance(
         target_id, TargetId
     ), f"Requires TargetId: {repr(target_id)}"
-    analyzed_targets = self._analyzed_targets
-    info = analyzed_targets.get(target_id)
+    info = self._analyzed_targets.get(target_id, None)
     if info is not None:
       return info
 
-    unanalyzed_targets = self._unanalyzed_targets
-    if target_id not in unanalyzed_targets:
+    rule_id = self._unanalyzed_targets.get(target_id, None)
+    if rule_id is None:
       # Is this a global persistent target?
       info = self.workspace._persisted_target_info.get(target_id)
       if info is not None:
         return info
+
       # Is this a source file?
       source_path = self.get_source_file_path(target_id)
-      if source_path is None or not os.path.isfile(source_path):
-        return None
+      if source_path is None:
+        if optional:
+          return None
+        raise ValueError(
+            f"Error analyzing {target_id.as_label()}: Unknown repository"
+        )
+      if not os.path.isfile(source_path):
+        if optional:
+          return None
+        raise ValueError(
+            f"Error analyzing {target_id.as_label()}: File not found"
+            f" {source_path}"
+        )
       info = TargetInfo(FilesProvider([source_path]))
-      analyzed_targets[target_id] = info
+      self.add_analyzed_target(target_id, info)
       return info
 
-    rule_id = unanalyzed_targets.get(target_id)
-    assert rule_id is not None
+    # At this point a rule_info instance is expected.
     rule_info = self._all_rules.get(rule_id, None)
     if rule_info is None:
-      raise ValueError(f"Error analyzing {rule_id.as_label()}: Not found")
+      raise ValueError(
+          f"Error analyzing {target_id.as_label()}: No rule found for"
+          f" {rule_id.as_label()}"
+      )
+
+    # Mark the rule as analyzed.
+    if rule_id not in self._unanalyzed_rules:
+      raise ValueError(
+          f"Error analyzing {rule_id.as_label()}: Already analyzed?"
+      )
+    self._unanalyzed_rules.remove(rule_id)
+    self._unanalyzed_targets.pop(rule_id, None)
+
     try:
-      self._unanalyzed_rules.remove(rule_id)
       rule_info.impl()
-      for out_id in rule_info.outs:
-        unanalyzed_targets.pop(out_id, None)
-        assert out_id in analyzed_targets
-      unanalyzed_targets.pop(rule_id)
-      assert rule_id in analyzed_targets
     except Exception as e:
       raise ValueError(
-          f"Error analyzing {rule_id.as_label()}  with {rule_info}"
+          f"Error analyzing {rule_id.as_label()} with {rule_info}"
       ) from e
-    return analyzed_targets[target_id]
+
+    for out_id in rule_info.outs:
+      if out_id not in self._analyzed_targets:
+        raise ValueError(
+            f"Error analyzing {rule_id.as_label()} with {rule_info}: Expected"
+            f" add_analyzed_target({out_id.as_label()})"
+        )
+      self._unanalyzed_targets.pop(out_id, None)
+
+    info = self._analyzed_targets.get(target_id, None)
+    if info is None and not optional:
+      raise ValueError(
+          f"Error analyzing {rule_id.as_label()}: {rule_info} produced no"
+          " analyzed target"
+      )
+    return info
+
+  def get_optional_target_info(
+      self, target_id: TargetId
+  ) -> Optional[TargetInfo]:
+    return self._get_target_info(target_id, True)
 
   def get_target_info(self, target_id: TargetId) -> TargetInfo:
-    assert isinstance(target_id, TargetId)
-    info = self.get_optional_target_info(target_id)
-    if info is None:
-      raise ValueError(f"Target not found: {target_id.as_label()}")
+    info = self._get_target_info(target_id, False)
+    assert info is not None
     return info
 
   def get_source_file_path(self, target_id: TargetId) -> Optional[str]:
@@ -705,14 +745,23 @@ class EvaluationContext(InvocationContext):
     if mapping_repository_id is None:
       assert self._caller_package_id
       mapping_repository_id = self._caller_package_id.repository_id
-    target = remap_target_repo(
-        target_id, self._get_repository(mapping_repository_id).repo_mapping
-    )
-    # Resolve bindings.
-    if target.package_name == "external":
-      repo = self._get_repository(target.repository_id)
-      while target in repo.bindings:
+
+    mapping_repo = self._state.workspace.repos.get(mapping_repository_id)
+    target = remap_target_repo(target_id, mapping_repo.repo_mapping)
+
+    # Resolve bindings
+    while target in mapping_repo.bindings:
+      target = mapping_repo.bindings[target]
+
+    if target.repository_id != mapping_repository_id:
+      repo = self._state.workspace.repos.get(target.repository_id, None)
+      while repo and target in repo.bindings:
         target = repo.bindings[target]
+    if self._state.workspace._verbose and target != target_id:
+      print(
+          f"resolve_repo_mapping({target_id.as_label()}) => {target.as_label()}"
+      )
+
     return target
 
   def load_library(self, target: TargetId) -> Dict[str, Any]:

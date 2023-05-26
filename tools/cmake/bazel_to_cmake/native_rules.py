@@ -24,6 +24,8 @@ https://github.com/bazelbuild/bazel/tree/master/src/main/starlark/builtins_bzl/c
 
 from typing import Dict, List, Optional
 
+from .cmake_builder import CMakeBuilder
+from .cmake_builder import quote_list
 from .cmake_target import CMakeDepsProvider
 from .cmake_target import CMakeTarget
 from .evaluation import EvaluationState
@@ -31,6 +33,7 @@ from .package import Visibility
 from .starlark import rule  # pylint: disable=unused-import
 from .starlark.bazel_glob import glob as starlark_glob
 from .starlark.bazel_globals import register_native_build_rule
+from .starlark.bazel_target import TargetId
 from .starlark.common_providers import ConditionProvider
 from .starlark.common_providers import FilesProvider
 from .starlark.invocation_context import InvocationContext
@@ -92,28 +95,75 @@ def filegroup(
     self: InvocationContext,
     name: str,
     srcs: Optional[List[RelativeLabel]] = None,
+    visibility: Optional[List[RelativeLabel]] = None,
     **kwargs,
 ):
   # https://bazel.build/reference/be/general#filegroup
   del kwargs
-  _context = self.snapshot()
-  target = _context.resolve_target(name)
+  # NOTE: Build breaks when filegroup add_rule() uses visibility.
+  del visibility
+  context = self.snapshot()
+  target = context.resolve_target(name)
 
-  def impl() -> None:
-    resolved_srcs = _context.resolve_target_or_label_list(
-        _context.evaluate_configurable_list(srcs)
-    )
-    cmake_deps: List[CMakeTarget] = []
+  context.add_rule(
+      target,
+      lambda: _filegroup_impl(context, target, srcs=srcs),
+      analyze_by_default=False,
+  )
 
-    state = _context.access(EvaluationState)
-    providers: List[Provider] = [
-        FilesProvider(state.get_targets_file_paths(resolved_srcs, cmake_deps))
-    ]
-    if cmake_deps:
-      providers.append(CMakeDepsProvider(cmake_deps))
-    _context.add_analyzed_target(target, TargetInfo(*providers))
 
-  _context.add_rule(target, impl, analyze_by_default=False)
+def _filegroup_impl(
+    _context: InvocationContext,
+    _target: TargetId,
+    srcs: Optional[List[RelativeLabel]] = None,
+):
+  resolved_srcs = _context.resolve_target_or_label_list(
+      _context.evaluate_configurable_list(srcs)
+  )
+
+  state = _context.access(EvaluationState)
+
+  cmake_target_pair = state.generate_cmake_target_pair(_target, alias=False)
+  cmake_name = cmake_target_pair.target
+
+  cmake_deps: List[CMakeTarget] = []
+  srcs_files = state.get_targets_file_paths(resolved_srcs, cmake_deps)
+
+  # Also add an INTERFACE_LIBRARY in order to reference in compile targets.
+  repo = state.workspace.repos.get(_target.repository_id)
+  assert repo is not None
+  source_dir = repo.source_directory
+  bin_dir = repo.cmake_binary_dir
+  includes = set()
+  for path in state.get_targets_file_paths(resolved_srcs):
+    if path.startswith(source_dir):
+      includes.add(source_dir)
+    if path.startswith(bin_dir):
+      includes.add(bin_dir)
+
+  includes_name = f"{cmake_name}_IMPORT_DIRS"
+  includes_literal = "${" + includes_name + "}"
+  quoted_srcs = quote_list(
+      sorted(set(srcs_files)), separator="\n               "
+  )
+
+  output = f"""
+# {_target.as_label()}
+add_library({cmake_name} INTERFACE)
+target_sources({cmake_name} INTERFACE
+               {quoted_srcs})
+list(APPEND {includes_name} {quote_list(sorted(includes))})
+set_property(TARGET {cmake_name} PROPERTY INTERFACE_INCLUDE_DIRECTORIES {includes_literal})
+"""
+
+  _context.access(CMakeBuilder).addtext(output)
+
+  providers: List[Provider] = [FilesProvider(srcs_files)]
+  if cmake_deps:
+    providers.append(CMakeDepsProvider(cmake_deps))
+  _context.add_analyzed_target(
+      _target, TargetInfo(*cmake_target_pair.as_providers(), *providers)
+  )
 
 
 @register_native_build_rule
@@ -132,43 +182,61 @@ def config_setting(
   # `--incompatible_enforce_config_setting_visibility` and
   # `--incompatible_config_setting_private_default_visibility`.
   del visibility
-  _context = self.snapshot()
-  target = _context.resolve_target(name)
+  context = self.snapshot()
+  target = context.resolve_target(name)
+  context.add_rule(
+      target,
+      lambda: _config_setting_impl(
+          context,
+          target,
+          constraint_values=constraint_values,
+          flag_values=flag_values,
+          values=values,
+          define_values=define_values,
+      ),
+      analyze_by_default=True,
+  )
 
-  def impl():
-    def evaluate() -> bool:
-      if flag_values:
-        for flag, value in flag_values.items():
-          if (
-              _context.evaluate_build_setting(
-                  _context.resolve_target_or_label(flag)
-              )
-              != value
-          ):
-            return False
-      if constraint_values:
-        for constraint in _context.resolve_target_or_label_list(
-            constraint_values
+
+def _config_setting_impl(
+    _context: InvocationContext,
+    _target: TargetId,
+    constraint_values: Optional[List[RelativeLabel]],
+    flag_values: Optional[Dict[RelativeLabel, str]],
+    values: Optional[Dict[str, str]],
+    define_values: Optional[Dict[str, str]],
+):
+  def evaluate() -> bool:
+    if flag_values:
+      for flag, value in flag_values.items():
+        if (
+            _context.evaluate_build_setting(
+                _context.resolve_target_or_label(flag)
+            )
+            != value
         ):
-          if not _context.evaluate_condition(constraint):
-            return False
-      workspace_values = _context.access(EvaluationState).workspace.values
-      if values:
-        for key, value in values.items():
-          if (key, value) not in workspace_values:
-            return False
-      if define_values:
-        for key, value in define_values.items():
-          if ("define", f"{key}={value}") not in workspace_values:
-            return False
-      return True
+          return False
+    if constraint_values:
+      for constraint in _context.resolve_target_or_label_list(
+          constraint_values
+      ):
+        if not _context.evaluate_condition(constraint):
+          return False
+    workspace_values = _context.access(EvaluationState).workspace.values
+    if values:
+      for key, value in values.items():
+        if (key, value) not in workspace_values:
+          return False
+    if define_values:
+      for key, value in define_values.items():
+        if ("define", f"{key}={value}") not in workspace_values:
+          return False
+    return True
 
-    evaluated_condition = evaluate()
-    _context.add_analyzed_target(
-        target, TargetInfo(ConditionProvider(evaluated_condition))
-    )
-
-  _context.add_rule(target, impl, analyze_by_default=True)
+  evaluated_condition = evaluate()
+  _context.add_analyzed_target(
+      _target, TargetInfo(ConditionProvider(evaluated_condition))
+  )
 
 
 @register_native_build_rule

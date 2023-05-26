@@ -1,0 +1,6 @@
+
+proto_library(
+    name = "z_proto",
+    srcs = ["z.proto"],
+    cc_api_version = 2,
+)
