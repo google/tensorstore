@@ -344,7 +344,7 @@ Future<kvstore::DriverPtr> S3KeyValueStoreSpec::DoOpen() const {
     // then create region specific endpoint
     auto url = tensorstore::StrCat("https://", data_.bucket, ".s3", kDotAmazonAwsDotCom);
     auto future = driver->transport_->IssueRequest(
-            HttpRequestBuilder("GET", url).BuildRequest(),
+            HttpRequestBuilder("HEAD", url).BuildRequest(),
             absl::Cord());
     if(!future.status().ok()) return future.status();
     auto & headers = future.value().headers;
