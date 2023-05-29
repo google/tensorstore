@@ -110,7 +110,7 @@
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/os_error_code.h"
-#include "tensorstore/internal/path.h"
+#include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/file/unique_handle.h"
 #include "tensorstore/kvstore/file/util.h"

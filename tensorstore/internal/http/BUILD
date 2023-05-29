@@ -61,8 +61,8 @@ tensorstore_cc_library(
         "http_transport.h",
     ],
     deps = [
-        "//tensorstore/internal:path",
         "//tensorstore/internal:source_location",
+        "//tensorstore/internal:uri_utils",
         "//tensorstore/kvstore:byte_range",
         "//tensorstore/util:future",
         "//tensorstore/util:quote_string",

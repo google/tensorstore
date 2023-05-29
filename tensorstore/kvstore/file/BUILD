@@ -25,7 +25,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:file_io_concurrency_resource",
         "//tensorstore/internal:flat_cord_builder",
         "//tensorstore/internal:os_error_code",
-        "//tensorstore/internal:path",
+        "//tensorstore/internal:uri_utils",
         "//tensorstore/internal/cache_key",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",

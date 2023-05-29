@@ -37,15 +37,13 @@
 #include "tensorstore/internal/oauth2/oauth_utils.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/test_util.h"
+#include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
 using ::tensorstore::Future;
-using ::tensorstore::StrCat;
 using ::tensorstore::internal::JoinPath;
 using ::tensorstore::internal::SetEnv;
 using ::tensorstore::internal::UnsetEnv;

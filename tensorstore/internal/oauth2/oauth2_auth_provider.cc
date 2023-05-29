@@ -24,7 +24,7 @@
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/path.h"
+#include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"

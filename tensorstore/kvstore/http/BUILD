@@ -20,11 +20,11 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore:context",
         "//tensorstore/internal:concurrency_resource",
-        "//tensorstore/internal:env",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:path",
         "//tensorstore/internal:retries_context_resource",
         "//tensorstore/internal:retry",
+        "//tensorstore/internal:uri_utils",
         "//tensorstore/internal/cache_key",
         "//tensorstore/internal/http",
         "//tensorstore/internal/http:curl_transport",

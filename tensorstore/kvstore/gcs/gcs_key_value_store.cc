@@ -49,6 +49,7 @@
 #include "tensorstore/internal/retry.h"
 #include "tensorstore/internal/schedule_at.h"
 #include "tensorstore/internal/source_location.h"
+#include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/gcs/gcs_resource.h"

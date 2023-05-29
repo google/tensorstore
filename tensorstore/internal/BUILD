@@ -1996,3 +1996,19 @@ tensorstore_cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+tensorstore_cc_library(
+    name = "uri_utils",
+    srcs = ["uri_utils.cc"],
+    hdrs = ["uri_utils.h"],
+    deps = ["@com_google_absl//absl/strings"],
+)
+
+tensorstore_cc_test(
+    name = "uri_utils_test",
+    srcs = ["uri_utils_test.cc"],
+    deps = [
+        ":uri_utils",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

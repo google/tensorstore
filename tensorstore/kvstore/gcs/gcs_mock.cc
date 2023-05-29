@@ -32,7 +32,7 @@
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
-#include "tensorstore/internal/path.h"
+#include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {

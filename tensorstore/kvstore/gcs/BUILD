@@ -33,6 +33,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:retry",
         "//tensorstore/internal:schedule_at",
         "//tensorstore/internal:source_location",
+        "//tensorstore/internal:uri_utils",
         "//tensorstore/internal/cache_key",
         "//tensorstore/internal/http",
         "//tensorstore/internal/http:curl_transport",
@@ -75,12 +76,14 @@ tensorstore_cc_test(
         "gcs_mock.cc",
         "gcs_mock.h",
     ],
+    flaky = 1,  # This test has large timing variations, which can cause failures.
     deps = [
         ":gcs",
         "//tensorstore:context",
         "//tensorstore/internal:json_gtest",
         "//tensorstore/internal:path",
         "//tensorstore/internal:schedule_at",
+        "//tensorstore/internal:uri_utils",
         "//tensorstore/internal/http",
         "//tensorstore/internal/http:curl_handle",
         "//tensorstore/internal/http:curl_transport",

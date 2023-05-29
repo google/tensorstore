@@ -111,6 +111,7 @@ tensorstore_cc_library(
         ":format",
         "//tensorstore:json_serialization_options_base",
         "//tensorstore/internal:path",
+        "//tensorstore/internal:uri_utils",
         "//tensorstore/internal/json:value_as",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",

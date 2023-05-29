@@ -21,7 +21,7 @@
 
 #include "absl/strings/str_format.h"
 #include "absl/time/time.h"
-#include "tensorstore/internal/path.h"
+#include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/util/str_cat.h"
 

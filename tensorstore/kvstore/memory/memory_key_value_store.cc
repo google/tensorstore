@@ -24,7 +24,6 @@
 #include "absl/base/thread_annotations.h"
 #include "absl/container/btree_map.h"
 #include "absl/status/status.h"
-#include "absl/strings/match.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include <nlohmann/json.hpp>
@@ -33,7 +32,7 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/path.h"
+#include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
@@ -46,7 +45,6 @@
 #include "tensorstore/util/execution/sender.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace {
@@ -158,9 +156,7 @@ class MemoryDriverSpec
   Future<kvstore::DriverPtr> DoOpen() const override;
 
   Result<std::string> ToUrl(std::string_view path) const override {
-    std::string encoded_path;
-    internal::PercentEncodeUriPath(path, encoded_path);
-    return tensorstore::StrCat(id, "://", encoded_path);
+    return tensorstore::StrCat(id, "://", internal::PercentEncodeUriPath(path));
   }
 };
 
