@@ -25,6 +25,7 @@ from typing import Any, Dict, List, Tuple
 import pytest
 
 from . import native_rules  # pylint: disable=unused-import
+from . import native_rules_alias  # pylint: disable=unused-import
 from . import native_rules_cc  # pylint: disable=unused-import
 from . import native_rules_genrule  # pylint: disable=unused-import
 from . import native_rules_proto  # pylint: disable=unused-import
@@ -105,38 +106,9 @@ def compare_files(golden, generated):
       assert list(left) == list(right)
 
 
-@pytest.mark.parametrize('test_name,config', parameters())
-def test_golden(test_name: str, config: Dict[str, Any], tmpdir):
-  # Start with the list of source files.
-  source_directory = config['source_directory']
-  del config['source_directory']
-  input_files = [str(x) for x in get_files_list(source_directory)]
-
-  # Create the working directory as a snapshot of the source directory.
-  directory = str(tmpdir)
-  os.chdir(directory)
-  copy_tree(source_directory, input_files, directory)
-  os.makedirs(CMAKE_VARS['CMAKE_FIND_PACKAGE_REDIRECTS_DIR'], exist_ok=True)
-
-  # Workspace setup
-  workspace = Workspace(CMAKE_VARS)
-  workspace.save_workspace = '_workspace.pickle'
-  workspace._verbose = 3
-  add_platform_constraints(workspace)
-
+def add_repositories(workspace: Workspace):
   # Add default mappings used in proto code.
-  workspace.persist_cmake_name(
-      '@com_github_grpc_grpc//:grpc++_codegen_proto',
-      'gRPC',
-      CMakeTarget('gRPC::gRPC_codegen'),
-  )
-
-  workspace.persist_cmake_name(
-      '@com_github_grpc_grpc//src/compiler:grpc_cpp_plugin',
-      'gRPC',
-      CMakeTarget('gRPC::grpc_cpp_plugin'),
-  )
-
+  # protobuf
   workspace.persist_cmake_name(
       '@com_google_protobuf//:protoc',
       'Protobuf',
@@ -149,6 +121,26 @@ def test_golden(test_name: str, config: Dict[str, Any], tmpdir):
       CMakeTarget('protobuf::libprotobuf'),
   )
 
+  workspace.persist_cmake_name(
+      '@com_google_protobuf//:any_protoc',
+      'Protobuf',
+      CMakeTarget('protobuf::any_proto'),
+  )
+
+  # gRPC
+  workspace.persist_cmake_name(
+      '@com_github_grpc_grpc//:grpc++_codegen_proto',
+      'gRPC',
+      CMakeTarget('gRPC::gRPC_codegen'),
+  )
+
+  workspace.persist_cmake_name(
+      '@com_github_grpc_grpc//src/compiler:grpc_cpp_plugin',
+      'gRPC',
+      CMakeTarget('gRPC::grpc_cpp_plugin'),
+  )
+
+  # upb
   workspace.persist_cmake_name(
       '@com_google_upb//upbc:protoc-gen-upbdefs',
       'upb',
@@ -169,11 +161,26 @@ def test_golden(test_name: str, config: Dict[str, Any], tmpdir):
       ),
   )
 
-  workspace.persist_cmake_name(
-      '@com_google_protobuf//:any_protoc',
-      'Protobuf',
-      CMakeTarget('protobuf::any_proto'),
-  )
+
+@pytest.mark.parametrize('test_name,config', parameters())
+def test_golden(test_name: str, config: Dict[str, Any], tmpdir):
+  # Start with the list of source files.
+  source_directory = config['source_directory']
+  del config['source_directory']
+  input_files = [str(x) for x in get_files_list(source_directory)]
+
+  # Create the working directory as a snapshot of the source directory.
+  directory = str(tmpdir)
+  os.chdir(directory)
+  copy_tree(source_directory, input_files, directory)
+  os.makedirs(CMAKE_VARS['CMAKE_FIND_PACKAGE_REDIRECTS_DIR'], exist_ok=True)
+
+  # Workspace setup
+  workspace = Workspace(CMAKE_VARS)
+  workspace.save_workspace = '_workspace.pickle'
+  workspace._verbose = 3
+  add_platform_constraints(workspace)
+  add_repositories(workspace)
 
   # Load specified modules.
   for x in config.get('modules', []):

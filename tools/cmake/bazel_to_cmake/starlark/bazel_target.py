@@ -32,6 +32,10 @@ class RepositoryId(NamedTuple):
   def __repr__(self) -> str:
     return f'RepositoryId("{self.repository_name}")'
 
+  @property
+  def repository_id(self) -> 'RepositoryId':
+    return self
+
   def get_package_id(self, package_name: str) -> 'PackageId':
     """Returns the package in this repository."""
     return PackageId(
@@ -82,6 +86,10 @@ class PackageId(NamedTuple):
   @property
   def repository_id(self) -> RepositoryId:
     return RepositoryId(self.repository_name)
+
+  @property
+  def package_id(self) -> 'PackageId':
+    return self
 
   def get_target_id(self, target_name: str) -> 'TargetId':
     return TargetId(

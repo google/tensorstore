@@ -126,6 +126,35 @@ target_sources(CMakeProject_subdir_x PRIVATE
         "${TEST_DIRECTORY}/subdir/x.cc")
 add_library(CMakeProject::subdir_x ALIAS CMakeProject_subdir_x)
 
+# @native_rules_test_repo//subdir:make_y
+add_custom_command(
+  OUTPUT "_cmake_binary_dir_/subdir/y.cc"
+  DEPENDS "CMakeProject::bb"
+  COMMAND bash -c "$<TARGET_FILE:CMakeProject_bb> \"_cmake_binary_dir_/subdir/y.cc\""
+  VERBATIM
+  WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+)
+add_custom_target(CMakeProject_subdir_make_y DEPENDS "_cmake_binary_dir_/subdir/y.cc")
+
+# @native_rules_test_repo//subdir:y
+add_library(CMakeProject_subdir_y)
+set_property(TARGET CMakeProject_subdir_y PROPERTY LINKER_LANGUAGE "CXX")
+target_link_libraries(CMakeProject_subdir_y PUBLIC
+        "Threads::Threads"
+        "m")
+target_include_directories(CMakeProject_subdir_y PUBLIC
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
+target_compile_features(CMakeProject_subdir_y PUBLIC cxx_std_17)
+add_dependencies(CMakeProject_subdir_y "CMakeProject_subdir_make_y")
+target_sources(CMakeProject_subdir_y PRIVATE
+        "_cmake_binary_dir_/subdir/y.cc")
+add_library(CMakeProject::subdir_y ALIAS CMakeProject_subdir_y)
+
+# @native_rules_test_repo//:y_alias
+add_library(CMakeProject_y_alias ALIAS CMakeProject_subdir_y)
+add_library(CMakeProject::y_alias ALIAS CMakeProject_subdir_y)
+
 # @native_rules_test_repo//subdir:z_proto
 add_library(CMakeProject_subdir_z_proto INTERFACE)
 target_sources(CMakeProject_subdir_z_proto INTERFACE

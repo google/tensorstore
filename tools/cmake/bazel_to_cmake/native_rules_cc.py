@@ -19,7 +19,6 @@ from typing import List, Optional
 
 from .cmake_builder import CMakeBuilder
 from .cmake_target import CMakeTarget
-from .cmake_target import CMakeTargetProvider
 from .emit_cc import emit_cc_binary
 from .emit_cc import emit_cc_library
 from .emit_cc import emit_cc_test
@@ -193,61 +192,3 @@ def _cc_test_impl(
   _context.add_analyzed_target(
       _target, TargetInfo(*cmake_target_pair.as_providers())
   )
-
-
-@register_native_build_rule
-def alias(
-    self: InvocationContext,
-    name: str,
-    actual: Configurable[RelativeLabel],
-    visibility: Optional[List[RelativeLabel]] = None,
-    **kwargs,
-):
-  del kwargs
-  context = self.snapshot()
-  target = context.resolve_target(name)
-  context.add_rule(
-      target,
-      lambda: _alias_impl(context, target, actual),
-      visibility=visibility,
-  )
-
-
-def _alias_impl(
-    _context: InvocationContext,
-    _target: TargetId,
-    actual: Configurable[RelativeLabel],
-):
-  resolved = _context.resolve_target_or_label(
-      _context.evaluate_configurable(actual)
-  )
-  target_info = _context.get_target_info(resolved)
-  _context.add_analyzed_target(_target, target_info)
-
-  if resolved.package_id != _context.caller_package_id:
-    # When this is an alias to another package, don't add a CMake ALIAS.
-    return
-
-  if target_info.get(CMakeTargetProvider) is None:
-    # When there is no CMake target, don't add a CMake ALIAS.
-    # NOTE: We might want to alias proto_library().
-    return
-
-  alias_target = target_info[CMakeTargetProvider].target
-  cmake_target_pair = _context.access(
-      EvaluationState
-  ).generate_cmake_target_pair(_target)
-
-  if cmake_target_pair.target == alias_target:
-    # Don't alias, when, unexpectedly, the targets have the same name.
-    return
-
-  builder = _context.access(CMakeBuilder)
-  builder.addtext(f"\n# {_target.as_label()}\n")
-  builder.addtext(
-      f"add_library({cmake_target_pair.target} ALIAS {alias_target})\n"
-  )
-  if cmake_target_pair.alias:
-    builder.addtext(
-        f"add_library({cmake_target_pair.alias} ALIAS {alias_target})\n"
-    )
