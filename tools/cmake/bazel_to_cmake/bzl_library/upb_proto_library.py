@@ -21,8 +21,10 @@ from typing import List, Optional
 
 from ..native_rules_proto import cc_proto_library_impl
 from ..native_rules_proto import PluginSettings
+from ..native_rules_proto import PROTO_REPLACEMENT_TARGETS
 from ..starlark.bazel_globals import BazelGlobals
 from ..starlark.bazel_globals import register_bzl_library
+from ..starlark.bazel_target import RepositoryId
 from ..starlark.bazel_target import TargetId
 from ..starlark.common_providers import BuildSettingProvider
 from ..starlark.invocation_context import RelativeLabel
@@ -30,28 +32,45 @@ from ..starlark.provider import Provider
 from ..starlark.provider import TargetInfo
 from ..starlark.select import Configurable
 
+
+UPB_REPO = RepositoryId("com_google_upb")
+
+_UPB_WELL_KNOWN_PROTOS = TargetId.parse(
+    "@local_proto_mirror//google/protobuf:well_known_protos_upb"
+)
+_UPBDEFS_WELL_KNOWN_PROTOS = TargetId.parse(
+    "@local_proto_mirror//google/protobuf:well_known_protos_upbdefs"
+)
+
+
 _UPB = PluginSettings(
-    TargetId.parse("@com_google_upb//upbc:protoc-gen-upb"),
-    "upb",
-    [".upb.h", ".upb.c"],
-    [
-        TargetId.parse(
-            "@com_google_upb//:generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me"
+    name="upb",
+    plugin=UPB_REPO.parse_target("//upbc:protoc-gen-upb"),
+    exts=[".upb.h", ".upb.c"],
+    runtime=[
+        UPB_REPO.parse_target(
+            "//:generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me"
         ),
-        TargetId.parse("@com_google_upb//:port"),
+        UPB_REPO.parse_target("//:port"),
     ],
+    replacement_targets=dict(
+        [(k, _UPB_WELL_KNOWN_PROTOS) for k in PROTO_REPLACEMENT_TARGETS]
+    ),
 )
 
 _UPBDEFS = PluginSettings(
-    TargetId.parse("@com_google_upb//upbc:protoc-gen-upbdefs"),
-    "upbdefs",
-    [".upbdefs.h", ".upbdefs.c"],
-    [
-        TargetId.parse(
-            "@com_google_upb//:generated_reflection_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me"
+    name="upbdefs",
+    plugin=TargetId.parse("@com_google_upb//upbc:protoc-gen-upbdefs"),
+    exts=[".upbdefs.h", ".upbdefs.c"],
+    runtime=[
+        UPB_REPO.parse_target(
+            "//:generated_reflection_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me"
         ),
-        TargetId.parse("@com_google_upb//:port"),
+        UPB_REPO.parse_target("//:port"),
     ],
+    replacement_targets=dict(
+        [(k, _UPBDEFS_WELL_KNOWN_PROTOS) for k in PROTO_REPLACEMENT_TARGETS]
+    ),
 )
 
 
@@ -83,9 +102,12 @@ class UpbProtoLibraryCoptsInfo(Provider):
     "@com_google_upb//bazel:upb_proto_library.bzl", build=True
 )
 class UpbProtoLibrary(BazelGlobals):
-  bazel__FastTableEnabledInfo = staticmethod(_FastTableEnabledInfo)  # pylint: disable=invalid-name  # type: ignore[not-callable]
 
-  bazel_UpbProtoLibraryCoptsInfo = staticmethod(UpbProtoLibraryCoptsInfo)  # pylint: disable=invalid-name  # type: ignore[not-callable]
+  # pylint: disable-next=invalid-name
+  bazel__FastTableEnabledInfo = _FastTableEnabledInfo
+
+  # pylint: disable-next=invalid-name
+  bazel_UpbProtoLibraryCoptsInfo = UpbProtoLibraryCoptsInfo
 
   def bazel_upb_proto_library(
       self,

@@ -26,6 +26,7 @@ from ..native_rules_proto import PluginSettings
 from ..native_rules_proto import PROTO_COMPILER
 from ..starlark.bazel_globals import BazelGlobals
 from ..starlark.bazel_globals import register_bzl_library
+from ..starlark.bazel_target import RepositoryId
 from ..starlark.bazel_target import TargetId
 from ..starlark.common_providers import FilesProvider
 from ..starlark.common_providers import ProtoLibraryProvider
@@ -34,12 +35,16 @@ from ..starlark.invocation_context import RelativeLabel
 from ..starlark.provider import TargetInfo
 from ..starlark.select import Configurable
 
+
+GRPC_REPO = RepositoryId("com_github_grpc_grpc")
+
 _SEP = "\n        "
 _GRPC = PluginSettings(
-    TargetId.parse("@com_github_grpc_grpc//src/compiler:grpc_cpp_plugin"),
-    "grpc",
-    [".grpc.pb.h", ".grpc.pb.cc"],
-    [TargetId.parse("@com_github_grpc_grpc//:grpc++_codegen_proto")],
+    name="grpc",
+    plugin=GRPC_REPO.parse_target("//src/compiler:grpc_cpp_plugin"),
+    exts=[".grpc.pb.h", ".grpc.pb.cc"],
+    runtime=[GRPC_REPO.parse_target("//:grpc++_codegen_proto")],
+    replacement_targets={},
 )
 
 
@@ -97,10 +102,11 @@ def _generate_cc_impl(
         cast(RelativeLabel, _context.evaluate_configurable(plugin))
     )
     plugin_settings = PluginSettings(
-        resolved_plugin,
-        "grpc",
-        [".grpc.pb.h", ".grpc.pb.cc"],
-        [TargetId.parse("@com_github_grpc_grpc//:grpc++_codegen_proto")],
+        name=_GRPC.name,
+        plugin=resolved_plugin,
+        exts=_GRPC.exts,
+        runtime=_GRPC.runtime,
+        replacement_targets=_GRPC.replacement_targets,
     )
 
   cmake_deps.extend(state.get_dep(PROTO_COMPILER))
@@ -127,11 +133,14 @@ def _generate_cc_impl(
     raise ValueError(
         f"Resolving {plugin_settings.plugin} returned: {plugin_name}"
     )
-  cmake_deps.append(plugin_name[0])
-  plugin = (
-      "\n    PLUGIN"
-      f" protoc-gen-{plugin_settings.name}=$<TARGET_FILE:{plugin_name[0]}>"
+
+  language = (
+      plugin_settings.language
+      if plugin_settings.language
+      else plugin_settings.name
   )
+  cmake_deps.append(plugin_name[0])
+  plugin = f"\n    PLUGIN protoc-gen-{language}=$<TARGET_FILE:{plugin_name[0]}>"
 
   # Construct the output path. This is also the target include dir.
   # ${PROJECT_BINARY_DIR}
@@ -152,7 +161,7 @@ target_sources({cmake_name} PRIVATE{_SEP}{quote_list(proto_src_files , separator
 btc_protobuf(
     TARGET {cmake_name}
     IMPORT_TARGETS  {import_target}
-    LANGUAGE {plugin_settings.name}{plugin}
+    LANGUAGE {language}{plugin}
     GENERATE_EXTENSIONS {quote_list(plugin_settings.exts)}
     PROTOC_OPTIONS --experimental_allow_proto3_optional
     PLUGIN_OPTIONS {quote_list(flags)}
