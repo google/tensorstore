@@ -57,6 +57,7 @@ def repo():
         name = "local_proto_mirror",
         files = [
             "imports.bzl",
+            "BUILD.bazel",
             "google/protobuf/BUILD.bazel",
             "google/protobuf/any.proto",
             "google/protobuf/api.proto",
@@ -96,8 +97,8 @@ def repo():
             "google/rpc/error_details.proto": "41c6ea79dd50d433f31d96623e0b3fa83736a797434570445fa3e65bb7f62eb3",
             "google/rpc/status.proto": "108562c2d7854812908cdcd0d988132880822b05ab5e4f28960e1a5572217854",
             "validate/validate.proto": "bf7ca2ac45a75b8b9ff12f38efd7f48ee460ede1a7919d60c93fad3a64fc2eee",
-            "xds/data/orca/v3/orca_load_report.proto": "8721df1147c6094b61f9df4becd6a0300c3378e6f50be60d1d5f2e4860769264",
-            "xds/service/orca/v3/orca.proto": "90150a0294c560212990d61a23cb0f0aec8033101cb9ca00f2fdaf8dccc8489b",
+            "xds/data/orca/v3/orca_load_report.proto": "ba5770bc364000a71f3054be2e639cb91926a757a8299144c0053310ac7c1fe8",
+            "xds/service/orca/v3/orca.proto": "3d6a142eace287f7a5f914dc4a9b0d4947a14fad90df3415400a938a130748a6",
         },
         file_url = {
             # https://github.com/protocolbuffers/protobuf
@@ -146,10 +147,10 @@ def repo():
             ],
             # https://github.com/cncf/xds
             "xds/service/orca/v3/orca.proto": [
-                "https://storage.googleapis.com/tensorstore-bazel-mirror/raw.githubusercontent.com/cncf/xds/1e77728a1eaa11d6c931ec2ccd6e95f516a7ef94/xds/service/orca/v3/orca.proto",
+                "https://storage.googleapis.com/tensorstore-bazel-mirror/raw.githubusercontent.com/cncf/xds/4003588d1b747e37e911baa5a9c1c07fde4ca518/xds/service/orca/v3/orca.proto",
             ],
             "xds/data/orca/v3/orca_load_report.proto": [
-                "https://storage.googleapis.com/tensorstore-bazel-mirror/raw.githubusercontent.com/cncf/xds/1e77728a1eaa11d6c931ec2ccd6e95f516a7ef94/xds/data/orca/v3/orca_load_report.proto",
+                "https://storage.googleapis.com/tensorstore-bazel-mirror/raw.githubusercontent.com/cncf/xds/4003588d1b747e37e911baa5a9c1c07fde4ca518/xds/data/orca/v3/orca_load_report.proto",
             ],
             # https://github.com/envoyproxy/protoc-gen-validate
             "validate/validate.proto": [
@@ -160,6 +161,7 @@ def repo():
         cmake_name = "lpm",
         bazel_to_cmake = {},
         cmake_target_mapping = {
+            "//google/protobuf:descriptor_proto": "lpm::google_protobuf_descriptor_proto",
             "//google/rpc:code_proto": "lpm::google_rpc_code_proto",
             "//google/rpc:code_upb_proto": "lpm::google_rpc_code_upb_proto",
             "//google/rpc:code_upbdef_proto": "lpm::google_rpc_code_upbdef_proto",
@@ -200,10 +202,19 @@ proto_library(
     ],
 )
 
-load("@com_google_upb//bazel:upb_proto_library.bzl", "upb_proto_library", "upb_proto_reflection_library")
+load("@com_google_upb//bazel:upb_proto_library.bzl",
+     "upb_proto_library",
+     "upb_proto_reflection_library")
 
-upb_proto_library(name = "validate_proto_upb", deps = [":validate_proto"])
-upb_proto_reflection_library(name = "validate_proto_upbdef", deps = [":validate_proto"])
+upb_proto_library(
+    name = "validate_proto_upb",
+    deps = [":validate_proto"],
+)
+
+upb_proto_reflection_library(
+    name = "validate_proto_upbdef",
+    deps = [":validate_proto"],
+)
 
 """,
     "xds/data/orca/v3/BUILD.bazel": """
@@ -219,7 +230,9 @@ proto_library(
     ],
 )
 
-load("@com_google_upb//bazel:upb_proto_library.bzl", "upb_proto_library", "upb_proto_reflection_library")
+load("@com_google_upb//bazel:upb_proto_library.bzl",
+     "upb_proto_library",
+     "upb_proto_reflection_library")
 
 upb_proto_library(name = "pkg_upb", deps = [":pkg"])
 upb_proto_reflection_library(name = "pkg_upbdef", deps = [":pkg"])
@@ -240,7 +253,9 @@ proto_library(
     ],
 )
 
-load("@com_google_upb//bazel:upb_proto_library.bzl", "upb_proto_library", "upb_proto_reflection_library")
+load("@com_google_upb//bazel:upb_proto_library.bzl",
+     "upb_proto_library",
+     "upb_proto_reflection_library")
 
 upb_proto_library(name = "pkg_upb", deps = [":pkg"])
 upb_proto_reflection_library(name = "pkg_upbdef", deps = [":pkg"])
@@ -286,7 +301,9 @@ cc_proto_library(
     deps = [":status_proto"],
 )
 
-load("@com_google_upb//bazel:upb_proto_library.bzl", "upb_proto_library", "upb_proto_reflection_library")
+load("@com_google_upb//bazel:upb_proto_library.bzl",
+     "upb_proto_library",
+     "upb_proto_reflection_library")
 
 upb_proto_library(
     name = "code_upb_proto",
@@ -331,7 +348,9 @@ package(default_visibility = ["//visibility:public"])
 #
 #  These also become the "well-known-protos" depdendencies for upb/upbdefs.
 
-load("@com_google_upb//bazel:upb_proto_library.bzl", "upb_proto_library", "upb_proto_reflection_library")
+load("@com_google_upb//bazel:upb_proto_library.bzl",
+     "upb_proto_library",
+     "upb_proto_reflection_library")
 
 proto_library(
     name = "well_known_protos",
@@ -361,6 +380,14 @@ upb_proto_reflection_library(
 )
 
 """,
+    "BUILD.bazel": """
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])
+
+exports_files(["imports.bzl"])
+
+""",
     "imports.bzl": """
 # Rules used by com_google_googleapis to build additional targets.
 load(
@@ -373,7 +400,7 @@ load(
 )
 
 cc_grpc_library = _cc_grpc_library
-cc_proto_library = _ensorstore_cc_proto_library
+cc_proto_library = _tensorstore_cc_proto_library
 
 def proto_library_with_info(**kwargs):
     pass
@@ -432,6 +459,9 @@ def py_gapic_assembly_pkg(**kwargs):
 def py_gapic_library(**kwargs):
     pass
 
+def py_proto_library(**kwargs):
+    pass
+
 def ruby_cloud_gapic_library(**kwargs):
     pass
 
@@ -442,6 +472,18 @@ def ruby_grpc_library(**kwargs):
     pass
 
 def ruby_proto_library(**kwargs):
+    pass
+
+def csharp_proto_library(**kwargs):
+    pass
+
+def csharp_grpc_library(**kwargs):
+    pass
+
+def csharp_gapic_library(**kwargs):
+    pass
+
+def csharp_gapic_assembly_pkg(**kwargs):
     pass
 
 """,

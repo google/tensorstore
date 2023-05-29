@@ -5,15 +5,18 @@
 #
 #  These also become the "well-known-protos" depdendencies for upb/upbdefs.
 
-load("@com_google_upb//bazel:upb_proto_library.bzl", "upb_proto_library", "upb_proto_reflection_library")
-
+load(
+    "@com_google_upb//bazel:upb_proto_library.bzl",
+    "upb_proto_library",
+    "upb_proto_reflection_library",
+)
 
 upb_proto_library(
     name = "compiler_plugin_proto_ubp",
-    deps = [ "@com_google_protobuf//:compiler_plugin_proto" ],
+    deps = ["@com_google_protobuf//:compiler_plugin_proto"],
 )
 
 upb_proto_reflection_library(
     name = "compiler_plugin_proto_ubpdefs",
-    deps = [ "@com_google_protobuf//:compiler_plugin_proto" ],
+    deps = ["@com_google_protobuf//:compiler_plugin_proto"],
 )
