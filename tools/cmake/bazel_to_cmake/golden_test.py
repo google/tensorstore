@@ -178,7 +178,9 @@ def test_golden(test_name: str, config: Dict[str, Any], tmpdir):
   # Workspace setup
   workspace = Workspace(CMAKE_VARS)
   workspace.save_workspace = '_workspace.pickle'
+  workspace.host_platform_name = 'linux'
   workspace._verbose = 3
+
   add_platform_constraints(workspace)
   add_repositories(workspace)
 
@@ -186,6 +188,11 @@ def test_golden(test_name: str, config: Dict[str, Any], tmpdir):
   for x in config.get('modules', []):
     workspace.add_module(x)
   workspace.load_modules()
+
+  # load bazelrc
+  bazelrc_path = os.path.join(directory, '.bazelrc')
+  if pathlib.Path(bazelrc_path).exists():
+    workspace.load_bazelrc(bazelrc_path)
 
   # Setup root workspace.
   repository = Repository(

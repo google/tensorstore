@@ -3,6 +3,7 @@ find_package(Protobuf REQUIRED)
 # @native_rules_test_repo//:bb
 add_executable(CMakeProject_bb "")
 add_executable(CMakeProject::bb ALIAS CMakeProject_bb)
+target_compile_definitions(CMakeProject_bb PUBLIC "BUILD_LINUX")
 target_link_libraries(CMakeProject_bb PUBLIC
         "Threads::Threads"
         "m")
@@ -26,6 +27,7 @@ add_custom_target(CMakeProject_h_file DEPENDS "_cmake_binary_dir_/a.h")
 # @native_rules_test_repo//:a
 add_library(CMakeProject_a)
 set_property(TARGET CMakeProject_a PROPERTY LINKER_LANGUAGE "CXX")
+target_compile_definitions(CMakeProject_a PUBLIC "BUILD_LINUX")
 target_link_libraries(CMakeProject_a PUBLIC
         "Threads::Threads"
         "m")
@@ -89,6 +91,7 @@ add_library(CMakeProject::c_proto_cc ALIAS CMakeProject_c_proto_cc)
 # @native_rules_test_repo//:a_test
 add_executable(CMakeProject_a_test "")
 add_executable(CMakeProject::a_test ALIAS CMakeProject_a_test)
+target_compile_definitions(CMakeProject_a_test PUBLIC "BUILD_LINUX")
 target_link_libraries(CMakeProject_a_test PUBLIC
         "CMakeProject::c_proto_cc"
         "Threads::Threads"
@@ -115,6 +118,7 @@ add_library(CMakeProject::c_proto_cc_alias ALIAS CMakeProject_c_proto_cc)
 # @native_rules_test_repo//:subdir_x
 add_library(CMakeProject_subdir_x)
 set_property(TARGET CMakeProject_subdir_x PROPERTY LINKER_LANGUAGE "CXX")
+target_compile_definitions(CMakeProject_subdir_x PUBLIC "BUILD_LINUX")
 target_link_libraries(CMakeProject_subdir_x PUBLIC
         "Threads::Threads"
         "m")
@@ -139,6 +143,7 @@ add_custom_target(CMakeProject_subdir_make_y DEPENDS "_cmake_binary_dir_/subdir/
 # @native_rules_test_repo//subdir:y
 add_library(CMakeProject_subdir_y)
 set_property(TARGET CMakeProject_subdir_y PROPERTY LINKER_LANGUAGE "CXX")
+target_compile_definitions(CMakeProject_subdir_y PUBLIC "BUILD_LINUX")
 target_link_libraries(CMakeProject_subdir_y PUBLIC
         "Threads::Threads"
         "m")

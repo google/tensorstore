@@ -257,6 +257,14 @@ class Workspace:
     self.copts.extend(copts)
     self.cxxopts.extend(cxxopts)
 
+    seen = set(self.cdefines)
+    for opt in args.copt + args.cxxopt:
+      if re.match("^(?:[-/]D)", opt) is not None:
+        x = opt[2:]
+        if x not in seen:
+          seen.add(x)
+          self.cdefines.append(x)
+
   def add_module(self, module_name: str):
     self._modules.add(module_name)
 
