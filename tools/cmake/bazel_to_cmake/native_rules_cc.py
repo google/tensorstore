@@ -41,6 +41,8 @@ def cc_library(
     visibility: Optional[List[RelativeLabel]] = None,
     **kwargs,
 ):
+  if "skip-cmake" in kwargs.get("tags", []):
+    return
   context = self.snapshot()
   target = context.resolve_target(name)
   context.add_rule(
@@ -101,6 +103,8 @@ def cc_binary(
     visibility: Optional[List[RelativeLabel]] = None,
     **kwargs,
 ):
+  if "skip-cmake" in kwargs.get("tags", []):
+    return
   context = self.snapshot()
   target = context.resolve_target(name)
 
@@ -149,6 +153,8 @@ def cc_test(
     visibility: Optional[List[RelativeLabel]] = None,
     **kwargs,
 ):
+  if "skip-cmake" in kwargs.get("tags", []):
+    return
   context = self.snapshot()
   target = context.resolve_target(name)
 

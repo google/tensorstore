@@ -71,6 +71,7 @@ Similar to the real Bazel, evaluation is performed in several phases:
 import ast
 import copy
 import enum
+import functools
 import inspect
 import os
 import pathlib
@@ -121,6 +122,7 @@ class RuleInfo(NamedTuple):
   outs: List[TargetId]
   impl: RuleImpl
   kind: Optional[str]
+  create_stack: Any
 
 
 class Phase(enum.Enum):
@@ -215,12 +217,15 @@ class EvaluationState:
     assert isinstance(rule_id, TargetId), f"Requires TargetId: {repr(rule_id)}"
     if rule_id in self._all_rules:
       raise ValueError(f"Duplicate rule: {rule_id.as_label()}")
+    if self._verbose:
+      print(f"Rule: {rule_id.as_label()}")
+
     if outs is None:
       outs = []
 
     # kind is assigned from caller function name
-    kind = _get_kind(inspect.currentframe())
-    r = RuleInfo(outs, impl, kind)
+    currentframe = inspect.currentframe()
+    r = RuleInfo(outs, impl, _get_kind(currentframe), currentframe)
     self._all_rules[rule_id] = r
     self._unanalyzed_rules.add(rule_id)
     self._unanalyzed_targets[rule_id] = rule_id
@@ -668,6 +673,22 @@ class EvaluationState:
     self._call_after_analysis.append(callback)
 
 
+def trace_exception(f):
+  """Decorator adding repr(self) to exceptions."""
+
+  @functools.wraps(f)
+  def wrapper(*args, **kwargs):
+    try:
+      return f(*args, **kwargs)
+    except Exception as e:
+      e.args = (e.args if e.args else tuple()) + (
+          f"from caller {repr(args[0]._caller_package_id)}",
+      )
+      raise
+
+  return wrapper
+
+
 class EvaluationContext(InvocationContext):
   """Implements InvocationContext interface for EvaluationState."""
 
@@ -686,7 +707,7 @@ class EvaluationContext(InvocationContext):
     assert self._caller_package_id
 
   def __repr__(self):
-    d = {k: getattr(self, k) for k in self.__slots__}
+    d = {k: repr(getattr(self, k)) for k in self.__slots__}
     return f"<{self.__class__.__name__}>: {d}"
 
   def update_current_package(
@@ -738,6 +759,7 @@ class EvaluationContext(InvocationContext):
   def resolve_output_root(self, repository_id: RepositoryId) -> str:
     return self._get_repository(repository_id).cmake_binary_dir
 
+  @trace_exception
   def resolve_repo_mapping(
       self, target_id: TargetId, mapping_repository_id: Optional[RepositoryId]
   ) -> TargetId:
@@ -767,6 +789,7 @@ class EvaluationContext(InvocationContext):
   def load_library(self, target: TargetId) -> Dict[str, Any]:
     return self._state.load_library(target)
 
+  @trace_exception
   def get_target_info(self, target_id: TargetId) -> TargetInfo:
     return self._state.get_target_info(target_id)
 
@@ -786,6 +809,7 @@ class EvaluationContext(InvocationContext):
         ).analyze_by_default(self.resolve_target_or_label_list(visibility))
     self._state.add_rule(rule_id, impl, outs, **kwargs)
 
+  @trace_exception
   def add_analyzed_target(self, target_id: TargetId, info: TargetInfo) -> None:
     self._state.add_analyzed_target(target_id, info)
 

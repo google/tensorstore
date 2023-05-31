@@ -1,5 +1,13 @@
 # DO NOT EDIT: Generated from test_requirements.txt by generate_workspace.py
-numpy==1.24.2
-pytest==7.2.1
-pytest-asyncio==0.20.3
+numpy==1.24.3
+pytest==7.3.1
+pytest-asyncio==0.21.0
 cloudpickle==2.2.1
+grpcio==1.54.2
+flask==2.3.2
+requests-toolbelt==1.0.0
+scalpl==0.4.2
+crc32c==2.3.post0
+werkzeug==2.3.4
+googleapis-common-protos==1.59.0
+protobuf==4.23.0

@@ -1,2 +1,2 @@
 # DO NOT EDIT: Generated from build_requirements.txt by generate_workspace.py
-numpy==1.24.2
+numpy==1.24.3

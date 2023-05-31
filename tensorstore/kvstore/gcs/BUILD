@@ -237,3 +237,60 @@ tensorstore_cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+tensorstore_cc_library(
+    name = "gcs_testbench",
+    testonly = 1,
+    srcs = ["gcs_testbench.cc"],
+    hdrs = ["gcs_testbench.h"],
+    deps = [
+        "//tensorstore/internal:subprocess",
+        "//tensorstore/internal/grpc:utils",
+        "//tensorstore/internal/http",
+        "//tensorstore/internal/http:curl_transport",
+        "//tensorstore/internal/http:transport_test_utils",
+        "//tensorstore/proto:parse_text_proto_or_die",
+        "//tensorstore/util:future",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "@com_github_grpc_grpc//:grpc++",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/log:absl_check",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/time",
+        "@com_google_googleapis//google/storage/v2:storage_cc_grpc",
+        "@com_google_googleapis//google/storage/v2:storage_cc_proto",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "gcs_testbench_test",
+    size = "medium",
+    srcs = [
+        "gcs_testbench_test.cc",
+    ],
+    args = ["--testbench_binary=$(location @com_google_storagetestbench//:rest_server)"],
+    data = ["@com_google_storagetestbench//:rest_server"],
+    tags = [
+        "requires-net:loopback",
+        "skip-cmake",  # storage_testbench is python, which doesn't work in bazel_to_cmake yet.
+        "skip-darwin",  # the python binary doesn't find dependencies on darwin.
+    ],
+    deps = [
+        ":gcs",
+        ":gcs_testbench",
+        "//tensorstore/internal:env",
+        "//tensorstore/internal:no_destructor",
+        "//tensorstore/internal:thread",
+        "//tensorstore/internal/http:transport_test_utils",
+        "//tensorstore/kvstore",
+        "//tensorstore/kvstore:generation",
+        "//tensorstore/kvstore:test_util",
+        "//tensorstore/util:future",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

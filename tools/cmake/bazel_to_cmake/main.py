@@ -128,6 +128,14 @@ def main():
     workspace._verbose = args.verbose
 
   workspace.load_modules()
+
+  # TODO: The current mechanism of processing a single repository at once limits
+  # loading of .bzl files from cross repository locations.  This could be
+  # allowed in more cases by changing how Repository / library loading works
+  # to create a better mapping ahead of time.
+  #
+  # Hoewever, the general case needs topological ordering as it requires the
+  # repository to be downloaded in order to read the files from it.
   repo = Repository(
       workspace=workspace,
       source_directory=os.getcwd(),
