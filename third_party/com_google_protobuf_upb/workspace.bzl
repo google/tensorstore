@@ -23,7 +23,7 @@ load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 def repo():
     maybe(
         third_party_http_archive,
-        name = "com_google_upb",
+        name = "com_google_protobuf_upb",
         sha256 = "ac79e4540f04a6de945cd827b2e1be71f7d232c46f7d09621de2da1003c763d9",
         strip_prefix = "upb-f3a0cc49da29dbdbd09b3325c2834139540f00fa",
         urls = [
@@ -31,19 +31,19 @@ def repo():
             "https://github.com/protocolbuffers/upb/archive/f3a0cc49da29dbdbd09b3325c2834139540f00fa.tar.gz",  # main(2022-11-18)
         ],
         patches = [
-            "//third_party:com_google_upb/patches/build.diff",
+            "//third_party:com_google_protobuf_upb/patches/build.diff",
             # When using a toolchain on Windows where the runtime libraries are
             # not installed system-wide, it is necessary to specify
             # `use_default_shell_env = True` in order to be able to execute
             # compiled binaries.
-            "//third_party:com_google_upb/patches/use_default_shell_env.diff",
+            "//third_party:com_google_protobuf_upb/patches/use_default_shell_env.diff",
             # Fixes https://github.com/google/tensorstore/issues/86
             #
             # Without this patch, upb copies an uninitialized value, but the
             # copy is never actually used.  That is technically undefined
             # behavior.  In normal builds it is benign but in certain MSVC
             # sanitizer builds it leads to an error.
-            "//third_party:com_google_upb/patches/fix-uninitialized-value-copy.diff",
+            "//third_party:com_google_protobuf_upb/patches/fix-uninitialized-value-copy.diff",
         ],
         patch_args = ["-p1"],
         cmake_name = "upb",
@@ -56,12 +56,12 @@ def repo():
         },
         bazel_to_cmake = {
             "args": [
-                "--ignore-library=@com_google_upb//bazel:amalgamation.bzl",
-                "--ignore-library=@com_google_upb//bazel:py_proto_library.bzl",
-                "--ignore-library=@com_google_upb//lua:lua_proto_library.bzl",
-                "--ignore-library=@com_google_upb//protos/bazel:upb_cc_proto_library.bzl",
-                "--ignore-library=@com_google_upb//python/dist:dist.bzl",
-                "--ignore-library=@com_google_upb//python:py_extension.bzl",
+                "--ignore-library=//bazel:amalgamation.bzl",
+                "--ignore-library=//bazel:py_proto_library.bzl",
+                "--ignore-library=//lua:lua_proto_library.bzl",
+                "--ignore-library=//protos/bazel:upb_cc_proto_library.bzl",
+                "--ignore-library=//python/dist:dist.bzl",
+                "--ignore-library=//python:py_extension.bzl",
                 "--target=//:json",
                 "--target=//:reflection",
                 "--target=//:textformat",
@@ -75,6 +75,6 @@ def repo():
                 "--target=//:generated_reflection_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me",
                 "--target=//:upb_proto_library_copts__for_generated_code_only_do_not_use",
             ],
-            "exclude": ["lua/**", "protos/**", "python/**", "benchmarks/**", "cmake/**"],
+            "exclude": ["lua/**", "protos/**", "python/**", "rust/**", "benchmarks/**", "cmake/**"],
         },
     )

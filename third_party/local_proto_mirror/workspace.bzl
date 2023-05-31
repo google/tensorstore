@@ -202,7 +202,7 @@ proto_library(
     ],
 )
 
-load("@com_google_upb//bazel:upb_proto_library.bzl",
+load("@com_google_protobuf_upb//bazel:upb_proto_library.bzl",
      "upb_proto_library",
      "upb_proto_reflection_library")
 
@@ -230,7 +230,7 @@ proto_library(
     ],
 )
 
-load("@com_google_upb//bazel:upb_proto_library.bzl",
+load("@com_google_protobuf_upb//bazel:upb_proto_library.bzl",
      "upb_proto_library",
      "upb_proto_reflection_library")
 
@@ -253,7 +253,7 @@ proto_library(
     ],
 )
 
-load("@com_google_upb//bazel:upb_proto_library.bzl",
+load("@com_google_protobuf_upb//bazel:upb_proto_library.bzl",
      "upb_proto_library",
      "upb_proto_reflection_library")
 
@@ -301,7 +301,7 @@ cc_proto_library(
     deps = [":status_proto"],
 )
 
-load("@com_google_upb//bazel:upb_proto_library.bzl",
+load("@com_google_protobuf_upb//bazel:upb_proto_library.bzl",
      "upb_proto_library",
      "upb_proto_reflection_library")
 
@@ -348,7 +348,7 @@ package(default_visibility = ["//visibility:public"])
 #
 #  These also become the "well-known-protos" depdendencies for upb/upbdefs.
 
-load("@com_google_upb//bazel:upb_proto_library.bzl",
+load("@com_google_protobuf_upb//bazel:upb_proto_library.bzl",
      "upb_proto_library",
      "upb_proto_reflection_library")
 

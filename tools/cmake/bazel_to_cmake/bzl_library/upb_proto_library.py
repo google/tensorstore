@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""CMake implementation of "@com_google_upb//bazel:upb_proto_library.bzl".
+"""CMake implementation of "@com_google_protobuf_upb//bazel:upb_proto_library.bzl".
 
 https://github.com/protocolbuffers/upb/blob/main/bazel/upb_proto_library.bzl
 """
@@ -33,7 +33,7 @@ from ..starlark.provider import TargetInfo
 from ..starlark.select import Configurable
 
 
-UPB_REPO = RepositoryId("com_google_upb")
+UPB_REPO = RepositoryId("com_google_protobuf_upb")
 
 _UPB_WELL_KNOWN_PROTOS = TargetId.parse(
     "@local_proto_mirror//google/protobuf:well_known_protos_upb"
@@ -60,7 +60,7 @@ _UPB = PluginSettings(
 
 _UPBDEFS = PluginSettings(
     name="upbdefs",
-    plugin=TargetId.parse("@com_google_upb//upbc:protoc-gen-upbdefs"),
+    plugin=UPB_REPO.parse_target("//upbc:protoc-gen-upbdefs"),
     exts=[".upbdefs.h", ".upbdefs.c"],
     runtime=[
         UPB_REPO.parse_target(
@@ -99,7 +99,7 @@ class UpbProtoLibraryCoptsInfo(Provider):
 
 
 @register_bzl_library(
-    "@com_google_upb//bazel:upb_proto_library.bzl", build=True
+    "@com_google_protobuf_upb//bazel:upb_proto_library.bzl", build=True
 )
 class UpbProtoLibrary(BazelGlobals):
 
