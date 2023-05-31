@@ -898,16 +898,16 @@
 <dd><p>Queries whether the asynchronous operation has been cancelled.</p>
 <div class="example admonition">
 <p class="admonition-title">Example</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code>&gt;&gt;&gt; promise, future = ts.Promise.new()
-&gt;&gt;&gt; future.cancelled()
-False
-&gt;&gt;&gt; future.cancel()
-&gt;&gt;&gt; future.cancelled()
-True
-&gt;&gt;&gt; future.exception()
-Traceback (most recent call last):
-    ...
-...CancelledError...
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">promise</span><span class="p">,</span> <span class="n">future</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">Promise</span><span class="o">.</span><span class="n">new</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">future</span><span class="o">.</span><span class="n">cancelled</span><span class="p">()</span>
+<span class="go">False</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">future</span><span class="o">.</span><span class="n">cancel</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">future</span><span class="o">.</span><span class="n">cancelled</span><span class="p">()</span>
+<span class="go">True</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">future</span><span class="o">.</span><span class="n">exception</span><span class="p">()</span>
+<span class="gt">Traceback (most recent call last):</span>
+<span class="w">    </span><span class="o">...</span>
+<span class="x">...CancelledError...</span>
 </code></pre></div>
 </div>
 </div>
