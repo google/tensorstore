@@ -22,6 +22,7 @@
 #include "tensorstore/driver/driver_handle.h"
 #include "tensorstore/driver/registry.h"
 #include "tensorstore/index_space/dim_expression.h"
+#include "tensorstore/index_space/dimension_permutation.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/transformed_array.h"

@@ -227,6 +227,20 @@ tensorstore_cc_library(
     ],
 )
 
+tensorstore_cc_test(
+    name = "dimension_permutation_test",
+    size = "small",
+    srcs = ["dimension_permutation_test.cc"],
+    deps = [
+        ":dim_expression",
+        ":index_transform",
+        "//tensorstore:index",
+        "//tensorstore/util:span",
+        "//tensorstore/util:status_testutil",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
 tensorstore_cc_library(
     name = "dimension_selection",
     srcs = ["internal/dimension_selection.cc"],
@@ -316,6 +330,7 @@ tensorstore_cc_test(
 tensorstore_cc_library(
     name = "index_transform",
     srcs = [
+        "dimension_permutation.cc",
         "index_transform.cc",
         "index_transform_builder.cc",
         "internal/compose_transforms.cc",
@@ -328,6 +343,7 @@ tensorstore_cc_library(
         "json.cc",
     ],
     hdrs = [
+        "dimension_permutation.h",
         "index_domain.h",
         "index_domain_builder.h",
         "index_transform.h",
@@ -352,6 +368,7 @@ tensorstore_cc_library(
         "//tensorstore:array",
         "//tensorstore:box",
         "//tensorstore:container_kind",
+        "//tensorstore:contiguous_layout",
         "//tensorstore:data_type",
         "//tensorstore:index",
         "//tensorstore:index_interval",

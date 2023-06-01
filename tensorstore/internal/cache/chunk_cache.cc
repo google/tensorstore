@@ -34,6 +34,7 @@
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/chunk.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_space/dimension_permutation.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/internal/arena.h"

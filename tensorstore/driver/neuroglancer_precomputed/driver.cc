@@ -24,6 +24,7 @@
 #include "tensorstore/driver/neuroglancer_precomputed/metadata.h"
 #include "tensorstore/driver/registry.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_space/dimension_permutation.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/internal/cache/chunk_cache.h"
 #include "tensorstore/internal/cache_key/cache_key.h"
