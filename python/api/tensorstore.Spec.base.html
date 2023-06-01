@@ -13,7 +13,7 @@
     
     
       
-        <title>tensorstore.Spec.dtype - TensorStore</title>
+        <title>tensorstore.Spec.base - TensorStore</title>
       
     
     
@@ -87,7 +87,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              tensorstore.Spec.dtype
+              tensorstore.Spec.base
             
           </span>
         </div>
@@ -463,20 +463,12 @@
               
   
   
-    
-  
-    
   
   
-    <li class="md-nav__item md-nav__item--active">
-      
-      
-      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
-      
-      <a href="#" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="tensorstore.Spec.dtype.html" class="md-nav__link">
         <span aria-label="Python property" class="objinfo-icon objinfo-icon__alias" title="Python property">P</span><span title="tensorstore.Spec.dtype (Python property) — Data type, or None if unspecified." class="md-ellipsis">dtype</span>
       </a>
-      
     </li>
   
 
@@ -636,12 +628,20 @@
               
   
   
+    
+  
+    
   
   
-    <li class="md-nav__item">
-      <a href="tensorstore.Spec.base.html" class="md-nav__link">
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      
+      <a href="#" class="md-nav__link md-nav__link--active">
         <span aria-label="Python property" class="objinfo-icon objinfo-icon__alias" title="Python property">P</span><span title="tensorstore.Spec.base (Python property) — Spec of the underlying TensorStore, if this is an adapter of a single underlying TensorStore." class="md-ellipsis">base</span>
       </a>
+      
     </li>
   
 
@@ -1179,26 +1179,77 @@
 
 <dl class="py property objdesc">
 <dt class="sig sig-object highlight py">
-<span class="sig-prename descclassname"><span class="pre">tensorstore.</span><span class="pre">Spec.</span></span><span class="sig-name descname"><span class="pre">dtype</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="tensorstore.dtype.html" title="tensorstore.dtype (Python class) — TensorStore data type representation."><span class="pre">dtype</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a></span></dt>
-<dd><p>Data type, or <code class="code highlight python docutils literal highlight-python"><span class="kc">None</span></code> if unspecified.</p>
+<span class="sig-prename descclassname"><span class="pre">tensorstore.</span><span class="pre">Spec.</span></span><span class="sig-name descname"><span class="pre">base</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="tensorstore.Spec.html" title="tensorstore.Spec (Python class) — Specification for opening or creating a TensorStore."><span class="pre">Spec</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a></span></dt>
+<dd><p>Spec of the underlying <a class="reference internal" href="tensorstore.TensorStore.html" title="tensorstore.TensorStore (Python class) — Asynchronous multi-dimensional array handle."><code class="xref py py-obj docutils literal notranslate"><span class="pre">TensorStore</span></code></a>, if this is an adapter of a single
+underlying <a class="reference internal" href="tensorstore.TensorStore.html" title="tensorstore.TensorStore (Python class) — Asynchronous multi-dimensional array handle."><code class="xref py py-obj docutils literal notranslate"><span class="pre">TensorStore</span></code></a>.</p>
+<p>Otherwise, equal to <code class="code highlight python docutils literal highlight-python"><span class="kc">None</span></code>.</p>
+<p>Drivers that support this method include:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="../../driver/cast/index.html#driver-cast"><span class="std std-ref">cast Driver</span></a></p></li>
+<li><p><a class="reference internal" href="../../driver/downsample/index.html#driver-downsample"><span class="std std-ref">downsample Driver</span></a></p></li>
+</ul>
 <div class="example admonition">
 <p class="admonition-title">Example</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">Spec</span><span class="p">({</span><span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;n5&#39;</span><span class="p">,</span> <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;memory&#39;</span><span class="p">}})</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">spec</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
-<span class="go">None</span>
-</code></pre></div>
-</div>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">Spec</span><span class="p">({</span>
-<span class="gp">... </span>    <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;n5&#39;</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;memory&#39;</span>
-<span class="gp">... </span>    <span class="p">},</span>
-<span class="gp">... </span>    <span class="s1">&#39;metadata&#39;</span><span class="p">:</span> <span class="p">{</span>
-<span class="gp">... </span>        <span class="s1">&#39;dataType&#39;</span><span class="p">:</span> <span class="s1">&#39;uint8&#39;</span>
-<span class="gp">... </span>    <span class="p">}</span>
+<span class="gp">... </span>    <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;zarr&#39;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="s1">&#39;memory://&#39;</span><span class="p">,</span>
 <span class="gp">... </span><span class="p">})</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span><span class="o">.</span><span class="n">dtype</span>
-<span class="go">dtype(&quot;uint8&quot;)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="mi">100</span><span class="p">,</span> <span class="mi">200</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">cast_spec</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="n">spec</span><span class="p">,</span> <span class="n">ts</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">cast_spec</span>
+<span class="go">Spec({</span>
+<span class="go">  &#39;base&#39;: {</span>
+<span class="go">    &#39;driver&#39;: &#39;zarr&#39;,</span>
+<span class="go">    &#39;dtype&#39;: &#39;uint32&#39;,</span>
+<span class="go">    &#39;kvstore&#39;: {&#39;driver&#39;: &#39;memory&#39;},</span>
+<span class="go">    &#39;schema&#39;: {</span>
+<span class="go">      &#39;domain&#39;: {&#39;exclusive_max&#39;: [100, 200], &#39;inclusive_min&#39;: [0, 0]},</span>
+<span class="go">    },</span>
+<span class="go">  },</span>
+<span class="go">  &#39;driver&#39;: &#39;cast&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;float32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {</span>
+<span class="go">    &#39;input_exclusive_max&#39;: [[100], [200]],</span>
+<span class="go">    &#39;input_inclusive_min&#39;: [0, 0],</span>
+<span class="go">  },</span>
+<span class="go">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">cast_spec</span><span class="p">[</span><span class="mi">30</span><span class="p">:</span><span class="mi">40</span><span class="p">,</span> <span class="mi">20</span><span class="p">:</span><span class="mi">25</span><span class="p">]</span><span class="o">.</span><span class="n">base</span>
+<span class="go">Spec({</span>
+<span class="go">  &#39;driver&#39;: &#39;zarr&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;uint32&#39;,</span>
+<span class="go">  &#39;kvstore&#39;: {&#39;driver&#39;: &#39;memory&#39;},</span>
+<span class="go">  &#39;schema&#39;: {&#39;domain&#39;: {&#39;exclusive_max&#39;: [100, 200], &#39;inclusive_min&#39;: [0, 0]}},</span>
+<span class="go">  &#39;transform&#39;: {</span>
+<span class="go">    &#39;input_exclusive_max&#39;: [40, 25],</span>
+<span class="go">    &#39;input_inclusive_min&#39;: [30, 20],</span>
+<span class="go">  },</span>
+<span class="go">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">downsampled_spec</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">downsample</span><span class="p">(</span><span class="n">spec</span><span class="p">,</span>
+<span class="gp">... </span>                                 <span class="n">downsample_factors</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span>
+<span class="gp">... </span>                                 <span class="n">method</span><span class="o">=</span><span class="s1">&#39;mean&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">downsampled_spec</span>
+<span class="go">Spec({</span>
+<span class="go">  &#39;base&#39;: {</span>
+<span class="go">    &#39;driver&#39;: &#39;zarr&#39;,</span>
+<span class="go">    &#39;kvstore&#39;: {&#39;driver&#39;: &#39;memory&#39;},</span>
+<span class="go">    &#39;schema&#39;: {</span>
+<span class="go">      &#39;domain&#39;: {&#39;exclusive_max&#39;: [100, 200], &#39;inclusive_min&#39;: [0, 0]},</span>
+<span class="go">    },</span>
+<span class="go">    &#39;transform&#39;: {</span>
+<span class="go">      &#39;input_exclusive_max&#39;: [[100], [200]],</span>
+<span class="go">      &#39;input_inclusive_min&#39;: [0, 0],</span>
+<span class="go">    },</span>
+<span class="go">  },</span>
+<span class="go">  &#39;downsample_factors&#39;: [2, 4],</span>
+<span class="go">  &#39;downsample_method&#39;: &#39;mean&#39;,</span>
+<span class="go">  &#39;driver&#39;: &#39;downsample&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;uint32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {</span>
+<span class="go">    &#39;input_exclusive_max&#39;: [[50], [50]],</span>
+<span class="go">    &#39;input_inclusive_min&#39;: [0, 0],</span>
+<span class="go">  },</span>
+<span class="go">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">downsampled_spec</span><span class="p">[</span><span class="mi">30</span><span class="p">:</span><span class="mi">40</span><span class="p">,</span> <span class="mi">20</span><span class="p">:</span><span class="mi">25</span><span class="p">]</span><span class="o">.</span><span class="n">base</span>
 </code></pre></div>
 </div>
 </div>
@@ -1230,7 +1281,7 @@
     <nav class="md-footer__inner md-grid" aria-label="Footer" >
       
         
-        <a href="tensorstore.Spec.open_mode.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: tensorstore.Spec.open_mode" rel="prev">
+        <a href="tensorstore.Spec.kvstore.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: tensorstore.Spec.kvstore" rel="prev">
           <div class="md-footer__button md-icon">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
           </div>
@@ -1239,20 +1290,20 @@
               <span class="md-footer__direction">
                 Previous
               </span>
-              tensorstore.Spec.open_mode
+              tensorstore.Spec.kvstore
             </div>
           </div>
         </a>
       
       
         
-        <a href="tensorstore.Spec.transform.html" class="md-footer__link md-footer__link--next" aria-label="Next: tensorstore.Spec.transform" rel="next">
+        <a href="tensorstore.Spec.to_json.html" class="md-footer__link md-footer__link--next" aria-label="Next: tensorstore.Spec.to_json" rel="next">
           <div class="md-footer__title">
             <div class="md-ellipsis">
               <span class="md-footer__direction">
                 Next
               </span>
-              tensorstore.Spec.transform
+              tensorstore.Spec.to_json
             </div>
           </div>
           <div class="md-footer__button md-icon">
