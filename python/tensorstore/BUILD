@@ -33,6 +33,7 @@ pybind11_py_extension(
     srcs = ["tensorstore_module.cc"],
     imports = [".."],
     deps = [
+        ":cast",
         ":chunk_layout",
         ":context",
         ":data_type",
@@ -788,6 +789,25 @@ pybind11_cc_library(
         "//tensorstore:index",
         "//tensorstore:spec",
         "//tensorstore/driver/downsample:downsample_method_json_binder",
+        "//tensorstore/internal:global_initializer",
+        "//tensorstore/util:executor",
+        "@com_github_pybind_pybind11//:pybind11",
+    ],
+    alwayslink = True,
+)
+
+pybind11_cc_library(
+    name = "cast",
+    srcs = ["cast.cc"],
+    deps = [
+        ":data_type",
+        ":result_type_caster",
+        ":spec",
+        ":tensorstore_class",
+        ":tensorstore_module_components",
+        "//tensorstore",
+        "//tensorstore:cast",
+        "//tensorstore:spec",
         "//tensorstore/internal:global_initializer",
         "//tensorstore/util:executor",
         "@com_github_pybind_pybind11//:pybind11",

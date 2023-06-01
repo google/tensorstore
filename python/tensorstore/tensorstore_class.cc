@@ -2110,38 +2110,6 @@ Group:
 
 void DefineTensorStoreFunctions(py::module m) {
   m.def(
-      "cast",
-      [](PythonTensorStoreObject& store, DataTypeLike target_dtype) {
-        return ValueOrThrow(tensorstore::Cast(store.value, target_dtype.value));
-      },
-      R"(
-Returns a read/write view as the specified data type.
-
-Example:
-
-    >>> array = ts.array([1.5, 2.5, 3.5, 4.5, 5.5], dtype=ts.float32)
-    >>> view = ts.cast(array, ts.uint32)
-    >>> view
-    TensorStore({
-      'base': {
-        'array': [1.5, 2.5, 3.5, 4.5, 5.5],
-        'driver': 'array',
-        'dtype': 'float32',
-      },
-      'context': {'data_copy_concurrency': {}},
-      'driver': 'cast',
-      'dtype': 'uint32',
-      'transform': {'input_exclusive_max': [5], 'input_inclusive_min': [0]},
-    })
-    >>> await view.read()
-    array([1, 2, 3, 4, 5], dtype=uint32)
-
-Group:
-  Views
-)",
-      py::arg("store"), py::arg("dtype"));
-
-  m.def(
       "array",
       [](ArrayArgumentPlaceholder array, std::optional<DataTypeLike> dtype,
          internal_context::ContextImplPtr context) {

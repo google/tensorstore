@@ -405,5 +405,37 @@ Result<Driver::Handle> MakeCastDriver(Driver::Handle base,
   return base;
 }
 
+Result<TransformedDriverSpec> MakeCastDriverSpec(TransformedDriverSpec base,
+                                                 DataType target_dtype) {
+  if (!base.driver_spec) return {std::in_place};
+  DataType source_dtype = base.driver_spec->schema.dtype();
+  if (source_dtype.valid()) {
+    TENSORSTORE_RETURN_IF_ERROR(GetCastDataTypeConversions(
+        source_dtype, target_dtype, ReadWriteMode::read_write,
+        ReadWriteMode::dynamic));
+  }
+  auto driver_spec =
+      internal::DriverSpec::Make<internal_cast_driver::CastDriverSpec>();
+  driver_spec->schema
+      .Set(base.transform.valid() ? RankConstraint{base.transform.output_rank()}
+                                  : base.driver_spec->schema.rank())
+      .IgnoreError();
+  driver_spec->schema.Set(target_dtype).IgnoreError();
+  driver_spec->context_binding_state_ = base.context_binding_state();
+  driver_spec->base.driver_spec = std::move(base.driver_spec);
+  base.driver_spec = std::move(driver_spec);
+  return base;
+}
+
 }  // namespace internal
+
+Result<Spec> Cast(const Spec& base_spec, DataType target_dtype) {
+  Spec spec;
+  auto& base_impl = internal_spec::SpecAccess::impl(base_spec);
+  auto& impl = internal_spec::SpecAccess::impl(spec);
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      impl, internal::MakeCastDriverSpec(base_impl, target_dtype));
+  return spec;
+}
+
 }  // namespace tensorstore
