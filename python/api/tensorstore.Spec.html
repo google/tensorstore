@@ -493,6 +493,21 @@
   
   
     <li class="md-nav__item">
+      <a href="tensorstore.Spec.open_mode.html" class="md-nav__link">
+        <span aria-label="Python property" class="objinfo-icon objinfo-icon__alias" title="Python property">P</span><span title="tensorstore.Spec.open_mode (Python property) — Open mode with which the driver will be opened." class="md-ellipsis">open_<wbr>mode</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="tensorstore.Spec.dtype.html" class="md-nav__link">
         <span aria-label="Python property" class="objinfo-icon objinfo-icon__alias" title="Python property">P</span><span title="tensorstore.Spec.dtype (Python property) — Data type, or None if unspecified." class="md-ellipsis">dtype</span>
       </a>
@@ -1101,6 +1116,13 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="tensorstore.Spec.open_mode.html" class="md-nav__link">
+    <span aria-label="Python property" class="objinfo-icon objinfo-icon__alias" title="Python property">P</span><span title="tensorstore.Spec.open_mode (Python property) — Open mode with which the driver will be opened." class="md-ellipsis">open_<wbr>mode</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="tensorstore.Spec.dtype.html" class="md-nav__link">
     <span aria-label="Python property" class="objinfo-icon objinfo-icon__alias" title="Python property">P</span><span title="tensorstore.Spec.dtype (Python property) — Data type, or None if unspecified." class="md-ellipsis">dtype</span>
   </a>
@@ -1372,6 +1394,21 @@
     <li class="md-nav__item">
       <a href="tensorstore.CodecSpec.html" class="md-nav__link">
         <span aria-label="Python class" class="objinfo-icon objinfo-icon__data" title="Python class">C</span><span title="tensorstore.CodecSpec (Python class) — Specifies driver-specific encoding/decoding parameters." class="md-ellipsis">Codec<wbr>Spec</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tensorstore.OpenMode.html" class="md-nav__link">
+        <span aria-label="Python class" class="objinfo-icon objinfo-icon__data" title="Python class">C</span><span title="tensorstore.OpenMode (Python class) — Specifies the mode to use when opening a TensorStore." class="md-ellipsis">Open<wbr>Mode</span>
       </a>
     </li>
   
@@ -1780,6 +1817,12 @@
 <h2 id="accessors">Accessors<a class="headerlink" href="#accessors" title="Permalink to this heading">¶</a></h2>
 <dl class="py property summary objdesc">
 <dt class="sig sig-object highlight py">
+<a class="sig-name descname pseudo-toc-entry reference internal" href="tensorstore.Spec.open_mode.html" title="tensorstore.Spec.open_mode (Python property) — Open mode with which the driver will be opened."><span class="sig-name descname pseudo-toc-entry"><span class="pre">open_mode</span></span></a><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="tensorstore.OpenMode.html" title="tensorstore.OpenMode (Python class) — Specifies the mode to use when opening a TensorStore."><span class="pre">OpenMode</span></a></span></dt>
+<dd><p>Open mode with which the driver will be opened.</p>
+</dd></dl>
+
+<dl class="py property summary objdesc">
+<dt class="sig sig-object highlight py">
 <a class="sig-name descname pseudo-toc-entry reference internal" href="tensorstore.Spec.dtype.html" title="tensorstore.Spec.dtype (Python property) — Data type, or None if unspecified."><span class="sig-name descname pseudo-toc-entry"><span class="pre">dtype</span></span></a><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="tensorstore.dtype.html" title="tensorstore.dtype (Python class) — TensorStore data type representation."><span class="pre">dtype</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a></span></dt>
 <dd><p>Data type, or <code class="code highlight python docutils literal highlight-python"><span class="kc">None</span></code> if unspecified.</p>
 </dd></dl>
@@ -1938,7 +1981,7 @@ constraints implied by driver-specific options.</p>
 <h2 id="mutators">Mutators<a class="headerlink" href="#mutators" title="Permalink to this heading">¶</a></h2>
 <dl class="py method summary objdesc">
 <dt class="sig sig-object highlight py">
-<a class="sig-name descname pseudo-toc-entry reference internal" href="tensorstore.Spec.update.html" title="tensorstore.Spec.update (Python method) — Adds additional constraints or changes the open mode."><span class="sig-name descname pseudo-toc-entry"><span class="pre">update</span></span></a><span class="sig-paren">(</span><span class="sig-param-decl"><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, </span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.Spec.update.html#p-open" title="tensorstore.Spec.update.open (Python parameter) — Allow opening an existing TensorStore.  Overrides the existing open mode."><span class="n"><span class="pre">open</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><span class="pre">bool</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><code class="code python default_value docutils literal highlight highlight-python"><span class="kc">None</span></code></em>, </span><span class="sig-param-decl"><em class="sig-param"><span class="p"><span class="pre">...</span></span></em></span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a></span></span></span></dt>
+<a class="sig-name descname pseudo-toc-entry reference internal" href="tensorstore.Spec.update.html" title="tensorstore.Spec.update (Python method) — Adds additional constraints or changes the open mode."><span class="sig-name descname pseudo-toc-entry"><span class="pre">update</span></span></a><span class="sig-paren">(</span><span class="sig-param-decl"><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, </span><span class="sig-param-decl"><em class="sig-param"><a class="n reference internal" href="tensorstore.Spec.update.html#p-open_mode" title="tensorstore.Spec.update.open_mode (Python parameter) — Overrides the existing open mode."><span class="n"><span class="pre">open_mode</span></span></a><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference internal" href="tensorstore.OpenMode.html" title="tensorstore.OpenMode (Python class) — Specifies the mode to use when opening a TensorStore."><span class="pre">OpenMode</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><code class="code python default_value docutils literal highlight highlight-python"><span class="kc">None</span></code></em>, </span><span class="sig-param-decl"><em class="sig-param"><span class="p"><span class="pre">...</span></span></em></span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a></span></span></span></dt>
 <dd><p>Adds additional constraints or changes the open mode.</p>
 </dd></dl>
 
