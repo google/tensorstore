@@ -279,6 +279,11 @@ class Spec {
 
   /// Returns the URL representation of this spec, if supported.
   Result<std::string> ToUrl() const;
+
+  /// Compares for equality via JSON representation, except that bound context
+  /// resources are compared by identity.
+  friend bool operator==(const Spec& a, const Spec& b);
+  friend bool operator!=(const Spec& a, const Spec& b) { return !(a == b); }
 };
 
 }  // namespace kvstore

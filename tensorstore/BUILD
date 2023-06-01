@@ -281,6 +281,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:tagged_ptr",
         "//tensorstore/internal:type_traits",
         "//tensorstore/internal/cache_key",
+        "//tensorstore/internal/json:same",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/serialization",

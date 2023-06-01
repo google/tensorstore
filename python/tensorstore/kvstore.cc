@@ -1163,6 +1163,29 @@ Example:
 
 )");
 
+  cls.def(
+      "__eq__",
+      [](Self& self, Self& other) { return self.value == other.value; },
+      py::arg("other"),
+      R"(
+Compares with another :py:obj:`KvStore.Spec` for equality based on the :json:schema:`JSON representation<KvStore>`.
+
+The comparison is based on the JSON representation, except that any bound
+context resources are compared by identity (not by their JSON representation).
+
+Example:
+
+  >>> spec = ts.KvStore.Spec({'driver': 'memory'})
+  >>> assert spec == spec
+  >>> a, b = spec.copy(), spec.copy()
+  >>> context_a, context_b = ts.Context(), ts.Context()
+  >>> a.update(context=context_a)
+  >>> b.update(context=context_b)
+  >>> assert a == a
+  >>> assert a != b
+
+)");
+
   EnableGarbageCollectedObjectPicklingFromSerialization(cls);
 }
 

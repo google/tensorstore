@@ -184,9 +184,9 @@ class Spec {
 
   friend std::ostream& operator<<(std::ostream& os, const Spec& spec);
 
-  /// Compares for equality via JSON representation.
+  /// Compares for equality via JSON representation, except that bound context
+  /// resources are compared by identity.
   friend bool operator==(const Spec& a, const Spec& b);
-
   friend bool operator!=(const Spec& a, const Spec& b) { return !(a == b); }
 
   template <typename Func>

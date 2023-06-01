@@ -161,6 +161,13 @@ Result<std::string> Spec::ToUrl() const {
   return driver->ToUrl(path);
 }
 
+bool operator==(const Spec& a, const Spec& b) {
+  if (!a.valid() || !b.valid()) {
+    return a.valid() == b.valid();
+  }
+  return internal::ContextBindableSpecsSameViaJson(a, b);
+}
+
 }  // namespace kvstore
 
 namespace serialization {
