@@ -708,16 +708,18 @@ void ReadState::EmitBufferedChunks() {
 
     // Iterate over grid cells that haven't been independently emitted.
     const DimensionIndex rank = emitted_chunk_map.rank();
-    absl::FixedArray<Index, internal::kNumInlinedDims> grid_cell(rank);
+    Index grid_cell[kMaxRank];
+    span<Index> grid_cell_span(&grid_cell[0], rank);
     Box<dynamic_rank(internal::kNumInlinedDims)> grid_cell_domain;
     grid_cell_domain.set_rank(rank);
-    emitted_chunk_map.InitializeCellIterator(grid_cell);
+    emitted_chunk_map.InitializeCellIterator(grid_cell_span);
     do {
-      if (!emitted_chunk_map.GetGridCellDomain(grid_cell, grid_cell_domain)) {
+      if (!emitted_chunk_map.GetGridCellDomain(grid_cell_span,
+                                               grid_cell_domain)) {
         continue;
       }
       EmitBufferedChunkForBox(grid_cell_domain);
-    } while (emitted_chunk_map.AdvanceCellIterator(grid_cell));
+    } while (emitted_chunk_map.AdvanceCellIterator(grid_cell_span));
   }
   {
     std::lock_guard<ReadState> guard(*this);

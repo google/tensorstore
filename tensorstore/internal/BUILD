@@ -898,7 +898,6 @@ tensorstore_cc_library(
         "//tensorstore/util:span",
         "//tensorstore/util:status",
         "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/container:fixed_array",
         "@com_google_absl//absl/status",
     ],
 )
@@ -1890,6 +1889,7 @@ tensorstore_cc_library(
     srcs = ["dimension_labels.cc"],
     hdrs = ["dimension_labels.h"],
     deps = [
+        "//tensorstore:rank",
         "//tensorstore/util:iterate",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:span",

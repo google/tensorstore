@@ -18,7 +18,6 @@
 #include <new>
 #include <utility>
 
-#include "absl/container/fixed_array.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/contiguous_layout.h"
@@ -52,7 +51,9 @@ MaskedArrayWriteResult WriteToMaskedArray(ElementPointer<void> output_ptr,
                                           const NDIterable& source,
                                           Arena* arena) {
   const DimensionIndex output_rank = output_box.rank();
-  absl::FixedArray<Index, kNumInlinedDims> data_byte_strides(output_rank);
+  Index data_byte_strides_storage[kMaxRank];
+  const span<Index> data_byte_strides(&data_byte_strides_storage[0],
+                                      output_rank);
   ComputeStrides(ContiguousLayoutOrder::c, output_ptr.dtype()->size,
                  output_box.shape(), data_byte_strides);
   TENSORSTORE_ASSIGN_OR_RETURN(

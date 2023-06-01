@@ -1312,20 +1312,20 @@ Result<ResizeParameters> GetResizeParameters(
 
   const DimensionIndex grid_rank = grid.grid_rank();
 
-  using FixedIndexVec = absl::FixedArray<Index, internal::kNumInlinedDims>;
-
-  FixedIndexVec new_output_inclusive_min(output_rank);
-  FixedIndexVec new_output_exclusive_max(output_rank);
-  FixedIndexVec output_inclusive_min_constraint(output_rank);
-  FixedIndexVec output_exclusive_max_constraint(output_rank);
+  Index new_output_inclusive_min[kMaxRank];
+  Index new_output_exclusive_max[kMaxRank];
+  Index output_inclusive_min_constraint[kMaxRank];
+  Index output_exclusive_max_constraint[kMaxRank];
 
   bool is_noop;
   TENSORSTORE_RETURN_IF_ERROR(PropagateInputDomainResizeToOutput(
       transform, inclusive_min, exclusive_max,
       /*can_resize_tied_bounds=*/(options.mode & resize_tied_bounds) ==
           resize_tied_bounds,
-      output_inclusive_min_constraint, output_exclusive_max_constraint,
-      new_output_inclusive_min, new_output_exclusive_max, &is_noop));
+      {&output_inclusive_min_constraint[0], output_rank},
+      {&output_exclusive_max_constraint[0], output_rank},
+      {&new_output_inclusive_min[0], output_rank},
+      {&new_output_exclusive_max[0], output_rank}, &is_noop));
 
   if (is_noop) return absl::AbortedError("");
 

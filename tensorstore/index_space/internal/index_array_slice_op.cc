@@ -14,9 +14,9 @@
 
 #include "tensorstore/index_space/internal/index_array_slice_op.h"
 
+#include <algorithm>
 #include <numeric>
 
-#include "absl/container/fixed_array.h"
 #include "tensorstore/index_space/dimension_identifier.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -169,12 +169,14 @@ Result<TransformRep::Ptr<>> MakeTransformFromIndexArrays(
     return absl::InvalidArgumentError(
         tensorstore::StrCat("At least one index array must be specified"));
   }
-  absl::FixedArray<Index, internal::kNumInlinedDims> shape(
-      index_arrays[0].rank(), 1);
+  Index shape[kMaxRank];
+  const DimensionIndex num_new_dims = index_arrays[0].rank();
+  std::fill_n(&shape[0], num_new_dims, Index(1));
 
   bool error = false;
   for (DimensionIndex i = 0; i < index_arrays.size(); ++i) {
-    if (!BroadcastShapes(index_arrays[i].shape(), shape)) {
+    if (!BroadcastShapes(index_arrays[i].shape(),
+                         span<Index>(&shape[0], num_new_dims))) {
       error = true;
     }
   }
@@ -189,7 +191,6 @@ Result<TransformRep::Ptr<>> MakeTransformFromIndexArrays(
                             " cannot be broadcast to a common shape"));
   }
 
-  const DimensionIndex num_new_dims = shape.size();
   const auto get_new_dimension_bounds = [&](DimensionIndex new_dim) {
     return IndexInterval::UncheckedSized(0, shape[new_dim]);
   };
@@ -230,13 +231,13 @@ Result<TransformRep::Ptr<>> MakeTransformFromOuterIndexArrays(
   // dimensions, the defaults are overridden.
   result->implicit_lower_bounds = false;
   result->implicit_upper_bounds = false;
-  absl::FixedArray<DimensionIndex, internal::kNumInlinedDims>
-      index_array_start_dim(num_indexed_dims);
-  absl::FixedArray<DimensionIndex, internal::kNumInlinedDims> index_array_order(
-      num_indexed_dims);
-  std::iota(index_array_order.begin(), index_array_order.end(),
+
+  // Only the first `num_indexed_dims` are used.
+  DimensionIndex index_array_start_dim[kMaxRank];
+  DimensionIndex index_array_order[kMaxRank];
+  std::iota(&index_array_order[0], &index_array_order[num_indexed_dims],
             static_cast<DimensionIndex>(0));
-  std::sort(index_array_order.begin(), index_array_order.end(),
+  std::sort(&index_array_order[0], &index_array_order[num_indexed_dims],
             [&](DimensionIndex a, DimensionIndex b) {
               return (*dimensions)[a] < (*dimensions)[b];
             });

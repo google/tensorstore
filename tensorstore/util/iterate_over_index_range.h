@@ -80,10 +80,11 @@ struct IterateOverIndexRangeHelper {
     if (shape.size() == 0) {
       return func(span<const IndexType, Rank>());
     }
-    absl::FixedArray<IndexType, internal::kNumInlinedDims> indices(
-        shape.size());
+    assert(shape.size() <= kMaxRank);
+    IndexType indices[kMaxRank];
     return internal::Void::Unwrap(
-        Loop(func, 0, &origin[0], &shape[0], indices));
+        Loop(func, 0, &origin[0], &shape[0],
+             span<IndexType, Rank>(&indices[0], shape.size())));
   }
 };
 }  // namespace internal_iterate

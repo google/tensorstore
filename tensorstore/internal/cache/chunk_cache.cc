@@ -25,8 +25,6 @@
 #include <vector>
 
 #include "absl/base/thread_annotations.h"
-#include "absl/container/fixed_array.h"
-#include "absl/container/inlined_vector.h"
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
@@ -138,15 +136,15 @@ bool IsFullyOverwritten(ChunkCache::TransactionNode& node) {
   auto& entry = GetOwningEntry(node);
   const auto& grid = GetOwningCache(entry).grid();
   const auto& component_specs = grid.components;
-  absl::InlinedVector<Index, kNumInlinedDims> origin;
   const span<const Index> cell_indices = entry.cell_indices();
   for (size_t component_index = 0, num_components = component_specs.size();
        component_index != num_components; ++component_index) {
     const auto& component_spec = component_specs[component_index];
-    origin.resize(component_spec.rank());
-    grid.GetComponentOrigin(component_index, cell_indices, origin);
+    Index origin[kMaxRank];
+    const span<Index> origin_span(origin, component_spec.rank());
+    grid.GetComponentOrigin(component_index, cell_indices, origin_span);
     if (!node.components()[component_index].write_state.IsFullyOverwritten(
-            component_spec, origin)) {
+            component_spec, origin_span)) {
       return false;
     }
   }
@@ -211,13 +209,14 @@ struct ReadChunkImpl {
                                      Arena* arena) const {
     const auto& component_spec =
         GetOwningCache(*entry).grid().components[component_index];
-    absl::FixedArray<Index, kNumInlinedDims> origin(component_spec.rank());
+    Index origin[kMaxRank];
+    const span<Index> origin_span(origin, component_spec.rank());
     GetOwningCache(*entry).grid().GetComponentOrigin(
-        component_index, entry->cell_indices(), origin);
+        component_index, entry->cell_indices(), origin_span);
     auto read_array = ChunkCache::GetReadComponent(
         AsyncCache::ReadLock<ChunkCache::ReadData>(*entry).data(),
         component_index);
-    return component_spec.GetReadNDIterable(std::move(read_array), origin,
+    return component_spec.GetReadNDIterable(std::move(read_array), origin_span,
                                             std::move(chunk_transform), arena);
   }
 };
@@ -267,9 +266,10 @@ struct ReadChunkTransactionImpl {
     const auto& component_spec =
         GetOwningCache(entry).grid().components[component_index];
     auto& component = node->components()[component_index];
-    absl::FixedArray<Index, kNumInlinedDims> origin(component_spec.rank());
+    Index origin[kMaxRank];
+    const span<Index> origin_span(origin, component_spec.rank());
     GetOwningCache(entry).grid().GetComponentOrigin(
-        component_index, entry.cell_indices(), origin);
+        component_index, entry.cell_indices(), origin_span);
     SharedArrayView<const void> read_array;
     StorageGeneration read_generation;
     // Copy the shared_ptr to the immutable cached chunk data for the node.  If
@@ -284,7 +284,7 @@ struct ReadChunkTransactionImpl {
           ChunkCache::GetReadComponent(read_lock.data(), component_index);
       read_generation = read_lock.stamp().generation;
     }
-    return component.GetReadNDIterable(component_spec, origin,
+    return component.GetReadNDIterable(component_spec, origin_span,
                                        std::move(read_array), read_generation,
                                        std::move(chunk_transform), arena);
   }
@@ -421,12 +421,13 @@ struct WriteChunkImpl {
                                      Arena* arena) const {
     auto& entry = GetOwningEntry(*node);
     const auto component_spec = entry.component_specs()[component_index];
-    absl::FixedArray<Index, kNumInlinedDims> origin(component_spec.rank());
+    Index origin[kMaxRank];
+    const span<Index> origin_span(origin, component_spec.rank());
     GetOwningCache(entry).grid().GetComponentOrigin(
-        component_index, entry.cell_indices(), origin);
+        component_index, entry.cell_indices(), origin_span);
     node->MarkSizeUpdated();
     return node->components()[component_index].BeginWrite(
-        component_spec, origin, std::move(chunk_transform), arena);
+        component_spec, origin_span, std::move(chunk_transform), arena);
   }
 
   WriteChunk::EndWriteResult operator()(WriteChunk::EndWrite,
@@ -436,12 +437,13 @@ struct WriteChunkImpl {
                                         Arena* arena) const {
     auto& entry = GetOwningEntry(*node);
     const auto& component_spec = entry.component_specs()[component_index];
-    absl::FixedArray<Index, kNumInlinedDims> origin(component_spec.rank());
+    Index origin[kMaxRank];
+    const span<Index> origin_span(origin, component_spec.rank());
     GetOwningCache(entry).grid().GetComponentOrigin(
-        component_index, entry.cell_indices(), origin);
+        component_index, entry.cell_indices(), origin_span);
     const bool modified = node->components()[component_index].EndWrite(
-        component_spec, origin, chunk_transform, layout, write_end_position,
-        arena);
+        component_spec, origin_span, chunk_transform, layout,
+        write_end_position, arena);
     if (modified) node->is_modified = modified;
     if (modified && IsFullyOverwritten(*node)) {
       node->SetUnconditional();
@@ -562,19 +564,19 @@ absl::Status ChunkCache::TransactionNode::Delete() {
   this->MarkSizeUpdated();
   this->is_modified = true;
   auto& entry = GetOwningEntry(*this);
-  absl::InlinedVector<Index, kNumInlinedDims> origin;
   const span<const Index> cell_indices = entry.cell_indices();
   const auto& grid = GetOwningCache(entry).grid();
   for (Index component_index = 0, num_components = grid.components.size();
        component_index != num_components; ++component_index) {
     const auto& component_spec = grid.components[component_index];
-    origin.resize(component_spec.rank());
-    grid.GetComponentOrigin(component_index, cell_indices, origin);
+    Index origin[kMaxRank];
+    const span<Index> origin_span(origin, component_spec.rank());
+    grid.GetComponentOrigin(component_index, cell_indices, origin_span);
     // There is no need to check the reference count of the component data array
     // (i.e. to check for a concurrent read) because this doesn't modify the
     // data array, it just resets the data pointer to `nullptr`.
     components()[component_index].write_state.WriteFillValue(component_spec,
-                                                             origin);
+                                                             origin_span);
   }
   SetUnconditional();
   return OnModified();
@@ -619,17 +621,17 @@ ChunkCache::WritebackSnapshot::WritebackSnapshot(
   auto& entry = GetOwningEntry(node);
   auto& cache = GetOwningCache(entry);
   const auto component_specs = node.component_specs();
-  absl::InlinedVector<Index, kNumInlinedDims> origin;
   const span<const Index> cell_indices = entry.cell_indices();
   for (std::size_t component_i = 0;
        component_i < static_cast<size_t>(component_specs.size());
        ++component_i) {
     auto& component_spec = component_specs[component_i];
     auto& component = node.components()[component_i];
-    origin.resize(component_spec.rank());
-    cache.grid().GetComponentOrigin(component_i, cell_indices, origin);
+    Index origin[kMaxRank];
+    const span<Index> origin_span(origin, component_spec.rank());
+    cache.grid().GetComponentOrigin(component_i, cell_indices, origin_span);
     auto component_snapshot = component.GetArrayForWriteback(
-        component_spec, origin,
+        component_spec, origin_span,
         GetReadComponent(read_state.data(), component_i),
         read_state.stamp().generation);
     if (component_snapshot.must_store) {

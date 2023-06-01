@@ -20,7 +20,6 @@
 #include <string>
 #include <utility>
 
-#include "absl/container/fixed_array.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_replace.h"
@@ -67,8 +66,7 @@ absl::Status PropagateBoundsImpl(BoxView<> b,
 
   // Specifies whether bounds from `b` were propagated for a given dimension of
   // `a`.  If not, the original bounds are retained.
-  absl::FixedArray<bool, internal::kNumInlinedDims> propagated_to_a(a.rank(),
-                                                                    false);
+  DimensionSet propagated_to_a;
 
   DimensionSet inferred_implicit_lower_bounds(true);
   DimensionSet inferred_implicit_upper_bounds(true);

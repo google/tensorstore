@@ -16,7 +16,6 @@
 
 #include <vector>
 
-#include "absl/container/fixed_array.h"
 #include "absl/container/flat_hash_map.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
@@ -84,21 +83,22 @@ GridOccupancyMap::GridOccupancyMap(GridOccupancyTracker&& tracker,
       }
     }
   }
-  absl::FixedArray<Index, internal::kNumInlinedDims> grid_cell(rank);
+  Index grid_cell[kMaxRank];
+  span<Index> grid_cell_span(&grid_cell[0], rank);
   {
     for (DimensionIndex dim = 0; dim < rank; ++dim) {
       grid_cell[dim] = partition_points[dim].size() - 1;
     }
-    occupied_chunk_mask = AllocateArray<bool>(grid_cell, c_order, value_init);
+    occupied_chunk_mask =
+        AllocateArray<bool>(grid_cell_span, c_order, value_init);
   }
 
   // Mark all occupied chunks in `occupied_chunk_mask`.
   for (ptrdiff_t i = 0; i < occupied_chunks.size(); i += 2 * rank) {
-    std::copy_n(&occupied_chunks[i], rank, grid_cell.begin());
+    std::copy_n(&occupied_chunks[i], rank, &grid_cell[0]);
     do {
-      occupied_chunk_mask(grid_cell) = true;
-    } while (internal::AdvanceIndices(rank, grid_cell.data(),
-                                      &occupied_chunks[i],
+      occupied_chunk_mask(grid_cell_span) = true;
+    } while (internal::AdvanceIndices(rank, &grid_cell[0], &occupied_chunks[i],
                                       &occupied_chunks[i + rank]));
   }
 }

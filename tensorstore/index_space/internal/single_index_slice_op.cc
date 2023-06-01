@@ -14,7 +14,6 @@
 
 #include "tensorstore/index_space/internal/single_index_slice_op.h"
 
-#include "absl/container/fixed_array.h"
 #include "absl/status/status.h"
 #include "tensorstore/index_space/internal/transform_rep_impl.h"
 #include "tensorstore/internal/integer_overflow.h"
@@ -40,13 +39,15 @@ struct InputDimensionSingletonSliceInfo {
 struct SingletonSlicingInfo {
   explicit SingletonSlicingInfo(DimensionIndex original_input_rank,
                                 DimensionIndex new_input_rank)
-      : original_input_dimension_info(original_input_rank,
-                                      InputDimensionSingletonSliceInfo{0, 0}),
-        new_input_rank(new_input_rank) {}
+      : original_input_rank(original_input_rank),
+        new_input_rank(new_input_rank) {
+    std::fill_n(&original_input_dimension_info[0], original_input_rank,
+                InputDimensionSingletonSliceInfo{0, 0});
+  }
 
-  absl::FixedArray<InputDimensionSingletonSliceInfo, internal::kNumInlinedDims>
-      original_input_dimension_info;
+  DimensionIndex original_input_rank;
   DimensionIndex new_input_rank;
+  InputDimensionSingletonSliceInfo original_input_dimension_info[kMaxRank];
 };
 
 /// Validates the specified indices, and computes the `SingletonSlicingInfo`

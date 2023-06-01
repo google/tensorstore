@@ -17,7 +17,6 @@
 #include <cassert>
 #include <numeric>
 
-#include "absl/container/fixed_array.h"
 #include "absl/status/status.h"
 #include "tensorstore/index_space/dimension_identifier.h"
 #include "tensorstore/index_space/dimension_permutation.h"

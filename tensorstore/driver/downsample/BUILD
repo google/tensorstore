@@ -111,7 +111,6 @@ tensorstore_cc_library(
         "//tensorstore/util:span",
         "//tensorstore/util:str_cat",
         "@com_github_nlohmann_json//:nlohmann_json",
-        "@com_google_absl//absl/container:fixed_array",
         "@com_google_absl//absl/numeric:int128",
         "@com_google_absl//absl/status",
     ],
@@ -181,7 +180,6 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/container:fixed_array",
         "@com_google_absl//absl/container:inlined_vector",
         "@com_google_absl//absl/strings",
     ],
@@ -228,7 +226,6 @@ tensorstore_cc_library(
         "//tensorstore:index",
         "//tensorstore/util:iterate",
         "//tensorstore/util:span",
-        "@com_google_absl//absl/container:fixed_array",
         "@com_google_absl//absl/container:flat_hash_map",
     ],
 )

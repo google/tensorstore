@@ -22,8 +22,6 @@
 #include <utility>
 #include <vector>
 
-#include "absl/container/fixed_array.h"
-#include "absl/container/inlined_vector.h"
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
@@ -65,7 +63,7 @@ namespace internal_json {
   // encoded element.  `path[0]` is the root, `path[level]` is the immediate
   // parent that will contain the next encoded element.
   using array_t = ::nlohmann::json::array_t;
-  absl::FixedArray<array_t*, internal::kNumInlinedDims> path(array.rank());
+  array_t* path[kMaxRank];
   DimensionIndex level = 0;
 
   // Nested array result value.
@@ -137,24 +135,27 @@ Result<SharedArray<void>> JsonParseNestedArrayImpl(
   const Index byte_stride = dtype->size;
 
   // Prior to `array` being allocated, stores the shape up to the current
-  // nesting level of `path.size()`.  After `array` is allocated,
-  // `shape_or_position[0:path.size()]` specifies the current position up to the
-  // current nesting level.
-  absl::InlinedVector<Index, internal::kNumInlinedDims> shape_or_position;
+  // nesting level of `nesting_level`.  After `array` is allocated,
+  // `shape_or_position[0:nesting_level]` specifies the current position up to
+  // the current nesting level.
+  Index shape_or_position[kMaxRank];
 
   // The stack of JSON arrays corresponding to the current nesting level of
-  // `path.size()`.
-  absl::InlinedVector<const array_t*, internal::kNumInlinedDims> path;
+  // `nesting_level`.
+  const array_t* path[kMaxRank];
+
+  DimensionIndex nesting_level = 0;
 
   // The new JSON value for the `deeper_level` code to process (not previously
   // seen).
   const ::nlohmann::json* j = &j_root;
 
   const auto allocate_array = [&] {
-    array = AllocateArray(shape_or_position, c_order, default_init, dtype);
+    array = AllocateArray(span(&shape_or_position[0], nesting_level), c_order,
+                          default_init, dtype);
     pointer = array.byte_strided_origin_pointer();
     // Convert shape vector to position vector.
-    std::fill(shape_or_position.begin(), shape_or_position.end(), 0);
+    std::fill_n(&shape_or_position[0], nesting_level, static_cast<Index>(0));
   };
 
   while (true) {
@@ -165,42 +166,44 @@ Result<SharedArray<void>> JsonParseNestedArrayImpl(
     if (!j_array) {
       // The new element is not an array: handle leaf case.
       if (!array.data()) allocate_array();
-      if (path.size() != static_cast<std::size_t>(array.rank())) {
+      if (nesting_level != array.rank()) {
         return absl::InvalidArgumentError(tensorstore::StrCat(
-            "Expected rank-", shape_or_position.size(),
+            "Expected rank-", array.rank(),
             " array, but found non-array element ", j->dump(), " at position ",
-            span(shape_or_position.data(), path.size()), "."));
+            span(&shape_or_position[0], nesting_level), "."));
       }
       TENSORSTORE_RETURN_IF_ERROR(
           decode_element(*j, pointer.get()),
           MaybeAnnotateStatus(
-              _, tensorstore::StrCat("Error parsing array element at position ",
-                                     span(shape_or_position))));
+              _,
+              tensorstore::StrCat("Error parsing array element at position ",
+                                  span(&shape_or_position[0], nesting_level))));
       pointer += byte_stride;
     } else {
       // The new element is an array: handle another nesting level.
-      path.push_back(j_array);
+      if (nesting_level == kMaxRank) {
+        return absl::InvalidArgumentError(tensorstore::StrCat(
+            "Nesting level exceeds maximum rank of ", kMaxRank));
+      }
+      path[nesting_level++] = j_array;
       const Index size = j_array->size();
       if (!array.data()) {
-        shape_or_position.push_back(size);
-        if (shape_or_position.size() > kMaxRank) {
-          return absl::InvalidArgumentError(tensorstore::StrCat(
-              "Nesting level exceeds maximum rank of ", kMaxRank));
-        }
+        shape_or_position[nesting_level - 1] = size;
         if (size == 0) {
           // Allocate zero-element array.
           allocate_array();
           return array;
         }
-      } else if (path.size() > static_cast<size_t>(array.rank())) {
+      } else if (nesting_level > static_cast<size_t>(array.rank())) {
         return absl::InvalidArgumentError(tensorstore::StrCat(
             "Expected rank-", array.rank(), " array, but found array element ",
-            j->dump(), " at position ", span(shape_or_position), "."));
-      } else if (array.shape()[path.size() - 1] != size) {
+            j->dump(), " at position ",
+            span(&shape_or_position[0], nesting_level - 1), "."));
+      } else if (array.shape()[nesting_level - 1] != size) {
         return absl::InvalidArgumentError(tensorstore::StrCat(
             "Expected array of shape ", array.shape(),
             ", but found array element ", j->dump(), " of length ", size,
-            " at position ", span(shape_or_position.data(), path.size() - 1),
+            " at position ", span(&shape_or_position[0], nesting_level - 1),
             "."));
       }
 
@@ -211,15 +214,15 @@ Result<SharedArray<void>> JsonParseNestedArrayImpl(
 
     // Advance to the next element to decode.
     while (true) {
-      if (path.empty()) {
+      if (nesting_level == 0) {
         // No more elements left.
         return array;
       }
-      const array_t* j_array = path.back();
+      const array_t* j_array = path[nesting_level - 1];
       const Index size = j_array->size();
 
       // Increment position at current nesting level.
-      const Index i = ++shape_or_position[path.size() - 1];
+      const Index i = ++shape_or_position[nesting_level - 1];
       if (i != size) {
         // Process next element of the array.
         j = &(*j_array)[i];
@@ -228,8 +231,8 @@ Result<SharedArray<void>> JsonParseNestedArrayImpl(
 
       // Reached the end of the array at the current nesting level, return to
       // the next lower level.
-      shape_or_position[path.size() - 1] = 0;
-      path.pop_back();
+      shape_or_position[nesting_level - 1] = 0;
+      --nesting_level;
     }
   }
 }

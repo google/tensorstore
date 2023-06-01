@@ -14,7 +14,7 @@
 
 #include "tensorstore/index_space/internal/add_new_dims_op.h"
 
-#include "absl/container/fixed_array.h"
+#include "tensorstore/util/dimension_set.h"
 
 namespace tensorstore {
 namespace internal_index_space {
@@ -39,26 +39,20 @@ void AddNewDims(TransformRep* original, TransformRep* result,
   assert(result->input_rank_capacity >= new_input_rank);
   const DimensionIndex output_rank = domain_only ? 0 : original->output_rank;
   assert(result->output_rank_capacity >= output_rank);
-  // Maps an input dimension of the new transform to the corresponding input
-  // dimension of the existing transform; `-1` indicates a new, dummy dimension
-  // with no corresponding existing input dimension.
-  absl::FixedArray<DimensionIndex, internal::kNumInlinedDims>
-      new_to_orig_input_dim(new_input_rank, 0);
-  // Maps (one-to-one) an input dimension of the existing transform to the
-  // corresponding input dimension of the new transform.
-  absl::FixedArray<DimensionIndex, internal::kNumInlinedDims>
-      orig_to_new_input_dim(orig_input_rank);
-  // Initializes new_to_orig_input_dim for the new, dummy dimensions (these
-  // dimensions do not have a corresponding entry in orig_to_new_input_dim).
+
+  // Indicates which dimensions in the new domain are new.
+  DimensionSet newly_added_input_dims;
   for (DimensionIndex new_input_dim : *dimensions) {
-    new_to_orig_input_dim[new_input_dim] = -1;
+    newly_added_input_dims[new_input_dim] = true;
   }
-  // Initializes new_to_orig_input and orig_to_new_input_dim for the existing
-  // input dimensions.
+  // Maps (one-to-one) an input dimension of the existing transform to the
+  // corresponding input dimension of the new transform.  Only the first
+  // `orig_input_rank` elements are used.
+  DimensionIndex orig_to_new_input_dim[kMaxRank];
+  // Initializes `orig_to_new_input_dim`.
   for (DimensionIndex new_input_dim = 0, orig_input_dim = 0;
        new_input_dim < new_input_rank; ++new_input_dim) {
-    if (new_to_orig_input_dim[new_input_dim] == -1) continue;
-    new_to_orig_input_dim[new_input_dim] = orig_input_dim;
+    if (newly_added_input_dims[new_input_dim]) continue;
     orig_to_new_input_dim[orig_input_dim] = new_input_dim;
     ++orig_input_dim;
   }

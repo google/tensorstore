@@ -14,9 +14,9 @@ tensorstore_cc_library(
         ":index_transform",
         "//tensorstore:rank",
         "//tensorstore/internal:string_like",
+        "//tensorstore/util:dimension_set",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
-        "@com_google_absl//absl/container:fixed_array",
     ],
 )
 
@@ -44,7 +44,6 @@ tensorstore_cc_library(
         "//tensorstore/util:span",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/container:fixed_array",
         "@com_google_absl//absl/status",
     ],
 )
@@ -96,7 +95,6 @@ tensorstore_cc_library(
         "//tensorstore/internal:string_like",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
-        "@com_google_absl//absl/container:fixed_array",
     ],
 )
 
@@ -310,7 +308,6 @@ tensorstore_cc_library(
         "//tensorstore/internal:meta",
         "//tensorstore/util:result",
         "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/container:fixed_array",
     ],
 )
 
@@ -505,7 +502,6 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/container:fixed_array",
         "@com_google_absl//absl/status",
     ],
 )
@@ -752,7 +748,6 @@ tensorstore_cc_library(
         "//tensorstore/internal:meta",
         "//tensorstore/util:result",
         "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/container:fixed_array",
         "@com_google_absl//absl/status",
     ],
 )
@@ -893,7 +888,6 @@ tensorstore_cc_library(
         "//tensorstore/internal:meta",
         "//tensorstore/util:result",
         "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/container:fixed_array",
         "@com_google_absl//absl/status",
     ],
 )
@@ -924,7 +918,6 @@ tensorstore_cc_library(
         "//tensorstore/internal:meta",
         "//tensorstore/util:result",
         "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/container:fixed_array",
         "@com_google_absl//absl/status",
     ],
 )

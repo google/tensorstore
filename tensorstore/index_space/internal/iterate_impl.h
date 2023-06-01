@@ -15,7 +15,6 @@
 #ifndef TENSORSTORE_INDEX_SPACE_INTERNAL_ITERATE_IMPL_H_
 #define TENSORSTORE_INDEX_SPACE_INTERNAL_ITERATE_IMPL_H_
 
-#include "absl/container/fixed_array.h"
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/index.h"
@@ -64,35 +63,25 @@ inline Bitmask GetDefaultBitmask(RepeatedElementsConstraint constraint) {
 }  // namespace input_dimension_iteration_flags
 
 struct SingleArrayIterationState {
-  explicit SingleArrayIterationState(DimensionIndex input_rank,
-                                     DimensionIndex output_rank)
-      : index_array_pointers(output_rank),
-        index_array_byte_strides(output_rank),
-        index_array_output_byte_strides(output_rank),
-        input_byte_strides(input_rank, 0) {}
-
   span<const Index* const> index_array_byte_strides_span() const {
-    return {index_array_byte_strides.data(),
-            num_array_indexed_output_dimensions};
+    return {&index_array_byte_strides[0], num_array_indexed_output_dimensions};
   }
 
   span<const Index> index_array_output_byte_strides_span() const {
-    return {index_array_output_byte_strides.data(),
+    return {&index_array_output_byte_strides[0],
             num_array_indexed_output_dimensions};
   }
 
   /// `index_array_pointers[i]` specifies the adjusted index array base pointer
   /// corresponding to output dimension `array_indexed_output_dimensions[i]`.
   /// Only indices in `[0, num_array_indexed_output_dimensions)` are valid.
-  absl::FixedArray<ByteStridedPointer<const Index>, internal::kNumInlinedDims>
-      index_array_pointers;
+  ByteStridedPointer<const Index> index_array_pointers[kMaxRank];
 
   /// `index_array_byte_strides[i]` is a pointer to the byte strides member of
   /// the IndexArrayData struct corresponding to output dimension
   /// `array_indexed_output_dimensions[i]`.  Only indices in `[0,
   /// num_array_indexed_output_dimensions)` are valid.
-  absl::FixedArray<const Index*, internal::kNumInlinedDims>
-      index_array_byte_strides;
+  const Index* index_array_byte_strides[kMaxRank];
 
   /// Adjusted base pointer for the array, that includes all of the offsets.
   ByteStridedPointer<void> base_pointer;
@@ -101,12 +90,11 @@ struct SingleArrayIterationState {
   /// in the index array corresponding to output dimension
   /// `array_indexed_output_dimensions[i]` should be multiplied.  Only indices
   /// in `[0, num_array_indexed_output_dimensions)` are valid.
-  absl::FixedArray<Index, internal::kNumInlinedDims>
-      index_array_output_byte_strides;
+  Index index_array_output_byte_strides[kMaxRank];
 
   /// Byte strides into the array `base_pointer` with respect to the input
   /// dimensions.  These are used in addition to the index arrays.
-  absl::FixedArray<Index, internal::kNumInlinedDims> input_byte_strides;
+  Index input_byte_strides[kMaxRank];
 
   /// Number of output dimensions that require array indexing.
   DimensionIndex num_array_indexed_output_dimensions = 0;
@@ -166,30 +154,23 @@ void MarkSingletonDimsAsSkippable(
     input_dimension_iteration_flags::Bitmask* input_dimension_flags);
 
 struct DimensionIterationOrder {
-  explicit DimensionIterationOrder(DimensionIndex input_rank)
-      : input_dimension_order(input_rank) {}
-
-  absl::FixedArray<DimensionIndex, internal::kNumInlinedDims>
-      input_dimension_order;
+  DimensionIndex input_dimension_order[kMaxRank];
   DimensionIndex pure_strided_start_dim;
   DimensionIndex pure_strided_end_dim;
 };
 
 struct SimplifiedDimensionIterationOrder : public DimensionIterationOrder {
-  explicit SimplifiedDimensionIterationOrder(DimensionIndex input_rank)
-      : DimensionIterationOrder(input_rank), simplified_shape(input_rank) {}
-  absl::FixedArray<Index, internal::kNumInlinedDims> simplified_shape;
+  Index simplified_shape[kMaxRank];
 };
 
 template <std::size_t Arity>
 struct OrderTransformedArrayDimensionsByStrides {
-  span<const std::optional<SingleArrayIterationState>, Arity>
-      single_array_states;
+  span<const SingleArrayIterationState, Arity> single_array_states;
 
   bool operator()(DimensionIndex input_dim_a,
                   DimensionIndex input_dim_b) const {
     for (std::size_t i = 0; i < Arity; ++i) {
-      const auto& single_array_state = *single_array_states[i];
+      const auto& single_array_state = single_array_states[i];
       // Compare index array byte strides
       for (const Index* cur_byte_strides :
            single_array_state.index_array_byte_strides_span()) {
@@ -201,7 +182,7 @@ struct OrderTransformedArrayDimensionsByStrides {
       // Compare direct byte strides
       {
         const auto* cur_byte_strides =
-            single_array_state.input_byte_strides.data();
+            &single_array_state.input_byte_strides[0];
         const auto byte_stride_a = std::abs(cur_byte_strides[input_dim_a]);
         const auto byte_stride_b = std::abs(cur_byte_strides[input_dim_b]);
         if (byte_stride_a > byte_stride_b) return true;
@@ -218,7 +199,7 @@ DimensionIterationOrder ComputeDimensionIterationOrder(
     span<const input_dimension_iteration_flags::Bitmask> input_dimension_flags,
     LayoutOrderConstraint order_constraint, OrderDimensions order_dimensions) {
   const DimensionIndex input_rank = input_dimension_flags.size();
-  DimensionIterationOrder result(input_rank);
+  DimensionIterationOrder result;
 
   if (order_constraint) {
     result.pure_strided_end_dim = 0;
@@ -275,16 +256,14 @@ DimensionIterationOrder ComputeDimensionIterationOrder(
       }
     }
 
-    std::sort(
-        result.input_dimension_order.data(),
-        result.input_dimension_order.data() + result.pure_strided_start_dim,
-        order_dimensions);
+    std::sort(&result.input_dimension_order[0],
+              &result.input_dimension_order[result.pure_strided_start_dim],
+              order_dimensions);
     // TODO(jbms): do a simpler sort for [result.pure_strided_start_dim,
     // result.pure_strided_end_dim).
-    std::sort(
-        result.input_dimension_order.data() + result.pure_strided_start_dim,
-        result.input_dimension_order.data() + result.pure_strided_end_dim,
-        order_dimensions);
+    std::sort(&result.input_dimension_order[result.pure_strided_start_dim],
+              &result.input_dimension_order[result.pure_strided_end_dim],
+              order_dimensions);
   }
 
   // It is not possible for us to have eliminated all of the array indexed
@@ -296,8 +275,7 @@ DimensionIterationOrder ComputeDimensionIterationOrder(
 
 template <std::size_t Arity>
 DimensionIterationOrder ComputeDimensionIterationOrder(
-    span<const std::optional<SingleArrayIterationState>, Arity>
-        single_array_states,
+    span<const SingleArrayIterationState, Arity> single_array_states,
     span<const input_dimension_iteration_flags::Bitmask> input_dimension_flags,
     LayoutOrderConstraint order_constraint) {
   return ComputeDimensionIterationOrder(
@@ -312,8 +290,7 @@ SimplifiedDimensionIterationOrder SimplifyDimensionIterationOrder(
     CanCombineDimensions can_combine_dimensions) {
   assert(original_layout.pure_strided_start_dim > 0);
 
-  SimplifiedDimensionIterationOrder result(
-      original_layout.pure_strided_end_dim);
+  SimplifiedDimensionIterationOrder result;
   result.pure_strided_start_dim = 1;
   DimensionIndex prev_input_dim = original_layout.input_dimension_order[0];
   result.simplified_shape[0] = input_shape[prev_input_dim];
@@ -349,8 +326,7 @@ SimplifiedDimensionIterationOrder SimplifyDimensionIterationOrder(
 /// Predicate for use with SimplifyDimensionIterationOrder.
 template <std::size_t Arity>
 struct CanCombineTransformedArrayDimensions {
-  span<const std::optional<SingleArrayIterationState>, Arity>
-      single_array_states;
+  span<const SingleArrayIterationState, Arity> single_array_states;
 
   bool operator()(DimensionIndex prev_input_dim, DimensionIndex input_dim,
                   Index size) const {
@@ -358,7 +334,7 @@ struct CanCombineTransformedArrayDimensions {
       // Compare direct byte strides
       {
         const auto* cur_byte_strides =
-            single_array_states[i]->input_byte_strides.data();
+            &single_array_states[i].input_byte_strides[0];
         if (cur_byte_strides[prev_input_dim] !=
             cur_byte_strides[input_dim] * size)
           return false;
@@ -366,7 +342,7 @@ struct CanCombineTransformedArrayDimensions {
 
       // Compare index array byte strides
       for (const Index* cur_byte_strides :
-           single_array_states[i]->index_array_byte_strides_span()) {
+           single_array_states[i].index_array_byte_strides_span()) {
         if (cur_byte_strides[prev_input_dim] !=
             cur_byte_strides[input_dim] * size)
           return false;
@@ -380,8 +356,7 @@ template <std::size_t Arity>
 SimplifiedDimensionIterationOrder SimplifyDimensionIterationOrder(
     const DimensionIterationOrder& original_layout,
     span<const Index> input_shape,
-    span<const std::optional<SingleArrayIterationState>, Arity>
-        single_array_states) {
+    span<const SingleArrayIterationState, Arity> single_array_states) {
   return SimplifyDimensionIterationOrder(
       original_layout, input_shape,
       CanCombineTransformedArrayDimensions<Arity>{single_array_states});
@@ -393,7 +368,7 @@ ArrayIterateResult IterateUsingSimplifiedLayout(
     span<const Index> input_shape,
     internal::ElementwiseClosure<Arity, absl::Status*> closure,
     absl::Status* status,
-    span<std::optional<SingleArrayIterationState>, Arity> single_array_states,
+    span<const SingleArrayIterationState, Arity> single_array_states,
     std::array<std::ptrdiff_t, Arity> element_sizes);
 
 }  // namespace internal_index_space

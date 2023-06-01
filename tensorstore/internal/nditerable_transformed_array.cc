@@ -69,7 +69,6 @@ class IterableImpl : public NDIterable::Base<IterableImpl> {
  public:
   IterableImpl(IndexTransform<> transform, allocator_type allocator)
       : transform_(std::move(transform)),
-        state_(transform_.input_rank(), transform_.output_rank()),
         input_dimension_flags_(transform_.input_rank(),
                                input_dim_iter_flags::can_skip, allocator) {}
 
@@ -113,14 +112,14 @@ class IterableImpl : public NDIterable::Base<IterableImpl> {
   void UpdateDirectionPrefs(NDIterable::DirectionPref* prefs) const override {
     // Direction prefs are based on all of the index arrays as well as the
     // direct array byte strides.
-    const DimensionIndex input_rank = state_.input_byte_strides.size();
+    const DimensionIndex input_rank = transform_.input_rank();
     for (DimensionIndex i = 0; i < state_.num_array_indexed_output_dimensions;
          ++i) {
       UpdateDirectionPrefsFromByteStrides(
           span(state_.index_array_byte_strides[i], input_rank), prefs);
     }
     UpdateDirectionPrefsFromByteStrides(
-        span(state_.input_byte_strides.data(), input_rank), prefs);
+        span(&state_.input_byte_strides[0], input_rank), prefs);
   }
 
   bool CanCombineDimensions(DimensionIndex dim_i, int dir_i,
@@ -423,7 +422,7 @@ Result<NDIterable::Ptr> MaybeConvertToArrayNDIterable(
                 impl->dtype_),
             StridedLayoutView<>(impl->transform_.input_rank(),
                                 impl->transform_.input_shape().data(),
-                                impl->state_.input_byte_strides.data())),
+                                &impl->state_.input_byte_strides[0])),
         arena);
   }
   return impl;

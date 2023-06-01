@@ -19,6 +19,7 @@
 #include <string_view>
 
 #include "absl/container/fixed_array.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/str_cat.h"
@@ -28,8 +29,8 @@ namespace internal {
 
 absl::Status ValidateDimensionLabelsAreUnique(span<const std::string> labels) {
   // TODO(jbms): Consider using a hash set instead.
-  absl::FixedArray<std::string_view, internal::kNumInlinedDims> sorted_labels(
-      labels.begin(), labels.end());
+  absl::FixedArray<std::string_view, kMaxRank> sorted_labels(labels.begin(),
+                                                             labels.end());
   std::sort(sorted_labels.begin(), sorted_labels.end());
   size_t i;
   for (i = 1; i < sorted_labels.size() && sorted_labels[i].empty(); ++i)

@@ -16,7 +16,6 @@
 
 #include <numeric>
 
-#include "absl/container/fixed_array.h"
 #include "absl/status/status.h"
 #include "tensorstore/box.h"
 #include "tensorstore/index_interval.h"
@@ -24,6 +23,7 @@
 #include "tensorstore/index_space/json.h"
 #include "tensorstore/serialization/json.h"
 #include "tensorstore/serialization/serialization.h"
+#include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -54,8 +54,9 @@ Result<IndexTransform<>> SliceByIndexDomain(IndexTransform<> transform,
   const span<const std::string> domain_labels = domain.labels();
   const span<std::string> transform_labels =
       rep->input_labels().first(input_rank);
-  absl::FixedArray<DimensionIndex, internal::kNumInlinedDims> transform_dims(
-      slice_rank);
+  // Specifies the dimension of `transform` corresponding to each dimension of
+  // `domain`.  Only the first `slice_rank` elements are used.
+  DimensionIndex transform_dims[kMaxRank];
   const bool domain_unlabeled =
       internal_index_space::IsUnlabeled(domain_labels);
   if (domain_unlabeled || internal_index_space::IsUnlabeled(transform_labels)) {
@@ -65,7 +66,8 @@ Result<IndexTransform<>> SliceByIndexDomain(IndexTransform<> transform,
           ") must match rank of slice target (", input_rank,
           ") when the index domain or slice target is unlabeled"));
     }
-    std::iota(transform_dims.begin(), transform_dims.end(), DimensionIndex(0));
+    std::iota(&transform_dims[0], &transform_dims[slice_rank],
+              DimensionIndex(0));
     if (!domain_unlabeled) {
       std::copy_n(domain_labels.begin(), slice_rank, transform_labels.begin());
     }
@@ -175,8 +177,7 @@ Result<IndexDomain<>> SliceByBox(IndexDomain<> domain, BoxView<> box) {
 Result<bool> GetOutputRange(IndexTransformView<> transform,
                             MutableBoxView<> output_range) {
   assert(output_range.rank() == transform.output_rank());
-  absl::FixedArray<bool, internal::kNumInlinedDims> input_dim_used(
-      transform.input_rank(), false);
+  DimensionSet input_dim_used;
   bool exact = true;
   for (DimensionIndex output_dim = 0, output_rank = transform.output_rank();
        output_dim < output_rank; ++output_dim) {
@@ -198,7 +199,11 @@ Result<bool> GetOutputRange(IndexTransformView<> transform,
         // If more than one output dimension depends on a given input dimension
         // (i.e. the input dimension corresponds to the diagonal of two or more
         // output dimensions), then the output range is not exact.
-        if (std::exchange(input_dim_used[input_dim], true)) exact = false;
+        if (input_dim_used[input_dim]) {
+          exact = false;
+        } else {
+          input_dim_used[input_dim] = true;
+        }
         TENSORSTORE_ASSIGN_OR_RETURN(
             output_range[output_dim],
             GetAffineTransformRange(transform.input_domain()[input_dim],
@@ -340,9 +345,10 @@ absl::Status PropagateInputDomainResizeToOutput(
 
   // Number of output dimensions that depend on a given input dimension via a
   // `single_input_dimension` map.  Only used if
-  // `can_resize_tied_bounds == false`.
-  absl::FixedArray<DimensionIndex, internal::kNumInlinedDims>
-      num_input_dim_deps(input_rank, 0);
+  // `can_resize_tied_bounds == false`.  Only the first `input_rank` elements
+  // are used.
+  DimensionIndex num_input_dim_deps[kMaxRank];
+  std::fill_n(num_input_dim_deps, input_rank, static_cast<DimensionIndex>(0));
   for (DimensionIndex output_dim = 0; output_dim < output_rank; ++output_dim) {
     const auto map = transform.output_index_map(output_dim);
     switch (map.method()) {

@@ -18,7 +18,6 @@
 #include <vector>
 
 #include "absl/base/optimization.h"
-#include "absl/container/fixed_array.h"
 #include "absl/container/inlined_vector.h"
 #include "absl/strings/str_join.h"
 #include "tensorstore/array.h"
