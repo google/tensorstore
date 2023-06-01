@@ -126,6 +126,23 @@ def test_translate_by_vector():
   )
 
 
+def test_translate_by_vector_with_none():
+  check_expr(
+      expr=ts.d["x", "y"].translate_by[4, None],
+      expected_repr="d['x','y'].translate_by[4,None]",
+      before=ts.IndexTransform(input_shape=[2, 3], input_labels=["x", "y"]),
+      after=ts.IndexTransform(
+          input_shape=[2, 3],
+          input_inclusive_min=[4, 0],
+          input_labels=["x", "y"],
+          output=[
+              ts.OutputIndexMap(offset=-4, input_dimension=0),
+              ts.OutputIndexMap(input_dimension=1),
+          ],
+      ),
+  )
+
+
 def test_translate_by_scalar():
   check_expr(
       expr=ts.d["x", "y"].translate_by[4],
@@ -981,3 +998,69 @@ def test_numpy_indexing_equality():
       ts.d[2:].vindex[[1, 2, 3]],
       ts.d[2:].oindex[[1, 2, 3]],
   ])
+
+
+def test_label_without_dimension_selection():
+  before = ts.IndexTransform(input_rank=3)
+  after = ts.IndexTransform(input_labels=["x", "y", "z"])
+  assert before.label["x", "y", "z"] == after
+  assert before.domain.label["x", "y", "z"] == after.domain
+
+
+def test_translate_to_without_dimension_selection():
+  before = ts.IndexTransform(input_shape=[20, 30])
+  after = ts.IndexTransform(
+      input_inclusive_min=[20, 20], input_shape=[20, 30], output=[
+          ts.OutputIndexMap(input_dimension=0, offset=-20),
+          ts.OutputIndexMap(input_dimension=1, offset=-20),
+      ])
+  assert before.translate_to[20] == after
+  assert before.domain.translate_to[20] == after.domain
+
+
+def test_translate_by_without_dimension_selection():
+  before = ts.IndexTransform(input_shape=[20, 30])
+  after = ts.IndexTransform(
+      input_inclusive_min=[20, 20], input_shape=[20, 30], output=[
+          ts.OutputIndexMap(input_dimension=0, offset=-20),
+          ts.OutputIndexMap(input_dimension=1, offset=-20),
+      ])
+  assert before.translate_by[20] == after
+  assert before.domain.translate_by[20] == after.domain
+
+
+def test_translate_backward_by_without_dimension_selection():
+  before = ts.IndexTransform(input_shape=[20, 30])
+  after = ts.IndexTransform(
+      input_inclusive_min=[20, 20], input_shape=[20, 30], output=[
+          ts.OutputIndexMap(input_dimension=0, offset=-20),
+          ts.OutputIndexMap(input_dimension=1, offset=-20),
+      ])
+  assert before.translate_backward_by[-20] == after
+  assert before.domain.translate_backward_by[-20] == after.domain
+
+
+def test_mark_bounds_implicit_without_dimension_selection():
+  before = ts.IndexTransform(input_shape=[20, 30])
+  after = ts.IndexTransform(
+      input_shape=[20, 30],
+      implicit_lower_bounds=[True, True],
+      implicit_upper_bounds=[True, True],
+  )
+  assert before.mark_bounds_implicit[True] == after
+  assert before.domain.mark_bounds_implicit[True] == after.domain
+
+
+def test_transpose_without_dimension_selection():
+  before = ts.IndexTransform(input_shape=[20, 30])
+  after = ts.IndexTransform(
+      input_shape=[30, 20],
+      output=[
+          ts.OutputIndexMap(input_dimension=1),
+          ts.OutputIndexMap(input_dimension=0)
+      ],
+  )
+  assert before.transpose([1, 0]) == after
+  assert before.domain.transpose([1, 0]) == after.domain
+  assert before.transpose() == after
+  assert before.domain.transpose() == after.domain

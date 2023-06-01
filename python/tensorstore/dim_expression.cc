@@ -37,7 +37,6 @@
 #include "python/tensorstore/serialization.h"
 #include "python/tensorstore/subscript_method.h"
 #include "python/tensorstore/tensorstore_module_components.h"
-#include "python/tensorstore/typed_slice.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/dimension_identifier.h"
@@ -828,17 +827,12 @@ Group:
                            : NumpyIndexingSpec::Usage::kDimSelectionChained)});
       });
 
-  DefineSubscriptMethod<Self, struct TranslateToTag>(&cls, "translate_to",
-                                                     "_TranslateTo")
-      .def(
-          "__getitem__",
-          +[](const Self& self,
-              OptionallyImplicitIndexVectorOrScalarContainer indices) {
-            return self.Extend(
-                PythonTranslateOp{ToIndexVectorOrScalarContainer(indices),
-                                  /*kind=*/TranslateOpKind::kTranslateTo});
-          },
-          R"(
+  constexpr auto apply_op = [](const Self& self, auto&& op) {
+    return self.Extend(std::forward<decltype(op)>(op));
+  };
+
+  DefineTranslateToOp<Self>(cls, apply_op,
+                            R"(
 Translates the domains of the selected input dimensions to the specified
 origins without affecting the output range.
 
@@ -899,20 +893,10 @@ Raises:
 
 Group:
   Operations
-)",
-          py::arg("origins"));
+)");
 
-  DefineSubscriptMethod<Self, struct TranslateByTag>(&cls, "translate_by",
-                                                     "_TranslateBy")
-      .def(
-          "__getitem__",
-          +[](const Self& self,
-              OptionallyImplicitIndexVectorOrScalarContainer offsets) {
-            return self.Extend(
-                PythonTranslateOp{ToIndexVectorOrScalarContainer(offsets),
-                                  TranslateOpKind::kTranslateBy});
-          },
-          R"(
+  DefineTranslateByOp<Self>(cls, apply_op,
+                            R"(
 Translates (shifts) the domains of the selected input dimensions by the
 specified offsets, without affecting the output range.
 
@@ -973,20 +957,10 @@ Raises:
 Group:
   Operations
 
-)",
-          py::arg("offsets"));
+)");
 
-  DefineSubscriptMethod<Self, struct TranslateBackwardByTag>(
-      &cls, "translate_backward_by", "_TranslateBackwardBy")
-      .def(
-          "__getitem__",
-          +[](const Self& self,
-              OptionallyImplicitIndexVectorOrScalarContainer offsets) {
-            return self.Extend(
-                PythonTranslateOp{ToIndexVectorOrScalarContainer(offsets),
-                                  TranslateOpKind::kTranslateBackwardBy});
-          },
-          R"(
+  DefineTranslateBackwardByOp<Self>(cls, apply_op,
+                                    R"(
 Translates (shifts) the domains of the selected input dimensions backward by the
 specified offsets, without affecting the output range.
 
@@ -1047,8 +1021,7 @@ Raises:
 Group:
   Operations
 
-)",
-          py::arg("offsets"));
+)");
 
   DefineSubscriptMethod<Self, struct StrideTag>(&cls, "stride", "_Stride")
       .def(
@@ -1215,23 +1188,8 @@ Group:
 )",
           py::arg("target"));
 
-  DefineSubscriptMethod<Self, struct LabelTag>(&cls, "label", "_Label")
-      .def(
-          "__getitem__",
-          +[](const Self& self,
-              std::variant<std::string, SequenceParameter<std::string>>
-                  labels_variant) {
-            std::vector<std::string> labels;
-            if (auto* label = std::get_if<std::string>(&labels_variant)) {
-              labels.push_back(std::move(*label));
-            } else {
-              labels = std::move(std::get<SequenceParameter<std::string>>(
-                                     labels_variant))
-                           .value;
-            }
-            return self.Extend(PythonLabelOp{std::move(labels)});
-          },
-          R"(
+  DefineLabelOp<Self>(cls, apply_op,
+                      R"(
 Sets (or changes) the :ref:`labels<dimension-labels>` of the selected dimensions.
 
 Examples:
@@ -1292,8 +1250,7 @@ Raises:
 Group:
   Operations
 
-)",
-          py::arg("labels"));
+)");
 
   cls.def_property_readonly(
       "diagonal",
@@ -1365,37 +1322,8 @@ Group:
 
 )");
 
-  DefineSubscriptMethod<Self, struct MarkBoundsImplicitTag>(
-      &cls, "mark_bounds_implicit", "_MarkBoundsImplicit")
-      .def(
-          "__getitem__",
-          +[](const Self& self,
-              std::variant<std::optional<bool>,
-                           TypedSlice<std::optional<bool>, std::optional<bool>,
-                                      std::nullptr_t>>
-                  bounds) {
-            struct Visitor {
-              std::optional<bool>& lower_implicit;
-              std::optional<bool>& upper_implicit;
-              void operator()(std::optional<bool> value) {
-                lower_implicit = value;
-                upper_implicit = value;
-              }
-
-              void operator()(
-                  const TypedSlice<std::optional<bool>, std::optional<bool>,
-                                   std::nullptr_t>& slice) {
-                lower_implicit = slice.start;
-                upper_implicit = slice.stop;
-              }
-            };
-            std::optional<bool> lower_implicit;
-            std::optional<bool> upper_implicit;
-            std::visit(Visitor{lower_implicit, upper_implicit}, bounds);
-            return self.Extend(
-                PythonChangeImplicitStateOp{lower_implicit, upper_implicit});
-          },
-          R"(
+  DefineMarkBoundsImplicitOp<Self>(cls, apply_op,
+                                   R"(
 Marks the lower/upper bounds of the selected dimensions as
 :ref:`implicit/explicit<implicit-bounds>`.
 
@@ -1492,8 +1420,7 @@ Raises:
 Group:
   Operations
 
-)",
-          py::arg("implicit"));
+)");
 
   cls.def("__repr__", &PythonDimExpression::repr);
 

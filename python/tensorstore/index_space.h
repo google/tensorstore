@@ -147,6 +147,188 @@ void DefineIndexingMethods(
   (DefineAssignMethod(assign), ...);
 }
 
+template <bool DomainOnly, typename T, typename... ClassOptions,
+          typename GetTransform, typename ApplyTransform>
+void DefineIndexTransformOrDomainOperations(
+    pybind11::class_<T, ClassOptions...>* cls, GetTransform get_transform,
+    ApplyTransform apply_transform) {
+  namespace py = ::pybind11;
+  using Self = internal::remove_cvref_t<typename FunctionArgType<
+      0, py::detail::function_signature_t<ApplyTransform>>::type>;
+
+  auto apply_op = [get_transform, apply_transform](const Self& self,
+                                                   auto&& op) {
+    IndexTransform<> transform = get_transform(self);
+    const DimensionIndex rank = transform.input_rank();
+    DimensionIndexBuffer dims(rank);
+    for (DimensionIndex i = 0; i < rank; ++i) {
+      dims[i] = i;
+    }
+    return apply_transform(self,
+                           ValueOrThrow(op.Apply(std::move(transform), &dims,
+                                                 /*domain_only=*/DomainOnly)));
+  };
+
+  DefineTranslateToOp<Self>(*cls, apply_op, R"(
+Returns a new view with `.origin` translated to the specified origin.
+
+This is equivalent to :python:`self[ts.d[:].translate_to[origins]]`.
+
+Args:
+
+  origins: The new origin for each dimensions.  May also be a scalar,
+    e.g. :python:`5`, in which case the same origin is used for all dimensions.
+    If :python:`None` is specified for a given dimension, the origin of that
+    dimension remains unchanged.
+
+Raises:
+
+  IndexError:
+    If the number origins does not match the number of dimensions.
+
+  IndexError:
+    If any of the selected dimensions has a lower bound of :python:`-inf`.
+
+See also:
+  - `tensorstore.DimExpression.translate_to`
+
+Group:
+  Indexing
+)");
+
+  DefineTranslateByOp<Self>(*cls, apply_op, R"(
+Returns a new view with the `.origin` translated by the specified offsets.
+
+This is equivalent to :python:`self[ts.d[:].translate_by[offsets]]`.
+
+Args:
+
+  offsets: The offset for each dimension.  May also be a scalar,
+    e.g. :python:`5`, in which case the same offset is used for all dimensions.
+    Specifying :python:`None` for a given dimension (equivalent to specifying an
+    offset of :python:`0`) leaves the origin of that dimension unchanged.
+
+See also:
+  - `tensorstore.DimExpression.translate_by`
+
+Group:
+  Indexing
+)");
+
+  DefineTranslateBackwardByOp<Self>(*cls, apply_op, R"(
+Returns a new view with the `.origin` translated backward by the specified offsets.
+
+This is equivalent to :python:`self[ts.d[:].translate_backward_by[offsets]]`.
+
+Args:
+
+  offsets: The offset for each dimensions.  May also be a scalar,
+    e.g. :python:`5`, in which case the same offset is used for all dimensions.
+    Specifying :python:`None` for a given dimension (equivalent to specifying an
+    offset of :python:`0`) leaves the origin of that dimension unchanged.
+
+See also:
+  - `tensorstore.DimExpression.translate_backward_by`
+
+Group:
+  Indexing
+)");
+
+  DefineLabelOp<Self>(*cls, apply_op, R"(
+Returns a new view with the :ref:`dimension labels<dimension-labels>` changed.
+
+This is equivalent to :python:`self[ts.d[:].label[labels]]`.
+
+Args:
+  labels: Dimension labels for each dimension.
+
+Raises:
+
+  IndexError: If the number of labels does not match the number of dimensions,
+    or if the resultant domain would have duplicate labels.
+
+See also:
+  - `tensorstore.DimExpression.label`
+
+Group:
+  Indexing
+)");
+
+  DefineMarkBoundsImplicitOp<Self>(*cls, apply_op, R"(
+Returns a new view with the lower/upper bounds changed to
+:ref:`implicit/explicit<implicit-bounds>`.
+
+This is equivalent to :python:`self[ts.d[:].mark_bounds_implicit[implicit]]`.
+
+Args:
+
+  implicit: Indicates the new implicit value for the lower and upper bounds.
+    Must be one of:
+
+    - `None` to indicate no change;
+    - `True` to change both lower and upper bounds to implicit;
+    - `False` to change both lower and upper bounds to explicit.
+    - a `slice`, where :python:`start` and :python:`stop` specify the new
+      implicit value for the lower and upper bounds, respectively, and each must
+      be one of `None`, `True`, or `False`.
+
+Raises:
+
+  IndexError: If the resultant domain would have an input dimension referenced
+    by an index array marked as implicit.
+
+See also:
+  - `tensorstore.DimExpression.mark_bounds_implicit`
+
+Group:
+  Indexing
+)");
+
+  cls->def(
+      "transpose",
+      [get_transform, apply_transform](
+          const Self& self, std::optional<DimensionSelectionLike> axes) {
+        IndexTransform<> transform = get_transform(self);
+        if (!axes.has_value()) {
+          transform =
+              internal_index_space::TransformAccess::Make<IndexTransform<>>(
+                  internal_index_space::TransposeInputDimensions(
+                      internal_index_space::TransformAccess::rep_ptr<container>(
+                          std::move(transform)),
+                      /*domain_only=*/DomainOnly));
+        } else {
+          transform = ValueOrThrow(internal_index_space::ApplyTranspose(
+              std::move(transform), axes->value.dims(),
+              /*domain_only=*/DomainOnly));
+        }
+        return apply_transform(self, std::move(transform));
+      },
+      R"(
+Returns a view with a transposed domain.
+
+This is equivalent to :python:`self[ts.d[axes].transpose[:]]`.
+
+Args:
+
+  axes: Specifies the existing dimension corresponding to each dimension of the
+    new view.  Dimensions may be specified either by index or label.  Specifying
+    `None` is equivalent to specifying :python:`[rank-1, ..., 0]`, which
+    reverses the dimension order.
+
+Raises:
+
+  ValueError: If :py:param:`.axes` does not specify a valid permutation.
+
+See also:
+  - `tensorstore.DimExpression.transpose`
+  - :py:obj:`.T`
+
+Group:
+  Indexing
+)",
+      py::arg("axes") = std::nullopt);
+}
+
 /// Defines the common indexing operations supported by all
 /// `tensorstore.Indexable` types.
 ///
@@ -267,12 +449,13 @@ void DefineIndexTransformOperations(
 This is equivalent to: :python:`self[ts.d[::-1].transpose[:]]`.
 
 See also:
+  - `.transpose`
   - `tensorstore.DimExpression.transpose`
 
 Group:
   Indexing
-
 )");
+
   cls->def_property_readonly(
       "origin",
       [get_transform](const Self& self) {
@@ -315,6 +498,9 @@ Group:
   Accessors
 
 )");
+
+  DefineIndexTransformOrDomainOperations</*DomainOnly=*/false>(
+      cls, get_transform, apply_transform);
 }
 
 }  // namespace internal_python

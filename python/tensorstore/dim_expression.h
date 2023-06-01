@@ -29,6 +29,8 @@
 #include <vector>
 
 #include "python/tensorstore/index.h"
+#include "python/tensorstore/subscript_method.h"
+#include "python/tensorstore/typed_slice.h"
 #include "tensorstore/index_space/dimension_identifier.h"
 #include "tensorstore/index_space/dimension_index_buffer.h"
 #include "tensorstore/index_space/index_transform.h"
@@ -108,6 +110,57 @@ struct PythonTranslateOp {
                                  bool domain_only) const;
 };
 
+struct TranslateToOpTag;
+template <typename Self, typename Cls, typename ApplyOp>
+void DefineTranslateToOp(Cls& cls, ApplyOp apply_op, const char* doc) {
+  namespace py = ::pybind11;
+  DefineSubscriptMethod<Self, TranslateToOpTag>(&cls, "translate_to",
+                                                "_TranslateTo")
+      .def(
+          "__getitem__",
+          [apply_op](const Self& self,
+                     OptionallyImplicitIndexVectorOrScalarContainer indices) {
+            return apply_op(self, PythonTranslateOp{
+                                      ToIndexVectorOrScalarContainer(indices),
+                                      /*kind=*/TranslateOpKind::kTranslateTo});
+          },
+          doc, py::arg("origins"));
+}
+
+struct TranslateByOpTag;
+template <typename Self, typename Cls, typename ApplyOp>
+void DefineTranslateByOp(Cls& cls, ApplyOp apply_op, const char* doc) {
+  namespace py = ::pybind11;
+  DefineSubscriptMethod<Self, TranslateByOpTag>(&cls, "translate_by",
+                                                "_TranslateBy")
+      .def(
+          "__getitem__",
+          [apply_op](const Self& self,
+                     OptionallyImplicitIndexVectorOrScalarContainer offsets) {
+            return apply_op(
+                self, PythonTranslateOp{ToIndexVectorOrScalarContainer(offsets),
+                                        TranslateOpKind::kTranslateBy});
+          },
+          doc, py::arg("offsets"));
+}
+
+struct TranslateBackwardByOpTag;
+template <typename Self, typename Cls, typename ApplyOp>
+void DefineTranslateBackwardByOp(Cls& cls, ApplyOp apply_op, const char* doc) {
+  namespace py = ::pybind11;
+  DefineSubscriptMethod<Self, TranslateBackwardByOpTag>(
+      &cls, "translate_backward_by", "_TranslateBackwardBy")
+      .def(
+          "__getitem__",
+          [apply_op](const Self& self,
+                     OptionallyImplicitIndexVectorOrScalarContainer offsets) {
+            return apply_op(
+                self, PythonTranslateOp{ToIndexVectorOrScalarContainer(offsets),
+                                        TranslateOpKind::kTranslateBackwardBy});
+          },
+          doc, py::arg("offsets"));
+}
+
 /// Python equivalent of `tensorstore::internal_index_space::StrideOp`.
 struct PythonStrideOp {
   constexpr static DimExpressionOpKind kind = DimExpressionOpKind::kStride;
@@ -147,6 +200,29 @@ struct PythonLabelOp {
                                  DimensionIndexBuffer* buffer,
                                  bool domain_only) const;
 };
+
+struct LabelOpTag;
+template <typename Self, typename Cls, typename ApplyOp>
+void DefineLabelOp(Cls& cls, ApplyOp apply_op, const char* doc) {
+  namespace py = ::pybind11;
+  DefineSubscriptMethod<Self, LabelOpTag>(&cls, "label", "_Label")
+      .def(
+          "__getitem__",
+          [apply_op](const Self& self,
+                     std::variant<std::string, SequenceParameter<std::string>>
+                         labels_variant) {
+            std::vector<std::string> labels;
+            if (auto* label = std::get_if<std::string>(&labels_variant)) {
+              labels.push_back(std::move(*label));
+            } else {
+              labels = std::move(std::get<SequenceParameter<std::string>>(
+                                     labels_variant))
+                           .value;
+            }
+            return apply_op(self, PythonLabelOp{std::move(labels)});
+          },
+          doc, py::arg("labels"));
+}
 
 /// Python equivalent of `tensorstore::internal_index_space::DiagonalOp`.
 struct PythonDiagonalOp {
@@ -206,6 +282,44 @@ struct PythonChangeImplicitStateOp {
                                  DimensionIndexBuffer* buffer,
                                  bool domain_only) const;
 };
+
+struct MarkBoundsImplicitOpTag;
+template <typename Self, typename Cls, typename ApplyOp>
+void DefineMarkBoundsImplicitOp(Cls& cls, ApplyOp apply_op, const char* doc) {
+  namespace py = ::pybind11;
+  DefineSubscriptMethod<Self, MarkBoundsImplicitOpTag>(
+      &cls, "mark_bounds_implicit", "_MarkBoundsImplicit")
+      .def(
+          "__getitem__",
+          [apply_op](
+              const Self& self,
+              std::variant<std::optional<bool>,
+                           TypedSlice<std::optional<bool>, std::optional<bool>,
+                                      std::nullptr_t>>
+                  bounds) {
+            struct Visitor {
+              std::optional<bool>& lower_implicit;
+              std::optional<bool>& upper_implicit;
+              void operator()(std::optional<bool> value) {
+                lower_implicit = value;
+                upper_implicit = value;
+              }
+
+              void operator()(
+                  const TypedSlice<std::optional<bool>, std::optional<bool>,
+                                   std::nullptr_t>& slice) {
+                lower_implicit = slice.start;
+                upper_implicit = slice.stop;
+              }
+            };
+            std::optional<bool> lower_implicit;
+            std::optional<bool> upper_implicit;
+            std::visit(Visitor{lower_implicit, upper_implicit}, bounds);
+            return apply_op(self, PythonChangeImplicitStateOp{lower_implicit,
+                                                              upper_implicit});
+          },
+          doc, py::arg("implicit"));
+}
 
 /// Represents a NumPy-style indexing operation.
 ///
@@ -337,9 +451,9 @@ struct PythonDimExpressionChainOp : public PythonDimExpressionChain {
 /// A dimension expression consists of a `DimensionSelection` followed by a
 /// sequence of zero or more operations.
 ///
-/// This behaves similarly to `tensorstore::DimExpression`.  We can't simply use
-/// `tensorstore::DimExpression` because it holds vectors by reference rather
-/// than by value, and because it does not do type erasure.
+/// This behaves similarly to `tensorstore::DimExpression`.  We can't simply
+/// use `tensorstore::DimExpression` because it holds vectors by reference
+/// rather than by value, and because it does not do type erasure.
 class PythonDimExpression {
  public:
   /// Returns the string representation for `__repr__`.
@@ -408,9 +522,9 @@ class DimensionSelection : public PythonDimExpression {
 /// sequences thereof.
 bool CastToDimensionSelection(pybind11::handle src, DimensionSelection& out);
 
-/// Wrapper type used to indicate parameters to pybind11-wrapped functions that
-/// may be specified either as `tensorstore.d` objects, or anything supported by
-/// `CastToDimensionSelection`.
+/// Wrapper type used to indicate parameters to pybind11-wrapped functions
+/// that may be specified either as `tensorstore.d` objects, or anything
+/// supported by `CastToDimensionSelection`.
 struct DimensionSelectionLike {
   DimensionSelection value;
 };

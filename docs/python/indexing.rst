@@ -1082,6 +1082,25 @@ Sets (or changes) the labels of the selected dimensions.
      },
    })
 
+This operation can also be applied directly to `tensorstore.Indexable` types, in
+which case it applies to all dimensions:
+
+.. doctest::
+
+   >>> ts.array([[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]],
+   ...          dtype=ts.int32).label['x', 'y']
+   TensorStore({
+     'array': [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]],
+     'context': {'data_copy_concurrency': {}},
+     'driver': 'array',
+     'dtype': 'int32',
+     'transform': {
+       'input_exclusive_max': [3, 4],
+       'input_inclusive_min': [0, 0],
+       'input_labels': ['x', 'y'],
+     },
+   })
+
 :py:obj:`~tensorstore.DimExpression.diagonal`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -1117,6 +1136,28 @@ origins without affecting the output range.
    >>> a[ts.d[:].translate_to[1, 2]].origin
    (1, 2)
 
+This operation can also be applied directly to `tensorstore.Indexable` types, in
+which case it applies to all dimensions:
+
+.. doctest::
+
+   >>> ts.array([[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]],
+   ...          dtype=ts.int32).translate_to[1]
+   TensorStore({
+     'array': [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]],
+     'context': {'data_copy_concurrency': {}},
+     'driver': 'array',
+     'dtype': 'int32',
+     'transform': {
+       'input_exclusive_max': [4, 5],
+       'input_inclusive_min': [1, 1],
+       'output': [
+         {'input_dimension': 0, 'offset': -1},
+         {'input_dimension': 1, 'offset': -1},
+       ],
+     },
+   })
+
 :py:obj:`~tensorstore.DimExpression.translate_by`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -1130,6 +1171,28 @@ specified offsets, without affecting the output range.
    >>> a[ts.d[:].translate_by[-1, 1]].origin
    (-1, 1)
 
+This operation can also be applied directly to `tensorstore.Indexable` types, in
+which case it applies to all dimensions:
+
+.. doctest::
+
+   >>> ts.array([[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]],
+   ...          dtype=ts.int32).translate_by[-1, 1]
+   TensorStore({
+     'array': [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]],
+     'context': {'data_copy_concurrency': {}},
+     'driver': 'array',
+     'dtype': 'int32',
+     'transform': {
+       'input_exclusive_max': [2, 5],
+       'input_inclusive_min': [-1, 1],
+       'output': [
+         {'input_dimension': 0, 'offset': 1},
+         {'input_dimension': 1, 'offset': -1},
+       ],
+     },
+   })
+
 :py:obj:`~tensorstore.DimExpression.translate_backward_by`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -1142,6 +1205,28 @@ the specified offsets, without affecting the output range.
    ...              dtype=ts.int32)
    >>> a[ts.d[:].translate_backward_by[-1, 1]].origin
    (1, -1)
+
+This operation can also be applied directly to `tensorstore.Indexable` types, in
+which case it applies to all dimensions:
+
+.. doctest::
+
+   >>> ts.array([[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]],
+   ...          dtype=ts.int32).translate_backward_by[-1, 1]
+   TensorStore({
+     'array': [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]],
+     'context': {'data_copy_concurrency': {}},
+     'driver': 'array',
+     'dtype': 'int32',
+     'transform': {
+       'input_exclusive_max': [4, 3],
+       'input_inclusive_min': [1, -1],
+       'output': [
+         {'input_dimension': 0, 'offset': -1},
+         {'input_dimension': 1, 'offset': 1},
+       ],
+     },
+   })
 
 :py:obj:`~tensorstore.DimExpression.stride`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1195,6 +1280,87 @@ Transposes the selected dimensions to the specified target indices.
        'input_labels': ['y', 'x'],
      },
    })
+
+:py:obj:`~tensorstore.DimExpression.mark_bounds_implicit`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Changes the lower and/or upper bounds of the selected dimensions to be
+:ref:`implicit or explicit<implicit-bounds>`.
+
+.. doctest::
+
+    >>> s = await ts.open({
+    ...     'driver': 'zarr',
+    ...     'kvstore': 'memory://'
+    ... },
+    ...                   shape=[100, 200],
+    ...                   dtype=ts.uint32,
+    ...                   create=True)
+    >>> s.domain
+    { [0, 100*), [0, 200*) }
+    >>> await s.resize(exclusive_max=[200, 300])
+    >>> (await s.resolve()).domain
+    { [0, 200*), [0, 300*) }
+    >>> (await s[ts.d[0].mark_bounds_implicit[False]].resolve()).domain
+    { [0, 100), [0, 300*) }
+    >>> s_subregion = s[20:30, 40:50]
+    >>> s_subregion.domain
+    { [20, 30), [40, 50) }
+    >>> (await
+    ...  s_subregion[ts.d[0].mark_bounds_implicit[:True]].resolve()).domain
+    { [20, 200*), [40, 50) }
+
+    >>> t = ts.IndexTransform(input_rank=3)
+    >>> t = t[ts.d[0, 2].mark_bounds_implicit[False]]
+    >>> t
+    Rank 3 -> 3 index space transform:
+      Input domain:
+        0: (-inf, +inf)
+        1: (-inf*, +inf*)
+        2: (-inf, +inf)
+      Output index maps:
+        out[0] = 0 + 1 * in[0]
+        out[1] = 0 + 1 * in[1]
+        out[2] = 0 + 1 * in[2]
+    >>> t = t[ts.d[0, 1].mark_bounds_implicit[:True]]
+    >>> t
+    Rank 3 -> 3 index space transform:
+      Input domain:
+        0: (-inf, +inf*)
+        1: (-inf*, +inf*)
+        2: (-inf, +inf)
+      Output index maps:
+        out[0] = 0 + 1 * in[0]
+        out[1] = 0 + 1 * in[1]
+        out[2] = 0 + 1 * in[2]
+    >>> t = t[ts.d[1, 2].mark_bounds_implicit[True:False]]
+    >>> t
+    Rank 3 -> 3 index space transform:
+      Input domain:
+        0: (-inf, +inf*)
+        1: (-inf*, +inf)
+        2: (-inf*, +inf)
+      Output index maps:
+        out[0] = 0 + 1 * in[0]
+        out[1] = 0 + 1 * in[1]
+        out[2] = 0 + 1 * in[2]
+
+This operation can also be applied directly to `tensorstore.Indexable` types, in
+which case it applies to all dimensions:
+
+.. doctest::
+
+    >>> s = await ts.open({
+    ...     'driver': 'zarr',
+    ...     'kvstore': 'memory://'
+    ... },
+    ...                   shape=[100, 200],
+    ...                   dtype=ts.uint32,
+    ...                   create=True)
+    >>> s.domain
+    { [0, 100*), [0, 200*) }
+    >>> s.mark_bounds_implicit[False].domain
+    { [0, 100), [0, 200) }
 
 :py:obj:`~tensorstore.DimExpression.oindex`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

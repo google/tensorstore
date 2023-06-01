@@ -360,7 +360,7 @@ void DefineIndexDomainAttributes(py::class_<IndexDomain<>>& cls) {
                   std::optional<SequenceParameter<Index>> shape,
                   std::optional<SequenceParameter<bool>> implicit_upper_bounds,
                   std::optional<SequenceParameter<std::optional<std::string>>>
-                      labels) -> IndexDomain<> {
+                      labels) -> Self {
         auto builder = InitializeIndexTransformBuilder(
             rank, "rank", inclusive_min, "inclusive_min", implicit_lower_bounds,
             exclusive_max, "exclusive_max", inclusive_max, "inclusive_max",
@@ -492,7 +492,7 @@ Group:
 )");
 
   cls.def(
-      "__len__", [](const IndexDomain<>& d) { return d.rank(); },
+      "__len__", [](const Self& d) { return d.rank(); },
       R"(
 Returns the number of dimensions (:py:obj:`.rank`).
 
@@ -508,7 +508,7 @@ Group:
 
   cls.def(
       "__getitem__",
-      [](const IndexDomain<>& self, const PythonDimensionIdentifier& identifier)
+      [](const Self& self, const PythonDimensionIdentifier& identifier)
           -> IndexDomainDimension<> {
         return self[ValueOrThrow(
             NormalizeDimensionIdentifier(ToDimensionIdentifier(identifier),
@@ -545,7 +545,7 @@ Group:
 
   cls.def(
       "__getitem__",
-      [](const IndexDomain<>& self, DimensionSelectionLike s) -> IndexDomain<> {
+      [](const Self& self, DimensionSelectionLike s) -> IndexDomain<> {
         DimensionIndexBuffer dims;
         ThrowStatusException(internal_index_space::GetDimensions(
             self.labels(), s.value.dims(), &dims));
@@ -589,8 +589,7 @@ Group:
 
   cls.def(
       "__getitem__",
-      [](const IndexDomain<>& self,
-         const IndexDomain<>& other) -> IndexDomain<> {
+      [](const Self& self, const Self& other) -> Self {
         return ValueOrThrow(
                    other(
                        internal_index_space::TransformAccess::transform(self)),
@@ -687,7 +686,7 @@ Group:
 
   cls.def(
       "__getitem__",
-      [](const IndexDomain<>& self, const PythonDimExpression& expr) {
+      [](const Self& self, const PythonDimExpression& expr) {
         GilScopedRelease gil_release;
         DimensionIndexBuffer dims;
         return ValueOrThrow(
@@ -740,7 +739,7 @@ Group:
 
   cls.def(
       "__getitem__",
-      [](const IndexDomain<>& self, const IndexTransform<>& transform) {
+      [](const Self& self, const IndexTransform<>& transform) {
         GilScopedRelease gil_release;
         return ValueOrThrow(self | transform,
                             StatusExceptionPolicy::kIndexError);
@@ -799,6 +798,7 @@ Example:
     { "z": (-inf*, +inf*), "y": (-inf*, +inf*), "x": (-inf*, +inf*) }
 
 See also:
+  - `.transpose`
   - `tensorstore.DimExpression.transpose`
 
 Group:
@@ -807,7 +807,7 @@ Group:
 
   cls.def(
       "intersect",
-      [](const IndexDomain<>& self, const IndexDomain<> b) {
+      [](const Self& self, const Self& b) {
         return tensorstore::IntersectIndexDomains(self, b);
       },
       R"(
@@ -833,7 +833,7 @@ Group:
 
   cls.def(
       "hull",
-      [](const IndexDomain<>& self, const IndexDomain<> b) {
+      [](const Self& self, const Self& b) {
         return tensorstore::HullIndexDomains(self, b);
       },
       R"(
@@ -859,7 +859,7 @@ Group:
 
   cls.def_property_readonly(
       "origin",
-      [](const IndexDomain<>& self) {
+      [](const Self& self) {
         return SpanToHomogeneousTuple<Index>(self.origin());
       },
       R"(
@@ -877,7 +877,7 @@ Group:
 
   cls.def_property_readonly(
       "inclusive_min",
-      [](const IndexDomain<>& self) {
+      [](const Self& self) {
         return SpanToHomogeneousTuple<Index>(self.origin());
       },
       R"(
@@ -895,7 +895,7 @@ Group:
 
   cls.def_property_readonly(
       "shape",
-      [](const IndexDomain<>& self) {
+      [](const Self& self) {
         return SpanToHomogeneousTuple<Index>(self.shape());
       },
       R"(
@@ -912,8 +912,7 @@ Group:
 )");
 
   cls.def_property_readonly(
-      "exclusive_max",
-      [](const IndexDomain<>& self) { return GetExclusiveMax(self); },
+      "exclusive_max", [](const Self& self) { return GetExclusiveMax(self); },
       R"(
 Exclusive upper bound of the domain.
 
@@ -928,8 +927,7 @@ Group:
 )");
 
   cls.def_property_readonly(
-      "inclusive_max",
-      [](const IndexDomain<>& self) { return GetInclusiveMax(self); },
+      "inclusive_max", [](const Self& self) { return GetInclusiveMax(self); },
       R"(
 Inclusive upper bound of the domain.
 
@@ -945,7 +943,7 @@ Group:
 
   cls.def_property_readonly(
       "labels",
-      [](const IndexDomain<>& d) { return SpanToHomogeneousTuple(d.labels()); },
+      [](const Self& d) { return SpanToHomogeneousTuple(d.labels()); },
       R"(
 :ref:`Dimension labels<dimension-labels>` for each dimension.
 
@@ -966,7 +964,7 @@ Group:
 
   cls.def_property_readonly(
       "implicit_lower_bounds",
-      [](const IndexDomain<>& d) {
+      [](const Self& d) {
         return GetBitVector(d.implicit_lower_bounds(), d.rank());
       },
       R"(
@@ -997,7 +995,7 @@ Group:
 
   cls.def_property_readonly(
       "implicit_upper_bounds",
-      [](const IndexDomain<>& d) {
+      [](const Self& d) {
         return GetBitVector(d.implicit_upper_bounds(), d.rank());
       },
       R"(
@@ -1024,7 +1022,7 @@ Group:
 )");
 
   cls.def_property_readonly(
-      "size", [](const IndexDomain<>& self) { return self.num_elements(); },
+      "size", [](const Self& self) { return self.num_elements(); },
       R"(Total number of elements in the domain.
 
 This is simply the product of the extents in :py:obj:`.shape`.
@@ -1041,7 +1039,7 @@ Group:
 
   cls.def_property_readonly(
       "index_exp",
-      [](const IndexDomain<>& self) -> HomogeneousTuple<py::slice> {
+      [](const Self& self) -> HomogeneousTuple<py::slice> {
         const DimensionIndex rank = self.rank();
         py::tuple t(rank);
 
@@ -1099,12 +1097,11 @@ Group:
 )");
 
   cls.def(
-      "__repr__", [](const IndexDomain<>& d) { return tensorstore::StrCat(d); },
+      "__repr__", [](const Self& d) { return tensorstore::StrCat(d); },
       "Returns the string representation.");
 
   cls.def(
-      "to_json",
-      [](const IndexDomain<>& self) { return ::nlohmann::json(self); },
+      "to_json", [](const Self& self) { return ::nlohmann::json(self); },
       R"(
 Returns the :json:schema:`JSON representation<IndexDomain>`.
 
@@ -1112,15 +1109,26 @@ Group:
   Accessors
 )");
 
-  cls.def("__eq__", [](const IndexDomain<>& self, const IndexDomain<>& other) {
+  constexpr auto get_transform = [](const Self& self) -> IndexTransform<> {
+    return internal_index_space::TransformAccess::transform(self);
+  };
+
+  constexpr auto apply_transform =
+      [](const Self& self, IndexTransform<> transform) -> IndexDomain<> {
+    return std::move(transform).domain();
+  };
+
+  DefineIndexTransformOrDomainOperations</*DomainOnly=*/true>(
+      &cls, get_transform, apply_transform);
+
+  cls.def("__eq__", [](const Self& self, const IndexDomain<>& other) {
     return self == other;
   });
 
-  cls.def("__copy__", [](const IndexDomain<>& self) { return self; });
+  cls.def("__copy__", [](const Self& self) { return self; });
 
   cls.def(
-      "__deepcopy__",
-      [](const IndexDomain<>& self, py::dict memo) { return self; },
+      "__deepcopy__", [](const Self& self, py::dict memo) { return self; },
       py::arg("memo"));
 
   EnablePicklingFromSerialization(

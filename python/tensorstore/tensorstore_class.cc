@@ -2170,10 +2170,11 @@ See also:
 
 )"},
       },
-      [](Self& self) {
+      [](const Self& self) {
         return internal::TensorStoreAccess::handle(self.value).transform;
       },
-      [](Self& self, IndexTransform<> new_transform) -> PythonTensorStore {
+      [](const Self& self,
+         IndexTransform<> new_transform) -> PythonTensorStore {
         auto handle = internal::TensorStoreAccess::handle(self.value);
         handle.transform = std::move(new_transform);
         return internal::TensorStoreAccess::Construct<TensorStore<>>(

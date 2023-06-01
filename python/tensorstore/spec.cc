@@ -1143,11 +1143,11 @@ See also:
 )"},
       },
       /*get_transform=*/
-      [](Self& self) {
+      [](const Self& self) {
         return ValueOrThrow(self.value.GetTransformForIndexingOperation());
       },
       /*apply_transform=*/
-      [](Self& self, IndexTransform<> new_transform) {
+      [](const Self& self, IndexTransform<> new_transform) {
         Spec copy = self.value;
         internal_spec::SpecAccess::impl(copy).transform =
             std::move(new_transform);
