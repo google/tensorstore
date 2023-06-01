@@ -13,7 +13,7 @@
     
     
       
-        <title>tensorstore.KvStore.Spec.__new__ - TensorStore</title>
+        <title>tensorstore.KvStore.Spec.__eq__ - TensorStore</title>
       
     
     
@@ -87,7 +87,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              tensorstore.KvStore.Spec.__new__
+              tensorstore.KvStore.Spec.__eq__
             
           </span>
         </div>
@@ -510,61 +510,13 @@
               
   
   
-    
   
   
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
-      
-      
-        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_1_3_1_3_1_1_4" type="checkbox" id="__nav_1_3_1_3_1_1_4" checked>
-      
-      
-      
-        
-        <div class="md-nav__link md-nav__link--index ">
-          <a href="tensorstore.KvStore.Spec.html#constructors"><span class="md-ellipsis">Constructors</span></a>
-          
-            <label for="__nav_1_3_1_3_1_1_4">
-              <span class="md-nav__icon md-icon"></span>
-            </label>
-          
-        </div>
-      
-      <nav class="md-nav" aria-label="Constructors" data-md-level="7">
-        <label class="md-nav__title" for="__nav_1_3_1_3_1_1_4">
-          <span class="md-nav__icon md-icon"></span>
-          <span class="md-ellipsis">Constructors</span>
-        </label>
-        <ul class="md-nav__list" data-md-scrollfix>
-          
-            
-              
-  
-  
-    
-  
-    
-  
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      
-      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
-      
-      <a href="#" class="md-nav__link md-nav__link--active">
-        <span aria-label="Python method" class="objinfo-icon objinfo-icon__procedure" title="Python method">M</span><span title="tensorstore.KvStore.Spec.__new__ (Python method) — Constructs from the JSON representation or a URL." class="md-ellipsis">__<wbr>new__<wbr></span>
+    <li class="md-nav__item">
+      <a href="tensorstore.KvStore.Spec.html#constructors" class="md-nav__link">
+        <span class="md-ellipsis">Constructors</span>
       </a>
-      
     </li>
-  
-
-            
-          
-        </ul>
-      </nav>
-    </li>
-  
   
 
             
@@ -588,13 +540,61 @@
               
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="tensorstore.KvStore.Spec.html#comparison-operators" class="md-nav__link">
-        <span class="md-ellipsis">Comparison operators</span>
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_1_3_1_3_1_1_6" type="checkbox" id="__nav_1_3_1_3_1_1_6" checked>
+      
+      
+      
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="tensorstore.KvStore.Spec.html#comparison-operators"><span class="md-ellipsis">Comparison operators</span></a>
+          
+            <label for="__nav_1_3_1_3_1_1_6">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
+          
+        </div>
+      
+      <nav class="md-nav" aria-label="Comparison operators" data-md-level="7">
+        <label class="md-nav__title" for="__nav_1_3_1_3_1_1_6">
+          <span class="md-nav__icon md-icon"></span>
+          <span class="md-ellipsis">Comparison operators</span>
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+    
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      
+      <a href="#" class="md-nav__link md-nav__link--active">
+        <span aria-label="Python method" class="objinfo-icon objinfo-icon__procedure" title="Python method">M</span><span title="tensorstore.KvStore.Spec.__eq__ (Python method) — Compares with another KvStore.Spec for equality based on the JSON representation." class="md-ellipsis">__<wbr>eq__<wbr></span>
       </a>
+      
     </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
   
 
             
@@ -1124,19 +1124,22 @@
 
 <dl class="py method objdesc">
 <dt class="sig sig-object highlight py">
-<span class="sig-prename descclassname"><span class="pre">tensorstore.</span><span class="pre">KvStore.</span></span><span class="sig-name descname"><span class="pre">Spec</span></span><span class="sig-paren">(</span><span class="sig-param-decl"><em class="sig-param"><span class="n"><span class="pre">json</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><span class="pre">Any</span></a></span></span></em></span><span class="sig-paren">)</span></dt>
-<dd><p>Constructs from the <a class="reference internal" href="../../kvstore/index.html#json-KvStore" title="KvStore (JSON type) — Key-value store specification."><code class="xref json json-schema docutils literal notranslate"><span class="pre">JSON</span> <span class="pre">representation</span></code></a> or a <a class="reference internal" href="../../kvstore/index.html#json-KvStoreUrl" title="KvStoreUrl (JSON type) — URL representation of a key-value store."><code class="xref json json-schema docutils literal notranslate"><span class="pre">URL</span></code></a>.</p>
-<p>Example of constructing from the <a class="reference internal" href="../../kvstore/index.html#json-KvStore" title="KvStore (JSON type) — Key-value store specification."><code class="xref json json-schema docutils literal notranslate"><span class="pre">JSON</span> <span class="pre">representation</span></code></a>:</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">KvStore</span><span class="o">.</span><span class="n">Spec</span><span class="p">({</span><span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;file&#39;</span><span class="p">,</span> <span class="s1">&#39;path&#39;</span><span class="p">:</span> <span class="s1">&#39;tmp/data/&#39;</span><span class="p">})</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span>
-<span class="go">KvStore.Spec({&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;tmp/data/&#39;})</span>
+<span class="sig-prename descclassname"><span class="pre">tensorstore.</span><span class="pre">KvStore.Spec.</span></span><span class="sig-name descname"><span class="pre">__eq__</span></span><span class="sig-paren">(</span><span class="sig-param-decl"><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, </span><span class="sig-param-decl"><em class="sig-param"><span class="n"><span class="pre">other</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="desctype"><a class="reference internal" href="tensorstore.KvStore.Spec.html" title="tensorstore.KvStore.Spec (Python class) — Parsed representation of a JSON key-value store specification."><span class="pre">KvStore.Spec</span></a></span></span></em></span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="desctype"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><span class="pre">bool</span></a></span></span></span></dt>
+<dd><p>Compares with another <a class="reference internal" href="tensorstore.KvStore.Spec.html" title="tensorstore.KvStore.Spec (Python class) — Parsed representation of a JSON key-value store specification."><code class="xref py py-obj docutils literal notranslate"><span class="pre">KvStore.Spec</span></code></a> for equality based on the <a class="reference internal" href="../../kvstore/index.html#json-KvStore" title="KvStore (JSON type) — Key-value store specification."><code class="xref json json-schema docutils literal notranslate"><span class="pre">JSON</span> <span class="pre">representation</span></code></a>.</p>
+<p>The comparison is based on the JSON representation, except that any bound
+context resources are compared by identity (not by their JSON representation).</p>
+<div class="example admonition">
+<p class="admonition-title">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">KvStore</span><span class="o">.</span><span class="n">Spec</span><span class="p">({</span><span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;memory&#39;</span><span class="p">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">assert</span> <span class="n">spec</span> <span class="o">==</span> <span class="n">spec</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="n">spec</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">context_a</span><span class="p">,</span> <span class="n">context_b</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">Context</span><span class="p">(),</span> <span class="n">ts</span><span class="o">.</span><span class="n">Context</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">a</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">context</span><span class="o">=</span><span class="n">context_a</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">b</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">context</span><span class="o">=</span><span class="n">context_b</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">assert</span> <span class="n">a</span> <span class="o">==</span> <span class="n">a</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">assert</span> <span class="n">a</span> <span class="o">!=</span> <span class="n">b</span>
 </code></pre></div>
 </div>
-<p>Example of constructing from a <a class="reference internal" href="../../kvstore/index.html#json-KvStoreUrl" title="KvStoreUrl (JSON type) — URL representation of a key-value store."><code class="xref json json-schema docutils literal notranslate"><span class="pre">URL</span></code></a>:</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">KvStore</span><span class="o">.</span><span class="n">Spec</span><span class="p">(</span><span class="s1">&#39;file://tmp/data/&#39;</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span>
-<span class="go">KvStore.Spec({&#39;driver&#39;: &#39;file&#39;, &#39;path&#39;: &#39;tmp/data/&#39;})</span>
-</code></pre></div>
 </div>
 </dd></dl>
 
@@ -1166,7 +1169,7 @@
     <nav class="md-footer__inner md-grid" aria-label="Footer" >
       
         
-        <a href="tensorstore.KvStore.Spec.__truediv__.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: tensorstore.KvStore.Spec.__truediv__" rel="prev">
+        <a href="tensorstore.KvStore.Spec.__repr__.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: tensorstore.KvStore.Spec.__repr__" rel="prev">
           <div class="md-footer__button md-icon">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
           </div>
@@ -1175,20 +1178,20 @@
               <span class="md-footer__direction">
                 Previous
               </span>
-              tensorstore.KvStore.Spec.__truediv__
+              tensorstore.KvStore.Spec.__repr__
             </div>
           </div>
         </a>
       
       
         
-        <a href="tensorstore.KvStore.Spec.__repr__.html" class="md-footer__link md-footer__link--next" aria-label="Next: tensorstore.KvStore.Spec.__repr__" rel="next">
+        <a href="tensorstore.KvStore.KeyRange.html" class="md-footer__link md-footer__link--next" aria-label="Next: tensorstore.KvStore.KeyRange" rel="next">
           <div class="md-footer__title">
             <div class="md-ellipsis">
               <span class="md-footer__direction">
                 Next
               </span>
-              tensorstore.KvStore.Spec.__repr__
+              tensorstore.KvStore.KeyRange
             </div>
           </div>
           <div class="md-footer__button md-icon">
