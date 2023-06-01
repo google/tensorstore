@@ -623,6 +623,93 @@ Group:
 
 )");
 
+  cls.def_property_readonly(
+      "base",
+      [](Self& self) -> std::optional<Spec> {
+        auto spec = ValueOrThrow(self.value.base());
+        if (!spec.valid()) return std::nullopt;
+        return spec;
+      },
+      R"(
+
+Spec of the underlying `TensorStore`, if this is an adapter of a single
+underlying `TensorStore`.
+
+Otherwise, equal to :python:`None`.
+
+Drivers that support this method include:
+
+- :ref:`driver/cast`
+- :ref:`driver/downsample`
+
+Example:
+
+  >>> spec = ts.Spec({
+  ...     'driver': 'zarr',
+  ...     'kvstore': 'memory://',
+  ... })
+  >>> spec.update(shape=[100, 200], dtype=ts.uint32)
+  >>> cast_spec = ts.cast(spec, ts.float32)
+  >>> cast_spec
+  Spec({
+    'base': {
+      'driver': 'zarr',
+      'dtype': 'uint32',
+      'kvstore': {'driver': 'memory'},
+      'schema': {
+        'domain': {'exclusive_max': [100, 200], 'inclusive_min': [0, 0]},
+      },
+    },
+    'driver': 'cast',
+    'dtype': 'float32',
+    'transform': {
+      'input_exclusive_max': [[100], [200]],
+      'input_inclusive_min': [0, 0],
+    },
+  })
+  >>> cast_spec[30:40, 20:25].base
+  Spec({
+    'driver': 'zarr',
+    'dtype': 'uint32',
+    'kvstore': {'driver': 'memory'},
+    'schema': {'domain': {'exclusive_max': [100, 200], 'inclusive_min': [0, 0]}},
+    'transform': {
+      'input_exclusive_max': [40, 25],
+      'input_inclusive_min': [30, 20],
+    },
+  })
+  >>> downsampled_spec = ts.downsample(spec,
+  ...                                  downsample_factors=[2, 4],
+  ...                                  method='mean')
+  >>> downsampled_spec
+  Spec({
+    'base': {
+      'driver': 'zarr',
+      'kvstore': {'driver': 'memory'},
+      'schema': {
+        'domain': {'exclusive_max': [100, 200], 'inclusive_min': [0, 0]},
+      },
+      'transform': {
+        'input_exclusive_max': [[100], [200]],
+        'input_inclusive_min': [0, 0],
+      },
+    },
+    'downsample_factors': [2, 4],
+    'downsample_method': 'mean',
+    'driver': 'downsample',
+    'dtype': 'uint32',
+    'transform': {
+      'input_exclusive_max': [[50], [50]],
+      'input_inclusive_min': [0, 0],
+    },
+  })
+  >>> downsampled_spec[30:40, 20:25].base
+
+Group:
+  Accessors
+
+)");
+
   cls.def(
       "to_json",
       [](Self& self, bool include_defaults) {

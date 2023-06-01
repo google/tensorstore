@@ -101,6 +101,11 @@ class Spec {
   /// Returns the transform applied on top of the driver.
   const IndexTransform<>& transform() const { return impl_.transform; }
 
+  /// Returns the underlying `Spec`, if this is an adapter.
+  ///
+  /// Otherwise, returns a null `Spec`.
+  Result<Spec> base() const;
+
   /// Returns the mode with which the driver will be opened.
   ///
   /// If not applicable, returns `OpenMode::unknown`.

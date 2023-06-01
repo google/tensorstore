@@ -121,6 +121,16 @@ class CastDriverSpec
     return base.driver_spec->GetKvstore();
   }
 
+  Result<TransformedDriverSpec> GetBase(
+      IndexTransformView<> transform) const override {
+    TransformedDriverSpec new_base;
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        new_base.transform,
+        ComposeOptionalTransforms(base.transform, transform));
+    new_base.driver_spec = base.driver_spec;
+    return new_base;
+  }
+
   Future<internal::Driver::Handle> Open(
       internal::OpenTransactionPtr transaction,
       ReadWriteMode read_write_mode) const override {
@@ -191,6 +201,17 @@ class CastDriver
 
   KvStore GetKvstore(const Transaction& transaction) override {
     return base_driver_->GetKvstore(transaction);
+  }
+
+  Result<internal::DriverHandle> GetBase(
+      ReadWriteMode read_write_mode, IndexTransformView<> transform,
+      const Transaction& transaction) override {
+    internal::DriverHandle base_handle;
+    base_handle.driver = base_driver_;
+    base_handle.driver.set_read_write_mode(read_write_mode);
+    base_handle.transform = transform;
+    base_handle.transaction = transaction;
+    return base_handle;
   }
 
   Future<ArrayStorageStatistics> GetStorageStatistics(

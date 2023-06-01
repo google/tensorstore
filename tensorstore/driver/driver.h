@@ -153,6 +153,13 @@ class Driver : public AtomicReferenceCount<Driver> {
   /// there is none.
   virtual KvStore GetKvstore(const Transaction& transaction);
 
+  /// Returns the underlying TensorStore if this is an adapter.
+  ///
+  /// Otherwise, returns a null TensorStore.
+  virtual Result<DriverHandle> GetBase(ReadWriteMode read_write_mode,
+                                       IndexTransformView<> transform,
+                                       const Transaction& transaction);
+
   /// Returns the Executor to use for data copying to/from this Driver (e.g. for
   /// Read and Write operations).
   virtual Executor data_copy_executor() = 0;
@@ -285,6 +292,10 @@ Result<Schema> GetSchema(const Driver::Handle& handle);
 
 /// Returns the associated kvstore, with transaction bound.
 KvStore GetKvstore(const DriverHandle& handle);
+
+/// Returns the base TensorStore, or a null TensorStore if this is not an
+/// adapter.
+Result<DriverHandle> GetBase(const DriverHandle& handle);
 
 Future<ArrayStorageStatistics> GetStorageStatistics(
     const DriverHandle& handle, GetArrayStorageStatisticsOptions options);

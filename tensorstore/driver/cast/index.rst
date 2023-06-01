@@ -1,3 +1,5 @@
+.. _driver/cast:
+
 ``cast`` Driver
 ===============
 

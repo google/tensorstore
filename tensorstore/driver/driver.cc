@@ -141,6 +141,12 @@ Result<CodecSpec> Driver::GetCodec() { return CodecSpec{}; }
 
 KvStore Driver::GetKvstore(const Transaction& transaction) { return {}; }
 
+Result<DriverHandle> Driver::GetBase(ReadWriteMode read_write_mode,
+                                     IndexTransformView<> transform,
+                                     const Transaction& transaction) {
+  return {std::in_place};
+}
+
 Future<ArrayStorageStatistics> GetStorageStatistics(
     const DriverHandle& handle, GetArrayStorageStatisticsOptions options) {
   TENSORSTORE_ASSIGN_OR_RETURN(
@@ -237,6 +243,12 @@ Result<Schema> GetSchema(const Driver::Handle& handle) {
 KvStore GetKvstore(const DriverHandle& handle) {
   if (!handle.valid()) return {};
   return handle.driver->GetKvstore(handle.transaction);
+}
+
+Result<DriverHandle> GetBase(const DriverHandle& handle) {
+  if (!handle.valid()) return {std::in_place};
+  return handle.driver->GetBase(handle.driver.read_write_mode(),
+                                handle.transform, handle.transaction);
 }
 
 Result<TransformedDriverSpec> GetTransformedDriverSpec(

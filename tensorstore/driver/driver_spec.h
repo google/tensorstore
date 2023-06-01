@@ -47,6 +47,8 @@ namespace internal {
 
 class DriverSpec;
 
+struct TransformedDriverSpec;
+
 using DriverSpecPtr = IntrusivePtr<const DriverSpec>;
 
 /// Abstract base class representing a TensorStore driver specification, for
@@ -175,6 +177,12 @@ class DriverSpec : public internal::AtomicReferenceCount<DriverSpec> {
   /// By default returns a null spec.
   virtual kvstore::Spec GetKvstore() const;
 
+  /// Returns the underlying Spec if this is an adapter.
+  ///
+  /// Otherwise, returns a null spec.
+  virtual Result<TransformedDriverSpec> GetBase(
+      IndexTransformView<> transform) const;
+
   virtual void GarbageCollectionVisit(
       garbage_collection::GarbageCollectionVisitor& visitor) const = 0;
 
@@ -253,6 +261,8 @@ absl::Status TransformAndApplyOptions(TransformedDriverSpec& spec,
                                       SpecOptions&& options);
 
 OpenMode GetOpenMode(const TransformedDriverSpec& spec);
+
+Result<TransformedDriverSpec> GetBase(const TransformedDriverSpec& spec);
 
 Result<IndexDomain<>> GetEffectiveDomain(const TransformedDriverSpec& spec);
 

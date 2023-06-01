@@ -1144,8 +1144,151 @@ Example:
     >>> store.kvstore
     KvStore({'context': {'memory_key_value_store': {}}, 'driver': 'memory', 'path': 'abc/'})
 
-If a :py:obj:`.transaction` is bound to this :py:obj:`.TensorStore`, the same
-transaction will also be bound to the returned :py:obj:`KvStore`.
+Group:
+  Accessors
+)");
+
+  cls.def_property_readonly(
+      "base",
+      [](Self& self) -> std::optional<TensorStore<>> {
+        auto base = ValueOrThrow(self.value.base());
+        if (!base.valid()) return std::nullopt;
+        return base;
+      },
+      R"(
+Underlying `TensorStore`, if this is an adapter.
+
+Equal to :python:`None` if the driver is not an adapter of a single underlying
+`TensorStore`.
+
+Example:
+
+    >>> store = await ts.open(
+    ...     {
+    ...         'driver': 'zarr',
+    ...         'kvstore': {
+    ...             'driver': 'memory',
+    ...             'path': 'abc/',
+    ...         }
+    ...     },
+    ...     create=True,
+    ...     shape=[100, 200],
+    ...     dtype=ts.uint32,
+    ... )
+    >>> downsampled = ts.downsample(store,
+    ...                             downsample_factors=[2, 4],
+    ...                             method="mean")
+    >>> downsampled
+    TensorStore({
+      'base': {
+        'driver': 'zarr',
+        'kvstore': {'driver': 'memory', 'path': 'abc/'},
+        'metadata': {
+          'chunks': [100, 200],
+          'compressor': {
+            'blocksize': 0,
+            'clevel': 5,
+            'cname': 'lz4',
+            'id': 'blosc',
+            'shuffle': -1,
+          },
+          'dimension_separator': '.',
+          'dtype': '<u4',
+          'fill_value': None,
+          'filters': None,
+          'order': 'C',
+          'shape': [100, 200],
+          'zarr_format': 2,
+        },
+        'transform': {
+          'input_exclusive_max': [[100], [200]],
+          'input_inclusive_min': [0, 0],
+        },
+      },
+      'context': {
+        'cache_pool': {},
+        'data_copy_concurrency': {},
+        'memory_key_value_store': {},
+      },
+      'downsample_factors': [2, 4],
+      'downsample_method': 'mean',
+      'driver': 'downsample',
+      'dtype': 'uint32',
+      'transform': {
+        'input_exclusive_max': [[50], [50]],
+        'input_inclusive_min': [0, 0],
+      },
+    })
+    >>> downsampled[30:40, 20:25].base
+    TensorStore({
+      'context': {
+        'cache_pool': {},
+        'data_copy_concurrency': {},
+        'memory_key_value_store': {},
+      },
+      'driver': 'zarr',
+      'dtype': 'uint32',
+      'kvstore': {'driver': 'memory', 'path': 'abc/'},
+      'metadata': {
+        'chunks': [100, 200],
+        'compressor': {
+          'blocksize': 0,
+          'clevel': 5,
+          'cname': 'lz4',
+          'id': 'blosc',
+          'shuffle': -1,
+        },
+        'dimension_separator': '.',
+        'dtype': '<u4',
+        'fill_value': None,
+        'filters': None,
+        'order': 'C',
+        'shape': [100, 200],
+        'zarr_format': 2,
+      },
+      'transform': {
+        'input_exclusive_max': [80, 100],
+        'input_inclusive_min': [60, 80],
+      },
+    })
+    >>> converted = ts.cast(store, ts.float32)
+    >>> converted.base
+    TensorStore({
+      'context': {
+        'cache_pool': {},
+        'data_copy_concurrency': {},
+        'memory_key_value_store': {},
+      },
+      'driver': 'zarr',
+      'dtype': 'uint32',
+      'kvstore': {'driver': 'memory', 'path': 'abc/'},
+      'metadata': {
+        'chunks': [100, 200],
+        'compressor': {
+          'blocksize': 0,
+          'clevel': 5,
+          'cname': 'lz4',
+          'id': 'blosc',
+          'shuffle': -1,
+        },
+        'dimension_separator': '.',
+        'dtype': '<u4',
+        'fill_value': None,
+        'filters': None,
+        'order': 'C',
+        'shape': [100, 200],
+        'zarr_format': 2,
+      },
+      'transform': {
+        'input_exclusive_max': [[100], [200]],
+        'input_inclusive_min': [0, 0],
+      },
+    })
+
+Drivers that support this method include:
+
+- :ref:`driver/cast`
+- :ref:`driver/downsample`
 
 Group:
   Accessors

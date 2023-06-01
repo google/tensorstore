@@ -65,6 +65,12 @@ kvstore::Spec Spec::kvstore() const {
   return impl_.driver_spec->GetKvstore();
 }
 
+Result<Spec> Spec::base() const {
+  Spec base_spec;
+  TENSORSTORE_ASSIGN_OR_RETURN(base_spec.impl_, internal::GetBase(impl_));
+  return base_spec;
+}
+
 ContextBindingState Spec::context_binding_state() const {
   return impl_.context_binding_state();
 }

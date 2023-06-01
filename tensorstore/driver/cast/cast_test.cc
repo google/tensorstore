@@ -21,6 +21,7 @@
 #include "tensorstore/driver/driver_testutil.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/json.h"
+#include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/open.h"
 #include "tensorstore/spec.h"
@@ -661,6 +662,46 @@ TEST(SpecSchemaTest, FillValueSameDtype) {
           {"fill_value", 3},
           {"codec", {{"driver", "zarr"}}},
       });
+}
+
+TENSORSTORE_GLOBAL_INITIALIZER {
+  tensorstore::internal::TestTensorStoreDriverSpecRoundtripOptions options;
+  options.test_name = "cast";
+  options.create_spec = {
+      {"driver", "cast"},
+      {"base",
+       {
+           {"driver", "array"},
+           {"dtype", "float32"},
+           {"array", {{1, 2, 3}, {4, 5, 6}}},
+       }},
+      {"dtype", "uint32"},
+  };
+  options.full_spec = {
+      {"driver", "cast"},
+      {"base",
+       {
+           {"driver", "array"},
+           {"array", {{1, 2, 3}, {4, 5, 6}}},
+           {"dtype", "float32"},
+       }},
+      {"dtype", "uint32"},
+      {"transform",
+       {{"input_inclusive_min", {0, 0}}, {"input_exclusive_max", {2, 3}}}},
+  };
+  options.full_base_spec = {
+      {"driver", "array"},
+      {"array", {{1, 2, 3}, {4, 5, 6}}},
+      {"dtype", "float32"},
+      {"transform",
+       {{"input_inclusive_min", {0, 0}}, {"input_exclusive_max", {2, 3}}}},
+  };
+  options.minimal_spec = options.full_spec;
+  options.check_not_found_before_create = false;
+  options.check_not_found_before_commit = false;
+  options.supported_transaction_modes = {};
+  tensorstore::internal::RegisterTensorStoreDriverSpecRoundtripTest(
+      std::move(options));
 }
 
 }  // namespace

@@ -94,6 +94,22 @@ Result<IndexDomain<>> GetBaseDomainConstraintFromDownsampledDomain(
   return builder.Finalize();
 }
 
+Result<IndexTransform<>> GetBaseTransformForDownsampledTransform(
+    IndexTransformView<> base_transform,
+    IndexTransformView<> downsampled_transform,
+    span<const Index> downsample_factors, DownsampleMethod downsample_method) {
+  if (downsample_method == DownsampleMethod::kStride) {
+    return base_transform | tensorstore::AllDims().Stride(downsample_factors) |
+           downsampled_transform;
+  }
+  PropagatedIndexTransformDownsampling propagated;
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal_downsample::PropagateAndComposeIndexTransformDownsampling(
+          downsampled_transform, base_transform, downsample_factors,
+          propagated));
+  return std::move(propagated.transform);
+}
+
 class DownsampleDriverSpec
     : public internal::RegisteredDriverSpec<DownsampleDriverSpec,
                                             /*Parent=*/internal::DriverSpec> {
@@ -237,6 +253,22 @@ class DownsampleDriverSpec
     return base.driver_spec->GetKvstore();
   }
 
+  Result<TransformedDriverSpec> GetBase(
+      IndexTransformView<> transform) const override {
+    TransformedDriverSpec new_base;
+    new_base.driver_spec = base.driver_spec;
+    if (transform.valid()) {
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          new_base.transform,
+          GetBaseTransformForDownsampledTransform(
+              base.transform.valid()
+                  ? base.transform
+                  : tensorstore::IdentityTransform(downsample_factors.size()),
+              transform, downsample_factors, downsample_method));
+    }
+    return new_base;
+  }
+
   Future<internal::Driver::Handle> Open(
       internal::OpenTransactionPtr transaction,
       ReadWriteMode read_write_mode) const override {
@@ -307,24 +339,21 @@ class DownsampleDriver
                                    GetStridedBaseTransform() | transform);
       return base_driver_->GetFillValue(strided_transform);
     }
+    PropagatedIndexTransformDownsampling propagated;
+    TENSORSTORE_RETURN_IF_ERROR(
+        internal_downsample::PropagateAndComposeIndexTransformDownsampling(
+            transform, base_transform_, downsample_factors_, propagated));
     TENSORSTORE_ASSIGN_OR_RETURN(
-        auto propagated_transform,
-        internal_downsample::PropagateIndexTransformDownsampling(
-            transform, base_transform_.domain().box(), downsample_factors_));
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto propagated_base_transform,
-        ComposeTransforms(base_transform_, propagated_transform.transform));
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto fill_value, base_driver_->GetFillValue(propagated_base_transform));
+        auto fill_value, base_driver_->GetFillValue(propagated.transform));
     if (!fill_value.valid()) return {std::in_place};
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto broadcast_fill_value,
         BroadcastArray(std::move(fill_value),
-                       propagated_base_transform.domain().box()));
+                       propagated.transform.domain().box()));
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto downsampled_fill_value,
         internal_downsample::DownsampleArray(
-            broadcast_fill_value, propagated_transform.input_downsample_factors,
+            broadcast_fill_value, propagated.input_downsample_factors,
             downsample_method_));
     return UnbroadcastArray(downsampled_fill_value);
   }
@@ -340,6 +369,20 @@ class DownsampleDriver
 
   KvStore GetKvstore(const Transaction& transaction) override {
     return base_driver_->GetKvstore(transaction);
+  }
+
+  Result<internal::DriverHandle> GetBase(
+      ReadWriteMode read_write_mode, IndexTransformView<> transform,
+      const Transaction& transaction) override {
+    internal::DriverHandle base_handle;
+    base_handle.driver = base_driver_;
+    base_handle.driver.set_read_write_mode(read_write_mode);
+    base_handle.transaction = transaction;
+    TENSORSTORE_ASSIGN_OR_RETURN(base_handle.transform,
+                                 GetBaseTransformForDownsampledTransform(
+                                     base_transform_, transform,
+                                     downsample_factors_, downsample_method_));
+    return base_handle;
   }
 
   Future<ArrayStorageStatistics> GetStorageStatistics(
@@ -900,42 +943,37 @@ void DownsampleDriver::Read(
   execution::set_starting(state->receiver_,
                           [state = state.get()] { state->Cancel(); });
   std::move(base_resolve_future)
-      .ExecuteWhenReady(
-          [state = std::move(state), transaction = std::move(transaction),
-           transform =
-               std::move(transform)](ReadyFuture<IndexTransform<>> future) {
-            auto& r = future.result();
-            if (!r.ok()) {
-              state->SetError(std::move(r.status()));
-              return;
-            }
-            IndexTransform<> base_transform = std::move(*r);
-            TENSORSTORE_ASSIGN_OR_RETURN(
-                auto propagated,
-                internal_downsample::PropagateIndexTransformDownsampling(
-                    transform, base_transform.domain().box(),
-                    state->self_->downsample_factors_),
-                state->SetError(_));
-            // The domain of `propagated.transform`, when downsampled by
-            // `propagated.input_downsample_factors`, matches
-            // `transform.domain()`.
+      .ExecuteWhenReady([state = std::move(state),
+                         transaction = std::move(transaction),
+                         transform = std::move(transform)](
+                            ReadyFuture<IndexTransform<>> future) {
+        auto& r = future.result();
+        if (!r.ok()) {
+          state->SetError(std::move(r.status()));
+          return;
+        }
+        IndexTransform<> base_transform = std::move(*r);
+        PropagatedIndexTransformDownsampling propagated;
+        TENSORSTORE_RETURN_IF_ERROR(
+            internal_downsample::PropagateAndComposeIndexTransformDownsampling(
+                transform, base_transform, state->self_->downsample_factors_,
+                propagated),
+            state->SetError(_));
+        // The domain of `propagated.transform`, when downsampled by
+        // `propagated.input_downsample_factors`, matches
+        // `transform.domain()`.
 
-            // Compute the read request for `base_driver_`.
-            TENSORSTORE_ASSIGN_OR_RETURN(
-                propagated.transform,
-                ComposeTransforms(state->self_->base_transform_,
-                                  propagated.transform),
-                state->SetError(_));
-            state->remaining_elements_ =
-                propagated.transform.domain().num_elements();
-            state->downsample_factors_ =
-                std::move(propagated.input_downsample_factors);
-            state->base_transform_domain_ = propagated.transform.domain();
-            auto* state_ptr = state.get();
-            state_ptr->self_->base_driver_->Read(
-                std::move(transaction), std::move(propagated.transform),
-                ReadReceiverImpl{std::move(state)});
-          });
+        // Compute the read request for `base_driver_`.
+        state->remaining_elements_ =
+            propagated.transform.domain().num_elements();
+        state->downsample_factors_ =
+            std::move(propagated.input_downsample_factors);
+        state->base_transform_domain_ = propagated.transform.domain();
+        auto* state_ptr = state.get();
+        state_ptr->self_->base_driver_->Read(
+            std::move(transaction), std::move(propagated.transform),
+            ReadReceiverImpl{std::move(state)});
+      });
 }
 
 Future<ArrayStorageStatistics> DownsampleDriver::GetStorageStatistics(
@@ -965,22 +1003,16 @@ Future<ArrayStorageStatistics> DownsampleDriver::GetStorageStatistics(
               Promise<ArrayStorageStatistics> promise,
               ReadyFuture<IndexTransform<>> future) mutable {
             IndexTransform<> base_transform = std::move(future.value());
-            TENSORSTORE_ASSIGN_OR_RETURN(
-                auto propagated,
-                internal_downsample::PropagateIndexTransformDownsampling(
-                    transform, base_transform.domain().box(),
-                    self->downsample_factors_),
+            PropagatedIndexTransformDownsampling propagated;
+            TENSORSTORE_RETURN_IF_ERROR(
+                internal_downsample::
+                    PropagateAndComposeIndexTransformDownsampling(
+                        transform, base_transform, self->downsample_factors_,
+                        propagated),
                 static_cast<void>(promise.SetResult(_)));
             // The domain of `propagated.transform`, when downsampled by
             // `propagated.input_downsample_factors`, matches
             // `transform.domain()`.
-
-            // Compute the read request for `base_driver_`.
-            TENSORSTORE_ASSIGN_OR_RETURN(
-                propagated.transform,
-                ComposeTransforms(self->base_transform_, propagated.transform),
-                static_cast<void>(promise.SetResult(_)));
-
             LinkResult(
                 std::move(promise),
                 self->base_driver_->GetStorageStatistics(

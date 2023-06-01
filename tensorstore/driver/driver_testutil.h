@@ -60,6 +60,11 @@ struct TestTensorStoreDriverSpecRoundtripOptions {
   ::nlohmann::json full_spec;
   ::nlohmann::json create_spec = ::nlohmann::json::value_t::discarded;
   ::nlohmann::json minimal_spec;
+
+  // Result of calling `base()` on full spec.  The default value of `discarded`
+  // means a null spec.
+  ::nlohmann::json full_base_spec = ::nlohmann::json::value_t::discarded;
+
   SpecRequestOptions spec_request_options;
   JsonSerializationOptions to_json_options;
   std::vector<TransactionMode> supported_transaction_modes = {

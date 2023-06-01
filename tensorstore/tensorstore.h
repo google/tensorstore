@@ -294,6 +294,11 @@ class TensorStore {
   /// be bound to the returned key-value store.
   KvStore kvstore() const { return internal::GetKvstore(handle_); }
 
+  /// Returns the underlying TensorStore, if this is an adapter.
+  ///
+  /// Otherwise, returns a null TensorStore.
+  Result<TensorStore<>> base() const;
+
   /// Returns the schema for this TensorStore.
   ///
   /// Note that the schema reflects any index transforms that have been applied
@@ -369,6 +374,13 @@ class TensorStore {
 
   internal::Driver::Handle handle_;
 };
+
+template <typename ElementType, DimensionIndex Rank, ReadWriteMode Mode>
+Result<TensorStore<>> TensorStore<ElementType, Rank, Mode>::base() const {
+  TENSORSTORE_ASSIGN_OR_RETURN(auto base_handle, internal::GetBase(handle_));
+  return internal::TensorStoreAccess::Construct<TensorStore<>>(
+      std::move(base_handle));
+}
 
 // Specialization of `StaticCastTraits` for the `TensorStore` class template,
 // which enables `StaticCast`, `StaticRankCast`, `StaticDataTypeCast`, and

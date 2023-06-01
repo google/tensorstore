@@ -639,6 +639,20 @@ absl::Status PropagateIndexTransformDownsampling(
   return absl::OkStatus();
 }
 
+absl::Status PropagateAndComposeIndexTransformDownsampling(
+    IndexTransformView<> downsampled_transform,
+    IndexTransformView<> base_transform,
+    span<const Index> base_downsample_factors,
+    PropagatedIndexTransformDownsampling& propagated) {
+  TENSORSTORE_RETURN_IF_ERROR(PropagateIndexTransformDownsampling(
+      downsampled_transform, base_transform.domain().box(),
+      base_downsample_factors, propagated));
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      propagated.transform,
+      ComposeTransforms(base_transform, propagated.transform));
+  return absl::OkStatus();
+}
+
 Result<PropagatedIndexTransformDownsampling>
 PropagateIndexTransformDownsampling(
     IndexTransformView<> downsampled_transform, BoxView<> output_base_bounds,
