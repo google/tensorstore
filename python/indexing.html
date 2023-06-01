@@ -449,6 +449,13 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#mark-bounds-implicit" class="md-nav__link">
+    <span class="md-ellipsis">mark_<wbr>bounds_<wbr>implicit</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#oindex" class="md-nav__link">
     <span class="md-ellipsis">oindex</span>
   </a>
@@ -892,6 +899,13 @@
           <li class="md-nav__item">
   <a href="#transpose" class="md-nav__link">
     <span class="md-ellipsis">transpose</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mark-bounds-implicit" class="md-nav__link">
+    <span class="md-ellipsis">mark_<wbr>bounds_<wbr>implicit</span>
   </a>
   
 </li>
@@ -1907,6 +1921,23 @@ full validation is deferred until it is actually applied to an
 <span class="go">})</span>
 </code></pre></div>
 </div>
+<p>This operation can also be applied directly to <a class="reference internal" href="api/tensorstore.Indexable.html" title="tensorstore.Indexable (Python class) — Abstract base class for types that support TensorStore indexing operations."><code class="xref any py py-class docutils literal notranslate"><span class="pre">tensorstore.Indexable</span></code></a> types, in
+which case it applies to all dimensions:</p>
+<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">],</span> <span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">]],</span>
+<span class="gp">... </span>         <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span><span class="o">.</span><span class="n">label</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">]</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]],</span>
+<span class="go">  &#39;context&#39;: {&#39;data_copy_concurrency&#39;: {}},</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {</span>
+<span class="go">    &#39;input_exclusive_max&#39;: [3, 4],</span>
+<span class="go">    &#39;input_inclusive_min&#39;: [0, 0],</span>
+<span class="go">    &#39;input_labels&#39;: [&#39;x&#39;, &#39;y&#39;],</span>
+<span class="go">  },</span>
+<span class="go">})</span>
+</code></pre></div>
+</div>
 <h4 id="diagonal"><a class="reference internal" href="api/tensorstore.DimExpression.diagonal.html" title="tensorstore.DimExpression.diagonal (Python property) — Extracts the diagonal of the selected dimensions."><code class="xref py py-obj docutils literal notranslate"><span class="pre">diagonal</span></code></a><a class="headerlink" href="#diagonal" title="Permalink to this heading">¶</a></h4>
 <p>Extracts the diagonal of the selected dimensions.</p>
 <div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">a</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">],</span> <span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">]],</span>
@@ -1934,6 +1965,26 @@ origins without affecting the output range.</p>
 <span class="go">(1, 2)</span>
 </code></pre></div>
 </div>
+<p>This operation can also be applied directly to <a class="reference internal" href="api/tensorstore.Indexable.html" title="tensorstore.Indexable (Python class) — Abstract base class for types that support TensorStore indexing operations."><code class="xref any py py-class docutils literal notranslate"><span class="pre">tensorstore.Indexable</span></code></a> types, in
+which case it applies to all dimensions:</p>
+<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">],</span> <span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">]],</span>
+<span class="gp">... </span>         <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span><span class="o">.</span><span class="n">translate_to</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]],</span>
+<span class="go">  &#39;context&#39;: {&#39;data_copy_concurrency&#39;: {}},</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {</span>
+<span class="go">    &#39;input_exclusive_max&#39;: [4, 5],</span>
+<span class="go">    &#39;input_inclusive_min&#39;: [1, 1],</span>
+<span class="go">    &#39;output&#39;: [</span>
+<span class="go">      {&#39;input_dimension&#39;: 0, &#39;offset&#39;: -1},</span>
+<span class="go">      {&#39;input_dimension&#39;: 1, &#39;offset&#39;: -1},</span>
+<span class="go">    ],</span>
+<span class="go">  },</span>
+<span class="go">})</span>
+</code></pre></div>
+</div>
 <h4 id="translate-by"><a class="reference internal" href="api/tensorstore.DimExpression.translate_by.html" title="tensorstore.DimExpression.translate_by (Python method) — Translates (shifts) the domains of the selected input dimensions by the specified offsets, without affecting the output range."><code class="xref py py-obj docutils literal notranslate"><span class="pre">translate_by</span></code></a><a class="headerlink" href="#translate-by" title="Permalink to this heading">¶</a></h4>
 <p>Translates (shifts) the domains of the selected input dimensions by the
 specified offsets, without affecting the output range.</p>
@@ -1943,6 +1994,26 @@ specified offsets, without affecting the output range.</p>
 <span class="go">(-1, 1)</span>
 </code></pre></div>
 </div>
+<p>This operation can also be applied directly to <a class="reference internal" href="api/tensorstore.Indexable.html" title="tensorstore.Indexable (Python class) — Abstract base class for types that support TensorStore indexing operations."><code class="xref any py py-class docutils literal notranslate"><span class="pre">tensorstore.Indexable</span></code></a> types, in
+which case it applies to all dimensions:</p>
+<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">],</span> <span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">]],</span>
+<span class="gp">... </span>         <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span><span class="o">.</span><span class="n">translate_by</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]],</span>
+<span class="go">  &#39;context&#39;: {&#39;data_copy_concurrency&#39;: {}},</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {</span>
+<span class="go">    &#39;input_exclusive_max&#39;: [2, 5],</span>
+<span class="go">    &#39;input_inclusive_min&#39;: [-1, 1],</span>
+<span class="go">    &#39;output&#39;: [</span>
+<span class="go">      {&#39;input_dimension&#39;: 0, &#39;offset&#39;: 1},</span>
+<span class="go">      {&#39;input_dimension&#39;: 1, &#39;offset&#39;: -1},</span>
+<span class="go">    ],</span>
+<span class="go">  },</span>
+<span class="go">})</span>
+</code></pre></div>
+</div>
 <h4 id="translate-backward-by"><a class="reference internal" href="api/tensorstore.DimExpression.translate_backward_by.html" title="tensorstore.DimExpression.translate_backward_by (Python method) — Translates (shifts) the domains of the selected input dimensions backward by the specified offsets, without affecting the output range."><code class="xref py py-obj docutils literal notranslate"><span class="pre">translate_backward_by</span></code></a><a class="headerlink" href="#translate-backward-by" title="Permalink to this heading">¶</a></h4>
 <p>Translates (shifts) the domains of the selected input dimensions backward by
 the specified offsets, without affecting the output range.</p>
@@ -1950,6 +2021,26 @@ the specified offsets, without affecting the output range.</p>
 <span class="gp">... </span>             <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">a</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[:]</span><span class="o">.</span><span class="n">translate_backward_by</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]]</span><span class="o">.</span><span class="n">origin</span>
 <span class="go">(1, -1)</span>
+</code></pre></div>
+</div>
+<p>This operation can also be applied directly to <a class="reference internal" href="api/tensorstore.Indexable.html" title="tensorstore.Indexable (Python class) — Abstract base class for types that support TensorStore indexing operations."><code class="xref any py py-class docutils literal notranslate"><span class="pre">tensorstore.Indexable</span></code></a> types, in
+which case it applies to all dimensions:</p>
+<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">],</span> <span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">]],</span>
+<span class="gp">... </span>         <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span><span class="o">.</span><span class="n">translate_backward_by</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+<span class="go">TensorStore({</span>
+<span class="go">  &#39;array&#39;: [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]],</span>
+<span class="go">  &#39;context&#39;: {&#39;data_copy_concurrency&#39;: {}},</span>
+<span class="go">  &#39;driver&#39;: &#39;array&#39;,</span>
+<span class="go">  &#39;dtype&#39;: &#39;int32&#39;,</span>
+<span class="go">  &#39;transform&#39;: {</span>
+<span class="go">    &#39;input_exclusive_max&#39;: [4, 3],</span>
+<span class="go">    &#39;input_inclusive_min&#39;: [1, -1],</span>
+<span class="go">    &#39;output&#39;: [</span>
+<span class="go">      {&#39;input_dimension&#39;: 0, &#39;offset&#39;: -1},</span>
+<span class="go">      {&#39;input_dimension&#39;: 1, &#39;offset&#39;: 1},</span>
+<span class="go">    ],</span>
+<span class="go">  },</span>
+<span class="go">})</span>
 </code></pre></div>
 </div>
 <h4 id="stride"><a class="reference internal" href="api/tensorstore.DimExpression.stride.html" title="tensorstore.DimExpression.stride (Python method) — Strides the domains of the selected input dimensions by the specified amounts."><code class="xref py py-obj docutils literal notranslate"><span class="pre">stride</span></code></a><a class="headerlink" href="#stride" title="Permalink to this heading">¶</a></h4>
@@ -1995,6 +2086,81 @@ the specified offsets, without affecting the output range.</p>
 <span class="go">    &#39;input_labels&#39;: [&#39;y&#39;, &#39;x&#39;],</span>
 <span class="go">  },</span>
 <span class="go">})</span>
+</code></pre></div>
+</div>
+<h4 id="mark-bounds-implicit"><a class="reference internal" href="api/tensorstore.DimExpression.mark_bounds_implicit.html" title="tensorstore.DimExpression.mark_bounds_implicit (Python method) — Marks the lower/upper bounds of the selected dimensions as implicit/explicit."><code class="xref py py-obj docutils literal notranslate"><span class="pre">mark_bounds_implicit</span></code></a><a class="headerlink" href="#mark-bounds-implicit" title="Permalink to this heading">¶</a></h4>
+<p>Changes the lower and/or upper bounds of the selected dimensions to be
+<a class="reference internal" href="../index_space.html#implicit-bounds"><span class="std std-ref">implicit or explicit</span></a>.</p>
+<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">s</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">({</span>
+<span class="gp">... </span>    <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;zarr&#39;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="s1">&#39;memory://&#39;</span>
+<span class="gp">... </span><span class="p">},</span>
+<span class="gp">... </span>                  <span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="mi">100</span><span class="p">,</span> <span class="mi">200</span><span class="p">],</span>
+<span class="gp">... </span>                  <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">uint32</span><span class="p">,</span>
+<span class="gp">... </span>                  <span class="n">create</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">s</span><span class="o">.</span><span class="n">domain</span>
+<span class="go">{ [0, 100*), [0, 200*) }</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">await</span> <span class="n">s</span><span class="o">.</span><span class="n">resize</span><span class="p">(</span><span class="n">exclusive_max</span><span class="o">=</span><span class="p">[</span><span class="mi">200</span><span class="p">,</span> <span class="mi">300</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">(</span><span class="k">await</span> <span class="n">s</span><span class="o">.</span><span class="n">resolve</span><span class="p">())</span><span class="o">.</span><span class="n">domain</span>
+<span class="go">{ [0, 200*), [0, 300*) }</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">(</span><span class="k">await</span> <span class="n">s</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">mark_bounds_implicit</span><span class="p">[</span><span class="kc">False</span><span class="p">]]</span><span class="o">.</span><span class="n">resolve</span><span class="p">())</span><span class="o">.</span><span class="n">domain</span>
+<span class="go">{ [0, 100), [0, 300*) }</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">s_subregion</span> <span class="o">=</span> <span class="n">s</span><span class="p">[</span><span class="mi">20</span><span class="p">:</span><span class="mi">30</span><span class="p">,</span> <span class="mi">40</span><span class="p">:</span><span class="mi">50</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">s_subregion</span><span class="o">.</span><span class="n">domain</span>
+<span class="go">{ [20, 30), [40, 50) }</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">(</span><span class="k">await</span>
+<span class="gp">... </span> <span class="n">s_subregion</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">mark_bounds_implicit</span><span class="p">[:</span><span class="kc">True</span><span class="p">]]</span><span class="o">.</span><span class="n">resolve</span><span class="p">())</span><span class="o">.</span><span class="n">domain</span>
+<span class="go">{ [20, 200*), [40, 50) }</span>
+
+<span class="gp">&gt;&gt;&gt; </span><span class="n">t</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">IndexTransform</span><span class="p">(</span><span class="n">input_rank</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">t</span> <span class="o">=</span> <span class="n">t</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">mark_bounds_implicit</span><span class="p">[</span><span class="kc">False</span><span class="p">]]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">t</span>
+<span class="go">Rank 3 -&gt; 3 index space transform:</span>
+<span class="go">  Input domain:</span>
+<span class="go">    0: (-inf, +inf)</span>
+<span class="go">    1: (-inf*, +inf*)</span>
+<span class="go">    2: (-inf, +inf)</span>
+<span class="go">  Output index maps:</span>
+<span class="go">    out[0] = 0 + 1 * in[0]</span>
+<span class="go">    out[1] = 0 + 1 * in[1]</span>
+<span class="go">    out[2] = 0 + 1 * in[2]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">t</span> <span class="o">=</span> <span class="n">t</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">mark_bounds_implicit</span><span class="p">[:</span><span class="kc">True</span><span class="p">]]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">t</span>
+<span class="go">Rank 3 -&gt; 3 index space transform:</span>
+<span class="go">  Input domain:</span>
+<span class="go">    0: (-inf, +inf*)</span>
+<span class="go">    1: (-inf*, +inf*)</span>
+<span class="go">    2: (-inf, +inf)</span>
+<span class="go">  Output index maps:</span>
+<span class="go">    out[0] = 0 + 1 * in[0]</span>
+<span class="go">    out[1] = 0 + 1 * in[1]</span>
+<span class="go">    out[2] = 0 + 1 * in[2]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">t</span> <span class="o">=</span> <span class="n">t</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">d</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">mark_bounds_implicit</span><span class="p">[</span><span class="kc">True</span><span class="p">:</span><span class="kc">False</span><span class="p">]]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">t</span>
+<span class="go">Rank 3 -&gt; 3 index space transform:</span>
+<span class="go">  Input domain:</span>
+<span class="go">    0: (-inf, +inf*)</span>
+<span class="go">    1: (-inf*, +inf)</span>
+<span class="go">    2: (-inf*, +inf)</span>
+<span class="go">  Output index maps:</span>
+<span class="go">    out[0] = 0 + 1 * in[0]</span>
+<span class="go">    out[1] = 0 + 1 * in[1]</span>
+<span class="go">    out[2] = 0 + 1 * in[2]</span>
+</code></pre></div>
+</div>
+<p>This operation can also be applied directly to <a class="reference internal" href="api/tensorstore.Indexable.html" title="tensorstore.Indexable (Python class) — Abstract base class for types that support TensorStore indexing operations."><code class="xref any py py-class docutils literal notranslate"><span class="pre">tensorstore.Indexable</span></code></a> types, in
+which case it applies to all dimensions:</p>
+<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">s</span> <span class="o">=</span> <span class="k">await</span> <span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">({</span>
+<span class="gp">... </span>    <span class="s1">&#39;driver&#39;</span><span class="p">:</span> <span class="s1">&#39;zarr&#39;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="s1">&#39;kvstore&#39;</span><span class="p">:</span> <span class="s1">&#39;memory://&#39;</span>
+<span class="gp">... </span><span class="p">},</span>
+<span class="gp">... </span>                  <span class="n">shape</span><span class="o">=</span><span class="p">[</span><span class="mi">100</span><span class="p">,</span> <span class="mi">200</span><span class="p">],</span>
+<span class="gp">... </span>                  <span class="n">dtype</span><span class="o">=</span><span class="n">ts</span><span class="o">.</span><span class="n">uint32</span><span class="p">,</span>
+<span class="gp">... </span>                  <span class="n">create</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">s</span><span class="o">.</span><span class="n">domain</span>
+<span class="go">{ [0, 100*), [0, 200*) }</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">s</span><span class="o">.</span><span class="n">mark_bounds_implicit</span><span class="p">[</span><span class="kc">False</span><span class="p">]</span><span class="o">.</span><span class="n">domain</span>
+<span class="go">{ [0, 100), [0, 200) }</span>
 </code></pre></div>
 </div>
 <h4 id="oindex"><a class="reference internal" href="api/tensorstore.DimExpression.oindex.html" title="tensorstore.DimExpression.oindex (Python method) — Applies a NumPy-style indexing operation with outer indexing semantics."><code class="xref py py-obj docutils literal notranslate"><span class="pre">oindex</span></code></a><a class="headerlink" href="#oindex" title="Permalink to this heading">¶</a></h4>
