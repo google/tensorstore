@@ -28,11 +28,13 @@
 #include <vector>
 
 #include "absl/base/optimization.h"
+#include "absl/container/inlined_vector.h"
 #include "absl/status/status.h"
 #include "absl/strings/escaping.h"
 #include "python/tensorstore/index.h"
 #include "python/tensorstore/numpy_indexing_spec.h"
 #include "python/tensorstore/sequence_parameter.h"
+#include "python/tensorstore/serialization.h"
 #include "python/tensorstore/subscript_method.h"
 #include "python/tensorstore/tensorstore_module_components.h"
 #include "python/tensorstore/typed_slice.h"
@@ -43,6 +45,10 @@
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/internal/numpy_indexing_spec.h"
 #include "tensorstore/internal/global_initializer.h"
+#include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/serialization/std_optional.h"
+#include "tensorstore/serialization/std_variant.h"
+#include "tensorstore/serialization/std_vector.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
@@ -72,37 +78,16 @@ void AppendDimensionSelectionRepr(std::string* out,
   }
 }
 
-std::string DimensionSelection::repr() const {
+std::string PythonDimExpressionChainTail::repr() const {
   std::string out = "d[";
   AppendDimensionSelectionRepr(&out, dims);
   tensorstore::StrAppend(&out, "]");
   return out;
 }
 
-Result<IndexTransform<>> DimensionSelection::Apply(
-    IndexTransform<> transform, DimensionIndexBuffer* dimensions,
-    bool top_level, bool domain_only) const {
-  if (top_level) {
-    return absl::InvalidArgumentError(
-        "Must specify at least one operation in dimension expression");
-  }
-  TENSORSTORE_RETURN_IF_ERROR(internal_index_space::GetDimensions(
-      transform.input_labels(), dims, dimensions));
-  return transform;
-}
-
-using internal_index_space::TranslateOpKind;
-
-/// Python equivalent of `tensorstore::internal_index_space::TranslateOp`.
-class PythonTranslateOp : public PythonDimExpression {
- public:
-  explicit PythonTranslateOp(std::shared_ptr<const PythonDimExpression> parent,
-                             IndexVectorOrScalarContainer indices,
-                             TranslateOpKind kind)
-      : parent_(std::move(parent)), indices_(std::move(indices)), kind_(kind) {}
-
-  std::string_view op_suffix() const {
-    switch (kind_) {
+std::string PythonTranslateOp::repr() const {
+  constexpr auto op_suffix = [](TranslateOpKind kind) {
+    switch (kind) {
       case TranslateOpKind::kTranslateTo:
         return "to";
       case TranslateOpKind::kTranslateBy:
@@ -111,260 +96,262 @@ class PythonTranslateOp : public PythonDimExpression {
         return "backward_by";
     }
     ABSL_UNREACHABLE();  // COV_NF_LINE
+  };
+
+  return tensorstore::StrCat(
+      ".translate_", op_suffix(translate_kind), "[",
+      IndexVectorRepr(indices, /*implicit=*/true, /*subscript=*/true), "]");
+}
+
+Result<IndexTransform<>> PythonTranslateOp::Apply(IndexTransform<> transform,
+                                                  DimensionIndexBuffer* buffer,
+                                                  bool domain_only) const {
+  return internal_index_space::ApplyTranslate(
+      std::move(transform), buffer, indices, translate_kind, domain_only);
+}
+
+std::string PythonStrideOp::repr() const {
+  return tensorstore::StrCat(
+      ".stride[",
+      IndexVectorRepr(strides, /*implicit=*/true, /*subscript=*/true), "]");
+}
+
+Result<IndexTransform<>> PythonStrideOp::Apply(IndexTransform<> transform,
+                                               DimensionIndexBuffer* buffer,
+                                               bool domain_only) const {
+  return internal_index_space::ApplyStrideOp(std::move(transform), buffer,
+                                             strides, domain_only);
+}
+
+std::string PythonLabelOp::repr() const {
+  std::string r = ".label[";
+  for (size_t i = 0; i < labels.size(); ++i) {
+    tensorstore::StrAppend(&r, i == 0 ? "" : ",", "'",
+                           absl::CHexEscape(labels[i]), "'");
   }
+  tensorstore::StrAppend(&r, "]");
+  return r;
+}
 
-  std::string repr() const override {
-    return tensorstore::StrCat(
-        parent_->repr(), ".translate_", op_suffix(), "[",
-        IndexVectorRepr(indices_, /*implicit=*/true, /*subscript=*/true), "]");
+Result<IndexTransform<>> PythonLabelOp::Apply(IndexTransform<> transform,
+                                              DimensionIndexBuffer* buffer,
+                                              bool domain_only) const {
+  return internal_index_space::ApplyLabel(std::move(transform), buffer,
+                                          span(labels), domain_only);
+}
+
+std::string PythonDiagonalOp::repr() const { return ".diagonal"; }
+
+Result<IndexTransform<>> PythonDiagonalOp::Apply(IndexTransform<> transform,
+                                                 DimensionIndexBuffer* buffer,
+                                                 bool domain_only) const {
+  return internal_index_space::ApplyDiagonal(std::move(transform), buffer,
+                                             domain_only);
+}
+
+std::string PythonTransposeOp::repr() const {
+  std::string out = ".transpose[";
+  AppendDimensionSelectionRepr(&out, target_dim_specs);
+  tensorstore::StrAppend(&out, "]");
+  return out;
+}
+
+Result<IndexTransform<>> PythonTransposeOp::Apply(IndexTransform<> transform,
+                                                  DimensionIndexBuffer* buffer,
+                                                  bool domain_only) const {
+  return internal_index_space::ApplyTransposeToDynamic(
+      std::move(transform), buffer, target_dim_specs, domain_only);
+}
+
+std::string PythonChangeImplicitStateOp::repr() const {
+  std::string out = ".mark_bounds_implicit[";
+  constexpr auto format_bound =
+      [](std::optional<bool> value) -> std::string_view {
+    if (!value.has_value()) return "";
+    return *value ? "True" : "False";
+  };
+  if (lower_implicit == upper_implicit && lower_implicit) {
+    tensorstore::StrAppend(&out, format_bound(lower_implicit));
+  } else {
+    tensorstore::StrAppend(&out, format_bound(lower_implicit), ":",
+                           format_bound(upper_implicit));
   }
+  out += ']';
+  return out;
+}
 
-  Result<IndexTransform<>> Apply(IndexTransform<> transform,
-                                 DimensionIndexBuffer* buffer, bool top_level,
-                                 bool domain_only) const override {
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        transform, parent_->Apply(std::move(transform), buffer,
-                                  /*top_level=*/false, domain_only));
-    return internal_index_space::ApplyTranslate(std::move(transform), buffer,
-                                                indices_, kind_, domain_only);
-  }
-
- private:
-  std::shared_ptr<const PythonDimExpression> parent_;
-  IndexVectorOrScalarContainer indices_;
-  TranslateOpKind kind_;
-};
-
-/// Python equivalent of `tensorstore::internal_index_space::StrideOp`.
-class PythonStrideOp : public PythonDimExpression {
- public:
-  explicit PythonStrideOp(std::shared_ptr<const PythonDimExpression> parent,
-                          IndexVectorOrScalarContainer strides)
-      : parent_(std::move(parent)), strides_(std::move(strides)) {}
-
-  std::string repr() const override {
-    return tensorstore::StrCat(
-        parent_->repr(), ".stride[",
-        IndexVectorRepr(strides_, /*implicit=*/true, /*subscript=*/true), "]");
-  }
-
-  Result<IndexTransform<>> Apply(IndexTransform<> transform,
-                                 DimensionIndexBuffer* buffer, bool top_level,
-                                 bool domain_only) const override {
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        transform, parent_->Apply(std::move(transform), buffer,
-                                  /*top_level=*/false, domain_only));
-    return internal_index_space::ApplyStrideOp(std::move(transform), buffer,
-                                               strides_, domain_only);
-  }
-
- private:
-  std::shared_ptr<const PythonDimExpression> parent_;
-  IndexVectorOrScalarContainer strides_;
-};
-
-/// Python equivalent of `tensorstore::internal_index_space::LabelOp`.
-class PythonLabelOp : public PythonDimExpression {
- public:
-  explicit PythonLabelOp(std::shared_ptr<const PythonDimExpression> parent,
-                         SequenceParameter<std::string> labels)
-      : parent_(std::move(parent)), labels_(std::move(labels).value) {}
-
-  std::string repr() const override {
-    std::string r = tensorstore::StrCat(parent_->repr(), ".label[");
-    for (size_t i = 0; i < labels_.size(); ++i) {
-      tensorstore::StrAppend(&r, i == 0 ? "" : ",", "'",
-                             absl::CHexEscape(labels_[i]), "'");
+Result<IndexTransform<>> PythonChangeImplicitStateOp::Apply(
+    IndexTransform<> transform, DimensionIndexBuffer* buffer,
+    bool domain_only) const {
+  const auto do_apply = [&](bool implicit) {
+    if (lower_implicit == implicit || upper_implicit == implicit) {
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          transform, internal_index_space::ApplyChangeImplicitState(
+                         std::move(transform), buffer, implicit,
+                         lower_implicit == implicit, upper_implicit == implicit,
+                         domain_only));
     }
-    tensorstore::StrAppend(&r, "]");
-    return r;
+    return absl::OkStatus();
+  };
+  TENSORSTORE_RETURN_IF_ERROR(do_apply(false));
+  TENSORSTORE_RETURN_IF_ERROR(do_apply(true));
+  return transform;
+}
+
+std::string PythonIndexOp::repr() const {
+  return tensorstore::StrCat(GetIndexingModePrefix(spec.mode), "[",
+                             IndexingSpecRepr(spec), "]");
+}
+
+Result<IndexTransform<>> PythonIndexOp::Apply(IndexTransform<> transform,
+                                              DimensionIndexBuffer* buffer,
+                                              bool domain_only) const {
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto new_transform, ToIndexTransform(spec, transform.domain(), buffer));
+  return internal_index_space::ComposeTransforms(
+      std::move(transform), std::move(new_transform), domain_only);
+}
+
+Result<IndexTransform<>> PythonIndexOp::ApplyInitial(
+    span<const DynamicDimSpec> dim_selection, IndexTransform<> transform,
+    DimensionIndexBuffer* buffer, bool domain_only) const {
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto new_transform,
+      ToIndexTransform(spec, transform.domain(), dim_selection, buffer));
+  return internal_index_space::ComposeTransforms(
+      transform, std::move(new_transform), domain_only);
+}
+namespace {
+auto GetOps(const PythonDimExpressionChain& ops) {
+  absl::InlinedVector<const PythonDimExpressionChain*, 4> op_vec;
+  for (auto* op = &ops; op; op = op->parent.get()) {
+    op_vec.push_back(op);
+  }
+  return op_vec;
+}
+}  // namespace
+
+std::string PythonDimExpression::repr() const {
+  std::string out;
+  auto op_vec = GetOps(*ops);
+  for (size_t i = op_vec.size(); i--;) {
+    out += op_vec[i]->repr();
+  }
+  return out;
+}
+
+Result<IndexTransform<>> PythonDimExpressionChainTail::Apply(
+    IndexTransform<> transform, DimensionIndexBuffer* dimensions,
+    bool domain_only) const {
+  TENSORSTORE_RETURN_IF_ERROR(internal_index_space::GetDimensions(
+      transform.input_labels(), dims, dimensions));
+  return transform;
+}
+
+Result<IndexTransform<>> PythonDimExpression::Apply(
+    IndexTransform<> transform, DimensionIndexBuffer* dimensions,
+    bool domain_only) const {
+  auto op_vec = GetOps(*ops);
+  if (op_vec.size() < 2) {
+    return absl::InvalidArgumentError(
+        "Must specify at least one operation in dimension expression");
   }
 
-  Result<IndexTransform<>> Apply(IndexTransform<> transform,
-                                 DimensionIndexBuffer* buffer, bool top_level,
-                                 bool domain_only) const override {
+  // Last element of `op_vec` is the dimension selection.  All prior elements
+  // are the operations to apply (in reverse order).
+
+  auto op_it = op_vec.rbegin();
+
+  // If the first op after the dimension selection is a `PythonIndexOp`, it
+  // needs to be handled specially to support `ts.newaxis` terms.
+  if (auto first_op_it = std::next(op_it);
+      (*first_op_it)->kind() == DimExpressionOpKind::kIndex) {
+    op_it = std::next(first_op_it);
+    auto* dim_selection_op =
+        static_cast<const PythonDimExpressionChainTail*>(op_vec.back());
     TENSORSTORE_ASSIGN_OR_RETURN(
-        transform, parent_->Apply(std::move(transform), buffer,
-                                  /*top_level=*/false, domain_only));
-    return internal_index_space::ApplyLabel(std::move(transform), buffer,
-                                            span(labels_), domain_only);
+        transform,
+        (static_cast<const PythonDimExpressionChainOp<PythonIndexOp>*>(
+             *first_op_it))
+            ->op.ApplyInitial(dim_selection_op->dims, std::move(transform),
+                              dimensions, domain_only));
   }
-
- private:
-  std::shared_ptr<const PythonDimExpression> parent_;
-  std::vector<std::string> labels_;
-};
-
-/// Python equivalent of `tensorstore::internal_index_space::DiagonalOp`.
-class PythonDiagonalOp : public PythonDimExpression {
- public:
-  explicit PythonDiagonalOp(std::shared_ptr<const PythonDimExpression> parent)
-      : parent_(std::move(parent)) {}
-
-  std::string repr() const override {
-    return tensorstore::StrCat(parent_->repr(), ".diagonal");
-  }
-
-  Result<IndexTransform<>> Apply(IndexTransform<> transform,
-                                 DimensionIndexBuffer* buffer, bool top_level,
-                                 bool domain_only) const override {
+  for (; op_it != op_vec.rend(); ++op_it) {
     TENSORSTORE_ASSIGN_OR_RETURN(
-        transform, parent_->Apply(std::move(transform), buffer,
-                                  /*top_level=*/false, domain_only));
-    return internal_index_space::ApplyDiagonal(std::move(transform), buffer,
-                                               domain_only);
+        transform,
+        (*op_it)->Apply(std::move(transform), dimensions, domain_only));
   }
 
- private:
-  std::shared_ptr<const PythonDimExpression> parent_;
-};
+  return transform;
+}
 
-/// Python equivalent of `tensorstore::internal_index_space::TransposeOp`.
-class PythonTransposeOp : public PythonDimExpression {
- public:
-  explicit PythonTransposeOp(std::shared_ptr<const PythonDimExpression> parent,
-                             SequenceParameter<DynamicDimSpec> target_dim_specs)
-      : parent_(std::move(parent)),
-        target_dim_specs_(std::move(target_dim_specs).value) {}
-
-  std::string repr() const override {
-    std::string out = tensorstore::StrCat(parent_->repr(), ".transpose[");
-    AppendDimensionSelectionRepr(&out, target_dim_specs_);
-    tensorstore::StrAppend(&out, "]");
-    return out;
+[[nodiscard]] bool PythonDimExpression::Encode(
+    serialization::EncodeSink& sink) const {
+  for (auto* op = ops.get(); op; op = op->parent.get()) {
+    if (!serialization::Encode(sink, op->kind()) || !op->Encode(sink)) {
+      return false;
+    }
   }
+  return true;
+}
 
-  Result<IndexTransform<>> Apply(IndexTransform<> transform,
-                                 DimensionIndexBuffer* buffer, bool top_level,
-                                 bool domain_only) const override {
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        transform, parent_->Apply(std::move(transform), buffer,
-                                  /*top_level=*/false, domain_only));
-    return internal_index_space::ApplyTransposeToDynamic(
-        std::move(transform), buffer, target_dim_specs_, domain_only);
-  }
+namespace {
+template <typename... T>
+PythonDimExpressionChain::Ptr MakeChainOp(DimExpressionOpKind kind) {
+  PythonDimExpressionChain::Ptr ptr;
+  [[maybe_unused]] const bool matched =
+      ((kind == T::kind ? ((ptr = internal::MakeIntrusivePtr<
+                                PythonDimExpressionChainOp<T>>()),
+                           true)
+                        : false) ||
+       ...);
+  return ptr;
+}
+}  // namespace
 
- private:
-  std::shared_ptr<const PythonDimExpression> parent_;
-  std::vector<DynamicDimSpec> target_dim_specs_;
-};
-
-/// Python equivalent of
-/// `tensorstore::internal_index_space::ChangeImplicitStateOp`.
-class PythonChangeImplicitStateOp : public PythonDimExpression {
- public:
-  explicit PythonChangeImplicitStateOp(
-      std::shared_ptr<const PythonDimExpression> parent,
-      std::optional<bool> lower_implicit, std::optional<bool> upper_implicit)
-      : parent_(std::move(parent)),
-        lower_implicit_(lower_implicit),
-        upper_implicit_(upper_implicit) {}
-
-  std::string repr() const override {
-    std::string out =
-        tensorstore::StrCat(parent_->repr(), ".mark_bounds_implicit[");
-    constexpr auto format_bound =
-        [](std::optional<bool> value) -> std::string_view {
-      if (!value.has_value()) return "";
-      return *value ? "True" : "False";
-    };
-    if (lower_implicit_ == upper_implicit_ && lower_implicit_) {
-      tensorstore::StrAppend(&out, format_bound(lower_implicit_));
+[[nodiscard]] bool PythonDimExpression::Decode(
+    serialization::DecodeSource& source) {
+  PythonDimExpressionChain::Ptr* next_op = &ops;
+  while (true) {
+    DimExpressionOpKind kind;
+    if (!serialization::Decode(source, kind)) return false;
+    if (kind == DimExpressionOpKind::kDimSelection) {
+      *next_op = internal::MakeIntrusivePtr<PythonDimExpressionChainTail>();
     } else {
-      tensorstore::StrAppend(&out, format_bound(lower_implicit_), ":",
-                             format_bound(upper_implicit_));
-    }
-    out += ']';
-    return out;
-  }
-
-  Result<IndexTransform<>> Apply(IndexTransform<> transform,
-                                 DimensionIndexBuffer* buffer, bool top_level,
-                                 bool domain_only) const override {
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        transform, parent_->Apply(std::move(transform), buffer,
-                                  /*top_level=*/false, domain_only));
-    const auto do_apply = [&](bool implicit) {
-      if (lower_implicit_ == implicit || upper_implicit_ == implicit) {
-        TENSORSTORE_ASSIGN_OR_RETURN(
-            transform, internal_index_space::ApplyChangeImplicitState(
-                           std::move(transform), buffer, implicit,
-                           lower_implicit_ == implicit,
-                           upper_implicit_ == implicit, domain_only));
+      *next_op = MakeChainOp<PythonTranslateOp, PythonStrideOp, PythonLabelOp,
+                             PythonDiagonalOp, PythonTransposeOp,
+                             PythonChangeImplicitStateOp, PythonIndexOp>(kind);
+      if (!*next_op) {
+        source.Fail(absl::DataLossError("Invalid DimExpression op"));
+        return false;
       }
-      return absl::OkStatus();
-    };
-
-    TENSORSTORE_RETURN_IF_ERROR(do_apply(false));
-    TENSORSTORE_RETURN_IF_ERROR(do_apply(true));
-    return transform;
+    }
+    if (!const_cast<PythonDimExpressionChain&>(**next_op).Decode(source)) {
+      return false;
+    }
+    if (kind == DimExpressionOpKind::kDimSelection) break;
+    next_op = &const_cast<PythonDimExpressionChain&>(**next_op).parent;
   }
+  return true;
+}
 
- private:
-  std::shared_ptr<const PythonDimExpression> parent_;
-  std::optional<bool> lower_implicit_, upper_implicit_;
-};
+bool PythonDimExpressionChainTail::Equal(
+    const PythonDimExpressionChain& other) const {
+  return dims == static_cast<const PythonDimExpressionChainTail&>(other).dims;
+}
 
-/// Represents a NumPy-style indexing operation that is applied after at least
-/// one prior operation.  The indexing expression must not include `newaxis`
-/// terms.
-class PythonIndexOp : public PythonDimExpression {
- public:
-  explicit PythonIndexOp(std::shared_ptr<const PythonDimExpression> parent,
-                         NumpyIndexingSpec spec)
-      : parent_(std::move(parent)), spec_(std::move(spec)) {}
-  std::string repr() const override {
-    return tensorstore::StrCat(parent_->repr(),
-                               GetIndexingModePrefix(spec_.mode), "[",
-                               IndexingSpecRepr(spec_), "]");
+bool operator==(const PythonDimExpression& a, const PythonDimExpression& b) {
+  const PythonDimExpressionChain* a_op = a.ops.get();
+  const PythonDimExpressionChain* b_op = b.ops.get();
+  while (true) {
+    if (!a_op && !b_op) return true;
+    if (!a_op || !b_op) return false;
+    if (a_op->kind() != b_op->kind()) return false;
+    if (!a_op->Equal(*b_op)) return false;
+    a_op = a_op->parent.get();
+    b_op = b_op->parent.get();
   }
-
-  Result<IndexTransform<>> Apply(IndexTransform<> transform,
-                                 DimensionIndexBuffer* buffer, bool top_level,
-                                 bool domain_only) const override {
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        transform, parent_->Apply(std::move(transform), buffer,
-                                  /*top_level=*/false, domain_only));
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto new_transform,
-        ToIndexTransform(spec_, transform.domain(), buffer));
-    return internal_index_space::ComposeTransforms(
-        std::move(transform), std::move(new_transform), domain_only);
-  }
-
- private:
-  std::shared_ptr<const PythonDimExpression> parent_;
-  NumpyIndexingSpec spec_;
-};
-
-/// Represents a NumPy-style indexing operation that is applied as the first
-/// operation to a `DimensionSelection`.  The indexing expression may include
-/// `newaxis` terms.
-class PythonInitialIndexOp : public PythonDimExpression {
- public:
-  explicit PythonInitialIndexOp(
-      std::shared_ptr<const DimensionSelection> parent, NumpyIndexingSpec spec)
-      : parent_(std::move(parent)), spec_(std::move(spec)) {}
-  std::string repr() const override {
-    return tensorstore::StrCat(parent_->repr(),
-                               GetIndexingModePrefix(spec_.mode), "[",
-                               IndexingSpecRepr(spec_), "]");
-  }
-
-  Result<IndexTransform<>> Apply(IndexTransform<> transform,
-                                 DimensionIndexBuffer* buffer, bool top_level,
-                                 bool domain_only) const override {
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto new_transform,
-        ToIndexTransform(spec_, transform.domain(), parent_->dims, buffer));
-    return internal_index_space::ComposeTransforms(
-        transform, std::move(new_transform), domain_only);
-  }
-
- private:
-  std::shared_ptr<const DimensionSelection> parent_;
-  NumpyIndexingSpec spec_;
-};
+}
 
 namespace {
 
@@ -392,6 +379,7 @@ Operations
 }
 
 void DefineDimExpressionAttributes(ClsDimExpression& cls) {
+  using Self = PythonDimExpression;
   DefineNumpyIndexingMethods(
       &cls,
       /*doc_strings=*/
@@ -833,31 +821,22 @@ Group:
 
 )"},
       },
-      [](std::shared_ptr<PythonDimExpression> self,
-         NumpyIndexingSpecPlaceholder spec)
-          -> std::shared_ptr<PythonDimExpression> {
-        auto& self_ref = *self;
-        if (typeid(self_ref) == typeid(DimensionSelection)) {
-          return std::make_shared<PythonInitialIndexOp>(
-              std::static_pointer_cast<DimensionSelection>(std::move(self)),
-              spec.Parse(NumpyIndexingSpec::Usage::kDimSelectionInitial));
-        }
-        return std::make_shared<PythonIndexOp>(
-            std::move(self),
-            spec.Parse(NumpyIndexingSpec::Usage::kDimSelectionChained));
+      [](const Self& self, NumpyIndexingSpecPlaceholder spec) {
+        return self.Extend(PythonIndexOp{
+            spec.Parse(self.ops->kind() == DimExpressionOpKind::kDimSelection
+                           ? NumpyIndexingSpec::Usage::kDimSelectionInitial
+                           : NumpyIndexingSpec::Usage::kDimSelectionChained)});
       });
 
-  DefineSubscriptMethod<std::shared_ptr<PythonDimExpression>,
-                        struct TranslateToTag>(&cls, "translate_to",
-                                               "_TranslateTo")
+  DefineSubscriptMethod<Self, struct TranslateToTag>(&cls, "translate_to",
+                                                     "_TranslateTo")
       .def(
           "__getitem__",
-          +[](std::shared_ptr<PythonDimExpression> self,
-              OptionallyImplicitIndexVectorOrScalarContainer indices)
-              -> std::shared_ptr<PythonDimExpression> {
-            return std::make_shared<PythonTranslateOp>(
-                std::move(self), ToIndexVectorOrScalarContainer(indices),
-                /*kind=*/TranslateOpKind::kTranslateTo);
+          +[](const Self& self,
+              OptionallyImplicitIndexVectorOrScalarContainer indices) {
+            return self.Extend(
+                PythonTranslateOp{ToIndexVectorOrScalarContainer(indices),
+                                  /*kind=*/TranslateOpKind::kTranslateTo});
           },
           R"(
 Translates the domains of the selected input dimensions to the specified
@@ -923,17 +902,15 @@ Group:
 )",
           py::arg("origins"));
 
-  DefineSubscriptMethod<std::shared_ptr<PythonDimExpression>,
-                        struct TranslateByTag>(&cls, "translate_by",
-                                               "_TranslateBy")
+  DefineSubscriptMethod<Self, struct TranslateByTag>(&cls, "translate_by",
+                                                     "_TranslateBy")
       .def(
           "__getitem__",
-          +[](std::shared_ptr<PythonDimExpression> self,
-              OptionallyImplicitIndexVectorOrScalarContainer offsets)
-              -> std::shared_ptr<PythonDimExpression> {
-            return std::make_shared<PythonTranslateOp>(
-                std::move(self), ToIndexVectorOrScalarContainer(offsets),
-                TranslateOpKind::kTranslateBy);
+          +[](const Self& self,
+              OptionallyImplicitIndexVectorOrScalarContainer offsets) {
+            return self.Extend(
+                PythonTranslateOp{ToIndexVectorOrScalarContainer(offsets),
+                                  TranslateOpKind::kTranslateBy});
           },
           R"(
 Translates (shifts) the domains of the selected input dimensions by the
@@ -999,17 +976,15 @@ Group:
 )",
           py::arg("offsets"));
 
-  DefineSubscriptMethod<std::shared_ptr<PythonDimExpression>,
-                        struct TranslateBackwardByTag>(
+  DefineSubscriptMethod<Self, struct TranslateBackwardByTag>(
       &cls, "translate_backward_by", "_TranslateBackwardBy")
       .def(
           "__getitem__",
-          +[](std::shared_ptr<PythonDimExpression> self,
-              OptionallyImplicitIndexVectorOrScalarContainer offsets)
-              -> std::shared_ptr<PythonDimExpression> {
-            return std::make_shared<PythonTranslateOp>(
-                std::move(self), ToIndexVectorOrScalarContainer(offsets),
-                TranslateOpKind::kTranslateBackwardBy);
+          +[](const Self& self,
+              OptionallyImplicitIndexVectorOrScalarContainer offsets) {
+            return self.Extend(
+                PythonTranslateOp{ToIndexVectorOrScalarContainer(offsets),
+                                  TranslateOpKind::kTranslateBackwardBy});
           },
           R"(
 Translates (shifts) the domains of the selected input dimensions backward by the
@@ -1075,15 +1050,13 @@ Group:
 )",
           py::arg("offsets"));
 
-  DefineSubscriptMethod<std::shared_ptr<PythonDimExpression>, struct StrideTag>(
-      &cls, "stride", "_Stride")
+  DefineSubscriptMethod<Self, struct StrideTag>(&cls, "stride", "_Stride")
       .def(
           "__getitem__",
-          +[](std::shared_ptr<PythonDimExpression> self,
-              OptionallyImplicitIndexVectorOrScalarContainer strides)
-              -> std::shared_ptr<PythonDimExpression> {
-            return std::make_shared<PythonStrideOp>(
-                std::move(self), ToIndexVectorOrScalarContainer(strides));
+          +[](const Self& self,
+              OptionallyImplicitIndexVectorOrScalarContainer strides) {
+            return self.Extend(
+                PythonStrideOp{ToIndexVectorOrScalarContainer(strides)});
           },
           R"(
 Strides the domains of the selected input dimensions by the specified amounts.
@@ -1148,15 +1121,12 @@ Group:
 )",
           py::arg("strides"));
 
-  DefineSubscriptMethod<std::shared_ptr<PythonDimExpression>,
-                        struct TransposeTag>(&cls, "transpose", "_Transpose")
+  DefineSubscriptMethod<Self, struct TransposeTag>(&cls, "transpose",
+                                                   "_Transpose")
       .def(
           "__getitem__",
-          +[](std::shared_ptr<PythonDimExpression> self,
-              DimensionSelectionLike dim_specs)
-              -> std::shared_ptr<PythonDimExpression> {
-            return std::make_shared<PythonTransposeOp>(
-                std::move(self), std::move(dim_specs.value.dims));
+          +[](const Self& self, DimensionSelectionLike dim_specs) {
+            return self.Extend(PythonTransposeOp{dim_specs.value.dims()});
           },
           R"(
 Transposes the selected dimensions to the specified target indices.
@@ -1245,13 +1215,12 @@ Group:
 )",
           py::arg("target"));
 
-  DefineSubscriptMethod<std::shared_ptr<PythonDimExpression>, struct LabelTag>(
-      &cls, "label", "_Label")
+  DefineSubscriptMethod<Self, struct LabelTag>(&cls, "label", "_Label")
       .def(
           "__getitem__",
-          +[](std::shared_ptr<PythonDimExpression> self,
+          +[](const Self& self,
               std::variant<std::string, SequenceParameter<std::string>>
-                  labels_variant) -> std::shared_ptr<PythonDimExpression> {
+                  labels_variant) {
             std::vector<std::string> labels;
             if (auto* label = std::get_if<std::string>(&labels_variant)) {
               labels.push_back(std::move(*label));
@@ -1260,8 +1229,7 @@ Group:
                                      labels_variant))
                            .value;
             }
-            return std::make_shared<PythonLabelOp>(std::move(self),
-                                                   std::move(labels));
+            return self.Extend(PythonLabelOp{std::move(labels)});
           },
           R"(
 Sets (or changes) the :ref:`labels<dimension-labels>` of the selected dimensions.
@@ -1329,10 +1297,7 @@ Group:
 
   cls.def_property_readonly(
       "diagonal",
-      [](std::shared_ptr<PythonDimExpression> self)
-          -> std::shared_ptr<PythonDimExpression> {
-        return std::make_shared<PythonDiagonalOp>(std::move(self));
-      },
+      [](const Self& self) { return self.Extend(PythonDiagonalOp{}); },
       R"(
 Extracts the diagonal of the selected dimensions.
 
@@ -1400,16 +1365,15 @@ Group:
 
 )");
 
-  DefineSubscriptMethod<std::shared_ptr<PythonDimExpression>,
-                        struct MarkBoundsImplicitTag>(
+  DefineSubscriptMethod<Self, struct MarkBoundsImplicitTag>(
       &cls, "mark_bounds_implicit", "_MarkBoundsImplicit")
       .def(
           "__getitem__",
-          +[](std::shared_ptr<PythonDimExpression> self,
+          +[](const Self& self,
               std::variant<std::optional<bool>,
                            TypedSlice<std::optional<bool>, std::optional<bool>,
                                       std::nullptr_t>>
-                  bounds) -> std::shared_ptr<PythonDimExpression> {
+                  bounds) {
             struct Visitor {
               std::optional<bool>& lower_implicit;
               std::optional<bool>& upper_implicit;
@@ -1428,8 +1392,8 @@ Group:
             std::optional<bool> lower_implicit;
             std::optional<bool> upper_implicit;
             std::visit(Visitor{lower_implicit, upper_implicit}, bounds);
-            return std::make_shared<PythonChangeImplicitStateOp>(
-                std::move(self), lower_implicit, upper_implicit);
+            return self.Extend(
+                PythonChangeImplicitStateOp{lower_implicit, upper_implicit});
           },
           R"(
 Marks the lower/upper bounds of the selected dimensions as
@@ -1533,7 +1497,10 @@ Group:
 
   cls.def("__repr__", &PythonDimExpression::repr);
 
+  cls.def("__eq__", [](const Self& a, const Self& b) { return a == b; });
+
   cls.attr("__iter__") = py::none();
+  EnablePicklingFromSerialization(cls);
 }
 
 ClsDimensionSelection MakeDimensionSelectionClass(py::module m) {
@@ -1584,9 +1551,11 @@ Examples:
   cls.def(
       "__eq__",
       [](const DimensionSelection& a, const DimensionSelection& b) {
-        return a.dims == b.dims;
+        return a.dims() == b.dims();
       },
       py::arg("other"));
+
+  EnablePicklingFromSerialization(cls);
 }
 
 void RegisterDimExpressionBindings(pybind11::module m, Executor defer) {
@@ -1607,16 +1576,17 @@ TENSORSTORE_GLOBAL_INITIALIZER {
 
 }  // namespace
 
-bool CastToDimensionSelection(py::handle src, DimensionSelection& out) {
+bool CastToDimensionSelection(py::handle src,
+                              std::vector<DynamicDimSpec>& out) {
   if (PyUnicode_Check(src.ptr())) {
-    out.dims.emplace_back(py::cast<std::string>(src));
+    out.emplace_back(py::cast<std::string>(src));
   } else if (PyIndex_Check(src.ptr())) {
-    out.dims.emplace_back(DimensionIndex(py::cast<PythonDimensionIndex>(src)));
+    out.emplace_back(DimensionIndex(py::cast<PythonDimensionIndex>(src)));
   } else if (PySlice_Check(src.ptr())) {
-    out.dims.emplace_back(py::cast<DimRangeSpec>(src));
+    out.emplace_back(py::cast<DimRangeSpec>(src));
   } else if (py::isinstance<DimensionSelection>(src)) {
     auto existing = py::cast<DimensionSelection>(src);
-    out.dims.insert(out.dims.end(), existing.dims.begin(), existing.dims.end());
+    out.insert(out.end(), existing.dims().begin(), existing.dims().end());
   } else {
     py::object seq =
         py::reinterpret_steal<py::object>(PySequence_Fast(src.ptr(), ""));
@@ -1640,7 +1610,45 @@ bool CastToDimensionSelection(py::handle src, DimensionSelection& out) {
   return true;
 }
 
+PythonDimExpressionChain::~PythonDimExpressionChain() = default;
+
+bool PythonDimExpressionChainTail::Encode(
+    serialization::EncodeSink& sink) const {
+  return serialization::Encode(sink, dims);
+}
+
+bool PythonDimExpressionChainTail::Decode(serialization::DecodeSource& source) {
+  return serialization::Decode(source, dims);
+}
+
 }  // namespace internal_python
+
+namespace serialization {
+[[nodiscard]] bool Serializer<internal_python::PythonDimExpression>::Encode(
+    EncodeSink& sink, const internal_python::PythonDimExpression& value) {
+  return value.Encode(sink);
+}
+
+[[nodiscard]] bool Serializer<internal_python::PythonDimExpression>::Decode(
+    DecodeSource& source, internal_python::PythonDimExpression& value) {
+  return value.Decode(source);
+}
+
+[[nodiscard]] bool Serializer<internal_python::DimensionSelection>::Encode(
+    EncodeSink& sink, const internal_python::DimensionSelection& value) {
+  return serialization::Encode(sink, value.dims());
+}
+
+[[nodiscard]] bool Serializer<internal_python::DimensionSelection>::Decode(
+    DecodeSource& source, internal_python::DimensionSelection& value) {
+  auto ops = internal::MakeIntrusivePtr<
+      internal_python::PythonDimExpressionChainTail>();
+  if (!serialization::Decode(source, ops->dims)) return false;
+  value.ops = std::move(ops);
+  return true;
+}
+}  // namespace serialization
+
 }  // namespace tensorstore
 
 namespace pybind11 {
@@ -1655,8 +1663,11 @@ bool type_caster<tensorstore::internal_python::DimensionSelectionLike>::load(
     return true;
   }
   if (!convert) return false;
-  if (tensorstore::internal_python::CastToDimensionSelection(src,
-                                                             value.value)) {
+  auto ops = tensorstore::internal::MakeIntrusivePtr<
+      tensorstore::internal_python::PythonDimExpressionChainTail>();
+  auto& dims = ops->dims;
+  if (tensorstore::internal_python::CastToDimensionSelection(src, dims)) {
+    value.value.ops = std::move(ops);
     return true;
   }
   return false;

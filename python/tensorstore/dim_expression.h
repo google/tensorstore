@@ -32,6 +32,7 @@
 #include "tensorstore/index_space/dimension_identifier.h"
 #include "tensorstore/index_space/dimension_index_buffer.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
@@ -68,18 +69,281 @@ inline DynamicDimSpec ToDynamicDimSpec(
 void AppendDimensionSelectionRepr(std::string* out,
                                   span<const DynamicDimSpec> dims);
 
+using internal_index_space::TranslateOpKind;
+
+// Identifies the DimExpression operation for serialization and equality
+// comparison.
+enum class DimExpressionOpKind {
+  // Special value for the initial dimension selection, not actually an
+  // operation.
+  kDimSelection,
+  kTranslate,
+  kStride,
+  kLabel,
+  kDiagonal,
+  kTranspose,
+  kChangeImplicitState,
+  kIndex,
+};
+
+/// Python equivalent of `tensorstore::internal_index_space::TranslateOp`.
+struct PythonTranslateOp {
+  constexpr static DimExpressionOpKind kind = DimExpressionOpKind::kTranslate;
+  IndexVectorOrScalarContainer indices;
+  TranslateOpKind translate_kind;
+
+  friend bool operator==(const PythonTranslateOp& a,
+                         const PythonTranslateOp& b) {
+    return a.indices == b.indices && a.translate_kind == b.translate_kind;
+  }
+
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.indices, x.translate_kind);
+  };
+
+  std::string repr() const;
+
+  Result<IndexTransform<>> Apply(IndexTransform<> transform,
+                                 DimensionIndexBuffer* buffer,
+                                 bool domain_only) const;
+};
+
+/// Python equivalent of `tensorstore::internal_index_space::StrideOp`.
+struct PythonStrideOp {
+  constexpr static DimExpressionOpKind kind = DimExpressionOpKind::kStride;
+  IndexVectorOrScalarContainer strides;
+
+  friend bool operator==(const PythonStrideOp& a, const PythonStrideOp& b) {
+    return a.strides == b.strides;
+  }
+
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.strides);
+  };
+
+  std::string repr() const;
+
+  Result<IndexTransform<>> Apply(IndexTransform<> transform,
+                                 DimensionIndexBuffer* buffer,
+                                 bool domain_only) const;
+};
+
+/// Python equivalent of `tensorstore::internal_index_space::LabelOp`.
+struct PythonLabelOp {
+  constexpr static DimExpressionOpKind kind = DimExpressionOpKind::kLabel;
+  std::vector<std::string> labels;
+
+  friend bool operator==(const PythonLabelOp& a, const PythonLabelOp& b) {
+    return a.labels == b.labels;
+  }
+
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.labels);
+  };
+
+  std::string repr() const;
+
+  Result<IndexTransform<>> Apply(IndexTransform<> transform,
+                                 DimensionIndexBuffer* buffer,
+                                 bool domain_only) const;
+};
+
+/// Python equivalent of `tensorstore::internal_index_space::DiagonalOp`.
+struct PythonDiagonalOp {
+  constexpr static DimExpressionOpKind kind = DimExpressionOpKind::kDiagonal;
+  std::string repr() const;
+
+  friend bool operator==(const PythonDiagonalOp& a, const PythonDiagonalOp& b) {
+    return true;
+  }
+
+  Result<IndexTransform<>> Apply(IndexTransform<> transform,
+                                 DimensionIndexBuffer* buffer,
+                                 bool domain_only) const;
+};
+
+/// Python equivalent of `tensorstore::internal_index_space::TransposeOp`.
+struct PythonTransposeOp {
+  constexpr static DimExpressionOpKind kind = DimExpressionOpKind::kTranspose;
+  std::vector<DynamicDimSpec> target_dim_specs;
+
+  friend bool operator==(const PythonTransposeOp& a,
+                         const PythonTransposeOp& b) {
+    return a.target_dim_specs == b.target_dim_specs;
+  }
+
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.target_dim_specs);
+  };
+
+  std::string repr() const;
+
+  Result<IndexTransform<>> Apply(IndexTransform<> transform,
+                                 DimensionIndexBuffer* buffer,
+                                 bool domain_only) const;
+};
+
+/// Python equivalent of
+/// `tensorstore::internal_index_space::ChangeImplicitStateOp`.
+struct PythonChangeImplicitStateOp {
+  constexpr static DimExpressionOpKind kind =
+      DimExpressionOpKind::kChangeImplicitState;
+  std::optional<bool> lower_implicit, upper_implicit;
+
+  friend bool operator==(const PythonChangeImplicitStateOp& a,
+                         const PythonChangeImplicitStateOp& b) {
+    return a.lower_implicit == b.lower_implicit &&
+           a.upper_implicit == b.upper_implicit;
+  }
+
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.lower_implicit, x.upper_implicit);
+  };
+
+  std::string repr() const;
+
+  Result<IndexTransform<>> Apply(IndexTransform<> transform,
+                                 DimensionIndexBuffer* buffer,
+                                 bool domain_only) const;
+};
+
+/// Represents a NumPy-style indexing operation.
+///
+/// This operation can be used in two different ways:
+///
+/// - If this is the first operation in the chain, the `spec.usage` must be
+///   `NumpyIndexingSpec::Usage::kDimSelectionInitial` and the operation may
+///   include `newaxis` terms.  In this case, `ApplyInitial` must be called
+///   rather than `Apply`.
+///
+/// - If this is not the first operation in the chain, `spec.usage` must be
+///   `NumpyIndexingSpec::Usage::kDimSelectionChained` and `Apply` must be
+///   called rather than `ApplyInitial`.
+struct PythonIndexOp {
+  constexpr static DimExpressionOpKind kind = DimExpressionOpKind::kIndex;
+  internal::NumpyIndexingSpec spec;
+
+  friend bool operator==(const PythonIndexOp& a, const PythonIndexOp& b) {
+    return a.spec == b.spec;
+  }
+
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.spec);
+  };
+
+  std::string repr() const;
+
+  Result<IndexTransform<>> Apply(IndexTransform<> transform,
+                                 DimensionIndexBuffer* buffer,
+                                 bool domain_only) const;
+
+  Result<IndexTransform<>> ApplyInitial(
+      span<const DynamicDimSpec> dim_selection, IndexTransform<> transform,
+      DimensionIndexBuffer* buffer, bool domain_only) const;
+};
+
+/// `PythonDimExpression` represents the sequence of operations as a
+/// singly-linked list of reference-counted `PythonDimExpressionChain` nodes.
+///
+/// The head of the list is the final operation, while the tail is always a
+/// `PythonDimExpressionChainTail` object corresponding to a dimension
+/// selection.
+struct PythonDimExpressionChain
+    : public internal::AtomicReferenceCount<PythonDimExpressionChain> {
+  using Ptr = internal::IntrusivePtr<const PythonDimExpressionChain>;
+  // This must be null if, and only if, this is the tail of the chain (i.e. a
+  // `PythonDimExpressionChainTail` object).
+  Ptr parent;
+
+  // Kind of the head operation.
+  virtual DimExpressionOpKind kind() const = 0;
+
+  // Python repr of just the head operation.
+  virtual std::string repr() const = 0;
+
+  // Encodes and decodes just the head operation, not the entire chain.
+  virtual bool Encode(serialization::EncodeSink& sink) const = 0;
+  virtual bool Decode(serialization::DecodeSource& source) = 0;
+
+  // Applies just the head operation, not the entire chain.
+  virtual Result<IndexTransform<>> Apply(IndexTransform<> transform,
+                                         DimensionIndexBuffer* buffer,
+                                         bool domain_only) const = 0;
+  // Compares just the head operation for equality with another op of the same
+  // `kind`.
+  virtual bool Equal(const PythonDimExpressionChain& other) const = 0;
+
+  virtual ~PythonDimExpressionChain();
+};
+
+/// `PythonDimExpressionChain` node that represents the tail of the
+/// singly-linked list, corresponding to a dimension selection.
+struct PythonDimExpressionChainTail : public PythonDimExpressionChain {
+  std::vector<DynamicDimSpec> dims;
+
+  DimExpressionOpKind kind() const override {
+    return DimExpressionOpKind::kDimSelection;
+  }
+
+  std::string repr() const override;
+
+  // Just initializes `*buffer` with the dimension selection, returns
+  // `transform` unmodified.
+  Result<IndexTransform<>> Apply(IndexTransform<> transform,
+                                 DimensionIndexBuffer* dimensions,
+                                 bool domain_only) const override;
+
+  bool Encode(serialization::EncodeSink& sink) const override;
+  bool Decode(serialization::DecodeSource& source) override;
+  bool Equal(const PythonDimExpressionChain& other) const override;
+};
+
+/// `PythonDimExpressionChain` node that wraps a dimension expression operation
+/// (not the tail of the chain).
+///
+/// `Op` must be one of the `Python<XXX>Op` types defined above that supports
+/// the following:
+///
+/// - `static constexpr DimExpressionOpKind kind`
+/// - `std::string repr()`
+/// - `Apply(...)`
+/// - Serialization
+/// - Equality comparison
+template <typename Op>
+struct PythonDimExpressionChainOp : public PythonDimExpressionChain {
+  // The contained operation.
+  Op op;
+
+  DimExpressionOpKind kind() const override { return Op::kind; }
+  std::string repr() const override { return op.repr(); }
+  bool Encode(serialization::EncodeSink& sink) const override {
+    return serialization::Encode(sink, op);
+  }
+  bool Decode(serialization::DecodeSource& source) override {
+    return serialization::Decode(source, op);
+  }
+  Result<IndexTransform<>> Apply(IndexTransform<> transform,
+                                 DimensionIndexBuffer* buffer,
+                                 bool domain_only) const override {
+    return op.Apply(std::move(transform), buffer, domain_only);
+  }
+  bool Equal(const PythonDimExpressionChain& other) const override {
+    return op == static_cast<const PythonDimExpressionChainOp<Op>&>(other).op;
+  }
+};
+
 /// Base class for Python representation of a "dimension expression".
 ///
 /// A dimension expression consists of a `DimensionSelection` followed by a
 /// sequence of zero or more operations.
 ///
-/// This behaves similarly `tensorstore::DimExpression`.  We can't simply use
+/// This behaves similarly to `tensorstore::DimExpression`.  We can't simply use
 /// `tensorstore::DimExpression` because it holds vectors by reference rather
 /// than by value, and because it does not do type erasure.
 class PythonDimExpression {
  public:
   /// Returns the string representation for `__repr__`.
-  virtual std::string repr() const = 0;
+  std::string repr() const;
 
   /// Applies the operation to `transform` using the dimension selection
   /// specified by `*dimensions`.
@@ -90,39 +354,51 @@ class PythonDimExpression {
   ///     existing dimension selection (corresponding to the domain of
   ///     `transform`).  On output, set to the new dimension selection
   ///     corresponding to the domain of the returned transform.
-  /// \param top_level Indicates whether this expression is the top-level
-  ///     (outer-most) expression being applied, i.e. `dimensions` is the
-  ///     dimension selection specified directly.  When an operation recursively
-  ///     invokes a parent operation, it must specify `top_level=false`.  This
-  ///     option is checked by `DimensionSelection::Apply` in order to return an
-  ///     error if no operations are specified.
   /// \param domain_only Indicates the output dimensions of `transform` should
   ///     be ignored, and returned transform should have an output rank of 0.
-  virtual Result<IndexTransform<>> Apply(IndexTransform<> transform,
-                                         DimensionIndexBuffer* dimensions,
-                                         bool top_level,
-                                         bool domain_only) const = 0;
+  Result<IndexTransform<>> Apply(IndexTransform<> transform,
+                                 DimensionIndexBuffer* dimensions,
+                                 bool domain_only) const;
 
-  virtual ~PythonDimExpression() = default;
+  [[nodiscard]] bool Encode(serialization::EncodeSink& sink) const;
+  [[nodiscard]] bool Decode(serialization::DecodeSource& source);
+
+  // Extends the chain of operations with a new head (final) operation.
+  template <typename Op>
+  PythonDimExpression Extend(Op&& op) const {
+    auto new_chain = internal::MakeIntrusivePtr<
+        PythonDimExpressionChainOp<internal::remove_cvref_t<Op>>>();
+    new_chain->op = std::forward<Op>(op);
+    new_chain->parent = ops;
+    return PythonDimExpression{std::move(new_chain)};
+  }
+
+  // Singly-linked list of operations, ending with the dimension selection.
+  // Must be non-null.
+  PythonDimExpressionChain::Ptr ops;
+
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.ops);
+  };
+
+  friend bool operator==(const PythonDimExpression& a,
+                         const PythonDimExpression& b);
+  friend bool operator!=(const PythonDimExpression& a,
+                         const PythonDimExpression& b) {
+    return !(a == b);
+  }
 };
 
 /// Specifies a sequence of existing or new dimensions, and serves as the
 /// starting point for a dimension expression.
+///
+/// This is simply a `PythonDimExpression` where `ops` must point to a
+/// `PythonDimExpressionChainTail` node.
 class DimensionSelection : public PythonDimExpression {
  public:
-  DimensionSelection() = default;
-
-  std::string repr() const override;
-
-  /// Sets `*dimensions` to the list of existing dimensions, and returns
-  /// `transform` unmodified.
-  Result<IndexTransform<>> Apply(IndexTransform<> transform,
-                                 DimensionIndexBuffer* dimensions,
-                                 bool top_level,
-                                 bool domain_only) const override;
-
-  /// Specifies the dimension selection.
-  std::vector<DynamicDimSpec> dims;
+  const std::vector<DynamicDimSpec>& dims() const {
+    return static_cast<const PythonDimExpressionChainTail&>(*ops).dims;
+  }
 };
 
 /// Converts a Python object to a dimension selection.
@@ -140,6 +416,26 @@ struct DimensionSelectionLike {
 };
 
 }  // namespace internal_python
+
+namespace serialization {
+template <>
+struct Serializer<internal_python::PythonDimExpression> {
+  [[nodiscard]] static bool Encode(
+      EncodeSink& sink, const internal_python::PythonDimExpression& value);
+
+  [[nodiscard]] static bool Decode(DecodeSource& source,
+                                   internal_python::PythonDimExpression& value);
+};
+
+template <>
+struct Serializer<internal_python::DimensionSelection> {
+  [[nodiscard]] static bool Encode(
+      EncodeSink& sink, const internal_python::DimensionSelection& value);
+
+  [[nodiscard]] static bool Decode(DecodeSource& source,
+                                   internal_python::DimensionSelection& value);
+};
+}  // namespace serialization
 }  // namespace tensorstore
 
 namespace pybind11 {

@@ -547,7 +547,7 @@ Group:
       [](const IndexDomain<>& self, DimensionSelectionLike s) -> IndexDomain<> {
         DimensionIndexBuffer dims;
         ThrowStatusException(internal_index_space::GetDimensions(
-            self.labels(), s.value.dims, &dims));
+            self.labels(), s.value.dims(), &dims));
         return self[span<const DimensionIndex>(dims)];
       },
       R"(
@@ -692,7 +692,7 @@ Group:
         return ValueOrThrow(
                    expr.Apply(
                        internal_index_space::TransformAccess::transform(self),
-                       &dims, /*top_level=*/true, /*domain_only=*/true),
+                       &dims, /*domain_only=*/true),
                    StatusExceptionPolicy::kIndexError)
             .domain();
       },

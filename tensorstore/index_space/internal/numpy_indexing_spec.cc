@@ -913,5 +913,10 @@ std::string IndexVectorRepr(internal_index_space::IndexVectorOrScalarView x,
   return out;
 }
 
+bool operator==(const NumpyIndexingSpec& a, const NumpyIndexingSpec& b) {
+  return a.mode == b.mode && a.usage == b.usage && a.scalar == b.scalar &&
+         a.terms == b.terms;
+}
+
 }  // namespace internal
 }  // namespace tensorstore

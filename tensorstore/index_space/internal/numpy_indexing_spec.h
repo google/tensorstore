@@ -99,27 +99,67 @@ struct NumpyIndexingSpec {
     /// Stride (kImplicit is not allowed, a value of 1 is equivalent to None in
     /// NumPy).
     Index step;
+
+    friend bool operator==(const Slice& a, const Slice& b) {
+      return a.start == b.start && a.stop == b.stop && a.step == b.step;
+    }
+
+    constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+      return f(x.start, x.stop, x.step);
+    };
   };
 
   /// Corresponds to numpy.newaxis (None).
-  struct NewAxis {};
+  struct NewAxis {
+    friend constexpr bool operator==(NewAxis, NewAxis) { return true; }
+  };
 
   struct IndexArray {
     SharedArray<const Index> index_array;
     bool outer;
+
+    friend bool operator==(const IndexArray& a, const IndexArray& b) {
+      return a.index_array == b.index_array && a.outer == b.outer;
+    }
+
+    constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+      return f(x.index_array, x.outer);
+    };
   };
 
   /// Corresponds to a boolean array (converted to index arrays).
   struct BoolArray {
     SharedArray<const Index> index_arrays;
     bool outer;
+
+    friend bool operator==(const BoolArray& a, const BoolArray& b) {
+      return a.index_arrays == b.index_arrays && a.outer == b.outer;
+    }
+
+    constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+      return f(x.index_arrays, x.outer);
+    };
   };
 
   /// Corresponds to Python Ellipsis object.
-  struct Ellipsis {};
+  struct Ellipsis {
+    friend constexpr bool operator==(Ellipsis, Ellipsis) { return true; }
+  };
 
   using Term =
       std::variant<Index, Slice, Ellipsis, NewAxis, IndexArray, BoolArray>;
+
+  /// Sequence of indexing terms.
+  std::vector<Term> terms;
+
+  /// If `true`, a scalar term was specified and may be applied to multiple
+  /// dimensions.
+  bool scalar;
+
+  Mode mode;
+  Usage usage;
+
+  // The following members are derived from the members above.
 
   /// The number of NewAxis operations in `ops`.
   DimensionIndex num_new_dims;
@@ -144,15 +184,18 @@ struct NumpyIndexingSpec {
   /// Specifies whether an `Ellipsis` term is present in `ops`.
   bool has_ellipsis;
 
-  /// Sequence of indexing terms.
-  std::vector<Term> terms;
+  friend bool operator==(const NumpyIndexingSpec& a,
+                         const NumpyIndexingSpec& b);
+  friend bool operator!=(const NumpyIndexingSpec& a,
+                         const NumpyIndexingSpec& b) {
+    return !(a == b);
+  }
 
-  /// If `true`, a scalar term was specified and may be applied to multiple
-  /// dimensions.
-  bool scalar;
-
-  Mode mode;
-  Usage usage;
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.num_new_dims, x.num_output_dims, x.num_input_dims,
+             x.joint_index_array_shape, x.joint_index_arrays_consecutive,
+             x.has_ellipsis, x.terms, x.scalar, x.mode, x.usage);
+  };
 
   struct Builder {
     explicit Builder(NumpyIndexingSpec& spec, Mode mode, Usage usage);

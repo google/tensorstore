@@ -205,6 +205,10 @@ struct DimRangeSpec {
   friend bool operator!=(const DimRangeSpec& a, const DimRangeSpec& b) {
     return !(a == b);
   }
+
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.inclusive_start, x.exclusive_stop, x.step);
+  };
 };
 
 /// Appends to `*result` the dimensions corresponding to `spec`.
