@@ -45,6 +45,7 @@ using ::tensorstore::Index;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::offset_origin;
+using ::tensorstore::OpenMode;
 using ::tensorstore::ReadProgress;
 using ::tensorstore::ReadProgressFunction;
 using ::tensorstore::ReadWriteMode;
@@ -845,6 +846,7 @@ TEST(ArrayTest, SpecFromArray) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
                                    tensorstore::SpecFromArray(orig_array));
   EXPECT_EQ(1, spec.rank());
+  EXPECT_EQ(OpenMode::unknown, spec.open_mode());
   EXPECT_EQ(tensorstore::dtype_v<float>, spec.dtype());
   EXPECT_THAT(spec.ToJson(),
               ::testing::Optional(MatchesJson({

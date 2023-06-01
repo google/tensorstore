@@ -52,6 +52,8 @@ class CastDriverSpec
     return f(internal::BaseCast<internal::DriverSpec>(x), x.base);
   };
 
+  OpenMode open_mode() const override { return base.driver_spec->open_mode(); }
+
   absl::Status ApplyOptions(SpecOptions&& options) override {
     TENSORSTORE_RETURN_IF_ERROR(schema.Set(options.dtype()));
     options.Override(DataType()).IgnoreError();

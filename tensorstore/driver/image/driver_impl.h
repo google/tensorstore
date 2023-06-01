@@ -184,6 +184,8 @@ class ImageDriverSpec
 
   kvstore::Spec GetKvstore() const override { return store; }
 
+  OpenMode open_mode() const override { return OpenMode::open; }
+
   Future<internal::Driver::Handle> Open(
       internal::OpenTransactionPtr transaction,
       ReadWriteMode read_write_mode) const override;

@@ -391,6 +391,7 @@ pybind11_cc_library(
         "//tensorstore:data_type",
         "//tensorstore:index",
         "//tensorstore:json_serialization_options",
+        "//tensorstore:open_mode",
         "//tensorstore:rank",
         "//tensorstore:schema",
         "//tensorstore:spec",

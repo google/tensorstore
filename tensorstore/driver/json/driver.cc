@@ -218,6 +218,12 @@ class JsonDriverSpec
                      },
                      jb::DefaultInitializedValue()))));
 
+  OpenMode open_mode() const override {
+    // Since opening itself has no side effects, we return `open`.  A missing
+    // json file is not actually created until the first write operation.
+    return OpenMode::open;
+  }
+
   absl::Status ApplyOptions(SpecOptions&& options) override {
     // A json driver contains both the data and the metadata, so set the
     // staleness bound to the maximum of requested data and metadata staleness.

@@ -120,6 +120,11 @@ absl::Status TransformAndApplyOptions(TransformedDriverSpec& spec,
   return absl::OkStatus();
 }
 
+OpenMode GetOpenMode(const TransformedDriverSpec& spec) {
+  if (!spec.driver_spec) return OpenMode{};
+  return spec.driver_spec->open_mode();
+}
+
 Result<IndexDomain<>> GetEffectiveDomain(const TransformedDriverSpec& spec) {
   if (!spec.driver_spec) return {std::in_place};
   if (!spec.transform.valid()) {

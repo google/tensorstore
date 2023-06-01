@@ -137,6 +137,8 @@ class ArrayDriverSpec
         obj->schema.Set(RankConstraint{obj->array.rank()}).IgnoreError();
       }));
 
+  OpenMode open_mode() const override { return OpenMode::unknown; }
+
   absl::Status ApplyOptions(SpecOptions&& options) override {
     if (options.kvstore.valid()) {
       return absl::InvalidArgumentError(

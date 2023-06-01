@@ -97,6 +97,9 @@ class DriverSpec : public internal::AtomicReferenceCount<DriverSpec> {
     return context_binding_state_;
   }
 
+  /// Returns the `OpenMode` that will be used when opening the driver.
+  virtual OpenMode open_mode() const = 0;
+
   /// Resolves any `Context` resources.
   ///
   /// \pre `use_count() == 1`.
@@ -248,6 +251,8 @@ struct TransformedDriverSpec {
 absl::Status ApplyOptions(DriverSpec::Ptr& spec, SpecOptions&& options);
 absl::Status TransformAndApplyOptions(TransformedDriverSpec& spec,
                                       SpecOptions&& options);
+
+OpenMode GetOpenMode(const TransformedDriverSpec& spec);
 
 Result<IndexDomain<>> GetEffectiveDomain(const TransformedDriverSpec& spec);
 

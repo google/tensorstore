@@ -101,6 +101,11 @@ class Spec {
   /// Returns the transform applied on top of the driver.
   const IndexTransform<>& transform() const { return impl_.transform; }
 
+  /// Returns the mode with which the driver will be opened.
+  ///
+  /// If not applicable, returns `OpenMode::unknown`.
+  OpenMode open_mode() const { return internal::GetOpenMode(impl_); }
+
   /// Applies the specified options in place.
   ///
   /// Supported options include:

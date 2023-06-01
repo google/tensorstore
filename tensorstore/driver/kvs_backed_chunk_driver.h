@@ -73,6 +73,8 @@ struct KvsDriverSpec : public internal::DriverSpec,
 
   kvstore::Spec GetKvstore() const override;
 
+  OpenMode open_mode() const override;
+
   absl::Status ApplyOptions(SpecOptions&& options) override;
 };
 

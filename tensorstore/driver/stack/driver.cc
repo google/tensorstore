@@ -219,6 +219,17 @@ class StackDriverSpec
     return schema.Set(static_cast<Schema&&>(options));
   }
 
+  OpenMode open_mode() const override {
+    if (layers.empty()) return OpenMode::unknown;
+    OpenMode prev_mode;
+    for (size_t i = 0; i < layers.size(); ++i) {
+      auto mode = internal::GetOpenMode(layers[i]);
+      if (i != 0 && mode != prev_mode) return OpenMode::unknown;
+      prev_mode = mode;
+    }
+    return prev_mode;
+  }
+
   Result<std::vector<IndexDomain<>>> GetEffectiveDomainsForLayers() const {
     assert(!layers.empty());
     std::vector<IndexDomain<>> domains;

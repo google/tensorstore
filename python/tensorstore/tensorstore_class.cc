@@ -124,6 +124,7 @@ using spec_setters::SetAssumeMetadata;
 using spec_setters::SetCreate;
 using spec_setters::SetDeleteExisting;
 using spec_setters::SetOpen;
+using spec_setters::SetOpenMode;
 
 struct SetContext {
   using type = internal_context::ContextImplPtr;
@@ -169,18 +170,19 @@ default, the open is non-transactional.
 constexpr auto ForwardOpenSetters = [](auto callback, auto... other_param) {
   WithSchemaKeywordArguments(
       callback, other_param..., open_setters::SetRead{},
-      open_setters::SetWrite{}, open_setters::SetOpen{},
-      open_setters::SetCreate{}, open_setters::SetDeleteExisting{},
-      open_setters::SetAssumeMetadata{}, open_setters::SetContext{},
-      open_setters::SetTransaction{}, spec_setters::SetKvstore{});
+      open_setters::SetWrite{}, open_setters::SetOpenMode{},
+      open_setters::SetOpen{}, open_setters::SetCreate{},
+      open_setters::SetDeleteExisting{}, open_setters::SetAssumeMetadata{},
+      open_setters::SetContext{}, open_setters::SetTransaction{},
+      spec_setters::SetKvstore{});
 };
 
 constexpr auto ForwardSpecRequestSetters = [](auto callback,
                                               auto... other_param) {
-  callback(other_param..., spec_setters::SetOpen{}, spec_setters::SetCreate{},
-           spec_setters::SetDeleteExisting{}, spec_setters::SetAssumeMetadata{},
-           spec_setters::SetMinimalSpec{}, spec_setters::SetRetainContext{},
-           spec_setters::SetUnbindContext{});
+  callback(other_param..., spec_setters::SetOpenMode{}, spec_setters::SetOpen{},
+           spec_setters::SetCreate{}, spec_setters::SetDeleteExisting{},
+           spec_setters::SetAssumeMetadata{}, spec_setters::SetMinimalSpec{},
+           spec_setters::SetRetainContext{}, spec_setters::SetUnbindContext{});
 };
 
 using TensorStoreCls = py::class_<PythonTensorStoreObject>;

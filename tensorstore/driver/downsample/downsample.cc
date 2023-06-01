@@ -130,6 +130,8 @@ class DownsampleDriverSpec
         dtype, this->downsample_method);
   }
 
+  OpenMode open_mode() const override { return base.driver_spec->open_mode(); }
+
   absl::Status ApplyOptions(SpecOptions&& options) override {
     TENSORSTORE_RETURN_IF_ERROR(schema.Set(options.dtype()));
     TENSORSTORE_RETURN_IF_ERROR(schema.Set(options.rank()));

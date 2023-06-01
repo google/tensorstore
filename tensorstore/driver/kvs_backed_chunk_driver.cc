@@ -699,6 +699,12 @@ absl::Status KvsDriverSpec::ApplyOptions(SpecOptions&& options) {
   return OpenModeSpec::ApplyOptions(options);
 }
 
+OpenMode KvsDriverSpec::open_mode() const {
+  auto mode = this->OpenModeSpec::open_mode();
+  // Default mode is `open`.
+  return (mode == OpenMode{}) ? OpenMode::open : mode;
+}
+
 Result<CodecSpec> KvsDriverBase::GetCodec() {
   auto* cache = this->cache();
   return cache->GetCodec(cache->initial_metadata_.get(), component_index());
