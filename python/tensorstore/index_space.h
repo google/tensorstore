@@ -258,20 +258,16 @@ void DefineIndexTransformOperations(
   cls->def_property_readonly(
       "T",
       [get_transform, apply_transform](Self self) {
-        IndexTransform<> transform = get_transform(self);
-        const DimensionIndex rank = transform.input_rank();
-        DimensionIndexBuffer reversed_dims(rank);
-        for (DimensionIndex i = 0; i < rank; ++i) {
-          reversed_dims[i] = rank - 1 - i;
-        }
-        return apply_transform(
-            std::forward<Self>(self),
-            ValueOrThrow(std::move(transform) |
-                         tensorstore::Dims(reversed_dims).Transpose()));
+        auto new_transform = get_transform(self).Transpose();
+        return apply_transform(std::forward<Self>(self),
+                               std::move(new_transform));
       },
       R"(View with transposed domain (reversed dimension order).
 
 This is equivalent to: :python:`self[ts.d[::-1].transpose[:]]`.
+
+See also:
+  - `tensorstore.DimExpression.transpose`
 
 Group:
   Indexing
@@ -291,6 +287,7 @@ Group:
   Accessors
 
 )");
+
   cls->def_property_readonly(
       "shape",
       [get_transform](const Self& self) {
@@ -304,6 +301,7 @@ Group:
   Accessors
 
 )");
+
   cls->def_property_readonly(
       "size",
       [get_transform](const Self& self) {

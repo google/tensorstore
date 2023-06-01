@@ -81,6 +81,20 @@ Result<IndexTransform<>> ApplyTransposeToDynamic(
     IndexTransform<> transform, DimensionIndexBuffer* dimensions,
     span<const DynamicDimSpec> target_dim_specs, bool domain_only);
 
+/// Returns a new index transform with the dimensions permutation such that in
+/// the returned view, dimension `i` corresponds to `source_dim_specs[i]`.
+///
+/// \param transform Existing transform.
+/// \param source_dim_specs Must evaluate to a permutation of
+///     ``0, 1, ..., transform.input_rank()-1``.
+/// \param domain_only Indicates the output dimensions of `transform` should be
+///     ignored, and returned transform should have an output rank of 0.
+/// \error `absl::StatusCode::kInvalidArgument` if `source_dim_specs` does not
+///     specify a permutation of the dimensions.
+Result<IndexTransform<>> ApplyTranspose(
+    IndexTransform<> transform, span<const DynamicDimSpec> source_dim_specs,
+    bool domain_only);
+
 /// Type representing the `DimExpression::Transpose(target_dimensions)`
 /// operation.
 template <typename Container>

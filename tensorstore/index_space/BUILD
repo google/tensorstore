@@ -340,6 +340,7 @@ tensorstore_cc_library(
         "internal/propagate_bounds.cc",
         "internal/transform_array.cc",
         "internal/transform_rep.cc",
+        "internal/transpose.cc",
         "json.cc",
     ],
     hdrs = [
@@ -357,6 +358,7 @@ tensorstore_cc_library(
         "internal/transform_array.h",
         "internal/transform_rep.h",
         "internal/transform_rep_impl.h",
+        "internal/transpose.h",
         "json.h",
         "output_index_map.h",
     ],
@@ -950,6 +952,16 @@ tensorstore_cc_test(
         ":index_transform",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "transpose_test",
+    size = "small",
+    srcs = ["transpose_test.cc"],
+    deps = [
+        ":index_transform",
         "@com_google_googletest//:gtest_main",
     ],
 )

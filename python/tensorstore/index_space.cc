@@ -350,6 +350,7 @@ Group:
 }
 
 void DefineIndexDomainAttributes(py::class_<IndexDomain<>>& cls) {
+  using Self = IndexDomain<>;
   cls.def(
       py::init([](std::optional<DimensionIndex> rank,
                   std::optional<SequenceParameter<Index>> inclusive_min,
@@ -786,6 +787,23 @@ Group:
   Indexing
 )",
       py::arg("transform"));
+
+  cls.def_property_readonly(
+      "T", [](const Self& self) { return self.Transpose(); }, R"(
+View with the dimension order reversed (transposed).
+
+Example:
+
+    >>> domain = ts.IndexDomain(labels=['x', 'y', 'z'])
+    >>> domain.T
+    { "z": (-inf*, +inf*), "y": (-inf*, +inf*), "x": (-inf*, +inf*) }
+
+See also:
+  - `tensorstore.DimExpression.transpose`
+
+Group:
+  Indexing
+)");
 
   cls.def(
       "intersect",

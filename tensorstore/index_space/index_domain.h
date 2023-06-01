@@ -18,6 +18,7 @@
 #include "tensorstore/box.h"
 #include "tensorstore/index_space/internal/identity_transform.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
+#include "tensorstore/index_space/internal/transpose.h"
 #include "tensorstore/internal/gdb_scripting.h"
 #include "tensorstore/internal/string_like.h"
 #include "tensorstore/rank.h"
@@ -273,6 +274,44 @@ class IndexDomain {
   ///
   /// \pre `valid()`
   Index num_elements() const { return ProductOfExtents(shape()); }
+
+  /// Returns a new domain with the dimension order reversed.
+  ///
+  /// If `!valid()`, returns an invalid view.
+  IndexDomain<Rank> Transpose() const& {
+    return Access::Make<IndexDomain<Rank, container>>(
+        internal_index_space::TransposeInputDimensions(
+            Access::rep_ptr<container>(*this),
+            /*domain_only=*/true));
+  }
+  IndexDomain<Rank> Transpose() && {
+    return Access::Make<IndexDomain<Rank, container>>(
+        internal_index_space::TransposeInputDimensions(
+            Access::rep_ptr<container>(std::move(*this)),
+            /*domain_only=*/true));
+  }
+
+  /// Returns a new domain with the dimension order permuted.
+  ///
+  /// If `!valid()`, returns an invalid view.
+  ///
+  /// \param permutation Permutation of ``0, ..., rank()-1``, where
+  ///     `permutation[i]` specifies the dimension of the existing domain that
+  ///     corresponds to dimension `i` of the new domain.
+  /// \dchecks `permutation` is a valid permutation.
+  IndexDomain<Rank> Transpose(
+      span<const DimensionIndex, Rank> permutation) const& {
+    return Access::Make<IndexDomain<Rank, container>>(
+        internal_index_space::TransposeInputDimensions(
+            Access::rep_ptr<container>(*this), permutation,
+            /*domain_only=*/true));
+  }
+  IndexDomain<Rank> Transpose(span<const DimensionIndex, Rank> permutation) && {
+    return Access::Make<IndexDomain<Rank, container>>(
+        internal_index_space::TransposeInputDimensions(
+            Access::rep_ptr<container>(std::move(*this)), permutation,
+            /*domain_only=*/true));
+  }
 
   /// Slices an index transform by this index domain.
   ///

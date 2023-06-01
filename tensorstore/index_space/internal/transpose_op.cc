@@ -20,7 +20,9 @@
 #include "absl/container/fixed_array.h"
 #include "absl/status/status.h"
 #include "tensorstore/index_space/dimension_identifier.h"
+#include "tensorstore/index_space/dimension_permutation.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/internal/transpose.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -41,8 +43,7 @@ absl::Status MakePermutationFromMoveDimsTarget(
       target, NormalizeDimensionIndex(target, input_rank - num_dims + 1));
   std::fill(permutation.begin(), permutation.end(),
             static_cast<DimensionIndex>(-1));
-  absl::FixedArray<bool, internal::kNumInlinedDims> moved_dims(input_rank,
-                                                               false);
+  DimensionSet moved_dims = false;
   for (DimensionIndex i = 0; i < num_dims; ++i) {
     DimensionIndex& input_dim = (*dimensions)[i];
     moved_dims[input_dim] = true;
@@ -57,177 +58,6 @@ absl::Status MakePermutationFromMoveDimsTarget(
   return absl::OkStatus();
 }
 
-/// Permutes `orig_array` and stores the result in `new_array`.
-/// \dchecks `orig_array.size() == new_array.size()`
-/// \dchecks `orig_array.size() == new_to_orig_map.size()`
-/// \dchecks `0 <= new_to_orig_map[i] && new_to_orig_map[i] < orig_array.size()`
-template <typename Source, typename Dest>
-void PermuteArray(Source orig_array, Dest new_array,
-                  span<const DimensionIndex> new_to_orig_map) {
-  assert(orig_array.size() == new_array.size());
-  assert(orig_array.size() == new_to_orig_map.size());
-  for (std::ptrdiff_t i = 0; i < orig_array.size(); ++i) {
-    new_array[i] = orig_array[new_to_orig_map[i]];
-  }
-}
-
-/// Permutes `array` in place, using the specified temporary array.
-/// \dchecks `array.size() == temp_array.size()`
-/// \dchecks `array.size() == new_to_orig_map.size()`.
-/// \dchecks `0 <= new_to_orig_map[i] && new_to_orig_map[i] < orig_array.size()`
-template <typename Source, typename Temp>
-void PermuteArrayInPlace(Source array, Temp temp_array,
-                         span<const DimensionIndex> new_to_orig_map) {
-  assert(array.size() == temp_array.size());
-  assert(array.size() == new_to_orig_map.size());
-  for (DimensionIndex i = 0; i < array.size(); ++i) {
-    temp_array[i] = array[i];
-  }
-  PermuteArray(temp_array, array, new_to_orig_map);
-}
-
-TransformRep::Ptr<> PermuteDimsOutOfPlace(
-    TransformRep* original, span<const DimensionIndex> permutation,
-    bool domain_only) {
-  const DimensionIndex input_rank = original->input_rank;
-  const DimensionIndex output_rank = domain_only ? 0 : original->output_rank;
-  assert(permutation.size() == input_rank);
-
-  auto result = TransformRep::Allocate(original->input_rank, output_rank);
-  result->input_rank = input_rank;
-  result->output_rank = output_rank;
-
-  // Maps original input dimension indices to new input dimension indices.
-  absl::FixedArray<DimensionIndex, internal::kNumInlinedDims>
-      inverse_dimension_map(input_rank);
-
-  // Compute the `input_origin` and `input_shape` of `result`.  Also set
-  // `inverse_dimension_map` to be the inverse of `permutation`, which is needed
-  // to compute the output index maps of the `result` transform.
-  for (DimensionIndex new_input_dim = 0; new_input_dim < input_rank;
-       ++new_input_dim) {
-    const DimensionIndex orig_input_dim = permutation[new_input_dim];
-    assert(orig_input_dim >= 0 && orig_input_dim < input_rank);
-    result->input_dimension(new_input_dim) =
-        original->input_dimension(orig_input_dim);
-    inverse_dimension_map[orig_input_dim] = new_input_dim;
-  }
-
-  // Compute the output index maps of the `result` transform.
-  span<const OutputIndexMap> original_maps =
-      original->output_index_maps().first(output_rank);
-  span<OutputIndexMap> result_maps =
-      result->output_index_maps().first(output_rank);
-  for (DimensionIndex output_dim = 0; output_dim < output_rank; ++output_dim) {
-    auto& result_map = result_maps[output_dim];
-    const auto& orig_map = original_maps[output_dim];
-    result_map.offset() = orig_map.offset();
-    result_map.stride() = orig_map.stride();
-    switch (orig_map.method()) {
-      case OutputIndexMethod::constant:
-        result_map.SetConstant();
-        break;
-      case OutputIndexMethod::single_input_dimension: {
-        const DimensionIndex orig_input_dim = orig_map.input_dimension();
-        assert(orig_input_dim >= 0 && orig_input_dim < input_rank);
-        const DimensionIndex new_input_dim =
-            inverse_dimension_map[orig_input_dim];
-        assert(new_input_dim >= 0 && new_input_dim < input_rank);
-        result_map.SetSingleInputDimension(new_input_dim);
-        break;
-      }
-      case OutputIndexMethod::array: {
-        auto& result_index_array_data = result_map.SetArrayIndexing(input_rank);
-        const auto& orig_index_array_data = orig_map.index_array_data();
-        result_index_array_data.element_pointer =
-            orig_index_array_data.element_pointer;
-        result_index_array_data.index_range = orig_index_array_data.index_range;
-        PermuteArray(span(orig_index_array_data.byte_strides, input_rank),
-                     span(result_index_array_data.byte_strides, input_rank),
-                     permutation);
-        break;
-      }
-    }
-  }
-  internal_index_space::DebugCheckInvariants(result.get());
-  return result;
-}
-
-TransformRep::Ptr<> PermuteDimsInplace(TransformRep::Ptr<> rep,
-                                       span<const DimensionIndex> permutation,
-                                       bool domain_only) {
-  if (domain_only) {
-    ResetOutputIndexMaps(rep.get());
-  }
-  const DimensionIndex input_rank = rep->input_rank;
-  const DimensionIndex output_rank = rep->output_rank;
-  assert(permutation.size() == input_rank);
-
-  // Maps original input dimension indices to new input dimension indices.
-  absl::FixedArray<DimensionIndex, internal::kNumInlinedDims>
-      inverse_dimension_map(input_rank);
-
-  // Set `inverse_dimension_map` to be the inverse of `permutation`.
-  for (DimensionIndex new_input_dim = 0; new_input_dim < input_rank;
-       ++new_input_dim) {
-    const DimensionIndex orig_input_dim = permutation[new_input_dim];
-    inverse_dimension_map[orig_input_dim] = new_input_dim;
-  }
-
-  // Permute the input dimensions.
-  {
-    absl::FixedArray<IndexDomainDimension<container>, internal::kNumInlinedDims>
-        temp_array(input_rank);
-    PermuteArrayInPlace(rep->all_input_dimensions(input_rank), span(temp_array),
-                        permutation);
-  }
-
-  // Update the output index maps of the transform.
-  {
-    const span<OutputIndexMap> maps =
-        rep->output_index_maps().first(output_rank);
-    absl::FixedArray<DimensionIndex, internal::kNumInlinedDims>
-        temp_index_array(input_rank);
-    for (DimensionIndex output_dim = 0; output_dim < output_rank;
-         ++output_dim) {
-      auto& map = maps[output_dim];
-      switch (map.method()) {
-        case OutputIndexMethod::constant:
-          break;
-        case OutputIndexMethod::single_input_dimension:
-          map.SetSingleInputDimension(
-              inverse_dimension_map[map.input_dimension()]);
-          break;
-        case OutputIndexMethod::array: {
-          auto& index_array_data = map.index_array_data();
-          PermuteArrayInPlace(span(index_array_data.byte_strides, input_rank),
-                              span(temp_index_array), permutation);
-          break;
-        }
-      }
-    }
-  }
-  internal_index_space::DebugCheckInvariants(rep.get());
-  return rep;
-}
-
-/// Permutes the input dimension order of `rep`.
-///
-/// \param permutation Specifies the old dimension index corresponding to each
-///     new dimension: `permutation[i]` is the old dimension index corresponding
-///     to new dimension `i`.
-/// \pre `rep != nullptr`
-/// \pre `permutation.size() == rep->input_rank`
-TransformRep::Ptr<> PermuteDims(TransformRep::Ptr<> rep,
-                                span<const DimensionIndex> permutation,
-                                bool domain_only) {
-  if (rep->is_unique()) {
-    return PermuteDimsInplace(std::move(rep), permutation, domain_only);
-  } else {
-    return PermuteDimsOutOfPlace(rep.get(), permutation, domain_only);
-  }
-}
-
 }  // namespace
 
 Result<IndexTransform<>> ApplyMoveDimsTo(IndexTransform<> transform,
@@ -235,13 +65,12 @@ Result<IndexTransform<>> ApplyMoveDimsTo(IndexTransform<> transform,
                                          DimensionIndex target,
                                          bool domain_only) {
   const DimensionIndex input_rank = transform.input_rank();
-  absl::FixedArray<DimensionIndex, internal::kNumInlinedDims> permutation(
-      input_rank);
-  TENSORSTORE_RETURN_IF_ERROR(
-      MakePermutationFromMoveDimsTarget(dimensions, target, permutation));
-  return TransformAccess::Make<IndexTransform<>>(
-      PermuteDims(TransformAccess::rep_ptr<container>(std::move(transform)),
-                  permutation, domain_only));
+  DimensionIndex permutation[kMaxRank];
+  TENSORSTORE_RETURN_IF_ERROR(MakePermutationFromMoveDimsTarget(
+      dimensions, target, span<DimensionIndex>(&permutation[0], input_rank)));
+  return TransformAccess::Make<IndexTransform<>>(TransposeInputDimensions(
+      TransformAccess::rep_ptr<container>(std::move(transform)),
+      span<const DimensionIndex>(&permutation[0], input_rank), domain_only));
 }
 
 Result<IndexTransform<>> ApplyTranspose(IndexTransform<> transform,
@@ -253,9 +82,9 @@ Result<IndexTransform<>> ApplyTranspose(IndexTransform<> transform,
         "Number of dimensions (", dimensions->size(),
         ") must equal input_rank (", transform.input_rank(), ")."));
   }
-  TransformRep::Ptr<> rep =
-      PermuteDims(TransformAccess::rep_ptr<container>(std::move(transform)),
-                  *dimensions, domain_only);
+  TransformRep::Ptr<> rep = TransposeInputDimensions(
+      TransformAccess::rep_ptr<container>(std::move(transform)), *dimensions,
+      domain_only);
   std::iota(dimensions->begin(), dimensions->end(),
             static_cast<DimensionIndex>(0));
   return TransformAccess::Make<IndexTransform<>>(std::move(rep));
@@ -273,12 +102,11 @@ Result<IndexTransform<>> ApplyTransposeTo(
         ")"));
   }
   // Specifies whether a given existing dimension index occurs in `*dimensions`.
-  absl::FixedArray<bool, internal::kNumInlinedDims> seen_existing_dim(
-      input_rank, false);
+  DimensionSet seen_existing_dim = false;
   // Maps each new dimension index to the corresponding existing dimension
   // index.
-  absl::FixedArray<DimensionIndex, internal::kNumInlinedDims> permutation(
-      input_rank, -1);
+  DimensionIndex permutation[kMaxRank];
+  std::fill_n(permutation, input_rank, -1);
   for (DimensionIndex i = 0; i < target_dimensions.size(); ++i) {
     DimensionIndex& orig_dim = (*dimensions)[i];
     TENSORSTORE_ASSIGN_OR_RETURN(
@@ -299,9 +127,9 @@ Result<IndexTransform<>> ApplyTransposeTo(
     while (permutation[target_dim] != -1) ++target_dim;
     permutation[target_dim] = orig_dim;
   }
-  return TransformAccess::Make<IndexTransform<>>(
-      PermuteDims(TransformAccess::rep_ptr<container>(std::move(transform)),
-                  permutation, domain_only));
+  return TransformAccess::Make<IndexTransform<>>(TransposeInputDimensions(
+      TransformAccess::rep_ptr<container>(std::move(transform)),
+      span<const DimensionIndex>(&permutation[0], input_rank), domain_only));
 }
 
 Result<IndexTransform<>> ApplyTransposeToDynamic(
@@ -328,6 +156,24 @@ Result<IndexTransform<>> ApplyTransposeToDynamic(
   }
   return ApplyTransposeTo(std::move(transform), dimensions, target_dimensions,
                           domain_only);
+}
+
+Result<IndexTransform<>> ApplyTranspose(
+    IndexTransform<> transform, span<const DynamicDimSpec> source_dim_specs,
+    bool domain_only) {
+  DimensionIndexBuffer source_dimensions;
+  source_dimensions.reserve(transform.input_rank());
+  TENSORSTORE_RETURN_IF_ERROR(NormalizeDynamicDimSpecs(
+      source_dim_specs, transform.input_labels(), &source_dimensions));
+  if (!IsValidPermutation(source_dimensions)) {
+    return absl::InvalidArgumentError(
+        tensorstore::StrCat("Source dimension list ", span(source_dimensions),
+                            " is not a valid dimension permutation for rank ",
+                            transform.input_rank()));
+  }
+  return TransformAccess::Make<IndexTransform<>>(TransposeInputDimensions(
+      TransformAccess::rep_ptr<container>(std::move(transform)),
+      source_dimensions, domain_only));
 }
 
 }  // namespace internal_index_space
