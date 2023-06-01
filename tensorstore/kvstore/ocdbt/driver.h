@@ -93,6 +93,8 @@ class OcdbtDriverSpec
   Future<kvstore::DriverPtr> DoOpen() const override;
 
   absl::Status ApplyOptions(kvstore::DriverSpecOptions&& options) override;
+
+  Result<kvstore::Spec> GetBase(std::string_view path) const override;
 };
 
 class OcdbtDriver
@@ -115,6 +117,9 @@ class OcdbtDriver
 
   kvstore::SupportedFeatures GetSupportedFeatures(
       const KeyRange& key_range) const final;
+
+  Result<KvStore> GetBase(std::string_view path,
+                          const Transaction& transaction) const override;
 
   const Executor& executor() { return data_copy_concurrency_->executor; }
 

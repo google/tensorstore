@@ -965,6 +965,10 @@ class ShardedKeyValueStoreSpec
  public:
   static constexpr char id[] = "neuroglancer_uint64_sharded";
   Future<kvstore::DriverPtr> DoOpen() const override;
+
+  Result<kvstore::Spec> GetBase(std::string_view path) const override {
+    return data_.base;
+  }
 };
 
 class ShardedKeyValueStore
@@ -1116,6 +1120,12 @@ class ShardedKeyValueStore
       const KeyRange& key_range) const final {
     return base_kvstore_driver()->GetSupportedFeatures(
         KeyRange::Prefix(key_prefix()));
+  }
+
+  Result<KvStore> GetBase(std::string_view path,
+                          const Transaction& transaction) const override {
+    return KvStore(kvstore::DriverPtr(base_kvstore_driver()), key_prefix(),
+                   transaction);
   }
 
   kvstore::Driver* base_kvstore_driver() const {

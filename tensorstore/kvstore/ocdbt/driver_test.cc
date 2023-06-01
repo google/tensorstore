@@ -63,8 +63,6 @@ using ::tensorstore::internal_ocdbt::ReadManifest;
 using ::tensorstore::kvstore::SupportedFeatures;
 
 TEST(OcdbtTest, WriteSingleKey) {
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto base_store,
-                                   kvstore::Open("memory://").result());
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store,
       kvstore::Open({{"driver", "ocdbt"}, {"base", "memory://"}}).result());
@@ -78,6 +76,29 @@ TEST(OcdbtTest, WriteSingleKey) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto map, GetMap(store));
   EXPECT_THAT(
       map, ::testing::ElementsAre(::testing::Pair("a", absl::Cord("value"))));
+}
+
+TEST(OcdbtTest, Base) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec, kvstore::Spec::FromJson({
+                                                  {"driver", "ocdbt"},
+                                                  {"base", "memory://abc/"},
+                                                  {"path", "def"},
+                                              }));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto base_spec,
+                                   kvstore::Spec::FromJson("memory://abc/"));
+  EXPECT_THAT(spec.base(), ::testing::Optional(base_spec));
+
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
+                                   kvstore::Open(spec, context).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto base_store,
+                                   kvstore::Open(base_spec, context).result());
+  EXPECT_THAT(store.base(), ::testing::Optional(base_store));
+
+  // Check that the transaction is *not* propagated to the base.
+  auto transaction = tensorstore::Transaction(tensorstore::atomic_isolated);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store_with_txn, store | transaction);
+  EXPECT_THAT(store_with_txn.base(), ::testing::Optional(base_store));
 }
 
 TEST(OcdbtTest, WriteTwoKeys) {
@@ -181,6 +202,7 @@ TEST(OcdbtTest, Spec) {
         {"max_inline_value_bytes", 100},
         {"version_tree_arity_log2", 4}}},
   };
+  options.full_base_spec = {{"driver", "memory"}};
   options.minimal_spec = {
       {"driver", "ocdbt"},
       {"base", {{"driver", "memory"}}},

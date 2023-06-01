@@ -57,6 +57,12 @@ absl::Status DriverSpec::ApplyOptions(DriverSpecOptions&& options) {
   return absl::OkStatus();
 }
 
+Result<Spec> DriverSpec::GetBase(std::string_view path) const {
+  return {std::in_place};
+}
+
+Result<Spec> Spec::base() const { return driver->GetBase(path); }
+
 ContextBindingState DriverSpecPtr::context_binding_state() const {
   return get()->context_binding_state_;
 }

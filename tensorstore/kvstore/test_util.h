@@ -75,6 +75,10 @@ struct KeyValueStoreSpecRoundtripOptions {
   // `full_spec`.
   ::nlohmann::json create_spec = ::nlohmann::json::value_t::discarded;
 
+  // Result of calling `base()` on full spec.  The default value of `discarded`
+  // means a null spec.
+  ::nlohmann::json full_base_spec = ::nlohmann::json::value_t::discarded;
+
   // Specifies spec returned when `MinimalSpec{true}` is specified.  Defaults to
   // `full_spec`.
   ::nlohmann::json minimal_spec = ::nlohmann::json::value_t::discarded;

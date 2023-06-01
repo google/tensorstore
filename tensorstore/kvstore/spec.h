@@ -280,6 +280,10 @@ class Spec {
   /// Returns the URL representation of this spec, if supported.
   Result<std::string> ToUrl() const;
 
+  /// Returns the underlying kvstore spec, if this is an adapter (such as OCDBT
+  /// or neuroglancer_uint64_sharded).
+  Result<Spec> base() const;
+
   /// Compares for equality via JSON representation, except that bound context
   /// resources are compared by identity.
   friend bool operator==(const Spec& a, const Spec& b);
