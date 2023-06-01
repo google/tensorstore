@@ -1218,6 +1218,17 @@ struct OneToOneInputDimensions {
 OneToOneInputDimensions GetOneToOneInputDimensions(
     IndexTransformView<> transform, bool require_unit_stride = false);
 
+/// Computes the number of output dimensions that reference each input
+/// dimension.
+///
+/// \param transform Index transform, must be non-null.
+/// \param input_dimension_reference_counts[out] Must have length equal to
+///     `transform.input_rank()`.  Filled with the number of references to each
+///     input dimension.
+void ComputeInputDimensionReferenceCounts(
+    IndexTransformView<> transform,
+    span<DimensionIndex> input_dimension_reference_counts);
+
 }  // namespace internal
 
 /// Returns a copy of `transform` with `implicit_lower_bounds` and

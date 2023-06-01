@@ -559,6 +559,40 @@ OneToOneInputDimensions GetOneToOneInputDimensions(
           /*.non_one_to_one=*/non_one_to_one_input_dims};
 }
 
+void ComputeInputDimensionReferenceCounts(
+    IndexTransformView<> transform,
+    span<DimensionIndex> input_dimension_reference_counts) {
+  using internal_index_space::TransformAccess;
+
+  assert(transform.valid());
+  const DimensionIndex output_rank = transform.output_rank();
+  const DimensionIndex input_rank = transform.input_rank();
+  assert(input_dimension_reference_counts.size() == input_rank);
+  std::fill_n(input_dimension_reference_counts.begin(), input_rank,
+              DimensionIndex(0));
+  auto transform_rep = TransformAccess::rep(transform);
+  for (DimensionIndex output_dim = 0; output_dim < output_rank; ++output_dim) {
+    const auto& output_map = transform_rep->output_index_maps()[output_dim];
+    switch (output_map.method()) {
+      case OutputIndexMethod::constant:
+        break;
+      case OutputIndexMethod::single_input_dimension:
+        ++input_dimension_reference_counts[output_map.input_dimension()];
+        break;
+      case OutputIndexMethod::array: {
+        const auto& index_array_data = output_map.index_array_data();
+        for (DimensionIndex input_dim = 0; input_dim < input_rank;
+             ++input_dim) {
+          if (index_array_data.byte_strides[input_dim] != 0) {
+            ++input_dimension_reference_counts[input_dim];
+          }
+        }
+        break;
+      }
+    }
+  }
+}
+
 }  // namespace internal
 
 Result<IndexTransform<>> ComposeOptionalTransforms(IndexTransform<> b_to_c,
