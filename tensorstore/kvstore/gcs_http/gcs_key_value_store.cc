@@ -53,9 +53,10 @@
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/gcs/gcs_resource.h"
-#include "tensorstore/kvstore/gcs/object_metadata.h"
-#include "tensorstore/kvstore/gcs/rate_limiter.h"
 #include "tensorstore/kvstore/gcs/validate.h"
+#include "tensorstore/kvstore/gcs_http/gcs_resource.h"
+#include "tensorstore/kvstore/gcs_http/object_metadata.h"
+#include "tensorstore/kvstore/gcs_http/rate_limiter.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/registry.h"
 #include "tensorstore/kvstore/spec.h"
@@ -91,18 +92,19 @@ using ::tensorstore::internal_http::HttpRequest;
 using ::tensorstore::internal_http::HttpRequestBuilder;
 using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_http::HttpTransport;
-using ::tensorstore::internal_storage_gcs::GcsConcurrencyResource;
-using ::tensorstore::internal_storage_gcs::GcsRateLimiterResource;
+using ::tensorstore::internal_kvstore_gcs_http::GcsConcurrencyResource;
+using ::tensorstore::internal_kvstore_gcs_http::GcsRateLimiterResource;
+using ::tensorstore::internal_kvstore_gcs_http::NoRateLimiter;
+using ::tensorstore::internal_kvstore_gcs_http::ObjectMetadata;
+using ::tensorstore::internal_kvstore_gcs_http::ParseObjectMetadata;
+using ::tensorstore::internal_kvstore_gcs_http::RateLimiter;
+using ::tensorstore::internal_kvstore_gcs_http::RateLimiterNode;
 using ::tensorstore::internal_storage_gcs::GcsRequestRetries;
 using ::tensorstore::internal_storage_gcs::GcsUserProjectResource;
 using ::tensorstore::internal_storage_gcs::IsRetriable;
 using ::tensorstore::internal_storage_gcs::IsValidBucketName;
 using ::tensorstore::internal_storage_gcs::IsValidObjectName;
 using ::tensorstore::internal_storage_gcs::IsValidStorageGeneration;
-using ::tensorstore::internal_storage_gcs::ObjectMetadata;
-using ::tensorstore::internal_storage_gcs::ParseObjectMetadata;
-using ::tensorstore::internal_storage_gcs::RateLimiter;
-using ::tensorstore::internal_storage_gcs::RateLimiterNode;
 using ::tensorstore::kvstore::Key;
 using ::tensorstore::kvstore::ListOptions;
 using ::tensorstore::kvstore::SupportedFeatures;
@@ -398,7 +400,7 @@ class GcsKeyValueStore
   std::string resource_root_;  // bucket resource root.
   std::string upload_root_;    // bucket upload root.
   std::string encoded_user_project_;
-  internal_storage_gcs::NoRateLimiter no_rate_limiter_;
+  NoRateLimiter no_rate_limiter_;
 
   std::shared_ptr<HttpTransport> transport_;
 

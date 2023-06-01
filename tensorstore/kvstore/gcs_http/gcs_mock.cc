@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/kvstore/gcs/gcs_mock.h"
+#include "tensorstore/kvstore/gcs_http/gcs_mock.h"
 
 #include <limits>
 #include <map>

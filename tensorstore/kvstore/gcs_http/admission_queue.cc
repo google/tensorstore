@@ -12,16 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/kvstore/gcs/admission_queue.h"
+#include "tensorstore/kvstore/gcs_http/admission_queue.h"
 
-#include <assert.h>
-#include <stddef.h>
-
-#include <memory>
-#include <optional>
+#include <cassert>
+#include <cstddef>
 
 namespace tensorstore {
-namespace internal_storage_gcs {
+namespace internal_kvstore_gcs_http {
 
 AdmissionQueue::AdmissionQueue(size_t limit)
     : limit_(limit == 0 ? std::numeric_limits<size_t>::max() : limit) {}
@@ -61,5 +58,5 @@ void AdmissionQueue::Finish(RateLimiterNode* node) {
   RunStartFunction(next_node);
 }
 
-}  // namespace internal_storage_gcs
+}  // namespace internal_kvstore_gcs_http
 }  // namespace tensorstore

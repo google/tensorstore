@@ -12,15 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_KVSTORE_GCS_RATE_LIMITED_NODE_H_
-#define TENSORSTORE_KVSTORE_GCS_RATE_LIMITED_NODE_H_
+#ifndef TENSORSTORE_KVSTORE_GCS_HTTP_RATE_LIMITER_H_
+#define TENSORSTORE_KVSTORE_GCS_HTTP_RATE_LIMITER_H_
 
 #include "absl/base/thread_annotations.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/intrusive_linked_list.h"
 
 namespace tensorstore {
-namespace internal_storage_gcs {
+namespace internal_kvstore_gcs_http {
 
 // RateLimiter is an interface which supports rate-limiting for an operation.
 // Pending operations use the `RateLimiterNode` base class, and are managed
@@ -75,7 +75,7 @@ class NoRateLimiter : public RateLimiter {
   void Finish(RateLimiterNode* node) override;
 };
 
-}  // namespace internal_storage_gcs
+}  // namespace internal_kvstore_gcs_http
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_KVSTORE_GCS_RATE_LIMITED_NODE_H_
+#endif  // TENSORSTORE_KVSTORE_GCS_HTTP_RATE_LIMITER_H_

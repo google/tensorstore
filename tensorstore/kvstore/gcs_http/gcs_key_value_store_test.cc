@@ -42,7 +42,7 @@
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/schedule_at.h"
 #include "tensorstore/internal/uri_utils.h"
-#include "tensorstore/kvstore/gcs/gcs_mock.h"
+#include "tensorstore/kvstore/gcs_http/gcs_mock.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"

@@ -12,17 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_KVSTORE_GCS_ADMISSION_QUEUE_H_
-#define TENSORSTORE_KVSTORE_GCS_ADMISSION_QUEUE_H_
+#ifndef TENSORSTORE_KVSTORE_GCS_HTTP_ADMISSION_QUEUE_H_
+#define TENSORSTORE_KVSTORE_GCS_HTTP_ADMISSION_QUEUE_H_
 
 #include <cstddef>
 
 #include "absl/base/thread_annotations.h"
 #include "absl/synchronization/mutex.h"
-#include "tensorstore/kvstore/gcs/rate_limiter.h"
+#include "tensorstore/kvstore/gcs_http/rate_limiter.h"
 
 namespace tensorstore {
-namespace internal_storage_gcs {
+namespace internal_kvstore_gcs_http {
 
 /// AdmissionQueue implements a `RateLimiter` which restricts operation
 /// parallelism to a pre-specified limit. When the requested number of in-flight
@@ -61,7 +61,7 @@ class AdmissionQueue : public RateLimiter {
   size_t in_flight_ ABSL_GUARDED_BY(mutex_) = 0;
 };
 
-}  // namespace internal_storage_gcs
+}  // namespace internal_kvstore_gcs_http
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_KVSTORE_GCS_ADMISSION_QUEUE_H_
+#endif  // TENSORSTORE_KVSTORE_GCS_HTTP_ADMISSION_QUEUE_H_

@@ -12,19 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/kvstore/gcs/object_metadata.h"
+#include "tensorstore/kvstore/gcs_http/object_metadata.h"
 
 #include <string>
 
 #include <gtest/gtest.h>
 #include "absl/time/time.h"
-#include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 
 namespace {
 
-using ::tensorstore::internal_storage_gcs::ParseObjectMetadata;
+using ::tensorstore::internal_kvstore_gcs_http::ParseObjectMetadata;
 
 const char kObjectMetadata[] = R"""({
       "acl": [{

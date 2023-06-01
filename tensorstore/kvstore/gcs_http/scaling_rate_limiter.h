@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_KVSTORE_GCS_SCALING_RATE_LIMITER_H_
-#define TENSORSTORE_KVSTORE_GCS_SCALING_RATE_LIMITER_H_
+#ifndef TENSORSTORE_KVSTORE_GCS_HTTP_SCALING_RATE_LIMITER_H_
+#define TENSORSTORE_KVSTORE_GCS_HTTP_SCALING_RATE_LIMITER_H_
 
 #include <cstdint>
 
@@ -21,10 +21,10 @@
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/poly/poly.h"
-#include "tensorstore/kvstore/gcs/rate_limiter.h"
+#include "tensorstore/kvstore/gcs_http/rate_limiter.h"
 
 namespace tensorstore {
-namespace internal_storage_gcs {
+namespace internal_kvstore_gcs_http {
 
 /// ScalingRateLimiter implements a rate-limiter which is similar to a typical
 /// Leaky-Bucket rate limiting algorithm with optional time-based growth
@@ -94,7 +94,7 @@ class ScalingRateLimiter : public RateLimiter {
   ClockPoly clock_now_;
 };
 
-}  // namespace internal_storage_gcs
+}  // namespace internal_kvstore_gcs_http
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_KVSTORE_GCS_SCALING_RATE_LIMITER_H_

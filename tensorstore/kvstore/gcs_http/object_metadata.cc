@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/kvstore/gcs/object_metadata.h"
+#include "tensorstore/kvstore/gcs_http/object_metadata.h"
 
 #include <map>
 #include <optional>
@@ -32,7 +32,7 @@
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
-namespace internal_storage_gcs {
+namespace internal_kvstore_gcs_http {
 
 using ::tensorstore::internal_http::TryParseIntHeader;
 using ::tensorstore::internal_json_binding::DefaultInitializedValue;
@@ -115,5 +115,5 @@ Result<ObjectMetadata> ParseObjectMetadata(std::string_view source) {
   return jb::FromJson<ObjectMetadata>(std::move(json));
 }
 
-}  // namespace internal_storage_gcs
+}  // namespace internal_kvstore_gcs_http
 }  // namespace tensorstore

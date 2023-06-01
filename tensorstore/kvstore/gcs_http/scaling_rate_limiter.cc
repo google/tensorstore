@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/kvstore/gcs/scaling_rate_limiter.h"
+#include "tensorstore/kvstore/gcs_http/scaling_rate_limiter.h"
 
 #include <cassert>
 #include <limits>
@@ -22,10 +22,10 @@
 #include "absl/time/time.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/schedule_at.h"
-#include "tensorstore/kvstore/gcs/rate_limiter.h"
+#include "tensorstore/kvstore/gcs_http/rate_limiter.h"
 
 namespace tensorstore {
-namespace internal_storage_gcs {
+namespace internal_kvstore_gcs_http {
 namespace {
 
 double GetLogA(absl::Duration doubling_time) {
@@ -163,5 +163,5 @@ void ScalingRateLimiter::Finish(RateLimiterNode* node) {
   StartAvailableNodes(kUpdateBit);
 }
 
-}  // namespace internal_storage_gcs
+}  // namespace internal_kvstore_gcs_http
 }  // namespace tensorstore

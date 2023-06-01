@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_KVSTORE_GCS_GCS_MOCK_H_
-#define TENSORSTORE_KVSTORE_GCS_GCS_MOCK_H_
+#ifndef TENSORSTORE_KVSTORE_GCS_HTTP_GCS_MOCK_H_
+#define TENSORSTORE_KVSTORE_GCS_HTTP_GCS_MOCK_H_
 
 #include <cassert>
 #include <cstdint>
@@ -131,4 +131,4 @@ class GCSMockStorageBucket {
 
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_KVSTORE_GCS_GCS_MOCK_H_
+#endif  // TENSORSTORE_KVSTORE_GCS_HTTP_GCS_MOCK_H_

@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/kvstore/gcs/rate_limiter.h"
+#include "tensorstore/kvstore/gcs_http/rate_limiter.h"
 
 #include <assert.h>
 
 namespace tensorstore {
-namespace internal_storage_gcs {
+namespace internal_kvstore_gcs_http {
 
 RateLimiter::RateLimiter() {
   absl::MutexLock l(&mutex_);
@@ -52,5 +52,5 @@ void NoRateLimiter::Finish(RateLimiterNode* node) {
   assert(node->next_ == nullptr);
 }
 
-}  // namespace internal_storage_gcs
+}  // namespace internal_kvstore_gcs_http
 }  // namespace tensorstore

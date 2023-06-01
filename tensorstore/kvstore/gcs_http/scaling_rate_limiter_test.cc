@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/kvstore/gcs/scaling_rate_limiter.h"
+#include "tensorstore/kvstore/gcs_http/scaling_rate_limiter.h"
 
 #include <gtest/gtest.h>
 #include "absl/time/time.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/kvstore/gcs/rate_limiter.h"
+#include "tensorstore/kvstore/gcs_http/rate_limiter.h"
 #include "tensorstore/util/executor.h"
 
 namespace {
@@ -28,8 +28,8 @@ using ::tensorstore::internal::adopt_object_ref;
 using ::tensorstore::internal::AtomicReferenceCount;
 using ::tensorstore::internal::IntrusivePtr;
 using ::tensorstore::internal::MakeIntrusivePtr;
-using ::tensorstore::internal_storage_gcs::RateLimiterNode;
-using ::tensorstore::internal_storage_gcs::ScalingRateLimiter;
+using ::tensorstore::internal_kvstore_gcs_http::RateLimiterNode;
+using ::tensorstore::internal_kvstore_gcs_http::ScalingRateLimiter;
 
 struct Node : public RateLimiterNode, public AtomicReferenceCount<Node> {
   ScalingRateLimiter* queue_;
