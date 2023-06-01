@@ -866,6 +866,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:json_registry",
         "//tensorstore/internal:no_destructor",
+        "//tensorstore/internal/json:same",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/serialization",

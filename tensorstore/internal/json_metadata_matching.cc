@@ -16,7 +16,7 @@
 
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
-#include "tensorstore/internal/json/json.h"
+#include "tensorstore/internal/json/same.h"
 
 namespace tensorstore {
 namespace internal {

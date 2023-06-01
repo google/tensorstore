@@ -17,7 +17,6 @@ tensorstore_cc_library(
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "@com_github_nlohmann_json//:nlohmann_json",
-        "@com_google_absl//absl/container:inlined_vector",
         "@com_google_absl//absl/functional:function_ref",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
@@ -82,6 +81,7 @@ tensorstore_cc_library(
 
 tensorstore_cc_test(
     name = "pprint_python_test",
+    size = "small",
     srcs = ["pprint_python_test.cc"],
     deps = [
         ":pprint_python",
@@ -93,6 +93,7 @@ tensorstore_cc_test(
 
 tensorstore_cc_test(
     name = "array_test",
+    size = "small",
     srcs = ["array_test.cc"],
     deps = [
         ":array",
@@ -113,6 +114,7 @@ tensorstore_cc_test(
 
 tensorstore_cc_test(
     name = "json_test",
+    size = "small",
     srcs = ["json_test.cc"],
     deps = [
         ":json",
@@ -127,6 +129,7 @@ tensorstore_cc_test(
 
 tensorstore_cc_test(
     name = "value_as_test",
+    size = "small",
     srcs = ["value_as_test.cc"],
     deps = [
         ":value_as",
@@ -134,6 +137,28 @@ tensorstore_cc_test(
         "//tensorstore/util:status_testutil",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/status",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "same",
+    srcs = ["same.cc"],
+    hdrs = ["same.h"],
+    deps = [
+        "//tensorstore/internal:json_fwd",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/container:inlined_vector",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "same_test",
+    size = "small",
+    srcs = ["same_test.cc"],
+    deps = [
+        ":same",
+        "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_googletest//:gtest_main",
     ],
 )

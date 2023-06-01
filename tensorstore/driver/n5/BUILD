@@ -208,6 +208,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:flat_cord_builder",
         "//tensorstore/internal:json_metadata_matching",
         "//tensorstore/internal:type_traits",
+        "//tensorstore/internal/json:same",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/internal/json_binding:data_type",

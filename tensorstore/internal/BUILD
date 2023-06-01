@@ -761,7 +761,7 @@ tensorstore_cc_library(
     srcs = ["json_gtest.cc"],
     hdrs = ["json_gtest.h"],
     deps = [
-        "//tensorstore/internal/json",
+        "//tensorstore/internal/json:same",
         "//tensorstore/util:status_testutil",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_googletest//:gtest",
@@ -1921,7 +1921,7 @@ tensorstore_cc_library(
     srcs = ["json_metadata_matching.cc"],
     hdrs = ["json_metadata_matching.h"],
     deps = [
-        "//tensorstore/internal/json",
+        "//tensorstore/internal/json:same",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:str_cat",
         "@com_github_nlohmann_json//:nlohmann_json",

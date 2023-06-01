@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_JSON__JSON_H_
-#define TENSORSTORE_INTERNAL_JSON__JSON_H_
+#ifndef TENSORSTORE_INTERNAL_JSON_JSON_H_
+#define TENSORSTORE_INTERNAL_JSON_JSON_H_
 
 #include <string_view>
 
@@ -74,17 +74,6 @@ absl::Status JsonValidateArrayLength(std::ptrdiff_t parsed_size,
 /// Returns an error indicating that all members of `j_obj` are unexpected.
 absl::Status JsonExtraMembersError(const ::nlohmann::json::object_t& j_obj);
 
-/// Returns `true` if `a` and `b` are equal.
-///
-/// Unlike `operator==`, the comparison is non-recursive, and is therefore safe
-/// from stack overflow even for deeply nested structures.
-///
-/// Like `operator==`, two int64_t/uint64_t/double values representing exactly
-/// the same number are all considered equal even if their types differ.
-///
-/// Unlike `operator==`, two `discarded` values are considered equal.
-bool JsonSame(const ::nlohmann::json& a, const ::nlohmann::json& b);
-
 }  // namespace internal_json
 namespace internal {
 
@@ -93,4 +82,4 @@ using internal_json::ParseJson;
 }
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_JSON__JSON_H_
+#endif  // TENSORSTORE_INTERNAL_JSON_JSON_H_

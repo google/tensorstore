@@ -22,6 +22,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:type_traits",
         "//tensorstore/internal/json",
         "//tensorstore/internal/json:array",
+        "//tensorstore/internal/json:same",
         "//tensorstore/internal/json:value_as",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",

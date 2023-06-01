@@ -17,6 +17,7 @@
 #include <ostream>
 
 #include "tensorstore/codec_spec_registry.h"
+#include "tensorstore/internal/json/same.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/no_destructor.h"

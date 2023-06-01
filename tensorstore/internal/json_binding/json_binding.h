@@ -101,6 +101,7 @@
 #include "absl/strings/str_join.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/json/json.h"
+#include "tensorstore/internal/json/same.h"
 #include "tensorstore/internal/json/value_as.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/type_traits.h"
