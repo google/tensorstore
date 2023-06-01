@@ -259,6 +259,7 @@ pybind11_cc_library(
         ":sequence_parameter",
         ":subscript_method",
         ":tensorstore_module_components",
+        ":typed_slice",
         "//tensorstore:index",
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/index_space:dimension_identifier",
@@ -336,6 +337,14 @@ pybind11_cc_library(
     deps = [
         ":status",
         "//tensorstore/util:result",
+        "@com_github_pybind_pybind11//:pybind11",
+    ],
+)
+
+pybind11_cc_library(
+    name = "typed_slice",
+    hdrs = ["typed_slice.h"],
+    deps = [
         "@com_github_pybind_pybind11//:pybind11",
     ],
 )

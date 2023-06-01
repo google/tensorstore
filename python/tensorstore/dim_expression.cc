@@ -35,6 +35,7 @@
 #include "python/tensorstore/sequence_parameter.h"
 #include "python/tensorstore/subscript_method.h"
 #include "python/tensorstore/tensorstore_module_components.h"
+#include "python/tensorstore/typed_slice.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/dimension_identifier.h"
@@ -246,6 +247,62 @@ class PythonTransposeOp : public PythonDimExpression {
  private:
   std::shared_ptr<const PythonDimExpression> parent_;
   std::vector<DynamicDimSpec> target_dim_specs_;
+};
+
+/// Python equivalent of
+/// `tensorstore::internal_index_space::ChangeImplicitStateOp`.
+class PythonChangeImplicitStateOp : public PythonDimExpression {
+ public:
+  explicit PythonChangeImplicitStateOp(
+      std::shared_ptr<const PythonDimExpression> parent,
+      std::optional<bool> lower_implicit, std::optional<bool> upper_implicit)
+      : parent_(std::move(parent)),
+        lower_implicit_(lower_implicit),
+        upper_implicit_(upper_implicit) {}
+
+  std::string repr() const override {
+    std::string out =
+        tensorstore::StrCat(parent_->repr(), ".mark_bounds_implicit[");
+    constexpr auto format_bound =
+        [](std::optional<bool> value) -> std::string_view {
+      if (!value.has_value()) return "";
+      return *value ? "True" : "False";
+    };
+    if (lower_implicit_ == upper_implicit_ && lower_implicit_) {
+      tensorstore::StrAppend(&out, format_bound(lower_implicit_));
+    } else {
+      tensorstore::StrAppend(&out, format_bound(lower_implicit_), ":",
+                             format_bound(upper_implicit_));
+    }
+    out += ']';
+    return out;
+  }
+
+  Result<IndexTransform<>> Apply(IndexTransform<> transform,
+                                 DimensionIndexBuffer* buffer, bool top_level,
+                                 bool domain_only) const override {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        transform, parent_->Apply(std::move(transform), buffer,
+                                  /*top_level=*/false, domain_only));
+    const auto do_apply = [&](bool implicit) {
+      if (lower_implicit_ == implicit || upper_implicit_ == implicit) {
+        TENSORSTORE_ASSIGN_OR_RETURN(
+            transform, internal_index_space::ApplyChangeImplicitState(
+                           std::move(transform), buffer, implicit,
+                           lower_implicit_ == implicit,
+                           upper_implicit_ == implicit, domain_only));
+      }
+      return absl::OkStatus();
+    };
+
+    TENSORSTORE_RETURN_IF_ERROR(do_apply(false));
+    TENSORSTORE_RETURN_IF_ERROR(do_apply(true));
+    return transform;
+  }
+
+ private:
+  std::shared_ptr<const PythonDimExpression> parent_;
+  std::optional<bool> lower_implicit_, upper_implicit_;
 };
 
 /// Represents a NumPy-style indexing operation that is applied after at least
@@ -1342,6 +1399,137 @@ Group:
   Operations
 
 )");
+
+  DefineSubscriptMethod<std::shared_ptr<PythonDimExpression>,
+                        struct MarkBoundsImplicitTag>(
+      &cls, "mark_bounds_implicit", "_MarkBoundsImplicit")
+      .def(
+          "__getitem__",
+          +[](std::shared_ptr<PythonDimExpression> self,
+              std::variant<std::optional<bool>,
+                           TypedSlice<std::optional<bool>, std::optional<bool>,
+                                      std::nullptr_t>>
+                  bounds) -> std::shared_ptr<PythonDimExpression> {
+            struct Visitor {
+              std::optional<bool>& lower_implicit;
+              std::optional<bool>& upper_implicit;
+              void operator()(std::optional<bool> value) {
+                lower_implicit = value;
+                upper_implicit = value;
+              }
+
+              void operator()(
+                  const TypedSlice<std::optional<bool>, std::optional<bool>,
+                                   std::nullptr_t>& slice) {
+                lower_implicit = slice.start;
+                upper_implicit = slice.stop;
+              }
+            };
+            std::optional<bool> lower_implicit;
+            std::optional<bool> upper_implicit;
+            std::visit(Visitor{lower_implicit, upper_implicit}, bounds);
+            return std::make_shared<PythonChangeImplicitStateOp>(
+                std::move(self), lower_implicit, upper_implicit);
+          },
+          R"(
+Marks the lower/upper bounds of the selected dimensions as
+:ref:`implicit/explicit<implicit-bounds>`.
+
+For a `TensorStore`, implicit bounds indicate resizeable dimensions.  Marking a
+bound as explicit fixes it to its current value such that it won't be adjusted
+by subsequent `TensorStore.resolve` calls if the stored bounds change.
+
+Because implicit bounds do not constrain subsequent indexing/slicing operations,
+a bound may be marked implicit in order to expand the domain.
+
+.. warning::
+
+   Be careful when marking bounds as implicit, since this may bypass intended
+   constraints on the domain.
+
+Examples:
+
+    >>> s = await ts.open({
+    ...     'driver': 'zarr',
+    ...     'kvstore': 'memory://'
+    ... },
+    ...                   shape=[100, 200],
+    ...                   dtype=ts.uint32,
+    ...                   create=True)
+    >>> s.domain
+    { [0, 100*), [0, 200*) }
+    >>> await s.resize(exclusive_max=[200, 300])
+    >>> (await s.resolve()).domain
+    { [0, 200*), [0, 300*) }
+    >>> (await s[ts.d[0].mark_bounds_implicit[False]].resolve()).domain
+    { [0, 100), [0, 300*) }
+    >>> s_subregion = s[20:30, 40:50]
+    >>> s_subregion.domain
+    { [20, 30), [40, 50) }
+    >>> (await
+    ...  s_subregion[ts.d[0].mark_bounds_implicit[:True]].resolve()).domain
+    { [20, 200*), [40, 50) }
+
+    >>> t = ts.IndexTransform(input_rank=3)
+    >>> t = t[ts.d[0, 2].mark_bounds_implicit[False]]
+    >>> t
+    Rank 3 -> 3 index space transform:
+      Input domain:
+        0: (-inf, +inf)
+        1: (-inf*, +inf*)
+        2: (-inf, +inf)
+      Output index maps:
+        out[0] = 0 + 1 * in[0]
+        out[1] = 0 + 1 * in[1]
+        out[2] = 0 + 1 * in[2]
+    >>> t = t[ts.d[0, 1].mark_bounds_implicit[:True]]
+    >>> t
+    Rank 3 -> 3 index space transform:
+      Input domain:
+        0: (-inf, +inf*)
+        1: (-inf*, +inf*)
+        2: (-inf, +inf)
+      Output index maps:
+        out[0] = 0 + 1 * in[0]
+        out[1] = 0 + 1 * in[1]
+        out[2] = 0 + 1 * in[2]
+    >>> t = t[ts.d[1, 2].mark_bounds_implicit[True:False]]
+    >>> t
+    Rank 3 -> 3 index space transform:
+      Input domain:
+        0: (-inf, +inf*)
+        1: (-inf*, +inf)
+        2: (-inf*, +inf)
+      Output index maps:
+        out[0] = 0 + 1 * in[0]
+        out[1] = 0 + 1 * in[1]
+        out[2] = 0 + 1 * in[2]
+
+The new dimension selection is the same as the prior dimension selection.
+
+Args:
+
+  implicit: Indicates the new implicit value for the lower and upper bounds.  Must be one of:
+
+    - `None` to indicate no change;
+    - `True` to change both lower and upper bounds to implicit;
+    - `False` to change both lower and upper bounds to explicit.
+    - a `slice`, where :python:`start` and :python:`stop` specify the new
+      implicit value for the lower and upper bounds, respectively, and each must
+      be one of `None`, `True`, or `False`.
+
+Returns:
+  Dimension expression with bounds marked as implicit/explicit.
+
+Raises:
+  IndexError: If the resultant domain would have an input dimension referenced
+    by an index array marked as implicit.
+
+Group:
+  Operations
+
+)",
+          py::arg("implicit"));
 
   cls.def("__repr__", &PythonDimExpression::repr);
 
