@@ -184,6 +184,7 @@ struct S3KeyValueStoreSpecData {
   bool requester_pays;
   std::string endpoint;
   std::string profile;
+  std::string aws_region;
 
   Context::Resource<S3ConcurrencyResource> request_concurrency;
   std::optional<Context::Resource<S3RateLimiterResource>> rate_limiter;
@@ -221,6 +222,8 @@ struct S3KeyValueStoreSpecData {
                     jb::DefaultValue<jb::kAlwaysIncludeDefaults>(
                       [](auto* v) { *v = "default"; })
                   )),
+      jb::OptionalMember("aws_region",
+                 jb::Projection<&S3KeyValueStoreSpecData::aws_region>()),
       jb::Member(S3ConcurrencyResource::id,
                  jb::Projection<&S3KeyValueStoreSpecData::request_concurrency>()),
       jb::Member(S3RateLimiterResource::id,
@@ -392,7 +395,7 @@ Future<kvstore::DriverPtr> S3KeyValueStoreSpec::DoOpen() const {
         tensorstore::StrCat("Fragment in endpoint unsupported ", data_.endpoint));
     }
 
-    driver->aws_region_ = "";
+    driver->aws_region_ = data_.aws_region;
     driver->endpoint_ = data_.endpoint;
   }
 
