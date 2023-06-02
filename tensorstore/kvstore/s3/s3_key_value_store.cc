@@ -414,17 +414,17 @@ Future<kvstore::DriverPtr> S3KeyValueStoreSpec::DoOpen() const {
 struct ReadTask : public RateLimiterNode,
                   public internal::AtomicReferenceCount<ReadTask> {
   IntrusivePtr<S3KeyValueStore> owner;
-  std::string endpoint;
+  std::string read_url;
   kvstore::ReadOptions options;
   Promise<kvstore::ReadResult> promise;
 
   int attempt_ = 0;
   absl::Time start_time_;
 
-  ReadTask(IntrusivePtr<S3KeyValueStore> owner, std::string endpoint,
+  ReadTask(IntrusivePtr<S3KeyValueStore> owner, std::string read_url,
            kvstore::ReadOptions options, Promise<kvstore::ReadResult> promise)
       : owner(std::move(owner)),
-        endpoint(std::move(endpoint)),
+        read_url(std::move(read_url)),
         options(std::move(options)),
         promise(std::move(promise)) {}
 
@@ -471,7 +471,7 @@ struct ReadTask : public RateLimiterNode,
       return;
     }
 
-    auto request_builder = S3RequestBuilder("GET", endpoint);
+    auto request_builder = S3RequestBuilder("GET", read_url);
     S3Credentials credentials;
 
     if (maybe_credentials.value().has_value()) {
