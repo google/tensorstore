@@ -366,8 +366,7 @@ Future<kvstore::DriverPtr> S3KeyValueStoreSpec::DoOpen() const {
     // then create region specific endpoint
     auto url = tensorstore::StrCat("https://", data_.bucket, ".s3", kDotAmazonAwsDotCom);
     auto future = driver->transport_->IssueRequest(
-            HttpRequestBuilder("HEAD", url).BuildRequest(),
-            absl::Cord());
+            HttpRequestBuilder("HEAD", url).BuildRequest(), {});
     if(!future.status().ok()) return future.status();
     auto & headers = future.value().headers;
     if(auto it = headers.find(kAmzBucketRegionHeader); it !=headers.end()) {
@@ -1008,20 +1007,6 @@ Future<TimestampedStorageGeneration> S3KeyValueStore::Write(
   return std::move(op.future);
 }
 
-// List responds with a Json payload that includes these fields.
-struct GcsListResponsePayload {
-  std::string next_page_token;        // used to page through list results.
-  std::vector<ObjectMetadata> items;  // individual result metadata.
-};
-
-constexpr static auto GcsListResponsePayloadBinder = jb::Object(
-    jb::Member("nextPageToken",
-               jb::Projection(&GcsListResponsePayload::next_page_token,
-                              jb::DefaultInitializedValue())),
-    jb::Member("items", jb::Projection(&GcsListResponsePayload::items,
-                                       jb::DefaultInitializedValue())),
-    jb::DiscardExtraMembers);
-
 /// ListTask implements the ListImpl execution flow.
 struct ListTask : public RateLimiterNode,
                   public internal::AtomicReferenceCount<ListTask> {
@@ -1031,7 +1016,7 @@ struct ListTask : public RateLimiterNode,
   std::string resource_;
 
   std::string base_list_url_;
-  std::string next_page_token_;
+  std::string continuation_token_;
   absl::Time start_time_;
   int attempt_ = 0;
   bool has_query_parameters_;
@@ -1044,25 +1029,35 @@ struct ListTask : public RateLimiterNode,
         receiver_(std::move(receiver)),
         resource_(std::move(resource)) {
     // Construct the base LIST url. This will be modified to include the
-    // nextPageToken
+    // continuation-token
     base_list_url_ = resource_;
-    // TODO(sjperkins). Introduce S3 versioning logic here
-    // has_query_parameters_ = AddUserProjectParam(&base_list_url_, false,
-    //                                             owner_->encoded_user_project());
-    if (auto& inclusive_min = options_.range.inclusive_min;
-        !inclusive_min.empty()) {
-      absl::StrAppend(
-          &base_list_url_, (has_query_parameters_ ? "&" : "?"),
-          "startOffset=", internal::PercentEncodeUriComponent(inclusive_min));
+    has_query_parameters_ = base_list_url_.find("?") != std::string::npos;
+
+    // https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjectsV2.html
+    absl::StrAppend(&base_list_url_, (has_query_parameters_ ? "&" : "?"),
+                    "list-type=2");
+    has_query_parameters_ = true;
+
+    ABSL_LOG(INFO) << "Range start: " << options_.range.inclusive_min
+                   << " end: " << options_.range.exclusive_max;
+
+    if (auto& prefix = options_.range.inclusive_min;
+        !prefix.empty()) {
+
+      ABSL_LOG(INFO) << "Range minimum: " << prefix << " " << options_.strip_prefix_length;
+
+      if (options_.strip_prefix_length) {
+         prefix = prefix.substr(0, options_.strip_prefix_length);
+      }
+
+      absl::StrAppend(&base_list_url_, (has_query_parameters_ ? "&" : "?"),
+                      "prefix=", UriEncode(prefix));
       has_query_parameters_ = true;
     }
-    if (auto& exclusive_max = options_.range.exclusive_max;
-        !exclusive_max.empty()) {
-      absl::StrAppend(
-          &base_list_url_, (has_query_parameters_ ? "&" : "?"),
-          "endOffset=", internal::PercentEncodeUriComponent(exclusive_max));
-      has_query_parameters_ = true;
-    }
+
+    // absl::StrAppend(&base_list_url_, (has_query_parameters_ ? "&" : "?"),
+    //                 "max-keys=1");
+    // has_query_parameters_ = true;
   }
 
   ~ListTask() { owner_->admission_queue().Finish(this); }
@@ -1097,12 +1092,12 @@ struct ListTask : public RateLimiterNode,
     }
 
     std::string list_url = base_list_url_;
-    if (!next_page_token_.empty()) {
+    if (!continuation_token_.empty()) {
       absl::StrAppend(&list_url, (has_query_parameters_ ? "&" : "?"),
-                      "pageToken=", next_page_token_);
+                      "continuation-token=", UriEncode(continuation_token_));
+      has_query_parameters_ = true;
     }
 
-    // TODO(sjperkins). Revisit this functionality
     auto maybe_credentials = owner_->GetCredentials();
     if(!maybe_credentials.ok()) {
       execution::set_error(receiver_, std::move(maybe_credentials).status());
@@ -1110,7 +1105,6 @@ struct ListTask : public RateLimiterNode,
       return;
     }
 
-    auto request_builder = S3RequestBuilder("GET", list_url);
     S3Credentials credentials;
 
     if(maybe_credentials.value().has_value()) {
@@ -1119,8 +1113,8 @@ struct ListTask : public RateLimiterNode,
 
     start_time_ = absl::Now();
 
-    auto request = request_builder
-        .AddHeader(absl::StrCat("host: ", std::string(internal::ParseGenericUri(owner_->endpoint_).authority_and_path)))
+    auto request = S3RequestBuilder("GET", list_url)
+        .AddHeader(absl::StrCat("host: ", owner_->host_))
         .AddHeader(absl::StrCat("x-amz-content-sha256: ", kEmptySha256))
         .AddHeader(absl::FormatTime("x-amz-date: %Y%m%dT%H%M%SZ", start_time_, absl::UTCTimeZone()))
         .BuildRequest(
@@ -1156,6 +1150,41 @@ struct ListTask : public RateLimiterNode,
     }
   }
 
+  /// @brief Find the starting position of the tag or the position immediately after the tag
+  /// with the supplied XML payload
+  /// @param data XML payload
+  /// @param tag XML tag
+  /// @param pos Initial searching position
+  /// @param start true if starting position desired otherwise false
+  /// @return The tag starting position, otherwise the position immediately after the tag
+  Result<std::size_t> FindTag(std::string_view data, std::string_view tag,
+                              std::size_t pos=0, bool start=true) {
+    if(pos=data.find(tag, pos); pos != std::string_view::npos) {
+      return start ? pos :  pos + tag.length();
+    }
+    return absl::NotFoundError(
+      absl::StrCat("Malformed List Response XML: can't find ", tag, " in ", data));
+  }
+
+  /// @brief Get tag contents within the supplied XML payload
+  /// @param data XML payload
+  /// @param open_tag Opening tag
+  /// @param close_tag Closing tag
+  /// @param pos Initial searching position. Updated with position immediately
+  ///            after the closing tag.
+  /// @return Tag contents
+  Result<std::string_view> GetTag(std::string_view data,
+                                  std::string_view open_tag,
+                                  std::string_view close_tag,
+                                  std::size_t * pos) {
+
+    TENSORSTORE_ASSIGN_OR_RETURN(auto tagstart, FindTag(data, open_tag, *pos, false));
+    TENSORSTORE_ASSIGN_OR_RETURN(auto tagend, FindTag(data, close_tag, tagstart, true));
+    *pos = tagend + close_tag.size();
+    return data.substr(tagstart, tagend - tagstart);
+  }
+
+
   absl::Status OnResponseImpl(const Result<HttpResponse>& response) {
     if (is_cancelled()) {
       return absl::CancelledError();
@@ -1168,37 +1197,49 @@ struct ListTask : public RateLimiterNode,
     if (!status.ok() && IsRetriable(status)) {
       return owner_->BackoffForAttemptAsync(status, attempt_++, this);
     }
-    // auto payload = response->payload;
-    // auto j = internal::ParseJson(payload.Flatten());
-    // if (j.is_discarded()) {
-    //   return absl::InternalError(tensorstore::StrCat(
-    //       "Failed to parse response metadata: ", payload.Flatten()));
-    // }
-    // TENSORSTORE_ASSIGN_OR_RETURN(
-    //     auto parsed_payload,
-    //     jb::FromJson<GcsListResponsePayload>(j, GcsListResponsePayloadBinder));
-    // for (auto& metadata : parsed_payload.items) {
-    //   if (is_cancelled()) {
-    //     return absl::CancelledError();
-    //   }
 
-      // TODO(sjperkins): Revisit this functionality
-      // std::string_view name = metadata.name;
-      // if (options_.strip_prefix_length) {
-      //   name = name.substr(options_.strip_prefix_length);
-      // }
-      // execution::set_value(receiver_, std::string(name));
-    // }
+    auto cord = response->payload;
+    auto payload = cord.Flatten();
+    auto kListBucketOpenTag = "<ListBucketResult xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">";
+    TENSORSTORE_ASSIGN_OR_RETURN(auto start_pos, FindTag(payload, kListBucketOpenTag, 0, false));
+    std::size_t pos = start_pos;
+    TENSORSTORE_ASSIGN_OR_RETURN(auto key_count_tag, GetTag(payload, "<KeyCount>", "<", &pos));
+    unsigned int keycount = 0;
+    if(!absl::SimpleAtoi(key_count_tag, &keycount)) {
+      return absl::InvalidArgumentError(absl::StrCat("Malformed KeyCount ", key_count_tag));
+    }
+
+    for(unsigned int k=0; k < keycount; ++k) {
+      if (is_cancelled()) {
+        return absl::CancelledError();
+      }
+      TENSORSTORE_ASSIGN_OR_RETURN(pos, FindTag(payload, "<Contents>", pos, false));
+      TENSORSTORE_ASSIGN_OR_RETURN(auto key_tag, GetTag(payload, "<Key>", "<", &pos));
+
+      if(!options_.range.empty() && tensorstore::Contains(options_.range, key_tag)) {
+        if (options_.strip_prefix_length) {
+          key_tag = key_tag.substr(options_.strip_prefix_length);
+        }
+
+        execution::set_value(receiver_, std::string(key_tag));
+      }
+    }
 
     // Successful request, so clear the retry_attempt for the next request.
-    // attempt_ = 0;
-    // next_page_token_ = std::move(parsed_payload.next_page_token);
-    // if (!next_page_token_.empty()) {
-    //   IssueRequest();
-    // } else {
-    //   execution::set_done(receiver_);
-    //   execution::set_stopping(receiver_);
-    // }
+    attempt_ = 0;
+    pos = start_pos;
+    TENSORSTORE_ASSIGN_OR_RETURN(auto truncated_tag, GetTag(payload, "<IsTruncated>", "<", &pos));
+
+    if(truncated_tag == "true") {
+      pos = start_pos;
+      TENSORSTORE_ASSIGN_OR_RETURN(continuation_token_,
+                                    GetTag(payload, "<NextContinuationToken>", "<", &pos));
+      IssueRequest();
+    } else {
+      continuation_token_.clear();
+      execution::set_done(receiver_);
+      execution::set_stopping(receiver_);
+    }
     return absl::OkStatus();
   }
 };

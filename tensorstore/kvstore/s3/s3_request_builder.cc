@@ -55,7 +55,7 @@ constexpr AsciiSet kUriUnreservedChars{
     "-._~"};
 
 // NOTE: Only adds "/" to kUriUnreservedChars
-constexpr AsciiSet kUriObjectKeyReservedChars{
+constexpr AsciiSet kUriKeyUnreservedChars{
     "abcdefghijklmnopqrstuvwxyz"
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     "0123456789"
@@ -88,17 +88,16 @@ void ComputeHmac(unsigned char (&key)[kHmacSize], std::string_view message, unsi
 
 }
 
-
 std::string UriEncode(std::string_view src) {
-    std::string dest;
-    PercentEncodeReserved(src, dest, kUriUnreservedChars);
-    return dest;
+  std::string dest;
+  internal::PercentEncodeReserved(src, dest, kUriUnreservedChars);
+  return dest;
 }
 
 std::string UriObjectKeyEncode(std::string_view src) {
-    std::string dest;
-    PercentEncodeReserved(src, dest, kUriObjectKeyReservedChars);
-    return dest;
+  std::string dest;
+  internal::PercentEncodeReserved(src, dest, kUriKeyUnreservedChars);
+  return dest;
 }
 
 HttpRequest S3RequestBuilder::BuildRequest(
@@ -111,22 +110,17 @@ HttpRequest S3RequestBuilder::BuildRequest(
   auto & request_ = builder_.request_;
 
   auto url = std::string_view(request_.url());
-  auto query_pos = url.find('?');
   std::vector<std::pair<std::string, std::string>> queries;
 
-  if(query_pos != std::string::npos && query_pos + 1 != std::string::npos) {
+  if(auto query_pos = url.find('?'); query_pos != std::string::npos && query_pos + 1 != std::string::npos) {
     auto query = url.substr(query_pos + 1);
     std::vector<std::string_view> query_bits = absl::StrSplit(query, '&');
 
     for(auto query_bit: query_bits) {
-      std::vector<std::string_view> key_values = absl::StrSplit(query_bit, '=');
-      assert(key_values.size() == 1 || key_values.size() == 2);
-
-      if(key_values.size() == 1) {
-        queries.push_back({std::string(key_values[0]), ""});
-      } else if(key_values.size() == 2) {
-        queries.push_back({std::string(key_values[0]), std::string(key_values[1])});
-      }
+      auto pos = query_bit.find("=");
+      auto key = query_bit.substr(0, pos);
+      auto value = query_bit.substr(pos + 1, std::string_view::npos);
+      queries.push_back({std::string(key), std::string(value)});
     }
   }
 
@@ -219,9 +213,9 @@ std::string S3RequestBuilder::CanonicalRequest(
   // Query string
   for(auto [it, first] = std::tuple{queries.begin(), true}; it != queries.end(); ++it, first=false) {
     if(!first) cord.Append("&");
-    cord.Append(UriEncode(it->first));
+    cord.Append(it->first);
     cord.Append("=");
-    cord.Append(UriEncode(it->second));
+    cord.Append(it->second);
   }
 
   cord.Append("\n");
