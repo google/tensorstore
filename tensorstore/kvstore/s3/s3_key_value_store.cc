@@ -31,6 +31,7 @@
 #include "tensorstore/internal/metrics/histogram.h"
 #include "tensorstore/internal/retry.h"
 #include "tensorstore/internal/schedule_at.h"
+#include "tensorstore/internal/digest/md5.h"
 #include "tensorstore/internal/digest/sha256.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
@@ -68,12 +69,14 @@ using ::tensorstore::internal::IntrusivePtr;
 using ::tensorstore::internal::DataCopyConcurrencyResource;
 using ::tensorstore::internal::ScheduleAt;
 using ::tensorstore::internal::SHA256Digester;
+using ::tensorstore::internal::MD5Digester;
 using ::tensorstore::internal_http::HttpRequest;
 using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_http::HttpTransport;
 using ::tensorstore::internal_auth_s3::S3Credentials;
 using ::tensorstore::internal_auth_s3::CredentialProvider;
 using ::tensorstore::internal_auth_s3::GetS3CredentialProvider;
+using ::tensorstore::internal_storage_s3::ComputeGenerationFromHeaders;
 using ::tensorstore::internal_storage_gcs::IsRetriable;
 using ::tensorstore::internal_storage_gcs::RateLimiter;
 using ::tensorstore::internal_storage_gcs::RateLimiterNode;
@@ -86,8 +89,6 @@ using ::tensorstore::internal_storage_s3::IsValidObjectName;
 using ::tensorstore::internal_storage_s3::UriEncode;
 using ::tensorstore::internal_storage_s3::UriObjectKeyEncode;
 using ::tensorstore::internal_storage_s3::ObjectMetadata;
-using ::tensorstore::internal_storage_s3::ParseObjectMetadata;
-using ::tensorstore::internal_storage_s3::SetObjectMetadataFromHeaders;
 using ::tensorstore::kvstore::Key;
 using ::tensorstore::kvstore::ListOptions;
 using ::tensorstore::kvstore::SupportedFeatures;
@@ -150,7 +151,7 @@ auto& s3_list = internal_metrics::Counter<int64_t>::New(
 static constexpr char kEmptySha256[] =
   "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
-std::string payload_sha256(const absl::Cord & cord=absl::Cord()) {
+std::pair<std::string, std::string> payload_sha256(const absl::Cord & cord=absl::Cord()) {
   SHA256Digester sha256;
   sha256.Write(cord);
   const auto digest = sha256.Digest();
@@ -158,7 +159,24 @@ std::string payload_sha256(const absl::Cord & cord=absl::Cord()) {
     reinterpret_cast<const char *>(digest.begin()),
     digest.size());
 
-  return absl::BytesToHexString(digest_sv);
+  std::string base64_result;
+  absl::Base64Escape(digest_sv, &base64_result);
+
+  return {absl::BytesToHexString(digest_sv), base64_result};
+}
+
+std::pair<std::string, std::string> payload_md5(const absl::Cord & cord=absl::Cord()) {
+  MD5Digester md5;
+  md5.Write(cord);
+  const auto digest = md5.Digest();
+  auto digest_sv = std::string_view(
+    reinterpret_cast<const char *>(digest.begin()),
+    digest.size());
+
+  std::string base64_result;
+  absl::Base64Escape(digest_sv, &base64_result);
+  return {base64_result, absl::BytesToHexString(digest_sv)};
+
 }
 
 struct S3KeyValueStoreSpecData {
@@ -325,6 +343,7 @@ class S3KeyValueStore
   std::shared_ptr<HttpTransport> transport_;
   internal_storage_gcs::NoRateLimiter no_rate_limiter_;
   std::string endpoint_;  // endpoint url
+  std::string host_;
   SpecData spec_;
 
   absl::Mutex credential_provider_mutex_;
@@ -378,6 +397,10 @@ Future<kvstore::DriverPtr> S3KeyValueStoreSpec::DoOpen() const {
   }
 
   ABSL_LOG(INFO) << "S3 driver using endpoint [" << driver->endpoint_ << "]";
+
+  auto parsed = internal::ParseGenericUri(driver->endpoint_);
+  size_t end_of_host = parsed.authority_and_path.find('/');
+  driver->host_ = parsed.authority_and_path.substr(0, end_of_host);
 
   // NOTE: Remove temporary logging use of experimental feature.
   if (data_.rate_limiter.has_value()) {
@@ -461,7 +484,7 @@ struct ReadTask : public RateLimiterNode,
     request_builder.AddRangeHeader(options.byte_range, result);
     auto request = request_builder
             .EnableAcceptEncoding()
-            .AddHeader(absl::StrCat("host: ", std::string(internal::ParseGenericUri(owner->endpoint_).authority_and_path)))
+            .AddHeader(absl::StrCat("host: ", owner->host_))
             .AddHeader(absl::StrCat("x-amz-content-sha256: ", kEmptySha256))
             .AddHeader(absl::FormatTime("x-amz-date: %Y%m%dT%H%M%SZ", start_time_, absl::UTCTimeZone()))
             .BuildRequest(
@@ -562,20 +585,16 @@ struct ReadTask : public RateLimiterNode,
         // offset of when the response is smaller than the desired size.
         return absl::OutOfRangeError(tensorstore::StrCat(
             "Requested byte range ", options.byte_range,
-            " was not satisfied by s3 response of size ", payload_size));
+            " was not satisfied by S3 response of size ", payload_size));
       }
       assert(payload_size == std::get<2>(content_range_tuple));
       read_result.state = kvstore::ReadResult::kValue;
       read_result.value = httpresponse.payload;
     }
 
-    // TODO: Avoid parsing the entire metadata & only extract the
-    // generation field.
-    ObjectMetadata metadata;
-    SetObjectMetadataFromHeaders(httpresponse.headers, &metadata);
-
-    // read_result.stamp.generation =
-    //     StorageGeneration::FromUint64(metadata.generation);
+    TENSORSTORE_ASSIGN_OR_RETURN(
+      read_result.stamp.generation,
+      ComputeGenerationFromHeaders(httpresponse.headers));
     return read_result;
   }
 };
@@ -615,6 +634,10 @@ struct WriteTask : public RateLimiterNode,
   kvstore::WriteOptions options;
   Promise<TimestampedStorageGeneration> promise;
 
+  S3Credentials credentials_;
+  std::string upload_url_;
+  std::string expected_etag_;
+  std::string expected_sha256_;
   int attempt_ = 0;
   absl::Time start_time_;
 
@@ -648,8 +671,7 @@ struct WriteTask : public RateLimiterNode,
     if (!promise.result_needed()) {
       return;
     }
-    std::string upload_url =
-        tensorstore::StrCat(owner->endpoint_, "/", encoded_object_name);
+    upload_url_ = tensorstore::StrCat(owner->endpoint_, "/", encoded_object_name);
 
     // TODO(sjperkins). Introduce S3 versioning logic here
     // Add the ifGenerationNotMatch condition.
@@ -670,28 +692,32 @@ struct WriteTask : public RateLimiterNode,
     // This was changed from POST to PUT as a basic POST does not work
     // Some more headers need to be added to allow POST to work:
     // https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-authentication-HTTPPOST.html
-    S3RequestBuilder request_builder("PUT", upload_url);
-    S3Credentials credentials;
+    S3RequestBuilder request_builder("PUT", upload_url_);
 
     if (maybe_credentials.value().has_value()) {
-      credentials = std::move(*maybe_credentials.value());
+      credentials_ = std::move(*maybe_credentials.value());
     }
 
     start_time_ = absl::Now();
-    auto payload_hash = payload_sha256(value);
+    auto [content_sha256, checksum_sha256] = payload_sha256(value);
+    auto [content_md5, checksum_md5] = payload_md5(value);
+    expected_etag_ = checksum_md5;
 
     auto request =
-        request_builder  //
+        request_builder
             .AddHeader("Content-Type: application/octet-stream")
             .AddHeader(tensorstore::StrCat("Content-Length: ", value.size()))
-            .AddHeader(absl::StrCat("host: ", std::string(internal::ParseGenericUri(owner->endpoint_).authority_and_path)))
-            .AddHeader(absl::StrCat("x-amz-content-sha256: ", payload_hash))
+            .AddHeader(absl::StrCat("host: ", owner->host_))
+            .AddHeader(absl::StrCat("x-amz-content-sha256: ", content_sha256))
+            .AddHeader(absl::StrCat("x-amz-checksum-sha256: ", checksum_sha256))
+            .AddHeader(absl::StrCat("x-amz-meta-tensorstore-id: ", content_sha256))
             .AddHeader(absl::FormatTime("x-amz-date: %Y%m%dT%H%M%SZ", start_time_, absl::UTCTimeZone()))
+            .AddHeader(absl::StrCat("Content-MD5: ", content_md5))
             .BuildRequest(
-              credentials.GetAccessKey(),
-              credentials.GetSecretKey(),
+              credentials_.GetAccessKey(),
+              credentials_.GetSecretKey(),
               owner->aws_region_,
-              payload_hash,
+              content_sha256,
               start_time_);
 
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS)
@@ -740,16 +766,43 @@ struct WriteTask : public RateLimiterNode,
     }
     if (!status.ok()) {
       promise.SetResult(status);
-    } else {
-      promise.SetResult(FinishResponse(response.value()));
+      return;
     }
+
+    auto request = S3RequestBuilder("HEAD", upload_url_)
+            .AddHeader(absl::StrCat("host: ", owner->host_))
+            .AddHeader(absl::StrCat("x-amz-content-sha256: ", kEmptySha256))
+            .AddHeader(absl::FormatTime("x-amz-date: %Y%m%dT%H%M%SZ", start_time_, absl::UTCTimeZone()))
+            .BuildRequest(
+              credentials_.GetAccessKey(),
+              credentials_.GetSecretKey(),
+              owner->aws_region_,
+              kEmptySha256,
+              start_time_);
+
+    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS) << "WriteTask: " << request;
+
+    auto future = owner->transport_->IssueRequest(request, {});
+    future.ExecuteWhenReady(
+      [self = IntrusivePtr<WriteTask>(this), write_response = std::move(response)](
+          ReadyFuture<HttpResponse> head_response) {
+      self->OnHeaderResponse(write_response, head_response.result());
+    });
+  }
+
+  void OnHeaderResponse(const Result<HttpResponse> & write_response,
+                      const Result<HttpResponse> & head_response) {
+
+    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_RESPONSES) << "WriteTask: " << *head_response;
+      promise.SetResult(FinishResponse(write_response.value(), head_response.value()));
   }
 
   Result<TimestampedStorageGeneration> FinishResponse(
-      const HttpResponse& httpresponse) {
+      const HttpResponse& write_response,
+      const HttpResponse& head_response) {
     TimestampedStorageGeneration r;
     r.time = start_time_;
-    switch (httpresponse.status_code) {
+    switch (write_response.status_code) {
       case 304:
         // Not modified implies that the generation did not match.
         [[fallthrough]];
@@ -767,18 +820,13 @@ struct WriteTask : public RateLimiterNode,
     auto latency = absl::Now() - start_time_;
     s3_write_latency_ms.Observe(absl::ToInt64Milliseconds(latency));
     s3_bytes_written.IncrementBy(value.size());
-
-    // TODO: Avoid parsing the entire metadata & only extract the
-    // generation field.
-    auto payload = httpresponse.payload;
-    auto parsed_object_metadata = ParseObjectMetadata(payload.Flatten());
-    TENSORSTORE_RETURN_IF_ERROR(parsed_object_metadata);
-
-    // TODO(sjperkins). Introduce S3 versioning logic here
-    // r.generation =
-    //     StorageGeneration::FromUint64(parsed_object_metadata->generation);
+    TENSORSTORE_ASSIGN_OR_RETURN(r.generation, ComputeGenerationFromHeaders(head_response.headers));
     return r;
   }
+
+
+
+
 };
 
 /// A DeleteTask is a function object used to satisfy a
@@ -848,7 +896,7 @@ struct DeleteTask : public RateLimiterNode,
     start_time_ = absl::Now();
 
     auto request = request_builder
-        .AddHeader(absl::StrCat("host: ", std::string(internal::ParseGenericUri(owner->endpoint_).authority_and_path)))
+        .AddHeader(absl::StrCat("host: ", owner->host_))
         .AddHeader(absl::StrCat("x-amz-content-sha256: ", kEmptySha256))
         .AddHeader(absl::FormatTime("x-amz-date: %Y%m%dT%H%M%SZ", start_time_, absl::UTCTimeZone()))
         .BuildRequest(
@@ -1117,19 +1165,19 @@ struct ListTask : public RateLimiterNode,
     if (!status.ok() && IsRetriable(status)) {
       return owner_->BackoffForAttemptAsync(status, attempt_++, this);
     }
-    auto payload = response->payload;
-    auto j = internal::ParseJson(payload.Flatten());
-    if (j.is_discarded()) {
-      return absl::InternalError(tensorstore::StrCat(
-          "Failed to parse response metadata: ", payload.Flatten()));
-    }
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto parsed_payload,
-        jb::FromJson<GcsListResponsePayload>(j, GcsListResponsePayloadBinder));
-    for (auto& metadata : parsed_payload.items) {
-      if (is_cancelled()) {
-        return absl::CancelledError();
-      }
+    // auto payload = response->payload;
+    // auto j = internal::ParseJson(payload.Flatten());
+    // if (j.is_discarded()) {
+    //   return absl::InternalError(tensorstore::StrCat(
+    //       "Failed to parse response metadata: ", payload.Flatten()));
+    // }
+    // TENSORSTORE_ASSIGN_OR_RETURN(
+    //     auto parsed_payload,
+    //     jb::FromJson<GcsListResponsePayload>(j, GcsListResponsePayloadBinder));
+    // for (auto& metadata : parsed_payload.items) {
+    //   if (is_cancelled()) {
+    //     return absl::CancelledError();
+    //   }
 
       // TODO(sjperkins): Revisit this functionality
       // std::string_view name = metadata.name;
@@ -1137,17 +1185,17 @@ struct ListTask : public RateLimiterNode,
       //   name = name.substr(options_.strip_prefix_length);
       // }
       // execution::set_value(receiver_, std::string(name));
-    }
+    // }
 
     // Successful request, so clear the retry_attempt for the next request.
-    attempt_ = 0;
-    next_page_token_ = std::move(parsed_payload.next_page_token);
-    if (!next_page_token_.empty()) {
-      IssueRequest();
-    } else {
-      execution::set_done(receiver_);
-      execution::set_stopping(receiver_);
-    }
+    // attempt_ = 0;
+    // next_page_token_ = std::move(parsed_payload.next_page_token);
+    // if (!next_page_token_.empty()) {
+    //   IssueRequest();
+    // } else {
+    //   execution::set_done(receiver_);
+    //   execution::set_stopping(receiver_);
+    // }
     return absl::OkStatus();
   }
 };

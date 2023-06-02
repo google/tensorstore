@@ -9,3 +9,9 @@ tensorstore_cc_library(
     hdrs = ["sha256.h"],
     deps = ["@com_google_boringssl//:crypto"],
 )
+
+tensorstore_cc_library(
+    name = "md5",
+    hdrs = ["md5.h"],
+    deps = ["@com_google_boringssl//:crypto"]
+)

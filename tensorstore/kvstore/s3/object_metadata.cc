@@ -24,45 +24,17 @@
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_split.h"
 #include "absl/time/time.h"
-#include <nlohmann/json.hpp>
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/json_binding/absl_time.h"
-#include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_storage_s3 {
 
+using ::tensorstore::TimestampedStorageGeneration;
 using ::tensorstore::internal_http::TryParseIntHeader;
 using ::tensorstore::internal_http::TryParseBoolHeader;
-using ::tensorstore::internal_json_binding::DefaultInitializedValue;
-
-namespace jb = tensorstore::internal_json_binding;
-
-inline constexpr auto ObjectMetadataBinder = jb::Object(
-    jb::Member("x-amz-checksum-crc32c", jb::Projection(&ObjectMetadata::crc32c,
-                                        DefaultInitializedValue())),
-    jb::Member("x-amz-version-id", jb::Projection(&ObjectMetadata::version_id,
-                                         DefaultInitializedValue())),
-    jb::Member("x-amz-delete-marker", jb::Projection(&ObjectMetadata::deleted,
-                                         DefaultInitializedValue())),
-    jb::Member("Content-Length", jb::Projection(&ObjectMetadata::size,
-                                      jb::DefaultInitializedValue(
-                                          jb::LooseValueAsBinder))),
-
-    jb::Member("Last-Modified", jb::Projection(&ObjectMetadata::time_modified,
-                                             jb::DefaultValue([](auto* x) {
-                                               *x = absl::InfinitePast();
-                                             }))),
-    jb::DiscardExtraMembers);
-
-TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(ObjectMetadata,
-                                       [](auto is_loading, const auto& options,
-                                          auto* obj, ::nlohmann::json* j) {
-                                         return ObjectMetadataBinder(
-                                             is_loading, options, obj, j);
-                                       })
 
 void SetObjectMetadataFromHeaders(
     const std::multimap<std::string, std::string>& headers,
@@ -70,30 +42,49 @@ void SetObjectMetadataFromHeaders(
   result->size =
       TryParseIntHeader<uint64_t>(headers, "content-length").value_or(0);
 
-  auto version_id_it = headers.find("x-amz-version-id");
-
-  if (version_id_it != headers.end()) {
-    result->version_id = version_id_it->second;
-  }
-
-  auto crc32c_it = headers.find("x-amz-checksum-crc32");
-
-  if(crc32c_it != headers.end()) {
-    result->crc32c = crc32c_it->second;
-  }
-
   result->deleted = TryParseBoolHeader(headers, "x-amz-delete-marker").value_or(false);
-}
 
-Result<ObjectMetadata> ParseObjectMetadata(std::string_view source) {
-  auto json = internal::ParseJson(source);
-  if (json.is_discarded()) {
-    return absl::InvalidArgumentError(
-        tensorstore::StrCat("Failed to parse object metadata: ", source));
+  if(auto it = headers.find("x-amz-version-id"); it != headers.end()) {
+    result->version_id = it->second;
   }
 
-  return jb::FromJson<ObjectMetadata>(std::move(json));
+  if(auto it = headers.find("last-modified"); it != headers.end()) {
+    std::string error;
+    absl::ParseTime("%a, %-d %b %Y %H:%M:%S %Z", it->second, &result->last_modified, &error);
+  }
+
+  if(auto it = headers.find("etag"); it != headers.end()) {
+    result->etag = it->second;
+  }
 }
+
+Result<StorageGeneration> ComputeGenerationFromHeaders(
+    const std::multimap<std::string, std::string>& headers) {
+
+  absl::Time last_modified;
+  std::string etag;
+
+  if(auto it = headers.find("last-modified"); it != headers.end()) {
+    std::string error;
+    if(!absl::ParseTime("%a, %d %b %Y %H:%M:%S %Z", it->second, &last_modified, &error)) {
+      return absl::InvalidArgumentError(
+        tensorstore::StrCat("Invalid last-modified: ", error));
+    }
+  } else {
+    return absl::NotFoundError("last-modified not found in response headers");
+  }
+
+  if(auto it = headers.find("etag"); it != headers.end()) {
+    etag = it->second;
+  } else {
+    return absl::NotFoundError("etag not found in response headers");
+  }
+
+  return StorageGeneration::FromString(
+    tensorstore::StrCat(etag,
+                        absl::FormatTime("%Y%m%dT%H%M%SZ", last_modified, absl::UTCTimeZone())));
+}
+
 
 }  // namespace internal_storage_s3
 }  // namespace tensorstore

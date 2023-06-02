@@ -26,8 +26,8 @@
 #include <string_view>
 
 #include "absl/time/time.h"
-#include <nlohmann/json.hpp>
 #include "tensorstore/kvstore/kvstore.h"
+#include "tensorstore/kvstore/generation.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/result.h"
 
@@ -37,27 +37,24 @@ namespace internal_storage_s3 {
 /// Partial metadata for a S3 object
 /// https://docs.aws.amazon.com/AmazonS3/latest/userguide/UsingMetadata.html
 struct ObjectMetadata {
-  std::string crc32c;
+  std::string md5;
+  std::string etag;
 
   uint64_t size = 0;
   std::string version_id;
   bool deleted;
 
-  absl::Time time_modified = absl::InfinitePast();
-
-  using ToJsonOptions = IncludeDefaults;
-  using FromJsonOptions = internal_json_binding::NoOptions;
-
-  TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(
-      ObjectMetadata, internal_storage_s3::ObjectMetadata::FromJsonOptions,
-      internal_storage_s3::ObjectMetadata::ToJsonOptions)
+  absl::Time last_modified = absl::InfinitePast();
 };
-
-Result<ObjectMetadata> ParseObjectMetadata(std::string_view source);
 
 void SetObjectMetadataFromHeaders(
     const std::multimap<std::string, std::string>& headers,
     ObjectMetadata* result);
+
+
+Result<StorageGeneration> ComputeGenerationFromHeaders(
+    const std::multimap<std::string, std::string>& headers);
+
 
 }  // namespace internal_storage_s3
 }  // namespace tensorstore

@@ -169,6 +169,7 @@ tensorstore_cc_library(
         "@com_google_absl//absl/strings",
         "//tensorstore/internal/http",
         "//tensorstore/internal:ascii_utils",
+        "//tensorstore/internal/digest:md5",
         "//tensorstore/internal/digest:sha256",
         "//tensorstore/internal:path",
         ":validate"
