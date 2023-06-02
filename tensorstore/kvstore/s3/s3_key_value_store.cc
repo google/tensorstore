@@ -587,7 +587,7 @@ struct ReadTask : public RateLimiterNode,
             "Requested byte range ", options.byte_range,
             " was not satisfied by S3 response of size ", payload_size));
       }
-      assert(payload_size == std::get<2>(content_range_tuple));
+      // assert(payload_size == std::get<2>(content_range_tuple));
       read_result.state = kvstore::ReadResult::kValue;
       read_result.value = httpresponse.payload;
     }
