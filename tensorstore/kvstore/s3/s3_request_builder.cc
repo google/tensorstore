@@ -226,25 +226,28 @@ std::string S3RequestBuilder::CanonicalRequest(
 
   cord.Append("\n");
 
-  // Headers
-  for(auto header: headers) {
+  // Convert headers into canonical form and sort
+  std::vector<std::string> cheaders;
+
+  for(auto & header: headers) {
     auto delim_pos = header.find(':');
     assert(delim_pos != std::string::npos && delim_pos + 1 != std::string::npos);
-    cord.Append(absl::AsciiStrToLower(header.substr(0, delim_pos)));
-    cord.Append(":");
-    cord.Append(absl::StripAsciiWhitespace(header.substr(delim_pos + 1)));
-    cord.Append("\n");
+    cheaders.push_back(absl::StrCat(
+      absl::AsciiStrToLower(header.substr(0, delim_pos)), ":",
+      absl::StripAsciiWhitespace(header.substr(delim_pos + 1)), "\n"));
   }
 
+  std::sort(std::begin(cheaders), std::end(cheaders));
+  for(auto & header: cheaders) { cord.Append(header); }
   cord.Append("\n");
 
   // Signed headers
-  for(auto [it, first] = std::tuple{headers.begin(), true}; it != headers.end(); ++it, first=false) {
+  for(auto [it, first] = std::tuple{cheaders.begin(), true}; it != cheaders.end(); ++it, first=false) {
     if(!first) cord.Append(";");
     auto header = std::string_view(*it);
     auto delim_pos = header.find(':');
     assert(delim_pos != std::string::npos);
-    cord.Append(absl::AsciiStrToLower(header.substr(0, delim_pos)));
+    cord.Append(header.substr(0, delim_pos));
   }
 
   cord.Append("\n");
@@ -262,12 +265,14 @@ std::string S3RequestBuilder::AuthorizationHeader(
   const std::vector<std::string> & headers,
   const absl::Time & time) {
 
-  std::vector<std::string_view> header_names;
+  std::vector<std::string> header_names;
   for(auto & header: headers) {
     std::size_t delim_pos = header.find(':');
     assert(delim_pos != std::string::npos);
-    header_names.push_back(std::string_view(header).substr(0, delim_pos));
+    header_names.push_back(absl::AsciiStrToLower(std::string_view(header).substr(0, delim_pos)));
   }
+
+  std::sort(std::begin(header_names), std::end(header_names));
 
   return absl::StrFormat(
     "Authorization: AWS4-HMAC-SHA256 Credential=%s"
