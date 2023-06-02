@@ -55,32 +55,9 @@ def repo():
     maybe(
         local_mirror,
         name = "local_proto_mirror",
-        files = [
-            "imports.bzl",
-            "BUILD.bazel",
-            "google/protobuf/BUILD.bazel",
-            "google/protobuf/any.proto",
-            "google/protobuf/api.proto",
-            "google/protobuf/descriptor.proto",
-            "google/protobuf/duration.proto",
-            "google/protobuf/empty.proto",
-            "google/protobuf/field_mask.proto",
-            "google/protobuf/source_context.proto",
-            "google/protobuf/struct.proto",
-            "google/protobuf/timestamp.proto",
-            "google/protobuf/type.proto",
-            "google/protobuf/wrappers.proto",
-            "google/rpc/BUILD.bazel",
-            "google/rpc/code.proto",
-            "google/rpc/error_details.proto",
-            "google/rpc/status.proto",
-            "validate/BUILD.bazel",
-            "validate/validate.proto",
-            "xds/data/orca/v3/BUILD.bazel",
-            "xds/data/orca/v3/orca_load_report.proto",
-            "xds/service/orca/v3/BUILD.bazel",
-            "xds/service/orca/v3/orca.proto",
-        ],
+        # Local files. Avoid BUILD.bazel files as they will be picked up by the //... pattern.
+        file_symlink = {},  # Map source Label() -> repo path
+        # Downloaded files
         file_sha256 = {
             "google/protobuf/any.proto": "17eeb5dc4a65300beac9ca6d7ebb6bfabfd1825fec2338013687a5805293e606",
             "google/protobuf/api.proto": "9daa858a1c529f47f9d4ed1bc2df0dab6154ad42f99cf0351b3da9d4daff8eb0",
@@ -158,6 +135,7 @@ def repo():
             ],
         },
         file_content = _BUILD_FILE_CONTENT,
+        # CMake options
         cmake_name = "lpm",
         bazel_to_cmake = {},
         cmake_target_mapping = {

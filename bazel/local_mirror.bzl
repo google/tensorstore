@@ -20,34 +20,37 @@ the file from the indicated source or sets the file from the provided content.
 """
 
 def _local_mirror_impl(ctx):
-    for file in ctx.attr.files:
-        if ctx.attr.file_content.get(file):
-            ctx.file(file, content = ctx.attr.file_content.get(file))
-        elif ctx.attr.file_url.get(file):
-            ctx.download(
-                output = file,
-                url = ctx.attr.file_url[file],
-                sha256 = ctx.attr.file_sha256.get(file, "0000000000000000000000000000000000000000000000000000000000000000"),
-            )
-        else:
-            fail(("{file} was listed, but no file_content or file_url " +
-                  "was included in the repository " +
-                  "rule for {name}.").format(
-                name = ctx.attr.name,
-                file = file,
-            ))
+    forbidden_files = [
+        ctx.path("WORKSPACE"),
+    ]
+    for file in ctx.attr.file_url:
+        # This is a URL.
+        if file in forbidden_files:
+            fail("'%s' is forbidden" % file)
+        ctx.download(
+            output = file,
+            url = ctx.attr.file_url[file],
+            sha256 = ctx.attr.file_sha256.get(file, "0000000000000000000000000000000000000000000000000000000000000000"),
+        )
+    for file in ctx.attr.file_content:
+        # This is a directly specified content.
+        if file in forbidden_files or file in ctx.attr.file_url:
+            fail("'%s' cannot only appear once in file_symlink, file_url, file_content" % file)
+        ctx.file(file, content = ctx.attr.file_content.get(file))
+
+    for file in ctx.attr.file_symlink:
+        # Construct a file reference.
+        if file in forbidden_files or file in ctx.attr.file_url or file in ctx.attr.file_content:
+            fail("'%s' cannot only appear once in file_symlink, file_url, file_content" % file)
+        ctx.symlink(ctx.attr.file_symlink[file], file)
 
 _local_mirror = repository_rule(
     implementation = _local_mirror_impl,
     local = True,
     attrs = {
-        "files": attr.string_list(
-            mandatory = True,
-            doc = """List of filenames to appear in the repository.""",
-        ),
-        "file_content": attr.string_dict(
+        "file_symlink": attr.string_dict(
             mandatory = False,
-            doc = """Map from filename to file content.""",
+            doc = """Map from filename to source (label).""",
         ),
         "file_url": attr.string_list_dict(
             mandatory = False,
@@ -56,6 +59,10 @@ _local_mirror = repository_rule(
         "file_sha256": attr.string_dict(
             mandatory = False,
             doc = """Map from filename to sha256 of the content.""",
+        ),
+        "file_content": attr.string_dict(
+            mandatory = False,
+            doc = """Map from filename to file content.""",
         ),
     },
 )
