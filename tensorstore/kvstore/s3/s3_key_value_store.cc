@@ -471,7 +471,7 @@ struct ReadTask : public RateLimiterNode,
       return;
     }
 
-    S3RequestBuilder request_builder("GET", endpoint);
+    auto request_builder = S3RequestBuilder("GET", endpoint);
     S3Credentials credentials;
 
     if (maybe_credentials.value().has_value()) {
@@ -692,7 +692,7 @@ struct WriteTask : public RateLimiterNode,
     // This was changed from POST to PUT as a basic POST does not work
     // Some more headers need to be added to allow POST to work:
     // https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-authentication-HTTPPOST.html
-    S3RequestBuilder request_builder("PUT", upload_url_);
+    auto request_builder = S3RequestBuilder("PUT", upload_url_);
 
     if (maybe_credentials.value().has_value()) {
       credentials_ = std::move(*maybe_credentials.value());
@@ -886,7 +886,7 @@ struct DeleteTask : public RateLimiterNode,
       promise.SetResult(maybe_credentials.status());
       return;
     }
-    S3RequestBuilder request_builder("DELETE", delete_url);
+    auto request_builder = S3RequestBuilder("DELETE", delete_url);
     S3Credentials credentials;
 
     if (maybe_credentials.value().has_value()) {
@@ -1107,7 +1107,7 @@ struct ListTask : public RateLimiterNode,
       return;
     }
 
-    S3RequestBuilder request_builder("GET", list_url);
+    auto request_builder = S3RequestBuilder("GET", list_url);
     S3Credentials credentials;
 
     if(maybe_credentials.value().has_value()) {
