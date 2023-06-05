@@ -16,19 +16,18 @@
 
 import pytest
 
-from .select import Select, SelectExpression  # pylint: disable=multiple-import
-
 from .bazel_target import TargetId
+from .select import Select, SelectExpression  # pylint: disable=multiple-import
 
 
 def test_basic():
   left = Select({
       TargetId.parse('@//conditions:default'): ['a'],
-      TargetId.parse('@foo//bar:baz'): ['b']
+      TargetId.parse('@foo//bar:baz'): ['b'],
   })
   right = Select({
       TargetId.parse('@//conditions:default'): ['c'],
-      TargetId.parse('@foo//bar:baz'): ['d']
+      TargetId.parse('@foo//bar:baz'): ['d'],
   })
   added = left + ['x'] + right
 
@@ -39,20 +38,12 @@ def test_basic():
 
 def test_or():
   left = Select({
-      TargetId.parse('@//conditions:default'): {
-          'a': 'a_value'
-      },
-      TargetId.parse('@foo//bar:baz'): {
-          'b': 'b_value'
-      }
+      TargetId.parse('@//conditions:default'): {'a': 'a_value'},
+      TargetId.parse('@foo//bar:baz'): {'b': 'b_value'},
   })
   right = Select({
-      TargetId.parse('@//conditions:default'): {
-          'c': 'c_value'
-      },
-      TargetId.parse('@foo//bar:baz'): {
-          'd': 'd_value'
-      }
+      TargetId.parse('@//conditions:default'): {'c': 'c_value'},
+      TargetId.parse('@foo//bar:baz'): {'d': 'd_value'},
   })
   added = left | {'e': 'e_value'} | right
 

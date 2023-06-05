@@ -78,8 +78,8 @@ using ::tensorstore::internal_auth_s3::CredentialProvider;
 using ::tensorstore::internal_auth_s3::GetS3CredentialProvider;
 using ::tensorstore::internal_storage_s3::ComputeGenerationFromHeaders;
 using ::tensorstore::internal_storage_gcs::IsRetriable;
-using ::tensorstore::internal_storage_gcs::RateLimiter;
-using ::tensorstore::internal_storage_gcs::RateLimiterNode;
+using ::tensorstore::internal_kvstore_gcs_http::RateLimiter;
+using ::tensorstore::internal_kvstore_gcs_http::RateLimiterNode;
 using ::tensorstore::internal_storage_s3::S3ConcurrencyResource;
 using ::tensorstore::internal_storage_s3::S3RateLimiterResource;
 using ::tensorstore::internal_storage_s3::S3RequestRetries;
@@ -344,7 +344,7 @@ class S3KeyValueStore
 
 
   std::shared_ptr<HttpTransport> transport_;
-  internal_storage_gcs::NoRateLimiter no_rate_limiter_;
+  internal_kvstore_gcs_http::NoRateLimiter no_rate_limiter_;
   std::string endpoint_;  // endpoint url
   std::string host_;
   SpecData spec_;

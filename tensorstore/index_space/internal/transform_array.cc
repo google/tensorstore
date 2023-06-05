@@ -27,7 +27,6 @@ Result<SharedElementPointer<const void>> TransformArraySubRegion(
     TransformRep* transform, const Index* result_origin,
     const Index* result_shape, Index* result_byte_strides,
     TransformArrayConstraints constraints) {
-  const DimensionIndex output_rank = array.rank();
   const DimensionIndex input_rank =
       transform ? transform->input_rank : array.rank();
 
@@ -44,42 +43,41 @@ Result<SharedElementPointer<const void>> TransformArraySubRegion(
 
   namespace flags = input_dimension_iteration_flags;
 
-  absl::FixedArray<flags::Bitmask, internal::kNumInlinedDims>
-      input_dimension_flags(
-          input_rank,
-          flags::GetDefaultBitmask(constraints.repeated_elements_constraint()));
+  flags::Bitmask input_dimension_flags[kMaxRank];
+  std::fill_n(
+      &input_dimension_flags[0], input_rank,
+      flags::GetDefaultBitmask(constraints.repeated_elements_constraint()));
 
-  std::array<std::optional<SingleArrayIterationState>, 2> single_array_states;
-  single_array_states[0].emplace(input_rank, output_rank);
+  SingleArrayIterationState single_array_states[2];
   TENSORSTORE_RETURN_IF_ERROR(
       internal_index_space::InitializeSingleArrayIterationState(
           /*array=*/array,
           /*transform=*/transform,
           /*iteration_origin=*/result_origin,
-          /*iteration_shape=*/result_shape, &*single_array_states[0],
-          input_dimension_flags.data()));
+          /*iteration_shape=*/result_shape, &single_array_states[0],
+          &input_dimension_flags[0]));
 
-  if (single_array_states[0]->num_array_indexed_output_dimensions == 0) {
+  if (single_array_states[0].num_array_indexed_output_dimensions == 0) {
     // No index arrays are actually needed.
     if (constraints.allocate_constraint() != must_allocate) {
       // We can just return a view of the existing array.
-      std::copy_n(single_array_states[0]->input_byte_strides.data(), input_rank,
+      std::copy_n(&single_array_states[0].input_byte_strides[0], input_rank,
                   result_byte_strides);
       return SharedElementPointer<void>(
           std::shared_ptr<void>(array.pointer(),
-                                single_array_states[0]->base_pointer),
+                                single_array_states[0].base_pointer),
           array.element_pointer().dtype());
     }
     const StridedLayoutView<> source_layout(
         input_rank, result_shape,
-        single_array_states[0]->input_byte_strides.data());
+        &single_array_states[0].input_byte_strides[0]);
     const StridedLayoutView<> new_layout(input_rank, result_shape,
                                          result_byte_strides);
     auto element_pointer = internal::AllocateArrayLike(
         array.element_pointer().dtype(), source_layout, result_byte_strides,
         constraints.iteration_constraints(), default_init);
     CopyArray(ArrayView<const void>(
-                  ElementPointer<void>(single_array_states[0]->base_pointer,
+                  ElementPointer<void>(single_array_states[0].base_pointer,
                                        array.element_pointer().dtype()),
                   source_layout),
               ArrayView<void>(element_pointer, new_layout));
@@ -87,21 +85,20 @@ Result<SharedElementPointer<const void>> TransformArraySubRegion(
   }
 
   MarkSingletonDimsAsSkippable(span(result_shape, input_rank),
-                               input_dimension_flags.data());
+                               &input_dimension_flags[0]);
 
   SharedElementPointer<void> new_element_pointer;
 
-  single_array_states[1].emplace(input_rank, output_rank);
-
   if (constraints.order_constraint()) {
-    absl::FixedArray<Index, internal::kNumInlinedDims> new_shape(input_rank);
+    Index new_shape[kMaxRank];  // only first `input_rank` elements are used
     for (DimensionIndex input_dim = 0; input_dim < input_rank; ++input_dim) {
       new_shape[input_dim] = input_dimension_flags[input_dim] == flags::can_skip
                                  ? 1
                                  : result_shape[input_dim];
     }
     ComputeStrides(constraints.order_constraint().order(), array.dtype()->size,
-                   new_shape, span(result_byte_strides, input_rank));
+                   span<const Index>(&new_shape[0], input_rank),
+                   span(result_byte_strides, input_rank));
     for (DimensionIndex input_dim = 0; input_dim < input_rank; ++input_dim) {
       if (new_shape[input_dim] <= 1) result_byte_strides[input_dim] = 0;
     }
@@ -110,47 +107,52 @@ Result<SharedElementPointer<const void>> TransformArraySubRegion(
         IndexInnerProduct(input_rank, result_byte_strides, result_origin);
 
     new_element_pointer = internal::AllocateAndConstructSharedElements(
-        ProductOfExtents(span(new_shape)), default_init, array.dtype());
+        ProductOfExtents(span<const Index>(new_shape, input_rank)),
+        default_init, array.dtype());
     const absl::Status init_status =
         internal_index_space::InitializeSingleArrayIterationState(
             ArrayView<void, dynamic_rank, offset_origin>(
                 AddByteOffset(ElementPointer<void>(new_element_pointer),
                               -new_origin_offset),
                 StridedLayoutView<dynamic_rank, offset_origin>(
-                    input_rank, result_origin, new_shape.data(),
+                    input_rank, result_origin, &new_shape[0],
                     result_byte_strides)),
             /*transform=*/nullptr,
             /*iteration_origin=*/result_origin,
-            /*iteration_shape=*/result_shape, &*single_array_states[1],
-            input_dimension_flags.data());
+            /*iteration_shape=*/result_shape, &single_array_states[1],
+            &input_dimension_flags[0]);
     assert(init_status.ok());
   }
   DimensionIterationOrder base_layout =
       constraints.order_constraint()
-          ? ComputeDimensionIterationOrder<2>(single_array_states,
-                                              input_dimension_flags,
-                                              /*order_constraint=*/{})
-          : ComputeDimensionIterationOrder<1>({&single_array_states[0], 1},
-                                              input_dimension_flags,
-                                              /*order_constraint=*/{});
+          ? ComputeDimensionIterationOrder<2>(
+                single_array_states,
+                span(input_dimension_flags).first(input_rank),
+                /*order_constraint=*/{})
+          : ComputeDimensionIterationOrder<1>(
+                {&single_array_states[0], 1},
+                span(input_dimension_flags).first(input_rank),
+                /*order_constraint=*/{});
   if (!constraints.order_constraint()) {
-    absl::FixedArray<Index, internal::kNumInlinedDims> new_shape(
-        base_layout.pure_strided_end_dim);
-    absl::FixedArray<Index, internal::kNumInlinedDims> new_byte_strides(
-        base_layout.pure_strided_end_dim);
+    Index new_shape[kMaxRank];         // base_layout.pure_strided_end_dim
+    Index new_byte_strides[kMaxRank];  // base_layout.pure_strided_end_dim)
     for (DimensionIndex i = 0; i < base_layout.pure_strided_end_dim; ++i) {
       const DimensionIndex input_dim = base_layout.input_dimension_order[i];
       new_shape[i] = result_shape[input_dim];
     }
     std::fill_n(result_byte_strides, input_rank, 0);
-    ComputeStrides(ContiguousLayoutOrder::c, array.dtype()->size, new_shape,
-                   new_byte_strides);
+    ComputeStrides(
+        ContiguousLayoutOrder::c, array.dtype()->size,
+        span<const Index>(&new_shape[0], base_layout.pure_strided_end_dim),
+        span<Index>(&new_byte_strides[0], base_layout.pure_strided_end_dim));
     for (DimensionIndex i = 0; i < base_layout.pure_strided_end_dim; ++i) {
       const DimensionIndex input_dim = base_layout.input_dimension_order[i];
       result_byte_strides[input_dim] = new_byte_strides[i];
     }
     new_element_pointer = internal::AllocateAndConstructSharedElements(
-        ProductOfExtents(span(new_shape)), default_init, array.dtype());
+        ProductOfExtents(
+            span<const Index>(&new_shape[0], base_layout.pure_strided_end_dim)),
+        default_init, array.dtype());
     const Index new_origin_offset =
         IndexInnerProduct(input_rank, result_byte_strides, result_origin);
     const absl::Status init_status =
@@ -159,12 +161,12 @@ Result<SharedElementPointer<const void>> TransformArraySubRegion(
                 AddByteOffset(ElementPointer<void>(new_element_pointer),
                               -new_origin_offset),
                 StridedLayoutView<dynamic_rank, offset_origin>(
-                    input_rank, result_origin, new_shape.data(),
+                    input_rank, result_origin, &new_shape[0],
                     result_byte_strides)),
             /*transform=*/nullptr,
             /*iteration_origin=*/result_origin,
-            /*iteration_shape=*/result_shape, &*single_array_states[1],
-            input_dimension_flags.data());
+            /*iteration_shape=*/result_shape, &single_array_states[1],
+            &input_dimension_flags[0]);
     assert(init_status.ok());
   }
 
@@ -210,12 +212,12 @@ Result<SharedElementPointer<const void>> TransformArrayDiscardingOrigin(
     TransformArrayConstraints constraints) {
   const DimensionIndex input_rank =
       transform ? transform->input_rank : array.rank();
-  absl::FixedArray<Index, internal::kNumInlinedDims> result_origin(input_rank);
+  Index result_origin[kMaxRank];
   TENSORSTORE_RETURN_IF_ERROR(PropagateExplicitBounds(
       /*b=*/array.domain(),
       /*a_to_b=*/transform,
-      /*a=*/MutableBoxView<>(input_rank, result_origin.data(), result_shape)));
-  return TransformArraySubRegion(array, transform, result_origin.data(),
+      /*a=*/MutableBoxView<>(input_rank, &result_origin[0], result_shape)));
+  return TransformArraySubRegion(array, transform, &result_origin[0],
                                  result_shape, result_byte_strides,
                                  constraints);
 }

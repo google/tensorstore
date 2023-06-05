@@ -294,6 +294,11 @@ class TensorStore {
   /// be bound to the returned key-value store.
   KvStore kvstore() const { return internal::GetKvstore(handle_); }
 
+  /// Returns the underlying TensorStore, if this is an adapter.
+  ///
+  /// Otherwise, returns a null TensorStore.
+  Result<TensorStore<>> base() const;
+
   /// Returns the schema for this TensorStore.
   ///
   /// Note that the schema reflects any index transforms that have been applied
@@ -369,6 +374,13 @@ class TensorStore {
 
   internal::Driver::Handle handle_;
 };
+
+template <typename ElementType, DimensionIndex Rank, ReadWriteMode Mode>
+Result<TensorStore<>> TensorStore<ElementType, Rank, Mode>::base() const {
+  TENSORSTORE_ASSIGN_OR_RETURN(auto base_handle, internal::GetBase(handle_));
+  return internal::TensorStoreAccess::Construct<TensorStore<>>(
+      std::move(base_handle));
+}
 
 // Specialization of `StaticCastTraits` for the `TensorStore` class template,
 // which enables `StaticCast`, `StaticRankCast`, `StaticDataTypeCast`, and
@@ -708,6 +720,61 @@ Copy(Source&& source, Target&& target, CopyOptions options = {}) {
             std::move(options));
       },
       std::forward<Source>(source), std::forward<Target>(target));
+}
+
+/// Retrieves statistics of the data stored within the given array region.
+///
+/// Any number of `ArrayStorageStatistics::Mask` values may be specified as
+/// options.
+///
+/// Only the specific information indicated by the options will be computed.  If
+/// no query options are specified, no information will be computed.
+///
+/// Example usage::
+///
+///     TENSORSTORE_ASSIGN_OR_RETURN(
+///         auto stats,
+///         GetStorageStatistics(
+///             store | tensorstore::Dims(0, 2).SizedInterval({0, 5},
+///                                                           {100, 500}),
+///             tensorstore::ArrayStorageStatistics::query_not_stored)
+///         .result());
+///
+///     TENSORSTORE_ASSIGN_OR_RETURN(
+///         auto stats,
+///         GetStorageStatistics(
+///             store | tensorstore::Dims(0, 2).SizedInterval({0, 5},
+///                                                           {100, 500}),
+///             tensorstore::ArrayStorageStatistics::query_not_stored,
+///             tensorstore::ArrayStorageStatistics::query_fully_stored)
+///         .result());
+///
+/// \param store The `TensorStore` to query.  May be `Result`-wrapped.
+/// \param option Any option compatible with `GetArrayStorageStatisticsOptions`.
+/// \param options Specifies which statistics to compute.
+/// \relates TensorStore
+/// \membergroup I/O
+template <typename StoreResult>
+std::enable_if_t<internal::IsTensorStore<UnwrapResultType<StoreResult>>,
+                 Future<ArrayStorageStatistics>>
+GetStorageStatistics(const StoreResult& store,
+                     GetArrayStorageStatisticsOptions options) {
+  return MapResult(
+      [&](const auto& store) -> Future<ArrayStorageStatistics> {
+        return internal::GetStorageStatistics(
+            internal::TensorStoreAccess::handle(store), options);
+      },
+      store);
+}
+template <typename StoreResult, typename... Option>
+std::enable_if_t<
+    (internal::IsTensorStore<UnwrapResultType<StoreResult>> &&
+     IsCompatibleOptionSequence<GetArrayStorageStatisticsOptions, Option...>),
+    Future<ArrayStorageStatistics>>
+GetStorageStatistics(const StoreResult& store, Option&&... option) {
+  GetArrayStorageStatisticsOptions options;
+  (options.Set(option), ...);
+  return GetStorageStatistics(store, std::move(options));
 }
 
 namespace internal {

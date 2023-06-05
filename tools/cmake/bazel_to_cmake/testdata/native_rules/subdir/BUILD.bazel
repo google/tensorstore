@@ -1,0 +1,17 @@
+proto_library(
+    name = "z_proto",
+    srcs = ["z.proto"],
+    cc_api_version = 2,
+)
+
+cc_library(
+    name = "y",
+    srcs = ["y.cc"],
+)
+
+genrule(
+    name = "make_y",
+    outs = ["y.cc"],
+    cmd = "$(location //:bb) $@ ",
+    tools = ["//:bb"],
+)

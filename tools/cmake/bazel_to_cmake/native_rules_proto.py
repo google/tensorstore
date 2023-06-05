@@ -36,20 +36,30 @@ have been configured:
 
 In debian-like systems, use of system versions requires the following packages:
   apt install libprotobuf-dev libprotoc-dev protobuf-compiler
+
+Note that when using system protobuf, the well_known_proto_types are available
+via protobuf::libprotobuf. For reference, see
+
+Bazel rules related to protobuf for reference:
+https://github.com/bazelbuild/bazel/tree/master/src/main/starlark/builtins_bzl/common/proto/proto_library.bzl
+https://github.com/bazelbuild/bazel/tree/master/src/main/starlark/builtins_bzl/common/cc/cc_proto_library.bzl
+https://github.com/bazelbuild/rules_proto/tree/master/proto
 """
 
 # pylint: disable=invalid-name
 
 import io
 import pathlib
-from typing import List, NamedTuple, Optional, Set
+from typing import Dict, List, NamedTuple, Optional, Set
 
 from .cmake_builder import CMakeBuilder
 from .cmake_builder import quote_list
 from .cmake_target import CMakeTarget
+from .cmake_target import CMakeTargetProvider
 from .emit_cc import emit_cc_library
 from .evaluation import EvaluationState
 from .starlark.bazel_globals import register_native_build_rule
+from .starlark.bazel_target import RepositoryId
 from .starlark.bazel_target import TargetId
 from .starlark.common_providers import FilesProvider
 from .starlark.common_providers import ProtoLibraryProvider
@@ -59,17 +69,19 @@ from .starlark.provider import TargetInfo
 
 
 class PluginSettings(NamedTuple):
-  plugin: Optional[TargetId]
   name: str
+  plugin: Optional[TargetId]
   exts: List[str]
-  deps: List[TargetId]
+  runtime: List[TargetId]
+  replacement_targets: Dict[TargetId, Optional[TargetId]]
+  language: Optional[str] = None
 
 
-PROTO_COMPILER = TargetId.parse("@com_google_protobuf//:protoc")
+PROTO_REPO = RepositoryId("com_google_protobuf")
+PROTO_COMPILER = PROTO_REPO.parse_target("//:protoc")
+PROTO_RUNTIME = PROTO_REPO.parse_target("//:protobuf")
+
 _SEP = "\n        "
-
-_CC = PluginSettings(None, "cpp", [".pb.h", ".pb.cc"],
-                     [TargetId.parse("@com_google_protobuf//:protobuf")])
 
 _WELL_KNOWN_TYPES = [
     "any",
@@ -84,35 +96,33 @@ _WELL_KNOWN_TYPES = [
     "wrappers",
     # Descriptor.proto isn't considered "well known", but is available via
     # :protobuf and :protobuf_wkt
-    "descriptor"
+    "descriptor",
 ]
 
-_WELL_KNOWN_PROTOS: Set[TargetId] = set([
-    TargetId.parse(f"@com_google_protobuf//:{x}_proto")
-    for x in _WELL_KNOWN_TYPES
-] + [
-    TargetId.parse(f"@com_google_protobuf//src/google/protobuf:{x}_proto")
-    for x in _WELL_KNOWN_TYPES
-])
+PROTO_REPLACEMENT_TARGETS: Set[TargetId] = set(
+    [
+        PROTO_REPO.parse_target(f"//src/google/protobuf:{x}_proto")
+        for x in _WELL_KNOWN_TYPES
+    ]
+    + [PROTO_REPO.parse_target(f"//:{x}_proto") for x in _WELL_KNOWN_TYPES]
+)
 
-_WELL_KNOWN_PROTO_TARGETS = {
-    "cpp":
-        TargetId.parse("@com_google_protobuf//:protobuf"),  # wkt_cc_proto
-    "upb":
-        TargetId.parse(
-            "@local_proto_mirror//google/protobuf:well_known_protos_upb"),
-    "upbdefs":
-        TargetId.parse(
-            "@local_proto_mirror//google/protobuf:well_known_protos_upbdefs"),
-}
 
-_OTHER_CORE_PROTOS = {
-    ("cpp",
-     TargetId.parse("@com_google_protobuf//src/google/protobuf/compiler:plugin")
-    ):
-        TargetId.parse(
-            "@com_google_protobuf//src/google/protobuf/compiler:code_generator")
-}
+_CC = PluginSettings(
+    name="cpp",
+    plugin=None,
+    exts=[".pb.h", ".pb.cc"],
+    runtime=[PROTO_RUNTIME],
+    replacement_targets=dict(
+        [(k, PROTO_RUNTIME) for k in PROTO_REPLACEMENT_TARGETS]
+        + [(
+            PROTO_REPO.parse_target("//src/google/protobuf/compiler:plugin"),
+            PROTO_REPO.parse_target(
+                "//src/google/protobuf/compiler:code_generator"
+            ),
+        )]
+    ),
+)
 
 
 class ProtocOutputTuple(NamedTuple):
@@ -121,8 +131,9 @@ class ProtocOutputTuple(NamedTuple):
   files: FilesProvider
 
 
-def get_proto_output_dir(_context: InvocationContext,
-                         strip_import_prefix: Optional[str]) -> str:
+def get_proto_output_dir(
+    _context: InvocationContext, strip_import_prefix: Optional[str]
+) -> str:
   """Construct the output path for the proto compiler.
 
   This is typically a path relative to ${PROJECT_BINARY_DIR} where the
@@ -131,95 +142,139 @@ def get_proto_output_dir(_context: InvocationContext,
   output_dir = "${PROJECT_BINARY_DIR}"
   if strip_import_prefix is not None:
     relative_package_path = pathlib.PurePosixPath(
-        _context.caller_package_id.package_name)
+        _context.caller_package_id.package_name
+    )
     include_path = str(
         relative_package_path.joinpath(
-            pathlib.PurePosixPath(strip_import_prefix)))
+            pathlib.PurePosixPath(strip_import_prefix)
+        )
+    )
     if include_path[0] == "/":
       include_path = include_path[1:]
     output_dir = f"${{PROJECT_BINARY_DIR}}/{include_path}"
   return output_dir
 
 
-def get_proto_plugin_library_target(_context: InvocationContext, *,
-                                    plugin_settings: PluginSettings,
-                                    target: TargetId) -> TargetId:
+def generate_proto_library_target(
+    _context: InvocationContext,
+    *,
+    plugin_settings: PluginSettings,
+    target: TargetId,
+) -> Optional[TargetId]:
   """Emit or return an appropriate TargetId for protos compiled."""
-  cc_library_target = target.get_target_id(
-      f"{target.target_name}__{plugin_settings.name}_library")
-
   state = _context.access(EvaluationState)
+
+  # This is a reference to a proto where code-generation has been
+  # excluded, so link the replacement target.
+  if target in plugin_settings.replacement_targets:
+    return plugin_settings.replacement_targets[target]
+
+  cc_library_target = target.get_target_id(
+      f"{target.target_name}__{plugin_settings.name}_library"
+  )
+
+  # The generated code may also be replaced; if so, return that.
+  if cc_library_target in plugin_settings.replacement_targets:
+    return plugin_settings.replacement_targets[cc_library_target]
 
   # This library could already have been constructed.
   info = state.get_optional_target_info(cc_library_target)
   if info is not None:
     return cc_library_target
 
+  # First-party proto references must exist.
   if _context.caller_package_id.repository_id == target.repository_id:
-    # This is a first-party repository, and should be available.
-    proto_info = state.get_target_info(target).get(ProtoLibraryProvider)
+    target_info = state.get_target_info(target)
   else:
-    # This is a reference to a non-first-party repository,
-    # which merits special treatment. First look for the WELL_KNOWN_PROTO
-    # targets, which have special link targets.
-    if target in _WELL_KNOWN_PROTOS:
-      if plugin_settings.name in _WELL_KNOWN_PROTO_TARGETS:
-        return _WELL_KNOWN_PROTO_TARGETS[plugin_settings.name]
-
-    # Then look at other replacment targets.
-    replacement = _OTHER_CORE_PROTOS.get((plugin_settings.name, target))
-    if replacement is not None:
-      return replacement
-
-    # otherwise fallback to the proto library target.
     target_info = state.get_optional_target_info(target)
-    if target_info is None:
-      return cc_library_target
-    proto_info = target_info.get(ProtoLibraryProvider)
-    if proto_info is None:
-      print(f"{_context.caller_package_id} references {target}")
-      return cc_library_target
+
+  if not target_info:
+    # This target is not available; construct an ephemeral reference.
+    print(
+        f"Blind reference to {target.as_label()} from"
+        f" {_context.caller_package_id}"
+    )
+    return cc_library_target
+
+  # Library target not found; genproto on each dependency.
+  cc_deps: List[CMakeTarget] = []
+  import_target: Optional[CMakeTarget] = None
+  cmake_deps: List[CMakeTarget] = state.get_dep(PROTO_COMPILER)
+  proto_src_files: List[str] = []
+
+  done = False
+  proto_info = target_info.get(ProtoLibraryProvider)
+
+  if proto_info is not None:
+    sub_targets: List[TargetId] = []
+    for dep in proto_info.deps:
+      sub_target_id = generate_proto_library_target(
+          _context, plugin_settings=plugin_settings, target=dep
+      )
+      if sub_target_id:
+        sub_targets.append(sub_target_id)
+    cc_deps.extend(state.get_deps(list(set(sub_targets))))
+
+    # NOTE: Consider using generator expressions to add to the library target.
+    # Something like  $<TARGET_PROPERTY:target,INTERFACE_SOURCES>
+    for src in proto_info.srcs:
+      proto_src_files.extend(state.get_file_paths(src, cmake_deps))
+
+    import_target = state.generate_cmake_target_pair(target).target
+    done = True
+
+  # TODO: Maybe handle FilesProvider like ProtoInfoProvider?
+
+  provider = target_info.get(CMakeTargetProvider)
+  if not done and provider:
+    import_target = provider.target
+    done = True
+
+  if not done:
+    print(
+        f"Assumed reference to {target.as_label()} from"
+        f" {_context.caller_package_id}"
+    )
+    return cc_library_target
 
   # Get our cmake name; note that proto libraries do not have aliases.
   cmake_target_pair = state.generate_cmake_target_pair(
-      cc_library_target, alias=False)
-
-  assert proto_info is not None
-
-  # Library target not found; run the protoc compiler and build the library
-  # target here.
-  cc_deps: List[TargetId] = [
-      get_proto_plugin_library_target(
-          _context, plugin_settings=plugin_settings, target=dep)
-      for dep in proto_info.deps
-  ]
-  cc_deps.extend(plugin_settings.deps)
-
-  # NOTE: Consider using generator expressions to add to the library target.
-  # Something like  $<TARGET_PROPERTY:target,INTERFACE_SOURCES>
-  cmake_deps: List[CMakeTarget] = []
-  proto_src_files = []
-  for src in proto_info.srcs:
-    proto_src_files.extend(state.get_file_paths(src, cmake_deps))
+      cc_library_target, alias=False
+  )
   proto_src_files = sorted(set(proto_src_files))
 
-  cmake_deps.extend(state.get_dep(PROTO_COMPILER))
+  if not proto_src_files and not cc_deps and not import_target:
+    raise ValueError(
+        f"Proto generation failed: {target.as_label()} no inputs for"
+        f" {cc_library_target.as_label()}"
+    )
+
+  for dep in plugin_settings.runtime:
+    cc_deps.extend(state.get_dep(dep))
 
   # Construct the output path. This is also the target include dir.
   # ${PROJECT_BINARY_DIR}
-  output_dir = get_proto_output_dir(_context, proto_info.strip_import_prefix)
+  output_dir = get_proto_output_dir(
+      _context, proto_info.strip_import_prefix if proto_info else None
+  )
 
+  language = (
+      plugin_settings.language
+      if plugin_settings.language
+      else plugin_settings.name
+  )
   plugin = ""
   if plugin_settings.plugin:
     cmake_name = state.get_dep(plugin_settings.plugin)
     if len(cmake_name) != 1:
       raise ValueError(
-          f"Resolving {plugin_settings.plugin} returned: {cmake_name}")
+          f"Resolving {plugin_settings.plugin} returned: {cmake_name}"
+      )
 
     cmake_deps.append(cmake_name[0])
-    plugin = f"    PLUGIN protoc-gen-{plugin_settings.name}=$<TARGET_FILE:{cmake_name[0]}>\n"
-
-  import_target = state.generate_cmake_target_pair(target).target
+    plugin = (
+        f"    PLUGIN protoc-gen-{language}=$<TARGET_FILE:{cmake_name[0]}>\n"
+    )
 
   builder = _context.access(CMakeBuilder)
   builder.addtext(f"\n# {cc_library_target.as_label()}")
@@ -228,54 +283,63 @@ def get_proto_plugin_library_target(_context: InvocationContext, *,
       cmake_target_pair,
       hdrs=set(),
       srcs=set(proto_src_files),
-      deps=set(state.get_deps(cc_deps)),
+      deps=set(cc_deps),
   )
 
   dependencies = ""
   if cmake_deps:
     dependencies = f"    DEPENDENCIES {quote_list(cmake_deps)}\n"
 
-  # PLUGIN_OPTIONS {quote_list(flags)}
-  builder.addtext(f"""
+  if proto_src_files:
+    # PLUGIN_OPTIONS {quote_list(flags)}
+    builder.addtext(f"""
 btc_protobuf(
     TARGET {cmake_target_pair.target}
     IMPORT_TARGETS  {import_target}
-    LANGUAGE {plugin_settings.name}
+    LANGUAGE {language}
     GENERATE_EXTENSIONS {quote_list(plugin_settings.exts)}
     PROTOC_OPTIONS --experimental_allow_proto3_optional
     PROTOC_OUT_DIR {output_dir}
 {plugin}{dependencies})
 """)
 
-  _context.add_analyzed_target(cc_library_target,
-                               TargetInfo(*cmake_target_pair.as_providers()))
+  _context.add_analyzed_target(
+      cc_library_target, TargetInfo(*cmake_target_pair.as_providers())
+  )
   return cc_library_target
 
 
 @register_native_build_rule
-def proto_library(self: InvocationContext,
-                  name: str,
-                  visibility: Optional[List[RelativeLabel]] = None,
-                  **kwargs):
+def proto_library(
+    self: InvocationContext,
+    name: str,
+    visibility: Optional[List[RelativeLabel]] = None,
+    **kwargs,
+):
   context = self.snapshot()
   target = context.resolve_target(name)
   context.add_rule(
       target,
       lambda: _proto_library_impl(context, target, **kwargs),
-      visibility=visibility)
+      visibility=visibility,
+  )
 
 
-def _proto_library_impl(_context: InvocationContext,
-                        _target: TargetId,
-                        srcs: Optional[List[RelativeLabel]] = None,
-                        deps: Optional[List[RelativeLabel]] = None,
-                        strip_import_prefix: Optional[str] = None,
-                        **kwargs):
+def _proto_library_impl(
+    _context: InvocationContext,
+    _target: TargetId,
+    srcs: Optional[List[RelativeLabel]] = None,
+    deps: Optional[List[RelativeLabel]] = None,
+    strip_import_prefix: Optional[str] = None,
+    **kwargs,
+):
   del kwargs
   resolved_srcs = _context.resolve_target_or_label_list(
-      _context.evaluate_configurable_list(srcs))
+      _context.evaluate_configurable_list(srcs)
+  )
   resolved_deps = _context.resolve_target_or_label_list(
-      _context.evaluate_configurable_list(deps))
+      _context.evaluate_configurable_list(deps)
+  )
 
   state = _context.access(EvaluationState)
 
@@ -296,7 +360,7 @@ def _proto_library_impl(_context: InvocationContext,
   import_vars = ""
   import_targets = ""
   for d in resolved_deps:
-    if d in _WELL_KNOWN_PROTOS:
+    if d in PROTO_REPLACEMENT_TARGETS:
       import_vars = "Protobuf_IMPORT_DIRS"
     state.get_optional_target_info(d)
     import_targets += f"{state.generate_cmake_target_pair(d).target} "
@@ -311,7 +375,8 @@ def _proto_library_impl(_context: InvocationContext,
   bin_dir = repo.cmake_binary_dir
   if strip_import_prefix:
     source_dir = str(
-        pathlib.PurePosixPath(source_dir).joinpath(strip_import_prefix))
+        pathlib.PurePosixPath(source_dir).joinpath(strip_import_prefix)
+    )
     bin_dir = str(pathlib.PurePosixPath(bin_dir).joinpath(strip_import_prefix))
   includes = set()
   for path in state.get_targets_file_paths(resolved_srcs):
@@ -348,30 +413,41 @@ set_property(TARGET {cmake_name} PROPERTY INTERFACE_INCLUDE_DIRECTORIES {include
   _context.add_analyzed_target(
       _target,
       TargetInfo(
-          ProtoLibraryProvider(resolved_srcs, resolved_deps,
-                               strip_import_prefix)))
+          ProtoLibraryProvider(
+              resolved_srcs, resolved_deps, strip_import_prefix
+          )
+      ),
+  )
 
 
 @register_native_build_rule
-def cc_proto_library(self: InvocationContext,
-                     name: str,
-                     visibility: Optional[List[RelativeLabel]] = None,
-                     **kwargs):
+def cc_proto_library(
+    self: InvocationContext,
+    name: str,
+    visibility: Optional[List[RelativeLabel]] = None,
+    **kwargs,
+):
   context = self.snapshot()
   target = context.resolve_target(name)
   context.add_rule(
       target,
-      lambda: _cc_proto_library_impl(context, target, **kwargs),
-      visibility=visibility)
+      lambda: cc_proto_library_impl(context, target, [_CC], **kwargs),
+      visibility=visibility,
+  )
 
 
-def _cc_proto_library_impl(_context: InvocationContext,
-                           _target: TargetId,
-                           deps: Optional[List[RelativeLabel]] = None,
-                           **kwargs):
+def cc_proto_library_impl(
+    _context: InvocationContext,
+    _target: TargetId,
+    _plugin_settings: List[PluginSettings],
+    deps: Optional[List[RelativeLabel]] = None,
+    extra_deps: Optional[List[RelativeLabel]] = None,
+    **kwargs,
+):
   del kwargs
   resolved_deps = _context.resolve_target_or_label_list(
-      _context.evaluate_configurable_list(deps))
+      _context.evaluate_configurable_list(deps)
+  )
 
   state = _context.access(EvaluationState)
   cmake_target_pair = state.generate_cmake_target_pair(_target)
@@ -379,10 +455,19 @@ def _cc_proto_library_impl(_context: InvocationContext,
   # Typically there is a single proto dep in a cc_library_target, multiple are
   # supported, thus we resolve each library target here.
   library_deps: List[CMakeTarget] = []
-  for dep_target in resolved_deps:
-    lib_target = get_proto_plugin_library_target(
-        _context, plugin_settings=_CC, target=dep_target)
-    library_deps.extend(state.get_dep(lib_target, alias=False))
+  for settings in _plugin_settings:
+    for dep_target in resolved_deps:
+      lib_target = generate_proto_library_target(
+          _context, plugin_settings=settings, target=dep_target
+      )
+      if lib_target:
+        library_deps.extend(state.get_dep(lib_target, alias=False))
+
+  if extra_deps:
+    resolved_deps = _context.resolve_target_or_label_list(
+        _context.evaluate_configurable_list(extra_deps)
+    )
+    library_deps.extend(state.get_deps(resolved_deps))
 
   builder = _context.access(CMakeBuilder)
   builder.addtext(f"\n# {_target.as_label()}")
@@ -393,5 +478,6 @@ def _cc_proto_library_impl(_context: InvocationContext,
       srcs=set(),
       deps=set(library_deps),
   )
-  _context.add_analyzed_target(_target,
-                               TargetInfo(*cmake_target_pair.as_providers()))
+  _context.add_analyzed_target(
+      _target, TargetInfo(*cmake_target_pair.as_providers())
+  )

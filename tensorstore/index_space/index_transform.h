@@ -24,6 +24,7 @@
 #include "tensorstore/index_space/internal/propagate_bounds.h"
 #include "tensorstore/index_space/internal/transform_array.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
+#include "tensorstore/index_space/internal/transpose.h"
 #include "tensorstore/index_space/output_index_map.h"
 #include "tensorstore/internal/gdb_scripting.h"
 #include "tensorstore/internal/string_like.h"
@@ -361,6 +362,43 @@ class IndexTransform {
                                 span<Index, OutputRank> output_indices) const {
     return internal_index_space::TransformIndices(
         Access::rep(*this), input_indices, output_indices);
+  }
+
+  /// Returns a new transform with the input dimension order reversed.
+  IndexTransform<InputRank, OutputRank> Transpose() const& {
+    return Access::Make<IndexTransform<InputRank, OutputRank, container>>(
+        internal_index_space::TransposeInputDimensions(
+            Access::rep_ptr<container>(*this),
+            /*domain_only=*/false));
+  }
+  IndexTransform<InputRank, OutputRank> Transpose() && {
+    return Access::Make<IndexTransform<InputRank, OutputRank, container>>(
+        internal_index_space::TransposeInputDimensions(
+            Access::rep_ptr<container>(std::move(*this)),
+            /*domain_only=*/false));
+  }
+
+  /// Returns a new transform with the input dimension order permuted.
+  ///
+  /// If `!valid()`, returns an invalid view.
+  ///
+  /// \param permutation Permutation of ``0, ..., input_rank()-1``, where
+  ///     `permutation[i]` specifies the dimension of the existing transform
+  ///     that corresponds to input dimension `i` of the new transform.
+  /// \dchecks `permutation` is a valid permutation.
+  IndexTransform<InputRank, OutputRank> Transpose(
+      span<const DimensionIndex, InputRank> permutation) const& {
+    return Access::Make<IndexTransform<InputRank, OutputRank, container>>(
+        internal_index_space::TransposeInputDimensions(
+            Access::rep_ptr<container>(*this), permutation,
+            /*domain_only=*/false));
+  }
+  IndexTransform<InputRank, OutputRank> Transpose(
+      span<const DimensionIndex, InputRank> permutation) && {
+    return Access::Make<IndexTransform<InputRank, OutputRank, container>>(
+        internal_index_space::TransposeInputDimensions(
+            Access::rep_ptr<container>(std::move(*this)), permutation,
+            /*domain_only=*/false));
   }
 
   /// Returns `ComposeTransforms(other, *this)`.
@@ -1179,6 +1217,17 @@ struct OneToOneInputDimensions {
 /// \returns The set of input dimensions that are one-to-one.
 OneToOneInputDimensions GetOneToOneInputDimensions(
     IndexTransformView<> transform, bool require_unit_stride = false);
+
+/// Computes the number of output dimensions that reference each input
+/// dimension.
+///
+/// \param transform Index transform, must be non-null.
+/// \param input_dimension_reference_counts[out] Must have length equal to
+///     `transform.input_rank()`.  Filled with the number of references to each
+///     input dimension.
+void ComputeInputDimensionReferenceCounts(
+    IndexTransformView<> transform,
+    span<DimensionIndex> input_dimension_reference_counts);
 
 }  // namespace internal
 

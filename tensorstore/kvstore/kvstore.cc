@@ -80,6 +80,10 @@ Result<std::string> KvStore::ToUrl() const {
   return spec.ToUrl();
 }
 
+Result<KvStore> KvStore::base() const {
+  return driver->GetBase(path, transaction);
+}
+
 Result<DriverSpecPtr> Driver::spec(SpecRequestOptions&& options) const {
   TENSORSTORE_ASSIGN_OR_RETURN(auto spec, GetBoundSpec());
   internal::ApplyContextBindingMode(spec, options.context_binding_mode,
@@ -100,6 +104,12 @@ SupportedFeatures Driver::GetSupportedFeatures(
 void Driver::EncodeCacheKey(std::string* out) const {
   internal::EncodeCacheKey(out, reinterpret_cast<std::uintptr_t>(this));
 }
+
+Result<KvStore> Driver::GetBase(std::string_view path,
+                                const Transaction& transaction) const {
+  return {std::in_place};
+}
+
 }  // namespace kvstore
 
 namespace internal_kvstore {

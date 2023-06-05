@@ -18,23 +18,21 @@ load(
 )
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 
-# REPO_BRANCH = abseil
+# REPO_BRANCH = main
 
 def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_re2",
-        strip_prefix = "re2-698890e31fade80eac8d4e7f160b74b3621211ee",
+        strip_prefix = "re2-03da4fc0857c285e3a26782f6bc8931c4c950df4",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/google/re2/archive/698890e31fade80eac8d4e7f160b74b3621211ee.tar.gz",  # abseil(2022-07-20)
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/google/re2/archive/03da4fc0857c285e3a26782f6bc8931c4c950df4.tar.gz",  # 2023-06-01
         ],
-        sha256 = "41758cb9ff49a51862d3c2e3ef45962eeda31bfbb54b4f834e811856f238c5fc",
+        sha256 = "ef516fb84824a597c4d5d0d6d330daedb18363b5a99eda87d027e6bdd9cba299",
         repo_mapping = {
             "@com_github_google_benchmark": "@com_google_benchmark",
         },
         cmake_name = "Re2",
-        # The `main` branch of re2 provides a CMakeLists.txt, but the `abseil`
-        # branch does not.
         bazel_to_cmake = {
             "include": [""],
         },

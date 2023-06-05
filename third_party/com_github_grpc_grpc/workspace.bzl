@@ -36,7 +36,7 @@ def repo():
         ],
         patch_args = ["-p1"],
         repo_mapping = {
-            "@upb": "@com_google_upb",
+            "@upb": "@com_google_protobuf_upb",
             "@com_googlesource_code_re2": "@com_google_re2",
             "@com_github_google_benchmark": "@com_google_benchmark",
             "@com_github_cncf_udpa": "@local_proto_mirror",
@@ -47,11 +47,11 @@ def repo():
         cmake_enable_system_package = False,
         bazel_to_cmake = {
             "args": [
-                "--ignore-library=@com_github_grpc_grpc//bazel:objc_grpc_library.bzl",
-                "--ignore-library=@com_github_grpc_grpc//bazel:cython_library.bzl",
-                "--ignore-library=@com_github_grpc_grpc//bazel:python_rules.bzl",
-                "--ignore-library=@com_github_grpc_grpc//bazel:generate_objc.bzl",
-                "--exclude-target=@com_github_grpc_grpc//:grpc_cel_engine",
+                "--ignore-library=//bazel:objc_grpc_library.bzl",
+                "--ignore-library=//bazel:cython_library.bzl",
+                "--ignore-library=//bazel:python_rules.bzl",
+                "--ignore-library=//bazel:generate_objc.bzl",
+                "--exclude-target=//:grpc_cel_engine",
                 "--target=//:grpc",
                 "--target=//:grpc++",
                 "--target=//:grpc++_codegen_proto",
@@ -98,12 +98,12 @@ GRPC_NATIVE_BINDINGS = {
     "protocol_compiler": "@com_google_protobuf//:protoc",
 
     # upb mappings.
-    "upb_json_lib": "@com_google_upb//:json",
-    "upb_lib": "@com_google_upb//:upb",
-    "upb_lib_descriptor": "@com_google_upb//:descriptor_upb_proto",
-    "upb_lib_descriptor_reflection": "@com_google_upb//:descriptor_upb_proto_reflection",
-    "upb_reflection": "@com_google_upb//:reflection",
-    "upb_textformat_lib": "@com_google_upb//:textformat",
+    "upb_json_lib": "@com_google_protobuf_upb//:json",
+    "upb_lib": "@com_google_protobuf_upb//:upb",
+    "upb_lib_descriptor": "@com_google_protobuf_upb//:descriptor_upb_proto",
+    "upb_lib_descriptor_reflection": "@com_google_protobuf_upb//:descriptor_upb_proto_reflection",
+    "upb_reflection": "@com_google_protobuf_upb//:reflection",
+    "upb_textformat_lib": "@com_google_protobuf_upb//:textformat",
 
     # These exist to be used by grpc_build_system.bzl
     "benchmark": "@com_google_benchmark//:benchmark",

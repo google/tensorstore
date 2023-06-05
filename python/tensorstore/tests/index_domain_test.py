@@ -207,6 +207,13 @@ def test_eq():
   assert a != c
 
 
+def test_transpose():
+  a = ts.IndexDomain(labels=["x", "y"])
+  b = ts.IndexDomain(labels=["y", "x"])
+
+  assert a.T == b
+
+
 def test_pickle():
   x = ts.IndexDomain(
       labels=["x", "y"],

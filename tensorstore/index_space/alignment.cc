@@ -17,7 +17,6 @@
 #include <algorithm>
 #include <numeric>
 
-#include "absl/container/fixed_array.h"
 #include "absl/status/status.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
 #include "tensorstore/util/str_cat.h"
@@ -130,10 +129,9 @@ Result<IndexTransform<>> AlignDomainTo(IndexDomainView<> source,
   assert(source.valid());
   assert(target.valid());
   const DimensionIndex source_rank = source.rank();
-  absl::FixedArray<DimensionIndex, internal::kNumInlinedDims> source_matches(
-      source_rank);
-  TENSORSTORE_RETURN_IF_ERROR(
-      AlignDimensionsTo(source, target, source_matches, options));
+  DimensionIndex source_matches[kMaxRank];
+  TENSORSTORE_RETURN_IF_ERROR(AlignDimensionsTo(
+      source, target, span(source_matches).first(source_rank), options));
   const DimensionIndex target_rank = target.rank();
   auto alignment =
       internal_index_space::TransformRep::Allocate(target_rank, source_rank);

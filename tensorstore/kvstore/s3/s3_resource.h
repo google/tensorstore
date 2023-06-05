@@ -23,15 +23,15 @@
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/std_optional.h"
 #include "tensorstore/internal/retries_context_resource.h"
-#include "tensorstore/kvstore/gcs/admission_queue.h"
-#include "tensorstore/kvstore/gcs/rate_limiter.h"
+#include "tensorstore/kvstore/gcs_http/admission_queue.h"
+#include "tensorstore/kvstore/gcs_http/rate_limiter.h"
 
 /// specializations
 #include "tensorstore/internal/json_binding/absl_time.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 
-using ::tensorstore::internal_storage_gcs::AdmissionQueue;
-using ::tensorstore::internal_storage_gcs::RateLimiter;
+using ::tensorstore::internal_kvstore_gcs_http::AdmissionQueue;
+using ::tensorstore::internal_kvstore_gcs_http::RateLimiter;
 
 namespace tensorstore {
 namespace internal_storage_s3 {

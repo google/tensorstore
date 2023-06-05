@@ -158,6 +158,8 @@ tensorstore_cc_library(
         "//tensorstore/driver",
         "//tensorstore/driver:kvs_backed_chunk_driver",
         "//tensorstore/index_space:index_transform",
+        "//tensorstore/internal:grid_chunk_key_ranges",
+        "//tensorstore/internal:grid_storage_statistics",
         "//tensorstore/internal:path",
         "//tensorstore/internal/cache:chunk_cache",
         "//tensorstore/internal/cache_key",
@@ -170,4 +172,25 @@ tensorstore_cc_library(
         "@com_google_absl//absl/status",
     ],
     alwayslink = 1,
+)
+
+tensorstore_cc_test(
+    name = "storage_statistics_test",
+    size = "small",
+    srcs = ["storage_statistics_test.cc"],
+    deps = [
+        ":neuroglancer_precomputed",
+        "//tensorstore:context",
+        "//tensorstore:data_type",
+        "//tensorstore:open",
+        "//tensorstore/index_space:dim_expression",
+        "//tensorstore/internal:json_gtest",
+        "//tensorstore/kvstore",
+        "//tensorstore/kvstore:key_range",
+        "//tensorstore/kvstore:mock_kvstore",
+        "//tensorstore/kvstore/memory",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status_testutil",
+        "@com_google_googletest//:gtest_main",
+    ],
 )

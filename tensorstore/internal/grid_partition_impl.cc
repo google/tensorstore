@@ -33,6 +33,7 @@
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/internal/integer_overflow.h"
+#include "tensorstore/internal/regular_grid.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/byte_strided_pointer.h"
@@ -376,8 +377,9 @@ absl::Status GenerateIndexArrayOutputIndices(
     IndexTransformView<> index_transform, Index* output_indices,
     Index output_stride) {
   assert(map.method() == OutputIndexMethod::array);
-  absl::FixedArray<Index, internal::kNumInlinedDims> output_byte_strides(
-      index_transform.input_rank(), 0);
+  const DimensionIndex input_rank = index_transform.input_rank();
+  Index output_byte_strides[kMaxRank];
+  std::fill_n(&output_byte_strides[0], input_rank, static_cast<Index>(0));
   DimensionIndex byte_stride = sizeof(Index) * output_stride;
   for (DimensionIndex i = input_dims.size() - 1; i >= 0; --i) {
     const DimensionIndex input_dim = input_dims[i];
@@ -401,9 +403,11 @@ absl::Status GenerateIndexArrayOutputIndices(
       // source
       map.index_array().array_ref(),
       // destination
-      ArrayView<Index>(output_indices,
-                       StridedLayoutView<>(index_transform.input_shape(),
-                                           output_byte_strides)));
+      ArrayView<Index>(
+          output_indices,
+          StridedLayoutView<>(
+              index_transform.input_shape(),
+              span<const Index>(&output_byte_strides[0], input_rank))));
   return absl::OkStatus();
 }
 

@@ -11,8 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""CMake implementation of "@com_google_tensorstore//bazel:cc_grpc_library.bzl".
-"""
+"""CMake implementation of "@com_google_tensorstore//bazel:cc_grpc_library.bzl"."""
 
 # pylint: disable=invalid-name,missing-function-docstring,relative-beyond-top-level,g-long-lambda
 from typing import Any, List, Optional, cast
@@ -27,6 +26,7 @@ from ..native_rules_proto import PluginSettings
 from ..native_rules_proto import PROTO_COMPILER
 from ..starlark.bazel_globals import BazelGlobals
 from ..starlark.bazel_globals import register_bzl_library
+from ..starlark.bazel_target import RepositoryId
 from ..starlark.bazel_target import TargetId
 from ..starlark.common_providers import FilesProvider
 from ..starlark.common_providers import ProtoLibraryProvider
@@ -35,45 +35,60 @@ from ..starlark.invocation_context import RelativeLabel
 from ..starlark.provider import TargetInfo
 from ..starlark.select import Configurable
 
+
+GRPC_REPO = RepositoryId("com_github_grpc_grpc")
+
 _SEP = "\n        "
 _GRPC = PluginSettings(
-    TargetId.parse("@com_github_grpc_grpc//src/compiler:grpc_cpp_plugin"),
-    "grpc", [".grpc.pb.h", ".grpc.pb.cc"],
-    [TargetId.parse("@com_github_grpc_grpc//:grpc++_codegen_proto")])
+    name="grpc",
+    plugin=GRPC_REPO.parse_target("//src/compiler:grpc_cpp_plugin"),
+    exts=[".grpc.pb.h", ".grpc.pb.cc"],
+    runtime=[GRPC_REPO.parse_target("//:grpc++_codegen_proto")],
+    replacement_targets={},
+)
 
 
 @register_bzl_library(
-    "@com_github_grpc_grpc//bazel:generate_cc.bzl", build=True)
+    "@com_github_grpc_grpc//bazel:generate_cc.bzl", build=True
+)
 class GrpcGenerateCcLibrary(BazelGlobals):
 
-  def bazel_generate_cc(self,
-                        well_known_protos: Any,
-                        name: str,
-                        visibility: Optional[List[RelativeLabel]] = None,
-                        **kwargs):
+  def bazel_generate_cc(
+      self,
+      well_known_protos: Any,
+      name: str,
+      visibility: Optional[List[RelativeLabel]] = None,
+      **kwargs,
+  ):
     context = self._context.snapshot()
     target = context.resolve_target(name)
     context.add_rule(
         target,
         lambda: _generate_cc_impl(
-            context, target, well_known_protos=well_known_protos, **kwargs),
-        analyze_by_default=False)
+            context, target, well_known_protos=well_known_protos, **kwargs
+        ),
+        analyze_by_default=False,
+    )
 
 
-def _generate_cc_impl(_context: InvocationContext,
-                      _target: TargetId,
-                      srcs: Optional[Configurable[List[RelativeLabel]]] = None,
-                      plugin: Optional[Configurable[RelativeLabel]] = None,
-                      flags: Optional[List[str]] = None,
-                      **kwargs):
+def _generate_cc_impl(
+    _context: InvocationContext,
+    _target: TargetId,
+    srcs: Optional[Configurable[List[RelativeLabel]]] = None,
+    plugin: Optional[Configurable[RelativeLabel]] = None,
+    flags: Optional[List[str]] = None,
+    **kwargs,
+):
   del kwargs
   resolved_srcs = _context.resolve_target_or_label_list(
-      _context.evaluate_configurable_list(srcs))
+      _context.evaluate_configurable_list(srcs)
+  )
   assert len(resolved_srcs) == 1
   proto_library_target = resolved_srcs[0]
 
   proto_info = _context.get_target_info(proto_library_target).get(
-      ProtoLibraryProvider)
+      ProtoLibraryProvider
+  )
   assert proto_info is not None
 
   state = _context.access(EvaluationState)
@@ -84,10 +99,15 @@ def _generate_cc_impl(_context: InvocationContext,
   plugin_settings = _GRPC
   if plugin is not None:
     resolved_plugin = _context.resolve_target_or_label(
-        cast(RelativeLabel, _context.evaluate_configurable(plugin)))
+        cast(RelativeLabel, _context.evaluate_configurable(plugin))
+    )
     plugin_settings = PluginSettings(
-        resolved_plugin, "grpc", [".grpc.pb.h", ".grpc.pb.cc"],
-        [TargetId.parse("@com_github_grpc_grpc//:grpc++_codegen_proto")])
+        name=_GRPC.name,
+        plugin=resolved_plugin,
+        exts=_GRPC.exts,
+        runtime=_GRPC.runtime,
+        replacement_targets=_GRPC.replacement_targets,
+    )
 
   cmake_deps.extend(state.get_dep(PROTO_COMPILER))
 
@@ -97,22 +117,30 @@ def _generate_cc_impl(_context: InvocationContext,
   for src in proto_info.srcs:
     proto_src_files.extend(state.get_file_paths(src, cmake_deps))
     assert src.target_name.endswith(".proto"), f"{repr(src)} must end in .proto"
-    proto_prefix = src.target_name[:-len(".proto")]
+    proto_prefix = src.target_name[: -len(".proto")]
     for ext in plugin_settings.exts:
       generated_target = src.get_target_id(f"{proto_prefix}{ext}")
       generated_path = _context.get_generated_file_path(generated_target)
       _context.add_analyzed_target(
           generated_target,
-          TargetInfo(FilesProvider([generated_path]), protoc_deps))
+          TargetInfo(FilesProvider([generated_path]), protoc_deps),
+      )
       generated_paths.append(generated_path)
 
   assert plugin_settings.plugin is not None
   plugin_name = state.get_dep(plugin_settings.plugin)
   if len(plugin_name) != 1:
     raise ValueError(
-        f"Resolving {plugin_settings.plugin} returned: {plugin_name}")
+        f"Resolving {plugin_settings.plugin} returned: {plugin_name}"
+    )
+
+  language = (
+      plugin_settings.language
+      if plugin_settings.language
+      else plugin_settings.name
+  )
   cmake_deps.append(plugin_name[0])
-  plugin = f"\n    PLUGIN protoc-gen-{plugin_settings.name}=$<TARGET_FILE:{plugin_name[0]}>"
+  plugin = f"\n    PLUGIN protoc-gen-{language}=$<TARGET_FILE:{plugin_name[0]}>"
 
   # Construct the output path. This is also the target include dir.
   # ${PROJECT_BINARY_DIR}
@@ -133,7 +161,7 @@ target_sources({cmake_name} PRIVATE{_SEP}{quote_list(proto_src_files , separator
 btc_protobuf(
     TARGET {cmake_name}
     IMPORT_TARGETS  {import_target}
-    LANGUAGE {plugin_settings.name}{plugin}
+    LANGUAGE {language}{plugin}
     GENERATE_EXTENSIONS {quote_list(plugin_settings.exts)}
     PROTOC_OPTIONS --experimental_allow_proto3_optional
     PLUGIN_OPTIONS {quote_list(flags)}
@@ -144,5 +172,7 @@ btc_protobuf(
 
   _context.add_analyzed_target(
       _target,
-      TargetInfo(*cmake_target_pair.as_providers(),
-                 FilesProvider(generated_paths)))
+      TargetInfo(
+          *cmake_target_pair.as_providers(), FilesProvider(generated_paths)
+      ),
+  )

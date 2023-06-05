@@ -31,10 +31,9 @@
 #include <unistd.h>
 #endif
 
-#include <algorithm>
 #include <atomic>
+#include <cstdint>
 #include <cstring>
-#include <iostream>
 #include <memory>
 #include <string>
 #include <utility>
@@ -46,11 +45,17 @@
 #include "absl/strings/match.h"
 #include "tensorstore/internal/os_error_code.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/status.h"
+
+#ifndef _WIN32
+extern char** environ;
+#endif
 
 namespace tensorstore {
 namespace internal {
 
 #ifdef _WIN32
+
 namespace {
 
 /// Append an argument to the command_line
@@ -59,7 +64,7 @@ void AppendToCommandLine(std::string* command_line,
   if (argument.empty()) {
     return;
   }
-  if (!absl::StrContains(argument, " \t\n\v")) {
+  if (argument.find_first_of(" \t\n\v\"") == std::string::npos) {
     absl::StrAppend(command_line, argument);
     return;
   }
@@ -80,6 +85,33 @@ void AppendToCommandLine(std::string* command_line,
     command_line->append(1, *it);
   }
   command_line->append(1, '"');
+}
+
+/// Converts a UTF-8 string to a windows Multibyte string.
+/// TODO: Consider consolidating with kvstore/file/windows_file_util.cc
+absl::Status ConvertStringToMultibyte(std::string_view in, std::wstring& out) {
+  if (in.size() > std::numeric_limits<int>::max()) {
+    return StatusFromOsError(ERROR_BUFFER_OVERFLOW,
+                             "ConvertStringToMultibyte buffer overflow");
+  }
+  if (in.empty()) {
+    out.clear();
+    return absl::OkStatus();
+  }
+  int n = ::MultiByteToWideChar(
+      /*CodePage=*/CP_UTF8, /*dwFlags=*/MB_ERR_INVALID_CHARS, in.data(),
+      static_cast<int>(in.size()), nullptr, 0);
+  if (n <= 0) {
+    return StatusFromOsError(GetLastErrorCode(), "MultiByteToWideChar failed");
+  }
+  out.resize(n);
+  int m = ::MultiByteToWideChar(
+      /*CodePage=*/CP_UTF8, /*dwFlags=*/MB_ERR_INVALID_CHARS, in.data(),
+      static_cast<int>(in.size()), out.data(), n);
+  if (n <= 0) {
+    return StatusFromOsError(GetLastErrorCode(), "MultiByteToWideChar failed");
+  }
+  return absl::OkStatus();
 }
 
 }  // namespace
@@ -127,24 +159,26 @@ Result<Subprocess> SpawnSubprocess(const SubprocessOptions& options) {
     return absl::InvalidArgumentError(
         "SpawnSubprocess: executable not specified.");
   }
+  if (options.executable.find_first_of('"') != std::string::npos) {
+    return absl::InvalidArgumentError(
+        "SpawnSubprocess: executable string includes \" character.");
+  }
 
-  /// Quote path and convert from utf-8 to wchar_t.
-  std::string command_line;
-  AppendToCommandLine(&command_line, options.executable);
+  // Unlike posix, Windows composes a commandline as one large string,
+  // where "executable" (arg[0]) has different quoting conventions from
+  // the remaining args.
+  std::string command_line = absl::StrFormat("\"%s\"", options.executable);
   for (const auto& arg : options.args) {
     command_line.append(1, ' ');
     AppendToCommandLine(&command_line, arg);
   }
+
+  std::wstring wpath;
+  TENSORSTORE_RETURN_IF_ERROR(ConvertStringToMultibyte(command_line, wpath));
   constexpr size_t kMaxWindowsPathSize = 32768;
-  std::unique_ptr<wchar_t[]> wpath(new wchar_t[kMaxWindowsPathSize]);
-  int n = ::MultiByteToWideChar(
-      /*CodePage=*/CP_UTF8, /*dwFlags=*/MB_ERR_INVALID_CHARS,
-      command_line.data(), static_cast<int>(command_line.size()), wpath.get(),
-      kMaxWindowsPathSize - 1);
-  if (n == 0) {
-    return StatusFromOsError(GetLastErrorCode(), "MultiByteToWideChar failed");
+  if (wpath.size() >= kMaxWindowsPathSize) {
+    return absl::InvalidArgumentError("SpawnSubprocess: path too large.");
   }
-  wpath[n] = 0;
 
   // Setup STARTUPINFO to redirect handles.
   // Without STARTF_USESTDHANDLES, the subprocess inherit the current process
@@ -167,7 +201,7 @@ Result<Subprocess> SpawnSubprocess(const SubprocessOptions& options) {
   auto impl = std::make_shared<Subprocess::Impl>();
   if (0 == CreateProcessW(
                /*lpApplicationName=*/nullptr,
-               /*lpCommandLine=*/wpath.get(),
+               /*lpCommandLine=*/wpath.data(),
                /*lpProcessAttributes=*/nullptr,
                /*lpThreadAttributes=*/nullptr,
                /*bInheritHandles=*/TRUE,
@@ -273,9 +307,6 @@ Result<Subprocess> SpawnSubprocess(const SubprocessOptions& options) {
   }
   argv.push_back(nullptr);
 
-  // TODO: Add environment variables.
-  std::vector<char*> envp({nullptr});
-
   /// Add posix file actions; specifically, redirect stdin/stdout/sterr to
   /// /dev/null to ensure that the file descriptors are not reused.
   posix_spawn_file_actions_t file_actions;
@@ -308,7 +339,7 @@ Result<Subprocess> SpawnSubprocess(const SubprocessOptions& options) {
 
   pid_t child_pid = 0;
   int err = posix_spawn(&child_pid, argv[0], &file_actions, nullptr,
-                        const_cast<char* const*>(argv.data()), envp.data());
+                        const_cast<char* const*>(argv.data()), environ);
   ABSL_LOG(INFO) << "posix_spawn " << argv[0] << " err:" << err
                  << " pid: " << child_pid;
 

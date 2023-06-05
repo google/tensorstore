@@ -132,6 +132,15 @@ absl::Status PropagateIndexTransformDownsampling(
     span<const Index> output_downsample_factors,
     PropagatedIndexTransformDownsampling& propagated);
 
+/// Same as `PropagateIndexTransformDownsampling`, but uses
+/// `base_transform.domain().box()` as the `output_base_bounds` and left
+/// composes `base_transform` into `propagated.transform`.
+absl::Status PropagateAndComposeIndexTransformDownsampling(
+    IndexTransformView<> downsampled_transform,
+    IndexTransformView<> base_transform,
+    span<const Index> base_downsample_factors,
+    PropagatedIndexTransformDownsampling& propagated);
+
 /// Same as above, but with `Result` return value.
 Result<PropagatedIndexTransformDownsampling>
 PropagateIndexTransformDownsampling(

@@ -34,11 +34,22 @@
 #include "python/tensorstore/kvstore.h"
 #include "python/tensorstore/sequence_parameter.h"
 #include "python/tensorstore/unit.h"
+#include "tensorstore/open_mode.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/spec.h"
 
 namespace tensorstore {
 namespace internal_python {
+
+// Python-specific wrapper around the `tensorstore::OpenMode` enum (bitmask)
+// type.
+struct PythonOpenMode {
+  tensorstore::OpenMode value;
+
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.value);
+  };
+};
 
 struct PythonSpecObject
     : public GarbageCollectedPythonObject<PythonSpecObject, Spec> {
@@ -303,6 +314,22 @@ open mode.  Requires that :py:param:`.open` is `True` and
 )";
 };
 
+struct SetOpenMode {
+  using type = PythonOpenMode;
+
+  static constexpr const char* name = "open_mode";
+  static constexpr const char* doc = R"(
+
+Overrides the existing open mode.
+
+)";
+
+  template <typename Self>
+  static absl::Status Apply(Self& self, PythonOpenMode value) {
+    return self.Set(value.value);
+  }
+};
+
 struct SetMinimalSpec {
   using type = bool;
   static constexpr const char* name = "minimal_spec";
@@ -427,9 +454,9 @@ key-value store.
 namespace pybind11 {
 namespace detail {
 
-/// Defines automatic conversion from compatible Python objects to
-/// `tensorstore::Spec` parameters of pybind11-exposed functions, via JSON
-/// conversion.
+// Defines automatic conversion from compatible Python objects to
+// `tensorstore::Spec` parameters of pybind11-exposed functions, via JSON
+// conversion.
 template <>
 struct type_caster<tensorstore::internal_python::SpecLike> {
   PYBIND11_TYPE_CASTER(tensorstore::internal_python::SpecLike,
@@ -446,6 +473,19 @@ template <>
 struct type_caster<tensorstore::Spec>
     : public tensorstore::internal_python::GarbageCollectedObjectCaster<
           tensorstore::internal_python::PythonSpecObject> {};
+
+// Defines automatic conversion from `tensorstore::OpenMode` to
+// `tensorstore.OpenMode`.
+template <>
+struct type_caster<tensorstore::OpenMode> {
+  PYBIND11_TYPE_CASTER(tensorstore::OpenMode, _("tensorstore.OpenMode"));
+
+  static handle cast(tensorstore::OpenMode value,
+                     return_value_policy /* policy */, handle /* parent */) {
+    return pybind11::cast(tensorstore::internal_python::PythonOpenMode{value})
+        .release();
+  }
+};
 
 }  // namespace detail
 }  // namespace pybind11

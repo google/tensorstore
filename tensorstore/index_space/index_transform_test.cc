@@ -45,12 +45,10 @@ using ::tensorstore::IndexTransformBuilder;
 using ::tensorstore::IndexTransformView;
 using ::tensorstore::IntersectIndexDomains;
 using ::tensorstore::IsIndexDomain;
-using ::tensorstore::kImplicit;
 using ::tensorstore::kInfIndex;
 using ::tensorstore::kMaxFiniteIndex;
 using ::tensorstore::kMinFiniteIndex;
 using ::tensorstore::MakeArray;
-using ::tensorstore::MakeOffsetArray;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::MergeIndexDomains;
 using ::tensorstore::Result;
@@ -60,6 +58,7 @@ using ::tensorstore::StaticRankCast;
 using ::tensorstore::StrCat;
 using ::tensorstore::unchecked;
 using ::tensorstore::view;
+using ::tensorstore::internal::ComputeInputDimensionReferenceCounts;
 using ::tensorstore::internal_index_space::TransformAccess;
 using ::tensorstore::serialization::TestSerializationRoundTrip;
 
@@ -255,6 +254,7 @@ TEST(IndexTransformTest, Assign) {
     auto* rep_t2 = TransformAccess::rep(unlabeled_t2);
     unlabeled_t = std::move(unlabeled_t2);
     EXPECT_EQ(rep_t2, TransformAccess::rep(unlabeled_t));
+    // NOLINTNEXTLINE(bugprone-use-after-move)
     EXPECT_EQ(nullptr, TransformAccess::rep(unlabeled_t2));
   }
 
@@ -1106,6 +1106,24 @@ TEST(IndexDomainSerializationTest, Basic) {
   TestSerializationRoundTrip(tensorstore::IndexDomain<>());
   TestSerializationRoundTrip(
       tensorstore::IndexDomain<>(tensorstore::IdentityTransform(5).domain()));
+}
+
+TEST(ComputeInputDimensionReferenceCountsTest, Identity) {
+  DimensionIndex reference_counts[3];
+  ComputeInputDimensionReferenceCounts(IdentityTransform(3), reference_counts);
+  EXPECT_THAT(reference_counts, ::testing::ElementsAre(1, 1, 1));
+}
+
+TEST(ComputeInputDimensionReferenceCountsTest, IndexArray) {
+  DimensionIndex reference_counts[3];
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto transform,
+      IndexTransformBuilder(3, 1)
+          .input_shape({2, 2, 2})
+          .output_index_array(0, 0, 1, MakeArray<Index>({{{1, 2}, {3, 4}}}))
+          .Finalize());
+  ComputeInputDimensionReferenceCounts(transform, reference_counts);
+  EXPECT_THAT(reference_counts, ::testing::ElementsAre(0, 1, 1));
 }
 
 }  // namespace

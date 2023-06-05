@@ -146,9 +146,15 @@ py::object GetExceptionFromStatus(const absl::Status& status) noexcept {
 
 std::string GetMessageFromStatus(const absl::Status& status) {
   std::string message = status.ToString();
-  // Remove INVALID_ARGUMENT: from Status message.
-  if (status.code() == absl::StatusCode::kInvalidArgument) {
-    return message.substr(std::string_view("INVALID_ARGUMENT: ").size());
+  // Remove status codes prefix when the status code is already implied by the
+  // exception type.
+  switch (status.code()) {
+    case absl::StatusCode::kInvalidArgument:
+      return message.substr(std::string_view("INVALID_ARGUMENT: ").size());
+    case absl::StatusCode::kUnimplemented:
+      return message.substr(std::string_view("UNIMPLEMENTED: ").size());
+    default:
+      break;
   }
   return message;
 }
@@ -165,6 +171,8 @@ pybind11::handle GetExceptionType(absl::StatusCode error_code,
       } else {
         return PyExc_ValueError;
       }
+    case absl::StatusCode::kUnimplemented:
+      return PyExc_NotImplementedError;
     default:
       break;
   }

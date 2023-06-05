@@ -14,6 +14,8 @@
 
 #include "tensorstore/driver/driver.h"
 
+#include <charconv>
+
 #include "absl/status/status.h"
 #include "tensorstore/context.h"
 #include "tensorstore/data_type.h"
@@ -22,9 +24,13 @@
 #include "tensorstore/driver/neuroglancer_precomputed/metadata.h"
 #include "tensorstore/driver/registry.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_space/dimension_permutation.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/internal/cache/chunk_cache.h"
 #include "tensorstore/internal/cache_key/cache_key.h"
+#include "tensorstore/internal/grid_chunk_key_ranges.h"
+#include "tensorstore/internal/grid_chunk_key_ranges_base10.h"
+#include "tensorstore/internal/grid_storage_statistics.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -351,6 +357,10 @@ class DataCacheBase : public internal_kvs_backed_chunk_driver::DataCache {
 
   std::string GetBaseKvstorePath() override { return key_prefix_; }
 
+  virtual Future<ArrayStorageStatistics> GetStorageStatistics(
+      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
+      absl::Time staleness_bound, GetArrayStorageStatisticsOptions options) = 0;
+
   std::string key_prefix_;
   std::size_t scale_index_;
   // channel, z, y, x
@@ -370,20 +380,79 @@ class UnshardedDataCache : public DataCacheBase {
     scale_key_prefix_ = ResolveScaleKey(key_prefix, scale.key);
   }
 
+  class KeyFormatter : public internal::LexicographicalGridIndexKeyParser {
+   public:
+    explicit KeyFormatter(const UnshardedDataCache& cache) {
+      const auto& metadata = *static_cast<const MultiscaleMetadata*>(
+          cache.initial_metadata_.get());
+      const auto& scale = metadata.scales[cache.scale_index_];
+      box_ = scale.box;
+      std::copy_n(cache.chunk_layout_czyx_.shape().data() + 1, 3,
+                  chunk_shape_zyx_.begin());
+    }
+
+    void FormatGridIndex(std::string& out, DimensionIndex dim,
+                         Index grid_index) const final {
+      const Index chunk_size = chunk_shape_zyx_[2 - dim];
+      absl::StrAppend(
+          &out, box_.origin()[dim] + chunk_size * grid_index, "-",
+          box_.origin()[dim] +
+              std::min(chunk_size * (grid_index + 1), box_.shape()[dim]));
+    }
+
+    bool ParseGridIndex(std::string_view key, DimensionIndex dim,
+                        Index& grid_index) const final {
+      Index start_index, end_index;
+      // Start and end bounds are separated by '-'.
+      size_t sep = key.find('-');
+      if (sep == std::string_view::npos) return false;
+      if (auto result =
+              std::from_chars(key.data(), key.data() + sep, start_index);
+          result.ptr != key.data() + sep || result.ec != std::errc{}) {
+        return false;
+      }
+      if (auto result = std::from_chars(key.data() + sep + 1,
+                                        key.data() + key.size(), end_index);
+          result.ptr != key.data() + key.size() || result.ec != std::errc{}) {
+        return false;
+      }
+      if (!Contains(box_[dim], start_index)) return false;
+      const Index chunk_size = chunk_shape_zyx_[2 - dim];
+      const Index origin_relative_start = start_index - box_.origin()[dim];
+      if (origin_relative_start % chunk_size != 0) return false;
+      grid_index = origin_relative_start / chunk_size;
+      if (end_index !=
+          std::min(start_index + chunk_size, box_[dim].exclusive_max())) {
+        return false;
+      }
+      return true;
+    }
+
+    Index MinGridIndexForLexicographicalOrder(
+        DimensionIndex dim, IndexInterval grid_interval) const final {
+      const Index chunk_size = chunk_shape_zyx_[2 - dim];
+      Index max_index = box_[dim].exclusive_max();
+      Index min_lex_index =
+          max_index > 0
+              ? internal::MinValueWithMaxBase10Digits(box_[dim].exclusive_max())
+              : 0;
+      return tensorstore::CeilOfRatio(min_lex_index - box_.origin()[dim],
+                                      chunk_size);
+    }
+
+   private:
+    Box<3> box_;
+    std::array<Index, 3> chunk_shape_zyx_;
+  };
+
   std::string GetChunkStorageKey(const void* metadata_ptr,
                                  span<const Index> cell_indices) override {
-    const auto& metadata =
-        *static_cast<const MultiscaleMetadata*>(metadata_ptr);
     std::string key = scale_key_prefix_;
     if (!key.empty()) key += '/';
-    const auto& scale = metadata.scales[scale_index_];
+    KeyFormatter key_formatter(*this);
     for (int i = 0; i < 3; ++i) {
-      const Index chunk_size = chunk_layout_czyx_.shape()[3 - i];
       if (i != 0) key += '_';
-      absl::StrAppend(
-          &key, scale.box.origin()[i] + chunk_size * cell_indices[i], "-",
-          scale.box.origin()[i] + std::min(chunk_size * (cell_indices[i] + 1),
-                                           scale.box.shape()[i]));
+      key_formatter.FormatGridIndex(key, i, cell_indices[i]);
     }
     return key;
   }
@@ -396,6 +465,38 @@ class UnshardedDataCache : public DataCacheBase {
         auto layout, GetBaseChunkLayout(metadata, ChunkLayout::kWrite));
     TENSORSTORE_RETURN_IF_ERROR(layout.Finalize());
     return layout;
+  }
+
+  virtual Future<ArrayStorageStatistics> GetStorageStatistics(
+      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
+      absl::Time staleness_bound,
+      GetArrayStorageStatisticsOptions options) override {
+    const auto& metadata =
+        *static_cast<const MultiscaleMetadata*>(this->initial_metadata_.get());
+    const auto& scale = metadata.scales[scale_index_];
+    auto& grid = this->grid();
+    Box<3> grid_bounds;
+    for (DimensionIndex i = 0; i < 3; ++i) {
+      const Index chunk_size = chunk_layout_czyx_.shape()[3 - i];
+      grid_bounds[i] = IndexInterval::UncheckedSized(
+          0, tensorstore::CeilOfRatio(scale.box.shape()[i], chunk_size));
+    }
+    const auto& component = grid.components[0];
+    std::string path = tensorstore::StrCat(this->GetBaseKvstorePath(),
+                                           this->scale_key_prefix_);
+    if (!path.empty()) {
+      path += '/';
+    }
+    return internal::
+        GetStorageStatisticsForRegularGridWithSemiLexicographicalKeys(
+            KvStore{kvstore::DriverPtr(this->kvstore_driver()), std::move(path),
+                    internal::TransactionState::ToTransaction(
+                        std::move(transaction))},
+            transform, /*grid_output_dimensions=*/
+            component.chunked_to_cell_dimensions,
+            /*chunk_shape=*/grid.chunk_shape, grid_bounds,
+            /*dimension_separator=*/'_', std::make_unique<KeyFormatter>(*this),
+            staleness_bound, options);
   }
 
  private:
@@ -464,6 +565,14 @@ class ShardedDataCache : public DataCacheBase {
     return layout;
   }
 
+  virtual Future<ArrayStorageStatistics> GetStorageStatistics(
+      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
+      absl::Time staleness_bound,
+      GetArrayStorageStatisticsOptions options) override {
+    // Not yet implemented for sharded format.
+    return absl::UnimplementedError("");
+  }
+
   std::array<int, 3> compressed_z_index_bits_;
 };
 
@@ -488,6 +597,15 @@ class NeuroglancerPrecomputedDriver
       units[3 - i] = Unit(scale.resolution[i], "nm");
     }
     return units;
+  }
+
+  Future<ArrayStorageStatistics> GetStorageStatistics(
+      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
+      GetArrayStorageStatisticsOptions options) override {
+    auto* cache = static_cast<DataCacheBase*>(this->cache());
+    return cache->GetStorageStatistics(
+        std::move(transaction), std::move(transform),
+        this->data_staleness_bound().time, std::move(options));
   }
 };
 

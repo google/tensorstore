@@ -87,6 +87,7 @@ bazel_to_cmake(
   "--include-package=tensorstore/**"
   "--exclude-package=tensorstore/examples/python/**"
   "--exclude-package=tensorstore/kvstore/ocdbt/python/**"
+  "--exclude-package=third_party/local_proto_mirror/**"
   --ignore-library "//third_party:python/python_configure.bzl"
   --ignore-library "//docs:doctest.bzl"
   --ignore-library "//bazel:non_compile.bzl"
@@ -97,6 +98,7 @@ bazel_to_cmake(
   --module bazel_to_cmake.bzl_library.rules_nasm
   --module bazel_to_cmake.bzl_library.third_party_http_archive
   --module bazel_to_cmake.bzl_library.upb_proto_library
+  --module bazel_to_cmake.bzl_library.lpm_imports
 )
 
 if(TENSORSTORE_DEBUG_DUMP_TARGETS)

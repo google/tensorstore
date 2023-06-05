@@ -90,6 +90,8 @@ absl::Status InitializeSingleArrayIterationStateImpl(
   assert(output_rank == transform->output_rank);
 
   const DimensionIndex input_rank = transform->input_rank;
+  std::fill_n(&single_array_state->input_byte_strides[0], input_rank,
+              static_cast<Index>(0));
 
   span<OutputIndexMap> maps = transform->output_index_maps().first(output_rank);
 
@@ -322,20 +324,20 @@ ArrayIterateResult IterateUsingSimplifiedLayout(
     span<const Index> input_shape,
     internal::ElementwiseClosure<Arity, absl::Status*> closure,
     absl::Status* status,
-    span<std::optional<SingleArrayIterationState>, Arity> single_array_states,
+    span<const SingleArrayIterationState, Arity> single_array_states,
     std::array<std::ptrdiff_t, Arity> element_sizes) {
   const Index final_indexed_dim_size =
       layout.simplified_shape[layout.pure_strided_start_dim - 1];
 
   std::array<const Index*, Arity> strides;
   for (std::size_t i = 0; i < Arity; ++i) {
-    strides[i] = single_array_states[i]->input_byte_strides.data();
+    strides[i] = &single_array_states[i].input_byte_strides[0];
   }
 
   internal::StridedLayoutFunctionApplyer<Arity> strided_applyer(
       input_shape.data(),
-      span(layout.input_dimension_order.data() + layout.pure_strided_start_dim,
-           layout.input_dimension_order.data() + layout.pure_strided_end_dim),
+      span(&layout.input_dimension_order[layout.pure_strided_start_dim],
+           &layout.input_dimension_order[layout.pure_strided_end_dim]),
       strides, closure, element_sizes);
 
   struct SingleArrayOffsetsBuffer {
@@ -350,17 +352,17 @@ ArrayIterateResult IterateUsingSimplifiedLayout(
   // Iterate over all but the last array-indexed dimension.  We handle the last
   // array-indexed dimension specially for efficiency.
   outer_result.success = IterateOverIndexRange(
-      span(layout.simplified_shape.data(), last_indexed_dim),
+      span<const Index>(&layout.simplified_shape[0], last_indexed_dim),
       [&](span<const Index> position) {
         std::array<SingleArrayOffsetsBuffer, Arity> single_array_offset_buffers;
         std::array<ByteStridedPointer<void>, Arity> pointers;
         std::array<Index, Arity> final_indexed_dim_byte_strides;
         for (std::size_t i = 0; i < Arity; ++i) {
-          const auto& single_array_state = *single_array_states[i];
+          const auto& single_array_state = single_array_states[i];
           pointers[i] = single_array_state.base_pointer +
                         internal_index_space::IndirectInnerProduct(
-                            position, layout.input_dimension_order.data(),
-                            single_array_state.input_byte_strides.data());
+                            position, &layout.input_dimension_order[0],
+                            &single_array_state.input_byte_strides[0]);
           final_indexed_dim_byte_strides[i] =
               single_array_state
                   .input_byte_strides[layout.input_dimension_order
@@ -375,8 +377,8 @@ ArrayIterateResult IterateUsingSimplifiedLayout(
           for (std::size_t i = 0; i < Arity; ++i) {
             Index* offsets = single_array_offset_buffers[i].offsets;
             FillOffsetsArray(span(offsets, block_size), position,
-                             layout.input_dimension_order.data(),
-                             *single_array_states[i],
+                             &layout.input_dimension_order[0],
+                             single_array_states[i],
                              final_indexed_dim_byte_strides[i],
                              final_indexed_dim_start_position);
           }
@@ -419,8 +421,7 @@ ArrayIterateResult IterateUsingSimplifiedLayout(
       span<const Index> input_shape,                                         \
       internal::ElementwiseClosure<Arity, absl::Status*> closure,            \
       absl::Status* status,                                                  \
-      span<std::optional<SingleArrayIterationState>, Arity>                  \
-          single_array_states,                                               \
+      span<const SingleArrayIterationState, Arity> single_array_states,      \
       std::array<std::ptrdiff_t, Arity> element_sizes);
 TENSORSTORE_INTERNAL_FOR_EACH_ARITY(
     TENSORSTORE_INTERNAL_DO_INSTANTIATE_ITERATE_USING_SIMPLIFIED_LAYOUT)

@@ -18,7 +18,7 @@
 #include <optional>
 
 #include "absl/status/status.h"
-#include "tensorstore/internal/json/json.h"
+#include "tensorstore/internal/json/same.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_fwd.h"
 

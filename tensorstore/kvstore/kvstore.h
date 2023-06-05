@@ -136,6 +136,10 @@ class KvStore {
     return KvStore(std::move(driver), std::move(path));
   }
 
+  /// Returns the underlying `KvStore` if this is an adapter, such as OCDBT or
+  /// neuroglancer_uint64_sharded.  Otherwise returns a null kvstore.
+  Result<KvStore> base() const;
+
   /// Changes to a new transaction.
   ///
   /// Fails if `store` is already associated with an uncommitted transaction.

@@ -51,8 +51,10 @@ def register_toolchain(target: str) -> Callable[[Toolchain], Toolchain]:
 
 
 def get_toolchain_substitutions(
-    context: InvocationContext, toolchains: List[TargetId],
-    substitutions: MakeVariableSubstitutions) -> MakeVariableSubstitutions:
+    context: InvocationContext,
+    toolchains: List[TargetId],
+    substitutions: MakeVariableSubstitutions,
+) -> MakeVariableSubstitutions:
   for toolchain in toolchains:
     toolchain_impl = _TOOLCHAINS.get(toolchain)
     if toolchain_impl is None:

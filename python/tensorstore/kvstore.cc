@@ -357,6 +357,40 @@ Group:
 )",
       py::arg("transaction"));
 
+  cls.def_property_readonly(
+      "base",
+      [](Self& self) -> std::optional<KvStore> {
+        auto kvs = ValueOrThrow(self.value.base());
+        if (!kvs.valid()) return std::nullopt;
+        return kvs;
+      },
+      R"(
+Underlying key-value store, if this is a key-value store adapter.
+
+Adapter key-value stores include:
+
+- :ref:`ocdbt-kvstore-driver`
+- :ref:`neuroglancer-uint64-sharded-kvstore-driver`
+
+For regular, non-adapter key-value stores, this is :python:`None`.
+
+Example:
+
+    >>> store = await ts.KvStore.open({
+    ...     'driver': 'ocdbt',
+    ...     'base': 'memory://'
+    ... })
+    >>> store.base
+    KvStore({'context': {'memory_key_value_store': {}}, 'driver': 'memory'})
+
+See also:
+
+  - :py:obj:`KvStore.Spec.base`
+
+Group:
+  Accessors
+)");
+
   cls.def(
       "list",
       [](Self& self, std::optional<KeyRange> range,
@@ -1121,6 +1155,37 @@ Group:
 )",
       py::arg("include_defaults") = false);
 
+  cls.def_property_readonly(
+      "base",
+      [](Self& self) -> std::optional<kvstore::Spec> {
+        auto spec = ValueOrThrow(self.value.base());
+        if (!spec.valid()) return std::nullopt;
+        return spec;
+      },
+      R"(
+Underlying key-value store, if this is a key-value store adapter.
+
+Adapter key-value stores include:
+
+- :ref:`OCDBT<ocdbt-kvstore-driver>`
+- :ref:`neuroglancer_uint64_sharded<neuroglancer-uint64-sharded-kvstore-driver>`
+
+For regular, non-adapter key-value stores, this is :python:`None`.
+
+Example:
+
+    >>> spec = ts.KvStore.Spec({'driver': 'ocdbt', 'base': 'memory://'})
+    >>> spec.base
+    KvStore.Spec({'driver': 'memory'})
+
+See also:
+
+  - :py:obj:`KvStore.base`
+
+Group:
+  Accessors
+)");
+
   cls.def(
       "copy", [](Self& self) { return self.value; }, R"(
 Returns a copy of the key-value store spec.
@@ -1160,6 +1225,29 @@ Example:
 
     >>> ts.KvStore.Spec({'driver': 'file', 'path': 'tmp/data/'})
     KvStore.Spec({'driver': 'file', 'path': 'tmp/data/'})
+
+)");
+
+  cls.def(
+      "__eq__",
+      [](Self& self, Self& other) { return self.value == other.value; },
+      py::arg("other"),
+      R"(
+Compares with another :py:obj:`KvStore.Spec` for equality based on the :json:schema:`JSON representation<KvStore>`.
+
+The comparison is based on the JSON representation, except that any bound
+context resources are compared by identity (not by their JSON representation).
+
+Example:
+
+  >>> spec = ts.KvStore.Spec({'driver': 'memory'})
+  >>> assert spec == spec
+  >>> a, b = spec.copy(), spec.copy()
+  >>> context_a, context_b = ts.Context(), ts.Context()
+  >>> a.update(context=context_a)
+  >>> b.update(context=context_b)
+  >>> assert a == a
+  >>> assert a != b
 
 )");
 

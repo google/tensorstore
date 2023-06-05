@@ -1,8 +1,9 @@
 find_package(Protobuf REQUIRED)
 
-# @bazel_test_repo//:bb
+# @native_rules_test_repo//:bb
 add_executable(CMakeProject_bb "")
 add_executable(CMakeProject::bb ALIAS CMakeProject_bb)
+target_compile_definitions(CMakeProject_bb PUBLIC "BUILD_LINUX")
 target_link_libraries(CMakeProject_bb PUBLIC
         "Threads::Threads"
         "m")
@@ -13,7 +14,7 @@ target_compile_features(CMakeProject_bb PUBLIC cxx_std_17)
 target_sources(CMakeProject_bb PRIVATE
         "${TEST_DIRECTORY}/a.cc")
 
-# @bazel_test_repo//:h_file
+# @native_rules_test_repo//:h_file
 add_custom_command(
   OUTPUT "_cmake_binary_dir_/a.h"
   DEPENDS "${TEST_DIRECTORY}/x.h" "CMakeProject::bb"
@@ -23,9 +24,10 @@ add_custom_command(
 )
 add_custom_target(CMakeProject_h_file DEPENDS "_cmake_binary_dir_/a.h")
 
-# @bazel_test_repo//:a
+# @native_rules_test_repo//:a
 add_library(CMakeProject_a)
 set_property(TARGET CMakeProject_a PROPERTY LINKER_LANGUAGE "CXX")
+target_compile_definitions(CMakeProject_a PUBLIC "BUILD_LINUX")
 target_link_libraries(CMakeProject_a PUBLIC
         "Threads::Threads"
         "m")
@@ -38,11 +40,11 @@ target_sources(CMakeProject_a PRIVATE
         "${TEST_DIRECTORY}/a.cc")
 add_library(CMakeProject::a ALIAS CMakeProject_a)
 
-# @bazel_test_repo//:a_alias
+# @native_rules_test_repo//:a_alias
 add_library(CMakeProject_a_alias ALIAS CMakeProject_a)
 add_library(CMakeProject::a_alias ALIAS CMakeProject_a)
 
-# @bazel_test_repo//:c_proto
+# @native_rules_test_repo//:c_proto
 add_library(CMakeProject_c_proto INTERFACE)
 target_sources(CMakeProject_c_proto INTERFACE
         "${TEST_DIRECTORY}/c.proto")
@@ -54,7 +56,7 @@ btc_transitive_import_dirs(
 )
 set_property(TARGET CMakeProject_c_proto PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${CMakeProject_c_proto_IMPORT_DIRS})
 
-# @bazel_test_repo//:c_proto__cpp_library
+# @native_rules_test_repo//:c_proto__cpp_library
 add_library(CMakeProject_c_proto__cpp_library)
 set_property(TARGET CMakeProject_c_proto__cpp_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_c_proto__cpp_library PUBLIC
@@ -76,7 +78,7 @@ btc_protobuf(
     DEPENDENCIES "protobuf::protoc"
 )
 
-# @bazel_test_repo//:c_proto_cc
+# @native_rules_test_repo//:c_proto_cc
 add_library(CMakeProject_c_proto_cc INTERFACE)
 target_link_libraries(CMakeProject_c_proto_cc INTERFACE
         "CMakeProject_c_proto__cpp_library")
@@ -86,9 +88,10 @@ target_include_directories(CMakeProject_c_proto_cc INTERFACE
 target_compile_features(CMakeProject_c_proto_cc INTERFACE cxx_std_17)
 add_library(CMakeProject::c_proto_cc ALIAS CMakeProject_c_proto_cc)
 
-# @bazel_test_repo//:a_test
+# @native_rules_test_repo//:a_test
 add_executable(CMakeProject_a_test "")
 add_executable(CMakeProject::a_test ALIAS CMakeProject_a_test)
+target_compile_definitions(CMakeProject_a_test PUBLIC "BUILD_LINUX")
 target_link_libraries(CMakeProject_a_test PUBLIC
         "CMakeProject::c_proto_cc"
         "Threads::Threads"
@@ -101,13 +104,65 @@ target_sources(CMakeProject_a_test PRIVATE
         "${TEST_DIRECTORY}/a.cc")
 add_test(NAME CMakeProject_a_test COMMAND CMakeProject_a_test WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
-# @bazel_test_repo//:c_proto_2
+# @native_rules_test_repo//:c_proto_2
 add_library(CMakeProject_c_proto_2 INTERFACE)
 target_sources(CMakeProject_c_proto_2 INTERFACE
         "${TEST_DIRECTORY}/c.proto")
 list(APPEND CMakeProject_c_proto_2_IMPORT_DIRS "${TEST_DIRECTORY}")
 set_property(TARGET CMakeProject_c_proto_2 PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${CMakeProject_c_proto_2_IMPORT_DIRS})
 
-# @bazel_test_repo//:c_proto_cc_alias
+# @native_rules_test_repo//:c_proto_cc_alias
 add_library(CMakeProject_c_proto_cc_alias ALIAS CMakeProject_c_proto_cc)
 add_library(CMakeProject::c_proto_cc_alias ALIAS CMakeProject_c_proto_cc)
+
+# @native_rules_test_repo//:subdir_x
+add_library(CMakeProject_subdir_x)
+set_property(TARGET CMakeProject_subdir_x PROPERTY LINKER_LANGUAGE "CXX")
+target_compile_definitions(CMakeProject_subdir_x PUBLIC "BUILD_LINUX")
+target_link_libraries(CMakeProject_subdir_x PUBLIC
+        "Threads::Threads"
+        "m")
+target_include_directories(CMakeProject_subdir_x PUBLIC
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
+target_compile_features(CMakeProject_subdir_x PUBLIC cxx_std_17)
+target_sources(CMakeProject_subdir_x PRIVATE
+        "${TEST_DIRECTORY}/subdir/x.cc")
+add_library(CMakeProject::subdir_x ALIAS CMakeProject_subdir_x)
+
+# @native_rules_test_repo//subdir:make_y
+add_custom_command(
+  OUTPUT "_cmake_binary_dir_/subdir/y.cc"
+  DEPENDS "CMakeProject::bb"
+  COMMAND bash -c "$<TARGET_FILE:CMakeProject_bb> \"_cmake_binary_dir_/subdir/y.cc\""
+  VERBATIM
+  WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+)
+add_custom_target(CMakeProject_subdir_make_y DEPENDS "_cmake_binary_dir_/subdir/y.cc")
+
+# @native_rules_test_repo//subdir:y
+add_library(CMakeProject_subdir_y)
+set_property(TARGET CMakeProject_subdir_y PROPERTY LINKER_LANGUAGE "CXX")
+target_compile_definitions(CMakeProject_subdir_y PUBLIC "BUILD_LINUX")
+target_link_libraries(CMakeProject_subdir_y PUBLIC
+        "Threads::Threads"
+        "m")
+target_include_directories(CMakeProject_subdir_y PUBLIC
+        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
+target_compile_features(CMakeProject_subdir_y PUBLIC cxx_std_17)
+add_dependencies(CMakeProject_subdir_y "CMakeProject_subdir_make_y")
+target_sources(CMakeProject_subdir_y PRIVATE
+        "_cmake_binary_dir_/subdir/y.cc")
+add_library(CMakeProject::subdir_y ALIAS CMakeProject_subdir_y)
+
+# @native_rules_test_repo//:y_alias
+add_library(CMakeProject_y_alias ALIAS CMakeProject_subdir_y)
+add_library(CMakeProject::y_alias ALIAS CMakeProject_subdir_y)
+
+# @native_rules_test_repo//subdir:z_proto
+add_library(CMakeProject_subdir_z_proto INTERFACE)
+target_sources(CMakeProject_subdir_z_proto INTERFACE
+        "${TEST_DIRECTORY}/subdir/z.proto")
+list(APPEND CMakeProject_subdir_z_proto_IMPORT_DIRS "${TEST_DIRECTORY}")
+set_property(TARGET CMakeProject_subdir_z_proto PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${CMakeProject_subdir_z_proto_IMPORT_DIRS})

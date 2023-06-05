@@ -91,6 +91,7 @@ tensorstore_cc_library(
     deps = [
         ":chunk",
         "//tensorstore:array",
+        "//tensorstore:array_storage_statistics",
         "//tensorstore:box",
         "//tensorstore:chunk_layout",
         "//tensorstore:codec_spec",

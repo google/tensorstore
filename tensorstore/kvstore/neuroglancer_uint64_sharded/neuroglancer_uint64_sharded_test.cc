@@ -1596,7 +1596,40 @@ TEST(ShardedKeyValueStoreTest, SpecRoundtrip) {
   options.full_spec = {{"driver", "neuroglancer_uint64_sharded"},
                        {"base", {{"driver", "memory"}, {"path", "abc/"}}},
                        {"metadata", sharding_spec_json}};
+  options.full_base_spec = {{"driver", "memory"}, {"path", "abc/"}};
   tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
+}
+
+TEST(ShardedKeyValueStoreTest, Base) {
+  ::nlohmann::json sharding_spec_json{
+      {"@type", "neuroglancer_uint64_sharded_v1"},
+      {"hash", "identity"},
+      {"preshift_bits", 0},
+      {"minishard_bits", 1},
+      {"shard_bits", 1},
+      {"data_encoding", "raw"},
+      {"minishard_index_encoding", "raw"}};
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto spec,
+      kvstore::Spec::FromJson({{"driver", "neuroglancer_uint64_sharded"},
+                               {"base", "memory://abc/"},
+                               {"metadata", sharding_spec_json},
+                               {"path", "1"}}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto base_spec,
+                                   kvstore::Spec::FromJson("memory://abc/"));
+  EXPECT_THAT(spec.base(), ::testing::Optional(base_spec));
+
+  auto context = tensorstore::Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
+                                   kvstore::Open(spec, context).result());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto base_store,
+                                   kvstore::Open(base_spec, context).result());
+  EXPECT_THAT(store.base(), ::testing::Optional(base_store));
+
+  // Check that the transaction is propagated to the base.
+  auto transaction = tensorstore::Transaction(tensorstore::atomic_isolated);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store_with_txn, store | transaction);
+  EXPECT_THAT(store_with_txn.base(), base_store | transaction);
 }
 
 }  // namespace

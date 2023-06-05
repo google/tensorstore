@@ -65,6 +65,12 @@ kvstore::Spec Spec::kvstore() const {
   return impl_.driver_spec->GetKvstore();
 }
 
+Result<Spec> Spec::base() const {
+  Spec base_spec;
+  TENSORSTORE_ASSIGN_OR_RETURN(base_spec.impl_, internal::GetBase(impl_));
+  return base_spec;
+}
+
 ContextBindingState Spec::context_binding_state() const {
   return impl_.context_binding_state();
 }
@@ -87,23 +93,7 @@ bool operator==(const Spec& a, const Spec& b) {
   if (!a.valid() || !b.valid()) {
     return a.valid() == b.valid();
   }
-  Spec a_unbound, b_unbound;
-  {
-    auto spec_builder = internal::ContextSpecBuilder::Make();
-    // Track binding state, so that we don't compare equal if the binding state
-    // is not the same.
-    internal::SetRecordBindingState(spec_builder, true);
-    a_unbound = a;
-    a_unbound.UnbindContext(spec_builder);
-    b_unbound = b;
-    b_unbound.UnbindContext(spec_builder);
-  }
-  JsonSerializationOptions json_serialization_options;
-  json_serialization_options.preserve_bound_context_resources_ = true;
-  auto a_json = a_unbound.ToJson(json_serialization_options);
-  auto b_json = b_unbound.ToJson(json_serialization_options);
-  if (!a_json.ok() || !b_json.ok()) return false;
-  return internal_json::JsonSame(*a_json, *b_json);
+  return internal::ContextBindableSpecsSameViaJson(a, b);
 }
 
 namespace jb = tensorstore::internal_json_binding;

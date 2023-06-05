@@ -20,8 +20,6 @@
 #include "absl/status/status.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/elementwise_function.h"
-#include "tensorstore/internal/preprocessor/defer.h"
-#include "tensorstore/internal/preprocessor/expand.h"
 
 namespace tensorstore {
 
@@ -249,182 +247,769 @@ struct FloatJsonDataTypeConversionTraits {
 
 }  // namespace internal_data_type
 
-#define TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS1(TO, FROM, ...) \
-  template <>                                                      \
-  struct DataTypeConversionTraits<FROM, TO> {                      \
-    using From = FROM;                                             \
-    using To = TO;                                                 \
-    constexpr static DataTypeConversionFlags flags = __VA_ARGS__;  \
-  };                                                               \
-  /**/
-
-#define TENSORSTORE_INTERNAL_INHERITED_CONVERT1(TO, FROM, PARENT)         \
-  template <>                                                             \
-  struct DataTypeConversionTraits<FROM, TO> : public PARENT<FROM, TO> {}; \
-  /**/
-
-// The extra indirection for `TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS` and
-// `TENSORSTORE_INTERNAL_INHERITED_CONVERT` is a workaround for preprocessor
-// limitations in MSVC 2019 (not necessary on GCC/Clang or on MSVC with
-// `/experimental:preprocessor` option).  Without this workaround, the
-// invocations from `TENSORSTORE_FOR_EACH_*_DATA_TYPE` don't correctly map
-// `__VA_ARGS__` to multiple arguments.
-
-#define TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(...)         \
-  TENSORSTORE_PP_EXPAND1(                                       \
-      TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS1(__VA_ARGS__)) \
-  /**/
-
-#define TENSORSTORE_INTERNAL_INHERITED_CONVERT(...)                            \
-  TENSORSTORE_PP_EXPAND1(TENSORSTORE_INTERNAL_INHERITED_CONVERT1(__VA_ARGS__)) \
-  /**/
-
-TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(
-    char_t, byte_t,
-    DataTypeConversionFlags::kSupported |
-        DataTypeConversionFlags::kCanReinterpretCast);
-
-TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(
-    byte_t, char_t,
-    DataTypeConversionFlags::kSupported |
-        DataTypeConversionFlags::kCanReinterpretCast |
-        DataTypeConversionFlags::kSafeAndImplicit);
-
-// Define conversion flags from bool to every other canonical type.
-#define TENSORSTORE_INTERNAL_DEFINE_CONVERSIONS_FROM_BOOL(T, ...) \
-  TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(                     \
-      T, bool_t,                                                  \
-      DataTypeConversionFlags::kSupported |                       \
-          DataTypeConversionFlags::kSafeAndImplicit)              \
-  /**/
-TENSORSTORE_FOR_EACH_INTEGER_DATA_TYPE(
-    TENSORSTORE_INTERNAL_DEFINE_CONVERSIONS_FROM_BOOL)
-TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(
-    TENSORSTORE_INTERNAL_DEFINE_CONVERSIONS_FROM_BOOL)
-TENSORSTORE_FOR_EACH_COMPLEX_DATA_TYPE(
-    TENSORSTORE_INTERNAL_DEFINE_CONVERSIONS_FROM_BOOL)
-TENSORSTORE_INTERNAL_DEFINE_CONVERSIONS_FROM_BOOL(json_t)
-#undef TENSORSTORE_INTERNAL_DEFINE_CONVERSIONS_FROM_BOOL
-
-// Define conversion flags from canonical integer types to every other
-// canonical type.
-#define TENSORSTORE_INTERNAL_DEFINE_CONVERSIONS_FROM_INT(X, ...)           \
-  TENSORSTORE_PP_DEFER(TENSORSTORE_FOR_EACH_INTEGER_DATA_TYPE_ID)          \
-  ()(TENSORSTORE_PP_DEFER(TENSORSTORE_INTERNAL_INHERITED_CONVERT), X,      \
-     internal_data_type::IntegerIntegerDataTypeConversionTraits);          \
-  TENSORSTORE_PP_DEFER(TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE_ID)            \
-  ()(TENSORSTORE_PP_DEFER(TENSORSTORE_INTERNAL_INHERITED_CONVERT), X,      \
-     internal_data_type::IntegerFloatDataTypeConversionTraits);            \
-  TENSORSTORE_PP_DEFER(TENSORSTORE_FOR_EACH_COMPLEX_DATA_TYPE_ID)          \
-  ()(TENSORSTORE_PP_DEFER(TENSORSTORE_INTERNAL_INHERITED_CONVERT), X,      \
-     internal_data_type::NumericComplexDataTypeConversionTraits);          \
-  TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(                              \
-      bool_t, X, DataTypeConversionFlags::kSupported);                     \
-  TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(                              \
-      string_t, X, DataTypeConversionFlags::kSupported);                   \
-  TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(                              \
-      ustring_t, X, DataTypeConversionFlags::kSupported);                  \
-  TENSORSTORE_INTERNAL_INHERITED_CONVERT(                                  \
-      json_t, X, internal_data_type::IntegerJsonDataTypeConversionTraits); \
-  /**/
-TENSORSTORE_PP_EXPAND(TENSORSTORE_FOR_EACH_INTEGER_DATA_TYPE(
-    TENSORSTORE_INTERNAL_DEFINE_CONVERSIONS_FROM_INT))
-#undef TENSORSTORE_INTERNAL_DEFINE_CONVERSIONS_FROM_INT
-
-// Define conversion flags from canonical float types to every other canonical
-// type.
-#define TENSORSTORE_INTERNAL_DEFINE_CONVERSIONS_FROM_FLOAT(X, ...)       \
-  TENSORSTORE_PP_DEFER(TENSORSTORE_FOR_EACH_INTEGER_DATA_TYPE_ID)        \
-  ()(TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS, X,                      \
-     DataTypeConversionFlags::kSupported);                               \
-  TENSORSTORE_PP_DEFER(TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE_ID)          \
-  ()(TENSORSTORE_INTERNAL_INHERITED_CONVERT, X,                          \
-     internal_data_type::FloatFloatDataTypeConversionTraits);            \
-  TENSORSTORE_PP_DEFER(TENSORSTORE_FOR_EACH_COMPLEX_DATA_TYPE_ID)        \
-  ()(TENSORSTORE_INTERNAL_INHERITED_CONVERT, X,                          \
-     internal_data_type::NumericComplexDataTypeConversionTraits);        \
-  TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(                            \
-      bool_t, X, DataTypeConversionFlags::kSupported);                   \
-  TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(                            \
-      string_t, X, DataTypeConversionFlags::kSupported);                 \
-  TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(                            \
-      ustring_t, X, DataTypeConversionFlags::kSupported);                \
-  TENSORSTORE_INTERNAL_INHERITED_CONVERT(                                \
-      json_t, X, internal_data_type::FloatJsonDataTypeConversionTraits); \
-  /**/
-TENSORSTORE_PP_EXPAND(TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(
-    TENSORSTORE_INTERNAL_DEFINE_CONVERSIONS_FROM_FLOAT))
-#undef TENSORSTORE_INTERNAL_DEFINE_CONVERSIONS_FROM_FLOAT
-
-// Define conversion flags from canonical complex types to every other
-// canonical type.
-#define TENSORSTORE_INTERNAL_DEFINE_CONVERSIONS_FROM_COMPLEX(X, ...) \
-  TENSORSTORE_PP_DEFER(TENSORSTORE_FOR_EACH_INTEGER_DATA_TYPE_ID)    \
-  ()(TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS, X,                  \
-     DataTypeConversionFlags::kSupported);                           \
-  TENSORSTORE_PP_DEFER(TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE_ID)      \
-  ()(TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS, X,                  \
-     DataTypeConversionFlags::kSupported);                           \
-  TENSORSTORE_PP_DEFER(TENSORSTORE_FOR_EACH_COMPLEX_DATA_TYPE_ID)    \
-  ()(TENSORSTORE_INTERNAL_INHERITED_CONVERT, X,                      \
-     internal_data_type::ComplexComplexDataTypeConversionTraits);    \
-  TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(                        \
-      string_t, X, DataTypeConversionFlags::kSupported);             \
-  TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(                        \
-      ustring_t, X, DataTypeConversionFlags::kSupported);            \
-  /**/
-TENSORSTORE_PP_EXPAND(TENSORSTORE_FOR_EACH_COMPLEX_DATA_TYPE(
-    TENSORSTORE_INTERNAL_DEFINE_CONVERSIONS_FROM_COMPLEX))
-#undef TENSORSTORE_INTERNAL_DEFINE_CONVERSIONS_FROM_COMPLEX
-
 template <typename T>
 struct DataTypeConversionTraits<std::complex<T>, json_t>
     : public DataTypeConversionTraits<T, json_t> {};
 
-// Define conversion flags from json_t to every other canonical type.
-TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(bool, json_t,
-                                           DataTypeConversionFlags::kSupported)
-TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(string_t, json_t,
-                                           DataTypeConversionFlags::kSupported)
-TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(ustring_t, json_t,
-                                           DataTypeConversionFlags::kSupported)
-TENSORSTORE_FOR_EACH_INTEGER_DATA_TYPE(  //
-    TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS, json_t,
-    DataTypeConversionFlags::kSupported)
+#define TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(FROM, TO, ...) \
+  template <>                                                     \
+  struct DataTypeConversionTraits<FROM, TO> {                     \
+    using From = FROM;                                            \
+    using To = TO;                                                \
+    constexpr static DataTypeConversionFlags flags = __VA_ARGS__; \
+  };                                                              \
+  /**/
 
-TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(  //
-    TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS, json_t,
-    DataTypeConversionFlags::kSupported)
-
-// TODO(jbms): support JSON -> complex conversion
-
-// ustring_t -> string_t conversion: converts to UTF8 encoding.
-TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(
-    string_t, ustring_t,
-    DataTypeConversionFlags::kSupported |
-        DataTypeConversionFlags::kSafeAndImplicit |
-        DataTypeConversionFlags::kCanReinterpretCast);
-
-// string_t -> ustring_t conversion: validates UTF-8 encoding.
-TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(ustring_t, string_t,
-                                           DataTypeConversionFlags::kSupported);
-
-// string_t -> json_t conversion: validates UTF-8 encoding
-TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(json_t, string_t,
-                                           DataTypeConversionFlags::kSupported);
+#define TENSORSTORE_INTERNAL_INHERITED_CONVERT(FROM, TO, PARENT)          \
+  template <>                                                             \
+  struct DataTypeConversionTraits<FROM, TO> : public PARENT<FROM, TO> {}; \
+  /**/
 
 // TODO(jbms): Define string_t and ustring_t -> number, complex, bool
 // conversions
 
-// ustring_t -> json_t conversion always succeeds.
-TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(
-    json_t, ustring_t,
+// [BEGIN GENERATED: generate_data_type.py]
+
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    char_t, byte_t,
+    DataTypeConversionFlags::kSupported |
+        DataTypeConversionFlags::kSafeAndImplicit |
+        DataTypeConversionFlags::kCanReinterpretCast)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ustring_t, string_t,
+    DataTypeConversionFlags::kSupported |
+        DataTypeConversionFlags::kSafeAndImplicit |
+        DataTypeConversionFlags::kCanReinterpretCast)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    bool_t, int8_t,
     DataTypeConversionFlags::kSupported |
         DataTypeConversionFlags::kSafeAndImplicit)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    bool_t, uint8_t,
+    DataTypeConversionFlags::kSupported |
+        DataTypeConversionFlags::kSafeAndImplicit)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    bool_t, int16_t,
+    DataTypeConversionFlags::kSupported |
+        DataTypeConversionFlags::kSafeAndImplicit)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    bool_t, uint16_t,
+    DataTypeConversionFlags::kSupported |
+        DataTypeConversionFlags::kSafeAndImplicit)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    bool_t, int32_t,
+    DataTypeConversionFlags::kSupported |
+        DataTypeConversionFlags::kSafeAndImplicit)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    bool_t, uint32_t,
+    DataTypeConversionFlags::kSupported |
+        DataTypeConversionFlags::kSafeAndImplicit)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    bool_t, int64_t,
+    DataTypeConversionFlags::kSupported |
+        DataTypeConversionFlags::kSafeAndImplicit)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    bool_t, uint64_t,
+    DataTypeConversionFlags::kSupported |
+        DataTypeConversionFlags::kSafeAndImplicit)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    bool_t, float16_t,
+    DataTypeConversionFlags::kSupported |
+        DataTypeConversionFlags::kSafeAndImplicit)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    bool_t, bfloat16_t,
+    DataTypeConversionFlags::kSupported |
+        DataTypeConversionFlags::kSafeAndImplicit)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    bool_t, float32_t,
+    DataTypeConversionFlags::kSupported |
+        DataTypeConversionFlags::kSafeAndImplicit)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    bool_t, float64_t,
+    DataTypeConversionFlags::kSupported |
+        DataTypeConversionFlags::kSafeAndImplicit)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    bool_t, complex64_t,
+    DataTypeConversionFlags::kSupported |
+        DataTypeConversionFlags::kSafeAndImplicit)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    bool_t, complex128_t,
+    DataTypeConversionFlags::kSupported |
+        DataTypeConversionFlags::kSafeAndImplicit)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    bool_t, json_t,
+    DataTypeConversionFlags::kSupported |
+        DataTypeConversionFlags::kSafeAndImplicit)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    byte_t, char_t,
+    DataTypeConversionFlags::kSupported |
+        DataTypeConversionFlags::kSafeAndImplicit)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ustring_t, json_t,
+    DataTypeConversionFlags::kSupported |
+        DataTypeConversionFlags::kSafeAndImplicit)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    int8_t, bool_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    int8_t, string_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    int8_t, ustring_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    uint8_t, bool_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    uint8_t, string_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    uint8_t, ustring_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    int16_t, bool_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    int16_t, string_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    int16_t, ustring_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    uint16_t, bool_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    uint16_t, string_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    uint16_t, ustring_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    int32_t, bool_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    int32_t, string_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    int32_t, ustring_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    uint32_t, bool_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    uint32_t, string_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    uint32_t, ustring_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    int64_t, bool_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    int64_t, string_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    int64_t, ustring_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    uint64_t, bool_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    uint64_t, string_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    uint64_t, ustring_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    float16_t, bool_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    float16_t, int8_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    float16_t, uint8_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    float16_t, int16_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    float16_t, uint16_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    float16_t, int32_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    float16_t, uint32_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    float16_t, int64_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    float16_t, uint64_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    float16_t, string_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    float16_t, ustring_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    bfloat16_t, bool_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    bfloat16_t, int8_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    bfloat16_t, uint8_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    bfloat16_t, int16_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    bfloat16_t, uint16_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    bfloat16_t, int32_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    bfloat16_t, uint32_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    bfloat16_t, int64_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    bfloat16_t, uint64_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    bfloat16_t, string_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    bfloat16_t, ustring_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    float32_t, bool_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    float32_t, int8_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    float32_t, uint8_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    float32_t, int16_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    float32_t, uint16_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    float32_t, int32_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    float32_t, uint32_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    float32_t, int64_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    float32_t, uint64_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    float32_t, string_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    float32_t, ustring_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    float64_t, bool_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    float64_t, int8_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    float64_t, uint8_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    float64_t, int16_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    float64_t, uint16_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    float64_t, int32_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    float64_t, uint32_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    float64_t, int64_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    float64_t, uint64_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    float64_t, string_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    float64_t, ustring_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    complex64_t, int8_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    complex64_t, uint8_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    complex64_t, int16_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    complex64_t, uint16_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    complex64_t, int32_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    complex64_t, uint32_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    complex64_t, int64_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    complex64_t, uint64_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    complex64_t, float16_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    complex64_t, bfloat16_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    complex64_t, float32_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    complex64_t, float64_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    complex64_t, string_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    complex64_t, ustring_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    complex128_t, int8_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    complex128_t, uint8_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    complex128_t, int16_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    complex128_t, uint16_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    complex128_t, int32_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    complex128_t, uint32_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    complex128_t, int64_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    complex128_t, uint64_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    complex128_t, float16_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    complex128_t, bfloat16_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    complex128_t, float32_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    complex128_t, float64_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    complex128_t, string_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    complex128_t, ustring_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    json_t, bool_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    json_t, int8_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    json_t, uint8_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    json_t, int16_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    json_t, uint16_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    json_t, int32_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    json_t, uint32_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    json_t, int64_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    json_t, uint64_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    json_t, float16_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    json_t, bfloat16_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    json_t, float32_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    json_t, float64_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    json_t, string_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    json_t, ustring_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    string_t, ustring_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    string_t, json_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int8_t, int8_t, internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int8_t, uint8_t, internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int8_t, int16_t, internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int8_t, uint16_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int8_t, int32_t, internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int8_t, uint32_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int8_t, int64_t, internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int8_t, uint64_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint8_t, int8_t, internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint8_t, uint8_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint8_t, int16_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint8_t, uint16_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint8_t, int32_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint8_t, uint32_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint8_t, int64_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint8_t, uint64_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int16_t, int8_t, internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int16_t, uint8_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int16_t, int16_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int16_t, uint16_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int16_t, int32_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int16_t, uint32_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int16_t, int64_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int16_t, uint64_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint16_t, int8_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint16_t, uint8_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint16_t, int16_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint16_t, uint16_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint16_t, int32_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint16_t, uint32_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint16_t, int64_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint16_t, uint64_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int32_t, int8_t, internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int32_t, uint8_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int32_t, int16_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int32_t, uint16_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int32_t, int32_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int32_t, uint32_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int32_t, int64_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int32_t, uint64_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint32_t, int8_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint32_t, uint8_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint32_t, int16_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint32_t, uint16_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint32_t, int32_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint32_t, uint32_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint32_t, int64_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint32_t, uint64_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int64_t, int8_t, internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int64_t, uint8_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int64_t, int16_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int64_t, uint16_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int64_t, int32_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int64_t, uint32_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int64_t, int64_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int64_t, uint64_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint64_t, int8_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint64_t, uint8_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint64_t, int16_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint64_t, uint16_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint64_t, int32_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint64_t, uint32_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint64_t, int64_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint64_t, uint64_t,
+    internal_data_type::IntegerIntegerDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int8_t, float16_t, internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int8_t, bfloat16_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int8_t, float32_t, internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int8_t, float64_t, internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint8_t, float16_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint8_t, bfloat16_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint8_t, float32_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint8_t, float64_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int16_t, float16_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int16_t, bfloat16_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int16_t, float32_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int16_t, float64_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint16_t, float16_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint16_t, bfloat16_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint16_t, float32_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint16_t, float64_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int32_t, float16_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int32_t, bfloat16_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int32_t, float32_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int32_t, float64_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint32_t, float16_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint32_t, bfloat16_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint32_t, float32_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint32_t, float64_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int64_t, float16_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int64_t, bfloat16_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int64_t, float32_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int64_t, float64_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint64_t, float16_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint64_t, bfloat16_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint64_t, float32_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint64_t, float64_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int8_t, complex64_t,
+    internal_data_type::NumericComplexDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int8_t, complex128_t,
+    internal_data_type::NumericComplexDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint8_t, complex64_t,
+    internal_data_type::NumericComplexDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint8_t, complex128_t,
+    internal_data_type::NumericComplexDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int16_t, complex64_t,
+    internal_data_type::NumericComplexDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int16_t, complex128_t,
+    internal_data_type::NumericComplexDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint16_t, complex64_t,
+    internal_data_type::NumericComplexDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint16_t, complex128_t,
+    internal_data_type::NumericComplexDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int32_t, complex64_t,
+    internal_data_type::NumericComplexDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int32_t, complex128_t,
+    internal_data_type::NumericComplexDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint32_t, complex64_t,
+    internal_data_type::NumericComplexDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint32_t, complex128_t,
+    internal_data_type::NumericComplexDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int64_t, complex64_t,
+    internal_data_type::NumericComplexDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int64_t, complex128_t,
+    internal_data_type::NumericComplexDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint64_t, complex64_t,
+    internal_data_type::NumericComplexDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint64_t, complex128_t,
+    internal_data_type::NumericComplexDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int8_t, json_t, internal_data_type::IntegerJsonDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint8_t, json_t, internal_data_type::IntegerJsonDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int16_t, json_t, internal_data_type::IntegerJsonDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint16_t, json_t, internal_data_type::IntegerJsonDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int32_t, json_t, internal_data_type::IntegerJsonDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint32_t, json_t, internal_data_type::IntegerJsonDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    int64_t, json_t, internal_data_type::IntegerJsonDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    uint64_t, json_t, internal_data_type::IntegerJsonDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    float16_t, float16_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    float16_t, bfloat16_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    float16_t, float32_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    float16_t, float64_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    bfloat16_t, float16_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    bfloat16_t, bfloat16_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    bfloat16_t, float32_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    bfloat16_t, float64_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    float32_t, float16_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    float32_t, bfloat16_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    float32_t, float32_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    float32_t, float64_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    float64_t, float16_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    float64_t, bfloat16_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    float64_t, float32_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    float64_t, float64_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    float16_t, complex64_t,
+    internal_data_type::NumericComplexDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    float16_t, complex128_t,
+    internal_data_type::NumericComplexDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    bfloat16_t, complex64_t,
+    internal_data_type::NumericComplexDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    bfloat16_t, complex128_t,
+    internal_data_type::NumericComplexDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    float32_t, complex64_t,
+    internal_data_type::NumericComplexDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    float32_t, complex128_t,
+    internal_data_type::NumericComplexDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    float64_t, complex64_t,
+    internal_data_type::NumericComplexDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    float64_t, complex128_t,
+    internal_data_type::NumericComplexDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    float16_t, json_t, internal_data_type::FloatJsonDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    bfloat16_t, json_t, internal_data_type::FloatJsonDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    float32_t, json_t, internal_data_type::FloatJsonDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    float64_t, json_t, internal_data_type::FloatJsonDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    complex64_t, complex64_t,
+    internal_data_type::ComplexComplexDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    complex64_t, complex128_t,
+    internal_data_type::ComplexComplexDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    complex128_t, complex64_t,
+    internal_data_type::ComplexComplexDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    complex128_t, complex128_t,
+    internal_data_type::ComplexComplexDataTypeConversionTraits)
 
-#undef TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS1
+// [END GENERATED: generate_data_type.py]
+
 #undef TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS
-#undef TENSORSTORE_INTERNAL_INHERITED_CONVERT1
 #undef TENSORSTORE_INTERNAL_INHERITED_CONVERT
 
 }  // namespace tensorstore

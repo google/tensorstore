@@ -1,1 +1,1 @@
-workspace(name = "bazel_test_repo")
+workspace(name = "bazel_skylib_test_repo")

@@ -579,11 +579,12 @@ def update_workspace(
   print('   New URL: %s' % (new_url,))
 
   if dry_run:
+    print('   ... not updated')
     return
 
   # Retrieve the new repository to checksum and extract
   # the repository prefix.
-  new_url, mirrored_url = mirror_url(url)
+  new_url, mirrored_url = mirror_url(new_url)
 
   r = _get_session().get(mirrored_url)
   r.raise_for_status()

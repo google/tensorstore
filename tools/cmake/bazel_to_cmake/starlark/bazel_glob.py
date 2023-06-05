@@ -19,8 +19,7 @@ import glob as _glob
 import os
 import pathlib
 import re
-
-from typing import List, Optional, Dict, Set
+from typing import Dict, List, Optional, Set
 
 
 def glob_pattern_to_regexp(glob_pattern: str) -> str:
@@ -51,15 +50,19 @@ def glob_pattern_to_regexp(glob_pattern: str) -> str:
   return "".join(regexp_parts)
 
 
-def glob(directory: str,
-         include: List[str],
-         exclude: Optional[List[str]] = None,
-         allow_empty: bool = True) -> List[str]:
-
+def glob(
+    directory: str,
+    include: List[str],
+    exclude: Optional[List[str]] = None,
+    allow_empty: bool = True,
+) -> List[str]:
   exclude_regexp = None
   if exclude:
-    exclude_regexp = re.compile("(?:" + "|".join(
-        glob_pattern_to_regexp(pattern) for pattern in exclude) + ")")
+    exclude_regexp = re.compile(
+        "(?:"
+        + "|".join(glob_pattern_to_regexp(pattern) for pattern in exclude)
+        + ")"
+    )
 
   is_subpackage_dir: Dict[str, bool] = {}
   is_subpackage_dir[""] = False
@@ -79,9 +82,11 @@ def glob(directory: str,
       if result is None:
         # These build files haven't been checked yet; check them
         build_path = str(
-            pathlib.PurePosixPath(directory).joinpath(subdir, "BUILD"))
-        result = (
-            os.path.exists(build_path) or os.path.exists(build_path + ".bazel"))
+            pathlib.PurePosixPath(directory).joinpath(subdir, "BUILD")
+        )
+        result = os.path.exists(build_path) or os.path.exists(
+            build_path + ".bazel"
+        )
         is_subpackage_dir[subdir] = result
       if result:
         return True

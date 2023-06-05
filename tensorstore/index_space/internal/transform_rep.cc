@@ -19,13 +19,13 @@
 #include <utility>
 
 #include "absl/base/optimization.h"
-#include "absl/container/fixed_array.h"
 #include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/internal/transform_rep_impl.h"
 #include "tensorstore/internal/dimension_labels.h"
 #include "tensorstore/internal/integer_overflow.h"
+#include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/division.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/str_cat.h"
@@ -378,8 +378,7 @@ void PrintToOstream(std::ostream& os, TransformRep* transform) {
   }
   span<const OutputIndexMap> maps =
       transform->output_index_maps().first(output_rank);
-  absl::FixedArray<Index, internal::kNumInlinedDims> index_array_shape(
-      input_rank);
+  Index index_array_shape[kMaxRank];  // Only first `input_rank` elements used.
   os << "  Output index maps:\n";
   for (DimensionIndex output_dim = 0; output_dim < output_rank; ++output_dim) {
     const auto& map = maps[output_dim];
@@ -408,7 +407,7 @@ void PrintToOstream(std::ostream& os, TransformRep* transform) {
                 ElementPointer<const Index>(index_array_data.element_pointer),
                 IndexInnerProduct(input_rank, input_domain.origin().data(),
                                   index_array_data.byte_strides)),
-            StridedLayoutView<>(input_rank, index_array_shape.data(),
+            StridedLayoutView<>(input_rank, &index_array_shape[0],
                                 index_array_data.byte_strides));
         os << "bounded(" << index_array_data.index_range
            << ", array(in)), where array =\n";
@@ -518,7 +517,7 @@ TransformRep::Ptr<> GetSubDomain(TransformRep* rep,
   new_rep->output_rank = 0;
   new_rep->input_rank = new_rank;
 #ifndef NDEBUG
-  absl::FixedArray<bool, internal::kNumInlinedDims> seen_dims(old_rank, false);
+  DimensionSet seen_dims;
 #endif
   for (DimensionIndex new_dim = 0; new_dim < dims.size(); ++new_dim) {
     const DimensionIndex old_dim = dims[new_dim];

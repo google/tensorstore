@@ -26,6 +26,9 @@ namespace tensorstore {
 ///
 /// \relates Spec
 enum class OpenMode {
+  /// Open mode is not known.
+  unknown = 0,
+
   /// Open an existing `TensorStore`.  Unless `create` is also specified, a
   /// non-existent TensorStore will result in an error.
   open = 1,
@@ -72,6 +75,15 @@ constexpr inline OpenMode operator|(OpenMode a, OpenMode b) {
 /// \relates OpenMode
 /// \id OpenMode
 constexpr inline bool operator!(OpenMode a) { return !static_cast<int>(a); }
+
+/// Returns the complement of a mode.
+///
+/// \relates OpenMode
+/// \id OpenMode
+constexpr inline OpenMode operator~(OpenMode a) {
+  return static_cast<OpenMode>(
+      ~static_cast<std::underlying_type_t<OpenMode>>(a));
+}
 
 /// Prints a string representation the mode to an `std::ostream`.
 ///

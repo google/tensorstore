@@ -26,7 +26,7 @@
 #include "absl/status/status.h"
 #include "tensorstore/kvstore/s3/s3_request_builder.h"
 #include "tensorstore/kvstore/s3/validate.h"
-#include "tensorstore/internal/ascii_utils.h"
+#include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/digest/sha256.h"
 #include "tensorstore/util/result.h"

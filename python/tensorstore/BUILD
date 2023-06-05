@@ -33,6 +33,7 @@ pybind11_py_extension(
     srcs = ["tensorstore_module.cc"],
     imports = [".."],
     deps = [
+        ":cast",
         ":chunk_layout",
         ":context",
         ":data_type",
@@ -256,8 +257,10 @@ pybind11_cc_library(
         ":index",
         ":numpy_indexing_spec",
         ":sequence_parameter",
+        ":serialization",
         ":subscript_method",
         ":tensorstore_module_components",
+        ":typed_slice",
         "//tensorstore:index",
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/index_space:dimension_identifier",
@@ -265,12 +268,15 @@ pybind11_cc_library(
         "//tensorstore/index_space:index_transform",
         "//tensorstore/index_space:numpy_indexing_spec",
         "//tensorstore/internal:global_initializer",
+        "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/serialization",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "@com_github_pybind_pybind11//:pybind11",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/container:inlined_vector",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
     ],
@@ -340,6 +346,14 @@ pybind11_cc_library(
 )
 
 pybind11_cc_library(
+    name = "typed_slice",
+    hdrs = ["typed_slice.h"],
+    deps = [
+        "@com_github_pybind_pybind11//:pybind11",
+    ],
+)
+
+pybind11_cc_library(
     name = "array_type_caster",
     srcs = ["array_type_caster.cc"],
     hdrs = ["array_type_caster.h"],
@@ -391,6 +405,7 @@ pybind11_cc_library(
         "//tensorstore:data_type",
         "//tensorstore:index",
         "//tensorstore:json_serialization_options",
+        "//tensorstore:open_mode",
         "//tensorstore:rank",
         "//tensorstore:schema",
         "//tensorstore:spec",
@@ -483,12 +498,15 @@ pybind11_cc_library(
         "//tensorstore/index_space:index_transform",
         "//tensorstore/internal:global_initializer",
         "//tensorstore/internal/json:pprint_python",
+        "//tensorstore/internal/json_binding",
         "//tensorstore/kvstore",
+        "//tensorstore/serialization",
         "//tensorstore/util:executor",
         "//tensorstore/util:future",
         "//tensorstore/util:unit",
         "@com_github_pybind_pybind11//:pybind11",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:str_format",
     ],
     alwayslink = True,
 )
@@ -792,6 +810,25 @@ pybind11_cc_library(
 )
 
 pybind11_cc_library(
+    name = "cast",
+    srcs = ["cast.cc"],
+    deps = [
+        ":data_type",
+        ":result_type_caster",
+        ":spec",
+        ":tensorstore_class",
+        ":tensorstore_module_components",
+        "//tensorstore",
+        "//tensorstore:cast",
+        "//tensorstore:spec",
+        "//tensorstore/internal:global_initializer",
+        "//tensorstore/util:executor",
+        "@com_github_pybind_pybind11//:pybind11",
+    ],
+    alwayslink = True,
+)
+
+pybind11_cc_library(
     name = "chunk_layout",
     srcs = [
         "chunk_layout.cc",
@@ -807,6 +844,7 @@ pybind11_cc_library(
         ":keyword_arguments",
         ":result_type_caster",
         ":sequence_parameter",
+        ":serialization",
         ":status",
         ":tensorstore_module_components",
         "//tensorstore:chunk_layout",

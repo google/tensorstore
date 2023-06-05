@@ -72,3 +72,29 @@ alias(
     name = "a_alias",
     actual = ":a",
 )
+
+alias(
+    name = "y_alias",
+    actual = "//subdir:y",
+)
+
+filegroup(
+    name = "abc_filegroup",
+    srcs = [
+        "a.cc",
+        "x.h",
+        "y.h",
+    ],
+)
+
+# Subdir references
+
+cc_library(
+    name = "subdir_x",
+    srcs = ["subdir/x.cc"],
+)
+
+filegroup(
+    name = "subdir_z",
+    srcs = ["subdir/z.proto"],
+)

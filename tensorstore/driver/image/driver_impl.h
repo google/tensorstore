@@ -184,6 +184,8 @@ class ImageDriverSpec
 
   kvstore::Spec GetKvstore() const override { return store; }
 
+  OpenMode open_mode() const override { return OpenMode::open; }
+
   Future<internal::Driver::Handle> Open(
       internal::OpenTransactionPtr transaction,
       ReadWriteMode read_write_mode) const override;
@@ -311,6 +313,10 @@ class ImageDriver
   Future<IndexTransform<>> ResolveBounds(
       internal::OpenTransactionPtr transaction, IndexTransform<> transform,
       ResolveBoundsOptions options) override;
+
+  Future<ArrayStorageStatistics> GetStorageStatistics(
+      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
+      GetArrayStorageStatisticsOptions options) override;
 
   void Read(internal::OpenTransactionPtr transaction,
             IndexTransform<> transform,
@@ -451,6 +457,37 @@ Future<IndexTransform<>> ImageDriver<Specialization>::ResolveBounds(
                                                   std::move(transform));
       },
       cache_entry_->Read(data_staleness_.time));
+}
+
+template <typename Specialization>
+Future<ArrayStorageStatistics>
+ImageDriver<Specialization>::GetStorageStatistics(
+    internal::OpenTransactionPtr transaction, IndexTransform<> transform,
+    GetArrayStorageStatisticsOptions options) {
+  // TODO(jbms): integrate this with the cache
+  auto& cache = GetOwningCache(*cache_entry_);
+  kvstore::ReadOptions read_options;
+  read_options.byte_range = OptionalByteRangeRequest(0, 0);
+  read_options.staleness_bound = data_staleness_.time;
+  return MapFutureValue(
+      InlineExecutor{},
+      [options](
+          const kvstore::ReadResult& read_result) -> ArrayStorageStatistics {
+        ArrayStorageStatistics statistics;
+        statistics.mask = options.mask;
+        if (statistics.mask & ArrayStorageStatistics::query_not_stored) {
+          statistics.not_stored = !read_result.has_value();
+        }
+        if (statistics.mask & ArrayStorageStatistics::query_fully_stored) {
+          statistics.fully_stored = read_result.has_value();
+        }
+        return statistics;
+      },
+      kvstore::Read(KvStore{kvstore::DriverPtr(cache.kvstore_driver()),
+                            std::string(cache_entry_->key()),
+                            internal::TransactionState::ToTransaction(
+                                std::move(transaction))},
+                    "", std::move(read_options)));
 }
 
 // Summary of how read works: The driver yields a single value of type

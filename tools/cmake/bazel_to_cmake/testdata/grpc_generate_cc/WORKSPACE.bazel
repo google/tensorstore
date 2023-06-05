@@ -1,1 +1,1 @@
-workspace(name = "bazel_test_repo")
+workspace(name = "grpc_generate_cc_test_repo")

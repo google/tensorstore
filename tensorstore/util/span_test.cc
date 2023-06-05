@@ -148,14 +148,14 @@ TEST(SpanTest, ConstructDynamicPointerSize) {
 
 TEST(SpanTest, ConstructStaticPointerPointer) {
   int arr[] = {1, 2, 3};
-  span<int, 3> s(&arr[0], &arr[0] + 3);
+  span<int, 3> s(&arr[0], &arr[3]);
   EXPECT_THAT(s, SpanIs(arr, 3));
   EXPECT_EQ(arr + 3, s.end());
 }
 
 TEST(SpanTest, ConstructDynamicPointerPointer) {
   int arr[] = {1, 2, 3};
-  span<int> s(&arr[0], &arr[0] + 3);
+  span<int> s(&arr[0], &arr[3]);
   EXPECT_THAT(s, SpanIs(arr, 3));
   EXPECT_EQ(arr + 3, s.end());
 }

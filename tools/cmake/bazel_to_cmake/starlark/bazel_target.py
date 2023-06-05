@@ -26,15 +26,21 @@ from typing import Dict, NamedTuple, Optional
 
 class RepositoryId(NamedTuple):
   """RepositoryId identifies a repository."""
+
   repository_name: str
 
   def __repr__(self) -> str:
     return f'RepositoryId("{self.repository_name}")'
 
+  @property
+  def repository_id(self) -> 'RepositoryId':
+    return self
+
   def get_package_id(self, package_name: str) -> 'PackageId':
     """Returns the package in this repository."""
     return PackageId(
-        repository_name=self.repository_name, package_name=package_name)
+        repository_name=self.repository_name, package_name=package_name
+    )
 
   def parse_target(self, target: str) -> 'TargetId':
     if target.startswith('@'):
@@ -46,19 +52,22 @@ class RepositoryId(NamedTuple):
     package = target[2:]
     if package.startswith('/'):
       raise ValueError(
-          f"Invalid repository-relative label: {target} (starts with '/')")
+          f"Invalid repository-relative label: {target} (starts with '/')"
+      )
 
     i = package.find(':')
     if i >= 0:
       return TargetId(
           repository_name=self.repository_name,
           package_name=package[:i],
-          target_name=package[i + 1:])
+          target_name=package[i + 1 :],
+      )
 
     return TargetId(
         repository_name=self.repository_name,
         package_name=package,
-        target_name=os.path.basename(package))
+        target_name=os.path.basename(package),
+    )
 
 
 class PackageId(NamedTuple):
@@ -68,7 +77,7 @@ class PackageId(NamedTuple):
   package_name: str
 
   @staticmethod
-  def parse(package_label: str) -> "PackageId":
+  def parse(package_label: str) -> 'PackageId':
     return parse_absolute_target(package_label).package_id
 
   def __repr__(self) -> str:
@@ -78,11 +87,16 @@ class PackageId(NamedTuple):
   def repository_id(self) -> RepositoryId:
     return RepositoryId(self.repository_name)
 
+  @property
+  def package_id(self) -> 'PackageId':
+    return self
+
   def get_target_id(self, target_name: str) -> 'TargetId':
     return TargetId(
         repository_name=self.repository_name,
         package_name=self.package_name,
-        target_name=target_name)
+        target_name=target_name,
+    )
 
   def parse_target(self, target: str) -> 'TargetId':
     if not target:
@@ -95,11 +109,13 @@ class PackageId(NamedTuple):
       return TargetId(
           repository_name=self.repository_name,
           package_name=self.package_name,
-          target_name=target[1:])
+          target_name=target[1:],
+      )
     return TargetId(
         repository_name=self.repository_name,
         package_name=self.package_name,
-        target_name=target)
+        target_name=target,
+    )
 
 
 class TargetId(NamedTuple):
@@ -110,7 +126,7 @@ class TargetId(NamedTuple):
   target_name: str
 
   @staticmethod
-  def parse(label: str) -> "TargetId":
+  def parse(label: str) -> 'TargetId':
     return parse_absolute_target(label)
 
   def __repr__(self) -> str:
@@ -128,7 +144,8 @@ class TargetId(NamedTuple):
   def package_id(self) -> PackageId:
     """The PackageId which owns this target."""
     return PackageId(
-        repository_name=self.repository_name, package_name=self.package_name)
+        repository_name=self.repository_name, package_name=self.package_name
+    )
 
   def get_target_id(self, target_name: str) -> 'TargetId':
     return self._replace(target_name=target_name)
@@ -146,20 +163,25 @@ def parse_absolute_target(target: str) -> TargetId:
   if i < 0:
     # @repo => @repo//:repo
     return TargetId(
-        repository_name=target[1:], package_name='', target_name=target[1:])
+        repository_name=target[1:], package_name='', target_name=target[1:]
+    )
 
   # @repo//package:target
   return RepositoryId(target[1:i]).parse_target(target[i:])
 
 
-def remap_target_repo(target: TargetId,
-                      mapping: Optional[Dict[str, str]] = None) -> TargetId:
+def remap_target_repo(
+    target: TargetId, mapping: Optional[Dict[str, str]] = None
+) -> TargetId:
   """Apply a repository mapping to a TargetId."""
   if mapping is None:
     return target
-  new_repository_name = mapping.get(target.repository_name)
+  new_repository_name = mapping.get(target.repository_name, None)
   if new_repository_name is None:
     return target
 
-  return RepositoryId(new_repository_name).get_package_id(
-      target.package_name).get_target_id(target.target_name)
+  return (
+      RepositoryId(new_repository_name)
+      .get_package_id(target.package_name)
+      .get_target_id(target.target_name)
+  )

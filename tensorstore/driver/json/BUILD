@@ -33,6 +33,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/cache:async_initialized_cache_mixin",
         "//tensorstore/internal/cache:cache_pool_resource",
         "//tensorstore/internal/cache:kvs_backed_cache",
+        "//tensorstore/internal/json:same",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:staleness_bound",
         "//tensorstore/serialization:absl_time",

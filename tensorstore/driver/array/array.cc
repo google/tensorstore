@@ -22,6 +22,7 @@
 #include "tensorstore/driver/driver_handle.h"
 #include "tensorstore/driver/registry.h"
 #include "tensorstore/index_space/dim_expression.h"
+#include "tensorstore/index_space/dimension_permutation.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/transformed_array.h"
@@ -137,6 +138,8 @@ class ArrayDriverSpec
         obj->schema.Set(RankConstraint{obj->array.rank()}).IgnoreError();
       }));
 
+  OpenMode open_mode() const override { return OpenMode::unknown; }
+
   absl::Status ApplyOptions(SpecOptions&& options) override {
     if (options.kvstore.valid()) {
       return absl::InvalidArgumentError(
@@ -209,6 +212,10 @@ class ArrayDriver
   Result<ChunkLayout> GetChunkLayout(IndexTransformView<> transform) override;
 
   Result<DimensionUnitsVector> GetDimensionUnits() override;
+
+  Future<ArrayStorageStatistics> GetStorageStatistics(
+      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
+      GetArrayStorageStatisticsOptions options) override;
 
  private:
   Context::Resource<DataCopyConcurrencyResource> data_copy_concurrency_;
@@ -364,6 +371,21 @@ Result<ChunkLayout> ArrayDriver::GetChunkLayout(
 
 Result<DimensionUnitsVector> ArrayDriver::GetDimensionUnits() {
   return dimension_units_;
+}
+
+Future<ArrayStorageStatistics> ArrayDriver::GetStorageStatistics(
+    internal::OpenTransactionPtr transaction, IndexTransform<> transform,
+    GetArrayStorageStatisticsOptions options) {
+  // This driver always fully stores the data.
+  ArrayStorageStatistics statistics;
+  statistics.mask = options.mask;
+  if (statistics.mask & ArrayStorageStatistics::query_not_stored) {
+    statistics.not_stored = false;
+  }
+  if (statistics.mask & ArrayStorageStatistics::query_fully_stored) {
+    statistics.fully_stored = true;
+  }
+  return statistics;
 }
 
 Future<internal::Driver::Handle> ArrayDriverSpec::Open(

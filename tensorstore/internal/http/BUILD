@@ -61,8 +61,8 @@ tensorstore_cc_library(
         "http_transport.h",
     ],
     deps = [
-        "//tensorstore/internal:path",
         "//tensorstore/internal:source_location",
+        "//tensorstore/internal:uri_utils",
         "//tensorstore/kvstore:byte_range",
         "//tensorstore/util:future",
         "//tensorstore/util:quote_string",
@@ -169,8 +169,10 @@ tensorstore_cc_library(
     srcs = ["transport_test_utils.cc"],
     hdrs = ["transport_test_utils.h"],
     deps = [
+        "//tensorstore/internal:global_initializer",
         "//tensorstore/internal:no_destructor",
         "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/base",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/log:absl_check",
@@ -178,4 +180,5 @@ tensorstore_cc_library(
         "@com_google_absl//absl/random",
         "@com_google_absl//absl/random:distributions",
     ],
+    alwayslink = 1,
 )

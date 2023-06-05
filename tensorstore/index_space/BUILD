@@ -14,9 +14,9 @@ tensorstore_cc_library(
         ":index_transform",
         "//tensorstore:rank",
         "//tensorstore/internal:string_like",
+        "//tensorstore/util:dimension_set",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
-        "@com_google_absl//absl/container:fixed_array",
     ],
 )
 
@@ -44,7 +44,6 @@ tensorstore_cc_library(
         "//tensorstore/util:span",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/container:fixed_array",
         "@com_google_absl//absl/status",
     ],
 )
@@ -96,7 +95,6 @@ tensorstore_cc_library(
         "//tensorstore/internal:string_like",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
-        "@com_google_absl//absl/container:fixed_array",
     ],
 )
 
@@ -227,6 +225,20 @@ tensorstore_cc_library(
     ],
 )
 
+tensorstore_cc_test(
+    name = "dimension_permutation_test",
+    size = "small",
+    srcs = ["dimension_permutation_test.cc"],
+    deps = [
+        ":dim_expression",
+        ":index_transform",
+        "//tensorstore:index",
+        "//tensorstore/util:span",
+        "//tensorstore/util:status_testutil",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
 tensorstore_cc_library(
     name = "dimension_selection",
     srcs = ["internal/dimension_selection.cc"],
@@ -296,7 +308,6 @@ tensorstore_cc_library(
         "//tensorstore/internal:meta",
         "//tensorstore/util:result",
         "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/container:fixed_array",
     ],
 )
 
@@ -316,6 +327,7 @@ tensorstore_cc_test(
 tensorstore_cc_library(
     name = "index_transform",
     srcs = [
+        "dimension_permutation.cc",
         "index_transform.cc",
         "index_transform_builder.cc",
         "internal/compose_transforms.cc",
@@ -325,9 +337,11 @@ tensorstore_cc_library(
         "internal/propagate_bounds.cc",
         "internal/transform_array.cc",
         "internal/transform_rep.cc",
+        "internal/transpose.cc",
         "json.cc",
     ],
     hdrs = [
+        "dimension_permutation.h",
         "index_domain.h",
         "index_domain_builder.h",
         "index_transform.h",
@@ -341,6 +355,7 @@ tensorstore_cc_library(
         "internal/transform_array.h",
         "internal/transform_rep.h",
         "internal/transform_rep_impl.h",
+        "internal/transpose.h",
         "json.h",
         "output_index_map.h",
     ],
@@ -352,6 +367,7 @@ tensorstore_cc_library(
         "//tensorstore:array",
         "//tensorstore:box",
         "//tensorstore:container_kind",
+        "//tensorstore:contiguous_layout",
         "//tensorstore:data_type",
         "//tensorstore:index",
         "//tensorstore:index_interval",
@@ -486,7 +502,6 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/container:fixed_array",
         "@com_google_absl//absl/status",
     ],
 )
@@ -733,7 +748,6 @@ tensorstore_cc_library(
         "//tensorstore/internal:meta",
         "//tensorstore/util:result",
         "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/container:fixed_array",
         "@com_google_absl//absl/status",
     ],
 )
@@ -874,7 +888,6 @@ tensorstore_cc_library(
         "//tensorstore/internal:meta",
         "//tensorstore/util:result",
         "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/container:fixed_array",
         "@com_google_absl//absl/status",
     ],
 )
@@ -905,7 +918,6 @@ tensorstore_cc_library(
         "//tensorstore/internal:meta",
         "//tensorstore/util:result",
         "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/container:fixed_array",
         "@com_google_absl//absl/status",
     ],
 )
@@ -933,6 +945,16 @@ tensorstore_cc_test(
         ":index_transform",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "transpose_test",
+    size = "small",
+    srcs = ["transpose_test.cc"],
+    deps = [
+        ":index_transform",
         "@com_google_googletest//:gtest_main",
     ],
 )

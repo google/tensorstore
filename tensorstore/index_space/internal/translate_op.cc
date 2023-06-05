@@ -14,7 +14,8 @@
 
 #include "tensorstore/index_space/internal/translate_op.h"
 
-#include "absl/container/fixed_array.h"
+#include <algorithm>
+
 #include "absl/status/status.h"
 #include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/util/str_cat.h"
@@ -81,9 +82,11 @@ Result<IndexTransform<>> ApplyTranslate(IndexTransform<> transform,
       TransformAccess::rep_ptr<container>(std::move(transform)), domain_only);
   const auto input_domain = rep->input_domain(input_rank);
 
-  // Maps input dimensions to the corresponding offset in `offsets`.
-  absl::FixedArray<Index, internal::kNumInlinedDims> input_offsets(input_rank,
-                                                                   0);
+  // Maps input dimensions to the corresponding offset in `offsets`.  Only the
+  // first `input_rank` elements are used.
+  Index input_offsets[kMaxRank];
+  std::fill_n(&input_offsets[0], input_rank, static_cast<Index>(0));
+
   // Shift the input domain.
   for (DimensionIndex i = 0; i < num_dims; ++i) {
     const DimensionIndex input_dim = (*dimensions)[i];
@@ -114,7 +117,7 @@ Result<IndexTransform<>> ApplyTranslate(IndexTransform<> transform,
     input_offsets[input_dim] = offset;
   }
   TENSORSTORE_RETURN_IF_ERROR(
-      TranslateOutputOffsetsUsingInputOffsets(rep.get(), input_offsets.data()));
+      TranslateOutputOffsetsUsingInputOffsets(rep.get(), &input_offsets[0]));
   internal_index_space::DebugCheckInvariants(rep.get());
   return TransformAccess::Make<IndexTransform<>>(std::move(rep));
 }

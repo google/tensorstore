@@ -40,10 +40,15 @@ TEST(HttpRequestBuilder, BuildRequest) {
 
 TEST(HttpRequestBuilder, AddCacheControlMaxAgeHeader) {
   HttpRequestBuilder builder("GET", "http://127.0.0.1:0/");
-  EXPECT_FALSE(AddCacheControlMaxAgeHeader(builder, absl::InfiniteDuration()));
-  EXPECT_TRUE(AddCacheControlMaxAgeHeader(builder, absl::ZeroDuration()));
-  EXPECT_TRUE(AddCacheControlMaxAgeHeader(builder, absl::Seconds(10)));
-  EXPECT_TRUE(AddCacheControlMaxAgeHeader(builder, -absl::Seconds(10)));
+  bool result;
+  builder.AddCacheControlMaxAgeHeader(absl::InfiniteDuration(), result);
+  EXPECT_FALSE(result);
+  builder.AddCacheControlMaxAgeHeader(absl::ZeroDuration(), result);
+  EXPECT_TRUE(result);
+  builder.AddCacheControlMaxAgeHeader(absl::Seconds(10), result);
+  EXPECT_TRUE(result);
+  builder.AddCacheControlMaxAgeHeader(-absl::Seconds(10), result);
+  EXPECT_TRUE(result);
 
   auto request = builder.BuildRequest();
 
@@ -56,15 +61,18 @@ TEST(HttpRequestBuilder, AddCacheControlMaxAgeHeader) {
 TEST(HttpRequestBuilder, AddStalenessBoundCacheControlHeader) {
   const absl::Time kFutureTime = absl::Now() + absl::Minutes(525600);
   HttpRequestBuilder builder("GET", "http://127.0.0.1:0/");
-  EXPECT_FALSE(
-      AddStalenessBoundCacheControlHeader(builder, absl::InfinitePast()));
+  bool result;
+  builder.AddStalenessBoundCacheControlHeader(absl::InfinitePast(), result);
+  EXPECT_FALSE(result);
   // staleness is in the future => no-cache.
-  EXPECT_TRUE(
-      AddStalenessBoundCacheControlHeader(builder, absl::InfiniteFuture()));
-  EXPECT_TRUE(AddStalenessBoundCacheControlHeader(builder, kFutureTime));
+  builder.AddStalenessBoundCacheControlHeader(absl::InfiniteFuture(), result);
+  EXPECT_TRUE(result);
+  builder.AddStalenessBoundCacheControlHeader(kFutureTime, result);
+  EXPECT_TRUE(result);
   // staleness is in the past => max-age
-  EXPECT_TRUE(AddStalenessBoundCacheControlHeader(
-      builder, absl::Now() - absl::Milliseconds(5900)));
+  builder.AddStalenessBoundCacheControlHeader(
+      absl::Now() - absl::Milliseconds(5900), result);
+  EXPECT_TRUE(result);
 
   auto request = builder.BuildRequest();
 
@@ -82,7 +90,7 @@ TEST(HttpRequestBuilder, AddRangeHeader) {
   EXPECT_FALSE(result);
   builder.AddRangeHeader({1}, result);
   EXPECT_TRUE(result);
-  builder.AddRangeHeader({1, 2});
+  builder.AddRangeHeader({1, 2}, result);
   EXPECT_TRUE(result);
 
   auto request = builder.BuildRequest();

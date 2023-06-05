@@ -12,20 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/ascii_utils.h"
 #include "tensorstore/internal/path.h"
 
 #include <initializer_list>
 #include <string>
 #include <string_view>
 
-#include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
-
-using ::tensorstore::internal::AsciiSet;
-using ::tensorstore::internal::HexDigitToInt;
-using ::tensorstore::internal::IntToHexDigit;
-
 
 namespace {
 
@@ -100,94 +93,6 @@ void AppendPathComponent(std::string& path, std::string_view component) {
   } else {
     path += component;
   }
-}
-
-namespace {
-
-constexpr AsciiSet kUriUnreservedChars{
-    "abcdefghijklmnopqrstuvwxyz"
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    "0123456789"
-    "-_.!~*'()"};
-
-constexpr AsciiSet kUriPathUnreservedChars{
-    "abcdefghijklmnopqrstuvwxyz"
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    "0123456789"
-    "-_.!~*'():@&=+$,;/"};
-
-}  // namespace
-
-void PercentDecode(std::string_view src, std::string& dest) {
-  dest.clear();
-  dest.reserve(src.size());
-  for (size_t i = 0; i < src.size();) {
-    char c = src[i];
-    char x, y;
-    if (c != '%' || i + 2 >= src.size() ||
-        !absl::ascii_isxdigit((x = src[i + 1])) ||
-        !absl::ascii_isxdigit((y = src[i + 2]))) {
-      dest += c;
-      ++i;
-      continue;
-    }
-    dest += static_cast<char>(HexDigitToInt(x) * 16 + HexDigitToInt(y));
-    i += 3;
-  }
-}
-
-std::string PercentDecode(std::string_view src) {
-  std::string dest;
-  PercentDecode(src, dest);
-  return dest;
-}
-
-void PercentEncodeUriPath(std::string_view src, std::string& dest) {
-  return PercentEncodeReserved(src, dest, kUriPathUnreservedChars);
-}
-
-std::string PercentEncodeUriPath(std::string_view src) {
-  std::string dest;
-  PercentEncodeUriPath(src, dest);
-  return dest;
-}
-
-void PercentEncodeUriComponent(std::string_view src, std::string& dest) {
-  return PercentEncodeReserved(src, dest, kUriUnreservedChars);
-}
-
-std::string PercentEncodeUriComponent(std::string_view src) {
-  std::string dest;
-  PercentEncodeUriComponent(src, dest);
-  return dest;
-}
-
-ParsedGenericUri ParseGenericUri(std::string_view uri) {
-  static constexpr std::string_view kSchemeSep("://");
-  ParsedGenericUri result;
-  const size_t scheme_start = uri.find(kSchemeSep);
-  std::string_view uri_suffix;
-  if (scheme_start == std::string_view::npos) {
-    // No scheme
-    uri_suffix = uri;
-  } else {
-    result.scheme = uri.substr(0, scheme_start);
-    uri_suffix = uri.substr(scheme_start + kSchemeSep.size());
-  }
-  const size_t fragment_start = uri_suffix.find('#');
-  const size_t query_start = uri_suffix.substr(0, fragment_start).find('?');
-  const size_t path_end = std::min(query_start, fragment_start);
-  // Note: Since substr clips out-of-range count, this works even if
-  // `path_end == npos`.
-  result.authority_and_path = uri_suffix.substr(0, path_end);
-  if (query_start != std::string_view::npos) {
-    result.query =
-        uri_suffix.substr(query_start + 1, fragment_start - query_start - 1);
-  }
-  if (fragment_start != std::string_view::npos) {
-    result.fragment = uri_suffix.substr(fragment_start + 1);
-  }
-  return result;
 }
 
 }  // namespace internal

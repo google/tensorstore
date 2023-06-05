@@ -20,6 +20,7 @@
 #include <tuple>
 #include <vector>
 
+#include "tensorstore/internal/json/json.h"
 #include "tensorstore/internal/metrics/collect.h"
 #include "tensorstore/internal/metrics/registry.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -58,14 +59,45 @@ namespace internal {
   return json_metrics;
 }
 
+::nlohmann::json ReadMetricCollectionFromKvstore(
+    const kvstore::Spec& kvstore_spec) {
+  ::nlohmann::json metrics;
+  if (!kvstore_spec.valid() || kvstore_spec.path.empty() ||
+      kvstore_spec.path.back() == '/') {
+    return metrics;
+  }
+
+  auto kvstore = kvstore::Open(kvstore_spec).result();
+  if (!kvstore.ok()) {
+    return metrics;
+  }
+
+  auto read_metrics = kvstore::Read(kvstore.value(), "").result();
+
+  if (!read_metrics.ok()) {
+    return metrics;
+  }
+
+  std::string metric_str = std::string(read_metrics.value().value);
+
+  if (metric_str.empty()) {
+    return metrics;
+  }
+
+  return internal_json::ParseJson(metric_str);
+}
+
 bool WriteMetricCollectionToKvstore(::nlohmann::json all_metrics,
-                                    const kvstore::Spec& kvstore_spec) {
+                                    const kvstore::Spec& kvstore_spec,
+                                    bool final_collect) {
   if (!kvstore_spec.valid() || kvstore_spec.path.empty() ||
       kvstore_spec.path.back() == '/') {
     return false;
   }
 
-  all_metrics.emplace_back(CollectMetricsToJson("final", ""));
+  if (final_collect) {
+    all_metrics.emplace_back(CollectMetricsToJson("final", ""));
+  }
 
   TENSORSTORE_CHECK_OK_AND_ASSIGN(auto kvstore,
                                   kvstore::Open(kvstore_spec).result());

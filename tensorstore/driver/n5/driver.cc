@@ -23,6 +23,7 @@
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/internal/cache/chunk_cache.h"
+#include "tensorstore/internal/grid_storage_statistics.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/util/constant_vector.h"
@@ -323,6 +324,41 @@ class N5Driver : public internal_kvs_backed_chunk_driver::RegisteredKvsDriver<
         *static_cast<const N5Metadata*>(cache->initial_metadata_.get());
     return internal_n5::GetDimensionUnits(metadata.rank,
                                           metadata.units_and_resolution);
+  }
+
+  Future<ArrayStorageStatistics> GetStorageStatistics(
+      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
+      GetArrayStorageStatisticsOptions options) override {
+    auto* cache = static_cast<DataCache*>(this->cache());
+    auto [promise, future] = PromiseFuturePair<ArrayStorageStatistics>::Make();
+    LinkValue(
+        WithExecutor(
+            cache->executor(),
+            [cache = internal::CachePtr<DataCache>(cache),
+             transform = std::move(transform), transaction,
+             staleness_bound = this->data_staleness_bound().time,
+             options](Promise<ArrayStorageStatistics> promise,
+                      ReadyFuture<MetadataCache::MetadataPtr> future) {
+              auto* metadata =
+                  static_cast<const N5Metadata*>(future.value().get());
+              auto& grid = cache->grid();
+              auto& component = grid.components[0];
+              LinkResult(
+                  std::move(promise),
+                  internal::GetStorageStatisticsForRegularGridWithBase10Keys(
+                      KvStore{kvstore::DriverPtr(cache->kvstore_driver()),
+                              cache->GetBaseKvstorePath(),
+                              internal::TransactionState::ToTransaction(
+                                  std::move(transaction))},
+                      transform, /*grid_output_dimensions=*/
+                      component.chunked_to_cell_dimensions,
+                      /*chunk_shape=*/grid.chunk_shape,
+                      /*shape=*/metadata->shape,
+                      /*dimension_separator=*/'/', staleness_bound, options));
+            }),
+        std::move(promise),
+        ResolveMetadata(transaction, metadata_staleness_bound_.time));
+    return std::move(future);
   }
 };
 

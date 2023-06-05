@@ -23,8 +23,8 @@
 #include "absl/time/time.h"
 #include "tensorstore/context_resource_provider.h"
 #include "tensorstore/internal/env.h"
-#include "tensorstore/kvstore/gcs/admission_queue.h"
-#include "tensorstore/kvstore/gcs/scaling_rate_limiter.h"
+#include "tensorstore/kvstore/gcs_http/admission_queue.h"
+#include "tensorstore/kvstore/gcs_http/scaling_rate_limiter.h"
 
 /// specializations
 #include "tensorstore/internal/json_binding/absl_time.h"
@@ -35,8 +35,8 @@
 
 using ::tensorstore::internal::AnyContextResourceJsonBinder;
 using ::tensorstore::internal::ContextResourceCreationContext;
-using ::tensorstore::internal_storage_gcs::ScalingRateLimiter;
-using ::tensorstore::internal_storage_gcs::NoRateLimiter;
+using ::tensorstore::internal_kvstore_gcs_http::ScalingRateLimiter;
+using ::tensorstore::internal_kvstore_gcs_http::NoRateLimiter;
 
 namespace tensorstore {
 namespace internal_storage_s3 {

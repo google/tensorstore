@@ -1,0 +1,9 @@
+
+# Use absl with googletest
+build --define=absl=1
+
+build:linux --copt=-DBUILD_LINUX
+build:linux --host_copt=-DBUILD_LINUX
+
+build:windows --copt=-DBUILD_WINDOWS
+build:windows --host_copt=-DBUILD_WINDOWS

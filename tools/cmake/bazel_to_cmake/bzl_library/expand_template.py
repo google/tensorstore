@@ -42,7 +42,8 @@ def main():
   args = ap.parse_args()
 
   expand_template(
-      out=args.out, template=args.template, substitutions=args.substitutions)
+      out=args.out, template=args.template, substitutions=args.substitutions
+  )
 
 
 if __name__ == '__main__':

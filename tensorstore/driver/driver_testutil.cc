@@ -144,6 +144,24 @@ void TestTensorStoreDriverSpecRoundtrip(
     EXPECT_THAT(minimal_spec_obj.ToJson(options.to_json_options),
                 ::testing::Optional(MatchesJson(options.minimal_spec)));
 
+    // Check base
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store_base, store.base());
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec_base, full_spec_obj.base());
+    EXPECT_EQ(store_base.valid(), spec_base.valid());
+    if (store_base.valid()) {
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store_base_spec, store_base.spec());
+      EXPECT_THAT(spec_base.ToJson(),
+                  ::testing::Optional(MatchesJson(options.full_base_spec)));
+      EXPECT_THAT(store_base_spec.ToJson(),
+                  ::testing::Optional(MatchesJson(options.full_base_spec)));
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+          auto store_base_reopened,
+          tensorstore::Open(spec_base, context).result());
+    } else {
+      EXPECT_THAT(options.full_base_spec,
+                  MatchesJson(::nlohmann::json::value_t::discarded));
+    }
+
     if (options.write_value_to_create) {
       // Write a single value to `store` to ensure it is created.
       TENSORSTORE_ASSERT_OK(

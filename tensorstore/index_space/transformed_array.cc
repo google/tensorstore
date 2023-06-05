@@ -121,12 +121,11 @@ Result<ArrayIterateResult> IterateOverTransformedArrays(
 
   namespace flags = internal_index_space::input_dimension_iteration_flags;
 
-  absl::FixedArray<flags::Bitmask, kNumInlinedDims> input_dimension_flags(
-      input_rank,
+  flags::Bitmask input_dimension_flags[kMaxRank];
+  std::fill_n(
+      &input_dimension_flags[0], input_rank,
       flags::GetDefaultBitmask(constraints.repeated_elements_constraint()));
-  std::array<std::optional<internal_index_space::SingleArrayIterationState>,
-             Arity>
-      single_array_states;
+  internal_index_space::SingleArrayIterationState single_array_states[Arity];
 
   Box<dynamic_rank(kNumInlinedDims)> input_bounds(input_rank);
 
@@ -138,8 +137,7 @@ Result<ArrayIterateResult> IterateOverTransformedArrays(
     }
   }
   if (failed) {
-    absl::FixedArray<DimensionIndex, internal::kNumInlinedDims>
-        transformed_ranks(Arity);
+    DimensionIndex transformed_ranks[Arity];
     for (std::size_t i = 0; i < Arity; ++i) {
       transformed_ranks[i] = transformed_arrays[i].domain().rank();
     }
@@ -168,17 +166,16 @@ Result<ArrayIterateResult> IterateOverTransformedArrays(
 
   bool has_array_indexed_output_dimensions = false;
 
-  for (std::size_t i = 0; i < Arity; ++i) {
+  for (size_t i = 0; i < Arity; ++i) {
     const auto& ta = transformed_arrays[i];
-    single_array_states[i].emplace(input_rank, ta.transform().output_rank());
     auto& single_array_state = single_array_states[i];
     TENSORSTORE_RETURN_IF_ERROR(
         internal_index_space::InitializeSingleArrayIterationState(
             ta.element_pointer(),
             internal_index_space::TransformAccess::rep(ta.transform()),
             input_bounds.origin().data(), input_bounds.shape().data(),
-            &*single_array_state, input_dimension_flags.data()));
-    if (single_array_state->num_array_indexed_output_dimensions) {
+            &single_array_state, &input_dimension_flags[0]));
+    if (single_array_state.num_array_indexed_output_dimensions) {
       has_array_indexed_output_dimensions = true;
     }
   }
@@ -192,20 +189,20 @@ Result<ArrayIterateResult> IterateOverTransformedArrays(
     std::array<ByteStridedPointer<void>, Arity> pointers;
     std::array<const Index*, Arity> strides;
     for (std::size_t i = 0; i < Arity; ++i) {
-      pointers[i] = single_array_states[i]->base_pointer;
-      strides[i] = single_array_states[i]->input_byte_strides.data();
+      pointers[i] = single_array_states[i].base_pointer;
+      strides[i] = &single_array_states[i].input_byte_strides[0];
     }
     return IterateOverStridedLayouts<Arity>(
         closure, status, input_bounds.shape(), pointers, strides, constraints,
         element_sizes);
   }
-  internal_index_space::MarkSingletonDimsAsSkippable(
-      input_bounds.shape(), input_dimension_flags.data());
+  internal_index_space::MarkSingletonDimsAsSkippable(input_bounds.shape(),
+                                                     &input_dimension_flags[0]);
 
   internal_index_space::SimplifiedDimensionIterationOrder layout =
       internal_index_space::SimplifyDimensionIterationOrder<Arity>(
           internal_index_space::ComputeDimensionIterationOrder<Arity>(
-              single_array_states, input_dimension_flags,
+              single_array_states, span(input_dimension_flags, input_rank),
               constraints.order_constraint()),
           input_bounds.shape(), single_array_states);
   return internal_index_space::IterateUsingSimplifiedLayout<Arity>(

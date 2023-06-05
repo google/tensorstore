@@ -28,11 +28,18 @@ namespace internal {
 // When `id` is set, an object {identifier: id} will be aappended
 ::nlohmann::json CollectMetricsToJson(std::string id, std::string_view prefix);
 
+// Return the json object loading from the metric json specified by kvstore_spec
+//
+// Return empty json object if the metric file doesn't exist
+::nlohmann::json ReadMetricCollectionFromKvstore(
+    const kvstore::Spec& kvstore_spec);
+
 // Write `all_metrics` to `kvstore_spec` if it sets properly and return true.
 //
 // return False if upload fails
 bool WriteMetricCollectionToKvstore(::nlohmann::json all_metrics,
-                                    const kvstore::Spec& kvstore_spec);
+                                    const kvstore::Spec& kvstore_spec,
+                                    bool final_collect = true);
 
 // Print out metrics to stdout, sorted by keys
 void DumpMetrics(std::string_view prefix);

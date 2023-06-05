@@ -213,9 +213,13 @@ Result<CoordinatorServer> CoordinatorServer::Start(Options options) {
   } else {
     impl->clock_ = [] { return absl::Now(); };
   }
+  impl->security_ = options.spec.security;
+  if (!impl->security_) {
+    impl->security_ = internal_ocdbt::GetInsecureRpcSecurityMethod();
+  }
   grpc::ServerBuilder builder;
   builder.RegisterService(impl.get());
-  auto creds = options.spec.security->GetServerCredentials();
+  auto creds = impl->security_->GetServerCredentials();
   if (options.spec.bind_addresses.empty()) {
     options.spec.bind_addresses.push_back("[::]:0");
   }
@@ -224,7 +228,6 @@ Result<CoordinatorServer> CoordinatorServer::Start(Options options) {
     builder.AddListeningPort(options.spec.bind_addresses[i], creds,
                              &impl->listening_ports_[i]);
   }
-  impl->security_ = options.spec.security;
   impl->server_ = builder.BuildAndStart();
   CoordinatorServer server;
   server.impl_ = std::move(impl);

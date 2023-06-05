@@ -38,19 +38,23 @@ from ..util import cmake_is_true
 
 
 @register_bzl_library(
-    "@com_google_tensorstore//bazel:rules_nasm.bzl", build=True)
+    "@com_google_tensorstore//bazel:rules_nasm.bzl", build=True
+)
 class RulesNasmLibrary(BazelGlobals):
 
-  def bazel_nasm_library(self,
-                         name: str,
-                         visibility: Optional[List[RelativeLabel]] = None,
-                         **kwargs):
+  def bazel_nasm_library(
+      self,
+      name: str,
+      visibility: Optional[List[RelativeLabel]] = None,
+      **kwargs,
+  ):
     context = self._context.snapshot()
     target = context.resolve_target(name)
     context.add_rule(
         target,
         lambda: _nasm_library_impl(context, target, **kwargs),
-        visibility=visibility)
+        visibility=visibility,
+    )
 
 
 def _nasm_library_impl(
@@ -76,11 +80,13 @@ def _nasm_library_impl(
   resolved_flags = _context.evaluate_configurable(flags or [])
 
   resolved_srcs = _context.resolve_target_or_label_list(
-      _context.evaluate_configurable_list(srcs or []))
+      _context.evaluate_configurable_list(srcs or [])
+  )
   src_files = set(state.get_targets_file_paths(resolved_srcs, cmake_deps))
 
   resolved_includes = _context.resolve_target_or_label_list(
-      _context.evaluate_configurable_list(includes or []))
+      _context.evaluate_configurable_list(includes or [])
+  )
 
   all_includes = set()
   for include_target in resolved_includes:
@@ -89,19 +95,21 @@ def _nasm_library_impl(
     # "a/b/whatever.asm".
     include_target_str = include_target.as_label()
     if include_target_str.startswith(package_prefix_str):
-      relative_target = include_target_str[len(package_prefix_str):].replace(
-          ":", "/")
+      relative_target = include_target_str[len(package_prefix_str) :].replace(
+          ":", "/"
+      )
 
     for include_file in state.get_file_paths(include_target, cmake_deps):
       all_includes.add(str(pathlib.PurePosixPath(include_file).parent))
       if relative_target and include_file.endswith(relative_target):
-        all_includes.add(include_file[:-len(relative_target)].rstrip("/"))
+        all_includes.add(include_file[: -len(relative_target)].rstrip("/"))
 
   use_builtin_rule = True
 
   workspace = state.workspace
-  if (cmake_is_true(workspace.cmake_vars.get("MSVC_IDE")) or
-      cmake_is_true(workspace.cmake_vars.get("XCODE"))):
+  if cmake_is_true(workspace.cmake_vars.get("MSVC_IDE")) or cmake_is_true(
+      workspace.cmake_vars.get("XCODE")
+  ):
     # The "Xcode" generator does not support nasm at all.  The "Visual Studio *"
     # generators support nasm but pass "/DWIN32" which is problematic for some
     # packages.
@@ -115,8 +123,10 @@ def _nasm_library_impl(
   # handle a library containing only object file as sources.  As a workaround,
   # add a dummy C file.
   dummy_source: Optional[str] = None
-  if workspace.cmake_vars[
-      "CMAKE_CXX_COMPILER_ID"] == "MSVC" or not use_builtin_rule:
+  if (
+      workspace.cmake_vars["CMAKE_CXX_COMPILER_ID"] == "MSVC"
+      or not use_builtin_rule
+  ):
     dummy_source = state.get_dummy_source()
   _emit_nasm_library(
       _context.access(CMakeBuilder),
@@ -130,8 +140,9 @@ def _nasm_library_impl(
       dummy_source=dummy_source,
       use_builtin_rule=use_builtin_rule,
   )
-  _context.add_analyzed_target(_target,
-                               TargetInfo(*cmake_target_pair.as_providers()))
+  _context.add_analyzed_target(
+      _target, TargetInfo(*cmake_target_pair.as_providers())
+  )
 
 
 _EMIT_YASM_CHECK = """
@@ -169,18 +180,23 @@ set_source_files_properties(
     {quote_list(all_srcs)}
     PROPERTIES
       LANGUAGE ASM_NASM
-      COMPILE_OPTIONS {quote_string(";".join(flags))})\n""")
+      COMPILE_OPTIONS {quote_string(";".join(flags))})\n"""
+    )
     if cmake_deps:
       _builder.addtext(
-          f"add_dependencies({target_name} {quote_list(sorted(cmake_deps))})\n")
+          f"add_dependencies({target_name} {quote_list(sorted(cmake_deps))})\n"
+      )
   else:
     all_flags = list(flags)
     for include in includes:
       all_flags.append("-I" + include)
     all_src_obj_exprs = []
     for src in sorted(srcs):
-      src_obj_base = os.path.basename(src) + "_" + hashlib.sha256(
-          src.encode("utf-8")).hexdigest()[:16]
+      src_obj_base = (
+          os.path.basename(src)
+          + "_"
+          + hashlib.sha256(src.encode("utf-8")).hexdigest()[:16]
+      )
       src_obj_expr = f"${{CMAKE_CURRENT_BINARY_DIR}}/{src_obj_base}${{CMAKE_C_OUTPUT_EXTENSION}}"
       all_src_obj_exprs.append(src_obj_expr)
       _builder.addtext(f"""

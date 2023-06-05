@@ -3,3 +3,15 @@ numpy
 pytest
 pytest-asyncio
 cloudpickle
+
+# From storage-testbench/setup.py
+# gunicorn
+# waitress
+grpcio
+flask
+requests-toolbelt
+scalpl
+crc32c
+werkzeug
+googleapis-common-protos
+protobuf

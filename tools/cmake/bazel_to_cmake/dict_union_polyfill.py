@@ -75,4 +75,7 @@ class ASTTransformer(ast.NodeTransformer):
         ast.Call(
             ast.Name('__DictWithUnion', ctx=ast.Load()),
             args=[self.generic_visit(node)],
-            keywords=[]), node)
+            keywords=[],
+        ),
+        node,
+    )

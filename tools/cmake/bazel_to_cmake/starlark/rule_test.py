@@ -89,8 +89,8 @@ class MyRuleContext(InvocationContext):
     return self.build_target.package_id
 
   def resolve_repo_mapping(
-      self, target: TargetId,
-      mapping_repository_id: Optional[RepositoryId]) -> TargetId:
+      self, target: TargetId, mapping_repository_id: Optional[RepositoryId]
+  ) -> TargetId:
     return target
 
   def resolve_workspace_root(self, repository_id: RepositoryId) -> str:
@@ -102,11 +102,13 @@ class MyRuleContext(InvocationContext):
     else:
       return IgnoredLibrary()
 
-  def add_rule(self,
-               rule_id: TargetId,
-               impl: RuleImpl,
-               outs: Optional[List[TargetId]] = None,
-               **kwargs) -> None:
+  def add_rule(
+      self,
+      rule_id: TargetId,
+      impl: RuleImpl,
+      outs: Optional[List[TargetId]] = None,
+      **kwargs,
+  ) -> None:
     self.rules[rule_id] = impl
 
   def add_analyzed_target(self, target_id: TargetId, info: TargetInfo) -> None:

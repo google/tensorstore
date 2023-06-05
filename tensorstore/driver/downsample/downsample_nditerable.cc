@@ -21,7 +21,6 @@
 #include <type_traits>
 #include <vector>
 
-#include "absl/container/fixed_array.h"
 #include "absl/numeric/int128.h"
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
@@ -293,9 +292,10 @@ struct IsOrderingSupported {
   };                                                               \
   /**/
 
-TENSORSTORE_INTERNAL_SPECIALIZE_ORDERING_SUPPORTED(bool)
+TENSORSTORE_FOR_EACH_BOOL_DATA_TYPE(
+    TENSORSTORE_INTERNAL_SPECIALIZE_ORDERING_SUPPORTED)
 
-TENSORSTORE_FOR_EACH_INTEGER_DATA_TYPE(
+TENSORSTORE_FOR_EACH_INT_DATA_TYPE(
     TENSORSTORE_INTERNAL_SPECIALIZE_ORDERING_SUPPORTED)
 
 TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(
@@ -1009,13 +1009,12 @@ class DownsampledNDIterable : public NDIterable::Base<DownsampledNDIterable> {
     // `base_rank_ > target_rank_`, we need to use a temporary array to call
     // `base_.UpdateDirectionPrefs`.
     const DimensionIndex target_rank = target_rank_;
-    absl::FixedArray<DirectionPref, internal::kNumInlinedDims> base_prefs(
-        base_rank_);
+    DirectionPref base_prefs[kMaxRank];
 
-    // kCanSkip imposes no constraipnts.  The call to
+    // kCanSkip imposes no constraints.  The call to
     // `base_.UpdateDirectionPrefs` adds constraints.
-    std::fill(base_prefs.begin(), base_prefs.end(), DirectionPref::kCanSkip);
-    base_.UpdateDirectionPrefs(base_prefs.data());
+    std::fill(&base_prefs[0], &base_prefs[base_rank_], DirectionPref::kCanSkip);
+    base_.UpdateDirectionPrefs(&base_prefs[0]);
     const Index* downsample_factors = this->downsample_factors();
     for (DimensionIndex i = 0; i < target_rank; ++i) {
       if (downsample_factors[i] != 1) {
@@ -1037,17 +1036,15 @@ class DownsampledNDIterable : public NDIterable::Base<DownsampledNDIterable> {
    public:
     explicit ComputeBaseLayout(const DownsampledNDIterable& iterable,
                                NDIterable::IterationLayoutView layout,
-                               NDIterable::IterationLayoutView& base_layout)
-        : base_iteration_shape_(layout.iteration_rank() + iterable.base_rank_ -
-                                iterable.target_rank_),
-          base_directions_(iterable.base_rank_),
-          base_iteration_dimensions_(base_iteration_shape_.size()) {
+                               NDIterable::IterationLayoutView& base_layout) {
       const Index inner_dim = layout.iteration_dimensions.back();
       inner_downsample_factor = 1;
       const Index* downsample_factors = iterable.downsample_factors();
       const Index* base_shape = iterable.base_shape();
       const DimensionIndex target_rank = layout.full_rank();
       const DimensionIndex base_rank = iterable.base_rank_;
+      const DimensionIndex base_iteration_rank =
+          layout.iteration_rank() + base_rank - iterable.target_rank_;
       if (inner_dim != -1) {
         inner_downsample_factor = downsample_factors[inner_dim];
       }
@@ -1072,16 +1069,15 @@ class DownsampledNDIterable : public NDIterable::Base<DownsampledNDIterable> {
       // Copy the first `layout.iteration_rank()` iteration dimensions starting
       // at `base_iter_dim_offset`.
       std::copy_n(layout.iteration_dimensions.begin(), layout.iteration_rank(),
-                  base_iteration_dimensions_.begin() + base_iter_dim_offset);
+                  &base_iteration_dimensions_[base_iter_dim_offset]);
       // Choose iteration order for the first `base_iter_dim_offset` iteration
       // dimensions.  We do not attempt to combine any, because
       // `DownsampledNDIterator` does not support combining downsampled
       // dimensions.
-      std::iota(base_iteration_dimensions_.begin(),
-                base_iteration_dimensions_.begin() + base_iter_dim_offset,
-                target_rank);
-      std::sort(base_iteration_dimensions_.begin(),
-                base_iteration_dimensions_.begin() + base_iter_dim_offset,
+      std::iota(&base_iteration_dimensions_[0],
+                &base_iteration_dimensions_[base_iter_dim_offset], target_rank);
+      std::sort(&base_iteration_dimensions_[0],
+                &base_iteration_dimensions_[base_iter_dim_offset],
                 [&](DimensionIndex dim_i, DimensionIndex dim_j) {
                   return iterable.base_.GetDimensionOrder(dim_i, dim_j) < 0;
                 });
@@ -1094,16 +1090,16 @@ class DownsampledNDIterable : public NDIterable::Base<DownsampledNDIterable> {
             base_shape[base_iteration_dimensions_[iter_dim]];
       }
       // Copy direction for dimensions included in `target_rank`.
-      std::copy_n(layout.directions.begin(), target_rank,
-                  base_directions_.begin());
+      std::copy_n(layout.directions.begin(), target_rank, &base_directions_[0]);
       // Use forward direction for synthetic dimensions added by
       // `PropagateIndexTransformDownsampling`.
-      std::fill_n(base_directions_.begin() + target_rank,
-                  base_rank - target_rank, 1);
-      base_layout.shape = span(base_shape, base_rank);
-      base_layout.directions = base_directions_;
-      base_layout.iteration_dimensions = base_iteration_dimensions_;
-      base_layout.iteration_shape = base_iteration_shape_;
+      std::fill_n(&base_directions_[target_rank], base_rank - target_rank, 1);
+      base_layout.shape = span<const Index>(base_shape, base_rank);
+      base_layout.directions = span<const int>(&base_directions_[0], base_rank);
+      base_layout.iteration_dimensions = span<const DimensionIndex>(
+          &base_iteration_dimensions_[0], base_iteration_rank);
+      base_layout.iteration_shape =
+          span<const Index>(&base_iteration_shape_[0], base_iteration_rank);
       base_buffer_constraint =
           iterable.base_.GetIterationBufferConstraint(base_layout)
               .min_buffer_kind;
@@ -1112,10 +1108,14 @@ class DownsampledNDIterable : public NDIterable::Base<DownsampledNDIterable> {
     IterationBufferKind base_buffer_constraint;
 
    private:
-    absl::FixedArray<Index, internal::kNumInlinedDims> base_iteration_shape_;
-    absl::FixedArray<int, internal::kNumInlinedDims> base_directions_;
-    absl::FixedArray<DimensionIndex, internal::kNumInlinedDims>
-        base_iteration_dimensions_;
+    // Only the first `layout.iteration_rank() + iterable.base_rank_ -
+    // iterable.target_rank_` elements are used.
+    Index base_iteration_shape_[kMaxRank];
+    // Only the first `iterable.base_rank_` elements are used.
+    int base_directions_[kMaxRank];
+    // Only the first `layout.iteration_rank() + iterable.base_rank_ -
+    // iterable.target_rank_` elements are used.
+    DimensionIndex base_iteration_dimensions_[kMaxRank];
   };
 
   std::ptrdiff_t GetWorkingMemoryBytesPerElement(

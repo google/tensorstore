@@ -16,9 +16,6 @@
 # pylint: disable=missing-function-docstring,relative-beyond-top-level,g-importing-member
 
 import pathlib
-from .select import Configurable
-from .select import Select
-from .select import SelectExpression
 from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union, cast
 
 from .bazel_target import PackageId
@@ -29,14 +26,16 @@ from .common_providers import ConditionProvider
 from .label import Label
 from .label import RelativeLabel
 from .provider import TargetInfo
+from .select import Configurable
+from .select import Select
+from .select import SelectExpression
 
 RuleImpl = Callable[[], None]
 T = TypeVar("T")
 
 
 class InvocationContext(object):
-  """InvocationContext provides access to the the currently evaluating package.
-  """
+  """InvocationContext provides access to the the currently evaluating package."""
 
   def __repr__(self):
     return f"<{self.__class__.__name__}>: {self.__dict__}"
@@ -67,8 +66,8 @@ class InvocationContext(object):
     raise NotImplementedError("resolve_output_root")
 
   def resolve_repo_mapping(
-      self, target_id: TargetId,
-      mapping_repository_id: Optional[RepositoryId]) -> TargetId:
+      self, target_id: TargetId, mapping_repository_id: Optional[RepositoryId]
+  ) -> TargetId:
     raise NotImplementedError("resolve_repo_mapping")
 
   def load_library(self, target: TargetId) -> Dict[str, Any]:
@@ -77,11 +76,13 @@ class InvocationContext(object):
   def get_target_info(self, target_id: TargetId) -> TargetInfo:
     raise NotImplementedError("get_target_info")
 
-  def add_rule(self,
-               rule_id: TargetId,
-               impl: RuleImpl,
-               outs: Optional[List[TargetId]] = None,
-               **kwargs) -> None:
+  def add_rule(
+      self,
+      rule_id: TargetId,
+      impl: RuleImpl,
+      outs: Optional[List[TargetId]] = None,
+      **kwargs,
+  ) -> None:
     """Adds a rule.
 
     Args:
@@ -114,12 +115,15 @@ class InvocationContext(object):
   def evaluate_configurable(self, configurable: Configurable[T]) -> T:
     """Evaluates a `Configurable` expression."""
     assert configurable is not None
-    if (isinstance(configurable, Select) or
-        isinstance(configurable, SelectExpression)):
+    if isinstance(configurable, Select) or isinstance(
+        configurable, SelectExpression
+    ):
       return cast(
           T,
-          cast(Union[Select[T], SelectExpression[T]],
-               configurable).evaluate(self.evaluate_condition))
+          cast(Union[Select[T], SelectExpression[T]], configurable).evaluate(
+              self.evaluate_condition
+          ),
+      )
     return cast(T, configurable)
 
   def evaluate_configurable_list(
@@ -132,8 +136,9 @@ class InvocationContext(object):
     if isinstance(configurable, list):
       # This occurs when a single configurable is put into a list, as happens
       # in the bazel_skylib.copy_file rule.
-      return cast(List[T],
-                  [self.evaluate_configurable(x) for x in configurable])
+      return cast(
+          List[T], [self.evaluate_configurable(x) for x in configurable]
+      )
     else:
       evaluated = self.evaluate_configurable(configurable)
       assert isinstance(evaluated, list)
@@ -142,19 +147,21 @@ class InvocationContext(object):
   def resolve_target(
       self,
       label_string: str,
-      mapping_repository_id: Optional[RepositoryId] = None) -> TargetId:
+      mapping_repository_id: Optional[RepositoryId] = None,
+  ) -> TargetId:
     # Use package-level resolution.
     assert label_string
     assert not isinstance(label_string, list)
     assert not isinstance(label_string, TargetId)
     return self.resolve_repo_mapping(
-        self.caller_package_id.parse_target(label_string),
-        mapping_repository_id)
+        self.caller_package_id.parse_target(label_string), mapping_repository_id
+    )
 
   def resolve_target_or_label(
       self,
       target: RelativeLabel,
-      mapping_repository_id: Optional[RepositoryId] = None) -> TargetId:
+      mapping_repository_id: Optional[RepositoryId] = None,
+  ) -> TargetId:
     assert target
     assert not isinstance(target, TargetId)
     if isinstance(target, Label):
@@ -165,7 +172,8 @@ class InvocationContext(object):
   def resolve_target_or_label_list(
       self,
       targets: List[RelativeLabel],
-      mapping_repository_id: Optional[RepositoryId] = None) -> List[TargetId]:
+      mapping_repository_id: Optional[RepositoryId] = None,
+  ) -> List[TargetId]:
     if targets is None:
       return []
     assert isinstance(targets, list)
@@ -177,22 +185,27 @@ class InvocationContext(object):
     assert isinstance(package_id, PackageId)
     return str(
         pathlib.PurePosixPath(
-            self.resolve_source_root(package_id.repository_id)).joinpath(
-                package_id.package_name))
+            self.resolve_source_root(package_id.repository_id)
+        ).joinpath(package_id.package_name)
+    )
 
   def get_source_file_path(self, target_id: TargetId) -> Optional[str]:
     assert isinstance(target_id, TargetId)
     return str(
         pathlib.PurePosixPath(
-            self.resolve_source_root(target_id.repository_id)).joinpath(
-                target_id.package_name, target_id.target_name))
+            self.resolve_source_root(target_id.repository_id)
+        ).joinpath(target_id.package_name, target_id.target_name)
+    )
 
   def get_generated_file_path(self, target_id: TargetId) -> str:
     assert isinstance(target_id, TargetId)
     root = self.resolve_output_root(target_id.repository_id)
     if root is None:
       raise ValueError(
-          f"Target '{target_id.as_label()}' missing output root directory.")
+          f"Target '{target_id.as_label()}' missing output root directory."
+      )
     return str(
-        pathlib.PurePosixPath(root).joinpath(target_id.package_name,
-                                             target_id.target_name))
+        pathlib.PurePosixPath(root).joinpath(
+            target_id.package_name, target_id.target_name
+        )
+    )

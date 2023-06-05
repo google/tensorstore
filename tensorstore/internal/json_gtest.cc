@@ -15,7 +15,7 @@
 #include "tensorstore/internal/json_gtest.h"
 
 #include <gmock/gmock.h>
-#include "tensorstore/internal/json/json.h"
+#include "tensorstore/internal/json/same.h"
 
 namespace tensorstore {
 

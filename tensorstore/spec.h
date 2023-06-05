@@ -101,6 +101,16 @@ class Spec {
   /// Returns the transform applied on top of the driver.
   const IndexTransform<>& transform() const { return impl_.transform; }
 
+  /// Returns the underlying `Spec`, if this is an adapter.
+  ///
+  /// Otherwise, returns a null `Spec`.
+  Result<Spec> base() const;
+
+  /// Returns the mode with which the driver will be opened.
+  ///
+  /// If not applicable, returns `OpenMode::unknown`.
+  OpenMode open_mode() const { return internal::GetOpenMode(impl_); }
+
   /// Applies the specified options in place.
   ///
   /// Supported options include:
@@ -184,9 +194,9 @@ class Spec {
 
   friend std::ostream& operator<<(std::ostream& os, const Spec& spec);
 
-  /// Compares for equality via JSON representation.
+  /// Compares for equality via JSON representation, except that bound context
+  /// resources are compared by identity.
   friend bool operator==(const Spec& a, const Spec& b);
-
   friend bool operator!=(const Spec& a, const Spec& b) { return !(a == b); }
 
   template <typename Func>

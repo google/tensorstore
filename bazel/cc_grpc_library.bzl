@@ -23,7 +23,15 @@ TODO: Try and upstream changes to make this file unnecessary.
 
 load("@com_github_grpc_grpc//bazel:generate_cc.bzl", "generate_cc")
 
-def cc_grpc_library(name, srcs, deps, visibility = None, service_namespace = None, **kwargs):
+def cc_grpc_library(
+        name,
+        srcs,
+        deps,
+        visibility = None,
+        service_namespace = None,
+        generate_mocks = False,
+        grpc_only = False,
+        **kwargs):
     """Generates C++ grpc classes from a .proto file.
 
     Note this rule only generates gRPC interfaces. You need to have proto_library

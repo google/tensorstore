@@ -107,6 +107,13 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "array_storage_statistics",
+    srcs = ["array_storage_statistics.cc"],
+    hdrs = ["array_storage_statistics.h"],
+    deps = ["@com_google_absl//absl/time"],
+)
+
+tensorstore_cc_library(
     name = "box",
     srcs = ["box.cc"],
     hdrs = ["box.h"],
@@ -274,6 +281,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:tagged_ptr",
         "//tensorstore/internal:type_traits",
         "//tensorstore/internal/cache_key",
+        "//tensorstore/internal/json:same",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/serialization",
@@ -859,6 +867,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:json_registry",
         "//tensorstore/internal:no_destructor",
+        "//tensorstore/internal/json:same",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/serialization",

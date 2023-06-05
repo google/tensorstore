@@ -91,6 +91,17 @@ Cast(TensorStore<ElementType, Rank, Mode> store, DataType target_dtype) {
                                              : Mode)>>);
 }
 
+/// Returns a view of a `Spec` with a converted data type.
+///
+/// If `base_spec.dtype()` is known, the conversion is validated.
+///
+/// \param base_spec The Spec to convert.
+/// \param target_dtype Target data type.
+/// \error `absl::StatusCode::kInvalidArgument` if the conversion is not
+///     supported.
+/// \relates Spec
+Result<Spec> Cast(const Spec& base_spec, DataType target_dtype);
+
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_CAST_H_

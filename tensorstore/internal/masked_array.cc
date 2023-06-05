@@ -22,7 +22,6 @@
 #include <utility>
 
 #include "absl/base/attributes.h"
-#include "absl/container/fixed_array.h"
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
@@ -192,17 +191,18 @@ void UnionMasks(BoxView<> box, MaskData* mask_a, MaskData* mask_b) {
     std::swap(*mask_a, *mask_b);
   }
 
-  absl::FixedArray<Index, kNumInlinedDims> byte_strides(rank);
+  Index byte_strides[kMaxRank];  // Only first `rank` elements are used.
+  const span<Index> byte_strides_span(&byte_strides[0], rank);
   ComputeStrides(ContiguousLayoutOrder::c, sizeof(bool), box.shape(),
-                 byte_strides);
+                 byte_strides_span);
   if (!mask_a->mask_array) {
-    CreateMaskArrayFromRegion(box, mask_a, byte_strides);
+    CreateMaskArrayFromRegion(box, mask_a, byte_strides_span);
   }
 
   // Copy in mask_b.
   ByteStridedPointer<bool> start = mask_a->mask_array.get();
-  start +=
-      GetRelativeOffset(box.origin(), mask_b->region.origin(), byte_strides);
+  start += GetRelativeOffset(box.origin(), mask_b->region.origin(),
+                             byte_strides_span);
   IterateOverArrays(
       [&](bool* ptr) {
         if (!*ptr) ++mask_a->num_masked_elements;
@@ -210,7 +210,7 @@ void UnionMasks(BoxView<> box, MaskData* mask_a, MaskData* mask_b) {
       },
       /*constraints=*/{},
       ArrayView<bool>(start.get(), StridedLayoutView<>(mask_b->region.shape(),
-                                                       byte_strides)));
+                                                       byte_strides_span)));
   Hull(mask_a->region, mask_b->region, mask_a->region);
   RemoveMaskArrayIfNotNeeded(mask_a);
 }
@@ -222,7 +222,9 @@ void RebaseMaskedArray(BoxView<> box, ArrayView<const void> source,
   const Index num_elements = box.num_elements();
   if (mask.num_masked_elements == num_elements) return;
   DataType r = source.dtype();
-  absl::FixedArray<Index, kNumInlinedDims> dest_byte_strides(box.rank());
+  Index dest_byte_strides_storage[kMaxRank];
+  const span<Index> dest_byte_strides(&dest_byte_strides_storage[0],
+                                      box.rank());
   ComputeStrides(ContiguousLayoutOrder::c, r->size, box.shape(),
                  dest_byte_strides);
   ArrayView<void> dest_array(
@@ -235,7 +237,9 @@ void RebaseMaskedArray(BoxView<> box, ArrayView<const void> source,
     assert(iterate_result.success);
     return;
   }
-  absl::FixedArray<Index, kNumInlinedDims> mask_byte_strides(box.rank());
+  Index mask_byte_strides_storage[kMaxRank];
+  const span<Index> mask_byte_strides(&mask_byte_strides_storage[0],
+                                      box.rank());
   ComputeStrides(ContiguousLayoutOrder::c, sizeof(bool), box.shape(),
                  mask_byte_strides);
   std::unique_ptr<bool[], FreeDeleter> mask_owner;
@@ -281,7 +285,9 @@ bool WriteToMask(MaskData* mask, BoxView<> output_box,
       GetOutputRange(input_to_output, output_range).value();
   Intersect(output_range, output_box, output_range);
 
-  absl::FixedArray<Index, kNumInlinedDims> mask_byte_strides(output_rank);
+  Index mask_byte_strides_storage[kMaxRank];
+  const span<Index> mask_byte_strides(&mask_byte_strides_storage[0],
+                                      output_rank);
   ComputeStrides(ContiguousLayoutOrder::c, sizeof(bool), output_box.shape(),
                  mask_byte_strides);
   StridedLayoutView<dynamic_rank, offset_origin> mask_layout(output_box,

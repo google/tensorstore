@@ -46,11 +46,13 @@ from .variable_substitution import apply_location_and_make_variable_substitution
 
 
 @register_native_build_rule
-def genrule(self: InvocationContext,
-            name: str,
-            outs: List[RelativeLabel],
-            visibility: Optional[List[RelativeLabel]] = None,
-            **kwargs):
+def genrule(
+    self: InvocationContext,
+    name: str,
+    outs: List[RelativeLabel],
+    visibility: Optional[List[RelativeLabel]] = None,
+    **kwargs,
+):
   _context = self.snapshot()
   target = _context.resolve_target(name)
   out_targets = _context.resolve_target_or_label_list(outs)
@@ -59,7 +61,8 @@ def genrule(self: InvocationContext,
       target,
       lambda: _genrule_impl(_context, target, out_targets, **kwargs),
       outs=out_targets,
-      visibility=visibility)
+      visibility=visibility,
+  )
 
 
 def _get_relative_path(path: str, relative_to: str) -> str:
@@ -69,20 +72,24 @@ def _get_relative_path(path: str, relative_to: str) -> str:
   return rel_path
 
 
-def _genrule_impl(_context: InvocationContext,
-                  _target: TargetId,
-                  _out_targets: List[TargetId],
-                  cmd: Configurable[str],
-                  srcs: Optional[Configurable[List[RelativeLabel]]] = None,
-                  message: Optional[Configurable[str]] = None,
-                  toolchains: Optional[List[RelativeLabel]] = None,
-                  **kwargs):
+def _genrule_impl(
+    _context: InvocationContext,
+    _target: TargetId,
+    _out_targets: List[TargetId],
+    cmd: Configurable[str],
+    srcs: Optional[Configurable[List[RelativeLabel]]] = None,
+    message: Optional[Configurable[str]] = None,
+    toolchains: Optional[List[RelativeLabel]] = None,
+    **kwargs,
+):
   del kwargs
   # Resolve srcs & toolchains
   resolved_srcs = _context.resolve_target_or_label_list(
-      _context.evaluate_configurable_list(srcs))
+      _context.evaluate_configurable_list(srcs)
+  )
   resolved_toolchains = _context.resolve_target_or_label_list(
-      _context.evaluate_configurable_list(toolchains))
+      _context.evaluate_configurable_list(toolchains)
+  )
 
   state = _context.access(EvaluationState)
 
@@ -95,7 +102,8 @@ def _genrule_impl(_context: InvocationContext,
     out_file = state.get_generated_file_path(out_target)
     out_files.append(out_file)
     _context.add_analyzed_target(
-        out_target, TargetInfo(FilesProvider([out_file]), cmake_deps_provider))
+        out_target, TargetInfo(FilesProvider([out_file]), cmake_deps_provider)
+    )
 
   message_text = ""
   if message is not None:
@@ -106,7 +114,8 @@ def _genrule_impl(_context: InvocationContext,
   cmake_deps.extend(cast(List[CMakeTarget], src_files))
 
   source_directory = _context.resolve_source_root(
-      _context.caller_package_id.repository_id)
+      _context.caller_package_id.repository_id
+  )
   relative_source_paths = [
       quote_path(_get_relative_path(path, source_directory))
       for path in src_files
@@ -118,20 +127,17 @@ def _genrule_impl(_context: InvocationContext,
 
   package_binary_dir = str(
       pathlib.PurePosixPath(
-          _context.resolve_output_root(_target.repository_id)).joinpath(
-              _target.package_name))
+          _context.resolve_output_root(_target.repository_id)
+      ).joinpath(_target.package_name)
+  )
 
   substitutions = {
-      "SRCS":
-          " ".join(relative_source_paths),
-      "OUTS":
-          " ".join(relative_out_paths),
-      "RULEDIR":
-          _get_relative_path(package_binary_dir, source_directory),
-      "GENDIR":
-          _get_relative_path(
-              _context.resolve_output_root(_target.repository_id),
-              source_directory),
+      "SRCS": " ".join(relative_source_paths),
+      "OUTS": " ".join(relative_out_paths),
+      "RULEDIR": _get_relative_path(package_binary_dir, source_directory),
+      "GENDIR": _get_relative_path(
+          _context.resolve_output_root(_target.repository_id), source_directory
+      ),
   }
 
   if len(out_files) == 1:
@@ -151,7 +157,8 @@ def _genrule_impl(_context: InvocationContext,
       relative_to=source_directory,
       custom_target_deps=cmake_deps,
       substitutions=substitutions,
-      toolchains=resolved_toolchains)
+      toolchains=resolved_toolchains,
+  )
 
   builder = _context.access(CMakeBuilder)
   builder.addtext(f"\n# {_target.as_label()}")
@@ -161,7 +168,8 @@ def _genrule_impl(_context: InvocationContext,
       out_files=out_files,
       cmake_deps=cmake_deps,
       cmd_text=cmd_text,
-      message=message_text)
+      message=message_text,
+  )
   _context.add_analyzed_target(_target, TargetInfo(cmake_deps_provider))
 
 

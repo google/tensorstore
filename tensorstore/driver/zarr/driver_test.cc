@@ -440,6 +440,15 @@ TEST(ZarrDriverTest, CreateWithMetadataKey) {
   }
 }
 
+TEST(ZarrDriverTest, OpenMode) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
+                                   tensorstore::Spec::FromJson(GetJsonSpec()));
+  // Initially defaults to "open".
+  EXPECT_EQ(tensorstore::OpenMode::open, spec.open_mode());
+  TENSORSTORE_ASSERT_OK(spec.Set(tensorstore::OpenMode::create));
+  EXPECT_EQ(tensorstore::OpenMode::create, spec.open_mode());
+}
+
 // Tests that the metadata cache avoids repeated requests.
 TEST(ZarrDriverTest, MetadataCache) {
   Context context = Context::Default();

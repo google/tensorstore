@@ -18,7 +18,6 @@
 #include <vector>
 
 #include "absl/base/optimization.h"
-#include "absl/container/fixed_array.h"
 #include "absl/container/inlined_vector.h"
 #include "absl/strings/str_join.h"
 #include "tensorstore/array.h"
@@ -42,42 +41,6 @@ std::ostream& operator<<(std::ostream& os,
 }
 
 namespace {
-/// Computes the number of output index maps that depend on each input dimension
-/// of `transform`.
-///
-/// This is used by `PropagateIndexTransformDownsampling`.
-absl::FixedArray<DimensionIndex, internal::kNumInlinedDims>
-ComputeInputDimensionReferenceCounts(IndexTransformView<> transform) {
-  using internal_index_space::TransformAccess;
-
-  assert(transform.valid());
-  const DimensionIndex output_rank = transform.output_rank();
-  const DimensionIndex input_rank = transform.input_rank();
-  absl::FixedArray<DimensionIndex, internal::kNumInlinedDims>
-      input_dimension_ref_counts(input_rank, false);
-  auto transform_rep = TransformAccess::rep(transform);
-  for (DimensionIndex output_dim = 0; output_dim < output_rank; ++output_dim) {
-    const auto& output_map = transform_rep->output_index_maps()[output_dim];
-    switch (output_map.method()) {
-      case OutputIndexMethod::constant:
-        break;
-      case OutputIndexMethod::single_input_dimension:
-        ++input_dimension_ref_counts[output_map.input_dimension()];
-        break;
-      case OutputIndexMethod::array: {
-        const auto& index_array_data = output_map.index_array_data();
-        for (DimensionIndex input_dim = 0; input_dim < input_rank;
-             ++input_dim) {
-          if (index_array_data.byte_strides[input_dim] != 0) {
-            ++input_dimension_ref_counts[input_dim];
-          }
-        }
-        break;
-      }
-    }
-  }
-  return input_dimension_ref_counts;
-}
 
 /// Determines the number of additional input dimensions needed by
 /// `PropagateIndexTransformDownsampling`.
@@ -505,12 +468,13 @@ absl::Status PropagateIndexTransformDownsampling(
   assert(output_base_bounds.rank() == output_rank);
   assert(output_downsample_factors.size() == output_rank);
 
-  auto input_dimension_ref_counts =
-      ComputeInputDimensionReferenceCounts(downsampled_transform);
+  DimensionIndex input_dimension_ref_counts[kMaxRank];
+  internal::ComputeInputDimensionReferenceCounts(
+      downsampled_transform, span(&input_dimension_ref_counts[0], input_rank));
   const bool is_domain_empty = downsampled_transform.domain().box().is_empty();
   DimensionIndex additional_input_dims = ComputeAdditionalInputDimensionsNeeded(
       downsampled_transform, output_downsample_factors,
-      input_dimension_ref_counts, is_domain_empty);
+      {input_dimension_ref_counts, input_rank}, is_domain_empty);
 
   const DimensionIndex new_input_rank = input_rank + additional_input_dims;
   TENSORSTORE_RETURN_IF_ERROR(ValidateRank(new_input_rank));
@@ -636,6 +600,20 @@ absl::Status PropagateIndexTransformDownsampling(
   propagated.transform =
       internal_index_space::TransformAccess::Make<IndexTransform<>>(
           std::move(new_transform));
+  return absl::OkStatus();
+}
+
+absl::Status PropagateAndComposeIndexTransformDownsampling(
+    IndexTransformView<> downsampled_transform,
+    IndexTransformView<> base_transform,
+    span<const Index> base_downsample_factors,
+    PropagatedIndexTransformDownsampling& propagated) {
+  TENSORSTORE_RETURN_IF_ERROR(PropagateIndexTransformDownsampling(
+      downsampled_transform, base_transform.domain().box(),
+      base_downsample_factors, propagated));
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      propagated.transform,
+      ComposeTransforms(base_transform, propagated.transform));
   return absl::OkStatus();
 }
 

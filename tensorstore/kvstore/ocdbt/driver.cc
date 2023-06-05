@@ -131,6 +131,10 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
             internal::DataCopyConcurrencyResource::id,
             jb::Projection<&OcdbtDriverSpecData::data_copy_concurrency>())));
 
+Result<kvstore::Spec> OcdbtDriverSpec::GetBase(std::string_view path) const {
+  return data_.base;
+}
+
 Future<kvstore::DriverPtr> OcdbtDriverSpec::DoOpen() const {
   return MapFutureValue(
       InlineExecutor{},
@@ -166,8 +170,10 @@ Future<kvstore::DriverPtr> OcdbtDriverSpec::DoOpen() const {
         DistributedBtreeWriterOptions options;
         options.io_handle = driver->io_handle_;
         options.coordinator_address = *driver->coordinator_->address;
-        assert(driver->coordinator_->security);
         options.security = driver->coordinator_->security;
+        if (!options.security) {
+          options.security = GetInsecureRpcSecurityMethod();
+        }
         options.lease_duration = driver->coordinator_->lease_duration.value_or(
             kDefaultLeaseDuration);
 
@@ -240,6 +246,11 @@ std::string OcdbtDriver::DescribeKey(std::string_view key) {
   return tensorstore::StrCat(tensorstore::QuoteString(key),
                              " in OCDBT database at ",
                              io_handle_->DescribeLocation());
+}
+
+Result<KvStore> OcdbtDriver::GetBase(std::string_view path,
+                                     const Transaction& transaction) const {
+  return base_;
 }
 
 }  // namespace internal_ocdbt

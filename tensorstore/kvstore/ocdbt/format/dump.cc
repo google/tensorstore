@@ -14,7 +14,6 @@
 
 #include "tensorstore/kvstore/ocdbt/format/dump.h"
 
-#include <cstring>
 #include <map>
 #include <string>
 #include <string_view>
@@ -32,6 +31,7 @@
 #include "tensorstore/internal/json_binding/std_array.h"
 #include "tensorstore/internal/json_binding/std_variant.h"
 #include "tensorstore/internal/path.h"
+#include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/ocdbt/config.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"

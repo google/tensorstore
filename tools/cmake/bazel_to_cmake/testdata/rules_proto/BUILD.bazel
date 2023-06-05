@@ -1,0 +1,45 @@
+load(
+    "@rules_proto//proto:defs.bzl",
+    "proto_library",
+)
+
+package(default_visibility = ["//visibility:public"])
+
+proto_library(
+    name = "a_proto",
+    srcs = ["a.proto"],
+    cc_api_version = 2,
+)
+
+proto_library(
+    name = "b_proto",
+    srcs = ["b.proto"],
+    cc_api_version = 2,
+)
+
+proto_library(
+    name = "abc_proto",
+    srcs = ["c.proto"],
+    cc_api_version = 2,
+    deps = [
+        "b_proto",
+        ":a_proto",
+    ],
+)
+
+cc_proto_library(
+    name = "abc_protos_cc",
+    deps = [":abc_proto"],
+)
+
+proto_library(
+    name = "x_proto",
+    srcs = ["x.proto"],
+    cc_api_version = 2,
+    deps = ["@com_google_protobuf//:any_proto"],
+)
+
+cc_proto_library(
+    name = "x_proto_cc",
+    deps = [":x_proto"],
+)

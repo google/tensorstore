@@ -102,6 +102,9 @@ build:windows_x86_64_mingw --extra_execution_platforms=//tools/bazel_platforms:w
 # Prevent "file too big" / "too many sections" errors.
 build:windows_x86_64_mingw --copt=-Wa,-mbig-obj
 build:windows_x86_64_mingw --host_copt=-Wa,-mbig-obj
+# mingw  https://sourceforge.net/p/mingw-w64/bugs/134/
+build:windows_x86_64_mingw --copt=-D_NO_W32_PSEUDO_MODIFIERS
+build:windows_x86_64_mingw --host_copt=-D_NO_W32_PSEUDO_MODIFIERS
 
 build:windows_common --enable_runfiles=true --build_python_zip=false
 

@@ -52,6 +52,8 @@ class CastDriverSpec
     return f(internal::BaseCast<internal::DriverSpec>(x), x.base);
   };
 
+  OpenMode open_mode() const override { return base.driver_spec->open_mode(); }
+
   absl::Status ApplyOptions(SpecOptions&& options) override {
     TENSORSTORE_RETURN_IF_ERROR(schema.Set(options.dtype()));
     options.Override(DataType()).IgnoreError();
@@ -117,6 +119,16 @@ class CastDriverSpec
 
   kvstore::Spec GetKvstore() const override {
     return base.driver_spec->GetKvstore();
+  }
+
+  Result<TransformedDriverSpec> GetBase(
+      IndexTransformView<> transform) const override {
+    TransformedDriverSpec new_base;
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        new_base.transform,
+        ComposeOptionalTransforms(base.transform, transform));
+    new_base.driver_spec = base.driver_spec;
+    return new_base;
   }
 
   Future<internal::Driver::Handle> Open(
@@ -189,6 +201,24 @@ class CastDriver
 
   KvStore GetKvstore(const Transaction& transaction) override {
     return base_driver_->GetKvstore(transaction);
+  }
+
+  Result<internal::DriverHandle> GetBase(
+      ReadWriteMode read_write_mode, IndexTransformView<> transform,
+      const Transaction& transaction) override {
+    internal::DriverHandle base_handle;
+    base_handle.driver = base_driver_;
+    base_handle.driver.set_read_write_mode(read_write_mode);
+    base_handle.transform = transform;
+    base_handle.transaction = transaction;
+    return base_handle;
+  }
+
+  Future<ArrayStorageStatistics> GetStorageStatistics(
+      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
+      GetArrayStorageStatisticsOptions options) override {
+    return base_driver_->GetStorageStatistics(
+        std::move(transaction), std::move(transform), std::move(options));
   }
 
   explicit CastDriver(internal::DriverPtr base, DataType target_dtype,
@@ -396,5 +426,37 @@ Result<Driver::Handle> MakeCastDriver(Driver::Handle base,
   return base;
 }
 
+Result<TransformedDriverSpec> MakeCastDriverSpec(TransformedDriverSpec base,
+                                                 DataType target_dtype) {
+  if (!base.driver_spec) return {std::in_place};
+  DataType source_dtype = base.driver_spec->schema.dtype();
+  if (source_dtype.valid()) {
+    TENSORSTORE_RETURN_IF_ERROR(GetCastDataTypeConversions(
+        source_dtype, target_dtype, ReadWriteMode::read_write,
+        ReadWriteMode::dynamic));
+  }
+  auto driver_spec =
+      internal::DriverSpec::Make<internal_cast_driver::CastDriverSpec>();
+  driver_spec->schema
+      .Set(base.transform.valid() ? RankConstraint{base.transform.output_rank()}
+                                  : base.driver_spec->schema.rank())
+      .IgnoreError();
+  driver_spec->schema.Set(target_dtype).IgnoreError();
+  driver_spec->context_binding_state_ = base.context_binding_state();
+  driver_spec->base.driver_spec = std::move(base.driver_spec);
+  base.driver_spec = std::move(driver_spec);
+  return base;
+}
+
 }  // namespace internal
+
+Result<Spec> Cast(const Spec& base_spec, DataType target_dtype) {
+  Spec spec;
+  auto& base_impl = internal_spec::SpecAccess::impl(base_spec);
+  auto& impl = internal_spec::SpecAccess::impl(spec);
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      impl, internal::MakeCastDriverSpec(base_impl, target_dtype));
+  return spec;
+}
+
 }  // namespace tensorstore

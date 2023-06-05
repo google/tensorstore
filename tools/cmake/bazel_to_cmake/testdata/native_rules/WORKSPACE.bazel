@@ -1,1 +1,1 @@
-workspace(name = "bazel_test_repo")
+workspace(name = "native_rules_test_repo")

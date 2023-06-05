@@ -70,7 +70,7 @@ TEST(InitializeSingleArrayIterationStateTest, Basic) {
                        .value();
 
   tensorstore::internal_index_space::SingleArrayIterationState
-      single_array_state(2, 2);
+      single_array_state;
   EXPECT_EQ(
       absl::OkStatus(),
       tensorstore::internal_index_space::InitializeSingleArrayIterationState(
@@ -93,8 +93,9 @@ TEST(InitializeSingleArrayIterationStateTest, Basic) {
   // (sizeof(int)) of dimension 1 of `array`.
   EXPECT_THAT(single_array_state.index_array_output_byte_strides_span(),
               ::testing::ElementsAre(2 * sizeof(int)));
-  EXPECT_THAT(single_array_state.input_byte_strides,
-              ::testing::ElementsAre(-4 * static_cast<Index>(sizeof(int)), 0));
+  EXPECT_THAT(
+      span(single_array_state.input_byte_strides).first(transform.input_rank()),
+      ::testing::ElementsAre(-4 * static_cast<Index>(sizeof(int)), 0));
 }
 
 TEST(ComputeDimensionIterationOrderTest, Basic) {
@@ -144,7 +145,7 @@ TEST(ComputeDimensionIterationOrderTest, Basic) {
 }
 
 TEST(SimplifyDimensionIterationOrderTest, Rank5) {
-  tensorstore::internal_index_space::DimensionIterationOrder original_layout(5);
+  tensorstore::internal_index_space::DimensionIterationOrder original_layout;
   original_layout.input_dimension_order[0] = 7;
   original_layout.input_dimension_order[1] = 9;
   original_layout.input_dimension_order[2] = 3;
@@ -181,7 +182,7 @@ TEST(SimplifyDimensionIterationOrderTest, Rank5) {
 }
 
 TEST(SimplifyDimensionIterationOrderTest, Rank1) {
-  tensorstore::internal_index_space::DimensionIterationOrder original_layout(1);
+  tensorstore::internal_index_space::DimensionIterationOrder original_layout;
   original_layout.input_dimension_order[0] = 0;
   original_layout.pure_strided_start_dim = 1;
   original_layout.pure_strided_end_dim = 1;
@@ -193,8 +194,10 @@ TEST(SimplifyDimensionIterationOrderTest, Rank1) {
         [&](DimensionIndex a, DimensionIndex b, DimensionIndex size) {
           return false;
         });
-    EXPECT_THAT(result.input_dimension_order, ::testing::ElementsAre(0));
-    EXPECT_THAT(result.simplified_shape, ::testing::ElementsAre(5));
+    EXPECT_THAT(span(result.input_dimension_order).first(1),
+                ::testing::ElementsAre(0));
+    EXPECT_THAT(span(result.simplified_shape).first(1),
+                ::testing::ElementsAre(5));
     EXPECT_THAT(1, result.pure_strided_start_dim);
     EXPECT_THAT(1, result.pure_strided_end_dim);
   }

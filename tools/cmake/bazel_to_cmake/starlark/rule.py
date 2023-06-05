@@ -20,9 +20,9 @@ Currently this just supports a very limited set of functionality.
 
 # pylint: disable=relative-beyond-top-level,missing-function-docstring,protected-access,invalid-name,g-importing-member,g-short-docstring-punctuation
 
-from .select import Configurable
 from typing import Any, Callable, Dict, List, NamedTuple, Optional, cast
 
+from ..util import write_file_if_not_already_equal
 from .bazel_globals import BuildFileLibraryGlobals
 from .bazel_target import TargetId
 from .common_providers import ConditionProvider
@@ -32,11 +32,12 @@ from .invocation_context import InvocationContext
 from .label import Label
 from .label import RelativeLabel
 from .provider import TargetInfo
-from ..util import write_file_if_not_already_equal
+from .select import Configurable
 
 
 class File(NamedTuple):
   """Represents a file for use by rule implementations."""
+
   path: str
 
 
@@ -77,16 +78,22 @@ class AttrModule:
   """Defines rule attribute types."""
 
   @staticmethod
-  def string(default: str = "",
-             doc: str = "",
-             mandatory: bool = False,
-             values: Optional[List[str]] = None):
+  def string(
+      default: str = "",
+      doc: str = "",
+      mandatory: bool = False,
+      values: Optional[List[str]] = None,
+  ):
     # https://bazel.build/rules/lib/attr#string
     del doc
     del values
 
-    def handle(context: InvocationContext, name: str, value: Optional[str],
-               outs: List[TargetId]):
+    def handle(
+        context: InvocationContext,
+        name: str,
+        value: Optional[str],
+        outs: List[TargetId],
+    ):
       if mandatory and value is None:
         raise ValueError(f"Attribute {name} not specified")
       if value is None:
@@ -103,13 +110,15 @@ class AttrModule:
     return Attr(handle)
 
   @staticmethod
-  def label(default: Optional[Configurable[RelativeLabel]] = None,
-            doc: str = "",
-            executable: bool = False,
-            allow_files: Any = None,
-            allow_single_file: Any = None,
-            mandatory: bool = False,
-            **kwargs):
+  def label(
+      default: Optional[Configurable[RelativeLabel]] = None,
+      doc: str = "",
+      executable: bool = False,
+      allow_files: Any = None,
+      allow_single_file: Any = None,
+      mandatory: bool = False,
+      **kwargs,
+  ):
     """https://bazel.build/rules/lib/attr#label"""
     del doc
     del executable
@@ -117,9 +126,12 @@ class AttrModule:
     del allow_single_file
     del kwargs
 
-    def handle(context: InvocationContext, name: str,
-               value: Optional[Configurable[RelativeLabel]],
-               outs: List[TargetId]):
+    def handle(
+        context: InvocationContext,
+        name: str,
+        value: Optional[Configurable[RelativeLabel]],
+        outs: List[TargetId],
+    ):
       if mandatory and value is None:
         raise ValueError(f"Attribute {name} not specified")
       if value is None:
@@ -132,8 +144,9 @@ class AttrModule:
         if value is None:
           setattr(ctx.attr, name, None)
           return
-        relative = cast(RelativeLabel,
-                        ctx._context.evaluate_configurable(value))
+        relative = cast(
+            RelativeLabel, ctx._context.evaluate_configurable(value)
+        )
         target_id = ctx._context.resolve_target_or_label(relative)
         setattr(ctx.attr, name, ctx._context.get_target_info(target_id))
 
@@ -142,18 +155,23 @@ class AttrModule:
     return Attr(handle)
 
   @staticmethod
-  def label_list(allow_empty=True,
-                 *,
-                 default: Optional[Configurable[List[RelativeLabel]]] = None,
-                 mandatory: bool = False,
-                 **kwargs):
+  def label_list(
+      allow_empty=True,
+      *,
+      default: Optional[Configurable[List[RelativeLabel]]] = None,
+      mandatory: bool = False,
+      **kwargs,
+  ):
     """https://bazel.build/rules/lib/attr#label_list"""
     del kwargs
     del allow_empty
 
-    def handle(context: InvocationContext, name: str,
-               value: Optional[Configurable[List[RelativeLabel]]],
-               outs: List[TargetId]):
+    def handle(
+        context: InvocationContext,
+        name: str,
+        value: Optional[Configurable[List[RelativeLabel]]],
+        outs: List[TargetId],
+    ):
       if mandatory and value is None:
         raise ValueError(f"Attribute {name} not specified")
       if value is None:
@@ -164,10 +182,14 @@ class AttrModule:
 
       def impl(ctx: RuleCtx):
         targets = ctx._context.resolve_target_or_label_list(
-            ctx._context.evaluate_configurable_list(value))
+            ctx._context.evaluate_configurable_list(value)
+        )
 
-        setattr(ctx.attr, name,
-                [ctx._context.get_target_info(target) for target in targets])
+        setattr(
+            ctx.attr,
+            name,
+            [ctx._context.get_target_info(target) for target in targets],
+        )
 
       return impl
 
@@ -178,8 +200,12 @@ class AttrModule:
     """https://bazel.build/rules/lib/attr#output"""
     del doc
 
-    def handle(context: InvocationContext, name: str,
-               value: Optional[RelativeLabel], outs: List[TargetId]):
+    def handle(
+        context: InvocationContext,
+        name: str,
+        value: Optional[RelativeLabel],
+        outs: List[TargetId],
+    ):
       if mandatory and value is None:
         raise ValueError(f"Attribute {name} not specified")
 
@@ -198,8 +224,9 @@ class AttrModule:
           setattr(ctx.outputs, name, None)
           return
         path = ctx._context.get_generated_file_path(target)
-        ctx._context.add_analyzed_target(target,
-                                         TargetInfo(FilesProvider([path])))
+        ctx._context.add_analyzed_target(
+            target, TargetInfo(FilesProvider([path]))
+        )
         setattr(ctx.outputs, name, File(path))
 
       return impl
@@ -211,8 +238,12 @@ class AttrModule:
     # https://bazel.build/rules/lib/attr#bool
     del doc
 
-    def handle(context: InvocationContext, name: str, value: Optional[bool],
-               outs: List[TargetId]):
+    def handle(
+        context: InvocationContext,
+        name: str,
+        value: Optional[bool],
+        outs: List[TargetId],
+    ):
       if mandatory and value is None:
         raise ValueError(f"Attribute {name} not specified")
       if value is None:
@@ -229,9 +260,12 @@ class AttrModule:
     return Attr(handle)
 
 
-def _rule_impl(_context: InvocationContext, target: TargetId,
-               attr_impls: List[Callable[[RuleCtx], None]],
-               implementation: Callable[[RuleCtx], Any]):
+def _rule_impl(
+    _context: InvocationContext,
+    target: TargetId,
+    attr_impls: List[Callable[[RuleCtx], None]],
+    implementation: Callable[[RuleCtx], Any],
+):
   ctx = RuleCtx(_context, Label(target, _context.resolve_source_root))
   for attr in attr_impls:
     attr(ctx)
@@ -239,20 +273,22 @@ def _rule_impl(_context: InvocationContext, target: TargetId,
   implementation(ctx)
 
 
-def rule(self: BuildFileLibraryGlobals,
-         implementation: Callable[[RuleCtx], Any],
-         attrs: Optional[Dict[str, Attr]] = None,
-         executable: bool = False,
-         output_to_genfiles: bool = False,
-         doc: str = ""):
+def rule(
+    self: BuildFileLibraryGlobals,
+    implementation: Callable[[RuleCtx], Any],
+    attrs: Optional[Dict[str, Attr]] = None,
+    executable: bool = False,
+    output_to_genfiles: bool = False,
+    doc: str = "",
+):
   """https://bazel.build/rules/lib/globals#rule"""
   del executable
   del output_to_genfiles
   del doc
 
-  def rule_func(name: str,
-                visibility: Optional[List[RelativeLabel]] = None,
-                **rule_kwargs):
+  def rule_func(
+      name: str, visibility: Optional[List[RelativeLabel]] = None, **rule_kwargs
+  ):
     # snaptshot the invocation context.
     context = self._context.snapshot()
     target = context.resolve_target(context.evaluate_configurable(name))
@@ -261,8 +297,10 @@ def rule(self: BuildFileLibraryGlobals,
 
     if attrs is not None:
       attr_impls = [
-          attr_obj._handle(context, attr_name, rule_kwargs.pop(attr_name, None),
-                           outs) for attr_name, attr_obj in attrs.items()
+          attr_obj._handle(
+              context, attr_name, rule_kwargs.pop(attr_name, None), outs
+          )
+          for attr_name, attr_obj in attrs.items()
       ]
     else:
       attr_impls = []
@@ -271,7 +309,8 @@ def rule(self: BuildFileLibraryGlobals,
         target,
         lambda: _rule_impl(context, target, attr_impls, implementation),
         outs=outs,
-        visibility=visibility)
+        visibility=visibility,
+    )
 
   return rule_func
 

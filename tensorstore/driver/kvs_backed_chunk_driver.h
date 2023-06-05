@@ -73,6 +73,8 @@ struct KvsDriverSpec : public internal::DriverSpec,
 
   kvstore::Spec GetKvstore() const override;
 
+  OpenMode open_mode() const override;
+
   absl::Status ApplyOptions(SpecOptions&& options) override;
 };
 
@@ -478,6 +480,11 @@ class KvsDriverBase : public internal::ChunkCacheDriver {
     StalenessBounds staleness_bounds;
   };
   explicit KvsDriverBase(Initializer&& initializer);
+
+  /// Queries the current metadata, as of `metadata_staleness_bound`.
+  Future<MetadataCache::MetadataPtr> ResolveMetadata(
+      internal::OpenTransactionPtr transaction,
+      absl::Time metadata_staleness_bound);
 
   /// Forwards to `ResolveBound` overload below with
   /// `metadata_staleness_bound_`.

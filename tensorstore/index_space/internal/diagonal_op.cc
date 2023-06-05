@@ -14,7 +14,7 @@
 
 #include "tensorstore/index_space/internal/diagonal_op.h"
 
-#include "absl/container/fixed_array.h"
+#include <algorithm>
 
 namespace tensorstore {
 namespace internal_index_space {
@@ -50,8 +50,10 @@ void ExtractDiagonal(TransformRep* original, TransformRep* result,
   const DimensionIndex diag_input_dim = 0;
   // Maps input dimensions of the existing transform to input dimensions of the
   // new transform.  Multiple existing dimensions may map to `diag_input_dim`.
-  absl::FixedArray<DimensionIndex, internal::kNumInlinedDims>
-      orig_to_new_input_dim(orig_input_rank, -1);
+  // Only the first `orig_input_rank` elements are used.
+  DimensionIndex orig_to_new_input_dim[kMaxRank];
+  std::fill_n(&orig_to_new_input_dim[0], orig_input_rank,
+              static_cast<DimensionIndex>(-1));
   // Indicates whether the lower or upper bounds of all dimensions in
   // `*dimensions` are implicit.
   bool lower_diagonal_bound_implicit = true,

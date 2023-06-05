@@ -69,7 +69,8 @@ def _emit_cc_common_options(
   public_context = "INTERFACE" if interface_only else "PUBLIC"
   if local_defines and not interface_only:
     _builder.addtext(
-        f"target_compile_definitions({target_name} PRIVATE {quote_list(local_defines)})\n"
+        f"target_compile_definitions({target_name} PRIVATE"
+        f" {quote_list(local_defines)})\n"
     )
   if defines:
     _builder.addtext(
@@ -77,7 +78,8 @@ def _emit_cc_common_options(
     )
   if copts and not interface_only:
     _builder.addtext(
-        f"target_compile_options({target_name} PRIVATE {quote_list(copts)})\n")
+        f"target_compile_options({target_name} PRIVATE {quote_list(copts)})\n"
+    )
   if deps or linkopts:
     link_libs: List[str] = []
     if deps:
@@ -91,10 +93,12 @@ def _emit_cc_common_options(
       f"target_include_directories({target_name} {public_context}{_SEP}{quote_list(include_dirs, separator=_SEP)})\n"
   )
   _builder.addtext(
-      f"target_compile_features({target_name} {public_context} cxx_std_17)\n")
+      f"target_compile_features({target_name} {public_context} cxx_std_17)\n"
+  )
   if custom_target_deps:
     _builder.addtext(
-        f"add_dependencies({target_name} {quote_list(custom_target_deps)})\n")
+        f"add_dependencies({target_name} {quote_list(custom_target_deps)})\n"
+    )
   if extra_public_compile_options:
     _builder.addtext(
         f"target_compile_options({target_name} {public_context} {quote_list(extra_public_compile_options)})\n"
@@ -109,7 +113,8 @@ def _emit_cc_common_options(
     if asm_srcs:
       if asm_dialect is None:
         raise ValueError(
-            f"asm_dialect must be specified for ASM srcs: {asm_srcs!r}")
+            f"asm_dialect must be specified for ASM srcs: {asm_srcs!r}"
+        )
       _builder.addtext(f"""set_source_files_properties(
     {quote_list(asm_srcs)}
     PROPERTIES
@@ -132,11 +137,14 @@ def handle_cc_common_options(
   state = _context.access(EvaluationState)
 
   resolved_srcs = _context.resolve_target_or_label_list(
-      _context.evaluate_configurable_list(srcs))
+      _context.evaluate_configurable_list(srcs)
+  )
   resolved_deps = _context.resolve_target_or_label_list(
-      _context.evaluate_configurable_list(deps))
-  srcs_file_paths = state.get_targets_file_paths(resolved_srcs,
-                                                 custom_target_deps)
+      _context.evaluate_configurable_list(deps)
+  )
+  srcs_file_paths = state.get_targets_file_paths(
+      resolved_srcs, custom_target_deps
+  )
 
   if src_required and not srcs_file_paths:
     srcs_file_paths = [state.get_dummy_source()]
@@ -155,7 +163,8 @@ def handle_cc_common_options(
   def add_compile_options(lang: str, options: List[str]):
     for option in options:
       extra_public_compile_options.append(
-          f"$<$<COMPILE_LANGUAGE:{lang}>:{option}>")
+          f"$<$<COMPILE_LANGUAGE:{lang}>:{option}>"
+      )
 
   add_compile_options("C,CXX", state.workspace.copts)
   add_compile_options("CXX", state.workspace.cxxopts)
@@ -189,12 +198,16 @@ def handle_cc_common_options(
     # gRPC hack: grpc build_system.bzl adds the following includes to
     # all targets; bazel currently requires them, however they interfere in
     # the CMake build, so remove them.
-    if (_context.caller_package_id.repository_id.repository_name
-        == "com_github_grpc_grpc" and include
-        in ["src/core/ext/upb-generated", "src/core/ext/upbdefs-generated"]):
+    if (
+        _context.caller_package_id.repository_id.repository_name
+        == "com_github_grpc_grpc"
+        and include
+        in ["src/core/ext/upb-generated", "src/core/ext/upbdefs-generated"]
+    ):
       continue
     include_path = str(
-        relative_package_path.joinpath(pathlib.PurePosixPath(include)))
+        relative_package_path.joinpath(pathlib.PurePosixPath(include))
+    )
     if include_path[0] == "/":
       include_path = include_path[1:]
     include_dirs.extend(f"{i}/{include_path}" for i in _BASE_INCLUDE_DIRS)
@@ -202,7 +215,9 @@ def handle_cc_common_options(
   if strip_include_prefix is not None:
     include_path = str(
         relative_package_path.joinpath(
-            pathlib.PurePosixPath(strip_include_prefix)))
+            pathlib.PurePosixPath(strip_include_prefix)
+        )
+    )
     if include_path[0] == "/":
       include_path = include_path[1:]
     include_dirs.extend(f"{i}/{include_path}" for i in _BASE_INCLUDE_DIRS)
@@ -216,7 +231,8 @@ def handle_cc_common_options(
     # for known cases this appears to work.
     if current_package_name.endswith(include_prefix):
       computed_prefix = str(
-          pathlib.PurePosixPath(current_package_name[:-len(include_prefix)]))
+          pathlib.PurePosixPath(current_package_name[: -len(include_prefix)])
+      )
       include_dirs.extend(f"{i}/{computed_prefix}" for i in _BASE_INCLUDE_DIRS)
 
   result["includes"] = include_dirs
@@ -252,7 +268,8 @@ add_library({target_name} INTERFACE)
       target_name=target_name,
       interface_only=header_only,
       srcs=sorted(srcs),
-      **kwargs)
+      **kwargs,
+  )
   if _cmake_target_pair.alias is not None:
     _builder.add_library_alias(
         target_name=target_name,
@@ -262,8 +279,12 @@ add_library({target_name} INTERFACE)
     )
 
 
-def emit_cc_binary(_builder: CMakeBuilder, _cmake_target_pair: CMakeTargetPair,
-                   srcs: Set[str], **kwargs):
+def emit_cc_binary(
+    _builder: CMakeBuilder,
+    _cmake_target_pair: CMakeTargetPair,
+    srcs: Set[str],
+    **kwargs,
+):
   target_name = _cmake_target_pair.target
   assert _cmake_target_pair.alias is not None
   _builder.addtext(f"""
@@ -271,13 +292,16 @@ add_executable({target_name} "")
 add_executable({_cmake_target_pair.alias} ALIAS {target_name})
 """)
   _emit_cc_common_options(
-      _builder, target_name=target_name, srcs=sorted(srcs), **kwargs)
+      _builder, target_name=target_name, srcs=sorted(srcs), **kwargs
+  )
 
 
-def emit_cc_test(_builder: CMakeBuilder,
-                 _cmake_target_pair: CMakeTargetPair,
-                 args: Optional[List[str]] = None,
-                 **kwargs):
+def emit_cc_test(
+    _builder: CMakeBuilder,
+    _cmake_target_pair: CMakeTargetPair,
+    args: Optional[List[str]] = None,
+    **kwargs,
+):
   emit_cc_binary(_builder, _cmake_target_pair, **kwargs)
   target_name = _cmake_target_pair.target
   args_suffix = ""

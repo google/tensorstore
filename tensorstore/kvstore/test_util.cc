@@ -758,6 +758,26 @@ void TestKeyValueStoreSpecRoundtrip(
     TENSORSTORE_ASSERT_OK(minimal_spec_obj.Set(tensorstore::MinimalSpec{true}));
     EXPECT_THAT(minimal_spec_obj.ToJson(options.json_serialization_options),
                 ::testing::Optional(MatchesJson(expected_minimal_spec)));
+
+    // Check base
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store_base, store.base());
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec_base, spec.base());
+    EXPECT_EQ(store_base.valid(), spec_base.valid());
+    if (store_base.valid()) {
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store_base_spec, store_base.spec());
+      EXPECT_THAT(spec_base.ToJson(),
+                  ::testing::Optional(MatchesJson(options.full_base_spec)));
+      EXPECT_THAT(store_base_spec.ToJson(),
+                  ::testing::Optional(MatchesJson(options.full_base_spec)));
+
+      // Check that base spec can be opened.
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+          auto store_base_reopened, kvstore::Open(spec_base, context).result());
+      EXPECT_EQ(store_base_reopened, store_base);
+    } else {
+      EXPECT_THAT(options.full_base_spec,
+                  MatchesJson(::nlohmann::json::value_t::discarded));
+    }
   }
 
   ASSERT_TRUE(options.check_write_read || !options.check_data_persists);

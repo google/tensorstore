@@ -23,6 +23,7 @@ from .provider import Provider
 
 class BuildSettingProvider(Provider):
   """Build setting value (i.e. flag value) corresponding to a Bazel target."""
+
   __slots__ = ("value",)
 
   def __init__(self, value: Any):
@@ -34,6 +35,7 @@ class BuildSettingProvider(Provider):
 
 class ConditionProvider(Provider):
   """Condition value corresponding to a Bazel target."""
+
   __slots__ = ("value",)
 
   def __init__(self, value: bool):
@@ -58,11 +60,18 @@ class FilesProvider(Provider):
 class ProtoLibraryProvider(Provider):
   __slots__ = ("srcs", "deps", "strip_import_prefix")
 
-  def __init__(self, srcs: List[TargetId], deps: List[TargetId],
-               strip_import_prefix: Optional[str]):
+  def __init__(
+      self,
+      srcs: List[TargetId],
+      deps: List[TargetId],
+      strip_import_prefix: Optional[str],
+  ):
     self.srcs = sorted(set(srcs))
     self.deps = sorted(set(deps))
     self.strip_import_prefix = strip_import_prefix
 
   def __repr__(self):
-    return f"{self.__class__.__name__}({repr(self.srcs)}, {repr(self.deps)}, {repr(self.strip_import_prefix)})"
+    return (
+        f"{self.__class__.__name__}({repr(self.srcs)}, {repr(self.deps)},"
+        f" {repr(self.strip_import_prefix)})"
+    )

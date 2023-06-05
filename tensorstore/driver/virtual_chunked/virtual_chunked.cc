@@ -357,6 +357,12 @@ class VirtualChunkedDriverSpec
              x.data_staleness);
   };
 
+  OpenMode open_mode() const {
+    // Since opening has no side effects, we return `open` even though `create`
+    // might also be considered correct.
+    return OpenMode::open;
+  }
+
   Future<internal::Driver::Handle> Open(
       internal::OpenTransactionPtr transaction,
       ReadWriteMode read_write_mode) const override;

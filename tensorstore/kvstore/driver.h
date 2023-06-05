@@ -95,6 +95,11 @@ class DriverSpec : public internal::AtomicReferenceCount<DriverSpec> {
   // \pre All context resources must be bound.
   virtual Future<DriverPtr> DoOpen() const = 0;
 
+  // Returns the underlying kvstore spec if this is an adapter.
+  //
+  // Otherwise, returns a null spec.
+  virtual Result<Spec> GetBase(std::string_view path) const;
+
   virtual void GarbageCollectionVisit(
       garbage_collection::GarbageCollectionVisitor& visitor) const = 0;
 
@@ -300,6 +305,9 @@ class Driver {
 
   virtual void GarbageCollectionVisit(
       garbage_collection::GarbageCollectionVisitor& visitor) const = 0;
+
+  virtual Result<KvStore> GetBase(std::string_view path,
+                                  const Transaction& transaction) const;
 
   virtual ~Driver();
 

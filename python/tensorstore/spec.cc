@@ -76,11 +76,11 @@ std::optional<HomogeneousTuple<std::optional<Unit>>> GetDimensionUnits(
 constexpr auto WithSpecKeywordArguments = [](auto callback,
                                              auto... other_param) {
   WithSchemaKeywordArguments(
-      callback, other_param..., spec_setters::SetOpen{},
-      spec_setters::SetCreate{}, spec_setters::SetDeleteExisting{},
-      spec_setters::SetAssumeMetadata{}, spec_setters::SetUnbindContext{},
-      spec_setters::SetStripContext{}, spec_setters::SetContext{},
-      spec_setters::SetKvstore{});
+      callback, other_param..., spec_setters::SetOpenMode{},
+      spec_setters::SetOpen{}, spec_setters::SetCreate{},
+      spec_setters::SetDeleteExisting{}, spec_setters::SetAssumeMetadata{},
+      spec_setters::SetUnbindContext{}, spec_setters::SetStripContext{},
+      spec_setters::SetContext{}, spec_setters::SetKvstore{});
 };
 
 using SpecCls = py::class_<PythonSpecObject>;
@@ -167,6 +167,34 @@ Group:
         },
         doc.c_str(), py::kw_only(), MakeKeywordArgumentPyArg(param_def)...);
   });
+
+  cls.def_property_readonly(
+      "open_mode",
+      [](Self& self) -> OpenMode { return self.value.open_mode(); }, R"(
+Open mode with which the driver will be opened.
+
+If not applicable, equal to :python:`OpenMode()`.
+
+Example:
+
+  >>> spec = ts.Spec({'driver': 'zarr', 'kvstore': 'memory://'})
+  >>> spec.open_mode
+  OpenMode(open=True)
+  >>> spec.update(create=True, delete_existing=True)
+  >>> spec.open_mode
+  OpenMode(create=True, delete_existing=True)
+  >>> spec.update(open_mode=ts.OpenMode(open=True, create=True))
+  >>> spec.open_mode
+  OpenMode(open=True, create=True)
+
+.. note::
+
+   This is a read-only accessor.  Mutating the returned `OpenMode` object does
+   not affect this `Spec` object.  To change the open mode, use `.update`.
+
+Group:
+  Accessors
+)");
 
   cls.def_property_readonly(
       "dtype",
@@ -589,6 +617,93 @@ Example:
   ... })
   >>> spec.kvstore
   KvStore.Spec({'driver': 'memory', 'path': 'abc/'})
+
+Group:
+  Accessors
+
+)");
+
+  cls.def_property_readonly(
+      "base",
+      [](Self& self) -> std::optional<Spec> {
+        auto spec = ValueOrThrow(self.value.base());
+        if (!spec.valid()) return std::nullopt;
+        return spec;
+      },
+      R"(
+
+Spec of the underlying `TensorStore`, if this is an adapter of a single
+underlying `TensorStore`.
+
+Otherwise, equal to :python:`None`.
+
+Drivers that support this method include:
+
+- :ref:`driver/cast`
+- :ref:`driver/downsample`
+
+Example:
+
+  >>> spec = ts.Spec({
+  ...     'driver': 'zarr',
+  ...     'kvstore': 'memory://',
+  ... })
+  >>> spec.update(shape=[100, 200], dtype=ts.uint32)
+  >>> cast_spec = ts.cast(spec, ts.float32)
+  >>> cast_spec
+  Spec({
+    'base': {
+      'driver': 'zarr',
+      'dtype': 'uint32',
+      'kvstore': {'driver': 'memory'},
+      'schema': {
+        'domain': {'exclusive_max': [100, 200], 'inclusive_min': [0, 0]},
+      },
+    },
+    'driver': 'cast',
+    'dtype': 'float32',
+    'transform': {
+      'input_exclusive_max': [[100], [200]],
+      'input_inclusive_min': [0, 0],
+    },
+  })
+  >>> cast_spec[30:40, 20:25].base
+  Spec({
+    'driver': 'zarr',
+    'dtype': 'uint32',
+    'kvstore': {'driver': 'memory'},
+    'schema': {'domain': {'exclusive_max': [100, 200], 'inclusive_min': [0, 0]}},
+    'transform': {
+      'input_exclusive_max': [40, 25],
+      'input_inclusive_min': [30, 20],
+    },
+  })
+  >>> downsampled_spec = ts.downsample(spec,
+  ...                                  downsample_factors=[2, 4],
+  ...                                  method='mean')
+  >>> downsampled_spec
+  Spec({
+    'base': {
+      'driver': 'zarr',
+      'kvstore': {'driver': 'memory'},
+      'schema': {
+        'domain': {'exclusive_max': [100, 200], 'inclusive_min': [0, 0]},
+      },
+      'transform': {
+        'input_exclusive_max': [[100], [200]],
+        'input_inclusive_min': [0, 0],
+      },
+    },
+    'downsample_factors': [2, 4],
+    'downsample_method': 'mean',
+    'driver': 'downsample',
+    'dtype': 'uint32',
+    'transform': {
+      'input_exclusive_max': [[50], [50]],
+      'input_inclusive_min': [0, 0],
+    },
+  })
+  >>> downsampled_spec[30:40, 20:25].base
 
 Group:
   Accessors
@@ -1028,11 +1143,11 @@ See also:
 )"},
       },
       /*get_transform=*/
-      [](Self& self) {
+      [](const Self& self) {
         return ValueOrThrow(self.value.GetTransformForIndexingOperation());
       },
       /*apply_transform=*/
-      [](Self& self, IndexTransform<> new_transform) {
+      [](const Self& self, IndexTransform<> new_transform) {
         Spec copy = self.value;
         internal_spec::SpecAccess::impl(copy).transform =
             std::move(new_transform);
@@ -1759,18 +1874,144 @@ Converts to the :json:schema:`JSON representation<Codec>`.
       cls, internal::CodecSpecNonNullDirectSerializer{});
 }
 
+///
+
+using ClsOpenMode = py::class_<PythonOpenMode>;
+
+auto MakeOpenModeClass(py::module m) {
+  return ClsOpenMode(m, "OpenMode", R"(
+Specifies the mode to use when opening a `TensorStore`.
+
+Group:
+  Spec
+)");
+}
+
+struct OpenModeValueOpen {
+  static constexpr OpenMode mode = OpenMode::open;
+  static constexpr const char* name = "open";
+  static constexpr const char* doc = R"(
+Allow opening an existing TensorStore.
+)";
+};
+
+struct OpenModeValueCreate {
+  static constexpr OpenMode mode = OpenMode::create;
+  static constexpr const char* name = "create";
+  static constexpr const char* doc = R"(
+Allow creating a new TensorStore.
+)";
+};
+
+struct OpenModeValueDeleteExisting {
+  static constexpr OpenMode mode = OpenMode::delete_existing;
+  static constexpr const char* name = "delete_existing";
+  static constexpr const char* doc = R"(
+Delete any existing data before creating a new array.
+)";
+};
+
+struct OpenModeValueAssumeMetadata {
+  static constexpr OpenMode mode = OpenMode::assume_metadata;
+  static constexpr const char* name = "assume_metadata";
+  static constexpr const char* doc = R"(
+Skip reading the metadata if possible.
+)";
+};
+
+template <typename ModeDef>
+void DefineOpenModeAccessor(ClsOpenMode& cls) {
+  using Self = PythonOpenMode;
+  std::string doc_str = ModeDef::doc;
+  doc_str += R"(
+
+Group:
+  Accessors
+)";
+  cls.def_property(
+      ModeDef::name,
+      [](Self self) -> bool { return !!(self.value & ModeDef::mode); },
+      [](Self& self, bool value) {
+        self.value = value ? (self.value | ModeDef::mode)
+                           : (self.value & ~ModeDef::mode);
+      },
+      doc_str.c_str());
+}
+
+constexpr auto WithOpenModes = [](auto callback, auto... other_params) {
+  callback(other_params...,  //
+           OpenModeValueOpen{}, OpenModeValueCreate{},
+           OpenModeValueDeleteExisting{}, OpenModeValueAssumeMetadata{});
+};
+
+void DefineOpenModeAttributes(ClsOpenMode& cls) {
+  using Self = PythonOpenMode;
+
+  WithOpenModes([&](auto... mode_info) {
+    std::string doc = R"(
+Constructs an open mode.
+
+Args:
+)";
+    internal_python::AppendKeywordArgumentDocs(doc, mode_info...);
+
+    cls.def(
+        py::init(
+            [](
+                // One `bool` argument per open mode.
+                //
+                // To avoid
+                // https://developercommunity.visualstudio.com/t/Argument-pack-incorrectly-expanded-when/10375693
+                // this parameter must not have the same name as the member.
+                internal::FirstType<bool, decltype(mode_info)>... mode_arg)
+                -> Self {
+              return Self{(
+                  // Binary OR together all open modes corresponding to
+                  // `true` arguments.
+                  (mode_arg ? decltype(mode_info)::mode : OpenMode{}) | ...)};
+            }),
+        doc.c_str(), py::kw_only(),
+        // All open mode arguments default to `false`.
+        (py::arg(mode_info.name) = false)...);
+
+    // Define read-write property for each open mode.
+    (DefineOpenModeAccessor<decltype(mode_info)>(cls), ...);
+
+    cls.def("__repr__", [](Self self) {
+      std::string repr = "OpenMode(";
+      // Comma-separated list of open modes that are `true`.
+      bool first = true;
+      ((!!(self.value & decltype(mode_info)::mode)
+            ? (tensorstore::StrAppend(&repr, first ? "" : ", ",
+                                      decltype(mode_info)::name, "=True"),
+               (first = false))
+            : true),
+       ...);
+      repr += ")";
+      return repr;
+    });
+  });
+
+  cls.def("__eq__",
+          [](Self self, Self other) { return self.value == other.value; });
+
+  EnablePicklingFromSerialization(cls);
+}
+
 void RegisterSpecBindings(pybind11::module m, Executor defer) {
   defer([cls = MakeSpecClass(m)]() mutable { DefineSpecAttributes(cls); });
   defer([cls = MakeSchemaClass(m)]() mutable { DefineSchemaAttributes(cls); });
   defer([cls = MakeCodecSpecClass(m)]() mutable {
     DefineCodecSpecAttributes(cls);
   });
+  defer([cls = MakeOpenModeClass(m)]() mutable {
+    DefineOpenModeAttributes(cls);
+  });
 }
 
 TENSORSTORE_GLOBAL_INITIALIZER {
   RegisterPythonComponent(RegisterSpecBindings, /*priority=*/-700);
 }
-
 }  // namespace
 }  // namespace internal_python
 }  // namespace tensorstore

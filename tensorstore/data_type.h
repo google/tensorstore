@@ -158,6 +158,8 @@ using ustring_t = Utf8String;
 /// \ingroup data types
 using json_t = ::nlohmann::json;
 
+// [BEGIN GENERATED: generate_data_type.py]
+
 // Define a DataTypeId `x_t` corresponding to each C++ type `tensorstore::x_t`
 // defined above.
 enum class DataTypeId {
@@ -188,27 +190,26 @@ enum class DataTypeId {
 inline constexpr size_t kNumDataTypeIds =
     static_cast<size_t>(DataTypeId::num_ids);
 
-// Indicates whether an element type can be treated as trivial.
-template <typename T>
-constexpr inline bool IsTrivial =
-    std::is_trivially_destructible_v<T> && std::is_trivially_copyable_v<T>;
-
 // TENSORSTORE_FOR_EACH_DATA_TYPE(X, ...) macros will instantiate
 // X(datatype, ...) for each tensorstore data type.
+#define TENSORSTORE_FOR_EACH_BOOL_DATA_TYPE(X, ...) \
+  X(bool_t, ##__VA_ARGS__)                          \
+  /**/
+
 #define TENSORSTORE_FOR_EACH_BYTE_DATA_TYPE(X, ...) \
   X(char_t, ##__VA_ARGS__)                          \
   X(byte_t, ##__VA_ARGS__)                          \
   /**/
 
-#define TENSORSTORE_FOR_EACH_INTEGER_DATA_TYPE(X, ...) \
-  X(int8_t, ##__VA_ARGS__)                             \
-  X(uint8_t, ##__VA_ARGS__)                            \
-  X(int16_t, ##__VA_ARGS__)                            \
-  X(uint16_t, ##__VA_ARGS__)                           \
-  X(int32_t, ##__VA_ARGS__)                            \
-  X(uint32_t, ##__VA_ARGS__)                           \
-  X(int64_t, ##__VA_ARGS__)                            \
-  X(uint64_t, ##__VA_ARGS__)                           \
+#define TENSORSTORE_FOR_EACH_INT_DATA_TYPE(X, ...) \
+  X(int8_t, ##__VA_ARGS__)                         \
+  X(uint8_t, ##__VA_ARGS__)                        \
+  X(int16_t, ##__VA_ARGS__)                        \
+  X(uint16_t, ##__VA_ARGS__)                       \
+  X(int32_t, ##__VA_ARGS__)                        \
+  X(uint32_t, ##__VA_ARGS__)                       \
+  X(int64_t, ##__VA_ARGS__)                        \
+  X(uint64_t, ##__VA_ARGS__)                       \
   /**/
 
 #define TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(X, ...) \
@@ -223,29 +224,31 @@ constexpr inline bool IsTrivial =
   X(complex128_t, ##__VA_ARGS__)                       \
   /**/
 
-#define TENSORSTORE_FOR_EACH_DATA_TYPE(X, ...)             \
-  X(bool_t, ##__VA_ARGS__)                                 \
-  TENSORSTORE_FOR_EACH_BYTE_DATA_TYPE(X, ##__VA_ARGS__)    \
-  TENSORSTORE_FOR_EACH_INTEGER_DATA_TYPE(X, ##__VA_ARGS__) \
-  TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(X, ##__VA_ARGS__)   \
-  TENSORSTORE_FOR_EACH_COMPLEX_DATA_TYPE(X, ##__VA_ARGS__) \
-  X(string_t, ##__VA_ARGS__)                               \
-  X(ustring_t, ##__VA_ARGS__)                              \
-  X(json_t, ##__VA_ARGS__)                                 \
+#define TENSORSTORE_FOR_EACH_STRING_DATA_TYPE(X, ...) \
+  X(string_t, ##__VA_ARGS__)                          \
+  X(ustring_t, ##__VA_ARGS__)                         \
   /**/
 
-// Generates the indicated data_type name, permitting nested
-// macro expansion. Used, for example, in generating the
-// conversion specializations between data types.
-// The _BYTE_ and other variants are unused.
-#define TENSORSTORE_FOR_EACH_INTEGER_DATA_TYPE_ID() \
-  TENSORSTORE_FOR_EACH_INTEGER_DATA_TYPE
+#define TENSORSTORE_FOR_EACH_JSON_DATA_TYPE(X, ...) \
+  X(json_t, ##__VA_ARGS__)                          \
+  /**/
 
-#define TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE_ID() \
-  TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE
+#define TENSORSTORE_FOR_EACH_DATA_TYPE(X, ...)             \
+  TENSORSTORE_FOR_EACH_BOOL_DATA_TYPE(X, ##__VA_ARGS__)    \
+  TENSORSTORE_FOR_EACH_BYTE_DATA_TYPE(X, ##__VA_ARGS__)    \
+  TENSORSTORE_FOR_EACH_INT_DATA_TYPE(X, ##__VA_ARGS__)     \
+  TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(X, ##__VA_ARGS__)   \
+  TENSORSTORE_FOR_EACH_COMPLEX_DATA_TYPE(X, ##__VA_ARGS__) \
+  TENSORSTORE_FOR_EACH_STRING_DATA_TYPE(X, ##__VA_ARGS__)  \
+  TENSORSTORE_FOR_EACH_JSON_DATA_TYPE(X, ##__VA_ARGS__)    \
+  /**/
 
-#define TENSORSTORE_FOR_EACH_COMPLEX_DATA_TYPE_ID() \
-  TENSORSTORE_FOR_EACH_COMPLEX_DATA_TYPE
+// [END GENERATED: generate_data_type.py]
+
+// Indicates whether an element type can be treated as trivial.
+template <typename T>
+constexpr inline bool IsTrivial =
+    std::is_trivially_destructible_v<T> && std::is_trivially_copyable_v<T>;
 
 namespace internal_data_type {
 
@@ -1053,7 +1056,7 @@ MapCanonicalDataTypes(Func func) {
 enum class ElementInitialization {
   /// Specifies default initialization.  For primitive types, or class types for
   /// which the default constructor leaves some members uninitialized, this
-  /// results in indeterminite values.
+  /// results in indeterminate values.
   default_init,
 
   /// Specifies value initialization.

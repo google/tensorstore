@@ -91,6 +91,11 @@ Result<DimensionUnitsVector> DriverSpec::GetDimensionUnits() const {
 
 kvstore::Spec DriverSpec::GetKvstore() const { return {}; }
 
+Result<TransformedDriverSpec> DriverSpec::GetBase(
+    IndexTransformView<> transform) const {
+  return {std::in_place};
+}
+
 absl::Status ApplyOptions(DriverSpec::Ptr& spec, SpecOptions&& options) {
   if (spec->use_count() != 1) spec = spec->Clone();
   return const_cast<DriverSpec&>(*spec).ApplyOptions(std::move(options));
@@ -118,6 +123,16 @@ absl::Status TransformAndApplyOptions(TransformedDriverSpec& spec,
     TENSORSTORE_RETURN_IF_ERROR(MaybeDeriveTransform(spec));
   }
   return absl::OkStatus();
+}
+
+OpenMode GetOpenMode(const TransformedDriverSpec& spec) {
+  if (!spec.driver_spec) return OpenMode{};
+  return spec.driver_spec->open_mode();
+}
+
+Result<TransformedDriverSpec> GetBase(const TransformedDriverSpec& spec) {
+  if (!spec.driver_spec) return {std::in_place};
+  return spec.driver_spec->GetBase(spec.transform);
 }
 
 Result<IndexDomain<>> GetEffectiveDomain(const TransformedDriverSpec& spec) {

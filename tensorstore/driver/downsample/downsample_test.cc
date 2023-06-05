@@ -642,6 +642,13 @@ TENSORSTORE_GLOBAL_INITIALIZER {
       {"transform",
        {{"input_inclusive_min", {0, 0}}, {"input_exclusive_max", {2, 2}}}},
   };
+  options.full_base_spec = {
+      {"driver", "array"},
+      {"array", {{1, 2, 3}, {4, 5, 6}}},
+      {"dtype", "float32"},
+      {"transform",
+       {{"input_inclusive_min", {0, 0}}, {"input_exclusive_max", {2, 3}}}},
+  };
   options.minimal_spec = options.full_spec;
   options.check_not_found_before_create = false;
   options.check_not_found_before_commit = false;
