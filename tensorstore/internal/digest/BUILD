@@ -27,5 +27,19 @@ tensorstore_cc_test(
 tensorstore_cc_library(
     name = "md5",
     hdrs = ["md5.h"],
-    deps = ["@com_google_boringssl//:crypto"]
+    srcs = ["md5.cc"],
+    deps = [
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_boringssl//:crypto"
+    ],
+)
+
+tensorstore_cc_test(
+    name = "md5_test",
+    srcs = ["md5_test.cc"],
+    deps = [
+        ":md5",
+        "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
+    ],
 )

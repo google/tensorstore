@@ -12,43 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_DIGEST_MD5_H_
-#define TENSORSTORE_INTERNAL_DIGEST_MD5_H_
+#include "tensorstore/internal/digest/md5.h"
 
-#include <array>
 #include <string_view>
-
-#include <openssl/md5.h>
 
 #include "absl/strings/cord.h"
 
 namespace tensorstore {
 namespace internal {
 
-/// MD5 digester.
-class MD5Digester {
- public:
-  MD5Digester() { MD5_Init(&ctx_); }
-
-  void Write(std::string_view src) {
-    MD5_Update(&ctx_, src.data(), src.size());
+void MD5Digester::Write(const absl::Cord& cord) {
+  for (std::string_view chunk : cord.Chunks()) {
+    Write(chunk);
   }
-
-  void Write(const absl::Cord & cord);
-
-  using DigestType = std::array<uint8_t, MD5_DIGEST_LENGTH>;
-
-  DigestType Digest() {
-    DigestType digest;
-    MD5_Final(digest.data(), &ctx_);
-    return digest;
-  }
-
- private:
-  MD5_CTX ctx_;
-};
+}
 
 }  // namespace internal
 }  // namespace tensorstore
-
-#endif  // TENSORSTORE_INTERNAL_DIGEST_MD5_H_
