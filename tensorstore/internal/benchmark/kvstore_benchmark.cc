@@ -383,10 +383,10 @@ void DoKvstoreBenchmark() {
   auto prepared = DoWriteBenchmark(context, kvstore_spec, &all_metrics);
   DoReadBenchmark(context, kvstore_spec, std::move(prepared), &all_metrics);
 
-  auto is_written = internal::WriteMetricCollectionToKvstore(
+  auto written = internal::WriteMetricCollectionToKvstore(
       std::move(all_metrics), absl::GetFlag(FLAGS_metric_kvstore_spec).value);
 
-  if (!is_written && !absl::GetFlag(FLAGS_per_operation_metrics)) {
+  if (!written.ok() && !absl::GetFlag(FLAGS_per_operation_metrics)) {
     internal::DumpMetrics("/tensorstore");
   }
 }
