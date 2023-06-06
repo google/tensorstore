@@ -93,7 +93,8 @@ TEST(S3KeyValueStoreTest, Basic) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec, store.spec());
   EXPECT_THAT(spec.ToJson(tensorstore::IncludeDefaults{false}),
               ::testing::Optional(
-                  MatchesJson({{"driver", kDriver}, {"bucket", bucket},
+                  MatchesJson({{"aws_region", ""},
+                               {"driver", kDriver}, {"bucket", bucket},
                                {"path", "tensorstore/test/"},
                                {"endpoint", ""}, {"profile", "default",},
                                {"requester_pays", false}})));
