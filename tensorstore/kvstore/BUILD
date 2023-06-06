@@ -5,16 +5,14 @@ package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
-EXTRA_DRIVERS = []
-
-DRIVERS = [
+DRIVER_DOCS = [
     "file",
     "gcs",
     "http",
     "memory",
     "neuroglancer_uint64_sharded",
     "ocdbt",
-] + EXTRA_DRIVERS
+]
 
 filegroup(
     name = "doc_sources",
@@ -23,9 +21,14 @@ filegroup(
         "**/*.yml",
     ]) + [
         "//tensorstore/kvstore/" + driver + ":doc_sources"
-        for driver in DRIVERS
+        for driver in DRIVER_DOCS
     ],
 )
+
+DRIVERS = DRIVER_DOCS + [
+    "gcs_grpc",
+    "gcs_http",
+]
 
 EXTRA_DRIVER_TARGETS = []
 

@@ -20,6 +20,10 @@
 #include <optional>
 #include <string>
 
+#include "absl/log/absl_log.h"
+#include "absl/strings/match.h"
+#include "absl/strings/numbers.h"
+
 namespace tensorstore {
 namespace internal {
 

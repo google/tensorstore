@@ -16,11 +16,13 @@
 
 #include <optional>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace {
 
 using ::tensorstore::internal::GetEnv;
+using ::tensorstore::internal::GetEnvValue;
 using ::tensorstore::internal::SetEnv;
 using ::tensorstore::internal::UnsetEnv;
 
@@ -37,6 +39,38 @@ TEST(GetEnvTest, Basic) {
   UnsetEnv("TENSORSTORE_TEST_ENV_VAR");
   {
     auto var = GetEnv("TENSORSTORE_TEST_ENV_VAR");
+    EXPECT_FALSE(var);
+  }
+}
+
+TEST(GetEnvTest, ParseBool) {
+  // Env is set
+  SetEnv("TENSORSTORE_TEST_ENV_VAR", "trUe");
+  {
+    EXPECT_THAT(GetEnvValue<bool>("TENSORSTORE_TEST_ENV_VAR"),
+                testing::Optional(true));
+  }
+
+  // Env is not set
+  UnsetEnv("TENSORSTORE_TEST_ENV_VAR");
+  {
+    auto var = GetEnvValue<bool>("TENSORSTORE_TEST_ENV_VAR");
+    EXPECT_FALSE(var);
+  }
+}
+
+TEST(GetEnvTest, ParseInt) {
+  // Env is set
+  SetEnv("TENSORSTORE_TEST_ENV_VAR", "123");
+  {
+    EXPECT_THAT(GetEnvValue<int>("TENSORSTORE_TEST_ENV_VAR"),
+                testing::Optional(123));
+  }
+
+  // Env is not set
+  UnsetEnv("TENSORSTORE_TEST_ENV_VAR");
+  {
+    auto var = GetEnvValue<int>("TENSORSTORE_TEST_ENV_VAR");
     EXPECT_FALSE(var);
   }
 }

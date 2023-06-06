@@ -78,7 +78,8 @@ auto& http_first_byte_latency_us =
 
 // Cached configuration from environment variables.
 struct CurlConfig {
-  bool verbose = std::getenv("TENSORSTORE_CURL_VERBOSE") != nullptr;
+  bool verbose =
+      internal::GetEnvValue<bool>("TENSORSTORE_CURL_VERBOSE").value_or(false);
   std::optional<std::string> ca_path = internal::GetEnv("TENSORSTORE_CA_PATH");
   std::optional<std::string> ca_bundle =
       internal::GetEnv("TENSORSTORE_CA_BUNDLE");
@@ -333,15 +334,15 @@ class MultiTransportImpl {
     // suggest that using a small number of streams per connection increases
     // throughput of large transfers, which is common in tensorstore.
     static long max_concurrent_streams = []() -> long {
-      auto env = internal::GetEnv("TENSORSTORE_HTTP2_MAX_CONCURRENT_STREAMS");
-      if (env) {
-        uint32_t limit = 0;
-        if (absl::SimpleAtoi(*env, &limit) && limit > 0 && limit < 1000) {
-          return limit;
+      auto limit = internal::GetEnvValue<uint32_t>(
+          "TENSORSTORE_HTTP2_MAX_CONCURRENT_STREAMS");
+      if (limit) {
+        if (*limit > 0 && *limit < 1000) {
+          return *limit;
         } else {
           ABSL_LOG(WARNING)
               << "Failed to parse TENSORSTORE_HTTP2_MAX_CONCURRENT_STREAMS: "
-              << *env;
+              << *limit;
         }
       }
       return 4;  // New default streams.

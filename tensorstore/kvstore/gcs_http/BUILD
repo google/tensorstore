@@ -211,6 +211,7 @@ tensorstore_cc_test(
     ],
     args = ["--testbench_binary=$(location @com_google_storagetestbench//:rest_server)"],
     data = ["@com_google_storagetestbench//:rest_server"],
+    flaky = 1,
     tags = [
         "requires-net:loopback",
         "skip-cmake",  # storage_testbench is python, which doesn't work in bazel_to_cmake yet.

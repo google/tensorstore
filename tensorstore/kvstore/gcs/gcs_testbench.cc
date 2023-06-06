@@ -53,7 +53,6 @@ using ::tensorstore::internal::SubprocessOptions;
 using ::tensorstore::internal_http::GetDefaultHttpTransport;
 using ::tensorstore::internal_http::HttpRequestBuilder;
 using ::tensorstore::transport_test_utils::TryPickUnusedPort;
-
 using ::google::storage::v2::Storage;
 
 StorageTestbench::StorageTestbench()
