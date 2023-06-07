@@ -542,23 +542,23 @@ class EvaluationState:
 
     library_type = get_bazel_library(key)
     if library_type is not None:
+      if self.verbose:
+        print(f"Builtin library: {target_id.as_label()}")
       library = library_type(self._evaluation_context, target_id, "builtin")
       self._loaded_libraries[key] = library
       return library
 
     library_path = self.get_source_file_path(target_id)
     if library_path is None:
-      if self.verbose:
-        print(f"Unknown library: {target_id.as_label()}")
+      print(f"Unknown library: {target_id.as_label()}")
       return IgnoredLibrary()
 
     if not pathlib.Path(library_path).exists():
-      if self.verbose:
-        print(f"Missing library: {target_id.as_label()} at {library_path}")
+      print(f"Missing library: {target_id.as_label()} at {library_path}")
       return IgnoredLibrary()
 
     if self.verbose:
-      print(f"Using library: {target_id.as_label()} at {library_path}")
+      print(f"Loading library: {target_id.as_label()} at {library_path}")
 
     scope_type = (
         BazelWorkspaceGlobals if is_workspace else BuildFileLibraryGlobals

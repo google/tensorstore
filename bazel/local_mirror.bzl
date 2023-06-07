@@ -42,7 +42,9 @@ def _local_mirror_impl(ctx):
         # Construct a file reference.
         if file in forbidden_files or file in ctx.attr.file_url or file in ctx.attr.file_content:
             fail("'%s' cannot only appear once in file_symlink, file_url, file_content" % file)
-        ctx.symlink(ctx.attr.file_symlink[file], file)
+
+        # ctx.file(file, content = ctx.read(ctx.attr.file_symlink[file]))
+        ctx.symlink(Label(ctx.attr.file_symlink[file]), file)
 
 _local_mirror = repository_rule(
     implementation = _local_mirror_impl,

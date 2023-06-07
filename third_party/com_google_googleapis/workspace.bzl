@@ -34,54 +34,8 @@ def repo():
         bazel_to_cmake = {
             "args": [
                 "--exclude-target=//:build_gen",
-                "--target=//google/storage/v2:storage_cc_grpc",
-                "--target=//google/storage/v2:storage_cc_proto",
-                "--target=//google/storage/v2:storage_proto",
+                "--target=//google/rpc:all",
+                "--target=//google/storage/v2:all",
             ],
-            "exclude": GOOGLEAPIS_EXCLUDES,
         },
     )
-
-# Above, we set --target to the storage targets, then add excludes for all paths which
-# storage does not depend on by checking with a bazel dependency query:
-# ./bazelisk.py  query -k 'deps(tensorstore/kvstore/gcs:gcs_testbench)' --output=label -k | grep googleapis
-#
-GOOGLEAPIS_EXCLUDES = [
-    "google/firebase/**",
-    "google/devtools/**",
-    "google/apps/**",
-    "google/dataflow/**",
-    "google/geo/**",
-    "google/logging/**",
-    "google/genomics/**",
-    "google/analytics/**",
-    "google/maps/**",
-    "google/area120/**",
-    "google/storagetransfer/**",
-    "google/watcher/**",
-    "google/example/**",
-    "google/cloud/**",
-    "google/monitoring/**",
-    "google/container/**",
-    "google/firestore/**",
-    "google/privacy/**",
-    "google/actions/**",
-    "google/streetview/**",
-    "google/identity/**",
-    "google/pubsub/**",
-    "google/assistant/**",
-    "google/datastore/**",
-    "google/appengine/**",
-    "google/bytestream/**",
-    "google/chromeos/**",
-    "google/longrunning/**",
-    "google/partner/**",
-    "google/networking/**",
-    "google/search/**",
-    "google/ads/**",
-    "google/spanner/**",
-    "google/home/**",
-    "google/bigtable/**",
-    "google/chat/**",
-    "grafeas/**",
-]
