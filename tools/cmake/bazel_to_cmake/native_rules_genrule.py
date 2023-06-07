@@ -29,7 +29,6 @@ from typing import List, Optional, cast
 
 from . import cmake_builder
 from .cmake_builder import CMakeBuilder
-from .cmake_builder import quote_path
 from .cmake_builder import quote_string
 from .cmake_target import CMakeDepsProvider
 from .cmake_target import CMakeTarget
@@ -99,7 +98,7 @@ def _genrule_impl(
   cmake_deps_provider = CMakeDepsProvider([cmake_target_pair.target])
   out_files: List[str] = []
   for out_target in _out_targets:
-    out_file = state.get_generated_file_path(out_target)
+    out_file = str(state.get_generated_file_path(out_target))
     out_files.append(out_file)
     _context.add_analyzed_target(
         out_target, TargetInfo(FilesProvider([out_file]), cmake_deps_provider)
@@ -117,11 +116,11 @@ def _genrule_impl(
       _context.caller_package_id.repository_id
   )
   relative_source_paths = [
-      quote_path(_get_relative_path(path, source_directory))
+      quote_string(_get_relative_path(path, str(source_directory)))
       for path in src_files
   ]
   relative_out_paths = [
-      quote_path(_get_relative_path(path, source_directory))
+      quote_string(_get_relative_path(path, str(source_directory)))
       for path in out_files
   ]
 
@@ -134,9 +133,10 @@ def _genrule_impl(
   substitutions = {
       "SRCS": " ".join(relative_source_paths),
       "OUTS": " ".join(relative_out_paths),
-      "RULEDIR": _get_relative_path(package_binary_dir, source_directory),
+      "RULEDIR": _get_relative_path(package_binary_dir, str(source_directory)),
       "GENDIR": _get_relative_path(
-          _context.resolve_output_root(_target.repository_id), source_directory
+          str(_context.resolve_output_root(_target.repository_id)),
+          str(source_directory),
       ),
   }
 
@@ -154,7 +154,7 @@ def _genrule_impl(
   cmd_text = apply_location_and_make_variable_substitutions(
       _context,
       cmd=_context.evaluate_configurable(cmd),
-      relative_to=source_directory,
+      relative_to=str(source_directory),
       custom_target_deps=cmake_deps,
       substitutions=substitutions,
       toolchains=resolved_toolchains,

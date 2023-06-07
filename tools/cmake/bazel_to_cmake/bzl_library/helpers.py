@@ -22,39 +22,40 @@ from typing import Any, Dict, List, Optional
 
 from ..cmake_builder import quote_path
 from ..cmake_builder import quote_string
+from ..cmake_repository import CMakeRepository
 from ..cmake_target import CMakeTarget
 from ..evaluation import EvaluationState
-from ..starlark.bazel_target import PackageId
-from ..starlark.bazel_target import remap_target_repo
 from ..starlark.invocation_context import InvocationContext
 from ..starlark.invocation_context import RelativeLabel
-from ..workspace import Repository
 
 _SEP = "\n        "
 
 
 def update_target_mapping(
-    repo: Repository,
-    root_package_id: PackageId,
+    repo: CMakeRepository,
     kwargs: Dict[str, Any],
 ) -> Dict[CMakeTarget, str]:
   """Updates kwargs[cmake_target_mapping] with resolved labels."""
-  cmake_name: str = kwargs["cmake_name"]
-  repo_mapping: Dict[str, str] = kwargs.get("repo_mapping", {})
+  root_package_id = repo.repository_id.get_package_id("")
   target_mapping: Optional[Dict[str, str]] = kwargs.get("cmake_target_mapping")
   reverse_target_mapping: Dict[CMakeTarget, str] = {}
   canonical_target_mapping: Dict[str, str] = {}
   if target_mapping:
-    for relative_label, cmake_target in target_mapping.items():
-      target = remap_target_repo(
-          root_package_id.parse_target(relative_label), repo_mapping
-      )
-      repo.workspace.persist_cmake_name(
-          target, cmake_name, CMakeTarget(cmake_target)
-      )
+    for relative_label, cmake_alias in target_mapping.items():
+      target = root_package_id.parse_target(relative_label)
+      target = repo.apply_repo_mapping(target)
+      # set reverse mapping
       target_str = target.as_label()
-      reverse_target_mapping.setdefault(CMakeTarget(cmake_target), target_str)
-      canonical_target_mapping[target_str] = cmake_target
+      reverse_target_mapping.setdefault(CMakeTarget(cmake_alias), target_str)
+      canonical_target_mapping[target_str] = cmake_alias
+      if target.repository_id != repo.repository_id:
+        print("target mapping resolved so to external repository")
+        continue
+      # Update persistent mapping.
+      cmake_target_pair = repo.get_cmake_target_pair(target).with_alias(
+          CMakeTarget(cmake_alias)
+      )
+      repo.set_persisted_canonical_name(target, cmake_target_pair)
   kwargs["cmake_target_mapping"] = canonical_target_mapping
   kwargs["_cmake_reverse_target_mapping"] = reverse_target_mapping
   return reverse_target_mapping

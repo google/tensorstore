@@ -16,7 +16,7 @@
 # pylint: disable=invalid-name,relative-beyond-top-level,missing-function-docstring,missing-class-docstring,g-long-lambda
 
 import json
-import os
+import pathlib
 from typing import Any, Dict, List, Optional, Tuple, TypeVar, Union, cast
 
 from .. import native_rules_genrule
@@ -26,7 +26,6 @@ from ..cmake_builder import quote_path
 from ..cmake_builder import quote_string
 from ..cmake_target import CMakeDepsProvider
 from ..cmake_target import CMakeTarget
-from ..cmake_target import label_to_generated_cmake_target
 from ..evaluation import EvaluationState
 from ..starlark.bazel_globals import BazelGlobals
 from ..starlark.bazel_globals import register_bzl_library
@@ -196,19 +195,20 @@ def _expand_template_impl(
 
   assert len(template_paths) == 1
   template_path = template_paths[0]
-  script_path = os.path.join(os.path.dirname(__file__), "expand_template.py")
+  script_path = pathlib.PurePath(__file__).parent.joinpath("expand_template.py")
+
   # Write substitutions to a file because CMake does not handle special
   # characters like "\n" in command lines properly.
-  subs_path = os.path.join(
-      state.repo.cmake_binary_dir, f"{cmake_target_pair.target}.subs.json"
+  subs_path = state.active_repo.cmake_binary_dir.joinpath(
+      f"{cmake_target_pair.target}.subs.json"
   )
   write_file_if_not_already_equal(
       subs_path,
       json.dumps(_context.evaluate_configurable(substitutions)).encode("utf-8"),
   )
   deps.append(CMakeTarget(template_path))
-  deps.append(CMakeTarget(script_path))
-  deps.append(CMakeTarget(subs_path))
+  deps.append(CMakeTarget(script_path.as_posix()))
+  deps.append(CMakeTarget(subs_path.as_posix()))
 
   builder: CMakeBuilder = _context.access(CMakeBuilder)
   builder.addtext(f"""
@@ -308,7 +308,9 @@ def _write_file_impl(
   _context.access(CMakeBuilder).addtext(
       f"\n# bazel_to_cmake wrote {out_file}\n"
   )
-  write_file_if_not_already_equal(out_file, text.encode("utf-8"))
+  write_file_if_not_already_equal(
+      pathlib.PurePath(out_file), text.encode("utf-8")
+  )
 
 
 @register_bzl_library("@bazel_skylib//rules:common_settings.bzl", build=True)
@@ -350,13 +352,12 @@ def _bool_flag_impl(
     **kwargs,
 ):
   del kwargs
-  repo = _context.access(EvaluationState).repo
+  active_repo = _context.access(EvaluationState).active_repo
 
   cmake_name = str(
-      # pylint: disable-next=protected-access
-      label_to_generated_cmake_target(_target, repo._cmake_project_name).target
+      active_repo.repository.get_cmake_target_pair(_target).target
   ).upper()
-  existing_value = repo.workspace.cmake_vars.get(cmake_name)
+  existing_value = active_repo.workspace.cmake_vars.get(cmake_name)
   default_value = _context.evaluate_configurable(build_setting_default)
   if existing_value is None:
     value = default_value
@@ -375,13 +376,12 @@ def _string_flag_impl(
     **kwargs,
 ):
   del kwargs
-  repo = _context.access(EvaluationState).repo
+  active_repo = _context.access(EvaluationState).active_repo
 
   cmake_name = str(
-      # pylint: disable-next=protected-access
-      label_to_generated_cmake_target(_target, repo._cmake_project_name).target
+      active_repo.repository.get_cmake_target_pair(_target).target
   ).upper()
-  existing_value = repo.workspace.cmake_vars.get(cmake_name)
+  existing_value = active_repo.workspace.cmake_vars.get(cmake_name)
   default_value = _context.evaluate_configurable(build_setting_default)
   if existing_value is None:
     value = default_value

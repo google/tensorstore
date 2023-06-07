@@ -54,6 +54,7 @@ from typing import Dict, List, NamedTuple, Optional, Set
 
 from .cmake_builder import CMakeBuilder
 from .cmake_builder import quote_list
+from .cmake_builder import quote_path_list
 from .cmake_target import CMakeTarget
 from .cmake_target import CMakeTargetProvider
 from .emit_cc import emit_cc_library
@@ -66,6 +67,7 @@ from .starlark.common_providers import ProtoLibraryProvider
 from .starlark.invocation_context import InvocationContext
 from .starlark.label import RelativeLabel
 from .starlark.provider import TargetInfo
+from .util import is_relative_to
 
 
 class PluginSettings(NamedTuple):
@@ -237,10 +239,9 @@ def generate_proto_library_target(
     )
     return cc_library_target
 
-  # Get our cmake name; note that proto libraries do not have aliases.
-  cmake_target_pair = state.generate_cmake_target_pair(
-      cc_library_target, alias=False
-  )
+  # Get our cmake name; proto libraries need aliases to be referenced
+  # from other source trees.
+  cmake_target_pair = state.generate_cmake_target_pair(cc_library_target)
   proto_src_files = sorted(set(proto_src_files))
 
   if not proto_src_files and not cc_deps and not import_target:
@@ -357,37 +358,37 @@ def _proto_library_impl(
 
   # Resolve deps. When using system protobuffers, well-known-proto targets need
   # 'Protobuf_IMPORT_DIRS' added to their transitive includes.
-  import_vars = ""
-  import_targets = ""
+  import_vars: Optional[str] = None
+  import_targets: List[str] = []
   for d in resolved_deps:
     if d in PROTO_REPLACEMENT_TARGETS:
       import_vars = "Protobuf_IMPORT_DIRS"
     state.get_optional_target_info(d)
-    import_targets += f"{state.generate_cmake_target_pair(d).target} "
+    import_targets.append(f"{state.generate_cmake_target_pair(d).target}")
 
   # In order to propagate the includes to our compile targets, each
   # proto_library() becomes a custom CMake target which contains an
   # INTERFACE_INCLUDE_DIRECTORIES property which can be used by the protoc
   # compiler.
-  repo = state.workspace.repos.get(_target.repository_id)
+  repo = state.workspace.all_repositories.get(_target.repository_id)
   assert repo is not None
   source_dir = repo.source_directory
   bin_dir = repo.cmake_binary_dir
   if strip_import_prefix:
-    source_dir = str(
-        pathlib.PurePosixPath(source_dir).joinpath(strip_import_prefix)
-    )
-    bin_dir = str(pathlib.PurePosixPath(bin_dir).joinpath(strip_import_prefix))
-  includes = set()
-  for path in state.get_targets_file_paths(resolved_srcs):
-    if path.startswith(source_dir):
-      includes.add(source_dir)
-    if path.startswith(bin_dir):
-      includes.add(bin_dir)
+    source_dir = source_dir.joinpath(strip_import_prefix)
+    bin_dir = bin_dir.joinpath(strip_import_prefix)
 
+  includes: Set[str] = set()
+  for path in state.get_targets_file_paths(resolved_srcs):
+    if is_relative_to(pathlib.PurePath(path), source_dir):
+      includes.add(source_dir.as_posix())
+    if is_relative_to(pathlib.PurePath(path), bin_dir):
+      includes.add(bin_dir.as_posix())
+
+  includes: List[str] = list(sorted(includes))
   includes_name = f"{cmake_name}_IMPORT_DIRS"
   includes_literal = "${" + includes_name + "}"
-  quoted_srcs = quote_list(sorted(set(proto_src_files)), separator=_SEP)
+  quoted_srcs = quote_path_list(sorted(set(proto_src_files)), separator=_SEP)
 
   out = io.StringIO()
   out.write(f"""
@@ -398,12 +399,16 @@ target_sources({cmake_name} INTERFACE{_SEP}{quoted_srcs})""")
     out.write(f"""
 btc_transitive_import_dirs(
     OUT_VAR {includes_name}
-    IMPORT_DIRS {quote_list(sorted(includes))}
-    IMPORT_TARGETS {import_targets}
-    IMPORT_VARS {import_vars}
-)""")
-  else:
-    out.write(f"\nlist(APPEND {includes_name} {quote_list(sorted(includes))})")
+    IMPORT_DIRS {quote_path_list(includes)}
+""")
+    if import_targets:
+      out.write(f"    IMPORT_TARGETS {' '.join(import_targets)}\n")
+    if import_vars:
+      out.write(f"    IMPORT_VARS {import_vars}\n")
+    out.write(")")
+
+  if includes:
+    out.write(f"\nlist(APPEND {includes_name} {quote_path_list(includes)})")
   out.write(f"""
 set_property(TARGET {cmake_name} PROPERTY INTERFACE_INCLUDE_DIRECTORIES {includes_literal})
 """)

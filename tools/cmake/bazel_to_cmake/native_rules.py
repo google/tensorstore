@@ -21,11 +21,11 @@ https://github.com/bazelbuild/bazel/tree/master/src/main/starlark/builtins_bzl/c
 """
 
 # pylint: disable=relative-beyond-top-level,invalid-name,missing-function-docstring,g-long-lambda
-
-from typing import Dict, List, Optional
+import pathlib
+from typing import Dict, List, Optional, Set
 
 from .cmake_builder import CMakeBuilder
-from .cmake_builder import quote_list
+from .cmake_builder import quote_path_list
 from .cmake_target import CMakeDepsProvider
 from .cmake_target import CMakeTarget
 from .evaluation import EvaluationState
@@ -40,6 +40,7 @@ from .starlark.invocation_context import InvocationContext
 from .starlark.label import RelativeLabel
 from .starlark.provider import Provider
 from .starlark.provider import TargetInfo
+from .util import is_relative_to
 
 
 @register_native_build_rule
@@ -87,7 +88,7 @@ def glob(
     allow_empty: bool = True,
 ) -> List[str]:
   package_directory = self.get_source_package_dir(self.caller_package_id)
-  return starlark_glob(package_directory, include, exclude, allow_empty)
+  return starlark_glob(str(package_directory), include, exclude, allow_empty)
 
 
 @register_native_build_rule
@@ -130,20 +131,22 @@ def _filegroup_impl(
   srcs_files = state.get_targets_file_paths(resolved_srcs, cmake_deps)
 
   # Also add an INTERFACE_LIBRARY in order to reference in compile targets.
-  repo = state.workspace.repos.get(_target.repository_id)
+  repo = state.workspace.all_repositories.get(_target.repository_id)
   assert repo is not None
+
   source_dir = repo.source_directory
   bin_dir = repo.cmake_binary_dir
-  includes = set()
+  includes: Set[str] = set()
   for path in state.get_targets_file_paths(resolved_srcs):
-    if path.startswith(source_dir):
-      includes.add(source_dir)
-    if path.startswith(bin_dir):
-      includes.add(bin_dir)
+    if is_relative_to(pathlib.PurePath(path), source_dir):
+      includes.add(source_dir.as_posix())
+    if is_relative_to(pathlib.PurePath(path), bin_dir):
+      includes.add(bin_dir.as_posix())
 
+  includes: List[str] = list(sorted(includes))
   includes_name = f"{cmake_name}_IMPORT_DIRS"
   includes_literal = "${" + includes_name + "}"
-  quoted_srcs = quote_list(
+  quoted_srcs = quote_path_list(
       sorted(set(srcs_files)), separator="\n               "
   )
 
@@ -152,7 +155,7 @@ def _filegroup_impl(
 add_library({cmake_name} INTERFACE)
 target_sources({cmake_name} INTERFACE
                {quoted_srcs})
-list(APPEND {includes_name} {quote_list(sorted(includes))})
+list(APPEND {includes_name} {quote_path_list(includes)})
 set_property(TARGET {cmake_name} PROPERTY INTERFACE_INCLUDE_DIRECTORIES {includes_literal})
 """
 

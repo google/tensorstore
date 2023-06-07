@@ -24,6 +24,7 @@ from .cmake_target import CMakeTargetProvider
 from .evaluation import EvaluationState
 from .starlark.bazel_globals import register_native_build_rule
 from .starlark.bazel_target import TargetId
+from .starlark.common_providers import ProtoLibraryProvider
 from .starlark.invocation_context import InvocationContext
 from .starlark.label import RelativeLabel
 from .starlark.select import Configurable
@@ -62,25 +63,23 @@ def _alias_impl(
     # When this is an alias to another repository, don't add a CMake ALIAS.
     return
 
-  alias_target = target_info.get(CMakeTargetProvider)
-  if alias_target is None or alias_target.target is None:
-    # When there is no CMake target, don't add a CMake ALIAS.
-    # NOTE: We might want to alias proto_library().
-    return
-
   state = _context.access(EvaluationState)
-  cmake_target_pair = state.generate_cmake_target_pair(_target)
 
-  if cmake_target_pair.target == alias_target.target:
-    # Don't alias, when, unexpectedly, the targets have the same name.
-    return
+  resolved_provider = target_info.get(CMakeTargetProvider)
+  if resolved_provider is not None:
+    # When the rule resolves to a CMakeTarget, emit an alias for that target.
+    _emit_cmake_alias(
+        _context,
+        f"\n# {_target.as_label()} (alias)\n",
+        state.generate_cmake_target_pair(_target),
+        resolved_provider.target,
+    )
 
-  _emit_cmake_alias(
-      _context,
-      f"\n# {_target.as_label()}\n",
-      cmake_target_pair,
-      alias_target.target,
-  )
+  if target_info.get(ProtoLibraryProvider) is not None:
+    # Add aliases for proto targets after everything else.
+    state.call_after_analysis(
+        lambda: _add_proto_aliases(_context, _target, resolved)
+    )
 
 
 def _emit_cmake_alias(
@@ -89,9 +88,40 @@ def _emit_cmake_alias(
     source: CMakeTargetPair,
     dest: CMakeTarget,
 ):
+  # Don't emit an alias for self.
+  if source.target == dest:
+    return
   builder = _context.access(CMakeBuilder)
   if prefix_str:
     builder.addtext(prefix_str)
   builder.addtext(f"add_library({source.target} ALIAS {dest})\n")
   if source.alias:
     builder.addtext(f"add_library({source.alias} ALIAS {dest})\n")
+
+
+def _add_proto_aliases(
+    _context: InvocationContext, _target: TargetId, resolved: TargetId
+):
+  state = _context.access(EvaluationState)
+  comment = f"\n# {_target.as_label()} (proto alias)\n"
+
+  for plugin in ["cpp", "upb", "upbdefs"]:
+    # See if the resolved target has proto libraries.
+    dest_plugin = resolved.get_target_id(
+        f"{resolved.target_name}__{plugin}_library"
+    )
+    source_plugin = _target.get_target_id(
+        f"{_target.target_name}__{plugin}_library"
+    )
+    # Add an alias only if the dest does not exist and the source does.
+    if (
+        state.get_optional_target_info(dest_plugin) is not None
+        and state.get_optional_target_info(source_plugin) is None
+    ):
+      _emit_cmake_alias(
+          _context,
+          comment,
+          state.generate_cmake_target_pair(source_plugin),
+          state.generate_cmake_target_pair(dest_plugin, alias=False).target,
+      )
+      comment = ""

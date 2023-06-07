@@ -24,10 +24,10 @@ import re
 import shlex
 from typing import Dict, List, Optional, Set, Tuple, Union
 
-from .cmake_target import CMakeTarget
+from .cmake_repository import CMakeRepository
+from .cmake_target import CMakePackage
 from .cmake_target import CMakeTargetPair
-from .cmake_target import label_to_generated_cmake_target
-from .starlark.bazel_target import parse_absolute_target
+from .starlark.bazel_target import PackageId
 from .starlark.bazel_target import RepositoryId
 from .starlark.bazel_target import TargetId
 from .starlark.provider import TargetInfo
@@ -69,16 +69,21 @@ class Workspace:
 
   def __init__(
       self,
+      root_repository: CMakeRepository,
       cmake_vars: Dict[str, str],
       save_workspace: Optional[str] = None,
   ):
+    # Known repositories.
+    self.root_repository: CMakeRepository = root_repository
+    self.all_repositories: Dict[RepositoryId, CMakeRepository] = {}
+    self.all_repositories[root_repository.repository_id] = root_repository
+
     # Variables provided by CMake.
-    self.cmake_vars = cmake_vars
+    self.cmake_vars: Dict[str, str] = cmake_vars
     self.save_workspace = save_workspace
+
     # Maps bazel repo names to CMake project name/prefix.
-    self._bazel_to_cmake_name: Dict[RepositoryId, str] = {}
-    self.repos: Dict[RepositoryId, Repository] = {}
-    self.repo_cmake_packages: Set[str] = set()
+    self.active_repository: Optional["Repository"] = None
     self.host_platform_name = _PLATFORM_NAME_TO_BAZEL_PLATFORM.get(
         platform.system()
     )
@@ -88,36 +93,58 @@ class Workspace:
     self.cdefines: List[str] = []
     self.ignored_libraries: Set[TargetId] = set()
     self._modules: Set[str] = set()
+
     # _persisted_targets persist TargetInfo; these are resolved through
     # EvaluationState.get_optional_target_info() and provide a TargetInfo.
     self._persisted_target_info: Dict[TargetId, TargetInfo] = {}
-    # _persisted_cmake_name are only cmake names; they are resolved
-    # in EvaluationState.get_dep / EvaluationState.generate_cmake_target_pair,
-    # and thus provide a persistent target to name mapping.
-    self._persisted_canonical_name: Dict[TargetId, CMakeTargetPair] = {}
 
     # Log level
-    self._verbose = cmake_logging_verbose_level(
+    self._verbose: int = cmake_logging_verbose_level(
         cmake_vars.get("CMAKE_MESSAGE_LOG_LEVEL")
     )
     if self._verbose > 1:
       print(json.dumps(cmake_vars, sort_keys=True, indent="  "))
 
-  def set_cmake_package_name(
-      self, repository_id: RepositoryId, cmake_project_name: str
-  ):
-    """Sets the CMake project name associated with a Bazel repository."""
-    if repository_id in self._bazel_to_cmake_name:
-      assert self._bazel_to_cmake_name[repository_id] == cmake_project_name
+  @property
+  def verbose(self) -> int:
+    return self._verbose
+
+  def add_cmake_repository(self, repository: CMakeRepository):
+    """Adds a repository to the workspace."""
+    assert repository.cmake_project_name
+
+    exists = self.all_repositories.get(repository.repository_id, None)
+    if exists:
+      assert not exists.source_directory
+      assert not exists.cmake_binary_dir
+      repository.persisted_canonical_name.update(
+          exists.persisted_canonical_name
+      )
+      repository.repo_mapping.update(exists.repo_mapping)
+      if self._verbose:
+        print(f"Workspace updating repository {repository.repository_id}")
     elif self._verbose:
-      print(f"Workspace mapping {repository_id} => {cmake_project_name}")
-    self._bazel_to_cmake_name[repository_id] = cmake_project_name
+      print(
+          f"Workspace adding repository {repository.repository_id} =>"
+          f" {repository.cmake_project_name}"
+      )
+
+    self.all_repositories[repository.repository_id] = repository
 
   def get_cmake_package_name(
-      self, repository_id: RepositoryId
+      self, target: Union[RepositoryId, PackageId, TargetId]
   ) -> Optional[str]:
-    """Gets the CMake project name associated with a Bazel repository."""
-    return self._bazel_to_cmake_name.get(repository_id)
+    repo = self.all_repositories.get(target.repository_id, None)
+    if repo:
+      return repo.cmake_project_name
+
+  def get_persisted_canonical_name(
+      self, target: TargetId
+  ) -> Optional[CMakeTargetPair]:
+    repo = self.all_repositories.get(target.repository_id, None)
+    if repo:
+      return repo.persisted_canonical_name.get(target)
+    return None
 
   def set_persistent_target_info(self, target: TargetId, info: TargetInfo):
     """Records a persistent mapping from Target to TargetInfo.
@@ -130,53 +157,6 @@ class Workspace:
       if self._verbose > 1:
         print(f"Persisting {target} => {repr(info)}")
       self._persisted_target_info[target] = info
-
-  def set_persisted_canonical_name(
-      self, target: TargetId, cmake_target_pair: CMakeTargetPair
-  ):
-    """Records a persistent mapping from Target to CMakeTargetPair.
-
-    Generally this is used to set global build settings and cmake aliases.
-    """
-    assert cmake_target_pair.cmake_package is not None
-    self.set_cmake_package_name(
-        target.repository_id, cmake_target_pair.cmake_package
-    )
-    if target in self._persisted_canonical_name:
-      print(f"Target exists {target.as_label()} => {repr(cmake_target_pair)}")
-    else:
-      if self._verbose > 1:
-        print(f"Persisting {target.as_label()} => {repr(cmake_target_pair)}")
-      self._persisted_canonical_name[target] = cmake_target_pair
-
-  def persist_cmake_name(
-      self,
-      target: Union[str, TargetId],
-      cmake_package: str,
-      cmake_alias: CMakeTarget,
-      cmake_target: Optional[CMakeTarget] = None,
-  ):
-    """Records a mapping from a Bazel target to a CMake target.
-
-    Typically the persistent name will be a cmake_package and a cmake_alias,
-    allowing the cmake_target to be autogenerated.
-    """
-    if not isinstance(target, TargetId):
-      target = parse_absolute_target(str(target))
-    assert isinstance(target, TargetId)
-    assert cmake_package
-
-    if cmake_target is not None and cmake_alias is not None:
-      self.set_persisted_canonical_name(
-          target, CMakeTargetPair(cmake_package, cmake_target, cmake_alias)
-      )
-    else:
-      self.set_persisted_canonical_name(
-          target,
-          label_to_generated_cmake_target(target, cmake_package).with_alias(
-              cmake_alias
-          ),
-      )
 
   def ignore_library(self, target: TargetId) -> None:
     """Marks a bzl library to be ignored.
@@ -294,31 +274,51 @@ class Repository:
   def __init__(
       self,
       workspace: Workspace,
-      bazel_repo_name: str,
-      cmake_project_name: str,
-      cmake_binary_dir: str,
-      source_directory: str,
+      repository: CMakeRepository,
+      bindings: Dict[TargetId, TargetId],
       top_level: bool,
   ):
-    assert workspace
-    assert bazel_repo_name
-    self.workspace = workspace
-    self.repository_id = RepositoryId(bazel_repo_name)
-    self._cmake_project_name = cmake_project_name
-    self.cmake_binary_dir = str(pathlib.PurePath(cmake_binary_dir).as_posix())
-    self.source_directory = str(pathlib.PurePath(source_directory).as_posix())
-    self.repo_mapping: Dict[str, str] = {}
-    self.top_level = top_level
-    self.bindings: Dict[TargetId, TargetId] = {}
-    workspace.repos[self.repository_id] = self
-    if top_level:
-      workspace.repos[RepositoryId("")] = self
-    workspace.repo_cmake_packages.add(cmake_project_name)
-    workspace.set_cmake_package_name(
-        self.repository_id, self._cmake_project_name
-    )
-    if workspace._verbose:  # pylint: disable=protected-access
-      print(repr(self))
+    self._workspace: Workspace = workspace
+    self._repository: CMakeRepository = repository
+    self._bindings: Dict[TargetId, TargetId] = bindings
+    self.top_level: bool = top_level
 
-  def __repr__(self):
-    return f"<{self.__class__.__name__}>: {self.__dict__}"
+    # Check fidelity of workspace.
+    assert repository.repository_id in workspace.all_repositories
+    assert workspace.all_repositories[repository.repository_id] == repository
+
+    workspace.active_repository = self
+    if workspace.verbose:
+      print(f"ActiveRepository: {repr(self)}")
+
+  @property
+  def workspace(self) -> Workspace:
+    return self._workspace
+
+  @property
+  def repository(self) -> CMakeRepository:
+    return self._repository
+
+  @property
+  def bindings(self) -> Dict[TargetId, TargetId]:
+    return self._bindings
+
+  @property
+  def repository_id(self) -> RepositoryId:
+    return self._repository.repository_id
+
+  @property
+  def cmake_project_name(self) -> CMakePackage:
+    return self._repository.cmake_project_name
+
+  @property
+  def source_directory(self) -> pathlib.PurePath:
+    return self._repository.source_directory
+
+  @property
+  def cmake_binary_dir(self) -> pathlib.PurePath:
+    return self._repository.cmake_binary_dir
+
+  @property
+  def repo_mapping(self) -> Dict[RepositoryId, RepositoryId]:
+    return self._repository.repo_mapping

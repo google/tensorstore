@@ -18,9 +18,10 @@
 import argparse
 import json
 import os
+import pathlib
 import pickle
 import sys
-from typing import List, Set, Union
+from typing import List, Set, Union, Dict
 
 from . import cmake_builder
 from . import native_rules  # pylint: disable=unused-import
@@ -29,9 +30,13 @@ from . import native_rules_cc  # pylint: disable=unused-import
 from . import native_rules_genrule  # pylint: disable=unused-import
 from . import native_rules_proto  # pylint: disable=unused-import
 from .bzl_library import default as _  # pylint: disable=unused-import
+from .cmake_repository import CMakeRepository
+from .cmake_repository import make_repo_mapping
+from .cmake_target import CMakePackage
 from .cmake_target import CMakeTargetPair
 from .evaluation import EvaluationState
 from .platforms import add_platform_constraints
+from .starlark.bazel_target import RepositoryId
 from .starlark.bazel_target import TargetId
 from .starlark.common_providers import BuildSettingProvider
 from .starlark.common_providers import ConditionProvider
@@ -59,6 +64,26 @@ def maybe_expand_special_targets(
   else:
     result.append(t)
   return result
+
+
+def get_bindings_from_args(
+    repository_id: RepositoryId,
+    args: argparse.Namespace,
+) -> Dict[TargetId, TargetId]:
+  # Add repository bindings. These provide the "native.bind" equivalent,
+  # and are resolved after repo mappings. Unlike native.bind, they are
+  # not restricted to only bind //external:name = alias values.
+  bindings: Dict[TargetId, TargetId] = {}
+  for name in args.bind:
+    i = name.find("=")
+    assert i > 0
+    target = repository_id.get_package_id("external").parse_target(name[:i])
+    actual = repository_id.parse_target(name[i + 1 :])
+    if args.verbose:
+      print(f"--bind {target.as_label()}={actual.as_label()}")
+    assert target not in bindings
+    bindings[target] = actual
+  return bindings
 
 
 def main():
@@ -90,6 +115,17 @@ def main():
 
   args = ap.parse_args()
 
+  assert args.bazel_repo_name
+  repository_id: RepositoryId = RepositoryId(args.bazel_repo_name)
+  current_repository: CMakeRepository = CMakeRepository(
+      repository_id=repository_id,
+      cmake_project_name=CMakePackage(args.cmake_project_name),
+      source_directory=pathlib.PurePath(os.getcwd()),
+      cmake_binary_dir=pathlib.PurePath(args.cmake_binary_dir),
+      repo_mapping=make_repo_mapping(repository_id, args.repo_mapping),
+      persisted_canonical_name={},
+  )
+
   if args.load_workspace:
     # This is a dependency.  Load the workspace from the top-level project in
     # order to be able to access targets (such as `config_setting` targets) that
@@ -99,7 +135,28 @@ def main():
     with open(args.load_workspace, "rb") as f:
       workspace = pickle.load(f)
       assert isinstance(workspace, Workspace)
+
+    assert repository_id in workspace.all_repositories
+    loaded: CMakeRepository = workspace.all_repositories[repository_id]
+
+    assert loaded.cmake_project_name == current_repository.cmake_project_name
+    if (
+        loaded.source_directory.as_posix()
+        != current_repository.source_directory.as_posix()
+        or loaded.cmake_binary_dir.as_posix()
+        != current_repository.cmake_binary_dir.as_posix()
+    ):
+      print(
+          "WARNING: bazel_to_cmake repository configuration mismatch for:"
+          f" {repository_id}\n"
+          f"From workspace:\n{loaded}\n"
+          f"From commandline:\n{current_repository}"
+      )
+      assert False
+
+    current_repository = loaded
   else:
+    # This is the root repository.
     assert args.cmake_vars is not None
     try:
       with open(args.cmake_vars, "r", encoding="utf-8") as f:
@@ -111,7 +168,9 @@ def main():
     assert isinstance(cmake_vars, dict)
 
     workspace = Workspace(
-        cmake_vars=cmake_vars, save_workspace=args.save_workspace
+        root_repository=current_repository,
+        cmake_vars=cmake_vars,
+        save_workspace=args.save_workspace,
     )
     add_platform_constraints(workspace)
     workspace.values.update(("define", x) for x in args.define)
@@ -129,50 +188,18 @@ def main():
 
   workspace.load_modules()
 
-  # TODO: The current mechanism of processing a single repository at once limits
-  # loading of .bzl files from cross repository locations.  This could be
-  # allowed in more cases by changing how Repository / library loading works
-  # to create a better mapping ahead of time.
-  #
-  # Hoewever, the general case needs topological ordering as it requires the
-  # repository to be downloaded in order to read the files from it.
-  repo = Repository(
+  for target in args.ignore_library:
+    workspace.ignore_library(repository_id.parse_target(target))
+
+  active_repo = Repository(
       workspace=workspace,
-      source_directory=os.getcwd(),
-      bazel_repo_name=args.bazel_repo_name,
-      cmake_project_name=args.cmake_project_name,
-      cmake_binary_dir=args.cmake_binary_dir,
+      repository=current_repository,
+      bindings=get_bindings_from_args(repository_id, args),
       top_level=args.save_workspace is not None,
   )
+  state = EvaluationState(active_repo)
 
-  for target in args.ignore_library:
-    workspace.ignore_library(repo.repository_id.parse_target(target))
-
-  state = EvaluationState(repo)
-
-  for x, y in args.repo_mapping:
-    assert x.startswith("@")
-    if y.startswith("@"):
-      y = y[1:]
-    repo.repo_mapping[x[1:]] = y
-
-  # Add repository bindings. These provide the "native.bind" equivalent,
-  # and are resolved after repo mappings. Unlike native.bind, they are
-  # not restricted to only bind //external:name = alias values.
-  for name in args.bind:
-    i = name.find("=")
-    assert i > 0
-    target = repo.repository_id.get_package_id("external").parse_target(
-        name[:i]
-    )
-    actual = repo.repository_id.parse_target(name[i + 1 :])
-    assert target not in repo.bindings
-    repo.bindings[target] = actual
-    # pylint: disable-next=protected-access
-    if workspace._verbose:
-      print(f"bind: {target.as_label()} -> {actual.as_label()}")
-
-  if repo.top_level:
+  if active_repo.top_level:
     # Load the WORKSPACE file
     state.process_workspace()
 
@@ -180,7 +207,7 @@ def main():
   include_packages = args.include_package or ["**"]
   exclude_packages = args.exclude_package or []
   build_files = get_matching_build_files(
-      root_dir=repo.source_directory,
+      root_dir=active_repo.source_directory,
       include_packages=include_packages,
       exclude_packages=exclude_packages,
   )
@@ -189,12 +216,12 @@ def main():
 
   if not build_files:
     raise ValueError(
-        f"No build files in {repo.source_directory!r} match "
+        f"No build files in {active_repo.source_directory!r} match "
         + f"include_packages={include_packages!r} and "
         + f"exclude_packages={exclude_packages!r}"
     )
   for build_file in build_files:
-    state.process_build_file(build_file)
+    state.process_build_file(pathlib.PurePath(build_file))
 
   # Analyze the requested or default targets.
   default_targets_to_analyze = set(state.targets_to_analyze)
@@ -203,7 +230,8 @@ def main():
     for t in args.target:
       targets_to_analyze.update(
           maybe_expand_special_targets(
-              repo.repository_id.parse_target(t), default_targets_to_analyze
+              active_repo.repository_id.parse_target(t),
+              default_targets_to_analyze,
           )
       )
   else:
@@ -212,17 +240,17 @@ def main():
   if args.exclude_target:
     for t in args.exclude_target:
       for u in maybe_expand_special_targets(
-          repo.repository_id.parse_target(t), targets_to_analyze
+          active_repo.repository_id.parse_target(t), targets_to_analyze
       ):
         targets_to_analyze.discard(u)
 
   state.analyze(sorted(targets_to_analyze))
 
   # In verbose mode, print any global targets that have not been analyzed.
-  if workspace._verbose and args.target:
+  if workspace.verbose and args.target:
     missing = []
-    for t in workspace._persisted_canonical_name.keys():
-      if t.repository_id == repo.repository_id and t not in targets_to_analyze:
+    for t in active_repo.repository.persisted_canonical_name.keys():
+      if t not in targets_to_analyze:
         missing.append(t.as_label())
     if missing:
       missing = " ".join(missing)
@@ -280,11 +308,20 @@ bazel_to_cmake.py encountered errors
 
     # * third_party cmake target names.
     def _persist_cmakepairs(target: TargetId, cmake_pair: CMakeTargetPair):
-      if target.repository_id != repo.repository_id:
-        workspace.set_persisted_canonical_name(target, cmake_pair)
+      if target.repository_id != current_repository.repository_id:
+        workspace.all_repositories[
+            target.repository_id
+        ].set_persisted_canonical_name(target, cmake_pair)
 
-    state.visit_cmake_dep_pairs(_persist_cmakepairs)
+    state.visit_required_dep_targets(_persist_cmakepairs)
 
+    # Validate that all repositories have source and cmake directories set
+    # prior to pickling, then clear the active_repository to avoid pickling.
+    for _, x in workspace.all_repositories.items():
+      assert x.source_directory
+      assert x.cmake_binary_dir
+
+    workspace.active_repository = None
     with open(args.save_workspace, "wb") as f:
       pickle.dump(workspace, f)
 

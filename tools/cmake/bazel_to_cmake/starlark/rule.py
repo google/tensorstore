@@ -19,7 +19,7 @@ Currently this just supports a very limited set of functionality.
 """
 
 # pylint: disable=relative-beyond-top-level,missing-function-docstring,protected-access,invalid-name,g-importing-member,g-short-docstring-punctuation
-
+import pathlib
 from typing import Any, Callable, Dict, List, NamedTuple, Optional, cast
 
 from ..util import write_file_if_not_already_equal
@@ -51,7 +51,9 @@ class RuleCtxActions:
     self._ctx = ctx
 
   def write(self, output: File, content: str):
-    write_file_if_not_already_equal(output.path, content.encode("utf-8"))
+    write_file_if_not_already_equal(
+        pathlib.PurePath(output.path), content.encode("utf-8")
+    )
 
 
 class RuleCtx:
@@ -266,7 +268,7 @@ def _rule_impl(
     attr_impls: List[Callable[[RuleCtx], None]],
     implementation: Callable[[RuleCtx], Any],
 ):
-  ctx = RuleCtx(_context, Label(target, _context.resolve_source_root))
+  ctx = RuleCtx(_context, Label(target, _context.workspace_root_for_label))
   for attr in attr_impls:
     attr(ctx)
   _context.add_analyzed_target(target, TargetInfo())

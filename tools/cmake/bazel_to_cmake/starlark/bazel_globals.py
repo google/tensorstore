@@ -66,11 +66,11 @@ class BazelGlobals(dict):
     # package where the .bzl or BUILD file lives, not by the caller.
     assert isinstance(label_string, str)
     repository_id = self._target_id.repository_id
-    target_id = self._context.resolve_repo_mapping(
+    target_id = self._context.apply_repo_mapping(
         repository_id.parse_target(label_string), repository_id
     )
 
-    return Label(target_id, self._context.resolve_source_root)
+    return Label(target_id, self._context.workspace_root_for_label)
 
   def bazel_load(self, target: RelativeLabel, *args, **kwargs):
     library_target = self._context.resolve_target_or_label(target)

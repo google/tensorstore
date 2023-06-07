@@ -69,6 +69,7 @@ Similar to the real Bazel, evaluation is performed in several phases:
 # pylint: disable=relative-beyond-top-level,protected-access,missing-function-docstring,invalid-name,g-doc-args,g-doc-return-or-yield
 
 import ast
+import collections
 import copy
 import enum
 import functools
@@ -81,11 +82,11 @@ from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Se
 from . import cmake_builder
 from .cmake_builder import CMakeBuilder
 from .cmake_target import CMakeDepsProvider
+from .cmake_target import CMakePackage
 from .cmake_target import CMakePackageDepsProvider
 from .cmake_target import CMakeTarget
 from .cmake_target import CMakeTargetPair
 from .cmake_target import CMakeTargetPairProvider
-from .cmake_target import label_to_generated_cmake_target
 from .package import Package
 from .package import Visibility
 from .starlark.bazel_globals import BazelWorkspaceGlobals
@@ -93,7 +94,6 @@ from .starlark.bazel_globals import BuildFileGlobals
 from .starlark.bazel_globals import BuildFileLibraryGlobals
 from .starlark.bazel_globals import get_bazel_library
 from .starlark.bazel_target import PackageId
-from .starlark.bazel_target import remap_target_repo
 from .starlark.bazel_target import RepositoryId
 from .starlark.bazel_target import TargetId
 from .starlark.common_providers import BuildSettingProvider
@@ -107,6 +107,7 @@ from .starlark.select import Configurable
 from .starlark.select import Select
 from .starlark.select import SelectExpression
 from .util import cmake_is_true
+from .util import is_relative_to
 from .workspace import Repository
 from .workspace import Workspace
 
@@ -119,10 +120,9 @@ RuleImpl = Callable[[], None]
 
 
 class RuleInfo(NamedTuple):
+  mnemonic: Optional[str]  # Only used for debugging currently.
   outs: List[TargetId]
   impl: RuleImpl
-  kind: Optional[str]
-  create_stack: Any
 
 
 class Phase(enum.Enum):
@@ -131,10 +131,13 @@ class Phase(enum.Enum):
   ANALYZE = 3
 
 
-def _get_kind(currentframe) -> Optional[str]:
+def _get_mnemonic(currentframe) -> Optional[str]:
+  """Returns a mnemonic from currentframe."""
   if not currentframe:
     return None
+  # pytype: disable=attribute-error
   kind = currentframe.f_back.f_back.f_code.co_name
+  # pytype: enable=attribute-error
   if kind.startswith("bazel_"):
     kind = kind[len("bazel_") :]
   return kind
@@ -143,35 +146,51 @@ def _get_kind(currentframe) -> Optional[str]:
 class EvaluationState:
   """State used while evaluating Starlark code."""
 
-  def __init__(self, repo: Repository):
-    self.repo = repo
-    self.workspace: Workspace = repo.workspace
+  def __init__(self, active_repo: Repository):
+    self.active_repo: Repository = active_repo
     self.builder = CMakeBuilder()
     self._evaluation_context = EvaluationContext(
-        self, self.repo.repository_id.get_package_id("")
+        self, self.active_repo.repository_id.get_package_id("")
+    )
+    self.public_only = not (
+        self.active_repo.top_level
+        and cmake_is_true(self.workspace.cmake_vars["PROJECT_IS_TOP_LEVEL"])
     )
     self.loaded_files: Set[str] = set()
     self._loaded_libraries: Dict[Tuple[TargetId, bool], Dict[str, Any]] = dict()
     self._wrote_dummy_source = False
-    self.required_dep_packages: Set[str] = set()
     self.errors: List[str] = []
-    # Tracks CMakeTargetPairs provided by get_dep() which don't have
-    # corresponding rules in this repo.
-    self._cmake_dep_pairs: Dict[TargetId, CMakeTargetPair] = {}
+    # Track CMakePackage dependencies.
+    self._required_dep_packages: Set[CMakePackage] = set()
+    # Track CMakeTargetPair dependencies
+    self._required_dep_targets: Dict[TargetId, CMakeTargetPair] = {}
     # Maps targets to their rules.
     self._unanalyzed_rules: Set[TargetId] = set()
     self._all_rules: Dict[TargetId, RuleInfo] = {}
     self._unanalyzed_targets: Dict[TargetId, TargetId] = {}
     self._targets_to_analyze: Set[TargetId] = set()
     self._analyzed_targets: Dict[TargetId, TargetInfo] = {}
-    self._call_after_workspace_loading: List[Callable[[], None]] = []
-    self._call_after_analysis: List[Callable[[], None]] = []
-    self.public_only = not (
-        self.repo.top_level
-        and cmake_is_true(self.workspace.cmake_vars["PROJECT_IS_TOP_LEVEL"])
-    )
+    self._call_after_workspace_loading = collections.deque()
+    self._call_after_analysis = collections.deque()
+    self._stack = collections.deque()
     self._phase: Phase = Phase.LOADING_WORKSPACE
-    self._verbose = self.workspace._verbose
+
+  def __repr__(self):
+    return (
+        f"<{self.__class__.__name__}>: "
+        "{\n"
+        f"  _stack: {repr(self._stack)},\n"
+        f"  _repo: {repr(self.active_repo.repository)},\n"
+        "}\n"
+    )
+
+  @property
+  def workspace(self) -> Workspace:
+    return self.active_repo.workspace
+
+  @property
+  def verbose(self) -> int:
+    return self.active_repo.workspace.verbose
 
   @property
   def targets_to_analyze(self) -> List[TargetId]:
@@ -185,17 +204,20 @@ class EvaluationState:
     """
     self._phase = Phase.ANALYZE
     for target in targets:
-      if self._verbose:
+      if self.verbose:
         print(f"Analyze: {target.as_label()}")
       assert isinstance(target, TargetId)
       self.get_target_info(target)
 
-    for package in sorted(self.required_dep_packages):
+    for package in sorted(self._required_dep_packages):
       self.builder.find_package(
           package, section=cmake_builder.FIND_DEP_PACKAGE_SECTION
       )
 
-    for callback in self._call_after_analysis:
+    if self.verbose > 1 and self._call_after_analysis:
+      print(f"call_after_analysis: {len(self._call_after_analysis)}")
+    while self._call_after_analysis:
+      callback = self._call_after_analysis.pop()
       callback()
 
   def add_rule(
@@ -217,15 +239,13 @@ class EvaluationState:
     assert isinstance(rule_id, TargetId), f"Requires TargetId: {repr(rule_id)}"
     if rule_id in self._all_rules:
       raise ValueError(f"Duplicate rule: {rule_id.as_label()}")
-    if self._verbose:
-      print(f"Rule: {rule_id.as_label()}")
-
     if outs is None:
       outs = []
 
     # kind is assigned from caller function name
     currentframe = inspect.currentframe()
-    r = RuleInfo(outs, impl, _get_kind(currentframe), currentframe)
+    r = RuleInfo(mnemonic=_get_mnemonic(currentframe), outs=outs, impl=impl)
+    del currentframe
     self._all_rules[rule_id] = r
     self._unanalyzed_rules.add(rule_id)
     self._unanalyzed_targets[rule_id] = rule_id
@@ -235,7 +255,7 @@ class EvaluationState:
       self._unanalyzed_targets[out_id] = rule_id
     if analyze_by_default:
       self._targets_to_analyze.add(rule_id)
-    if self._verbose:
+    if self.verbose:
       print(f"add_rule: {rule_id.as_label()} as {r}")
 
   def add_analyzed_target(self, target_id: TargetId, info: TargetInfo) -> None:
@@ -251,9 +271,9 @@ class EvaluationState:
     self._analyzed_targets[target_id] = info
 
     if info.get(CMakeTargetPairProvider) is not None:
-      self._cmake_dep_pairs.pop(target_id, None)
-    if (self._verbose > 1) or (
-        self._verbose and info.get(FilesProvider) is not None
+      self._required_dep_targets.pop(target_id, None)
+    if (self.verbose > 1) or (
+        self.verbose and info.get(FilesProvider) is not None
     ):
       print(f"add_analyzed_target: {target_id.as_label()} with {info}")
 
@@ -263,11 +283,11 @@ class EvaluationState:
     for target, info in self._analyzed_targets.items():
       visitor(target, info)
 
-  def visit_cmake_dep_pairs(
+  def visit_required_dep_targets(
       self, visitor: Callable[[TargetId, CMakeTargetPair], None]
   ):
-    for target, info in self._cmake_dep_pairs.items():
-      visitor(target, info)
+    for target, target_pair in self._required_dep_targets.items():
+      visitor(target, target_pair)
 
   def _get_target_info(
       self, target_id: TargetId, optional: bool
@@ -301,7 +321,7 @@ class EvaluationState:
             f"Error analyzing {target_id.as_label()}: File not found"
             f" {source_path}"
         )
-      info = TargetInfo(FilesProvider([source_path]))
+      info = TargetInfo(FilesProvider([source_path.as_posix()]))
       self.add_analyzed_target(target_id, info)
       return info
 
@@ -321,12 +341,9 @@ class EvaluationState:
     self._unanalyzed_rules.remove(rule_id)
     self._unanalyzed_targets.pop(rule_id, None)
 
-    try:
-      rule_info.impl()
-    except Exception as e:
-      raise ValueError(
-          f"Error analyzing {rule_id.as_label()} with {rule_info}"
-      ) from e
+    self._stack.append((target_id, rule_info))
+    rule_info.impl()
+    self._stack.pop()
 
     for out_id in rule_info.outs:
       if out_id not in self._analyzed_targets:
@@ -354,29 +371,22 @@ class EvaluationState:
     assert info is not None
     return info
 
-  def get_source_file_path(self, target_id: TargetId) -> Optional[str]:
+  def get_source_file_path(
+      self, target_id: TargetId
+  ) -> Optional[pathlib.PurePath]:
     assert isinstance(target_id, TargetId)
-    repo = self.workspace.repos.get(target_id.repository_id)
+    repo = self.workspace.all_repositories.get(target_id.repository_id)
     if repo is None:
       return None
-    return str(
-        pathlib.PurePosixPath(repo.source_directory).joinpath(
-            target_id.package_name, target_id.target_name
-        )
-    )
+    return repo.get_source_file_path(target_id)
 
-  def get_generated_file_path(self, target_id: TargetId) -> str:
-    assert isinstance(target_id, TargetId)
-    repo = self.workspace.repos.get(target_id.repository_id)
+  def get_generated_file_path(self, target_id: TargetId) -> pathlib.PurePath:
+    repo = self.workspace.all_repositories.get(target_id.repository_id)
     if repo is None:
       raise ValueError(
           f"Unknown repository name in target: {target_id.as_label()}"
       )
-    return str(
-        pathlib.PurePosixPath(repo.cmake_binary_dir).joinpath(
-            target_id.package_name, target_id.target_name
-        )
-    )
+    return repo.get_generated_file_path(target_id)
 
   def evaluate_condition(self, target_id: TargetId) -> bool:
     assert isinstance(target_id, TargetId)
@@ -422,42 +432,33 @@ class EvaluationState:
       files.extend(self.get_file_paths(target, custom_target_deps))
     return sorted(set(files))
 
+  def _generate_cmake_target_pair_imp(
+      self, target_id: TargetId, alias: bool = True
+  ) -> CMakeTargetPair:
+    repo = self.workspace.all_repositories.get(target_id.repository_id)
+    if repo is None:
+      raise ValueError(f"Unknown repo in target {target_id.as_label()}")
+    cmake_target_pair = repo.get_cmake_target_pair(target_id)
+    if not alias:
+      cmake_target_pair = cmake_target_pair.with_alias(None)
+    return cmake_target_pair
+
   def generate_cmake_target_pair(
       self, target_id: TargetId, alias: bool = True
   ) -> CMakeTargetPair:
     assert isinstance(
         target_id, TargetId
     ), f"Requires TargetId: {repr(target_id)}"
-
-    cmake_target = self._cmake_dep_pairs.get(target_id)
+    # If this package is already a required dependency, return that.
+    cmake_target = self._required_dep_targets.get(target_id)
     if cmake_target is not None:
       return cmake_target
+    # Generate a new name
+    return self._generate_cmake_target_pair_imp(target_id, alias)
 
-    # If we're making a cmake name for a persisted target, assume that the
-    # persisted target name is the alias.
-    cmake_target_pair = self.workspace._persisted_canonical_name.get(target_id)
-    if cmake_target_pair is not None:
-      return cmake_target_pair
-
-    cmake_package = self.workspace.get_cmake_package_name(
-        target_id.repository_id
-    )
-    if cmake_package is None:
-      raise ValueError(f"Unknown repo in target {target_id.as_label()}")
-    pair = label_to_generated_cmake_target(target_id, cmake_package)
-    if not alias:
-      pair = pair.with_alias(None)
-    return pair
-
-  def add_required_dep_package(self, package: str) -> None:
-    self.required_dep_packages.add(package)
-
-  def _maybe_add_package_deps(self, p: Optional[CMakePackageDepsProvider]):
-    if p is not None:
-      for package in p.packages:
-        if package not in self.workspace.repo_cmake_packages:
-          assert not isinstance(package, bool)
-          self.add_required_dep_package(package)
+  def add_required_dep_package(self, package: CMakePackage) -> None:
+    if package != self.active_repo.cmake_project_name:
+      self._required_dep_packages.add(package)
 
   def get_dep(
       self, target_id: TargetId, alias: bool = True
@@ -469,23 +470,23 @@ class EvaluationState:
     ), f"Requires TargetId: {repr(target_id)}"
     info = self.get_optional_target_info(target_id)
     if info is not None:
-      self._maybe_add_package_deps(info.get(CMakePackageDepsProvider))
+      if info.get(CMakePackageDepsProvider):
+        for package in info[CMakePackageDepsProvider].packages:
+          self.add_required_dep_package(package)
       if info.get(CMakeDepsProvider):
         return info[CMakeDepsProvider].targets
       elif info.get(CMakeTargetPairProvider):
         print(info)
         return [info[CMakeTargetPairProvider].dep]
 
-    # New untracked target.
-    cmake_target = self.generate_cmake_target_pair(target_id, alias)
-    if target_id not in self._cmake_dep_pairs:
-      assert cmake_target.cmake_package is not None
-      if cmake_target.cmake_package == self.repo._cmake_project_name:
-        raise ValueError(f"Missing {target_id}")
-      self.add_required_dep_package(cmake_target.cmake_package)
-      # If it's not persisted, track it now.
-      if target_id not in self.workspace._persisted_canonical_name:
-        self._cmake_dep_pairs[target_id] = cmake_target
+    # If this package is already a required dependency, return that.
+    cmake_target = self._required_dep_targets.get(target_id)
+    if cmake_target is None:
+      # Generate a new name.
+      cmake_target = self._generate_cmake_target_pair_imp(target_id, alias)
+      self._required_dep_targets[target_id] = cmake_target
+
+    self.add_required_dep_package(cmake_target.cmake_package)
     return [cmake_target.dep]
 
   def get_deps(self, targets: List[TargetId]) -> List[CMakeTarget]:
@@ -501,14 +502,14 @@ class EvaluationState:
     CMake target but there are none in the corresponding Bazel target.
     """
     dummy_source_relative_path = "bazel_to_cmake_empty_source.cc"
-    dummy_source_path = str(
-        pathlib.PurePosixPath(self.repo.cmake_binary_dir).joinpath(
-            dummy_source_relative_path
-        )
+    dummy_source_path = self.active_repo.cmake_binary_dir.joinpath(
+        dummy_source_relative_path
     )
-    if not self._wrote_dummy_source and not os.path.exists(dummy_source_path):
+    if not self._wrote_dummy_source and not os.path.exists(
+        dummy_source_path.as_posix()
+    ):
       pathlib.Path(dummy_source_path).write_bytes(b"")
-    return dummy_source_path
+    return dummy_source_path.as_posix()
 
   def load_library(self, target_id: TargetId) -> Dict[str, Any]:
     """Returns the global scope for the given bzl library target.
@@ -533,7 +534,7 @@ class EvaluationState:
 
     if target_id in self.workspace.ignored_libraries:
       # Specifically ignored.
-      if self._verbose:
+      if self.verbose:
         print(f"Ignoring library: {target_id.as_label()}")
       library = IgnoredLibrary()
       self._loaded_libraries[key] = library
@@ -545,80 +546,91 @@ class EvaluationState:
       self._loaded_libraries[key] = library
       return library
 
-    if target_id.repository_id not in self.workspace.repos:
-      # Unknown repository, ignore.
-      if self._verbose:
+    library_path = self.get_source_file_path(target_id)
+    if library_path is None:
+      if self.verbose:
         print(f"Unknown library: {target_id.as_label()}")
       return IgnoredLibrary()
 
-    library_path = self.get_source_file_path(target_id)
-    assert library_path is not None
-    if self._verbose:
+    if not pathlib.Path(library_path).exists():
+      if self.verbose:
+        print(f"Missing library: {target_id.as_label()} at {library_path}")
+      return IgnoredLibrary()
+
+    if self.verbose:
       print(f"Using library: {target_id.as_label()} at {library_path}")
 
     scope_type = (
         BazelWorkspaceGlobals if is_workspace else BuildFileLibraryGlobals
     )
-    library = scope_type(self._evaluation_context, target_id, library_path)
+    library = scope_type(
+        self._evaluation_context, target_id, library_path.as_posix()
+    )
     # Switch packages; A loaded library becomes the caller package_id as it
     # is evaluated.
-    old_package = (
+    self._stack.append((
         self._evaluation_context.caller_package,
         self._evaluation_context.caller_package_id,
-    )
+    ))
     self._evaluation_context.update_current_package(
         package_id=target_id.package_id
     )
+    self.loaded_files.add(library_path.as_posix())
 
     try:
       # Load the library content.
-      content = self._load(library_path)
+      content = pathlib.Path(library_path).read_text(encoding="utf-8")
       # Parse and evaluate the starlark script as a library.
-      _exec_module(content, library_path, library)
+      _exec_module(content, library_path.as_posix(), library)
     except Exception as e:
       raise RuntimeError(
           f"While loading {target_id.as_label()} ({library_path})"
       ) from e
 
     # Restore packages and save the library
-    self._evaluation_context.update_current_package(*old_package)
+    self._evaluation_context.update_current_package(*self._stack.pop())
     self._loaded_libraries[key] = library
     return library
 
-  def _load(self, path: str) -> str:
-    if self._verbose:
-      print(f"Loading {path}")
-    self.loaded_files.add(path)
-    return pathlib.Path(path).read_text(encoding="utf-8")
-
-  def process_build_file(self, build_file: str):
+  def process_build_file(self, build_file: pathlib.PurePath):
     """Processes a single package (BUILD file)."""
-    build_file_path = str(
-        pathlib.PurePosixPath(self.repo.source_directory).joinpath(build_file)
+    build_file_path = self.active_repo.source_directory.joinpath(build_file)
+    if self.verbose:
+      print(f"Loading {build_file_path}")
+    self.loaded_files.add(build_file_path.as_posix())
+    self.process_build_content(
+        build_file_path,
+        pathlib.Path(build_file_path).read_text(encoding="utf-8"),
     )
-    self.process_build_content(build_file_path, self._load(build_file_path))
 
-  def process_build_content(self, build_file_path: str, content: str):
+  def process_build_content(
+      self, build_file_path: pathlib.PurePath, content: str
+  ):
     """Processes a single package (BUILD file content)."""
-    assert build_file_path.startswith(self.repo.source_directory)
-    self._phase = Phase.LOADING_BUILD
+    if isinstance(build_file_path, pathlib.PureWindowsPath):
+      build_file_path = pathlib.PurePath(build_file_path.as_posix())
+
+    assert is_relative_to(build_file_path, self.active_repo.source_directory)
 
     # remove prefix and BUILD.
-    package_name = build_file_path[
-        (1 + len(self.repo.source_directory)) : build_file_path.rfind("/")
-    ]
-
-    package = Package(self.repo, package_name)
-    build_target = package.package_id.get_target_id(
-        os.path.basename(build_file_path)
+    package_path = build_file_path.relative_to(
+        self.active_repo.source_directory
+    ).parent
+    package_name = (
+        package_path.as_posix() if package_path != pathlib.PurePath() else ""
     )
+
+    self._phase = Phase.LOADING_BUILD
+
+    package = Package(self.active_repo, package_name)
+    build_target = package.package_id.get_target_id(build_file_path.name)
     self._evaluation_context.update_current_package(package=package)
 
     scope = BuildFileGlobals(
-        self._evaluation_context, build_target, build_file_path
+        self._evaluation_context, build_target, build_file_path.as_posix()
     )
     try:
-      _exec_module(content, build_file_path, scope)
+      _exec_module(content, build_file_path.as_posix(), scope)
     except Exception as e:
       raise RuntimeError(
           f"While processing {repr(package.package_id)} ({build_file_path})"
@@ -626,51 +638,57 @@ class EvaluationState:
 
   def process_workspace(self):
     """Processes the WORKSPACE."""
-    assert self.repo.top_level
-    workspace_file_path = str(
-        pathlib.PurePosixPath(self.repo.source_directory).joinpath(
-            "WORKSPACE.bazel"
-        )
+    assert self.active_repo.top_level
+    workspace_file_path = self.active_repo.source_directory.joinpath(
+        "WORKSPACE.bazel"
     )
-    if not os.path.exists(workspace_file_path):
-      workspace_file_path = str(
-          pathlib.PurePosixPath(self.repo.source_directory).joinpath(
-              "WORKSPACE"
-          )
+    if not pathlib.Path(workspace_file_path).exists():
+      workspace_file_path = self.active_repo.source_directory.joinpath(
+          "WORKSPACE"
       )
+
+    if self.verbose:
+      print(f"Loading {workspace_file_path}")
+    self.loaded_files.add(workspace_file_path.as_posix())
     self.process_workspace_content(
-        workspace_file_path, self._load(workspace_file_path)
+        workspace_file_path,
+        pathlib.Path(workspace_file_path).read_text(encoding="utf-8"),
     )
 
-  def process_workspace_content(self, workspace_file_path: str, content: str):
-    assert workspace_file_path.endswith(
-        "WORKSPACE"
-    ) or workspace_file_path.endswith("WORKSPACE.bazel")
-    assert self.repo.top_level
-    self._phase = Phase.LOADING_WORKSPACE
+  def process_workspace_content(
+      self, workspace_file_path: pathlib.PurePath, content: str
+  ):
+    if isinstance(workspace_file_path, pathlib.PureWindowsPath):
+      workspace_file_path = pathlib.PurePath(workspace_file_path.as_posix())
 
-    workspace_target_id = self.repo.repository_id.get_package_id(
+    assert self.active_repo.top_level
+
+    workspace_target_id = self.active_repo.repository_id.get_package_id(
         ""
-    ).get_target_id(os.path.basename(workspace_file_path))
+    ).get_target_id(workspace_file_path.name)
+
+    self._phase = Phase.LOADING_WORKSPACE
 
     self._evaluation_context.update_current_package(
         package_id=workspace_target_id.package_id
     )
-
     scope = BazelWorkspaceGlobals(
-        self._evaluation_context, workspace_target_id, workspace_file_path
+        self._evaluation_context,
+        workspace_target_id,
+        workspace_file_path.as_posix(),
     )
 
-    _exec_module(content, workspace_file_path, scope)
-    for callback in self._call_after_workspace_loading:
+    _exec_module(content, workspace_file_path.as_posix(), scope)
+    while self._call_after_workspace_loading:
+      callback = self._call_after_workspace_loading.pop()
       callback()
 
   def call_after_workspace_loading(self, callback: Callable[[], None]) -> None:
     assert self._phase == Phase.LOADING_WORKSPACE
-    self._call_after_workspace_loading.append(callback)
+    self._call_after_workspace_loading.appendleft(callback)
 
   def call_after_analysis(self, callback: Callable[[], None]) -> None:
-    self._call_after_analysis.append(callback)
+    self._call_after_analysis.appendleft(callback)
 
 
 def trace_exception(f):
@@ -707,8 +725,14 @@ class EvaluationContext(InvocationContext):
     assert self._caller_package_id
 
   def __repr__(self):
-    d = {k: repr(getattr(self, k)) for k in self.__slots__}
-    return f"<{self.__class__.__name__}>: {d}"
+    return (
+        f"<{self.__class__.__name__}>: "
+        "{\n"
+        f"  _caller_package_id: {repr(self._caller_package_id)},\n"
+        f"  _caller_package: {repr(self._caller_package)},\n"
+        f"  _state: {repr(self._state)},\n"
+        "}\n"
+    )
 
   def update_current_package(
       self,
@@ -721,12 +745,6 @@ class EvaluationContext(InvocationContext):
     self._caller_package_id = package_id
     self._caller_package = package
     assert self._caller_package_id
-
-  def _get_repository(self, repository_id: RepositoryId) -> Repository:
-    repo = self._state.workspace.repos.get(repository_id)
-    if repo is None:
-      raise ValueError(f"Unknown bazel repo: {repository_id}")
-    return repo
 
   # Derived fields
   def snapshot(self) -> "EvaluationContext":
@@ -753,14 +771,22 @@ class EvaluationContext(InvocationContext):
       return cast(T, Visibility(self._caller_package))
     return super().access(provider_type)
 
-  def resolve_source_root(self, repository_id: RepositoryId) -> str:
-    return self._get_repository(repository_id).source_directory
+  def resolve_source_root(
+      self, repository_id: RepositoryId
+  ) -> pathlib.PurePosixPath:
+    return self._state.workspace.all_repositories[
+        repository_id
+    ].source_directory
 
-  def resolve_output_root(self, repository_id: RepositoryId) -> str:
-    return self._get_repository(repository_id).cmake_binary_dir
+  def resolve_output_root(
+      self, repository_id: RepositoryId
+  ) -> pathlib.PurePosixPath:
+    return self._state.workspace.all_repositories[
+        repository_id
+    ].cmake_binary_dir
 
   @trace_exception
-  def resolve_repo_mapping(
+  def apply_repo_mapping(
       self, target_id: TargetId, mapping_repository_id: Optional[RepositoryId]
   ) -> TargetId:
     # Resolve repository mappings
@@ -768,20 +794,18 @@ class EvaluationContext(InvocationContext):
       assert self._caller_package_id
       mapping_repository_id = self._caller_package_id.repository_id
 
-    mapping_repo = self._state.workspace.repos.get(mapping_repository_id)
-    target = remap_target_repo(target_id, mapping_repo.repo_mapping)
+    mapping_repo = self._state.workspace.all_repositories.get(
+        mapping_repository_id
+    )
+    target = mapping_repo.apply_repo_mapping(target_id)
 
-    # Resolve bindings
-    while target in mapping_repo.bindings:
-      target = mapping_repo.bindings[target]
+    # Resolve --bind in the active repo.
+    while target in self._state.active_repo.bindings:
+      target = self._state.active_repo.bindings[target]
 
-    if target.repository_id != mapping_repository_id:
-      repo = self._state.workspace.repos.get(target.repository_id, None)
-      while repo and target in repo.bindings:
-        target = repo.bindings[target]
-    if self._state.workspace._verbose and target != target_id:
+    if self._state.workspace.verbose and target != target_id:
       print(
-          f"resolve_repo_mapping({target_id.as_label()}) => {target.as_label()}"
+          f"apply_repo_mapping({target_id.as_label()}) => {target.as_label()}"
       )
 
     return target

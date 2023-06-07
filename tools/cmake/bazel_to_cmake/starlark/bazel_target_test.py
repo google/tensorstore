@@ -18,9 +18,9 @@ import pickle
 
 import pytest
 
+from .bazel_target import apply_repo_mapping
 from .bazel_target import PackageId
 from .bazel_target import parse_absolute_target
-from .bazel_target import remap_target_repo
 from .bazel_target import RepositoryId
 from .bazel_target import TargetId
 
@@ -117,11 +117,15 @@ def test_remap_target():
       repository_name='relative', package_name='package', target_name='name'
   )
 
-  assert base == remap_target_repo(base, {})
-  assert base == remap_target_repo(base, {'other': 'other'})
+  assert base == apply_repo_mapping(base, {})
+  assert base == apply_repo_mapping(
+      base, {RepositoryId('other'): RepositoryId('other')}
+  )
   assert TargetId(
       repository_name='absolute', package_name='package', target_name='name'
-  ) == remap_target_repo(base, {'relative': 'absolute'})
+  ) == apply_repo_mapping(
+      base, {RepositoryId('relative'): RepositoryId('absolute')}
+  )
 
 
 def test_pickle_unpickle():

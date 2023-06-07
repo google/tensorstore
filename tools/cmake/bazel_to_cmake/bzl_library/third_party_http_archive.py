@@ -214,8 +214,10 @@ from ..cmake_builder import OPTIONS_SECTION
 from ..cmake_builder import quote_list
 from ..cmake_builder import quote_path
 from ..cmake_builder import quote_string
+from ..cmake_repository import CMakeRepository
+from ..cmake_repository import label_to_generated_cmake_target
+from ..cmake_repository import make_repo_mapping
 from ..cmake_target import CMakeTarget
-from ..cmake_target import label_to_generated_cmake_target
 from ..evaluation import EvaluationState
 from ..starlark.bazel_globals import BazelGlobals
 from ..starlark.bazel_globals import register_bzl_library
@@ -243,13 +245,13 @@ class ThirdPartyRepoLibrary(BazelGlobals):
     pass
 
 
-def _get_third_party_dir(repo: Repository) -> str:
+def _get_third_party_dir(repo: CMakeRepository) -> str:
   return os.path.join(repo.cmake_binary_dir, "third_party")
 
 
 def _get_fetch_content_invocation(
     _context: InvocationContext,
-    _repo: Repository,
+    _active_repo: Repository,
     _builder: CMakeBuilder,
     name: str,
     cmake_name: str,
@@ -263,7 +265,6 @@ def _get_fetch_content_invocation(
     **kwargs,
 ) -> str:
   """Convert `third_party_http_archive` options to CMake FetchContent invocation."""
-  state = _context.access(EvaluationState)
   out = io.StringIO()
   out.write(f"FetchContent_Declare({cmake_name}")
   if urls:
@@ -292,12 +293,13 @@ def _get_fetch_content_invocation(
     remove_arg = " ".join(quote_path(path) for path in remove_paths)
     patch_commands.append(f"${{CMAKE_COMMAND}} -E rm -rf {remove_arg}")
   new_cmakelists_path = os.path.join(
-      _get_third_party_dir(state.repo), f"{cmake_name}-proxy-CMakeLists.txt"
+      _get_third_party_dir(_active_repo.repository),
+      f"{cmake_name}-proxy-CMakeLists.txt",
   )
   pathlib.Path(new_cmakelists_path).write_text(
       _get_subproject_cmakelists(
           _context=_context,
-          _repo=_repo,
+          _repo=_active_repo.repository,
           _patch_commands=patch_commands,
           name=name,
           cmake_name=cmake_name,
@@ -316,7 +318,7 @@ def _get_fetch_content_invocation(
 
 def _get_subproject_cmakelists(
     _context: InvocationContext,
-    _repo: Repository,
+    _repo: CMakeRepository,
     _patch_commands: List[str],
     name: str,
     cmake_name: str,
@@ -419,26 +421,61 @@ _FETCH_CONTENT_PACKAGES_KEY = "fetch_content_packages"
 
 
 def _third_party_http_archive_impl(_context: InvocationContext, **kwargs):
-  cmake_name = kwargs.get("cmake_name")
-  if not cmake_name:
+  if "cmake_name" not in kwargs:
     return
-  if not kwargs.get("urls"):
+  if "urls" not in kwargs:
     return
-  new_repository_id = RepositoryId(kwargs["name"])
 
   state = _context.access(EvaluationState)
-  state.workspace.set_cmake_package_name(new_repository_id, cmake_name)
 
-  reverse_target_mapping: Dict[CMakeTarget, str] = update_target_mapping(
-      state.repo, new_repository_id.get_package_id(""), kwargs
+  # The details here depend a bit on how we configure fetch-content.
+  # https://github.com/Kitware/CMake/blob/master/Modules/FetchContent.cmake
+  #
+  # Generally we write a "proxy" cmake file that is patched into the
+  # SOURCE_DIR, which then generates another "build_rules.cmake".
+  #
+  # FetchContent, makes sets the source dir based on FETCHCONTENT_BASE_DIR
+  # which defaults to "${CMAKE_BINARY_DIR}/_deps"; the src and build directories
+  # are then set as:
+  fetch_content_base_dir = state.workspace.cmake_vars.get(
+      "FETCHCONTENT_BASE_DIR"
   )
+  if fetch_content_base_dir:
+    fetch_content_base_dir = pathlib.PurePath(fetch_content_base_dir)
+  else:
+    fetch_content_base_dir = (
+        state.active_repo.repository.cmake_binary_dir.joinpath("_deps")
+    )
+
+  cmake_name: str = kwargs["cmake_name"]
+  repository_id = RepositoryId(kwargs["name"])
+  new_repository = CMakeRepository(
+      repository_id=repository_id,
+      cmake_project_name=cmake_name,
+      source_directory=fetch_content_base_dir.joinpath(
+          f"{cmake_name.lower()}-src"
+      ),
+      cmake_binary_dir=fetch_content_base_dir.joinpath(
+          f"{cmake_name.lower()}-build"
+      ),
+      repo_mapping=make_repo_mapping(
+          repository_id, kwargs.get("repo_mapping", {})
+      ),
+      persisted_canonical_name={},
+  )
+  reverse_target_mapping: Dict[CMakeTarget, str] = update_target_mapping(
+      new_repository, kwargs
+  )
+
+  state.workspace.add_cmake_repository(new_repository)
 
   # TODO(jbms): Use some criteria (e.g. presence of system_build_file option) to
   # determine whether to support a system library, rather than always using it.
   builder = _context.access(CMakeBuilder)
   if kwargs.get("cmake_enable_system_package", True):
-    use_system_option = f"TENSORSTORE_USE_SYSTEM_{cmake_name.upper()}"
-    use_system_option = use_system_option.replace("-", "")
+    use_system_option = f"TENSORSTORE_USE_SYSTEM_{cmake_name.upper()}".replace(
+        "-", "_"
+    )
 
     builder.addtext(
         f"""option({use_system_option} "Use an installed version of {cmake_name}")\n""",
@@ -464,11 +501,12 @@ def _third_party_http_archive_impl(_context: InvocationContext, **kwargs):
   fetch_content_packages = getattr(state, _FETCH_CONTENT_PACKAGES_KEY, None)
   if fetch_content_packages is None:
     # Create the "${PROJECT_BINARY_DIR}/third_party" directory used for writing
-    # the `CMakeLists.txt` files for each dependency.  Since the dependency has
-    # not yet been populated, we can't yet write the `CMakeLists.txt` file to
-    # its final location.  Instead, write it to this `third_party` directory,
-    # and add a patch command to copy it over when the dependency is populated.
-    third_party_dir = _get_third_party_dir(state.repo)
+    # the `proxy-CMakeLists.txt` files for each dependency.
+    # Since the dependency has not yet been populated, the `CMakeLists.txt`
+    # cannot be written to its final location.  Instead, write it to this
+    # `third_party`  directory, and add a patch command to copy it over when
+    # the dependency is populated.
+    third_party_dir = _get_third_party_dir(state.active_repo.repository)
     os.makedirs(third_party_dir, exist_ok=True)
 
     fetch_content_packages = []
@@ -481,12 +519,15 @@ def _third_party_http_archive_impl(_context: InvocationContext, **kwargs):
   fetch_content_packages.append(cmake_name)
 
   builder.addtext(
-      f"# Loading {new_repository_id.repository_name}\n",
+      f"# Loading {new_repository.repository_id.repository_name}\n",
       section=FETCH_CONTENT_DECLARE_SECTION,
   )
   builder.addtext(
       _get_fetch_content_invocation(
-          _context=_context, _builder=builder, _repo=state.repo, **kwargs
+          _context=_context,
+          _builder=builder,
+          _active_repo=state.active_repo,
+          **kwargs,
       ),
       section=FETCH_CONTENT_DECLARE_SECTION,
   )
@@ -576,7 +617,7 @@ def _emit_fetch_content_make_available(_context: InvocationContext):
   """
   state = _context.access(EvaluationState)
 
-  third_party_dir = _get_third_party_dir(state.repo)
+  third_party_dir = _get_third_party_dir(state.active_repo.repository)
   fetch_content_packages: List[str] = getattr(
       state, _FETCH_CONTENT_PACKAGES_KEY
   )
@@ -602,7 +643,7 @@ def _emit_fetch_content_make_available(_context: InvocationContext):
       sorted(
           pkg
           for pkg in fetch_content_packages
-          if pkg in state.required_dep_packages
+          if pkg in state._required_dep_packages
       )
   )
   third_party_cmakelists_path = os.path.join(third_party_dir, "CMakeLists.txt")

@@ -14,8 +14,10 @@
 """Tests for utility functions."""
 
 # pylint: disable=relative-beyond-top-level
+import pathlib
 
 from .util import cmake_is_true
+from .util import is_relative_to
 
 
 def test_cmake_is_true():
@@ -36,3 +38,11 @@ def test_cmake_is_true():
   assert not cmake_is_true("x-NOTFOUND")
   assert not cmake_is_true("")
   assert not cmake_is_true(None)
+
+
+def test_is_relative_to():
+  root = pathlib.PurePath("/foo/bar")
+  leaf = pathlib.PurePath("/foo/bar/baz")
+
+  assert is_relative_to(leaf, root, _use_attr=False)
+  assert not is_relative_to(root, leaf, _use_attr=False)

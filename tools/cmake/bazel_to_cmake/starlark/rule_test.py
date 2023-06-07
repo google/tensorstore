@@ -88,7 +88,7 @@ class MyRuleContext(InvocationContext):
   def caller_package_id(self):
     return self.build_target.package_id
 
-  def resolve_repo_mapping(
+  def apply_repo_mapping(
       self, target: TargetId, mapping_repository_id: Optional[RepositoryId]
   ) -> TargetId:
     return target

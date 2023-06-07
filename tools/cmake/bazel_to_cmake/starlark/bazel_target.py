@@ -170,18 +170,15 @@ def parse_absolute_target(target: str) -> TargetId:
   return RepositoryId(target[1:i]).parse_target(target[i:])
 
 
-def remap_target_repo(
-    target: TargetId, mapping: Optional[Dict[str, str]] = None
+def apply_repo_mapping(
+    target: TargetId, mapping: Optional[Dict[RepositoryId, RepositoryId]] = None
 ) -> TargetId:
   """Apply a repository mapping to a TargetId."""
   if mapping is None:
     return target
-  new_repository_name = mapping.get(target.repository_name, None)
-  if new_repository_name is None:
+  new_repo_id = mapping.get(target.repository_id, None)
+  if new_repo_id is None:
     return target
-
-  return (
-      RepositoryId(new_repository_name)
-      .get_package_id(target.package_name)
-      .get_target_id(target.target_name)
+  return TargetId(
+      new_repo_id.repository_name, target.package_name, target.target_name
   )

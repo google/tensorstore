@@ -22,7 +22,18 @@ from typing import List, Optional, Set
 from .starlark.bazel_glob import glob_pattern_to_regexp
 
 
-def write_file_if_not_already_equal(path: str, content: bytes):
+# Unfortunately, pathlib.PurePath.is_relative_to is a python3.9 invention.
+def is_relative_to(
+    left: pathlib.PurePath, right: pathlib.PurePath, _use_attr: bool = True
+) -> bool:
+  """Return True if the path is relative to another path or False."""
+  if _use_attr and hasattr(left, "is_relative_to"):
+    return left.is_relative_to(right)
+  other = type(left)(right)
+  return other == left or other in left.parents
+
+
+def write_file_if_not_already_equal(path: pathlib.PurePath, content: bytes):
   """Ensures `path` contains `content`.
 
   Does not update the modification time of `path` if it already contains
@@ -39,7 +50,7 @@ def write_file_if_not_already_equal(path: str, content: bytes):
       return
   except FileNotFoundError:
     pass
-  os.makedirs(os.path.dirname(path), exist_ok=True)
+  os.makedirs(path.parent, exist_ok=True)
   pathlib.Path(path).write_bytes(content)
 
 
@@ -100,7 +111,9 @@ def _get_build_patterns(package_patterns: List[str]):
 
 
 def get_matching_build_files(
-    root_dir: str, include_packages: List[str], exclude_packages: List[str]
+    root_dir: pathlib.PurePath,
+    include_packages: List[str],
+    exclude_packages: List[str],
 ) -> List[str]:
   """Returns the relative path of matching BUILD files.
 
@@ -114,8 +127,10 @@ def get_matching_build_files(
   Returns:
     Sorted list of matching build files, relative to `root_dir`.
   """
-  if os.sep != "/":
-    root_dir = root_dir.replace(os.sep, "/")
+  if isinstance(root_dir, pathlib.PureWindowsPath):
+    root_dir = pathlib.PurePath(root_dir.as_posix())
+  root_prefix = root_dir.as_posix() + "/"
+
   include_patterns = _get_build_patterns(include_packages)
   exclude_regexp = re.compile(
       "(?:"
@@ -125,17 +140,16 @@ def get_matching_build_files(
       )
       + ")"
   )
-  root_prefix = root_dir.rstrip("/") + "/"
+
   build_file_set: Set[str] = set()
-  for include_pattern in include_patterns:
-    for build_path in glob.iglob(root_prefix + include_pattern, recursive=True):
-      if not os.path.isfile(build_path):
+  for pattern in include_patterns:
+    for build_filename in glob.iglob(root_prefix + pattern, recursive=True):
+      path = pathlib.PurePath(build_filename)
+      if not pathlib.Path(path).is_file():
         continue
-      if os.sep != "/":
-        build_path = build_path.replace(os.sep, "/")
-      assert build_path.startswith(root_prefix)
-      relative_build_path = build_path[len(root_prefix) :]
-      if exclude_regexp.fullmatch(relative_build_path):
+      assert is_relative_to(path, root_dir)
+      relative_path = path.relative_to(root_dir)
+      if exclude_regexp.fullmatch(relative_path.as_posix()):
         continue
-      build_file_set.add(relative_build_path)
-  return sorted(build_file_set)
+      build_file_set.add(relative_path.as_posix())
+  return list(sorted(build_file_set))

@@ -21,6 +21,7 @@ from typing import Any, Dict, List, Optional, Set, cast
 
 from .cmake_builder import CMakeBuilder
 from .cmake_builder import quote_list
+from .cmake_builder import quote_path_list
 from .cmake_target import CMakeTarget
 from .cmake_target import CMakeTargetPair
 from .evaluation import EvaluationState
@@ -90,7 +91,7 @@ def _emit_cc_common_options(
         f"target_link_libraries({target_name} {public_context}{_SEP}{quote_list(link_libs, separator=_SEP)})\n"
     )
   _builder.addtext(
-      f"target_include_directories({target_name} {public_context}{_SEP}{quote_list(include_dirs, separator=_SEP)})\n"
+      f"target_include_directories({target_name} {public_context}{_SEP}{quote_path_list(include_dirs, separator=_SEP)})\n"
   )
   _builder.addtext(
       f"target_compile_features({target_name} {public_context} cxx_std_17)\n"
@@ -106,7 +107,7 @@ def _emit_cc_common_options(
   if srcs:
     non_header_srcs = [x for x in srcs if not re.search(_HEADER_SRC_PATTERN, x)]
     _builder.addtext(
-        f"target_sources({target_name} PRIVATE{_SEP}{quote_list(non_header_srcs , separator=_SEP)})\n"
+        f"target_sources({target_name} PRIVATE{_SEP}{quote_path_list(non_header_srcs , separator=_SEP)})\n"
     )
 
     asm_srcs = [x for x in srcs if re.search(_ASM_SRC_PATTERN, x)]
@@ -116,7 +117,7 @@ def _emit_cc_common_options(
             f"asm_dialect must be specified for ASM srcs: {asm_srcs!r}"
         )
       _builder.addtext(f"""set_source_files_properties(
-    {quote_list(asm_srcs)}
+    {quote_path_list(asm_srcs)}
     PROPERTIES
       LANGUAGE {asm_dialect})\n""")
 

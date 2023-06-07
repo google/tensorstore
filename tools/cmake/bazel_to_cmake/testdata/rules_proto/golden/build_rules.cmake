@@ -21,9 +21,9 @@ target_sources(CMakeProject_abc_proto INTERFACE
 btc_transitive_import_dirs(
     OUT_VAR CMakeProject_abc_proto_IMPORT_DIRS
     IMPORT_DIRS "${TEST_DIRECTORY}"
-    IMPORT_TARGETS CMakeProject_b_proto CMakeProject_a_proto 
-    IMPORT_VARS 
+    IMPORT_TARGETS CMakeProject_b_proto CMakeProject_a_proto
 )
+list(APPEND CMakeProject_abc_proto_IMPORT_DIRS "${TEST_DIRECTORY}")
 set_property(TARGET CMakeProject_abc_proto PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${CMakeProject_abc_proto_IMPORT_DIRS})
 
 # @rules_proto_test_repo//:a_proto__cpp_library
@@ -37,6 +37,7 @@ target_include_directories(CMakeProject_a_proto__cpp_library PUBLIC
 target_compile_features(CMakeProject_a_proto__cpp_library PUBLIC cxx_std_17)
 target_sources(CMakeProject_a_proto__cpp_library PRIVATE
         "${TEST_DIRECTORY}/a.proto")
+add_library(CMakeProject::a_proto__cpp_library ALIAS CMakeProject_a_proto__cpp_library)
 
 btc_protobuf(
     TARGET CMakeProject_a_proto__cpp_library
@@ -59,6 +60,7 @@ target_include_directories(CMakeProject_b_proto__cpp_library PUBLIC
 target_compile_features(CMakeProject_b_proto__cpp_library PUBLIC cxx_std_17)
 target_sources(CMakeProject_b_proto__cpp_library PRIVATE
         "${TEST_DIRECTORY}/b.proto")
+add_library(CMakeProject::b_proto__cpp_library ALIAS CMakeProject_b_proto__cpp_library)
 
 btc_protobuf(
     TARGET CMakeProject_b_proto__cpp_library
@@ -74,8 +76,8 @@ btc_protobuf(
 add_library(CMakeProject_abc_proto__cpp_library)
 set_property(TARGET CMakeProject_abc_proto__cpp_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_abc_proto__cpp_library PUBLIC
-        "CMakeProject_a_proto__cpp_library"
-        "CMakeProject_b_proto__cpp_library"
+        "CMakeProject::a_proto__cpp_library"
+        "CMakeProject::b_proto__cpp_library"
         "protobuf::libprotobuf")
 target_include_directories(CMakeProject_abc_proto__cpp_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
@@ -83,6 +85,7 @@ target_include_directories(CMakeProject_abc_proto__cpp_library PUBLIC
 target_compile_features(CMakeProject_abc_proto__cpp_library PUBLIC cxx_std_17)
 target_sources(CMakeProject_abc_proto__cpp_library PRIVATE
         "${TEST_DIRECTORY}/c.proto")
+add_library(CMakeProject::abc_proto__cpp_library ALIAS CMakeProject_abc_proto__cpp_library)
 
 btc_protobuf(
     TARGET CMakeProject_abc_proto__cpp_library
@@ -97,7 +100,7 @@ btc_protobuf(
 # @rules_proto_test_repo//:abc_protos_cc
 add_library(CMakeProject_abc_protos_cc INTERFACE)
 target_link_libraries(CMakeProject_abc_protos_cc INTERFACE
-        "CMakeProject_abc_proto__cpp_library")
+        "CMakeProject::abc_proto__cpp_library")
 target_include_directories(CMakeProject_abc_protos_cc INTERFACE
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
@@ -111,9 +114,10 @@ target_sources(CMakeProject_x_proto INTERFACE
 btc_transitive_import_dirs(
     OUT_VAR CMakeProject_x_proto_IMPORT_DIRS
     IMPORT_DIRS "${TEST_DIRECTORY}"
-    IMPORT_TARGETS Protobuf_any_proto 
+    IMPORT_TARGETS Protobuf_any_proto
     IMPORT_VARS Protobuf_IMPORT_DIRS
 )
+list(APPEND CMakeProject_x_proto_IMPORT_DIRS "${TEST_DIRECTORY}")
 set_property(TARGET CMakeProject_x_proto PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${CMakeProject_x_proto_IMPORT_DIRS})
 
 # @rules_proto_test_repo//:x_proto__cpp_library
@@ -127,6 +131,7 @@ target_include_directories(CMakeProject_x_proto__cpp_library PUBLIC
 target_compile_features(CMakeProject_x_proto__cpp_library PUBLIC cxx_std_17)
 target_sources(CMakeProject_x_proto__cpp_library PRIVATE
         "${TEST_DIRECTORY}/x.proto")
+add_library(CMakeProject::x_proto__cpp_library ALIAS CMakeProject_x_proto__cpp_library)
 
 btc_protobuf(
     TARGET CMakeProject_x_proto__cpp_library
@@ -141,7 +146,7 @@ btc_protobuf(
 # @rules_proto_test_repo//:x_proto_cc
 add_library(CMakeProject_x_proto_cc INTERFACE)
 target_link_libraries(CMakeProject_x_proto_cc INTERFACE
-        "CMakeProject_x_proto__cpp_library")
+        "CMakeProject::x_proto__cpp_library")
 target_include_directories(CMakeProject_x_proto_cc INTERFACE
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")

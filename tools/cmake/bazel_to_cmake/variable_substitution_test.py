@@ -16,17 +16,20 @@
 # pylint: disable=relative-beyond-top-level
 
 import os
+import pathlib
 from typing import List, Optional
 
 import pytest
 
-from .cmake_target import CMakeTarget, CMakeTargetProvider
+from .cmake_target import CMakeTarget
+from .cmake_target import CMakeTargetProvider
 from .starlark.bazel_target import PackageId
 from .starlark.bazel_target import RepositoryId
 from .starlark.bazel_target import TargetId
 from .starlark.common_providers import FilesProvider
 from .starlark.invocation_context import InvocationContext
-from .starlark.provider import Provider, TargetInfo
+from .starlark.provider import Provider
+from .starlark.provider import TargetInfo
 from .starlark.toolchain import CMAKE_TOOLCHAIN
 from .variable_substitution import apply_location_substitutions
 from .variable_substitution import apply_make_variable_substitutions
@@ -41,13 +44,15 @@ class MyContext(InvocationContext):
   def caller_package_id(self):
     return self._caller_package_id
 
-  def resolve_repo_mapping(
+  def apply_repo_mapping(
       self, target: TargetId, mapping_repository_id: Optional[RepositoryId]
   ) -> TargetId:
     return target
 
-  def resolve_source_root(self, repository_id: RepositoryId) -> str:
-    return f"external/{repository_id.repository_name}"
+  def resolve_source_root(
+      self, repository_id: RepositoryId
+  ) -> pathlib.PurePosixPath:
+    return pathlib.PurePosixPath(f"external/{repository_id.repository_name}")
 
   def get_target_info(self, target_id: TargetId) -> TargetInfo:
     providers: List[Provider] = []

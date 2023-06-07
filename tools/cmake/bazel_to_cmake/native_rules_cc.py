@@ -178,7 +178,7 @@ def _cc_test_impl(
   cmake_target_pair = state.generate_cmake_target_pair(_target)
   resolved_args = [
       apply_location_substitutions(
-          _context, arg, relative_to=state.repo.source_directory
+          _context, arg, relative_to=state.active_repo.source_directory
       )
       for arg in _context.evaluate_configurable_list(args)
   ]

@@ -13,21 +13,18 @@
 # limitations under the License.
 """CMake Provider types."""
 
-import re
 from typing import List, NamedTuple, NewType, Optional
 
-from .starlark.bazel_target import TargetId
 from .starlark.provider import Provider
 
-_SPLIT_RE = re.compile("[:/]+")
-
+CMakePackage = NewType("CMakePackage", str)
 CMakeTarget = NewType("CMakeTarget", str)
 
 
 class CMakeTargetPair(NamedTuple):
   """CMakeTarget identifies a cmake target, optionally with an alias."""
 
-  cmake_package: Optional[str]
+  cmake_package: Optional[CMakePackage]
   target: CMakeTarget
   alias: Optional[CMakeTarget] = None
 
@@ -47,28 +44,6 @@ class CMakeTargetPair(NamedTuple):
 
   def __str__(self) -> str:
     raise NotImplementedError
-
-
-def label_to_generated_cmake_target(
-    target_id: TargetId, cmake_project: str
-) -> CMakeTargetPair:
-  """Computes the generated CMake target corresponding to a Bazel target."""
-
-  parts: List[str] = []
-  parts.extend(x for x in _SPLIT_RE.split(target_id.package_name) if x)
-  parts.extend(x for x in _SPLIT_RE.split(target_id.target_name) if x)
-  if parts[0].lower() == cmake_project.lower() and len(parts) > 1:
-    parts = parts[1:]
-
-  if len(parts) >= 2 and parts[-1] == parts[-2]:
-    parts = parts[:-1]
-  target_name = "_".join(parts)
-
-  return CMakeTargetPair(
-      cmake_project,
-      CMakeTarget(f"{cmake_project}_{target_name}"),
-      CMakeTarget(f"{cmake_project}::{target_name}"),
-  )
 
 
 class CMakeTargetPairProvider(Provider):
@@ -108,7 +83,7 @@ class CMakePackageDepsProvider(Provider):
 
   __slots__ = ("packages",)
 
-  def __init__(self, packages: List[str]):
+  def __init__(self, packages: List[CMakePackage]):
     self.packages = packages
 
   def __repr__(self):
