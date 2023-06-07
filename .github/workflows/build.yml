@@ -10,7 +10,8 @@ jobs:
         - os: 'ubuntu-latest'
           cibw_build: '*'
           wheel_identifier: linux
-        - os: 'windows-latest'
+        - os: 'windows-2019'
+          # Revert to windows-latest after: https://github.com/actions/runner-images/issues/7662
           cibw_build: '*'
           wheel_identifier: windows
         - os: 'macos-latest'
