@@ -32,6 +32,13 @@
 namespace tensorstore {
 namespace internal_storage_s3 {
 
+namespace {
+
+/// ifrom hashlib import md5; md5("".encode("utf-8")).hexdigest()
+static constexpr char kEmptyETag[] = "\"d41d8cd98f00b204e9800998ecf8427e\"";
+
+}
+
 using ::tensorstore::TimestampedStorageGeneration;
 using ::tensorstore::internal_http::TryParseIntHeader;
 using ::tensorstore::internal_http::TryParseBoolHeader;
@@ -61,15 +68,11 @@ void SetObjectMetadataFromHeaders(
 Result<StorageGeneration> ComputeGenerationFromHeaders(
     const std::multimap<std::string, std::string>& headers) {
 
-  absl::Time last_modified;
+  std::string last_modified;
   std::string etag;
 
   if(auto it = headers.find("last-modified"); it != headers.end()) {
-    std::string error;
-    if(!absl::ParseTime("%a, %d %b %Y %H:%M:%S %Z", it->second, &last_modified, &error)) {
-      return absl::InvalidArgumentError(
-        tensorstore::StrCat("Invalid last-modified: ", error));
-    }
+    last_modified = it->second;
   } else {
     return absl::NotFoundError("last-modified not found in response headers");
   }
@@ -81,8 +84,17 @@ Result<StorageGeneration> ComputeGenerationFromHeaders(
   }
 
   return StorageGeneration::FromString(
-    tensorstore::StrCat(etag,
-                        absl::FormatTime("%Y%m%dT%H%M%SZ", last_modified, absl::UTCTimeZone())));
+    tensorstore::StrCat(etag, ";", last_modified));
+}
+
+std::pair<std::string, std::string>
+ExtractETagAndLastModified(const StorageGeneration & generation) {
+  auto gen = StorageGeneration::DecodeString(generation);
+  std::vector<std::string_view> parts = absl::StrSplit(gen, ";");
+  if(parts.size() == 2) {
+    return {std::string(parts[0]), std::string(parts[1])};
+  }
+  return {kEmptyETag, ""};
 }
 
 

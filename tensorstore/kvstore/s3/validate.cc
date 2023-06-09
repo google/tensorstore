@@ -18,8 +18,8 @@
 
 #include "re2/re2.h"
 
-#include "tensorstore/internal/utf8.h"
 #include "tensorstore/kvstore/s3/validate.h"
+#include "tensorstore/internal/utf8.h"
 
 namespace tensorstore {
 namespace internal_storage_s3 {
@@ -74,6 +74,14 @@ bool IsValidObjectName(std::string_view name) {
   if (name.empty() || name.size() > 1024) return false;
   return internal::IsValidUtf8(name);
 }
+
+// Returns whether the StorageGeneration is valid for blob_kvstore.
+bool IsValidStorageGeneration(const StorageGeneration& gen) {
+  return StorageGeneration::IsUnknown(gen) ||
+         StorageGeneration::IsNoValue(gen) ||
+         (StorageGeneration::DecodeString(gen).find(";") != std::string::npos);
+}
+
 
 }  // namespace internal_storage_s3
 }  // namespace tensorstore

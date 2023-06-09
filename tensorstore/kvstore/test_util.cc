@@ -93,6 +93,12 @@ StorageGeneration GetStorageGeneration(const KvStore& store, std::string key) {
 
 // Return a highly-improbable storage generation
 StorageGeneration GetMismatchStorageGeneration(const KvStore& store) {
+  const auto & url_result = store.ToUrl();
+
+  if(url_result.ok() && url_result.value().find("s3://") != std::string::npos) {
+    return StorageGeneration::FromString("\"abcdef1234567890\";Tue, 06 Jun 2023 10:41:48 GMT");
+  }
+
   // Use a single uint64_t storage generation here for GCS compatibility.
   // Also, the generation looks like a nanosecond timestamp.
   return StorageGeneration::FromValues(uint64_t{/*3.*/ 1415926535897932});

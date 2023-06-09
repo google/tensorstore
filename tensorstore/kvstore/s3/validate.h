@@ -17,6 +17,10 @@
 
 #include <string_view>
 
+#include "tensorstore/kvstore/generation.h"
+
+using ::tensorstore::StorageGeneration;
+
 namespace tensorstore {
 namespace internal_storage_s3 {
 
@@ -36,6 +40,9 @@ BucketNameType ClassifyBucketName(std::string_view bucket);
 // Returns whether the object name is a valid S3 object name.
 // https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-keys.html
 bool IsValidObjectName(std::string_view name);
+
+// Returns whether the storage generation is valie
+bool IsValidStorageGeneration(const StorageGeneration& gen);
 
 }  // namespace internal_storage_s3
 }  // namespace tensorstore

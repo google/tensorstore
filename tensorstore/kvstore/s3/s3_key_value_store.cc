@@ -77,6 +77,7 @@ using ::tensorstore::internal_auth_s3::S3Credentials;
 using ::tensorstore::internal_auth_s3::CredentialProvider;
 using ::tensorstore::internal_auth_s3::GetS3CredentialProvider;
 using ::tensorstore::internal_storage_s3::ComputeGenerationFromHeaders;
+using ::tensorstore::internal_storage_s3::ExtractETagAndLastModified;
 using ::tensorstore::internal_storage_gcs::IsRetriable;
 using ::tensorstore::internal_kvstore_gcs_http::RateLimiter;
 using ::tensorstore::internal_kvstore_gcs_http::RateLimiterNode;
@@ -86,6 +87,7 @@ using ::tensorstore::internal_storage_s3::S3RequestRetries;
 using ::tensorstore::internal_storage_s3::S3RequestBuilder;
 using ::tensorstore::internal_storage_s3::IsValidBucketName;
 using ::tensorstore::internal_storage_s3::IsValidObjectName;
+using ::tensorstore::internal_storage_s3::IsValidStorageGeneration;
 using ::tensorstore::internal_storage_s3::UriEncode;
 using ::tensorstore::internal_storage_s3::UriObjectKeyEncode;
 using ::tensorstore::internal_storage_s3::ObjectMetadata;
@@ -150,6 +152,27 @@ auto& s3_list = internal_metrics::Counter<int64_t>::New(
 
 static constexpr char kEmptySha256[] =
   "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+
+
+/// Adds the generation header to the provided builder.
+bool AddGenerationHeader(S3RequestBuilder * builder,
+                         std::string_view header,
+                         const StorageGeneration& gen) {
+  if (StorageGeneration::IsUnknown(gen)) {
+    // Unconditional.
+    return false;
+  } else {
+    // One of two cases applies:
+    //
+    // 1. `gen` is a `StorageGeneration::FromString("etag;last_modified")` generation.
+    //    The condition is specified as `=etag`.
+
+    auto [etag, last_mod] = ExtractETagAndLastModified(gen);
+    builder->AddHeader(absl::StrCat(header, ": ", etag));
+    return true;
+  }
+}
+
 
 std::pair<std::string, std::string> payload_sha256(const absl::Cord & cord=absl::Cord()) {
   SHA256Digester sha256;
@@ -451,21 +474,10 @@ struct ReadTask : public RateLimiterNode,
       return;
     }
 
-    // TODO(sjperkins). Introduce S3 versioning logic here
-    /// Reads contents of a S3 object.
-    // std::string media_url = tensorstore::StrCat(resource, "?alt=media");
-
-    // Add the ifGenerationNotMatch condition.
-    // AddGenerationParam(&media_url, true, "ifGenerationNotMatch",
-    //                    options.if_not_equal);
-    // AddGenerationParam(&media_url, true, "ifGenerationMatch", options.if_equal);
-
+    // TODO(sjperkins): requester_pays here
     // Assume that if the user_project field is set, that we want to provide
     // it on the uri for a requestor pays bucket.
     // AddUserProjectParam(&media_url, true, owner->encoded_user_project());
-
-    // AddUniqueQueryParameterToDisableCaching(media_url);
-
     // TODO: Configure timeouts.
     auto maybe_credentials = owner->GetCredentials();
     if (!maybe_credentials.ok()) {
@@ -474,6 +486,10 @@ struct ReadTask : public RateLimiterNode,
     }
 
     auto request_builder = S3RequestBuilder("GET", read_url);
+
+    AddGenerationHeader(&request_builder, "if-none-match", options.if_not_equal);
+    AddGenerationHeader(&request_builder, "if-match", options.if_equal);
+
     S3Credentials credentials;
 
     if (maybe_credentials.value().has_value()) {
@@ -607,11 +623,10 @@ Future<kvstore::ReadResult> S3KeyValueStore::Read(Key key,
   if (!IsValidObjectName(key)) {
     return absl::InvalidArgumentError("Invalid S3 object name");
   }
-    // TODO(sjperkins). Introduce S3 versioning logic here
-  // if (!IsValidStorageGeneration(options.if_equal) ||
-  //     !IsValidStorageGeneration(options.if_not_equal)) {
-  //   return absl::InvalidArgumentError("Malformed StorageGeneration");
-  // }
+  if (!IsValidStorageGeneration(options.if_equal) ||
+      !IsValidStorageGeneration(options.if_not_equal)) {
+    return absl::InvalidArgumentError("Malformed StorageGeneration");
+  }
 
   auto encoded_object_name = UriObjectKeyEncode(key);
   std::string resource = tensorstore::StrCat(endpoint_, "/", encoded_object_name);
@@ -674,39 +689,100 @@ struct WriteTask : public RateLimiterNode,
       return;
     }
     upload_url_ = tensorstore::StrCat(owner->endpoint_, "/", encoded_object_name);
-
-    // TODO(sjperkins). Introduce S3 versioning logic here
-    // Add the ifGenerationNotMatch condition.
-    // AddGenerationParam(&upload_url, true, "ifGenerationMatch",
-    //                    options.if_equal);
-
-    // Assume that if the user_project field is set, that we want to provide
-    // it on the uri for a requestor pays bucket.
-    // AddUserProjectParam(&upload_url, true, owner->encoded_user_project());
-
     auto maybe_credentials = owner->GetCredentials();
     if (!maybe_credentials.ok()) {
       promise.SetResult(maybe_credentials.status());
       return;
     }
 
+    if (maybe_credentials.value().has_value()) {
+      credentials_ = std::move(*maybe_credentials.value());
+    }
+
+    if(StorageGeneration::IsUnknown(options.if_equal)) {
+      DoPut();
+      return;
+    }
+
+    // S3 doesn't support conditional PUT, so we use a HEAD call
+    // to test the if-match condition
+    auto now = absl::Now();
+    auto builder = S3RequestBuilder("HEAD", upload_url_);
+    AddGenerationHeader(&builder, "if-match", options.if_equal);
+
+    auto request = builder
+            .AddHeader(absl::StrCat("host: ", owner->host_))
+            .AddHeader(absl::StrCat("x-amz-content-sha256: ", kEmptySha256))
+            .AddHeader(absl::FormatTime("x-amz-date: %Y%m%dT%H%M%SZ", now, absl::UTCTimeZone()))
+            .BuildRequest(
+              credentials_.GetAccessKey(),
+              credentials_.GetSecretKey(),
+              owner->aws_region_,
+              kEmptySha256,
+              now);
+
+    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS) << "WriteTask (Peek): " << request;
+
+    auto future = owner->transport_->IssueRequest(request, {});
+    future.ExecuteWhenReady(
+      [self = IntrusivePtr<WriteTask>(this)](
+          ReadyFuture<HttpResponse> response) {
+      self->OnPeekResponse(response.result());
+    });
+  }
+
+  void OnPeekResponse(const Result<HttpResponse>& response) {
+    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_RESPONSES && response.ok())
+        << "WriteTask (Peek) " << *response;
+
+    if(!response.ok()) {
+      promise.SetResult(response.status());
+      return;
+    }
+
+    TimestampedStorageGeneration r;
+    r.time = absl::Now();
+    switch (response.value().status_code) {
+      case 304:
+        // Not modified implies that the generation did not match.
+        [[fallthrough]];
+      case 412:
+        // Failed precondition implies the generation did not match.
+        r.generation = StorageGeneration::Unknown();
+        promise.SetResult(r);
+        return;
+      case 404:
+        if (!StorageGeneration::IsUnknown(options.if_equal) &&
+            !StorageGeneration::IsNoValue(options.if_equal)) {
+          r.generation = StorageGeneration::Unknown();
+          promise.SetResult(r);
+          return;
+        }
+      default:
+        break;
+    }
+
+    DoPut();
+  }
+
+  void DoPut() {
+    // TODO(sjperkins). Introduce S3 requester_pays logic here
+    // Assume that if the user_project field is set, that we want to provide
+    // it on the uri for a requestor pays bucket.
+    // AddUserProjectParam(&upload_url, true, owner->encoded_user_project());
+
     // TODO(sjperkins).
     // This was changed from POST to PUT as a basic POST does not work
     // Some more headers need to be added to allow POST to work:
     // https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-authentication-HTTPPOST.html
-    auto request_builder = S3RequestBuilder("PUT", upload_url_);
-
-    if (maybe_credentials.value().has_value()) {
-      credentials_ = std::move(*maybe_credentials.value());
-    }
+    upload_url_ = tensorstore::StrCat(owner->endpoint_, "/", encoded_object_name);
 
     start_time_ = absl::Now();
     auto [content_sha256, checksum_sha256] = payload_sha256(value);
     auto [content_md5, checksum_md5] = payload_md5(value);
     expected_etag_ = checksum_md5;
 
-    auto request =
-        request_builder
+    auto request = S3RequestBuilder("PUT", upload_url_)
             .AddHeader("Content-Type: application/octet-stream")
             .AddHeader(tensorstore::StrCat("Content-Length: ", value.size()))
             .AddHeader(absl::StrCat("host: ", owner->host_))
@@ -739,26 +815,8 @@ struct WriteTask : public RateLimiterNode,
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_RESPONSES && response.ok())
         << "WriteTask " << *response;
 
-    absl::Status status = [&]() -> absl::Status {
-      if (!response.ok()) return response.status();
-      switch (response.value().status_code) {
-        case 304:
-          // Not modified implies that the generation did not match.
-          [[fallthrough]];
-        case 412:
-          // Failed precondition implies the generation did not match.
-          return absl::OkStatus();
-        case 404:
-          if (!StorageGeneration::IsUnknown(options.if_equal) &&
-              !StorageGeneration::IsNoValue(options.if_equal)) {
-            return absl::OkStatus();
-          }
-          break;
-        default:
-          break;
-      }
-      return HttpResponseCodeToStatus(response.value());
-    }();
+    absl::Status status = !response.ok() ? response.status()
+                                         : HttpResponseCodeToStatus(response.value());
 
     if (!status.ok() && IsRetriable(status)) {
       status = owner->BackoffForAttemptAsync(status, attempt_++, this);
@@ -805,13 +863,6 @@ struct WriteTask : public RateLimiterNode,
     TimestampedStorageGeneration r;
     r.time = start_time_;
     switch (write_response.status_code) {
-      case 304:
-        // Not modified implies that the generation did not match.
-        [[fallthrough]];
-      case 412:
-        // Failed precondition implies the generation did not match.
-        r.generation = StorageGeneration::Unknown();
-        return r;
       case 404:
         if (!StorageGeneration::IsUnknown(options.if_equal)) {
           r.generation = StorageGeneration::Unknown();
@@ -825,10 +876,6 @@ struct WriteTask : public RateLimiterNode,
     TENSORSTORE_ASSIGN_OR_RETURN(r.generation, ComputeGenerationFromHeaders(head_response.headers));
     return r;
   }
-
-
-
-
 };
 
 /// A DeleteTask is a function object used to satisfy a
@@ -842,6 +889,7 @@ struct DeleteTask : public RateLimiterNode,
 
   int attempt_ = 0;
   absl::Time start_time_;
+  S3Credentials credentials_;
 
   DeleteTask(IntrusivePtr<S3KeyValueStore> owner, std::string resource,
              kvstore::WriteOptions options,
@@ -888,22 +936,84 @@ struct DeleteTask : public RateLimiterNode,
       promise.SetResult(maybe_credentials.status());
       return;
     }
-    auto request_builder = S3RequestBuilder("DELETE", delete_url);
-    S3Credentials credentials;
 
     if (maybe_credentials.value().has_value()) {
-      credentials = std::move(*maybe_credentials.value());
+      credentials_ = std::move(*maybe_credentials.value());
     }
 
+    if(StorageGeneration::IsUnknown(options.if_equal)) {
+      DoDelete();
+      return;
+    }
+
+    // S3 doesn't support conditional PUT/DELETE,
+    // use a HEAD call to test the if-match condition
+    auto now = absl::Now();
+    auto builder = S3RequestBuilder("HEAD", delete_url);
+    AddGenerationHeader(&builder, "if-match", options.if_equal);
+
+    auto request = builder
+            .AddHeader(absl::StrCat("host: ", owner->host_))
+            .AddHeader(absl::StrCat("x-amz-content-sha256: ", kEmptySha256))
+            .AddHeader(absl::FormatTime("x-amz-date: %Y%m%dT%H%M%SZ", now, absl::UTCTimeZone()))
+            .BuildRequest(
+              credentials_.GetAccessKey(),
+              credentials_.GetSecretKey(),
+              owner->aws_region_,
+              kEmptySha256,
+              now);
+
+    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS) << "DeleteTask (Peek): " << request;
+
+    auto future = owner->transport_->IssueRequest(request, {});
+    future.ExecuteWhenReady(
+      [self = IntrusivePtr<DeleteTask>(this)](
+          ReadyFuture<HttpResponse> response) {
+      self->OnPeekResponse(response.result());
+    });
+  }
+
+  void OnPeekResponse(const Result<HttpResponse>& response) {
+    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_RESPONSES && response.ok())
+        << "DeleteTask (Peek) " << *response;
+
+    if(!response.ok()) {
+      promise.SetResult(response.status());
+      return;
+    }
+
+    TimestampedStorageGeneration r;
+    r.time = absl::Now();
+    switch (response.value().status_code) {
+      case 412:
+        // Failed precondition implies the generation did not match.
+        r.generation = StorageGeneration::Unknown();
+        promise.SetResult(std::move(r));
+        return;
+      case 404:
+        if (!StorageGeneration::IsUnknown(options.if_equal) &&
+            !StorageGeneration::IsNoValue(options.if_equal)) {
+          r.generation = StorageGeneration::Unknown();
+          promise.SetResult(std::move(r));
+          return;
+        }
+      default:
+        break;
+    }
+
+    DoDelete();
+  }
+
+  void DoDelete() {
     start_time_ = absl::Now();
 
-    auto request = request_builder
+    auto request = S3RequestBuilder("DELETE", resource)
         .AddHeader(absl::StrCat("host: ", owner->host_))
         .AddHeader(absl::StrCat("x-amz-content-sha256: ", kEmptySha256))
         .AddHeader(absl::FormatTime("x-amz-date: %Y%m%dT%H%M%SZ", start_time_, absl::UTCTimeZone()))
         .BuildRequest(
-          credentials.GetAccessKey(),
-          credentials.GetSecretKey(),
+          credentials_.GetAccessKey(),
+          credentials_.GetSecretKey(),
           owner->aws_region_,
           kEmptySha256,
           start_time_);
@@ -928,9 +1038,6 @@ struct DeleteTask : public RateLimiterNode,
     absl::Status status = [&]() -> absl::Status {
       if (!response.ok()) return response.status();
       switch (response.value().status_code) {
-        case 412:
-          // Failed precondition implies the generation did not match.
-          [[fallthrough]];
         case 404:
           return absl::OkStatus();
         default:
@@ -953,10 +1060,6 @@ struct DeleteTask : public RateLimiterNode,
     TimestampedStorageGeneration r;
     r.time = start_time_;
     switch (response.value().status_code) {
-      case 412:
-        // Failed precondition implies the generation did not match.
-        r.generation = StorageGeneration::Unknown();
-        break;
       case 404:
         // 404 Not Found means aborted when a StorageGeneration was specified.
         if (!StorageGeneration::IsNoValue(options.if_equal) &&
@@ -979,10 +1082,9 @@ Future<TimestampedStorageGeneration> S3KeyValueStore::Write(
   if (!IsValidObjectName(key)) {
     return absl::InvalidArgumentError("Invalid S3 object name");
   }
-    // TODO(sjperkins). Introduce S3 versioning logic here
-  // if (!IsValidStorageGeneration(options.if_equal)) {
-  //   return absl::InvalidArgumentError("Malformed StorageGeneration");
-  // }
+  if (!IsValidStorageGeneration(options.if_equal)) {
+    return absl::InvalidArgumentError("Malformed StorageGeneration");
+  }
 
   std::string encoded_object_name = UriObjectKeyEncode(key);
   auto op = PromiseFuturePair<TimestampedStorageGeneration>::Make();

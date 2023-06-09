@@ -55,6 +55,8 @@ void SetObjectMetadataFromHeaders(
 Result<StorageGeneration> ComputeGenerationFromHeaders(
     const std::multimap<std::string, std::string>& headers);
 
+std::pair<std::string, std::string>
+ExtractETagAndLastModified(const StorageGeneration & generation);
 
 }  // namespace internal_storage_s3
 }  // namespace tensorstore
