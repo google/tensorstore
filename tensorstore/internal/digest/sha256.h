@@ -21,8 +21,6 @@
 #include "absl/strings/cord.h"
 #include <openssl/sha.h>
 
-#include "absl/strings/cord.h"
-
 namespace tensorstore {
 namespace internal {
 
