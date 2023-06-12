@@ -21,25 +21,8 @@
 #include <string>
 #include <string_view>
 
-#include "absl/strings/ascii.h"
-
 namespace tensorstore {
 namespace internal {
-
-
-inline int HexDigitToInt(char c) {
-  assert(absl::ascii_isxdigit(c));
-  int x = static_cast<unsigned char>(c);
-  if (x > '9') {
-    x += 9;
-  }
-  return x & 0xf;
-}
-
-inline char IntToHexDigit(int x, bool upper=true) {
-  assert(x >= 0 && x < 16);
-  return (upper ? "0123456789ABCDEF" : "0123456789abcdef")[x];
-}
 
 /// Set of ASCII characters (0-127) represented as a bit vector.
 class AsciiSet {

@@ -17,8 +17,27 @@
 #include <string>
 #include <string_view>
 
+#include "absl/strings/ascii.h"
+
 namespace tensorstore {
 namespace internal {
+namespace {
+
+inline int HexDigitToInt(char c) {
+  assert(absl::ascii_isxdigit(c));
+  int x = static_cast<unsigned char>(c);
+  if (x > '9') {
+    x += 9;
+  }
+  return x & 0xf;
+}
+
+inline char IntToHexDigit(int x) {
+  assert(x >= 0 && x < 16);
+  return "0123456789ABCDEF"[x];
+}
+
+}  // namespace
 
 void PercentEncodeReserved(std::string_view src, std::string& dest,
                            AsciiSet unreserved) {
