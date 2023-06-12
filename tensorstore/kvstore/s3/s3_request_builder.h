@@ -71,23 +71,23 @@ class S3RequestBuilder {
 
   /// Adds a `range` header to the http request if the byte_range
   /// is specified.
-  S3RequestBuilder& AddRangeHeader(OptionalByteRangeRequest byte_range, bool & result) {
-    builder_.AddRangeHeader(byte_range, result);
+  S3RequestBuilder& AddRangeHeader(OptionalByteRangeRequest byte_range) {
+    builder_.AddRangeHeader(byte_range);
     return *this;
   };
   /// Adds a `cache-control` header specifying `max-age` or `no-cache`.
-  S3RequestBuilder& AddCacheControlMaxAgeHeader(absl::Duration max_age, bool & result) {
-    builder_.AddCacheControlMaxAgeHeader(max_age, result);
+  S3RequestBuilder& MaybeAddCacheControlMaxAgeHeader(absl::Duration max_age) {
+    builder_.MaybeAddCacheControlMaxAgeHeader(max_age);
     return *this;
   };
   /// Adds a `cache-control` header consistent with `staleness_bound`.
-  S3RequestBuilder& AddStalenessBoundCacheControlHeader(absl::Time staleness_bound, bool & result) {
-    builder_.AddStalenessBoundCacheControlHeader(staleness_bound, result);
+  S3RequestBuilder& MaybeAddStalenessBoundCacheControlHeader(absl::Time staleness_bound) {
+    builder_.MaybeAddStalenessBoundCacheControlHeader(staleness_bound);
     return *this;
   }
 
 
-  HttpRequest BuildRequest(std::string_view aws_access_key, std::string_view aws_secret_access_key,
+  Result<HttpRequest> BuildRequest(std::string_view aws_access_key, std::string_view aws_secret_access_key,
                            std::string_view aws_region, std::string_view payload_hash,
                            const absl::Time & time);
 

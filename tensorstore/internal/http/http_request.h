@@ -85,7 +85,7 @@ class HttpRequestBuilder {
   ///
   /// This function invalidates the builder. The application should not use this
   /// builder once this function is called.
-  HttpRequest BuildRequest();
+  Result<HttpRequest> BuildRequest();
 
   /// Adds a prefix to the user-agent string.
   HttpRequestBuilder& AddUserAgentPrefix(std::string_view prefix);
@@ -103,15 +103,16 @@ class HttpRequestBuilder {
 
   /// Adds a `range` header to the http request if the byte_range
   /// is specified.
-  HttpRequestBuilder& AddRangeHeader(OptionalByteRangeRequest byte_range, bool & result);
+  HttpRequestBuilder& AddRangeHeader(OptionalByteRangeRequest byte_range);
   /// Adds a `cache-control` header specifying `max-age` or `no-cache`.
-  HttpRequestBuilder& AddCacheControlMaxAgeHeader(absl::Duration max_age, bool & result);
+  HttpRequestBuilder& MaybeAddCacheControlMaxAgeHeader(absl::Duration max_age);
   /// Adds a `cache-control` header consistent with `staleness_bound`.
-  HttpRequestBuilder& AddStalenessBoundCacheControlHeader(absl::Time staleness_bound, bool & result);
+  HttpRequestBuilder& MaybeAddStalenessBoundCacheControlHeader(absl::Time staleness_bound);
 
  private:
   friend class ::tensorstore::internal_storage_s3::S3RequestBuilder;
   HttpRequest request_;
+  absl::Status status_;
   char const* query_parameter_separator_;
   absl::FunctionRef<std::string(std::string_view)> uri_encoder_;
 };

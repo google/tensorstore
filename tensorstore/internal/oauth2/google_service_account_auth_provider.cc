@@ -63,9 +63,8 @@ Result<HttpResponse> GoogleServiceAccountAuthProvider::IssueRequest(
     std::string_view method, std::string_view uri, absl::Cord payload) {
   HttpRequestBuilder request_builder(method, std::string{uri});
   request_builder.AddHeader("Content-Type: application/x-www-form-urlencoded");
-  return transport_
-      ->IssueRequest(request_builder.BuildRequest(), std::move(payload))
-      .result();
+  TENSORSTORE_ASSIGN_OR_RETURN(auto request, request_builder.BuildRequest());
+  return transport_->IssueRequest(request, std::move(payload)).result();
 }
 
 absl::Status GoogleServiceAccountAuthProvider::Refresh() {

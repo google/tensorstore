@@ -19,7 +19,7 @@
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 
-
+#include "absl/strings/ascii.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/str_split.h"
@@ -33,7 +33,6 @@
 #include "tensorstore/util/str_cat.h"
 
 using ::tensorstore::internal::AsciiSet;
-using ::tensorstore::internal::IntToHexDigit;
 using ::tensorstore::internal::ParseGenericUri;
 using ::tensorstore::internal::ParsedGenericUri;
 using ::tensorstore::internal::SHA256Digester;
@@ -100,7 +99,7 @@ std::string UriObjectKeyEncode(std::string_view src) {
   return dest;
 }
 
-HttpRequest S3RequestBuilder::BuildRequest(
+Result<HttpRequest> S3RequestBuilder::BuildRequest(
     std::string_view aws_access_key,
     std::string_view aws_secret_access_key,
     std::string_view aws_region,
@@ -134,7 +133,7 @@ HttpRequest S3RequestBuilder::BuildRequest(
   auto signature = Signature(aws_secret_access_key, aws_region, signing_string, time);
   auto auth_header = AuthorizationHeader(aws_access_key, aws_region, signature, headers, time);
   request_.headers_.emplace_back(std::move(auth_header));
-  return std::move(request_);
+  return builder_.BuildRequest();
 }
 
 /// https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
@@ -181,14 +180,8 @@ std::string S3RequestBuilder::Signature(
   ComputeHmac(date_region_service_key, "aws4_request", signing_key);
   ComputeHmac(signing_key, signing_string, final_key);
 
-  std::string result(2 * kHmacSize, '0');
-
-  for(int i=0; i < kHmacSize; ++i) {
-      result[2*i + 0] = IntToHexDigit(final_key[i] / 16, false);
-      result[2*i + 1] = IntToHexDigit(final_key[i] % 16, false);
-  }
-
-  return result;
+  auto key_view = std::string_view(reinterpret_cast<const char *>(final_key), kHmacSize);
+  return absl::BytesToHexString(key_view);
 }
 
 std::string S3RequestBuilder::CanonicalRequest(

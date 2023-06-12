@@ -388,7 +388,7 @@ TEST_F(CurlTransportTest, Http2) {
             .AddQueryParameter("name", "dragon")
             .AddQueryParameter("age", "1234")
             .EnableAcceptEncoding()
-            .BuildRequest(),
+            .BuildRequest().value(),
         absl::Cord("Hello"));
 
     // Waits for the response.
@@ -417,7 +417,7 @@ TEST_F(CurlTransportTest, Http2) {
   {
     auto response = transport->IssueRequest(
         HttpRequestBuilder("GET", absl::StrCat("http://", hostport, "/boo"))
-            .BuildRequest(),
+            .BuildRequest().value(),
         absl::Cord());
 
     // Waits for the response.

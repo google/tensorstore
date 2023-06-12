@@ -31,12 +31,15 @@ namespace internal_http {
 HttpRequestBuilder::HttpRequestBuilder(std::string_view method,
                                        std::string base_url,
                                        absl::FunctionRef<std::string(std::string_view)> uri_encoder)
-    : query_parameter_separator_("?"), uri_encoder_(uri_encoder) {
+    : query_parameter_separator_("?"), uri_encoder_(uri_encoder), status_(absl::OkStatus()) {
   request_.method_ = method;
   request_.url_ = std::move(base_url);
 }
 
-HttpRequest HttpRequestBuilder::BuildRequest() { return std::move(request_); }
+Result<HttpRequest> HttpRequestBuilder::BuildRequest() {
+  TENSORSTORE_RETURN_IF_ERROR(status_);
+  return std::move(request_);
+}
 
 HttpRequestBuilder& HttpRequestBuilder::AddUserAgentPrefix(
     std::string_view prefix) {
@@ -63,31 +66,29 @@ HttpRequestBuilder& HttpRequestBuilder::EnableAcceptEncoding() {
   return *this;
 }
 
-HttpRequestBuilder& HttpRequestBuilder::AddRangeHeader(
-        OptionalByteRangeRequest byte_range, bool & result) {
+HttpRequestBuilder& HttpRequestBuilder::AddRangeHeader(OptionalByteRangeRequest byte_range) {
   // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Range
   if (byte_range.exclusive_max) {
-    assert(byte_range.SatisfiesInvariants());
+    if(!byte_range.SatisfiesInvariants()) {
+      status_ = absl::InvalidArgumentError("AddRangeHeader byte_range does not satisfy invariants");
+      return *this;
+    }
 
     AddHeader(absl::StrFormat("Range: bytes=%d-%d",
                               byte_range.inclusive_min,
                               *byte_range.exclusive_max - 1));
-    result = true;
     return *this;
   }
   if (byte_range.inclusive_min > 0) {
     AddHeader(absl::StrFormat("Range: bytes=%d-", byte_range.inclusive_min));
-    result = true;
     return *this;
   }
-  result = false;
   return *this;
 }
 
-HttpRequestBuilder& HttpRequestBuilder::AddCacheControlMaxAgeHeader(absl::Duration max_age, bool & result) {
+HttpRequestBuilder& HttpRequestBuilder::MaybeAddCacheControlMaxAgeHeader(absl::Duration max_age) {
   // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cache-Control
   if (max_age >= absl::InfiniteDuration()) {
-    result = false;
     return *this;
   }
 
@@ -99,15 +100,13 @@ HttpRequestBuilder& HttpRequestBuilder::AddCacheControlMaxAgeHeader(absl::Durati
   } else {
     AddHeader("cache-control: no-cache");
   }
-  result = true;
   return *this;
 }
 
-HttpRequestBuilder& HttpRequestBuilder::AddStalenessBoundCacheControlHeader(absl::Time staleness_bound, bool & result) {
+HttpRequestBuilder& HttpRequestBuilder::MaybeAddStalenessBoundCacheControlHeader(absl::Time staleness_bound) {
   // `absl::InfiniteFuture()`  indicates that the result must be current.
   // `absl::InfinitePast()`  disables the cache-control header.
   if (staleness_bound == absl::InfinitePast()) {
-    result = false;
     return *this;
   }
   absl::Time now;
@@ -117,8 +116,7 @@ HttpRequestBuilder& HttpRequestBuilder::AddStalenessBoundCacheControlHeader(absl
     // the max age is in the past.
     duration = now - staleness_bound;
   }
-  AddCacheControlMaxAgeHeader(duration, result);
-  return *this;
+  return MaybeAddCacheControlMaxAgeHeader(duration);
 }
 
 }  // namespace internal_http

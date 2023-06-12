@@ -250,9 +250,8 @@ struct ReadTask {
         request_builder.AddHeader(header);
       }
 
-      bool ignored_result;
-      request_builder.AddStalenessBoundCacheControlHeader(options.staleness_bound, ignored_result);
-      request_builder.AddRangeHeader(options.byte_range, ignored_result);
+      request_builder.MaybeAddStalenessBoundCacheControlHeader(options.staleness_bound);
+      request_builder.AddRangeHeader(options.byte_range);
 
       if (StorageGeneration::IsCleanValidValue(options.if_equal)) {
         request_builder.AddHeader(tensorstore::StrCat(
@@ -264,7 +263,9 @@ struct ReadTask {
             "if-none-match: \"",
             StorageGeneration::DecodeString(options.if_not_equal), "\""));
       }
-      auto request = request_builder.EnableAcceptEncoding().BuildRequest();
+      TENSORSTORE_ASSIGN_OR_RETURN(
+        auto request,
+        request_builder.EnableAcceptEncoding().BuildRequest());
       read_result.stamp.time = absl::Now();
       auto response = owner->transport_->IssueRequest(request, {}).result();
       if (!response.ok()) return response.status();

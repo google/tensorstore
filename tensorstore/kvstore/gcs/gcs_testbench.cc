@@ -91,7 +91,7 @@ void StorageTestbench::SpawnProcess() {
         HttpRequestBuilder(
             "GET", absl::StrFormat("http://localhost:%d/start_grpc", http_port))
             .AddQueryParameter("port", absl::StrCat(grpc_port))
-            .BuildRequest(),
+            .BuildRequest().value(),
         absl::Cord(), absl::Seconds(15), absl::Seconds(15));
     if (start_grpc_future.status().ok()) break;
     if (absl::Now() < deadline &&

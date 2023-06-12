@@ -388,8 +388,10 @@ Future<kvstore::DriverPtr> S3KeyValueStoreSpec::DoOpen() const {
     // Make global request to get bucket region from response headers,
     // then create region specific endpoint
     auto url = tensorstore::StrCat("https://", data_.bucket, ".s3", kDotAmazonAwsDotCom);
-    auto future = driver->transport_->IssueRequest(
-            HttpRequestBuilder("HEAD", url).BuildRequest(), {});
+    TENSORSTORE_ASSIGN_OR_RETURN(
+      auto request,
+      HttpRequestBuilder("HEAD", url).BuildRequest())
+    auto future = driver->transport_->IssueRequest(request, {});
     if(!future.status().ok()) return future.status();
     auto & headers = future.value().headers;
     if(auto it = headers.find(kAmzBucketRegionHeader); it !=headers.end()) {
@@ -497,11 +499,9 @@ struct ReadTask : public RateLimiterNode,
     }
 
     start_time_ = absl::Now();
-    bool result;
-
-    request_builder.AddRangeHeader(options.byte_range, result);
     auto request = request_builder
             .EnableAcceptEncoding()
+            .AddRangeHeader(options.byte_range)
             .AddHeader(absl::StrCat("host: ", owner->host_))
             .AddHeader(absl::StrCat("x-amz-content-sha256: ", kEmptySha256))
             .AddHeader(absl::FormatTime("x-amz-date: %Y%m%dT%H%M%SZ", start_time_, absl::UTCTimeZone()))
@@ -512,9 +512,14 @@ struct ReadTask : public RateLimiterNode,
               kEmptySha256,
               start_time_);
 
+    if(!request.ok()) {
+      promise.SetResult(request.status());
+      return;
+    }
+
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS)
-        << "ReadTask: " << request;
-    auto future = owner->transport_->IssueRequest(request, {});
+        << "ReadTask: " << request.value();
+    auto future = owner->transport_->IssueRequest(request.value(), {});
     future.ExecuteWhenReady([self = IntrusivePtr<ReadTask>(this)](
                                 ReadyFuture<HttpResponse> response) {
       self->OnResponse(response.result());
@@ -721,9 +726,14 @@ struct WriteTask : public RateLimiterNode,
               kEmptySha256,
               now);
 
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS) << "WriteTask (Peek): " << request;
+    if(!request.ok()) {
+      promise.SetResult(request.status());
+      return;
+    }
 
-    auto future = owner->transport_->IssueRequest(request, {});
+    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS) << "WriteTask (Peek): " << request.value();
+
+    auto future = owner->transport_->IssueRequest(request.value(), {});
     future.ExecuteWhenReady(
       [self = IntrusivePtr<WriteTask>(this)](
           ReadyFuture<HttpResponse> response) {
@@ -798,10 +808,15 @@ struct WriteTask : public RateLimiterNode,
               content_sha256,
               start_time_);
 
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS)
-        << "WriteTask: " << request << " size=" << value.size();
+    if(!request.ok()) {
+      promise.SetResult(request.status());
+      return;
+    }
 
-    auto future = owner->transport_->IssueRequest(request, value);
+    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS)
+        << "WriteTask: " << request.value() << " size=" << value.size();
+
+    auto future = owner->transport_->IssueRequest(request.value(), value);
     future.ExecuteWhenReady([self = IntrusivePtr<WriteTask>(this)](
                                 ReadyFuture<HttpResponse> response) {
       self->OnResponse(response.result());
@@ -840,9 +855,14 @@ struct WriteTask : public RateLimiterNode,
               kEmptySha256,
               start_time_);
 
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS) << "WriteTask: " << request;
+    if(!request.ok()) {
+      promise.SetResult(request.status());
+      return;
+    }
 
-    auto future = owner->transport_->IssueRequest(request, {});
+    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS) << "WriteTask: " << request.value();
+
+    auto future = owner->transport_->IssueRequest(request.value(), {});
     future.ExecuteWhenReady(
       [self = IntrusivePtr<WriteTask>(this), write_response = std::move(response)](
           ReadyFuture<HttpResponse> head_response) {
@@ -963,9 +983,14 @@ struct DeleteTask : public RateLimiterNode,
               kEmptySha256,
               now);
 
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS) << "DeleteTask (Peek): " << request;
+    if(!request.ok()) {
+      promise.SetResult(request.status());
+      return;
+    }
 
-    auto future = owner->transport_->IssueRequest(request, {});
+    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS) << "DeleteTask (Peek): " << request.value();
+
+    auto future = owner->transport_->IssueRequest(request.value(), {});
     future.ExecuteWhenReady(
       [self = IntrusivePtr<DeleteTask>(this)](
           ReadyFuture<HttpResponse> response) {
@@ -1018,10 +1043,15 @@ struct DeleteTask : public RateLimiterNode,
           kEmptySha256,
           start_time_);
 
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS)
-        << "DeleteTask: " << request;
+    if(!request.ok()) {
+      promise.SetResult(request.status());
+      return;
+    }
 
-    auto future = owner->transport_->IssueRequest(request, {});
+    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS)
+        << "DeleteTask: " << request.value();
+
+    auto future = owner->transport_->IssueRequest(request.value(), {});
     future.ExecuteWhenReady([self = IntrusivePtr<DeleteTask>(this)](
                                 ReadyFuture<HttpResponse> response) {
       self->OnResponse(response.result());
@@ -1226,10 +1256,16 @@ struct ListTask : public RateLimiterNode,
           kEmptySha256,
           start_time_);
 
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS)
-        << "List: " << request;
+    if(!request.ok()) {
+      execution::set_error(receiver_, request.status());
+      execution::set_stopping(receiver_);
+      return;
+    }
 
-    auto future = owner_->transport_->IssueRequest(request, {});
+    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS)
+        << "List: " << request.value();
+
+    auto future = owner_->transport_->IssueRequest(request.value(), {});
     future.ExecuteWhenReady(WithExecutor(
         owner_->executor(), [self = IntrusivePtr<ListTask>(this)](
                                 ReadyFuture<HttpResponse> response) {

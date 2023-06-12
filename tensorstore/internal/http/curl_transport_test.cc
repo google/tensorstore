@@ -91,7 +91,7 @@ TEST_F(CurlTransportTest, Http1) {
           .AddQueryParameter("name", "dragon")
           .AddQueryParameter("age", "1234")
           .EnableAcceptEncoding()
-          .BuildRequest(),
+          .BuildRequest().value(),
       absl::Cord("Hello"));
 
   ABSL_LOG(INFO) << response.status();
@@ -187,7 +187,7 @@ TEST_F(CurlTransportTest, Http1Resend) {
             .AddQueryParameter("name", "dragon")
             .AddQueryParameter("age", "1234")
             .EnableAcceptEncoding()
-            .BuildRequest(),
+            .BuildRequest().value(),
         absl::Cord("Hello"));
 
     ABSL_LOG(INFO) << "C: " << i << " " << future.status();
