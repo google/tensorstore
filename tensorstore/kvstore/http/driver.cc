@@ -251,7 +251,7 @@ struct ReadTask {
       }
 
       request_builder.MaybeAddStalenessBoundCacheControlHeader(options.staleness_bound);
-      request_builder.AddRangeHeader(options.byte_range);
+      request_builder.MaybeAddRangeHeader(options.byte_range);
 
       if (StorageGeneration::IsCleanValidValue(options.if_equal)) {
         request_builder.AddHeader(tensorstore::StrCat(

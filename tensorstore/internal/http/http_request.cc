@@ -66,11 +66,11 @@ HttpRequestBuilder& HttpRequestBuilder::EnableAcceptEncoding() {
   return *this;
 }
 
-HttpRequestBuilder& HttpRequestBuilder::AddRangeHeader(OptionalByteRangeRequest byte_range) {
+HttpRequestBuilder& HttpRequestBuilder::MaybeAddRangeHeader(OptionalByteRangeRequest byte_range) {
   // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Range
   if (byte_range.exclusive_max) {
     if(!byte_range.SatisfiesInvariants()) {
-      status_ = absl::InvalidArgumentError("AddRangeHeader byte_range does not satisfy invariants");
+      status_ = absl::InvalidArgumentError("MaybeAddRangeHeader byte_range does not satisfy invariants");
       return *this;
     }
 

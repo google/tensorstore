@@ -103,7 +103,7 @@ class HttpRequestBuilder {
 
   /// Adds a `range` header to the http request if the byte_range
   /// is specified.
-  HttpRequestBuilder& AddRangeHeader(OptionalByteRangeRequest byte_range);
+  HttpRequestBuilder& MaybeAddRangeHeader(OptionalByteRangeRequest byte_range);
   /// Adds a `cache-control` header specifying `max-age` or `no-cache`.
   HttpRequestBuilder& MaybeAddCacheControlMaxAgeHeader(absl::Duration max_age);
   /// Adds a `cache-control` header consistent with `staleness_bound`.
@@ -112,9 +112,9 @@ class HttpRequestBuilder {
  private:
   friend class ::tensorstore::internal_storage_s3::S3RequestBuilder;
   HttpRequest request_;
-  absl::Status status_;
   char const* query_parameter_separator_;
   absl::FunctionRef<std::string(std::string_view)> uri_encoder_;
+  absl::Status status_;
 };
 
 

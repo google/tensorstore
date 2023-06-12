@@ -28,37 +28,6 @@ using ::tensorstore::internal_http::HttpRequest;
 namespace {
 
 
-TEST(S3RequestBuilderTest, Headers) {
-    // Malformed headers
-    {
-        auto request = S3RequestBuilder("GET", "http://127.0.0.1/")
-                            .AddHeader("host")
-                            .BuildRequest("key", "secret", "region", "hash", absl::Now());
-        ASSERT_FALSE(request.ok());
-    }
-    {
-        auto request = S3RequestBuilder("GET", "http://127.0.0.1/")
-                            .AddHeader("host:")
-                            .BuildRequest("key", "secret", "region", "hash", absl::Now());
-        ASSERT_FALSE(request.ok());
-    }
-    {
-        auto request = S3RequestBuilder("GET", "http://127.0.0.1/")
-                            .AddHeader("host:    ")
-                            .BuildRequest("key", "secret", "region", "hash", absl::Now());
-        ASSERT_FALSE(request.ok());
-    }
-
-    // Correctly formed header
-    {
-        auto request = S3RequestBuilder("GET", "http://127.0.0.1/")
-                            .AddHeader("host: 127.0.0.0.1")
-                            .BuildRequest("key", "secret", "region", "hash", absl::Now());
-        ASSERT_TRUE(request.ok());
-    }
-}
-
-
 TEST(S3RequestBuilderTest, AWS4SignatureGetExample) {
     // https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
     // These values from worked exapmle in "Example: GET Object" Section

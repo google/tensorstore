@@ -501,7 +501,7 @@ struct ReadTask : public RateLimiterNode,
     start_time_ = absl::Now();
     auto request = request_builder
             .EnableAcceptEncoding()
-            .AddRangeHeader(options.byte_range)
+            .MaybeAddRangeHeader(options.byte_range)
             .AddHeader(absl::StrCat("host: ", owner->host_))
             .AddHeader(absl::StrCat("x-amz-content-sha256: ", kEmptySha256))
             .AddHeader(absl::FormatTime("x-amz-date: %Y%m%dT%H%M%SZ", start_time_, absl::UTCTimeZone()))

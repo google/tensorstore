@@ -522,7 +522,7 @@ struct ReadTask : public RateLimiterNode,
       request_builder.AddHeader(*maybe_auth_header.value());
     }
 
-    request_builder.AddRangeHeader(options.byte_range);
+    request_builder.MaybeAddRangeHeader(options.byte_range);
     auto request = request_builder.EnableAcceptEncoding().BuildRequest();
 
     if(!request.ok()) {

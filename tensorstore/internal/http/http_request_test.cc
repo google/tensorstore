@@ -39,6 +39,15 @@ TEST(HttpRequestBuilder, BuildRequest) {
   EXPECT_THAT(request.headers(), testing::ElementsAre("X-foo: bar"));
 }
 
+
+TEST(HttpRequestBuilder, FailedToBuild) {
+  auto request = HttpRequestBuilder("GET", "http://127.0.0.1:0/")
+                    .MaybeAddRangeHeader({5, 1})
+                    .BuildRequest();
+  EXPECT_FALSE(request.ok());
+}
+
+
 TEST(HttpRequestBuilder, AddCacheControlMaxAgeHeader) {
   {
     HttpRequestBuilder builder("GET", "http://127.0.0.1:0/");
@@ -96,21 +105,21 @@ TEST(HttpRequestBuilder, AddStalenessBoundCacheControlHeader) {
   }
 }
 
-TEST(HttpRequestBuilder, AddRangeHeader) {
+TEST(HttpRequestBuilder, MaybeAddRangeHeader) {
   {
     HttpRequestBuilder builder("GET", "http://127.0.0.1:0/");
-    builder.AddRangeHeader({});
+    builder.MaybeAddRangeHeader({});
     EXPECT_THAT(builder.BuildRequest().value().headers(), ::testing::IsEmpty());
   }
   {
     HttpRequestBuilder builder("GET", "http://127.0.0.1:0/");
-    builder.AddRangeHeader({1});
+    builder.MaybeAddRangeHeader({1});
     EXPECT_THAT(builder.BuildRequest().value().headers(),
                 ::testing::ElementsAre("Range: bytes=1-"));
   }
   {
     HttpRequestBuilder builder("GET", "http://127.0.0.1:0/");
-    builder.AddRangeHeader({1, 2});
+    builder.MaybeAddRangeHeader({1, 2});
     EXPECT_THAT(builder.BuildRequest().value().headers(),
                 ::testing::ElementsAre("Range: bytes=1-1"));
   }

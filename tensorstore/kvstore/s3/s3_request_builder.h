@@ -69,8 +69,8 @@ class S3RequestBuilder {
 
   /// Adds a `range` header to the http request if the byte_range
   /// is specified.
-  S3RequestBuilder& AddRangeHeader(OptionalByteRangeRequest byte_range) {
-    builder_.AddRangeHeader(byte_range);
+  S3RequestBuilder& MaybeAddRangeHeader(OptionalByteRangeRequest byte_range) {
+    builder_.MaybeAddRangeHeader(byte_range);
     return *this;
   };
   /// Adds a `cache-control` header specifying `max-age` or `no-cache`.
