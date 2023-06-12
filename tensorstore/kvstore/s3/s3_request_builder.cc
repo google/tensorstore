@@ -112,7 +112,7 @@ S3RequestBuilder & S3RequestBuilder::AddHeader(const std::string & header, bool 
 
   if(signed_header) {
     auto key = absl::AsciiStrToLower(stripped_header.substr(0, pos));
-    auto value = std::string(absl::StripAsciiWhitespace(stripped_header.substr(pos + 1)));
+    auto value = absl::StripAsciiWhitespace(stripped_header.substr(pos + 1));
     signed_headers_.insert({std::string(key), std::string(value)});
   }
   return *this;
