@@ -28,6 +28,37 @@ using ::tensorstore::internal_http::HttpRequest;
 namespace {
 
 
+TEST(S3RequestBuilderTest, Headers) {
+    // Malformed headers
+    {
+        auto request = S3RequestBuilder("GET", "http://127.0.0.1/")
+                            .AddHeader("host")
+                            .BuildRequest("key", "secret", "region", "hash", absl::Now());
+        ASSERT_FALSE(request.ok());
+    }
+    {
+        auto request = S3RequestBuilder("GET", "http://127.0.0.1/")
+                            .AddHeader("host:")
+                            .BuildRequest("key", "secret", "region", "hash", absl::Now());
+        ASSERT_FALSE(request.ok());
+    }
+    {
+        auto request = S3RequestBuilder("GET", "http://127.0.0.1/")
+                            .AddHeader("host:    ")
+                            .BuildRequest("key", "secret", "region", "hash", absl::Now());
+        ASSERT_FALSE(request.ok());
+    }
+
+    // Correctly formed header
+    {
+        auto request = S3RequestBuilder("GET", "http://127.0.0.1/")
+                            .AddHeader("host: 127.0.0.0.1")
+                            .BuildRequest("key", "secret", "region", "hash", absl::Now());
+        ASSERT_TRUE(request.ok());
+    }
+}
+
+
 TEST(S3RequestBuilderTest, AWS4SignatureGetExample) {
     // https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
     // These values from worked exapmle in "Example: GET Object" Section
@@ -45,11 +76,11 @@ TEST(S3RequestBuilderTest, AWS4SignatureGetExample) {
     auto host = absl::StrFormat("%s.s3.amazonaws.com", bucket);
     auto x_amz_date = absl::FormatTime("%Y%m%dT%H%M%SZ", time, utc);
 
-    std::vector<std::string> headers = {
-        absl::StrCat("host: ", host),
-        "range: bytes=0-9",
-        absl::StrCat("x-amz-content-sha256: ", payload_hash),
-        absl::StrCat("x-amz-date: ", x_amz_date)
+    std::multimap<std::string, std::string> headers = {
+        {"host", host},
+        {"range", "bytes=0-9"},
+        {"x-amz-content-sha256", payload_hash},
+        {"x-amz-date", x_amz_date}
     };
 
     auto canonical_request = S3RequestBuilder::CanonicalRequest(url, "GET", payload_hash, headers, {});
@@ -92,7 +123,9 @@ TEST(S3RequestBuilderTest, AWS4SignatureGetExample) {
     EXPECT_EQ(auth_header, expected_auth_header);
 
     auto s3_builder = S3RequestBuilder("GET", url);
-    for(auto it = headers.rbegin(); it != headers.rend(); ++it) s3_builder.AddHeader(*it);
+    for(auto it = headers.rbegin(); it != headers.rend(); ++it) {
+        s3_builder.AddHeader(absl::StrCat(it->first, ": ", it->second));
+    }
     auto request = s3_builder.BuildRequest(aws_access_key, aws_secret_access_key,
                                            aws_region, payload_hash, time).value();
 
@@ -118,12 +151,12 @@ TEST(S3RequestBuilderTest, AWS4SignaturePutExample) {
     auto host = absl::StrFormat("%s.s3.amazonaws.com", bucket);
     auto x_amz_date = absl::FormatTime("%Y%m%dT%H%M%SZ", time, utc);
 
-    std::vector<std::string> headers = {
-        "date: Fri, 24 May 2013 00:00:00 GMT",
-        absl::StrCat("host: ", host),
-        absl::StrCat("x-amz-content-sha256: ", payload_hash),
-        absl::StrCat("x-amz-date: ", x_amz_date),
-        absl::StrCat("x-amz-storage-class: REDUCED_REDUNDANCY")
+    std::multimap<std::string, std::string> headers = {
+        {"date", "Fri, 24 May 2013 00:00:00 GMT"},
+        {"host", host},
+        {"x-amz-content-sha256", payload_hash},
+        {"x-amz-date", x_amz_date},
+        {"x-amz-storage-class", "REDUCED_REDUNDANCY"}
     };
 
     auto canonical_request = S3RequestBuilder::CanonicalRequest(url, "PUT", payload_hash, headers, {});
@@ -166,7 +199,9 @@ TEST(S3RequestBuilderTest, AWS4SignaturePutExample) {
     EXPECT_EQ(auth_header, expected_auth_header);
 
     auto s3_builder = S3RequestBuilder("PUT", url);
-    for(auto it = headers.rbegin(); it != headers.rend(); ++it) s3_builder.AddHeader(*it);
+    for(auto it = headers.rbegin(); it != headers.rend(); ++it) {
+        s3_builder.AddHeader(absl::StrCat(it->first, ": ", it->second));
+    }
     auto request = s3_builder.BuildRequest(aws_access_key, aws_secret_access_key,
                                            aws_region, payload_hash, time).value();
 
@@ -191,10 +226,10 @@ TEST(S3RequestBuilderTest, AWS4SignatureListObjectsExample) {
     auto host = absl::StrFormat("%s.s3.amazonaws.com", bucket);
     auto x_amz_date = absl::FormatTime("%Y%m%dT%H%M%SZ", time, utc);
 
-    std::vector<std::string> headers = {
-        absl::StrCat("host: ", host),
-        absl::StrCat("x-amz-content-sha256: ", payload_hash),
-        absl::StrCat("x-amz-date: ", x_amz_date)
+    std::multimap<std::string, std::string> headers = {
+        {"host", host},
+        {"x-amz-content-sha256", payload_hash},
+        {"x-amz-date", x_amz_date}
     };
 
     std::vector<std::pair<std::string, std::string>> queries = {
@@ -241,12 +276,13 @@ TEST(S3RequestBuilderTest, AWS4SignatureListObjectsExample) {
     EXPECT_EQ(auth_header, expected_auth_header);
 
     auto s3_builder = S3RequestBuilder("GET", url);
-    for(auto it = headers.rbegin(); it != headers.rend(); ++it) s3_builder.AddHeader(*it);
+    for(auto it = headers.rbegin(); it != headers.rend(); ++it) {
+        s3_builder.AddHeader(absl::StrCat(it->first, ": ", it->second));
+    }
     for(auto it = queries.rbegin(); it != queries.rend(); ++it) s3_builder.AddQueryParameter(it->first, it->second);
     auto request = s3_builder.BuildRequest(aws_access_key, aws_secret_access_key,
                                            aws_region, payload_hash, time).value();
 
     EXPECT_THAT(request.headers(), ::testing::Contains(auth_header));
-
 }
 }

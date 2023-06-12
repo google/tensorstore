@@ -18,6 +18,7 @@
 /// \file
 /// S3 Request Builder
 
+#include <map>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -51,10 +52,7 @@ class S3RequestBuilder {
   }
 
   /// Adds request headers.
-  S3RequestBuilder & AddHeader(std::string header) {
-    builder_.AddHeader(header);
-    return *this;
-  }
+  S3RequestBuilder & AddHeader(const std::string & header, bool signed_header=true);
 
   /// Adds a parameter for a request.
   S3RequestBuilder& AddQueryParameter(std::string_view key, std::string_view value) {
@@ -107,18 +105,18 @@ class S3RequestBuilder {
     std::string_view url,
     std::string_view method,
     std::string_view payload_hash,
-    const std::vector<std::string> & headers,
+    const std::multimap<std::string, std::string> & headers,
     const std::vector<std::pair<std::string, std::string>> & queries);
 
   static std::string AuthorizationHeader(
     std::string_view aws_access_key,
     std::string_view aws_region,
     std::string_view signature,
-    const std::vector<std::string> & headers,
+    const std::multimap<std::string, std::string> & headers,
     const absl::Time & time);
  private:
+  std::multimap<std::string, std::string> signed_headers_;
   HttpRequestBuilder builder_;
-  char const* query_parameter_separator_;
 };
 
 } // namespace internal_storage_s3

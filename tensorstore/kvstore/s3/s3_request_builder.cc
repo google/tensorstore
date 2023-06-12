@@ -85,7 +85,7 @@ void ComputeHmac(unsigned char (&key)[kHmacSize], std::string_view message, unsi
 }
 
 
-}
+} // namespace
 
 std::string UriEncode(std::string_view src) {
   std::string dest;
@@ -98,6 +98,26 @@ std::string UriObjectKeyEncode(std::string_view src) {
   internal::PercentEncodeReserved(src, dest, kUriKeyUnreservedChars);
   return dest;
 }
+
+S3RequestBuilder & S3RequestBuilder::AddHeader(const std::string & header, bool signed_header) {
+  builder_.AddHeader(header);
+  auto stripped_header = absl::StripAsciiWhitespace(header);
+  auto pos = stripped_header.find(':');
+
+  // Not found or empty
+  if(pos == std::string::npos || pos + 1 >= stripped_header.size()) {
+    builder_.status_ = absl::InvalidArgumentError(absl::StrCat("Invalid header [", header, "]"));
+    return *this;
+  }
+
+  if(signed_header) {
+    auto key = absl::AsciiStrToLower(stripped_header.substr(0, pos));
+    auto value = std::string(absl::StripAsciiWhitespace(stripped_header.substr(pos + 1)));
+    signed_headers_.insert({std::string(key), std::string(value)});
+  }
+  return *this;
+}
+
 
 Result<HttpRequest> S3RequestBuilder::BuildRequest(
     std::string_view aws_access_key,
@@ -123,16 +143,15 @@ Result<HttpRequest> S3RequestBuilder::BuildRequest(
     }
   }
 
-  auto headers = request_.headers();
-  std::sort(std::begin(headers), std::end(headers));
   std::sort(std::begin(queries), std::end(queries));
   auto canonical_request = CanonicalRequest(request_.url(), request_.method(),
-                                            payload_hash, headers,
+                                            payload_hash, signed_headers_,
                                             queries);
   auto signing_string = SigningString(canonical_request, aws_region, time);
   auto signature = Signature(aws_secret_access_key, aws_region, signing_string, time);
-  auto auth_header = AuthorizationHeader(aws_access_key, aws_region, signature, headers, time);
-  request_.headers_.emplace_back(std::move(auth_header));
+  auto auth_header = AuthorizationHeader(aws_access_key, aws_region, signature,
+                                         signed_headers_, time);
+  AddHeader(auth_header, false);
   return builder_.BuildRequest();
 }
 
@@ -188,7 +207,7 @@ std::string S3RequestBuilder::CanonicalRequest(
   std::string_view url,
   std::string_view method,
   std::string_view payload_hash,
-  const std::vector<std::string> & headers,
+  const std::multimap<std::string, std::string> & headers,
   const std::vector<std::pair<std::string, std::string>> & queries)
 {
   auto uri = ParseGenericUri(url);
@@ -213,28 +232,18 @@ std::string S3RequestBuilder::CanonicalRequest(
 
   cord.Append("\n");
 
-  // Convert headers into canonical form and sort
-  std::vector<std::string> cheaders;
-
-  for(auto & header: headers) {
-    auto delim_pos = header.find(':');
-    assert(delim_pos != std::string::npos && delim_pos + 1 != std::string::npos);
-    cheaders.push_back(absl::StrCat(
-      absl::AsciiStrToLower(header.substr(0, delim_pos)), ":",
-      absl::StripAsciiWhitespace(header.substr(delim_pos + 1)), "\n"));
+  for(auto & pair: headers) {
+    cord.Append(pair.first);
+    cord.Append(":");
+    cord.Append(pair.second);
+    cord.Append("\n");
   }
-
-  std::sort(std::begin(cheaders), std::end(cheaders));
-  for(auto & header: cheaders) { cord.Append(header); }
   cord.Append("\n");
 
   // Signed headers
-  for(auto [it, first] = std::tuple{cheaders.begin(), true}; it != cheaders.end(); ++it, first=false) {
+  for(auto [it, first] = std::tuple{headers.begin(), true}; it != headers.end(); ++it, first=false) {
     if(!first) cord.Append(";");
-    auto header = std::string_view(*it);
-    auto delim_pos = header.find(':');
-    assert(delim_pos != std::string::npos);
-    cord.Append(header.substr(0, delim_pos));
+    cord.Append(it->first);
   }
 
   cord.Append("\n");
@@ -246,21 +255,11 @@ std::string S3RequestBuilder::CanonicalRequest(
 }
 
 std::string S3RequestBuilder::AuthorizationHeader(
-  std::string_view aws_access_key,
-  std::string_view aws_region,
-  std::string_view signature,
-  const std::vector<std::string> & headers,
-  const absl::Time & time) {
-
-  std::vector<std::string> header_names;
-  for(auto & header: headers) {
-    std::size_t delim_pos = header.find(':');
-    assert(delim_pos != std::string::npos);
-    header_names.push_back(absl::AsciiStrToLower(std::string_view(header).substr(0, delim_pos)));
-  }
-
-  std::sort(std::begin(header_names), std::end(header_names));
-
+    std::string_view aws_access_key,
+    std::string_view aws_region,
+    std::string_view signature,
+    const std::multimap<std::string, std::string> & headers,
+    const absl::Time & time) {
   return absl::StrFormat(
     "Authorization: AWS4-HMAC-SHA256 Credential=%s"
     "/%s/%s/s3/aws4_request,"
@@ -268,7 +267,10 @@ std::string S3RequestBuilder::AuthorizationHeader(
       aws_access_key,
       absl::FormatTime("%Y%m%d", time, absl::UTCTimeZone()),
       aws_region,
-      absl::StrJoin(header_names, ";"),
+      absl::StrJoin(headers, ";",
+                    [](std::string * out, auto pair) {
+                      absl::StrAppend(out, pair.first);
+                    }),
       signature
   );
 }
