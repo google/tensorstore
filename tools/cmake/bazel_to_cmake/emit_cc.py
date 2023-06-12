@@ -246,10 +246,12 @@ def emit_cc_library(
     srcs: Set[str],
     hdrs: Set[str],
     alwayslink: bool = False,
+    header_only: Optional[bool] = None,
     **kwargs,
 ):
   """Generates a C++ library target."""
-  header_only = all(re.search(_HEADER_SRC_PATTERN, x) for x in srcs)
+  if header_only is None:
+    header_only = all(re.search(_HEADER_SRC_PATTERN, x) for x in srcs)
   del hdrs
 
   target_name = _cmake_target_pair.target

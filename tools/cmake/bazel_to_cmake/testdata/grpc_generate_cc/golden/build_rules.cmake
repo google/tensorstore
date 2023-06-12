@@ -5,25 +5,25 @@ find_package(gRPC REQUIRED)
 add_library(CMakeProject_c_proto INTERFACE)
 target_sources(CMakeProject_c_proto INTERFACE
         "${TEST_DIRECTORY}/c.proto")
-list(APPEND CMakeProject_c_proto_IMPORT_DIRS "${TEST_DIRECTORY}")
-set_property(TARGET CMakeProject_c_proto PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${CMakeProject_c_proto_IMPORT_DIRS})
+target_include_directories(CMakeProject_c_proto INTERFACE
+       "${TEST_DIRECTORY}")
+add_library(CMakeProject::c_proto ALIAS CMakeProject_c_proto)
 
 # @grpc_generate_cc_test_repo//:cc__grpc_codegen
 add_custom_target(CMakeProject_cc__grpc_codegen)
-target_sources(CMakeProject_cc__grpc_codegen PRIVATE
-        "${TEST_DIRECTORY}/c.proto")
 
 btc_protobuf(
     TARGET CMakeProject_cc__grpc_codegen
-    IMPORT_TARGETS  CMakeProject_c_proto
+    PROTO_TARGET CMakeProject_c_proto
     LANGUAGE grpc
-    PLUGIN protoc-gen-grpc=$<TARGET_FILE:gRPC::grpc_cpp_plugin>
     GENERATE_EXTENSIONS ".grpc.pb.h" ".grpc.pb.cc"
     PROTOC_OPTIONS --experimental_allow_proto3_optional
+    PROTOC_OUT_DIR ${PROJECT_BINARY_DIR}
+    PLUGIN protoc-gen-grpc=$<TARGET_FILE:gRPC::grpc_cpp_plugin>
     PLUGIN_OPTIONS "services_namespace=grpc_gen"
     DEPENDENCIES "protobuf::protoc" "gRPC::grpc_cpp_plugin"
-    PROTOC_OUT_DIR ${PROJECT_BINARY_DIR}
 )
+
 
 # @grpc_generate_cc_test_repo//:cc_grpc
 add_library(CMakeProject_cc_grpc)

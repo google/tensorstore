@@ -70,6 +70,7 @@ def repo():
             "//:protoc": "protobuf::protoc",
             "//:protoc_lib": "protobuf::libprotoc",
         },
+        cmakelists_prefix = "set(Protobuf_IMPORT_DIRS \"${CMAKE_CURRENT_SOURCE_DIR}/src\" CACHE INTERNAL \"\")\n",
     )
 
 _WELL_KNOWN_TYPES = [

@@ -48,14 +48,12 @@ add_library(CMakeProject::a_alias ALIAS CMakeProject_a)
 add_library(CMakeProject_c_proto INTERFACE)
 target_sources(CMakeProject_c_proto INTERFACE
         "${TEST_DIRECTORY}/c.proto")
-btc_transitive_import_dirs(
-    OUT_VAR CMakeProject_c_proto_IMPORT_DIRS
-    IMPORT_DIRS "${TEST_DIRECTORY}"
-    IMPORT_TARGETS Protobuf_timestamp_proto
-    IMPORT_VARS Protobuf_IMPORT_DIRS
-)
-list(APPEND CMakeProject_c_proto_IMPORT_DIRS "${TEST_DIRECTORY}")
-set_property(TARGET CMakeProject_c_proto PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${CMakeProject_c_proto_IMPORT_DIRS})
+target_link_libraries(CMakeProject_c_proto INTERFACE
+        "Protobuf_timestamp_proto")
+target_include_directories(CMakeProject_c_proto INTERFACE
+       ${Protobuf_IMPORT_DIRS}
+       "${TEST_DIRECTORY}")
+add_library(CMakeProject::c_proto ALIAS CMakeProject_c_proto)
 
 # @native_rules_test_repo//:c_proto__cpp_library
 add_library(CMakeProject_c_proto__cpp_library)
@@ -66,13 +64,11 @@ target_include_directories(CMakeProject_c_proto__cpp_library PUBLIC
         "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
         "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_c_proto__cpp_library PUBLIC cxx_std_17)
-target_sources(CMakeProject_c_proto__cpp_library PRIVATE
-        "${TEST_DIRECTORY}/c.proto")
 add_library(CMakeProject::c_proto__cpp_library ALIAS CMakeProject_c_proto__cpp_library)
 
 btc_protobuf(
     TARGET CMakeProject_c_proto__cpp_library
-    IMPORT_TARGETS  CMakeProject_c_proto
+    PROTO_TARGET CMakeProject_c_proto
     LANGUAGE cpp
     GENERATE_EXTENSIONS ".pb.h" ".pb.cc"
     PROTOC_OPTIONS --experimental_allow_proto3_optional
@@ -110,8 +106,13 @@ add_test(NAME CMakeProject_a_test COMMAND CMakeProject_a_test WORKING_DIRECTORY 
 add_library(CMakeProject_c_proto_2 INTERFACE)
 target_sources(CMakeProject_c_proto_2 INTERFACE
         "${TEST_DIRECTORY}/c.proto")
-list(APPEND CMakeProject_c_proto_2_IMPORT_DIRS "${TEST_DIRECTORY}")
-set_property(TARGET CMakeProject_c_proto_2 PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${CMakeProject_c_proto_2_IMPORT_DIRS})
+target_include_directories(CMakeProject_c_proto_2 INTERFACE
+       "${TEST_DIRECTORY}")
+add_library(CMakeProject::c_proto_2 ALIAS CMakeProject_c_proto_2)
+
+# @native_rules_test_repo//:c_proto_alias (alias)
+add_library(CMakeProject_c_proto_alias ALIAS CMakeProject_c_proto)
+add_library(CMakeProject::c_proto_alias ALIAS CMakeProject_c_proto)
 
 # @native_rules_test_repo//:c_proto_cc_alias (alias)
 add_library(CMakeProject_c_proto_cc_alias ALIAS CMakeProject_c_proto_cc)
@@ -166,8 +167,9 @@ add_library(CMakeProject::y_alias ALIAS CMakeProject_subdir_y)
 add_library(CMakeProject_subdir_z_proto INTERFACE)
 target_sources(CMakeProject_subdir_z_proto INTERFACE
         "${TEST_DIRECTORY}/subdir/z.proto")
-list(APPEND CMakeProject_subdir_z_proto_IMPORT_DIRS "${TEST_DIRECTORY}")
-set_property(TARGET CMakeProject_subdir_z_proto PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${CMakeProject_subdir_z_proto_IMPORT_DIRS})
+target_include_directories(CMakeProject_subdir_z_proto INTERFACE
+       "${TEST_DIRECTORY}")
+add_library(CMakeProject::subdir_z_proto ALIAS CMakeProject_subdir_z_proto)
 
 # @native_rules_test_repo//:c_proto_alias (proto alias)
 add_library(CMakeProject_c_proto_alias__cpp_library ALIAS CMakeProject_c_proto__cpp_library)

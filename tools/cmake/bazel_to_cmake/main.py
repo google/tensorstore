@@ -27,6 +27,7 @@ from . import cmake_builder
 from . import native_rules  # pylint: disable=unused-import
 from . import native_rules_alias  # pylint: disable=unused-import
 from . import native_rules_cc  # pylint: disable=unused-import
+from . import native_rules_cc_proto  # pylint: disable=unused-import
 from . import native_rules_genrule  # pylint: disable=unused-import
 from . import native_rules_proto  # pylint: disable=unused-import
 from .bzl_library import default as _  # pylint: disable=unused-import

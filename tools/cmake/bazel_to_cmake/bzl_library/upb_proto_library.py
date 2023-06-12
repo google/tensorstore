@@ -19,9 +19,9 @@ https://github.com/protocolbuffers/upb/blob/main/bazel/upb_proto_library.bzl
 # pylint: disable=relative-beyond-top-level
 from typing import List, Optional
 
-from ..native_rules_proto import cc_proto_library_impl
-from ..native_rules_proto import PluginSettings
-from ..native_rules_proto import PROTO_REPLACEMENT_TARGETS
+from ..native_rules_cc_proto import cc_proto_library_impl
+from ..native_rules_cc_proto import PluginSettings
+from ..native_rules_cc_proto import PROTO_REPLACEMENT_TARGETS
 from ..starlark.bazel_globals import BazelGlobals
 from ..starlark.bazel_globals import register_bzl_library
 from ..starlark.bazel_target import RepositoryId
