@@ -177,7 +177,7 @@ bool AddGenerationHeader(S3RequestBuilder * builder,
 std::pair<std::string, std::string> payload_sha256(const absl::Cord & cord=absl::Cord()) {
   SHA256Digester sha256;
   sha256.Write(cord);
-  const auto digest = sha256.Digest();
+  auto digest = sha256.Digest();
   auto digest_sv = std::string_view(
     reinterpret_cast<const char *>(&digest[0]),
     digest.size());
@@ -191,7 +191,7 @@ std::pair<std::string, std::string> payload_sha256(const absl::Cord & cord=absl:
 std::pair<std::string, std::string> payload_md5(const absl::Cord & cord=absl::Cord()) {
   MD5Digester md5;
   md5.Write(cord);
-  const auto digest = md5.Digest();
+  auto digest = md5.Digest();
   auto digest_sv = std::string_view(
     reinterpret_cast<const char *>(&digest[0]),
     digest.size());
