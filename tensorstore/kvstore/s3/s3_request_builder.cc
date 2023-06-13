@@ -166,7 +166,7 @@ std::string S3RequestBuilder::SigningString(
   sha256.Write(canonical_request);
   const auto digest = sha256.Digest();
   auto digest_sv = std::string_view(
-    reinterpret_cast<const char *>(digest.begin()),
+    reinterpret_cast<const char *>(&digest[0]),
     digest.size());
 
   return absl::StrFormat(

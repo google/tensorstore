@@ -179,7 +179,7 @@ std::pair<std::string, std::string> payload_sha256(const absl::Cord & cord=absl:
   sha256.Write(cord);
   const auto digest = sha256.Digest();
   auto digest_sv = std::string_view(
-    reinterpret_cast<const char *>(digest.begin()),
+    reinterpret_cast<const char *>(&digest[0]),
     digest.size());
 
   std::string base64_result;
@@ -193,7 +193,7 @@ std::pair<std::string, std::string> payload_md5(const absl::Cord & cord=absl::Co
   md5.Write(cord);
   const auto digest = md5.Digest();
   auto digest_sv = std::string_view(
-    reinterpret_cast<const char *>(digest.begin()),
+    reinterpret_cast<const char *>(&digest[0]),
     digest.size());
 
   std::string base64_result;
