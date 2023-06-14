@@ -198,6 +198,15 @@ to your dependent project's ``.bazelrc``.
 
 The `supported C++ toolchains<build-dependencies>` are listed below.
 
+.. warning::
+
+   MSVC (Windows) has a MAX_PATH limitation of 260 characters which may result
+   in errors such as ``fatal error C1083: Cannot open include file``.  Such
+   errors may be avoided by configuring bazel to use a shorter path by setting
+   the bazel startup option ``--output_base``.  This may be done by modifying
+   the ``.bazelrc``, or when building for Python, setting the environment
+   variable ``TENSORSTORE_BAZEL_STARTUP_OPTIONS="--output_base=C:\\\\Out"``.
+
 .. _cmake-build:
 
 CMake integration

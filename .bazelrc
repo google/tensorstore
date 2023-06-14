@@ -78,6 +78,12 @@ build:macos --features=-supports_dynamic_linker
 # symlinks.
 startup --windows_enable_symlinks
 
+# https://github.com/protocolbuffers/protobuf/issues/12947
+# Windows has path-length limits of 260 characters leading to errors which
+# may require a shorter filenames. If encountered, uncomment and adjust:
+#
+# startup --output_base=C:\Out
+
 # By default assume MSVC on Windows.
 build:windows --config=msvc
 build:windows --config=windows_common
