@@ -1169,6 +1169,15 @@ overall build.</p>
 compiler flags specified in the <code class="docutils literal notranslate"><span class="pre">.bazelrc</span></code> file in the TensorStore repository
 to your dependent project’s <code class="docutils literal notranslate"><span class="pre">.bazelrc</span></code>.</p>
 <p>The <a class="reference internal" href="#build-dependencies"><span class="std std-ref">supported C++ toolchains</span></a> are listed below.</p>
+<div class="warning admonition">
+<p class="admonition-title">Warning</p>
+<p>MSVC (Windows) has a MAX_PATH limitation of 260 characters which may result
+in errors such as <code class="docutils literal notranslate"><span class="pre">fatal</span> <span class="pre">error</span> <span class="pre">C1083:</span> <span class="pre">Cannot</span> <span class="pre">open</span> <span class="pre">include</span> <span class="pre">file</span></code>.  Such
+errors may be avoided by configuring bazel to use a shorter path by setting
+the bazel startup option <code class="docutils literal notranslate"><span class="pre">--output_base</span></code>.  This may be done by modifying
+the <code class="docutils literal notranslate"><span class="pre">.bazelrc</span></code>, or when building for Python, setting the environment
+variable <code class="docutils literal notranslate"><span class="pre">TENSORSTORE_BAZEL_STARTUP_OPTIONS=&quot;--output_base=C:\\\\Out&quot;</span></code>.</p>
+</div>
 <h3 id="cmake-integration"><span id="cmake-build"></span>CMake integration<a class="headerlink" href="#cmake-integration" title="Permalink to this heading">¶</a></h3>
 <p>To add TensorStore as a dependency to an existing CMake project:</p>
 <div class="highlight-cmake notranslate"><div class="highlight"><pre><span></span><code><span class="nb">include</span><span class="p">(</span><span class="s">FetchContent</span><span class="p">)</span>
