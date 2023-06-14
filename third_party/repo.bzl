@@ -28,7 +28,7 @@ load(
     "workspace_and_buildfile",
 )
 load(
-    "@com_google_tensorstore//third_party:python/python_configure.bzl",
+    "@tensorstore//third_party:python/python_configure.bzl",
     "get_numpy_include_rule",
     "get_python_bin",
     "python_env_vars",

@@ -1,4 +1,4 @@
-load("@com_google_tensorstore//bazel:utils.bzl", "package_relative_path")
+load("@tensorstore//bazel:utils.bzl", "package_relative_path")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -168,7 +168,7 @@ cc_library(
 [
     alias(
         name = name,
-        actual = "@com_google_tensorstore//:{target}".format(target = name),
+        actual = "@tensorstore//:{target}".format(target = name),
     )
     for name in [
         "compiler_gcc",

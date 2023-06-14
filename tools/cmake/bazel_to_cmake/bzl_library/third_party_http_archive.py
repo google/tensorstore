@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""CMake implementation of "@com_google_tensorstore//third_party:repo.bzl".
+"""CMake implementation of "@tensorstore//third_party:repo.bzl".
 
 The following parameters of `third_party_http_archive` are supported:
 
@@ -232,7 +232,7 @@ from .helpers import write_bazel_to_cmake_cmakelists
 
 
 @register_bzl_library(
-    "@com_google_tensorstore//third_party:repo.bzl", workspace=True
+    "@tensorstore//third_party:repo.bzl", workspace=True
 )
 class ThirdPartyRepoLibrary(BazelGlobals):
 

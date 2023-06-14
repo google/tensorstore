@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""CMake implementation of "@com_google_tensorstore//bazel:cc_grpc_library.bzl"."""
+"""CMake implementation of "@tensorstore//bazel:cc_grpc_library.bzl"."""
 
 # pylint: disable=invalid-name,missing-function-docstring,relative-beyond-top-level,g-long-lambda
 from typing import Any, List, Optional, cast

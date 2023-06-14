@@ -1,4 +1,4 @@
-load("@com_google_tensorstore//bazel:utils.bzl", "package_relative_path")
+load("@tensorstore//bazel:utils.bzl", "package_relative_path")
 load("@bazel_skylib//lib:selects.bzl", "selects")
 
 package(default_visibility = ["//visibility:public"])
@@ -58,7 +58,7 @@ selects.config_setting_group(
 [
     alias(
         name = name,
-        actual = "@com_google_tensorstore//:{target}".format(target = name),
+        actual = "@tensorstore//:{target}".format(target = name),
     )
     for name in [
         "linux_x86_64_clang",

@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""CMake implementation of "@com_google_tensorstore//bazel:rules_nasm.bzl"."""
+"""CMake implementation of "@tensorstore//bazel:rules_nasm.bzl"."""
 
 # pylint: disable=relative-beyond-top-level,invalid-name,missing-function-docstring,missing-class-docstring
 
@@ -38,7 +38,7 @@ from ..util import cmake_is_true
 
 
 @register_bzl_library(
-    "@com_google_tensorstore//bazel:rules_nasm.bzl", build=True
+    "@tensorstore//bazel:rules_nasm.bzl", build=True
 )
 class RulesNasmLibrary(BazelGlobals):
 

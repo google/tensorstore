@@ -301,7 +301,7 @@ config_setting(
 [
     alias(
         name = name,
-        actual = "@com_google_tensorstore//:{target}".format(target = name),
+        actual = "@tensorstore//:{target}".format(target = name),
     )
     for name in [
         "compiler_msvc",

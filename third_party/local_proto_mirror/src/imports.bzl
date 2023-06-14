@@ -2,11 +2,11 @@
 # See: https://github.com/googleapis/googleapis/blob/master/repository_rules.bzl
 
 load(
-    "@com_google_tensorstore//bazel:tensorstore.bzl",
+    "@tensorstore//bazel:tensorstore.bzl",
     _tensorstore_cc_proto_library = "tensorstore_cc_proto_library",
 )
 load(
-    "@com_google_tensorstore//bazel:cc_grpc_library.bzl",
+    "@tensorstore//bazel:cc_grpc_library.bzl",
     _cc_grpc_library = "cc_grpc_library",
 )
 load(

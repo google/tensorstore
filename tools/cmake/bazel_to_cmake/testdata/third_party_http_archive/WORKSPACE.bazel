@@ -1,6 +1,6 @@
 workspace(name = "third_party_http_archive_test_repo")
 
-load("@com_google_tensorstore//third_party:repo.bzl", "third_party_http_archive")
+load("@tensorstore//third_party:repo.bzl", "third_party_http_archive")
 
 
 third_party_http_archive(

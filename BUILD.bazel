@@ -10,7 +10,7 @@ exports_files(glob(["*"]))
 #[
 #    alias(
 #        name = name,
-#        actual = "@com_google_tensorstore//:{target}".format(target = name),
+#        actual = "@tensorstore//:{target}".format(target = name),
 #    )
 #    for name in [
 #        "linux_arm64_clang",
