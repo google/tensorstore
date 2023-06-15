@@ -21,10 +21,13 @@ https://github.com/bazelbuild/bazel/tree/master/src/main/starlark/builtins_bzl/c
 """
 
 # pylint: disable=relative-beyond-top-level,invalid-name,missing-function-docstring,g-long-lambda
+
+import io
 import pathlib
 from typing import Dict, List, Optional, Set
 
 from .cmake_builder import CMakeBuilder
+from .cmake_builder import quote_list
 from .cmake_builder import quote_path_list
 from .cmake_target import CMakeDepsProvider
 from .cmake_target import CMakeTarget
@@ -133,33 +136,46 @@ def _filegroup_impl(
   # Also add an INTERFACE_LIBRARY in order to reference in compile targets.
   repo = state.workspace.all_repositories.get(_target.repository_id)
   assert repo is not None
-
-  source_dir = repo.source_directory
-  bin_dir = repo.cmake_binary_dir
+  has_proto = False
+  has_ch = False
   includes: Set[str] = set()
   for path in state.get_targets_file_paths(resolved_srcs):
-    if is_relative_to(pathlib.PurePath(path), source_dir):
-      includes.add(source_dir.as_posix())
-    if is_relative_to(pathlib.PurePath(path), bin_dir):
-      includes.add(bin_dir.as_posix())
+    if path.endswith(".proto"):
+      has_proto = True
+    if (
+        path.endswith(".c")
+        or path.endswith(".h")
+        or path.endswith(".cc")
+        or path.endswith(".inc")
+    ):
+      has_ch = True
+    for root in [repo.source_directory, repo.cmake_binary_dir]:
+      if is_relative_to(pathlib.PurePath(path), root):
+        includes.add(root.as_posix())
 
-  includes: List[str] = list(sorted(includes))
-  includes_name = f"{cmake_name}_IMPORT_DIRS"
-  includes_literal = "${" + includes_name + "}"
-  quoted_srcs = quote_path_list(
-      sorted(set(srcs_files)), separator="\n               "
-  )
+  _sep = "\n               "
+  quoted_includes = quote_list(sorted(set(includes)), separator=_sep)
 
-  output = f"""
-# {_target.as_label()}
+  quoted_srcs = quote_path_list(sorted(set(srcs_files)), separator=_sep)
+
+  out = io.StringIO()
+  out.write(f"""
+# filegroup({_target.as_label()})
 add_library({cmake_name} INTERFACE)
-target_sources({cmake_name} INTERFACE
-               {quoted_srcs})
-list(APPEND {includes_name} {quote_path_list(includes)})
-set_property(TARGET {cmake_name} PROPERTY INTERFACE_INCLUDE_DIRECTORIES {includes_literal})
-"""
+target_sources({cmake_name} INTERFACE{_sep}{quoted_srcs})
+""")
+  if has_proto:
+    out.write(
+        f"set_property(TARGET {cmake_name} PROPERTY"
+        f" INTERFACE_IMPORTS{_sep}{quoted_includes})\n"
+    )
+  if has_ch:
+    out.write(
+        f"set_property(TARGET {cmake_name} PROPERTY"
+        f" INTERFACE_INCLUDE_DIRECTORIES{_sep}{quoted_includes})\n"
+    )
 
-  _context.access(CMakeBuilder).addtext(output)
+  _context.access(CMakeBuilder).addtext(out.getvalue())
 
   providers: List[Provider] = [FilesProvider(srcs_files)]
   if cmake_deps:

@@ -1,7 +1,7 @@
 find_package(Protobuf REQUIRED)
 find_package(gRPC REQUIRED)
 
-# @grpc_generate_cc_test_repo//:c_proto
+# proto_library(@grpc_generate_cc_test_repo//:c_proto)
 add_library(CMakeProject_c_proto INTERFACE)
 target_sources(CMakeProject_c_proto INTERFACE
         "${TEST_DIRECTORY}/c.proto")
@@ -25,7 +25,7 @@ btc_protobuf(
 )
 
 
-# @grpc_generate_cc_test_repo//:cc_grpc
+# cc_library(@grpc_generate_cc_test_repo//:cc_grpc)
 add_library(CMakeProject_cc_grpc)
 set_property(TARGET CMakeProject_cc_grpc PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_cc_grpc PUBLIC
@@ -41,7 +41,7 @@ target_sources(CMakeProject_cc_grpc PRIVATE
         "_cmake_binary_dir_/c.grpc.pb.cc")
 add_library(CMakeProject::cc_grpc ALIAS CMakeProject_cc_grpc)
 
-# @grpc_generate_cc_test_repo//:a
+# cc_library(@grpc_generate_cc_test_repo//:a)
 add_library(CMakeProject_a)
 set_property(TARGET CMakeProject_a PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_a PUBLIC

@@ -21,7 +21,7 @@ from typing import List, Optional
 
 from ..native_rules_cc_proto import cc_proto_library_impl
 from ..native_rules_cc_proto import PluginSettings
-from ..native_rules_cc_proto import PROTO_REPLACEMENT_TARGETS
+from ..native_rules_proto import PROTO_REPO
 from ..starlark.bazel_globals import BazelGlobals
 from ..starlark.bazel_globals import register_bzl_library
 from ..starlark.bazel_target import RepositoryId
@@ -35,11 +35,87 @@ from ..starlark.select import Configurable
 
 UPB_REPO = RepositoryId("com_google_protobuf_upb")
 
-_UPB_WELL_KNOWN_PROTOS = TargetId.parse(
-    "@local_proto_mirror//google/protobuf:well_known_protos_upb"
+_DESCRIPTOR_UPB = TargetId.parse(
+    "@com_google_protobuf_upb//:cmake_descriptor_upb"
 )
-_UPBDEFS_WELL_KNOWN_PROTOS = TargetId.parse(
-    "@local_proto_mirror//google/protobuf:well_known_protos_upbdefs"
+
+_DESCRIPTOR_UPBDEFS = TargetId.parse(
+    "@com_google_protobuf_upb//:cmake_descriptor_upbdefs"
+)
+
+_WKT_UPB = TargetId.parse("@local_proto_mirror//google/protobuf:wkt_upb_proto")
+
+_WKT_UPBDEFS = TargetId.parse(
+    "@local_proto_mirror//google/protobuf:wkt_upbdefs_proto"
+)
+
+
+_WELL_KNOWN_TYPES = [
+    "any",
+    "api",
+    "duration",
+    "empty",
+    "field_mask",
+    "source_context",
+    "struct",
+    "timestamp",
+    "type",
+    "wrappers",
+]
+
+_REPLACEMENTS_UPB = dict(
+    [
+        (
+            PROTO_REPO.parse_target(f"//src/google/protobuf:{x}_proto"),
+            _WKT_UPB,
+        )
+        for x in _WELL_KNOWN_TYPES
+    ]
+    + [
+        (
+            PROTO_REPO.parse_target(f"//:{x}_proto"),
+            _WKT_UPB,
+        )
+        for x in _WELL_KNOWN_TYPES
+    ]
+    + [
+        (
+            PROTO_REPO.parse_target("//src/google/protobuf:descriptor_proto"),
+            _DESCRIPTOR_UPB,
+        ),
+        (
+            PROTO_REPO.parse_target("//:descriptor_proto"),
+            _DESCRIPTOR_UPB,
+        ),
+    ]
+)
+
+
+_REPLACEMENTS_UPBDEFS = dict(
+    [
+        (
+            PROTO_REPO.parse_target(f"//src/google/protobuf:{x}_proto"),
+            _WKT_UPBDEFS,
+        )
+        for x in _WELL_KNOWN_TYPES
+    ]
+    + [
+        (
+            PROTO_REPO.parse_target(f"//:{x}_proto"),
+            _WKT_UPBDEFS,
+        )
+        for x in _WELL_KNOWN_TYPES
+    ]
+    + [
+        (
+            PROTO_REPO.parse_target("//src/google/protobuf:descriptor_proto"),
+            _DESCRIPTOR_UPBDEFS,
+        ),
+        (
+            PROTO_REPO.parse_target("//:descriptor_proto"),
+            _DESCRIPTOR_UPBDEFS,
+        ),
+    ]
 )
 
 
@@ -51,11 +127,8 @@ _UPB = PluginSettings(
         UPB_REPO.parse_target(
             "//:generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me"
         ),
-        UPB_REPO.parse_target("//:port"),
     ],
-    replacement_targets=dict(
-        [(k, _UPB_WELL_KNOWN_PROTOS) for k in PROTO_REPLACEMENT_TARGETS]
-    ),
+    replacement_targets=_REPLACEMENTS_UPB,
 )
 
 _UPBDEFS = PluginSettings(
@@ -68,9 +141,7 @@ _UPBDEFS = PluginSettings(
         ),
         UPB_REPO.parse_target("//:port"),
     ],
-    replacement_targets=dict(
-        [(k, _UPBDEFS_WELL_KNOWN_PROTOS) for k in PROTO_REPLACEMENT_TARGETS]
-    ),
+    replacement_targets=_REPLACEMENTS_UPBDEFS,
 )
 
 
@@ -98,6 +169,19 @@ class UpbProtoLibraryCoptsInfo(Provider):
     return f"{self.__class__.__name__}({repr(self.copts)})"
 
 
+class UpbWrappedCcInfo(Provider):
+  """Build setting value (i.e. flag value) corresponding to a Bazel target."""
+
+  __slots__ = ("cc_info", "cc_info_with_thunks")
+
+  def __init__(self, cc_info: List[str], cc_info_with_thunks: List[str]):
+    self.cc_info = cc_info
+    self.cc_info_with_thunks = cc_info_with_thunks
+
+  def __repr__(self):
+    return f"{self.__class__.__name__}({repr(self.cc_info)},{repr(self.cc_info_with_thunks)})"
+
+
 @register_bzl_library(
     "@com_google_protobuf_upb//bazel:upb_proto_library.bzl", build=True
 )
@@ -105,6 +189,9 @@ class UpbProtoLibrary(BazelGlobals):
 
   # pylint: disable-next=invalid-name
   bazel__FastTableEnabledInfo = _FastTableEnabledInfo
+
+  # pylint: disable-next=invalid-name
+  bazel_UpbWrappedCcInfo = UpbWrappedCcInfo
 
   # pylint: disable-next=invalid-name
   bazel_UpbProtoLibraryCoptsInfo = UpbProtoLibraryCoptsInfo

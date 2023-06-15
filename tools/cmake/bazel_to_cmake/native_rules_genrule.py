@@ -53,7 +53,7 @@ def genrule(
     **kwargs,
 ):
   _context = self.snapshot()
-  target = _context.resolve_target(name)
+  target = _context.parse_rule_target(name)
   out_targets = _context.resolve_target_or_label_list(outs)
 
   _context.add_rule(

@@ -21,8 +21,9 @@ import re
 from typing import List, Match, Optional
 
 from .cmake_target import CMakeDepsProvider
+from .cmake_target import CMakeExecutableTargetProvider
+from .cmake_target import CMakeLibraryTargetProvider
 from .cmake_target import CMakeTarget
-from .cmake_target import CMakeTargetProvider
 from .starlark.bazel_target import TargetId
 from .starlark.common_providers import FilesProvider
 from .starlark.invocation_context import InvocationContext
@@ -70,7 +71,9 @@ def _get_location_replacement(
       return rel_paths[0]
     return " ".join(rel_paths)
 
-  cmake_target_provider = info.get(CMakeTargetProvider)
+  cmake_target_provider = info.get(CMakeExecutableTargetProvider)
+  if cmake_target_provider is None:
+    cmake_target_provider = info.get(CMakeLibraryTargetProvider)
   if cmake_target_provider is not None:
     return f"$<TARGET_FILE:{cmake_target_provider.target}>"
 

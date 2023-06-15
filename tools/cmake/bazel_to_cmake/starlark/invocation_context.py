@@ -152,6 +152,19 @@ class InvocationContext(object):
       assert isinstance(evaluated, list)
       return evaluated
 
+  def parse_rule_target(
+      self,
+      label_string: str,
+  ) -> TargetId:
+    """Parses a label used as a rule name or target."""
+    # Use package-level resolution.
+    assert label_string
+    assert not isinstance(label_string, list)
+    assert not isinstance(label_string, TargetId)
+    target = self.caller_package_id.parse_target(label_string)
+    assert target.repository_id == self.caller_package_id.repository_id
+    return target
+
   def resolve_target(
       self,
       label_string: str,

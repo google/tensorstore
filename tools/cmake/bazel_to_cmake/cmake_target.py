@@ -22,7 +22,7 @@ CMakeTarget = NewType("CMakeTarget", str)
 
 
 class CMakeTargetPair(NamedTuple):
-  """CMakeTarget identifies a cmake target, optionally with an alias."""
+  """CMakeTargetPair identifies a cmake target, optionally with an alias."""
 
   cmake_package: Optional[CMakePackage]
   target: CMakeTarget
@@ -35,10 +35,12 @@ class CMakeTargetPair(NamedTuple):
   def dep(self) -> CMakeTarget:
     return self.alias or self.target
 
-  def as_providers(self):
+  def as_providers(self, is_binary: bool = False):
     return (
         CMakeTargetPairProvider(self),
-        CMakeTargetProvider(self.target),
+        CMakeExecutableTargetProvider(self.target)
+        if is_binary
+        else CMakeLibraryTargetProvider(self.target),
         CMakeDepsProvider([self.dep]),
     )
 
@@ -90,8 +92,20 @@ class CMakePackageDepsProvider(Provider):
     return f"{self.__class__.__name__}({repr(self.packages)})"
 
 
-class CMakeTargetProvider(Provider):
-  """CMake target corresponding to a Bazel target."""
+class CMakeLibraryTargetProvider(Provider):
+  """CMake target corresponding to a Bazel library target."""
+
+  __slots__ = ("target",)
+
+  def __init__(self, target: CMakeTarget):
+    self.target = target
+
+  def __repr__(self):
+    return f"{self.__class__.__name__}({repr(self.target)})"
+
+
+class CMakeExecutableTargetProvider(Provider):
+  """CMake target corresponding to a Bazel executable target."""
 
   __slots__ = ("target",)
 

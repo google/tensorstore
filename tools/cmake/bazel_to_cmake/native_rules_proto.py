@@ -16,7 +16,7 @@
 proto_library() and friends involve some compromises between Bazel and CMake
 target handling.  In Bazel there is a global view of the dependency tree,
 which allows aspects to extract information about dependencies to ensure
-that dependencies in various compilation modes are correctly expressed; 
+that dependencies in various compilation modes are correctly expressed;
 bazel_to_cmake needs to allow for that in compilation and target generation.
 
 The bazel_to_cmake translation of proto_library creates an INTERFACE library
@@ -91,7 +91,7 @@ def proto_library(
     **kwargs,
 ):
   context = self.snapshot()
-  target = context.resolve_target(name)
+  target = context.parse_rule_target(name)
   context.add_rule(
       target,
       lambda: _proto_library_impl(context, target, **kwargs),
@@ -131,17 +131,23 @@ def _proto_library_impl(
 
   proto_src_files = sorted(set(proto_src_files))
 
+  import_var: str = ""
+
+  def maybe_set_import_var(d: TargetId):
+    nonlocal import_var
+    if (
+        _context.caller_package_id.repository_id != PROTO_REPO
+        and d.repository_id == PROTO_REPO
+    ):
+      import_var = "${Protobuf_IMPORT_DIRS}"
+
   # Resolve deps. When using system protobuffers, well-known-proto targets need
   # 'Protobuf_IMPORT_DIRS' added to their transitive includes.
   cmake_deps: List[CMakeTarget] = []
   import_var: str = ""
   import_targets: List[CMakeTarget] = []
   for d in resolved_deps:
-    if (
-        _context.caller_package_id.repository_id != PROTO_REPO
-        and d.repository_id == PROTO_REPO
-    ):
-      import_var = "${Protobuf_IMPORT_DIRS}"
+    maybe_set_import_var(d)
     import_targets.extend(state.get_dep(d, False))
 
   import_targets = list(sorted(set(import_targets)))
@@ -167,10 +173,12 @@ def _proto_library_impl(
     bin_dir = repo.cmake_binary_dir.joinpath(relative_package_path)
 
   includes: Set[str] = set()
-  for path in state.get_targets_file_paths(resolved_srcs):
-    for root in [source_dir, bin_dir]:
-      if is_relative_to(pathlib.PurePath(path), root):
-        includes.add(root.as_posix())
+  for s in resolved_srcs:
+    maybe_set_import_var(s)
+    for path in state.get_targets_file_paths([s]):
+      for root in [source_dir, bin_dir]:
+        if is_relative_to(pathlib.PurePath(path), root):
+          includes.add(root.as_posix())
 
   # Sanity check; if there are sources, then there should be includes.
   if proto_src_files:
@@ -178,7 +186,7 @@ def _proto_library_impl(
 
   out = io.StringIO()
   out.write(f"""
-# {_target.as_label()}
+# proto_library({_target.as_label()})
 add_library({cmake_target_pair.target} INTERFACE)
 """)
   if proto_src_files:

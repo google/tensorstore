@@ -46,12 +46,12 @@ https://github.com/bazelbuild/rules_proto/tree/master/proto
 # pylint: disable=invalid-name
 
 import pathlib
-from typing import Dict, List, NamedTuple, Optional, Set
+from typing import Dict, List, NamedTuple, Optional
 
 from .cmake_builder import CMakeBuilder
 from .cmake_builder import quote_list
+from .cmake_target import CMakeLibraryTargetProvider
 from .cmake_target import CMakeTarget
-from .cmake_target import CMakeTargetProvider
 from .emit_cc import emit_cc_library
 from .evaluation import EvaluationState
 from .starlark.bazel_globals import register_native_build_rule
@@ -94,12 +94,30 @@ _WELL_KNOWN_TYPES = [
     "descriptor",
 ]
 
-PROTO_REPLACEMENT_TARGETS: Set[TargetId] = set(
+
+_REPLACEMENTS = dict(
     [
-        PROTO_REPO.parse_target(f"//src/google/protobuf:{x}_proto")
+        (
+            PROTO_REPO.parse_target(f"//src/google/protobuf:{x}_proto"),
+            PROTO_RUNTIME,
+        )
         for x in _WELL_KNOWN_TYPES
     ]
-    + [PROTO_REPO.parse_target(f"//:{x}_proto") for x in _WELL_KNOWN_TYPES]
+    + [
+        (
+            PROTO_REPO.parse_target(f"//:{x}_proto"),
+            PROTO_RUNTIME,
+        )
+        for x in _WELL_KNOWN_TYPES
+    ]
+    + [
+        (
+            PROTO_REPO.parse_target("//src/google/protobuf/compiler:plugin"),
+            PROTO_REPO.parse_target(
+                "//src/google/protobuf/compiler:code_generator"
+            ),
+        ),
+    ]
 )
 
 
@@ -108,15 +126,7 @@ _CC = PluginSettings(
     plugin=None,
     exts=[".pb.h", ".pb.cc"],
     runtime=[PROTO_RUNTIME],
-    replacement_targets=dict(
-        [(k, PROTO_RUNTIME) for k in PROTO_REPLACEMENT_TARGETS]
-        + [(
-            PROTO_REPO.parse_target("//src/google/protobuf/compiler:plugin"),
-            PROTO_REPO.parse_target(
-                "//src/google/protobuf/compiler:code_generator"
-            ),
-        )]
-    ),
+    replacement_targets=_REPLACEMENTS,
 )
 
 
@@ -157,7 +167,7 @@ def btc_protobuf(
     cmake_deps = []
 
   target_info = _context.get_target_info(proto_library_target)
-  proto_cmake_target = target_info.get(CMakeTargetProvider).target
+  proto_cmake_target = target_info.get(CMakeLibraryTargetProvider).target
 
   proto_info = target_info.get(ProtoLibraryProvider)
   assert proto_info is not None
@@ -207,7 +217,7 @@ btc_protobuf(
 """
 
 
-def generate_proto_library_target(
+def _generate_proto_library_target(
     _context: InvocationContext,
     *,
     plugin_settings: PluginSettings,
@@ -256,11 +266,10 @@ def generate_proto_library_target(
 
   done = False
   proto_info = target_info.get(ProtoLibraryProvider)
-
   if proto_info is not None:
     sub_targets: List[TargetId] = []
     for dep in proto_info.deps:
-      sub_target_id = generate_proto_library_target(
+      sub_target_id = _generate_proto_library_target(
           _context, plugin_settings=plugin_settings, target=dep
       )
       if sub_target_id:
@@ -276,8 +285,7 @@ def generate_proto_library_target(
     done = True
 
   # TODO: Maybe handle FilesProvider like ProtoInfoProvider?
-
-  provider = target_info.get(CMakeTargetProvider)
+  provider = target_info.get(CMakeLibraryTargetProvider)
   if not done and provider:
     import_target = provider.target
     done = True
@@ -303,6 +311,8 @@ def generate_proto_library_target(
   for dep in plugin_settings.runtime:
     cc_deps.extend(state.get_dep(dep))
 
+  header_only = not bool(proto_src_files)
+
   builder = _context.access(CMakeBuilder)
   builder.addtext(f"\n# {cc_library_target.as_label()}")
   emit_cc_library(
@@ -311,7 +321,7 @@ def generate_proto_library_target(
       hdrs=set(),
       srcs=set(),
       deps=set(cc_deps),
-      header_only=False,
+      header_only=header_only,
   )
 
   if proto_src_files:
@@ -339,7 +349,8 @@ def cc_proto_library(
     **kwargs,
 ):
   context = self.snapshot()
-  target = context.resolve_target(name)
+  target = context.parse_rule_target(name)
+
   context.add_rule(
       target,
       lambda: cc_proto_library_impl(context, target, [_CC], **kwargs),
@@ -366,22 +377,22 @@ def cc_proto_library_impl(
   # Typically there is a single proto dep in a cc_library_target, multiple are
   # supported, thus we resolve each library target here.
   library_deps: List[CMakeTarget] = []
-  for settings in _plugin_settings:
-    for dep_target in resolved_deps:
-      lib_target = generate_proto_library_target(
-          _context, plugin_settings=settings, target=dep_target
-      )
-      if lib_target:
-        library_deps.extend(state.get_dep(lib_target, alias=False))
-
   if extra_deps:
     resolved_deps = _context.resolve_target_or_label_list(
         _context.evaluate_configurable_list(extra_deps)
     )
     library_deps.extend(state.get_deps(resolved_deps))
 
+  for settings in _plugin_settings:
+    for dep_target in resolved_deps:
+      lib_target = _generate_proto_library_target(
+          _context, plugin_settings=settings, target=dep_target
+      )
+      if lib_target:
+        library_deps.extend(state.get_dep(lib_target))
+
   builder = _context.access(CMakeBuilder)
-  builder.addtext(f"\n# {_target.as_label()}")
+  builder.addtext(f"\n# cc_proto_library({_target.as_label()})")
   emit_cc_library(
       builder,
       cmake_target_pair,

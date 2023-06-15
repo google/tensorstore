@@ -21,8 +21,8 @@ from typing import List, Optional
 
 import pytest
 
+from .cmake_target import CMakeExecutableTargetProvider
 from .cmake_target import CMakeTarget
-from .cmake_target import CMakeTargetProvider
 from .starlark.bazel_target import PackageId
 from .starlark.bazel_target import RepositoryId
 from .starlark.bazel_target import TargetId
@@ -63,7 +63,9 @@ class MyContext(InvocationContext):
           FilesProvider([f"{target_id.package_name}/{target_id.target_name}"])
       )
     if "cmake" in repr(target_id):
-      providers.append(CMakeTargetProvider(CMakeTarget(target_id.target_name)))
+      providers.append(
+          CMakeExecutableTargetProvider(CMakeTarget(target_id.target_name))
+      )
     if "none" in repr(target_id):
       pass
     return TargetInfo(*providers)

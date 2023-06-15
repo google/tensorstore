@@ -50,77 +50,33 @@ def repo():
         name = "local_proto_mirror",
         # Local files. Avoid BUILD.bazel files as they will be picked up by the //... pattern.
         file_symlink = {
+            "imports.bzl": "//third_party:local_proto_mirror/src/imports.bzl",
+            # envoyproxy/protoc-gen-validate
             "validate/validate.proto": "//third_party:local_proto_mirror/src/validate/validate.proto",
+            # cncf/xds
             "xds/data/orca/v3/orca_load_report.proto": "//third_party:local_proto_mirror/src/xds/data/orca/v3/orca_load_report.proto",
             "xds/service/orca/v3/orca.proto": "//third_party:local_proto_mirror/src/xds/service/orca/v3/orca.proto",
-            "imports.bzl": "//third_party:local_proto_mirror/src/imports.bzl",
-        },  # Map source Label() -> repo path
+            # protocolbuffers/protobuf
+            "google/protobuf/any.proto": "//third_party:local_proto_mirror/src/google/protobuf/any.proto",
+            "google/protobuf/api.proto": "//third_party:local_proto_mirror/src/google/protobuf/api.proto",
+            "google/protobuf/descriptor.proto": "//third_party:local_proto_mirror/src/google/protobuf/descriptor.proto",
+            "google/protobuf/duration.proto": "//third_party:local_proto_mirror/src/google/protobuf/duration.proto",
+            "google/protobuf/empty.proto": "//third_party:local_proto_mirror/src/google/protobuf/empty.proto",
+            "google/protobuf/field_mask.proto": "//third_party:local_proto_mirror/src/google/protobuf/field_mask.proto",
+            "google/protobuf/source_context.proto": "//third_party:local_proto_mirror/src/google/protobuf/source_context.proto",
+            "google/protobuf/struct.proto": "//third_party:local_proto_mirror/src/google/protobuf/struct.proto",
+            "google/protobuf/timestamp.proto": "//third_party:local_proto_mirror/src/google/protobuf/timestamp.proto",
+            "google/protobuf/type.proto": "//third_party:local_proto_mirror/src/google/protobuf/type.proto",
+            "google/protobuf/wrappers.proto": "//third_party:local_proto_mirror/src/google/protobuf/wrappers.proto",
+        },
         # Downloaded files
-        file_sha256 = {
-            "google/protobuf/any.proto": "17eeb5dc4a65300beac9ca6d7ebb6bfabfd1825fec2338013687a5805293e606",
-            "google/protobuf/api.proto": "9daa858a1c529f47f9d4ed1bc2df0dab6154ad42f99cf0351b3da9d4daff8eb0",
-            "google/protobuf/descriptor.proto": "bf4da2988d089b0454ecceb43d07c82085fc419ac2436384fa543b7b1691277c",
-            "google/protobuf/duration.proto": "a3f7301ff2956ec2e30c2241ece07197e4a86c752348d5607224819d4921c9fe",
-            "google/protobuf/empty.proto": "ecef3d54cc9e079673b9816c67bac770f7f3bf6dada2d4596ba69d71daa971e6",
-            "google/protobuf/field_mask.proto": "17b0f342cc3a262e317d56884f3f575afbfac512ad0579349cc7450e41f26891",
-            "google/protobuf/source_context.proto": "37d3401de89af1d1496fc949924a5f2011bd2fadfbeb0da1caa277159a96776d",
-            "google/protobuf/struct.proto": "dd2b492d6683d52eec6eb2bdb3cce7e2cee126006eab94060fff513d58dcb62b",
-            "google/protobuf/timestamp.proto": "fd8d738e0cb5301455a957b16a984d2c30c7ac377850ca72dbfa0e8c0f27ec15",
-            "google/protobuf/type.proto": "59b9e8322f547748f137b02bd570404851cc220c8ff4963f76a5217cf84e3bcf",
-            "google/protobuf/wrappers.proto": "a26c1d6ec73a592ac31796289a61ceffe2db2453ff427dfdd7697aac50844280",
-        },
-        file_url = {
-            # https://github.com/protocolbuffers/protobuf
-            "google/protobuf/any.proto": [
-                "https://storage.googleapis.com/tensorstore-bazel-mirror/raw.githubusercontent.com/protocolbuffers/protobuf/60b71498d70a5645324385269c518b95c8c2feb0/src/google/protobuf/any.proto",
-            ],
-            "google/protobuf/api.proto": [
-                "https://storage.googleapis.com/tensorstore-bazel-mirror/raw.githubusercontent.com/protocolbuffers/protobuf/60b71498d70a5645324385269c518b95c8c2feb0/src/google/protobuf/api.proto",
-            ],
-            "google/protobuf/descriptor.proto": [
-                "https://storage.googleapis.com/tensorstore-bazel-mirror/raw.githubusercontent.com/protocolbuffers/protobuf/60b71498d70a5645324385269c518b95c8c2feb0/src/google/protobuf/descriptor.proto",
-            ],
-            "google/protobuf/duration.proto": [
-                "https://storage.googleapis.com/tensorstore-bazel-mirror/raw.githubusercontent.com/protocolbuffers/protobuf/60b71498d70a5645324385269c518b95c8c2feb0/src/google/protobuf/duration.proto",
-            ],
-            "google/protobuf/empty.proto": [
-                "https://storage.googleapis.com/tensorstore-bazel-mirror/raw.githubusercontent.com/protocolbuffers/protobuf/60b71498d70a5645324385269c518b95c8c2feb0/src/google/protobuf/empty.proto",
-            ],
-            "google/protobuf/field_mask.proto": [
-                "https://storage.googleapis.com/tensorstore-bazel-mirror/raw.githubusercontent.com/protocolbuffers/protobuf/60b71498d70a5645324385269c518b95c8c2feb0/src/google/protobuf/field_mask.proto",
-            ],
-            "google/protobuf/source_context.proto": [
-                "https://storage.googleapis.com/tensorstore-bazel-mirror/raw.githubusercontent.com/protocolbuffers/protobuf/60b71498d70a5645324385269c518b95c8c2feb0/src/google/protobuf/source_context.proto",
-            ],
-            "google/protobuf/struct.proto": [
-                "https://storage.googleapis.com/tensorstore-bazel-mirror/raw.githubusercontent.com/protocolbuffers/protobuf/60b71498d70a5645324385269c518b95c8c2feb0/src/google/protobuf/struct.proto",
-            ],
-            "google/protobuf/timestamp.proto": [
-                "https://storage.googleapis.com/tensorstore-bazel-mirror/raw.githubusercontent.com/protocolbuffers/protobuf/60b71498d70a5645324385269c518b95c8c2feb0/src/google/protobuf/timestamp.proto",
-            ],
-            "google/protobuf/type.proto": [
-                "https://storage.googleapis.com/tensorstore-bazel-mirror/raw.githubusercontent.com/protocolbuffers/protobuf/60b71498d70a5645324385269c518b95c8c2feb0/src/google/protobuf/type.proto",
-            ],
-            "google/protobuf/wrappers.proto": [
-                "https://storage.googleapis.com/tensorstore-bazel-mirror/raw.githubusercontent.com/protocolbuffers/protobuf/60b71498d70a5645324385269c518b95c8c2feb0/src/google/protobuf/wrappers.proto",
-            ],
-        },
+        file_sha256 = {},
+        file_url = {},
         file_content = _BUILD_FILE_CONTENT,
+
         # CMake options
         cmake_name = "lpm",
         bazel_to_cmake = {},
-        cmake_target_mapping = {
-            "//google/protobuf:descriptor_proto": "lpm::google_protobuf_descriptor_proto",
-            "//validate:validate_proto": "lpm::validate_proto",
-            "//validate:validate_proto_upb": "lpm::validate_proto_upb",
-            "//validate:validate_proto_upbdef": "lpm::validate_proto_upbdef",
-            "//xds/data/orca/v3:pkg": "lpm::xds_data_orca_v3_pkg",
-            "//xds/data/orca/v3:pkg_upb": "lpm::xds_data_orca_v3_pkg_upb",
-            "//xds/data/orca/v3:pkg_upbdef": "lpm::xds_data_orca_v3_pkg_upbdef",
-            "//xds/service/orca/v3:pkg": "lpm::xds_service_orca_v3_pkg",
-            "//xds/service/orca/v3:pkg_upb": "lpm::xds_service_orca_v3_pkg_upb",
-            "//xds/service/orca/v3:pkg_upbdef": "lpm::xds_service_orca_v3_pkg_upbdef",
-        },
     )
 
 # Mapping from file name to build file content.
@@ -200,10 +156,6 @@ upb_proto_reflection_library(name = "pkg_upbdef", deps = [":pkg"])
 
 """,
     "google/protobuf/BUILD.bazel": """
-
-package(default_visibility = ["//visibility:public"])
-
-
 # Since bazel_to_cmake doesn't have a global view of targets, it cannot apply
 # aspects to collect the proto_library() sources in order to build e.g. upbdefs.
 # As a workaround the upb targets are injected into the reposoitory here so that
@@ -211,35 +163,115 @@ package(default_visibility = ["//visibility:public"])
 #
 #  These also become the "well-known-protos" depdendencies for upb/upbdefs.
 
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])
+
 load("@com_google_protobuf_upb//bazel:upb_proto_library.bzl",
      "upb_proto_library",
      "upb_proto_reflection_library")
 
 proto_library(
-    name = "well_known_protos",
-    srcs = [
-        "any.proto",
-        "api.proto",
-        "descriptor.proto",
-        "duration.proto",
-        "empty.proto",
-        "field_mask.proto",
-        "source_context.proto",
-        "struct.proto",
-        "timestamp.proto",
-        "type.proto",
-        "wrappers.proto",
+    name = "any_proto",
+    srcs = ["any.proto"],
+)
+
+proto_library(
+    name = "api_proto",
+    srcs = ["api.proto"],
+    deps = [
+        ":source_context_proto",
+        ":type_proto",
     ],
 )
 
-upb_proto_library(
-    name = "well_known_protos_upb",
-    deps = [ ":well_known_protos" ],
+proto_library(
+    name = "duration_proto",
+    srcs = ["duration.proto"],
 )
 
-upb_proto_reflection_library(
-    name = "well_known_protos_upbdefs",
-    deps = [ ":well_known_protos" ],
+proto_library(
+    name = "empty_proto",
+    srcs = ["empty.proto"],
+)
+
+proto_library(
+    name = "field_mask_proto",
+    srcs = ["field_mask.proto"],
+)
+
+proto_library(
+    name = "source_context_proto",
+    srcs = ["source_context.proto"],
+)
+
+proto_library(
+    name = "struct_proto",
+    srcs = ["struct.proto"],
+)
+
+proto_library(
+    name = "timestamp_proto",
+    srcs = ["timestamp.proto"],
+)
+
+proto_library(
+    name = "type_proto",
+    srcs = ["type.proto"],
+    deps = [
+        ":any_proto",
+        ":source_context_proto",
+    ],
+)
+
+proto_library(
+    name = "wrappers_proto",
+    srcs = ["wrappers.proto"],
+)
+
+proto_library(
+    name = "descriptor_proto",
+    srcs = ["descriptor.proto"],
+)
+
+WELL_KNOWN_TYPES = [
+    "any",
+    "api",
+    "duration",
+    "empty",
+    "field_mask",
+    "source_context",
+    "struct",
+    "timestamp",
+    "type",
+    "wrappers",
+    "descriptor",
+]
+
+[
+  upb_proto_library(
+    name = x + "_upb_proto",
+    deps = [":" + x + "_proto"],
+  ) for x in WELL_KNOWN_TYPES
+]
+
+[
+  upb_proto_reflection_library(
+    name = x + "_upbdefs_proto",
+    deps = [":" + x + "_proto"],
+  ) for x in WELL_KNOWN_TYPES
+]
+
+# Well-known type protos
+
+cc_library(
+    name = "wkt_upb_proto",
+    deps = [":" + wkt + "_upb_proto" for wkt in WELL_KNOWN_TYPES],
+)
+
+cc_library(
+    name = "wkt_upbdefs_proto",
+    deps = [":" + wkt + "_upbdefs_proto" for wkt in WELL_KNOWN_TYPES],
 )
 
 """,

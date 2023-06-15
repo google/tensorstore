@@ -1,0 +1,99 @@
+
+package(default_visibility = ["//visibility:public"])
+
+# Bootstrap upb proto dependencies
+
+cc_library(
+    name = "cmake_descriptor_upb",
+    srcs = ["bootstrap/google/protobuf/descriptor.upb.c"],
+    hdrs = ["bootstrap/google/protobuf/descriptor.upb.h"],
+    includes = ["bootstrap"],
+    strip_include_prefix = "bootstrap",
+    deps = [
+        "//:generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me",
+    ],
+)
+
+cc_library(
+    name = "cmake_descriptor_upbdefs",
+    srcs = ["bootstrap/google/protobuf/descriptor.upbdefs.c"],
+    hdrs = ["bootstrap/google/protobuf/descriptor.upbdefs.h"],
+    includes = ["bootstrap"],
+    strip_include_prefix = "bootstrap",
+    deps = [
+        "//:generated_reflection_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me",
+    ],
+)
+
+cc_library(
+    name = "cmake_plugin_upb",
+    srcs = ["bootstrap/google/protobuf/compiler/plugin.upb.c"],
+    hdrs = ["bootstrap/google/protobuf/compiler/plugin.upb.h"],
+    includes = ["bootstrap"],
+    strip_include_prefix = "bootstrap",
+    deps = [
+        "//:generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me",
+    ],
+)
+
+cc_library(
+    name = "cmake_plugin_upbdefs",
+    srcs = ["bootstrap/google/protobuf/compiler/plugin.upbdefs.c"],
+    hdrs = ["bootstrap/google/protobuf/compiler/plugin.upbdefs.h"],
+    includes = ["bootstrap"],
+    strip_include_prefix = "bootstrap",
+    deps = [
+        "//:generated_reflection_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me",
+    ],
+)
+
+
+# Bootstrap aliases.
+
+cc_library(
+    name = "//:descriptor_upb_proto_stage0",
+    srcs = ["upb/reflection/stage0/google/protobuf/descriptor.upb.c"],
+    hdrs = ["upb/reflection/stage0/google/protobuf/descriptor.upb.h"],
+    includes = ["upb/reflection/stage0"],
+    local_defines = ["UPB_BOOTSTRAP_STAGE0"],
+    strip_include_prefix = "upb/reflection/stage0",
+    deps = [
+        "//:generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me",
+        "//:mini_table",
+    ],
+)
+
+cc_library(
+    name = "//:descriptor_upb_proto_stage1",
+    deps = ["//:cmake_descriptor_upb"],
+)
+
+cc_library(
+    name = "//:descriptor_upb_proto",
+    deps = ["//:cmake_descriptor_upb"],
+)
+
+#############
+
+cc_library(
+    name = "//upbc:plugin_upb_proto_stage0",
+    srcs = ["upbc/stage0/google/protobuf/compiler/plugin.upb.c"],
+    hdrs = ["upbc/stage0/google/protobuf/compiler/plugin.upb.h"],
+    includes = ["upbc/stage0"],
+    local_defines = ["UPB_BOOTSTRAP_STAGE0"],
+    strip_include_prefix = "upbc/stage0",
+    deps = [
+        "//:generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me",
+        "//:mini_table",
+    ],
+)
+
+cc_library(
+    name = "//upbc:plugin_upb_proto_stage1",
+    deps = ["//:cmake_plugin_upb"],
+)
+
+cc_library(
+    name = "//upbc:plugin_upb_proto",
+    deps = ["//:cmake_plugin_upb"],
+)

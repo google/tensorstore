@@ -1,6 +1,6 @@
 find_package(Protobuf REQUIRED)
 
-# @native_rules_test_repo//:bb
+# cc_binary(@native_rules_test_repo//:bb)
 add_executable(CMakeProject_bb "")
 add_executable(CMakeProject::bb ALIAS CMakeProject_bb)
 target_compile_definitions(CMakeProject_bb PUBLIC "BUILD_LINUX")
@@ -24,7 +24,7 @@ add_custom_command(
 )
 add_custom_target(CMakeProject_h_file DEPENDS "_cmake_binary_dir_/a.h")
 
-# @native_rules_test_repo//:a
+# cc_library(@native_rules_test_repo//:a)
 add_library(CMakeProject_a)
 set_property(TARGET CMakeProject_a PROPERTY LINKER_LANGUAGE "CXX")
 target_compile_definitions(CMakeProject_a PUBLIC "BUILD_LINUX")
@@ -40,11 +40,11 @@ target_sources(CMakeProject_a PRIVATE
         "${TEST_DIRECTORY}/a.cc")
 add_library(CMakeProject::a ALIAS CMakeProject_a)
 
-# @native_rules_test_repo//:a_alias (alias)
+# alias(@native_rules_test_repo//:a_alias)
 add_library(CMakeProject_a_alias ALIAS CMakeProject_a)
 add_library(CMakeProject::a_alias ALIAS CMakeProject_a)
 
-# @native_rules_test_repo//:c_proto
+# proto_library(@native_rules_test_repo//:c_proto)
 add_library(CMakeProject_c_proto INTERFACE)
 target_sources(CMakeProject_c_proto INTERFACE
         "${TEST_DIRECTORY}/c.proto")
@@ -76,7 +76,7 @@ btc_protobuf(
     DEPENDENCIES "protobuf::protoc"
 )
 
-# @native_rules_test_repo//:c_proto_cc
+# cc_proto_library(@native_rules_test_repo//:c_proto_cc)
 add_library(CMakeProject_c_proto_cc INTERFACE)
 target_link_libraries(CMakeProject_c_proto_cc INTERFACE
         "CMakeProject::c_proto__cpp_library")
@@ -86,7 +86,7 @@ target_include_directories(CMakeProject_c_proto_cc INTERFACE
 target_compile_features(CMakeProject_c_proto_cc INTERFACE cxx_std_17)
 add_library(CMakeProject::c_proto_cc ALIAS CMakeProject_c_proto_cc)
 
-# @native_rules_test_repo//:a_test
+# cc_test(@native_rules_test_repo//:a_test)
 add_executable(CMakeProject_a_test "")
 add_executable(CMakeProject::a_test ALIAS CMakeProject_a_test)
 target_compile_definitions(CMakeProject_a_test PUBLIC "BUILD_LINUX")
@@ -102,7 +102,7 @@ target_sources(CMakeProject_a_test PRIVATE
         "${TEST_DIRECTORY}/a.cc")
 add_test(NAME CMakeProject_a_test COMMAND CMakeProject_a_test WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
-# @native_rules_test_repo//:c_proto_2
+# proto_library(@native_rules_test_repo//:c_proto_2)
 add_library(CMakeProject_c_proto_2 INTERFACE)
 target_sources(CMakeProject_c_proto_2 INTERFACE
         "${TEST_DIRECTORY}/c.proto")
@@ -110,15 +110,15 @@ target_include_directories(CMakeProject_c_proto_2 INTERFACE
        "${TEST_DIRECTORY}")
 add_library(CMakeProject::c_proto_2 ALIAS CMakeProject_c_proto_2)
 
-# @native_rules_test_repo//:c_proto_alias (alias)
+# alias(@native_rules_test_repo//:c_proto_alias)
 add_library(CMakeProject_c_proto_alias ALIAS CMakeProject_c_proto)
 add_library(CMakeProject::c_proto_alias ALIAS CMakeProject_c_proto)
 
-# @native_rules_test_repo//:c_proto_cc_alias (alias)
+# alias(@native_rules_test_repo//:c_proto_cc_alias)
 add_library(CMakeProject_c_proto_cc_alias ALIAS CMakeProject_c_proto_cc)
 add_library(CMakeProject::c_proto_cc_alias ALIAS CMakeProject_c_proto_cc)
 
-# @native_rules_test_repo//:subdir_x
+# cc_library(@native_rules_test_repo//:subdir_x)
 add_library(CMakeProject_subdir_x)
 set_property(TARGET CMakeProject_subdir_x PROPERTY LINKER_LANGUAGE "CXX")
 target_compile_definitions(CMakeProject_subdir_x PUBLIC "BUILD_LINUX")
@@ -143,7 +143,7 @@ add_custom_command(
 )
 add_custom_target(CMakeProject_subdir_make_y DEPENDS "_cmake_binary_dir_/subdir/y.cc")
 
-# @native_rules_test_repo//subdir:y
+# cc_library(@native_rules_test_repo//subdir:y)
 add_library(CMakeProject_subdir_y)
 set_property(TARGET CMakeProject_subdir_y PROPERTY LINKER_LANGUAGE "CXX")
 target_compile_definitions(CMakeProject_subdir_y PUBLIC "BUILD_LINUX")
@@ -159,11 +159,11 @@ target_sources(CMakeProject_subdir_y PRIVATE
         "_cmake_binary_dir_/subdir/y.cc")
 add_library(CMakeProject::subdir_y ALIAS CMakeProject_subdir_y)
 
-# @native_rules_test_repo//:y_alias (alias)
+# alias(@native_rules_test_repo//:y_alias)
 add_library(CMakeProject_y_alias ALIAS CMakeProject_subdir_y)
 add_library(CMakeProject::y_alias ALIAS CMakeProject_subdir_y)
 
-# @native_rules_test_repo//subdir:z_proto
+# proto_library(@native_rules_test_repo//subdir:z_proto)
 add_library(CMakeProject_subdir_z_proto INTERFACE)
 target_sources(CMakeProject_subdir_z_proto INTERFACE
         "${TEST_DIRECTORY}/subdir/z.proto")
@@ -171,6 +171,6 @@ target_include_directories(CMakeProject_subdir_z_proto INTERFACE
        "${TEST_DIRECTORY}")
 add_library(CMakeProject::subdir_z_proto ALIAS CMakeProject_subdir_z_proto)
 
-# @native_rules_test_repo//:c_proto_alias (proto alias)
+# alias(@native_rules_test_repo//:c_proto_alias) # proto
 add_library(CMakeProject_c_proto_alias__cpp_library ALIAS CMakeProject_c_proto__cpp_library)
 add_library(CMakeProject::c_proto_alias__cpp_library ALIAS CMakeProject_c_proto__cpp_library)

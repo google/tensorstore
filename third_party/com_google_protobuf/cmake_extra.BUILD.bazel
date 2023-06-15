@@ -11,12 +11,29 @@ load(
     "upb_proto_reflection_library",
 )
 
-upb_proto_library(
-    name = "compiler_plugin_proto_ubp",
-    deps = ["@com_google_protobuf//:compiler_plugin_proto"],
+WELL_KNOWN_TYPES = [
+    "any",
+    "api",
+    "duration",
+    "empty",
+    "field_mask",
+    "source_context",
+    "struct",
+    "timestamp",
+    "type",
+    "wrappers",
+]
+
+cc_library(
+    name = "b2cmake_wkt_cc_proto",
+    srcs = ["src/google/protobuf/" + wkt + ".pb.cc" for wkt in WELL_KNOWN_TYPES],
+    hdrs = ["src/google/protobuf/" + wkt + ".pb.h" for wkt in WELL_KNOWN_TYPES],
+    includes = ["src"],
+    strip_include_prefix = "src",
+    deps = ["//src/google/protobuf:protobuf_nowkt"],
 )
 
-upb_proto_reflection_library(
-    name = "compiler_plugin_proto_ubpdefs",
-    deps = ["@com_google_protobuf//:compiler_plugin_proto"],
-)
+# NOTE: the :wkt_upb_proto and :wkt_upbdefs_proto targets could, in theory,
+# be created here, since there is no dependency between upb and protobuf
+# because the upb and upbdefs protos have been patched in, however that would
+# exclude using the system protobuf compiler in the build.
