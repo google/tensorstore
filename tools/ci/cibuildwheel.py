@@ -193,15 +193,23 @@ def run(args, extra_args):
         perform_build()
   else:
     # macOS or Windows: build is performed without a container.
+    cibw_environment["BAZELISK_HOME"] = fix_path(bazelisk_home)
+    bazel_startup_options.append(
+        "--output_user_root=" + fix_path(bazel_cache_dir)
+    )
 
     if platform != "linux" and sys.platform.startswith("darwin"):
+      # macOS
       cibw_environment["MACOSX_DEPLOYMENT_TARGET"] = "10.14"
+    else:
+      # Windows
+      # See https://github.com/protocolbuffers/protobuf/issues/12947
+      bazel_startup_options.append(
+          "--output_base=" + pathlib.Path.home().drive + "/Out"
+      )
 
     if extra_bazelrc:
       bazel_startup_options.append("--bazelrc=" + fix_path(extra_bazelrc))
-    cibw_environment["BAZELISK_HOME"] = fix_path(bazelisk_home)
-    bazel_startup_options.append("--output_user_root=" +
-                                 fix_path(bazel_cache_dir))
     perform_build()
 
 
