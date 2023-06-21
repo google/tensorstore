@@ -15,70 +15,80 @@
 #ifndef TENSORSTORE_INTERNAL_HTTP_HTTP_REQUEST_H_
 #define TENSORSTORE_INTERNAL_HTTP_HTTP_REQUEST_H_
 
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
 
-#include "absl/strings/str_format.h"
-#include "tensorstore/internal/http/http_response.h"
+#include "absl/functional/function_ref.h"
+#include "absl/time/time.h"
+#include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/byte_range.h"
-#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal_http {
 
 /// HttpRequest encapsulates a single HTTP request.
-class HttpRequest {
- public:
-  const std::string& url() const { return url_; }
-  const std::string& user_agent() const { return user_agent_; }
-
-  // HTTP method, i.e. GET, POST, PUT, HEAD, etc.
-  const std::string& method() const { return method_; }
-  const std::vector<std::string>& headers() const { return headers_; }
-  const bool accept_encoding() const { return accept_encoding_; }
+struct HttpRequest {
+  std::string method;
+  std::string url;
+  std::string user_agent = {};
+  std::vector<std::string> headers = {};
+  bool accept_encoding = false;
 
   template <typename Sink>
   friend void AbslStringify(Sink& sink, const HttpRequest& request) {
-    absl::Format(&sink, "HttpRequest{%s %s user_agent=%s", request.method_,
-                 request.url_, request.user_agent_);
-    for (const auto& v : request.headers_) {
+    absl::Format(&sink, "HttpRequest{%s %s user_agent=%s", request.method,
+                 request.url, request.user_agent);
+    for (const auto& v : request.headers) {
       sink.Append(", ");
       sink.Append(v);
     }
     sink.Append("}");
   }
-
- private:
-  friend class HttpRequestBuilder;
-
-  std::string url_;
-  std::string method_;
-  std::string user_agent_;
-  bool accept_encoding_ = false;
-  std::vector<std::string> headers_;
 };
+
+/// Formats a `range` header to the http request if the byte_range
+/// is specified.
+std::optional<std::string> FormatRangeHeader(
+    OptionalByteRangeRequest byte_range);
+
+/// Formats a `cache-control` header specifying `max-age` or `no-cache`.
+std::optional<std::string> FormatCacheControlMaxAgeHeader(
+    absl::Duration max_age);
+
+/// Formats a `cache-control` header consistent with `staleness_bound`.
+std::optional<std::string> FormatStalenessBoundCacheControlHeader(
+    absl::Time staleness_bound);
+
+/// `strptime`-compatible format string for the HTTP date header.
+///
+/// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Date
+///
+/// Note that the time zone is always UTC and is specified as "GMT".
+constexpr const char kHttpTimeFormat[] = "%a, %d %b %E4Y %H:%M:%S GMT";
 
 /// Implements the builder pattern for HttpRequest.
 class HttpRequestBuilder {
  public:
+  using UriEncodeFunctor = absl::FunctionRef<std::string(std::string_view)>;
+
   /// Creates a request builder, using the specified method and url.
   ///
-  /// The method should be an HTTP method, like "GET", "POST", "PUT", "HEAD",
-  /// etc.
-  explicit HttpRequestBuilder(std::string_view method, std::string base_url);
+  /// The method should be an HTTP method, like "GET", "POST", "PUT", "HEAD".
+  /// The uri_encoder is used to encode query parameters.
+  HttpRequestBuilder(std::string_view method, std::string base_url)
+      : HttpRequestBuilder(method, base_url,
+                           internal::PercentEncodeUriComponent) {}
 
-  /// Creates an http request with the given payload.
+  HttpRequestBuilder(std::string_view method, std::string base_url,
+                     UriEncodeFunctor uri_encoder);
+
+  /// Creates an `HttpRequest` request from the builder.
   ///
   /// This function invalidates the builder. The application should not use this
   /// builder once this function is called.
   HttpRequest BuildRequest();
-
-  /// Adds a prefix to the user-agent string.
-  HttpRequestBuilder& AddUserAgentPrefix(std::string_view prefix);
-
-  /// Adds request headers.
-  HttpRequestBuilder& AddHeader(std::string header);
 
   /// Adds a parameter for a request.
   HttpRequestBuilder& AddQueryParameter(std::string_view key,
@@ -88,30 +98,40 @@ class HttpRequestBuilder {
   /// response.
   HttpRequestBuilder& EnableAcceptEncoding();
 
+  /// Adds request headers.
+  HttpRequestBuilder& AddHeader(std::string header);
+  HttpRequestBuilder& AddHeader(std::string_view header) {
+    return header.empty() ? *this : AddHeader(std::string(header));
+  }
+  HttpRequestBuilder& AddHeader(const char* header) {
+    return AddHeader(std::string_view(header));
+  }
+  HttpRequestBuilder& AddHeader(std::optional<std::string> header) {
+    return header ? AddHeader(std::move(*header)) : *this;
+  }
+
+  /// Adds a `range` header to the http request if the byte_range
+  /// is specified.
+  HttpRequestBuilder& MaybeAddRangeHeader(OptionalByteRangeRequest byte_range) {
+    return AddHeader(FormatRangeHeader(std::move(byte_range)));
+  }
+
+  /// Adds a `cache-control` header specifying `max-age` or `no-cache`.
+  HttpRequestBuilder& MaybeAddCacheControlMaxAgeHeader(absl::Duration max_age) {
+    return AddHeader(FormatCacheControlMaxAgeHeader(max_age));
+  }
+
+  /// Adds a `cache-control` header consistent with `staleness_bound`.
+  HttpRequestBuilder& MaybeAddStalenessBoundCacheControlHeader(
+      absl::Time staleness_bound) {
+    return AddHeader(FormatStalenessBoundCacheControlHeader(staleness_bound));
+  }
+
  private:
+  absl::FunctionRef<std::string(std::string_view)> uri_encoder_;
   HttpRequest request_;
   char const* query_parameter_separator_;
 };
-
-/// Adds a `range` header to the http request if the byte_range
-/// is specified.
-bool AddRangeHeader(HttpRequestBuilder& request_builder,
-                    OptionalByteRangeRequest byte_range);
-
-/// Adds a `cache-control` header specifying `max-age` or `no-cache`.
-bool AddCacheControlMaxAgeHeader(HttpRequestBuilder& request_builder,
-                                 absl::Duration max_age);
-
-/// `strptime`-compatible format string for the HTTP date header.
-///
-/// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Date
-///
-/// Note that the time zone is always UTC and is specified as "GMT".
-constexpr const char kHttpTimeFormat[] = "%a, %d %b %E4Y %H:%M:%S GMT";
-
-/// Adds a `cache-control` header consistent with `staleness_bound`.
-bool AddStalenessBoundCacheControlHeader(HttpRequestBuilder& request_builder,
-                                         absl::Time staleness_bound);
 
 }  // namespace internal_http
 }  // namespace tensorstore

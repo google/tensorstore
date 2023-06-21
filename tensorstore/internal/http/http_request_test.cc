@@ -21,69 +21,97 @@
 namespace {
 
 using ::tensorstore::internal_http::HttpRequestBuilder;
+using ::testing::AnyOf;
+using ::testing::ElementsAre;
 
 TEST(HttpRequestBuilder, BuildRequest) {
   auto request = HttpRequestBuilder("GET", "http://127.0.0.1:0/")
-                     .AddUserAgentPrefix("test")
                      .AddHeader("X-foo: bar")
                      .AddQueryParameter("name", "dragon")
                      .AddQueryParameter("age", "1234")
                      .EnableAcceptEncoding()
                      .BuildRequest();
 
-  EXPECT_EQ("http://127.0.0.1:0/?name=dragon&age=1234", request.url());
-  EXPECT_TRUE(request.accept_encoding());
-  EXPECT_EQ("test", request.user_agent());
-  EXPECT_EQ("GET", request.method());
-  EXPECT_THAT(request.headers(), testing::ElementsAre("X-foo: bar"));
+  EXPECT_EQ("http://127.0.0.1:0/?name=dragon&age=1234", request.url);
+  EXPECT_TRUE(request.accept_encoding);
+  EXPECT_EQ("GET", request.method);
+  EXPECT_THAT(request.headers, testing::ElementsAre("X-foo: bar"));
 }
 
 TEST(HttpRequestBuilder, AddCacheControlMaxAgeHeader) {
-  HttpRequestBuilder builder("GET", "http://127.0.0.1:0/");
-  EXPECT_FALSE(AddCacheControlMaxAgeHeader(builder, absl::InfiniteDuration()));
-  EXPECT_TRUE(AddCacheControlMaxAgeHeader(builder, absl::ZeroDuration()));
-  EXPECT_TRUE(AddCacheControlMaxAgeHeader(builder, absl::Seconds(10)));
-  EXPECT_TRUE(AddCacheControlMaxAgeHeader(builder, -absl::Seconds(10)));
-
-  auto request = builder.BuildRequest();
-
-  EXPECT_THAT(request.headers(),
-              testing::ElementsAre("cache-control: no-cache",
-                                   "cache-control: max-age=10",
-                                   "cache-control: no-cache"));
+  {
+    HttpRequestBuilder builder("GET", "http://127.0.0.1:0/");
+    builder.MaybeAddCacheControlMaxAgeHeader(absl::InfiniteDuration());
+    EXPECT_THAT(builder.BuildRequest().headers, ::testing::IsEmpty());
+  }
+  {
+    HttpRequestBuilder builder("GET", "http://127.0.0.1:0/");
+    builder.MaybeAddCacheControlMaxAgeHeader(absl::ZeroDuration());
+    EXPECT_THAT(builder.BuildRequest().headers,
+                ElementsAre("cache-control: no-cache"));
+  }
+  {
+    HttpRequestBuilder builder("GET", "http://127.0.0.1:0/");
+    builder.MaybeAddCacheControlMaxAgeHeader(absl::Seconds(10));
+    EXPECT_THAT(builder.BuildRequest().headers,
+                ElementsAre("cache-control: max-age=10"));
+  }
+  {
+    HttpRequestBuilder builder("GET", "http://127.0.0.1:0/");
+    builder.MaybeAddCacheControlMaxAgeHeader(-absl::Seconds(10));
+    EXPECT_THAT(builder.BuildRequest().headers,
+                ElementsAre("cache-control: no-cache"));
+  }
 }
 
 TEST(HttpRequestBuilder, AddStalenessBoundCacheControlHeader) {
-  const absl::Time kFutureTime = absl::Now() + absl::Minutes(525600);
-  HttpRequestBuilder builder("GET", "http://127.0.0.1:0/");
-  EXPECT_FALSE(
-      AddStalenessBoundCacheControlHeader(builder, absl::InfinitePast()));
-  // staleness is in the future => no-cache.
-  EXPECT_TRUE(
-      AddStalenessBoundCacheControlHeader(builder, absl::InfiniteFuture()));
-  EXPECT_TRUE(AddStalenessBoundCacheControlHeader(builder, kFutureTime));
-  // staleness is in the past => max-age
-  EXPECT_TRUE(AddStalenessBoundCacheControlHeader(
-      builder, absl::Now() - absl::Milliseconds(5900)));
-
-  auto request = builder.BuildRequest();
-
-  EXPECT_THAT(
-      request.headers(),
-      testing::ElementsAre("cache-control: no-cache", "cache-control: no-cache",
-                           ::testing::AnyOf("cache-control: max-age=5",
-                                            "cache-control: max-age=4")));
+  {
+    HttpRequestBuilder builder("GET", "http://127.0.0.1:0/");
+    builder.MaybeAddStalenessBoundCacheControlHeader(absl::InfinitePast());
+    EXPECT_THAT(builder.BuildRequest().headers, ::testing::IsEmpty());
+  }
+  {
+    // staleness is in the future => no-cache.
+    HttpRequestBuilder builder("GET", "http://127.0.0.1:0/");
+    builder.MaybeAddStalenessBoundCacheControlHeader(absl::InfiniteFuture());
+    EXPECT_THAT(builder.BuildRequest().headers,
+                ElementsAre("cache-control: no-cache"));
+  }
+  {
+    const absl::Time kFutureTime = absl::Now() + absl::Minutes(525600);
+    HttpRequestBuilder builder("GET", "http://127.0.0.1:0/");
+    builder.MaybeAddStalenessBoundCacheControlHeader(kFutureTime);
+    EXPECT_THAT(builder.BuildRequest().headers,
+                ElementsAre("cache-control: no-cache"));
+  }
+  {
+    // staleness is in the past => max-age
+    HttpRequestBuilder builder("GET", "http://127.0.0.1:0/");
+    builder.MaybeAddStalenessBoundCacheControlHeader(absl::Now() -
+                                                     absl::Milliseconds(5900));
+    EXPECT_THAT(builder.BuildRequest().headers,
+                ElementsAre(AnyOf("cache-control: max-age=4",
+                                  "cache-control: max-age=5")));
+  }
 }
 
-TEST(HttpRequestBuilder, AddRangeHeader) {
-  HttpRequestBuilder builder("GET", "http://127.0.0.1:0/");
-  EXPECT_FALSE(AddRangeHeader(builder, {}));
-  EXPECT_TRUE(AddRangeHeader(builder, {1}));
-  EXPECT_TRUE(AddRangeHeader(builder, {1, 2}));
-
-  auto request = builder.BuildRequest();
-  EXPECT_THAT(request.headers(),
-              testing::ElementsAre("Range: bytes=1-", "Range: bytes=1-1"));
+TEST(HttpRequestBuilder, MaybeAddRangeHeader) {
+  {
+    HttpRequestBuilder builder("GET", "http://127.0.0.1:0/");
+    builder.MaybeAddRangeHeader({});
+    EXPECT_THAT(builder.BuildRequest().headers, ::testing::IsEmpty());
+  }
+  {
+    HttpRequestBuilder builder("GET", "http://127.0.0.1:0/");
+    builder.MaybeAddRangeHeader({1});
+    EXPECT_THAT(builder.BuildRequest().headers, ElementsAre("Range: bytes=1-"));
+  }
+  {
+    HttpRequestBuilder builder("GET", "http://127.0.0.1:0/");
+    builder.MaybeAddRangeHeader({1, 2});
+    EXPECT_THAT(builder.BuildRequest().headers,
+                ElementsAre("Range: bytes=1-1"));
+  }
 }
 
 }  // namespace

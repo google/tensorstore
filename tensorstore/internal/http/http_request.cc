@@ -14,98 +14,59 @@
 
 #include "tensorstore/internal/http/http_request.h"
 
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
+#include "absl/strings/ascii.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/str_join.h"
 #include "absl/time/time.h"
-#include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_http {
 
-HttpRequestBuilder::HttpRequestBuilder(std::string_view method,
-                                       std::string base_url)
-    : query_parameter_separator_("?") {
-  request_.method_ = method;
-  request_.url_ = std::move(base_url);
-}
-
-HttpRequest HttpRequestBuilder::BuildRequest() { return std::move(request_); }
-
-HttpRequestBuilder& HttpRequestBuilder::AddUserAgentPrefix(
-    std::string_view prefix) {
-  request_.user_agent_ = tensorstore::StrCat(prefix, request_.user_agent_);
-  return *this;
-}
-
-HttpRequestBuilder& HttpRequestBuilder::AddHeader(std::string header) {
-  request_.headers_.emplace_back(std::move(header));
-  return *this;
-}
-
-HttpRequestBuilder& HttpRequestBuilder::AddQueryParameter(
-    std::string_view key, std::string_view value) {
-  std::string parameter = tensorstore::StrCat(
-      query_parameter_separator_, internal::PercentEncodeUriComponent(key), "=",
-      internal::PercentEncodeUriComponent(value));
-  query_parameter_separator_ = "&";
-  request_.url_.append(parameter);
-  return *this;
-}
-
-HttpRequestBuilder& HttpRequestBuilder::EnableAcceptEncoding() {
-  request_.accept_encoding_ = true;
-  return *this;
-}
-
-bool AddRangeHeader(HttpRequestBuilder& request_builder,
-                    OptionalByteRangeRequest byte_range) {
+std::optional<std::string> FormatRangeHeader(
+    OptionalByteRangeRequest byte_range) {
   // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Range
+  assert(byte_range.SatisfiesInvariants());
   if (byte_range.exclusive_max) {
-    assert(byte_range.SatisfiesInvariants());
-    request_builder.AddHeader(absl::StrFormat("Range: bytes=%d-%d",
-                                              byte_range.inclusive_min,
-                                              *byte_range.exclusive_max - 1));
-    return true;
+    return absl::StrFormat("Range: bytes=%d-%d", byte_range.inclusive_min,
+                           *byte_range.exclusive_max - 1);
   }
   if (byte_range.inclusive_min > 0) {
-    request_builder.AddHeader(
-        absl::StrFormat("Range: bytes=%d-", byte_range.inclusive_min));
-    return true;
+    return absl::StrFormat("Range: bytes=%d-", byte_range.inclusive_min);
   }
-  return false;
+  return std::nullopt;
 }
 
-bool AddCacheControlMaxAgeHeader(HttpRequestBuilder& request_builder,
-                                 absl::Duration max_age) {
+std::optional<std::string> FormatCacheControlMaxAgeHeader(
+    absl::Duration max_age) {
   // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cache-Control
   if (max_age >= absl::InfiniteDuration()) {
-    return false;
+    return std::nullopt;
   }
 
   // Since max-age is specified as an integer number of seconds, always
   // round down to ensure our requirement is met.
   auto max_age_seconds = absl::ToInt64Seconds(max_age);
   if (max_age_seconds > 0) {
-    request_builder.AddHeader(
-        absl::StrFormat("cache-control: max-age=%d", max_age_seconds));
+    return absl::StrFormat("cache-control: max-age=%d", max_age_seconds);
   } else {
-    request_builder.AddHeader("cache-control: no-cache");
+    return "cache-control: no-cache";
   }
-  return true;
 }
 
-bool AddStalenessBoundCacheControlHeader(HttpRequestBuilder& request_builder,
-                                         absl::Time staleness_bound) {
+std::optional<std::string> FormatStalenessBoundCacheControlHeader(
+    absl::Time staleness_bound) {
   // `absl::InfiniteFuture()`  indicates that the result must be current.
   // `absl::InfinitePast()`  disables the cache-control header.
   if (staleness_bound == absl::InfinitePast()) {
-    return false;
+    return std::nullopt;
   }
   absl::Time now;
   absl::Duration duration = absl::ZeroDuration();
@@ -114,7 +75,51 @@ bool AddStalenessBoundCacheControlHeader(HttpRequestBuilder& request_builder,
     // the max age is in the past.
     duration = now - staleness_bound;
   }
-  return AddCacheControlMaxAgeHeader(request_builder, duration);
+
+  return FormatCacheControlMaxAgeHeader(duration);
+}
+
+HttpRequestBuilder::HttpRequestBuilder(
+    std::string_view method, std::string base_url,
+    absl::FunctionRef<std::string(std::string_view)> uri_encoder)
+    : uri_encoder_(uri_encoder),
+      request_{std::string(method), std::move(base_url)},
+      query_parameter_separator_("?") {
+  assert(!request_.method.empty());
+  assert(request_.method ==
+         absl::AsciiStrToUpper(std::string_view(request_.method)));
+  if (request_.url.find_last_of('?') != std::string::npos) {
+    query_parameter_separator_ = "&";
+  }
+}
+
+HttpRequest HttpRequestBuilder::BuildRequest() { return std::move(request_); }
+
+HttpRequestBuilder& HttpRequestBuilder::AddHeader(std::string header) {
+  if (!header.empty()) {
+    request_.headers.push_back(std::move(header));
+  }
+  return *this;
+}
+
+HttpRequestBuilder& HttpRequestBuilder::AddQueryParameter(
+    std::string_view key, std::string_view value) {
+  assert(!key.empty());
+
+  if (value.empty()) {
+    absl::StrAppend(&request_.url, query_parameter_separator_,
+                    uri_encoder_(key));
+  } else {
+    absl::StrAppend(&request_.url, query_parameter_separator_,
+                    uri_encoder_(key), "=", uri_encoder_(value));
+  }
+  query_parameter_separator_ = "&";
+  return *this;
+}
+
+HttpRequestBuilder& HttpRequestBuilder::EnableAcceptEncoding() {
+  request_.accept_encoding = true;
+  return *this;
 }
 
 }  // namespace internal_http

@@ -14,19 +14,12 @@
 
 #include "tensorstore/internal/oauth2/google_service_account_auth_provider.h"
 
-#include <stdint.h>
-
 #include <utility>
 
 #include "absl/status/status.h"
-#include "absl/time/clock.h"
-#include "tensorstore/internal/env.h"
-#include "tensorstore/internal/http/curl_handle.h"
-#include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/path.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
@@ -61,10 +54,12 @@ GoogleServiceAccountAuthProvider::GoogleServiceAccountAuthProvider(
 
 Result<HttpResponse> GoogleServiceAccountAuthProvider::IssueRequest(
     std::string_view method, std::string_view uri, absl::Cord payload) {
-  HttpRequestBuilder request_builder(method, std::string{uri});
-  request_builder.AddHeader("Content-Type: application/x-www-form-urlencoded");
   return transport_
-      ->IssueRequest(request_builder.BuildRequest(), std::move(payload))
+      ->IssueRequest(
+          HttpRequestBuilder(method, std::string{uri})
+              .AddHeader("Content-Type: application/x-www-form-urlencoded")
+              .BuildRequest(),
+          std::move(payload))
       .result();
 }
 

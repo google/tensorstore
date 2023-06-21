@@ -32,14 +32,12 @@
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
-#include "tensorstore/internal/http/curl_handle.h"
 #include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/oauth2/google_auth_provider.h"
 #include "tensorstore/internal/oauth2/google_auth_test_utils.h"
-#include "tensorstore/internal/path.h"
 #include "tensorstore/internal/schedule_at.h"
 #include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/gcs_http/gcs_mock.h"
@@ -83,7 +81,7 @@ class MetadataMockTransport : public HttpTransport {
                                     absl::Cord payload,
                                     absl::Duration request_timeout,
                                     absl::Duration connect_timeout) override {
-    auto parsed = tensorstore::internal::ParseGenericUri(request.url());
+    auto parsed = tensorstore::internal::ParseGenericUri(request.url);
 
     if (!absl::StartsWith(parsed.authority_and_path,
                           "metadata.google.internal")) {
@@ -567,7 +565,7 @@ class MyDeleteRangeCancellationMockTransport : public MyMockTransport {
                                     absl::Cord payload,
                                     absl::Duration request_timeout,
                                     absl::Duration connect_timeout) override {
-    if (request.method() == "DELETE") {
+    if (request.method == "DELETE") {
       cancellation_notification_.WaitForNotification();
       ++total_delete_requests_;
     }
@@ -631,7 +629,7 @@ class MyConcurrentMockTransport : public MyMockTransport {
                                     absl::Cord payload,
                                     absl::Duration request_timeout,
                                     absl::Duration connect_timeout) override {
-    auto parsed = tensorstore::internal::ParseGenericUri(request.url());
+    auto parsed = tensorstore::internal::ParseGenericUri(request.url);
 
     // Don't do concurrency test on auth requests, as those don't happen
     // concurrently.
@@ -718,7 +716,7 @@ class MyRateLimitedMockTransport : public MyMockTransport {
                                     absl::Cord payload,
                                     absl::Duration request_timeout,
                                     absl::Duration connect_timeout) override {
-    auto parsed = tensorstore::internal::ParseGenericUri(request.url());
+    auto parsed = tensorstore::internal::ParseGenericUri(request.url);
     if (absl::StartsWith(parsed.authority_and_path,
                          "metadata.google.internal/")) {
       return MyMockTransport::IssueRequest(request, payload, request_timeout,

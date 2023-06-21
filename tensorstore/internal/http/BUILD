@@ -69,6 +69,7 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/functional:function_ref",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
@@ -111,10 +112,8 @@ tensorstore_cc_test(
     srcs = ["curl_transport_test.cc"],
     deps = [
         ":curl_transport",
-        ":http",
         ":transport_test_utils",
         "//tensorstore/internal:thread",
-        "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/strings",

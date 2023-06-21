@@ -383,7 +383,6 @@ TEST_F(CurlTransportTest, Http2) {
   {
     auto response = transport->IssueRequest(
         HttpRequestBuilder("POST", absl::StrCat("http://", hostport, "/"))
-            .AddUserAgentPrefix("test")
             .AddHeader("X-foo: bar")
             .AddQueryParameter("name", "dragon")
             .AddQueryParameter("age", "1234")
@@ -399,7 +398,6 @@ TEST_F(CurlTransportTest, Http2) {
                 HasSubstr(absl::StrCat("Host: ", hostport, "\r\n")));
 
     // User-Agent versions change based on zlib, nghttp2, and curl versions.
-    EXPECT_THAT(initial_request, HasSubstr("User-Agent: testtensorstore/0.1 "));
 
     EXPECT_THAT(initial_request, HasSubstr("Accept: */*\r\n"));
     EXPECT_THAT(initial_request, HasSubstr("X-foo: bar\r\n"));

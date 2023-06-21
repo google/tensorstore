@@ -522,8 +522,9 @@ struct ReadTask : public RateLimiterNode,
       request_builder.AddHeader(*maybe_auth_header.value());
     }
 
-    internal_http::AddRangeHeader(request_builder, options.byte_range);
-    auto request = request_builder.EnableAcceptEncoding().BuildRequest();
+    auto request = request_builder.MaybeAddRangeHeader(options.byte_range)
+                       .EnableAcceptEncoding()
+                       .BuildRequest();
     start_time_ = absl::Now();
 
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_GCS_LOG_REQUESTS)
@@ -727,8 +728,7 @@ struct WriteTask : public RateLimiterNode,
       request_builder.AddHeader(*maybe_auth_header.value());
     }
     auto request =
-        request_builder  //
-            .AddHeader("Content-Type: application/octet-stream")
+        request_builder.AddHeader("Content-Type: application/octet-stream")
             .AddHeader(tensorstore::StrCat("Content-Length: ", value.size()))
             .BuildRequest();
     start_time_ = absl::Now();
@@ -1082,10 +1082,11 @@ struct ListTask : public RateLimiterNode,
     }
 
     HttpRequestBuilder request_builder("GET", list_url);
-    if (auth_header->has_value())
+    if (auth_header->has_value()) {
       request_builder.AddHeader(auth_header->value());
-    auto request = request_builder.BuildRequest();
+    }
 
+    auto request = request_builder.BuildRequest();
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_GCS_LOG_REQUESTS)
         << "List: " << request;
 

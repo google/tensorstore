@@ -106,13 +106,13 @@ Future<HttpResponse> GCSMockStorageBucket::IssueRequest(
     return std::move(std::get<HttpResponse>(match_result));
   }
   return absl::UnimplementedError(
-      tensorstore::StrCat("Mock cannot satisfy the request: ", request.url()));
+      tensorstore::StrCat("Mock cannot satisfy the request: ", request.url));
 }
 
 std::variant<std::monostate, HttpResponse, absl::Status>
 GCSMockStorageBucket::Match(const HttpRequest& request, absl::Cord payload) {
   bool is_upload = false;
-  auto parsed = internal::ParseGenericUri(request.url());
+  auto parsed = internal::ParseGenericUri(request.url);
   if (parsed.scheme != "https") {
     return {};
   }
@@ -168,10 +168,10 @@ GCSMockStorageBucket::Match(const HttpRequest& request, absl::Cord payload) {
   }
 
   // Dispatch based on path, method, etc.
-  if (path == "/o" && request.method() == "GET") {
+  if (path == "/o" && request.method == "GET") {
     // GET request for the bucket.
     return HandleListRequest(path, params);
-  } else if (path == "/o" && request.method() == "POST") {
+  } else if (path == "/o" && request.method == "POST") {
     if (!is_upload) {
       return HttpResponse{
           400,
@@ -179,10 +179,10 @@ GCSMockStorageBucket::Match(const HttpRequest& request, absl::Cord payload) {
               R"({ "error": { "code": 400, "message": "Uploads must be sent to the upload URL." } })")};
     }
     return HandleInsertRequest(path, params, payload);
-  } else if (absl::StartsWith(path, "/o/") && request.method() == "GET") {
+  } else if (absl::StartsWith(path, "/o/") && request.method == "GET") {
     // GET request on an object.
     return HandleGetRequest(path, params);
-  } else if (absl::StartsWith(path, "/o/") && request.method() == "DELETE") {
+  } else if (absl::StartsWith(path, "/o/") && request.method == "DELETE") {
     // DELETE request on an object.
     return HandleDeleteRequest(path, params);
   }

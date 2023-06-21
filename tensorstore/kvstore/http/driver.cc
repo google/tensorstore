@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <iterator>
 #include <memory>
 #include <optional>
 #include <string>
@@ -250,9 +249,10 @@ struct ReadTask {
         request_builder.AddHeader(header);
       }
 
-      internal_http::AddStalenessBoundCacheControlHeader(
-          request_builder, options.staleness_bound);
-      internal_http::AddRangeHeader(request_builder, options.byte_range);
+      request_builder
+          .MaybeAddStalenessBoundCacheControlHeader(options.staleness_bound)
+          .MaybeAddRangeHeader(options.byte_range)
+          .EnableAcceptEncoding();
 
       if (StorageGeneration::IsCleanValidValue(options.if_equal)) {
         request_builder.AddHeader(tensorstore::StrCat(
@@ -264,9 +264,10 @@ struct ReadTask {
             "if-none-match: \"",
             StorageGeneration::DecodeString(options.if_not_equal), "\""));
       }
-      auto request = request_builder.EnableAcceptEncoding().BuildRequest();
       read_result.stamp.time = absl::Now();
-      auto response = owner->transport_->IssueRequest(request, {}).result();
+      auto response =
+          owner->transport_->IssueRequest(request_builder.BuildRequest(), {})
+              .result();
       if (!response.ok()) return response.status();
       httpresponse = std::move(*response);
       switch (httpresponse.status_code) {
