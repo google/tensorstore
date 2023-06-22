@@ -1100,6 +1100,8 @@
 <span class="gp">&gt;&gt;&gt; </span><span class="n">store</span><span class="p">[</span><span class="sa">b</span><span class="s1">&#39;b&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="sa">b</span><span class="s1">&#39;value&#39;</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">store</span><span class="o">.</span><span class="n">list</span><span class="p">()</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
 <span class="go">[b&#39;a&#39;, b&#39;b&#39;]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">store</span><span class="o">.</span><span class="n">list</span><span class="p">(</span><span class="n">ts</span><span class="o">.</span><span class="n">KvStore</span><span class="o">.</span><span class="n">KeyRange</span><span class="p">(</span><span class="n">inclusive_min</span><span class="o">=</span><span class="sa">b</span><span class="s1">&#39;b&#39;</span><span class="p">))</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
+<span class="go">[b&#39;b&#39;]</span>
 </code></pre></div>
 </div>
 </div>
