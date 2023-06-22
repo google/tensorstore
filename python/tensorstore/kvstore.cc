@@ -414,6 +414,8 @@ Example:
     >>> store[b'b'] = b'value'
     >>> store.list().result()
     [b'a', b'b']
+    >>> store.list(ts.KvStore.KeyRange(inclusive_min=b'b')).result()
+    [b'b']
 
 Args:
 
