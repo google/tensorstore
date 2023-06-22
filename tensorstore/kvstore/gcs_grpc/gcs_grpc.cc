@@ -32,6 +32,7 @@
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/str_split.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
@@ -273,6 +274,10 @@ class GcsGrpcKeyValueStore
       context.AddMetadata("x-goog-user-project",
                           *spec_.user_project->project_id);
     }
+
+    // gRPC requests need to have routing parameters added.
+    context.AddMetadata("x-goog-request-params",
+                        absl::StrFormat("bucket=%s", bucket_name()));
 
     if (call_credentials_fn_) {
       // The gRPC credentials model includes per-channel credentials,
@@ -1060,7 +1065,7 @@ Future<const void> GcsGrpcKeyValueStore::DeleteRange(KeyRange range) {
 Future<kvstore::DriverPtr> GcsGrpcKeyValueStoreSpec::DoOpen() const {
   auto driver = internal::MakeIntrusivePtr<GcsGrpcKeyValueStore>();
   driver->spec_ = data_;
-  driver->bucket_ = tensorstore::StrCat("projects/_/buckets/", data_.bucket);
+  driver->bucket_ = absl::StrFormat("projects/_/buckets/%s", data_.bucket);
 
   std::string endpoint = data_.endpoint;
   if (endpoint.empty()) {
