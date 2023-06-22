@@ -33,11 +33,11 @@ std::shared_ptr<::grpc::ChannelCredentials> GetCredentialsForEndpoint(
     // These are the credentials acquired from the environment variable
     // "GOOGLE_APPLICATION_CREDENTIALS"  or by using the gcloud tool:
     // `gcloud application-default login`.
-    ABSL_LOG(INFO) << "Using GoogleDefaultCredentials for " << endpoint;
+    ABSL_LOG_FIRST_N(INFO, 1)
+        << "Using GoogleDefaultCredentials for " << endpoint;
     return grpc::GoogleDefaultCredentials();
   }
 
-  ABSL_LOG(INFO) << "Using InsecureCredentials for " << endpoint;
   return grpc::InsecureChannelCredentials();
 }
 
