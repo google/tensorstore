@@ -18,6 +18,9 @@
 #include <optional>
 #include <string>
 
+#include "absl/log/absl_log.h"
+#include "absl/strings/numbers.h"
+
 namespace tensorstore {
 namespace internal {
 
@@ -29,6 +32,28 @@ void SetEnv(const char* variable, const char* value);
 
 // Removes environment variable `variable`.
 void UnsetEnv(const char* variable);
+
+// Returns the parsed value of an environment variable or empty.
+template <typename T>
+std::optional<T> GetEnvValue(const char* variable) {
+  auto env = internal::GetEnv(variable);
+  if (!env) return std::nullopt;
+  if constexpr (std::is_same_v<bool, T>) {
+    T n;
+    if (absl::SimpleAtob(*env, &n)) return n;
+  } else if constexpr (std::is_same_v<float, T>) {
+    T n;
+    if (absl::SimpleAtof(*env, &n)) return n;
+  } else if constexpr (std::is_same_v<double, T>) {
+    T n;
+    if (absl::SimpleAtod(*env, &n)) return n;
+  } else {
+    T n;
+    if (absl::SimpleAtoi(*env, &n)) return n;
+  }
+  ABSL_LOG(INFO) << "Failed to parse" << variable << " as a value: " << *env;
+  return std::nullopt;
+}
 
 }  // namespace internal
 }  // namespace tensorstore

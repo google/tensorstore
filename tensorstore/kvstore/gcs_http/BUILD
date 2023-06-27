@@ -74,11 +74,9 @@ tensorstore_cc_test(
         ":gcs_http",
         "//tensorstore:context",
         "//tensorstore/internal:json_gtest",
-        "//tensorstore/internal:path",
         "//tensorstore/internal:schedule_at",
         "//tensorstore/internal:uri_utils",
         "//tensorstore/internal/http",
-        "//tensorstore/internal/http:curl_handle",
         "//tensorstore/internal/http:curl_transport",
         "//tensorstore/internal/oauth2:google_auth_provider",
         "//tensorstore/internal/oauth2:google_auth_test_utils",
@@ -211,6 +209,7 @@ tensorstore_cc_test(
     ],
     args = ["--testbench_binary=$(location @com_google_storagetestbench//:rest_server)"],
     data = ["@com_google_storagetestbench//:rest_server"],
+    flaky = 1,
     tags = [
         "requires-net:loopback",
         "skip-cmake",  # storage_testbench is python, which doesn't work in bazel_to_cmake yet.

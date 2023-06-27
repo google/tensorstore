@@ -522,19 +522,14 @@ struct ReadTask : public RateLimiterNode,
       request_builder.AddHeader(*maybe_auth_header.value());
     }
 
-    request_builder.MaybeAddRangeHeader(options.byte_range);
-    auto request = request_builder.EnableAcceptEncoding().BuildRequest();
-
-    if(!request.ok()) {
-      promise.SetResult(request.status());
-      return;
-    }
-
+    auto request = request_builder.MaybeAddRangeHeader(options.byte_range)
+                       .EnableAcceptEncoding()
+                       .BuildRequest();
     start_time_ = absl::Now();
 
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_GCS_LOG_REQUESTS)
-        << "ReadTask: " << request.value();
-    auto future = owner->transport_->IssueRequest(request.value(), {});
+        << "ReadTask: " << request;
+    auto future = owner->transport_->IssueRequest(request, {});
     future.ExecuteWhenReady([self = IntrusivePtr<ReadTask>(this)](
                                 ReadyFuture<HttpResponse> response) {
       self->OnResponse(response.result());
@@ -732,21 +727,16 @@ struct WriteTask : public RateLimiterNode,
     if (maybe_auth_header.value().has_value()) {
       request_builder.AddHeader(*maybe_auth_header.value());
     }
-    auto request = request_builder
-            .AddHeader("Content-Type: application/octet-stream")
+    auto request =
+        request_builder.AddHeader("Content-Type: application/octet-stream")
             .AddHeader(tensorstore::StrCat("Content-Length: ", value.size()))
             .BuildRequest();
     start_time_ = absl::Now();
 
-    if(!request.ok()) {
-      promise.SetResult(request.status());
-      return;
-    }
-
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_GCS_LOG_REQUESTS)
-        << "WriteTask: " << request.value() << " size=" << value.size();
+        << "WriteTask: " << request << " size=" << value.size();
 
-    auto future = owner->transport_->IssueRequest(request.value(), value);
+    auto future = owner->transport_->IssueRequest(request, value);
     future.ExecuteWhenReady([self = IntrusivePtr<WriteTask>(this)](
                                 ReadyFuture<HttpResponse> response) {
       self->OnResponse(response.result());
@@ -891,18 +881,12 @@ struct DeleteTask : public RateLimiterNode,
     }
 
     auto request = request_builder.BuildRequest();
-
-    if(!request.ok()) {
-      promise.SetResult(request.status());
-      return;
-    }
-
     start_time_ = absl::Now();
 
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_GCS_LOG_REQUESTS)
-        << "DeleteTask: " << request.value();
+        << "DeleteTask: " << request;
 
-    auto future = owner->transport_->IssueRequest(request.value(), {});
+    auto future = owner->transport_->IssueRequest(request, {});
     future.ExecuteWhenReady([self = IntrusivePtr<DeleteTask>(this)](
                                 ReadyFuture<HttpResponse> response) {
       self->OnResponse(response.result());
@@ -1098,20 +1082,15 @@ struct ListTask : public RateLimiterNode,
     }
 
     HttpRequestBuilder request_builder("GET", list_url);
-    if (auth_header->has_value())
+    if (auth_header->has_value()) {
       request_builder.AddHeader(auth_header->value());
-    auto request = request_builder.BuildRequest();
-
-    if(!request.ok()) {
-      execution::set_error(receiver_, request.status());
-      execution::set_stopping(receiver_);
-      return;
     }
 
+    auto request = request_builder.BuildRequest();
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_GCS_LOG_REQUESTS)
-        << "List: " << request.value();
+        << "List: " << request;
 
-    auto future = owner_->transport_->IssueRequest(request.value(), {});
+    auto future = owner_->transport_->IssueRequest(request, {});
     future.ExecuteWhenReady(WithExecutor(
         owner_->executor(), [self = IntrusivePtr<ListTask>(this)](
                                 ReadyFuture<HttpResponse> response) {

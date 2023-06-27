@@ -20,21 +20,14 @@
 
 #include "tensorstore/internal/http/curl_transport.h"
 
-#include <stddef.h>
-#include <stdio.h>
-#include <stdlib.h>
-
-#include <cstring>
 #include <optional>
 #include <string_view>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "absl/container/flat_hash_map.h"
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/strings/str_cat.h"
-#include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/transport_test_utils.h"
 #include "tensorstore/internal/thread.h"
 
@@ -86,12 +79,11 @@ TEST_F(CurlTransportTest, Http1) {
   // Issue a request.
   auto response = transport->IssueRequest(
       HttpRequestBuilder("POST", absl::StrCat("http://", hostport, "/"))
-          .AddUserAgentPrefix("test")
           .AddHeader("X-foo: bar")
           .AddQueryParameter("name", "dragon")
           .AddQueryParameter("age", "1234")
           .EnableAcceptEncoding()
-          .BuildRequest().value(),
+          .BuildRequest(),
       absl::Cord("Hello"));
 
   ABSL_LOG(INFO) << response.status();
@@ -105,8 +97,6 @@ TEST_F(CurlTransportTest, Http1) {
               HasSubstr(absl::StrCat("Host: ", hostport, "\r\n")));
 
   // User-Agent versions change based on zlib, nghttp2, and curl versions.
-  EXPECT_THAT(initial_request, HasSubstr("User-Agent: testtensorstore/0.1 "));
-
   EXPECT_THAT(initial_request, HasSubstr("Accept: */*\r\n"));
   EXPECT_THAT(initial_request, HasSubstr("X-foo: bar\r\n"));
   EXPECT_THAT(initial_request, HasSubstr("Content-Length: 5"));
@@ -182,12 +172,11 @@ TEST_F(CurlTransportTest, Http1Resend) {
 
     auto future = transport->IssueRequest(
         HttpRequestBuilder("POST", absl::StrCat("http://", hostport, "/"))
-            .AddUserAgentPrefix("test")
             .AddHeader("X-foo: bar")
             .AddQueryParameter("name", "dragon")
             .AddQueryParameter("age", "1234")
             .EnableAcceptEncoding()
-            .BuildRequest().value(),
+            .BuildRequest(),
         absl::Cord("Hello"));
 
     ABSL_LOG(INFO) << "C: " << i << " " << future.status();
@@ -207,7 +196,6 @@ TEST_F(CurlTransportTest, Http1Resend) {
     EXPECT_THAT(request, HasSubstr(absl::StrCat("Host: ", hostport, "\r\n")));
 
     // User-Agent versions change based on zlib, nghttp2, and curl versions.
-    EXPECT_THAT(request, HasSubstr("User-Agent: testtensorstore/0.1 "));
 
     EXPECT_THAT(request, HasSubstr("Accept: */*\r\n"));
     EXPECT_THAT(request, HasSubstr("X-foo: bar\r\n"));

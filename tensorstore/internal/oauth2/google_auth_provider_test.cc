@@ -16,15 +16,12 @@
 
 #include <fstream>
 #include <utility>
-#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
-#include "absl/time/clock.h"
 #include "tensorstore/internal/env.h"
-#include "tensorstore/internal/http/curl_handle.h"
 #include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
@@ -199,7 +196,7 @@ class MetadataMockTransport : public HttpTransport {
                                     absl::Cord payload,
                                     absl::Duration request_timeout,
                                     absl::Duration connect_timeout) override {
-    auto parsed = tensorstore::internal::ParseGenericUri(request.url());
+    auto parsed = tensorstore::internal::ParseGenericUri(request.url);
 
     if (!absl::StartsWith(parsed.authority_and_path,
                           "metadata.google.internal")) {

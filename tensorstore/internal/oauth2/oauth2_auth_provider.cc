@@ -14,8 +14,7 @@
 
 #include "tensorstore/internal/oauth2/oauth2_auth_provider.h"
 
-#include <stdint.h>
-
+#include <cstdint>
 #include <memory>
 #include <utility>
 
@@ -62,9 +61,11 @@ OAuth2AuthProvider::OAuth2AuthProvider(
 Result<HttpResponse> OAuth2AuthProvider::IssueRequest(std::string_view method,
                                                       std::string_view uri,
                                                       absl::Cord payload) {
-  HttpRequestBuilder request_builder(method, std::string{uri});
-  TENSORSTORE_ASSIGN_OR_RETURN(auto request, request_builder.BuildRequest());
-  return transport_->IssueRequest(request, std::move(payload)).result();
+  return transport_
+      ->IssueRequest(
+          HttpRequestBuilder(method, std::string{uri}).BuildRequest(),
+          std::move(payload))
+      .result();
 }
 
 absl::Status OAuth2AuthProvider::Refresh() {

@@ -119,14 +119,6 @@ TEST(ParseGenericUriTest, GsScheme) {
   EXPECT_EQ("", parsed.fragment);
 }
 
-TEST(ParseGenericUriTest, S3Scheme) {
-  auto parsed = ParseGenericUri("s3://bucket/path");
-  EXPECT_EQ("s3", parsed.scheme);
-  EXPECT_EQ("bucket/path", parsed.authority_and_path);
-  EXPECT_EQ("", parsed.query);
-  EXPECT_EQ("", parsed.fragment);
-}
-
 TEST(ParseGenericUriTest, SchemeAuthorityPathQuery) {
   auto parsed = ParseGenericUri("http://host:port/path?query");
   EXPECT_EQ("http", parsed.scheme);
@@ -158,6 +150,14 @@ TEST(ParseGenericUriTest, SchemeAuthorityPathFragmentQuery) {
   EXPECT_EQ("host:port/path", parsed.authority_and_path);
   EXPECT_EQ("", parsed.query);
   EXPECT_EQ("fragment?query", parsed.fragment);
+}
+
+TEST(ParseGenericUriTest, S3Scheme) {
+  auto parsed = ParseGenericUri("s3://bucket/path");
+  EXPECT_EQ("s3", parsed.scheme);
+  EXPECT_EQ("bucket/path", parsed.authority_and_path);
+  EXPECT_EQ("", parsed.query);
+  EXPECT_EQ("", parsed.fragment);
 }
 
 }  // namespace

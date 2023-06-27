@@ -13,8 +13,8 @@ tensorstore_cc_library(
         "//tensorstore/internal/metrics:collect",
         "//tensorstore/internal/metrics:registry",
         "//tensorstore/kvstore",
-        "//tensorstore/util:status",
         "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/status",
     ],
 )
 

@@ -98,7 +98,7 @@ TEST(S3RequestBuilderTest, AWS4SignatureGetExample) {
     auto request = s3_builder.BuildRequest(aws_access_key, aws_secret_access_key,
                                            aws_region, payload_hash, time).value();
 
-    EXPECT_THAT(request.headers(), ::testing::Contains(auth_header));
+    EXPECT_THAT(request.headers, ::testing::Contains(auth_header));
 
 }
 
@@ -174,7 +174,7 @@ TEST(S3RequestBuilderTest, AWS4SignaturePutExample) {
     auto request = s3_builder.BuildRequest(aws_access_key, aws_secret_access_key,
                                            aws_region, payload_hash, time).value();
 
-    EXPECT_THAT(request.headers(), ::testing::Contains(auth_header));
+    EXPECT_THAT(request.headers, ::testing::Contains(auth_header));
 }
 
 
@@ -252,6 +252,6 @@ TEST(S3RequestBuilderTest, AWS4SignatureListObjectsExample) {
     auto request = s3_builder.BuildRequest(aws_access_key, aws_secret_access_key,
                                            aws_region, payload_hash, time).value();
 
-    EXPECT_THAT(request.headers(), ::testing::Contains(auth_header));
+    EXPECT_THAT(request.headers, ::testing::Contains(auth_header));
 }
 }

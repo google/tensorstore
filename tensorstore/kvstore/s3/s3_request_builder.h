@@ -45,12 +45,6 @@ class S3RequestBuilder {
   explicit S3RequestBuilder(std::string_view method, std::string endpoint_url) :
     builder_(method, endpoint_url, UriEncode) {};
 
-  /// Adds a prefix to the user-agent string.
-  S3RequestBuilder & AddUserAgentPrefix(std::string_view prefix) {
-    builder_.AddUserAgentPrefix(prefix);
-    return *this;
-  }
-
   /// Adds request headers.
   S3RequestBuilder & AddHeader(const std::string & header, bool signed_header=true);
 

@@ -20,13 +20,13 @@
 #include <tuple>
 #include <vector>
 
+#include "absl/status/status.h"
 #include "tensorstore/internal/json/json.h"
 #include "tensorstore/internal/metrics/collect.h"
 #include "tensorstore/internal/metrics/registry.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/spec.h"
-#include "tensorstore/util/status.h"
 
 using ::tensorstore::internal_metrics::CollectedMetric;
 
@@ -87,27 +87,29 @@ namespace internal {
   return internal_json::ParseJson(metric_str);
 }
 
-bool WriteMetricCollectionToKvstore(::nlohmann::json all_metrics,
-                                    const kvstore::Spec& kvstore_spec,
-                                    bool final_collect) {
+absl::Status WriteMetricCollectionToKvstore(::nlohmann::json all_metrics,
+                                            const kvstore::Spec& kvstore_spec,
+                                            bool final_collect) {
   if (!kvstore_spec.valid() || kvstore_spec.path.empty() ||
       kvstore_spec.path.back() == '/') {
-    return false;
+    return absl::Status(absl::StatusCode::kInvalidArgument,
+                        "Invalid kvstore_spec");
   }
 
   if (final_collect) {
     all_metrics.emplace_back(CollectMetricsToJson("final", ""));
   }
 
-  TENSORSTORE_CHECK_OK_AND_ASSIGN(auto kvstore,
-                                  kvstore::Open(kvstore_spec).result());
+  TENSORSTORE_ASSIGN_OR_RETURN(auto kvstore,
+                               kvstore::Open(kvstore_spec).result());
 
-  TENSORSTORE_CHECK_OK(
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto write_status,
       kvstore::Write(kvstore, "", absl::Cord(all_metrics.dump())).result());
 
   std::cout << "Dumped metrics to: " << kvstore_spec.path << std::endl;
 
-  return true;
+  return absl::OkStatus();
 }
 
 void DumpMetrics(std::string_view prefix) {

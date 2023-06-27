@@ -395,6 +395,10 @@ tensorstore_cc_library(
     name = "env",
     srcs = ["env.cc"],
     hdrs = ["env.h"],
+    deps = [
+        "@com_google_absl//absl/log:absl_log",
+        "@com_google_absl//absl/strings",
+    ],
 )
 
 tensorstore_cc_test(

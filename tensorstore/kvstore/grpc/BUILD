@@ -16,8 +16,8 @@ tensorstore_proto_library(
     name = "common_proto",
     srcs = ["common.proto"],
     deps = [
+        "@com_google_googleapis//google/rpc:code_proto",
         "@com_google_protobuf//:timestamp_proto",
-        "@local_proto_mirror//google/rpc:code_proto",
     ],
 )
 

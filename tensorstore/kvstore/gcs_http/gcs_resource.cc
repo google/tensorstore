@@ -50,14 +50,13 @@ constexpr size_t kDefaultRequestConcurrency = 32;
 
 std::optional<size_t> GetEnvGcsRequestConcurrency() {
   // Called before flag parsing during resource registration.
-  auto env = internal::GetEnv("TENSORSTORE_GCS_REQUEST_CONCURRENCY");
+  auto env =
+      internal::GetEnvValue<size_t>("TENSORSTORE_GCS_REQUEST_CONCURRENCY");
   if (!env) {
     return std::nullopt;
   }
-  size_t limit;
-  std::string error;
-  if (absl::ParseFlag(*env, &limit, &error)) {
-    return limit;
+  if (*env > 0) {
+    return *env;
   }
   return std::nullopt;
 }

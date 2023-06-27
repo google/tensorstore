@@ -53,7 +53,6 @@ using ::tensorstore::internal::SubprocessOptions;
 using ::tensorstore::internal_http::GetDefaultHttpTransport;
 using ::tensorstore::internal_http::HttpRequestBuilder;
 using ::tensorstore::transport_test_utils::TryPickUnusedPort;
-
 using ::google::storage::v2::Storage;
 
 StorageTestbench::StorageTestbench()
@@ -91,7 +90,7 @@ void StorageTestbench::SpawnProcess() {
         HttpRequestBuilder(
             "GET", absl::StrFormat("http://localhost:%d/start_grpc", http_port))
             .AddQueryParameter("port", absl::StrCat(grpc_port))
-            .BuildRequest().value(),
+            .BuildRequest(),
         absl::Cord(), absl::Seconds(15), absl::Seconds(15));
     if (start_grpc_future.status().ok()) break;
     if (absl::Now() < deadline &&

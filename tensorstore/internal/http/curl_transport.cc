@@ -16,7 +16,6 @@
 
 #include <stdlib.h>
 
-#include <clocale>
 #include <cstddef>
 #include <limits>
 #include <memory>
@@ -28,7 +27,6 @@
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
-#include "absl/strings/numbers.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include <curl/curl.h>
@@ -78,7 +76,8 @@ auto& http_first_byte_latency_us =
 
 // Cached configuration from environment variables.
 struct CurlConfig {
-  bool verbose = std::getenv("TENSORSTORE_CURL_VERBOSE") != nullptr;
+  bool verbose =
+      internal::GetEnvValue<bool>("TENSORSTORE_CURL_VERBOSE").value_or(false);
   std::optional<std::string> ca_path = internal::GetEnv("TENSORSTORE_CA_PATH");
   std::optional<std::string> ca_bundle =
       internal::GetEnv("TENSORSTORE_CA_BUNDLE");
@@ -174,22 +173,22 @@ struct CurlRequestState {
     // https://curl.haxx.se/libcurl/c/threadsafe.html
     TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_NOSIGNAL, 1L));
 
-    std::string user_agent = request.user_agent() + GetCurlUserAgentSuffix();
+    std::string user_agent = request.user_agent + GetCurlUserAgentSuffix();
     TENSORSTORE_CHECK_OK(
         CurlEasySetopt(handle_.get(), CURLOPT_USERAGENT, user_agent.c_str()));
 
     TENSORSTORE_CHECK_OK(
-        CurlEasySetopt(handle_.get(), CURLOPT_URL, request.url().c_str()));
+        CurlEasySetopt(handle_.get(), CURLOPT_URL, request.url.c_str()));
 
     // Convert headers to a curl slist
     curl_slist* head = nullptr;
-    for (const std::string& h : request.headers()) {
+    for (const std::string& h : request.headers) {
       head = curl_slist_append(head, h.c_str());
     }
     headers_.reset(head);
     TENSORSTORE_CHECK_OK(
         CurlEasySetopt(handle_.get(), CURLOPT_HTTPHEADER, headers_.get()));
-    if (request.accept_encoding()) {
+    if (request.accept_encoding) {
       TENSORSTORE_CHECK_OK(
           CurlEasySetopt(handle_.get(), CURLOPT_ACCEPT_ENCODING, ""));
     }
@@ -226,21 +225,21 @@ struct CurlRequestState {
           CurlEasySetopt(handle_.get(), CURLOPT_SEEKDATA, this));
     }
 
-    if (request.method() == "GET") {
+    if (request.method == "GET") {
       TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_PIPEWAIT, 1L));
       TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_HTTPGET, 1L));
-    } else if (request.method() == "HEAD") {
+    } else if (request.method == "HEAD") {
       TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_NOBODY, 1L));
-    } else if (request.method() == "PUT") {
+    } else if (request.method == "PUT") {
       TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_UPLOAD, 1L));
       TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_PUT, 1L));
       TENSORSTORE_CHECK_OK(CurlEasySetopt(
           handle_.get(), CURLOPT_INFILESIZE_LARGE, payload_remaining_));
-    } else if (request.method() == "POST") {
+    } else if (request.method == "POST") {
       TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_POST, 1L));
       TENSORSTORE_CHECK_OK(CurlEasySetopt(
           handle_.get(), CURLOPT_POSTFIELDSIZE_LARGE, payload_remaining_));
-    } else if (request.method() == "PATCH") {
+    } else if (request.method == "PATCH") {
       TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_UPLOAD, 1L));
       TENSORSTORE_CHECK_OK(
           CurlEasySetopt(handle_.get(), CURLOPT_CUSTOMREQUEST, "PATCH"));
@@ -249,7 +248,7 @@ struct CurlRequestState {
     } else {
       // Such as "DELETE"
       TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_CUSTOMREQUEST,
-                                          request.method().c_str()));
+                                          request.method.c_str()));
     }
   }
 
@@ -333,15 +332,15 @@ class MultiTransportImpl {
     // suggest that using a small number of streams per connection increases
     // throughput of large transfers, which is common in tensorstore.
     static long max_concurrent_streams = []() -> long {
-      auto env = internal::GetEnv("TENSORSTORE_HTTP2_MAX_CONCURRENT_STREAMS");
-      if (env) {
-        uint32_t limit = 0;
-        if (absl::SimpleAtoi(*env, &limit) && limit > 0 && limit < 1000) {
-          return limit;
+      auto limit = internal::GetEnvValue<uint32_t>(
+          "TENSORSTORE_HTTP2_MAX_CONCURRENT_STREAMS");
+      if (limit) {
+        if (*limit > 0 && *limit < 1000) {
+          return *limit;
         } else {
           ABSL_LOG(WARNING)
               << "Failed to parse TENSORSTORE_HTTP2_MAX_CONCURRENT_STREAMS: "
-              << *env;
+              << *limit;
         }
       }
       return 4;  // New default streams.

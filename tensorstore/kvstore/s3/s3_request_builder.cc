@@ -106,7 +106,6 @@ S3RequestBuilder & S3RequestBuilder::AddHeader(const std::string & header, bool 
 
   // Not found or empty
   if(pos == std::string::npos || pos + 1 >= stripped_header.size()) {
-    builder_.status_ = absl::InvalidArgumentError(absl::StrCat("Invalid header [", header, "]"));
     return *this;
   }
 
@@ -128,7 +127,7 @@ Result<HttpRequest> S3RequestBuilder::BuildRequest(
 
   auto & request_ = builder_.request_;
 
-  auto url = std::string_view(request_.url());
+  auto url = std::string_view(request_.url);
   std::vector<std::pair<std::string, std::string>> queries;
 
   if(auto query_pos = url.find('?'); query_pos != std::string::npos && query_pos + 1 != std::string::npos) {
@@ -144,7 +143,7 @@ Result<HttpRequest> S3RequestBuilder::BuildRequest(
   }
 
   std::sort(std::begin(queries), std::end(queries));
-  auto canonical_request = CanonicalRequest(request_.url(), request_.method(),
+  auto canonical_request = CanonicalRequest(request_.url, request_.method,
                                             payload_hash, signed_headers_,
                                             queries);
   auto signing_string = SigningString(canonical_request, aws_region, time);

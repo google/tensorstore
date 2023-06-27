@@ -16,7 +16,6 @@
 #ifndef TENSORSTORE_INTERNAL_URI_UTILS_H_
 #define TENSORSTORE_INTERNAL_URI_UTILS_H_
 
-#include <cassert>
 #include <cstdint>
 #include <string>
 #include <string_view>

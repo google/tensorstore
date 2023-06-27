@@ -37,9 +37,9 @@ namespace internal {
 // Write `all_metrics` to `kvstore_spec` if it sets properly and return true.
 //
 // return False if upload fails
-bool WriteMetricCollectionToKvstore(::nlohmann::json all_metrics,
-                                    const kvstore::Spec& kvstore_spec,
-                                    bool final_collect = true);
+absl::Status WriteMetricCollectionToKvstore(::nlohmann::json all_metrics,
+                                            const kvstore::Spec& kvstore_spec,
+                                            bool final_collect = true);
 
 // Print out metrics to stdout, sorted by keys
 void DumpMetrics(std::string_view prefix);

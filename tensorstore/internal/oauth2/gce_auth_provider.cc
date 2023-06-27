@@ -14,18 +14,14 @@
 
 #include "tensorstore/internal/oauth2/gce_auth_provider.h"
 
-#include <stdint.h>
-
 #include <optional>
 #include <set>
 #include <string_view>
 #include <utility>
 
 #include "absl/status/status.h"
-#include "absl/synchronization/mutex.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/env.h"
-#include "tensorstore/internal/http/curl_handle.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
@@ -93,23 +89,26 @@ Result<HttpResponse> GceAuthProvider::IssueRequest(std::string path,
   if (recursive) {
     request_builder.AddQueryParameter("recursive", "true");
   }
-  TENSORSTORE_ASSIGN_OR_RETURN(auto request, request_builder.BuildRequest());
-  return transport_->IssueRequest(request, {}).result();
+  return transport_->IssueRequest(request_builder.BuildRequest(), {}).result();
 }
 
 Result<GceAuthProvider::ServiceAccountInfo>
 GceAuthProvider::GetDefaultServiceAccountInfoIfRunningOnGce(
     internal_http::HttpTransport* transport) {
-  HttpRequestBuilder request_builder(
-      "GET", internal::JoinPath(
-                 "http://", GceMetadataHostname(),
-                 "/computeMetadata/v1/instance/service-accounts/default/"));
-  request_builder.AddHeader("Metadata-Flavor: Google");
-  request_builder.AddQueryParameter("recursive", "true");
-  TENSORSTORE_ASSIGN_OR_RETURN(auto request, request_builder.BuildRequest());
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto response,
-      transport->IssueRequest(request, {}).result());
+      transport
+          ->IssueRequest(
+              HttpRequestBuilder(
+                  "GET",
+                  internal::JoinPath(
+                      "http://", GceMetadataHostname(),
+                      "/computeMetadata/v1/instance/service-accounts/default/"))
+                  .AddHeader("Metadata-Flavor: Google")
+                  .AddQueryParameter("recursive", "true")
+                  .BuildRequest(),
+              {})
+          .result());
   TENSORSTORE_RETURN_IF_ERROR(HttpResponseCodeToStatus(response));
   auto info_response = internal::ParseJson(response.payload.Flatten());
   if (info_response.is_discarded()) {
