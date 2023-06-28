@@ -96,7 +96,7 @@ TEST(S3KeyValueStoreTest, Basic) {
                   MatchesJson({{"aws_region", ""},
                                {"driver", kDriver}, {"bucket", bucket},
                                {"path", "tensorstore/test/"},
-                               {"endpoint", ""}, {"profile", "default",},
+                               {"profile", "default",},
                                {"requester_pays", false}})));
 
   tensorstore::internal::TestKeyValueStoreBasicFunctionality(store);

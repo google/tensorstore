@@ -205,7 +205,7 @@ std::pair<std::string, std::string> payload_md5(const absl::Cord & cord=absl::Co
 struct S3KeyValueStoreSpecData {
   std::string bucket;
   bool requester_pays;
-  std::string endpoint;
+  std::optional<std::string> endpoint;
   std::string profile;
   std::string aws_region;
 
@@ -238,7 +238,7 @@ struct S3KeyValueStoreSpecData {
                     jb::DefaultValue<jb::kAlwaysIncludeDefaults>(
                       [](auto* v) { *v = false; })
                   )),
-      jb::OptionalMember("endpoint",
+      jb::Member("endpoint",
                  jb::Projection<&S3KeyValueStoreSpecData::endpoint>()),
       jb::Member("profile",
                  jb::Projection<&S3KeyValueStoreSpecData::profile>(
@@ -383,7 +383,7 @@ Future<kvstore::DriverPtr> S3KeyValueStoreSpec::DoOpen() const {
   driver->spec_ = data_;
   driver->transport_ = internal_http::GetDefaultHttpTransport();
 
-  if(absl::StripAsciiWhitespace(data_.endpoint).empty()) {
+  if(!data_.endpoint.has_value()) {
     // Assume AWS
     // Make global request to get bucket region from response headers,
     // then create region specific endpoint
@@ -401,24 +401,25 @@ Future<kvstore::DriverPtr> S3KeyValueStoreSpec::DoOpen() const {
         tensorstore::StrCat("bucket ", data_.bucket, " does not exist"));
     }
   } else {
-    auto parsed = internal::ParseGenericUri(data_.endpoint);
+    auto endpoint = data_.endpoint.value();
+    auto parsed = internal::ParseGenericUri(endpoint);
     if(parsed.scheme != "http" && parsed.scheme != "https") {
       return absl::InvalidArgumentError(
-        tensorstore::StrCat("Endpoint ", data_.endpoint,
+        tensorstore::StrCat("Endpoint ", endpoint,
                             " has invalid schema ", parsed.scheme,
                             ". Should be http(s)."));
     }
     if(!parsed.query.empty()) {
       return absl::InvalidArgumentError(
-        tensorstore::StrCat("Query in endpoint unsupported ", data_.endpoint));
+        tensorstore::StrCat("Query in endpoint unsupported ", endpoint));
     }
     if(!parsed.fragment.empty()) {
       return absl::InvalidArgumentError(
-        tensorstore::StrCat("Fragment in endpoint unsupported ", data_.endpoint));
+        tensorstore::StrCat("Fragment in endpoint unsupported ", endpoint));
     }
 
     driver->aws_region_ = data_.aws_region;
-    driver->endpoint_ = data_.endpoint;
+    driver->endpoint_ = endpoint;
   }
 
   ABSL_LOG(INFO) << "S3 driver using endpoint [" << driver->endpoint_ << "]";
