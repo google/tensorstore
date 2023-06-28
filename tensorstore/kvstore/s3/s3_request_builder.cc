@@ -105,11 +105,7 @@ std::string UriObjectKeyEncode(std::string_view src) {
 
 S3RequestBuilder & S3RequestBuilder::AddHeader(std::string_view header) {
   auto pos = header.find(':');
-
-  // Not found or empty
-  if(pos == std::string::npos || pos + 1 >= header.size()) {
-    return *this;
-  }
+  assert(pos != std::string::npos);
 
   builder_.AddHeader(header);
   auto key = absl::AsciiStrToLower(absl::StripAsciiWhitespace(header.substr(0, pos)));
