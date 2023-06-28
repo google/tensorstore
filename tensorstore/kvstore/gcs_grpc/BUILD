@@ -86,6 +86,7 @@ tensorstore_cc_test(
         ":mock_storage_service",
         "//tensorstore:context",
         "//tensorstore/internal/grpc:grpc_mock",
+        "//tensorstore/internal/grpc:utils",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:key_range",
         "//tensorstore/kvstore:test_util",
