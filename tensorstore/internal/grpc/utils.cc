@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "tensorstore/internal/grpc/utils.h"
+
 #include <grpcpp/support/status.h>
 
 #include <string>

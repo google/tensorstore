@@ -23,6 +23,7 @@
 #include "absl/synchronization/notification.h"
 #include "tensorstore/context.h"
 #include "tensorstore/internal/grpc/grpc_mock.h"
+#include "tensorstore/internal/grpc/utils.h"
 #include "tensorstore/kvstore/gcs_grpc/mock_storage_service.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -53,6 +54,7 @@ using ::tensorstore::MatchesStatus;
 using ::tensorstore::ParseTextProtoOrDie;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::grpc_mocker::MockGrpcServer;
+using ::tensorstore::internal::AbslStatusToGrpcStatus;
 using ::tensorstore_grpc::MockStorage;
 using ::testing::_;
 using ::testing::DoAll;
@@ -96,6 +98,42 @@ TEST_F(GcsGrpcTest, Read) {
 
   // Set expectation and action on the mock stub.
   EXPECT_CALL(mock(), ReadObject(_, EqualsProto(expected_request), _))
+      .WillOnce(testing::Invoke(
+          [&](auto*, auto*,
+              grpc::ServerWriter<ReadObjectResponse>* resp) -> ::grpc::Status {
+            resp->Write(response);
+            return grpc::Status::OK;
+          }));
+
+  auto start = absl::Now();
+  auto store = OpenStore();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto result, kvstore::Read(store, expected_request.object()).result());
+
+  // Individual result field verification.
+  EXPECT_TRUE(result.has_value());
+  EXPECT_EQ(result.value, "1234");
+  EXPECT_GT(result.stamp.time, start);
+  EXPECT_EQ(result.stamp.generation, StorageGeneration::FromUint64(2));
+}
+
+TEST_F(GcsGrpcTest, ReadRetry) {
+  ReadObjectRequest expected_request = ParseTextProtoOrDie(R"pb(
+    bucket: 'projects/_/buckets/bucket'
+    object: 'abc'
+  )pb");
+
+  ReadObjectResponse response = ParseTextProtoOrDie(R"pb(
+    metadata { generation: 2 }
+    checksummed_data { content: '1234' }
+  )pb");
+
+  // Set expectation and action on the mock stub.
+  EXPECT_CALL(mock(), ReadObject(_, EqualsProto(expected_request), _))
+      .WillOnce(testing::Return(
+          AbslStatusToGrpcStatus(absl::ResourceExhaustedError(""))))
+      .WillOnce(testing::Return(
+          AbslStatusToGrpcStatus(absl::ResourceExhaustedError(""))))
       .WillOnce(testing::Invoke(
           [&](auto*, auto*,
               grpc::ServerWriter<ReadObjectResponse>* resp) -> ::grpc::Status {
@@ -186,6 +224,67 @@ TEST_F(GcsGrpcTest, Write) {
                 finish_write: true
                 write_offset: 0
               )pb")));
+}
+
+TEST_F(GcsGrpcTest, WriteRetry) {
+  std::vector<WriteObjectRequest> requests;
+
+  WriteObjectResponse response = ParseTextProtoOrDie(R"pb(
+    resource { name: 'abc' bucket: 'bucket' generation: 1 }
+  )pb");
+
+  EXPECT_CALL(mock(), WriteObject)
+      .WillOnce(testing::Return(
+          AbslStatusToGrpcStatus(absl::ResourceExhaustedError(""))))
+      .WillOnce(testing::Invoke(
+          [&](auto*, grpc::ServerReader<WriteObjectRequest>* reader,
+              auto* resp) -> ::grpc::Status {
+            WriteObjectRequest req;
+            if (reader->Read(&req)) {
+              requests.push_back(req);
+            }
+            return AbslStatusToGrpcStatus(absl::ResourceExhaustedError(""));
+          }))
+      .WillOnce(testing::Invoke(
+          [&](auto*, grpc::ServerReader<WriteObjectRequest>* reader,
+              auto* resp) -> ::grpc::Status {
+            WriteObjectRequest req;
+            while (reader->Read(&req)) {
+              requests.push_back(req);
+            }
+            resp->CopyFrom(response);
+            return grpc::Status::OK;
+          }));
+
+  auto store = OpenStore();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto generation,
+      kvstore::Write(store, response.resource().name(), absl::Cord("abcd"))
+          .result());
+
+  EXPECT_THAT(
+      requests,
+      testing::ElementsAre(
+          EqualsProto<WriteObjectRequest>(R"pb(
+            write_object_spec {
+              resource { name: "abc" bucket: "projects/_/buckets/bucket" }
+              object_size: 4
+            }
+            checksummed_data { content: "abcd" crc32c: 2462583345 }
+            object_checksums { crc32c: 2462583345 }
+            finish_write: true
+            write_offset: 0
+          )pb"),
+          EqualsProto<WriteObjectRequest>(R"pb(
+            write_object_spec {
+              resource { name: "abc" bucket: "projects/_/buckets/bucket" }
+              object_size: 4
+            }
+            checksummed_data { content: "abcd" crc32c: 2462583345 }
+            object_checksums { crc32c: 2462583345 }
+            finish_write: true
+            write_offset: 0
+          )pb")));
 }
 
 TEST_F(GcsGrpcTest, WriteEmpty) {

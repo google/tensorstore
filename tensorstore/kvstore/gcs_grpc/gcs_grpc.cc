@@ -114,7 +114,7 @@ using ::google::storage::v2::WriteObjectResponse;
 using ::google::storage::v2::Storage;
 
 // To enable debug checks, specify:
-// bazel build --//tensorstore/google3_only/gcs_grpc:debug
+// bazel build --//tensorstore/kvstore/gcs_grpc:debug
 #ifndef TENSORSTORE_GCS_GRPC_DEBUG
 #define TENSORSTORE_GCS_GRPC_DEBUG 0
 #endif
@@ -370,6 +370,13 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
     if (context_) context_->TryCancel();
   }
 
+  grpc::ClientContext* AllocateContext() {
+    absl::MutexLock lock(&mutex_);
+    context_ = std::make_unique<grpc::ClientContext>();
+    driver_->SetDefaultContextOptions(*context_);
+    return context_.get();
+  }
+
   void Start(const std::string& object_name) {
     stub_ = driver_->get_stub().get();
     promise_.ExecuteWhenNotNeeded(
@@ -400,8 +407,6 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
       request_.set_read_limit(target_size == 0 ? 1 : target_size);
     }
 
-    ABSL_LOG_IF(INFO, TENSORSTORE_GCS_GRPC_DEBUG)
-        << "Read: " << request_.ShortDebugString();
     Retry();
   }
 
@@ -412,13 +417,10 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
     read_result_.stamp.time = absl::Now();
     read_result_.stamp.generation = StorageGeneration::Unknown();
 
-    grpc::ClientContext* context;
-    {
-      absl::MutexLock lock(&mutex_);
-      context_ = std::make_unique<grpc::ClientContext>();
-      context = context_.get();
-    }
-    driver_->SetDefaultContextOptions(*context);
+    ABSL_LOG_IF(INFO, TENSORSTORE_GCS_GRPC_DEBUG)
+        << "Read: " << request_.ShortDebugString();
+
+    grpc::ClientContext* context = AllocateContext();
 
     // Start a call.
     intrusive_ptr_increment(this);  // adopted in OnDone.
@@ -577,6 +579,13 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
     if (context_) context_->TryCancel();
   }
 
+  grpc::ClientContext* AllocateContext() {
+    absl::MutexLock lock(&mutex_);
+    context_ = std::make_unique<grpc::ClientContext>();
+    driver_->SetDefaultContextOptions(*context_);
+    return context_.get();
+  }
+
   // TODO(laramiel): We could write these chunks in parallel.
   void Start(const std::string& object_name, absl::Cord value) {
     value_ = std::move(value);
@@ -594,10 +603,6 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
     }
 
     AddChunkData();
-
-    ABSL_LOG_IF(INFO, TENSORSTORE_GCS_GRPC_DEBUG)
-        << "Write: " << request_.ShortDebugString();
-
     Retry();
   }
 
@@ -612,13 +617,10 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
       write_result_.time = absl::Now();
     }
 
-    grpc::ClientContext* context;
-    {
-      absl::MutexLock lock(&mutex_);
-      context_ = std::make_unique<grpc::ClientContext>();
-      context = context_.get();
-    }
-    driver_->SetDefaultContextOptions(*context);
+    ABSL_LOG_IF(INFO, TENSORSTORE_GCS_GRPC_DEBUG)
+        << "Write: " << request_.ShortDebugString();
+
+    grpc::ClientContext* context = AllocateContext();
 
     // Initiate the write.
     intrusive_ptr_increment(this);
@@ -665,6 +667,10 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
     request_.clear_write_object_spec();
 
     AddChunkData();
+
+    ABSL_LOG_IF(INFO, TENSORSTORE_GCS_GRPC_DEBUG)
+        << "Write: " << request_.ShortDebugString();
+
     if (request_.finish_write()) {
       StartWriteLast(&request_, grpc::WriteOptions());
     } else {
@@ -736,6 +742,13 @@ struct DeleteTask : public internal::AtomicReferenceCount<DeleteTask> {
     if (context_) context_->TryCancel();
   }
 
+  grpc::ClientContext* AllocateContext() {
+    absl::MutexLock lock(&mutex_);
+    context_ = std::make_unique<grpc::ClientContext>();
+    driver_->SetDefaultContextOptions(*context_);
+    return context_.get();
+  }
+
   void Start(const std::string& object_name) {
     stub_ = driver_->get_stub().get();
     promise_.ExecuteWhenNotNeeded([self = internal::IntrusivePtr<DeleteTask>(
@@ -757,13 +770,7 @@ struct DeleteTask : public internal::AtomicReferenceCount<DeleteTask> {
     if (!promise_.result_needed()) {
       return;
     }
-    grpc::ClientContext* context;
-    {
-      absl::MutexLock lock(&mutex_);
-      context_ = std::make_unique<grpc::ClientContext>();
-      context = context_.get();
-    }
-    driver_->SetDefaultContextOptions(*context);
+    grpc::ClientContext* context = AllocateContext();
 
     start_time_ = absl::Now();
     intrusive_ptr_increment(this);  // Adopted by OnDone
@@ -860,6 +867,13 @@ struct ListTask : public internal::AtomicReferenceCount<ListTask> {
     }
   }
 
+  grpc::ClientContext* AllocateContext() {
+    absl::MutexLock lock(&mutex_);
+    context_ = std::make_unique<grpc::ClientContext>();
+    driver_->SetDefaultContextOptions(*context_);
+    return context_.get();
+  }
+
   void Start() {
     stub_ = driver_->get_stub().get();
     request.set_lexicographic_start(options_.range.inclusive_min);
@@ -879,13 +893,7 @@ struct ListTask : public internal::AtomicReferenceCount<ListTask> {
       return;
     }
 
-    grpc::ClientContext* context;
-    {
-      absl::MutexLock lock(&mutex_);
-      context_ = std::make_unique<grpc::ClientContext>();
-      context = context_.get();
-    }
-    driver_->SetDefaultContextOptions(*context);
+    grpc::ClientContext* context = AllocateContext();
 
     intrusive_ptr_increment(this);
     stub_->async()->ListObjects(
