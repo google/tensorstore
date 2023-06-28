@@ -39,6 +39,10 @@ using ::tensorstore::internal::SHA256Digester;
 using namespace ::tensorstore::internal_http;
 using ::tensorstore::internal_storage_s3::IsValidBucketName;
 
+#ifndef TENSORSTORE_INTERNAL_S3_LOG_AWS4
+#define TENSORSTORE_INTERNAL_S3_LOG_AWS4 0
+#endif
+
 namespace tensorstore {
 namespace internal_storage_s3 {
 
@@ -99,60 +103,58 @@ std::string UriObjectKeyEncode(std::string_view src) {
   return dest;
 }
 
-S3RequestBuilder & S3RequestBuilder::AddHeader(const std::string & header, bool signed_header) {
-  auto stripped_header = absl::StripAsciiWhitespace(header);
-  auto pos = stripped_header.find(':');
+S3RequestBuilder & S3RequestBuilder::AddHeader(std::string_view header) {
+  auto pos = header.find(':');
 
   // Not found or empty
-  if(pos == std::string::npos || pos + 1 >= stripped_header.size()) {
+  if(pos == std::string::npos || pos + 1 >= header.size()) {
     return *this;
   }
 
   builder_.AddHeader(header);
-
-  if(signed_header) {
-    auto key = absl::AsciiStrToLower(stripped_header.substr(0, pos));
-    auto value = absl::StripAsciiWhitespace(stripped_header.substr(pos + 1));
-    signed_headers_.insert({std::string(key), std::string(value)});
-  }
+  auto key = absl::AsciiStrToLower(absl::StripAsciiWhitespace(header.substr(0, pos)));
+  auto value = absl::StripAsciiWhitespace(header.substr(pos + 1));
+  auto pair = std::pair<std::string, std::string>(std::string(key), std::string(value));
+  auto location = std::upper_bound(std::begin(signed_headers_), std::end(signed_headers_), pair);
+  signed_headers_.insert(location, std::move(pair));
   return *this;
 }
 
+  S3RequestBuilder & S3RequestBuilder::AddQueryParameter(std::string_view key, std::string_view value) {
+    builder_.AddQueryParameter(key, value);
+    auto pair = std::pair<std::string, std::string>(UriEncode(key), UriEncode(value));
+    auto location = std::upper_bound(std::begin(query_params_), std::end(query_params_), pair);
+    query_params_.insert(location, std::move(pair));
+    return *this;
+  }
 
-Result<HttpRequest> S3RequestBuilder::BuildRequest(
+
+
+HttpRequest S3RequestBuilder::BuildRequest(
     std::string_view aws_access_key,
     std::string_view aws_secret_access_key,
     std::string_view aws_region,
     std::string_view payload_hash,
     const absl::Time & time) {
 
-  auto & request_ = builder_.request_;
-
-  auto url = std::string_view(request_.url);
-  std::vector<std::pair<std::string, std::string>> queries;
-
-  if(auto query_pos = url.find('?'); query_pos != std::string::npos && query_pos + 1 != std::string::npos) {
-    auto query = url.substr(query_pos + 1);
-    std::vector<std::string_view> query_bits = absl::StrSplit(query, '&');
-
-    for(auto query_bit: query_bits) {
-      auto pos = query_bit.find("=");
-      auto key = query_bit.substr(0, pos);
-      auto value = query_bit.substr(pos + 1, std::string_view::npos);
-      queries.push_back({std::string(key), std::string(value)});
-    }
-  }
-
-  std::sort(std::begin(queries), std::end(queries));
-  auto canonical_request = CanonicalRequest(request_.url, request_.method,
+  auto request = builder_.BuildRequest();
+  auto canonical_request = CanonicalRequest(request.url, request.method,
                                             payload_hash, signed_headers_,
-                                            queries);
+                                            query_params_);
   auto signing_string = SigningString(canonical_request, aws_region, time);
   auto signature = Signature(aws_secret_access_key, aws_region, signing_string, time);
   auto auth_header = AuthorizationHeader(aws_access_key, aws_region, signature,
                                          signed_headers_, time);
-  AddHeader(auth_header, false);
-  return builder_.BuildRequest();
+
+  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_AWS4)
+      << "Canonical Request\n" << canonical_request;
+  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_AWS4)
+      << "Signing String\n" << signing_string;
+  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_AWS4)
+      << "Authorization Header\n" << auth_header;
+
+  request.headers.emplace_back(std::move(auth_header));
+  return request;
 }
 
 /// https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
@@ -207,7 +209,7 @@ std::string S3RequestBuilder::CanonicalRequest(
   std::string_view url,
   std::string_view method,
   std::string_view payload_hash,
-  const std::multimap<std::string, std::string> & headers,
+  const std::vector<std::pair<std::string, std::string>> & headers,
   const std::vector<std::pair<std::string, std::string>> & queries)
 {
   auto uri = ParseGenericUri(url);
@@ -258,7 +260,7 @@ std::string S3RequestBuilder::AuthorizationHeader(
     std::string_view aws_access_key,
     std::string_view aws_region,
     std::string_view signature,
-    const std::multimap<std::string, std::string> & headers,
+    const std::vector<std::pair<std::string, std::string>> & headers,
     const absl::Time & time) {
   return absl::StrFormat(
     "Authorization: AWS4-HMAC-SHA256 Credential=%s"

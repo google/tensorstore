@@ -510,14 +510,9 @@ struct ReadTask : public RateLimiterNode,
               kEmptySha256,
               start_time_);
 
-    if(!request.ok()) {
-      promise.SetResult(request.status());
-      return;
-    }
-
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS)
-        << "ReadTask: " << request.value();
-    auto future = owner->transport_->IssueRequest(request.value(), {});
+        << "ReadTask: " << request;
+    auto future = owner->transport_->IssueRequest(request, {});
     future.ExecuteWhenReady([self = IntrusivePtr<ReadTask>(this)](
                                 ReadyFuture<HttpResponse> response) {
       self->OnResponse(response.result());
@@ -724,14 +719,9 @@ struct WriteTask : public RateLimiterNode,
               kEmptySha256,
               now);
 
-    if(!request.ok()) {
-      promise.SetResult(request.status());
-      return;
-    }
+    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS) << "WriteTask (Peek): " << request;
 
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS) << "WriteTask (Peek): " << request.value();
-
-    auto future = owner->transport_->IssueRequest(request.value(), {});
+    auto future = owner->transport_->IssueRequest(request, {});
     future.ExecuteWhenReady(
       [self = IntrusivePtr<WriteTask>(this)](
           ReadyFuture<HttpResponse> response) {
@@ -806,15 +796,10 @@ struct WriteTask : public RateLimiterNode,
               content_sha256,
               start_time_);
 
-    if(!request.ok()) {
-      promise.SetResult(request.status());
-      return;
-    }
-
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS)
-        << "WriteTask: " << request.value() << " size=" << value.size();
+        << "WriteTask: " << request << " size=" << value.size();
 
-    auto future = owner->transport_->IssueRequest(request.value(), value);
+    auto future = owner->transport_->IssueRequest(request, value);
     future.ExecuteWhenReady([self = IntrusivePtr<WriteTask>(this)](
                                 ReadyFuture<HttpResponse> response) {
       self->OnResponse(response.result());
@@ -853,14 +838,9 @@ struct WriteTask : public RateLimiterNode,
               kEmptySha256,
               start_time_);
 
-    if(!request.ok()) {
-      promise.SetResult(request.status());
-      return;
-    }
+    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS) << "WriteTask: " << request;
 
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS) << "WriteTask: " << request.value();
-
-    auto future = owner->transport_->IssueRequest(request.value(), {});
+    auto future = owner->transport_->IssueRequest(request, {});
     future.ExecuteWhenReady(
       [self = IntrusivePtr<WriteTask>(this), write_response = std::move(response)](
           ReadyFuture<HttpResponse> head_response) {
@@ -981,14 +961,9 @@ struct DeleteTask : public RateLimiterNode,
               kEmptySha256,
               now);
 
-    if(!request.ok()) {
-      promise.SetResult(request.status());
-      return;
-    }
+    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS) << "DeleteTask (Peek): " << request;
 
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS) << "DeleteTask (Peek): " << request.value();
-
-    auto future = owner->transport_->IssueRequest(request.value(), {});
+    auto future = owner->transport_->IssueRequest(request, {});
     future.ExecuteWhenReady(
       [self = IntrusivePtr<DeleteTask>(this)](
           ReadyFuture<HttpResponse> response) {
@@ -1041,15 +1016,10 @@ struct DeleteTask : public RateLimiterNode,
           kEmptySha256,
           start_time_);
 
-    if(!request.ok()) {
-      promise.SetResult(request.status());
-      return;
-    }
-
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS)
-        << "DeleteTask: " << request.value();
+        << "DeleteTask: " << request;
 
-    auto future = owner->transport_->IssueRequest(request.value(), {});
+    auto future = owner->transport_->IssueRequest(request, {});
     future.ExecuteWhenReady([self = IntrusivePtr<DeleteTask>(this)](
                                 ReadyFuture<HttpResponse> response) {
       self->OnResponse(response.result());
@@ -1145,7 +1115,6 @@ struct ListTask : public RateLimiterNode,
   AnyFlowReceiver<absl::Status, Key> receiver_;
   std::string resource_;
 
-  std::string base_list_url_;
   std::string continuation_token_;
   absl::Time start_time_;
   int attempt_ = 0;
@@ -1158,36 +1127,6 @@ struct ListTask : public RateLimiterNode,
         options_(std::move(options)),
         receiver_(std::move(receiver)),
         resource_(std::move(resource)) {
-    // Construct the base LIST url. This will be modified to include the
-    // continuation-token
-    base_list_url_ = resource_;
-    has_query_parameters_ = base_list_url_.find("?") != std::string::npos;
-
-    // https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjectsV2.html
-    absl::StrAppend(&base_list_url_, (has_query_parameters_ ? "&" : "?"),
-                    "list-type=2");
-    has_query_parameters_ = true;
-
-    ABSL_LOG(INFO) << "Range start: " << options_.range.inclusive_min
-                   << " end: " << options_.range.exclusive_max;
-
-    if (auto& prefix = options_.range.inclusive_min;
-        !prefix.empty()) {
-
-      ABSL_LOG(INFO) << "Range minimum: " << prefix << " " << options_.strip_prefix_length;
-
-      if (options_.strip_prefix_length) {
-         prefix = prefix.substr(0, options_.strip_prefix_length);
-      }
-
-      absl::StrAppend(&base_list_url_, (has_query_parameters_ ? "&" : "?"),
-                      "prefix=", UriEncode(prefix));
-      has_query_parameters_ = true;
-    }
-
-    // absl::StrAppend(&base_list_url_, (has_query_parameters_ ? "&" : "?"),
-    //                 "max-keys=1");
-    // has_query_parameters_ = true;
   }
 
   ~ListTask() { owner_->admission_queue().Finish(this); }
@@ -1221,11 +1160,20 @@ struct ListTask : public RateLimiterNode,
       return;
     }
 
-    std::string list_url = base_list_url_;
+    // https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjectsV2.html
+    auto request_builder = S3RequestBuilder("GET", resource_)
+                            .AddQueryParameter("list-type", "2");
+
+
+    if (auto& prefix = options_.range.inclusive_min; !prefix.empty()) {
+      if (options_.strip_prefix_length) {
+         prefix = prefix.substr(0, options_.strip_prefix_length);
+      }
+      request_builder.AddQueryParameter("prefix", prefix);
+    }
+
     if (!continuation_token_.empty()) {
-      absl::StrAppend(&list_url, (has_query_parameters_ ? "&" : "?"),
-                      "continuation-token=", UriEncode(continuation_token_));
-      has_query_parameters_ = true;
+      request_builder.AddQueryParameter("continuation-token", continuation_token_);
     }
 
     auto maybe_credentials = owner_->GetCredentials();
@@ -1243,7 +1191,7 @@ struct ListTask : public RateLimiterNode,
 
     start_time_ = absl::Now();
 
-    auto request = S3RequestBuilder("GET", list_url)
+    auto request = request_builder
         .AddHeader(absl::StrCat("host: ", owner_->host_))
         .AddHeader(absl::StrCat("x-amz-content-sha256: ", kEmptySha256))
         .AddHeader(absl::FormatTime("x-amz-date: %Y%m%dT%H%M%SZ", start_time_, absl::UTCTimeZone()))
@@ -1254,16 +1202,11 @@ struct ListTask : public RateLimiterNode,
           kEmptySha256,
           start_time_);
 
-    if(!request.ok()) {
-      execution::set_error(receiver_, request.status());
-      execution::set_stopping(receiver_);
-      return;
-    }
 
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS)
-        << "List: " << request.value();
+        << "List: " << request;
 
-    auto future = owner_->transport_->IssueRequest(request.value(), {});
+    auto future = owner_->transport_->IssueRequest(request, {});
     future.ExecuteWhenReady(WithExecutor(
         owner_->executor(), [self = IntrusivePtr<ListTask>(this)](
                                 ReadyFuture<HttpResponse> response) {

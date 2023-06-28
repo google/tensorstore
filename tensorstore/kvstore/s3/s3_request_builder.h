@@ -18,7 +18,6 @@
 /// \file
 /// S3 Request Builder
 
-#include <map>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -46,13 +45,10 @@ class S3RequestBuilder {
     builder_(method, endpoint_url, UriEncode) {};
 
   /// Adds request headers.
-  S3RequestBuilder & AddHeader(const std::string & header, bool signed_header=true);
+  S3RequestBuilder & AddHeader(std::string_view header);
 
   /// Adds a parameter for a request.
-  S3RequestBuilder& AddQueryParameter(std::string_view key, std::string_view value) {
-    builder_.AddQueryParameter(key, value);
-    return *this;
-  }
+  S3RequestBuilder& AddQueryParameter(std::string_view key, std::string_view value);
 
   /// Enables sending Accept-Encoding header and transparently decoding the
   /// response.
@@ -79,7 +75,7 @@ class S3RequestBuilder {
   }
 
 
-  Result<HttpRequest> BuildRequest(std::string_view aws_access_key, std::string_view aws_secret_access_key,
+  HttpRequest BuildRequest(std::string_view aws_access_key, std::string_view aws_secret_access_key,
                            std::string_view aws_region, std::string_view payload_hash,
                            const absl::Time & time);
 
@@ -99,17 +95,18 @@ class S3RequestBuilder {
     std::string_view url,
     std::string_view method,
     std::string_view payload_hash,
-    const std::multimap<std::string, std::string> & headers,
+    const std::vector<std::pair<std::string, std::string>> & headers,
     const std::vector<std::pair<std::string, std::string>> & queries);
 
   static std::string AuthorizationHeader(
     std::string_view aws_access_key,
     std::string_view aws_region,
     std::string_view signature,
-    const std::multimap<std::string, std::string> & headers,
+    const std::vector<std::pair<std::string, std::string>> & headers,
     const absl::Time & time);
  private:
-  std::multimap<std::string, std::string> signed_headers_;
+  std::vector<std::pair<std::string, std::string>> signed_headers_;
+  std::vector<std::pair<std::string, std::string>> query_params_;
   HttpRequestBuilder builder_;
 };
 

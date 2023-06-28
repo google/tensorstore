@@ -45,7 +45,7 @@ TEST(S3RequestBuilderTest, AWS4SignatureGetExample) {
     auto host = absl::StrFormat("%s.s3.amazonaws.com", bucket);
     auto x_amz_date = absl::FormatTime("%Y%m%dT%H%M%SZ", time, utc);
 
-    std::multimap<std::string, std::string> headers = {
+    std::vector<std::pair<std::string, std::string>> headers = {
         {"host", host},
         {"range", "bytes=0-9"},
         {"x-amz-content-sha256", payload_hash},
@@ -96,7 +96,7 @@ TEST(S3RequestBuilderTest, AWS4SignatureGetExample) {
         s3_builder.AddHeader(absl::StrCat(it->first, ": ", it->second));
     }
     auto request = s3_builder.BuildRequest(aws_access_key, aws_secret_access_key,
-                                           aws_region, payload_hash, time).value();
+                                           aws_region, payload_hash, time);
 
     EXPECT_THAT(request.headers, ::testing::Contains(auth_header));
 
@@ -120,7 +120,7 @@ TEST(S3RequestBuilderTest, AWS4SignaturePutExample) {
     auto host = absl::StrFormat("%s.s3.amazonaws.com", bucket);
     auto x_amz_date = absl::FormatTime("%Y%m%dT%H%M%SZ", time, utc);
 
-    std::multimap<std::string, std::string> headers = {
+    std::vector<std::pair<std::string, std::string>> headers = {
         {"date", "Fri, 24 May 2013 00:00:00 GMT"},
         {"host", host},
         {"x-amz-content-sha256", payload_hash},
@@ -172,7 +172,7 @@ TEST(S3RequestBuilderTest, AWS4SignaturePutExample) {
         s3_builder.AddHeader(absl::StrCat(it->first, ": ", it->second));
     }
     auto request = s3_builder.BuildRequest(aws_access_key, aws_secret_access_key,
-                                           aws_region, payload_hash, time).value();
+                                           aws_region, payload_hash, time);
 
     EXPECT_THAT(request.headers, ::testing::Contains(auth_header));
 }
@@ -195,7 +195,7 @@ TEST(S3RequestBuilderTest, AWS4SignatureListObjectsExample) {
     auto host = absl::StrFormat("%s.s3.amazonaws.com", bucket);
     auto x_amz_date = absl::FormatTime("%Y%m%dT%H%M%SZ", time, utc);
 
-    std::multimap<std::string, std::string> headers = {
+    std::vector<std::pair<std::string, std::string>> headers = {
         {"host", host},
         {"x-amz-content-sha256", payload_hash},
         {"x-amz-date", x_amz_date}
@@ -250,7 +250,7 @@ TEST(S3RequestBuilderTest, AWS4SignatureListObjectsExample) {
     }
     for(auto it = queries.rbegin(); it != queries.rend(); ++it) s3_builder.AddQueryParameter(it->first, it->second);
     auto request = s3_builder.BuildRequest(aws_access_key, aws_secret_access_key,
-                                           aws_region, payload_hash, time).value();
+                                           aws_region, payload_hash, time);
 
     EXPECT_THAT(request.headers, ::testing::Contains(auth_header));
 }

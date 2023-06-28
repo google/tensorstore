@@ -26,11 +26,6 @@
 #include "tensorstore/kvstore/byte_range.h"
 
 namespace tensorstore {
-
-namespace internal_storage_s3 {
-  class S3RequestBuilder;
-}
-
 namespace internal_http {
 
 /// HttpRequest encapsulates a single HTTP request.
@@ -133,7 +128,6 @@ class HttpRequestBuilder {
   }
 
  private:
-  friend class ::tensorstore::internal_storage_s3::S3RequestBuilder;
   absl::FunctionRef<std::string(std::string_view)> uri_encoder_;
   HttpRequest request_;
   char const* query_parameter_separator_;
