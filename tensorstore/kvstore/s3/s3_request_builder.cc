@@ -100,7 +100,6 @@ std::string UriObjectKeyEncode(std::string_view src) {
 }
 
 S3RequestBuilder & S3RequestBuilder::AddHeader(const std::string & header, bool signed_header) {
-  builder_.AddHeader(header);
   auto stripped_header = absl::StripAsciiWhitespace(header);
   auto pos = stripped_header.find(':');
 
@@ -108,6 +107,8 @@ S3RequestBuilder & S3RequestBuilder::AddHeader(const std::string & header, bool 
   if(pos == std::string::npos || pos + 1 >= stripped_header.size()) {
     return *this;
   }
+
+  builder_.AddHeader(header);
 
   if(signed_header) {
     auto key = absl::AsciiStrToLower(stripped_header.substr(0, pos));
