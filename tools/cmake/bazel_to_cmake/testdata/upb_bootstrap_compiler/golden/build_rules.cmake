@@ -6,9 +6,6 @@ target_link_libraries(CMakeProject_b PUBLIC
         "CMakeProject::c_upb"
         "Threads::Threads"
         "m")
-target_include_directories(CMakeProject_b PUBLIC
-        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
-        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_b PUBLIC cxx_std_17)
 target_sources(CMakeProject_b PRIVATE
         "${TEST_DIRECTORY}/a.cc")
@@ -21,9 +18,6 @@ target_link_libraries(CMakeProject_a PUBLIC
         "CMakeProject::b"
         "Threads::Threads"
         "m")
-target_include_directories(CMakeProject_a PUBLIC
-        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
-        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_a PUBLIC cxx_std_17)
 target_sources(CMakeProject_a PRIVATE
         "${TEST_DIRECTORY}/a.cc")
@@ -35,9 +29,6 @@ target_link_libraries(CMakeProject_b_stage0 PUBLIC
         "CMakeProject::c_upb_stage0"
         "Threads::Threads"
         "m")
-target_include_directories(CMakeProject_b_stage0 PUBLIC
-        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
-        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_b_stage0 PUBLIC cxx_std_17)
 target_sources(CMakeProject_b_stage0 PRIVATE
         "${TEST_DIRECTORY}/a.cc")
@@ -50,9 +41,6 @@ target_link_libraries(CMakeProject_a_stage0 PUBLIC
         "CMakeProject::b_stage0"
         "Threads::Threads"
         "m")
-target_include_directories(CMakeProject_a_stage0 PUBLIC
-        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
-        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_a_stage0 PUBLIC cxx_std_17)
 target_sources(CMakeProject_a_stage0 PRIVATE
         "${TEST_DIRECTORY}/a.cc")
@@ -64,9 +52,6 @@ target_link_libraries(CMakeProject_b_stage1 PUBLIC
         "CMakeProject::c_upb_stage1"
         "Threads::Threads"
         "m")
-target_include_directories(CMakeProject_b_stage1 PUBLIC
-        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
-        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_b_stage1 PUBLIC cxx_std_17)
 target_sources(CMakeProject_b_stage1 PRIVATE
         "${TEST_DIRECTORY}/a.cc")
@@ -79,9 +64,6 @@ target_link_libraries(CMakeProject_a_stage1 PUBLIC
         "CMakeProject::b_stage1"
         "Threads::Threads"
         "m")
-target_include_directories(CMakeProject_a_stage1 PUBLIC
-        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>"
-        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 target_compile_features(CMakeProject_a_stage1 PUBLIC cxx_std_17)
 target_sources(CMakeProject_a_stage1 PRIVATE
         "${TEST_DIRECTORY}/a.cc")
@@ -91,5 +73,5 @@ add_library(CMakeProject_d_proto INTERFACE)
 target_sources(CMakeProject_d_proto INTERFACE
         "${TEST_DIRECTORY}/d.proto")
 target_include_directories(CMakeProject_d_proto INTERFACE
-       "${TEST_DIRECTORY}")
+       "${PROJECT_SOURCE_DIR}")
 add_library(CMakeProject::d_proto ALIAS CMakeProject_d_proto)

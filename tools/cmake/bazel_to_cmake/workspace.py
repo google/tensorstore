@@ -143,7 +143,7 @@ class Workspace:
   ) -> Optional[CMakeTargetPair]:
     repo = self.all_repositories.get(target.repository_id, None)
     if repo:
-      return repo.persisted_canonical_name.get(target)
+      return repo.get_persisted_canonical_name(target)
     return None
 
   def set_persistent_target_info(self, target: TargetId, info: TargetInfo):

@@ -13,71 +13,12 @@
 # limitations under the License.
 """CMake Provider types."""
 
-from typing import List, NamedTuple, NewType, Optional
+from typing import List, NamedTuple, NewType, Optional, Type, TypeVar
 
 from .starlark.provider import Provider
 
 CMakePackage = NewType("CMakePackage", str)
 CMakeTarget = NewType("CMakeTarget", str)
-
-
-class CMakeTargetPair(NamedTuple):
-  """CMakeTargetPair identifies a cmake target, optionally with an alias."""
-
-  cmake_package: Optional[CMakePackage]
-  target: CMakeTarget
-  alias: Optional[CMakeTarget] = None
-
-  def with_alias(self, alias: Optional[CMakeTarget]) -> "CMakeTargetPair":
-    return self._replace(alias=alias)
-
-  @property
-  def dep(self) -> CMakeTarget:
-    return self.alias or self.target
-
-  def as_providers(self, is_binary: bool = False):
-    return (
-        CMakeTargetPairProvider(self),
-        CMakeExecutableTargetProvider(self.target)
-        if is_binary
-        else CMakeLibraryTargetProvider(self.target),
-        CMakeDepsProvider([self.dep]),
-    )
-
-  def __str__(self) -> str:
-    raise NotImplementedError
-
-
-class CMakeTargetPairProvider(Provider):
-  """CMakeTargetPair provider decribing a target."""
-
-  __slots__ = ("target_pair",)
-
-  def __init__(self, target_pair: CMakeTargetPair):
-    self.target_pair = target_pair
-
-  def __repr__(self):
-    return f"{self.__class__.__name__}({repr(self.target_pair)})"
-
-  @property
-  def dep(self) -> CMakeTarget:
-    return self.target_pair.dep
-
-  @property
-  def target(self) -> CMakeTarget:
-    return self.target_pair.target
-
-
-class CMakeDepsProvider(Provider):
-  """CMake deps corresponding to a Bazel target."""
-
-  __slots__ = ("targets",)
-
-  def __init__(self, targets: List[CMakeTarget]):
-    self.targets = targets
-
-  def __repr__(self):
-    return f"{self.__class__.__name__}({repr(self.targets)})"
 
 
 class CMakePackageDepsProvider(Provider):
@@ -90,6 +31,18 @@ class CMakePackageDepsProvider(Provider):
 
   def __repr__(self):
     return f"{self.__class__.__name__}({repr(self.packages)})"
+
+
+class CMakeDepsProvider(Provider):
+  """CMake deps corresponding to a Bazel target."""
+
+  __slots__ = ("targets",)
+
+  def __init__(self, targets: List[CMakeTarget]):
+    self.targets = targets
+
+  def __repr__(self):
+    return f"{self.__class__.__name__}({repr(self.targets)})"
 
 
 class CMakeLibraryTargetProvider(Provider):
@@ -114,3 +67,40 @@ class CMakeExecutableTargetProvider(Provider):
 
   def __repr__(self):
     return f"{self.__class__.__name__}({repr(self.target)})"
+
+
+AnyCMakeTargetProvider = TypeVar(
+    "AnyCMakeTargetProvider",
+    CMakeLibraryTargetProvider,
+    CMakeExecutableTargetProvider,
+)
+
+
+class CMakeTargetPair(NamedTuple):
+  """CMakeTargetPair identifies a cmake target, optionally with an alias."""
+
+  cmake_package: Optional[CMakePackage]
+  target: CMakeTarget
+  alias: Optional[CMakeTarget] = None
+
+  def with_alias(self, alias: Optional[CMakeTarget]) -> "CMakeTargetPair":
+    return self._replace(alias=alias)
+
+  @property
+  def dep(self) -> CMakeTarget:
+    return self.alias or self.target
+
+  def as_providers(
+      self,
+      provider: Optional[
+          Type[AnyCMakeTargetProvider]
+      ] = CMakeLibraryTargetProvider,
+  ):
+    a = (provider(self.target),) if provider is not None else tuple()
+    return (
+        CMakeDepsProvider([self.dep]),
+        CMakePackageDepsProvider([self.cmake_package]),
+    ) + a
+
+  def __str__(self) -> str:
+    raise NotImplementedError

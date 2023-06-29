@@ -76,19 +76,20 @@ import functools
 import inspect
 import os
 import pathlib
-import sys
 from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Set, Tuple, Type, TypeVar, cast
 
 from . import cmake_builder
 from .cmake_builder import CMakeBuilder
 from .cmake_target import CMakeDepsProvider
+from .cmake_target import CMakeExecutableTargetProvider
+from .cmake_target import CMakeLibraryTargetProvider
 from .cmake_target import CMakePackage
 from .cmake_target import CMakePackageDepsProvider
 from .cmake_target import CMakeTarget
 from .cmake_target import CMakeTargetPair
-from .cmake_target import CMakeTargetPairProvider
 from .package import Package
 from .package import Visibility
+from .starlark import dict_polyfill
 from .starlark.bazel_globals import BazelWorkspaceGlobals
 from .starlark.bazel_globals import BuildFileGlobals
 from .starlark.bazel_globals import BuildFileLibraryGlobals
@@ -110,9 +111,6 @@ from .util import cmake_is_true
 from .util import is_relative_to
 from .workspace import Repository
 from .workspace import Workspace
-
-if sys.version_info < (3, 9):
-  from . import dict_union_polyfill  # pylint: disable=g-import-not-at-top
 
 T = TypeVar("T")
 
@@ -270,7 +268,10 @@ class EvaluationState:
     assert info is not None
     self._analyzed_targets[target_id] = info
 
-    if info.get(CMakeTargetPairProvider) is not None:
+    if (
+        info.get(CMakeExecutableTargetProvider) is not None
+        or info.get(CMakeLibraryTargetProvider) is not None
+    ):
       self._required_dep_targets.pop(target_id, None)
     if (self.verbose > 1) or (
         self.verbose and info.get(FilesProvider) is not None
@@ -475,9 +476,6 @@ class EvaluationState:
           self.add_required_dep_package(package)
       if info.get(CMakeDepsProvider):
         return info[CMakeDepsProvider].targets
-      elif info.get(CMakeTargetPairProvider):
-        print(info)
-        return [info[CMakeTargetPairProvider].dep]
 
     # If this package is already a required dependency, return that.
     cmake_target = self._required_dep_targets.get(target_id)
@@ -844,10 +842,7 @@ def _exec_module(source: str, filename: str, scope: Dict[str, Any]) -> None:
   Polyfills support for dict union operator (PEP 584) on Python 3.8.
   """
   tree = ast.parse(source, filename)
-  if sys.version_info < (3, 9):
-    # Apply AST transformations to support `dict.__or__`. (PEP 584)
-    tree = ast.fix_missing_locations(
-        dict_union_polyfill.ASTTransformer().visit(tree)
-    )
+  # Apply AST transformations to support `dict.__or__`. (PEP 584)
+  tree = ast.fix_missing_locations(dict_polyfill.ASTTransformer().visit(tree))
   code = compile(tree, filename=filename, mode="exec")
   exec(code, scope)  # pylint: disable=exec-used

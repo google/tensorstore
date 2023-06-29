@@ -17,7 +17,7 @@
 
 import pathlib
 import re
-from typing import Any, Dict, List, NamedTuple
+from typing import Any, Dict, List, NamedTuple, Optional
 
 from .cmake_target import CMakePackage
 from .cmake_target import CMakeTarget
@@ -79,6 +79,12 @@ class CMakeRepository(NamedTuple):
     assert target_id.repository_id == self.repository_id
     self.persisted_canonical_name[target_id] = cmake_target_pair
 
+  def get_persisted_canonical_name(
+      self, target_id: TargetId
+  ) -> Optional[CMakeTargetPair]:
+    assert target_id.repository_id == self.repository_id
+    return self.persisted_canonical_name.get(target_id, None)
+
 
 def make_repo_mapping(
     repository_id: RepositoryId, repo_mapping: Any
@@ -100,7 +106,6 @@ def make_repo_mapping(
       y = str(y)
       assert y.startswith("@")
       y = RepositoryId(y[1:])
-    assert y != repository_id
     output[x] = y
   return output
 

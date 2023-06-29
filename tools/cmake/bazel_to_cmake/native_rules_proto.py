@@ -59,14 +59,14 @@ https://github.com/bazelbuild/rules_proto/tree/master/proto
 # pylint: disable=invalid-name
 
 import io
-import pathlib
-from typing import List, Optional, Set
+from typing import List, Optional
 
 from .cmake_builder import CMakeBuilder
 from .cmake_builder import quote_list
 from .cmake_builder import quote_path
 from .cmake_builder import quote_path_list
 from .cmake_target import CMakeTarget
+from .emit_cc import construct_cc_includes
 from .evaluation import EvaluationState
 from .starlark.bazel_globals import register_native_build_rule
 from .starlark.bazel_target import RepositoryId
@@ -75,8 +75,6 @@ from .starlark.common_providers import ProtoLibraryProvider
 from .starlark.invocation_context import InvocationContext
 from .starlark.label import RelativeLabel
 from .starlark.provider import TargetInfo
-from .util import is_relative_to
-
 
 PROTO_REPO = RepositoryId("com_google_protobuf")
 
@@ -105,6 +103,7 @@ def _proto_library_impl(
     srcs: Optional[List[RelativeLabel]] = None,
     deps: Optional[List[RelativeLabel]] = None,
     strip_import_prefix: Optional[str] = None,
+    import_prefix: Optional[str] = None,
     **kwargs,
 ):
   del kwargs
@@ -116,20 +115,7 @@ def _proto_library_impl(
   )
 
   state = _context.access(EvaluationState)
-  repo = state.workspace.all_repositories.get(_target.repository_id)
   cmake_target_pair = state.generate_cmake_target_pair(_target)
-
-  # Validate src properties: files ending in .proto within the same repo,
-  # and add them to the proto_src_files.
-  cmake_deps: List[CMakeTarget] = []
-  proto_src_files: List[str] = []
-  for proto in resolved_srcs:
-    assert proto.target_name.endswith(".proto"), f"{proto} must end in .proto"
-    # Verify that the source is in the same repository as the proto_library rule
-    assert proto.repository_id == _target.repository_id
-    proto_src_files.extend(state.get_file_paths(proto, cmake_deps))
-
-  proto_src_files = sorted(set(proto_src_files))
 
   import_var: str = ""
 
@@ -141,9 +127,21 @@ def _proto_library_impl(
     ):
       import_var = "${Protobuf_IMPORT_DIRS}"
 
+  # Validate src properties: files ending in .proto within the same repo,
+  # and add them to the proto_src_files.
+  cmake_deps: List[CMakeTarget] = []
+  proto_src_files: List[str] = []
+  for proto in resolved_srcs:
+    assert proto.target_name.endswith(".proto"), f"{proto} must end in .proto"
+    # Verify that the source is in the same repository as the proto_library rule
+    assert proto.repository_id == _target.repository_id
+    proto_src_files.extend(state.get_file_paths(proto, cmake_deps))
+    maybe_set_import_var(proto)
+
+  proto_src_files = sorted(set(proto_src_files))
+
   # Resolve deps. When using system protobuffers, well-known-proto targets need
   # 'Protobuf_IMPORT_DIRS' added to their transitive includes.
-  cmake_deps: List[CMakeTarget] = []
   import_var: str = ""
   import_targets: List[CMakeTarget] = []
   for d in resolved_deps:
@@ -156,29 +154,22 @@ def _proto_library_impl(
   # proto_library() becomes a custom CMake target which contains an
   # INTERFACE_INCLUDE_DIRECTORIES property which can be used by the protoc
   # compiler.
-  assert repo is not None
-  source_dir = repo.source_directory
-  bin_dir = repo.cmake_binary_dir
+  if import_prefix and strip_import_prefix:
+    print(
+        f"Warning: package {_context.caller_package_id.package_name} has both"
+        f" strip_import_prefix={strip_import_prefix} and"
+        f" import_prefix={import_prefix}."
+    )
 
-  if strip_import_prefix:
-    # If strip_import_prefix is absolute, assume that it's repo relative,
-    # otherwise assume it's package relative... which doesn't make much sense.
-    if strip_import_prefix[0] == "/":
-      relative_package_path = pathlib.PurePath(strip_import_prefix[1:])
-    else:
-      relative_package_path = pathlib.PurePath(
-          _context.caller_package_id.package_name
-      ).joinpath(strip_import_prefix)
-    source_dir = repo.source_directory.joinpath(relative_package_path)
-    bin_dir = repo.cmake_binary_dir.joinpath(relative_package_path)
-
-  includes: Set[str] = set()
-  for s in resolved_srcs:
-    maybe_set_import_var(s)
-    for path in state.get_targets_file_paths([s]):
-      for root in [source_dir, bin_dir]:
-        if is_relative_to(pathlib.PurePath(path), root):
-          includes.add(root.as_posix())
+  # strip_import_prefix and import_prefix behave the same as for cc_library
+  includes = construct_cc_includes(
+      _context,
+      includes=None,
+      include_prefix=import_prefix,
+      strip_include_prefix=strip_import_prefix,
+      srcs_file_paths=None,
+      hdrs_file_paths=proto_src_files,
+  )
 
   # Sanity check; if there are sources, then there should be includes.
   if proto_src_files:

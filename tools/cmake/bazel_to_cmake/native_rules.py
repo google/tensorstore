@@ -140,15 +140,15 @@ def _filegroup_impl(
   has_ch = False
   includes: Set[str] = set()
   for path in state.get_targets_file_paths(resolved_srcs):
-    if path.endswith(".proto"):
-      has_proto = True
-    if (
-        path.endswith(".c")
+    has_proto = has_proto or path.endswith(".proto")
+    has_ch = (
+        has_ch
+        or path.endswith(".c")
         or path.endswith(".h")
+        or path.endswith(".hpp")
         or path.endswith(".cc")
         or path.endswith(".inc")
-    ):
-      has_ch = True
+    )
     for root in [repo.source_directory, repo.cmake_binary_dir]:
       if is_relative_to(pathlib.PurePath(path), root):
         includes.add(root.as_posix())

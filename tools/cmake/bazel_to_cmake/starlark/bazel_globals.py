@@ -15,21 +15,18 @@
 
 # pylint: disable=invalid-name,missing-function-docstring,relative-beyond-top-level,g-importing-member
 
-import sys
 from typing import Dict, Optional, Tuple, Type, TypeVar
 
 from .bazel_target import parse_absolute_target
 from .bazel_target import TargetId
 from .depset import DepSet
+from .dict_polyfill import DictWithUnion
 from .invocation_context import InvocationContext
 from .label import Label
 from .label import RelativeLabel
 from .provider import provider
 from .select import Select
 from .struct import Struct
-
-if sys.version_info < (3, 9):
-  from .. import dict_union_polyfill
 
 T = TypeVar("T")
 
@@ -89,16 +86,9 @@ class BazelGlobals(dict):
   bazel_bool = staticmethod(bool)  # type: ignore[not-callable]
   bazel_bytes = staticmethod(bytes)  # type: ignore[not-callable]
 
-  if sys.version_info < (3, 9):
-    # Polyfill dict union operator (PEP 584)
-    bazel_dict = staticmethod(
-        dict_union_polyfill.DictWithUnion
-    )  # type: ignore[not-callable]
-    bazel___DictWithUnion = staticmethod(
-        dict_union_polyfill.DictWithUnion
-    )  # type: ignore[not-callable]
-  else:
-    bazel_dict = staticmethod(dict)  # type: ignore[not-callable]
+  # bazel dict isn't quite like python dict.
+  bazel_dict = staticmethod(DictWithUnion)  # type: ignore[not-callable]
+  bazel___DictWithUnion = staticmethod(DictWithUnion)  # type: ignore[not-callable]
 
   bazel_dir = staticmethod(dir)  # type: ignore[not-callable]
   bazel_enumerate = staticmethod(enumerate)  # type: ignore[not-callable]

@@ -76,8 +76,6 @@ PROTO_REPO = RepositoryId("com_google_protobuf")
 PROTO_COMPILER = PROTO_REPO.parse_target("//:protoc")
 PROTO_RUNTIME = PROTO_REPO.parse_target("//:protobuf")
 
-_SEP = "\n        "
-
 _WELL_KNOWN_TYPES = [
     "any",
     "api",
@@ -322,6 +320,7 @@ def _generate_proto_library_target(
       srcs=set(),
       deps=set(cc_deps),
       header_only=header_only,
+      includes=["${PROJECT_BINARY_DIR}"] if not header_only else [],
   )
 
   if proto_src_files:
@@ -362,8 +361,8 @@ def cc_proto_library_impl(
     _context: InvocationContext,
     _target: TargetId,
     _plugin_settings: List[PluginSettings],
+    _extra_deps: Optional[List[RelativeLabel]] = None,
     deps: Optional[List[RelativeLabel]] = None,
-    extra_deps: Optional[List[RelativeLabel]] = None,
     **kwargs,
 ):
   del kwargs
@@ -377,12 +376,6 @@ def cc_proto_library_impl(
   # Typically there is a single proto dep in a cc_library_target, multiple are
   # supported, thus we resolve each library target here.
   library_deps: List[CMakeTarget] = []
-  if extra_deps:
-    resolved_deps = _context.resolve_target_or_label_list(
-        _context.evaluate_configurable_list(extra_deps)
-    )
-    library_deps.extend(state.get_deps(resolved_deps))
-
   for settings in _plugin_settings:
     for dep_target in resolved_deps:
       lib_target = _generate_proto_library_target(
@@ -391,6 +384,13 @@ def cc_proto_library_impl(
       if lib_target:
         library_deps.extend(state.get_dep(lib_target))
 
+  # extra_deps may be added from the caller.
+  if _extra_deps:
+    resolved_extra_deps = _context.resolve_target_or_label_list(
+        _context.evaluate_configurable_list(_extra_deps)
+    )
+    library_deps.extend(state.get_deps(resolved_extra_deps))
+
   builder = _context.access(CMakeBuilder)
   builder.addtext(f"\n# cc_proto_library({_target.as_label()})")
   emit_cc_library(
@@ -398,6 +398,7 @@ def cc_proto_library_impl(
       cmake_target_pair,
       hdrs=set(),
       srcs=set(),
+      includes=[],
       deps=set(library_deps),
   )
   _context.add_analyzed_target(
