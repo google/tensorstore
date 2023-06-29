@@ -116,15 +116,13 @@ S3RequestBuilder & S3RequestBuilder::AddHeader(std::string_view header) {
   return *this;
 }
 
-  S3RequestBuilder & S3RequestBuilder::AddQueryParameter(std::string_view key, std::string_view value) {
-    builder_.AddQueryParameter(key, value);
-    auto pair = std::pair<std::string, std::string>(UriEncode(key), UriEncode(value));
-    auto location = std::upper_bound(std::begin(query_params_), std::end(query_params_), pair);
-    query_params_.insert(location, std::move(pair));
-    return *this;
-  }
-
-
+S3RequestBuilder & S3RequestBuilder::AddQueryParameter(std::string_view key, std::string_view value) {
+  builder_.AddQueryParameter(key, value);
+  auto pair = std::pair<std::string, std::string>(UriEncode(key), UriEncode(value));
+  auto location = std::upper_bound(std::begin(query_params_), std::end(query_params_), pair);
+  query_params_.insert(location, std::move(pair));
+  return *this;
+}
 
 HttpRequest S3RequestBuilder::BuildRequest(
     std::string_view aws_access_key,
