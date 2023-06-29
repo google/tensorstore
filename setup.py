@@ -17,6 +17,7 @@ This invokes bazel via the included `bazelisk.py` wrapper script.
 """
 
 import sys
+
 if sys.version_info < (3, 8):
   print('Python >= 3.8 is required to build')
   sys.exit(1)
@@ -35,7 +36,6 @@ import shutil
 import sysconfig
 import tempfile
 
-import pkg_resources
 import setuptools.command.build_ext
 import setuptools.command.build_py
 import setuptools.command.install
@@ -56,6 +56,10 @@ def _setup_temp_egg_info(cmd):
     tempdir = tempfile.TemporaryDirectory(dir=os.curdir)
     egg_info_cmd.egg_base = tempdir.name
     atexit.register(tempdir.cleanup)
+
+
+def _parse_version(version_str: str):
+  return tuple(int(x) for x in version_str.split('.'))
 
 
 class SdistCommand(setuptools.command.sdist.sdist):
@@ -88,8 +92,9 @@ class BuildCommand(distutils.command.build.build):
 
 
 _EXCLUDED_PYTHON_MODULES = frozenset([
-    'tensorstore.bazel_pytest_main', 'tensorstore.shell',
-    'tensorstore.cc_test_driver_main'
+    'tensorstore.bazel_pytest_main',
+    'tensorstore.shell',
+    'tensorstore.cc_test_driver_main',
 ])
 
 
@@ -106,9 +111,11 @@ class BuildPyCommand(setuptools.command.build_py.build_py):
 
   def find_package_modules(self, package, package_dir):
     modules = super().find_package_modules(package, package_dir)
-    return [(pkg, mod, path)
-            for (pkg, mod, path) in modules
-            if _include_python_module('%s.%s' % (pkg, mod))]
+    return [
+        (pkg, mod, path)
+        for (pkg, mod, path) in modules
+        if _include_python_module('%s.%s' % (pkg, mod))
+    ]
 
 
 def _configure_macos_deployment_target():
@@ -118,17 +125,19 @@ def _configure_macos_deployment_target():
   key = 'MACOSX_DEPLOYMENT_TARGET'
   python_macos_target = str(sysconfig.get_config_var(key))
   macos_target = python_macos_target
-  if (macos_target and (pkg_resources.parse_version(macos_target) <
-                        pkg_resources.parse_version(min_macos_target))):
+  if macos_target and (
+      _parse_version(macos_target) < _parse_version(min_macos_target)
+  ):
     macos_target = min_macos_target
 
   macos_target_override = os.getenv(key)
   if macos_target_override:
-    if (pkg_resources.parse_version(macos_target_override) <
-        pkg_resources.parse_version(macos_target)):
-      print('%s=%s is set in environment but >= %s is required by this package '
-            'and >= %s is required by the current Python build' %
-            (key, macos_target_override, min_macos_target, python_macos_target))
+    if _parse_version(macos_target_override) < _parse_version(macos_target):
+      print(
+          '%s=%s is set in environment but >= %s is required by this package '
+          'and >= %s is required by the current Python build'
+          % (key, macos_target_override, min_macos_target, python_macos_target)
+      )
       sys.exit(1)
     else:
       macos_target = macos_target_override
@@ -174,19 +183,27 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
         bazelisk = os.getenv('TENSORSTORE_BAZELISK', 'bazelisk.py')
         # Controlled via `setup.py build_ext --debug` flag.
         default_compilation_mode = 'dbg' if self.debug else 'opt'
-        compilation_mode = os.getenv('TENSORSTORE_BAZEL_COMPILATION_MODE',
-                                     default_compilation_mode)
+        compilation_mode = os.getenv(
+            'TENSORSTORE_BAZEL_COMPILATION_MODE', default_compilation_mode
+        )
         startup_options = shlex.split(
-            os.getenv('TENSORSTORE_BAZEL_STARTUP_OPTIONS', ''))
+            os.getenv('TENSORSTORE_BAZEL_STARTUP_OPTIONS', '')
+        )
         build_options = shlex.split(
-            os.getenv('TENSORSTORE_BAZEL_BUILD_OPTIONS', ''))
-        build_command = [sys.executable, '-u', bazelisk] + startup_options + [
-            'build',
-            '-c',
-            compilation_mode,
-            '//python/tensorstore:_tensorstore__shared_objects',
-            '--verbose_failures',
-        ] + build_options
+            os.getenv('TENSORSTORE_BAZEL_BUILD_OPTIONS', '')
+        )
+        build_command = (
+            [sys.executable, '-u', bazelisk]
+            + startup_options
+            + [
+                'build',
+                '-c',
+                compilation_mode,
+                '//python/tensorstore:_tensorstore__shared_objects',
+                '--verbose_failures',
+            ]
+            + build_options
+        )
         if 'darwin' in sys.platform:
           # Note: Bazel does not use the MACOSX_DEPLOYMENT_TARGET environment
           # variable.
@@ -202,11 +219,13 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
           #     '-arch arm64 -arch x86_64'
           if darwin_cpus:
             if len(darwin_cpus) > 1:
-              raise ValueError('Fat/universal %r build not supported' %
-                               (darwin_cpus,))
+              raise ValueError(
+                  'Fat/universal %r build not supported' % (darwin_cpus,)
+              )
             darwin_cpu = darwin_cpus[0]
             build_command += [
-                f'--cpu=darwin_{darwin_cpu}', f'--macos_cpus={darwin_cpu}'
+                f'--cpu=darwin_{darwin_cpu}',
+                f'--macos_cpus={darwin_cpu}',
             ]
         if sys.platform == 'win32':
           # Disable newer exception handling from Visual Studio 2019, since it
@@ -224,7 +243,8 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
         self.spawn(build_command)
         suffix = '.pyd' if os.name == 'nt' else '.so'
         built_ext_path = os.path.join(
-            'bazel-bin/python/tensorstore/_tensorstore' + suffix)
+            'bazel-bin/python/tensorstore/_tensorstore' + suffix
+        )
       else:
         # If `TENSORSTORE_PREBUILT_DIR` is set, the extension module is assumed
         # to have already been built a prior call to `build_ext -b
@@ -236,14 +256,18 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
         #
         # https://github.com/pypa/pip/pull/9091
         # https://github.com/joerick/cibuildwheel/issues/486
-        built_ext_path = os.path.join(prebuilt_path, 'tensorstore',
-                                      os.path.basename(ext_full_path))
+        built_ext_path = os.path.join(
+            prebuilt_path, 'tensorstore', os.path.basename(ext_full_path)
+        )
 
       os.makedirs(os.path.dirname(ext_full_path), exist_ok=True)
-      print('Copying extension %s -> %s' % (
-          built_ext_path,
-          ext_full_path,
-      ))
+      print(
+          'Copying extension %s -> %s'
+          % (
+              built_ext_path,
+              ext_full_path,
+          )
+      )
       shutil.copyfile(built_ext_path, ext_full_path)
 
 
@@ -254,8 +278,11 @@ class InstallCommand(setuptools.command.install.install):
     super().run()
 
 
-with open(os.path.join(os.path.dirname(__file__), 'README.md'), mode='r',
-          encoding='utf-8') as f:
+with open(
+    os.path.join(os.path.dirname(__file__), 'README.md'),
+    mode='r',
+    encoding='utf-8',
+) as f:
   long_description = f.read()
 
 setuptools.setup(
