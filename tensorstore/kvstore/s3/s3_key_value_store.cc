@@ -1284,12 +1284,12 @@ struct ListTask : public RateLimiterNode,
     TENSORSTORE_ASSIGN_OR_RETURN(auto start_pos, FindTag(payload, kListBucketOpenTag, 0, false));
     std::size_t pos = start_pos;
     TENSORSTORE_ASSIGN_OR_RETURN(auto key_count_tag, GetTag(payload, "<KeyCount>", "<", &pos));
-    unsigned int keycount = 0;
+    std::size_t keycount = 0;
     if(!absl::SimpleAtoi(key_count_tag, &keycount)) {
       return absl::InvalidArgumentError(absl::StrCat("Malformed KeyCount ", key_count_tag));
     }
 
-    for(unsigned int k=0; k < keycount; ++k) {
+    for(std::size_t k=0; k < keycount; ++k) {
       if (is_cancelled()) {
         return absl::CancelledError();
       }
