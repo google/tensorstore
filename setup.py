@@ -149,6 +149,53 @@ def _configure_macos_deployment_target():
   return macos_target
 
 
+def _get_action_env():
+  """Returns an optional bazel --action_env PATH override.
+
+  `pip install .` creates a temporary build environment, and adjusts the PATH
+  to add a binary path and an overlay path. As bazel is already hermetic, the
+  goal is to remove the build environment paths; successful removal will allow
+  bazel to improve cache sharing.
+
+  Unfortunately there is no kosher way to detect the PEP517 build environment,
+  so this is a heuristic approach based on inspection of the PATH variable
+  passed to the build and review of the PIP sources. The source, as reviewed,
+  creates a temporary directory inclusing pip-{kind}, where kind=build-env.
+
+  See: dist-packages/pip/_internal/utils/temp_dir.py
+  Also: https://github.com/bazelbuild/bazel/issues/18809
+  """
+
+  path = os.getenv('PATH', None)
+  if path is None:
+    return []
+  parts = path.split(os.pathsep)
+  build_env = None
+  for x in parts:
+    if 'pip-build-env' in x:
+      build_env = x
+      break
+  if not build_env:
+    return []
+
+  # There may be mutliple path entries added under the build-env directory,
+  # so remove them all.
+  while 'pip-build-env' in os.path.dirname(build_env):
+    build_env = os.path.dirname(build_env)
+
+  def _is_buildenv_path(x):
+    return (
+        x.startswith(build_env + os.sep)
+        or os.altsep is not None
+        and x.startswith(build_env + os.altsep)
+    )
+
+  return [
+      '--action_env=PATH='
+      + os.pathsep.join([x for x in parts if not _is_buildenv_path(x)])
+  ]
+
+
 if 'darwin' in sys.platform:
   _macos_deployment_target = _configure_macos_deployment_target()
 
@@ -165,6 +212,10 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
 
       prebuilt_path = os.getenv('TENSORSTORE_PREBUILT_DIR')
       if not prebuilt_path:
+        # Bazel cache includes PATH; attempt to remove the pip build-env
+        # from the PATH as bazel is already hermetic to improve cache use.
+        action_env = _get_action_env()
+
         # Ensure python_configure.bzl finds the correct Python verison.
         os.environ['PYTHON_BIN_PATH'] = sys.executable
 
@@ -192,6 +243,7 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
         build_options = shlex.split(
             os.getenv('TENSORSTORE_BAZEL_BUILD_OPTIONS', '')
         )
+
         build_command = (
             [sys.executable, '-u', bazelisk]
             + startup_options
@@ -202,6 +254,7 @@ class BuildExtCommand(setuptools.command.build_ext.build_ext):
                 '//python/tensorstore:_tensorstore__shared_objects',
                 '--verbose_failures',
             ]
+            + action_env
             + build_options
         )
         if 'darwin' in sys.platform:
