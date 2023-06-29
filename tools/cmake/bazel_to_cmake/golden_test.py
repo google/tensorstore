@@ -20,19 +20,26 @@ import os
 import pathlib
 import shutil
 import sys
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Union
 
 import pytest
 
 from . import native_rules  # pylint: disable=unused-import
 from . import native_rules_alias  # pylint: disable=unused-import
 from . import native_rules_cc  # pylint: disable=unused-import
+from . import native_rules_cc_proto  # pylint: disable=unused-import
 from . import native_rules_genrule  # pylint: disable=unused-import
 from . import native_rules_proto  # pylint: disable=unused-import
+from .cmake_repository import CMakeRepository
+from .cmake_repository import make_repo_mapping
+from .cmake_target import CMakePackage
 from .cmake_target import CMakeTarget
+from .cmake_target import CMakeTargetPair
 from .evaluation import EvaluationState
 from .platforms import add_platform_constraints
 from .starlark import rule  # pylint: disable=unused-import
+from .starlark.bazel_target import RepositoryId
+from .starlark.bazel_target import TargetId
 from .workspace import Repository
 from .workspace import Workspace
 
@@ -76,7 +83,7 @@ def parameters() -> List[Tuple[str, Dict[str, Any]]]:
 
 def get_files_list(source_directory: str) -> List[pathlib.Path]:
   """Returns non-golden files under source directory."""
-  files = []
+  files: List[pathlib.Path] = []
   try:
     include_goldens = 'golden' in source_directory
     p = pathlib.Path(source_directory)
@@ -101,64 +108,129 @@ def copy_tree(source_dir: str, source_files: List[str], dest_dir: str):
 
 
 def compare_files(golden, generated):
-  with pathlib.Path(golden).open('r') as left:
-    with pathlib.Path(generated).open('r') as right:
+  with pathlib.Path(golden).open('r') as right:
+    with pathlib.Path(generated).open('r') as left:
       assert list(left) == list(right)
 
 
 def add_repositories(workspace: Workspace):
+  workspace.add_cmake_repository(
+      CMakeRepository(
+          RepositoryId('com_google_protobuf'),
+          CMakePackage('Protobuf'),
+          pathlib.PurePosixPath('protobuf_src'),
+          pathlib.PurePosixPath('protobuf_build'),
+          repo_mapping={},
+          persisted_canonical_name={},
+      )
+  )
+  workspace.add_cmake_repository(
+      CMakeRepository(
+          RepositoryId('com_github_grpc_grpc'),
+          CMakePackage('gRPC'),
+          pathlib.PurePosixPath('grpc_src'),
+          pathlib.PurePosixPath('grpc_build'),
+          repo_mapping={},
+          persisted_canonical_name={},
+      )
+  )
+  workspace.add_cmake_repository(
+      CMakeRepository(
+          RepositoryId('com_google_protobuf_upb'),
+          CMakePackage('upb'),
+          pathlib.PurePosixPath('upb_src'),
+          pathlib.PurePosixPath('upb_build'),
+          repo_mapping={},
+          persisted_canonical_name={},
+      )
+  )
+
+  def persist_cmake_name(
+      target: Union[str, TargetId],
+      cmake_alias: CMakeTarget,
+  ):
+    if not isinstance(target, TargetId):
+      target = workspace.root_repository.repository_id.parse_target(str(target))
+    assert isinstance(target, TargetId)
+
+    assert target.repository_id in workspace.all_repositories
+    repo = workspace.all_repositories[target.repository_id]
+
+    cmake_target_pair: CMakeTargetPair = repo.get_cmake_target_pair(
+        target
+    ).with_alias(cmake_alias)
+    repo.set_persisted_canonical_name(target, cmake_target_pair)
+
   # Add default mappings used in proto code.
-  # protobuf
-  workspace.persist_cmake_name(
+  persist_cmake_name(
       '@com_google_protobuf//:protoc',
-      'Protobuf',
       CMakeTarget('protobuf::protoc'),
   )
 
-  workspace.persist_cmake_name(
+  persist_cmake_name(
       '@com_google_protobuf//:protobuf',
-      'Protobuf',
       CMakeTarget('protobuf::libprotobuf'),
   )
 
-  workspace.persist_cmake_name(
+  persist_cmake_name(
+      '@com_google_protobuf//:protobuf_lite',
+      CMakeTarget('protobuf::libprotobuf_lite'),
+  )
+
+  persist_cmake_name(
       '@com_google_protobuf//:any_protoc',
-      'Protobuf',
       CMakeTarget('protobuf::any_proto'),
   )
 
   # gRPC
-  workspace.persist_cmake_name(
+  persist_cmake_name(
       '@com_github_grpc_grpc//:grpc++_codegen_proto',
-      'gRPC',
       CMakeTarget('gRPC::gRPC_codegen'),
   )
 
-  workspace.persist_cmake_name(
+  persist_cmake_name(
       '@com_github_grpc_grpc//src/compiler:grpc_cpp_plugin',
-      'gRPC',
       CMakeTarget('gRPC::grpc_cpp_plugin'),
   )
 
   # upb
-  workspace.persist_cmake_name(
+  persist_cmake_name(
       '@com_google_protobuf_upb//upbc:protoc-gen-upbdefs',
-      'upb',
       CMakeTarget('upb::protoc-gen-upbdefs'),
   )
 
-  workspace.persist_cmake_name(
+  persist_cmake_name(
       '@com_google_protobuf_upb//upbc:protoc-gen-upb',
-      'upb',
       CMakeTarget('protobuf::protoc-gen-upb'),
   )
 
-  workspace.persist_cmake_name(
+  persist_cmake_name(
+      '@com_google_protobuf_upb//upbc:protoc-gen-upb_stage0',
+      CMakeTarget('protobuf::protoc-gen-upb_stage0'),
+  )
+
+  persist_cmake_name(
+      '@com_google_protobuf_upb//upbc:protoc-gen-upb_stage1',
+      CMakeTarget('protobuf::protoc-gen-upb_stage1'),
+  )
+
+  persist_cmake_name(
       '@com_google_protobuf_upb//:generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me',
-      'upb',
       CMakeTarget(
           'upb::generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me'
       ),
+  )
+
+  persist_cmake_name(
+      '@com_google_protobuf_upb//:generated_reflection_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me',
+      CMakeTarget(
+          'upb::generated_reflection_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me'
+      ),
+  )
+
+  persist_cmake_name(
+      '@com_google_protobuf_upb//:mini_table',
+      CMakeTarget('upb::mini_table'),
   )
 
 
@@ -175,8 +247,24 @@ def test_golden(test_name: str, config: Dict[str, Any], tmpdir):
   copy_tree(source_directory, input_files, directory)
   os.makedirs(CMAKE_VARS['CMAKE_FIND_PACKAGE_REDIRECTS_DIR'], exist_ok=True)
 
+  repository_id = RepositoryId(f'{test_name}_test_repo')
+  root_repository = CMakeRepository(
+      repository_id=repository_id,
+      cmake_project_name=CMakePackage('CMakeProject'),
+      source_directory=pathlib.PurePath(directory),
+      cmake_binary_dir=pathlib.PurePath('_cmake_binary_dir_'),
+      repo_mapping=make_repo_mapping(
+          repository_id, config.get('repo_mapping', [])
+      ),
+      persisted_canonical_name={},
+  )
+
+  # Setup repo mapping.
+  for x in config.get('repo_mapping', []):
+    root_repository.repo_mapping[RepositoryId(x[0])] = RepositoryId(x[1])
+
   # Workspace setup
-  workspace = Workspace(CMAKE_VARS)
+  workspace = Workspace(root_repository, CMAKE_VARS)
   workspace.save_workspace = '_workspace.pickle'
   workspace.host_platform_name = 'linux'
   workspace._verbose = 3
@@ -194,26 +282,22 @@ def test_golden(test_name: str, config: Dict[str, Any], tmpdir):
   if pathlib.Path(bazelrc_path).exists():
     workspace.load_bazelrc(bazelrc_path)
 
-  # Setup root workspace.
-  repository = Repository(
+  # Setup active repository
+  active_repo = Repository(
       workspace=workspace,
-      source_directory=directory,
-      bazel_repo_name=f'{test_name}_test_repo',
-      cmake_project_name='CMakeProject',
-      cmake_binary_dir='_cmake_binary_dir_',
+      repository=root_repository,
+      bindings={},
       top_level=True,
   )
 
-  # Setup repo mapping.
-  for x in config.get('repo_mapping', []):
-    repository.repo_mapping[x[0]] = x[1]
-
   # Evaluate the WORKSPACE and BUILD files
-  state = EvaluationState(repository)
+  state = EvaluationState(active_repo)
   state.process_workspace()
 
   for build_file in config.get('build_files', ['BUILD.bazel']):
-    state.process_build_file(os.path.join(directory, build_file))
+    state.process_build_file(
+        root_repository.source_directory.joinpath(build_file)
+    )
 
   # Analyze
   if config.get('targets') is None:
@@ -221,7 +305,7 @@ def test_golden(test_name: str, config: Dict[str, Any], tmpdir):
   else:
     targets_to_analyze = sorted(
         [
-            repository.repository_id.parse_target(t)
+            active_repo.repository_id.parse_target(t)
             for t in config.get('targets')
         ]
     )

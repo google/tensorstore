@@ -18,13 +18,26 @@ proto_library(
 )
 
 proto_library(
+    name = "ab_proto",
+    cc_api_version = 2,
+    deps = [
+        "a_proto",
+        ":b_proto",
+    ],
+)
+
+proto_library(
     name = "abc_proto",
     srcs = ["c.proto"],
     cc_api_version = 2,
     deps = [
-        "b_proto",
-        ":a_proto",
+        "ab_proto",
     ],
+)
+
+cc_proto_library(
+    name = "ab_protos_cc",
+    deps = [":ab_proto"],
 )
 
 cc_proto_library(

@@ -1,0 +1,33 @@
+load(
+    "@com_google_protobuf_upb//upbc:bootstrap_compiler.bzl",
+    "bootstrap_cc_binary",
+    "bootstrap_cc_library",
+    "bootstrap_upb_proto_library",
+)
+
+proto_library(
+    name = "d_proto",
+    srcs = ["d.proto"],
+    cc_api_version = 2,
+)
+
+filegroup(
+    name = "d_proto_srcs",
+    srcs = ["d.proto"],
+)
+
+bootstrap_upb_proto_library(
+    name = "descriptor_upb_proto",
+)
+
+bootstrap_cc_library(
+    name = "b",
+    srcs = ["a.cc"],
+    bootstrap_deps = [":c_upb"],
+)
+
+bootstrap_cc_binary(
+    name = "a",
+    srcs = ["a.cc"],
+    bootstrap_deps = [":b"],
+)

@@ -14,6 +14,7 @@
 
 # pylint: disable=g-importing-member
 
+import pathlib
 from typing import Any, Dict, List, Optional
 
 from .bazel_globals import BazelWorkspaceGlobals
@@ -82,13 +83,15 @@ class MyContext(InvocationContext):
   def caller_package_id(self):
     return self._caller_package_id
 
-  def resolve_repo_mapping(
+  def apply_repo_mapping(
       self, target: TargetId, mapping_repository_id: Optional[RepositoryId]
   ) -> TargetId:
     return target
 
-  def resolve_source_root(self, repository_id: RepositoryId) -> str:
-    return f"external/{repository_id.repository_name}"
+  def resolve_source_root(
+      self, repository_id: RepositoryId
+  ) -> pathlib.PurePath:
+    return pathlib.PurePath(f"external/{repository_id.repository_name}")
 
   def load_library(self, target: TargetId) -> Dict[str, Any]:
     return IgnoredLibrary()

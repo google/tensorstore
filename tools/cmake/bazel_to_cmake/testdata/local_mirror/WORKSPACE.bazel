@@ -1,6 +1,6 @@
 workspace(name = "local_mirror_test_repo")
 
-load("@com_google_tensorstore//bazel:local_mirror.bzl", "local_mirror")
+load("@tensorstore//bazel:local_mirror.bzl", "local_mirror")
 
 _BUILD = '''
 package(default_visibility = ["//visibility:public"])

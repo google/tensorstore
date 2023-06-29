@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""CMake implementation of "@com_google_tensorstore//bazel:local_mirror.bzl"."""
+"""CMake implementation of "@tensorstore//bazel:local_mirror.bzl"."""
 
 # pylint: disable=invalid-name,missing-function-docstring,relative-beyond-top-level,g-long-lambda
 
@@ -23,7 +23,10 @@ from ..cmake_builder import CMakeBuilder
 from ..cmake_builder import ENABLE_LANGUAGES_SECTION
 from ..cmake_builder import FETCH_CONTENT_MAKE_AVAILABLE_SECTION
 from ..cmake_builder import LOCAL_MIRROR_DOWNLOAD_SECTION
+from ..cmake_builder import quote_path
 from ..cmake_builder import quote_string
+from ..cmake_repository import CMakeRepository
+from ..cmake_repository import make_repo_mapping
 from ..evaluation import EvaluationState
 from ..starlark.bazel_globals import BazelGlobals
 from ..starlark.bazel_globals import register_bzl_library
@@ -34,7 +37,7 @@ from .helpers import write_bazel_to_cmake_cmakelists
 
 
 @register_bzl_library(
-    "@com_google_tensorstore//bazel:local_mirror.bzl", workspace=True
+    "@tensorstore//bazel:local_mirror.bzl", workspace=True
 )
 class ThirdPartyLocalMirrorLibrary(BazelGlobals):
 
@@ -50,29 +53,41 @@ def _local_mirror_impl(
   if "bazel_to_cmake" not in kwargs:
     return
 
-  cmake_name: str = kwargs["cmake_name"]
-  new_repository_id = RepositoryId(kwargs["name"])
-
   state = _context.access(EvaluationState)
-  state.workspace.set_cmake_package_name(new_repository_id, cmake_name)
 
-  update_target_mapping(
-      state.repo, new_repository_id.get_package_id(""), kwargs
+  cmake_name: str = kwargs["cmake_name"]
+  repository_id = RepositoryId(kwargs["name"])
+  new_repository = CMakeRepository(
+      repository_id=repository_id,
+      cmake_project_name=cmake_name,
+      source_directory=state.active_repo.repository.cmake_binary_dir.joinpath(
+          "_local_mirror", f"{cmake_name.lower()}-src"
+      ),
+      cmake_binary_dir=state.active_repo.repository.cmake_binary_dir.joinpath(
+          "_local_mirror", f"{cmake_name.lower()}-build"
+      ),
+      repo_mapping=make_repo_mapping(
+          repository_id, kwargs.get("repo_mapping", {})
+      ),
+      persisted_canonical_name={},
   )
+  update_target_mapping(new_repository, kwargs)
+
+  state.workspace.add_cmake_repository(new_repository)
+
+  builder = _context.access(CMakeBuilder)
+  for lang in kwargs.pop("cmake_languages", []):
+    builder.addtext(
+        f"enable_language({lang})\n",
+        section=ENABLE_LANGUAGES_SECTION,
+        unique=True,
+    )
 
   # Implementation
-  source_directory = str(
-      pathlib.PurePosixPath(state.repo.cmake_binary_dir).joinpath(
-          "_local_mirror", f"{cmake_name.lower()}-src"
-      )
-  )
-  cmake_binary_dir = str(
-      pathlib.PurePosixPath(state.repo.cmake_binary_dir).joinpath(
-          "_local_mirror", f"{cmake_name.lower()}-build"
-      )
-  )
-  os.makedirs(source_directory, exist_ok=True)
-  os.makedirs(cmake_binary_dir, exist_ok=True)
+  source_directory = new_repository.source_directory
+  cmake_binary_dir = new_repository.cmake_binary_dir
+  os.makedirs(str(source_directory), exist_ok=True)
+  os.makedirs(str(cmake_binary_dir), exist_ok=True)
 
   builder = _context.access(CMakeBuilder)
   for lang in kwargs.pop("cmake_languages", []):
@@ -118,7 +133,7 @@ file(DOWNLOAD {quote_string(urls[0])}
     out.write(f"""
 execute_process(
   COMMAND ${{CMAKE_COMMAND}} -E copy_if_different
-       {quote_string(source_path)}
+       {quote_path(source_path)}
        "${{CMAKE_CURRENT_SOURCE_DIR}}/{file}"
   WORKING_DIRECTORY "${{CMAKE_CURRENT_SOURCE_DIR}}"
 )
@@ -133,12 +148,12 @@ execute_process(
   cmaketxt_path.write_text(out.getvalue(), encoding="utf-8")
 
   builder.addtext(
-      f"# Loading {new_repository_id.repository_name}\n",
+      f"# Loading {new_repository.repository_id.repository_name}\n",
       section=LOCAL_MIRROR_DOWNLOAD_SECTION,
   )
   builder.addtext(
-      f"add_subdirectory({quote_string(source_directory)} "
-      f"{quote_string(cmake_binary_dir)} EXCLUDE_FROM_ALL)\n",
+      f"add_subdirectory({quote_path(source_directory)} "
+      f"{quote_path(cmake_binary_dir)} EXCLUDE_FROM_ALL)\n",
       section=FETCH_CONTENT_MAKE_AVAILABLE_SECTION - 1,
   )
 

@@ -68,7 +68,8 @@ def shlex_join(terms):
 
 def join_cibw_environment(terms):
   return " ".join(
-      "%s=%s" % (key, shlex.quote(value)) for key, value in terms.items())
+      "%s=%s" % (key, shlex.quote(value)) for key, value in terms.items()
+  )
 
 
 @contextlib.contextmanager
@@ -77,9 +78,9 @@ def preserve_permissions(dirs):
     yield
   finally:
     subprocess.check_call(
-        ["sudo", "chown", "-R",
-         "%d:%d" %
-         (os.getuid(), os.getgid())] + [x for x in dirs if os.path.exists(x)])
+        ["sudo", "chown", "-R", "%d:%d" % (os.getuid(), os.getgid())]
+        + [x for x in dirs if os.path.exists(x)]
+    )
 
 
 def fix_path(s):
@@ -96,7 +97,8 @@ def run(args, extra_args):
   env["CIBW_ARCHS_MACOS"] = "x86_64 arm64"
   env["CIBW_SKIP"] = "cp27-* cp35-* cp36-* pp* *_i686 *-win32 *-musllinux*"
   env["CIBW_TEST_COMMAND"] = (
-      "python -m pytest {project}/python/tensorstore/tests -vv -s")
+      "python -m pytest {project}/python/tensorstore/tests -vv -s"
+  )
   env["CIBW_MANYLINUX_X86_64_IMAGE"] = "manylinux2014"
   env["CIBW_BUILD_VERBOSITY"] = "1"
 
@@ -105,7 +107,10 @@ def run(args, extra_args):
 
   bazel_startup_options = []
   bazel_build_options = [
-      "--announce_rc", "--show_timestamps", "--keep_going", "--color=yes"
+      "--announce_rc",
+      "--show_timestamps",
+      "--keep_going",
+      "--color=yes",
   ]
   cibw_environment = {}
   # Disable build isolation, since tensorstore doesn"t have any build
@@ -115,28 +120,33 @@ def run(args, extra_args):
   cibw_environment["PIP_NO_BUILD_ISOLATION"] = "0"
 
   env["CIBW_BEFORE_TEST"] = (
-      "pip install -r {package}/third_party/pypa/test_requirements_frozen.txt")
+      "pip install -r {package}/third_party/pypa/test_requirements_frozen.txt"
+  )
 
   home_dir = str(pathlib.Path.home())
 
-  bazelisk_home = os.getenv("BAZELISK_HOME",
-                            os.path.join(home_dir, ".cache", "bazelisk"))
+  bazelisk_home = os.getenv(
+      "BAZELISK_HOME", os.path.join(home_dir, ".cache", "bazelisk")
+  )
 
   env["CIBW_BEFORE_BUILD"] = " && ".join([
       "pip install -r {package}/tools/ci/build_requirements.txt",
   ])
   bazel_cache_dir = os.getenv(
       "CIBUILDWHEEL_BAZEL_CACHE",
-      os.path.join(home_dir, ".cache", "cibuildwheel_bazel_cache"))
+      os.path.join(home_dir, ".cache", "cibuildwheel_bazel_cache"),
+  )
 
   # Logic for completing the build setup and starting the build that is common
   # to all platforms.
   def perform_build():
     cibw_environment["TENSORSTORE_BAZEL_STARTUP_OPTIONS"] = shlex_join(
-        bazel_startup_options)
+        bazel_startup_options
+    )
 
     cibw_environment["TENSORSTORE_BAZEL_BUILD_OPTIONS"] = shlex_join(
-        bazel_build_options)
+        bazel_build_options
+    )
 
     env["CIBW_ENVIRONMENT"] = join_cibw_environment(cibw_environment)
 
@@ -147,8 +157,12 @@ def run(args, extra_args):
 
     sys.exit(
         subprocess.call(
-            [sys.executable, "-m", "cibuildwheel", "--output-dir", "dist"] +
-            cibuildwheel_args, cwd=root_dir, env=env))
+            [sys.executable, "-m", "cibuildwheel", "--output-dir", "dist"]
+            + cibuildwheel_args,
+            cwd=root_dir,
+            env=env,
+        )
+    )
 
   extra_bazelrc = args.bazelrc
 
@@ -160,8 +174,11 @@ def run(args, extra_args):
     # To allow pip, bazelisk, and bazel caches to persist beyond a
     # single build, we set the cache paths to point to the `/host` bind
     # mount that cibuildwheel sets up.
-    pip_cache_dir = subprocess.check_output(
-        [sys.executable, "-m", "pip", "cache", "dir"]).decode().strip()
+    pip_cache_dir = (
+        subprocess.check_output([sys.executable, "-m", "pip", "cache", "dir"])
+        .decode()
+        .strip()
+    )
     container_pip_cache_dir = "/host" + pip_cache_dir
     cibw_environment["PIP_CACHE_DIR"] = container_pip_cache_dir
 
@@ -170,22 +187,26 @@ def run(args, extra_args):
     container_bazel_cache_dir = "/host" + bazel_cache_dir
 
     env["CIBW_BEFORE_ALL_LINUX"] = shlex_join([
-        "/host" + os.path.abspath(
-            os.path.join(script_dir, "cibuildwheel_linux_cache_setup.sh")),
+        "/host"
+        + os.path.abspath(
+            os.path.join(script_dir, "cibuildwheel_linux_cache_setup.sh")
+        ),
         container_pip_cache_dir,
         container_bazel_cache_dir,
     ])
 
-    bazel_startup_options.append("--output_user_root=" +
-                                 container_bazel_cache_dir)
+    bazel_startup_options.append(
+        "--output_user_root=" + container_bazel_cache_dir
+    )
 
     with tempfile.TemporaryDirectory() as temp_dir:
       if extra_bazelrc:
         # Rewrite the bazelrc to add a `/host` prefix to the
         # `--google_credentials` path.
         bazelrc_data = pathlib.Path(extra_bazelrc).read_text(encoding="utf-8")
-        bazelrc_data = bazelrc_data.replace("--google_credentials=",
-                                            "--google_credentials=/host")
+        bazelrc_data = bazelrc_data.replace(
+            "--google_credentials=", "--google_credentials=/host"
+        )
         temp_bazelrc = os.path.join(temp_dir, "bazelrc")
         pathlib.Path(temp_bazelrc).write_text(bazelrc_data, encoding="utf-8")
         bazel_startup_options.append("--bazelrc=" + "/host" + temp_bazelrc)
@@ -193,15 +214,23 @@ def run(args, extra_args):
         perform_build()
   else:
     # macOS or Windows: build is performed without a container.
+    cibw_environment["BAZELISK_HOME"] = fix_path(bazelisk_home)
+    bazel_startup_options.append(
+        "--output_user_root=" + fix_path(bazel_cache_dir)
+    )
 
     if platform != "linux" and sys.platform.startswith("darwin"):
+      # macOS
       cibw_environment["MACOSX_DEPLOYMENT_TARGET"] = "10.14"
+    else:
+      # Windows
+      # See https://github.com/protocolbuffers/protobuf/issues/12947
+      bazel_startup_options.append(
+          "--output_base=" + pathlib.Path.home().drive + "/Out"
+      )
 
     if extra_bazelrc:
       bazel_startup_options.append("--bazelrc=" + fix_path(extra_bazelrc))
-    cibw_environment["BAZELISK_HOME"] = fix_path(bazelisk_home)
-    bazel_startup_options.append("--output_user_root=" +
-                                 fix_path(bazel_cache_dir))
     perform_build()
 
 

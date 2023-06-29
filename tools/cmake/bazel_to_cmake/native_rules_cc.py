@@ -44,7 +44,8 @@ def cc_library(
   if "skip-cmake" in kwargs.get("tags", []):
     return
   context = self.snapshot()
-  target = context.resolve_target(name)
+
+  target = context.parse_rule_target(name)
   context.add_rule(
       target,
       lambda: _cc_library_impl(context, target, **kwargs),
@@ -82,7 +83,7 @@ def _cc_library_impl(
       _context, custom_target_deps=custom_target_deps, **kwargs
   )
   builder = _context.access(CMakeBuilder)
-  builder.addtext(f"\n# {_target.as_label()}")
+  builder.addtext(f"\n# cc_library({_target.as_label()})")
 
   emit_cc_library(
       builder,
@@ -106,7 +107,7 @@ def cc_binary(
   if "skip-cmake" in kwargs.get("tags", []):
     return
   context = self.snapshot()
-  target = context.resolve_target(name)
+  target = context.parse_rule_target(name)
 
   resolved_visibility = context.resolve_target_or_label_list(visibility or [])
   if kwargs.get("testonly"):
@@ -134,7 +135,7 @@ def _cc_binary_impl(_context: InvocationContext, _target: TargetId, **kwargs):
       _context, src_required=True, **kwargs
   )
   builder = _context.access(CMakeBuilder)
-  builder.addtext(f"\n# {_target.as_label()}")
+  builder.addtext(f"\n# cc_binary({_target.as_label()})")
 
   emit_cc_binary(
       _context.access(CMakeBuilder),
@@ -142,7 +143,7 @@ def _cc_binary_impl(_context: InvocationContext, _target: TargetId, **kwargs):
       **common_options,
   )
   _context.add_analyzed_target(
-      _target, TargetInfo(*cmake_target_pair.as_providers())
+      _target, TargetInfo(*cmake_target_pair.as_providers(is_binary=True))
   )
 
 
@@ -156,7 +157,7 @@ def cc_test(
   if "skip-cmake" in kwargs.get("tags", []):
     return
   context = self.snapshot()
-  target = context.resolve_target(name)
+  target = context.parse_rule_target(name)
 
   resolved_visibility = context.resolve_target_or_label_list(visibility or [])
   context.add_rule(
@@ -178,7 +179,7 @@ def _cc_test_impl(
   cmake_target_pair = state.generate_cmake_target_pair(_target)
   resolved_args = [
       apply_location_substitutions(
-          _context, arg, relative_to=state.repo.source_directory
+          _context, arg, relative_to=state.active_repo.source_directory
       )
       for arg in _context.evaluate_configurable_list(args)
   ]
@@ -187,7 +188,7 @@ def _cc_test_impl(
       _context, src_required=True, **kwargs
   )
   builder = _context.access(CMakeBuilder)
-  builder.addtext(f"\n# {_target.as_label()}")
+  builder.addtext(f"\n# cc_test({_target.as_label()})")
 
   emit_cc_test(
       _context.access(CMakeBuilder),
@@ -196,5 +197,5 @@ def _cc_test_impl(
       **common_options,
   )
   _context.add_analyzed_target(
-      _target, TargetInfo(*cmake_target_pair.as_providers())
+      _target, TargetInfo(*cmake_target_pair.as_providers(is_binary=True))
   )

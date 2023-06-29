@@ -57,18 +57,26 @@ class InvocationContext(object):
   def caller_package_id(self) -> PackageId:
     raise NotImplementedError("caller_package_id")
 
-  def resolve_source_root(self, repository_id: RepositoryId) -> str:
+  def workspace_root_for_label(self, repository_id: RepositoryId) -> str:
+    # This should return something like the Package.source_directory
+    return self.resolve_source_root(repository_id).as_posix()
+
+  def resolve_source_root(
+      self, repository_id: RepositoryId
+  ) -> pathlib.PurePath:
     # This should return something like the Package.source_directory
     raise NotImplementedError("resolve_source_root")
 
-  def resolve_output_root(self, repository_id: RepositoryId) -> str:
+  def resolve_output_root(
+      self, repository_id: RepositoryId
+  ) -> pathlib.PurePath:
     # This should return something like the Package.cmake_root
     raise NotImplementedError("resolve_output_root")
 
-  def resolve_repo_mapping(
+  def apply_repo_mapping(
       self, target_id: TargetId, mapping_repository_id: Optional[RepositoryId]
   ) -> TargetId:
-    raise NotImplementedError("resolve_repo_mapping")
+    raise NotImplementedError("apply_repo_mapping")
 
   def load_library(self, target: TargetId) -> Dict[str, Any]:
     raise NotImplementedError("load_library")
@@ -144,6 +152,19 @@ class InvocationContext(object):
       assert isinstance(evaluated, list)
       return evaluated
 
+  def parse_rule_target(
+      self,
+      label_string: str,
+  ) -> TargetId:
+    """Parses a label used as a rule name or target."""
+    # Use package-level resolution.
+    assert label_string
+    assert not isinstance(label_string, list)
+    assert not isinstance(label_string, TargetId)
+    target = self.caller_package_id.parse_target(label_string)
+    assert target.repository_id == self.caller_package_id.repository_id
+    return target
+
   def resolve_target(
       self,
       label_string: str,
@@ -153,7 +174,7 @@ class InvocationContext(object):
     assert label_string
     assert not isinstance(label_string, list)
     assert not isinstance(label_string, TargetId)
-    return self.resolve_repo_mapping(
+    return self.apply_repo_mapping(
         self.caller_package_id.parse_target(label_string), mapping_repository_id
     )
 
@@ -181,20 +202,18 @@ class InvocationContext(object):
         self.resolve_target_or_label(t, mapping_repository_id) for t in targets
     ]
 
-  def get_source_package_dir(self, package_id: PackageId) -> str:
+  def get_source_package_dir(self, package_id: PackageId) -> pathlib.PurePath:
     assert isinstance(package_id, PackageId)
-    return str(
-        pathlib.PurePosixPath(
-            self.resolve_source_root(package_id.repository_id)
-        ).joinpath(package_id.package_name)
+    return self.resolve_source_root(package_id.repository_id).joinpath(
+        package_id.package_name
     )
 
-  def get_source_file_path(self, target_id: TargetId) -> Optional[str]:
+  def get_source_file_path(
+      self, target_id: TargetId
+  ) -> Optional[pathlib.PurePath]:
     assert isinstance(target_id, TargetId)
-    return str(
-        pathlib.PurePosixPath(
-            self.resolve_source_root(target_id.repository_id)
-        ).joinpath(target_id.package_name, target_id.target_name)
+    return self.resolve_source_root(target_id.repository_id).joinpath(
+        target_id.package_name, target_id.target_name
     )
 
   def get_generated_file_path(self, target_id: TargetId) -> str:
