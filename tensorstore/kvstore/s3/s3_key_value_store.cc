@@ -1297,7 +1297,7 @@ struct ListTask : public RateLimiterNode,
       TENSORSTORE_ASSIGN_OR_RETURN(auto key_tag, GetTag(payload, "<Key>", "<", &pos));
 
       if(!options_.range.empty() && tensorstore::Contains(options_.range, key_tag)) {
-        if (options_.strip_prefix_length) {
+        if (options_.strip_prefix_length && key_tag.size() >= options_.strip_prefix_length) {
           key_tag = key_tag.substr(options_.strip_prefix_length);
         }
 
