@@ -36,7 +36,7 @@ def cc_with_non_compile_test(
     if deps == None:
         deps = []
 
-    msvc_config_setting = "@com_google_tensorstore//:compiler_msvc"
+    msvc_config_setting = "@tensorstore//:compiler_msvc"
 
     # This just turns it into a regular test.
     tensorstore_cc_test(
@@ -51,7 +51,7 @@ def cc_with_non_compile_test(
             "//conditions:default": [],
         }),
         deps = deps + select({
-            msvc_config_setting: ["@com_google_tensorstore//tensorstore/internal:non_compile_bypass"],
+            msvc_config_setting: ["@tensorstore//tensorstore/internal:non_compile_bypass"],
             "//conditions:default": [],
         }),
         **kwargs

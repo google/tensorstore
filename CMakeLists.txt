@@ -82,7 +82,7 @@ include(btc_protobuf)
 
 bazel_to_cmake(
   --cmake-project-name tensorstore
-  --bazel-repo-name com_google_tensorstore
+  --bazel-repo-name tensorstore
   "--include-package="
   "--include-package=tensorstore/**"
   "--exclude-package=tensorstore/examples/python/**"

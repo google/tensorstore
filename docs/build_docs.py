@@ -25,6 +25,7 @@ import sys
 import tempfile
 from typing import List
 import urllib.parse
+import zipfile
 
 DOCS_ROOT = 'docs'
 THIRD_PARTY_ROOT = 'third_party'
@@ -88,10 +89,10 @@ def _remove_mirror(url: str) -> str:
   for prefix in [
       'https://mirror.bazel.build/',
       'https://storage.googleapis.com/tensorstore-bazel-mirror/',
-      'https://storage.googleapis.com/grpc-bazel-mirror/'
+      'https://storage.googleapis.com/grpc-bazel-mirror/',
   ]:
     if url.startswith(prefix):
-      return 'https://' + url[len(prefix):]
+      return 'https://' + url[len(prefix) :]
   return url
 
 
@@ -118,7 +119,8 @@ def _write_third_party_libraries_summary(runfiles_dir: str, output_path: str):
       if not system_lib_supported:
         continue
       args = _get_third_party_http_archive_args(
-          workspace_bzl_file.read_text(encoding='utf-8'))
+          workspace_bzl_file.read_text(encoding='utf-8')
+      )
       if not args:
         raise ValueError(f'Failed to evaluate {workspace_bzl_file}')
 
@@ -152,7 +154,8 @@ def _write_third_party_libraries_summary(runfiles_dir: str, output_path: str):
         m = re.search('(.*)-([^-]*)$', args['strip_prefix'])
         if m is None:
           raise ValueError(
-              f'Failed to determine version from strip_prefix in {workspace_bzl_file}'
+              'Failed to determine version from strip_prefix in'
+              f' {workspace_bzl_file}'
           )
         name = m.group(1)
         version = m.group(2)[:12]
@@ -162,10 +165,11 @@ def _write_third_party_libraries_summary(runfiles_dir: str, output_path: str):
       version = args.get('doc_version', version)
       homepage = args.get('doc_homepage', homepage)
 
-      if (not name or not homepage or not version):
+      if not name or not homepage or not version:
         raise ValueError(
-            f'Failed to determine full dependency information in {workspace_bzl_file}; '
-            f'Found {name}, {homepage}, {version}')
+            'Failed to determine full dependency information in'
+            f' {workspace_bzl_file}; Found {name}, {homepage}, {version}'
+        )
       third_party_libs.append((identifier, name, homepage, version))
 
     third_party_libs.sort(key=lambda x: x[1])
@@ -179,10 +183,10 @@ def _write_third_party_libraries_summary(runfiles_dir: str, output_path: str):
 @contextlib.contextmanager
 def _prepare_source_tree(runfiles_dir: str):
   with tempfile.TemporaryDirectory() as temp_src_dir:
-
     _write_third_party_libraries_summary(
         runfiles_dir=runfiles_dir,
-        output_path=os.path.join(temp_src_dir, 'third_party_libraries.rst'))
+        output_path=os.path.join(temp_src_dir, 'third_party_libraries.rst'),
+    )
 
     abs_docs_root = os.path.join(runfiles_dir, DOCS_ROOT)
 
@@ -210,8 +214,29 @@ def _prepare_source_tree(runfiles_dir: str):
     create_symlinks(os.path.join(runfiles_dir, DOCS_ROOT), temp_src_dir)
     source_cpp_root = os.path.abspath(os.path.join(runfiles_dir, CPP_ROOT))
     for name in ['driver', 'kvstore']:
-      os.symlink(os.path.join(source_cpp_root, name),
-                 os.path.join(temp_src_dir, name))
+      os.symlink(
+          os.path.join(source_cpp_root, name), os.path.join(temp_src_dir, name)
+      )
+
+    # Prepare the sphinx cache, if provided
+    cache_env_key = 'SPHINX_IMMATERIAL_EXTERNAL_RESOURCE_CACHE_DIR'
+    if cache_env_key not in os.environ:
+      cache_dir = os.path.join(
+          runfiles_dir, DOCS_ROOT, 'cached_external_resources', 'data'
+      )
+      cache_zip = os.path.join(
+          runfiles_dir, DOCS_ROOT, 'cached_external_resources', 'data.zip'
+      )
+      if os.path.exists(cache_dir):
+        os.environ[cache_env_key] = cache_dir
+      elif os.path.exists(cache_zip):
+        zip_path = os.path.join(
+            temp_src_dir, 'sphinx_external_resource_cache_dir'
+        )
+        os.makedirs(zip_path, exist_ok=True)
+        zipfile.ZipFile(cache_zip).extractall(zip_path)
+        os.environ[cache_env_key] = zip_path
+
     yield temp_src_dir
 
 
@@ -223,17 +248,11 @@ def run(args: argparse.Namespace, unknown: List[str]):
   sphinx_args = [
       # Always write all files (incremental mode not used)
       '-a',
-      # Don't look for saved environment (since we just use a temporary directory
-      # anyway).
+      # Don't look for saved environment (since a temporary directory is used).
       '-E',
       # Show full tracebacks for errors.
       '-T',
   ]
-
-  cache_dir = os.path.join(runfiles_dir, DOCS_ROOT, "cached_external_resources", "data")
-  cache_env_key = "SPHINX_IMMATERIAL_EXTERNAL_RESOURCE_CACHE_DIR"
-  if os.path.exists(cache_dir) and cache_env_key not in os.environ:
-    os.environ[cache_env_key] = cache_dir
 
   if args.sphinx_help:
     sphinx_args.append('--help')
@@ -247,8 +266,9 @@ def run(args: argparse.Namespace, unknown: List[str]):
     # for CI builds run on shared machines where not all CPU cores are available
     # to be used.
     special_cpu_limits = {}
-    for term in os.environ.get(
-        'TENSORSTORE_SPECIAL_CPU_USER_LIMITS', '').split(' '):
+    for term in os.environ.get('TENSORSTORE_SPECIAL_CPU_USER_LIMITS', '').split(
+        ' '
+    ):
       term = term.strip()
       if not term:
         continue
@@ -260,15 +280,18 @@ def run(args: argparse.Namespace, unknown: List[str]):
         username = getpass.getuser()
         if username in special_cpu_limits:
           num_cpus_str = special_cpu_limits[username]
-          print('Using special CPU limit of %s due to username of %s' %
-                (num_cpus_str, username))
+          print(
+              f'Using special CPU limit of {num_cpus_str} due to username of'
+              f' {username}'
+          )
       except Exception as e:
         # Ignore failure to determine username.
         if special_cpu_limits:
-          print("Failed to determine current username: %s" % (e,))
+          print('Failed to determine current username: %s' % (e,))
     sphinx_args += ['-j', num_cpus_str]
-  output_dir = os.path.join(os.getenv('BUILD_WORKING_DIRECTORY', os.getcwd()),
-                            args.output)
+  output_dir = os.path.join(
+      os.getenv('BUILD_WORKING_DIRECTORY', os.getcwd()), args.output
+  )
   os.makedirs(output_dir, exist_ok=True)
   with _prepare_source_tree(runfiles_dir) as temp_src_dir:
     # Use a separate temporary directory for the doctrees, since we don't want
@@ -278,6 +301,7 @@ def run(args: argparse.Namespace, unknown: List[str]):
       sphinx_args += [temp_src_dir, output_dir]
       sphinx_args += unknown
       import sphinx.cmd.build
+
       result = sphinx.cmd.build.main(sphinx_args)
       if result != 0:
         sys.exit(result)
@@ -292,12 +316,12 @@ def run(args: argparse.Namespace, unknown: List[str]):
         sys.exit(result)
 
 
-_WINDOWS_UNC_PREFIX = "\\\\?\\"
+_WINDOWS_UNC_PREFIX = '\\\\?\\'
 
 
 def _strip_windows_unc_path_prefix(p: str) -> str:
   if p.startswith(_WINDOWS_UNC_PREFIX):
-    p = p[len(_WINDOWS_UNC_PREFIX):]
+    p = p[len(_WINDOWS_UNC_PREFIX) :]
   return p
 
 
@@ -310,28 +334,51 @@ def main():
     sys.path[:] = [_strip_windows_unc_path_prefix(p) for p in sys.path]
   ap = argparse.ArgumentParser()
   default_output = os.environ.get('TEST_UNDECLARED_OUTPUTS_DIR', None)
-  ap.add_argument('--output', '-o', help='Output directory',
-                  default=default_output, required=default_output is None)
-  ap.add_argument('-P', dest='pdb_on_error', action='store_true',
-                  help='Run pdb on exception')
-  ap.add_argument('--sphinx-help', action='store_true',
-                  help='Show sphinx build command-line help')
+  ap.add_argument(
+      '--output',
+      '-o',
+      help='Output directory',
+      default=default_output,
+      required=default_output is None,
+  )
+  ap.add_argument(
+      '-P',
+      dest='pdb_on_error',
+      action='store_true',
+      help='Run pdb on exception',
+  )
+  ap.add_argument(
+      '--sphinx-help',
+      action='store_true',
+      help='Show sphinx build command-line help',
+  )
   ap.add_argument('--pdb', action='store_true', help='Run under pdb')
-  ap.add_argument('--profile', type=str,
-                  help='Write performance profile to the specified file.')
-  ap.add_argument('--exclude', action='append', default=[],
-                  help='Glob pattern of sources to exclude')
+  ap.add_argument(
+      '--profile',
+      type=str,
+      help='Write performance profile to the specified file.',
+  )
+  ap.add_argument(
+      '--exclude',
+      action='append',
+      default=[],
+      help='Glob pattern of sources to exclude',
+  )
   args, unknown = ap.parse_known_args()
+
   def do_run():
     run(args, unknown)
 
   if args.pdb:
     import pdb
+
     pdb.runcall(do_run)
   elif args.profile:
     import cProfile
-    cProfile.runctx('do_run()', globals=globals(), locals=locals(),
-                    filename=args.profile)
+
+    cProfile.runctx(
+        'do_run()', globals=globals(), locals=locals(), filename=args.profile
+    )
   else:
     do_run()
 

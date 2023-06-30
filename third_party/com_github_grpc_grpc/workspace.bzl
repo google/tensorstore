@@ -25,14 +25,13 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_github_grpc_grpc",
-        sha256 = "9164010d67b9080d26c2f93d4bb457231ec5a7d687dffe43d1ddf924e4b5ca6b",
-        strip_prefix = "grpc-a02cc7d88ae45abf7ccb742c7c61345f7ef6d0d2",
+        sha256 = "9cf1a69a921534ac0b760dcbefb900f3c2f735f56070bf0536506913bb5bfd74",
+        strip_prefix = "grpc-1.55.0",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/grpc/grpc/archive/a02cc7d88ae45abf7ccb742c7c61345f7ef6d0d2.tar.gz",  # master(2022-11-18)
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/grpc/grpc/archive/v1.55.0.tar.gz",
         ],
         patches = [
             "//third_party:com_github_grpc_grpc/patches/update_build_system.diff",
-            "//third_party:com_github_grpc_grpc/patches/fix-mingw.diff",
         ],
         patch_args = ["-p1"],
         repo_mapping = {
@@ -57,7 +56,6 @@ def repo():
                 "--target=//:grpc++_public_hdrs",
                 "--target=//:grpc++_test",
                 "--target=//src/compiler:grpc_cpp_plugin",
-                "--bind=@com_google_protobuf//:protobuf_headers=@com_google_protobuf//:protobuf",
             ] + ["--bind=" + k + "=" + v for k, v in GRPC_NATIVE_BINDINGS.items()],
             "exclude": [
                 "src/android/**",
@@ -93,16 +91,17 @@ GRPC_NATIVE_BINDINGS = {
     "grpc_cpp_plugin": "@com_github_grpc_grpc//src/compiler:grpc_cpp_plugin",
     "protobuf": "@com_google_protobuf//:protobuf",
     "protobuf_clib": "@com_google_protobuf//:protoc_lib",
-    "protobuf_headers": "@com_google_protobuf//:protobuf_headers",
+    "protobuf_headers": "@com_google_protobuf//:protobuf",
     "protocol_compiler": "@com_google_protobuf//:protoc",
 
     # upb mappings.
     "upb_json_lib": "@com_google_protobuf_upb//:json",
     "upb_lib": "@com_google_protobuf_upb//:upb",
-    "upb_lib_descriptor": "@com_google_protobuf_upb//:descriptor_upb_proto",
-    "upb_lib_descriptor_reflection": "@com_google_protobuf_upb//:descriptor_upb_proto_reflection",
+    "upb_lib_descriptor": "@com_google_protobuf_upb//:cmake_descriptor_upb",
+    "upb_lib_descriptor_reflection": "@com_google_protobuf_upb//:cmake_descriptor_upbdefs",
     "upb_reflection": "@com_google_protobuf_upb//:reflection",
     "upb_textformat_lib": "@com_google_protobuf_upb//:textformat",
+    "upb_collections_lib": "@com_google_protobuf_upb//:collections",
 
     # These exist to be used by grpc_build_system.bzl
     "benchmark": "@com_google_benchmark//:benchmark",

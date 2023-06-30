@@ -21,13 +21,6 @@ From: https://github.com/envoyproxy/protoc-gen-validate
     validate/validate.proto
     bazel/pgv_proto_library.bzl
 
-From: https://github.com/googleapis/googleapis
-
-    google/rpc/code.proto
-    google/rpc/error_details.proto
-    google/rpc/status.proto
-
-
 From: https://github.com/protocolbuffers/protobuf
 
     google/protobuf/any.proto
@@ -105,27 +98,4 @@ def repo():
         # CMake options
         cmake_name = "lpm",
         bazel_to_cmake = {},
-        cmake_target_mapping = {
-            "//google/protobuf:descriptor_proto": "lpm::google_protobuf_descriptor_proto",
-            "//google/rpc:code_proto": "lpm::google_rpc_code_proto",
-            "//google/rpc:code_upb_proto": "lpm::google_rpc_code_upb_proto",
-            "//google/rpc:code_upbdef_proto": "lpm::google_rpc_code_upbdef_proto",
-            "//google/rpc:error_details_cc_proto": "lpm::google_rpc_error_details_cc_proto",
-            "//google/rpc:error_details_proto": "lpm::google_rpc_error_details_proto",
-            "//google/rpc:error_details_upb_proto": "lpm::google_rpc_error_details_upb_proto",
-            "//google/rpc:error_details_upbdef_proto": "lpm::google_rpc_error_details_upbdef_proto",
-            "//google/rpc:status_cc_proto": "lpm::google_rpc_status_cc_proto",
-            "//google/rpc:status_proto": "lpm::google_rpc_status_proto",
-            "//google/rpc:status_upb_proto": "lpm::google_rpc_status_upb_proto",
-            "//google/rpc:status_upbdef_proto": "lpm::google_rpc_status_upbdef_proto",
-            "//validate:validate_proto": "lpm::validate_proto",
-            "//validate:validate_proto_upb": "lpm::validate_proto_upb",
-            "//validate:validate_proto_upbdef": "lpm::validate_proto_upbdef",
-            "//xds/data/orca/v3:pkg": "lpm::xds_data_orca_v3_pkg",
-            "//xds/data/orca/v3:pkg_upb": "lpm::xds_data_orca_v3_pkg_upb",
-            "//xds/data/orca/v3:pkg_upbdef": "lpm::xds_data_orca_v3_pkg_upbdef",
-            "//xds/service/orca/v3:pkg": "lpm::xds_service_orca_v3_pkg",
-            "//xds/service/orca/v3:pkg_upb": "lpm::xds_service_orca_v3_pkg_upb",
-            "//xds/service/orca/v3:pkg_upbdef": "lpm::xds_service_orca_v3_pkg_upbdef",
-        },
     )

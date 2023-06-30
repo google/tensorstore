@@ -22,11 +22,12 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_protobuf",
-        strip_prefix = "protobuf-3.21.11",
+        strip_prefix = "protobuf-58b6ddb03ef8f186c9225d0107213f74750a82f3",
+        sha256 = "9ff1badbc558c17bfcbda54dbb183338331cd77afa0c47e584f512d71f1f6e80",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/protocolbuffers/protobuf/releases/download/v21.11/protobuf-cpp-3.21.11.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/protocolbuffers/protobuf/archive/58b6ddb03ef8f186c9225d0107213f74750a82f3.tar.gz",
+            "https://github.com/protocolbuffers/protobuf/archive/58b6ddb03ef8f186c9225d0107213f74750a82f3.tar.gz",  # 23.x(2023-06-13)
         ],
-        sha256 = "96f0ab99b7414e44e7bf9b218bb59510d61549ca68e648f19e3622f9999bec00",
         patches = [
             # protobuf uses rules_python, but we just use the native python rules.
             "//third_party:com_google_protobuf/patches/remove_rules_python_dependency.diff",
@@ -34,6 +35,8 @@ def repo():
         patch_args = ["-p1"],
         repo_mapping = {
             "@zlib": "@net_zlib",
+            "@upb": "@com_google_protobuf_upb",
+            "@utf8_range": "@com_google_protobuf_utf8_range",
         },
         # https://cmake.org/cmake/help/latest/module/FindProtobuf.html
         # https://github.com/protocolbuffers/protobuf/blob/master/CMakeLists.txt
@@ -41,6 +44,13 @@ def repo():
         cmake_extra_build_file = Label("//third_party:com_google_protobuf/cmake_extra.BUILD.bazel"),
         bazel_to_cmake = {
             "args": [
+                "--ignore-library=@upb//bazel:workspace_deps.bzl",
+                "--ignore-library=@upb//bazel:system_python.bzl",
+                "--bind=//src/google/protobuf:wkt_cc_proto=//:b2cmake_wkt_cc_proto",
+                # required by bazel_to_cmake
+                "--target=//:b2cmake_wkt_cc_proto",
+                "--target=//:protobuf",
+                "--target=//:protobuf_lite",
                 "--target=//:protoc",
                 "--target=//:protoc_lib",
                 "--target=//src/google/protobuf:protobuf",
@@ -65,6 +75,7 @@ def repo():
                 "objectivec/**",
                 "php/**",
                 "ruby/**",
+                "rust/**",
             ],
         },
         cmake_target_mapping = {
@@ -73,9 +84,14 @@ def repo():
             "//:protoc": "protobuf::protoc",
             "//:protoc_lib": "protobuf::libprotoc",
         },
+        cmakelists_prefix = """
+set(Protobuf_IMPORT_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/src" CACHE INTERNAL "")
+set(Protobuf_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/src" CACHE INTERNAL "")
+set(Protobuf_LIBRARIES "protobuf::libprotobuf" CACHE INTERNAL "")
+""",
     )
 
-_WELL_KNOWN_TYPES = [
+WELL_KNOWN_TYPES = [
     "any",
     "api",
     "duration",
@@ -89,8 +105,6 @@ _WELL_KNOWN_TYPES = [
     # Descriptor.proto isn't considered "well known", but is available via
     # :protobuf and :protobuf_wkt
     "descriptor",
-    # compiler_plugin.proto is needed to build grpc and upb.
-    "compiler_plugin",
 ]
 
 EXTRA_PROTO_TARGETS = [

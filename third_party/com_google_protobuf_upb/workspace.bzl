@@ -24,33 +24,35 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_protobuf_upb",
-        sha256 = "ac79e4540f04a6de945cd827b2e1be71f7d232c46f7d09621de2da1003c763d9",
-        strip_prefix = "upb-f3a0cc49da29dbdbd09b3325c2834139540f00fa",
+        sha256 = "ee29f1e674dfb3d0121937c6256771ccaafa3ce75410a6129880bd9c6ee2b546",
+        strip_prefix = "upb-1956df14832979471d0c79210a817aeb54f7a526",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/protocolbuffers/upb/archive/f3a0cc49da29dbdbd09b3325c2834139540f00fa.tar.gz",
-            "https://github.com/protocolbuffers/upb/archive/f3a0cc49da29dbdbd09b3325c2834139540f00fa.tar.gz",  # main(2022-11-18)
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/protocolbuffers/upb/archive/1956df14832979471d0c79210a817aeb54f7a526.tar.gz",
+            "https://github.com/protocolbuffers/upb/archive/1956df14832979471d0c79210a817aeb54f7a526.tar.gz",  # 23.x(2023-06-13)
         ],
         patches = [
-            "//third_party:com_google_protobuf_upb/patches/build.diff",
             # When using a toolchain on Windows where the runtime libraries are
             # not installed system-wide, it is necessary to specify
             # `use_default_shell_env = True` in order to be able to execute
             # compiled binaries.
             "//third_party:com_google_protobuf_upb/patches/use_default_shell_env.diff",
-            # Fixes https://github.com/google/tensorstore/issues/86
-            #
-            # Without this patch, upb copies an uninitialized value, but the
-            # copy is never actually used.  That is technically undefined
-            # behavior.  In normal builds it is benign but in certain MSVC
-            # sanitizer builds it leads to an error.
-            "//third_party:com_google_protobuf_upb/patches/fix-uninitialized-value-copy.diff",
+
+            # bootstrap.diff includes the pre-compiled source for plugin.proto and
+            # descriptor.proto, used for bootstrapping the cmake build, which also breaks
+            # a big dependency on @com_google_protobuf.
+            "//third_party:com_google_protobuf_upb/patches/bootstrap.diff",
         ],
         patch_args = ["-p1"],
+        repo_mapping = {
+            "@utf8_range": "@com_google_protobuf_utf8_range",
+        },
+        # CMake support in upb is experimental; however we only need upb support for gRPC.
         cmake_name = "upb",
         cmake_enable_system_package = False,
         cmake_target_mapping = {
             "//:reflection": "upb::reflection",
             "//:textformat": "upb::textformat",
+            "//:collections": "upb::collections",
             "//:upb": "upb::upb",
             "//upbc:protoc-gen-upb": "upb::protoc_gen_upb",
             "//upbc:protoc-gen-upbdefs": "upb::protoc_gen_upbdefs",
@@ -59,6 +61,9 @@ def repo():
             "args": [
                 "--ignore-library=//bazel:amalgamation.bzl",
                 "--ignore-library=//bazel:py_proto_library.bzl",
+                "--ignore-library=//bazel:python_downloads.bzl",
+                "--ignore-library=//bazel:system_python.bzl",
+                "--ignore-library=//bazel:workspace_deps.bzl",
                 "--ignore-library=//lua:lua_proto_library.bzl",
                 "--ignore-library=//protos/bazel:upb_cc_proto_library.bzl",
                 "--ignore-library=//python/dist:dist.bzl",
@@ -93,6 +98,14 @@ def repo():
                 "--target=//:generated_reflection_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me",
                 "--target=//:upb_proto_library_copts__for_generated_code_only_do_not_use",
             ],
-            "exclude": ["lua/**", "protos/**", "python/**", "rust/**", "benchmarks/**", "cmake/**"],
+            "exclude": ["lua/**", "protos/**", "python/**", "benchmarks/**", "cmake/**"],
         },
     )
+
+# NOTE: --bind allows remapping of dependencies to work with the system dependencies and the CMake
+# function find_package(Protobuf).  When updating upb, review the dependencies to see if any need
+# to be mapped to their equivalents.
+#
+# ./bazelisk.py query -k "allpaths(@com_google_protobuf_upb//..., @com_google_protobuf//...)"
+#  --notool_deps --output=graph  |
+#   egrep '["]@com_google_protobuf_upb//[^"]*["]\s*->\s*["]@com_google_protobuf//[^"]*["]'

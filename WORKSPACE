@@ -1,5 +1,5 @@
 workspace(
-    name = "com_google_tensorstore",
+    name = "tensorstore",
 )
 
 load("//:external.bzl", "tensorstore_dependencies")

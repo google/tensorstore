@@ -310,8 +310,7 @@ def get_latest_download(webpage_url: str, url_pattern: str) -> Tuple[str, str]:
   """
   r = _get_session().get(webpage_url)
   r.raise_for_status()
-  text = r.text
-  tree = lxml.html.fromstring(text)
+  tree = lxml.html.fromstring(r.text)
   link_list = tree.xpath('//a')
 
   try:
@@ -328,6 +327,11 @@ def get_latest_download(webpage_url: str, url_pattern: str) -> Tuple[str, str]:
       if not v.is_prerelease:
         versions.append((v, m.group(0), m.group(1)))
   versions.sort()
+  if not versions:
+    raise ValueError(
+        f'Failed to get versions from url: {webpage_url} with pattern:'
+        f' {url_pattern}'
+    )
   return versions[-1][1], versions[-1][2]
 
 
