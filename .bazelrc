@@ -11,9 +11,6 @@ build --platform_mappings=tools/bazel_platforms/platform_mappings
 # Use absl with googletest
 build --define=absl=1
 
-# Disable xds in gRPC
-build --define=grpc_no_xds=true
-
 # Configure C++17 mode
 #
 # Note: We can't use --cxxopt because of
@@ -23,6 +20,15 @@ build:gcc_or_clang --host_per_file_copt=.*\\.cc$,.*\\.cpp$@-std=c++17,-fsized-de
 
 build:msvc --per_file_copt=.*\\.cc$,.*\\.cpp$@/std:c++17
 build:msvc --host_per_file_copt=.*\\.cc$,.*\\.cpp$@/std:c++17
+
+# protobuf/upb has some functions where errors are incorrectly raised:
+# https://github.com/protocolbuffers/upb/blob/main/upb/message/accessors_internal.h
+
+build:gcc_or_clang --per_file_copt=upb/reflection/.*\\.c$@-Wno-array-bounds,-Wno-stringop-overflow,-Wno-stringop-overread
+build:gcc_or_clang --host_per_file_copt=upb/reflection/.*\\.c$@-Wno-array-bounds,-Wno-stringop-overflow,-Wno-stringop-overread
+
+build:gcc_or_clang --per_file_copt=upbc/.*\\.cc$@-Wno-array-bounds,-Wno-stringop-overflow,-Wno-stringop-overread
+build:gcc_or_clang --host_per_file_copt=upbc/.*\\.cc$@-Wno-array-bounds,-Wno-stringop-overflow,-Wno-stringop-overread
 
 # Use colors
 build:gcc_or_clang --copt=-fdiagnostics-color=always

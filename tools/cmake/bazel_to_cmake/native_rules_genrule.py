@@ -134,6 +134,14 @@ def _genrule_impl(
       toolchains=resolved_toolchains,
   )
 
+  # HACK(upb): The com_google_protobuf_upb bootstrap genrule adds this import,
+  # which needs to be rewritten to a local package reference:
+  if _target.repository_name == "com_google_protobuf_upb":
+    cmd_text = cmd_text.replace(
+        "-Iexternal/com_google_protobuf/src",
+        "-I${PROJECT_SOURCE_DIR}/bootstrap",
+    )
+
   builder = _context.access(CMakeBuilder)
   builder.addtext(f"\n# genrule({_target.as_label()})")
   _emit_genrule(

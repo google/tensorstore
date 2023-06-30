@@ -98,7 +98,6 @@ bazel_to_cmake(
   --module bazel_to_cmake.bzl_library.rules_nasm
   --module bazel_to_cmake.bzl_library.third_party_http_archive
   --module bazel_to_cmake.bzl_library.upb_proto_library
-  --module bazel_to_cmake.bzl_library.upb_bootstrap_compiler
 )
 
 if(TENSORSTORE_DEBUG_DUMP_TARGETS)

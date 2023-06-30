@@ -1,5 +1,0 @@
-{
-    "modules": [
-        ".bzl_library.upb_bootstrap_compiler"
-    ]
-}

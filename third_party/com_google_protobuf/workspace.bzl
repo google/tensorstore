@@ -57,13 +57,9 @@ def repo():
                 "--target=//src/google/protobuf:protobuf_lite",
                 "--target=//src/google/protobuf/compiler:protoc_lib",
                 "--target=//src/google/protobuf/compiler:code_generator",
-            ] + [
-                "--target=//:" + x + "_proto"
-                for x in WELL_KNOWN_TYPES
-            ] + [
-                "--target=//src/google/protobuf:" + x + "_proto"
-                for x in WELL_KNOWN_TYPES
-            ],
+                "--target=//:descriptor_proto_srcs",
+                "--target=//:compiler_plugin_proto",
+            ] + EXTRA_PROTO_TARGETS,
             "exclude": [
                 "cmake/**",
                 "conformance/**",
@@ -109,4 +105,15 @@ WELL_KNOWN_TYPES = [
     # Descriptor.proto isn't considered "well known", but is available via
     # :protobuf and :protobuf_wkt
     "descriptor",
+]
+
+EXTRA_PROTO_TARGETS = [
+    "--target=//:" + x + "_proto"
+    for x in WELL_KNOWN_TYPES
+] + [
+    "--target=//src/google/protobuf:" + x + "_upb_proto"
+    for x in WELL_KNOWN_TYPES
+] + [
+    "--target=//src/google/protobuf:" + x + "_upb_proto_reflection"
+    for x in WELL_KNOWN_TYPES
 ]

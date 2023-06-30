@@ -34,6 +34,8 @@ def repo():
         bazel_to_cmake = {
             "args": [
                 "--exclude-target=//:build_gen",
+                "--target=//google/api:all",
+                "--target=//google/api/expr/v1alpha1:all",
                 "--target=//google/rpc:all",
                 "--target=//google/storage/v2:all",
             ],

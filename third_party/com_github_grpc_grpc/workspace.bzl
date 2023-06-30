@@ -38,7 +38,7 @@ def repo():
             "@upb": "@com_google_protobuf_upb",
             "@com_googlesource_code_re2": "@com_google_re2",
             "@com_github_google_benchmark": "@com_google_benchmark",
-            "@com_github_cncf_udpa": "@local_proto_mirror",
+            "@io_bazel_rules_go": "@local_proto_mirror",
         },
         cmake_name = "gRPC",
         # We currently use grpc++_test, which is not public. Fix that, test, and enable.

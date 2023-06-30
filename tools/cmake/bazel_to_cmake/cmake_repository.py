@@ -15,6 +15,7 @@
 
 # pylint: disable=missing-function-docstring
 
+import hashlib
 import pathlib
 import re
 from typing import Any, Dict, List, NamedTuple, Optional
@@ -27,6 +28,7 @@ from .starlark.bazel_target import RepositoryId
 from .starlark.bazel_target import TargetId
 
 _SPLIT_RE = re.compile("[:/]+")
+_BIG = 35
 
 
 class CMakeRepository(NamedTuple):
@@ -123,7 +125,20 @@ def label_to_generated_cmake_target(
 
   if len(parts) >= 2 and parts[-1] == parts[-2]:
     parts = parts[:-1]
-  target_name = "_".join(parts)
+
+  # CMake cannot handle paths > 250 bytes, so rewrite long targets.
+  if len(parts) > 2 and sum(len(x) for x in parts[:-1]) > _BIG:
+    m = hashlib.sha256()
+    m.update(bytes(target_id.package_name, "utf-8"))
+    m.update(bytes(target_id.target_name, "utf-8"))
+    target_name = "_".join([
+        parts[0],
+        m.hexdigest().lower()[:10],
+        "".join([x[0] for x in parts[1:-1]]),
+        parts[-1],
+    ])
+  else:
+    target_name = "_".join(parts)
 
   return CMakeTargetPair(
       cmake_project,

@@ -59,8 +59,6 @@ add_library(CMakeProject_c_proto__cpp_library)
 set_property(TARGET CMakeProject_c_proto__cpp_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_c_proto__cpp_library PUBLIC
         "protobuf::libprotobuf")
-target_include_directories(CMakeProject_c_proto__cpp_library PUBLIC
-        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
 target_compile_features(CMakeProject_c_proto__cpp_library PUBLIC cxx_std_17)
 add_library(CMakeProject::c_proto__cpp_library ALIAS CMakeProject_c_proto__cpp_library)
 

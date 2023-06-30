@@ -28,8 +28,6 @@ add_library(CMakeProject_a_proto__cpp_library)
 set_property(TARGET CMakeProject_a_proto__cpp_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_a_proto__cpp_library PUBLIC
         "protobuf::libprotobuf")
-target_include_directories(CMakeProject_a_proto__cpp_library PUBLIC
-        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
 target_compile_features(CMakeProject_a_proto__cpp_library PUBLIC cxx_std_17)
 add_library(CMakeProject::a_proto__cpp_library ALIAS CMakeProject_a_proto__cpp_library)
 
@@ -48,8 +46,6 @@ add_library(CMakeProject_b_proto__cpp_library)
 set_property(TARGET CMakeProject_b_proto__cpp_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_b_proto__cpp_library PUBLIC
         "protobuf::libprotobuf")
-target_include_directories(CMakeProject_b_proto__cpp_library PUBLIC
-        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
 target_compile_features(CMakeProject_b_proto__cpp_library PUBLIC cxx_std_17)
 add_library(CMakeProject::b_proto__cpp_library ALIAS CMakeProject_b_proto__cpp_library)
 
@@ -95,8 +91,6 @@ set_property(TARGET CMakeProject_abc_proto__cpp_library PROPERTY LINKER_LANGUAGE
 target_link_libraries(CMakeProject_abc_proto__cpp_library PUBLIC
         "CMakeProject::ab_proto__cpp_library"
         "protobuf::libprotobuf")
-target_include_directories(CMakeProject_abc_proto__cpp_library PUBLIC
-        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
 target_compile_features(CMakeProject_abc_proto__cpp_library PUBLIC cxx_std_17)
 add_library(CMakeProject::abc_proto__cpp_library ALIAS CMakeProject_abc_proto__cpp_library)
 
@@ -133,8 +127,6 @@ add_library(CMakeProject_x_proto__cpp_library)
 set_property(TARGET CMakeProject_x_proto__cpp_library PROPERTY LINKER_LANGUAGE "CXX")
 target_link_libraries(CMakeProject_x_proto__cpp_library PUBLIC
         "protobuf::libprotobuf")
-target_include_directories(CMakeProject_x_proto__cpp_library PUBLIC
-        "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>")
 target_compile_features(CMakeProject_x_proto__cpp_library PUBLIC cxx_std_17)
 add_library(CMakeProject::x_proto__cpp_library ALIAS CMakeProject_x_proto__cpp_library)
 
