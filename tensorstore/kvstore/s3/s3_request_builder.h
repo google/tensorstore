@@ -105,7 +105,6 @@ class S3RequestBuilder {
     const std::vector<std::pair<std::string, std::string>> & headers,
     const absl::Time & time);
  private:
-  std::vector<std::pair<std::string, std::string>> signed_headers_;
   std::vector<std::pair<std::string, std::string>> query_params_;
   HttpRequestBuilder builder_;
 };

@@ -104,25 +104,16 @@ std::string UriObjectKeyEncode(std::string_view src) {
 }
 
 S3RequestBuilder & S3RequestBuilder::AddHeader(std::string_view header) {
-  auto pos = header.find(':');
-  assert(pos != std::string::npos);
-
   builder_.AddHeader(header);
-  auto key = absl::AsciiStrToLower(absl::StripAsciiWhitespace(header.substr(0, pos)));
-  auto value = absl::StripAsciiWhitespace(header.substr(pos + 1));
-  auto pair = std::pair<std::string, std::string>(std::string(key), std::string(value));
-  auto location = std::upper_bound(std::begin(signed_headers_), std::end(signed_headers_), pair);
-  signed_headers_.insert(location, std::move(pair));
   return *this;
 }
 
 S3RequestBuilder & S3RequestBuilder::AddQueryParameter(std::string_view key, std::string_view value) {
   builder_.AddQueryParameter(key, value);
-  auto pair = std::pair<std::string, std::string>(UriEncode(key), UriEncode(value));
-  auto location = std::upper_bound(std::begin(query_params_), std::end(query_params_), pair);
-  query_params_.insert(location, std::move(pair));
+  query_params_.push_back({UriEncode(key), UriEncode(value)});
   return *this;
 }
+
 
 HttpRequest S3RequestBuilder::BuildRequest(
     std::string_view aws_access_key,
@@ -132,13 +123,29 @@ HttpRequest S3RequestBuilder::BuildRequest(
     const absl::Time & time) {
 
   auto request = builder_.BuildRequest();
+
+  // Normalise headers
+  std::vector<std::pair<std::string, std::string>> signed_headers;
+
+  for(const auto & header_str: request.headers) {
+    auto header = std::string_view(header_str);
+    auto pos = header.find(':');
+    assert(pos != std::string::npos);
+    auto key = absl::AsciiStrToLower(absl::StripAsciiWhitespace(header.substr(0, pos)));
+    auto value = absl::StripAsciiWhitespace(header.substr(pos + 1));
+    signed_headers.push_back({std::string(key), std::string(value)});
+  }
+
+  std::sort(std::begin(signed_headers), std::end(signed_headers));
+  std::sort(std::begin(query_params_), std::end(query_params_));
+
   auto canonical_request = CanonicalRequest(request.url, request.method,
-                                            payload_hash, signed_headers_,
+                                            payload_hash, signed_headers,
                                             query_params_);
   auto signing_string = SigningString(canonical_request, aws_region, time);
   auto signature = Signature(aws_secret_access_key, aws_region, signing_string, time);
   auto auth_header = AuthorizationHeader(aws_access_key, aws_region, signature,
-                                         signed_headers_, time);
+                                         signed_headers, time);
 
   ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_AWS4)
       << "Canonical Request\n" << canonical_request;
