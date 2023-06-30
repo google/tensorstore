@@ -43,10 +43,13 @@ def repo():
             "args": [
                 "--target=//:protoc",
                 "--target=//:protoc_lib",
-                "--target=//:protobuf",
-                "--target=//:protobuf_lite",
-                "--target=//:protobuf_headers",
-            ] + ["--target=//:" + x + "_proto" for x in _WELL_KNOWN_TYPES],
+                "--target=//src/google/protobuf:protobuf",
+                "--target=//src/google/protobuf:protobuf_lite",
+                "--target=//src/google/protobuf/compiler:protoc_lib",
+                "--target=//src/google/protobuf/compiler:code_generator",
+                "--target=//:descriptor_proto_srcs",
+                "--target=//:compiler_plugin_proto",
+            ] + EXTRA_PROTO_TARGETS,
             "exclude": [
                 "cmake/**",
                 "conformance/**",
@@ -88,4 +91,15 @@ _WELL_KNOWN_TYPES = [
     "descriptor",
     # compiler_plugin.proto is needed to build grpc and upb.
     "compiler_plugin",
+]
+
+EXTRA_PROTO_TARGETS = [
+    "--target=//:" + x + "_proto"
+    for x in WELL_KNOWN_TYPES
+] + [
+    "--target=//src/google/protobuf:" + x + "_upb_proto"
+    for x in WELL_KNOWN_TYPES
+] + [
+    "--target=//src/google/protobuf:" + x + "_upb_proto_reflection"
+    for x in WELL_KNOWN_TYPES
 ]

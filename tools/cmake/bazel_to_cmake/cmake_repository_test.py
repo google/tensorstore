@@ -18,13 +18,14 @@ import pathlib
 from .cmake_repository import CMakeRepository
 from .cmake_repository import make_repo_mapping
 from .cmake_target import CMakePackage
+from .cmake_target import CMakeTarget
 from .starlark.bazel_target import RepositoryId
 
 
 def test_ignored():
   x = CMakeRepository(
       RepositoryId("foo"),
-      CMakePackage("Bar"),
+      CMakePackage("Foo"),
       pathlib.PurePath("src"),
       pathlib.PurePath("bin"),
       {},
@@ -48,3 +49,20 @@ def test_ignored():
       RepositoryId("c"),
       RepositoryId("d"),
   )]
+
+  assert (
+      CMakeTarget("Foo_bar_baz")
+      == x.get_cmake_target_pair(
+          x.repository_id.parse_target("//foo/bar/baz:baz")
+      ).target
+  )
+
+  assert (
+      CMakeTarget("Foo_src_c7682dc9df_abcdefg_baz")
+      == x.get_cmake_target_pair(
+          x.repository_id.parse_target(
+              "//foo/src/aaaaaaaaaa/bbbbbbbbbb/cccccccccc/dddddddddd"
+              "/eeeeeeeeee/ffffffffff/gggggggggg:baz"
+          )
+      ).target
+  )

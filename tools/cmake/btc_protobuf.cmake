@@ -234,7 +234,12 @@ function(btc_protobuf)
 
   set_source_files_properties(${_generated_srcs_all} PROPERTIES GENERATED TRUE)
   target_sources(${btc_protobuf_TARGET} PRIVATE ${_generated_srcs_all})
-  set_property(TARGET ${btc_protobuf_TARGET} PROPERTY INCLUDE_DIRECTORIES "${btc_protobuf_PROTOC_OUT_DIR}")
+  set_property(
+      TARGET ${btc_protobuf_TARGET}
+      APPEND PROPERTY INCLUDE_DIRECTORIES "${btc_protobuf_PROTOC_OUT_DIR}" )
+  set_property(
+      TARGET ${btc_protobuf_TARGET}
+      APPEND PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${btc_protobuf_PROTOC_OUT_DIR}" )
 
 endfunction()
 

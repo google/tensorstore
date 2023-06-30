@@ -21,11 +21,9 @@ from typing import List, Optional
 
 from ..native_rules_cc_proto import cc_proto_library_impl
 from ..native_rules_cc_proto import PluginSettings
-from ..native_rules_proto import PROTO_REPO
 from ..starlark.bazel_globals import BazelGlobals
 from ..starlark.bazel_globals import register_bzl_library
 from ..starlark.bazel_target import RepositoryId
-from ..starlark.bazel_target import TargetId
 from ..starlark.common_providers import BuildSettingProvider
 from ..starlark.invocation_context import RelativeLabel
 from ..starlark.provider import Provider
@@ -35,89 +33,18 @@ from ..starlark.select import Configurable
 
 UPB_REPO = RepositoryId("com_google_protobuf_upb")
 
-_DESCRIPTOR_UPB = TargetId.parse(
-    "@com_google_protobuf_upb//:cmake_descriptor_upb"
-)
-
-_DESCRIPTOR_UPBDEFS = TargetId.parse(
-    "@com_google_protobuf_upb//:cmake_descriptor_upbdefs"
-)
-
-_WKT_UPB = TargetId.parse("@local_proto_mirror//google/protobuf:wkt_upb_proto")
-
-_WKT_UPBDEFS = TargetId.parse(
-    "@local_proto_mirror//google/protobuf:wkt_upbdefs_proto"
-)
-
-
-_WELL_KNOWN_TYPES = [
-    "any",
-    "api",
-    "duration",
-    "empty",
-    "field_mask",
-    "source_context",
-    "struct",
-    "timestamp",
-    "type",
-    "wrappers",
-]
-
-_REPLACEMENTS_UPB = dict(
-    [
-        (
-            PROTO_REPO.parse_target(f"//src/google/protobuf:{x}_proto"),
-            _WKT_UPB,
-        )
-        for x in _WELL_KNOWN_TYPES
-    ]
-    + [
-        (
-            PROTO_REPO.parse_target(f"//:{x}_proto"),
-            _WKT_UPB,
-        )
-        for x in _WELL_KNOWN_TYPES
-    ]
-    + [
-        (
-            PROTO_REPO.parse_target("//src/google/protobuf:descriptor_proto"),
-            _DESCRIPTOR_UPB,
+# UPB_STAGE1 is used for bootstrapping upb via cmake.
+_UPB_STAGE1 = PluginSettings(
+    name="upb",
+    plugin=UPB_REPO.parse_target("//upbc:protoc-gen-upb_stage1"),
+    exts=[".upb.h", ".upb.c"],
+    runtime=[
+        UPB_REPO.parse_target(
+            "//:generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me"
         ),
-        (
-            PROTO_REPO.parse_target("//:descriptor_proto"),
-            _DESCRIPTOR_UPB,
-        ),
-    ]
+    ],
+    replacement_targets={},
 )
-
-
-_REPLACEMENTS_UPBDEFS = dict(
-    [
-        (
-            PROTO_REPO.parse_target(f"//src/google/protobuf:{x}_proto"),
-            _WKT_UPBDEFS,
-        )
-        for x in _WELL_KNOWN_TYPES
-    ]
-    + [
-        (
-            PROTO_REPO.parse_target(f"//:{x}_proto"),
-            _WKT_UPBDEFS,
-        )
-        for x in _WELL_KNOWN_TYPES
-    ]
-    + [
-        (
-            PROTO_REPO.parse_target("//src/google/protobuf:descriptor_proto"),
-            _DESCRIPTOR_UPBDEFS,
-        ),
-        (
-            PROTO_REPO.parse_target("//:descriptor_proto"),
-            _DESCRIPTOR_UPBDEFS,
-        ),
-    ]
-)
-
 
 _UPB = PluginSettings(
     name="upb",
@@ -128,7 +55,7 @@ _UPB = PluginSettings(
             "//:generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me"
         ),
     ],
-    replacement_targets=_REPLACEMENTS_UPB,
+    replacement_targets={},
 )
 
 _UPBDEFS = PluginSettings(
@@ -141,7 +68,7 @@ _UPBDEFS = PluginSettings(
         ),
         UPB_REPO.parse_target("//:port"),
     ],
-    replacement_targets=_REPLACEMENTS_UPBDEFS,
+    replacement_targets={},
 )
 
 
@@ -204,9 +131,16 @@ class UpbProtoLibrary(BazelGlobals):
   ):
     context = self._context.snapshot()
     target = context.resolve_target(name)
+
+    plugin = _UPB
+    if target.repository_id == UPB_REPO:
+      plugin = _UPB_STAGE1
+
     context.add_rule(
         target,
-        lambda: cc_proto_library_impl(context, target, [_UPB], **kwargs),
+        lambda: cc_proto_library_impl(
+            context, target, plugin, "upb_proto_library", **kwargs
+        ),
         visibility=visibility,
     )
 
@@ -218,10 +152,20 @@ class UpbProtoLibrary(BazelGlobals):
   ):
     context = self._context.snapshot()
     target = context.resolve_target(name)
+
+    dep_plugin = _UPB
+    if target.repository_id == UPB_REPO:
+      dep_plugin = _UPB_STAGE1
+
     context.add_rule(
         target,
         lambda: cc_proto_library_impl(
-            context, target, [_UPB, _UPBDEFS], **kwargs
+            context,
+            target,
+            _UPBDEFS,
+            "upb_proto_reflection_library",
+            _dep_plugin=dep_plugin,
+            **kwargs,
         ),
         visibility=visibility,
     )

@@ -23,12 +23,11 @@ https://github.com/bazelbuild/bazel/tree/master/src/main/starlark/builtins_bzl/c
 # pylint: disable=relative-beyond-top-level,invalid-name,missing-function-docstring,g-long-lambda
 
 import os
-import pathlib
 import re
 from typing import List, Optional, cast
 
-from . import cmake_builder
 from .cmake_builder import CMakeBuilder
+from .cmake_builder import quote_list
 from .cmake_builder import quote_string
 from .cmake_target import CMakeDepsProvider
 from .cmake_target import CMakeTarget
@@ -42,6 +41,7 @@ from .starlark.label import RelativeLabel
 from .starlark.provider import TargetInfo
 from .starlark.select import Configurable
 from .variable_substitution import apply_location_and_make_variable_substitutions
+from .variable_substitution import generate_substitutions
 
 
 @register_native_build_rule
@@ -64,13 +64,6 @@ def genrule(
   )
 
 
-def _get_relative_path(path: str, relative_to: str) -> str:
-  rel_path = os.path.relpath(path, relative_to)
-  if os.sep != "/":
-    rel_path = rel_path.replace(os.sep, "/")
-  return rel_path
-
-
 def _genrule_impl(
     _context: InvocationContext,
     _target: TargetId,
@@ -78,19 +71,31 @@ def _genrule_impl(
     cmd: Configurable[str],
     srcs: Optional[Configurable[List[RelativeLabel]]] = None,
     message: Optional[Configurable[str]] = None,
+    tools: Optional[List[RelativeLabel]] = None,
     toolchains: Optional[List[RelativeLabel]] = None,
     **kwargs,
 ):
+  for x in ["cmd_bash", "cmd_bat", "cmd_ps", "exec_tools"]:
+    if x in kwargs:
+      raise ValueError(f"genrule cannot handle {kwargs}")
+
   del kwargs
+  state = _context.access(EvaluationState)
+
   # Resolve srcs & toolchains
   resolved_srcs = _context.resolve_target_or_label_list(
       _context.evaluate_configurable_list(srcs)
+  )
+  resolved_tools = _context.resolve_target_or_label_list(
+      _context.evaluate_configurable_list(tools)
   )
   resolved_toolchains = _context.resolve_target_or_label_list(
       _context.evaluate_configurable_list(toolchains)
   )
 
-  state = _context.access(EvaluationState)
+  message_text = ""
+  if message is not None:
+    message_text = _context.evaluate_configurable(message)
 
   cmake_target_pair = state.generate_cmake_target_pair(_target).with_alias(None)
 
@@ -104,53 +109,22 @@ def _genrule_impl(
         out_target, TargetInfo(FilesProvider([out_file]), cmake_deps_provider)
     )
 
-  message_text = ""
-  if message is not None:
-    message_text = _context.evaluate_configurable(message)
-
   cmake_deps: List[CMakeTarget] = []
+  cmake_deps.extend(state.get_deps(resolved_tools))
+
   src_files = state.get_targets_file_paths(resolved_srcs, cmake_deps)
   cmake_deps.extend(cast(List[CMakeTarget], src_files))
 
+  substitutions = generate_substitutions(
+      _context,
+      _target,
+      src_files=src_files,
+      out_files=out_files,
+  )
   source_directory = _context.resolve_source_root(
       _context.caller_package_id.repository_id
   )
-  relative_source_paths = [
-      quote_string(_get_relative_path(path, str(source_directory)))
-      for path in src_files
-  ]
-  relative_out_paths = [
-      quote_string(_get_relative_path(path, str(source_directory)))
-      for path in out_files
-  ]
 
-  package_binary_dir = str(
-      pathlib.PurePosixPath(
-          _context.resolve_output_root(_target.repository_id)
-      ).joinpath(_target.package_name)
-  )
-
-  substitutions = {
-      "SRCS": " ".join(relative_source_paths),
-      "OUTS": " ".join(relative_out_paths),
-      "RULEDIR": _get_relative_path(package_binary_dir, str(source_directory)),
-      "GENDIR": _get_relative_path(
-          str(_context.resolve_output_root(_target.repository_id)),
-          str(source_directory),
-      ),
-  }
-
-  if len(out_files) == 1:
-    substitutions["@"] = relative_out_paths[0]
-  if len(src_files) == 1:
-    substitutions["<"] = relative_source_paths[0]
-
-  # https://bazel.build/reference/be/make-variables
-  # TODO(jbms): Add missing variables, including:
-  #   "$(BINDIR)"
-  #   "$(COMPILATION_MODE)"
-  #   "$(TARGET_CPU)"
-  #   "$(@D)"
   cmd_text = apply_location_and_make_variable_substitutions(
       _context,
       cmd=_context.evaluate_configurable(cmd),
@@ -160,8 +134,16 @@ def _genrule_impl(
       toolchains=resolved_toolchains,
   )
 
+  # HACK(upb): The com_google_protobuf_upb bootstrap genrule adds this import,
+  # which needs to be rewritten to a local package reference:
+  if _target.repository_name == "com_google_protobuf_upb":
+    cmd_text = cmd_text.replace(
+        "-Iexternal/com_google_protobuf/src",
+        "-I${PROJECT_SOURCE_DIR}/bootstrap",
+    )
+
   builder = _context.access(CMakeBuilder)
-  builder.addtext(f"\n# {_target.as_label()}")
+  builder.addtext(f"\n# genrule({_target.as_label()})")
   _emit_genrule(
       builder=builder,
       cmake_target=cmake_deps_provider.targets[0],
@@ -182,11 +164,11 @@ def _emit_genrule(
     out_files: List[str],
     cmake_deps: List[CMakeTarget],
     cmd_text: str,
-    message: Optional[str] = None,
+    message: Optional[str],
 ):
   cmd_text = cmd_text.strip()
   if message:
-    optional_message_text = f"COMMENT {cmake_builder.quote_string(message)}\n  "
+    optional_message_text = f"COMMENT {quote_string(message)}\n  "
   else:
     optional_message_text = ""
 
@@ -200,13 +182,14 @@ def _emit_genrule(
     else:
       cmd_text = f"bash -c {quote_string(cmd_text)}"
 
+  sep = "\n    "
   builder.addtext(f"""
 add_custom_command(
-  OUTPUT {cmake_builder.quote_list(out_files)}
-  DEPENDS {cmake_builder.quote_list(cast(List[str], cmake_deps))}
+  OUTPUT{sep}{quote_list(out_files, sep)}
+  DEPENDS{sep}{quote_list(cast(List[str], cmake_deps), sep)}
   COMMAND {cmd_text}
   {optional_message_text}VERBATIM
   WORKING_DIRECTORY "${{CMAKE_CURRENT_SOURCE_DIR}}"
 )
-add_custom_target({cmake_target} DEPENDS {cmake_builder.quote_list(out_files)})
+add_custom_target({cmake_target} DEPENDS {quote_list(out_files)})
 """)

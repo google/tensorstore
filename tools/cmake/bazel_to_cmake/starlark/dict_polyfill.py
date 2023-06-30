@@ -11,11 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Polyfill for dict union operator.
+"""Polyfill to change python dict semantics to Bazel dict semantics.
 
-The `dict` union `operator|` was added by PEP 584
-(https://peps.python.org/pep-0584/) to Python 3.9.  This module polyfills the
-operator for executing Starlark code on Python 3.8.
+1. Bazel `dict` includes the union `operator|`, which was added by PEP 584
+  (https://peps.python.org/pep-0584/) to Python 3.9.
+  This module polyfills the operator unconditionally.
+
+2. Bazel `dict`.`keys` returns a `list` rather than a python `dict_keys`
 
 There are two components the polyfill:
 
@@ -53,6 +55,10 @@ class DictWithUnion(dict):
   def __ior__(self, other):
     dict.update(self, other)
     return self
+
+  def keys(self):
+    # bazel dict.keys() returns list, not dict_keys.
+    return list(super().keys())
 
 
 class ASTTransformer(ast.NodeTransformer):

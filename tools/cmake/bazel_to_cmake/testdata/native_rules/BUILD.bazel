@@ -9,7 +9,6 @@ cc_library(
 cc_binary(
     name = "bb",
     srcs = ["a.cc"],
-    hdrs = ["a.h"],
     visibility = ["//visibility:public"],
 )
 

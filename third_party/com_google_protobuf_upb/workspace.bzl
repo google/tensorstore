@@ -47,12 +47,13 @@ def repo():
         ],
         patch_args = ["-p1"],
         cmake_name = "upb",
-        # CMake support in upb is experimental; however we only need upb support for gRPC.
         cmake_enable_system_package = False,
         cmake_target_mapping = {
             "//:reflection": "upb::reflection",
             "//:textformat": "upb::textformat",
             "//:upb": "upb::upb",
+            "//upbc:protoc-gen-upb": "upb::protoc_gen_upb",
+            "//upbc:protoc-gen-upbdefs": "upb::protoc_gen_upbdefs",
         },
         bazel_to_cmake = {
             "args": [
@@ -62,14 +63,31 @@ def repo():
                 "--ignore-library=//protos/bazel:upb_cc_proto_library.bzl",
                 "--ignore-library=//python/dist:dist.bzl",
                 "--ignore-library=//python:py_extension.bzl",
+                "--ignore-library=//benchmarks:build_defs.bzl",
+                # bootstrap
+                "--bind=@com_google_protobuf//src/google/protobuf/compiler:code_generator=@com_google_protobuf//:protoc_lib",
+                "--bind=@com_google_protobuf//:descriptor_proto=@com_google_protobuf_upb//bootstrap/google/protobuf:descriptor_proto",
+                "--bind=@com_google_protobuf//:descriptor_proto_srcs=@com_google_protobuf_upb//bootstrap/google/protobuf:descriptor_proto_src",
+                #"--bind=@com_google_protobuf_upb//:descriptor_upb_proto=@com_google_protobuf_upb//bootstrap/google/protobuf:descriptor_upb_proto",
+                "--bind=@com_google_protobuf//:compiler_plugin_proto=@com_google_protobuf_upb//bootstrap/google/protobuf/compiler:plugin_proto",
+                "--bind=@com_google_protobuf//src/google/protobuf/compiler:plugin_proto_src=@com_google_protobuf_upb//bootstrap/google/protobuf/compiler:plugin_proto_src",
+                #"--bind=@com_google_protobuf_upb//upbc:plugin_upb_proto=@com_google_protobuf_upb//bootstrap/google/protobuf/compiler:plugin_upb_proto",
+                "--target=//bootstrap/google/protobuf:all",
+                "--target=//bootstrap/google/protobuf/compiler:all",
+                # bootstrap
                 "--target=//:json",
                 "--target=//:reflection",
                 "--target=//:textformat",
                 "--target=//:message",
                 "--target=//:upb",
                 "--target=//:port",
+                "--target=//:collections",
+                "--target=//upbc:protoc-gen-upb_stage0",
+                "--target=//upbc:protoc-gen-upb_stage1",
                 "--target=//upbc:protoc-gen-upb",
                 "--target=//upbc:protoc-gen-upbdefs",
+                "--target=//:descriptor_upb_proto",
+                "--target=//:descriptor_upb_proto_reflection",
                 # support libraries
                 "--target=//:generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me",
                 "--target=//:generated_reflection_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me",

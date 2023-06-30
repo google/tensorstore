@@ -18,6 +18,7 @@
 from typing import List, Optional
 
 from .cmake_builder import CMakeBuilder
+from .cmake_target import CMakeExecutableTargetProvider
 from .cmake_target import CMakeTarget
 from .emit_cc import emit_cc_binary
 from .emit_cc import emit_cc_library
@@ -80,7 +81,11 @@ def _cc_library_impl(
   )
 
   common_options = handle_cc_common_options(
-      _context, custom_target_deps=custom_target_deps, **kwargs
+      _context,
+      custom_target_deps=custom_target_deps,
+      hdrs_file_paths=hdrs_file_paths,
+      textual_hdrs_file_paths=textual_hdrs_file_paths,
+      **kwargs,
   )
   builder = _context.access(CMakeBuilder)
   builder.addtext(f"\n# cc_library({_target.as_label()})")
@@ -143,7 +148,12 @@ def _cc_binary_impl(_context: InvocationContext, _target: TargetId, **kwargs):
       **common_options,
   )
   _context.add_analyzed_target(
-      _target, TargetInfo(*cmake_target_pair.as_providers(is_binary=True))
+      _target,
+      TargetInfo(
+          *cmake_target_pair.as_providers(
+              provider=CMakeExecutableTargetProvider
+          )
+      ),
   )
 
 
@@ -197,5 +207,10 @@ def _cc_test_impl(
       **common_options,
   )
   _context.add_analyzed_target(
-      _target, TargetInfo(*cmake_target_pair.as_providers(is_binary=True))
+      _target,
+      TargetInfo(
+          *cmake_target_pair.as_providers(
+              provider=CMakeExecutableTargetProvider
+          )
+      ),
   )

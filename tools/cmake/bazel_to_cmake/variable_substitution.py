@@ -16,14 +16,16 @@
 # pylint: disable=relative-beyond-top-level,invalid-name
 
 import io
+import json
 import os
+import pathlib
 import re
-from typing import List, Match, Optional
+from typing import Dict, List, Match, Optional
 
-from .cmake_target import CMakeDepsProvider
 from .cmake_target import CMakeExecutableTargetProvider
 from .cmake_target import CMakeLibraryTargetProvider
 from .cmake_target import CMakeTarget
+from .evaluation import EvaluationState
 from .starlark.bazel_target import TargetId
 from .starlark.common_providers import FilesProvider
 from .starlark.invocation_context import InvocationContext
@@ -41,6 +43,7 @@ _LOCATION_SUB_RE = re.compile(
 
 def _get_location_replacement(
     _context: InvocationContext,
+    _cmd: str,
     relative_to: str,
     custom_target_deps: Optional[List[CMakeTarget]],
     key: str,
@@ -55,12 +58,20 @@ def _get_location_replacement(
     return rel_path
 
   target = _context.resolve_target(label)
+  state = _context.access(EvaluationState)
 
-  info = _context.get_target_info(target)
-  cmake_info = info.get(CMakeDepsProvider)
-  if custom_target_deps is not None:
-    if cmake_info is not None:
-      custom_target_deps.extend(cmake_info.targets)
+  # First-party references must exist.
+  if _context.caller_package_id.repository_id == target.repository_id:
+    info = state.get_target_info(target)
+  else:
+    info = state.get_optional_target_info(target)
+
+  if not info:
+    # This target is not available; construct an ephemeral reference.
+    cmake_target = state.generate_cmake_target_pair(target)
+    if custom_target_deps is not None:
+      custom_target_deps.append(cmake_target.dep)
+    return f"$<TARGET_FILE:{cmake_target.target}>"
 
   files_provider = info.get(FilesProvider)
   if files_provider is not None:
@@ -78,7 +89,8 @@ def _get_location_replacement(
     return f"$<TARGET_FILE:{cmake_target_provider.target}>"
 
   raise ValueError(
-      f"apply_location_substitutions failed for {target} info {repr(info)}"
+      f'Make location replacement failed: "{json.dumps(_cmd)}" with '
+      f"key={key}, target={target.as_label()}, TargetInfo={repr(info)}"
   )
 
 
@@ -104,34 +116,36 @@ def _apply_location_and_make_variable_substitutions(
     replacement = substitutions.get(name)
     if replacement is None:
       raise ValueError(
-          f"Undefined make variable: '{name}' in {cmd} with {substitutions}"
+          f"Undefined make variable: '{name}' in {json.dumps(cmd)} with"
+          f" {substitutions}"
       )
     return replacement
 
   # NOTE: location and make variable substitutions do not compose well since
   # for location substitutions to work correctly CMake generator expressions
   # are needed.
-  def _do_replacements(cmd):
+  def _do_replacements(_cmd):
     out = io.StringIO()
     while True:
-      i = cmd.find("$")
+      i = _cmd.find("$")
       if i == -1:
-        out.write(cmd)
+        out.write(_cmd)
         return out.getvalue()
-      out.write(cmd[:i])
+      out.write(_cmd[:i])
       j = i + 1
-      if cmd[j] == "(":
+      if _cmd[j] == "(":
         # Multi character literal.
-        j = cmd.find(")", i + 2)
+        j = _cmd.find(")", i + 2)
         assert j > (i + 2)
-        name = cmd[i + 2 : j]
+        name = _cmd[i + 2 : j]
         m = None
         if enable_location:
-          m = _LOCATION_RE.fullmatch(cmd[i + 2 : j])
+          m = _LOCATION_RE.fullmatch(_cmd[i + 2 : j])
         if m:
           out.write(
               _get_location_replacement(
                   _context,
+                  cmd,
                   relative_to,
                   custom_target_deps,
                   m.group(1),
@@ -140,13 +154,13 @@ def _apply_location_and_make_variable_substitutions(
           )
         else:
           out.write(_get_replacement(name))
-      elif cmd[j] == "$":
+      elif _cmd[j] == "$":
         # Escaped $
         out.write("$")
       else:
         # Single letter literal.
-        out.write(_get_replacement(cmd[j]))
-      cmd = cmd[j + 1 :]
+        out.write(_get_replacement(_cmd[j]))
+      _cmd = _cmd[j + 1 :]
 
   return _do_replacements(cmd)
 
@@ -222,7 +236,72 @@ def apply_location_substitutions(
 
   def _replace(m: Match[str]) -> str:
     return _get_location_replacement(
-        _context, relative_to, custom_target_deps, m.group(1), m.group(2)
+        _context, cmd, relative_to, custom_target_deps, m.group(1), m.group(2)
     )
 
   return _LOCATION_SUB_RE.sub(_replace, cmd)
+
+
+def generate_substitutions(
+    _context: InvocationContext,
+    _target: TargetId,
+    *,
+    src_files: List[str],
+    out_files: List[str],
+) -> Dict[str, str]:
+  # https://bazel.build/reference/be/make-variables
+  # https://github.com/bazelbuild/examples/tree/main/make-variables#predefined-path-variables
+  #
+  # $(BINDIR): bazel-out/x86-fastbuild/bin
+  # $(GENDIR): bazel-out/x86-fastbuild/bin
+  # $(RULEDIR): bazel-out/x86-fastbuild/bin/testapp
+  #
+  # Multiple srcs, outs:
+  #   $(SRCS): testapp/show_genrule_variables1.src testapp/...
+  #   $(OUTS): bazel-out/x86-fastbuild/bin/testapp/subdir/show_genrule_variables1.out bazel-out/...
+  #   $(@D): bazel-out/x86-fastbuild/bin/testapp
+  #
+  # Single srcs, outs
+  #   $<: testapp/show_genrule_variables1.src
+  #   $@: bazel-out/x86-fastbuild/bin/testapp/subdir/single_file_genrule.out
+  #   $(@D): bazel-out/x86-fastbuild/bin/testapp/subdir
+  #
+  # TODO(jbms): Add missing variables, including:
+  #   "$(COMPILATION_MODE)"
+  #   "$(TARGET_CPU)"
+
+  source_directory = _context.resolve_source_root(
+      _context.caller_package_id.repository_id
+  )
+
+  def _relative(path: str) -> pathlib.PurePath:
+    nonlocal source_directory
+    return pathlib.PurePath(os.path.relpath(path, str(source_directory)))
+
+  binary_dir = pathlib.PurePosixPath(
+      _context.resolve_output_root(_target.repository_id)
+  )
+  package_binary_dir = binary_dir.joinpath(_target.package_name)
+
+  relative_src_files = [
+      json.dumps(_relative(path).as_posix()) for path in src_files
+  ]
+  quoted_out_files = [json.dumps(path) for path in out_files]
+
+  substitutions: Dict[str, str] = {
+      "GENDIR": str(binary_dir),
+      "BINDIR": str(binary_dir),
+      "SRCS": " ".join(relative_src_files),
+      "OUTS": " ".join(quoted_out_files),
+      "RULEDIR": str(package_binary_dir),
+      "@D": str(package_binary_dir),
+  }
+
+  if len(src_files) == 1:
+    substitutions["<"] = relative_src_files[0]
+
+  if len(out_files) == 1:
+    substitutions["@"] = quoted_out_files[0]
+    substitutions["@D"] = json.dumps(os.path.dirname(out_files[0]))
+
+  return substitutions

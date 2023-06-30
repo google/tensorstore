@@ -15,9 +15,10 @@
 
 # pylint: disable=missing-function-docstring
 
+import hashlib
 import pathlib
 import re
-from typing import Any, Dict, List, NamedTuple
+from typing import Any, Dict, List, NamedTuple, Optional
 
 from .cmake_target import CMakePackage
 from .cmake_target import CMakeTarget
@@ -27,6 +28,7 @@ from .starlark.bazel_target import RepositoryId
 from .starlark.bazel_target import TargetId
 
 _SPLIT_RE = re.compile("[:/]+")
+_BIG = 35
 
 
 class CMakeRepository(NamedTuple):
@@ -79,6 +81,12 @@ class CMakeRepository(NamedTuple):
     assert target_id.repository_id == self.repository_id
     self.persisted_canonical_name[target_id] = cmake_target_pair
 
+  def get_persisted_canonical_name(
+      self, target_id: TargetId
+  ) -> Optional[CMakeTargetPair]:
+    assert target_id.repository_id == self.repository_id
+    return self.persisted_canonical_name.get(target_id, None)
+
 
 def make_repo_mapping(
     repository_id: RepositoryId, repo_mapping: Any
@@ -100,7 +108,6 @@ def make_repo_mapping(
       y = str(y)
       assert y.startswith("@")
       y = RepositoryId(y[1:])
-    assert y != repository_id
     output[x] = y
   return output
 
@@ -118,7 +125,20 @@ def label_to_generated_cmake_target(
 
   if len(parts) >= 2 and parts[-1] == parts[-2]:
     parts = parts[:-1]
-  target_name = "_".join(parts)
+
+  # CMake cannot handle paths > 250 bytes, so rewrite long targets.
+  if len(parts) > 2 and sum(len(x) for x in parts[:-1]) > _BIG:
+    m = hashlib.sha256()
+    m.update(bytes(target_id.package_name, "utf-8"))
+    m.update(bytes(target_id.target_name, "utf-8"))
+    target_name = "_".join([
+        parts[0],
+        m.hexdigest().lower()[:10],
+        "".join([x[0] for x in parts[1:-1]]),
+        parts[-1],
+    ])
+  else:
+    target_name = "_".join(parts)
 
   return CMakeTargetPair(
       cmake_project,

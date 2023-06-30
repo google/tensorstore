@@ -11,7 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""CMake implementation of "@rules_proto"."""
+"""CMake implementation of "@rules_proto".
+
+See: https://github.com/bazelbuild/rules_proto/blob/master/proto/defs.bzl
+"""
 
 # pylint: disable=relative-beyond-top-level
 
@@ -22,14 +25,19 @@ from ..starlark.ignored import IgnoredObject
 
 
 @register_bzl_library("@rules_proto//proto:defs.bzl", build=True)
-class RulesCcDefsLibrary(BazelGlobals):
+class RulesProtoDefsLibrary(BazelGlobals):
 
   def bazel_proto_library(self, **kwargs):
     return native_rules_proto.proto_library(self._context, **kwargs)
+
+  def bazel_proto_descriptor_set(self, **kwargs):
+    del kwargs
+    pass
 
   @property
   def bazel_proto_lang_toolchain(self):
     return IgnoredObject()
 
   def bazel_ProtoInfo(self, **kwargs):
+    del kwargs
     return IgnoredObject()

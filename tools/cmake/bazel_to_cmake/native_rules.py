@@ -138,20 +138,22 @@ def _filegroup_impl(
   assert repo is not None
   has_proto = False
   has_ch = False
+
   includes: Set[str] = set()
   for path in state.get_targets_file_paths(resolved_srcs):
-    if path.endswith(".proto"):
-      has_proto = True
-    if (
-        path.endswith(".c")
+    has_proto = has_proto or path.endswith(".proto")
+    has_ch = (
+        has_ch
+        or path.endswith(".c")
         or path.endswith(".h")
+        or path.endswith(".hpp")
         or path.endswith(".cc")
         or path.endswith(".inc")
-    ):
-      has_ch = True
-    for root in [repo.source_directory, repo.cmake_binary_dir]:
-      if is_relative_to(pathlib.PurePath(path), root):
-        includes.add(root.as_posix())
+    )
+    if is_relative_to(pathlib.PurePath(path), repo.source_directory):
+      includes.add("${PROJECT_SOURCE_DIR}")
+    if is_relative_to(pathlib.PurePath(path), repo.cmake_binary_dir):
+      includes.add("${PROJECT_BINARY_DIR}")
 
   _sep = "\n               "
   quoted_includes = quote_list(sorted(set(includes)), separator=_sep)
