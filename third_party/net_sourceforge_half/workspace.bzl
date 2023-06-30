@@ -30,7 +30,7 @@ def repo():
         build_file = Label("//third_party:net_sourceforge_half/bundled.BUILD.bazel"),
         patches = [
             # https://sourceforge.net/p/half/discussion/general/thread/86298c105c/
-            "//third_party:net_sourceforge_half/patches/detail_raise.patch",
+            Label("//third_party:net_sourceforge_half/patches/detail_raise.patch"),
         ],
         patch_args = ["-p1"],
         cmake_name = "half",

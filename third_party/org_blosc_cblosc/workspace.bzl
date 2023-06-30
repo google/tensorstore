@@ -31,7 +31,7 @@ def repo():
         system_build_file = Label("//third_party:org_blosc_cblosc/system.BUILD.bazel"),
         patches = [
             # https://github.com/Blosc/c-blosc/pull/362
-            "//third_party:org_blosc_cblosc/patches/fix-mingw64.diff",
+            Label("//third_party:org_blosc_cblosc/patches/fix-mingw64.diff"),
         ],
         patch_args = ["-p1"],
         cmake_name = "Blosc",

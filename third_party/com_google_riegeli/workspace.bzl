@@ -31,7 +31,7 @@ def repo():
         sha256 = "d17b323ce1c8bdf73d9947ad13384ce8aa72adce6ead9b66dd4e6dbf2f013e50",
         patches = [
             # Use absl crc32c rather than separate crc32c library.
-            "//third_party:com_google_riegeli/patches/absl-crc32c.diff",
+            Label("//third_party:com_google_riegeli/patches/absl-crc32c.diff"),
         ],
         patch_args = ["-p1"],
         repo_mapping = {

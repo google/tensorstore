@@ -35,12 +35,12 @@ def repo():
             # not installed system-wide, it is necessary to specify
             # `use_default_shell_env = True` in order to be able to execute
             # compiled binaries.
-            "//third_party:com_google_protobuf_upb/patches/use_default_shell_env.diff",
+            Label("//third_party:com_google_protobuf_upb/patches/use_default_shell_env.diff"),
 
             # bootstrap.diff includes the pre-compiled source for plugin.proto and
             # descriptor.proto, used for bootstrapping the cmake build, which also breaks
             # a big dependency on @com_google_protobuf.
-            "//third_party:com_google_protobuf_upb/patches/bootstrap.diff",
+            Label("//third_party:com_google_protobuf_upb/patches/bootstrap.diff"),
         ],
         patch_args = ["-p1"],
         repo_mapping = {

@@ -31,7 +31,7 @@ def repo():
             "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/grpc/grpc/archive/v1.55.0.tar.gz",
         ],
         patches = [
-            "//third_party:com_github_grpc_grpc/patches/update_build_system.diff",
+            Label("//third_party:com_github_grpc_grpc/patches/update_build_system.diff"),
         ],
         patch_args = ["-p1"],
         repo_mapping = {
