@@ -206,6 +206,19 @@ void RegisterS3CredentialProviderProvider(S3CredentialProvider provider, int pri
             [](const auto& a, const auto& b) { return a.first < b.first; });
 }
 
+/// @brief Obtain acredential provider from a series of registered and default providers
+///
+/// Providers are returned in the following order:
+/// 1. Any registered providers that supply valid credentials
+/// 2. Environment variable provider if valid credential can be obtained from
+///    AWS_* environment variables
+/// 3. File provider containing credentials from an ~/.aws/credentials file
+/// 4. EC2 Metadata server
+///
+/// @param profile The profile to use when retrieving credentials from a credentials file.
+/// @param transport Optionally specify the http transport used to retreive S3 credentials
+///                  from the EC2 metadata server.
+/// @return Provider that supplies S3 Credentials
 Result<std::unique_ptr<CredentialProvider>> GetS3CredentialProvider(
     std::string_view profile,
     std::shared_ptr<internal_http::HttpTransport> transport) {
