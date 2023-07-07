@@ -829,40 +829,13 @@ struct WriteTask : public RateLimiterNode,
       return;
     }
 
-    auto request = S3RequestBuilder("HEAD", upload_url_)
-            .AddHeader(absl::StrCat("host: ", owner->host_))
-            .AddHeader(absl::StrCat("x-amz-content-sha256: ", kEmptySha256))
-            .AddHeader(absl::FormatTime("x-amz-date: %Y%m%dT%H%M%SZ", start_time_, absl::UTCTimeZone()))
-            .BuildRequest(
-              credentials_.access_key,
-              credentials_.secret_key,
-              owner->aws_region_,
-              kEmptySha256,
-              start_time_);
-
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS) << "WriteTask: " << request;
-
-    auto future = owner->transport_->IssueRequest(request, {});
-    future.ExecuteWhenReady(
-      [self = IntrusivePtr<WriteTask>(this), write_response = std::move(response)](
-          ReadyFuture<HttpResponse> head_response) {
-      self->OnHeaderResponse(write_response, head_response.result());
-    });
+    promise.SetResult(FinishResponse(response.value()));
   }
 
-  void OnHeaderResponse(const Result<HttpResponse> & write_response,
-                      const Result<HttpResponse> & head_response) {
-
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_RESPONSES) << "WriteTask: " << *head_response;
-      promise.SetResult(FinishResponse(write_response.value(), head_response.value()));
-  }
-
-  Result<TimestampedStorageGeneration> FinishResponse(
-      const HttpResponse& write_response,
-      const HttpResponse& head_response) {
+  Result<TimestampedStorageGeneration> FinishResponse(const HttpResponse& response) {
     TimestampedStorageGeneration r;
     r.time = start_time_;
-    switch (write_response.status_code) {
+    switch (response.status_code) {
       case 404:
         if (!StorageGeneration::IsUnknown(options.if_equal)) {
           r.generation = StorageGeneration::Unknown();
@@ -873,7 +846,7 @@ struct WriteTask : public RateLimiterNode,
     auto latency = absl::Now() - start_time_;
     s3_write_latency_ms.Observe(absl::ToInt64Milliseconds(latency));
     s3_bytes_written.IncrementBy(value.size());
-    TENSORSTORE_ASSIGN_OR_RETURN(r.generation, ComputeGenerationFromHeaders(head_response.headers));
+    TENSORSTORE_ASSIGN_OR_RETURN(r.generation, ComputeGenerationFromHeaders(response.headers));
     return r;
   }
 };
