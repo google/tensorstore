@@ -34,7 +34,7 @@ namespace internal_storage_s3 {
 
 namespace {
 
-/// ifrom hashlib import md5; md5("".encode("utf-8")).hexdigest()
+/// from hashlib import md5; md5("".encode("utf-8")).hexdigest()
 static constexpr char kEmptyETag[] = "\"d41d8cd98f00b204e9800998ecf8427e\"";
 
 }

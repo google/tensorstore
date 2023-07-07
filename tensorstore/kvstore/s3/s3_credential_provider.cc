@@ -206,7 +206,7 @@ void RegisterS3CredentialProviderProvider(S3CredentialProvider provider, int pri
             [](const auto& a, const auto& b) { return a.first < b.first; });
 }
 
-/// @brief Obtain acredential provider from a series of registered and default providers
+/// @brief Obtain a credential provider from a series of registered and default providers
 ///
 /// Providers are returned in the following order:
 /// 1. Any registered providers that supply valid credentials
