@@ -52,7 +52,7 @@ TEST(S3RequestBuilderTest, AWS4SignatureGetExample) {
         {"x-amz-date", x_amz_date}
     };
 
-    auto canonical_request = S3RequestBuilder::CanonicalRequest(url, "GET", payload_hash, headers, {});
+    auto canonical_request = S3RequestBuilder::CanonicalRequest(url, "GET", payload_hash, headers);
 
     auto expected_canonical_request =
         "GET\n"
@@ -128,7 +128,7 @@ TEST(S3RequestBuilderTest, AWS4SignaturePutExample) {
         {"x-amz-storage-class", "REDUCED_REDUNDANCY"}
     };
 
-    auto canonical_request = S3RequestBuilder::CanonicalRequest(url, "PUT", payload_hash, headers, {});
+    auto canonical_request = S3RequestBuilder::CanonicalRequest(url, "PUT", payload_hash, headers);
 
     auto expected_canonical_request =
         "PUT\n"
@@ -191,7 +191,7 @@ TEST(S3RequestBuilderTest, AWS4SignatureListObjectsExample) {
     auto bucket = "examplebucket";
     auto payload_hash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
-    auto url = absl::StrFormat("https://%s/", bucket);
+    auto url = absl::StrFormat("https://%s/?max-keys=2&prefix=J", bucket);
     auto host = absl::StrFormat("%s.s3.amazonaws.com", bucket);
     auto x_amz_date = absl::FormatTime("%Y%m%dT%H%M%SZ", time, utc);
 
@@ -201,12 +201,7 @@ TEST(S3RequestBuilderTest, AWS4SignatureListObjectsExample) {
         {"x-amz-date", x_amz_date}
     };
 
-    std::vector<std::pair<std::string, std::string>> queries = {
-        { "max-keys", "2" },
-        { "prefix", "J"},
-    };
-
-    auto canonical_request = S3RequestBuilder::CanonicalRequest(url, "GET", payload_hash, headers, queries);
+    auto canonical_request = S3RequestBuilder::CanonicalRequest(url, "GET", payload_hash, headers);
 
     auto expected_canonical_request =
         "GET\n"
@@ -248,7 +243,6 @@ TEST(S3RequestBuilderTest, AWS4SignatureListObjectsExample) {
     for(auto it = headers.rbegin(); it != headers.rend(); ++it) {
         s3_builder.AddHeader(absl::StrCat(it->first, ": ", it->second));
     }
-    for(auto it = queries.rbegin(); it != queries.rend(); ++it) s3_builder.AddQueryParameter(it->first, it->second);
     auto request = s3_builder.BuildRequest(aws_access_key, aws_secret_access_key,
                                            aws_region, payload_hash, time);
 
