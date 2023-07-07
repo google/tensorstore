@@ -1,4 +1,4 @@
-# Copyright 2022 The TensorStore Authors
+# Copyright 2023 The TensorStore Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,13 +32,13 @@ diff -u -ur a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
 +
 +def ios_test_runner(**kwargs):
 +    pass
- 
+
  # The set of pollers to test against if a test exercises polling
  POLLERS = ["epoll1", "poll"]
 @@ -54,6 +60,12 @@
          "//conditions:default": [],
      })
- 
+
 +def if_mingw(a):
 +    return select({
 +        "//:mingw-gcc": a,

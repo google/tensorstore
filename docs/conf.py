@@ -1,4 +1,4 @@
-# Copyright 2020 The TensorStore Authors
+# Copyright 2023 The TensorStore Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import sphinx.domains.python
 import sphinx.environment
 
 project = 'TensorStore'
-copyright = '2020 The TensorStore Authors'  # pylint: disable=redefined-builtin
+copyright = '2023 The TensorStore Authors'  # pylint: disable=redefined-builtin
 
 # The short X.Y version
 version = ''
