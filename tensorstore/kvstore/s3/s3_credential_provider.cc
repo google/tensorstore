@@ -35,13 +35,13 @@
 #include "tensorstore/util/str_cat.h"
 
 using ::tensorstore::Result;
-
-namespace tensorstore {
-namespace internal_auth_s3 {
-
 using ::tensorstore::internal::GetEnv;
 using ::tensorstore::internal::JoinPath;
 using ::tensorstore::internal_http::HttpRequestBuilder;
+
+namespace tensorstore {
+namespace internal_auth_s3 {
+namespace {
 
 // https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html
 // AWS user identifier
@@ -95,48 +95,6 @@ Result<std::string> GetS3CredentialsFileName() {
   return result;
 }
 
-/// https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html#cli-configure-files-format
-Result<S3Credentials> FileCredentialProvider::GetCredentials() {
-  absl::ReaderMutexLock lock(&mutex_);
-  std::ifstream ifs(filename_);
-
-  if (!ifs) {
-    return absl::NotFoundError(
-        tensorstore::StrCat("Could not open the credentials file "
-                            "at location [", filename_, "]"));
-  }
-
-  S3Credentials credentials;
-  std::string section_name;
-  std::string line;
-
-  while (std::getline(ifs, line)) {
-    auto sline = absl::StripAsciiWhitespace(line);
-    if(sline.empty() || sline[0] == '#') continue;
-
-    if(sline[0] == '[' && sline[sline.size() - 1] == ']') {
-      section_name = absl::StripAsciiWhitespace(sline.substr(1, sline.size() - 2));
-      continue;
-    }
-
-    if(section_name == profile_) {
-      std::vector<std::string_view> key_value = absl::StrSplit(sline, '=');
-      if(key_value.size() != 2) continue; // Malformed, ignore
-      auto key = absl::StripAsciiWhitespace(key_value[0]);
-      auto value = absl::StripAsciiWhitespace(key_value[1]);
-
-      if(key == kCfgAwsAccessKeyId) {
-          credentials.access_key = value;
-      } else if(key == kCfgAwsSecretAccessKeyId) {
-          credentials.secret_key = value;
-      } else if(key == kCfgAwsSessionToken) {
-          credentials.session_token = value;
-      }
-    }
-  }
-
-  return credentials;
-}
 
 Result<std::unique_ptr<CredentialProvider>> GetDefaultS3CredentialProvider(
     std::string_view profile,
@@ -195,6 +153,50 @@ CredentialProviderRegistry& GetS3ProviderRegistry() {
  return *registry;
 }
 
+} // namespace
+
+/// https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html#cli-configure-files-format
+Result<S3Credentials> FileCredentialProvider::GetCredentials() {
+  absl::ReaderMutexLock lock(&mutex_);
+  std::ifstream ifs(filename_);
+
+  if (!ifs) {
+    return absl::NotFoundError(
+        tensorstore::StrCat("Could not open the credentials file "
+                            "at location [", filename_, "]"));
+  }
+
+  S3Credentials credentials;
+  std::string section_name;
+  std::string line;
+
+  while (std::getline(ifs, line)) {
+    auto sline = absl::StripAsciiWhitespace(line);
+    if(sline.empty() || sline[0] == '#') continue;
+
+    if(sline[0] == '[' && sline[sline.size() - 1] == ']') {
+      section_name = absl::StripAsciiWhitespace(sline.substr(1, sline.size() - 2));
+      continue;
+    }
+
+    if(section_name == profile_) {
+      std::vector<std::string_view> key_value = absl::StrSplit(sline, '=');
+      if(key_value.size() != 2) continue; // Malformed, ignore
+      auto key = absl::StripAsciiWhitespace(key_value[0]);
+      auto value = absl::StripAsciiWhitespace(key_value[1]);
+
+      if(key == kCfgAwsAccessKeyId) {
+          credentials.access_key = value;
+      } else if(key == kCfgAwsSecretAccessKeyId) {
+          credentials.secret_key = value;
+      } else if(key == kCfgAwsSessionToken) {
+          credentials.session_token = value;
+      }
+    }
+  }
+
+  return credentials;
+}
 
 void RegisterS3CredentialProviderProvider(S3CredentialProvider provider, int priority) {
   auto& registry = GetS3ProviderRegistry();
