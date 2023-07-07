@@ -33,7 +33,7 @@ def repo():
         patches = [
             # boringssl sets -Werror by default.  That makes the build fragile
             # and likely to break with new compiler versions.
-            "//third_party:com_google_boringssl/patches/no-Werror.diff",
+            Label("//third_party:com_google_boringssl/patches/no-Werror.diff"),
         ],
         patch_args = ["-p1"],
         cmake_name = "OpenSSL",

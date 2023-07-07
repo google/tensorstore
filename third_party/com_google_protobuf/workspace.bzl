@@ -30,7 +30,7 @@ def repo():
         ],
         patches = [
             # protobuf uses rules_python, but we just use the native python rules.
-            "//third_party:com_google_protobuf/patches/remove_rules_python_dependency.diff",
+            Label("//third_party:com_google_protobuf/patches/remove_rules_python_dependency.diff"),
         ],
         patch_args = ["-p1"],
         repo_mapping = {

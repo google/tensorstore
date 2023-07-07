@@ -33,7 +33,7 @@ def repo():
         build_file = Label("//third_party:org_aomedia_aom/libaom.BUILD.bazel"),
         patches = [
             # https://bugs.chromium.org/p/aomedia/issues/detail?id=3395
-            "//third_party:org_aomedia_aom/patches/fix-3395.diff",
+            Label("//third_party:org_aomedia_aom/patches/fix-3395.diff"),
         ],
         patch_args = ["-p1"],
         cmake_name = "aom",
