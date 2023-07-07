@@ -65,10 +65,6 @@ BucketNameType ClassifyBucketName(std::string_view bucket) {
   return old_us_east ? BucketNameType::OldUSEast1 : BucketNameType::Standard;
 }
 
-bool IsValidBucketName(std::string_view bucket) {
-  return ClassifyBucketName(bucket) != BucketNameType::Invalid;
-}
-
 // Returns whether the object name is a valid S3 object name.
 // https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-keys.html
 bool IsValidObjectName(std::string_view name) {

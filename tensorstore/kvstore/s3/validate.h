@@ -30,12 +30,14 @@ enum BucketNameType {
   OldUSEast1 = 2,
 };
 
-// Returns whether the bucket name is valid.
-// https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html
-bool IsValidBucketName(std::string_view bucket);
-
 // Distinguish between Invalid, Standard and Old us-east-1 buckets
 BucketNameType ClassifyBucketName(std::string_view bucket);
+
+// Returns whether the bucket name is valid.
+// https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html
+inline bool IsValidBucketName(std::string_view bucket) {
+  return ClassifyBucketName(bucket) != BucketNameType::Invalid;
+}
 
 // Returns whether the object name is a valid S3 object name.
 // https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-keys.html
