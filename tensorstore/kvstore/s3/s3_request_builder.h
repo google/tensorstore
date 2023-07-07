@@ -95,8 +95,7 @@ class S3RequestBuilder {
     std::string_view url,
     std::string_view method,
     std::string_view payload_hash,
-    const std::vector<std::pair<std::string, std::string>> & headers,
-    const std::vector<std::pair<std::string, std::string>> & queries);
+    const std::vector<std::pair<std::string, std::string>> & headers);
 
   static std::string AuthorizationHeader(
     std::string_view aws_access_key,

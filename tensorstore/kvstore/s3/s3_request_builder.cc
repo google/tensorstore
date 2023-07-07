@@ -109,8 +109,7 @@ S3RequestBuilder & S3RequestBuilder::AddHeader(std::string_view header) {
 }
 
 S3RequestBuilder & S3RequestBuilder::AddQueryParameter(std::string_view key, std::string_view value) {
-  builder_.AddQueryParameter(key, value);
-  query_params_.push_back({UriEncode(key), UriEncode(value)});
+  query_params_.push_back({std::string(key), std::string(value)});
   return *this;
 }
 
@@ -121,6 +120,12 @@ HttpRequest S3RequestBuilder::BuildRequest(
     std::string_view aws_region,
     std::string_view payload_hash,
     const absl::Time & time) {
+
+  // Sort and add query parameters to the builder
+  std::stable_sort(std::begin(query_params_), std::end(query_params_));
+  for (const auto& [k, v] : query_params_) {
+    builder_.AddQueryParameter(k, v);
+  }
 
   auto request = builder_.BuildRequest();
 
@@ -136,12 +141,10 @@ HttpRequest S3RequestBuilder::BuildRequest(
     signed_headers.push_back({std::string(key), std::string(value)});
   }
 
-  std::sort(std::begin(signed_headers), std::end(signed_headers));
-  std::sort(std::begin(query_params_), std::end(query_params_));
+  std::stable_sort(std::begin(signed_headers), std::end(signed_headers));
 
   auto canonical_request = CanonicalRequest(request.url, request.method,
-                                            payload_hash, signed_headers,
-                                            query_params_);
+                                            payload_hash, signed_headers);
   auto signing_string = SigningString(canonical_request, aws_region, time);
   auto signature = Signature(aws_secret_access_key, aws_region, signing_string, time);
   auto auth_header = AuthorizationHeader(aws_access_key, aws_region, signature,
@@ -210,8 +213,7 @@ std::string S3RequestBuilder::CanonicalRequest(
   std::string_view url,
   std::string_view method,
   std::string_view payload_hash,
-  const std::vector<std::pair<std::string, std::string>> & headers,
-  const std::vector<std::pair<std::string, std::string>> & queries)
+  const std::vector<std::pair<std::string, std::string>> & headers)
 {
   auto uri = ParseGenericUri(url);
   std::size_t end_of_bucket = uri.authority_and_path.find('/');
@@ -225,14 +227,7 @@ std::string S3RequestBuilder::CanonicalRequest(
   cord.Append(UriObjectKeyEncode(path));
   cord.Append("\n");
 
-  // Query string
-  for(auto [it, first] = std::tuple{queries.begin(), true}; it != queries.end(); ++it, first=false) {
-    if(!first) cord.Append("&");
-    cord.Append(it->first);
-    cord.Append("=");
-    cord.Append(it->second);
-  }
-
+  cord.Append(uri.query);
   cord.Append("\n");
 
   for(auto & pair: headers) {
