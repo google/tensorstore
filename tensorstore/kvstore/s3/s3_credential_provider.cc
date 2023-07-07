@@ -54,7 +54,7 @@ constexpr char kCfgAwsSecretAccessKeyId[] = "aws_secret_access_key";
 
 // AWS session token
 constexpr char kEnvAwsSessionToken[] = "AWS_SESSION_TOKEN";
-constexpr char kCfgAwsSessionTokenn[] = "aws_session_token";
+constexpr char kCfgAwsSessionToken[] = "aws_session_token";
 
 // AWS Profile environment variables
 constexpr char kEnvAwsProfile[] = "AWS_PROFILE";
@@ -129,7 +129,7 @@ Result<S3Credentials> FileCredentialProvider::GetCredentials() {
           credentials.SetAccessKey(value);
       } else if(key == kCfgAwsSecretAccessKeyId) {
           credentials.SetSecretKey(value);
-      } else if(key == kCfgAwsSessionTokenn) {
+      } else if(key == kCfgAwsSessionToken) {
           credentials.SetSessionToken(value);
       }
     }
