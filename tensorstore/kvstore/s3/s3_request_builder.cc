@@ -26,7 +26,6 @@
 #include "absl/status/status.h"
 #include "tensorstore/kvstore/s3/s3_request_builder.h"
 #include "tensorstore/kvstore/s3/validate.h"
-#include "tensorstore/kvstore/s3/s3_uri_utils.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/digest/sha256.h"
 #include "tensorstore/util/result.h"
@@ -38,8 +37,6 @@ using ::tensorstore::internal::ParsedGenericUri;
 using ::tensorstore::internal::SHA256Digester;
 using namespace ::tensorstore::internal_http;
 using ::tensorstore::internal_storage_s3::IsValidBucketName;
-using ::tensorstore::internal_http_s3::S3UriEncode;
-using ::tensorstore::internal_http_s3::S3UriObjectKeyEncode;
 
 #ifndef TENSORSTORE_INTERNAL_S3_LOG_AWS4
 #define TENSORSTORE_INTERNAL_S3_LOG_AWS4 1
@@ -74,9 +71,6 @@ void ComputeHmac(unsigned char (&key)[kHmacSize], std::string_view message, unsi
 }
 
 } // namespace
-
-S3RequestBuilder::S3RequestBuilder(std::string_view method, std::string endpoint_url) :
-    builder_(method, endpoint_url, S3UriEncode) {};
 
 
 HttpRequest S3RequestBuilder::BuildRequest(

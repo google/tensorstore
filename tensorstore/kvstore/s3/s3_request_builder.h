@@ -25,6 +25,7 @@
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/kvstore/byte_range.h"
+#include "tensorstore/kvstore/s3/s3_uri_utils.h"
 #include "tensorstore/kvstore/s3/validate.h"
 #include "tensorstore/util/result.h"
 
@@ -32,13 +33,17 @@
 
 using ::tensorstore::internal_http::HttpRequest;
 using ::tensorstore::internal_http::HttpRequestBuilder;
+using ::tensorstore::internal_http_s3::S3UriEncode;
+using ::tensorstore::internal_http_s3::S3UriObjectKeyEncode;
 
 namespace tensorstore {
 namespace internal_storage_s3 {
 
 class S3RequestBuilder {
  public:
-  S3RequestBuilder(std::string_view method, std::string endpoint_url);
+  S3RequestBuilder(std::string_view method, std::string endpoint_url) :
+    builder_(method, endpoint_url, S3UriEncode) {};
+
 
   /// Adds request headers.
   S3RequestBuilder & AddHeader(std::string_view header) {
