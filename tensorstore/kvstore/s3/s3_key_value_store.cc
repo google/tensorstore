@@ -43,7 +43,7 @@
 #include "tensorstore/kvstore/s3/s3_resource.h"
 #include "tensorstore/kvstore/s3/s3_request_builder.h"
 #include "tensorstore/kvstore/s3/s3_credential_provider.h"
-#include "tensorstore/kvstore/s3/object_metadata.h"
+#include "tensorstore/kvstore/s3/s3_metadata.h"
 #include "tensorstore/kvstore/s3/validate.h"
 #include "tensorstore/kvstore/s3/s3_uri_utils.h"
 #include "tensorstore/util/execution/any_receiver.h"
@@ -78,7 +78,6 @@ using ::tensorstore::internal_auth_s3::S3Credentials;
 using ::tensorstore::internal_auth_s3::CredentialProvider;
 using ::tensorstore::internal_auth_s3::GetS3CredentialProvider;
 using ::tensorstore::internal_storage_s3::ComputeGenerationFromHeaders;
-using ::tensorstore::internal_storage_s3::ExtractETagAndLastModified;
 using ::tensorstore::internal_storage_gcs::IsRetriable;
 using ::tensorstore::internal_kvstore_gcs_http::RateLimiter;
 using ::tensorstore::internal_kvstore_gcs_http::RateLimiterNode;
@@ -89,9 +88,10 @@ using ::tensorstore::internal_storage_s3::S3RequestBuilder;
 using ::tensorstore::internal_storage_s3::IsValidBucketName;
 using ::tensorstore::internal_storage_s3::IsValidObjectName;
 using ::tensorstore::internal_storage_s3::IsValidStorageGeneration;
+using ::tensorstore::internal_storage_s3::GetTag;
+using ::tensorstore::internal_storage_s3::FindTag;
 using ::tensorstore::internal_http_s3::S3UriEncode;
 using ::tensorstore::internal_http_s3::S3UriObjectKeyEncode;
-using ::tensorstore::internal_storage_s3::ObjectMetadata;
 using ::tensorstore::kvstore::Key;
 using ::tensorstore::kvstore::ListOptions;
 using ::tensorstore::kvstore::SupportedFeatures;
@@ -163,12 +163,12 @@ bool AddGenerationHeader(S3RequestBuilder * builder,
     // Unconditional.
     return false;
   } else {
-    // One of two cases applies:
-    //
-    // 1. `gen` is a `StorageGeneration::FromString("etag;last_modified")` generation.
-    //    The condition is specified as `=etag`.
+    // If no generation is provided, we still need to provide a valid etag
+    // We simply pass "" as this is is unlikely to collide with the md5 hash of
+    // any actual data payload
+    auto etag = StorageGeneration::IsNoValue(gen)
+                      ? "\"\"" : StorageGeneration::DecodeString(gen);
 
-    auto [etag, last_mod] = ExtractETagAndLastModified(gen);
     builder->AddHeader(absl::StrCat(header, ": ", etag));
     return true;
   }
@@ -922,14 +922,10 @@ struct DeleteTask : public RateLimiterNode,
     }
     std::string delete_url = resource;
 
-    // TODO(sjperkins). Introduce S3 versioning logic here
-    // Add the ifGenerationNotMatch condition.
-    // bool has_query = AddGenerationParam(&delete_url, false, "ifGenerationMatch",
-    //                                     options.if_equal);
-
-    // Assume that if the user_project field is set, that we want to provide
-    // it on the uri for a requestor pays bucket.
-    // AddUserProjectParam(&delete_url, has_query, owner->encoded_user_project());
+    if (!IsValidStorageGeneration(options.if_equal)) {
+      promise.SetResult(absl::InvalidArgumentError("Malformed StorageGeneration"));
+      return;
+    }
 
     auto maybe_credentials = owner->GetCredentials();
     if (!maybe_credentials.ok()) {
@@ -946,7 +942,7 @@ struct DeleteTask : public RateLimiterNode,
       return;
     }
 
-    // S3 doesn't support conditional PUT/DELETE,
+    // S3 doesn't support conditional DELETE,
     // use a HEAD call to test the if-match condition
     auto now = absl::Now();
     auto builder = S3RequestBuilder("HEAD", delete_url);
@@ -1230,41 +1226,6 @@ struct ListTask : public RateLimiterNode,
       return;
     }
   }
-
-  /// @brief Find the starting position of the tag or the position immediately after the tag
-  /// with the supplied XML payload
-  /// @param data XML payload
-  /// @param tag XML tag
-  /// @param pos Initial searching position
-  /// @param start true if starting position desired otherwise false
-  /// @return The tag starting position, otherwise the position immediately after the tag
-  Result<std::size_t> FindTag(std::string_view data, std::string_view tag,
-                              std::size_t pos=0, bool start=true) {
-    if(pos=data.find(tag, pos); pos != std::string_view::npos) {
-      return start ? pos :  pos + tag.length();
-    }
-    return absl::NotFoundError(
-      absl::StrCat("Malformed List Response XML: can't find ", tag, " in ", data));
-  }
-
-  /// @brief Get tag contents within the supplied XML payload
-  /// @param data XML payload
-  /// @param open_tag Opening tag
-  /// @param close_tag Closing tag
-  /// @param pos Initial searching position. Updated with position immediately
-  ///            after the closing tag.
-  /// @return Tag contents
-  Result<std::string_view> GetTag(std::string_view data,
-                                  std::string_view open_tag,
-                                  std::string_view close_tag,
-                                  std::size_t * pos) {
-
-    TENSORSTORE_ASSIGN_OR_RETURN(auto tagstart, FindTag(data, open_tag, *pos, false));
-    TENSORSTORE_ASSIGN_OR_RETURN(auto tagend, FindTag(data, close_tag, tagstart, true));
-    *pos = tagend + close_tag.size();
-    return data.substr(tagstart, tagend - tagstart);
-  }
-
 
   absl::Status OnResponseImpl(const Result<HttpResponse>& response) {
     if (is_cancelled()) {

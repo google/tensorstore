@@ -74,9 +74,10 @@ bool IsValidObjectName(std::string_view name) {
 
 // Returns whether the StorageGeneration is valid for s3 kvstore.
 bool IsValidStorageGeneration(const StorageGeneration& gen) {
-  return StorageGeneration::IsUnknown(gen) ||
-         StorageGeneration::IsNoValue(gen) ||
-         (StorageGeneration::DecodeString(gen).find(";") != std::string::npos);
+  if (StorageGeneration::IsUnknown(gen) || StorageGeneration::IsNoValue(gen)) return true;
+  auto decoded_gen = StorageGeneration::DecodeString(gen);
+  if(absl::StartsWith(decoded_gen, "\"") && absl::EndsWith(decoded_gen, "\"")) return true;
+  return false;
 }
 
 

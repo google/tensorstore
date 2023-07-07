@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/kvstore/s3/object_metadata.h"
+#include "tensorstore/kvstore/s3/s3_metadata.h"
 
 #include <string>
 

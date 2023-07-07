@@ -96,7 +96,7 @@ StorageGeneration GetMismatchStorageGeneration(const KvStore& store) {
   const auto & url_result = store.ToUrl();
 
   if(url_result.ok() && url_result.value().find("s3://") != std::string::npos) {
-    return StorageGeneration::FromString("\"abcdef1234567890\";Tue, 06 Jun 2023 10:41:48 GMT");
+    return StorageGeneration::FromString("\"abcdef1234567890\"");
   }
 
   // Use a single uint64_t storage generation here for GCS compatibility.

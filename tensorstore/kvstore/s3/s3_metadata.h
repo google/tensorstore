@@ -34,29 +34,16 @@
 namespace tensorstore {
 namespace internal_storage_s3 {
 
-/// Partial metadata for a S3 object
-/// https://docs.aws.amazon.com/AmazonS3/latest/userguide/UsingMetadata.html
-struct ObjectMetadata {
-  std::string md5;
-  std::string etag;
+Result<std::size_t> FindTag(std::string_view data, std::string_view tag,
+                            std::size_t pos=0, bool start=true);
 
-  uint64_t size = 0;
-  std::string version_id;
-  bool deleted;
-
-  absl::Time last_modified = absl::InfinitePast();
-};
-
-void SetObjectMetadataFromHeaders(
-    const std::multimap<std::string, std::string>& headers,
-    ObjectMetadata* result);
-
+Result<std::string_view> GetTag(std::string_view data,
+                                std::string_view open_tag,
+                                std::string_view close_tag,
+                                std::size_t * pos);
 
 Result<StorageGeneration> ComputeGenerationFromHeaders(
     const std::multimap<std::string, std::string>& headers);
-
-std::pair<std::string, std::string>
-ExtractETagAndLastModified(const StorageGeneration & generation);
 
 }  // namespace internal_storage_s3
 }  // namespace tensorstore
