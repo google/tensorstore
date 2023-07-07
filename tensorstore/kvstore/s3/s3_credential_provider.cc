@@ -126,11 +126,11 @@ Result<S3Credentials> FileCredentialProvider::GetCredentials() {
       auto value = absl::StripAsciiWhitespace(key_value[1]);
 
       if(key == kCfgAwsAccessKeyId) {
-          credentials.SetAccessKey(value);
+          credentials.access_key = value;
       } else if(key == kCfgAwsSecretAccessKeyId) {
-          credentials.SetSecretKey(value);
+          credentials.secret_key = value;
       } else if(key == kCfgAwsSessionToken) {
-          credentials.SetSessionToken(value);
+          credentials.session_token = value;
       }
     }
   }
@@ -146,17 +146,17 @@ Result<std::unique_ptr<CredentialProvider>> GetDefaultS3CredentialProvider(
   if(auto access_key = GetEnv(kEnvAwsAccessKeyId); access_key.has_value()) {
     ABSL_LOG(INFO) << "Using Environment Variable S3CredentialProvider";
     S3Credentials credentials;
-    credentials.SetAccessKey(*access_key);
+    credentials.access_key = *access_key;
     auto secret_key = GetEnv(kEnvAwsSecretAccessKey);
 
     if(secret_key.has_value()) {
-      credentials.SetSecretKey(*secret_key);
+      credentials.secret_key = *secret_key;
     }
 
     auto session_token = GetEnv(kEnvAwsSessionToken);
 
     if(session_token.has_value()) {
-      credentials.SetSessionToken(*session_token);
+      credentials.session_token = *session_token;
     }
 
     return std::make_unique<EnvironmentCredentialProvider>(std::move(credentials));

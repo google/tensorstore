@@ -34,30 +34,12 @@ namespace tensorstore {
 namespace internal_auth_s3 {
 
 
-class S3Credentials {
-private:
- std::string access_key_;
- std::string secret_key_;
- std::string session_token_;
+struct S3Credentials {
+  std::string access_key;
+  std::string secret_key;
+  std::string session_token;
 
-public:
-  explicit S3Credentials(std::string_view access_key="",
-                         std::string_view secret_key="",
-                         std::string_view session_token="")
-    : access_key_(access_key),
-      secret_key_(secret_key),
-      session_token_(session_token)
-    {}
-
-  void SetAccessKey(std::string_view access_key) { access_key_ = access_key; }
-  void SetSecretKey(std::string_view secret_key) { secret_key_ = secret_key; }
-  void SetSessionToken(std::string_view session_token) { session_token_ = session_token; }
-
-  const std::string & GetAccessKey() const { return access_key_; }
-  const std::string & GetSecretKey() const { return secret_key_; }
-  const std::string & GetSessionToken() const { return session_token_; }
-
-  bool IsValid() const { return !access_key_.empty(); }
+  bool IsValid() const { return !access_key.empty(); }
 };
 
 class CredentialProvider {

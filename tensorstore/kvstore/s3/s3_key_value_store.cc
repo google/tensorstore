@@ -505,8 +505,8 @@ struct ReadTask : public RateLimiterNode,
             .AddHeader(absl::StrCat("x-amz-content-sha256: ", kEmptySha256))
             .AddHeader(absl::FormatTime("x-amz-date: %Y%m%dT%H%M%SZ", start_time_, absl::UTCTimeZone()))
             .BuildRequest(
-              credentials.GetAccessKey(),
-              credentials.GetSecretKey(),
+              credentials.access_key,
+              credentials.secret_key,
               owner->aws_region_,
               kEmptySha256,
               start_time_);
@@ -714,8 +714,8 @@ struct WriteTask : public RateLimiterNode,
             .AddHeader(absl::StrCat("x-amz-content-sha256: ", kEmptySha256))
             .AddHeader(absl::FormatTime("x-amz-date: %Y%m%dT%H%M%SZ", now, absl::UTCTimeZone()))
             .BuildRequest(
-              credentials_.GetAccessKey(),
-              credentials_.GetSecretKey(),
+              credentials_.access_key,
+              credentials_.secret_key,
               owner->aws_region_,
               kEmptySha256,
               now);
@@ -791,8 +791,8 @@ struct WriteTask : public RateLimiterNode,
             .AddHeader(absl::FormatTime("x-amz-date: %Y%m%dT%H%M%SZ", start_time_, absl::UTCTimeZone()))
             .AddHeader(absl::StrCat("Content-MD5: ", content_md5))
             .BuildRequest(
-              credentials_.GetAccessKey(),
-              credentials_.GetSecretKey(),
+              credentials_.access_key,
+              credentials_.secret_key,
               owner->aws_region_,
               content_sha256,
               start_time_);
@@ -833,8 +833,8 @@ struct WriteTask : public RateLimiterNode,
             .AddHeader(absl::StrCat("x-amz-content-sha256: ", kEmptySha256))
             .AddHeader(absl::FormatTime("x-amz-date: %Y%m%dT%H%M%SZ", start_time_, absl::UTCTimeZone()))
             .BuildRequest(
-              credentials_.GetAccessKey(),
-              credentials_.GetSecretKey(),
+              credentials_.access_key,
+              credentials_.secret_key,
               owner->aws_region_,
               kEmptySha256,
               start_time_);
@@ -956,8 +956,8 @@ struct DeleteTask : public RateLimiterNode,
             .AddHeader(absl::StrCat("x-amz-content-sha256: ", kEmptySha256))
             .AddHeader(absl::FormatTime("x-amz-date: %Y%m%dT%H%M%SZ", now, absl::UTCTimeZone()))
             .BuildRequest(
-              credentials_.GetAccessKey(),
-              credentials_.GetSecretKey(),
+              credentials_.access_key,
+              credentials_.secret_key,
               owner->aws_region_,
               kEmptySha256,
               now);
@@ -1011,8 +1011,8 @@ struct DeleteTask : public RateLimiterNode,
         .AddHeader(absl::StrCat("x-amz-content-sha256: ", kEmptySha256))
         .AddHeader(absl::FormatTime("x-amz-date: %Y%m%dT%H%M%SZ", start_time_, absl::UTCTimeZone()))
         .BuildRequest(
-          credentials_.GetAccessKey(),
-          credentials_.GetSecretKey(),
+          credentials_.access_key,
+          credentials_.secret_key,
           owner->aws_region_,
           kEmptySha256,
           start_time_);
@@ -1197,8 +1197,8 @@ struct ListTask : public RateLimiterNode,
         .AddHeader(absl::StrCat("x-amz-content-sha256: ", kEmptySha256))
         .AddHeader(absl::FormatTime("x-amz-date: %Y%m%dT%H%M%SZ", start_time_, absl::UTCTimeZone()))
         .BuildRequest(
-          credentials.GetAccessKey(),
-          credentials.GetSecretKey(),
+          credentials.access_key,
+          credentials.secret_key,
           owner_->aws_region_,
           kEmptySha256,
           start_time_);

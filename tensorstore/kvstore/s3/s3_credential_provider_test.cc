@@ -90,9 +90,9 @@ TEST_F(S3CredentialProviderTest, ProviderNoCredentials) {
     SetEnv("AWS_ACCESS_KEY_ID", "foo");
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto provider, GetS3CredentialProvider());
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials, provider->GetCredentials());
-    ASSERT_EQ(credentials.GetAccessKey(), "foo");
-    ASSERT_TRUE(credentials.GetSecretKey().empty());
-    ASSERT_TRUE(credentials.GetSessionToken().empty());
+    ASSERT_EQ(credentials.access_key, "foo");
+    ASSERT_TRUE(credentials.secret_key.empty());
+    ASSERT_TRUE(credentials.session_token.empty());
 }
 
 TEST_F(S3CredentialProviderTest, ProviderS3CredentialsFromEnv) {
@@ -101,27 +101,27 @@ TEST_F(S3CredentialProviderTest, ProviderS3CredentialsFromEnv) {
     SetEnv("AWS_SESSION_TOKEN", "qux");
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto provider, GetS3CredentialProvider());
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials, provider->GetCredentials());
-    ASSERT_EQ(credentials.GetAccessKey(), "foo");
-    ASSERT_EQ(credentials.GetSecretKey(), "bar");
-    ASSERT_EQ(credentials.GetSessionToken(), "qux");
+    ASSERT_EQ(credentials.access_key, "foo");
+    ASSERT_EQ(credentials.secret_key, "bar");
+    ASSERT_EQ(credentials.session_token, "qux");
 }
 
 TEST_F(S3CredentialProviderTest, ProviderS3CredentialsFromFileDefault) {
     SetEnv("AWS_SHARED_CREDENTIALS_FILE", credentials_filename.c_str());
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto provider, GetS3CredentialProvider());
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials, provider->GetCredentials());
-    ASSERT_EQ(credentials.GetAccessKey(), "AKIAIOSFODNN7EXAMPLE");
-    ASSERT_EQ(credentials.GetSecretKey(), "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY");
-    ASSERT_EQ(credentials.GetSessionToken(), "abcdef1234567890");
+    ASSERT_EQ(credentials.access_key, "AKIAIOSFODNN7EXAMPLE");
+    ASSERT_EQ(credentials.secret_key, "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY");
+    ASSERT_EQ(credentials.session_token, "abcdef1234567890");
 }
 
 TEST_F(S3CredentialProviderTest, ProviderS3CredentialsFromFileProfileOverride) {
     SetEnv("AWS_SHARED_CREDENTIALS_FILE", credentials_filename.c_str());
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto provider, GetS3CredentialProvider("alice"));
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials, provider->GetCredentials());
-    ASSERT_EQ(credentials.GetAccessKey(), "AKIAIOSFODNN6EXAMPLE");
-    ASSERT_EQ(credentials.GetSecretKey(), "wJalrXUtnFEMI/K7MDENG/bPxRfiCZEXAMPLEKEY");
-    ASSERT_EQ(credentials.GetSessionToken(), "");
+    ASSERT_EQ(credentials.access_key, "AKIAIOSFODNN6EXAMPLE");
+    ASSERT_EQ(credentials.secret_key, "wJalrXUtnFEMI/K7MDENG/bPxRfiCZEXAMPLEKEY");
+    ASSERT_EQ(credentials.session_token, "");
 }
 
 TEST_F(S3CredentialProviderTest, ProviderS3CredentialsFromFileProfileDefaultEnv) {
@@ -129,9 +129,9 @@ TEST_F(S3CredentialProviderTest, ProviderS3CredentialsFromFileProfileDefaultEnv)
     SetEnv("AWS_DEFAULT_PROFILE", "alice");
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto provider, GetS3CredentialProvider());
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials, provider->GetCredentials());
-    ASSERT_EQ(credentials.GetAccessKey(), "AKIAIOSFODNN6EXAMPLE");
-    ASSERT_EQ(credentials.GetSecretKey(), "wJalrXUtnFEMI/K7MDENG/bPxRfiCZEXAMPLEKEY");
-    ASSERT_EQ(credentials.GetSessionToken(), "");
+    ASSERT_EQ(credentials.access_key, "AKIAIOSFODNN6EXAMPLE");
+    ASSERT_EQ(credentials.secret_key, "wJalrXUtnFEMI/K7MDENG/bPxRfiCZEXAMPLEKEY");
+    ASSERT_EQ(credentials.session_token, "");
 }
 
 TEST_F(S3CredentialProviderTest, ProviderS3CredentialsFromFileProfileEnv) {
@@ -139,9 +139,9 @@ TEST_F(S3CredentialProviderTest, ProviderS3CredentialsFromFileProfileEnv) {
     SetEnv("AWS_PROFILE", "alice");
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto provider, GetS3CredentialProvider());
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials, provider->GetCredentials());
-    ASSERT_EQ(credentials.GetAccessKey(), "AKIAIOSFODNN6EXAMPLE");
-    ASSERT_EQ(credentials.GetSecretKey(), "wJalrXUtnFEMI/K7MDENG/bPxRfiCZEXAMPLEKEY");
-    ASSERT_EQ(credentials.GetSessionToken(), "");
+    ASSERT_EQ(credentials.access_key, "AKIAIOSFODNN6EXAMPLE");
+    ASSERT_EQ(credentials.secret_key, "wJalrXUtnFEMI/K7MDENG/bPxRfiCZEXAMPLEKEY");
+    ASSERT_EQ(credentials.session_token, "");
 }
 
 TEST_F(S3CredentialProviderTest, ProviderS3CredentialsFromFileDefaultProfileOverridesProfileEnv) {
@@ -150,9 +150,9 @@ TEST_F(S3CredentialProviderTest, ProviderS3CredentialsFromFileDefaultProfileOver
     SetEnv("AWS_PROFILE", "default");
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto provider, GetS3CredentialProvider());
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials, provider->GetCredentials());
-    ASSERT_EQ(credentials.GetAccessKey(), "AKIAIOSFODNN6EXAMPLE");
-    ASSERT_EQ(credentials.GetSecretKey(), "wJalrXUtnFEMI/K7MDENG/bPxRfiCZEXAMPLEKEY");
-    ASSERT_EQ(credentials.GetSessionToken(), "");
+    ASSERT_EQ(credentials.access_key, "AKIAIOSFODNN6EXAMPLE");
+    ASSERT_EQ(credentials.secret_key, "wJalrXUtnFEMI/K7MDENG/bPxRfiCZEXAMPLEKEY");
+    ASSERT_EQ(credentials.session_token, "");
 }
 
 }
