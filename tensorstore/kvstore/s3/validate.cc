@@ -76,7 +76,7 @@ bool IsValidObjectName(std::string_view name) {
   return internal::IsValidUtf8(name);
 }
 
-// Returns whether the StorageGeneration is valid for blob_kvstore.
+// Returns whether the StorageGeneration is valid for s3 kvstore.
 bool IsValidStorageGeneration(const StorageGeneration& gen) {
   return StorageGeneration::IsUnknown(gen) ||
          StorageGeneration::IsNoValue(gen) ||
