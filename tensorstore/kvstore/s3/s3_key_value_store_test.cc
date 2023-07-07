@@ -124,4 +124,4 @@ TEST(S3KeyValueStoreTest, BadBucketNames) {
 }
 
 
-};
+} // namespace

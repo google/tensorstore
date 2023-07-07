@@ -254,4 +254,5 @@ TEST(S3RequestBuilderTest, AWS4SignatureListObjectsExample) {
 
     EXPECT_THAT(request.headers, ::testing::Contains(auth_header));
 }
-}
+
+} // namespace

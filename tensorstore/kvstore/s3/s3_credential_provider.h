@@ -109,4 +109,5 @@ Result<std::unique_ptr<CredentialProvider>> GetS3CredentialProvider(
 
 } // namespace internal_auth_s3
 } // namespace tensorstore
-#endif
+
+#endif // TENSORSTORE_KVSTORE_S3_S3_CREDENTIAL_PROVIDER_H
