@@ -43,13 +43,13 @@ constexpr AsciiSet kUriKeyUnreservedChars{
 namespace tensorstore {
 namespace internal_http_s3 {
 
-std::string S3UriEncode(std::string_view src) {
+inline std::string S3UriEncode(std::string_view src) {
   std::string dest;
   internal::PercentEncodeReserved(src, dest, kUriUnreservedChars);
   return dest;
 }
 
-std::string S3UriObjectKeyEncode(std::string_view src) {
+inline std::string S3UriObjectKeyEncode(std::string_view src) {
   std::string dest;
   internal::PercentEncodeReserved(src, dest, kUriKeyUnreservedChars);
   return dest;
@@ -57,7 +57,5 @@ std::string S3UriObjectKeyEncode(std::string_view src) {
 
 } // namespace internal_http_s3
 } // namespace tensorstore
-
-
 
 #endif // TENSORSTORE_KVSTORE_S3_URI_UTILS_H
