@@ -19,7 +19,7 @@
 /// Key-value store where each key corresponds to a S3 object and the value is
 /// stored as the file content.
 
-#include <stdint.h>
+#include <cstdint>
 
 #include <map>
 #include <string>
