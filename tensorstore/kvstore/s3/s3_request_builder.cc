@@ -26,7 +26,7 @@
 #include "absl/status/status.h"
 #include "tensorstore/kvstore/s3/s3_request_builder.h"
 #include "tensorstore/kvstore/s3/validate.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/kvstore/s3/s3_uri_utils.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/digest/sha256.h"
 #include "tensorstore/util/result.h"
@@ -38,32 +38,17 @@ using ::tensorstore::internal::ParsedGenericUri;
 using ::tensorstore::internal::SHA256Digester;
 using namespace ::tensorstore::internal_http;
 using ::tensorstore::internal_storage_s3::IsValidBucketName;
+using ::tensorstore::internal_http_s3::S3UriEncode;
+using ::tensorstore::internal_http_s3::S3UriObjectKeyEncode;
 
 #ifndef TENSORSTORE_INTERNAL_S3_LOG_AWS4
-#define TENSORSTORE_INTERNAL_S3_LOG_AWS4 0
+#define TENSORSTORE_INTERNAL_S3_LOG_AWS4 1
 #endif
 
 namespace tensorstore {
 namespace internal_storage_s3 {
 
-
 namespace {
-
-// See description of function UriEncode at this URL
-// https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
-constexpr AsciiSet kUriUnreservedChars{
-    "abcdefghijklmnopqrstuvwxyz"
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    "0123456789"
-    "-._~"};
-
-// NOTE: Only adds "/" to kUriUnreservedChars
-constexpr AsciiSet kUriKeyUnreservedChars{
-    "abcdefghijklmnopqrstuvwxyz"
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    "0123456789"
-    "/-._~"};
-
 
 /// Size of HMAC (size of SHA256 digest).
 constexpr static size_t kHmacSize = 32;
@@ -88,30 +73,10 @@ void ComputeHmac(unsigned char (&key)[kHmacSize], std::string_view message, unsi
                md_len == kHmacSize);
 }
 
-
 } // namespace
 
-std::string UriEncode(std::string_view src) {
-  std::string dest;
-  internal::PercentEncodeReserved(src, dest, kUriUnreservedChars);
-  return dest;
-}
-
-std::string UriObjectKeyEncode(std::string_view src) {
-  std::string dest;
-  internal::PercentEncodeReserved(src, dest, kUriKeyUnreservedChars);
-  return dest;
-}
-
-S3RequestBuilder & S3RequestBuilder::AddHeader(std::string_view header) {
-  builder_.AddHeader(header);
-  return *this;
-}
-
-S3RequestBuilder & S3RequestBuilder::AddQueryParameter(std::string_view key, std::string_view value) {
-  query_params_.push_back({std::string(key), std::string(value)});
-  return *this;
-}
+S3RequestBuilder::S3RequestBuilder(std::string_view method, std::string endpoint_url) :
+    builder_(method, endpoint_url, S3UriEncode) {};
 
 
 HttpRequest S3RequestBuilder::BuildRequest(
@@ -224,7 +189,7 @@ std::string S3RequestBuilder::CanonicalRequest(
   absl::Cord cord;
   cord.Append(method);
   cord.Append("\n");
-  cord.Append(UriObjectKeyEncode(path));
+  cord.Append(S3UriObjectKeyEncode(path));
   cord.Append("\n");
 
   cord.Append(uri.query);

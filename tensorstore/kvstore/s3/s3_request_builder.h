@@ -36,19 +36,21 @@ using ::tensorstore::internal_http::HttpRequestBuilder;
 namespace tensorstore {
 namespace internal_storage_s3 {
 
-std::string UriEncode(std::string_view src);
-std::string UriObjectKeyEncode(std::string_view src);
-
 class S3RequestBuilder {
  public:
-  explicit S3RequestBuilder(std::string_view method, std::string endpoint_url) :
-    builder_(method, endpoint_url, UriEncode) {};
+  S3RequestBuilder(std::string_view method, std::string endpoint_url);
 
   /// Adds request headers.
-  S3RequestBuilder & AddHeader(std::string_view header);
+  S3RequestBuilder & AddHeader(std::string_view header) {
+    builder_.AddHeader(header);
+    return *this;
+  }
 
   /// Adds a parameter for a request.
-  S3RequestBuilder& AddQueryParameter(std::string_view key, std::string_view value);
+  S3RequestBuilder& AddQueryParameter(std::string_view key, std::string_view value) {
+    query_params_.push_back({std::string(key), std::string(value)});
+    return *this;
+  }
 
   /// Enables sending Accept-Encoding header and transparently decoding the
   /// response.

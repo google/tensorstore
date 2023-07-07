@@ -14,6 +14,11 @@ filegroup(
 
 
 tensorstore_cc_library(
+    name = "s3_uri_utils",
+    hdrs = ["s3_uri_utils.h"],
+)
+
+tensorstore_cc_library(
     name = "s3_resource",
     srcs = ["s3_resource.cc"],
     hdrs = ["s3_resource.h"],
@@ -172,7 +177,8 @@ tensorstore_cc_library(
         "//tensorstore/internal/digest:md5",
         "//tensorstore/internal/digest:sha256",
         "//tensorstore/internal:path",
-        ":validate"
+        ":validate",
+        ":s3_uri_utils"
     ],
     alwayslink = 1,
 )

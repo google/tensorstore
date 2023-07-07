@@ -45,6 +45,7 @@
 #include "tensorstore/kvstore/s3/s3_credential_provider.h"
 #include "tensorstore/kvstore/s3/object_metadata.h"
 #include "tensorstore/kvstore/s3/validate.h"
+#include "tensorstore/kvstore/s3/s3_uri_utils.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/executor.h"
@@ -88,8 +89,8 @@ using ::tensorstore::internal_storage_s3::S3RequestBuilder;
 using ::tensorstore::internal_storage_s3::IsValidBucketName;
 using ::tensorstore::internal_storage_s3::IsValidObjectName;
 using ::tensorstore::internal_storage_s3::IsValidStorageGeneration;
-using ::tensorstore::internal_storage_s3::UriEncode;
-using ::tensorstore::internal_storage_s3::UriObjectKeyEncode;
+using ::tensorstore::internal_http_s3::S3UriEncode;
+using ::tensorstore::internal_http_s3::S3UriObjectKeyEncode;
 using ::tensorstore::internal_storage_s3::ObjectMetadata;
 using ::tensorstore::kvstore::Key;
 using ::tensorstore::kvstore::ListOptions;
@@ -261,7 +262,7 @@ struct S3KeyValueStoreSpecData {
 
 
 std::string GetS3Url(std::string_view bucket, std::string_view path) {
-  return tensorstore::StrCat(kUriScheme, "://", bucket, "/", UriEncode(path));
+  return tensorstore::StrCat(kUriScheme, "://", bucket, "/", S3UriEncode(path));
 }
 
 
@@ -627,7 +628,7 @@ Future<kvstore::ReadResult> S3KeyValueStore::Read(Key key,
     return absl::InvalidArgumentError("Malformed StorageGeneration");
   }
 
-  auto encoded_object_name = UriObjectKeyEncode(key);
+  auto encoded_object_name = S3UriObjectKeyEncode(key);
   std::string resource = tensorstore::StrCat(endpoint_, "/", encoded_object_name);
 
   auto op = PromiseFuturePair<ReadResult>::Make();
@@ -1085,7 +1086,7 @@ Future<TimestampedStorageGeneration> S3KeyValueStore::Write(
     return absl::InvalidArgumentError("Malformed StorageGeneration");
   }
 
-  std::string encoded_object_name = UriObjectKeyEncode(key);
+  std::string encoded_object_name = S3UriObjectKeyEncode(key);
   auto op = PromiseFuturePair<TimestampedStorageGeneration>::Make();
 
   if (value) {
