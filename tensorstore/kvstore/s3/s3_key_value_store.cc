@@ -151,9 +151,12 @@ auto& s3_delete_range = internal_metrics::Counter<int64_t>::New(
 auto& s3_list = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/s3/list", "S3 driver kvstore::List calls");
 
+/// sha256 hash of an empty string
 static constexpr char kEmptySha256[] =
   "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
+/// An empty etag, which should never collide with an actual md5 hash
+static constexpr char kEmptyEtag[] = "\"\"";
 
 /// Adds the generation header to the provided builder.
 bool AddGenerationHeader(S3RequestBuilder * builder,
@@ -163,11 +166,9 @@ bool AddGenerationHeader(S3RequestBuilder * builder,
     // Unconditional.
     return false;
   } else {
-    // If no generation is provided, we still need to provide a valid etag
-    // We simply pass "" as this is is unlikely to collide with the md5 hash of
-    // any actual data payload
+    // If no generation is provided, we still need to provide an empty etag
     auto etag = StorageGeneration::IsNoValue(gen)
-                      ? "\"\"" : StorageGeneration::DecodeString(gen);
+                      ? kEmptyEtag : StorageGeneration::DecodeString(gen);
 
     builder->AddHeader(absl::StrCat(header, ": ", etag));
     return true;
