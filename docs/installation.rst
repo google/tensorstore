@@ -1,17 +1,14 @@
 Building and Installing
 =======================
 
-There are several ways to build and install TensorStore, depending on the
-intended use case.
+TensorStore provides both a `Python API<python-api>` and a C++ API.
 
-Python API
-----------
+Python API from PyPI
+--------------------
 
-The TensorStore `Python API<python-api>` requires Python 3.8 or later (Python 2
-is not supported).
-
-Installation from PyPI package
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The simplest and fastest way to start using TensorStore is to install
+a PyPI package and use the TensorStore `Python API<python-api>` bindings.
+TensorStore requires Python 3.8 or later (Python 2 is not supported).
 
 The Python bindings can be installed directly from the `tensorstore PyPI package
 <https://pypi.org/project/tensorstore/>`_ using `pip
@@ -34,45 +31,59 @@ To install the latest published version, use:
 
       py -3 -m pip install tensorstore -vv
 
-This is the simplest and fastest way to install the TensorStore Python bindings
-if you aren't intending to make changes to the TensorStore source code.
 
 If a pre-built binary package is available for your specific platform and Python
 version, it will be used and no additional build tools are required.  Otherwise,
-the package will be built from the source distribution and the normal
-:ref:`build dependencies<build-dependencies>` are required.
+the package will be built from the source distribution and the
+:ref:`build requirements<build-requirements>` must already be installed.
 
-Installation from local checkout
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If you intend to make changes to the TensorStore source code while
-simultaneously using TensorStore as a dependency, you can create a `virtual
-environment
+Python API from Source
+----------------------
+
+To make changes to the TensorStore source code, an installation from a
+local checkout of the git repository is necessary. The TensorStore build has
+some prerequisites.
+
+The `Bazel build system <https://bazel.build/>`_ is used automatically when
+building the Python API, and has additional :ref:`build options<bazel-build-requirements>`.
+
+When using installing from source for the Python API, consider creating a python
+`virtual environment
 <https://packaging.python.org/tutorials/installing-packages/#creating-virtual-environments>`_
-and then install from a local checkout of the git repository:
+with with the python dependencies:
+
+.. code-block:: shell
+
+   python3 -m venv ts-venv
+   source ts-venv/bin/activate
+   python3 -m pip install --upgrade pip setuptools numpy
+
+
+Local checkout installation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Install from a local checkout of the git repository:
 
 .. code-block:: shell
 
    git clone https://github.com/google/tensorstore
    cd tensorstore
-   python3 setup.py develop
+   python3 -m pip install .
 
 This invokes `Bazel <https://bazel.build/>`_ to build the TensorStore C++
-extension module.  You must have the required `build
-dependencies<build-dependencies>`.
+extension module.  You must have the required
+:ref:`build prerequisites<build-requirements>` installed.
 
 After making changes to the C++ source code, you must re-run:
 
 .. code-block:: shell
 
-   python3 setup.py develop
+   python3 -m pip install .
 
-to rebuild the extension module.  Rebuilds are incremental and will be much
-faster than the initial build.
+to rebuild the extension module.  Rebuilds will be faster than the initial
+since most of the build is incremental.
 
-Note that while it also works to invoke ``python3 -m pip install -e .`` or
-``python3 -m pip install .``, that will result in Bazel being invoked from a
-temporary copy of the source tree, which prevents incremental rebuilds.
 
 The build is affected by the following environment variables:
 
@@ -114,8 +125,14 @@ The build is affected by the following environment variables:
 
    Additional `Bazel build options
    <https://docs.bazel.build/versions/master/user-manual.html#semantics-options>`_
+   or `configuration settings
+   <https://bazel.build/extending/config#user-defined-build-settings>`_
    to specify when building.  The encoding is the same as for
    :envvar:`TENSORSTORE_BAZEL_STARTUP_OPTIONS`.
+
+   This may be used to enable additional debugging in tensorstore; see
+   ``bool_flag`` use in ``BUILD`` files for more details.
+
 
 .. envvar:: ARCHFLAGS
 
@@ -147,22 +164,6 @@ IPython shell without installing
 
    python3 bazelisk.py run -c opt //python/tensorstore:shell
 
-Publishing a PyPI package
-^^^^^^^^^^^^^^^^^^^^^^^^^
-
-To build a source package:
-
-.. code-block:: shell
-
-   python3 setup.py sdist
-
-To build a binary package:
-
-.. code-block:: shell
-
-   python3 setup.py bdist_wheel
-
-The packages are written to the ``dist/`` sub-directory.
 
 C++ API
 -------
@@ -184,22 +185,28 @@ To add TensorStore as a dependency to an existing Bazel workspace:
    load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
    load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 
+   # tensorstore requires prepopulated @bazel_skylib and @rules_perl repositories.
+
    maybe(
        http_archive,
-       name = "com_google_tensorstore",
+       name = "tensorstore",
        strip_prefix = "tensorstore-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
        url = "https://github.com/google/tensorstore/archive/XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.tar.gz",
        sha256 = "YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY",
    )
 
+   load("@tensorstore//:external.bzl", "tensorstore_dependencies")
+
+   tensorstore_dependencies()
+
 Additionally, TensorStore must be built in C++17 mode.  You should add the
 compiler flags specified in the ``.bazelrc`` file in the TensorStore repository
 to your dependent project's ``.bazelrc``.
 
-The `supported C++ toolchains<build-dependencies>` are listed below.
+See the `supported C++ toolchains<build-requirements>` listed above.
 
 .. warning::
-
+ 
    MSVC (Windows) has a MAX_PATH limitation of 260 characters which may result
    in errors such as ``fatal error C1083: Cannot open include file``.  Such
    errors may be avoided by configuring bazel to use a shorter path by setting
@@ -238,8 +245,8 @@ To add TensorStore as a dependency to an existing CMake project:
 
 TensorStore requires that the project is built in C++17 mode.
 
-The `supported C++ toolchains<build-dependencies>` and `additional system
-requirements<cmake-build-dependencies>` are listed below.
+The `supported C++ toolchains<build-requirements>` and `additional system
+requirements<cmake-build-requirements>` are listed below.
 
 .. note::
 
@@ -295,8 +302,8 @@ CMake.
 Development
 -----------
 
-For development of TensorStore, ensure that you have the required `build
-dependencies<build-dependencies>`.
+For development of TensorStore, ensure that you have the `build
+requirements<build-requirements>` installed.
 
 Building the documentation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -312,13 +319,14 @@ Running tests
 
    python3 bazelisk.py test //...
 
-.. _build-dependencies:
 
-Build dependencies
+.. _build-requirements:
+
+Build Requirements
 ------------------
 
-TensorStore is written in C++ and is compatible with the following C++
-compilers:
+TensorStore is written in C++ with python bindings and is compatible with the
+following C++ compilers:
 
 - GCC 10 or later (Linux)
 - Clang 8 or later (Linux)
@@ -329,10 +337,21 @@ compilers:
 - Apple Xcode 11.3.1 or later (earlier versions of XCode 11 have a code
   generation bug related to stack alignment)
 
-.. _bazel-build-dependencies:
+In order to build from source, one of the above compilers is necessary along
+with some additional tools detailed in the sections below.
+The actual requirements vary depending on how TensorStore is built.  Installing
+the following packages (debian) will satisfy the build requirements
+for the examples in this document:
 
-Bazel build
-^^^^^^^^^^^
+.. code-block:: shell
+
+   sudo apt-get install build-essential git nasm perl python3 python3-dev python3-pip python3-venv
+
+
+.. _bazel-build-requirements:
+
+Bazel Build Requirements
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 The `Bazel build system <https://bazel.build/>`_ is used automatically when
 building the Python API, and may also be used to `build the C++
@@ -378,13 +397,13 @@ libraries:
    export TENSORSTORE_SYSTEM_LIBS=se_curl,jpeg,com_google_boringssl
    python3 bazelisk.py test //...
 
-.. _cmake-build-dependencies:
+.. _cmake-build-requirements:
 
-CMake build
-^^^^^^^^^^^
+CMake Build Requirements
+^^^^^^^^^^^^^^^^^^^^^^^^
 
-In addition to a `supported C++ toolchain<build-dependencies>`, the following
-system dependencies are also required for the `CMake build<cmake-build>`:
+In addition to a `supported C++ toolchain<build-requirements>`, the following
+system dependencies are required for the `CMake build<cmake-build>`:
 
 - Python 3.8 or later
 - CMake 3.24 or later
