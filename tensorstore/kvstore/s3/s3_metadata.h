@@ -34,9 +34,23 @@
 namespace tensorstore {
 namespace internal_storage_s3 {
 
+/// @brief Find the starting position of the tag or the position immediately after the tag
+/// with the supplied XML payload
+/// @param data XML payload
+/// @param tag XML tag
+/// @param pos Initial searching position
+/// @param start true if starting position desired otherwise false
+/// @return The tag starting position, otherwise the position immediately after the tag
 Result<std::size_t> FindTag(std::string_view data, std::string_view tag,
                             std::size_t pos=0, bool start=true);
 
+/// @brief Get tag contents within the supplied XML payload
+/// @param data XML payload
+/// @param open_tag Opening tag
+/// @param close_tag Closing tag
+/// @param pos Initial searching position. Updated with position immediately
+///            after the closing tag.
+/// @return Tag contents
 Result<std::string_view> GetTag(std::string_view data,
                                 std::string_view open_tag,
                                 std::string_view close_tag,
