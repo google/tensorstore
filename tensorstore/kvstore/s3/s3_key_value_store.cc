@@ -1219,7 +1219,7 @@ struct ListTask : public RateLimiterNode,
     auto kListBucketOpenTag = "<ListBucketResult xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">";
     TENSORSTORE_ASSIGN_OR_RETURN(auto start_pos, FindTag(payload, kListBucketOpenTag, 0, false));
     std::size_t pos = start_pos;
-    TENSORSTORE_ASSIGN_OR_RETURN(auto key_count_tag, GetTag(payload, "<KeyCount>", "<", &pos));
+    TENSORSTORE_ASSIGN_OR_RETURN(auto key_count_tag, GetTag(payload, "<KeyCount>", "</KeyCount>", &pos));
     std::size_t keycount = 0;
     if(!absl::SimpleAtoi(key_count_tag, &keycount)) {
       return absl::InvalidArgumentError(absl::StrCat("Malformed KeyCount ", key_count_tag));
@@ -1230,7 +1230,7 @@ struct ListTask : public RateLimiterNode,
         return absl::CancelledError();
       }
       TENSORSTORE_ASSIGN_OR_RETURN(pos, FindTag(payload, "<Contents>", pos, false));
-      TENSORSTORE_ASSIGN_OR_RETURN(auto key_tag, GetTag(payload, "<Key>", "<", &pos));
+      TENSORSTORE_ASSIGN_OR_RETURN(auto key_tag, GetTag(payload, "<Key>", "</Key>", &pos));
 
       if(!options_.range.empty() && tensorstore::Contains(options_.range, key_tag)) {
         if (options_.strip_prefix_length && key_tag.size() >= options_.strip_prefix_length) {
@@ -1244,12 +1244,12 @@ struct ListTask : public RateLimiterNode,
     // Successful request, so clear the retry_attempt for the next request.
     attempt_ = 0;
     pos = start_pos;
-    TENSORSTORE_ASSIGN_OR_RETURN(auto truncated_tag, GetTag(payload, "<IsTruncated>", "<", &pos));
+    TENSORSTORE_ASSIGN_OR_RETURN(auto truncated_tag, GetTag(payload, "<IsTruncated>", "</IsTruncated>", &pos));
 
     if(truncated_tag == "true") {
       pos = start_pos;
       TENSORSTORE_ASSIGN_OR_RETURN(continuation_token_,
-                                    GetTag(payload, "<NextContinuationToken>", "<", &pos));
+                                    GetTag(payload, "<NextContinuationToken>", "</NextContinuationToken>", &pos));
       IssueRequest();
     } else {
       continuation_token_.clear();
