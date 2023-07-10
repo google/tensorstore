@@ -19,6 +19,7 @@
 
 #include "absl/flags/marshalling.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/json_binding/bindable.h"
 
@@ -53,20 +54,21 @@ struct JsonAbslFlag {
 
   friend bool AbslParseFlag(std::string_view in, JsonAbslFlag* out,
                             std::string* error) {
-    ::nlohmann::json j;
     if (in.empty()) {
-      j = ::nlohmann::json::value_t::discarded;
-    } else {
-      j = ::nlohmann::json::parse(in, nullptr, false);
-      if (j.is_discarded()) {
-        *error = "Failed to parse JSON";
-        return false;
-      }
+      // empty string yields a default-constructed flag value.
+      out->value = {};
+      return true;
+    }
+
+    ::nlohmann::json j = ::nlohmann::json::parse(in, nullptr, false);
+    if (j.is_discarded()) {
+      *error = absl::StrFormat("Failed to parse JSON: '%s'", in);
+      return false;
     }
     absl::Status status = internal_json_binding::DefaultBinder<>(
         std::true_type{}, internal_json_binding::NoOptions{}, &out->value, &j);
     if (!status.ok()) {
-      *error = status.message();
+      *error = absl::StrFormat("Failed to bind JSON: %s", status.message());
       return false;
     }
     return true;
