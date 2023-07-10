@@ -45,6 +45,10 @@ Result<std::size_t> FindTag(std::string_view data, std::string_view tag,
                             std::size_t pos=0, bool start=true);
 
 /// @brief Get tag contents within the supplied XML payload
+///
+/// This should primarily be used for obtaining the contents of inner tags.
+/// Use FindTag to set the initial search position by traversing XML outer tags.
+///
 /// @param data XML payload
 /// @param open_tag Opening tag
 /// @param close_tag Closing tag
