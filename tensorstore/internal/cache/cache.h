@@ -180,6 +180,7 @@ class CachePool : private internal_cache::CachePoolImpl {
    public:
     WeakPtr() = default;
     explicit WeakPtr(const StrongPtr& ptr) : Base(ptr.get()) {}
+    explicit WeakPtr(CachePool* ptr) : Base(ptr) {}
     using Base::operator bool;
     using Base::operator->;
     using Base::operator*;
@@ -321,6 +322,11 @@ class Cache : private internal_cache::CacheImpl {
 
   Cache();
   virtual ~Cache();
+
+  /// Returns the associated cache pool.
+  CachePool& pool() const {
+    return *internal_cache::Access::StaticCast<CachePool>(pool_);
+  }
 
   /// Returns the strong reference count for testing/debugging.
   std::uint32_t use_count() const { return reference_count_.load(); }
