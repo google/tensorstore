@@ -566,6 +566,13 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#envvar-PYTHON_BIN_PATH" class="md-nav__link">
+    <span aria-label="environment variable" class="objinfo-icon objinfo-icon__alias" title="environment variable">$</span><span title="PYTHON_BIN_PATH (environment variable) — Path to Python binary to use when running Python executables/tests.  When Bazel is invoked by the Python package build (setup.py), this is set automatically." class="md-ellipsis">PYTHON_<wbr>BIN_<wbr>PATH</span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -965,6 +972,13 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#envvar-PYTHON_BIN_PATH" class="md-nav__link">
+    <span aria-label="environment variable" class="objinfo-icon objinfo-icon__alias" title="environment variable">$</span><span title="PYTHON_BIN_PATH (environment variable) — Path to Python binary to use when running Python executables/tests.  When Bazel is invoked by the Python package build (setup.py), this is set automatically." class="md-ellipsis">PYTHON_<wbr>BIN_<wbr>PATH</span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1140,8 +1154,6 @@ overall build.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><code><span class="n">load</span><span class="p">(</span><span class="s2">&quot;@bazel_tools//tools/build_defs/repo:http.bzl&quot;</span><span class="p">,</span> <span class="s2">&quot;http_archive&quot;</span><span class="p">)</span>
 <span class="n">load</span><span class="p">(</span><span class="s2">&quot;@bazel_tools//tools/build_defs/repo:utils.bzl&quot;</span><span class="p">,</span> <span class="s2">&quot;maybe&quot;</span><span class="p">)</span>
 
-<span class="c1"># tensorstore requires prepopulated @bazel_skylib and @rules_perl repositories.</span>
-
 <span class="n">maybe</span><span class="p">(</span>
     <span class="n">http_archive</span><span class="p">,</span>
     <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;tensorstore&quot;</span><span class="p">,</span>
@@ -1263,7 +1275,7 @@ with some additional tools detailed in the sections below.
 The actual requirements vary depending on how TensorStore is built.  Installing
 the following packages (debian) will satisfy the build requirements
 for the examples in this document:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><code>sudo<span class="w"> </span>apt-get<span class="w"> </span>install<span class="w"> </span>build-essential<span class="w"> </span>git<span class="w"> </span>nasm<span class="w"> </span>perl<span class="w"> </span>python3<span class="w"> </span>python3-dev<span class="w"> </span>python3-pip<span class="w"> </span>python3-venv
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><code>sudo<span class="w"> </span>apt-get<span class="w"> </span>install<span class="w"> </span>build-essential<span class="w"> </span>git<span class="w"> </span>nasm<span class="w"> </span>python3<span class="w"> </span>python3-dev<span class="w"> </span>python3-pip<span class="w"> </span>python3-venv
 </code></pre></div>
 </div>
 <h3 id="bazel-build-requirements"><span id="id4"></span>Bazel Build Requirements<a class="headerlink" href="#bazel-build-requirements" title="Permalink to this heading">¶</a></h3>
@@ -1296,6 +1308,14 @@ ensures TensorStore uses up-to-date versions of these dependencies.</p>
 <dd><p>To use system-provided libraries, set the <span class="target" id="index-1"></span><a class="reference internal" href="#envvar-TENSORSTORE_SYSTEM_LIBS" title="TENSORSTORE_SYSTEM_LIBS (environment variable) — To use system-provided libraries, set the TENSORSTORE_SYSTEM_LIBS environment variable to a comma-separated list of the following identifiers prior to invoking Bazel:"><code class="xref std std-envvar docutils literal notranslate"><span class="pre">TENSORSTORE_SYSTEM_LIBS</span></code></a>
 environment variable to a comma-separated list of the following identifiers
 prior to invoking Bazel:</p>
+</dd></dl>
+
+<dl class="std envvar objdesc">
+<dt class="sig sig-object highlight std" id="envvar-PYTHON_BIN_PATH">
+<span class="sig-name descname"><span class="pre">PYTHON_BIN_PATH</span></span><a class="headerlink" href="#envvar-PYTHON_BIN_PATH" title="Permalink to this definition">¶</a></dt>
+<dd><p>Path to Python binary to use when running Python executables/tests.  When
+Bazel is invoked by the Python package build (<code class="file docutils literal notranslate"><span class="pre">setup.py</span></code>), this is set
+automatically.</p>
 </dd></dl>
 
 <table class="docutils data align-default" id="id8">
@@ -1405,9 +1425,6 @@ system dependencies are required for the <a class="reference internal" href="#cm
 <ul class="simple">
 <li><p>Python 3.8 or later</p></li>
 <li><p>CMake 3.24 or later</p></li>
-<li><p><a class="reference external" href="https://www.perl.org/">Perl</a>, for building libaom from source (default).
-Must be in <code class="docutils literal notranslate"><span class="pre">PATH</span></code>.  Not required if <code class="docutils literal notranslate"><span class="pre">-DTENSORSTORE_USE_SYSTEM_LIBAOM=ON</span></code>
-is specified.</p></li>
 <li><p><a class="reference external" href="https://nasm.us/">NASM</a>, for building libjpeg-turbo, libaom, and dav1d from
 source (default).  Must be in <code class="docutils literal notranslate"><span class="pre">PATH</span></code>.Not required if
 <code class="docutils literal notranslate"><span class="pre">-DTENSORSTORE_USE_SYSTEM_{JPEG,LIBAOM,DAV1D}=ON</span></code> is specified.</p></li>
