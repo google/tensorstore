@@ -327,6 +327,47 @@ TEST(MaskedArrayTest, StoreIfEqualToFillValue) {
   }
 }
 
+// Tests that `compare_to_fill_value_using_identical_equality==true` is
+// correctly handled.
+TEST(MaskedArrayTest, CompareFillValueIdenticallyEqual) {
+  auto fill_value =
+      MakeScalarArray<float>(std::numeric_limits<float>::quiet_NaN());
+  tensorstore::Box<> component_bounds;
+  Spec spec(fill_value, component_bounds);
+  spec.compare_to_fill_value_using_identical_equality = true;
+  MaskedArray write_state(0);
+  // Fully overwrite the portion within `component_bounds`.
+  TestWrite(&write_state, spec, {},
+            tensorstore::MakeScalarArray<float>(
+                std::numeric_limits<float>::signaling_NaN()),
+            /*expected_modified=*/true);
+  {
+    auto writeback_data = write_state.GetArrayForWriteback(
+        spec, /*origin=*/{}, /*read_array=*/{},
+        /*read_state_already_integrated=*/false);
+    EXPECT_TRUE(AreArraysIdenticallyEqual(
+        tensorstore::MakeScalarArray<float>(
+            std::numeric_limits<float>::signaling_NaN()),
+        writeback_data.array));
+    EXPECT_TRUE(writeback_data.must_store);
+  }
+
+  TestWrite(&write_state, spec, {},
+            tensorstore::MakeScalarArray<float>(
+                std::numeric_limits<float>::quiet_NaN()),
+            /*expected_modified=*/true);
+  {
+    auto writeback_data = write_state.GetArrayForWriteback(
+        spec, /*origin=*/{}, /*read_array=*/{},
+        /*read_state_already_integrated=*/false);
+    EXPECT_TRUE(
+        AreArraysIdenticallyEqual(tensorstore::MakeScalarArray<float>(
+                                      std::numeric_limits<float>::quiet_NaN()),
+                                  writeback_data.array));
+    EXPECT_FALSE(writeback_data.must_store);
+  }
+}
+
 TEST(AsyncWriteArrayTest, Basic) {
   AsyncWriteArray async_write_array(2);
   auto fill_value = MakeArray<int32_t>({{1, 2, 3}, {4, 5, 6}});

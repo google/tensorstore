@@ -1898,14 +1898,22 @@ std::string ToString(
 /// ``operator==`` in that negative zero is not equal to positive zero, and
 /// NaN is equal to NaN.
 ///
-/// Note that this differs from bit equality, because there are multiple bit
-/// representations of NaN, and this functions treats all of them as equal.
+/// Note that this differs from bit equality (`AreArraysIdentical`), because
+/// there are multiple bit representations of NaN, and this functions treats all
+/// of them as equal.
 ///
 /// Checks that the data types, domains, and content are equal.
 ///
 /// \relates Array
 bool AreArraysSameValueEqual(const OffsetArrayView<const void>& a,
                              const OffsetArrayView<const void>& b);
+
+/// Compares two arrays for "identical" equality.
+///
+/// This differs from normal equality in that floating point values are compared
+/// bitwise.
+bool AreArraysIdenticallyEqual(const OffsetArrayView<const void>& a,
+                               const OffsetArrayView<const void>& b);
 
 /// Validates that `source_shape` can be broadcast to `target_shape`.
 ///

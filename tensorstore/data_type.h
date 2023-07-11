@@ -506,18 +506,30 @@ struct DataTypeOperations {
   using AppendToStringFunction = void (*)(std::string* result, const void* ptr);
   AppendToStringFunction append_to_string;
 
-  /// Compares two strided arrays for equality.
+  /// Compares two arrays for equality.
+  ///
+  /// This uses regular equality, which for floating point types considers
+  /// positive and negative zero equal, and NaN unequal to itself.
   using CompareEqualFunction = ElementwiseFunction<2, absl::Status*>;
   CompareEqualFunction compare_equal;
 
-  /// Compares two strided arrays for equality, taking into account negative
+  /// Compares two arrays for equality, taking into account negative
   /// zero and NaN for floating point types (negative zero is not equal to
   /// positive zero, and NaN is equal to NaN).
   ///
-  /// Note that this not the same as bit equality, because there are multiple
-  /// possible bit representations of NaN, and this function considers all of
-  /// them to be equal.
+  /// For integer types this is equivalent to `compare_equal`.
+  ///
+  /// Note that this not the same as `compare_identical`, because there are
+  /// multiple possible bit representations of NaN, and this function considers
+  /// all of them to be equal.
   CompareEqualFunction compare_same_value;
+
+  /// Checks if two arrays are identical.
+  ///
+  /// For integer and floating point types, this performs a bitwise comparison.
+  ///
+  /// For integer types this is equivalent to `compare_equal`.
+  CompareEqualFunction compare_identical;
 
   struct CanonicalConversionOperations {
     // Function for converting to/from canonical data type.
@@ -621,6 +633,11 @@ class DataType {
     return operations_->compare_same_value;
   }
 
+  constexpr const Ops::CompareEqualFunction& compare_identical_function()
+      const {
+    return operations_->compare_identical;
+  }
+
   constexpr const Ops::CopyAssignFunction& copy_assign_function() const {
     return operations_->copy_assign;
   }
@@ -708,10 +725,22 @@ bool CompareEqual(const T& a, const T& b) {
 /// For floating point types, this differs from normal `operator==` in that
 /// negative zero is not equal to positive zero, and NaN is equal to NaN.
 ///
-/// Note that this differs from bit equality, because there are multiple bit
-/// representations of NaN, and this functions treats all of them as equal.
+/// Note that this differs from bit equality (`CompareIdentical`), because there
+/// are multiple bit representations of NaN, and this functions treats all of
+/// them as equal.
 template <typename T>
 bool CompareSameValue(const T& a, const T& b) {
+  if constexpr (internal::IsEqualityComparable<T>) {
+    return a == b;
+  }
+  return false;
+}
+
+/// Checks if two values are identical (indistinguishable).
+///
+/// For floating point types, this does a bitwise comparison.
+template <typename T>
+bool CompareIdentical(const T& a, const T& b) {
   if constexpr (internal::IsEqualityComparable<T>) {
     return a == b;
   }
@@ -726,6 +755,11 @@ bool CompareSameValue(const T& a, const T& b) {
     using Int = internal::uint_t<sizeof(T) * 8>;                        \
     return internal::bit_cast<Int>(a) == internal::bit_cast<Int>(b);    \
   }                                                                     \
+  template <>                                                           \
+  inline bool CompareIdentical<T>(const T& a, const T& b) {             \
+    using Int = internal::uint_t<sizeof(T) * 8>;                        \
+    return internal::bit_cast<Int>(a) == internal::bit_cast<Int>(b);    \
+  }                                                                     \
   /**/
 TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(
     TENSORSTORE_INTERNAL_DO_DEFINE_COMPARE_SAME_VALUE_FLOAT)
@@ -736,6 +770,11 @@ TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(
   inline bool CompareSameValue<T>(const T& a, const T& b) {               \
     return CompareSameValue(a.real(), b.real()) &&                        \
            CompareSameValue(a.imag(), b.imag());                          \
+  }                                                                       \
+  template <>                                                             \
+  inline bool CompareIdentical<T>(const T& a, const T& b) {               \
+    return CompareIdentical(a.real(), b.real()) &&                        \
+           CompareIdentical(a.imag(), b.imag());                          \
   }                                                                       \
   /**/
 TENSORSTORE_FOR_EACH_COMPLEX_DATA_TYPE(
@@ -801,6 +840,12 @@ struct DataTypeElementwiseOperationsImpl {
     }
   };
 
+  struct CompareIdenticalImpl {
+    bool operator()(const T* source, const T* dest, absl::Status*) const {
+      return internal_data_type::CompareIdentical<T>(*source, *dest);
+    }
+  };
+
   using Initialize =
       internal::SimpleElementwiseFunction<InitializeImpl(T), absl::Status*>;
 
@@ -817,6 +862,9 @@ struct DataTypeElementwiseOperationsImpl {
                                           absl::Status*>;
   using CompareSameValue = internal::SimpleElementwiseFunction<
       CompareSameValueImpl(const T, const T), absl::Status*>;
+
+  using CompareIdentical = internal::SimpleElementwiseFunction<
+      CompareIdenticalImpl(const T, const T), absl::Status*>;
 };
 
 template <typename T>
@@ -839,8 +887,10 @@ constexpr internal::DataTypeOperations DataTypeOperationsImpl = {
     /*.append_to_string=*/&DataTypeSimpleOperationsImpl<T>::AppendToString,
     /*.compare_equal=*/
     typename DataTypeElementwiseOperationsImpl<T>::CompareEqual(),
-    /*.compare_equal=*/
+    /*.compare_same_value=*/
     typename DataTypeElementwiseOperationsImpl<T>::CompareSameValue(),
+    /*.compare_identical=*/
+    typename DataTypeElementwiseOperationsImpl<T>::CompareIdentical(),
     /*.canonical_conversion=*/nullptr,
 };
 

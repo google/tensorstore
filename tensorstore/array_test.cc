@@ -73,6 +73,7 @@ using ::tensorstore::MakeArray;
 using ::tensorstore::MakeArrayView;
 using ::tensorstore::MakeCopy;
 using ::tensorstore::MakeOffsetArray;
+using ::tensorstore::MakeScalarArray;
 using ::tensorstore::MakeScalarArrayView;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::offset_origin;
@@ -995,6 +996,15 @@ TEST(ArrayTest, Compare) {
   EXPECT_TRUE(ArrayView<void>(MakeScalarArrayView(1.0)) !=
               MakeScalarArrayView(1));
   EXPECT_TRUE(MakeArrayView({1}) != MakeArrayView({1, 2}));
+
+  EXPECT_FALSE(
+      MakeScalarArray<float>(std::numeric_limits<float>::quiet_NaN()) ==
+      MakeScalarArray<float>(std::numeric_limits<float>::quiet_NaN()));
+
+  EXPECT_FALSE(MakeScalarArray<std::complex<float>>(
+                   std::numeric_limits<float>::quiet_NaN()) ==
+               MakeScalarArray<std::complex<float>>(
+                   std::numeric_limits<float>::quiet_NaN()));
 }
 
 TEST(ArrayTest, SameValue) {
@@ -1009,6 +1019,40 @@ TEST(ArrayTest, SameValue) {
   EXPECT_FALSE(AreArraysSameValueEqual(
       MakeArrayView<float>({{NAN, 2, +0.0}, {4, 5, 6}}),
       MakeArrayView<float>({{NAN, 2, -0.0}, {4, 5, 6}})));
+
+  EXPECT_TRUE(AreArraysSameValueEqual(
+      MakeScalarArray<float>(std::numeric_limits<float>::quiet_NaN()),
+      MakeScalarArray<float>(std::numeric_limits<float>::signaling_NaN())));
+
+  EXPECT_TRUE(AreArraysSameValueEqual(
+      MakeScalarArray<std::complex<float>>(
+          std::numeric_limits<float>::quiet_NaN()),
+      MakeScalarArray<std::complex<float>>(
+          std::numeric_limits<float>::signaling_NaN())));
+}
+
+TEST(ArrayTest, Identical) {
+  EXPECT_TRUE(
+      AreArraysIdenticallyEqual(MakeArrayView<float>({{1, 2, 3}, {4, 5, 6}}),
+                                MakeArrayView<float>({{1, 2, 3}, {4, 5, 6}})));
+
+  EXPECT_TRUE(AreArraysIdenticallyEqual(
+      MakeArrayView<float>({{NAN, 2, 3}, {4, 5, 6}}),
+      MakeArrayView<float>({{NAN, 2, 3}, {4, 5, 6}})));
+
+  EXPECT_FALSE(AreArraysIdenticallyEqual(
+      MakeArrayView<float>({{NAN, 2, +0.0}, {4, 5, 6}}),
+      MakeArrayView<float>({{NAN, 2, -0.0}, {4, 5, 6}})));
+
+  EXPECT_FALSE(AreArraysIdenticallyEqual(
+      MakeScalarArray<float>(std::numeric_limits<float>::quiet_NaN()),
+      MakeScalarArray<float>(std::numeric_limits<float>::signaling_NaN())));
+
+  EXPECT_FALSE(AreArraysIdenticallyEqual(
+      MakeScalarArray<std::complex<float>>(
+          std::numeric_limits<float>::quiet_NaN()),
+      MakeScalarArray<std::complex<float>>(
+          std::numeric_limits<float>::signaling_NaN())));
 }
 
 TEST(CopyArrayTest, ZeroOrigin) {
