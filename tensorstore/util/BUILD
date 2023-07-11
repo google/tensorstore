@@ -416,6 +416,18 @@ tensorstore_cc_library(
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/flags:marshalling",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:str_format",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "json_absl_flag_test",
+    srcs = ["json_absl_flag_test.cc"],
+    deps = [
+        ":json_absl_flag",
+        "//tensorstore/internal/json_binding",
+        "//tensorstore/kvstore",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
