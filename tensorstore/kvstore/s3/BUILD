@@ -61,7 +61,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:retry",
         "//tensorstore/internal:retries_context_resource",
         "@com_google_absl//absl/base",
-        "@com_google_absl//absl/flags:marshalling",
+        "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/time",
     ],
