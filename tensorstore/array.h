@@ -2052,6 +2052,16 @@ UnbroadcastArrayPreserveRank(
   return unbroadcast;
 }
 
+/// Checks if `array` has a contiguous layout with the specified order.
+template <typename ElementTag, DimensionIndex Rank, ArrayOriginKind OriginKind,
+          ContainerKind LayoutCKind>
+bool IsContiguousLayout(
+    const Array<ElementTag, Rank, OriginKind, LayoutCKind>& array,
+    ContiguousLayoutOrder order) {
+  return tensorstore::IsContiguousLayout(array.layout(), order,
+                                         array.dtype().size());
+}
+
 namespace internal_array {
 
 /// Encodes an array to `sink`.

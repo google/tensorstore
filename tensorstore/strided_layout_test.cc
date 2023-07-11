@@ -1126,4 +1126,22 @@ TEST(ArrayOriginKindTest, PrintToOstream) {
   EXPECT_EQ("offset", StrCat(offset_origin));
 }
 
+TEST(StridedLayoutTest, IsContiguousLayout) {
+  EXPECT_TRUE(IsContiguousLayout(
+      StridedLayout<>(ContiguousLayoutOrder::c, 2, {{3, 4, 5}}),
+      ContiguousLayoutOrder::c, 2));
+  EXPECT_FALSE(IsContiguousLayout(
+      StridedLayout<>(ContiguousLayoutOrder::c, 2, {{3, 4, 5}}),
+      ContiguousLayoutOrder::c, 3));
+  EXPECT_TRUE(IsContiguousLayout(
+      StridedLayout<>(ContiguousLayoutOrder::fortran, 2, {{3, 4, 5}}),
+      ContiguousLayoutOrder::fortran, 2));
+  EXPECT_FALSE(IsContiguousLayout(
+      StridedLayout<>(ContiguousLayoutOrder::c, 2, {{3, 4, 5}}),
+      ContiguousLayoutOrder::fortran, 2));
+  EXPECT_FALSE(IsContiguousLayout(
+      StridedLayout<>(ContiguousLayoutOrder::fortran, 2, {{3, 4, 5}}),
+      ContiguousLayoutOrder::c, 2));
+}
+
 }  // namespace
