@@ -101,7 +101,7 @@ Result<std::unique_ptr<CredentialProvider>> GetDefaultS3CredentialProvider(
     std::shared_ptr<internal_http::HttpTransport> transport) {
 
   // 1. Obtain credentials from environment variables
-  if(auto access_key = GetEnv(kEnvAwsAccessKeyId); access_key.has_value()) {
+  if(auto access_key = GetEnv(kEnvAwsAccessKeyId); access_key) {
     ABSL_LOG(INFO) << "Using Environment Variable S3CredentialProvider";
     S3Credentials credentials;
     credentials.access_key = *access_key;
@@ -121,7 +121,7 @@ Result<std::unique_ptr<CredentialProvider>> GetDefaultS3CredentialProvider(
   }
 
   // 2. Obtain credentials from AWS_SHARED_CREDENTIALS_FILE or ~/.aws/credentials
-  if(auto credentials_file = GetS3CredentialsFileName(); credentials_file.ok()) {
+  if(auto credentials_file = GetS3CredentialsFileName(); credentials_file) {
     std::optional<std::string> env_profile;  // value must not outlive view
     if(profile.empty()) {
         env_profile = GetEnv(kEnvAwsDefaultProfile);
