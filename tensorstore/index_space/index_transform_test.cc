@@ -1126,4 +1126,16 @@ TEST(ComputeInputDimensionReferenceCountsTest, IndexArray) {
   EXPECT_THAT(reference_counts, ::testing::ElementsAre(0, 1, 1));
 }
 
+TEST(TranslateOutputDimensionsByTest, Basic) {
+  auto orig_transform = IdentityTransform(3);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto expected_transform, IndexTransformBuilder(3, 3)
+                                   .output_single_input_dimension(0, 1, 1, 0)
+                                   .output_single_input_dimension(1, 2, 1, 1)
+                                   .output_single_input_dimension(2, 3, 1, 2)
+                                   .Finalize());
+  EXPECT_THAT(TranslateOutputDimensionsBy(orig_transform, {{1, 2, 3}}),
+              ::testing::Optional(expected_transform));
+}
+
 }  // namespace

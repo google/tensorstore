@@ -337,6 +337,7 @@ tensorstore_cc_library(
         "internal/propagate_bounds.cc",
         "internal/transform_array.cc",
         "internal/transform_rep.cc",
+        "internal/translate_output_dimensions.cc",
         "internal/transpose.cc",
         "json.cc",
     ],
@@ -410,6 +411,7 @@ tensorstore_cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/strings:str_format",
     ],
 )
 

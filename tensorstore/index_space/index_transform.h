@@ -1249,6 +1249,25 @@ IndexTransform<InputRank, OutputRank> WithImplicitDimensions(
 }
 
 namespace internal_index_space {
+Result<TransformRep::Ptr<>> TranslateOutputDimensionsBy(
+    TransformRep::Ptr<> transform, span<const Index> offsets);
+}  // namespace internal_index_space
+
+template <DimensionIndex InputRank, DimensionIndex OutputRank,
+          ContainerKind CKind>
+Result<IndexTransform<InputRank, OutputRank>> TranslateOutputDimensionsBy(
+    IndexTransform<InputRank, OutputRank, CKind> transform,
+    internal::type_identity_t<span<const Index, OutputRank>> offsets) {
+  using internal_index_space::TransformAccess;
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto rep,
+      internal_index_space::TranslateOutputDimensionsBy(
+          TransformAccess::rep_ptr<container>(std::move(transform)), offsets));
+  return TransformAccess::Make<IndexTransform<InputRank, OutputRank>>(
+      std::move(rep));
+}
+
+namespace internal_index_space {
 
 /// Serializer for non-null `IndexTransform` values.
 ///
