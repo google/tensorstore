@@ -115,6 +115,7 @@ def _write_third_party_libraries_summary(runfiles_dir: str, output_path: str):
       if not workspace_bzl_file.exists():
         continue
       identifier = dep.name
+
       system_lib_supported = (dep / 'system.BUILD.bazel').exists()
       if not system_lib_supported:
         continue

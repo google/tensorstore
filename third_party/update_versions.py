@@ -22,6 +22,7 @@ import os
 import pathlib
 import re
 import subprocess
+import sys
 import tarfile
 import tempfile
 import time
@@ -50,7 +51,7 @@ def _is_mirror_url(url: str) -> Tuple[str, bool]:
   return url, False
 
 
-def mirror_url(url: str) -> Tuple[str, str, Optional[str]]:
+def mirror_url(url: str) -> Tuple[str, str]:
   """Mirrors the provided url to the tensorstore mirror bucket."""
 
   url, _ = _is_mirror_url(url)
@@ -633,6 +634,11 @@ def update_workspace(
     )
 
   workspace_bzl_file.write_text(new_workspace_content)
+
+  post_update = workspace_bzl_file.parent / "post_update.py"
+  if post_update.exists():
+    print(f"Running post update script: {post_update}")
+    subprocess.run([sys.executable, post_update], check=True)
 
 
 def main():
