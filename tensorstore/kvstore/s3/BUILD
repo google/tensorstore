@@ -91,8 +91,8 @@ tensorstore_cc_test(
 
 tensorstore_cc_library(
     name = "s3",
-    srcs = ["s3_key_value_store.cc", "object_metadata.cc"],
-    hdrs = ["object_metadata.h"],
+    srcs = ["s3_key_value_store.cc", "s3_metadata.cc"],
+    hdrs = ["s3_metadata.h"],
     deps = [
         "//tensorstore/kvstore",
         ":s3_credential_provider",
@@ -109,10 +109,10 @@ tensorstore_cc_library(
 
 
 tensorstore_cc_test(
-    name = "object_metadata_test",
+    name = "s3_metadata_test",
     size = "small",
     srcs = [
-        "object_metadata_test.cc",
+        "s3_metadata_test.cc",
     ],
     deps = [
         ":s3",
