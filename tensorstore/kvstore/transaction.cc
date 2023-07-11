@@ -56,7 +56,7 @@ void PerformWriteback(Driver* driver, Controller controller,
     ReadOptions read_options;
     read_options.if_not_equal =
         StorageGeneration::Clean(std::move(read_result.stamp.generation));
-    read_options.byte_range = {0, 0};
+    read_options.byte_range = OptionalByteRangeRequest{0, 0};
     auto future = driver->Read(controller.GetKey(), std::move(read_options));
     future.Force();
     std::move(future).ExecuteWhenReady(

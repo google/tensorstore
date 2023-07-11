@@ -67,9 +67,9 @@ Future<kvstore::ReadResult> MockKeyValueStore::Read(Key key,
       log_entry.emplace("byte_range_inclusive_min",
                         options.byte_range.inclusive_min);
     }
-    if (options.byte_range.exclusive_max) {
+    if (options.byte_range.exclusive_max != -1) {
       log_entry.emplace("byte_range_exclusive_max",
-                        *options.byte_range.exclusive_max);
+                        options.byte_range.exclusive_max);
     }
     request_log.push(std::move(log_entry));
   }

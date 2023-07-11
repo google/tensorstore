@@ -32,6 +32,7 @@
 
 namespace {
 using ::tensorstore::MatchesJson;
+using ::tensorstore::MatchesStatus;
 using ::tensorstore::internal_ocdbt::BtreeNode;
 using ::tensorstore::internal_ocdbt::CommitTime;
 using ::tensorstore::internal_ocdbt::DataFileId;
@@ -48,6 +49,44 @@ TEST(LabeledIndirectDataReferenceTest, Parse) {
   EXPECT_EQ((DataFileId{"abc", "def "}), value.location.file_id);
   EXPECT_EQ(1, value.location.offset);
   EXPECT_EQ(36, value.location.length);
+}
+
+TEST(LabeledIndirectDataReferenceTest, MaxOffset) {
+  // 9223372036854775807 = 2^63-1
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto value, LabeledIndirectDataReference::Parse(
+                      "btreenode:abc:def%20:9223372036854775807:0"));
+  EXPECT_EQ("btreenode", value.label);
+  EXPECT_EQ((DataFileId{"abc", "def "}), value.location.file_id);
+  EXPECT_EQ(9223372036854775807, value.location.offset);
+  EXPECT_EQ(0, value.location.length);
+}
+
+TEST(LabeledIndirectDataReferenceTest, MaxOffsetAndLength) {
+  // 9223372036854775806 = 2^63-2
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto value, LabeledIndirectDataReference::Parse(
+                      "btreenode:abc:def%20:9223372036854775806:1"));
+  EXPECT_EQ("btreenode", value.label);
+  EXPECT_EQ((DataFileId{"abc", "def "}), value.location.file_id);
+  EXPECT_EQ(9223372036854775806, value.location.offset);
+  EXPECT_EQ(1, value.location.length);
+}
+
+TEST(LabeledIndirectDataReferenceTest, OffsetTooLarge) {
+  // 9223372036854775808 = 2^63
+  EXPECT_THAT(
+      LabeledIndirectDataReference::Parse(
+          "btreenode:abc:def%20:9223372036854775808:0"),
+      MatchesStatus(absl::StatusCode::kDataLoss, "Invalid offset/length .*"));
+}
+
+TEST(LabeledIndirectDataReferenceTest, LengthTooLarge) {
+  // 9223372036854775807 = 2^63-1
+  EXPECT_THAT(
+      LabeledIndirectDataReference::Parse(
+          "btreenode:abc:def%20:9223372036854775807:1"),
+      MatchesStatus(absl::StatusCode::kDataLoss, "Invalid offset/length .*"));
 }
 
 TEST(DumpTest, Manifest) {

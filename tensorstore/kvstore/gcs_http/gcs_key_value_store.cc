@@ -611,9 +611,11 @@ struct ReadTask : public RateLimiterNode,
       TENSORSTORE_ASSIGN_OR_RETURN(auto content_range_tuple,
                                    ParseContentRangeHeader(httpresponse));
 
-      if (options.byte_range.inclusive_min !=
-              std::get<0>(content_range_tuple) ||
-          payload_size != options.byte_range.size().value_or(payload_size)) {
+      if (auto request_size = options.byte_range.size();
+          (options.byte_range.inclusive_min != -1 &&
+           options.byte_range.inclusive_min !=
+               std::get<0>(content_range_tuple)) ||
+          (request_size != -1 && request_size != payload_size)) {
         // Return an error when the response does not start at the requested
         // offset of when the response is smaller than the desired size.
         return absl::OutOfRangeError(tensorstore::StrCat(

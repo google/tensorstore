@@ -85,7 +85,7 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(ShardingSpec, [](auto is_loading,
       jb::Member("preshift_bits", jb::Projection(&ShardingSpec::preshift_bits,
                                                  jb::Integer<int>(0, 64))),
       jb::Member("minishard_bits", jb::Projection(&ShardingSpec::minishard_bits,
-                                                  jb::Integer<int>(0, 60))),
+                                                  jb::Integer<int>(0, 32))),
       jb::Member("shard_bits",
                  jb::Dependent([](auto is_loading, const auto& options,
                                   auto* obj, auto* j) {
@@ -171,13 +171,13 @@ ChunkSplitShardInfo GetSplitShardInfo(const ShardingSpec& sharding_spec,
   return result;
 }
 
-std::uint64_t ShardIndexSize(const ShardingSpec& sharding_spec) {
-  return static_cast<std::uint64_t>(16) << sharding_spec.minishard_bits;
+int64_t ShardIndexSize(const ShardingSpec& sharding_spec) {
+  return static_cast<int64_t>(16) << sharding_spec.minishard_bits;
 }
 
 Result<ByteRange> GetAbsoluteShardByteRange(ByteRange relative_range,
                                             const ShardingSpec& sharding_spec) {
-  const std::uint64_t offset = ShardIndexSize(sharding_spec);
+  const int64_t offset = ShardIndexSize(sharding_spec);
   ByteRange result;
   if (internal::AddOverflow(relative_range.inclusive_min, offset,
                             &result.inclusive_min) ||

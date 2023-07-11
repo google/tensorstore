@@ -34,12 +34,15 @@ std::optional<std::string> FormatRangeHeader(
     OptionalByteRangeRequest byte_range) {
   // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Range
   assert(byte_range.SatisfiesInvariants());
-  if (byte_range.exclusive_max) {
+  if (byte_range.IsRange()) {
     return absl::StrFormat("Range: bytes=%d-%d", byte_range.inclusive_min,
-                           *byte_range.exclusive_max - 1);
+                           byte_range.exclusive_max - 1);
   }
-  if (byte_range.inclusive_min > 0) {
+  if (byte_range.IsSuffix()) {
     return absl::StrFormat("Range: bytes=%d-", byte_range.inclusive_min);
+  }
+  if (byte_range.IsSuffixLength()) {
+    return absl::StrFormat("Range: bytes=%d", byte_range.inclusive_min);
   }
   return std::nullopt;
 }

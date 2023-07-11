@@ -49,7 +49,7 @@ namespace internal_ocdbt {
 Result<LabeledIndirectDataReference> LabeledIndirectDataReference::Parse(
     std::string_view s) {
   LabeledIndirectDataReference r;
-  static LazyRE2 kPattern = {"([^:]+):([^:]+):([^:]+):([0-9]+):([0-9]+)"};
+  static LazyRE2 kPattern = {"([^:]+):([^:]*):([^:]*):([0-9]+):([0-9]+)"};
   std::string_view encoded_base_path, encoded_relative_path;
   if (!RE2::FullMatch(s, *kPattern, &r.label, &encoded_base_path,
                       &encoded_relative_path, &r.location.offset,
@@ -60,6 +60,7 @@ Result<LabeledIndirectDataReference> LabeledIndirectDataReference::Parse(
   r.location.file_id.base_path = internal::PercentDecode(encoded_base_path);
   r.location.file_id.relative_path =
       internal::PercentDecode(encoded_relative_path);
+  TENSORSTORE_RETURN_IF_ERROR(r.location.Validate(/*allow_missing=*/false));
   return r;
 }
 

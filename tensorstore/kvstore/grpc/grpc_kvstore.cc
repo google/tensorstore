@@ -205,14 +205,11 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask> {
     request.set_key(std::move(key));
     request.set_generation_if_equal(options.if_equal.value);
     request.set_generation_if_not_equal(options.if_not_equal.value);
-    if (options.byte_range.inclusive_min != 0 ||
-        options.byte_range.exclusive_max != std::nullopt) {
+    if (!options.byte_range.IsFull()) {
       request.mutable_byte_range()->set_inclusive_min(
           options.byte_range.inclusive_min);
-      if (options.byte_range.exclusive_max != std::nullopt) {
-        request.mutable_byte_range()->set_exclusive_max(
-            *options.byte_range.exclusive_max);
-      }
+      request.mutable_byte_range()->set_exclusive_max(
+          options.byte_range.exclusive_max);
     }
     if (options.staleness_bound != absl::InfiniteFuture()) {
       AbslTimeToProto(options.staleness_bound,

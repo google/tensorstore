@@ -87,12 +87,10 @@ class ShardingSpec {
   DataEncoding data_encoding = DataEncoding::raw;
   DataEncoding minishard_index_encoding = DataEncoding::raw;
 
-  std::uint64_t num_shards() const {
-    return static_cast<std::uint64_t>(1) << shard_bits;
-  }
+  uint64_t num_shards() const { return static_cast<uint64_t>(1) << shard_bits; }
 
-  std::uint64_t num_minishards() const {
-    return static_cast<std::uint64_t>(1) << minishard_bits;
+  uint64_t num_minishards() const {
+    return static_cast<uint64_t>(1) << minishard_bits;
   }
 
   friend bool operator==(const ShardingSpec& a, const ShardingSpec& b);
@@ -113,22 +111,22 @@ TENSORSTORE_DECLARE_JSON_BINDER(DataEncodingJsonBinder,
 
 /// Returns the data path for the specified shard.
 std::string GetShardKey(const ShardingSpec& sharding_spec,
-                        std::string_view prefix, std::uint64_t shard_number);
+                        std::string_view prefix, uint64_t shard_number);
 
 struct ChunkId {
-  std::uint64_t value;
+  uint64_t value;
 };
 
 /// Hashes a pre-shifted 64-bit key with the specified hash function.
-std::uint64_t HashChunkId(ShardingSpec::HashFunction h, std::uint64_t key);
+uint64_t HashChunkId(ShardingSpec::HashFunction h, uint64_t key);
 
 struct ChunkCombinedShardInfo {
-  std::uint64_t shard_and_minishard;
+  uint64_t shard_and_minishard;
 };
 
 struct ChunkSplitShardInfo {
-  std::uint64_t minishard;
-  std::uint64_t shard;
+  uint64_t minishard;
+  uint64_t shard;
 };
 
 ChunkCombinedShardInfo GetChunkShardInfo(const ShardingSpec& sharding_spec,
@@ -167,7 +165,7 @@ struct MinishardIndexEntry {
 using ShardIndexEntry = ByteRange;
 
 /// Returns the size in bytes of the shard index.
-std::uint64_t ShardIndexSize(const ShardingSpec& sharding_spec);
+int64_t ShardIndexSize(const ShardingSpec& sharding_spec);
 
 /// Converts a byte range relative to the end of the shard index to be relative
 /// to the start of the shard file.

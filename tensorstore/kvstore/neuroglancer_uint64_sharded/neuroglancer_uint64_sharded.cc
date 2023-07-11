@@ -234,8 +234,9 @@ class MinishardIndexKeyValueStore : public kvstore::Driver {
              std::move(promise), std::move(read_future));
       }
     };
-    options.byte_range = {split_info.minishard * 16,
-                          (split_info.minishard + 1) * 16};
+    options.byte_range = OptionalByteRangeRequest{
+        static_cast<int64_t>(split_info.minishard * 16),
+        static_cast<int64_t>((split_info.minishard + 1) * 16)};
     const auto staleness_bound = options.staleness_bound;
     Link(WithExecutor(executor_,
                       ShardIndexReadyCallback{

@@ -142,6 +142,16 @@ void TestKeyValueStoreUnconditionalOps(
         MatchesKvsReadResult(absl::Cord("234"), write_result->generation));
   }
 
+  // Test unconditional byte range read with suffix length.
+  ABSL_LOG(INFO) << "Test unconditional byte range read with suffix length";
+  {
+    kvstore::ReadOptions options;
+    options.byte_range.inclusive_min = -1;
+    EXPECT_THAT(
+        kvstore::Read(store, key, options).result(),
+        MatchesKvsReadResult(absl::Cord("4"), write_result->generation));
+  }
+
   // Test unconditional byte range read.
   ABSL_LOG(INFO) << "Test unconditional byte range read with exclusive_max";
   {

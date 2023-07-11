@@ -400,8 +400,9 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
     if (options_.byte_range.inclusive_min != 0) {
       request_.set_read_offset(options_.byte_range.inclusive_min);
     }
-    if (options_.byte_range.exclusive_max) {
-      size_t target_size = options_.byte_range.size().value();
+    if (options_.byte_range.exclusive_max != -1) {
+      auto target_size = options_.byte_range.size();
+      assert(target_size >= 0);
       // read_limit == 0 reads the entire object; instead just read a single
       // byte.
       request_.set_read_limit(target_size == 0 ? 1 : target_size);
@@ -455,9 +456,11 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
       // the returned size to exceed the requested size.
       auto returned_size =
           response_.content_range().end() - response_.content_range().start();
-      if (returned_size < options_.byte_range.size().value_or(returned_size) ||
-          response_.content_range().start() !=
-              options_.byte_range.inclusive_min) {
+      if (auto size = options_.byte_range.size();
+          (size > 0 && size != returned_size) ||
+          (options_.byte_range.inclusive_min >= 0 &&
+           response_.content_range().start() !=
+               options_.byte_range.inclusive_min)) {
         promise_.SetResult(absl::OutOfRangeError(
             tensorstore::StrCat("Requested byte range ", options_.byte_range,
                                 " was not satisfied by GCS object with size ",
@@ -536,9 +539,7 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
           absl::InternalError("Object missing a valid generation"));
       return;
     }
-    auto target_size =
-        options_.byte_range.size().value_or(read_result_.value.size());
-    if (target_size == 0) {
+    if (options_.byte_range.size() == 0) {
       read_result_.value.Clear();
     } else if (crc32c_.has_value() &&
                ComputeCrc32c(read_result_.value) != *crc32c_) {

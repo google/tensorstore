@@ -65,7 +65,7 @@ Future<ReadResult> Read(const KvStore& store, std::string_view key,
     return absl::UnimplementedError(
         "if_equal condition not supported for transactional reads");
   }
-  if (options.byte_range.inclusive_min || options.byte_range.exclusive_max) {
+  if (!options.byte_range.IsFull()) {
     return absl::UnimplementedError(
         "byte_range restriction not supported for transactional reads");
   }

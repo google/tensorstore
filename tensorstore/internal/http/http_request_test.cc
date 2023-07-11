@@ -20,6 +20,7 @@
 
 namespace {
 
+using ::tensorstore::OptionalByteRangeRequest;
 using ::tensorstore::internal_http::HttpRequestBuilder;
 using ::testing::AnyOf;
 using ::testing::ElementsAre;
@@ -103,12 +104,17 @@ TEST(HttpRequestBuilder, MaybeAddRangeHeader) {
   }
   {
     HttpRequestBuilder builder("GET", "http://127.0.0.1:0/");
-    builder.MaybeAddRangeHeader({1});
+    builder.MaybeAddRangeHeader(OptionalByteRangeRequest::Suffix(1));
     EXPECT_THAT(builder.BuildRequest().headers, ElementsAre("Range: bytes=1-"));
   }
   {
     HttpRequestBuilder builder("GET", "http://127.0.0.1:0/");
-    builder.MaybeAddRangeHeader({1, 2});
+    builder.MaybeAddRangeHeader(OptionalByteRangeRequest::SuffixLength(5));
+    EXPECT_THAT(builder.BuildRequest().headers, ElementsAre("Range: bytes=-5"));
+  }
+  {
+    HttpRequestBuilder builder("GET", "http://127.0.0.1:0/");
+    builder.MaybeAddRangeHeader(OptionalByteRangeRequest{1, 2});
     EXPECT_THAT(builder.BuildRequest().headers,
                 ElementsAre("Range: bytes=1-1"));
   }

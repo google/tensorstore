@@ -253,11 +253,19 @@ void OnReadComplete(MergeValue merge_values,
     absl::Cord value = std::move(result.value);
 
     for (const auto& e : merge_values.subreads) {
-      auto request_start = e.byte_range.inclusive_min -
-                           merge_values.options.byte_range.inclusive_min;
-      auto request_size = e.byte_range.exclusive_max.value_or(
-                              std::numeric_limits<uint64_t>::max()) -
-                          e.byte_range.inclusive_min;
+      size_t request_start, request_size;
+      if (e.byte_range.inclusive_min < 0) {
+        request_start = value.size() + e.byte_range.inclusive_min;
+      } else {
+        request_start = e.byte_range.inclusive_min -
+                        merge_values.options.byte_range.inclusive_min;
+      }
+      if (e.byte_range.exclusive_max == -1) {
+        request_size = std::numeric_limits<size_t>::max();
+      } else {
+        request_size = e.byte_range.exclusive_max -
+                       merge_values.options.byte_range.inclusive_min;
+      }
       result.value =
           MaybeDeepCopyCord(value.Subcord(request_start, request_size));
       e.promise.SetResult(result);
@@ -295,9 +303,14 @@ void CoalesceKvStoreDriver::StartNextRead(
   MergeValue merged;
   merged.options = pending.front().options;
 
-  for (auto& e : pending) {
+  for (size_t i = 1; i < pending.size(); ++i) {
+    auto& e = pending[i];
     if (e.options.if_equal != merged.options.if_equal ||
-        e.options.if_not_equal != merged.options.if_not_equal) {
+        e.options.if_not_equal != merged.options.if_not_equal ||
+        // Don't merge suffix length byte requests with non-suffix-length byte
+        // requests.
+        (e.options.byte_range.inclusive_min < 0) !=
+            (merged.options.byte_range.inclusive_min < 0)) {
       // The options differ from the prior options, so issue the pending
       // request and start another.
       assert(!merged.subreads.empty());
@@ -308,10 +321,9 @@ void CoalesceKvStoreDriver::StartNextRead(
           });
       merged = MergeValue{};
       merged.options = e.options;
-    } else if (merged.options.byte_range.exclusive_max.has_value() &&
-               e.options.byte_range.inclusive_min >
-                   (merged.options.byte_range.exclusive_max.value() +
-                    threshold_)) {
+    } else if (merged.options.byte_range.exclusive_max != -1 &&
+               (e.options.byte_range.inclusive_min -
+                merged.options.byte_range.exclusive_max) > threshold_) {
       // The distance from the end of the prior read to the beginning of the
       // next read exceeds threshold_, so issue the pending request and start
       // another.
@@ -331,13 +343,13 @@ void CoalesceKvStoreDriver::StartNextRead(
       merged.options.byte_range.inclusive_min =
           std::min(merged.options.byte_range.inclusive_min,
                    e.options.byte_range.inclusive_min);
-      if (merged.options.byte_range.exclusive_max.has_value()) {
-        if (e.options.byte_range.exclusive_max.has_value()) {
+      if (merged.options.byte_range.exclusive_max != -1) {
+        if (e.options.byte_range.exclusive_max != -1) {
           merged.options.byte_range.exclusive_max =
-              std::max(merged.options.byte_range.exclusive_max.value(),
-                       e.options.byte_range.exclusive_max.value());
+              std::max(merged.options.byte_range.exclusive_max,
+                       e.options.byte_range.exclusive_max);
         } else {
-          merged.options.byte_range.exclusive_max = std::nullopt;
+          merged.options.byte_range.exclusive_max = -1;
         }
       }
     }

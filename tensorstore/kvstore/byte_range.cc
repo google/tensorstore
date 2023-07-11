@@ -29,8 +29,8 @@ namespace tensorstore {
 
 std::ostream& operator<<(std::ostream& os, const OptionalByteRangeRequest& r) {
   os << "[" << r.inclusive_min << ", ";
-  if (r.exclusive_max) {
-    os << *r.exclusive_max;
+  if (r.exclusive_max != -1) {
+    os << r.exclusive_max;
   } else {
     os << "?";
   }
@@ -42,14 +42,21 @@ std::ostream& operator<<(std::ostream& os, const ByteRange& r) {
   return os << "[" << r.inclusive_min << ", " << r.exclusive_max << ")";
 }
 
-Result<ByteRange> OptionalByteRangeRequest::Validate(std::uint64_t size) const {
+Result<ByteRange> OptionalByteRangeRequest::Validate(int64_t size) const {
   assert(SatisfiesInvariants());
-  if (inclusive_min > size || (exclusive_max && *exclusive_max > size)) {
+  int64_t inclusive_min = this->inclusive_min;
+  int64_t exclusive_max = this->exclusive_max;
+  if (exclusive_max == -1) exclusive_max = size;
+  if (inclusive_min < 0) {
+    inclusive_min += size;
+  }
+  if (inclusive_min < 0 || exclusive_max > size ||
+      inclusive_min > exclusive_max) {
     return absl::OutOfRangeError(
         tensorstore::StrCat("Requested byte range ", *this,
                             " is not valid for value of size ", size));
   }
-  return ByteRange{inclusive_min, exclusive_max.value_or(size)};
+  return ByteRange{inclusive_min, exclusive_max};
 }
 
 }  // namespace tensorstore

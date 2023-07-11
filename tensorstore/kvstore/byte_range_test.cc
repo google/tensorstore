@@ -42,6 +42,7 @@ TEST(ByteRangeTest, SatisfiesInvariants) {
   EXPECT_TRUE((ByteRange{100, 100}).SatisfiesInvariants());
   EXPECT_FALSE((ByteRange{100, 99}).SatisfiesInvariants());
   EXPECT_FALSE((ByteRange{100, 0}).SatisfiesInvariants());
+  EXPECT_FALSE((ByteRange{-100, 0}).SatisfiesInvariants());
 }
 
 TEST(ByteRangeTest, Size) {
@@ -72,13 +73,13 @@ TEST(ByteRangeTest, Ostream) {
 TEST(OptionalByteRangeRequestTest, DefaultConstruct) {
   OptionalByteRangeRequest r;
   EXPECT_EQ(0, r.inclusive_min);
-  EXPECT_EQ(std::nullopt, r.exclusive_max);
+  EXPECT_EQ(-1, r.exclusive_max);
 }
 
 TEST(OptionalByteRangeRequestTest, ConstructInclusiveMin) {
   OptionalByteRangeRequest r(5);
   EXPECT_EQ(5, r.inclusive_min);
-  EXPECT_EQ(std::nullopt, r.exclusive_max);
+  EXPECT_EQ(-1, r.exclusive_max);
 }
 
 TEST(OptionalByteRangeRequestTest, ConstructInclusiveMinExclusiveMax) {
@@ -97,7 +98,7 @@ TEST(OptionalByteRangeRequestTest, Comparison) {
   OptionalByteRangeRequest a{1, 2};
   OptionalByteRangeRequest b{1, 3};
   OptionalByteRangeRequest c{2, 3};
-  OptionalByteRangeRequest d{1, std::nullopt};
+  OptionalByteRangeRequest d{1, -1};
   EXPECT_TRUE(a == a);
   EXPECT_TRUE(b == b);
   EXPECT_TRUE(c == c);
@@ -121,6 +122,9 @@ TEST(OptionalByteRangeRequestTest, SatisfiesInvariants) {
   EXPECT_TRUE(OptionalByteRangeRequest(100, 100).SatisfiesInvariants());
   EXPECT_FALSE(OptionalByteRangeRequest(100, 99).SatisfiesInvariants());
   EXPECT_FALSE(OptionalByteRangeRequest(100, 0).SatisfiesInvariants());
+  EXPECT_FALSE(OptionalByteRangeRequest(-5, 0).SatisfiesInvariants());
+  EXPECT_FALSE(OptionalByteRangeRequest(-5, 3).SatisfiesInvariants());
+  EXPECT_FALSE(OptionalByteRangeRequest(3, -2).SatisfiesInvariants());
 }
 
 TEST(OptionalByteRangeRequestTest, Ostream) {
@@ -141,6 +145,10 @@ TEST(OptionalByteRangeRequestTest, Validate) {
               ::testing::Optional(ByteRange{5, 10}));
   EXPECT_THAT(OptionalByteRangeRequest(5).Validate(10),
               ::testing::Optional(ByteRange{5, 10}));
+  EXPECT_THAT(OptionalByteRangeRequest(-3).Validate(10),
+              ::testing::Optional(ByteRange{7, 10}));
+  EXPECT_THAT(OptionalByteRangeRequest(-10).Validate(10),
+              ::testing::Optional(ByteRange{0, 10}));
 
   EXPECT_THAT(OptionalByteRangeRequest(5, 10).Validate(9),
               MatchesStatus(absl::StatusCode::kOutOfRange,
@@ -151,6 +159,12 @@ TEST(OptionalByteRangeRequestTest, Validate) {
       OptionalByteRangeRequest(10, 15).Validate(9),
       MatchesStatus(absl::StatusCode::kOutOfRange,
                     "Requested byte range \\[10, 15\\) is not valid for "
+                    "value of size 9"));
+
+  EXPECT_THAT(
+      OptionalByteRangeRequest(-10).Validate(9),
+      MatchesStatus(absl::StatusCode::kOutOfRange,
+                    "Requested byte range \\[-10, \\?\\) is not valid for "
                     "value of size 9"));
 }
 
