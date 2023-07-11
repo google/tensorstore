@@ -17,6 +17,7 @@
 #include <stdlib.h>
 
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -81,6 +82,12 @@ struct CurlConfig {
   std::optional<std::string> ca_path = internal::GetEnv("TENSORSTORE_CA_PATH");
   std::optional<std::string> ca_bundle =
       internal::GetEnv("TENSORSTORE_CA_BUNDLE");
+  int64_t low_speed_time_seconds =
+      internal::GetEnvValue<int64_t>("TENSORSTORE_CURL_LOW_SPEED_TIME_SECONDS")
+          .value_or(0);
+  int64_t low_speed_limit_bytes =
+      internal::GetEnvValue<int64_t>("TENSORSTORE_CURL_LOW_SPEED_LIMIT_BYTES")
+          .value_or(0);
 };
 
 const CurlConfig& CurlEnvConfig() {
@@ -106,6 +113,21 @@ struct CurlRequestState {
     const auto& config = CurlEnvConfig();
     if (config.verbose) {
       TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_VERBOSE, 1L));
+    }
+
+    // Follow curl command manpage to set up default values for low speed
+    // timeout:
+    // https://curl.se/docs/manpage.html#-Y
+    if (config.low_speed_time_seconds > 0 || config.low_speed_limit_bytes > 0) {
+      auto seconds = config.low_speed_time_seconds > 0
+                         ? config.low_speed_time_seconds
+                         : 30;
+      auto bytes =
+          config.low_speed_limit_bytes > 0 ? config.low_speed_limit_bytes : 1;
+      TENSORSTORE_CHECK_OK(
+          CurlEasySetopt(handle_.get(), CURLOPT_LOW_SPEED_TIME, seconds));
+      TENSORSTORE_CHECK_OK(
+          CurlEasySetopt(handle_.get(), CURLOPT_LOW_SPEED_LIMIT, bytes));
     }
 
     if (const auto& x = config.ca_path) {
@@ -161,6 +183,10 @@ struct CurlRequestState {
         CurlEasySetopt(handle_.get(), CURLOPT_HEADERFUNCTION, nullptr));
     TENSORSTORE_CHECK_OK(
         CurlEasySetopt(handle_.get(), CURLOPT_ERRORBUFFER, nullptr));
+    TENSORSTORE_CHECK_OK(
+        CurlEasySetopt(handle_.get(), CURLOPT_LOW_SPEED_TIME, 0L));
+    TENSORSTORE_CHECK_OK(
+        CurlEasySetopt(handle_.get(), CURLOPT_LOW_SPEED_LIMIT, 0L));
 
     factory_->CleanupHandle(std::move(handle_));
   }
