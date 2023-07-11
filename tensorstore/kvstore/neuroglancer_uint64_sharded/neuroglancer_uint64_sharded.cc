@@ -1096,6 +1096,21 @@ class ShardedKeyValueStore
     return absl::OkStatus();
   }
 
+  Result<internal::OpenTransactionPtr> GetImplicitTransaction(
+      const Key& key) override {
+    TENSORSTORE_ASSIGN_OR_RETURN(ChunkId chunk_id, KeyToChunkIdOrError(key));
+    const auto& sharding_spec = this->sharding_spec();
+    const auto shard_info = GetSplitShardInfo(
+        sharding_spec, GetChunkShardInfo(sharding_spec, chunk_id));
+    const std::uint64_t shard = shard_info.shard;
+    auto entry = GetCacheEntry(
+        write_cache_, ShardedKeyValueStoreWriteCache::ShardToKey(shard));
+    internal::OpenTransactionPtr transaction;
+    TENSORSTORE_ASSIGN_OR_RETURN(auto node,
+                                 GetTransactionNode(*entry, transaction));
+    return transaction;
+  }
+
   absl::Status TransactionalDeleteRange(
       const internal::OpenTransactionPtr& transaction,
       KeyRange range) override {
