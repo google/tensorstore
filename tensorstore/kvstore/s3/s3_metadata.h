@@ -60,7 +60,7 @@ Result<std::string_view> GetTag(std::string_view data,
                                 std::string_view close_tag,
                                 std::size_t * pos);
 
-Result<StorageGeneration> ComputeGenerationFromHeaders(
+Result<StorageGeneration> StorageGenerationFromHeaders(
     const std::multimap<std::string, std::string>& headers);
 
 }  // namespace internal_storage_s3

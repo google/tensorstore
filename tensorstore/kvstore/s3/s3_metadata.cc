@@ -35,7 +35,7 @@ namespace internal_storage_s3 {
 using ::tensorstore::TimestampedStorageGeneration;
 
 
-Result<StorageGeneration> ComputeGenerationFromHeaders(
+Result<StorageGeneration> StorageGenerationFromHeaders(
     const std::multimap<std::string, std::string>& headers) {
 
   if(auto it = headers.find("etag"); it != headers.end()) {

@@ -77,7 +77,7 @@ using ::tensorstore::internal_http::HttpTransport;
 using ::tensorstore::internal_auth_s3::S3Credentials;
 using ::tensorstore::internal_auth_s3::CredentialProvider;
 using ::tensorstore::internal_auth_s3::GetS3CredentialProvider;
-using ::tensorstore::internal_storage_s3::ComputeGenerationFromHeaders;
+using ::tensorstore::internal_storage_s3::StorageGenerationFromHeaders;
 using ::tensorstore::internal_storage_gcs::IsRetriable;
 using ::tensorstore::internal_kvstore_gcs_http::RateLimiter;
 using ::tensorstore::internal_kvstore_gcs_http::RateLimiterNode;
@@ -613,7 +613,7 @@ struct ReadTask : public RateLimiterNode,
 
     TENSORSTORE_ASSIGN_OR_RETURN(
       read_result.stamp.generation,
-      ComputeGenerationFromHeaders(httpresponse.headers));
+      StorageGenerationFromHeaders(httpresponse.headers));
     return read_result;
   }
 };
@@ -847,7 +847,7 @@ struct WriteTask : public RateLimiterNode,
     auto latency = absl::Now() - start_time_;
     s3_write_latency_ms.Observe(absl::ToInt64Milliseconds(latency));
     s3_bytes_written.IncrementBy(value.size());
-    TENSORSTORE_ASSIGN_OR_RETURN(r.generation, ComputeGenerationFromHeaders(response.headers));
+    TENSORSTORE_ASSIGN_OR_RETURN(r.generation, StorageGenerationFromHeaders(response.headers));
     return r;
   }
 };
