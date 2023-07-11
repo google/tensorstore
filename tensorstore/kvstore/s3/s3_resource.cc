@@ -18,7 +18,7 @@
 #include <optional>
 
 #include "absl/base/call_once.h"
-#include "absl/flags/marshalling.h"
+#include "absl/flags/flag.h"
 #include "absl/log/absl_log.h"
 #include "absl/time/time.h"
 #include "tensorstore/context_resource_provider.h"
@@ -32,6 +32,16 @@
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/std_array.h"
 #include "tensorstore/internal/json_binding/std_optional.h"
+
+ABSL_FLAG(std::optional<size_t>, tensorstore_s3_request_concurrency,
+          std::nullopt,
+          "Maximum S3 Request Concurrency. Unbounded if not set. "
+          "Overrides TENSORSTORE_S3_REQUEST_CONCURRENCY");
+
+ABSL_FLAG(std::optional<absl::Duration>, tensorstore_s3_rate_limiter_doubling_time,
+          std::nullopt,
+          "S3 Rate Limiter Doubling Time. "
+          "Overrides TENSORSTORE_S3_RATE_LIMITER_DOUBLING_TIME#");
 
 using ::tensorstore::internal::AnyContextResourceJsonBinder;
 using ::tensorstore::internal::ContextResourceCreationContext;
@@ -53,32 +63,30 @@ const internal::ContextResourceRegistration<S3RateLimiterResource>
 
 constexpr size_t kDefaultRequestConcurrency = 32;
 
-std::optional<size_t> GetEnvS3RequestConcurrency() {
-  // Called before flag parsing during resource registration.
-  auto env = internal::GetEnv("TENSORSTORE_S3_REQUEST_CONCURRENCY");
-  if (!env) {
-    return std::nullopt;
+size_t GetEnvS3RequestConcurrency() {
+  if(auto var = absl::GetFlag(FLAGS_tensorstore_s3_request_concurrency); var) {
+    return *var;
   }
-  size_t limit;
-  std::string error;
-  if (absl::ParseFlag(*env, &limit, &error)) {
-    return limit;
-  }
-  return std::nullopt;
+
+  return internal::GetEnvValue<size_t>(
+            "TENSORSTORE_S3_REQUEST_CONCURRENCY")
+        .value_or(kDefaultRequestConcurrency);
 }
 
-std::optional<absl::Duration> GetEnvS3RateLimiterDoublingTime() {
-  // Called before flag parsing during resource registration.
-  auto env = internal::GetEnv("TENSORSTORE_S3_RATE_LIMITER_DOUBLING_TIME");
-  if (!env) {
-    return std::nullopt;
+absl::Duration GetEnvS3RateLimiterDoublingTime() {
+  if(auto var = absl::GetFlag(FLAGS_tensorstore_s3_rate_limiter_doubling_time); var) {
+    return *var;
   }
-  absl::Duration doubling;
-  std::string error;
-  if (absl::ParseFlag(*env, &doubling, &error)) {
-    return doubling;
+
+  if(auto env = internal::GetEnv("TENSORSTORE_S3_RATE_LIMITER_DOUBLING_TIME"); env) {
+    absl::Duration doubling;
+    std::string error;
+    if(absl::ParseFlag(*env, &doubling, &error)) {
+      return doubling;
+    }
   }
-  return std::nullopt;
+
+  return absl::ZeroDuration();
 }
 
 }  // namespace
@@ -87,8 +95,7 @@ S3ConcurrencyResource::S3ConcurrencyResource(size_t shared_limit)
     : shared_limit_(shared_limit) {}
 
 S3ConcurrencyResource::S3ConcurrencyResource()
-    : S3ConcurrencyResource(
-          GetEnvS3RequestConcurrency().value_or(kDefaultRequestConcurrency)) {}
+    : S3ConcurrencyResource(GetEnvS3RequestConcurrency()) {}
 
 Result<S3ConcurrencyResource::Resource> S3ConcurrencyResource::Create(
     const Spec& spec, ContextResourceCreationContext context) const {
@@ -114,16 +121,14 @@ Result<S3RateLimiterResource::Resource> S3RateLimiterResource::Create(
   if (spec.read_rate) {
     value.read_limiter = std::make_shared<ScalingRateLimiter>(
         *spec.read_rate, *spec.read_rate * 2,
-        spec.doubling_time.value_or(
-            GetEnvS3RateLimiterDoublingTime().value_or(absl::ZeroDuration())));
+        spec.doubling_time.value_or(GetEnvS3RateLimiterDoublingTime()));
   } else {
     value.read_limiter = std::make_shared<NoRateLimiter>();
   }
   if (spec.write_rate) {
     value.write_limiter = std::make_shared<ScalingRateLimiter>(
         *spec.write_rate, *spec.read_rate * 2,
-        spec.doubling_time.value_or(
-            GetEnvS3RateLimiterDoublingTime().value_or(absl::ZeroDuration())));
+        spec.doubling_time.value_or(GetEnvS3RateLimiterDoublingTime()));
   } else {
     value.write_limiter = std::make_shared<NoRateLimiter>();
   }
