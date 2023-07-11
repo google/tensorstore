@@ -39,7 +39,7 @@ using namespace ::tensorstore::internal_http;
 using ::tensorstore::internal_storage_s3::IsValidBucketName;
 
 #ifndef TENSORSTORE_INTERNAL_S3_LOG_AWS4
-#define TENSORSTORE_INTERNAL_S3_LOG_AWS4 1
+#define TENSORSTORE_INTERNAL_S3_LOG_AWS4 0
 #endif
 
 namespace tensorstore {
