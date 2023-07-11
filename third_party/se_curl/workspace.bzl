@@ -28,7 +28,7 @@ def repo():
             "https://curl.se/download/curl-7.86.0.tar.gz",
         ],
         sha256 = "3dfdd39ba95e18847965cd3051ea6d22586609d9011d91df7bc5521288987a82",
-        build_file = Label("//third_party:se_curl/bundled.BUILD.bazel"),
+        build_file = Label("//third_party:se_curl/curl.BUILD.bazel"),
         system_build_file = Label("//third_party:se_curl/system.BUILD.bazel"),
         cmake_name = "CURL",
         bazel_to_cmake = {},
