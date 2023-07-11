@@ -37,10 +37,11 @@ namespace internal_neuroglancer_precomputed {
 /// \param buffer Encoded chunk data.
 /// \returns The decoded chunk, with layout equal to `chunk_layout`.
 /// \error `absl::StatusCode::kInvalidArgument` if the encoded chunk is invalid.
-Result<SharedArrayView<const void>> DecodeChunk(
-    span<const Index> chunk_indices, const MultiscaleMetadata& metadata,
-    std::size_t scale_index, StridedLayoutView<4> chunk_layout,
-    absl::Cord buffer);
+Result<SharedArray<const void>> DecodeChunk(span<const Index> chunk_indices,
+                                            const MultiscaleMetadata& metadata,
+                                            std::size_t scale_index,
+                                            StridedLayoutView<4> chunk_layout,
+                                            absl::Cord buffer);
 
 /// Encodes a chunk.
 ///

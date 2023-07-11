@@ -220,15 +220,16 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
                                                      Box<>(metadata.rank))});
   }
 
-  Result<absl::InlinedVector<SharedArrayView<const void>, 1>> DecodeChunk(
+  Result<absl::InlinedVector<SharedArray<const void>, 1>> DecodeChunk(
       const void* metadata, span<const Index> chunk_indices,
       absl::Cord data) override {
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto array,
         internal_n5::DecodeChunk(*static_cast<const N5Metadata*>(metadata),
                                  std::move(data)));
-    return absl::InlinedVector<SharedArrayView<const void>, 1>{
-        std::move(array)};
+    absl::InlinedVector<SharedArray<const void>, 1> components;
+    components.emplace_back(std::move(array));
+    return components;
   }
 
   Result<absl::Cord> EncodeChunk(

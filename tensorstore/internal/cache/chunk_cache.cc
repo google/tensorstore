@@ -213,9 +213,10 @@ struct ReadChunkImpl {
     const span<Index> origin_span(origin, component_spec.rank());
     GetOwningCache(*entry).grid().GetComponentOrigin(
         component_index, entry->cell_indices(), origin_span);
-    auto read_array = ChunkCache::GetReadComponent(
-        AsyncCache::ReadLock<ChunkCache::ReadData>(*entry).data(),
-        component_index);
+    SharedArray<const void, dynamic_rank(kMaxRank)> read_array{
+        ChunkCache::GetReadComponent(
+            AsyncCache::ReadLock<ChunkCache::ReadData>(*entry).data(),
+            component_index)};
     return component_spec.GetReadNDIterable(std::move(read_array), origin_span,
                                             std::move(chunk_transform), arena);
   }
@@ -270,7 +271,7 @@ struct ReadChunkTransactionImpl {
     const span<Index> origin_span(origin, component_spec.rank());
     GetOwningCache(entry).grid().GetComponentOrigin(
         component_index, entry.cell_indices(), origin_span);
-    SharedArrayView<const void> read_array;
+    SharedArray<const void, dynamic_rank(kMaxRank)> read_array;
     StorageGeneration read_generation;
     // Copy the shared_ptr to the immutable cached chunk data for the node.  If
     // any elements of the chunk have not been overwritten, the cached data is

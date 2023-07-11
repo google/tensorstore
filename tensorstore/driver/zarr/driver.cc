@@ -370,7 +370,7 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
     return internal::ChunkGridSpecification{std::move(components)};
   }
 
-  Result<absl::InlinedVector<SharedArrayView<const void>, 1>> DecodeChunk(
+  Result<absl::InlinedVector<SharedArray<const void>, 1>> DecodeChunk(
       const void* metadata, span<const Index> chunk_indices,
       absl::Cord data) override {
     return internal_zarr::DecodeChunk(

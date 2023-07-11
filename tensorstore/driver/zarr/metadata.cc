@@ -360,7 +360,7 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(ZarrPartialMetadata,
 // Two decoding strategies:  raw decoder and custom decoder.  Initially we will
 // only support raw decoder.
 
-Result<absl::InlinedVector<SharedArrayView<const void>, 1>> DecodeChunk(
+Result<absl::InlinedVector<SharedArray<const void>, 1>> DecodeChunk(
     const ZarrMetadata& metadata, absl::Cord buffer) {
   const size_t num_fields = metadata.dtype.fields.size();
   if (metadata.compressor) {
@@ -376,7 +376,7 @@ Result<absl::InlinedVector<SharedArrayView<const void>, 1>> DecodeChunk(
         "Uncompressed chunk is ", buffer.size(), " bytes, but should be ",
         metadata.chunk_layout.bytes_per_chunk, " bytes"));
   }
-  absl::InlinedVector<SharedArrayView<const void>, 1> field_arrays(num_fields);
+  absl::InlinedVector<SharedArray<const void>, 1> field_arrays(num_fields);
 
   bool must_copy = false;
   // First, attempt to create arrays that reference the cord without copying.

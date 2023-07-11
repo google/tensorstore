@@ -240,7 +240,7 @@ Result<absl::Cord> EncodeChunk(
 /// \returns A vector of length `metadata.dtype.fields.size()`.
 /// \error `absl::StatusCode::kInvalidArgument` if `buffer` is not a valid
 ///     encoded zarr chunk according to `metadata`.
-Result<absl::InlinedVector<SharedArrayView<const void>, 1>> DecodeChunk(
+Result<absl::InlinedVector<SharedArray<const void>, 1>> DecodeChunk(
     const ZarrMetadata& metadata, absl::Cord buffer);
 
 /// Returns `true` if `a` and `b` are compatible, meaning stored data created

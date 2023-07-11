@@ -36,7 +36,7 @@ using ::tensorstore::internal_image::JpegReader;
 using ::tensorstore::internal_image::JpegWriter;
 using ::tensorstore::internal_image::JpegWriterOptions;
 
-Result<SharedArrayView<const void>> DecodeRawChunk(
+Result<SharedArray<const void>> DecodeRawChunk(
     DataType dtype, span<const Index, 4> shape,
     StridedLayoutView<4> chunk_layout, absl::Cord buffer) {
   const Index expected_bytes = ProductOfExtents(shape) * dtype.size();
@@ -51,14 +51,14 @@ Result<SharedArrayView<const void>> DecodeRawChunk(
     // the existing `buffer` string into `decoded_array`.
     auto decoded_array = internal::TryViewCordAsArray(
         buffer, /*offset=*/0, dtype, endian::little, chunk_layout);
-    if (decoded_array.valid()) return decoded_array;
+    if (decoded_array.valid()) return {std::in_place, decoded_array};
   }
   // Partial chunk, must copy.  It is safe to default initialize because the
   // out-of-bounds positions will never be read, but we use value initialization
   // for simplicity in case resize is supported later.
   Array<const void, 4> source(
       {static_cast<const void*>(flat_buffer.data()), dtype}, shape);
-  SharedArrayView<void> full_decoded_array(
+  SharedArray<void> full_decoded_array(
       internal::AllocateAndConstructSharedElements(chunk_layout.num_elements(),
                                                    value_init, dtype),
       chunk_layout);
@@ -69,7 +69,7 @@ Result<SharedArrayView<const void>> DecodeRawChunk(
   return full_decoded_array;
 }
 
-Result<SharedArrayView<const void>> DecodeJpegChunk(
+Result<SharedArray<const void>> DecodeJpegChunk(
     DataType dtype, span<const Index, 4> partial_shape,
     StridedLayoutView<4> chunk_layout, absl::Cord encoded_input) {
   // `array` will contain decoded jpeg with C-order `(z, y, x, channel)` layout.
@@ -112,14 +112,14 @@ Result<SharedArrayView<const void>> DecodeJpegChunk(
   if (partial_shape[0] == 1 &&
       absl::c_equal(partial_shape, chunk_layout.shape())) {
     // `array` already has correct layout.
-    return SharedArrayView<const void>(array.element_pointer(), chunk_layout);
+    return SharedArray<const void>(array.element_pointer(), chunk_layout);
   }
   // Partial chunk, or number of channels is not 1.  Must copy to obtain the
   // expected `chunk_layout`.
   //
   // It is safe to value initialize because the out-of-bounds positions will
   // never be read.  If resize is supported, this must change, however.
-  SharedArrayView<void> full_decoded_array(
+  SharedArray<void> full_decoded_array(
       internal::AllocateAndConstructSharedElements(chunk_layout.num_elements(),
                                                    default_init, dtype),
       chunk_layout);
@@ -134,12 +134,12 @@ Result<SharedArrayView<const void>> DecodeJpegChunk(
   return full_decoded_array;
 }
 
-Result<SharedArrayView<const void>> DecodeCompressedSegmentationChunk(
+Result<SharedArray<const void>> DecodeCompressedSegmentationChunk(
     DataType dtype, span<const Index, 4> shape,
     StridedLayoutView<4> chunk_layout, std::array<Index, 3> block_size,
     absl::Cord buffer) {
   auto flat_buffer = buffer.Flatten();
-  SharedArrayView<void> full_decoded_array(
+  SharedArray<void> full_decoded_array(
       internal::AllocateAndConstructSharedElements(chunk_layout.num_elements(),
                                                    default_init, dtype),
       chunk_layout);
@@ -195,10 +195,11 @@ void GetChunkShape(span<const Index> chunk_indices,
   }
 }
 
-Result<SharedArrayView<const void>> DecodeChunk(
-    span<const Index> chunk_indices, const MultiscaleMetadata& metadata,
-    std::size_t scale_index, StridedLayoutView<4> chunk_layout,
-    absl::Cord buffer) {
+Result<SharedArray<const void>> DecodeChunk(span<const Index> chunk_indices,
+                                            const MultiscaleMetadata& metadata,
+                                            std::size_t scale_index,
+                                            StridedLayoutView<4> chunk_layout,
+                                            absl::Cord buffer) {
   const auto& scale_metadata = metadata.scales[scale_index];
   std::array<Index, 4> chunk_shape;
   GetChunkShape(chunk_indices, metadata, scale_index, chunk_layout.shape(),

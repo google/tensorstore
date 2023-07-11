@@ -192,13 +192,13 @@ std::size_t GetChunkHeaderSize(const N5Metadata& metadata) {
       sizeof(std::uint32_t) * metadata.rank;  // dimensions
 }
 
-Result<SharedArrayView<const void>> DecodeChunk(const N5Metadata& metadata,
-                                                absl::Cord buffer) {
+Result<SharedArray<const void>> DecodeChunk(const N5Metadata& metadata,
+                                            absl::Cord buffer) {
   // TODO(jbms): Currently, we do not check that `buffer.size()` is less than
   // the 2GiB limit, although we do implicitly check that the decoded array data
   // within the chunk is within the 2GiB limit due to the checks on the block
   // size.  Determine if this is an important limit.
-  SharedArrayView<const void> array;
+  SharedArray<const void> array;
   array.layout() = metadata.chunk_layout;
   const std::size_t header_size = GetChunkHeaderSize(metadata);
   if (buffer.size() < header_size) {
@@ -266,7 +266,7 @@ Result<SharedArrayView<const void>> DecodeChunk(const N5Metadata& metadata,
     auto decoded_array =
         internal::TryViewCordAsArray(buffer, decoded_offset, metadata.dtype,
                                      endian::big, metadata.chunk_layout);
-    if (decoded_array.valid()) return decoded_array;
+    if (decoded_array.valid()) return {std::in_place, decoded_array};
   }
   // Partial chunk, must copy.
   auto flat_buffer = buffer.Flatten();
@@ -275,7 +275,7 @@ Result<SharedArrayView<const void>> DecodeChunk(const N5Metadata& metadata,
   encoded_array.element_pointer() = ElementPointer<const void>(
       static_cast<const void*>(flat_buffer.data() + decoded_offset),
       metadata.dtype);
-  SharedArrayView<void> full_decoded_array(
+  SharedArray<void> full_decoded_array(
       internal::AllocateAndConstructSharedElements(
           metadata.chunk_layout.num_elements(), value_init, metadata.dtype),
       metadata.chunk_layout);
