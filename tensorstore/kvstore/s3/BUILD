@@ -1,8 +1,32 @@
 load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 
 package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
+
+# To enable debug checks, specify:
+# bazel build --//tensorstore/kvstore/s3:debug
+bool_flag(
+    name = "debug",
+    build_setting_default = False,
+)
+
+config_setting(
+    name = "debug_setting",
+    flag_values = { ":debug": "True", },
+    visibility = ["//visibility:private"], )
+
+
+DEBUG_LOCAL_DEFINES = select({
+    "//conditions:default": [],
+    ":debug_setting": [
+        "TENSORSTORE_INTERNAL_S3_LOG_REQUESTS",
+        "TENSORSTORE_INTERNAL_S3_LOG_RESPONSES",
+        "TENSORSTORE_INTERNAL_S3_LOG_AWS4",
+    ],
+})
+
 
 filegroup(
     name = "doc_sources",
@@ -104,6 +128,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/http",
         "//tensorstore/internal:retry",
     ],
+    local_defines = DEBUG_LOCAL_DEFINES,
     alwayslink = 1,
 )
 
@@ -180,6 +205,7 @@ tensorstore_cc_library(
         ":validate",
         ":s3_uri_utils"
     ],
+    local_defines = DEBUG_LOCAL_DEFINES,
     alwayslink = 1,
 )
 
