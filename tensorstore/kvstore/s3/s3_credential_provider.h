@@ -33,21 +33,35 @@ using ::tensorstore::Result;
 namespace tensorstore {
 namespace internal_auth_s3 {
 
-
+/// @brief Holds S3 credentials
+///
+/// Contains the access key, secret key and session token.
+/// An empty access key implies anonymous access,
+/// while the presence of a session token implies the use of
+/// short-lived STS credentials
+/// https://docs.aws.amazon.com/STS/latest/APIReference/welcome.html
 struct S3Credentials {
+  /// AWS_ACCESS_KEY_ID
   std::string access_key;
+  /// AWS_SECRET_KEY_ID
   std::string secret_key;
+  /// AWS_SESSION_TOKEN
   std::string session_token;
 
   bool IsAnonymous() const { return access_key.empty(); }
 };
 
+/// Base class for S3 Credential Providers
+///
+/// Implementers should override the GetCredentials method
 class CredentialProvider {
  public:
   virtual ~CredentialProvider() = default;
   virtual Result<S3Credentials> GetCredentials() = 0;
 };
 
+/// Provides credentials from the following environment variables:
+/// AWS_ACCESS_KEY_ID, AWS_SECRET_KEY_ID, AWS_SESSION_TOKEN
 class EnvironmentCredentialProvider : public CredentialProvider {
  private:
   S3Credentials credentials_;
@@ -58,6 +72,12 @@ class EnvironmentCredentialProvider : public CredentialProvider {
     { return credentials_; }
 };
 
+/// Obtains S3 credentials from a profile in a file, usually `~/.aws/credentials`
+/// or a file specified in AWS_SHARED_CREDENTIALS_FILE.
+/// A desired profile may be specified in the constructor: This value should be
+/// derived from the s3 json spec.
+/// However, if profile is passed as an empty string, the profile is obtained from
+/// AWS_DEFAULT_PROFILE, AWS_PROFILE before finally defaulting to "default".
 class FileCredentialProvider : public CredentialProvider {
  private:
   absl::Mutex mutex_;
@@ -69,6 +89,8 @@ class FileCredentialProvider : public CredentialProvider {
   virtual Result<S3Credentials> GetCredentials() override;
 };
 
+/// Provides S3 credentials from the EC2 Metadata server
+/// if running within AWS
 class EC2MetadataCredentialProvider : public CredentialProvider {
  private:
   std::shared_ptr<internal_http::HttpTransport> transport_;
