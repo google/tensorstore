@@ -68,9 +68,8 @@ size_t GetEnvS3RequestConcurrency() {
     return *var;
   }
 
-  return internal::GetEnvValue<size_t>(
-            "TENSORSTORE_S3_REQUEST_CONCURRENCY")
-        .value_or(kDefaultRequestConcurrency);
+  return internal::GetEnvValue<size_t>("TENSORSTORE_S3_REQUEST_CONCURRENCY")
+          .value_or(kDefaultRequestConcurrency);
 }
 
 absl::Duration GetEnvS3RateLimiterDoublingTime() {
