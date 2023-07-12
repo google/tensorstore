@@ -12,13 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "absl/strings/ascii.h"
-#include "absl/strings/match.h"
-#include "absl/strings/str_split.h"
-
-#include "re2/re2.h"
 
 #include "tensorstore/kvstore/s3/validate.h"
+
+#include "absl/strings/str_split.h"
+#include "re2/re2.h"
+
 #include "tensorstore/internal/utf8.h"
 
 namespace tensorstore {
