@@ -155,7 +155,7 @@ auto& s3_list = internal_metrics::Counter<int64_t>::New(
 static constexpr char kEmptySha256[] =
   "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
-/// An empty etag, which should never collide with an actual md5 hash
+/// An empty etag which should not collide with an actual payload hash
 static constexpr char kEmptyEtag[] = "\"\"";
 
 /// Adds the generation header to the provided builder.
