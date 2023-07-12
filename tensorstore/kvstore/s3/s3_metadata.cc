@@ -32,9 +32,6 @@
 namespace tensorstore {
 namespace internal_storage_s3 {
 
-using ::tensorstore::TimestampedStorageGeneration;
-
-
 Result<StorageGeneration> StorageGenerationFromHeaders(
     const std::multimap<std::string, std::string>& headers) {
 
