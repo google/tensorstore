@@ -32,7 +32,6 @@
 #include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 using ::tensorstore::Result;
 using ::tensorstore::internal::GetEnv;
@@ -89,8 +88,8 @@ Result<std::string> GetS3CredentialsFileName() {
   }
   if(!IsFile(result)) {
     return absl::NotFoundError(
-      tensorstore::StrCat("Could not find the credentials file at "
-                          "location [", result, "]"));
+      absl::StrCat("Could not find the credentials file at "
+                   "location [", result, "]"));
   }
   return result;
 }
@@ -162,13 +161,13 @@ Result<S3Credentials> FileCredentialProvider::GetCredentials() {
 
   if (!ifs) {
     return absl::NotFoundError(
-        tensorstore::StrCat("Could not open the credentials file "
-                            "at location [", filename_, "]"));
+        absl::StrCat("Could not open the credentials file [", filename_, "]"));
   }
 
   S3Credentials credentials;
   std::string section_name;
   std::string line;
+  bool profile_found = false;
 
   while (std::getline(ifs, line)) {
     auto sline = absl::StripAsciiWhitespace(line);
@@ -180,6 +179,7 @@ Result<S3Credentials> FileCredentialProvider::GetCredentials() {
     }
 
     if(section_name == profile_) {
+      profile_found = true;
       std::vector<std::string_view> key_value = absl::StrSplit(sline, '=');
       if(key_value.size() != 2) continue; // Malformed, ignore
       auto key = absl::StripAsciiWhitespace(key_value[0]);
@@ -193,6 +193,12 @@ Result<S3Credentials> FileCredentialProvider::GetCredentials() {
           credentials.session_token = value;
       }
     }
+  }
+
+  if(!profile_found) {
+    return absl::NotFoundError(
+      absl::StrCat("Profile [", profile_, "] not found "
+                   "in credentials file [", filename_, "]"));
   }
 
   return credentials;
