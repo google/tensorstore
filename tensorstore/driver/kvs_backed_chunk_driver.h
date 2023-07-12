@@ -412,9 +412,9 @@ class DataCache
   ///     shape of each decoded array `i` must equal
   ///     `grid.components[i].cell_shape()`, where
   ///     `grid = GetChunkGridSpecification(metadata)`.
-  virtual Result<absl::InlinedVector<SharedArrayView<const void>, 1>>
-  DecodeChunk(const void* metadata, span<const Index> chunk_indices,
-              absl::Cord data) = 0;
+  virtual Result<absl::InlinedVector<SharedArray<const void>, 1>> DecodeChunk(
+      const void* metadata, span<const Index> chunk_indices,
+      absl::Cord data) = 0;
 
   /// Encodes a data chunk.
   ///

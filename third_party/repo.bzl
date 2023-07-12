@@ -45,43 +45,49 @@ def use_system_lib(ctx, name, env_var = SYSTEM_LIBS_ENVVAR):
             return True
     return False
 
-def _third_party_http_archive_impl(ctx):
+def _handle_use_system_lib(ctx):
     use_syslib = use_system_lib(ctx, ctx.attr.name)
-    if use_syslib:
-        if ctx.attr.system_build_file == None:
-            fail(("{name} was specified in {envvar}, but no " +
-                  "system_build_file was specified in the repository " +
-                  "rule for {name}.").format(
-                name = ctx.attr.name,
-                envvar = SYSTEM_LIBS_ENVVAR,
-            ))
-        ctx.template(
-            "BUILD.bazel",
-            ctx.attr.system_build_file,
-        )
-    else:
-        if not ctx.attr.urls:
-            fail("urls must be specified")
-        if ctx.attr.build_file and ctx.attr.build_file_content:
-            fail("Only one of build_file and build_file_content can be provided.")
-        download_info = ctx.download_and_extract(
-            url = ctx.attr.urls,
-            output = "",
-            sha256 = ctx.attr.sha256,
-            type = ctx.attr.type,
-            stripPrefix = ctx.attr.strip_prefix,
-            canonical_id = ctx.attr.canonical_id,
-        )
-        for path in ctx.attr.remove_paths:
-            ctx.delete(path)
-        patch(ctx)
-        workspace_and_buildfile(ctx)
+    if not use_syslib:
+        return False
+    if ctx.attr.system_build_file == None:
+        fail(("{name} was specified in {envvar}, but no " +
+              "system_build_file was specified in the repository " +
+              "rule for {name}.").format(
+            name = ctx.attr.name,
+            envvar = SYSTEM_LIBS_ENVVAR,
+        ))
+    ctx.template(
+        "BUILD.bazel",
+        ctx.attr.system_build_file,
+    )
+    return True
 
-        return update_attrs(
-            ctx.attr,
-            _third_party_http_archive_attrs.keys(),
-            {"sha256": download_info.sha256},
-        )
+def _third_party_http_archive_impl(ctx):
+    if _handle_use_system_lib(ctx):
+        return
+
+    if not ctx.attr.urls:
+        fail("urls must be specified")
+    if ctx.attr.build_file and ctx.attr.build_file_content:
+        fail("Only one of build_file and build_file_content can be provided.")
+    download_info = ctx.download_and_extract(
+        url = ctx.attr.urls,
+        output = "",
+        sha256 = ctx.attr.sha256,
+        type = ctx.attr.type,
+        stripPrefix = ctx.attr.strip_prefix,
+        canonical_id = ctx.attr.canonical_id,
+    )
+    for path in ctx.attr.remove_paths:
+        ctx.delete(path)
+    patch(ctx)
+    workspace_and_buildfile(ctx)
+
+    return update_attrs(
+        ctx.attr,
+        _third_party_http_archive_attrs.keys(),
+        {"sha256": download_info.sha256},
+    )
 
 _third_party_http_archive_attrs = {
     "urls": attr.string_list(),

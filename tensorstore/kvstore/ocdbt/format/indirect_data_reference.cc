@@ -20,6 +20,10 @@
 #include <string>
 #include <string_view>
 
+#include "absl/status/status.h"
+#include "tensorstore/internal/integer_overflow.h"
+#include "tensorstore/util/str_cat.h"
+
 namespace tensorstore {
 namespace internal_ocdbt {
 
@@ -70,6 +74,19 @@ bool operator==(const IndirectDataReference& a,
 std::ostream& operator<<(std::ostream& os, const IndirectDataReference& x) {
   return os << "{file_id=" << x.file_id << ", offset=" << x.offset
             << ", length=" << x.length << "}";
+}
+
+absl::Status IndirectDataReference::Validate(bool allow_missing) const {
+  if (!allow_missing || !IsMissing()) {
+    uint64_t end_offset;
+    if (internal::AddOverflow(offset, length, &end_offset) ||
+        end_offset >
+            static_cast<uint64_t>(std::numeric_limits<int64_t>::max())) {
+      return absl::DataLossError(
+          tensorstore::StrCat("Invalid offset/length pair in ", *this));
+    }
+  }
+  return absl::OkStatus();
 }
 
 }  // namespace internal_ocdbt

@@ -14,6 +14,8 @@
 
 #include "tensorstore/kvstore/neuroglancer_uint64_sharded/uint64_sharded_encoder.h"
 
+#include <stddef.h>
+
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
 #include "tensorstore/internal/compression/zlib.h"
@@ -27,8 +29,8 @@ absl::Cord EncodeMinishardIndex(
     span<const MinishardIndexEntry> minishard_index) {
   internal::FlatCordBuilder builder(minishard_index.size() * 24);
   ChunkId prev_chunk_id{0};
-  std::uint64_t prev_offset = 0;
-  for (std::ptrdiff_t i = 0; i < minishard_index.size(); ++i) {
+  int64_t prev_offset = 0;
+  for (ptrdiff_t i = 0; i < minishard_index.size(); ++i) {
     const auto& e = minishard_index[i];
     absl::little_endian::Store64(builder.data() + i * 8,
                                  e.chunk_id.value - prev_chunk_id.value);
@@ -46,7 +48,7 @@ absl::Cord EncodeMinishardIndex(
 
 absl::Cord EncodeShardIndex(span<const ShardIndexEntry> shard_index) {
   internal::FlatCordBuilder builder(shard_index.size() * 16);
-  for (std::ptrdiff_t i = 0; i < shard_index.size(); ++i) {
+  for (ptrdiff_t i = 0; i < shard_index.size(); ++i) {
     const auto& e = shard_index[i];
     absl::little_endian::Store64(builder.data() + i * 16, e.inclusive_min);
     absl::little_endian::Store64(builder.data() + i * 16 + 8, e.exclusive_max);
@@ -69,7 +71,7 @@ ShardEncoder::ShardEncoder(const ShardingSpec& sharding_spec, absl::Cord& out)
       }) {}
 
 namespace {
-Result<std::uint64_t> EncodeData(
+Result<int64_t> EncodeData(
     const absl::Cord& input, ShardingSpec::DataEncoding encoding,
     absl::FunctionRef<absl::Status(const absl::Cord& buffer)> write_function) {
   auto encoded = EncodeData(input, encoding);
@@ -123,7 +125,7 @@ Result<ByteRange> ShardEncoder::WriteUnindexedEntry(std::uint64_t minishard,
   return ByteRange{start_offset, data_file_offset_};
 }
 
-absl::Status ShardEncoder::WriteIndexedEntry(std::uint64_t minishard,
+absl::Status ShardEncoder::WriteIndexedEntry(uint64_t minishard,
                                              ChunkId chunk_id,
                                              const absl::Cord& data,
                                              bool compress) {

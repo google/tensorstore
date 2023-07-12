@@ -38,6 +38,7 @@
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/kvstore/byte_range.h"
+#include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/generation_testutil.h"
 #include "tensorstore/kvstore/key_range.h"
@@ -45,6 +46,7 @@
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/spec.h"
+#include "tensorstore/kvstore/transaction.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender_testutil.h"
 #include "tensorstore/util/future.h"
@@ -146,6 +148,16 @@ void TestKeyValueStoreUnconditionalOps(
     EXPECT_THAT(
         kvstore::Read(store, key, options).result(),
         MatchesKvsReadResult(absl::Cord("234"), write_result->generation));
+  }
+
+  // Test unconditional byte range read with suffix length.
+  ABSL_LOG(INFO) << "Test unconditional byte range read with suffix length";
+  {
+    kvstore::ReadOptions options;
+    options.byte_range.inclusive_min = -1;
+    EXPECT_THAT(
+        kvstore::Read(store, key, options).result(),
+        MatchesKvsReadResult(absl::Cord("4"), write_result->generation));
   }
 
   // Test unconditional byte range read.
@@ -509,6 +521,46 @@ void TestKeyValueStoreStalenessBoundOps(
                   MatchesKvsReadResult(value2, write_result2->generation)));
 }
 
+void TestKeyValueStoreGetImplicitTransaction(
+    const KvStore& store,
+    absl::FunctionRef<std::string(std::string key)> get_key) {
+  std::vector<std::string> keys;
+  constexpr size_t kNumKeys = 4;
+  for (size_t i = 0; i < kNumKeys; ++i) {
+    keys.push_back(get_key(absl::StrFormat("testImplicit%d", i)));
+  }
+  Cleanup cleanup(store, keys);
+
+  std::vector<internal::OpenTransactionPtr> implicit_txns_direct;
+  std::vector<internal::OpenTransactionPtr>
+      implicit_txns_from_read_modify_write;
+  for (const auto& key : keys) {
+    auto full_key = store.path + key;
+    {
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+          auto txn, store.driver->GetImplicitTransaction(full_key));
+      implicit_txns_direct.push_back(std::move(txn));
+    }
+    {
+      internal::OpenTransactionPtr txn;
+      size_t phase;
+      auto future = internal_kvstore::WriteViaExistingTransaction(
+          store.driver.get(), txn, phase, full_key, std::nullopt,
+          kvstore::WriteOptions{});
+      ASSERT_TRUE(txn);
+      implicit_txns_from_read_modify_write.push_back(std::move(txn));
+    }
+  }
+
+  for (size_t i = 0; i < kNumKeys; ++i) {
+    for (size_t j = i + 1; j < kNumKeys; ++j) {
+      EXPECT_EQ((implicit_txns_direct[i] == implicit_txns_direct[j]),
+                (implicit_txns_from_read_modify_write[i] ==
+                 implicit_txns_from_read_modify_write[j]));
+    }
+  }
+}
+
 }  // namespace
 
 void TestKeyValueStoreBasicFunctionality(
@@ -519,6 +571,7 @@ void TestKeyValueStoreBasicFunctionality(
   TestKeyValueStoreConditionalWriteOps(store, get_key);
   TestKeyValueStoreConditionalDeleteOps(store, get_key);
   TestKeyValueStoreStalenessBoundOps(store, get_key);
+  TestKeyValueStoreGetImplicitTransaction(store, get_key);
 }
 
 /// Tests List on `store`, which should be empty.

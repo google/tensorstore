@@ -118,7 +118,7 @@ TEST(KvStoreTest, ReadInvalidOptionByteRange) {
 
   KvStore store(mock_driver, "", txn);
   kvstore::ReadOptions options;
-  options.byte_range = {5, 10};
+  options.byte_range = OptionalByteRangeRequest{5, 10};
 
   EXPECT_THAT(kvstore::Read(store, "a", std::move(options)).result(),
               MatchesStatus(absl::StatusCode::kUnimplemented));

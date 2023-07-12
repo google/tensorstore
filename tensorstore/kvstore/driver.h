@@ -194,6 +194,12 @@ class Driver {
       internal::OpenTransactionPtr& transaction, size_t& phase, Key key,
       ReadModifyWriteSource& source);
 
+  /// Returns an implicit transaction for the specified key.
+  ///
+  /// This may return either an existing or new implicit transaction.
+  virtual Result<internal::OpenTransactionPtr> GetImplicitTransaction(
+      const Key& key);
+
   /// Registers a transactional delete range operation.
   ///
   /// The actual deletion will not occur until the transaction is committed.

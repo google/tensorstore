@@ -1167,8 +1167,8 @@ void DataCache::Entry::DoEncode(std::shared_ptr<const ReadData> data,
   }
   auto& entry = GetOwningEntry(*this);
   auto& cache = GetOwningCache(entry);
-  // Convert from array of `SharedArrayView<const void>` to array of
-  // `ArrayView<const void>`.
+  // Convert from array of `SharedArray<const void>` to array of
+  // `SharedArrayView<const void>`.
   auto* components = data.get();
   const auto component_specs = this->component_specs();
   absl::FixedArray<SharedArrayView<const void>, 2> component_arrays(

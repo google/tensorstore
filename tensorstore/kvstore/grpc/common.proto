@@ -32,13 +32,13 @@ message KeyRange {
 }
 
 message ByteRange {
-  /// Specifies the starting byte.
-  uint64 inclusive_min = 1;
+  /// Specifies the starting byte offset, if non-negative.  If negative,
+  /// indicates the starting byte relative to the end.
+  int64 inclusive_min = 1;
 
-  /// Specifies an optional exclusive ending byte.
-  /// If not specified or 0, the full byte range starting at `inclusive_min` is
-  /// retrieved.
-  uint64 exclusive_max = 2;
+  /// Specifies the exclusive ending byte offset.  If `-1`, the full byte range
+  /// starting at `inclusive_min` is retrieved.
+  int64 exclusive_max = 2;
 }
 
 message StatusMessage {

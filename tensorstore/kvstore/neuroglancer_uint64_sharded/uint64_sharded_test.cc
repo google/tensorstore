@@ -277,8 +277,8 @@ TEST(ShardingSpecTest, Parse) {
         MatchesStatus(absl::StatusCode::kInvalidArgument));
   }
 
-  // Tests that `minishard_bits` is limited to `[0, 60]`.
-  for (int i : {0, 1, 59, 60}) {
+  // Tests that `minishard_bits` is limited to `[0, 32]`.
+  for (int i : {0, 1, 31, 32}) {
     EXPECT_THAT(
         ShardingSpec::FromJson({{"@type", "neuroglancer_uint64_sharded_v1"},
                                 {"hash", "identity"},
@@ -295,7 +295,7 @@ TEST(ShardingSpecTest, Parse) {
         }));
   }
 
-  for (int i : {-1, -2, 61, 62, 63}) {
+  for (int i : {-1, -2, 33, 34, 35}) {
     EXPECT_THAT(
         ShardingSpec::FromJson({{"@type", "neuroglancer_uint64_sharded_v1"},
                                 {"hash", "identity"},

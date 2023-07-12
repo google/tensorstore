@@ -70,7 +70,7 @@ void TransactionState::NoMoreCommitReferences() {
 TransactionState::OpenPtr TransactionState::AcquireImplicitOpenPtr() {
   assert(implicit_transaction_);
   absl::MutexLock lock(&mutex_);
-  if (commit_state_ == kAborted || commit_state_ == kCommitStarted) {
+  if (commit_state_ >= kCommitStarted) {
     return {};
   }
   Future<const void> future;
@@ -353,7 +353,7 @@ size_t TransactionState::phase() {
     return 0;
   }
   absl::MutexLock lock(&mutex_);
-  assert(commit_state_ < kCommitStarted);
+  assert(commit_state_ != kCommitStarted && commit_state_ != kAborted);
   return phase_;
 }
 

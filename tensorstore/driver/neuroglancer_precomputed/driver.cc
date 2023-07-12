@@ -255,14 +255,15 @@ class DataCacheBase : public internal_kvs_backed_chunk_driver::DataCache {
             {3, 2, 1})});
   }
 
-  Result<absl::InlinedVector<SharedArrayView<const void>, 1>> DecodeChunk(
+  Result<absl::InlinedVector<SharedArray<const void>, 1>> DecodeChunk(
       const void* metadata, span<const Index> chunk_indices,
       absl::Cord data) override {
     if (auto result = internal_neuroglancer_precomputed::DecodeChunk(
             chunk_indices, *static_cast<const MultiscaleMetadata*>(metadata),
             scale_index_, chunk_layout_czyx_, std::move(data))) {
-      return absl::InlinedVector<SharedArrayView<const void>, 1>{
-          std::move(*result)};
+      absl::InlinedVector<SharedArray<const void>, 1> components;
+      components.emplace_back(std::move(*result));
+      return components;
     } else {
       return absl::FailedPreconditionError(result.status().message());
     }

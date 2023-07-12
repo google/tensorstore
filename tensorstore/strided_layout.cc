@@ -48,4 +48,32 @@ std::ostream& operator<<(std::ostream& os, ArrayOriginKind origin_kind) {
   return os << (origin_kind == zero_origin ? "zero" : "offset");
 }
 
+namespace internal_strided_layout {
+bool IsContiguousLayout(DimensionIndex rank, const Index* shape,
+                        const Index* byte_strides, ContiguousLayoutOrder order,
+                        Index element_size) {
+  if (rank == 0) return true;
+  Index stride = element_size;
+  if (order == c_order) {
+    for (DimensionIndex i = rank - 1; i != 0; --i) {
+      if (byte_strides[i] != stride) return false;
+      if (internal::MulOverflow(stride, shape[i], &stride)) {
+        return false;
+      }
+    }
+    if (byte_strides[0] != stride) return false;
+  } else {
+    for (DimensionIndex i = 0; i != rank - 1; ++i) {
+      if (byte_strides[i] != stride) return false;
+      if (i == rank - 1) break;
+      if (internal::MulOverflow(stride, shape[i], &stride)) {
+        return false;
+      }
+    }
+    if (byte_strides[rank - 1] != stride) return false;
+  }
+  return true;
+}
+}  // namespace internal_strided_layout
+
 }  // namespace tensorstore

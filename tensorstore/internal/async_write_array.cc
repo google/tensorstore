@@ -98,6 +98,16 @@ AsyncWriteArray::MaskedArray::GetArrayForWriteback(
     bool read_state_already_integrated) {
   assert(origin.size() == spec.rank());
   WritebackData writeback;
+
+  const auto must_store = [&](ArrayView<const void> array) {
+    if (spec.store_if_equal_to_fill_value) return true;
+    if (spec.compare_to_fill_value_using_identical_equality) {
+      return !AreArraysIdenticallyEqual(array, spec.fill_value);
+    } else {
+      return !AreArraysSameValueEqual(array, spec.fill_value);
+    }
+  };
+
   if (!data) {
     // No data has been allocated for the write array.  This is only possible in
     // two cases:
@@ -110,9 +120,7 @@ AsyncWriteArray::MaskedArray::GetArrayForWriteback(
       // Case 2: array is unmodified.
       assert(IsUnmodified());
       if (read_array.data()) {
-        writeback.must_store =
-            spec.store_if_equal_to_fill_value ||
-            !AreArraysSameValueEqual(read_array, spec.fill_value);
+        writeback.must_store = must_store(read_array);
         if (!writeback.must_store) {
           writeback.array = spec.fill_value;
         } else {
@@ -144,9 +152,7 @@ AsyncWriteArray::MaskedArray::GetArrayForWriteback(
     }
     writeback.array = SharedArrayView<void>(
         SharedElementPointer<void>(data, spec.dtype()), spec.write_layout());
-    writeback.must_store =
-        spec.store_if_equal_to_fill_value ||
-        !AreArraysSameValueEqual(writeback.array, spec.fill_value);
+    writeback.must_store = must_store(writeback.array);
     if (!writeback.must_store) {
       data = nullptr;
       writeback.array = spec.fill_value;

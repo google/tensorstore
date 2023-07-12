@@ -222,8 +222,8 @@ Result<DimensionUnitsVector> GetEffectiveDimensionUnits(
 /// Decodes a chunk.
 ///
 /// The layout of the returned array is only valid as long as `metadata`.
-Result<SharedArrayView<const void>> DecodeChunk(const N5Metadata& metadata,
-                                                absl::Cord buffer);
+Result<SharedArray<const void>> DecodeChunk(const N5Metadata& metadata,
+                                            absl::Cord buffer);
 
 /// Encodes a chunk.
 Result<absl::Cord> EncodeChunk(span<const Index> chunk_indices,

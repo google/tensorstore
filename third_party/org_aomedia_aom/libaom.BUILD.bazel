@@ -3,6 +3,7 @@
 #
 load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@tensorstore//bazel:rules_nasm.bzl", "nasm_library")
 
 package(default_visibility = ["//visibility:private"])
@@ -511,47 +512,28 @@ write_file(
     newline = "unix",
 )
 
-# Uses the rtcd.pl tool to build the config .h files required by libaom.
-#
-# Note: Find a more elegant way to build per-architecture config
-# Note: Depends on perl.
-
-RTCD_CMD = select({
-    "@platforms//cpu:arm64": (
-        "$(PERL) $(location build/cmake/rtcd.pl) --arch=arm64 "
-    ),
-    "@platforms//cpu:x86_64": (
-        "$(PERL) $(location build/cmake/rtcd.pl) --arch=x86_64 "
-    ),
-}) + select({
-    ":have_avx2_intrinsics": "",
-    "//conditions:default": "--disable-avx2 ",
-})
+GENERATED_CONFIGS = [
+    ("@platforms//cpu:arm64", "arm64"),
+    (":have_avx2_intrinsics", "x86_64_avx2"),
+    ("//conditions:default", "x86_64"),
+]
 
 [
-    genrule(
-        name = tag,
-        srcs = [
-            "build/cmake/rtcd.pl",
-            "config/aom_config.h",
-            script,
-        ],
-        outs = ["config/{file}.h".format(file = tag)],
-        cmd = (RTCD_CMD + " ".join([
-            "--config=$(location config/aom_config.h)",
-            "--sym={sym} $(location {script})".format(
-                script = script,
-                sym = tag,
-            ),
-            "> $(OUTS)",
-        ])),
-        message = "RTCD {tag}".format(tag = tag),
-        toolchains = ["@rules_perl//:current_toolchain"],
+    copy_file(
+        name = "copy_{tag}".format(tag = tag),
+        src = select({
+            condition: "@tensorstore//third_party:org_aomedia_aom/generated_configs/{config}/{tag}.h".format(
+                config = config,
+                tag = tag,
+            )
+            for condition, config in GENERATED_CONFIGS
+        }),
+        out = "config/{tag}.h".format(tag = tag),
     )
-    for tag, script in [
-        ("aom_dsp_rtcd", "aom_dsp/aom_dsp_rtcd_defs.pl"),
-        ("aom_scale_rtcd", "aom_scale/aom_scale_rtcd.pl"),
-        ("av1_rtcd", "av1/common/av1_rtcd_defs.pl"),
+    for tag in [
+        "aom_dsp_rtcd",
+        "aom_scale_rtcd",
+        "av1_rtcd",
     ]
 ]
 

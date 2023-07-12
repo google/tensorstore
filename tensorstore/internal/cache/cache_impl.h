@@ -131,7 +131,7 @@ class CachePoolImpl {
   internal::HeterogeneousHashSet<CacheImpl*, CacheKey, &CacheImpl::cache_key>
       caches_;
 
-  /// Initial strong reference returned when the cache is created.
+  /// Initial strong reference returned when the cache pool is created.
   std::atomic<std::size_t> strong_references_;
   /// One weak reference is kept until strong_references_ becomes 0.
   std::atomic<std::size_t> weak_references_;

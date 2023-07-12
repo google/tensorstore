@@ -21,6 +21,7 @@
 #include <string>
 #include <string_view>
 
+#include "absl/status/status.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/kvstore/ocdbt/format/data_file_id.h"
 
@@ -32,6 +33,9 @@ struct IndirectDataReference {
   DataFileId file_id;
   uint64_t offset;
   uint64_t length;
+
+  /// Checks that the offset/length pair is valid.
+  absl::Status Validate(bool allow_missing) const;
 
   /// Encodes as a string key.
   friend void EncodeCacheKeyAdl(std::string* out,

@@ -51,6 +51,7 @@ using ::tensorstore::Context;
 using ::tensorstore::KeyRange;
 using ::tensorstore::KvStore;
 using ::tensorstore::MatchesStatus;
+using ::tensorstore::OptionalByteRangeRequest;
 using ::tensorstore::ParseTextProtoOrDie;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::grpc_mocker::MockGrpcServer;
@@ -180,7 +181,7 @@ TEST_F(GcsGrpcTest, ReadWithOptions) {
   options.if_not_equal = StorageGeneration::FromUint64(3);
   options.if_equal = StorageGeneration::FromUint64(1);
   options.staleness_bound = absl::InfiniteFuture();
-  options.byte_range = {1, 10};
+  options.byte_range = OptionalByteRangeRequest{1, 10};
 
   auto store = OpenStore();
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(

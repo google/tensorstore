@@ -185,8 +185,6 @@ To add TensorStore as a dependency to an existing Bazel workspace:
    load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
    load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 
-   # tensorstore requires prepopulated @bazel_skylib and @rules_perl repositories.
-
    maybe(
        http_archive,
        name = "tensorstore",
@@ -345,7 +343,7 @@ for the examples in this document:
 
 .. code-block:: shell
 
-   sudo apt-get install build-essential git nasm perl python3 python3-dev python3-pip python3-venv
+   sudo apt-get install build-essential git nasm python3 python3-dev python3-pip python3-venv
 
 
 .. _bazel-build-requirements:
@@ -387,6 +385,12 @@ ensures TensorStore uses up-to-date versions of these dependencies.
    environment variable to a comma-separated list of the following identifiers
    prior to invoking Bazel:
 
+.. envvar:: PYTHON_BIN_PATH
+
+   Path to Python binary to use when running Python executables/tests.  When
+   Bazel is invoked by the Python package build (:file:`setup.py`), this is set
+   automatically.
+
 .. include:: third_party_libraries.rst
 
 For example, to run the tests using the system-provided curl, jpeg, and SSL
@@ -407,9 +411,6 @@ system dependencies are required for the `CMake build<cmake-build>`:
 
 - Python 3.8 or later
 - CMake 3.24 or later
-- `Perl <https://www.perl.org/>`__, for building libaom from source (default).
-  Must be in ``PATH``.  Not required if ``-DTENSORSTORE_USE_SYSTEM_LIBAOM=ON``
-  is specified.
 - `NASM <https://nasm.us/>`__, for building libjpeg-turbo, libaom, and dav1d from
   source (default).  Must be in ``PATH``.Not required if
   ``-DTENSORSTORE_USE_SYSTEM_{JPEG,LIBAOM,DAV1D}=ON`` is specified.

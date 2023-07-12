@@ -49,10 +49,10 @@ class IndirectDataKvStoreDriver : public kvstore::Driver {
     ABSL_CHECK(ref.DecodeCacheKey(key));
     TENSORSTORE_ASSIGN_OR_RETURN(auto byte_range,
                                  options.byte_range.Validate(ref.length));
-    options.byte_range = byte_range.inclusive_min + ref.offset;
+    options.byte_range.inclusive_min = byte_range.inclusive_min + ref.offset;
     // Note: No need to check for overflow in computing `exclusive_max` because
-    // `offset` and `length` are validated when the `IndirectDataReference` is
-    // decoded.
+    // `offset` and `length` are validated by `IndirectDataReference::Validate`
+    // when the `IndirectDataReference` is decoded.
     options.byte_range.exclusive_max = byte_range.exclusive_max + ref.offset;
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
         << "read: " << ref << " " << options.byte_range;
@@ -64,7 +64,10 @@ class IndirectDataKvStoreDriver : public kvstore::Driver {
     IndirectDataReference ref;
     ABSL_CHECK(ref.DecodeCacheKey(key));
     return tensorstore::StrCat(
-        "Byte range ", ByteRange{ref.offset, ref.offset + ref.length}, " of ",
+        "Byte range ",
+        ByteRange{static_cast<int64_t>(ref.offset),
+                  static_cast<int64_t>(ref.offset + ref.length)},
+        " of ",
         base_.driver->DescribeKey(
             tensorstore::StrCat(base_.path, ref.file_id.FullPath())));
   }

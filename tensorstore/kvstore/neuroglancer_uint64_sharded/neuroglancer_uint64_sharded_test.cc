@@ -438,7 +438,7 @@ TEST_F(RawEncodingTest, ShardIndexByteRangeOverflow) {
       ->Write("prefix/0.shard",
               Bytes({
                   10, 0, 0, 0, 0, 0, 0, 0,                         //
-                  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,  //
+                  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f,  //
               }))
       .value();
   EXPECT_THAT(
@@ -502,7 +502,7 @@ TEST_F(RawEncodingTest, MinishardIndexByteRangeOverflow) {
                   24,   0,    0,    0,    0,    0,    0,    0,     //
                   10,   0,    0,    0,    0,    0,    0,    0,     //
                   0,    0,    0,    0,    0,    0,    0,    0,     //
-                  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,  //
+                  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f,  //
               }))
       .value();
   EXPECT_THAT(

@@ -54,6 +54,7 @@ namespace kvstore = ::tensorstore::kvstore;
 
 using ::protobuf_matchers::EqualsProto;
 using ::tensorstore::KeyRange;
+using ::tensorstore::OptionalByteRangeRequest;
 using ::tensorstore::ParseTextProtoOrDie;
 using ::tensorstore::StorageGeneration;
 using ::testing::_;
@@ -143,7 +144,7 @@ TEST_F(KvStoreMockTest, ReadWithOptions) {
     options.if_not_equal = StorageGeneration::FromString("abc");
     options.if_equal = StorageGeneration::FromString("xyz");
     options.staleness_bound = absl::InfiniteFuture();
-    options.byte_range = {1, 10};
+    options.byte_range = OptionalByteRangeRequest{1, 10};
 
     auto store = OpenStore();
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(

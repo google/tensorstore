@@ -31,20 +31,21 @@ namespace tensorstore {
 /// \ingroup kvstore
 struct ByteRange {
   /// Specifies the starting byte (inclusive).
-  std::uint64_t inclusive_min;
+  int64_t inclusive_min;
 
   /// Specifies the ending byte (exclusive).
-  std::uint64_t exclusive_max;
+  int64_t exclusive_max;
 
   /// Checks that this byte range is valid.
   constexpr bool SatisfiesInvariants() const {
-    return exclusive_max >= inclusive_min;
+    return inclusive_min >= 0 && exclusive_max >= 0 &&
+           exclusive_max >= inclusive_min;
   }
 
   /// Returns the number of bytes contained in the range.
   ///
   /// \dchecks `SatisfiesInvariants()`
-  std::uint64_t size() const {
+  int64_t size() const {
     assert(SatisfiesInvariants());
     return exclusive_max - inclusive_min;
   }
@@ -70,35 +71,80 @@ struct ByteRange {
 ///
 /// \ingroup kvstore
 struct OptionalByteRangeRequest {
+  /// Constructs a request for a full (unconstrained) byte range.
+  ///
+  /// \id full
+  constexpr OptionalByteRangeRequest() : inclusive_min(0), exclusive_max(-1) {}
+
   /// Constructs from the specified bounds.
   ///
+  /// If `inclusive_min < 0`, it indicates a byte offset relative to the end,
+  /// and `exclusive_max` must be left as `-1`.
+  ///
+  /// If `exclusive_max == -1`, it indicates that the byte range continues until
+  /// the end of the value.
+  ///
   /// \id inclusive_min, exclusive_max
-  OptionalByteRangeRequest(
-      std::uint64_t inclusive_min = 0,
-      std::optional<std::uint64_t> exclusive_max = std::nullopt)
+  explicit constexpr OptionalByteRangeRequest(int64_t inclusive_min,
+                                              int64_t exclusive_max = -1)
       : inclusive_min(inclusive_min), exclusive_max(exclusive_max) {}
 
   /// Constructs from an existing byte range.
   ///
   /// \id ByteRange
-  OptionalByteRangeRequest(ByteRange r)
+  constexpr OptionalByteRangeRequest(ByteRange r)
       : inclusive_min(r.inclusive_min), exclusive_max(r.exclusive_max) {}
 
-  /// Specifies the starting byte.
-  std::uint64_t inclusive_min = 0;
+  /// Checks if no byte range restriction is specified.
+  bool IsFull() const { return inclusive_min == 0 && exclusive_max == -1; }
 
-  /// Specifies an optional exclusive ending byte.  If not specified, the full
-  /// byte range starting at `inclusive_min` is retrieved.
-  /// \invariant `exclusive_max >= inclusive_min`
-  std::optional<std::uint64_t> exclusive_max;
+  /// Checks if this request specifies an explicit range with both
+  /// `inclusive_min` and `exclusive_max`.
+  bool IsRange() const { return exclusive_max != -1; }
 
-  /// Returns the number of bytes contained in the range.
+  /// Check if this request specifies a suffix length.
+  bool IsSuffixLength() const { return inclusive_min < 0; }
+
+  /// Checks if this request specifies a suffix, with only `inclusive_min`
+  /// specified.
+  bool IsSuffix() const { return exclusive_max == -1 && inclusive_min > 0; }
+
+  /// Constructs a request for an explicit range.
+  static OptionalByteRangeRequest Range(int64_t inclusive_min,
+                                        int64_t exclusive_max) {
+    assert(inclusive_min >= 0);
+    assert(exclusive_max >= 0);
+    return OptionalByteRangeRequest{inclusive_min, exclusive_max};
+  }
+
+  /// Constructs a request for a suffix of the specified length.
+  static OptionalByteRangeRequest SuffixLength(int64_t length) {
+    assert(length >= 0);
+    return OptionalByteRangeRequest{-length, -1};
+  }
+
+  /// Constructs a request for a suffix starting at the specified
+  /// `inclusive_min`.
+  static OptionalByteRangeRequest Suffix(int64_t inclusive_min) {
+    assert(inclusive_min >= 0);
+    return OptionalByteRangeRequest{inclusive_min, -1};
+  }
+
+  /// Specifies the starting byte if non-negative, or suffix length if negative.
+  int64_t inclusive_min = 0;
+
+  /// Specifies the exclusive max, or `-1` to indicate no upper bound.
+  int64_t exclusive_max = -1;
+
+  /// Returns the number of bytes contained in the range, or `-1` if
+  /// unknown.
   ///
   /// \dchecks `SatisfiesInvariants()`
-  std::optional<std::uint64_t> size() const {
+  int64_t size() const {
     assert(SatisfiesInvariants());
-    if (exclusive_max) return *exclusive_max - inclusive_min;
-    return std::nullopt;
+    if (inclusive_min < 0) return -inclusive_min;
+    if (exclusive_max != -1) return exclusive_max - inclusive_min;
+    return -1;
   }
 
   /// Compares for equality.
@@ -118,14 +164,15 @@ struct OptionalByteRangeRequest {
 
   /// Checks that this byte range is valid.
   constexpr bool SatisfiesInvariants() const {
-    return (!exclusive_max || exclusive_max >= inclusive_min);
+    return (exclusive_max == -1 ||
+            (exclusive_max >= inclusive_min && inclusive_min >= 0));
   }
 
   /// Returns a `ByteRange` for an object of size.
   ///
   /// \error `absl::StatusCode::kOutOfRange` if `inclusive_min` or
   ///   `*exclusive_max` are not within the object size.
-  Result<ByteRange> Validate(std::uint64_t size) const;
+  Result<ByteRange> Validate(int64_t size) const;
 
   constexpr static auto ApplyMembers = [](auto&& x, auto f) {
     return f(x.inclusive_min, x.exclusive_max);

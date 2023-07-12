@@ -112,9 +112,11 @@ class ReadHandler final : public Handler<ReadRequest, ReadResponse> {
     if (request()->has_byte_range()) {
       options.byte_range.inclusive_min =
           request()->byte_range().inclusive_min();
-      if (request()->byte_range().exclusive_max() != 0) {
-        options.byte_range.exclusive_max =
-            request()->byte_range().exclusive_max();
+      options.byte_range.exclusive_max =
+          request()->byte_range().exclusive_max();
+      if (!options.byte_range.SatisfiesInvariants()) {
+        Finish(absl::InvalidArgumentError("Invalid byte range"));
+        return;
       }
     }
     if (request()->has_staleness_bound()) {

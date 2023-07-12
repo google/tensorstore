@@ -140,6 +140,6 @@ def add_platform_constraints(workspace: Workspace) -> None:
     workspace.cdefines.append("NOMINMAX")
 
   if cmake_cxx_compiler_id == "MSVC":
-    # Bazel defines this by default.  It In practice, heavy use of C++ templates
+    # Bazel defines this by default.  In practice, heavy use of C++ templates
     # can cause compilation to fail without this flag.
     workspace.copts.append("/bigobj")

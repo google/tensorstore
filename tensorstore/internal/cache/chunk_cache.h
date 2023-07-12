@@ -200,7 +200,7 @@ struct ChunkGridSpecification {
 /// Cache for chunked multi-dimensional arrays.
 class ChunkCache : public AsyncCache {
  public:
-  using ReadData = SharedArrayView<const void>;
+  using ReadData = SharedArray<const void>;
 
   static SharedArrayView<const void> GetReadComponent(
       const ChunkCache::ReadData* components, size_t component_index) {

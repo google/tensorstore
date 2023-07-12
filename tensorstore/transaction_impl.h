@@ -907,6 +907,17 @@ WeakTransactionNodePtr<Node> ToWeakTransactionNodePtr(
                                       internal::adopt_object_ref);
 }
 
+/// Converts an `OpenTransactionNodePtr` to an `OpenTransactionPtr`.
+template <typename Node>
+OpenTransactionPtr ToOpenTransactionPtr(OpenTransactionNodePtr<Node> node) {
+  // `OpenTransactionNodePtr` is equivalent to `OpenTransactionPtr` +
+  // `WeakTransactionNodePtr`.
+  if (node) {
+    WeakTransactionNodePtr<Node>::traits_type::decrement(node.get());
+  }
+  return OpenTransactionPtr(node.release(), internal::adopt_object_ref);
+}
+
 /// Returns either the existing transaction or a new implicit transaction.
 ///
 /// If `transaction` is null, sets `transaction` to a new implicit transaction.

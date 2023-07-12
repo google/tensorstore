@@ -92,10 +92,8 @@ cc_library(
     }),
     local_defines = [
         "BUILDING_LIBCURL",
+        "HTTP_ONLY",
         "HAVE_CONFIG_H",
-        "CURL_DISABLE_FTP",
-        "CURL_DISABLE_NTLM",
-        "CURL_DISABLE_PROXY",
         "HAVE_LIBZ",
         "HAVE_ZLIB_H",
         "HAVE_BROTLI",

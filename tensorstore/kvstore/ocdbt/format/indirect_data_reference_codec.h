@@ -63,13 +63,8 @@ struct IndirectDataReferenceArrayCodec {
       // Validate length
       for (auto& v : vec) {
         auto& r = getter(v);
-        if (allow_missing && r.IsMissing()) continue;
-        uint64_t end_offset;
-        if (internal::AddOverflow(r.offset, r.length, &end_offset)) {
-          io.Fail(absl::DataLossError(absl::StrFormat(
-              "Invalid offset/length pair (%d, %d)", r.offset, r.length)));
-          return false;
-        }
+        TENSORSTORE_RETURN_IF_ERROR(r.Validate(allow_missing),
+                                    (io.Fail(_), false));
       }
     }
 

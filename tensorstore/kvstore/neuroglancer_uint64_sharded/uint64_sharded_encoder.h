@@ -24,7 +24,8 @@
 /// See description of format here:
 /// https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed#sharded-format
 
-#include <cstdint>
+#include <stdint.h>
+
 #include <utility>
 #include <vector>
 
@@ -105,7 +106,7 @@ class ShardEncoder {
   ///     from an existing shard.
   /// \pre `Finalize()` was not called previously, and no prior method call
   ///     returned an error.
-  absl::Status WriteIndexedEntry(std::uint64_t minishard, ChunkId chunk_id,
+  absl::Status WriteIndexedEntry(uint64_t minishard, ChunkId chunk_id,
                                  const absl::Cord& data, bool compress);
 
   /// Writes an additional chunk of data to the shard data file, but does not
@@ -124,7 +125,7 @@ class ShardEncoder {
   /// \return The location of the chunk on success.
   /// \pre `Finalize()` was not called previously, and no prior method call
   ///     returned an error.
-  Result<ByteRange> WriteUnindexedEntry(std::uint64_t minishard,
+  Result<ByteRange> WriteUnindexedEntry(uint64_t minishard,
                                         const absl::Cord& data, bool compress);
 
   /// Finalizes the shard data file and returns the encoded shard index file.
@@ -156,10 +157,10 @@ class ShardEncoder {
   std::vector<ShardIndexEntry> shard_index_;
 
   /// The current minishard number, initially 0.
-  std::uint64_t cur_minishard_;
+  uint64_t cur_minishard_;
 
   /// The number of bytes that have been written to the shard data file.
-  std::uint64_t data_file_offset_;
+  int64_t data_file_offset_;
 };
 
 /// Encodes a full shard from a list of chunks.
