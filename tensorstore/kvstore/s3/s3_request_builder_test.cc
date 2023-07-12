@@ -81,7 +81,8 @@ TEST(S3RequestBuilderTest, AWS4SignatureGetExample) {
     EXPECT_THAT(request.headers, ::testing::Contains(expected_auth_header));
     EXPECT_THAT(request.headers, ::testing::Contains("host: examplebucket.s3.amazonaws.com"));
     EXPECT_THAT(request.headers, ::testing::Contains(
-        "x-amz-content-sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"));
+        "x-amz-content-sha256: "
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"));
     EXPECT_THAT(request.headers, ::testing::Contains("x-amz-date: 20130524T000000Z"));
     EXPECT_THAT(request.headers, ::testing::Contains("range: bytes=0-9"));
 }
@@ -137,7 +138,8 @@ TEST(S3RequestBuilderTest, AWS4SignaturePutExample) {
     EXPECT_THAT(request.headers, ::testing::Contains("date: Fri, 24 May 2013 00:00:00 GMT"));
     EXPECT_THAT(request.headers, ::testing::Contains("host: examplebucket.s3.amazonaws.com"));
     EXPECT_THAT(request.headers, ::testing::Contains(
-        "x-amz-content-sha256: 44ce7dd67c959e0d3524ffac1771dfbba87d2b6b4b4e99e42034a8b803f8b072"));
+        "x-amz-content-sha256: "
+        "44ce7dd67c959e0d3524ffac1771dfbba87d2b6b4b4e99e42034a8b803f8b072"));
     EXPECT_THAT(request.headers, ::testing::Contains("x-amz-date: 20130524T000000Z"));
     EXPECT_THAT(request.headers, ::testing::Contains("x-amz-storage-class: REDUCED_REDUNDANCY"));
 
@@ -191,7 +193,8 @@ TEST(S3RequestBuilderTest, AWS4SignatureListObjectsExample) {
     EXPECT_THAT(request.headers, ::testing::Contains(expected_auth_header));
     EXPECT_THAT(request.headers, ::testing::Contains("host: examplebucket.s3.amazonaws.com"));
     EXPECT_THAT(request.headers, ::testing::Contains(
-        "x-amz-content-sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"));
+        "x-amz-content-sha256: "
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"));
     EXPECT_THAT(request.headers, ::testing::Contains("x-amz-date: 20130524T000000Z"));
 }
 
@@ -211,7 +214,8 @@ TEST(S3RequestBuilderTest, AnonymousCredentials) {
             ::testing::Contains(::testing::HasSubstr("Authorization:"))));
     EXPECT_THAT(request.headers, ::testing::Contains("host: examplebucket.s3.amazonaws.com"));
     EXPECT_THAT(request.headers, ::testing::Contains(
-        "x-amz-content-sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"));
+        "x-amz-content-sha256: "
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"));
     EXPECT_THAT(request.headers, ::testing::Contains("x-amz-date: 20130524T000000Z"));
 }
 
