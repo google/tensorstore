@@ -25,14 +25,14 @@ using ::tensorstore::internal::AsciiSet;
 namespace {
 // See description of function UriEncode at this URL
 // https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
-constexpr AsciiSet kUriUnreservedChars{
+static inline constexpr AsciiSet kUriUnreservedChars{
     "abcdefghijklmnopqrstuvwxyz"
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     "0123456789"
     "-._~"};
 
 // NOTE: Only adds "/" to kUriUnreservedChars
-constexpr AsciiSet kUriKeyUnreservedChars{
+static inline constexpr AsciiSet kUriKeyUnreservedChars{
     "abcdefghijklmnopqrstuvwxyz"
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     "0123456789"
