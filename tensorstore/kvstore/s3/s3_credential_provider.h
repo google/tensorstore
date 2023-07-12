@@ -53,7 +53,7 @@ struct S3Credentials {
 
 /// Base class for S3 Credential Providers
 ///
-/// Implementers should override the GetCredentials method
+/// Implementers should override GetCredentials
 class CredentialProvider {
  public:
   virtual ~CredentialProvider() = default;
