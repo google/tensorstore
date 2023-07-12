@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_KVSTORE_S3_S3_CREDENTIAL_PROVIDER_H_
+#ifndef TENSORSTORE_KVSTORE_S3_S3_CREDENTIAL_PROVIDER_H
 #define TENSORSTORE_KVSTORE_S3_S3_CREDENTIAL_PROVIDER_H
 
 #include <functional>
