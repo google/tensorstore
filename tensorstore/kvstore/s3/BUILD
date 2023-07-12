@@ -203,6 +203,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/digest:sha256",
         "//tensorstore/internal:path",
         ":validate",
+        ":s3_credential_provider",
         ":s3_uri_utils"
     ],
     local_defines = DEBUG_LOCAL_DEFINES,

@@ -24,12 +24,14 @@
 
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/kvstore/s3/s3_uri_utils.h"
+#include "tensorstore/kvstore/s3/s3_credential_provider.h"
 #include "tensorstore/util/result.h"
 
 #include "absl/time/time.h"
 
 using ::tensorstore::internal_http::HttpRequest;
 using ::tensorstore::internal_http::HttpRequestBuilder;
+using ::tensorstore::internal_auth_s3::S3Credentials;
 using ::tensorstore::internal_http_s3::S3UriEncode;
 using ::tensorstore::internal_http_s3::S3UriObjectKeyEncode;
 
@@ -78,36 +80,32 @@ class S3RequestBuilder {
     return *this;
   }
 
+  /// Provides the Canonical Request artifact once BuildRequest has been called
+  const std::string & GetCanonicalRequest() const {
+    return canonical_request_;
+  }
 
-  HttpRequest BuildRequest(std::string_view aws_access_key, std::string_view aws_secret_access_key,
-                           std::string_view aws_region, std::string_view payload_hash,
-                           const absl::Time & time);
+  /// Provides the Signing String artifact once BuildRequest has been called
+  const std::string & GetSigningString() const {
+    return signing_string_;
+  }
 
-  /// https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
-  static std::string SigningString(
-    std::string_view canonical_request,
+  /// Proivdes the GetSignature artifact once BuildRequest has been called
+  const std::string & GetSignature() const {
+    return signature_;
+  }
+
+  HttpRequest BuildRequest(
+    std::string_view host,
+    const S3Credentials & credentials,
     std::string_view aws_region,
+    std::string_view payload_sha256_hash,
     const absl::Time & time);
 
-  static std::string Signature(
-    std::string_view aws_secret_access_key,
-    std::string_view aws_region,
-    std::string_view signing_string,
-    const absl::Time & time);
-
-  static std::string CanonicalRequest(
-    std::string_view url,
-    std::string_view method,
-    std::string_view payload_hash,
-    const std::vector<std::pair<std::string, std::string>> & headers);
-
-  static std::string AuthorizationHeader(
-    std::string_view aws_access_key,
-    std::string_view aws_region,
-    std::string_view signature,
-    const std::vector<std::pair<std::string, std::string>> & headers,
-    const absl::Time & time);
  private:
+  std::string canonical_request_;
+  std::string signing_string_;
+  std::string signature_;
   std::vector<std::pair<std::string, std::string>> query_params_;
   HttpRequestBuilder builder_;
 };

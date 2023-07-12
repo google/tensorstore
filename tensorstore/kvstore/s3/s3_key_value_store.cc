@@ -487,15 +487,7 @@ struct ReadTask : public RateLimiterNode,
     auto request = request_builder
             .EnableAcceptEncoding()
             .MaybeAddRangeHeader(options.byte_range)
-            .AddHeader(absl::StrCat("host: ", owner->host_))
-            .AddHeader(absl::StrCat("x-amz-content-sha256: ", kEmptySha256))
-            .AddHeader(absl::FormatTime("x-amz-date: %Y%m%dT%H%M%SZ", start_time_, absl::UTCTimeZone()))
-            .BuildRequest(
-              credentials.access_key,
-              credentials.secret_key,
-              owner->aws_region_,
-              kEmptySha256,
-              start_time_);
+            .BuildRequest(owner->host_, credentials, owner->aws_region_, kEmptySha256, start_time_);
 
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS)
         << "ReadTask: " << request;
@@ -694,15 +686,7 @@ struct WriteTask : public RateLimiterNode,
     AddGenerationHeader(&builder, "if-match", options.if_equal);
 
     auto request = builder
-            .AddHeader(absl::StrCat("host: ", owner->host_))
-            .AddHeader(absl::StrCat("x-amz-content-sha256: ", kEmptySha256))
-            .AddHeader(absl::FormatTime("x-amz-date: %Y%m%dT%H%M%SZ", now, absl::UTCTimeZone()))
-            .BuildRequest(
-              credentials_.access_key,
-              credentials_.secret_key,
-              owner->aws_region_,
-              kEmptySha256,
-              now);
+            .BuildRequest(owner->host_, credentials_, owner->aws_region_, kEmptySha256, now);
 
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS) << "WriteTask (Peek): " << request;
 
@@ -766,15 +750,7 @@ struct WriteTask : public RateLimiterNode,
     auto request = S3RequestBuilder("PUT", upload_url_)
             .AddHeader("Content-Type: application/octet-stream")
             .AddHeader(absl::StrCat("Content-Length: ", value.size()))
-            .AddHeader(absl::StrCat("host: ", owner->host_))
-            .AddHeader(absl::StrCat("x-amz-content-sha256: ", content_sha256))
-            .AddHeader(absl::FormatTime("x-amz-date: %Y%m%dT%H%M%SZ", start_time_, absl::UTCTimeZone()))
-            .BuildRequest(
-              credentials_.access_key,
-              credentials_.secret_key,
-              owner->aws_region_,
-              content_sha256,
-              start_time_);
+            .BuildRequest(owner->host_, credentials_, owner->aws_region_, content_sha256, start_time_);
 
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS)
         << "WriteTask: " << request << " size=" << value.size();
@@ -900,15 +876,7 @@ struct DeleteTask : public RateLimiterNode,
     AddGenerationHeader(&builder, "if-match", options.if_equal);
 
     auto request = builder
-            .AddHeader(absl::StrCat("host: ", owner->host_))
-            .AddHeader(absl::StrCat("x-amz-content-sha256: ", kEmptySha256))
-            .AddHeader(absl::FormatTime("x-amz-date: %Y%m%dT%H%M%SZ", now, absl::UTCTimeZone()))
-            .BuildRequest(
-              credentials_.access_key,
-              credentials_.secret_key,
-              owner->aws_region_,
-              kEmptySha256,
-              now);
+            .BuildRequest(owner->host_, credentials_, owner->aws_region_, kEmptySha256, now);
 
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS) << "DeleteTask (Peek): " << request;
 
@@ -955,15 +923,7 @@ struct DeleteTask : public RateLimiterNode,
     start_time_ = absl::Now();
 
     auto request = S3RequestBuilder("DELETE", resource)
-        .AddHeader(absl::StrCat("host: ", owner->host_))
-        .AddHeader(absl::StrCat("x-amz-content-sha256: ", kEmptySha256))
-        .AddHeader(absl::FormatTime("x-amz-date: %Y%m%dT%H%M%SZ", start_time_, absl::UTCTimeZone()))
-        .BuildRequest(
-          credentials_.access_key,
-          credentials_.secret_key,
-          owner->aws_region_,
-          kEmptySha256,
-          start_time_);
+        .BuildRequest(owner->host_, credentials_, owner->aws_region_, kEmptySha256, start_time_);
 
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS)
         << "DeleteTask: " << request;
@@ -1141,15 +1101,7 @@ struct ListTask : public RateLimiterNode,
     start_time_ = absl::Now();
 
     auto request = request_builder
-        .AddHeader(absl::StrCat("host: ", owner_->host_))
-        .AddHeader(absl::StrCat("x-amz-content-sha256: ", kEmptySha256))
-        .AddHeader(absl::FormatTime("x-amz-date: %Y%m%dT%H%M%SZ", start_time_, absl::UTCTimeZone()))
-        .BuildRequest(
-          credentials.access_key,
-          credentials.secret_key,
-          owner_->aws_region_,
-          kEmptySha256,
-          start_time_);
+        .BuildRequest(owner_->host_, credentials, owner_->aws_region_, kEmptySha256, start_time_);
 
 
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS)
