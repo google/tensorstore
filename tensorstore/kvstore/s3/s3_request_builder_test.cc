@@ -37,7 +37,8 @@ static constexpr char bucket[] = "examplebucket";
 TEST(S3RequestBuilderTest, AWS4SignatureGetExample) {
     // https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
     // These values from worked exapmle in "Example: GET Object" Section
-    auto builder = S3RequestBuilder("GET", absl::StrFormat("https://%s/test.txt", bucket))
+    auto url = absl::StrFormat("https://%s/test.txt", bucket);
+    auto builder = S3RequestBuilder("GET", url)
                         .AddHeader("range: bytes=0-9");
     auto request = builder.BuildRequest(
         absl::StrFormat("%s.s3.amazonaws.com", bucket),
@@ -75,14 +76,22 @@ TEST(S3RequestBuilderTest, AWS4SignatureGetExample) {
     EXPECT_EQ(builder.GetCanonicalRequest(), expected_canonical_request);
     EXPECT_EQ(builder.GetSigningString(), expected_signing_string);
     EXPECT_EQ(builder.GetSignature(), expected_signature);
+    EXPECT_EQ(request.url, url);
+    EXPECT_EQ(request.headers.size(), 5);
     EXPECT_THAT(request.headers, ::testing::Contains(expected_auth_header));
+    EXPECT_THAT(request.headers, ::testing::Contains("host: examplebucket.s3.amazonaws.com"));
+    EXPECT_THAT(request.headers, ::testing::Contains(
+        "x-amz-content-sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"));
+    EXPECT_THAT(request.headers, ::testing::Contains("x-amz-date: 20130524T000000Z"));
+    EXPECT_THAT(request.headers, ::testing::Contains("range: bytes=0-9"));
 }
 
 
 TEST(S3RequestBuilderTest, AWS4SignaturePutExample) {
     // https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
-    // These values from worked exapmle in "Example: PUT Object" Section
-    auto builder = S3RequestBuilder("PUT", absl::StrFormat("s3://%s/test$file.text", bucket))
+    // These values from worked example in "Example: PUT Object" Section
+    auto url = absl::StrFormat("s3://%s/test$file.text", bucket);
+    auto builder = S3RequestBuilder("PUT", url)
                         .AddHeader("date: Fri, 24 May 2013 00:00:00 GMT")
                         .AddHeader("x-amz-storage-class: REDUCED_REDUNDANCY");
     auto request = builder.BuildRequest(
@@ -122,14 +131,24 @@ TEST(S3RequestBuilderTest, AWS4SignaturePutExample) {
     EXPECT_EQ(builder.GetCanonicalRequest(), expected_canonical_request);
     EXPECT_EQ(builder.GetSigningString(), expected_signing_string);
     EXPECT_EQ(builder.GetSignature(), expected_signature);
+    EXPECT_EQ(request.url, url);
+    EXPECT_EQ(request.headers.size(), 6);
     EXPECT_THAT(request.headers, ::testing::Contains(expected_auth_header));
+    EXPECT_THAT(request.headers, ::testing::Contains("date: Fri, 24 May 2013 00:00:00 GMT"));
+    EXPECT_THAT(request.headers, ::testing::Contains("host: examplebucket.s3.amazonaws.com"));
+    EXPECT_THAT(request.headers, ::testing::Contains(
+        "x-amz-content-sha256: 44ce7dd67c959e0d3524ffac1771dfbba87d2b6b4b4e99e42034a8b803f8b072"));
+    EXPECT_THAT(request.headers, ::testing::Contains("x-amz-date: 20130524T000000Z"));
+    EXPECT_THAT(request.headers, ::testing::Contains("x-amz-storage-class: REDUCED_REDUNDANCY"));
+
 }
 
 
 TEST(S3RequestBuilderTest, AWS4SignatureListObjectsExample) {
     // https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
     // These values from worked example in "Example: GET Object" Section
-    auto builder = S3RequestBuilder("GET", absl::StrFormat("https://%s/", bucket))
+    auto url = absl::StrFormat("https://%s/", bucket);
+    auto builder = S3RequestBuilder("GET", url)
                         .AddQueryParameter("prefix", "J")
                         .AddQueryParameter("max-keys", "2");
     auto request = builder.BuildRequest(
@@ -167,7 +186,33 @@ TEST(S3RequestBuilderTest, AWS4SignatureListObjectsExample) {
     EXPECT_EQ(builder.GetCanonicalRequest(), expected_canonical_request);
     EXPECT_EQ(builder.GetSigningString(), expected_signing_string);
     EXPECT_EQ(builder.GetSignature(), expected_signature);
+    EXPECT_EQ(request.url, absl::StrCat(url, "?max-keys=2&prefix=J"));
+    EXPECT_EQ(request.headers.size(), 4);
     EXPECT_THAT(request.headers, ::testing::Contains(expected_auth_header));
+    EXPECT_THAT(request.headers, ::testing::Contains("host: examplebucket.s3.amazonaws.com"));
+    EXPECT_THAT(request.headers, ::testing::Contains(
+        "x-amz-content-sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"));
+    EXPECT_THAT(request.headers, ::testing::Contains("x-amz-date: 20130524T000000Z"));
+}
+
+TEST(S3RequestBuilderTest, AnonymousCredentials) {
+    // No Authorization header added for anonymous credentials
+    auto url = absl::StrFormat("https://%s/test.txt", bucket);
+    auto builder = S3RequestBuilder("GET", url).AddQueryParameter("test", "this");
+    auto request = builder.BuildRequest(
+        absl::StrFormat("%s.s3.amazonaws.com", bucket),
+        S3Credentials{}, aws_region,
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        absl::FromCivil(absl::CivilSecond(2013, 5, 24, 0, 0, 0), utc));
+
+    EXPECT_EQ(request.url, absl::StrCat(url, "?test=this"));
+    EXPECT_EQ(request.headers.size(), 3);
+    EXPECT_THAT(request.headers, ::testing::Not(
+            ::testing::Contains(::testing::HasSubstr("Authorization:"))));
+    EXPECT_THAT(request.headers, ::testing::Contains("host: examplebucket.s3.amazonaws.com"));
+    EXPECT_THAT(request.headers, ::testing::Contains(
+        "x-amz-content-sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"));
+    EXPECT_THAT(request.headers, ::testing::Contains("x-amz-date: 20130524T000000Z"));
 }
 
 } // namespace
