@@ -171,26 +171,29 @@ Result<S3Credentials> FileCredentialProvider::GetCredentials() {
 
   while (std::getline(ifs, line)) {
     auto sline = absl::StripAsciiWhitespace(line);
+    // Ignore empty and commented out lines
     if(sline.empty() || sline[0] == '#') continue;
 
+    // A configuration section name has been encountered
     if(sline[0] == '[' && sline[sline.size() - 1] == ']') {
       section_name = absl::StripAsciiWhitespace(sline.substr(1, sline.size() - 2));
       continue;
     }
 
+    // Look for key=value pairs if we're in the appropriate profile
     if(section_name == profile_) {
       profile_found = true;
-      std::vector<std::string_view> key_value = absl::StrSplit(sline, '=');
-      if(key_value.size() != 2) continue; // Malformed, ignore
-      auto key = absl::StripAsciiWhitespace(key_value[0]);
-      auto value = absl::StripAsciiWhitespace(key_value[1]);
+      if(auto pos = sline.find('='); pos != std::string::npos) {
+        auto key = absl::StripAsciiWhitespace(sline.substr(0, pos))        ;
+        auto value = absl::StripAsciiWhitespace(sline.substr(pos + 1));
 
-      if(key == kCfgAwsAccessKeyId) {
-          credentials.access_key = value;
-      } else if(key == kCfgAwsSecretAccessKeyId) {
-          credentials.secret_key = value;
-      } else if(key == kCfgAwsSessionToken) {
-          credentials.session_token = value;
+        if(key == kCfgAwsAccessKeyId) {
+            credentials.access_key = value;
+        } else if(key == kCfgAwsSecretAccessKeyId) {
+            credentials.secret_key = value;
+        } else if(key == kCfgAwsSessionToken) {
+            credentials.session_token = value;
+        }
       }
     }
   }
