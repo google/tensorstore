@@ -29,7 +29,6 @@
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/digest/sha256.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/str_cat.h"
 
 using ::tensorstore::internal::AsciiSet;
 using ::tensorstore::internal::ParseGenericUri;
