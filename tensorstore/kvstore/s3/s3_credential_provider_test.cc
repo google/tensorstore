@@ -162,6 +162,17 @@ TEST_F(S3CredentialProviderTest, ProviderS3CredentialsFromFileProfileEnv) {
     ASSERT_EQ(credentials.session_token, "");
 }
 
+TEST_F(S3CredentialProviderTest, ProviderS3CredentialsFromFileInvalidProfileEnv) {
+    SetEnv("AWS_SHARED_CREDENTIALS_FILE", credentials_filename.c_str());
+    SetEnv("AWS_PROFILE", "bob");
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto provider, GetS3CredentialProvider());
+    auto result = provider->GetCredentials();
+    ASSERT_FALSE(result.ok());
+    EXPECT_THAT(result.status().message(),
+                ::testing::HasSubstr("Profile [bob] not found in credentials file"));
+}
+
+
 TEST_F(S3CredentialProviderTest, ProviderS3CredentialsFromFileDefaultProfileOverridesProfileEnv) {
     SetEnv("AWS_SHARED_CREDENTIALS_FILE", credentials_filename.c_str());
     SetEnv("AWS_DEFAULT_PROFILE", "alice");
