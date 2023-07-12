@@ -59,6 +59,7 @@ Result<std::string_view> GetTag(std::string_view data,
 /// @brief Creates a storage generation from the etag header
 ///
 /// An etag is a hash of the S3 object contained in double-quotes.
+/// For example "abcdef1234567890".
 /// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/ETag
 /// This may or may not be an MD5 digest of the data
 /// https://docs.aws.amazon.com/AmazonS3/latest/API/API_Object.html
