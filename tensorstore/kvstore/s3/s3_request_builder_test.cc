@@ -215,4 +215,20 @@ TEST(S3RequestBuilderTest, AnonymousCredentials) {
     EXPECT_THAT(request.headers, ::testing::Contains("x-amz-date: 20130524T000000Z"));
 }
 
+TEST(S3RequestBuilderTest, AwsSessionTokenHeaderAdded) {
+    /// Only test that x-amz-security-token is added if present on S3Credentials
+    auto token = "abcdef1234567890";
+    auto sts_credentials = S3Credentials{credentials.access_key, credentials.secret_key, token};
+    auto builder = S3RequestBuilder("GET", absl::StrFormat("https://%s/test.txt", bucket));
+    auto request = builder.BuildRequest(
+        absl::StrFormat("%s.s3.amazonaws.com", bucket),
+        sts_credentials, aws_region,
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        absl::FromCivil(absl::CivilSecond(2013, 5, 24, 0, 0, 0), utc));
+
+    EXPECT_EQ(request.headers.size(), 5);
+    EXPECT_THAT(request.headers, ::testing::Contains(::testing::HasSubstr("Authorization: ")));
+    EXPECT_THAT(request.headers, ::testing::Contains(absl::StrCat("x-amz-security-token: ", token)));
+}
+
 } // namespace

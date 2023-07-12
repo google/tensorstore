@@ -179,6 +179,10 @@ std::string AuthorizationHeader(
   );
 }
 
+static constexpr char kHostHeader[] = "host: ";
+static constexpr char kAmzContentSha256Header[] = "x-amz-content-sha256: ";
+static constexpr char kAmzSecurityTokenHeader[] = "x-amz-security-token: ";
+
 } // namespace
 
 
@@ -189,8 +193,8 @@ HttpRequest S3RequestBuilder::BuildRequest(
   std::string_view payload_sha256_hash,
   const absl::Time & time) {
 
-    builder_.AddHeader(absl::StrCat("host: ", host));
-    builder_.AddHeader(absl::StrCat("x-amz-content-sha256: ", payload_sha256_hash));
+    builder_.AddHeader(absl::StrCat(kHostHeader, host));
+    builder_.AddHeader(absl::StrCat(kAmzContentSha256Header, payload_sha256_hash));
     builder_.AddHeader(absl::FormatTime("x-amz-date: %Y%m%dT%H%M%SZ", time, absl::UTCTimeZone()));
 
     // Add deferred query parameters in sorted order for AWS4 signature requirements
@@ -199,12 +203,18 @@ HttpRequest S3RequestBuilder::BuildRequest(
       builder_.AddQueryParameter(k, v);
     }
 
-    auto request = builder_.BuildRequest();
-
     // If anonymous, it's unnecessary to construct the Authorization header
     if (credentials.IsAnonymous()) {
-      return request;
+      return builder_.BuildRequest();
     }
+
+    // Add AWS Session Token, if available
+    // https://docs.aws.amazon.com/AmazonS3/latest/userguide/RESTAuthentication.html#UsingTemporarySecurityCredentials
+    if (!credentials.session_token.empty()) {
+      builder_.AddHeader(absl::StrCat(kAmzSecurityTokenHeader, credentials.session_token));
+    }
+
+    auto request = builder_.BuildRequest();
 
     // Create sorteded AWS4 signing headers
     std::vector<std::pair<std::string, std::string>> signed_headers;
