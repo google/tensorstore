@@ -176,7 +176,7 @@ bool AddGenerationHeader(S3RequestBuilder * builder,
 }
 
 
-std::pair<std::string, std::string> payload_sha256(const absl::Cord & cord=absl::Cord()) {
+std::string payload_sha256(const absl::Cord & cord=absl::Cord()) {
   SHA256Digester sha256;
   sha256.Write(cord);
   auto digest = sha256.Digest();
@@ -184,10 +184,7 @@ std::pair<std::string, std::string> payload_sha256(const absl::Cord & cord=absl:
     reinterpret_cast<const char *>(&digest[0]),
     digest.size());
 
-  std::string base64_result;
-  absl::Base64Escape(digest_sv, &base64_result);
-
-  return {absl::BytesToHexString(digest_sv), base64_result};
+  return absl::BytesToHexString(digest_sv);
 }
 
 
@@ -764,7 +761,7 @@ struct WriteTask : public RateLimiterNode,
     upload_url_ = tensorstore::StrCat(owner->endpoint_, "/", encoded_object_name);
 
     start_time_ = absl::Now();
-    auto [content_sha256, checksum_sha256] = payload_sha256(value);
+    auto content_sha256 = payload_sha256(value);
 
     auto request = S3RequestBuilder("PUT", upload_url_)
             .AddHeader("Content-Type: application/octet-stream")

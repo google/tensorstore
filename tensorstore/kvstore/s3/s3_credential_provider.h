@@ -39,7 +39,7 @@ struct S3Credentials {
   std::string secret_key;
   std::string session_token;
 
-  bool IsValid() const { return !access_key.empty(); }
+  bool IsAnonymous() const { return !access_key.empty(); }
 };
 
 class CredentialProvider {
