@@ -42,6 +42,7 @@ namespace {
 
 using ::tensorstore::StrCat;
 using ::tensorstore::internal::JoinPath;
+using ::tensorstore::internal::GetEnv;
 using ::tensorstore::internal::SetEnv;
 using ::tensorstore::internal::UnsetEnv;
 using ::tensorstore::internal_auth_s3::CredentialProvider;
@@ -73,16 +74,33 @@ protected:
  TestData test_data;
  std::string credentials_filename;
 
+ // Environment variables to save and restore during setup and teardown
+ std::map<std::string, std::optional<std::string>> saved_vars{
+    {"AWS_SHARED_CREDENTIALS_FILE", std::nullopt},
+    {"AWS_ACCESS_KEY_ID", std::nullopt},
+    {"AWS_SECRET_ACCESS_KEY", std::nullopt},
+    {"AWS_SESSION_TOKEN", std::nullopt},
+    {"AWS_DEFAULT_PROFILE", std::nullopt},
+    {"AWS_PROFILE", std::nullopt}
+ };
+
  void SetUp() override {
-    UnsetEnv("AWS_SHARED_CREDENTIALS_FILE");
-    UnsetEnv("AWS_ACCESS_KEY_ID");
-    UnsetEnv("AWS_SECRET_ACCESS_KEY");
-    UnsetEnv("AWS_SESSION_TOKEN");
-    UnsetEnv("AWS_DEFAULT_PROFILE");
-    UnsetEnv("AWS_PROFILE");
+    for(auto &pair: saved_vars) {
+        pair.second = GetEnv(pair.first.c_str());
+        UnsetEnv(pair.first.c_str());
+    }
 
     credentials_filename = test_data.WriteCredentialsFile();
  }
+
+ void TearDown() override {
+    for(auto &pair: saved_vars) {
+        if(pair.second) {
+            SetEnv(pair.first.c_str(), pair.second.value().c_str());
+        }
+    }
+ }
+
 };
 
 TEST_F(S3CredentialProviderTest, ProviderNoCredentials) {
