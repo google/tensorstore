@@ -41,7 +41,7 @@ ABSL_FLAG(std::optional<size_t>, tensorstore_s3_request_concurrency,
 ABSL_FLAG(std::optional<absl::Duration>, tensorstore_s3_rate_limiter_doubling_time,
           std::nullopt,
           "S3 Rate Limiter Doubling Time. "
-          "Overrides TENSORSTORE_S3_RATE_LIMITER_DOUBLING_TIME#");
+          "Overrides TENSORSTORE_S3_RATE_LIMITER_DOUBLING_TIME");
 
 using ::tensorstore::internal::AnyContextResourceJsonBinder;
 using ::tensorstore::internal::ContextResourceCreationContext;
