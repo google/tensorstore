@@ -19,16 +19,12 @@
 /// Key-value store where each key corresponds to a S3 object and the value is
 /// stored as the file content.
 
-#include <cstdint>
-
 #include <map>
 #include <string>
 #include <string_view>
 
 #include "absl/time/time.h"
-#include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/generation.h"
-#include "tensorstore/util/executor.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
