@@ -190,19 +190,6 @@ std::pair<std::string, std::string> payload_sha256(const absl::Cord & cord=absl:
   return {absl::BytesToHexString(digest_sv), base64_result};
 }
 
-std::pair<std::string, std::string> payload_md5(const absl::Cord & cord=absl::Cord()) {
-  MD5Digester md5;
-  md5.Write(cord);
-  auto digest = md5.Digest();
-  auto digest_sv = std::string_view(
-    reinterpret_cast<const char *>(&digest[0]),
-    digest.size());
-
-  std::string base64_result;
-  absl::Base64Escape(digest_sv, &base64_result);
-  return {base64_result, absl::BytesToHexString(digest_sv)};
-
-}
 
 struct S3KeyValueStoreSpecData {
   std::string bucket;
@@ -654,8 +641,6 @@ struct WriteTask : public RateLimiterNode,
 
   S3Credentials credentials_;
   std::string upload_url_;
-  std::string expected_etag_;
-  std::string expected_sha256_;
   int attempt_ = 0;
   absl::Time start_time_;
 
@@ -780,18 +765,13 @@ struct WriteTask : public RateLimiterNode,
 
     start_time_ = absl::Now();
     auto [content_sha256, checksum_sha256] = payload_sha256(value);
-    auto [content_md5, checksum_md5] = payload_md5(value);
-    expected_etag_ = checksum_md5;
 
     auto request = S3RequestBuilder("PUT", upload_url_)
             .AddHeader("Content-Type: application/octet-stream")
-            .AddHeader(tensorstore::StrCat("Content-Length: ", value.size()))
+            .AddHeader(absl::StrCat("Content-Length: ", value.size()))
             .AddHeader(absl::StrCat("host: ", owner->host_))
             .AddHeader(absl::StrCat("x-amz-content-sha256: ", content_sha256))
-            .AddHeader(absl::StrCat("x-amz-checksum-sha256: ", checksum_sha256))
-            .AddHeader(absl::StrCat("x-amz-meta-tensorstore-id: ", content_sha256))
             .AddHeader(absl::FormatTime("x-amz-date: %Y%m%dT%H%M%SZ", start_time_, absl::UTCTimeZone()))
-            .AddHeader(absl::StrCat("Content-MD5: ", content_md5))
             .BuildRequest(
               credentials_.access_key,
               credentials_.secret_key,
