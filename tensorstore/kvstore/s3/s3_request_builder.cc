@@ -12,21 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <algorithm>
 #include <string>
 #include <string_view>
 
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 
-#include "absl/strings/ascii.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/escaping.h"
-#include "absl/strings/str_split.h"
 #include "absl/status/status.h"
 #include "tensorstore/kvstore/s3/s3_request_builder.h"
 #include "tensorstore/kvstore/s3/validate.h"
-#include "tensorstore/internal/path.h"
 #include "tensorstore/internal/digest/sha256.h"
 #include "tensorstore/util/result.h"
 
@@ -79,7 +75,7 @@ HttpRequest S3RequestBuilder::BuildRequest(
     std::string_view payload_hash,
     const absl::Time & time) {
 
-  // Sort and add query parameters to the builder
+  // Add sorted AWS4 query parameters
   std::stable_sort(std::begin(query_params_), std::end(query_params_));
   for (const auto& [k, v] : query_params_) {
     builder_.AddQueryParameter(k, v);
@@ -87,7 +83,7 @@ HttpRequest S3RequestBuilder::BuildRequest(
 
   auto request = builder_.BuildRequest();
 
-  // Normalise headers
+  // Create sorteded AWS4 signing headers
   std::vector<std::pair<std::string, std::string>> signed_headers;
 
   for(const auto & header_str: request.headers) {
