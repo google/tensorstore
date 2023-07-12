@@ -15,19 +15,11 @@
 #include "tensorstore/kvstore/s3/s3_metadata.h"
 
 #include <map>
-#include <optional>
 #include <string>
 #include <string_view>
-#include <utility>
 
 #include "absl/status/status.h"
-#include "absl/strings/numbers.h"
-#include "absl/strings/str_split.h"
-#include "absl/time/time.h"
-#include "tensorstore/internal/http/http_response.h"
-#include "tensorstore/internal/json_binding/absl_time.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_storage_s3 {
