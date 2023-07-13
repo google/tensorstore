@@ -58,9 +58,8 @@ namespace internal_storage_s3 {
 ///
 class S3RequestBuilder {
  public:
-  /// @brief Constructs an S3RequestBuilder object
-  /// @param method The HTTP method in the request. For example GET, PUT, HEAD, DELETE.
-  /// @param endpoint_url The S3 endpoint URL to which the request will be issued.
+  /// Constructs an S3RequestBuilder with the HTTP Method (e.g. GET, PUT, DELETE, HEAD)
+  /// and the S3 endpoint
   S3RequestBuilder(std::string_view method, std::string endpoint_url) :
     builder_(method, endpoint_url, S3UriEncode) {};
 
@@ -118,14 +117,11 @@ class S3RequestBuilder {
     return signature_;
   }
 
-  /// @brief Builds an HTTP Request given the information provided to the builder
+  /// Builds an HTTP Request given the information provided to the builder
   ///
-  /// @param host The HTTP host header value: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Host
-  /// @param credentials S3 credentials. An empty access key implies anonymous access.
-  /// @param aws_region AWS region.
-  /// @param payload_sha256_hash SHA256 hash of the payload.
-  /// @param time Time at which the request is constructed.
-  /// @return an HttpRequest object, suitable for submission to the S3 Rest API.
+  /// The `host` should be the header value described here https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Host
+  /// `credentials` contains the keys required to construct an Authorization header with an AWS4 signature.
+  /// An empty access key on `credentials` implies anonymous access.
   HttpRequest BuildRequest(
     std::string_view host,
     const S3Credentials & credentials,

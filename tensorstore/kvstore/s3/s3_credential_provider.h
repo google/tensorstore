@@ -33,7 +33,7 @@ using ::tensorstore::Result;
 namespace tensorstore {
 namespace internal_auth_s3 {
 
-/// @brief Holds S3 credentials
+/// Holds S3 credentials
 ///
 /// Contains the access key, secret key and session token.
 /// An empty access key implies anonymous access,
