@@ -410,11 +410,16 @@ def update_github_workspace(
     if existing_version.startswith('v'):
       existing_version = existing_version[1:]
 
-    new_url, new_version = get_latest_download(
-        f'https://github.com/{github_org}/{github_repo}/releases/',
-        make_url_pattern(workspace.url, existing_version),
-    )
-    return (new_url, new_version, None)
+    release_url = f'https://github.com/{github_org}/{github_repo}/releases/'
+    try:
+      new_url, new_version = get_latest_download(
+          release_url,
+          make_url_pattern(workspace.url, existing_version),
+      )
+      return (new_url, new_version, None)
+    except Exception as e:
+      print(f'Failed to get release assets from {release_url}: {e}')
+      return None
 
   # url refers to specific commit on a branch, and the workspace.bzl file has a
   # branch(date) comment, so look for a later commit on the branch.
@@ -635,9 +640,9 @@ def update_workspace(
 
   workspace_bzl_file.write_text(new_workspace_content)
 
-  post_update = workspace_bzl_file.parent / "post_update.py"
+  post_update = workspace_bzl_file.parent / 'post_update.py'
   if post_update.exists():
-    print(f"Running post update script: {post_update}")
+    print(f'Running post update script: {post_update}')
     subprocess.run([sys.executable, post_update], check=True)
 
 
