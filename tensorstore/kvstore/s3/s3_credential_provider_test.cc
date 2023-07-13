@@ -45,8 +45,8 @@ using ::tensorstore::internal::JoinPath;
 using ::tensorstore::internal::GetEnv;
 using ::tensorstore::internal::SetEnv;
 using ::tensorstore::internal::UnsetEnv;
-using ::tensorstore::internal_auth_s3::CredentialProvider;
-using ::tensorstore::internal_auth_s3::GetS3CredentialProvider;
+using ::tensorstore::internal_kvstore_s3::CredentialProvider;
+using ::tensorstore::internal_kvstore_s3::GetS3CredentialProvider;
 
 
 class TestData : public tensorstore::internal::ScopedTemporaryDirectory {

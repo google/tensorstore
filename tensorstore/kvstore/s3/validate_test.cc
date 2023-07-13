@@ -18,10 +18,10 @@
 
 namespace {
 
-using ::tensorstore::internal_storage_s3::IsValidBucketName;
-using ::tensorstore::internal_storage_s3::ClassifyBucketName;
-using ::tensorstore::internal_storage_s3::BucketNameType;
-using ::tensorstore::internal_storage_s3::IsValidObjectName;
+using ::tensorstore::internal_kvstore_s3::IsValidBucketName;
+using ::tensorstore::internal_kvstore_s3::ClassifyBucketName;
+using ::tensorstore::internal_kvstore_s3::BucketNameType;
+using ::tensorstore::internal_kvstore_s3::IsValidObjectName;
 
 
 TEST(ValidateTest, ClassifyBucketName) {

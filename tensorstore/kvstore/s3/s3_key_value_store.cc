@@ -74,24 +74,24 @@ using ::tensorstore::internal::MD5Digester;
 using ::tensorstore::internal_http::HttpRequest;
 using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_http::HttpTransport;
-using ::tensorstore::internal_auth_s3::S3Credentials;
-using ::tensorstore::internal_auth_s3::CredentialProvider;
-using ::tensorstore::internal_auth_s3::GetS3CredentialProvider;
-using ::tensorstore::internal_storage_s3::StorageGenerationFromHeaders;
 using ::tensorstore::internal_storage_gcs::IsRetriable;
 using ::tensorstore::internal_kvstore_gcs_http::RateLimiter;
 using ::tensorstore::internal_kvstore_gcs_http::RateLimiterNode;
-using ::tensorstore::internal_storage_s3::S3ConcurrencyResource;
-using ::tensorstore::internal_storage_s3::S3RateLimiterResource;
-using ::tensorstore::internal_storage_s3::S3RequestRetries;
-using ::tensorstore::internal_storage_s3::S3RequestBuilder;
-using ::tensorstore::internal_storage_s3::IsValidBucketName;
-using ::tensorstore::internal_storage_s3::IsValidObjectName;
-using ::tensorstore::internal_storage_s3::IsValidStorageGeneration;
-using ::tensorstore::internal_storage_s3::GetTag;
-using ::tensorstore::internal_storage_s3::FindTag;
-using ::tensorstore::internal_http_s3::S3UriEncode;
-using ::tensorstore::internal_http_s3::S3UriObjectKeyEncode;
+using ::tensorstore::internal_kvstore_s3::S3Credentials;
+using ::tensorstore::internal_kvstore_s3::CredentialProvider;
+using ::tensorstore::internal_kvstore_s3::GetS3CredentialProvider;
+using ::tensorstore::internal_kvstore_s3::StorageGenerationFromHeaders;
+using ::tensorstore::internal_kvstore_s3::S3ConcurrencyResource;
+using ::tensorstore::internal_kvstore_s3::S3RateLimiterResource;
+using ::tensorstore::internal_kvstore_s3::S3RequestRetries;
+using ::tensorstore::internal_kvstore_s3::S3RequestBuilder;
+using ::tensorstore::internal_kvstore_s3::IsValidBucketName;
+using ::tensorstore::internal_kvstore_s3::IsValidObjectName;
+using ::tensorstore::internal_kvstore_s3::IsValidStorageGeneration;
+using ::tensorstore::internal_kvstore_s3::GetTag;
+using ::tensorstore::internal_kvstore_s3::FindTag;
+using ::tensorstore::internal_kvstore_s3::S3UriEncode;
+using ::tensorstore::internal_kvstore_s3::S3UriObjectKeyEncode;
 using ::tensorstore::kvstore::Key;
 using ::tensorstore::kvstore::ListOptions;
 using ::tensorstore::kvstore::SupportedFeatures;
@@ -374,7 +374,7 @@ Future<kvstore::DriverPtr> S3KeyValueStoreSpec::DoOpen() const {
     // Make global request to get bucket region from response headers,
     // then create region specific endpoint
     auto url = tensorstore::StrCat("https://", data_.bucket, ".s3", kDotAmazonAwsDotCom);
-    auto request = HttpRequestBuilder("HEAD", url).BuildRequest();
+    auto request = internal_http::HttpRequestBuilder("HEAD", url).BuildRequest();
     auto future = driver->transport_->IssueRequest(request, {});
     if(!future.status().ok()) return future.status();
     auto & headers = future.value().headers;
@@ -1288,6 +1288,11 @@ Result<kvstore::Spec> ParseS3Url(std::string_view url) {
   return {std::in_place, std::move(driver_spec), std::string(path)};
 }
 
+const tensorstore::internal_kvstore::DriverRegistration<
+    tensorstore::S3KeyValueStoreSpec>
+    registration;
+const tensorstore::internal_kvstore::UrlSchemeRegistration
+    url_scheme_registration{kUriScheme, tensorstore::ParseS3Url};
 
 
 } // namespace
@@ -1295,12 +1300,3 @@ Result<kvstore::Spec> ParseS3Url(std::string_view url) {
 
 TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(
     tensorstore::S3KeyValueStore)
-
-namespace {
-const tensorstore::internal_kvstore::DriverRegistration<
-    tensorstore::S3KeyValueStoreSpec>
-    registration;
-const tensorstore::internal_kvstore::UrlSchemeRegistration
-    url_scheme_registration{kUriScheme, tensorstore::ParseS3Url};
-}  // namespace
-

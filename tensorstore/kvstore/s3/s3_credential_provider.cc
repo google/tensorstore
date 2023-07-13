@@ -39,7 +39,7 @@ using ::tensorstore::internal::JoinPath;
 using ::tensorstore::internal_http::HttpRequestBuilder;
 
 namespace tensorstore {
-namespace internal_auth_s3 {
+namespace internal_kvstore_s3 {
 namespace {
 
 // https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html
@@ -238,8 +238,8 @@ Result<std::unique_ptr<CredentialProvider>> GetS3CredentialProvider(
     if(credentials.ok()) return credentials;
   }
 
-  return internal_auth_s3::GetDefaultS3CredentialProvider(profile, transport);
+  return internal_kvstore_s3::GetDefaultS3CredentialProvider(profile, transport);
 }
 
-} // namespace internal_auth_s3
+} // namespace internal_kvstore_s3
 } // namespace tensorstore

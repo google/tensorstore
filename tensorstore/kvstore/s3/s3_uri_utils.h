@@ -20,28 +20,24 @@
 
 #include "tensorstore/internal/uri_utils.h"
 
-using ::tensorstore::internal::AsciiSet;
+namespace tensorstore {
+namespace internal_kvstore_s3 {
 
-namespace {
 // See description of function UriEncode at this URL
 // https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
-static inline constexpr AsciiSet kUriUnreservedChars{
+static inline constexpr internal::AsciiSet kUriUnreservedChars{
     "abcdefghijklmnopqrstuvwxyz"
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     "0123456789"
     "-._~"};
 
 // NOTE: Only adds "/" to kUriUnreservedChars
-static inline constexpr AsciiSet kUriKeyUnreservedChars{
+static inline constexpr internal::AsciiSet kUriKeyUnreservedChars{
     "abcdefghijklmnopqrstuvwxyz"
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     "0123456789"
     "/-._~"};
 
-} // namespace
-
-namespace tensorstore {
-namespace internal_http_s3 {
 
 inline std::string S3UriEncode(std::string_view src) {
   std::string dest;
@@ -55,7 +51,7 @@ inline std::string S3UriObjectKeyEncode(std::string_view src) {
   return dest;
 }
 
-} // namespace internal_http_s3
+} // namespace internal_kvstore_s3
 } // namespace tensorstore
 
 #endif // TENSORSTORE_KVSTORE_S3_URI_UTILS_H

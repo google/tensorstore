@@ -31,14 +31,13 @@ using ::tensorstore::internal::ParseGenericUri;
 using ::tensorstore::internal::ParsedGenericUri;
 using ::tensorstore::internal::SHA256Digester;
 using namespace ::tensorstore::internal_http;
-using ::tensorstore::internal_storage_s3::IsValidBucketName;
 
 #ifndef TENSORSTORE_INTERNAL_S3_LOG_AWS4
 #define TENSORSTORE_INTERNAL_S3_LOG_AWS4 0
 #endif
 
 namespace tensorstore {
-namespace internal_storage_s3 {
+namespace internal_kvstore_s3 {
 
 namespace {
 
@@ -249,5 +248,5 @@ HttpRequest S3RequestBuilder::BuildRequest(
   }
 
 
-} // namespace internal_storage_s3
+} // namespace internal_kvstore_s3
 } // namespace tensorstore

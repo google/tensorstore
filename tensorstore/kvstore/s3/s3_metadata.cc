@@ -22,7 +22,7 @@
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
-namespace internal_storage_s3 {
+namespace internal_kvstore_s3 {
 
 Result<StorageGeneration> StorageGenerationFromHeaders(
     const std::multimap<std::string, std::string>& headers) {
@@ -54,5 +54,5 @@ Result<std::string_view> GetTag(std::string_view data,
   return data.substr(tagstart, tagend - tagstart);
 }
 
-}  // namespace internal_storage_s3
+}  // namespace internal_kvstore_s3
 }  // namespace tensorstore

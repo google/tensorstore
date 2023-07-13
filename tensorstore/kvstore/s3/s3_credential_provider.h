@@ -28,10 +28,8 @@
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/util/result.h"
 
-using ::tensorstore::Result;
-
 namespace tensorstore {
-namespace internal_auth_s3 {
+namespace internal_kvstore_s3 {
 
 /// Holds S3 credentials
 ///
@@ -111,7 +109,7 @@ Result<std::unique_ptr<CredentialProvider>> GetS3CredentialProvider(
     std::shared_ptr<internal_http::HttpTransport> transport =
         internal_http::GetDefaultHttpTransport());
 
-} // namespace internal_auth_s3
+} // namespace internal_kvstore_s3
 } // namespace tensorstore
 
 #endif // TENSORSTORE_KVSTORE_S3_S3_CREDENTIAL_PROVIDER_H

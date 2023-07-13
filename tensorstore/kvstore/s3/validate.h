@@ -22,7 +22,7 @@
 using ::tensorstore::StorageGeneration;
 
 namespace tensorstore {
-namespace internal_storage_s3 {
+namespace internal_kvstore_s3 {
 
 enum BucketNameType {
   Invalid = 0,
@@ -46,7 +46,7 @@ bool IsValidObjectName(std::string_view name);
 // Returns whether the storage generation is valie
 bool IsValidStorageGeneration(const StorageGeneration& gen);
 
-}  // namespace internal_storage_s3
+}  // namespace internal_kvstore_s3
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_KVSTORE_S3_VALIDATE_H_

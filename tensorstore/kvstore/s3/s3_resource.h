@@ -30,11 +30,9 @@
 #include "tensorstore/internal/json_binding/absl_time.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 
-using ::tensorstore::internal_kvstore_gcs_http::AdmissionQueue;
-using ::tensorstore::internal_kvstore_gcs_http::RateLimiter;
 
 namespace tensorstore {
-namespace internal_storage_s3 {
+namespace internal_kvstore_s3 {
 
 /// Specifies whether the requester should be billed for request to a bucket
 struct S3RequesterPaysResource
@@ -85,7 +83,7 @@ struct S3ConcurrencyResource
   };
   struct Resource {
     Spec spec;
-    std::shared_ptr<AdmissionQueue> queue;
+    std::shared_ptr<internal_kvstore_gcs_http::AdmissionQueue> queue;
   };
 
   static Spec Default() { return Spec{std::nullopt}; }
@@ -134,8 +132,8 @@ struct S3RateLimiterResource
   };
   struct Resource {
     Spec spec;
-    std::shared_ptr<RateLimiter> read_limiter;
-    std::shared_ptr<RateLimiter> write_limiter;
+    std::shared_ptr<internal_kvstore_gcs_http::RateLimiter> read_limiter;
+    std::shared_ptr<internal_kvstore_gcs_http::RateLimiter> write_limiter;
   };
 
   static Spec Default() {
@@ -159,7 +157,7 @@ struct S3RateLimiterResource
   }
 };
 
-}  // namespace internal_storage_s3
+}  // namespace internal_kvstore_s3
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_KVSTORE_S3_S3_RESOURCE_H_

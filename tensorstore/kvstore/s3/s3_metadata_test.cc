@@ -20,8 +20,8 @@
 #include "tensorstore/util/status_testutil.h"
 
 
-using ::tensorstore::internal_storage_s3::FindTag;
-using ::tensorstore::internal_storage_s3::GetTag;
+using ::tensorstore::internal_kvstore_s3::FindTag;
+using ::tensorstore::internal_kvstore_s3::GetTag;
 using ::tensorstore::Result;
 
 namespace {

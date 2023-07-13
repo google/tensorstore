@@ -21,7 +21,7 @@
 #include "tensorstore/internal/utf8.h"
 
 namespace tensorstore {
-namespace internal_storage_s3 {
+namespace internal_kvstore_s3 {
 
 // Returns whether the bucket name is valid.
 // https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html
@@ -80,5 +80,5 @@ bool IsValidStorageGeneration(const StorageGeneration& gen) {
 }
 
 
-}  // namespace internal_storage_s3
+}  // namespace internal_kvstore_s3
 }  // namespace tensorstore

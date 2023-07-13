@@ -28,7 +28,7 @@
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
-namespace internal_storage_s3 {
+namespace internal_kvstore_s3 {
 
 /// Find the starting position of the `tag` or the position immediately after the tag
 /// within the supplied XML `data`
@@ -62,7 +62,7 @@ Result<std::string_view> GetTag(std::string_view data,
 Result<StorageGeneration> StorageGenerationFromHeaders(
     const std::multimap<std::string, std::string>& headers);
 
-}  // namespace internal_storage_s3
+}  // namespace internal_kvstore_s3
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_KVSTORE_S3_OBJECT_METADATA_H_

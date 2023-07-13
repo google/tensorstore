@@ -29,14 +29,8 @@
 
 #include "absl/time/time.h"
 
-using ::tensorstore::internal_http::HttpRequest;
-using ::tensorstore::internal_http::HttpRequestBuilder;
-using ::tensorstore::internal_auth_s3::S3Credentials;
-using ::tensorstore::internal_http_s3::S3UriEncode;
-using ::tensorstore::internal_http_s3::S3UriObjectKeyEncode;
-
 namespace tensorstore {
-namespace internal_storage_s3 {
+namespace internal_kvstore_s3 {
 
 /// @brief Builds an HTTP Request for submission to an S3 Endpoint
 ///
@@ -122,7 +116,7 @@ class S3RequestBuilder {
   /// The `host` should be the header value described here https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Host
   /// `credentials` contains the keys required to construct an Authorization header with an AWS4 signature.
   /// An empty access key on `credentials` implies anonymous access.
-  HttpRequest BuildRequest(
+  internal_http::HttpRequest BuildRequest(
     std::string_view host,
     const S3Credentials & credentials,
     std::string_view aws_region,
@@ -134,10 +128,10 @@ class S3RequestBuilder {
   std::string signing_string_;
   std::string signature_;
   std::vector<std::pair<std::string, std::string>> query_params_;
-  HttpRequestBuilder builder_;
+  internal_http::HttpRequestBuilder builder_;
 };
 
-} // namespace internal_storage_s3
+} // namespace internal_kvstore_s3
 } // namespace tensorstore
 
 #endif // TENSORSTORE_KVSTORE_S3_REQUEST_BUILDER_H_

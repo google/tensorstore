@@ -45,11 +45,13 @@ ABSL_FLAG(std::optional<absl::Duration>, tensorstore_s3_rate_limiter_doubling_ti
 
 using ::tensorstore::internal::AnyContextResourceJsonBinder;
 using ::tensorstore::internal::ContextResourceCreationContext;
+using ::tensorstore::internal_kvstore_gcs_http::AdmissionQueue;
+using ::tensorstore::internal_kvstore_gcs_http::RateLimiter;
 using ::tensorstore::internal_kvstore_gcs_http::ScalingRateLimiter;
 using ::tensorstore::internal_kvstore_gcs_http::NoRateLimiter;
 
 namespace tensorstore {
-namespace internal_storage_s3 {
+namespace internal_kvstore_s3 {
 namespace {
 
 const internal::ContextResourceRegistration<S3RequestRetries>
@@ -134,5 +136,5 @@ Result<S3RateLimiterResource::Resource> S3RateLimiterResource::Create(
   return value;
 }
 
-}  // namespace internal_storage_s3
+}  // namespace internal_kvstore_s3
 }  // namespace tensorstore

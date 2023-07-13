@@ -23,9 +23,9 @@
 #include "tensorstore/internal/path.h"
 #include "tensorstore/util/status_testutil.h"
 
-using ::tensorstore::internal_storage_s3::S3RequestBuilder;
+using ::tensorstore::internal_kvstore_s3::S3RequestBuilder;
 using ::tensorstore::internal_http::HttpRequest;
-using ::tensorstore::internal_auth_s3::S3Credentials;
+using ::tensorstore::internal_kvstore_s3::S3Credentials;
 
 namespace {
 
