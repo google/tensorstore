@@ -38,8 +38,29 @@ using ::tensorstore::internal_http_s3::S3UriObjectKeyEncode;
 namespace tensorstore {
 namespace internal_storage_s3 {
 
+/// @brief Builds an HTTP Request for submission to an S3 Endpoint
+///
+/// S3RequestBuilder encapsulates a HttpRequestBuilder to
+/// build HTTP Requests specific to S3 endpoint, in order
+/// to interact with the S3 REST API
+/// https://docs.aws.amazon.com/AmazonS3/latest/API/Type_API_Reference.html
+///
+/// It adds the following functionality to HttpRequestBuilder:
+///
+///   1. The *host*, *x-amz-content-sha256* and *x-amz-date* headers are added to the request headers automatically.
+///   2. If provided with S3 credentials, an Authorization header is added to the request headers.
+///      Additionally, an *x-amz-security-token* header is added if an STS session token is provided in the credentials.
+///      The calculation of this header is described here.
+///      https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
+///   3. If the AWS credentials are empty, the Authorization header is omitted, representing anonymous access.
+///   4. The request url and query parameters are encoded using S3 specific URI encoding logic described here:
+///      https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html#create-signature-presign-entire-payload
+///
 class S3RequestBuilder {
  public:
+  /// @brief Constructs an S3RequestBuilder object
+  /// @param method The HTTP method in the request. For example GET, PUT, HEAD, DELETE.
+  /// @param endpoint_url The S3 endpoint URL to which the request will be issued.
   S3RequestBuilder(std::string_view method, std::string endpoint_url) :
     builder_(method, endpoint_url, S3UriEncode) {};
 
@@ -50,7 +71,7 @@ class S3RequestBuilder {
     return *this;
   }
 
-  /// Adds a parameter for a request.
+  /// Adds a query parameter for a request.
   S3RequestBuilder& AddQueryParameter(std::string_view key, std::string_view value) {
     query_params_.push_back({std::string(key), std::string(value)});
     return *this;
@@ -69,11 +90,13 @@ class S3RequestBuilder {
     builder_.MaybeAddRangeHeader(byte_range);
     return *this;
   };
+
   /// Adds a `cache-control` header specifying `max-age` or `no-cache`.
   S3RequestBuilder& MaybeAddCacheControlMaxAgeHeader(absl::Duration max_age) {
     builder_.MaybeAddCacheControlMaxAgeHeader(max_age);
     return *this;
   };
+
   /// Adds a `cache-control` header consistent with `staleness_bound`.
   S3RequestBuilder& MaybeAddStalenessBoundCacheControlHeader(absl::Time staleness_bound) {
     builder_.MaybeAddStalenessBoundCacheControlHeader(staleness_bound);
@@ -95,6 +118,14 @@ class S3RequestBuilder {
     return signature_;
   }
 
+  /// @brief Builds an HTTP Request given the information provided to the builder
+  ///
+  /// @param host The HTTP host header value: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Host
+  /// @param credentials S3 credentials. An empty access key implies anonymous access.
+  /// @param aws_region AWS region.
+  /// @param payload_sha256_hash SHA256 hash of the payload.
+  /// @param time Time at which the request is constructed.
+  /// @return an HttpRequest object, suitable for submission to the S3 Rest API.
   HttpRequest BuildRequest(
     std::string_view host,
     const S3Credentials & credentials,
