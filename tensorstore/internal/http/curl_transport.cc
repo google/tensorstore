@@ -14,10 +14,10 @@
 
 #include "tensorstore/internal/http/curl_transport.h"
 
+#include <stddef.h>
+#include <stdint.h>
 #include <stdlib.h>
 
-#include <cstddef>
-#include <cstdint>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -53,15 +53,22 @@ auto& http_request_started = internal_metrics::Counter<int64_t>::New(
 auto& http_request_completed = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/http/request_completed", "HTTP requests completed");
 
-auto& http_request_bytes = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/http/request_bytes", "HTTP request bytes transmitted");
+auto& http_request_bytes =
+    internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
+        "/tensorstore/http/request_bytes", "HTTP request bytes transmitted");
+
+auto& http_request_header_bytes =
+    internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
+        "/tensorstore/http/request_header_bytes",
+        "HTTP request bytes transmitted");
 
 auto& http_response_codes = internal_metrics::Counter<int64_t, int>::New(
     "/tensorstore/http/response_codes", "code",
     "HTTP response status code counts");
 
-auto& http_response_bytes = internal_metrics::Counter<int64_t>::New(
-    "/tensorstore/http/response_bytes", "HTTP response bytes received");
+auto& http_response_bytes =
+    internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
+        "/tensorstore/http/response_bytes", "HTTP response bytes received");
 
 auto& http_active = internal_metrics::Gauge<int64_t>::New(
     "/tensorstore/http/active", "HTTP requests considered active");
@@ -74,6 +81,19 @@ auto& http_first_byte_latency_us =
     internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
         "/tensorstore/http/first_byte_latency_us",
         "HTTP first byte received latency (us)");
+
+// Concurrent CURL HTTP/2 streams.
+int32_t GetMaxHttp2ConcurrentStreams() {
+  auto limit = internal::GetEnvValue<int32_t>(
+      "TENSORSTORE_HTTP2_MAX_CONCURRENT_STREAMS");
+  if (limit && (*limit <= 0 || *limit > 1000)) {
+    ABSL_LOG(WARNING)
+        << "Failed to parse TENSORSTORE_HTTP2_MAX_CONCURRENT_STREAMS: "
+        << *limit;
+    limit = std::nullopt;
+  }
+  return limit.value_or(4);  // New default streams.
+}
 
 // Cached configuration from environment variables.
 struct CurlConfig {
@@ -160,6 +180,8 @@ struct CurlRequestState {
     TENSORSTORE_CHECK_OK(
         CurlEasySetopt(handle_.get(), CURLOPT_ERRORBUFFER, error_buffer_));
     TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_PRIVATE, this));
+
+    // Consider: CURLOPT_XFERINFOFUNCTION for increased logging.
   }
 
   ~CurlRequestState() {
@@ -191,8 +213,8 @@ struct CurlRequestState {
     factory_->CleanupHandle(std::move(handle_));
   }
 
-  void Setup(const HttpRequest& request, absl::Cord payload,
-             absl::Duration request_timeout, absl::Duration connect_timeout) {
+  void Prepare(const HttpRequest& request, absl::Cord payload,
+               absl::Duration request_timeout, absl::Duration connect_timeout) {
     // For thread safety, don't use signals to time out name resolves (when
     // async name resolution is not supported).
     //
@@ -208,8 +230,10 @@ struct CurlRequestState {
 
     // Convert headers to a curl slist
     curl_slist* head = nullptr;
+    size_t header_bytes_ = 0;
     for (const std::string& h : request.headers) {
       head = curl_slist_append(head, h.c_str());
+      header_bytes_ += h.size();
     }
     headers_.reset(head);
     TENSORSTORE_CHECK_OK(
@@ -276,6 +300,11 @@ struct CurlRequestState {
       TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_CUSTOMREQUEST,
                                           request.method.c_str()));
     }
+
+    // Record metrics.
+    http_request_started.Increment();
+    http_request_bytes.Observe(payload_remaining_);
+    http_request_header_bytes.Observe(header_bytes_);
   }
 
   void SetHTTP2() {
@@ -304,7 +333,6 @@ struct CurlRequestState {
     auto* self = static_cast<CurlRequestState*>(userdata);
     auto data =
         std::string_view(static_cast<char const*>(contents), size * nmemb);
-    http_response_bytes.IncrementBy(data.size());
     self->response_.payload.Append(data);
     return data.size();
   }
@@ -313,7 +341,6 @@ struct CurlRequestState {
                                       std::size_t nmemb, void* userdata) {
     auto* self = static_cast<CurlRequestState*>(userdata);
     size_t n = std::min(size * nmemb, self->payload_remaining_);
-    http_request_bytes.IncrementBy(n);
     internal::CopyCordToSpan(self->payload_it_, {static_cast<char*>(contents),
                                                  static_cast<ptrdiff_t>(n)});
     self->payload_remaining_ -= n;
@@ -357,21 +384,7 @@ class MultiTransportImpl {
     // concurrent streams and latency/throughput of requests. Empirical tests
     // suggest that using a small number of streams per connection increases
     // throughput of large transfers, which is common in tensorstore.
-    static long max_concurrent_streams = []() -> long {
-      auto limit = internal::GetEnvValue<uint32_t>(
-          "TENSORSTORE_HTTP2_MAX_CONCURRENT_STREAMS");
-      if (limit) {
-        if (*limit > 0 && *limit < 1000) {
-          return *limit;
-        } else {
-          ABSL_LOG(WARNING)
-              << "Failed to parse TENSORSTORE_HTTP2_MAX_CONCURRENT_STREAMS: "
-              << *limit;
-        }
-      }
-      return 4;  // New default streams.
-    }();
-
+    static int32_t max_concurrent_streams = GetMaxHttp2ConcurrentStreams();
     curl_multi_setopt(multi_.get(), CURLMOPT_MAX_CONCURRENT_STREAMS,
                       max_concurrent_streams);
     thread_ = internal::Thread({"curl_handler"}, [this] { Run(); });
@@ -416,8 +429,7 @@ Future<HttpResponse> MultiTransportImpl::StartRequest(
     const HttpRequest& request, absl::Cord payload,
     absl::Duration request_timeout, absl::Duration connect_timeout) {
   auto state = std::make_unique<CurlRequestState>(factory_.get());
-  http_request_started.Increment();
-  state->Setup(request, std::move(payload), request_timeout, connect_timeout);
+  state->Prepare(request, std::move(payload), request_timeout, connect_timeout);
   state->SetHTTP2();
 
   auto pair = PromiseFuturePair<HttpResponse>::Make();
@@ -455,6 +467,7 @@ void MultiTransportImpl::FinishRequest(CURL* e, CURLcode code) {
   // NOTE: Consider recording curl getinfo options:
   // https://curl.se/libcurl/c/easy_getinfo_options.html
   http_request_completed.Increment();
+  http_response_bytes.Observe(state->response_.payload.size());
   // Record the first byte latency.
   {
     curl_off_t first_byte_us = 0;

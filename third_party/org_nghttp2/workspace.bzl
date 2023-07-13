@@ -22,12 +22,12 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "org_nghttp2",
-        strip_prefix = "nghttp2-1.50.0",
+        strip_prefix = "nghttp2-1.55.0",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/nghttp2/nghttp2/releases/download/v1.50.0/nghttp2-1.50.0.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/nghttp2/nghttp2/archive/v1.55.0.tar.gz",
         ],
-        sha256 = "d162468980dba58e54e31aa2cbaf96fd2f0890e6dd141af100f6bd1b30aa73c6",
-        build_file = Label("//third_party:org_nghttp2/bundled.BUILD.bazel"),
+        sha256 = "6d2a4d246e84cb1e3e581591bd1c50ecc085e50090bc068ed5a67f87c6b4a06e",
+        build_file = Label("//third_party:org_nghttp2/nghttp2.BUILD.bazel"),
         system_build_file = Label("//third_party:org_nghttp2/system.BUILD.bazel"),
         # https://github.com/nghttp2/nghttp2/blob/master/CMakeLists.txt
         cmake_name = "NGHTTP2",

@@ -1,9 +1,57 @@
 load("@tensorstore//bazel:utils.bzl", "package_relative_path")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 
 licenses(["notice"])
 
 exports_files(["COPYING"])
+
+# To enable curl debug output, specify:
+# bazel build --@se_curl//:debug
+bool_flag(
+    name = "debug",
+    build_setting_default = False,
+)
+
+config_setting(
+    name = "debug_setting",
+    flag_values = {
+        ":debug": "True",
+    },
+    visibility = ["//visibility:private"],
+)
+
+LOCAL_DEFINES = [
+    "BUILDING_LIBCURL",
+    "HTTP_ONLY",
+    "HAVE_CONFIG_H",
+    "HAVE_LIBZ",
+    "HAVE_ZLIB_H",
+    "HAVE_BROTLI",
+    # "USE_ARES",  # TODO: Enable c-ares; after debugging broken test.
+] + select({
+    "@platforms//os:windows": [
+        "CURL_DISABLE_PROXY",
+        # Defining _USING_V110_SDK71_ is hackery to defeat curl's incorrect
+        # detection of what OS releases we can build on with VC 2012. This
+        # may not be needed (or may have to change) if the WINVER setting
+        # changes in //third_party/msvc/vc_12_0/CROSSTOOL.
+        "_USING_V110_SDK71_",
+    ],
+    "//conditions:default": ["_GNU_SOURCE"],
+}) + select({
+    "@platforms//os:osx": [],
+    "@platforms//os:windows": [
+        # See curl.h for discussion of write size and Windows
+        "CURL_MAX_WRITE_SIZE=16384",
+    ],
+    "//conditions:default": [
+        "CURL_MAX_WRITE_SIZE=65536",
+    ],
+}) + select({
+    ":debug_setting": ["DEBUGBUILD"],
+    "//conditions:default": [],
+})
 
 cc_library(
     name = "curl",
@@ -90,34 +138,7 @@ cc_library(
         ],
         "//conditions:default": [],
     }),
-    local_defines = [
-        "BUILDING_LIBCURL",
-        "HTTP_ONLY",
-        "HAVE_CONFIG_H",
-        "HAVE_LIBZ",
-        "HAVE_ZLIB_H",
-        "HAVE_BROTLI",
-        # "USE_ARES",  # TODO: Enable c-ares; after debugging broken test.
-    ] + select({
-        "@platforms//os:windows": [
-            "CURL_DISABLE_PROXY",
-            # Defining _USING_V110_SDK71_ is hackery to defeat curl's incorrect
-            # detection of what OS releases we can build on with VC 2012. This
-            # may not be needed (or may have to change) if the WINVER setting
-            # changes in //third_party/msvc/vc_12_0/CROSSTOOL.
-            "_USING_V110_SDK71_",
-        ],
-        "//conditions:default": ["_GNU_SOURCE"],
-    }) + select({
-        "@platforms//os:osx": [],
-        "@platforms//os:windows": [
-            # See curl.h for discussion of write size and Windows
-            "CURL_MAX_WRITE_SIZE=16384",
-        ],
-        "//conditions:default": [
-            "CURL_MAX_WRITE_SIZE=65536",
-        ],
-    }),
+    local_defines = LOCAL_DEFINES,
     strip_include_prefix = "include",
     visibility = ["//visibility:public"],
     deps = [
