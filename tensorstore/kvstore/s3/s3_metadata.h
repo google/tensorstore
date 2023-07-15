@@ -44,7 +44,7 @@ Result<std::size_t> FindTag(std::string_view data, std::string_view tag,
 /// This should primarily be used for obtaining the contents of inner tags.
 /// Use FindTag to set the initial search position by traversing XML outer tags.
 ///
-/// `pos` is the intiail search position within `data`. On success,
+/// `pos` is the initial search position within `data`. On success,
 /// this is updated with the position immediately after the closing tag.
 Result<std::string_view> GetTag(std::string_view data,
                                 std::string_view open_tag,
