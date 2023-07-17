@@ -263,8 +263,7 @@ void OnReadComplete(MergeValue merge_values,
       if (e.byte_range.exclusive_max == -1) {
         request_size = std::numeric_limits<size_t>::max();
       } else {
-        request_size = e.byte_range.exclusive_max -
-                       merge_values.options.byte_range.inclusive_min;
+        request_size = e.byte_range.exclusive_max - e.byte_range.inclusive_min;
       }
       result.value =
           MaybeDeepCopyCord(value.Subcord(request_start, request_size));
@@ -301,7 +300,12 @@ void CoalesceKvStoreDriver::StartNextRead(
   kvstore::Key key = state_ptr->key;
 
   MergeValue merged;
-  merged.options = pending.front().options;
+  const auto& first_pending = pending.front();
+  merged.options = first_pending.options;
+  // Add to queue.
+  merged.subreads.emplace_back(
+      MergeValue::Entry{std::move(first_pending.options.byte_range),
+                        std::move(first_pending.promise)});
 
   for (size_t i = 1; i < pending.size(); ++i) {
     auto& e = pending[i];
