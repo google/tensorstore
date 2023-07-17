@@ -1,3 +1,5 @@
+# Placeholder: load py_library
+# Placeholder: load py_binary
 load("//bazel:pytest.bzl", "tensorstore_pytest_test")
 # Beam based tensorstore examples
 
