@@ -1,4 +1,4 @@
-// Copyright 2020 The TensorStore Authors
+// Copyright 2023 The TensorStore Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,79 +15,71 @@
 #ifndef TENSORSTORE_INTERNAL_HTTP_CURL_HANDLE_H_
 #define TENSORSTORE_INTERNAL_HTTP_CURL_HANDLE_H_
 
-#include <stdint.h>
-
-#include <cstddef>
-#include <memory>
-#include <string>
-#include <string_view>
-
-#include "absl/status/status.h"
-#include <curl/curl.h>  // IWYU pragma: export
-#include "tensorstore/internal/attributes.h"
-#include "tensorstore/util/result.h"
-#include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
+#include "absl/log/absl_check.h"
+#include "tensorstore/internal/http/curl_factory.h"
+#include "tensorstore/internal/http/curl_wrappers.h"
 
 namespace tensorstore {
 namespace internal_http {
 
-/// Cleanup types for libcurl pointers.
-struct CurlPtrCleanup {
-  void operator()(CURL*);
-};
-struct CurlMultiCleanup {
-  void operator()(CURLM*);
-};
-struct CurlSlistCleanup {
-  void operator()(curl_slist*);
-};
-
-/// CurlPtr holds a CURL* handle and automatically clean it up.
-using CurlPtr = std::unique_ptr<CURL, CurlPtrCleanup>;
-
-/// CurlMulti holds a CURLM* handle and automatically clean it up.
-using CurlMulti = std::unique_ptr<CURLM, CurlMultiCleanup>;
-
-/// CurlHeaders holds a singly-linked list of headers.
-using CurlHeaders = std::unique_ptr<curl_slist, CurlSlistCleanup>;
-
-/// CurlHandleFactory creates and cleans up CURL* (CurlPtr) handles
-/// and CURLM* (CurlMulti) handles.
-///
-/// NOTE: These methods are virtual so that a curl factory can re-use
-/// curl handles.
-class CurlHandleFactory {
+/// Wrap CurlPtr handles.
+class CurlHandle {
  public:
-  virtual ~CurlHandleFactory() = default;
+  static CurlHandle Create(CurlHandleFactory& factory);
+  static void Cleanup(CurlHandleFactory& factory, CurlHandle h);
 
-  virtual CurlPtr CreateHandle() = 0;
-  virtual void CleanupHandle(CurlPtr&&) = 0;
+  explicit CurlHandle(CurlPtr handle);
+  ~CurlHandle();
 
-  virtual CurlMulti CreateMultiHandle() = 0;
-  virtual void CleanupMultiHandle(CurlMulti&&) = 0;
+  // This class holds unique ptrs, disable copying.
+  CurlHandle(CurlHandle const&) = delete;
+  CurlHandle& operator=(CurlHandle const&) = delete;
+
+  CurlHandle(CurlHandle&&) = default;
+  CurlHandle& operator=(CurlHandle&&) = default;
+
+  CURL* get() { return handle_.get(); }
+
+  /// Sets a curl option.
+  template <typename T>
+  void SetOption(CURLoption option, T&& param,
+                 SourceLocation loc = tensorstore::SourceLocation::current()) {
+    // All curl_easy_setopt non-ok codes are fatal:
+    //   CURLE_BAD_FUNCTION_ARGUMENT
+    //   CURLE_OUT_OF_MEMORY
+    //   CURLE_UNSUPPORTED_PROTOCOL
+    //   CURLE_NOT_BUILT_IN
+    auto code = curl_easy_setopt(handle_.get(), option, std::forward<T>(param));
+    ABSL_CHECK_EQ(CURLE_OK, code) << loc.file_name() << ":" << loc.line() << " "
+                                  << curl_easy_strerror(code);
+  }
+
+  void SetOption(CURLoption option, std::nullptr_t,
+                 SourceLocation loc = tensorstore::SourceLocation::current()) {
+    auto code = curl_easy_setopt(handle_.get(), option, nullptr);
+    ABSL_CHECK_EQ(CURLE_OK, code) << loc.file_name() << ":" << loc.line() << " "
+                                  << curl_easy_strerror(code);
+  }
+
+  /// Gets CURLINFO values.
+  template <typename T>
+  void GetInfo(CURLINFO info, T* out,
+               SourceLocation loc = tensorstore::SourceLocation::current()) {
+    // Possible return codes
+    //   CURLE_UNKNOWN_OPTION
+    //   CURLE_BAD_FUNCTION_ARGUMENT
+    auto code = curl_easy_getinfo(handle_.get(), info, out);
+    ABSL_CHECK_EQ(CURLE_OK, code) << loc.file_name() << ":" << loc.line() << " "
+                                  << curl_easy_strerror(code);
+  }
+
+  /// Gets the HTTP response code.  This is not valid until the transfer has
+  /// completed successfully.
+  int32_t GetResponseCode();
+
+ private:
+  CurlPtr handle_;
 };
-
-/// Returns the default CurlHandleFactory.
-std::shared_ptr<CurlHandleFactory> GetDefaultCurlHandleFactory();
-
-/// Returns the default GetCurlUserAgentSuffix.
-std::string GetCurlUserAgentSuffix();
-
-/// Returns a absl::Status object for a corresponding CURLcode.
-absl::Status CurlCodeToStatus(CURLcode code, std::string_view);
-
-/// Returns a absl::Status object for a corresponding CURLcode.
-absl::Status CurlMCodeToStatus(CURLMcode code, std::string_view);
-
-template <typename T>
-inline absl::Status CurlEasySetopt(CURL* handle, CURLoption option, T value) {
-  return CurlCodeToStatus(curl_easy_setopt(handle, option, value),
-                          "curl_easy_setopt");
-}
-
-/// Returns the HTTP response code from a curl handle.
-int32_t CurlGetResponseCode(CURL* handle);
 
 }  // namespace internal_http
 }  // namespace tensorstore
