@@ -23,4 +23,11 @@ add_custom_command(
   VERBATIM
   WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
-add_custom_target(CMakeProject_config_copy_rule DEPENDS "_cmake_binary_dir_/config3.h")
+add_custom_target(genrule__CMakeProject_config_copy_rule DEPENDS
+    "_cmake_binary_dir_/config3.h")
+add_library(CMakeProject_config_copy_rule INTERFACE)
+target_sources(CMakeProject_config_copy_rule INTERFACE
+    "_cmake_binary_dir_/config3.h")
+set_property(TARGET CMakeProject_config_copy_rule PROPERTY INTERFACE_INCLUDE_DIRECTORIES
+    "${PROJECT_BINARY_DIR}")
+add_dependencies(CMakeProject_config_copy_rule genrule__CMakeProject_config_copy_rule)

@@ -16,13 +16,20 @@ add_custom_command(
   OUTPUT
     "_cmake_binary_dir_/a.h"
   DEPENDS
-    "CMakeProject::bb"
     "${TEST_DIRECTORY}/x.h"
+    "CMakeProject::bb"
   COMMAND bash -c "$<TARGET_FILE:CMakeProject_bb> $(dirname $(dirname \"x.h\" )) $(dirname \"x.h\" ) \"x.h\" \"_cmake_binary_dir_/a.h\""
   VERBATIM
   WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
-add_custom_target(CMakeProject_h_file DEPENDS "_cmake_binary_dir_/a.h")
+add_custom_target(genrule__CMakeProject_h_file DEPENDS
+    "_cmake_binary_dir_/a.h")
+add_library(CMakeProject_h_file INTERFACE)
+target_sources(CMakeProject_h_file INTERFACE
+    "_cmake_binary_dir_/a.h")
+set_property(TARGET CMakeProject_h_file PROPERTY INTERFACE_INCLUDE_DIRECTORIES
+    "${PROJECT_BINARY_DIR}")
+add_dependencies(CMakeProject_h_file genrule__CMakeProject_h_file)
 
 # cc_library(@native_rules_test_repo//:a)
 add_library(CMakeProject_a)
@@ -130,7 +137,14 @@ add_custom_command(
   VERBATIM
   WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
-add_custom_target(CMakeProject_subdir_make_ycc DEPENDS "_cmake_binary_dir_/subdir/y.cc")
+add_custom_target(genrule__CMakeProject_subdir_make_ycc DEPENDS
+    "_cmake_binary_dir_/subdir/y.cc")
+add_library(CMakeProject_subdir_make_ycc INTERFACE)
+target_sources(CMakeProject_subdir_make_ycc INTERFACE
+    "_cmake_binary_dir_/subdir/y.cc")
+set_property(TARGET CMakeProject_subdir_make_ycc PROPERTY INTERFACE_INCLUDE_DIRECTORIES
+    "${PROJECT_BINARY_DIR}")
+add_dependencies(CMakeProject_subdir_make_ycc genrule__CMakeProject_subdir_make_ycc)
 
 # genrule(@native_rules_test_repo//subdir:make_y)
 add_custom_command(
@@ -142,7 +156,14 @@ add_custom_command(
   VERBATIM
   WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
-add_custom_target(CMakeProject_subdir_make_y DEPENDS "_cmake_binary_dir_/subdir/y.h")
+add_custom_target(genrule__CMakeProject_subdir_make_y DEPENDS
+    "_cmake_binary_dir_/subdir/y.h")
+add_library(CMakeProject_subdir_make_y INTERFACE)
+target_sources(CMakeProject_subdir_make_y INTERFACE
+    "_cmake_binary_dir_/subdir/y.h")
+set_property(TARGET CMakeProject_subdir_make_y PROPERTY INTERFACE_INCLUDE_DIRECTORIES
+    "${PROJECT_BINARY_DIR}")
+add_dependencies(CMakeProject_subdir_make_y genrule__CMakeProject_subdir_make_y)
 
 # cc_library(@native_rules_test_repo//subdir:y)
 add_library(CMakeProject_subdir_y)
