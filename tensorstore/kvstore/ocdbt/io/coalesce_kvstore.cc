@@ -129,8 +129,11 @@ struct PendingReadHash {
 
 class CoalesceKvStoreDriver final : public kvstore::Driver {
  public:
-  explicit CoalesceKvStoreDriver(kvstore::DriverPtr base, size_t threshold)
-      : base_(std::move(base)), threshold_(threshold) {}
+  explicit CoalesceKvStoreDriver(kvstore::DriverPtr base, size_t threshold,
+                                 size_t merged_threshold)
+      : base_(std::move(base)),
+        threshold_(threshold),
+        merged_threshold_(merged_threshold) {}
 
   ~CoalesceKvStoreDriver() override = default;
 
@@ -190,6 +193,7 @@ class CoalesceKvStoreDriver final : public kvstore::Driver {
  private:
   kvstore::DriverPtr base_;
   size_t threshold_;
+  size_t merged_threshold_;
 
   absl::Mutex mu_;
   absl::flat_hash_set<internal::IntrusivePtr<PendingRead>, PendingReadHash,
@@ -326,10 +330,14 @@ void CoalesceKvStoreDriver::StartNextRead(
       merged = MergeValue{};
       merged.options = e.options;
     } else if (merged.options.byte_range.exclusive_max != -1 &&
-               (e.options.byte_range.inclusive_min -
-                merged.options.byte_range.exclusive_max) > threshold_) {
+               ((e.options.byte_range.inclusive_min -
+                     merged.options.byte_range.exclusive_max >
+                 threshold_) ||
+                (merged_threshold_ > 0 &&
+                 merged.options.byte_range.size() > merged_threshold_))) {
       // The distance from the end of the prior read to the beginning of the
-      // next read exceeds threshold_, so issue the pending request and start
+      // next read exceeds threshold_ or the total merged_size exceeds
+      // merged_threshold_, so issue the pending request and start
       // another.
       assert(!merged.subreads.empty());
       auto f = base_->Read(key, merged.options);
@@ -379,11 +387,13 @@ void CoalesceKvStoreDriver::StartNextRead(
 }  // namespace
 
 kvstore::DriverPtr MakeCoalesceKvStoreDriver(kvstore::DriverPtr base,
-                                             size_t threshold) {
+                                             size_t threshold,
+                                             size_t merged_threshold) {
   ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
-      << "Coalescing reads with threshold " << threshold;
-  return internal::MakeIntrusivePtr<CoalesceKvStoreDriver>(std::move(base),
-                                                           threshold);
+      << "Coalescing reads with threshold: " << threshold
+      << ", merged_threshold: " << merged_threshold;
+  return internal::MakeIntrusivePtr<CoalesceKvStoreDriver>(
+      std::move(base), threshold, merged_threshold);
 }
 
 }  // namespace internal_ocdbt

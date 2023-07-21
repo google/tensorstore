@@ -174,6 +174,7 @@ TEST(OcdbtTest, WithExperimentalSpec) {
       {"base", {{"driver", "memory"}}},
       {"config", {{"max_decoded_node_bytes", 1}}},
       {"experimental_read_coalescing_threshold_bytes", 1024},
+      {"experimental_read_coalescing_merged_bytes", 2048},
   };
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto store, tensorstore::kvstore::Open(json_spec).result());

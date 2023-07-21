@@ -343,13 +343,15 @@ IoHandle::Ptr MakeIoHandle(
         data_copy_concurrency,
     internal::CachePool& cache_pool, const KvStore& base_kvstore,
     ConfigStatePtr config_state,
-    std::optional<int64_t> max_read_coalescing_overhead_bytes_per_request) {
+    std::optional<int64_t> max_read_coalescing_overhead_bytes_per_request,
+    std::optional<int64_t> max_read_coalescing_merged_bytes_per_request) {
   // Maybe wrap the base driver in CoalesceKvStoreDriver.
   kvstore::DriverPtr driver_with_optional_coalescing =
       max_read_coalescing_overhead_bytes_per_request.has_value()
           ? MakeCoalesceKvStoreDriver(
                 base_kvstore.driver,
-                *max_read_coalescing_overhead_bytes_per_request)
+                *max_read_coalescing_overhead_bytes_per_request,
+                max_read_coalescing_merged_bytes_per_request.value_or(0))
           : base_kvstore.driver;
   auto impl = internal::MakeIntrusivePtr<IoHandleImpl>();
   impl->base_kvstore_ = base_kvstore;

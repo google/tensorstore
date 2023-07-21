@@ -34,6 +34,8 @@ IoHandle::Ptr MakeIoHandle(
     internal::CachePool& cache_pool, const KvStore& base_kvstore,
     ConfigStatePtr config_state,
     std::optional<int64_t> max_read_coalescing_overhead_bytes_per_request =
+        std::nullopt,
+    std::optional<int64_t> max_read_coalescing_merged_bytes_per_request =
         std::nullopt);
 
 }  // namespace internal_ocdbt

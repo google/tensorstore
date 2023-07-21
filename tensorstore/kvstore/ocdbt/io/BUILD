@@ -1,7 +1,7 @@
 # Implementation of the I/O interface expected by Optionally-cooperative
 # Distributed B+tree in terms of the TensorStore kvstore and cache facilities.
 
-load("//bazel:tensorstore.bzl", "tensorstore_cc_library")
+load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
 
 package(default_visibility = ["//tensorstore:internal_packages"])
 
@@ -32,6 +32,25 @@ cc_library(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/synchronization",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "coalesce_kvstore_test",
+    size = "small",
+    srcs = ["coalesce_kvstore_test.cc"],
+    deps = [
+        ":coalesce_kvstore",
+        "//tensorstore/kvstore",
+        "//tensorstore/kvstore:mock_kvstore",
+        "//tensorstore/kvstore:test_util",
+        "//tensorstore/kvstore/memory",
+        "//tensorstore/kvstore/ocdbt",
+        "//tensorstore/util:future",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
