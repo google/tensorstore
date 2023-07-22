@@ -1,3 +1,4 @@
+# Placeholder: load py_library
 load(
     "//bazel:pybind11.bzl",
     "pybind11_cc_googletest_test",
