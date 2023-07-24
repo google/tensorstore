@@ -18,10 +18,10 @@
 //
 // https://googleapis.dev/cpp/google-cloud-storage/latest/storage-grpc.html
 
+#include <stddef.h>
+
 #include <algorithm>
 #include <cassert>
-#include <cstddef>
-#include <cstdint>
 #include <memory>
 #include <optional>
 #include <string>
@@ -66,6 +66,7 @@
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/supported_features.h"
 #include "tensorstore/kvstore/url_registry.h"
+#include "tensorstore/proto/proto_util.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/executor.h"
@@ -419,7 +420,7 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
     read_result_.stamp.generation = StorageGeneration::Unknown();
 
     ABSL_LOG_IF(INFO, TENSORSTORE_GCS_GRPC_DEBUG)
-        << "Read: " << request_.ShortDebugString();
+        << "Read: " << ConciseDebugString(request_);
 
     grpc::ClientContext* context = AllocateContext();
 
@@ -433,7 +434,7 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
   void OnReadDone(bool ok) override {
     ABSL_LOG_IF(INFO, TENSORSTORE_GCS_GRPC_DEBUG)
         << "ReadDone: " << ok << " "
-        << (ok ? response_.ShortDebugString() : std::string());
+        << (ok ? ConciseDebugString(response_) : std::string());
     if (!ok) return;
     if (!promise_.result_needed()) {
       TryCancel();
@@ -619,7 +620,7 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
     }
 
     ABSL_LOG_IF(INFO, TENSORSTORE_GCS_GRPC_DEBUG)
-        << "Write: " << request_.ShortDebugString();
+        << "Write: " << ConciseDebugString(request_);
 
     grpc::ClientContext* context = AllocateContext();
 
@@ -670,7 +671,7 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
     AddChunkData();
 
     ABSL_LOG_IF(INFO, TENSORSTORE_GCS_GRPC_DEBUG)
-        << "Write: " << request_.ShortDebugString();
+        << "Write: " << ConciseDebugString(request_);
 
     if (request_.finish_write()) {
       StartWriteLast(&request_, grpc::WriteOptions());
@@ -700,7 +701,7 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
     }
 
     ABSL_LOG_IF(INFO, TENSORSTORE_GCS_GRPC_DEBUG)
-        << "WriteFinished: " << status << " " << response_.ShortDebugString();
+        << "WriteFinished: " << status << " " << ConciseDebugString(response_);
     if (response_.has_resource()) {
       write_result_.generation =
           StorageGeneration::FromUint64(response_.resource().generation());
@@ -762,7 +763,7 @@ struct DeleteTask : public internal::AtomicReferenceCount<DeleteTask> {
       request_.set_if_generation_match(gen);
     }
     ABSL_LOG_IF(INFO, TENSORSTORE_GCS_GRPC_DEBUG)
-        << "Delete: " << request_.ShortDebugString();
+        << "Delete: " << ConciseDebugString(request_);
 
     Retry();
   }
@@ -883,7 +884,7 @@ struct ListTask : public internal::AtomicReferenceCount<ListTask> {
     request.set_page_size(1000);  // maximum.
 
     ABSL_LOG_IF(INFO, TENSORSTORE_GCS_GRPC_DEBUG)
-        << "List: " << request.ShortDebugString();
+        << "List: " << ConciseDebugString(request);
     Retry();
   }
 
@@ -919,7 +920,7 @@ struct ListTask : public internal::AtomicReferenceCount<ListTask> {
           tensorstore::StrCat("All retry attempts failed: ", status));
     }
     ABSL_LOG_IF(INFO, TENSORSTORE_GCS_GRPC_DEBUG)
-        << "ListResponse: " << status << " :" << response.ShortDebugString();
+        << "ListResponse: " << status << " :" << ConciseDebugString(response);
 
     if (!status.ok()) {
       execution::set_error(receiver_, std::move(status));
