@@ -86,6 +86,7 @@ tensorstore_cc_test(
         ":gcs_grpc",
         ":mock_storage_service",
         "//tensorstore:context",
+        "//tensorstore/internal:flat_cord_builder",
         "//tensorstore/internal/grpc:grpc_mock",
         "//tensorstore/internal/grpc:utils",
         "//tensorstore/kvstore",

@@ -22,6 +22,7 @@
 #include "absl/strings/cord.h"
 #include "absl/synchronization/notification.h"
 #include "tensorstore/context.h"
+#include "tensorstore/internal/flat_cord_builder.h"
 #include "tensorstore/internal/grpc/grpc_mock.h"
 #include "tensorstore/internal/grpc/utils.h"
 #include "tensorstore/kvstore/gcs_grpc/mock_storage_service.h"
@@ -56,6 +57,7 @@ using ::tensorstore::ParseTextProtoOrDie;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::grpc_mocker::MockGrpcServer;
 using ::tensorstore::internal::AbslStatusToGrpcStatus;
+using ::tensorstore::internal::FlatCordBuilder;
 using ::tensorstore_grpc::MockStorage;
 using ::testing::_;
 using ::testing::DoAll;
@@ -363,6 +365,56 @@ TEST_F(GcsGrpcTest, WriteWithOptions) {
                 finish_write: true
                 write_offset: 0
               )pb")));
+}
+
+TEST_F(GcsGrpcTest, WriteMultipleRequests) {
+  WriteObjectResponse response = ParseTextProtoOrDie(R"pb(
+    resource { name: 'bigly' bucket: 'bucket' generation: 1 }
+  )pb");
+
+  std::vector<WriteObjectRequest> requests;
+  EXPECT_CALL(mock(), WriteObject)
+      .WillOnce(testing::Invoke(
+          [&](auto*, grpc::ServerReader<WriteObjectRequest>* reader,
+              auto* resp) -> ::grpc::Status {
+            WriteObjectRequest req;
+            while (reader->Read(&req)) {
+              size_t len = req.checksummed_data().content().size();
+              req.mutable_checksummed_data()->set_content(
+                  absl::StrFormat("size: %d", len));
+              requests.push_back(req);
+            }
+            resp->CopyFrom(response);
+            return grpc::Status::OK;
+          }));
+
+  FlatCordBuilder cord_builder(16 + 2 * 1048576);
+  memset(cord_builder.data(), 0x37, cord_builder.size());
+  absl::Cord data = std::move(cord_builder).Build();
+  data.Append("abcd");  // second chunk.
+
+  auto store = OpenStore();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto generation,
+      kvstore::Write(store, response.resource().name(), data).result());
+
+  EXPECT_THAT(
+      requests,
+      testing::ElementsAre(
+          EqualsProto<WriteObjectRequest>(R"pb(
+            write_object_spec {
+              resource { name: "bigly" bucket: "projects/_/buckets/bucket" }
+              object_size: 2097172
+            }
+            checksummed_data { content: "size: 2097152", crc32c: 2470751355 }
+            write_offset: 0
+          )pb"),
+          EqualsProto<WriteObjectRequest>(R"pb(
+            checksummed_data { content: "size: 20", crc32c: 2394860217 }
+            object_checksums { crc32c: 1181131586 }
+            finish_write: true
+            write_offset: 2097152
+          )pb")));
 }
 
 TEST_F(GcsGrpcTest, WriteNullopt) {
