@@ -24,14 +24,17 @@
 namespace tensorstore {
 namespace internal_kvstore_s3 {
 
+namespace {
+static constexpr char kEtag[] = "etag";
+} // namespace
+
 Result<StorageGeneration> StorageGenerationFromHeaders(
     const std::multimap<std::string, std::string>& headers) {
 
-  if(auto it = headers.find("etag"); it != headers.end()) {
+  if(auto it = headers.find(kEtag); it != headers.end()) {
     return StorageGeneration::FromString(it->second);
-  } else {
-    return absl::NotFoundError("etag not found in response headers");
   }
+  return absl::NotFoundError("etag not found in response headers");
 }
 
 Result<std::size_t> FindTag(std::string_view data, std::string_view tag,
