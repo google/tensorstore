@@ -165,14 +165,14 @@ bool AddGenerationHeader(S3RequestBuilder * builder,
   if (StorageGeneration::IsUnknown(gen)) {
     // Unconditional.
     return false;
-  } else {
-    // If no generation is provided, we still need to provide an empty etag
-    auto etag = StorageGeneration::IsNoValue(gen)
-                      ? kEmptyEtag : StorageGeneration::DecodeString(gen);
-
-    builder->AddHeader(absl::StrCat(header, ": ", etag));
-    return true;
   }
+
+  // If no generation is provided, we still need to provide an empty etag
+  auto etag = StorageGeneration::IsNoValue(gen)
+                    ? kEmptyEtag : StorageGeneration::DecodeString(gen);
+
+  builder->AddHeader(absl::StrCat(header, ": ", etag));
+  return true;
 }
 
 
