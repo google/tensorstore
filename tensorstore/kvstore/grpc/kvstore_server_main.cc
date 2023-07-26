@@ -12,15 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 #include "absl/flags/flag.h"
 #include "absl/log/absl_log.h"
 #include "absl/strings/string_view.h"
 #include "grpcpp/security/credentials.h"  // third_party
 #include "grpcpp/security/server_credentials.h"  // third_party
+#include "absl/flags/parse.h"
 #include "tensorstore/internal/grpc/client_credentials.h"
 #include "tensorstore/internal/grpc/server_credentials.h"
-#include "tensorstore/internal/init_tensorstore.h"
 #include "tensorstore/kvstore/grpc/kvstore_server.h"
 #include "tensorstore/util/json_absl_flag.h"
 #include "tensorstore/util/result.h"
@@ -55,7 +54,7 @@ ABSL_FLAG(tensorstore::JsonAbslFlag<tensorstore::Context::Spec>, context_spec,
           "store.");
 
 int main(int argc, char** argv) {
-  tensorstore::InitTensorstore(&argc, &argv);
+  absl::ParseCommandLine(argc, argv);  // InitTensorstore
 
   tensorstore::Context context(absl::GetFlag(FLAGS_context_spec).value);
 

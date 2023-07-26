@@ -222,7 +222,6 @@ tensorstore_cc_binary(
     srcs = ["kvstore_server_main.cc"],
     deps = [
         ":kvstore_server",
-        "//tensorstore/internal:init_tensorstore",
         "//tensorstore/internal/grpc:client_credentials",
         "//tensorstore/internal/grpc:server_credentials",
         "//tensorstore/kvstore:all_drivers",  # build_cleaner: keep
@@ -230,6 +229,7 @@ tensorstore_cc_binary(
         "//tensorstore/util:result",
         "@com_github_grpc_grpc//:grpc++",
         "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/flags:parse",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/strings",
     ],

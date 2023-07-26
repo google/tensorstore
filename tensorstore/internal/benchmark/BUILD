@@ -29,7 +29,6 @@ tensorstore_cc_binary(
         "//tensorstore:index",
         "//tensorstore:spec",
         "//tensorstore/driver:driver_testutil",
-        "//tensorstore/internal:init_tensorstore",
         "//tensorstore/kvstore:all_drivers",
         "//tensorstore/kvstore/grpc:grpc_kvstore",  # Experimental
         "//tensorstore/util:json_absl_flag",
@@ -37,6 +36,7 @@ tensorstore_cc_binary(
         "//tensorstore/util:status",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/flags:marshalling",
+        "@com_google_absl//absl/flags:parse",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/random",
         "@com_google_absl//absl/strings",
@@ -50,7 +50,6 @@ tensorstore_cc_binary(
         ":metric_utils",
         "//tensorstore:context",
         "//tensorstore:data_type",
-        "//tensorstore/internal:init_tensorstore",
         "//tensorstore/internal:path",
         "//tensorstore/internal/metrics",
         "//tensorstore/internal/metrics:registry",
@@ -65,6 +64,7 @@ tensorstore_cc_binary(
         "//tensorstore/util:status",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/flags:parse",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/random",
@@ -76,13 +76,12 @@ tensorstore_cc_binary(
     ],
 )
 
-cc_binary(
+tensorstore_cc_binary(
     name = "kvstore_duration",
     srcs = ["kvstore_duration.cc"],
     deps = [
         ":metric_utils",
         "//tensorstore:context",
-        "//tensorstore/internal:init_tensorstore",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:path",
         "//tensorstore/internal/metrics",
@@ -95,6 +94,7 @@ cc_binary(
         "//tensorstore/util:status",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/flags:parse",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/random",

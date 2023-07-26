@@ -33,6 +33,7 @@
 #include "tensorstore/array.h"
 #include "tensorstore/context.h"
 #include "tensorstore/data_type.h"
+#include "absl/flags/parse.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_transform.h"
@@ -42,7 +43,6 @@
 #include "tensorstore/internal/image/jpeg_writer.h"
 #include "tensorstore/internal/image/png_writer.h"
 #include "tensorstore/internal/image/webp_writer.h"
-#include "tensorstore/internal/init_tensorstore.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/spec.h"
@@ -250,7 +250,7 @@ ABSL_FLAG(std::string, output_file, "-",
           "Slice will be written to this image file; use - for STDOUT");
 
 int main(int argc, char** argv) {
-  tensorstore::InitTensorstore(&argc, &argv);
+  absl::ParseCommandLine(argc, argv);  // InitTensorstore
 
   if (absl::GetFlag(FLAGS_output_file).empty()) {
     std::cerr << "Missing required flag: --output_file" << std::endl;

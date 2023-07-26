@@ -117,9 +117,9 @@ bazel run -c opt //tensorstore/internal/benchmark:ts_benchmark -- \
 #include "absl/strings/string_view.h"
 #include "tensorstore/context.h"
 #include "tensorstore/driver/driver_testutil.h"
+#include "absl/flags/parse.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/benchmark/metric_utils.h"
-#include "tensorstore/internal/init_tensorstore.h"
 #include "tensorstore/spec.h"
 #include "tensorstore/util/json_absl_flag.h"
 #include "tensorstore/util/result.h"
@@ -263,7 +263,7 @@ void DoTsBenchmark() {
 }  // namespace tensorstore
 
 int main(int argc, char** argv) {
-  tensorstore::InitTensorstore(&argc, &argv);
+  absl::ParseCommandLine(argc, argv);  // InitTensorstore
   tensorstore::DoTsBenchmark();
   return 0;
 }

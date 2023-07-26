@@ -22,9 +22,9 @@
 #include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
 #include <nlohmann/json.hpp>
+#include "absl/flags/parse.h"
 #include "tensorstore/internal/cache/cache_pool_resource.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
-#include "tensorstore/internal/init_tensorstore.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json/pprint_python.h"
 #include "tensorstore/internal/json_binding/std_optional.h"
@@ -130,7 +130,7 @@ absl::Status RunDumpCommand() {
 }  // namespace tensorstore
 
 int main(int argc, char** argv) {
-  tensorstore::InitTensorstore(&argc, &argv);
+  absl::ParseCommandLine(argc, argv);  // InitTensorstore
   auto status = tensorstore::internal_ocdbt::RunDumpCommand();
   if (!status.ok()) {
     std::cerr << status << std::endl;

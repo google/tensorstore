@@ -15,7 +15,7 @@
 #include <iostream>
 
 #include "absl/flags/flag.h"
-#include "tensorstore/internal/init_tensorstore.h"
+#include "absl/flags/parse.h"
 #include "tensorstore/internal/json_binding/std_optional.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -105,7 +105,7 @@ Result<int> RunCopy() {
 }  // namespace tensorstore
 
 int main(int argc, char** argv) {
-  tensorstore::InitTensorstore(&argc, &argv);
+  absl::ParseCommandLine(argc, argv);  // InitTensorstore
   auto result = tensorstore::RunCopy();
   if (!result.ok()) {
     std::cerr << result.status() << std::endl;

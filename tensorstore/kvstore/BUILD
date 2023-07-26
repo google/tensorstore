@@ -337,13 +337,13 @@ tensorstore_cc_binary(
     deps = [
         ":all_drivers",
         ":kvstore",
-        "//tensorstore/internal:init_tensorstore",
         "//tensorstore/internal:path",
         "//tensorstore/internal/json_binding",
         "//tensorstore/util:json_absl_flag",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:str_cat",
         "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/flags:parse",
     ],
 )
 

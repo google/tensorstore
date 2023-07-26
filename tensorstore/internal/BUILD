@@ -628,13 +628,6 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
-    name = "init_tensorstore",
-    srcs = ["init_tensorstore.cc"],
-    hdrs = ["init_tensorstore.h"],
-    deps = ["@com_google_absl//absl/flags:parse"],
-)
-
-tensorstore_cc_library(
     name = "heterogeneous_container",
     hdrs = ["heterogeneous_container.h"],
     deps = ["@com_google_absl//absl/container:flat_hash_set"],
