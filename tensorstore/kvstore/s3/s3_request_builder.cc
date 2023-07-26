@@ -218,13 +218,13 @@ HttpRequest S3RequestBuilder::BuildRequest(
     // Create sorteded AWS4 signing headers
     std::vector<std::pair<std::string, std::string>> signed_headers;
 
-    for(const auto & header_str: request.headers) {
+    for (const auto & header_str: request.headers) {
       auto header = std::string_view(header_str);
       auto pos = header.find(':');
       assert(pos != std::string::npos);
       auto key = absl::AsciiStrToLower(absl::StripAsciiWhitespace(header.substr(0, pos)));
-      auto value = absl::StripAsciiWhitespace(header.substr(pos + 1));
-      signed_headers.push_back({std::string(key), std::string(value)});
+      auto value = std::string(absl::StripAsciiWhitespace(header.substr(pos + 1)));
+      signed_headers.push_back({std::move(key), std::move(value)});
     }
 
     std::stable_sort(std::begin(signed_headers), std::end(signed_headers));

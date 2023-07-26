@@ -66,8 +66,8 @@ class S3RequestBuilder {
   }
 
   /// Adds a query parameter for a request.
-  S3RequestBuilder& AddQueryParameter(std::string_view key, std::string_view value) {
-    query_params_.push_back({std::string(key), std::string(value)});
+  S3RequestBuilder& AddQueryParameter(std::string key, std::string value) {
+    query_params_.push_back({std::move(key), std::move(value)});
     return *this;
   }
 
