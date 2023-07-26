@@ -24,6 +24,7 @@
 namespace {
 
 using ::protobuf_matchers::EqualsProto;
+using ::tensorstore::ConciseDebugString;
 using ::tensorstore::TryParseTextProto;
 
 TEST(ProtoUtilTest, Basic) {
@@ -41,6 +42,22 @@ TEST(ProtoUtilTest, Basic) {
   std::vector<std::string> errors;
   EXPECT_FALSE(TryParseTextProto("a: 'foo'", &proto, &errors));
   EXPECT_FALSE(errors.empty());
+}
+
+TEST(ProtoUtilTest, ConciseDebugString) {
+  // void_data is 256 bytes.
+  ::tensorstore::proto::Array proto;
+  proto.set_dtype("int64");
+  proto.set_void_data(
+      "{01234567890123456789012345678901234567890123456789012345678901}"
+      "{01234567890123456789012345678901234567890123456789012345678901}"
+      "{01234567890123456789012345678901234567890123456789012345678901}"
+      "{01234567890123456789012345678901234567890123456789012345678901}");
+
+  EXPECT_EQ(
+      "dtype: \"int64\" "
+      "void_data: <256 bytes: \\x7b\\x30\\x31\\x32\\x33\\x34\\x35\\x36...>",
+      ConciseDebugString(proto));
 }
 
 }  // namespace

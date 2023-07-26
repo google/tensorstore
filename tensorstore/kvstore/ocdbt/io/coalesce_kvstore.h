@@ -26,7 +26,8 @@ namespace internal_ocdbt {
 /// separated by less than threshold bytes. 1MB may be a reasonable value
 /// for reducing GCS reads in the OCDBT driver.
 kvstore::DriverPtr MakeCoalesceKvStoreDriver(kvstore::DriverPtr base,
-                                             size_t threshold);
+                                             size_t threshold,
+                                             size_t merged_threshold);
 
 }  // namespace internal_ocdbt
 }  // namespace tensorstore

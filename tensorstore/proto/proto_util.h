@@ -31,6 +31,10 @@ bool TryParseTextProto(std::string_view asciipb, google::protobuf::Message* msg,
                        bool allow_partial_messages = true,
                        bool allow_unknown_extensions = false);
 
+/// Print a google::protobuf::Message DebugString with large string fields elided.
+/// Prefer to message.ShortDebugString()
+std::string ConciseDebugString(const google::protobuf::Message& message);
+
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_PROTO_PROTO_UTIL_H_

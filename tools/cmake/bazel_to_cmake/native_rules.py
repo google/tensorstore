@@ -22,15 +22,8 @@ https://github.com/bazelbuild/bazel/tree/master/src/main/starlark/builtins_bzl/c
 
 # pylint: disable=relative-beyond-top-level,invalid-name,missing-function-docstring,g-long-lambda
 
-import io
-import pathlib
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional
 
-from .cmake_builder import CMakeBuilder
-from .cmake_builder import quote_list
-from .cmake_builder import quote_path_list
-from .cmake_target import CMakeDepsProvider
-from .cmake_target import CMakeTarget
 from .evaluation import EvaluationState
 from .package import Visibility
 from .starlark import rule  # pylint: disable=unused-import
@@ -38,12 +31,9 @@ from .starlark.bazel_glob import glob as starlark_glob
 from .starlark.bazel_globals import register_native_build_rule
 from .starlark.bazel_target import TargetId
 from .starlark.common_providers import ConditionProvider
-from .starlark.common_providers import FilesProvider
 from .starlark.invocation_context import InvocationContext
 from .starlark.label import RelativeLabel
-from .starlark.provider import Provider
 from .starlark.provider import TargetInfo
-from .util import is_relative_to
 
 
 @register_native_build_rule
@@ -92,99 +82,6 @@ def glob(
 ) -> List[str]:
   package_directory = self.get_source_package_dir(self.caller_package_id)
   return starlark_glob(str(package_directory), include, exclude, allow_empty)
-
-
-@register_native_build_rule
-def filegroup(
-    self: InvocationContext,
-    name: str,
-    srcs: Optional[List[RelativeLabel]] = None,
-    visibility: Optional[List[RelativeLabel]] = None,
-    **kwargs,
-):
-  # https://bazel.build/reference/be/general#filegroup
-  del kwargs
-  # NOTE: Build breaks when filegroup add_rule() uses visibility.
-  del visibility
-  context = self.snapshot()
-  target = context.resolve_target(name)
-
-  context.add_rule(
-      target,
-      lambda: _filegroup_impl(context, target, srcs=srcs),
-      analyze_by_default=False,
-  )
-
-
-def _filegroup_impl(
-    _context: InvocationContext,
-    _target: TargetId,
-    srcs: Optional[List[RelativeLabel]] = None,
-):
-  resolved_srcs = _context.resolve_target_or_label_list(
-      _context.evaluate_configurable_list(srcs)
-  )
-
-  state = _context.access(EvaluationState)
-
-  cmake_target_pair = state.generate_cmake_target_pair(_target, alias=False)
-  cmake_name = cmake_target_pair.target
-
-  cmake_deps: List[CMakeTarget] = []
-  srcs_files = state.get_targets_file_paths(resolved_srcs, cmake_deps)
-
-  # Also add an INTERFACE_LIBRARY in order to reference in compile targets.
-  repo = state.workspace.all_repositories.get(_target.repository_id)
-  assert repo is not None
-  has_proto = False
-  has_ch = False
-
-  includes: Set[str] = set()
-  for path in state.get_targets_file_paths(resolved_srcs):
-    has_proto = has_proto or path.endswith(".proto")
-    has_ch = (
-        has_ch
-        or path.endswith(".c")
-        or path.endswith(".h")
-        or path.endswith(".hpp")
-        or path.endswith(".cc")
-        or path.endswith(".inc")
-    )
-    if is_relative_to(pathlib.PurePath(path), repo.source_directory):
-      includes.add("${PROJECT_SOURCE_DIR}")
-    if is_relative_to(pathlib.PurePath(path), repo.cmake_binary_dir):
-      includes.add("${PROJECT_BINARY_DIR}")
-
-  _sep = "\n               "
-  quoted_includes = quote_list(sorted(set(includes)), separator=_sep)
-
-  quoted_srcs = quote_path_list(sorted(set(srcs_files)), separator=_sep)
-
-  out = io.StringIO()
-  out.write(f"""
-# filegroup({_target.as_label()})
-add_library({cmake_name} INTERFACE)
-target_sources({cmake_name} INTERFACE{_sep}{quoted_srcs})
-""")
-  if has_proto:
-    out.write(
-        f"set_property(TARGET {cmake_name} PROPERTY"
-        f" INTERFACE_IMPORTS{_sep}{quoted_includes})\n"
-    )
-  if has_ch:
-    out.write(
-        f"set_property(TARGET {cmake_name} PROPERTY"
-        f" INTERFACE_INCLUDE_DIRECTORIES{_sep}{quoted_includes})\n"
-    )
-
-  _context.access(CMakeBuilder).addtext(out.getvalue())
-
-  providers: List[Provider] = [FilesProvider(srcs_files)]
-  if cmake_deps:
-    providers.append(CMakeDepsProvider(cmake_deps))
-  _context.add_analyzed_target(
-      _target, TargetInfo(*cmake_target_pair.as_providers(), *providers)
-  )
 
 
 @register_native_build_rule

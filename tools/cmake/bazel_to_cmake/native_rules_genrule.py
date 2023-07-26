@@ -22,12 +22,15 @@ https://github.com/bazelbuild/bazel/tree/master/src/main/starlark/builtins_bzl/c
 
 # pylint: disable=relative-beyond-top-level,invalid-name,missing-function-docstring,g-long-lambda
 
+import io
 import os
+import pathlib
 import re
-from typing import List, Optional, cast
+from typing import List, Optional, cast, Set
 
 from .cmake_builder import CMakeBuilder
 from .cmake_builder import quote_list
+from .cmake_builder import quote_path_list
 from .cmake_builder import quote_string
 from .cmake_target import CMakeDepsProvider
 from .cmake_target import CMakeTarget
@@ -38,10 +41,72 @@ from .starlark.bazel_target import TargetId
 from .starlark.common_providers import FilesProvider
 from .starlark.invocation_context import InvocationContext
 from .starlark.label import RelativeLabel
+from .starlark.provider import Provider
 from .starlark.provider import TargetInfo
 from .starlark.select import Configurable
+from .util import is_relative_to
 from .variable_substitution import apply_location_and_make_variable_substitutions
 from .variable_substitution import generate_substitutions
+
+
+@register_native_build_rule
+def filegroup(
+    self: InvocationContext,
+    name: str,
+    srcs: Optional[List[RelativeLabel]] = None,
+    visibility: Optional[List[RelativeLabel]] = None,
+    **kwargs,
+):
+  # https://bazel.build/reference/be/general#filegroup
+  del kwargs
+  # NOTE: Build breaks when filegroup add_rule() uses visibility.
+  del visibility
+  context = self.snapshot()
+  target = context.resolve_target(name)
+
+  context.add_rule(
+      target,
+      lambda: _filegroup_impl(context, target, srcs=srcs),
+      analyze_by_default=False,
+  )
+
+
+def _filegroup_impl(
+    _context: InvocationContext,
+    _target: TargetId,
+    srcs: Optional[List[RelativeLabel]] = None,
+):
+  resolved_srcs = _context.resolve_target_or_label_list(
+      _context.evaluate_configurable_list(srcs)
+  )
+
+  state = _context.access(EvaluationState)
+
+  repo = state.workspace.all_repositories.get(_target.repository_id)
+  assert repo is not None
+
+  cmake_target_pair = state.generate_cmake_target_pair(_target, alias=False)
+
+  cmake_deps: List[CMakeTarget] = []
+  srcs_files = state.get_targets_file_paths(resolved_srcs, cmake_deps)
+
+  # Also add an INTERFACE_LIBRARY in order to reference in compile targets.
+  out = io.StringIO()
+  out.write(f"\n# filegroup({_target.as_label()})\n")
+  _emit_filegroup(
+      out,
+      cmake_target_pair.target,
+      srcs_files,
+      repo.source_directory,
+      repo.cmake_binary_dir,
+      add_dependencies=cmake_deps,
+  )
+  _context.access(CMakeBuilder).addtext(out.getvalue())
+
+  providers: List[Provider] = [FilesProvider(srcs_files)]
+  _context.add_analyzed_target(
+      _target, TargetInfo(*cmake_target_pair.as_providers(), *providers)
+  )
 
 
 @register_native_build_rule
@@ -98,20 +163,20 @@ def _genrule_impl(
     message_text = _context.evaluate_configurable(message)
 
   cmake_target_pair = state.generate_cmake_target_pair(_target).with_alias(None)
+  cmake_deps_provider = CMakeDepsProvider([cmake_target_pair.target])
+  repo = state.workspace.all_repositories.get(_target.repository_id)
+  assert repo is not None
 
   # Add outputs with a dependency on this target.
-  cmake_deps_provider = CMakeDepsProvider([cmake_target_pair.target])
   out_files: List[str] = []
   for out_target in _out_targets:
-    out_file = str(state.get_generated_file_path(out_target))
-    out_files.append(out_file)
+    path = str(state.get_generated_file_path(out_target))
+    out_files.append(path)
     _context.add_analyzed_target(
-        out_target, TargetInfo(FilesProvider([out_file]), cmake_deps_provider)
+        out_target, TargetInfo(FilesProvider([path]), cmake_deps_provider)
     )
 
-  cmake_deps: List[CMakeTarget] = []
-  cmake_deps.extend(state.get_deps(resolved_tools))
-
+  cmake_deps: List[CMakeTarget] = state.get_deps(resolved_tools)
   src_files = state.get_targets_file_paths(resolved_srcs, cmake_deps)
   cmake_deps.extend(cast(List[CMakeTarget], src_files))
 
@@ -142,27 +207,84 @@ def _genrule_impl(
         "-I${PROJECT_SOURCE_DIR}/bootstrap",
     )
 
-  builder = _context.access(CMakeBuilder)
-  builder.addtext(f"\n# genrule({_target.as_label()})")
+  out = io.StringIO()
+  out.write(f"\n# genrule({_target.as_label()})\n")
   _emit_genrule(
-      builder=builder,
-      cmake_target=cmake_deps_provider.targets[0],
-      out_files=out_files,
-      cmake_deps=cmake_deps,
+      out,
+      "genrule__" + cmake_target_pair.target,
+      generated_files=out_files,
+      add_dependencies=cmake_deps,
       cmd_text=cmd_text,
       message=message_text,
   )
+  _emit_filegroup(
+      out,
+      cmake_target_pair.target,
+      out_files,
+      repo.source_directory,
+      repo.cmake_binary_dir,
+      add_dependencies=[CMakeTarget("genrule__" + cmake_target_pair.target)],
+  )
+  _context.access(CMakeBuilder).addtext(out.getvalue())
+
   _context.add_analyzed_target(_target, TargetInfo(cmake_deps_provider))
 
 
 _QUOTED_VAR = re.compile(r"(^[$]{[A-Z0-9_]+})|(^\"[$]{[A-Z0-9_]+}\")")
 
 
+def _emit_filegroup(
+    out: io.StringIO,
+    cmake_name: str,
+    filegroup_files: List[str],
+    source_directory: pathlib.PurePath,
+    cmake_binary_dir: pathlib.PurePath,
+    add_dependencies: Optional[List[CMakeTarget]] = None,
+):
+  has_proto = False
+  has_ch = False
+  includes: Set[str] = set()
+  for path in filegroup_files:
+    has_proto = has_proto or path.endswith(".proto")
+    has_ch = (
+        has_ch
+        or path.endswith(".c")
+        or path.endswith(".h")
+        or path.endswith(".hpp")
+        or path.endswith(".cc")
+        or path.endswith(".inc")
+    )
+    if is_relative_to(pathlib.PurePath(path), source_directory):
+      includes.add("${PROJECT_SOURCE_DIR}")
+    if is_relative_to(pathlib.PurePath(path), cmake_binary_dir):
+      includes.add("${PROJECT_BINARY_DIR}")
+
+  sep = "\n    "
+  quoted_includes = quote_list(sorted(includes), sep)
+  quoted_srcs = quote_path_list(sorted(filegroup_files), sep)
+
+  out.write(f"add_library({cmake_name} INTERFACE)\n")
+  out.write(f"target_sources({cmake_name} INTERFACE{sep}{quoted_srcs})\n")
+  if has_proto:
+    out.write(
+        f"set_property(TARGET {cmake_name} PROPERTY"
+        f" INTERFACE_IMPORTS{sep}{quoted_includes})\n"
+    )
+  if has_ch:
+    out.write(
+        f"set_property(TARGET {cmake_name} PROPERTY"
+        f" INTERFACE_INCLUDE_DIRECTORIES{sep}{quoted_includes})\n"
+    )
+  if add_dependencies:
+    deps_str = sep.join(sorted(set(add_dependencies)))
+    out.write(f"add_dependencies({cmake_name} {deps_str})\n")
+
+
 def _emit_genrule(
-    builder: CMakeBuilder,
-    cmake_target: str,
-    out_files: List[str],
-    cmake_deps: List[CMakeTarget],
+    out: io.StringIO,
+    cmake_name: str,
+    generated_files: List[str],
+    add_dependencies: List[CMakeTarget],
     cmd_text: str,
     message: Optional[str],
 ):
@@ -183,13 +305,15 @@ def _emit_genrule(
       cmd_text = f"bash -c {quote_string(cmd_text)}"
 
   sep = "\n    "
-  builder.addtext(f"""
-add_custom_command(
-  OUTPUT{sep}{quote_list(out_files, sep)}
-  DEPENDS{sep}{quote_list(cast(List[str], cmake_deps), sep)}
+  quoted_outputs = quote_list(generated_files, sep)
+  deps_str = quote_list(sorted(set(add_dependencies)), sep)
+
+  out.write(f"""add_custom_command(
+  OUTPUT{sep}{quoted_outputs}
+  DEPENDS{sep}{deps_str}
   COMMAND {cmd_text}
   {optional_message_text}VERBATIM
   WORKING_DIRECTORY "${{CMAKE_CURRENT_SOURCE_DIR}}"
 )
-add_custom_target({cmake_target} DEPENDS {quote_list(out_files)})
+add_custom_target({cmake_name} DEPENDS{sep}{quoted_outputs})
 """)

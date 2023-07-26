@@ -19,6 +19,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include "google/protobuf/io/tokenizer.h"
 #include "google/protobuf/io/zero_copy_stream_impl_lite.h"
@@ -54,6 +55,25 @@ class ErrorCollector : public google::protobuf::io::ErrorCollector {
   std::vector<std::string> errors;
 };
 
+// TextFormat printer which elides large strings.
+class ConcisePrinter : public google::protobuf::TextFormat::FastFieldValuePrinter {
+ public:
+  void PrintString(
+      const std::string& val,
+      google::protobuf::TextFormat::BaseTextGenerator* generator) const override {
+    if (val.size() <= 80) {
+      FastFieldValuePrinter::PrintString(val, generator);
+      return;
+    }
+    std::string output = absl::StrFormat("<%d bytes: ", val.size());
+    for (size_t i = 0; i < 8; i++) {
+      absl::StrAppendFormat(&output, "\\x%02x", val[i]);
+    }
+    absl::StrAppend(&output, "...>");
+    generator->PrintString(output);
+  }
+};
+
 }  // namespace
 
 bool TryParseTextProto(absl::string_view asciipb, google::protobuf::Message* msg,
@@ -76,6 +96,21 @@ bool TryParseTextProto(absl::string_view asciipb, google::protobuf::Message* msg
     *errors = std::move(error_collector.errors);
   }
   return false;
+}
+
+std::string ConciseDebugString(const google::protobuf::Message& message) {
+  google::protobuf::TextFormat::Printer printer;
+  printer.SetDefaultFieldValuePrinter(new ConcisePrinter());
+  printer.SetSingleLineMode(true);
+  printer.SetExpandAny(true);
+
+  std::string debugstring;
+  printer.PrintToString(message, &debugstring);
+  // Trim possible trailing whitespace.
+  if (!debugstring.empty() && debugstring.back() == ' ') {
+    debugstring.pop_back();
+  }
+  return debugstring;
 }
 
 }  // namespace tensorstore

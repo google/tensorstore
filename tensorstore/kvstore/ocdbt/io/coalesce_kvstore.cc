@@ -129,8 +129,11 @@ struct PendingReadHash {
 
 class CoalesceKvStoreDriver final : public kvstore::Driver {
  public:
-  explicit CoalesceKvStoreDriver(kvstore::DriverPtr base, size_t threshold)
-      : base_(std::move(base)), threshold_(threshold) {}
+  explicit CoalesceKvStoreDriver(kvstore::DriverPtr base, size_t threshold,
+                                 size_t merged_threshold)
+      : base_(std::move(base)),
+        threshold_(threshold),
+        merged_threshold_(merged_threshold) {}
 
   ~CoalesceKvStoreDriver() override = default;
 
@@ -190,6 +193,7 @@ class CoalesceKvStoreDriver final : public kvstore::Driver {
  private:
   kvstore::DriverPtr base_;
   size_t threshold_;
+  size_t merged_threshold_;
 
   absl::Mutex mu_;
   absl::flat_hash_set<internal::IntrusivePtr<PendingRead>, PendingReadHash,
@@ -263,8 +267,7 @@ void OnReadComplete(MergeValue merge_values,
       if (e.byte_range.exclusive_max == -1) {
         request_size = std::numeric_limits<size_t>::max();
       } else {
-        request_size = e.byte_range.exclusive_max -
-                       merge_values.options.byte_range.inclusive_min;
+        request_size = e.byte_range.exclusive_max - e.byte_range.inclusive_min;
       }
       result.value =
           MaybeDeepCopyCord(value.Subcord(request_start, request_size));
@@ -301,7 +304,12 @@ void CoalesceKvStoreDriver::StartNextRead(
   kvstore::Key key = state_ptr->key;
 
   MergeValue merged;
-  merged.options = pending.front().options;
+  const auto& first_pending = pending.front();
+  merged.options = first_pending.options;
+  // Add to queue.
+  merged.subreads.emplace_back(
+      MergeValue::Entry{std::move(first_pending.options.byte_range),
+                        std::move(first_pending.promise)});
 
   for (size_t i = 1; i < pending.size(); ++i) {
     auto& e = pending[i];
@@ -322,10 +330,14 @@ void CoalesceKvStoreDriver::StartNextRead(
       merged = MergeValue{};
       merged.options = e.options;
     } else if (merged.options.byte_range.exclusive_max != -1 &&
-               (e.options.byte_range.inclusive_min -
-                merged.options.byte_range.exclusive_max) > threshold_) {
+               ((e.options.byte_range.inclusive_min -
+                     merged.options.byte_range.exclusive_max >
+                 threshold_) ||
+                (merged_threshold_ > 0 &&
+                 merged.options.byte_range.size() > merged_threshold_))) {
       // The distance from the end of the prior read to the beginning of the
-      // next read exceeds threshold_, so issue the pending request and start
+      // next read exceeds threshold_ or the total merged_size exceeds
+      // merged_threshold_, so issue the pending request and start
       // another.
       assert(!merged.subreads.empty());
       auto f = base_->Read(key, merged.options);
@@ -375,11 +387,13 @@ void CoalesceKvStoreDriver::StartNextRead(
 }  // namespace
 
 kvstore::DriverPtr MakeCoalesceKvStoreDriver(kvstore::DriverPtr base,
-                                             size_t threshold) {
+                                             size_t threshold,
+                                             size_t merged_threshold) {
   ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
-      << "Coalescing reads with threshold " << threshold;
-  return internal::MakeIntrusivePtr<CoalesceKvStoreDriver>(std::move(base),
-                                                           threshold);
+      << "Coalescing reads with threshold: " << threshold
+      << ", merged_threshold: " << merged_threshold;
+  return internal::MakeIntrusivePtr<CoalesceKvStoreDriver>(
+      std::move(base), threshold, merged_threshold);
 }
 
 }  // namespace internal_ocdbt

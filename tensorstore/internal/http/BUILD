@@ -5,30 +5,34 @@ package(default_visibility = ["//tensorstore:internal_packages"])
 licenses(["notice"])
 
 tensorstore_cc_library(
+    name = "curl_factory",
+    srcs = ["curl_factory.cc"],
+    hdrs = ["curl_factory.h"],
+    deps = [
+        ":curl_wrappers",
+        "@com_google_absl//absl/base",
+        "@com_google_absl//absl/log:absl_check",
+    ],
+)
+
+tensorstore_cc_library(
     name = "curl_handle",
     srcs = ["curl_handle.cc"],
     hdrs = ["curl_handle.h"],
     deps = [
-        "//tensorstore/internal:attributes",
-        "//tensorstore/util:result",
-        "//tensorstore/util:span",
-        "//tensorstore/util:status",
-        "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
+        ":curl_factory",
+        ":curl_wrappers",
+        "@com_google_absl//absl/log:absl_check",
         "@se_curl//:curl",
     ],
 )
 
 tensorstore_cc_library(
     name = "curl_transport",
-    srcs = [
-        "curl_request_initialize.cc",
-        "curl_transport.cc",
-    ],
+    srcs = ["curl_transport.cc"],
     hdrs = ["curl_transport.h"],
     deps = [
+        ":curl_factory",
         ":curl_handle",
         ":http",
         "//tensorstore/internal:cord_util",
@@ -38,11 +42,33 @@ tensorstore_cc_library(
         "//tensorstore/internal/metrics",
         "//tensorstore/util:future",
         "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/time",
         "@se_curl//:curl",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "curl_wrappers",
+    srcs = ["curl_wrappers.cc"],
+    hdrs = ["curl_wrappers.h"],
+    deps = [
+        "//tensorstore/internal:source_location",
+        "//tensorstore/util:status",
+        "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/status",
+        "@se_curl//:curl",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "curl_wrappers_test",
+    size = "small",
+    srcs = ["curl_wrappers_test.cc"],
+    deps = [
+        ":curl_wrappers",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 

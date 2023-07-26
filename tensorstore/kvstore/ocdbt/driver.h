@@ -71,6 +71,7 @@ struct OcdbtDriverSpecData {
   kvstore::Spec base;
   ConfigConstraints config;
   std::optional<size_t> experimental_read_coalescing_threshold_bytes;
+  std::optional<size_t> experimental_read_coalescing_merged_bytes;
   Context::Resource<OcdbtCoordinatorResource> coordinator;
 
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(OcdbtDriverSpecData,
@@ -80,7 +81,8 @@ struct OcdbtDriverSpecData {
 
   constexpr static auto ApplyMembers = [](auto&& x, auto f) {
     return f(x.base, x.config, x.cache_pool, x.data_copy_concurrency,
-             x.experimental_read_coalescing_threshold_bytes, x.coordinator);
+             x.experimental_read_coalescing_threshold_bytes,
+             x.experimental_read_coalescing_merged_bytes, x.coordinator);
   };
 };
 
@@ -130,6 +132,7 @@ class OcdbtDriver
   kvstore::KvStore base_;
   BtreeWriterPtr btree_writer_;
   std::optional<size_t> experimental_read_coalescing_threshold_bytes_;
+  std::optional<size_t> experimental_read_coalescing_merged_bytes_;
   Context::Resource<OcdbtCoordinatorResource> coordinator_;
 };
 

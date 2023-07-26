@@ -123,6 +123,10 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
             "experimental_read_coalescing_threshold_bytes",
             jb::Projection<&OcdbtDriverSpecData::
                                experimental_read_coalescing_threshold_bytes>()),
+        jb::Member(
+            "experimental_read_coalescing_merged_bytes",
+            jb::Projection<&OcdbtDriverSpecData::
+                               experimental_read_coalescing_merged_bytes>()),
         jb::Member("coordinator",
                    jb::Projection<&OcdbtDriverSpecData::coordinator>()),
         jb::Member(internal::CachePoolResource::id,
@@ -151,12 +155,15 @@ Future<kvstore::DriverPtr> OcdbtDriverSpec::DoOpen() const {
         driver->data_copy_concurrency_ = spec->data_.data_copy_concurrency;
         driver->experimental_read_coalescing_threshold_bytes_ =
             spec->data_.experimental_read_coalescing_threshold_bytes;
+        driver->experimental_read_coalescing_merged_bytes_ =
+            spec->data_.experimental_read_coalescing_merged_bytes;
         driver->io_handle_ = internal_ocdbt::MakeIoHandle(
             driver->data_copy_concurrency_, **driver->cache_pool_,
             driver->base_,
             internal::MakeIntrusivePtr<ConfigState>(
                 spec->data_.config, supported_manifest_features),
-            driver->experimental_read_coalescing_threshold_bytes_);
+            driver->experimental_read_coalescing_threshold_bytes_,
+            driver->experimental_read_coalescing_merged_bytes_);
         driver->btree_writer_ =
             MakeNonDistributedBtreeWriter(driver->io_handle_);
         driver->coordinator_ = spec->data_.coordinator;
@@ -205,6 +212,8 @@ absl::Status OcdbtDriver::GetBoundSpecData(OcdbtDriverSpecData& spec) const {
   spec.config = io_handle_->config_state->GetConstraints();
   spec.experimental_read_coalescing_threshold_bytes =
       experimental_read_coalescing_threshold_bytes_;
+  spec.experimental_read_coalescing_merged_bytes =
+      experimental_read_coalescing_merged_bytes_;
   spec.coordinator = coordinator_;
   return absl::Status();
 }

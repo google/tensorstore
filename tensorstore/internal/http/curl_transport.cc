@@ -18,7 +18,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -26,13 +25,13 @@
 #include <utility>
 
 #include "absl/log/absl_log.h"
-#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include <curl/curl.h>
 #include "tensorstore/internal/cord_util.h"
 #include "tensorstore/internal/env.h"
+#include "tensorstore/internal/http/curl_factory.h"
 #include "tensorstore/internal/http/curl_handle.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
@@ -116,8 +115,8 @@ const CurlConfig& CurlEnvConfig() {
 }
 
 struct CurlRequestState {
-  CurlHandleFactory* factory_;
-  CurlPtr handle_;
+  std::shared_ptr<CurlHandleFactory> factory_;
+  CurlHandle handle_;
   CurlHeaders headers_;
   absl::Cord payload_;
   absl::Cord::CharIterator payload_it_;
@@ -126,14 +125,19 @@ struct CurlRequestState {
   Promise<HttpResponse> promise_;
   char error_buffer_[CURL_ERROR_SIZE] = {0};
 
-  CurlRequestState(CurlHandleFactory* factory)
-      : factory_(factory), handle_(factory->CreateHandle()) {
-    InitializeCurlHandle(handle_.get());
-
+  CurlRequestState(std::shared_ptr<CurlHandleFactory> factory)
+      : factory_(std::move(factory)), handle_(CurlHandle::Create(*factory_)) {
     const auto& config = CurlEnvConfig();
     if (config.verbose) {
-      TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_VERBOSE, 1L));
+      handle_.SetOption(CURLOPT_VERBOSE, 1L);
     }
+    handle_.SetOption(CURLOPT_ERRORBUFFER, error_buffer_);
+
+    // For thread safety, don't use signals to time out name resolves (when
+    // async name resolution is not supported).
+    //
+    // https://curl.haxx.se/libcurl/c/threadsafe.html
+    handle_.SetOption(CURLOPT_NOSIGNAL, 1L);
 
     // Follow curl command manpage to set up default values for low speed
     // timeout:
@@ -144,89 +148,56 @@ struct CurlRequestState {
                          : 30;
       auto bytes =
           config.low_speed_limit_bytes > 0 ? config.low_speed_limit_bytes : 1;
-      TENSORSTORE_CHECK_OK(
-          CurlEasySetopt(handle_.get(), CURLOPT_LOW_SPEED_TIME, seconds));
-      TENSORSTORE_CHECK_OK(
-          CurlEasySetopt(handle_.get(), CURLOPT_LOW_SPEED_LIMIT, bytes));
+      handle_.SetOption(CURLOPT_LOW_SPEED_TIME, seconds);
+      handle_.SetOption(CURLOPT_LOW_SPEED_LIMIT, bytes);
     }
 
     if (const auto& x = config.ca_path) {
-      TENSORSTORE_CHECK_OK(
-          CurlEasySetopt(handle_.get(), CURLOPT_CAPATH, x->c_str()));
+      handle_.SetOption(CURLOPT_CAPATH, x->c_str());
     }
     if (const auto& x = config.ca_bundle) {
-      TENSORSTORE_CHECK_OK(
-          CurlEasySetopt(handle_.get(), CURLOPT_CAINFO, x->c_str()));
+      handle_.SetOption(CURLOPT_CAINFO, x->c_str());
     }
     // NOTE: When there are no ca certs, we may want to set:
     // CURLOPT_SSL_VERIFYPEER CURLOPT_SSL_VERIFYHOST
 
     // Use a 512k buffer.
-    TENSORSTORE_CHECK_OK(
-        CurlEasySetopt(handle_.get(), CURLOPT_BUFFERSIZE, 512 * 1024));
-    TENSORSTORE_CHECK_OK(
-        CurlEasySetopt(handle_.get(), CURLOPT_TCP_NODELAY, 1L));
+    handle_.SetOption(CURLOPT_BUFFERSIZE, 512 * 1024);
+    handle_.SetOption(CURLOPT_TCP_NODELAY, 1L);
 
-    TENSORSTORE_CHECK_OK(
-        CurlEasySetopt(handle_.get(), CURLOPT_WRITEDATA, this));
-    TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_WRITEFUNCTION,
-                                        &CurlRequestState::CurlWriteCallback));
+    handle_.SetOption(CURLOPT_WRITEDATA, this);
+    handle_.SetOption(CURLOPT_WRITEFUNCTION,
+                      &CurlRequestState::CurlWriteCallback);
 
-    TENSORSTORE_CHECK_OK(
-        CurlEasySetopt(handle_.get(), CURLOPT_HEADERDATA, this));
-    TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_HEADERFUNCTION,
-                                        &CurlRequestState::CurlHeaderCallback));
-
-    TENSORSTORE_CHECK_OK(
-        CurlEasySetopt(handle_.get(), CURLOPT_ERRORBUFFER, error_buffer_));
-    TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_PRIVATE, this));
+    handle_.SetOption(CURLOPT_HEADERDATA, this);
+    handle_.SetOption(CURLOPT_HEADERFUNCTION,
+                      &CurlRequestState::CurlHeaderCallback);
 
     // Consider: CURLOPT_XFERINFOFUNCTION for increased logging.
   }
 
   ~CurlRequestState() {
-    TENSORSTORE_CHECK_OK(
-        CurlEasySetopt(handle_.get(), CURLOPT_PRIVATE, nullptr));
-    TENSORSTORE_CHECK_OK(
-        CurlEasySetopt(handle_.get(), CURLOPT_WRITEDATA, nullptr));
-    TENSORSTORE_CHECK_OK(
-        CurlEasySetopt(handle_.get(), CURLOPT_WRITEFUNCTION, nullptr));
-    TENSORSTORE_CHECK_OK(
-        CurlEasySetopt(handle_.get(), CURLOPT_READDATA, nullptr));
-    TENSORSTORE_CHECK_OK(
-        CurlEasySetopt(handle_.get(), CURLOPT_READFUNCTION, nullptr));
-    TENSORSTORE_CHECK_OK(
-        CurlEasySetopt(handle_.get(), CURLOPT_SEEKDATA, nullptr));
-    TENSORSTORE_CHECK_OK(
-        CurlEasySetopt(handle_.get(), CURLOPT_SEEKFUNCTION, nullptr));
-    TENSORSTORE_CHECK_OK(
-        CurlEasySetopt(handle_.get(), CURLOPT_HEADERDATA, nullptr));
-    TENSORSTORE_CHECK_OK(
-        CurlEasySetopt(handle_.get(), CURLOPT_HEADERFUNCTION, nullptr));
-    TENSORSTORE_CHECK_OK(
-        CurlEasySetopt(handle_.get(), CURLOPT_ERRORBUFFER, nullptr));
-    TENSORSTORE_CHECK_OK(
-        CurlEasySetopt(handle_.get(), CURLOPT_LOW_SPEED_TIME, 0L));
-    TENSORSTORE_CHECK_OK(
-        CurlEasySetopt(handle_.get(), CURLOPT_LOW_SPEED_LIMIT, 0L));
-
-    factory_->CleanupHandle(std::move(handle_));
+    handle_.SetOption(CURLOPT_WRITEDATA, nullptr);
+    handle_.SetOption(CURLOPT_WRITEFUNCTION, nullptr);
+    handle_.SetOption(CURLOPT_READDATA, nullptr);
+    handle_.SetOption(CURLOPT_READFUNCTION, nullptr);
+    handle_.SetOption(CURLOPT_SEEKDATA, nullptr);
+    handle_.SetOption(CURLOPT_SEEKFUNCTION, nullptr);
+    handle_.SetOption(CURLOPT_HEADERDATA, nullptr);
+    handle_.SetOption(CURLOPT_HEADERFUNCTION, nullptr);
+    handle_.SetOption(CURLOPT_LOW_SPEED_TIME, 0L);
+    handle_.SetOption(CURLOPT_LOW_SPEED_LIMIT, 0L);
+    handle_.SetOption(CURLOPT_VERBOSE, 0);
+    handle_.SetOption(CURLOPT_ERRORBUFFER, nullptr);
+    CurlHandle::Cleanup(*factory_, std::move(handle_));
   }
 
   void Prepare(const HttpRequest& request, absl::Cord payload,
                absl::Duration request_timeout, absl::Duration connect_timeout) {
-    // For thread safety, don't use signals to time out name resolves (when
-    // async name resolution is not supported).
-    //
-    // https://curl.haxx.se/libcurl/c/threadsafe.html
-    TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_NOSIGNAL, 1L));
+    handle_.SetOption(CURLOPT_URL, request.url.c_str());
 
     std::string user_agent = request.user_agent + GetCurlUserAgentSuffix();
-    TENSORSTORE_CHECK_OK(
-        CurlEasySetopt(handle_.get(), CURLOPT_USERAGENT, user_agent.c_str()));
-
-    TENSORSTORE_CHECK_OK(
-        CurlEasySetopt(handle_.get(), CURLOPT_URL, request.url.c_str()));
+    handle_.SetOption(CURLOPT_USERAGENT, user_agent.c_str());
 
     // Convert headers to a curl slist
     curl_slist* head = nullptr;
@@ -236,22 +207,20 @@ struct CurlRequestState {
       header_bytes_ += h.size();
     }
     headers_.reset(head);
-    TENSORSTORE_CHECK_OK(
-        CurlEasySetopt(handle_.get(), CURLOPT_HTTPHEADER, headers_.get()));
+    handle_.SetOption(CURLOPT_HTTPHEADER, headers_.get());
     if (request.accept_encoding) {
-      TENSORSTORE_CHECK_OK(
-          CurlEasySetopt(handle_.get(), CURLOPT_ACCEPT_ENCODING, ""));
+      handle_.SetOption(CURLOPT_ACCEPT_ENCODING, "");
     }
 
     if (request_timeout > absl::ZeroDuration()) {
       auto ms = absl::ToInt64Milliseconds(request_timeout);
-      TENSORSTORE_CHECK_OK(
-          CurlEasySetopt(handle_.get(), CURLOPT_TIMEOUT_MS, ms > 0 ? ms : 1));
+
+      handle_.SetOption(CURLOPT_TIMEOUT_MS, ms > 0 ? ms : 1);
     }
     if (connect_timeout > absl::ZeroDuration()) {
       auto ms = absl::ToInt64Milliseconds(connect_timeout);
-      TENSORSTORE_CHECK_OK(CurlEasySetopt(
-          handle_.get(), CURLOPT_CONNECTTIMEOUT_MS, ms > 0 ? ms : 1));
+
+      handle_.SetOption(CURLOPT_CONNECTTIMEOUT_MS, ms > 0 ? ms : 1);
     }
 
     payload_ = std::move(payload);
@@ -259,46 +228,42 @@ struct CurlRequestState {
     if (payload_remaining_ > 0) {
       payload_it_ = payload_.char_begin();
 
-      TENSORSTORE_CHECK_OK(
-          CurlEasySetopt(handle_.get(), CURLOPT_READDATA, this));
-      TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_READFUNCTION,
-                                          &CurlRequestState::CurlReadCallback));
+      handle_.SetOption(CURLOPT_READDATA, this);
+      handle_.SetOption(CURLOPT_READFUNCTION,
+                        &CurlRequestState::CurlReadCallback);
       // Seek callback allows curl to re-read input, which it sometimes needs to
       // do.
       //
       // https://curl.haxx.se/mail/lib-2010-01/0183.html
       //
       // If this is not set, curl may fail with CURLE_SEND_FAIL_REWIND.
-      TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_SEEKFUNCTION,
-                                          &CurlRequestState::CurlSeekCallback));
-      TENSORSTORE_CHECK_OK(
-          CurlEasySetopt(handle_.get(), CURLOPT_SEEKDATA, this));
+      handle_.SetOption(CURLOPT_SEEKDATA, this);
+      handle_.SetOption(CURLOPT_SEEKFUNCTION,
+                        &CurlRequestState::CurlSeekCallback);
     }
 
     if (request.method == "GET") {
-      TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_PIPEWAIT, 1L));
-      TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_HTTPGET, 1L));
+      handle_.SetOption(CURLOPT_PIPEWAIT, 1L);
+      handle_.SetOption(CURLOPT_HTTPGET, 1L);
     } else if (request.method == "HEAD") {
-      TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_NOBODY, 1L));
+      handle_.SetOption(CURLOPT_NOBODY, 1L);
     } else if (request.method == "PUT") {
-      TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_UPLOAD, 1L));
-      TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_PUT, 1L));
-      TENSORSTORE_CHECK_OK(CurlEasySetopt(
-          handle_.get(), CURLOPT_INFILESIZE_LARGE, payload_remaining_));
+      handle_.SetOption(CURLOPT_UPLOAD, 1L);
+      handle_.SetOption(CURLOPT_PUT, 1L);
+
+      handle_.SetOption(CURLOPT_INFILESIZE_LARGE, payload_remaining_);
     } else if (request.method == "POST") {
-      TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_POST, 1L));
-      TENSORSTORE_CHECK_OK(CurlEasySetopt(
-          handle_.get(), CURLOPT_POSTFIELDSIZE_LARGE, payload_remaining_));
+      handle_.SetOption(CURLOPT_POST, 1L);
+
+      handle_.SetOption(CURLOPT_POSTFIELDSIZE_LARGE, payload_remaining_);
     } else if (request.method == "PATCH") {
-      TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_UPLOAD, 1L));
-      TENSORSTORE_CHECK_OK(
-          CurlEasySetopt(handle_.get(), CURLOPT_CUSTOMREQUEST, "PATCH"));
-      TENSORSTORE_CHECK_OK(CurlEasySetopt(
-          handle_.get(), CURLOPT_POSTFIELDSIZE_LARGE, payload_remaining_));
+      handle_.SetOption(CURLOPT_UPLOAD, 1L);
+      handle_.SetOption(CURLOPT_CUSTOMREQUEST, "PATCH");
+
+      handle_.SetOption(CURLOPT_POSTFIELDSIZE_LARGE, payload_remaining_);
     } else {
       // Such as "DELETE"
-      TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_CUSTOMREQUEST,
-                                          request.method.c_str()));
+      handle_.SetOption(CURLOPT_CUSTOMREQUEST, request.method.c_str());
     }
 
     // Record metrics.
@@ -308,24 +273,12 @@ struct CurlRequestState {
   }
 
   void SetHTTP2() {
-    TENSORSTORE_CHECK_OK(CurlEasySetopt(handle_.get(), CURLOPT_HTTP_VERSION,
-                                        CURL_HTTP_VERSION_2_0));
+    handle_.SetOption(CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_0);
   }
 
   void SetForbidReuse() {
     // https://curl.haxx.se/libcurl/c/CURLOPT_FORBID_REUSE.html
-    TENSORSTORE_CHECK_OK(
-        CurlEasySetopt(handle_.get(), CURLOPT_FORBID_REUSE, 1));
-  }
-
-  absl::Status CurlCodeToStatus(CURLcode code) {
-    if (code == CURLE_OK) {
-      return absl::OkStatus();
-    }
-    ABSL_LOG(WARNING) << "Error [" << code << "]=" << curl_easy_strerror(code)
-                      << " in curl operation\n"
-                      << error_buffer_;
-    return ::tensorstore::internal_http::CurlCodeToStatus(code, error_buffer_);
+    handle_.SetOption(CURLOPT_FORBID_REUSE, 1);
   }
 
   static std::size_t CurlWriteCallback(void* contents, std::size_t size,
@@ -378,7 +331,8 @@ struct CurlRequestState {
 class MultiTransportImpl {
  public:
   explicit MultiTransportImpl(std::shared_ptr<CurlHandleFactory> factory)
-      : factory_(factory), multi_(factory_->CreateMultiHandle()) {
+      : factory_(std::move(factory)), multi_(factory_->CreateMultiHandle()) {
+    assert(factory_);
     // Without any option, the CURL library multiplexes up to 100 http/2 streams
     // over a single connection. In practice there's a tradeoff between
     // concurrent streams and latency/throughput of requests. Empirical tests
@@ -403,23 +357,19 @@ class MultiTransportImpl {
                                     absl::Duration request_timeout,
                                     absl::Duration connect_timeout);
 
-  void FinishRequest(CURL* e, CURLcode code);
+  void FinishRequest(std::unique_ptr<CurlRequestState> state, CURLcode code);
 
+  // Runs the thread loop.
   void Run();
 
-  void HandlePendingMesssages(size_t& active_count);
-
-  CurlRequestState* GetStatePointer(CURL* e) {
-    CurlRequestState* pvt = nullptr;
-    curl_easy_getinfo(e, CURLINFO_PRIVATE, &pvt);
-    return pvt;
-  }
+  int64_t AddPendingTransfers();
+  int64_t RemoveCompletedTransfers();
 
   std::shared_ptr<CurlHandleFactory> factory_;
   CurlMulti multi_;
 
   absl::Mutex mutex_;
-  std::vector<CURL*> pending_requests_;
+  std::vector<std::unique_ptr<CurlRequestState>> pending_requests_;
   std::atomic<bool> done_{false};
 
   internal::Thread thread_;
@@ -428,34 +378,28 @@ class MultiTransportImpl {
 Future<HttpResponse> MultiTransportImpl::StartRequest(
     const HttpRequest& request, absl::Cord payload,
     absl::Duration request_timeout, absl::Duration connect_timeout) {
-  auto state = std::make_unique<CurlRequestState>(factory_.get());
+  assert(factory_);
+  auto state = std::make_unique<CurlRequestState>(factory_);
   state->Prepare(request, std::move(payload), request_timeout, connect_timeout);
   state->SetHTTP2();
 
   auto pair = PromiseFuturePair<HttpResponse>::Make();
   state->promise_ = std::move(pair.promise);
 
-  // Transfer ownership into the curl handle.
-  CURL* e = state->handle_.get();
-  assert(state.get() == GetStatePointer(e));
-  state.release();
-
   // Add the handle to the curl_multi state.
   // TODO: Add an ExecuteWhenNotNeeded callback which removes
   // the handle from the pending / active requests set.
   {
     absl::MutexLock l(&mutex_);
-    pending_requests_.emplace_back(e);
+    pending_requests_.push_back(std::move(state));
   }
   curl_multi_wakeup(multi_.get());
 
   return std::move(pair.future);
 }
 
-void MultiTransportImpl::FinishRequest(CURL* e, CURLcode code) {
-  // Transfer ownership out of the curl handle.
-  std::unique_ptr<CurlRequestState> state(GetStatePointer(e));
-
+void MultiTransportImpl::FinishRequest(std::unique_ptr<CurlRequestState> state,
+                                       CURLcode code) {
   if (code == CURLE_HTTP2) {
     ABSL_LOG(WARNING) << "CURLE_HTTP2 " << state->error_buffer_;
     // If there was an error in the HTTP2 framing, try and force
@@ -468,89 +412,57 @@ void MultiTransportImpl::FinishRequest(CURL* e, CURLcode code) {
   // https://curl.se/libcurl/c/easy_getinfo_options.html
   http_request_completed.Increment();
   http_response_bytes.Observe(state->response_.payload.size());
+
   // Record the first byte latency.
   {
     curl_off_t first_byte_us = 0;
-    if (CURLE_OK ==
-        curl_easy_getinfo(e, CURLINFO_STARTTRANSFER_TIME_T, &first_byte_us)) {
-      http_first_byte_latency_us.Observe(first_byte_us);
-    }
+    state->handle_.GetInfo(CURLINFO_STARTTRANSFER_TIME_T, &first_byte_us);
+    http_first_byte_latency_us.Observe(first_byte_us);
   }
   // Record the total time.
   {
     curl_off_t total_time_us = 0;
-    if (CURLE_OK ==
-        curl_easy_getinfo(e, CURLINFO_TOTAL_TIME_T, &total_time_us)) {
-      http_total_time_ms.Observe(total_time_us / 1000);
-    }
+    state->handle_.GetInfo(CURLINFO_TOTAL_TIME_T, &total_time_us);
+    http_total_time_ms.Observe(total_time_us / 1000);
   }
 
   if (code != CURLE_OK) {
-    state->promise_.SetResult(state->CurlCodeToStatus(code));
-  } else {
-    state->response_.status_code = CurlGetResponseCode(e);
-    http_response_codes.Increment(state->response_.status_code);
-    state->promise_.SetResult(std::move(state->response_));
+    /// Transfer failed; set the status
+    ABSL_LOG(WARNING) << "Error [" << code << "]=" << curl_easy_strerror(code)
+                      << " in curl operation\n"
+                      << state->error_buffer_;
+    state->promise_.SetResult(CurlCodeToStatus(code, state->error_buffer_));
+    return;
   }
-}
 
-void MultiTransportImpl::HandlePendingMesssages(size_t& active_count) {
-  // curl_multi_perform is the main curl method that performs work
-  // on the existing curl handles.
-  int active_requests;
-  while (CURLM_CALL_MULTI_PERFORM ==
-         curl_multi_perform(multi_.get(), &active_requests)) {
-    /* loop */
-  }
-  http_active.Set(active_requests);
-
-  // Pull pending CURLMSG_DONE events off the multi handle.
-  for (;;) {
-    int messages_in_queue;
-    const auto* m = curl_multi_info_read(multi_.get(), &messages_in_queue);
-    if (!m) break;
-    // Remove completed message from curl multi handle.
-    if (m->msg == CURLMSG_DONE) {
-      CURLcode result = m->data.result;
-      CURL* e = m->easy_handle;
-
-      active_count--;
-      curl_multi_remove_handle(multi_.get(), e);
-      FinishRequest(e, result);
-    }
-  }
+  state->response_.status_code = state->handle_.GetResponseCode();
+  http_response_codes.Increment(state->response_.status_code);
+  state->promise_.SetResult(std::move(state->response_));
 }
 
 void MultiTransportImpl::Run() {
   // track active count separate from the curl_multi so it's available without
   // calling curl_multi_perform or similar.
-  size_t active_count = 0;
+  int64_t active_count = 0;
   for (;;) {
+    // Add any pending transfers.
+    active_count += AddPendingTransfers();
+
+    // Perform work.
     {
-      absl::MutexLock l(&mutex_);
+      int running_handles = 0;
+      CURLMcode mcode;
+      do {
+        mcode = curl_multi_perform(multi_.get(), &running_handles);
+        http_active.Set(running_handles);
+      } while (mcode == CURLM_CALL_MULTI_PERFORM);
 
-      // Add any pending requests.
-      for (CURL* e : pending_requests_) {
-        CurlRequestState* state = nullptr;
-        curl_easy_getinfo(e, CURLINFO_PRIVATE, &state);
-
-        // This future has been cancelled before we even begin.
-        if (!state->promise_.result_needed()) continue;
-
-        CURLMcode mcode = curl_multi_add_handle(multi_.get(), e);
-        if (mcode == CURLM_OK) {
-          active_count++;
-        } else {
-          // This shouldn't happen unless things have really gone pear-shaped.
-          state->promise_.SetResult(
-              CurlMCodeToStatus(mcode, "in curl_multi_add_handle"));
-        }
+      if (mcode != CURLM_OK) {
+        ABSL_LOG(WARNING) << CurlMCodeToStatus(mcode, "in curl_multi_perform");
       }
-      pending_requests_.clear();
     }
 
-    // Handle any pending transfers.
-    HandlePendingMesssages(active_count);
+    active_count -= RemoveCompletedTransfers();
 
     // Stop if there are no active requests and shutdown has been requested.
     if (active_count == 0) {
@@ -560,15 +472,76 @@ void MultiTransportImpl::Run() {
     // Wait for more transfers to complete.  Rely on curl_multi_wakeup to
     // notify that non-transfer work is ready, otherwise wake up once per
     // timeout interval.
-    const int timeout_ms = std::numeric_limits<int>::max();  // infinite
-    int numfds = 0;
-    CURLMcode mcode =
-        curl_multi_poll(multi_.get(), nullptr, 0, timeout_ms, &numfds);
-    if (mcode != CURLM_OK) {
-      auto status = CurlMCodeToStatus(mcode, "in CurlMultiTransport");
-      ABSL_LOG(WARNING) << "Error [" << mcode << "] " << status;
+    // Allow spurious EINTR to wake the loop; it does no harm here.
+    {
+      const int timeout_ms = std::numeric_limits<int>::max();  // infinite
+      int numfds = 0;
+      errno = 0;
+      CURLMcode mcode =
+          curl_multi_poll(multi_.get(), nullptr, 0, timeout_ms, &numfds);
+      if (mcode != CURLM_OK) {
+        ABSL_LOG(WARNING) << CurlMCodeToStatus(mcode, "in curl_multi_poll");
+      }
     }
   }
+}
+
+int64_t MultiTransportImpl::AddPendingTransfers() {
+  int64_t active_count = 0;
+  absl::MutexLock l(&mutex_);
+
+  // Add any pending requests.
+  for (auto& state : pending_requests_) {
+    // This future has been cancelled before we even begin.
+    if (!state->promise_.result_needed()) continue;
+
+    // Set the CURLINFO_PRIVATE data to take pointer ownership.
+    state->handle_.SetOption(CURLOPT_PRIVATE, state.get());
+
+    CURL* e = state->handle_.get();
+    CURLMcode mcode = curl_multi_add_handle(multi_.get(), e);
+    if (mcode == CURLM_OK) {
+      // ownership successfully transferred.
+      state.release();
+      active_count++;
+    } else {
+      // This shouldn't happen unless things have really gone pear-shaped.
+      state->promise_.SetResult(
+          CurlMCodeToStatus(mcode, "in curl_multi_add_handle"));
+    }
+  }
+
+  pending_requests_.clear();
+  return active_count;
+}
+
+int64_t MultiTransportImpl::RemoveCompletedTransfers() {
+  // Pull pending CURLMSG_DONE events off the multi handle.
+  int64_t completed = 0;
+  CURLMsg* m = nullptr;
+  do {
+    int messages_in_queue;
+    m = curl_multi_info_read(multi_.get(), &messages_in_queue);
+
+    // Remove completed message from curl multi handle.
+    if (m && m->msg == CURLMSG_DONE) {
+      CURLcode result = m->data.result;
+      CURL* e = m->easy_handle;
+
+      completed++;
+      curl_multi_remove_handle(multi_.get(), e);
+
+      CurlRequestState* pvt = nullptr;
+      curl_easy_getinfo(e, CURLINFO_PRIVATE, &pvt);
+      assert(pvt);
+      std::unique_ptr<CurlRequestState> state(pvt);
+      state->handle_.SetOption(CURLOPT_PRIVATE, nullptr);
+
+      FinishRequest(std::move(state), result);
+    }
+  } while (m != nullptr);
+
+  return completed;
 }
 
 }  // namespace
@@ -586,17 +559,26 @@ CurlTransport::~CurlTransport() = default;
 Future<HttpResponse> CurlTransport::IssueRequest(
     const HttpRequest& request, absl::Cord payload,
     absl::Duration request_timeout, absl::Duration connect_timeout) {
+  assert(impl_);
   return impl_->StartRequest(request, std::move(payload), request_timeout,
                              connect_timeout);
 }
 
 namespace {
 struct GlobalTransport {
-  GlobalTransport()
-      : transport(
-            std::make_shared<CurlTransport>(GetDefaultCurlHandleFactory())) {}
+  std::shared_ptr<HttpTransport> transport_;
 
-  std::shared_ptr<HttpTransport> transport;
+  std::shared_ptr<HttpTransport> Get() {
+    if (!transport_) {
+      transport_ =
+          std::make_shared<CurlTransport>(GetDefaultCurlHandleFactory());
+    }
+    return transport_;
+  }
+
+  void Set(std::shared_ptr<HttpTransport> transport) {
+    transport_ = std::move(transport);
+  }
 };
 
 ABSL_CONST_INIT absl::Mutex global_mu(absl::kConstInit);
@@ -610,16 +592,13 @@ static GlobalTransport& GetGlobalTransport() {
 
 std::shared_ptr<HttpTransport> GetDefaultHttpTransport() {
   absl::MutexLock l(&global_mu);
-  return GetGlobalTransport().transport;
+  return GetGlobalTransport().Get();
 }
 
 /// Sets the default CurlMultiTransport. Exposed for test mocking.
 void SetDefaultHttpTransport(std::shared_ptr<HttpTransport> t) {
   absl::MutexLock l(&global_mu);
-  if (!t) {
-    t = std::make_shared<CurlTransport>(GetDefaultCurlHandleFactory());
-  }
-  GetGlobalTransport().transport = std::move(t);
+  return GetGlobalTransport().Set(std::move(t));
 }
 
 }  // namespace internal_http

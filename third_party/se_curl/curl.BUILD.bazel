@@ -28,6 +28,7 @@ LOCAL_DEFINES = [
     "HAVE_LIBZ",
     "HAVE_ZLIB_H",
     "HAVE_BROTLI",
+    "ENABLE_IPV6",
     # "USE_ARES",  # TODO: Enable c-ares; after debugging broken test.
 ] + select({
     "@platforms//os:windows": [
@@ -44,6 +45,7 @@ LOCAL_DEFINES = [
     "@platforms//os:windows": [
         # See curl.h for discussion of write size and Windows
         "CURL_MAX_WRITE_SIZE=16384",
+        "USE_IPV6",
     ],
     "//conditions:default": [
         "CURL_MAX_WRITE_SIZE=65536",
