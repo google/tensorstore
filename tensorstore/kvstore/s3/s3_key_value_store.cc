@@ -107,9 +107,6 @@ using ::tensorstore::kvstore::SupportedFeatures;
 
 
 namespace {
-static constexpr char kUriScheme[] = "s3";
-static constexpr char kDotAmazonAwsDotCom[] = ".amazonaws.com";
-static constexpr char kAmzBucketRegionHeader[] = "x-amz-bucket-region";
 }  // namespace
 
 namespace tensorstore {
@@ -150,6 +147,11 @@ auto& s3_delete_range = internal_metrics::Counter<int64_t>::New(
 
 auto& s3_list = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/s3/list", "S3 driver kvstore::List calls");
+
+/// S3 strings
+static constexpr char kUriScheme[] = "s3";
+static constexpr char kDotAmazonAwsDotCom[] = ".amazonaws.com";
+static constexpr char kAmzBucketRegionHeader[] = "x-amz-bucket-region";
 
 /// sha256 hash of an empty string
 static constexpr char kEmptySha256[] =
