@@ -402,6 +402,21 @@ inline constexpr DataTypeConversionFlags operator&(DataTypeConversionFlags a,
                                  static_cast<unsigned char>(b));
 }
 
+/// Specifies an equality comparison method.
+enum class EqualityComparisonKind {
+  /// Compare using regular equality (``operator==``).  For floating point
+  /// types, this considers positive and negative zero equal, and NaN unequal to
+  /// itself.
+  equal,
+
+  /// Checks if two arrays are identical.
+  ///
+  /// For integer and floating point types, this performs a bitwise comparison.
+  ///
+  /// For integer types this is equivalent to `kCompareEqual`.
+  identical,
+};
+
 namespace internal {
 
 #ifndef _MSC_VER
@@ -452,6 +467,8 @@ constexpr TypeInfo GetTypeInfo() {
 }
 #endif
 
+constexpr size_t kNumEqualityComparisonKinds = 3;
+
 /// Type-specific operations needed for dynamically-typed multi-dimensional
 /// arrays.
 ///
@@ -485,20 +502,28 @@ struct DataTypeOperations {
   /// Assign all elements of array to the result obtained by value
   /// initialization.
   ///
+  /// The `void*` parameter is ignored.
+  ///
   /// \note For primitive types, this assigns to zero.
   using InitializeFunction = ElementwiseFunction<1, void*>;
   InitializeFunction initialize;
 
   /// Copy assign elements from one array to another.
+  ///
+  /// The `void*` parameter is ignored.
   using CopyAssignFunction = ElementwiseFunction<2, void*>;
   CopyAssignFunction copy_assign;
 
   /// Move assign elements from one array to another.
+  ///
+  /// The `void*` parameter is ignored.
   using MoveAssignFunction = ElementwiseFunction<2, void*>;
   MoveAssignFunction move_assign;
 
   /// Copy assign elements from one array to another where a third mask array is
   /// `false`.
+  ///
+  /// The `void*` parameter is ignored.
   using CopyAssignUnmaskedFunction = ElementwiseFunction<3, void*>;
   CopyAssignUnmaskedFunction copy_assign_unmasked;
 
@@ -506,33 +531,28 @@ struct DataTypeOperations {
   using AppendToStringFunction = void (*)(std::string* result, const void* ptr);
   AppendToStringFunction append_to_string;
 
-  /// Compares two arrays for equality.
-  ///
-  /// This uses regular equality, which for floating point types considers
-  /// positive and negative zero equal, and NaN unequal to itself.
-  using CompareEqualFunction = ElementwiseFunction<2, void*>;
-  CompareEqualFunction compare_equal;
+  struct CompareEqualFunctions {
+    /// Compares two arrays for equality.
+    ///
+    /// The `void*` parameter is ignored.
+    using CompareEqualFunction = ElementwiseFunction<2, void*>;
+    CompareEqualFunction array_array;
 
-  /// Compares two arrays for equality, taking into account negative
-  /// zero and NaN for floating point types (negative zero is not equal to
-  /// positive zero, and NaN is equal to NaN).
-  ///
-  /// For integer types this is equivalent to `compare_equal`.
-  ///
-  /// Note that this not the same as `compare_identical`, because there are
-  /// multiple possible bit representations of NaN, and this function considers
-  /// all of them to be equal.
-  CompareEqualFunction compare_same_value;
+    /// Compares an array and a scalar for equality.
+    ///
+    /// The const pointer to the scalar is passed as the `void*` argument via
+    /// `const_cast` and `static_cast`.
+    using CompareEqualScalarFunction = ElementwiseFunction<1, void*>;
+    CompareEqualScalarFunction array_scalar;
+  };
 
-  /// Checks if two arrays are identical.
-  ///
-  /// For integer and floating point types, this performs a bitwise comparison.
-  ///
-  /// For integer types this is equivalent to `compare_equal`.
-  CompareEqualFunction compare_identical;
+  CompareEqualFunctions compare_equal[kNumEqualityComparisonKinds];
 
   struct CanonicalConversionOperations {
     // Function for converting to/from canonical data type.
+    //
+    // The `void*` pointer is a pointer to an `absl::Status` that may be set to
+    // an error status in the case of failure.
     using ConvertFunction = ElementwiseFunction<2, void*>;
     std::array<ConvertFunction, kNumDataTypeIds> convert;
     std::array<DataTypeConversionFlags, kNumDataTypeIds> flags;
@@ -624,20 +644,6 @@ class DataType {
     return operations_->initialize;
   }
 
-  constexpr const Ops::CompareEqualFunction& compare_equal_function() const {
-    return operations_->compare_equal;
-  }
-
-  constexpr const Ops::CompareEqualFunction& compare_same_value_function()
-      const {
-    return operations_->compare_same_value;
-  }
-
-  constexpr const Ops::CompareEqualFunction& compare_identical_function()
-      const {
-    return operations_->compare_identical;
-  }
-
   constexpr const Ops::CopyAssignFunction& copy_assign_function() const {
     return operations_->copy_assign;
   }
@@ -719,23 +725,6 @@ bool CompareEqual(const T& a, const T& b) {
   return false;
 }
 
-/// Compares two values for "same value" equality.
-///
-/// For non-floating point types, this behaves the same as normal `operator==`.
-/// For floating point types, this differs from normal `operator==` in that
-/// negative zero is not equal to positive zero, and NaN is equal to NaN.
-///
-/// Note that this differs from bit equality (`CompareIdentical`), because there
-/// are multiple bit representations of NaN, and this functions treats all of
-/// them as equal.
-template <typename T>
-bool CompareSameValue(const T& a, const T& b) {
-  if constexpr (internal::IsEqualityComparable<T>) {
-    return a == b;
-  }
-  return false;
-}
-
 /// Checks if two values are identical (indistinguishable).
 ///
 /// For floating point types, this does a bitwise comparison.
@@ -747,39 +736,27 @@ bool CompareIdentical(const T& a, const T& b) {
   return false;
 }
 
-#define TENSORSTORE_INTERNAL_DO_DEFINE_COMPARE_SAME_VALUE_FLOAT(T, ...) \
-  template <>                                                           \
-  inline bool CompareSameValue<T>(const T& a, const T& b) {             \
-    using std::isnan;                                                   \
-    if (isnan(a)) return isnan(b);                                      \
-    using Int = internal::uint_t<sizeof(T) * 8>;                        \
-    return internal::bit_cast<Int>(a) == internal::bit_cast<Int>(b);    \
-  }                                                                     \
-  template <>                                                           \
-  inline bool CompareIdentical<T>(const T& a, const T& b) {             \
-    using Int = internal::uint_t<sizeof(T) * 8>;                        \
-    return internal::bit_cast<Int>(a) == internal::bit_cast<Int>(b);    \
-  }                                                                     \
+#define TENSORSTORE_INTERNAL_DO_DEFINE_COMPARE_IDENTICAL_FLOAT(T, ...) \
+  template <>                                                          \
+  inline bool CompareIdentical<T>(const T& a, const T& b) {            \
+    using Int = internal::uint_t<sizeof(T) * 8>;                       \
+    return internal::bit_cast<Int>(a) == internal::bit_cast<Int>(b);   \
+  }                                                                    \
   /**/
 TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(
-    TENSORSTORE_INTERNAL_DO_DEFINE_COMPARE_SAME_VALUE_FLOAT)
-#undef TENSORSTORE_INTERNAL_DO_DEFINE_COMPARE_SAME_VALUE_FLOAT
+    TENSORSTORE_INTERNAL_DO_DEFINE_COMPARE_IDENTICAL_FLOAT)
+#undef TENSORSTORE_INTERNAL_DO_DEFINE_COMPARE_IDENTICAL_FLOAT
 
-#define TENSORSTORE_INTERNAL_DO_DEFINE_COMPARE_SAME_VALUE_COMPLEX(T, ...) \
-  template <>                                                             \
-  inline bool CompareSameValue<T>(const T& a, const T& b) {               \
-    return CompareSameValue(a.real(), b.real()) &&                        \
-           CompareSameValue(a.imag(), b.imag());                          \
-  }                                                                       \
-  template <>                                                             \
-  inline bool CompareIdentical<T>(const T& a, const T& b) {               \
-    return CompareIdentical(a.real(), b.real()) &&                        \
-           CompareIdentical(a.imag(), b.imag());                          \
-  }                                                                       \
+#define TENSORSTORE_INTERNAL_DO_DEFINE_COMPARE_IDENTICAL_COMPLEX(T, ...) \
+  template <>                                                            \
+  inline bool CompareIdentical<T>(const T& a, const T& b) {              \
+    return CompareIdentical(a.real(), b.real()) &&                       \
+           CompareIdentical(a.imag(), b.imag());                         \
+  }                                                                      \
   /**/
 TENSORSTORE_FOR_EACH_COMPLEX_DATA_TYPE(
-    TENSORSTORE_INTERNAL_DO_DEFINE_COMPARE_SAME_VALUE_COMPLEX)
-#undef TENSORSTORE_INTERNAL_DO_DEFINE_COMPARE_SAME_VALUE_COMPLEX
+    TENSORSTORE_INTERNAL_DO_DEFINE_COMPARE_IDENTICAL_COMPLEX)
+#undef TENSORSTORE_INTERNAL_DO_DEFINE_COMPARE_IDENTICAL_COMPLEX
 
 /// Non-template functions referenced by `DataTypeOperations`.
 ///
@@ -787,12 +764,16 @@ TENSORSTORE_FOR_EACH_COMPLEX_DATA_TYPE(
 template <typename T>
 struct DataTypeSimpleOperationsImpl {
   static void Construct(Index count, void* ptr) {
-    std::uninitialized_default_construct(static_cast<T*>(ptr),
-                                         static_cast<T*>(ptr) + count);
+    if constexpr (!std::is_trivially_constructible_v<T>) {
+      std::uninitialized_default_construct(static_cast<T*>(ptr),
+                                           static_cast<T*>(ptr) + count);
+    }
   }
 
   static void Destroy(Index count, void* ptr) {
-    std::destroy(static_cast<T*>(ptr), static_cast<T*>(ptr) + count);
+    if constexpr (!std::is_trivially_destructible_v<T>) {
+      std::destroy(static_cast<T*>(ptr), static_cast<T*>(ptr) + count);
+    }
   }
 
   static void AppendToString(std::string* result, const void* ptr) {
@@ -802,65 +783,187 @@ struct DataTypeSimpleOperationsImpl {
   }
 };
 
+// Trivial placeholder type with given size and alignment.
+//
+// This type is used to instantiate elementwise operations for types where
+// certain operations, like copying and comparison, depend only on the size and
+// alignment.  This avoids redundantly generating identical elementwise
+// functions.
+//
+// Technically this optimization is not permitted by the C++ standard but in
+// practice it is supported.
+template <size_t Size, size_t Alignment>
+struct alignas(Alignment) TrivialObj {
+  unsigned char data[Size];
+  friend bool operator==(const TrivialObj& a, const TrivialObj& b) {
+    return std::memcmp(a.data, b.data, Size) == 0;
+  }
+  friend bool operator!=(const TrivialObj& a, const TrivialObj& b) {
+    return !(a == b);
+  }
+};
+
+// Implementation for `DataTypeOperations::initialize`.
+struct InitializeImpl {
+  template <typename T>
+  void operator()(T* dest, void*) const {
+    *dest = T();
+  }
+};
+
+// Implementation for `DataTypeOperations::copy_assign` (and in some cases
+// `DataTypeOperations::move_assign`).
+struct CopyAssignImpl {
+  template <typename T>
+  void operator()(const T* source, T* dest, void*) const {
+    *dest = *source;
+  }
+};
+
+// Implementation for `DataTypeOperations::move_assign`.
+struct MoveAssignImpl {
+  template <typename T>
+  void operator()(T* source, T* dest, void*) const {
+    *dest = std::move(*source);
+  }
+};
+
+// Implementation for `DataTypeOperations::copy_assign_masked`.
+struct CopyAssignUnmaskedImpl {
+  template <typename T>
+  void operator()(const T* source, T* dest, const bool* mask, void*) const {
+    if (!*mask) *dest = *source;
+  }
+};
+
+// Checks if equality comparison can be done with `memcmp`.
+//
+// Of the canonical data types, this is true for all of the trivial types that
+// are not float/complex.
+template <typename T>
+constexpr inline bool IsTriviallyEqualityComparable = false;
+
+#define TENSORSTORE_INTERNAL_DEFINE_TRIVIALLY_EQUALITY_COMPARABLE(T, ...) \
+  template <>                                                             \
+  constexpr inline bool IsTriviallyEqualityComparable<T> = true;          \
+  /**/
+
+TENSORSTORE_FOR_EACH_BOOL_DATA_TYPE(
+    TENSORSTORE_INTERNAL_DEFINE_TRIVIALLY_EQUALITY_COMPARABLE)
+
+TENSORSTORE_FOR_EACH_BYTE_DATA_TYPE(
+    TENSORSTORE_INTERNAL_DEFINE_TRIVIALLY_EQUALITY_COMPARABLE)
+
+TENSORSTORE_FOR_EACH_INT_DATA_TYPE(
+    TENSORSTORE_INTERNAL_DEFINE_TRIVIALLY_EQUALITY_COMPARABLE)
+
+#undef TENSORSTORE_INTERNAL_DEFINE_TRIVIALLY_EQUALITY_COMPARABLE
+
+// Checks if `CompareIdentical` is equivalent to `CompareEqual`.
+//
+// This is true for all types except float/complex data types.
+template <typename T>
+constexpr inline bool HasSeparateIdenticalComparison = false;
+
+#define TENSORSTORE_INTERNAL_DEFINE_SEPARATE_IDENTICAL_COMPARISON(T, ...) \
+  template <>                                                             \
+  constexpr inline bool HasSeparateIdenticalComparison<T> = true;         \
+  /**/
+
+TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(
+    TENSORSTORE_INTERNAL_DEFINE_SEPARATE_IDENTICAL_COMPARISON)
+
+TENSORSTORE_FOR_EACH_COMPLEX_DATA_TYPE(
+    TENSORSTORE_INTERNAL_DEFINE_SEPARATE_IDENTICAL_COMPARISON)
+
+#undef TENSORSTORE_INTERNAL_DEFINE_SEPARATE_IDENTICAL_COMPARISON
+
+// Implementation of `DataTypeOperations::compare_equal` for
+// `EqualityComparisonKind::equal`.
+struct CompareEqualImpl {
+  template <typename T>
+  bool operator()(const T* a, const T* b, void*) const {
+    return internal_data_type::CompareEqual<T>(*a, *b);
+  }
+};
+
+// Implementation of `DataTypeOperations::compare_equal` for
+// `EqualityComparisonKind::identical`.
+struct CompareIdenticalImpl {
+  template <typename T>
+  bool operator()(const T* a, const T* b, void*) const {
+    return internal_data_type::CompareIdentical<T>(*a, *b);
+  }
+};
+
+// Implementation of `DataTypeOperations::compare_equal` for comparing arrays to
+// a scalar.
+//
+// `CompareImpl` should be one of `CompareEqualImpl`, or `CompareIdenticalImpl`.
+//
+// The const pointer to the scalar is passed via the `void*` argument using
+// `const_cast` and `static_cast`.
+template <typename CompareImpl>
+struct CompareToScalarImpl {
+  template <typename T>
+  bool operator()(const T* a, void* b) const {
+    return CompareImpl{}(a, static_cast<T*>(b), nullptr);
+  }
+};
+
 /// Elementwise functions referenced by `DataTypeOperations`.
 template <typename T>
 struct DataTypeElementwiseOperationsImpl {
-  struct InitializeImpl {
-    void operator()(T* dest, void*) const { *dest = T(); }
-  };
+  using TrivialType = TrivialObj<sizeof(T), alignof(T)>;
 
-  struct CopyAssignImpl {
-    void operator()(const T* source, T* dest, void*) const { *dest = *source; }
-  };
-
-  struct MoveAssignImpl {
-    void operator()(T* source, T* dest, void*) const {
-      *dest = std::move(*source);
-    }
-  };
-
-  struct CopyAssignUnmaskedImpl {
-    void operator()(const T* source, T* dest, const bool* mask, void*) const {
-      if (!*mask) *dest = *source;
-    }
-  };
-
-  struct CompareEqualImpl {
-    bool operator()(const T* source, const T* dest, void*) const {
-      return internal_data_type::CompareEqual<T>(*source, *dest);
-    }
-  };
-
-  struct CompareSameValueImpl {
-    bool operator()(const T* source, const T* dest, void*) const {
-      return internal_data_type::CompareSameValue<T>(*source, *dest);
-    }
-  };
-
-  struct CompareIdenticalImpl {
-    bool operator()(const T* source, const T* dest, void*) const {
-      return internal_data_type::CompareIdentical<T>(*source, *dest);
-    }
-  };
+  using InitializeObjType =
+      std::conditional_t<std::is_trivially_constructible_v<T>, TrivialType, T>;
 
   using Initialize =
-      internal::SimpleElementwiseFunction<InitializeImpl(T), void*>;
-
-  using CopyAssign =
-      internal::SimpleElementwiseFunction<CopyAssignImpl(const T, T), void*>;
-  using MoveAssign =
-      internal::SimpleElementwiseFunction<MoveAssignImpl(T, T), void*>;
-
-  using CopyAssignUnmasked = internal::SimpleElementwiseFunction<
-      CopyAssignUnmaskedImpl(const T, T, const bool), void*>;
-  using CompareEqual =
-      internal::SimpleElementwiseFunction<CompareEqualImpl(const T, const T),
+      internal::SimpleElementwiseFunction<InitializeImpl(InitializeObjType),
                                           void*>;
-  using CompareSameValue = internal::SimpleElementwiseFunction<
-      CompareSameValueImpl(const T, const T), void*>;
+
+  using CopyAssignObjType =
+      std::conditional_t<std::is_trivially_copyable_v<T>, TrivialType, T>;
+
+  using CopyAssign = internal::SimpleElementwiseFunction<
+      CopyAssignImpl(const CopyAssignObjType, CopyAssignObjType), void*>;
+
+  using MoveAssign = std::conditional_t<
+      std::is_trivially_copyable_v<T>, CopyAssign,
+      internal::SimpleElementwiseFunction<MoveAssignImpl(T, T), void*>>;
+
+  using CopyAssignUnmasked =
+      internal::SimpleElementwiseFunction<CopyAssignUnmaskedImpl(
+                                              const CopyAssignObjType,
+                                              CopyAssignObjType, const bool),
+                                          void*>;
+
+  using CompareObjType =
+      std::conditional_t<IsTriviallyEqualityComparable<T>, TrivialType, T>;
+
+  using CompareEqual = internal::SimpleElementwiseFunction<
+      CompareEqualImpl(const CompareObjType, const CompareObjType), void*>;
+
+  using CompareEqualScalar = internal::SimpleElementwiseFunction<
+      CompareToScalarImpl<CompareEqualImpl>(const CompareObjType), void*>;
+
+  using CompareIdenticalImplType =
+      std::conditional_t<HasSeparateIdenticalComparison<T>,
+                         CompareIdenticalImpl, CompareEqualImpl>;
 
   using CompareIdentical = internal::SimpleElementwiseFunction<
-      CompareIdenticalImpl(const T, const T), void*>;
+      std::conditional_t<IsTrivial<T>,
+                         CompareEqualImpl(const TrivialType, const TrivialType),
+                         CompareIdenticalImplType(const T, const T)>,
+      void*>;
+
+  using CompareIdenticalScalar = internal::SimpleElementwiseFunction<
+      std::conditional_t<
+          IsTrivial<T>,
+          CompareToScalarImpl<CompareEqualImpl>(const TrivialType),
+          CompareToScalarImpl<CompareIdenticalImplType>(const T)>,
+      void*>;
 };
 
 template <typename T>
@@ -882,11 +985,19 @@ constexpr internal::DataTypeOperations DataTypeOperationsImpl = {
     typename DataTypeElementwiseOperationsImpl<T>::CopyAssignUnmasked(),
     /*.append_to_string=*/&DataTypeSimpleOperationsImpl<T>::AppendToString,
     /*.compare_equal=*/
-    typename DataTypeElementwiseOperationsImpl<T>::CompareEqual(),
-    /*.compare_same_value=*/
-    typename DataTypeElementwiseOperationsImpl<T>::CompareSameValue(),
-    /*.compare_identical=*/
-    typename DataTypeElementwiseOperationsImpl<T>::CompareIdentical(),
+    {
+        /*[kCompareEqual]*/
+        {/*.array_array=*/
+         typename DataTypeElementwiseOperationsImpl<T>::CompareEqual(),
+         /*.array_scalar=*/
+         typename DataTypeElementwiseOperationsImpl<T>::CompareEqualScalar()},
+        /*[kCompareIdentical]*/
+        {/*.array_array=*/
+         typename DataTypeElementwiseOperationsImpl<T>::CompareIdentical(),
+         /*.array_scalar=*/
+         typename DataTypeElementwiseOperationsImpl<
+             T>::CompareIdenticalScalar()},
+    },
     /*.canonical_conversion=*/nullptr,
 };
 
@@ -976,10 +1087,6 @@ class StaticDataType {
 
   constexpr const Ops::InitializeFunction& initialize_function() const {
     return ElementwiseOps::Initialize::function;
-  }
-
-  constexpr const Ops::CompareEqualFunction& compare_equal_function() const {
-    return ElementwiseOps::CompareEqual::function;
   }
 
   constexpr const Ops::CopyAssignFunction& copy_assign_function() const {

@@ -817,8 +817,8 @@ TEST_F(ChunkCacheTest, OverwriteExistingWithFillValue) {
   }
 }
 
-// Tests that fill value comparison is based on "same value" equality.
-TEST_F(ChunkCacheTest, FillValueSameValueEqual) {
+// Tests that fill value comparison is based on "identical" equality.
+TEST_F(ChunkCacheTest, FillValueIdenticallyEqual) {
   // Dimension 0 is chunked with a size of 2.
   grid = ChunkGridSpecification({ChunkGridSpecification::Component{
       SharedArray<const void>(MakeArray<float>({NAN, -0.0})), Box<>(1)}});

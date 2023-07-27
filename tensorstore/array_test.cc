@@ -1007,30 +1007,6 @@ TEST(ArrayTest, Compare) {
                    std::numeric_limits<float>::quiet_NaN()));
 }
 
-TEST(ArrayTest, SameValue) {
-  EXPECT_TRUE(
-      AreArraysSameValueEqual(MakeArrayView<float>({{1, 2, 3}, {4, 5, 6}}),
-                              MakeArrayView<float>({{1, 2, 3}, {4, 5, 6}})));
-
-  EXPECT_TRUE(
-      AreArraysSameValueEqual(MakeArrayView<float>({{NAN, 2, 3}, {4, 5, 6}}),
-                              MakeArrayView<float>({{NAN, 2, 3}, {4, 5, 6}})));
-
-  EXPECT_FALSE(AreArraysSameValueEqual(
-      MakeArrayView<float>({{NAN, 2, +0.0}, {4, 5, 6}}),
-      MakeArrayView<float>({{NAN, 2, -0.0}, {4, 5, 6}})));
-
-  EXPECT_TRUE(AreArraysSameValueEqual(
-      MakeScalarArray<float>(std::numeric_limits<float>::quiet_NaN()),
-      MakeScalarArray<float>(std::numeric_limits<float>::signaling_NaN())));
-
-  EXPECT_TRUE(AreArraysSameValueEqual(
-      MakeScalarArray<std::complex<float>>(
-          std::numeric_limits<float>::quiet_NaN()),
-      MakeScalarArray<std::complex<float>>(
-          std::numeric_limits<float>::signaling_NaN())));
-}
-
 TEST(ArrayTest, Identical) {
   EXPECT_TRUE(
       AreArraysIdenticallyEqual(MakeArrayView<float>({{1, 2, 3}, {4, 5, 6}}),

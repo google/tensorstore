@@ -88,10 +88,9 @@ struct AsyncWriteArray {
     /// call to `WriteFillValue`, then it won't be stored.
     bool store_if_equal_to_fill_value = false;
 
-    /// If `true`, compare to fill value using `AreArraysIdenticallyEqual`.  If
-    /// `false`, compare to fill value using `AreArraysSameValueEqual`.  Only
-    /// has an effect if `store_if_equal_to_fill_value == false`.
-    bool compare_to_fill_value_using_identical_equality = false;
+    /// Comparison kind to use for fill value.
+    EqualityComparisonKind fill_value_comparison_kind =
+        EqualityComparisonKind::identical;
 
     /// Returns the shape of the array.
     span<const Index> shape() const { return fill_value.shape(); }

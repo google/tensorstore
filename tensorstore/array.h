@@ -69,13 +69,15 @@ namespace internal_array {
 /// contents, but not necessarily the same strides.
 bool CompareArraysEqual(
     const Array<const void, dynamic_rank, zero_origin, view>& a,
-    const Array<const void, dynamic_rank, zero_origin, view>& b);
+    const Array<const void, dynamic_rank, zero_origin, view>& b,
+    EqualityComparisonKind comparison_kind = EqualityComparisonKind::equal);
 
 /// Returns `true` if `a` and `b` have the same dtype(), shape(), and
 /// contents, but not necessarily the same strides.
 bool CompareArraysEqual(
     const Array<const void, dynamic_rank, offset_origin, view>& a,
-    const Array<const void, dynamic_rank, offset_origin, view>& b);
+    const Array<const void, dynamic_rank, offset_origin, view>& b,
+    EqualityComparisonKind comparison_kind = EqualityComparisonKind::equal);
 
 /// Copies `source` to `dest`.
 ///
@@ -924,6 +926,7 @@ class Array {
   /// types of `a` and `b` are compatible.
   ///
   /// \returns true if `a` and `b` have the same shape, data type, and contents.
+  /// \membergroup Comparison
   template <typename ElementTagB, DimensionIndex RankB,
             ArrayOriginKind OriginKindB, ContainerKind CKindB>
   friend bool operator==(
@@ -1874,29 +1877,39 @@ std::string ToString(
     const ArrayView<const void, dynamic_rank, offset_origin>& array,
     const ArrayFormatOptions& options = ArrayFormatOptions::Default());
 
-/// Compares two arrays for "same value" equality.
-///
-/// For non-floating point types, this behaves the same as normal
-/// ``operator==``.  For floating point types, this differs from normal
-/// ``operator==`` in that negative zero is not equal to positive zero, and
-/// NaN is equal to NaN.
-///
-/// Note that this differs from bit equality (`AreArraysIdentical`), because
-/// there are multiple bit representations of NaN, and this functions treats all
-/// of them as equal.
+/// Compares two arrays for equality.
 ///
 /// Checks that the data types, domains, and content are equal.
 ///
 /// \relates Array
-bool AreArraysSameValueEqual(const OffsetArrayView<const void>& a,
-                             const OffsetArrayView<const void>& b);
-
-/// Compares two arrays for "identical" equality.
-///
-/// This differs from normal equality in that floating point values are compared
-/// bitwise.
-bool AreArraysIdenticallyEqual(const OffsetArrayView<const void>& a,
-                               const OffsetArrayView<const void>& b);
+/// \membergoup Comparison
+template <typename ElementTagA, DimensionIndex RankA, ArrayOriginKind OKindA,
+          ContainerKind CKindA, typename ElementTagB, DimensionIndex RankB,
+          ArrayOriginKind OKindB, ContainerKind CKindB>
+bool AreArraysEqual(
+    const Array<ElementTagA, RankA, OKindA, CKindA>& a,
+    const Array<ElementTagB, RankB, OKindB, CKindB>& b,
+    EqualityComparisonKind kind = EqualityComparisonKind::equal) {
+  static_assert(
+      RankConstraint::EqualOrUnspecified(RankConstraint::FromInlineRank(RankA),
+                                         RankConstraint::FromInlineRank(RankB)),
+      "tensorstore::Array ranks must be compatible.");
+  static_assert(AreElementTypesCompatible<
+                    typename ElementTagTraits<ElementTagA>::Element,
+                    typename ElementTagTraits<ElementTagB>::Element>,
+                "tensorstore::Array element types must be compatible.");
+  using ArrayType = ArrayView<const void, dynamic_rank,
+                              ((OKindA == OKindB) ? OKindA : offset_origin)>;
+  return internal_array::CompareArraysEqual(ArrayType(a), ArrayType(b), kind);
+}
+template <typename ElementTagA, DimensionIndex RankA, ArrayOriginKind OKindA,
+          ContainerKind CKindA, typename ElementTagB, DimensionIndex RankB,
+          ArrayOriginKind OKindB, ContainerKind CKindB>
+bool AreArraysIdenticallyEqual(
+    const Array<ElementTagA, RankA, OKindA, CKindA>& a,
+    const Array<ElementTagB, RankB, OKindB, CKindB>& b) {
+  return AreArraysEqual(a, b, EqualityComparisonKind::identical);
+}
 
 /// Validates that `source_shape` can be broadcast to `target_shape`.
 ///

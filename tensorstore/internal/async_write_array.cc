@@ -101,11 +101,8 @@ AsyncWriteArray::MaskedArray::GetArrayForWriteback(
 
   const auto must_store = [&](ArrayView<const void> array) {
     if (spec.store_if_equal_to_fill_value) return true;
-    if (spec.compare_to_fill_value_using_identical_equality) {
-      return !AreArraysIdenticallyEqual(array, spec.fill_value);
-    } else {
-      return !AreArraysSameValueEqual(array, spec.fill_value);
-    }
+    return !AreArraysEqual(array, spec.fill_value,
+                           spec.fill_value_comparison_kind);
   };
 
   if (!data) {
