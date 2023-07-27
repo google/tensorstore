@@ -322,8 +322,7 @@ template <std::size_t Arity>
 ArrayIterateResult IterateUsingSimplifiedLayout(
     const SimplifiedDimensionIterationOrder& layout,
     span<const Index> input_shape,
-    internal::ElementwiseClosure<Arity, absl::Status*> closure,
-    absl::Status* status,
+    internal::ElementwiseClosure<Arity, void*> closure, void* arg,
     span<const SingleArrayIterationState, Arity> single_array_states,
     std::array<std::ptrdiff_t, Arity> element_sizes) {
   const Index final_indexed_dim_size =
@@ -391,7 +390,7 @@ ArrayIterateResult IterateUsingSimplifiedLayout(
             }
             Index cur_count = internal::InvokeElementwiseClosure(
                 closure, internal::IterationBufferKind::kIndexed, block_size,
-                pointers_with_offset_arrays, status);
+                pointers_with_offset_arrays, arg);
             outer_result.count += cur_count;
             if (cur_count != block_size) return false;
           } else {
@@ -400,7 +399,7 @@ ArrayIterateResult IterateUsingSimplifiedLayout(
               for (std::size_t i = 0; i < Arity; ++i) {
                 cur_pointers[i] += single_array_offset_buffers[i].offsets[j];
               }
-              auto inner_result = strided_applyer(cur_pointers, status);
+              auto inner_result = strided_applyer(cur_pointers, arg);
               outer_result.count += inner_result.count;
               if (!inner_result.success) return false;
             }
@@ -419,8 +418,7 @@ ArrayIterateResult IterateUsingSimplifiedLayout(
   template ArrayIterateResult IterateUsingSimplifiedLayout<Arity>(           \
       const SimplifiedDimensionIterationOrder& layout,                       \
       span<const Index> input_shape,                                         \
-      internal::ElementwiseClosure<Arity, absl::Status*> closure,            \
-      absl::Status* status,                                                  \
+      internal::ElementwiseClosure<Arity, void*> closure, void* arg,         \
       span<const SingleArrayIterationState, Arity> single_array_states,      \
       std::array<std::ptrdiff_t, Arity> element_sizes);
 TENSORSTORE_INTERNAL_FOR_EACH_ARITY(

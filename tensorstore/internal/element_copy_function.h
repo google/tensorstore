@@ -28,11 +28,11 @@ namespace tensorstore {
 namespace internal {
 
 /// Returns the number of elements successfully copied.  If not equal to the
-/// number requested, the absl::Status out parameter may be used to indicate an
-/// error.
+/// number requested, the `void*` argument, which points to an `absl::Status`,
+/// may be used to indicate an error.
 ///
 /// Elements should either be successfully copied, or be left untouched.
-using ElementCopyFunction = internal::ElementwiseFunction<2, absl::Status*>;
+using ElementCopyFunction = internal::ElementwiseFunction<2, void*>;
 
 inline absl::Status GetElementCopyErrorStatus(absl::Status status) {
   return status.ok() ? absl::UnknownError("Data conversion failure.") : status;

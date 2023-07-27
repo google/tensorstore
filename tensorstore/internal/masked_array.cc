@@ -54,7 +54,7 @@ namespace {
 
 /// Unary function that sets every element to `true`.
 struct SetMask {
-  void operator()(bool* x, absl::Status*) const { *x = true; }
+  void operator()(bool* x, void*) const { *x = true; }
 };
 
 /// Unary function that sets every element to `true`, and increments
@@ -141,8 +141,8 @@ std::unique_ptr<bool[], FreeDeleter> CreateMaskArray(
   ByteStridedPointer<bool> start = result.get();
   start += GetRelativeOffset(box.origin(), mask_region.origin(), byte_strides);
   internal::IterateOverArrays(
-      internal::SimpleElementwiseFunction<SetMask(bool), absl::Status*>{},
-      /*status=*/nullptr,
+      internal::SimpleElementwiseFunction<SetMask(bool), void*>{},
+      /*arg=*/nullptr,
       /*constraints=*/skip_repeated_elements,
       ArrayView<bool>(start.get(),
                       StridedLayoutView<>(mask_region.shape(), byte_strides)));

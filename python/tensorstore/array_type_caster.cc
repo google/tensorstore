@@ -70,10 +70,10 @@ struct ConvertToObject {
 };
 
 template <typename T>
-constexpr const internal::ElementwiseFunction<2, absl::Status*>*
+constexpr const internal::ElementwiseFunction<2, void*>*
 GetConvertToNumpyObjectArrayFunction() {
   if constexpr (std::is_invocable_v<const ConvertToObject&, const T*>) {
-    const auto func = [](const T* from, PyObject** to, absl::Status* status) {
+    const auto func = [](const T* from, PyObject** to, void* arg) {
       if (auto obj = ConvertToObject()(from)) {
         Py_XDECREF(std::exchange(*to, obj.release().ptr()));
         return true;
@@ -81,12 +81,12 @@ GetConvertToNumpyObjectArrayFunction() {
       return false;
     };
     return internal::SimpleElementwiseFunction<decltype(func)(T, PyObject*),
-                                               absl::Status*>();
+                                               void*>();
   }
   return nullptr;
 }
 
-constexpr const internal::ElementwiseFunction<2, absl::Status*>*
+constexpr const internal::ElementwiseFunction<2, void*>*
     kConvertDataTypeToNumpyObjectArray[kNumDataTypeIds] = {
 #define TENSORSTORE_INTERNAL_DO_CONVERT(T, ...) \
   GetConvertToNumpyObjectArrayFunction<T>(),
@@ -101,8 +101,7 @@ constexpr const internal::ElementwiseFunction<2, absl::Status*>*
 /// If an error occurs, sets `ex` to an exception and returns `false`.
 struct ConvertFromObject {
   std::exception_ptr ex;
-  bool operator()(PyObject** from, string_t* to,
-                  absl::Status* status) noexcept {
+  bool operator()(PyObject** from, string_t* to, void*) noexcept {
     char* buffer;
     Py_ssize_t length;
     if (::PyBytes_AsStringAndSize(*from, &buffer, &length) == -1) {
@@ -112,8 +111,7 @@ struct ConvertFromObject {
     to->assign(buffer, length);
     return true;
   }
-  bool operator()(PyObject** from, ustring_t* to,
-                  absl::Status* status) noexcept {
+  bool operator()(PyObject** from, ustring_t* to, void*) noexcept {
     Py_ssize_t length;
     const char* buffer = ::PyUnicode_AsUTF8AndSize(*from, &length);
     if (!buffer) {
@@ -123,7 +121,7 @@ struct ConvertFromObject {
     to->utf8.assign(buffer, length);
     return true;
   }
-  bool operator()(PyObject** from, json_t* to, absl::Status* status) noexcept {
+  bool operator()(PyObject** from, json_t* to, void*) noexcept {
     try {
       *to = PyObjectToJson(*from);
       return true;
@@ -135,17 +133,17 @@ struct ConvertFromObject {
 };
 
 template <typename T>
-constexpr const internal::ElementwiseFunction<2, absl::Status*>*
+constexpr const internal::ElementwiseFunction<2, void*>*
 GetConvertFromNumpyObjectArrayFunction() {
   if constexpr (std::is_invocable_v<ConvertFromObject&, PyObject**, T*,
-                                    absl::Status*>) {
+                                    void*>) {
     return internal::SimpleElementwiseFunction<ConvertFromObject(PyObject*, T),
-                                               absl::Status*>();
+                                               void*>();
   }
   return nullptr;
 }
 
-constexpr const internal::ElementwiseFunction<2, absl::Status*>*
+constexpr const internal::ElementwiseFunction<2, void*>*
     kConvertDataTypeFromNumpyObjectArray[kNumDataTypeIds] = {
 #define TENSORSTORE_INTERNAL_DO_CONVERT(T, ...) \
   GetConvertFromNumpyObjectArrayFunction<T>(),
@@ -171,7 +169,7 @@ pybind11::object GetNumpyObjectArrayImpl(SharedArrayView<const void> source,
       /*closure=*/{kConvertDataTypeToNumpyObjectArray[static_cast<size_t>(
                        source.dtype().id())],
                    nullptr},
-      /*status=*/nullptr,
+      /*arg=*/nullptr,
       /*shape=*/source.shape(),
       {{const_cast<void*>(source.data()),
         static_cast<void*>(py::detail::array_proxy(array_obj.ptr())->data)}},
@@ -212,7 +210,7 @@ SharedArray<void, dynamic_rank> ArrayFromNumpyObjectArray(
       /*closure=*/{kConvertDataTypeFromNumpyObjectArray[static_cast<size_t>(
                        dtype.id())],
                    &converter},
-      /*status=*/nullptr,
+      /*arg=*/nullptr,
       /*shape=*/array.shape(),
       {{static_cast<void*>(py::detail::array_proxy(array_obj.ptr())->data),
         const_cast<void*>(array.data())}},

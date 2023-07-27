@@ -366,7 +366,7 @@ bool EncodeArray(serialization::EncodeSink& sink,
                                                          array.dtype().id())]
                    .write_native_endian,
               &sink.writer()},
-             /*status=*/nullptr, {c_order, skip_repeated_elements}, array)
+             /*arg=*/nullptr, {c_order, skip_repeated_elements}, array)
       .success;
 }
 
@@ -425,7 +425,7 @@ bool DecodeArray<OriginKind>::Decode(
                                                          array.dtype().id())]
                    .read_native_endian,
               &source.reader()},
-             /*status=*/nullptr, {c_order, skip_repeated_elements}, array)
+             /*arg=*/nullptr, {c_order, skip_repeated_elements}, array)
       .success;
 }
 

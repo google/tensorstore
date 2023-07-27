@@ -370,7 +370,7 @@ struct NDIteratorsWithManagedBuffers {
 ///     Arena arena;
 ///     NDIterable::Ptr iterable_a = ...;
 ///     NDIterable::Ptr iterable_b = ...;
-///     ElementwiseClosure<2, absl::Status*> closure = ...;
+///     ElementwiseClosure<2, void*> closure = ...;
 ///     MultiNDIterator<2> multi_iterator(
 ///         shape, constraints, {{ iterable_a.get(), iterable_b.get() }},
 ///         &arena);

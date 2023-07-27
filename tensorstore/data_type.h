@@ -486,20 +486,20 @@ struct DataTypeOperations {
   /// initialization.
   ///
   /// \note For primitive types, this assigns to zero.
-  using InitializeFunction = ElementwiseFunction<1, absl::Status*>;
+  using InitializeFunction = ElementwiseFunction<1, void*>;
   InitializeFunction initialize;
 
   /// Copy assign elements from one array to another.
-  using CopyAssignFunction = ElementwiseFunction<2, absl::Status*>;
+  using CopyAssignFunction = ElementwiseFunction<2, void*>;
   CopyAssignFunction copy_assign;
 
   /// Move assign elements from one array to another.
-  using MoveAssignFunction = ElementwiseFunction<2, absl::Status*>;
+  using MoveAssignFunction = ElementwiseFunction<2, void*>;
   MoveAssignFunction move_assign;
 
   /// Copy assign elements from one array to another where a third mask array is
   /// `false`.
-  using CopyAssignUnmaskedFunction = ElementwiseFunction<3, absl::Status*>;
+  using CopyAssignUnmaskedFunction = ElementwiseFunction<3, void*>;
   CopyAssignUnmaskedFunction copy_assign_unmasked;
 
   /// Append a string representation of an element to `*result`.
@@ -510,7 +510,7 @@ struct DataTypeOperations {
   ///
   /// This uses regular equality, which for floating point types considers
   /// positive and negative zero equal, and NaN unequal to itself.
-  using CompareEqualFunction = ElementwiseFunction<2, absl::Status*>;
+  using CompareEqualFunction = ElementwiseFunction<2, void*>;
   CompareEqualFunction compare_equal;
 
   /// Compares two arrays for equality, taking into account negative
@@ -533,7 +533,7 @@ struct DataTypeOperations {
 
   struct CanonicalConversionOperations {
     // Function for converting to/from canonical data type.
-    using ConvertFunction = ElementwiseFunction<2, absl::Status*>;
+    using ConvertFunction = ElementwiseFunction<2, void*>;
     std::array<ConvertFunction, kNumDataTypeIds> convert;
     std::array<DataTypeConversionFlags, kNumDataTypeIds> flags;
   };
@@ -552,7 +552,7 @@ struct DataTypeOperations {
 /// `data_type_conversion.h`.
 struct DataTypeConversionLookupResult {
   /// Valid only if the `flags` value includes `kSupported`.
-  ElementwiseClosure<2, absl::Status*> closure;
+  ElementwiseClosure<2, void*> closure;
   DataTypeConversionFlags flags;
 };
 
@@ -806,65 +806,61 @@ struct DataTypeSimpleOperationsImpl {
 template <typename T>
 struct DataTypeElementwiseOperationsImpl {
   struct InitializeImpl {
-    void operator()(T* dest, absl::Status*) const { *dest = T(); }
+    void operator()(T* dest, void*) const { *dest = T(); }
   };
 
   struct CopyAssignImpl {
-    void operator()(const T* source, T* dest, absl::Status*) const {
-      *dest = *source;
-    }
+    void operator()(const T* source, T* dest, void*) const { *dest = *source; }
   };
 
   struct MoveAssignImpl {
-    void operator()(T* source, T* dest, absl::Status*) const {
+    void operator()(T* source, T* dest, void*) const {
       *dest = std::move(*source);
     }
   };
 
   struct CopyAssignUnmaskedImpl {
-    void operator()(const T* source, T* dest, const bool* mask,
-                    absl::Status*) const {
+    void operator()(const T* source, T* dest, const bool* mask, void*) const {
       if (!*mask) *dest = *source;
     }
   };
 
   struct CompareEqualImpl {
-    bool operator()(const T* source, const T* dest, absl::Status*) const {
+    bool operator()(const T* source, const T* dest, void*) const {
       return internal_data_type::CompareEqual<T>(*source, *dest);
     }
   };
 
   struct CompareSameValueImpl {
-    bool operator()(const T* source, const T* dest, absl::Status*) const {
+    bool operator()(const T* source, const T* dest, void*) const {
       return internal_data_type::CompareSameValue<T>(*source, *dest);
     }
   };
 
   struct CompareIdenticalImpl {
-    bool operator()(const T* source, const T* dest, absl::Status*) const {
+    bool operator()(const T* source, const T* dest, void*) const {
       return internal_data_type::CompareIdentical<T>(*source, *dest);
     }
   };
 
   using Initialize =
-      internal::SimpleElementwiseFunction<InitializeImpl(T), absl::Status*>;
+      internal::SimpleElementwiseFunction<InitializeImpl(T), void*>;
 
   using CopyAssign =
-      internal::SimpleElementwiseFunction<CopyAssignImpl(const T, T),
-                                          absl::Status*>;
+      internal::SimpleElementwiseFunction<CopyAssignImpl(const T, T), void*>;
   using MoveAssign =
-      internal::SimpleElementwiseFunction<MoveAssignImpl(T, T), absl::Status*>;
+      internal::SimpleElementwiseFunction<MoveAssignImpl(T, T), void*>;
 
   using CopyAssignUnmasked = internal::SimpleElementwiseFunction<
-      CopyAssignUnmaskedImpl(const T, T, const bool), absl::Status*>;
+      CopyAssignUnmaskedImpl(const T, T, const bool), void*>;
   using CompareEqual =
       internal::SimpleElementwiseFunction<CompareEqualImpl(const T, const T),
-                                          absl::Status*>;
+                                          void*>;
   using CompareSameValue = internal::SimpleElementwiseFunction<
-      CompareSameValueImpl(const T, const T), absl::Status*>;
+      CompareSameValueImpl(const T, const T), void*>;
 
   using CompareIdentical = internal::SimpleElementwiseFunction<
-      CompareIdenticalImpl(const T, const T), absl::Status*>;
+      CompareIdenticalImpl(const T, const T), void*>;
 };
 
 template <typename T>

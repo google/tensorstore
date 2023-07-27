@@ -49,10 +49,10 @@ std::pair<absl::Status, std::vector<Index>> TestCopy(
     Func func, tensorstore::IterationConstraints constraints,
     SourceArray source_array, DestArray dest_array) {
   tensorstore::internal::Arena arena;
-  tensorstore::internal::ElementwiseClosure<2, absl::Status*> closure =
+  tensorstore::internal::ElementwiseClosure<2, void*> closure =
       tensorstore::internal::SimpleElementwiseFunction<
           Func(typename SourceArray::Element, typename DestArray::Element),
-          absl::Status*>::Closure(&func);
+          void*>::Closure(&func);
   auto iterable =
       tensorstore::internal::GetElementwiseOutputTransformNDIterable(
           tensorstore::internal::GetTransformedArrayNDIterable(dest_array,
@@ -74,7 +74,7 @@ TEST(NDIterableElementwiseOutputTransformTest, Basic) {
   auto source = tensorstore::MakeArray<int>({{1, 2, 3}, {4, 5, 6}});
   auto dest = tensorstore::AllocateArray<double>(source.shape());
   EXPECT_THAT(TestCopy([](const int* source, double* dest,
-                          absl::Status* status) { *dest = -*source; },
+                          void* status) { *dest = -*source; },
                        /*constraints=*/{}, source, dest),
               Pair(absl::OkStatus(), _));
   EXPECT_EQ(
@@ -87,7 +87,8 @@ TEST(NDIterableElementwiseOutputTransformTest, PartialCopy) {
   auto dest = tensorstore::AllocateArray<double>(
       source.shape(), tensorstore::c_order, tensorstore::value_init);
   EXPECT_THAT(TestCopy(
-                  [](const int* source, double* dest, absl::Status* status) {
+                  [](const int* source, double* dest, void* arg) {
+                    auto* status = static_cast<absl::Status*>(arg);
                     if (*source == 0) {
                       *status = absl::UnknownError("zero");
                       return false;

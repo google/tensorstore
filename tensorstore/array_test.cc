@@ -1368,25 +1368,6 @@ TEST(IterateOverArrays, VoidReturn) {
   EXPECT_EQ(expected_values, values);
 }
 
-TEST(IterateOverArrays, VoidReturnStatus) {
-  std::vector<std::pair<int, int>> values;
-  absl::Status status;
-  EXPECT_EQ(
-      (ArrayIterateResult{true, 4}),
-      IterateOverArrays(
-          [&](const int* a, const int* b, absl::Status* status_ptr) {
-            values.emplace_back(*a, *b);
-            EXPECT_EQ(&status, status_ptr);
-          },
-          &status,
-          /*constraints=*/ContiguousLayoutOrder::c,
-          MakeArrayView({{1, 2}, {3, 4}}), MakeArrayView({{5, 6}, {7, 8}})));
-
-  const std::vector<std::pair<int, int>> expected_values{
-      {1, 5}, {2, 6}, {3, 7}, {4, 8}};
-  EXPECT_EQ(expected_values, values);
-}
-
 TEST(IterateOverArrays, BoolReturnZeroElements) {
   EXPECT_EQ((ArrayIterateResult{true, 0}),
             IterateOverArrays([&](const int* a) -> bool { return false; },

@@ -1631,14 +1631,13 @@ namespace internal {
 /// Internal untyped interface for iterating over arrays.
 template <typename... Array>
 ArrayIterateResult IterateOverArrays(
-    ElementwiseClosure<sizeof...(Array), absl::Status*> closure,
-    absl::Status* status, IterationConstraints constraints,
-    const Array&... array) {
+    ElementwiseClosure<sizeof...(Array), void*> closure, void* arg,
+    IterationConstraints constraints, const Array&... array) {
   ABSL_CHECK(ArraysHaveSameShapes(array...));
   const std::array<std::ptrdiff_t, sizeof...(Array)> element_sizes{
       {array.dtype().size()...}};
   return IterateOverStridedLayouts(
-      closure, status, internal::GetFirstArgument(array...).shape(),
+      closure, arg, internal::GetFirstArgument(array...).shape(),
       {{const_cast<void*>(static_cast<const void*>(
           array.byte_strided_origin_pointer().get()))...}},
       {{array.byte_strides().data()...}}, constraints, element_sizes);
@@ -1654,10 +1653,8 @@ ArrayIterateResult IterateOverArrays(
 /// \requires The `Array` types must satisfy `IsArray<Array>` and have
 ///     compatible static ranks.
 /// \param func The element-wise function.  Must return `void` or `bool` when
-///     invoked with ``(Array::Element*...)``, or with
-///     ``(Array::Element*..., absl::Status*)`` if `status` is specified.
+///     invoked with ``(Array::Element*...)``.
 ///     Iteration stops if the return value of `func` is `false`.
-/// \param status The `absl::Status` pointer to pass through the `func`.
 /// \param constraints Specifies constraints on the iteration order, and whether
 ///     repeated elements may be skipped.  If
 ///     `constraints.can_skip_repeated_elements()`, the element-wise function
@@ -1674,21 +1671,6 @@ ArrayIterateResult IterateOverArrays(
 /// \checks `ArraysHaveSameShapes(array...)`
 /// \relates Array
 template <typename Func, typename... Array>
-std::enable_if_t<
-    ((IsArray<Array> && ...) &&
-     std::is_constructible_v<
-         bool, internal::Void::WrappedType<std::invoke_result_t<
-                   Func&, typename Array::Element*..., absl::Status*>>>),
-    ArrayIterateResult>
-IterateOverArrays(Func&& func, absl::Status* status,
-                  IterationConstraints constraints, const Array&... array) {
-  return internal::IterateOverArrays(
-      internal::SimpleElementwiseFunction<std::remove_reference_t<Func>(
-                                              typename Array::Element...),
-                                          absl::Status*>::Closure(&func),
-      status, constraints, array...);
-}
-template <typename Func, typename... Array>
 std::enable_if_t<((IsArray<Array> && ...) &&
                   std::is_constructible_v<
                       bool, internal::Void::WrappedType<std::invoke_result_t<
@@ -1696,12 +1678,13 @@ std::enable_if_t<((IsArray<Array> && ...) &&
                  ArrayIterateResult>
 IterateOverArrays(Func&& func, IterationConstraints constraints,
                   const Array&... array) {
-  const auto func_wrapper = [&func](typename Array::Element*... ptr,
-                                    absl::Status*) { return func(ptr...); };
+  const auto func_wrapper = [&func](typename Array::Element*... ptr, void*) {
+    return func(ptr...);
+  };
   return internal::IterateOverArrays(
-      internal::SimpleElementwiseFunction<
-          decltype(func_wrapper)(typename Array::Element...),
-          absl::Status*>::Closure(&func_wrapper),
+      internal::SimpleElementwiseFunction<decltype(func_wrapper)(
+                                              typename Array::Element...),
+                                          void*>::Closure(&func_wrapper),
       /*status=*/nullptr, constraints, array...);
 }
 

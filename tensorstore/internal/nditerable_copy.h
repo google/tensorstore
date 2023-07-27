@@ -133,8 +133,7 @@ struct NDIteratorCopyManager {
                              span<const Index> indices, Index block_size,
                              absl::Status* status);
   CopyImpl copy_impl_;
-  SpecializedElementwiseFunctionPointer<2, absl::Status*>
-      copy_elements_function_;
+  SpecializedElementwiseFunctionPointer<2, void*> copy_elements_function_;
   NDIteratorExternalBufferManager<1, 2> buffer_manager_;
 };
 

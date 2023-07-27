@@ -800,7 +800,7 @@ namespace internal {
 /// Internal untyped interface to tensorstore::IterateOverTransformedArrays.
 template <std::size_t Arity>
 Result<ArrayIterateResult> IterateOverTransformedArrays(
-    ElementwiseClosure<Arity, absl::Status*> closure, absl::Status* status,
+    ElementwiseClosure<Arity, void*> closure, void* arg,
     IterationConstraints constraints,
     span<const TransformedArrayView<const void>, Arity> transformed_arrays);
 
@@ -819,10 +819,8 @@ Result<ArrayIterateResult> IterateOverTransformedArrays(
 ///
 /// \requires `sizeof...(Arrays) > 0`
 /// \param func The element-wise function.  Must return `void` or `bool` when
-///     invoked with ``(Array::Element*...)``, or as
-///     ``(Array::Element*..., absl::Status*)`` if `status` is specified.
-///     Iteration stops if the return value of `func` is `false`.
-/// \param status The `absl::Status` pointer to pass through the `func`.
+///     invoked with ``(Array::Element*...)``.  Iteration stops if the return
+///     value of `func` is `false`.
 /// \param constraints Specifies constraints on the iteration order, and whether
 ///     repeated elements may be skipped.  If
 ///     `constraints.can_skip_repeated_elements()`, the element-wise function
@@ -850,33 +848,6 @@ std::enable_if_t<
     ((IsTransformedArrayLike<UnwrapResultType<Arrays>> && ...) &&
      std::is_constructible_v<
          bool, internal::Void::WrappedType<std::invoke_result_t<
-                   Func&, typename UnwrapResultType<Arrays>::Element*...,
-                   absl::Status*>>>),
-    Result<ArrayIterateResult>>
-IterateOverTransformedArrays(Func&& func, absl::Status* status,
-                             IterationConstraints constraints,
-                             const Arrays&... arrays) {
-  static_assert(RankConstraint::EqualOrUnspecified(
-                    {UnwrapResultType<Arrays>::static_rank...}),
-                "Arrays must have compatible static ranks.");
-  return tensorstore::MapResult(
-      [&](auto&&... unwrapped_array) {
-        return internal::IterateOverTransformedArrays<sizeof...(Arrays)>(
-            internal::SimpleElementwiseFunction<
-                std::remove_reference_t<Func>(
-                    typename UnwrapResultType<Arrays>::Element...),
-                absl::Status*>::Closure(&func),
-            status, constraints,
-            span<const TransformedArrayView<const void>, sizeof...(Arrays)>(
-                {TransformedArray(unwrapped_array)...}));
-      },
-      arrays...);
-}
-template <typename Func, typename... Arrays>
-std::enable_if_t<
-    ((IsTransformedArrayLike<UnwrapResultType<Arrays>> && ...) &&
-     std::is_constructible_v<
-         bool, internal::Void::WrappedType<std::invoke_result_t<
                    Func&, typename UnwrapResultType<Arrays>::Element*...>>>),
     Result<ArrayIterateResult>>
 IterateOverTransformedArrays(Func&& func, IterationConstraints constraints,
@@ -887,14 +858,15 @@ IterateOverTransformedArrays(Func&& func, IterationConstraints constraints,
   return tensorstore::MapResult(
       [&](auto&&... unwrapped_array) {
         const auto func_wrapper =
-            [&func](typename UnwrapResultType<Arrays>::Element*... ptr,
-                    absl::Status*) { return func(ptr...); };
+            [&func](typename UnwrapResultType<Arrays>::Element*... ptr, void*) {
+              return func(ptr...);
+            };
         return internal::IterateOverTransformedArrays<sizeof...(Arrays)>(
             internal::SimpleElementwiseFunction<
                 decltype(func_wrapper)(
                     typename UnwrapResultType<Arrays>::Element...),
-                absl::Status*>::Closure(&func_wrapper),
-            /*status=*/nullptr, constraints,
+                void*>::Closure(&func_wrapper),
+            /*arg=*/nullptr, constraints,
             span<const TransformedArrayView<const void>, sizeof...(Arrays)>(
                 {TransformedArrayView<const void>(unwrapped_array)...}));
       },

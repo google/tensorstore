@@ -34,97 +34,61 @@
 namespace tensorstore {
 namespace {
 
-/// ProtoContext is a context object used for proto serialization and
-/// deserialization via the tagged operator() overloads called by
-/// WriteProtoDataLoopTemplate and ReadProtoDataLoopTemplate
-struct WriteProtoContext {
+struct WriteProtoImpl {
   tensorstore::proto::Array& proto;
 
   /// Write a value into a proto field.
-  void operator()(double item) { proto.add_double_data(item); }
-  void operator()(float item) { proto.add_float_data(item); }
-  void operator()(int16_t item) { proto.add_int_data(item); }
-  void operator()(int32_t item) { proto.add_int_data(item); }
-  void operator()(int64_t item) { proto.add_int_data(item); }
-  void operator()(uint16_t item) { proto.add_uint_data(item); }
-  void operator()(uint32_t item) { proto.add_uint_data(item); }
-  void operator()(uint64_t item) { proto.add_uint_data(item); }
+  void operator()(const double* item, void*) { proto.add_double_data(*item); }
+  void operator()(const float* item, void*) { proto.add_float_data(*item); }
+  void operator()(const int16_t* item, void*) { proto.add_int_data(*item); }
+  void operator()(const int32_t* item, void*) { proto.add_int_data(*item); }
+  void operator()(const int64_t* item, void*) { proto.add_int_data(*item); }
+  void operator()(const uint16_t* item, void*) { proto.add_uint_data(*item); }
+  void operator()(const uint32_t* item, void*) { proto.add_uint_data(*item); }
+  void operator()(const uint64_t* item, void*) { proto.add_uint_data(*item); }
 };
 
-template <typename Element>
-struct WriteProtoDataLoopTemplate {
-  using ElementwiseFunctionType =
-      internal::ElementwiseFunction<1, absl::Status*>;
-
-  template <typename ArrayAccessor>
-  static Index Loop(void* context, Index count,
-                    internal::IterationBufferPointer source,
-                    absl::Status* /*status*/) {
-    auto& fn = *reinterpret_cast<WriteProtoContext*>(context);
-    for (Index i = 0; i < count; ++i) {
-      fn(*ArrayAccessor::template GetPointerAtOffset<Element>(source, i));
-    }
-    return count;
-  }
-};
-
-struct ReadProtoContext {
+struct ReadProtoImpl {
   const tensorstore::proto::Array& proto;
   size_t index = 0;
   size_t error_count = 0;
 
   /// Read the next value from a proto field.
-  void operator()(double& item) { item = proto.double_data(index++); }
-  void operator()(float& item) { item = proto.float_data(index++); }
-  void operator()(int16_t& item) {
+  void operator()(double* item, void*) { *item = proto.double_data(index++); }
+  void operator()(float* item, void*) { *item = proto.float_data(index++); }
+  void operator()(int16_t* item, void*) {
     auto i = proto.int_data(index++);
-    item = static_cast<int16_t>(i);
+    *item = static_cast<int16_t>(i);
     if (i > std::numeric_limits<int16_t>::max() ||
         i < std::numeric_limits<int16_t>::min()) {
       error_count++;
     }
   }
-  void operator()(int32_t& item) {
+  void operator()(int32_t* item, void*) {
     auto i = proto.int_data(index++);
-    item = static_cast<int32_t>(i);
+    *item = static_cast<int32_t>(i);
     if (i > std::numeric_limits<int32_t>::max() ||
         i < std::numeric_limits<int32_t>::min()) {
       error_count++;
     }
   }
-  void operator()(int64_t& item) { item = proto.int_data(index++); }
+  void operator()(int64_t* item, void*) { *item = proto.int_data(index++); }
 
-  void operator()(uint16_t& item) {
+  void operator()(uint16_t* item, void*) {
     auto i = proto.uint_data(index++);
-    item = static_cast<uint16_t>(i);
+    *item = static_cast<uint16_t>(i);
     if (i > std::numeric_limits<uint16_t>::max()) {
       error_count++;
     }
   }
-  void operator()(uint32_t& item) {
+  void operator()(uint32_t* item, void*) {
     auto i = proto.uint_data(index++);
-    item = static_cast<uint32_t>(i);
+    *item = static_cast<uint32_t>(i);
     if (i > std::numeric_limits<uint32_t>::max()) {
       error_count++;
     }
   }
-  void operator()(uint64_t& item) { item = proto.uint_data(index++); }
-};
-
-template <typename Element>
-struct ReadProtoDataLoopTemplate {
-  using ElementwiseFunctionType =
-      internal::ElementwiseFunction<1, absl::Status*>;
-  template <typename ArrayAccessor>
-  static Index Loop(void* context, Index count,
-                    internal::IterationBufferPointer source,
-                    absl::Status* /*status*/) {
-    auto& fn = *reinterpret_cast<ReadProtoContext*>(context);
-    for (Index i = 0; i < count; ++i) {
-      fn(*ArrayAccessor::template GetPointerAtOffset<Element>(source, i));
-    }
-    return count;
-  }
+  void operator()(uint64_t* item, void*) { *item = proto.uint_data(index++); }
 };
 
 /// kProtoFunctions is a mapping from DataTypeId to the appropriate
@@ -132,19 +96,20 @@ struct ReadProtoDataLoopTemplate {
 /// is to use the serialization functions for that type. This fallback is
 /// used for bytes, complex, json, etc.
 struct ProtoArrayDataTypeFunctions {
-  const internal::ElementwiseFunction<1, absl::Status*>* write_fn = nullptr;
-  const internal::ElementwiseFunction<1, absl::Status*>* read_fn = nullptr;
+  const internal::ElementwiseFunction<1, void*>* write_fn = nullptr;
+  const internal::ElementwiseFunction<1, void*>* read_fn = nullptr;
 };
 
 const std::array<ProtoArrayDataTypeFunctions, kNumDataTypeIds> kProtoFunctions =
     MapCanonicalDataTypes([](auto dtype) {
       using T = typename decltype(dtype)::Element;
       ProtoArrayDataTypeFunctions functions;
-      if constexpr (std::is_invocable_v<ReadProtoContext, T&>) {
+      if constexpr (std::is_invocable_v<ReadProtoImpl, T*, void*>) {
         functions.write_fn =
-            internal::GetElementwiseFunction<WriteProtoDataLoopTemplate<T>>();
+            internal::SimpleElementwiseFunction<WriteProtoImpl(const T),
+                                                void*>();
         functions.read_fn =
-            internal::GetElementwiseFunction<ReadProtoDataLoopTemplate<T>>();
+            internal::SimpleElementwiseFunction<ReadProtoImpl(T), void*>();
       }
       return functions;
     });
@@ -198,9 +163,9 @@ void EncodeToProtoImpl(::tensorstore::proto::Array& proto,
     }
 
     // Use a discrete function.
-    WriteProtoContext context{proto};
-    internal::IterateOverArrays({kProtoFunctions[index].write_fn, &context},
-                                /*status=*/nullptr,
+    WriteProtoImpl impl{proto};
+    internal::IterateOverArrays({kProtoFunctions[index].write_fn, &impl},
+                                /*arg=*/nullptr,
                                 {c_order, skip_repeated_elements}, array);
   } else {
     // Use the serialization function.
@@ -209,7 +174,7 @@ void EncodeToProtoImpl(::tensorstore::proto::Array& proto,
     internal::IterateOverArrays(
         {&internal::kUnalignedDataTypeFunctions[index].write_native_endian,
          &writer},
-        /*status=*/nullptr, {c_order, skip_repeated_elements}, array);
+        /*arg=*/nullptr, {c_order, skip_repeated_elements}, array);
     writer.Close();
   }
 }
@@ -313,11 +278,11 @@ Result<SharedArray<void, dynamic_rank, offset_origin>> ParseArrayFromProto(
       return absl::DataLossError("proto float_data incomplete");
     }
 
-    ReadProtoContext context{proto};
-    internal::IterateOverArrays({kProtoFunctions[index].read_fn, &context},
-                                /*status*/ nullptr,
+    ReadProtoImpl impl{proto};
+    internal::IterateOverArrays({kProtoFunctions[index].read_fn, &impl},
+                                /*arg*/ nullptr,
                                 {c_order, skip_repeated_elements}, array);
-    if (context.error_count > 0) {
+    if (impl.error_count > 0) {
       return absl::DataLossError("Array element truncated");
     }
   } else {
@@ -327,7 +292,7 @@ Result<SharedArray<void, dynamic_rank, offset_origin>> ParseArrayFromProto(
     internal::IterateOverArrays(
         {&internal::kUnalignedDataTypeFunctions[index].read_native_endian,
          &reader},
-        /*status=*/nullptr, {c_order, skip_repeated_elements}, array);
+        /*arg=*/nullptr, {c_order, skip_repeated_elements}, array);
 
     if (!reader.VerifyEndAndClose()) return reader.status();
   }

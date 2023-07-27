@@ -112,7 +112,7 @@ namespace internal {
 
 template <std::size_t Arity>
 Result<ArrayIterateResult> IterateOverTransformedArrays(
-    ElementwiseClosure<Arity, absl::Status*> closure, absl::Status* status,
+    ElementwiseClosure<Arity, void*> closure, void* arg,
     IterationConstraints constraints,
     span<const TransformedArrayView<const void>, Arity> transformed_arrays) {
   if (Arity == 0) return ArrayIterateResult{/*.success=*/true, /*.count=*/0};
@@ -192,9 +192,9 @@ Result<ArrayIterateResult> IterateOverTransformedArrays(
       pointers[i] = single_array_states[i].base_pointer;
       strides[i] = &single_array_states[i].input_byte_strides[0];
     }
-    return IterateOverStridedLayouts<Arity>(
-        closure, status, input_bounds.shape(), pointers, strides, constraints,
-        element_sizes);
+    return IterateOverStridedLayouts<Arity>(closure, arg, input_bounds.shape(),
+                                            pointers, strides, constraints,
+                                            element_sizes);
   }
   internal_index_space::MarkSingletonDimsAsSkippable(input_bounds.shape(),
                                                      &input_dimension_flags[0]);
@@ -206,13 +206,13 @@ Result<ArrayIterateResult> IterateOverTransformedArrays(
               constraints.order_constraint()),
           input_bounds.shape(), single_array_states);
   return internal_index_space::IterateUsingSimplifiedLayout<Arity>(
-      layout, input_bounds.shape(), closure, status, single_array_states,
+      layout, input_bounds.shape(), closure, arg, single_array_states,
       element_sizes);
 }
 
 #define TENSORSTORE_DO_INSTANTIATE_ITERATE_OVER_TRANSFORMED_ARRAYS(Arity)      \
   template Result<ArrayIterateResult> IterateOverTransformedArrays<Arity>(     \
-      ElementwiseClosure<Arity, absl::Status*> closure, absl::Status * status, \
+      ElementwiseClosure<Arity, void*> closure, void* arg,                     \
       IterationConstraints constraints,                                        \
       span<const TransformedArrayView<const void>, Arity> transformed_arrays); \
   /**/

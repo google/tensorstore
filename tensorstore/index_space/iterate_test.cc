@@ -256,19 +256,14 @@ TEST(IterateOverTransformedArrayTest, EarlyStoppingWithStatus) {
   auto array_b = MakeArray<float>({5, 6, 8, 9});
   absl::Status status;
   auto result = IterateOverTransformedArrays(
-      [&](const float* a_ptr, float* b_ptr, absl::Status* status) {
+      [&](const float* a_ptr, float* b_ptr) {
         if (*a_ptr != *b_ptr) {
-          *status =
-              absl::UnknownError(tensorstore::StrCat(*a_ptr, " ", *b_ptr));
-          // The status pointer is just passed through by
-          // `IterateOverTransformedArrays`, but is not otherwise used.  We have
-          // to return `false` to cause iteration to stop.
+          status = absl::UnknownError(tensorstore::StrCat(*a_ptr, " ", *b_ptr));
           return false;
         }
         *b_ptr = 0;
         return true;
       },
-      &status,
       /*constraints=*/{}, array_a, array_b);
   TENSORSTORE_ASSERT_OK(result);
   EXPECT_THAT(status, MatchesStatus(absl::StatusCode::kUnknown, "7 8"));

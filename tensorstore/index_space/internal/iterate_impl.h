@@ -366,8 +366,7 @@ template <std::size_t Arity>
 ArrayIterateResult IterateUsingSimplifiedLayout(
     const SimplifiedDimensionIterationOrder& layout,
     span<const Index> input_shape,
-    internal::ElementwiseClosure<Arity, absl::Status*> closure,
-    absl::Status* status,
+    internal::ElementwiseClosure<Arity, void*> closure, void* arg,
     span<const SingleArrayIterationState, Arity> single_array_states,
     std::array<std::ptrdiff_t, Arity> element_sizes);
 
