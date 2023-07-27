@@ -15,5 +15,3 @@ allows sharing of resources by multiple TensorStore drivers.
 .. json:schema:: Context.cache_pool
 
 .. json:schema:: Context.data_copy_concurrency
-
-.. json:schema:: Context.file_io_concurrency

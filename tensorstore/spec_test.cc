@@ -299,9 +299,12 @@ TEST(SpecTest, SetContextAndKvstore) {
       ::testing::Optional(MatchesJson({
           {"driver", "zarr"},
           {"kvstore",
-           {{"driver", "file"},
-            {"path", "/tmp/"},
-            {"file_io_concurrency", {"file_io_concurrency#a"}}}},
+           {
+               {"driver", "file"},
+               {"path", "/tmp/"},
+               {"file_io_concurrency", {"file_io_concurrency#a"}},
+               {"file_io_sync", {"file_io_sync"}},
+           }},
           {"dtype", "uint8"},
           {"cache_pool", {"cache_pool"}},
           {"schema",
@@ -314,6 +317,7 @@ TEST(SpecTest, SetContextAndKvstore) {
                {"data_copy_concurrency", ::nlohmann::json::object_t()},
                {"cache_pool", ::nlohmann::json::object_t()},
                {"file_io_concurrency#a", {{"limit", 5}}},
+               {"file_io_sync", true},
            }},
       })));
 }

@@ -384,6 +384,23 @@ TEST(FileKeyValueStoreTest, SpecRoundtrip) {
   tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
 }
 
+TEST(FileKeyValueStoreTest, SpecRoundtripSync) {
+  tensorstore::internal::ScopedTemporaryDirectory tempdir;
+  std::string root = tempdir.path() + "/root";
+  tensorstore::internal::KeyValueStoreSpecRoundtripOptions options;
+  options.full_spec = {
+      {"driver", "file"},
+      {"path", root},
+      {"file_io_sync", false},
+      {"context",
+       {
+           {"file_io_concurrency", ::nlohmann::json::object_t()},
+       }},
+  };
+  options.spec_request_options.Set(tensorstore::retain_context);
+  tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
+}
+
 TEST(FileKeyValueStoreTest, InvalidSpec) {
   tensorstore::internal::ScopedTemporaryDirectory tempdir;
   std::string root = tempdir.path() + "/root";

@@ -86,21 +86,3 @@ definitions:
           value of ``"shared"`` is specified, a shared global limit equal to the
           number of CPU cores/threads available applies.
         default: "shared"
-  file_io_concurrency:
-    $id: Context.file_io_concurrency
-    description: |-
-      Specifies a limit on the number of concurrently local filesystem I/O
-      operations.
-    type: object
-    properties:
-      limit:
-        oneOf:
-        - type: integer
-          minimum: 1
-        - const: "shared"
-        description: |-
-          The maximum number of concurrent operations.  If the special value of
-          ``"shared"`` is specified, a shared global limit equal to the number
-          of CPU cores/threads available (or 4 if there are fewer than 4
-          cores/threads available) applies.
-        default: "shared"

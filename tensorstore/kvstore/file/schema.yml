@@ -14,6 +14,11 @@ allOf:
       description: |-
         Specifies or references a previously defined
         `Context.file_io_concurrency`.
+    file_io_sync:
+      $ref: ContextResource
+      description: |-
+        Specifies or references a previously defined
+        `Context.file_io_sync`.
   required:
   - path
 title: JSON specification of file-backed key-value store.
@@ -49,3 +54,34 @@ definitions:
 
                    {"driver": "file",
                     "path": "C:/Users/abc/dataset/"}
+  file_io_concurrency:
+    $id: Context.file_io_concurrency
+    description: |-
+      Specifies a limit on the number of concurrently local filesystem I/O
+      operations.
+    type: object
+    properties:
+      limit:
+        oneOf:
+        - type: integer
+          minimum: 1
+        - const: "shared"
+        description: |-
+          The maximum number of concurrent operations.  If the special value of
+          ``"shared"`` is specified, a shared global limit equal to the number
+          of CPU cores/threads available (or 4 if there are fewer than 4
+          cores/threads available) applies.
+        default: "shared"
+  file_io_sync:
+    $id: Context.file_io_sync
+    title: |
+      Specifies durability of writes.
+    description: |-
+      If ``true``, durability is ensured for local file writes (e.g. by calling
+      :literal:`fsync`).  If ``false``, durability is not guaranteed, and data
+      may be lost in the event of a crash.
+
+      In cases where durability is not required, setting this to ``false`` may
+      make write operations faster.
+    type: boolean
+    default: true
