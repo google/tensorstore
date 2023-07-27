@@ -41,6 +41,7 @@ using ::tensorstore::span;
 using ::tensorstore::TransactionMode;
 using ::tensorstore::internal_kvs_backed_chunk_driver::ResizeParameters;
 using ::tensorstore::internal_zarr::DimensionSeparator;
+using ::tensorstore::internal_zarr::ZarrDriver;
 using ::tensorstore::internal_zarr::ZarrMetadata;
 
 Result<tensorstore::IndexTransform<>> ResolveBoundsFromMetadata(
@@ -78,8 +79,7 @@ Result<ResizeParameters> GetResizeParameters(
                             {"create", true},
                         })
           .result());
-  auto driver = tensorstore::internal::static_pointer_cast<
-      tensorstore::internal_kvs_backed_chunk_driver::KvsDriverBase>(
+  auto driver = tensorstore::internal::dynamic_pointer_cast<ZarrDriver>(
       tensorstore::internal::TensorStoreAccess::handle(store).driver);
   return tensorstore::internal_kvs_backed_chunk_driver::GetResizeParameters(
       driver->cache(), &metadata, driver->component_index(), transform,

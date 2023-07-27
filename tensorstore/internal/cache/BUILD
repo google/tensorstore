@@ -165,6 +165,22 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
+    name = "kvs_backed_chunk_cache",
+    srcs = ["kvs_backed_chunk_cache.cc"],
+    hdrs = ["kvs_backed_chunk_cache.h"],
+    deps = [
+        ":chunk_cache",
+        ":kvs_backed_cache",
+        "//tensorstore:array",
+        "//tensorstore:index",
+        "//tensorstore/util:result",
+        "//tensorstore/util:span",
+        "@com_google_absl//absl/container:inlined_vector",
+        "@com_google_absl//absl/strings:cord",
+    ],
+)
+
+tensorstore_cc_library(
     name = "aggregate_writeback_cache",
     hdrs = ["aggregate_writeback_cache.h"],
     deps = [
@@ -268,12 +284,13 @@ tensorstore_cc_library(
         "//tensorstore:staleness_bound",
         "//tensorstore:strided_layout",
         "//tensorstore:transaction",
-        "//tensorstore/driver",
         "//tensorstore/driver:chunk",
+        "//tensorstore/driver:chunk_receiver_utils",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/index_space:transformed_array",
         "//tensorstore/internal:arena",
         "//tensorstore/internal:async_write_array",
+        "//tensorstore/internal:chunk_grid_specification",
         "//tensorstore/internal:elementwise_function",
         "//tensorstore/internal:grid_partition",
         "//tensorstore/internal:intrusive_ptr",
@@ -314,6 +331,7 @@ tensorstore_cc_binary(
         "//tensorstore:progress",
         "//tensorstore:rank",
         "//tensorstore/driver",
+        "//tensorstore/driver:chunk_cache_driver",
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/index_space:transformed_array",
@@ -353,6 +371,7 @@ tensorstore_cc_test(
         "//tensorstore:staleness_bound",
         "//tensorstore/driver",
         "//tensorstore/driver:chunk",
+        "//tensorstore/driver:chunk_cache_driver",
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/index_space:transformed_array",

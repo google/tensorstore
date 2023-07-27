@@ -24,6 +24,10 @@ namespace internal {
 struct CachePoolLimits {
   std::size_t total_bytes_limit = 0;
   std::size_t queued_for_writeback_bytes_limit = 0;
+
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.total_bytes_limit, x.queued_for_writeback_bytes_limit);
+  };
 };
 
 }  // namespace internal

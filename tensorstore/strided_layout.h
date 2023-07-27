@@ -119,11 +119,20 @@ inline std::enable_if_t<internal::IsIndexPack<T0, T1>, Index> IndexInnerProduct(
     DimensionIndex n, const T0* a, const T1* b) {
   return internal::wrap_on_overflow::InnerProduct<Index>(n, a, b);
 }
+template <DimensionIndex N, typename T0, typename T1>
+inline std::enable_if_t<internal::IsIndexPack<T0, T1>, Index> IndexInnerProduct(
+    const T0* a, const T1* b) {
+  return internal::wrap_on_overflow::InnerProduct<N, Index>(a, b);
+}
 template <DimensionIndex Rank, typename T0, typename T1>
 inline std::enable_if_t<internal::IsIndexPack<T0, T1>, Index> IndexInnerProduct(
     span<T0, Rank> a, span<T1, Rank> b) {
   assert(a.size() == b.size());
-  return IndexInnerProduct(a.size(), a.data(), b.data());
+  if constexpr (Rank == -1) {
+    return IndexInnerProduct(a.size(), a.data(), b.data());
+  } else {
+    return IndexInnerProduct<Rank>(a.data(), b.data());
+  }
 }
 
 /// Assigns `layout->byte_strides()` to correspond to a contiguous layout that
@@ -923,16 +932,34 @@ namespace internal_strided_layout {
 bool IsContiguousLayout(DimensionIndex rank, const Index* shape,
                         const Index* byte_strides, ContiguousLayoutOrder order,
                         Index element_size);
-}
+}  // namespace internal_strided_layout
 
 /// Checks if `layout` is a contiguous layout with the specified order and
 /// element size.
+///
+/// \relates StridedLayout
+/// \id strided_layout
 template <DimensionIndex Rank, ArrayOriginKind OriginKind, ContainerKind CKind>
 bool IsContiguousLayout(const StridedLayout<Rank, OriginKind, CKind>& layout,
                         ContiguousLayoutOrder order, Index element_size) {
   return internal_strided_layout::IsContiguousLayout(
       layout.rank(), layout.shape().data(), layout.byte_strides().data(), order,
       element_size);
+}
+
+namespace internal_strided_layout {
+bool IsBroadcastScalar(DimensionIndex rank, const Index* shape,
+                       const Index* byte_strides);
+}  // namespace internal_strided_layout
+
+/// Checks if `layout` contains at most a single distinct element.
+///
+/// \relates StridedLayout
+/// \id strided_layout
+template <DimensionIndex Rank, ArrayOriginKind OriginKind, ContainerKind CKind>
+bool IsBroadcastScalar(const StridedLayout<Rank, OriginKind, CKind>& layout) {
+  return internal_strided_layout::IsBroadcastScalar(
+      layout.rank(), layout.shape().data(), layout.byte_strides().data());
 }
 
 }  // namespace tensorstore

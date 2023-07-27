@@ -46,7 +46,7 @@ namespace internal {
 /// \param arena Arena that may be used for memory allocation.
 NDIterable::Ptr GetElementwiseOutputTransformNDIterable(
     NDIterable::Ptr output, DataType input_dtype,
-    ElementwiseClosure<2, absl::Status*> closure, Arena* arena);
+    ElementwiseClosure<2, void*> closure, Arena* arena);
 
 }  // namespace internal
 }  // namespace tensorstore

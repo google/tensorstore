@@ -37,6 +37,7 @@
 #include "tensorstore/box.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/chunk.h"
+#include "tensorstore/driver/chunk_cache_driver.h"
 #include "tensorstore/driver/driver.h"
 #include "tensorstore/driver/driver_handle.h"
 #include "tensorstore/index.h"
@@ -99,7 +100,9 @@ using ::tensorstore::internal::CachePool;
 using ::tensorstore::internal::CachePtr;
 using ::tensorstore::internal::ChunkCache;
 using ::tensorstore::internal::ChunkGridSpecification;
+using ::tensorstore::internal::ConcreteChunkCache;
 using ::tensorstore::internal::ElementCopyFunction;
+using ::tensorstore::internal::GetEntryForGridCell;
 using ::tensorstore::internal::MakeReadWritePtr;
 using ::tensorstore::internal::MockKeyValueStore;
 using ::tensorstore::internal::PinnedCacheEntry;
@@ -160,8 +163,10 @@ std::string EncodeKey(span<const Index> indices) {
 }
 
 class TestCache
-    : public tensorstore::internal::KvsBackedCache<TestCache, ChunkCache> {
-  using Base = tensorstore::internal::KvsBackedCache<TestCache, ChunkCache>;
+    : public tensorstore::internal::KvsBackedCache<TestCache,
+                                                   ConcreteChunkCache> {
+  using Base =
+      tensorstore::internal::KvsBackedCache<TestCache, ConcreteChunkCache>;
 
  public:
   using Base::Base;
@@ -287,9 +292,10 @@ std::vector<Index> ParseKey(std::string_view key) {
 ReadWritePtr<TestDriver> MakeDriver(CachePtr<ChunkCache> cache,
                                     size_t component_index = 0,
                                     StalenessBound data_staleness = {}) {
-  return MakeReadWritePtr<TestDriver>(tensorstore::ReadWriteMode::read_write,
-                                      std::move(cache), component_index,
-                                      data_staleness);
+  return MakeReadWritePtr<TestDriver>(
+      tensorstore::ReadWriteMode::read_write,
+      TestDriver::Initializer{std::move(cache), component_index,
+                              data_staleness});
 }
 
 class ChunkCacheTest : public ::testing::Test {
@@ -751,7 +757,7 @@ TEST_F(ChunkCacheTest, OverwriteMissingWithFillValue) {
   grid = ChunkGridSpecification({ChunkGridSpecification::Component{
       SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
   auto cache = MakeChunkCache();
-  auto cell_entry = cache->GetEntryForCell(span<const Index>({1}));
+  auto cell_entry = GetEntryForGridCell(*cache, span<const Index>({1}));
   // Overwrite chunk 1: [0]=1, [1]=2 (matches fill value)
   auto write_future =
       tensorstore::Write(MakeArray<int>({1, 2}),
@@ -775,7 +781,7 @@ TEST_F(ChunkCacheTest, OverwriteExistingWithFillValue) {
   grid = ChunkGridSpecification({ChunkGridSpecification::Component{
       SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
   auto cache = MakeChunkCache();
-  auto cell_entry = cache->GetEntryForCell(span<const Index>({1}));
+  auto cell_entry = GetEntryForGridCell(*cache, span<const Index>({1}));
   // Write initial value to chunk 1: [0]=3, [1]=4
   {
     auto write_future = tensorstore::Write(
@@ -811,13 +817,13 @@ TEST_F(ChunkCacheTest, OverwriteExistingWithFillValue) {
   }
 }
 
-// Tests that fill value comparison is based on "same value" equality.
-TEST_F(ChunkCacheTest, FillValueSameValueEqual) {
+// Tests that fill value comparison is based on "identical" equality.
+TEST_F(ChunkCacheTest, FillValueIdenticallyEqual) {
   // Dimension 0 is chunked with a size of 2.
   grid = ChunkGridSpecification({ChunkGridSpecification::Component{
       SharedArray<const void>(MakeArray<float>({NAN, -0.0})), Box<>(1)}});
   auto cache = MakeChunkCache();
-  auto cell_entry = cache->GetEntryForCell(span<const Index>({1}));
+  auto cell_entry = GetEntryForGridCell(*cache, span<const Index>({1}));
   // Write initial value to chunk 1: [0]=NAN, [1]=+0.0
   {
     auto write_future = tensorstore::Write(
@@ -860,7 +866,7 @@ TEST_F(ChunkCacheTest, DeleteAfterNormalWriteback) {
   grid = ChunkGridSpecification({ChunkGridSpecification::Component{
       SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
   auto cache = MakeChunkCache();
-  auto cell_entry = cache->GetEntryForCell(span<const Index>({1}));
+  auto cell_entry = GetEntryForGridCell(*cache, span<const Index>({1}));
   // Write initial value to chunk 1: [0]=3, [1]=4
   {
     auto write_future = tensorstore::Write(
@@ -896,7 +902,7 @@ TEST_F(ChunkCacheTest, PartialWriteAfterPendingDelete) {
   grid = ChunkGridSpecification({ChunkGridSpecification::Component{
       SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
   auto cache = MakeChunkCache();
-  auto cell_entry = cache->GetEntryForCell(span<const Index>({1}));
+  auto cell_entry = GetEntryForGridCell(*cache, span<const Index>({1}));
   // Write initial value to chunk 1: [0]=3, [1]=4
   {
     auto write_future = tensorstore::Write(
@@ -960,7 +966,7 @@ TEST_F(ChunkCacheTest, PartialWriteAfterWrittenBackDelete) {
   grid = ChunkGridSpecification({ChunkGridSpecification::Component{
       SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
   auto cache = MakeChunkCache();
-  auto cell_entry = cache->GetEntryForCell(span<const Index>({1}));
+  auto cell_entry = GetEntryForGridCell(*cache, span<const Index>({1}));
   // Cell initially has unknown data because no reads have been performed.
   EXPECT_EQ(
       nullptr,
@@ -1016,7 +1022,7 @@ TEST_F(ChunkCacheTest, ReadAfterPendingDelete) {
   grid = ChunkGridSpecification({ChunkGridSpecification::Component{
       SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
   auto cache = MakeChunkCache();
-  auto cell_entry = cache->GetEntryForCell(span<const Index>({1}));
+  auto cell_entry = GetEntryForGridCell(*cache, span<const Index>({1}));
   // Perform delete.
   auto write_future = cell_entry->Delete({});
 
@@ -1045,7 +1051,7 @@ TEST_F(ChunkCacheTest, DeleteWithPendingRead) {
   grid = ChunkGridSpecification({ChunkGridSpecification::Component{
       SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
   auto cache = MakeChunkCache();
-  auto cell_entry = cache->GetEntryForCell(span<const Index>({1}));
+  auto cell_entry = GetEntryForGridCell(*cache, span<const Index>({1}));
   // Read chunk 1, position [0] and [1]
   auto read_future =
       tensorstore::Read(GetTensorStore(cache, absl::InfinitePast()) |
@@ -1076,7 +1082,7 @@ TEST_F(ChunkCacheTest, WriteToMaskedArrayError) {
       {0}}});
 
   auto cache = MakeChunkCache();
-  auto cell_entry = cache->GetEntryForCell(span<const Index>({1}));
+  auto cell_entry = GetEntryForGridCell(*cache, span<const Index>({1}));
   auto write_future = tensorstore::Write(
       MakeArray<int>({5, 6}),
       GetTensorStore(cache)

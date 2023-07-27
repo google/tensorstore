@@ -34,54 +34,74 @@ struct UnalignedDataTypeFunctions {
   ///
   /// If the data type does not require endian conversion (e.g. uint8), equal to
   /// `nullptr`.
-  const internal::ElementwiseFunction<1, absl::Status*>* swap_endian_inplace =
-      nullptr;
+  ///
+  /// The `void*` parameter is ignored.
+  const internal::ElementwiseFunction<1, void*>* swap_endian_inplace = nullptr;
 
   /// Swaps endianness, copying from first argument to second.  No alignment
   /// requirement.
   ///
   /// If the data type does not require endian conversion (e.g. uint8), equal to
   /// `copy`.
-  const internal::ElementwiseFunction<2, absl::Status*>* swap_endian = nullptr;
+  ///
+  /// The `void*` parameter is ignored.
+  const internal::ElementwiseFunction<2, void*>* swap_endian = nullptr;
 
   /// Copies potentially unaligned data from first argument to second.
   ///
   /// If the data type is a non-trivial type (e.g. `string` or `json`), equal to
   /// `nullptr`.
-  const internal::ElementwiseFunction<2, absl::Status*>* copy = nullptr;
+  ///
+  /// The `void*` parameter is ignored.
+  const internal::ElementwiseFunction<2, void*>* copy = nullptr;
 
   /// For trivial types, writes to a `riegeli::Writer` without swapping byte
   /// order.  For non-trivial types, writes to a `riegeli::Writer` using a
   /// canonical binary encoding (varint length-delimited for strings, CBOR for
   /// json).
   ///
-  /// The `context` points to a `riegeli::Writer`.  The `absl::Status` parameter
+  /// The `context` points to a `riegeli::Writer`.  The `void*` parameter
   /// is ignored.
-  internal::ElementwiseFunction<1, absl::Status*> write_native_endian;
+  internal::ElementwiseFunction<1, void*> write_native_endian;
 
   /// For trivial types, writes with swapped endianness.  For non-trivial
   /// types, same as `write_native_endian`.
   ///
-  /// The `context` points to a `riegeli::Writer`.  The `absl::Status` parameter
+  /// The `context` points to a `riegeli::Writer`.  The `void*` parameter
   /// is ignored.
-  internal::ElementwiseFunction<1, absl::Status*> write_swapped_endian;
+  internal::ElementwiseFunction<1, void*> write_swapped_endian;
 
   /// Reads the result of `write_native_endian` from a `riegeli::Reader`.
   ///
-  /// The `context` points to a `riegeli::Reader`.  The `absl::Status` parameter
+  /// The `context` points to a `riegeli::Reader`.  The `void*` parameter
   /// is ignored.
-  internal::ElementwiseFunction<1, absl::Status*> read_native_endian;
+  internal::ElementwiseFunction<1, void*> read_native_endian;
 
   /// Decodes the result of `write_swap_endian` from a `riegeli::Reader`.
   ///
-  /// The `context` points to a `riegeli::Reader`.  The `absl::Status` parameter
+  /// The `context` points to a `riegeli::Reader`.  The `void*` parameter
   /// is ignored.
-  internal::ElementwiseFunction<1, absl::Status*> read_swapped_endian;
+  internal::ElementwiseFunction<1, void*> read_swapped_endian;
+
+  /// Validates a native-endian value.  If the data type does not require
+  /// validation, equal to `nullptr`.
+  ///
+  /// The `void*` argument must be a non-null pointer to an `absl::Status`, and
+  /// the status will be set to an error value if validation fails.
+  ///
+  /// For `bool`, this ensures that the value is `0` or `1`.
+  const internal::ElementwiseFunction<1, void*>* validate = nullptr;
 };
 
 /// Functions for each canonical data type.
 extern const std::array<UnalignedDataTypeFunctions, kNumDataTypeIds>
     kUnalignedDataTypeFunctions;
+
+inline constexpr bool IsTrivialDataType(DataType dtype) {
+  return dtype.id() != DataTypeId::custom &&
+         kUnalignedDataTypeFunctions[static_cast<size_t>(dtype.id())].copy !=
+             nullptr;
+}
 
 }  // namespace internal
 }  // namespace tensorstore

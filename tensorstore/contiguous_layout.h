@@ -64,6 +64,33 @@ constexpr ContiguousLayoutOrder column_major_order =
 void ComputeStrides(ContiguousLayoutOrder order, std::ptrdiff_t element_stride,
                     span<const Index> shape, span<Index> strides);
 
+/// Computes the offset of a given index vector in C or Fortran order.
+///
+/// \param shape Shape for which to compute the offset.
+/// \param indices Indices for which to compute the offset.
+/// \dchecks `shape.size() == indices.size()`
+/// \relates ContiguousLayoutOrder
+template <ContiguousLayoutOrder Order = c_order>
+inline Index GetContiguousOffset(span<const Index> shape,
+                                 span<const Index> indices) {
+  assert(shape.size() == indices.size());
+  Index offset = 0;
+  if constexpr (Order == c_order) {
+    for (ptrdiff_t i = 0; i < indices.size(); ++i) {
+      assert(indices[i] >= 0 && indices[i] < shape[i]);
+      offset *= shape[i];
+      offset += indices[i];
+    }
+  } else {
+    for (ptrdiff_t i = indices.size(); i--;) {
+      assert(indices[i] >= 0 && indices[i] < shape[i]);
+      offset *= shape[i];
+      offset += indices[i];
+    }
+  }
+  return offset;
+}
+
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_CONTIGUOUS_LAYOUT_H_

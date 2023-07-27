@@ -102,6 +102,7 @@
 #include "absl/time/clock.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
+#include "tensorstore/context_resource_provider.h"
 #include "tensorstore/internal/cache_key/cache_key.h"
 #include "tensorstore/internal/context_binding.h"
 #include "tensorstore/internal/file_io_concurrency_resource.h"
@@ -153,8 +154,8 @@
 /// `MapFuture`.
 
 namespace tensorstore {
+namespace internal_file_kvstore {
 namespace {
-
 namespace jb = tensorstore::internal_json_binding;
 
 using ::tensorstore::internal::GetLastErrorCode;
@@ -196,11 +197,29 @@ auto& file_lock_contention = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/file/lock_contention",
     "file driver write lock contention");
 
+struct FileIoSyncResource
+    : public internal::ContextResourceTraits<FileIoSyncResource> {
+  constexpr static bool config_only = true;
+  static constexpr char id[] = "file_io_sync";
+  using Spec = bool;
+  using Resource = Spec;
+  static Spec Default() { return true; }
+  static constexpr auto JsonBinder() { return jb::DefaultBinder<>; }
+  static Result<Resource> Create(
+      Spec v, internal::ContextResourceCreationContext context) {
+    return v;
+  }
+  static Spec GetSpec(Resource v, const internal::ContextSpecBuilder& builder) {
+    return v;
+  }
+};
+
 struct FileKeyValueStoreSpecData {
   Context::Resource<internal::FileIoConcurrencyResource> file_io_concurrency;
+  Context::Resource<FileIoSyncResource> file_io_sync;
 
   constexpr static auto ApplyMembers = [](auto& x, auto f) {
-    return f(x.file_io_concurrency);
+    return f(x.file_io_concurrency, x.file_io_sync);
   };
 
   // TODO(jbms): Storing a UNIX path as a JSON string presents a challenge
@@ -218,9 +237,14 @@ struct FileKeyValueStoreSpecData {
   // including base64-encoding, or using NUL as an escape sequence (taking
   // advantage of the fact that valid paths on all operating systems
   // cannot contain NUL characters).
-  constexpr static auto default_json_binder = jb::Object(jb::Member(
-      internal::FileIoConcurrencyResource::id,
-      jb::Projection<&FileKeyValueStoreSpecData::file_io_concurrency>()));
+  constexpr static auto default_json_binder = jb::Object(
+      jb::Member(
+          internal::FileIoConcurrencyResource::id,
+          jb::Projection<&FileKeyValueStoreSpecData::file_io_concurrency>()),
+      jb::Member(FileIoSyncResource::id,
+                 jb::Projection<&FileKeyValueStoreSpecData::file_io_sync>())
+      //
+  );
 };
 
 class FileKeyValueStoreSpec
@@ -267,6 +291,8 @@ class FileKeyValueStore
     return SupportedFeatures::kSingleKeyAtomicReadModifyWrite |
            SupportedFeatures::kAtomicWriteWithoutOverwrite;
   }
+
+  bool sync() const { return *spec_.file_io_sync; }
 
   SpecData spec_;
 };
@@ -640,6 +666,7 @@ struct WriteTask {
   std::string full_path;
   absl::Cord value;
   kvstore::WriteOptions options;
+  bool sync;
 
   Result<TimestampedStorageGeneration> operator()() const {
     TimestampedStorageGeneration r;
@@ -682,18 +709,22 @@ struct WriteTask {
         value_for_write.RemovePrefix(n);
       }
 
-      if (!internal_file_util::FsyncFile(fd)) {
-        return StatusFromErrno("Error calling fsync on file: ", lock_path);
+      if (this->sync) {
+        if (!internal_file_util::FsyncFile(fd)) {
+          return StatusFromErrno("Error calling fsync on file: ", lock_path);
+        }
       }
       if (!internal_file_util::RenameOpenFile(fd, lock_path, full_path)) {
         return StatusFromErrno("Error renaming: ", lock_path, " -> ",
                                full_path);
       }
       delete_lock_file = false;
-      // fsync the parent directory to ensure the `rename` is durable.
-      if (!internal_file_util::FsyncDirectory(dir_fd.get())) {
-        return StatusFromErrno("Error calling fsync on parent directory of: ",
-                               full_path);
+      if (this->sync) {
+        // fsync the parent directory to ensure the `rename` is durable.
+        if (!internal_file_util::FsyncDirectory(dir_fd.get())) {
+          return StatusFromErrno("Error calling fsync on parent directory of: ",
+                                 full_path);
+        }
       }
       lock_helper.lock = FileLock{};
 
@@ -721,6 +752,7 @@ struct WriteTask {
 struct DeleteTask {
   std::string full_path;
   kvstore::WriteOptions options;
+  bool sync;
 
   Result<TimestampedStorageGeneration> operator()() const {
     TimestampedStorageGeneration r;
@@ -747,7 +779,7 @@ struct DeleteTask {
               absl::StatusCode::kNotFound) {
         return StatusFromErrno("Failed to remove file: ", full_path);
       }
-      fsync_directory = true;
+      fsync_directory = this->sync;
       return StorageGeneration::NoValue();
     }();
 
@@ -773,16 +805,18 @@ Future<TimestampedStorageGeneration> FileKeyValueStore::Write(
   TENSORSTORE_RETURN_IF_ERROR(ValidateKey(key));
   if (value) {
     return MapFuture(executor(), WriteTask{std::move(key), std::move(*value),
-                                           std::move(options)});
+                                           std::move(options), this->sync()});
   } else {
-    return MapFuture(executor(),
-                     DeleteTask{std::move(key), std::move(options)});
+    return MapFuture(executor(), DeleteTask{std::move(key), std::move(options),
+                                            this->sync()});
   }
 }
 
 /// Implements `FileKeyValueStore::DeleteRange`.
 struct DeleteRangeTask {
   KeyRange range;
+
+  // TODO(jbms): Add fsync support
 
   void operator()(Promise<void> promise) {
     PathRangeVisitor visitor(range);
@@ -894,7 +928,7 @@ Result<kvstore::Spec> ParseFileUrl(std::string_view url) {
   driver_spec->data_.file_io_concurrency =
       Context::Resource<internal::FileIoConcurrencyResource>::DefaultSpec();
   auto parsed = internal::ParseGenericUri(url);
-  assert(parsed.scheme == tensorstore::FileKeyValueStoreSpec::id);
+  assert(parsed.scheme == internal_file_kvstore::FileKeyValueStoreSpec::id);
   if (!parsed.query.empty()) {
     return absl::InvalidArgumentError("Query string not supported");
   }
@@ -906,17 +940,25 @@ Result<kvstore::Spec> ParseFileUrl(std::string_view url) {
 }
 
 }  // namespace
+}  // namespace internal_file_kvstore
 }  // namespace tensorstore
 
 TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(
-    tensorstore::FileKeyValueStore)
+    tensorstore::internal_file_kvstore::FileKeyValueStore)
 
 namespace {
+
 const tensorstore::internal_kvstore::DriverRegistration<
-    tensorstore::FileKeyValueStoreSpec>
+    tensorstore::internal_file_kvstore::FileKeyValueStoreSpec>
     registration;
 
 const tensorstore::internal_kvstore::UrlSchemeRegistration
-    url_scheme_registration{tensorstore::FileKeyValueStoreSpec::id,
-                            tensorstore::ParseFileUrl};
+    url_scheme_registration{
+        tensorstore::internal_file_kvstore::FileKeyValueStoreSpec::id,
+        tensorstore::internal_file_kvstore::ParseFileUrl};
+
+const tensorstore::internal::ContextResourceRegistration<
+    tensorstore::internal_file_kvstore::FileIoSyncResource>
+    file_io_sync_registration;
+
 }  // namespace

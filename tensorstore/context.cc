@@ -14,6 +14,8 @@
 
 #include "tensorstore/context.h"
 
+#include <cstdint>
+
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
@@ -305,6 +307,10 @@ class ResourceReference : public ResourceSpecImplBase {
  public:
   ResourceReference(const std::string& referent) : referent_(referent) {}
 
+  void EncodeCacheKey(std::string* out) const override {
+    internal::EncodeCacheKey(out, ResourceSpecImplBase::kReference, referent_);
+  }
+
   Result<ResourceImplStrongPtr> CreateResource(
       const internal::ContextResourceCreationContext& creation_context)
       override {
@@ -433,9 +439,6 @@ Result<ResourceSpecImplPtr> ResourceSpecFromJson(
     }
     impl.reset(new ResourceReference(*s));
   } else {
-    if (!j.is_object()) {
-      return internal_json::ExpectedError(j, "string or object");
-    }
     TENSORSTORE_ASSIGN_OR_RETURN(impl, provider.FromJson(j, options));
   }
   impl->provider_ = &provider;
@@ -462,7 +465,7 @@ Result<ResourceSpecImplPtr> ResourceSpecFromJson(
     Context::FromJsonOptions options) {
   auto& provider = GetProviderOrDie(provider_id);
   if (j.is_null()) {
-    return internal_json::ExpectedError(j, "string or object");
+    return internal_json::ExpectedError(j, "non-null value");
   }
   return ResourceSpecFromJson(provider, j, options);
 }
@@ -583,10 +586,15 @@ Result<ResourceImplStrongPtr> BuilderResourceSpec::CreateResource(
 
 ResourceSpecImplPtr BuilderResourceSpec::UnbindContext(
     const internal::ContextSpecBuilder& spec_builder) {
-  if (!underlying_spec_->key_.empty()) {
+  if (!underlying_spec_->key_.empty() &&
+      !underlying_spec_->provider_->config_only_) {
     return ResourceSpecImplPtr(new ResourceReference(underlying_spec_->key_));
   }
   return underlying_spec_->UnbindContext(spec_builder);
+}
+
+void BuilderResourceSpec::EncodeCacheKey(std::string* out) const {
+  underlying_spec_->EncodeCacheKey(out);
 }
 
 BuilderImpl::~BuilderImpl() {

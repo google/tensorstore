@@ -1007,30 +1007,6 @@ TEST(ArrayTest, Compare) {
                    std::numeric_limits<float>::quiet_NaN()));
 }
 
-TEST(ArrayTest, SameValue) {
-  EXPECT_TRUE(
-      AreArraysSameValueEqual(MakeArrayView<float>({{1, 2, 3}, {4, 5, 6}}),
-                              MakeArrayView<float>({{1, 2, 3}, {4, 5, 6}})));
-
-  EXPECT_TRUE(
-      AreArraysSameValueEqual(MakeArrayView<float>({{NAN, 2, 3}, {4, 5, 6}}),
-                              MakeArrayView<float>({{NAN, 2, 3}, {4, 5, 6}})));
-
-  EXPECT_FALSE(AreArraysSameValueEqual(
-      MakeArrayView<float>({{NAN, 2, +0.0}, {4, 5, 6}}),
-      MakeArrayView<float>({{NAN, 2, -0.0}, {4, 5, 6}})));
-
-  EXPECT_TRUE(AreArraysSameValueEqual(
-      MakeScalarArray<float>(std::numeric_limits<float>::quiet_NaN()),
-      MakeScalarArray<float>(std::numeric_limits<float>::signaling_NaN())));
-
-  EXPECT_TRUE(AreArraysSameValueEqual(
-      MakeScalarArray<std::complex<float>>(
-          std::numeric_limits<float>::quiet_NaN()),
-      MakeScalarArray<std::complex<float>>(
-          std::numeric_limits<float>::signaling_NaN())));
-}
-
 TEST(ArrayTest, Identical) {
   EXPECT_TRUE(
       AreArraysIdenticallyEqual(MakeArrayView<float>({{1, 2, 3}, {4, 5, 6}}),
@@ -1360,25 +1336,6 @@ TEST(IterateOverArrays, VoidReturn) {
       (ArrayIterateResult{true, 4}),
       IterateOverArrays(
           [&](const int* a, const int* b) { values.emplace_back(*a, *b); },
-          /*constraints=*/ContiguousLayoutOrder::c,
-          MakeArrayView({{1, 2}, {3, 4}}), MakeArrayView({{5, 6}, {7, 8}})));
-
-  const std::vector<std::pair<int, int>> expected_values{
-      {1, 5}, {2, 6}, {3, 7}, {4, 8}};
-  EXPECT_EQ(expected_values, values);
-}
-
-TEST(IterateOverArrays, VoidReturnStatus) {
-  std::vector<std::pair<int, int>> values;
-  absl::Status status;
-  EXPECT_EQ(
-      (ArrayIterateResult{true, 4}),
-      IterateOverArrays(
-          [&](const int* a, const int* b, absl::Status* status_ptr) {
-            values.emplace_back(*a, *b);
-            EXPECT_EQ(&status, status_ptr);
-          },
-          &status,
           /*constraints=*/ContiguousLayoutOrder::c,
           MakeArrayView({{1, 2}, {3, 4}}), MakeArrayView({{5, 6}, {7, 8}})));
 

@@ -36,7 +36,7 @@ namespace {
 struct ElementwiseOutputTransformNDIterator
     : public NDIterator::Base<ElementwiseOutputTransformNDIterator> {
   explicit ElementwiseOutputTransformNDIterator(
-      const NDIterable* output, ElementwiseClosure<2, absl::Status*> closure,
+      const NDIterable* output, ElementwiseClosure<2, void*> closure,
       NDIterable::IterationBufferKindLayoutView layout,
       ArenaAllocator<> allocator)
       : output_(span(&output, 1), layout, allocator),
@@ -60,7 +60,7 @@ struct ElementwiseOutputTransformNDIterator
 
   NDIteratorsWithManagedBuffers<1> output_;
   void* context_;
-  SpecializedElementwiseFunctionPointer<2, absl::Status*> elementwise_function_;
+  SpecializedElementwiseFunctionPointer<2, void*> elementwise_function_;
 };
 
 struct ElementwiseOutputTransformNDIterable
@@ -70,9 +70,10 @@ struct ElementwiseOutputTransformNDIterable
   using Base = NDIterablesWithManagedBuffers<
       std::array<NDIterable::Ptr, 1>,
       NDIterable::Base<ElementwiseOutputTransformNDIterable>>;
-  ElementwiseOutputTransformNDIterable(
-      NDIterable::Ptr output, DataType input_dtype,
-      ElementwiseClosure<2, absl::Status*> closure, ArenaAllocator<> allocator)
+  ElementwiseOutputTransformNDIterable(NDIterable::Ptr output,
+                                       DataType input_dtype,
+                                       ElementwiseClosure<2, void*> closure,
+                                       ArenaAllocator<> allocator)
       : Base{{{std::move(output)}}},
         input_dtype_(input_dtype),
         closure_(closure),
@@ -90,14 +91,14 @@ struct ElementwiseOutputTransformNDIterable
   }
 
   DataType input_dtype_;
-  ElementwiseClosure<2, absl::Status*> closure_;
+  ElementwiseClosure<2, void*> closure_;
   ArenaAllocator<> allocator_;
 };
 }  // namespace
 
 NDIterable::Ptr GetElementwiseOutputTransformNDIterable(
     NDIterable::Ptr output, DataType input_dtype,
-    ElementwiseClosure<2, absl::Status*> closure, Arena* arena) {
+    ElementwiseClosure<2, void*> closure, Arena* arena) {
   return MakeUniqueWithVirtualIntrusiveAllocator<
       ElementwiseOutputTransformNDIterable>(
       ArenaAllocator<>(arena), std::move(output), input_dtype, closure);

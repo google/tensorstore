@@ -327,14 +327,15 @@ TEST(MaskedArrayTest, StoreIfEqualToFillValue) {
   }
 }
 
-// Tests that `compare_to_fill_value_using_identical_equality==true` is
+// Tests that `fill_value_comparison_kind==EqualityComparisonKind::identical` is
 // correctly handled.
 TEST(MaskedArrayTest, CompareFillValueIdenticallyEqual) {
   auto fill_value =
       MakeScalarArray<float>(std::numeric_limits<float>::quiet_NaN());
   tensorstore::Box<> component_bounds;
   Spec spec(fill_value, component_bounds);
-  spec.compare_to_fill_value_using_identical_equality = true;
+  spec.fill_value_comparison_kind =
+      tensorstore::EqualityComparisonKind::identical;
   MaskedArray write_state(0);
   // Fully overwrite the portion within `component_bounds`.
   TestWrite(&write_state, spec, {},

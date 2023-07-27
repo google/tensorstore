@@ -26,6 +26,7 @@ namespace {
 
 using ::tensorstore::ComputeStrides;
 using ::tensorstore::ContiguousLayoutOrder;
+using ::tensorstore::GetContiguousOffset;
 using ::tensorstore::Index;
 using ::tensorstore::span;
 
@@ -62,6 +63,21 @@ TEST(ComputeStridesTest, FOrder) {
   ComputeStrides(ContiguousLayoutOrder::fortran, /*element_stride=*/1,
                  span<const Index>({3l, 4l, 5l}), strides);
   EXPECT_THAT(strides, ::testing::ElementsAre(1, 3, 12));
+}
+
+TEST(GetContiguousOffsetTest, Basic) {
+  EXPECT_EQ(3 * 11 + 4,
+            GetContiguousOffset<ContiguousLayoutOrder::c>({{7, 11}}, {{3, 4}}));
+  EXPECT_EQ(3 + 4 * 7, GetContiguousOffset<ContiguousLayoutOrder::fortran>(
+                           {{7, 11}}, {{3, 4}}));
+  EXPECT_EQ(
+      2 * (7 * 11) + 3 * 11 + 4,
+      GetContiguousOffset<ContiguousLayoutOrder::c>({{5, 7, 11}}, {{2, 3, 4}}));
+  EXPECT_EQ(2 + 5 * 3 + (5 * 7) * 4,
+            GetContiguousOffset<ContiguousLayoutOrder::fortran>({{5, 7, 11}},
+                                                                {{2, 3, 4}}));
+  EXPECT_EQ(0, GetContiguousOffset<ContiguousLayoutOrder::c>({}, {}));
+  EXPECT_EQ(0, GetContiguousOffset<ContiguousLayoutOrder::fortran>({}, {}));
 }
 
 }  // namespace

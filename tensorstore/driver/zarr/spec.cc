@@ -452,7 +452,7 @@ absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
         auto converted_fill_value,
         tensorstore::MakeCopy(std::move(broadcast_fill_value),
                               skip_repeated_elements, field.dtype));
-    if (!AreArraysSameValueEqual(converted_fill_value, fill_value)) {
+    if (!AreArraysIdenticallyEqual(converted_fill_value, fill_value)) {
       return absl::InvalidArgumentError(tensorstore::StrCat(
           "Invalid fill_value: schema requires fill value of ",
           converted_fill_value, ", but metadata specifies fill value of ",

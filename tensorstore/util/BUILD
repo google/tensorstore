@@ -353,13 +353,11 @@ tensorstore_cc_library(
     deps = [
         ":byte_strided_pointer",
         ":span",
-        ":status",
         "//tensorstore:contiguous_layout",
         "//tensorstore:index",
         "//tensorstore/internal:elementwise_function",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:inlined_vector",
-        "@com_google_absl//absl/status",
         "@com_google_absl//absl/utility",
     ],
 )

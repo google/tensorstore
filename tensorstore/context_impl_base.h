@@ -32,6 +32,7 @@
 #include "absl/synchronization/mutex.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/internal/attributes.h"
+#include "tensorstore/internal/cache_key/cache_key.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/tagged_ptr.h"
@@ -203,6 +204,8 @@ class ResourceProviderImplBase {
   /// representation, e.g. "cache_pool".
   std::string_view id_;
 
+  bool config_only_;
+
   /// Returns a non-null pointer to a new spec that may be used to construct a
   /// resource for this provider in its default state.
   virtual ResourceSpecImplPtr Default() const = 0;
@@ -255,6 +258,13 @@ class ResourceProviderImplBase {
 class ResourceOrSpecBase
     : public internal::AtomicReferenceCount<ResourceOrSpecBase> {
  public:
+  enum Kind : unsigned char {
+    kNull,
+    kExplicitSpec,
+    kReference,
+    kResource,
+  };
+  virtual void EncodeCacheKey(std::string* out) const = 0;
   virtual ~ResourceOrSpecBase();
 };
 
@@ -351,7 +361,6 @@ class ResourceImpl : public ResourceImplBase {
   template <typename... Arg>
   ResourceImpl(ResourceSpecImplPtr spec, Arg&&... arg)
       : ResourceImplBase(std::move(spec)), value_(std::forward<Arg>(arg)...) {}
-
   Resource value_;
 };
 
@@ -364,10 +373,27 @@ class ResourceProviderImpl : public ResourceProviderImplBase {
   template <typename... U>
   ResourceProviderImpl(U&&... arg) : traits_(std::forward<U>(arg)...) {
     id_ = Provider::id;
+    config_only_ = Traits::config_only;
   }
   using Spec = typename Traits::Spec;
   using Resource = typename Provider::Resource;
-  using ResourceImpl = internal_context::ResourceImpl<Provider>;
+  using ProviderResourceImpl = internal_context::ResourceImpl<Provider>;
+
+  class ResourceImpl : public ProviderResourceImpl {
+   public:
+    using ProviderResourceImpl::ProviderResourceImpl;
+
+    void EncodeCacheKey(std::string* out) const override {
+      if constexpr (Traits::config_only) {
+        internal::EncodeCacheKey(out, ResourceSpecImplBase::kResource,
+                                 this->value_);
+      } else {
+        internal::EncodeCacheKey(out, ResourceSpecImplBase::kResource,
+                                 reinterpret_cast<std::uintptr_t>(this));
+      }
+    }
+  };
+
   class SpecImpl : public ResourceSpecImplBase {
    public:
     template <typename... U>
@@ -401,6 +427,11 @@ class ResourceProviderImpl : public ResourceProviderImplBase {
           ->traits_.UnbindContext(static_cast<SpecImpl&>(*new_spec_impl).value_,
                                   spec_builder);
       return new_spec_impl;
+    }
+
+    void EncodeCacheKey(std::string* out) const override {
+      internal::EncodeCacheKey(out, ResourceSpecImplBase::kExplicitSpec,
+                               value_);
     }
 
     Spec value_;
@@ -583,6 +614,10 @@ struct ResourceJsonBinderImpl {
 [[nodiscard]] bool DecodeContextResourceOrSpec(
     serialization::DecodeSource& source, std::string_view provider_id,
     internal_context::ResourceOrSpecPtr& resource);
+
+/// Encodes the cache key
+void EncodeContextResourceCacheKey(std::string* out,
+                                   ResourceOrSpecTaggedPtr ptr);
 
 /// Direct serializer for non-null `ContextSpecImplPtr`.  This should normally
 /// be used via `IndirectPointerSerializer` or

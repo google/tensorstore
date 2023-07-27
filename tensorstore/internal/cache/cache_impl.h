@@ -76,6 +76,12 @@ class CacheImpl {
 
   CachePoolImpl* pool_;
 
+  /// Stores the pointer to `this`, cast to the `CacheType` specified in
+  /// `GetCache` when this cache was created.  This pointer needs to be stored
+  /// because the address may not equal `this` in the case that `CacheType` is a
+  /// sibling class rather than a subclass of `CacheImpl`.
+  void* user_ptr_;
+
   /// Specifies the `cache_type_` to be used along with `cache_identifier_` for
   /// looking up this cache in the `caches_` table of the cache pool.  This
   /// should be equal to, or a base class of, the actual dynamic type of `this`.
@@ -108,6 +114,8 @@ class CacheImpl {
   using CacheKey = std::pair<std::type_index, std::string_view>;
 
   CacheKey cache_key() const { return {*cache_type_, cache_identifier_}; }
+
+  friend class internal::CachePool;
 };
 
 class CachePoolImpl {
@@ -145,16 +153,29 @@ class Access {
   }
 };
 
+template <typename T>
+internal::Cache& GetCacheObject(T* p) {
+  if constexpr (std::is_base_of_v<internal::Cache, T>) {
+    return *p;
+  } else {
+    return p->cache();
+  }
+}
+
 struct StrongPtrTraitsCache {
   template <typename T>
   using pointer = T*;
 
-  template <typename U = internal::Cache>
+  template <typename U>
   static void increment(U* p) noexcept {
-    Access::StaticCast<CacheImpl>(p)->reference_count_.fetch_add(
-        1, std::memory_order_relaxed);
+    Access::StaticCast<CacheImpl>(&GetCacheObject(p))
+        ->reference_count_.fetch_add(1, std::memory_order_relaxed);
   }
   static void decrement(internal::Cache* p) noexcept;
+  template <typename U>
+  static void decrement(U* p) noexcept {
+    decrement(&GetCacheObject(p));
+  }
 };
 
 template <typename CacheType>

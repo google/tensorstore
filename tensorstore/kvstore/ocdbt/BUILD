@@ -202,7 +202,6 @@ tensorstore_cc_binary(
     srcs = ["dump_main.cc"],
     deps = [
         "//tensorstore/internal:data_copy_concurrency_resource",
-        "//tensorstore/internal:init_tensorstore",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:path",
         "//tensorstore/internal/cache:cache_pool_resource",
@@ -221,6 +220,7 @@ tensorstore_cc_binary(
         "//tensorstore/util:str_cat",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/flags:parse",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",

@@ -96,7 +96,7 @@ struct ResizeParameters {
 /// \param transform The existing transform.
 /// \param options Resolve options.
 Result<IndexTransform<>> ResolveBoundsFromMetadata(
-    DataCache* data_cache, const void* new_metadata,
+    DataCacheBase* data_cache, const void* new_metadata,
     std::size_t component_index, IndexTransform<> transform,
     ResolveBoundsOptions options);
 
@@ -126,10 +126,10 @@ Result<IndexTransform<>> ResolveBoundsFromMetadata(
 /// \remark Even in the case this function returns successfully, the request may
 ///     fail later due to concurrent modification of the stored metadata.
 Result<ResizeParameters> GetResizeParameters(
-    DataCache* data_cache, const void* metadata, size_t component_index,
-    IndexTransformView<> transform, span<const Index> inclusive_min,
-    span<const Index> exclusive_max, ResizeOptions options,
-    TransactionMode transaction_mode);
+    ChunkedDataCacheBase* data_cache, const void* metadata,
+    size_t component_index, IndexTransformView<> transform,
+    span<const Index> inclusive_min, span<const Index> exclusive_max,
+    ResizeOptions options, TransactionMode transaction_mode);
 
 }  // namespace internal_kvs_backed_chunk_driver
 }  // namespace tensorstore

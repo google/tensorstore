@@ -20,7 +20,6 @@
 #include <cstddef>
 #include <iosfwd>
 
-#include "absl/status/status.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/elementwise_function.h"
@@ -188,7 +187,7 @@ namespace internal {
 /// \tparam Arity The arity of the element-wise function, equal to the number of
 ///     arrays over which to iterate simultaneously.
 /// \param closure A representation of the type-erased element-wise function.
-/// \param status Status pointer to pass to the elementwise function.
+/// \param arg Extra argument to pass to the elementwise function.
 /// \param shape The shape of the multi-dimensional array.
 /// \param pointers The base pointers for each array.
 /// \param strides The array of strides for each pointer in `pointers`.
@@ -198,7 +197,7 @@ namespace internal {
 ///     element types of the arrays.
 template <std::size_t Arity>
 ArrayIterateResult IterateOverStridedLayouts(
-    ElementwiseClosure<Arity, absl::Status*> closure, absl::Status* status,
+    ElementwiseClosure<Arity, void*> closure, void* arg,
     span<const Index> shape,
     std::array<ByteStridedPointer<void>, Arity> pointers,
     std::array<const Index*, Arity> strides, IterationConstraints constraints,

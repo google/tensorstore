@@ -45,8 +45,8 @@ bazel run -c opt //tensorstore/internal/benchmark:kvstore_duration
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
+#include "absl/flags/parse.h"
 #include "tensorstore/internal/benchmark/metric_utils.h"
-#include "tensorstore/internal/init_tensorstore.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/metrics/value.h"
 #include "tensorstore/internal/path.h"
@@ -199,7 +199,7 @@ void Run() {
 }  // namespace tensorstore
 
 int main(int argc, char** argv) {
-  tensorstore::InitTensorstore(&argc, &argv);
+  absl::ParseCommandLine(argc, argv);  // InitTensorstore
   tensorstore::Run();
   return 0;
 }

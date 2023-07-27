@@ -120,7 +120,7 @@ class MaskedArrayWriteTester : public MaskedArrayTester {
                      TransformedArray<const T> source, CopyFunc&& copy_func) {
     ElementCopyFunction copy_function =
         SimpleElementwiseFunction<std::remove_reference_t<CopyFunc>(const T, T),
-                                  absl::Status*>();
+                                  void*>();
     auto result = WriteToMaskedArray(dest_.byte_strided_origin_pointer().get(),
                                      &mask_, dest_.domain(), dest_transform,
                                      source, {&copy_function, &copy_func});
@@ -130,9 +130,8 @@ class MaskedArrayWriteTester : public MaskedArrayTester {
 
   absl::Status Write(IndexTransformView<> dest_transform,
                      TransformedArray<const T> source) {
-    return Write(
-        dest_transform, source,
-        [](const T* source, T* dest, absl::Status*) { *dest = *source; });
+    return Write(dest_transform, source,
+                 [](const T* source, T* dest, void*) { *dest = *source; });
   }
 
   void Rebase(ArrayView<const T> source) {
@@ -176,10 +175,9 @@ TEST(WriteToMaskedArrayTest, RankZero) {
 TEST(WriteToMaskedArrayTest, RankZeroError) {
   MaskedArrayWriteTester<int> tester{BoxView<>(0)};
   EXPECT_THAT(
-      tester.Write(tester.transform(), MakeScalarArray(5),
-                   [](const int* source, int* dest, absl::Status* status) {
-                     return false;
-                   }),
+      tester.Write(
+          tester.transform(), MakeScalarArray(5),
+          [](const int* source, int* dest, void* status) { return false; }),
       MatchesStatus(absl::StatusCode::kUnknown, "Data conversion failure."));
 
   EXPECT_EQ(false, tester.was_modified());
@@ -412,7 +410,7 @@ TEST(WriteToMaskedArrayTest, RankTwoPartialCopy) {
               {3, 4},
               {5, 6},
           }),
-          [](const int* source, int* dest, absl::Status* status) {
+          [](const int* source, int* dest, void* arg) {
             if (*source == 4) return false;
             *dest = *source;
             return true;
@@ -521,7 +519,7 @@ TEST(WriteToMaskedArrayTest, RankOnePartialCopyDefaultError) {
           ChainResult(tester.transform(), Dims(0).TranslateSizedInterval(2, 3))
               .value(),
           MakeArray({1, 2, 3}),
-          [](const int* source, int* dest, absl::Status* status) {
+          [](const int* source, int* dest, void* arg) {
             if (*source == 2) return false;
             *dest = *source;
             return true;
@@ -537,20 +535,20 @@ TEST(WriteToMaskedArrayTest, RankOnePartialCopyDefaultError) {
 
 TEST(WriteToMaskedArrayTest, RankOnePartialCopyCustomError) {
   MaskedArrayWriteTester<int> tester{BoxView({1}, {5})};
-  EXPECT_THAT(
-      tester.Write(
-          ChainResult(tester.transform(), Dims(0).TranslateSizedInterval(2, 3))
-              .value(),
-          MakeArray({1, 2, 3}),
-          [](const int* source, int* dest, absl::Status* status) {
-            if (*source == 2) {
-              *status = absl::UnknownError("My custom error");
-              return false;
-            }
-            *dest = *source;
-            return true;
-          }),
-      MatchesStatus(absl::StatusCode::kUnknown, "My custom error"));
+  EXPECT_THAT(tester.Write(ChainResult(tester.transform(),
+                                       Dims(0).TranslateSizedInterval(2, 3))
+                               .value(),
+                           MakeArray({1, 2, 3}),
+                           [](const int* source, int* dest, void* arg) {
+                             auto* status = static_cast<absl::Status*>(arg);
+                             if (*source == 2) {
+                               *status = absl::UnknownError("My custom error");
+                               return false;
+                             }
+                             *dest = *source;
+                             return true;
+                           }),
+              MatchesStatus(absl::StatusCode::kUnknown, "My custom error"));
 
   EXPECT_EQ(true, tester.was_modified());
   EXPECT_EQ(1, tester.num_masked_elements());

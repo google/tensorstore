@@ -25,7 +25,7 @@ namespace tensorstore {
 
 template <typename From, typename To>
 struct ConvertDataType {
-  void operator()(const From* from, To* to, absl::Status* status) const {
+  void operator()(const From* from, To* to, void* arg) const {
     *to = static_cast<To>(*from);
   }
 };
@@ -123,10 +123,10 @@ std::enable_if_t<((DataTypeConversionTraits<From, To>::flags &
                     DataTypeConversionFlags::kCanReinterpretCast)) ==
                       DataTypeConversionFlags::kSupported &&
                   !std::is_same_v<From, To>),
-                 internal::ElementwiseFunction<2, absl::Status*>>
+                 internal::ElementwiseFunction<2, void*>>
 GetConvertFunction() {
   return internal::SimpleElementwiseFunction<
-      ConvertDataType<From, To>(From, const To), absl::Status*>();
+      ConvertDataType<From, To>(From, const To), void*>();
 }
 
 template <typename From, typename To>
@@ -135,7 +135,7 @@ std::enable_if_t<((DataTypeConversionTraits<From, To>::flags &
                     DataTypeConversionFlags::kCanReinterpretCast)) !=
                       DataTypeConversionFlags::kSupported ||
                   std::is_same_v<From, To>),
-                 internal::ElementwiseFunction<2, absl::Status*>>
+                 internal::ElementwiseFunction<2, void*>>
 GetConvertFunction() {
   return {};
 }

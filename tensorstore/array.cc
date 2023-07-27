@@ -34,16 +34,54 @@
 namespace tensorstore {
 namespace internal_array {
 
-bool CompareArraysEqual(
-    const ArrayView<const void, dynamic_rank, zero_origin>& a,
-    const ArrayView<const void, dynamic_rank, zero_origin>& b) {
+namespace {
+template <ArrayOriginKind OKind>
+bool CompareArraysEqualImpl(const ArrayView<const void, dynamic_rank, OKind>& a,
+                            const ArrayView<const void, dynamic_rank, OKind>& b,
+                            EqualityComparisonKind comparison_kind) {
   if (a.dtype() != b.dtype()) return false;
-  if (!internal::RangesEqual(a.shape(), b.shape())) return false;
-  return internal::IterateOverArrays({&a.dtype()->compare_equal, nullptr},
+  const auto& funcs =
+      a.dtype()->compare_equal[static_cast<size_t>(comparison_kind)];
+  if (IsBroadcastScalar(a)) {
+    return internal::IterateOverArrays(
+               {&funcs.array_scalar, nullptr},
+               /*status=*/
+               reinterpret_cast<absl ::Status*>(
+                   const_cast<void*>(a.byte_strided_origin_pointer().get())),
+               /*constraints=*/skip_repeated_elements, b)
+        .success;
+  }
+  if (IsBroadcastScalar(b)) {
+    return internal::IterateOverArrays(
+               {&funcs.array_scalar, nullptr},
+               /*status=*/
+               reinterpret_cast<absl ::Status*>(
+                   const_cast<void*>(b.byte_strided_origin_pointer().get())),
+               /*constraints=*/skip_repeated_elements, a)
+        .success;
+  }
+  return internal::IterateOverArrays({&funcs.array_array, nullptr},
                                      /*status=*/nullptr,
                                      /*constraints=*/skip_repeated_elements, a,
                                      b)
       .success;
+}
+}  // namespace
+
+bool CompareArraysEqual(
+    const ArrayView<const void, dynamic_rank, zero_origin>& a,
+    const ArrayView<const void, dynamic_rank, zero_origin>& b,
+    EqualityComparisonKind comparison_kind) {
+  if (!internal::RangesEqual(a.shape(), b.shape())) return false;
+  return CompareArraysEqualImpl<zero_origin>(a, b, comparison_kind);
+}
+
+bool CompareArraysEqual(
+    const ArrayView<const void, dynamic_rank, offset_origin>& a,
+    const ArrayView<const void, dynamic_rank, offset_origin>& b,
+    EqualityComparisonKind comparison_kind) {
+  if (a.domain() != b.domain()) return false;
+  return CompareArraysEqualImpl<offset_origin>(a, b, comparison_kind);
 }
 
 void CopyArrayImplementation(
@@ -70,18 +108,6 @@ absl::Status CopyConvertedArrayImplementation(
     return internal::GetElementCopyErrorStatus(std::move(status));
   }
   return status;
-}
-
-bool CompareArraysEqual(
-    const ArrayView<const void, dynamic_rank, offset_origin>& a,
-    const ArrayView<const void, dynamic_rank, offset_origin>& b) {
-  if (a.dtype() != b.dtype()) return false;
-  if (a.domain() != b.domain()) return false;
-  return internal::IterateOverArrays({&a.dtype()->compare_equal, nullptr},
-                                     /*status=*/nullptr,
-                                     /*constraints=*/skip_repeated_elements, a,
-                                     b)
-      .success;
 }
 
 void PrintArrayDimension(
@@ -313,28 +339,6 @@ SharedArray<const void> UnbroadcastArray(
   return new_array;
 }
 
-bool AreArraysSameValueEqual(const OffsetArrayView<const void>& a,
-                             const OffsetArrayView<const void>& b) {
-  if (a.dtype() != b.dtype()) return false;
-  if (a.domain() != b.domain()) return false;
-  return internal::IterateOverArrays({&a.dtype()->compare_same_value, nullptr},
-                                     /*status=*/nullptr,
-                                     /*constraints=*/skip_repeated_elements, a,
-                                     b)
-      .success;
-}
-
-bool AreArraysIdenticallyEqual(const OffsetArrayView<const void>& a,
-                               const OffsetArrayView<const void>& b) {
-  if (a.dtype() != b.dtype()) return false;
-  if (a.domain() != b.domain()) return false;
-  return internal::IterateOverArrays({&a.dtype()->compare_identical, nullptr},
-                                     /*status=*/nullptr,
-                                     /*constraints=*/skip_repeated_elements, a,
-                                     b)
-      .success;
-}
-
 namespace internal_array {
 
 bool EncodeArray(serialization::EncodeSink& sink,
@@ -366,7 +370,7 @@ bool EncodeArray(serialization::EncodeSink& sink,
                                                          array.dtype().id())]
                    .write_native_endian,
               &sink.writer()},
-             /*status=*/nullptr, {c_order, skip_repeated_elements}, array)
+             /*arg=*/nullptr, {c_order, skip_repeated_elements}, array)
       .success;
 }
 
@@ -425,7 +429,7 @@ bool DecodeArray<OriginKind>::Decode(
                                                          array.dtype().id())]
                    .read_native_endian,
               &source.reader()},
-             /*status=*/nullptr, {c_order, skip_repeated_elements}, array)
+             /*arg=*/nullptr, {c_order, skip_repeated_elements}, array)
       .success;
 }
 

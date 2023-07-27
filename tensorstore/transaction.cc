@@ -37,7 +37,15 @@ TransactionState::Node::Node(void* associated_data)
     : associated_data_(associated_data) {}
 
 std::string TransactionState::Node::Describe() { return {}; }
-TransactionState::Node::~Node() = default;
+TransactionState::Node::~Node() {
+#ifndef NDEBUG
+  auto node_commit_state = node_commit_state_.load();
+  assert(node_commit_state == 0 ||
+         node_commit_state == (kRegister | kAbort | kAbortDone) ||
+         node_commit_state == (kRegister | kPrepareForCommit | kPrepareDone |
+                               kReadyForCommit | kCommit | kCommitDone));
+#endif
+}
 
 void TransactionState::NoMoreCommitReferences() {
   UniqueWriterLock lock(mutex_);
@@ -194,6 +202,7 @@ void TransactionState::ExecuteAbort() {
     // Save `next` node before removing the current node.
     next = Tree::Traverse(*node, Tree::kRight);
     nodes_.Remove(*node);
+    assert(node->node_commit_state_.fetch_or(Node::kAbort) == Node::kRegister);
     node->Abort();
     ++count;
   }
@@ -258,6 +267,8 @@ void TransactionState::ContinuePrepareForCommit(Node* node,
     }
     waiting_for_prepare_done_.store(true, std::memory_order_relaxed);
     nodes_pending_commit_.fetch_add(1, std::memory_order_relaxed);
+    assert(node->node_commit_state_.fetch_or(Node::kPrepareForCommit) ==
+           Node::kRegister);
     node->PrepareForCommit();
     if (waiting_for_prepare_done_.exchange(false, std::memory_order_acq_rel)) {
       // `node->PrepareDone` has not yet been called.  `PrepareDone` will
@@ -277,7 +288,7 @@ void TransactionState::DecrementNodesPendingReadyForCommit() {
   // Current phase ready to be committed.
 
   // Ensure the transaction state is not freed until this method completes.  The
-  // call the `node->Commit()` below may cause `node` to be freed, which might
+  // call to `node->Commit()` below may cause `node` to be freed, which might
   // otherwise hold the last reference to `this`.
   WeakPtrTraits::increment(this);
   Node* node = nodes_.ExtremeNode(Tree::kLeft);
@@ -297,6 +308,10 @@ void TransactionState::DecrementNodesPendingReadyForCommit() {
     // commit starts since that avoids the need for locks.
     nodes_.Remove(*node);
     ++count;
+    assert((node->node_commit_state_.fetch_or(Node::kCommit) &
+            ~Node::kCommitDone) ==
+           (Node::kRegister | Node::kPrepareForCommit | Node::kPrepareDone |
+            Node::kReadyForCommit));
     node->Commit();
     if (!next || next->phase() != current_phase) break;
     node = next;
@@ -408,6 +423,7 @@ absl::Status TransactionState::Node::Register() {
       },
       [&] { return this; });
   intrusive_ptr_increment(this);
+  assert(node_commit_state_.fetch_or(kRegister) == 0);
   return absl::OkStatus();
 }
 
@@ -436,6 +452,7 @@ TransactionState::GetOrCreateMultiPhaseNode(
                 node->SetTransaction(*this);
                 node->phase_ = 0;
                 intrusive_ptr_increment(node);
+                assert(node->node_commit_state_.fetch_or(Node::kRegister) == 0);
                 return node;
               })
           .first);
@@ -474,6 +491,8 @@ void TransactionState::NoMoreOpenReferences() {
 TransactionState::~TransactionState() = default;
 
 void TransactionState::Node::PrepareDone() {
+  assert((node_commit_state_.fetch_or(kPrepareDone) & ~kReadyForCommit) ==
+         (Node::kRegister | kPrepareForCommit));
   auto& transaction = *this->transaction();
   if (transaction.waiting_for_prepare_done_.exchange(
           false, std::memory_order_acq_rel)) {
@@ -485,11 +504,18 @@ void TransactionState::Node::PrepareDone() {
 }
 
 void TransactionState::Node::ReadyForCommit() {
+  assert((node_commit_state_.fetch_or(kReadyForCommit) & ~kPrepareDone) ==
+         (kRegister | kPrepareForCommit));
   this->transaction()->DecrementNodesPendingReadyForCommit();
 }
 
 void TransactionState::Node::CommitDone(size_t next_phase) {
+  assert((node_commit_state_.fetch_or(kCommitDone) & ~kCommit) ==
+         (kRegister | kPrepareForCommit | kPrepareDone | kReadyForCommit));
   if (next_phase) {
+#ifndef NDEBUG
+    node_commit_state_.store(kRegister);
+#endif
     auto& transaction = *this->transaction();
     assert(!transaction.atomic());
     assert(next_phase > this->phase_);
@@ -512,6 +538,7 @@ void TransactionState::Node::CommitDone(size_t next_phase) {
 void TransactionState::Node::Abort() { AbortDone(); }
 
 void TransactionState::Node::AbortDone() {
+  assert(node_commit_state_.fetch_or(kAbortDone) == (kRegister | kAbort));
   transaction()->DecrementNodesPendingAbort(1);
   intrusive_ptr_decrement(this);
 }

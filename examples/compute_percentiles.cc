@@ -36,12 +36,12 @@
 #include "tensorstore/context.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
-#include "tensorstore/examples/data_type_invoker.h"
+#include "examples/data_type_invoker.h"
+#include "absl/flags/parse.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/transformed_array.h"
-#include "tensorstore/internal/init_tensorstore.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/progress.h"
@@ -471,7 +471,7 @@ ABSL_FLAG(Quantiles, quantiles, std::vector<double>({.1, .5, .9}), "Quantiles");
 ABSL_FLAG(size_t, radius, 10, "Radius");
 
 int main(int argc, char** argv) {
-  tensorstore::InitTensorstore(&argc, &argv);
+  absl::ParseCommandLine(argc, argv);  // InitTensorstore
 
   std::cout << "Flags: " << std::endl;
   std::cout << "  --input_spec="

@@ -123,6 +123,22 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "chunk_grid_specification",
+    srcs = ["chunk_grid_specification.cc"],
+    hdrs = ["chunk_grid_specification.h"],
+    deps = [
+        ":async_write_array",
+        "//tensorstore:array",
+        "//tensorstore:box",
+        "//tensorstore:chunk_layout",
+        "//tensorstore:index",
+        "//tensorstore/index_space:index_transform",
+        "//tensorstore/internal/cache",
+        "@com_google_absl//absl/container:inlined_vector",
+    ],
+)
+
+tensorstore_cc_library(
     name = "compressed_pair",
     hdrs = ["compressed_pair.h"],
 )
@@ -148,6 +164,7 @@ tensorstore_cc_library(
         ":thread_pool",
         ":type_traits",
         "//tensorstore:context",
+        "//tensorstore/internal/cache_key",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/util:executor",
@@ -386,6 +403,7 @@ tensorstore_cc_library(
         "//tensorstore/serialization:riegeli_delimited",
         "//tensorstore/util:endian",
         "//tensorstore/util:status",
+        "//tensorstore/util:str_cat",
         "//tensorstore/util:utf8_string",
         "@com_google_absl//absl/status",
     ],
@@ -625,13 +643,6 @@ tensorstore_cc_library(
     testonly = 1,
     hdrs = ["half_gtest.h"],
     deps = ["@net_sourceforge_half//:half"],
-)
-
-tensorstore_cc_library(
-    name = "init_tensorstore",
-    srcs = ["init_tensorstore.cc"],
-    hdrs = ["init_tensorstore.h"],
-    deps = ["@com_google_absl//absl/flags:parse"],
 )
 
 tensorstore_cc_library(
@@ -1592,6 +1603,7 @@ tensorstore_cc_library(
     hdrs = ["retries_context_resource.h"],
     deps = [
         "//tensorstore:context",
+        "//tensorstore/internal/cache_key",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:absl_time",
         "//tensorstore/internal/json_binding:bindable",
@@ -2014,5 +2026,48 @@ tensorstore_cc_test(
     deps = [
         ":uri_utils",
         "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "array_endian_riegeli_codec",
+    srcs = ["array_endian_riegeli_codec.cc"],
+    hdrs = ["array_endian_riegeli_codec.h"],
+    deps = [
+        ":unaligned_data_type_functions",
+        "//tensorstore:array",
+        "//tensorstore:contiguous_layout",
+        "//tensorstore:index",
+        "//tensorstore/util:endian",
+        "//tensorstore/util:span",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_riegeli//riegeli/bytes:copy_all",
+        "@com_google_riegeli//riegeli/bytes:limiting_reader",
+        "@com_google_riegeli//riegeli/bytes:reader",
+        "@com_google_riegeli//riegeli/bytes:writer",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "array_endian_riegeli_codec_test",
+    size = "small",
+    srcs = ["array_endian_riegeli_codec_test.cc"],
+    deps = [
+        ":array_endian_riegeli_codec",
+        ":flat_cord_builder",
+        "//tensorstore:array",
+        "//tensorstore:contiguous_layout",
+        "//tensorstore/util:endian",
+        "//tensorstore/util:result",
+        "//tensorstore/util:span",
+        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/strings:cord_test_helpers",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_riegeli//riegeli/bytes:cord_reader",
+        "@com_google_riegeli//riegeli/bytes:cord_writer",
+        "@com_google_riegeli//riegeli/bytes:string_reader",
+        "@com_google_riegeli//riegeli/zlib:zlib_reader",
+        "@com_google_riegeli//riegeli/zlib:zlib_writer",
     ],
 )

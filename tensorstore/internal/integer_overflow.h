@@ -76,6 +76,15 @@ inline AccumType InnerProduct(std::ptrdiff_t n, const T0* a, const T1* b) {
   }
   return sum;
 }
+template <ptrdiff_t N, typename AccumType, typename T0, typename T1>
+inline AccumType InnerProduct(const T0* a, const T1* b) {
+  AccumType sum = 0;
+  for (std::ptrdiff_t i = 0; i < N; ++i) {
+    sum = Add(sum, Multiply(static_cast<AccumType>(a[i]),
+                            static_cast<AccumType>(b[i])));
+  }
+  return sum;
+}
 
 }  // namespace wrap_on_overflow
 

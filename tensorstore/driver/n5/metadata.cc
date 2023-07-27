@@ -17,19 +17,17 @@
 #include <optional>
 
 #include "absl/algorithm/container.h"
-#include "absl/base/internal/endian.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_join.h"
 #include "riegeli/bytes/cord_reader.h"
 #include "riegeli/bytes/cord_writer.h"
-#include "riegeli/bytes/read_all.h"
 #include "riegeli/bytes/reader.h"
-#include "riegeli/bytes/write.h"
 #include "riegeli/bytes/writer.h"
+#include "riegeli/endian/endian_reading.h"
+#include "riegeli/endian/endian_writing.h"
 #include "tensorstore/codec_spec_registry.h"
 #include "tensorstore/index_space/index_domain_builder.h"
-#include "tensorstore/internal/data_type_endian_conversion.h"
-#include "tensorstore/internal/flat_cord_builder.h"
+#include "tensorstore/internal/array_endian_riegeli_codec.h"
 #include "tensorstore/internal/json/same.h"
 #include "tensorstore/internal/json_binding/data_type.h"
 #include "tensorstore/internal/json_binding/dimension_indexed.h"
@@ -198,17 +196,20 @@ Result<SharedArray<const void>> DecodeChunk(const N5Metadata& metadata,
   // the 2GiB limit, although we do implicitly check that the decoded array data
   // within the chunk is within the 2GiB limit due to the checks on the block
   // size.  Determine if this is an important limit.
-  SharedArray<const void> array;
-  array.layout() = metadata.chunk_layout;
   const std::size_t header_size = GetChunkHeaderSize(metadata);
   if (buffer.size() < header_size) {
     return absl::InvalidArgumentError(
         tensorstore::StrCat("Expected header of length ", header_size,
                             ", but chunk has size ", buffer.size()));
   }
-  auto header_cord = buffer.Subcord(0, header_size);
-  auto header = header_cord.Flatten();
-  std::uint16_t mode = absl::big_endian::Load16(header.data());
+  std::unique_ptr<riegeli::Reader> reader =
+      std::make_unique<riegeli::CordReader<>>(&buffer);
+  uint16_t mode;
+  uint16_t num_dims;
+  if (!riegeli::ReadBigEndian16(*reader, mode) ||
+      !riegeli::ReadBigEndian16(*reader, num_dims)) {
+    return reader->status();
+  }
   switch (mode) {
     case 0:  // default
       break;
@@ -218,111 +219,85 @@ Result<SharedArray<const void>> DecodeChunk(const N5Metadata& metadata,
       return absl::InvalidArgumentError(
           tensorstore::StrCat("Unexpected N5 chunk mode: ", mode));
   }
-  std::uint16_t num_dims = absl::big_endian::Load16(header.data() + 2);
   if (num_dims != metadata.rank) {
     return absl::InvalidArgumentError(
         tensorstore::StrCat("Received chunk with ", num_dims,
                             " dimensions but expected ", metadata.rank));
   }
-  Array<const void, dynamic_rank(internal::kNumInlinedDims)> encoded_array;
-  encoded_array.layout().set_rank(metadata.rank);
+  Index encoded_shape_buffer[kMaxRank];
+  span<Index> encoded_shape(&encoded_shape_buffer[0], num_dims);
   for (DimensionIndex i = 0; i < num_dims; ++i) {
-    encoded_array.shape()[i] =
-        absl::big_endian::Load32(header.data() + 4 + i * 4);
+    uint32_t size;
+    if (!riegeli::ReadBigEndian32(*reader, size)) {
+      return reader->status();
+    }
+    encoded_shape[i] = size;
   }
   for (DimensionIndex i = 0; i < num_dims; ++i) {
-    if (encoded_array.shape()[i] > metadata.chunk_layout.shape()[i]) {
+    if (encoded_shape[i] > metadata.chunk_layout.shape()[i]) {
       return absl::InvalidArgumentError(tensorstore::StrCat(
-          "Received chunk of size ", encoded_array.shape(),
+          "Received chunk of size ", encoded_shape,
           " which exceeds blockSize of ", metadata.chunk_layout.shape()));
     }
   }
-  size_t decoded_offset = header_size;
   if (metadata.compressor) {
-    // TODO(jbms): Change compressor interface to allow the output size to be
-    // specified.
-    absl::Cord decoded;
-    std::unique_ptr<riegeli::Reader> reader =
-        std::make_unique<riegeli::CordReader<absl::Cord>>(
-            buffer.Subcord(header_size, buffer.size() - header_size));
     reader = metadata.compressor->GetReader(std::move(reader),
                                             metadata.dtype.size());
-    TENSORSTORE_RETURN_IF_ERROR(riegeli::ReadAll(std::move(reader), decoded));
-    buffer = std::move(decoded);
-    decoded_offset = 0;
   }
-  const std::size_t expected_data_size =
-      encoded_array.num_elements() * metadata.dtype.size();
-  if (buffer.size() - decoded_offset != expected_data_size) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Uncompressed chunk data has length ", buffer.size() - decoded_offset,
-        ", but expected length to be ", expected_data_size));
+  SharedArray<const void> decoded_array;
+  if (absl::c_equal(encoded_shape, metadata.chunk_layout.shape())) {
+    // Decode full array.
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        decoded_array,
+        internal::DecodeArrayEndian(*reader, metadata.dtype,
+                                    metadata.chunk_layout.shape(), endian::big,
+                                    fortran_order));
+  } else {
+    auto array = AllocateArray(metadata.chunk_layout.shape(), fortran_order,
+                               value_init, metadata.dtype);
+    ArrayView<void> partial_decoded_array(
+        array.element_pointer(),
+        StridedLayoutView<>{encoded_shape, array.byte_strides()});
+    TENSORSTORE_RETURN_IF_ERROR(internal::DecodeArrayEndian(
+        *reader, endian::big, fortran_order, partial_decoded_array));
+    decoded_array = std::move(array);
   }
-  // TODO(jbms): Try to avoid unnecessary copies in encoding and decoding.  This
-  // applies to other chunk drivers as well.
-  if (absl::c_equal(encoded_array.shape(), metadata.chunk_layout.shape())) {
-    // Chunk is full size.  Attempt to decode in place.  Transfer ownership of
-    // the existing `buffer` string into `decoded_array`.
-    auto decoded_array =
-        internal::TryViewCordAsArray(buffer, decoded_offset, metadata.dtype,
-                                     endian::big, metadata.chunk_layout);
-    if (decoded_array.valid()) return {std::in_place, decoded_array};
+  if (!reader->VerifyEndAndClose()) {
+    return reader->status();
   }
-  // Partial chunk, must copy.
-  auto flat_buffer = buffer.Flatten();
-  ComputeStrides(fortran_order, metadata.dtype.size(), encoded_array.shape(),
-                 encoded_array.byte_strides());
-  encoded_array.element_pointer() = ElementPointer<const void>(
-      static_cast<const void*>(flat_buffer.data() + decoded_offset),
-      metadata.dtype);
-  SharedArray<void> full_decoded_array(
-      internal::AllocateAndConstructSharedElements(
-          metadata.chunk_layout.num_elements(), value_init, metadata.dtype),
-      metadata.chunk_layout);
-  ArrayView<void> partial_decoded_array(
-      full_decoded_array.element_pointer(),
-      StridedLayoutView<>{encoded_array.shape(),
-                          metadata.chunk_layout.byte_strides()});
-  internal::DecodeArray(encoded_array, endian::big, partial_decoded_array);
-  return full_decoded_array;
+  return decoded_array;
 }
 
-Result<absl::Cord> EncodeChunk(span<const Index> chunk_indices,
-                               const N5Metadata& metadata,
-                               ArrayView<const void> array) {
+Result<absl::Cord> EncodeChunk(const N5Metadata& metadata,
+                               SharedArrayView<const void> array) {
   assert(absl::c_equal(metadata.chunk_layout.shape(), array.shape()));
-  assert(chunk_indices.size() == array.rank());
-  // Always write chunks as full size, to avoid race conditions or data loss
-  // in the event of a concurrent resize.
-  internal::FlatCordBuilder encoded(array.num_elements() *
-                                    metadata.dtype.size());
-  Array<void, dynamic_rank(internal::kNumInlinedDims)> encoded_array(
-      {static_cast<void*>(encoded.data()), metadata.dtype}, array.shape(),
-      fortran_order);
-  internal::EncodeArray(array, encoded_array, endian::big);
-  auto encoded_cord = std::move(encoded).Build();
+  absl::Cord encoded;
+  std::unique_ptr<riegeli::Writer> writer =
+      std::make_unique<riegeli::CordWriter<>>(&encoded);
+
+  // Write header
+  // mode: 0x0 = default
+  if (!riegeli::WriteBigEndian16(0, *writer) ||
+      !riegeli::WriteBigEndian16(metadata.rank, *writer)) {
+    return writer->status();
+  }
+  for (DimensionIndex i = 0; i < array.rank(); ++i) {
+    if (!riegeli::WriteBigEndian32(array.shape()[i], *writer)) {
+      return writer->status();
+    }
+  }
   if (metadata.compressor) {
-    absl::Cord compressed;
-    std::unique_ptr<riegeli::Writer> writer =
-        std::make_unique<riegeli::CordWriter<absl::Cord*>>(&compressed);
     writer = metadata.compressor->GetWriter(std::move(writer),
                                             metadata.dtype.size());
-    TENSORSTORE_RETURN_IF_ERROR(
-        riegeli::Write(std::move(encoded_cord), std::move(writer)));
-    encoded_cord = std::move(compressed);
   }
-  internal::FlatCordBuilder header(GetChunkHeaderSize(metadata));
-  // Write header
-  absl::big_endian::Store16(header.data(), 0);  // mode: 0x0 = default
-  const DimensionIndex rank = metadata.rank;
-  absl::big_endian::Store16(header.data() + 2, rank);
-  for (DimensionIndex i = 0; i < rank; ++i) {
-    absl::big_endian::Store32(header.data() + 4 + i * 4,
-                              encoded_array.shape()[i]);
+  // Always write chunks as full size, to avoid race conditions or data loss
+  // in the event of a concurrent resize.
+  if (!internal::EncodeArrayEndian(array, endian::big, fortran_order,
+                                   *writer)) {
+    return writer->status();
   }
-  auto full_cord = std::move(header).Build();
-  full_cord.Append(std::move(encoded_cord));
-  return full_cord;
+  if (!writer->Close()) return writer->status();
+  return encoded;
 }
 
 absl::Status ValidateMetadata(const N5Metadata& metadata,

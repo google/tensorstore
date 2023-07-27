@@ -38,7 +38,7 @@ class ElementwiseInputTransformNDIterator
  public:
   explicit ElementwiseInputTransformNDIterator(
       span<const NDIterable::Ptr, Arity> inputs,
-      ElementwiseClosure<Arity + 1, absl::Status*> closure,
+      ElementwiseClosure<Arity + 1, void*> closure,
       NDIterable::IterationBufferKindLayoutView layout,
       ArenaAllocator<> allocator)
       : inputs_(inputs, layout, allocator),
@@ -55,14 +55,13 @@ class ElementwiseInputTransformNDIterator
     if (!inputs_.GetBlock(indices, block_size, status)) return 0;
     return InvokeElementwiseFunction<Arity>(
         elementwise_function_, context_, block_size, inputs_.block_pointers(),
-        *pointer, status);
+        *pointer, static_cast<void*>(status));
   }
 
  private:
   NDIteratorsWithManagedBuffers<Arity> inputs_;
   void* context_;
-  SpecializedElementwiseFunctionPointer<Arity + 1, absl::Status*>
-      elementwise_function_;
+  SpecializedElementwiseFunctionPointer<Arity + 1, void*> elementwise_function_;
 };
 
 template <std::size_t Arity>
@@ -77,8 +76,7 @@ class ElementwiseInputTransformNDIterable
  public:
   ElementwiseInputTransformNDIterable(
       std::array<NDIterable::Ptr, Arity> input_iterables, DataType output_dtype,
-      ElementwiseClosure<Arity + 1, absl::Status*> closure,
-      ArenaAllocator<> allocator)
+      ElementwiseClosure<Arity + 1, void*> closure, ArenaAllocator<> allocator)
       : Base{std::move(input_iterables)},
         output_dtype_(output_dtype),
         closure_(closure),
@@ -98,7 +96,7 @@ class ElementwiseInputTransformNDIterable
  private:
   std::array<NDIterable::Ptr, Arity> inputs_;
   DataType output_dtype_;
-  ElementwiseClosure<Arity + 1, absl::Status*> closure_;
+  ElementwiseClosure<Arity + 1, void*> closure_;
   ArenaAllocator<> allocator_;
 };
 }  // namespace
@@ -106,7 +104,7 @@ class ElementwiseInputTransformNDIterable
 template <std::size_t Arity>
 NDIterable::Ptr GetElementwiseInputTransformNDIterable(
     std::array<NDIterable::Ptr, Arity - 1> inputs, DataType output_dtype,
-    ElementwiseClosure<Arity, absl::Status*> closure, Arena* arena) {
+    ElementwiseClosure<Arity, void*> closure, Arena* arena) {
   return MakeUniqueWithVirtualIntrusiveAllocator<
       ElementwiseInputTransformNDIterable<Arity - 1>>(
       ArenaAllocator<>(arena), std::move(inputs), output_dtype, closure);
@@ -115,7 +113,7 @@ NDIterable::Ptr GetElementwiseInputTransformNDIterable(
 #define TENSORSTORE_INTERNAL_DO_INSTANTIATE(Arity)                          \
   template NDIterable::Ptr GetElementwiseInputTransformNDIterable<Arity>(   \
       std::array<NDIterable::Ptr, Arity - 1> inputs, DataType output_dtype, \
-      ElementwiseClosure<Arity, absl::Status*> closure, Arena * arena);     \
+      ElementwiseClosure<Arity, void*> closure, Arena * arena);             \
   /**/
 TENSORSTORE_INTERNAL_DO_INSTANTIATE(1)
 TENSORSTORE_INTERNAL_DO_INSTANTIATE(2)

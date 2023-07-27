@@ -54,6 +54,8 @@ class ContextResourceTraits {
   using ToJsonOptions = Context::ToJsonOptions;
   using FromJsonOptions = Context::FromJsonOptions;
 
+  constexpr static bool config_only = false;
+
   template <typename Resource>
   static void AcquireContextReference(Resource& obj) {}
   template <typename Resource>
@@ -115,6 +117,22 @@ class ContextResourceProviderConcept {
 template <typename Provider>
 class ContextResourceTraitsConcept : public ContextResourceTraits<Provider> {
  public:
+  /// Indicates if this is a configuration-only context resource.
+  ///
+  /// A configuration-only resource corresponds to a configuration option, while
+  /// a regular context resource may be used for a thread pool or cache pool.
+  /// Unlike a normal context resource, the associated `Resource` object for a
+  /// configuration-only context resource must support
+  /// `internal::CacheKeyEncoder`.  It is assumed that the identity of the
+  /// `Resource` does not matter, only its value.  When converting a tree of
+  /// objects containing context resource references back to JSON, the shared
+  /// reference relationships for regular resources are preserved, where all
+  /// references to a given resource are encoded as references to a single
+  /// resource.  In contrast, references to configuration-only resources are
+  /// encoded as separate copies of the resource spec, and the shared reference
+  /// relationship is not preserved.
+  constexpr static bool config_only = false;
+
   /// Required. Specifies the type used for the validated representation of a
   /// resource specification created from a JSON object.
   ///

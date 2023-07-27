@@ -1,17 +1,15 @@
-load("//bazel:tensorstore.bzl", "tensorstore_cc_binary", "tensorstore_cc_test")
+load("//bazel:tensorstore.bzl", "tensorstore_cc_binary")
 
 package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
-tensorstore_cc_test(
+tensorstore_cc_binary(
     name = "compute_percentiles",
-    size = "small",
     srcs = [
         "compute_percentiles.cc",
         "data_type_invoker.h",
     ],
-    tags = ["manual"],
     deps = [
         "//tensorstore",
         "//tensorstore:all_drivers",
@@ -28,7 +26,6 @@ tensorstore_cc_test(
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/index_space:transformed_array",
-        "//tensorstore/internal:init_tensorstore",
         "//tensorstore/util:future",
         "//tensorstore/util:iterate_over_index_range",
         "//tensorstore/util:json_absl_flag",
@@ -40,6 +37,7 @@ tensorstore_cc_test(
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/flags:marshalling",
+        "@com_google_absl//absl/flags:parse",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@net_sourceforge_half//:half",
@@ -112,7 +110,6 @@ tensorstore_cc_binary(
         "//tensorstore:spec",
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/index_space:index_transform",
-        "//tensorstore/internal:init_tensorstore",
         "//tensorstore/internal/image",
         "//tensorstore/internal/image:avif",
         "//tensorstore/internal/image:jpeg",
@@ -124,6 +121,7 @@ tensorstore_cc_binary(
         "//tensorstore/util:str_cat",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/flags:parse",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_riegeli//riegeli/bytes:fd_writer",

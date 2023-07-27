@@ -129,21 +129,44 @@ class CachePool : private internal_cache::CachePoolImpl {
   /// If such a cache does not already exist, or `cache_key` is empty,
   /// `make_cache()` is called to obtain a new such cache.
   ///
-  /// \tparam CacheType Must be a class that inherits from `Cache`.
+  /// \tparam CacheType Must be a class that inherits from `Cache`, or defines a
+  ///     `Cache& cache()` method.
   /// \param cache_key Specifies the cache key.
   /// \param make_cache Nullary function that returns an
   ///     `std::unique_ptr<CacheType>`, where `CacheType` as a type that
-  ///     inherits from `Cache`.  A `nullptr` may be returned to indicate an
-  ///     error creating the cache (any additional error information must be
-  ///     communicated via some separate out-of-band channel).
-  template <typename CacheType>
-  CachePtr<CacheType> GetCache(
-      std::string_view cache_key,
-      absl::FunctionRef<std::unique_ptr<Cache>()> make_cache) {
-    static_assert(std::is_base_of<Cache, CacheType>::value,
-                  "CacheType must inherit from Cache.");
-    return static_pointer_cast<CacheType>(internal_cache::GetCacheInternal(
-        this, typeid(CacheType), cache_key, make_cache));
+  ///     inherits from `Cache` or defines a `Cache& cache()` method.  A
+  ///     `nullptr` may be returned to indicate an error creating the cache (any
+  ///     additional error information must be communicated via some separate
+  ///     out-of-band channel).
+  template <typename CacheType, typename MakeCache>
+  CachePtr<CacheType> GetCache(std::string_view cache_key,
+                               MakeCache&& make_cache) {
+    return GetCache<CacheType>(typeid(CacheType), cache_key,
+                               std::forward<MakeCache>(make_cache));
+  }
+  template <typename CacheType, typename MakeCache>
+  CachePtr<CacheType> GetCache(const std::type_info& type_info,
+                               std::string_view cache_key,
+                               MakeCache&& make_cache) {
+    auto cache = internal_cache::GetCacheInternal(
+        this, type_info, cache_key, [&]() -> std::unique_ptr<internal::Cache> {
+          std::unique_ptr<CacheType> cache = make_cache();
+          if (!cache) return nullptr;
+          void* user_ptr = cache.get();
+          auto base_ptr = std::unique_ptr<internal::Cache>(
+              &internal_cache::GetCacheObject(cache.release()));
+          internal_cache::Access::StaticCast<internal_cache::CacheImpl>(
+              base_ptr.get())
+              ->user_ptr_ = user_ptr;
+          return base_ptr;
+        });
+    if (!cache) return nullptr;
+    return CachePtr<CacheType>(
+        static_cast<CacheType*>(
+            internal_cache::Access::StaticCast<internal_cache::CacheImpl>(
+                cache.release())
+                ->user_ptr_),
+        internal::adopt_object_ref);
   }
 
   class WeakPtr;

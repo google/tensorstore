@@ -47,6 +47,10 @@ struct GcsConcurrencyResource
   struct Spec {
     // If equal to `nullopt`, indicates that the shared executor is used.
     std::optional<size_t> limit;
+
+    constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+      return f(x.limit);
+    };
   };
   struct Resource {
     Spec spec;
@@ -96,6 +100,10 @@ struct GcsRateLimiterResource
     std::optional<double> read_rate;
     std::optional<double> write_rate;
     std::optional<absl::Duration> doubling_time;
+
+    constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+      return f(x.read_rate, x.write_rate, x.doubling_time);
+    };
   };
   struct Resource {
     Spec spec;

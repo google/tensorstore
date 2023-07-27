@@ -28,6 +28,7 @@
 #include "riegeli/bytes/write.h"
 #include "riegeli/bytes/writer.h"
 #include "tensorstore/driver/zarr/compressor.h"
+#include "tensorstore/internal/array_endian_riegeli_codec.h"
 #include "tensorstore/internal/data_type_endian_conversion.h"
 #include "tensorstore/internal/flat_cord_builder.h"
 #include "tensorstore/internal/json_binding/dimension_indexed.h"
@@ -419,16 +420,10 @@ bool SingleArrayMatchesEncodedRepresentation(
       metadata.chunk_layout.fields[0].encoded_chunk_layout.byte_strides());
 }
 
-absl::Cord MakeCordFromSharedPtr(std::shared_ptr<const void> ptr, size_t size) {
-  std::string_view s(static_cast<const char*>(ptr.get()), size);
-  return absl::MakeCordFromExternal(
-      s, [ptr = std::move(ptr)](std::string_view s) mutable { ptr.reset(); });
-}
-
 absl::Cord MakeCordFromContiguousArray(
     const SharedArrayView<const void>& array) {
-  return MakeCordFromSharedPtr(array.pointer(),
-                               array.num_elements() * array.dtype().size());
+  return internal::MakeCordFromSharedPtr(
+      array.pointer(), array.num_elements() * array.dtype().size());
 }
 
 absl::Cord CopyComponentsToEncodedLayout(

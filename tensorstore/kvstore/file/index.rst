@@ -16,6 +16,25 @@ machines to a network filesystem is also safe.
 
 .. json:schema:: KvStoreUrl/file
 
+.. json:schema:: Context.file_io_concurrency
+
+.. json:schema:: Context.file_io_sync
+
+Durability of writes
+--------------------
+
+By default, this driver ensures all writes are durable, meaning that committed
+data won't be lost in the event that the process or machine crashes.
+
+In cases where durability is not necessary, faster write performance may be
+achieved by setting :json:schema:`Context.file_io_sync` to :json:``false``.
+
+.. code-block:: json
+
+   {"driver": "file",
+    "path": "/local/path/",
+    "file_io_sync": false}
+
 Limitations
 -----------
 

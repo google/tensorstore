@@ -16,6 +16,7 @@
 #define TENSORSTORE_INTERNAL_RETRIES_CONTEXT_RESOURCE_H_
 
 #include "tensorstore/context_resource_provider.h"
+#include "tensorstore/internal/cache_key/absl_time.h"  // IWYU pragma: keep
 #include "tensorstore/internal/json_binding/absl_time.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
@@ -26,10 +27,14 @@ namespace internal {
 /// Specifies parameters for retrying with exponential backoff.
 template <typename Derived>
 struct RetriesResource : public ContextResourceTraits<Derived> {
+  constexpr static bool config_only = true;
   struct Spec {
     int64_t max_retries = 32;
     absl::Duration initial_delay = absl::Seconds(1);
     absl::Duration max_delay = absl::Seconds(32);
+    constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+      return f(x.max_retries, x.initial_delay, x.max_delay);
+    };
   };
   using Resource = Spec;
   static Spec Default() { return {}; }

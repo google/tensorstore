@@ -150,6 +150,7 @@ tensorstore_cc_library(
         ":scaling_rate_limiter",
         "//tensorstore:context",
         "//tensorstore/internal:env",
+        "//tensorstore/internal/cache_key",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:absl_time",
         "//tensorstore/internal/json_binding:bindable",

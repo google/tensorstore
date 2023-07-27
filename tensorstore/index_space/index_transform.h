@@ -401,6 +401,39 @@ class IndexTransform {
             /*domain_only=*/false));
   }
 
+  /// Returns a new transform with the output dimension order reversed.
+  IndexTransform<InputRank, OutputRank> TransposeOutput() const& {
+    return Access::Make<IndexTransform<InputRank, OutputRank, container>>(
+        internal_index_space::TransposeOutputDimensions(
+            Access::rep_ptr<container>(*this)));
+  }
+  IndexTransform<InputRank, OutputRank> TransposeOutput() && {
+    return Access::Make<IndexTransform<InputRank, OutputRank, container>>(
+        internal_index_space::TransposeOutputDimensions(
+            Access::rep_ptr<container>(std::move(*this))));
+  }
+
+  /// Returns a new transform with the output dimension order permuted.
+  ///
+  /// If `!valid()`, returns an invalid view.
+  ///
+  /// \param permutation Permutation of ``0, ..., output_rank()-1``, where
+  ///     `permutation[i]` specifies the dimension of the existing transform
+  ///     that corresponds to output dimension `i` of the new transform.
+  /// \dchecks `permutation` is a valid permutation.
+  IndexTransform<InputRank, OutputRank> TransposeOutput(
+      span<const DimensionIndex, OutputRank> permutation) const& {
+    return Access::Make<IndexTransform<InputRank, OutputRank, container>>(
+        internal_index_space::TransposeOutputDimensions(
+            Access::rep_ptr<container>(*this), permutation));
+  }
+  IndexTransform<InputRank, OutputRank> TransposeOutput(
+      span<const DimensionIndex, OutputRank> permutation) && {
+    return Access::Make<IndexTransform<InputRank, OutputRank, container>>(
+        internal_index_space::TransposeOutputDimensions(
+            Access::rep_ptr<container>(std::move(*this)), permutation));
+  }
+
   /// Returns `ComposeTransforms(other, *this)`.
   ///
   /// This allows an IndexTransform to be used in the same way as

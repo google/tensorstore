@@ -20,7 +20,6 @@
 #include <type_traits>
 
 #include "absl/container/inlined_vector.h"
-#include "absl/status/status.h"
 #include "absl/utility/utility.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/index.h"
@@ -29,7 +28,6 @@
 #include "tensorstore/util/internal/iterate.h"
 #include "tensorstore/util/internal/iterate_impl.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 
@@ -108,10 +106,10 @@ ComputeStridedLayoutDimensionIterationOrder(IterationConstraints constraints,
 namespace internal {
 
 template <std::size_t Arity>
-static SpecializedElementwiseFunctionPointer<Arity, absl::Status*>
+static SpecializedElementwiseFunctionPointer<Arity, void*>
 PickElementwiseFunction(
     const internal_iterate::InnerShapeAndStrides<Arity, 1>& inner_layout,
-    const ElementwiseFunction<Arity, absl::Status*>& function,
+    const ElementwiseFunction<Arity, void*>& function,
     std::array<std::ptrdiff_t, Arity> element_sizes) {
   return function[internal_iterate::AreStridesContiguous(inner_layout,
                                                          element_sizes)
@@ -122,8 +120,7 @@ PickElementwiseFunction(
 template <std::size_t Arity>
 StridedLayoutFunctionApplyer<Arity>::StridedLayoutFunctionApplyer(
     span<const Index> shape, std::array<const Index*, Arity> strides,
-    IterationConstraints constraints,
-    ElementwiseClosure<Arity, absl::Status*> closure,
+    IterationConstraints constraints, ElementwiseClosure<Arity, void*> closure,
     std::array<std::ptrdiff_t, Arity> element_sizes)
     : iteration_layout_(internal_iterate::SimplifyStridedIterationLayout(
           constraints, shape, strides)),
@@ -137,7 +134,7 @@ template <std::size_t Arity>
 StridedLayoutFunctionApplyer<Arity>::StridedLayoutFunctionApplyer(
     const Index* shape, span<const DimensionIndex> dimension_order,
     std::array<const Index*, Arity> strides,
-    ElementwiseClosure<Arity, absl::Status*> closure,
+    ElementwiseClosure<Arity, void*> closure,
     std::array<std::ptrdiff_t, Arity> element_sizes)
     : iteration_layout_(
           internal_iterate::PermuteAndSimplifyStridedIterationLayout(
@@ -158,15 +155,14 @@ struct StridedLayoutFunctionApplyer<Arity>::WrappedFunction {
   template <std::size_t... Is>
   static ArrayIterateResult OuterCallHelper(
       const StridedLayoutFunctionApplyer& data, std::index_sequence<Is...>,
-      std::array<ByteStridedPointer<void>, Arity> pointers,
-      absl::Status* status) {
+      std::array<ByteStridedPointer<void>, Arity> pointers, void* arg) {
     ArrayIterateResult result;
     result.count = 0;
     result.success = internal_iterate::IterateHelper<
         WrappedFunction,
         std::enable_if_t<true || Is, ByteStridedPointer<void>>...>::
-        Start(WrappedFunction{data, status, &result.count},
-              data.iteration_layout_, pointers[Is]...);
+        Start(WrappedFunction{data, arg, &result.count}, data.iteration_layout_,
+              pointers[Is]...);
     return result;
   }
 
@@ -176,43 +172,42 @@ struct StridedLayoutFunctionApplyer<Arity>::WrappedFunction {
     const Index current_count = data_.callback_(
         data_.context_, data_.inner_layout_.shape[0],
         IterationBufferPointer{pointer, data_.inner_layout_.strides[Is][0]}...,
-        status_);
+        arg_);
     *count_ += current_count;
     return current_count == inner_count;
   }
 
   const StridedLayoutFunctionApplyer& data_;
-  absl::Status* status_;
+  void* arg_;
   Index* count_;
 };
 
 template <std::size_t Arity>
 ArrayIterateResult StridedLayoutFunctionApplyer<Arity>::operator()(
-    std::array<ByteStridedPointer<void>, Arity> pointers,
-    absl::Status* status) const {
+    std::array<ByteStridedPointer<void>, Arity> pointers, void* arg) const {
   return WrappedFunction::OuterCallHelper(
-      *this, std::make_index_sequence<Arity>(), pointers, status);
+      *this, std::make_index_sequence<Arity>(), pointers, arg);
 }
 
 template <std::size_t Arity>
 ArrayIterateResult IterateOverStridedLayouts(
-    ElementwiseClosure<Arity, absl::Status*> closure, absl::Status* status,
+    ElementwiseClosure<Arity, void*> closure, void* arg,
     span<const Index> shape,
     std::array<ByteStridedPointer<void>, Arity> pointers,
     std::array<const Index*, Arity> strides, IterationConstraints constraints,
     std::array<std::ptrdiff_t, Arity> element_sizes) {
   return StridedLayoutFunctionApplyer<Arity>(
-      shape, strides, constraints, closure, element_sizes)(pointers, status);
+      shape, strides, constraints, closure, element_sizes)(pointers, arg);
 }
 
-#define TENSORSTORE_DO_INSTANTIATE_ITERATE(Arity)                              \
-  template class StridedLayoutFunctionApplyer<Arity>;                          \
-  template ArrayIterateResult IterateOverStridedLayouts<Arity>(                \
-      ElementwiseClosure<Arity, absl::Status*> closure, absl::Status * status, \
-      span<const Index> shape,                                                 \
-      std::array<ByteStridedPointer<void>, Arity> pointers,                    \
-      std::array<const Index*, Arity> strides,                                 \
-      IterationConstraints constraints,                                        \
+#define TENSORSTORE_DO_INSTANTIATE_ITERATE(Arity)               \
+  template class StridedLayoutFunctionApplyer<Arity>;           \
+  template ArrayIterateResult IterateOverStridedLayouts<Arity>( \
+      ElementwiseClosure<Arity, void*> closure, void* arg,      \
+      span<const Index> shape,                                  \
+      std::array<ByteStridedPointer<void>, Arity> pointers,     \
+      std::array<const Index*, Arity> strides,                  \
+      IterationConstraints constraints,                         \
       std::array<std::ptrdiff_t, Arity> element_sizes);
 
 /**/

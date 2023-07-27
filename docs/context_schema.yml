@@ -29,10 +29,13 @@ definitions:
     description: |-
       Specifies a context resource of a particular :literal:`<resource-type>`.
     oneOf:
-    - type: object
+    - oneOf:
+      - type: object
+      - type: boolean
+      - type: number
       description: |-
-        Specifies the resource directly.  All members are specific to the
-        particular :literal:`<resource-type>`.
+        Specifies the resource directly.  Any constraints on the value are
+        determined by the particular :literal:`<resource-type>`.
     - type: string
       description: |-
         References another resource of the same type in the current or parent
@@ -82,22 +85,4 @@ definitions:
           The maximum number of CPU cores that may be used.  If the special
           value of ``"shared"`` is specified, a shared global limit equal to the
           number of CPU cores/threads available applies.
-        default: "shared"
-  file_io_concurrency:
-    $id: Context.file_io_concurrency
-    description: |-
-      Specifies a limit on the number of concurrently local filesystem I/O
-      operations.
-    type: object
-    properties:
-      limit:
-        oneOf:
-        - type: integer
-          minimum: 1
-        - const: "shared"
-        description: |-
-          The maximum number of concurrent operations.  If the special value of
-          ``"shared"`` is specified, a shared global limit equal to the number
-          of CPU cores/threads available (or 4 if there are fewer than 4
-          cores/threads available) applies.
         default: "shared"

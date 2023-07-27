@@ -35,6 +35,7 @@
 #include "tensorstore/context.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/chunk.h"
+#include "tensorstore/driver/chunk_receiver_utils.h"
 #include "tensorstore/driver/driver_handle.h"
 #include "tensorstore/driver/driver_spec.h"
 #include "tensorstore/driver/registry.h"
@@ -459,60 +460,10 @@ Future<IndexTransform<>> StackDriver::ResolveBounds(
   return TransformAccess::Make<IndexTransform<>>(std::move(transform_ptr));
 }
 
-// Commits Promise<void> when the last reference is released.
-// Typically this is already done by Promise<>, however state->receiver
-// holds a reference to promise,so the promise would otherwise not be
-// marked ready unless the operation was cancelled.
-template <typename StateType>
-struct SetPromiseOnRelease
-    : public internal::AtomicReferenceCount<SetPromiseOnRelease<StateType>> {
-  IntrusivePtr<StateType> state;
-  Promise<void> promise;
-
-  SetPromiseOnRelease(IntrusivePtr<StateType> s, Promise<void> p)
-      : state(std::move(s)), promise(std::move(p)) {}
-  ~SetPromiseOnRelease() { promise.SetReady(); }
-
-  inline void SetError(absl::Status error) {
-    SetDeferredResult(promise, std::move(error));
-  }
-};
-
-// Forwarding receiver which satisfies `Driver::ReadChunkReceiver` or
-// `Driver::WriteChunkReceiver`.
-// The starting/stopping/error/done parts of the protocol are handled
-// by the future, so this only forwards set_error and set_value calls.
-template <typename StateType>
-struct ForwardingLayerReceiver {
-  using ChunkType = typename StateType::ChunkType;
-  IntrusivePtr<SetPromiseOnRelease<StateType>> set_promise;
-  IndexTransform<> cell_transform;
-  FutureCallbackRegistration cancel_registration;
-
-  void set_starting(AnyCancelReceiver cancel) {
-    cancel_registration =
-        set_promise->promise.ExecuteWhenNotNeeded(std::move(cancel));
-  }
-  void set_stopping() { cancel_registration(); }
-  void set_done() {}
-  void set_error(absl::Status error) {
-    set_promise->SetError(std::move(error));
-  }
-  void set_value(ChunkType chunk, IndexTransform<> composed_transform) {
-    auto c_transform = ComposeTransforms(cell_transform, composed_transform);
-    if (!c_transform.ok()) {
-      set_promise->SetError(std::move(c_transform).status());
-    } else {
-      execution::set_value(set_promise->state->receiver, std::move(chunk),
-                           std::move(c_transform).value());
-    }
-  }
-};
-
 /// Starts reads for each cell against a provided driver handle.
 template <typename StateType>
 struct AfterOpenOp {
-  IntrusivePtr<SetPromiseOnRelease<StateType>> set_promise;
+  IntrusivePtr<StateType> state;
   size_t layer_id;
   std::vector<IndexTransform<>> cells;
 
@@ -525,14 +476,12 @@ struct AfterOpenOp {
     for (auto& cell_transform : cells) {
       TENSORSTORE_ASSIGN_OR_RETURN(
           auto a_transform,
-          ComposeTransforms(set_promise->state->orig_transform,
-                            cell_transform));
+          ComposeTransforms(state->orig_transform, cell_transform));
       TENSORSTORE_ASSIGN_OR_RETURN(
           auto b_transform,
           ComposeTransforms(f.result()->transform, std::move(a_transform)));
 
-      set_promise->state->Dispatch(*f.result(), std::move(b_transform),
-                                   set_promise, cell_transform);
+      state->Dispatch(*f.result(), std::move(b_transform), cell_transform);
     }
     return absl::OkStatus();
   }
@@ -540,7 +489,7 @@ struct AfterOpenOp {
   void operator()(Promise<void>, ReadyFuture<internal::Driver::Handle> f) {
     absl::Status status = ComposeAndDispatch(std::move(f));
     if (!status.ok()) {
-      set_promise->SetError(MaybeAnnotateStatus(
+      state->SetError(MaybeAnnotateStatus(
           std::move(status),
           tensorstore::StrCat("While opening layer ", layer_id)));
     }
@@ -553,10 +502,10 @@ struct AfterOpenOp {
 // cells.
 template <typename StateType, typename UnmappedOpType>
 struct OpenLayerOp {
-  IntrusivePtr<SetPromiseOnRelease<StateType>> set_promise;
+  IntrusivePtr<StateType> state;
 
   void operator()() {
-    auto& self = set_promise->state->self;
+    auto* self = state->self.get();
     // Partition the initial transform over irregular grid space,
     // which results in a set of transforms for each layer, and collate them
     // by layer.
@@ -564,10 +513,10 @@ struct OpenLayerOp {
     std::iota(dimension_order.begin(), dimension_order.end(),
               DimensionIndex{0});
 
-    UnmappedOpType unmapped{set_promise->state->self.get()};
+    UnmappedOpType unmapped{self};
     absl::flat_hash_map<size_t, std::vector<IndexTransform<>>> layers_to_load;
     auto status = tensorstore::internal::PartitionIndexTransformOverGrid(
-        dimension_order, self->grid_, set_promise->state->orig_transform,
+        dimension_order, self->grid_, state->orig_transform,
         [&](span<const Index> grid_cell_indices,
             IndexTransformView<> cell_transform) {
           auto it = self->grid_to_layer_.find(grid_cell_indices);
@@ -579,7 +528,7 @@ struct OpenLayerOp {
           }
         });
     if (!status.ok()) {
-      set_promise->SetError(std::move(status));
+      state->SetError(std::move(status));
       return;
     }
     if (layers_to_load.empty()) {
@@ -588,11 +537,11 @@ struct OpenLayerOp {
 
     // Open each layer and invoke OpType for all corresponding cell transforms.
     for (auto& kv : layers_to_load) {
-      Link(WithExecutor(self->data_copy_executor(),
-                        AfterOpenOp<StateType>{set_promise, kv.first,
-                                               std::move(kv.second)}),
-           set_promise->promise,
-           internal::OpenDriver(set_promise->state->transaction,
+      Link(WithExecutor(
+               self->data_copy_executor(),
+               AfterOpenOp<StateType>{state, kv.first, std::move(kv.second)}),
+           state->promise,
+           internal::OpenDriver(state->transaction,
                                 self->bound_spec_.layers[kv.first],
                                 StateType::kMode));
     }
@@ -601,24 +550,25 @@ struct OpenLayerOp {
 
 // Asynchronous state for StackDriver::Read maintains reference
 // counts while the read operation is in progress.
-struct ReadState : public internal::AtomicReferenceCount<ReadState> {
+struct ReadState : public internal::ChunkOperationState<ReadChunk> {
+  using Base = internal::ChunkOperationState<ReadChunk>;
   static constexpr ReadWriteMode kMode = ReadWriteMode::read;
-  using Receiver = ForwardingLayerReceiver<ReadState>;
-  using ChunkType = ReadChunk;
+  using ForwardingReceiver =
+      internal::ForwardingChunkOperationReceiver<ReadState>;
+
+  using Base::Base;
 
   IntrusivePtr<StackDriver> self;
   OpenTransactionPtr transaction;
-  AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver;
   IndexTransform<> orig_transform;
 
   // Initiate the read of an individual transform; dispatched by AfterOpenOp
   void Dispatch(internal::Driver::Handle& h,
                 IndexTransform<> composed_transform,
-                IntrusivePtr<SetPromiseOnRelease<ReadState>> set_promise,
                 IndexTransform<> cell_transform) {
-    h.driver->Read(
-        transaction, std::move(composed_transform),
-        ReadState::Receiver{std::move(set_promise), std::move(cell_transform)});
+    h.driver->Read(transaction, std::move(composed_transform),
+                   ForwardingReceiver{IntrusivePtr<ReadState>(this),
+                                      std::move(cell_transform)});
   }
 };
 
@@ -636,49 +586,35 @@ struct UnmappedReadOp {
 void StackDriver::Read(
     OpenTransactionPtr transaction, IndexTransform<> transform,
     AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver) {
-  auto state = MakeIntrusivePtr<ReadState>();
+  auto state = MakeIntrusivePtr<ReadState>(std::move(receiver));
   state->self = IntrusivePtr<StackDriver>(this);
-  state->receiver = std::move(receiver);
   state->transaction = std::move(transaction);
   state->orig_transform = std::move(transform);
-  auto op = PromiseFuturePair<void>::Make(absl::OkStatus());
-  execution::set_starting(state->receiver, [p = op.promise] {
-    SetDeferredResult(p, absl::CancelledError(""));
-  });
-  op.future.ExecuteWhenReady([state](ReadyFuture<void> f) {
-    if (f.status().ok() || absl::IsCancelled(f.status())) {
-      execution::set_done(state->receiver);
-    } else {
-      execution::set_error(state->receiver, f.status());
-    }
-    execution::set_stopping(state->receiver);
-  });
-
-  data_copy_executor()(OpenLayerOp<ReadState, UnmappedReadOp>{
-      MakeIntrusivePtr<SetPromiseOnRelease<ReadState>>(std::move(state),
-                                                       std::move(op.promise))});
+  data_copy_executor()(
+      OpenLayerOp<ReadState, UnmappedReadOp>{std::move(state)});
 }
 
 // Asynchronous state for StackDriver::Write maintains reference
 // counts while the read operation is in progress.
-struct WriteState : public internal::AtomicReferenceCount<WriteState> {
+struct WriteState : public internal::ChunkOperationState<WriteChunk> {
   static constexpr ReadWriteMode kMode = ReadWriteMode::write;
-  using Receiver = ForwardingLayerReceiver<WriteState>;
-  using ChunkType = WriteChunk;
+  using ForwardingReceiver =
+      internal::ForwardingChunkOperationReceiver<WriteState>;
+  using Base = internal::ChunkOperationState<WriteChunk>;
+
+  using Base::Base;
 
   IntrusivePtr<StackDriver> self;
   OpenTransactionPtr transaction;
-  AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>> receiver;
   IndexTransform<> orig_transform;
 
   // Initiate the write of an individual transform; dispatched by AfterOpenOp
   void Dispatch(internal::Driver::Handle& h,
                 IndexTransform<> composed_transform,
-                IntrusivePtr<SetPromiseOnRelease<WriteState>> set_promise,
                 IndexTransform<> cell_transform) {
     h.driver->Write(transaction, std::move(composed_transform),
-                    WriteState::Receiver{std::move(set_promise),
-                                         std::move(cell_transform)});
+                    ForwardingReceiver{internal::IntrusivePtr<WriteState>(this),
+                                       std::move(cell_transform)});
   }
 };
 
@@ -696,28 +632,12 @@ struct UnmappedWriteOp {
 void StackDriver::Write(OpenTransactionPtr transaction,
                         IndexTransform<> transform,
                         WriteChunkReceiver receiver) {
-  auto state = MakeIntrusivePtr<WriteState>();
+  auto state = MakeIntrusivePtr<WriteState>(std::move(receiver));
   state->self = IntrusivePtr<StackDriver>(this);
-  state->receiver = std::move(receiver);
   state->transaction = std::move(transaction);
   state->orig_transform = std::move(transform);
-  auto op = PromiseFuturePair<void>::Make(absl::OkStatus());
-
-  execution::set_starting(state->receiver, [p = op.promise] {
-    SetDeferredResult(p, absl::CancelledError(""));
-  });
-  op.future.ExecuteWhenReady([state](ReadyFuture<void> f) {
-    if (f.status().ok() || absl::IsCancelled(f.status())) {
-      execution::set_done(state->receiver);
-    } else {
-      execution::set_error(state->receiver, f.status());
-    }
-    execution::set_stopping(state->receiver);
-  });
-
-  data_copy_executor()(OpenLayerOp<WriteState, UnmappedWriteOp>{
-      MakeIntrusivePtr<SetPromiseOnRelease<WriteState>>(
-          std::move(state), std::move(op.promise))});
+  data_copy_executor()(
+      OpenLayerOp<WriteState, UnmappedWriteOp>{std::move(state)});
 }
 
 }  // namespace

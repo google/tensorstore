@@ -32,8 +32,12 @@ namespace internal_storage_gcs {
 struct GcsUserProjectResource
     : public internal::ContextResourceTraits<GcsUserProjectResource> {
   static constexpr char id[] = "gcs_user_project";
+  constexpr static bool config_only = true;
   struct Spec {
     std::optional<std::string> project_id;
+    constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+      return f(x.project_id);
+    };
   };
   using Resource = Spec;
 

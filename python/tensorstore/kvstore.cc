@@ -921,7 +921,11 @@ Example:
     ...     'path': 'tmp/data/'
     ... })
     >>> kvstore
-    KvStore({'context': {'file_io_concurrency': {}}, 'driver': 'file', 'path': 'tmp/data/'})
+    KvStore({
+      'context': {'file_io_concurrency': {}, 'file_io_sync': True},
+      'driver': 'file',
+      'path': 'tmp/data/',
+    })
 
 )");
 
@@ -936,12 +940,16 @@ Example:
   >>> a.path = 'tmp/data/abc/'
   >>> a
   KvStore({
-    'context': {'file_io_concurrency': {}},
+    'context': {'file_io_concurrency': {}, 'file_io_sync': True},
     'driver': 'file',
     'path': 'tmp/data/abc/',
   })
   >>> b
-  KvStore({'context': {'file_io_concurrency': {}}, 'driver': 'file', 'path': 'tmp/data/'})
+  KvStore({
+    'context': {'file_io_concurrency': {}, 'file_io_sync': True},
+    'driver': 'file',
+    'path': 'tmp/data/',
+  })
 
 Group:
   Accessors
@@ -1150,6 +1158,7 @@ Example:
   {'context': {},
    'driver': 'file',
    'file_io_concurrency': 'file_io_concurrency',
+   'file_io_sync': 'file_io_sync',
    'path': 'tmp/dataset/abc/'}
 
 Group:
