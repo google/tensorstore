@@ -282,6 +282,17 @@ struct ElementwiseFunctionPointerHelper<std::index_sequence<Is...>,
                          ExtraArg...);
 };
 
+template <typename, typename SFINAE, typename...>
+constexpr inline bool HasApplyContiguous = false;
+
+template <typename Func, typename... Element, typename... ExtraArg>
+constexpr inline bool HasApplyContiguous<
+    Func(Element...),
+    std::void_t<decltype(std::declval<Func>().ApplyContiguous(
+        std::declval<Index>(), std::declval<Element*>()...,
+        std::declval<ExtraArg>()...))>,
+    ExtraArg...> = true;
+
 template <typename, typename...>
 struct SimpleLoopTemplate;
 
@@ -307,16 +318,26 @@ struct SimpleLoopTemplate<Func(Element...), ExtraArg...> {
       ExtraArg... extra_arg) {
     internal::PossiblyEmptyObjectGetter<Func> func_helper;
     Func& func = func_helper.get(static_cast<Func*>(context));
-    for (Index i = 0; i < count; ++i) {
-      if (!internal::Void::CallAndWrap(
-              func,
-              ArrayAccessor::template GetPointerAtOffset<Element>(pointer,
-                                                                  i)...,
-              extra_arg...)) {
-        return i;
+    if constexpr (ArrayAccessor::buffer_kind ==
+                      internal::IterationBufferKind::kContiguous &&
+                  HasApplyContiguous<Func(Element...), /*SFINAE=*/void,
+                                     ExtraArg...>) {
+      return func.ApplyContiguous(
+          count,
+          ArrayAccessor::template GetPointerAtOffset<Element>(pointer, 0)...,
+          extra_arg...);
+    } else {
+      for (Index i = 0; i < count; ++i) {
+        if (!internal::Void::CallAndWrap(
+                func,
+                ArrayAccessor::template GetPointerAtOffset<Element>(pointer,
+                                                                    i)...,
+                extra_arg...)) {
+          return i;
+        }
       }
+      return count;
     }
-    return count;
   }
 };
 

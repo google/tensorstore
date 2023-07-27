@@ -36,6 +36,21 @@
 /// Dynamic named lookup of a `DataType` is available via `GetDataType(name)`.
 ///
 
+// Uncomment the line below to disable the memmove specializations for
+// `copy_assign` and `move_assign` (for benchmarking).
+//
+// #define TENSORSTORE_DATA_TYPE_DISABLE_MEMMOVE_OPTIMIZATION
+
+// Uncomment the line below to disable the memcmp specializations for
+// `compare_equal` and related functions.
+//
+// #define TENSORSTORE_DATA_TYPE_DISABLE_MEMCMP_OPTIMIZATION
+
+// Uncomment the line below to disable the `memset` optimizations for
+// `initialize`.
+//
+// #define TENSORSTORE_DATA_TYPE_DISABLE_MEMSET_OPTIMIZATION
+
 #include <algorithm>
 #include <array>
 #include <complex>
@@ -809,6 +824,15 @@ struct InitializeImpl {
   void operator()(T* dest, void*) const {
     *dest = T();
   }
+
+#ifndef TENSORSTORE_DATA_TYPE_DISABLE_MEMSET_OPTIMIZATION
+  template <typename T>
+  static std::enable_if_t<std::is_trivially_constructible_v<T>, Index>
+  ApplyContiguous(Index count, T* dest, void*) {
+    std::memset(dest, 0, sizeof(T) * count);
+    return count;
+  }
+#endif  // TENSORSTORE_DATA_TYPE_DISABLE_MEMSET_OPTIMIZATION
 };
 
 // Implementation for `DataTypeOperations::copy_assign` (and in some cases
@@ -818,6 +842,15 @@ struct CopyAssignImpl {
   void operator()(const T* source, T* dest, void*) const {
     *dest = *source;
   }
+
+#ifndef TENSORSTORE_DATA_TYPE_DISABLE_MEMMOVE_OPTIMIZATION
+  template <typename T>
+  static std::enable_if_t<std::is_trivially_copyable_v<T>, Index>
+  ApplyContiguous(Index count, const T* source, T* dest, void*) {
+    std::memmove(dest, source, sizeof(T) * count);
+    return count;
+  }
+#endif  // TENSORSTORE_DATA_TYPE_DISABLE_MEMMOVE_OPTIMIZATION
 };
 
 // Implementation for `DataTypeOperations::move_assign`.
@@ -885,6 +918,14 @@ struct CompareEqualImpl {
   bool operator()(const T* a, const T* b, void*) const {
     return internal_data_type::CompareEqual<T>(*a, *b);
   }
+
+#ifndef TENSORSTORE_DATA_TYPE_DISABLE_MEMCMP_OPTIMIZATION
+  template <typename T>
+  static std::enable_if_t<IsTriviallyEqualityComparable<T>, Index>
+  ApplyContiguous(Index count, const T* a, T* b, void*) {
+    return std::memcmp(a, b, sizeof(T) * count) == 0 ? count : 0;
+  }
+#endif  // TENSORSTORE_DATA_TYPE_DISABLE_MEMCMP_OPTIMIZATION
 };
 
 // Implementation of `DataTypeOperations::compare_equal` for
