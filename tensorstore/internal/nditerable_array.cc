@@ -35,6 +35,11 @@
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 
+// Uncomment the following line to disable specializing `StridedIteratorImpl`
+// for small ranks.
+//
+// #define TENSORSTORE_NDITERABLE_DISABLE_ARRAY_OPTIMIZE
+
 namespace tensorstore {
 namespace internal {
 
@@ -66,34 +71,72 @@ Index ComputeIteratorBaseOffsetAndByteStrides(
   return base_offset;
 }
 
-class StridedIteratorImpl : public NDIterator::Base<StridedIteratorImpl> {
+template <DimensionIndex Rank>
+class StridedIteratorImpl;
+
+template <DimensionIndex Rank = -1>
+class StridedIteratorImplBase
+    : public NDIterator::Base<StridedIteratorImpl<Rank>> {
  public:
-  StridedIteratorImpl(ByteStridedPointer<void> data,
-                      span<const Index> orig_byte_strides,
-                      NDIterable::IterationLayoutView layout,
-                      ArenaAllocator<> allocator)
-      : byte_strides_(layout.iteration_rank(), allocator) {
-    data_ = data + ComputeIteratorBaseOffsetAndByteStrides(
-                       layout, orig_byte_strides, byte_strides_.data());
-  }
+  explicit StridedIteratorImplBase(DimensionIndex rank,
+                                   ArenaAllocator<> allocator)
+      : allocator_(allocator) {}
+
+  ArenaAllocator<> get_allocator() const override { return allocator_; }
+
+ protected:
+  ArenaAllocator<> allocator_;
+  std::array<Index, Rank> byte_strides_;
+};
+
+template <>
+class StridedIteratorImplBase<-1>
+    : public NDIterator::Base<StridedIteratorImpl<-1>> {
+ public:
+  explicit StridedIteratorImplBase(DimensionIndex rank,
+                                   ArenaAllocator<> allocator)
+      : byte_strides_(rank, allocator) {}
 
   ArenaAllocator<> get_allocator() const override {
     return byte_strides_.get_allocator();
   }
 
+ protected:
+  std::vector<Index, ArenaAllocator<Index>> byte_strides_;
+};
+
+template <DimensionIndex Rank = -1>
+class StridedIteratorImpl : public StridedIteratorImplBase<Rank> {
+  using Base = StridedIteratorImplBase<Rank>;
+
+  using Base::byte_strides_;
+
+ public:
+  StridedIteratorImpl(ByteStridedPointer<void> data,
+                      span<const Index> orig_byte_strides,
+                      NDIterable::IterationLayoutView layout,
+                      ArenaAllocator<> allocator)
+      : Base(layout.iteration_rank(), allocator) {
+    data_ = data + ComputeIteratorBaseOffsetAndByteStrides(
+                       layout, orig_byte_strides, byte_strides_.data());
+  }
+
   Index GetBlock(span<const Index> indices, Index block_size,
                  IterationBufferPointer* pointer,
                  absl::Status* status) override {
-    *pointer = IterationBufferPointer{
-        data_ + IndexInnerProduct(indices.size(), byte_strides_.data(),
-                                  indices.data()),
-        byte_strides_.back()};
+    Index offset;
+    if constexpr (Rank == -1) {
+      offset = IndexInnerProduct(indices.size(), byte_strides_.data(),
+                                 indices.data());
+    } else {
+      offset = IndexInnerProduct<Rank>(byte_strides_.data(), indices.data());
+    }
+    *pointer = IterationBufferPointer{data_ + offset, byte_strides_.back()};
     return block_size;
   }
 
  private:
   ByteStridedPointer<void> data_;
-  std::vector<Index, ArenaAllocator<Index>> byte_strides_;
 };
 
 class IndexedIteratorImpl : public NDIterator::Base<IndexedIteratorImpl> {
@@ -186,8 +229,27 @@ class ArrayIterableImpl : public NDIterable::Base<ArrayIterableImpl> {
       return MakeUniqueWithVirtualIntrusiveAllocator<IndexedIteratorImpl>(
           get_allocator(), data_.get(), byte_strides_, layout);
     }
-    return MakeUniqueWithVirtualIntrusiveAllocator<StridedIteratorImpl>(
-        get_allocator(), data_.get(), byte_strides_, layout);
+    const auto make_strided_iterator = [&](auto rank) {
+      return MakeUniqueWithVirtualIntrusiveAllocator<
+          StridedIteratorImpl<decltype(rank)::value>>(
+          get_allocator(), data_.get(), byte_strides_, layout);
+    };
+    switch (layout.iteration_rank()) {
+#ifndef TENSORSTORE_NDITERABLE_DISABLE_ARRAY_OPTIMIZE
+      case 1:
+        return make_strided_iterator(
+            std::integral_constant<DimensionIndex, 1>{});
+      case 2:
+        return make_strided_iterator(
+            std::integral_constant<DimensionIndex, 2>{});
+      case 3:
+        return make_strided_iterator(
+            std::integral_constant<DimensionIndex, 3>{});
+#endif  // !defined(TENSORSTORE_NDITERABLE_DISABLE_ARRAY_OPTIMIZE)
+      default:
+        return make_strided_iterator(
+            std::integral_constant<DimensionIndex, -1>{});
+    }
   }
 
  private:

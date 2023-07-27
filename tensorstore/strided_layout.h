@@ -119,11 +119,20 @@ inline std::enable_if_t<internal::IsIndexPack<T0, T1>, Index> IndexInnerProduct(
     DimensionIndex n, const T0* a, const T1* b) {
   return internal::wrap_on_overflow::InnerProduct<Index>(n, a, b);
 }
+template <DimensionIndex N, typename T0, typename T1>
+inline std::enable_if_t<internal::IsIndexPack<T0, T1>, Index> IndexInnerProduct(
+    const T0* a, const T1* b) {
+  return internal::wrap_on_overflow::InnerProduct<N, Index>(a, b);
+}
 template <DimensionIndex Rank, typename T0, typename T1>
 inline std::enable_if_t<internal::IsIndexPack<T0, T1>, Index> IndexInnerProduct(
     span<T0, Rank> a, span<T1, Rank> b) {
   assert(a.size() == b.size());
-  return IndexInnerProduct(a.size(), a.data(), b.data());
+  if constexpr (Rank == -1) {
+    return IndexInnerProduct(a.size(), a.data(), b.data());
+  } else {
+    return IndexInnerProduct<Rank>(a.data(), b.data());
+  }
 }
 
 /// Assigns `layout->byte_strides()` to correspond to a contiguous layout that
