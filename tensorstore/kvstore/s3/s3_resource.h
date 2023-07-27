@@ -38,6 +38,7 @@ namespace internal_kvstore_s3 {
 struct S3RequesterPaysResource
     : public internal::ContextResourceTraits<S3RequesterPaysResource> {
   static constexpr char id[] = "s3_requester_pays";
+  static constexpr bool config_only = true;
   struct Spec {
     bool requester_pays;
   };
@@ -63,6 +64,7 @@ struct S3RequesterPaysResource
 /// Specifies a limit on the number of retries.
 struct S3RequestRetries : public internal::RetriesResource<S3RequestRetries> {
   static constexpr char id[] = "s3_request_retries";
+  static constexpr bool config_only = true;
 };
 
 /// Specifies an admission queue as a context object.
@@ -80,6 +82,10 @@ struct S3ConcurrencyResource
   struct Spec {
     // If equal to `nullopt`, indicates that the shared executor is used.
     std::optional<size_t> limit;
+
+    constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+      return f(x.limit);
+    };
   };
   struct Resource {
     Spec spec;
@@ -129,6 +135,10 @@ struct S3RateLimiterResource
     std::optional<double> read_rate;
     std::optional<double> write_rate;
     std::optional<absl::Duration> doubling_time;
+
+    constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+      return f(x.read_rate, x.write_rate, x.doubling_time);
+    };
   };
   struct Resource {
     Spec spec;
