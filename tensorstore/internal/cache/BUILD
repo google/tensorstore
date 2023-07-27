@@ -285,6 +285,7 @@ tensorstore_cc_library(
         "//tensorstore:strided_layout",
         "//tensorstore:transaction",
         "//tensorstore/driver:chunk",
+        "//tensorstore/driver:chunk_receiver_utils",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/index_space:transformed_array",
         "//tensorstore/internal:arena",

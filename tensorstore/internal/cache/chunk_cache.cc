@@ -31,6 +31,7 @@
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/chunk.h"
+#include "tensorstore/driver/chunk_receiver_utils.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/transformed_array.h"
@@ -232,44 +233,6 @@ struct ReadChunkTransactionImpl {
   }
 };
 
-/// Shared state used while `Read` is in progress.
-struct ReadOperationState : public AtomicReferenceCount<ReadOperationState> {
-  using Receiver = AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>>;
-  struct SharedReceiver : public AtomicReferenceCount<SharedReceiver> {
-    Receiver receiver;
-  };
-  ReadOperationState(Receiver receiver) : shared_receiver(new SharedReceiver) {
-    // The receiver is stored in a separate reference-counted object, so that it
-    // can outlive `ReadOperationState`.  `ReadOperationState` is destroyed when
-    // the last chunk is ready (successfully or with an error), but the
-    // `receiver` needs to remain until `promise` is ready, which does not
-    // necessarily happen until after the last `ReadOperationState` reference is
-    // destroyed.
-    shared_receiver->receiver = std::move(receiver);
-    auto [promise, future] = PromiseFuturePair<void>::Make(MakeResult());
-    this->promise = std::move(promise);
-    execution::set_starting(this->shared_receiver->receiver,
-                            [promise = this->promise] {
-                              promise.SetResult(absl::CancelledError(""));
-                            });
-    std::move(future).ExecuteWhenReady(
-        [shared_receiver = this->shared_receiver](ReadyFuture<void> future) {
-          auto& result = future.result();
-          if (result) {
-            execution::set_done(shared_receiver->receiver);
-          } else {
-            execution::set_error(shared_receiver->receiver, result.status());
-          }
-          execution::set_stopping(shared_receiver->receiver);
-        });
-  }
-  ~ReadOperationState() { promise.SetReady(); }
-  IntrusivePtr<SharedReceiver> shared_receiver;
-
-  /// Tracks errors, cancellation, and completion.
-  Promise<void> promise;
-};
-
 /// TensorStore Driver WriteChunk implementation for the chunk cache.
 ///
 /// This implements the `tensorstore::internal::WriteChunk::Impl` Poly
@@ -405,13 +368,15 @@ void ChunkCache::Read(
     AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver) {
   assert(component_index >= 0 && component_index < grid().components.size());
   const auto& component_spec = grid().components[component_index];
-  IntrusivePtr<ReadOperationState> state(
-      new ReadOperationState(std::move(receiver)));
+  // Shared state used while `Read` is in progress.
+  using ReadOperationState = ChunkOperationState<ReadChunk>;
+
+  auto state = MakeIntrusivePtr<ReadOperationState>(std::move(receiver));
   auto status = PartitionIndexTransformOverRegularGrid(
       component_spec.chunked_to_cell_dimensions, grid().chunk_shape, transform,
       [&](span<const Index> grid_cell_indices,
           IndexTransformView<> cell_transform) {
-        if (!state->promise.result_needed()) {
+        if (state->cancelled()) {
           return absl::CancelledError("");
         }
         num_reads.Increment();
@@ -446,7 +411,7 @@ void ChunkCache::Read(
         return absl::OkStatus();
       });
   if (!status.ok()) {
-    state->promise.SetResult(std::move(status));
+    state->SetError(std::move(status));
   }
 }
 

@@ -36,6 +36,7 @@ tensorstore_cc_library(
         "//tensorstore:transaction",
         "//tensorstore/driver",
         "//tensorstore/driver:chunk",
+        "//tensorstore/driver:chunk_receiver_utils",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/internal:concurrency_resource",
         "//tensorstore/internal:context_binding",
