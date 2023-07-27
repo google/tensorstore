@@ -26,6 +26,8 @@
 #include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"
 #include "tensorstore/internal/cache/cache_pool_resource.h"
+#include "tensorstore/internal/cache_key/absl_time.h"
+#include "tensorstore/internal/cache_key/std_optional.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/absl_time.h"

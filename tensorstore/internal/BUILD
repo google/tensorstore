@@ -164,6 +164,7 @@ tensorstore_cc_library(
         ":thread_pool",
         ":type_traits",
         "//tensorstore:context",
+        "//tensorstore/internal/cache_key",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/util:executor",
@@ -1602,6 +1603,7 @@ tensorstore_cc_library(
     hdrs = ["retries_context_resource.h"],
     deps = [
         "//tensorstore:context",
+        "//tensorstore/internal/cache_key",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:absl_time",
         "//tensorstore/internal/json_binding:bindable",

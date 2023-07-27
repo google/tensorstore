@@ -698,8 +698,13 @@ template <typename Provider>
 struct CacheKeyEncoder<Context::Resource<Provider>> {
   static void Encode(std::string* out,
                      const Context::Resource<Provider>& value) {
-    internal::EncodeCacheKey(out,
-                             reinterpret_cast<std::uintptr_t>(value.get()));
+    auto& ptr = internal_context::Access::impl(value);
+    if (!ptr) {
+      internal::EncodeCacheKey(out,
+                               internal_context::ResourceOrSpecBase::kNull);
+    } else {
+      ptr->EncodeCacheKey(out);
+    }
   }
 };
 }  // namespace internal

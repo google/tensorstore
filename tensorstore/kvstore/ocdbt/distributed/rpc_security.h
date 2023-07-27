@@ -15,6 +15,7 @@
 #include "grpcpp/security/credentials.h"  // third_party
 #include "grpcpp/security/server_credentials.h"  // third_party
 #include "grpcpp/server_context.h"  // third_party
+#include "tensorstore/internal/cache_key/fwd.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 
 #ifndef TENSORSTORE_KVSTORE_OCDBT_DISTRIBUTED_RPC_SECURITY_H_
@@ -37,12 +38,23 @@ class RpcSecurityMethod
   virtual absl::Status ValidateServerRequest(
       grpc::ServerContextBase* context) const;
 
+  // Implementation should start with a call to `internal::EncodeCacheKey(out,
+  // id);`, where `id` is the identifier used for JSON.
+  virtual void EncodeCacheKey(std::string* out) const = 0;
+
   virtual ~RpcSecurityMethod();
 };
 
 RpcSecurityMethod::Ptr GetInsecureRpcSecurityMethod();
 
 }  // namespace internal_ocdbt
+namespace internal {
+template <>
+struct CacheKeyEncoder<internal_ocdbt::RpcSecurityMethod::Ptr> {
+  static void Encode(std::string* out,
+                     const internal_ocdbt::RpcSecurityMethod::Ptr& value);
+};
+}  // namespace internal
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_KVSTORE_OCDBT_DISTRIBUTED_RPC_SECURITY_H_

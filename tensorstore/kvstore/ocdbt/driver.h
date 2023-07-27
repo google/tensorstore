@@ -60,6 +60,9 @@ struct OcdbtCoordinatorResource
     std::optional<std::string> address;
     std::optional<absl::Duration> lease_duration;
     RpcSecurityMethod::Ptr security;
+    constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+      return f(x.address, x.lease_duration, x.security);
+    };
   };
   using Resource = Spec;
 };

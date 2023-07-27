@@ -51,6 +51,7 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore:context",
         "//tensorstore/internal:retries_context_resource",
+        "//tensorstore/internal/cache_key",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
     ],

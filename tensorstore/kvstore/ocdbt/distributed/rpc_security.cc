@@ -14,6 +14,8 @@
 
 #include "tensorstore/kvstore/ocdbt/distributed/rpc_security.h"
 
+#include "absl/base/optimization.h"
+#include "tensorstore/internal/cache_key/cache_key.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/no_destructor.h"
@@ -45,6 +47,11 @@ class InsecureRpcSecurityMethod : public RpcSecurityMethod {
   std::shared_ptr<grpc::ChannelCredentials> GetClientCredentials()
       const override {
     return grpc::InsecureChannelCredentials();
+  }
+  void EncodeCacheKey(std::string* out) const {
+    // This should never be called.  In the `OcdbtCoordinatorResource`, this
+    // security method is represented by a null pointer.
+    ABSL_UNREACHABLE();
   }
 };
 
@@ -81,4 +88,17 @@ TENSORSTORE_DEFINE_JSON_BINDER(
     })
 
 }  // namespace internal_ocdbt
+
+namespace internal {
+void CacheKeyEncoder<internal_ocdbt::RpcSecurityMethod::Ptr>::Encode(
+    std::string* out, const internal_ocdbt::RpcSecurityMethod::Ptr& value) {
+  if (!value) {
+    *out += '\1';
+    return;
+  }
+  *out += '\2';
+  value->EncodeCacheKey(out);
+}
+}  // namespace internal
+
 }  // namespace tensorstore

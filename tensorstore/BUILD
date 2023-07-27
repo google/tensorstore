@@ -313,6 +313,7 @@ tensorstore_cc_test(
         ":json_serialization_options",
         "//tensorstore/internal:concurrent_testutil",
         "//tensorstore/internal:json_gtest",
+        "//tensorstore/internal/cache_key",
         "//tensorstore/internal/json_binding",
         "//tensorstore/serialization",
         "//tensorstore/serialization:test_util",

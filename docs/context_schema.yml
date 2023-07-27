@@ -29,10 +29,13 @@ definitions:
     description: |-
       Specifies a context resource of a particular :literal:`<resource-type>`.
     oneOf:
-    - type: object
+    - oneOf:
+      - type: object
+      - type: boolean
+      - type: number
       description: |-
-        Specifies the resource directly.  All members are specific to the
-        particular :literal:`<resource-type>`.
+        Specifies the resource directly.  Any constraints on the value are
+        determined by the particular :literal:`<resource-type>`.
     - type: string
       description: |-
         References another resource of the same type in the current or parent

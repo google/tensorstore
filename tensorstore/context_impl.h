@@ -108,6 +108,8 @@ class BuilderResourceSpec : public ResourceSpecImplBase {
   ResourceSpecImplPtr UnbindContext(
       const internal::ContextSpecBuilder& spec_builder) final;
 
+  void EncodeCacheKey(std::string* out) const override;
+
   ResourceSpecImplPtr underlying_spec_;
 };
 

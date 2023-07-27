@@ -21,6 +21,7 @@
 #include <gtest/gtest.h>
 #include "tensorstore/context_impl.h"
 #include "tensorstore/context_resource_provider.h"
+#include "tensorstore/internal/cache_key/std_optional.h"
 #include "tensorstore/internal/concurrent_testutil.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/std_optional.h"
@@ -63,6 +64,9 @@ using ::tensorstore::serialization::SerializationRoundTrip;
 struct IntResource : public ContextResourceTraits<IntResource> {
   struct Spec {
     std::int64_t value;
+    constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+      return f(x.value);
+    };
   };
   using Resource = std::int64_t;
   static constexpr char id[] = "int_resource";
@@ -81,9 +85,33 @@ struct IntResource : public ContextResourceTraits<IntResource> {
   }
 };
 
+struct IntConfigResource : public ContextResourceTraits<IntConfigResource> {
+  constexpr static bool config_only = true;
+  struct Spec {
+    std::int64_t value;
+    constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+      return f(x.value);
+    };
+  };
+  using Resource = std::int64_t;
+  static constexpr char id[] = "int_config_resource";
+  static Spec Default() { return {42}; }
+  static constexpr auto JsonBinder() { return jb::Projection(&Spec::value); }
+  static Result<Resource> Create(Spec v,
+                                 ContextResourceCreationContext context) {
+    return v.value;
+  }
+  static Spec GetSpec(Resource v, const ContextSpecBuilder& builder) {
+    return {v};
+  }
+};
+
 struct StrongRefResource : public ContextResourceTraits<StrongRefResource> {
   struct Spec {
     std::int64_t value;
+    constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+      return f(x.value);
+    };
   };
   struct Resource {
     size_t num_strong_references = 0;
@@ -133,6 +161,8 @@ struct OptionalResource : public ContextResourceTraits<OptionalResource> {
 };
 
 const ContextResourceRegistration<IntResource> int_resource_registration;
+const ContextResourceRegistration<IntConfigResource>
+    int_config_resource_registration;
 const ContextResourceRegistration<StrongRefResource>
     strong_ref_resource_registration;
 const ContextResourceRegistration<OptionalResource>
@@ -141,11 +171,11 @@ const ContextResourceRegistration<OptionalResource>
 TEST(IntResourceTest, InvalidDirectSpec) {
   EXPECT_THAT(Context::Resource<IntResource>::FromJson(nullptr),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Expected string or object, but received: null"));
+                            "Expected non-null value, but received: null"));
 
   EXPECT_THAT(Context::Resource<IntResource>::FromJson(3),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            "Expected string or object, but received: 3"));
+                            "Expected object, but received: 3"));
 
   EXPECT_THAT(
       Context::Resource<IntResource>::FromJson("foo"),
@@ -341,6 +371,29 @@ TEST(IntResourceTest, Unknown) {
               }),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Invalid context resource identifier: \"foo\""));
+}
+
+TEST(IntConfigResourceTest, ContextSpec) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto context, Context::FromJson({{"int_config_resource", 111}}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto resource1,
+                                   context.GetResource<IntConfigResource>());
+  EXPECT_THAT(resource1, ::testing::Pointee(111));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto resource2,
+                                   context.GetResource<IntConfigResource>(222));
+  EXPECT_THAT(resource2, ::testing::Pointee(222));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto resource3,
+                                   context.GetResource<IntConfigResource>(222));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto resource4,
+                                   context.GetResource<IntConfigResource>(111));
+
+  std::string cache_key1, cache_key2, cache_key3, cache_key4;
+  tensorstore::internal::EncodeCacheKey(&cache_key1, resource1);
+  tensorstore::internal::EncodeCacheKey(&cache_key2, resource2);
+  tensorstore::internal::EncodeCacheKey(&cache_key3, resource3);
+  tensorstore::internal::EncodeCacheKey(&cache_key4, resource4);
+  EXPECT_EQ(cache_key1, cache_key4);
+  EXPECT_EQ(cache_key2, cache_key3);
 }
 
 TEST(StrongRefResourceTest, DirectSpec) {
@@ -622,6 +675,10 @@ struct NestedResource : public ContextResourceTraits<NestedResource> {
       if (parent.has_resource()) total += parent->GetTotal();
       return total;
     }
+
+    constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+      return f(x.value, x.parent);
+    };
   };
   using Resource = Spec;
   static constexpr char id[] = "nested_resource";
