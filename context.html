@@ -610,39 +610,6 @@
   
 </li>
       
-        <li class="md-nav__item">
-  <a href="#json-Context.file_io_concurrency" class="md-nav__link">
-    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="Context.file_io_concurrency (JSON type)" class="md-ellipsis">Context.<wbr>file_<wbr>io_<wbr>concurrency</span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Context.file_io_concurrency">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#optional-members-json-Context.file_io_concurrency" class="md-nav__link">
-    <span class="md-ellipsis">Optional members</span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Optional members">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#json-Context.file_io_concurrency.limit" class="md-nav__link">
-    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="Context.file_io_concurrency.limit (JSON member)" class="md-ellipsis">limit</span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
     </ul>
   
 </nav>
@@ -847,39 +814,6 @@
   
 </li>
       
-        <li class="md-nav__item">
-  <a href="#json-Context.file_io_concurrency" class="md-nav__link">
-    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="Context.file_io_concurrency (JSON type)" class="md-ellipsis">Context.<wbr>file_<wbr>io_<wbr>concurrency</span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Context.file_io_concurrency">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#optional-members-json-Context.file_io_concurrency" class="md-nav__link">
-    <span class="md-ellipsis">Optional members</span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Optional members">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#json-Context.file_io_concurrency.limit" class="md-nav__link">
-    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="Context.file_io_concurrency.limit (JSON member)" class="md-ellipsis">limit</span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
     </ul>
   
 </nav>
@@ -937,15 +871,15 @@ allows sharing of resources by multiple TensorStore drivers.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-ContextResource">
-<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">ContextResource</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><span class="p"> <span class="pre">|</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="kc">null</span></code><a class="headerlink" href="#json-ContextResource" title="Permalink to this definition">¶</a></dt>
+<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">ContextResource</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><span class="p"> <span class="pre">|</span> </span><span class="desctype"><span class="pre">boolean</span></span><span class="p"> <span class="pre">|</span> </span><span class="desctype"><span class="pre">number</span></span><span class="p"> <span class="pre">|</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="kc">null</span></code><a class="headerlink" href="#json-ContextResource" title="Permalink to this definition">¶</a></dt>
 <dd><p>Specifies a context resource of a particular <code class="docutils literal notranslate"><span class="pre">&lt;resource-type&gt;</span></code>.</p>
 <dl class="field-list">
 <dt class="field-odd" id="one-of-json-ContextResource">One of<span class="colon">:</span><a class="headerlink" href="#one-of-json-ContextResource" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json">
-<span class="desctype"><span class="pre">object</span></span></dt>
-<dd><p>Specifies the resource directly.  All members are specific to the
-particular <code class="docutils literal notranslate"><span class="pre">&lt;resource-type&gt;</span></code>.</p>
+<span class="desctype"><span class="pre">object</span></span><span class="p"> <span class="pre">|</span> </span><span class="desctype"><span class="pre">boolean</span></span><span class="p"> <span class="pre">|</span> </span><span class="desctype"><span class="pre">number</span></span></dt>
+<dd><p>Specifies the resource directly.  Any constraints on the value are
+determined by the particular <code class="docutils literal notranslate"><span class="pre">&lt;resource-type&gt;</span></code>.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
@@ -1009,26 +943,6 @@ copying/encoding/decoding.</p>
 <dd><p>The maximum number of CPU cores that may be used.  If the special
 value of <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;shared&quot;</span></code> is specified, a shared global limit equal to the
 number of CPU cores/threads available applies.</p>
-</dd></dl>
-
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="json schema objdesc">
-<dt class="sig sig-object highlight json" id="json-Context.file_io_concurrency">
-<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">Context.file_io_concurrency</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-Context.file_io_concurrency" title="Permalink to this definition">¶</a></dt>
-<dd><p>Specifies a limit on the number of concurrently local filesystem I/O
-operations.</p>
-<dl class="field-list">
-<dt class="field-odd" id="optional-members-json-Context.file_io_concurrency">Optional members<span class="colon">:</span><a class="headerlink" href="#optional-members-json-Context.file_io_concurrency" title="Permalink to this headline">¶</a></dt>
-<dd class="field-odd noindent"><dl class="json schema objdesc">
-<dt class="sig sig-object highlight json" id="json-Context.file_io_concurrency.limit">
-<span class="sig-name descname"><span class="pre">limit</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">1</span></code><span class="p"><span class="pre">,</span> </span><span class="o"><span class="pre">+∞</span></span><span class="p"><span class="pre">)</span></span></sub><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;shared&quot;</span></code><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;shared&quot;</span></code><a class="headerlink" href="#json-Context.file_io_concurrency.limit" title="Permalink to this definition">¶</a></dt>
-<dd><p>The maximum number of concurrent operations.  If the special value of
-<code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;shared&quot;</span></code> is specified, a shared global limit equal to the number
-of CPU cores/threads available (or 4 if there are fewer than 4
-cores/threads available) applies.</p>
 </dd></dl>
 
 </dd>
