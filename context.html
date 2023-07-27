@@ -937,15 +937,15 @@ allows sharing of resources by multiple TensorStore drivers.</p>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-ContextResource">
-<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">ContextResource</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><span class="p"> <span class="pre">|</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="kc">null</span></code><a class="headerlink" href="#json-ContextResource" title="Permalink to this definition">¶</a></dt>
+<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">ContextResource</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><span class="p"> <span class="pre">|</span> </span><span class="desctype"><span class="pre">boolean</span></span><span class="p"> <span class="pre">|</span> </span><span class="desctype"><span class="pre">number</span></span><span class="p"> <span class="pre">|</span> </span><span class="desctype"><span class="pre">string</span></span><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="kc">null</span></code><a class="headerlink" href="#json-ContextResource" title="Permalink to this definition">¶</a></dt>
 <dd><p>Specifies a context resource of a particular <code class="docutils literal notranslate"><span class="pre">&lt;resource-type&gt;</span></code>.</p>
 <dl class="field-list">
 <dt class="field-odd" id="one-of-json-ContextResource">One of<span class="colon">:</span><a class="headerlink" href="#one-of-json-ContextResource" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json">
-<span class="desctype"><span class="pre">object</span></span></dt>
-<dd><p>Specifies the resource directly.  All members are specific to the
-particular <code class="docutils literal notranslate"><span class="pre">&lt;resource-type&gt;</span></code>.</p>
+<span class="desctype"><span class="pre">object</span></span><span class="p"> <span class="pre">|</span> </span><span class="desctype"><span class="pre">boolean</span></span><span class="p"> <span class="pre">|</span> </span><span class="desctype"><span class="pre">number</span></span></dt>
+<dd><p>Specifies the resource directly.  Any constraints on the value are
+determined by the particular <code class="docutils literal notranslate"><span class="pre">&lt;resource-type&gt;</span></code>.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
