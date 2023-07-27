@@ -26,6 +26,7 @@
 #include "tensorstore/serialization/riegeli_delimited.h"
 #include "tensorstore/util/endian.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 #include "tensorstore/util/utf8_string.h"
 
 namespace tensorstore {
@@ -307,9 +308,15 @@ struct ReadSwapEndianLoopTemplate {
         const char* cursor = reader.cursor();
         for (; element_i < end_element_i; ++element_i) {
           if constexpr (IsBool) {
-            // Ensure that the result is exactly 0 or 1.
+            unsigned char val = static_cast<unsigned char>(*cursor);
+            if (val & ~static_cast<unsigned char>(1)) {
+              reader.set_cursor(cursor);
+              reader.Fail(absl::InvalidArgumentError(tensorstore::StrCat(
+                  "Invalid bool value: ", static_cast<unsigned int>(*cursor))));
+              return element_i;
+            }
             *ArrayAccessor::template GetPointerAtOffset<bool>(
-                source, element_i) = static_cast<bool>(*cursor);
+                source, element_i) = static_cast<bool>(val);
           } else {
             SwapEndianUnaligned<SubElementSize, NumSubElements>(
                 cursor, ArrayAccessor::template GetPointerAtOffset<Element>(

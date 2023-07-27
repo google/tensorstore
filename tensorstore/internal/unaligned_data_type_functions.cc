@@ -39,12 +39,36 @@ struct SwapEndianSizes<std::complex<T>> {
   constexpr static size_t num_elements = 2;
 };
 
+struct ValidateBoolLoopTemplate {
+  using ElementwiseFunctionType = ElementwiseFunction<1, void*>;
+
+  template <typename ArrayAccessor>
+  static Index Loop(void* context, Index count, IterationBufferPointer buffer,
+                    void* arg) {
+    auto* status = static_cast<absl::Status*>(arg);
+    for (Index i = 0; i < count; ++i) {
+      unsigned char val =
+          *ArrayAccessor::template GetPointerAtOffset<const unsigned char>(
+              buffer, i);
+      if (val & ~static_cast<unsigned char>(1)) {
+        *status = absl::InvalidArgumentError(
+            tensorstore::StrCat("Invalid bool value: ", static_cast<int>(val)));
+        return i;
+      }
+    }
+    return count;
+  }
+};
+
 }  // namespace
 
 const std::array<UnalignedDataTypeFunctions, kNumDataTypeIds>
     kUnalignedDataTypeFunctions = MapCanonicalDataTypes([](auto dtype) {
       using T = typename decltype(dtype)::Element;
       UnalignedDataTypeFunctions functions;
+      if (std::is_same_v<T, bool>) {
+        functions.validate = GetElementwiseFunction<ValidateBoolLoopTemplate>();
+      }
       if constexpr (IsTrivial<T>) {
         using Sizes = SwapEndianSizes<T>;
         functions.copy = GetElementwiseFunction<SwapEndianUnalignedLoopTemplate<

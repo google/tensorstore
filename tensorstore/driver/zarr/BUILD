@@ -233,6 +233,7 @@ tensorstore_cc_library(
         ":zlib_compressor",
         "//tensorstore:array",
         "//tensorstore:data_type",
+        "//tensorstore/internal:array_endian_riegeli_codec",
         "//tensorstore/internal:data_type_endian_conversion",
         "//tensorstore/internal:flat_cord_builder",
         "//tensorstore/internal/json_binding",

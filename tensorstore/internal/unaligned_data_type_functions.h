@@ -82,11 +82,26 @@ struct UnalignedDataTypeFunctions {
   /// The `context` points to a `riegeli::Reader`.  The `void*` parameter
   /// is ignored.
   internal::ElementwiseFunction<1, void*> read_swapped_endian;
+
+  /// Validates a native-endian value.  If the data type does not require
+  /// validation, equal to `nullptr`.
+  ///
+  /// The `void*` argument must be a non-null pointer to an `absl::Status`, and
+  /// the status will be set to an error value if validation fails.
+  ///
+  /// For `bool`, this ensures that the value is `0` or `1`.
+  const internal::ElementwiseFunction<1, void*>* validate = nullptr;
 };
 
 /// Functions for each canonical data type.
 extern const std::array<UnalignedDataTypeFunctions, kNumDataTypeIds>
     kUnalignedDataTypeFunctions;
+
+inline constexpr bool IsTrivialDataType(DataType dtype) {
+  return dtype.id() != DataTypeId::custom &&
+         kUnalignedDataTypeFunctions[static_cast<size_t>(dtype.id())].copy !=
+             nullptr;
+}
 
 }  // namespace internal
 }  // namespace tensorstore
