@@ -428,6 +428,14 @@ TEST(FileKeyValueStoreTest, UrlRoundtrip) {
       {{"driver", "file"}, {"path", "/abc def/"}}, "file:///abc%20def/");
 }
 
+TEST(FileKeyValueStoreTest, UrlOpen) {
+  tensorstore::internal::ScopedTemporaryDirectory tempdir;
+  std::string root = tempdir.path() + "/root";
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
+                                   kvstore::Open("file://" + root).result());
+  tensorstore::internal::TestKeyValueStoreBasicFunctionality(store);
+}
+
 TEST(FileKeyValueStoreTest, InvalidUri) {
   EXPECT_THAT(kvstore::Spec::FromUrl("file://abc?query"),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
