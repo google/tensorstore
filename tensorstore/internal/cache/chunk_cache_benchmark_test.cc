@@ -29,6 +29,7 @@
 #include "tensorstore/box.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
+#include "tensorstore/driver/chunk_cache_driver.h"
 #include "tensorstore/driver/driver.h"
 #include "tensorstore/driver/read.h"
 #include "tensorstore/driver/write.h"
@@ -73,6 +74,7 @@ using ::tensorstore::internal::CachePtr;
 using ::tensorstore::internal::ChunkCache;
 using ::tensorstore::internal::ChunkCacheDriver;
 using ::tensorstore::internal::ChunkGridSpecification;
+using ::tensorstore::internal::ConcreteChunkCache;
 using ::tensorstore::internal::Driver;
 using ::tensorstore::internal::ElementCopyFunction;
 using ::tensorstore::internal::GetOwningCache;
@@ -125,8 +127,8 @@ std::ostream& operator<<(std::ostream& os, const BenchmarkConfig& config) {
          << ", cached=" << config.cached << ", threads=" << config.threads;
 }
 
-class BenchmarkCache : public tensorstore::internal::ChunkCache {
-  using Base = tensorstore::internal::ChunkCache;
+class BenchmarkCache : public ConcreteChunkCache {
+  using Base = ConcreteChunkCache;
 
  public:
   using Base::Base;
@@ -237,7 +239,7 @@ class CopyBenchmarkRunner {
         Box<>(rank), chunked_dims}});
     cache = pool->GetCache<BenchmarkCache>(
         "", [&] { return std::make_unique<BenchmarkCache>(grid, executor); });
-    driver.reset(new TestDriver(cache, 0));
+    driver.reset(new TestDriver(TestDriver::Initializer{cache, 0}));
     array = AllocateArray(config.copy_shape, tensorstore::c_order,
                           tensorstore::value_init, config.dtype);
     transform = ChainResult(tensorstore::IdentityTransform(rank),

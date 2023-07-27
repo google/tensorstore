@@ -18,6 +18,7 @@
 #include "absl/status/status.h"
 #include "absl/time/time.h"
 #include "tensorstore/box.h"
+#include "tensorstore/driver/chunk_cache_driver.h"
 #include "tensorstore/driver/driver.h"
 #include "tensorstore/driver/registry.h"
 #include "tensorstore/index_space/index_domain_builder.h"
@@ -37,9 +38,11 @@ namespace virtual_chunked {
 
 namespace {
 
-class VirtualChunkedCache : public internal::ChunkCache {
+class VirtualChunkedCache : public internal::ConcreteChunkCache {
+  using Base = internal::ConcreteChunkCache;
+
  public:
-  using internal::ChunkCache::ChunkCache;
+  using Base::Base;
 
   /// Common implementation used by `Entry::DoRead` and
   /// `TransactionNode::DoRead`.
@@ -386,11 +389,14 @@ class VirtualChunkedDriverSpec
   }
 };
 
-class VirtualChunkedDriver
-    : public internal::RegisteredDriver<VirtualChunkedDriver,
-                                        internal::ChunkCacheDriver> {
-  using Base = internal::RegisteredDriver<VirtualChunkedDriver,
-                                          internal::ChunkCacheDriver>;
+class VirtualChunkedDriver;
+using VirtualChunkedDriverBase = internal::RegisteredDriver<
+    VirtualChunkedDriver,
+    internal::ChunkGridSpecificationDriver<
+        VirtualChunkedCache, internal::ChunkCacheReadWriteDriverMixin<
+                                 VirtualChunkedDriver, internal::Driver>>>;
+class VirtualChunkedDriver : public VirtualChunkedDriverBase {
+  using Base = VirtualChunkedDriverBase;
 
  public:
   using Base::Base;
@@ -402,10 +408,6 @@ class VirtualChunkedDriver
   static Result<internal::Driver::Handle> OpenFromSpecData(
       Transaction transaction, const VirtualChunkedDriverSpec& spec);
 
-  VirtualChunkedCache* cache() const {
-    return static_cast<VirtualChunkedCache*>(
-        internal::ChunkCacheDriver::cache());
-  }
   Result<CodecSpec> GetCodec() override { return CodecSpec{}; }
 
   Result<DimensionUnitsVector> GetDimensionUnits() override {
@@ -415,6 +417,11 @@ class VirtualChunkedDriver
   Result<SharedArray<const void>> GetFillValue(
       IndexTransformView<> transform) override {
     return {std::in_place};
+  }
+
+  Result<ChunkLayout> GetChunkLayout(IndexTransformView<> transform) {
+    return internal::GetChunkLayoutFromGrid(cache()->grid().components[0]) |
+           transform;
   }
 };
 
@@ -594,7 +601,7 @@ Result<internal::Driver::Handle> VirtualChunkedDriver::OpenFromSpecData(
     }
     fill_value.element_pointer() = internal::AllocateAndConstructSharedElements(
         1, value_init, spec.schema.dtype());
-    internal::ChunkGridSpecification::Components components;
+    internal::ChunkGridSpecification::ComponentList components;
     components.emplace_back(std::move(fill_value),
                             std::move(adjusted_component_domain));
     auto cache = std::make_unique<VirtualChunkedCache>(
@@ -618,8 +625,9 @@ Result<internal::Driver::Handle> VirtualChunkedDriver::OpenFromSpecData(
       (cache->read_function_ ? ReadWriteMode::read : ReadWriteMode{}) |
       (cache->write_function_ ? ReadWriteMode::write : ReadWriteMode{});
   handle.driver = internal::MakeReadWritePtr<VirtualChunkedDriver>(
-      read_write_mode, std::move(cache), /*component_index=*/0,
-      spec.data_staleness.BoundAtOpen(absl::Now()));
+      read_write_mode, VirtualChunkedDriver::Initializer{
+                           std::move(cache), /*component_index=*/0,
+                           spec.data_staleness.BoundAtOpen(absl::Now())});
 
   return handle;
 }

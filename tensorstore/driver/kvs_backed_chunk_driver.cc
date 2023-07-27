@@ -37,23 +37,25 @@
 namespace tensorstore {
 namespace internal_kvs_backed_chunk_driver {
 
-OpenState::~OpenState() = default;
+MetadataOpenState::~MetadataOpenState() = default;
 
-Result<IndexTransform<>> DataCache::GetExternalToInternalTransform(
-    const void* metadata, std::size_t component_index) {
+DataCacheBase::~DataCacheBase() = default;
+
+Result<IndexTransform<>> DataCacheBase::GetExternalToInternalTransform(
+    const void* metadata, size_t component_index) {
   return IndexTransform<>();
 }
 
-OpenState::OpenState(Initializer initializer)
+MetadataOpenState::MetadataOpenState(Initializer initializer)
     : PrivateOpenState{std::move(initializer.transaction),
                        std::move(initializer.spec),
                        initializer.read_write_mode} {
   request_time_ = absl::Now();
 }
 
-std::string OpenState::GetMetadataCacheKey() { return {}; }
+std::string MetadataOpenState::GetMetadataCacheKey() { return {}; }
 
-Result<kvstore::DriverPtr> OpenState::GetMetadataKeyValueStore(
+Result<kvstore::DriverPtr> MetadataOpenState::GetMetadataKeyValueStore(
     kvstore::DriverPtr base_kv_store) {
   return base_kv_store;
 }
@@ -63,11 +65,11 @@ Result<kvstore::DriverPtr> OpenState::GetDataKeyValueStore(
   return base_kv_store;
 }
 
-ReadWriteMode OpenState::GetReadWriteMode(const void* metadata) {
+ReadWriteMode MetadataOpenState::GetReadWriteMode(const void* metadata) {
   return ReadWriteMode::read_write;
 }
 
-AtomicUpdateConstraint OpenState::GetCreateConstraint() {
+AtomicUpdateConstraint MetadataOpenState::GetCreateConstraint() {
   return AtomicUpdateConstraint::kRequireMissing;
 }
 
@@ -76,22 +78,15 @@ MetadataCache::MetadataCache(Initializer initializer)
       data_copy_concurrency_(std::move(initializer.data_copy_concurrency)),
       cache_pool_(std::move(initializer.cache_pool)) {}
 
-DataCache::DataCache(Initializer initializer,
-                     internal::ChunkGridSpecification grid)
-    : Base(std::move(initializer.store), std::move(grid),
-           GetOwningCache(*initializer.metadata_cache_entry).executor()),
-      metadata_cache_entry_(std::move(initializer.metadata_cache_entry)),
+DataCacheBase::DataCacheBase(Initializer&& initializer)
+    : metadata_cache_entry_(std::move(initializer.metadata_cache_entry)),
       initial_metadata_(std::move(initializer.metadata)) {}
 
-Result<ChunkLayout> DataCache::GetChunkLayout(const void* metadata_ptr,
-                                              std::size_t component_index) {
-  return ChunkCache::GetChunkLayout(component_index);
-}
-
-Result<CodecSpec> DataCache::GetCodec(const void* metadata,
-                                      std::size_t component_index) {
-  return CodecSpec{};
-}
+DataCache::DataCache(Initializer&& initializer,
+                     internal::ChunkGridSpecification&& grid)
+    : KvsBackedChunkCache(std::move(initializer.store)),
+      ChunkedDataCacheBase(std::move(initializer)),
+      grid_(std::move(grid)) {}
 
 namespace {
 
@@ -241,7 +236,8 @@ std::string GetMetadataMissingErrorMessage(
 ///
 /// If the metadata has changed in an incompatible way (e.g. a change to the
 /// chunk shape), returns an error.
-absl::Status ValidateNewMetadata(DataCache* cache, const void* new_metadata) {
+absl::Status ValidateNewMetadata(DataCacheBase* cache,
+                                 const void* new_metadata) {
   if (!new_metadata) {
     return absl::FailedPreconditionError(
         GetMetadataMissingErrorMessage(cache->metadata_cache_entry_.get()));
@@ -255,7 +251,7 @@ absl::Status ValidateNewMetadata(DataCache* cache, const void* new_metadata) {
 ///
 /// If the metadata has changed in an incompatible way, returns an error.
 Result<std::shared_ptr<const void>> ValidateNewMetadata(
-    DataCache* cache, internal::OpenTransactionPtr transaction) {
+    DataCacheBase* cache, internal::OpenTransactionPtr transaction) {
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto new_metadata,
       cache->metadata_cache_entry_->GetMetadata(std::move(transaction)));
@@ -263,7 +259,7 @@ Result<std::shared_ptr<const void>> ValidateNewMetadata(
   return new_metadata;
 }
 
-Result<IndexTransform<>> GetInitialTransform(DataCache* cache,
+Result<IndexTransform<>> GetInitialTransform(DataCacheBase* cache,
                                              const void* metadata,
                                              size_t component_index) {
   TENSORSTORE_ASSIGN_OR_RETURN(
@@ -275,23 +271,23 @@ Result<IndexTransform<>> GetInitialTransform(DataCache* cache,
                                    /*options=*/{});
 }
 
-void GetComponentBounds(DataCache* data_cache, const void* metadata,
-                        std::size_t component_index, MutableBoxView<> bounds,
-                        DimensionSet& implicit_lower_bounds,
-                        DimensionSet& implicit_upper_bounds) {
-  const auto& grid = data_cache->grid();
+}  // namespace
+
+void ChunkedDataCacheBase::GetComponentBounds(
+    const void* metadata, size_t component_index,
+    Box<dynamic_rank(kMaxRank)>& bounds, DimensionSet& implicit_lower_bounds,
+    DimensionSet& implicit_upper_bounds) {
+  const auto& grid = this->grid();
   const auto& component_spec = grid.components[component_index];
-  assert(bounds.rank() == component_spec.rank());
-  Box<dynamic_rank(internal::kNumInlinedDims)> grid_bounds(
-      grid.chunk_shape.size());
+  bounds.set_rank(component_spec.rank());
+  Box<dynamic_rank(kMaxRank)> grid_bounds(grid.chunk_shape.size());
   DimensionSet grid_implicit_lower_bounds;
   DimensionSet grid_implicit_upper_bounds;
-  data_cache->GetChunkGridBounds(metadata, grid_bounds,
-                                 grid_implicit_lower_bounds,
-                                 grid_implicit_upper_bounds);
+  this->GetChunkGridBounds(metadata, grid_bounds, grid_implicit_lower_bounds,
+                           grid_implicit_upper_bounds);
   span<const DimensionIndex> chunked_to_cell_dimensions =
       component_spec.chunked_to_cell_dimensions;
-  bounds.DeepAssign(component_spec.fill_value.domain());
+  bounds = component_spec.fill_value.domain();
   implicit_lower_bounds = false;
   implicit_upper_bounds = false;
   for (DimensionIndex grid_dim = 0; grid_dim < grid_bounds.rank(); ++grid_dim) {
@@ -302,24 +298,23 @@ void GetComponentBounds(DataCache* data_cache, const void* metadata,
   }
 }
 
-}  // namespace
-
-Result<ChunkLayout> DataCache::GetChunkLayout(size_t component_index) {
-  return GetChunkLayout(initial_metadata_.get(), component_index);
+Result<ChunkLayout> ChunkedDataCacheBase::GetChunkLayout(
+    size_t component_index) {
+  return GetChunkLayoutFromMetadata(initial_metadata_.get(), component_index);
 }
 
-Future<IndexTransform<>> KvsDriverBase::ResolveBounds(
+Future<IndexTransform<>> KvsMetadataDriverBase::ResolveBounds(
     internal::OpenTransactionPtr transaction, IndexTransform<> transform,
     ResolveBoundsOptions options) {
   return ResolveBounds(std::move(transaction), std::move(transform),
                        metadata_staleness_bound_, options);
 }
 
-Future<MetadataPtr> KvsDriverBase::ResolveMetadata(
+Future<MetadataPtr> KvsMetadataDriverBase::ResolveMetadata(
     internal::OpenTransactionPtr transaction,
     absl::Time metadata_staleness_bound) {
-  auto* cache = this->cache();
   const bool skip_read = assume_metadata_time_ >= metadata_staleness_bound;
+  auto* cache = this->cache();
   const auto handle_assume_metadata =
       [&](auto& entry_or_node) -> Result<MetadataPtr> {
     // Don't issue a read request, but check if there is already newer cached
@@ -374,7 +369,7 @@ Future<MetadataPtr> KvsDriverBase::ResolveMetadata(
     auto read_future = node->Read(metadata_staleness_bound);
     return MapFuture(
         cache->executor(),
-        [cache = internal::CachePtr<DataCache>(cache), node = std::move(node)](
+        [cache = DataCacheBase::Ptr(cache), node = std::move(node)](
             const Result<void>& result) -> Result<MetadataPtr> {
           TENSORSTORE_RETURN_IF_ERROR(result);
           TENSORSTORE_ASSIGN_OR_RETURN(
@@ -390,7 +385,7 @@ Future<MetadataPtr> KvsDriverBase::ResolveMetadata(
   if (skip_read) return handle_assume_metadata(*cache->metadata_cache_entry_);
   return MapFuture(
       cache->executor(),
-      [cache = internal::CachePtr<DataCache>(cache)](
+      [cache = DataCacheBase::Ptr(cache)](
           const Result<void>& result) -> Result<MetadataPtr> {
         TENSORSTORE_RETURN_IF_ERROR(result);
         auto new_metadata = cache->metadata_cache_entry_->GetMetadata();
@@ -401,16 +396,15 @@ Future<MetadataPtr> KvsDriverBase::ResolveMetadata(
       cache->metadata_cache_entry_->Read(metadata_staleness_bound));
 }
 
-Future<IndexTransform<>> KvsDriverBase::ResolveBounds(
+Future<IndexTransform<>> KvsMetadataDriverBase::ResolveBounds(
     internal::OpenTransactionPtr transaction, IndexTransform<> transform,
     StalenessBound metadata_staleness_bound, ResolveBoundsOptions options) {
   auto* cache = this->cache();
   return MapFutureValue(
       cache->executor(),
-      [cache = internal::CachePtr<DataCache>(cache),
-       component_index = component_index(), options = std::move(options),
-       transform =
-           std::move(transform)](const MetadataPtr& new_metadata) mutable {
+      [cache = DataCacheBase::Ptr(cache), component_index = component_index(),
+       options = std::move(options), transform = std::move(transform)](
+          const MetadataPtr& new_metadata) mutable {
         return ResolveBoundsFromMetadata(cache.get(), new_metadata.get(),
                                          component_index, std::move(transform),
                                          options);
@@ -428,14 +422,14 @@ namespace {
 /// \returns A `Future` that becomes ready when the request completes
 ///     successfully or with an error.  Must call `Force` to ensure the request
 ///     is actually issued.
-Future<const void> RequestResize(DataCache* cache,
+Future<const void> RequestResize(ChunkedDataCacheBase* cache,
                                  internal::OpenTransactionPtr transaction,
                                  ResizeParameters parameters) {
   return cache->metadata_cache_entry_->RequestAtomicUpdate(
       transaction,
       /*update=*/
       [parameters = std::move(parameters),
-       cache = internal::CachePtr<DataCache>(cache),
+       cache = ChunkedDataCacheBase::Ptr(cache),
        metadata_constraint = cache->initial_metadata_](
           const MetadataCache::MetadataPtr& current_metadata)
           -> Result<std::shared_ptr<const void>> {
@@ -444,8 +438,7 @@ Future<const void> RequestResize(DataCache* cache,
         }
         TENSORSTORE_RETURN_IF_ERROR(cache->ValidateMetadataCompatibility(
             metadata_constraint.get(), current_metadata.get()));
-        Box<dynamic_rank(internal::kNumInlinedDims)> bounds(
-            parameters.new_inclusive_min.size());
+        Box<dynamic_rank(kMaxRank)> bounds(parameters.new_inclusive_min.size());
         DimensionSet implicit_lower_bounds;
         DimensionSet implicit_upper_bounds;
         cache->GetChunkGridBounds(current_metadata.get(), bounds,
@@ -468,9 +461,9 @@ Future<const void> RequestResize(DataCache* cache,
 }
 
 struct ResizeContinuation {
-  internal::CachePtr<DataCache> cache;
+  ChunkedDataCacheBase::Ptr cache;
   internal::OpenTransactionPtr transaction;
-  std::size_t component_index;
+  size_t component_index;
   IndexTransform<> transform;
   Result<IndexTransform<>> GetResult() {
     TENSORSTORE_ASSIGN_OR_RETURN(
@@ -487,7 +480,7 @@ struct ResizeContinuation {
 };
 
 struct ResizeState {
-  internal::CachePtr<DataCache> cache;
+  ChunkedDataCacheBase::Ptr cache;
   internal::OpenTransactionPtr transaction;
   std::size_t component_index;
   IndexTransform<> transform;
@@ -514,7 +507,7 @@ struct DeleteChunksForResizeContinuation {
 };
 
 Future<const void> DeleteChunksForResize(
-    internal::CachePtr<DataCache> cache, BoxView<> current_bounds,
+    ChunkedDataCacheBase::Ptr cache, BoxView<> current_bounds,
     span<const Index> new_inclusive_min, span<const Index> new_exclusive_max,
     internal::OpenTransactionPtr transaction) {
   span<const Index> chunk_shape = cache->grid().chunk_shape;
@@ -540,8 +533,7 @@ Future<const void> DeleteChunksForResize(
   for (Index box_i = 0; box_i < box_difference.num_sub_boxes(); ++box_i) {
     box_difference.GetSubBox(box_i, part);
     IterateOverIndexRange(part, [&](span<const Index> cell_indices) {
-      auto entry = cache->GetEntryForCell(cell_indices);
-      LinkError(pair.promise, entry->Delete(transaction));
+      LinkError(pair.promise, cache->DeleteCell(cell_indices, transaction));
     });
   }
   return pair.future;
@@ -595,7 +587,15 @@ struct ResolveBoundsForDeleteAndResizeContinuation {
 };
 }  // namespace
 
-Future<IndexTransform<>> KvsDriverBase::Resize(
+Result<ChunkLayout> KvsChunkedDriverBase::GetChunkLayout(
+    IndexTransformView<> transform) {
+  auto* cache = this->cache();
+  return cache->GetChunkLayoutFromMetadata(cache->initial_metadata().get(),
+                                           component_index()) |
+         transform;
+}
+
+Future<IndexTransform<>> KvsChunkedDriverBase::Resize(
     internal::OpenTransactionPtr transaction, IndexTransform<> transform,
     span<const Index> inclusive_min, span<const Index> exclusive_max,
     ResizeOptions options) {
@@ -618,7 +618,7 @@ Future<IndexTransform<>> KvsDriverBase::Resize(
 
   auto pair = PromiseFuturePair<IndexTransform<>>::Make();
   ResizeState resize_state{
-      /*.cache=*/internal::CachePtr<DataCache>(cache),
+      /*.cache=*/ChunkedDataCacheBase::Ptr(cache),
       /*.transaction=*/std::move(transaction),
       /*.component_index=*/component_index(),
       /*.transform=*/std::move(transform),
@@ -640,7 +640,7 @@ Future<IndexTransform<>> KvsDriverBase::Resize(
   return std::move(pair.future);
 }
 
-Result<IndexTransform<>> KvsDriverBase::GetBoundSpecData(
+Result<IndexTransform<>> KvsMetadataDriverBase::GetBoundSpecData(
     internal::OpenTransactionPtr transaction, KvsDriverSpec& spec,
     IndexTransformView<> transform_view) {
   auto* cache = this->cache();
@@ -705,14 +705,9 @@ OpenMode KvsDriverSpec::open_mode() const {
   return (mode == OpenMode{}) ? OpenMode::open : mode;
 }
 
-Result<CodecSpec> KvsDriverBase::GetCodec() {
-  auto* cache = this->cache();
-  return cache->GetCodec(cache->initial_metadata_.get(), component_index());
-}
-
 kvstore::Spec KvsDriverSpec::GetKvstore() const { return store; }
 
-KvStore KvsDriverBase::GetKvstore(const Transaction& transaction) {
+KvStore KvsMetadataDriverBase::GetKvstore(const Transaction& transaction) {
   auto* cache = this->cache();
   auto* metadata_cache = cache->metadata_cache();
   return KvStore{kvstore::DriverPtr(metadata_cache->base_store()),
@@ -737,7 +732,7 @@ Result<std::size_t> ValidateOpenRequest(OpenState* state,
 /// \pre `metadata != nullptr`
 Result<internal::Driver::Handle> CreateTensorStoreFromMetadata(
     OpenState::Ptr state, std::shared_ptr<const void> metadata,
-    std::size_t component_index) {
+    size_t component_index) {
   ABSL_LOG_IF(INFO, TENSORSTORE_KVS_DRIVER_DEBUG)
       << "CreateTensorStoreFromMetadata: state=" << state.get();
   auto& base = *(PrivateOpenState*)state.get();  // Cast to private base
@@ -759,10 +754,11 @@ Result<internal::Driver::Handle> CreateTensorStoreFromMetadata(
     }
   }
   absl::Status data_key_value_store_status;
-  auto chunk_cache =
+  auto data_cache =
       (*state->cache_pool())
-          ->GetCache<DataCache>(
-              chunk_cache_identifier, [&]() -> std::unique_ptr<DataCache> {
+          ->GetCache<DataCacheBase>(
+              typeid(*state), chunk_cache_identifier,
+              [&]() -> std::unique_ptr<DataCacheBase> {
                 auto store_result = state->GetDataKeyValueStore(
                     GetOwningCache(*base.metadata_cache_entry_).base_store_,
                     metadata.get());
@@ -771,28 +767,31 @@ Result<internal::Driver::Handle> CreateTensorStoreFromMetadata(
                       std::move(store_result).status();
                   return nullptr;
                 }
-                return state->GetDataCache({std::move(*store_result),
-                                            base.metadata_cache_entry_,
-                                            metadata});
+                DataCacheInitializer initializer;
+                initializer.store = std::move(*store_result);
+                initializer.metadata_cache_entry = base.metadata_cache_entry_;
+                initializer.metadata = metadata;
+                return state->GetDataCache(std::move(initializer));
               });
   TENSORSTORE_RETURN_IF_ERROR(data_key_value_store_status);
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto new_transform,
-      GetInitialTransform(chunk_cache.get(), metadata.get(), component_index));
+      GetInitialTransform(data_cache.get(), metadata.get(), component_index));
 
   if (base.transaction_ && !base.spec_->assume_metadata) {
     // Add consistency check.
-    chunk_cache->metadata_cache_entry_
+    data_cache->metadata_cache_entry_
         ->RequestAtomicUpdate(
             base.transaction_,
-            [cache = chunk_cache, transform = new_transform, component_index](
+            [data_cache = data_cache, transform = new_transform,
+             component_index](
                 const MetadataCache::MetadataPtr& existing_metadata)
                 -> Result<MetadataCache::MetadataPtr> {
-              TENSORSTORE_RETURN_IF_ERROR(
-                  ValidateNewMetadata(cache.get(), existing_metadata.get()));
+              TENSORSTORE_RETURN_IF_ERROR(ValidateNewMetadata(
+                  data_cache.get(), existing_metadata.get()));
               TENSORSTORE_ASSIGN_OR_RETURN(
                   auto new_transform,
-                  GetInitialTransform(cache.get(), existing_metadata.get(),
+                  GetInitialTransform(data_cache.get(), existing_metadata.get(),
                                       component_index));
               if (transform != new_transform) {
                 return absl::AbortedError("Metadata is inconsistent");
@@ -803,14 +802,17 @@ Result<internal::Driver::Handle> CreateTensorStoreFromMetadata(
         .IgnoreFuture();
   }
 
-  internal::DriverPtr driver(
-      state->AllocateDriver(
-          {std::move(chunk_cache), component_index,
-           base.spec_->staleness.BoundAtOpen(base.request_time_)}),
-      read_write_mode);
+  DriverInitializer initializer;
+  initializer.cache = std::move(data_cache);
+  initializer.component_index = component_index;
+  initializer.data_staleness_bound =
+      base.spec_->staleness.data.BoundAtOpen(base.request_time_);
+  internal::ReadWritePtr<KvsMetadataDriverBase> driver(
+      state->AllocateDriver(std::move(initializer)), read_write_mode);
+  driver->metadata_staleness_bound_ =
+      base.spec_->staleness.metadata.BoundAtOpen(base.request_time_);
   if (base.spec_->assume_metadata) {
-    static_cast<KvsDriverBase&>(*driver).assume_metadata_time_ =
-        base.request_time_;
+    driver->assume_metadata_time_ = base.request_time_;
   }
   return internal::Driver::Handle{
       std::move(driver), std::move(new_transform),
@@ -819,7 +821,7 @@ Result<internal::Driver::Handle> CreateTensorStoreFromMetadata(
 
 /// Called when the metadata has been written (successfully or unsuccessfully).
 struct HandleWroteMetadata {
-  OpenState::Ptr state;
+  MetadataOpenState::Ptr state;
   void operator()(Promise<internal::Driver::Handle> promise,
                   ReadyFuture<const void> future) {
     auto& base = *(PrivateOpenState*)state.get();  // Cast to private base
@@ -841,17 +843,13 @@ struct HandleWroteMetadata {
       TENSORSTORE_ASSIGN_OR_RETURN(
           auto metadata,
           base.metadata_cache_entry_->GetMetadata(base.transaction_));
-      TENSORSTORE_ASSIGN_OR_RETURN(
-          std::size_t component_index,
-          ValidateOpenRequest(state.get(), metadata.get()));
-      return CreateTensorStoreFromMetadata(
-          std::move(state), std::move(metadata), component_index);
+      return state->CreateDriverHandleFromMetadata(std::move(metadata));
     }());
   }
 };
 
 /// Attempts to create new array.
-void CreateMetadata(OpenState::Ptr state,
+void CreateMetadata(MetadataOpenState::Ptr state,
                     Promise<internal::Driver::Handle> promise) {
   ABSL_LOG_IF(INFO, TENSORSTORE_KVS_DRIVER_DEBUG)
       << "CreateMetadata: state=" << state.get();
@@ -874,7 +872,7 @@ void CreateMetadata(OpenState::Ptr state,
 
 /// Called when the metadata has been read (successfully or not found).
 struct HandleReadMetadata {
-  OpenState::Ptr state;
+  MetadataOpenState::Ptr state;
   void operator()(Promise<internal::Driver::Handle> promise,
                   ReadyFuture<const void> metadata_future) {
     auto& base = *(PrivateOpenState*)state.get();  // Cast to private base
@@ -887,26 +885,24 @@ struct HandleReadMetadata {
       promise.SetResult(std::move(result).status());
       return;
     }
-    auto component_index_result =
-        ValidateOpenRequest(state.get(), metadata.get());
-    if (component_index_result) {
-      promise.SetResult(CreateTensorStoreFromMetadata(
-          std::move(state), std::move(metadata), *component_index_result));
+    auto handle_result = state->CreateDriverHandleFromMetadata(metadata);
+    if (handle_result) {
+      promise.SetResult(std::move(handle_result));
       return;
     }
-    if (component_index_result.status().code() == absl::StatusCode::kNotFound) {
+    if (handle_result.status().code() == absl::StatusCode::kNotFound) {
       if (base.spec_->create) {
         CreateMetadata(std::move(state), std::move(promise));
         return;
       }
     }
-    promise.SetResult(std::move(component_index_result).status());
+    promise.SetResult(std::move(handle_result).status());
   }
 };
 
 /// Called when the metadata should be requested or created.
 struct GetMetadataForOpen {
-  OpenState::Ptr state;
+  MetadataOpenState::Ptr state;
   void operator()(Promise<internal::Driver::Handle> promise) {
     ABSL_LOG_IF(INFO, TENSORSTORE_KVS_DRIVER_DEBUG)
         << "GetMetadataForOpen: state=" << state.get();
@@ -916,12 +912,8 @@ struct GetMetadataForOpen {
       if (base.spec_->assume_metadata) {
         TENSORSTORE_ASSIGN_OR_RETURN(auto metadata, state->Create(nullptr),
                                      static_cast<void>(promise.SetResult(_)));
-        TENSORSTORE_ASSIGN_OR_RETURN(
-            std::size_t component_index,
-            ValidateOpenRequest(state.get(), metadata.get()),
-            static_cast<void>(promise.SetResult(_)));
-        promise.SetResult(CreateTensorStoreFromMetadata(
-            std::move(state), std::move(metadata), component_index));
+        promise.SetResult(
+            state->CreateDriverHandleFromMetadata(std::move(metadata)));
         return;
       }
       LinkValue(
@@ -942,7 +934,7 @@ struct GetMetadataForOpen {
 
 /// Called when the kvstore has been successfully opened.
 struct HandleKeyValueStoreReady {
-  OpenState::Ptr state;
+  MetadataOpenState::Ptr state;
   void operator()(Promise<internal::Driver::Handle> promise,
                   ReadyFuture<const void> store) {
     ABSL_LOG_IF(INFO, TENSORSTORE_KVS_DRIVER_DEBUG)
@@ -1126,67 +1118,11 @@ void MetadataCache::Entry::DoEncode(std::shared_ptr<const void> data,
   }
 }
 
-std::string DataCache::Entry::GetKeyValueStoreKey() {
-  auto& cache = GetOwningCache(*this);
-  return cache.GetChunkStorageKey(cache.initial_metadata_.get(),
-                                  this->cell_indices());
-}
-
-void DataCache::Entry::DoDecode(std::optional<absl::Cord> value,
-                                DecodeReceiver receiver) {
-  GetOwningCache(*this).executor()([this, value = std::move(value),
-                                    receiver = std::move(receiver)]() mutable {
-    if (!value) {
-      execution::set_value(receiver, nullptr);
-      return;
-    }
-    auto& cache = GetOwningCache(*this);
-    auto decoded_result = cache.DecodeChunk(
-        cache.initial_metadata_.get(), this->cell_indices(), std::move(*value));
-    if (!decoded_result.ok()) {
-      execution::set_error(receiver,
-                           internal::ConvertInvalidArgumentToFailedPrecondition(
-                               std::move(decoded_result).status()));
-      return;
-    }
-    const size_t num_components = this->component_specs().size();
-    auto new_read_data =
-        internal::make_shared_for_overwrite<ReadData[]>(num_components);
-    assert(decoded_result->size() == num_components);
-    std::copy_n(decoded_result->begin(), num_components, new_read_data.get());
-    execution::set_value(
-        receiver, std::static_pointer_cast<ReadData>(std::move(new_read_data)));
-  });
-}
-
-void DataCache::Entry::DoEncode(std::shared_ptr<const ReadData> data,
-                                EncodeReceiver receiver) {
-  if (!data) {
-    execution::set_value(receiver, std::nullopt);
-    return;
-  }
-  auto& entry = GetOwningEntry(*this);
-  auto& cache = GetOwningCache(entry);
-  // Convert from array of `SharedArray<const void>` to array of
-  // `SharedArrayView<const void>`.
-  auto* components = data.get();
-  const auto component_specs = this->component_specs();
-  absl::FixedArray<SharedArrayView<const void>, 2> component_arrays(
-      component_specs.size());
-  for (size_t i = 0; i < component_arrays.size(); ++i) {
-    if (components[i].valid()) {
-      component_arrays[i] = components[i];
-    } else {
-      component_arrays[i] = component_specs[i].fill_value;
-    }
-  }
-  auto encoded_result = cache.EncodeChunk(
-      cache.initial_metadata_.get(), entry.cell_indices(), component_arrays);
-  if (!encoded_result.ok()) {
-    execution::set_error(receiver, std::move(encoded_result).status());
-    return;
-  }
-  execution::set_value(receiver, std::move(*encoded_result));
+Future<const void> DataCache::DeleteCell(
+    span<const Index> grid_cell_indices,
+    internal::OpenTransactionPtr transaction) {
+  return internal::ChunkCache::DeleteCell(grid_cell_indices,
+                                          std::move(transaction));
 }
 
 namespace {
@@ -1200,7 +1136,8 @@ namespace {
 /// until the `metadata_cache->initialized_` future becomes ready.  This
 /// asynchronous initialization pattern is needed in order to asynchronously
 /// open the `kvstore::Driver` when the metadata cache is created.
-internal::CachePtr<MetadataCache> GetOrCreateMetadataCache(OpenState* state) {
+internal::CachePtr<MetadataCache> GetOrCreateMetadataCache(
+    MetadataOpenState* state) {
   auto& base = *(PrivateOpenState*)state;  // Cast to private base
 
   auto& spec = *base.spec_;
@@ -1220,7 +1157,7 @@ internal::CachePtr<MetadataCache> GetOrCreateMetadataCache(OpenState* state) {
             << "Opening metadata kvstore: open_state=" << state;
         // The cache didn't previously exist.  Open the kvstore.
         LinkValue(
-            [state = OpenState::Ptr(state),
+            [state = MetadataOpenState::Ptr(state),
              metadata_cache = std::move(metadata_cache)](
                 Promise<void> metadata_cache_promise,
                 ReadyFuture<kvstore::DriverPtr> future) {
@@ -1238,7 +1175,15 @@ internal::CachePtr<MetadataCache> GetOrCreateMetadataCache(OpenState* state) {
 }
 }  // namespace
 
-Future<internal::Driver::Handle> OpenDriver(OpenState::Ptr state) {
+Result<internal::Driver::Handle> OpenState::CreateDriverHandleFromMetadata(
+    std::shared_ptr<const void> metadata) {
+  TENSORSTORE_ASSIGN_OR_RETURN(std::size_t component_index,
+                               ValidateOpenRequest(this, metadata.get()));
+  return CreateTensorStoreFromMetadata(OpenState::Ptr(this),
+                                       std::move(metadata), component_index);
+}
+
+Future<internal::Driver::Handle> OpenDriver(MetadataOpenState::Ptr state) {
   ABSL_LOG_IF(INFO, TENSORSTORE_KVS_DRIVER_DEBUG)
       << "OpenDriver: open_state=" << state.get();
   // TODO(jbms): possibly determine these options from the open options.
@@ -1260,16 +1205,15 @@ Future<internal::Driver::Handle> OpenDriver(OpenState::Ptr state) {
 }
 
 Result<IndexTransform<>> ResolveBoundsFromMetadata(
-    DataCache* data_cache, const void* new_metadata,
+    DataCacheBase* data_cache, const void* new_metadata,
     std::size_t component_index, IndexTransform<> transform,
     ResolveBoundsOptions options) {
-  auto& grid = data_cache->grid();
-  const DimensionIndex base_rank = grid.components[component_index].rank();
   DimensionSet base_implicit_lower_bounds;
   DimensionSet base_implicit_upper_bounds;
-  Box<dynamic_rank(internal::kNumInlinedDims)> base_bounds(base_rank);
-  GetComponentBounds(data_cache, new_metadata, component_index, base_bounds,
-                     base_implicit_lower_bounds, base_implicit_upper_bounds);
+  Box<dynamic_rank(kMaxRank)> base_bounds;
+  data_cache->GetComponentBounds(new_metadata, component_index, base_bounds,
+                                 base_implicit_lower_bounds,
+                                 base_implicit_upper_bounds);
   if ((options.mode & fix_resizable_bounds) == fix_resizable_bounds) {
     base_implicit_lower_bounds = false;
     base_implicit_upper_bounds = false;
@@ -1294,22 +1238,22 @@ absl::Status ValidateResizeConstraints(
 }
 
 Result<ResizeParameters> GetResizeParameters(
-    DataCache* data_cache, const void* metadata, size_t component_index,
-    IndexTransformView<> transform, span<const Index> inclusive_min,
-    span<const Index> exclusive_max, ResizeOptions options,
-    TransactionMode transaction_mode) {
+    ChunkedDataCacheBase* data_cache, const void* metadata,
+    size_t component_index, IndexTransformView<> transform,
+    span<const Index> inclusive_min, span<const Index> exclusive_max,
+    ResizeOptions options, TransactionMode transaction_mode) {
   assert(transform.input_rank() == inclusive_min.size());
   assert(transform.input_rank() == exclusive_max.size());
   const DimensionIndex output_rank = transform.output_rank();
 
-  const auto& grid = data_cache->grid();
-  const DimensionIndex base_rank = grid.components[component_index].rank();
   DimensionSet base_implicit_lower_bounds;
   DimensionSet base_implicit_upper_bounds;
-  Box<dynamic_rank(internal::kNumInlinedDims)> base_bounds(base_rank);
-  GetComponentBounds(data_cache, metadata, component_index, base_bounds,
-                     base_implicit_lower_bounds, base_implicit_upper_bounds);
+  Box<dynamic_rank(kMaxRank)> base_bounds;
+  data_cache->GetComponentBounds(metadata, component_index, base_bounds,
+                                 base_implicit_lower_bounds,
+                                 base_implicit_upper_bounds);
 
+  const auto& grid = data_cache->grid();
   const DimensionIndex grid_rank = grid.grid_rank();
 
   Index new_output_inclusive_min[kMaxRank];
@@ -1403,19 +1347,9 @@ Result<ResizeParameters> GetResizeParameters(
       /*.shrink_only=*/(options.mode & shrink_only) == shrink_only};
 }
 
-KvsDriverBase::KvsDriverBase(Initializer&& initializer)
-    : internal::ChunkCacheDriver(std::move(initializer.cache),
-                                 initializer.component_index,
-                                 initializer.staleness_bounds.data),
-      metadata_staleness_bound_(initializer.staleness_bounds.metadata) {}
-
-DataCache* KvsDriverBase::cache() const {
-  return static_cast<DataCache*>(internal::ChunkCacheDriver::cache());
-}
-
-void KvsDriverBase::GarbageCollectionBase::Visit(
+void KvsMetadataDriverBase::GarbageCollectionBase::Visit(
     garbage_collection::GarbageCollectionVisitor& visitor,
-    const KvsDriverBase& value) {
+    const KvsMetadataDriverBase& value) {
   auto* cache = value.cache();
   auto* metadata_cache = cache->metadata_cache();
   garbage_collection::GarbageCollectionVisit(visitor,

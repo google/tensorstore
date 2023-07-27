@@ -287,11 +287,9 @@ Result<SharedArray<const void>> DecodeChunk(const N5Metadata& metadata,
   return full_decoded_array;
 }
 
-Result<absl::Cord> EncodeChunk(span<const Index> chunk_indices,
-                               const N5Metadata& metadata,
+Result<absl::Cord> EncodeChunk(const N5Metadata& metadata,
                                ArrayView<const void> array) {
   assert(absl::c_equal(metadata.chunk_layout.shape(), array.shape()));
-  assert(chunk_indices.size() == array.rank());
   // Always write chunks as full size, to avoid race conditions or data loss
   // in the event of a concurrent resize.
   internal::FlatCordBuilder encoded(array.num_elements() *

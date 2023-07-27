@@ -32,7 +32,6 @@
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/chunk.h"
 #include "tensorstore/index.h"
-#include "tensorstore/index_space/dimension_permutation.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/internal/arena.h"
@@ -68,64 +67,6 @@ auto& num_writes = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/cache/chunk_cache/writes", "Number of writes to ChunkCache.");
 auto& num_reads = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/cache/chunk_cache/reads", "Number of reads from ChunkCache.");
-
-ChunkGridSpecification::Component::Component(SharedArray<const void> fill_value,
-                                             Box<> component_bounds)
-    : internal::AsyncWriteArray::Spec(std::move(fill_value),
-                                      std::move(component_bounds)) {
-  chunked_to_cell_dimensions.resize(rank());
-  std::iota(chunked_to_cell_dimensions.begin(),
-            chunked_to_cell_dimensions.end(), static_cast<DimensionIndex>(0));
-}
-
-ChunkGridSpecification::Component::Component(
-    SharedArray<const void> fill_value, Box<> component_bounds,
-    std::vector<DimensionIndex> chunked_to_cell_dimensions)
-    : internal::AsyncWriteArray::Spec(std::move(fill_value),
-                                      std::move(component_bounds)),
-      chunked_to_cell_dimensions(std::move(chunked_to_cell_dimensions)) {}
-
-ChunkGridSpecification::ChunkGridSpecification(Components components_arg)
-    : components(std::move(components_arg)) {
-  assert(!components.empty());
-  // Extract the chunk shape from the cell shape of the first component.
-  chunk_shape.resize(components[0].chunked_to_cell_dimensions.size());
-  for (DimensionIndex i = 0;
-       i < static_cast<DimensionIndex>(chunk_shape.size()); ++i) {
-    chunk_shape[i] =
-        components[0].shape()[components[0].chunked_to_cell_dimensions[i]];
-  }
-  // Verify that the extents of the chunked dimensions are the same for all
-  // components.
-#if !defined(NDEBUG)
-  for (const auto& component : components) {
-    assert(component.chunked_to_cell_dimensions.size() == chunk_shape.size());
-    for (DimensionIndex i = 0;
-         i < static_cast<DimensionIndex>(chunk_shape.size()); ++i) {
-      assert(chunk_shape[i] ==
-             component.shape()[component.chunked_to_cell_dimensions[i]]);
-    }
-  }
-#endif  // !defined(NDEBUG)
-}
-
-void ChunkGridSpecification::GetComponentOrigin(const size_t component_index,
-                                                span<const Index> cell_indices,
-                                                span<Index> origin) const {
-  assert(rank() == cell_indices.size());
-  assert(component_index < components.size());
-  const auto& component_spec = components[component_index];
-  assert(component_spec.rank() == origin.size());
-  std::fill_n(origin.begin(), origin.size(), Index(0));
-  for (DimensionIndex chunk_dim_i = 0;
-       chunk_dim_i < static_cast<DimensionIndex>(
-                         component_spec.chunked_to_cell_dimensions.size());
-       ++chunk_dim_i) {
-    const DimensionIndex cell_dim_i =
-        component_spec.chunked_to_cell_dimensions[chunk_dim_i];
-    origin[cell_dim_i] = cell_indices[chunk_dim_i] * chunk_shape[chunk_dim_i];
-  }
-}
 
 namespace {
 
@@ -458,9 +399,6 @@ struct WriteChunkImpl {
 
 }  // namespace
 
-ChunkCache::ChunkCache(ChunkGridSpecification grid, Executor executor)
-    : grid_(std::move(grid)), executor_(std::move(executor)) {}
-
 void ChunkCache::Read(
     OpenTransactionPtr transaction, std::size_t component_index,
     IndexTransform<> transform, absl::Time staleness,
@@ -479,7 +417,7 @@ void ChunkCache::Read(
         num_reads.Increment();
         TENSORSTORE_ASSIGN_OR_RETURN(
             auto cell_to_source, ComposeTransforms(transform, cell_transform));
-        auto entry = GetEntryForCell(grid_cell_indices);
+        auto entry = GetEntryForGridCell(*this, grid_cell_indices);
         // Arrange to call `set_value` on the receiver with a `ReadChunk`
         // corresponding to this grid cell once the read request completes
         // successfully.
@@ -531,7 +469,7 @@ void ChunkCache::Write(
         num_writes.Increment();
         TENSORSTORE_ASSIGN_OR_RETURN(
             auto cell_to_dest, ComposeTransforms(transform, cell_transform));
-        auto entry = GetEntryForCell(grid_cell_indices);
+        auto entry = GetEntryForGridCell(*this, grid_cell_indices);
         auto transaction_copy = transaction;
         TENSORSTORE_ASSIGN_OR_RETURN(
             auto node, GetTransactionNode(*entry, transaction_copy));
@@ -550,14 +488,10 @@ void ChunkCache::Write(
   execution::set_stopping(receiver);
 }
 
-PinnedCacheEntry<ChunkCache> ChunkCache::GetEntryForCell(
-    span<const Index> grid_cell_indices) {
-  assert(static_cast<size_t>(grid_cell_indices.size()) ==
-         grid().chunk_shape.size());
-  const std::string_view key(
-      reinterpret_cast<const char*>(grid_cell_indices.data()),
-      grid_cell_indices.size() * sizeof(Index));
-  return GetCacheEntry(this, key);
+Future<const void> ChunkCache::DeleteCell(
+    span<const Index> grid_cell_indices,
+    internal::OpenTransactionPtr transaction) {
+  return GetEntryForGridCell(*this, grid_cell_indices)->Delete(transaction);
 }
 
 absl::Status ChunkCache::TransactionNode::Delete() {
@@ -672,7 +606,7 @@ void ChunkCache::TransactionNode::DoApply(ApplyOptions options,
     return;
   }
   auto continuation = WithExecutor(
-      GetOwningCache(*this).executor_,
+      GetOwningCache(*this).executor(),
       [this, receiver = std::move(receiver)](
           tensorstore::ReadyFuture<const void> future) mutable {
         if (!future.result().ok()) {
@@ -710,63 +644,6 @@ void ChunkCache::TransactionNode::InvalidateReadState() {
     component.InvalidateReadState();
   }
 }
-
-ChunkCacheDriver::ChunkCacheDriver(CachePtr<ChunkCache> cache,
-                                   std::size_t component_index,
-                                   StalenessBound data_staleness_bound)
-    : cache_(std::move(cache)),
-      component_index_(component_index),
-      data_staleness_bound_(data_staleness_bound) {
-  assert(cache_);
-  assert(component_index < cache_->grid().components.size());
-}
-
-DataType ChunkCacheDriver::dtype() {
-  return cache_->grid().components[component_index_].dtype();
-}
-
-DimensionIndex ChunkCacheDriver::rank() {
-  return cache_->grid().components[component_index_].rank();
-}
-
-void ChunkCacheDriver::Read(
-    OpenTransactionPtr transaction, IndexTransform<> transform,
-    AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver) {
-  cache_->Read(std::move(transaction), component_index_, std::move(transform),
-               data_staleness_bound_.time, std::move(receiver));
-}
-
-void ChunkCacheDriver::Write(
-    OpenTransactionPtr transaction, IndexTransform<> transform,
-    AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>> receiver) {
-  cache_->Write(std::move(transaction), component_index_, std::move(transform),
-                std::move(receiver));
-}
-
-ChunkCacheDriver::~ChunkCacheDriver() = default;
-
-Result<ChunkLayout> ChunkCacheDriver::GetChunkLayout(
-    IndexTransformView<> transform) {
-  return cache_->GetChunkLayout(component_index()) | transform;
-}
-
-Result<ChunkLayout> ChunkCache::GetChunkLayout(size_t component_index) {
-  const auto& component_spec = grid().components[component_index];
-  ChunkLayout layout;
-  DimensionIndex inner_order[kMaxRank];
-  const DimensionIndex rank = component_spec.rank();
-  tensorstore::SetPermutation(c_order, span(inner_order, rank));
-  TENSORSTORE_RETURN_IF_ERROR(
-      layout.Set(ChunkLayout::InnerOrder(span(inner_order, rank))));
-  TENSORSTORE_RETURN_IF_ERROR(
-      layout.Set(ChunkLayout::GridOrigin(GetConstantVector<Index, 0>(rank))));
-  TENSORSTORE_RETURN_IF_ERROR(
-      layout.Set(ChunkLayout::WriteChunkShape(component_spec.shape())));
-  TENSORSTORE_RETURN_IF_ERROR(layout.Finalize());
-  return layout;
-}
-
-Executor ChunkCacheDriver::data_copy_executor() { return cache_->executor(); }
 
 }  // namespace internal
 }  // namespace tensorstore

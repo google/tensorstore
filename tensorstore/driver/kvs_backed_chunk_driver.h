@@ -24,9 +24,10 @@
 #include <memory>
 #include <string_view>
 
-#include "absl/container/inlined_vector.h"
 #include "absl/status/status.h"
 #include "tensorstore/box.h"
+#include "tensorstore/driver/chunk_cache_driver.h"
+#include "tensorstore/driver/driver.h"
 #include "tensorstore/driver/registry.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
@@ -36,6 +37,8 @@
 #include "tensorstore/internal/cache/cache_pool_resource.h"
 #include "tensorstore/internal/cache/chunk_cache.h"
 #include "tensorstore/internal/cache/kvs_backed_cache.h"
+#include "tensorstore/internal/cache/kvs_backed_chunk_cache.h"
+#include "tensorstore/internal/chunk_grid_specification.h"
 #include "tensorstore/internal/context_binding.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/estimate_heap_usage/std_vector.h"
@@ -248,7 +251,7 @@ class MetadataCache
   };
 
   Entry* DoAllocateEntry() final { return new Entry; }
-  std::size_t DoGetSizeofEntry() final { return sizeof(Entry); }
+  size_t DoGetSizeofEntry() final { return sizeof(Entry); }
   TransactionNode* DoAllocateTransactionNode(AsyncCache::Entry& entry) final {
     return new TransactionNode(static_cast<Entry&>(entry));
   }
@@ -258,8 +261,8 @@ class MetadataCache
   const Executor& executor() { return data_copy_concurrency_->executor; }
 
   /// Key-value store from which `kvstore_driver()` was derived.  Used only by
-  /// `KvsDriverBase::GetBoundSpecData`.  A driver implementation may apply some
-  /// type of adapter to the `kvstore_driver()` in order to retrieve metadata by
+  /// `GetBoundSpecData`.  A driver implementation may apply some type of
+  /// adapter to the `kvstore_driver()` in order to retrieve metadata by
   /// overriding the default implementation of
   /// `OpenState::GetMetadataKeyValueStore`.
   kvstore::DriverPtr base_store_;
@@ -268,96 +271,40 @@ class MetadataCache
   Context::Resource<internal::CachePoolResource> cache_pool_;
 };
 
-/// Inherits from `ChunkCache` and represents one or more chunked arrays that
-/// are stored within the same set of chunks.
+/// Abstract base class for `Cache` types that are used with
+/// `KvsMetadataDriverBase`.
 ///
-/// Driver implementations must define a derived class that inherits from
-/// `DataCache` in order to perform driver-specific data handling.
+/// This is intended to be used as a sibling/cousin base class of
+/// `internal::Cache`.
+///
+/// Like `ChunkCache`, this supports more than one "component", where a
+/// component is identified by a `size_t component_index`.
+///
+/// Derived classes must define various methods for computing bounds and
+/// transforms from the metadata, and validating the metadata.
 ///
 /// Implicitly, instances of this class assume a particular `Metadata` type.
-class DataCache
-    : public internal::KvsBackedCache<DataCache, internal::ChunkCache> {
-  using Base = internal::KvsBackedCache<DataCache, internal::ChunkCache>;
-
+class DataCacheBase {
  public:
   using MetadataPtr = MetadataCache::MetadataPtr;
 
   struct Initializer {
-    kvstore::DriverPtr store;
     internal::PinnedCacheEntry<MetadataCache> metadata_cache_entry;
     MetadataPtr metadata;
   };
 
-  explicit DataCache(Initializer initializer,
-                     internal::ChunkGridSpecification grid);
+  explicit DataCacheBase(Initializer&& initializer);
+  virtual ~DataCacheBase();
 
-  virtual std::string GetChunkStorageKey(const void* metadata,
-                                         span<const Index> cell_indices) = 0;
+  /// Enables support for `internal::CachePtr` despite note inheriting from
+  /// `internal::Cache`.  Implementations should be equivalent to
+  /// `static_cast<internal::Cache&>(static_cast<Derived&>(*this))`.
+  ///
+  /// This provides a way to obtain the actual `internal::Cache` type without
+  /// relying on virtual inheritance.
+  virtual internal::Cache& cache() = 0;
 
-  /// Fills `bounds`, `implicit_lower_bounds`, and `implicit_upper_bounds` with
-  /// the current bounds for the chunked dimensions as specified in `metadata`.
-  ///
-  /// Resizable lower/upper bound should be marked implicit (i.e. a value of
-  /// `true` in `implicit_lower_bounds` or `implicit_upper_bounds`).
-  ///
-  /// \param metadata Non-null pointer to metadata of type `Metadata`.
-  /// \param bounds[out] Box of rank equal to `grid_rank`, where
-  ///     `grid_rank = GetChunkGridSpecification(metadata).grid_rank()`.
-  /// \param implicit_lower_bounds[out] Bit vector of length `bounds.rank()`.
-  /// \param implicit_upper_bounds[out] Bit vector of length `bounds.rank()`.
-  virtual void GetChunkGridBounds(const void* metadata, MutableBoxView<> bounds,
-                                  DimensionSet& implicit_lower_bounds,
-                                  DimensionSet& implicit_upper_bounds) = 0;
-
-  /// Sets `spec` with the bound spec data associated with the specified
-  /// component.
-  ///
-  /// \param spec[out] Reference to derived SpecData type for the driver.  The
-  ///     implementation must `static_cast` this pointer to the appropriate
-  ///     derived type.
-  /// \param metadata Non-null pointer to metadata of type `Metadata`.
-  /// \param component_index The ChunkCache component index.
-  virtual absl::Status GetBoundSpecData(KvsDriverSpec& spec,
-                                        const void* metadata,
-                                        std::size_t component_index) = 0;
-
-  /// Returns the chunk layout for the specified component.
-  ///
-  /// By default, returns a chunk layout computed from `this->grid()`.
-  ///
-  /// \param metadata Non-null pointer to the metadata of type `Metadata`.
-  /// \param component_index The ChunkCache component index.
-  virtual Result<ChunkLayout> GetChunkLayout(const void* metadata_ptr,
-                                             std::size_t component_index);
-
-  Result<ChunkLayout> GetChunkLayout(std::size_t component_index) override;
-
-  /// Returns the encoding for the specified component.
-  ///
-  /// By default, just returns a null pointer to indicate an unknown encoding.
-  ///
-  /// \param metadata Non-null pointer to the metadata of type `Metadata`.
-  /// \param component_index The ChunkCache component index.
-  virtual Result<CodecSpec> GetCodec(const void* metadata,
-                                     std::size_t component_index);
-
-  /// Returns a non-null pointer to a copy of `existing_metadata` with the
-  /// specified bounds resized.
-  ///
-  /// \param existing_metadata Non-null pointer to existing metadata of type
-  ///     `Metadata`.
-  /// \param new_inclusive_min Specifies the new inclusive lower bounds.  A
-  ///     value of `kImplicit` indicates no change.
-  /// \param new_exclusive_max Specifies the new exclusive upper bounds, of
-  ///     length `grid_rank`.  A value of `kImplicit` indicates no change.
-  /// \pre `new_inclusive_min.size()` and `new_exclusive_max.size()` are equal
-  ///     to `GetChunkGridSpecification(existing_metadata).grid_rank()`.
-  /// \pre `existing_metadata` is compatible with the initial metadata from
-  ///     which this `DataCache` was constructed, according to
-  ///     `ValidateMetadataCompatibility`.
-  virtual Result<std::shared_ptr<const void>> GetResizedMetadata(
-      const void* existing_metadata, span<const Index> new_inclusive_min,
-      span<const Index> new_exclusive_max) = 0;
+  using Ptr = internal::CachePtr<DataCacheBase>;
 
   /// Validates that `new_metadata` is compatible with `existing_metadata` for
   /// the purposes of this data cache.
@@ -379,6 +326,18 @@ class DataCache
   /// \error `absl::StatusCode::kFailedPrecondition` if not compatible.
   virtual absl::Status ValidateMetadataCompatibility(
       const void* existing_metadata, const void* new_metadata) = 0;
+
+  /// Sets `spec` with the bound spec data associated with the specified
+  /// component.
+  ///
+  /// \param spec[out] Reference to derived SpecData type for the driver.  The
+  ///     implementation must `static_cast` this pointer to the appropriate
+  ///     derived type.
+  /// \param metadata Non-null pointer to metadata of type `Metadata`.
+  /// \param component_index The ChunkCache component index.
+  virtual absl::Status GetBoundSpecData(KvsDriverSpec& spec,
+                                        const void* metadata,
+                                        size_t component_index) = 0;
 
   /// Returns a transform from the "external" index space visible in the `Spec`
   /// to the index space of component `component_index` in the `ChunkCache`.
@@ -402,58 +361,135 @@ class DataCache
   ///     `GetChunkGridSpecification(metadata).components[component_index]`, and
   ///     must be invertible.
   virtual Result<IndexTransform<>> GetExternalToInternalTransform(
-      const void* metadata, std::size_t component_index);
+      const void* metadata, size_t component_index);
 
-  /// Decodes a data chunk.
-  ///
-  /// \param metadata The metadata (which may determine the decoding).
-  /// \param data The encoded chunk data.
-  /// \returns On success, returns a decoded array for each component.  The
-  ///     shape of each decoded array `i` must equal
-  ///     `grid.components[i].cell_shape()`, where
-  ///     `grid = GetChunkGridSpecification(metadata)`.
-  virtual Result<absl::InlinedVector<SharedArray<const void>, 1>> DecodeChunk(
-      const void* metadata, span<const Index> chunk_indices,
-      absl::Cord data) = 0;
-
-  /// Encodes a data chunk.
-  ///
-  /// \param metadata The metadata (which may determine the encoding).
-  /// \param component_arrays Chunk data for each component.
-  /// \pre `component_arrays[i].shape() == grid.components[i].cell_shape()`,
-  ///     where `grid = GetChunkGridSpecification(metadata)`.
-  virtual Result<absl::Cord> EncodeChunk(
-      const void* metadata, span<const Index> chunk_indices,
-      span<const SharedArrayView<const void>> component_arrays) = 0;
-
-  // The members below are implementation details not relevant to derived class
-  // driver implementations.
-
-  class Entry : public Base::Entry {
-   public:
-    using OwningCache = DataCache;
-    void DoDecode(std::optional<absl::Cord> value,
-                  DecodeReceiver receiver) override;
-    void DoEncode(std::shared_ptr<const ReadData> data,
-                  EncodeReceiver receiver) override;
-    std::string GetKeyValueStoreKey() override;
-  };
-
-  Entry* DoAllocateEntry() final { return new Entry; }
-  std::size_t DoGetSizeofEntry() final { return sizeof(Entry); }
-  TransactionNode* DoAllocateTransactionNode(AsyncCache::Entry& entry) final {
-    return new TransactionNode(static_cast<Entry&>(entry));
-  }
+  virtual void GetComponentBounds(const void* metadata, size_t component_index,
+                                  Box<dynamic_rank(kMaxRank)>& bounds,
+                                  DimensionSet& implicit_lower_bounds,
+                                  DimensionSet& implicit_upper_bounds) = 0;
 
   /// Returns the kvstore path to include in the spec.
   virtual std::string GetBaseKvstorePath() = 0;
 
-  MetadataCache* metadata_cache() {
+  MetadataCache* metadata_cache() const {
     return &GetOwningCache(*metadata_cache_entry_);
   }
 
+  const Executor& executor() const { return metadata_cache()->executor(); }
+
+  const internal::PinnedCacheEntry<MetadataCache>& metadata_cache_entry()
+      const {
+    return metadata_cache_entry_;
+  }
+  const MetadataPtr& initial_metadata() const { return initial_metadata_; }
+
   const internal::PinnedCacheEntry<MetadataCache> metadata_cache_entry_;
   const MetadataPtr initial_metadata_;
+};
+
+/// Abstract base class for `Cache` types that are used with
+/// `KvsChunkedDriverBase`.
+///
+/// Extends `DataCacheBase` with resize and bound computation logic that assumes
+/// each grid cell from a `internal::ChunkGridSpecification` corresponds to a
+/// kvstore key.
+///
+/// Implicitly, instances of this class assume a particular `Metadata` type.
+class ChunkedDataCacheBase : public DataCacheBase {
+ public:
+  using Ptr = internal::CachePtr<ChunkedDataCacheBase>;
+
+  using DataCacheBase::DataCacheBase;
+  using DataCacheBase::executor;
+
+  /// Returns the grid specification.
+  virtual const internal::ChunkGridSpecification& grid() const = 0;
+
+  /// Returns the storage key for the given grid cell.
+  virtual std::string GetChunkStorageKey(span<const Index> cell_indices) = 0;
+
+  /// Fills `bounds`, `implicit_lower_bounds`, and `implicit_upper_bounds` with
+  /// the current bounds for the chunked dimensions as specified in `metadata`.
+  ///
+  /// Resizable lower/upper bound should be marked implicit (i.e. a value of
+  /// `true` in `implicit_lower_bounds` or `implicit_upper_bounds`).
+  ///
+  /// \param metadata Non-null pointer to metadata of type `Metadata`.
+  /// \param bounds[out] Box of rank equal to `grid_rank`, where
+  ///     `grid_rank = GetChunkGridSpecification(metadata).grid_rank()`.
+  /// \param implicit_lower_bounds[out] Bit vector of length `bounds.rank()`.
+  /// \param implicit_upper_bounds[out] Bit vector of length `bounds.rank()`.
+  virtual void GetChunkGridBounds(const void* metadata, MutableBoxView<> bounds,
+                                  DimensionSet& implicit_lower_bounds,
+                                  DimensionSet& implicit_upper_bounds) = 0;
+
+  /// Computes the bounds for the given component from the specified metadata.
+  void GetComponentBounds(const void* metadata, size_t component_index,
+                          Box<dynamic_rank(kMaxRank)>& bounds,
+                          DimensionSet& implicit_lower_bounds,
+                          DimensionSet& implicit_upper_bounds) override;
+
+  /// Returns the chunk layout for the specified component.
+  ///
+  /// By default, returns a chunk layout computed from `this->grid()`.
+  ///
+  /// \param metadata Non-null pointer to the metadata of type `Metadata`.
+  /// \param component_index The ChunkCache component index.
+  virtual Result<ChunkLayout> GetChunkLayoutFromMetadata(
+      const void* metadata_ptr, size_t component_index) = 0;
+
+  virtual Result<ChunkLayout> GetChunkLayout(size_t component_index);
+
+  /// Returns a non-null pointer to a copy of `existing_metadata` with the
+  /// specified bounds resized.
+  ///
+  /// \param existing_metadata Non-null pointer to existing metadata of type
+  ///     `Metadata`.
+  /// \param new_inclusive_min Specifies the new inclusive lower bounds.  A
+  ///     value of `kImplicit` indicates no change.
+  /// \param new_exclusive_max Specifies the new exclusive upper bounds, of
+  ///     length `grid_rank`.  A value of `kImplicit` indicates no change.
+  /// \pre `new_inclusive_min.size()` and `new_exclusive_max.size()` are equal
+  ///     to `GetChunkGridSpecification(existing_metadata).grid_rank()`.
+  /// \pre `existing_metadata` is compatible with the initial metadata from
+  ///     which this cache was constructed, according to
+  ///     `ValidateMetadataCompatibility`.
+  virtual Result<std::shared_ptr<const void>> GetResizedMetadata(
+      const void* existing_metadata, span<const Index> new_inclusive_min,
+      span<const Index> new_exclusive_max) = 0;
+
+  virtual Future<const void> DeleteCell(
+      span<const Index> grid_cell_indices,
+      internal::OpenTransactionPtr transaction) = 0;
+};
+
+struct DataCacheInitializer : public ChunkedDataCacheBase::Initializer {
+  kvstore::DriverPtr store;
+};
+
+/// Combines `KvsBackedChunkCache` with `ChunkedDataCacheBase`.
+class DataCache : public internal::KvsBackedChunkCache,
+                  public ChunkedDataCacheBase {
+ public:
+  using DataCacheBase::executor;
+
+  using Initializer = DataCacheInitializer;
+
+  explicit DataCache(Initializer&& initializer,
+                     internal::ChunkGridSpecification&& grid);
+
+  const Executor& executor() const final {
+    return ChunkedDataCacheBase::executor();
+  }
+
+  internal::Cache& cache() final { return *this; }
+
+  const internal::ChunkGridSpecification& grid() const final { return grid_; }
+
+  Future<const void> DeleteCell(span<const Index> grid_cell_indices,
+                                internal::OpenTransactionPtr transaction) final;
+
+  internal::ChunkGridSpecification grid_;
 };
 
 /// Private data members of `OpenState`.
@@ -470,22 +506,9 @@ struct PrivateOpenState {
   absl::Time request_time_;
 };
 
-/// Base class of `RegisteredKvsDriver<Derived>` that defines methods that don't
-/// depend on the `Derived` class type.
-class KvsDriverBase : public internal::ChunkCacheDriver {
+/// Abstract driver base class for use with `DataCacheBase`.
+class KvsMetadataDriverBase : public internal::Driver {
  public:
-  struct Initializer {
-    internal::CachePtr<DataCache> cache;
-    std::size_t component_index;
-    StalenessBounds staleness_bounds;
-  };
-  explicit KvsDriverBase(Initializer&& initializer);
-
-  /// Queries the current metadata, as of `metadata_staleness_bound`.
-  Future<MetadataCache::MetadataPtr> ResolveMetadata(
-      internal::OpenTransactionPtr transaction,
-      absl::Time metadata_staleness_bound);
-
   /// Forwards to `ResolveBound` overload below with
   /// `metadata_staleness_bound_`.
   Future<IndexTransform<>> ResolveBounds(
@@ -496,23 +519,14 @@ class KvsDriverBase : public internal::ChunkCacheDriver {
       internal::OpenTransactionPtr transaction, IndexTransform<> transform,
       StalenessBound metadata_staleness_bound, ResolveBoundsOptions options);
 
-  Future<IndexTransform<>> Resize(internal::OpenTransactionPtr transaction,
-                                  IndexTransform<> transform,
-                                  span<const Index> inclusive_min,
-                                  span<const Index> exclusive_max,
-                                  ResizeOptions options) override;
-
-  DataCache* cache() const;
-
-  const StalenessBound& metadata_staleness_bound() const {
-    return metadata_staleness_bound_;
-  }
+  /// Queries the current metadata, as of `metadata_staleness_bound`.
+  Future<MetadataCache::MetadataPtr> ResolveMetadata(
+      internal::OpenTransactionPtr transaction,
+      absl::Time metadata_staleness_bound);
 
   Result<IndexTransform<>> GetBoundSpecData(
       internal::OpenTransactionPtr transaction, KvsDriverSpec& spec,
       IndexTransformView<> transform);
-
-  Result<CodecSpec> GetCodec() override;
 
   KvStore GetKvstore(const Transaction& transaction) override;
 
@@ -535,8 +549,17 @@ class KvsDriverBase : public internal::ChunkCacheDriver {
   /// `Visit` function.
   struct GarbageCollectionBase {
     static void Visit(garbage_collection::GarbageCollectionVisitor& visitor,
-                      const KvsDriverBase& value);
+                      const KvsMetadataDriverBase& value);
   };
+
+  virtual DataCacheBase* cache() const = 0;
+  virtual size_t component_index() const = 0;
+
+  const StalenessBound& metadata_staleness_bound() const {
+    return metadata_staleness_bound_;
+  }
+
+  virtual const StalenessBound& data_staleness_bound() const = 0;
 
   // Treat as private:
 
@@ -547,6 +570,25 @@ class KvsDriverBase : public internal::ChunkCacheDriver {
   absl::Time assume_metadata_time_ = absl::InfinitePast();
 };
 
+/// Abstract driver base class for use with `ChunkedDataCacheBase`.
+///
+/// Defines the `Resize` and `GetChunkLayout` methods.
+class KvsChunkedDriverBase : public KvsMetadataDriverBase {
+ public:
+  virtual ChunkedDataCacheBase* cache() const = 0;
+
+  /// Returns a chunk layout derived from the metadata.
+  Result<ChunkLayout> GetChunkLayout(IndexTransformView<> transform) override;
+
+  Future<IndexTransform<>> Resize(internal::OpenTransactionPtr transaction,
+                                  IndexTransform<> transform,
+                                  span<const Index> inclusive_min,
+                                  span<const Index> exclusive_max,
+                                  ResizeOptions options) override;
+};
+
+using DriverInitializer = internal::ChunkCacheDriverInitializer<DataCacheBase>;
+
 /// Interface by which driver implementations define the open behavior.
 ///
 /// An object of this type is created for each open request.
@@ -554,13 +596,18 @@ class KvsDriverBase : public internal::ChunkCacheDriver {
 /// Implicitly, instances of this class are associated with a particular
 /// `Metadata` type.
 ///
+/// This class handles caching/opening/creating the metadata, but does not
+/// integrate a "data cache" (i.e. `DataCacheBase`).  Integration with a "data
+/// cache" is added by the derived class `OpenState`.
+///
 /// Driver implementations should inherit from
 /// `RegisteredKvsDriver<Derived>::OpenStateBase`, rather than this class
 /// directly.
-class OpenState : public internal::AtomicReferenceCount<OpenState>,
-                  private PrivateOpenState {
+class MetadataOpenState
+    : public internal::AtomicReferenceCount<MetadataOpenState>,
+      private PrivateOpenState {
  public:
-  using Ptr = internal::IntrusivePtr<OpenState>;
+  using Ptr = internal::IntrusivePtr<MetadataOpenState>;
 
   struct Initializer {
     internal::OpenTransactionPtr transaction;
@@ -568,8 +615,8 @@ class OpenState : public internal::AtomicReferenceCount<OpenState>,
     ReadWriteMode read_write_mode;
   };
 
-  explicit OpenState(Initializer initializer);
-  virtual ~OpenState();
+  explicit MetadataOpenState(Initializer initializer);
+  virtual ~MetadataOpenState();
 
   /// Returns the prefix to delete when `OpenMode::delete_existing` is
   /// specified.
@@ -623,16 +670,54 @@ class OpenState : public internal::AtomicReferenceCount<OpenState>,
   virtual Result<kvstore::DriverPtr> GetMetadataKeyValueStore(
       kvstore::DriverPtr base_kv_store);
 
+  virtual Result<internal::Driver::Handle> CreateDriverHandleFromMetadata(
+      std::shared_ptr<const void> metadata) = 0;
+
+  /// Returns a mask specifying whether reading and/or writing is supported.
+  ///
+  /// By default, returns `ReadWriteMode::read_write`.
+  virtual ReadWriteMode GetReadWriteMode(const void* metadata);
+
+  const KvsDriverSpec& spec() const { return *spec_; }
+
+  /// Returns the data copy executor.
+  const Executor& executor() const {
+    return spec_->data_copy_concurrency->executor;
+  }
+
+  const Context::Resource<internal::CachePoolResource>& cache_pool() const {
+    return spec_->cache_pool;
+  }
+};
+
+/// Extends `MetadataOpenState` with integration with a "data cache"
+/// (i.e. `DataCacheBase`).
+class OpenState : public MetadataOpenState {
+ public:
+  using Ptr = internal::IntrusivePtr<OpenState>;
+
+  using MetadataOpenState::MetadataOpenState;
+
+  Result<internal::Driver::Handle> CreateDriverHandleFromMetadata(
+      std::shared_ptr<const void> metadata) override;
+
+  /// Returns a newly-allocated object of the appropriate derived `Driver`
+  /// class.
+  ///
+  /// Defined automatically by `RegisteredOpenState`.
+  virtual KvsMetadataDriverBase* AllocateDriver(
+      DriverInitializer&& initializer) = 0;
+
   /// Returns a unique identifier (for a given value of `typeid(*this)`) of the
   /// cache returned by `GetDataCache`.
   virtual std::string GetDataCacheKey(const void* metadata) = 0;
 
-  /// Returns a non-null pointer to a `DataCache` object associated with the
+  /// Returns a non-null pointer to a `Cache` object associated with the
   /// same `Metadata` type as this object.  If there is an existing data cache
   /// in `context()` with the same cache key (as returned by `GetDataCacheKey`),
   /// it will be used instead and this method will not be called.
-  virtual std::unique_ptr<DataCache> GetDataCache(
-      DataCache::Initializer initializer) = 0;
+  virtual std::unique_ptr<DataCacheBase> GetDataCache(
+      DataCacheInitializer&& initializer) = 0;
 
   /// Returns the `kvstore::Driver` to use for retrieving the data chunks.
   ///
@@ -647,31 +732,8 @@ class OpenState : public internal::AtomicReferenceCount<OpenState>,
   /// Returns the component index within the data cache.
   ///
   /// If the `metadata` is not compatible, returns an error.
-  virtual Result<std::size_t> GetComponentIndex(const void* metadata,
-                                                OpenMode open_mode) = 0;
-
-  /// Returns a mask specifying whether reading and/or writing is supported.
-  ///
-  /// By default, returns `ReadWriteMode::read_write`.
-  virtual ReadWriteMode GetReadWriteMode(const void* metadata);
-
-  /// Returns a newly-allocated object of the appropriate derived `Driver`
-  /// class.
-  ///
-  /// Defined automatically by `RegisteredOpenState`.
-  virtual KvsDriverBase* AllocateDriver(
-      KvsDriverBase::Initializer&& initializer) = 0;
-
-  const KvsDriverSpec& spec() const { return *spec_; }
-
-  /// Returns the data copy executor.
-  const Executor& executor() const {
-    return spec_->data_copy_concurrency->executor;
-  }
-
-  const Context::Resource<internal::CachePoolResource>& cache_pool() const {
-    return spec_->cache_pool;
-  }
+  virtual Result<size_t> GetComponentIndex(const void* metadata,
+                                           OpenMode open_mode) = 0;
 };
 
 /// Attempts to open a TensorStore with a kvstore-backed chunk driver.
@@ -730,18 +792,20 @@ class OpenState : public internal::AtomicReferenceCount<OpenState>,
 ///    newly created `DataCache`.
 ///
 /// \param open_state Non-null pointer to open state.
-Future<internal::Driver::Handle> OpenDriver(OpenState::Ptr open_state);
+Future<internal::Driver::Handle> OpenDriver(MetadataOpenState::Ptr open_state);
 
 /// CRTP base class for kvstore-backed driver implementations.
+///
+/// This integrates with `OpenState`.
 ///
 /// `Derived` driver implementations should inherit from this class and define
 /// the following members:
 ///
-///     class Derived
-///         : public internal_kvs_backed_chunk_driver::RegisteredKvsDriver<
-///                      Derived, DerivedSpec> {
-///       using Base = internal_kvs_backed_chunk_driver::RegisteredKvsDriver<
-///                        Derived, DerivedSpec>;
+///     using DerivedBase =
+///         internal_kvs_backed_chunk_driver::RegisteredKvsDriver<
+///             Derived, DerivedSpec, DataCacheType, ParentDriver>;
+///     class Derived : public DerivedBase {
+///       using Base = DerivedBase;
 ///      public:
 ///       // Must inherit the constructors.
 ///       using Base::Base;
@@ -758,19 +822,25 @@ Future<internal::Driver::Handle> OpenDriver(OpenState::Ptr open_state);
 ///
 ///         // ...
 ///       };
-template <typename Derived, typename DerivedSpec>
+template <typename Derived, typename DerivedSpec, typename DataCacheType,
+          typename Parent>
 class RegisteredKvsDriver
-    : public internal::RegisteredDriver<Derived, KvsDriverBase> {
-  using Base = internal::RegisteredDriver<Derived, KvsDriverBase>;
-
+    : public internal::RegisteredDriver<
+          Derived,
+          internal::ChunkGridSpecificationDriver<DataCacheType, Parent>> {
  public:
+  using Base = internal::RegisteredDriver<
+      Derived, internal::ChunkGridSpecificationDriver<DataCacheType, Parent>>;
+
   using Base::Base;
+
+  using Initializer = DriverInitializer;
 
   /// CRTP base class for the OpenState associated with kvstore-backed
   /// driver implementations.
   class OpenStateBase : public internal_kvs_backed_chunk_driver::OpenState {
    public:
-    static_assert(std::is_base_of_v<KvsDriverBase, Derived>);
+    static_assert(std::is_base_of_v<KvsMetadataDriverBase, Derived>);
     static_assert(std::is_base_of_v<KvsDriverSpec, DerivedSpec>);
 
     using internal_kvs_backed_chunk_driver::OpenState::OpenState;
@@ -787,8 +857,8 @@ class RegisteredKvsDriver
 
     /// Returns a newly allocated object of the `Derived` driver type, as
     /// required by `internal_kvs_backed_chunk_driver::Driver`.
-    KvsDriverBase* AllocateDriver(
-        KvsDriverBase::Initializer&& initializer) override {
+    KvsMetadataDriverBase* AllocateDriver(
+        DriverInitializer&& initializer) override {
       return new Derived(std::move(initializer));
     }
   };
@@ -800,8 +870,8 @@ class RegisteredKvsDriver
     driver_spec->context_binding_state_ = ContextBindingState::bound;
     internal::TransformedDriverSpec spec;
     TENSORSTORE_ASSIGN_OR_RETURN(
-        spec.transform, this->GetBoundSpecData(std::move(transaction),
-                                               *driver_spec, transform));
+        spec.transform, static_cast<Derived*>(this)->GetBoundSpecData(
+                            std::move(transaction), *driver_spec, transform));
     spec.driver_spec = std::move(driver_spec);
     return spec;
   }
@@ -812,12 +882,13 @@ class RegisteredKvsDriver
       internal::OpenTransactionPtr transaction, const DerivedSpec* spec,
       ReadWriteMode read_write_mode) {
     return internal_kvs_backed_chunk_driver::OpenDriver(
-        internal_kvs_backed_chunk_driver::OpenState::Ptr(
+        internal_kvs_backed_chunk_driver::MetadataOpenState::Ptr(
             new typename Derived::OpenState(
-                internal_kvs_backed_chunk_driver::OpenState::Initializer{
-                    std::move(transaction),
-                    internal::DriverSpec::PtrT<const DerivedSpec>(spec),
-                    read_write_mode})));
+                internal_kvs_backed_chunk_driver::MetadataOpenState::
+                    Initializer{
+                        std::move(transaction),
+                        internal::DriverSpec::PtrT<const DerivedSpec>(spec),
+                        read_write_mode})));
   }
 };
 

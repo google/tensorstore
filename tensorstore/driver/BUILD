@@ -71,6 +71,16 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
+    name = "chunk_cache_driver",
+    hdrs = ["chunk_cache_driver.h"],
+    deps = [
+        ":driver",
+        "//tensorstore/internal:chunk_grid_specification",
+        "//tensorstore/internal/cache:chunk_cache",
+    ],
+)
+
+tensorstore_cc_library(
     name = "driver",
     srcs = [
         "copy.cc",
@@ -270,6 +280,7 @@ tensorstore_cc_library(
         "//conditions:default": [],
     }),
     deps = [
+        ":chunk_cache_driver",
         ":driver",
         "//tensorstore",
         "//tensorstore:box",
@@ -278,6 +289,7 @@ tensorstore_cc_library(
         "//tensorstore:spec",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/internal:box_difference",
+        "//tensorstore/internal:chunk_grid_specification",
         "//tensorstore/internal:context_binding",
         "//tensorstore/internal:data_copy_concurrency_resource",
         "//tensorstore/internal:intrusive_ptr",
@@ -291,6 +303,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/cache:cache_pool_resource",
         "//tensorstore/internal/cache:chunk_cache",
         "//tensorstore/internal/cache:kvs_backed_cache",
+        "//tensorstore/internal/cache:kvs_backed_chunk_cache",
         "//tensorstore/internal/cache_key",
         "//tensorstore/internal/estimate_heap_usage",
         "//tensorstore/internal/json_binding:bindable",
@@ -302,7 +315,6 @@ tensorstore_cc_library(
         "//tensorstore/util:result",
         "//tensorstore/util:str_cat",
         "@com_google_absl//absl/container:fixed_array",
-        "@com_google_absl//absl/container:inlined_vector",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status",
     ],

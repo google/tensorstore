@@ -43,7 +43,12 @@
 namespace tensorstore {
 namespace internal_neuroglancer_precomputed {
 
+// Avoid anonymous namespace to workaround MSVC bug.
+//
+// https://developercommunity.visualstudio.com/t/Bug-involving-virtual-functions-templat/10424129
+#ifndef _MSC_VER
 namespace {
+#endif
 
 namespace jb = tensorstore::internal_json_binding;
 
@@ -184,6 +189,10 @@ class DataCacheBase : public internal_kvs_backed_chunk_driver::DataCache {
                    chunk_layout_czyx_.byte_strides());
   }
 
+  const MultiscaleMetadata& metadata() const {
+    return *static_cast<const MultiscaleMetadata*>(initial_metadata().get());
+  }
+
   /// Returns the chunk size in the external (xyz) order.
   std::array<Index, 3> chunk_size_xyz() const {
     return {{
@@ -249,18 +258,18 @@ class DataCacheBase : public internal_kvs_backed_chunk_driver::DataCache {
       component_bounds_czyx[3 - i] =
           IndexInterval::UncheckedSized(0, box_xyz[i].size());
     }
-    return internal::ChunkGridSpecification(
-        {internal::ChunkGridSpecification::Component(
-            std::move(fill_value), std::move(component_bounds_czyx),
-            {3, 2, 1})});
+    internal::ChunkGridSpecification::ComponentList components;
+    components.emplace_back(std::move(fill_value),
+                            std::move(component_bounds_czyx),
+                            std::vector<DimensionIndex>{3, 2, 1});
+    return internal::ChunkGridSpecification(std::move(components));
   }
 
   Result<absl::InlinedVector<SharedArray<const void>, 1>> DecodeChunk(
-      const void* metadata, span<const Index> chunk_indices,
-      absl::Cord data) override {
+      span<const Index> chunk_indices, absl::Cord data) override {
     if (auto result = internal_neuroglancer_precomputed::DecodeChunk(
-            chunk_indices, *static_cast<const MultiscaleMetadata*>(metadata),
-            scale_index_, chunk_layout_czyx_, std::move(data))) {
+            chunk_indices, metadata(), scale_index_, chunk_layout_czyx_,
+            std::move(data))) {
       absl::InlinedVector<SharedArray<const void>, 1> components;
       components.emplace_back(std::move(*result));
       return components;
@@ -270,12 +279,11 @@ class DataCacheBase : public internal_kvs_backed_chunk_driver::DataCache {
   }
 
   Result<absl::Cord> EncodeChunk(
-      const void* metadata, span<const Index> chunk_indices,
+      span<const Index> chunk_indices,
       span<const SharedArrayView<const void>> component_arrays) override {
     assert(component_arrays.size() == 1);
     return internal_neuroglancer_precomputed::EncodeChunk(
-        chunk_indices, *static_cast<const MultiscaleMetadata*>(metadata),
-        scale_index_, component_arrays[0]);
+        chunk_indices, metadata(), scale_index_, component_arrays[0]);
   }
 
   Result<IndexTransform<>> GetExternalToInternalTransform(
@@ -348,12 +356,6 @@ class DataCacheBase : public internal_kvs_backed_chunk_driver::DataCache {
            scale.compressed_segmentation_block_size[0]})));
     }
     return layout;
-  }
-
-  Result<CodecSpec> GetCodec(const void* metadata_ptr,
-                             std::size_t component_index) override {
-    return GetCodecFromMetadata(
-        *static_cast<const MultiscaleMetadata*>(metadata_ptr), scale_index_);
   }
 
   std::string GetBaseKvstorePath() override { return key_prefix_; }
@@ -446,8 +448,7 @@ class UnshardedDataCache : public DataCacheBase {
     std::array<Index, 3> chunk_shape_zyx_;
   };
 
-  std::string GetChunkStorageKey(const void* metadata_ptr,
-                                 span<const Index> cell_indices) override {
+  std::string GetChunkStorageKey(span<const Index> cell_indices) override {
     std::string key = scale_key_prefix_;
     if (!key.empty()) key += '/';
     KeyFormatter key_formatter(*this);
@@ -458,8 +459,8 @@ class UnshardedDataCache : public DataCacheBase {
     return key;
   }
 
-  Result<ChunkLayout> GetChunkLayout(const void* metadata_ptr,
-                                     std::size_t component_index) override {
+  Result<ChunkLayout> GetChunkLayoutFromMetadata(
+      const void* metadata_ptr, size_t component_index) override {
     const auto& metadata =
         *static_cast<const MultiscaleMetadata*>(metadata_ptr);
     TENSORSTORE_ASSIGN_OR_RETURN(
@@ -519,18 +520,16 @@ class ShardedDataCache : public DataCacheBase {
         GetCompressedZIndexBits(scale.box.shape(), chunk_size_xyz);
   }
 
-  std::string GetChunkStorageKey(const void* metadata_ptr,
-                                 span<const Index> cell_indices) override {
+  std::string GetChunkStorageKey(span<const Index> cell_indices) override {
     assert(cell_indices.size() == 3);
     const std::uint64_t chunk_key = EncodeCompressedZIndex(
         {cell_indices.data(), 3}, compressed_z_index_bits_);
     return neuroglancer_uint64_sharded::ChunkIdToKey({chunk_key});
   }
 
-  Result<ChunkLayout> GetChunkLayout(const void* metadata_ptr,
-                                     std::size_t component_index) override {
-    const auto& metadata =
-        *static_cast<const MultiscaleMetadata*>(metadata_ptr);
+  Result<ChunkLayout> GetChunkLayoutFromMetadata(
+      const void* metadata_ptr, size_t component_index) override {
+    const auto& metadata = this->metadata();
     const auto& scale = metadata.scales[scale_index_];
     const auto& sharding = *std::get_if<ShardingSpec>(&scale.sharding);
     TENSORSTORE_ASSIGN_OR_RETURN(
@@ -577,21 +576,36 @@ class ShardedDataCache : public DataCacheBase {
   std::array<int, 3> compressed_z_index_bits_;
 };
 
-class NeuroglancerPrecomputedDriver
-    : public internal_kvs_backed_chunk_driver::RegisteredKvsDriver<
-          NeuroglancerPrecomputedDriver, NeuroglancerPrecomputedDriverSpec> {
-  using Base = internal_kvs_backed_chunk_driver::RegisteredKvsDriver<
-      NeuroglancerPrecomputedDriver, NeuroglancerPrecomputedDriverSpec>;
+class NeuroglancerPrecomputedDriver;
+using NeuroglancerPrecomputedDriverBase =
+    internal_kvs_backed_chunk_driver::RegisteredKvsDriver<
+        NeuroglancerPrecomputedDriver, NeuroglancerPrecomputedDriverSpec,
+        DataCacheBase,
+        internal::ChunkCacheReadWriteDriverMixin<
+            NeuroglancerPrecomputedDriver,
+            internal_kvs_backed_chunk_driver::KvsChunkedDriverBase>>;
+
+class NeuroglancerPrecomputedDriver : public NeuroglancerPrecomputedDriverBase {
+  using Base = NeuroglancerPrecomputedDriverBase;
 
  public:
   using Base::Base;
 
   class OpenState;
 
+  const MultiscaleMetadata& metadata() const {
+    return *static_cast<const MultiscaleMetadata*>(
+        cache()->initial_metadata().get());
+  }
+
+  Result<CodecSpec> GetCodec() override {
+    auto* cache = static_cast<DataCacheBase*>(this->cache());
+    return GetCodecFromMetadata(metadata(), cache->scale_index_);
+  }
+
   Result<DimensionUnitsVector> GetDimensionUnits() override {
     auto* cache = static_cast<DataCacheBase*>(this->cache());
-    const auto& metadata =
-        *static_cast<const MultiscaleMetadata*>(cache->initial_metadata_.get());
+    const auto& metadata = this->metadata();
     const auto& scale = metadata.scales[cache->scale_index_];
     DimensionUnitsVector units(4);
     for (int i = 0; i < 3; ++i) {
@@ -661,8 +675,8 @@ class NeuroglancerPrecomputedDriver::OpenState
     }
   }
 
-  std::unique_ptr<internal_kvs_backed_chunk_driver::DataCache> GetDataCache(
-      internal_kvs_backed_chunk_driver::DataCache::Initializer initializer)
+  std::unique_ptr<internal_kvs_backed_chunk_driver::DataCacheBase> GetDataCache(
+      internal_kvs_backed_chunk_driver::DataCacheInitializer&& initializer)
       override {
     const auto& metadata =
         *static_cast<const MultiscaleMetadata*>(initializer.metadata.get());
@@ -747,7 +761,10 @@ Future<internal::Driver::Handle> NeuroglancerPrecomputedDriverSpec::Open(
                                              read_write_mode);
 }
 
+#ifndef _MSC_VER
 }  // namespace
+#endif
+
 }  // namespace internal_neuroglancer_precomputed
 }  // namespace tensorstore
 

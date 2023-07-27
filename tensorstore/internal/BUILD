@@ -123,6 +123,22 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "chunk_grid_specification",
+    srcs = ["chunk_grid_specification.cc"],
+    hdrs = ["chunk_grid_specification.h"],
+    deps = [
+        ":async_write_array",
+        "//tensorstore:array",
+        "//tensorstore:box",
+        "//tensorstore:chunk_layout",
+        "//tensorstore:index",
+        "//tensorstore/index_space:index_transform",
+        "//tensorstore/internal/cache",
+        "@com_google_absl//absl/container:inlined_vector",
+    ],
+)
+
+tensorstore_cc_library(
     name = "compressed_pair",
     hdrs = ["compressed_pair.h"],
 )

@@ -94,9 +94,7 @@ TEST(Bzip2CompressionTest, Golden) {
 
   // Verify round trip.
   {
-    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        auto buffer,
-        EncodeChunk(span<const Index>({0, 0, 0}), metadata, array));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto buffer, EncodeChunk(metadata, array));
     EXPECT_EQ(array, DecodeChunk(metadata, buffer));
   }
 }

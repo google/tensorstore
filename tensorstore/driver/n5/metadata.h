@@ -226,8 +226,7 @@ Result<SharedArray<const void>> DecodeChunk(const N5Metadata& metadata,
                                             absl::Cord buffer);
 
 /// Encodes a chunk.
-Result<absl::Cord> EncodeChunk(span<const Index> chunk_indices,
-                               const N5Metadata& metadata,
+Result<absl::Cord> EncodeChunk(const N5Metadata& metadata,
                                ArrayView<const void> array);
 
 /// Validates that `dtype` is supported by N5.

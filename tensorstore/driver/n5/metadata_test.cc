@@ -242,9 +242,7 @@ TEST(RawCompressionTest, Golden) {
   auto array = MakeArray<std::uint16_t>({{{1, 3, 5}, {2, 4, 6}}});
   EXPECT_EQ(array, DecodeChunk(metadata, absl::Cord(encoded_data)));
   {
-    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        auto buffer,
-        EncodeChunk(span<const Index>({0, 0, 0}), metadata, array));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto buffer, EncodeChunk(metadata, array));
     EXPECT_EQ(encoded_data, buffer);
   }
 
