@@ -932,16 +932,34 @@ namespace internal_strided_layout {
 bool IsContiguousLayout(DimensionIndex rank, const Index* shape,
                         const Index* byte_strides, ContiguousLayoutOrder order,
                         Index element_size);
-}
+}  // namespace internal_strided_layout
 
 /// Checks if `layout` is a contiguous layout with the specified order and
 /// element size.
+///
+/// \relates StridedLayout
+/// \id strided_layout
 template <DimensionIndex Rank, ArrayOriginKind OriginKind, ContainerKind CKind>
 bool IsContiguousLayout(const StridedLayout<Rank, OriginKind, CKind>& layout,
                         ContiguousLayoutOrder order, Index element_size) {
   return internal_strided_layout::IsContiguousLayout(
       layout.rank(), layout.shape().data(), layout.byte_strides().data(), order,
       element_size);
+}
+
+namespace internal_strided_layout {
+bool IsBroadcastScalar(DimensionIndex rank, const Index* shape,
+                       const Index* byte_strides);
+}  // namespace internal_strided_layout
+
+/// Checks if `layout` contains at most a single distinct element.
+///
+/// \relates StridedLayout
+/// \id strided_layout
+template <DimensionIndex Rank, ArrayOriginKind OriginKind, ContainerKind CKind>
+bool IsBroadcastScalar(const StridedLayout<Rank, OriginKind, CKind>& layout) {
+  return internal_strided_layout::IsBroadcastScalar(
+      layout.rank(), layout.shape().data(), layout.byte_strides().data());
 }
 
 }  // namespace tensorstore

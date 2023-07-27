@@ -1144,4 +1144,13 @@ TEST(StridedLayoutTest, IsContiguousLayout) {
       ContiguousLayoutOrder::c, 2));
 }
 
+TEST(StridedLayoutTest, IsBroadcastScalar) {
+  EXPECT_TRUE(IsBroadcastScalar(StridedLayout<>({1}, {5})));
+  EXPECT_FALSE(IsBroadcastScalar(StridedLayout<>({2}, {5})));
+  EXPECT_TRUE(IsBroadcastScalar(StridedLayout<>({2}, {0})));
+  EXPECT_TRUE(IsBroadcastScalar(StridedLayout<>({1, 1, 1}, {5, 10, 15})));
+  EXPECT_FALSE(IsBroadcastScalar(StridedLayout<>({1, 2}, {0, 5})));
+  EXPECT_TRUE(IsBroadcastScalar(StridedLayout<>({1, 2}, {5, 0})));
+}
+
 }  // namespace

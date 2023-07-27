@@ -2053,6 +2053,9 @@ UnbroadcastArrayPreserveRank(
 }
 
 /// Checks if `array` has a contiguous layout with the specified order.
+///
+/// \relates Array
+/// \id array
 template <typename ElementTag, DimensionIndex Rank, ArrayOriginKind OriginKind,
           ContainerKind LayoutCKind>
 bool IsContiguousLayout(
@@ -2060,6 +2063,18 @@ bool IsContiguousLayout(
     ContiguousLayoutOrder order) {
   return tensorstore::IsContiguousLayout(array.layout(), order,
                                          array.dtype().size());
+}
+
+/// Checks if `array` has at most a single distinct element.
+///
+/// \relates Array
+/// \membergroup Broadcasting
+/// \id array
+template <typename ElementTag, DimensionIndex Rank, ArrayOriginKind OriginKind,
+          ContainerKind LayoutCKind>
+bool IsBroadcastScalar(
+    const Array<ElementTag, Rank, OriginKind, LayoutCKind>& array) {
+  return tensorstore::IsBroadcastScalar(array.layout());
 }
 
 namespace internal_array {

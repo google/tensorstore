@@ -74,6 +74,14 @@ bool IsContiguousLayout(DimensionIndex rank, const Index* shape,
   }
   return true;
 }
+
+bool IsBroadcastScalar(DimensionIndex rank, const Index* shape,
+                       const Index* byte_strides) {
+  for (DimensionIndex i = 0; i < rank; ++i) {
+    if (shape[i] > 1 && byte_strides[i] != 0) return false;
+  }
+  return true;
+}
 }  // namespace internal_strided_layout
 
 }  // namespace tensorstore
