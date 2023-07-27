@@ -48,6 +48,26 @@ TransformRep::Ptr<> TransposeInputDimensions(
     TransformRep::Ptr<> transform, span<const DimensionIndex> permutation,
     bool domain_only);
 
+/// Returns a new transform with the output dimension order reversed.
+///
+/// If `transform` is `nullptr`, returns `nullptr`.
+///
+/// \param transform The existing transform.
+TransformRep::Ptr<> TransposeOutputDimensions(TransformRep::Ptr<> transform);
+
+/// Returns a new transform with the output dimension order permuted.
+///
+/// If `transform` is `nullptr`, returns `nullptr`.
+///
+/// \param transform The existing transform.
+/// \param permutation Specifies the old dimension index corresponding to each
+///     new dimension: `permutation[i]` is the old dimension index corresponding
+///     to new dimension `i`.
+/// \dchecks If `transform != nullptr`, `permutation` is a valid permutation for
+///     `transform->output_rank`.
+TransformRep::Ptr<> TransposeOutputDimensions(
+    TransformRep::Ptr<> transform, span<const DimensionIndex> permutation);
+
 }  // namespace internal_index_space
 }  // namespace tensorstore
 

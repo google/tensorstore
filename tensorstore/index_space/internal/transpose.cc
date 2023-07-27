@@ -61,7 +61,7 @@ TransformRep::Ptr<> PermuteDimsOutOfPlace(
   const DimensionIndex output_rank = domain_only ? 0 : original->output_rank;
   assert(permutation.size() == input_rank);
 
-  auto result = TransformRep::Allocate(original->input_rank, output_rank);
+  auto result = TransformRep::Allocate(input_rank, output_rank);
   result->input_rank = input_rank;
   result->output_rank = output_rank;
 
@@ -173,6 +173,50 @@ TransformRep::Ptr<> PermuteDimsInplace(TransformRep::Ptr<> rep,
   return rep;
 }
 
+TransformRep::Ptr<> PermuteOutputDimsInplace(
+    TransformRep::Ptr<> rep, span<const DimensionIndex> permutation) {
+  const DimensionIndex output_rank = rep->output_rank;
+  assert(permutation.size() == output_rank);
+
+  alignas(OutputIndexMap) char temp_buf[sizeof(OutputIndexMap) * kMaxRank];
+  OutputIndexMap* output_index_maps = rep->output_index_maps().data();
+  OutputIndexMap* temp_index_maps = reinterpret_cast<OutputIndexMap*>(temp_buf);
+  memcpy(static_cast<void*>(temp_index_maps),
+         static_cast<const void*>(output_index_maps),
+         sizeof(OutputIndexMap) * output_rank);
+  for (DimensionIndex new_output_dim = 0; new_output_dim < output_rank;
+       ++new_output_dim) {
+    const DimensionIndex old_output_dim = permutation[new_output_dim];
+    memcpy(static_cast<void*>(&output_index_maps[new_output_dim]),
+           static_cast<const void*>(&temp_index_maps[old_output_dim]),
+           sizeof(OutputIndexMap));
+  }
+  internal_index_space::DebugCheckInvariants(rep.get());
+  return rep;
+}
+
+TransformRep::Ptr<> PermuteOutputDimsOutOfPlace(
+    TransformRep* original, span<const DimensionIndex> permutation) {
+  const DimensionIndex input_rank = original->input_rank;
+  const DimensionIndex output_rank = original->output_rank;
+  assert(permutation.size() == output_rank);
+
+  auto result = TransformRep::Allocate(input_rank, output_rank);
+  result->input_rank = input_rank;
+  result->output_rank = output_rank;
+  internal_index_space::CopyTransformRepDomain(original, result.get());
+  const OutputIndexMap* old_output_index_maps =
+      original->output_index_maps().data();
+  OutputIndexMap* new_output_index_maps = result->output_index_maps().data();
+  for (DimensionIndex new_output_dim = 0; new_output_dim < output_rank;
+       ++new_output_dim) {
+    const DimensionIndex old_output_dim = permutation[new_output_dim];
+    new_output_index_maps[new_output_dim].Assign(
+        input_rank, old_output_index_maps[old_output_dim]);
+  }
+  return result;
+}
+
 }  // namespace
 
 TransformRep::Ptr<> TransposeInputDimensions(
@@ -197,6 +241,27 @@ TransformRep::Ptr<> TransposeInputDimensions(TransformRep::Ptr<> transform,
   return TransposeInputDimensions(
       std::move(transform), span<const DimensionIndex>(&permutation[0], rank),
       domain_only);
+}
+
+TransformRep::Ptr<> TransposeOutputDimensions(
+    TransformRep::Ptr<> transform, span<const DimensionIndex> permutation) {
+  if (!transform) return {};
+  if (transform->is_unique()) {
+    return PermuteOutputDimsInplace(std::move(transform), permutation);
+  } else {
+    return PermuteOutputDimsOutOfPlace(transform.get(), permutation);
+  }
+}
+
+TransformRep::Ptr<> TransposeOutputDimensions(TransformRep::Ptr<> transform) {
+  if (!transform) return {};
+  DimensionIndex permutation[kMaxRank];
+  const DimensionIndex rank = transform->output_rank;
+  for (DimensionIndex i = 0; i < rank; ++i) {
+    permutation[i] = rank - i - 1;
+  }
+  return TransposeOutputDimensions(
+      std::move(transform), span<const DimensionIndex>(&permutation[0], rank));
 }
 
 }  // namespace internal_index_space

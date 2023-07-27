@@ -105,4 +105,60 @@ TEST(TransposeTest, Permutation) {
               ::testing::Eq(expected_new_transform.domain()));
 }
 
+TEST(TransposeTest, ReverseOutput) {
+  auto original_transform = IndexTransformBuilder<3, 3>()
+                                .input_origin({1, 2, 3})
+                                .input_shape({3, 4, 2})
+                                .implicit_lower_bounds({1, 0, 0})
+                                .implicit_upper_bounds({0, 1, 0})
+                                .input_labels({"x", "y", "z"})
+                                .output_identity_transform()
+                                .Finalize()
+                                .value();
+
+  auto expected_new_transform = IndexTransformBuilder<3, 3>()
+                                    .input_origin({1, 2, 3})
+                                    .input_shape({3, 4, 2})
+                                    .implicit_lower_bounds({1, 0, 0})
+                                    .implicit_upper_bounds({0, 1, 0})
+                                    .input_labels({"x", "y", "z"})
+                                    .output_single_input_dimension(0, 2)
+                                    .output_single_input_dimension(1, 1)
+                                    .output_single_input_dimension(2, 0)
+                                    .Finalize()
+                                    .value();
+
+  EXPECT_THAT(original_transform.TransposeOutput(),
+              ::testing::Eq(expected_new_transform));
+  EXPECT_THAT(std::move(original_transform).TransposeOutput(),
+              ::testing::Eq(expected_new_transform));
+}
+
+TEST(TransposeTest, PermutationOutput) {
+  auto original_transform = IndexTransformBuilder(3, 3)
+                                .input_origin({1, 2, 3})
+                                .input_shape({3, 4, 2})
+                                .implicit_lower_bounds({1, 0, 0})
+                                .implicit_upper_bounds({0, 1, 0})
+                                .input_labels({"x", "y", "z"})
+                                .output_identity_transform()
+                                .Finalize()
+                                .value();
+  const auto expected_new_transform = IndexTransformBuilder(3, 3)
+                                          .input_origin({1, 2, 3})
+                                          .input_shape({3, 4, 2})
+                                          .implicit_lower_bounds({1, 0, 0})
+                                          .implicit_upper_bounds({0, 1, 0})
+                                          .input_labels({"x", "y", "z"})
+                                          .output_single_input_dimension(0, 2)
+                                          .output_single_input_dimension(1, 0)
+                                          .output_single_input_dimension(2, 1)
+                                          .Finalize()
+                                          .value();
+  EXPECT_THAT(original_transform.TransposeOutput({{2, 0, 1}}),
+              ::testing::Eq(expected_new_transform));
+  EXPECT_THAT(std::move(original_transform).TransposeOutput({{2, 0, 1}}),
+              ::testing::Eq(expected_new_transform));
+}
+
 }  // namespace
