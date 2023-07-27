@@ -508,6 +508,20 @@ class TransactionState {
    private:
     friend class TransactionState;
 
+#ifndef NDEBUG
+    enum NodeCommitState : uint32_t {
+      kRegister = (1 << 0),
+      kPrepareForCommit = (1 << 1),
+      kPrepareDone = (1 << 2),
+      kReadyForCommit = (1 << 3),
+      kCommit = (1 << 4),
+      kCommitDone = (1 << 5),
+      kAbort = (1 << 6),
+      kAbortDone = (1 << 7),
+    };
+    std::atomic<uint32_t> node_commit_state_{0};
+#endif
+
     /// The transaction with which the node is associated.
     TransactionState::WeakPtr transaction_;
 
