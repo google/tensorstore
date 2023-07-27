@@ -367,6 +367,8 @@ void RemoveTransactionFromMap(TransactionNode& node) {
   if (TransactionTree::IsDisconnected(node)) {
     return;
   }
+  ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+      << node << "RemoveTransactionFromMap";
   GetOwningEntry(node).transactions_.Remove(node);
 }
 
@@ -438,6 +440,7 @@ void ResolveIssuedWriteback(AsyncCache::TransactionNode& node,
   }
   TransactionNodeDestroyer destroyer(node);
   MaybeStartReadOrWriteback(entry, std::move(lock));
+  ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG) << node << "CommitDone";
   node.CommitDone();
 }
 
@@ -691,8 +694,8 @@ AsyncCache::Entry::GetTransactionNodeImpl(OpenTransactionPtr& transaction) {
   };
 
   WeakTransactionNodePtr<TransactionNode> node;
-  const bool implicit_transaction = !transaction;
-  if (implicit_transaction) {
+  if (!transaction) {
+    // Create new implicit transaction.
     const bool share_implicit_transaction_nodes =
         this->ShareImplicitTransactionNodes();
     WeakTransactionNodePtr<TransactionNode> stale_node;
@@ -742,6 +745,7 @@ AsyncCache::Entry::GetTransactionNodeImpl(OpenTransactionPtr& transaction) {
     }
   } else {
     // Handle explicit transaction case.
+    assert(!transaction->implicit_transaction());
     size_t min_phase = transaction->phase();
     WeakTransactionNodePtr<TransactionNode> stale_node;
     while (true) {
@@ -749,6 +753,8 @@ AsyncCache::Entry::GetTransactionNodeImpl(OpenTransactionPtr& transaction) {
       const auto MakeNode = [&] {
         auto* node = GetOwningCache(*this).DoAllocateTransactionNode(*this);
         node->SetTransaction(*transaction);
+        ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+            << *node << "Adding transaction to map";
         return node;
       };
       auto* candidate_node =
@@ -765,6 +771,10 @@ AsyncCache::Entry::GetTransactionNodeImpl(OpenTransactionPtr& transaction) {
         // Existing node is from a previous phase or has been revoked, and
         // must be replaced by a new node.
         auto* new_node = MakeNode();
+        ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+            << *candidate_node << "Replacing in map";
+        ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
+            << *new_node << "Adding to map";
         transactions_.Replace(*candidate_node, *new_node);
         candidate_node = new_node;
       }
