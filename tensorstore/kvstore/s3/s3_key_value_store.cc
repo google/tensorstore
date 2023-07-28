@@ -1283,7 +1283,7 @@ Result<kvstore::Spec> ParseS3Url(std::string_view url) {
   driver_spec->data_.data_copy_concurrency =
       Context::Resource<DataCopyConcurrencyResource>::DefaultSpec();
 
-  driver_spec->data_.requester_pays = true;
+  driver_spec->data_.requester_pays = false;
   driver_spec->data_.profile = "default";
   driver_spec->data_.endpoint = ""; // Let driver infer endpoint
 
