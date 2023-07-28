@@ -927,6 +927,8 @@ Result<kvstore::Spec> ParseFileUrl(std::string_view url) {
   auto driver_spec = internal::MakeIntrusivePtr<FileKeyValueStoreSpec>();
   driver_spec->data_.file_io_concurrency =
       Context::Resource<internal::FileIoConcurrencyResource>::DefaultSpec();
+  driver_spec->data_.file_io_sync =
+      Context::Resource<FileIoSyncResource>::DefaultSpec();
   auto parsed = internal::ParseGenericUri(url);
   assert(parsed.scheme == internal_file_kvstore::FileKeyValueStoreSpec::id);
   if (!parsed.query.empty()) {
