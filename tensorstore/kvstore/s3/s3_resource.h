@@ -34,32 +34,6 @@
 namespace tensorstore {
 namespace internal_kvstore_s3 {
 
-/// Specifies whether the requester should be billed for request to a bucket
-struct S3RequesterPaysResource
-    : public internal::ContextResourceTraits<S3RequesterPaysResource> {
-  static constexpr char id[] = "s3_requester_pays";
-  static constexpr bool config_only = true;
-  struct Spec {
-    bool requester_pays;
-  };
-  using Resource = Spec;
-
-  static Spec Default() { return {false}; }
-  static constexpr auto JsonBinder() {
-    namespace jb = tensorstore::internal_json_binding;
-    return jb::Object(
-        jb::Member("requester_pays", jb::Projection(&Spec::requester_pays)));
-  }
-  static Result<Resource> Create(
-      const Spec& spec, internal::ContextResourceCreationContext context) {
-    return spec;
-  }
-  static Spec GetSpec(const Resource& resource,
-                      const internal::ContextSpecBuilder& builder) {
-    return resource;
-  }
-};
-
 
 /// Specifies a limit on the number of retries.
 struct S3RequestRetries : public internal::RetriesResource<S3RequestRetries> {
