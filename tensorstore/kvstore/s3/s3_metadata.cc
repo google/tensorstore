@@ -19,6 +19,7 @@
 #include <string_view>
 
 #include "absl/status/status.h"
+#include "re2/re2.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
@@ -26,7 +27,74 @@ namespace internal_kvstore_s3 {
 
 namespace {
 static constexpr char kEtag[] = "etag";
+/// The 5 XML Special Character sequences
+/// https://en.wikipedia.org/wiki/List_of_XML_and_HTML_character_entity_references#Standard_public_entity_sets_for_characters
+static constexpr char kLt[] = "&lt;";
+static constexpr char kGt[] = "&gt;";
+static constexpr char kQuot[] = "&quot;";
+static constexpr char kApos[] = "&apos;";
+static constexpr char kAmp[] = "&amp;";
+
+/// Unescape the 5 special XML character sequences
+/// https://en.wikipedia.org/wiki/List_of_XML_and_HTML_character_entity_references#Standard_public_entity_sets_for_characters
+std::string UnescapeXml(std::string_view data) {
+  static LazyRE2 kSpecialXmlSymbols = {"(&gt;|&lt;|&quot;|&apos;|&amp;)"};
+
+  std::string_view search = data;
+  std::string_view symbol;
+  std::size_t result_len = data.length();
+
+  // Scan for xml sequences that need converting
+  while(RE2::FindAndConsume(&search, *kSpecialXmlSymbols, &symbol)) {
+    result_len -= symbol.length() - 1;
+  }
+
+  if(result_len == data.length()) {
+    return std::string(data);
+  }
+
+  search = data;
+  std::size_t pos = 0;
+  std::size_t res_pos = 0;
+  auto result = std::string(result_len, '0');
+
+  while(RE2::FindAndConsume(&search, *kSpecialXmlSymbols, &symbol)) {
+    std::size_t next = data.length() - search.length();
+    // Copy any characters prior to sequence start
+    for(std::size_t i=pos; i < next - symbol.length(); ++i, ++res_pos) {
+      result[res_pos] = data[i];
+    }
+
+    // Substitute characters for sequences
+    if(symbol == kGt) {
+      result[res_pos++] = '>';
+    } else if (symbol == kLt) {
+      result[res_pos++] = '<';
+    } else if (symbol == kQuot) {
+      result[res_pos++] = '"';
+    } else if (symbol == kApos) {
+      result[res_pos++] = '`';
+    } else if (symbol == kAmp) {
+      result[res_pos++] = '&';
+    } else {
+      assert(false);
+    }
+
+    pos = next;
+  }
+
+  // Copy any remaining chars
+  for(std::size_t i=pos; i < data.length(); ++i, ++res_pos) {
+        result[res_pos] = data[i];
+  }
+
+  return result;
+}
+
+
+
 } // namespace
+
 
 Result<StorageGeneration> StorageGenerationFromHeaders(
     const std::multimap<std::string, std::string>& headers) {
@@ -46,16 +114,16 @@ Result<std::size_t> FindTag(std::string_view data, std::string_view tag,
     absl::StrCat("Malformed List Response XML: can't find ", tag, " in ", data));
 }
 
-Result<std::string_view> GetTag(std::string_view data,
-                                std::string_view open_tag,
-                                std::string_view close_tag,
-                                std::size_t * pos) {
+Result<TagAndPosition> GetTag(std::string_view data,
+                              std::string_view open_tag,
+                              std::string_view close_tag,
+                              std::size_t pos) {
 
-  TENSORSTORE_ASSIGN_OR_RETURN(auto tagstart, FindTag(data, open_tag, *pos, false));
+  TENSORSTORE_ASSIGN_OR_RETURN(auto tagstart, FindTag(data, open_tag, pos, false));
   TENSORSTORE_ASSIGN_OR_RETURN(auto tagend, FindTag(data, close_tag, tagstart, true));
-  *pos = tagend + close_tag.size();
-  return data.substr(tagstart, tagend - tagstart);
+  return TagAndPosition{UnescapeXml(data.substr(tagstart, tagend - tagstart)), tagend + close_tag.size() + 1};
 }
+
 
 }  // namespace internal_kvstore_s3
 }  // namespace tensorstore

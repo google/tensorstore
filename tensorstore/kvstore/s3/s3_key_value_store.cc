@@ -92,6 +92,7 @@ using ::tensorstore::internal_kvstore_s3::GetTag;
 using ::tensorstore::internal_kvstore_s3::FindTag;
 using ::tensorstore::internal_kvstore_s3::S3UriEncode;
 using ::tensorstore::internal_kvstore_s3::S3UriObjectKeyEncode;
+using ::tensorstore::internal_kvstore_s3::TagAndPosition;
 using ::tensorstore::kvstore::Key;
 using ::tensorstore::kvstore::ListOptions;
 using ::tensorstore::kvstore::SupportedFeatures;
@@ -1147,42 +1148,41 @@ struct ListTask : public RateLimiterNode,
       return owner_->BackoffForAttemptAsync(status, attempt_++, this);
     }
 
+    TagAndPosition tag_and_pos;
     auto cord = response->payload;
     auto payload = cord.Flatten();
     auto kListBucketOpenTag = "<ListBucketResult xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">";
     TENSORSTORE_ASSIGN_OR_RETURN(auto start_pos, FindTag(payload, kListBucketOpenTag, 0, false));
-    std::size_t pos = start_pos;
-    TENSORSTORE_ASSIGN_OR_RETURN(auto key_count_tag, GetTag(payload, "<KeyCount>", "</KeyCount>", &pos));
+    TENSORSTORE_ASSIGN_OR_RETURN(tag_and_pos, GetTag(payload, "<KeyCount>", "</KeyCount>", start_pos));
     std::size_t keycount = 0;
-    if(!absl::SimpleAtoi(key_count_tag, &keycount)) {
-      return absl::InvalidArgumentError(absl::StrCat("Malformed KeyCount ", key_count_tag));
+    if(!absl::SimpleAtoi(tag_and_pos.tag, &keycount)) {
+      return absl::InvalidArgumentError(absl::StrCat("Malformed KeyCount ", tag_and_pos.tag));
     }
 
     for(std::size_t k=0; k < keycount; ++k) {
       if (is_cancelled()) {
         return absl::CancelledError();
       }
-      TENSORSTORE_ASSIGN_OR_RETURN(pos, FindTag(payload, "<Contents>", pos, false));
-      TENSORSTORE_ASSIGN_OR_RETURN(auto key_tag, GetTag(payload, "<Key>", "</Key>", &pos));
+      TENSORSTORE_ASSIGN_OR_RETURN(auto contents_pos, FindTag(payload, "<Contents>", tag_and_pos.pos, false));
+      TENSORSTORE_ASSIGN_OR_RETURN(tag_and_pos, GetTag(payload, "<Key>", "</Key>", contents_pos));
 
-      if(!options_.range.empty() && tensorstore::Contains(options_.range, key_tag)) {
-        if (options_.strip_prefix_length && key_tag.size() >= options_.strip_prefix_length) {
-          key_tag = key_tag.substr(options_.strip_prefix_length);
+      if(!options_.range.empty() && tensorstore::Contains(options_.range, tag_and_pos.tag)) {
+        if (options_.strip_prefix_length && tag_and_pos.tag.size() >= options_.strip_prefix_length) {
+          tag_and_pos.tag = tag_and_pos.tag.substr(options_.strip_prefix_length);
         }
 
-        execution::set_value(receiver_, std::string(key_tag));
+        execution::set_value(receiver_, tag_and_pos.tag);
       }
     }
 
     // Successful request, so clear the retry_attempt for the next request.
     attempt_ = 0;
-    pos = start_pos;
-    TENSORSTORE_ASSIGN_OR_RETURN(auto truncated_tag, GetTag(payload, "<IsTruncated>", "</IsTruncated>", &pos));
+    TENSORSTORE_ASSIGN_OR_RETURN(tag_and_pos, GetTag(payload, "<IsTruncated>", "</IsTruncated>", start_pos));
 
-    if(truncated_tag == "true") {
-      pos = start_pos;
-      TENSORSTORE_ASSIGN_OR_RETURN(continuation_token_,
-                                    GetTag(payload, "<NextContinuationToken>", "</NextContinuationToken>", &pos));
+    if(tag_and_pos.tag == "true") {
+      TENSORSTORE_ASSIGN_OR_RETURN(tag_and_pos,
+                                   GetTag(payload, "<NextContinuationToken>", "</NextContinuationToken>", start_pos));
+      continuation_token_ = tag_and_pos.tag;
       IssueRequest();
     } else {
       continuation_token_.clear();
@@ -1270,10 +1270,10 @@ Result<kvstore::Spec> ParseS3Url(std::string_view url) {
     return absl::InvalidArgumentError(
         tensorstore::StrCat("Invalid S3 bucket name: ", QuoteString(bucket)));
   }
-  std::string_view path =
+  std::string path = S3UriObjectKeyEncode(
       (end_of_bucket == std::string_view::npos)
           ? std::string_view{}
-          : parsed.authority_and_path.substr(end_of_bucket + 1);
+          : parsed.authority_and_path.substr(end_of_bucket + 1));
   auto driver_spec = internal::MakeIntrusivePtr<S3KeyValueStoreSpec>();
   driver_spec->data_.bucket = bucket;
   driver_spec->data_.request_concurrency =
@@ -1287,7 +1287,7 @@ Result<kvstore::Spec> ParseS3Url(std::string_view url) {
   driver_spec->data_.profile = "default";
   driver_spec->data_.endpoint = ""; // Let driver infer endpoint
 
-  return {std::in_place, std::move(driver_spec), std::string(path)};
+  return {std::in_place, std::move(driver_spec), std::move(path)};
 }
 
 const tensorstore::internal_kvstore::DriverRegistration<

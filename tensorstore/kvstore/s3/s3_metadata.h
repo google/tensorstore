@@ -39,6 +39,11 @@ namespace internal_kvstore_s3 {
 Result<std::size_t> FindTag(std::string_view data, std::string_view tag,
                             std::size_t pos=0, bool start=true);
 
+struct TagAndPosition {
+  std::string tag;
+  std::size_t pos = 0;
+};
+
 /// Get tag contents within the supplied XML `data`
 ///
 /// This should primarily be used for obtaining the contents of inner tags.
@@ -46,10 +51,10 @@ Result<std::size_t> FindTag(std::string_view data, std::string_view tag,
 ///
 /// `pos` is the initial search position within `data`. On success,
 /// this is updated with the position immediately after the closing tag.
-Result<std::string_view> GetTag(std::string_view data,
+Result<TagAndPosition> GetTag(std::string_view data,
                                 std::string_view open_tag,
                                 std::string_view close_tag,
-                                std::size_t * pos);
+                                std::size_t pos=0);
 
 /// Creates a storage generation from the etag header in the
 /// HTTP response `headers`.
@@ -61,6 +66,7 @@ Result<std::string_view> GetTag(std::string_view data,
 /// https://docs.aws.amazon.com/AmazonS3/latest/API/API_Object.html
 Result<StorageGeneration> StorageGenerationFromHeaders(
     const std::multimap<std::string, std::string>& headers);
+
 
 }  // namespace internal_kvstore_s3
 }  // namespace tensorstore

@@ -22,6 +22,7 @@
 
 using ::tensorstore::internal_kvstore_s3::FindTag;
 using ::tensorstore::internal_kvstore_s3::GetTag;
+using ::tensorstore::internal_kvstore_s3::TagAndPosition;
 using ::tensorstore::Result;
 
 namespace {
@@ -44,7 +45,7 @@ static constexpr char list_xml[] =
     R"(<StorageClass>STANDARD</StorageClass>)"
     R"(</Contents>)"
     R"(<Contents>)"
-    R"(<Key>tensorstore/test/abcd</Key>)"
+    R"(<Key>tensorstore/test/ab&gt;cd</Key>)"
     R"(<LastModified>2023-07-08T15:26:55.000Z</LastModified>)"
     R"(<ETag>&quot;e2fc714c4727ee9395f324cd2e7f331f&quot;</ETag>)"
     R"(<ChecksumAlgorithm>SHA256</ChecksumAlgorithm>)"
@@ -65,6 +66,8 @@ static constexpr char list_bucket_tag[] =
     R"(<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">)";
 
 TEST(XmlSearchTest, TagSearch) {
+    TagAndPosition tag_and_pos;
+
     // We can find the initial tag
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto start_pos, FindTag(list_xml, list_bucket_tag));
     EXPECT_EQ(start_pos, 0);
@@ -77,25 +80,39 @@ TEST(XmlSearchTest, TagSearch) {
     EXPECT_FALSE(FindTag(list_xml, list_bucket_tag, 1).ok());
 
     // We can find and parse the number of keys
-    auto pos = start_pos;
-    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto key_count_sv, GetTag(list_xml, "<KeyCount>", "</KeyCount>", &pos));
-    auto key_count = std::stol(std::string(key_count_sv));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(tag_and_pos, GetTag(list_xml, "<KeyCount>", "</KeyCount>", start_pos));
+    auto key_count = std::stol(tag_and_pos.tag);
     EXPECT_EQ(key_count, 3);
 
-    std::vector<std::string_view> keys;
+    std::vector<std::string> keys;
 
     for (std::size_t i = 0; i < key_count; ++i) {
         // Find the next Contents section and Object Key within
-        TENSORSTORE_ASSERT_OK_AND_ASSIGN(pos, FindTag(list_xml, "<Contents>", pos, false));
-        TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto key, GetTag(list_xml, "<Key>", "</Key>", &pos));
-        keys.push_back(key);
+        TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto contents_pos, FindTag(list_xml, "<Contents>", tag_and_pos.pos, false));
+        TENSORSTORE_ASSERT_OK_AND_ASSIGN(tag_and_pos, GetTag(list_xml, "<Key>", "</Key>", contents_pos));
+        keys.push_back(tag_and_pos.tag);
     }
 
     EXPECT_THAT(keys, ::testing::ElementsAre(
         "tensorstore/test/abc",
-        "tensorstore/test/abcd",
+        "tensorstore/test/ab>cd",
         "tensorstore/test/abcde"
     ));
+}
+
+TEST(XmlSearchTest, GetTagWithXmlSequences) {
+    TagAndPosition tag_and_pos;
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(tag_and_pos, GetTag("<K></K>", "<K>", "</K"));
+    EXPECT_EQ(tag_and_pos.tag, "");
+    EXPECT_EQ(tag_and_pos.pos, 7);
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(tag_and_pos, GetTag("<K>abcd</K>", "<K>", "</K"));
+    EXPECT_EQ(tag_and_pos.tag, "abcd");
+    EXPECT_EQ(tag_and_pos.pos, 11);
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(tag_and_pos, GetTag("<K>ab&amp;cd</K>", "<K>", "</K"));
+    EXPECT_EQ(tag_and_pos.tag, "ab&cd");
+    EXPECT_EQ(tag_and_pos.pos, 16);
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(tag_and_pos, GetTag("<K>&lt;&amp;&apos;&gt;&quot;</K>", "<K>", "</K"));
+    EXPECT_EQ(tag_and_pos.pos, 32);
 }
 
 
