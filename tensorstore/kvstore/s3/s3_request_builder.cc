@@ -70,7 +70,7 @@ std::string CanonicalRequest(
   std::string_view url,
   std::string_view method,
   std::string_view payload_hash,
-  const std::vector<std::pair<std::string, std::string>> & headers)
+  const std::vector<std::pair<std::string, std::string_view>> & headers)
 {
   auto uri = ParseGenericUri(url);
   std::size_t end_of_bucket = uri.authority_and_path.find('/');
@@ -161,7 +161,7 @@ std::string AuthorizationHeader(
     std::string_view aws_access_key,
     std::string_view aws_region,
     std::string_view signature,
-    const std::vector<std::pair<std::string, std::string>> & headers,
+    const std::vector<std::pair<std::string, std::string_view>> & headers,
     const absl::Time & time) {
   return absl::StrFormat(
     "Authorization: AWS4-HMAC-SHA256 Credential=%s"
@@ -216,14 +216,14 @@ HttpRequest S3RequestBuilder::BuildRequest(
     auto request = builder_.BuildRequest();
 
     // Create sorteded AWS4 signing headers
-    std::vector<std::pair<std::string, std::string>> signed_headers;
+    std::vector<std::pair<std::string, std::string_view>> signed_headers;
 
     for (const auto & header_str: request.headers) {
       auto header = std::string_view(header_str);
       auto pos = header.find(':');
       assert(pos != std::string::npos);
       auto key = absl::AsciiStrToLower(absl::StripAsciiWhitespace(header.substr(0, pos)));
-      auto value = std::string(absl::StripAsciiWhitespace(header.substr(pos + 1)));
+      auto value = absl::StripAsciiWhitespace(header.substr(pos + 1));
       signed_headers.push_back({std::move(key), std::move(value)});
     }
 
@@ -234,7 +234,7 @@ HttpRequest S3RequestBuilder::BuildRequest(
     signing_string_ = SigningString(canonical_request_, aws_region, time);
     signature_ = Signature(credentials.secret_key, aws_region, signing_string_, time);
     auto auth_header = AuthorizationHeader(credentials.access_key, aws_region, signature_,
-                                          signed_headers, time);
+                                           signed_headers, time);
 
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_AWS4)
         << "Canonical Request\n" << canonical_request_;
