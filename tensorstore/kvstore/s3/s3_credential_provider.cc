@@ -165,7 +165,7 @@ Result<S3Credentials> FileCredentialProvider::GetCredentials() {
   }
 
   S3Credentials credentials;
-  std::string_view section_name;
+  std::string section_name;
   std::string line;
   bool profile_found = false;
 
