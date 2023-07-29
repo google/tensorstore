@@ -23,6 +23,8 @@
 #include "absl/time/time.h"
 #include "tensorstore/context_resource_provider.h"
 #include "tensorstore/internal/env.h"
+#include "tensorstore/internal/cache_key/absl_time.h"
+#include "tensorstore/internal/cache_key/std_optional.h"
 #include "tensorstore/kvstore/gcs_http/admission_queue.h"
 #include "tensorstore/kvstore/gcs_http/scaling_rate_limiter.h"
 
