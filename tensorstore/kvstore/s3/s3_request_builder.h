@@ -78,6 +78,9 @@ class S3RequestBuilder {
     return *this;
   }
 
+  /// Adds a requester payer header to the requester if `requester_payer` is true
+  S3RequestBuilder& MaybeAddRequesterPayer(bool requester_payer=false);
+
   /// Adds a `range` header to the http request if the byte_range
   /// is specified.
   S3RequestBuilder& MaybeAddRangeHeader(OptionalByteRangeRequest byte_range) {

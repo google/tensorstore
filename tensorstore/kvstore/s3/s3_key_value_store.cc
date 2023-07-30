@@ -464,11 +464,6 @@ struct ReadTask : public RateLimiterNode,
       return;
     }
 
-    // TODO(sjperkins): requester_pays here
-    // Assume that if the user_project field is set, that we want to provide
-    // it on the uri for a requestor pays bucket.
-    // AddUserProjectParam(&media_url, true, owner->encoded_user_project());
-    // TODO: Configure timeouts.
     auto maybe_credentials = owner->GetCredentials();
     if (!maybe_credentials.ok()) {
       promise.SetResult(maybe_credentials.status());
@@ -489,6 +484,7 @@ struct ReadTask : public RateLimiterNode,
     start_time_ = absl::Now();
     auto request = request_builder
             .EnableAcceptEncoding()
+            .MaybeAddRequesterPayer(owner->spec_.requester_pays)
             .MaybeAddRangeHeader(options.byte_range)
             .BuildRequest(owner->host_, credentials, owner->aws_region_, kEmptySha256, start_time_);
 
@@ -691,6 +687,7 @@ struct WriteTask : public RateLimiterNode,
     AddGenerationHeader(&builder, "if-match", options.if_equal);
 
     auto request = builder
+            .MaybeAddRequesterPayer(owner->spec_.requester_pays)
             .BuildRequest(owner->host_, credentials_, owner->aws_region_, kEmptySha256, now);
 
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS) << "WriteTask (Peek): " << request;
@@ -738,11 +735,6 @@ struct WriteTask : public RateLimiterNode,
   }
 
   void DoPut() {
-    // TODO(sjperkins). Introduce S3 requester_pays logic here
-    // Assume that if the user_project field is set, that we want to provide
-    // it on the uri for a requestor pays bucket.
-    // AddUserProjectParam(&upload_url, true, owner->encoded_user_project());
-
     // TODO(sjperkins).
     // This was changed from POST to PUT as a basic POST does not work
     // Some more headers need to be added to allow POST to work:
@@ -755,6 +747,7 @@ struct WriteTask : public RateLimiterNode,
     auto request = S3RequestBuilder("PUT", upload_url_)
             .AddHeader("Content-Type: application/octet-stream")
             .AddHeader(absl::StrCat("Content-Length: ", value.size()))
+            .MaybeAddRequesterPayer(owner->spec_.requester_pays)
             .BuildRequest(owner->host_, credentials_, owner->aws_region_, content_sha256, start_time_);
 
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS)
@@ -881,6 +874,7 @@ struct DeleteTask : public RateLimiterNode,
     AddGenerationHeader(&builder, "if-match", options.if_equal);
 
     auto request = builder
+            .MaybeAddRequesterPayer(owner->spec_.requester_pays)
             .BuildRequest(owner->host_, credentials_, owner->aws_region_, kEmptySha256, now);
 
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS) << "DeleteTask (Peek): " << request;
@@ -928,6 +922,7 @@ struct DeleteTask : public RateLimiterNode,
     start_time_ = absl::Now();
 
     auto request = S3RequestBuilder("DELETE", resource)
+        .MaybeAddRequesterPayer(owner->spec_.requester_pays)
         .BuildRequest(owner->host_, credentials_, owner->aws_region_, kEmptySha256, start_time_);
 
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS)

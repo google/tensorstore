@@ -181,9 +181,17 @@ std::string AuthorizationHeader(
 static constexpr char kHostHeader[] = "host: ";
 static constexpr char kAmzContentSha256Header[] = "x-amz-content-sha256: ";
 static constexpr char kAmzSecurityTokenHeader[] = "x-amz-security-token: ";
-
+/// https://docs.aws.amazon.com/AmazonS3/latest/userguide/ObjectsinRequesterPaysBuckets.html
+/// For DELETE, GET, HEAD, POST, and PUT requests, include x-amz-request-payer : requester in the header
+static constexpr char kAmzRequesterPayerHeader[] = "x-amz-requester-payer: requester";
 } // namespace
 
+S3RequestBuilder& S3RequestBuilder::MaybeAddRequesterPayer(bool requester_payer) {
+  if(requester_payer) {
+    builder_.AddHeader(kAmzRequesterPayerHeader);
+  }
+  return *this;
+}
 
 HttpRequest S3RequestBuilder::BuildRequest(
   std::string_view host,

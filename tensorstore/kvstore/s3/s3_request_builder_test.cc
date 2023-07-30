@@ -233,4 +233,28 @@ TEST(S3RequestBuilderTest, AwsSessionTokenHeaderAdded) {
     EXPECT_THAT(request.headers, ::testing::Contains(absl::StrCat("x-amz-security-token: ", token)));
 }
 
+TEST(S3RequestBuilderTest, AwsRequesterPaysHeaderAdded) {
+    /// Test that x-amz-requester-payer: requester is added if true
+    auto request = S3RequestBuilder("GET", absl::StrFormat("https://%s/test.txt", bucket))
+                    .MaybeAddRequesterPayer(false)
+                    .BuildRequest(
+        absl::StrFormat("%s.s3.amazonaws.com", bucket),
+        credentials, aws_region,
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        absl::FromCivil(absl::CivilSecond(2013, 5, 24, 0, 0, 0), utc));
+
+    EXPECT_THAT(request.headers, ::testing::Not(
+            ::testing::Contains(::testing::HasSubstr("x-amz-requester-payer"))));
+
+    request = S3RequestBuilder("GET", absl::StrFormat("https://%s/test.txt", bucket))
+                    .MaybeAddRequesterPayer(true)
+                    .BuildRequest(
+        absl::StrFormat("%s.s3.amazonaws.com", bucket),
+        credentials, aws_region,
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        absl::FromCivil(absl::CivilSecond(2013, 5, 24, 0, 0, 0), utc));
+
+    EXPECT_THAT(request.headers, ::testing::Contains("x-amz-requester-payer: requester"));
+}
+
 } // namespace
