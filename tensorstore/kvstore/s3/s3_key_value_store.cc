@@ -1287,7 +1287,6 @@ Result<kvstore::Spec> ParseS3Url(std::string_view url) {
 
   driver_spec->data_.requester_pays = false;
   driver_spec->data_.profile = "default";
-  driver_spec->data_.endpoint = ""; // Let driver infer endpoint
 
   return {std::in_place, std::move(driver_spec), std::move(path)};
 }
