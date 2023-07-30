@@ -195,6 +195,7 @@ struct S3KeyValueStoreSpecData {
   std::string bucket;
   bool requester_pays;
   std::optional<std::string> endpoint;
+  std::optional<std::string> host;
   std::string profile;
   std::string aws_region;
 
@@ -205,7 +206,7 @@ struct S3KeyValueStoreSpecData {
 
   constexpr static auto ApplyMembers = [](auto& x, auto f) {
     return f(x.bucket, x.request_concurrency, x.rate_limiter,
-             x.requester_pays, x.endpoint, x.profile,
+             x.requester_pays, x.endpoint, x.host, x.profile,
              x.retries, x.data_copy_concurrency);
   };
 
@@ -227,6 +228,8 @@ struct S3KeyValueStoreSpecData {
                     jb::DefaultValue<jb::kAlwaysIncludeDefaults>(
                       [](auto* v) { *v = false; })
                   )),
+      jb::Member("host",
+                 jb::Projection<&S3KeyValueStoreSpecData::host>()),
       jb::Member("endpoint",
                  jb::Projection<&S3KeyValueStoreSpecData::endpoint>()),
       jb::Member("profile",
@@ -383,7 +386,7 @@ Future<kvstore::DriverPtr> S3KeyValueStoreSpec::DoOpen() const {
     auto & headers = future.value().headers;
     if(auto it = headers.find(kAmzBucketRegionHeader); it !=headers.end()) {
       driver->aws_region_ = it->second;
-      driver->endpoint_ = tensorstore::StrCat(
+      driver->host_ = driver->endpoint_ = tensorstore::StrCat(
         "https://", data_.bucket, ".s3.", driver->aws_region_, kDotAmazonAwsDotCom);
     } else {
       return absl::InvalidArgumentError(
@@ -409,13 +412,17 @@ Future<kvstore::DriverPtr> S3KeyValueStoreSpec::DoOpen() const {
 
     driver->aws_region_ = data_.aws_region;
     driver->endpoint_ = endpoint;
+
+    if(data_.host.has_value()) {
+      driver->host_ = data_.host.value();
+    } else {
+      auto parsed = internal::ParseGenericUri(driver->endpoint_);
+      size_t end_of_host = parsed.authority_and_path.find('/');
+      driver->host_ = parsed.authority_and_path.substr(0, end_of_host);
+    }
   }
 
   ABSL_LOG(INFO) << "S3 driver using endpoint [" << driver->endpoint_ << "]";
-
-  auto parsed = internal::ParseGenericUri(driver->endpoint_);
-  size_t end_of_host = parsed.authority_and_path.find('/');
-  driver->host_ = parsed.authority_and_path.substr(0, end_of_host);
 
   // NOTE: Remove temporary logging use of experimental feature.
   if (data_.rate_limiter.has_value()) {
