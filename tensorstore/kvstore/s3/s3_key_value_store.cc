@@ -325,7 +325,7 @@ class S3KeyValueStore
     return credential_result_;
   }
 
-// Apply default backoff/retry logic to the task.
+  // Apply default backoff/retry logic to the task.
   // Returns whether the task will be retried. On false, max retries have
   // been met or exceeded.  On true, `task->Retry()` will be scheduled to run
   // after a suitable backoff period.
