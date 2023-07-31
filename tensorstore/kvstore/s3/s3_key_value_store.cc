@@ -1272,7 +1272,7 @@ Result<kvstore::Spec> ParseS3Url(std::string_view url) {
     return absl::InvalidArgumentError(
         tensorstore::StrCat("Invalid S3 bucket name: ", QuoteString(bucket)));
   }
-  std::string path = S3UriObjectKeyEncode(
+  std::string path = internal::PercentDecode(
       (end_of_bucket == std::string_view::npos)
           ? std::string_view{}
           : parsed.authority_and_path.substr(end_of_bucket + 1));
