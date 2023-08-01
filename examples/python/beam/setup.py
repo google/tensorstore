@@ -18,7 +18,7 @@ import setuptools
 REQUIRED_PACKAGES = [
     "absl-py==0.9.0",
     "gin-config==0.3.0",
-    "numpy==1.18.3",
+    "numpy==1.22.0",
     "tensorstore==0.1.1"
 ]
 
