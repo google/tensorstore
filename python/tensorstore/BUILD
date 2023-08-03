@@ -84,7 +84,7 @@ pybind11_cc_library(
 )
 
 py_library(
-    name = "tensorstore",
+    name = "core",
     srcs = ["__init__.py"],
     srcs_version = "PY3ONLY",
     visibility = ["//visibility:public"],
@@ -92,6 +92,13 @@ py_library(
         ":_tensorstore",
         "@pypa_numpy//:numpy",
     ],
+)
+
+py_library(
+    name = "tensorstore",
+    srcs_version = "PY3ONLY",
+    visibility = ["//visibility:public"],
+    deps = [":core"],
 )
 
 pytype_strict_binary(
