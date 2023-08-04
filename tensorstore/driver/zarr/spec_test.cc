@@ -346,7 +346,7 @@ TEST(GetNewMetadataTest, SchemaDomainDtype) {
                   {"zarr_format", 2},
                   {"order", "C"},
                   {"shape", {1000, 2000, 3000}},
-                  {"chunks", {102, 102, 102}},
+                  {"chunks", {101, 101, 101}},
                   {"dtype", "<i4"},
                   {"compressor",
                    {
@@ -376,7 +376,7 @@ TEST(GetNewMetadataTest, SchemaDomainDtypeFillValue) {
                   {"zarr_format", 2},
                   {"order", "C"},
                   {"shape", {1000, 2000, 3000}},
-                  {"chunks", {102, 102, 102}},
+                  {"chunks", {101, 101, 101}},
                   {"dtype", "<i4"},
                   {"compressor",
                    {
@@ -407,7 +407,7 @@ TEST(GetNewMetadataTest, SchemaObjectWithDomainDtypeFillValue) {
                   {"zarr_format", 2},
                   {"order", "C"},
                   {"shape", {1000, 2000, 3000}},
-                  {"chunks", {102, 102, 102}},
+                  {"chunks", {101, 101, 101}},
                   {"dtype", "<i4"},
                   {"compressor",
                    {

@@ -361,8 +361,8 @@ not specified, the default is 1 million elements per chunk:
    ChunkLayout({
      'grid_origin': [0, 0, 0],
      'inner_order': [0, 1, 2],
-     'read_chunk': {'shape': [102, 102, 102]},
-     'write_chunk': {'shape': [102, 102, 102]},
+     'read_chunk': {'shape': [101, 101, 101]},
+     'write_chunk': {'shape': [101, 101, 101]},
    })
 
 .. admonition:: Example of explicit chunk shape constraint

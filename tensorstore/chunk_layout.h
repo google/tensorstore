@@ -1089,6 +1089,15 @@ absl::Status ChooseChunkShape(ChunkLayout::GridView shape_constraints,
 absl::Status ChooseReadWriteChunkGrid(const ChunkLayout& constraints,
                                       BoxView<> domain,
                                       MutableBoxView<> chunk_template);
+
+/// Chooses a read chunk shape and write chunk shape, where the read chunk shape
+/// evenly divides the write chunk shape.
+absl::Status ChooseReadWriteChunkShapes(ChunkLayout::GridView read_constraints,
+                                        ChunkLayout::GridView write_constraints,
+                                        BoxView<> domain,
+                                        span<Index> read_chunk_shape,
+                                        span<Index> write_chunk_shape);
+
 }  // namespace internal
 }  // namespace tensorstore
 

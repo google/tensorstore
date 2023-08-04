@@ -498,8 +498,8 @@ elements per chunk.
    ChunkLayout({
      'grid_origin': [20, 30, 40, 0],
      'inner_order': [3, 2, 1, 0],
-     'read_chunk': {'shape': [81, 81, 81, 2]},
-     'write_chunk': {'shape': [81, 81, 81, 2]},
+     'read_chunk': {'shape': [80, 80, 80, 2]},
+     'write_chunk': {'shape': [80, 80, 80, 2]},
    })
 
 .. admonition:: Example of unconstrained chunk layout with compressed segmentation encoding
@@ -526,8 +526,8 @@ elements per chunk.
      'codec_chunk': {'shape': [8, 8, 8, 1]},
      'grid_origin': [20, 30, 40, 0],
      'inner_order': [3, 2, 1, 0],
-     'read_chunk': {'shape': [81, 81, 81, 2]},
-     'write_chunk': {'shape': [81, 81, 81, 2]},
+     'read_chunk': {'shape': [80, 80, 80, 2]},
+     'write_chunk': {'shape': [80, 80, 80, 2]},
    })
 
 .. admonition:: Example of chunk layout with separate read and write chunk constraints

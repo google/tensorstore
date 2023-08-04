@@ -40,6 +40,10 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
+// Uncomment the line below to debug `ChooseChunkSizeFromAspectRatio`.
+//
+// #define TENSORSTORE_INTERNAL_CHUNK_LAYOUT_DEBUG
+
 namespace tensorstore {
 
 namespace {
@@ -1461,10 +1465,10 @@ namespace internal {
 constexpr Index kDefaultChunkElements = 1024 * 1024;
 
 namespace {
-void ChooseChunkSizeFromAspectRatio(span<const double> aspect_ratio,
-                                    span<Index> chunk_shape,
-                                    Index target_chunk_elements,
-                                    BoxView<> domain) {
+void ChooseChunkSizeFromAspectRatio(
+    span<const double> aspect_ratio, span<Index> chunk_shape,
+    Index target_chunk_elements, BoxView<> domain,
+    absl::FunctionRef<Index(DimensionIndex dim, Index value)> map_size) {
   const DimensionIndex rank = chunk_shape.size();
   assert(aspect_ratio.size() == rank);
   assert(domain.rank() == rank);
@@ -1488,21 +1492,35 @@ void ChooseChunkSizeFromAspectRatio(span<const double> aspect_ratio,
     // Note: conversion from `double` to `Index` is guaranteed not to overflow
     // because `max_chunk_shape[i]` is guaranteed to be <=
     // `std::numeric_limits<Index>::max()`.
-    return std::max(
-        Index(1), static_cast<Index>(
-                      std::min(aspect_ratio[i] * factor, max_chunk_shape[i])));
+    Index size =
+        std::max(Index(1), static_cast<Index>(std::min(aspect_ratio[i] * factor,
+                                                       max_chunk_shape[i])));
+    size = map_size(i, size);
+    return size;
   };
 
   // Computes the total number of elements per chunk for a given factor.  This
   // guides the binary search over `factor` values.
   const auto get_total_elements = [&](double factor) -> Index {
     Index total = 1;
+#ifdef TENSORSTORE_INTERNAL_CHUNK_LAYOUT_DEBUG
+    Index cur_chunk_shape[kMaxRank];
+#endif
     for (DimensionIndex i = 0; i < rank; ++i) {
-      if (internal::MulOverflow(get_chunk_size(i, factor), total, &total)) {
+      const Index size = get_chunk_size(i, factor);
+#ifdef TENSORSTORE_INTERNAL_CHUNK_LAYOUT_DEBUG
+      cur_chunk_shape[i] = size;
+#endif
+      if (internal::MulOverflow(size, total, &total)) {
         total = std::numeric_limits<Index>::max();
         break;
       }
     }
+#ifdef TENSORSTORE_INTERNAL_CHUNK_LAYOUT_DEBUG
+    ABSL_LOG(INFO) << "factor=" << factor << ", chunk_shape="
+                   << span<const Index>(&cur_chunk_shape[0], rank)
+                   << ", total=" << total;
+#endif
     return total;
   };
 
@@ -1521,7 +1539,6 @@ void ChooseChunkSizeFromAspectRatio(span<const double> aspect_ratio,
   max_factor *= 2;
 
   double min_factor = min_factor_increment;
-  Index min_factor_elements = get_total_elements(min_factor);
   Index max_factor_elements = get_total_elements(max_factor);
 
   // Binary search to find best factor.
@@ -1534,45 +1551,86 @@ void ChooseChunkSizeFromAspectRatio(span<const double> aspect_ratio,
     }
     if (mid_factor_elements <= target_chunk_elements) {
       min_factor = mid_factor;
-      min_factor_elements = mid_factor_elements;
     }
   }
 
   // At this point, `min_factor` and `max_factor` are sufficiently close that
   // the corresponding chunk sizes differ by at most `1` in each dimension.
-  // Choose factor that brings us closest to `target_chunk_elements`.
+  //
+  // Choose `max_factor` if `max_factor_elements` does not exceed
+  // `target_chunk_elements`, otherwise choose `min_factor`.
   const double factor =
-      (std::abs(min_factor_elements - target_chunk_elements) <=
-       std::abs(max_factor_elements - target_chunk_elements))
-          ? min_factor
-          : max_factor;
+      max_factor_elements == target_chunk_elements ? max_factor : min_factor;
 
   for (DimensionIndex i = 0; i < rank; ++i) {
     chunk_shape[i] = get_chunk_size(i, factor);
   }
 }
-}  // namespace
 
-absl::Status ChooseChunkShape(ChunkLayout::GridView shape_constraints,
-                              BoxView<> domain, span<Index> chunk_shape) {
-  const DimensionIndex rank = chunk_shape.size();
-  assert(domain.rank() == rank);
-  DimensionSet shape_hard_constraint = false;
-  if (shape_constraints.shape().valid()) {
-    if (shape_constraints.shape().size() != rank) {
+absl::Status ChooseChunkGridOrigin(span<const Index> origin_constraints,
+                                   span<const Index> domain_origin,
+                                   span<const Index> chunk_shape,
+                                   span<Index> grid_origin) {
+  const DimensionIndex rank = grid_origin.size();
+
+  // For any dimension with an explicitly-constrained origin, just set the
+  // origin to that.
+  if (!origin_constraints.empty()) {
+    if (origin_constraints.size() != rank) {
       return absl::InvalidArgumentError(tensorstore::StrCat(
-          "Rank of constraints (", shape_constraints.shape().size(),
+          "Rank of constraints (", origin_constraints.size(),
           ") does not match rank of domain (", rank, ")"));
     }
-    std::copy_n(shape_constraints.shape().begin(), rank, chunk_shape.begin());
-    shape_hard_constraint = shape_constraints.shape().hard_constraint;
+    std::copy_n(origin_constraints.begin(), rank, grid_origin.begin());
+  } else {
+    std::fill_n(grid_origin.begin(), rank, kImplicit);
+  }
+
+  // Choose a default origin for dimensions without an explicit origin
+  // constraint.  Ensure that `0 <= grid_origin[i] < chunk_shape[i]`.
+  for (DimensionIndex i = 0; i < rank; ++i) {
+    Index& origin_value = grid_origin[i];
+    if (origin_value == kImplicit) {
+      const Index domain_origin_value = domain_origin[i];
+      if (domain_origin_value == -kInfIndex) {
+        origin_value = 0;
+      } else {
+        origin_value = NonnegativeMod(domain_origin_value, chunk_shape[i]);
+      }
+    }
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto interval, IndexInterval::Sized(origin_value, chunk_shape[i]),
+        tensorstore::MaybeAnnotateStatus(
+            _, tensorstore::StrCat("Invalid chunk constraints for dimension ",
+                                   i)));
+    grid_origin[i] = interval.inclusive_min();
+  }
+  return absl::OkStatus();
+}
+
+absl::Status InitializeChunkShape(ChunkLayout::ChunkShapeBase shape_constraints,
+                                  BoxView<> domain, span<Index> chunk_shape,
+                                  DimensionSet& shape_hard_constraint) {
+  const DimensionIndex rank = chunk_shape.size();
+  DimensionSet hard_constraint = false;
+  if (shape_constraints.valid()) {
+    if (shape_constraints.size() != rank) {
+      return absl::InvalidArgumentError(
+          tensorstore::StrCat("Rank of constraints (", shape_constraints.size(),
+                              ") does not match rank of domain (", rank, ")"));
+    }
+    std::copy_n(shape_constraints.begin(), rank, chunk_shape.begin());
+    hard_constraint = shape_constraints.hard_constraint;
   } else {
     std::fill_n(chunk_shape.begin(), rank, 0);
   }
   // Set the dimensions of chunk size that are explicitly constrained.
   for (DimensionIndex i = 0; i < rank; ++i) {
     Index& chunk_size = chunk_shape[i];
-    if (chunk_size == 0) continue;
+    if (chunk_size == 0) {
+      hard_constraint[i] = false;
+      continue;
+    }
     if (chunk_size == -1) {
       IndexInterval bounds = domain[i];
       if (!IsFinite(bounds)) {
@@ -1583,7 +1641,17 @@ absl::Status ChooseChunkShape(ChunkLayout::GridView shape_constraints,
       chunk_size = std::max(Index(1), bounds.size());
     }
   }
+  shape_hard_constraint = hard_constraint;
+  return absl::OkStatus();
+}
 
+absl::Status CompleteChunkShapeFromAspectRatio(
+    BoxView<> domain,
+    ChunkLayout::ChunkAspectRatioBase aspect_ratio_constraints,
+    ChunkLayout::ChunkElementsBase elements_constraint,
+    absl::FunctionRef<Index(DimensionIndex dim, Index value)> map_size,
+    span<Index> chunk_shape) {
+  const DimensionIndex rank = chunk_shape.size();
   if (std::any_of(chunk_shape.begin(), chunk_shape.end(),
                   [](Index x) { return x == 0; })) {
     // Choose chunk size of remaining dimensions according to
@@ -1591,13 +1659,13 @@ absl::Status ChooseChunkShape(ChunkLayout::GridView shape_constraints,
 
     // Determine the aspect ratio value to use for each dimension.
     double aspect_ratio[kMaxRank];
-    if (shape_constraints.aspect_ratio().valid()) {
-      if (shape_constraints.aspect_ratio().size() != rank) {
+    if (aspect_ratio_constraints.valid()) {
+      if (aspect_ratio_constraints.size() != rank) {
         return absl::InvalidArgumentError(tensorstore::StrCat(
-            "Rank of constraints (", shape_constraints.aspect_ratio().size(),
+            "Rank of constraints (", aspect_ratio_constraints.size(),
             ") does not match rank of domain (", rank, ")"));
       }
-      std::copy_n(shape_constraints.aspect_ratio().begin(), rank, aspect_ratio);
+      std::copy_n(aspect_ratio_constraints.begin(), rank, aspect_ratio);
       for (DimensionIndex i = 0; i < rank; ++i) {
         if (aspect_ratio[i] == 0) {
           aspect_ratio[i] = 1;
@@ -1608,13 +1676,27 @@ absl::Status ChooseChunkShape(ChunkLayout::GridView shape_constraints,
     }
 
     Index target_chunk_elements = kDefaultChunkElements;
-    if (shape_constraints.elements().valid()) {
-      target_chunk_elements = shape_constraints.elements();
+    if (elements_constraint.valid()) {
+      target_chunk_elements = elements_constraint;
     }
     ChooseChunkSizeFromAspectRatio(span<const double>(aspect_ratio, rank),
-                                   chunk_shape, target_chunk_elements, domain);
+                                   chunk_shape, target_chunk_elements, domain,
+                                   map_size);
   }
   return absl::OkStatus();
+}
+}  // namespace
+
+absl::Status ChooseChunkShape(ChunkLayout::GridView shape_constraints,
+                              BoxView<> domain, span<Index> chunk_shape) {
+  assert(domain.rank() == chunk_shape.size());
+  DimensionSet shape_hard_constraint;
+  TENSORSTORE_RETURN_IF_ERROR(InitializeChunkShape(
+      shape_constraints.shape(), domain, chunk_shape, shape_hard_constraint));
+  constexpr auto map_size = [](DimensionIndex dim, Index size) { return size; };
+  return CompleteChunkShapeFromAspectRatio(
+      domain, shape_constraints.aspect_ratio(), shape_constraints.elements(),
+      map_size, chunk_shape);
 }
 
 absl::Status ChooseChunkGrid(span<const Index> origin_constraints,
@@ -1623,47 +1705,12 @@ absl::Status ChooseChunkGrid(span<const Index> origin_constraints,
                              MutableBoxView<> chunk_template) {
   // First determine the chunk shape, which we can determine independent of the
   // grid origin.
-  const DimensionIndex rank = chunk_template.rank();
   TENSORSTORE_RETURN_IF_ERROR(
       ChooseChunkShape(shape_constraints, domain, chunk_template.shape()));
 
   // Now that we have determined the chunk size, determine the grid origin.
-
-  // For any dimension with an explicitly-constrained origin, just set the
-  // origin to that.
-  if (!origin_constraints.empty()) {
-    if (origin_constraints.size() != rank) {
-      return absl::InvalidArgumentError(tensorstore::StrCat(
-          "Rank of constraints (", origin_constraints.size(),
-          ") does not match rank of domain (", rank, ")"));
-    }
-    std::copy_n(origin_constraints.begin(), rank,
-                chunk_template.origin().begin());
-  } else {
-    std::fill_n(chunk_template.origin().begin(), rank, kImplicit);
-  }
-
-  // Choose a default origin for dimensions without an explicit origin
-  // constraint.  Ensure that `0 <= grid_origin[i] < chunk_shape[i]`.
-  for (DimensionIndex i = 0; i < rank; ++i) {
-    Index& origin_value = chunk_template.origin()[i];
-    if (origin_value == kImplicit) {
-      const Index domain_origin_value = domain.origin()[i];
-      if (domain_origin_value == -kInfIndex) {
-        origin_value = 0;
-      } else {
-        origin_value =
-            NonnegativeMod(domain_origin_value, chunk_template.shape()[i]);
-      }
-    }
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        chunk_template[i],
-        IndexInterval::Sized(origin_value, chunk_template.shape()[i]),
-        tensorstore::MaybeAnnotateStatus(
-            _, tensorstore::StrCat("Invalid chunk constraints for dimension ",
-                                   i)));
-  }
-  return absl::OkStatus();
+  return ChooseChunkGridOrigin(origin_constraints, domain.origin(),
+                               chunk_template.shape(), chunk_template.origin());
 }
 
 absl::Status ChooseReadWriteChunkGrid(const ChunkLayout& constraints,
@@ -1679,6 +1726,116 @@ absl::Status ChooseReadWriteChunkGrid(const ChunkLayout& constraints,
   return ChooseChunkGrid(combined_constraints.grid_origin(),
                          combined_constraints.read_chunk(), domain,
                          chunk_template);
+}
+
+// Find the divisor of `dividend` that is closest to `target`.
+Index FindNearestDivisor(Index dividend, Index target,
+                         Index max_search_distance = 1000000) {
+  if (target >= dividend) {
+    return dividend;
+  }
+  if ((dividend % target) == 0) {
+    return target;
+  }
+  for (Index offset = 1; offset < max_search_distance; ++offset) {
+    if (target > offset && (dividend % (target - offset)) == 0) {
+      return target - offset;
+    }
+    if ((dividend % (target + offset)) == 0) {
+      return target + offset;
+    }
+  }
+  // Could not determine divisor, just use dividend.
+  return dividend;
+}
+
+Index FindNearestMultiple(Index divisor, Index target) {
+  if (target < divisor) {
+    return divisor;
+  }
+  const Index lower = target / divisor * divisor;
+  const Index upper = lower + divisor;
+  if (target - lower <= upper - target) {
+    return lower;
+  } else {
+    return upper;
+  }
+}
+
+absl::Status ChooseReadWriteChunkShapes(ChunkLayout::GridView read_constraints,
+                                        ChunkLayout::GridView write_constraints,
+                                        BoxView<> domain,
+                                        span<Index> read_chunk_shape,
+                                        span<Index> write_chunk_shape) {
+  DimensionIndex rank = write_chunk_shape.size();
+  assert(read_chunk_shape.size() == rank);
+  assert(domain.rank() == rank);
+
+  DimensionSet write_shape_hard_constraint;
+  DimensionSet read_shape_hard_constraint;
+  TENSORSTORE_RETURN_IF_ERROR(
+      InitializeChunkShape(write_constraints.shape(), domain, write_chunk_shape,
+                           write_shape_hard_constraint));
+  TENSORSTORE_RETURN_IF_ERROR(InitializeChunkShape(read_constraints.shape(),
+                                                   domain, read_chunk_shape,
+                                                   read_shape_hard_constraint));
+
+  // If both read and write chunk size has been set for a given dimension,
+  // ensure that the write size is an integer multiple of the read size.
+  for (DimensionIndex i = 0; i < rank; ++i) {
+    Index& read_size = read_chunk_shape[i];
+    Index& write_size = write_chunk_shape[i];
+    if (read_size == 0 || write_size == 0 || ((write_size % read_size) == 0)) {
+      continue;
+    }
+    const bool read_hard_constraint = read_shape_hard_constraint[i];
+    const bool write_hard_constraint = write_shape_hard_constraint[i];
+    if (read_hard_constraint && write_hard_constraint) {
+      return absl::InvalidArgumentError(tensorstore::StrCat(
+          "Incompatible chunk size constraints for dimension ", i,
+          ": read size of ", read_size, ", write size of ", write_size));
+    }
+    if (read_hard_constraint && !write_hard_constraint) {
+      // Ensure write_size is a multiple of read_size
+      write_size = FindNearestMultiple(read_size, write_size);
+      continue;
+    }
+
+    if (!read_hard_constraint) {
+      // Either write size is a hard constraint, or neither read nor write size
+      // is a hard constraint.  In the latter case, give the write size
+      // precedence.
+      //
+      // Ensure read_size evenly divides write_size.
+      read_size = FindNearestDivisor(write_size, read_size,
+                                     /*max_search_distance=*/1000000);
+      continue;
+    }
+  }
+
+  const auto map_read_size = [&](DimensionIndex i, Index size) {
+    const Index write_size = write_chunk_shape[i];
+    if (write_size != 0) {
+      size = FindNearestDivisor(write_size, size,
+                                /*max_search_distance=*/1000000);
+    }
+    return size;
+  };
+
+  TENSORSTORE_RETURN_IF_ERROR(CompleteChunkShapeFromAspectRatio(
+      domain, read_constraints.aspect_ratio(), read_constraints.elements(),
+      map_read_size, read_chunk_shape));
+
+  const auto map_write_size = [&](DimensionIndex i, Index size) {
+    const Index read_size = read_chunk_shape[i];
+    return FindNearestMultiple(read_size, size);
+  };
+
+  TENSORSTORE_RETURN_IF_ERROR(CompleteChunkShapeFromAspectRatio(
+      domain, write_constraints.aspect_ratio(), write_constraints.elements(),
+      map_write_size, write_chunk_shape));
+
+  return absl::OkStatus();
 }
 
 }  // namespace internal

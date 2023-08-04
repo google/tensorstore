@@ -214,7 +214,7 @@ Examples:
       'dtype': 'uint32',
       'kvstore': {'driver': 'memory'},
       'metadata': {
-        'chunks': [1000, 1049],
+        'chunks': [1000, 1048],
         'compressor': {
           'blocksize': 0,
           'clevel': 5,
@@ -991,8 +991,8 @@ Example:
   ChunkLayout({
     'grid_origin': [0, 0, 0],
     'inner_order': [0, 1, 2],
-    'read_chunk': {'shape': [102, 102, 102]},
-    'write_chunk': {'shape': [102, 102, 102]},
+    'read_chunk': {'shape': [101, 101, 101]},
+    'write_chunk': {'shape': [101, 101, 101]},
   })
 
 Group:
@@ -2314,7 +2314,7 @@ Opens or creates a :py:class:`TensorStore` from a :py:class:`Spec`.
       'dtype': 'int32',
       'kvstore': {'driver': 'memory'},
       'metadata': {
-        'chunks': [102, 102, 102],
+        'chunks': [101, 101, 101],
         'compressor': {
           'blocksize': 0,
           'clevel': 5,
@@ -2437,7 +2437,7 @@ properties that are left unconstrained:
       'dtype': 'float32',
       'kvstore': {'driver': 'memory'},
       'metadata': {
-        'chunks': [102, 102, 102],
+        'chunks': [101, 101, 101],
         'compressor': {
           'blocksize': 0,
           'clevel': 5,
@@ -2584,7 +2584,7 @@ schema constraints:
       'dtype': 'float32',
       'kvstore': {'driver': 'memory'},
       'metadata': {
-        'chunks': [102, 102, 102],
+        'chunks': [101, 101, 101],
         'compressor': {
           'blocksize': 0,
           'clevel': 5,

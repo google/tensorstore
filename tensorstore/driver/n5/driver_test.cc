@@ -1151,7 +1151,7 @@ TEST(DriverTest, SchemaUniformChunkAspectRatio) {
                      {
                          {"dimensions", {1000, 2000, 3000}},
                          {"axes", {"x", "y", "z"}},
-                         {"blockSize", {102, 102, 102}},
+                         {"blockSize", {101, 101, 101}},
                          {"dataType", "uint32"},
                          {"compression",
                           {{"type", "blosc"},
