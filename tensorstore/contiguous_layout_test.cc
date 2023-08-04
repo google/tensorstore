@@ -12,20 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "tensorstore/contiguous_layout.h"
+
 #include <array>
 #include <sstream>
 
-#include "tensorstore/contiguous_layout.h"
-#include "tensorstore/index.h"
-#include "tensorstore/util/span.h"
-
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "tensorstore/index.h"
+#include "tensorstore/util/span.h"
 
 namespace {
 
 using ::tensorstore::ComputeStrides;
 using ::tensorstore::ContiguousLayoutOrder;
+using ::tensorstore::GetContiguousIndices;
 using ::tensorstore::GetContiguousOffset;
 using ::tensorstore::Index;
 using ::tensorstore::span;
@@ -66,10 +67,17 @@ TEST(ComputeStridesTest, FOrder) {
 }
 
 TEST(GetContiguousOffsetTest, Basic) {
+  Index indices[2];
   EXPECT_EQ(3 * 11 + 4,
             GetContiguousOffset<ContiguousLayoutOrder::c>({{7, 11}}, {{3, 4}}));
+  GetContiguousIndices<ContiguousLayoutOrder::c, Index>(3 * 11 + 4, {{7, 11}},
+                                                        indices);
+  EXPECT_THAT(indices, ::testing::ElementsAre(3, 4));
   EXPECT_EQ(3 + 4 * 7, GetContiguousOffset<ContiguousLayoutOrder::fortran>(
                            {{7, 11}}, {{3, 4}}));
+  GetContiguousIndices<ContiguousLayoutOrder::fortran, Index>(
+      3 + 4 * 7, {{7, 11}}, indices);
+  EXPECT_THAT(indices, ::testing::ElementsAre(3, 4));
   EXPECT_EQ(
       2 * (7 * 11) + 3 * 11 + 4,
       GetContiguousOffset<ContiguousLayoutOrder::c>({{5, 7, 11}}, {{2, 3, 4}}));
