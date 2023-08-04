@@ -17,8 +17,8 @@
 #include "riegeli/bytes/string_reader.h"
 #include "riegeli/bytes/string_writer.h"
 #include "tensorstore/internal/json_gtest.h"
-#include "tensorstore/internal/riegeli_json_input.h"
-#include "tensorstore/internal/riegeli_json_output.h"
+#include "tensorstore/internal/riegeli/json_input.h"
+#include "tensorstore/internal/riegeli/json_output.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {

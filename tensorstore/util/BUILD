@@ -646,8 +646,8 @@ tensorstore_cc_library(
         ":status",
         ":str_cat",
         "//tensorstore/internal:utf8",
+        "//tensorstore/internal/riegeli:delimited",
         "//tensorstore/serialization",
-        "//tensorstore/serialization:riegeli_delimited",
     ],
 )
 

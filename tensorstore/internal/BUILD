@@ -397,10 +397,10 @@ tensorstore_cc_library(
     hdrs = ["endian_elementwise_conversion.h"],
     deps = [
         ":elementwise_function",
-        ":riegeli_json_input",
-        ":riegeli_json_output",
         "//tensorstore:index",
-        "//tensorstore/serialization:riegeli_delimited",
+        "//tensorstore/internal/riegeli:delimited",
+        "//tensorstore/internal/riegeli:json_input",
+        "//tensorstore/internal/riegeli:json_output",
         "//tensorstore/util:endian",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
@@ -1611,42 +1611,6 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
-    name = "riegeli_json_input",
-    srcs = ["riegeli_json_input.cc"],
-    hdrs = ["riegeli_json_input.h"],
-    deps = [
-        "@com_github_nlohmann_json//:nlohmann_json",
-        "@com_google_riegeli//riegeli/bytes:reader",
-    ],
-)
-
-tensorstore_cc_library(
-    name = "riegeli_json_output",
-    srcs = ["riegeli_json_output.cc"],
-    hdrs = ["riegeli_json_output.h"],
-    deps = [
-        ":unowned_to_shared",
-        "@com_github_nlohmann_json//:nlohmann_json",
-        "@com_google_riegeli//riegeli/bytes:writer",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "riegeli_json_test",
-    size = "small",
-    srcs = ["riegeli_json_test.cc"],
-    deps = [
-        ":json_gtest",
-        ":riegeli_json_input",
-        ":riegeli_json_output",
-        "//tensorstore/util:status_testutil",
-        "@com_google_googletest//:gtest_main",
-        "@com_google_riegeli//riegeli/bytes:string_reader",
-        "@com_google_riegeli//riegeli/bytes:string_writer",
-    ],
-)
-
-tensorstore_cc_library(
     name = "source_location",
     hdrs = ["source_location.h"],
     deps = ["@com_google_absl//absl/base:config"],
@@ -2026,48 +1990,5 @@ tensorstore_cc_test(
     deps = [
         ":uri_utils",
         "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
-    name = "array_endian_riegeli_codec",
-    srcs = ["array_endian_riegeli_codec.cc"],
-    hdrs = ["array_endian_riegeli_codec.h"],
-    deps = [
-        ":unaligned_data_type_functions",
-        "//tensorstore:array",
-        "//tensorstore:contiguous_layout",
-        "//tensorstore:index",
-        "//tensorstore/util:endian",
-        "//tensorstore/util:span",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_riegeli//riegeli/bytes:copy_all",
-        "@com_google_riegeli//riegeli/bytes:limiting_reader",
-        "@com_google_riegeli//riegeli/bytes:reader",
-        "@com_google_riegeli//riegeli/bytes:writer",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "array_endian_riegeli_codec_test",
-    size = "small",
-    srcs = ["array_endian_riegeli_codec_test.cc"],
-    deps = [
-        ":array_endian_riegeli_codec",
-        ":flat_cord_builder",
-        "//tensorstore:array",
-        "//tensorstore:contiguous_layout",
-        "//tensorstore/util:endian",
-        "//tensorstore/util:result",
-        "//tensorstore/util:span",
-        "//tensorstore/util:status_testutil",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_absl//absl/strings:cord_test_helpers",
-        "@com_google_googletest//:gtest_main",
-        "@com_google_riegeli//riegeli/bytes:cord_reader",
-        "@com_google_riegeli//riegeli/bytes:cord_writer",
-        "@com_google_riegeli//riegeli/bytes:string_reader",
-        "@com_google_riegeli//riegeli/zlib:zlib_reader",
-        "@com_google_riegeli//riegeli/zlib:zlib_writer",
     ],
 )

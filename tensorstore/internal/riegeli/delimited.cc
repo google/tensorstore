@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/serialization/riegeli_delimited.h"
+#include "tensorstore/internal/riegeli/delimited.h"
 
 #include <string>
 

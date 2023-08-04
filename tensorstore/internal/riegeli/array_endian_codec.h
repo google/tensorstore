@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_ARRAY_ENDIAN_RIEGELI_CODEC_H_
-#define TENSORSTORE_INTERNAL_ARRAY_ENDIAN_RIEGELI_CODEC_H_
+#ifndef TENSORSTORE_INTERNAL_RIEGELI_ARRAY_ENDIAN_CODEC_H_
+#define TENSORSTORE_INTERNAL_RIEGELI_ARRAY_ENDIAN_CODEC_H_
 
 #include <memory>
 
@@ -55,4 +55,4 @@ absl::Status DecodeArrayEndian(riegeli::Reader& reader, endian encoded_endian,
 }  // namespace internal
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_ARRAY_ENDIAN_RIEGELI_CODEC_H_
+#endif  // TENSORSTORE_INTERNAL_RIEGELI_ARRAY_ENDIAN_CODEC_H_

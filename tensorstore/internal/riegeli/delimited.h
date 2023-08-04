@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_SERIALIZATION_RIEGELI_DELIMITED_H_
-#define TENSORSTORE_SERIALIZATION_RIEGELI_DELIMITED_H_
+#ifndef TENSORSTORE_INTERNAL_RIEGELI_DELIMITED_H_
+#define TENSORSTORE_INTERNAL_RIEGELI_DELIMITED_H_
 
 #include "riegeli/bytes/reader.h"
 #include "riegeli/bytes/writer.h"
@@ -100,4 +100,4 @@ bool ReadDelimitedUtf8(riegeli::Reader& reader, std::string& dest);
 }  // namespace serialization
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_SERIALIZATION_RIEGELI_DELIMITED_H_
+#endif  // TENSORSTORE_INTERNAL_RIEGELI_DELIMITED_H_

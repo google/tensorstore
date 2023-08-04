@@ -26,12 +26,12 @@
 #include "absl/status/status.h"
 #include "riegeli/bytes/reader.h"
 #include "riegeli/bytes/writer.h"
+#include "tensorstore/internal/riegeli/delimited.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
 #include "tensorstore/kvstore/ocdbt/format/btree_codec.h"
 #include "tensorstore/kvstore/ocdbt/format/btree_node_encoder.h"
 #include "tensorstore/kvstore/ocdbt/format/codec_util.h"
-#include "tensorstore/serialization/riegeli_delimited.h"
 #include "tensorstore/util/span.h"
 
 namespace tensorstore {

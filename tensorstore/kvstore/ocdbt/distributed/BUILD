@@ -152,10 +152,10 @@ tensorstore_cc_library(
     hdrs = ["btree_node_write_mutation.h"],
     deps = [
         "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/internal/riegeli:delimited",
         "//tensorstore/kvstore:generation",
         "//tensorstore/kvstore:key_range",
         "//tensorstore/kvstore/ocdbt/format",
-        "//tensorstore/serialization:riegeli_delimited",
         "//tensorstore/util:span",
         "@com_google_absl//absl/status",
         "@com_google_riegeli//riegeli/bytes:reader",

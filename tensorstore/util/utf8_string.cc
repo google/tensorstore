@@ -14,8 +14,8 @@
 
 #include "tensorstore/util/utf8_string.h"
 
+#include "tensorstore/internal/riegeli/delimited.h"
 #include "tensorstore/internal/utf8.h"
-#include "tensorstore/serialization/riegeli_delimited.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/status.h"

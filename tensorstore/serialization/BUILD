@@ -85,9 +85,9 @@ tensorstore_cc_library(
     deps = [
         ":serialization",
         "//tensorstore/internal:json_fwd",
-        "//tensorstore/internal:riegeli_json_input",
-        "//tensorstore/internal:riegeli_json_output",
         "//tensorstore/internal/json_binding",
+        "//tensorstore/internal/riegeli:json_input",
+        "//tensorstore/internal/riegeli:json_output",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "@com_github_nlohmann_json//:nlohmann_json",
@@ -174,22 +174,6 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
-    name = "riegeli_delimited",
-    srcs = ["riegeli_delimited.cc"],
-    hdrs = ["riegeli_delimited.h"],
-    deps = [
-        "//tensorstore/internal:utf8",
-        "//tensorstore/util:quote_string",
-        "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/status",
-        "@com_google_riegeli//riegeli/bytes:reader",
-        "@com_google_riegeli//riegeli/bytes:writer",
-        "@com_google_riegeli//riegeli/varint:varint_reading",
-        "@com_google_riegeli//riegeli/varint:varint_writing",
-    ],
-)
-
-tensorstore_cc_library(
     name = "serialization",
     srcs = ["serialization.cc"],
     hdrs = [
@@ -207,12 +191,12 @@ tensorstore_cc_library(
         "std_vector.h",
     ],
     deps = [
-        ":riegeli_delimited",
         "//tensorstore/internal:attributes",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:memory",
         "//tensorstore/internal:type_traits",
         "//tensorstore/internal/poly",
+        "//tensorstore/internal/riegeli:delimited",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",

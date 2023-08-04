@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/riegeli_json_input.h"
+#include "tensorstore/internal/riegeli/json_input.h"
 
 #include <nlohmann/json.hpp>
 #include "riegeli/bytes/reader.h"
