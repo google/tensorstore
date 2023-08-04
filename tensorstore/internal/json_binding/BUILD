@@ -10,6 +10,7 @@ tensorstore_cc_library(
     hdrs = [
         "enum.h",
         "json_binding.h",
+        "optional_object.h",
         "std_array.h",
         "std_optional.h",
         "std_tuple.h",
@@ -207,6 +208,20 @@ tensorstore_cc_test(
         "//tensorstore/internal:json_gtest",
         "//tensorstore/internal/json",
         "//tensorstore/util:result",
+        "//tensorstore/util:status_testutil",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/status",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "optional_object_test",
+    srcs = ["optional_object_test.cc"],
+    deps = [
+        ":gtest",
+        ":json_binding",
+        "//tensorstore/internal:json_gtest",
         "//tensorstore/util:status_testutil",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/status",
