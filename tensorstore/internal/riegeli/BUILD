@@ -66,6 +66,49 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
+    name = "digest_suffixed_reader",
+    hdrs = ["digest_suffixed_reader.h"],
+    deps = [
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/strings:str_format",
+        "@com_google_riegeli//riegeli/bytes:cord_reader",
+        "@com_google_riegeli//riegeli/bytes:limiting_reader",
+        "@com_google_riegeli//riegeli/bytes:read_all",
+        "@com_google_riegeli//riegeli/bytes:reader",
+        "@com_google_riegeli//riegeli/digests:digesting_reader",
+        "@com_google_riegeli//riegeli/endian:endian_reading",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "digest_suffixed_writer",
+    hdrs = ["digest_suffixed_writer.h"],
+    deps = [
+        "@com_google_riegeli//riegeli/digests:digesting_writer",
+        "@com_google_riegeli//riegeli/endian:endian_writing",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "digest_suffixed_test",
+    size = "small",
+    srcs = ["digest_suffixed_test.cc"],
+    deps = [
+        ":digest_suffixed_reader",
+        ":digest_suffixed_writer",
+        "//tensorstore/util:status_testutil",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_riegeli//riegeli/bytes:string_reader",
+        "@com_google_riegeli//riegeli/bytes:string_writer",
+        "@com_google_riegeli//riegeli/bytes:write",
+        "@com_google_riegeli//riegeli/digests:crc32c_digester",
+        "@com_google_riegeli//riegeli/zlib:zlib_reader",
+        "@com_google_riegeli//riegeli/zlib:zlib_writer",
+    ],
+)
+
+tensorstore_cc_library(
     name = "json_input",
     srcs = ["json_input.cc"],
     hdrs = ["json_input.h"],
