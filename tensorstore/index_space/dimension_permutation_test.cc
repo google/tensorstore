@@ -28,6 +28,8 @@ namespace {
 
 using ::tensorstore::DimensionIndex;
 using ::tensorstore::Dims;
+using ::tensorstore::IsValidPermutation;
+using ::tensorstore::PermutationMatchesOrder;
 using ::tensorstore::span;
 
 TEST(SetPermutationTest, Rank0) {
@@ -84,6 +86,20 @@ TEST(IsValidPermutationTest, Basic) {
   EXPECT_FALSE(IsValidPermutation(span<const DimensionIndex>({0, 0})));
   EXPECT_TRUE(IsValidPermutation(span<const DimensionIndex>({1, 2, 0})));
   EXPECT_FALSE(IsValidPermutation(span<const DimensionIndex>({1, 2, 1})));
+}
+
+TEST(PermutationMatchesOrderTest, Basic) {
+  EXPECT_TRUE(PermutationMatchesOrder({}, tensorstore::c_order));
+  EXPECT_TRUE(PermutationMatchesOrder({}, tensorstore::fortran_order));
+  EXPECT_TRUE(PermutationMatchesOrder({{0}}, tensorstore::c_order));
+  EXPECT_TRUE(PermutationMatchesOrder({{0}}, tensorstore::fortran_order));
+  EXPECT_TRUE(PermutationMatchesOrder({{0, 1}}, tensorstore::c_order));
+  EXPECT_FALSE(PermutationMatchesOrder({{0, 1}}, tensorstore::fortran_order));
+  EXPECT_TRUE(PermutationMatchesOrder({{0, 1, 2}}, tensorstore::c_order));
+  EXPECT_FALSE(PermutationMatchesOrder({{1}}, tensorstore::c_order));
+  EXPECT_FALSE(PermutationMatchesOrder({{1}}, tensorstore::fortran_order));
+  EXPECT_FALSE(PermutationMatchesOrder({{1, 0}}, tensorstore::c_order));
+  EXPECT_TRUE(PermutationMatchesOrder({{1, 0}}, tensorstore::fortran_order));
 }
 
 TEST(InvertPermutationTest, Rank0) {

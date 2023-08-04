@@ -53,6 +53,20 @@ bool IsValidPermutation(span<const DimensionIndex> permutation) {
   return true;
 }
 
+bool PermutationMatchesOrder(span<const DimensionIndex> permutation,
+                             ContiguousLayoutOrder order) {
+  if (order == c_order) {
+    for (DimensionIndex i = 0; i < permutation.size(); ++i) {
+      if (permutation[i] != i) return false;
+    }
+  } else {
+    for (DimensionIndex i = 0; i < permutation.size(); ++i) {
+      if (permutation[i] != permutation.size() - i - 1) return false;
+    }
+  }
+  return true;
+}
+
 void InvertPermutation(DimensionIndex rank, const DimensionIndex* perm,
                        DimensionIndex* inverse_perm) {
   assert(IsValidPermutation(span(perm, rank)));

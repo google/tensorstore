@@ -40,6 +40,12 @@ void SetPermutation(ContiguousLayoutOrder order,
 /// \relates ChunkLayout
 bool IsValidPermutation(span<const DimensionIndex> permutation);
 
+/// Returns `true` if `permutation` is `{0, 1, ..., permutation.size()-1}` if
+/// `order == c_order`, or `{permutation.size() - 1, ..., 1, 0}` if
+/// `order == fortran_order`..
+bool PermutationMatchesOrder(span<const DimensionIndex> permutation,
+                             ContiguousLayoutOrder order);
+
 /// Sets `inverse_perm` to the inverse permutation of `perm`.
 ///
 /// \param perm[in] Pointer to array of length `rank`.
