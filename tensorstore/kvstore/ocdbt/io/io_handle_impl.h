@@ -36,7 +36,8 @@ IoHandle::Ptr MakeIoHandle(
     std::optional<int64_t> max_read_coalescing_overhead_bytes_per_request =
         std::nullopt,
     std::optional<int64_t> max_read_coalescing_merged_bytes_per_request =
-        std::nullopt);
+        std::nullopt,
+    std::optional<absl::Duration> max_read_coalescing_interval = std::nullopt);
 
 }  // namespace internal_ocdbt
 }  // namespace tensorstore

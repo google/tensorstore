@@ -24,6 +24,7 @@
 #include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"
 #include "tensorstore/internal/cache/cache_pool_resource.h"
+#include "tensorstore/internal/cache_key/absl_time.h"  // IWYU pragma: keep
 #include "tensorstore/internal/cache_key/cache_key.h"
 #include "tensorstore/internal/concurrency_resource.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
@@ -47,6 +48,7 @@
 // specializations
 #include "tensorstore/internal/cache_key/std_optional.h"  // IWYU pragma: keep
 #include "tensorstore/internal/cache_key/std_variant.h"  // IWYU pragma: keep
+#include "tensorstore/serialization/absl_time.h"  // IWYU pragma: keep
 #include "tensorstore/serialization/std_optional.h"  // IWYU pragma: keep
 #include "tensorstore/serialization/std_variant.h"  // IWYU pragma: keep
 
@@ -75,6 +77,7 @@ struct OcdbtDriverSpecData {
   ConfigConstraints config;
   std::optional<size_t> experimental_read_coalescing_threshold_bytes;
   std::optional<size_t> experimental_read_coalescing_merged_bytes;
+  std::optional<absl::Duration> experimental_read_coalescing_interval;
   Context::Resource<OcdbtCoordinatorResource> coordinator;
 
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(OcdbtDriverSpecData,
@@ -85,7 +88,8 @@ struct OcdbtDriverSpecData {
   constexpr static auto ApplyMembers = [](auto&& x, auto f) {
     return f(x.base, x.config, x.cache_pool, x.data_copy_concurrency,
              x.experimental_read_coalescing_threshold_bytes,
-             x.experimental_read_coalescing_merged_bytes, x.coordinator);
+             x.experimental_read_coalescing_merged_bytes,
+             x.experimental_read_coalescing_interval, x.coordinator);
   };
 };
 
@@ -136,6 +140,7 @@ class OcdbtDriver
   BtreeWriterPtr btree_writer_;
   std::optional<size_t> experimental_read_coalescing_threshold_bytes_;
   std::optional<size_t> experimental_read_coalescing_merged_bytes_;
+  std::optional<absl::Duration> experimental_read_coalescing_interval_;
   Context::Resource<OcdbtCoordinatorResource> coordinator_;
 };
 

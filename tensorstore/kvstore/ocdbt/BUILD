@@ -92,6 +92,7 @@ tensorstore_cc_library(
         "//tensorstore/kvstore/ocdbt/non_distributed:list",
         "//tensorstore/kvstore/ocdbt/non_distributed:read",
         "//tensorstore/serialization",
+        "//tensorstore/serialization:absl_time",
         "//tensorstore/util:executor",
         "//tensorstore/util:future",
         "//tensorstore/util:quote_string",

@@ -16,6 +16,7 @@
 #define TENSORSTORE_KVSTORE_OCDBT_IO_COALESCE_KVSTORE_H_
 
 #include "tensorstore/kvstore/spec.h"
+#include "tensorstore/util/executor.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
@@ -27,7 +28,9 @@ namespace internal_ocdbt {
 /// for reducing GCS reads in the OCDBT driver.
 kvstore::DriverPtr MakeCoalesceKvStoreDriver(kvstore::DriverPtr base,
                                              size_t threshold,
-                                             size_t merged_threshold);
+                                             size_t merged_threshold,
+                                             absl::Duration interval,
+                                             Executor executor);
 
 }  // namespace internal_ocdbt
 }  // namespace tensorstore

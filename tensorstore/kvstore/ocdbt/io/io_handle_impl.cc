@@ -23,6 +23,7 @@
 #include "absl/strings/cord.h"
 #include "absl/time/time.h"
 #include "tensorstore/context.h"
+#include "tensorstore/data_type.h"
 #include "tensorstore/internal/cache/async_cache.h"
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache_key/cache_key.h"
@@ -344,14 +345,17 @@ IoHandle::Ptr MakeIoHandle(
     internal::CachePool& cache_pool, const KvStore& base_kvstore,
     ConfigStatePtr config_state,
     std::optional<int64_t> max_read_coalescing_overhead_bytes_per_request,
-    std::optional<int64_t> max_read_coalescing_merged_bytes_per_request) {
+    std::optional<int64_t> max_read_coalescing_merged_bytes_per_request,
+    std::optional<absl::Duration> read_coalescing_interval) {
   // Maybe wrap the base driver in CoalesceKvStoreDriver.
   kvstore::DriverPtr driver_with_optional_coalescing =
       max_read_coalescing_overhead_bytes_per_request.has_value()
           ? MakeCoalesceKvStoreDriver(
                 base_kvstore.driver,
                 *max_read_coalescing_overhead_bytes_per_request,
-                max_read_coalescing_merged_bytes_per_request.value_or(0))
+                max_read_coalescing_merged_bytes_per_request.value_or(0),
+                read_coalescing_interval.value_or(absl::ZeroDuration()),
+                data_copy_concurrency->executor)
           : base_kvstore.driver;
   auto impl = internal::MakeIntrusivePtr<IoHandleImpl>();
   impl->base_kvstore_ = base_kvstore;

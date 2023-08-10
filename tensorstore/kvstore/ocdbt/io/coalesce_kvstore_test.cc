@@ -17,13 +17,12 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/strings/cord.h"
+#include "absl/time/time.h"
+#include "tensorstore/internal/thread_pool.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/mock_kvstore.h"
 #include "tensorstore/kvstore/operations.h"
-#include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/spec.h"
-#include "tensorstore/util/future.h"
-#include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -45,7 +44,9 @@ TEST(CoalesceKvstoreTest, SimpleRead) {
   auto mock_key_value_store = MockKeyValueStore::Make();
 
   auto coalesce_driver = MakeCoalesceKvStoreDriver(
-      mock_key_value_store, /*threshold=*/100, /*merged_threshold=*/0);
+      mock_key_value_store, /*threshold=*/100, /*merged_threshold=*/0,
+      /*interval=*/absl::ZeroDuration(),
+      tensorstore::internal::DetachedThreadPool(1));
 
   auto write_future = kvstore::Write(coalesce_driver, "a", absl::Cord("a"));
   write_future.Force();
@@ -76,7 +77,9 @@ TEST(CoalesceKvstoreTest, ReadWithThreshold) {
   auto mock_key_value_store = MockKeyValueStore::Make();
 
   auto coalesce_driver = MakeCoalesceKvStoreDriver(
-      mock_key_value_store, /*threshold=*/1, /*merged_threshold=*/0);
+      mock_key_value_store, /*threshold=*/1, /*merged_threshold=*/0,
+      /*interval=*/absl::ZeroDuration(),
+      tensorstore::internal::DetachedThreadPool(1));
 
   auto write_future =
       kvstore::Write(coalesce_driver, "a", absl::Cord("0123456789"));
@@ -141,7 +144,9 @@ TEST(CoalesceKvstoreTest, ReadWithMergedThreshold) {
   auto mock_key_value_store = MockKeyValueStore::Make();
 
   auto coalesce_driver = MakeCoalesceKvStoreDriver(
-      mock_key_value_store, /*threshold=*/1, /*merged_threshold=*/2);
+      mock_key_value_store, /*threshold=*/1, /*merged_threshold=*/2,
+      /*interval=*/absl::ZeroDuration(),
+      tensorstore::internal::DetachedThreadPool(1));
 
   auto write_future =
       kvstore::Write(coalesce_driver, "a", absl::Cord("0123456789"));
@@ -198,6 +203,65 @@ TEST(CoalesceKvstoreTest, ReadWithMergedThreshold) {
   EXPECT_EQ(read_future4.result().value().value, absl::Cord("6"));
   TENSORSTORE_EXPECT_OK(read_future5.result());
   EXPECT_EQ(read_future5.result().value().value, absl::Cord("8"));
+}
+
+TEST(CoalesceKvstoreTest, ReadWithInterval) {
+  auto context = Context::Default();
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto base_store,
+                                   kvstore::Open("memory://").result());
+
+  auto mock_key_value_store = MockKeyValueStore::Make();
+
+  auto coalesce_driver = MakeCoalesceKvStoreDriver(
+      mock_key_value_store, /*threshold=*/1, /*merged_threshold=*/0,
+      /*interval=*/absl::Milliseconds(10),
+      tensorstore::internal::DetachedThreadPool(1));
+
+  auto write_future =
+      kvstore::Write(coalesce_driver, "a", absl::Cord("0123456789"));
+  write_future.Force();
+  {
+    auto req = mock_key_value_store->write_requests.pop();
+    EXPECT_EQ("a", req.key);
+    req(base_store.driver);
+  }
+
+  ReadOptions ro1, ro2, ro3, ro4;
+  ro1.byte_range = OptionalByteRangeRequest(0, 1);  // will be coalesced as well
+  ro2.byte_range = OptionalByteRangeRequest(2, 3);  // coalesced
+  ro3.byte_range = OptionalByteRangeRequest(4, 5);  /// coalesced
+  ro4.byte_range =
+      OptionalByteRangeRequest(7, 8);  // out of threshold to be coalesced
+
+  auto read_future1 = kvstore::Read(coalesce_driver, "a", ro1);
+  auto read_future2 = kvstore::Read(coalesce_driver, "a", ro2);
+  auto read_future3 = kvstore::Read(coalesce_driver, "a", ro3);
+  auto read_future4 = kvstore::Read(coalesce_driver, "a", ro4);
+
+  {
+    auto req = mock_key_value_store->read_requests.pop();
+    EXPECT_EQ("a", req.key);
+    EXPECT_EQ(req.options.byte_range, OptionalByteRangeRequest(0, 5));
+    req(base_store.driver);
+  }
+  TENSORSTORE_EXPECT_OK(read_future1.result());
+  EXPECT_EQ(read_future1.result().value().value, absl::Cord("0"));
+
+  TENSORSTORE_EXPECT_OK(read_future2.result());
+  EXPECT_EQ(read_future2.result().value().value, absl::Cord("2"));
+
+  TENSORSTORE_EXPECT_OK(read_future3.result());
+  EXPECT_EQ(read_future3.result().value().value, absl::Cord("4"));
+
+  {
+    auto req = mock_key_value_store->read_requests.pop();
+    EXPECT_EQ("a", req.key);
+    EXPECT_EQ(req.options.byte_range, OptionalByteRangeRequest(7, 8));
+    req(base_store.driver);
+  }
+  TENSORSTORE_EXPECT_OK(read_future4.result());
+  EXPECT_EQ(read_future4.result().value().value, absl::Cord("7"));
 }
 
 }  // namespace

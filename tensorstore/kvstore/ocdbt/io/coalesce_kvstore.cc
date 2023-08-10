@@ -33,8 +33,11 @@
 #include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
 #include "tensorstore/internal/flat_cord_builder.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/schedule_at.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
@@ -45,6 +48,7 @@
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/execution/any_receiver.h"
+#include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/garbage_collection.h"
 #include "tensorstore/util/result.h"
@@ -130,10 +134,13 @@ struct PendingReadHash {
 class CoalesceKvStoreDriver final : public kvstore::Driver {
  public:
   explicit CoalesceKvStoreDriver(kvstore::DriverPtr base, size_t threshold,
-                                 size_t merged_threshold)
+                                 size_t merged_threshold,
+                                 absl::Duration interval, Executor executor)
       : base_(std::move(base)),
         threshold_(threshold),
-        merged_threshold_(merged_threshold) {}
+        merged_threshold_(merged_threshold),
+        interval_(interval),
+        thread_pool_executor_(std::move(executor)) {}
 
   ~CoalesceKvStoreDriver() override = default;
 
@@ -166,10 +173,6 @@ class CoalesceKvStoreDriver final : public kvstore::Driver {
     return base_->ListImpl(std::move(options), std::move(receiver));
   }
 
-  void EncodeCacheKey(std::string* out) const override {
-    return base_->EncodeCacheKey(out);
-  }
-
   std::string DescribeKey(std::string_view key) override {
     return base_->DescribeKey(key);
   }
@@ -194,6 +197,8 @@ class CoalesceKvStoreDriver final : public kvstore::Driver {
   kvstore::DriverPtr base_;
   size_t threshold_;
   size_t merged_threshold_;
+  absl::Duration interval_;
+  Executor thread_pool_executor_;
 
   absl::Mutex mu_;
   absl::flat_hash_set<internal::IntrusivePtr<PendingRead>, PendingReadHash,
@@ -219,16 +224,42 @@ Future<kvstore::ReadResult> CoalesceKvStoreDriver::Read(Key key,
       /// This key is unowned, so mark it as "reserved" and start a read.
       state_ptr = internal::MakeIntrusivePtr<PendingRead>();
       state_ptr->key = key;
-      pending_.insert(state_ptr);
+      bool inserted;
+      std::tie(it, inserted) = pending_.insert(state_ptr);
+
+      if (interval_ != absl::ZeroDuration()) {
+        // interval based read, add current read to pending queue and schedule
+        // the next read
+        internal::ScheduleAt(
+            absl::Now() + interval_,
+            [self = internal::IntrusivePtr<CoalesceKvStoreDriver>(this),
+             state = std::move(state_ptr)] {
+              auto& executor = self->thread_pool_executor_;
+              executor([self = std::move(self), state = std::move(state)] {
+                self->StartNextRead(std::move(state));
+              });
+            });
+
+        auto& state = *it;
+        auto op = PromiseFuturePair<ReadResult>::Make();
+        state->pending_ops.emplace_back(
+            PendingRead::Op{std::move(options), std::move(op.promise)});
+        return std::move(op.future);
+      }
     }
   }
 
+  // non-interval based trigger
   auto future = base_->Read(key, std::move(options));
   future.ExecuteWhenReady(
       [self = internal::IntrusivePtr<CoalesceKvStoreDriver>(this),
        state = std::move(state_ptr)](ReadyFuture<ReadResult>) {
-        self->StartNextRead(std::move(state));
+        auto& executor = self->thread_pool_executor_;
+        executor([self = std::move(self), state = std::move(state)] {
+          self->StartNextRead(std::move(state));
+        });
       });
+
   return future;
 }
 
@@ -288,6 +319,19 @@ void CoalesceKvStoreDriver::StartNextRead(
     } else {
       std::swap(pending, state_ptr->pending_ops);
     }
+  }
+
+  if (interval_ != absl::ZeroDuration()) {
+    // schedule the next read
+    internal::ScheduleAt(
+        absl::Now() + interval_,
+        [self = internal::IntrusivePtr<CoalesceKvStoreDriver>(this),
+         state = state_ptr] {
+          auto& executor = self->thread_pool_executor_;
+          executor([self = std::move(self), state = std::move(state)] {
+            self->StartNextRead(std::move(state));
+          });
+        });
   }
 
   // Order the pending reads by the kvstore::ReadOption fields such that the
@@ -379,8 +423,14 @@ void CoalesceKvStoreDriver::StartNextRead(
       [self = internal::IntrusivePtr<CoalesceKvStoreDriver>(this),
        merged = std::move(merged),
        state = std::move(state_ptr)](ReadyFuture<kvstore::ReadResult> ready) {
-        OnReadComplete(std::move(merged), std::move(ready));
-        self->StartNextRead(std::move(state));
+        auto& executor = self->thread_pool_executor_;
+        executor([self = std::move(self), merged = std::move(merged),
+                  state = std::move(state), ready = std::move(ready)] {
+          OnReadComplete(std::move(merged), std::move(ready));
+          if (self->interval_ == absl::ZeroDuration()) {
+            self->StartNextRead(std::move(state));
+          }
+        });
       });
 }
 
@@ -388,12 +438,16 @@ void CoalesceKvStoreDriver::StartNextRead(
 
 kvstore::DriverPtr MakeCoalesceKvStoreDriver(kvstore::DriverPtr base,
                                              size_t threshold,
-                                             size_t merged_threshold) {
+                                             size_t merged_threshold,
+                                             absl::Duration interval,
+                                             Executor executor) {
   ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
       << "Coalescing reads with threshold: " << threshold
-      << ", merged_threshold: " << merged_threshold;
+      << ", merged_threshold: " << merged_threshold
+      << ", interval: " << interval;
   return internal::MakeIntrusivePtr<CoalesceKvStoreDriver>(
-      std::move(base), threshold, merged_threshold);
+      std::move(base), threshold, merged_threshold, interval,
+      std::move(executor));
 }
 
 }  // namespace internal_ocdbt
