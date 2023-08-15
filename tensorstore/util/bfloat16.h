@@ -44,7 +44,14 @@
 
 namespace tensorstore {
 class BFloat16;
+}  // namespace tensorstore
 
+namespace std {
+template <>
+struct numeric_limits<::tensorstore::BFloat16>;
+}  // namespace std
+
+namespace tensorstore {
 namespace internal {
 BFloat16 NumericFloat32ToBfloat16RoundNearestEven(float v);
 BFloat16 Float32ToBfloat16RoundNearestEven(float v);
@@ -75,7 +82,7 @@ class BFloat16 {
   explicit BFloat16(T x) {
     if constexpr (std::is_same_v<T, bool>) {
       rep_ = static_cast<uint16_t>(x) * 0x3f80;
-    } else if constexpr (std::is_integral_v<T>) {
+    } else if constexpr (std::numeric_limits<T>::is_integer) {
       *this = internal::NumericFloat32ToBfloat16RoundNearestEven(
           static_cast<float>(x));
     } else {
@@ -104,7 +111,8 @@ class BFloat16 {
   /// \id integer
   /// \membergroup Assignment operators
   template <typename T>
-  std::enable_if_t<std::is_integral_v<T>, BFloat16&> operator=(T v) {
+  std::enable_if_t<std::numeric_limits<T>::is_integer, BFloat16&> operator=(
+      T v) {  // NOLINT: misc-unconventional-assign-operator
     return *this = static_cast<BFloat16>(v);
   }
 
@@ -119,26 +127,26 @@ class BFloat16 {
     return BFloat16(static_cast<float>(a) OP static_cast<float>(b));    \
   }                                                                     \
   template <typename T>                                                 \
-  friend std::enable_if_t<std::is_integral_v<T>, BFloat16> operator OP( \
-      BFloat16 a, T b) {                                                \
+  friend std::enable_if_t<std::numeric_limits<T>::is_integer, BFloat16> \
+  operator OP(BFloat16 a, T b) {                                        \
     return BFloat16(static_cast<float>(a) OP b);                        \
   }                                                                     \
   template <typename T>                                                 \
-  friend std::enable_if_t<std::is_integral_v<T>, BFloat16> operator OP( \
-      T a, BFloat16 b) {                                                \
+  friend std::enable_if_t<std::numeric_limits<T>::is_integer, BFloat16> \
+  operator OP(T a, BFloat16 b) {                                        \
     return BFloat16(a OP static_cast<float>(b));                        \
   }                                                                     \
   /**/
 
-#define TENSORSTORE_INTERNAL_BFLOAT16_ARITHMETIC_ASSIGN_OP(OP)              \
-  friend BFloat16& operator OP##=(BFloat16& a, BFloat16 b) {                \
-    return a = BFloat16(static_cast<float>(a) OP static_cast<float>(b));    \
-  }                                                                         \
-  template <typename T>                                                     \
-  friend std::enable_if_t<std::is_integral_v<T>, BFloat16&> operator OP##=( \
-      BFloat16& a, T b) {                                                   \
-    return a = BFloat16(static_cast<float>(a) OP b);                        \
-  }                                                                         \
+#define TENSORSTORE_INTERNAL_BFLOAT16_ARITHMETIC_ASSIGN_OP(OP)           \
+  friend BFloat16& operator OP##=(BFloat16& a, BFloat16 b) {             \
+    return a = BFloat16(static_cast<float>(a) OP static_cast<float>(b)); \
+  }                                                                      \
+  template <typename T>                                                  \
+  friend std::enable_if_t<std::numeric_limits<T>::is_integer, BFloat16&> \
+  operator OP##=(BFloat16& a, T b) {                                     \
+    return a = BFloat16(static_cast<float>(a) OP b);                     \
+  }                                                                      \
   /**/
 
   /// Addition operator.

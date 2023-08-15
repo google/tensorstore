@@ -183,10 +183,10 @@ absl::Status JsonRequireInteger(
     const ::nlohmann::json& json, T* result, bool strict = false,
     internal::type_identity_t<T> min_value = std::numeric_limits<T>::min(),
     internal::type_identity_t<T> max_value = std::numeric_limits<T>::max()) {
-  static_assert(std::is_signed_v<T> || std::is_unsigned_v<T>,
+  static_assert(std::numeric_limits<T>::is_integer,
                 "T must be an integer type.");
-  using U =
-      std::conditional_t<std::is_signed_v<T>, std::int64_t, std::uint64_t>;
+  using U = std::conditional_t<std::numeric_limits<T>::is_signed, std::int64_t,
+                               std::uint64_t>;
   U temp;
   auto status = internal_json::JsonRequireIntegerImpl<U>::Execute(
       json, &temp, strict, min_value, max_value);

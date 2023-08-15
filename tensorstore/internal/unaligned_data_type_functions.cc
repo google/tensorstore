@@ -66,6 +66,7 @@ const std::array<UnalignedDataTypeFunctions, kNumDataTypeIds>
     kUnalignedDataTypeFunctions = MapCanonicalDataTypes([](auto dtype) {
       using T = typename decltype(dtype)::Element;
       UnalignedDataTypeFunctions functions;
+      // TODO(summivox): b/295984455 Also handle int4 and uint4
       if (std::is_same_v<T, bool>) {
         functions.validate = GetElementwiseFunction<ValidateBoolLoopTemplate>();
       }

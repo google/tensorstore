@@ -103,6 +103,13 @@ Group:
   Data types
 """
 
+int4: dtype
+"""4-bit signed :wikipedia:`two's-complement <Two%27s_complement>` integer data type, internally stored as its 8-bit signed integer equivalent (i.e. sign-extended). Corresponds to ``jax.numpy.int4``.
+
+Group:
+  Data types
+"""
+
 int8: dtype
 """8-bit signed :wikipedia:`two's-complement <Two%27s_complement>` integer data type.  Corresponds to ``numpy.int8``.
 

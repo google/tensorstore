@@ -435,10 +435,12 @@ pybind11_cc_library(
     srcs = [
         "bfloat16.cc",
         "data_type.cc",
+        "int4.cc",
     ],
     hdrs = [
         "bfloat16.h",
         "data_type.h",
+        "int4.h",
     ],
     deps = [
         ":json_type_caster",
@@ -450,11 +452,13 @@ pybind11_cc_library(
         "//tensorstore/internal:type_traits",
         "//tensorstore/util:bfloat16",
         "//tensorstore/util:executor",
+        "//tensorstore/util:int4",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:str_cat",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_github_pybind_pybind11//:pybind11",
         "@com_google_absl//absl/hash",
+        "@local_config_python//:python_headers",
     ],
     alwayslink = True,
 )
@@ -759,6 +763,16 @@ tensorstore_pytest_test(
     name = "bfloat16_test",
     size = "small",
     srcs = ["tests/bfloat16_test.py"],
+    deps = [
+        ":tensorstore",
+        "@pypa_numpy//:numpy",
+    ],
+)
+
+tensorstore_pytest_test(
+    name = "int4_test",
+    size = "small",
+    srcs = ["tests/int4_test.py"],
     deps = [
         ":tensorstore",
         "@pypa_numpy//:numpy",

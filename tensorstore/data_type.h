@@ -75,6 +75,7 @@
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/static_cast.h"
 #include "tensorstore/util/bfloat16.h"
+#include "tensorstore/util/int4.h"
 #include "tensorstore/util/str_cat.h"
 #include "tensorstore/util/utf8_string.h"
 
@@ -107,6 +108,13 @@ using char_t = char;
 /// \ingroup data types
 using byte_t = ::std::byte;
 /// Signed and unsigned integer types.
+///
+/// \ingroup data types
+using int4_t = ::tensorstore::Int4Padded;
+// TODO(summivox): b/295577703 add uint4
+// ///
+// /// \ingroup data types
+// using uint4_t = ::tensorstore::UInt4Padded;
 ///
 /// \ingroup data types
 using int8_t = ::std::int8_t;
@@ -182,6 +190,7 @@ enum class DataTypeId {
   bool_t,
   char_t,
   byte_t,
+  int4_t,
   int8_t,
   uint8_t,
   int16_t,
@@ -217,6 +226,7 @@ inline constexpr size_t kNumDataTypeIds =
   /**/
 
 #define TENSORSTORE_FOR_EACH_INT_DATA_TYPE(X, ...) \
+  X(int4_t, ##__VA_ARGS__)                         \
   X(int8_t, ##__VA_ARGS__)                         \
   X(uint8_t, ##__VA_ARGS__)                        \
   X(int16_t, ##__VA_ARGS__)                        \

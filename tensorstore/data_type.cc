@@ -139,6 +139,11 @@ struct NumberToStringCanonicalType<bfloat16_t> {
 };
 
 template <>
+struct NumberToStringCanonicalType<int4_t> {
+  using type = int16_t;
+};
+
+template <>
 struct NumberToStringCanonicalType<int8_t> {
   using type = int16_t;
 };
@@ -302,6 +307,8 @@ TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(TENSORSTORE_INTERNAL_CONVERT_FLOAT)
 // [BEGIN GENERATED: generate_data_type.py]
 
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    complex64_t, int4_t, internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     complex64_t, int8_t, internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     complex64_t, uint8_t, internal_data_type::ComplexNumericConvertDataType)
@@ -317,6 +324,8 @@ TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     complex64_t, int64_t, internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     complex64_t, uint64_t, internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    complex128_t, int4_t, internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     complex128_t, int8_t, internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //

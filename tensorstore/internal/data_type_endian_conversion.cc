@@ -71,6 +71,7 @@ void DecodeArray(ArrayView<const void> source, endian source_endian,
   const DataType dtype = source.dtype();
   assert(absl::c_equal(source.shape(), target.shape()));
   assert(dtype == target.dtype());
+  // TODO(summivox): b/295984455 Also handle int4 and uint4
   if (dtype.id() != DataTypeId::bool_t) {
     EncodeArray(source, target, source_endian);
     return;
@@ -103,6 +104,7 @@ void DecodeArray(SharedArrayView<void>* source, endian source_endian,
                   })) {
     // Source array is already suitably aligned.  Can decode in place.
     const ElementwiseFunction<1, void*>* convert_func = nullptr;
+    // TODO(summivox): b/295984455 Also handle int4 and uint4
     if (dtype.id() == DataTypeId::bool_t) {
       convert_func =
           SimpleElementwiseFunction<DecodeBoolArrayInplace(unsigned char),

@@ -61,6 +61,25 @@ tensorstore_cc_library(
     ],
 )
 
+tensorstore_cc_library(
+    name = "int4",
+    hdrs = ["int4.h"],
+    deps = ["//tensorstore/internal:json_fwd"],
+)
+
+tensorstore_cc_test(
+    name = "int4_test",
+    size = "small",
+    srcs = ["int4_test.cc"],
+    deps = [
+        ":int4",
+        "//tensorstore/internal:bit_operations",
+        "//tensorstore/internal:json_fwd",
+        "//tensorstore/internal:json_gtest",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
 tensorstore_cc_test(
     name = "bfloat16_test",
     size = "small",

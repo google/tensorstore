@@ -66,6 +66,8 @@ int GetNumpyTypeNum(DataType dtype) {
   switch (id) {
     case DataTypeId::custom:
       return -1;
+    case DataTypeId::int4_t:
+      return Int4NumpyTypeNum();
     case DataTypeId::bfloat16_t:
       return Bfloat16NumpyTypeNum();
     default:
@@ -85,6 +87,9 @@ py::dtype GetNumpyDtypeOrThrow(DataType dtype) {
 
 DataType GetDataType(pybind11::dtype dt) {
   const int type_num = py::detail::array_descriptor_proxy(dt.ptr())->type_num;
+  if (type_num == Int4NumpyTypeNum()) {
+    return dtype_v<int4_t>;
+  }
   if (type_num == Bfloat16NumpyTypeNum()) {
     return dtype_v<bfloat16_t>;
   }
@@ -191,6 +196,9 @@ Overload:
 }
 
 void RegisterDataTypeBindings(pybind11::module m, Executor defer) {
+  if (!internal_python::RegisterNumpyInt4()) {
+    throw py::error_already_set();
+  }
   if (!internal_python::RegisterNumpyBfloat16()) {
     throw py::error_already_set();
   }

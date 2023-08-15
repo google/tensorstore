@@ -23,6 +23,7 @@
 #include <type_traits>
 
 #include "python/tensorstore/data_type.h"
+#include "python/tensorstore/int4.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/util/bfloat16.h"
 #include "tensorstore/util/str_cat.h"
@@ -825,6 +826,12 @@ bool Initialize() {
   }
   if (!RegisterBfloat16Cast<int8_t>(NPY_INT8)) {
     return false;
+  }
+  // TODO(summivox): b/295577703
+  if (Int4NumpyTypeNum() != NPY_NOTYPE) {
+    if (!RegisterBfloat16Cast<int4_t>(Int4NumpyTypeNum())) {
+      return false;
+    }
   }
   if (!RegisterBfloat16Cast<uint16_t>(NPY_UINT16)) {
     return false;

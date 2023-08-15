@@ -23,15 +23,22 @@
 namespace tensorstore {
 namespace internal_zarr {
 
+// Extension dtype strings for types not covered by the NumPy typestr syntax.
+// These do not explicitly indicate the byte order, but have the advantage of
+// working with the official Zarr Python library provided that correspondingly
+// named data types are registered in `numpy.typeDict`, since zarr invokes
+// `numpy.dtype` to parse data types.
+constexpr char kDtypeBfloat16[] = "bfloat16";
+constexpr char kDtypeInt4[] = "int4";
+
 Result<ZarrDType::BaseDType> ParseBaseDType(std::string_view dtype) {
   using D = ZarrDType::BaseDType;
-  if (dtype == "bfloat16") {
-    // Support `bfloat16` as an extension.  This is inconsistent with the normal
-    // NumPy typestr syntax and does not provide a way to indicate the byte
-    // order, but has the advantage of working with the official Zarr Python
-    // library provided that a `"bfloat16"` data type is registered in
-    // `numpy.typeDict`, since zarr invokes `numpy.dtype` to parse data types.
+  if (dtype == kDtypeBfloat16) {
     return D{std::string(dtype), dtype_v<bfloat16_t>, endian::little};
+  }
+  if (dtype == kDtypeInt4) {
+    // Ditto
+    return D{std::string(dtype), dtype_v<int4_t>, endian::little};
   }
   if (dtype.size() < 3) goto error;
   {
@@ -343,6 +350,10 @@ Result<ZarrDType::BaseDType> ChooseBaseDType(DataType dtype) {
     case DataTypeId::uint64_t:
       set_typestr("u", 8);
       break;
+    case DataTypeId::int4_t:
+      base_dtype.endian = endian::little;
+      base_dtype.encoded_dtype = kDtypeInt4;
+      break;
     case DataTypeId::int8_t:
       set_typestr("i", 1);
       break;
@@ -360,7 +371,7 @@ Result<ZarrDType::BaseDType> ChooseBaseDType(DataType dtype) {
       break;
     case DataTypeId::bfloat16_t:
       base_dtype.endian = endian::little;
-      base_dtype.encoded_dtype = "bfloat16";
+      base_dtype.encoded_dtype = kDtypeBfloat16;
       break;
     case DataTypeId::float32_t:
       set_typestr("f", 4);

@@ -13,9 +13,9 @@
 # limitations under the License.
 """Tests for tensorstore.DataType."""
 
+import numpy as np
 import pytest
 import tensorstore as ts
-import numpy as np
 
 
 @pytest.mark.parametrize(
@@ -24,6 +24,8 @@ import numpy as np
         "bool",
         "char",
         "byte",
+        "int4",
+        # TODO(summivox): b/295577703
         "int8",
         "uint8",
         "int16",
@@ -56,6 +58,8 @@ def test_dtype_init_name(name):
     "name",
     [
         "bool",
+        "int4",
+        # TODO(summivox): b/295577703
         "int8",
         "uint8",
         "int16",
@@ -115,6 +119,15 @@ def test_dtype_init_bool():
   assert ts.bool(False) == False
 
 
+def test_dtype_init_int4():
+  v = ts.int4(1)
+  t = type(v)
+  assert ts.dtype(t) == ts.int4
+  assert ts.int4.type is t
+  assert ts.int4(1) == 1
+  assert ts.int4(-8) == -8
+
+
 def test_dtype_init_bfloat16():
   v = ts.bfloat16(1)
   t = type(v)
@@ -164,11 +177,7 @@ def test_dtype_json():
 
   for v in [
       "abc",
-      {
-          "x": 1,
-          "y": "abc",
-          "z": [1, 2, 3]
-      },
+      {"x": 1, "y": "abc", "z": [1, 2, 3]},
   ]:
     assert_exact(ts.json(v), v)
 

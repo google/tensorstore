@@ -193,6 +193,13 @@ struct MeanAccumulateElement<bool> {
 };
 
 template <>
+struct MeanAccumulateElement<int4_t> {
+  using type = int64_t;
+};
+
+// TODO(summivox): b/295577703: uint4_t
+
+template <>
 struct MeanAccumulateElement<int8_t> {
   using type = int64_t;
 };
@@ -250,7 +257,7 @@ struct ReductionTraits<DownsampleMethod::kMean, Element,
     AccumulateElement acc_value = acc;
     const auto converted_total_elements =
         static_cast<AccumulateElement>(total_elements);
-    if constexpr (std::is_integral_v<Element> ||
+    if constexpr (std::numeric_limits<Element>::is_integer ||
                   std::is_same_v<Element, bool>) {
       // Round integral types to nearest value, and round to even in case of a
       // tie.
@@ -309,7 +316,7 @@ struct ReductionTraits<DownsampleMethod::kMin, Element,
     : public AccumulateReductionTraitsBase<DownsampleMethod::kMin, Element> {
   using AccumulateElement = Element;
   static void Initialize(Element& x) {
-    if constexpr (std::is_integral_v<Element> ||
+    if constexpr (std::numeric_limits<Element>::is_integer ||
                   std::is_same_v<Element, bool>) {
       x = std::numeric_limits<Element>::max();
     } else {
@@ -331,7 +338,7 @@ struct ReductionTraits<DownsampleMethod::kMax, Element,
     : public AccumulateReductionTraitsBase<DownsampleMethod::kMax, Element> {
   using AccumulateElement = Element;
   static void Initialize(Element& x) {
-    if constexpr (std::is_integral_v<Element> ||
+    if constexpr (std::numeric_limits<Element>::is_integer ||
                   std::is_same_v<Element, bool>) {
       x = std::numeric_limits<Element>::min();
     } else {

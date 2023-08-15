@@ -177,6 +177,7 @@ tensorstore_cc_test(
         "//tensorstore/kvstore/memory",
         "//tensorstore/util:bfloat16",
         "//tensorstore/util:dimension_set",
+        "//tensorstore/util:int4",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status_testutil",
