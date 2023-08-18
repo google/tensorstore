@@ -21,6 +21,8 @@ the entry point (`cc_test_driver.cc`), and use a Python script
 module.
 """
 
+# Placeholder: load py_test
+
 CC_DRIVER_SRC = "//python/tensorstore:cc_test_driver.cc"
 PYTHON_DRIVER_SRC = "//python/tensorstore:cc_test_driver_main.py"
 
