@@ -44,7 +44,7 @@ TEST(IrregularGridTest, Basic) {
   auto grid = IrregularGrid({dimension0, dimension1});
 
   EXPECT_EQ(2, grid.rank());
-  EXPECT_THAT(grid.shape(), ElementsAre(3, 4));
+  EXPECT_THAT(grid.shape(), ElementsAre(2, 3));
   EXPECT_THAT(grid.inclusive_min(0), ElementsAre(-3, 0, 2));
   EXPECT_THAT(grid.inclusive_min(1), ElementsAre(10, 20, 30, 45));
 
@@ -90,7 +90,7 @@ TEST(IrregularGridTest, IndexDomain) {
   auto grid = IrregularGrid::Make(domains);
 
   EXPECT_EQ(2, grid.rank());
-  EXPECT_THAT(grid.shape(), ElementsAre(3, 4));
+  EXPECT_THAT(grid.shape(), ElementsAre(2, 3));
   EXPECT_THAT(grid.inclusive_min(0), ElementsAre(-3, 0, 2));
   EXPECT_THAT(grid.inclusive_min(1), ElementsAre(10, 20, 30, 45));
 

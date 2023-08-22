@@ -397,30 +397,30 @@ absl::Status StackDriver::InitializeGridIndices(
   assert(domains.size() == bound_spec_.layers.size());
   grid_ = IrregularGrid::Make(span(domains));
 
-  absl::InlinedVector<Index, internal::kNumInlinedDims> start(grid_.rank());
-  absl::InlinedVector<Index, internal::kNumInlinedDims> end(grid_.rank());
-  for (size_t i = 0; i < domains.size(); i++) {
-    auto& d = domains[i];
-    for (size_t j = 0; j < grid_.rank(); j++) {
-      start[j] = grid_(j, d[j].inclusive_min(), nullptr);
-      end[j] = 1 + grid_(j, d[j].inclusive_max(), nullptr);
+  Index start[kMaxRank];
+  Index shape[kMaxRank];
+  const DimensionIndex rank = grid_.rank();
+  for (size_t layer_i = 0; layer_i < domains.size(); layer_i++) {
+    auto& d = domains[layer_i];
+    for (DimensionIndex dim = 0; dim < rank; dim++) {
+      start[dim] = grid_(dim, d[dim].inclusive_min(), nullptr);
+      shape[dim] = 1 + grid_(dim, d[dim].inclusive_max(), nullptr) - start[dim];
     }
     // Set the mapping for all irregular grid cell covered by this layer
     // to point to this layer.
-    IterateOverIndexRange<>(
-        span(start), span(end),
-        [i, this](span<const Index> key) { grid_to_layer_[key] = i; });
+    IterateOverIndexRange<>(BoxView<>(rank, start, shape),
+                            [layer_i, this](span<const Index> key) {
+                              grid_to_layer_[key] = layer_i;
+                            });
   }
 
 #if !defined(NDEBUG)
   // Log the missing cells.
-  std::fill(start.begin(), start.end(), 0);
-  IterateOverIndexRange<>(
-      span<const Index>(start), grid_.shape(), [this](span<const Index> key) {
-        if (auto it = grid_to_layer_.find(key); it == grid_to_layer_.end()) {
-          ABSL_LOG(INFO) << "\"stack\" driver missing grid cell: " << key;
-        }
-      });
+  IterateOverIndexRange<>(grid_.shape(), [this](span<const Index> key) {
+    if (auto it = grid_to_layer_.find(key); it == grid_to_layer_.end()) {
+      ABSL_LOG(INFO) << "\"stack\" driver missing grid cell: " << key;
+    }
+  });
 #endif
 
   return absl::OkStatus();

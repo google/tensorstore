@@ -541,4 +541,54 @@ TEST(StackDriverTest, SchemaDomain_MismatchedShape) {
                                          "Rank specified by.*"));
 }
 
+TEST(StackDriverTest, InvalidLayerMappingBug) {
+  ::nlohmann::json json_spec{
+      {"driver", "stack"},
+      {"dtype", "uint8"},
+      {"layers",
+       {
+           {
+               {"array", 0},
+               {"driver", "array"},
+               {"dtype", "uint8"},
+               {"transform",
+                {
+                    {"input_exclusive_max", {10}},
+                    {"input_inclusive_min", {0}},
+                    {"output", ::nlohmann::json::array_t()},
+                }},
+           },
+           {
+               {"driver", "array"},
+               {"dtype", "uint8"},
+               {"array", 0},
+               {"transform",
+                {
+                    {"input_exclusive_max", {4}},
+                    {"input_inclusive_min", {0}},
+                    {"output", ::nlohmann::json::array_t()},
+                }},
+           },
+           {
+               {"driver", "array"},
+               {"dtype", "uint8"},
+               {"array", 0},
+               {"transform",
+                {
+                    {"input_exclusive_max", {8}},
+                    {"input_inclusive_min", {4}},
+                    {"output", ::nlohmann::json::array_t()},
+                }},
+           },
+       }},
+      {"schema",
+       {
+           {"domain", {{"exclusive_max", {10}}, {"inclusive_min", {0}}}},
+       }},
+  };
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
+                                   tensorstore::Open(json_spec).result());
+  TENSORSTORE_ASSERT_OK(tensorstore::Read(store).result());
+}
+
 }  // namespace

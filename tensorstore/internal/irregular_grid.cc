@@ -40,7 +40,7 @@ IrregularGrid::IrregularGrid(std::vector<std::vector<Index>> inclusive_mins)
         std::unique(inclusive_mins_[i].begin(), inclusive_mins_[i].end());
     inclusive_mins_[i].resize(
         std::distance(inclusive_mins_[i].begin(), new_it));
-    shape_[i] = inclusive_mins_[i].size();
+    shape_[i] = inclusive_mins_[i].size() - 1;
   }
 }
 
