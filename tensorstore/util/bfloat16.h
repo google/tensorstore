@@ -22,7 +22,7 @@
 #include <limits>
 #include <type_traits>
 
-#include "tensorstore/internal/bit_operations.h"
+#include "absl/base/casts.h"
 #include "tensorstore/internal/json_fwd.h"
 
 // The implementation below is derived from Tensorflow and Eigen:
@@ -546,9 +546,8 @@ inline BFloat16 fmax(BFloat16 a, BFloat16 b) {
 /// \membergroup Floating-point manipulation functions
 /// \relates BFloat16
 inline BFloat16 nextafter(BFloat16 from, BFloat16 to) {
-  using ::tensorstore::internal::bit_cast;
-  const uint16_t from_as_int = bit_cast<uint16_t>(from),
-                 to_as_int = bit_cast<uint16_t>(to);
+  const uint16_t from_as_int = absl::bit_cast<uint16_t>(from),
+                 to_as_int = absl::bit_cast<uint16_t>(to);
   const uint16_t sign_mask = 1 << 15;
   float from_as_float(from), to_as_float(to);
   if (std::isnan(from_as_float) || std::isnan(to_as_float)) {
@@ -562,7 +561,7 @@ inline BFloat16 nextafter(BFloat16 from, BFloat16 to) {
       return to;
     } else {
       // Smallest subnormal signed like `to`.
-      return bit_cast<BFloat16, uint16_t>((to_as_int & sign_mask) | 1);
+      return absl::bit_cast<BFloat16, uint16_t>((to_as_int & sign_mask) | 1);
     }
   }
   uint16_t from_sign = from_as_int & sign_mask;
@@ -571,13 +570,13 @@ inline BFloat16 nextafter(BFloat16 from, BFloat16 to) {
   uint16_t to_abs = to_as_int & ~sign_mask;
   uint16_t magnitude_adjustment =
       (from_abs > to_abs || from_sign != to_sign) ? 0xFFFF : 0x0001;
-  return bit_cast<BFloat16, uint16_t>(from_as_int + magnitude_adjustment);
+  return absl::bit_cast<BFloat16, uint16_t>(from_as_int + magnitude_adjustment);
 }
 
 namespace internal {
 
 inline uint16_t GetFloat32High16(float v) {
-  return static_cast<uint16_t>(bit_cast<uint32_t>(v) >> 16);
+  return static_cast<uint16_t>(absl::bit_cast<uint32_t>(v) >> 16);
 }
 
 /// Converts float32 -> bfloat16, rounding towards zero (truncating).
@@ -596,14 +595,14 @@ inline BFloat16 Float32ToBfloat16Truncate(float v) {
   //
   // However, if the exponent is equal to `0xff`, truncating the low 16 bits of
   // the fraction may convert a NaN to infinity.
-  uint32_t bits = bit_cast<uint32_t>(v);
+  uint32_t bits = absl::bit_cast<uint32_t>(v);
   if (std::isnan(v)) {
     // Set bit 21 (second to highest fraction bit) to 1, to ensure the truncated
     // fraction still indicates a NaN.  This preserves the sign and also
     // preserves the high bit of the fraction (quiet/signalling NaN bit).
     bits |= (static_cast<uint32_t>(1) << 21);
   }
-  return bit_cast<BFloat16, uint16_t>(bits >> 16);
+  return absl::bit_cast<BFloat16, uint16_t>(bits >> 16);
 }
 
 /// Converts finite float32 -> bfloat16, rounding to the nearest, or to even in
@@ -761,11 +760,11 @@ inline BFloat16 NumericFloat32ToBfloat16RoundNearestEven(float v) {
   //    Sign |  Exp (8 bit)     | Frac (first 7 bit)
   //     S     E E E E E E E E      F F F F F F L
   //     0     1 1 1 1 1 1 1 1      0 0 0 0 0 0 0
-  uint32_t input = bit_cast<uint32_t>(v);
+  uint32_t input = absl::bit_cast<uint32_t>(v);
   const uint32_t lsb = (input >> 16) & 1;
   const uint32_t rounding_bias = 0x7fff + lsb;
   input += rounding_bias;
-  return bit_cast<BFloat16, uint16_t>(input >> 16);
+  return absl::bit_cast<BFloat16, uint16_t>(input >> 16);
 }
 
 /// Converts float32 -> bfloat16, rounding to the nearest, or to even in the
@@ -774,13 +773,15 @@ inline BFloat16 Float32ToBfloat16RoundNearestEven(float v) {
   if (std::isnan(v)) {
     return tensorstore::BFloat16(
         tensorstore::BFloat16::bitcast_construct_t{},
-        static_cast<uint16_t>((bit_cast<uint32_t>(v) | 0x00200000u) >> 16));
+        static_cast<uint16_t>((absl::bit_cast<uint32_t>(v) | 0x00200000u) >>
+                              16));
   }
   return NumericFloat32ToBfloat16RoundNearestEven(v);
 }
 
 inline float Bfloat16ToFloat(BFloat16 v) {
-  return bit_cast<float>(static_cast<uint32_t>(bit_cast<uint16_t>(v)) << 16);
+  return absl::bit_cast<float>(
+      static_cast<uint32_t>(absl::bit_cast<uint16_t>(v)) << 16);
 }
 
 }  // namespace internal

@@ -68,21 +68,6 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
-    name = "bit_operations",
-    hdrs = ["bit_operations.h"],
-)
-
-tensorstore_cc_test(
-    name = "bit_operations_test",
-    size = "small",
-    srcs = ["bit_operations_test.cc"],
-    deps = [
-        ":bit_operations",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
     name = "global_initializer",
     hdrs = ["global_initializer.h"],
     deps = ["//tensorstore/internal/preprocessor:cat"],

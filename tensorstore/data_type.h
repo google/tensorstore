@@ -64,10 +64,10 @@
 #include <typeindex>
 #include <typeinfo>
 
+#include "absl/base/casts.h"
 #include "absl/status/status.h"
 #include <half.hpp>
 #include "tensorstore/index.h"
-#include "tensorstore/internal/bit_operations.h"
 #include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/internal/integer_types.h"
 #include "tensorstore/internal/json_fwd.h"
@@ -765,7 +765,7 @@ bool CompareIdentical(const T& a, const T& b) {
   template <>                                                          \
   inline bool CompareIdentical<T>(const T& a, const T& b) {            \
     using Int = internal::uint_t<sizeof(T) * 8>;                       \
-    return internal::bit_cast<Int>(a) == internal::bit_cast<Int>(b);   \
+    return absl::bit_cast<Int>(a) == absl::bit_cast<Int>(b);           \
   }                                                                    \
   /**/
 TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(

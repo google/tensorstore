@@ -14,14 +14,41 @@
 
 #include "tensorstore/driver/neuroglancer_precomputed/metadata.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
+#include <algorithm>
+#include <array>
+#include <cassert>
+#include <cmath>
+#include <cstdlib>
+#include <functional>
+#include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <variant>
+#include <vector>
+
 #include "absl/algorithm/container.h"
 #include "absl/base/optimization.h"
+#include "absl/numeric/bits.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_split.h"
+#include <nlohmann/json.hpp>
+#include "tensorstore/box.h"
+#include "tensorstore/chunk_layout.h"
+#include "tensorstore/codec_spec.h"
 #include "tensorstore/codec_spec_registry.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
+#include "tensorstore/index_space/dimension_units.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_domain_builder.h"
-#include "tensorstore/internal/bit_operations.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/data_type.h"  // IWYU pragma: keep
 #include "tensorstore/internal/json_binding/enum.h"  // IWYU pragma: keep
@@ -29,13 +56,21 @@
 #include "tensorstore/internal/json_binding/std_array.h"  // IWYU pragma: keep
 #include "tensorstore/internal/json_binding/std_optional.h"  // IWYU pragma: keep
 #include "tensorstore/internal/json_metadata_matching.h"
+#include "tensorstore/internal/type_traits.h"
+#include "tensorstore/kvstore/neuroglancer_uint64_sharded/uint64_sharded.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/serialization/json_bindable.h"
 #include "tensorstore/serialization/std_map.h"  // IWYU pragma: keep
+#include "tensorstore/util/division.h"
+#include "tensorstore/util/extents.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
+#include "tensorstore/util/unit.h"
 
 namespace tensorstore {
 namespace internal_neuroglancer_precomputed {
@@ -1321,8 +1356,8 @@ std::array<int, 3> GetCompressedZIndexBits(span<const Index, 3> shape,
                                            span<const Index, 3> chunk_size) {
   std::array<int, 3> bits;
   for (int i = 0; i < 3; ++i) {
-    bits[i] = internal::bit_width(
-        std::max(Index(0), CeilOfRatio(shape[i], chunk_size[i]) - 1));
+    bits[i] = absl::bit_width(static_cast<uint64_t>(
+        std::max(Index(0), CeilOfRatio(shape[i], chunk_size[i]) - 1)));
   }
   return bits;
 }

@@ -22,7 +22,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "tensorstore/internal/bit_operations.h"
+#include "absl/base/casts.h"
 #include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/internal/json_gtest.h"
 
@@ -30,9 +30,7 @@ namespace {
 
 using Int4 = tensorstore::Int4Padded;
 
-constexpr Int4 Bitcast(int8_t x) {
-  return Int4(Int4::bitcast_construct_t{}, x);
-}
+Int4 Bitcast(int8_t x) { return absl::bit_cast<Int4>(x); }
 
 // Int4 has so few valid values it's practical to list them all.
 constexpr std::pair<int8_t, Int4> kInt8ToInt4[] = {

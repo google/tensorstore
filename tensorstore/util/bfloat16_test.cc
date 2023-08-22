@@ -21,7 +21,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "tensorstore/internal/bit_operations.h"
+#include "absl/base/casts.h"
 #include "tensorstore/internal/json_gtest.h"
 
 // The implementation below is derived from Tensorflow and Eigen:
@@ -41,15 +41,15 @@
 // limitations under the License.
 
 namespace {
-using ::tensorstore::internal::bit_cast;
 using ::tensorstore::internal::Float32ToBfloat16RoundNearestEven;
 using ::tensorstore::internal::Float32ToBfloat16Truncate;
 
 using bfloat16_t = tensorstore::BFloat16;
 
 ::testing::Matcher<bfloat16_t> MatchesBits(uint16_t bits) {
-  return ::testing::ResultOf([](bfloat16_t y) { return bit_cast<uint16_t>(y); },
-                             ::testing::Eq(bits));
+  return ::testing::ResultOf(
+      [](bfloat16_t y) { return absl::bit_cast<uint16_t>(y); },
+      ::testing::Eq(bits));
 }
 
 ::testing::Matcher<float> NearFloat(float x, float relative_error = 1e-3) {
@@ -110,9 +110,9 @@ TEST(Bfloat16Test, ConversionFromFloat) {
 }
 
 TEST(Bfloat16Test, RoundToNearestEven) {
-  float val1 = static_cast<float>(bit_cast<bfloat16_t>(uint16_t{0x3c00}));
-  float val2 = static_cast<float>(bit_cast<bfloat16_t>(uint16_t{0x3c01}));
-  float val3 = static_cast<float>(bit_cast<bfloat16_t>(uint16_t{0x3c02}));
+  float val1 = static_cast<float>(absl::bit_cast<bfloat16_t>(uint16_t{0x3c00}));
+  float val2 = static_cast<float>(absl::bit_cast<bfloat16_t>(uint16_t{0x3c01}));
+  float val3 = static_cast<float>(absl::bit_cast<bfloat16_t>(uint16_t{0x3c02}));
   EXPECT_THAT(bfloat16_t(0.5f * (val1 + val2)), MatchesBits(0x3c00));
   EXPECT_THAT(bfloat16_t(0.5f * (val2 + val3)), MatchesBits(0x3c02));
 }
@@ -139,13 +139,15 @@ TEST(Bfloat16Test, ConversionToBool) {
 }
 
 TEST(Bfloat16Test, ExplicitConversionToFloat) {
-  EXPECT_EQ(static_cast<float>(bit_cast<bfloat16_t, uint16_t>(0x0000)), 0.0f);
-  EXPECT_EQ(static_cast<float>(bit_cast<bfloat16_t, uint16_t>(0x3f80)), 1.0f);
+  EXPECT_EQ(static_cast<float>(absl::bit_cast<bfloat16_t, uint16_t>(0x0000)),
+            0.0f);
+  EXPECT_EQ(static_cast<float>(absl::bit_cast<bfloat16_t, uint16_t>(0x3f80)),
+            1.0f);
 }
 
 TEST(Bfloat16Test, ImplicitConversionToFloat) {
-  EXPECT_EQ((bit_cast<bfloat16_t, uint16_t>(0x0000)), 0.0f);
-  EXPECT_EQ((bit_cast<bfloat16_t, uint16_t>(0x3f80)), 1.0f);
+  EXPECT_EQ((absl::bit_cast<bfloat16_t, uint16_t>(0x0000)), 0.0f);
+  EXPECT_EQ((absl::bit_cast<bfloat16_t, uint16_t>(0x3f80)), 1.0f);
 }
 
 TEST(Bfloat16Test, Zero) {
@@ -297,22 +299,22 @@ TEST(Bfloat16Test, NonFinite) {
   EXPECT_FALSE(std::isinf(
       static_cast<float>(bfloat16_t(3.38e38f))));  // Largest finite number.
   EXPECT_FALSE(std::isnan(static_cast<float>(bfloat16_t(0.0f))));
-  EXPECT_TRUE(
-      std::isinf(static_cast<float>(bit_cast<bfloat16_t, uint16_t>(0xff80))));
-  EXPECT_TRUE(
-      std::isnan(static_cast<float>(bit_cast<bfloat16_t, uint16_t>(0xffc0))));
-  EXPECT_TRUE(
-      std::isinf(static_cast<float>(bit_cast<bfloat16_t, uint16_t>(0x7f80))));
-  EXPECT_TRUE(
-      std::isnan(static_cast<float>(bit_cast<bfloat16_t, uint16_t>(0x7fc0))));
+  EXPECT_TRUE(std::isinf(
+      static_cast<float>(absl::bit_cast<bfloat16_t, uint16_t>(0xff80))));
+  EXPECT_TRUE(std::isnan(
+      static_cast<float>(absl::bit_cast<bfloat16_t, uint16_t>(0xffc0))));
+  EXPECT_TRUE(std::isinf(
+      static_cast<float>(absl::bit_cast<bfloat16_t, uint16_t>(0x7f80))));
+  EXPECT_TRUE(std::isnan(
+      static_cast<float>(absl::bit_cast<bfloat16_t, uint16_t>(0x7fc0))));
 
   // Exactly same checks as above, just directly on the bfloat16 representation.
-  EXPECT_FALSE(isinf(bit_cast<bfloat16_t, uint16_t>(0x7bff)));
-  EXPECT_FALSE(isnan(bit_cast<bfloat16_t, uint16_t>(0x0000)));
-  EXPECT_TRUE(isinf(bit_cast<bfloat16_t, uint16_t>(0xff80)));
-  EXPECT_TRUE(isnan(bit_cast<bfloat16_t, uint16_t>(0xffc0)));
-  EXPECT_TRUE(isinf(bit_cast<bfloat16_t, uint16_t>(0x7f80)));
-  EXPECT_TRUE(isnan(bit_cast<bfloat16_t, uint16_t>(0x7fc0)));
+  EXPECT_FALSE(isinf(absl::bit_cast<bfloat16_t, uint16_t>(0x7bff)));
+  EXPECT_FALSE(isnan(absl::bit_cast<bfloat16_t, uint16_t>(0x0000)));
+  EXPECT_TRUE(isinf(absl::bit_cast<bfloat16_t, uint16_t>(0xff80)));
+  EXPECT_TRUE(isnan(absl::bit_cast<bfloat16_t, uint16_t>(0xffc0)));
+  EXPECT_TRUE(isinf(absl::bit_cast<bfloat16_t, uint16_t>(0x7f80)));
+  EXPECT_TRUE(isnan(absl::bit_cast<bfloat16_t, uint16_t>(0x7fc0)));
 
   EXPECT_THAT(bfloat16_t(BinaryToFloat(0x0, 0xff, 0x40, 0x0)),  // +nan
               MatchesBits(0x7fe0));
@@ -330,30 +332,32 @@ TEST(Bfloat16Test, NumericLimits) {
   static_assert(std::numeric_limits<bfloat16_t>::is_signed);
 
   EXPECT_EQ(
-      bit_cast<uint16_t>(std::numeric_limits<bfloat16_t>::infinity()),
-      bit_cast<uint16_t>(bfloat16_t(std::numeric_limits<float>::infinity())));
+      absl::bit_cast<uint16_t>(std::numeric_limits<bfloat16_t>::infinity()),
+      absl::bit_cast<uint16_t>(
+          bfloat16_t(std::numeric_limits<float>::infinity())));
   // There is no guarantee that casting a 32-bit NaN to bfloat16 has a precise
   // bit pattern.  We test that it is in fact a NaN, then test the signaling
   // bit (msb of significand is 1 for quiet, 0 for signaling).
   constexpr uint16_t BFLOAT16_QUIET_BIT = 0x0040;
   EXPECT_TRUE(isnan(std::numeric_limits<bfloat16_t>::quiet_NaN()));
   EXPECT_TRUE(isnan(bfloat16_t(std::numeric_limits<float>::quiet_NaN())));
-  EXPECT_GT((bit_cast<uint16_t>(std::numeric_limits<bfloat16_t>::quiet_NaN()) &
-             BFLOAT16_QUIET_BIT),
-            0);
   EXPECT_GT(
-      (bit_cast<uint16_t>(bfloat16_t(std::numeric_limits<float>::quiet_NaN())) &
+      (absl::bit_cast<uint16_t>(std::numeric_limits<bfloat16_t>::quiet_NaN()) &
        BFLOAT16_QUIET_BIT),
       0);
+  EXPECT_GT((absl::bit_cast<uint16_t>(
+                 bfloat16_t(std::numeric_limits<float>::quiet_NaN())) &
+             BFLOAT16_QUIET_BIT),
+            0);
 
   EXPECT_TRUE(isnan(std::numeric_limits<bfloat16_t>::signaling_NaN()));
   EXPECT_TRUE(isnan(bfloat16_t(std::numeric_limits<float>::signaling_NaN())));
-  EXPECT_EQ(
-      0, (bit_cast<uint16_t>(std::numeric_limits<bfloat16_t>::signaling_NaN()) &
-          BFLOAT16_QUIET_BIT));
+  EXPECT_EQ(0, (absl::bit_cast<uint16_t>(
+                    std::numeric_limits<bfloat16_t>::signaling_NaN()) &
+                BFLOAT16_QUIET_BIT));
 #ifndef _MSC_VER
   // MSVC seems to not preserve signaling bit.
-  EXPECT_EQ(0, (bit_cast<uint16_t>(
+  EXPECT_EQ(0, (absl::bit_cast<uint16_t>(
                     bfloat16_t(std::numeric_limits<float>::signaling_NaN())) &
                 BFLOAT16_QUIET_BIT));
 #endif

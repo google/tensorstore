@@ -22,6 +22,7 @@
 #include <memory>
 #include <type_traits>
 
+#include "absl/base/casts.h"
 #include "python/tensorstore/data_type.h"
 #include "python/tensorstore/int4.h"
 #include "tensorstore/internal/type_traits.h"
@@ -360,7 +361,7 @@ PyObject* PyBfloat16_Str(PyObject* self) {
 // hash function.
 Py_hash_t PyBfloat16_Hash(PyObject* self) {
   bfloat16 x = reinterpret_cast<PyBfloat16*>(self)->value;
-  return internal::bit_cast<uint16_t>(x);
+  return absl::bit_cast<uint16_t>(x);
 }
 
 // Python type for PyBfloat16 objects.

@@ -356,7 +356,6 @@ tensorstore_cc_library(
     deps = [
         ":index",
         ":static_cast",
-        "//tensorstore/internal:bit_operations",
         "//tensorstore/internal:elementwise_function",
         "//tensorstore/internal:integer_types",
         "//tensorstore/internal:json_fwd",
@@ -372,6 +371,7 @@ tensorstore_cc_library(
         "//tensorstore/util:str_cat",
         "//tensorstore/util:utf8_string",
         "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/base",
         "@com_google_absl//absl/status",
         "@net_sourceforge_half//:half",
     ],

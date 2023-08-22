@@ -457,6 +457,7 @@ pybind11_cc_library(
         "//tensorstore/util:str_cat",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_github_pybind_pybind11//:pybind11",
+        "@com_google_absl//absl/base",
         "@com_google_absl//absl/hash",
         "@local_config_python//:python_headers",
     ],

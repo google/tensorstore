@@ -56,8 +56,8 @@ tensorstore_cc_library(
     name = "bfloat16",
     hdrs = ["bfloat16.h"],
     deps = [
-        "//tensorstore/internal:bit_operations",
         "//tensorstore/internal:json_fwd",
+        "@com_google_absl//absl/base",
     ],
 )
 
@@ -73,9 +73,9 @@ tensorstore_cc_test(
     srcs = ["int4_test.cc"],
     deps = [
         ":int4",
-        "//tensorstore/internal:bit_operations",
         "//tensorstore/internal:json_fwd",
         "//tensorstore/internal:json_gtest",
+        "@com_google_absl//absl/base",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -86,8 +86,8 @@ tensorstore_cc_test(
     srcs = ["bfloat16_test.cc"],
     deps = [
         ":bfloat16",
-        "//tensorstore/internal:bit_operations",
         "//tensorstore/internal:json_gtest",
+        "@com_google_absl//absl/base",
         "@com_google_googletest//:gtest_main",
     ],
 )
