@@ -649,6 +649,196 @@ TEST(AsyncCacheTest, WritebackRequestedByCache) {
   EXPECT_EQ(CacheEntryQueueState::clean_and_in_use, entry->queue_state());
 }
 
+TEST(AsyncCacheTest, TransactionalReadBasic) {
+  auto pool = CachePool::Make(CachePool::Limits{});
+  RequestLog log;
+  auto cache = pool->GetCache<TestCache>(
+      "", [&] { return std::make_unique<TestCache>(&log); });
+  auto entry = GetCacheEntry(cache, "a");
+  auto transaction = Transaction(tensorstore::atomic_isolated);
+
+  WeakTransactionNodePtr<TestCache::TransactionNode> weak_node;
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto open_transaction,
+        tensorstore::internal::AcquireOpenTransactionPtrOrError(transaction));
+    auto node = entry->CreateWriteTransaction(open_transaction);
+    EXPECT_EQ(node, GetTransactionNode(*entry, open_transaction));
+    weak_node.reset(node.get());
+  }
+  absl::Time read_time1, read_time2;
+
+  auto commit_future = transaction.CommitAsync();
+  EXPECT_TRUE(transaction.commit_started());
+
+  auto write_req = log.writebacks.pop();
+  EXPECT_EQ(weak_node.get(), write_req.node);
+
+  {
+    auto init_time = absl::Now();
+    auto read_future = weak_node->Read(init_time);
+    ASSERT_FALSE(read_future.ready());
+
+    // Tests that calling Read again with a time prior to the first Read returns
+    // the same Future.
+    {
+      auto read_future2 = weak_node->Read(init_time);
+      EXPECT_TRUE(HaveSameSharedState(read_future, read_future2));
+    }
+    ASSERT_EQ(1u, log.transaction_reads.size());
+    read_time1 = absl::Now();
+    {
+      auto read_req = log.transaction_reads.pop();
+      EXPECT_EQ(absl::InfinitePast(),
+                AsyncCache::ReadLock<void>(*read_req.node).stamp().time);
+      read_req.Success(read_time1);
+    }
+    ASSERT_TRUE(read_future.ready());
+    TENSORSTORE_EXPECT_OK(read_future);
+
+    // Tests that calling Read again with an old time doesn't issue any more
+    // read requests.
+    {
+      auto read_future3 = weak_node->Read(read_time1);
+      ASSERT_TRUE(read_future3.ready());
+      TENSORSTORE_EXPECT_OK(read_future3);
+      ASSERT_TRUE(log.transaction_reads.empty());
+      ASSERT_TRUE(log.writebacks.empty());
+    }
+  }
+
+  // Tests that calling Read with a newer time issues another read request.
+  {
+    auto read_future = weak_node->Read(absl::InfiniteFuture());
+    ASSERT_FALSE(read_future.ready());
+    ASSERT_EQ(1u, log.transaction_reads.size());
+    ASSERT_TRUE(log.writebacks.empty());
+    read_time2 = absl::Now();
+    {
+      auto read_req = log.transaction_reads.pop();
+      EXPECT_EQ(read_time1,
+                AsyncCache::ReadLock<void>(*read_req.node).stamp().time);
+      read_req.Success(read_time2);
+    }
+    ASSERT_TRUE(read_future.ready());
+    TENSORSTORE_EXPECT_OK(read_future);
+  }
+
+  // Tests that calling Read before another Read completes queues the second
+  // read.
+  {
+    auto read_future = weak_node->Read(absl::InfiniteFuture());
+    ASSERT_FALSE(read_future.ready());
+    auto read_time = UniqueNow();
+    auto read_future1 = weak_node->Read(absl::InfiniteFuture());
+    ASSERT_FALSE(read_future1.ready());
+    EXPECT_FALSE(HaveSameSharedState(read_future, read_future1));
+    {
+      auto read_future2 = weak_node->Read(absl::InfiniteFuture());
+      EXPECT_TRUE(HaveSameSharedState(read_future1, read_future2));
+    }
+    ASSERT_EQ(1, log.transaction_reads.size());
+    ASSERT_EQ(0, log.writebacks.size());
+    {
+      auto read_req = log.transaction_reads.pop();
+      EXPECT_EQ(read_time2,
+                AsyncCache::ReadLock<void>(*read_req.node).stamp().time);
+      read_req.Success(read_time);
+    }
+    ASSERT_TRUE(read_future.ready());
+    ASSERT_FALSE(read_future1.ready());
+    TENSORSTORE_EXPECT_OK(read_future);
+
+    ASSERT_EQ(1, log.transaction_reads.size());
+    ASSERT_EQ(0, log.writebacks.size());
+    auto read_time2 = absl::Now();
+    {
+      auto read_req = log.transaction_reads.pop();
+      EXPECT_EQ(read_time,
+                AsyncCache::ReadLock<void>(*read_req.node).stamp().time);
+      read_req.Success(read_time2);
+    }
+    ASSERT_TRUE(read_future1.ready());
+    TENSORSTORE_EXPECT_OK(read_future1);
+  }
+
+  // Tests that a queued read can be resolved by the completion of the issued
+  // read if the time is newer.
+  {
+    auto read_future = weak_node->Read(absl::InfiniteFuture());
+    auto read_future1 = weak_node->Read(absl::InfiniteFuture());
+    auto read_time = absl::Now();
+    ASSERT_FALSE(read_future.ready());
+    ASSERT_FALSE(read_future1.ready());
+    ASSERT_EQ(1, log.transaction_reads.size());
+    ASSERT_EQ(0, log.writebacks.size());
+    {
+      auto read_req = log.transaction_reads.pop();
+      read_req.Success(read_time);
+    }
+    ASSERT_TRUE(read_future.ready());
+    TENSORSTORE_EXPECT_OK(read_future);
+    ASSERT_TRUE(read_future1.ready());
+    TENSORSTORE_EXPECT_OK(read_future1);
+
+    ASSERT_EQ(0, log.transaction_reads.size());
+    ASSERT_EQ(0, log.writebacks.size());
+  }
+
+  // Tests that a queued read that is cancelled doesn't result in another read
+  // request.
+  {
+    auto read_future = weak_node->Read(absl::InfiniteFuture());
+    ASSERT_FALSE(read_future.ready());
+    auto read_time = absl::Now();
+    {
+      auto read_future1 = weak_node->Read(absl::InfiniteFuture());
+      ASSERT_FALSE(read_future1.ready());
+    }
+    ASSERT_EQ(1, log.transaction_reads.size());
+    ASSERT_EQ(0, log.writebacks.size());
+    {
+      auto read_req = log.transaction_reads.pop();
+      read_req.Success(read_time);
+    }
+    ASSERT_TRUE(read_future.ready());
+    TENSORSTORE_EXPECT_OK(read_future);
+    ASSERT_EQ(0, log.transaction_reads.size());
+    ASSERT_EQ(0, log.writebacks.size());
+  }
+
+  // Tests that a queued read that is cancelled and then requested again leads
+  // to a new Future.
+  {
+    auto read_future = weak_node->Read(absl::InfiniteFuture());
+    ASSERT_FALSE(read_future.ready());
+    {
+      auto read_future1 = weak_node->Read(absl::InfiniteFuture());
+      ASSERT_FALSE(read_future1.ready());
+    }
+    auto read_future1 = weak_node->Read(absl::InfiniteFuture());
+    auto read_time = absl::Now();
+    ASSERT_FALSE(read_future1.ready());
+    ASSERT_EQ(1, log.transaction_reads.size());
+    ASSERT_EQ(0, log.writebacks.size());
+    {
+      auto read_req = log.transaction_reads.pop();
+      read_req.Success(read_time);
+    }
+    ASSERT_TRUE(read_future.ready());
+    TENSORSTORE_EXPECT_OK(read_future);
+    ASSERT_TRUE(read_future1.ready());
+    TENSORSTORE_EXPECT_OK(read_future1);
+    ASSERT_EQ(0, log.transaction_reads.size());
+    ASSERT_EQ(0, log.writebacks.size());
+  }
+
+  write_req.Success();
+
+  ASSERT_TRUE(commit_future.ready());
+  TENSORSTORE_EXPECT_OK(commit_future);
+}
+
 TEST(AsyncCacheTest, TransactionalWritebackSuccess) {
   auto pool = CachePool::Make(kSmallCacheLimits);
   RequestLog log;

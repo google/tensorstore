@@ -114,6 +114,7 @@ void EntryOrNodeStartRead(EntryOrNode& entry_or_node,
     request_state.queued_time = absl::InfinitePast();
     return;
   }
+  assert(request_state.issued.null());
   auto staleness_bound = request_state.issued_time =
       std::exchange(request_state.queued_time, absl::InfinitePast());
   request_state.issued = std::move(request_state.queued);
@@ -206,6 +207,7 @@ void MaybeIssueRead(Entry& entry, UniqueWriterLock<Entry> lock) {
 }
 
 void MaybeIssueRead(TransactionNode& node, UniqueWriterLock<Entry> lock) {
+  if (!node.read_request_state_.issued.null()) return;
   EntryOrNodeStartRead(node, std::move(lock));
 }
 
