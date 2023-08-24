@@ -18,14 +18,17 @@
 #include <atomic>
 #include <cassert>
 #include <cstddef>
+#include <map>
 #include <memory>
 #include <random>
+#include <string>
 #include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/algorithm/container.h"
+#include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/random/bit_gen_ref.h"
 #include "absl/random/random.h"
@@ -43,6 +46,7 @@
 #include "tensorstore/driver/chunk.h"
 #include "tensorstore/driver/driver.h"
 #include "tensorstore/driver/driver_handle.h"
+#include "tensorstore/driver/read.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dim_expression.h"
@@ -59,6 +63,7 @@
 #include "tensorstore/internal/nditerable_transformed_array.h"
 #include "tensorstore/internal/test_util.h"
 #include "tensorstore/json_serialization_options_base.h"
+#include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/open_options.h"
@@ -832,19 +837,156 @@ void TestMetadataOnlyResize(const TestTensorStoreDriverResizeOptions& options,
     EXPECT_EQ(expected_domain, resolved_non_transactional.domain());
   }
 }
+
+void PickRandomSmallerChunkAlignedBounds(absl::BitGenRef gen,
+                                         IndexDomainView<> orig_bounds,
+                                         BoxView<> chunk_template,
+                                         MutableBoxView<> new_bounds) {
+  const DimensionIndex rank = orig_bounds.rank();
+  assert(rank == chunk_template.rank());
+  assert(rank == new_bounds.rank());
+  new_bounds.DeepAssign(orig_bounds.box());
+  for (DimensionIndex i = 0; i < rank; ++i) {
+    const bool resize_lower = orig_bounds.implicit_lower_bounds()[i];
+    const bool resize_upper = orig_bounds.implicit_upper_bounds()[i];
+    if (!resize_lower && !resize_upper) {
+      // Not resizable
+      continue;
+    }
+    const Index orig_lower = orig_bounds.origin()[i];
+    const Index orig_size = orig_bounds.shape()[i];
+    [[maybe_unused]] const Index chunk_offset = chunk_template.origin()[i];
+    const Index chunk_size = chunk_template.shape()[i];
+    assert((orig_lower - chunk_offset) % chunk_size == 0);
+    assert((orig_size % chunk_size) == 0);
+    const Index orig_size_multiple = orig_size / chunk_size;
+    if (orig_size_multiple < (1 + resize_lower + resize_upper)) {
+      // Not large enough to resize both lower and upper bounds.
+      continue;
+    }
+    Index new_lower_multiple;
+    Index new_upper_multiple;
+    if (resize_lower) {
+      new_lower_multiple = absl::Uniform<Index>(
+          absl::IntervalOpenOpen, gen, 0, orig_size_multiple - resize_upper);
+    } else {
+      new_lower_multiple = 0;
+    }
+    if (resize_upper) {
+      new_upper_multiple = absl::Uniform<Index>(
+          absl::IntervalOpenOpen, gen, new_lower_multiple, orig_size_multiple);
+    } else {
+      new_upper_multiple = orig_size_multiple;
+    }
+    new_bounds[i] = IndexInterval::UncheckedHalfOpen(
+        orig_lower + chunk_size * new_lower_multiple,
+        orig_lower + chunk_size * new_upper_multiple);
+  }
+}
+
+void TestResize(const TestTensorStoreDriverResizeOptions& options) {
+  Box<> orig_bounds(options.initial_bounds);
+  const DimensionIndex rank = orig_bounds.rank();
+  Box<> write_chunk_template(rank);
+  DataType dtype;
+  IndexDomain<> orig_domain;
+
+  {
+    auto context = Context::Default();
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store, tensorstore::Open(options.get_create_spec(orig_bounds),
+                                      context, tensorstore::OpenMode::create)
+                        .result());
+    orig_domain = store.domain();
+    dtype = store.dtype();
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto chunk_layout, store.chunk_layout());
+    TENSORSTORE_ASSERT_OK(
+        chunk_layout.GetWriteChunkTemplate(write_chunk_template));
+  }
+
+  std::minstd_rand gen{internal::GetRandomSeedForTest(
+      "TENSORSTORE_INTERNAL_DRIVER_BASIC_FUNCTIONALITY")};
+  auto array = MakeRandomArray(gen, orig_bounds, dtype);
+
+  for (int i = 0; i < 5; ++i) {
+    Box<> new_bounds(rank);
+    PickRandomSmallerChunkAlignedBounds(gen, orig_domain, write_chunk_template,
+                                        new_bounds);
+    ABSL_CHECK_NE(orig_bounds, new_bounds);
+    SCOPED_TRACE(tensorstore::StrCat("new_bounds=", new_bounds));
+
+    std::map<std::string, absl::Cord> resized_map;
+    std::map<std::string, absl::Cord> direct_map;
+    {
+      // Create full size store with original bounds.
+      auto context = Context::Default();
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+          auto store, tensorstore::Open(options.get_create_spec(orig_bounds),
+                                        context, tensorstore::OpenMode::create)
+                          .result());
+      // Write full array.
+      TENSORSTORE_ASSERT_OK(tensorstore::Write(array, store).result());
+
+      // Resize (shrink) to new bounds.
+      Index inclusive_min[kMaxRank];
+      Index exclusive_max[kMaxRank];
+      for (DimensionIndex i = 0; i < rank; ++i) {
+        IndexInterval new_interval = new_bounds[i];
+        IndexInterval orig_interval = orig_bounds[i];
+        inclusive_min[i] =
+            new_interval.inclusive_min() != orig_interval.inclusive_min()
+                ? new_interval.inclusive_min()
+                : kImplicit;
+        exclusive_max[i] =
+            new_interval.exclusive_max() != orig_interval.exclusive_max()
+                ? new_interval.exclusive_max()
+                : kImplicit;
+      }
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+          auto resized_store,
+          tensorstore::Resize(store, span<const Index>(&inclusive_min[0], rank),
+                              span<const Index>(&exclusive_max[0], rank))
+              .result());
+      auto kvs = resized_store.kvstore();
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(resized_map, internal::GetMap(kvs));
+    }
+
+    // Create store with new bounds directly.
+    {
+      auto context = Context::Default();
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+          auto store, tensorstore::Open(options.get_create_spec(new_bounds),
+                                        context, tensorstore::OpenMode::create)
+                          .result());
+      // Write portion of array.
+      TENSORSTORE_ASSERT_OK(
+          tensorstore::Write(array | new_bounds, store).result());
+      auto kvs = store.kvstore();
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(direct_map, internal::GetMap(kvs));
+    }
+    EXPECT_THAT(resized_map, ::testing::ElementsAreArray(direct_map));
+  }
+}
 }  // namespace
 
 void RegisterTensorStoreDriverResizeTest(
     TestTensorStoreDriverResizeOptions options) {
   const auto RegisterVariant = [&](TransactionMode mode) {
     internal::RegisterGoogleTestCaseDynamically(
-        "TensorStoreDriverResizeTest",
+        "TensorStoreDriverMetadataResizeTest",
         tensorstore::StrCat(options.test_name, "/transaction_mode=", mode),
         [=] { TestMetadataOnlyResize(options, mode); });
   };
-  RegisterVariant(no_transaction);
-  for (auto transaction_mode : options.supported_transaction_modes) {
-    RegisterVariant(transaction_mode);
+  if (options.test_metadata) {
+    RegisterVariant(no_transaction);
+    for (auto transaction_mode : options.supported_transaction_modes) {
+      RegisterVariant(transaction_mode);
+    }
+  }
+  if (options.test_data) {
+    internal::RegisterGoogleTestCaseDynamically(
+        "TensorStoreDriverDataResizeTest", options.test_name,
+        [=] { TestResize(options); });
   }
 }
 

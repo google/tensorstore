@@ -139,6 +139,8 @@ struct TestTensorStoreDriverResizeOptions {
   std::function<::nlohmann::json(BoxView<> bounds)> get_create_spec;
   std::vector<TransactionMode> supported_transaction_modes = {
       tensorstore::isolated};
+  bool test_metadata = true;
+  bool test_data = false;
 };
 
 /// Tests metadata-only resize functionality.

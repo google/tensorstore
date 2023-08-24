@@ -2302,7 +2302,7 @@ TENSORSTORE_GLOBAL_INITIALIZER {
 
 TENSORSTORE_GLOBAL_INITIALIZER {
   tensorstore::internal::TestTensorStoreDriverResizeOptions options;
-  options.test_name = "zarr";
+  options.test_name = "zarr/metadata";
   options.get_create_spec = [](tensorstore::BoxView<> bounds) {
     return ::nlohmann::json{
         {"driver", "zarr"},
@@ -2333,6 +2333,44 @@ TENSORSTORE_GLOBAL_INITIALIZER {
     };
   };
   options.initial_bounds = tensorstore::Box<>({0, 0}, {10, 11});
+  tensorstore::internal::RegisterTensorStoreDriverResizeTest(
+      std::move(options));
+}
+
+TENSORSTORE_GLOBAL_INITIALIZER {
+  tensorstore::internal::TestTensorStoreDriverResizeOptions options;
+  options.test_name = "zarr/data";
+  options.get_create_spec = [](tensorstore::BoxView<> bounds) {
+    return ::nlohmann::json{
+        {"driver", "zarr"},
+        {"kvstore",
+         {
+             {"driver", "memory"},
+             {"path", "prefix/"},
+         }},
+        {"dtype", "uint16"},
+        {"metadata",
+         {
+             {"compressor", nullptr},
+             {"dtype", "<u2"},
+             {"fill_value", nullptr},
+             {"order", "C"},
+             {"zarr_format", 2},
+             {"shape", bounds.shape()},
+             {"chunks", {4, 5}},
+             {"filters", nullptr},
+             {"dimension_separator", "."},
+         }},
+        {"transform",
+         {
+             {"input_inclusive_min", {0, 0}},
+             {"input_exclusive_max",
+              {{bounds.shape()[0]}, {bounds.shape()[1]}}},
+         }},
+    };
+  };
+  options.initial_bounds = tensorstore::Box<>({0, 0}, {20, 30});
+  options.test_data = true;
   tensorstore::internal::RegisterTensorStoreDriverResizeTest(
       std::move(options));
 }
