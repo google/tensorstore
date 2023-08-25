@@ -308,6 +308,8 @@ bool DriverHandleNonNullSerializer::Decode(serialization::DecodeSource& source,
   }
   TransactionalOpenOptions options;
   options.read_write_mode = static_cast<ReadWriteMode>(read_write_mode);
+  options.open_mode =
+      internal::GetOpenMode(spec) | OpenMode::assume_cached_metadata;
   TENSORSTORE_ASSIGN_OR_RETURN(
       value, internal::OpenDriver(std::move(spec), std::move(options)).result(),
       (source.Fail(_), false));

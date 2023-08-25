@@ -963,6 +963,7 @@ tensorstore_cc_test(
     deps = [
         ":context",
         ":open",
+        ":open_mode",
         ":spec",
         ":tensorstore",
         "//tensorstore/driver/array",
