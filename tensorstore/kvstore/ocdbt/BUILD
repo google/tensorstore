@@ -166,6 +166,7 @@ tensorstore_cc_test(
         "//tensorstore/kvstore:key_range",
         "//tensorstore/kvstore:mock_kvstore",
         "//tensorstore/kvstore:test_util",
+        "//tensorstore/kvstore/file",
         "//tensorstore/kvstore/memory",
         "//tensorstore/kvstore/ocdbt/format",
         "//tensorstore/kvstore/ocdbt/non_distributed:list_versions",

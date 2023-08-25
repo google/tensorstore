@@ -91,6 +91,16 @@ struct KeyValueStoreSpecRoundtripOptions {
   // Requires `check_write_read == true`.
   bool check_data_persists = true;
 
+  // Check that the store can be round-tripped through its serialized
+  // representation.
+  bool check_store_serialization = true;
+
+  // Checks that data can be read/written after round-tripping through
+  // serialization.
+  //
+  // Doesn't work for "memory://".
+  bool check_data_after_serialization = true;
+
   std::string roundtrip_key = "mykey";
   absl::Cord roundtrip_value = absl::Cord("myvalue");
 };

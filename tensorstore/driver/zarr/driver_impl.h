@@ -64,7 +64,7 @@ class ZarrDriverSpec
 
   constexpr static auto ApplyMembers = [](auto& x, auto f) {
     return f(internal::BaseCast<KvsDriverSpec>(x), x.partial_metadata,
-             x.selected_field);
+             x.selected_field, x.metadata_key);
   };
   absl::Status ApplyOptions(SpecOptions&& options) override;
 

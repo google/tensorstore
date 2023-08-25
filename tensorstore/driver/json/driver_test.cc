@@ -344,20 +344,23 @@ TEST(JsonDriverTest, ZeroElementWrite) {
 
 TENSORSTORE_GLOBAL_INITIALIZER {
   tensorstore::internal::TestTensorStoreDriverSpecRoundtripOptions options;
+  ::nlohmann::json kvstore_json = {{"driver", "file"},
+                                   {"path", "${TEMPDIR}/" + GetPath()}};
   options.test_name = "json";
   options.create_spec = {
       {"driver", "json"},
-      {"kvstore", {{"driver", "memory"}, {"path", GetPath()}}},
+      {"kvstore", kvstore_json},
   };
   options.full_spec = {
       {"dtype", "json"},
       {"driver", "json"},
-      {"kvstore", {{"driver", "memory"}, {"path", GetPath()}}},
+      {"kvstore", kvstore_json},
       {"transform", {{"input_rank", 0}}},
   };
   options.minimal_spec = options.full_spec;
   options.check_not_found_before_create = false;
   options.check_not_found_before_commit = false;
+  options.check_serialization = true;
   tensorstore::internal::RegisterTensorStoreDriverSpecRoundtripTest(
       std::move(options));
 }

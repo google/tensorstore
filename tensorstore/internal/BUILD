@@ -283,6 +283,8 @@ tensorstore_cc_library(
         "//tensorstore:box",
         "//tensorstore:contiguous_layout",
         "//tensorstore:data_type",
+        "//tensorstore:index",
+        "//tensorstore/util:span",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/random",

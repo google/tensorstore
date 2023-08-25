@@ -174,6 +174,7 @@ tensorstore_cc_test(
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:mock_kvstore",
         "//tensorstore/kvstore:test_util",
+        "//tensorstore/kvstore/file",
         "//tensorstore/kvstore/memory",
         "//tensorstore/util:bfloat16",
         "//tensorstore/util:dimension_set",

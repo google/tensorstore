@@ -2247,8 +2247,8 @@ TENSORSTORE_GLOBAL_INITIALIZER {
        }},
       {"kvstore",
        {
-           {"driver", "memory"},
-           {"path", "prefix/"},
+           {"driver", "file"},
+           {"path", "${TEMPDIR}/prefix/"},
        }},
       {"transform",
        {{"input_exclusive_max", {{100}, {100}}},
@@ -2259,13 +2259,14 @@ TENSORSTORE_GLOBAL_INITIALIZER {
       {"driver", "zarr"},
       {"kvstore",
        {
-           {"driver", "memory"},
-           {"path", "prefix/"},
+           {"driver", "file"},
+           {"path", "${TEMPDIR}/prefix/"},
        }},
       {"transform",
        {{"input_exclusive_max", {{100}, {100}}},
         {"input_inclusive_min", {0, 0}}}},
   };
+  options.check_serialization = true;
   tensorstore::internal::RegisterTensorStoreDriverSpecRoundtripTest(
       std::move(options));
 }

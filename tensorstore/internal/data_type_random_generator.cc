@@ -30,7 +30,9 @@
 #include "tensorstore/box.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
+#include "tensorstore/index.h"
 #include "tensorstore/internal/elementwise_function.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 namespace internal {
@@ -153,6 +155,19 @@ SharedOffsetArray<const void> MakeRandomArray(absl::BitGenRef gen,
                                               ContiguousLayoutOrder order) {
   assert(dtype.id() != DataTypeId::custom);
   auto array = AllocateArray(domain, order, default_init, dtype);
+  kDataTypeRandomGenerationFunctions[static_cast<std::size_t>(
+      dtype.id())][IterationBufferKind::kContiguous](
+      nullptr, array.num_elements(),
+      IterationBufferPointer{array.byte_strided_origin_pointer(), dtype.size()},
+      gen);
+  return array;
+}
+
+SharedArray<const void> MakeRandomArray(absl::BitGenRef gen,
+                                        span<const Index> shape, DataType dtype,
+                                        ContiguousLayoutOrder order) {
+  assert(dtype.id() != DataTypeId::custom);
+  auto array = AllocateArray(shape, order, default_init, dtype);
   kDataTypeRandomGenerationFunctions[static_cast<std::size_t>(
       dtype.id())][IterationBufferKind::kContiguous](
       nullptr, array.num_elements(),

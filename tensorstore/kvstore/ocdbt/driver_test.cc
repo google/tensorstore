@@ -183,7 +183,7 @@ TEST(OcdbtTest, WithExperimentalSpec) {
               ::testing::Optional(tensorstore::MatchesJson(json_spec)));
 }
 
-TEST(OcdbtTest, Spec) {
+TEST(OcdbtTest, SpecRoundtrip) {
   tensorstore::internal::KeyValueStoreSpecRoundtripOptions options;
   options.create_spec = {
       {"driver", "ocdbt"},
@@ -208,6 +208,37 @@ TEST(OcdbtTest, Spec) {
   options.minimal_spec = {
       {"driver", "ocdbt"},
       {"base", {{"driver", "memory"}}},
+  };
+  options.check_data_after_serialization = false;
+  tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
+}
+
+TEST(OcdbtTest, SpecRoundtripFile) {
+  tensorstore::internal::ScopedTemporaryDirectory tempdir;
+  tensorstore::internal::KeyValueStoreSpecRoundtripOptions options;
+  options.full_base_spec = {{"driver", "file"}, {"path", tempdir.path() + "/"}};
+  options.create_spec = {
+      {"driver", "ocdbt"},
+      {"base", options.full_base_spec},
+      {"config",
+       {
+           {"uuid", "000102030405060708090a0b0c0d0e0f"},
+           {"compression", {{"id", "zstd"}}},
+       }},
+  };
+  options.full_spec = {
+      {"driver", "ocdbt"},
+      {"base", options.full_base_spec},
+      {"config",
+       {{"uuid", "000102030405060708090a0b0c0d0e0f"},
+        {"compression", {{"id", "zstd"}}},
+        {"max_decoded_node_bytes", 8388608},
+        {"max_inline_value_bytes", 100},
+        {"version_tree_arity_log2", 4}}},
+  };
+  options.minimal_spec = {
+      {"driver", "ocdbt"},
+      {"base", options.full_base_spec},
   };
   tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
 }

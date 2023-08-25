@@ -120,6 +120,8 @@ TEST(MemoryKeyValueStoreTest, SpecRoundtrip) {
   options.full_spec = {
       {"driver", "memory"},
   };
+  // Not possible with "memory" driver.
+  options.check_data_after_serialization = false;
   tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
 }
 
@@ -137,6 +139,8 @@ TEST(MemoryKeyValueStoreTest, SpecRoundtripWithContextSpec) {
   // Since spec includes context resources, if we re-open we get a different
   // context resource.
   options.check_data_persists = false;
+  // Not possible with "memory" driver.
+  options.check_data_after_serialization = false;
   tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
 }
 

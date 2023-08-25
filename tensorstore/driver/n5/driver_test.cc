@@ -851,8 +851,8 @@ TENSORSTORE_GLOBAL_INITIALIZER {
         {"axes", {"x", "y"}}}},
       {"kvstore",
        {
-           {"driver", "memory"},
-           {"path", "prefix/"},
+           {"driver", "file"},
+           {"path", "${TEMPDIR}/prefix/"},
        }},
       {"transform",
        {{"input_labels", {"x", "y"}},
@@ -865,8 +865,8 @@ TENSORSTORE_GLOBAL_INITIALIZER {
       {"driver", "n5"},
       {"kvstore",
        {
-           {"driver", "memory"},
-           {"path", "prefix/"},
+           {"driver", "file"},
+           {"path", "${TEMPDIR}/prefix/"},
        }},
       {"transform",
        {{"input_labels", {"x", "y"}},
@@ -874,6 +874,7 @@ TENSORSTORE_GLOBAL_INITIALIZER {
         {"input_inclusive_min", {0, 0}}}},
   };
   options.to_json_options = tensorstore::IncludeDefaults{false};
+  options.check_serialization = true;
   tensorstore::internal::RegisterTensorStoreDriverSpecRoundtripTest(
       std::move(options));
 }

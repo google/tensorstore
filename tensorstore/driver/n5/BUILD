@@ -124,6 +124,7 @@ tensorstore_cc_test(
         "//tensorstore/internal:parse_json_matches",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:test_util",
+        "//tensorstore/kvstore/file",
         "//tensorstore/kvstore/memory",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",

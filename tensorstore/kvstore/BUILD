@@ -270,6 +270,7 @@ tensorstore_cc_library(
         "//tensorstore:json_serialization_options",
         "//tensorstore/internal:json_fwd",
         "//tensorstore/internal:json_gtest",
+        "//tensorstore/serialization:test_util",
         "//tensorstore/util:future",
         "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",

@@ -57,6 +57,11 @@ namespace internal {
 
 struct TestTensorStoreDriverSpecRoundtripOptions {
   std::string test_name;
+
+  // Note: Any occurrences of "${TEMPDIR}" in
+  // `full_spec, `create_spec`, `minimal_spec`, and `full_base_spec`
+  // are replaced with the path to a unique temporary directory created for the
+  // test.
   ::nlohmann::json full_spec;
   ::nlohmann::json create_spec = ::nlohmann::json::value_t::discarded;
   ::nlohmann::json minimal_spec;
@@ -73,6 +78,7 @@ struct TestTensorStoreDriverSpecRoundtripOptions {
   bool check_not_found_before_commit = true;
   bool check_transactional_open_before_commit = true;
   bool write_value_to_create = false;
+  bool check_serialization = false;
 };
 
 /// Tests that a TensorStore can be successfully created from `full_spec`, that

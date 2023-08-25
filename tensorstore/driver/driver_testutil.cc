@@ -20,8 +20,10 @@
 #include <cstddef>
 #include <map>
 #include <memory>
+#include <optional>
 #include <random>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -34,6 +36,7 @@
 #include "absl/random/random.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/str_replace.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
@@ -70,6 +73,7 @@
 #include "tensorstore/rank.h"
 #include "tensorstore/resize_options.h"
 #include "tensorstore/schema.h"
+#include "tensorstore/serialization/test_util.h"
 #include "tensorstore/spec.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/tensorstore.h"
@@ -116,9 +120,42 @@ void TestMinimalSpecRoundTrips(
               ::testing::Optional(MatchesJson(options.minimal_spec)));
 }
 
+void ReplaceStringInJson(::nlohmann::json& json, std::string_view source,
+                         std::string_view target) {
+  if (json.is_string()) {
+    auto& s = json.get_ref<std::string&>();
+    s = absl::StrReplaceAll(s, {{source, target}});
+    return;
+  }
+  if (json.is_array()) {
+    auto& a = json.get_ref<::nlohmann::json::array_t&>();
+    for (auto& e : a) {
+      ReplaceStringInJson(e, source, target);
+    }
+    return;
+  }
+  if (json.is_object()) {
+    auto& a = json.get_ref<::nlohmann::json::object_t&>();
+    for (auto& e : a) {
+      ReplaceStringInJson(e.second, source, target);
+    }
+  }
+}
+
 // Tests that the full Spec round trips for creating a new TensorStore.
 void TestTensorStoreDriverSpecRoundtrip(
     TestTensorStoreDriverSpecRoundtripOptions options, TransactionMode mode) {
+  std::optional<tensorstore::internal::ScopedTemporaryDirectory> tempdir;
+  const std::string_view tempdir_key = "${TEMPDIR}";
+  if (options.full_spec.dump().find(tempdir_key) != std::string::npos) {
+    // In practice, if tempdir is present in any of the specs, it must be
+    // present in the full spec.
+    tempdir.emplace();
+    ReplaceStringInJson(options.full_spec, tempdir_key, tempdir->path());
+    ReplaceStringInJson(options.create_spec, tempdir_key, tempdir->path());
+    ReplaceStringInJson(options.minimal_spec, tempdir_key, tempdir->path());
+    ReplaceStringInJson(options.full_base_spec, tempdir_key, tempdir->path());
+  }
   Transaction transaction(mode);
   auto context = Context::Default();
   if (options.check_not_found_before_create) {
@@ -167,15 +204,44 @@ void TestTensorStoreDriverSpecRoundtrip(
                   MatchesJson(::nlohmann::json::value_t::discarded));
     }
 
-    if (options.write_value_to_create) {
+    SharedArray<const void> value_to_create;
+    if (options.write_value_to_create ||
+        (mode == no_transaction && options.check_serialization)) {
+      absl::BitGen gen;
+      value_to_create = internal::MakeRandomArray(
+          gen, span<const Index>(), store.dtype(), tensorstore::c_order);
       // Write a single value to `store` to ensure it is created.
       TENSORSTORE_ASSERT_OK(
-          tensorstore::Write(tensorstore::AllocateArray(
-                                 span<const Index>(), tensorstore::c_order,
-                                 tensorstore::value_init, store.dtype()),
+          tensorstore::Write(value_to_create,
                              store | tensorstore::AllDims().IndexSlice(
                                          store.domain().origin()))
               .result());
+    }
+
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto serialized_spec,
+        serialization::SerializationRoundTrip(full_spec_obj));
+
+    EXPECT_THAT(serialized_spec.ToJson(options.to_json_options),
+                ::testing::Optional(MatchesJson(options.full_spec)));
+
+    if (mode == no_transaction) {
+      if (options.check_serialization) {
+        TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+            auto serialized_store,
+            serialization::SerializationRoundTrip(store));
+        TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+            auto serialized_store_spec,
+            serialized_store.spec(
+                SpecRequestOptions(options.spec_request_options)));
+        EXPECT_THAT(serialized_store_spec.ToJson(options.to_json_options),
+                    ::testing::Optional(MatchesJson(options.full_spec)));
+        EXPECT_THAT(tensorstore::Read(serialized_store |
+                                      tensorstore::AllDims().IndexSlice(
+                                          store.domain().origin()))
+                        .result(),
+                    ::testing::Optional(value_to_create));
+      }
     }
   }
   if (mode != no_transaction) {

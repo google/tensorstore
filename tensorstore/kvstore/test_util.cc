@@ -47,6 +47,7 @@
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/transaction.h"
+#include "tensorstore/serialization/test_util.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender_testutil.h"
 #include "tensorstore/util/future.h"
@@ -787,6 +788,16 @@ void TestKeyValueStoreSpecRoundtrip(
       tensorstore::StrCat("minimal_spec=", expected_minimal_spec.dump()));
   auto context = Context::Default();
 
+  ASSERT_TRUE(options.check_write_read || !options.check_data_persists);
+  ASSERT_TRUE(options.check_write_read ||
+              !options.check_data_after_serialization);
+
+  KvStore serialized_store;
+  kvstore::Spec serialized_spec;
+
+  ASSERT_TRUE(options.check_store_serialization ||
+              !options.check_data_after_serialization);
+
   // Open and populate roundtrip_key.
   {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -801,10 +812,53 @@ void TestKeyValueStoreSpecRoundtrip(
                   MatchesKvsReadResult(options.roundtrip_value));
     }
 
+    if (options.check_store_serialization) {
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+          serialized_store, serialization::SerializationRoundTrip(store));
+      {
+        TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+            auto serialized_store_spec,
+            serialized_store.spec(
+                kvstore::SpecRequestOptions{options.spec_request_options}));
+        EXPECT_THAT(
+            serialized_store_spec.ToJson(options.json_serialization_options),
+            ::testing::Optional(MatchesJson(options.full_spec)));
+      }
+    }
+
+    if (options.check_data_after_serialization) {
+      EXPECT_THAT(
+          kvstore::Read(serialized_store, options.roundtrip_key).result(),
+          MatchesKvsReadResult(options.roundtrip_value));
+      TENSORSTORE_ASSERT_OK(
+          kvstore::Delete(serialized_store, options.roundtrip_key).result());
+      EXPECT_THAT(kvstore::Read(store, options.roundtrip_key).result(),
+                  MatchesKvsReadResultNotFound());
+      EXPECT_THAT(
+          kvstore::Read(serialized_store, options.roundtrip_key).result(),
+          MatchesKvsReadResultNotFound());
+      ASSERT_THAT(kvstore::Write(serialized_store, options.roundtrip_key,
+                                 options.roundtrip_value)
+                      .result(),
+                  MatchesRegularTimestampedStorageGeneration());
+      EXPECT_THAT(kvstore::Read(store, options.roundtrip_key).result(),
+                  MatchesKvsReadResult(options.roundtrip_value));
+      EXPECT_THAT(
+          kvstore::Read(serialized_store, options.roundtrip_key).result(),
+          MatchesKvsReadResult(options.roundtrip_value));
+    }
+
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto spec,
         store.spec(kvstore::SpecRequestOptions{options.spec_request_options}));
     EXPECT_THAT(spec.ToJson(options.json_serialization_options),
+                ::testing::Optional(MatchesJson(options.full_spec)));
+
+    // Test serialization of spec.
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        serialized_spec, serialization::SerializationRoundTrip(spec));
+
+    EXPECT_THAT(serialized_spec.ToJson(options.json_serialization_options),
                 ::testing::Optional(MatchesJson(options.full_spec)));
 
     auto minimal_spec_obj = spec;
@@ -833,8 +887,6 @@ void TestKeyValueStoreSpecRoundtrip(
     }
   }
 
-  ASSERT_TRUE(options.check_write_read || !options.check_data_persists);
-
   // Reopen and verify contents.
   if (options.check_data_persists) {
     // Reopen with full_spec
@@ -848,6 +900,15 @@ void TestKeyValueStoreSpecRoundtrip(
     if (!options.minimal_spec.is_discarded()) {
       TENSORSTORE_ASSERT_OK_AND_ASSIGN(
           auto store, kvstore::Open(expected_minimal_spec, context).result());
+      TENSORSTORE_ASSERT_OK(store.spec());
+      EXPECT_THAT(kvstore::Read(store, options.roundtrip_key).result(),
+                  MatchesKvsReadResult(options.roundtrip_value));
+    }
+
+    // Reopen with serialized spec.
+    {
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+          auto store, kvstore::Open(serialized_spec, context).result());
       TENSORSTORE_ASSERT_OK(store.spec());
       EXPECT_THAT(kvstore::Read(store, options.roundtrip_key).result(),
                   MatchesKvsReadResult(options.roundtrip_value));

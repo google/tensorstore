@@ -26,6 +26,7 @@
 #include "tensorstore/internal/compression/zlib.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/test_util.h"
 #include "tensorstore/internal/thread_pool.h"
 #include "tensorstore/kvstore/generation_testutil.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -1593,10 +1594,30 @@ TEST(ShardedKeyValueStoreTest, SpecRoundtrip) {
       {"minishard_index_encoding", "raw"}};
   tensorstore::internal::KeyValueStoreSpecRoundtripOptions options;
   options.roundtrip_key = std::string(8, '\0');
-  options.full_spec = {{"driver", "neuroglancer_uint64_sharded"},
-                       {"base", {{"driver", "memory"}, {"path", "abc/"}}},
-                       {"metadata", sharding_spec_json}};
   options.full_base_spec = {{"driver", "memory"}, {"path", "abc/"}};
+  options.full_spec = {{"driver", "neuroglancer_uint64_sharded"},
+                       {"base", options.full_base_spec},
+                       {"metadata", sharding_spec_json}};
+  options.check_data_after_serialization = false;
+  tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
+}
+
+TEST(ShardedKeyValueStoreTest, SpecRoundtripFile) {
+  tensorstore::internal::ScopedTemporaryDirectory tempdir;
+  ::nlohmann::json sharding_spec_json{
+      {"@type", "neuroglancer_uint64_sharded_v1"},
+      {"hash", "identity"},
+      {"preshift_bits", 0},
+      {"minishard_bits", 1},
+      {"shard_bits", 1},
+      {"data_encoding", "raw"},
+      {"minishard_index_encoding", "raw"}};
+  tensorstore::internal::KeyValueStoreSpecRoundtripOptions options;
+  options.roundtrip_key = std::string(8, '\0');
+  options.full_base_spec = {{"driver", "file"}, {"path", tempdir.path() + "/"}};
+  options.full_spec = {{"driver", "neuroglancer_uint64_sharded"},
+                       {"base", options.full_base_spec},
+                       {"metadata", sharding_spec_json}};
   tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
 }
 

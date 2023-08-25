@@ -421,6 +421,7 @@ TEST(SpecTest, SpecRoundtrip) {
   tensorstore::internal::KeyValueStoreSpecRoundtripOptions options;
   options.check_write_read = false;
   options.check_data_persists = false;
+  options.check_data_after_serialization = false;
   options.full_spec = {{"driver", "http"},
                        {"base_url", "https://example.com?query"},
                        {"headers", {"a: b"}},
