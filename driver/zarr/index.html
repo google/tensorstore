@@ -752,6 +752,13 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#json-driver/zarr.assume_cached_metadata" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/zarr.assume_cached_metadata (JSON member)" class="md-ellipsis">assume_<wbr>cached_<wbr>metadata</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#json-driver/zarr.cache_pool" class="md-nav__link">
     <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/zarr.cache_pool (JSON member)" class="md-ellipsis">cache_<wbr>pool</span>
   </a>
@@ -1590,6 +1597,13 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#json-driver/zarr.assume_cached_metadata" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/zarr.assume_cached_metadata (JSON member)" class="md-ellipsis">assume_<wbr>cached_<wbr>metadata</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#json-driver/zarr.cache_pool" class="md-nav__link">
     <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/zarr.cache_pool (JSON member)" class="md-ellipsis">cache_<wbr>pool</span>
   </a>
@@ -2337,11 +2351,38 @@ a new TensorStore.  Requires that <a class="reference internal" href="#json-driv
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/zarr.assume_metadata">
 <span class="sig-name descname"><span class="pre">assume_metadata</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">boolean</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="kc">false</span></code><a class="headerlink" href="#json-driver/zarr.assume_metadata" title="Permalink to this definition">¶</a></dt>
-<dd><p>Skip reading the metadata if possible.  Instead, just assume any
+<dd><p>Neither read nor write stored metadata.  Instead, just assume any
 necessary metadata based on constraints in the spec, using the same
 defaults for any unspecified metadata as when creating a new
-TensorStore.  Requires that <a class="reference internal" href="#json-driver/zarr.open" title="driver/zarr.open (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">open</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="kc">true</span></code> and that
-<a class="reference internal" href="#json-driver/zarr.delete_existing" title="driver/zarr.delete_existing (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">delete_existing</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="kc">false</span></code>.</p>
+TensorStore.  The stored metadata need not even exist.  Operations such
+as resizing that modify the stored metadata are not supported.  Requires
+that <a class="reference internal" href="#json-driver/zarr.open" title="driver/zarr.open (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">open</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="kc">true</span></code> and <a class="reference internal" href="#json-driver/zarr.delete_existing" title="driver/zarr.delete_existing (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">delete_existing</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="kc">false</span></code>.  This
+option takes precedence over <a class="reference internal" href="#json-driver/zarr.assume_cached_metadata" title="driver/zarr.assume_cached_metadata (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">assume_cached_metadata</span></code></a> if that option is
+also specified.</p>
+<div class="warning admonition">
+<p class="admonition-title">Warning</p>
+<p>This option can lead to data corruption if the assumed metadata does
+not match the stored metadata, or multiple concurrent writers use
+different assumed metadata.</p>
+</div>
+</dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-driver/zarr.assume_cached_metadata">
+<span class="sig-name descname"><span class="pre">assume_cached_metadata</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">boolean</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="kc">false</span></code><a class="headerlink" href="#json-driver/zarr.assume_cached_metadata" title="Permalink to this definition">¶</a></dt>
+<dd><p>Skip reading the metadata when opening.  Instead, just assume any
+necessary metadata based on constraints in the spec, using the same
+defaults for any unspecified metadata as when creating a new
+TensorStore.  The stored metadata may still be accessed by subsequent
+operations that need to re-validate or modify the metadata.  Requires
+that <a class="reference internal" href="#json-driver/zarr.open" title="driver/zarr.open (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">open</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="kc">true</span></code> and <a class="reference internal" href="#json-driver/zarr.delete_existing" title="driver/zarr.delete_existing (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">delete_existing</span></code></a> is <code class="code highlight json docutils literal highlight-json"><span class="kc">false</span></code>.  The
+<a class="reference internal" href="#json-driver/zarr.assume_metadata" title="driver/zarr.assume_metadata (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">assume_metadata</span></code></a> option takes precedence if also specified.</p>
+<div class="note admonition">
+<p class="admonition-title">Note</p>
+<p>Unlike the <a class="reference internal" href="#json-driver/zarr.assume_metadata" title="driver/zarr.assume_metadata (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">assume_metadata</span></code></a> option, operations such as resizing
+that modify the stored metadata are supported (and access the stored
+metadata).</p>
+</div>
 <div class="warning admonition">
 <p class="admonition-title">Warning</p>
 <p>This option can lead to data corruption if the assumed metadata does
