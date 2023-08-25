@@ -14,20 +14,67 @@
 
 #include "tensorstore/driver/kvs_backed_chunk_driver.h"
 
-#include "absl/container/fixed_array.h"
+#include <stddef.h>
+
+#include <cassert>
+#include <functional>
+#include <memory>
+#include <optional>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
+#include "absl/strings/cord.h"
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
+#include "tensorstore/box.h"
+#include "tensorstore/chunk_layout.h"
+#include "tensorstore/driver/driver.h"
+#include "tensorstore/driver/driver_handle.h"
 #include "tensorstore/driver/kvs_backed_chunk_driver_impl.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
+#include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/box_difference.h"
+#include "tensorstore/internal/cache/async_cache.h"
 #include "tensorstore/internal/cache/async_initialized_cache_mixin.h"
+#include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache/cache_pool_resource.h"
+#include "tensorstore/internal/cache/chunk_cache.h"
+#include "tensorstore/internal/cache/kvs_backed_chunk_cache.h"
 #include "tensorstore/internal/cache_key/cache_key.h"
+#include "tensorstore/internal/chunk_grid_specification.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
-#include "tensorstore/internal/json_binding/staleness_bound.h"
+#include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/json_binding/bindable.h"
+#include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/internal/json_binding/staleness_bound.h"  // IWYU: pragma keep
+#include "tensorstore/internal/mutex.h"
+#include "tensorstore/internal/open_mode_spec.h"
 #include "tensorstore/internal/path.h"
+#include "tensorstore/internal/type_traits.h"
 #include "tensorstore/internal/unowned_to_shared.h"
-#include "tensorstore/tensorstore.h"
+#include "tensorstore/kvstore/driver.h"
+#include "tensorstore/kvstore/key_range.h"
+#include "tensorstore/kvstore/kvstore.h"
+#include "tensorstore/kvstore/spec.h"
+#include "tensorstore/open_mode.h"
+#include "tensorstore/open_options.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/resize_options.h"
+#include "tensorstore/transaction.h"
+#include "tensorstore/util/dimension_set.h"
+#include "tensorstore/util/execution/execution.h"
+#include "tensorstore/util/executor.h"
+#include "tensorstore/util/future.h"
+#include "tensorstore/util/garbage_collection/garbage_collection.h"
+#include "tensorstore/util/iterate.h"
 #include "tensorstore/util/iterate_over_index_range.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 #ifndef TENSORSTORE_KVS_DRIVER_DEBUG
@@ -242,20 +289,81 @@ absl::Status ValidateNewMetadata(DataCacheBase* cache,
     return absl::FailedPreconditionError(
         GetMetadataMissingErrorMessage(cache->metadata_cache_entry_.get()));
   }
-  TENSORSTORE_RETURN_IF_ERROR(cache->ValidateMetadataCompatibility(
-      cache->initial_metadata_.get(), new_metadata));
+  auto* initial_metadata = cache->initial_metadata_.get();
+  if (initial_metadata != new_metadata) {
+    TENSORSTORE_RETURN_IF_ERROR(
+        cache->ValidateMetadataCompatibility(initial_metadata, new_metadata));
+  }
   return absl::OkStatus();
 }
 
-/// Returns the updated metadata for `cache` in the context of `transaction`.
+/// Gets the current metadata for `driver` and `transaction`, taking into
+/// account the `assume_cached_metadata` option.
+///
+/// \param driver The driver, must have been opened with
+///     `assume_cached_metadata`.
+/// \param cache Must equal `&driver.cache()`.
+/// \param transaction Transaction to use.
+Result<MetadataPtr> GetUpdatedMetadataWithAssumeCachedMetadata(
+    KvsMetadataDriverBase& driver, DataCacheBase& cache,
+    internal::OpenTransactionPtr transaction) {
+  assert(driver.assumed_metadata_time_ != absl::InfiniteFuture() &&
+         driver.assumed_metadata_);
+  assert(&cache == driver.cache());
+  const auto handle_entry_or_node =
+      [&](auto& entry_or_node) -> Result<MetadataPtr> {
+    MetadataPtr new_metadata;
+    if (MetadataCache::ReadLock<void> lock(entry_or_node);
+        lock.stamp().time > driver.assumed_metadata_time_) {
+      new_metadata = lock.shared_data();
+    } else {
+      new_metadata = driver.assumed_metadata_;
+    }
+
+    if constexpr (std::is_same_v<
+                      internal::remove_cvref_t<decltype(entry_or_node)>,
+                      MetadataCache::TransactionNode>) {
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          new_metadata,
+          entry_or_node.GetUpdatedMetadata(std::move(new_metadata)),
+          cache.metadata_cache_entry_->AnnotateError(_,
+                                                     /*reading=*/false));
+    }
+    return new_metadata;
+  };
+
+  if (transaction) {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto node,
+        GetTransactionNode(*cache.metadata_cache_entry_, transaction));
+    return handle_entry_or_node(*node);
+  } else {
+    return handle_entry_or_node(*cache.metadata_cache_entry_);
+  }
+}
+
+/// Returns the updated metadata for `driver` in the context of `transaction`.
 ///
 /// If the metadata has changed in an incompatible way, returns an error.
-Result<std::shared_ptr<const void>> ValidateNewMetadata(
-    DataCacheBase* cache, internal::OpenTransactionPtr transaction) {
-  TENSORSTORE_ASSIGN_OR_RETURN(
-      auto new_metadata,
-      cache->metadata_cache_entry_->GetMetadata(std::move(transaction)));
-  TENSORSTORE_RETURN_IF_ERROR(ValidateNewMetadata(cache, new_metadata.get()));
+Result<MetadataPtr> ValidateNewMetadata(
+    KvsMetadataDriverBase& driver, internal::OpenTransactionPtr transaction) {
+  MetadataPtr new_metadata;
+  auto& cache = *driver.cache();
+  if (driver.assumed_metadata_) {
+    if (driver.assumed_metadata_time_ == absl::InfiniteFuture()) {
+      // Driver was opened in assume_metadata mode.
+      return driver.assumed_metadata_;
+    }
+    // Driver was opened in assume_cached_metadata mode.
+    TENSORSTORE_ASSIGN_OR_RETURN(new_metadata,
+                                 GetUpdatedMetadataWithAssumeCachedMetadata(
+                                     driver, cache, std::move(transaction)));
+  } else {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        new_metadata,
+        cache.metadata_cache_entry_->GetMetadata(std::move(transaction)));
+  }
+  TENSORSTORE_RETURN_IF_ERROR(ValidateNewMetadata(&cache, new_metadata.get()));
   return new_metadata;
 }
 
@@ -313,59 +421,14 @@ Future<IndexTransform<>> KvsMetadataDriverBase::ResolveBounds(
 Future<MetadataPtr> KvsMetadataDriverBase::ResolveMetadata(
     internal::OpenTransactionPtr transaction,
     absl::Time metadata_staleness_bound) {
-  const bool skip_read = assume_metadata_time_ >= metadata_staleness_bound;
+  if (assumed_metadata_ && assumed_metadata_time_ >= metadata_staleness_bound) {
+    return ValidateNewMetadata(*this, std::move(transaction));
+  }
   auto* cache = this->cache();
-  const auto handle_assume_metadata =
-      [&](auto& entry_or_node) -> Result<MetadataPtr> {
-    // Don't issue a read request, but check if there is already newer cached
-    // metadata available.
-    MetadataPtr new_metadata;
-    bool has_cache_entry = false;
-    if (MetadataCache::ReadLock<void> lock(entry_or_node);
-        lock.stamp().time > assume_metadata_time_) {
-      new_metadata = lock.shared_data();
-      has_cache_entry = true;
-    }
-    if (has_cache_entry) {
-      if constexpr (std::is_same_v<
-                        internal::remove_cvref_t<decltype(entry_or_node)>,
-                        MetadataCache::TransactionNode>) {
-        TENSORSTORE_ASSIGN_OR_RETURN(
-            new_metadata,
-            entry_or_node.GetUpdatedMetadata(std::move(new_metadata)),
-            cache->metadata_cache_entry_->AnnotateError(_,
-                                                        /*reading=*/false));
-      }
-    }
-    // If there is a newer negative cache entry (i.e. an entry that indicates
-    // that the metadata is not present), ignore it.  This allows the following
-    // use case
-    //
-    //   1. Open TensorStore with `OpenMode::assume_metadata` specified, and the
-    //      metadata does not actually exist.
-    //
-    //   2. Write data to the TensorStore opened in step 1 (this results in
-    //      calls to `ResolveBounds`).
-    //
-    //   3. Concurrent with step 2, open the same spec using the same cache,
-    //      with `OpenMode::create` specified and `OpenMode::assume_metadata`
-    //      not specified.  This first checks if the metadata exists, and then
-    //      writes it if not present.
-    //
-    // If negative cache entries were taken into account, then after the initial
-    // check in step 3 that finds the metadata missing, a subsequent call to
-    // `ResolveBounds` in step 2 will fail.
-    if (new_metadata) {
-      return new_metadata;
-    } else {
-      return cache->initial_metadata_;
-    }
-  };
   if (transaction) {
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto node,
         GetTransactionNode(*cache->metadata_cache_entry_, transaction));
-    if (skip_read) return handle_assume_metadata(*node);
     auto read_future = node->Read(metadata_staleness_bound);
     return MapFuture(
         cache->executor(),
@@ -382,7 +445,6 @@ Future<MetadataPtr> KvsMetadataDriverBase::ResolveMetadata(
         },
         std::move(read_future));
   }
-  if (skip_read) return handle_assume_metadata(*cache->metadata_cache_entry_);
   return MapFuture(
       cache->executor(),
       [cache = DataCacheBase::Ptr(cache)](
@@ -436,8 +498,10 @@ Future<const void> RequestResize(ChunkedDataCacheBase* cache,
         if (!current_metadata) {
           return absl::NotFoundError("Metadata was deleted");
         }
-        TENSORSTORE_RETURN_IF_ERROR(cache->ValidateMetadataCompatibility(
-            metadata_constraint.get(), current_metadata.get()));
+        if (metadata_constraint.get() != current_metadata.get()) {
+          TENSORSTORE_RETURN_IF_ERROR(cache->ValidateMetadataCompatibility(
+              metadata_constraint.get(), current_metadata.get()));
+        }
         Box<dynamic_rank(kMaxRank)> bounds(parameters.new_inclusive_min.size());
         DimensionSet implicit_lower_bounds;
         DimensionSet implicit_upper_bounds;
@@ -461,15 +525,15 @@ Future<const void> RequestResize(ChunkedDataCacheBase* cache,
 }
 
 struct ResizeContinuation {
-  ChunkedDataCacheBase::Ptr cache;
+  internal::IntrusivePtr<KvsMetadataDriverBase> driver;
   internal::OpenTransactionPtr transaction;
   size_t component_index;
   IndexTransform<> transform;
   Result<IndexTransform<>> GetResult() {
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto new_metadata,
-        ValidateNewMetadata(cache.get(), std::move(transaction)));
-    return ResolveBoundsFromMetadata(cache.get(), new_metadata.get(),
+        ValidateNewMetadata(*driver, std::move(transaction)));
+    return ResolveBoundsFromMetadata(driver->cache(), new_metadata.get(),
                                      component_index, std::move(transform),
                                      /*options=*/{});
   }
@@ -480,6 +544,7 @@ struct ResizeContinuation {
 };
 
 struct ResizeState {
+  internal::IntrusivePtr<KvsChunkedDriverBase> driver;
   ChunkedDataCacheBase::Ptr cache;
   internal::OpenTransactionPtr transaction;
   std::size_t component_index;
@@ -491,8 +556,8 @@ void SubmitResizeRequest(Promise<IndexTransform<>> promise, ResizeState state) {
   auto* cache_ptr = state.cache.get();
   LinkValue(
       WithExecutor(cache_ptr->executor(),
-                   ResizeContinuation{std::move(state.cache), state.transaction,
-                                      state.component_index,
+                   ResizeContinuation{std::move(state.driver),
+                                      state.transaction, state.component_index,
                                       std::move(state.transform)}),
       std::move(promise),
       RequestResize(cache_ptr, state.transaction,
@@ -543,8 +608,7 @@ struct ResolveBoundsForDeleteAndResizeContinuation {
   std::unique_ptr<ResizeState> state;
   void operator()(Promise<IndexTransform<>> promise, ReadyFuture<const void>) {
     std::shared_ptr<const void> new_metadata;
-    if (auto result =
-            ValidateNewMetadata(state->cache.get(), state->transaction);
+    if (auto result = ValidateNewMetadata(*state->driver, state->transaction);
         result.ok()) {
       new_metadata = std::move(*result);
     } else {
@@ -599,6 +663,10 @@ Future<IndexTransform<>> KvsChunkedDriverBase::Resize(
     internal::OpenTransactionPtr transaction, IndexTransform<> transform,
     span<const Index> inclusive_min, span<const Index> exclusive_max,
     ResizeOptions options) {
+  if (assumed_metadata_time_ == absl::InfiniteFuture()) {
+    return absl::InvalidArgumentError(
+        "Resize not supported because assume_metadata was specified");
+  }
   auto* cache = this->cache();
   auto resize_parameters = GetResizeParameters(
       cache, cache->initial_metadata_.get(), component_index(), transform,
@@ -618,6 +686,7 @@ Future<IndexTransform<>> KvsChunkedDriverBase::Resize(
 
   auto pair = PromiseFuturePair<IndexTransform<>>::Make();
   ResizeState resize_state{
+      /*.driver=*/internal::IntrusivePtr<KvsChunkedDriverBase>(this),
       /*.cache=*/ChunkedDataCacheBase::Ptr(cache),
       /*.transaction=*/std::move(transaction),
       /*.component_index=*/component_index(),
@@ -653,6 +722,7 @@ Result<IndexTransform<>> KvsMetadataDriverBase::GetBoundSpecData(
   spec.delete_existing = false;
   spec.open = true;
   spec.create = false;
+  spec.assume_metadata = assumed_metadata_time_ == absl::InfiniteFuture();
   spec.staleness.metadata = this->metadata_staleness_bound();
   spec.staleness.data = this->data_staleness_bound();
   spec.schema.Set(RankConstraint{this->rank()}).IgnoreError();
@@ -660,7 +730,7 @@ Result<IndexTransform<>> KvsMetadataDriverBase::GetBoundSpecData(
 
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto validated_metadata,
-      ValidateNewMetadata(cache, std::move(transaction)));
+      ValidateNewMetadata(*this, std::move(transaction)));
   TENSORSTORE_RETURN_IF_ERROR(cache->GetBoundSpecData(
       spec, validated_metadata.get(), this->component_index()));
 
@@ -778,7 +848,8 @@ Result<internal::Driver::Handle> CreateTensorStoreFromMetadata(
       auto new_transform,
       GetInitialTransform(data_cache.get(), metadata.get(), component_index));
 
-  if (base.transaction_ && !base.spec_->assume_metadata) {
+  if (base.transaction_ &&
+      !(base.spec_->assume_metadata || base.spec_->assume_cached_metadata)) {
     // Add consistency check.
     data_cache->metadata_cache_entry_
         ->RequestAtomicUpdate(
@@ -811,8 +882,11 @@ Result<internal::Driver::Handle> CreateTensorStoreFromMetadata(
       state->AllocateDriver(std::move(initializer)), read_write_mode);
   driver->metadata_staleness_bound_ =
       base.spec_->staleness.metadata.BoundAtOpen(base.request_time_);
-  if (base.spec_->assume_metadata) {
-    driver->assume_metadata_time_ = base.request_time_;
+  if (base.spec_->assume_metadata || base.spec_->assume_cached_metadata) {
+    driver->assumed_metadata_ = metadata;
+    driver->assumed_metadata_time_ = base.spec_->assume_cached_metadata
+                                         ? base.request_time_
+                                         : absl::InfiniteFuture();
   }
   return internal::Driver::Handle{
       std::move(driver), std::move(new_transform),
@@ -909,7 +983,7 @@ struct GetMetadataForOpen {
     auto& base = *(PrivateOpenState*)state.get();  // Cast to private base
     auto state_ptr = state.get();
     if (base.spec_->open) {
-      if (base.spec_->assume_metadata) {
+      if (base.spec_->assume_metadata || base.spec_->assume_cached_metadata) {
         TENSORSTORE_ASSIGN_OR_RETURN(auto metadata, state->Create(nullptr),
                                      static_cast<void>(promise.SetResult(_)));
         promise.SetResult(

@@ -33,17 +33,21 @@ struct OpenModeSpec {
   bool create = false;
   bool delete_existing = false;
   bool assume_metadata = false;
+  bool assume_cached_metadata = false;
 
   OpenMode open_mode() const {
     return (open ? OpenMode::open : OpenMode{}) |
            (create ? OpenMode::create : OpenMode{}) |
            (delete_existing ? OpenMode::delete_existing : OpenMode{}) |
-           (assume_metadata ? OpenMode::assume_metadata : OpenMode{});
+           (assume_metadata ? OpenMode::assume_metadata : OpenMode{}) |
+           (assume_cached_metadata ? OpenMode::assume_cached_metadata
+                                   : OpenMode{});
   }
 
   // For compatibility with `ContextBindingTraits`.
   static constexpr auto ApplyMembers = [](auto& x, auto f) {
-    return f(x.open, x.create, x.delete_existing, x.assume_metadata);
+    return f(x.open, x.create, x.delete_existing, x.assume_metadata,
+             x.assume_cached_metadata);
   };
 
   /// Applies the specified options.

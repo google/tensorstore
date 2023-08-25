@@ -3078,12 +3078,49 @@ TEST(DriverTest, AssumeMetadataSpecRoundtrip) {
   });
 }
 
+TEST(DriverTest, AssumeCachedMetadataSpecRoundtrip) {
+  tensorstore::TestJsonBinderRoundTripJsonOnly<tensorstore::Spec>({
+      {
+          {"driver", "zarr"},
+          {"dtype", "int32"},
+          {"assume_cached_metadata", true},
+      },
+  });
+
+  tensorstore::TestJsonBinderRoundTripJsonOnlyInexact<tensorstore::Spec>({{
+      {
+          {"driver", "zarr"},
+          {"dtype", "int32"},
+          {"assume_cached_metadata", true},
+          {"assume_metadata", true},
+      },
+      {
+          {"driver", "zarr"},
+          {"dtype", "int32"},
+          {"assume_metadata", true},
+      },
+  }});
+}
+
 TEST(DriverTest, MissingKvstore) {
   tensorstore::TestJsonBinderRoundTripJsonOnly<tensorstore::Spec>({
       {
           {"driver", "zarr"},
       },
   });
+}
+
+TEST(DriverTest, AssumeMetadataTakesPrecedence) {
+  ::nlohmann::json json_spec = GetJsonSpec();
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
+                                   tensorstore::Spec::FromJson(json_spec));
+  TENSORSTORE_EXPECT_OK(spec.Set(
+      tensorstore::OpenMode::open | tensorstore::OpenMode::assume_metadata |
+      tensorstore::OpenMode::assume_cached_metadata));
+  EXPECT_EQ(
+      tensorstore::OpenMode::open | tensorstore::OpenMode::assume_metadata,
+      spec.open_mode());
 }
 
 TEST(DriverTest, AssumeMetadata) {
@@ -3137,15 +3174,154 @@ TEST(DriverTest, AssumeMetadata) {
 
   EXPECT_THAT(store.domain().shape(), ::testing::ElementsAre(100, 100));
 
+  // Getting spec succeeds.
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto obtained_spec, store.spec());
+    EXPECT_EQ(
+        tensorstore::OpenMode::open | tensorstore::OpenMode::assume_metadata,
+        obtained_spec.open_mode());
+  }
+
   // Resizing fails.
   EXPECT_THAT(tensorstore::Resize(store, {{kImplicit, kImplicit}}, {{100, 200}})
                   .result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition));
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            "Resize not supported .*"));
 
   // ResolveBounds still succeeds (negative cache entry ignored).
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(store,
                                    tensorstore::ResolveBounds(store).result());
   EXPECT_THAT(store.domain().shape(), ::testing::ElementsAre(100, 100));
+
+  {
+    auto new_json_spec = json_spec;
+    new_json_spec["metadata"]["shape"] = {100, 200};
+    TENSORSTORE_EXPECT_OK(
+        tensorstore::Open(new_json_spec, context, tensorstore::OpenMode::create,
+                          tensorstore::ReadWriteMode::read_write));
+  }
+
+  TENSORSTORE_ASSERT_OK(kvstore::Delete(kvs, ".zarray"));
+
+  // ResolveBounds does not pick up new cached shape.
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(store,
+                                   tensorstore::ResolveBounds(store).result());
+  EXPECT_THAT(store.domain().shape(), ::testing::ElementsAre(100, 100));
+
+  {
+    tensorstore::Transaction transaction(
+        tensorstore::TransactionMode::isolated);
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto txn_store,
+        tensorstore::ResolveBounds(store | transaction).result());
+    EXPECT_THAT(txn_store.domain().shape(), ::testing::ElementsAre(100, 100));
+
+    auto new_json_spec = json_spec;
+    new_json_spec["metadata"]["shape"] = {100, 300};
+    TENSORSTORE_EXPECT_OK(tensorstore::Open(
+        new_json_spec, context, transaction, tensorstore::OpenMode::create,
+        tensorstore::ReadWriteMode::read_write));
+
+    // ResolveBounds does not pick up new cached shape for transaction.
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        txn_store, tensorstore::ResolveBounds(txn_store).result());
+    EXPECT_THAT(txn_store.domain().shape(), ::testing::ElementsAre(100, 100));
+  }
+}
+
+TEST(DriverTest, AssumeMetadataMismatch) {
+  ::nlohmann::json json_spec = GetJsonSpec();
+  auto context = Context::Default();
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::Open(json_spec, context,
+                                    tensorstore::OpenMode::open |
+                                        tensorstore::OpenMode::assume_metadata,
+                                    tensorstore::RecheckCachedMetadata{true},
+                                    tensorstore::ReadWriteMode::read_write)
+                      .result());
+
+  // Write metadata with different chunk shape.
+  {
+    auto new_json_spec = json_spec;
+    new_json_spec["metadata"]["chunks"] = {3, 3};
+
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store2,
+        tensorstore::Open(new_json_spec, context, tensorstore::OpenMode::create,
+                          tensorstore::ReadWriteMode::read_write)
+            .result());
+  }
+
+  TENSORSTORE_EXPECT_OK(tensorstore::ResolveBounds(store).result());
+}
+
+TEST(DriverTest, AssumeCachedMetadata) {
+  ::nlohmann::json json_spec = GetJsonSpec();
+  auto context = Context::Default();
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(json_spec, context,
+                        tensorstore::OpenMode::open |
+                            tensorstore::OpenMode::assume_cached_metadata,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  auto kvs = store.kvstore();
+  ASSERT_TRUE(kvs.valid());
+
+  EXPECT_THAT(GetMap(kvs), ::testing::Optional(::testing::ElementsAre()));
+
+  // Issue a read to be filled with the fill value.
+  EXPECT_THAT(
+      tensorstore::Read<tensorstore::zero_origin>(
+          store | tensorstore::AllDims().TranslateSizedInterval({9, 7}, {1, 1}))
+          .result(),
+      ::testing::Optional(tensorstore::MakeArray<std::int16_t>({{0}})));
+
+  // Issue a valid write.
+  TENSORSTORE_EXPECT_OK(tensorstore::Write(
+      tensorstore::MakeArray<std::int16_t>({{1, 2, 3}, {4, 5, 6}}),
+      store | tensorstore::AllDims().TranslateSizedInterval({9, 8}, {2, 3})));
+
+  // Check that key value store has expected contents.
+  EXPECT_THAT(GetMap(kvs),
+              ::testing::Optional(UnorderedElementsAreArray({
+                  Pair("3.4",           //
+                       DecodedMatches(  //
+                           Bytes({1, 0, 2, 0, 4, 0, 5, 0, 0, 0, 0, 0}),
+                           tensorstore::blosc::Decode)),
+                  Pair("3.5",           //
+                       DecodedMatches(  //
+                           Bytes({3, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0}),
+                           tensorstore::blosc::Decode)),
+              })));
+
+  // Re-read and validate result.
+  EXPECT_THAT(
+      tensorstore::Read<tensorstore::zero_origin>(
+          store | tensorstore::AllDims().TranslateSizedInterval({9, 7}, {3, 5}))
+          .result(),
+      ::testing::Optional(tensorstore::MakeArray<std::int16_t>(
+          {{0, 1, 2, 3, 0}, {0, 4, 5, 6, 0}, {0, 0, 0, 0, 0}})));
+
+  EXPECT_THAT(store.domain().shape(), ::testing::ElementsAre(100, 100));
+
+  // Getting spec succeeds.
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto obtained_spec, store.spec());
+    EXPECT_EQ(tensorstore::OpenMode::open, obtained_spec.open_mode());
+  }
+
+  // Resizing fails due to missing metadata.
+  EXPECT_THAT(tensorstore::Resize(store, {{kImplicit, kImplicit}}, {{100, 200}})
+                  .result(),
+              MatchesStatus(absl::StatusCode::kFailedPrecondition));
+
+  // ResolveBounds fails due to negative cache entry.
+  EXPECT_THAT(tensorstore::ResolveBounds(store).result(),
+              MatchesStatus(absl::StatusCode::kFailedPrecondition));
 
   {
     auto new_json_spec = json_spec;
@@ -3183,17 +3359,18 @@ TEST(DriverTest, AssumeMetadata) {
   }
 }
 
-TEST(DriverTest, AssumeMetadataMismatch) {
+TEST(DriverTest, AssumeCachedMetadataMismatch) {
   ::nlohmann::json json_spec = GetJsonSpec();
   auto context = Context::Default();
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store, tensorstore::Open(json_spec, context,
-                                    tensorstore::OpenMode::open |
-                                        tensorstore::OpenMode::assume_metadata,
-                                    tensorstore::RecheckCachedMetadata{true},
-                                    tensorstore::ReadWriteMode::read_write)
-                      .result());
+      auto store,
+      tensorstore::Open(json_spec, context,
+                        tensorstore::OpenMode::open |
+                            tensorstore::OpenMode::assume_cached_metadata,
+                        tensorstore::RecheckCachedMetadata{true},
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
 
   // Write metadata with different chunk shape.
   {

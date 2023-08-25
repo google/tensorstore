@@ -230,6 +230,7 @@ class MetadataCache
    public:
     using OwningCache = MetadataCache;
     using MetadataCache::Base::TransactionNode::TransactionNode;
+
     /// Returns the metadata after applying all requested updates.
     ///
     /// Returns an error if any updates cannot be applied.
@@ -565,9 +566,14 @@ class KvsMetadataDriverBase : public internal::Driver {
 
   StalenessBound metadata_staleness_bound_;
 
-  /// Set to the open time if `OpenMode::assume_metadata` was specified.
-  /// Otherwise, set to `absl::InfinitePast()`.
-  absl::Time assume_metadata_time_ = absl::InfinitePast();
+  /// If `OpenMode::assume_metadata` or `OpenMode::assume_cached_metadata` was
+  /// specified, set to the assumed metadata.  Otherwise, set to `nullptr`.
+  std::shared_ptr<const void> assumed_metadata_;
+
+  /// If `OpenMode::assume_cached_metadata` was specified, set to the time of
+  /// the open request.  If `OpenMode::assume_metadata` was specified, set to
+  /// `absl::InfiniteFuture()`.  Otherwise, set to `absl::InfinitePast()`.
+  absl::Time assumed_metadata_time_ = absl::InfinitePast();
 };
 
 /// Abstract driver base class for use with `ChunkedDataCacheBase`.
