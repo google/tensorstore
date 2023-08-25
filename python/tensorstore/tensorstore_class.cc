@@ -2250,6 +2250,12 @@ Group:
 )",
       py::kw_only(), py::arg("query_not_stored") = false,
       py::arg("query_fully_stored") = false);
+
+  // TensorStore<> objects are immutable, therefore copying serves no purpose.
+  cls.def("__copy__", [](py::object self) { return self; });
+
+  // Note: deepcopy relies on the default implementation defined in terms of
+  // pickling.
 }
 
 void DefineTensorStoreFunctions(py::module m) {

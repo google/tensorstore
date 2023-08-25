@@ -13,7 +13,9 @@
 # limitations under the License.
 """Tests for tensorstore.KvStore."""
 
+import copy
 import pickle
+import tempfile
 
 import pytest
 import tensorstore as ts
@@ -34,3 +36,42 @@ def test_spec_pickle():
 def test_pickle():
   kv = ts.KvStore.open('memory://').result()
   assert pickle.loads(pickle.dumps(kv)).url == 'memory://'
+
+
+def test_copy():
+  with tempfile.TemporaryDirectory() as dir_path:
+    spec = {
+        'driver': 'file',
+        'path': dir_path,
+    }
+    t1 = ts.KvStore.open(spec).result()
+
+    t2 = copy.copy(t1)
+
+    assert t1 is not t2
+
+    t3 = copy.deepcopy(t1)
+
+    t1['abc'] = b'def'
+    assert t1['abc'] == b'def'
+    assert t2['abc'] == b'def'
+    assert t3['abc'] == b'def'
+
+
+def test_copy_memory():
+  spec = {
+      'driver': 'memory',
+  }
+  t1 = ts.KvStore.open(spec).result()
+
+  t2 = copy.copy(t1)
+
+  assert t1 is not t2
+
+  t3 = copy.deepcopy(t1)
+
+  t1['abc'] = b'def'
+  assert t1['abc'] == b'def'
+  assert t2['abc'] == b'def'
+  with pytest.raises(KeyError):
+    t3['abc']  # pylint: disable=pointless-statement

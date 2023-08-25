@@ -957,10 +957,6 @@ Group:
 
   cls.def("__copy__", [](Self& self) { return self.value; });
 
-  cls.def(
-      "__deepcopy__", [](Self& self, py::dict memo) { return self.value; },
-      py::arg("memo"));
-
   EnableGarbageCollectedObjectPicklingFromSerialization(cls);
 }
 
