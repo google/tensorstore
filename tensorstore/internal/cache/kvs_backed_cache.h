@@ -104,6 +104,10 @@ class KvsBackedCache : public Parent {
       return std::string{this->key()};
     }
 
+    virtual OptionalByteRangeRequest GetByteRange() {
+      return OptionalByteRangeRequest();
+    }
+
     template <typename EntryOrNode>
     struct DecodeReceiverImpl {
       EntryOrNode* self_;
@@ -164,6 +168,7 @@ class KvsBackedCache : public Parent {
       options.staleness_bound = staleness_bound;
       auto read_state = AsyncCache::ReadLock<void>(*this).read_state();
       options.if_not_equal = std::move(read_state.stamp.generation);
+      options.byte_range = this->GetByteRange();
       auto& cache = GetOwningCache(*this);
       auto future = cache.kvstore_driver_->Read(this->GetKeyValueStoreKey(),
                                                 std::move(options));
