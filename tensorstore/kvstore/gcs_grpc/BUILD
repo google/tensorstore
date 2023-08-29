@@ -144,8 +144,9 @@ tensorstore_cc_test(
         "//tensorstore/kvstore/gcs:gcs_testbench",
         "//tensorstore/util:future",
         "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/time",
+        "@com_google_absl//absl/strings:cord",
         "@com_google_googletest//:gtest_main",
     ],
 )

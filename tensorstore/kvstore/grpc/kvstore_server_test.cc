@@ -14,7 +14,6 @@
 
 #include "tensorstore/kvstore/grpc/kvstore_server.h"
 
-#include <memory>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -23,6 +22,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/strings/cord.h"
+#include "absl/synchronization/notification.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/kvstore/driver.h"
@@ -38,6 +38,7 @@
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -76,7 +77,7 @@ class KvStoreTest : public testing::Test {
 
 TEST_F(KvStoreTest, Basic) {
   auto store = OpenStore();
-  tensorstore::internal::TestKeyValueStoreBasicFunctionality(store);
+  tensorstore::internal::TestKeyValueReadWriteOps(store);
 }
 
 TEST_F(KvStoreTest, DeleteRange) {

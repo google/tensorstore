@@ -14,16 +14,24 @@
 
 #include "tensorstore/kvstore/driver.h"
 
+#include <memory>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include "absl/strings/cord.h"
+#include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
+#include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/queue_testutil.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
+#include "tensorstore/kvstore/read_result.h"
+#include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/util/status_testutil.h"
 

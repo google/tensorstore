@@ -15,24 +15,21 @@
 #include "tensorstore/kvstore/memory/memory_key_value_store.h"
 
 #include <string>
-#include <utility>
-#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/internal/cache_key/cache_key.h"
 #include "tensorstore/internal/json_gtest.h"
-#include "tensorstore/kvstore/driver.h"
-#include "tensorstore/kvstore/key_range.h"
+#include "tensorstore/json_serialization_options_base.h"
+#include "tensorstore/kvstore/kvstore.h"
+#include "tensorstore/kvstore/operations.h"
+#include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/test_util.h"
-#include "tensorstore/serialization/serialization.h"
 #include "tensorstore/serialization/test_util.h"
-#include "tensorstore/util/execution/execution.h"
-#include "tensorstore/util/execution/sender.h"
-#include "tensorstore/util/execution/sender_testutil.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/status_testutil.h"
 
@@ -40,7 +37,6 @@ namespace {
 
 namespace kvstore = tensorstore::kvstore;
 using ::tensorstore::Context;
-using ::tensorstore::KeyRange;
 using ::tensorstore::KvStore;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
@@ -50,7 +46,7 @@ using ::tensorstore::serialization::SerializationRoundTrip;
 
 TEST(MemoryKeyValueStoreTest, Basic) {
   auto store = tensorstore::GetMemoryKeyValueStore();
-  tensorstore::internal::TestKeyValueStoreBasicFunctionality(store);
+  tensorstore::internal::TestKeyValueReadWriteOps(store);
 }
 
 TEST(MemoryKeyValueStoreTest, DeletePrefix) {

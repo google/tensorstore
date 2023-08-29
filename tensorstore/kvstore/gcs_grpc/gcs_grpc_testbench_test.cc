@@ -12,12 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <stddef.h>
+
+#include <cstring>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include <gtest/gtest.h>
+#include "absl/log/absl_log.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
-#include "absl/time/time.h"
 #include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/internal/thread.h"
 #include "tensorstore/kvstore/gcs/gcs_testbench.h"
@@ -29,6 +34,7 @@
 #include "tensorstore/util/status_testutil.h"
 
 namespace kvstore = ::tensorstore::kvstore;
+
 using ::gcs_testbench::StorageTestbench;
 using ::tensorstore::KvStore;
 using ::tensorstore::StorageGeneration;
@@ -60,7 +66,7 @@ class GcsGrpcTestbenchTest : public testing::Test {
 
 TEST_F(GcsGrpcTestbenchTest, Basic) {
   auto store = OpenStore();
-  tensorstore::internal::TestKeyValueStoreBasicFunctionality(store);
+  tensorstore::internal::TestKeyValueReadWriteOps(store);
 }
 
 TEST_F(GcsGrpcTestbenchTest, DeletePrefix) {

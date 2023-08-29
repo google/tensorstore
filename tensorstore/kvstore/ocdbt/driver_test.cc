@@ -22,10 +22,10 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/strings/cord.h"
+#include "tensorstore/context.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/internal/json_gtest.h"
-#include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/test_util.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/key_range.h"
@@ -40,18 +40,18 @@
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/spec.h"
+#include "tensorstore/kvstore/supported_features.h"
 #include "tensorstore/kvstore/test_util.h"
+#include "tensorstore/transaction.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
 namespace kvstore = ::tensorstore::kvstore;
 using ::tensorstore::Context;
 using ::tensorstore::KeyRange;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::internal::GetMap;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
 using ::tensorstore::internal::MockKeyValueStore;
@@ -255,7 +255,7 @@ TENSORSTORE_GLOBAL_INITIALIZER {
                                           {"base", "memory://"},
                                           {"config", config.ToJson().value()}})
                   .result());
-          tensorstore::internal::TestKeyValueStoreBasicFunctionality(store);
+          tensorstore::internal::TestKeyValueReadWriteOps(store);
         });
   };
   for (const auto max_decoded_node_bytes : {0, 1, 1048576}) {

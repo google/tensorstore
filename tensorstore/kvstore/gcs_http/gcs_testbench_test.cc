@@ -14,13 +14,17 @@
 
 #include "tensorstore/kvstore/gcs/gcs_testbench.h"
 
-#include <optional>
+#include <stddef.h>
+
+#include <cstring>
 #include <string>
+#include <vector>
 
 #include <gtest/gtest.h>
+#include "absl/log/absl_log.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "tensorstore/internal/env.h"
-#include "tensorstore/internal/http/transport_test_utils.h"
 #include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/internal/thread.h"
 #include "tensorstore/kvstore/generation.h"
@@ -32,6 +36,7 @@
 #include "tensorstore/util/status_testutil.h"
 
 namespace kvstore = ::tensorstore::kvstore;
+
 using ::gcs_testbench::StorageTestbench;
 using ::tensorstore::KvStore;
 using ::tensorstore::StorageGeneration;
@@ -66,7 +71,7 @@ class GcsTestbenchTest : public testing::Test {
 
 TEST_F(GcsTestbenchTest, Basic) {
   auto store = OpenStore();
-  tensorstore::internal::TestKeyValueStoreBasicFunctionality(store);
+  tensorstore::internal::TestKeyValueReadWriteOps(store);
 }
 
 TEST_F(GcsTestbenchTest, DeletePrefix) {

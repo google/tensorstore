@@ -13,14 +13,12 @@
 // limitations under the License.
 
 #include <errno.h>
+#include <stddef.h>
 
-#include <cstddef>
 #include <cstring>
 #include <fstream>
 #include <string>
-#include <tuple>
 #include <type_traits>
-#include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
@@ -71,7 +69,7 @@ TEST(FileKeyValueStoreTest, Basic) {
   tensorstore::internal::ScopedTemporaryDirectory tempdir;
   std::string root = tempdir.path() + "/root";
   auto store = GetStore(root);
-  tensorstore::internal::TestKeyValueStoreBasicFunctionality(store);
+  tensorstore::internal::TestKeyValueReadWriteOps(store);
 }
 
 TEST(FileKeyValueStoreTest, InvalidKey) {
@@ -196,7 +194,7 @@ TEST(FileKeyValueStoreTest, NestedDirectories) {
 }
 
 TEST(FileKeyValueStoreTest, ConcurrentWrites) {
-  constexpr std::size_t num_threads = 4;
+  constexpr size_t num_threads = 4;
   std::vector<tensorstore::internal::Thread> threads;
   threads.reserve(num_threads);
 
@@ -205,24 +203,24 @@ TEST(FileKeyValueStoreTest, ConcurrentWrites) {
   auto store = GetStore(root);
   std::string key = "test";
   std::string initial_value;
-  initial_value.resize(sizeof(std::size_t) * num_threads);
+  initial_value.resize(sizeof(size_t) * num_threads);
   auto initial_generation =
       kvstore::Write(store, key, absl::Cord(initial_value)).value().generation;
-  constexpr std::size_t num_iterations = 100;
-  for (std::size_t thread_i = 0; thread_i < num_threads; ++thread_i) {
+  constexpr size_t num_iterations = 100;
+  for (size_t thread_i = 0; thread_i < num_threads; ++thread_i) {
     threads.emplace_back(
         tensorstore::internal::Thread({"concurrent_write"}, [&, thread_i] {
           StorageGeneration generation = initial_generation;
           std::string value = initial_value;
-          for (std::size_t i = 0; i < num_iterations; ++i) {
-            const std::size_t value_offset = sizeof(std::size_t) * thread_i;
+          for (size_t i = 0; i < num_iterations; ++i) {
+            const size_t value_offset = sizeof(size_t) * thread_i;
             while (true) {
-              std::size_t x;
-              std::memcpy(&x, &value[value_offset], sizeof(std::size_t));
+              size_t x;
+              std::memcpy(&x, &value[value_offset], sizeof(size_t));
               ASSERT_EQ(i, x);
               std::string new_value = value;
               x = i + 1;
-              std::memcpy(&new_value[value_offset], &x, sizeof(std::size_t));
+              std::memcpy(&new_value[value_offset], &x, sizeof(size_t));
               TENSORSTORE_ASSERT_OK_AND_ASSIGN(
                   auto write_result,
                   kvstore::Write(store, key, absl::Cord(new_value),
@@ -237,7 +235,7 @@ TEST(FileKeyValueStoreTest, ConcurrentWrites) {
                   auto read_result, kvstore::Read(store, key).result());
               ASSERT_FALSE(read_result.aborted() || read_result.not_found());
               value = std::string(read_result.value);
-              ASSERT_EQ(sizeof(std::size_t) * num_threads, value.size());
+              ASSERT_EQ(sizeof(size_t) * num_threads, value.size());
               generation = read_result.stamp.generation;
             }
           }
@@ -248,9 +246,9 @@ TEST(FileKeyValueStoreTest, ConcurrentWrites) {
     auto read_result = kvstore::Read(store, key).result();
     ASSERT_TRUE(read_result);
     std::string expected_value;
-    expected_value.resize(sizeof(std::size_t) * num_threads);
+    expected_value.resize(sizeof(size_t) * num_threads);
     {
-      std::vector<std::size_t> expected_nums(num_threads, num_iterations);
+      std::vector<size_t> expected_nums(num_threads, num_iterations);
       std::memcpy(const_cast<char*>(expected_value.data()),
                   expected_nums.data(), expected_value.size());
     }
@@ -433,7 +431,8 @@ TEST(FileKeyValueStoreTest, UrlOpen) {
   std::string root = tempdir.path() + "/root";
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
                                    kvstore::Open("file://" + root).result());
-  tensorstore::internal::TestKeyValueStoreBasicFunctionality(store);
+
+  tensorstore::internal::TestKeyValueReadWriteOps(store);
 }
 
 TEST(FileKeyValueStoreTest, InvalidUri) {

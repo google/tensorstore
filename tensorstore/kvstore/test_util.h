@@ -26,6 +26,7 @@
 #include "absl/strings/cord.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/json_fwd.h"
+#include "tensorstore/json_serialization_options.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/generation_testutil.h"
 #include "tensorstore/kvstore/kvstore.h"
@@ -35,6 +36,12 @@
 namespace tensorstore {
 namespace internal {
 
+/// Test read operations on `store`, where `key` is `expected_value`, and
+/// `missing_key` does not exist.
+void TestKeyValueStoreReadOps(const KvStore& store, std::string key,
+                              absl::Cord expected_value,
+                              std::string missing_key);
+
 /// Tests all operations on `store`, which should be empty.
 ///
 /// \param get_key Maps arbitrary strings (which are nonetheless valid file
@@ -43,14 +50,11 @@ namespace internal {
 ///     function.  This function must ensure that a given input key always maps
 ///     to the same output key, and distinct input keys always map to distinct
 ///     output keys.
-void TestKeyValueStoreBasicFunctionality(
+void TestKeyValueReadWriteOps(
     const KvStore& store,
     absl::FunctionRef<std::string(std::string key)> get_key);
 
-inline void TestKeyValueStoreBasicFunctionality(const KvStore& store) {
-  return TestKeyValueStoreBasicFunctionality(
-      store, [](std::string key) { return key; });
-}
+void TestKeyValueReadWriteOps(const KvStore& store);
 
 /// Tests DeleteRange on `store`, which should be empty.
 void TestKeyValueStoreDeleteRange(const KvStore& store);
@@ -84,6 +88,7 @@ struct KeyValueStoreSpecRoundtripOptions {
   ::nlohmann::json minimal_spec = ::nlohmann::json::value_t::discarded;
   kvstore::SpecRequestOptions spec_request_options;
   JsonSerializationOptions json_serialization_options;
+
   // Checks reading and writing.
   bool check_write_read = true;
 

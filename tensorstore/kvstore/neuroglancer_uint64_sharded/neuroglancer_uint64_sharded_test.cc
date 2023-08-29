@@ -14,13 +14,27 @@
 
 #include "tensorstore/kvstore/neuroglancer_uint64_sharded/neuroglancer_uint64_sharded.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <functional>
+#include <initializer_list>
+#include <map>
+#include <memory>
+#include <string>
+#include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/container/flat_hash_map.h"
 #include "absl/random/random.h"
+#include "absl/status/status.h"
+#include "absl/strings/cord.h"
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
+#include <nlohmann/json.hpp>
+#include "tensorstore/context.h"
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache/kvs_backed_cache_testutil.h"
 #include "tensorstore/internal/compression/zlib.h"
@@ -28,13 +42,20 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/test_util.h"
 #include "tensorstore/internal/thread_pool.h"
+#include "tensorstore/kvstore/byte_range.h"
+#include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/generation_testutil.h"
+#include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/memory/memory_key_value_store.h"
 #include "tensorstore/kvstore/mock_kvstore.h"
+#include "tensorstore/kvstore/neuroglancer_uint64_sharded/uint64_sharded.h"
+#include "tensorstore/kvstore/operations.h"
+#include "tensorstore/kvstore/read_result.h"
+#include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/test_util.h"
+#include "tensorstore/transaction.h"
 #include "tensorstore/util/executor.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -68,9 +89,7 @@ absl::Cord Bytes(std::initializer_list<unsigned char> x) {
   return absl::Cord(std::string(x.begin(), x.end()));
 }
 
-std::string GetChunkKey(std::uint64_t chunk_id) {
-  return ChunkIdToKey({chunk_id});
-}
+std::string GetChunkKey(uint64_t chunk_id) { return ChunkIdToKey({chunk_id}); }
 
 class GetUint64Key {
  public:
@@ -82,8 +101,7 @@ class GetUint64Key {
     auto it = key_to_uint64_.find(key);
     if (it == key_to_uint64_.end()) {
       while (true) {
-        auto x =
-            sequential_ ? next_chunk_id_++ : absl::Uniform<std::uint64_t>(gen_);
+        auto x = sequential_ ? next_chunk_id_++ : absl::Uniform<uint64_t>(gen_);
         if (uint64_to_key_.emplace(x, key).second) {
           it = key_to_uint64_.emplace(key, x).first;
           break;
@@ -95,10 +113,10 @@ class GetUint64Key {
 
  private:
   bool sequential_;
-  mutable std::uint64_t next_chunk_id_ = 0;
+  mutable uint64_t next_chunk_id_ = 0;
   mutable absl::BitGen gen_;
-  mutable absl::flat_hash_map<std::string, std::uint64_t> key_to_uint64_;
-  mutable absl::flat_hash_map<std::uint64_t, std::string> uint64_to_key_;
+  mutable absl::flat_hash_map<std::string, uint64_t> key_to_uint64_;
+  mutable absl::flat_hash_map<uint64_t, std::string> uint64_to_key_;
 };
 
 TEST(Uint64ShardedKeyValueStoreTest, BasicFunctionality) {
@@ -137,8 +155,9 @@ TEST(Uint64ShardedKeyValueStoreTest, BasicFunctionality) {
                   base_kv_store, executor, "prefix", sharding_spec,
                   CachePool::WeakPtr(cache_pool));
               GetUint64Key get_key_fn(sequential_ids);
-              tensorstore::internal::TestKeyValueStoreBasicFunctionality(
-                  store, get_key_fn);
+
+              tensorstore::internal::TestKeyValueReadWriteOps(store,
+                                                              get_key_fn);
             }
           }
         }
@@ -164,7 +183,7 @@ TEST(Uint64ShardedKeyValueStoreTest, DescribeKey) {
       base_kv_store, tensorstore::InlineExecutor{}, "prefix", sharding_spec,
       CachePool::WeakPtr(cache_pool));
   for (const auto& [key, description] :
-       std::vector<std::pair<std::uint64_t, std::string>>{
+       std::vector<std::pair<uint64_t, std::string>>{
            {0, "chunk 0 in minishard 0 in \"prefix/0.shard\""},
            {1, "chunk 1 in minishard 1 in \"prefix/0.shard\""},
            {2, "chunk 2 in minishard 0 in \"prefix/1.shard\""},
@@ -1159,8 +1178,9 @@ TEST_F(UnderlyingKeyValueStoreTest, WriteWithNoExistingShard) {
     // we only write 1 chunk, which is not equal to the maximum of 2.
     if (with_max_chunks) {
       store = GetStore(
-          /*get_max_chunks_per_shard=*/[](std::uint64_t shard)
-                                           -> std::uint64_t { return 2; });
+          /*get_max_chunks_per_shard=*/[](uint64_t shard) -> uint64_t {
+            return 2;
+          });
     } else {
       store = GetStore();
     }
@@ -1206,7 +1226,7 @@ TEST_F(UnderlyingKeyValueStoreTest, WriteWithNoExistingShard) {
 
 TEST_F(UnderlyingKeyValueStoreTest, UnconditionalWrite) {
   store = GetStore(
-      /*get_max_chunks_per_shard=*/[](std::uint64_t shard) -> std::uint64_t {
+      /*get_max_chunks_per_shard=*/[](uint64_t shard) -> uint64_t {
         return 2;
       });
   auto future1 = store->Write(GetChunkKey(0x50), Bytes({1, 2, 3}));
@@ -1254,7 +1274,7 @@ TEST_F(UnderlyingKeyValueStoreTest, UnconditionalWrite) {
 
 TEST_F(UnderlyingKeyValueStoreTest, ConditionalWriteDespiteMaxChunks) {
   store = GetStore(
-      /*get_max_chunks_per_shard=*/[](std::uint64_t shard) -> std::uint64_t {
+      /*get_max_chunks_per_shard=*/[](uint64_t shard) -> uint64_t {
         return 1;
       });
   auto future = store->Write(GetChunkKey(0x50), Bytes({1, 2, 3}),
@@ -1361,8 +1381,9 @@ TEST_F(UnderlyingKeyValueStoreTest, WriteMaxChunksWithExistingShard) {
   for (const bool specify_max_chunks : {false, true}) {
     if (specify_max_chunks) {
       store = GetStore(
-          /*get_max_chunks_per_shard=*/[](std::uint64_t shard)
-                                           -> std::uint64_t { return 1; });
+          /*get_max_chunks_per_shard=*/[](uint64_t shard) -> uint64_t {
+            return 1;
+          });
     }
     auto future = store->Write(GetChunkKey(0x50), Bytes({1, 2, 3}));
 

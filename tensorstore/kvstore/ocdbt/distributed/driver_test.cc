@@ -14,6 +14,9 @@
 
 #include "tensorstore/kvstore/ocdbt/driver.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <cassert>
 #include <memory>
 #include <random>
@@ -28,12 +31,10 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_format.h"
-#include "absl/time/clock.h"
-#include "absl/time/time.h"
+#include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/test_util.h"
-#include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/ocdbt/distributed/coordinator_server.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
@@ -41,7 +42,6 @@
 #include "tensorstore/kvstore/ocdbt/format/version_tree.h"
 #include "tensorstore/kvstore/ocdbt/test_util.h"
 #include "tensorstore/kvstore/operations.h"
-#include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
@@ -124,7 +124,7 @@ TEST_F(DistributedTest, BasicFunctionality) {
       auto store, kvstore::Open({{"driver", "ocdbt"}, {"base", "memory://"}},
                                 Context(context_spec))
                       .result());
-  tensorstore::internal::TestKeyValueStoreBasicFunctionality(store);
+  tensorstore::internal::TestKeyValueReadWriteOps(store);
 }
 
 TEST_F(DistributedTest, BasicFunctionalityMinArity) {
@@ -135,7 +135,7 @@ TEST_F(DistributedTest, BasicFunctionalityMinArity) {
                                   {"config", {{"max_decoded_node_bytes", 1}}}},
                                  Context(context_spec))
           .result());
-  tensorstore::internal::TestKeyValueStoreBasicFunctionality(store);
+  tensorstore::internal::TestKeyValueReadWriteOps(store);
 }
 
 TEST_F(DistributedTest, BasicFunctionalityMinArityNoInline) {
@@ -150,7 +150,8 @@ TEST_F(DistributedTest, BasicFunctionalityMinArityNoInline) {
                                    }}},
                                  Context(context_spec))
           .result());
-  tensorstore::internal::TestKeyValueStoreBasicFunctionality(store);
+
+  tensorstore::internal::TestKeyValueReadWriteOps(store);
 }
 
 TEST_F(DistributedTest, TwoCooperators) {
