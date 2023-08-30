@@ -192,7 +192,6 @@ void InitializeNewEntry(CacheEntryImpl* entry, CacheImpl* cache) noexcept {
   entry->num_bytes_ = 0;
   entry->queue_state_ = CacheEntryQueueState::clean_and_in_use;
   pool->total_bytes_ += entry->num_bytes_;
-  MaybeEvictEntries(pool);
   Initialize(LruListAccessor{}, entry);
 }
 
@@ -414,8 +413,15 @@ PinnedCacheEntry<Cache> GetCacheEntryInternal(internal::Cache* cache,
           Access::StaticCast<CacheEntry>(entry_impl));
       // Add to entries table.  This may throw, in which case the entry will be
       // cleaned up by `EvictEntry`.
-      cache_impl->entries_.insert(entry_impl);
+      [[maybe_unused]] auto inserted =
+          cache_impl->entries_.insert(entry_impl).second;
+      assert(inserted);
       StrongPtrTraitsCache::increment(cache);
+      // Adding new entry to pool may have exceeded size limit.  Warning: This
+      // can temporarily release the lock on `cache_impl->pool_->mutex_`, and
+      // therefore must be done only after the entry has been inserted into
+      // `cache_impl->entries_`.
+      MaybeEvictEntries(cache_impl->pool_);
       returned_entry =
           PinnedCacheEntry<Cache>(entry.release(), internal::adopt_object_ref);
     }
