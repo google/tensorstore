@@ -14,17 +14,44 @@
 
 /// End-to-end tests of the n5 driver.
 
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include "absl/strings/cord.h"
+#include "tensorstore/array.h"
+#include "tensorstore/box.h"
+#include "tensorstore/chunk_layout.h"
+#include "tensorstore/codec_spec.h"
+#include "tensorstore/context.h"
+#include "tensorstore/contiguous_layout.h"
+#include "tensorstore/data_type.h"
 #include "tensorstore/driver/driver_testutil.h"
+#include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/internal/global_initializer.h"
+#include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/parse_json_matches.h"
+#include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/open.h"
+#include "tensorstore/open_mode.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/resize_options.h"
+#include "tensorstore/schema.h"
+#include "tensorstore/spec.h"
+#include "tensorstore/strided_layout.h"
+#include "tensorstore/tensorstore.h"
+#include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -140,8 +167,10 @@ TEST(N5DriverTest, Create) {
     EXPECT_THAT(store.domain().origin(), ::testing::ElementsAre(0, 0));
     EXPECT_THAT(store.domain().shape(), ::testing::ElementsAre(10, 11));
     EXPECT_THAT(store.domain().labels(), ::testing::ElementsAre("", ""));
-    EXPECT_THAT(store.domain().implicit_lower_bounds(), DimensionSet({0, 0}));
-    EXPECT_THAT(store.domain().implicit_upper_bounds(), DimensionSet({1, 1}));
+    EXPECT_THAT(store.domain().implicit_lower_bounds(),
+                DimensionSet::FromBools({0, 0}));
+    EXPECT_THAT(store.domain().implicit_upper_bounds(),
+                DimensionSet::FromBools({1, 1}));
 
     // Test ResolveBounds.
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto resolved,
@@ -157,9 +186,9 @@ TEST(N5DriverTest, Create) {
     EXPECT_THAT(reversed_dim0.domain().labels(),
                 ::testing::ElementsAre("", ""));
     EXPECT_THAT(reversed_dim0.domain().implicit_lower_bounds(),
-                DimensionSet({1, 0}));
+                DimensionSet::FromBools({1, 0}));
     EXPECT_THAT(reversed_dim0.domain().implicit_upper_bounds(),
-                DimensionSet({0, 1}));
+                DimensionSet::FromBools({0, 1}));
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto resolved_reversed_dim0,
                                      ResolveBounds(reversed_dim0).result());
     EXPECT_EQ(reversed_dim0.domain(), resolved_reversed_dim0.domain());

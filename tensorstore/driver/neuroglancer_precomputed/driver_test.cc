@@ -14,28 +14,57 @@
 
 /// End-to-end tests of the Neuroglancer precomputed driver.
 
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
+#include "absl/strings/cord.h"
+#include "absl/time/clock.h"
 #include "riegeli/bytes/cord_writer.h"
+#include "tensorstore/array.h"
+#include "tensorstore/box.h"
+#include "tensorstore/chunk_layout.h"
+#include "tensorstore/context.h"
+#include "tensorstore/contiguous_layout.h"
+#include "tensorstore/data_type.h"
 #include "tensorstore/driver/driver_testutil.h"
+#include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_domain_builder.h"
-#include "tensorstore/index_space/index_transform_builder.h"
-#include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/image/image_info.h"
 #include "tensorstore/internal/image/jpeg_writer.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/parse_json_matches.h"
 #include "tensorstore/internal/test_util.h"
+#include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/mock_kvstore.h"
+#include "tensorstore/kvstore/operations.h"
+#include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/open.h"
+#include "tensorstore/open_mode.h"
+#include "tensorstore/schema.h"
 #include "tensorstore/serialization/test_util.h"
+#include "tensorstore/staleness_bound.h"
+#include "tensorstore/static_cast.h"
+#include "tensorstore/strided_layout.h"
+#include "tensorstore/tensorstore.h"
+#include "tensorstore/util/dimension_set.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
+#include "tensorstore/util/unit.h"
 
 namespace {
 
@@ -134,9 +163,9 @@ TEST(DriverTest, Create) {
     EXPECT_THAT(store.domain().labels(),
                 ::testing::ElementsAre("x", "y", "z", "channel"));
     EXPECT_THAT(store.domain().implicit_lower_bounds(),
-                DimensionSet({0, 0, 0, 0}));
+                DimensionSet::FromBools({0, 0, 0, 0}));
     EXPECT_THAT(store.domain().implicit_upper_bounds(),
-                DimensionSet({0, 0, 0, 0}));
+                DimensionSet::FromBools({0, 0, 0, 0}));
 
     // Test ResolveBounds.
     auto resolved = ResolveBounds(store).value();

@@ -160,6 +160,7 @@ tensorstore_cc_library(
     deps = [
         "//tensorstore/internal:attributes",
         "//tensorstore/internal:integer_types",
+        "@com_google_absl//absl/numeric:bits",
     ],
 )
 

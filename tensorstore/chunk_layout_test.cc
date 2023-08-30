@@ -14,7 +14,12 @@
 
 #include "tensorstore/chunk_layout.h"
 
+#include <algorithm>
+#include <array>
+#include <cstddef>
+#include <cstdlib>
 #include <random>
+#include <string>
 #include <vector>
 
 #include <gmock/gmock.h>
@@ -22,23 +27,28 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/random/bit_gen_ref.h"
 #include "absl/random/random.h"
-#include "tensorstore/array.h"
+#include "absl/status/status.h"
 #include "tensorstore/box.h"
-#include "tensorstore/index_interval.h"
+#include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/index_transform_testutil.h"
+#include "tensorstore/index_space/output_index_method.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/gtest.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/test_util.h"
+#include "tensorstore/json_serialization_options_base.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/serialization/test_util.h"
+#include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/division.h"
-#include "tensorstore/util/iterate_over_index_range.h"
-#include "tensorstore/util/result.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -1030,12 +1040,12 @@ TEST(ChunkLayoutTest, GridOrigin) {
   EXPECT_EQ(3, constraints.rank());
   EXPECT_THAT(constraints.grid_origin(),
               ::testing::ElementsAre(1, kImplicit, kImplicit));
-  EXPECT_EQ(0, constraints.grid_origin().hard_constraint.bits());
+  EXPECT_EQ(0, constraints.grid_origin().hard_constraint.to_uint());
   TENSORSTORE_ASSERT_OK(constraints.Set(
       ChunkLayout::GridOrigin({2, 3, kImplicit}, /*hard_constraint=*/false)));
   EXPECT_THAT(constraints.grid_origin(),
               ::testing::ElementsAre(1, 3, kImplicit));
-  EXPECT_EQ(0, constraints.grid_origin().hard_constraint.bits());
+  EXPECT_EQ(0, constraints.grid_origin().hard_constraint.to_uint());
   EXPECT_THAT(constraints.Set(ChunkLayout::GridOrigin({kInfIndex, 2, 3})),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Error setting grid_origin: "
@@ -1049,7 +1059,7 @@ TEST(ChunkLayoutTest, GridOrigin) {
       constraints.Set(ChunkLayout::GridOrigin({kImplicit, 4, kImplicit})));
   EXPECT_THAT(constraints.grid_origin(),
               ::testing::ElementsAre(1, 4, kImplicit));
-  EXPECT_EQ(0b10, constraints.grid_origin().hard_constraint.bits());
+  EXPECT_EQ(0b10, constraints.grid_origin().hard_constraint.to_uint());
   EXPECT_THAT(constraints.Set(ChunkLayout::GridOrigin({3, 5, kImplicit})),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Error setting grid_origin: "
@@ -1057,10 +1067,10 @@ TEST(ChunkLayoutTest, GridOrigin) {
                             "does not match existing hard constraint \\(4\\)"));
   EXPECT_THAT(constraints.grid_origin(),
               ::testing::ElementsAre(1, 4, kImplicit));
-  EXPECT_EQ(0b10, constraints.grid_origin().hard_constraint.bits());
+  EXPECT_EQ(0b10, constraints.grid_origin().hard_constraint.to_uint());
   TENSORSTORE_ASSERT_OK(constraints.Set(ChunkLayout::GridOrigin({1, 4, 5})));
   EXPECT_THAT(constraints.grid_origin(), ::testing::ElementsAre(1, 4, 5));
-  EXPECT_EQ(0b111, constraints.grid_origin().hard_constraint.bits());
+  EXPECT_EQ(0b111, constraints.grid_origin().hard_constraint.to_uint());
 }
 
 TEST(ChunkLayoutTest, ReadChunkShape) {
@@ -1072,13 +1082,13 @@ TEST(ChunkLayoutTest, ReadChunkShape) {
               ::testing::ElementsAre(100, 0, 0));
   EXPECT_THAT(constraints.read_chunk().shape(),
               ::testing::ElementsAre(100, 0, 0));
-  EXPECT_EQ(0, constraints.read_chunk_shape().hard_constraint.bits());
-  EXPECT_EQ(0, constraints.read_chunk().shape().hard_constraint.bits());
+  EXPECT_EQ(0, constraints.read_chunk_shape().hard_constraint.to_uint());
+  EXPECT_EQ(0, constraints.read_chunk().shape().hard_constraint.to_uint());
   TENSORSTORE_ASSERT_OK(constraints.Set(
       ChunkLayout::ReadChunkShape({2, 300, 0}, /*hard_constraint=*/false)));
   EXPECT_THAT(constraints.read_chunk().shape(),
               ::testing::ElementsAre(100, 300, 0));
-  EXPECT_EQ(0, constraints.read_chunk_shape().hard_constraint.bits());
+  EXPECT_EQ(0, constraints.read_chunk_shape().hard_constraint.to_uint());
   EXPECT_THAT(constraints.Set(ChunkLayout::ReadChunkShape({-5, 300, 3})),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Error setting read_chunk shape: "
@@ -1092,8 +1102,8 @@ TEST(ChunkLayoutTest, ReadChunkShape) {
       constraints.Set(ChunkLayout::ReadChunkShape({0, 4, 0})));
   EXPECT_THAT(constraints.read_chunk_shape(),
               ::testing::ElementsAre(100, 4, 0));
-  EXPECT_EQ(0b10, constraints.read_chunk_shape().hard_constraint.bits());
-  EXPECT_EQ(0b10, constraints.read_chunk().shape().hard_constraint.bits());
+  EXPECT_EQ(0b10, constraints.read_chunk_shape().hard_constraint.to_uint());
+  EXPECT_EQ(0b10, constraints.read_chunk().shape().hard_constraint.to_uint());
   EXPECT_THAT(constraints.Set(ChunkLayout::ReadChunkShape({100, 5, 0})),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Error setting read_chunk shape: "
@@ -1101,12 +1111,12 @@ TEST(ChunkLayoutTest, ReadChunkShape) {
                             "does not match existing hard constraint \\(4\\)"));
   EXPECT_THAT(constraints.read_chunk_shape(),
               ::testing::ElementsAre(100, 4, 0));
-  EXPECT_EQ(0b10, constraints.read_chunk_shape().hard_constraint.bits());
+  EXPECT_EQ(0b10, constraints.read_chunk_shape().hard_constraint.to_uint());
   TENSORSTORE_ASSERT_OK(
       constraints.Set(ChunkLayout::ReadChunkShape({100, 4, 5})));
   EXPECT_THAT(constraints.read_chunk_shape(),
               ::testing::ElementsAre(100, 4, 5));
-  EXPECT_EQ(0b111, constraints.read_chunk_shape().hard_constraint.bits());
+  EXPECT_EQ(0b111, constraints.read_chunk_shape().hard_constraint.to_uint());
 }
 
 TEST(ChunkLayoutTest, WriteChunkShape) {
@@ -1118,8 +1128,8 @@ TEST(ChunkLayoutTest, WriteChunkShape) {
               ::testing::ElementsAre(100, 0, 0));
   EXPECT_THAT(constraints.write_chunk().shape(),
               ::testing::ElementsAre(100, 0, 0));
-  EXPECT_EQ(0, constraints.write_chunk_shape().hard_constraint.bits());
-  EXPECT_EQ(0, constraints.write_chunk().shape().hard_constraint.bits());
+  EXPECT_EQ(0, constraints.write_chunk_shape().hard_constraint.to_uint());
+  EXPECT_EQ(0, constraints.write_chunk().shape().hard_constraint.to_uint());
 }
 
 TEST(ChunkLayoutTest, ReadChunkAspectRatio) {
@@ -1131,13 +1141,14 @@ TEST(ChunkLayoutTest, ReadChunkAspectRatio) {
               ::testing::ElementsAre(2, 0, 0));
   EXPECT_THAT(constraints.read_chunk().aspect_ratio(),
               ::testing::ElementsAre(2, 0, 0));
-  EXPECT_EQ(0, constraints.read_chunk_aspect_ratio().hard_constraint.bits());
-  EXPECT_EQ(0, constraints.read_chunk().aspect_ratio().hard_constraint.bits());
+  EXPECT_EQ(0, constraints.read_chunk_aspect_ratio().hard_constraint.to_uint());
+  EXPECT_EQ(0,
+            constraints.read_chunk().aspect_ratio().hard_constraint.to_uint());
   TENSORSTORE_ASSERT_OK(constraints.Set(ChunkLayout::ReadChunkAspectRatio(
       {3, 1.5, 0}, /*hard_constraint=*/false)));
   EXPECT_THAT(constraints.read_chunk().aspect_ratio(),
               ::testing::ElementsAre(2, 1.5, 0));
-  EXPECT_EQ(0, constraints.read_chunk_aspect_ratio().hard_constraint.bits());
+  EXPECT_EQ(0, constraints.read_chunk_aspect_ratio().hard_constraint.to_uint());
   EXPECT_THAT(constraints.Set(ChunkLayout::ReadChunkAspectRatio({-5, 1.5, 3})),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Error setting read_chunk aspect_ratio: "
@@ -1151,9 +1162,10 @@ TEST(ChunkLayoutTest, ReadChunkAspectRatio) {
       constraints.Set(ChunkLayout::ReadChunkAspectRatio({0, 4, 0})));
   EXPECT_THAT(constraints.read_chunk_aspect_ratio(),
               ::testing::ElementsAre(2, 4, 0));
-  EXPECT_EQ(0b10, constraints.read_chunk_aspect_ratio().hard_constraint.bits());
   EXPECT_EQ(0b10,
-            constraints.read_chunk().aspect_ratio().hard_constraint.bits());
+            constraints.read_chunk_aspect_ratio().hard_constraint.to_uint());
+  EXPECT_EQ(0b10,
+            constraints.read_chunk().aspect_ratio().hard_constraint.to_uint());
   EXPECT_THAT(constraints.Set(ChunkLayout::ReadChunkAspectRatio({2, 5, 0})),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Error setting read_chunk aspect_ratio: "
@@ -1161,13 +1173,14 @@ TEST(ChunkLayoutTest, ReadChunkAspectRatio) {
                             "does not match existing hard constraint \\(4\\)"));
   EXPECT_THAT(constraints.read_chunk_aspect_ratio(),
               ::testing::ElementsAre(2, 4, 0));
-  EXPECT_EQ(0b10, constraints.read_chunk_aspect_ratio().hard_constraint.bits());
+  EXPECT_EQ(0b10,
+            constraints.read_chunk_aspect_ratio().hard_constraint.to_uint());
   TENSORSTORE_ASSERT_OK(
       constraints.Set(ChunkLayout::ReadChunkAspectRatio({2, 4, 5})));
   EXPECT_THAT(constraints.read_chunk_aspect_ratio(),
               ::testing::ElementsAre(2, 4, 5));
   EXPECT_EQ(0b111,
-            constraints.read_chunk_aspect_ratio().hard_constraint.bits());
+            constraints.read_chunk_aspect_ratio().hard_constraint.to_uint());
 }
 
 TEST(ChunkLayoutTest, WriteChunkAspectRatio) {
@@ -1179,13 +1192,16 @@ TEST(ChunkLayoutTest, WriteChunkAspectRatio) {
               ::testing::ElementsAre(2, 0, 0));
   EXPECT_THAT(constraints.write_chunk().aspect_ratio(),
               ::testing::ElementsAre(2, 0, 0));
-  EXPECT_EQ(0, constraints.write_chunk_aspect_ratio().hard_constraint.bits());
-  EXPECT_EQ(0, constraints.write_chunk().aspect_ratio().hard_constraint.bits());
+  EXPECT_EQ(0,
+            constraints.write_chunk_aspect_ratio().hard_constraint.to_uint());
+  EXPECT_EQ(0,
+            constraints.write_chunk().aspect_ratio().hard_constraint.to_uint());
   TENSORSTORE_ASSERT_OK(constraints.Set(ChunkLayout::WriteChunkAspectRatio(
       {3, 1.5, 0}, /*hard_constraint=*/false)));
   EXPECT_THAT(constraints.write_chunk().aspect_ratio(),
               ::testing::ElementsAre(2, 1.5, 0));
-  EXPECT_EQ(0, constraints.write_chunk_aspect_ratio().hard_constraint.bits());
+  EXPECT_EQ(0,
+            constraints.write_chunk_aspect_ratio().hard_constraint.to_uint());
 }
 
 TEST(ChunkLayoutTest, CodecChunkAspectRatio) {
@@ -1197,13 +1213,16 @@ TEST(ChunkLayoutTest, CodecChunkAspectRatio) {
               ::testing::ElementsAre(2, 0, 0));
   EXPECT_THAT(constraints.codec_chunk().aspect_ratio(),
               ::testing::ElementsAre(2, 0, 0));
-  EXPECT_EQ(0, constraints.codec_chunk_aspect_ratio().hard_constraint.bits());
-  EXPECT_EQ(0, constraints.codec_chunk().aspect_ratio().hard_constraint.bits());
+  EXPECT_EQ(0,
+            constraints.codec_chunk_aspect_ratio().hard_constraint.to_uint());
+  EXPECT_EQ(0,
+            constraints.codec_chunk().aspect_ratio().hard_constraint.to_uint());
   TENSORSTORE_ASSERT_OK(constraints.Set(ChunkLayout::CodecChunkAspectRatio(
       {3, 1.5, 0}, /*hard_constraint=*/false)));
   EXPECT_THAT(constraints.codec_chunk().aspect_ratio(),
               ::testing::ElementsAre(2, 1.5, 0));
-  EXPECT_EQ(0, constraints.codec_chunk_aspect_ratio().hard_constraint.bits());
+  EXPECT_EQ(0,
+            constraints.codec_chunk_aspect_ratio().hard_constraint.to_uint());
 }
 
 TEST(ChunkLayoutTest, ReadChunkElements) {
@@ -1720,10 +1739,11 @@ TEST(ChooseReadWriteChunkShapesTest, ShapeNonMultiple) {
   Index write_chunk_shape[4];
   TENSORSTORE_ASSERT_OK(ChooseReadWriteChunkShapes(
       /*read_constraints=*/ChunkLayout::GridView(ChunkLayout::ChunkShapeBase(
-          {5, 11, 20, 8}, DimensionSet({false, false, true, true}))),
+          {5, 11, 20, 8}, DimensionSet::FromBools({false, false, true, true}))),
       /*write_constraints=*/
       ChunkLayout::GridView(ChunkLayout::ChunkShapeBase(
-          {6, 30, 41, 16}, DimensionSet({false, true, false, true}))),
+          {6, 30, 41, 16},
+          DimensionSet::FromBools({false, true, false, true}))),
       /*domain=*/BoxView(4), read_chunk_shape, write_chunk_shape));
   EXPECT_THAT(read_chunk_shape, ::testing::ElementsAre(6, 10, 20, 8));
   EXPECT_THAT(write_chunk_shape, ::testing::ElementsAre(6, 30, 40, 16));

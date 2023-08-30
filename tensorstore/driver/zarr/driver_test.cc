@@ -14,8 +14,8 @@
 
 /// End-to-end tests of the zarr driver.
 
-#include <complex>
-#include <cstdint>
+#include <stdint.h>
+
 #include <iostream>
 #include <string>
 #include <string_view>
@@ -34,6 +34,7 @@
 #include "tensorstore/box.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/context.h"
+#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/driver_testutil.h"
 #include "tensorstore/index.h"
@@ -42,10 +43,10 @@
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
-#include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/compression/blosc.h"
 #include "tensorstore/internal/decoded_matches.h"
 #include "tensorstore/internal/global_initializer.h"
+#include "tensorstore/internal/json/json.h"
 #include "tensorstore/internal/json_binding/gtest.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_fwd.h"
@@ -56,6 +57,7 @@
 #include "tensorstore/kvstore/memory/memory_key_value_store.h"
 #include "tensorstore/kvstore/mock_kvstore.h"
 #include "tensorstore/kvstore/operations.h"
+#include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
@@ -63,8 +65,10 @@
 #include "tensorstore/resize_options.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/spec.h"
+#include "tensorstore/staleness_bound.h"
+#include "tensorstore/strided_layout.h"
+#include "tensorstore/tensorstore.h"
 #include "tensorstore/transaction.h"
-#include "tensorstore/util/bfloat16.h"
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
@@ -206,8 +210,10 @@ TEST(ZarrDriverTest, Create) {
     EXPECT_THAT(store.domain().origin(), ::testing::ElementsAre(0, 0));
     EXPECT_THAT(store.domain().shape(), ::testing::ElementsAre(100, 100));
     EXPECT_THAT(store.domain().labels(), ::testing::ElementsAre("", ""));
-    EXPECT_THAT(store.domain().implicit_lower_bounds(), DimensionSet({0, 0}));
-    EXPECT_THAT(store.domain().implicit_upper_bounds(), DimensionSet({1, 1}));
+    EXPECT_THAT(store.domain().implicit_lower_bounds(),
+                DimensionSet::FromBools({0, 0}));
+    EXPECT_THAT(store.domain().implicit_upper_bounds(),
+                DimensionSet::FromBools({1, 1}));
 
     // Test ResolveBounds.
     auto resolved = ResolveBounds(store).value();
@@ -221,12 +227,11 @@ TEST(ZarrDriverTest, Create) {
     EXPECT_EQ(reversed_dim0.domain(), resolved_reversed_dim0.domain());
 
     // Issue a read to be filled with the fill value.
-    EXPECT_THAT(
-        tensorstore::Read<tensorstore::zero_origin>(
-            store |
-            tensorstore::AllDims().TranslateSizedInterval({9, 7}, {1, 1}))
-            .result(),
-        ::testing::Optional(tensorstore::MakeArray<std::int16_t>({{0}})));
+    EXPECT_THAT(tensorstore::Read<tensorstore::zero_origin>(
+                    store | tensorstore::AllDims().TranslateSizedInterval(
+                                {9, 7}, {1, 1}))
+                    .result(),
+                ::testing::Optional(tensorstore::MakeArray<int16_t>({{0}})));
 
     // Issue an out-of-bounds read.
     EXPECT_THAT(tensorstore::Read<tensorstore::zero_origin>(
@@ -237,24 +242,23 @@ TEST(ZarrDriverTest, Create) {
 
     // Issue a valid write.
     TENSORSTORE_EXPECT_OK(tensorstore::Write(
-        tensorstore::MakeArray<std::int16_t>({{1, 2, 3}, {4, 5, 6}}),
+        tensorstore::MakeArray<int16_t>({{1, 2, 3}, {4, 5, 6}}),
         store | tensorstore::AllDims().TranslateSizedInterval({9, 8}, {2, 3})));
 
     // Issue an out-of-bounds write.
-    EXPECT_THAT(
-        tensorstore::Write(
-            tensorstore::MakeArray<std::int16_t>({{1, 2, 3}, {4, 5, 6}}),
-            store |
-                tensorstore::AllDims().TranslateSizedInterval({100, 8}, {2, 3}))
-            .result(),
-        MatchesStatus(absl::StatusCode::kOutOfRange));
+    EXPECT_THAT(tensorstore::Write(
+                    tensorstore::MakeArray<int16_t>({{1, 2, 3}, {4, 5, 6}}),
+                    store | tensorstore::AllDims().TranslateSizedInterval(
+                                {100, 8}, {2, 3}))
+                    .result(),
+                MatchesStatus(absl::StatusCode::kOutOfRange));
 
     // Re-read and validate result.
     EXPECT_THAT(tensorstore::Read<tensorstore::zero_origin>(
                     store | tensorstore::AllDims().TranslateSizedInterval(
                                 {9, 7}, {3, 5}))
                     .result(),
-                ::testing::Optional(tensorstore::MakeArray<std::int16_t>(
+                ::testing::Optional(tensorstore::MakeArray<int16_t>(
                     {{0, 1, 2, 3, 0}, {0, 4, 5, 6, 0}, {0, 0, 0, 0, 0}})));
   }
 
@@ -315,7 +319,7 @@ TEST(ZarrDriverTest, Create) {
                     store | tensorstore::AllDims().TranslateSizedInterval(
                                 {9, 7}, {3, 5}))
                     .result(),
-                ::testing::Optional(tensorstore::MakeArray<std::int16_t>(
+                ::testing::Optional(tensorstore::MakeArray<int16_t>(
                     {{0, 1, 2, 3, 0}, {0, 4, 5, 6, 0}, {0, 0, 0, 0, 0}})));
   }
 
@@ -337,7 +341,7 @@ TEST(ZarrDriverTest, Create) {
                     store | tensorstore::AllDims().TranslateSizedInterval(
                                 {9, 7}, {3, 5}))
                     .result(),
-                ::testing::Optional(tensorstore::MakeArray<std::int16_t>(
+                ::testing::Optional(tensorstore::MakeArray<int16_t>(
                     {{0, 0, 0, 0, 0}, {0, 0, 0, 0, 0}, {0, 0, 0, 0, 0}})));
     TENSORSTORE_ASSERT_OK(transaction.CommitAsync());
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -362,7 +366,7 @@ TEST(ZarrDriverTest, CreateWithMetadataKey) {
             .result());
     // Issue a valid write.
     TENSORSTORE_EXPECT_OK(tensorstore::Write(
-        tensorstore::MakeArray<std::int16_t>({{1, 2, 3}, {4, 5, 6}}),
+        tensorstore::MakeArray<int16_t>({{1, 2, 3}, {4, 5, 6}}),
         store | tensorstore::AllDims().TranslateSizedInterval({9, 8}, {2, 3})));
 
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -435,7 +439,7 @@ TEST(ZarrDriverTest, CreateWithMetadataKey) {
                     store | tensorstore::AllDims().TranslateSizedInterval(
                                 {9, 7}, {3, 5}))
                     .result(),
-                ::testing::Optional(tensorstore::MakeArray<std::int16_t>(
+                ::testing::Optional(tensorstore::MakeArray<int16_t>(
                     {{0, 1, 2, 3, 0}, {0, 4, 5, 6, 0}, {0, 0, 0, 0, 0}})));
   }
 }
@@ -747,7 +751,7 @@ void TestCreateWriteRead(Context context, ::nlohmann::json json_spec) {
                           tensorstore::ReadWriteMode::read_write)
             .result());
     TENSORSTORE_EXPECT_OK(tensorstore::Write(
-        tensorstore::MakeArray<std::int16_t>({{1, 2, 3}, {4, 5, 6}}),
+        tensorstore::MakeArray<int16_t>({{1, 2, 3}, {4, 5, 6}}),
         store | tensorstore::AllDims().TranslateSizedInterval({9, 8}, {2, 3})));
   }
 
@@ -758,7 +762,7 @@ void TestCreateWriteRead(Context context, ::nlohmann::json json_spec) {
         tensorstore::Open(json_spec, context, tensorstore::OpenMode::open,
                           tensorstore::ReadWriteMode::read)
             .result());
-    EXPECT_EQ(tensorstore::MakeArray<std::int16_t>(
+    EXPECT_EQ(tensorstore::MakeArray<int16_t>(
                   {{0, 1, 2, 3, 0}, {0, 4, 5, 6, 0}, {0, 0, 0, 0, 0}}),
               tensorstore::Read<tensorstore::zero_origin>(
                   store |
@@ -1117,7 +1121,7 @@ TEST(ZarrDriverTest, KeyEncodingWithSlash) {
                         tensorstore::ReadWriteMode::read_write)
           .result());
   TENSORSTORE_EXPECT_OK(tensorstore::Write(
-      tensorstore::MakeArray<std::int8_t>({{1, 2, 3}, {4, 5, 6}}),
+      tensorstore::MakeArray<int8_t>({{1, 2, 3}, {4, 5, 6}}),
       store | tensorstore::AllDims().TranslateSizedInterval({2, 1}, {2, 3})));
   // Check that key value store has expected contents.
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -1158,7 +1162,7 @@ TEST(ZarrDriverTest, Resize) {
                             tensorstore::ReadWriteMode::read_write)
               .result());
       TENSORSTORE_EXPECT_OK(tensorstore::Write(
-          tensorstore::MakeArray<std::int8_t>({{1, 2, 3}, {4, 5, 6}}),
+          tensorstore::MakeArray<int8_t>({{1, 2, 3}, {4, 5, 6}}),
           store |
               tensorstore::AllDims().TranslateSizedInterval({2, 1}, {2, 3})));
       // Check that key value store has expected contents.
@@ -1234,14 +1238,14 @@ void TestResizeToZeroAndBack(Op... op) {
 
   // Should be able to write using `resized`.  Use `IndexArraySlice` to ensure
   // that edge cases of `ComposeTransforms` are tested.
-  TENSORSTORE_EXPECT_OK(tensorstore::Write(
-      tensorstore::MakeArray<std::int8_t>({{1, 2, 3}, {4, 5, 6}}),
-      transformed_store));
+  TENSORSTORE_EXPECT_OK(
+      tensorstore::Write(tensorstore::MakeArray<int8_t>({{1, 2, 3}, {4, 5, 6}}),
+                         transformed_store));
 
   // Test that reading back yields the correct result.
   EXPECT_THAT(tensorstore::Read(transformed_store).result(),
               ::testing::Optional(
-                  tensorstore::MakeArray<std::int8_t>({{1, 2, 3}, {4, 5, 6}})));
+                  tensorstore::MakeArray<int8_t>({{1, 2, 3}, {4, 5, 6}})));
 }
 
 // Tests that zero-size resizable dimensions are handled correctly.
@@ -1305,7 +1309,7 @@ TEST(ZarrDriverTest, ResizeMetadataOnly) {
                         tensorstore::ReadWriteMode::read_write)
           .result());
   TENSORSTORE_ASSERT_OK(tensorstore::Write(
-      tensorstore::MakeArray<std::int8_t>({{1, 2, 3}, {4, 5, 6}}),
+      tensorstore::MakeArray<int8_t>({{1, 2, 3}, {4, 5, 6}}),
       store | tensorstore::AllDims().TranslateSizedInterval({2, 1}, {2, 3})));
   // Check that key value store has expected contents.
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -1357,7 +1361,7 @@ TEST(ZarrDriverTest, ResizeExpandOnly) {
                         tensorstore::ReadWriteMode::read_write)
           .result());
   TENSORSTORE_ASSERT_OK(tensorstore::Write(
-      tensorstore::MakeArray<std::int8_t>({{1, 2, 3}, {4, 5, 6}}),
+      tensorstore::MakeArray<int8_t>({{1, 2, 3}, {4, 5, 6}}),
       store | tensorstore::AllDims().TranslateSizedInterval({2, 1}, {2, 3})));
   // Check that key value store has expected contents.
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -1910,8 +1914,8 @@ std::ostream& operator<<(std::ostream& os, RecheckOption recheck_option) {
 ///
 /// 7. Checks read result against `expected_value2`.
 void TestDataCaching(RecheckOption recheck_option, bool modify_before_reopen,
-                     bool modify_after_reopen, std::int16_t expected_value1,
-                     std::int16_t expected_value2) {
+                     bool modify_after_reopen, int16_t expected_value1,
+                     int16_t expected_value2) {
   SCOPED_TRACE(tensorstore::StrCat(
       "recheck_option=", recheck_option, ", modify_before_open=",
       modify_before_reopen, ", modify_after_open=", modify_after_reopen));
@@ -1935,7 +1939,7 @@ void TestDataCaching(RecheckOption recheck_option, bool modify_before_reopen,
   // Populate the cache.
   TENSORSTORE_ASSERT_OK(tensorstore::Read(initial_store).result());
 
-  const auto modify = [&](std::int16_t new_value) {
+  const auto modify = [&](int16_t new_value) {
     // Create new context that shares the same `memory_key_value_store` but does
     // not share the cache pool.
     auto new_cache_context = Context(context_spec, base_context);
@@ -1945,8 +1949,8 @@ void TestDataCaching(RecheckOption recheck_option, bool modify_before_reopen,
 
     // Fill with `new_value`.
     TENSORSTORE_ASSERT_OK(
-        tensorstore::Write(
-            tensorstore::MakeScalarArray<std::int16_t>(new_value), new_arr)
+        tensorstore::Write(tensorstore::MakeScalarArray<int16_t>(new_value),
+                           new_arr)
             .result());
   };
 
@@ -1964,8 +1968,7 @@ void TestDataCaching(RecheckOption recheck_option, bool modify_before_reopen,
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto value1,
                                    tensorstore::Read(new_store).result());
 
-  EXPECT_EQ(tensorstore::MakeScalarArray<std::int16_t>(expected_value1),
-            value1);
+  EXPECT_EQ(tensorstore::MakeScalarArray<int16_t>(expected_value1), value1);
 
   if (modify_after_reopen) {
     modify(2);
@@ -1974,8 +1977,7 @@ void TestDataCaching(RecheckOption recheck_option, bool modify_before_reopen,
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto value2,
                                    tensorstore::Read(new_store).result());
 
-  EXPECT_EQ(tensorstore::MakeScalarArray<std::int16_t>(expected_value2),
-            value2);
+  EXPECT_EQ(tensorstore::MakeScalarArray<int16_t>(expected_value2), value2);
 }
 
 class RecheckCachedTest
@@ -2192,7 +2194,7 @@ TEST(ZarrDriverTest, ReadAfterUncommittedWrite) {
       tensorstore::Open(json_spec, tensorstore::OpenMode::create).result());
 
   auto write_future =
-      tensorstore::Write(tensorstore::MakeScalarArray<std::int16_t>(42), store);
+      tensorstore::Write(tensorstore::MakeScalarArray<int16_t>(42), store);
   TENSORSTORE_EXPECT_OK(write_future.copy_future.result());
 
   // As long as there is available memory in the cache pool, writeback never
@@ -2201,7 +2203,7 @@ TEST(ZarrDriverTest, ReadAfterUncommittedWrite) {
 
   // Writeback has not yet completed, read returns fill value.
   EXPECT_THAT(tensorstore::Read(store).result(),
-              ::testing::Optional(tensorstore::MakeArray<std::int16_t>({
+              ::testing::Optional(tensorstore::MakeArray<int16_t>({
                   {0, 0, 0},
                   {0, 0, 0},
                   {0, 0, 0},
@@ -2213,7 +2215,7 @@ TEST(ZarrDriverTest, ReadAfterUncommittedWrite) {
 
   // Now that writeback has completed, read returns updated value.
   EXPECT_THAT(tensorstore::Read(store).result(),
-              ::testing::Optional(tensorstore::MakeArray<std::int16_t>({
+              ::testing::Optional(tensorstore::MakeArray<int16_t>({
                   {42, 42, 42},
                   {42, 42, 42},
                   {42, 42, 42},
@@ -2294,7 +2296,7 @@ TENSORSTORE_GLOBAL_INITIALIZER {
                                 .implicit_upper_bounds({1, 1})
                                 .Finalize()
                                 .value();
-  options.initial_value = tensorstore::AllocateArray<std::uint16_t>(
+  options.initial_value = tensorstore::AllocateArray<uint16_t>(
       tensorstore::BoxView({10, 11}), tensorstore::c_order,
       tensorstore::value_init);
   tensorstore::internal::RegisterTensorStoreDriverBasicFunctionalityTest(
@@ -2396,7 +2398,7 @@ TEST(DriverTest, NoPrefix) {
                         tensorstore::ReadWriteMode::read_write)
           .result());
   TENSORSTORE_EXPECT_OK(tensorstore::Write(
-      tensorstore::MakeArray<std::int8_t>({{1, 2, 3}, {4, 5, 6}}),
+      tensorstore::MakeArray<int8_t>({{1, 2, 3}, {4, 5, 6}}),
       store | tensorstore::AllDims().TranslateSizedInterval({2, 1}, {2, 3})));
   // Check that key value store has expected contents.
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -3144,11 +3146,11 @@ TEST(DriverTest, AssumeMetadata) {
       tensorstore::Read<tensorstore::zero_origin>(
           store | tensorstore::AllDims().TranslateSizedInterval({9, 7}, {1, 1}))
           .result(),
-      ::testing::Optional(tensorstore::MakeArray<std::int16_t>({{0}})));
+      ::testing::Optional(tensorstore::MakeArray<int16_t>({{0}})));
 
   // Issue a valid write.
   TENSORSTORE_EXPECT_OK(tensorstore::Write(
-      tensorstore::MakeArray<std::int16_t>({{1, 2, 3}, {4, 5, 6}}),
+      tensorstore::MakeArray<int16_t>({{1, 2, 3}, {4, 5, 6}}),
       store | tensorstore::AllDims().TranslateSizedInterval({9, 8}, {2, 3})));
 
   // Check that key value store has expected contents.
@@ -3169,7 +3171,7 @@ TEST(DriverTest, AssumeMetadata) {
       tensorstore::Read<tensorstore::zero_origin>(
           store | tensorstore::AllDims().TranslateSizedInterval({9, 7}, {3, 5}))
           .result(),
-      ::testing::Optional(tensorstore::MakeArray<std::int16_t>(
+      ::testing::Optional(tensorstore::MakeArray<int16_t>(
           {{0, 1, 2, 3, 0}, {0, 4, 5, 6, 0}, {0, 0, 0, 0, 0}})));
 
   EXPECT_THAT(store.domain().shape(), ::testing::ElementsAre(100, 100));
@@ -3278,11 +3280,11 @@ TEST(DriverTest, AssumeCachedMetadata) {
       tensorstore::Read<tensorstore::zero_origin>(
           store | tensorstore::AllDims().TranslateSizedInterval({9, 7}, {1, 1}))
           .result(),
-      ::testing::Optional(tensorstore::MakeArray<std::int16_t>({{0}})));
+      ::testing::Optional(tensorstore::MakeArray<int16_t>({{0}})));
 
   // Issue a valid write.
   TENSORSTORE_EXPECT_OK(tensorstore::Write(
-      tensorstore::MakeArray<std::int16_t>({{1, 2, 3}, {4, 5, 6}}),
+      tensorstore::MakeArray<int16_t>({{1, 2, 3}, {4, 5, 6}}),
       store | tensorstore::AllDims().TranslateSizedInterval({9, 8}, {2, 3})));
 
   // Check that key value store has expected contents.
@@ -3303,7 +3305,7 @@ TEST(DriverTest, AssumeCachedMetadata) {
       tensorstore::Read<tensorstore::zero_origin>(
           store | tensorstore::AllDims().TranslateSizedInterval({9, 7}, {3, 5}))
           .result(),
-      ::testing::Optional(tensorstore::MakeArray<std::int16_t>(
+      ::testing::Optional(tensorstore::MakeArray<int16_t>(
           {{0, 1, 2, 3, 0}, {0, 4, 5, 6, 0}, {0, 0, 0, 0, 0}})));
 
   EXPECT_THAT(store.domain().shape(), ::testing::ElementsAre(100, 100));

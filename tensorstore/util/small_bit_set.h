@@ -15,12 +15,14 @@
 #ifndef TENSORSTORE_UTIL_SMALL_BIT_SET_H_
 #define TENSORSTORE_UTIL_SMALL_BIT_SET_H_
 
+#include <stddef.h>
+
 #include <cassert>
-#include <cstddef>
 #include <iterator>
 #include <ostream>
 #include <type_traits>
 
+#include "absl/numeric/bits.h"
 #include "tensorstore/internal/attributes.h"
 #include "tensorstore/internal/integer_types.h"
 
@@ -117,35 +119,6 @@ std::enable_if_t<(!std::is_const_v<T>)> swap(BitRef<T> a, BitRef<T> b) {
   a = b;
   b = temp;
 }
-
-// Specialization for const reference case.
-template <typename T>
-class BitRef<const T> {
-  static_assert(std::is_unsigned_v<T>, "Storage type T must be unsigned.");
-
- public:
-  using block_type = const T;
-  using value_type = bool;
-  using element_type = bool;
-  constexpr static ptrdiff_t kBitsPerBlock = sizeof(T) * 8;
-
-  /// Binds to bit `offset % kBitsPerBlock` of `*base`.
-  constexpr BitRef(const T* block TENSORSTORE_LIFETIME_BOUND, ptrdiff_t offset)
-      : block_(block), mask_(static_cast<T>(1) << (offset % kBitsPerBlock)) {
-    assert(offset >= 0);
-  }
-
-  constexpr BitRef(BitRef<T> other)
-      : block_(other.block_), mask_(other.mask_) {}
-
-  constexpr operator bool() const { return *block_ & mask_; }
-
-  BitRef& operator=(BitRef) = delete;
-
- private:
-  const T* block_;
-  T mask_;
-};
 
 /// Iterator within a packed bit sequence.
 ///
@@ -326,6 +299,81 @@ class BitIterator {
   ptrdiff_t offset_;
 };
 
+namespace bitset_impl {
+
+// View type for exposing SmallBitSet iterators.
+template <typename Iterator, size_t N>
+class BoolsView {
+ public:
+  using iterator = Iterator;
+  using value_type = typename iterator::value_type;
+  using difference_type = typename iterator::difference_type;
+  using reference = typename iterator::reference;
+
+  explicit BoolsView(iterator it) : it_(std::move(it)) {}
+
+  constexpr iterator begin() const { return it_; }
+  constexpr iterator end() const { return iterator(it_.base(), N); }
+
+ private:
+  iterator it_;
+};
+
+template <typename Uint>
+class OneBitsIterator {
+ public:
+  using value_type = int;
+  using difference_type = int;
+  using reference = int;
+
+  OneBitsIterator() : value_(0) {}
+  explicit OneBitsIterator(Uint value) : value_(value) {}
+
+  friend constexpr bool operator==(OneBitsIterator a, OneBitsIterator b) {
+    return a.value_ == b.value_;
+  }
+
+  friend constexpr bool operator!=(OneBitsIterator a, OneBitsIterator b) {
+    return !(a == b);
+  }
+
+  constexpr int operator*() const { return absl::countr_zero(value_); }
+
+  constexpr OneBitsIterator& operator++() {
+    Uint t = value_ & -value_;
+    value_ ^= t;
+    return *this;
+  }
+
+  constexpr OneBitsIterator operator++(int) {
+    auto copy = *this;
+    ++*this;
+    return copy;
+  }
+
+ private:
+  Uint value_;
+};
+
+template <typename Uint>
+class IndexView {
+ public:
+  IndexView(Uint bits) : bits_(bits) {}
+
+  using const_iterator = OneBitsIterator<Uint>;
+  using value_type = typename const_iterator::value_type;
+  using difference_type = typename const_iterator::difference_type;
+  using reference = typename const_iterator::reference;
+
+  constexpr const_iterator begin() const { return const_iterator(bits_); }
+  constexpr const_iterator end() const { return const_iterator(); }
+
+ private:
+  Uint bits_;
+};
+
+}  // namespace bitset_impl
+
 /// Bit set that fits in a single unsigned integer.
 ///
 /// This is similar to `std::bitset<N>`, but supports iterators, and for
@@ -336,18 +384,13 @@ template <size_t N>
 class SmallBitSet {
  public:
   /// `N`-bit unsigned integer type used to represent the bit set.
-  using Bits = typename internal::uint_type<N>::type;
+  using Uint = typename internal::uint_type<N>::type;
 
   /// Container value type.
   using value_type = bool;
 
   /// Proxy reference type.
-  using reference = BitRef<Bits>;
-  using const_reference = BitRef<const Bits>;
-
-  /// Iterator type.
-  using iterator = BitIterator<Bits>;
-  using const_iterator = BitIterator<const Bits>;
+  using reference = BitRef<Uint>;
 
   /// Constructs an all-zero vector.
   ///
@@ -360,87 +403,186 @@ class SmallBitSet {
   template <typename T,
             // Prevent narrowing conversions to `bool`.
             typename = std::enable_if_t<std::is_same_v<T, bool>>>
-  constexpr SmallBitSet(T value) : bits_(value * ~Bits(0)) {}
+  constexpr SmallBitSet(T value) : bits_(value * ~Uint(0)) {}
 
-  /// Constructs a vector from the specified bool array.
-  ///
-  /// Can be invoked with a braced list, e.g. `SmallBitSet<8>({0, 1, 1, 0})`.
-  ///
-  /// \id array
-  template <size_t NumBits, typename = std::enable_if_t<(NumBits <= N)>>
-  constexpr SmallBitSet(const bool (&bits)[NumBits]) {
-    Bits v = 0;
-    for (size_t i = 0; i < NumBits; ++i) {
-      v |= Bits(bits[i]) << i;
-    }
-    bits_ = v;
-  }
-
-  /// Constructs a vector from an unsigned integer.
+  /// Constructs from an unsigned integer as a bit vector.
   ///
   /// \membergroup constructors
-  static constexpr SmallBitSet FromBits(Bits bits) {
+  static constexpr SmallBitSet FromUint(Uint bits) {
     SmallBitSet v;
     v.bits_ = bits;
     return v;
   }
 
-  /// Constructs from a range of `bool` values.
+  /// Constructs the set containing bits at the specified indices.
+  /// Can be invoked with a braced list, e.g.
+  ///   `SmallBitSet<8>::FromIndices({1, 10})`.
   ///
-  /// \dchecks Size of `range` is not greater than `N`
-  /// \membergroup constructors
+  /// \dchecks  `values[i] >= 0 && values[i] < N`
+  /// \membergroup Constructors
+  template <size_t NumBits, typename = std::enable_if_t<(NumBits <= N)>>
+  static constexpr SmallBitSet FromIndices(const int (&positions)[NumBits]) {
+    return FromIndexRange(std::begin(positions), std::end(positions));
+  }
+
+  /// Constructs the set containing bits at the indices specified by the range.
   template <typename Range>
-  static constexpr SmallBitSet FromRange(Range&& range) {
+  static constexpr SmallBitSet FromIndexRange(Range&& range) {
+    return FromIndexRange(range.begin(), range.end());
+  }
+  template <typename Iterator>
+  static constexpr SmallBitSet FromIndexRange(Iterator begin, Iterator end) {
     SmallBitSet set;
-    size_t i = 0;
-    for (bool value : range) {
-      set[i++] = value;
-    }
+    while (begin != end) set.set(*begin++);
     return set;
   }
 
+  /// Constructs from an array of `bool` values.
+  /// Can be invoked with a braced list, e.g.
+  ///   `SmallBitSet<8>::FromBools({0, 1, 1, 0})`.
+  ///
+  /// \dchecks Size of `range` is not greater than `N`
+  /// \membergroup constructors
+  template <size_t NumBits, typename = std::enable_if_t<(NumBits <= N)>>
+  static constexpr SmallBitSet FromBools(const bool (&bits)[NumBits]) {
+    return FromBoolRange(std::begin(bits), std::end(bits));
+  }
+
+  /// Constructs the set containing bools provided by the range.
+  template <typename Range>
+  static constexpr SmallBitSet FromBoolRange(Range&& range) {
+    return FromBoolRange(range.begin(), range.end());
+  }
+  template <typename Iterator>
+  static constexpr SmallBitSet FromBoolRange(Iterator begin, Iterator end) {
+    SmallBitSet set;
+    size_t i = 0;
+    while (begin != end) {
+      set.bits_ |= (*begin++ ? Uint(1) : Uint(0)) << i;
+      i++;
+    }
+    assert(i <= N);
+    return set;
+  }
+
+  /// Constructs the set ``[0, k)``.
+  ///
+  /// \dchecks `k <= N`
+  /// \membergroup Constructors
+  static constexpr SmallBitSet UpTo(size_t k) {
+    assert(k <= N);
+    return k == 0 ? SmallBitSet()
+                  : SmallBitSet::FromUint(~Uint(0) << (N - k) >> (N - k));
+  }
+
   /// Sets all bits to the specified value.
-  constexpr SmallBitSet& operator=(bool value) {
-    bits_ = ~Bits(0) * value;
+  template <typename T,
+            // Prevent narrowing conversions to `bool`.
+            typename = std::enable_if_t<std::is_same_v<T, bool>>>
+  constexpr SmallBitSet& operator=(T value) {
+    bits_ = ~Uint(0) * value;
     return *this;
   }
 
-  /// Returns the begin/end iterators.
-  constexpr iterator begin() { return iterator(&bits_, 0); }
-  constexpr iterator end() { return iterator(&bits_, N); }
-  constexpr const_iterator begin() const { return const_iterator(&bits_, 0); }
-  constexpr const_iterator end() const { return const_iterator(&bits_, N); }
+  /// Mutable view of SmallBitSet bits.
+  using BoolsView = bitset_impl::BoolsView<BitIterator<Uint>, N>;
+  constexpr BoolsView bools_view() TENSORSTORE_LIFETIME_BOUND {
+    return BoolsView(BitIterator<Uint>(&bits_, 0));
+  }
+
+  /// Immutable view of SmallBitSet bits.
+  using ConstBoolsView = bitset_impl::BoolsView<BitIterator<const Uint>, N>;
+  constexpr ConstBoolsView bools_view() const TENSORSTORE_LIFETIME_BOUND {
+    return ConstBoolsView(BitIterator<const Uint>(&bits_, 0));
+  }
+
+  /// Immutable view of SmallBitSet indices.
+  using IndexView = bitset_impl::IndexView<Uint>;
+  constexpr IndexView index_view() const { return IndexView(bits_); }
 
   /// Returns the static size, `N`.
   constexpr static size_t size() { return N; }
+  constexpr size_t count() { return absl::popcount(bits_); }
+
+  /// Returns `true` if the set is empty.
+  constexpr bool none() const { return bits_ == 0; }
+
+  /// Returns `true` if the set is not empty.
+  constexpr bool any() const { return bits_ != 0; }
+
+  /// Returns `true` if all bits are set.
+  constexpr bool all() const { return bits_ == ~Uint(0); }
+
+  /// Returns `true` if any bit is set.
+  explicit operator bool() const { return any(); }
+
+  constexpr SmallBitSet& set() noexcept {
+    bits_ = ~Uint(0);
+    return *this;
+  }
+
+  constexpr SmallBitSet& reset() noexcept {
+    bits_ = 0;
+    return *this;
+  }
+
+  constexpr SmallBitSet& flip() noexcept {
+    bits_ = ~bits_;
+    return *this;
+  }
+
+  /// Returns `true` if the specified bit is present in the set.
+  constexpr bool test(int pos) const noexcept {
+    assert(pos >= 0 && pos < N);
+    return (bits_ >> pos) & 1;
+  }
+
+  /// Add the specified bit to the set.
+  constexpr SmallBitSet& set(int pos) noexcept {
+    assert(pos >= 0 && pos < N);
+    bits_ |= (static_cast<Uint>(1) << pos);
+    return *this;
+  }
+
+  constexpr SmallBitSet& reset(int pos) noexcept {
+    assert(pos >= 0 && pos < N);
+    bits_ &= ~(static_cast<Uint>(1) << pos);
+    return *this;
+  }
+
+  constexpr SmallBitSet& flip(int pos) noexcept {
+    assert(pos >= 0 && pos < N);
+    bits_ ^= (static_cast<Uint>(1) << pos);
+    return *this;
+  }
 
   /// Returns a reference to an individual bit.
   ///
   /// \dchecks `offset >= 0 && offset < N`
-  constexpr reference operator[](size_t offset) {
+  constexpr reference operator[](size_t offset) TENSORSTORE_LIFETIME_BOUND {
     assert(offset >= 0 && offset < N);
     return reference(&bits_, offset);
   }
-  constexpr const_reference operator[](size_t offset) const {
+  constexpr bool operator[](size_t offset) const {
     assert(offset >= 0 && offset < N);
-    return const_reference(&bits_, offset);
+    return test(offset);
   }
 
-  /// Returns `true` if any bit is set.
-  explicit operator bool() const { return static_cast<bool>(bits_); }
+  /// Returns the contents of the bitset as an unsigned integer.
+  constexpr Uint to_uint() const { return bits_; }
 
   /// Computes the complement of the set.
   ///
   /// \membergroup Set operations
   friend constexpr SmallBitSet operator~(SmallBitSet v) {
-    return SmallBitSet::FromBits(~v.bits_);
+    return SmallBitSet::FromUint(~v.bits_);
   }
 
   /// Computes the intersection of two sets.
   ///
   /// \membergroup Set operations
   friend constexpr SmallBitSet operator&(SmallBitSet a, SmallBitSet b) {
-    return SmallBitSet::FromBits(a.bits_ & b.bits_);
+    return SmallBitSet::FromUint(a.bits_ & b.bits_);
   }
   friend constexpr SmallBitSet& operator&=(SmallBitSet& a, SmallBitSet b) {
     a.bits_ &= b.bits_;
@@ -451,7 +593,7 @@ class SmallBitSet {
   ///
   /// \membergroup Set operations
   friend constexpr SmallBitSet operator^(SmallBitSet a, SmallBitSet b) {
-    return SmallBitSet::FromBits(a.bits_ ^ b.bits_);
+    return SmallBitSet::FromUint(a.bits_ ^ b.bits_);
   }
   friend constexpr SmallBitSet& operator^=(SmallBitSet& a, SmallBitSet b) {
     a.bits_ ^= b.bits_;
@@ -462,7 +604,7 @@ class SmallBitSet {
   ///
   /// \membergroup Set operations
   friend constexpr SmallBitSet operator|(SmallBitSet a, SmallBitSet b) {
-    return SmallBitSet::FromBits(a.bits_ | b.bits_);
+    return SmallBitSet::FromUint(a.bits_ | b.bits_);
   }
   friend constexpr SmallBitSet& operator|=(SmallBitSet& a, SmallBitSet b) {
     a.bits_ |= b.bits_;
@@ -477,18 +619,6 @@ class SmallBitSet {
     return !(a == b);
   }
 
-  /// Returns the bitvector as an unsigned integer.
-  Bits bits() const { return bits_; }
-
-  /// Returns the set ``[0, k)``.
-  ///
-  /// \dchecks `k <= N`
-  /// \membergroup Constructors
-  static constexpr SmallBitSet UpTo(size_t k) {
-    assert(k <= N);
-    return k == 0 ? SmallBitSet() : FromBits(~Bits(0) << (N - k) >> (N - k));
-  }
-
   /// Prints to an output stream.
   friend std::ostream& operator<<(std::ostream& os, SmallBitSet v) {
     for (size_t i = 0; i < N; ++i) {
@@ -498,7 +628,7 @@ class SmallBitSet {
   }
 
  private:
-  Bits bits_;
+  Uint bits_;
 };
 
 }  // namespace tensorstore

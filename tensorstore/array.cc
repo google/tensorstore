@@ -14,21 +14,37 @@
 
 #include "tensorstore/array.h"
 
+#include <stddef.h>
+
 #include <algorithm>
-#include <limits>
+#include <cassert>
+#include <ostream>
+#include <string>
+#include <utility>
 
 #include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "riegeli/varint/varint_reading.h"
 #include "riegeli/varint/varint_writing.h"
 #include "tensorstore/box.h"
+#include "tensorstore/contiguous_layout.h"
+#include "tensorstore/data_type.h"
 #include "tensorstore/data_type_conversion.h"
+#include "tensorstore/index.h"
 #include "tensorstore/internal/element_copy_function.h"
+#include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/internal/unaligned_data_type_functions.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/serialization/span.h"
+#include "tensorstore/strided_layout.h"
 #include "tensorstore/util/dimension_set.h"
+#include "tensorstore/util/element_pointer.h"
 #include "tensorstore/util/internal/iterate_impl.h"
+#include "tensorstore/util/iterate.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -362,7 +378,7 @@ bool EncodeArray(serialization::EncodeSink& sink,
     zero_byte_strides[i] =
         (array.byte_strides()[i] == 0 && array.shape()[i] != 1);
   }
-  if (!riegeli::WriteVarint32(zero_byte_strides.bits(), sink.writer()))
+  if (!riegeli::WriteVarint32(zero_byte_strides.to_uint(), sink.writer()))
     return false;
 
   return internal::IterateOverArrays(
@@ -404,9 +420,9 @@ bool DecodeArray<OriginKind>::Decode(
   if constexpr (OriginKind == offset_origin) {
     if (!serialization::Decode(source, array.origin())) return false;
   }
-  DimensionSet::Bits bits;
+  uint32_t bits;
   if (!riegeli::ReadVarint32(source.reader(), bits)) return false;
-  DimensionSet zero_byte_strides = DimensionSet::FromBits(bits);
+  DimensionSet zero_byte_strides = DimensionSet::FromUint(bits);
 
   Index num_bytes = dtype.valid() ? dtype.size() : 0;
   for (DimensionIndex i = 0; i < rank; ++i) {

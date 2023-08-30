@@ -15,19 +15,27 @@
 #include "tensorstore/proto/index_transform.h"
 
 #include <algorithm>
+#include <cstddef>
+#include <vector>
 
-#include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
+#include "tensorstore/array.h"
+#include "tensorstore/contiguous_layout.h"
+#include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
+#include "tensorstore/index_space/output_index_method.h"
 #include "tensorstore/internal/json/array.h"
 #include "tensorstore/internal/json_binding/dimension_indexed.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/proto/index_transform.pb.h"
 #include "tensorstore/rank.h"
+#include "tensorstore/util/element_pointer.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -84,7 +92,7 @@ Result<IndexDomain<>> ParseIndexDomainFromProto(
     if (proto.implicit_lower_bound_size() > 0) {
       std::copy(proto.implicit_lower_bound().begin(),
                 proto.implicit_lower_bound().end(),
-                builder.implicit_lower_bounds().begin());
+                builder.implicit_lower_bounds().bools_view().begin());
     }
   }
   if (proto.shape_size() > 0) {
@@ -93,7 +101,7 @@ Result<IndexDomain<>> ParseIndexDomainFromProto(
     if (proto.implicit_upper_bound_size() > 0) {
       std::copy(proto.implicit_upper_bound().begin(),
                 proto.implicit_upper_bound().end(),
-                builder.implicit_upper_bounds().begin());
+                builder.implicit_upper_bounds().bools_view().begin());
     }
   }
   if (!proto.labels().empty()) {
