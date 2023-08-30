@@ -6,8 +6,21 @@ package(default_visibility = ["//tensorstore:internal_packages"])
 licenses(["notice"])
 
 bool_flag(
+    name = "refcount_debug",
+    build_setting_default = False,
+)
+
+bool_flag(
     name = "async_cache_debug",
     build_setting_default = False,
+)
+
+config_setting(
+    name = "refcount_debug_setting",
+    flag_values = {
+        ":refcount_debug": "True",
+    },
+    visibility = ["//visibility:private"],
 )
 
 config_setting(
@@ -200,6 +213,10 @@ tensorstore_cc_library(
         "cache.h",
         "cache_pool_limits.h",
     ],
+    defines = select({
+        ":refcount_debug_setting": ["TENSORSTORE_CACHE_REFCOUNT_DEBUG"],
+        "//conditions:default": [],
+    }),
     deps = [
         "//tensorstore/internal:heterogeneous_container",
         "//tensorstore/internal:integer_overflow",
@@ -213,6 +230,7 @@ tensorstore_cc_library(
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/functional:function_ref",
+        "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/synchronization",
     ],
 )

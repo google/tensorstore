@@ -81,17 +81,26 @@ CachePoolImpl::CachePoolImpl(const CachePool::Limits& limits)
 
 namespace {
 inline void AcquireWeakReference(CachePoolImpl* p) {
-  p->weak_references_.fetch_add(1, std::memory_order_relaxed);
+  [[maybe_unused]] auto old_count =
+      p->weak_references_.fetch_add(1, std::memory_order_relaxed);
+  TENSORSTORE_INTERNAL_CACHE_DEBUG_REFCOUNT("CachePool:weak:increment", p,
+                                            old_count + 1);
 }
 void ReleaseWeakReference(CachePoolImpl* p) {
-  if (--p->weak_references_ == 0) {
+  auto new_count = --p->weak_references_;
+  TENSORSTORE_INTERNAL_CACHE_DEBUG_REFCOUNT("CachePool:weak:decrement", p,
+                                            new_count);
+  if (new_count == 0) {
     delete Access::StaticCast<CachePool>(p);
   }
 }
 
 inline CachePtr<Cache> AcquireCacheStrongPtr(CacheImpl* cache_impl) {
-  if (cache_impl->reference_count_.fetch_add(1, std::memory_order_acq_rel) ==
-      0) {
+  auto old_count =
+      cache_impl->reference_count_.fetch_add(1, std::memory_order_acq_rel);
+  TENSORSTORE_INTERNAL_CACHE_DEBUG_REFCOUNT("Cache:increment", cache_impl,
+                                            old_count + 1);
+  if (old_count == 0) {
     // When the first reference to the cache is acquired (either when the cache
     // is created, or when it is retrieved from the caches_ table of the pool
     // after all prior references have been removed), also acquire a weak
@@ -284,6 +293,7 @@ inline UniqueWriterLock<absl::Mutex> DecrementReferenceCountWithLock(
       if (count <= lock_threshold + decrease_amount) break;
       if (reference_count.compare_exchange_weak(count, count - decrease_amount,
                                                 std::memory_order_acq_rel)) {
+        new_count = count - decrease_amount;
         return {};
       }
     }
@@ -298,12 +308,12 @@ inline UniqueWriterLock<absl::Mutex> DecrementReferenceCountWithLock(
   auto count =
       reference_count.fetch_sub(decrease_amount, std::memory_order_acq_rel) -
       decrease_amount;
+  new_count = count;
   if (count > lock_threshold) {
     // Reference count has changed, we didn't bring the count to below
     // threshold.
     return {};
   }
-  new_count = count;
   return lock;
 }
 
@@ -317,6 +327,8 @@ void StrongPtrTraitsCacheEntry::decrement(CacheEntry* p) noexcept {
     auto lock = DecrementReferenceCountWithLock(
         entry->reference_count_, cache->pool_->mutex_, new_count,
         /*decrease_amount=*/2, /*lock_threshold=*/1);
+    TENSORSTORE_INTERNAL_CACHE_DEBUG_REFCOUNT("CacheEntry:decrement", p,
+                                              new_count);
     if (!lock) return;
     if (new_count == 0 &&
         entry->queue_state_ == CacheEntryQueueState::clean_and_in_use) {
@@ -432,6 +444,7 @@ void StrongPtrTraitsCache::decrement(Cache* p) noexcept {
   auto lock = DecrementReferenceCountWithLock(
       cache->reference_count_, cache->pool_->mutex_, new_count,
       /*decrease_amount=*/1, /*lock_threshold=*/0);
+  TENSORSTORE_INTERNAL_CACHE_DEBUG_REFCOUNT("Cache:decrement", p, new_count);
   if (!lock) return;
   const bool owned_by_pool = !cache->cache_identifier_.empty();
 
@@ -484,6 +497,8 @@ void StrongPtrTraitsCachePool::decrement(CachePool* p) noexcept {
   auto lock = DecrementReferenceCountWithLock(
       pool->strong_references_, pool->mutex_, new_count,
       /*decrease_amount=*/1, /*lock_threshold=*/0);
+  TENSORSTORE_INTERNAL_CACHE_DEBUG_REFCOUNT("CachePool:decrement", p,
+                                            new_count);
   if (!lock) return;
   std::vector<CachePtr<Cache>> caches;
   caches.reserve(pool->caches_.size());
@@ -511,6 +526,8 @@ void intrusive_ptr_decrement(CacheEntryWeakState* p) {
   auto weak_lock = DecrementReferenceCountWithLock(
       p->weak_references, p->mutex, new_weak_count,
       /*decrease_amount=*/1, /*lock_threshold=*/0);
+  TENSORSTORE_INTERNAL_CACHE_DEBUG_REFCOUNT("CacheEntryWeakState:decrement", p,
+                                            new_weak_count);
   if (!weak_lock) return;
   // This is the last weak reference.
   auto* entry = p->entry;
@@ -530,6 +547,8 @@ void intrusive_ptr_decrement(CacheEntryWeakState* p) {
       entry->reference_count_, cache->pool_->mutex_, new_count,
       /*decrease_amount=*/1,
       /*lock_threshold=*/0);
+  TENSORSTORE_INTERNAL_CACHE_DEBUG_REFCOUNT("CacheEntry:decrement", entry,
+                                            new_count);
   if (!pool_lock) return;
 
   // There are also no remaining strong references.  Update the entry's queue

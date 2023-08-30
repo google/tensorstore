@@ -15,6 +15,10 @@
 #ifndef TENSORSTORE_INTERNAL_CACHE_CACHE_IMPL_H_
 #define TENSORSTORE_INTERNAL_CACHE_CACHE_IMPL_H_
 
+#ifndef TENSORSTORE_CACHE_REFCOUNT_DEBUG
+#define TENSORSTORE_CACHE_REFCOUNT_DEBUG 0
+#endif
+
 // IWYU pragma: private, include "third_party/tensorstore/internal/cache/cache.h"
 
 #include <stddef.h>
@@ -30,6 +34,7 @@
 
 #include "absl/base/call_once.h"
 #include "absl/functional/function_ref.h"
+#include "absl/log/absl_log.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/cache/cache_pool_limits.h"
 #include "tensorstore/internal/heterogeneous_container.h"
@@ -47,6 +52,10 @@ using internal::Cache;
 using internal::CacheEntry;
 using internal::CachePool;
 using internal::CachePoolLimits;
+
+#define TENSORSTORE_INTERNAL_CACHE_DEBUG_REFCOUNT(method, p, new_count) \
+  ABSL_LOG_IF(INFO, TENSORSTORE_CACHE_REFCOUNT_DEBUG)                   \
+      << method << ": " << p << " -> " << (new_count) /**/
 
 class Access;
 class CacheImpl;
@@ -80,7 +89,10 @@ struct CacheEntryWeakState {
   // Acquires an additional weak reference, assuming at least one is already
   // held.
   friend void intrusive_ptr_increment(CacheEntryWeakState* p) {
-    p->weak_references.fetch_add(1, std::memory_order_relaxed);
+    [[maybe_unused]] auto old_count =
+        p->weak_references.fetch_add(1, std::memory_order_relaxed);
+    TENSORSTORE_INTERNAL_CACHE_DEBUG_REFCOUNT("CacheEntryWeakState:increment",
+                                              p, old_count + 1);
   }
 
   // Releases a weak reference.
@@ -224,8 +236,11 @@ struct StrongPtrTraitsCache {
 
   template <typename U>
   static void increment(U* p) noexcept {
-    Access::StaticCast<CacheImpl>(&GetCacheObject(p))
-        ->reference_count_.fetch_add(1, std::memory_order_relaxed);
+    [[maybe_unused]] auto old_count =
+        Access::StaticCast<CacheImpl>(&GetCacheObject(p))
+            ->reference_count_.fetch_add(1, std::memory_order_relaxed);
+    TENSORSTORE_INTERNAL_CACHE_DEBUG_REFCOUNT("Cache:increment", p,
+                                              old_count + 1);
   }
   static void decrement(internal::Cache* p) noexcept;
   template <typename U>
@@ -244,8 +259,11 @@ struct StrongPtrTraitsCacheEntry {
   // Defined as a template because `internal::CacheEntry` is incomplete here.
   template <typename U = internal::CacheEntry*>
   static void increment(U* p) noexcept {
-    Access::StaticCast<CacheEntryImpl>(p)->reference_count_.fetch_add(
-        2, std::memory_order_relaxed);
+    [[maybe_unused]] auto old_count =
+        Access::StaticCast<CacheEntryImpl>(p)->reference_count_.fetch_add(
+            2, std::memory_order_relaxed);
+    TENSORSTORE_INTERNAL_CACHE_DEBUG_REFCOUNT("CacheEntry:increment", p,
+                                              old_count + 2);
   }
 
   static void decrement(internal::CacheEntry* p) noexcept;
