@@ -206,6 +206,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:intrusive_linked_list",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:mutex",
+        "//tensorstore/internal:type_traits",
         "//tensorstore/internal/metrics",
         "//tensorstore/internal/poly",
         "@com_google_absl//absl/base",

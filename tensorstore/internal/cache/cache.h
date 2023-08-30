@@ -237,9 +237,17 @@ enum class CacheEntryQueueState : int {
   /// local
   /// write happens before writeback completes, the state becomes `dirty`.
   writeback_requested,
+
+  /// Destruction in progress, must not be added back to any LRU queue.
+  destroying,
 };
 
 std::ostream& operator<<(std::ostream& os, CacheEntryQueueState state);
+
+/// Pointer to a cache entry that prevents it from being evicted due to memory
+/// pressure, but still permits it to be destroyed if its parent cache is
+/// destroyed.
+using WeakPinnedCacheEntry = internal_cache::WeakPinnedCacheEntry;
 
 /// Base class for cache entries.
 class CacheEntry : private internal_cache::CacheEntryImpl {
@@ -255,7 +263,7 @@ class CacheEntry : private internal_cache::CacheEntryImpl {
   ///
   /// This is intended for testing and debugging.
   std::uint32_t use_count() const {
-    return reference_count_.load(std::memory_order_acquire);
+    return reference_count_.load(std::memory_order_acquire) / 2;
   }
 
   /// Returns the current queue state.
@@ -318,13 +326,29 @@ class CacheEntry : private internal_cache::CacheEntryImpl {
   /// Derived classes may override this method if initialization is required.
   virtual void DoInitialize();
 
+  /// Returns a new weak reference to this entry.
+  ///
+  /// The caller must hold a strong reference.
+  ///
+  /// Like a strong reference, a weak reference prevents the entry from being
+  /// evicted due to memory pressure.  However, if there are no strong
+  /// references to the entry, no strong references to the cache, and no strong
+  /// references to the pool (if the cache has a non-empty identifier), then the
+  /// cache and all of its entries will be destroyed despite the existence of
+  /// weak references to entries.
+  WeakPinnedCacheEntry AcquireWeakReference() {
+    return internal_cache::AcquireWeakCacheEntryReference(this);
+  }
+
   virtual ~CacheEntry();
 
  private:
   friend class internal_cache::Access;
 };
 
-/// Pointer to a cache entry that prevents it from being evicted.
+/// Pointer to a cache entry that prevents it from being evicted due to memory
+/// pressure, and also ensures that the entry and its parent cache are not
+/// destroyed.
 template <typename CacheType>
 using PinnedCacheEntry =
     internal_cache::CacheEntryStrongPtr<typename CacheType::Entry>;

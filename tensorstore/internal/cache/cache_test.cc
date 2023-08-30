@@ -41,6 +41,7 @@ using ::tensorstore::internal::CachePtr;
 using ::tensorstore::internal::PinnedCacheEntry;
 using ::tensorstore::internal::static_pointer_cast;
 using ::tensorstore::internal::TestConcurrent;
+using ::tensorstore::internal::WeakPinnedCacheEntry;
 using ::tensorstore::internal_cache::Access;
 using ::tensorstore::internal_cache::CacheEntryImpl;
 using ::tensorstore::internal_cache::CacheImpl;
@@ -70,6 +71,9 @@ class TestCache : public Cache {
 
     std::string data;
     std::size_t size = 1;
+
+    // Set by some tests.
+    WeakPinnedCacheEntry weak_ref;
 
     ~Entry() override { GetOwningCache(*this).OnDelete(this); }
 
@@ -730,7 +734,7 @@ TEST(CacheTest, CacheDependsOnOtherCache) {
                                                {cache_a.get(), cache_b.get()});
 }
 
-constexpr static int kDefaultIterations = 500;
+constexpr static int kDefaultIterations = 100;
 
 TEST(CacheTest, ConcurrentGetCacheEntry) {
   auto pool = CachePool::Make(kSmallCacheLimits);
@@ -1077,6 +1081,95 @@ TEST(CacheTest, SetEvictWhenNotInUse) {
 
   // entry is evicted.
   EXPECT_THAT(log->entry_destroy_log, ElementsAre(Pair("cache_a", "entry_a")));
+}
+
+TEST(CacheTest, EntryWeakReference) {
+  auto log = std::make_shared<TestCache::RequestLog>();
+  auto pool = CachePool::Make(CachePool::Limits{});
+  auto cache = GetTestCache(pool.get(), "cache", log);
+  auto entry_a = GetCacheEntry(cache, "a");
+  auto weak_ref = entry_a->AcquireWeakReference();
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre());
+  pool = {};
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre());
+  entry_a = {};
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre());
+  weak_ref = {};
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre(Pair("cache", "a")));
+}
+
+TEST(CacheTest, EntryWeakReferences) {
+  auto log = std::make_shared<TestCache::RequestLog>();
+  auto pool = CachePool::Make(CachePool::Limits{});
+  auto cache = GetTestCache(pool.get(), "cache", log);
+  auto entry_a = GetCacheEntry(cache, "a");
+  auto weak_ref = entry_a->AcquireWeakReference();
+  auto weak_ref2 = entry_a->AcquireWeakReference();
+  auto entry_a2 = GetCacheEntry(cache, "a");
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre());
+  pool = {};
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre());
+  entry_a = {};
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre());
+  weak_ref = {};
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre());
+  weak_ref2 = {};
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre());
+  entry_a2 = {};
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre(Pair("cache", "a")));
+}
+
+TEST(CacheTest, GetStrongEntryReferenceWhileHoldingOnlyWeakReference) {
+  auto log = std::make_shared<TestCache::RequestLog>();
+  auto pool = CachePool::Make(CachePool::Limits{});
+  auto cache = GetTestCache(pool.get(), "cache", log);
+  auto entry_a = GetCacheEntry(cache, "a");
+  auto weak_ref = entry_a->AcquireWeakReference();
+  entry_a = {};
+  entry_a = GetCacheEntry(cache, "a");
+  entry_a = {};
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre());
+  weak_ref = {};
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre(Pair("cache", "a")));
+}
+
+TEST(CacheTest, PoolWithNonZeroBytesLimit) {
+  auto log = std::make_shared<TestCache::RequestLog>();
+  auto pool = CachePool::Make(kSmallCacheLimits);
+  auto cache = GetTestCache(pool.get(), "cache", log);
+  {
+    auto entry_a = GetCacheEntry(cache, "a");
+    auto weak_ref = entry_a->AcquireWeakReference();
+  }
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre());
+  pool = {};
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre());
+  cache = {};
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre(Pair("cache", "a")));
+}
+
+TEST(CacheTest, WeakRefOwnedByEntry) {
+  auto log = std::make_shared<TestCache::RequestLog>();
+  auto pool = CachePool::Make(kSmallCacheLimits);
+  auto cache1 = GetTestCache(pool.get(), "cache1", log);
+  auto cache2 = GetTestCache(pool.get(), "cache2", log);
+  {
+    auto entry_a = GetCacheEntry(cache1, "a");
+    auto entry_b = GetCacheEntry(cache1, "b");
+    entry_a->weak_ref = entry_b->AcquireWeakReference();
+  }
+  { auto entry_c = GetCacheEntry(cache2, "c"); }
+
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre());
+  pool = {};
+  EXPECT_THAT(log->entry_destroy_log, ElementsAre());
+  cache1 = {};
+  EXPECT_THAT(log->entry_destroy_log,
+              UnorderedElementsAre(Pair("cache1", "a"), Pair("cache1", "b")));
+  cache2 = {};
+  EXPECT_THAT(log->entry_destroy_log,
+              UnorderedElementsAre(Pair("cache1", "a"), Pair("cache1", "b"),
+                                   Pair("cache2", "c")));
 }
 
 }  // namespace

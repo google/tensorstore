@@ -14,6 +14,9 @@
 
 #include "tensorstore/internal/cache/cache.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <atomic>
 #include <cassert>
 #include <memory>
@@ -37,6 +40,7 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/mutex.h"
+#include "tensorstore/internal/type_traits.h"
 
 // A CacheEntry owns a strong reference to the Cache that contains it only if
 // its reference count is > 0.
@@ -175,7 +179,7 @@ void MaybeEvictEntries(CachePoolImpl* pool) noexcept {
 void InitializeNewEntry(CacheEntryImpl* entry, CacheImpl* cache) noexcept {
   auto* pool = cache->pool_;
   entry->cache_ = cache;
-  entry->reference_count_.store(1, std::memory_order_relaxed);
+  entry->reference_count_.store(2, std::memory_order_relaxed);
   entry->num_bytes_ = 0;
   entry->queue_state_ = CacheEntryQueueState::clean_and_in_use;
   pool->total_bytes_ += entry->num_bytes_;
@@ -245,36 +249,61 @@ void SetStateAndSize(CacheEntryImpl* entry, CacheEntryQueueState state,
 
 void DestroyCache(CacheImpl* cache) noexcept {
   for (CacheEntryImpl* entry : cache->entries_) {
+    assert(entry->reference_count_.load() <= 1);
     delete Access::StaticCast<Cache::Entry>(entry);
   }
   delete Access::StaticCast<Cache>(cache);
 }
 
-/// Decrements `*reference_count` in such a way that it only reaches zero while
-/// `mutex` is held.
-///
-/// If `*reference_count` was decremented to zero, returns a lock on `mutex`.
-/// Otherwise, returns an unlocked `UniqueWriterLock`.
+// Decrease `reference_count` in such a way that it only reaches threshold
+// while `mutex` is held.
+//
+// If `reference_count` was decreased to below `lock_threshold`, returns a lock
+// on `mutex`.  Otherwise, returns an unlocked `UniqueWriterLock`.
+//
+// Args:
+//   reference_count: Reference count to adjust.
+//   mutex: Mutex that must be locked while `reference_count` is decreased to
+//     `lock_threshold`.
+//   new_count[out]: Set to new reference count on return.
+//   decrease_amount: Amount to subtract from `reference_count`.
+//   lock_threshold: Maximum reference count for which `mutex` must be locked.
 template <typename T>
 inline UniqueWriterLock<absl::Mutex> DecrementReferenceCountWithLock(
-    std::atomic<T>* reference_count, absl::Mutex& mutex) {
-  // If the new reference count will be > 0, we can simply decrement it.
-  // However, if the reference count will possibly become 0, we must lock the
-  // mutex before decrementing it to ensure that another thread doesn't
-  // concurrently obtain another reference.
-  if (internal::DecrementReferenceCountIfGreaterThanOne(*reference_count)) {
-    return {};
+    std::atomic<T>& reference_count, absl::Mutex& mutex, T& new_count,
+    internal::type_identity_t<T> decrease_amount,
+    internal::type_identity_t<T> lock_threshold) {
+  // If the new reference count will be greater than lock_threshold, we can
+  // simply subtract `decrease_amount`.  However, if the reference count will
+  // possibly become less than or equal to `lock_threshold`, we must lock the
+  // mutex before subtracting `decrease_amount` to ensure that another thread
+  // doesn't concurrently obtain another reference.
+  {
+    auto count = reference_count.load(std::memory_order_relaxed);
+    while (true) {
+      if (count <= lock_threshold + decrease_amount) break;
+      if (reference_count.compare_exchange_weak(count, count - decrease_amount,
+                                                std::memory_order_acq_rel)) {
+        return {};
+      }
+    }
   }
 
-  // Handle the case of the reference_count possibly becoming 0.
+  // Handle the case of the reference_count possibly becoming less than or equal
+  // to lock_threshold.
 
   UniqueWriterLock lock(mutex);
   // Reference count may have changed between the time at which we last
   // checked it and the time at which we acquired the mutex.
-  if (reference_count->fetch_sub(1, std::memory_order_acq_rel) != 1) {
-    // Reference count has changed, we didn't bring the count to zero.
+  auto count =
+      reference_count.fetch_sub(decrease_amount, std::memory_order_acq_rel) -
+      decrease_amount;
+  if (count > lock_threshold) {
+    // Reference count has changed, we didn't bring the count to below
+    // threshold.
     return {};
   }
+  new_count = count;
   return lock;
 }
 
@@ -284,14 +313,18 @@ void StrongPtrTraitsCacheEntry::decrement(CacheEntry* p) noexcept {
   auto* entry = Access::StaticCast<CacheEntryImpl>(p);
   auto* cache = entry->cache_;
   {
-    auto lock = DecrementReferenceCountWithLock(&entry->reference_count_,
-                                                cache->pool_->mutex_);
+    uint32_t new_count;
+    auto lock = DecrementReferenceCountWithLock(
+        entry->reference_count_, cache->pool_->mutex_, new_count,
+        /*decrease_amount=*/2, /*lock_threshold=*/1);
     if (!lock) return;
-    if (entry->queue_state_ == CacheEntryQueueState::clean_and_in_use) {
+    if (new_count == 0 &&
+        entry->queue_state_ == CacheEntryQueueState::clean_and_in_use) {
       SetStateAndSize(entry, CacheEntryQueueState::clean_and_not_in_use,
                       entry->num_bytes_);
       // `entry` may not be valid at this point.
     }
+    assert(new_count <= 1);
   }
   StrongPtrTraitsCache::decrement(Access::StaticCast<Cache>(cache));
 }
@@ -341,11 +374,11 @@ PinnedCacheEntry<Cache> GetCacheEntryInternal(internal::Cache* cache,
       hit_count.Increment();
       auto* entry_impl = *it;
       if (entry_impl->reference_count_.fetch_add(
-              1, std::memory_order_acq_rel) == 0) {
-        // When the first reference to an entry is acquired, also acquire a
-        // strong reference to the cache to be held by the entry.  This ensures
-        // the Cache object is not destroyed while any of its entries are
-        // referenced.
+              2, std::memory_order_acq_rel) <= 1) {
+        // When the first strong reference to an entry is acquired, also acquire
+        // a strong reference to the cache to be held by the entry.  This
+        // ensures the Cache object is not destroyed while any of its entries
+        // are referenced.
         StrongPtrTraitsCache::increment(cache);
         EnsureNotOnCleanList(entry_impl);
       }
@@ -395,8 +428,10 @@ PinnedCacheEntry<Cache> GetCacheEntryInternal(internal::Cache* cache,
 void StrongPtrTraitsCache::decrement(Cache* p) noexcept {
   auto* cache = Access::StaticCast<CacheImpl>(p);
   auto* pool = cache->pool_;
-  auto lock = DecrementReferenceCountWithLock(&cache->reference_count_,
-                                              cache->pool_->mutex_);
+  uint32_t new_count;
+  auto lock = DecrementReferenceCountWithLock(
+      cache->reference_count_, cache->pool_->mutex_, new_count,
+      /*decrease_amount=*/1, /*lock_threshold=*/0);
   if (!lock) return;
   const bool owned_by_pool = !cache->cache_identifier_.empty();
 
@@ -409,6 +444,7 @@ void StrongPtrTraitsCache::decrement(Cache* p) noexcept {
     // currently.  Destroy it and all of its entries.
     for (CacheEntryImpl* entry : cache->entries_) {
       UnregisterEntryFromPool(entry, pool);
+      entry->queue_state_ = CacheEntryQueueState::destroying;
     }
 
     lock.unlock();
@@ -444,8 +480,10 @@ void StrongPtrTraitsCachePool::increment(CachePool* p) noexcept {
 
 void StrongPtrTraitsCachePool::decrement(CachePool* p) noexcept {
   auto* pool = Access::StaticCast<CachePoolImpl>(p);
-  auto lock =
-      DecrementReferenceCountWithLock(&pool->strong_references_, pool->mutex_);
+  size_t new_count;
+  auto lock = DecrementReferenceCountWithLock(
+      pool->strong_references_, pool->mutex_, new_count,
+      /*decrease_amount=*/1, /*lock_threshold=*/0);
   if (!lock) return;
   std::vector<CachePtr<Cache>> caches;
   caches.reserve(pool->caches_.size());
@@ -468,6 +506,76 @@ void WeakPtrTraitsCachePool::decrement(CachePool* p) noexcept {
   ReleaseWeakReference(Access::StaticCast<CachePoolImpl>(p));
 }
 
+void intrusive_ptr_decrement(CacheEntryWeakState* p) {
+  size_t new_weak_count;
+  auto weak_lock = DecrementReferenceCountWithLock(
+      p->weak_references, p->mutex, new_weak_count,
+      /*decrease_amount=*/1, /*lock_threshold=*/0);
+  if (!weak_lock) return;
+  // This is the last weak reference.
+  auto* entry = p->entry;
+  if (!entry) {
+    // Entry was already destroyed.  Destroy the weak state now that there are
+    // no other weak references.
+    weak_lock = {};
+    delete p;
+    return;
+  }
+
+  // Entry still exists.  While still holding `weak_lock`, mark that there are
+  // no remaining weak references.
+  uint32_t new_count;
+  auto* cache = entry->cache_;
+  auto pool_lock = DecrementReferenceCountWithLock(
+      entry->reference_count_, cache->pool_->mutex_, new_count,
+      /*decrease_amount=*/1,
+      /*lock_threshold=*/0);
+  if (!pool_lock) return;
+
+  // There are also no remaining strong references.  Update the entry's queue
+  // state if applicable.
+  weak_lock = {};
+  if (entry->queue_state_ == CacheEntryQueueState::clean_and_in_use) {
+    SetStateAndSize(entry, CacheEntryQueueState::clean_and_not_in_use,
+                    entry->num_bytes_);
+    // `entry` may not be valid at this point.
+  }
+}
+
+internal::IntrusivePtr<CacheEntryWeakState> AcquireWeakCacheEntryReference(
+    CacheEntry* e) {
+  auto* entry_impl = Access::StaticCast<CacheEntryImpl>(e);
+  CacheEntryWeakState* weak_state =
+      entry_impl->weak_state_.load(std::memory_order_acquire);
+  auto* cache_impl = entry_impl->cache_;
+  if (!weak_state) {
+    // Must allocate new weak reference state, since there have been no prior
+    // weak references to this entry.
+    absl::MutexLock lock(&cache_impl->pool_->mutex_);
+    // Recheck after acquiring pool mutex, since the weak state could have been
+    // created concurrently.
+    weak_state = entry_impl->weak_state_.load(std::memory_order_relaxed);
+    if (!weak_state) {
+      weak_state = new CacheEntryWeakState;
+      weak_state->entry = entry_impl;
+      weak_state->weak_references.store(1, std::memory_order_relaxed);
+      entry_impl->weak_state_.store(weak_state, std::memory_order_release);
+      // Mark the existence of a weak reference in the entry.
+      entry_impl->reference_count_.fetch_add(1, std::memory_order_relaxed);
+      return internal::IntrusivePtr<CacheEntryWeakState>(
+          weak_state, internal::adopt_object_ref);
+    }
+  }
+  if (weak_state->weak_references.fetch_add(1, std::memory_order_acq_rel) ==
+      0) {
+    // All previous weak references were released.  Must update the entry to
+    // mark the existence of a weak reference.
+    entry_impl->reference_count_.fetch_add(1, std::memory_order_relaxed);
+  }
+  return internal::IntrusivePtr<CacheEntryWeakState>(
+      weak_state, internal::adopt_object_ref);
+}
+
 }  // namespace internal_cache
 
 namespace internal {
@@ -480,7 +588,21 @@ std::size_t Cache::DoGetSizeInBytes(Cache::Entry* entry) {
          this->DoGetSizeofEntry();
 }
 
-CacheEntry::~CacheEntry() = default;
+CacheEntry::~CacheEntry() {
+  auto* weak_state = this->weak_state_.load(std::memory_order_relaxed);
+  if (!weak_state) return;
+  {
+    absl::MutexLock lock(&weak_state->mutex);
+    weak_state->entry = nullptr;
+    if (weak_state->weak_references.load(std::memory_order_acquire) != 0) {
+      // Don't destroy the weak reference state, since there are still weak
+      // references.  It will be destroyed instead when the last weak reference
+      // is released.
+      return;
+    }
+  }
+  delete weak_state;
+}
 
 void CacheEntry::DoInitialize() {}
 

@@ -17,6 +17,9 @@
 
 // IWYU pragma: private, include "third_party/tensorstore/internal/cache/cache.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <atomic>
 #include <functional>
 #include <memory>
@@ -56,6 +59,41 @@ struct LruListNode {
   LruListNode* prev;
 };
 
+class CacheEntryImpl;
+
+// Weak reference state for a cache entry.
+//
+// This is stored in a separate heap allocation from the entry itself, in order
+// to allow weak references to outlive the entry.
+struct CacheEntryWeakState {
+  // Number of weak references.  When non-zero, the least-significant bit (LSB)
+  // of `entry->reference_count_` is set to 1.
+  std::atomic<size_t> weak_references;
+
+  // Mutex that protects access to `entry`.  If locked along with the cache
+  // pool's mutex, this mutex must be locked first.
+  absl::Mutex mutex;
+
+  // Pointer to the entry for which this is a weak reference.
+  CacheEntryImpl* entry;
+
+  // Acquires an additional weak reference, assuming at least one is already
+  // held.
+  friend void intrusive_ptr_increment(CacheEntryWeakState* p) {
+    p->weak_references.fetch_add(1, std::memory_order_relaxed);
+  }
+
+  // Releases a weak reference.
+  friend void intrusive_ptr_decrement(CacheEntryWeakState* p);
+};
+
+using WeakPinnedCacheEntry = internal::IntrusivePtr<CacheEntryWeakState>;
+
+// Acquires a weak reference to a cache entry.
+//
+// The caller must hold a strong reference already.
+WeakPinnedCacheEntry AcquireWeakCacheEntryReference(CacheEntry* e);
+
 class CacheEntryImpl : public internal_cache::LruListNode {
  public:
   CacheImpl* cache_;
@@ -63,9 +101,27 @@ class CacheEntryImpl : public internal_cache::LruListNode {
   size_t num_bytes_;
   CacheEntryQueueState queue_state_;
   bool evict_when_not_in_use_ = false;
-  std::atomic<std::uint32_t> reference_count_;
+
+  // Each strong reference adds 2 to the reference count.  The least-significant
+  // bit (LSB) indicates if there is at least one weak reference,
+  // `weak_state_.load()->reference_count.load() > 0`.
+  //
+  // When the reference count is non-zero, the entry is considered "in-use" and
+  // won't be evicted due to memory pressure.  In particular, `queue_state_` may
+  // be `clean_and_not_in_use` if, and only if, `reference_count_` is 0.
+  // Conversely, `queue_state_` may be `clean_and_in_use` if, and only if,
+  // `reference_count_` is non-zero.
+  std::atomic<uint32_t> reference_count_;
+
   // Guards calls to `DoInitializeEntry`.
   absl::once_flag initialized_;
+
+  // Initially set to `nullptr`.  Allocated when the first weak reference is
+  // obtained, and remains until the entry is destroyed even if all weak
+  // references are released.  May be read without holding
+  // `cache_->pool_->mutex_`, but may not be written without holding
+  // `cache_->pool_->mutex_`.
+  std::atomic<CacheEntryWeakState*> weak_state_{nullptr};
 };
 
 class CacheImpl {
@@ -104,7 +160,7 @@ class CacheImpl {
   /// pool, and is destroyed as soon as `reference_count_` becomes zero.
   std::string cache_identifier_;
 
-  std::atomic<std::uint32_t> reference_count_;
+  std::atomic<uint32_t> reference_count_;
 
   internal::HeterogeneousHashSet<CacheEntryImpl*, std::string_view,
                                  &CacheEntryImpl::key_>
@@ -189,11 +245,13 @@ struct StrongPtrTraitsCacheEntry {
   template <typename U = internal::CacheEntry*>
   static void increment(U* p) noexcept {
     Access::StaticCast<CacheEntryImpl>(p)->reference_count_.fetch_add(
-        1, std::memory_order_relaxed);
+        2, std::memory_order_relaxed);
   }
 
   static void decrement(internal::CacheEntry* p) noexcept;
 };
+
+using CacheEntryWeakPtr = internal::IntrusivePtr<CacheEntryWeakState>;
 
 template <typename Entry>
 using CacheEntryStrongPtr =
