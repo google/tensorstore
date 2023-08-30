@@ -845,6 +845,33 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "kvs_read_streambuf",
+    srcs = ["kvs_read_streambuf.cc"],
+    hdrs = ["kvs_read_streambuf.h"],
+    deps = [
+        "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/kvstore",
+        "//tensorstore/kvstore:byte_range",
+        "//tensorstore/util:result",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "kvs_read_streambuf_test",
+    size = "small",
+    srcs = ["kvs_read_streambuf_test.cc"],
+    deps = [
+        ":concurrent_testutil",
+        ":kvs_read_streambuf",
+        "//tensorstore/kvstore/memory",
+        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/algorithm:container",
+        "@com_google_absl//absl/synchronization",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
     name = "lock_collection",
     srcs = ["lock_collection.cc"],
     hdrs = ["lock_collection.h"],
