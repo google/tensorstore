@@ -22,31 +22,47 @@
 namespace tensorstore {
 namespace internal {
 KvsReadStreambuf::KvsReadStreambuf(kvstore::DriverPtr kvstore_driver,
-                                   kvstore::Key key,
+                                   kvstore::Key key, size_t buffer_size,
                                    std::streamoff pos_in_stream)
     : kvstore_driver_(std::move(kvstore_driver)),
       key_(std::move(key)),
-      source_pos_(pos_in_stream) {}
+      source_pos_(pos_in_stream),
+      buffer_size_(buffer_size) {}
 
 KvsReadStreambuf::pos_type KvsReadStreambuf::seekpos(
-    pos_type /*pos*/, std::ios_base::openmode /*which*/) {
-  return -1;
+    pos_type sp, std::ios_base::openmode which) {
+  return seekoff(sp - pos_type(off_type(0)), std::ios_base::beg, which);
 }
 
 KvsReadStreambuf::pos_type KvsReadStreambuf::seekoff(
     off_type off, std::ios_base::seekdir way, std::ios_base::openmode which) {
-  if (which == std::ios_base::in && way == std::ios_base::cur && off == 0) {
-    return source_pos_ - in_avail();
+  // We don't know the total size of the object so we can't seek relative
+  // to the end.
+  if (which != std::ios_base::in || way == std::ios_base::end) return -1;
+  if (way == std::ios_base::cur) {  // Convert relative to absolute position.
+    off = source_pos_ - in_avail() + off;
   }
-  return -1;
+
+  if (off < 0) return -1;
+
+  long buff_size = static_cast<long>(current_buffer_.size());
+  long rel_off = off - (source_pos_ - buff_size);
+
+  char* data = current_buffer_.data();
+  if (rel_off < 0 || rel_off > buff_size) {
+    setg(data, data + buff_size, data + buff_size);
+    source_pos_ = off;
+    underflow();
+  } else {
+    setg(data, data + rel_off, data + buff_size);
+  }
+  return source_pos_ - in_avail();
 }
 
 KvsReadStreambuf::int_type KvsReadStreambuf::underflow() {
-  auto constexpr kInitialPeekRead = 128 * 1024;
-  std::vector<char> buffer(kInitialPeekRead);
-  auto const offset = xsgetn(buffer.data(), kInitialPeekRead);
+  std::vector<char> buffer(buffer_size_);
+  auto const offset = xsgetn(buffer.data(), buffer_size_);
   if (offset == 0) return traits_type::eof();
-
   buffer.resize(static_cast<std::size_t>(offset));
   buffer.swap(current_buffer_);
   char* data = current_buffer_.data();
@@ -56,7 +72,6 @@ KvsReadStreambuf::int_type KvsReadStreambuf::underflow() {
 
 std::streamsize KvsReadStreambuf::xsgetn(char* s, std::streamsize count) {
   std::streamsize offset = 0;
-
   auto from_internal = (std::min)(count, in_avail());
   if (from_internal > 0) {
     std::memcpy(s, gptr(), static_cast<std::size_t>(from_internal));
@@ -69,7 +84,7 @@ std::streamsize KvsReadStreambuf::xsgetn(char* s, std::streamsize count) {
   options.staleness_bound = absl::Now();
   options.if_not_equal = StorageGeneration::NoValue();
   options.byte_range =
-      ByteRange{static_cast<int64_t>(source_pos_ + offset),
+      ByteRange{static_cast<int64_t>(source_pos_),
                 static_cast<int64_t>(count + source_pos_ - offset)};
 
   TENSORSTORE_ASSIGN_OR_RETURN(

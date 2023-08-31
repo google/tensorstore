@@ -58,8 +58,9 @@ TEST(KvsReadStreambufTest, BasicRead) {
       auto store, kvstore::Open({{"driver", "memory"}}, context).result());
   TENSORSTORE_ASSERT_OK(kvstore::Write(store, "key", data));
 
-  KvsReadStreambuf buf(store.driver, "key");
+  KvsReadStreambuf buf(store.driver, "key", 5);
   std::istream stream(&buf);
+  EXPECT_EQ(0, stream.tellg());
   EXPECT_EQ(0, stream.tellg());
 
   auto read = [&](std::size_t to_read, std::vector<char> expected_values,
@@ -88,8 +89,56 @@ TEST(KvsReadStreambufTest, BasicSeek) {
       auto store, kvstore::Open({{"driver", "memory"}}, context).result());
   TENSORSTORE_ASSERT_OK(kvstore::Write(store, "key", data));
 
-  KvsReadStreambuf buf(store.driver, "key");
+  constexpr auto buffer_size = 5;
+  KvsReadStreambuf buf(store.driver, "key", buffer_size);
   std::istream stream(&buf);
+
+  auto read = [&](char expected_value, std::streampos expected_tellg,
+                  int expected_in_avail) {
+    char to_read;
+    stream.read(&to_read, 1);
+    EXPECT_TRUE(!!stream);
+    EXPECT_EQ(to_read, expected_value);
+    EXPECT_EQ(stream.rdbuf()->in_avail(), expected_in_avail);
+    EXPECT_EQ(expected_tellg, stream.tellg());
+  };
+
+  // Absolute seeks.
+  // Does not trigger buffering.
+  stream.seekg(0, std::ios_base::beg);
+  read(0, 1, 0);
+
+  // Seek remaining in buffer.
+  stream.seekg(3, std::ios_base::beg);  // triggers buffering.
+  read(3, 4, 4);
+  stream.seekg(4, std::ios_base::beg);
+  read(4, 5, 3);
+  stream.seekg(5, std::ios_base::beg);
+  read(5, 6, 2);
+  stream.seekg(7, std::ios_base::beg);
+  read(7, 8, 0);
+  stream.seekg(3, std::ios_base::beg);
+  read(3, 4, 4);
+  stream.seekg(2, std::ios_base::beg);  // triggers buffering
+  read(2, 3, 4);
+
+  // Jump ahead and back.
+  stream.seekg(50, std::ios_base::beg);
+  read(50, 51, 4);
+  stream.seekg(20, std::ios_base::beg);
+  read(20, 21, 4);
+
+  // Cur positioning.
+  stream.seekg(-11, std::ios_base::cur);
+  read(10, 11, 4);
+  stream.seekg(9, std::ios_base::cur);
+  read(20, 21, 4);
+  stream.seekg(-1, std::ios_base::cur);
+  read(20, 21, 4);
+  stream.seekg(20, std::ios_base::beg);  // cycle back and forth.
+  read(20, 21, 4);
+  stream.seekg(1, std::ios_base::cur);
+  read(22, 23, 2);
 }
 
 }  // namespace

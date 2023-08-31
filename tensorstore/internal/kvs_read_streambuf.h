@@ -32,11 +32,12 @@ namespace internal {
 class KvsReadStreambuf : public std::basic_streambuf<char> {
  public:
   KvsReadStreambuf(kvstore::DriverPtr kvstore_driver, kvstore::Key key,
+                   size_t buffer_size = 128 * 1024,
                    std::streamoff pos_in_stream = 0);
 
   ~KvsReadStreambuf() override = default;
 
-  pos_type seekpos(pos_type pos, std::ios_base::openmode which) override;
+  pos_type seekpos(pos_type sp, std::ios_base::openmode which) override;
   pos_type seekoff(off_type off, std::ios_base::seekdir way,
                    std::ios_base::openmode which) override;
 
@@ -48,6 +49,7 @@ class KvsReadStreambuf : public std::basic_streambuf<char> {
   kvstore::Key key_;
   std::streamoff source_pos_;
   std::vector<char> current_buffer_;
+  size_t buffer_size_;
 };
 
 }  // namespace internal
