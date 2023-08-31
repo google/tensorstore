@@ -65,6 +65,9 @@ absl::Status CurlCodeToStatus(CURLcode code, std::string_view detail,
     case CURLE_RECV_ERROR:
     case CURLE_SEND_ERROR:
     case CURLE_SSL_CONNECT_ERROR:
+      // Curl sometimes returns `CURLE_UNSUPPORTED_PROTOCOL` in the case of a
+      // malformed response.
+    case CURLE_UNSUPPORTED_PROTOCOL:
       error_code = absl::StatusCode::kUnavailable;
       break;
 
@@ -93,7 +96,6 @@ absl::Status CurlCodeToStatus(CURLcode code, std::string_view detail,
     // and almost always indicate a precondition or missing required feature.
     case CURLE_BAD_FUNCTION_ARGUMENT:
     case CURLE_OUT_OF_MEMORY:
-    case CURLE_UNSUPPORTED_PROTOCOL:
     case CURLE_NOT_BUILT_IN:
     case CURLE_UNKNOWN_OPTION:
     case CURLE_BAD_DOWNLOAD_RESUME:

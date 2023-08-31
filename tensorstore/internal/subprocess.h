@@ -54,7 +54,10 @@ class Subprocess {
 
   /// Block until the process exits, returning the exit status. If necessary
   /// file handles to the process may be closed.
-  Result<int> Join() const;
+  ///
+  /// If `block` is `false`, return immediately with
+  /// `absl::StatusCode::kUnavailable` if the process has not already exited.
+  Result<int> Join(bool block = true) const;
 
  private:
   friend Result<Subprocess> SpawnSubprocess(const SubprocessOptions& options);

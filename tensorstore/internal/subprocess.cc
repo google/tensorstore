@@ -121,7 +121,7 @@ struct Subprocess::Impl {
   ~Impl();
 
   absl::Status Kill(int signal);
-  Result<int> Join();
+  Result<int> Join(bool block);
 
   PROCESS_INFORMATION pi_;
 };
@@ -142,13 +142,23 @@ absl::Status Subprocess::Impl::Kill(int signal) {
   return StatusFromOsError(GetLastErrorCode(), "On Subprocess::Kill");
 }
 
-Result<int> Subprocess::Impl::Join() {
-  // If stdin were a pipe, close it here.
-  DWORD wait_status = WaitForSingleObject(pi_.hProcess, INFINITE);
-  if (wait_status == WAIT_OBJECT_0) {
+Result<int> Subprocess::Impl::Join(bool block) {
+  if (!block) {
     DWORD process_exit_code = 0;
     if (0 != GetExitCodeProcess(pi_.hProcess, &process_exit_code)) {
+      if (process_exit_code == STILL_ACTIVE) {
+        return absl::UnavailableError("");
+      }
       return static_cast<int>(process_exit_code);
+    }
+  } else {
+    // If stdin were a pipe, close it here.
+    DWORD wait_status = WaitForSingleObject(pi_.hProcess, INFINITE);
+    if (wait_status == WAIT_OBJECT_0) {
+      DWORD process_exit_code = 0;
+      if (0 != GetExitCodeProcess(pi_.hProcess, &process_exit_code)) {
+        return static_cast<int>(process_exit_code);
+      }
     }
   }
   return StatusFromOsError(GetLastErrorCode(), "Subprocess::Join failed");
@@ -233,7 +243,7 @@ struct Subprocess::Impl {
   ~Impl();
 
   absl::Status Kill(int signal);
-  Result<int> Join();
+  Result<int> Join(bool block);
 
   std::atomic<pid_t> child_pid_{-1};
   std::atomic<int> exit_code_{-1};
@@ -258,7 +268,7 @@ absl::Status Subprocess::Impl::Kill(int signal) {
   return StatusFromOsError(GetLastErrorCode(), "On Subprocess::Kill");
 }
 
-Result<int> Subprocess::Impl::Join() {
+Result<int> Subprocess::Impl::Join(bool block) {
   // If stdin were a pipe, close it here.
   int status;
   for (;;) {
@@ -269,9 +279,12 @@ Result<int> Subprocess::Impl::Join() {
       return exit_code_.load();
     }
 
-    int result = waitpid(pid, &status, 0);
+    int result = waitpid(pid, &status, block ? 0 : WNOHANG);
     if ((result < 0) && !retry(errno)) {
       return StatusFromOsError(GetLastErrorCode(), "Subprocess::Join failed");
+    }
+    if (!block && result == 0) {
+      return absl::UnavailableError("");
     }
     if (result != pid) continue;
     if (WIFEXITED(status)) {
@@ -361,7 +374,7 @@ Subprocess::~Subprocess() = default;
 
 absl::Status Subprocess::Kill(int signal) const { return impl_->Kill(signal); }
 
-Result<int> Subprocess::Join() const { return impl_->Join(); }
+Result<int> Subprocess::Join(bool block) const { return impl_->Join(block); }
 
 }  // namespace internal
 }  // namespace tensorstore

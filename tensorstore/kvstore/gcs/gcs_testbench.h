@@ -26,6 +26,7 @@ namespace gcs_testbench {
 class StorageTestbench {
  public:
   StorageTestbench();
+  ~StorageTestbench();
 
   // Spawns the subprocess and returns the grpc address.
   void SpawnProcess();
@@ -36,8 +37,8 @@ class StorageTestbench {
   std::string http_address();
   std::string grpc_address();
 
-  const int http_port;
-  const int grpc_port;
+  int http_port;
+  int grpc_port;
   bool running = false;
 
   std::optional<tensorstore::internal::Subprocess> child;

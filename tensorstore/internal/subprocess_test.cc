@@ -19,6 +19,7 @@
 #include <string_view>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
@@ -57,6 +58,9 @@ TEST(SubprocessTest, Kill) {
 
   auto child = SpawnSubprocess(opts);
   EXPECT_TRUE(child.ok());
+
+  EXPECT_THAT(child->Join(/*block=*/false),
+              tensorstore::MatchesStatus(absl::StatusCode::kUnavailable));
 
   child->Kill().IgnoreError();
 
