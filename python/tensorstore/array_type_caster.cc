@@ -55,16 +55,18 @@ namespace py = pybind11;
 namespace {
 /// Converts string and json types to Python objects.
 struct ConvertToObject {
-  py::object operator()(const string_t* x) const noexcept {
+  py::object operator()(
+      const ::tensorstore::dtypes::string_t* x) const noexcept {
     return py::reinterpret_steal<py::object>(
         PyBytes_FromStringAndSize(x->data(), x->size()));
   }
 
-  py::object operator()(const ustring_t* x) const noexcept {
+  py::object operator()(
+      const ::tensorstore::dtypes::ustring_t* x) const noexcept {
     return py::reinterpret_steal<py::object>(
         PyUnicode_FromStringAndSize(x->utf8.data(), x->utf8.size()));
   }
-  py::object operator()(const json_t* x) const noexcept {
+  py::object operator()(const ::tensorstore::dtypes::json_t* x) const noexcept {
     return JsonToPyObject(*x);
   }
 };
@@ -89,7 +91,7 @@ GetConvertToNumpyObjectArrayFunction() {
 constexpr const internal::ElementwiseFunction<2, void*>*
     kConvertDataTypeToNumpyObjectArray[kNumDataTypeIds] = {
 #define TENSORSTORE_INTERNAL_DO_CONVERT(T, ...) \
-  GetConvertToNumpyObjectArrayFunction<T>(),
+  GetConvertToNumpyObjectArrayFunction<::tensorstore::dtypes::T>(),
         TENSORSTORE_FOR_EACH_DATA_TYPE(TENSORSTORE_INTERNAL_DO_CONVERT)
 #undef TENSORSTORE_INTERNAL_DO_CONVERT
 };
@@ -101,7 +103,8 @@ constexpr const internal::ElementwiseFunction<2, void*>*
 /// If an error occurs, sets `ex` to an exception and returns `false`.
 struct ConvertFromObject {
   std::exception_ptr ex;
-  bool operator()(PyObject** from, string_t* to, void*) noexcept {
+  bool operator()(PyObject** from, ::tensorstore::dtypes::string_t* to,
+                  void*) noexcept {
     char* buffer;
     Py_ssize_t length;
     if (::PyBytes_AsStringAndSize(*from, &buffer, &length) == -1) {
@@ -111,7 +114,8 @@ struct ConvertFromObject {
     to->assign(buffer, length);
     return true;
   }
-  bool operator()(PyObject** from, ustring_t* to, void*) noexcept {
+  bool operator()(PyObject** from, ::tensorstore::dtypes::ustring_t* to,
+                  void*) noexcept {
     Py_ssize_t length;
     const char* buffer = ::PyUnicode_AsUTF8AndSize(*from, &length);
     if (!buffer) {
@@ -121,7 +125,8 @@ struct ConvertFromObject {
     to->utf8.assign(buffer, length);
     return true;
   }
-  bool operator()(PyObject** from, json_t* to, void*) noexcept {
+  bool operator()(PyObject** from, ::tensorstore::dtypes::json_t* to,
+                  void*) noexcept {
     try {
       *to = PyObjectToJson(*from);
       return true;
@@ -146,7 +151,7 @@ GetConvertFromNumpyObjectArrayFunction() {
 constexpr const internal::ElementwiseFunction<2, void*>*
     kConvertDataTypeFromNumpyObjectArray[kNumDataTypeIds] = {
 #define TENSORSTORE_INTERNAL_DO_CONVERT(T, ...) \
-  GetConvertFromNumpyObjectArrayFunction<T>(),
+  GetConvertFromNumpyObjectArrayFunction<::tensorstore::dtypes::T>(),
         TENSORSTORE_FOR_EACH_DATA_TYPE(TENSORSTORE_INTERNAL_DO_CONVERT)
 #undef TENSORSTORE_INTERNAL_DO_CONVERT
 };
@@ -195,7 +200,7 @@ pybind11::object GetNumpyObjectArrayImpl(SharedArrayView<const void> source,
 SharedArray<void, dynamic_rank> ArrayFromNumpyObjectArray(
     pybind11::array array_obj, DataType dtype) {
   if (!dtype.valid()) {
-    dtype = dtype_v<tensorstore::json_t>;
+    dtype = dtype_v<::tensorstore::dtypes::json_t>;
   }
   const DimensionIndex rank = array_obj.ndim();
   StridedLayout<dynamic_rank(NPY_MAXDIMS)> array_obj_layout;
@@ -355,7 +360,7 @@ bool ConvertToArrayImpl(pybind11::handle src,
     // PyArray_FromAny does not handle rank constraints of 0, so we need to
     // check them separately.
     if (max_rank == 0 && obj.ndim() != 0) {
-      if (data_type_constraint != dtype_v<tensorstore::json_t>) {
+      if (data_type_constraint != dtype_v<::tensorstore::dtypes::json_t>) {
         if (no_throw) return false;
         throw pybind11::value_error(tensorstore::StrCat(
             "Expected array of rank 0, but received array of rank ",

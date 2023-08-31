@@ -263,6 +263,8 @@ tensorstore_cc_test(
         ":flat_cord_builder",
         "//tensorstore:array",
         "//tensorstore:contiguous_layout",
+        "//tensorstore:data_type",
+        "//tensorstore:index",
         "//tensorstore:strided_layout",
         "//tensorstore/util:endian",
         "//tensorstore/util:str_cat",

@@ -14,6 +14,8 @@
 
 #include "tensorstore/internal/nditerable_data_type_conversion.h"
 
+#include <stdint.h>
+
 #include <memory>
 #include <new>
 #include <string>
@@ -44,17 +46,16 @@ namespace {
 
 using ::tensorstore::DataType;
 using ::tensorstore::dtype_v;
-using ::tensorstore::int32_t;
-using ::tensorstore::json_t;
 using ::tensorstore::MakeArray;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::Shared;
 using ::tensorstore::SharedArray;
-using ::tensorstore::string_t;
 using ::tensorstore::TransformedArray;
-using ::tensorstore::uint32_t;
 using ::tensorstore::internal::GetDataTypeConverter;
 using ::testing::Pair;
+
+using ::tensorstore::dtypes::json_t;
+using ::tensorstore::dtypes::string_t;
 
 }  // namespace
 

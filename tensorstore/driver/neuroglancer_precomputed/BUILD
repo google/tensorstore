@@ -213,8 +213,6 @@ tensorstore_cc_test(
         "//tensorstore:open",
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/internal:json_gtest",
-        "//tensorstore/kvstore",
-        "//tensorstore/kvstore:key_range",
         "//tensorstore/kvstore:mock_kvstore",
         "//tensorstore/kvstore/memory",
         "//tensorstore/util:result",

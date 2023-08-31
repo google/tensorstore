@@ -14,15 +14,50 @@
 
 #include "tensorstore/driver/cast/cast.h"
 
+#include <cassert>
+#include <utility>
+
 #include "absl/status/status.h"
+#include "tensorstore/array.h"
+#include "tensorstore/array_storage_statistics.h"
+#include "tensorstore/chunk_layout.h"
+#include "tensorstore/codec_spec.h"
+#include "tensorstore/context.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/data_type_conversion.h"
+#include "tensorstore/driver/chunk.h"
+#include "tensorstore/driver/driver.h"
 #include "tensorstore/driver/driver_handle.h"
+#include "tensorstore/driver/driver_spec.h"
 #include "tensorstore/driver/registry.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_space/dimension_units.h"
+#include "tensorstore/index_space/index_domain.h"
+#include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/internal/arena.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/internal/lock_collection.h"
 #include "tensorstore/internal/nditerable_data_type_conversion.h"
 #include "tensorstore/internal/type_traits.h"
+#include "tensorstore/json_serialization_options.h"
+#include "tensorstore/kvstore/kvstore.h"
+#include "tensorstore/kvstore/spec.h"
+#include "tensorstore/open_mode.h"
+#include "tensorstore/open_options.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/resize_options.h"
+#include "tensorstore/schema.h"
 #include "tensorstore/spec.h"
+#include "tensorstore/transaction.h"
 #include "tensorstore/util/execution/any_receiver.h"
+#include "tensorstore/util/execution/execution.h"
+#include "tensorstore/util/executor.h"
+#include "tensorstore/util/future.h"
+#include "tensorstore/util/iterate.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -272,7 +307,8 @@ class CastDriver
   DataTypeConversionLookupResult output_conversion_;
 };
 
-// Implementation of `tensorstore::internal::ReadChunk::Impl` Poly interface.
+// Implementation of `tensorstore::internal::ReadChunk::Impl` Poly
+// interface.
 struct ReadChunkImpl {
   IntrusivePtr<CastDriver> self;
   ReadChunk::Impl base;
@@ -292,7 +328,8 @@ struct ReadChunkImpl {
   }
 };
 
-// Implementation of `tensorstore::internal::WriteChunk::Impl` Poly interface.
+// Implementation of `tensorstore::internal::WriteChunk::Impl` Poly
+// interface.
 struct WriteChunkImpl {
   IntrusivePtr<CastDriver> self;
   WriteChunk::Impl base;

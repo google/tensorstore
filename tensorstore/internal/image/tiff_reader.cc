@@ -179,7 +179,7 @@ Result<DataType> SetDType(uint16_t sample_format, uint16_t bits_per_sample) {
     case SAMPLEFORMAT_IEEEFP:
       sample_format_str = " IEEE FP";
       if (bits_per_sample == 16) {
-        return dtype_v<tensorstore::float16_t>;
+        return dtype_v<tensorstore::dtypes::float16_t>;
       } else if (bits_per_sample == 32) {
         return dtype_v<float>;
       } else if (bits_per_sample == 64) {
@@ -189,9 +189,9 @@ Result<DataType> SetDType(uint16_t sample_format, uint16_t bits_per_sample) {
     case SAMPLEFORMAT_COMPLEXIEEEFP:
       sample_format_str = " COMPLEX IEEE FP";
       if (bits_per_sample == 64) {
-        return dtype_v<tensorstore::complex64_t>;
+        return dtype_v<tensorstore::dtypes::complex64_t>;
       } else if (bits_per_sample == 128) {
-        return dtype_v<tensorstore::complex128_t>;
+        return dtype_v<tensorstore::dtypes::complex128_t>;
       }
       break;
     case SAMPLEFORMAT_COMPLEXINT:

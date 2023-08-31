@@ -158,33 +158,33 @@ struct MeanAccumulateElement {
 };
 
 template <>
-struct MeanAccumulateElement<float16_t> {
-  using type = float32_t;
+struct MeanAccumulateElement<::tensorstore::dtypes::float16_t> {
+  using type = ::tensorstore::dtypes::float32_t;
 };
 
 template <>
-struct MeanAccumulateElement<bfloat16_t> {
-  using type = float32_t;
+struct MeanAccumulateElement<::tensorstore::dtypes::bfloat16_t> {
+  using type = ::tensorstore::dtypes::float32_t;
 };
 
 template <>
-struct MeanAccumulateElement<float32_t> {
-  using type = float32_t;
+struct MeanAccumulateElement<::tensorstore::dtypes::float32_t> {
+  using type = ::tensorstore::dtypes::float32_t;
 };
 
 template <>
-struct MeanAccumulateElement<float64_t> {
-  using type = float64_t;
+struct MeanAccumulateElement<::tensorstore::dtypes::float64_t> {
+  using type = ::tensorstore::dtypes::float64_t;
 };
 
 template <>
-struct MeanAccumulateElement<complex64_t> {
-  using type = complex64_t;
+struct MeanAccumulateElement<::tensorstore::dtypes::complex64_t> {
+  using type = ::tensorstore::dtypes::complex64_t;
 };
 
 template <>
-struct MeanAccumulateElement<complex128_t> {
-  using type = complex128_t;
+struct MeanAccumulateElement<::tensorstore::dtypes::complex128_t> {
+  using type = ::tensorstore::dtypes::complex128_t;
 };
 
 template <>
@@ -193,7 +193,7 @@ struct MeanAccumulateElement<bool> {
 };
 
 template <>
-struct MeanAccumulateElement<int4_t> {
+struct MeanAccumulateElement<::tensorstore::dtypes::int4_t> {
   using type = int64_t;
 };
 
@@ -294,7 +294,7 @@ struct IsOrderingSupported {
 
 #define TENSORSTORE_INTERNAL_SPECIALIZE_ORDERING_SUPPORTED(T, ...) \
   template <>                                                      \
-  struct IsOrderingSupported<T> {                                  \
+  struct IsOrderingSupported<::tensorstore::dtypes::T> {           \
     constexpr static bool value = true;                            \
   };                                                               \
   /**/

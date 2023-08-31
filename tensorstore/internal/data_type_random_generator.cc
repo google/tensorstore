@@ -90,15 +90,15 @@ struct SampleRandomValue<std::string> {
 };
 
 template <>
-struct SampleRandomValue<ustring_t> {
-  ustring_t operator()(absl::BitGenRef gen) const {
+struct SampleRandomValue<::tensorstore::dtypes::ustring_t> {
+  ::tensorstore::dtypes::ustring_t operator()(absl::BitGenRef gen) const {
     return {SampleRandomValue<std::string>()(gen)};
   }
 };
 
 template <>
-struct SampleRandomValue<json_t> {
-  json_t operator()(absl::BitGenRef gen) const {
+struct SampleRandomValue<::tensorstore::dtypes::json_t> {
+  ::tensorstore::dtypes::json_t operator()(absl::BitGenRef gen) const {
     switch (absl::Uniform(absl::IntervalClosedClosed, gen, 0, 7)) {
       case 0:
         return nullptr;
@@ -113,7 +113,7 @@ struct SampleRandomValue<json_t> {
       case 5:
         return SampleRandomValue<std::string>()(gen);
       case 6: {
-        json_t::array_t out;
+        ::tensorstore::dtypes::json_t::array_t out;
         out.resize(
             absl::Uniform<std::size_t>(absl::IntervalClosedClosed, gen, 0, 3));
         for (auto& x : out) {
@@ -122,12 +122,12 @@ struct SampleRandomValue<json_t> {
         return out;
       }
       case 7: {
-        json_t::object_t out;
+        ::tensorstore::dtypes::json_t::object_t out;
         const auto n =
             absl::Uniform<std::size_t>(absl::IntervalClosedClosed, gen, 0, 3);
         for (size_t i = 0; i < n; ++i) {
           out.emplace(SampleRandomValue<std::string>()(gen),
-                      SampleRandomValue<json_t>()(gen));
+                      SampleRandomValue<::tensorstore::dtypes::json_t>()(gen));
         }
         return out;
       }

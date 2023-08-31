@@ -19,7 +19,15 @@
 #include "python/tensorstore/bfloat16.h"
 
 // Other headers
+#include <stdint.h>
+
+#include <cmath>
+#include <complex>
+#include <cstring>
+#include <functional>
+#include <limits>
 #include <memory>
+#include <string>
 #include <type_traits>
 
 #include "absl/base/casts.h"
@@ -146,7 +154,7 @@ bool CastToBfloat16(PyObject* arg, bfloat16* output) {
     return true;
   }
   if (PyArray_IsScalar(arg, Half)) {
-    tensorstore::float16_t f;
+    ::tensorstore::dtypes::float16_t f;
     PyArray_ScalarAsCtype(arg, &f);
     *output = bfloat16(f);
     return true;
@@ -809,7 +817,7 @@ bool Initialize() {
   }
 
   // Register casts
-  if (!RegisterBfloat16Cast<float16_t>(NPY_HALF)) {
+  if (!RegisterBfloat16Cast<::tensorstore::dtypes::float16_t>(NPY_HALF)) {
     return false;
   }
 
@@ -830,7 +838,8 @@ bool Initialize() {
   }
   // TODO(summivox): b/295577703
   if (Int4NumpyTypeNum() != NPY_NOTYPE) {
-    if (!RegisterBfloat16Cast<int4_t>(Int4NumpyTypeNum())) {
+    if (!RegisterBfloat16Cast<::tensorstore::dtypes::int4_t>(
+            Int4NumpyTypeNum())) {
       return false;
     }
   }
@@ -967,7 +976,7 @@ bool Initialize() {
       register_binary("remainder", remainder_func) &&
       register_binary("mod", remainder_func) &&
       register_binary("fmod", TENSORSTORE_WRAP_FUNC(fmod)) &&
-      RegisterUFunc<bfloat16_t, bfloat16_t, bfloat16_t, bfloat16_t>(
+      RegisterUFunc<bfloat16, bfloat16, bfloat16, bfloat16>(
           numpy.get(), "divmod",
           [](bfloat16 a, bfloat16 b, bfloat16& quotient, bfloat16& remainder) {
             std::tie(quotient, remainder) = divmod(a, b);

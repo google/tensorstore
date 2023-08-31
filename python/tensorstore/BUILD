@@ -464,7 +464,6 @@ pybind11_cc_library(
         "@com_github_pybind_pybind11//:pybind11",
         "@com_google_absl//absl/base",
         "@com_google_absl//absl/hash",
-        "@local_config_python//:python_headers",
     ],
     alwayslink = True,
 )

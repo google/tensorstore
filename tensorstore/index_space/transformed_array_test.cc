@@ -14,8 +14,14 @@
 
 #include "tensorstore/index_space/transformed_array.h"
 
+#include <stdint.h>
+
+#include <type_traits>
+#include <vector>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/index_space/dim_expression.h"
@@ -40,6 +46,8 @@ using ::tensorstore::Shared;
 using ::tensorstore::StaticDataTypeCast;
 using ::tensorstore::StaticRankCast;
 using ::tensorstore::TransformedArray;
+
+using ::tensorstore::dtypes::float32_t;
 
 static_assert(std::is_convertible_v<tensorstore::TransformedSharedArray<int, 1>,
                                     tensorstore::TransformedArrayView<int, 1>>);
@@ -545,36 +553,35 @@ TEST(TransformedArrayTest, ApplyIndexTransform) {
 }
 
 TEST(CopyTransformedArrayTest, Int32ToUint32) {
-  auto a = MakeArray<tensorstore::int32_t>({{1, 2, 3}, {4, 5, 6}});
-  auto b = tensorstore::AllocateArray<tensorstore::uint32_t>({3, 2});
+  auto a = MakeArray<int32_t>({{1, 2, 3}, {4, 5, 6}});
+  auto b = tensorstore::AllocateArray<uint32_t>({3, 2});
   EXPECT_EQ(absl::OkStatus(),
             CopyTransformedArray(
                 a, ChainResult(b, tensorstore::Dims(1, 0).Transpose())));
-  EXPECT_EQ(b, MakeArray<tensorstore::uint32_t>({{1, 4}, {2, 5}, {3, 6}}));
+  EXPECT_EQ(b, MakeArray<uint32_t>({{1, 4}, {2, 5}, {3, 6}}));
 }
 
 TEST(CopyTransformedArrayTest, Int32ToInt32) {
-  auto a = MakeArray<tensorstore::int32_t>({{1, 2, 3}, {4, 5, 6}});
-  auto b = tensorstore::AllocateArray<tensorstore::int32_t>({3, 2});
+  auto a = MakeArray<int32_t>({{1, 2, 3}, {4, 5, 6}});
+  auto b = tensorstore::AllocateArray<int32_t>({3, 2});
   EXPECT_EQ(absl::OkStatus(),
             CopyTransformedArray(
                 a, ChainResult(b, tensorstore::Dims(1, 0).Transpose())));
-  EXPECT_EQ(b, MakeArray<tensorstore::int32_t>({{1, 4}, {2, 5}, {3, 6}}));
+  EXPECT_EQ(b, MakeArray<int32_t>({{1, 4}, {2, 5}, {3, 6}}));
 }
 
 TEST(CopyTransformedArrayTest, Int32ToFloat32) {
-  auto a = MakeArray<tensorstore::int32_t>({{1, 2, 3}, {4, 5, 6}});
-  auto b = tensorstore::AllocateArray<tensorstore::float32_t>({3, 2});
+  auto a = MakeArray<int32_t>({{1, 2, 3}, {4, 5, 6}});
+  auto b = tensorstore::AllocateArray<float32_t>({3, 2});
   EXPECT_EQ(absl::OkStatus(),
             CopyTransformedArray(
                 ChainResult(a, tensorstore::Dims(1, 0).Transpose()), b));
-  EXPECT_EQ(b, MakeArray<tensorstore::float32_t>(
-                   {{1.0, 4.0}, {2.0, 5.0}, {3.0, 6.0}}));
+  EXPECT_EQ(b, MakeArray<float32_t>({{1.0, 4.0}, {2.0, 5.0}, {3.0, 6.0}}));
 }
 
 TEST(CopyTransformedArrayTest, InvalidDataType) {
-  auto a = MakeArray<tensorstore::string_t>({"x", "y"});
-  auto b = tensorstore::AllocateArray<tensorstore::float32_t>({2});
+  auto a = MakeArray<::tensorstore::dtypes::string_t>({"x", "y"});
+  auto b = tensorstore::AllocateArray<float32_t>({2});
   EXPECT_THAT(CopyTransformedArray(a, b),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Cannot convert string -> float32"));

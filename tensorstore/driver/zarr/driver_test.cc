@@ -79,7 +79,6 @@ namespace {
 
 namespace kvstore = tensorstore::kvstore;
 using ::tensorstore::ChunkLayout;
-using ::tensorstore::complex64_t;
 using ::tensorstore::Context;
 using ::tensorstore::DimensionIndex;
 using ::tensorstore::DimensionSet;
@@ -91,6 +90,7 @@ using ::tensorstore::MatchesStatus;
 using ::tensorstore::Schema;
 using ::tensorstore::span;
 using ::tensorstore::StrCat;
+using ::tensorstore::dtypes::complex64_t;
 using ::tensorstore::internal::DecodedMatches;
 using ::tensorstore::internal::GetMap;
 using ::tensorstore::internal::ParseJsonMatches;
@@ -865,7 +865,7 @@ TEST(ZarrDriverTest, CreateRank0) {
 }
 
 TEST(ZarrDriverTest, CreateBfloat16) {
-  using ::tensorstore::bfloat16_t;
+  using ::tensorstore::dtypes::bfloat16_t;
   ::nlohmann::json json_spec{
       {"driver", "zarr"},
       {"kvstore",
@@ -2710,12 +2710,12 @@ TEST(DriverCreateWithSchemaTest, Dtypes) {
       dtype_v<int16_t>,
       dtype_v<int32_t>,
       dtype_v<int64_t>,
-      dtype_v<tensorstore::float16_t>,
-      dtype_v<tensorstore::bfloat16_t>,
-      dtype_v<tensorstore::float32_t>,
-      dtype_v<tensorstore::float64_t>,
-      dtype_v<tensorstore::complex64_t>,
-      dtype_v<tensorstore::complex128_t>,
+      dtype_v<tensorstore::dtypes::float16_t>,
+      dtype_v<tensorstore::dtypes::bfloat16_t>,
+      dtype_v<tensorstore::dtypes::float32_t>,
+      dtype_v<tensorstore::dtypes::float64_t>,
+      dtype_v<tensorstore::dtypes::complex64_t>,
+      dtype_v<tensorstore::dtypes::complex128_t>,
   };
   for (auto dtype : kSupportedDataTypes) {
     TestTensorStoreCreateWithSchema(

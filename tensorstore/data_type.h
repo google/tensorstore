@@ -56,6 +56,7 @@
 #include <complex>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <iosfwd>
 #include <memory>
 #include <string>
@@ -93,24 +94,29 @@
 #endif
 
 namespace tensorstore {
+namespace dtypes {
 
 /// Boolean value (always represented as 0 or 1).
 ///
 /// \ingroup data types
 using bool_t = bool;
+
 /// Single ASCII/UTF-8 code unit.  Primarily intended to represent fixed-width
 /// ASCII fields.
 ///
 /// \ingroup data types
 using char_t = char;
+
 /// Opaque byte value.  Intended to represent opaque binary data.
 ///
 /// \ingroup data types
 using byte_t = ::std::byte;
+
 /// Signed and unsigned integer types.
 ///
 /// \ingroup data types
 using int4_t = ::tensorstore::Int4Padded;
+
 // TODO(summivox): b/295577703 add uint4
 // ///
 // /// \ingroup data types
@@ -118,68 +124,86 @@ using int4_t = ::tensorstore::Int4Padded;
 ///
 /// \ingroup data types
 using int8_t = ::std::int8_t;
+
 ///
 /// \ingroup data types
 using uint8_t = ::std::uint8_t;
+
 ///
 /// \ingroup data types
 using int16_t = ::std::int16_t;
+
 ///
 /// \ingroup data types
 using uint16_t = ::std::uint16_t;
+
 ///
 /// \ingroup data types
 using int32_t = ::std::int32_t;
+
 ///
 /// \ingroup data types
 using uint32_t = ::std::uint32_t;
+
 ///
 /// \ingroup data types
 using int64_t = ::std::int64_t;
+
 ///
 /// \ingroup data types
 using uint64_t = ::std::uint64_t;
+
 // TODO(jbms): consider adding 128-bit integer types
 /// :wikipedia:`bfloat16 floating-point format<Bfloat16_floating-point_format>`
 /// half-precision floating-point data type.
 ///
 /// \ingroup data types
 using bfloat16_t = ::tensorstore::BFloat16;
+
 /// :wikipedia:`IEEE 754 binary16<Half-precision_floating-point_format>`
 /// half-precision floating-point data type.
 ///
 /// \ingroup data types
 using float16_t = ::half_float::half;
+
 /// :wikipedia:`IEEE 754 binary32<Single-precision_floating-point_format>`
 /// single-precision floating-point data type.
 ///
 /// \ingroup data types
 using float32_t = float;
+
 /// :wikipedia:`IEEE 754 binary64<Double-precision_floating-point_format>`
 /// double-precision floating-point data type.
 ///
 /// \ingroup data types
 using float64_t = double;
+
 /// Complex number based on `float32_t`.
 ///
 /// \ingroup data types
 using complex64_t = ::std::complex<float32_t>;
+
 /// Complex number based on `float64_t`.
 ///
 /// \ingroup data types
 using complex128_t = std::complex<float64_t>;
+
 /// Byte string.
 ///
 /// \ingroup data types
 using string_t = std::string;
+
 /// Unicode string, represented in memory as UTF-8.
 ///
 /// \ingroup data types
 using ustring_t = Utf8String;
+
 /// JSON value.
 ///
 /// \ingroup data types
 using json_t = ::nlohmann::json;
+
+}  // namespace dtypes
 
 // [BEGIN GENERATED: generate_data_type.py]
 
@@ -305,9 +329,10 @@ struct CanonicalElementTypeImpl<unsigned long long> {             // NOLINT
 template <typename T>
 inline constexpr DataTypeId DataTypeIdOfHelper = DataTypeId::custom;
 
-#define TENSORSTORE_INTERNAL_DO_DATA_TYPE_ID(T, ...)                 \
-  template <>                                                        \
-  inline constexpr DataTypeId DataTypeIdOfHelper<T> = DataTypeId::T; \
+#define TENSORSTORE_INTERNAL_DO_DATA_TYPE_ID(T, ...)                         \
+  template <>                                                                \
+  inline constexpr DataTypeId DataTypeIdOfHelper<::tensorstore::dtypes::T> = \
+      DataTypeId::T;                                                         \
   /**/
 TENSORSTORE_FOR_EACH_DATA_TYPE(TENSORSTORE_INTERNAL_DO_DATA_TYPE_ID)
 #undef TENSORSTORE_INTERNAL_DO_DATA_TYPE_ID
@@ -731,11 +756,11 @@ constexpr std::string_view GetTypeName() {
   return "unknown";
 }
 
-#define TENSORSTORE_INTERNAL_DO_DATA_TYPE_NAME(T, ...) \
-  template <>                                          \
-  constexpr std::string_view GetTypeName<T>() {        \
-    return std::string_view(#T, sizeof(#T) - 3);       \
-  }                                                    \
+#define TENSORSTORE_INTERNAL_DO_DATA_TYPE_NAME(T, ...)                 \
+  template <>                                                          \
+  constexpr std::string_view GetTypeName<::tensorstore::dtypes::T>() { \
+    return std::string_view(#T, sizeof(#T) - 3);                       \
+  }                                                                    \
   /**/
 TENSORSTORE_FOR_EACH_DATA_TYPE(TENSORSTORE_INTERNAL_DO_DATA_TYPE_NAME)
 #undef TENSORSTORE_INTERNAL_DO_DATA_TYPE_NAME
@@ -761,23 +786,25 @@ bool CompareIdentical(const T& a, const T& b) {
   return false;
 }
 
-#define TENSORSTORE_INTERNAL_DO_DEFINE_COMPARE_IDENTICAL_FLOAT(T, ...) \
-  template <>                                                          \
-  inline bool CompareIdentical<T>(const T& a, const T& b) {            \
-    using Int = internal::uint_t<sizeof(T) * 8>;                       \
-    return absl::bit_cast<Int>(a) == absl::bit_cast<Int>(b);           \
-  }                                                                    \
+#define TENSORSTORE_INTERNAL_DO_DEFINE_COMPARE_IDENTICAL_FLOAT(T, ...)        \
+  template <>                                                                 \
+  inline bool CompareIdentical<::tensorstore::dtypes::T>(                     \
+      const ::tensorstore::dtypes::T& a, const ::tensorstore::dtypes::T& b) { \
+    using Int = internal::uint_t<sizeof(::tensorstore::dtypes::T) * 8>;       \
+    return absl::bit_cast<Int>(a) == absl::bit_cast<Int>(b);                  \
+  }                                                                           \
   /**/
 TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(
     TENSORSTORE_INTERNAL_DO_DEFINE_COMPARE_IDENTICAL_FLOAT)
 #undef TENSORSTORE_INTERNAL_DO_DEFINE_COMPARE_IDENTICAL_FLOAT
 
-#define TENSORSTORE_INTERNAL_DO_DEFINE_COMPARE_IDENTICAL_COMPLEX(T, ...) \
-  template <>                                                            \
-  inline bool CompareIdentical<T>(const T& a, const T& b) {              \
-    return CompareIdentical(a.real(), b.real()) &&                       \
-           CompareIdentical(a.imag(), b.imag());                         \
-  }                                                                      \
+#define TENSORSTORE_INTERNAL_DO_DEFINE_COMPARE_IDENTICAL_COMPLEX(T, ...)      \
+  template <>                                                                 \
+  inline bool CompareIdentical<::tensorstore::dtypes::T>(                     \
+      const ::tensorstore::dtypes::T& a, const ::tensorstore::dtypes::T& b) { \
+    return CompareIdentical(a.real(), b.real()) &&                            \
+           CompareIdentical(a.imag(), b.imag());                              \
+  }                                                                           \
   /**/
 TENSORSTORE_FOR_EACH_COMPLEX_DATA_TYPE(
     TENSORSTORE_INTERNAL_DO_DEFINE_COMPARE_IDENTICAL_COMPLEX)
@@ -888,7 +915,8 @@ constexpr inline bool IsTriviallyEqualityComparable = false;
 
 #define TENSORSTORE_INTERNAL_DEFINE_TRIVIALLY_EQUALITY_COMPARABLE(T, ...) \
   template <>                                                             \
-  constexpr inline bool IsTriviallyEqualityComparable<T> = true;          \
+  constexpr inline bool                                                   \
+      IsTriviallyEqualityComparable<::tensorstore::dtypes::T> = true;     \
   /**/
 
 TENSORSTORE_FOR_EACH_BOOL_DATA_TYPE(
@@ -910,7 +938,8 @@ constexpr inline bool HasSeparateIdenticalComparison = false;
 
 #define TENSORSTORE_INTERNAL_DEFINE_SEPARATE_IDENTICAL_COMPARISON(T, ...) \
   template <>                                                             \
-  constexpr inline bool HasSeparateIdenticalComparison<T> = true;         \
+  constexpr inline bool                                                   \
+      HasSeparateIdenticalComparison<::tensorstore::dtypes::T> = true;    \
   /**/
 
 TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(
@@ -1069,9 +1098,10 @@ const internal::DataTypeOperations MakeDataTypeOperations<T>::operations =
     DataTypeOperationsImpl<T>;
 #endif
 
-#define TENSORSTORE_DATA_TYPE_EXPLICIT_INSTANTIATION(T, ...)   \
-  __VA_ARGS__ template class MakeDataTypeOperations<T>;        \
-  __VA_ARGS__ template struct DataTypeSimpleOperationsImpl<T>; \
+#define TENSORSTORE_DATA_TYPE_EXPLICIT_INSTANTIATION(T, ...)                   \
+  __VA_ARGS__ template class MakeDataTypeOperations<::tensorstore::dtypes::T>; \
+  __VA_ARGS__ template struct DataTypeSimpleOperationsImpl<                    \
+      ::tensorstore::dtypes::T>;                                               \
   /**/
 
 // Declare explicit instantiations of MakeDataTypeOperations, which are defined
@@ -1247,7 +1277,8 @@ template <typename Func>
 constexpr std::array<std::invoke_result_t<Func, dtype_t<bool>>, kNumDataTypeIds>
 MapCanonicalDataTypes(Func func) {
   return {{
-#define TENSORSTORE_INTERNAL_DO_DATA_TYPE(T, ...) func(dtype_v<T>),
+#define TENSORSTORE_INTERNAL_DO_DATA_TYPE(T, ...) \
+  func(dtype_v<::tensorstore::dtypes::T>),
       TENSORSTORE_FOR_EACH_DATA_TYPE(TENSORSTORE_INTERNAL_DO_DATA_TYPE)
 #undef TENSORSTORE_INTERNAL_DO_DATA_TYPE
   }};
@@ -1473,7 +1504,8 @@ struct StaticCastTraits<StaticDataType<T>>
 DataType GetDataType(std::string_view id);
 
 constexpr DataType kDataTypes[] = {
-#define TENSORSTORE_INTERNAL_DO_DATA_TYPE(T, ...) dtype_v<T>,
+#define TENSORSTORE_INTERNAL_DO_DATA_TYPE(T, ...) \
+  dtype_v<::tensorstore::dtypes::T>,
     TENSORSTORE_FOR_EACH_DATA_TYPE(TENSORSTORE_INTERNAL_DO_DATA_TYPE)
 #undef TENSORSTORE_INTERNAL_DO_DATA_TYPE
 };

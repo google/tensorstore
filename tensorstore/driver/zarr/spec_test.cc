@@ -14,6 +14,11 @@
 
 #include "tensorstore/driver/zarr/spec.h"
 
+#include <stdint.h>
+
+#include <optional>
+#include <string>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
@@ -634,7 +639,7 @@ TEST(GetNewMetadataTest, SelectedFieldInvalid) {
 TEST(GetNewMetadataTest, InvalidDtype) {
   EXPECT_THAT(GetNewMetadataFromOptions(::nlohmann::json::object_t(),
                                         /*selected_field=*/{},
-                                        dtype_v<tensorstore::json_t>,
+                                        dtype_v<tensorstore::dtypes::json_t>,
                                         Schema::Shape({100, 200})),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "Data type not supported: json"));
@@ -643,8 +648,7 @@ TEST(GetNewMetadataTest, InvalidDtype) {
 TEST(GetNewMetadataTest, InvalidDomain) {
   EXPECT_THAT(
       GetNewMetadataFromOptions(::nlohmann::json::object_t(),
-                                /*selected_field=*/{},
-                                dtype_v<tensorstore::int32_t>,
+                                /*selected_field=*/{}, dtype_v<int32_t>,
                                 tensorstore::IndexDomainBuilder(2)
                                     .origin({1, 2})
                                     .shape({100, 200})
@@ -664,8 +668,7 @@ TEST(GetNewMetadataTest, DomainIncompatibleWithFieldShape) {
 TEST(GetNewMetadataTest, DomainIncompatibleWithMetadataRank) {
   EXPECT_THAT(
       GetNewMetadataFromOptions({{"chunks", {100, 100}}},
-                                /*selected_field=*/{},
-                                dtype_v<tensorstore::int32_t>,
+                                /*selected_field=*/{}, dtype_v<int32_t>,
                                 Schema::Shape({100, 200, 300})),
       MatchesStatus(
           absl::StatusCode::kInvalidArgument,

@@ -218,10 +218,14 @@ tensorstore_cc_test(
     deps = [
         ":dtype",
         ":metadata_testutil",
+        "//tensorstore:data_type",
+        "//tensorstore:index",
         "//tensorstore/internal:json_gtest",
-        "//tensorstore/util:status",
+        "//tensorstore/util:endian",
         "//tensorstore/util:status_testutil",
+        "//tensorstore/util:str_cat",
         "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
     ],
 )

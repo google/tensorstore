@@ -14,6 +14,9 @@
 
 #include "tensorstore/driver/zarr/metadata.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <cassert>
 #include <memory>
 #include <string>
@@ -27,6 +30,7 @@
 #include "riegeli/bytes/reader.h"
 #include "riegeli/bytes/write.h"
 #include "riegeli/bytes/writer.h"
+#include "tensorstore/data_type.h"
 #include "tensorstore/driver/zarr/compressor.h"
 #include "tensorstore/internal/data_type_endian_conversion.h"
 #include "tensorstore/internal/flat_cord_builder.h"
@@ -106,12 +110,11 @@ Result<std::vector<SharedArray<const void>>> ParseFillValue(
         return fill_values;
       }
       case 'i': {
-        std::int64_t value;
-        const std::size_t num_bits = 8 * field.dtype->size - 1;
-        const std::uint64_t max_value = static_cast<std::int64_t>(
-            (static_cast<std::uint64_t>(1) << num_bits) - 1);
-        const std::int64_t min_value = static_cast<std::int64_t>(-1)
-                                       << num_bits;
+        int64_t value;
+        const size_t num_bits = 8 * field.dtype->size - 1;
+        const uint64_t max_value =
+            static_cast<int64_t>((static_cast<uint64_t>(1) << num_bits) - 1);
+        const int64_t min_value = static_cast<int64_t>(-1) << num_bits;
         TENSORSTORE_RETURN_IF_ERROR(internal_json::JsonRequireInteger(
             j, &value, /*strict=*/true, min_value, max_value));
         fill_values[0] =
@@ -119,10 +122,10 @@ Result<std::vector<SharedArray<const void>>> ParseFillValue(
         return fill_values;
       }
       case 'u': {
-        std::uint64_t value;
-        const std::size_t num_bits = 8 * field.dtype->size;
-        const std::uint64_t max_value =
-            (static_cast<std::uint64_t>(2) << (num_bits - 1)) - 1;
+        uint64_t value;
+        const size_t num_bits = 8 * field.dtype->size;
+        const uint64_t max_value =
+            (static_cast<uint64_t>(2) << (num_bits - 1)) - 1;
         TENSORSTORE_RETURN_IF_ERROR(internal_json::JsonRequireInteger(
             j, &value, /*strict=*/true, 0, max_value));
         fill_values[0] =
@@ -152,7 +155,8 @@ Result<std::vector<SharedArray<const void>>> ParseFillValue(
               return absl::OkStatus();
             }));
         fill_values[0] =
-            MakeCopy(MakeScalarArrayView(complex128_t(values[0], values[1])),
+            MakeCopy(MakeScalarArrayView(::tensorstore::dtypes::complex128_t(
+                         values[0], values[1])),
                      c_order, field.dtype)
                 .value();
         return fill_values;
@@ -201,7 +205,7 @@ Result<std::vector<SharedArray<const void>>> ParseFillValue(
         return EncodeFloat(value);
       }
       case 'c': {
-        complex128_t value;
+        ::tensorstore::dtypes::complex128_t value;
         TENSORSTORE_CHECK_OK(
             CopyConvertedArray(fill_value, MakeScalarArrayView(value)));
         return ::nlohmann::json::array_t{EncodeFloat(value.real()),
@@ -254,7 +258,7 @@ Result<ZarrChunkLayout> ComputeChunkLayout(const ZarrDType& dtype,
         tensorstore::StrCat("Total number of bytes per chunk is too large"));
   }
 
-  for (std::size_t field_i = 0; field_i < dtype.fields.size(); ++field_i) {
+  for (size_t field_i = 0; field_i < dtype.fields.size(); ++field_i) {
     auto& field = dtype.fields[field_i];
     auto& field_layout = layout.fields[field_i];
     const DimensionIndex inner_rank = field.field_shape.size();

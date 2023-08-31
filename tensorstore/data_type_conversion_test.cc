@@ -14,8 +14,12 @@
 
 #include "tensorstore/data_type_conversion.h"
 
+#include <type_traits>
+#include <utility>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
@@ -26,36 +30,30 @@
 #include "tensorstore/util/bfloat16.h"
 #include "tensorstore/util/int4.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace {
 
-using ::tensorstore::bfloat16_t;
-using ::tensorstore::bool_t;
-using ::tensorstore::complex128_t;
-using ::tensorstore::complex64_t;
 using ::tensorstore::DataTypeConversionFlags;
 using ::tensorstore::DataTypeConversionTraits;
 using ::tensorstore::dtype_v;
-using ::tensorstore::float16_t;
-using ::tensorstore::float32_t;
-using ::tensorstore::float64_t;
 using ::tensorstore::Index;
-using ::tensorstore::int4_t;
 using ::tensorstore::IsDataTypeConversionSupported;
-using ::tensorstore::json_t;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
 using ::tensorstore::StrCat;
-using ::tensorstore::string_t;
-using ::tensorstore::ustring_t;
 using ::tensorstore::internal::GetDataTypeConverter;
 using ::tensorstore::internal::GetDataTypeConverterOrError;
 using ::tensorstore::internal::GetElementCopyErrorStatus;
 using ::tensorstore::internal::IterationBufferKind;
 using ::tensorstore::internal::IterationBufferPointer;
+
+#define X(T)                      \
+  using ::tensorstore::dtypes::T; \
+  /**/
+TENSORSTORE_FOR_EACH_DATA_TYPE(X)
+#undef X
 
 constexpr DataTypeConversionFlags kSupported =
     DataTypeConversionFlags::kSupported;
@@ -830,8 +828,8 @@ TEST(DataTypeConversionTest, Json) {
 }
 
 TEST(GetDataTypeConverterOrErrorTest, Basic) {
-  TENSORSTORE_EXPECT_OK(GetDataTypeConverterOrError(dtype_v<std::int32_t>,
-                                                    dtype_v<std::int32_t>));
+  TENSORSTORE_EXPECT_OK(
+      GetDataTypeConverterOrError(dtype_v<int32_t>, dtype_v<int32_t>));
   TENSORSTORE_EXPECT_OK(GetDataTypeConverterOrError(
       dtype_v<int32_t>, dtype_v<int32_t>, kIdentity));
   TENSORSTORE_EXPECT_OK(GetDataTypeConverterOrError(

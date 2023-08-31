@@ -14,12 +14,22 @@
 
 #include "tensorstore/internal/data_type_endian_conversion.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/strings/cord.h"
 #include "absl/strings/cord_test_helpers.h"
 #include "tensorstore/array.h"
 #include "tensorstore/contiguous_layout.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/index.h"
 #include "tensorstore/internal/flat_cord_builder.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/endian.h"
@@ -44,11 +54,11 @@ using ::tensorstore::internal::TryViewCordAsArray;
 
 // Test encoding an endian-neutral uint8 array.
 TEST(EncodeDecodeArrayTest, Uint8) {
-  std::uint8_t source[6] = {1, 2, 3, 4, 5, 6};
-  std::uint8_t dest1[6];
-  std::uint8_t dest2[6];
-  std::uint8_t dest3[6];
-  std::uint8_t dest4[6];
+  uint8_t source[6] = {1, 2, 3, 4, 5, 6};
+  uint8_t dest1[6];
+  uint8_t dest2[6];
+  uint8_t dest3[6];
+  uint8_t dest4[6];
   EncodeArray(Array(source, {2, 3}, c_order),
               Array(dest1, {2, 3}, fortran_order), endian::little);
   EXPECT_THAT(dest1, ::testing::ElementsAre(1, 4, 2, 5, 3, 6));
@@ -68,12 +78,12 @@ TEST(EncodeDecodeArrayTest, Uint8) {
 
 // Test encoding a uint16 array.
 TEST(EncodeDecodeArrayTest, Uint16) {
-  std::uint16_t source[6] = {0x1234, 0x5678, 0x9012, 0x3456, 0x7890, 0x3344};
+  uint16_t source[6] = {0x1234, 0x5678, 0x9012, 0x3456, 0x7890, 0x3344};
   alignas(2) unsigned char dest1[13] = {};
   alignas(2) unsigned char dest2[13] = {};
   EncodeArray(
       Array(source, {2, 3}, c_order),
-      Array(reinterpret_cast<std::uint16_t*>(dest1 + 1), {2, 3}, fortran_order),
+      Array(reinterpret_cast<uint16_t*>(dest1 + 1), {2, 3}, fortran_order),
       endian::little);
   EXPECT_THAT(dest1, ::testing::ElementsAreArray({0x0,                     //
                                                   0x34, 0x12, 0x56, 0x34,  //
@@ -82,7 +92,7 @@ TEST(EncodeDecodeArrayTest, Uint16) {
 
   EncodeArray(
       Array(source, {2, 3}, c_order),
-      Array(reinterpret_cast<std::uint16_t*>(dest2 + 1), {2, 3}, fortran_order),
+      Array(reinterpret_cast<uint16_t*>(dest2 + 1), {2, 3}, fortran_order),
       endian::big);
   EXPECT_THAT(dest2, ::testing::ElementsAreArray({0x0,                     //
                                                   0x12, 0x34, 0x34, 0x56,  //
@@ -92,7 +102,7 @@ TEST(EncodeDecodeArrayTest, Uint16) {
 
 // Test encoding a float16 array.
 TEST(EncodeDecodeArrayTest, Float16) {
-  using ::tensorstore::float16_t;
+  using ::tensorstore::dtypes::float16_t;
   float16_t source[6] = {float16_t(1.0), float16_t(2.0), float16_t(3.0),
                          float16_t(4.0), float16_t(5.0), float16_t(6.0)};
   alignas(2) unsigned char dest1[13] = {};
@@ -126,7 +136,7 @@ TEST(EncodeDecodeArrayTest, Float16) {
 
 // Test encoding a bfloat16 array.
 TEST(EncodeDecodeArrayTest, Bfloat16) {
-  using ::tensorstore::bfloat16_t;
+  using ::tensorstore::dtypes::bfloat16_t;
   bfloat16_t source[6] = {bfloat16_t(1.0), bfloat16_t(2.0), bfloat16_t(3.0),
                           bfloat16_t(4.0), bfloat16_t(5.0), bfloat16_t(6.0)};
   alignas(2) unsigned char dest1[13] = {};
@@ -176,16 +186,15 @@ TEST(DecodeArrayTest, Uint16InPlaceLittleEndian) {
   alignas(2) unsigned char source[12] = {0x12, 0x34, 0x56, 0x78, 0x90, 0x12,
                                          0x34, 0x56, 0x78, 0x90, 0x33, 0x44};
   auto source_array = UnownedToShared(
-      Array(reinterpret_cast<std::uint16_t*>(source), {2, 3}, c_order));
+      Array(reinterpret_cast<uint16_t*>(source), {2, 3}, c_order));
   SharedArrayView<void> source_array_view = source_array;
   auto alt_layout = StridedLayout(fortran_order, 2, {2, 3});
   DecodeArray(&source_array_view, endian::little, alt_layout);
   // Verify that decoding happened in place.
   EXPECT_EQ(source_array_view.data(), source);
   EXPECT_EQ(source_array_view.layout(), source_array.layout());
-  EXPECT_EQ(source_array_view,
-            MakeArray<std::uint16_t>(
-                {{0x3412, 0x7856, 0x1290}, {0x5634, 0x9078, 0x4433}}));
+  EXPECT_EQ(source_array_view, MakeArray<uint16_t>({{0x3412, 0x7856, 0x1290},
+                                                    {0x5634, 0x9078, 0x4433}}));
 }
 
 // Tests decoding an aligned uint16 big endian array using the in-place overload
@@ -194,16 +203,15 @@ TEST(DecodeArrayTest, Uint16InPlaceBigEndian) {
   alignas(2) unsigned char source[12] = {0x12, 0x34, 0x56, 0x78, 0x90, 0x12,
                                          0x34, 0x56, 0x78, 0x90, 0x33, 0x44};
   auto source_array = UnownedToShared(
-      Array(reinterpret_cast<std::uint16_t*>(source), {2, 3}, c_order));
+      Array(reinterpret_cast<uint16_t*>(source), {2, 3}, c_order));
   SharedArrayView<void> source_array_view = source_array;
   auto alt_layout = StridedLayout(fortran_order, 2, {2, 3});
   DecodeArray(&source_array_view, endian::big, alt_layout);
   // Verify that decoding happened in place.
   EXPECT_EQ(source_array_view.data(), source);
   EXPECT_EQ(source_array_view.layout(), source_array.layout());
-  EXPECT_EQ(source_array_view,
-            MakeArray<std::uint16_t>(
-                {{0x1234, 0x5678, 0x9012}, {0x3456, 0x7890, 0x3344}}));
+  EXPECT_EQ(source_array_view, MakeArray<uint16_t>({{0x1234, 0x5678, 0x9012},
+                                                    {0x3456, 0x7890, 0x3344}}));
 }
 
 // Tests decoding an unaligned uint16 little endian array using the potentially
@@ -213,16 +221,15 @@ TEST(DecodeArrayTest, Uint16InPlaceLittleEndianUnaligned) {
                                          0x12, 0x34, 0x56, 0x78, 0x90, 0x12,
                                          0x34, 0x56, 0x78, 0x90, 0x33, 0x44};
   auto source_array = UnownedToShared(
-      Array(reinterpret_cast<std::uint16_t*>(source + 1), {2, 3}, c_order));
+      Array(reinterpret_cast<uint16_t*>(source + 1), {2, 3}, c_order));
   SharedArrayView<void> source_array_view = source_array;
   auto alt_layout = StridedLayout(fortran_order, 2, {2, 3});
   DecodeArray(&source_array_view, endian::little, alt_layout);
   // Verify that decoding happened out of place.
   EXPECT_NE(source_array_view.data(), source);
   EXPECT_EQ(source_array_view.layout(), alt_layout);
-  EXPECT_EQ(source_array_view,
-            MakeArray<std::uint16_t>(
-                {{0x3412, 0x7856, 0x1290}, {0x5634, 0x9078, 0x4433}}));
+  EXPECT_EQ(source_array_view, MakeArray<uint16_t>({{0x3412, 0x7856, 0x1290},
+                                                    {0x5634, 0x9078, 0x4433}}));
 }
 
 void TestConvertCordInplace(DataType dtype, endian endian_value,

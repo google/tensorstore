@@ -34,11 +34,13 @@ constexpr char kDtypeInt4[] = "int4";
 Result<ZarrDType::BaseDType> ParseBaseDType(std::string_view dtype) {
   using D = ZarrDType::BaseDType;
   if (dtype == kDtypeBfloat16) {
-    return D{std::string(dtype), dtype_v<bfloat16_t>, endian::little};
+    return D{std::string(dtype), dtype_v<::tensorstore::dtypes::bfloat16_t>,
+             endian::little};
   }
   if (dtype == kDtypeInt4) {
     // Ditto
-    return D{std::string(dtype), dtype_v<int4_t>, endian::little};
+    return D{std::string(dtype), dtype_v<::tensorstore::dtypes::int4_t>,
+             endian::little};
   }
   if (dtype.size() < 3) goto error;
   {
@@ -124,21 +126,26 @@ Result<ZarrDType::BaseDType> ParseBaseDType(std::string_view dtype) {
         goto error;
       case 'f':
         if (suffix == "2") {
-          return D{std::string(dtype), dtype_v<float16_t>, endian_value};
+          return D{std::string(dtype),
+                   dtype_v<::tensorstore::dtypes::float16_t>, endian_value};
         }
         if (suffix == "4") {
-          return D{std::string(dtype), dtype_v<float32_t>, endian_value};
+          return D{std::string(dtype),
+                   dtype_v<::tensorstore::dtypes::float32_t>, endian_value};
         }
         if (suffix == "8") {
-          return D{std::string(dtype), dtype_v<float64_t>, endian_value};
+          return D{std::string(dtype),
+                   dtype_v<::tensorstore::dtypes::float64_t>, endian_value};
         }
         goto error;
       case 'c':
         if (suffix == "8") {
-          return D{std::string(dtype), dtype_v<complex64_t>, endian_value};
+          return D{std::string(dtype),
+                   dtype_v<::tensorstore::dtypes::complex64_t>, endian_value};
         }
         if (suffix == "16") {
-          return D{std::string(dtype), dtype_v<complex128_t>, endian_value};
+          return D{std::string(dtype),
+                   dtype_v<::tensorstore::dtypes::complex128_t>, endian_value};
         }
         goto error;
       case 'S':
@@ -155,8 +162,9 @@ Result<ZarrDType::BaseDType> ParseBaseDType(std::string_view dtype) {
             goto error;
         }
         return D{std::string(dtype),
-                 (type_indicator == 'S') ? DataType(dtype_v<char_t>)
-                                         : DataType(dtype_v<byte_t>),
+                 (type_indicator == 'S')
+                     ? DataType(dtype_v<::tensorstore::dtypes::char_t>)
+                     : DataType(dtype_v<::tensorstore::dtypes::byte_t>),
                  endian::native,
                  {num_elements}};
       }

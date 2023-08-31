@@ -186,7 +186,8 @@ class JsonDriverSpec
   };
 
   static absl::Status ValidateSchema(Schema& schema) {
-    TENSORSTORE_RETURN_IF_ERROR(schema.Set(dtype_v<json_t>));
+    TENSORSTORE_RETURN_IF_ERROR(
+        schema.Set(dtype_v<::tensorstore::dtypes::json_t>));
     TENSORSTORE_RETURN_IF_ERROR(schema.Set(RankConstraint{0}));
     if (schema.codec().valid()) {
       return absl::InvalidArgumentError("codec not supported by json driver");
@@ -276,7 +277,7 @@ class JsonDriver : public RegisteredDriver<JsonDriver,
       internal::OpenTransactionPtr transaction,
       IndexTransformView<> transform) override;
 
-  DataType dtype() override { return dtype_v<json_t>; }
+  DataType dtype() override { return dtype_v<::tensorstore::dtypes::json_t>; }
   DimensionIndex rank() override { return 0; }  // COV_NF_LINE
 
   Executor data_copy_executor() override {
@@ -352,7 +353,7 @@ Result<TransformedDriverSpec> JsonDriver::GetBoundSpec(
   driver_spec->data_staleness = data_staleness_;
   driver_spec->json_pointer = json_pointer_;
   driver_spec->schema.Set(RankConstraint{0}).IgnoreError();
-  driver_spec->schema.Set(dtype_v<json_t>).IgnoreError();
+  driver_spec->schema.Set(dtype_v<::tensorstore::dtypes::json_t>).IgnoreError();
   TransformedDriverSpec spec;
   spec.driver_spec = std::move(driver_spec);
   spec.transform = std::move(transform);
@@ -368,7 +369,8 @@ KvStore JsonDriver::GetKvstore(const Transaction& transaction) {
 /// TensorStore Driver ReadChunk implementation for the case of a
 /// non-transactional read.
 ///
-/// This implements the `tensorstore::internal::ReadChunk::Impl` Poly interface.
+/// This implements the `tensorstore::internal::ReadChunk::Impl` Poly
+/// interface.
 struct ReadChunkImpl {
   PinnedCacheEntry<JsonCache> entry;
   IntrusivePtr<JsonDriver> driver;
@@ -402,7 +404,8 @@ struct ReadChunkImpl {
 /// TensorStore Driver ReadChunk implementation for the case of a transactional
 /// read.
 ///
-/// This implements the `tensorstore::internal::ReadChunk::Impl` Poly interface.
+/// This implements the `tensorstore::internal::ReadChunk::Impl` Poly
+/// interface.
 struct ReadChunkTransactionImpl {
   OpenTransactionNodePtr<JsonCache::TransactionNode> node;
   IntrusivePtr<JsonDriver> driver;

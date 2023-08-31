@@ -174,7 +174,7 @@ bool CastToInt4(PyObject* arg, int4* output) {
     return true;
   }
   if (PyArray_IsScalar(arg, Half)) {
-    tensorstore::float16_t f;
+    tensorstore::dtypes::float16_t f;
     PyArray_ScalarAsCtype(arg, &f);
     if (!(std::numeric_limits<int4>::min() <= f &&
           f <= std::numeric_limits<int4>::max())) {
@@ -833,11 +833,12 @@ bool Initialize() {
   }
 
   // Register casts
-  if (!RegisterInt4Cast<float16_t>(NPY_HALF)) {
+  if (!RegisterInt4Cast<::tensorstore::dtypes::float16_t>(NPY_HALF)) {
     return false;
   }
   if (Bfloat16NumpyTypeNum() != NPY_NOTYPE) {
-    if (!RegisterInt4Cast<bfloat16_t>(Bfloat16NumpyTypeNum())) {
+    if (!RegisterInt4Cast<::tensorstore::dtypes::bfloat16_t>(
+            Bfloat16NumpyTypeNum())) {
       return false;
     }
   }
@@ -982,7 +983,7 @@ bool Initialize() {
                       [](int4 a, int4 b) { return divmod(a, b).first; }) &&
       register_binary("remainder", remainder_func) &&
       register_binary("mod", remainder_func) &&
-      RegisterUFunc<int4_t, int4_t, int4_t, int4_t>(
+      RegisterUFunc<int4, int4, int4, int4>(
           numpy.get(), "divmod",
           [](int4 a, int4 b, int4& quotient, int4& remainder) {
             std::tie(quotient, remainder) = divmod(a, b);

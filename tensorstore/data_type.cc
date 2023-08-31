@@ -14,18 +14,29 @@
 
 #include "tensorstore/data_type.h"
 
+#include <stdint.h>
+
+#include <array>
+#include <cassert>
+#include <complex>
+#include <cstddef>
 #include <cstring>
+#include <memory>
 #include <new>
+#include <ostream>
+#include <string>
+#include <string_view>
+#include <type_traits>
 
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/data_type_conversion.h"
+#include "tensorstore/index.h"
 #include "tensorstore/internal/json/value_as.h"
-#include "tensorstore/internal/preprocessor/defer.h"
-#include "tensorstore/internal/preprocessor/expand.h"
 #include "tensorstore/internal/utf8.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/division.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -34,12 +45,13 @@ namespace tensorstore {
 //
 // If TensorStore needs to support a platform where they do not hold, additional
 // specializations of CanonicalElementType can be defined.
-static_assert(std::is_same_v<signed char, std::int8_t>);
-static_assert(std::is_same_v<short, std::int16_t>);  // NOLINT
-static_assert(std::is_same_v<int, std::int32_t>);
-static_assert(std::is_same_v<unsigned char, std::uint8_t>);
-static_assert(std::is_same_v<unsigned short, std::uint16_t>);  // NOLINT
-static_assert(std::is_same_v<unsigned int, std::uint32_t>);
+static_assert(std::is_same_v<signed char, ::tensorstore::dtypes::int8_t>);
+static_assert(std::is_same_v<short, ::tensorstore::dtypes::int16_t>);  // NOLINT
+static_assert(std::is_same_v<int, ::tensorstore::dtypes::int32_t>);
+static_assert(std::is_same_v<unsigned char, ::tensorstore::dtypes::uint8_t>);
+static_assert(
+    std::is_same_v<unsigned short, ::tensorstore::dtypes::uint16_t>);  // NOLINT
+static_assert(std::is_same_v<unsigned int, ::tensorstore::dtypes::uint32_t>);
 
 std::ostream& operator<<(std::ostream& os, DataType r) {
   if (r.valid()) return os << r.name();
@@ -111,7 +123,7 @@ TENSORSTORE_FOR_EACH_DATA_TYPE(TENSORSTORE_INTERNAL_DO_INSTANTIATION)
 DataType GetDataType(std::string_view id) {
 #define TENSORSTORE_INTERNAL_MATCH_TYPE(X, ...)     \
   if (id == std::string_view(#X, sizeof(#X) - 3)) { \
-    return dtype_v<X>;                              \
+    return dtype_v<::tensorstore::dtypes::X>;       \
   }                                                 \
   /**/
   TENSORSTORE_FOR_EACH_DATA_TYPE(TENSORSTORE_INTERNAL_MATCH_TYPE)
@@ -129,17 +141,17 @@ struct NumberToStringCanonicalType {
 };
 
 template <>
-struct NumberToStringCanonicalType<float16_t> {
+struct NumberToStringCanonicalType<::tensorstore::dtypes::float16_t> {
   using type = float;
 };
 
 template <>
-struct NumberToStringCanonicalType<bfloat16_t> {
+struct NumberToStringCanonicalType<::tensorstore::dtypes::bfloat16_t> {
   using type = float;
 };
 
 template <>
-struct NumberToStringCanonicalType<int4_t> {
+struct NumberToStringCanonicalType<::tensorstore::dtypes::int4_t> {
   using type = int16_t;
 };
 
@@ -191,29 +203,34 @@ void ComplexToString(std::complex<T> x, std::string* out) {
 }  // namespace
 
 template <typename T>
-struct ConvertDataType<std::complex<T>, json_t> {
-  void operator()(const std::complex<T>* from, json_t* to, void*) const {
-    *to = json_t::array_t{from->real(), from->imag()};
+struct ConvertDataType<std::complex<T>, ::tensorstore::dtypes::json_t> {
+  void operator()(const std::complex<T>* from,
+                  ::tensorstore::dtypes::json_t* to, void*) const {
+    *to = ::tensorstore::dtypes::json_t::array_t{from->real(), from->imag()};
   }
 };
 
 template <typename T>
-struct ConvertDataType<std::complex<T>, string_t> {
-  void operator()(const std::complex<T>* from, string_t* to, void*) const {
+struct ConvertDataType<std::complex<T>, ::tensorstore::dtypes::string_t> {
+  void operator()(const std::complex<T>* from,
+                  ::tensorstore::dtypes::string_t* to, void*) const {
     ComplexToString(*from, to);
   }
 };
 
 template <typename T>
-struct ConvertDataType<std::complex<T>, ustring_t> {
-  void operator()(const std::complex<T>* from, ustring_t* to, void*) const {
+struct ConvertDataType<std::complex<T>, ::tensorstore::dtypes::ustring_t> {
+  void operator()(const std::complex<T>* from,
+                  ::tensorstore::dtypes::ustring_t* to, void*) const {
     ComplexToString(*from, &to->utf8);
   }
 };
 
 template <>
-struct ConvertDataType<float16_t, json_t> {
-  void operator()(const float16_t* from, json_t* to, void*) const {
+struct ConvertDataType<::tensorstore::dtypes::float16_t,
+                       ::tensorstore::dtypes::json_t> {
+  void operator()(const ::tensorstore::dtypes::float16_t* from,
+                  ::tensorstore::dtypes::json_t* to, void*) const {
     *to = static_cast<double>(*from);
   }
 };
@@ -222,7 +239,8 @@ namespace internal_data_type {
 
 struct JsonIntegerConvertDataType {
   template <typename To>
-  bool operator()(const json_t* from, To* to, void* arg) const {
+  bool operator()(const ::tensorstore::dtypes::json_t* from, To* to,
+                  void* arg) const {
     auto* status = static_cast<absl::Status*>(arg);
     auto s = internal_json::JsonRequireInteger(*from, to, /*strict=*/false);
     if (s.ok()) return true;
@@ -233,7 +251,8 @@ struct JsonIntegerConvertDataType {
 
 struct JsonFloatConvertDataType {
   template <typename To>
-  bool operator()(const json_t* from, To* to, void* arg) const {
+  bool operator()(const ::tensorstore::dtypes::json_t* from, To* to,
+                  void* arg) const {
     auto* status = static_cast<absl::Status*>(arg);
     double value;
     auto s = internal_json::JsonRequireValueAs(*from, &value, /*strict=*/false);
@@ -255,14 +274,16 @@ struct ComplexNumericConvertDataType {
 
 struct NumericStringConvertDataType {
   template <typename From>
-  void operator()(const From* from, string_t* to, void*) const {
+  void operator()(const From* from, ::tensorstore::dtypes::string_t* to,
+                  void*) const {
     NumberToString(*from, to);
   }
 };
 
 struct NumericUstringConvertDataType {
   template <typename From>
-  void operator()(const From* from, ustring_t* to, void*) const {
+  void operator()(const From* from, ::tensorstore::dtypes::ustring_t* to,
+                  void*) const {
     NumberToString(*from, &to->utf8);
   }
 };
@@ -271,25 +292,31 @@ struct NumericUstringConvertDataType {
 
 #define TENSORSTORE_INTERNAL_CONVERT_INT(T)                          \
   template <>                                                        \
-  struct ConvertDataType<T, string_t>                                \
+  struct ConvertDataType<::tensorstore::dtypes::T,                   \
+                         ::tensorstore::dtypes::string_t>            \
       : public internal_data_type::NumericStringConvertDataType {};  \
   template <>                                                        \
-  struct ConvertDataType<T, ustring_t>                               \
+  struct ConvertDataType<::tensorstore::dtypes::T,                   \
+                         ::tensorstore::dtypes::ustring_t>           \
       : public internal_data_type::NumericUstringConvertDataType {}; \
   template <>                                                        \
-  struct ConvertDataType<json_t, T>                                  \
+  struct ConvertDataType<::tensorstore::dtypes::json_t,              \
+                         ::tensorstore::dtypes::T>                   \
       : public internal_data_type::JsonIntegerConvertDataType {};    \
   /**/
 
 #define TENSORSTORE_INTERNAL_CONVERT_FLOAT(T)                        \
   template <>                                                        \
-  struct ConvertDataType<T, string_t>                                \
+  struct ConvertDataType<::tensorstore::dtypes::T,                   \
+                         ::tensorstore::dtypes::string_t>            \
       : public internal_data_type::NumericStringConvertDataType {};  \
   template <>                                                        \
-  struct ConvertDataType<T, ustring_t>                               \
+  struct ConvertDataType<::tensorstore::dtypes::T,                   \
+                         ::tensorstore::dtypes::ustring_t>           \
       : public internal_data_type::NumericUstringConvertDataType {}; \
   template <>                                                        \
-  struct ConvertDataType<json_t, T>                                  \
+  struct ConvertDataType<::tensorstore::dtypes::json_t,              \
+                         ::tensorstore::dtypes::T>                   \
       : public internal_data_type::JsonFloatConvertDataType {};      \
   /**/
 
@@ -307,57 +334,83 @@ TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(TENSORSTORE_INTERNAL_CONVERT_FLOAT)
 // [BEGIN GENERATED: generate_data_type.py]
 
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
-    complex64_t, int4_t, internal_data_type::ComplexNumericConvertDataType)
+    ::tensorstore::dtypes::complex64_t, ::tensorstore::dtypes::int4_t,
+    internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
-    complex64_t, int8_t, internal_data_type::ComplexNumericConvertDataType)
+    ::tensorstore::dtypes::complex64_t, ::tensorstore::dtypes::int8_t,
+    internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
-    complex64_t, uint8_t, internal_data_type::ComplexNumericConvertDataType)
+    ::tensorstore::dtypes::complex64_t, ::tensorstore::dtypes::uint8_t,
+    internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
-    complex64_t, int16_t, internal_data_type::ComplexNumericConvertDataType)
+    ::tensorstore::dtypes::complex64_t, ::tensorstore::dtypes::int16_t,
+    internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
-    complex64_t, uint16_t, internal_data_type::ComplexNumericConvertDataType)
+    ::tensorstore::dtypes::complex64_t, ::tensorstore::dtypes::uint16_t,
+    internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
-    complex64_t, int32_t, internal_data_type::ComplexNumericConvertDataType)
+    ::tensorstore::dtypes::complex64_t, ::tensorstore::dtypes::int32_t,
+    internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
-    complex64_t, uint32_t, internal_data_type::ComplexNumericConvertDataType)
+    ::tensorstore::dtypes::complex64_t, ::tensorstore::dtypes::uint32_t,
+    internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
-    complex64_t, int64_t, internal_data_type::ComplexNumericConvertDataType)
+    ::tensorstore::dtypes::complex64_t, ::tensorstore::dtypes::int64_t,
+    internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
-    complex64_t, uint64_t, internal_data_type::ComplexNumericConvertDataType)
+    ::tensorstore::dtypes::complex64_t, ::tensorstore::dtypes::uint64_t,
+    internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
-    complex128_t, int4_t, internal_data_type::ComplexNumericConvertDataType)
+    ::tensorstore::dtypes::complex128_t, ::tensorstore::dtypes::int4_t,
+    internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
-    complex128_t, int8_t, internal_data_type::ComplexNumericConvertDataType)
+    ::tensorstore::dtypes::complex128_t, ::tensorstore::dtypes::int8_t,
+    internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
-    complex128_t, uint8_t, internal_data_type::ComplexNumericConvertDataType)
+    ::tensorstore::dtypes::complex128_t, ::tensorstore::dtypes::uint8_t,
+    internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
-    complex128_t, int16_t, internal_data_type::ComplexNumericConvertDataType)
+    ::tensorstore::dtypes::complex128_t, ::tensorstore::dtypes::int16_t,
+    internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
-    complex128_t, uint16_t, internal_data_type::ComplexNumericConvertDataType)
+    ::tensorstore::dtypes::complex128_t, ::tensorstore::dtypes::uint16_t,
+    internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
-    complex128_t, int32_t, internal_data_type::ComplexNumericConvertDataType)
+    ::tensorstore::dtypes::complex128_t, ::tensorstore::dtypes::int32_t,
+    internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
-    complex128_t, uint32_t, internal_data_type::ComplexNumericConvertDataType)
+    ::tensorstore::dtypes::complex128_t, ::tensorstore::dtypes::uint32_t,
+    internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
-    complex128_t, int64_t, internal_data_type::ComplexNumericConvertDataType)
+    ::tensorstore::dtypes::complex128_t, ::tensorstore::dtypes::int64_t,
+    internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
-    complex128_t, uint64_t, internal_data_type::ComplexNumericConvertDataType)
+    ::tensorstore::dtypes::complex128_t, ::tensorstore::dtypes::uint64_t,
+    internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
-    complex64_t, float16_t, internal_data_type::ComplexNumericConvertDataType)
+    ::tensorstore::dtypes::complex64_t, ::tensorstore::dtypes::float16_t,
+    internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
-    complex64_t, bfloat16_t, internal_data_type::ComplexNumericConvertDataType)
+    ::tensorstore::dtypes::complex64_t, ::tensorstore::dtypes::bfloat16_t,
+    internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
-    complex64_t, float32_t, internal_data_type::ComplexNumericConvertDataType)
+    ::tensorstore::dtypes::complex64_t, ::tensorstore::dtypes::float32_t,
+    internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
-    complex64_t, float64_t, internal_data_type::ComplexNumericConvertDataType)
+    ::tensorstore::dtypes::complex64_t, ::tensorstore::dtypes::float64_t,
+    internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
-    complex128_t, float16_t, internal_data_type::ComplexNumericConvertDataType)
+    ::tensorstore::dtypes::complex128_t, ::tensorstore::dtypes::float16_t,
+    internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
-    complex128_t, bfloat16_t, internal_data_type::ComplexNumericConvertDataType)
+    ::tensorstore::dtypes::complex128_t, ::tensorstore::dtypes::bfloat16_t,
+    internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
-    complex128_t, float32_t, internal_data_type::ComplexNumericConvertDataType)
+    ::tensorstore::dtypes::complex128_t, ::tensorstore::dtypes::float32_t,
+    internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
-    complex128_t, float64_t, internal_data_type::ComplexNumericConvertDataType)
+    ::tensorstore::dtypes::complex128_t, ::tensorstore::dtypes::float64_t,
+    internal_data_type::ComplexNumericConvertDataType)
 
 // [END GENERATED: generate_data_type.py]
 
@@ -366,15 +419,18 @@ TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
 // TODO(jbms): implement string -> complex conversion
 
 template <>
-struct ConvertDataType<ustring_t, json_t> {
-  void operator()(const ustring_t* from, json_t* to, void*) const {
+struct ConvertDataType<::tensorstore::dtypes::ustring_t,
+                       ::tensorstore::dtypes::json_t> {
+  void operator()(const ::tensorstore::dtypes::ustring_t* from,
+                  ::tensorstore::dtypes::json_t* to, void*) const {
     *to = from->utf8;
   }
 };
 
 template <>
-struct ConvertDataType<json_t, bool> {
-  bool operator()(const json_t* from, bool* to, void* arg) const {
+struct ConvertDataType<::tensorstore::dtypes::json_t, bool> {
+  bool operator()(const ::tensorstore::dtypes::json_t* from, bool* to,
+                  void* arg) const {
     auto* status = static_cast<absl::Status*>(arg);
     auto s = internal_json::JsonRequireValueAs(*from, to, /*strict=*/false);
     if (s.ok()) return true;
@@ -384,8 +440,10 @@ struct ConvertDataType<json_t, bool> {
 };
 
 template <>
-struct ConvertDataType<json_t, string_t> {
-  bool operator()(const json_t* from, string_t* to, void* arg) const {
+struct ConvertDataType<::tensorstore::dtypes::json_t,
+                       ::tensorstore::dtypes::string_t> {
+  bool operator()(const ::tensorstore::dtypes::json_t* from,
+                  ::tensorstore::dtypes::string_t* to, void* arg) const {
     auto* status = static_cast<absl::Status*>(arg);
     auto s = internal_json::JsonRequireValueAs(*from, to, /*strict=*/false);
     if (s.ok()) return true;
@@ -395,8 +453,10 @@ struct ConvertDataType<json_t, string_t> {
 };
 
 template <>
-struct ConvertDataType<json_t, ustring_t> {
-  bool operator()(const json_t* from, ustring_t* to, void* arg) const {
+struct ConvertDataType<::tensorstore::dtypes::json_t,
+                       ::tensorstore::dtypes::ustring_t> {
+  bool operator()(const ::tensorstore::dtypes::json_t* from,
+                  ::tensorstore::dtypes::ustring_t* to, void* arg) const {
     auto* status = static_cast<absl::Status*>(arg);
     auto s =
         internal_json::JsonRequireValueAs(*from, &to->utf8, /*strict=*/false);
@@ -407,8 +467,10 @@ struct ConvertDataType<json_t, ustring_t> {
 };
 
 template <>
-struct ConvertDataType<string_t, ustring_t> {
-  bool operator()(const string_t* from, ustring_t* to, void* arg) const {
+struct ConvertDataType<::tensorstore::dtypes::string_t,
+                       ::tensorstore::dtypes::ustring_t> {
+  bool operator()(const ::tensorstore::dtypes::string_t* from,
+                  ::tensorstore::dtypes::ustring_t* to, void* arg) const {
     auto* status = static_cast<absl::Status*>(arg);
     if (internal::IsValidUtf8(*from)) {
       to->utf8 = *from;
@@ -420,8 +482,10 @@ struct ConvertDataType<string_t, ustring_t> {
 };
 
 template <>
-struct ConvertDataType<string_t, json_t> {
-  bool operator()(const string_t* from, json_t* to, void* arg) const {
+struct ConvertDataType<::tensorstore::dtypes::string_t,
+                       ::tensorstore::dtypes::json_t> {
+  bool operator()(const ::tensorstore::dtypes::string_t* from,
+                  ::tensorstore::dtypes::json_t* to, void* arg) const {
     auto* status = static_cast<absl::Status*>(arg);
     if (internal::IsValidUtf8(*from)) {
       *to = *from;

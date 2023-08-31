@@ -376,7 +376,7 @@ TEST(DownsampleArrayTest, MedianBool) {
 }
 
 TEST(DownsampleArrayTest, ModeJson) {
-  using ::tensorstore::json_t;
+  using ::tensorstore::dtypes::json_t;
   EXPECT_THAT(DownsampleArray(MakeArray<json_t>({"a", "a", 3.0, 3, 3u}),
                               span<const Index>({5}), DownsampleMethod::kMode),
               Optional(MakeArray<::nlohmann::json>({json_t(3)})));

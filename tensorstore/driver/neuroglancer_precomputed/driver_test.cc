@@ -2099,7 +2099,7 @@ TEST(DriverCreateWithSchemaTest, Dtypes) {
       dtype_v<uint8_t>,  dtype_v<uint16_t>,
       dtype_v<uint32_t>, dtype_v<int8_t>,
       dtype_v<int16_t>,  dtype_v<int32_t>,
-      dtype_v<uint64_t>, dtype_v<tensorstore::float32_t>,
+      dtype_v<uint64_t>, dtype_v<tensorstore::dtypes::float32_t>,
   };
   for (auto dtype : kSupportedDataTypes) {
     TestTensorStoreCreateWithSchema({{"driver", "neuroglancer_precomputed"},

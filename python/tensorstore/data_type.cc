@@ -24,7 +24,6 @@
 
 // Other headers
 #include <array>
-#include <new>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -88,10 +87,10 @@ py::dtype GetNumpyDtypeOrThrow(DataType dtype) {
 DataType GetDataType(pybind11::dtype dt) {
   const int type_num = py::detail::array_descriptor_proxy(dt.ptr())->type_num;
   if (type_num == Int4NumpyTypeNum()) {
-    return dtype_v<int4_t>;
+    return dtype_v<::tensorstore::dtypes::int4_t>;
   }
   if (type_num == Bfloat16NumpyTypeNum()) {
-    return dtype_v<bfloat16_t>;
+    return dtype_v<::tensorstore::dtypes::bfloat16_t>;
   }
   if (type_num < 0 || type_num > NPY_NTYPES) {
     return DataType();
@@ -237,11 +236,11 @@ bool type_caster<tensorstore::internal_python::DataTypeLike>::load(
   if (src.is_none()) return false;
   if (!convert) return false;
   if (src.ptr() == reinterpret_cast<PyObject*>(&PyUnicode_Type)) {
-    value.value = dtype_v<tensorstore::ustring_t>;
+    value.value = dtype_v<tensorstore::dtypes::ustring_t>;
     return true;
   }
   if (src.ptr() == reinterpret_cast<PyObject*>(&PyBytes_Type)) {
-    value.value = dtype_v<tensorstore::string_t>;
+    value.value = dtype_v<tensorstore::dtypes::string_t>;
     return true;
   }
   PyArray_Descr* ptr = nullptr;

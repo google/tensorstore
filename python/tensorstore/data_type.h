@@ -136,12 +136,12 @@ constexpr int GetNumpyTypeNum() {
 }
 
 template <>
-inline int GetNumpyTypeNum<int4_t>() {
+inline int GetNumpyTypeNum<::tensorstore::dtypes::int4_t>() {
   return Int4NumpyTypeNum();
 }
 
 template <>
-inline int GetNumpyTypeNum<bfloat16_t>() {
+inline int GetNumpyTypeNum<::tensorstore::dtypes::bfloat16_t>() {
   return Bfloat16NumpyTypeNum();
 }
 
@@ -173,8 +173,8 @@ namespace pybind11 {
 namespace detail {
 
 /// Defines automatic conversion from compatible Python objects to
-/// `tensorstore::internal_python::DataTypeLike` parameters of pybind11-exposed
-/// functions.
+/// `tensorstore::internal_python::DataTypeLike` parameters of
+/// pybind11-exposed functions.
 ///
 /// The `str` and `bytes` Python type constructors map to the `ustring` and
 /// `string` types, respectively.

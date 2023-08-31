@@ -16,15 +16,24 @@
 
 #include "tensorstore/data_type.h"
 
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <string>
+#include <type_traits>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "absl/base/macros.h"
+#include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/index.h"
 #include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/serialization/test_util.h"
+#include "tensorstore/static_cast.h"
 #include "tensorstore/util/status_testutil.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -46,7 +55,7 @@ using ::tensorstore::serialization::SerializationRoundTrip;
 using ::tensorstore::serialization::TestSerializationRoundTrip;
 
 #define X(T)                                                \
-  using ::tensorstore::T;                                   \
+  using ::tensorstore::dtypes::T;                           \
   static_assert(static_cast<int>(DataTypeId::T) >= 0 &&     \
                 static_cast<int>(DataTypeId::T) <           \
                     static_cast<int>(DataTypeId::num_ids)); \
@@ -304,27 +313,27 @@ void TestCompareIdenticalComplex() {
 }
 
 TEST(CompareIdenticalTest, Float32) {
-  TestCompareIdenticalFloat<tensorstore::float32_t>();
+  TestCompareIdenticalFloat<tensorstore::dtypes::float32_t>();
 }
 
 TEST(CompareIdenticalTest, Float64) {
-  TestCompareIdenticalFloat<tensorstore::float64_t>();
+  TestCompareIdenticalFloat<tensorstore::dtypes::float64_t>();
 }
 
 TEST(CompareIdenticalTest, Bfloat16) {
-  TestCompareIdenticalFloat<tensorstore::bfloat16_t>();
+  TestCompareIdenticalFloat<tensorstore::dtypes::bfloat16_t>();
 }
 
 TEST(CompareIdenticalTest, Float16) {
-  TestCompareIdenticalFloat<tensorstore::float16_t>();
+  TestCompareIdenticalFloat<tensorstore::dtypes::float16_t>();
 }
 
 TEST(CompareIdenticalTest, Complex64) {
-  TestCompareIdenticalComplex<tensorstore::complex64_t>();
+  TestCompareIdenticalComplex<tensorstore::dtypes::complex64_t>();
 }
 
 TEST(CompareIdenticalTest, Complex128) {
-  TestCompareIdenticalComplex<tensorstore::complex128_t>();
+  TestCompareIdenticalComplex<tensorstore::dtypes::complex128_t>();
 }
 
 TEST(ElementOperationsTest, FloatCompareIdentical) {

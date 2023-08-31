@@ -29,13 +29,13 @@
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
-using ::tensorstore::bfloat16_t;
 using ::tensorstore::ContiguousLayoutOrder;
 using ::tensorstore::dtype_v;
-using ::tensorstore::float16_t;
 using ::tensorstore::MakeArray;
 using ::tensorstore::MakeScalarArray;
 using ::tensorstore::MatchesStatus;
+using ::tensorstore::dtypes::bfloat16_t;
+using ::tensorstore::dtypes::float16_t;
 using ::tensorstore::internal_zarr::DimensionSeparator;
 using ::tensorstore::internal_zarr::DimensionSeparatorJsonBinder;
 using ::tensorstore::internal_zarr::EncodeFillValue;
@@ -623,12 +623,13 @@ void EncodeDecodeMetadataTestArrayComplex(std::string zarr_dtype) {
 
 // Corresponds to the zarr test_encode_decode_array_complex test case.
 TEST(EncodeDecodeMetadataTest, ArrayComplex8) {
-  EncodeDecodeMetadataTestArrayComplex<tensorstore::complex64_t>("<c8");
+  EncodeDecodeMetadataTestArrayComplex<tensorstore::dtypes::complex64_t>("<c8");
 }
 
 // Corresponds to the zarr test_encode_decode_array_complex test case.
 TEST(EncodeDecodeMetadataTest, ArrayComplex16) {
-  EncodeDecodeMetadataTestArrayComplex<tensorstore::complex128_t>("<c16");
+  EncodeDecodeMetadataTestArrayComplex<tensorstore::dtypes::complex128_t>(
+      "<c16");
 }
 
 TEST(ParseMetadataTest, Simple) {
