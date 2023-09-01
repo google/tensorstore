@@ -1,0 +1,29 @@
+$schema: http://json-schema.org/draft-07/schema#
+$id: kvstore/zip
+allOf:
+- $ref: KvStore
+- type: object
+  properties:
+    driver:
+      const: zip
+    base:
+      $ref: KvStore
+      title: Underlying key-value store with path to shard.
+    cache_pool:
+      $ref: ContextResource
+      description: |-
+        Specifies or references a previously defined `Context.cache_pool`.  It
+        is normally more convenient to specify a default `~Context.cache_pool`
+        in the `.context`.
+      default: cache_pool
+    data_copy_concurrency:
+      $ref: ContextResource
+      description: |-
+        Specifies or references a previously defined
+        `Context.data_copy_concurrency`.  It is normally more
+        convenient to specify a default `~Context.data_copy_concurrency` in
+        the `.context`.
+      default: data_copy_concurrency
+  required:
+  - base
+title: JSON specification of zip key-value store.

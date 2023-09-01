@@ -4,6 +4,13 @@ package(default_visibility = ["//tensorstore:internal_packages"])
 
 licenses(["notice"])
 
+filegroup(
+    name = "testdata",
+    srcs = [
+        "testdata/data.zip",
+    ],
+)
+
 tensorstore_cc_library(
     name = "blosc",
     srcs = ["blosc.cc"],
@@ -201,5 +208,57 @@ tensorstore_cc_library(
         "@com_google_riegeli//riegeli/bytes:writer",
         "@com_google_riegeli//riegeli/zstd:zstd_reader",
         "@com_google_riegeli//riegeli/zstd:zstd_writer",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "zip_details",
+    srcs = ["zip_details.cc"],
+    hdrs = ["zip_details.h"],
+    deps = [
+        "//tensorstore/internal/riegeli:find",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/log:absl_log",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/time",
+        "@com_google_riegeli//riegeli/bytes:limiting_reader",
+        "@com_google_riegeli//riegeli/bytes:prefix_limiting_reader",
+        "@com_google_riegeli//riegeli/bytes:reader",
+        "@com_google_riegeli//riegeli/bzip2:bzip2_reader",
+        "@com_google_riegeli//riegeli/endian:endian_reading",
+        "@com_google_riegeli//riegeli/xz:xz_reader",
+        "@com_google_riegeli//riegeli/zlib:zlib_reader",
+        "@com_google_riegeli//riegeli/zstd:zstd_reader",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "zip_details_test",
+    srcs = ["zip_details_test.cc"],
+    args = [
+        "--tensorstore_test_data=$(location :testdata)",
+    ],
+    data = [":testdata"],
+    deps = [
+        ":zip_details",
+        "//tensorstore/internal/riegeli:find",
+        "//tensorstore/util:status",
+        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/log:absl_check",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_riegeli//riegeli/bytes:cord_reader",
+        "@com_google_riegeli//riegeli/bytes:fd_reader",
+        "@com_google_riegeli//riegeli/bytes:read_all",
+        "@com_google_riegeli//riegeli/bytes:reader",
+        "@com_google_riegeli//riegeli/bytes:string_reader",
     ],
 )

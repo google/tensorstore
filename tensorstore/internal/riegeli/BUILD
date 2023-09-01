@@ -109,6 +109,23 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "find",
+    srcs = ["find.cc"],
+    hdrs = ["find.h"],
+    deps = ["@com_google_riegeli//riegeli/bytes:reader"],
+)
+
+tensorstore_cc_test(
+    name = "find_test",
+    srcs = ["find_test.cc"],
+    deps = [
+        ":find",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_riegeli//riegeli/bytes:string_reader",
+    ],
+)
+
+tensorstore_cc_library(
     name = "json_input",
     srcs = ["json_input.cc"],
     hdrs = ["json_input.h"],
