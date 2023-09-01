@@ -15,11 +15,14 @@
 #ifndef TENSORSTORE_INTERNAL_HTTP_HTTP_RESPONSE_H_
 #define TENSORSTORE_INTERNAL_HTTP_HTTP_RESPONSE_H_
 
-#include <cstddef>
+#include <stddef.h>
+#include <stdint.h>
+
 #include <map>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <tuple>
 
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
@@ -33,8 +36,8 @@ namespace internal_http {
 
 /// AppendHeaderData parses `data` as a header and append to the set of
 /// `headers`.
-std::size_t AppendHeaderData(std::multimap<std::string, std::string>& headers,
-                             std::string_view data);
+size_t AppendHeaderData(std::multimap<std::string, std::string>& headers,
+                        std::string_view data);
 
 /// HttpResponse contains the results of an HTTP request.
 struct HttpResponse {
@@ -82,6 +85,11 @@ std::optional<T> TryParseIntHeader(
   }
   return std::nullopt;
 }
+
+/// Attempts to parse a header using SimpleAtob.
+std::optional<bool> TryParseBoolHeader(
+    const std::multimap<std::string, std::string>& headers,
+    const std::string& header);
 
 }  // namespace internal_http
 }  // namespace tensorstore

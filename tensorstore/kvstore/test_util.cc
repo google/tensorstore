@@ -32,6 +32,7 @@
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/synchronization/notification.h"
@@ -107,6 +108,12 @@ StorageGeneration GetStorageGeneration(const KvStore& store, std::string key) {
 
 // Return a highly-improbable storage generation
 StorageGeneration GetMismatchStorageGeneration(const KvStore& store) {
+  const auto& url_result = store.ToUrl();
+
+  if (url_result.ok() && absl::StrContains(url_result.value(), "s3://")) {
+    return StorageGeneration::FromString("\"abcdef1234567890\"");
+  }
+
   // Use a single uint64_t storage generation here for GCS compatibility.
   // Also, the generation looks like a nanosecond timestamp.
   return StorageGeneration::FromValues(uint64_t{/*3.*/ 1415926535897932});
