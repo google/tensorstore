@@ -5,6 +5,14 @@ package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
+filegroup(
+    name = "doc_sources",
+    srcs = glob([
+        "**/*.rst",
+        "**/*.yml",
+    ]),
+)
+
 # To enable debug checks, specify:
 # bazel build --//tensorstore/kvstore/s3:debug
 bool_flag(
