@@ -33,7 +33,7 @@ namespace internal_ometiff {
 
 namespace {
 namespace jb = tensorstore::internal_json_binding;
-using ::tensorstore::ometiff::OMETiffImageInfo;
+using ::tensorstore::ometiff::OMETiffMetadata;
 
 template <typename T>
 uint32_t TIFFhowmany_32(T x, T y) {
@@ -42,7 +42,7 @@ uint32_t TIFFhowmany_32(T x, T y) {
               : 0U);
 }
 
-Result<std::shared_ptr<const OMETiffImageInfo>> ParseEncodedMetadata(
+Result<std::shared_ptr<const OMETiffMetadata>> ParseEncodedMetadata(
     std::string_view encoded_value) {
   nlohmann::json raw_data = nlohmann::json::parse(encoded_value, nullptr,
                                                   /*allow_exceptions=*/false);
@@ -50,31 +50,45 @@ Result<std::shared_ptr<const OMETiffImageInfo>> ParseEncodedMetadata(
     return absl::FailedPreconditionError("Invalid JSON");
   }
   TENSORSTORE_ASSIGN_OR_RETURN(auto metadata,
-                               OMETiffImageInfo::FromJson(std::move(raw_data)));
-  return std::make_shared<OMETiffImageInfo>(std::move(metadata));
+                               OMETiffMetadata::FromJson(std::move(raw_data)));
+  return std::make_shared<OMETiffMetadata>(std::move(metadata));
 }
 
-uint32_t TIFFComputeTile(const OMETiffImageInfo& tiff, uint32_t x, uint32_t y,
-                         uint32_t z, uint16_t s) {
-  uint32_t dx = tiff.tile_width;
-  uint32_t dy = tiff.tile_height;
-  if (!tiff.is_tiled) {
-    dx = tiff.width;
-    dy = tiff.rows_per_strip;
+Index ComputeChunkIndex(const OMETiffMetadata& metadata,
+                        const span<const Index>& cell_indices) {
+  auto rank = metadata.rank;
+
+  // TODO: move map into metadata.
+  std::vector<Index> map = {1, 0};
+
+  std::vector<Index> num_chunks(rank);
+  for (Index i = 0; i < rank; ++i) {
+    num_chunks[i] = metadata.shape[i] / metadata.chunk_shape[i];
   }
 
-  uint32_t dz = 1;
-  uint32_t tile = 1;
-
-  uint32_t depth = 1;  // TODO: Generalize.
-  if (depth == 1) z = 0;
-  if (dx != 0 && dy != 0 && dz != 0) {
-    uint32_t xpt = TIFFhowmany_32(tiff.width, dx);
-    uint32_t ypt = TIFFhowmany_32(tiff.height, dy);
-    uint32_t zpt = TIFFhowmany_32(depth, dz);
-    tile = (xpt * ypt) * z + xpt * y + x;
+  Index tile_index = cell_indices[map[rank - 1]];
+  for (Index i = 0; i < rank - 1; ++i) {
+    Index coef = 1;
+    for (Index j = 0; j <= i; ++j) {
+      coef *= num_chunks[j];
+    }
+    tile_index += cell_indices[map[i]] * coef;
   }
-  return (tile);
+
+  return tile_index;
+}
+
+int64_t CalculateChunkElements(const OMETiffMetadata& metadata,
+                               const span<const Index>& cell_indices) {
+  int64_t elements = 1;
+  auto rank = metadata.rank;
+  auto& chunk_shape = metadata.chunk_shape;
+  auto& shape = metadata.shape;
+  for (Index i = 0; i < rank; ++i) {
+    elements *=
+        std::min(chunk_shape[i], shape[i] - chunk_shape[i] * cell_indices[i]);
+  }
+  return elements;
 }
 
 }  // namespace
@@ -93,7 +107,7 @@ Result<MetadataCache::MetadataPtr> MetadataCache::DecodeMetadata(
 Result<absl::Cord> MetadataCache::EncodeMetadata(std::string_view entry_key,
                                                  const void* metadata) {
   return absl::Cord(
-      ::nlohmann::json(*static_cast<const OMETiffImageInfo*>(metadata)).dump());
+      ::nlohmann::json(*static_cast<const OMETiffMetadata*>(metadata)).dump());
 }
 
 Future<internal::Driver::Handle> OMETiffDriverSpec::Open(
@@ -116,7 +130,7 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
 
 DataCache::DataCache(Initializer&& initializer, std::string key)
     : Base(std::move(initializer),
-           GetChunkGridSpecification(*static_cast<const OMETiffImageInfo*>(
+           GetChunkGridSpecification(*static_cast<const OMETiffMetadata*>(
                initializer.metadata.get()))),
       key_(std::move(key)) {}
 
@@ -125,26 +139,14 @@ OptionalByteRangeRequest DataCache::GetChunkByteRange(
   ABSL_LOG(INFO) << "Requested cell indices: " << cell_indices;
 
   auto& metadata = this->metadata();
-  auto rank = 2;
-  auto chunk_elements = metadata.rows_per_strip * metadata.width;
-  auto chunk_index =
-      TIFFComputeTile(metadata, cell_indices[1], cell_indices[0], 0, 0);
-
-  // Adjust final chunk if needed.
-
-  if (metadata.is_tiled) {
-    ABSL_LOG(INFO) << "IMPLEMENT ME!!!!";
-  } else {
-    chunk_elements =
-        std::min(metadata.height - static_cast<uint32_t>(cell_indices[0]) *
-                                       metadata.rows_per_strip,
-                 metadata.rows_per_strip) *
-        metadata.width;
-  }
-  // Map to byte offset.
-  int64_t start = metadata.chunk_offset + chunk_index * metadata.chunk_size;
-
-  ABSL_LOG(INFO) << "Calculated chunk offset: " << start;
+  auto chunk_index = ComputeChunkIndex(metadata, cell_indices);
+  // Tiles are always a fixed size.
+  auto chunk_elements = metadata.is_tiled
+                            ? ProductOfExtents(span(metadata.chunk_shape))
+                            : CalculateChunkElements(metadata, cell_indices);
+  int64_t start = metadata.data_offset + chunk_index * metadata.chunk_size;
+  ABSL_LOG(INFO) << "Calculated chunk offset: " << start << " for index "
+                 << chunk_index << " containing elements " << chunk_elements;
 
   return ByteRange{start, start + chunk_elements * metadata.dtype.size()};
 }
@@ -165,9 +167,9 @@ Result<std::shared_ptr<const void>> DataCache::GetResizedMetadata(
     const void* existing_metadata, span<const Index> new_inclusive_min,
     span<const Index> new_exclusive_max) {
   ABSL_LOG(INFO) << "Getting resized metadata";
-  auto new_metadata = std::make_shared<OMETiffImageInfo>(
-      *static_cast<const OMETiffImageInfo*>(existing_metadata));
-  const DimensionIndex rank = 2;  // TODO: fix me.
+  auto new_metadata = std::make_shared<OMETiffMetadata>(
+      *static_cast<const OMETiffMetadata*>(existing_metadata));
+  const DimensionIndex rank = new_metadata->rank;  // TODO: fix me.
   assert(rank == new_inclusive_min.size());
   assert(rank == new_exclusive_max.size());
   for (DimensionIndex i = 0; i < rank; ++i) {
@@ -180,70 +182,58 @@ Result<std::shared_ptr<const void>> DataCache::GetResizedMetadata(
 }
 
 internal::ChunkGridSpecification DataCache::GetChunkGridSpecification(
-    const OMETiffImageInfo& metadata) {
-  uint32_t rank = 2;
+    const OMETiffMetadata& metadata) {
+  // TODO: Add multiple components (resolutions) here.
 
   ABSL_LOG(INFO) << "Get chunk grid specification";
 
-  std::vector<Index> chunk_shape(rank);
-  if (metadata.is_tiled) {
-    chunk_shape[1] = metadata.tile_width;
-    chunk_shape[0] = metadata.tile_height;
-  } else {
-    chunk_shape[1] = metadata.width;
-    chunk_shape[0] = metadata.rows_per_strip;
-  }
-
-  ChunkLayout chunk_layout;
-  chunk_layout.Set(tensorstore::ChunkLayout::InnerOrder({0, 1}));
-  chunk_layout.Set(tensorstore::ChunkLayout::ReadChunkShape(chunk_shape));
-  chunk_layout.Set(RankConstraint(2));
-  chunk_layout.Set(ChunkLayout::GridOrigin(GetConstantVector<Index, 0>(2)));
-
-  IndexDomain<> domain = IndexDomain<>(rank);
-  domain = WithImplicitDimensions(std::move(domain),
-                                  /*implicit_lower_bounds=*/false,
-                                  /*implicit_upper_bounds=*/false);
-
-  Box<> chunk_template(rank);
-  SharedArray<const void> fill_value;
-  fill_value.layout().set_rank(rank);
-  std::fill_n(fill_value.byte_strides().begin(), rank, 0);
-
-  internal::ChooseReadWriteChunkGrid(chunk_layout, domain.box(),
-                                     chunk_template);
-
-  for (DimensionIndex component_dim = 0; component_dim < rank;
-       ++component_dim) {
-    const DimensionIndex external_dim =
-        chunk_layout.inner_order()[component_dim];
-    fill_value.shape()[component_dim] = chunk_template.shape()[external_dim];
-  }
-  fill_value.element_pointer() = internal::AllocateAndConstructSharedElements(
-      1, value_init, metadata.dtype);
-
-  ABSL_LOG(INFO) << "Chunk template: " << chunk_template;
+  SharedArray<const void> fill_value =
+      AllocateArray(metadata.chunk_shape, c_order, value_init, metadata.dtype);
   internal::ChunkGridSpecification::ComponentList components;
-  components.emplace_back(std::move(fill_value), std::move(chunk_template));
+  components.emplace_back(std::move(fill_value), Box<>(metadata.chunk_shape),
+                          std::vector<DimensionIndex>{0, 1});
+
+  // ChunkLayout chunk_layout;
+  // chunk_layout.Set(tensorstore::ChunkLayout::InnerOrder({0, 1}));
+  // chunk_layout.Set(tensorstore::ChunkLayout::ReadChunkShape(metadata.chunk_shape));
+  // chunk_layout.Set(RankConstraint(2));
+  // chunk_layout.Set(ChunkLayout::GridOrigin(GetConstantVector<Index, 0>(2)));
+
+  // IndexDomain<> domain = IndexDomain<>(rank);
+  // domain = WithImplicitDimensions(std::move(domain),
+  //                                 /*implicit_lower_bounds=*/false,
+  //                                 /*implicit_upper_bounds=*/false);
+
+  // Box<> chunk_template(rank);
+  // SharedArray<const void> fill_value;
+  // fill_value.layout().set_rank(rank);
+  // std::fill_n(fill_value.byte_strides().begin(), rank, 0);
+
+  // internal::ChooseReadWriteChunkGrid(chunk_layout, domain.box(),
+  //                                      chunk_template);
+
+  // for (DimensionIndex component_dim = 0; component_dim < rank;
+  //      ++component_dim) {
+  //   const DimensionIndex external_dim =
+  //       chunk_layout.inner_order()[component_dim];
+  //   fill_value.shape()[component_dim] = chunk_template.shape()[external_dim];
+  // }
+  // fill_value.element_pointer() =
+  // internal::AllocateAndConstructSharedElements(
+  //     1, value_init, metadata.dtype);
+
+  // ABSL_LOG(INFO) << "Chunk template: " << chunk_template;
+  // internal::ChunkGridSpecification::ComponentList components;
+  // components.emplace_back(std::move(fill_value), std::move(chunk_template));
   return components;
 }
 
 Result<absl::InlinedVector<SharedArray<const void>, 1>> DataCache::DecodeChunk(
     span<const Index> chunk_indices, absl::Cord data) {
   auto& dtype = metadata().dtype;
-  std::vector<Index> chunk_shape(2);
-  if (metadata().is_tiled) {
-    chunk_shape[1] = metadata().tile_width;
-    chunk_shape[0] = metadata().tile_height;
-  } else {
-    chunk_shape[1] = metadata().width;
-    chunk_shape[0] = metadata().rows_per_strip;
-  }
 
-  ABSL_LOG(INFO) << "Decoding " << chunk_indices << " into shape ("
-                 << chunk_shape[0] << "," << chunk_shape[1] << ")";
-
-  auto array = AllocateArray(chunk_shape, c_order, default_init, dtype);
+  auto array = AllocateArray(metadata().chunk_shape, c_order, default_init,
+                             metadata().dtype);
   ABSL_LOG(INFO) << "Expecting: " << array.num_elements() * dtype.size()
                  << ", got " << data.size();
   // assert(array.num_elements() * dtype.size() == data.size());
@@ -266,11 +256,11 @@ void DataCache::GetChunkGridBounds(const void* metadata_ptr,
                                    DimensionSet& implicit_lower_bounds,
                                    DimensionSet& implicit_upper_bounds) {
   ABSL_LOG(INFO) << "GetChunkGridBounds";
-  const auto& metadata = *static_cast<const OMETiffImageInfo*>(metadata_ptr);
+  const auto& metadata = *static_cast<const OMETiffMetadata*>(metadata_ptr);
   assert(bounds.rank() == static_cast<DimensionIndex>(2));
-  std::vector<Index> shape{metadata.width, metadata.height};
   std::fill(bounds.origin().begin(), bounds.origin().end(), Index(0));
-  std::copy(shape.begin(), shape.end(), bounds.shape().begin());
+  std::copy(metadata.shape.begin(), metadata.shape.end(),
+            bounds.shape().begin());
   implicit_lower_bounds = false;
   implicit_upper_bounds = false;
 }
@@ -284,31 +274,14 @@ absl::Status DataCache::GetBoundSpecData(
 Result<ChunkLayout> DataCache::GetChunkLayoutFromMetadata(
     const void* metadata_ptr, size_t component_index) {
   ABSL_LOG(INFO) << "Getting chunk layout from metadata";
-  const auto& metadata = *static_cast<const OMETiffImageInfo*>(metadata_ptr);
-  uint32_t rank = 2;  // metadata.rank;
-
-  std::vector<Index> chunk_shape(rank);
-  if (metadata.is_tiled) {
-    chunk_shape[0] = metadata.tile_width;
-    chunk_shape[1] = metadata.tile_height;
-  } else {
-    chunk_shape[0] = metadata.width;
-    chunk_shape[1] = metadata.rows_per_strip;
-  }
-
+  const auto& metadata = *static_cast<const OMETiffMetadata*>(metadata_ptr);
   ChunkLayout chunk_layout;
-  chunk_layout.Set(tensorstore::ChunkLayout::InnerOrder({1, 0}));
-  chunk_layout.Set(tensorstore::ChunkLayout::ReadChunkShape(chunk_shape));
-
-  // Move the stuff below to a seaprate function later. Maybe
-  // spec.cc.
-  TENSORSTORE_RETURN_IF_ERROR(chunk_layout.Set(RankConstraint(2)));
-  TENSORSTORE_RETURN_IF_ERROR(chunk_layout.Set(
-      ChunkLayout::GridOrigin(GetConstantVector<Index, 0>(2))));
+  TENSORSTORE_RETURN_IF_ERROR(ometiff::SetChunkLayoutFromMetadata(
+      metadata.rank, metadata.chunk_shape, chunk_layout));
+  TENSORSTORE_RETURN_IF_ERROR(chunk_layout.Finalize());
 
   ABSL_LOG(INFO) << "Calculated chunk layout: " << chunk_layout << std::endl;
 
-  TENSORSTORE_RETURN_IF_ERROR(chunk_layout.Finalize());
   return chunk_layout;
 }
 
@@ -335,7 +308,7 @@ class OMETiffDriver::OpenState : public OMETiffDriver::OpenStateBase {
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto metadata,
         Result<MetadataCache::MetadataPtr>(
-            std::make_shared<OMETiffImageInfo>(spec().metadata)),
+            std::make_shared<OMETiffMetadata>(spec().metadata)),
         tensorstore::MaybeAnnotateStatus(
             _, "Cannot create using specified \"metadata\" and schema"));
     return metadata;

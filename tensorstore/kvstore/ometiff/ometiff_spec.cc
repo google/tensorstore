@@ -15,6 +15,7 @@
 #include "tensorstore/kvstore/ometiff/ometiff_spec.h"
 
 #include "tensorstore/internal/json_binding/data_type.h"
+#include "tensorstore/internal/json_binding/dimension_indexed.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/serialization/json_bindable.h"
 
@@ -92,41 +93,41 @@ Result<DataType> SetDType(uint16_t sample_format, uint16_t bits_per_sample) {
 }
 }  // namespace
 
-std::ostream& operator<<(std::ostream& os, const OMETiffImageInfo& x) {
+std::ostream& operator<<(std::ostream& os, const OMETiffMetadata& x) {
   // `ToJson` is guaranteed not to fail for this type.
   return os << jb::ToJson(x).value();
 }
 
-TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(OMETiffImageInfo, [](auto is_loading,
-                                                            const auto& options,
-                                                            auto* obj,
-                                                            auto* j) {
+TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(OMETiffMetadata, [](auto is_loading,
+                                                           const auto& options,
+                                                           auto* obj, auto* j) {
+  using T = internal::remove_cvref_t<decltype(*obj)>;
+  DimensionIndex* rank = nullptr;
+  if constexpr (is_loading) {
+    rank = &obj->rank;
+  }
   return jb::Object(
-      jb::Member("width", jb::Projection(&OMETiffImageInfo::width)),
-      jb::Member("height", jb::Projection(&OMETiffImageInfo::height)),
+      jb::Member("shape", jb::Projection(&T::shape, jb::ShapeVector(rank))),
+      jb::Member("chunk_shape",
+                 jb::Projection(&T::chunk_shape, jb::ChunkShapeVector(rank))),
       jb::Member("bits_per_sample",
-                 jb::Projection(&OMETiffImageInfo::bits_per_sample)),
-      jb::Member("tile_width", jb::Projection(&OMETiffImageInfo::tile_width)),
-      jb::Member("tile_height", jb::Projection(&OMETiffImageInfo::tile_height)),
-      jb::Member("rows_per_strip",
-                 jb::Projection(&OMETiffImageInfo::rows_per_strip)),
+                 jb::Projection(&OMETiffMetadata::bits_per_sample)),
       jb::Member("sample_format",
-                 jb::Projection(&OMETiffImageInfo::sample_format)),
+                 jb::Projection(&OMETiffMetadata::sample_format)),
       jb::Member("samples_per_pixel",
-                 jb::Projection(&OMETiffImageInfo::samples_per_pixel)),
-      jb::Member("is_tiled", jb::Projection(&OMETiffImageInfo::is_tiled)),
-      jb::Member("chunk_offset",
-                 jb::Projection(&OMETiffImageInfo::chunk_offset)),
-      jb::Member("chunk_size", jb::Projection(&OMETiffImageInfo::chunk_size)),
-      jb::Member("num_chunks", jb::Projection(&OMETiffImageInfo::num_chunks)),
-      jb::Member("compression", jb::Projection(&OMETiffImageInfo::compression)),
-      jb::Member("dtype", jb::Projection(&OMETiffImageInfo::dtype,
+                 jb::Projection(&OMETiffMetadata::samples_per_pixel)),
+      jb::Member("is_tiled", jb::Projection(&OMETiffMetadata::is_tiled)),
+      jb::Member("data_offset", jb::Projection(&OMETiffMetadata::data_offset)),
+      jb::Member("chunk_size", jb::Projection(&OMETiffMetadata::chunk_size)),
+      jb::Member("num_chunks", jb::Projection(&OMETiffMetadata::num_chunks)),
+      jb::Member("compression", jb::Projection(&OMETiffMetadata::compression)),
+      jb::Member("dtype", jb::Projection(&OMETiffMetadata::dtype,
                                          jb::ConstrainedDataTypeJsonBinder)))(
       is_loading, options, obj, j);
 });
 
-Result<::nlohmann::json> GetOMETiffImageInfo(std::istream& istream) {
-  OMETiffImageInfo image_info;
+Result<::nlohmann::json> GetOMETiffMetadata(std::istream& istream) {
+  OMETiffMetadata image_info;
 
   ABSL_LOG(INFO) << "Opening TIFF";
   TIFF* tiff = TIFFStreamOpen("ts", &istream);
@@ -134,27 +135,33 @@ Result<::nlohmann::json> GetOMETiffImageInfo(std::istream& istream) {
     return absl::NotFoundError("Unable to open TIFF file");
   }
 
+  image_info.rank = 2;
   ABSL_LOG(INFO) << "Reading image width and height";
-  if (!TIFFGetField(tiff, TIFFTAG_IMAGEWIDTH, &image_info.width) ||
-      !TIFFGetField(tiff, TIFFTAG_IMAGELENGTH, &image_info.height)) {
+  uint32_t width, height;
+  if (!TIFFGetField(tiff, TIFFTAG_IMAGEWIDTH, &width) ||
+      !TIFFGetField(tiff, TIFFTAG_IMAGELENGTH, &height)) {
     return absl::InvalidArgumentError("TIFF read failed: invalid image");
   }
+  image_info.shape = {height, width};
 
   ABSL_LOG(INFO) << "Checking to see if image is tiled";
   image_info.is_tiled = TIFFIsTiled(tiff);
 
   if (image_info.is_tiled) {
     ABSL_LOG(INFO) << "Reading tile width and height";
-    if (!TIFFGetField(tiff, TIFFTAG_TILEWIDTH, &image_info.tile_width) ||
-        !TIFFGetField(tiff, TIFFTAG_TILELENGTH, &image_info.tile_height)) {
+    uint32_t tile_width, tile_height;
+    if (!TIFFGetField(tiff, TIFFTAG_TILEWIDTH, &tile_width) ||
+        !TIFFGetField(tiff, TIFFTAG_TILELENGTH, &tile_height)) {
       return absl::InvalidArgumentError("TIFF read failed: invalid tile");
     }
+    image_info.chunk_shape = {tile_height, tile_width};
     image_info.chunk_size = TIFFTileSize64(tiff);
     image_info.num_chunks = TIFFNumberOfTiles(tiff);
   } else {
     ABSL_LOG(INFO) << "Reading rows per strip";
-    TIFFGetFieldDefaulted(tiff, TIFFTAG_ROWSPERSTRIP,
-                          &image_info.rows_per_strip);
+    uint32_t rows_per_strip;
+    TIFFGetFieldDefaulted(tiff, TIFFTAG_ROWSPERSTRIP, &rows_per_strip);
+    image_info.chunk_shape = {rows_per_strip, width};
     image_info.chunk_size = TIFFStripSize64(tiff);
     image_info.num_chunks = TIFFNumberOfStrips(tiff);
   }
@@ -193,15 +200,44 @@ Result<::nlohmann::json> GetOMETiffImageInfo(std::istream& istream) {
         "Cannot read TIFF; compression format not supported");
 
   ABSL_LOG(INFO) << "Getting strile offset";
-  // Get offset of first strile and we can calculate the rest.
-  image_info.chunk_offset = TIFFGetStrileOffset(tiff, 0);
+
+  // Get offset of first chunk and we can calculate the rest.
+  image_info.data_offset = TIFFGetStrileOffset(tiff, 0);
 
   return jb::ToJson(image_info);
 }
+
+absl::Status SetChunkLayoutFromMetadata(
+    DimensionIndex rank, std::optional<span<const Index>> chunk_shape,
+    ChunkLayout& chunk_layout) {
+  TENSORSTORE_RETURN_IF_ERROR(chunk_layout.Set(RankConstraint{rank}));
+  rank = chunk_layout.rank();
+  if (rank == dynamic_rank)
+    return absl::InvalidArgumentError("rank must be specified");
+
+  {
+    DimensionIndex inner_order[kMaxRank];
+    for (DimensionIndex i = 0; i < rank; ++i) {
+      inner_order[i] = i;
+    }
+    TENSORSTORE_RETURN_IF_ERROR(
+        chunk_layout.Set(ChunkLayout::InnerOrder(span(inner_order, rank))));
+  }
+
+  if (chunk_shape) {
+    assert(chunk_shape->size() == rank);
+    TENSORSTORE_RETURN_IF_ERROR(
+        chunk_layout.Set(ChunkLayout::ChunkShape(*chunk_shape)));
+  }
+  TENSORSTORE_RETURN_IF_ERROR(chunk_layout.Set(
+      ChunkLayout::GridOrigin(GetConstantVector<Index, 0>(rank))));
+  return absl::OkStatus();
+}
+
 }  // namespace ometiff
 }  // namespace tensorstore
 
 TENSORSTORE_DEFINE_SERIALIZER_SPECIALIZATION(
-    tensorstore::ometiff::OMETiffImageInfo,
+    tensorstore::ometiff::OMETiffMetadata,
     tensorstore::serialization::JsonBindableSerializer<
-        tensorstore::ometiff::OMETiffImageInfo>())
+        tensorstore::ometiff::OMETiffMetadata>())

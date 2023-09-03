@@ -17,7 +17,9 @@
 
 #include <nlohmann/json.hpp>
 
+#include "tensorstore/chunk_layout.h"
 #include "tensorstore/data_type.h"
+#include "tensorstore/index.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/serialization/fwd.h"
@@ -27,40 +29,47 @@
 namespace tensorstore {
 namespace ometiff {
 
-class OMETiffImageInfo {
+class OMETiffMetadata {
  public:
-  uint32_t width = 0;
-  uint32_t height = 0;
+  DimensionIndex rank = dynamic_rank;
+
+  /// Overall shape of array.
+  std::vector<Index> shape;
+
+  std::vector<Index> chunk_shape;
+
   uint16_t bits_per_sample = 0;
-  uint32_t tile_width = 0;
-  uint32_t tile_height = 0;
-  uint32_t rows_per_strip = 0;
   uint16_t sample_format = 0;
   uint16_t samples_per_pixel = 0;
 
   bool is_tiled = 0;
-  uint64_t chunk_offset = 0;
+  uint64_t data_offset = 0;
   uint64_t chunk_size = 0;
   uint32_t num_chunks = 0;
   uint32_t compression = 0;
   DataType dtype;
 
-  TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(OMETiffImageInfo,
+  TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(OMETiffMetadata,
                                           internal_json_binding::NoOptions,
                                           tensorstore::IncludeDefaults)
 
-  friend std::ostream& operator<<(std::ostream& os, const OMETiffImageInfo& x);
+  friend std::ostream& operator<<(std::ostream& os, const OMETiffMetadata& x);
 };
 
-Result<::nlohmann::json> GetOMETiffImageInfo(std::istream& stream);
+Result<::nlohmann::json> GetOMETiffMetadata(std::istream& stream);
+
+/// Sets chunk layout constraints implied by `rank` and `chunk_shape`.
+absl::Status SetChunkLayoutFromMetadata(
+    DimensionIndex rank, std::optional<span<const Index>> chunk_shape,
+    ChunkLayout& chunk_layout);
 
 }  // namespace ometiff
 }  // namespace tensorstore
 
 TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(
-    tensorstore::ometiff::OMETiffImageInfo)
+    tensorstore::ometiff::OMETiffMetadata)
 
 TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(
-    tensorstore::ometiff::OMETiffImageInfo)
+    tensorstore::ometiff::OMETiffMetadata)
 
 #endif

@@ -23,6 +23,7 @@ tensorstore_cc_library(
         "ometiff_spec.h",
     ],
     deps = [
+        "//tensorstore:chunk_layout",
         "//tensorstore:context",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:kvs_read_streambuf",

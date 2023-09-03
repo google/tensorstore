@@ -60,7 +60,7 @@ class OMETiffDriverSpec
       /*Parent=*/internal_kvs_backed_chunk_driver::KvsDriverSpec>;
   constexpr static char id[] = "ometiff";
 
-  ometiff::OMETiffImageInfo metadata;
+  ometiff::OMETiffMetadata metadata;
   constexpr static auto ApplyMembers = [](auto& x, auto f) {
     return f(internal::BaseCast<KvsDriverSpec>(x), x.metadata);
   };
@@ -80,8 +80,8 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
  public:
   explicit DataCache(Initializer&& initializer, std::string key);
 
-  const ometiff::OMETiffImageInfo& metadata() {
-    return *static_cast<const ometiff::OMETiffImageInfo*>(
+  const ometiff::OMETiffMetadata& metadata() {
+    return *static_cast<const ometiff::OMETiffMetadata*>(
         initial_metadata().get());
   }
 
@@ -109,7 +109,7 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
 
   /// Returns the ChunkCache grid to use for the given metadata.
   static internal::ChunkGridSpecification GetChunkGridSpecification(
-      const ometiff::OMETiffImageInfo& metadata);
+      const ometiff::OMETiffMetadata& metadata);
 
   Result<absl::InlinedVector<SharedArray<const void>, 1>> DecodeChunk(
       span<const Index> chunk_indices, absl::Cord data) override;
@@ -140,8 +140,8 @@ class OMETiffDriver : public OMETiffDriverBase {
 
   class OpenState;
 
-  const ometiff::OMETiffImageInfo& metadata() const {
-    return *static_cast<const ometiff::OMETiffImageInfo*>(
+  const ometiff::OMETiffMetadata& metadata() const {
+    return *static_cast<const ometiff::OMETiffMetadata*>(
         this->cache()->initial_metadata().get());
   }
 };

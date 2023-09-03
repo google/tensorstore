@@ -35,7 +35,7 @@ class OMETiffMetadataKeyValueStore : public kvstore::Driver {
     // TODO: plumb in buffer size.
     auto streambuf = internal::KvsReadStreambuf(base_, key, 100);
     std::istream stream(&streambuf);
-    TENSORSTORE_ASSIGN_OR_RETURN(auto image_info, GetOMETiffImageInfo(stream));
+    TENSORSTORE_ASSIGN_OR_RETURN(auto image_info, GetOMETiffMetadata(stream));
     ABSL_LOG(INFO) << image_info;
     result.stamp = TimestampedStorageGeneration{
         StorageGeneration::FromString(key), absl::Now()};
