@@ -20,12 +20,15 @@
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/json_serialization_options.h"
+#include "tensorstore/serialization/fwd.h"
+#include "tensorstore/util/garbage_collection/garbage_collection.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace ometiff {
 
-struct OMETiffImageInfo {
+class OMETiffImageInfo {
+ public:
   uint32_t width = 0;
   uint32_t height = 0;
   uint16_t bits_per_sample = 0;
@@ -53,5 +56,11 @@ Result<::nlohmann::json> GetOMETiffImageInfo(std::istream& stream);
 
 }  // namespace ometiff
 }  // namespace tensorstore
+
+TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(
+    tensorstore::ometiff::OMETiffImageInfo)
+
+TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(
+    tensorstore::ometiff::OMETiffImageInfo)
 
 #endif

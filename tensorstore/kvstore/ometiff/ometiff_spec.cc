@@ -16,6 +16,7 @@
 
 #include "tensorstore/internal/json_binding/data_type.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/serialization/json_bindable.h"
 
 // Keep at the very end please.
 #include <tiffio.h>
@@ -199,3 +200,8 @@ Result<::nlohmann::json> GetOMETiffImageInfo(std::istream& istream) {
 }
 }  // namespace ometiff
 }  // namespace tensorstore
+
+TENSORSTORE_DEFINE_SERIALIZER_SPECIALIZATION(
+    tensorstore::ometiff::OMETiffImageInfo,
+    tensorstore::serialization::JsonBindableSerializer<
+        tensorstore::ometiff::OMETiffImageInfo>())

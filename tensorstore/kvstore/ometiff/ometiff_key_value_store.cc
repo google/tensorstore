@@ -32,11 +32,14 @@ class OMETiffMetadataKeyValueStore : public kvstore::Driver {
       // Metadata doesn't need byte range request.
       return absl::InvalidArgumentError("Byte ranges not supported");
     }
-
     // TODO: plumb in buffer size.
-    auto streambuf = internal::KvsReadStreambuf(base_, key, 3 * 1024);
+    auto streambuf = internal::KvsReadStreambuf(base_, key, 100);
     std::istream stream(&streambuf);
     TENSORSTORE_ASSIGN_OR_RETURN(auto image_info, GetOMETiffImageInfo(stream));
+    ABSL_LOG(INFO) << image_info;
+    result.stamp = TimestampedStorageGeneration{
+        StorageGeneration::FromString(key), absl::Now()};
+    result.state = ReadResult::kValue;
     result.value = absl::Cord(image_info.dump());
     return result;
   }
