@@ -22,8 +22,13 @@ namespace ometiff {
 
 /// Creates a new (unique) OME Tiff KvStore.
 ///
-kvstore::DriverPtr GetOMETiffKeyValueStore(kvstore::DriverPtr base_kvstore,
-                                           std::string key_prefix);
+kvstore::DriverPtr GetOMETiffMetadataKeyValueStore(
+    kvstore::DriverPtr base_kvstore, std::string key_prefix);
+
+// kvstore::DriverPtr GetOMETiffDataKeyValueStore(kvstore::DriverPtr
+// base_kvstore,
+//                                                std::string key_prefix);
+
 }  // namespace ometiff
 }  // namespace tensorstore
 

@@ -16,9 +16,11 @@
 #define TENSORSTORE_KVSTORE_OMETIFF_OMETIFF_SPEC_H_
 
 #include <nlohmann/json.hpp>
+#include <tuple>
 
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/data_type.h"
+#include "tensorstore/driver/ometiff/compressor.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/json_serialization_options.h"
@@ -27,27 +29,34 @@
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
-namespace ometiff {
+namespace internal_ometiff {
 
 class OMETiffMetadata {
  public:
+  struct ChunkInfo {
+    uint64_t offset;
+    uint64_t size;
+  };
+
   DimensionIndex rank = dynamic_rank;
 
-  /// Overall shape of array.
+  /// Overall shape of TIFF.
   std::vector<Index> shape;
+  bool is_tiled = 0;
 
+  // Chunk shape is fixed across IFDs.
   std::vector<Index> chunk_shape;
-
   uint16_t bits_per_sample = 0;
   uint16_t sample_format = 0;
   uint16_t samples_per_pixel = 0;
-
-  bool is_tiled = 0;
-  uint64_t data_offset = 0;
-  uint64_t chunk_size = 0;
-  uint32_t num_chunks = 0;
-  uint32_t compression = 0;
   DataType dtype;
+
+  internal_ometiff::Compressor compressor;
+
+  // Global map spanning IFDs.
+  std::vector<ChunkInfo> chunk_info;
+
+  size_t num_chunks() { return chunk_info.size(); }
 
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(OMETiffMetadata,
                                           internal_json_binding::NoOptions,
@@ -63,13 +72,13 @@ absl::Status SetChunkLayoutFromMetadata(
     DimensionIndex rank, std::optional<span<const Index>> chunk_shape,
     ChunkLayout& chunk_layout);
 
-}  // namespace ometiff
+}  // namespace internal_ometiff
 }  // namespace tensorstore
 
 TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(
-    tensorstore::ometiff::OMETiffMetadata)
+    tensorstore::internal_ometiff::OMETiffMetadata)
 
 TENSORSTORE_DECLARE_GARBAGE_COLLECTION_NOT_REQUIRED(
-    tensorstore::ometiff::OMETiffMetadata)
+    tensorstore::internal_ometiff::OMETiffMetadata)
 
 #endif

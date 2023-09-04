@@ -18,13 +18,15 @@
 #include <string_view>
 
 #include "riegeli/bytes/cord_reader.h"
+#include "riegeli/bytes/read_all.h"
 #include "tensorstore/driver/ometiff/driver_impl.h"
+#include "tensorstore/driver/ometiff/metadata.h"
 #include "tensorstore/driver/registry.h"
 #include "tensorstore/internal/cache_key/cache_key.h"
+#include "tensorstore/internal/compression/zstd_compressor.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/kvstore/ometiff/ometiff_key_value_store.h"
-#include "tensorstore/kvstore/ometiff/ometiff_spec.h"
 #include "tensorstore/tensorstore.h"
 #include "tensorstore/util/endian.h"
 
@@ -33,14 +35,6 @@ namespace internal_ometiff {
 
 namespace {
 namespace jb = tensorstore::internal_json_binding;
-using ::tensorstore::ometiff::OMETiffMetadata;
-
-template <typename T>
-uint32_t TIFFhowmany_32(T x, T y) {
-  return (((uint32_t)x < (0xffffffff - (uint32_t)(y - 1)))
-              ? ((((uint32_t)(x)) + (((uint32_t)(y)) - 1)) / ((uint32_t)(y)))
-              : 0U);
-}
 
 Result<std::shared_ptr<const OMETiffMetadata>> ParseEncodedMetadata(
     std::string_view encoded_value) {
@@ -58,24 +52,17 @@ Index ComputeChunkIndex(const OMETiffMetadata& metadata,
                         const span<const Index>& cell_indices) {
   auto rank = metadata.rank;
 
-  // TODO: move map into metadata.
-  std::vector<Index> map = {1, 0};
-
   std::vector<Index> num_chunks(rank);
   for (Index i = 0; i < rank; ++i) {
     num_chunks[i] = metadata.shape[i] / metadata.chunk_shape[i];
   }
 
-  Index tile_index = cell_indices[map[rank - 1]];
-  for (Index i = 0; i < rank - 1; ++i) {
-    Index coef = 1;
-    for (Index j = 0; j <= i; ++j) {
-      coef *= num_chunks[j];
-    }
-    tile_index += cell_indices[map[i]] * coef;
+  Index index = 0;
+  for (Index i = 0; i < rank; ++i) {
+    index *= num_chunks[i];
+    index += cell_indices[i];
   }
-
-  return tile_index;
+  return index;
 }
 
 int64_t CalculateChunkElements(const OMETiffMetadata& metadata,
@@ -136,19 +123,14 @@ DataCache::DataCache(Initializer&& initializer, std::string key)
 
 OptionalByteRangeRequest DataCache::GetChunkByteRange(
     span<const Index> cell_indices) {
-  ABSL_LOG(INFO) << "Requested cell indices: " << cell_indices;
-
   auto& metadata = this->metadata();
-  auto chunk_index = ComputeChunkIndex(metadata, cell_indices);
-  // Tiles are always a fixed size.
-  auto chunk_elements = metadata.is_tiled
-                            ? ProductOfExtents(span(metadata.chunk_shape))
-                            : CalculateChunkElements(metadata, cell_indices);
-  int64_t start = metadata.data_offset + chunk_index * metadata.chunk_size;
-  ABSL_LOG(INFO) << "Calculated chunk offset: " << start << " for index "
-                 << chunk_index << " containing elements " << chunk_elements;
+  ABSL_LOG(INFO) << "Requested cell indices: " << cell_indices << " mapping to "
+                 << ComputeChunkIndex(metadata, cell_indices);
 
-  return ByteRange{start, start + chunk_elements * metadata.dtype.size()};
+  auto& chunk_info =
+      metadata.chunk_info[ComputeChunkIndex(metadata, cell_indices)];
+  return ByteRange{static_cast<int64_t>(chunk_info.offset),
+                   static_cast<int64_t>(chunk_info.offset + chunk_info.size)};
 }
 
 absl::Status DataCache::ValidateMetadataCompatibility(
@@ -234,13 +216,29 @@ Result<absl::InlinedVector<SharedArray<const void>, 1>> DataCache::DecodeChunk(
 
   auto array = AllocateArray(metadata().chunk_shape, c_order, default_init,
                              metadata().dtype);
-  ABSL_LOG(INFO) << "Expecting: " << array.num_elements() * dtype.size()
-                 << ", got " << data.size();
-  // assert(array.num_elements() * dtype.size() == data.size());
+
+  absl::InlinedVector<SharedArray<const void>, 1> components;
+  if (metadata().compressor) {
+    ABSL_LOG(INFO) << "Data is compressed, attempting to decode...";
+    std::unique_ptr<riegeli::Reader> reader =
+        std::make_unique<riegeli::CordReader<absl::Cord>>(std::move(data));
+    reader = metadata().compressor->GetReader(std::move(reader), data.size());
+    TENSORSTORE_RETURN_IF_ERROR(riegeli::ReadAll(std::move(reader), data));
+  }
+
+  // Tile chunks are always fixed size but strips are not.
+  auto expected_bytes =
+      metadata().is_tiled
+          ? array.num_elements() * dtype.size()
+          : CalculateChunkElements(metadata(), chunk_indices) * dtype.size();
+  if (static_cast<Index>(data.size()) != expected_bytes) {
+    return absl::InvalidArgumentError(tensorstore::StrCat(
+        "Uncompressed chunk is ", data.size(), " bytes, but should be ",
+        expected_bytes, " bytes"));
+  }
 
   auto data_flat = data.Flatten();
   memcpy(array.data(), data_flat.data(), data.size());
-  absl::InlinedVector<SharedArray<const void>, 1> components;
   components.emplace_back(std::move(array));
   return components;
 }
@@ -276,7 +274,7 @@ Result<ChunkLayout> DataCache::GetChunkLayoutFromMetadata(
   ABSL_LOG(INFO) << "Getting chunk layout from metadata";
   const auto& metadata = *static_cast<const OMETiffMetadata*>(metadata_ptr);
   ChunkLayout chunk_layout;
-  TENSORSTORE_RETURN_IF_ERROR(ometiff::SetChunkLayoutFromMetadata(
+  TENSORSTORE_RETURN_IF_ERROR(SetChunkLayoutFromMetadata(
       metadata.rank, metadata.chunk_shape, chunk_layout));
   TENSORSTORE_RETURN_IF_ERROR(chunk_layout.Finalize());
 
@@ -337,7 +335,8 @@ class OMETiffDriver::OpenState : public OMETiffDriver::OpenStateBase {
   }
   Result<kvstore::DriverPtr> GetMetadataKeyValueStore(
       kvstore::DriverPtr base_kv_store) override {
-    return ometiff::GetOMETiffKeyValueStore(base_kv_store, spec().store.path);
+    return ometiff::GetOMETiffMetadataKeyValueStore(base_kv_store,
+                                                    spec().store.path);
   }
 };
 

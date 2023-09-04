@@ -16,16 +16,14 @@ tensorstore_cc_library(
     name = "ometiff",
     srcs = [
         "ometiff_key_value_store.cc",
-        "ometiff_spec.cc",
     ],
     hdrs = [
         "ometiff_key_value_store.h",
-        "ometiff_spec.h",
     ],
     deps = [
         "//tensorstore:chunk_layout",
         "//tensorstore:context",
-        "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/driver/ometiff:metadata",
         "//tensorstore/internal:kvs_read_streambuf",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
@@ -44,7 +42,6 @@ tensorstore_cc_library(
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/time",
-        "@libtiff//:tiff",
     ],
     alwayslink = 1,
 )
@@ -57,6 +54,7 @@ tensorstore_cc_test(
         ":ometiff",
         "//tensorstore:context",
         "//tensorstore/internal:json_gtest",
+        "//tensorstore/internal:test_util",
         "//tensorstore/internal/cache_key",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:key_range",

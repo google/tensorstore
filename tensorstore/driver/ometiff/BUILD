@@ -21,12 +21,54 @@ filegroup(
 )
 
 tensorstore_cc_library(
+    name = "compressor",
+    srcs = ["compressor.cc"],
+    hdrs = [
+        "compressor.h",
+        "compressor_registry.h",
+    ],
+    deps = [
+        "//tensorstore/internal:json_registry",
+        "//tensorstore/internal:no_destructor",
+        "//tensorstore/internal/compression:json_specified_compressor",
+        "//tensorstore/internal/json_binding",
+        "//tensorstore/internal/json_binding:bindable",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "zstd_compressor",
+    srcs = ["zstd_compressor.cc"],
+    deps = [
+        ":compressor",
+        "//tensorstore/internal/compression:zstd_compressor",
+        "//tensorstore/internal/json_binding",
+        "@com_google_riegeli//riegeli/zstd:zstd_writer",
+    ],
+    alwayslink = 1,
+)
+
+tensorstore_cc_library(
+    name = "metadata",
+    srcs = ["metadata.cc"],
+    hdrs = ["metadata.h"],
+    deps = [
+        ":compressor",
+        ":zstd_compressor",
+        "//tensorstore:chunk_layout",
+        "//tensorstore/internal/json_binding:data_type",
+        "@libtiff//:tiff",
+    ],
+)
+
+tensorstore_cc_library(
     name = "ometiff",
     srcs = ["driver.cc"],
     hdrs = [
         "driver_impl.h",
     ],
     deps = [
+        ":metadata",
         "//tensorstore",
         "//tensorstore:chunk_layout",
         "//tensorstore:schema",
@@ -39,6 +81,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/cache:async_initialized_cache_mixin",
         "//tensorstore/internal/cache:cache_pool_resource",
         "//tensorstore/internal/cache:chunk_cache",
+        "//tensorstore/internal/compression:zstd_compressor",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/kvstore/ometiff",

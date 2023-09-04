@@ -19,10 +19,10 @@
 #include <string_view>
 
 #include "tensorstore/driver/kvs_backed_chunk_driver.h"
+#include "tensorstore/driver/ometiff/metadata.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/cache/chunk_cache.h"
 #include "tensorstore/internal/json_binding/bindable.h"
-#include "tensorstore/kvstore/ometiff/ometiff_spec.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/serialization/json_bindable.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
@@ -60,7 +60,7 @@ class OMETiffDriverSpec
       /*Parent=*/internal_kvs_backed_chunk_driver::KvsDriverSpec>;
   constexpr static char id[] = "ometiff";
 
-  ometiff::OMETiffMetadata metadata;
+  OMETiffMetadata metadata;
   constexpr static auto ApplyMembers = [](auto& x, auto f) {
     return f(internal::BaseCast<KvsDriverSpec>(x), x.metadata);
   };
@@ -80,9 +80,8 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
  public:
   explicit DataCache(Initializer&& initializer, std::string key);
 
-  const ometiff::OMETiffMetadata& metadata() {
-    return *static_cast<const ometiff::OMETiffMetadata*>(
-        initial_metadata().get());
+  const OMETiffMetadata& metadata() {
+    return *static_cast<const OMETiffMetadata*>(initial_metadata().get());
   }
 
   std::string GetChunkStorageKey(span<const Index> cell_indices) override {
@@ -109,7 +108,7 @@ class DataCache : public internal_kvs_backed_chunk_driver::DataCache {
 
   /// Returns the ChunkCache grid to use for the given metadata.
   static internal::ChunkGridSpecification GetChunkGridSpecification(
-      const ometiff::OMETiffMetadata& metadata);
+      const OMETiffMetadata& metadata);
 
   Result<absl::InlinedVector<SharedArray<const void>, 1>> DecodeChunk(
       span<const Index> chunk_indices, absl::Cord data) override;
@@ -140,8 +139,8 @@ class OMETiffDriver : public OMETiffDriverBase {
 
   class OpenState;
 
-  const ometiff::OMETiffMetadata& metadata() const {
-    return *static_cast<const ometiff::OMETiffMetadata*>(
+  const OMETiffMetadata& metadata() const {
+    return *static_cast<const OMETiffMetadata*>(
         this->cache()->initial_metadata().get());
   }
 };

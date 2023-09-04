@@ -12,8 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/kvstore/ometiff/ometiff_spec.h"
+#include "tensorstore/driver/ometiff/metadata.h"
 
+#include "tensorstore/driver/ometiff/compressor_registry.h"
+#include "tensorstore/internal/compression/zstd_compressor.h"
+#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/data_type.h"
 #include "tensorstore/internal/json_binding/dimension_indexed.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
@@ -25,7 +28,7 @@
 #include <tiffio.hxx>
 
 namespace tensorstore {
-namespace ometiff {
+namespace internal_ometiff {
 namespace {
 
 namespace jb = tensorstore::internal_json_binding;
@@ -98,6 +101,10 @@ std::ostream& operator<<(std::ostream& os, const OMETiffMetadata& x) {
   return os << jb::ToJson(x).value();
 }
 
+constexpr auto ChunkInfoBinder = jb::Object(
+    jb::Member("offset", jb::Projection(&OMETiffMetadata::ChunkInfo::offset)),
+    jb::Member("size", jb::Projection(&OMETiffMetadata::ChunkInfo::size)));
+
 TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(OMETiffMetadata, [](auto is_loading,
                                                            const auto& options,
                                                            auto* obj, auto* j) {
@@ -107,6 +114,7 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(OMETiffMetadata, [](auto is_loading,
     rank = &obj->rank;
   }
   return jb::Object(
+      jb::Member("rank", jb::Projection(&OMETiffMetadata::rank)),
       jb::Member("shape", jb::Projection(&T::shape, jb::ShapeVector(rank))),
       jb::Member("chunk_shape",
                  jb::Projection(&T::chunk_shape, jb::ChunkShapeVector(rank))),
@@ -117,12 +125,11 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(OMETiffMetadata, [](auto is_loading,
       jb::Member("samples_per_pixel",
                  jb::Projection(&OMETiffMetadata::samples_per_pixel)),
       jb::Member("is_tiled", jb::Projection(&OMETiffMetadata::is_tiled)),
-      jb::Member("data_offset", jb::Projection(&OMETiffMetadata::data_offset)),
-      jb::Member("chunk_size", jb::Projection(&OMETiffMetadata::chunk_size)),
-      jb::Member("num_chunks", jb::Projection(&OMETiffMetadata::num_chunks)),
-      jb::Member("compression", jb::Projection(&OMETiffMetadata::compression)),
+      jb::Member("compressor", jb::Projection(&T::compressor)),
       jb::Member("dtype", jb::Projection(&OMETiffMetadata::dtype,
-                                         jb::ConstrainedDataTypeJsonBinder)))(
+                                         jb::ConstrainedDataTypeJsonBinder)),
+      jb::Member("chunk_info", jb::Projection<&OMETiffMetadata::chunk_info>(
+                                   jb::Array(ChunkInfoBinder))))(
       is_loading, options, obj, j);
 });
 
@@ -131,10 +138,16 @@ Result<::nlohmann::json> GetOMETiffMetadata(std::istream& istream) {
 
   ABSL_LOG(INFO) << "Opening TIFF";
   TIFF* tiff = TIFFStreamOpen("ts", &istream);
+
+  std::unique_ptr<TIFF, void (*)(TIFF*)> tiff_scope(tiff, [](TIFF* tiff) {
+    if (tiff != nullptr) {
+      TIFFClose(tiff);
+    }
+  });
+
   if (tiff == nullptr) {
     return absl::NotFoundError("Unable to open TIFF file");
   }
-
   image_info.rank = 2;
   ABSL_LOG(INFO) << "Reading image width and height";
   uint32_t width, height;
@@ -147,6 +160,7 @@ Result<::nlohmann::json> GetOMETiffMetadata(std::istream& istream) {
   ABSL_LOG(INFO) << "Checking to see if image is tiled";
   image_info.is_tiled = TIFFIsTiled(tiff);
 
+  uint32_t num_chunks = 0;
   if (image_info.is_tiled) {
     ABSL_LOG(INFO) << "Reading tile width and height";
     uint32_t tile_width, tile_height;
@@ -155,15 +169,24 @@ Result<::nlohmann::json> GetOMETiffMetadata(std::istream& istream) {
       return absl::InvalidArgumentError("TIFF read failed: invalid tile");
     }
     image_info.chunk_shape = {tile_height, tile_width};
-    image_info.chunk_size = TIFFTileSize64(tiff);
-    image_info.num_chunks = TIFFNumberOfTiles(tiff);
+    num_chunks = TIFFNumberOfTiles(tiff);
   } else {
     ABSL_LOG(INFO) << "Reading rows per strip";
     uint32_t rows_per_strip;
     TIFFGetFieldDefaulted(tiff, TIFFTAG_ROWSPERSTRIP, &rows_per_strip);
     image_info.chunk_shape = {rows_per_strip, width};
-    image_info.chunk_size = TIFFStripSize64(tiff);
-    image_info.num_chunks = TIFFNumberOfStrips(tiff);
+    num_chunks = TIFFNumberOfStrips(tiff);
+  }
+
+  if (num_chunks == 0) {
+    return absl::InvalidArgumentError("TIFF read failed: No striles found");
+  }
+
+  image_info.chunk_info.resize(num_chunks);
+  for (size_t i = 0; i < num_chunks; ++i) {
+    auto& chunk = image_info.chunk_info[i];
+    chunk.offset = TIFFGetStrileOffset(tiff, i);
+    chunk.size = TIFFGetStrileByteCount(tiff, i);
   }
 
   // These call TIFFSetField to update the in-memory structure so that
@@ -194,15 +217,21 @@ Result<::nlohmann::json> GetOMETiffMetadata(std::istream& istream) {
   ABSL_LOG(INFO) << "Data type: " << image_info.dtype;
 
   ABSL_LOG(INFO) << "Reading compression";
-  TIFFGetFieldDefaulted(tiff, TIFFTAG_COMPRESSION, &image_info.compression);
-  if (image_info.compression != COMPRESSION_NONE)
+  uint32_t compression;
+  TIFFGetFieldDefaulted(tiff, TIFFTAG_COMPRESSION, &compression);
+
+  switch (compression) {
+    case COMPRESSION_ZSTD:
+      image_info.compressor =
+          internal_ometiff::Compressor::FromJson({{"id", "zstd"}}).value();
+      break;
+    default:
+      break;
+  }
+
+  if (compression != COMPRESSION_NONE && !image_info.compressor)
     return absl::InternalError(
         "Cannot read TIFF; compression format not supported");
-
-  ABSL_LOG(INFO) << "Getting strile offset";
-
-  // Get offset of first chunk and we can calculate the rest.
-  image_info.data_offset = TIFFGetStrileOffset(tiff, 0);
 
   return jb::ToJson(image_info);
 }
@@ -234,10 +263,10 @@ absl::Status SetChunkLayoutFromMetadata(
   return absl::OkStatus();
 }
 
-}  // namespace ometiff
+}  // namespace internal_ometiff
 }  // namespace tensorstore
 
 TENSORSTORE_DEFINE_SERIALIZER_SPECIALIZATION(
-    tensorstore::ometiff::OMETiffMetadata,
+    tensorstore::internal_ometiff::OMETiffMetadata,
     tensorstore::serialization::JsonBindableSerializer<
-        tensorstore::ometiff::OMETiffMetadata>())
+        tensorstore::internal_ometiff::OMETiffMetadata>())
