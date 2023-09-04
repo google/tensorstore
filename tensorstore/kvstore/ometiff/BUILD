@@ -27,7 +27,6 @@ tensorstore_cc_library(
         "//tensorstore/internal:kvs_read_streambuf",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
-        "//tensorstore/internal/json_binding:data_type",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:byte_range",
         "//tensorstore/kvstore:generation",

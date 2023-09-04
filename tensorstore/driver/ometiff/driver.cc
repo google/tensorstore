@@ -54,7 +54,9 @@ Index ComputeChunkIndex(const OMETiffMetadata& metadata,
 
   std::vector<Index> num_chunks(rank);
   for (Index i = 0; i < rank; ++i) {
-    num_chunks[i] = metadata.shape[i] / metadata.chunk_shape[i];
+    // round up to full size.
+    num_chunks[i] = (metadata.shape[i] + metadata.chunk_shape[i] - 1) /
+                    metadata.chunk_shape[i];
   }
 
   Index index = 0;
@@ -124,9 +126,6 @@ DataCache::DataCache(Initializer&& initializer, std::string key)
 OptionalByteRangeRequest DataCache::GetChunkByteRange(
     span<const Index> cell_indices) {
   auto& metadata = this->metadata();
-  ABSL_LOG(INFO) << "Requested cell indices: " << cell_indices << " mapping to "
-                 << ComputeChunkIndex(metadata, cell_indices);
-
   auto& chunk_info =
       metadata.chunk_info[ComputeChunkIndex(metadata, cell_indices)];
   return ByteRange{static_cast<int64_t>(chunk_info.offset),
@@ -219,7 +218,6 @@ Result<absl::InlinedVector<SharedArray<const void>, 1>> DataCache::DecodeChunk(
 
   absl::InlinedVector<SharedArray<const void>, 1> components;
   if (metadata().compressor) {
-    ABSL_LOG(INFO) << "Data is compressed, attempting to decode...";
     std::unique_ptr<riegeli::Reader> reader =
         std::make_unique<riegeli::CordReader<absl::Cord>>(std::move(data));
     reader = metadata().compressor->GetReader(std::move(reader), data.size());
