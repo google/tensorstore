@@ -12,17 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/kvstore/s3/s3_credential_provider.h"
+#include "tensorstore/kvstore/s3/aws_credential_provider.h"
 
 #include <fstream>
-#include <map>
-#include <optional>
 #include <string>
-#include <utility>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "tensorstore/internal/env.h"
+#include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/test_util.h"
 #include "tensorstore/util/result.h"
@@ -34,7 +32,8 @@ using ::tensorstore::internal::GetEnv;
 using ::tensorstore::internal::JoinPath;
 using ::tensorstore::internal::SetEnv;
 using ::tensorstore::internal::UnsetEnv;
-using ::tensorstore::internal_kvstore_s3::GetS3CredentialProvider;
+using ::tensorstore::internal_http::GetDefaultHttpTransport;
+using ::tensorstore::internal_kvstore_s3::GetAwsCredentialProvider;
 
 class TestData : public tensorstore::internal::ScopedTemporaryDirectory {
  public:
@@ -58,36 +57,23 @@ class TestData : public tensorstore::internal::ScopedTemporaryDirectory {
   }
 };
 
-class S3CredentialProviderTest : public ::testing::Test {
+class AwsCredentialProviderTest : public ::testing::Test {
  protected:
-  // Environment variables to save and restore during setup and teardown
-  std::map<std::string, std::optional<std::string>> saved_vars{
-      {"AWS_SHARED_CREDENTIALS_FILE", std::nullopt},
-      {"AWS_ACCESS_KEY_ID", std::nullopt},
-      {"AWS_SECRET_ACCESS_KEY", std::nullopt},
-      {"AWS_SESSION_TOKEN", std::nullopt},
-      {"AWS_PROFILE", std::nullopt}};
-
   void SetUp() override {
-    for (auto &pair : saved_vars) {
-      pair.second = GetEnv(pair.first.c_str());
-      UnsetEnv(pair.first.c_str());
-    }
-  }
-
-  void TearDown() override {
-    for (auto &pair : saved_vars) {
-      if (pair.second) {
-        SetEnv(pair.first.c_str(), pair.second.value().c_str());
-      }
+    // Make sure that env vars are not set.
+    for (const char* var :
+         {"AWS_SHARED_CREDENTIALS_FILE", "AWS_ACCESS_KEY_ID",
+          "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN", "AWS_PROFILE"}) {
+      UnsetEnv(var);
     }
   }
 };
 
-TEST_F(S3CredentialProviderTest, ProviderNoCredentials) {
-  ASSERT_FALSE(GetS3CredentialProvider().ok());
+TEST_F(AwsCredentialProviderTest, ProviderNoCredentials) {
+  ASSERT_FALSE(GetAwsCredentialProvider("", GetDefaultHttpTransport()).ok());
   SetEnv("AWS_ACCESS_KEY_ID", "foo");
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto provider, GetS3CredentialProvider());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto provider, GetAwsCredentialProvider("", GetDefaultHttpTransport()));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials,
                                    provider->GetCredentials());
   ASSERT_EQ(credentials.access_key, "foo");
@@ -95,11 +81,12 @@ TEST_F(S3CredentialProviderTest, ProviderNoCredentials) {
   ASSERT_TRUE(credentials.session_token.empty());
 }
 
-TEST_F(S3CredentialProviderTest, ProviderS3CredentialsFromEnv) {
+TEST_F(AwsCredentialProviderTest, ProviderAwsCredentialsFromEnv) {
   SetEnv("AWS_ACCESS_KEY_ID", "foo");
   SetEnv("AWS_SECRET_ACCESS_KEY", "bar");
   SetEnv("AWS_SESSION_TOKEN", "qux");
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto provider, GetS3CredentialProvider());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto provider, GetAwsCredentialProvider("", GetDefaultHttpTransport()));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials,
                                    provider->GetCredentials());
   ASSERT_EQ(credentials.access_key, "foo");
@@ -107,12 +94,13 @@ TEST_F(S3CredentialProviderTest, ProviderS3CredentialsFromEnv) {
   ASSERT_EQ(credentials.session_token, "qux");
 }
 
-TEST_F(S3CredentialProviderTest, ProviderS3CredentialsFromFileDefault) {
+TEST_F(AwsCredentialProviderTest, ProviderAwsCredentialsFromFileDefault) {
   TestData test_data;
   std::string credentials_filename = test_data.WriteCredentialsFile();
 
   SetEnv("AWS_SHARED_CREDENTIALS_FILE", credentials_filename.c_str());
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto provider, GetS3CredentialProvider());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto provider, GetAwsCredentialProvider("", GetDefaultHttpTransport()));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials,
                                    provider->GetCredentials());
   ASSERT_EQ(credentials.access_key, "AKIAIOSFODNN7EXAMPLE");
@@ -120,13 +108,15 @@ TEST_F(S3CredentialProviderTest, ProviderS3CredentialsFromFileDefault) {
   ASSERT_EQ(credentials.session_token, "abcdef1234567890");
 }
 
-TEST_F(S3CredentialProviderTest, ProviderS3CredentialsFromFileProfileOverride) {
+TEST_F(AwsCredentialProviderTest,
+       ProviderAwsCredentialsFromFileProfileOverride) {
   TestData test_data;
   std::string credentials_filename = test_data.WriteCredentialsFile();
 
   SetEnv("AWS_SHARED_CREDENTIALS_FILE", credentials_filename.c_str());
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto provider,
-                                   GetS3CredentialProvider("alice"));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto provider,
+      GetAwsCredentialProvider("alice", GetDefaultHttpTransport()));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials,
                                    provider->GetCredentials());
   ASSERT_EQ(credentials.access_key, "AKIAIOSFODNN6EXAMPLE");
@@ -134,13 +124,14 @@ TEST_F(S3CredentialProviderTest, ProviderS3CredentialsFromFileProfileOverride) {
   ASSERT_EQ(credentials.session_token, "");
 }
 
-TEST_F(S3CredentialProviderTest, ProviderS3CredentialsFromFileProfileEnv) {
+TEST_F(AwsCredentialProviderTest, ProviderAwsCredentialsFromFileProfileEnv) {
   TestData test_data;
   std::string credentials_filename = test_data.WriteCredentialsFile();
 
   SetEnv("AWS_SHARED_CREDENTIALS_FILE", credentials_filename.c_str());
   SetEnv("AWS_PROFILE", "alice");
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto provider, GetS3CredentialProvider());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto provider, GetAwsCredentialProvider("", GetDefaultHttpTransport()));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials,
                                    provider->GetCredentials());
   ASSERT_EQ(credentials.access_key, "AKIAIOSFODNN6EXAMPLE");
@@ -148,14 +139,15 @@ TEST_F(S3CredentialProviderTest, ProviderS3CredentialsFromFileProfileEnv) {
   ASSERT_EQ(credentials.session_token, "");
 }
 
-TEST_F(S3CredentialProviderTest,
-       ProviderS3CredentialsFromFileInvalidProfileEnv) {
+TEST_F(AwsCredentialProviderTest,
+       ProviderAwsCredentialsFromFileInvalidProfileEnv) {
   TestData test_data;
   std::string credentials_filename = test_data.WriteCredentialsFile();
 
   SetEnv("AWS_SHARED_CREDENTIALS_FILE", credentials_filename.c_str());
   SetEnv("AWS_PROFILE", "bob");
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto provider, GetS3CredentialProvider());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto provider, GetAwsCredentialProvider("", GetDefaultHttpTransport()));
   auto result = provider->GetCredentials();
   ASSERT_FALSE(result.ok());
   EXPECT_THAT(

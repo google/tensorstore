@@ -13,7 +13,7 @@ The ``s3`` driver provides access to S3. Keys directly correspond to HTTP paths.
 
 .. json:schema:: Context.experimental_s3_rate_limiter
 
-.. json:schema:: Context.data_copy_concurrency
+.. json:schema:: Context.aws_credentials
 
 .. json:schema:: KvStoreUrl/s3
 

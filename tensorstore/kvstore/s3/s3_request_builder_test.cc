@@ -21,14 +21,14 @@
 #include "absl/time/civil_time.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/http/http_request.h"
-#include "tensorstore/kvstore/s3/s3_credential_provider.h"
+#include "tensorstore/kvstore/s3/aws_credential_provider.h"
 
-using ::tensorstore::internal_kvstore_s3::S3Credentials;
+using ::tensorstore::internal_kvstore_s3::AwsCredentials;
 using ::tensorstore::internal_kvstore_s3::S3RequestBuilder;
 
 namespace {
 
-static const S3Credentials credentials{
+static const AwsCredentials credentials{
     "AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", ""};
 static const absl::TimeZone utc = absl::UTCTimeZone();
 static constexpr char aws_region[] = "us-east-1";
@@ -204,7 +204,7 @@ TEST(S3RequestBuilderTest, AnonymousCredentials) {
   auto url = absl::StrFormat("https://%s/test.txt", bucket);
   auto builder = S3RequestBuilder("GET", url).AddQueryParameter("test", "this");
   auto request = builder.BuildRequest(
-      absl::StrFormat("%s.s3.amazonaws.com", bucket), S3Credentials{},
+      absl::StrFormat("%s.s3.amazonaws.com", bucket), AwsCredentials{},
       aws_region,
       "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       absl::FromCivil(absl::CivilSecond(2013, 5, 24, 0, 0, 0), utc));
@@ -226,7 +226,7 @@ TEST(S3RequestBuilderTest, AwsSessionTokenHeaderAdded) {
   /// Only test that x-amz-security-token is added if present on S3Credentials
   auto token = "abcdef1234567890";
   auto sts_credentials =
-      S3Credentials{credentials.access_key, credentials.secret_key, token};
+      AwsCredentials{credentials.access_key, credentials.secret_key, token};
   auto builder =
       S3RequestBuilder("GET", absl::StrFormat("https://%s/test.txt", bucket));
   auto request = builder.BuildRequest(

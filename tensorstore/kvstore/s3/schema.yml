@@ -37,10 +37,11 @@ allOf:
         `localstack <https://localstack.cloud/>`__."
       examples:
       - "mybucket.s3.af-south-1.localstack.localhost.com"
-    profile:
-      type: string
-      description: |
-        The profile name from the s3 credentials.
+    aws_credentials:
+      $ref: ContextResource
+      description: |-
+        Specifies or references a previously defined
+        `Context.aws_credentials`.
     s3_request_concurrency:
       $ref: ContextResource
       description: |-
@@ -107,6 +108,17 @@ definitions:
         description: |-
           Maximum backoff delay for transient errors.
         default: "32s"
+  aws_credentials:
+    $id: Context.aws_credentials
+    description: |-
+      Specifies parameters to provide AWS credentials.
+    type: object
+    properties:
+      profile:
+      type: string
+      description: |
+        The profile name in the :file:`~/.aws/credentials` file, when used.
+        Overrides the :envvar:`AWS_PROFILE` environment variables.
   experimental_s3_rate_limiter:
     $id: Context.experimental_s3_rate_limiter
     description: |-

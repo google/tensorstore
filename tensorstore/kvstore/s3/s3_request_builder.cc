@@ -19,9 +19,10 @@
 
 #include "tensorstore/kvstore/s3/s3_request_builder.h"
 
+#include <stddef.h>
+
 #include <algorithm>
 #include <cassert>
-#include <cstddef>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -42,7 +43,7 @@
 #include "tensorstore/internal/digest/sha256.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/uri_utils.h"
-#include "tensorstore/kvstore/s3/s3_credential_provider.h"
+#include "tensorstore/kvstore/s3/aws_credential_provider.h"
 #include "tensorstore/kvstore/s3/s3_uri_utils.h"
 
 #ifndef TENSORSTORE_INTERNAL_S3_LOG_AWS4
@@ -88,7 +89,7 @@ std::string CanonicalRequest(
     std::string_view payload_hash,
     const std::vector<std::pair<std::string, std::string_view>>& headers) {
   auto uri = ParseGenericUri(url);
-  std::size_t end_of_bucket = uri.authority_and_path.find('/');
+  size_t end_of_bucket = uri.authority_and_path.find('/');
   assert(end_of_bucket != std::string_view::npos);
   auto path = uri.authority_and_path.substr(end_of_bucket);
   assert(!path.empty());
@@ -203,7 +204,7 @@ S3RequestBuilder& S3RequestBuilder::MaybeAddRequesterPayer(
 }
 
 HttpRequest S3RequestBuilder::BuildRequest(std::string_view host,
-                                           const S3Credentials& credentials,
+                                           const AwsCredentials& credentials,
                                            std::string_view aws_region,
                                            std::string_view payload_sha256_hash,
                                            const absl::Time& time) {

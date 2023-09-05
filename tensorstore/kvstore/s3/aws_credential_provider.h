@@ -16,15 +16,13 @@
 #define TENSORSTORE_KVSTORE_S3_S3_CREDENTIAL_PROVIDER_H
 
 #include <functional>
-#include <map>
 #include <memory>
 #include <string>
 #include <string_view>
+#include <utility>
 
+#include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
-#include "absl/time/time.h"
-#include "tensorstore/internal/http/curl_handle.h"
-#include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/util/result.h"
 
@@ -38,7 +36,7 @@ namespace internal_kvstore_s3 {
 /// while the presence of a session token implies the use of
 /// short-lived STS credentials
 /// https://docs.aws.amazon.com/STS/latest/APIReference/welcome.html
-struct S3Credentials {
+struct AwsCredentials {
   /// AWS_ACCESS_KEY_ID
   std::string access_key;
   /// AWS_SECRET_KEY_ID
@@ -52,24 +50,23 @@ struct S3Credentials {
 /// Base class for S3 Credential Providers
 ///
 /// Implementers should override GetCredentials
-class CredentialProvider {
+class AwsCredentialProvider {
  public:
-  virtual ~CredentialProvider() = default;
-  virtual Result<S3Credentials> GetCredentials() = 0;
+  virtual ~AwsCredentialProvider() = default;
+  virtual Result<AwsCredentials> GetCredentials() = 0;
 };
 
 /// Provides credentials from the following environment variables:
 /// AWS_ACCESS_KEY_ID, AWS_SECRET_KEY_ID, AWS_SESSION_TOKEN
-class EnvironmentCredentialProvider : public CredentialProvider {
+class EnvironmentCredentialProvider : public AwsCredentialProvider {
  private:
-  S3Credentials credentials_;
+  AwsCredentials credentials_;
 
  public:
-  EnvironmentCredentialProvider(const S3Credentials& credentials)
+  EnvironmentCredentialProvider(const AwsCredentials& credentials)
       : credentials_(credentials) {}
-  virtual Result<S3Credentials> GetCredentials() override {
-    return credentials_;
-  }
+
+  Result<AwsCredentials> GetCredentials() override { return credentials_; }
 };
 
 /// Obtains S3 credentials from a profile in a file, usually
@@ -79,43 +76,44 @@ class EnvironmentCredentialProvider : public CredentialProvider {
 /// However, if profile is passed as an empty string, the profile is obtained
 /// from AWS_DEFAULT_PROFILE, AWS_PROFILE before finally defaulting to
 /// "default".
-class FileCredentialProvider : public CredentialProvider {
+class FileCredentialProvider : public AwsCredentialProvider {
  private:
   absl::Mutex mutex_;
   std::string filename_;
   std::string profile_;
 
  public:
-  FileCredentialProvider(std::string_view filename, std::string_view profile)
-      : filename_(filename), profile_(profile) {}
-  virtual Result<S3Credentials> GetCredentials() override;
+  FileCredentialProvider(std::string filename, std::string profile)
+      : filename_(std::move(filename)), profile_(std::move(profile)) {}
+
+  Result<AwsCredentials> GetCredentials() override;
 };
 
 /// Provides S3 credentials from the EC2 Metadata server
 /// if running within AWS
-class EC2MetadataCredentialProvider : public CredentialProvider {
+class EC2MetadataCredentialProvider : public AwsCredentialProvider {
  private:
   std::shared_ptr<internal_http::HttpTransport> transport_;
 
  public:
   EC2MetadataCredentialProvider(
       std::shared_ptr<internal_http::HttpTransport> transport)
-      : transport_(transport) {}
-  virtual Result<S3Credentials> GetCredentials() override {
+      : transport_(std::move(transport)) {}
+
+  Result<AwsCredentials> GetCredentials() override {
     return absl::UnimplementedError("EC2 Metadata Server");
   }
 };
 
-using S3CredentialProvider =
-    std::function<Result<std::unique_ptr<CredentialProvider>>()>;
+using AwsCredentialProviderFn =
+    std::function<Result<std::unique_ptr<AwsCredentialProvider>>()>;
 
-void RegisterS3CredentialProviderProvider(S3CredentialProvider provider,
-                                          int priority);
+void RegisterAwsCredentialProviderProvider(AwsCredentialProviderFn provider,
+                                           int priority);
 
-Result<std::unique_ptr<CredentialProvider>> GetS3CredentialProvider(
-    std::string_view profile = "",
-    std::shared_ptr<internal_http::HttpTransport> transport =
-        internal_http::GetDefaultHttpTransport());
+Result<std::unique_ptr<AwsCredentialProvider>> GetAwsCredentialProvider(
+    std::string_view profile,
+    std::shared_ptr<internal_http::HttpTransport> transport);
 
 }  // namespace internal_kvstore_s3
 }  // namespace tensorstore

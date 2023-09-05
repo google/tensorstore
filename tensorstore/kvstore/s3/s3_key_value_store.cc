@@ -12,10 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <algorithm>
 #include <atomic>
 #include <cassert>
-#include <cstddef>
 #include <memory>
 #include <optional>
 #include <string>
@@ -26,14 +28,13 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/escaping.h"
-#include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/context.h"
-#include "tensorstore/data_type.h"
+#include "tensorstore/context_resource_provider.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/digest/sha256.h"
 #include "tensorstore/internal/http/curl_transport.h"
@@ -57,7 +58,7 @@
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/registry.h"
-#include "tensorstore/kvstore/s3/s3_credential_provider.h"
+#include "tensorstore/kvstore/s3/aws_credential_provider.h"
 #include "tensorstore/kvstore/s3/s3_metadata.h"
 #include "tensorstore/kvstore/s3/s3_request_builder.h"
 #include "tensorstore/kvstore/s3/s3_resource.h"
@@ -100,15 +101,15 @@ using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_http::HttpTransport;
 using ::tensorstore::internal_kvstore_gcs_http::RateLimiter;
 using ::tensorstore::internal_kvstore_gcs_http::RateLimiterNode;
-using ::tensorstore::internal_kvstore_s3::CredentialProvider;
+using ::tensorstore::internal_kvstore_s3::AwsCredentialProvider;
+using ::tensorstore::internal_kvstore_s3::AwsCredentials;
 using ::tensorstore::internal_kvstore_s3::FindTag;
-using ::tensorstore::internal_kvstore_s3::GetS3CredentialProvider;
+using ::tensorstore::internal_kvstore_s3::GetAwsCredentialProvider;
 using ::tensorstore::internal_kvstore_s3::GetTag;
 using ::tensorstore::internal_kvstore_s3::IsValidBucketName;
 using ::tensorstore::internal_kvstore_s3::IsValidObjectName;
 using ::tensorstore::internal_kvstore_s3::IsValidStorageGeneration;
 using ::tensorstore::internal_kvstore_s3::S3ConcurrencyResource;
-using ::tensorstore::internal_kvstore_s3::S3Credentials;
 using ::tensorstore::internal_kvstore_s3::S3RateLimiterResource;
 using ::tensorstore::internal_kvstore_s3::S3RequestBuilder;
 using ::tensorstore::internal_kvstore_s3::S3RequestRetries;
@@ -120,10 +121,9 @@ using ::tensorstore::internal_storage_gcs::IsRetriable;
 using ::tensorstore::kvstore::Key;
 using ::tensorstore::kvstore::ListOptions;
 
-namespace {}  // namespace
-
 namespace tensorstore {
 namespace {
+
 namespace jb = tensorstore::internal_json_binding;
 
 auto& s3_bytes_read = internal_metrics::Counter<int64_t>::New(
@@ -200,22 +200,85 @@ std::string payload_sha256(const absl::Cord& cord = absl::Cord()) {
   return absl::BytesToHexString(digest_sv);
 }
 
+/// Specifies the AWS profile name.
+/// TODO: Allow more complex credential specification, which could be any of:
+///  {"profile", "filename"} or { "access_key", "secret_key", "session_token" }
+///
+struct AwsCredentialsResource
+    : public internal::ContextResourceTraits<AwsCredentialsResource> {
+  static constexpr char id[] = "aws_credentials";
+
+  struct Spec {
+    std::string profile;
+    constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+      return f(x.profile);
+    };
+  };
+
+  struct Resource {
+    Spec spec;
+    std::shared_ptr<AwsCredentialProvider> credential_provider_;
+
+    Result<std::optional<AwsCredentials>> GetCredentials();
+  };
+
+  static Spec Default() { return Spec{}; }
+
+  static constexpr auto JsonBinder() {
+    return jb::Object(
+        jb::Member("profile", jb::Projection<&Spec::profile>()) /**/
+    );
+  }
+
+  Result<Resource> Create(
+      const Spec& spec,
+      internal::ContextResourceCreationContext context) const {
+    auto result = GetAwsCredentialProvider(
+        spec.profile, internal_http::GetDefaultHttpTransport());
+    if (!result.ok() && absl::IsNotFound(result.status())) {
+      return Resource{spec, nullptr};
+    }
+    TENSORSTORE_RETURN_IF_ERROR(result);
+    return Resource{spec, std::move(*result)};
+  }
+
+  Spec GetSpec(const Resource& resource,
+               const internal::ContextSpecBuilder& builder) const {
+    return resource.spec;
+  }
+};
+
+Result<std::optional<AwsCredentials>>
+AwsCredentialsResource::Resource::GetCredentials() {
+  if (!credential_provider_) return std::nullopt;
+  auto credential_result_ = credential_provider_->GetCredentials();
+  if (!credential_result_.ok() &&
+      absl::IsNotFound(credential_result_.status())) {
+    return std::nullopt;
+  }
+  return credential_result_;
+}
+
+const internal::ContextResourceRegistration<AwsCredentialsResource>
+    aws_credentials_registration;
+
 struct S3KeyValueStoreSpecData {
   std::string bucket;
   bool requester_pays;
   std::optional<std::string> endpoint;
   std::optional<std::string> host;
-  std::string profile;
   std::string aws_region;
 
+  Context::Resource<AwsCredentialsResource> aws_credentials;
   Context::Resource<S3ConcurrencyResource> request_concurrency;
   std::optional<Context::Resource<S3RateLimiterResource>> rate_limiter;
   Context::Resource<S3RequestRetries> retries;
   Context::Resource<DataCopyConcurrencyResource> data_copy_concurrency;
 
   constexpr static auto ApplyMembers = [](auto& x, auto f) {
-    return f(x.bucket, x.request_concurrency, x.rate_limiter, x.requester_pays,
-             x.endpoint, x.host, x.profile, x.retries, x.data_copy_concurrency);
+    return f(x.bucket, x.requester_pays, x.endpoint, x.host, x.aws_region,
+             x.aws_credentials, x.request_concurrency, x.rate_limiter,
+             x.retries, x.data_copy_concurrency);
   };
 
   constexpr static auto default_json_binder = jb::Object(
@@ -230,19 +293,17 @@ struct S3KeyValueStoreSpecData {
                        }
                        return absl::OkStatus();
                      }))),
-
       jb::Member("requester_pays",
                  jb::Projection<&S3KeyValueStoreSpecData::requester_pays>(
                      jb::DefaultValue([](auto* v) { *v = false; }))),
       jb::Member("host", jb::Projection<&S3KeyValueStoreSpecData::host>()),
       jb::Member("endpoint",
                  jb::Projection<&S3KeyValueStoreSpecData::endpoint>()),
-      // TODO: Move to s3_credentials resource.
-      jb::Member("profile", jb::Projection<&S3KeyValueStoreSpecData::profile>(
-                                jb::DefaultValue<jb::kAlwaysIncludeDefaults>(
-                                    [](auto* v) { *v = "default"; }))),
-      jb::OptionalMember(
-          "aws_region", jb::Projection<&S3KeyValueStoreSpecData::aws_region>()),
+      jb::Member("aws_region",
+                 jb::Projection<&S3KeyValueStoreSpecData::aws_region>(
+                     jb::DefaultValue([](auto* v) { *v = ""; }))),
+      jb::Member(AwsCredentialsResource::id,
+                 jb::Projection<&S3KeyValueStoreSpecData::aws_credentials>()),
       jb::Member(
           S3ConcurrencyResource::id,
           jb::Projection<&S3KeyValueStoreSpecData::request_concurrency>()),
@@ -256,6 +317,13 @@ struct S3KeyValueStoreSpecData {
   );
 };
 
+// TODO: Clarify use of endpoint and host.
+struct S3EndpointHostRegion {
+  std::string endpoint;
+  std::string host;
+  std::string aws_region;
+};
+
 std::string GetS3Url(std::string_view bucket, std::string_view path) {
   return tensorstore::StrCat(kUriScheme, "://", bucket, "/", S3UriEncode(path));
 }
@@ -267,6 +335,7 @@ class S3KeyValueStoreSpec
   static constexpr char id[] = "s3";
 
   Future<kvstore::DriverPtr> DoOpen() const override;
+
   Result<std::string> ToUrl(std::string_view path) const override {
     return GetS3Url(data_.bucket, path);
   }
@@ -276,10 +345,9 @@ class S3KeyValueStore
     : public internal_kvstore::RegisteredDriver<S3KeyValueStore,
                                                 S3KeyValueStoreSpec> {
  public:
-  const std::string& endpoint() const { return endpoint_; }
-  bool IsAwsEndpoint() const {
-    return absl::EndsWith(endpoint_, kDotAmazonAwsDotCom);
-  }
+  S3KeyValueStore(std::shared_ptr<HttpTransport> transport,
+                  S3KeyValueStoreSpecData spec)
+      : transport_(std::move(transport)), spec_(std::move(spec)) {}
 
   Future<ReadResult> Read(Key key, ReadOptions options) override;
 
@@ -316,24 +384,12 @@ class S3KeyValueStore
 
   RateLimiter& admission_queue() { return *spec_.request_concurrency->queue; }
 
-  Result<std::optional<S3Credentials>> GetCredentials() {
-    if (!credential_provider_) {
-      auto result = GetS3CredentialProvider(spec_.profile, transport_);
-      if (!result.ok() && absl::IsNotFound(result.status())) {
-        credential_provider_ = nullptr;
-      } else {
-        TENSORSTORE_RETURN_IF_ERROR(result);
-        credential_provider_ = std::move(*result);
-      }
-    }
-    if (!*credential_provider_) return std::nullopt;
-    auto credential_result_ = (*credential_provider_)->GetCredentials();
-    if (!credential_result_.ok() &&
-        absl::IsNotFound(credential_result_.status())) {
-      return std::nullopt;
-    }
-    return credential_result_;
+  Result<std::optional<AwsCredentials>> GetCredentials() {
+    return spec_.aws_credentials->GetCredentials();
   }
+
+  // Resolves the region endpoint for the bucket.
+  Future<const S3EndpointHostRegion> MaybeResolveRegion();
 
   // Apply default backoff/retry logic to the task.
   // Returns whether the task will be retried. On false, max retries have
@@ -363,105 +419,33 @@ class S3KeyValueStore
     return absl::OkStatus();
   }
 
-  std::shared_ptr<HttpTransport> transport_;
   internal_kvstore_gcs_http::NoRateLimiter no_rate_limiter_;
-  // TODO: Clarify use of endpoint_ and host_.
-  std::string endpoint_;  // endpoint url
-  std::string host_;
+  std::shared_ptr<HttpTransport> transport_;
   SpecData spec_;
 
-  absl::Mutex credential_provider_mutex_;
-  std::optional<std::shared_ptr<CredentialProvider>> credential_provider_;
-  std::string aws_region_;
+  absl::Mutex mutex_;  // Guards resolve_ehr_ creation.
+  Future<const S3EndpointHostRegion> resolve_ehr_;
 };
-
-Future<kvstore::DriverPtr> S3KeyValueStoreSpec::DoOpen() const {
-  auto driver = internal::MakeIntrusivePtr<S3KeyValueStore>();
-  driver->spec_ = data_;
-  driver->transport_ = internal_http::GetDefaultHttpTransport();
-
-  if (data_.endpoint.has_value()) {
-    auto endpoint = data_.endpoint.value();
-    auto parsed = internal::ParseGenericUri(endpoint);
-    if (parsed.scheme != "http" && parsed.scheme != "https") {
-      return absl::InvalidArgumentError(
-          tensorstore::StrCat("Endpoint ", endpoint, " has invalid schema ",
-                              parsed.scheme, ". Should be http(s)."));
-    }
-    if (!parsed.query.empty()) {
-      return absl::InvalidArgumentError(
-          tensorstore::StrCat("Query in endpoint unsupported ", endpoint));
-    }
-    if (!parsed.fragment.empty()) {
-      return absl::InvalidArgumentError(
-          tensorstore::StrCat("Fragment in endpoint unsupported ", endpoint));
-    }
-
-    driver->aws_region_ = data_.aws_region;
-    driver->endpoint_ = endpoint;
-
-    if (data_.host.has_value()) {
-      driver->host_ = data_.host.value();
-    } else {
-      auto parsed = internal::ParseGenericUri(driver->endpoint_);
-      size_t end_of_host = parsed.authority_and_path.find('/');
-      driver->host_ = parsed.authority_and_path.substr(0, end_of_host);
-    }
-  } else if (!data_.aws_region.empty()) {
-    // AWS Region
-    driver->aws_region_ = data_.aws_region;
-    driver->host_ = driver->endpoint_ =
-        tensorstore::StrCat("https://", data_.bucket, ".s3.",
-                            driver->aws_region_, kDotAmazonAwsDotCom);
-  } else {
-    // TODO: Rework this to happen on the first Read/Write/Lisst call.
-
-    // Assume AWS
-    // Make global request to get bucket region from response headers,
-    // then create region specific endpoint
-    auto url = tensorstore::StrCat("https://", data_.bucket, ".s3",
-                                   kDotAmazonAwsDotCom);
-    auto request =
-        internal_http::HttpRequestBuilder("HEAD", url).BuildRequest();
-    auto future = driver->transport_->IssueRequest(request, {});
-    if (!future.status().ok()) return future.status();
-    auto& headers = future.value().headers;
-    if (auto it = headers.find(kAmzBucketRegionHeader); it != headers.end()) {
-      driver->aws_region_ = it->second;
-      driver->host_ = driver->endpoint_ =
-          tensorstore::StrCat("https://", data_.bucket, ".s3.",
-                              driver->aws_region_, kDotAmazonAwsDotCom);
-    } else {
-      return absl::FailedPreconditionError(
-          tensorstore::StrCat("bucket ", data_.bucket, " does not exist"));
-    }
-  }
-
-  ABSL_LOG(INFO) << "S3 driver using endpoint [" << driver->endpoint_ << "]";
-
-  // NOTE: Remove temporary logging use of experimental feature.
-  if (data_.rate_limiter.has_value()) {
-    ABSL_LOG(INFO) << "Using experimental_s3_rate_limiter";
-  }
-  return driver;
-}
 
 /// A ReadTask is a function object used to satisfy a
 /// S3KeyValueStore::Read request.
 struct ReadTask : public RateLimiterNode,
                   public internal::AtomicReferenceCount<ReadTask> {
   IntrusivePtr<S3KeyValueStore> owner;
-  std::string read_url;
+  std::string encoded_object_name;
   kvstore::ReadOptions options;
   Promise<kvstore::ReadResult> promise;
+
+  std::string read_url_;  // the url to read from
+  ReadyFuture<const S3EndpointHostRegion> endpoint_host_region_;
 
   int attempt_ = 0;
   absl::Time start_time_;
 
-  ReadTask(IntrusivePtr<S3KeyValueStore> owner, std::string read_url,
+  ReadTask(IntrusivePtr<S3KeyValueStore> owner, std::string encoded_object_name,
            kvstore::ReadOptions options, Promise<kvstore::ReadResult> promise)
       : owner(std::move(owner)),
-        read_url(std::move(read_url)),
+        encoded_object_name(std::move(encoded_object_name)),
         options(std::move(options)),
         promise(std::move(promise)) {}
 
@@ -486,31 +470,28 @@ struct ReadTask : public RateLimiterNode,
       return;
     }
 
-    auto maybe_credentials = owner->GetCredentials();
-    if (!maybe_credentials.ok()) {
+    AwsCredentials credentials;
+    if (auto maybe_credentials = owner->GetCredentials();
+        !maybe_credentials.ok()) {
       promise.SetResult(maybe_credentials.status());
       return;
+    } else if (maybe_credentials.value().has_value()) {
+      credentials = std::move(*maybe_credentials.value());
     }
 
-    auto request_builder = S3RequestBuilder("GET", read_url);
+    auto request_builder = S3RequestBuilder("GET", read_url_);
 
     AddGenerationHeader(&request_builder, "if-none-match",
                         options.if_not_equal);
     AddGenerationHeader(&request_builder, "if-match", options.if_equal);
 
-    S3Credentials credentials;
-
-    if (maybe_credentials.value().has_value()) {
-      credentials = std::move(*maybe_credentials.value());
-    }
-
+    const auto& ehr = endpoint_host_region_.value();
     start_time_ = absl::Now();
-    auto request =
-        request_builder.EnableAcceptEncoding()
-            .MaybeAddRequesterPayer(owner->spec_.requester_pays)
-            .MaybeAddRangeHeader(options.byte_range)
-            .BuildRequest(owner->host_, credentials, owner->aws_region_,
-                          kEmptySha256, start_time_);
+    auto request = request_builder.EnableAcceptEncoding()
+                       .MaybeAddRequesterPayer(owner->spec_.requester_pays)
+                       .MaybeAddRangeHeader(options.byte_range)
+                       .BuildRequest(ehr.host, credentials, ehr.aws_region,
+                                     kEmptySha256, start_time_);
 
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS)
         << "ReadTask: " << request;
@@ -630,17 +611,23 @@ Future<kvstore::ReadResult> S3KeyValueStore::Read(Key key,
     return absl::InvalidArgumentError("Malformed StorageGeneration");
   }
 
-  auto encoded_object_name = S3UriObjectKeyEncode(key);
-  std::string resource =
-      tensorstore::StrCat(endpoint_, "/", encoded_object_name);
-
   auto op = PromiseFuturePair<ReadResult>::Make();
   auto state = internal::MakeIntrusivePtr<ReadTask>(
-      internal::IntrusivePtr<S3KeyValueStore>(this), std::move(resource),
+      internal::IntrusivePtr<S3KeyValueStore>(this), S3UriObjectKeyEncode(key),
       std::move(options), std::move(op.promise));
-
-  intrusive_ptr_increment(state.get());  // adopted by ReadTask::Start.
-  read_rate_limiter().Admit(state.get(), &ReadTask::Start);
+  MaybeResolveRegion().ExecuteWhenReady(
+      [state =
+           std::move(state)](ReadyFuture<const S3EndpointHostRegion> ready) {
+        if (!ready.status().ok()) {
+          state->promise.SetResult(ready.status());
+          return;
+        }
+        state->read_url_ = tensorstore::StrCat(ready.value().endpoint, "/",
+                                               state->encoded_object_name);
+        state->endpoint_host_region_ = std::move(ready);
+        intrusive_ptr_increment(state.get());  // adopted by ReadTask::Start.
+        state->owner->read_rate_limiter().Admit(state.get(), &ReadTask::Start);
+      });
   return std::move(op.future);
 }
 
@@ -654,8 +641,10 @@ struct WriteTask : public RateLimiterNode,
   kvstore::WriteOptions options;
   Promise<TimestampedStorageGeneration> promise;
 
-  S3Credentials credentials_;
   std::string upload_url_;
+  ReadyFuture<const S3EndpointHostRegion> endpoint_host_region_;
+
+  AwsCredentials credentials_;
   int attempt_ = 0;
   absl::Time start_time_;
 
@@ -689,15 +678,12 @@ struct WriteTask : public RateLimiterNode,
     if (!promise.result_needed()) {
       return;
     }
-    upload_url_ =
-        tensorstore::StrCat(owner->endpoint_, "/", encoded_object_name);
-    auto maybe_credentials = owner->GetCredentials();
-    if (!maybe_credentials.ok()) {
+
+    if (auto maybe_credentials = owner->GetCredentials();
+        !maybe_credentials.ok()) {
       promise.SetResult(maybe_credentials.status());
       return;
-    }
-
-    if (maybe_credentials.value().has_value()) {
+    } else if (maybe_credentials.value().has_value()) {
       credentials_ = std::move(*maybe_credentials.value());
     }
 
@@ -708,13 +694,14 @@ struct WriteTask : public RateLimiterNode,
 
     // S3 doesn't support conditional PUT, so we use a HEAD call
     // to test the if-match condition
-    auto now = absl::Now();
     auto builder = S3RequestBuilder("HEAD", upload_url_);
     AddGenerationHeader(&builder, "if-match", options.if_equal);
 
+    auto now = absl::Now();
+    const auto& ehr = endpoint_host_region_.value();
     auto request = builder.MaybeAddRequesterPayer(owner->spec_.requester_pays)
-                       .BuildRequest(owner->host_, credentials_,
-                                     owner->aws_region_, kEmptySha256, now);
+                       .BuildRequest(ehr.host, credentials_, ehr.aws_region,
+                                     kEmptySha256, now);
 
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS)
         << "WriteTask (Peek): " << request;
@@ -765,18 +752,17 @@ struct WriteTask : public RateLimiterNode,
     // NOTE: This was changed from POST to PUT as a basic POST does not work
     // Some more headers need to be added to allow POST to work:
     // https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-authentication-HTTPPOST.html
-    upload_url_ =
-        tensorstore::StrCat(owner->endpoint_, "/", encoded_object_name);
 
     start_time_ = absl::Now();
     auto content_sha256 = payload_sha256(value);
 
+    const auto& ehr = endpoint_host_region_.value();
     auto request =
         S3RequestBuilder("PUT", upload_url_)
             .AddHeader("Content-Type: application/octet-stream")
             .AddHeader(absl::StrCat("Content-Length: ", value.size()))
             .MaybeAddRequesterPayer(owner->spec_.requester_pays)
-            .BuildRequest(owner->host_, credentials_, owner->aws_region_,
+            .BuildRequest(ehr.host, credentials_, ehr.aws_region,
                           content_sha256, start_time_);
 
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS)
@@ -840,19 +826,22 @@ struct WriteTask : public RateLimiterNode,
 struct DeleteTask : public RateLimiterNode,
                     public internal::AtomicReferenceCount<DeleteTask> {
   IntrusivePtr<S3KeyValueStore> owner;
-  std::string resource;
+  std::string encoded_object_name;
   kvstore::WriteOptions options;
   Promise<TimestampedStorageGeneration> promise;
 
+  std::string delete_url_;
+  ReadyFuture<const S3EndpointHostRegion> endpoint_host_region_;
+
   int attempt_ = 0;
   absl::Time start_time_;
-  S3Credentials credentials_;
+  AwsCredentials credentials_;
 
-  DeleteTask(IntrusivePtr<S3KeyValueStore> owner, std::string resource,
-             kvstore::WriteOptions options,
+  DeleteTask(IntrusivePtr<S3KeyValueStore> owner,
+             std::string encoded_object_name, kvstore::WriteOptions options,
              Promise<TimestampedStorageGeneration> promise)
       : owner(std::move(owner)),
-        resource(std::move(resource)),
+        encoded_object_name(std::move(encoded_object_name)),
         options(std::move(options)),
         promise(std::move(promise)) {}
 
@@ -877,21 +866,17 @@ struct DeleteTask : public RateLimiterNode,
     if (!promise.result_needed()) {
       return;
     }
-    std::string delete_url = resource;
-
     if (!IsValidStorageGeneration(options.if_equal)) {
       promise.SetResult(
           absl::InvalidArgumentError("Malformed StorageGeneration"));
       return;
     }
 
-    auto maybe_credentials = owner->GetCredentials();
-    if (!maybe_credentials.ok()) {
+    if (auto maybe_credentials = owner->GetCredentials();
+        !maybe_credentials.ok()) {
       promise.SetResult(maybe_credentials.status());
       return;
-    }
-
-    if (maybe_credentials.value().has_value()) {
+    } else if (maybe_credentials.value().has_value()) {
       credentials_ = std::move(*maybe_credentials.value());
     }
 
@@ -902,13 +887,14 @@ struct DeleteTask : public RateLimiterNode,
 
     // S3 doesn't support conditional DELETE,
     // use a HEAD call to test the if-match condition
-    auto now = absl::Now();
-    auto builder = S3RequestBuilder("HEAD", delete_url);
+    auto builder = S3RequestBuilder("HEAD", delete_url_);
     AddGenerationHeader(&builder, "if-match", options.if_equal);
 
+    auto now = absl::Now();
+    const auto& ehr = endpoint_host_region_.value();
     auto request = builder.MaybeAddRequesterPayer(owner->spec_.requester_pays)
-                       .BuildRequest(owner->host_, credentials_,
-                                     owner->aws_region_, kEmptySha256, now);
+                       .BuildRequest(ehr.host, credentials_, ehr.aws_region,
+                                     kEmptySha256, now);
 
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS)
         << "DeleteTask (Peek): " << request;
@@ -955,11 +941,11 @@ struct DeleteTask : public RateLimiterNode,
   void DoDelete() {
     start_time_ = absl::Now();
 
-    auto request =
-        S3RequestBuilder("DELETE", resource)
-            .MaybeAddRequesterPayer(owner->spec_.requester_pays)
-            .BuildRequest(owner->host_, credentials_, owner->aws_region_,
-                          kEmptySha256, start_time_);
+    const auto& ehr = endpoint_host_region_.value();
+    auto request = S3RequestBuilder("DELETE", delete_url_)
+                       .MaybeAddRequesterPayer(owner->spec_.requester_pays)
+                       .BuildRequest(ehr.host, credentials_, ehr.aws_region,
+                                     kEmptySha256, start_time_);
 
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS)
         << "DeleteTask: " << request;
@@ -1029,26 +1015,47 @@ Future<TimestampedStorageGeneration> S3KeyValueStore::Write(
     return absl::InvalidArgumentError("Malformed StorageGeneration");
   }
 
-  std::string encoded_object_name = S3UriObjectKeyEncode(key);
   auto op = PromiseFuturePair<TimestampedStorageGeneration>::Make();
 
   if (value) {
     auto state = internal::MakeIntrusivePtr<WriteTask>(
-        IntrusivePtr<S3KeyValueStore>(this), std::move(encoded_object_name),
+        IntrusivePtr<S3KeyValueStore>(this), S3UriObjectKeyEncode(key),
         std::move(*value), std::move(options), std::move(op.promise));
-
-    intrusive_ptr_increment(state.get());  // adopted by WriteTask::Start.
-    write_rate_limiter().Admit(state.get(), &WriteTask::Start);
+    MaybeResolveRegion().ExecuteWhenReady(
+        [state =
+             std::move(state)](ReadyFuture<const S3EndpointHostRegion> ready) {
+          if (!ready.status().ok()) {
+            state->promise.SetResult(ready.status());
+            return;
+          }
+          state->upload_url_ = tensorstore::StrCat(ready.value().endpoint, "/",
+                                                   state->encoded_object_name);
+          state->endpoint_host_region_ = std::move(ready);
+          intrusive_ptr_increment(state.get());  // adopted by WriteTask::Start.
+          state->owner->write_rate_limiter().Admit(state.get(),
+                                                   &WriteTask::Start);
+        });
   } else {
-    std::string resource =
-        tensorstore::StrCat(endpoint_, "/", encoded_object_name);
-
     auto state = internal::MakeIntrusivePtr<DeleteTask>(
-        IntrusivePtr<S3KeyValueStore>(this), std::move(resource),
+        IntrusivePtr<S3KeyValueStore>(this), S3UriObjectKeyEncode(key),
         std::move(options), std::move(op.promise));
 
-    intrusive_ptr_increment(state.get());  // adopted by DeleteTask::Start.
-    write_rate_limiter().Admit(state.get(), &DeleteTask::Start);
+    MaybeResolveRegion().ExecuteWhenReady(
+        [state =
+             std::move(state)](ReadyFuture<const S3EndpointHostRegion> ready) {
+          if (!ready.status().ok()) {
+            state->promise.SetResult(ready.status());
+            return;
+          }
+          state->delete_url_ = tensorstore::StrCat(ready.value().endpoint, "/",
+                                                   state->encoded_object_name);
+          state->endpoint_host_region_ = std::move(ready);
+
+          intrusive_ptr_increment(
+              state.get());  // adopted by DeleteTask::Start.
+          state->owner->write_rate_limiter().Admit(state.get(),
+                                                   &DeleteTask::Start);
+        });
   }
   return std::move(op.future);
 }
@@ -1059,7 +1066,9 @@ struct ListTask : public RateLimiterNode,
   internal::IntrusivePtr<S3KeyValueStore> owner_;
   ListOptions options_;
   AnyFlowReceiver<absl::Status, Key> receiver_;
+
   std::string resource_;
+  ReadyFuture<const S3EndpointHostRegion> endpoint_host_region_;
 
   std::string continuation_token_;
   absl::Time start_time_;
@@ -1068,13 +1077,19 @@ struct ListTask : public RateLimiterNode,
   std::atomic<bool> cancelled_{false};
 
   ListTask(internal::IntrusivePtr<S3KeyValueStore> owner, ListOptions options,
-           AnyFlowReceiver<absl::Status, Key> receiver, std::string resource)
+           AnyFlowReceiver<absl::Status, Key> receiver)
       : owner_(std::move(owner)),
         options_(std::move(options)),
-        receiver_(std::move(receiver)),
-        resource_(std::move(resource)) {}
+        receiver_(std::move(receiver)) {
+    execution::set_starting(receiver_, [this] {
+      cancelled_.store(true, std::memory_order_relaxed);
+    });
+  }
 
-  ~ListTask() { owner_->admission_queue().Finish(this); }
+  ~ListTask() {
+    execution::set_stopping(receiver_);
+    owner_->admission_queue().Finish(this);
+  }
 
   inline bool is_cancelled() {
     return cancelled_.load(std::memory_order_relaxed);
@@ -1087,9 +1102,6 @@ struct ListTask : public RateLimiterNode,
   }
   static void Admit(void* task) {
     auto* self = reinterpret_cast<ListTask*>(task);
-    execution::set_starting(self->receiver_, [self] {
-      self->cancelled_.store(true, std::memory_order_relaxed);
-    });
     self->owner_->executor()(
         [state = IntrusivePtr<ListTask>(self, internal::adopt_object_ref)] {
           state->IssueRequest();
@@ -1101,7 +1113,6 @@ struct ListTask : public RateLimiterNode,
   void IssueRequest() {
     if (is_cancelled()) {
       execution::set_done(receiver_);
-      execution::set_stopping(receiver_);
       return;
     }
 
@@ -1121,24 +1132,20 @@ struct ListTask : public RateLimiterNode,
                                         continuation_token_);
     }
 
-    auto maybe_credentials = owner_->GetCredentials();
-    if (!maybe_credentials.ok()) {
+    AwsCredentials credentials;
+    if (auto maybe_credentials = owner_->GetCredentials();
+        !maybe_credentials.ok()) {
       execution::set_error(receiver_, std::move(maybe_credentials).status());
-      execution::set_stopping(receiver_);
       return;
-    }
-
-    S3Credentials credentials;
-
-    if (maybe_credentials.value().has_value()) {
+    } else if (maybe_credentials.value().has_value()) {
       credentials = std::move(*maybe_credentials.value());
     }
 
+    const auto& ehr = endpoint_host_region_.value();
     start_time_ = absl::Now();
 
-    auto request = request_builder.BuildRequest(owner_->host_, credentials,
-                                                owner_->aws_region_,
-                                                kEmptySha256, start_time_);
+    auto request = request_builder.BuildRequest(
+        ehr.host, credentials, ehr.aws_region, kEmptySha256, start_time_);
 
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS)
         << "List: " << request;
@@ -1156,12 +1163,10 @@ struct ListTask : public RateLimiterNode,
     // OkStatus are handled by OnResponseImpl
     if (absl::IsCancelled(status)) {
       execution::set_done(receiver_);
-      execution::set_stopping(receiver_);
       return;
     }
     if (!status.ok()) {
       execution::set_error(receiver_, std::move(status));
-      execution::set_stopping(receiver_);
       return;
     }
   }
@@ -1188,13 +1193,13 @@ struct ListTask : public RateLimiterNode,
         auto start_pos, FindTag(payload, kListBucketOpenTag, 0, false));
     TENSORSTORE_ASSIGN_OR_RETURN(
         tag_and_pos, GetTag(payload, "<KeyCount>", "</KeyCount>", start_pos));
-    std::size_t keycount = 0;
+    size_t keycount = 0;
     if (!absl::SimpleAtoi(tag_and_pos.tag, &keycount)) {
       return absl::InvalidArgumentError(
           absl::StrCat("Malformed KeyCount ", tag_and_pos.tag));
     }
 
-    for (std::size_t k = 0; k < keycount; ++k) {
+    for (size_t k = 0; k < keycount; ++k) {
       if (is_cancelled()) {
         return absl::CancelledError();
       }
@@ -1231,7 +1236,6 @@ struct ListTask : public RateLimiterNode,
     } else {
       continuation_token_.clear();
       execution::set_done(receiver_);
-      execution::set_stopping(receiver_);
     }
     return absl::OkStatus();
   }
@@ -1249,11 +1253,20 @@ void S3KeyValueStore::ListImpl(ListOptions options,
 
   auto state = internal::MakeIntrusivePtr<ListTask>(
       IntrusivePtr<S3KeyValueStore>(this), std::move(options),
-      std::move(receiver),
-      /*resource=*/tensorstore::StrCat(endpoint_, "/"));
+      std::move(receiver));
 
-  intrusive_ptr_increment(state.get());  // adopted by ListTask::Start.
-  read_rate_limiter().Admit(state.get(), &ListTask::Start);
+  MaybeResolveRegion().ExecuteWhenReady(
+      [state =
+           std::move(state)](ReadyFuture<const S3EndpointHostRegion> ready) {
+        if (!ready.status().ok()) {
+          execution::set_error(state->receiver_, ready.status());
+          return;
+        }
+        state->resource_ = tensorstore::StrCat(ready.value().endpoint, "/");
+        state->endpoint_host_region_ = std::move(ready);
+        intrusive_ptr_increment(state.get());
+        state->owner_->read_rate_limiter().Admit(state.get(), &ListTask::Start);
+      });
 }
 
 // Receiver used by `DeleteRange` for processing the results from `List`.
@@ -1299,6 +1312,119 @@ Future<const void> S3KeyValueStore::DeleteRange(KeyRange range) {
   return std::move(op.future);
 }
 
+// Resolves the region endpoint for the bucket.
+Future<const S3EndpointHostRegion> S3KeyValueStore::MaybeResolveRegion() {
+  absl::MutexLock l(&mutex_);
+  if (!resolve_ehr_.null()) return resolve_ehr_;
+
+  // Make global request to get bucket region from response headers,
+  // then create region specific endpoint
+  auto url =
+      tensorstore::StrCat("https://", spec_.bucket, ".s3", kDotAmazonAwsDotCom);
+  auto request = internal_http::HttpRequestBuilder("HEAD", url).BuildRequest();
+  auto op = PromiseFuturePair<S3EndpointHostRegion>::Link(
+      WithExecutor(
+          executor(),
+          [self = internal::IntrusivePtr<S3KeyValueStore>{this}](
+              Promise<S3EndpointHostRegion> promise,
+              ReadyFuture<HttpResponse> ready) {
+            if (!promise.result_needed()) return;
+            auto& headers = ready.value().headers;
+            if (auto it = headers.find(kAmzBucketRegionHeader);
+                it != headers.end()) {
+              const auto& aws_region = it->second;
+              // TODO: propagate resolved region back into spec.
+              auto host_endpoint =
+                  tensorstore::StrCat("https://", self->spec_.bucket, ".s3.",
+                                      aws_region, kDotAmazonAwsDotCom);
+              ABSL_LOG_IF(INFO, (TENSORSTORE_INTERNAL_S3_LOG_REQUESTS ||
+                                 TENSORSTORE_INTERNAL_S3_LOG_RESPONSES))
+                  << "S3 driver using endpoint [" << host_endpoint << "]";
+              promise.SetResult(S3EndpointHostRegion{
+                  host_endpoint,
+                  host_endpoint,
+                  aws_region,
+              });
+              return;
+            }
+            promise.SetResult(absl::FailedPreconditionError(tensorstore::StrCat(
+                "bucket ", self->spec_.bucket, " does not exist")));
+          }),
+      transport_->IssueRequest(request, {}));
+
+  resolve_ehr_ = std::move(op.future);
+  return resolve_ehr_;
+}
+
+Future<kvstore::DriverPtr> S3KeyValueStoreSpec::DoOpen() const {
+  auto driver = internal::MakeIntrusivePtr<S3KeyValueStore>(
+      internal_http::GetDefaultHttpTransport(), data_);
+
+  // NOTE: Remove temporary logging use of experimental feature.
+  if (data_.rate_limiter.has_value()) {
+    ABSL_LOG(INFO) << "Using experimental_s3_rate_limiter";
+  }
+
+  if (data_.endpoint.has_value()) {
+    auto endpoint = data_.endpoint.value();
+    auto parsed = internal::ParseGenericUri(endpoint);
+    if (parsed.scheme != "http" && parsed.scheme != "https") {
+      return absl::InvalidArgumentError(
+          tensorstore::StrCat("Endpoint ", endpoint, " has invalid scheme ",
+                              parsed.scheme, ". Should be http(s)."));
+    }
+    if (!parsed.query.empty()) {
+      return absl::InvalidArgumentError(
+          tensorstore::StrCat("Query in endpoint unsupported ", endpoint));
+    }
+    if (!parsed.fragment.empty()) {
+      return absl::InvalidArgumentError(
+          tensorstore::StrCat("Fragment in endpoint unsupported ", endpoint));
+    }
+
+    std::string host;
+    if (data_.host.has_value()) {
+      host = data_.host.value();
+    } else {
+      auto parsed = internal::ParseGenericUri(endpoint);
+      size_t end_of_host = parsed.authority_and_path.find('/');
+      host = parsed.authority_and_path.substr(0, end_of_host);
+    }
+
+    driver->resolve_ehr_ = MakeReadyFuture<S3EndpointHostRegion>(
+        S3EndpointHostRegion{endpoint, std::move(host), data_.aws_region});
+
+  } else if (internal_kvstore_s3::ClassifyBucketName(data_.bucket) ==
+             internal_kvstore_s3::BucketNameType::kOldUSEast1) {
+    // This is an old-style bucket name, so the region must be us-east-1
+    if (!data_.aws_region.empty() && data_.aws_region != "us-east-1") {
+      return absl::InvalidArgumentError(
+          tensorstore::StrCat("Bucket ", QuoteString(data_.bucket),
+                              " requires aws_region \"us-east-1\", not ",
+                              QuoteString(data_.aws_region)));
+    }
+    auto host_endpoint = tensorstore::StrCat(
+        "https://", data_.bucket, ".s3.us-east-1", kDotAmazonAwsDotCom);
+    driver->resolve_ehr_ = MakeReadyFuture<S3EndpointHostRegion>(
+        S3EndpointHostRegion{host_endpoint, host_endpoint, "us-east-1"});
+
+  } else if (!data_.aws_region.empty()) {
+    // Region was provided with the bucket.
+    auto host_endpoint =
+        tensorstore::StrCat("https://", data_.bucket, ".s3.", data_.aws_region,
+                            kDotAmazonAwsDotCom);
+    driver->resolve_ehr_ = MakeReadyFuture<S3EndpointHostRegion>(
+        S3EndpointHostRegion{host_endpoint, host_endpoint, data_.aws_region});
+  }
+  ABSL_LOG_IF(INFO, (TENSORSTORE_INTERNAL_S3_LOG_REQUESTS ||
+                     TENSORSTORE_INTERNAL_S3_LOG_RESPONSES) &&
+                        !driver->resolve_ehr_.null())
+      << "S3 driver using endpoint [" << driver->resolve_ehr_.value().endpoint
+      << "]";
+
+  return driver;
+}
+
 Result<kvstore::Spec> ParseS3Url(std::string_view url) {
   auto parsed = internal::ParseGenericUri(url);
   assert(parsed.scheme == kUriScheme);
@@ -1320,15 +1446,16 @@ Result<kvstore::Spec> ParseS3Url(std::string_view url) {
           : parsed.authority_and_path.substr(end_of_bucket + 1));
   auto driver_spec = internal::MakeIntrusivePtr<S3KeyValueStoreSpec>();
   driver_spec->data_.bucket = bucket;
+  driver_spec->data_.requester_pays = false;
+
+  driver_spec->data_.aws_credentials =
+      Context::Resource<AwsCredentialsResource>::DefaultSpec();
   driver_spec->data_.request_concurrency =
       Context::Resource<S3ConcurrencyResource>::DefaultSpec();
   driver_spec->data_.retries =
       Context::Resource<S3RequestRetries>::DefaultSpec();
   driver_spec->data_.data_copy_concurrency =
       Context::Resource<DataCopyConcurrencyResource>::DefaultSpec();
-
-  driver_spec->data_.requester_pays = false;
-  driver_spec->data_.profile = "default";
 
   return {std::in_place, std::move(driver_spec), std::move(path)};
 }

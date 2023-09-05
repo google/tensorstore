@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/kvstore/s3/s3_credential_provider.h"
+#include "tensorstore/kvstore/s3/aws_credential_provider.h"
 
 #include <algorithm>
 #include <fstream>
@@ -73,7 +73,7 @@ bool IsFile(const std::string& filename) {
   return fstream.good();
 }
 
-Result<std::string> GetS3CredentialsFileName() {
+Result<std::string> GetAwsCredentialsFileName() {
   std::string result;
 
   auto credentials_file = GetEnv(kEnvAwsCredentialsFile);
@@ -95,13 +95,14 @@ Result<std::string> GetS3CredentialsFileName() {
   return result;
 }
 
-Result<std::unique_ptr<CredentialProvider>> GetDefaultS3CredentialProvider(
+Result<std::unique_ptr<AwsCredentialProvider>> GetDefaultAwsCredentialProvider(
     std::string_view profile,
     std::shared_ptr<internal_http::HttpTransport> transport) {
   // 1. Obtain credentials from environment variables
   if (auto access_key = GetEnv(kEnvAwsAccessKeyId); access_key) {
-    ABSL_LOG(INFO) << "Using Environment Variable S3CredentialProvider";
-    S3Credentials credentials;
+    ABSL_LOG_FIRST_N(INFO, 1)
+        << "Using Environment Variable " << kEnvAwsAccessKeyId;
+    AwsCredentials credentials;
     credentials.access_key = *access_key;
     auto secret_key = GetEnv(kEnvAwsSecretAccessKey);
 
@@ -121,22 +122,22 @@ Result<std::unique_ptr<CredentialProvider>> GetDefaultS3CredentialProvider(
 
   // 2. Obtain credentials from AWS_SHARED_CREDENTIALS_FILE or
   // ~/.aws/credentials
-  if (auto credentials_file = GetS3CredentialsFileName();
+  if (auto credentials_file = GetAwsCredentialsFileName();
       credentials_file.ok()) {
     std::string env_profile;  // value must not outlive view
     if (profile.empty()) {
       env_profile = GetEnv(kEnvAwsProfile).value_or(kDefaultProfile);
       profile = std::string_view(env_profile);
     }
-    ABSL_LOG(INFO) << "Using File S3CredentialProvider with profile "
+    ABSL_LOG(INFO) << "Using File AwsCredentialProvider with profile "
                    << profile;
-    return std::make_unique<FileCredentialProvider>(credentials_file.value(),
-                                                    profile);
+    return std::make_unique<FileCredentialProvider>(
+        std::move(credentials_file).value(), std::string(profile));
   }
 
   // 3. Obtain credentials from EC2 Metadata server
   if (false) {
-    ABSL_LOG(INFO) << "Using EC2 Metadata Service S3CredentialProvider";
+    ABSL_LOG(INFO) << "Using EC2 Metadata Service AwsCredentialProvider";
     return std::make_unique<EC2MetadataCredentialProvider>(transport);
   }
 
@@ -145,20 +146,20 @@ Result<std::unique_ptr<CredentialProvider>> GetDefaultS3CredentialProvider(
       "credentials file not found and not running on AWS.");
 }
 
-struct CredentialProviderRegistry {
-  std::vector<std::pair<int, S3CredentialProvider>> providers;
+struct AwsCredentialProviderRegistry {
+  std::vector<std::pair<int, AwsCredentialProviderFn>> providers;
   absl::Mutex mutex;
 };
 
-CredentialProviderRegistry& GetS3ProviderRegistry() {
-  static internal::NoDestructor<CredentialProviderRegistry> registry;
+AwsCredentialProviderRegistry& GetAwsProviderRegistry() {
+  static internal::NoDestructor<AwsCredentialProviderRegistry> registry;
   return *registry;
 }
 
 }  // namespace
 
 /// https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html#cli-configure-files-format
-Result<S3Credentials> FileCredentialProvider::GetCredentials() {
+Result<AwsCredentials> FileCredentialProvider::GetCredentials() {
   absl::ReaderMutexLock lock(&mutex_);
   std::ifstream ifs(filename_);
 
@@ -167,7 +168,7 @@ Result<S3Credentials> FileCredentialProvider::GetCredentials() {
         absl::StrCat("Could not open the credentials file [", filename_, "]"));
   }
 
-  S3Credentials credentials;
+  AwsCredentials credentials;
   std::string section_name;
   std::string line;
   bool profile_found = false;
@@ -212,9 +213,9 @@ Result<S3Credentials> FileCredentialProvider::GetCredentials() {
   return credentials;
 }
 
-void RegisterS3CredentialProviderProvider(S3CredentialProvider provider,
-                                          int priority) {
-  auto& registry = GetS3ProviderRegistry();
+void RegisterAwsCredentialProviderProvider(AwsCredentialProviderFn provider,
+                                           int priority) {
+  auto& registry = GetAwsProviderRegistry();
   absl::WriterMutexLock lock(&registry.mutex);
   registry.providers.emplace_back(priority, std::move(provider));
   std::sort(registry.providers.begin(), registry.providers.end(),
@@ -237,18 +238,18 @@ void RegisterS3CredentialProviderProvider(S3CredentialProvider provider,
 /// credentials
 ///                  from the EC2 metadata server.
 /// @return Provider that supplies S3 Credentials
-Result<std::unique_ptr<CredentialProvider>> GetS3CredentialProvider(
+Result<std::unique_ptr<AwsCredentialProvider>> GetAwsCredentialProvider(
     std::string_view profile,
     std::shared_ptr<internal_http::HttpTransport> transport) {
-  auto& registry = GetS3ProviderRegistry();
+  auto& registry = GetAwsProviderRegistry();
   absl::WriterMutexLock lock(&registry.mutex);
   for (const auto& provider : registry.providers) {
     auto credentials = provider.second();
     if (credentials.ok()) return credentials;
   }
 
-  return internal_kvstore_s3::GetDefaultS3CredentialProvider(profile,
-                                                             transport);
+  return internal_kvstore_s3::GetDefaultAwsCredentialProvider(profile,
+                                                              transport);
 }
 
 }  // namespace internal_kvstore_s3

@@ -8,8 +8,8 @@ licenses(["notice"])
 filegroup(
     name = "doc_sources",
     srcs = glob([
-        "**/*.rst",
-        "**/*.yml",
+        "*.rst",
+        "*.yml",
     ]),
 )
 
@@ -44,13 +44,12 @@ tensorstore_cc_library(
     hdrs = ["s3_metadata.h"],
     local_defines = DEBUG_LOCAL_DEFINES,
     deps = [
-        ":s3_credential_provider",
+        ":aws_credential_provider",
         ":s3_request_builder",
         ":s3_resource",
         ":s3_uri_utils",
         ":validate",
         "//tensorstore:context",
-        "//tensorstore:data_type",
         "//tensorstore/internal:data_copy_concurrency_resource",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:retry",
@@ -121,41 +120,6 @@ tensorstore_cc_library(
     alwayslink = 1,
 )
 
-tensorstore_cc_library(
-    name = "s3_credential_provider",
-    srcs = ["s3_credential_provider.cc"],
-    hdrs = ["s3_credential_provider.h"],
-    deps = [
-        "//tensorstore/internal:env",
-        "//tensorstore/internal:no_destructor",
-        "//tensorstore/internal:path",
-        "//tensorstore/internal/http",
-        "//tensorstore/internal/http:curl_handle",
-        "//tensorstore/internal/http:curl_transport",
-        "//tensorstore/util:result",
-        "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/synchronization",
-        "@com_google_absl//absl/time",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "s3_credential_provider_test",
-    size = "small",
-    srcs = ["s3_credential_provider_test.cc"],
-    deps = [
-        ":s3_credential_provider",
-        "//tensorstore/internal:env",
-        "//tensorstore/internal:path",
-        "//tensorstore/internal:test_util",
-        "//tensorstore/util:result",
-        "//tensorstore/util:status_testutil",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
 tensorstore_cc_test(
     name = "s3_metadata_test",
     size = "small",
@@ -173,33 +137,11 @@ tensorstore_cc_test(
     name = "s3_key_value_store_test",
     size = "small",
     srcs = ["s3_key_value_store_test.cc"],
-    tags = [
-        "manual",
-        "notap",  # TODO: Enable before linking by default.
-        "skip-cmake",  # localstack is python, which will not work in bazel_to_cmake.
-    ],
     deps = [
-        ":s3_credential_provider",
-        ":s3_request_builder",
+        ":s3",
         "//tensorstore:context",
-        "//tensorstore:json_serialization_options_base",
-        "//tensorstore/internal:env",
-        "//tensorstore/internal:json_gtest",
-        "//tensorstore/internal:subprocess",
-        "//tensorstore/internal/http",
-        "//tensorstore/internal/http:curl_transport",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:test_util",
-        "//tensorstore/util:future",
-        "//tensorstore/util:result",
-        "//tensorstore/util:status_testutil",
-        "@com_google_absl//absl/flags:flag",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings:cord",
-        "@com_google_absl//absl/strings:str_format",
-        "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -214,7 +156,7 @@ tensorstore_cc_library(
     ],
     local_defines = DEBUG_LOCAL_DEFINES,
     deps = [
-        ":s3_credential_provider",
+        ":aws_credential_provider",
         ":s3_uri_utils",
         "//tensorstore/internal:uri_utils",
         "//tensorstore/internal/digest:sha256",
@@ -236,7 +178,7 @@ tensorstore_cc_test(
     size = "small",
     srcs = ["s3_request_builder_test.cc"],
     deps = [
-        ":s3_credential_provider",
+        ":aws_credential_provider",
         ":s3_request_builder",
         "//tensorstore/internal/http",
         "@com_google_absl//absl/strings",
@@ -268,6 +210,72 @@ tensorstore_cc_test(
     ],
     deps = [
         ":validate",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "aws_credential_provider",
+    srcs = ["aws_credential_provider.cc"],
+    hdrs = ["aws_credential_provider.h"],
+    deps = [
+        "//tensorstore/internal:env",
+        "//tensorstore/internal:no_destructor",
+        "//tensorstore/internal:path",
+        "//tensorstore/internal/http",
+        "//tensorstore/util:result",
+        "@com_google_absl//absl/log:absl_log",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/synchronization",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "aws_credential_provider_test",
+    srcs = ["aws_credential_provider_test.cc"],
+    deps = [
+        ":aws_credential_provider",
+        "//tensorstore/internal:env",
+        "//tensorstore/internal:path",
+        "//tensorstore/internal:test_util",
+        "//tensorstore/internal/http:curl_transport",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status_testutil",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "localstack_test",
+    srcs = ["localstack_test.cc"],
+    tags = [
+        "manual",
+        "notap",  # TODO: Enable before linking by default.
+        "skip-cmake",  # localstack is python, which will not work in bazel_to_cmake.
+    ],
+    deps = [
+        ":aws_credential_provider",
+        ":s3_request_builder",
+        "//tensorstore:context",
+        "//tensorstore:json_serialization_options_base",
+        "//tensorstore/internal:env",
+        "//tensorstore/internal:json_gtest",
+        "//tensorstore/internal:subprocess",
+        "//tensorstore/internal/http",
+        "//tensorstore/internal/http:curl_transport",
+        "//tensorstore/kvstore",
+        "//tensorstore/kvstore:test_util",
+        "//tensorstore/util:future",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/log:absl_check",
+        "@com_google_absl//absl/log:absl_log",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest_main",
     ],
 )
