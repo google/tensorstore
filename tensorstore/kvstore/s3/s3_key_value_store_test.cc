@@ -59,7 +59,8 @@ using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_kvstore_s3::S3Credentials;
 using ::tensorstore::internal_kvstore_s3::S3RequestBuilder;
 
-ABSL_FLAG(std::string, localstack_binary, "", "Path to the localstack");
+ABSL_FLAG(std::string, localstack_binary, "", "Path to the localstack binary");
+ABSL_FLAG(std::string, localstack_endpoint, "http://localhost:4566", "Localstack endpoint");
 
 namespace {
 
@@ -67,7 +68,6 @@ static constexpr char kAwsAccessKeyId[] = "LSIAQAAAAAAVNCBMPNSG";
 static constexpr char kAwsSecretKeyId[] = "localstackdontcare";
 static constexpr char kBucket[] = "testbucket";
 static constexpr char kAwsRegion[] = "af-south-1";
-static constexpr char kLocalStackEndpoint[] = "http://localhost:4566";
 /// sha256 hash of an empty string
 static constexpr char kEmptySha256[] =
     "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
@@ -78,7 +78,7 @@ class LocalStackProcess {
 
   void SpawnProcess() {
     if (running) return;
-    ABSL_LOG(INFO) << "Spawning localstack: " << endpoint_url();
+    ABSL_LOG(INFO) << "Spawning localstack: " << absl::GetFlag(FLAGS_localstack_endpoint);
     {
       SubprocessOptions options{absl::GetFlag(FLAGS_localstack_binary),
                                 {"start", "-d"}};
@@ -93,7 +93,7 @@ class LocalStackProcess {
 
   void StopProcess() {
     if (!running) return;
-    ABSL_LOG(INFO) << "Shutting localstack down: " << endpoint_url();
+    ABSL_LOG(INFO) << "Shutting localstack down: " << absl::GetFlag(FLAGS_localstack_endpoint);
     {
       SubprocessOptions options{absl::GetFlag(FLAGS_localstack_binary),
                                 {"stop"}};
@@ -113,7 +113,7 @@ class LocalStackProcess {
                                    kAwsRegion)};
 
     auto request =
-        S3RequestBuilder("PUT", endpoint_url())
+        S3RequestBuilder("PUT", absl::GetFlag(FLAGS_localstack_endpoint))
             .BuildRequest(absl::StrFormat("%s.s3.amazonaws.com", kBucket),
                           S3Credentials{}, kAwsRegion, kEmptySha256,
                           absl::Now());
@@ -135,8 +135,6 @@ class LocalStackProcess {
     }
   }
 
-  std::string endpoint_url() { return kLocalStackEndpoint; }
-
   bool running = false;
   std::optional<Subprocess> child;
 };
@@ -144,15 +142,8 @@ class LocalStackProcess {
 class LocalStackFixture : public ::testing::Test {
  protected:
   static LocalStackProcess process;
-  // Environment variables to save and restore during setup and teardown
-  static std::map<std::string, std::optional<std::string>> saved_vars;
 
   static void SetUpTestSuite() {
-    for (auto &pair : saved_vars) {
-      pair.second = GetEnv(pair.first.c_str());
-      UnsetEnv(pair.first.c_str());
-    }
-
     SetEnv("AWS_ACCESS_KEY_ID", kAwsAccessKeyId);
     SetEnv("AWS_SECRET_KEY_ID", kAwsSecretKeyId);
 
@@ -164,21 +155,10 @@ class LocalStackFixture : public ::testing::Test {
 
   static void TearDownTestSuite() {
     process.StopProcess();
-
-    for (auto &pair : saved_vars) {
-      if (pair.second) {
-        SetEnv(pair.first.c_str(), pair.second.value().c_str());
-      }
-    }
   }
 };
 
 LocalStackProcess LocalStackFixture::process;
-
-std::map<std::string, std::optional<std::string>> LocalStackFixture::saved_vars{
-    {"AWS_ACCESS_KEY_ID", std::nullopt},
-    {"AWS_SECRET_ACCESS_KEY", std::nullopt},
-};
 
 Context DefaultTestContext() {
   // Opens the s3 driver with small exponential backoff values.
@@ -197,7 +177,7 @@ TEST_F(LocalStackFixture, Basic) {
           {{"aws_region", kAwsRegion},
            {"driver", "s3"},
            {"bucket", kBucket},
-           {"endpoint", process.endpoint_url()},
+           {"endpoint", absl::GetFlag(FLAGS_localstack_endpoint)},
            {"host", absl::StrFormat("%s.s3.%s.localstack.localhost.com",
                                     kBucket, kAwsRegion)},
            {"path", "tensorstore/test/"}},
@@ -210,39 +190,13 @@ TEST_F(LocalStackFixture, Basic) {
                   {{"aws_region", kAwsRegion},
                    {"driver", "s3"},
                    {"bucket", kBucket},
-                   {"endpoint", process.endpoint_url()},
+                   {"endpoint", absl::GetFlag(FLAGS_localstack_endpoint)},
                    {"host", absl::StrFormat("%s.s3.%s.localstack.localhost.com",
                                             kBucket, kAwsRegion)},
                    {"path", "tensorstore/test/"},
-                   {"profile", "default"},
-                   {"requester_pays", false}})));
+                   {"profile", "default"}})));
 
   tensorstore::internal::TestKeyValueReadWriteOps(store);
-}
-
-TEST(S3KeyValueStoreTest, BadBucketNames) {
-  auto context = DefaultTestContext();
-  for (auto bucket : {"a", "_abc", "abc_", "ABC", "a..b", "a.-.b"}) {
-    EXPECT_FALSE(kvstore::Open({{"driver", "s3"},
-                                {"bucket", bucket},
-                                {"endpoint", "https://i.dont.exist"}},
-                               context)
-                     .result())
-        << "bucket: " << bucket;
-  }
-  for (auto bucket :
-       {"abc", "abc.1-2-3.abc",
-        "a."
-        "0123456789123456789012345678912345678901234567891234567890"
-        "1234567891234567890123456789123456789012345678912345678901"
-        "23456789123456789.B"}) {
-    EXPECT_TRUE(kvstore::Open({{"driver", "s3"},
-                               {"bucket", bucket},
-                               {"endpoint", "https://i.dont.exist"}},
-                              context)
-                    .result())
-        << "bucket: " << bucket;
-  }
 }
 
 }  // namespace

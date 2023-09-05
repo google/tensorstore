@@ -110,7 +110,14 @@ def _is_suitable_release(release):
 
 def _find_suitable_version(name, j, spec):
   releases = j["releases"]
-  versions = [(packaging.version.parse(v), v) for v in releases.keys()]
+  versions = []
+  for v in releases.keys():
+    try:
+      pv = packaging.version.parse(v)
+    except packaging.version.InvalidVersion:
+      continue  # https://github.com/pypa/setuptools/issues/3772
+    else:
+      versions.append((pv, v))
   versions.sort()
   versions.reverse()
   first_suitable = None

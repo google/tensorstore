@@ -33,7 +33,7 @@ TEST(ValidateTest, ClassifyBucketName) {
   EXPECT_EQ(ClassifyBucketName("sthree-configurator.bucket"),
             BucketNameType::kInvalid);
 
-  // Standard bucket names are < 63 characters
+    // Standard bucket names are < 63 characters
   EXPECT_EQ(ClassifyBucketName("1234567890abcdefghij"
                                "1234567890abcdefghij"
                                "1234567890abcdefghij"
@@ -41,6 +41,9 @@ TEST(ValidateTest, ClassifyBucketName) {
             BucketNameType::kStandard);
 
   // Old us-east-1 style buckets allow uppercase and underscores.
+  EXPECT_EQ(ClassifyBucketName("ABC"), BucketNameType::kOldUSEast1);
+
+
   EXPECT_EQ(ClassifyBucketName("1234567890abcdefghij"
                                "1234567890abcdefghij"
                                "1234567890abcdefghij"
@@ -62,15 +65,19 @@ TEST(ValidateTest, ClassifyBucketName) {
 }
 
 TEST(ValidateTest, IsValidBucketName) {
+  EXPECT_TRUE(IsValidBucketName("abc"));
   EXPECT_TRUE(IsValidBucketName("foo"));
   EXPECT_TRUE(IsValidBucketName("a.b"));
   EXPECT_TRUE(IsValidBucketName("a-1"));
   EXPECT_TRUE(IsValidBucketName("fo1.a-b"));
+  EXPECT_TRUE(IsValidBucketName("abc.1-2-3.abc"));
 
   // No IP Address style names
   EXPECT_FALSE(IsValidBucketName("192.168.5.4"));
 
   // Invalid prefixes and suffixes
+  EXPECT_FALSE(IsValidBucketName("_abc"));
+  EXPECT_FALSE(IsValidBucketName("abc_"));
   EXPECT_FALSE(IsValidBucketName("xn--bucket"));
   EXPECT_FALSE(IsValidBucketName("bucket-s3alias"));
   EXPECT_FALSE(IsValidBucketName("bucket--ol-s3"));
@@ -78,14 +85,17 @@ TEST(ValidateTest, IsValidBucketName) {
   EXPECT_FALSE(IsValidBucketName("sthree-configurator.bucket"));
 
   EXPECT_FALSE(IsValidBucketName("foo$bar"));
+  EXPECT_FALSE(IsValidBucketName("a"));     // <3
   EXPECT_FALSE(IsValidBucketName("."));     // <3
   EXPECT_FALSE(IsValidBucketName(".."));    // <3
   EXPECT_FALSE(IsValidBucketName("aa"));    // <3
   EXPECT_FALSE(IsValidBucketName("-foo"));  // not number or letter.
   EXPECT_FALSE(IsValidBucketName("foo-"));  // not number or letter.
   EXPECT_FALSE(IsValidBucketName("a..b"));  // consecutive dots
+  EXPECT_FALSE(IsValidBucketName("a."));
   EXPECT_FALSE(IsValidBucketName("foo..bar"));
   EXPECT_FALSE(IsValidBucketName("foo.-bar"));
+  EXPECT_FALSE(IsValidBucketName("a.-.b")); // Needs alphanumeric after .
 
   // if a bucket has uppercase characters, then it is an
   // old style US-East-1 bucket created before 2018.
@@ -93,7 +103,13 @@ TEST(ValidateTest, IsValidBucketName) {
       IsValidBucketName("1234567890b123456789012345678901234567890"
                         "1234567890b123456789012345678901234567890"
                         "ABCD_EFGH"));
+  EXPECT_TRUE(IsValidBucketName("ABC"));
+  EXPECT_TRUE(IsValidBucketName(
+    "0123456789123456789012345678912345678901234567891234567890"
+    "1234567891234567890123456789123456789012345678912345678901"
+    "23456789123456789.B"));
 
+  EXPECT_TRUE(IsValidBucketName("ABC"));
   EXPECT_TRUE(IsValidBucketName("ABCD_EFGH"));
   EXPECT_TRUE(IsValidBucketName("abcd_efgh"));
 }

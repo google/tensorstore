@@ -173,12 +173,16 @@ tensorstore_cc_test(
     name = "s3_key_value_store_test",
     size = "small",
     srcs = ["s3_key_value_store_test.cc"],
+    # args = ["--localstack_binary=$(location @pypa_localstack//:localstack)"],
+    args = ["--localstack_binary=/home/simon/venv/tensorstore/bin/localstack"],
+    data = ["@pypa_localstack//:localstack"],
     tags = [
-        "manual",
-        "notap",  # TODO: Enable before linking by default.
+        #"manual",
+        # "notap",  # TODO: Enable before linking by default.
         "skip-cmake",  # localstack is python, which will not work in bazel_to_cmake.
     ],
     deps = [
+        ":s3",
         ":s3_credential_provider",
         ":s3_request_builder",
         "//tensorstore:context",
