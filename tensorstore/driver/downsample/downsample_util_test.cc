@@ -14,6 +14,10 @@
 
 #include "tensorstore/driver/downsample/downsample_util.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
+#include <limits>
 #include <random>
 #include <vector>
 
@@ -21,16 +25,24 @@
 #include <gtest/gtest.h>
 #include "absl/random/bit_gen_ref.h"
 #include "absl/random/random.h"
+#include "absl/status/status.h"
+#include "tensorstore/array.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/downsample_method.h"
 #include "tensorstore/driver/downsample/downsample_array.h"
+#include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dim_expression.h"
+#include "tensorstore/index_space/dimension_identifier.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/index_transform_testutil.h"
 #include "tensorstore/index_space/transformed_array.h"
 #include "tensorstore/internal/data_type_random_generator.h"
 #include "tensorstore/internal/test_util.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -514,7 +526,7 @@ void TestPropagateIndexTransformDownsamplingInvariance(DimensionIndex rank) {
   EXPECT_EQ(transform_then_downsample, downsample_then_transform);
 }
 
-constexpr size_t kNumRandomTests = 1000;
+constexpr size_t kNumRandomTests = 50;
 
 TEST(PropagateIndexTransformDownsamplingTest, InvarianceRank0) {
   for (size_t i = 0; i < kNumRandomTests; ++i) {

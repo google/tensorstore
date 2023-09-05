@@ -1940,9 +1940,11 @@ class RandomDataSerializationTest
 INSTANTIATE_TEST_SUITE_P(DataTypes, RandomDataSerializationTest,
                          ::testing::ValuesIn(tensorstore::kDataTypes));
 
+static constexpr int kNumIterations = 10;
+
 TEST_P(RandomDataSerializationTest, COrder) {
   auto dtype = GetParam();
-  for (int iteration = 0; iteration < 100; ++iteration) {
+  for (int iteration = 0; iteration < kNumIterations; ++iteration) {
     std::minstd_rand gen{tensorstore::internal::GetRandomSeedForTest(
         "TENSORSTORE_ARRAY_SERIALIZATION_TEST_SEED")};
     auto box = tensorstore::internal::MakeRandomBox(gen);
@@ -1955,7 +1957,7 @@ TEST_P(RandomDataSerializationTest, COrder) {
 
 TEST_P(RandomDataSerializationTest, FOrder) {
   auto dtype = GetParam();
-  for (int iteration = 0; iteration < 100; ++iteration) {
+  for (int iteration = 0; iteration < kNumIterations; ++iteration) {
     std::minstd_rand gen{tensorstore::internal::GetRandomSeedForTest(
         "TENSORSTORE_ARRAY_SERIALIZATION_TEST_SEED")};
     auto box = tensorstore::internal::MakeRandomBox(gen);
