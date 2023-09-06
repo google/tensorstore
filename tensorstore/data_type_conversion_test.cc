@@ -49,7 +49,7 @@ using ::tensorstore::internal::GetElementCopyErrorStatus;
 using ::tensorstore::internal::IterationBufferKind;
 using ::tensorstore::internal::IterationBufferPointer;
 
-#define X(T)                      \
+#define X(T, ...)                 \
   using ::tensorstore::dtypes::T; \
   /**/
 TENSORSTORE_FOR_EACH_DATA_TYPE(X)

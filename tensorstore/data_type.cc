@@ -290,7 +290,7 @@ struct NumericUstringConvertDataType {
 
 }  // namespace internal_data_type
 
-#define TENSORSTORE_INTERNAL_CONVERT_INT(T)                          \
+#define TENSORSTORE_INTERNAL_CONVERT_INT(T, ...)                     \
   template <>                                                        \
   struct ConvertDataType<::tensorstore::dtypes::T,                   \
                          ::tensorstore::dtypes::string_t>            \
@@ -305,7 +305,7 @@ struct NumericUstringConvertDataType {
       : public internal_data_type::JsonIntegerConvertDataType {};    \
   /**/
 
-#define TENSORSTORE_INTERNAL_CONVERT_FLOAT(T)                        \
+#define TENSORSTORE_INTERNAL_CONVERT_FLOAT(T, ...)                   \
   template <>                                                        \
   struct ConvertDataType<::tensorstore::dtypes::T,                   \
                          ::tensorstore::dtypes::string_t>            \

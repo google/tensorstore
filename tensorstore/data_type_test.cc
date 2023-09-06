@@ -54,7 +54,7 @@ using ::tensorstore::internal::IterationBufferPointer;
 using ::tensorstore::serialization::SerializationRoundTrip;
 using ::tensorstore::serialization::TestSerializationRoundTrip;
 
-#define X(T)                                                \
+#define X(T, ...)                                           \
   using ::tensorstore::dtypes::T;                           \
   static_assert(static_cast<int>(DataTypeId::T) >= 0 &&     \
                 static_cast<int>(DataTypeId::T) <           \
@@ -90,7 +90,7 @@ static_assert(IsElementType<int (ClassT::*)(int)>);
 
 TEST(ElementOperationsTest, DataTypeIdOrder) {
   int i = 0;
-#define X(T) EXPECT_EQ(i++, static_cast<int>(DataTypeId::T));
+#define X(T, ...) EXPECT_EQ(i++, static_cast<int>(DataTypeId::T));
   TENSORSTORE_FOR_EACH_DATA_TYPE(X)
 #undef X
 }
