@@ -16,7 +16,9 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "tensorstore/kvstore/byte_range.h"
 
 namespace {
 

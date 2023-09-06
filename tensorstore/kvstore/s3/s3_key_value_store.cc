@@ -497,17 +497,21 @@ struct ReadTask : public RateLimiterNode,
       credentials = std::move(*maybe_credentials.value());
     }
 
-    auto request_builder = S3RequestBuilder("GET", read_url_);
+    auto request_builder = S3RequestBuilder(
+        options.byte_range.size() == 0 ? "HEAD" : "GET", read_url_);
 
     AddGenerationHeader(&request_builder, "if-none-match",
                         options.if_not_equal);
     AddGenerationHeader(&request_builder, "if-match", options.if_equal);
 
+    if (options.byte_range.size() != 0) {
+      request_builder.MaybeAddRangeHeader(options.byte_range);
+    }
+
     const auto& ehr = endpoint_host_region_.value();
     start_time_ = absl::Now();
     auto request = request_builder.EnableAcceptEncoding()
                        .MaybeAddRequesterPayer(owner->spec_.requester_pays)
-                       .MaybeAddRangeHeader(options.byte_range)
                        .BuildRequest(ehr.host_header, credentials,
                                      ehr.aws_region, kEmptySha256, start_time_);
 
@@ -582,33 +586,34 @@ struct ReadTask : public RateLimiterNode,
         return read_result;
     }
 
-    size_t payload_size = httpresponse.payload.size();
-    if (httpresponse.status_code != 206) {
-      // This may or may not have been a range request; attempt to validate.
-      TENSORSTORE_ASSIGN_OR_RETURN(auto byte_range,
-                                   options.byte_range.Validate(payload_size));
-      read_result.state = kvstore::ReadResult::kValue;
-      read_result.value =
-          internal::GetSubCord(httpresponse.payload, byte_range);
-    } else {
-      // Server should return a parseable content-range header.
-      TENSORSTORE_ASSIGN_OR_RETURN(auto content_range_tuple,
-                                   ParseContentRangeHeader(httpresponse));
+    read_result.state = kvstore::ReadResult::kValue;
+    if (options.byte_range.size() != 0) {
+      if (httpresponse.status_code != 206) {
+        // This may or may not have been a range request; attempt to validate.
+        TENSORSTORE_ASSIGN_OR_RETURN(
+            auto byte_range,
+            options.byte_range.Validate(httpresponse.payload.size()));
+        read_result.value =
+            internal::GetSubCord(httpresponse.payload, byte_range);
+      } else {
+        read_result.value = httpresponse.payload;
+        // Server should return a parseable content-range header.
+        TENSORSTORE_ASSIGN_OR_RETURN(auto content_range_tuple,
+                                     ParseContentRangeHeader(httpresponse));
 
-      if (auto request_size = options.byte_range.size();
-          (options.byte_range.inclusive_min != -1 &&
-           options.byte_range.inclusive_min !=
-               std::get<0>(content_range_tuple)) ||
-          (request_size != -1 && request_size != payload_size)) {
-        // Return an error when the response does not start at the requested
-        // offset of when the response is smaller than the desired size.
-        return absl::OutOfRangeError(tensorstore::StrCat(
-            "Requested byte range ", options.byte_range,
-            " was not satisfied by S3 response of size ", payload_size));
+        if (auto request_size = options.byte_range.size();
+            (options.byte_range.inclusive_min != -1 &&
+             options.byte_range.inclusive_min !=
+                 std::get<0>(content_range_tuple)) ||
+            (request_size >= 0 && request_size != read_result.value.size())) {
+          // Return an error when the response does not start at the requested
+          // offset of when the response is smaller than the desired size.
+          return absl::OutOfRangeError(
+              tensorstore::StrCat("Requested byte range ", options.byte_range,
+                                  " was not satisfied by S3 response of size ",
+                                  httpresponse.payload.size()));
+        }
       }
-      // assert(payload_size == std::get<2>(content_range_tuple));
-      read_result.state = kvstore::ReadResult::kValue;
-      read_result.value = httpresponse.payload;
     }
 
     TENSORSTORE_ASSIGN_OR_RETURN(

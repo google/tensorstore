@@ -12,8 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <stddef.h>
+#include <stdint.h>
+
+#include <functional>
 #include <memory>
-#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -26,7 +29,6 @@
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"
-#include "tensorstore/internal/cache_key/std_vector.h"
 #include "tensorstore/internal/concurrency_resource.h"
 #include "tensorstore/internal/concurrency_resource_provider.h"
 #include "tensorstore/internal/http/curl_transport.h"
@@ -37,7 +39,6 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/json_binding/std_array.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/retries_context_resource.h"
@@ -45,17 +46,23 @@
 #include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/generation.h"
-#include "tensorstore/kvstore/kvstore.h"
+#include "tensorstore/kvstore/operations.h"
+#include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/registry.h"
+#include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/url_registry.h"
-#include "tensorstore/serialization/std_vector.h"
-#include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
+
+/// specializations
+#include "tensorstore/internal/cache_key/std_vector.h"  // IWYU pragma: keep
+#include "tensorstore/internal/json_binding/std_array.h"  // IWYU pragma: keep
+#include "tensorstore/serialization/std_vector.h"  // IWYU pragma: keep
 
 namespace tensorstore {
 namespace {
@@ -244,14 +251,17 @@ struct ReadTask {
 
     HttpResponse httpresponse;
     auto retry_status = owner->RetryRequestWithBackoff([&] {
-      HttpRequestBuilder request_builder("GET", url);
+      HttpRequestBuilder request_builder(
+          options.byte_range.size() == 0 ? "HEAD" : "GET", url);
       for (const auto& header : owner->spec_.headers) {
         request_builder.AddHeader(header);
+      }
+      if (options.byte_range.size() != 0) {
+        request_builder.MaybeAddRangeHeader(options.byte_range);
       }
 
       request_builder
           .MaybeAddStalenessBoundCacheControlHeader(options.staleness_bound)
-          .MaybeAddRangeHeader(options.byte_range)
           .EnableAcceptEncoding();
 
       if (StorageGeneration::IsCleanValidValue(options.if_equal)) {
@@ -331,33 +341,35 @@ struct ReadTask {
         return read_result;
     }
 
-    size_t payload_size = httpresponse.payload.size();
-    if (httpresponse.status_code != 206) {
-      // This may or may not have been a range request; attempt to validate.
-      TENSORSTORE_ASSIGN_OR_RETURN(auto byte_range,
-                                   options.byte_range.Validate(payload_size));
-      read_result.state = kvstore::ReadResult::kValue;
-      read_result.value =
-          internal::GetSubCord(httpresponse.payload, byte_range);
-    } else {
-      // Server should return a parseable content-range header.
-      TENSORSTORE_ASSIGN_OR_RETURN(auto content_range_tuple,
-                                   ParseContentRangeHeader(httpresponse));
+    read_result.state = kvstore::ReadResult::kValue;
+    if (options.byte_range.size() != 0) {
+      if (httpresponse.status_code != 206) {
+        // This may or may not have been a range request; attempt to validate.
+        TENSORSTORE_ASSIGN_OR_RETURN(
+            auto byte_range,
+            options.byte_range.Validate(httpresponse.payload.size()));
+        read_result.value =
+            internal::GetSubCord(httpresponse.payload, byte_range);
+      } else {
+        read_result.value = httpresponse.payload;
 
-      if (auto request_size = options.byte_range.size();
-          (options.byte_range.inclusive_min != -1 &&
-           options.byte_range.inclusive_min !=
-               std::get<0>(content_range_tuple)) ||
-          (request_size != -1 && request_size != payload_size)) {
-        // Return an error when the response does not start at the requested
-        // offset of when the response is smaller than the desired size.
-        return absl::OutOfRangeError(tensorstore::StrCat(
-            "Requested byte range ", options.byte_range,
-            " was not satisfied by HTTP response of size ", payload_size));
+        // Server should return a parseable content-range header.
+        TENSORSTORE_ASSIGN_OR_RETURN(auto content_range_tuple,
+                                     ParseContentRangeHeader(httpresponse));
+
+        if (auto request_size = options.byte_range.size();
+            (options.byte_range.inclusive_min != -1 &&
+             options.byte_range.inclusive_min !=
+                 std::get<0>(content_range_tuple)) ||
+            (request_size >= 0 && request_size != read_result.value.size())) {
+          // Return an error when the response does not start at the requested
+          // offset of when the response is smaller than the desired size.
+          return absl::OutOfRangeError(tensorstore::StrCat(
+              "Requested byte range ", options.byte_range,
+              " was not satisfied by HTTP response of size ",
+              httpresponse.payload.size()));
+        }
       }
-      // assert(payload_size == std::get<2>(content_range_tuple));
-      read_result.state = kvstore::ReadResult::kValue;
-      read_result.value = httpresponse.payload;
     }
 
     // Parse `ETag` header from response.

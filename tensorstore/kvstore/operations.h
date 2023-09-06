@@ -15,7 +15,8 @@
 #ifndef TENSORSTORE_KVSTORE_OPERATIONS_H_
 #define TENSORSTORE_KVSTORE_OPERATIONS_H_
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <optional>
 #include <string_view>
 

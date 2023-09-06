@@ -14,18 +14,20 @@
 
 #include "tensorstore/internal/http/http_request.h"
 
+#include <cassert>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
+#include "absl/functional/function_ref.h"
 #include "absl/strings/ascii.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
-#include "absl/strings/str_join.h"
+#include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/kvstore/byte_range.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_http {
@@ -34,7 +36,9 @@ std::optional<std::string> FormatRangeHeader(
     OptionalByteRangeRequest byte_range) {
   // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Range
   assert(byte_range.SatisfiesInvariants());
-  if (byte_range.IsRange()) {
+  if (byte_range.IsRange() &&
+      byte_range.exclusive_max > byte_range.inclusive_min) {
+    // The range header is inclusive; `Range: 1-0` is invalid.
     return absl::StrFormat("Range: bytes=%d-%d", byte_range.inclusive_min,
                            byte_range.exclusive_max - 1);
   }

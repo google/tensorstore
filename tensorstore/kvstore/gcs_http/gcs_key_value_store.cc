@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <stddef.h>
+#include <stdint.h>
+
+#include <algorithm>
 #include <atomic>
 #include <cassert>
 #include <memory>
@@ -21,10 +25,12 @@
 #include <utility>
 #include <vector>
 
+#include "absl/base/thread_annotations.h"
 #include "absl/log/absl_log.h"
 #include "absl/random/random.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
@@ -38,6 +44,7 @@
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/json/json.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/metrics/counter.h"
@@ -58,8 +65,12 @@
 #include "tensorstore/kvstore/gcs_http/object_metadata.h"
 #include "tensorstore/kvstore/gcs_http/rate_limiter.h"
 #include "tensorstore/kvstore/generation.h"
+#include "tensorstore/kvstore/key_range.h"
+#include "tensorstore/kvstore/operations.h"
+#include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/registry.h"
 #include "tensorstore/kvstore/spec.h"
+#include "tensorstore/kvstore/supported_features.h"
 #include "tensorstore/kvstore/url_registry.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
@@ -72,12 +83,12 @@
 #include "tensorstore/util/str_cat.h"
 
 /// specializations
-#include "tensorstore/internal/cache_key/std_optional.h"
-#include "tensorstore/internal/json_binding/std_array.h"
-#include "tensorstore/internal/json_binding/std_optional.h"
-#include "tensorstore/serialization/fwd.h"
-#include "tensorstore/serialization/std_optional.h"
-#include "tensorstore/util/garbage_collection/std_optional.h"
+#include "tensorstore/internal/cache_key/std_optional.h"  // IWYU pragma: keep
+#include "tensorstore/internal/json_binding/std_array.h"  // IWYU pragma: keep
+#include "tensorstore/internal/json_binding/std_optional.h"  // IWYU pragma: keep
+#include "tensorstore/serialization/fwd.h"  // IWYU pragma: keep
+#include "tensorstore/serialization/std_optional.h"  // IWYU pragma: keep
+#include "tensorstore/util/garbage_collection/std_optional.h"  // IWYU pragma: keep
 
 // GCS reference links are:
 //
@@ -497,7 +508,8 @@ struct ReadTask : public RateLimiterNode,
       return;
     }
     /// Reads contents of a GCS object.
-    std::string media_url = tensorstore::StrCat(resource, "?alt=media");
+    std::string media_url = tensorstore::StrCat(
+        resource, options.byte_range.size() == 0 ? "?alt=json" : "?alt=media");
 
     // Add the ifGenerationNotMatch condition.
     AddGenerationParam(&media_url, true, "ifGenerationNotMatch",
@@ -521,10 +533,11 @@ struct ReadTask : public RateLimiterNode,
     if (maybe_auth_header.value().has_value()) {
       request_builder.AddHeader(*maybe_auth_header.value());
     }
+    if (options.byte_range.size() != 0) {
+      request_builder.MaybeAddRangeHeader(options.byte_range);
+    }
 
-    auto request = request_builder.MaybeAddRangeHeader(options.byte_range)
-                       .EnableAcceptEncoding()
-                       .BuildRequest();
+    auto request = request_builder.EnableAcceptEncoding().BuildRequest();
     start_time_ = absl::Now();
 
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_GCS_LOG_REQUESTS)
@@ -598,39 +611,47 @@ struct ReadTask : public RateLimiterNode,
         return read_result;
     }
 
-    size_t payload_size = httpresponse.payload.size();
-    if (httpresponse.status_code != 206) {
-      // This may or may not have been a range request; attempt to validate.
-      TENSORSTORE_ASSIGN_OR_RETURN(auto byte_range,
-                                   options.byte_range.Validate(payload_size));
-      read_result.state = kvstore::ReadResult::kValue;
-      read_result.value =
-          internal::GetSubCord(httpresponse.payload, byte_range);
-    } else {
-      // Server should return a parseable content-range header.
-      TENSORSTORE_ASSIGN_OR_RETURN(auto content_range_tuple,
-                                   ParseContentRangeHeader(httpresponse));
-
-      if (auto request_size = options.byte_range.size();
-          (options.byte_range.inclusive_min != -1 &&
-           options.byte_range.inclusive_min !=
-               std::get<0>(content_range_tuple)) ||
-          (request_size != -1 && request_size != payload_size)) {
-        // Return an error when the response does not start at the requested
-        // offset of when the response is smaller than the desired size.
-        return absl::OutOfRangeError(tensorstore::StrCat(
-            "Requested byte range ", options.byte_range,
-            " was not satisfied by GCS response of size ", payload_size));
-      }
-      // assert(payload_size == std::get<2>(content_range_tuple));
-      read_result.state = kvstore::ReadResult::kValue;
-      read_result.value = httpresponse.payload;
-    }
-
-    // TODO: Avoid parsing the entire metadata & only extract the
-    // generation field.
+    read_result.state = kvstore::ReadResult::kValue;
     ObjectMetadata metadata;
-    SetObjectMetadataFromHeaders(httpresponse.headers, &metadata);
+    if (options.byte_range.size() != 0) {
+      if (httpresponse.status_code != 206) {
+        // This may or may not have been a range request; attempt to validate.
+        TENSORSTORE_ASSIGN_OR_RETURN(
+            auto byte_range,
+            options.byte_range.Validate(httpresponse.payload.size()));
+
+        read_result.value =
+            internal::GetSubCord(httpresponse.payload, byte_range);
+      } else {
+        read_result.value = httpresponse.payload;
+
+        // Server should return a parseable content-range header.
+        TENSORSTORE_ASSIGN_OR_RETURN(auto content_range_tuple,
+                                     ParseContentRangeHeader(httpresponse));
+
+        if (auto request_size = options.byte_range.size();
+            (options.byte_range.inclusive_min != -1 &&
+             options.byte_range.inclusive_min !=
+                 std::get<0>(content_range_tuple)) ||
+            (request_size >= 0 && request_size != read_result.value.size())) {
+          // Return an error when the response does not start at the requested
+          // offset of when the response is smaller than the desired size.
+          return absl::OutOfRangeError(
+              tensorstore::StrCat("Requested byte range ", options.byte_range,
+                                  " was not satisfied by GCS response of size ",
+                                  httpresponse.payload.size()));
+        }
+      }
+      // TODO: Avoid parsing the entire metadata & only extract the
+      // generation field.
+      SetObjectMetadataFromHeaders(httpresponse.headers, &metadata);
+    } else {
+      // 0-range reads issue metadata requests; parse the metadata for
+      // the storage generation.
+      absl::Cord cord = httpresponse.payload;
+      TENSORSTORE_ASSIGN_OR_RETURN(metadata,
+                                   ParseObjectMetadata(cord.Flatten()));
+    }
 
     read_result.stamp.generation =
         StorageGeneration::FromUint64(metadata.generation);

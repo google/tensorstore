@@ -110,6 +110,7 @@ tensorstore_cc_test(
     ],
     deps = [
         ":http",
+        "//tensorstore/kvstore:byte_range",
         "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest_main",
     ],
