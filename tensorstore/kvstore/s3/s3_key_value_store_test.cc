@@ -149,7 +149,7 @@ struct DefaultHttpTransportSetter {
 };
 
 // TODO: Add tests for various responses
-TEST(S3KeyValueStoreTest, SimpleMock) {
+TEST(S3KeyValueStoreTest, SimpleMock_VirtualHost) {
   // Mocks for s3
   absl::flat_hash_map<std::string, HttpResponse> url_to_response{
       // initial HEAD request responds with an x-amz-bucket-region header.
@@ -178,6 +178,50 @@ TEST(S3KeyValueStoreTest, SimpleMock) {
       auto store,
       kvstore::Open({{"driver", "s3"}, {"bucket", "my-bucket"}}, context)
           .result());
+
+  auto read_result = kvstore::Read(store, "key_read").result();
+  EXPECT_THAT(read_result,
+              MatchesKvsReadResult(absl::Cord("abcd"),
+                                   StorageGeneration::FromString(
+                                       "900150983cd24fb0d6963f7d28e17f72")));
+
+  EXPECT_THAT(kvstore::Write(store, "key_write", absl::Cord("xyz")).result(),
+              MatchesTimestampedStorageGeneration(StorageGeneration::FromString(
+                  "900150983cd24fb0d6963f7d28e17f72")));
+
+  TENSORSTORE_EXPECT_OK(kvstore::Delete(store, "key_delete"));
+}
+
+TEST(S3KeyValueStoreTest, SimpleMock_NoVirtualHost) {
+  absl::flat_hash_map<std::string, HttpResponse> url_to_response{
+      // initial HEAD request responds with an x-amz-bucket-region header.
+      {"HEAD https://s3.amazonaws.com/my.bucket",
+       HttpResponse{200, absl::Cord(), {{"x-amz-bucket-region", "us-east-1"}}}},
+
+      {"GET https://s3.us-east-1.amazonaws.com/my.bucket/key_read",
+       HttpResponse{200,
+                    absl::Cord("abcd"),
+                    {{"etag", "900150983cd24fb0d6963f7d28e17f72"}}}},
+
+      {"PUT https://s3.us-east-1.amazonaws.com/my.bucket/key_write",
+       HttpResponse{
+           200, absl::Cord(), {{"etag", "900150983cd24fb0d6963f7d28e17f72"}}}},
+
+      // DELETE 404 => absl::OkStatus()
+  };
+
+  auto mock_transport = std::make_shared<MyMockTransport>(url_to_response);
+  DefaultHttpTransportSetter mock_transport_setter{mock_transport};
+
+  // Opens the s3 driver with small exponential backoff values.
+  auto context = DefaultTestContext();
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
+                                   kvstore::Open({{"driver", "s3"},
+                                                  {"bucket", "my.bucket"},
+                                                  {"aws_region", "us-east-1"}},
+                                                 context)
+                                       .result());
 
   auto read_result = kvstore::Read(store, "key_read").result();
   EXPECT_THAT(read_result,

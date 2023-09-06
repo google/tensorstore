@@ -117,12 +117,12 @@ class S3RequestBuilder {
 
   /// Builds an HTTP Request given the information provided to the builder
   ///
-  /// The `host` should be the header value described here
+  /// The `host_header` should be the header value described here
   /// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Host
   /// `credentials` contains the keys required to construct an Authorization
   /// header with an AWS4 signature. An empty access key on `credentials`
   /// implies anonymous access.
-  internal_http::HttpRequest BuildRequest(std::string_view host,
+  internal_http::HttpRequest BuildRequest(std::string_view host_header,
                                           const AwsCredentials& credentials,
                                           std::string_view aws_region,
                                           std::string_view payload_sha256_hash,

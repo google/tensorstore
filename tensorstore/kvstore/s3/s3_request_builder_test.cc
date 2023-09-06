@@ -14,6 +14,10 @@
 
 #include "tensorstore/kvstore/s3/s3_request_builder.h"
 
+#include <string>
+#include <string_view>
+#include <vector>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/strings/str_cat.h"
@@ -33,6 +37,47 @@ static const AwsCredentials credentials{
 static const absl::TimeZone utc = absl::UTCTimeZone();
 static constexpr char aws_region[] = "us-east-1";
 static constexpr char bucket[] = "examplebucket";
+
+TEST(S3RequestBuilderTest, SignatureMethods) {
+  // Compare against aws cli debug output:
+  // `aws s3 cp file.txt s3://bucket/tensorstore/file.txt --debug`
+  const auto now =
+      absl::FromCivil(absl::CivilSecond(2023, 9, 6, 0, 4, 03), utc);
+
+  auto builder = S3RequestBuilder("PUT", "https://host/tensorstore/file.txt")
+                     .AddHeader("content-md5: yE+KBwooshwdhPbd7X6xAw==")
+                     .AddHeader("content-type: text/plain");
+
+  auto request =
+      builder.BuildRequest("bucket.s3.us-west-2.amazonaws.com", credentials,
+                           "us-west-2", "UNSIGNED-PAYLOAD", now);
+
+  auto expected_canonical_request =
+      "PUT\n"
+      "/tensorstore/file.txt\n"
+      "\n"
+      "content-md5:yE+KBwooshwdhPbd7X6xAw==\n"
+      "content-type:text/plain\n"
+      "host:bucket.s3.us-west-2.amazonaws.com\n"
+      "x-amz-content-sha256:UNSIGNED-PAYLOAD\n"
+      "x-amz-date:20230906T000403Z\n"
+      "\n"
+      "content-md5;content-type;host;x-amz-content-sha256;x-amz-date\n"
+      "UNSIGNED-PAYLOAD";
+
+  auto expected_signing_string =
+      "AWS4-HMAC-SHA256\n"
+      "20230906T000403Z\n"
+      "20230906/us-west-2/s3/aws4_request\n"
+      "454820fd18cfe460ae1f9206145914190453096d0613eaa33205b4a36773e884";
+
+  auto expected_signature =
+      "75a4f646dec96dd9ec3cf085ac00cb4ba9c9b2ae89e9bb9d86da0fa6bebfbf67";
+
+  EXPECT_EQ(builder.GetCanonicalRequest(), expected_canonical_request);
+  EXPECT_EQ(builder.GetSigningString(), expected_signing_string);
+  EXPECT_EQ(builder.GetSignature(), expected_signature);
+}
 
 TEST(S3RequestBuilderTest, AWS4SignatureGetExample) {
   // https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
@@ -223,7 +268,7 @@ TEST(S3RequestBuilderTest, AnonymousCredentials) {
 }
 
 TEST(S3RequestBuilderTest, AwsSessionTokenHeaderAdded) {
-  /// Only test that x-amz-security-token is added if present on S3Credentials
+  /// Only test that x-amz-security-token is added if present on AwsCredentials
   auto token = "abcdef1234567890";
   auto sts_credentials =
       AwsCredentials{credentials.access_key, credentials.secret_key, token};

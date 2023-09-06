@@ -25,14 +25,12 @@
 #include <cassert>
 #include <string>
 #include <string_view>
-#include <tuple>
 #include <utility>
 #include <vector>
 
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/strings/ascii.h"
-#include "absl/strings/cord.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
@@ -83,47 +81,36 @@ void ComputeHmac(unsigned char (&key)[kHmacSize], std::string_view message,
              md_len == kHmacSize);
 }
 
+std::pair<std::string_view, std::string_view> SplitAuthorityAndPath(
+    std::string_view authority_and_path) {
+  size_t end_of_authority = authority_and_path.find('/');
+  if (end_of_authority == std::string_view::npos) {
+    return {authority_and_path, {}};
+  }
+
+  return {authority_and_path.substr(0, end_of_authority),
+          authority_and_path.substr(end_of_authority)};
+}
+
 /// https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
 std::string CanonicalRequest(
-    std::string_view url, std::string_view method,
+    std::string_view method, std::string_view path, std::string_view query,
     std::string_view payload_hash,
     const std::vector<std::pair<std::string, std::string_view>>& headers) {
-  auto uri = ParseGenericUri(url);
-  size_t end_of_bucket = uri.authority_and_path.find('/');
-  assert(end_of_bucket != std::string_view::npos);
-  auto path = uri.authority_and_path.substr(end_of_bucket);
-  assert(!path.empty());
+  std::string canonical =
+      absl::StrCat(method, "\n", S3UriObjectKeyEncode(path), "\n", query, "\n");
 
-  absl::Cord cord;
-  cord.Append(method);
-  cord.Append("\n");
-  cord.Append(S3UriObjectKeyEncode(path));
-  cord.Append("\n");
-
-  cord.Append(uri.query);
-  cord.Append("\n");
-
+  // Canonical Headers
+  std::vector<std::string_view> signed_headers;
+  signed_headers.reserve(headers.size());
   for (auto& pair : headers) {
-    cord.Append(pair.first);
-    cord.Append(":");
-    cord.Append(pair.second);
-    cord.Append("\n");
+    absl::StrAppend(&canonical, pair.first, ":", pair.second, "\n");
+    signed_headers.push_back(pair.first);
   }
-  cord.Append("\n");
-
-  // Signed headers
-  for (auto [it, first] = std::tuple{headers.begin(), true};
-       it != headers.end(); ++it, first = false) {
-    if (!first) cord.Append(";");
-    cord.Append(it->first);
-  }
-
-  cord.Append("\n");
-  cord.Append(payload_hash);
-
-  std::string result;
-  absl::CopyCordToString(cord, &result);
-  return result;
+  // Signed Headers
+  absl::StrAppend(&canonical, "\n", absl::StrJoin(signed_headers, ";"), "\n",
+                  payload_hash);
+  return canonical;
 }
 
 std::string SigningString(std::string_view canonical_request,
@@ -193,6 +180,7 @@ static constexpr char kAmzSecurityTokenHeader[] = "x-amz-security-token: ";
 /// requester in the header
 static constexpr char kAmzRequesterPayerHeader[] =
     "x-amz-requester-payer: requester";
+
 }  // namespace
 
 S3RequestBuilder& S3RequestBuilder::MaybeAddRequesterPayer(
@@ -203,12 +191,12 @@ S3RequestBuilder& S3RequestBuilder::MaybeAddRequesterPayer(
   return *this;
 }
 
-HttpRequest S3RequestBuilder::BuildRequest(std::string_view host,
+HttpRequest S3RequestBuilder::BuildRequest(std::string_view host_header,
                                            const AwsCredentials& credentials,
                                            std::string_view aws_region,
                                            std::string_view payload_sha256_hash,
                                            const absl::Time& time) {
-  builder_.AddHeader(absl::StrCat(kHostHeader, host));
+  builder_.AddHeader(absl::StrCat(kHostHeader, host_header));
   builder_.AddHeader(
       absl::StrCat(kAmzContentSha256Header, payload_sha256_hash));
   builder_.AddHeader(absl::FormatTime("x-amz-date: %Y%m%dT%H%M%SZ", time,
@@ -237,9 +225,9 @@ HttpRequest S3RequestBuilder::BuildRequest(std::string_view host,
 
   // Create sorted AWS4 signing headers
   std::vector<std::pair<std::string, std::string_view>> signed_headers;
-
+  signed_headers.reserve(request.headers.size());
   for (const auto& header_str : request.headers) {
-    auto header = std::string_view(header_str);
+    std::string_view header = header_str;
     auto pos = header.find(':');
     assert(pos != std::string::npos);
     auto key = absl::AsciiStrToLower(
@@ -247,11 +235,16 @@ HttpRequest S3RequestBuilder::BuildRequest(std::string_view host,
     auto value = absl::StripAsciiWhitespace(header.substr(pos + 1));
     signed_headers.push_back({std::move(key), std::move(value)});
   }
-
   std::stable_sort(std::begin(signed_headers), std::end(signed_headers));
 
-  canonical_request_ = CanonicalRequest(request.url, request.method,
-                                        payload_sha256_hash, signed_headers);
+  auto parsed_uri = ParseGenericUri(request.url);
+  auto authority_and_path =
+      SplitAuthorityAndPath(parsed_uri.authority_and_path);
+  assert(!authority_and_path.second.empty());
+
+  canonical_request_ =
+      CanonicalRequest(request.method, authority_and_path.second,
+                       parsed_uri.query, payload_sha256_hash, signed_headers);
   signing_string_ = SigningString(canonical_request_, aws_region, time);
   signature_ =
       Signature(credentials.secret_key, aws_region, signing_string_, time);
