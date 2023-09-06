@@ -467,7 +467,10 @@ def update_github_workspace(
       if not ref_name.startswith(ref_prefix):
         continue
       ver_str = ref_name[len(ref_prefix) :]
-      v = packaging.version.parse(ver_str)
+      try:
+        v = packaging.version.parse(ver_str)
+      except:
+        continue
       versions.append((v, ver_str))
     if not versions:
       return None
