@@ -18,7 +18,7 @@ add_custom_command(
   DEPENDS
     "${TEST_DIRECTORY}/x.h"
     "CMakeProject::bb"
-  COMMAND bash -c "$<TARGET_FILE:CMakeProject_bb> $(dirname $(dirname \"x.h\" )) $(dirname \"x.h\" ) \"x.h\" \"_cmake_binary_dir_/a.h\""
+  COMMAND $<TARGET_FILE:CMakeProject_bb> $(dirname $(dirname "x.h" )) $(dirname "x.h" ) "x.h" "_cmake_binary_dir_/a.h"
   VERBATIM
   WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
@@ -133,7 +133,7 @@ add_custom_command(
     "_cmake_binary_dir_/subdir/y.cc"
   DEPENDS
     "CMakeProject::bb"
-  COMMAND bash -c "$<TARGET_FILE:CMakeProject_bb> \"_cmake_binary_dir_/subdir/y.cc\""
+  COMMAND $<TARGET_FILE:CMakeProject_bb> "_cmake_binary_dir_/subdir/y.cc"
   VERBATIM
   WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
@@ -152,7 +152,7 @@ add_custom_command(
     "_cmake_binary_dir_/subdir/y.h"
   DEPENDS
     "CMakeProject::bb"
-  COMMAND bash -c "$<TARGET_FILE:CMakeProject_bb> \"_cmake_binary_dir_/subdir/y.h\""
+  COMMAND $<TARGET_FILE:CMakeProject_bb> "_cmake_binary_dir_/subdir/y.h"
   VERBATIM
   WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )

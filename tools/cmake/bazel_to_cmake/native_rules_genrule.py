@@ -144,6 +144,10 @@ def _genrule_impl(
     if x in kwargs:
       raise ValueError(f"genrule cannot handle {kwargs}")
 
+  # In Bazel, `genrule` always invokes bash, even on Windows, unless one of
+  # `cmd_{bat,ps}` is specified.  However, as we wish to avoid the Windows CMake
+  # build depending on Bash, instead just let CMake use the default shell.
+
   del kwargs
   state = _context.access(EvaluationState)
 
@@ -293,16 +297,6 @@ def _emit_genrule(
     optional_message_text = f"COMMENT {quote_string(message)}\n  "
   else:
     optional_message_text = ""
-
-  # In bazel, genrules run under bash shell, however in CMake it's more
-  # complicated. Assume that if the command starts with a quoted CMake
-  # variable that it's not necessary.
-  if not _QUOTED_VAR.match(cmd_text):
-    bash = os.getenv("BAZEL_SH")
-    if bash is not None:
-      cmd_text = f"$ENV{{BAZEL_SH}} -c {quote_string(cmd_text)}"
-    else:
-      cmd_text = f"bash -c {quote_string(cmd_text)}"
 
   sep = "\n    "
   quoted_outputs = quote_list(generated_files, sep)
