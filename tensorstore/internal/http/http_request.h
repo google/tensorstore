@@ -38,13 +38,15 @@ struct HttpRequest {
 
   template <typename Sink>
   friend void AbslStringify(Sink& sink, const HttpRequest& request) {
-    absl::Format(&sink, "HttpRequest{%s %s user_agent=%s", request.method,
-                 request.url, request.user_agent);
+    absl::Format(&sink, "HttpRequest{%s %s user_agent=%s, headers=<",
+                 request.method, request.url, request.user_agent);
+    const char* sep = "";
     for (const auto& v : request.headers) {
-      sink.Append(", ");
+      sink.Append(sep);
       sink.Append(v);
+      sep = ", ";
     }
-    sink.Append("}");
+    sink.Append(">}");
   }
 };
 
