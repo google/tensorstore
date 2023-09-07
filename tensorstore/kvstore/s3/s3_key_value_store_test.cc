@@ -31,6 +31,7 @@
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/generation_testutil.h"
+#include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/test_util.h"
@@ -234,6 +235,138 @@ TEST(S3KeyValueStoreTest, SimpleMock_NoVirtualHost) {
                   "900150983cd24fb0d6963f7d28e17f72")));
 
   TENSORSTORE_EXPECT_OK(kvstore::Delete(store, "key_delete"));
+}
+
+TEST(S3KeyValueStoreTest, SimpleMock_List) {
+  const auto kListResultA =
+      "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"                            //
+      "<ListBucketResult xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">"  //
+      "<Name>bucket</Name>"                                                   //
+      "<Prefix></Prefix>"                                                     //
+      "<KeyCount>3</KeyCount>"                                                //
+      "<MaxKeys>1000</MaxKeys>"                                               //
+      "<IsTruncated>true</IsTruncated>"                                       //
+      "<NextContinuationToken>CONTINUE</NextContinuationToken>"               //
+      "<Contents><Key>a</Key>"                                                //
+      "<LastModified>2023-09-06T17:53:27.000Z</LastModified>"                 //
+      "<ETag>&quot;d41d8cd98f00b204e9800998ecf8427e&quot;</ETag>"             //
+      "<Size>0</Size><StorageClass>STANDARD</StorageClass></Contents>"        //
+      "<Contents><Key>b</Key>"                                                //
+      "<LastModified>2023-09-06T17:53:28.000Z</LastModified>"                 //
+      "<ETag>&quot;d41d8cd98f00b204e9800998ecf8427e&quot;</ETag>"             //
+      "<Size>0</Size><StorageClass>STANDARD</StorageClass></Contents>"        //
+      "<Contents><Key>b/a</Key>"                                              //
+      "<LastModified>2023-09-06T17:53:28.000Z</LastModified>"                 //
+      "<ETag>&quot;d41d8cd98f00b204e9800998ecf8427e&quot;</ETag>"             //
+      "<Size>0</Size><StorageClass>STANDARD</StorageClass></Contents>"        //
+      "</ListBucketResult>";
+
+  const auto kListResultB =
+      "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"                            //
+      "<ListBucketResult xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">"  //
+      "<Name>bucket</Name>"                                                   //
+      "<Prefix></Prefix>"                                                     //
+      "<KeyCount>2</KeyCount>"                                                //
+      "<MaxKeys>1000</MaxKeys>"                                               //
+      "<IsTruncated>false</IsTruncated>"                                      //
+      "<Contents><Key>b/b</Key>"                                              //
+      "<LastModified>2023-09-06T17:53:28.000Z</LastModified>"                 //
+      "<ETag>&quot;d41d8cd98f00b204e9800998ecf8427e&quot;</ETag>"             //
+      "<Size>0</Size><StorageClass>STANDARD</StorageClass></Contents>"        //
+      "<Contents><Key>c</Key>"                                                //
+      "<LastModified>2023-09-06T17:53:28.000Z</LastModified>"                 //
+      "<ETag>&quot;d41d8cd98f00b204e9800998ecf8427e&quot;</ETag>"             //
+      "<Size>0</Size><StorageClass>STANDARD</StorageClass></Contents>"        //
+      "</ListBucketResult>";
+
+  // Mocks for s3
+  absl::flat_hash_map<std::string, HttpResponse> url_to_response{
+      // initial HEAD request responds with an x-amz-bucket-region header.
+      {"HEAD https://my-bucket.s3.amazonaws.com",
+       HttpResponse{200, absl::Cord(), {{"x-amz-bucket-region", "us-east-1"}}}},
+
+      {"GET https://my-bucket.s3.us-east-1.amazonaws.com/?list-type=2",
+       HttpResponse{200, absl::Cord(kListResultA), {}}},
+
+      {"GET "
+       "https://my-bucket.s3.us-east-1.amazonaws.com/"
+       "?continuation-token=CONTINUE&list-type=2",
+       HttpResponse{200, absl::Cord(kListResultB), {}}},
+  };
+
+  auto mock_transport = std::make_shared<MyMockTransport>(url_to_response);
+  DefaultHttpTransportSetter mock_transport_setter{mock_transport};
+
+  // Opens the s3 driver with small exponential backoff values.
+  auto context = DefaultTestContext();
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      kvstore::Open({{"driver", "s3"}, {"bucket", "my-bucket"}}, context)
+          .result());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto list_result,
+                                   kvstore::ListFuture(store, {}).result());
+  EXPECT_THAT(list_result, ::testing::ElementsAre("a", "b", "b/a", "b/b", "c"));
+}
+
+TEST(S3KeyValueStoreTest, SimpleMock_ListPrefix) {
+  const auto kListResult =
+      "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"                            //
+      "<ListBucketResult xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">"  //
+      "<Name>bucket</Name>"                                                   //
+      "<Prefix>b</Prefix>"                                                    //
+      "<KeyCount>4</KeyCount>"                                                //
+      "<MaxKeys>1000</MaxKeys>"                                               //
+      "<IsTruncated>false</IsTruncated>"                                      //
+      "<Contents><Key>b</Key>"                                                //
+      "<LastModified>2023-09-06T17:53:28.000Z</LastModified>"                 //
+      "<ETag>&quot;d41d8cd98f00b204e9800998ecf8427e&quot;</ETag>"             //
+      "<Size>0</Size><StorageClass>STANDARD</StorageClass></Contents>"        //
+      "<Contents><Key>b/a</Key>"                                              //
+      "<LastModified>2023-09-06T17:53:28.000Z</LastModified>"                 //
+      "<ETag>&quot;d41d8cd98f00b204e9800998ecf8427e&quot;</ETag>"             //
+      "<Size>0</Size><StorageClass>STANDARD</StorageClass></Contents>"        //
+      "<Contents><Key>b/b</Key>"                                              //
+      "<LastModified>2023-09-06T17:53:28.000Z</LastModified>"                 //
+      "<ETag>&quot;d41d8cd98f00b204e9800998ecf8427e&quot;</ETag>"             //
+      "<Size>0</Size><StorageClass>STANDARD</StorageClass></Contents>"        //
+      "<Contents><Key>c</Key>"                                                //
+      "<LastModified>2023-09-06T17:53:28.000Z</LastModified>"                 //
+      "<ETag>&quot;d41d8cd98f00b204e9800998ecf8427e&quot;</ETag>"             //
+      "<Size>0</Size><StorageClass>STANDARD</StorageClass></Contents>"        //
+      "</ListBucketResult>";
+
+  // Mocks for s3
+  absl::flat_hash_map<std::string, HttpResponse> url_to_response{
+      // initial HEAD request responds with an x-amz-bucket-region header.
+      {"HEAD https://my-bucket.s3.amazonaws.com",
+       HttpResponse{200, absl::Cord(), {{"x-amz-bucket-region", "us-east-1"}}}},
+
+      {"GET "
+       "https://my-bucket.s3.us-east-1.amazonaws.com/"
+       "?list-type=2&prefix=b",
+       HttpResponse{200,
+                    absl::Cord(kListResult),
+                    {{"etag", "900150983cd24fb0d6963f7d28e17f72"}}}},
+  };
+
+  auto mock_transport = std::make_shared<MyMockTransport>(url_to_response);
+  DefaultHttpTransportSetter mock_transport_setter{mock_transport};
+
+  // Opens the s3 driver with small exponential backoff values.
+  auto context = DefaultTestContext();
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      kvstore::Open({{"driver", "s3"}, {"bucket", "my-bucket"}}, context)
+          .result());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto list_result,
+      kvstore::ListFuture(store, {::tensorstore::KeyRange::Prefix("b")})
+          .result());
+  EXPECT_THAT(list_result, ::testing::ElementsAre("b", "b/a", "b/b"));
 }
 
 // TODO: Add mocking to satisfy kvstore testing methods, such as:

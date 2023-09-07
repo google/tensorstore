@@ -145,6 +145,7 @@ tensorstore_cc_test(
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:generation",
         "//tensorstore/kvstore:generation_testutil",
+        "//tensorstore/kvstore:key_range",
         "//tensorstore/kvstore:test_util",
         "//tensorstore/util:future",
         "//tensorstore/util:status_testutil",

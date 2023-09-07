@@ -1142,14 +1142,11 @@ struct ListTask : public RateLimiterNode,
     // https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjectsV2.html
     auto request_builder =
         S3RequestBuilder("GET", resource_).AddQueryParameter("list-type", "2");
-
-    if (auto& prefix = options_.range.inclusive_min; !prefix.empty()) {
-      if (options_.strip_prefix_length) {
-        prefix = prefix.substr(0, options_.strip_prefix_length);
-      }
-      request_builder.AddQueryParameter("prefix", prefix);
+    if (auto prefix = LongestPrefix(options_.range); !prefix.empty()) {
+      request_builder.AddQueryParameter("prefix", std::string(prefix));
     }
-
+    // NOTE: Consider adding a start-after query parameter, however that
+    // would require a predecessor to inclusive_min key.
     if (!continuation_token_.empty()) {
       request_builder.AddQueryParameter("continuation-token",
                                         continuation_token_);
@@ -1211,6 +1208,11 @@ struct ListTask : public RateLimiterNode,
     TagAndPosition tag_and_pos;
     auto cord = response->payload;
     auto payload = cord.Flatten();
+    // TODO: Use an xml parser, such as tinyxml2.
+    // Then this would could just iterate over the path elements:
+    //    /ListBucketResult/KeyCount
+    //    /ListBucketResult/NextContinuationToken
+    //    /ListBucketResult/Contents/Key
     auto kListBucketOpenTag =
         "<ListBucketResult xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">";
     TENSORSTORE_ASSIGN_OR_RETURN(
@@ -1233,15 +1235,19 @@ struct ListTask : public RateLimiterNode,
       TENSORSTORE_ASSIGN_OR_RETURN(
           tag_and_pos, GetTag(payload, "<Key>", "</Key>", contents_pos));
 
-      if (!options_.range.empty() &&
-          tensorstore::Contains(options_.range, tag_and_pos.tag)) {
-        if (options_.strip_prefix_length &&
-            tag_and_pos.tag.size() >= options_.strip_prefix_length) {
-          tag_and_pos.tag =
-              tag_and_pos.tag.substr(options_.strip_prefix_length);
-        }
-
-        execution::set_value(receiver_, tag_and_pos.tag);
+      const auto& key = tag_and_pos.tag;
+      if (key < options_.range.inclusive_min) continue;
+      if (KeyRange::CompareKeyAndExclusiveMax(
+              key, options_.range.exclusive_max) >= 0) {
+        // Objects are returned sorted in ascending order of the respective
+        // key names, so after the current key exceeds exclusive max no
+        // additional requests need to be made.
+        execution::set_done(receiver_);
+        return absl::OkStatus();
+      }
+      if (key.size() >= options_.strip_prefix_length) {
+        execution::set_value(receiver_,
+                             key.substr(options_.strip_prefix_length));
       }
     }
 
@@ -1258,7 +1264,6 @@ struct ListTask : public RateLimiterNode,
       continuation_token_ = tag_and_pos.tag;
       IssueRequest();
     } else {
-      continuation_token_.clear();
       execution::set_done(receiver_);
     }
     return absl::OkStatus();
