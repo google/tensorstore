@@ -41,6 +41,9 @@ def repo():
             # descriptor.proto, used for bootstrapping the cmake build, which also breaks
             # a big dependency on @com_google_protobuf.
             Label("//third_party:com_google_protobuf_upb/patches/bootstrap.diff"),
+
+            # Add -Wno-stringop-overread to upb; otherwise gcc fails with error=stringop-overload
+            Label("//third_party:com_google_protobuf_upb/patches/werror.diff"),
         ],
         patch_args = ["-p1"],
         repo_mapping = {
