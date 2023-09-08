@@ -1,6 +1,6 @@
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
 load("//docs:doctest.bzl", "doctest_test")
-load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 
 package(default_visibility = ["//tensorstore:internal_packages"])
 
@@ -68,6 +68,7 @@ tensorstore_cc_library(
         "//tensorstore/util:future",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
+        "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "//tensorstore/util/execution",
         "//tensorstore/util/execution:any_receiver",

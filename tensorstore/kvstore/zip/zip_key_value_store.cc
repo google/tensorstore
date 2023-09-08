@@ -55,6 +55,7 @@
 #include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 /// specializations
@@ -271,12 +272,8 @@ struct ReadState : public internal::AtomicReferenceCount<ReadState> {
       riegeli::CordReader reader(&source);
       reader.Seek(seek_pos);
 
-      absl::Status status;
-      status.Update(ReadLocalEntry(reader, local_header));
-      status.Update(ValidateEntryIsSupported(local_header));
-      if (!status.ok()) {
-        return result;
-      }
+      TENSORSTORE_RETURN_IF_ERROR(ReadLocalEntry(reader, local_header));
+      TENSORSTORE_RETURN_IF_ERROR(ValidateEntryIsSupported(local_header));
 
       TENSORSTORE_ASSIGN_OR_RETURN(
           auto byte_range,
