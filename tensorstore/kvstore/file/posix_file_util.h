@@ -23,6 +23,7 @@
 
 #ifndef _WIN32
 
+#include <string>
 #include <string_view>
 
 #include "absl/strings/cord.h"
@@ -34,6 +35,8 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -95,8 +98,8 @@ inline const auto GetDeviceId(const FileInfo& info) { return info.st_dev; }
 inline const auto GetFileId(const FileInfo& info) { return info.st_ino; }
 
 struct PosixMTime {
-  std::int64_t sec;
-  std::int64_t nsec;
+  int64_t sec;
+  int64_t nsec;
 };
 
 /// Returns the last modified time.
@@ -156,8 +159,8 @@ UniqueFileDescriptor OpenFileForWriting(const std::string& path);
 /// \returns Number of bytes read on success.  Returns `0` to indicate end of
 ///     file, or `-1` to indicate an error (in which case `GetLastErrorCode()`
 ///     retrieves the error).
-inline std::ptrdiff_t ReadFromFile(FileDescriptor fd, void* buf,
-                                   std::size_t count, std::int64_t offset) {
+inline ptrdiff_t ReadFromFile(FileDescriptor fd, void* buf, size_t count,
+                              int64_t offset) {
   return ::pread(fd, buf, count, static_cast<off_t>(offset));
 }
 
@@ -169,9 +172,8 @@ inline std::ptrdiff_t ReadFromFile(FileDescriptor fd, void* buf,
 /// \returns Number of bytes written on success.  Returns `0` or `-1` to
 ///     indicate an error (in which case `GetLastErrorCode()` retrieves the
 ///     error).
-inline std::ptrdiff_t WriteToFile(FileDescriptor fd, const void* buf,
-                                  std::size_t count) {
-  std::ptrdiff_t n = ::write(fd, buf, count);
+inline ptrdiff_t WriteToFile(FileDescriptor fd, const void* buf, size_t count) {
+  ptrdiff_t n = ::write(fd, buf, count);
   if (count != 0 && n == 0) {
     errno = ENOSPC;
   }
@@ -186,7 +188,7 @@ inline std::ptrdiff_t WriteToFile(FileDescriptor fd, const void* buf,
 /// \returns Number of bytes written on success.  Returns `0` or `-1` to
 ///     indicate an error (in which case `GetLastErrorCode()` retrieves the
 ///     error).
-std::ptrdiff_t WriteCordToFile(FileDescriptor fd, absl::Cord value);
+ptrdiff_t WriteCordToFile(FileDescriptor fd, absl::Cord value);
 
 /// Truncates an open file.
 ///

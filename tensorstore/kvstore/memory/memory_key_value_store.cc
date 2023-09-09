@@ -14,37 +14,50 @@
 
 #include "tensorstore/kvstore/memory/memory_key_value_store.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
+#include <algorithm>
 #include <atomic>
-#include <deque>
-#include <iterator>
+#include <cassert>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include "absl/base/thread_annotations.h"
 #include "absl/container/btree_map.h"
 #include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
+#include "absl/time/time.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
-#include "tensorstore/kvstore/kvstore.h"
+#include "tensorstore/kvstore/key_range.h"
+#include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/registry.h"
+#include "tensorstore/kvstore/spec.h"
+#include "tensorstore/kvstore/supported_features.h"
 #include "tensorstore/kvstore/transaction.h"
 #include "tensorstore/kvstore/url_registry.h"
+#include "tensorstore/transaction.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
-#include "tensorstore/util/execution/sender.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace {
@@ -192,7 +205,7 @@ class MemoryDriver
   /// owned by the `Context::Resource` rather than directly by
   /// `MemoryDriver` in order to allow it to live as long as the
   /// `Context` from which the `MemoryDriver` was opened, and thereby
-  /// allow an equivalent `MemoryDriver` to be re-opened from the
+  /// allow an equivalent `MemoryDriver` to be reopened from the
   /// `Context`.
   StoredKeyValuePairs& data() { return **spec_.memory_key_value_store; }
 
@@ -365,28 +378,25 @@ class MemoryDriver::TransactionNode
 Future<ReadResult> MemoryDriver::Read(Key key, ReadOptions options) {
   auto& data = this->data();
   absl::ReaderMutexLock lock(&data.mutex);
-  ReadResult result;
+  ReadResult read_result;
   auto& values = data.values;
   auto it = values.find(key);
   if (it == values.end()) {
     // Key not found.
-    result.stamp = GenerationNow(StorageGeneration::NoValue());
-    result.state = ReadResult::kMissing;
-    return result;
+    return ReadResult::Missing(GenerationNow(StorageGeneration::NoValue()));
   }
   // Key found.
-  result.stamp = GenerationNow(it->second.generation());
+  auto stamp = GenerationNow(it->second.generation());
   if (options.if_not_equal == it->second.generation() ||
       (!StorageGeneration::IsUnknown(options.if_equal) &&
        options.if_equal != it->second.generation())) {
     // Generation associated with `key` matches `if_not_equal`.  Abort.
-    return result;
+    return ReadResult::Unspecified(std::move(stamp));
   }
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto byte_range, options.byte_range.Validate(it->second.value.size()));
-  result.state = ReadResult::kValue;
-  result.value = internal::GetSubCord(it->second.value, byte_range);
-  return result;
+  return ReadResult::Value(internal::GetSubCord(it->second.value, byte_range),
+                           std::move(stamp));
 }
 
 Future<TimestampedStorageGeneration> MemoryDriver::Write(

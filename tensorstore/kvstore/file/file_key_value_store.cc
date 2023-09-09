@@ -86,7 +86,6 @@
 
 #include <atomic>
 #include <cassert>
-#include <cstddef>
 #include <memory>
 #include <optional>
 #include <string>
@@ -417,7 +416,7 @@ absl::Status VerifyRegularFile(FileDescriptor fd, FileInfo* info,
 
 Result<UniqueFileDescriptor> OpenValueFile(const char* path,
                                            StorageGeneration* generation,
-                                           std::int64_t* size = nullptr) {
+                                           int64_t* size = nullptr) {
   UniqueFileDescriptor fd =
       internal_file_util::OpenExistingFileForReading(path);
   if (!fd.valid()) {
@@ -617,7 +616,7 @@ struct ReadTask {
   Result<ReadResult> operator()() const {
     ReadResult read_result;
     read_result.stamp.time = absl::Now();
-    std::int64_t size;
+    int64_t size;
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto fd,
         OpenValueFile(full_path.c_str(), &read_result.stamp.generation, &size));
@@ -634,9 +633,9 @@ struct ReadTask {
                                  options.byte_range.Validate(size));
     read_result.state = ReadResult::kValue;
     internal::FlatCordBuilder buffer(byte_range.size());
-    std::size_t offset = 0;
+    size_t offset = 0;
     while (offset < buffer.size()) {
-      std::ptrdiff_t n = internal_file_util::ReadFromFile(
+      ptrdiff_t n = internal_file_util::ReadFromFile(
           fd.get(), buffer.data() + offset, buffer.size() - offset,
           byte_range.inclusive_min + offset);
       if (n > 0) {

@@ -264,11 +264,11 @@ struct ReadState : public internal::AtomicReferenceCount<ReadState> {
 
     internal_zip::ZipEntry local_header{};
     auto result = [&]() -> Result<ReadResult> {
-      kvstore::ReadResult result = std::move(ready.value());
-      if (!result.has_value()) {
-        return result;
+      kvstore::ReadResult read_result = std::move(ready.value());
+      if (!read_result.has_value()) {
+        return read_result;
       }
-      absl::Cord source = std::move(result.value);
+      absl::Cord source = std::move(read_result.value);
       riegeli::CordReader reader(&source);
       reader.Seek(seek_pos);
 
@@ -290,7 +290,7 @@ struct ReadState : public internal::AtomicReferenceCount<ReadState> {
         entry_reader->Skip(byte_range.inclusive_min);
       }
 
-      if (!entry_reader->Read(byte_range.size(), result.value)) {
+      if (!entry_reader->Read(byte_range.size(), read_result.value)) {
         // This should not happen unless there's some underlying corruption,
         // since the range has already been validated.
         if (entry_reader->status().ok()) {
@@ -298,7 +298,7 @@ struct ReadState : public internal::AtomicReferenceCount<ReadState> {
         }
         return entry_reader->status();
       }
-      return result;
+      return read_result;
     }();
 
     ABSL_LOG_IF(INFO, TENSORSTORE_ZIP_IMPL_LOGGING && !result.ok())

@@ -19,6 +19,7 @@
 ///
 /// Integrates `AsyncCache` with `kvstore::Driver`.
 
+#include <cstddef>
 #include <memory>
 #include <optional>
 #include <string>
@@ -33,12 +34,14 @@
 #include "tensorstore/internal/cache/async_cache.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
-#include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_modify_write.h"
+#include "tensorstore/kvstore/read_result.h"
+#include "tensorstore/kvstore/spec.h"
+#include "tensorstore/transaction.h"
+#include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/future_sender.h"  // IWYU pragma: keep
-#include "tensorstore/util/future.h"
 #include "tensorstore/util/status.h"
 
 namespace tensorstore {
@@ -312,7 +315,8 @@ class KvsBackedCache : public Parent {
             if (self_->transaction()->commit_started()) {
               self_->new_data_ = std::move(update.data);
             }
-            return execution::set_value(receiver_, std::move(update.stamp));
+            return execution::set_value(
+                receiver_, kvstore::ReadResult::Unspecified(update.stamp));
           }
           ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
               << *self_ << "DoEncode";

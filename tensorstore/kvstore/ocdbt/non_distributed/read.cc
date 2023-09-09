@@ -14,6 +14,8 @@
 
 #include "tensorstore/kvstore/ocdbt/non_distributed/read.h"
 
+#include <stddef.h>
+
 #include <algorithm>
 #include <memory>
 #include <string>
@@ -134,9 +136,7 @@ struct ReadOperation : public internal::AtomicReferenceCount<ReadOperation> {
 
   // Completes the read request, indicating that the key is missing.
   void KeyNotPresent(const Promise<kvstore::ReadResult>& promise) {
-    promise.SetResult(
-        std::in_place, kvstore::ReadResult::kMissing, absl::Cord(),
-        TimestampedStorageGeneration{StorageGeneration::NoValue(), time});
+    promise.SetResult(kvstore::ReadResult::Missing(time));
   }
 
   // Recursively descends the B+tree.
@@ -259,8 +259,8 @@ struct ReadOperation : public internal::AtomicReferenceCount<ReadOperation> {
     if (!StorageGeneration::EqualOrUnspecified(generation, op->if_equal) ||
         !StorageGeneration::NotEqualOrUnspecified(generation,
                                                   op->if_not_equal)) {
-      promise.SetResult(std::in_place, TimestampedStorageGeneration{
-                                           std::move(generation), op->time});
+      promise.SetResult(kvstore::ReadResult::Unspecified(
+          TimestampedStorageGeneration{std::move(generation), op->time}));
       return;
     }
 
@@ -269,10 +269,9 @@ struct ReadOperation : public internal::AtomicReferenceCount<ReadOperation> {
       TENSORSTORE_ASSIGN_OR_RETURN(
           auto byte_range, op->byte_range.Validate(direct_value->size()),
           static_cast<void>(promise.SetResult(_)));
-      promise.SetResult(
-          std::in_place, kvstore::ReadResult::kValue,
+      promise.SetResult(kvstore::ReadResult::Value(
           internal::GetSubCord(*direct_value, byte_range),
-          TimestampedStorageGeneration{std::move(generation), op->time});
+          TimestampedStorageGeneration{std::move(generation), op->time}));
       return;
     }
 

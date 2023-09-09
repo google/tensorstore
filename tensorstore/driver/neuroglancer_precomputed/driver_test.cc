@@ -14,9 +14,10 @@
 
 /// End-to-end tests of the Neuroglancer precomputed driver.
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <cmath>
-#include <cstddef>
-#include <cstdint>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -28,6 +29,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/time/clock.h"
+#include <nlohmann/json.hpp>
 #include "riegeli/bytes/cord_writer.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
@@ -172,7 +174,7 @@ TEST(DriverTest, Create) {
     EXPECT_EQ(store.domain(), resolved.domain());
 
     // Issue a read to be filled with the fill value.
-    EXPECT_EQ(tensorstore::MakeArray<std::uint16_t>({{{{0, 0, 0, 0}}}}),
+    EXPECT_EQ(tensorstore::MakeArray<uint16_t>({{{{0, 0, 0, 0}}}}),
               tensorstore::Read<tensorstore::zero_origin>(
                   ChainResult(store, tensorstore::AllDims().SizedInterval(
                                          {9, 7, 3, 0}, {1, 1, 1, 4})))
@@ -187,7 +189,7 @@ TEST(DriverTest, Create) {
 
     // Issue a valid write.
     TENSORSTORE_EXPECT_OK(tensorstore::Write(
-        tensorstore::MakeArray<std::uint16_t>(
+        tensorstore::MakeArray<uint16_t>(
             {{{{0x9871, 0x9872}, {0x9881, 0x9882}},
               {{0x9971, 0x9972}, {0x9981, 0x9982}},
               {{0x9A71, 0x9A72}, {0x9A81, 0x9A82}}},
@@ -200,7 +202,7 @@ TEST(DriverTest, Create) {
     // Issue an out-of-bounds write.
     EXPECT_THAT(
         tensorstore::Write(
-            tensorstore::MakeArray<std::uint16_t>({{1, 2, 3}, {4, 5, 6}}),
+            tensorstore::MakeArray<uint16_t>({{1, 2, 3}, {4, 5, 6}}),
             ChainResult(store,
                         tensorstore::Dims("z", "channel").IndexSlice({3, 0}),
                         tensorstore::AllDims().SizedInterval({10, 8}, {2, 3})))
@@ -208,7 +210,7 @@ TEST(DriverTest, Create) {
         MatchesStatus(absl::StatusCode::kOutOfRange));
 
     // Re-read and validate result.
-    EXPECT_EQ(tensorstore::MakeArray<std::uint16_t>(
+    EXPECT_EQ(tensorstore::MakeArray<uint16_t>(
                   {{{{0x0000, 0x0000, 0x0000}, {0x0000, 0x0000, 0x0000}},
                     {{0x0000, 0x9871, 0x9872}, {0x0000, 0x9881, 0x9882}},
                     {{0x0000, 0x9971, 0x9972}, {0x0000, 0x9981, 0x9982}},
@@ -360,7 +362,7 @@ TEST(DriverTest, Create) {
         tensorstore::Open(json_spec, context, tensorstore::OpenMode::open,
                           tensorstore::ReadWriteMode::read_write)
             .result());
-    EXPECT_EQ(tensorstore::MakeArray<std::uint16_t>(
+    EXPECT_EQ(tensorstore::MakeArray<uint16_t>(
                   {{{{0x0000, 0x0000, 0x0000}, {0x0000, 0x0000, 0x0000}},
                     {{0x0000, 0x9871, 0x9872}, {0x0000, 0x9881, 0x9882}},
                     {{0x0000, 0x9971, 0x9972}, {0x0000, 0x9981, 0x9982}},
@@ -398,7 +400,7 @@ TEST(DriverTest, Create) {
                           tensorstore::ReadWriteMode::read_write)
             .result());
 
-    EXPECT_EQ(tensorstore::AllocateArray<std::uint16_t>(
+    EXPECT_EQ(tensorstore::AllocateArray<uint16_t>(
                   {2, 4, 2, 3}, tensorstore::c_order, tensorstore::value_init),
               tensorstore::Read<tensorstore::zero_origin>(
                   ChainResult(store, tensorstore::AllDims().SizedInterval(
@@ -649,7 +651,7 @@ TEST(DriverTest, CompressedSegmentationEncodingUint32) {
         tensorstore::Open(json_spec, context, tensorstore::OpenMode::create)
             .result());
     tensorstore::Write(
-        tensorstore::MakeArray<std::uint32_t>({
+        tensorstore::MakeArray<uint32_t>({
             // Each compressed segmentation block has a single distinct value.
             {{1, 1, 1}, {1, 1, 1}, {2, 2, 2}, {2, 2, 2}},
             {{3, 3, 3}, {3, 3, 3}, {4, 4, 4}, {4, 4, 4}},
@@ -719,7 +721,7 @@ TEST(DriverTest, CompressedSegmentationEncodingUint32) {
                           tensorstore::ReadWriteMode::read)
             .result());
     EXPECT_EQ(
-        tensorstore::MakeArray<std::uint32_t>({
+        tensorstore::MakeArray<uint32_t>({
             // Each compressed segmentation block has a single distinct value.
             {{1, 1, 1}, {1, 1, 1}, {2, 2, 2}, {2, 2, 2}},
             {{3, 3, 3}, {3, 3, 3}, {4, 4, 4}, {4, 4, 4}},
@@ -763,7 +765,7 @@ TEST(DriverTest, CompressedSegmentationEncodingUint64) {
         tensorstore::Open(json_spec, context, tensorstore::OpenMode::create)
             .result());
     tensorstore::Write(
-        tensorstore::MakeArray<std::uint64_t>({
+        tensorstore::MakeArray<uint64_t>({
             // Each compressed segmentation block has a single distinct value.
             {{1, 1, 1}, {1, 1, 1}, {2, 2, 2}, {2, 2, 2}},
             {{3, 3, 3}, {3, 3, 3}, {4, 4, 4}, {4, 4, 4}},
@@ -839,7 +841,7 @@ TEST(DriverTest, CompressedSegmentationEncodingUint64) {
             .result());
     // Verify that reading back has the expected result.
     EXPECT_EQ(
-        tensorstore::MakeArray<std::uint64_t>({
+        tensorstore::MakeArray<uint64_t>({
             // Each compressed segmentation block has a single distinct value.
             {{1, 1, 1}, {1, 1, 1}, {2, 2, 2}, {2, 2, 2}},
             {{3, 3, 3}, {3, 3, 3}, {4, 4, 4}, {4, 4, 4}},
@@ -870,12 +872,11 @@ TEST(DriverTest, CompressedSegmentationEncodingUint64) {
   }
 }
 
-double GetRootMeanSquaredError(
-    tensorstore::ArrayView<const std::uint8_t> array_a,
-    tensorstore::ArrayView<const std::uint8_t> array_b) {
+double GetRootMeanSquaredError(tensorstore::ArrayView<const uint8_t> array_a,
+                               tensorstore::ArrayView<const uint8_t> array_b) {
   double mean_squared_error = 0;
   tensorstore::IterateOverArrays(
-      [&](const std::uint8_t* a, const std::uint8_t* b) {
+      [&](const uint8_t* a, const uint8_t* b) {
         double diff = static_cast<double>(*a) - static_cast<double>(*b);
         mean_squared_error += diff * diff;
       },
@@ -905,7 +906,7 @@ TEST(DriverTest, Jpeg1Channel) {
        }},
   };
 
-  auto array = tensorstore::AllocateArray<std::uint8_t>({5, 4, 2, 1});
+  auto array = tensorstore::AllocateArray<uint8_t>({5, 4, 2, 1});
   for (int x = 0; x < array.shape()[0]; ++x) {
     for (int y = 0; y < array.shape()[1]; ++y) {
       for (int z = 0; z < array.shape()[2]; ++z) {
@@ -971,7 +972,7 @@ TEST(DriverTest, Jpeg1Channel) {
             .value();
     EXPECT_LT(
         GetRootMeanSquaredError(
-            tensorstore::StaticDataTypeCast<const std::uint8_t,
+            tensorstore::StaticDataTypeCast<const uint8_t,
                                             tensorstore::unchecked>(read_array),
             array),
         5);
@@ -1068,7 +1069,7 @@ TEST(DriverTest, JpegQuality) {
        }},
   };
 
-  auto array = tensorstore::AllocateArray<std::uint8_t>({5, 4, 2, 1});
+  auto array = tensorstore::AllocateArray<uint8_t>({5, 4, 2, 1});
   for (int x = 0; x < array.shape()[0]; ++x) {
     for (int y = 0; y < array.shape()[1]; ++y) {
       for (int z = 0; z < array.shape()[2]; ++z) {
@@ -1134,7 +1135,7 @@ TEST(DriverTest, Jpeg3Channel) {
        }},
   };
 
-  auto array = tensorstore::AllocateArray<std::uint8_t>({5, 4, 2, 3});
+  auto array = tensorstore::AllocateArray<uint8_t>({5, 4, 2, 3});
   for (int x = 0; x < 5; ++x) {
     for (int y = 0; y < 4; ++y) {
       for (int z = 0; z < 2; ++z) {
@@ -1202,7 +1203,7 @@ TEST(DriverTest, Jpeg3Channel) {
             .value();
     EXPECT_LT(
         GetRootMeanSquaredError(
-            tensorstore::StaticDataTypeCast<const std::uint8_t,
+            tensorstore::StaticDataTypeCast<const uint8_t,
                                             tensorstore::unchecked>(read_array),
             array),
         9)
@@ -1434,7 +1435,7 @@ TENSORSTORE_GLOBAL_INITIALIZER {
                                     .labels({"x", "y", "z", "channel"})
                                     .Finalize()
                                     .value();
-      options.initial_value = tensorstore::AllocateArray<std::uint16_t>(
+      options.initial_value = tensorstore::AllocateArray<uint16_t>(
           tensorstore::BoxView({1, 2, 3, 0}, {x_size, y_size, z_size, c_size}),
           tensorstore::c_order, tensorstore::value_init);
       tensorstore::internal::RegisterTensorStoreDriverBasicFunctionalityTest(
@@ -1491,7 +1492,7 @@ TEST(ShardedWriteTest, Basic) {
                             {"create", true},
                         })
           .result());
-  auto array = tensorstore::MakeArray<std::uint16_t>(
+  auto array = tensorstore::MakeArray<uint16_t>(
       {{{{1, 2}}, {{3, 4}}, {{5, 6}}, {{7, 8}}, {{9, 10}}},
        {{{11, 12}}, {{13, 14}}, {{15, 16}}, {{17, 18}}, {{19, 20}}},
        {{{21, 22}}, {{23, 24}}, {{25, 26}}, {{27, 28}}, {{29, 30}}},
@@ -1564,10 +1565,7 @@ TEST(FullShardWriteTest, Basic) {
     {
       auto req = mock_key_value_store->read_requests.pop();
       EXPECT_EQ("prefix/info", req.key);
-      req.promise.SetResult(
-          kvstore::ReadResult{kvstore::ReadResult::kMissing,
-                              {},
-                              {StorageGeneration::NoValue(), absl::Now()}});
+      req.promise.SetResult(kvstore::ReadResult::Missing(absl::Now()));
     }
 
     {
@@ -1581,7 +1579,7 @@ TEST(FullShardWriteTest, Basic) {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store, store_future.result());
 
     auto future = tensorstore::Write(
-        tensorstore::MakeScalarArray<std::uint16_t>(42),
+        tensorstore::MakeScalarArray<uint16_t>(42),
         tensorstore::ChainResult(
             store,
             tensorstore::Dims(0, 1, 2).SizedInterval({0, 4, 8}, {4, 2, 2})));
@@ -1633,7 +1631,7 @@ TEST(DriverTest, NoPrefix) {
                         tensorstore::ReadWriteMode::read_write)
           .result());
   TENSORSTORE_EXPECT_OK(tensorstore::Write(
-      tensorstore::MakeArray<std::uint8_t>({{1, 2, 3}, {4, 5, 6}}),
+      tensorstore::MakeArray<uint8_t>({{1, 2, 3}, {4, 5, 6}}),
       store | tensorstore::Dims("z", "channel").IndexSlice({0, 0})));
   // Check that key value store has expected contents.
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(

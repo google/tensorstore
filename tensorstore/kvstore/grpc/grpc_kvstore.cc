@@ -237,14 +237,13 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask> {
   Result<kvstore::ReadResult> Ready(absl::Status status) {
     TENSORSTORE_RETURN_IF_ERROR(status);
     TENSORSTORE_RETURN_IF_ERROR(GetMessageStatus(response));
-    kvstore::ReadResult result;
-    TENSORSTORE_ASSIGN_OR_RETURN(result.stamp,
+    TENSORSTORE_ASSIGN_OR_RETURN(auto stamp,
                                  DecodeGenerationAndTimestamp(response));
-    result.state = static_cast<kvstore::ReadResult::State>(response.state());
-    if (result.has_value()) {
-      result.value = response.value();
-    }
-    return result;
+    return kvstore::ReadResult{
+        static_cast<kvstore::ReadResult::State>(response.state()),
+        absl::Cord(response.value()),
+        std::move(stamp),
+    };
   }
 };
 

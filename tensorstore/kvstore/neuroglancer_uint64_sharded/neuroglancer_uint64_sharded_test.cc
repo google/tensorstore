@@ -675,13 +675,12 @@ TEST_F(UnderlyingKeyValueStoreTest, Read) {
       EXPECT_EQ(StorageGeneration::Unknown(), req.options.if_equal);
       EXPECT_EQ(OptionalByteRangeRequest(0, 16), req.options.byte_range);
       EXPECT_THAT(req.options.staleness_bound, ::testing::Gt(init_time));
-      req.promise.SetResult(
-          ReadResult{ReadResult::kValue,
-                     Bytes({
-                         5, 0, 0, 0, 0, 0, 0, 0,   //
-                         31, 0, 0, 0, 0, 0, 0, 0,  //
-                     }),
-                     {StorageGeneration::FromString("g0"), absl::Now()}});
+      req.promise.SetResult(ReadResult::Value(
+          Bytes({
+              5, 0, 0, 0, 0, 0, 0, 0,   //
+              31, 0, 0, 0, 0, 0, 0, 0,  //
+          }),
+          {StorageGeneration::FromString("g0"), absl::Now()}));
     }
     {
       auto req = mock_store->read_requests.pop_nonblock().value();
@@ -691,14 +690,13 @@ TEST_F(UnderlyingKeyValueStoreTest, Read) {
       EXPECT_EQ(StorageGeneration::FromString("g0"), req.options.if_equal);
       EXPECT_EQ(OptionalByteRangeRequest(37, 63), req.options.byte_range);
       minishard_index_time = absl::Now();
-      req.promise.SetResult(ReadResult{
-          ReadResult::kValue,
+      req.promise.SetResult(ReadResult::Value(
           Bytes({
               0x50, 0, 0, 0, 0, 0, 0, 0,  //
               0,    0, 0, 0, 0, 0, 0, 0,  //
               5,    0, 0, 0, 0, 0, 0, 0,  //
           }),
-          {StorageGeneration::FromString("g0"), minishard_index_time}});
+          {StorageGeneration::FromString("g0"), minishard_index_time}));
     }
     absl::Time read_time;
     {
@@ -710,9 +708,8 @@ TEST_F(UnderlyingKeyValueStoreTest, Read) {
       EXPECT_EQ(OptionalByteRangeRequest(32, 37), req.options.byte_range);
       read_time = absl::Now();
       req.promise.SetResult(
-          ReadResult{ReadResult::kValue,
-                     Bytes({5, 6, 7, 8, 9}),
-                     {StorageGeneration::FromString("g0"), read_time}});
+          ReadResult::Value(Bytes({5, 6, 7, 8, 9}),
+                            {StorageGeneration::FromString("g0"), read_time}));
     }
     ASSERT_EQ(0, mock_store->read_requests.size());
     ASSERT_TRUE(future.ready());
@@ -747,8 +744,8 @@ TEST_F(UnderlyingKeyValueStoreTest, Read) {
       EXPECT_EQ(OptionalByteRangeRequest(0, 16), req.options.byte_range);
       EXPECT_THAT(req.options.staleness_bound, ::testing::Gt(req_time));
       minishard_index_time = absl::Now();
-      req.promise.SetResult(ReadResult{
-          {StorageGeneration::FromString("g0"), minishard_index_time}});
+      req.promise.SetResult(ReadResult::Unspecified(
+          {StorageGeneration::FromString("g0"), minishard_index_time}));
     }
     ASSERT_TRUE(future.ready());
     EXPECT_THAT(future.result(),
@@ -772,9 +769,8 @@ TEST_F(UnderlyingKeyValueStoreTest, Read) {
       EXPECT_EQ(init_time, req.options.staleness_bound);
       read_time = absl::Now();
       req.promise.SetResult(
-          ReadResult{ReadResult::kValue,
-                     Bytes({5, 6, 7, 8, 9}),
-                     {StorageGeneration::FromString("g0"), read_time}});
+          ReadResult::Value(Bytes({5, 6, 7, 8, 9}),
+                            {StorageGeneration::FromString("g0"), read_time}));
     }
     ASSERT_EQ(0, mock_store->read_requests.size());
     ASSERT_TRUE(future.ready());
@@ -800,8 +796,8 @@ TEST_F(UnderlyingKeyValueStoreTest, Read) {
       EXPECT_EQ(StorageGeneration::FromString("g0"), req.options.if_equal);
       EXPECT_EQ(OptionalByteRangeRequest(32, 37), req.options.byte_range);
       abort_time = absl::Now();
-      req.promise.SetResult(
-          ReadResult{{StorageGeneration::FromString("g0"), abort_time}});
+      req.promise.SetResult(ReadResult::Unspecified(
+          {StorageGeneration::FromString("g0"), abort_time}));
     }
     // Request for updated shard index.
     {
@@ -812,13 +808,12 @@ TEST_F(UnderlyingKeyValueStoreTest, Read) {
       EXPECT_EQ(StorageGeneration::Unknown(), req.options.if_equal);
       EXPECT_EQ(OptionalByteRangeRequest(0, 16), req.options.byte_range);
       EXPECT_THAT(req.options.staleness_bound, ::testing::Ge(abort_time));
-      req.promise.SetResult(
-          ReadResult{ReadResult::kValue,
-                     Bytes({
-                         6, 0, 0, 0, 0, 0, 0, 0,   //
-                         32, 0, 0, 0, 0, 0, 0, 0,  //
-                     }),
-                     {StorageGeneration::FromString("g1"), absl::Now()}});
+      req.promise.SetResult(ReadResult::Value(
+          Bytes({
+              6, 0, 0, 0, 0, 0, 0, 0,   //
+              32, 0, 0, 0, 0, 0, 0, 0,  //
+          }),
+          {StorageGeneration::FromString("g1"), absl::Now()}));
     }
     // Request for updated minishard index.
     {
@@ -829,14 +824,13 @@ TEST_F(UnderlyingKeyValueStoreTest, Read) {
       EXPECT_EQ(StorageGeneration::FromString("g1"), req.options.if_equal);
       EXPECT_EQ(OptionalByteRangeRequest(38, 64), req.options.byte_range);
       minishard_index_time = absl::Now();
-      req.promise.SetResult(ReadResult{
-          ReadResult::kValue,
+      req.promise.SetResult(ReadResult::Value(
           Bytes({
               0x50, 0, 0, 0, 0, 0, 0, 0,  //
               0,    0, 0, 0, 0, 0, 0, 0,  //
               6,    0, 0, 0, 0, 0, 0, 0,  //
           }),
-          {StorageGeneration::FromString("g1"), minishard_index_time}});
+          {StorageGeneration::FromString("g1"), minishard_index_time}));
     }
     // Request for value.
     absl::Time read_time;
@@ -849,9 +843,8 @@ TEST_F(UnderlyingKeyValueStoreTest, Read) {
       EXPECT_EQ(OptionalByteRangeRequest(32, 38), req.options.byte_range);
       read_time = absl::Now();
       req.promise.SetResult(
-          ReadResult{ReadResult::kValue,
-                     Bytes({4, 5, 6, 7, 8, 9}),
-                     {StorageGeneration::FromString("g1"), read_time}});
+          ReadResult::Value(Bytes({4, 5, 6, 7, 8, 9}),
+                            {StorageGeneration::FromString("g1"), read_time}));
     }
     ASSERT_EQ(0, mock_store->read_requests.size());
     ASSERT_TRUE(future.ready());
@@ -881,12 +874,11 @@ TEST_F(UnderlyingKeyValueStoreTest,
     EXPECT_EQ(init_time, req.options.staleness_bound);
     EXPECT_EQ(OptionalByteRangeRequest(16, 32), req.options.byte_range);
     req.promise.SetResult(
-        ReadResult{ReadResult::kValue,
-                   Bytes({
-                       6, 0, 0, 0, 0, 0, 0, 0,   //
-                       32, 0, 0, 0, 0, 0, 0, 0,  //
-                   }),
-                   {StorageGeneration::FromString("g2"), absl::Now()}});
+        ReadResult::Value(Bytes({
+                              6, 0, 0, 0, 0, 0, 0, 0,   //
+                              32, 0, 0, 0, 0, 0, 0, 0,  //
+                          }),
+                          {StorageGeneration::FromString("g2"), absl::Now()}));
   }
   // Request for minishard index.
   {
@@ -897,8 +889,8 @@ TEST_F(UnderlyingKeyValueStoreTest,
     EXPECT_EQ(StorageGeneration::FromString("g2"), req.options.if_equal);
     EXPECT_EQ(OptionalByteRangeRequest(38, 64), req.options.byte_range);
     abort_time = absl::Now();
-    req.promise.SetResult(
-        ReadResult{{StorageGeneration::FromString("g2"), abort_time}});
+    req.promise.SetResult(ReadResult::Unspecified(
+        {StorageGeneration::FromString("g2"), abort_time}));
   }
   // Request for updated shard index.
   {
@@ -910,12 +902,11 @@ TEST_F(UnderlyingKeyValueStoreTest,
     EXPECT_THAT(req.options.staleness_bound, ::testing::Ge(abort_time));
     EXPECT_EQ(OptionalByteRangeRequest(16, 32), req.options.byte_range);
     req.promise.SetResult(
-        ReadResult{ReadResult::kValue,
-                   Bytes({
-                       7, 0, 0, 0, 0, 0, 0, 0,   //
-                       33, 0, 0, 0, 0, 0, 0, 0,  //
-                   }),
-                   {StorageGeneration::FromString("g3"), absl::Now()}});
+        ReadResult::Value(Bytes({
+                              7, 0, 0, 0, 0, 0, 0, 0,   //
+                              33, 0, 0, 0, 0, 0, 0, 0,  //
+                          }),
+                          {StorageGeneration::FromString("g3"), absl::Now()}));
   }
   // Request for updated minishard index.
   {
@@ -926,13 +917,12 @@ TEST_F(UnderlyingKeyValueStoreTest,
     EXPECT_EQ(StorageGeneration::FromString("g3"), req.options.if_equal);
     EXPECT_EQ(OptionalByteRangeRequest(39, 65), req.options.byte_range);
     req.promise.SetResult(
-        ReadResult{ReadResult::kValue,
-                   Bytes({
-                       0x1, 0, 0, 0, 0, 0, 0, 0,  //
-                       0,   0, 0, 0, 0, 0, 0, 0,  //
-                       4,   0, 0, 0, 0, 0, 0, 0,  //
-                   }),
-                   {StorageGeneration::FromString("g3"), absl::Now()}});
+        ReadResult::Value(Bytes({
+                              0x1, 0, 0, 0, 0, 0, 0, 0,  //
+                              0,   0, 0, 0, 0, 0, 0, 0,  //
+                              4,   0, 0, 0, 0, 0, 0, 0,  //
+                          }),
+                          {StorageGeneration::FromString("g3"), absl::Now()}));
   }
   // Request for value.
   absl::Time read_time;
@@ -944,10 +934,8 @@ TEST_F(UnderlyingKeyValueStoreTest,
     EXPECT_EQ(StorageGeneration::FromString("g3"), req.options.if_equal);
     EXPECT_EQ(OptionalByteRangeRequest(32, 36), req.options.byte_range);
     read_time = absl::Now();
-    req.promise.SetResult(
-        ReadResult{ReadResult::kValue,
-                   Bytes({4, 5, 6, 7}),
-                   {StorageGeneration::FromString("g3"), read_time}});
+    req.promise.SetResult(ReadResult::Value(
+        Bytes({4, 5, 6, 7}), {StorageGeneration::FromString("g3"), read_time}));
   }
   ASSERT_EQ(0, mock_store->read_requests.size());
   ASSERT_TRUE(future.ready());
@@ -973,12 +961,11 @@ TEST_F(UnderlyingKeyValueStoreTest,
     EXPECT_THAT(req.options.staleness_bound, ::testing::Gt(req_time));
     EXPECT_EQ(OptionalByteRangeRequest(16, 32), req.options.byte_range);
     req.promise.SetResult(
-        ReadResult{ReadResult::kValue,
-                   Bytes({
-                       6, 0, 0, 0, 0, 0, 0, 0,   //
-                       32, 0, 0, 0, 0, 0, 0, 0,  //
-                   }),
-                   {StorageGeneration::FromString("g4"), absl::Now()}});
+        ReadResult::Value(Bytes({
+                              6, 0, 0, 0, 0, 0, 0, 0,   //
+                              32, 0, 0, 0, 0, 0, 0, 0,  //
+                          }),
+                          {StorageGeneration::FromString("g4"), absl::Now()}));
   }
   // Request for minishard index.
   absl::Time read_time;
@@ -990,8 +977,7 @@ TEST_F(UnderlyingKeyValueStoreTest,
     EXPECT_EQ(StorageGeneration::FromString("g4"), req.options.if_equal);
     EXPECT_EQ(OptionalByteRangeRequest(38, 64), req.options.byte_range);
     read_time = absl::Now();
-    req.promise.SetResult(ReadResult{
-        ReadResult::kMissing, {}, {StorageGeneration::NoValue(), read_time}});
+    req.promise.SetResult(ReadResult::Missing(read_time));
   }
   ASSERT_EQ(0, mock_store->read_requests.size());
   ASSERT_TRUE(future.ready());
@@ -1014,12 +1000,11 @@ TEST_F(UnderlyingKeyValueStoreTest,
     EXPECT_THAT(req.options.staleness_bound, ::testing::Gt(req_time));
     EXPECT_EQ(OptionalByteRangeRequest(16, 32), req.options.byte_range);
     req.promise.SetResult(
-        ReadResult{ReadResult::kValue,
-                   Bytes({
-                       6, 0, 0, 0, 0, 0, 0, 0,   //
-                       32, 0, 0, 0, 0, 0, 0, 0,  //
-                   }),
-                   {StorageGeneration::FromString("g0"), absl::Now()}});
+        ReadResult::Value(Bytes({
+                              6, 0, 0, 0, 0, 0, 0, 0,   //
+                              32, 0, 0, 0, 0, 0, 0, 0,  //
+                          }),
+                          {StorageGeneration::FromString("g0"), absl::Now()}));
   }
   // Request for minishard index.
   {
@@ -1030,13 +1015,12 @@ TEST_F(UnderlyingKeyValueStoreTest,
     EXPECT_EQ(StorageGeneration::FromString("g0"), req.options.if_equal);
     EXPECT_EQ(OptionalByteRangeRequest(38, 64), req.options.byte_range);
     req.promise.SetResult(
-        ReadResult{ReadResult::kValue,
-                   Bytes({
-                       0x1, 0, 0, 0, 0, 0, 0, 0,  //
-                       0,   0, 0, 0, 0, 0, 0, 0,  //
-                       4,   0, 0, 0, 0, 0, 0, 0,  //
-                   }),
-                   {StorageGeneration::FromString("g0"), absl::Now()}});
+        ReadResult::Value(Bytes({
+                              0x1, 0, 0, 0, 0, 0, 0, 0,  //
+                              0,   0, 0, 0, 0, 0, 0, 0,  //
+                              4,   0, 0, 0, 0, 0, 0, 0,  //
+                          }),
+                          {StorageGeneration::FromString("g0"), absl::Now()}));
   }
   // Request for value.
   absl::Time read_time;
@@ -1048,8 +1032,7 @@ TEST_F(UnderlyingKeyValueStoreTest,
     EXPECT_EQ(StorageGeneration::FromString("g0"), req.options.if_equal);
     EXPECT_EQ(OptionalByteRangeRequest(32, 36), req.options.byte_range);
     read_time = absl::Now();
-    req.promise.SetResult(ReadResult{
-        ReadResult::kMissing, {}, {StorageGeneration::NoValue(), read_time}});
+    req.promise.SetResult(ReadResult::Missing(read_time));
   }
   ASSERT_EQ(0, mock_store->read_requests.size());
   ASSERT_TRUE(future.ready());
@@ -1083,12 +1066,11 @@ TEST_F(UnderlyingKeyValueStoreTest, ReadErrorReadingMinishardShardIndex) {
     EXPECT_EQ("prefix/0.shard", req.key);
     EXPECT_EQ(OptionalByteRangeRequest(16, 32), req.options.byte_range);
     req.promise.SetResult(
-        ReadResult{ReadResult::kValue,
-                   Bytes({
-                       6, 0, 0, 0, 0, 0, 0, 0,   //
-                       32, 0, 0, 0, 0, 0, 0, 0,  //
-                   }),
-                   {StorageGeneration::FromString("g0"), absl::Now()}});
+        ReadResult::Value(Bytes({
+                              6, 0, 0, 0, 0, 0, 0, 0,   //
+                              32, 0, 0, 0, 0, 0, 0, 0,  //
+                          }),
+                          {StorageGeneration::FromString("g0"), absl::Now()}));
   }
   // Request for minishard index.
   {
@@ -1115,12 +1097,11 @@ TEST_F(UnderlyingKeyValueStoreTest, ReadErrorReadingData) {
     EXPECT_EQ("prefix/0.shard", req.key);
     EXPECT_EQ(OptionalByteRangeRequest(16, 32), req.options.byte_range);
     req.promise.SetResult(
-        ReadResult{ReadResult::kValue,
-                   Bytes({
-                       6, 0, 0, 0, 0, 0, 0, 0,   //
-                       32, 0, 0, 0, 0, 0, 0, 0,  //
-                   }),
-                   {StorageGeneration::FromString("g0"), absl::Now()}});
+        ReadResult::Value(Bytes({
+                              6, 0, 0, 0, 0, 0, 0, 0,   //
+                              32, 0, 0, 0, 0, 0, 0, 0,  //
+                          }),
+                          {StorageGeneration::FromString("g0"), absl::Now()}));
   }
   // Request for minishard index.
   {
@@ -1129,13 +1110,12 @@ TEST_F(UnderlyingKeyValueStoreTest, ReadErrorReadingData) {
     EXPECT_EQ("prefix/0.shard", req.key);
     EXPECT_EQ(OptionalByteRangeRequest(38, 64), req.options.byte_range);
     req.promise.SetResult(
-        ReadResult{ReadResult::kValue,
-                   Bytes({
-                       0x1, 0, 0, 0, 0, 0, 0, 0,  //
-                       0,   0, 0, 0, 0, 0, 0, 0,  //
-                       4,   0, 0, 0, 0, 0, 0, 0,  //
-                   }),
-                   {StorageGeneration::FromString("g0"), absl::Now()}});
+        ReadResult::Value(Bytes({
+                              0x1, 0, 0, 0, 0, 0, 0, 0,  //
+                              0,   0, 0, 0, 0, 0, 0, 0,  //
+                              4,   0, 0, 0, 0, 0, 0, 0,  //
+                          }),
+                          {StorageGeneration::FromString("g0"), absl::Now()}));
   }
   // Request for value.
   {
@@ -1192,10 +1172,7 @@ TEST_F(UnderlyingKeyValueStoreTest, WriteWithNoExistingShard) {
       auto req = mock_store->read_requests.pop_nonblock().value();
       ASSERT_EQ(0, mock_store->read_requests.size());
       EXPECT_EQ("prefix/0.shard", req.key);
-      req.promise.SetResult(
-          ReadResult{ReadResult::kMissing,
-                     {},
-                     {StorageGeneration::NoValue(), absl::Now()}});
+      req.promise.SetResult(ReadResult::Missing(absl::Now()));
     }
     absl::Time write_time;
     {
@@ -1286,8 +1263,7 @@ TEST_F(UnderlyingKeyValueStoreTest, ConditionalWriteDespiteMaxChunks) {
     auto req = mock_store->read_requests.pop_nonblock().value();
     ASSERT_EQ(0, mock_store->read_requests.size());
     EXPECT_EQ("prefix/0.shard", req.key);
-    req.promise.SetResult(ReadResult{
-        ReadResult::kMissing, {}, {StorageGeneration::NoValue(), absl::Now()}});
+    req.promise.SetResult(ReadResult::Missing(absl::Now()));
   }
   {
     auto req = mock_store->write_requests.pop_nonblock().value();
@@ -1306,8 +1282,7 @@ TEST_F(UnderlyingKeyValueStoreTest, WriteWithNoExistingShardError) {
     auto req = mock_store->read_requests.pop_nonblock().value();
     ASSERT_EQ(0, mock_store->read_requests.size());
     EXPECT_EQ("prefix/0.shard", req.key);
-    req.promise.SetResult(ReadResult{
-        ReadResult::kMissing, {}, {StorageGeneration::NoValue(), absl::Now()}});
+    req.promise.SetResult(ReadResult::Missing(absl::Now()));
   }
   {
     auto req = mock_store->write_requests.pop_nonblock().value();
@@ -1333,18 +1308,17 @@ TEST_F(UnderlyingKeyValueStoreTest, WriteWithExistingShard) {
     EXPECT_EQ(StorageGeneration::Unknown(), req.options.if_equal);
     EXPECT_EQ(StorageGeneration::Unknown(), req.options.if_not_equal);
     req.promise.SetResult(
-        ReadResult{ReadResult::kValue,
-                   Bytes({
-                       3,    0, 0, 0, 0, 0, 0, 0,  //
-                       27,   0, 0, 0, 0, 0, 0, 0,  //
-                       0,    0, 0, 0, 0, 0, 0, 0,  //
-                       0,    0, 0, 0, 0, 0, 0, 0,  //
-                       4,    5, 6,                 //
-                       0x70, 0, 0, 0, 0, 0, 0, 0,  //
-                       0,    0, 0, 0, 0, 0, 0, 0,  //
-                       3,    0, 0, 0, 0, 0, 0, 0,  //
-                   }),
-                   {StorageGeneration::FromString("g0"), absl::Now()}});
+        ReadResult::Value(Bytes({
+                              3,    0, 0, 0, 0, 0, 0, 0,  //
+                              27,   0, 0, 0, 0, 0, 0, 0,  //
+                              0,    0, 0, 0, 0, 0, 0, 0,  //
+                              0,    0, 0, 0, 0, 0, 0, 0,  //
+                              4,    5, 6,                 //
+                              0x70, 0, 0, 0, 0, 0, 0, 0,  //
+                              0,    0, 0, 0, 0, 0, 0, 0,  //
+                              3,    0, 0, 0, 0, 0, 0, 0,  //
+                          }),
+                          {StorageGeneration::FromString("g0"), absl::Now()}));
   }
   absl::Time write_time;
   {
@@ -1394,10 +1368,7 @@ TEST_F(UnderlyingKeyValueStoreTest, WriteMaxChunksWithExistingShard) {
       auto req = mock_store->read_requests.pop_nonblock().value();
       ASSERT_EQ(0, mock_store->read_requests.size());
       EXPECT_EQ("prefix/0.shard", req.key);
-      req.promise.SetResult(
-          ReadResult{ReadResult::kMissing,
-                     {},
-                     {StorageGeneration::NoValue(), absl::Now()}});
+      req.promise.SetResult(ReadResult::Missing(absl::Now()));
     }
     absl::Time write_time;
     {

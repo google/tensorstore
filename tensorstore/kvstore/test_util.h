@@ -166,13 +166,6 @@ template <typename ValueMatcher>
                        MatchesTimestampedStorageGeneration(generation, time))));
 }
 
-/// Overload that permits an `absl::Cord` matcher to be specified for the
-/// `value`.
-::testing::Matcher<Result<kvstore::ReadResult>> MatchesKvsReadResult(
-    ::testing::Matcher<kvstore::Value> value,
-    ::testing::Matcher<StorageGeneration> generation = ::testing::_,
-    ::testing::Matcher<absl::Time> time = ::testing::_);
-
 /// Returns a GMock matcher for a "not found" `kvstore::ReadResult`.
 inline ::testing::Matcher<Result<kvstore::ReadResult>>
 MatchesKvsReadResultNotFound(

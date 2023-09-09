@@ -14,12 +14,38 @@
 
 #include "tensorstore/kvstore/transaction.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
+#include <cassert>
+#include <iterator>
+#include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <utility>
+
 #include "absl/base/optimization.h"
 #include "absl/container/btree_map.h"
 #include "absl/functional/function_ref.h"
+#include "absl/status/status.h"
+#include "absl/synchronization/mutex.h"
+#include "absl/time/time.h"
+#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/metrics/counter.h"
+#include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
+#include "tensorstore/kvstore/generation.h"
+#include "tensorstore/kvstore/key_range.h"
+#include "tensorstore/kvstore/operations.h"
+#include "tensorstore/kvstore/read_modify_write.h"
+#include "tensorstore/transaction.h"
+#include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/future_sender.h"  // IWYU pragma: keep
+#include "tensorstore/util/future.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_kvstore {
@@ -645,11 +671,9 @@ void ReadModifyWriteEntry::KvsRead(
   };
   if (flags_ & ReadModifyWriteEntry::kPrevDeleted) {
     execution::set_value(
-        receiver,
-        ReadResult{ReadResult::kMissing,
-                   {},
-                   {StorageGeneration::Dirty(StorageGeneration::Unknown()),
-                    absl::InfiniteFuture()}});
+        receiver, ReadResult::Missing(
+                      {StorageGeneration::Dirty(StorageGeneration::Unknown()),
+                       absl::InfiniteFuture()}));
   } else if (prev_) {
     TENSORSTORE_KVSTORE_DEBUG_LOG(*prev_, "Requesting writeback for read");
     ReadModifyWriteSource::WritebackOptions writeback_options;
@@ -1332,9 +1356,8 @@ class ReadViaExistingTransactionNode : public internal::TransactionState::Node,
       if (StorageGeneration::IsClean(expected_stamp.generation) &&
           expected_stamp.time >= read_options.staleness_bound) {
         // Nothing to write back, just need to verify generation.
-        execution::set_value(receiver, ReadResult{ReadResult::kUnspecified,
-                                                  {},
-                                                  std::move(expected_stamp)});
+        execution::set_value(
+            receiver, ReadResult::Unspecified(std::move(expected_stamp)));
         return;
       }
     }

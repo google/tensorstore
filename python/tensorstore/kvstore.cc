@@ -1441,7 +1441,8 @@ void DefineReadResultAttributes(ReadResultCls& cls) {
 
   cls.def(py::init([](Self::State state, std::string value,
                       TimestampedStorageGeneration stamp) {
-            return Self(state, absl::Cord(std::move(value)), std::move(stamp));
+            return kvstore::ReadResult{state, absl::Cord(std::move(value)),
+                                       std::move(stamp)};
           }),
           py::arg("state") = Self::State::kUnspecified, py::arg("value") = "",
           py::arg("stamp") = TimestampedStorageGeneration(), R"(
