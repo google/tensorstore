@@ -13,7 +13,7 @@
     
     
       
-        <title>zip Key-Value Store driver - TensorStore</title>
+        <title>zarr_sharding_indexed Key-Value Store driver - TensorStore</title>
       
     
     
@@ -62,7 +62,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#json-kvstore/zip" class="md-skip">
+        <a href="#json-kvstore/zarr_sharding_indexed" class="md-skip">
           Skip to content
         </a>
       
@@ -92,7 +92,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              zip Key-Value Store driver
+              zarr_sharding_indexed Key-Value Store driver
             
           </span>
         </div>
@@ -626,21 +626,6 @@
               
   
   
-  
-  
-    <li class="md-nav__item">
-      <a href="../zarr3_sharding_indexed/index.html" class="md-nav__link">
-        <span class="md-ellipsis">zarr_<wbr>sharding_<wbr>indexed Key-<wbr>Value Store driver</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
     
   
     
@@ -652,12 +637,12 @@
       <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
       
         <label class="md-nav__link md-nav__link--active" for="__toc">
-          <span class="md-ellipsis">zip Key-<wbr>Value Store driver</span>
+          <span class="md-ellipsis">zarr_<wbr>sharding_<wbr>indexed Key-<wbr>Value Store driver</span>
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <a href="#" class="md-nav__link md-nav__link--active">
-        <span class="md-ellipsis">zip Key-<wbr>Value Store driver</span>
+        <span class="md-ellipsis">zarr_<wbr>sharding_<wbr>indexed Key-<wbr>Value Store driver</span>
       </a>
       
         
@@ -672,27 +657,27 @@
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
-      <span class="md-ellipsis">zip Key-<wbr>Value Store driver</span>
+      <span class="md-ellipsis">zarr_<wbr>sharding_<wbr>indexed Key-<wbr>Value Store driver</span>
     </label>
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#json-kvstore/zip" class="md-nav__link">
-    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="kvstore/zip (JSON type) — JSON specification of zip key-value store." class="md-ellipsis">kvstore/zip</span>
+  <a href="#json-kvstore/zarr_sharding_indexed" class="md-nav__link">
+    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="kvstore/zarr_sharding_indexed (JSON type) — JSON specification of zarr_sharding_indexed key-value store." class="md-ellipsis">kvstore/zarr_<wbr>sharding_<wbr>indexed</span>
   </a>
   
-    <nav class="md-nav" aria-label="kvstore/zip">
+    <nav class="md-nav" aria-label="kvstore/zarr_sharding_indexed">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#extends-json-kvstore/zip" class="md-nav__link">
+  <a href="#extends-json-kvstore/zarr_sharding_indexed" class="md-nav__link">
     <span class="md-ellipsis">Extends</span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#required-members-json-kvstore/zip" class="md-nav__link">
+  <a href="#required-members-json-kvstore/zarr_sharding_indexed" class="md-nav__link">
     <span class="md-ellipsis">Required members</span>
   </a>
   
@@ -700,15 +685,29 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#json-kvstore/zip.driver" class="md-nav__link">
-    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/zip.driver (JSON member)" class="md-ellipsis">driver</span>
+  <a href="#json-kvstore/zarr_sharding_indexed.driver" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/zarr_sharding_indexed.driver (JSON member)" class="md-ellipsis">driver</span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#json-kvstore/zip.base" class="md-nav__link">
-    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/zip.base (JSON member) — Underlying key-value store with path to shard." class="md-ellipsis">base</span>
+  <a href="#json-kvstore/zarr_sharding_indexed.base" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/zarr_sharding_indexed.base (JSON member) — Underlying key-value store with path to shard." class="md-ellipsis">base</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/zarr_sharding_indexed.grid_shape" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/zarr_sharding_indexed.grid_shape (JSON member) — Shape of the grid of entries in the shard." class="md-ellipsis">grid_<wbr>shape</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/zarr_sharding_indexed.index_codecs" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/zarr_sharding_indexed.index_codecs (JSON member) — Codec chain for encoding/decoding the shard index." class="md-ellipsis">index_<wbr>codecs</span>
   </a>
   
 </li>
@@ -719,7 +718,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#optional-members-json-kvstore/zip" class="md-nav__link">
+  <a href="#optional-members-json-kvstore/zarr_sharding_indexed" class="md-nav__link">
     <span class="md-ellipsis">Optional members</span>
   </a>
   
@@ -727,29 +726,29 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#json-kvstore/zip.path" class="md-nav__link">
-    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/zip.path (JSON member) — Key prefix within the key-value store." class="md-ellipsis">path</span>
+  <a href="#json-kvstore/zarr_sharding_indexed.path" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/zarr_sharding_indexed.path (JSON member) — Key prefix within the key-value store." class="md-ellipsis">path</span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#json-kvstore/zip.context" class="md-nav__link">
-    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/zip.context (JSON member)" class="md-ellipsis">context</span>
+  <a href="#json-kvstore/zarr_sharding_indexed.context" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/zarr_sharding_indexed.context (JSON member)" class="md-ellipsis">context</span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#json-kvstore/zip.cache_pool" class="md-nav__link">
-    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/zip.cache_pool (JSON member)" class="md-ellipsis">cache_<wbr>pool</span>
+  <a href="#json-kvstore/zarr_sharding_indexed.cache_pool" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/zarr_sharding_indexed.cache_pool (JSON member)" class="md-ellipsis">cache_<wbr>pool</span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#json-kvstore/zip.data_copy_concurrency" class="md-nav__link">
-    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/zip.data_copy_concurrency (JSON member)" class="md-ellipsis">data_<wbr>copy_<wbr>concurrency</span>
+  <a href="#json-kvstore/zarr_sharding_indexed.data_copy_concurrency" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/zarr_sharding_indexed.data_copy_concurrency (JSON member)" class="md-ellipsis">data_<wbr>copy_<wbr>concurrency</span>
   </a>
   
 </li>
@@ -782,6 +781,21 @@
   
 </nav>
       
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../zip/index.html" class="md-nav__link">
+        <span class="md-ellipsis">zip Key-<wbr>Value Store driver</span>
+      </a>
     </li>
   
 
@@ -831,27 +845,27 @@
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
-      <span class="md-ellipsis">zip Key-<wbr>Value Store driver</span>
+      <span class="md-ellipsis">zarr_<wbr>sharding_<wbr>indexed Key-<wbr>Value Store driver</span>
     </label>
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#json-kvstore/zip" class="md-nav__link">
-    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="kvstore/zip (JSON type) — JSON specification of zip key-value store." class="md-ellipsis">kvstore/zip</span>
+  <a href="#json-kvstore/zarr_sharding_indexed" class="md-nav__link">
+    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="kvstore/zarr_sharding_indexed (JSON type) — JSON specification of zarr_sharding_indexed key-value store." class="md-ellipsis">kvstore/zarr_<wbr>sharding_<wbr>indexed</span>
   </a>
   
-    <nav class="md-nav" aria-label="kvstore/zip">
+    <nav class="md-nav" aria-label="kvstore/zarr_sharding_indexed">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#extends-json-kvstore/zip" class="md-nav__link">
+  <a href="#extends-json-kvstore/zarr_sharding_indexed" class="md-nav__link">
     <span class="md-ellipsis">Extends</span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#required-members-json-kvstore/zip" class="md-nav__link">
+  <a href="#required-members-json-kvstore/zarr_sharding_indexed" class="md-nav__link">
     <span class="md-ellipsis">Required members</span>
   </a>
   
@@ -859,15 +873,29 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#json-kvstore/zip.driver" class="md-nav__link">
-    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/zip.driver (JSON member)" class="md-ellipsis">driver</span>
+  <a href="#json-kvstore/zarr_sharding_indexed.driver" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/zarr_sharding_indexed.driver (JSON member)" class="md-ellipsis">driver</span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#json-kvstore/zip.base" class="md-nav__link">
-    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/zip.base (JSON member) — Underlying key-value store with path to shard." class="md-ellipsis">base</span>
+  <a href="#json-kvstore/zarr_sharding_indexed.base" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/zarr_sharding_indexed.base (JSON member) — Underlying key-value store with path to shard." class="md-ellipsis">base</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/zarr_sharding_indexed.grid_shape" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/zarr_sharding_indexed.grid_shape (JSON member) — Shape of the grid of entries in the shard." class="md-ellipsis">grid_<wbr>shape</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-kvstore/zarr_sharding_indexed.index_codecs" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/zarr_sharding_indexed.index_codecs (JSON member) — Codec chain for encoding/decoding the shard index." class="md-ellipsis">index_<wbr>codecs</span>
   </a>
   
 </li>
@@ -878,7 +906,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#optional-members-json-kvstore/zip" class="md-nav__link">
+  <a href="#optional-members-json-kvstore/zarr_sharding_indexed" class="md-nav__link">
     <span class="md-ellipsis">Optional members</span>
   </a>
   
@@ -886,29 +914,29 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#json-kvstore/zip.path" class="md-nav__link">
-    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/zip.path (JSON member) — Key prefix within the key-value store." class="md-ellipsis">path</span>
+  <a href="#json-kvstore/zarr_sharding_indexed.path" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/zarr_sharding_indexed.path (JSON member) — Key prefix within the key-value store." class="md-ellipsis">path</span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#json-kvstore/zip.context" class="md-nav__link">
-    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/zip.context (JSON member)" class="md-ellipsis">context</span>
+  <a href="#json-kvstore/zarr_sharding_indexed.context" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/zarr_sharding_indexed.context (JSON member)" class="md-ellipsis">context</span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#json-kvstore/zip.cache_pool" class="md-nav__link">
-    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/zip.cache_pool (JSON member)" class="md-ellipsis">cache_<wbr>pool</span>
+  <a href="#json-kvstore/zarr_sharding_indexed.cache_pool" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/zarr_sharding_indexed.cache_pool (JSON member)" class="md-ellipsis">cache_<wbr>pool</span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#json-kvstore/zip.data_copy_concurrency" class="md-nav__link">
-    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/zip.data_copy_concurrency (JSON member)" class="md-ellipsis">data_<wbr>copy_<wbr>concurrency</span>
+  <a href="#json-kvstore/zarr_sharding_indexed.data_copy_concurrency" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="kvstore/zarr_sharding_indexed.data_copy_concurrency (JSON member)" class="md-ellipsis">data_<wbr>copy_<wbr>concurrency</span>
   </a>
   
 </li>
@@ -951,67 +979,88 @@
                   
 
 
-<h1 id="zip-key-value-store-driver"><span id="zip-kvstore-driver"></span><code class="docutils literal notranslate"><span class="pre">zip</span></code> Key-Value Store driver<a class="headerlink" href="#zip-key-value-store-driver" title="Permalink to this heading">¶</a></h1>
-<p>The <code class="docutils literal notranslate"><span class="pre">zip</span></code> driver implements support for reading from
-<a class="reference external" href="https://en.wikipedia.org/wiki/ZIP_(file_format)">ZIP</a> format
-files on top of a base key-value store. (Not all ZIP features are supported.)</p>
+<h1 id="zarr-sharding-indexed-key-value-store-driver"><span id="zarr-sharding-indexed-kvstore-driver"></span><code class="docutils literal notranslate"><span class="pre">zarr_sharding_indexed</span></code> Key-Value Store driver<a class="headerlink" href="#zarr-sharding-indexed-key-value-store-driver" title="Permalink to this heading">¶</a></h1>
+<p>The <code class="docutils literal notranslate"><span class="pre">zarr_sharding_indexed</span></code> driver implements support for stored
+representation used by the Zarr v3 <code class="docutils literal notranslate"><span class="pre">sharding_indexed</span></code> codec on top of a base
+key-value store.</p>
+<p>For a grid of rank <code class="docutils literal notranslate"><span class="pre">n</span></code>, keys must be <code class="docutils literal notranslate"><span class="pre">n</span> <span class="pre">*</span> <span class="pre">4</span></code> bytes long, specifying the grid
+cell indices, where <code class="docutils literal notranslate"><span class="pre">0</span> <span class="pre">&lt;=</span> <span class="pre">grid_cell_indices[i]</span> <span class="pre">&lt;</span> <span class="pre">grid_shape[i]</span></code>, as <code class="docutils literal notranslate"><span class="pre">n</span></code>
+consecutive <code class="docutils literal notranslate"><span class="pre">uint32be</span></code> values.</p>
 <dl class="json schema objdesc">
-<dt class="sig sig-object highlight json" id="json-kvstore/zip">
-<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">kvstore/zip</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-kvstore/zip" title="Permalink to this definition">¶</a></dt>
-<dd><span><p>JSON specification of zip key-value store.</p>
+<dt class="sig sig-object highlight json" id="json-kvstore/zarr_sharding_indexed">
+<em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">kvstore/zarr_sharding_indexed</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-kvstore/zarr_sharding_indexed" title="Permalink to this definition">¶</a></dt>
+<dd><span><p>JSON specification of zarr_sharding_indexed key-value store.</p>
   </span><dl class="field-list simple">
-<dt class="field-odd" id="extends-json-kvstore/zip">Extends<span class="colon">:</span><a class="headerlink" href="#extends-json-kvstore/zip" title="Permalink to this headline">¶</a></dt>
+<dt class="field-odd" id="extends-json-kvstore/zarr_sharding_indexed">Extends<span class="colon">:</span><a class="headerlink" href="#extends-json-kvstore/zarr_sharding_indexed" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><ul class="simple">
 <li><p><a class="reference internal" href="../index.html#json-KvStore" title="KvStore (JSON type) — Key-value store specification."><code class="xref json json-schema docutils literal notranslate"><span class="pre">KvStore</span></code></a> — Key-value store specification.</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="field-list">
-<dt class="field-odd" id="required-members-json-kvstore/zip">Required members<span class="colon">:</span><a class="headerlink" href="#required-members-json-kvstore/zip" title="Permalink to this headline">¶</a></dt>
+<dt class="field-odd" id="required-members-json-kvstore/zarr_sharding_indexed">Required members<span class="colon">:</span><a class="headerlink" href="#required-members-json-kvstore/zarr_sharding_indexed" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
-<dt class="sig sig-object highlight json" id="json-kvstore/zip.driver">
-<span class="sig-name descname"><span class="pre">driver</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;zip&quot;</span></code><a class="headerlink" href="#json-kvstore/zip.driver" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object highlight json" id="json-kvstore/zarr_sharding_indexed.driver">
+<span class="sig-name descname"><span class="pre">driver</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;zarr_sharding_indexed&quot;</span></code><a class="headerlink" href="#json-kvstore/zarr_sharding_indexed.driver" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="json schema objdesc">
-<dt class="sig sig-object highlight json" id="json-kvstore/zip.base">
-<span class="sig-name descname"><span class="pre">base</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../index.html#json-KvStore" title="KvStore (JSON type) — Key-value store specification."><span class="pre">KvStore</span></a></span><a class="headerlink" href="#json-kvstore/zip.base" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object highlight json" id="json-kvstore/zarr_sharding_indexed.base">
+<span class="sig-name descname"><span class="pre">base</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../index.html#json-KvStore" title="KvStore (JSON type) — Key-value store specification."><span class="pre">KvStore</span></a></span><a class="headerlink" href="#json-kvstore/zarr_sharding_indexed.base" title="Permalink to this definition">¶</a></dt>
 <dd><span><p>Underlying key-value store with path to shard.</p>
+  </span></dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-kvstore/zarr_sharding_indexed.grid_shape">
+<span class="sig-name descname"><span class="pre">grid_shape</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../neuroglancer_uint64_sharded/index.html#json-kvstore/neuroglancer_uint64_sharded/ShardingSpec" title="kvstore/neuroglancer_uint64_sharded/ShardingSpec (JSON type) — Sharding metadata"><span class="pre">kvstore/neuroglancer_uint64_sharded/ShardingSpec</span></a></span><a class="headerlink" href="#json-kvstore/zarr_sharding_indexed.grid_shape" title="Permalink to this definition">¶</a></dt>
+<dd><span><p>Shape of the grid of entries in the shard.</p>
+  </span></dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-kvstore/zarr_sharding_indexed.index_codecs">
+<span class="sig-name descname"><span class="pre">index_codecs</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../driver/zarr3/index.html#json-driver/zarr3/CodecChain" title="driver/zarr3/CodecChain (JSON type) — Specifies a chain of codecs."><span class="pre">driver/zarr3/CodecChain</span></a></span><a class="headerlink" href="#json-kvstore/zarr_sharding_indexed.index_codecs" title="Permalink to this definition">¶</a></dt>
+<dd><span><p>Codec chain for encoding/decoding the shard index.</p>
   </span></dd></dl>
 
 </dd>
 </dl>
 <dl class="field-list">
-<dt class="field-odd" id="optional-members-json-kvstore/zip">Optional members<span class="colon">:</span><a class="headerlink" href="#optional-members-json-kvstore/zip" title="Permalink to this headline">¶</a></dt>
+<dt class="field-odd" id="optional-members-json-kvstore/zarr_sharding_indexed">Optional members<span class="colon">:</span><a class="headerlink" href="#optional-members-json-kvstore/zarr_sharding_indexed" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
-<dt class="sig sig-object highlight json" id="json-kvstore/zip.path">
-<span class="sig-name descname"><span class="pre">path</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><a class="headerlink" href="#json-kvstore/zip.path" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object highlight json" id="json-kvstore/zarr_sharding_indexed.path">
+<span class="sig-name descname"><span class="pre">path</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><a class="headerlink" href="#json-kvstore/zarr_sharding_indexed.path" title="Permalink to this definition">¶</a></dt>
 <dd><span><p>Key prefix within the key-value store.</p>
   </span><p>If the prefix is intended to correspond to a Unix-style directory path, it
 should end with <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;/&quot;</span></code>.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
-<dt class="sig sig-object highlight json" id="json-kvstore/zip.context">
-<span class="sig-name descname"><span class="pre">context</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-Context" title="Context (JSON type)"><span class="pre">Context</span></a></span><a class="headerlink" href="#json-kvstore/zip.context" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object highlight json" id="json-kvstore/zarr_sharding_indexed.context">
+<span class="sig-name descname"><span class="pre">context</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-Context" title="Context (JSON type)"><span class="pre">Context</span></a></span><a class="headerlink" href="#json-kvstore/zarr_sharding_indexed.context" title="Permalink to this definition">¶</a></dt>
 <dd><p>Specifies context resources that augment/override the parent context.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
-<dt class="sig sig-object highlight json" id="json-kvstore/zip.cache_pool">
-<span class="sig-name descname"><span class="pre">cache_pool</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;cache_pool&quot;</span></code><a class="headerlink" href="#json-kvstore/zip.cache_pool" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object highlight json" id="json-kvstore/zarr_sharding_indexed.cache_pool">
+<span class="sig-name descname"><span class="pre">cache_pool</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;cache_pool&quot;</span></code><a class="headerlink" href="#json-kvstore/zarr_sharding_indexed.cache_pool" title="Permalink to this definition">¶</a></dt>
 <dd><p>Specifies or references a previously defined <a class="reference internal" href="../../context.html#json-Context.cache_pool" title="Context.cache_pool (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.cache_pool</span></code></a>.  It
 is normally more convenient to specify a default <a class="reference internal" href="../../context.html#json-Context.cache_pool" title="Context.cache_pool (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">cache_pool</span></code></a>
-in the <a class="reference internal" href="#json-kvstore/zip.context" title="kvstore/zip.context (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">context</span></code></a>.</p>
+in the <a class="reference internal" href="#json-kvstore/zarr_sharding_indexed.context" title="kvstore/zarr_sharding_indexed.context (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">context</span></code></a>.</p>
+<div class="important admonition">
+<p class="admonition-title">Important</p>
+<p>It is very helpful to specify a cache pool with a non-zero
+<a class="reference internal" href="../../context.html#json-Context.cache_pool.total_bytes_limit" title="Context.cache_pool.total_bytes_limit (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">total_bytes_limit</span></code></a> value.  Otherwise, every read
+operation will require an additional read to obtain the shard index.</p>
+</div>
 </dd></dl>
 
 <dl class="json schema objdesc">
-<dt class="sig sig-object highlight json" id="json-kvstore/zip.data_copy_concurrency">
-<span class="sig-name descname"><span class="pre">data_copy_concurrency</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;data_copy_concurrency&quot;</span></code><a class="headerlink" href="#json-kvstore/zip.data_copy_concurrency" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object highlight json" id="json-kvstore/zarr_sharding_indexed.data_copy_concurrency">
+<span class="sig-name descname"><span class="pre">data_copy_concurrency</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;data_copy_concurrency&quot;</span></code><a class="headerlink" href="#json-kvstore/zarr_sharding_indexed.data_copy_concurrency" title="Permalink to this definition">¶</a></dt>
 <dd><p>Specifies or references a previously defined
 <a class="reference internal" href="../../context.html#json-Context.data_copy_concurrency" title="Context.data_copy_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.data_copy_concurrency</span></code></a>.  It is normally more
 convenient to specify a default <a class="reference internal" href="../../context.html#json-Context.data_copy_concurrency" title="Context.data_copy_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">data_copy_concurrency</span></code></a> in
-the <a class="reference internal" href="#json-kvstore/zip.context" title="kvstore/zip.context (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">context</span></code></a>.</p>
+the <a class="reference internal" href="#json-kvstore/zarr_sharding_indexed.context" title="kvstore/zarr_sharding_indexed.context (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">context</span></code></a>.</p>
 </dd></dl>
 
 </dd>
@@ -1019,12 +1068,24 @@ the <a class="reference internal" href="#json-kvstore/zip.context" title="kvstor
 </dd></dl>
 
 <h2 id="example-json-specifications">Example JSON specifications<a class="headerlink" href="#example-json-specifications" title="Permalink to this heading">¶</a></h2>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;zip&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;kvstore&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gs://my-bucket/path/to/file.zip&quot;</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;zarr_sharding_indexed&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;kvstore&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gs://my-bucket/path/to/sharded/data&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;grid_shape&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">32</span><span class="p">,</span><span class="w"> </span><span class="mi">128</span><span class="p">],</span>
+<span class="w">  </span><span class="s2">&quot;index_codecs&quot;</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bytes&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;configuration&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;endian&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;little&quot;</span><span class="p">}},</span>
+<span class="w">    </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;crc32c&quot;</span><span class="p">}</span>
+<span class="w">  </span><span class="p">],</span>
+<span class="w">  </span><span class="nt">&quot;context&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;cache_pool&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;total_bytes_limit&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1000000000</span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
 </code></pre></div>
 </div>
 <h2 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Permalink to this heading">¶</a></h2>
-<p>Writing is not supported, nor are all ZIP compression formats.</p>
+<p>It is strongly recommended to use a transaction when writing, and group writes.
+Otherwise, there may be significant write amplification due to repeatedly
+re-writing the entire shard.</p>
 
 
 
@@ -1051,7 +1112,7 @@ the <a class="reference internal" href="#json-kvstore/zip.context" title="kvstor
     <nav class="md-footer__inner md-grid" aria-label="Footer" >
       
         
-        <a href="../zarr3_sharding_indexed/index.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: zarr_sharding_indexed Key-Value Store driver" rel="prev">
+        <a href="../ocdbt/index.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: ocdbt Key-Value Store driver" rel="prev">
           <div class="md-footer__button md-icon">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
           </div>
@@ -1060,11 +1121,26 @@ the <a class="reference internal" href="#json-kvstore/zip.context" title="kvstor
               <span class="md-footer__direction">
                 Previous
               </span>
-              zarr_sharding_indexed Key-Value Store driver
+              ocdbt Key-Value Store driver
             </div>
           </div>
         </a>
       
+      
+        
+        <a href="../zip/index.html" class="md-footer__link md-footer__link--next" aria-label="Next: zip Key-Value Store driver" rel="next">
+          <div class="md-footer__title">
+            <div class="md-ellipsis">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              zip Key-Value Store driver
+            </div>
+          </div>
+          <div class="md-footer__button md-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4Z"/></svg>
+          </div>
+        </a>
       
     </nav>
   
