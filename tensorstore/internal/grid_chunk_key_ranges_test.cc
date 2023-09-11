@@ -14,22 +14,30 @@
 
 #include "tensorstore/internal/grid_chunk_key_ranges.h"
 
+#include <cassert>
+#include <string>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
-#include "absl/strings/str_cat.h"
 #include "tensorstore/box.h"
+#include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/internal/grid_chunk_key_ranges_base10.h"
+#include "tensorstore/internal/grid_partition.h"
+#include "tensorstore/internal/grid_partition_impl.h"
+#include "tensorstore/internal/regular_grid.h"
 #include "tensorstore/kvstore/key_range.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/util/division.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/status_testutil.h"
+#include "tensorstore/util/status.h"
 
 namespace {
 
@@ -47,20 +55,24 @@ using ::tensorstore::kMaxRank;
 using ::tensorstore::Result;
 using ::tensorstore::span;
 using ::tensorstore::internal::Base10LexicographicalGridIndexKeyParser;
-using ::tensorstore::internal::MinValueWithMaxBase10Digits;
+using ::tensorstore::internal_grid_partition::IndexTransformGridPartition;
+using ::tensorstore::internal_grid_partition::
+    PrePartitionIndexTransformOverGrid;
+using ::tensorstore::internal_grid_partition::RegularGridRef;
 using ::testing::ElementsAre;
 using ::testing::Optional;
 
-using R = std::tuple<KeyRange, size_t, std::vector<IndexInterval>>;
+using R = std::tuple<KeyRange, Box<>>;
 
 absl::Status GetChunkKeyRangesForRegularGridWithBase10Keys(
     IndexTransformView<> transform,
     span<const DimensionIndex> grid_output_dimensions,
     span<const Index> chunk_shape, span<const Index> shape,
     char dimension_separator,
-    absl::FunctionRef<absl::Status(std::string key)> handle_key,
-    absl::FunctionRef<absl::Status(KeyRange key_range, size_t prefix,
-                                   BoxView<> grid_bounds)>
+    absl::FunctionRef<absl::Status(std::string key,
+                                   span<const Index> grid_indices)>
+        handle_key,
+    absl::FunctionRef<absl::Status(KeyRange key_range, BoxView<> grid_bounds)>
         handle_key_range) {
   const DimensionIndex rank = grid_output_dimensions.size();
   assert(rank == chunk_shape.size());
@@ -70,9 +82,13 @@ absl::Status GetChunkKeyRangesForRegularGridWithBase10Keys(
     const Index grid_size = CeilOfRatio(shape[i], chunk_shape[i]);
     grid_bounds[i] = IndexInterval::UncheckedSized(0, grid_size);
   }
+  RegularGridRef grid{chunk_shape};
+  IndexTransformGridPartition grid_partition;
+  TENSORSTORE_RETURN_IF_ERROR(PrePartitionIndexTransformOverGrid(
+      transform, grid_output_dimensions, grid, grid_partition));
   return GetChunkKeyRangesForRegularGridWithSemiLexicographicalKeys(
-      transform, grid_output_dimensions, chunk_shape, grid_bounds,
-      dimension_separator, Base10LexicographicalGridIndexKeyParser{},
+      grid_partition, transform, grid_output_dimensions, grid, grid_bounds,
+      Base10LexicographicalGridIndexKeyParser{rank, dimension_separator},
       handle_key, handle_key_range);
 }
 
@@ -82,19 +98,16 @@ Result<std::vector<R>> GetRanges(
     span<const Index> chunk_shape, span<const Index> shape,
     char dimension_separator) {
   std::vector<R> ranges;
-  const auto handle_key = [&](std::string key) -> absl::Status {
-    ranges.emplace_back(KeyRange::Singleton(key), key.size(),
-                        std::vector<IndexInterval>());
+  const auto handle_key = [&](std::string key,
+                              span<const Index> grid_indices) -> absl::Status {
+    ranges.emplace_back(
+        KeyRange::Singleton(key),
+        Box<>(grid_indices, std::vector<Index>(grid_indices.size(), 1)));
     return absl::OkStatus();
   };
-  const auto handle_key_range = [&](KeyRange key_range, size_t prefix,
+  const auto handle_key_range = [&](KeyRange key_range,
                                     BoxView<> grid_bounds) -> absl::Status {
-    std::vector<IndexInterval> grid_bounds_copy(grid_bounds.rank());
-    for (DimensionIndex i = 0; i < grid_bounds.rank(); ++i) {
-      grid_bounds_copy[i] = grid_bounds[i];
-    }
-    ranges.emplace_back(std::move(key_range), prefix,
-                        std::move(grid_bounds_copy));
+    ranges.emplace_back(std::move(key_range), grid_bounds);
     return absl::OkStatus();
   };
   TENSORSTORE_RETURN_IF_ERROR(GetChunkKeyRangesForRegularGridWithBase10Keys(
@@ -107,7 +120,7 @@ TEST(ChunkKeyRangesTest, Rank0) {
   EXPECT_THAT(GetRanges(IndexTransformBuilder(0, 0).Finalize().value(),
                         /*grid_output_dimensions=*/{}, /*chunk_shape=*/{},
                         /*shape=*/{}, /*dimension_separator=*/'/'),
-              Optional(ElementsAre(R{KeyRange::Singleton("0"), 1, {}})));
+              Optional(ElementsAre(R{KeyRange::Singleton("0"), {}})));
 }
 
 TEST(ChunkKeyRangesTest, Rank1Unconstrained) {
@@ -118,8 +131,7 @@ TEST(ChunkKeyRangesTest, Rank1Unconstrained) {
                             .value(),
                         /*grid_output_dimensions=*/{{0}}, /*chunk_shape=*/{{5}},
                         /*shape=*/{{50}}, /*dimension_separator=*/'/'),
-              Optional(ElementsAre(
-                  R{KeyRange(), 0, {IndexInterval::UncheckedSized(0, 10)}})));
+              Optional(ElementsAre(R{KeyRange(), Box<>{{0}, {10}}})));
 }
 
 TEST(ChunkKeyRangesTest, Rank1Constrained) {
@@ -135,8 +147,8 @@ TEST(ChunkKeyRangesTest, Rank1Constrained) {
                     .value(),
                 /*grid_output_dimensions=*/{{0}}, /*chunk_shape=*/{{5}},
                 /*shape=*/{{50}}, /*dimension_separator=*/'/'),
-      Optional(ElementsAre(
-          R{KeyRange("1", "8"), 0, {IndexInterval::UncheckedClosed(1, 7)}})));
+      Optional(ElementsAre(R{KeyRange("1", KeyRange::PrefixExclusiveMax("7")),
+                             Box<>{{1}, {7}}})));
 }
 
 TEST(ChunkKeyRangesTest, Rank1ConstrainedSplit) {
@@ -152,11 +164,10 @@ TEST(ChunkKeyRangesTest, Rank1ConstrainedSplit) {
                     .value(),
                 /*grid_output_dimensions=*/{{0}}, /*chunk_shape=*/{{1}},
                 /*shape=*/{{20}}, /*dimension_separator=*/'/'),
-      Optional(ElementsAre(R{KeyRange::Singleton("8"), 1, {}},
-                           R{KeyRange::Singleton("9"), 1, {}},
-                           R{KeyRange("10", "13"),
-                             0,
-                             {IndexInterval::UncheckedClosed(10, 12)}})));
+      Optional(ElementsAre(R{KeyRange::Singleton("8"), Box<>{{8}, {1}}},
+                           R{KeyRange::Singleton("9"), Box<>{{9}, {1}}},
+                           R{KeyRange("10", KeyRange::PrefixExclusiveMax("12")),
+                             Box<>{{10}, {3}}})));
 }
 
 TEST(ChunkKeyRangesTest, Rank2ConstrainedBothDims) {
@@ -175,11 +186,11 @@ TEST(ChunkKeyRangesTest, Rank2ConstrainedBothDims) {
                     .value(),
                 /*grid_output_dimensions=*/{{0, 1}}, /*chunk_shape=*/{{5, 10}},
                 /*shape=*/{{25, 100}}, /*dimension_separator=*/'/'),
-      Optional(ElementsAre(
-          R{KeyRange("1/0", "1/4"), 2, {IndexInterval::UncheckedClosed(0, 3)}},
-          R{KeyRange("2/0", "2/4"),
-            2,
-            {IndexInterval::UncheckedClosed(0, 3)}})));
+      Optional(
+          ElementsAre(R{KeyRange("1/0", KeyRange::PrefixExclusiveMax("1/3")),
+                        Box<>{{1, 0}, {1, 4}}},
+                      R{KeyRange("2/0", KeyRange::PrefixExclusiveMax("2/3")),
+                        Box<>{{2, 0}, {1, 4}}})));
 }
 
 TEST(ChunkKeyRangesTest, Rank2ConstrainedFirstDimOnly) {
@@ -198,10 +209,8 @@ TEST(ChunkKeyRangesTest, Rank2ConstrainedFirstDimOnly) {
                     .value(),
                 /*grid_output_dimensions=*/{{0, 1}}, /*chunk_shape=*/{{5, 5}},
                 /*shape=*/{{25, 50}}, /*dimension_separator=*/'/'),
-      Optional(ElementsAre(R{KeyRange("1", "3"),
-                             0,
-                             {IndexInterval::UncheckedClosed(1, 2),
-                              IndexInterval::UncheckedSized(0, 10)}})));
+      Optional(ElementsAre(R{KeyRange("1/", KeyRange::PrefixExclusiveMax("2/")),
+                             Box<>{{1, 0}, {2, 10}}})));
 }
 
 TEST(ChunkKeyRangesTest, Rank2ConstrainedFirstDimOnlySplit) {
@@ -220,13 +229,10 @@ TEST(ChunkKeyRangesTest, Rank2ConstrainedFirstDimOnlySplit) {
                     .value(),
                 /*grid_output_dimensions=*/{{0, 1}}, /*chunk_shape=*/{{1, 5}},
                 /*shape=*/{{25, 50}}, /*dimension_separator=*/'/'),
-      Optional(ElementsAre(
-          R{KeyRange::Prefix("8/"), 2, {IndexInterval::UncheckedSized(0, 10)}},
-          R{KeyRange::Prefix("9/"), 2, {IndexInterval::UncheckedSized(0, 10)}},
-          R{KeyRange("10", "13"),
-            0,
-            {IndexInterval::UncheckedClosed(10, 12),
-             IndexInterval::UncheckedSized(0, 10)}})));
+      Optional(
+          ElementsAre(R{KeyRange::Prefix("8/"), Box<>{{8, 0}, {1, 10}}},
+                      R{KeyRange::Prefix("9/"), Box<>{{9, 0}, {1, 10}}},
+                      R{KeyRange("10/", "120"), Box<>{{10, 0}, {3, 10}}})));
 }
 
 TEST(ChunkKeyRangesTest, Rank2ConstrainedSecondDimOnly) {
@@ -245,27 +251,17 @@ TEST(ChunkKeyRangesTest, Rank2ConstrainedSecondDimOnly) {
                     .value(),
                 /*grid_output_dimensions=*/{{0, 1}}, /*chunk_shape=*/{{5, 5}},
                 /*shape=*/{{25, 50}}, /*dimension_separator=*/'/'),
-      Optional(ElementsAre(
-          R{KeyRange("0/1", "0/8"), 2, {IndexInterval::UncheckedClosed(1, 7)}},
-          R{KeyRange("1/1", "1/8"), 2, {IndexInterval::UncheckedClosed(1, 7)}},
-          R{KeyRange("2/1", "2/8"), 2, {IndexInterval::UncheckedClosed(1, 7)}},
-          R{KeyRange("3/1", "3/8"), 2, {IndexInterval::UncheckedClosed(1, 7)}},
-          R{KeyRange("4/1", "4/8"),
-            2,
-            {IndexInterval::UncheckedClosed(1, 7)}})));
-}
-
-TEST(MinValueWithMaxBase10DigitsTest, Basic) {
-  EXPECT_EQ(0, MinValueWithMaxBase10Digits(0));
-  EXPECT_EQ(0, MinValueWithMaxBase10Digits(1));
-  EXPECT_EQ(0, MinValueWithMaxBase10Digits(9));
-  EXPECT_EQ(0, MinValueWithMaxBase10Digits(10));
-  EXPECT_EQ(10, MinValueWithMaxBase10Digits(11));
-  EXPECT_EQ(10, MinValueWithMaxBase10Digits(100));
-  EXPECT_EQ(100, MinValueWithMaxBase10Digits(101));
-  EXPECT_EQ(100, MinValueWithMaxBase10Digits(999));
-  EXPECT_EQ(100, MinValueWithMaxBase10Digits(1000));
-  EXPECT_EQ(1000, MinValueWithMaxBase10Digits(1001));
+      Optional(
+          ElementsAre(R{KeyRange("0/1", KeyRange::PrefixExclusiveMax("0/7")),
+                        Box<>{{0, 1}, {1, 7}}},
+                      R{KeyRange("1/1", KeyRange::PrefixExclusiveMax("1/7")),
+                        Box<>{{1, 1}, {1, 7}}},
+                      R{KeyRange("2/1", KeyRange::PrefixExclusiveMax("2/7")),
+                        Box<>{{2, 1}, {1, 7}}},
+                      R{KeyRange("3/1", KeyRange::PrefixExclusiveMax("3/7")),
+                        Box<>{{3, 1}, {1, 7}}},
+                      R{KeyRange("4/1", KeyRange::PrefixExclusiveMax("4/7")),
+                        Box<>{{4, 1}, {1, 7}}})));
 }
 
 }  // namespace

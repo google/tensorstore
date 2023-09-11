@@ -460,12 +460,17 @@ tensorstore_cc_library(
     hdrs = ["grid_chunk_key_ranges.h"],
     deps = [
         ":grid_partition",
+        ":grid_partition_impl",
+        ":lexicographical_grid_index_key",
         ":regular_grid",
         "//tensorstore:box",
+        "//tensorstore:index",
         "//tensorstore:index_interval",
+        "//tensorstore:rank",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/kvstore:key_range",
         "//tensorstore/util:span",
+        "//tensorstore/util:status",
         "@com_google_absl//absl/functional:function_ref",
         "@com_google_absl//absl/status",
     ],
@@ -477,16 +482,33 @@ tensorstore_cc_test(
     srcs = ["grid_chunk_key_ranges_test.cc"],
     deps = [
         ":grid_chunk_key_ranges",
-        ":grid_storage_statistics",
+        ":grid_chunk_key_ranges_base10",
+        ":grid_partition",
+        ":grid_partition_impl",
+        ":regular_grid",
         "//tensorstore:box",
+        "//tensorstore:index",
         "//tensorstore:index_interval",
+        "//tensorstore:rank",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/kvstore:key_range",
         "//tensorstore/util:division",
         "//tensorstore/util:span",
-        "//tensorstore/util:status_testutil",
+        "//tensorstore/util:status",
+        "@com_google_absl//absl/functional:function_ref",
         "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "grid_chunk_key_ranges_base10_test",
+    size = "small",
+    srcs = ["grid_chunk_key_ranges_base10_test.cc"],
+    deps = [
+        ":grid_chunk_key_ranges_base10",
+        "//tensorstore:index",
+        "//tensorstore:index_interval",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -500,14 +522,14 @@ tensorstore_cc_library(
     deps = [
         ":grid_partition_impl",
         ":intrusive_ptr",
-        ":memory",
-        "//tensorstore:array",
+        ":regular_grid",
+        "//tensorstore:box",
         "//tensorstore:index",
         "//tensorstore:index_interval",
+        "//tensorstore:rank",
         "//tensorstore/index_space:index_transform",
-        "//tensorstore/util:byte_strided_pointer",
-        "//tensorstore/util:division",
-        "//tensorstore/util:element_pointer",
+        "//tensorstore/index_space:output_index_method",
+        "//tensorstore/util:dimension_set",
         "//tensorstore/util:iterate",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
@@ -609,23 +631,34 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
+    name = "grid_chunk_key_ranges_base10",
+    srcs = ["grid_chunk_key_ranges_base10.cc"],
+    hdrs = ["grid_chunk_key_ranges_base10.h"],
+    deps = [
+        ":lexicographical_grid_index_key",
+        "//tensorstore:index",
+        "//tensorstore:index_interval",
+        "//tensorstore/util:span",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+tensorstore_cc_library(
     name = "grid_storage_statistics",
-    srcs = [
-        "grid_chunk_key_ranges_base10.cc",
-        "grid_storage_statistics.cc",
-    ],
-    hdrs = [
-        "grid_chunk_key_ranges_base10.h",
-        "grid_storage_statistics.h",
-    ],
+    srcs = ["grid_storage_statistics.cc"],
+    hdrs = ["grid_storage_statistics.h"],
     local_defines = select({
         ":grid_storage_statistics_debug_setting": ["TENSORSTORE_INTERNAL_GRID_STORAGE_STATISTICS_DEBUG"],
         "//conditions:default": [],
     }),
     deps = [
         ":grid_chunk_key_ranges",
+        ":grid_chunk_key_ranges_base10",
+        ":grid_partition_impl",
         ":integer_overflow",
         ":intrusive_ptr",
+        ":lexicographical_grid_index_key",
+        ":regular_grid",
         ":storage_statistics",
         "//tensorstore:array_storage_statistics",
         "//tensorstore:box",
@@ -634,18 +667,16 @@ tensorstore_cc_library(
         "//tensorstore:rank",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/kvstore",
+        "//tensorstore/kvstore:byte_range",
         "//tensorstore/kvstore:key_range",
         "//tensorstore/util:division",
         "//tensorstore/util:future",
         "//tensorstore/util:quote_string",
-        "//tensorstore/util:result",
         "//tensorstore/util:span",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/functional:any_invocable",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
     ],
 )
@@ -996,6 +1027,16 @@ tensorstore_cc_test(
         "//tensorstore/util:span",
         "//tensorstore/util:status_testutil",
         "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "lexicographical_grid_index_key",
+    hdrs = ["lexicographical_grid_index_key.h"],
+    deps = [
+        "//tensorstore:index",
+        "//tensorstore:index_interval",
+        "//tensorstore/util:span",
     ],
 )
 

@@ -153,7 +153,7 @@ TEST_F(StorageStatisticsTest, FullyLexicographicOrder) {
     EXPECT_THAT(mock_kvstore->request_log.pop_all(),
                 ::testing::ElementsAre(
                     MatchesJson({{"type", "list"},
-                                 {"range", {"1_1_1/10-20", "1_1_1/10-21"}},
+                                 {"range", {"1_1_1/10-20_", "1_1_1/10-20`"}},
                                  {"strip_prefix_length", 6}})));
   }
 
@@ -218,12 +218,12 @@ TEST_F(StorageStatisticsTest, SemiLexicographicOrder) {
               ::testing::UnorderedElementsAreArray({
                   MatchesJson({{"type", "list"},
                                {"range", {"1_1_1/8-9_", "1_1_1/8-9`"}},
-                               {"strip_prefix_length", 10}}),
+                               {"strip_prefix_length", 6}}),
                   MatchesJson({{"type", "list"},
                                {"range", {"1_1_1/9-10_", "1_1_1/9-10`"}},
-                               {"strip_prefix_length", 11}}),
+                               {"strip_prefix_length", 6}}),
                   MatchesJson({{"type", "list"},
-                               {"range", {"1_1_1/10-11", "1_1_1/14-16"}},
+                               {"range", {"1_1_1/10-11_", "1_1_1/14-15`"}},
                                {"strip_prefix_length", 6}}),
               }));
 
@@ -240,13 +240,13 @@ TEST_F(StorageStatisticsTest, SemiLexicographicOrder) {
       ::testing::UnorderedElementsAreArray({
           MatchesJson({{"type", "list"},
                        {"range", {"1_1_1/3-4_8-9_", "1_1_1/3-4_8-9`"}},
-                       {"strip_prefix_length", 14}}),
+                       {"strip_prefix_length", 6}}),
           MatchesJson({{"type", "list"},
                        {"range", {"1_1_1/3-4_9-10_", "1_1_1/3-4_9-10`"}},
-                       {"strip_prefix_length", 15}}),
+                       {"strip_prefix_length", 6}}),
           MatchesJson({{"type", "list"},
-                       {"range", {"1_1_1/3-4_10-11", "1_1_1/3-4_14-16"}},
-                       {"strip_prefix_length", 10}}),
+                       {"range", {"1_1_1/3-4_10-11_", "1_1_1/3-4_14-15`"}},
+                       {"strip_prefix_length", 6}}),
       }));
 }
 

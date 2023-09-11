@@ -97,11 +97,11 @@
 
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
+#include "tensorstore/box.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal {
@@ -153,6 +153,19 @@ absl::Status PartitionIndexTransformOverGrid(
                                    IndexTransformView<> cell_transform)>
         func);
 
+absl::Status GetGridCellRanges(
+    span<const DimensionIndex> grid_output_dimensions, BoxView<> grid_bounds,
+    absl::FunctionRef<Index(DimensionIndex grid_dim, Index output_index,
+                            IndexInterval* cell_bounds)>
+        output_to_grid_cell,
+    IndexTransformView<> transform,
+    absl::FunctionRef<absl::Status(BoxView<> bounds)> callback);
+
+}  // namespace internal
+
+namespace internal_grid_partition {
+class IndexTransformGridPartition;
+
 // Computes the set of grid cells that intersect the output range of
 // `transform`, and returns them as a set of lexicographical ranges.
 //
@@ -161,7 +174,13 @@ absl::Status PartitionIndexTransformOverGrid(
 // the `cell_transform` for each grid cell, and combines grid cells into ranges
 // when possible.
 //
+// The `cell_transform` may be obtained for a given grid cell by calling
+// `grid_partition.GetCellTransform`.
+//
 // Args:
+//   grid_partition: Must have been previously initialized by a call to
+//     `PrePartitionIndexTransformOverGrid` with the same `transform`,
+//     `grid_output_dimensions`, and `output_to_grid_cell`.
 //   grid_output_dimensions: Output dimensions of `transform` corresponding to
 //     each grid dimension.
 //   grid_bounds: Bounds of grid indices along each dimension.
@@ -169,37 +188,21 @@ absl::Status PartitionIndexTransformOverGrid(
 //     index.
 //   transform: Index transform.
 //   callback: Called for each grid cell range.  Any error return aborts
-//     iteration and is propagated.  The grid cell range consists of all
-//     `grid_indices` that satisfy the following constraints:
-//
-//     - `grid_indices[i] == outer_prefix[i]` for
-//       `0 <= i < outer_prefix.size()`, i.e. the grid indices for the first
-//       `outer_prefix.size()` dimensions must exactly match `outer_prefix`.
-//       Note that `outer_prefix` may be empty.
-//
-//     - `Contains(inner_interval, grid_indices[outer_prefix.size()])` if
-//       `outer_prefix.size() < grid_indices.size()`, i.e. the first dimension
-//       not constrained by `outer_prefix`, if any, is constrained by
-//       `inner_interval`.  If `outer_prefix.size() == grid_bounds.rank()`, then
-//       `inner_interval` is ignored.
-//
-//     - The `grid_indices[i]` for any remaining dimensions
-//       `i > outer_prefix.size()` are unconstrained, i.e. they are constrained
-//       only by the common `grid_bounds[i]`.
-//
-//     The unusual form of these constraints is due to the requirement that the
-//     grid cell range be a single lexicographical range.
+//     iteration and is propagated.  While specified as an arbitrary box, the
+//     bounds passed to the callback are guaranteed to specify a lexicographical
+//     range that is a subset of `grid_bounds`, i.e. `bounds[i].size() == 1` for
+//     all `0 < m`, and `bounds[i] == grid_bounds[i]` for all `i >= n`, where
+//     `0 <= m <= n <= grid_bounds.rank()`.
 absl::Status GetGridCellRanges(
+    const IndexTransformGridPartition& grid_partition,
     span<const DimensionIndex> grid_output_dimensions, BoxView<> grid_bounds,
     absl::FunctionRef<Index(DimensionIndex grid_dim, Index output_index,
                             IndexInterval* cell_bounds)>
         output_to_grid_cell,
     IndexTransformView<> transform,
-    absl::FunctionRef<absl::Status(span<const Index> outer_prefix,
-                                   IndexInterval inner_interval)>
-        callback);
+    absl::FunctionRef<absl::Status(BoxView<> bounds)> callback);
+}  // namespace internal_grid_partition
 
-}  // namespace internal
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_INTERNAL_GRID_PARTITION_H_

@@ -14,31 +14,74 @@
 
 #include "tensorstore/driver/driver.h"
 
-#include <charconv>
+#include <stddef.h>
+#include <stdint.h>
 
+#include <algorithm>
+#include <array>
+#include <cassert>
+#include <charconv>
+#include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <system_error>
+#include <utility>
+#include <variant>
+#include <vector>
+
+#include "absl/algorithm/container.h"
+#include "absl/container/inlined_vector.h"
 #include "absl/status/status.h"
+#include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
+#include "absl/time/time.h"
+#include "tensorstore/array.h"
+#include "tensorstore/array_storage_statistics.h"
+#include "tensorstore/box.h"
+#include "tensorstore/chunk_layout.h"
+#include "tensorstore/codec_spec.h"
 #include "tensorstore/context.h"
+#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
+#include "tensorstore/driver/chunk_cache_driver.h"
 #include "tensorstore/driver/kvs_backed_chunk_driver.h"
 #include "tensorstore/driver/neuroglancer_precomputed/chunk_encoding.h"
 #include "tensorstore/driver/neuroglancer_precomputed/metadata.h"
 #include "tensorstore/driver/registry.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dimension_permutation.h"
+#include "tensorstore/index_space/dimension_units.h"
+#include "tensorstore/index_space/index_domain.h"
+#include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
-#include "tensorstore/internal/cache/chunk_cache.h"
 #include "tensorstore/internal/cache_key/cache_key.h"
-#include "tensorstore/internal/grid_chunk_key_ranges.h"
+#include "tensorstore/internal/chunk_grid_specification.h"
 #include "tensorstore/internal/grid_chunk_key_ranges_base10.h"
 #include "tensorstore/internal/grid_storage_statistics.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/path.h"
+#include "tensorstore/internal/json_fwd.h"
+#include "tensorstore/internal/lexicographical_grid_index_key.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/neuroglancer_uint64_sharded/neuroglancer_uint64_sharded.h"
-#include "tensorstore/tensorstore.h"
+#include "tensorstore/kvstore/spec.h"
+#include "tensorstore/open_mode.h"
+#include "tensorstore/open_options.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/strided_layout.h"
+#include "tensorstore/transaction.h"
 #include "tensorstore/util/constant_vector.h"
+#include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/division.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/garbage_collection/fwd.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
+#include "tensorstore/util/str_cat.h"
+#include "tensorstore/util/unit.h"
 
 namespace tensorstore {
 namespace internal_neuroglancer_precomputed {
@@ -174,8 +217,7 @@ class DataCacheBase : public internal_kvs_backed_chunk_driver::DataCache {
 
  public:
   explicit DataCacheBase(Initializer initializer, std::string_view key_prefix,
-                         const MultiscaleMetadata& metadata,
-                         std::size_t scale_index,
+                         const MultiscaleMetadata& metadata, size_t scale_index,
                          std::array<Index, 3> chunk_size_xyz)
       : Base(std::move(initializer),
              GetChunkGridSpecification(metadata, scale_index, chunk_size_xyz)),
@@ -287,7 +329,7 @@ class DataCacheBase : public internal_kvs_backed_chunk_driver::DataCache {
   }
 
   Result<IndexTransform<>> GetExternalToInternalTransform(
-      const void* metadata_ptr, std::size_t component_index) override {
+      const void* metadata_ptr, size_t component_index) override {
     assert(component_index == 0);
     const auto& metadata =
         *static_cast<const MultiscaleMetadata*>(metadata_ptr);
@@ -310,7 +352,7 @@ class DataCacheBase : public internal_kvs_backed_chunk_driver::DataCache {
 
   absl::Status GetBoundSpecData(
       KvsDriverSpec& spec_base, const void* metadata_ptr,
-      [[maybe_unused]] std::size_t component_index) override {
+      [[maybe_unused]] size_t component_index) override {
     assert(component_index == 0);
     auto& spec = static_cast<NeuroglancerPrecomputedDriverSpec&>(spec_base);
     const auto& metadata =
@@ -365,7 +407,7 @@ class DataCacheBase : public internal_kvs_backed_chunk_driver::DataCache {
       absl::Time staleness_bound, GetArrayStorageStatisticsOptions options) = 0;
 
   std::string key_prefix_;
-  std::size_t scale_index_;
+  size_t scale_index_;
   // channel, z, y, x
   StridedLayout<4> chunk_layout_czyx_;
 };
@@ -375,7 +417,7 @@ class UnshardedDataCache : public DataCacheBase {
   explicit UnshardedDataCache(Initializer initializer,
                               std::string_view key_prefix,
                               const MultiscaleMetadata& metadata,
-                              std::size_t scale_index,
+                              size_t scale_index,
                               std::array<Index, 3> chunk_size_xyz)
       : DataCacheBase(std::move(initializer), key_prefix, metadata, scale_index,
                       chunk_size_xyz) {
@@ -394,8 +436,28 @@ class UnshardedDataCache : public DataCacheBase {
                   chunk_shape_zyx_.begin());
     }
 
+    std::string FormatKey(span<const Index> grid_indices) const final {
+      std::string key;
+      internal::FormatGridIndexKeyWithDimensionSeparator(
+          key, '_',
+          [this](std::string& out, DimensionIndex dim, Index grid_index) {
+            FormatGridIndex(out, dim, grid_index);
+          },
+          /*rank=*/3, grid_indices);
+      return key;
+    }
+
+    bool ParseKey(std::string_view key, span<Index> grid_indices) const final {
+      return internal::ParseGridIndexKeyWithDimensionSeparator(
+          '_',
+          [this](std::string_view part, DimensionIndex dim, Index& grid_index) {
+            return ParseGridIndex(part, dim, grid_index);
+          },
+          key, grid_indices);
+    }
+
     void FormatGridIndex(std::string& out, DimensionIndex dim,
-                         Index grid_index) const final {
+                         Index grid_index) const {
       const Index chunk_size = chunk_shape_zyx_[2 - dim];
       absl::StrAppend(
           &out, box_.origin()[dim] + chunk_size * grid_index, "-",
@@ -404,7 +466,7 @@ class UnshardedDataCache : public DataCacheBase {
     }
 
     bool ParseGridIndex(std::string_view key, DimensionIndex dim,
-                        Index& grid_index) const final {
+                        Index& grid_index) const {
       Index start_index, end_index;
       // Start and end bounds are separated by '-'.
       size_t sep = key.find('-');
@@ -497,8 +559,7 @@ class UnshardedDataCache : public DataCacheBase {
             transform, /*grid_output_dimensions=*/
             component.chunked_to_cell_dimensions,
             /*chunk_shape=*/grid.chunk_shape, grid_bounds,
-            /*dimension_separator=*/'_', std::make_unique<KeyFormatter>(*this),
-            staleness_bound, options);
+            std::make_unique<KeyFormatter>(*this), staleness_bound, options);
   }
 
  private:
@@ -511,7 +572,7 @@ class ShardedDataCache : public DataCacheBase {
   explicit ShardedDataCache(Initializer initializer,
                             std::string_view key_prefix,
                             const MultiscaleMetadata& metadata,
-                            std::size_t scale_index,
+                            size_t scale_index,
                             std::array<Index, 3> chunk_size_xyz)
       : DataCacheBase(std::move(initializer), key_prefix, metadata, scale_index,
                       chunk_size_xyz) {
@@ -522,8 +583,8 @@ class ShardedDataCache : public DataCacheBase {
 
   std::string GetChunkStorageKey(span<const Index> cell_indices) override {
     assert(cell_indices.size() == 3);
-    const std::uint64_t chunk_key = EncodeCompressedZIndex(
-        {cell_indices.data(), 3}, compressed_z_index_bits_);
+    const uint64_t chunk_key = EncodeCompressedZIndex({cell_indices.data(), 3},
+                                                      compressed_z_index_bits_);
     return neuroglancer_uint64_sharded::ChunkIdToKey({chunk_key});
   }
 
@@ -693,8 +754,8 @@ class NeuroglancerPrecomputedDriver::OpenState
     }
   }
 
-  Result<std::size_t> GetComponentIndex(const void* metadata_ptr,
-                                        OpenMode open_mode) override {
+  Result<size_t> GetComponentIndex(const void* metadata_ptr,
+                                   OpenMode open_mode) override {
     const auto& metadata =
         *static_cast<const MultiscaleMetadata*>(metadata_ptr);
     // FIXME: avoid copy by changing OpenScale to take separate arguments
@@ -748,7 +809,7 @@ class NeuroglancerPrecomputedDriver::OpenState
 
   // Set by `Create` or `GetComponentIndex` to indicate the scale index that
   // has been determined.
-  std::optional<std::size_t> scale_index_;
+  std::optional<size_t> scale_index_;
   // Set by `GetComponentIndex` to indicate the chunk size that has been
   // determined.
   std::array<Index, 3> chunk_size_xyz_;

@@ -15,9 +15,9 @@
 #include "tensorstore/internal/grid_partition.h"
 
 #include <algorithm>
+#include <array>
 #include <cassert>
-#include <memory>
-#include <optional>
+#include <cstddef>
 #include <utility>
 #include <vector>
 
@@ -25,15 +25,18 @@
 #include "absl/container/inlined_vector.h"
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
-#include "tensorstore/array.h"
+#include "tensorstore/box.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
+#include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/internal/transform_rep.h"
+#include "tensorstore/index_space/output_index_map.h"
+#include "tensorstore/index_space/output_index_method.h"
 #include "tensorstore/internal/grid_partition_impl.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/memory.h"
-#include "tensorstore/util/byte_strided_pointer.h"
-#include "tensorstore/util/division.h"
-#include "tensorstore/util/element_pointer.h"
+#include "tensorstore/internal/regular_grid.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
@@ -334,11 +337,12 @@ struct GetGridCellRangesIterateParameters {
   span<const DimensionIndex> grid_output_dimensions;
   OutputToGridCellFn output_to_grid_cell;
   IndexTransformView<> transform;
-  absl::FunctionRef<absl::Status(span<const Index> outer_prefix,
-                                 IndexInterval inner_interval)>
-      func;
+  absl::FunctionRef<absl::Status(BoxView<> bounds)> func;
   DimensionIndex outer_prefix_rank;
+  BoxView<> grid_bounds;
   span<const IndexInterval> inner_intervals;
+  span<const StridedSet*> strided_sets_in_prefix;
+  span<const IndexArraySet*> index_array_sets_in_prefix;
 };
 
 class GetGridCellRangesIterateHelper {
@@ -349,7 +353,22 @@ class GetGridCellRangesIterateHelper {
     InitializeConstantGridCellIndices(
         params_.transform, params_.grid_output_dimensions,
         params_.output_to_grid_cell,
-        span(outer_prefix_).first(params_.transform.output_rank()));
+        span<Index>(&grid_bounds_origin_[0], params_.transform.output_rank()));
+    for (DimensionIndex i = 0; i < params.outer_prefix_rank; ++i) {
+      grid_bounds_shape_[i] = 1;
+    }
+    for (DimensionIndex i = params.outer_prefix_rank + 1,
+                        rank = params.grid_bounds.rank();
+         i < rank; ++i) {
+      grid_bounds_origin_[i] = params.grid_bounds.origin()[i];
+      grid_bounds_shape_[i] = params.grid_bounds.shape()[i];
+    }
+    if (params.inner_intervals.size() == 1) {
+      const auto& inner_interval = params.inner_intervals[0];
+      grid_bounds_origin_[params.outer_prefix_rank] =
+          inner_interval.inclusive_min();
+      grid_bounds_shape_[params.outer_prefix_rank] = inner_interval.size();
+    }
   }
 
   /// Iterates over all grid cells and invokes the iteration callback function.
@@ -360,7 +379,8 @@ class GetGridCellRangesIterateHelper {
 
  private:
   GetGridCellRangesIterateParameters params_;
-  Index outer_prefix_[kMaxRank];
+  Index grid_bounds_origin_[kMaxRank];
+  Index grid_bounds_shape_[kMaxRank];
 
   /// Recursively iterates over the partial grid cells corresponding to the
   /// index array connected sets, starting with `set_i`.
@@ -379,11 +399,11 @@ class GetGridCellRangesIterateHelper {
   ///     the range `[0, info.index_array_sets().size()]`.
   /// \returns The return value of the last recursively call.
   absl::Status IterateOverIndexArraySets(DimensionIndex set_i) {
-    if (set_i == params_.info.index_array_sets().size()) {
+    if (set_i == params_.index_array_sets_in_prefix.size()) {
       return IterateOverStridedSets(0);
     }
     const IndexArraySet& index_array_set =
-        params_.info.index_array_sets()[set_i];
+        *params_.index_array_sets_in_prefix[set_i];
     const auto grid_dimensions = index_array_set.grid_dimensions;
     const DimensionIndex num_grid_dimensions = grid_dimensions.count();
     // Iterate over the precomputed partitions.
@@ -395,7 +415,7 @@ class GetGridCellRangesIterateHelper {
       const Index grid_cell_indices_offset = partition_i * num_grid_dimensions;
       DimensionIndex grid_i = 0;
       for (DimensionIndex grid_dim : grid_dimensions.index_view()) {
-        outer_prefix_[grid_dim] =
+        grid_bounds_origin_[grid_dim] =
             index_array_set
                 .grid_cell_indices[grid_cell_indices_offset + grid_i++];
       }
@@ -423,12 +443,12 @@ class GetGridCellRangesIterateHelper {
   /// \returns The return value of the last recursive call, or the last call to
   ///     `InvokeCallback`.
   absl::Status IterateOverStridedSets(DimensionIndex set_i) {
-    if (set_i == params_.info.strided_sets().size()) return InvokeCallback();
+    if (set_i == params_.strided_sets_in_prefix.size()) return InvokeCallback();
     StridedSetGridCellIterator iterator(
         params_.transform, params_.grid_output_dimensions,
-        params_.output_to_grid_cell, params_.info.strided_sets()[set_i]);
+        params_.output_to_grid_cell, *params_.strided_sets_in_prefix[set_i]);
     while (!iterator.AtEnd()) {
-      iterator.Next(outer_prefix_);
+      iterator.Next(grid_bounds_origin_);
       // Recursively iterate over the next strided connected set.
       TENSORSTORE_RETURN_IF_ERROR(IterateOverStridedSets(set_i + 1));
     }
@@ -441,10 +461,15 @@ class GetGridCellRangesIterateHelper {
   ///
   /// \error Any error returned by the iteration callback function.
   absl::Status InvokeCallback() {
-    const span<const Index> outer_prefix =
-        span<const Index>(outer_prefix_).first(params_.outer_prefix_rank);
+    MutableBoxView<> bounds(params_.grid_bounds.rank(), grid_bounds_origin_,
+                            grid_bounds_shape_);
+    if (params_.inner_intervals.size() == 1) {
+      return params_.func(bounds);
+    }
+    DimensionIndex outer_prefix_rank = params_.outer_prefix_rank;
     for (const auto& inner_interval : params_.inner_intervals) {
-      TENSORSTORE_RETURN_IF_ERROR(params_.func(outer_prefix, inner_interval));
+      bounds[outer_prefix_rank] = inner_interval;
+      TENSORSTORE_RETURN_IF_ERROR(params_.func(bounds));
     }
     return absl::OkStatus();
   }
@@ -488,15 +513,14 @@ absl::Status PartitionIndexTransformOverRegularGrid(
                                          transform, std::move(func));
 }
 
-absl::Status GetGridCellRanges(
-    span<const DimensionIndex> grid_output_dimensions, BoxView<> grid_bounds,
-    internal_grid_partition::OutputToGridCellFn output_to_grid_cell,
-    IndexTransformView<> transform,
-    absl::FunctionRef<absl::Status(span<const Index> outer_prefix,
-                                   IndexInterval inner_interval)>
-        callback) {
-  using internal_grid_partition::StridedSet;
+}  // namespace internal
 
+namespace internal_grid_partition {
+absl::Status GetGridCellRanges(
+    const IndexTransformGridPartition& grid_partition,
+    span<const DimensionIndex> grid_output_dimensions, BoxView<> grid_bounds,
+    OutputToGridCellFn output_to_grid_cell, IndexTransformView<> transform,
+    absl::FunctionRef<absl::Status(BoxView<> bounds)> callback) {
   assert(grid_output_dimensions.size() == grid_bounds.rank());
 
   if (transform.domain().box().is_empty()) {
@@ -505,16 +529,9 @@ absl::Status GetGridCellRanges(
   }
 
   if (grid_output_dimensions.empty()) {
-    // Only a single grid cell, return zero-length `outer_prefix` and dummy
-    // `inner_interval`.
-    return callback(/*outer_prefix=*/{}, /*inner_interval=*/{});
+    // Only a single grid cell.
+    return callback({});
   }
-
-  internal_grid_partition::IndexTransformGridPartition grid_partition;
-  TENSORSTORE_RETURN_IF_ERROR(
-      internal_grid_partition::PrePartitionIndexTransformOverGrid(
-          transform, grid_output_dimensions, output_to_grid_cell,
-          grid_partition));
 
   std::array<DimensionIndex, kMaxRank> dim_to_indexed_set;
   dim_to_indexed_set.fill(-1);
@@ -560,7 +577,7 @@ absl::Status GetGridCellRanges(
     if (grid_interval.size() == 1) {
       // Only a single grid cell, therefore always unconstrained.
       inner_intervals.clear();
-      inner_intervals.push_back(IndexInterval());
+      inner_intervals.push_back(grid_interval);
       continue;
     }
 
@@ -603,7 +620,7 @@ absl::Status GetGridCellRanges(
         tensorstore::Contains(inner_intervals[0], grid_interval)) {
       // Dimension is unconstrained.
       inner_intervals.clear();
-      inner_intervals.push_back(IndexInterval());
+      inner_intervals.push_back(grid_interval);
       continue;
     }
 
@@ -612,27 +629,69 @@ absl::Status GetGridCellRanges(
     break;
   }
 
-  // Remove sets that are not part of the outer prefix.
-  const auto remove_sets_not_in_prefix = [&](auto& sets) {
-    sets.erase(std::remove_if(sets.begin(), sets.end(),
-                              [&](const auto& set) -> bool {
-                                return grid_dimensions_outside_prefix
-                                    [set.grid_dimensions.index_view().front()];
-                              }),
-               sets.end());
+  const StridedSet* strided_sets_in_prefix_storage[kMaxRank];
+  const IndexArraySet* index_array_sets_in_prefix_storage[kMaxRank];
+
+  // Get the reduced list of sets that are part of the outer prefix.
+  const auto get_sets_in_prefix = [&](auto sets, auto* buffer) {
+    ptrdiff_t i = 0;
+    for (const auto& set : sets) {
+      if (grid_dimensions_outside_prefix[set.grid_dimensions.index_view()
+                                             .front()]) {
+        continue;
+      }
+      buffer[i++] = &set;
+    }
+    return span(buffer, i);
   };
-  remove_sets_not_in_prefix(grid_partition.strided_sets());
-  remove_sets_not_in_prefix(grid_partition.index_array_sets());
+
+  auto strided_sets_in_prefix = get_sets_in_prefix(
+      grid_partition.strided_sets(), strided_sets_in_prefix_storage);
+  auto index_array_sets_in_prefix = get_sets_in_prefix(
+      grid_partition.index_array_sets(), index_array_sets_in_prefix_storage);
 
   if (range_queryable_grid_dim == grid_output_dimensions.size() - 1) {
-    inner_intervals.push_back(IndexInterval());
+    inner_intervals.push_back(grid_bounds[range_queryable_grid_dim]);
   }
 
   internal_grid_partition::GetGridCellRangesIterateHelper iterate_helper(
       internal_grid_partition::GetGridCellRangesIterateParameters{
           grid_partition, grid_output_dimensions, output_to_grid_cell,
-          transform, callback, range_queryable_grid_dim + 1, inner_intervals});
+          transform, callback, range_queryable_grid_dim + 1, grid_bounds,
+          inner_intervals, strided_sets_in_prefix, index_array_sets_in_prefix});
   return iterate_helper.Iterate();
+}
+}  // namespace internal_grid_partition
+
+namespace internal {
+
+absl::Status GetGridCellRanges(
+    span<const DimensionIndex> grid_output_dimensions, BoxView<> grid_bounds,
+    internal_grid_partition::OutputToGridCellFn output_to_grid_cell,
+    IndexTransformView<> transform,
+    absl::FunctionRef<absl::Status(BoxView<> bounds)> callback) {
+  using internal_grid_partition::StridedSet;
+
+  assert(grid_output_dimensions.size() == grid_bounds.rank());
+
+  if (transform.domain().box().is_empty()) {
+    // Domain is empty, maps to no grid cells.
+    return absl::OkStatus();
+  }
+
+  if (grid_output_dimensions.empty()) {
+    // Only a single grid cell.
+    return callback({});
+  }
+
+  internal_grid_partition::IndexTransformGridPartition grid_partition;
+  TENSORSTORE_RETURN_IF_ERROR(
+      internal_grid_partition::PrePartitionIndexTransformOverGrid(
+          transform, grid_output_dimensions, output_to_grid_cell,
+          grid_partition));
+  return internal_grid_partition::GetGridCellRanges(
+      grid_partition, grid_output_dimensions, grid_bounds, output_to_grid_cell,
+      transform, callback);
 }
 
 }  // namespace internal

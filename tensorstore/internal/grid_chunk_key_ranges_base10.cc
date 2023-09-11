@@ -20,25 +20,40 @@
 #include "absl/strings/ascii.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
-#include "tensorstore/box.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
+#include "tensorstore/internal/lexicographical_grid_index_key.h"
 #include "tensorstore/util/span.h"
 
 namespace tensorstore {
 namespace internal {
 
-void Base10LexicographicalGridIndexKeyParser::FormatGridIndex(
-    std::string& out, DimensionIndex dim, Index grid_index) const {
-  absl::StrAppend(&out, grid_index);
+std::string Base10LexicographicalGridIndexKeyParser::FormatKey(
+    span<const Index> grid_indices) const {
+  if (rank == 0) return "0";
+  std::string key;
+  FormatGridIndexKeyWithDimensionSeparator(
+      key, dimension_separator,
+      [](std::string& out, DimensionIndex dim, Index grid_index) {
+        absl::StrAppend(&out, grid_index);
+      },
+      rank, grid_indices);
+  return key;
 }
 
-bool Base10LexicographicalGridIndexKeyParser::ParseGridIndex(
-    std::string_view key, DimensionIndex dim, Index& grid_index) const {
-  if (key.empty() || !absl::ascii_isdigit(key.front()) ||
-      !absl::ascii_isdigit(key.back()) || !absl::SimpleAtoi(key, &grid_index)) {
-    return false;
-  }
-  return true;
+bool Base10LexicographicalGridIndexKeyParser::ParseKey(
+    std::string_view key, span<Index> grid_indices) const {
+  return ParseGridIndexKeyWithDimensionSeparator(
+      dimension_separator,
+      [](std::string_view part, DimensionIndex dim, Index& grid_index) {
+        if (part.empty() || !absl::ascii_isdigit(part.front()) ||
+            !absl::ascii_isdigit(part.back()) ||
+            !absl::SimpleAtoi(part, &grid_index)) {
+          return false;
+        }
+        return true;
+      },
+      key, grid_indices);
 }
 
 Index Base10LexicographicalGridIndexKeyParser::

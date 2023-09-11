@@ -15,18 +15,25 @@
 #ifndef TENSORSTORE_INTERNAL_GRID_CHUNK_KEY_RANGES_H_
 #define TENSORSTORE_INTERNAL_GRID_CHUNK_KEY_RANGES_H_
 
+#include <string>
+
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
 #include "tensorstore/box.h"
-#include "tensorstore/index_interval.h"
+#include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/internal/lexicographical_grid_index_key.h"
+#include "tensorstore/internal/regular_grid.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/util/span.h"
 
 namespace tensorstore {
-namespace internal {
 
-class LexicographicalGridIndexKeyFormatter;
+namespace internal_grid_partition {
+class IndexTransformGridPartition;
+}  // namespace internal_grid_partition
+
+namespace internal {
 
 // Computes the set of keys and key ranges specifying the grid cells that cover
 // the output range of `transform`.
@@ -35,9 +42,7 @@ class LexicographicalGridIndexKeyFormatter;
 // the form:
 //
 //     Encode(0, grid_indices[0]) +
-//     dimension_separator +
 //     Encode(1, grid_indices[1]) +
-//     dimension_separator +
 //     ...
 //     Encode(n-1, grid_indices[n-1])
 //
@@ -47,43 +52,33 @@ class LexicographicalGridIndexKeyFormatter;
 // the keys matches the numeric order of the grid indices.
 //
 // Args:
+//   grid_partition: Must have been previously initialized by a call to
+//     `PrePartitionIndexTransformOverGrid` with the same `transform`,
+//     `grid_output_dimensions`, and `output_to_grid_cell`.
 //   transform: Index transform.
 //   grid_output_dimensions: Output dimensions of `transform` corresponding to
 //     each grid dimension.
-//   chunk_shape: Chunk size along each grid dimension.  Must be the same length
-//     as `grid_output_dimensions`.
+//   output_to_grid_cell: Computes the grid cell corresponding to a given output
+//     index.
 //   grid_bounds: Range of grid indices along each grid dimension.  Must be the
 //     same rank as `grid_output_dimensions`.
-//   dimension_separator: Separator character between encoded grid indices.
 //   key_formatter: Specifies the key format.
 //   handle_key: Callback invoked for individual chunk keys.  Any error status
 //     will be propagated immediately and no further callbacks will be invoked.
 //   handle_key_range: Callback invoked for chunk key ranges.  Any error status
 //     will be propagated immediately and no further callbacks will be invoked.
 absl::Status GetChunkKeyRangesForRegularGridWithSemiLexicographicalKeys(
+    const internal_grid_partition::IndexTransformGridPartition& grid_partition,
     IndexTransformView<> transform,
     span<const DimensionIndex> grid_output_dimensions,
-    span<const Index> chunk_shape, BoxView<> grid_bounds,
-    char dimension_separator,
+    internal_grid_partition::OutputToGridCellFn output_to_grid_cell,
+    BoxView<> grid_bounds,
     const LexicographicalGridIndexKeyFormatter& key_formatter,
-    absl::FunctionRef<absl::Status(std::string key)> handle_key,
-    absl::FunctionRef<absl::Status(KeyRange key_range, size_t prefix,
-                                   BoxView<> grid_bounds)>
+    absl::FunctionRef<absl::Status(std::string key,
+                                   span<const Index> grid_indices)>
+        handle_key,
+    absl::FunctionRef<absl::Status(KeyRange key_range, BoxView<> grid_bounds)>
         handle_key_range);
-
-// Specifies the key format for
-// `GetChunkKeyRangesForRegularGridWithSemiLexicographicalKeys`.
-class LexicographicalGridIndexKeyFormatter {
- public:
-  // Appends to `out` the representation of `grid_index` for dimension `dim`.
-  virtual void FormatGridIndex(std::string& out, DimensionIndex dim,
-                               Index grid_index) const = 0;
-
-  // Returns the first grid index for dimension `dim` at which the formatted
-  // keys are ordered lexicographically.
-  virtual Index MinGridIndexForLexicographicalOrder(
-      DimensionIndex dim, IndexInterval grid_interval) const = 0;
-};
 
 }  // namespace internal
 }  // namespace tensorstore
