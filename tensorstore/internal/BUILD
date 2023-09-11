@@ -596,6 +596,17 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "storage_statistics",
+    srcs = ["storage_statistics.cc"],
+    hdrs = ["storage_statistics.h"],
+    deps = [
+        ":intrusive_ptr",
+        "//tensorstore:array_storage_statistics",
+        "//tensorstore/util:future",
+    ],
+)
+
+tensorstore_cc_library(
     name = "grid_storage_statistics",
     srcs = [
         "grid_chunk_key_ranges_base10.cc",
@@ -611,9 +622,14 @@ tensorstore_cc_library(
     }),
     deps = [
         ":grid_chunk_key_ranges",
+        ":integer_overflow",
+        ":intrusive_ptr",
+        ":storage_statistics",
         "//tensorstore:array_storage_statistics",
         "//tensorstore:box",
         "//tensorstore:index",
+        "//tensorstore:index_interval",
+        "//tensorstore:rank",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:key_range",
@@ -622,8 +638,13 @@ tensorstore_cc_library(
         "//tensorstore/util:quote_string",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
+        "//tensorstore/util:status",
+        "//tensorstore/util:str_cat",
         "@com_google_absl//absl/functional:any_invocable",
+        "@com_google_absl//absl/log:absl_log",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
     ],
 )
 
