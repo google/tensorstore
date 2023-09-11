@@ -22,16 +22,17 @@
 
 #include <vector>
 
-#include "absl/container/fixed_array.h"
 #include "absl/container/inlined_vector.h"
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/internal/transform_rep.h"
 #include "tensorstore/internal/regular_grid.h"
+#include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal_grid_partition {
@@ -117,6 +118,16 @@ class IndexTransformGridPartition {
     Index num_partitions() const {
       return static_cast<Index>(grid_cell_partition_offsets.size());
     }
+
+    /// Returns the index of the partition, `partition_i`, for which
+    /// `partition_grid_cell_indices(partition_i)` is equal to
+    /// `grid_cell_indices`.
+    ///
+    /// On success returns `partition_i`, where
+    /// `0 <= partition_i && partition_i < num_partitions()`.
+    ///
+    /// If there is no such partition, returns -1`.
+    Index FindPartition(span<const Index> grid_cell_indices) const;
   };
 
   span<const IndexArraySet> index_array_sets() const {
@@ -127,6 +138,31 @@ class IndexTransformGridPartition {
   span<const StridedSet> strided_sets() const { return strided_sets_; }
   auto& strided_sets() { return strided_sets_; }
 
+  /// Returns the "cell transform" for the grid cell given by
+  /// `grid_cell_indices`.
+  ///
+  /// The "cell transform" has a synthetic input domain and an output range that
+  /// is exactly the subset of the domain of `full_transform` that maps to
+  /// output positions contained in the specified grid cell.  See
+  /// `grid_partition.h` for the precise definition.
+  ///
+  /// \param full_transform Must match the transform supplied to
+  ///     `PrePartitionIndexTransformOverGrid`.
+  /// \param grid_cell_indices The grid cell for which to compute the cell
+  ///     transform.
+  /// \param grid_output_dimensions Must match the value supplied to
+  ///     `PrePartitionIndexTransformOverGrid`.
+  /// \param get_grid_cell_output_interval Computes the output interval
+  ///     corresponding to a given grid cell.  Must compute a result that is
+  ///     consistent with that of the `output_to_grid_cell` function supplied to
+  ///     `PrePartitionIndexTransformOverGrid`.
+  IndexTransform<> GetCellTransform(
+      IndexTransformView<> full_transform, span<const Index> grid_cell_indices,
+      span<const DimensionIndex> grid_output_dimensions,
+      absl::FunctionRef<IndexInterval(DimensionIndex grid_dim,
+                                      Index grid_cell_index)>
+          get_grid_cell_output_interval) const;
+
   /// The following members should be treated as private.
 
   /// Precomputed data for the strided connected sets.
@@ -135,6 +171,31 @@ class IndexTransformGridPartition {
   /// Precomputed data for the index array connected sets.
   std::vector<IndexArraySet> index_array_sets_;
 };
+
+/// Allocates the `cell_transform` and initializes the portions that are the
+/// same for all grid cells.
+///
+/// \param info The preprocessed partitioning data.
+/// \param full_transform The full transform.
+/// \returns A non-null pointer to a partially-initialized transform from the
+///     synthetic "cell" index space, of rank `cell_input_rank`, to the "full"
+///     index space, of rank `full_input_rank`.
+internal_index_space::TransformRep::Ptr<> InitializeCellTransform(
+    const IndexTransformGridPartition& info,
+    IndexTransformView<> full_transform);
+
+/// Updates the output index maps and input domain in `cell_transform` to
+/// correspond to `partition_i` of `index_array_set`.
+///
+/// \param index_array_set The index array set.
+/// \param set_i The index of `index_array_set`, equal to the corresponding
+///     input dimension of `cell_transform`.
+/// \param partition_i The partition index.
+/// \param cell_transform Non-null pointer to cell transform to update.
+void UpdateCellTransformForIndexArraySetPartition(
+    const IndexTransformGridPartition::IndexArraySet& index_array_set,
+    DimensionIndex set_i, Index partition_i,
+    internal_index_space::TransformRep* cell_transform);
 
 /// Precomputes a data structure for partitioning an index transform by a
 /// multi-dimensional grid.

@@ -14,13 +14,12 @@
 
 #include "tensorstore/internal/grid_partition_impl.h"
 
-#include <optional>
 #include <ostream>
-#include <type_traits>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
@@ -28,6 +27,7 @@
 #include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/internal/irregular_grid.h"
 #include "tensorstore/internal/regular_grid.h"
+#include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"

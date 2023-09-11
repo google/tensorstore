@@ -19,19 +19,19 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
+#include "tensorstore/internal/grid_partition_impl.h"
 #include "tensorstore/internal/irregular_grid.h"
-#include "tensorstore/internal/memory.h"
 #include "tensorstore/internal/regular_grid.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/status_testutil.h"
 
 namespace {
 using ::tensorstore::Box;
@@ -47,7 +47,10 @@ using ::tensorstore::Result;
 using ::tensorstore::span;
 using ::tensorstore::internal::GetGridCellRanges;
 using ::tensorstore::internal::IrregularGrid;
+using ::tensorstore::internal_grid_partition::IndexTransformGridPartition;
 using ::tensorstore::internal_grid_partition::OutputToGridCellFn;
+using ::tensorstore::internal_grid_partition::
+    PrePartitionIndexTransformOverGrid;
 using ::tensorstore::internal_grid_partition::RegularGridRef;
 using ::testing::ElementsAre;
 
@@ -75,11 +78,22 @@ std::vector<R> GetPartitions(
     const std::vector<DimensionIndex>& grid_output_dimensions,
     const std::vector<Index>& grid_cell_shape, IndexTransformView<> transform) {
   std::vector<R> results;
+
+  IndexTransformGridPartition info;
+  RegularGridRef grid{grid_cell_shape};
+  TENSORSTORE_CHECK_OK(PrePartitionIndexTransformOverGrid(
+      transform, grid_output_dimensions, grid, info));
   TENSORSTORE_CHECK_OK(
       tensorstore::internal::PartitionIndexTransformOverRegularGrid(
           grid_output_dimensions, grid_cell_shape, transform,
           [&](span<const Index> grid_cell_indices,
               IndexTransformView<> cell_transform) {
+            auto cell_transform_direct = info.GetCellTransform(
+                transform, grid_cell_indices, grid_output_dimensions,
+                [&](DimensionIndex dim, Index cell_index) {
+                  return grid.GetCellOutputInterval(dim, cell_index);
+                });
+            EXPECT_EQ(cell_transform_direct, cell_transform);
             results.emplace_back(std::vector<Index>(grid_cell_indices.begin(),
                                                     grid_cell_indices.end()),
                                  IndexTransform<>(cell_transform));

@@ -16,28 +16,30 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstddef>
 #include <memory>
-#include <numeric>
-#include <optional>
 #include <utility>
 #include <vector>
 
-#include "absl/base/optimization.h"
-#include "absl/container/fixed_array.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/inlined_vector.h"
+#include "absl/functional/function_ref.h"
 #include "absl/hash/hash.h"
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
+#include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/internal/transform_rep.h"
+#include "tensorstore/index_space/output_index_map.h"
+#include "tensorstore/index_space/output_index_method.h"
 #include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/internal/regular_grid.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/byte_strided_pointer.h"
-#include "tensorstore/util/division.h"
+#include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/iterate_over_index_range.h"
 #include "tensorstore/util/result.h"
@@ -47,6 +49,12 @@
 
 namespace tensorstore {
 namespace internal_grid_partition {
+
+using ::tensorstore::internal_index_space::OutputIndexMap;
+using ::tensorstore::internal_index_space::TransformRep;
+
+using IndexArraySet = IndexTransformGridPartition::IndexArraySet;
+using StridedSet = IndexTransformGridPartition::StridedSet;
 
 SharedArray<const Index, 2>
 IndexTransformGridPartition::IndexArraySet::partition_input_indices(
@@ -76,6 +84,112 @@ IndexTransformGridPartition::IndexArraySet::partition_grid_cell_indices(
          static_cast<size_t>(num_partitions() * grid_dimensions.count()));
   return span(&grid_cell_indices[partition_i * grid_dimensions.count()],
               grid_dimensions.count());
+}
+
+namespace {
+struct GridCellIndicesIndirectPartialCompare {
+  DimensionSet grid_dimensions;
+  const Index* grid_cell_indices_for_partitions;
+
+  Index operator()(Index partition_i, const Index* full_indices) const {
+    const Index* other_grid_cell_indices =
+        grid_cell_indices_for_partitions +
+        partition_i * grid_dimensions.count();
+    DimensionIndex j = 0;
+    for (DimensionIndex grid_dim : grid_dimensions.index_view()) {
+      Index diff = other_grid_cell_indices[j] - full_indices[grid_dim];
+      if (diff != 0) {
+        return diff;
+      }
+      ++j;
+    }
+    return 0;
+  }
+};
+}  // namespace
+
+Index IndexTransformGridPartition::IndexArraySet::FindPartition(
+    span<const Index> grid_cell_indices) const {
+  Index lower = 0, upper = num_partitions();
+  GridCellIndicesIndirectPartialCompare compare{grid_dimensions,
+                                                this->grid_cell_indices.data()};
+  while (lower != upper) {
+    Index mid = (lower + upper) / 2;
+    Index c = compare(mid, grid_cell_indices.data());
+    if (c == 0) return mid;
+    if (c > 0) {
+      upper = mid;
+    } else {
+      lower = mid + 1;
+    }
+  }
+  return -1;
+}
+
+void UpdateCellTransformForIndexArraySetPartition(
+    const IndexArraySet& index_array_set, DimensionIndex set_i,
+    Index partition_i, internal_index_space::TransformRep* cell_transform) {
+  // Update the output index maps for the original input dimensions in this
+  // connected set to reference the precomputed index array of input indices
+  // corresponding to this partition.
+  const SharedArray<const Index, 2> partition_input_indices =
+      index_array_set.partition_input_indices(partition_i);
+  cell_transform->input_shape()[set_i] = partition_input_indices.shape()[0];
+  ByteStridedPointer<const Index> partition_input_indices_ptr =
+      partition_input_indices.byte_strided_pointer();
+  const Index vector_dimension_byte_stride =
+      partition_input_indices.byte_strides()[1];
+  const span<OutputIndexMap> output_maps = cell_transform->output_index_maps();
+  for (DimensionIndex full_input_dim :
+       index_array_set.input_dimensions.index_view()) {
+    internal_index_space::IndexArrayData& index_array_data =
+        output_maps[full_input_dim].index_array_data();
+    index_array_data.element_pointer = std::shared_ptr<const Index>(
+        partition_input_indices.pointer(), partition_input_indices_ptr);
+    partition_input_indices_ptr += vector_dimension_byte_stride;
+  }
+}
+
+IndexTransform<> IndexTransformGridPartition::GetCellTransform(
+    IndexTransformView<> full_transform, span<const Index> grid_cell_indices,
+    span<const DimensionIndex> grid_output_dimensions,
+    absl::FunctionRef<IndexInterval(DimensionIndex grid_dim,
+                                    Index grid_cell_index)>
+        get_grid_cell_output_interval) const {
+  auto cell_transform = InitializeCellTransform(*this, full_transform);
+  for (DimensionIndex set_i = 0, num_sets = index_array_sets().size();
+       set_i < num_sets; ++set_i) {
+    const IndexArraySet& index_array_set = index_array_sets()[set_i];
+    const Index partition_i = index_array_set.FindPartition(grid_cell_indices);
+    assert(partition_i != -1);
+    UpdateCellTransformForIndexArraySetPartition(
+        index_array_set, set_i, partition_i, cell_transform.get());
+  }
+  for (DimensionIndex set_i = 0, num_sets = strided_sets().size();
+       set_i < num_sets; ++set_i) {
+    const StridedSet& strided_set = strided_sets()[set_i];
+    const DimensionIndex cell_input_dim = set_i + index_array_sets().size();
+    IndexInterval restricted_domain =
+        full_transform.input_domain()[strided_set.input_dimension];
+    for (const DimensionIndex grid_dim :
+         strided_set.grid_dimensions.index_view()) {
+      const DimensionIndex output_dim = grid_output_dimensions[grid_dim];
+      IndexInterval cell_range =
+          get_grid_cell_output_interval(grid_dim, grid_cell_indices[grid_dim]);
+      const OutputIndexMapRef<> map =
+          full_transform.output_index_map(output_dim);
+      const IndexInterval cell_domain =
+          GetAffineTransformDomain(cell_range, map.offset(), map.stride())
+              .value();
+      restricted_domain = Intersect(restricted_domain, cell_domain);
+    }
+    assert(!restricted_domain.empty());
+    cell_transform->input_origin()[cell_input_dim] =
+        restricted_domain.inclusive_min();
+    cell_transform->input_shape()[cell_input_dim] = restricted_domain.size();
+  }
+  return internal_index_space::TransformAccess::Make<IndexTransform<>>(
+      std::move(cell_transform));
 }
 
 namespace {
@@ -754,6 +868,100 @@ absl::Status GenerateIndexTransformGridPartitionData(
   return absl::OkStatus();
 }
 }  // namespace
+
+internal_index_space::TransformRep::Ptr<> InitializeCellTransform(
+    const IndexTransformGridPartition& info,
+    IndexTransformView<> full_transform) {
+  const DimensionIndex full_input_rank = full_transform.input_rank();
+  DimensionIndex num_index_array_dims = 0;
+  for (const IndexArraySet& index_array_set : info.index_array_sets()) {
+    num_index_array_dims += index_array_set.input_dimensions.count();
+  }
+  const DimensionIndex cell_input_rank =
+      full_input_rank - num_index_array_dims + info.index_array_sets().size();
+
+  internal_index_space::TransformRep::Ptr<> cell_transform =
+      TransformRep::Allocate(cell_input_rank, full_input_rank);
+  cell_transform->input_rank = cell_input_rank;
+  cell_transform->output_rank = full_input_rank;
+  cell_transform->implicit_lower_bounds = false;
+  cell_transform->implicit_upper_bounds = false;
+
+  const span<Index> input_origin =
+      cell_transform->input_origin().first(cell_input_rank);
+  const span<OutputIndexMap> output_maps =
+      cell_transform->output_index_maps().first(full_input_rank);
+
+  // Initialize the `cell_transform` output index maps for all input
+  // dimensions of the original input space that do affect grid cell indices
+  // (i.e. contained in a connected set).
+  {
+    // Next synthetic input dimension index, corresponding to a connected set.
+    // The synthetic input dimensions for index array connected sets come before
+    // those for strided connected sets, to match the order of the recursive
+    // iteration.
+    DimensionIndex cell_input_dim = 0;
+    for (const IndexArraySet& index_array_set : info.index_array_sets()) {
+      // The `input_origin` is always 0 for the synthetic input dimension
+      // corresponding to an index array connected set (in fact the origin is
+      // arbitrary and any origin could be used).  While iterating, the
+      // `input_shape[cell_input_dim]` will be set appropriately for each
+      // partition.
+      input_origin[cell_input_dim] = 0;
+      for (const DimensionIndex full_input_dim :
+           index_array_set.input_dimensions.index_view()) {
+        auto& map = output_maps[full_input_dim];
+        // Use an `offset` of `0` and stride of `1`, since the precomputed index
+        // arrays correspond directly to the input domains.
+        map.offset() = 0;
+        map.stride() = 1;
+        auto& index_array_data = map.SetArrayIndexing(cell_input_rank);
+        std::fill_n(index_array_data.byte_strides, cell_input_rank, 0);
+        // Initialize the index array `byte_strides`, which are the same for
+        // all partitions.
+        index_array_data.byte_strides[cell_input_dim] =
+            index_array_set.partitioned_input_indices.byte_strides()[0];
+      }
+      ++cell_input_dim;
+    }
+
+    // The output index maps corresponding to the original input dimensions in
+    // strided connected sets do not depend on the partition.
+    for (const auto& strided_set : info.strided_sets()) {
+      auto& map = output_maps[strided_set.input_dimension];
+      map.SetSingleInputDimension(cell_input_dim);
+      // Use an `offset` of `0`.  The actual starting index into the original
+      // input dimension will be set as `input_origin[cell_input_dim]`.
+      map.offset() = 0;
+      // Use a `stride` of `1`, to not skip any part of the original input
+      // domain.
+      map.stride() = 1;
+      ++cell_input_dim;
+    }
+  }
+
+  // Set up the `cell_transform` output index maps corresponding to all input
+  // dimensions of the original input space that do not affect grid cell
+  // indices (i.e. not contained in a connected set).  These output index maps
+  // will not be modified.
+  for (DimensionIndex cell_input_dim = info.index_array_sets().size() +
+                                       info.strided_sets().size(),
+                      full_input_dim = 0;
+       full_input_dim < full_input_rank; ++full_input_dim) {
+    auto& map = output_maps[full_input_dim];
+    if (map.method() != OutputIndexMethod::constant) continue;
+    map.SetSingleInputDimension(cell_input_dim);
+    map.offset() = 0;
+    map.stride() = 1;
+    cell_transform->input_dimension(cell_input_dim) =
+        internal_index_space::TransformAccess::rep(full_transform)
+            ->input_dimension(full_input_dim);
+    ++cell_input_dim;
+  }
+
+  // Invariants checked in InvokeCallback
+  return cell_transform;
+}
 
 absl::Status PrePartitionIndexTransformOverGrid(
     IndexTransformView<> index_transform,
