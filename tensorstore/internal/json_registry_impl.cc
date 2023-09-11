@@ -76,7 +76,7 @@ absl::Status JsonRegistryImpl::LoadKey(void* obj, ::nlohmann::json* j) const {
   return absl::OkStatus();
 }
 
-absl::Status JsonRegistryImpl::SaveKey(std::type_index type, const void* obj,
+absl::Status JsonRegistryImpl::SaveKey(std::type_index type,
                                        ::nlohmann::json* j) const {
   const Entry* entry = nullptr;
   {
