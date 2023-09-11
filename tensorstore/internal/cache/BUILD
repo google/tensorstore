@@ -175,6 +175,7 @@ tensorstore_cc_library(
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest",
+        "@com_google_re2//:re2",
     ],
 )
 

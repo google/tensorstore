@@ -87,6 +87,7 @@
 #include <atomic>
 #include <string>
 
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
@@ -709,7 +710,7 @@ void KvstoreDebugLog(tensorstore::SourceLocation loc, MutationEntry& entry,
     tensorstore::StrAppend(&message, ", seq=", seq);
   }
   tensorstore::StrAppend(&message, "] ", arg...);
-  tensorstore::internal::LogMessage(message.c_str(), loc);
+  ABSL_LOG(INFO).AtLocation(loc.file_name(), loc.line()) << message;
 }
 #else
 #define TENSORSTORE_KVSTORE_DEBUG_LOG(...) while (false)

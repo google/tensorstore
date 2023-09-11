@@ -36,6 +36,7 @@
 #include "absl/strings/match.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "re2/re2.h"
 #include "tensorstore/internal/cache/async_cache.h"
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache/kvs_backed_cache.h"
@@ -289,147 +290,142 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
   using ::testing::Pointee;
   using ::testing::StrEq;
   auto suite_name = options.test_name + "/KvsBackedCacheBasicTransactionalTest";
-  RegisterGoogleTestCaseDynamically(
-      suite_name, "ReadCached", [=] {
-        auto kvstore = options.get_store();
-        auto cache = KvsBackedTestCache::Make(kvstore);
-        auto get_key = options.get_key_getter();
-        auto a_key = get_key("a");
-        auto entry = GetCacheEntry(cache, a_key);
+  RegisterGoogleTestCaseDynamically(suite_name, "ReadCached", [=] {
+    auto kvstore = options.get_store();
+    auto cache = KvsBackedTestCache::Make(kvstore);
+    auto get_key = options.get_key_getter();
+    auto a_key = get_key("a");
+    auto entry = GetCacheEntry(cache, a_key);
 
-        // Read missing value.
-        TENSORSTORE_EXPECT_OK(entry->Read(absl::InfinitePast()));
-        EXPECT_THAT(AsyncCache::ReadLock<absl::Cord>(*entry).data(),
-                    Pointee(absl::Cord("")));
+    // Read missing value.
+    TENSORSTORE_EXPECT_OK(entry->Read(absl::InfinitePast()));
+    EXPECT_THAT(AsyncCache::ReadLock<absl::Cord>(*entry).data(),
+                Pointee(absl::Cord("")));
 
-        TENSORSTORE_EXPECT_OK(kvstore->Write(a_key, absl::Cord("abc")));
+    TENSORSTORE_EXPECT_OK(kvstore->Write(a_key, absl::Cord("abc")));
 
-        // Read stale value from cache.
-        TENSORSTORE_EXPECT_OK(entry->Read(absl::InfinitePast()));
-        EXPECT_THAT(AsyncCache::ReadLock<absl::Cord>(*entry).data(),
-                    Pointee(absl::Cord("")));
+    // Read stale value from cache.
+    TENSORSTORE_EXPECT_OK(entry->Read(absl::InfinitePast()));
+    EXPECT_THAT(AsyncCache::ReadLock<absl::Cord>(*entry).data(),
+                Pointee(absl::Cord("")));
 
-        // Read when there is new data.
-        TENSORSTORE_EXPECT_OK(entry->Read(absl::Now()).result());
-        EXPECT_THAT(AsyncCache::ReadLock<absl::Cord>(*entry).data(),
-                    Pointee(absl::Cord("abc")));
+    // Read when there is new data.
+    TENSORSTORE_EXPECT_OK(entry->Read(absl::Now()).result());
+    EXPECT_THAT(AsyncCache::ReadLock<absl::Cord>(*entry).data(),
+                Pointee(absl::Cord("abc")));
 
-        // Read when there is not new data.
-        auto read_time = absl::Now();
-        auto read_generation =
-            AsyncCache::ReadLock<absl::Cord>(*entry).stamp().generation;
-        TENSORSTORE_EXPECT_OK(entry->Read(absl::Now()).result());
-        EXPECT_THAT(AsyncCache::ReadLock<absl::Cord>(*entry).data(),
-                    Pointee(absl::Cord("abc")));
-        EXPECT_THAT(AsyncCache::ReadLock<absl::Cord>(*entry).stamp(),
-                    tensorstore::internal::MatchesTimestampedStorageGeneration(
-                        read_generation, ::testing::Ge(read_time)));
-      });
+    // Read when there is not new data.
+    auto read_time = absl::Now();
+    auto read_generation =
+        AsyncCache::ReadLock<absl::Cord>(*entry).stamp().generation;
+    TENSORSTORE_EXPECT_OK(entry->Read(absl::Now()).result());
+    EXPECT_THAT(AsyncCache::ReadLock<absl::Cord>(*entry).data(),
+                Pointee(absl::Cord("abc")));
+    EXPECT_THAT(AsyncCache::ReadLock<absl::Cord>(*entry).stamp(),
+                tensorstore::internal::MatchesTimestampedStorageGeneration(
+                    read_generation, ::testing::Ge(read_time)));
+  });
 
-  RegisterGoogleTestCaseDynamically(
-      suite_name, "WriteAfterRead", [=] {
-        auto kvstore = options.get_store();
-        auto cache = KvsBackedTestCache::Make(kvstore);
-        auto get_key = options.get_key_getter();
-        auto a_key = get_key("a");
-        TENSORSTORE_EXPECT_OK(kvstore->Write(a_key, absl::Cord("abc")));
-        auto entry = GetCacheEntry(cache, a_key);
-        TENSORSTORE_EXPECT_OK(entry->Read(absl::InfinitePast()).result());
+  RegisterGoogleTestCaseDynamically(suite_name, "WriteAfterRead", [=] {
+    auto kvstore = options.get_store();
+    auto cache = KvsBackedTestCache::Make(kvstore);
+    auto get_key = options.get_key_getter();
+    auto a_key = get_key("a");
+    TENSORSTORE_EXPECT_OK(kvstore->Write(a_key, absl::Cord("abc")));
+    auto entry = GetCacheEntry(cache, a_key);
+    TENSORSTORE_EXPECT_OK(entry->Read(absl::InfinitePast()).result());
 
-        {
-          auto transaction = Transaction(tensorstore::atomic_isolated);
-          {
-            TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-                auto open_transaction,
-                tensorstore::internal::AcquireOpenTransactionPtrOrError(
-                    transaction));
-            TENSORSTORE_ASSERT_OK(
-                entry->Modify(open_transaction, false, "def"));
-          }
-          TENSORSTORE_EXPECT_OK(transaction.CommitAsync().result());
-        }
-        EXPECT_THAT(AsyncCache::ReadLock<absl::Cord>(*entry).data(),
-                    Pointee(absl::Cord("abcdef")));
-        EXPECT_THAT(
-            kvstore->Read(a_key).result(),
-            MatchesKvsReadResult(
-                absl::Cord("abcdef"),
-                AsyncCache::ReadLock<absl::Cord>(*entry).stamp().generation));
+    {
+      auto transaction = Transaction(tensorstore::atomic_isolated);
+      {
+        TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+            auto open_transaction,
+            tensorstore::internal::AcquireOpenTransactionPtrOrError(
+                transaction));
+        TENSORSTORE_ASSERT_OK(entry->Modify(open_transaction, false, "def"));
+      }
+      TENSORSTORE_EXPECT_OK(transaction.CommitAsync().result());
+    }
+    EXPECT_THAT(AsyncCache::ReadLock<absl::Cord>(*entry).data(),
+                Pointee(absl::Cord("abcdef")));
+    EXPECT_THAT(
+        kvstore->Read(a_key).result(),
+        MatchesKvsReadResult(
+            absl::Cord("abcdef"),
+            AsyncCache::ReadLock<absl::Cord>(*entry).stamp().generation));
 
-        {
-          TENSORSTORE_EXPECT_OK(kvstore->Delete(a_key));
-          auto transaction = Transaction(tensorstore::atomic_isolated);
-          {
-            TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-                auto open_transaction,
-                tensorstore::internal::AcquireOpenTransactionPtrOrError(
-                    transaction));
-            TENSORSTORE_ASSERT_OK(
-                entry->Modify(open_transaction, false, "ghi"));
-          }
-          TENSORSTORE_EXPECT_OK(transaction.CommitAsync().result());
-        }
-        EXPECT_THAT(AsyncCache::ReadLock<absl::Cord>(*entry).data(),
-                    Pointee(absl::Cord("ghi")));
-        EXPECT_THAT(
-            kvstore->Read(a_key).result(),
-            MatchesKvsReadResult(
-                absl::Cord("ghi"),
-                AsyncCache::ReadLock<absl::Cord>(*entry).stamp().generation));
+    {
+      TENSORSTORE_EXPECT_OK(kvstore->Delete(a_key));
+      auto transaction = Transaction(tensorstore::atomic_isolated);
+      {
+        TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+            auto open_transaction,
+            tensorstore::internal::AcquireOpenTransactionPtrOrError(
+                transaction));
+        TENSORSTORE_ASSERT_OK(entry->Modify(open_transaction, false, "ghi"));
+      }
+      TENSORSTORE_EXPECT_OK(transaction.CommitAsync().result());
+    }
+    EXPECT_THAT(AsyncCache::ReadLock<absl::Cord>(*entry).data(),
+                Pointee(absl::Cord("ghi")));
+    EXPECT_THAT(
+        kvstore->Read(a_key).result(),
+        MatchesKvsReadResult(
+            absl::Cord("ghi"),
+            AsyncCache::ReadLock<absl::Cord>(*entry).stamp().generation));
 
-        {
-          auto transaction = Transaction(tensorstore::atomic_isolated);
-          {
-            TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-                auto open_transaction,
-                tensorstore::internal::AcquireOpenTransactionPtrOrError(
-                    transaction));
-            TENSORSTORE_ASSERT_OK(entry->Modify(open_transaction, false, ""));
-          }
-          TENSORSTORE_EXPECT_OK(transaction.CommitAsync().result());
-          // No change.
-          EXPECT_THAT(AsyncCache::ReadLock<absl::Cord>(*entry).data(),
-                      Pointee(absl::Cord("ghi")));
-          EXPECT_THAT(
-              kvstore->Read(a_key).result(),
-              MatchesKvsReadResult(
-                  absl::Cord("ghi"),
-                  AsyncCache::ReadLock<absl::Cord>(*entry).stamp().generation));
-        }
-      });
+    {
+      auto transaction = Transaction(tensorstore::atomic_isolated);
+      {
+        TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+            auto open_transaction,
+            tensorstore::internal::AcquireOpenTransactionPtrOrError(
+                transaction));
+        TENSORSTORE_ASSERT_OK(entry->Modify(open_transaction, false, ""));
+      }
+      TENSORSTORE_EXPECT_OK(transaction.CommitAsync().result());
+      // No change.
+      EXPECT_THAT(AsyncCache::ReadLock<absl::Cord>(*entry).data(),
+                  Pointee(absl::Cord("ghi")));
+      EXPECT_THAT(
+          kvstore->Read(a_key).result(),
+          MatchesKvsReadResult(
+              absl::Cord("ghi"),
+              AsyncCache::ReadLock<absl::Cord>(*entry).stamp().generation));
+    }
+  });
 
-  RegisterGoogleTestCaseDynamically(
-      suite_name, "DecodeErrorDuringRead", [=] {
-        auto kvstore = options.get_store();
-        auto cache = KvsBackedTestCache::Make(kvstore);
-        auto get_key = options.get_key_getter();
-        auto a_key = get_key("a");
-        TENSORSTORE_EXPECT_OK(kvstore->Write(a_key, absl::Cord("ghi")));
-        auto entry = GetCacheEntry(cache, a_key);
-        TENSORSTORE_EXPECT_OK(entry->Read(absl::InfinitePast()).result());
+  RegisterGoogleTestCaseDynamically(suite_name, "DecodeErrorDuringRead", [=] {
+    auto kvstore = options.get_store();
+    auto cache = KvsBackedTestCache::Make(kvstore);
+    auto get_key = options.get_key_getter();
+    auto a_key = get_key("a");
+    TENSORSTORE_EXPECT_OK(kvstore->Write(a_key, absl::Cord("ghi")));
+    auto entry = GetCacheEntry(cache, a_key);
+    TENSORSTORE_EXPECT_OK(entry->Read(absl::InfinitePast()).result());
 
-        {
-          auto old_read_generation =
-              AsyncCache::ReadLock<absl::Cord>(*entry).stamp();
-          TENSORSTORE_EXPECT_OK(kvstore->Write(a_key, absl::Cord("Z")));
-          EXPECT_THAT(
-              entry->Read(absl::Now()).result(),
-              MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                            tensorstore::StrCat(
-                                "Error reading ", kvstore->DescribeKey(a_key),
-                                ": existing value contains Z")));
-          // Read state is not modified.
-          EXPECT_THAT(AsyncCache::ReadLock<absl::Cord>(*entry).data(),
-                      Pointee(absl::Cord("ghi")));
-          EXPECT_EQ(old_read_generation,
-                    AsyncCache::ReadLock<absl::Cord>(*entry).stamp());
+    {
+      auto old_read_generation =
+          AsyncCache::ReadLock<absl::Cord>(*entry).stamp();
+      TENSORSTORE_EXPECT_OK(kvstore->Write(a_key, absl::Cord("Z")));
+      EXPECT_THAT(
+          entry->Read(absl::Now()).result(),
+          MatchesStatus(absl::StatusCode::kFailedPrecondition,
+                        RE2::QuoteMeta(tensorstore::StrCat(
+                            "Error reading ", kvstore->DescribeKey(a_key),
+                            ": existing value contains Z"))));
+      // Read state is not modified.
+      EXPECT_THAT(AsyncCache::ReadLock<absl::Cord>(*entry).data(),
+                  Pointee(absl::Cord("ghi")));
+      EXPECT_EQ(old_read_generation,
+                AsyncCache::ReadLock<absl::Cord>(*entry).stamp());
 
-          TENSORSTORE_EXPECT_OK(kvstore->Write(a_key, absl::Cord("ccc")));
-          TENSORSTORE_EXPECT_OK(entry->Read(absl::Now()));
-          EXPECT_THAT(AsyncCache::ReadLock<absl::Cord>(*entry).data(),
-                      Pointee(absl::Cord("ccc")));
-        }
-      });
+      TENSORSTORE_EXPECT_OK(kvstore->Write(a_key, absl::Cord("ccc")));
+      TENSORSTORE_EXPECT_OK(entry->Read(absl::Now()));
+      EXPECT_THAT(AsyncCache::ReadLock<absl::Cord>(*entry).data(),
+                  Pointee(absl::Cord("ccc")));
+    }
+  });
 
   RegisterGoogleTestCaseDynamically(
       suite_name, "DecodeErrorDuringWriteback", [=] {
@@ -451,43 +447,42 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
         EXPECT_THAT(
             transaction.CommitAsync().result(),
             MatchesStatus(absl::StatusCode::kFailedPrecondition,
-                          tensorstore::StrCat("Error reading ",
-                                              kvstore->DescribeKey(a_key),
-                                              ": existing value contains Z")));
+                          RE2::QuoteMeta(tensorstore::StrCat(
+                              "Error reading ", kvstore->DescribeKey(a_key),
+                              ": existing value contains Z"))));
         EXPECT_THAT(kvstore->Read(a_key).result(),
                     MatchesKvsReadResult(absl::Cord("Z")));
       });
 
-  RegisterGoogleTestCaseDynamically(
-      suite_name, "UnconditionalWriteback", [=] {
-        auto kvstore = options.get_store();
-        auto cache = KvsBackedTestCache::Make(kvstore);
-        auto get_key = options.get_key_getter();
-        auto a_key = get_key("a");
-        TENSORSTORE_EXPECT_OK(kvstore->Write(a_key, absl::Cord("ghi")));
-        auto entry = GetCacheEntry(cache, a_key);
-        TENSORSTORE_EXPECT_OK(entry->Read(absl::InfinitePast()).result());
+  RegisterGoogleTestCaseDynamically(suite_name, "UnconditionalWriteback", [=] {
+    auto kvstore = options.get_store();
+    auto cache = KvsBackedTestCache::Make(kvstore);
+    auto get_key = options.get_key_getter();
+    auto a_key = get_key("a");
+    TENSORSTORE_EXPECT_OK(kvstore->Write(a_key, absl::Cord("ghi")));
+    auto entry = GetCacheEntry(cache, a_key);
+    TENSORSTORE_EXPECT_OK(entry->Read(absl::InfinitePast()).result());
 
-        {
-          auto transaction = Transaction(tensorstore::atomic_isolated);
-          {
-            TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-                auto open_transaction,
-                tensorstore::internal::AcquireOpenTransactionPtrOrError(
-                    transaction));
-            TENSORSTORE_ASSERT_OK(entry->Modify(open_transaction, true, "def"));
-          }
-          TENSORSTORE_EXPECT_OK(transaction.CommitAsync().result());
-        }
+    {
+      auto transaction = Transaction(tensorstore::atomic_isolated);
+      {
+        TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+            auto open_transaction,
+            tensorstore::internal::AcquireOpenTransactionPtrOrError(
+                transaction));
+        TENSORSTORE_ASSERT_OK(entry->Modify(open_transaction, true, "def"));
+      }
+      TENSORSTORE_EXPECT_OK(transaction.CommitAsync().result());
+    }
 
-        EXPECT_THAT(AsyncCache::ReadLock<absl::Cord>(*entry).data(),
-                    Pointee(absl::Cord("def")));
-        EXPECT_THAT(
-            kvstore->Read(a_key).result(),
-            MatchesKvsReadResult(
-                absl::Cord("def"),
-                AsyncCache::ReadLock<absl::Cord>(*entry).stamp().generation));
-      });
+    EXPECT_THAT(AsyncCache::ReadLock<absl::Cord>(*entry).data(),
+                Pointee(absl::Cord("def")));
+    EXPECT_THAT(
+        kvstore->Read(a_key).result(),
+        MatchesKvsReadResult(
+            absl::Cord("def"),
+            AsyncCache::ReadLock<absl::Cord>(*entry).stamp().generation));
+  });
 
   RegisterGoogleTestCaseDynamically(
       suite_name, "BarrierThenUnconditionalWriteback", [=] {
@@ -521,129 +516,121 @@ void RegisterKvsBackedCacheBasicTransactionalTest(
                 AsyncCache::ReadLock<absl::Cord>(*entry).stamp().generation));
       });
 
-  RegisterGoogleTestCaseDynamically(
-      suite_name, "EncodeError", [=] {
-        auto kvstore = options.get_store();
-        auto cache = KvsBackedTestCache::Make(kvstore);
-        auto get_key = options.get_key_getter();
-        auto a_key = get_key("a");
-        auto entry = GetCacheEntry(cache, a_key);
-        TENSORSTORE_EXPECT_OK(kvstore->Write(a_key, absl::Cord("abc")));
-        TENSORSTORE_EXPECT_OK(entry->Read(absl::InfinitePast()).result());
+  RegisterGoogleTestCaseDynamically(suite_name, "EncodeError", [=] {
+    auto kvstore = options.get_store();
+    auto cache = KvsBackedTestCache::Make(kvstore);
+    auto get_key = options.get_key_getter();
+    auto a_key = get_key("a");
+    auto entry = GetCacheEntry(cache, a_key);
+    TENSORSTORE_EXPECT_OK(kvstore->Write(a_key, absl::Cord("abc")));
+    TENSORSTORE_EXPECT_OK(entry->Read(absl::InfinitePast()).result());
 
-        {
-          auto transaction = Transaction(tensorstore::atomic_isolated);
-          {
-            TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-                auto open_transaction,
-                tensorstore::internal::AcquireOpenTransactionPtrOrError(
-                    transaction));
-            TENSORSTORE_ASSERT_OK(entry->Modify(open_transaction, true, "Z"));
-          }
-          EXPECT_THAT(
-              transaction.CommitAsync().result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            tensorstore::StrCat("Error writing ",
-                                                kvstore->DescribeKey(a_key),
-                                                ": new value contains Z")));
-        }
-        EXPECT_THAT(AsyncCache::ReadLock<absl::Cord>(*entry).data(),
-                    Pointee(absl::Cord("abc")));
-        EXPECT_THAT(
-            kvstore->Read(a_key).result(),
-            MatchesKvsReadResult(
-                absl::Cord("abc"),
-                AsyncCache::ReadLock<absl::Cord>(*entry).stamp().generation));
-      });
+    {
+      auto transaction = Transaction(tensorstore::atomic_isolated);
+      {
+        TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+            auto open_transaction,
+            tensorstore::internal::AcquireOpenTransactionPtrOrError(
+                transaction));
+        TENSORSTORE_ASSERT_OK(entry->Modify(open_transaction, true, "Z"));
+      }
+      EXPECT_THAT(
+          transaction.CommitAsync().result(),
+          MatchesStatus(absl::StatusCode::kInvalidArgument,
+                        RE2::QuoteMeta(tensorstore::StrCat(
+                            "Error writing ", kvstore->DescribeKey(a_key),
+                            ": new value contains Z"))));
+    }
+    EXPECT_THAT(AsyncCache::ReadLock<absl::Cord>(*entry).data(),
+                Pointee(absl::Cord("abc")));
+    EXPECT_THAT(
+        kvstore->Read(a_key).result(),
+        MatchesKvsReadResult(
+            absl::Cord("abc"),
+            AsyncCache::ReadLock<absl::Cord>(*entry).stamp().generation));
+  });
 
   if (!options.multi_key_atomic_supported) {
-    RegisterGoogleTestCaseDynamically(
-        suite_name, "AtomicError", [=] {
-          auto kvstore = options.get_store();
-          auto cache = KvsBackedTestCache::Make(kvstore);
-          auto get_key = options.get_key_getter();
-          auto a_key = get_key("a");
-          auto b_key = get_key("b");
-          auto entry_a = GetCacheEntry(cache, a_key);
-          auto entry_b = GetCacheEntry(cache, b_key);
-          {
-            auto transaction = Transaction(tensorstore::atomic_isolated);
-            {
-              TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-                  auto open_transaction,
-                  tensorstore::internal::AcquireOpenTransactionPtrOrError(
-                      transaction));
-              TENSORSTORE_ASSERT_OK(
-                  entry_a->Modify(open_transaction, false, "abc"));
-              EXPECT_THAT(
-                  GetTransactionNode(*entry_b, open_transaction),
-                  MatchesStatus(
-                      absl::StatusCode::kInvalidArgument,
-                      tensorstore::StrCat(
-                          "Cannot read/write ", kvstore->DescribeKey(a_key),
-                          " and read/write ", kvstore->DescribeKey(b_key),
-                          " as single atomic transaction")));
-            }
-            EXPECT_THAT(
-                transaction.future().result(),
-                MatchesStatus(
-                    absl::StatusCode::kInvalidArgument,
-                    tensorstore::StrCat(
-                        "Cannot read/write ", kvstore->DescribeKey(a_key),
-                        " and read/write ", kvstore->DescribeKey(b_key),
-                        " as single atomic transaction")));
-          }
-        });
+    RegisterGoogleTestCaseDynamically(suite_name, "AtomicError", [=] {
+      auto kvstore = options.get_store();
+      auto cache = KvsBackedTestCache::Make(kvstore);
+      auto get_key = options.get_key_getter();
+      auto a_key = get_key("a");
+      auto b_key = get_key("b");
+      auto entry_a = GetCacheEntry(cache, a_key);
+      auto entry_b = GetCacheEntry(cache, b_key);
+      {
+        auto transaction = Transaction(tensorstore::atomic_isolated);
+        {
+          TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+              auto open_transaction,
+              tensorstore::internal::AcquireOpenTransactionPtrOrError(
+                  transaction));
+          TENSORSTORE_ASSERT_OK(
+              entry_a->Modify(open_transaction, false, "abc"));
+          EXPECT_THAT(GetTransactionNode(*entry_b, open_transaction),
+                      MatchesStatus(
+                          absl::StatusCode::kInvalidArgument,
+                          RE2::QuoteMeta(tensorstore::StrCat(
+                              "Cannot read/write ", kvstore->DescribeKey(a_key),
+                              " and read/write ", kvstore->DescribeKey(b_key),
+                              " as single atomic transaction"))));
+        }
+        EXPECT_THAT(
+            transaction.future().result(),
+            MatchesStatus(absl::StatusCode::kInvalidArgument,
+                          RE2::QuoteMeta(tensorstore::StrCat(
+                              "Cannot read/write ", kvstore->DescribeKey(a_key),
+                              " and read/write ", kvstore->DescribeKey(b_key),
+                              " as single atomic transaction"))));
+      }
+    });
   }
 
-  RegisterGoogleTestCaseDynamically(
-      suite_name, "TwoNodes", [=] {
-        auto kvstore = options.get_store();
-        auto cache_x = KvsBackedTestCache::Make(kvstore, {}, "x");
-        auto cache_y = KvsBackedTestCache::Make(kvstore, {}, "y");
-        auto get_key = options.get_key_getter();
-        auto a_key = get_key("a");
-        auto transaction = Transaction(tensorstore::atomic_isolated);
-        {
-          TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-              auto open_transaction,
-              tensorstore::internal::AcquireOpenTransactionPtrOrError(
-                  transaction));
-          TENSORSTORE_ASSERT_OK(GetCacheEntry(cache_x, a_key)
-                                    ->Modify(open_transaction, false, "abc"));
-          TENSORSTORE_ASSERT_OK(GetCacheEntry(cache_y, a_key)
-                                    ->Modify(open_transaction, false, "def"));
-        }
-        TENSORSTORE_ASSERT_OK(transaction.CommitAsync());
-        EXPECT_THAT(kvstore->Read(a_key).result(),
-                    MatchesKvsReadResult(absl::Cord("abcdef")));
-      });
+  RegisterGoogleTestCaseDynamically(suite_name, "TwoNodes", [=] {
+    auto kvstore = options.get_store();
+    auto cache_x = KvsBackedTestCache::Make(kvstore, {}, "x");
+    auto cache_y = KvsBackedTestCache::Make(kvstore, {}, "y");
+    auto get_key = options.get_key_getter();
+    auto a_key = get_key("a");
+    auto transaction = Transaction(tensorstore::atomic_isolated);
+    {
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+          auto open_transaction,
+          tensorstore::internal::AcquireOpenTransactionPtrOrError(transaction));
+      TENSORSTORE_ASSERT_OK(GetCacheEntry(cache_x, a_key)
+                                ->Modify(open_transaction, false, "abc"));
+      TENSORSTORE_ASSERT_OK(GetCacheEntry(cache_y, a_key)
+                                ->Modify(open_transaction, false, "def"));
+    }
+    TENSORSTORE_ASSERT_OK(transaction.CommitAsync());
+    EXPECT_THAT(kvstore->Read(a_key).result(),
+                MatchesKvsReadResult(absl::Cord("abcdef")));
+  });
 
-  RegisterGoogleTestCaseDynamically(
-      suite_name, "ThreeNodes", [=] {
-        auto kvstore = options.get_store();
-        auto cache_x = KvsBackedTestCache::Make(kvstore, {}, "x");
-        auto cache_y = KvsBackedTestCache::Make(kvstore, {}, "y");
-        auto cache_z = KvsBackedTestCache::Make(kvstore);
-        auto get_key = options.get_key_getter();
-        auto a_key = get_key("a");
-        auto transaction = Transaction(tensorstore::atomic_isolated);
-        {
-          TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-              auto open_transaction,
-              tensorstore::internal::AcquireOpenTransactionPtrOrError(
-                  transaction));
-          TENSORSTORE_ASSERT_OK(GetCacheEntry(cache_x, a_key)
-                                    ->Modify(open_transaction, false, "abc"));
-          TENSORSTORE_ASSERT_OK(GetCacheEntry(cache_y, a_key)
-                                    ->Modify(open_transaction, true, "def"));
-          TENSORSTORE_ASSERT_OK(GetCacheEntry(cache_z, a_key)
-                                    ->Modify(open_transaction, false, "ghi"));
-        }
-        TENSORSTORE_ASSERT_OK(transaction.CommitAsync());
-        EXPECT_THAT(kvstore->Read(a_key).result(),
-                    MatchesKvsReadResult(absl::Cord("defghi")));
-      });
+  RegisterGoogleTestCaseDynamically(suite_name, "ThreeNodes", [=] {
+    auto kvstore = options.get_store();
+    auto cache_x = KvsBackedTestCache::Make(kvstore, {}, "x");
+    auto cache_y = KvsBackedTestCache::Make(kvstore, {}, "y");
+    auto cache_z = KvsBackedTestCache::Make(kvstore);
+    auto get_key = options.get_key_getter();
+    auto a_key = get_key("a");
+    auto transaction = Transaction(tensorstore::atomic_isolated);
+    {
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+          auto open_transaction,
+          tensorstore::internal::AcquireOpenTransactionPtrOrError(transaction));
+      TENSORSTORE_ASSERT_OK(GetCacheEntry(cache_x, a_key)
+                                ->Modify(open_transaction, false, "abc"));
+      TENSORSTORE_ASSERT_OK(
+          GetCacheEntry(cache_y, a_key)->Modify(open_transaction, true, "def"));
+      TENSORSTORE_ASSERT_OK(GetCacheEntry(cache_z, a_key)
+                                ->Modify(open_transaction, false, "ghi"));
+    }
+    TENSORSTORE_ASSERT_OK(transaction.CommitAsync());
+    EXPECT_THAT(kvstore->Read(a_key).result(),
+                MatchesKvsReadResult(absl::Cord("defghi")));
+  });
 
   RegisterGoogleTestCaseDynamically(
       suite_name, "WriteThenClearThenRevokeThenRead", [=] {

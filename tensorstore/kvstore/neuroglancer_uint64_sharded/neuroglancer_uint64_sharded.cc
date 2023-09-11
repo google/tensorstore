@@ -411,7 +411,7 @@ class ShardedKeyValueStoreWriteCache
     uint64_t shard() { return KeyToShard(key()); }
 
     size_t ComputeReadDataSizeInBytes(const void* data) override {
-      return internal::EstimateHeapUsage(*static_cast<const absl::Cord*>(data));
+      return internal::EstimateHeapUsage(*static_cast<const ReadData*>(data));
     }
 
     void DoDecode(std::optional<absl::Cord> value,

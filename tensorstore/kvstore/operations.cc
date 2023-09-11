@@ -14,30 +14,32 @@
 
 #include "tensorstore/kvstore/operations.h"
 
+#include <stddef.h>
+
+#include <cassert>
 #include <optional>
-#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
 #include "absl/status/status.h"
-#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
+#include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/transaction.h"
+#include "tensorstore/transaction.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/any_sender.h"
+#include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/future_collecting_receiver.h"
 #include "tensorstore/util/execution/sender.h"
 #include "tensorstore/util/execution/sender_util.h"
 #include "tensorstore/util/execution/sync_flow_sender.h"
-#include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -116,6 +118,15 @@ Future<TimestampedStorageGeneration> Delete(const KvStore& store,
                                             std::string_view key,
                                             WriteOptions options) {
   return Write(store, key, std::nullopt, std::move(options));
+}
+
+Future<const void> DeleteRange(Driver* driver,
+                               const internal::OpenTransactionPtr& transaction,
+                               KeyRange range) {
+  if (!transaction) {
+    return driver->DeleteRange(std::move(range));
+  }
+  return driver->TransactionalDeleteRange(transaction, std::move(range));
 }
 
 Future<const void> DeleteRange(const KvStore& store, KeyRange range) {

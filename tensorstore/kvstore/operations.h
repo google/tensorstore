@@ -186,6 +186,10 @@ Future<TimestampedStorageGeneration> Delete(const KvStore& store,
 /// \relates KvStore
 Future<const void> DeleteRange(const KvStore& store, KeyRange range);
 
+Future<const void> DeleteRange(Driver* driver,
+                               const internal::OpenTransactionPtr& transaction,
+                               KeyRange range);
+
 // Lists keys relative to `path`.
 void List(const KvStore& store, ListOptions options,
           AnyFlowReceiver<absl::Status, Key> receiver);
