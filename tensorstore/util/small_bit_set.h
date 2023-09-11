@@ -368,6 +368,8 @@ class IndexView {
   constexpr const_iterator begin() const { return const_iterator(bits_); }
   constexpr const_iterator end() const { return const_iterator(); }
 
+  constexpr int front() const { return *begin(); }
+
  private:
   Uint bits_;
 };
@@ -502,7 +504,7 @@ class SmallBitSet {
 
   /// Returns the static size, `N`.
   constexpr static size_t size() { return N; }
-  constexpr size_t count() { return absl::popcount(bits_); }
+  constexpr size_t count() const { return absl::popcount(bits_); }
 
   /// Returns `true` if the set is empty.
   constexpr bool none() const { return bits_ == 0; }

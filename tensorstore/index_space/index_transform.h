@@ -15,8 +15,18 @@
 #ifndef TENSORSTORE_INDEX_SPACE_INDEX_TRANSFORM_H_
 #define TENSORSTORE_INDEX_SPACE_INDEX_TRANSFORM_H_
 
+#include <ostream>
+#include <string>
+#include <string_view>
+#include <type_traits>
+#include <utility>
+
 #include "absl/status/status.h"
+#include "tensorstore/array.h"
 #include "tensorstore/box.h"
+#include "tensorstore/container_kind.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/internal/compose_transforms.h"
 #include "tensorstore/index_space/internal/identity_transform.h"
@@ -26,13 +36,19 @@
 #include "tensorstore/index_space/internal/transform_rep.h"
 #include "tensorstore/index_space/internal/transpose.h"
 #include "tensorstore/index_space/output_index_map.h"
+#include "tensorstore/index_space/transform_array_constraints.h"
 #include "tensorstore/internal/gdb_scripting.h"
 #include "tensorstore/internal/string_like.h"
+#include "tensorstore/internal/type_traits.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/serialization/fwd.h"
-#include "tensorstore/util/constant_vector.h"
+#include "tensorstore/static_cast.h"
+#include "tensorstore/strided_layout.h"
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
+#include "tensorstore/util/iterate.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 
 TENSORSTORE_GDB_AUTO_SCRIPT("index_space_gdb.py")
 
@@ -1261,6 +1277,17 @@ OneToOneInputDimensions GetOneToOneInputDimensions(
 void ComputeInputDimensionReferenceCounts(
     IndexTransformView<> transform,
     span<DimensionIndex> input_dimension_reference_counts);
+
+//// Returns the set of input dimensions on which the given output dimension
+//// depends.
+///
+/// \param transform Index transform, must be non-null.
+/// \param output_dim Output dimension, where
+///     `0 <= output_dim && output_dim < transform.output_rank()`.
+/// \returns The set of input dimensions, and a bool indicating whether the
+///     dependence on the input dimensions is due to an index array map.
+std::pair<DimensionSet, bool> GetInputDimensionsForOutputDimension(
+    IndexTransformView<> transform, DimensionIndex output_dim);
 
 }  // namespace internal
 

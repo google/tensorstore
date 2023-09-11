@@ -20,7 +20,6 @@
 
 // IWYU pragma: private, include "third_party/tensorstore/internal/grid_partition.h"
 
-#include <optional>
 #include <vector>
 
 #include "absl/container/fixed_array.h"
@@ -57,8 +56,8 @@ class IndexTransformGridPartition {
   /// No precomputed data is required, as it is possible to efficiently iterate
   /// directly over the partitions.
   struct StridedSet {
-    span<const DimensionIndex> grid_dimensions;
-    DimensionIndex input_dimension;
+    DimensionSet grid_dimensions;
+    int input_dimension;
   };
 
   /// Represents a connected set containing `array` edges within an
@@ -73,15 +72,15 @@ class IndexTransformGridPartition {
   ///   input dimensions in the connected set.
   struct IndexArraySet {
     /// The grid dimension indices in this set.
-    span<const DimensionIndex> grid_dimensions;
+    DimensionSet grid_dimensions;
 
     /// The input dimension indices in this set.
-    span<const DimensionIndex> input_dimensions;
+    DimensionSet input_dimensions;
 
     // TODO(jbms): Consider using absl::InlinedVector for `grid_cell_indices`
     // and `grid_cell_partition_offsets`.
 
-    /// Row-major array of shape `[num_grid_cells, grid_dimensions.size()]`.
+    /// Row-major array of shape `[num_grid_cells, grid_dimensions.count()]`.
     /// Logically, this is a one-dimensional array of partial grid cell index
     /// vectors, sorted lexicpgrahically with respect to the components of the
     /// vectors (the second dimension of the array).  Each grid cell `i`
@@ -94,7 +93,7 @@ class IndexTransformGridPartition {
     /// Array of partial input index vectors corresponding to the partial input
     /// domain of this connected set.  The vectors are partitioned by their
     /// corresponding partial grid cell index vector.  The shape is
-    /// `[num_positions,input_dimensions.size()]`.
+    /// `[num_positions,input_dimensions.count()]`.
     SharedArray<Index, 2> partitioned_input_indices;
 
     /// Specifies the index into the first dimension of
@@ -111,7 +110,7 @@ class IndexTransformGridPartition {
     /// Returns the partial grid cell index vector corresponding to partition
     /// `i`.
     ///
-    /// \returns A `span` of size `grid_dimensions.size()`.
+    /// \returns A `span` of size `grid_dimensions.count()`.
     span<const Index> partition_grid_cell_indices(Index partition_i) const;
 
     /// Returns the number of partitions (partial grid cell index vectors).
@@ -129,28 +128,12 @@ class IndexTransformGridPartition {
   auto& strided_sets() { return strided_sets_; }
 
   /// The following members should be treated as private.
-  explicit IndexTransformGridPartition(DimensionIndex input_rank,
-                                       DimensionIndex grid_rank);
-
-  /// Prohibit copying and moving, as the default implementation would
-  /// invalidate the `grid_dimensions` and `input_dimensions` arrays of the
-  /// contained `IndexArraySet` and `StridedSet` sub-objects, and copying isn't
-  /// needed anyway.
-  IndexTransformGridPartition(const IndexTransformGridPartition&) = delete;
-  IndexTransformGridPartition(IndexTransformGridPartition&&) = delete;
-
-  /// Buffer of size `input_rank + grid_rank` that holds the input dimension
-  /// indices and grid dimension indices that are referenced by the
-  /// `input_dimensions` and `grid_dimensions` members of the IndexArraySet and
-  /// StridedSet sub-objects.
-  absl::FixedArray<DimensionIndex, internal::kNumInlinedDims * 2> temp_buffer_;
 
   /// Precomputed data for the strided connected sets.
   absl::InlinedVector<StridedSet, internal::kNumInlinedDims> strided_sets_;
 
   /// Precomputed data for the index array connected sets.
-  absl::InlinedVector<IndexArraySet, internal::kNumInlinedDims>
-      index_array_sets_;
+  std::vector<IndexArraySet> index_array_sets_;
 };
 
 /// Precomputes a data structure for partitioning an index transform by a
@@ -168,7 +151,8 @@ class IndexTransformGridPartition {
 ///     transform is to be partitioned.
 /// \param output_to_grid_cell Function to translate from output index to
 ///     a grid cell.
-/// \param result[out] Non-null pointer to result.
+/// \param grid_partition[out] Will be initialized with the partitioning
+///     information.
 /// \error `absl::StatusCode::kInvalidArgument` if any input dimension of
 ///     `index_transform` has an unbounded domain.
 /// \error `absl::StatusCode::kInvalidArgument` if integer overflow occurs.
@@ -178,7 +162,7 @@ absl::Status PrePartitionIndexTransformOverGrid(
     IndexTransformView<> index_transform,
     span<const DimensionIndex> grid_output_dimensions,
     OutputToGridCellFn output_to_grid_cell,
-    std::optional<IndexTransformGridPartition>* result);
+    IndexTransformGridPartition& grid_partition);
 
 }  // namespace internal_grid_partition
 }  // namespace tensorstore

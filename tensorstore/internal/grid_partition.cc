@@ -74,7 +74,7 @@ internal_index_space::TransformRep::Ptr<> InitializeCellTransform(
   const DimensionIndex full_input_rank = full_transform->input_rank;
   DimensionIndex num_index_array_dims = 0;
   for (const IndexArraySet& index_array_set : info.index_array_sets()) {
-    num_index_array_dims += index_array_set.input_dimensions.size();
+    num_index_array_dims += index_array_set.input_dimensions.count();
   }
   const DimensionIndex cell_input_rank =
       full_input_rank - num_index_array_dims + info.index_array_sets().size();
@@ -108,7 +108,7 @@ internal_index_space::TransformRep::Ptr<> InitializeCellTransform(
       // partition.
       input_origin[cell_input_dim] = 0;
       for (const DimensionIndex full_input_dim :
-           index_array_set.input_dimensions) {
+           index_array_set.input_dimensions.index_view()) {
         auto& map = output_maps[full_input_dim];
         // Use an `offset` of `0` and stride of `1`, since the precomputed index
         // arrays correspond directly to the input domains.
@@ -213,7 +213,8 @@ class StridedSetGridCellIterator {
     // For each grid dimension in the connected set, compute the grid cell
     // index corresponding to `input_index`, and constrain `restricted_domain`
     // to the range of this grid cell.
-    for (const DimensionIndex grid_dim : strided_set_.grid_dimensions) {
+    for (const DimensionIndex grid_dim :
+         strided_set_.grid_dimensions.index_view()) {
       const DimensionIndex output_dim = grid_output_dimensions_[grid_dim];
       const OutputIndexMapRef<> map = transform_.output_index_map(output_dim);
       IndexInterval cell_range;
@@ -285,22 +286,20 @@ class ConnectedSetIterateHelper {
     }
     const IndexArraySet& index_array_set =
         params_.info.index_array_sets()[set_i];
-    const span<const DimensionIndex> grid_dimensions =
-        index_array_set.grid_dimensions;
+    const auto grid_dimensions = index_array_set.grid_dimensions;
+    const DimensionIndex num_grid_dimensions = grid_dimensions.count();
     // Iterate over the precomputed partitions.
     for (Index partition_i = 0,
                num_partitions = index_array_set.num_partitions();
          partition_i < num_partitions; ++partition_i) {
       // Assign the grid_cell_indices to the precomputed grid cell indices for
       // this partition.
-      const Index grid_cell_indices_offset =
-          partition_i * grid_dimensions.size();
-      for (DimensionIndex grid_i = 0; grid_i < grid_dimensions.size();
-           ++grid_i) {
-        const DimensionIndex grid_dim = grid_dimensions[grid_i];
+      const Index grid_cell_indices_offset = partition_i * num_grid_dimensions;
+      DimensionIndex grid_i = 0;
+      for (DimensionIndex grid_dim : grid_dimensions.index_view()) {
         grid_cell_indices_[grid_dim] =
             index_array_set
-                .grid_cell_indices[grid_cell_indices_offset + grid_i];
+                .grid_cell_indices[grid_cell_indices_offset + grid_i++];
       }
 
       // Update the output index maps for the original input dimensions in this
@@ -316,7 +315,8 @@ class ConnectedSetIterateHelper {
           partition_input_indices.byte_strides()[1];
       const span<OutputIndexMap> output_maps =
           cell_transform_->output_index_maps();
-      for (DimensionIndex full_input_dim : index_array_set.input_dimensions) {
+      for (DimensionIndex full_input_dim :
+           index_array_set.input_dimensions.index_view()) {
         internal_index_space::IndexArrayData& index_array_data =
             output_maps[full_input_dim].index_array_data();
         index_array_data.element_pointer = std::shared_ptr<const Index>(
@@ -504,22 +504,20 @@ class GetGridCellRangesIterateHelper {
     }
     const IndexArraySet& index_array_set =
         params_.info.index_array_sets()[set_i];
-    const span<const DimensionIndex> grid_dimensions =
-        index_array_set.grid_dimensions;
+    const auto grid_dimensions = index_array_set.grid_dimensions;
+    const DimensionIndex num_grid_dimensions = grid_dimensions.count();
     // Iterate over the precomputed partitions.
     for (Index partition_i = 0,
                num_partitions = index_array_set.num_partitions();
          partition_i < num_partitions; ++partition_i) {
       // Assign the grid_cell_indices to the precomputed grid cell indices for
       // this partition.
-      const Index grid_cell_indices_offset =
-          partition_i * grid_dimensions.size();
-      for (DimensionIndex grid_i = 0; grid_i < grid_dimensions.size();
-           ++grid_i) {
-        const DimensionIndex grid_dim = grid_dimensions[grid_i];
+      const Index grid_cell_indices_offset = partition_i * num_grid_dimensions;
+      DimensionIndex grid_i = 0;
+      for (DimensionIndex grid_dim : grid_dimensions.index_view()) {
         outer_prefix_[grid_dim] =
             index_array_set
-                .grid_cell_indices[grid_cell_indices_offset + grid_i];
+                .grid_cell_indices[grid_cell_indices_offset + grid_i++];
       }
 
       TENSORSTORE_RETURN_IF_ERROR(IterateOverIndexArraySets(set_i + 1));
@@ -584,14 +582,13 @@ absl::Status PartitionIndexTransformOverGrid(
     absl::FunctionRef<absl::Status(span<const Index> grid_cell_indices,
                                    IndexTransformView<> cell_transform)>
         func) {
-  std::optional<internal_grid_partition::IndexTransformGridPartition>
-      partition_info;
+  internal_grid_partition::IndexTransformGridPartition partition_info;
   auto status = internal_grid_partition::PrePartitionIndexTransformOverGrid(
-      transform, grid_output_dimensions, output_to_grid_cell, &partition_info);
+      transform, grid_output_dimensions, output_to_grid_cell, partition_info);
 
   if (!status.ok()) return status;
   return internal_grid_partition::ConnectedSetIterateHelper(
-             {/*.info=*/*partition_info,
+             {/*.info=*/partition_info,
               /*.grid_output_dimensions=*/grid_output_dimensions,
               /*.output_to_grid_cell=*/output_to_grid_cell,
               /*.transform=*/transform,
@@ -633,13 +630,11 @@ absl::Status GetGridCellRanges(
     return callback(/*outer_prefix=*/{}, /*inner_interval=*/{});
   }
 
-  std::optional<internal_grid_partition::IndexTransformGridPartition>
-      grid_partition_opt;
+  internal_grid_partition::IndexTransformGridPartition grid_partition;
   TENSORSTORE_RETURN_IF_ERROR(
       internal_grid_partition::PrePartitionIndexTransformOverGrid(
           transform, grid_output_dimensions, output_to_grid_cell,
-          &grid_partition_opt));
-  auto& grid_partition = *grid_partition_opt;
+          grid_partition));
 
   std::array<DimensionIndex, kMaxRank> dim_to_indexed_set;
   dim_to_indexed_set.fill(-1);
@@ -648,19 +643,20 @@ absl::Status GetGridCellRanges(
   // dimension.
   DimensionSet one_to_one_grid_dims;
   for (const auto& strided_set : grid_partition.strided_sets()) {
-    if (strided_set.grid_dimensions.size() != 1) {
+    if (strided_set.grid_dimensions.count() != 1) {
       continue;
     }
-    const DimensionIndex grid_dim = strided_set.grid_dimensions[0];
+    const DimensionIndex grid_dim =
+        strided_set.grid_dimensions.index_view().front();
     one_to_one_grid_dims[grid_dim] = true;
   }
 
   for (size_t i = 0; i < grid_partition.index_array_sets().size(); ++i) {
     const auto& set = grid_partition.index_array_sets()[i];
-    if (set.grid_dimensions.size() != 1) {
+    if (set.grid_dimensions.count() != 1) {
       continue;
     }
-    const DimensionIndex grid_dim = set.grid_dimensions[0];
+    const DimensionIndex grid_dim = set.grid_dimensions.index_view().front();
     one_to_one_grid_dims[grid_dim] = true;
     dim_to_indexed_set[grid_dim] = i;
   }
@@ -738,13 +734,12 @@ absl::Status GetGridCellRanges(
 
   // Remove sets that are not part of the outer prefix.
   const auto remove_sets_not_in_prefix = [&](auto& sets) {
-    sets.erase(
-        std::remove_if(
-            sets.begin(), sets.end(),
-            [&](const auto& set) -> bool {
-              return grid_dimensions_outside_prefix[set.grid_dimensions[0]];
-            }),
-        sets.end());
+    sets.erase(std::remove_if(sets.begin(), sets.end(),
+                              [&](const auto& set) -> bool {
+                                return grid_dimensions_outside_prefix
+                                    [set.grid_dimensions.index_view().front()];
+                              }),
+               sets.end());
   };
   remove_sets_not_in_prefix(grid_partition.strided_sets());
   remove_sets_not_in_prefix(grid_partition.index_array_sets());

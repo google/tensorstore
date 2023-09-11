@@ -71,6 +71,7 @@ using ::tensorstore::StrCat;
 using ::tensorstore::unchecked;
 using ::tensorstore::view;
 using ::tensorstore::internal::ComputeInputDimensionReferenceCounts;
+using ::tensorstore::internal::GetInputDimensionsForOutputDimension;
 using ::tensorstore::internal_index_space::TransformAccess;
 using ::tensorstore::serialization::TestSerializationRoundTrip;
 
@@ -1139,6 +1140,23 @@ TEST(ComputeInputDimensionReferenceCountsTest, IndexArray) {
           .Finalize());
   ComputeInputDimensionReferenceCounts(transform, reference_counts);
   EXPECT_THAT(reference_counts, ::testing::ElementsAre(0, 1, 1));
+}
+
+TEST(GetInputDimensionsForOutputDimensionTest, Basic) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto transform,
+      IndexTransformBuilder(3, 3)
+          .input_shape({2, 2, 2})
+          .output_constant(0, 42)
+          .output_single_input_dimension(1, 0, 1, 1)
+          .output_index_array(2, 0, 1, MakeArray<Index>({{{1, 2}, {3, 4}}}))
+          .Finalize());
+  EXPECT_THAT(GetInputDimensionsForOutputDimension(transform, 0),
+              ::testing::Pair(DimensionSet(), false));
+  EXPECT_THAT(GetInputDimensionsForOutputDimension(transform, 1),
+              ::testing::Pair(DimensionSet::FromBools({0, 1, 0}), false));
+  EXPECT_THAT(GetInputDimensionsForOutputDimension(transform, 2),
+              ::testing::Pair(DimensionSet::FromBools({0, 1, 1}), true));
 }
 
 TEST(TranslateOutputDimensionsByTest, Basic) {

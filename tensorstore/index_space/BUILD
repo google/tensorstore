@@ -390,7 +390,6 @@ tensorstore_cc_library(
         "//tensorstore/internal/json_binding:dimension_indexed",
         "//tensorstore/serialization",
         "//tensorstore/serialization:json",
-        "//tensorstore/util:constant_vector",
         "//tensorstore/util:dimension_set",
         "//tensorstore/util:division",
         "//tensorstore/util:element_pointer",
