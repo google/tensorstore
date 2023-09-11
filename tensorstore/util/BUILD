@@ -706,6 +706,7 @@ tensorstore_cc_test(
         "//tensorstore/internal/json_binding:unit",
         "//tensorstore/serialization",
         "//tensorstore/serialization:test_util",
+        "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",
     ],
 )

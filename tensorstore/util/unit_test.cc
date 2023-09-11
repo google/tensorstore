@@ -16,6 +16,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/strings/str_cat.h"
 #include "tensorstore/internal/json_binding/gtest.h"
 #include "tensorstore/internal/json_binding/unit.h"
 #include "tensorstore/internal/json_gtest.h"
@@ -58,6 +59,14 @@ TEST(UnitTest, Ostream) {
   EXPECT_EQ("nm", tensorstore::StrCat(Unit(1, "nm")));
   EXPECT_EQ("5", tensorstore::StrCat(Unit(5, "")));
   EXPECT_EQ("1", tensorstore::StrCat(Unit(1, "")));
+}
+
+TEST(UnitTest, ConvertToString) {
+  EXPECT_EQ("5.5 nm", Unit(5.5, "nm").to_string());
+  EXPECT_EQ("nm", Unit(1, "nm").to_string());
+  EXPECT_EQ("5", Unit(5, "").to_string());
+  EXPECT_EQ("1", Unit(1, "").to_string());
+  EXPECT_EQ("1", absl::StrCat(Unit(1, "")));
 }
 
 TEST(UnitTest, MultiplierBaseUnit) {
