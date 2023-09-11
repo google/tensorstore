@@ -614,21 +614,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../zarr3/index.html" class="md-nav__link">
-        <span class="md-ellipsis">zarr3 Driver</span>
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../n5/index.html" class="md-nav__link">
         <span class="md-ellipsis">n5 Driver</span>
       </a>
@@ -2361,7 +2346,7 @@ number of channels.</p>
 <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;raw&quot;</span></code> <a class="reference internal" href="#json-driver/neuroglancer_precomputed/Codec.encoding" title="driver/neuroglancer_precomputed/Codec.encoding (JSON member) — Specifies the chunk encoding."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/neuroglancer_precomputed/Codec.encoding</span></code></a>, the
 <code class="docutils literal notranslate"><span class="pre">neuroglancer_precomputed</span></code> format always stores the data within chunks in
 colexicographic order (i.e. Fortran order).</p>
-<p>When using the unsharded format, the <a class="reference internal" href="../../schema.html#json-ChunkLayout.write_chunk" title="ChunkLayout.write_chunk (JSON member) — Constraints on the chunk grid over which writes may be efficiently partitioned."><code class="xref json json-schema docutils literal notranslate"><span class="pre">ChunkLayout.write_chunk</span></code></a>
+<p>When using the unsharded format, the
 shape is equal to the <a class="reference internal" href="../../schema.html#json-ChunkLayout.read_chunk" title="ChunkLayout.read_chunk (JSON member) — Constraints on the chunk grid over which reads may be efficiently partitioned."><code class="xref json json-schema docutils literal notranslate"><span class="pre">ChunkLayout.read_chunk</span></code></a> shape.</p>
 <p>When using the sharded format, if the sharding parameters are such that each
 shard corresponds to a rectangular region, then the
