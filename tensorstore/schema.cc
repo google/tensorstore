@@ -14,33 +14,48 @@
 
 #include "tensorstore/schema.h"
 
+#include <stddef.h>
+
+#include <atomic>
+#include <cassert>
+#include <cstdlib>
 #include <ostream>
+#include <type_traits>
+#include <utility>
 
 #include "absl/status/status.h"
+#include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
+#include "tensorstore/box.h"
+#include "tensorstore/chunk_layout.h"
 #include "tensorstore/codec_spec.h"
+#include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dimension_units.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/index_space/index_transform.h"
-#include "tensorstore/index_space/index_transform_builder.h"
 #include "tensorstore/index_space/json.h"
+#include "tensorstore/index_space/output_index_method.h"
 #include "tensorstore/index_space/transform_broadcastable_array.h"
-#include "tensorstore/internal/json/array.h"
 #include "tensorstore/internal/json_binding/array.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/data_type.h"
-#include "tensorstore/internal/json_binding/dimension_indexed.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/internal/json_binding/std_array.h"
 #include "tensorstore/internal/json_binding/std_optional.h"
-#include "tensorstore/internal/json_binding/unit.h"
+#include "tensorstore/internal/json_binding/unit.h"  // IWYU pragma: keep
 #include "tensorstore/internal/type_traits.h"
+#include "tensorstore/json_serialization_options.h"
 #include "tensorstore/rank.h"
+#include "tensorstore/serialization/fwd.h"
 #include "tensorstore/serialization/json_bindable.h"
-#include "tensorstore/serialization/serialization.h"
-#include "tensorstore/util/division.h"
+#include "tensorstore/util/dimension_set.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/unit.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 
@@ -214,8 +229,7 @@ auto JsonBinder() {
                                                 return u.has_value();
                                               });
                         },
-                        jb::Array(jb::Optional(jb::DefaultBinder<>,
-                                               [] { return nullptr; }))))))  //
+                        jb::Array(jb::OptionalWithNull())))))  //
             (is_loading, options, obj, j);
       });
 }

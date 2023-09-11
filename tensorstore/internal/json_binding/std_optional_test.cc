@@ -42,6 +42,16 @@ TEST(JsonBindingTest, Optional) {
   });
 }
 
+TEST(JsonBindingTest, OptionalWithNull) {
+  auto binder = jb::OptionalWithNull();
+  tensorstore::TestJsonBinderRoundTrip<std::optional<int>>(
+      {
+          {3, ::nlohmann::json(3)},
+          {std::nullopt, ::nlohmann::json(nullptr)},
+      },
+      binder);
+}
+
 TEST(JsonBindingTest, OptionalExplicitNullopt) {
   const auto binder =
       jb::Optional(jb::DefaultBinder<>, [] { return "nullopt"; });
