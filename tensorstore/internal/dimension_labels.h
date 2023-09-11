@@ -16,6 +16,7 @@
 #define TENSORSTORE_INTERNAL_DIMENSION_LABELS_H_
 
 #include <string>
+#include <string_view>
 
 #include "absl/status/status.h"
 #include "tensorstore/util/span.h"
@@ -29,6 +30,8 @@ namespace internal {
 /// \returns `absl::Status()` if valid.
 /// \error `absl::StatusCode::kInvalidArgument` if there is a non-unique label.
 absl::Status ValidateDimensionLabelsAreUnique(span<const std::string> labels);
+absl::Status ValidateDimensionLabelsAreUnique(
+    span<const std::string_view> labels);
 
 }  // namespace internal
 }  // namespace tensorstore

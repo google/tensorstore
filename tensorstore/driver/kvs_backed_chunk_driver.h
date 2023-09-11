@@ -581,7 +581,7 @@ class KvsMetadataDriverBase : public internal::Driver {
 /// Defines the `Resize` and `GetChunkLayout` methods.
 class KvsChunkedDriverBase : public KvsMetadataDriverBase {
  public:
-  virtual ChunkedDataCacheBase* cache() const = 0;
+  virtual ChunkedDataCacheBase* cache() const override = 0;
 
   /// Returns a chunk layout derived from the metadata.
   Result<ChunkLayout> GetChunkLayout(IndexTransformView<> transform) override;

@@ -352,6 +352,18 @@ void DriverRandomOperationTester::TestBasicFunctionality(
       auto store, tensorstore::Open(options.create_spec, context, transaction,
                                     tensorstore::OpenMode::create)
                       .result());
+
+  if (transaction == no_transaction) {
+    // Test that creating again fails.
+    //
+    // Don't do this if a transaction is used, since that would cause the
+    // transaction to fail.
+    EXPECT_THAT(tensorstore::Open(options.create_spec, context, transaction,
+                                  tensorstore::OpenMode::create)
+                    .result(),
+                MatchesStatus(absl::StatusCode::kAlreadyExists));
+  }
+
   ASSERT_EQ(options.expected_domain, store.domain());
   ASSERT_EQ(options.initial_value.dtype(), store.dtype());
   {

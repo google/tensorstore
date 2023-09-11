@@ -224,6 +224,122 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
+    name = "sharding_indexed",
+    srcs = ["sharding_indexed.cc"],
+    hdrs = ["sharding_indexed.h"],
+    deps = [
+        ":bytes",
+        ":codec",
+        ":codec_chain_spec",
+        ":crc32c",
+        "//tensorstore:array",
+        "//tensorstore:box",
+        "//tensorstore:data_type",
+        "//tensorstore:index",
+        "//tensorstore:index_interval",
+        "//tensorstore:rank",
+        "//tensorstore/internal:chunk_grid_specification",
+        "//tensorstore/internal:global_initializer",
+        "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/internal:lexicographical_grid_index_key",
+        "//tensorstore/internal/cache",
+        "//tensorstore/internal/json_binding",
+        "//tensorstore/kvstore",
+        "//tensorstore/kvstore/zarr3_sharding_indexed",
+        "//tensorstore/kvstore/zarr3_sharding_indexed:key",
+        "//tensorstore/kvstore/zarr3_sharding_indexed:shard_format",
+        "//tensorstore/util:executor",
+        "//tensorstore/util:result",
+        "//tensorstore/util:span",
+        "//tensorstore/util:status",
+        "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/status",
+        "@com_google_riegeli//riegeli/bytes:reader",
+        "@com_google_riegeli//riegeli/bytes:writer",
+    ],
+    alwayslink = True,
+)
+
+tensorstore_cc_test(
+    name = "sharding_indexed_test",
+    size = "small",
+    srcs = ["sharding_indexed_test.cc"],
+    deps = [
+        ":bytes",
+        ":codec",
+        ":codec_chain_spec",
+        ":gzip",
+        ":sharding_indexed",
+        "//tensorstore:array",
+        "//tensorstore:data_type",
+        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/status",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "blosc",
+    srcs = ["blosc.cc"],
+    hdrs = ["blosc.h"],
+    deps = [
+        ":codec",
+        "//tensorstore/internal:global_initializer",
+        "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/internal/compression:blosc",
+        "//tensorstore/internal/json_binding",
+        "//tensorstore/util:quote_string",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/strings:str_format",
+        "@com_google_riegeli//riegeli/base:chain",
+        "@com_google_riegeli//riegeli/bytes:chain_reader",
+        "@com_google_riegeli//riegeli/bytes:cord_writer",
+        "@com_google_riegeli//riegeli/bytes:read_all",
+        "@com_google_riegeli//riegeli/bytes:reader",
+        "@com_google_riegeli//riegeli/bytes:write",
+        "@com_google_riegeli//riegeli/bytes:writer",
+        "@org_blosc_cblosc//:blosc",
+    ],
+    alwayslink = True,
+)
+
+tensorstore_cc_test(
+    name = "blosc_test",
+    size = "small",
+    srcs = ["blosc_test.cc"],
+    deps = [
+        ":blosc",
+        ":bytes",
+        ":codec_chain_spec",
+        ":codec_test_util",
+        "//tensorstore:data_type",
+        "//tensorstore/internal:json_gtest",
+        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/status",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "all_codecs",
+    deps = [
+        ":blosc",
+        ":bytes",
+        ":crc32c",
+        ":gzip",
+        ":sharding_indexed",
+        ":transpose",
+        ":zstd",
+    ],
+)
+
+tensorstore_cc_library(
     name = "codec_test_util",
     testonly = True,
     srcs = ["codec_test_util.cc"],
@@ -245,5 +361,53 @@ tensorstore_cc_library(
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/random",
         "@com_google_googletest//:gtest",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "zstd",
+    srcs = ["zstd_codec.cc"],
+    hdrs = ["zstd_codec.h"],
+    deps = [
+        ":codec",
+        "//tensorstore/internal:global_initializer",
+        "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/internal/json_binding",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "@com_google_absl//absl/status",
+        "@com_google_riegeli//riegeli/bytes:reader",
+        "@com_google_riegeli//riegeli/bytes:writer",
+        "@com_google_riegeli//riegeli/zstd:zstd_reader",
+        "@com_google_riegeli//riegeli/zstd:zstd_writer",
+    ],
+    alwayslink = True,
+)
+
+tensorstore_cc_test(
+    name = "zstd_test",
+    size = "small",
+    srcs = ["zstd_test.cc"],
+    deps = [
+        ":bytes",
+        ":codec_test_util",
+        ":zstd",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "codec_chain_spec_test",
+    srcs = ["codec_chain_spec_test.cc"],
+    deps = [
+        ":codec_chain_spec",
+        ":codec_test_util",
+        ":gzip",
+        ":sharding_indexed",
+        "//tensorstore:codec_spec",
+        "//tensorstore/internal:json_gtest",
+        "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/status",
+        "@com_google_googletest//:gtest_main",
     ],
 )

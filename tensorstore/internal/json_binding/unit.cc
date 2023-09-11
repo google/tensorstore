@@ -51,5 +51,17 @@ TENSORSTORE_DEFINE_JSON_BINDER(
           Projection<&Unit::base_unit>())(is_loading, options, obj, j);
     });
 
+TENSORSTORE_DEFINE_JSON_BINDER(
+    StringOnlyUnitJsonBinder,
+    Compose<std::string>([](auto is_loading, const auto& options, auto* obj,
+                            std::string* j) -> absl::Status {
+      if constexpr (is_loading) {
+        *obj = Unit(*j);
+      } else {
+        *j = obj->to_string();
+      }
+      return absl::OkStatus();
+    }));
+
 }  // namespace internal_json_binding
 }  // namespace tensorstore

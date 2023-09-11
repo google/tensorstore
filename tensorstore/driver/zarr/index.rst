@@ -3,13 +3,13 @@
 ``zarr`` Driver
 ===============
 
-`Zarr <https://github.com/zarr-developers/zarr-python>`_ is a chunked
+`Zarr v2 <https://github.com/zarr-developers/zarr-python>`_ is a chunked
 array storage format based on the `NumPy data type model
 <https://zarr.readthedocs.io/en/stable/spec/v2.html#data-type-encoding>`_.
 
-The ``zarr`` driver provides access to Zarr-format arrays backed by
-any supported :ref:`key_value_store`.  It supports reading, writing,
-creating new arrays, and resizing arrays.
+The ``zarr`` driver provides access to Zarr-v2-format arrays backed by any
+supported :ref:`key_value_store`.  It supports reading, writing, creating new
+arrays, and resizing arrays.
 
 Zarr supports arrays with `structured data types
 <https://zarr.readthedocs.io/en/stable/spec/v2.html#data-type-encoding>`_

@@ -14,23 +14,25 @@
 
 #include "tensorstore/internal/dimension_labels.h"
 
+#include <stddef.h>
+
 #include <algorithm>
 #include <string>
 #include <string_view>
 
 #include "absl/container/fixed_array.h"
+#include "absl/status/status.h"
 #include "tensorstore/rank.h"
-#include "tensorstore/util/iterate.h"
 #include "tensorstore/util/quote_string.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal {
 
-absl::Status ValidateDimensionLabelsAreUnique(span<const std::string> labels) {
-  // TODO(jbms): Consider using a hash set instead.
-  absl::FixedArray<std::string_view, kMaxRank> sorted_labels(labels.begin(),
-                                                             labels.end());
+namespace {
+absl::Status ValidateDimensionLabelsAreUniqueImpl(
+    span<std::string_view> sorted_labels) {
   std::sort(sorted_labels.begin(), sorted_labels.end());
   size_t i;
   for (i = 1; i < sorted_labels.size() && sorted_labels[i].empty(); ++i)
@@ -49,6 +51,22 @@ absl::Status ValidateDimensionLabelsAreUnique(span<const std::string> labels) {
   }
 
   return absl::OkStatus();
+}
+}  // namespace
+
+absl::Status ValidateDimensionLabelsAreUnique(span<const std::string> labels) {
+  // TODO(jbms): Consider using a hash set instead.
+  absl::FixedArray<std::string_view, kMaxRank> sorted_labels(labels.begin(),
+                                                             labels.end());
+  return ValidateDimensionLabelsAreUniqueImpl(sorted_labels);
+}
+
+absl::Status ValidateDimensionLabelsAreUnique(
+    span<const std::string_view> labels) {
+  // TODO(jbms): Consider using a hash set instead.
+  absl::FixedArray<std::string_view, kMaxRank> sorted_labels(labels.begin(),
+                                                             labels.end());
+  return ValidateDimensionLabelsAreUniqueImpl(sorted_labels);
 }
 
 }  // namespace internal

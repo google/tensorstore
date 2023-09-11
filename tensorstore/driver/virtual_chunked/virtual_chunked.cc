@@ -360,7 +360,7 @@ class VirtualChunkedDriverSpec
              x.data_staleness);
   };
 
-  OpenMode open_mode() const {
+  OpenMode open_mode() const override {
     // Since opening has no side effects, we return `open` even though `create`
     // might also be considered correct.
     return OpenMode::open;
@@ -419,7 +419,7 @@ class VirtualChunkedDriver : public VirtualChunkedDriverBase {
     return {std::in_place};
   }
 
-  Result<ChunkLayout> GetChunkLayout(IndexTransformView<> transform) {
+  Result<ChunkLayout> GetChunkLayout(IndexTransformView<> transform) override {
     return internal::GetChunkLayoutFromGrid(cache()->grid().components[0]) |
            transform;
   }

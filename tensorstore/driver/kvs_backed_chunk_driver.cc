@@ -824,10 +824,11 @@ Result<internal::Driver::Handle> CreateTensorStoreFromMetadata(
     }
   }
   absl::Status data_key_value_store_status;
+  const auto& state_ref = *state;
   auto data_cache =
       (*state->cache_pool())
           ->GetCache<DataCacheBase>(
-              typeid(*state), chunk_cache_identifier,
+              typeid(state_ref), chunk_cache_identifier,
               [&]() -> std::unique_ptr<DataCacheBase> {
                 auto store_result = state->GetDataKeyValueStore(
                     GetOwningCache(*base.metadata_cache_entry_).base_store_,

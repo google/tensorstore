@@ -259,7 +259,8 @@ constexpr auto Integer(T min = std::numeric_limits<T>::min(),
 
 template <typename T>
 constexpr inline auto
-    DefaultBinder<T, std::enable_if_t<std::is_integral_v<T>>> = Integer<T>();
+    DefaultBinder<T, std::enable_if_t<std::numeric_limits<T>::is_integer>> =
+        Integer<T>();
 
 // Binder that requires
 //

@@ -40,6 +40,11 @@ namespace internal_json_binding {
 TENSORSTORE_DECLARE_JSON_BINDER(UnitJsonBinder, Unit, NoOptions,
                                 IncludeDefaults);
 
+/// Same as above, but always uses the string representation.  The number or
+/// array representation is not permitted.
+TENSORSTORE_DECLARE_JSON_BINDER(StringOnlyUnitJsonBinder, Unit, NoOptions,
+                                IncludeDefaults);
+
 template <>
 constexpr inline auto DefaultBinder<Unit> = UnitJsonBinder;
 

@@ -1936,7 +1936,6 @@ tensorstore_cc_library(
     hdrs = ["dimension_labels.h"],
     deps = [
         "//tensorstore:rank",
-        "//tensorstore/util:iterate",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:span",
         "//tensorstore/util:str_cat",

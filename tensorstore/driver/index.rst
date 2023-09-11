@@ -34,6 +34,7 @@ Chunked storage drivers
    :maxdepth: 1
 
    zarr/index
+   zarr3/index
    n5/index
    neuroglancer_precomputed/index
 

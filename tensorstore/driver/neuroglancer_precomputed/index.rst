@@ -426,7 +426,7 @@ With respect to the dimension order of ``[x, y, z, channel]``, when using the
 ``neuroglancer_precomputed`` format always stores the data within chunks in
 colexicographic order (i.e. Fortran order).
 
-When using the unsharded format, the
+When using the unsharded format, the :json:schema:`ChunkLayout.write_chunk`
 shape is equal to the :json:schema:`ChunkLayout.read_chunk` shape.
 
 When using the sharded format, if the sharding parameters are such that each
