@@ -322,6 +322,26 @@ TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
     DataTypeConversionFlags::kSupported |
         DataTypeConversionFlags::kSafeAndImplicit)
 TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::bool_t, ::tensorstore::dtypes::float8_e4m3fn_t,
+    DataTypeConversionFlags::kSupported |
+        DataTypeConversionFlags::kSafeAndImplicit)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::bool_t, ::tensorstore::dtypes::float8_e4m3fnuz_t,
+    DataTypeConversionFlags::kSupported |
+        DataTypeConversionFlags::kSafeAndImplicit)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::bool_t, ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    DataTypeConversionFlags::kSupported |
+        DataTypeConversionFlags::kSafeAndImplicit)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::bool_t, ::tensorstore::dtypes::float8_e5m2_t,
+    DataTypeConversionFlags::kSupported |
+        DataTypeConversionFlags::kSafeAndImplicit)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::bool_t, ::tensorstore::dtypes::float8_e5m2fnuz_t,
+    DataTypeConversionFlags::kSupported |
+        DataTypeConversionFlags::kSafeAndImplicit)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
     ::tensorstore::dtypes::bool_t, ::tensorstore::dtypes::float16_t,
     DataTypeConversionFlags::kSupported |
         DataTypeConversionFlags::kSafeAndImplicit)
@@ -437,6 +457,186 @@ TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
     DataTypeConversionFlags::kSupported)
 TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
     ::tensorstore::dtypes::uint64_t, ::tensorstore::dtypes::ustring_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e4m3fn_t, ::tensorstore::dtypes::bool_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e4m3fn_t, ::tensorstore::dtypes::int4_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e4m3fn_t, ::tensorstore::dtypes::int8_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e4m3fn_t, ::tensorstore::dtypes::uint8_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e4m3fn_t, ::tensorstore::dtypes::int16_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e4m3fn_t, ::tensorstore::dtypes::uint16_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e4m3fn_t, ::tensorstore::dtypes::int32_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e4m3fn_t, ::tensorstore::dtypes::uint32_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e4m3fn_t, ::tensorstore::dtypes::int64_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e4m3fn_t, ::tensorstore::dtypes::uint64_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e4m3fn_t, ::tensorstore::dtypes::string_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e4m3fn_t, ::tensorstore::dtypes::ustring_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e4m3fnuz_t, ::tensorstore::dtypes::bool_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e4m3fnuz_t, ::tensorstore::dtypes::int4_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e4m3fnuz_t, ::tensorstore::dtypes::int8_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e4m3fnuz_t, ::tensorstore::dtypes::uint8_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e4m3fnuz_t, ::tensorstore::dtypes::int16_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e4m3fnuz_t, ::tensorstore::dtypes::uint16_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e4m3fnuz_t, ::tensorstore::dtypes::int32_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e4m3fnuz_t, ::tensorstore::dtypes::uint32_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e4m3fnuz_t, ::tensorstore::dtypes::int64_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e4m3fnuz_t, ::tensorstore::dtypes::uint64_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e4m3fnuz_t, ::tensorstore::dtypes::string_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e4m3fnuz_t, ::tensorstore::dtypes::ustring_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t, ::tensorstore::dtypes::bool_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t, ::tensorstore::dtypes::int4_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t, ::tensorstore::dtypes::int8_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t, ::tensorstore::dtypes::uint8_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t, ::tensorstore::dtypes::int16_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    ::tensorstore::dtypes::uint16_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t, ::tensorstore::dtypes::int32_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    ::tensorstore::dtypes::uint32_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t, ::tensorstore::dtypes::int64_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    ::tensorstore::dtypes::uint64_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    ::tensorstore::dtypes::string_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    ::tensorstore::dtypes::ustring_t, DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e5m2_t, ::tensorstore::dtypes::bool_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e5m2_t, ::tensorstore::dtypes::int4_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e5m2_t, ::tensorstore::dtypes::int8_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e5m2_t, ::tensorstore::dtypes::uint8_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e5m2_t, ::tensorstore::dtypes::int16_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e5m2_t, ::tensorstore::dtypes::uint16_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e5m2_t, ::tensorstore::dtypes::int32_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e5m2_t, ::tensorstore::dtypes::uint32_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e5m2_t, ::tensorstore::dtypes::int64_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e5m2_t, ::tensorstore::dtypes::uint64_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e5m2_t, ::tensorstore::dtypes::string_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e5m2_t, ::tensorstore::dtypes::ustring_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e5m2fnuz_t, ::tensorstore::dtypes::bool_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e5m2fnuz_t, ::tensorstore::dtypes::int4_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e5m2fnuz_t, ::tensorstore::dtypes::int8_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e5m2fnuz_t, ::tensorstore::dtypes::uint8_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e5m2fnuz_t, ::tensorstore::dtypes::int16_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e5m2fnuz_t, ::tensorstore::dtypes::uint16_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e5m2fnuz_t, ::tensorstore::dtypes::int32_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e5m2fnuz_t, ::tensorstore::dtypes::uint32_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e5m2fnuz_t, ::tensorstore::dtypes::int64_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e5m2fnuz_t, ::tensorstore::dtypes::uint64_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e5m2fnuz_t, ::tensorstore::dtypes::string_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::float8_e5m2fnuz_t, ::tensorstore::dtypes::ustring_t,
     DataTypeConversionFlags::kSupported)
 TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
     ::tensorstore::dtypes::float16_t, ::tensorstore::dtypes::bool_t,
@@ -610,6 +810,24 @@ TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
     ::tensorstore::dtypes::complex64_t, ::tensorstore::dtypes::uint64_t,
     DataTypeConversionFlags::kSupported)
 TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::complex64_t, ::tensorstore::dtypes::float8_e4m3fn_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::complex64_t,
+    ::tensorstore::dtypes::float8_e4m3fnuz_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::complex64_t,
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::complex64_t, ::tensorstore::dtypes::float8_e5m2_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::complex64_t,
+    ::tensorstore::dtypes::float8_e5m2fnuz_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
     ::tensorstore::dtypes::complex64_t, ::tensorstore::dtypes::float16_t,
     DataTypeConversionFlags::kSupported)
 TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
@@ -653,6 +871,24 @@ TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
     DataTypeConversionFlags::kSupported)
 TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
     ::tensorstore::dtypes::complex128_t, ::tensorstore::dtypes::uint64_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::complex128_t, ::tensorstore::dtypes::float8_e4m3fn_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::complex128_t,
+    ::tensorstore::dtypes::float8_e4m3fnuz_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::complex128_t,
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::complex128_t, ::tensorstore::dtypes::float8_e5m2_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::complex128_t,
+    ::tensorstore::dtypes::float8_e5m2fnuz_t,
     DataTypeConversionFlags::kSupported)
 TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
     ::tensorstore::dtypes::complex128_t, ::tensorstore::dtypes::float16_t,
@@ -701,6 +937,21 @@ TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
     DataTypeConversionFlags::kSupported)
 TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
     ::tensorstore::dtypes::json_t, ::tensorstore::dtypes::uint64_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::json_t, ::tensorstore::dtypes::float8_e4m3fn_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::json_t, ::tensorstore::dtypes::float8_e4m3fnuz_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::json_t, ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::json_t, ::tensorstore::dtypes::float8_e5m2_t,
+    DataTypeConversionFlags::kSupported)
+TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
+    ::tensorstore::dtypes::json_t, ::tensorstore::dtypes::float8_e5m2fnuz_t,
     DataTypeConversionFlags::kSupported)
 TENSORSTORE_INTERNAL_DEFINE_CONVERT_TRAITS(  //
     ::tensorstore::dtypes::json_t, ::tensorstore::dtypes::float16_t,
@@ -970,6 +1221,21 @@ TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::uint64_t, ::tensorstore::dtypes::uint64_t,
     internal_data_type::IntegerIntegerDataTypeConversionTraits)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::int4_t, ::tensorstore::dtypes::float8_e4m3fn_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::int4_t, ::tensorstore::dtypes::float8_e4m3fnuz_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::int4_t, ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::int4_t, ::tensorstore::dtypes::float8_e5m2_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::int4_t, ::tensorstore::dtypes::float8_e5m2fnuz_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::int4_t, ::tensorstore::dtypes::float16_t,
     internal_data_type::IntegerFloatDataTypeConversionTraits)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
@@ -980,6 +1246,21 @@ TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     internal_data_type::IntegerFloatDataTypeConversionTraits)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::int4_t, ::tensorstore::dtypes::float64_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::int8_t, ::tensorstore::dtypes::float8_e4m3fn_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::int8_t, ::tensorstore::dtypes::float8_e4m3fnuz_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::int8_t, ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::int8_t, ::tensorstore::dtypes::float8_e5m2_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::int8_t, ::tensorstore::dtypes::float8_e5m2fnuz_t,
     internal_data_type::IntegerFloatDataTypeConversionTraits)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::int8_t, ::tensorstore::dtypes::float16_t,
@@ -994,6 +1275,21 @@ TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::int8_t, ::tensorstore::dtypes::float64_t,
     internal_data_type::IntegerFloatDataTypeConversionTraits)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::uint8_t, ::tensorstore::dtypes::float8_e4m3fn_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::uint8_t, ::tensorstore::dtypes::float8_e4m3fnuz_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::uint8_t, ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::uint8_t, ::tensorstore::dtypes::float8_e5m2_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::uint8_t, ::tensorstore::dtypes::float8_e5m2fnuz_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::uint8_t, ::tensorstore::dtypes::float16_t,
     internal_data_type::IntegerFloatDataTypeConversionTraits)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
@@ -1004,6 +1300,21 @@ TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     internal_data_type::IntegerFloatDataTypeConversionTraits)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::uint8_t, ::tensorstore::dtypes::float64_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::int16_t, ::tensorstore::dtypes::float8_e4m3fn_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::int16_t, ::tensorstore::dtypes::float8_e4m3fnuz_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::int16_t, ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::int16_t, ::tensorstore::dtypes::float8_e5m2_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::int16_t, ::tensorstore::dtypes::float8_e5m2fnuz_t,
     internal_data_type::IntegerFloatDataTypeConversionTraits)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::int16_t, ::tensorstore::dtypes::float16_t,
@@ -1018,6 +1329,22 @@ TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::int16_t, ::tensorstore::dtypes::float64_t,
     internal_data_type::IntegerFloatDataTypeConversionTraits)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::uint16_t, ::tensorstore::dtypes::float8_e4m3fn_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::uint16_t, ::tensorstore::dtypes::float8_e4m3fnuz_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::uint16_t,
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::uint16_t, ::tensorstore::dtypes::float8_e5m2_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::uint16_t, ::tensorstore::dtypes::float8_e5m2fnuz_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::uint16_t, ::tensorstore::dtypes::float16_t,
     internal_data_type::IntegerFloatDataTypeConversionTraits)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
@@ -1028,6 +1355,21 @@ TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     internal_data_type::IntegerFloatDataTypeConversionTraits)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::uint16_t, ::tensorstore::dtypes::float64_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::int32_t, ::tensorstore::dtypes::float8_e4m3fn_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::int32_t, ::tensorstore::dtypes::float8_e4m3fnuz_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::int32_t, ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::int32_t, ::tensorstore::dtypes::float8_e5m2_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::int32_t, ::tensorstore::dtypes::float8_e5m2fnuz_t,
     internal_data_type::IntegerFloatDataTypeConversionTraits)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::int32_t, ::tensorstore::dtypes::float16_t,
@@ -1042,6 +1384,22 @@ TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::int32_t, ::tensorstore::dtypes::float64_t,
     internal_data_type::IntegerFloatDataTypeConversionTraits)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::uint32_t, ::tensorstore::dtypes::float8_e4m3fn_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::uint32_t, ::tensorstore::dtypes::float8_e4m3fnuz_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::uint32_t,
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::uint32_t, ::tensorstore::dtypes::float8_e5m2_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::uint32_t, ::tensorstore::dtypes::float8_e5m2fnuz_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::uint32_t, ::tensorstore::dtypes::float16_t,
     internal_data_type::IntegerFloatDataTypeConversionTraits)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
@@ -1054,6 +1412,21 @@ TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::uint32_t, ::tensorstore::dtypes::float64_t,
     internal_data_type::IntegerFloatDataTypeConversionTraits)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::int64_t, ::tensorstore::dtypes::float8_e4m3fn_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::int64_t, ::tensorstore::dtypes::float8_e4m3fnuz_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::int64_t, ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::int64_t, ::tensorstore::dtypes::float8_e5m2_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::int64_t, ::tensorstore::dtypes::float8_e5m2fnuz_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::int64_t, ::tensorstore::dtypes::float16_t,
     internal_data_type::IntegerFloatDataTypeConversionTraits)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
@@ -1064,6 +1437,22 @@ TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     internal_data_type::IntegerFloatDataTypeConversionTraits)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::int64_t, ::tensorstore::dtypes::float64_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::uint64_t, ::tensorstore::dtypes::float8_e4m3fn_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::uint64_t, ::tensorstore::dtypes::float8_e4m3fnuz_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::uint64_t,
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::uint64_t, ::tensorstore::dtypes::float8_e5m2_t,
+    internal_data_type::IntegerFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::uint64_t, ::tensorstore::dtypes::float8_e5m2fnuz_t,
     internal_data_type::IntegerFloatDataTypeConversionTraits)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::uint64_t, ::tensorstore::dtypes::float16_t,
@@ -1159,6 +1548,185 @@ TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::uint64_t, ::tensorstore::dtypes::json_t,
     internal_data_type::IntegerJsonDataTypeConversionTraits)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e4m3fn_t,
+    ::tensorstore::dtypes::float8_e4m3fn_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e4m3fn_t,
+    ::tensorstore::dtypes::float8_e4m3fnuz_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e4m3fn_t,
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e4m3fn_t,
+    ::tensorstore::dtypes::float8_e5m2_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e4m3fn_t,
+    ::tensorstore::dtypes::float8_e5m2fnuz_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e4m3fn_t, ::tensorstore::dtypes::float16_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e4m3fn_t, ::tensorstore::dtypes::bfloat16_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e4m3fn_t, ::tensorstore::dtypes::float32_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e4m3fn_t, ::tensorstore::dtypes::float64_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e4m3fnuz_t,
+    ::tensorstore::dtypes::float8_e4m3fn_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e4m3fnuz_t,
+    ::tensorstore::dtypes::float8_e4m3fnuz_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e4m3fnuz_t,
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e4m3fnuz_t,
+    ::tensorstore::dtypes::float8_e5m2_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e4m3fnuz_t,
+    ::tensorstore::dtypes::float8_e5m2fnuz_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e4m3fnuz_t, ::tensorstore::dtypes::float16_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e4m3fnuz_t, ::tensorstore::dtypes::bfloat16_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e4m3fnuz_t, ::tensorstore::dtypes::float32_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e4m3fnuz_t, ::tensorstore::dtypes::float64_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    ::tensorstore::dtypes::float8_e4m3fn_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    ::tensorstore::dtypes::float8_e4m3fnuz_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    ::tensorstore::dtypes::float8_e5m2_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    ::tensorstore::dtypes::float8_e5m2fnuz_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    ::tensorstore::dtypes::float16_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    ::tensorstore::dtypes::bfloat16_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    ::tensorstore::dtypes::float32_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    ::tensorstore::dtypes::float64_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e5m2_t,
+    ::tensorstore::dtypes::float8_e4m3fn_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e5m2_t,
+    ::tensorstore::dtypes::float8_e4m3fnuz_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e5m2_t,
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e5m2_t, ::tensorstore::dtypes::float8_e5m2_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e5m2_t,
+    ::tensorstore::dtypes::float8_e5m2fnuz_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e5m2_t, ::tensorstore::dtypes::float16_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e5m2_t, ::tensorstore::dtypes::bfloat16_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e5m2_t, ::tensorstore::dtypes::float32_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e5m2_t, ::tensorstore::dtypes::float64_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e5m2fnuz_t,
+    ::tensorstore::dtypes::float8_e4m3fn_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e5m2fnuz_t,
+    ::tensorstore::dtypes::float8_e4m3fnuz_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e5m2fnuz_t,
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e5m2fnuz_t,
+    ::tensorstore::dtypes::float8_e5m2_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e5m2fnuz_t,
+    ::tensorstore::dtypes::float8_e5m2fnuz_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e5m2fnuz_t, ::tensorstore::dtypes::float16_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e5m2fnuz_t, ::tensorstore::dtypes::bfloat16_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e5m2fnuz_t, ::tensorstore::dtypes::float32_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e5m2fnuz_t, ::tensorstore::dtypes::float64_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float16_t, ::tensorstore::dtypes::float8_e4m3fn_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float16_t, ::tensorstore::dtypes::float8_e4m3fnuz_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float16_t,
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float16_t, ::tensorstore::dtypes::float8_e5m2_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float16_t, ::tensorstore::dtypes::float8_e5m2fnuz_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::float16_t, ::tensorstore::dtypes::float16_t,
     internal_data_type::FloatFloatDataTypeConversionTraits)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
@@ -1169,6 +1737,22 @@ TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     internal_data_type::FloatFloatDataTypeConversionTraits)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::float16_t, ::tensorstore::dtypes::float64_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::bfloat16_t, ::tensorstore::dtypes::float8_e4m3fn_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::bfloat16_t, ::tensorstore::dtypes::float8_e4m3fnuz_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::bfloat16_t,
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::bfloat16_t, ::tensorstore::dtypes::float8_e5m2_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::bfloat16_t, ::tensorstore::dtypes::float8_e5m2fnuz_t,
     internal_data_type::FloatFloatDataTypeConversionTraits)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::bfloat16_t, ::tensorstore::dtypes::float16_t,
@@ -1183,6 +1767,22 @@ TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::bfloat16_t, ::tensorstore::dtypes::float64_t,
     internal_data_type::FloatFloatDataTypeConversionTraits)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float32_t, ::tensorstore::dtypes::float8_e4m3fn_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float32_t, ::tensorstore::dtypes::float8_e4m3fnuz_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float32_t,
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float32_t, ::tensorstore::dtypes::float8_e5m2_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float32_t, ::tensorstore::dtypes::float8_e5m2fnuz_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::float32_t, ::tensorstore::dtypes::float16_t,
     internal_data_type::FloatFloatDataTypeConversionTraits)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
@@ -1193,6 +1793,22 @@ TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     internal_data_type::FloatFloatDataTypeConversionTraits)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::float32_t, ::tensorstore::dtypes::float64_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float64_t, ::tensorstore::dtypes::float8_e4m3fn_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float64_t, ::tensorstore::dtypes::float8_e4m3fnuz_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float64_t,
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float64_t, ::tensorstore::dtypes::float8_e5m2_t,
+    internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float64_t, ::tensorstore::dtypes::float8_e5m2fnuz_t,
     internal_data_type::FloatFloatDataTypeConversionTraits)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::float64_t, ::tensorstore::dtypes::float16_t,
@@ -1206,6 +1822,42 @@ TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::float64_t, ::tensorstore::dtypes::float64_t,
     internal_data_type::FloatFloatDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e4m3fn_t, ::tensorstore::dtypes::complex64_t,
+    internal_data_type::NumericComplexDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e4m3fn_t, ::tensorstore::dtypes::complex128_t,
+    internal_data_type::NumericComplexDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e4m3fnuz_t,
+    ::tensorstore::dtypes::complex64_t,
+    internal_data_type::NumericComplexDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e4m3fnuz_t,
+    ::tensorstore::dtypes::complex128_t,
+    internal_data_type::NumericComplexDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    ::tensorstore::dtypes::complex64_t,
+    internal_data_type::NumericComplexDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    ::tensorstore::dtypes::complex128_t,
+    internal_data_type::NumericComplexDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e5m2_t, ::tensorstore::dtypes::complex64_t,
+    internal_data_type::NumericComplexDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e5m2_t, ::tensorstore::dtypes::complex128_t,
+    internal_data_type::NumericComplexDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e5m2fnuz_t,
+    ::tensorstore::dtypes::complex64_t,
+    internal_data_type::NumericComplexDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e5m2fnuz_t,
+    ::tensorstore::dtypes::complex128_t,
+    internal_data_type::NumericComplexDataTypeConversionTraits)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::float16_t, ::tensorstore::dtypes::complex64_t,
     internal_data_type::NumericComplexDataTypeConversionTraits)
@@ -1230,6 +1882,21 @@ TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::float64_t, ::tensorstore::dtypes::complex128_t,
     internal_data_type::NumericComplexDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e4m3fn_t, ::tensorstore::dtypes::json_t,
+    internal_data_type::FloatJsonDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e4m3fnuz_t, ::tensorstore::dtypes::json_t,
+    internal_data_type::FloatJsonDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t, ::tensorstore::dtypes::json_t,
+    internal_data_type::FloatJsonDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e5m2_t, ::tensorstore::dtypes::json_t,
+    internal_data_type::FloatJsonDataTypeConversionTraits)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::float8_e5m2fnuz_t, ::tensorstore::dtypes::json_t,
+    internal_data_type::FloatJsonDataTypeConversionTraits)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::float16_t, ::tensorstore::dtypes::json_t,
     internal_data_type::FloatJsonDataTypeConversionTraits)

@@ -85,6 +85,19 @@ TEST(ParseBaseDType, Success) {
   CheckBaseDType(">u4", dtype_v<std::uint32_t>, endian::big, {});
   CheckBaseDType(">u8", dtype_v<std::uint64_t>, endian::big, {});
 
+  CheckBaseDType("float8_e4m3fn", dtype_v<tensorstore::dtypes::float8_e4m3fn_t>,
+                 endian::little, {});
+  CheckBaseDType("float8_e4m3fnuz",
+                 dtype_v<tensorstore::dtypes::float8_e4m3fnuz_t>,
+                 endian::little, {});
+  CheckBaseDType("float8_e4m3b11fnuz",
+                 dtype_v<tensorstore::dtypes::float8_e4m3b11fnuz_t>,
+                 endian::little, {});
+  CheckBaseDType("float8_e5m2", dtype_v<tensorstore::dtypes::float8_e5m2_t>,
+                 endian::little, {});
+  CheckBaseDType("float8_e5m2fnuz",
+                 dtype_v<tensorstore::dtypes::float8_e5m2fnuz_t>,
+                 endian::little, {});
   CheckBaseDType("<f2", dtype_v<tensorstore::dtypes::float16_t>, endian::little,
                  {});
   CheckBaseDType("bfloat16", dtype_v<tensorstore::dtypes::bfloat16_t>,
@@ -329,6 +342,11 @@ TEST(ChooseBaseDTypeTest, RoundTrip) {
       dtype_v<int16_t>,
       dtype_v<int32_t>,
       dtype_v<int64_t>,
+      dtype_v<::tensorstore::dtypes::float8_e4m3fn_t>,
+      dtype_v<::tensorstore::dtypes::float8_e4m3fnuz_t>,
+      dtype_v<::tensorstore::dtypes::float8_e4m3b11fnuz_t>,
+      dtype_v<::tensorstore::dtypes::float8_e5m2_t>,
+      dtype_v<::tensorstore::dtypes::float8_e5m2fnuz_t>,
       dtype_v<::tensorstore::dtypes::float16_t>,
       dtype_v<::tensorstore::dtypes::bfloat16_t>,
       dtype_v<::tensorstore::dtypes::float32_t>,

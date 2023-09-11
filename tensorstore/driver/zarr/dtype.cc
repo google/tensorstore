@@ -15,6 +15,7 @@
 #include "tensorstore/driver/zarr/dtype.h"
 
 #include "absl/base/optimization.h"
+#include "tensorstore/data_type.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/util/extents.h"
 #include "tensorstore/util/quote_string.h"
@@ -29,6 +30,11 @@ namespace internal_zarr {
 // named data types are registered in `numpy.typeDict`, since zarr invokes
 // `numpy.dtype` to parse data types.
 constexpr char kDtypeBfloat16[] = "bfloat16";
+constexpr char kDtypeFloat8e4m3fn[] = "float8_e4m3fn";
+constexpr char kDtypeFloat8e4m3fnuz[] = "float8_e4m3fnuz";
+constexpr char kDtypeFloat8e4m3b11fnuz[] = "float8_e4m3b11fnuz";
+constexpr char kDtypeFloat8e5m2[] = "float8_e5m2";
+constexpr char kDtypeFloat8e5m2fnuz[] = "float8_e5m2fnuz";
 constexpr char kDtypeInt4[] = "int4";
 
 Result<ZarrDType::BaseDType> ParseBaseDType(std::string_view dtype) {
@@ -36,6 +42,27 @@ Result<ZarrDType::BaseDType> ParseBaseDType(std::string_view dtype) {
   if (dtype == kDtypeBfloat16) {
     return D{std::string(dtype), dtype_v<::tensorstore::dtypes::bfloat16_t>,
              endian::little};
+  }
+  if (dtype == kDtypeFloat8e4m3fn) {
+    return D{std::string(dtype),
+             dtype_v<::tensorstore::dtypes::float8_e4m3fn_t>, endian::little};
+  }
+  if (dtype == kDtypeFloat8e4m3fnuz) {
+    return D{std::string(dtype),
+             dtype_v<::tensorstore::dtypes::float8_e4m3fnuz_t>, endian::little};
+  }
+  if (dtype == kDtypeFloat8e4m3b11fnuz) {
+    return D{std::string(dtype),
+             dtype_v<::tensorstore::dtypes::float8_e4m3b11fnuz_t>,
+             endian::little};
+  }
+  if (dtype == kDtypeFloat8e5m2) {
+    return D{std::string(dtype), dtype_v<::tensorstore::dtypes::float8_e5m2_t>,
+             endian::little};
+  }
+  if (dtype == kDtypeFloat8e5m2fnuz) {
+    return D{std::string(dtype),
+             dtype_v<::tensorstore::dtypes::float8_e5m2fnuz_t>, endian::little};
   }
   if (dtype == kDtypeInt4) {
     // Ditto
@@ -373,6 +400,26 @@ Result<ZarrDType::BaseDType> ChooseBaseDType(DataType dtype) {
       break;
     case DataTypeId::int64_t:
       set_typestr("i", 8);
+      break;
+    case DataTypeId::float8_e4m3fn_t:
+      base_dtype.endian = endian::little;
+      base_dtype.encoded_dtype = kDtypeFloat8e4m3fn;
+      break;
+    case DataTypeId::float8_e4m3fnuz_t:
+      base_dtype.endian = endian::little;
+      base_dtype.encoded_dtype = kDtypeFloat8e4m3fnuz;
+      break;
+    case DataTypeId::float8_e4m3b11fnuz_t:
+      base_dtype.endian = endian::little;
+      base_dtype.encoded_dtype = kDtypeFloat8e4m3b11fnuz;
+      break;
+    case DataTypeId::float8_e5m2_t:
+      base_dtype.endian = endian::little;
+      base_dtype.encoded_dtype = kDtypeFloat8e5m2;
+      break;
+    case DataTypeId::float8_e5m2fnuz_t:
+      base_dtype.endian = endian::little;
+      base_dtype.encoded_dtype = kDtypeFloat8e5m2fnuz;
       break;
     case DataTypeId::float16_t:
       set_typestr("f", 2);

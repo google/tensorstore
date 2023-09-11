@@ -37,6 +37,7 @@
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/driver_testutil.h"
+#include "tensorstore/driver/zarr/dtype.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_domain.h"
@@ -48,7 +49,6 @@
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/json/json.h"
 #include "tensorstore/internal/json_binding/gtest.h"
-#include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/parse_json_matches.h"
@@ -862,6 +862,65 @@ TEST(ZarrDriverTest, CreateRank0) {
           Pair("prefix/0",  //
                ::testing::MatcherCast<absl::Cord>(Bytes({42, 0}))),
       }));
+}
+
+template <typename InternalFloat>
+class InternalFloat8Test : public ::testing::Test {};
+
+using InternalFloat8Types =
+    ::testing::Types<::tensorstore::dtypes::float8_e4m3fn_t,
+                     ::tensorstore::dtypes::float8_e4m3fnuz_t,
+                     ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+                     ::tensorstore::dtypes::float8_e5m2_t,
+                     ::tensorstore::dtypes::float8_e5m2fnuz_t>;
+
+TYPED_TEST_SUITE(InternalFloat8Test, InternalFloat8Types);
+
+TYPED_TEST(InternalFloat8Test, ZarrDriverTest_Create) {
+  using FloatType = TypeParam;
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto base_zarr_dtype,
+      ::tensorstore::internal_zarr::ChooseBaseDType(dtype_v<FloatType>));
+  std::string dtype_str = base_zarr_dtype.encoded_dtype;
+
+  ::nlohmann::json json_spec{
+      {"driver", "zarr"},
+      {"kvstore",
+       {
+           {"driver", "memory"},
+           {"path", "prefix/"},
+       }},
+      {"dtype", dtype_str},
+      {"metadata",
+       {
+           {"compressor", nullptr},
+           {"dtype", dtype_str},
+           {"shape", {100, 100}},
+           {"chunks", {3, 2}},
+       }},
+      {"create", true},
+  };
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::Open(json_spec, context).result());
+  TENSORSTORE_ASSERT_OK(tensorstore::Write(
+      tensorstore::MakeArray<FloatType>({
+          {FloatType(1), FloatType(2)},
+          {FloatType(3), FloatType(4)},
+          {FloatType(5), FloatType(6)},
+      }),
+      store | tensorstore::Dims(0, 1).SizedInterval({3, 2}, {3, 2})));
+  // Check that key value store has expected contents.
+  auto map =
+      GetMap(kvstore::Open({{"driver", "memory"}}, context).value()).value();
+  auto v = map.at("prefix/1.1");
+
+  // validate the stored data
+  EXPECT_EQ(v.size(), 6);
+  for (uint8_t i = 0; i < 6; ++i) {
+    EXPECT_EQ(FloatType::FromRep(static_cast<uint8_t>(v[i])), FloatType(i + 1));
+  }
 }
 
 TEST(ZarrDriverTest, CreateBfloat16) {

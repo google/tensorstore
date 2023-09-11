@@ -76,6 +76,7 @@
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/static_cast.h"
 #include "tensorstore/util/bfloat16.h"
+#include "tensorstore/util/float8.h"
 #include "tensorstore/util/int4.h"
 #include "tensorstore/util/str_cat.h"
 #include "tensorstore/util/utf8_string.h"
@@ -154,8 +155,21 @@ using int64_t = ::std::int64_t;
 using uint64_t = ::std::uint64_t;
 
 // TODO(jbms): consider adding 128-bit integer types
-/// :wikipedia:`bfloat16 floating-point format<Bfloat16_floating-point_format>`
-/// half-precision floating-point data type.
+///
+/// \ingroup data types
+using float8_e4m3fn_t = ::tensorstore::Float8e4m3fn;
+///
+/// \ingroup data types
+using float8_e4m3fnuz_t = ::tensorstore::Float8e4m3fnuz;
+///
+/// \ingroup data types
+using float8_e4m3b11fnuz_t = ::tensorstore::Float8e4m3b11fnuz;
+///
+/// \ingroup data types
+using float8_e5m2_t = ::tensorstore::Float8e5m2;
+///
+/// \ingroup data types
+using float8_e5m2fnuz_t = ::tensorstore::Float8e5m2fnuz;
 ///
 /// \ingroup data types
 using bfloat16_t = ::tensorstore::BFloat16;
@@ -223,6 +237,11 @@ enum class DataTypeId {
   uint32_t,
   int64_t,
   uint64_t,
+  float8_e4m3fn_t,
+  float8_e4m3fnuz_t,
+  float8_e4m3b11fnuz_t,
+  float8_e5m2_t,
+  float8_e5m2fnuz_t,
   float16_t,
   bfloat16_t,
   float32_t,
@@ -262,6 +281,11 @@ inline constexpr size_t kNumDataTypeIds =
   /**/
 
 #define TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(X, ...) \
+  X(float8_e4m3fn_t, ##__VA_ARGS__)                  \
+  X(float8_e4m3fnuz_t, ##__VA_ARGS__)                \
+  X(float8_e4m3b11fnuz_t, ##__VA_ARGS__)             \
+  X(float8_e5m2_t, ##__VA_ARGS__)                    \
+  X(float8_e5m2fnuz_t, ##__VA_ARGS__)                \
   X(float16_t, ##__VA_ARGS__)                        \
   X(bfloat16_t, ##__VA_ARGS__)                       \
   X(float32_t, ##__VA_ARGS__)                        \

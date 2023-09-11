@@ -73,13 +73,13 @@
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/serialization/json_bindable.h"
 #include "tensorstore/util/constant_vector.h"
+#include "tensorstore/util/float8.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
-#include "tensorstore/util/unit.h"
 
 namespace tensorstore {
 namespace internal_zarr3 {
@@ -142,6 +142,37 @@ inline dtypes::float16_t GetDefaultNaN<dtypes::float16_t>() {
 template <>
 inline dtypes::bfloat16_t GetDefaultNaN<dtypes::bfloat16_t>() {
   return absl::bit_cast<dtypes::bfloat16_t>(uint16_t(0x7fc0));
+}
+
+template <>
+inline dtypes::float8_e4m3fn_t GetDefaultNaN<dtypes::float8_e4m3fn_t>() {
+  // only a single Nan representation is supported
+  return std::numeric_limits<Float8e4m3fn>::quiet_NaN();
+}
+
+template <>
+inline dtypes::float8_e4m3fnuz_t GetDefaultNaN<dtypes::float8_e4m3fnuz_t>() {
+  // only a single Nan representation is supported
+  return std::numeric_limits<Float8e4m3fnuz>::quiet_NaN();
+}
+
+template <>
+inline dtypes::float8_e4m3b11fnuz_t
+GetDefaultNaN<dtypes::float8_e4m3b11fnuz_t>() {
+  // only a single Nan representation is supported
+  return std::numeric_limits<Float8e4m3b11fnuz>::quiet_NaN();
+}
+
+template <>
+inline dtypes::float8_e5m2_t GetDefaultNaN<dtypes::float8_e5m2_t>() {
+  // support both quiet and signaling nan, returning quiet one
+  return std::numeric_limits<Float8e5m2>::quiet_NaN();
+}
+
+template <>
+inline dtypes::float8_e5m2fnuz_t GetDefaultNaN<dtypes::float8_e5m2fnuz_t>() {
+  // only a single Nan representation is supported
+  return std::numeric_limits<Float8e5m2fnuz>::quiet_NaN();
 }
 
 template <typename T>

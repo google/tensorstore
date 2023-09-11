@@ -70,6 +70,13 @@ allOf:
               specifying the `bfloat16
               <https://en.wikipedia.org/wiki/Bfloat16_floating-point_format>`_
               data type with little endian byte order.
+              TensorStore also supports experimental 8-bit floating-point types including 
+              :json:`"float8_e4m3fn"`, :json:`"float8_e4m3fnuz"`, :json:`"float8_e4m3b11fnuz"`, 
+              :json:`"float8_e5m2"`, :json:`"float8_e5m2fnuz"` described in `ml_dtypes 
+              <https://github.com/jax-ml/ml_dtypes#float8_e4m3b11fnuz>`_ 
+              with little endian byte order.
+              4-bit integer type padded to 1 byte is supported as :json:`"int4"` by 
+              specifying `int4 <https://github.com/jax-ml/ml_dtypes#int4-and-uint4>`_.
           fill_value:
             title: Specifies the fill value.
             description: When creating a new array, defaults to :json:`null`.

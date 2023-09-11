@@ -1,5 +1,5 @@
-load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
 load("//bazel:non_compile.bzl", "cc_with_non_compile_test")
+load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -756,5 +756,30 @@ tensorstore_cc_test(
         ":stop_token",
         "//tensorstore/internal:concurrent_testutil",
         "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "float8",
+    hdrs = ["float8.h"],
+    deps = [
+        ":bfloat16",
+        "//tensorstore/internal:json_fwd",
+        "@com_google_absl//absl/base",
+        "@net_sourceforge_half//:half",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "float8_test",
+    size = "small",
+    srcs = ["float8_test.cc"],
+    deps = [
+        ":bfloat16",
+        ":float8",
+        "@com_google_absl//absl/base",
+        "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
+        "@net_sourceforge_half//:half",
     ],
 )

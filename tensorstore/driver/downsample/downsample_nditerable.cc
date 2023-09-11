@@ -158,6 +158,31 @@ struct MeanAccumulateElement {
 };
 
 template <>
+struct MeanAccumulateElement<::tensorstore::dtypes::float8_e4m3fn_t> {
+  using type = ::tensorstore::dtypes::float32_t;
+};
+
+template <>
+struct MeanAccumulateElement<::tensorstore::dtypes::float8_e4m3fnuz_t> {
+  using type = ::tensorstore::dtypes::float32_t;
+};
+
+template <>
+struct MeanAccumulateElement<::tensorstore::dtypes::float8_e4m3b11fnuz_t> {
+  using type = ::tensorstore::dtypes::float32_t;
+};
+
+template <>
+struct MeanAccumulateElement<::tensorstore::dtypes::float8_e5m2_t> {
+  using type = ::tensorstore::dtypes::float32_t;
+};
+
+template <>
+struct MeanAccumulateElement<::tensorstore::dtypes::float8_e5m2fnuz_t> {
+  using type = ::tensorstore::dtypes::float32_t;
+};
+
+template <>
 struct MeanAccumulateElement<::tensorstore::dtypes::float16_t> {
   using type = ::tensorstore::dtypes::float32_t;
 };

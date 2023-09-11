@@ -141,6 +141,32 @@ struct NumberToStringCanonicalType {
 };
 
 template <>
+struct NumberToStringCanonicalType<::tensorstore::dtypes::float8_e4m3fn_t> {
+  using type = float;
+};
+
+template <>
+struct NumberToStringCanonicalType<::tensorstore::dtypes::float8_e4m3fnuz_t> {
+  using type = float;
+};
+
+template <>
+struct NumberToStringCanonicalType<
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t> {
+  using type = float;
+};
+
+template <>
+struct NumberToStringCanonicalType<::tensorstore::dtypes::float8_e5m2_t> {
+  using type = float;
+};
+
+template <>
+struct NumberToStringCanonicalType<::tensorstore::dtypes::float8_e5m2fnuz_t> {
+  using type = float;
+};
+
+template <>
 struct NumberToStringCanonicalType<::tensorstore::dtypes::float16_t> {
   using type = float;
 };
@@ -388,6 +414,24 @@ TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::complex128_t, ::tensorstore::dtypes::uint64_t,
     internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::complex64_t, ::tensorstore::dtypes::float8_e4m3fn_t,
+    internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::complex64_t,
+    ::tensorstore::dtypes::float8_e4m3fnuz_t,
+    internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::complex64_t,
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::complex64_t, ::tensorstore::dtypes::float8_e5m2_t,
+    internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::complex64_t,
+    ::tensorstore::dtypes::float8_e5m2fnuz_t,
+    internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::complex64_t, ::tensorstore::dtypes::float16_t,
     internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
@@ -398,6 +442,24 @@ TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::complex64_t, ::tensorstore::dtypes::float64_t,
+    internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::complex128_t, ::tensorstore::dtypes::float8_e4m3fn_t,
+    internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::complex128_t,
+    ::tensorstore::dtypes::float8_e4m3fnuz_t,
+    internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::complex128_t,
+    ::tensorstore::dtypes::float8_e4m3b11fnuz_t,
+    internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::complex128_t, ::tensorstore::dtypes::float8_e5m2_t,
+    internal_data_type::ComplexNumericConvertDataType)
+TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
+    ::tensorstore::dtypes::complex128_t,
+    ::tensorstore::dtypes::float8_e5m2fnuz_t,
     internal_data_type::ComplexNumericConvertDataType)
 TENSORSTORE_INTERNAL_INHERITED_CONVERT(  //
     ::tensorstore::dtypes::complex128_t, ::tensorstore::dtypes::float16_t,

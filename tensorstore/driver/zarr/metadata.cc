@@ -24,6 +24,7 @@
 #include "absl/base/optimization.h"
 #include "absl/container/inlined_vector.h"
 #include "absl/strings/escaping.h"
+#include "absl/strings/match.h"
 #include "riegeli/bytes/cord_reader.h"
 #include "riegeli/bytes/cord_writer.h"
 #include "riegeli/bytes/read_all.h"
@@ -91,6 +92,19 @@ Result<double> DecodeFloat(const nlohmann::json& j) {
   return value;
 }
 
+char GetTypeIndicator(const std::string& encoded_dtype) {
+  if (absl::StartsWith(encoded_dtype, "float8") ||
+      encoded_dtype == "bfloat16") {
+    return 'f';
+  } else if (encoded_dtype == "int4") {
+    return 'i';
+  } else if (encoded_dtype == "uint4") {
+    return 'u';
+  }
+
+  return encoded_dtype[1];
+}
+
 }  // namespace
 
 Result<std::vector<SharedArray<const void>>> ParseFillValue(
@@ -101,7 +115,7 @@ Result<std::vector<SharedArray<const void>>> ParseFillValue(
   if (!dtype.has_fields) {
     assert(dtype.fields.size() == 1);
     auto& field = dtype.fields[0];
-    const char type_indicator = field.encoded_dtype[1];
+    char type_indicator = GetTypeIndicator(field.encoded_dtype);
     switch (type_indicator) {
       case 'f': {
         TENSORSTORE_ASSIGN_OR_RETURN(double value, DecodeFloat(j));
@@ -196,7 +210,7 @@ Result<std::vector<SharedArray<const void>>> ParseFillValue(
     const auto& field = dtype.fields[0];
     const auto& fill_value = fill_values[0];
     if (!fill_value.valid()) return nullptr;
-    const char type_indicator = field.encoded_dtype[1];
+    char type_indicator = GetTypeIndicator(field.encoded_dtype);
     switch (type_indicator) {
       case 'f': {
         double value;

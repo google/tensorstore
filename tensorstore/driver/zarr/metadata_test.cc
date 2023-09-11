@@ -14,18 +14,18 @@
 
 #include "tensorstore/driver/zarr/metadata.h"
 
+#include <cmath>
+#include <limits>
 #include <type_traits>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "absl/strings/escaping.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/array_testutil.h"
-#include "tensorstore/driver/zarr/metadata_testutil.h"
-#include "tensorstore/index.h"
+#include "tensorstore/contiguous_layout.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/driver/zarr/dtype.h"
 #include "tensorstore/internal/json_binding/gtest.h"
-#include "tensorstore/internal/json_gtest.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -36,6 +36,12 @@ using ::tensorstore::MakeScalarArray;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::dtypes::bfloat16_t;
 using ::tensorstore::dtypes::float16_t;
+using ::tensorstore::dtypes::float8_e4m3b11fnuz_t;
+using ::tensorstore::dtypes::float8_e4m3fn_t;
+using ::tensorstore::dtypes::float8_e4m3fnuz_t;
+using ::tensorstore::dtypes::float8_e5m2_t;
+using ::tensorstore::dtypes::float8_e5m2fnuz_t;
+using ::tensorstore::dtypes::int4_t;
 using ::tensorstore::internal_zarr::DimensionSeparator;
 using ::tensorstore::internal_zarr::DimensionSeparatorJsonBinder;
 using ::tensorstore::internal_zarr::EncodeFillValue;
@@ -92,16 +98,18 @@ template <typename FloatType>
 void TestFillValueRoundTripFloat(const ::nlohmann::json& dtype) {
   TestFillValueRoundTrip(
       dtype, 3.5, {MakeScalarArray<FloatType>(static_cast<FloatType>(3.5))});
-  TestFillValueRoundTrip(
-      dtype, "Infinity",
-      {MakeScalarArray<FloatType>(static_cast<FloatType>(INFINITY))});
-  TestFillValueRoundTrip(
-      dtype, "-Infinity",
-      {MakeScalarArray<FloatType>(static_cast<FloatType>(-INFINITY))});
+  if constexpr (std::numeric_limits<FloatType>::has_infinity) {
+    TestFillValueRoundTrip(
+        dtype, "Infinity",
+        {MakeScalarArray<FloatType>(static_cast<FloatType>(INFINITY))});
+    TestFillValueRoundTrip(
+        dtype, "-Infinity",
+        {MakeScalarArray<FloatType>(static_cast<FloatType>(-INFINITY))});
+  }
   if constexpr (std::is_same_v<FloatType, float> ||
                 std::is_same_v<FloatType, double>) {
-    // `testing::internal::FloatingEqMatcher` only supports the builtin floating
-    // point types.
+    // `testing::internal::FloatingEqMatcher` only supports the builtin
+    // floating point types.
     TestFillValueRoundTrip(
         dtype, "NaN", {MakeScalarArray<FloatType>(static_cast<FloatType>(NAN))},
         {tensorstore::MatchesScalarArray<FloatType>(
@@ -120,6 +128,11 @@ void TestFillValueRoundTripComplex(const ::nlohmann::json& dtype) {
 }
 
 TEST(ParseFillValueTest, FloatingPointSuccess) {
+  TestFillValueRoundTripFloat<float8_e4m3fn_t>("float8_e4m3fn");
+  TestFillValueRoundTripFloat<float8_e4m3fnuz_t>("float8_e4m3fnuz");
+  TestFillValueRoundTripFloat<float8_e4m3b11fnuz_t>("float8_e4m3b11fnuz");
+  TestFillValueRoundTripFloat<float8_e5m2_t>("float8_e5m2");
+  TestFillValueRoundTripFloat<float8_e5m2fnuz_t>("float8_e5m2fnuz");
   TestFillValueRoundTripFloat<float16_t>("<f2");
   TestFillValueRoundTripFloat<float16_t>(">f2");
   TestFillValueRoundTripFloat<bfloat16_t>("bfloat16");
@@ -172,6 +185,11 @@ TEST(ParseFillValueTest, BoolFailure) {
 }
 
 TEST(ParseFillValueTest, IntegerSuccess) {
+  TestFillValueRoundTrip("int4", -1,
+                         {MakeScalarArray<int4_t>(static_cast<int4_t>(-1))});
+  TestFillValueRoundTrip("int4", 1,
+                         {MakeScalarArray<int4_t>(static_cast<int4_t>(1))});
+
   TestFillValueRoundTrip("|i1", -124, {MakeScalarArray<std::int8_t>(-124)});
   TestFillValueRoundTrip("|i1", 124, {MakeScalarArray<std::int8_t>(124)});
   TestFillValueRoundTrip("<i2", -31000,
