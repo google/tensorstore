@@ -819,10 +819,23 @@ tensorstore_cc_library(
     srcs = ["json_gtest.cc"],
     hdrs = ["json_gtest.h"],
     deps = [
+        ":json_pointer",
         "//tensorstore/internal/json:same",
+        "//tensorstore/util:quote_string",
         "//tensorstore/util:status_testutil",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_googletest//:gtest",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "json_gtest_test",
+    size = "small",
+    srcs = ["json_gtest_test.cc"],
+    deps = [
+        ":json_gtest",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 

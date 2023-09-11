@@ -46,6 +46,38 @@ namespace tensorstore {
 /// Note that unlike `operator==`, `JsonSame` correctly handles `discarded`.
 ::testing::Matcher<::nlohmann::json> MatchesJson(::nlohmann::json j);
 
+/// GMock matcher that applies a matcher to the sub-value specified by the json
+/// pointer.
+///
+/// The overload with `::nlohmann::json` as the `value_matcher` simply uses
+/// `MatchesJson` to match the sub-value.
+///
+/// Example:
+///
+///     ::nlohmann::json obj{{"a", 123}, {"b", {{"c", "xyz"}}}};
+///     EXPECT_THAT(obj, JsonSubValueMatches("/a", 123));
+///     EXPECT_THAT(obj, JsonSubValueMatches("/b/c", "xyz"));
+///     EXPECT_THAT(obj, JsonSubValueMatches("/b/c",
+///                                         testing::Not(MatchesJson("xy"))));
+::testing::Matcher<::nlohmann::json> JsonSubValueMatches(
+    std::string json_pointer,
+    ::testing::Matcher<::nlohmann::json> value_matcher);
+::testing::Matcher<::nlohmann::json> JsonSubValueMatches(
+    std::string json_pointer, ::nlohmann::json value_matcher);
+
+/// GMock matcher that tests that all of the (json_pointer, value_matcher) pairs
+/// match.
+///
+/// Example:
+///
+///     ::nlohmann::json obj{{"a", 123}, {"b", {{"c", "xyz"}}}};
+///     EXPECT_THAT(obj, JsonSubValuesMatch({{"/a", 123}, {"/b/c", "xyz"}}));
+::testing::Matcher<::nlohmann::json> JsonSubValuesMatch(
+    std::vector<std::pair<std::string, ::nlohmann::json>> matchers);
+::testing::Matcher<::nlohmann::json> JsonSubValuesMatch(
+    std::vector<std::pair<std::string, ::testing::Matcher<::nlohmann::json>>>
+        matchers);
+
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_INTERNAL_JSON_GTEST_H_
