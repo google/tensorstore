@@ -1390,6 +1390,21 @@
   
   
     <li class="md-nav__item">
+      <a href="../zarr3/index.html" class="md-nav__link">
+        <span class="md-ellipsis">zarr3 Driver</span>
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../n5/index.html" class="md-nav__link">
         <span class="md-ellipsis">n5 Driver</span>
       </a>
@@ -2234,11 +2249,11 @@
 
 
 <h1 id="zarr-driver"><span id="id1"></span><code class="docutils literal notranslate"><span class="pre">zarr</span></code> Driver<a class="headerlink" href="#zarr-driver" title="Permalink to this heading">¶</a></h1>
-<p><a class="reference external" href="https://github.com/zarr-developers/zarr-python">Zarr</a> is a chunked
+<p><a class="reference external" href="https://github.com/zarr-developers/zarr-python">Zarr v2</a> is a chunked
 array storage format based on the <a class="reference external" href="https://zarr.readthedocs.io/en/stable/spec/v2.html#data-type-encoding">NumPy data type model</a>.</p>
-<p>The <code class="docutils literal notranslate"><span class="pre">zarr</span></code> driver provides access to Zarr-format arrays backed by
-any supported <a class="reference internal" href="../../kvstore/index.html#key-value-store"><span class="std std-ref">Key-Value Storage Layer</span></a>.  It supports reading, writing,
-creating new arrays, and resizing arrays.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">zarr</span></code> driver provides access to Zarr-v2-format arrays backed by any
+supported <a class="reference internal" href="../../kvstore/index.html#key-value-store"><span class="std std-ref">Key-Value Storage Layer</span></a>.  It supports reading, writing, creating new
+arrays, and resizing arrays.</p>
 <p>Zarr supports arrays with <a class="reference external" href="https://zarr.readthedocs.io/en/stable/spec/v2.html#data-type-encoding">structured data types</a>
 specifying multiple named fields that are packed together.
 TensorStore fully supports such arrays, but each field must be opened
@@ -2495,7 +2510,13 @@ the <a class="reference internal" href="../../schema.html#json-Schema.chunk_layo
   </span><p>Refer to the <a class="reference external" href="https://zarr.readthedocs.io/en/stable/spec/v2.html#data-type-encoding">Zarr data type encoding specification</a>.
 As an extension, TensorStore also supports <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;bfloat16&quot;</span></code> for
 specifying the <a class="reference external" href="https://en.wikipedia.org/wiki/Bfloat16_floating-point_format">bfloat16</a>
-data type with little endian byte order.</p>
+data type with little endian byte order.
+TensorStore also supports experimental 8-bit floating-point types including 
+<code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;float8_e4m3fn&quot;</span></code>, <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;float8_e4m3fnuz&quot;</span></code>, <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;float8_e4m3b11fnuz&quot;</span></code>, 
+<code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;float8_e5m2&quot;</span></code>, <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;float8_e5m2fnuz&quot;</span></code> described in <a class="reference external" href="https://github.com/jax-ml/ml_dtypes#float8_e4m3b11fnuz">ml_dtypes</a> 
+with little endian byte order.
+4-bit integer type padded to 1 byte is supported as <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;int4&quot;</span></code> by 
+specifying <a class="reference external" href="https://github.com/jax-ml/ml_dtypes#int4-and-uint4">int4</a>.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
@@ -2961,27 +2982,47 @@ compression speed.</p>
 <td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&lt;i8&quot;</span></code></p></td>
 <td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&gt;i8&quot;</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="../../spec.html#json-dtype.float16" title="dtype.float16 (JSON member) — IEEE 754 binary16 half-precision floating-point number."><code class="xref json json-schema docutils literal notranslate"><span class="pre">float16</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="../../spec.html#json-dtype.float8_e4m3fn" title="dtype.float8_e4m3fn (JSON member) — 8-bit floating point - Exponent: 4, Mantissa: 3, bias: 7, with NaN,  without infinities ."><code class="xref json json-schema docutils literal notranslate"><span class="pre">float8_e4m3fn</span></code></a></p></td>
+<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;float8_e4m3fn&quot;</span></code></p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../../spec.html#json-dtype.float8_e4m3fnuz" title="dtype.float8_e4m3fnuz (JSON member) — 8-bit floating point - Exponent: 4, Mantissa: 3, bias: 8, with NaN,  without infinities ."><code class="xref json json-schema docutils literal notranslate"><span class="pre">float8_e4m3fnuz</span></code></a></p></td>
+<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;float8_e4m3fnuz&quot;</span></code></p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../../spec.html#json-dtype.float8_e4m3b11fnuz" title="dtype.float8_e4m3b11fnuz (JSON member) — 8-bit floating point - Exponent: 4, Mantissa: 3, bias: 11, with NaN,  without infinities ."><code class="xref json json-schema docutils literal notranslate"><span class="pre">float8_e4m3b11fnuz</span></code></a></p></td>
+<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;float8_e4m3b11fnuz&quot;</span></code></p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../../spec.html#json-dtype.float8_e5m2" title="dtype.float8_e5m2 (JSON member) — 8-bit floating point - Exponent: 5, Mantissa: 2, bias: 15, IEEE 754, with NaN and infinities. ."><code class="xref json json-schema docutils literal notranslate"><span class="pre">float8_e5m2</span></code></a></p></td>
+<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;float8_e5m2&quot;</span></code></p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../../spec.html#json-dtype.float8_e5m2fnuz" title="dtype.float8_e5m2fnuz (JSON member) — 8-bit floating point - Exponent: 5, Mantissa: 2, bias: 16, with NaN, without infinities. ."><code class="xref json json-schema docutils literal notranslate"><span class="pre">float8_e5m2fnuz</span></code></a></p></td>
+<td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;float8_e5m2fnuz&quot;</span></code></p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../../spec.html#json-dtype.float16" title="dtype.float16 (JSON member) — IEEE 754 binary16 half-precision floating-point number."><code class="xref json json-schema docutils literal notranslate"><span class="pre">float16</span></code></a></p></td>
 <td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&lt;f2&quot;</span></code></p></td>
 <td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&gt;f2&quot;</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="../../spec.html#json-dtype.bfloat16" title="dtype.bfloat16 (JSON member) — bfloat16 floating-point format number."><code class="xref json json-schema docutils literal notranslate"><span class="pre">bfloat16</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="../../spec.html#json-dtype.bfloat16" title="dtype.bfloat16 (JSON member) — bfloat16 floating-point format number."><code class="xref json json-schema docutils literal notranslate"><span class="pre">bfloat16</span></code></a></p></td>
 <td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;bfloat16&quot;</span></code></p></td>
 <td></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="../../spec.html#json-dtype.float32" title="dtype.float32 (JSON member) — IEEE 754 binary32 single-precision floating-point number."><code class="xref json json-schema docutils literal notranslate"><span class="pre">float32</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="../../spec.html#json-dtype.float32" title="dtype.float32 (JSON member) — IEEE 754 binary32 single-precision floating-point number."><code class="xref json json-schema docutils literal notranslate"><span class="pre">float32</span></code></a></p></td>
 <td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&lt;f4&quot;</span></code></p></td>
 <td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&gt;f4&quot;</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="../../spec.html#json-dtype.float64" title="dtype.float64 (JSON member) — IEEE 754 binary64 double-precision floating-point number."><code class="xref json json-schema docutils literal notranslate"><span class="pre">float64</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="../../spec.html#json-dtype.float64" title="dtype.float64 (JSON member) — IEEE 754 binary64 double-precision floating-point number."><code class="xref json json-schema docutils literal notranslate"><span class="pre">float64</span></code></a></p></td>
 <td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&lt;f8&quot;</span></code></p></td>
 <td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&gt;f8&quot;</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="../../spec.html#json-dtype.complex64" title="dtype.complex64 (JSON member) — Complex number, where the real and imaginary components are each represented by a float32."><code class="xref json json-schema docutils literal notranslate"><span class="pre">complex64</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="../../spec.html#json-dtype.complex64" title="dtype.complex64 (JSON member) — Complex number, where the real and imaginary components are each represented by a float32."><code class="xref json json-schema docutils literal notranslate"><span class="pre">complex64</span></code></a></p></td>
 <td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&lt;c8&quot;</span></code></p></td>
 <td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&gt;c8&quot;</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="../../spec.html#json-dtype.complex128" title="dtype.complex128 (JSON member) — Complex number, where the real and imaginary components are each represented by a float64."><code class="xref json json-schema docutils literal notranslate"><span class="pre">complex128</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="../../spec.html#json-dtype.complex128" title="dtype.complex128 (JSON member) — Complex number, where the real and imaginary components are each represented by a float64."><code class="xref json json-schema docutils literal notranslate"><span class="pre">complex128</span></code></a></p></td>
 <td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&lt;c16&quot;</span></code></p></td>
 <td><p><code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;&gt;c16&quot;</span></code></p></td>
 </tr>
@@ -3281,13 +3322,13 @@ explicitly-written all-zero chunks are still stored.</p>
       
       
         
-        <a href="../n5/index.html" class="md-footer__link md-footer__link--next" aria-label="Next: n5 Driver" rel="next">
+        <a href="../zarr3/index.html" class="md-footer__link md-footer__link--next" aria-label="Next: zarr3 Driver" rel="next">
           <div class="md-footer__title">
             <div class="md-ellipsis">
               <span class="md-footer__direction">
                 Next
               </span>
-              n5 Driver
+              zarr3 Driver
             </div>
           </div>
           <div class="md-footer__button md-icon">
