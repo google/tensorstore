@@ -155,11 +155,12 @@ class NDIteratorExternalBufferManager {
         }
       }
     }
-    ptrdiff_t next_offset_array_offset = buffer_bytes_needed;
+    ptrdiff_t next_offset_array_offset;
 
     if (num_offset_arrays) {
       buffer_bytes_needed = RoundUpTo(buffer_bytes_needed,
                                       static_cast<ptrdiff_t>(alignof(Index)));
+      next_offset_array_offset = buffer_bytes_needed;
       buffer_bytes_needed += block_size * sizeof(Index) * num_offset_arrays;
       alignment = std::max(alignment, static_cast<ptrdiff_t>(alignof(Index)));
     }
