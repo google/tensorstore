@@ -36,6 +36,11 @@ import tensorstore as ts
         "uint64",
         "float16",
         "bfloat16",
+        "float8_e4m3fn",
+        "float8_e4m3fnuz",
+        "float8_e4m3b11fnuz",
+        "float8_e5m2",
+        "float8_e5m2fnuz",
         "float32",
         "float64",
         "complex64",
@@ -68,6 +73,11 @@ def test_dtype_init_name(name):
         "uint32",
         "int64",
         "uint64",
+        "float8_e4m3fn",
+        "float8_e4m3fnuz",
+        "float8_e4m3b11fnuz",
+        "float8_e5m2",
+        "float8_e5m2fnuz",
         "float16",
         "bfloat16",
         "float32",
@@ -128,13 +138,25 @@ def test_dtype_init_int4():
   assert ts.int4(-8) == -8
 
 
-def test_dtype_init_bfloat16():
-  v = ts.bfloat16(1)
+@pytest.mark.parametrize(
+    "name",
+    [
+        "float8_e4m3fn",
+        "float8_e4m3fnuz",
+        "float8_e4m3b11fnuz",
+        "float8_e5m2",
+        "float8_e5m2fnuz",
+        "bfloat16",
+    ],
+)
+def test_dtype_init_custom_floats(name):
+  float_type = getattr(ts, name)
+  v = float_type(1)
   t = type(v)
-  assert ts.dtype(t) == ts.bfloat16
-  assert ts.bfloat16.type is t
-  assert ts.bfloat16(1) == 1
-  assert ts.bfloat16(1.5) == 1.5
+  assert ts.dtype(t) == float_type
+  assert float_type.type is t
+  assert float_type(1) == 1
+  assert float_type(1.5) == 1.5
 
 
 def test_dtype_init_str():
