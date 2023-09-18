@@ -85,9 +85,7 @@ pybind11_cc_library(
 
 py_library(
     name = "core",
-    srcs = [
-        "__init__.py",
-    ],
+    srcs = ["__init__.py"],
     srcs_version = "PY3ONLY",
     visibility = ["//visibility:public"],
     deps = [
@@ -440,15 +438,15 @@ pybind11_cc_library(
 pybind11_cc_library(
     name = "data_type",
     srcs = [
-        "custom_float.h",
-        "custom_int4.h",
-        "custom_numpy_dtypes.cc",
-        "custom_numpy_dtypes.h",
-        "custom_numpy_dtypes_impl.h",
+        "bfloat16.cc",
         "data_type.cc",
-        "ufuncs.h",
+        "int4.cc",
     ],
-    hdrs = ["data_type.h"],
+    hdrs = [
+        "bfloat16.h",
+        "data_type.h",
+        "int4.h",
+    ],
     deps = [
         ":json_type_caster",
         ":numpy",
@@ -456,9 +454,9 @@ pybind11_cc_library(
         ":tensorstore_module_components",
         "//tensorstore:data_type",
         "//tensorstore/internal:global_initializer",
+        "//tensorstore/internal:type_traits",
         "//tensorstore/util:bfloat16",
         "//tensorstore/util:executor",
-        "//tensorstore/util:float8",
         "//tensorstore/util:int4",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:str_cat",
@@ -466,8 +464,6 @@ pybind11_cc_library(
         "@com_github_pybind_pybind11//:pybind11",
         "@com_google_absl//absl/base",
         "@com_google_absl//absl/hash",
-        "@com_google_absl//absl/strings",
-        "@net_sourceforge_half//:half",
     ],
     alwayslink = True,
 )
@@ -782,16 +778,6 @@ tensorstore_pytest_test(
     name = "int4_test",
     size = "small",
     srcs = ["tests/int4_test.py"],
-    deps = [
-        ":tensorstore",
-        "@pypa_numpy//:numpy",
-    ],
-)
-
-tensorstore_pytest_test(
-    name = "custom_float_test",
-    size = "small",
-    srcs = ["tests/custom_float_test.py"],
     deps = [
         ":tensorstore",
         "@pypa_numpy//:numpy",

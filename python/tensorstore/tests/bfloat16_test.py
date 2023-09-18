@@ -115,8 +115,8 @@ def test_repr():
 
 
 def test_hash():
-  assert hash(0.0) == hash(bfloat16(0.0))
-  assert hash(1.0) == hash(bfloat16(1.0))
+  assert 0 == hash(bfloat16(0.0))
+  assert 0x3f80 == hash(bfloat16(1.0))
 
 
 # Tests for Python operations

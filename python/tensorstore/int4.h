@@ -12,18 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef THIRD_PARTY_PY_TENSORSTORE_CUSTOM_NUMPY_DTYPES_H_
-#define THIRD_PARTY_PY_TENSORSTORE_CUSTOM_NUMPY_DTYPES_H_
+#ifndef THIRD_PARTY_PY_TENSORSTORE_INT4_H_
+#define THIRD_PARTY_PY_TENSORSTORE_INT4_H_
 
 /// \file
 ///
-/// NumPy custom dtype definition
+/// NumPy int4 dtype definition
 
-// NumPy  allows new data types to be  defined, This implementation is based on
-// Tensorflow, and uses the same approach to conditionally define a bfloat16,
-// float8 variants, int4 NumPy data type: if there is not existing data
-// type registered with the name "int4", we define one and register it.
-// Otherwise, we just use the already-registered data type.
+// NumPy does not natively support int4, but allows new data types to be
+// defined, This implementation is based on Tensorflow, and uses the same
+// approach to conditionally define a int4 NumPy data type: if there is not
+// existing data type registered with the name "int4", we define one and
+// register it.  Otherwise, we just use the already-registered data type.
 //
 // Thus, whichever of TensorStore, Tensorflow, JAX (or any other library that
 // may define a int4 data type) is imported first is the one to actually
@@ -41,27 +41,32 @@ namespace internal_python {
 
 // This implementation is parallel to bfloat16.
 
-/// Register all the custom numpy type if they have not already been registered.
+/// Register the int4 numpy type if one has not already been registered.
 ///
 /// \pre The Python Global Interpreter Lock (GIL) must be owned by the calling
 ///     thread.
 /// \returns `true` on success (including if another library has already
 ///     registered a "int4" dtype), or `false` if a Python exception has
 ///     been set.
-bool RegisterCustomNumpyDtypes();
+bool RegisterNumpyInt4();
 
-/// Returns the id number of the custom dtype's numpy type.
+/// Returns a pointer to the int4 dtype object (registered either by this
+/// library or another library).
 ///
 /// \pre The Python Global Interpreter Lock (GIL) must be owned by the calling
 ///     thread.
 /// \pre `RegisterNumpyInt4()` must have previously returned successfully.
-int Int4NumpyTypeNum();
-int BFloat16NumpyTypeNum();
-int Float8E4m3fnNumpyTypeNum();
-int Float8E4m3fnuzNumpyTypeNum();
-int Float8E4m3b11fnuzNumpyTypeNum();
-int Float8E5m2NumpyTypeNum();
-int Float8E5m2fnuzNumpyTypeNum();
+PyObject* Int4Dtype();
+
+// Do not access directly.
+extern int npy_int4;
+
+/// Returns the id number of the int4 numpy type.
+///
+/// \pre The Python Global Interpreter Lock (GIL) must be owned by the calling
+///     thread.
+/// \pre `RegisterNumpyInt4()` must have previously returned successfully.
+inline int Int4NumpyTypeNum() { return npy_int4; }
 
 }  // namespace internal_python
 }  // namespace tensorstore

@@ -32,6 +32,8 @@
 #include <complex>
 #include <string_view>
 
+#include "python/tensorstore/bfloat16.h"
+#include "python/tensorstore/int4.h"
 #include "tensorstore/data_type.h"
 
 namespace tensorstore {
@@ -131,6 +133,16 @@ constexpr int GetNumpyTypeNum() {
   constexpr int type_num = kNumpyTypeNumForDataTypeId[static_cast<size_t>(id)];
   static_assert(type_num != -1, "No corresponding numpy type");
   return type_num;
+}
+
+template <>
+inline int GetNumpyTypeNum<::tensorstore::dtypes::int4_t>() {
+  return Int4NumpyTypeNum();
+}
+
+template <>
+inline int GetNumpyTypeNum<::tensorstore::dtypes::bfloat16_t>() {
+  return Bfloat16NumpyTypeNum();
 }
 
 template <typename T>

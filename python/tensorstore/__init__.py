@@ -19,7 +19,6 @@ import collections.abc as _collections_abc
 from ._tensorstore import *
 from ._tensorstore import _Decodable
 
-
 newaxis = None
 """Alias for `None` used in :ref:`indexing expressions<python-indexing>` to specify a new singleton dimension.
 
@@ -90,6 +89,7 @@ class FutureLike(metaclass=_abc.ABCMeta):
 
   Group:
     Asynchronous support
+
   """
 
 
@@ -186,12 +186,6 @@ type<numpy:arrays.scalars>`, and these types are guaranteed to interoperate with
 Group:
   Data types
 """
-
-float8_e4m3fn: dtype
-float8_e4m3fnuz: dtype
-float8_e4m3b11fnuz: dtype
-float8_e5m2: dtype
-float8_e5m2fnuz: dtype
 
 float32: dtype
 """:wikipedia:`IEEE 754 binary32 <Single-precision_floating-point_format>` single-precision floating-point data type.  Corresponds to ``numpy.float32``.

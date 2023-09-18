@@ -30,7 +30,6 @@
 
 #include "absl/hash/hash.h"
 #include <nlohmann/json.hpp>
-#include "python/tensorstore/custom_numpy_dtypes.h"
 #include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/serialization.h"
 #include "python/tensorstore/tensorstore_module_components.h"
@@ -69,17 +68,7 @@ int GetNumpyTypeNum(DataType dtype) {
     case DataTypeId::int4_t:
       return Int4NumpyTypeNum();
     case DataTypeId::bfloat16_t:
-      return BFloat16NumpyTypeNum();
-    case DataTypeId::float8_e4m3fn_t:
-      return Float8E4m3fnNumpyTypeNum();
-    case DataTypeId::float8_e4m3fnuz_t:
-      return Float8E4m3fnuzNumpyTypeNum();
-    case DataTypeId::float8_e4m3b11fnuz_t:
-      return Float8E4m3b11fnuzNumpyTypeNum();
-    case DataTypeId::float8_e5m2_t:
-      return Float8E5m2NumpyTypeNum();
-    case DataTypeId::float8_e5m2fnuz_t:
-      return Float8E5m2fnuzNumpyTypeNum();
+      return Bfloat16NumpyTypeNum();
     default:
       return kNumpyTypeNumForDataTypeId[static_cast<size_t>(id)];
   }
@@ -100,22 +89,7 @@ DataType GetDataType(pybind11::dtype dt) {
   if (type_num == Int4NumpyTypeNum()) {
     return dtype_v<::tensorstore::dtypes::int4_t>;
   }
-  if (type_num == Float8E4m3fnNumpyTypeNum()) {
-    return dtype_v<::tensorstore::dtypes::float8_e4m3fn_t>;
-  }
-  if (type_num == Float8E4m3fnuzNumpyTypeNum()) {
-    return dtype_v<::tensorstore::dtypes::float8_e4m3fnuz_t>;
-  }
-  if (type_num == Float8E4m3b11fnuzNumpyTypeNum()) {
-    return dtype_v<::tensorstore::dtypes::float8_e4m3b11fnuz_t>;
-  }
-  if (type_num == Float8E5m2NumpyTypeNum()) {
-    return dtype_v<::tensorstore::dtypes::float8_e5m2_t>;
-  }
-  if (type_num == Float8E5m2fnuzNumpyTypeNum()) {
-    return dtype_v<::tensorstore::dtypes::float8_e5m2fnuz_t>;
-  }
-  if (type_num == BFloat16NumpyTypeNum()) {
+  if (type_num == Bfloat16NumpyTypeNum()) {
     return dtype_v<::tensorstore::dtypes::bfloat16_t>;
   }
   if (type_num < 0 || type_num > NPY_NTYPES) {
@@ -221,7 +195,10 @@ Overload:
 }
 
 void RegisterDataTypeBindings(pybind11::module m, Executor defer) {
-  if (!RegisterCustomNumpyDtypes()) {
+  if (!internal_python::RegisterNumpyInt4()) {
+    throw py::error_already_set();
+  }
+  if (!internal_python::RegisterNumpyBfloat16()) {
     throw py::error_already_set();
   }
 
