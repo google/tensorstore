@@ -26,6 +26,17 @@ tensorstore_cc_library(
     ],
 )
 
+tensorstore_cc_test(
+    name = "collect_test",
+    srcs = ["collect_test.cc"],
+    deps = [
+        ":collect",
+        "//tensorstore/internal:json_gtest",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
 tensorstore_cc_library(
     name = "metadata",
     srcs = ["metadata.cc"],
@@ -99,7 +110,7 @@ tensorstore_cc_test(
     ],
 )
 
-cc_library(
+tensorstore_cc_library(
     name = "protobuf",
     srcs = ["protobuf.cc"],
     hdrs = ["protobuf.h"],
@@ -108,6 +119,32 @@ cc_library(
         ":metrics_cc_proto",
         "//tensorstore/util:span",
         "@com_google_absl//absl/log:absl_log",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "prometheus",
+    srcs = ["prometheus.cc"],
+    hdrs = ["prometheus.h"],
+    deps = [
+        ":collect",
+        "//tensorstore/internal:uri_utils",
+        "//tensorstore/internal/http",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "@com_google_absl//absl/functional:function_ref",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_test(
+    name = "prometheus_test",
+    srcs = ["prometheus_test.cc"],
+    deps = [
+        ":collect",
+        ":prometheus",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 

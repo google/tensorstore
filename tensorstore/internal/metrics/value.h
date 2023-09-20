@@ -16,8 +16,6 @@
 #define TENSORSTORE_INTERNAL_METRICS_VALUE_H_
 
 #include <atomic>
-#include <cstdint>
-#include <limits>
 #include <memory>
 #include <string>
 #include <string_view>
