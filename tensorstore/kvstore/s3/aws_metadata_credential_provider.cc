@@ -12,6 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+
+#include <string>
+
+#include "absl/time/time.h"
+#include "absl/strings/str_cat.h"
 #include "tensorstore/kvstore/s3/aws_metadata_credential_provider.h"
 #include "tensorstore/internal/json_binding/absl_time.h"
 #include "tensorstore/internal/json_binding/bindable.h"
