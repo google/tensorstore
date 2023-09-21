@@ -24,6 +24,7 @@
 
 using ::tensorstore::Result;
 using ::tensorstore::internal::ParseJson;
+using ::tensorstore::internal_http::HttpRequestBuilder;
 using ::tensorstore::internal_http::HttpResponseCodeToStatus;
 using ::tensorstore::internal_kvstore_s3::AwsCredentials;
 
@@ -98,9 +99,9 @@ Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
     /// https://hackingthe.cloud/aws/exploitation/ec2-metadata-ssrf/
 
     /// Get a token for communicating with the EC2 Metadata server
-    auto token_request = internal_http::HttpRequestBuilder{"POST", kTokenUrl}
-        .AddHeader(absl::StrCat(kTokenTtlHeader, ": 21600"))
-        .BuildRequest();
+    auto token_request = HttpRequestBuilder{"POST", kTokenUrl}
+                            .AddHeader(absl::StrCat(kTokenTtlHeader, ": 21600"))
+                            .BuildRequest();
 
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto token_response,
@@ -110,9 +111,9 @@ Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
 
     auto token_header = tensorstore::StrCat(kMetadataTokenHeader, ": ", token_response.payload);
 
-    auto iam_request = internal_http::HttpRequestBuilder{"GET", kIamUrl}
-        .AddHeader(token_header)
-        .BuildRequest();
+    auto iam_request = HttpRequestBuilder{"GET", kIamUrl}
+                            .AddHeader(token_header)
+                            .BuildRequest();
 
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto iam_response,
@@ -131,9 +132,9 @@ Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
         return AwsCredentials{};
     }
 
-    auto iam_role_request = internal_http::HttpRequestBuilder{"GET", kIamCredentialsUrl}
-        .AddHeader(token_header)
-        .BuildRequest();
+    auto iam_role_request = HttpRequestBuilder{"GET", kIamCredentialsUrl}
+                            .AddHeader(token_header)
+                            .BuildRequest();
 
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto iam_role_response,
@@ -144,9 +145,9 @@ Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
     auto iam_credentials_request_url = tensorstore::StrCat(kIamCredentialsUrl,
                                                            iam_role_response.payload);
 
-    auto iam_credentials_request = internal_http::HttpRequestBuilder{"GET",
-            iam_credentials_request_url}
-        .AddHeader(token_header)
+    auto iam_credentials_request = HttpRequestBuilder{"GET",
+                                iam_credentials_request_url}
+                            .AddHeader(token_header)
         .BuildRequest();
 
     TENSORSTORE_ASSIGN_OR_RETURN(
