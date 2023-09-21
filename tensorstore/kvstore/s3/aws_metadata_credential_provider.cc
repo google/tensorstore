@@ -29,16 +29,16 @@ namespace internal_kvstore_s3 {
 
 namespace {
 
-// EC2 Metadata server url
-static constexpr char kEc2MetadataUrl[] = "http://http://169.254.169.254";
 // Token ttl header
 static constexpr char kTokenTtlHeader[] = "x-aws-ec2-metadata-token-ttl-seconds";
 // Token header
 static constexpr char kMetadataTokenHeader[] = "x-aws-ec2-metadata-token";
-
-static constexpr char kTokenPath[] = "/latest/api/token";
-static constexpr char kIamPath[] = "/latest/meta-data/iam/";
-static constexpr char kIamSecurityCredentialsPath[] = "/latest/meta-data/iam/security-credentials/";
+// Obtain Metadata server API tokens from this url
+static constexpr char kTokenUrl[] = "http://http://169.254.169.254/latest/api/token";
+// Obtain IAM status from this url
+static constexpr char kIamUrl[] = "http://http://169.254.169.254/latest/meta-data/iam/";
+// Obtain current IAM role from this url
+static constexpr char kIamCredentialsUrl[] = "http://http://169.254.169.254/latest/meta-data/iam/security-credentials/";
 
 // Requests to the above server block outside AWS
 // Configure a timeout small enough not to degrade performance outside AWS
@@ -93,8 +93,7 @@ Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
     /// https://hackingthe.cloud/aws/exploitation/ec2-metadata-ssrf/
 
     /// Get a token for communicating with the EC2 Metadata server
-    auto token_request = internal_http::HttpRequestBuilder("POST",
-            absl::StrCat(kEc2MetadataUrl, kTokenPath))
+    auto token_request = internal_http::HttpRequestBuilder{"POST", kTokenUrl}
         .AddHeader(absl::StrCat(kTokenTtlHeader, ": 21600"))
         .BuildRequest();
 
@@ -106,8 +105,7 @@ Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
 
     auto token_header = tensorstore::StrCat(kMetadataTokenHeader, ": ", token_response.payload);
 
-    auto iam_request = internal_http::HttpRequestBuilder("GET",
-            absl::StrCat(kEc2MetadataUrl, kIamPath))
+    auto iam_request = internal_http::HttpRequestBuilder{"GET", kIamUrl}
         .AddHeader(token_header)
         .BuildRequest();
 
@@ -128,8 +126,7 @@ Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
         return AwsCredentials{};
     }
 
-    auto iam_role_request = internal_http::HttpRequestBuilder{"GET",
-            absl::StrCat(kEc2MetadataUrl, kIamSecurityCredentialsPath)}
+    auto iam_role_request = internal_http::HttpRequestBuilder{"GET", kIamCredentialsUrl}
         .AddHeader(token_header)
         .BuildRequest();
 
@@ -139,8 +136,7 @@ Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
 
     TENSORSTORE_RETURN_IF_ERROR(HttpResponseCodeToStatus(iam_role_response));
 
-    auto iam_credentials_request_url = tensorstore::StrCat(kEc2MetadataUrl,
-                                                           kIamSecurityCredentialsPath,
+    auto iam_credentials_request_url = tensorstore::StrCat(kIamCredentialsUrl,
                                                            iam_role_response.payload);
 
     auto iam_credentials_request = internal_http::HttpRequestBuilder{"GET",
