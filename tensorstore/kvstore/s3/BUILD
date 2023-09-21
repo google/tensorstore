@@ -240,7 +240,6 @@ tensorstore_cc_library(
         "//tensorstore/internal:env",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:absl_time",
-        "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/internal:no_destructor",
         "//tensorstore/internal:path",
         "//tensorstore/internal/http",
