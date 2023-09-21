@@ -229,10 +229,18 @@ tensorstore_cc_test(
 
 tensorstore_cc_library(
     name = "aws_credential_provider",
-    srcs = ["aws_credential_provider.cc"],
-    hdrs = ["aws_credential_provider.h"],
+    srcs = [
+        "aws_credential_provider.cc",
+        "aws_metadata_credential_provider.cc"],
+    hdrs = [
+        "aws_credential_provider.h",
+        "aws_metadata_credential_provider.h"
+    ],
     deps = [
         "//tensorstore/internal:env",
+        "//tensorstore/internal/json_binding",
+        "//tensorstore/internal/json_binding:absl_time",
+        "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/internal:no_destructor",
         "//tensorstore/internal:path",
         "//tensorstore/internal/http",
@@ -258,6 +266,21 @@ tensorstore_cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+
+tensorstore_cc_test(
+    name = "aws_metadata_credential_provider_test",
+    srcs = ["aws_metadata_credential_provider_test.cc"],
+    deps = [
+        ":aws_credential_provider",
+        "//tensorstore/internal:test_util",
+        "//tensorstore/internal/http:curl_transport",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status_testutil",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
 
 tensorstore_cc_test(
     name = "localstack_test",

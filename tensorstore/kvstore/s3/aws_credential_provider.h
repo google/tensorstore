@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_KVSTORE_S3_S3_CREDENTIAL_PROVIDER_H
-#define TENSORSTORE_KVSTORE_S3_S3_CREDENTIAL_PROVIDER_H
+#ifndef TENSORSTORE_KVSTORE_S3_AWS_CREDENTIAL_PROVIDER_H
+#define TENSORSTORE_KVSTORE_S3_AWS_CREDENTIAL_PROVIDER_H
 
 #include <functional>
 #include <memory>
@@ -56,6 +56,7 @@ class AwsCredentialProvider {
   virtual Result<AwsCredentials> GetCredentials() = 0;
 };
 
+
 /// Provides credentials from the following environment variables:
 /// AWS_ACCESS_KEY_ID, AWS_SECRET_KEY_ID, AWS_SESSION_TOKEN
 class EnvironmentCredentialProvider : public AwsCredentialProvider {
@@ -89,22 +90,6 @@ class FileCredentialProvider : public AwsCredentialProvider {
   Result<AwsCredentials> GetCredentials() override;
 };
 
-/// Provides S3 credentials from the EC2 Metadata server
-/// if running within AWS
-class EC2MetadataCredentialProvider : public AwsCredentialProvider {
- private:
-  std::shared_ptr<internal_http::HttpTransport> transport_;
-
- public:
-  EC2MetadataCredentialProvider(
-      std::shared_ptr<internal_http::HttpTransport> transport)
-      : transport_(std::move(transport)) {}
-
-  Result<AwsCredentials> GetCredentials() override {
-    return absl::UnimplementedError("EC2 Metadata Server");
-  }
-};
-
 using AwsCredentialProviderFn =
     std::function<Result<std::unique_ptr<AwsCredentialProvider>>()>;
 
@@ -118,4 +103,4 @@ Result<std::unique_ptr<AwsCredentialProvider>> GetAwsCredentialProvider(
 }  // namespace internal_kvstore_s3
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_KVSTORE_S3_S3_CREDENTIAL_PROVIDER_H
+#endif  // TENSORSTORE_KVSTORE_S3_AWS_CREDENTIAL_PROVIDER_H

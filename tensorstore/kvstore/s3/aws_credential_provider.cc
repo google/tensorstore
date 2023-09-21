@@ -28,6 +28,7 @@
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
 #include "absl/synchronization/mutex.h"
+#include "tensorstore/kvstore/s3/aws_metadata_credential_provider.h"
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/no_destructor.h"
