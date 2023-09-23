@@ -121,7 +121,9 @@ Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
 
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto token_response,
-        transport_->IssueRequest(token_request, {}, absl::InfiniteDuration(), kConnectTimeout).result());
+        transport_->IssueRequest(token_request, {},
+                                 absl::InfiniteDuration(),
+                                 kConnectTimeout).result());
 
     TENSORSTORE_RETURN_IF_ERROR(HttpResponseCodeToStatus(token_response));
 
