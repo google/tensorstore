@@ -106,9 +106,10 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(EC2CredentialsResponse,
 ///
 /// 1. Post to Metadata server path "/latest/api/token" to obtain an API token
 /// 2. Obtain the IAM status from path "/latest/meta-data/iam/".
-///    A 404 implies no IAM Role is associated with the current instance.
-///    An empty response implies the IAM Role has been revoked,
-///    possibly during the instance lifetime.
+///    In the following failure cases, anonymous credentials are retrieved instead:
+///    1. A 404 implies no IAM Role is associated with the current instance.
+///    2. An empty response implies the IAM Role has been revoked,
+///       possibly during the instance lifetime.
 /// 3. Obtain the IAM Role name from path "/latest/meta-data/iam/security-credentials".
 /// 4. Obtain the associated credentials from path "/latest/meta-data/iam/security-credentials/<iam-role>".
 Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
