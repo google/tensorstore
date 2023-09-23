@@ -36,6 +36,12 @@ class AwsCredentialProvider {
   virtual Result<AwsCredentials> GetCredentials() = 0;
 };
 
+class AnonymousCredentialProvider : public AwsCredentialProvider {
+  public:
+    Result<AwsCredentials> GetCredentials() override {
+      return AwsCredentials{};
+    }
+};
 
 using AwsCredentialProviderFn =
     std::function<Result<std::unique_ptr<AwsCredentialProvider>>()>;
