@@ -9,6 +9,7 @@ tensorstore_cc_library(
     name = "aws_credential_provider",
     srcs = [
         "aws_credential_provider.cc",
+        "cached_credential_provider.cc",
         "chained_credential_provider.cc",
         "environment_credential_provider.cc",
         "file_credential_provider.cc",
@@ -16,6 +17,7 @@ tensorstore_cc_library(
     hdrs = [
         "aws_credentials.h",
         "aws_credential_provider.h",
+        "cached_credential_provider.h",
         "chained_credential_provider.h",
         "environment_credential_provider.h",
         "file_credential_provider.h",
@@ -79,6 +81,18 @@ tensorstore_cc_test(
 tensorstore_cc_test(
     name = "chained_credential_provider_test",
     srcs = ["chained_credential_provider_test.cc"],
+    deps = [
+        ":aws_credential_provider",
+        "//tensorstore/internal:test_util",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status_testutil",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "cached_credential_provider_test",
+    srcs = ["cached_credential_provider_test.cc"],
     deps = [
         ":aws_credential_provider",
         "//tensorstore/internal:test_util",

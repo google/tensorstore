@@ -32,11 +32,13 @@ private:
   std::vector<std::unique_ptr<AwsCredentialProvider>> providers_;
   std::size_t last_provider_;
 
+  inline bool LastProviderValid() { return last_provider_ >= 0 && last_provider_ < providers_.size(); }
 public:
   ChainedCredentialProvider(std::vector<std::unique_ptr<AwsCredentialProvider>> providers)
     : providers_(std::move(providers)), last_provider_(-1) {}
 
   Result<AwsCredentials> GetCredentials() override;
+  Result<absl::Time> ExpiresAt() override;
   bool IsExpired() override;
 };
 

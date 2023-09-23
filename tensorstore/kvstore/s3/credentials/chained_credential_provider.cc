@@ -21,11 +21,19 @@ namespace internal_kvstore_s3 {
 
 
 bool ChainedCredentialProvider::IsExpired()  {
-    if(last_provider_ < 0 || last_provider_ >= providers_.size()) {
+    if(!LastProviderValid()) {
         return true;
     }
 
     return providers_[last_provider_]->IsExpired();
+}
+
+Result<absl::Time> ChainedCredentialProvider::ExpiresAt() {
+    if(!LastProviderValid()) {
+        return absl::UnimplementedError("ChainedCredentialProvider::ExpiresAt");
+    }
+
+    return providers_[last_provider_]->ExpiresAt();
 }
 
 Result<AwsCredentials> ChainedCredentialProvider::GetCredentials() {

@@ -23,6 +23,7 @@
 #include "tensorstore/util/status_testutil.h"
 
 using ::tensorstore::Future;
+using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
 using ::tensorstore::internal_kvstore_s3::AwsCredentials;
 using ::tensorstore::internal_kvstore_s3::AwsCredentialProvider;
@@ -35,14 +36,22 @@ class TestCredentialProvider : public AwsCredentialProvider {
   AwsCredentials credentials_;
   bool expired_;
   bool found_;
+  bool has_expired_at_;
   TestCredentialProvider(std::string access_key="")
-    : credentials_{access_key}, expired_(false), found_(true) {}
+    : credentials_{access_key}, expired_(false), found_(true),
+      has_expired_at_(true) {}
 
   Result<AwsCredentials> GetCredentials() override {
     if(found_) { expired_ = true; return credentials_; }
     return absl::NotFoundError("Credentials Not Found");
   }
   bool IsExpired() override { return expired_; }
+  Result<absl::Time> ExpiresAt() override {
+    if(has_expired_at_) {
+      return absl::Now();
+    }
+    return absl::UnimplementedError("TestCredentialProvider::ExpiresAt");
+  }
 };
 
 TEST(ChainedCredentialProviderTest, EmptyProvider) {
@@ -50,9 +59,10 @@ TEST(ChainedCredentialProviderTest, EmptyProvider) {
   auto credentials = provider.GetCredentials();
   ASSERT_FALSE(credentials.ok());
   ASSERT_TRUE(provider.IsExpired());
+  EXPECT_THAT(provider.ExpiresAt(), MatchesStatus(absl::StatusCode::kUnimplemented));
 }
 
-// Tests that Credential Retrieval results in IsExpiry
+// Tests that Credential Retrieval results in IsExpiry and ExpiresAt
 // proxying the correct encapsulated provider
 TEST(ChainedCredentialProviderTest, ChainedGetAndExpiryLogic) {
   auto one = std::make_unique<TestCredentialProvider>("key1");
@@ -72,10 +82,13 @@ TEST(ChainedCredentialProviderTest, ChainedGetAndExpiryLogic) {
   ASSERT_EQ(provider.IsExpired(), true);
   ASSERT_EQ(one_ptr->expired_, true);
   ASSERT_EQ(two_ptr->expired_, false);
+  EXPECT_THAT(provider.ExpiresAt(), MatchesStatus(absl::StatusCode::kOk));
 
   // Chained Provider proxies one for IsExpired calls
   one_ptr->expired_ = false;
+  one_ptr->has_expired_at_ = false;
   ASSERT_EQ(provider.IsExpired(), false);
+  EXPECT_THAT(provider.ExpiresAt(), MatchesStatus(absl::StatusCode::kUnimplemented));
 
   // Disable one's credentials and get new credentials (two)
   one_ptr->found_ = false;
@@ -84,16 +97,24 @@ TEST(ChainedCredentialProviderTest, ChainedGetAndExpiryLogic) {
   ASSERT_EQ(provider.IsExpired(), true);
   ASSERT_EQ(one_ptr->expired_, false);
   ASSERT_EQ(two_ptr->expired_, true);
+  EXPECT_THAT(provider.ExpiresAt(), MatchesStatus(absl::StatusCode::kOk));
 
   // Chained Provider proxies two for IsExpired calls
   two_ptr->expired_ = false;
+  two_ptr->has_expired_at_ = false;
   ASSERT_EQ(provider.IsExpired(), false);
+  EXPECT_THAT(provider.ExpiresAt(), MatchesStatus(absl::StatusCode::kUnimplemented));
 
   // Disable two's credentials and get new credentials
   two_ptr->found_ = false;
   auto result = provider.GetCredentials();
   ASSERT_FALSE(result.ok());
   ASSERT_EQ(provider.IsExpired(), true);
+
+  // There's no valid provider, so ExpiresAt is also unimplemented
+  one_ptr->has_expired_at_ = true;
+  two_ptr->has_expired_at_ = true;
+  EXPECT_THAT(provider.ExpiresAt(), MatchesStatus(absl::StatusCode::kUnimplemented));
 }
 
 

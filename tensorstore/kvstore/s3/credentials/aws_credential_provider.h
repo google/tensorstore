@@ -18,6 +18,7 @@
 #include <functional>
 #include <string_view>
 
+#include "absl/time/time.h"
 #include "tensorstore/kvstore/s3/credentials/aws_credentials.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/util/result.h"
@@ -27,11 +28,15 @@ namespace internal_kvstore_s3 {
 
 /// Base class for S3 Credential Providers
 ///
-/// Implementers should override GetCredentials
+/// Implementers should override GetCredentials, IsExpired and,
+/// if the credential source supports specifying an expiry date, ExpiresAt.
 class AwsCredentialProvider {
  public:
   virtual ~AwsCredentialProvider() = default;
   virtual Result<AwsCredentials> GetCredentials() = 0;
+  virtual Result<absl::Time> ExpiresAt() {
+    return absl::UnimplementedError("AwsCredentialProvider::ExpiresAt");
+  };
   virtual bool IsExpired() = 0;
 };
 
