@@ -86,7 +86,9 @@ TEST(EC2MetadataCredentialProviderTest, CredentialRetrieval) {
     ASSERT_EQ(credentials.session_token, "abcdef123456790");
 }
 
-
+/// https://hackingthe.cloud/aws/exploitation/ec2-metadata-ssrf/
+/// Requests to /latest/meta-data/iam/ when no IAM Role is associated
+/// with the instance result in a 404. Return anonynmous credentials.
 TEST(EC2MetadataCredentialProviderTest, NoIamRole) {
     auto url_to_response = absl::flat_hash_map<std::string, HttpResponse>{
         {"POST http://http://169.254.169.254/latest/api/token",
@@ -102,7 +104,25 @@ TEST(EC2MetadataCredentialProviderTest, NoIamRole) {
 }
 
 
-TEST(EC2MetadataCredentialProviderTest, UnsuccesfulJsonResponse) {
+/// https://hackingthe.cloud/aws/exploitation/ec2-metadata-ssrf/
+/// Requests to /latest/meta-data/iam/ when IAM Role revoked
+/// result in an empty response. Return anonymous credentials.
+TEST(EC2MetadataCredentialProviderTest, RevokedIamRole) {
+    auto url_to_response = absl::flat_hash_map<std::string, HttpResponse>{
+        {"POST http://http://169.254.169.254/latest/api/token",
+         HttpResponse{200, absl::Cord{"1234567890"}}},
+        {"GET http://http://169.254.169.254/latest/meta-data/iam/",
+         HttpResponse{200, absl::Cord{""}, {{"x-aws-ec2-metadata-token", "1234567890"}}}},
+    };
+
+    auto mock_transport = std::make_shared<EC2MetadataMockTransport>(url_to_response);
+    auto provider = std::make_shared<EC2MetadataCredentialProvider>(mock_transport);
+    TENSORSTORE_CHECK_OK_AND_ASSIGN(auto credentials, provider->GetCredentials());
+    ASSERT_TRUE(credentials.IsAnonymous());
+}
+
+
+TEST(EC2MetadataCredentialProviderTest, UnsuccessfulJsonResponse) {
     // Test that "Code" != "Success" parsing succeeds
     auto url_to_response = absl::flat_hash_map<std::string, HttpResponse>{
         {"POST http://http://169.254.169.254/latest/api/token",
