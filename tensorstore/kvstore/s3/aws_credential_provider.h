@@ -36,9 +36,18 @@ class AwsCredentialProvider {
 };
 
 /// Provides anonymous credentials
-class AnonymousCredentialProvider : public AwsCredentialProvider {
+class StaticCredentialProvider : public AwsCredentialProvider {
+  private:
+    AwsCredentials credentials_;
   public:
-    Result<AwsCredentials> GetCredentials() override { return AwsCredentials{}; }
+    StaticCredentialProvider(std::string_view access_key="",
+                             std::string_view secret_key="",
+                             std::string_view session_token="")
+      : credentials_{std::string{access_key},
+                     std::string{secret_key},
+                     std::string{session_token}} {}
+
+    Result<AwsCredentials> GetCredentials() override { return credentials_; }
     bool IsExpired() override { return false; }
 };
 

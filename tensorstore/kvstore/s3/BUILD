@@ -297,6 +297,20 @@ tensorstore_cc_test(
     ],
 )
 
+
+tensorstore_cc_test(
+    name = "chained_credential_provider_test",
+    srcs = ["chained_credential_provider_test.cc"],
+    deps = [
+        ":aws_credential_provider",
+        "//tensorstore/internal:test_util",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status_testutil",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+
 tensorstore_cc_test(
     name = "localstack_test",
     srcs = ["localstack_test.cc"],

@@ -24,17 +24,20 @@ namespace tensorstore {
 namespace internal_kvstore_s3 {
 
 // Returns credentials from a chain of providers
+// The chain is iterated through, in order, until valid credentials are returned.
+// The index of the returned provider is stored, and if valid, is used to
+// proxy IsExpired calls to the relevant provider
 class ChainedCredentialProvider : public AwsCredentialProvider {
 private:
   std::vector<std::unique_ptr<AwsCredentialProvider>> providers_;
-  bool retrieved_;
+  std::size_t last_provider_;
 
 public:
   ChainedCredentialProvider(std::vector<std::unique_ptr<AwsCredentialProvider>> providers)
-    : providers_(std::move(providers)) {}
+    : providers_(std::move(providers)), last_provider_(-1) {}
 
   Result<AwsCredentials> GetCredentials() override;
-  bool IsExpired() override ABSL_LOCKS_EXCLUDED(mutex_) { return retrieved_; }
+  bool IsExpired() override;
 };
 
 } // namespace tensorstore

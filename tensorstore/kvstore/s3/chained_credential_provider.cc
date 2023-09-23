@@ -13,21 +13,38 @@
 // limitations under the License.
 
 #include "absl/status/status.h"
+#include "absl/strings/str_join.h"
 #include "tensorstore/kvstore/s3/chained_credential_provider.h"
 
 namespace tensorstore {
 namespace internal_kvstore_s3 {
 
-Result<AwsCredentials> ChainedCredentialProvider::GetCredentials()
-{
-    for(auto & provider: providers_) {
-        auto credentials = provider->GetCredentials();
+
+bool ChainedCredentialProvider::IsExpired()  {
+    if(last_provider_ < 0 || last_provider_ >= providers_.size()) {
+        return true;
+    }
+
+    return providers_[last_provider_]->IsExpired();
+}
+
+Result<AwsCredentials> ChainedCredentialProvider::GetCredentials() {
+    std::vector<std::string> errors;
+    last_provider_ = -1;
+
+    for(std::size_t i=0; i < providers_.size(); ++i) {
+        auto credentials = providers_[i]->GetCredentials();
         if(credentials.ok()) {
+            last_provider_ = i;
             return credentials;
+        } else {
+            errors.push_back(credentials.status().ToString());
         }
     }
 
-    return absl::NotFoundError("No suitable AwsCredentialProvider found");
+    return absl::NotFoundError(
+        absl::StrCat("No valid AwsCredentialProvider in chain:\n",
+                     absl::StrJoin(errors, "\n")));
 }
 
 
