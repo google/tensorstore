@@ -53,18 +53,15 @@ class EC2MetadataMockTransport : public HttpTransport {
   const absl::flat_hash_map<std::string, HttpResponse>& url_to_response_;
 };
 
-TEST(EC2MetadataCredentialProviderTest, SimpleMock_EC2Token) {
+TEST(EC2MetadataCredentialProviderTest, CredentialRetrieval) {
     auto url_to_response = absl::flat_hash_map<std::string, HttpResponse>{
         {"POST http://http://169.254.169.254/latest/api/token",
-         HttpResponse{200,
-                      absl::Cord{"1234567890"}}},
+         HttpResponse{200, absl::Cord{"1234567890"}}},
         {"GET http://http://169.254.169.254/latest/meta-data/iam/",
-         HttpResponse{200,
-                      absl::Cord{"info"},
+         HttpResponse{200, absl::Cord{"info"},
                       {{"x-aws-ec2-metadata-token", "1234567890"}}}},
         {"GET http://169.254.169.254/latest/meta-data/iam/security-credentials/",
-         HttpResponse{200,
-                      absl::Cord{"mock-iam-role"},
+         HttpResponse{200, absl::Cord{"mock-iam-role"},
                       {{"x-aws-ec2-metadata-token", "1234567890"}}}},
         {"GET http://169.254.169.254/latest/meta-data/iam/security-credentials/mock-iam-role",
          HttpResponse{200,
@@ -92,19 +89,15 @@ TEST(EC2MetadataCredentialProviderTest, UnsuccesfulJsonResponse) {
     // Test that "Code" != "Success" parsing succeeds
     auto url_to_response = absl::flat_hash_map<std::string, HttpResponse>{
         {"POST http://http://169.254.169.254/latest/api/token",
-         HttpResponse{200,
-                      absl::Cord{"1234567890"}}},
+         HttpResponse{200, absl::Cord{"1234567890"}}},
         {"GET http://http://169.254.169.254/latest/meta-data/iam/",
-         HttpResponse{200,
-                      absl::Cord{"info"},
+         HttpResponse{200, absl::Cord{"info"},
                       {{"x-aws-ec2-metadata-token", "1234567890"}}}},
         {"GET http://169.254.169.254/latest/meta-data/iam/security-credentials/",
-         HttpResponse{200,
-                      absl::Cord{"mock-iam-role"},
+         HttpResponse{200, absl::Cord{"mock-iam-role"},
                       {{"x-aws-ec2-metadata-token", "1234567890"}}}},
         {"GET http://169.254.169.254/latest/meta-data/iam/security-credentials/mock-iam-role",
-         HttpResponse{200,
-                      absl::Cord(R"({"Code": "EntirelyUnsuccessful"})"),
+         HttpResponse{200, absl::Cord(R"({"Code": "EntirelyUnsuccessful"})"),
                       {{"x-aws-ec2-metadata-token", "1234567890"}}}}
     };
 
