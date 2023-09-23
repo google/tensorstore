@@ -28,11 +28,14 @@
 
 namespace {
 
+using ::tensorstore::Future;
 using ::tensorstore::internal::GetEnv;
 using ::tensorstore::internal::JoinPath;
 using ::tensorstore::internal::SetEnv;
 using ::tensorstore::internal::UnsetEnv;
-using ::tensorstore::internal_http::GetDefaultHttpTransport;
+using ::tensorstore::internal_http::HttpRequest;
+using ::tensorstore::internal_http::HttpResponse;
+using ::tensorstore::internal_http::HttpTransport;
 using ::tensorstore::internal_kvstore_s3::GetAwsCredentialProvider;
 
 class TestData : public tensorstore::internal::ScopedTemporaryDirectory {
@@ -57,8 +60,22 @@ class TestData : public tensorstore::internal::ScopedTemporaryDirectory {
   }
 };
 
+/// Cause EC2Metadata to always fail
+class NotFoundTransport : public HttpTransport {
+public:
+  Future<HttpResponse> IssueRequest(const HttpRequest& request,
+                                    absl::Cord payload,
+                                    absl::Duration request_timeout,
+                                    absl::Duration connect_timeout) override {
+    return HttpResponse{404, absl::Cord(), {}};
+  }
+};
+
+
 class AwsCredentialProviderTest : public ::testing::Test {
  protected:
+  std::shared_ptr<NotFoundTransport> transport_;
+
   void SetUp() override {
     // Make sure that env vars are not set.
     for (const char* var :
@@ -66,14 +83,16 @@ class AwsCredentialProviderTest : public ::testing::Test {
           "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN", "AWS_PROFILE"}) {
       UnsetEnv(var);
     }
+
+    transport_ = std::make_shared<NotFoundTransport>();
   }
 };
 
 TEST_F(AwsCredentialProviderTest, ProviderNoCredentials) {
-  ASSERT_FALSE(GetAwsCredentialProvider("", GetDefaultHttpTransport()).ok());
+  ASSERT_FALSE(GetAwsCredentialProvider("", transport_).ok());
   SetEnv("AWS_ACCESS_KEY_ID", "foo");
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto provider, GetAwsCredentialProvider("", GetDefaultHttpTransport()));
+      auto provider, GetAwsCredentialProvider("", transport_));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials,
                                    provider->GetCredentials());
   ASSERT_EQ(credentials.access_key, "foo");
@@ -86,7 +105,7 @@ TEST_F(AwsCredentialProviderTest, ProviderAwsCredentialsFromEnv) {
   SetEnv("AWS_SECRET_ACCESS_KEY", "bar");
   SetEnv("AWS_SESSION_TOKEN", "qux");
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto provider, GetAwsCredentialProvider("", GetDefaultHttpTransport()));
+      auto provider, GetAwsCredentialProvider("", transport_));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials,
                                    provider->GetCredentials());
   ASSERT_EQ(credentials.access_key, "foo");
@@ -100,7 +119,7 @@ TEST_F(AwsCredentialProviderTest, ProviderAwsCredentialsFromFileDefault) {
 
   SetEnv("AWS_SHARED_CREDENTIALS_FILE", credentials_filename.c_str());
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto provider, GetAwsCredentialProvider("", GetDefaultHttpTransport()));
+      auto provider, GetAwsCredentialProvider("", transport_));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials,
                                    provider->GetCredentials());
   ASSERT_EQ(credentials.access_key, "AKIAIOSFODNN7EXAMPLE");
@@ -116,7 +135,7 @@ TEST_F(AwsCredentialProviderTest,
   SetEnv("AWS_SHARED_CREDENTIALS_FILE", credentials_filename.c_str());
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto provider,
-      GetAwsCredentialProvider("alice", GetDefaultHttpTransport()));
+      GetAwsCredentialProvider("alice", transport_));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials,
                                    provider->GetCredentials());
   ASSERT_EQ(credentials.access_key, "AKIAIOSFODNN6EXAMPLE");
@@ -131,7 +150,7 @@ TEST_F(AwsCredentialProviderTest, ProviderAwsCredentialsFromFileProfileEnv) {
   SetEnv("AWS_SHARED_CREDENTIALS_FILE", credentials_filename.c_str());
   SetEnv("AWS_PROFILE", "alice");
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto provider, GetAwsCredentialProvider("", GetDefaultHttpTransport()));
+      auto provider, GetAwsCredentialProvider("", transport_));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials,
                                    provider->GetCredentials());
   ASSERT_EQ(credentials.access_key, "AKIAIOSFODNN6EXAMPLE");
@@ -146,13 +165,7 @@ TEST_F(AwsCredentialProviderTest,
 
   SetEnv("AWS_SHARED_CREDENTIALS_FILE", credentials_filename.c_str());
   SetEnv("AWS_PROFILE", "bob");
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto provider, GetAwsCredentialProvider("", GetDefaultHttpTransport()));
-  auto result = provider->GetCredentials();
-  ASSERT_FALSE(result.ok());
-  EXPECT_THAT(
-      result.status().message(),
-      ::testing::HasSubstr("Profile [bob] not found in credentials file"));
+  ASSERT_FALSE(GetAwsCredentialProvider("", transport_).ok());
 }
 
 }  // namespace

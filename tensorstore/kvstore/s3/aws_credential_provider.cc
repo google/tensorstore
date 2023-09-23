@@ -14,6 +14,7 @@
 
 #include "tensorstore/kvstore/s3/aws_credential_provider.h"
 #include "tensorstore/kvstore/s3/aws_environment_credential_provider.h"
+#include "tensorstore/kvstore/s3/aws_file_credential_provider.h"
 
 #include <algorithm>
 #include <fstream>
@@ -46,55 +47,6 @@ namespace {
 // For reference, see the latest AWS environment variables used by the cli:
 // https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html
 
-// AWS user identifier
-constexpr char kEnvAwsAccessKeyId[] = "AWS_ACCESS_KEY_ID";
-constexpr char kCfgAwsAccessKeyId[] = "aws_access_key_id";
-
-// AWS user password
-constexpr char kEnvAwsSecretAccessKey[] = "AWS_SECRET_ACCESS_KEY";
-constexpr char kCfgAwsSecretAccessKeyId[] = "aws_secret_access_key";
-
-// AWS session token
-constexpr char kEnvAwsSessionToken[] = "AWS_SESSION_TOKEN";
-constexpr char kCfgAwsSessionToken[] = "aws_session_token";
-
-// AWS Profile environment variables
-constexpr char kEnvAwsProfile[] = "AWS_PROFILE";
-constexpr char kDefaultProfile[] = "default";
-
-// Credentials file environment variable
-constexpr char kEnvAwsCredentialsFile[] = "AWS_SHARED_CREDENTIALS_FILE";
-
-// Default path to the AWS credentials file, relative to the home folder
-constexpr char kDefaultAwsCredentialsFilePath[] = ".aws/credentials";
-
-/// Returns whether the given path points to a readable file.
-bool IsFile(const std::string& filename) {
-  std::ifstream fstream(filename.c_str());
-  return fstream.good();
-}
-
-Result<std::string> GetAwsCredentialsFileName() {
-  std::string result;
-
-  auto credentials_file = GetEnv(kEnvAwsCredentialsFile);
-  if (!credentials_file) {
-    auto home_dir = GetEnv("HOME");
-    if (!home_dir) {
-      return absl::NotFoundError("Could not read $HOME");
-    }
-    result = JoinPath(*home_dir, kDefaultAwsCredentialsFilePath);
-  } else {
-    result = *credentials_file;
-  }
-  if (!IsFile(result)) {
-    return absl::NotFoundError(
-        absl::StrCat("Could not find the credentials file at "
-                     "location [",
-                     result, "]"));
-  }
-  return result;
-}
 
 Result<std::unique_ptr<AwsCredentialProvider>> GetDefaultAwsCredentialProvider(
     std::string_view profile,
@@ -106,19 +58,11 @@ Result<std::unique_ptr<AwsCredentialProvider>> GetDefaultAwsCredentialProvider(
     return env_creds;
   }
 
-  // 2. Obtain credentials from AWS_SHARED_CREDENTIALS_FILE or
-  // ~/.aws/credentials
-  if (auto credentials_file = GetAwsCredentialsFileName();
-      credentials_file.ok()) {
-    std::string env_profile;  // value must not outlive view
-    if (profile.empty()) {
-      env_profile = GetEnv(kEnvAwsProfile).value_or(kDefaultProfile);
-      profile = std::string_view(env_profile);
-    }
+  auto file_creds = std::make_unique<FileCredentialProvider>(std::string(profile));
+  if(file_creds->GetCredentials().ok()) {
     ABSL_LOG(INFO) << "Using File AwsCredentialProvider with profile "
                    << profile;
-    return std::make_unique<FileCredentialProvider>(
-        std::move(credentials_file).value(), std::string(profile));
+    return file_creds;
   }
 
   // 3. Obtain credentials from EC2 Metadata server
@@ -144,60 +88,6 @@ AwsCredentialProviderRegistry& GetAwsProviderRegistry() {
 
 }  // namespace
 
-/// https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html#cli-configure-files-format
-Result<AwsCredentials> FileCredentialProvider::GetCredentials() {
-  absl::ReaderMutexLock lock(&mutex_);
-  std::ifstream ifs(filename_);
-
-  if (!ifs) {
-    return absl::NotFoundError(
-        absl::StrCat("Could not open the credentials file [", filename_, "]"));
-  }
-
-  AwsCredentials credentials;
-  std::string section_name;
-  std::string line;
-  bool profile_found = false;
-
-  while (std::getline(ifs, line)) {
-    auto sline = absl::StripAsciiWhitespace(line);
-    // Ignore empty and commented out lines
-    if (sline.empty() || sline[0] == '#') continue;
-
-    // A configuration section name has been encountered
-    if (sline[0] == '[' && sline[sline.size() - 1] == ']') {
-      section_name =
-          absl::StripAsciiWhitespace(sline.substr(1, sline.size() - 2));
-      continue;
-    }
-
-    // Look for key=value pairs if we're in the appropriate profile
-    if (section_name == profile_) {
-      profile_found = true;
-      if (auto pos = sline.find('='); pos != std::string::npos) {
-        auto key = absl::StripAsciiWhitespace(sline.substr(0, pos));
-        auto value = absl::StripAsciiWhitespace(sline.substr(pos + 1));
-
-        if (key == kCfgAwsAccessKeyId) {
-          credentials.access_key = value;
-        } else if (key == kCfgAwsSecretAccessKeyId) {
-          credentials.secret_key = value;
-        } else if (key == kCfgAwsSessionToken) {
-          credentials.session_token = value;
-        }
-      }
-    }
-  }
-
-  if (!profile_found) {
-    return absl::NotFoundError(absl::StrCat("Profile [", profile_,
-                                            "] not found "
-                                            "in credentials file [",
-                                            filename_, "]"));
-  }
-
-  return credentials;
-}
 
 void RegisterAwsCredentialProviderProvider(AwsCredentialProviderFn provider,
                                            int priority) {
