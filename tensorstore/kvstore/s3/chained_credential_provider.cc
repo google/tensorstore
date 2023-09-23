@@ -13,14 +13,21 @@
 // limitations under the License.
 
 #include "absl/status/status.h"
-#include "tensorstore/kvstore/s3/ec2_credential_provider.h"
+#include "tensorstore/kvstore/s3/chained_credential_provider.h"
 
 namespace tensorstore {
 namespace internal_kvstore_s3 {
 
-Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials()
+Result<AwsCredentials> ChainedCredentialProvider::GetCredentials()
 {
-    return absl::NotFoundError("EC2 Metadata Server");
+    for(auto & provider: providers_) {
+        auto credentials = provider->GetCredentials();
+        if(credentials.ok()) {
+            return credentials;
+        }
+    }
+
+    return absl::NotFoundError("No suitable AwsCredentialProvider found");
 }
 
 

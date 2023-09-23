@@ -16,6 +16,7 @@
 #include "tensorstore/kvstore/s3/environment_credential_provider.h"
 #include "tensorstore/kvstore/s3/file_credential_provider.h"
 #include "tensorstore/kvstore/s3/ec2_credential_provider.h"
+#include "tensorstore/kvstore/s3/chained_credential_provider.h"
 
 #include <algorithm>
 #include <fstream>
@@ -52,29 +53,12 @@ namespace {
 Result<std::unique_ptr<AwsCredentialProvider>> GetDefaultAwsCredentialProvider(
     std::string_view profile,
     std::shared_ptr<internal_http::HttpTransport> transport) {
-  // 1. Obtain credentials from environment variables
 
-  auto env_creds = std::make_unique<EnvironmentCredentialProvider>();
-  if(env_creds->GetCredentials().ok()) {
-    return env_creds;
-  }
-
-  auto file_creds = std::make_unique<FileCredentialProvider>(std::string(profile));
-  if(file_creds->GetCredentials().ok()) {
-    ABSL_LOG(INFO) << "Using File AwsCredentialProvider with profile "
-                   << profile;
-    return file_creds;
-  }
-
-  auto ec2_creds = std::make_unique<EC2MetadataCredentialProvider>(transport);
-  if(ec2_creds->GetCredentials().ok()) {
-    ABSL_LOG(INFO) << "Using EC2 Metadata Service AwsCredentialProvider";
-    return ec2_creds;
-  }
-
-  return absl::NotFoundError(
-      "No credentials provided in environment variables, "
-      "credentials file not found and not running on AWS.");
+  std::vector<std::unique_ptr<AwsCredentialProvider>> providers;
+  providers.emplace_back(std::make_unique<EnvironmentCredentialProvider>());
+  providers.emplace_back(std::make_unique<FileCredentialProvider>(std::string(profile)));
+  providers.emplace_back(std::make_unique<EC2MetadataCredentialProvider>(transport));
+  return std::make_unique<ChainedCredentialProvider>(std::move(providers));
 }
 
 struct AwsCredentialProviderRegistry {

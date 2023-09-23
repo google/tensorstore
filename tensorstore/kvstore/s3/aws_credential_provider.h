@@ -36,6 +36,7 @@ class AwsCredentialProvider {
   virtual Result<AwsCredentials> GetCredentials() = 0;
 };
 
+/// Provides anonymous credentials
 class AnonymousCredentialProvider : public AwsCredentialProvider {
   public:
     Result<AwsCredentials> GetCredentials() override {

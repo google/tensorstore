@@ -130,6 +130,9 @@ Result<AwsCredentials> FileCredentialProvider::GetCredentials() {
                                             filename, "]"));
   }
 
+  ABSL_LOG_FIRST_N(INFO, 1)
+      << "Using profile [" << profile << "] in file [" << filename << "]";
+
   return credentials;
 }
 

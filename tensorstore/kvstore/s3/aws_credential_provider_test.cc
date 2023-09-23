@@ -89,10 +89,13 @@ class AwsCredentialProviderTest : public ::testing::Test {
 };
 
 TEST_F(AwsCredentialProviderTest, ProviderNoCredentials) {
-  ASSERT_FALSE(GetAwsCredentialProvider("", transport_).ok());
-  SetEnv("AWS_ACCESS_KEY_ID", "foo");
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto provider, GetAwsCredentialProvider("", transport_));
+  ASSERT_FALSE(provider->GetCredentials().ok());
+
+  SetEnv("AWS_ACCESS_KEY_ID", "foo");
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      provider, GetAwsCredentialProvider("", transport_));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials,
                                    provider->GetCredentials());
   ASSERT_EQ(credentials.access_key, "foo");
@@ -165,7 +168,9 @@ TEST_F(AwsCredentialProviderTest,
 
   SetEnv("AWS_SHARED_CREDENTIALS_FILE", credentials_filename.c_str());
   SetEnv("AWS_PROFILE", "bob");
-  ASSERT_FALSE(GetAwsCredentialProvider("", transport_).ok());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto provider, GetAwsCredentialProvider("", transport_));
+  ASSERT_FALSE(provider->GetCredentials().ok());
 }
 
 }  // namespace

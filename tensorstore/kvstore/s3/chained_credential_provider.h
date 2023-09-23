@@ -12,17 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "absl/status/status.h"
-#include "tensorstore/kvstore/s3/ec2_credential_provider.h"
+#ifndef TENSORSTORE_KVSTORE_S3_CHAINED_CREDENTIAL_PROVIDER
+#define TENSORSTORE_KVSTORE_S3_CHAINED_CREDENTIAL_PROVIDER
+
+#include <memory>
+#include <vector>
+
+#include "tensorstore/kvstore/s3/aws_credential_provider.h"
 
 namespace tensorstore {
 namespace internal_kvstore_s3 {
 
-Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials()
-{
-    return absl::NotFoundError("EC2 Metadata Server");
-}
+class ChainedCredentialProvider : public AwsCredentialProvider {
+private:
+  std::vector<std::unique_ptr<AwsCredentialProvider>> providers_;
 
+public:
+  ChainedCredentialProvider(std::vector<std::unique_ptr<AwsCredentialProvider>> providers)
+    : providers_(std::move(providers)) {}
 
-} // namespace internal_kvstore_s3
+  Result<AwsCredentials> GetCredentials() override;
+};
+
 } // namespace tensorstore
+} // namespace internal_kvstore_s3
+
+#endif // TENSORSTORE_KVSTORE_S3_CHAINED_CREDENTIAL_PROVIDER
