@@ -18,7 +18,6 @@
 #include <string>
 
 #include "absl/time/time.h"
-#include "absl/time/clock.h"
 
 namespace tensorstore {
 namespace internal_kvstore_s3 {
@@ -37,11 +36,8 @@ struct AwsCredentials {
   std::string secret_key;
   /// AWS_SESSION_TOKEN
   std::string session_token;
-  /// Expiry Date
-  absl::Time expiry_date;
 
   bool IsAnonymous() const { return access_key.empty(); }
-  bool isExpired() const { return expiry_date < absl::Now(); }
 };
 
 } // internal_kvstore_s3
