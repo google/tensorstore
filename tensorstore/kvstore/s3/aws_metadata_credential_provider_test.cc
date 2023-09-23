@@ -52,15 +52,15 @@ TEST(EC2MetadataCredentialProviderTest, SimpleMock_EC2Token) {
                       {{"x-aws-ec2-metadata-token", "1234567890"}}}},
         {"GET http://169.254.169.254/latest/meta-data/iam/security-credentials/mock-iam-role",
          HttpResponse{200,
-                      absl::Cord{"{\n"
-                                 "  \"Code\": \"Success\"\n,"
-                                 "  \"LastUpdated\": \"2023-09-21T12:42:12Z\"\n,"
-                                 "  \"Type\": \"AWS-HMAC\"\n,"
-                                 "  \"AccessKeyId\": \"ASIA1234567890\"\n,"
-                                 "  \"SecretAccessKey\": \"1234567890abcdef\"\n,"
-                                 "  \"Token\": \"abcdef123456790\"\n,"
-                                 "  \"Expiration\": \"2023-09-21T12:42:12Z\"\n"
-                                 "}"},
+                      absl::Cord(R"({
+                                    "Code": "Success",
+                                    "LastUpdated": "2023-09-21T12:42:12Z",
+                                    "Type": "AWS-HMAC",
+                                    "AccessKeyId": "ASIA1234567890",
+                                    "SecretAccessKey": "1234567890abcdef",
+                                    "Token": "abcdef123456790",
+                                    "Expiration": "2023-09-21T12:42:12Z"
+                                 })"),
                       {{"x-aws-ec2-metadata-token", "1234567890"}}}}
     };
 
