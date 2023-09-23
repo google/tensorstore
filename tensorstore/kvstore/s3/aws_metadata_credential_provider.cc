@@ -94,13 +94,23 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(EC2CredentialsResponse,
 
 } // namespace
 
-
-
+/// Obtains AWS Credentials from the EC2Metadata.
+///
+/// https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-retrieval.html#instancedata-meta-data-retrieval-examples
+/// https://hackingthe.cloud/aws/exploitation/ec2-metadata-ssrf/
+///
+/// Credential retrieval follows this flow:
+///
+/// 1. Post to Metadata server path "/latest/api/token" to obtain an API token
+/// 2. Obtain the IAM status from path "/latest/meta-data/iam/".
+///    A 404 implies no IAM Role is associated with the current instance.
+///    An empty response implies the IAM Role has been revoked,
+///    possibly during the instance lifetime.
+/// 3. Obtain the IAM Role name from path "/latest/meta-data/iam/security-credentials".
+/// 4. Obtain the associated credentials from path "/latest/meta-data/iam/security-credentials/<iam-role>".
 Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
-    /// https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-retrieval.html#instancedata-meta-data-retrieval-examples
-    /// https://hackingthe.cloud/aws/exploitation/ec2-metadata-ssrf/
 
-    /// Get a token for communicating with the EC2 Metadata server
+    // Obtain an API token for communicating with the EC2 Metadata server
     auto token_request = HttpRequestBuilder{"POST", kTokenUrl}
                             .AddHeader(absl::StrCat(kTokenTtlHeader, ": 21600"))
                             .BuildRequest();
