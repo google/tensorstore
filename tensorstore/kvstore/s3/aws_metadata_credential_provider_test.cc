@@ -53,6 +53,7 @@ class EC2MetadataMockTransport : public HttpTransport {
   const absl::flat_hash_map<std::string, HttpResponse>& url_to_response_;
 };
 
+
 TEST(EC2MetadataCredentialProviderTest, CredentialRetrieval) {
     auto url_to_response = absl::flat_hash_map<std::string, HttpResponse>{
         {"POST http://http://169.254.169.254/latest/api/token",
@@ -84,6 +85,22 @@ TEST(EC2MetadataCredentialProviderTest, CredentialRetrieval) {
     ASSERT_EQ(credentials.secret_key, "1234567890abcdef");
     ASSERT_EQ(credentials.session_token, "abcdef123456790");
 }
+
+
+TEST(EC2MetadataCredentialProviderTest, NoIamRole) {
+    auto url_to_response = absl::flat_hash_map<std::string, HttpResponse>{
+        {"POST http://http://169.254.169.254/latest/api/token",
+         HttpResponse{200, absl::Cord{"1234567890"}}},
+        {"GET http://http://169.254.169.254/latest/meta-data/iam/",
+         HttpResponse{404, {}, {{"x-aws-ec2-metadata-token", "1234567890"}}}},
+    };
+
+    auto mock_transport = std::make_shared<EC2MetadataMockTransport>(url_to_response);
+    auto provider = std::make_shared<EC2MetadataCredentialProvider>(mock_transport);
+    TENSORSTORE_CHECK_OK_AND_ASSIGN(auto credentials, provider->GetCredentials());
+    ASSERT_TRUE(credentials.IsAnonymous());
+}
+
 
 TEST(EC2MetadataCredentialProviderTest, UnsuccesfulJsonResponse) {
     // Test that "Code" != "Success" parsing succeeds
