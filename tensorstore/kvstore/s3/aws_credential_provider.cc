@@ -46,10 +46,10 @@ namespace tensorstore {
 namespace internal_kvstore_s3 {
 namespace {
 
-// For reference, see the latest AWS environment variables used by the cli:
-// https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html
-
-
+/// Return a ChainedCredentialProvider that attempts to retrieve credentials from
+/// 1. AWS Environment Variables, e.g. AWS_ACCESS_KEY_ID
+/// 2. Shared Credential File, e.g. $HOME/.aws/credentials
+/// 3. EC2 Metadata Server
 Result<std::unique_ptr<AwsCredentialProvider>> GetDefaultAwsCredentialProvider(
     std::string_view profile,
     std::shared_ptr<internal_http::HttpTransport> transport) {
@@ -83,22 +83,17 @@ void RegisterAwsCredentialProviderProvider(AwsCredentialProviderFn provider,
             [](const auto& a, const auto& b) { return a.first < b.first; });
 }
 
-/// @brief Obtain a credential provider from a series of registered and default
+/// Obtain a credential provider from a series of registered and default
 /// providers
 ///
 /// Providers are returned in the following order:
 /// 1. Any registered providers that supply valid credentials
 /// 2. Environment variable provider if valid credential can be obtained from
 ///    AWS_* environment variables
-/// 3. File provider containing credentials from an ~/.aws/credentials file
-/// 4. EC2 Metadata server
-///
-/// @param profile The profile to use when retrieving credentials from a
-/// credentials file.
-/// @param transport Optionally specify the http transport used to retreive S3
-/// credentials
-///                  from the EC2 metadata server.
-/// @return Provider that supplies S3 Credentials
+/// 3. File provider containing credentials from the $HOME/.aws/credentials file.
+///    The `profile` variable overrides the default profile in this file.
+/// 4. EC2 Metadata server. The `transport` variable overrides the default
+///    HttpTransport.
 Result<std::unique_ptr<AwsCredentialProvider>> GetAwsCredentialProvider(
     std::string_view profile,
     std::shared_ptr<internal_http::HttpTransport> transport) {
