@@ -135,11 +135,10 @@ Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
 
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto iam_response,
-        transport_->IssueRequest(iam_request, {}).result()
-    )
+        transport_->IssueRequest(iam_request, {}).result())
 
     // No associated IAM role, implies anonymous access?
-    if(iam_response.status_code == 404) {
+    if(iam_response.status_code == 404)
         return AwsCredentials{};
     }
 
