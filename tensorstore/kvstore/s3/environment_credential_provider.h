@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_KVSTORE_S3_AWS_ENVIRONMENT_CREDENTIAL_PROVIDER_H
-#define TENSORSTORE_KVSTORE_S3_AWS_ENVIRONMENT_CREDENTIAL_PROVIDER_H
+#ifndef TENSORSTORE_KVSTORE_S3_ENVIRONMENT_CREDENTIAL_PROVIDER_H
+#define TENSORSTORE_KVSTORE_S3_ENVIRONMENT_CREDENTIAL_PROVIDER_H
 
 #include "tensorstore/kvstore/s3/aws_credentials.h"
 #include "tensorstore/kvstore/s3/aws_credential_provider.h"
@@ -35,4 +35,4 @@ class EnvironmentCredentialProvider : public AwsCredentialProvider {
 } // namespace internal_kvstore_s3
 } // namespace tensorstore
 
-#endif // TENSORSTORE_KVSTORE_S3_AWS_ENVIRONMENT_CREDENTIAL_PROVIDER_H
+#endif // TENSORSTORE_KVSTORE_S3_ENVIRONMENT_CREDENTIAL_PROVIDER_H

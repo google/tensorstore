@@ -13,8 +13,8 @@
 // limitations under the License.
 
 #include "tensorstore/kvstore/s3/aws_credential_provider.h"
-#include "tensorstore/kvstore/s3/aws_environment_credential_provider.h"
-#include "tensorstore/kvstore/s3/aws_file_credential_provider.h"
+#include "tensorstore/kvstore/s3/environment_credential_provider.h"
+#include "tensorstore/kvstore/s3/file_credential_provider.h"
 
 #include <algorithm>
 #include <fstream>

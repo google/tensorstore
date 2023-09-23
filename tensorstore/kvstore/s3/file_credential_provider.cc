@@ -15,7 +15,7 @@
 #include <fstream>
 
 #include "absl/strings/strip.h"
-#include "tensorstore/kvstore/s3/aws_file_credential_provider.h"
+#include "tensorstore/kvstore/s3/file_credential_provider.h"
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/path.h"
 
