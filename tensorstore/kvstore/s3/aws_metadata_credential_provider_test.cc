@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 #include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/util/str_cat.h"
+#include "tensorstore/util/status_testutil.h"
 
 namespace {
 
@@ -14,6 +15,7 @@ using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_http::HttpRequest;
 using ::tensorstore::internal_http::HttpTransport;
 using ::tensorstore::internal_kvstore_s3::EC2MetadataCredentialProvider;
+using ::tensorstore::MatchesStatus;
 
 class EC2MetadataMockTransport : public HttpTransport {
  public:
@@ -70,6 +72,30 @@ TEST(EC2MetadataCredentialProviderTest, SimpleMock_EC2Token) {
     ASSERT_EQ(credentials.access_key, "ASIA1234567890");
     ASSERT_EQ(credentials.secret_key, "1234567890abcdef");
     ASSERT_EQ(credentials.session_token, "abcdef123456790");
+}
+
+TEST(EC2MetadataCredentialProviderTest, UnsuccesfulJsonResponse) {
+    auto url_to_response = absl::flat_hash_map<std::string, HttpResponse>{
+        {"POST http://http://169.254.169.254/latest/api/token",
+         HttpResponse{200,
+                      absl::Cord{"1234567890"}}},
+        {"GET http://http://169.254.169.254/latest/meta-data/iam/",
+         HttpResponse{200,
+                      absl::Cord{"info"},
+                      {{"x-aws-ec2-metadata-token", "1234567890"}}}},
+        {"GET http://169.254.169.254/latest/meta-data/iam/security-credentials/",
+         HttpResponse{200,
+                      absl::Cord{"mock-iam-role"},
+                      {{"x-aws-ec2-metadata-token", "1234567890"}}}},
+        {"GET http://169.254.169.254/latest/meta-data/iam/security-credentials/mock-iam-role",
+         HttpResponse{200,
+                      absl::Cord(R"({"Code": "EntirelyUnsuccessful"})"),
+                      {{"x-aws-ec2-metadata-token", "1234567890"}}}}
+    };
+
+    auto mock_transport = std::make_shared<EC2MetadataMockTransport>(url_to_response);
+    auto provider = std::make_shared<EC2MetadataCredentialProvider>(mock_transport);
+    EXPECT_THAT(provider->GetCredentials().status(), MatchesStatus(absl::StatusCode::kUnauthenticated));
 }
 
 } // namespace

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 
+#include <optional>
 #include <string>
 
 #include "absl/time/time.h"
@@ -20,6 +21,7 @@
 #include "tensorstore/kvstore/s3/aws_metadata_credential_provider.h"
 #include "tensorstore/internal/json_binding/absl_time.h"
 #include "tensorstore/internal/json_binding/bindable.h"
+#include "tensorstore/internal/json_binding/std_optional.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 
 using ::tensorstore::Result;
@@ -57,12 +59,12 @@ static constexpr absl::Duration kConnectTimeout = absl::Milliseconds(200);
 /// http://http://169.254.169.254/latest/meta-data/iam/security-credentials/
 struct EC2CredentialsResponse {
   std::string Code;
-  absl::Time LastUpdated;
-  std::string Type;
-  std::string AccessKeyId;
-  std::string SecretAccessKey;
-  std::string Token;
-  absl::Time Expiration;
+  std::optional<absl::Time> LastUpdated;
+  std::optional<std::string> Type;
+  std::optional<std::string> AccessKeyId;
+  std::optional<std::string> SecretAccessKey;
+  std::optional<std::string> Token;
+  std::optional<absl::Time> Expiration;
 
   using ToJsonOptions = IncludeDefaults;
   using FromJsonOptions = internal_json_binding::NoOptions;
@@ -75,12 +77,12 @@ struct EC2CredentialsResponse {
 
 inline constexpr auto EC2CredentialsResponseBinder = jb::Object(
     jb::Member("Code", jb::Projection(&EC2CredentialsResponse::Code)),
-    jb::Member("LastUpdated", jb::Projection(&EC2CredentialsResponse::LastUpdated)),
-    jb::Member("Type", jb::Projection(&EC2CredentialsResponse::Type)),
-    jb::Member("AccessKeyId", jb::Projection(&EC2CredentialsResponse::AccessKeyId)),
-    jb::Member("SecretAccessKey", jb::Projection(&EC2CredentialsResponse::SecretAccessKey)),
-    jb::Member("Token", jb::Projection(&EC2CredentialsResponse::Token)),
-    jb::Member("Expiration", jb::Projection(&EC2CredentialsResponse::Expiration))
+    jb::OptionalMember("LastUpdated", jb::Projection(&EC2CredentialsResponse::LastUpdated)),
+    jb::OptionalMember("Type", jb::Projection(&EC2CredentialsResponse::Type)),
+    jb::OptionalMember("AccessKeyId", jb::Projection(&EC2CredentialsResponse::AccessKeyId)),
+    jb::OptionalMember("SecretAccessKey", jb::Projection(&EC2CredentialsResponse::SecretAccessKey)),
+    jb::OptionalMember("Token", jb::Projection(&EC2CredentialsResponse::Token)),
+    jb::OptionalMember("Expiration", jb::Projection(&EC2CredentialsResponse::Expiration))
 );
 
 TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(EC2CredentialsResponse,
@@ -171,9 +173,9 @@ Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
     }
 
     return AwsCredentials{
-        iam_credentials.AccessKeyId,
-        iam_credentials.SecretAccessKey,
-        iam_credentials.Token};
+        iam_credentials.AccessKeyId.value_or(""),
+        iam_credentials.SecretAccessKey.value_or(""),
+        iam_credentials.Token.value_or("")};
 }
 
 } // namespace tensorstore
