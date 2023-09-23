@@ -230,7 +230,9 @@ tensorstore_cc_test(
 tensorstore_cc_library(
     name = "aws_credential_provider",
     srcs = ["aws_credential_provider.cc"],
-    hdrs = ["aws_credential_provider.h"],
+    hdrs = [
+        "aws_credentials.h",
+        "aws_credential_provider.h"],
     deps = [
         "//tensorstore/internal:env",
         "//tensorstore/internal:no_destructor",
@@ -241,7 +243,8 @@ tensorstore_cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/synchronization",
-    ],
+        "@com_google_absl//absl/time",
+        ],
 )
 
 tensorstore_cc_test(

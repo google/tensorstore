@@ -23,29 +23,12 @@
 
 #include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
+#include "tensorstore/kvstore/s3/aws_credentials.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal_kvstore_s3 {
-
-/// Holds S3 credentials
-///
-/// Contains the access key, secret key and session token.
-/// An empty access key implies anonymous access,
-/// while the presence of a session token implies the use of
-/// short-lived STS credentials
-/// https://docs.aws.amazon.com/STS/latest/APIReference/welcome.html
-struct AwsCredentials {
-  /// AWS_ACCESS_KEY_ID
-  std::string access_key;
-  /// AWS_SECRET_KEY_ID
-  std::string secret_key;
-  /// AWS_SESSION_TOKEN
-  std::string session_token;
-
-  bool IsAnonymous() const { return access_key.empty(); }
-};
 
 /// Base class for S3 Credential Providers
 ///
