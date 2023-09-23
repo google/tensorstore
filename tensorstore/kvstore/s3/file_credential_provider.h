@@ -15,7 +15,6 @@
 #ifndef TENSORSTORE_KVSTORE_S3_FILE_CREDENTIAL_PROVIDER_H
 #define TENSORSTORE_KVSTORE_S3_FILE_CREDENTIAL_PROVIDER_H
 
-#include "tensorstore/kvstore/s3/aws_credentials.h"
 #include "tensorstore/kvstore/s3/aws_credential_provider.h"
 #include "tensorstore/util/result.h"
 
@@ -31,12 +30,16 @@ namespace internal_kvstore_s3 {
 /// "default".
 class FileCredentialProvider : public AwsCredentialProvider {
  private:
-  absl::Mutex mutex_;
+  // desired profile
   std::string profile_;
+  bool retrieved_;
 
  public:
-  FileCredentialProvider(std::string profile) : profile_(std::move(profile)) {}
+  FileCredentialProvider(std::string profile)
+    : profile_(std::move(profile)), retrieved_(false) {}
   Result<AwsCredentials> GetCredentials() override;
+  // Shared Credentials never expire once retrieved
+  bool IsExpired() override { return retrieved_; }
 };
 
 } // namespace internal_kvstore_s3

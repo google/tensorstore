@@ -23,15 +23,18 @@
 namespace tensorstore {
 namespace internal_kvstore_s3 {
 
+// Returns credentials from a chain of providers
 class ChainedCredentialProvider : public AwsCredentialProvider {
 private:
   std::vector<std::unique_ptr<AwsCredentialProvider>> providers_;
+  bool retrieved_;
 
 public:
   ChainedCredentialProvider(std::vector<std::unique_ptr<AwsCredentialProvider>> providers)
     : providers_(std::move(providers)) {}
 
   Result<AwsCredentials> GetCredentials() override;
+  bool IsExpired() override ABSL_LOCKS_EXCLUDED(mutex_) { return retrieved_; }
 };
 
 } // namespace tensorstore

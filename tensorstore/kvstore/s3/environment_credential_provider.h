@@ -15,7 +15,6 @@
 #ifndef TENSORSTORE_KVSTORE_S3_ENVIRONMENT_CREDENTIAL_PROVIDER_H
 #define TENSORSTORE_KVSTORE_S3_ENVIRONMENT_CREDENTIAL_PROVIDER_H
 
-#include "tensorstore/kvstore/s3/aws_credentials.h"
 #include "tensorstore/kvstore/s3/aws_credential_provider.h"
 #include "tensorstore/util/result.h"
 
@@ -26,10 +25,13 @@ namespace internal_kvstore_s3 {
 /// AWS_ACCESS_KEY_ID, AWS_SECRET_KEY_ID, AWS_SESSION_TOKEN
 class EnvironmentCredentialProvider : public AwsCredentialProvider {
  private:
-  AwsCredentials credentials_;
+  bool retrieved_;
 
  public:
+  EnvironmentCredentialProvider() : retrieved_(false) {}
   Result<AwsCredentials> GetCredentials() override;
+  // Credentials obtained from the environment never expire
+  bool IsExpired() override { return retrieved_; }
 };
 
 } // namespace internal_kvstore_s3

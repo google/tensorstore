@@ -25,13 +25,15 @@ namespace internal_kvstore_s3 {
 class EC2MetadataCredentialProvider : public AwsCredentialProvider {
  private:
   std::shared_ptr<internal_http::HttpTransport> transport_;
+  bool retrieved_;
 
  public:
   EC2MetadataCredentialProvider(
       std::shared_ptr<internal_http::HttpTransport> transport)
-      : transport_(std::move(transport)) {}
+      : transport_(std::move(transport)), retrieved_(false) {}
 
   Result<AwsCredentials> GetCredentials() override;
+  bool IsExpired() override { return retrieved_; }
 };
 
 } // internal_kvstore_s3

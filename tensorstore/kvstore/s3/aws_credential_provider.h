@@ -16,9 +16,7 @@
 #define TENSORSTORE_KVSTORE_S3_AWS_CREDENTIAL_PROVIDER
 
 #include <functional>
-#include <memory>
 #include <string_view>
-#include <utility>
 
 #include "tensorstore/kvstore/s3/aws_credentials.h"
 #include "tensorstore/internal/http/http_transport.h"
@@ -34,14 +32,14 @@ class AwsCredentialProvider {
  public:
   virtual ~AwsCredentialProvider() = default;
   virtual Result<AwsCredentials> GetCredentials() = 0;
+  virtual bool IsExpired() = 0;
 };
 
 /// Provides anonymous credentials
 class AnonymousCredentialProvider : public AwsCredentialProvider {
   public:
-    Result<AwsCredentials> GetCredentials() override {
-      return AwsCredentials{};
-    }
+    Result<AwsCredentials> GetCredentials() override { return AwsCredentials{}; }
+    bool IsExpired() override { return false; }
 };
 
 using AwsCredentialProviderFn =

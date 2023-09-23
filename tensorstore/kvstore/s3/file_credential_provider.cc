@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <fstream>
+#include <string_view>
 
 #include "absl/strings/strip.h"
 #include "tensorstore/kvstore/s3/file_credential_provider.h"
@@ -43,31 +44,25 @@ static constexpr char kEnvAwsProfile[] = "AWS_PROFILE";
 // Default profile
 static constexpr char kDefaultProfile[] = "default";
 
-/// Returns whether the given path points to a readable file.
-bool IsFile(const std::string& filename) {
-  std::ifstream fstream(filename.c_str());
-  return fstream.good();
-}
-
 Result<std::string> GetAwsCredentialsFileName() {
   std::string result;
 
-  auto credentials_file = GetEnv(kEnvAwsCredentialsFile);
-  if (!credentials_file) {
-    auto home_dir = GetEnv("HOME");
-    if (!home_dir) {
+  if (auto credentials_file = GetEnv(kEnvAwsCredentialsFile); credentials_file) {
+    result = *credentials_file;
+  } else {
+    if(auto home_dir = GetEnv("HOME"); home_dir) {
+      result = JoinPath(*home_dir, kDefaultAwsCredentialsFilePath);
+    } else {
       return absl::NotFoundError("Could not read $HOME");
     }
-    result = JoinPath(*home_dir, kDefaultAwsCredentialsFilePath);
-  } else {
-    result = *credentials_file;
   }
-  if (!IsFile(result)) {
+
+  if(auto fstream = std::ifstream(result.c_str()); !fstream.good()) {
     return absl::NotFoundError(
         absl::StrCat("Could not find the credentials file at "
-                     "location [",
-                     result, "]"));
+                     "location [", result, "]"));
   }
+
   return result;
 }
 
@@ -75,18 +70,15 @@ Result<std::string> GetAwsCredentialsFileName() {
 
 /// https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html#cli-configure-files-format
 Result<AwsCredentials> FileCredentialProvider::GetCredentials() {
-  absl::ReaderMutexLock lock(&mutex_);
   TENSORSTORE_ASSIGN_OR_RETURN(auto filename, GetAwsCredentialsFileName());
-  std::ifstream ifs(filename);
-  std::string profile = profile_.empty() ?
-                            GetEnv(kEnvAwsProfile).value_or(kDefaultProfile) :
-                            profile_;
-
-
+  std::ifstream ifs(filename.c_str());
   if (!ifs) {
     return absl::NotFoundError(
-        absl::StrCat("Could not open the credentials file [", filename, "]"));
+        absl::StrCat("Could not open credentials file [", filename, "]"));
   }
+
+  std::string profile = !profile_.empty() ? std::string(profile_) :
+                                            GetEnv(kEnvAwsProfile).value_or(kDefaultProfile);
 
   AwsCredentials credentials;
   std::string section_name;
@@ -133,6 +125,7 @@ Result<AwsCredentials> FileCredentialProvider::GetCredentials() {
   ABSL_LOG_FIRST_N(INFO, 1)
       << "Using profile [" << profile << "] in file [" << filename << "]";
 
+  retrieved_ = true;
   return credentials;
 }
 

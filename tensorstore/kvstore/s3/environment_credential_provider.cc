@@ -23,37 +23,34 @@ namespace internal_kvstore_s3 {
 namespace {
 
 // AWS user identifier
-constexpr char kEnvAwsAccessKeyId[] = "AWS_ACCESS_KEY_ID";
+static constexpr char kEnvAwsAccessKeyId[] = "AWS_ACCESS_KEY_ID";
 // AWS user password
-constexpr char kEnvAwsSecretAccessKey[] = "AWS_SECRET_ACCESS_KEY";
+static constexpr char kEnvAwsSecretAccessKey[] = "AWS_SECRET_ACCESS_KEY";
 // AWS session token
-constexpr char kEnvAwsSessionToken[] = "AWS_SESSION_TOKEN";
+static constexpr char kEnvAwsSessionToken[] = "AWS_SESSION_TOKEN";
 
 } // namespace
 
-Result<AwsCredentials> EnvironmentCredentialProvider::GetCredentials() {
-// 1. Obtain credentials from environment variables
+Result<AwsCredentials>
+EnvironmentCredentialProvider::GetCredentials() {
   if (auto access_key = GetEnv(kEnvAwsAccessKeyId); access_key) {
     ABSL_LOG_FIRST_N(INFO, 1)
         << "Using Environment Variable " << kEnvAwsAccessKeyId;
-    AwsCredentials credentials;
-    credentials.access_key = *access_key;
-    auto secret_key = GetEnv(kEnvAwsSecretAccessKey);
+    auto credentials = AwsCredentials{*access_key};
 
-    if (secret_key.has_value()) {
+    if(auto secret_key = GetEnv(kEnvAwsSecretAccessKey); secret_key) {
       credentials.secret_key = *secret_key;
     }
 
-    auto session_token = GetEnv(kEnvAwsSessionToken);
-
-    if (session_token.has_value()) {
+    if(auto session_token = GetEnv(kEnvAwsSessionToken); session_token) {
       credentials.session_token = *session_token;
     }
 
+    retrieved_ = true;
     return credentials;
   }
 
-  return absl::NotFoundError("AWS Credentials not found in environment variables");
+  return absl::NotFoundError(absl::StrCat(kEnvAwsAccessKeyId, " not set"));
 }
 
 } // namespace internal_kvstore_s3

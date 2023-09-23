@@ -18,9 +18,10 @@
 namespace tensorstore {
 namespace internal_kvstore_s3 {
 
-Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials()
+Result<AwsCredentials>
+EC2MetadataCredentialProvider::GetCredentials()
 {
-    return absl::NotFoundError("EC2 Metadata Server");
+  return absl::NotFoundError("EC2 Metadata Server");
 }
 
 
