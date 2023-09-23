@@ -54,7 +54,7 @@ class EC2MetadataMockTransport : public HttpTransport {
 };
 
 
-TEST(EC2MetadataCredentialProviderTest, CredentialRetrieval) {
+TEST(EC2MetadataCredentialProviderTest, CredentialRetrievalFlow) {
     auto url_to_response = absl::flat_hash_map<std::string, HttpResponse>{
         {"POST http://http://169.254.169.254/latest/api/token",
          HttpResponse{200, absl::Cord{"1234567890"}}},
