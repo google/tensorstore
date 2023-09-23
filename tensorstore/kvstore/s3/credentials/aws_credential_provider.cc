@@ -16,6 +16,7 @@
 #include "tensorstore/kvstore/s3/credentials/environment_credential_provider.h"
 #include "tensorstore/kvstore/s3/credentials/file_credential_provider.h"
 #include "tensorstore/kvstore/s3/credentials/ec2_credential_provider.h"
+#include "tensorstore/kvstore/s3/credentials/cached_credential_provider.h"
 #include "tensorstore/kvstore/s3/credentials/chained_credential_provider.h"
 
 #include <algorithm>
@@ -58,7 +59,8 @@ Result<std::unique_ptr<AwsCredentialProvider>> GetDefaultAwsCredentialProvider(
   providers.emplace_back(std::make_unique<EnvironmentCredentialProvider>());
   providers.emplace_back(std::make_unique<FileCredentialProvider>(std::string(profile)));
   providers.emplace_back(std::make_unique<EC2MetadataCredentialProvider>(transport));
-  return std::make_unique<ChainedCredentialProvider>(std::move(providers));
+  return std::make_unique<CachedCredentialProvider>(
+    std::make_unique<ChainedCredentialProvider>(std::move(providers)));
 }
 
 struct AwsCredentialProviderRegistry {
