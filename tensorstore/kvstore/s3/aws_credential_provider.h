@@ -17,12 +17,9 @@
 
 #include <functional>
 #include <memory>
-#include <string>
 #include <string_view>
 #include <utility>
 
-#include "absl/status/status.h"
-#include "absl/synchronization/mutex.h"
 #include "tensorstore/kvstore/s3/aws_credentials.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/util/result.h"
