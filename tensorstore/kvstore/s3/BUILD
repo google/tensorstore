@@ -229,10 +229,13 @@ tensorstore_cc_test(
 
 tensorstore_cc_library(
     name = "aws_credential_provider",
-    srcs = ["aws_credential_provider.cc"],
+    srcs = [
+        "aws_credential_provider.cc",
+        "aws_environment_credential_provider.cc"],
     hdrs = [
         "aws_credentials.h",
-        "aws_credential_provider.h"],
+        "aws_credential_provider.h",
+        "aws_environment_credential_provider.h"],
     deps = [
         "//tensorstore/internal:env",
         "//tensorstore/internal:no_destructor",

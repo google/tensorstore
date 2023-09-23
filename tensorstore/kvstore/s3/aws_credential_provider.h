@@ -39,18 +39,6 @@ class AwsCredentialProvider {
   virtual Result<AwsCredentials> GetCredentials() = 0;
 };
 
-/// Provides credentials from the following environment variables:
-/// AWS_ACCESS_KEY_ID, AWS_SECRET_KEY_ID, AWS_SESSION_TOKEN
-class EnvironmentCredentialProvider : public AwsCredentialProvider {
- private:
-  AwsCredentials credentials_;
-
- public:
-  EnvironmentCredentialProvider(const AwsCredentials& credentials)
-      : credentials_(credentials) {}
-
-  Result<AwsCredentials> GetCredentials() override { return credentials_; }
-};
 
 /// Obtains S3 credentials from a profile in a file, usually
 /// `~/.aws/credentials` or a file specified in AWS_SHARED_CREDENTIALS_FILE. A

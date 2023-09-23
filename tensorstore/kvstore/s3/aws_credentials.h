@@ -18,6 +18,7 @@
 #include <string>
 
 #include "absl/time/time.h"
+#include "absl/time/clock.h"
 
 namespace tensorstore {
 namespace internal_kvstore_s3 {

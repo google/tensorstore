@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "tensorstore/kvstore/s3/aws_credential_provider.h"
+#include "tensorstore/kvstore/s3/aws_environment_credential_provider.h"
 
 #include <algorithm>
 #include <fstream>
@@ -99,25 +100,10 @@ Result<std::unique_ptr<AwsCredentialProvider>> GetDefaultAwsCredentialProvider(
     std::string_view profile,
     std::shared_ptr<internal_http::HttpTransport> transport) {
   // 1. Obtain credentials from environment variables
-  if (auto access_key = GetEnv(kEnvAwsAccessKeyId); access_key) {
-    ABSL_LOG_FIRST_N(INFO, 1)
-        << "Using Environment Variable " << kEnvAwsAccessKeyId;
-    AwsCredentials credentials;
-    credentials.access_key = *access_key;
-    auto secret_key = GetEnv(kEnvAwsSecretAccessKey);
 
-    if (secret_key.has_value()) {
-      credentials.secret_key = *secret_key;
-    }
-
-    auto session_token = GetEnv(kEnvAwsSessionToken);
-
-    if (session_token.has_value()) {
-      credentials.session_token = *session_token;
-    }
-
-    return std::make_unique<EnvironmentCredentialProvider>(
-        std::move(credentials));
+  auto env_creds = std::make_unique<EnvironmentCredentialProvider>();
+  if(env_creds->GetCredentials().ok()) {
+    return env_creds;
   }
 
   // 2. Obtain credentials from AWS_SHARED_CREDENTIALS_FILE or
