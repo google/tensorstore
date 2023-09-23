@@ -50,7 +50,7 @@ TEST(EC2MetadataCredentialProviderTest, SimpleMock_EC2Token) {
          HttpResponse{200,
                       absl::Cord{"mock-iam-role"},
                       {{"x-aws-ec2-metadata-token", "1234567890"}}}},
-        {"GET http://http://169.254.169.254/latest/meta-data/iam/security-credentials/mock-iam-role",
+        {"GET http://169.254.169.254/latest/meta-data/iam/security-credentials/mock-iam-role",
          HttpResponse{200,
                       absl::Cord{"{\n"
                                  "  \"Code\": \"Success\"\n,"

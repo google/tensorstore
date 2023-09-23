@@ -44,7 +44,7 @@ static constexpr char kTokenUrl[] = "http://http://169.254.169.254/latest/api/to
 // Obtain IAM status from this url
 static constexpr char kIamUrl[] = "http://http://169.254.169.254/latest/meta-data/iam/";
 // Obtain current IAM role from this url
-static constexpr char kIamCredentialsUrl[] = "http://http://169.254.169.254/latest/meta-data/iam/security-credentials/";
+static constexpr char kIamCredentialsUrl[] = "http://169.254.169.254/latest/meta-data/iam/security-credentials/";
 
 // Requests to the above server block outside AWS
 // Configure a timeout small enough not to degrade performance outside AWS
