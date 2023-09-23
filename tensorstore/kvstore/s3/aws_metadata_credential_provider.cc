@@ -161,10 +161,9 @@ Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
     auto iam_credentials_request_url = tensorstore::StrCat(kIamCredentialsUrl,
                                                            iam_role_response.payload);
 
-    auto iam_credentials_request = HttpRequestBuilder{"GET",
-                                iam_credentials_request_url}
-                            .AddHeader(token_header)
-        .BuildRequest();
+    auto iam_credentials_request = HttpRequestBuilder{"GET", iam_credentials_request_url}
+                                    .AddHeader(token_header)
+                                    .BuildRequest();
 
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto iam_credentials_response,
