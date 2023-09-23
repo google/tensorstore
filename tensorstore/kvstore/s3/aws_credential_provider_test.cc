@@ -30,7 +30,6 @@ namespace {
 
 using ::tensorstore::Future;
 using ::tensorstore::internal::GetEnv;
-using ::tensorstore::internal::JoinPath;
 using ::tensorstore::internal::SetEnv;
 using ::tensorstore::internal::UnsetEnv;
 using ::tensorstore::internal_http::HttpRequest;
@@ -38,27 +37,6 @@ using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_http::HttpTransport;
 using ::tensorstore::internal_kvstore_s3::GetAwsCredentialProvider;
 
-class TestData : public tensorstore::internal::ScopedTemporaryDirectory {
- public:
-  std::string WriteCredentialsFile() {
-    auto p = JoinPath(path(), "aws_config");
-    std::ofstream ofs(p);
-    ofs << "discarded_value = 500\n"
-           "\n"
-           "[default]\n"
-           "aws_access_key_id =AKIAIOSFODNN7EXAMPLE\n"
-           "aws_secret_access_key = wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY\n"
-           "aws_session_token= abcdef1234567890 \n"
-           "\n"
-           "[alice]\n"
-           "aws_access_key_id = AKIAIOSFODNN6EXAMPLE\n"
-           "aws_secret_access_key = "
-           "wJalrXUtnFEMI/K7MDENG/bPxRfiCZEXAMPLEKEY\n"
-           "\n";
-    ofs.close();
-    return p;
-  }
-};
 
 /// Cause EC2Metadata to always fail
 class NotFoundTransport : public HttpTransport {
@@ -114,63 +92,6 @@ TEST_F(AwsCredentialProviderTest, ProviderAwsCredentialsFromEnv) {
   ASSERT_EQ(credentials.access_key, "foo");
   ASSERT_EQ(credentials.secret_key, "bar");
   ASSERT_EQ(credentials.session_token, "qux");
-}
-
-TEST_F(AwsCredentialProviderTest, ProviderAwsCredentialsFromFileDefault) {
-  TestData test_data;
-  std::string credentials_filename = test_data.WriteCredentialsFile();
-
-  SetEnv("AWS_SHARED_CREDENTIALS_FILE", credentials_filename.c_str());
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto provider, GetAwsCredentialProvider("", transport_));
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials,
-                                   provider->GetCredentials());
-  ASSERT_EQ(credentials.access_key, "AKIAIOSFODNN7EXAMPLE");
-  ASSERT_EQ(credentials.secret_key, "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY");
-  ASSERT_EQ(credentials.session_token, "abcdef1234567890");
-}
-
-TEST_F(AwsCredentialProviderTest,
-       ProviderAwsCredentialsFromFileProfileOverride) {
-  TestData test_data;
-  std::string credentials_filename = test_data.WriteCredentialsFile();
-
-  SetEnv("AWS_SHARED_CREDENTIALS_FILE", credentials_filename.c_str());
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto provider,
-      GetAwsCredentialProvider("alice", transport_));
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials,
-                                   provider->GetCredentials());
-  ASSERT_EQ(credentials.access_key, "AKIAIOSFODNN6EXAMPLE");
-  ASSERT_EQ(credentials.secret_key, "wJalrXUtnFEMI/K7MDENG/bPxRfiCZEXAMPLEKEY");
-  ASSERT_EQ(credentials.session_token, "");
-}
-
-TEST_F(AwsCredentialProviderTest, ProviderAwsCredentialsFromFileProfileEnv) {
-  TestData test_data;
-  std::string credentials_filename = test_data.WriteCredentialsFile();
-
-  SetEnv("AWS_SHARED_CREDENTIALS_FILE", credentials_filename.c_str());
-  SetEnv("AWS_PROFILE", "alice");
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto provider, GetAwsCredentialProvider("", transport_));
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials,
-                                   provider->GetCredentials());
-  ASSERT_EQ(credentials.access_key, "AKIAIOSFODNN6EXAMPLE");
-  ASSERT_EQ(credentials.secret_key, "wJalrXUtnFEMI/K7MDENG/bPxRfiCZEXAMPLEKEY");
-  ASSERT_EQ(credentials.session_token, "");
-}
-
-TEST_F(AwsCredentialProviderTest,
-       ProviderAwsCredentialsFromFileInvalidProfileEnv) {
-  TestData test_data;
-  std::string credentials_filename = test_data.WriteCredentialsFile();
-
-  SetEnv("AWS_SHARED_CREDENTIALS_FILE", credentials_filename.c_str());
-  SetEnv("AWS_PROFILE", "bob");
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto provider, GetAwsCredentialProvider("", transport_));
-  ASSERT_FALSE(provider->GetCredentials().ok());
 }
 
 }  // namespace

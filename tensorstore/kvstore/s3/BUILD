@@ -272,6 +272,20 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_test(
+    name = "file_credential_provider_test",
+    srcs = ["file_credential_provider_test.cc"],
+    deps = [
+        ":aws_credential_provider",
+        "//tensorstore/internal:path",
+        "//tensorstore/internal:test_util",
+        #"//tensorstore/internal/http:curl_transport",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status_testutil",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_test(
     name = "localstack_test",
     srcs = ["localstack_test.cc"],
     tags = [
