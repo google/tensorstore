@@ -53,6 +53,9 @@ static constexpr char kIamCredentialsUrl[] = "http://169.254.169.254/latest/meta
 // but large enough to give the EC2Metadata enough time to respond
 static constexpr absl::Duration kConnectTimeout = absl::Milliseconds(200);
 
+// Successful EC2Metadata Security Credential Response Code
+static constexpr char kSuccess[] = "Success";
+
 /// Represents JSON returned from
 /// http://http://169.254.169.254/latest/meta-data/iam/security-credentials/<iam-role>/
 /// where <iam-role> is usually returned as a response from a request to
@@ -174,7 +177,7 @@ Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
         auto iam_credentials,
         EC2CredentialsResponse::FromJson(ParseJson(json_sv)));
 
-    if(iam_credentials.Code != "Success") {
+    if(iam_credentials.Code != kSuccess) {
         return absl::UnauthenticatedError(
             absl::StrCat("EC2Metadata request to [",
                          iam_credentials_request_url,
