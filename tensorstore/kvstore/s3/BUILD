@@ -232,12 +232,14 @@ tensorstore_cc_library(
     srcs = [
         "aws_credential_provider.cc",
         "environment_credential_provider.cc",
-        "file_credential_provider.cc"],
+        "file_credential_provider.cc",
+        "ec2_credential_provider.cc"],
     hdrs = [
         "aws_credentials.h",
         "aws_credential_provider.h",
         "environment_credential_provider.h",
-        "file_credential_provider.h"],
+        "file_credential_provider.h",
+        "ec2_credential_provider.h"],
     deps = [
         "//tensorstore/internal:env",
         "//tensorstore/internal:no_destructor",

@@ -40,22 +40,6 @@ class AwsCredentialProvider {
 };
 
 
-/// Provides S3 credentials from the EC2 Metadata server
-/// if running within AWS
-class EC2MetadataCredentialProvider : public AwsCredentialProvider {
- private:
-  std::shared_ptr<internal_http::HttpTransport> transport_;
-
- public:
-  EC2MetadataCredentialProvider(
-      std::shared_ptr<internal_http::HttpTransport> transport)
-      : transport_(std::move(transport)) {}
-
-  Result<AwsCredentials> GetCredentials() override {
-    return absl::UnimplementedError("EC2 Metadata Server");
-  }
-};
-
 using AwsCredentialProviderFn =
     std::function<Result<std::unique_ptr<AwsCredentialProvider>>()>;
 

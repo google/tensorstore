@@ -15,6 +15,7 @@
 #include "tensorstore/kvstore/s3/aws_credential_provider.h"
 #include "tensorstore/kvstore/s3/environment_credential_provider.h"
 #include "tensorstore/kvstore/s3/file_credential_provider.h"
+#include "tensorstore/kvstore/s3/ec2_credential_provider.h"
 
 #include <algorithm>
 #include <fstream>
@@ -65,10 +66,10 @@ Result<std::unique_ptr<AwsCredentialProvider>> GetDefaultAwsCredentialProvider(
     return file_creds;
   }
 
-  // 3. Obtain credentials from EC2 Metadata server
-  if (false) {
+  auto ec2_creds = std::make_unique<EC2MetadataCredentialProvider>(transport);
+  if(ec2_creds->GetCredentials().ok()) {
     ABSL_LOG(INFO) << "Using EC2 Metadata Service AwsCredentialProvider";
-    return std::make_unique<EC2MetadataCredentialProvider>(transport);
+    return ec2_creds;
   }
 
   return absl::NotFoundError(
