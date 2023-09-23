@@ -48,7 +48,7 @@ static constexpr char kIamCredentialsUrl[] = "http://169.254.169.254/latest/meta
 
 // Requests to the above server block outside AWS
 // Configure a timeout small enough not to degrade performance outside AWS
-// but large enough inside AWS
+// but large enough to give the EC2Metadata enough time to respond
 static constexpr absl::Duration kConnectTimeout = absl::Milliseconds(200);
 
 /// Represents JSON returned from
