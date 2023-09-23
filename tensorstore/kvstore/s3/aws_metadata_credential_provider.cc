@@ -178,7 +178,7 @@ Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
         EC2CredentialsResponse::FromJson(ParseJson(json_sv)));
 
     if(iam_credentials.Code != kSuccess) {
-        return absl::UnauthenticatedError(
+        return absl::NotFoundError(
             absl::StrCat("EC2Metadata request to [",
                          iam_credentials_request_url,
                          "] failed with ", json_sv));
