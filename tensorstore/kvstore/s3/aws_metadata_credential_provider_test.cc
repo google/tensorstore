@@ -89,6 +89,7 @@ TEST(EC2MetadataCredentialProviderTest, SimpleMock_EC2Token) {
 }
 
 TEST(EC2MetadataCredentialProviderTest, UnsuccesfulJsonResponse) {
+    // Test that "Code" != "Success" parsing succeeds
     auto url_to_response = absl::flat_hash_map<std::string, HttpResponse>{
         {"POST http://http://169.254.169.254/latest/api/token",
          HttpResponse{200,
@@ -109,7 +110,13 @@ TEST(EC2MetadataCredentialProviderTest, UnsuccesfulJsonResponse) {
 
     auto mock_transport = std::make_shared<EC2MetadataMockTransport>(url_to_response);
     auto provider = std::make_shared<EC2MetadataCredentialProvider>(mock_transport);
-    EXPECT_THAT(provider->GetCredentials().status(), MatchesStatus(absl::StatusCode::kUnauthenticated));
-}
+    auto credentials = provider->GetCredentials();
+
+    EXPECT_THAT(credentials.status(), MatchesStatus(absl::StatusCode::kNotFound));
+    EXPECT_THAT(credentials.status().ToString(),
+                ::testing::AllOf(
+                  ::testing::HasSubstr("EC2Metadata request"),
+                  ::testing::HasSubstr("failed with {\"Code\": \"EntirelyUnsuccessful\"}")));
+  }
 
 } // namespace
