@@ -25,7 +25,7 @@
 #include "absl/time/civil_time.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/http/http_request.h"
-#include "tensorstore/kvstore/s3/aws_credential_provider.h"
+#include "tensorstore/kvstore/s3/credentials/aws_credential_provider.h"
 
 using ::tensorstore::internal_kvstore_s3::AwsCredentials;
 using ::tensorstore::internal_kvstore_s3::S3RequestBuilder;

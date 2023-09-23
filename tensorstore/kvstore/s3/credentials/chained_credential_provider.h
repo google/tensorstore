@@ -18,7 +18,7 @@
 #include <memory>
 #include <vector>
 
-#include "tensorstore/kvstore/s3/aws_credential_provider.h"
+#include "tensorstore/kvstore/s3/credentials/aws_credential_provider.h"
 
 namespace tensorstore {
 namespace internal_kvstore_s3 {

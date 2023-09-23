@@ -14,7 +14,7 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/str_join.h"
-#include "tensorstore/kvstore/s3/chained_credential_provider.h"
+#include "tensorstore/kvstore/s3/credentials/chained_credential_provider.h"
 
 namespace tensorstore {
 namespace internal_kvstore_s3 {

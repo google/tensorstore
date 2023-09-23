@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/kvstore/s3/file_credential_provider.h"
+#include "tensorstore/kvstore/s3/credentials/file_credential_provider.h"
 
 #include <fstream>
 #include <string>

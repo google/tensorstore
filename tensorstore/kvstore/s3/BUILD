@@ -44,7 +44,6 @@ tensorstore_cc_library(
     hdrs = ["s3_metadata.h"],
     local_defines = DEBUG_LOCAL_DEFINES,
     deps = [
-        ":aws_credential_provider",
         ":s3_request_builder",
         ":s3_resource",
         ":s3_uri_utils",
@@ -68,6 +67,7 @@ tensorstore_cc_library(
         "//tensorstore/kvstore:key_range",
         "//tensorstore/kvstore/gcs:validate",
         "//tensorstore/kvstore/gcs_http:rate_limiter",
+        "//tensorstore/kvstore/s3/credentials:aws_credential_provider",
         "//tensorstore/serialization",
         "//tensorstore/util:executor",
         "//tensorstore/util:future",
@@ -170,11 +170,11 @@ tensorstore_cc_library(
     ],
     local_defines = DEBUG_LOCAL_DEFINES,
     deps = [
-        ":aws_credential_provider",
         ":s3_uri_utils",
         "//tensorstore/internal:uri_utils",
         "//tensorstore/internal/digest:sha256",
         "//tensorstore/internal/http",
+        "//tensorstore/kvstore/s3/credentials:aws_credential_provider",
         "//tensorstore/kvstore:byte_range",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/log:absl_log",
@@ -191,9 +191,9 @@ tensorstore_cc_test(
     size = "small",
     srcs = ["s3_request_builder_test.cc"],
     deps = [
-        ":aws_credential_provider",
         ":s3_request_builder",
         "//tensorstore/internal/http",
+        "//tensorstore/kvstore/s3/credentials:aws_credential_provider",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/time",
@@ -227,88 +227,6 @@ tensorstore_cc_test(
     ],
 )
 
-tensorstore_cc_library(
-    name = "aws_credential_provider",
-    srcs = [
-        "aws_credential_provider.cc",
-        "chained_credential_provider.cc",
-        "environment_credential_provider.cc",
-        "file_credential_provider.cc",
-        "ec2_credential_provider.cc"],
-    hdrs = [
-        "aws_credentials.h",
-        "aws_credential_provider.h",
-        "chained_credential_provider.h",
-        "environment_credential_provider.h",
-        "file_credential_provider.h",
-        "ec2_credential_provider.h"],
-    deps = [
-        "//tensorstore/internal:env",
-        "//tensorstore/internal:no_destructor",
-        "//tensorstore/internal:path",
-        "//tensorstore/internal/http",
-        "//tensorstore/util:result",
-        "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/synchronization",
-        "@com_google_absl//absl/time",
-        ],
-)
-
-tensorstore_cc_test(
-    name = "aws_credential_provider_test",
-    srcs = ["aws_credential_provider_test.cc"],
-    deps = [
-        ":aws_credential_provider",
-        "//tensorstore/internal:env",
-        "//tensorstore/internal:path",
-        "//tensorstore/internal:test_util",
-        "//tensorstore/internal/http:curl_transport",
-        "//tensorstore/util:result",
-        "//tensorstore/util:status_testutil",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "environmental_credential_provider_test",
-    srcs = ["environment_credential_provider_test.cc"],
-    deps = [
-        ":aws_credential_provider",
-        "//tensorstore/internal:test_util",
-        "//tensorstore/util:result",
-        "//tensorstore/util:status_testutil",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-
-tensorstore_cc_test(
-    name = "file_credential_provider_test",
-    srcs = ["file_credential_provider_test.cc"],
-    deps = [
-        ":aws_credential_provider",
-        "//tensorstore/internal:path",
-        "//tensorstore/internal:test_util",
-        "//tensorstore/util:result",
-        "//tensorstore/util:status_testutil",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-
-tensorstore_cc_test(
-    name = "chained_credential_provider_test",
-    srcs = ["chained_credential_provider_test.cc"],
-    deps = [
-        ":aws_credential_provider",
-        "//tensorstore/internal:test_util",
-        "//tensorstore/util:result",
-        "//tensorstore/util:status_testutil",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
 
 
 tensorstore_cc_test(
@@ -320,7 +238,7 @@ tensorstore_cc_test(
         "skip-cmake",  # localstack is python, which will not work in bazel_to_cmake.
     ],
     deps = [
-        ":aws_credential_provider",
+        "//tensorstore/kvstore/s3/aws_credential_provider",
         ":s3_request_builder",
         "//tensorstore:context",
         "//tensorstore:json_serialization_options_base",

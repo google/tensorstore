@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/kvstore/s3/aws_credential_provider.h"
-#include "tensorstore/kvstore/s3/environment_credential_provider.h"
-#include "tensorstore/kvstore/s3/file_credential_provider.h"
-#include "tensorstore/kvstore/s3/ec2_credential_provider.h"
-#include "tensorstore/kvstore/s3/chained_credential_provider.h"
+#include "tensorstore/kvstore/s3/credentials/aws_credential_provider.h"
+#include "tensorstore/kvstore/s3/credentials/environment_credential_provider.h"
+#include "tensorstore/kvstore/s3/credentials/file_credential_provider.h"
+#include "tensorstore/kvstore/s3/credentials/ec2_credential_provider.h"
+#include "tensorstore/kvstore/s3/credentials/chained_credential_provider.h"
 
 #include <algorithm>
 #include <fstream>
@@ -104,8 +104,7 @@ Result<std::unique_ptr<AwsCredentialProvider>> GetAwsCredentialProvider(
     if (credentials.ok()) return credentials;
   }
 
-  return internal_kvstore_s3::GetDefaultAwsCredentialProvider(profile,
-                                                              transport);
+  return GetDefaultAwsCredentialProvider(profile, transport);
 }
 
 }  // namespace internal_kvstore_s3

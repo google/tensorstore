@@ -14,7 +14,7 @@
 
 #include <string>
 
-#include "tensorstore/kvstore/s3/chained_credential_provider.h"
+#include "tensorstore/kvstore/s3/credentials/chained_credential_provider.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>

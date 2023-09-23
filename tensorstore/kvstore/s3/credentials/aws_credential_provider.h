@@ -18,7 +18,7 @@
 #include <functional>
 #include <string_view>
 
-#include "tensorstore/kvstore/s3/aws_credentials.h"
+#include "tensorstore/kvstore/s3/credentials/aws_credentials.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/util/result.h"
 

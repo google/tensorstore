@@ -41,7 +41,7 @@
 #include "tensorstore/internal/digest/sha256.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/uri_utils.h"
-#include "tensorstore/kvstore/s3/aws_credential_provider.h"
+#include "tensorstore/kvstore/s3/credentials/aws_credential_provider.h"
 #include "tensorstore/kvstore/s3/s3_uri_utils.h"
 
 #ifndef TENSORSTORE_INTERNAL_S3_LOG_AWS4

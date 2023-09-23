@@ -12,32 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_KVSTORE_S3_EC2_CREDENTIAL_PROVIDER_H
-#define TENSORSTORE_KVSTORE_S3_EC2_CREDENTIAL_PROVIDER_H
+#ifndef TENSORSTORE_KVSTORE_S3_ENVIRONMENT_CREDENTIAL_PROVIDER_H
+#define TENSORSTORE_KVSTORE_S3_ENVIRONMENT_CREDENTIAL_PROVIDER_H
 
-#include "tensorstore/kvstore/s3/aws_credential_provider.h"
+#include "tensorstore/kvstore/s3/credentials/aws_credential_provider.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal_kvstore_s3 {
 
-/// Provides S3 credentials from the EC2 Metadata server
-/// if running within AWS
-class EC2MetadataCredentialProvider : public AwsCredentialProvider {
+/// Provides credentials from the following environment variables:
+/// AWS_ACCESS_KEY_ID, AWS_SECRET_KEY_ID, AWS_SESSION_TOKEN
+class EnvironmentCredentialProvider : public AwsCredentialProvider {
  private:
-  std::shared_ptr<internal_http::HttpTransport> transport_;
   bool retrieved_;
 
  public:
-  EC2MetadataCredentialProvider(
-      std::shared_ptr<internal_http::HttpTransport> transport)
-      : transport_(std::move(transport)), retrieved_(false) {}
-
+  EnvironmentCredentialProvider() : retrieved_(false) {}
   Result<AwsCredentials> GetCredentials() override;
+  // Credentials obtained from the environment never expire
   bool IsExpired() override { return retrieved_; }
 };
 
-} // internal_kvstore_s3
-} // tensorstore
+} // namespace internal_kvstore_s3
+} // namespace tensorstore
 
-
-#endif // TENSORSTORE_KVSTORE_S3_EC2_CREDENTIAL_PROVIDER_H
+#endif // TENSORSTORE_KVSTORE_S3_ENVIRONMENT_CREDENTIAL_PROVIDER_H

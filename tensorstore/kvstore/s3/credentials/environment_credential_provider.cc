@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/kvstore/s3/environment_credential_provider.h"
+#include "tensorstore/kvstore/s3/credentials/environment_credential_provider.h"
 #include "tensorstore/internal/env.h"
 
 using ::tensorstore::internal::GetEnv;

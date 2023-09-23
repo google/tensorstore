@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #include "absl/status/status.h"
-#include "tensorstore/kvstore/s3/ec2_credential_provider.h"
+#include "tensorstore/kvstore/s3/credentials/ec2_credential_provider.h"
 
 namespace tensorstore {
 namespace internal_kvstore_s3 {

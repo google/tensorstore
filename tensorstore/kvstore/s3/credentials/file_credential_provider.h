@@ -15,7 +15,7 @@
 #ifndef TENSORSTORE_KVSTORE_S3_FILE_CREDENTIAL_PROVIDER_H
 #define TENSORSTORE_KVSTORE_S3_FILE_CREDENTIAL_PROVIDER_H
 
-#include "tensorstore/kvstore/s3/aws_credential_provider.h"
+#include "tensorstore/kvstore/s3/credentials/aws_credential_provider.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
