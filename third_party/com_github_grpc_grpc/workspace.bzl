@@ -32,6 +32,8 @@ def repo():
         ],
         patches = [
             Label("//third_party:com_github_grpc_grpc/patches/update_build_system.diff"),
+            # https://github.com/grpc/grpc/issues/34482
+            Label("//third_party:com_github_grpc_grpc/patches/issues_34482.diff"),
         ],
         patch_args = ["-p1"],
         repo_mapping = {
