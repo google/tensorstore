@@ -17,11 +17,19 @@
 
 // Riegeli reader that validates a digest at the end of the data.
 
+#include <stddef.h>
+
 #include <optional>
+#include <tuple>
+#include <utility>
 
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_format.h"
+#include "absl/types/optional.h"
+#include "riegeli/base/arithmetic.h"
+#include "riegeli/base/object.h"
+#include "riegeli/base/types.h"
 #include "riegeli/bytes/cord_reader.h"
 #include "riegeli/bytes/limiting_reader.h"
 #include "riegeli/bytes/read_all.h"
@@ -138,7 +146,6 @@ class DigestSuffixedReader
     riegeli::Reader* base_reader = Base::src().SrcReader();
     Base::Done();
     if (!this->ok()) return;
-    DigestType digest;
     auto status = DigestVerifier::VerifyDigest(Base::Digest(), *base_reader);
     if (!status.ok()) {
       this->FailWithoutAnnotation(std::move(status));
