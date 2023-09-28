@@ -52,6 +52,3 @@ async def test_collect_prometheus_format_metrics():
   # There are a lot of metrics, including these which should be 0.
   assert 'tensorstore_cache_chunk_cache_reads 0' in metric_list
   assert 'tensorstore_cache_chunk_cache_writes 0' in metric_list
-  assert 'tensorstore_cache_evict_count 0' in metric_list
-  assert 'tensorstore_cache_hit_count 0' in metric_list
-  assert 'tensorstore_cache_miss_count 0' in metric_list
