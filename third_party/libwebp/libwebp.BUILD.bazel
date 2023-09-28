@@ -49,8 +49,8 @@ cc_library(
         "src/dsp/dsp.h",
         "src/webp/decode.h",
         "src/webp/encode.h",
-        "src/webp/types.h",
         "src/webp/format_constants.h",
+        "src/webp/types.h",
     ],
     hdrs = glob(["src/utils/*.h"]),
     copts = C89_FLAGS,
@@ -60,6 +60,7 @@ cc_library(
     name = "sharpyuv",
     srcs = [
         "sharpyuv/sharpyuv.c",
+        "sharpyuv/sharpyuv_cpu.c",
         "sharpyuv/sharpyuv_csp.c",
         "sharpyuv/sharpyuv_dsp.c",
         "sharpyuv/sharpyuv_dsp.h",
@@ -71,10 +72,14 @@ cc_library(
     ],
     hdrs = [
         "sharpyuv/sharpyuv.h",
+        "sharpyuv/sharpyuv_cpu.h",
         "sharpyuv/sharpyuv_csp.h",
         "sharpyuv/sharpyuv_gamma.h",
     ],
     copts = C89_FLAGS,
+    textual_hdrs = [
+        "src/dsp/cpu.c",
+    ],
 )
 
 config_setting(
