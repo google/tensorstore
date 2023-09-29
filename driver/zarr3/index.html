@@ -4465,11 +4465,24 @@ to <code class="code highlight json docutils literal highlight-json"><span class
 <dt class="field-odd" id="optional-members-json-driver/zarr3/Codec/transpose.configuration">Optional members<span class="colon">:</span><a class="headerlink" href="#optional-members-json-driver/zarr3/Codec/transpose.configuration" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/zarr3/Codec/transpose.configuration.order">
-<span class="sig-name descname"><span class="pre">order</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">integer</span></span><a class="headerlink" href="#json-driver/zarr3/Codec/transpose.configuration.order" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">order</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">array</span></span><em> <span class="pre">of</span> </em><span class="desctype"><span class="pre">integer</span></span><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;C&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;F&quot;</span></code><a class="headerlink" href="#json-driver/zarr3/Codec/transpose.configuration.order" title="Permalink to this definition">¶</a></dt>
 <dd><span><p>Permutation of the dimensions.</p>
-  </span><p>The <code class="docutils literal notranslate"><span class="pre">i`th</span> <span class="pre">dimension</span> <span class="pre">of</span> <span class="pre">the</span> <span class="pre">encoded</span> <span class="pre">representation</span>
-<span class="pre">corresponds</span> <span class="pre">to</span> <span class="pre">dimension</span> <span class="pre">:literal:`order[i]</span></code> of the decoded
-(original) representation.</p>
+  </span><p>When an array is specified, the <code class="docutils literal notranslate"><span class="pre">i`th</span> <span class="pre">dimension</span> <span class="pre">of</span> <span class="pre">the</span>
+<span class="pre">encoded</span> <span class="pre">representation</span> <span class="pre">corresponds</span> <span class="pre">to</span> <span class="pre">dimension</span>
+<span class="pre">:literal:`order[i]</span></code> of the decoded (original) representation.</p>
+<p>The special value of <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;C&quot;</span></code> indicates the identity permutation
+<code class="code highlight python docutils literal highlight-python"><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="o">...</span><span class="p">,</span> <span class="n">n</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span></code> of unspecified length (equivalent to
+not specifying the <a class="reference internal" href="#json-driver/zarr3/Codec/transpose" title="driver/zarr3/Codec/transpose (JSON type) — Transposes the dimensions of an array."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/zarr3/Codec/transpose</span></code></a> codec at
+all), and the special value of <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;F&quot;</span></code> indicates the dimension
+reversal permutation <code class="code highlight python docutils literal highlight-python"><span class="p">[</span><span class="n">n</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span></code> of unspecified
+length.</p>
+<p>If combined with the <a class="reference internal" href="#json-driver/zarr3/Codec/bytes" title="driver/zarr3/Codec/bytes (JSON type) — Fixed-size encoding for numeric types."><code class="xref json json-schema docutils literal notranslate"><span class="pre">driver/zarr3/Codec/bytes</span></code></a> codec and no
+other transformations are applied, specifying <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;C&quot;</span></code> results in
+chunks stored in C (i.e. lexicographic or row-major) order, and
+specifying <code class="code highlight json docutils literal highlight-json"><span class="s2">&quot;F&quot;</span></code> results in chunks stored in Fortran order
+(i.e. colexicographic or column-major) order.  However, given
+the possible presence of other transformations, it is
+recommended to instead just specify a permutation explicitly.</p>
 </dd></dl>
 
 </dd>
