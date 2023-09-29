@@ -63,14 +63,13 @@ cc_library(
                    "lib/**/*.c",
                ],
                exclude = [
-                   "lib/vtls/sectransp.c",
-                   "lib/idn_win32.c",
                    "lib/socks_sspi.c",
                    "lib/system_win32.c",
                    "lib/vauth/spnego_sspi.c",
+                   "lib/vtls/openssl.c",
                    "lib/vtls/schannel.c",
                    "lib/vtls/schannel_verify.c",
-                   "lib/vtls/openssl.c",
+                   "lib/vtls/sectransp.c",
                ],
            ) +
            select({
@@ -81,7 +80,6 @@ cc_library(
                    "lib/vtls/sectransp.c",
                ],
                "@platforms//os:windows": [
-                   "lib/idn_win32.c",
                    "lib/socks_sspi.c",
                    "lib/system_win32.c",
                    "lib/vauth/spnego_sspi.c",
