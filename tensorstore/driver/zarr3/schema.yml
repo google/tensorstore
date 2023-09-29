@@ -404,14 +404,32 @@ definitions:
           type: object
           properties:
             order:
-              type: array
+              oneOf:
+              - type: array
+                items:
+                  type: integer
+              - const: "C"
+              - const: "F"
               title: Permutation of the dimensions.
               description: |
-                The :literal:`i`th dimension of the encoded representation
-                corresponds to dimension :literal:`order[i]` of the decoded
-                (original) representation.
-              items:
-                type: integer
+                When an array is specified, the :literal:`i`th dimension of the
+                encoded representation corresponds to dimension
+                :literal:`order[i]` of the decoded (original) representation.
+
+                The special value of ``"C"`` indicates the identity permutation
+                :python:`[0, 1, ..., n-1]` of unspecified length (equivalent to
+                not specifying the `~driver/zarr3/Codec/transpose` codec at
+                all), and the special value of ``"F"`` indicates the dimension
+                reversal permutation :python:`[n-1, ..., 1, 0]` of unspecified
+                length.
+
+                If combined with the `~driver/zarr3/Codec/bytes` codec and no
+                other transformations are applied, specifying ``"C"`` results in
+                chunks stored in C (i.e. lexicographic or row-major) order, and
+                specifying ``"F"`` results in chunks stored in Fortran order
+                (i.e. colexicographic or column-major) order.  However, given
+                the possible presence of other transformations, it is
+                recommended to instead just specify a permutation explicitly.
     examples:
     - name: transpose
       configuration:

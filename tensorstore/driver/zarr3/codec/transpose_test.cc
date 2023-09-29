@@ -21,16 +21,19 @@
 #include "tensorstore/driver/zarr3/codec/codec_chain_spec.h"
 #include "tensorstore/driver/zarr3/codec/codec_spec.h"
 #include "tensorstore/driver/zarr3/codec/codec_test_util.h"
+#include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
 
 using ::tensorstore::dtype_v;
+using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::internal_zarr3::ArrayCodecResolveParameters;
 using ::tensorstore::internal_zarr3::CodecRoundTripTestParams;
 using ::tensorstore::internal_zarr3::CodecSpecRoundTripTestParams;
 using ::tensorstore::internal_zarr3::GetDefaultBytesCodecJson;
+using ::tensorstore::internal_zarr3::TestCodecMerge;
 using ::tensorstore::internal_zarr3::TestCodecRoundTrip;
 using ::tensorstore::internal_zarr3::TestCodecSpecResolve;
 using ::tensorstore::internal_zarr3::TestCodecSpecRoundTrip;
@@ -40,6 +43,32 @@ TEST(TransposeTest, Basic) {
   CodecSpecRoundTripTestParams p;
   p.orig_spec = {
       {{"name", "transpose"}, {"configuration", {{"order", {2, 1, 0}}}}},
+  };
+  p.resolve_params.rank = 3;
+  p.expected_spec = {
+      {{"name", "transpose"}, {"configuration", {{"order", {2, 1, 0}}}}},
+      GetDefaultBytesCodecJson(),
+  };
+  TestCodecSpecRoundTrip(p);
+}
+
+TEST(TransposeTest, C) {
+  CodecSpecRoundTripTestParams p;
+  p.orig_spec = {
+      {{"name", "transpose"}, {"configuration", {{"order", "C"}}}},
+  };
+  p.resolve_params.rank = 3;
+  p.expected_spec = {
+      {{"name", "transpose"}, {"configuration", {{"order", {0, 1, 2}}}}},
+      GetDefaultBytesCodecJson(),
+  };
+  TestCodecSpecRoundTrip(p);
+}
+
+TEST(TransposeTest, F) {
+  CodecSpecRoundTripTestParams p;
+  p.orig_spec = {
+      {{"name", "transpose"}, {"configuration", {{"order", "F"}}}},
   };
   p.resolve_params.rank = 3;
   p.expected_spec = {
@@ -74,6 +103,39 @@ TEST(TransposeTest, RankMismatch) {
       MatchesStatus(absl::StatusCode::kInvalidArgument,
                     "Error resolving codec spec .* is not a valid dimension "
                     "permutation for a rank 2 array"));
+}
+
+TEST(TransposeTest, Merge) {
+  ::nlohmann::json perm_012 = {
+      {{"name", "transpose"}, {"configuration", {{"order", {0, 1, 2}}}}}};
+  ::nlohmann::json perm_210 = {
+      {{"name", "transpose"}, {"configuration", {{"order", {2, 1, 0}}}}}};
+  ::nlohmann::json perm_C = {
+      {{"name", "transpose"}, {"configuration", {{"order", "C"}}}}};
+  ::nlohmann::json perm_F = {
+      {{"name", "transpose"}, {"configuration", {{"order", "F"}}}}};
+  EXPECT_THAT(TestCodecMerge(perm_012, perm_C,
+                             /*strict=*/false),
+              ::testing::Optional(MatchesJson(perm_012)));
+  EXPECT_THAT(TestCodecMerge(perm_C, perm_012,
+                             /*strict=*/false),
+              ::testing::Optional(MatchesJson(perm_012)));
+  EXPECT_THAT(TestCodecMerge(perm_210, perm_F,
+                             /*strict=*/false),
+              ::testing::Optional(MatchesJson(perm_210)));
+  EXPECT_THAT(TestCodecMerge(perm_F, perm_210,
+                             /*strict=*/false),
+              ::testing::Optional(MatchesJson(perm_210)));
+  EXPECT_THAT(TestCodecMerge(perm_C, perm_C,
+                             /*strict=*/false),
+              ::testing::Optional(MatchesJson(perm_C)));
+  EXPECT_THAT(TestCodecMerge(perm_F, perm_F,
+                             /*strict=*/false),
+              ::testing::Optional(MatchesJson(perm_F)));
+  EXPECT_THAT(TestCodecMerge(perm_012, perm_210, /*strict=*/false),
+              MatchesStatus(absl::StatusCode::kFailedPrecondition));
+  EXPECT_THAT(TestCodecMerge(perm_C, perm_F, /*strict=*/false),
+              MatchesStatus(absl::StatusCode::kFailedPrecondition));
 }
 
 }  // namespace
