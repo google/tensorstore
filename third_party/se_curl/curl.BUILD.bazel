@@ -101,6 +101,7 @@ cc_library(
                 ":compiler_msvc": [],
                 "//conditions:default": [
                     "-Wno-string-plus-int",
+                    "-Wno-pointer-bool-conversion",
                 ],
             }) +
             select({
@@ -131,7 +132,7 @@ cc_library(
             "-lrt",
         ],
     }) + select({
-        ":compiler_mingw-gcc": [
+        ":compiler_mingw_gcc": [
             "-lws2_32",
             "-ladvapi32",
             "-lcrypt32",
@@ -415,16 +416,13 @@ write_file(
     newline = "unix",
 )
 
-config_setting(
-    name = "compiler_msvc",
-    flag_values = {
-        "@bazel_tools//tools/cpp:compiler": "msvc-cl",
-    },
-)
-
-config_setting(
-    name = "compiler_mingw-gcc",
-    flag_values = {
-        "@bazel_tools//tools/cpp:compiler": "mingw-gcc",
-    },
-)
+[
+    alias(
+        name = name,
+        actual = "@tensorstore//:{target}".format(target = name),
+    )
+    for name in [
+        "compiler_mingw_gcc",
+        "compiler_msvc",
+    ]
+]
