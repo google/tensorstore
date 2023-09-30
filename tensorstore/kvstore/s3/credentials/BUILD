@@ -20,6 +20,7 @@ tensorstore_cc_library(
         "cached_credential_provider.h",
         "chained_credential_provider.h",
         "environment_credential_provider.h",
+        "expiry_credential_provider.h",
         "file_credential_provider.h",
         "ec2_credential_provider.h"],
     deps = [
@@ -54,6 +55,18 @@ tensorstore_cc_test(
 tensorstore_cc_test(
     name = "environmental_credential_provider_test",
     srcs = ["environment_credential_provider_test.cc"],
+    deps = [
+        ":aws_credential_provider",
+        "//tensorstore/internal:test_util",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status_testutil",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "expiry_credential_provider_test",
+    srcs = ["expiry_credential_provider_test.cc"],
     deps = [
         ":aws_credential_provider",
         "//tensorstore/internal:test_util",

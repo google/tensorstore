@@ -31,30 +31,15 @@ namespace internal_kvstore_s3 {
 /// Implementers should override GetCredentials, IsExpired and,
 /// if the credential source supports specifying an expiry date, ExpiresAt.
 class AwsCredentialProvider {
- public:
-  virtual ~AwsCredentialProvider() = default;
-  virtual Result<AwsCredentials> GetCredentials() = 0;
-  virtual Result<absl::Time> ExpiresAt() {
-    return absl::UnimplementedError("AwsCredentialProvider::ExpiresAt");
-  };
-  virtual bool IsExpired() = 0;
-};
-
-/// Provides anonymous credentials
-class StaticCredentialProvider : public AwsCredentialProvider {
-  private:
-    AwsCredentials credentials_;
   public:
-    StaticCredentialProvider(std::string_view access_key="",
-                             std::string_view secret_key="",
-                             std::string_view session_token="")
-      : credentials_{std::string{access_key},
-                     std::string{secret_key},
-                     std::string{session_token}} {}
-
-    Result<AwsCredentials> GetCredentials() override { return credentials_; }
-    bool IsExpired() override { return false; }
+    virtual ~AwsCredentialProvider() = default;
+    virtual Result<AwsCredentials> GetCredentials() = 0;
+    virtual bool IsExpired() = 0;
+    virtual Result<absl::Time> ExpiresAt() {
+      return absl::UnimplementedError("AwsCredentialProvider::ExpiresAt");
+    };
 };
+
 
 using AwsCredentialProviderFn =
     std::function<Result<std::unique_ptr<AwsCredentialProvider>>()>;

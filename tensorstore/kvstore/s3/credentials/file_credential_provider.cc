@@ -77,8 +77,9 @@ Result<AwsCredentials> FileCredentialProvider::GetCredentials() {
         absl::StrCat("Could not open credentials file [", filename, "]"));
   }
 
-  std::string profile = !profile_.empty() ? std::string(profile_) :
-                                            GetEnv(kEnvAwsProfile).value_or(kDefaultProfile);
+  std::string profile = !profile_.empty() ?
+                          std::string(profile_) :
+                          GetEnv(kEnvAwsProfile).value_or(kDefaultProfile);
 
   AwsCredentials credentials;
   std::string section_name;

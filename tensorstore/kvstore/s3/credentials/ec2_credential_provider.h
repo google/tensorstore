@@ -15,25 +15,23 @@
 #ifndef TENSORSTORE_KVSTORE_S3_EC2_CREDENTIAL_PROVIDER_H
 #define TENSORSTORE_KVSTORE_S3_EC2_CREDENTIAL_PROVIDER_H
 
-#include "tensorstore/kvstore/s3/credentials/aws_credential_provider.h"
+#include "tensorstore/kvstore/s3/credentials/expiry_credential_provider.h"
 
 namespace tensorstore {
 namespace internal_kvstore_s3 {
 
 /// Provides S3 credentials from the EC2 Metadata server
 /// if running within AWS
-class EC2MetadataCredentialProvider : public AwsCredentialProvider {
+class EC2MetadataCredentialProvider : public ExpiryCredentialProvider {
  private:
   std::shared_ptr<internal_http::HttpTransport> transport_;
-  bool retrieved_;
 
  public:
   EC2MetadataCredentialProvider(
       std::shared_ptr<internal_http::HttpTransport> transport)
-      : transport_(std::move(transport)), retrieved_(false) {}
+      : transport_(std::move(transport)) {}
 
   Result<AwsCredentials> GetCredentials() override;
-  bool IsExpired() override { return retrieved_; }
 };
 
 } // internal_kvstore_s3
