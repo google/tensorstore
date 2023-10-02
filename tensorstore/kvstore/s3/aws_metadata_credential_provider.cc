@@ -48,9 +48,9 @@ static constexpr char kTokenTtlHeader[] = "x-aws-ec2-metadata-token-ttl-seconds"
 // Token header
 static constexpr char kMetadataTokenHeader[] = "x-aws-ec2-metadata-token";
 // Obtain Metadata server API tokens from this url
-static constexpr char kTokenUrl[] = "http://http://169.254.169.254/latest/api/token";
+static constexpr char kTokenUrl[] = "http://169.254.169.254/latest/api/token";
 // Obtain IAM status from this url
-static constexpr char kIamUrl[] = "http://http://169.254.169.254/latest/meta-data/iam/";
+static constexpr char kIamUrl[] = "http://169.254.169.254/latest/meta-data/iam/";
 // Obtain current IAM role from this url
 static constexpr char kIamCredentialsUrl[] = "http://169.254.169.254/latest/meta-data/iam/security-credentials/";
 
@@ -63,9 +63,9 @@ static constexpr absl::Duration kConnectTimeout = absl::Milliseconds(200);
 static constexpr char kSuccess[] = "Success";
 
 /// Represents JSON returned from
-/// http://http://169.254.169.254/latest/meta-data/iam/security-credentials/<iam-role>/
+/// http://169.254.169.254/latest/meta-data/iam/security-credentials/<iam-role>/
 /// where <iam-role> is usually returned as a response from a request to
-/// http://http://169.254.169.254/latest/meta-data/iam/security-credentials/
+/// http://169.254.169.254/latest/meta-data/iam/security-credentials/
 struct EC2CredentialsResponse {
   std::string Code;
   std::optional<absl::Time> LastUpdated;

@@ -56,9 +56,9 @@ class EC2MetadataMockTransport : public HttpTransport {
 
 TEST(EC2MetadataCredentialProviderTest, CredentialRetrievalFlow) {
     auto url_to_response = absl::flat_hash_map<std::string, HttpResponse>{
-        {"POST http://http://169.254.169.254/latest/api/token",
+        {"POST http://169.254.169.254/latest/api/token",
          HttpResponse{200, absl::Cord{"1234567890"}}},
-        {"GET http://http://169.254.169.254/latest/meta-data/iam/",
+        {"GET http://169.254.169.254/latest/meta-data/iam/",
          HttpResponse{200, absl::Cord{"info"},
                       {{"x-aws-ec2-metadata-token", "1234567890"}}}},
         {"GET http://169.254.169.254/latest/meta-data/iam/security-credentials/",
@@ -91,9 +91,9 @@ TEST(EC2MetadataCredentialProviderTest, CredentialRetrievalFlow) {
 /// with the instance result in a 404. Return anonynmous credentials.
 TEST(EC2MetadataCredentialProviderTest, NoIamRole) {
     auto url_to_response = absl::flat_hash_map<std::string, HttpResponse>{
-        {"POST http://http://169.254.169.254/latest/api/token",
+        {"POST http://169.254.169.254/latest/api/token",
          HttpResponse{200, absl::Cord{"1234567890"}}},
-        {"GET http://http://169.254.169.254/latest/meta-data/iam/",
+        {"GET http://169.254.169.254/latest/meta-data/iam/",
          HttpResponse{404, {}, {{"x-aws-ec2-metadata-token", "1234567890"}}}},
     };
 
@@ -109,9 +109,9 @@ TEST(EC2MetadataCredentialProviderTest, NoIamRole) {
 /// result in an empty response. Return anonymous credentials.
 TEST(EC2MetadataCredentialProviderTest, RevokedIamRole) {
     auto url_to_response = absl::flat_hash_map<std::string, HttpResponse>{
-        {"POST http://http://169.254.169.254/latest/api/token",
+        {"POST http://169.254.169.254/latest/api/token",
          HttpResponse{200, absl::Cord{"1234567890"}}},
-        {"GET http://http://169.254.169.254/latest/meta-data/iam/",
+        {"GET http://169.254.169.254/latest/meta-data/iam/",
          HttpResponse{200, absl::Cord{""}, {{"x-aws-ec2-metadata-token", "1234567890"}}}},
     };
 
@@ -125,9 +125,9 @@ TEST(EC2MetadataCredentialProviderTest, RevokedIamRole) {
 TEST(EC2MetadataCredentialProviderTest, UnsuccessfulJsonResponse) {
     // Test that "Code" != "Success" parsing succeeds
     auto url_to_response = absl::flat_hash_map<std::string, HttpResponse>{
-        {"POST http://http://169.254.169.254/latest/api/token",
+        {"POST http://169.254.169.254/latest/api/token",
          HttpResponse{200, absl::Cord{"1234567890"}}},
-        {"GET http://http://169.254.169.254/latest/meta-data/iam/",
+        {"GET http://169.254.169.254/latest/meta-data/iam/",
          HttpResponse{200, absl::Cord{"info"},
                       {{"x-aws-ec2-metadata-token", "1234567890"}}}},
         {"GET http://169.254.169.254/latest/meta-data/iam/security-credentials/",
