@@ -17,31 +17,60 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <algorithm>
 #include <cassert>
+#include <cmath>
+#include <cstddef>
+#include <limits>
 #include <memory>
 #include <string>
+#include <string_view>
+#include <type_traits>
+#include <utility>
+#include <vector>
 
 #include "absl/base/optimization.h"
 #include "absl/container/inlined_vector.h"
+#include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
+#include "absl/strings/numbers.h"
 #include "riegeli/bytes/cord_reader.h"
 #include "riegeli/bytes/cord_writer.h"
 #include "riegeli/bytes/read_all.h"
 #include "riegeli/bytes/reader.h"
 #include "riegeli/bytes/write.h"
 #include "riegeli/bytes/writer.h"
+#include "tensorstore/array.h"
+#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
-#include "tensorstore/driver/zarr/compressor.h"
+#include "tensorstore/driver/zarr/dtype.h"
+#include "tensorstore/index.h"
 #include "tensorstore/internal/data_type_endian_conversion.h"
 #include "tensorstore/internal/flat_cord_builder.h"
+#include "tensorstore/internal/integer_overflow.h"
+#include "tensorstore/internal/json/json.h"
+#include "tensorstore/internal/json/value_as.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/dimension_indexed.h"
 #include "tensorstore/internal/json_binding/enum.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/std_optional.h"
 #include "tensorstore/internal/riegeli/array_endian_codec.h"
+#include "tensorstore/internal/type_traits.h"
+#include "tensorstore/json_serialization_options_base.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/serialization/json_bindable.h"
+#include "tensorstore/strided_layout.h"
+#include "tensorstore/util/byte_strided_pointer.h"
+#include "tensorstore/util/element_pointer.h"
+#include "tensorstore/util/endian.h"
+#include "tensorstore/util/extents.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -69,20 +98,27 @@ void to_json(::nlohmann::json& out, DimensionSeparator value) {
 namespace {
 
 Result<double> DecodeFloat(const nlohmann::json& j) {
-  double value;
-  if (j == "NaN") {
-    value = std::numeric_limits<double>::quiet_NaN();
-  } else if (j == "Infinity") {
-    value = std::numeric_limits<double>::infinity();
-  } else if (j == "-Infinity") {
-    value = -std::numeric_limits<double>::infinity();
+  if (j.is_string()) {
+    const auto& j_str = j.get_ref<std::string const&>();
+    if (j_str == "NaN") {
+      return std::numeric_limits<double>::quiet_NaN();
+    } else if (j_str == "Infinity") {
+      return std::numeric_limits<double>::infinity();
+    } else if (j_str == "-Infinity") {
+      return -std::numeric_limits<double>::infinity();
+    } else {
+      // SimpleAtod also parses nan, inf, which are excluded below.
+      double value = 0;
+      if (absl::SimpleAtod(j_str, &value) && !std::isnan(value) &&
+          !std::isinf(value)) {
+        return value;
+      }
+    }
   } else if (j.is_number()) {
-    value = j.get<double>();
-  } else {
-    return absl::InvalidArgumentError(
-        tensorstore::StrCat("Invalid floating-point value: ", j.dump()));
+    return j.get<double>();
   }
-  return value;
+  return absl::InvalidArgumentError(
+      tensorstore::StrCat("Invalid floating-point value: ", j.dump()));
 }
 
 ::nlohmann::json EncodeFloat(double value) {

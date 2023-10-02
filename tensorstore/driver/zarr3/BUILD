@@ -182,8 +182,10 @@ tensorstore_cc_library(
     hdrs = ["chunk_cache.h"],
     deps = [
         "//tensorstore:array",
+        "//tensorstore:array_storage_statistics",
         "//tensorstore:box",
         "//tensorstore:index",
+        "//tensorstore:index_interval",
         "//tensorstore:rank",
         "//tensorstore:transaction",
         "//tensorstore/driver:chunk",
@@ -195,6 +197,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:grid_storage_statistics",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:lexicographical_grid_index_key",
+        "//tensorstore/internal:regular_grid",
         "//tensorstore/internal:storage_statistics",
         "//tensorstore/internal:type_traits",
         "//tensorstore/internal/cache",

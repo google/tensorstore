@@ -1,3 +1,4 @@
+load("//bazel:constants.bzl", "NO_STRINGOP_OVERLOAD")
 load("//bazel:tensorstore.bzl", "tensorstore_cc_library")
 load("//docs:doctest.bzl", "doctest_test")
 
@@ -23,6 +24,7 @@ filegroup(
 tensorstore_cc_library(
     name = "bmp",
     srcs = ["driver.cc"],
+    copts = NO_STRINGOP_OVERLOAD,
     deps = [
         "//tensorstore:array",
         "//tensorstore:data_type",

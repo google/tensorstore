@@ -17,11 +17,14 @@
 #include <array>
 #include <cassert>
 #include <optional>
+#include <string_view>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
+#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/driver/chunk.h"
 #include "tensorstore/driver/zarr3/codec/codec.h"
 #include "tensorstore/driver/zarr3/codec/codec_spec.h"
@@ -32,7 +35,9 @@
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/dimension_indexed.h"
+#include "tensorstore/internal/json_binding/enum.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/internal/json_binding/std_variant.h"
 #include "tensorstore/internal/storage_statistics.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/util/execution/any_receiver.h"
@@ -44,11 +49,58 @@ namespace tensorstore {
 namespace internal_zarr3 {
 
 namespace {
+namespace jb = ::tensorstore::internal_json_binding;
 absl::Status InvalidPermutationError(span<const DimensionIndex> order,
                                      DimensionIndex rank) {
   return absl::InvalidArgumentError(tensorstore::StrCat(
       order, " is not a valid dimension permutation for a rank ", rank,
       " array"));
+}
+
+constexpr auto OrderJsonBinder() {
+  return jb::Variant(
+      jb::Validate(
+          [](const auto& options, auto* obj) {
+            if (!IsValidPermutation(*obj)) {
+              return absl::InvalidArgumentError(
+                  tensorstore::StrCat(span<const DimensionIndex>(*obj),
+                                      " is not a valid permutation"));
+            }
+            return absl::OkStatus();
+          },
+          jb::DimensionIndexedVector(
+              nullptr, jb::Integer<DimensionIndex>(0, kMaxRank - 1))),
+      jb::Enum<ContiguousLayoutOrder, std::string_view>({
+          {c_order, "C"},
+          {fortran_order, "F"},
+      }));
+}
+
+bool TryMergeOrder(TransposeCodecSpec::Order& a,
+                   const TransposeCodecSpec::Order& b) {
+  struct Visitor {
+    TransposeCodecSpec::Order& merged;
+    bool operator()(const std::vector<DimensionIndex>& a,
+                    ContiguousLayoutOrder b) const {
+      return PermutationMatchesOrder(a, b);
+    }
+    bool operator()(ContiguousLayoutOrder a,
+                    const std::vector<DimensionIndex>& b) const {
+      if (PermutationMatchesOrder(b, a)) {
+        merged = b;
+        return true;
+      }
+      return false;
+    }
+    bool operator()(ContiguousLayoutOrder a, ContiguousLayoutOrder b) {
+      return a == b;
+    }
+    bool operator()(const std::vector<DimensionIndex>& a,
+                    const std::vector<DimensionIndex>& b) {
+      return a == b;
+    }
+  };
+  return std::visit(Visitor{a}, a, b);
 }
 }  // namespace
 
@@ -56,7 +108,8 @@ absl::Status TransposeCodecSpec::MergeFrom(const ZarrCodecSpec& other,
                                            bool strict) {
   using Self = TransposeCodecSpec;
   const auto& other_options = static_cast<const Self&>(other).options;
-  return MergeConstraint<&Options::order>("order", options, other_options);
+  return MergeConstraint<&Options::order>("order", options, other_options,
+                                          OrderJsonBinder(), &TryMergeOrder);
 }
 
 ZarrCodecSpec::Ptr TransposeCodecSpec::Clone() const {
@@ -160,15 +213,28 @@ class TransposeCodec : public ZarrArrayToArrayCodec {
  private:
   std::vector<DimensionIndex> inverse_order_;
 };
+
+Result<span<const DimensionIndex>> ResolveOrder(
+    const TransposeCodecSpec::Order& order, DimensionIndex rank,
+    span<DimensionIndex, kMaxRank> temp_permutation) {
+  if (auto* permutation = std::get_if<std::vector<DimensionIndex>>(&order)) {
+    if (!RankConstraint::Implies(permutation->size(), rank)) {
+      return InvalidPermutationError(*permutation, rank);
+    }
+    return {std::in_place, *permutation};
+  }
+  auto perm = temp_permutation.first(rank);
+  SetPermutation(std::get<ContiguousLayoutOrder>(order), perm);
+  return perm;
+}
 }  // namespace
 
 absl::Status TransposeCodecSpec::PropagateDataTypeAndShape(
     const ArrayDataTypeAndShapeInfo& decoded,
     ArrayDataTypeAndShapeInfo& encoded) const {
-  span<const DimensionIndex> order = options.order;
-  if (!RankConstraint::Implies(order.size(), decoded.rank)) {
-    return InvalidPermutationError(order, decoded.rank);
-  }
+  DimensionIndex temp_perm[kMaxRank];
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto order, ResolveOrder(options.order, decoded.rank, temp_perm));
   encoded.dtype = decoded.dtype;
   encoded.rank = order.size();
   if (decoded.shape) {
@@ -217,7 +283,9 @@ absl::Status TransposeCodecSpec::GetDecodedChunkLayout(
     const ArrayCodecChunkLayoutInfo& encoded,
     const ArrayDataTypeAndShapeInfo& decoded_info,
     ArrayCodecChunkLayoutInfo& decoded) const {
-  span<const DimensionIndex> order = options.order;
+  DimensionIndex temp_perm[kMaxRank];
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto order, ResolveOrder(options.order, decoded_info.rank, temp_perm));
   assert(encoded_info.rank == order.size());
   assert(decoded_info.rank == order.size());
   PropagateInnerOrderToDecoded(order, encoded.inner_order, decoded.inner_order);
@@ -231,10 +299,9 @@ absl::Status TransposeCodecSpec::GetDecodedChunkLayout(
 Result<ZarrArrayToArrayCodec::Ptr> TransposeCodecSpec::Resolve(
     ArrayCodecResolveParameters&& decoded, ArrayCodecResolveParameters& encoded,
     ZarrArrayToArrayCodecSpec::Ptr* resolved_spec) const {
-  span<const DimensionIndex> order = options.order;
-  if (!RankConstraint::Implies(order.size(), decoded.rank)) {
-    return InvalidPermutationError(order, decoded.rank);
-  }
+  DimensionIndex temp_perm[kMaxRank];
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto order, ResolveOrder(options.order, decoded.rank, temp_perm));
   encoded.dtype = decoded.dtype;
   encoded.rank = decoded.rank;
   assert(decoded.fill_value.rank() == 0);
@@ -247,29 +314,20 @@ Result<ZarrArrayToArrayCodec::Ptr> TransposeCodecSpec::Resolve(
                           encoded.read_chunk_shape);
   PropagateShapeToDecoded(inverse_order, decoded.codec_chunk_shape,
                           encoded.codec_chunk_shape);
-  if (resolved_spec) resolved_spec->reset(this);
+  if (resolved_spec) {
+    resolved_spec->reset(new TransposeCodecSpec({TransposeCodecSpec::Order(
+        std::vector<DimensionIndex>(order.begin(), order.end()))}));
+  }
   return internal::MakeIntrusivePtr<TransposeCodec>(std::move(inverse_order));
 }
 
 TENSORSTORE_GLOBAL_INITIALIZER {
   using Self = TransposeCodecSpec;
   using Options = Self::Options;
-  namespace jb = ::tensorstore::internal_json_binding;
   RegisterCodec<Self>(
       "transpose",
       jb::Projection<&Self::options>(jb::Sequence(jb::Member(
-          "order",
-          jb::Projection<&Options::order>(jb::Validate(
-              [](const auto& options, auto* obj) {
-                if (!IsValidPermutation(*obj)) {
-                  return absl::InvalidArgumentError(
-                      tensorstore::StrCat(span<const DimensionIndex>(*obj),
-                                          " is not a valid permutation"));
-                }
-                return absl::OkStatus();
-              },
-              jb::DimensionIndexedVector(
-                  nullptr, jb::Integer<DimensionIndex>(0, kMaxRank - 1))))))));
+          "order", jb::Projection<&Options::order>(OrderJsonBinder())))));
 }
 
 }  // namespace internal_zarr3

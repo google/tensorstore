@@ -126,22 +126,22 @@ inline T GetDefaultNaN() = delete;
 
 template <>
 inline dtypes::float32_t GetDefaultNaN<dtypes::float32_t>() {
-  return absl::bit_cast<dtypes::float32_t>(uint32_t(0x7fc00000));
+  return absl::bit_cast<dtypes::float32_t>(uint32_t{0x7fc00000});
 }
 
 template <>
 inline dtypes::float64_t GetDefaultNaN<dtypes::float64_t>() {
-  return absl::bit_cast<dtypes::float64_t>(uint64_t(0x7ff8000000000000));
+  return absl::bit_cast<dtypes::float64_t>(uint64_t{0x7ff8000000000000});
 }
 
 template <>
 inline dtypes::float16_t GetDefaultNaN<dtypes::float16_t>() {
-  return absl::bit_cast<dtypes::float16_t>(uint16_t(0x7e00));
+  return absl::bit_cast<dtypes::float16_t>(uint16_t{0x7e00});
 }
 
 template <>
 inline dtypes::bfloat16_t GetDefaultNaN<dtypes::bfloat16_t>() {
-  return absl::bit_cast<dtypes::bfloat16_t>(uint16_t(0x7fc0));
+  return absl::bit_cast<dtypes::bfloat16_t>(uint16_t{0x7fc0});
 }
 
 template <>
@@ -414,14 +414,16 @@ constexpr auto MetadataJsonBinder = [] {
     auto ensure_data_type = [&]() -> Result<DataType> {
       if constexpr (std::is_same_v<Self, ZarrMetadata>) {
         return obj->data_type;
-      } else {
-        // data_type is wrapped in std::optional<>
-        if (!obj->data_type) {
-          return absl::InvalidArgumentError(
-              "must be specified in conjunction with \"data_type\"");
-        }
-        return *obj->data_type;
       }
+      if constexpr (std::is_same_v<Self, ZarrMetadataConstraints>) {
+        // data_type is wrapped in std::optional<>
+        if (obj->data_type) {
+          return *obj->data_type;
+        }
+      }
+      // The return here works around a gcc flow analysis bug.
+      return absl::InvalidArgumentError(
+          "must be specified in conjunction with \"data_type\"");
     };
 
     return jb::Object(

@@ -41,6 +41,7 @@ tensorstore_cc_library(
     deps = [
         ":codec",
         "//tensorstore:array",
+        "//tensorstore:contiguous_layout",
         "//tensorstore:index",
         "//tensorstore:rank",
         "//tensorstore/driver:chunk",
@@ -185,6 +186,7 @@ tensorstore_cc_test(
         ":codec_test_util",
         ":transpose",
         "//tensorstore:data_type",
+        "//tensorstore/internal:json_gtest",
         "//tensorstore/util:status_testutil",
         "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",

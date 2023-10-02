@@ -27,7 +27,7 @@ def repo():
             "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/Blosc/c-blosc/archive/v1.21.1.zip",
         ],
         sha256 = "abdf8ad8e5f8a876d67b38d16ff0c40c0456cdce1dcbafe58b589671ff55d31a",
-        build_file = Label("//third_party:org_blosc_cblosc/bundled.BUILD.bazel"),
+        build_file = Label("//third_party:org_blosc_cblosc/cblosc.BUILD.bazel"),
         system_build_file = Label("//third_party:org_blosc_cblosc/system.BUILD.bazel"),
         patches = [
             # https://github.com/Blosc/c-blosc/pull/362

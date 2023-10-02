@@ -29,11 +29,13 @@
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "tensorstore/array.h"
+#include "tensorstore/array_storage_statistics.h"
 #include "tensorstore/box.h"
 #include "tensorstore/driver/chunk.h"
 #include "tensorstore/driver/chunk_receiver_utils.h"
 #include "tensorstore/driver/zarr3/codec/codec.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache/chunk_cache.h"
@@ -43,10 +45,12 @@
 #include "tensorstore/internal/grid_storage_statistics.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/lexicographical_grid_index_key.h"
+#include "tensorstore/internal/regular_grid.h"
 #include "tensorstore/internal/storage_statistics.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/key_range.h"
+#include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/rank.h"
@@ -253,10 +257,7 @@ void ShardedReadOrWrite(
   const auto& grid = self.grid();
   const auto& component_spec = grid.components[0];
 
-  struct State : public internal::ChunkOperationState<ChunkType> {
-    using Base = internal::ChunkOperationState<ChunkType>;
-    using Base::Base;
-  };
+  using State = internal::ChunkOperationState<ChunkType>;
   using ForwardingReceiver = internal::ForwardingChunkOperationReceiver<State>;
   span<const Index> chunk_shape = grid.chunk_shape;
   span<const DimensionIndex> chunked_to_cell_dimensions =
