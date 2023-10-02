@@ -37,21 +37,6 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_test(
-    name = "aws_credential_provider_test",
-    srcs = ["aws_credential_provider_test.cc"],
-    deps = [
-        ":aws_credential_provider",
-        "//tensorstore/internal:env",
-        "//tensorstore/internal:path",
-        "//tensorstore/internal:test_util",
-        "//tensorstore/internal/http:curl_transport",
-        "//tensorstore/util:result",
-        "//tensorstore/util:status_testutil",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_test(
     name = "environmental_credential_provider_test",
     srcs = ["environment_credential_provider_test.cc"],
     deps = [
