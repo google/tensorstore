@@ -74,14 +74,6 @@ struct EC2CredentialsResponse {
   std::optional<std::string> SecretAccessKey;
   std::optional<std::string> Token;
   std::optional<absl::Time> Expiration;
-
-  using ToJsonOptions = IncludeDefaults;
-  using FromJsonOptions = internal_json_binding::NoOptions;
-
-  TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(
-      EC2CredentialsResponse,
-      internal_kvstore_s3::EC2CredentialsResponse::FromJsonOptions,
-      internal_kvstore_s3::EC2CredentialsResponse::ToJsonOptions)
 };
 
 inline constexpr auto EC2CredentialsResponseBinder = jb::Object(
@@ -94,12 +86,6 @@ inline constexpr auto EC2CredentialsResponseBinder = jb::Object(
     jb::OptionalMember("Expiration", jb::Projection(&EC2CredentialsResponse::Expiration))
 );
 
-TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(EC2CredentialsResponse,
-                                       [](auto is_loading, const auto& options,
-                                          auto* obj, ::nlohmann::json* j) {
-                                         return EC2CredentialsResponseBinder(
-                                             is_loading, options, obj, j);
-                                       })
 
 } // namespace
 
@@ -179,10 +165,13 @@ Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
     TENSORSTORE_RETURN_IF_ERROR(HttpResponseCodeToStatus(iam_credentials_response));
 
     auto json_sv = iam_credentials_response.payload.Flatten();
+    auto json_credentials = ParseJson(json_sv);
 
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto iam_credentials,
-        EC2CredentialsResponse::FromJson(ParseJson(json_sv)));
+        jb::FromJson<EC2CredentialsResponse>(
+            json_credentials,
+            EC2CredentialsResponseBinder));
 
     if(iam_credentials.Code != kSuccess) {
         return absl::NotFoundError(
