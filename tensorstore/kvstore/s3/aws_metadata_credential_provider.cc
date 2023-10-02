@@ -121,7 +121,7 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(EC2CredentialsResponse,
 Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
 
     // Obtain an API token for communicating with the EC2 Metadata server
-    auto token_request = HttpRequestBuilder{"POST", kTokenUrl}
+    auto token_request = HttpRequestBuilder("POST", kTokenUrl)
                             .AddHeader(absl::StrCat(kTokenTtlHeader, ": 21600"))
                             .BuildRequest();
 
@@ -135,7 +135,7 @@ Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
 
     auto token_header = tensorstore::StrCat(kMetadataTokenHeader, ": ", token_response.payload);
 
-    auto iam_request = HttpRequestBuilder{"GET", kIamUrl}
+    auto iam_request = HttpRequestBuilder("GET", kIamUrl)
                             .AddHeader(token_header)
                             .BuildRequest();
 
@@ -155,7 +155,7 @@ Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
         return AwsCredentials{};
     }
 
-    auto iam_role_request = HttpRequestBuilder{"GET", kIamCredentialsUrl}
+    auto iam_role_request = HttpRequestBuilder("GET", kIamCredentialsUrl)
                             .AddHeader(token_header)
                             .BuildRequest();
 
@@ -168,7 +168,7 @@ Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
     auto iam_credentials_request_url = tensorstore::StrCat(kIamCredentialsUrl,
                                                            iam_role_response.payload);
 
-    auto iam_credentials_request = HttpRequestBuilder{"GET", iam_credentials_request_url}
+    auto iam_credentials_request = HttpRequestBuilder("GET", iam_credentials_request_url)
                                     .AddHeader(token_header)
                                     .BuildRequest();
 
