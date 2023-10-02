@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "absl/status/status.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/kvstore/s3/credentials/ec2_credential_provider.h"
 
 namespace tensorstore {

@@ -13,12 +13,16 @@
 // limitations under the License.
 
 #include <fstream>
+#include <string>
 #include <string_view>
 
 #include "absl/strings/strip.h"
+#include "absl/strings/str_cat.h"
+#include "absl/status/status.h"
 #include "tensorstore/kvstore/s3/credentials/file_credential_provider.h"
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/path.h"
+#include "tensorstore/util/result.h"
 
 using ::tensorstore::internal::GetEnv;
 using ::tensorstore::internal::JoinPath;

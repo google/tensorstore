@@ -18,7 +18,9 @@
 #include <memory>
 #include <vector>
 
+#include "absl/time/time.h"
 #include "tensorstore/kvstore/s3/credentials/aws_credential_provider.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal_kvstore_s3 {

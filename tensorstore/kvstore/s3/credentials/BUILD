@@ -15,7 +15,6 @@ tensorstore_cc_library(
         "file_credential_provider.cc",
         "ec2_credential_provider.cc"],
     hdrs = [
-        "aws_credentials.h",
         "aws_credential_provider.h",
         "cached_credential_provider.h",
         "chained_credential_provider.h",

@@ -15,8 +15,8 @@
 #ifndef TENSORSTORE_KVSTORE_S3_CACHED_CREDENTIAL_PROVIDER_H
 #define TENSORSTORE_KVSTORE_S3_CACHED_CREDENTIAL_PROVIDER_H
 
-#include "tensorstore/kvstore/s3/credentials/aws_credential_provider.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/kvstore/s3/credentials/aws_credential_provider.h"
 
 namespace tensorstore {
 namespace internal_kvstore_s3 {

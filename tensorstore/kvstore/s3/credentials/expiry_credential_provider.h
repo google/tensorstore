@@ -16,6 +16,7 @@
 #define TENSORSTORE_KVSTORE_S3_EXPIRY_CREDENTIAL_PROVIDER_H
 
 #include "absl/functional/function_ref.h"
+#include "absl/time/time.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/kvstore/s3/credentials/aws_credential_provider.h"
 

@@ -12,36 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <memory>
+#include <string>
+#include <string_view>
+#include <vector>
+
+#include "absl/synchronization/mutex.h"
+#include "absl/strings/str_cat.h"
+#include "tensorstore/internal/http/http_transport.h"
+#include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/kvstore/s3/credentials/aws_credential_provider.h"
 #include "tensorstore/kvstore/s3/credentials/environment_credential_provider.h"
 #include "tensorstore/kvstore/s3/credentials/file_credential_provider.h"
 #include "tensorstore/kvstore/s3/credentials/ec2_credential_provider.h"
 #include "tensorstore/kvstore/s3/credentials/cached_credential_provider.h"
 #include "tensorstore/kvstore/s3/credentials/chained_credential_provider.h"
-
-#include <algorithm>
-#include <fstream>
-#include <memory>
-#include <optional>
-#include <string>
-#include <string_view>
-#include <utility>
-#include <vector>
-
-#include "absl/log/absl_log.h"
-#include "absl/status/status.h"
-#include "absl/strings/ascii.h"
-#include "absl/strings/str_cat.h"
-#include "absl/synchronization/mutex.h"
-#include "tensorstore/internal/env.h"
-#include "tensorstore/internal/http/http_transport.h"
-#include "tensorstore/internal/no_destructor.h"
-#include "tensorstore/internal/path.h"
 #include "tensorstore/util/result.h"
 
 using ::tensorstore::Result;
-using ::tensorstore::internal::GetEnv;
-using ::tensorstore::internal::JoinPath;
 
 namespace tensorstore {
 namespace internal_kvstore_s3 {
