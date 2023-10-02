@@ -15,8 +15,12 @@
 #ifndef TENSORSTORE_KVSTORE_S3_AWS_METADATA_CREDENTIAL_PROVIDER_H
 #define TENSORSTORE_KVSTORE_S3_AWS_METADATA_CREDENTIAL_PROVIDER_H
 
+#include <memory>
+
+#include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/kvstore/s3/aws_credential_provider.h"
 #include "tensorstore/util/str_cat.h"
+#include "tensorstore/util/result.h"
 
 
 namespace tensorstore {

@@ -18,11 +18,17 @@
 
 #include "absl/time/time.h"
 #include "absl/strings/str_cat.h"
+#include "tensorstore/util/status.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/internal/http/http_request.h"
+#include "tensorstore/internal/http/http_response.h"
+#include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/kvstore/s3/aws_metadata_credential_provider.h"
 #include "tensorstore/internal/json_binding/absl_time.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/std_optional.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/util/str_cat.h"
 
 using ::tensorstore::Result;
 using ::tensorstore::internal::ParseJson;
@@ -138,7 +144,7 @@ Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
         transport_->IssueRequest(iam_request, {}).result())
 
     // No associated IAM role, implies anonymous access?
-    if(iam_response.status_code == 404)
+    if(iam_response.status_code == 404) {
         return AwsCredentials{};
     }
 
