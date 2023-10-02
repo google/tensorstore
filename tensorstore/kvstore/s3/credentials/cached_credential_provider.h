@@ -28,13 +28,14 @@ class CachedCredentialProvider : public AwsCredentialProvider {
   std::unique_ptr<AwsCredentialProvider> provider_ ABSL_GUARDED_BY(mutex_);
   AwsCredentials credentials_ ABSL_GUARDED_BY(mutex_);
 
+  bool IsExpiredLocked(const AwsCredentials & credentials) ABSL_SHARED_LOCKS_REQUIRED(mutex_);
+
  public:
   CachedCredentialProvider(std::unique_ptr<AwsCredentialProvider> provider)
-    : provider_(std::move(provider)) { assert(provider_); }
+    : provider_(std::move(provider)) {}
 
   Result<AwsCredentials> GetCredentials() override ABSL_LOCKS_EXCLUDED(mutex_);
   bool IsExpired() override ABSL_LOCKS_EXCLUDED(mutex_);
-  bool IsExpiredLocked(const AwsCredentials & credentials) ABSL_SHARED_LOCKS_REQUIRED(mutex_);
   Result<absl::Time> ExpiresAt()  override ABSL_LOCKS_EXCLUDED(mutex_);
 };
 

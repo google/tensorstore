@@ -28,7 +28,7 @@ namespace internal_kvstore_s3 {
 /// In addition to an expiry date, SetExpiration can also be supplied
 /// with a duration argument introduces jitter into the expiry to prevent
 /// retrieval of expired credentials.
-/// By default is constructed with absl::Now as a clock function,
+/// Constructed by default with absl::Now as a clock function,
 /// but can be supplied with a custom clock for testing purposes.
 class ExpiryCredentialProvider : public AwsCredentialProvider {
   private:
@@ -36,7 +36,7 @@ class ExpiryCredentialProvider : public AwsCredentialProvider {
     absl::FunctionRef<absl::Time()> clock_;
 
   public:
-    ExpiryCredentialProvider(const absl::FunctionRef<absl::Time()> & clock=absl::Now)
+    ExpiryCredentialProvider(absl::FunctionRef<absl::Time()> clock=absl::Now)
         : expiration_(absl::InfinitePast()), clock_(clock) {}
     void SetExpiration(const absl::Time & expiration,
                        const absl::Duration & window=absl::Seconds(0)) {

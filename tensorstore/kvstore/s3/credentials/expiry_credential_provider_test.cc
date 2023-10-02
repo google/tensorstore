@@ -41,41 +41,56 @@ class TestCredentialProvider : public ExpiryCredentialProvider {
 };
 
 TEST(ExpiryCredentialProviderTest, TestExpiry) {
-  /// Configure provider with a stuck clock
-  auto provider = TestCredentialProvider{[]() {
-    return absl::FromCivil(absl::CivilSecond(2023, 9, 6, 0, 4, 03), absl::UTCTimeZone());
-  }};
-  ASSERT_TRUE(provider.IsExpired());
-  EXPECT_THAT(provider.ExpiresAt(), absl::InfinitePast());
-
   auto utc = absl::UTCTimeZone();
-  auto zero_sec = absl::Seconds(0);
-  auto one_sec = absl::Seconds(1);
+
+  // window durations
+  auto window_zero = absl::Seconds(0);
+  auto window_one = absl::Seconds(1);
+
+  // Timestamps
+  auto two_seconds = absl::FromCivil(absl::CivilSecond(2023, 9, 6, 0, 4, 02), utc);
+  auto three_seconds = absl::FromCivil(absl::CivilSecond(2023, 9, 6, 0, 4, 03), utc);
+  auto four_seconds = absl::FromCivil(absl::CivilSecond(2023, 9, 6, 0, 4, 04), utc);
+  auto five_seconds = absl::FromCivil(absl::CivilSecond(2023, 9, 6, 0, 4, 05), utc);
+
+  auto frozen_time = three_seconds;
+  auto stuck_clock = [&frozen_time]() -> absl::Time { return frozen_time; };
+
+  /// Configure provider with a stuck clock
+  auto provider = TestCredentialProvider{stuck_clock};
+  ASSERT_TRUE(provider.IsExpired());
+  ASSERT_EQ(provider.ExpiresAt(), absl::InfinitePast());
 
   /// One second before clock
-  provider.SetExpiration(absl::FromCivil(absl::CivilSecond(2023, 9, 6, 0, 4, 02), utc), zero_sec);
+  provider.SetExpiration(two_seconds, window_zero);
   ASSERT_TRUE(provider.IsExpired());
+  ASSERT_EQ(provider.ExpiresAt(), two_seconds);
 
   // Matches clock exactly
-  provider.SetExpiration(absl::FromCivil(absl::CivilSecond(2023, 9, 6, 0, 4, 03), utc), zero_sec);
+  provider.SetExpiration(three_seconds, window_zero);
   ASSERT_FALSE(provider.IsExpired());
+  ASSERT_EQ(provider.ExpiresAt(), three_seconds);
 
   // One second after clock
-  provider.SetExpiration(absl::FromCivil(absl::CivilSecond(2023, 9, 6, 0, 4, 04), utc), zero_sec);
+  provider.SetExpiration(four_seconds, window_zero);
   ASSERT_FALSE(provider.IsExpired());
+  ASSERT_EQ(provider.ExpiresAt(), four_seconds);
 
   /// Test expiry with duration window
   // One second before clock
-  provider.SetExpiration(absl::FromCivil(absl::CivilSecond(2023, 9, 6, 0, 4, 03), utc), one_sec);
+  provider.SetExpiration(three_seconds, window_one);
   ASSERT_TRUE(provider.IsExpired());
+  ASSERT_EQ(provider.ExpiresAt(), two_seconds);
 
   // Matches clock exactly
-  provider.SetExpiration(absl::FromCivil(absl::CivilSecond(2023, 9, 6, 0, 4, 04), utc), one_sec);
+  provider.SetExpiration(four_seconds, window_one);
   ASSERT_FALSE(provider.IsExpired());
+  ASSERT_EQ(provider.ExpiresAt(), three_seconds);
 
   // One second after clock
-  provider.SetExpiration(absl::FromCivil(absl::CivilSecond(2023, 9, 6, 0, 4, 05), utc), one_sec);
+  provider.SetExpiration(five_seconds, window_one);
   ASSERT_FALSE(provider.IsExpired());
+  ASSERT_EQ(provider.ExpiresAt(), four_seconds);
 }
 
 
