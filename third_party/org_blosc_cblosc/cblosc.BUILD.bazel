@@ -25,9 +25,8 @@ BLOSC_LOCAL_DEFINES = select({
 ]
 
 BLOSC_COPTS = ["-I" + package_relative_path("blosc")] + select({
-    ":compiler_gcc": ["-Wno-unused-function"],
-    ":compiler_clang": ["-Wno-unused-function"],
-    "//conditions:default": [],
+    ":compiler_msvc": [],
+    "//conditions:default": ["-Wno-unused-function"],
 })
 
 cc_library(
@@ -148,16 +147,20 @@ cc_library(
         "blosc/blosc.h",
         "blosc/blosc-export.h",
     ],
-    copts = BLOSC_COPTS,
+    copts = BLOSC_COPTS +
+            select({
+                ":compiler_msvc": [],
+                "//conditions:default": ["-Wno-unused-but-set-variable"],
+            }),
     local_defines = BLOSC_LOCAL_DEFINES,
     strip_include_prefix = "blosc",
     visibility = ["//visibility:public"],
     deps = [
         ":blosc_common",
         ":shuffle",
-        "@net_zstd//:zstdlib",
         "@com_google_snappy//:snappy",
         "@net_zlib//:zlib",
+        "@net_zstd//:zstdlib",
         "@org_lz4//:lz4",
     ] + select({
         "@platforms//os:windows": [":win32"],
@@ -171,8 +174,6 @@ cc_library(
         actual = "@tensorstore//:{target}".format(target = name),
     )
     for name in [
-        "compiler_gcc",
-        "compiler_clang",
         "compiler_msvc",
     ]
 ]

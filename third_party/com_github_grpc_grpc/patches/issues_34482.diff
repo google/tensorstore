@@ -1,0 +1,38 @@
+diff -Nur a/BUILD b/BUILD
+--- a/BUILD	2023-05-18 16:47:46
++++ b/BUILD	2023-09-26 01:24:28
+@@ -1062,6 +1062,7 @@
+         "//src/core:slice_refcount",
+         "//src/core:status_helper",
+         "//src/core:transport_fwd",
++        "//src/core:notification",
+     ],
+ )
+ 
+@@ -1767,6 +1768,7 @@
+     deps = [
+         "gpr",
+         "grpc_trace",
++        "grpc_public_hdrs",
+     ],
+ )
+ 
+@@ -2633,6 +2635,7 @@
+     external_deps = [
+         "absl/strings",
+         "absl/strings:str_format",
++        "absl/types:optional",
+     ],
+     tags = ["nofixdeps"],
+     visibility = ["@grpc:iomgr_buffer_list"],
+diff -Nur a/src/core/BUILD b/src/core/BUILD
+--- a/src/core/BUILD	2023-05-18 16:47:46
++++ b/src/core/BUILD	2023-09-25 22:42:09
+@@ -2847,6 +2847,7 @@
+         "//:exec_ctx",
+         "//:gpr",
+         "//:tsi_base",
++        "//:grpc_public_hdrs",
+     ],
+ )
+ 

@@ -16,9 +16,11 @@
 #define TENSORSTORE_DRIVER_ZARR3_CODEC_TRANSPOSE_H_
 
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "absl/status/status.h"
+#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/driver/zarr3/codec/codec.h"
 #include "tensorstore/driver/zarr3/codec/codec_spec.h"
 #include "tensorstore/index.h"
@@ -29,9 +31,13 @@ namespace internal_zarr3 {
 
 class TransposeCodecSpec : public ZarrArrayToArrayCodecSpec {
  public:
+  using Order =
+      std::variant<std::vector<DimensionIndex>, ContiguousLayoutOrder>;
   struct Options {
-    // order[encoded_dim] specifies the corresponding decoded dim.
-    std::vector<DimensionIndex> order;
+    // order[encoded_dim] specifies the corresponding decoded dim.  `c_order` is
+    // equivalent to specifying `0, 1, ..., rank-1`.  `fortran_order` is
+    // equivalent to specifying `rank-1, ..., 1, 0`.
+    Order order;
   };
   TransposeCodecSpec() = default;
   explicit TransposeCodecSpec(Options&& options)

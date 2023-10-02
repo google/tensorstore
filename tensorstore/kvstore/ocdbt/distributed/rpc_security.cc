@@ -14,8 +14,16 @@
 
 #include "tensorstore/kvstore/ocdbt/distributed/rpc_security.h"
 
+#include <memory>
+#include <string>
+
 #include "absl/base/optimization.h"
+#include "absl/status/status.h"
+#include "grpcpp/security/credentials.h"  // third_party
+#include "grpcpp/security/server_credentials.h"  // third_party
+#include "grpcpp/server_context.h"  // third_party
 #include "tensorstore/internal/cache_key/cache_key.h"
+#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/no_destructor.h"
@@ -48,7 +56,7 @@ class InsecureRpcSecurityMethod : public RpcSecurityMethod {
       const override {
     return grpc::InsecureChannelCredentials();
   }
-  void EncodeCacheKey(std::string* out) const {
+  void EncodeCacheKey(std::string* out) const override {
     // This should never be called.  In the `OcdbtCoordinatorResource`, this
     // security method is represented by a null pointer.
     ABSL_UNREACHABLE();

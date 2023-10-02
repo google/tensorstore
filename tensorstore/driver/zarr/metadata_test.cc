@@ -14,19 +14,31 @@
 
 #include "tensorstore/driver/zarr/metadata.h"
 
+#include <stdint.h>
+
 #include <cmath>
+#include <complex>
 #include <limits>
+#include <string>
+#include <string_view>
 #include <type_traits>
+#include <utility>
+#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include <nlohmann/json.hpp>
+#include "tensorstore/array.h"
 #include "tensorstore/array_testutil.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/zarr/dtype.h"
 #include "tensorstore/internal/json_binding/gtest.h"
+#include "tensorstore/strided_layout.h"
+#include "tensorstore/util/endian.h"
 #include "tensorstore/util/status_testutil.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace {
 using ::tensorstore::ContiguousLayoutOrder;
@@ -115,6 +127,22 @@ void TestFillValueRoundTripFloat(const ::nlohmann::json& dtype) {
         {tensorstore::MatchesScalarArray<FloatType>(
             ::testing::internal::FloatingEqMatcher<FloatType>(
                 static_cast<FloatType>(NAN), /*nan_eq_nan=*/true))});
+  }
+
+  // Also test non-strict float values.
+  {
+    SCOPED_TRACE(tensorstore::StrCat("dtype=", dtype.dump()));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto parsed_dtype, ParseDType(dtype));
+    std::vector<tensorstore::SharedArray<const void>> fill_values{
+        MakeScalarArray<FloatType>(static_cast<FloatType>(1.0))};
+    std::vector<tensorstore::ArrayMatcher> fill_values_matcher(
+        fill_values.begin(), fill_values.end());
+
+    EXPECT_THAT(
+        ParseFillValue("1.0", parsed_dtype),
+        ::testing::Optional(::testing::ElementsAreArray(fill_values_matcher)))
+        << "encoded_fill_value=\"1.0\", fill_values="
+        << ::testing::PrintToString(fill_values);
   }
 }
 

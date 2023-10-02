@@ -15,6 +15,7 @@
 #ifndef TENSORSTORE_DRIVER_ZARR3_CODEC_REGISTRY_H_
 #define TENSORSTORE_DRIVER_ZARR3_CODEC_REGISTRY_H_
 
+#include <functional>
 #include <optional>
 #include <string_view>
 
@@ -50,10 +51,10 @@ constexpr inline auto OptionalIfConstraintsBinder(
   };
 }
 
-template <typename T, typename Binder>
-absl::Status MergeConstraint(std::string_view member, const T& a, const T& b,
-                             Binder binder) {
-  if (a != b) {
+template <typename T, typename Binder, typename TryMerge = std::equal_to<void>>
+absl::Status MergeConstraint(std::string_view member, T& a, const T& b,
+                             Binder binder, TryMerge try_merge = {}) {
+  if (!try_merge(a, b)) {
     return absl::FailedPreconditionError(absl::StrFormat(
         "Incompatible %s: %s vs %s", tensorstore::QuoteString(member),
         internal_json_binding::ToJson(a, binder).value().dump(),
@@ -62,27 +63,30 @@ absl::Status MergeConstraint(std::string_view member, const T& a, const T& b,
   return absl::OkStatus();
 }
 
-template <typename T, typename Binder>
+template <typename T, typename Binder, typename TryMerge = std::equal_to<void>>
 absl::Status MergeConstraint(std::string_view member, std::optional<T>& a,
-                             const std::optional<T>& b, Binder binder) {
+                             const std::optional<T>& b, Binder binder,
+                             TryMerge try_merge = {}) {
   if (!a && b) {
     a = *b;
     return absl::OkStatus();
   }
   if (a && b) {
-    return MergeConstraint(member, *a, *b, binder);
+    return MergeConstraint(member, *a, *b, binder, try_merge);
   }
   return absl::OkStatus();
 }
 
 template <auto Member, typename T,
-          typename Binder = decltype(internal_json_binding::DefaultBinder<>)>
+          typename Binder = decltype(internal_json_binding::DefaultBinder<>),
+          typename TryMerge = std::equal_to<void>>
 absl::Status MergeConstraint(
     std::string_view member, T& a, const T& b,
-    Binder binder = internal_json_binding::DefaultBinder<>) {
+    Binder binder = internal_json_binding::DefaultBinder<>,
+    TryMerge try_merge = {}) {
   auto& a_member = a.*Member;
   auto& b_member = b.*Member;
-  return MergeConstraint(member, a_member, b_member, binder);
+  return MergeConstraint(member, a_member, b_member, binder, try_merge);
 }
 
 using CodecRegistry =

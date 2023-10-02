@@ -79,6 +79,11 @@ cc_library(
             "-march=armv8-a+crc+crypto",
         ],
         "//conditions:default": [],
+    }) + select({
+        ":compiler_clang": [
+            "-Wno-deprecated-non-prototype",
+        ],
+        "//conditions:default": [],
     }),
     defines = ["CHROMIUM_ZLIB_NO_CHROMECONF"],
     local_defines = ZLIB_LOCAL_DEFINES,
