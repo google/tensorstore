@@ -58,7 +58,7 @@ TEST(CachedCredentialProviderTest, ExpiringProvider) {
 
     // Base case, no credentials have been retrieved yet
     ASSERT_TRUE(cached_provider.IsExpired());
-    ASSERT_EQ(cached_provider.ExpiresAt(), absl::InfiniteFuture());
+    ASSERT_EQ(cached_provider.ExpiresAt(), absl::InfinitePast());
     ASSERT_EQ(test_prov_ptr->iteration, 0);
 
     // Retrieve some credentials

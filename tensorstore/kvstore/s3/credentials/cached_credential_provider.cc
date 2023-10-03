@@ -38,8 +38,9 @@ bool CachedCredentialProvider::IsExpiredLocked(const AwsCredentials & credential
 Result<absl::Time>
 CachedCredentialProvider::ExpiresAt() {
     absl::ReaderMutexLock lock(&mutex_);
-    if(credentials_.IsAnonymous()) return absl::InfiniteFuture();
-    return provider_->ExpiresAt();
+    TENSORSTORE_ASSIGN_OR_RETURN(auto expires, provider_->ExpiresAt());
+    if(credentials_.IsAnonymous()) return absl::InfinitePast();
+    return expires;
 }
 
 Result<AwsCredentials>
