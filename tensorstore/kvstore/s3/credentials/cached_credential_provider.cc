@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "tensorstore/kvstore/s3/credentials/cached_credential_provider.h"
+
 #include "absl/synchronization/mutex.h"
 #include "absl/status/status.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/kvstore/s3/credentials/cached_credential_provider.h"
 
 namespace tensorstore {
 namespace internal_kvstore_s3 {
