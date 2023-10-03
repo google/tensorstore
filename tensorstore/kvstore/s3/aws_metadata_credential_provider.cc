@@ -33,6 +33,7 @@
 #include "tensorstore/util/str_cat.h"
 
 using ::tensorstore::Result;
+using ::tensorstore::internal::IntrusivePtr;
 using ::tensorstore::internal::ParseJson;
 using ::tensorstore::internal_http::HttpRequestBuilder;
 using ::tensorstore::internal_http::HttpResponseCodeToStatus;
@@ -77,17 +78,17 @@ struct EC2CredentialsResponse {
 };
 
 inline constexpr auto EC2CredentialsResponseBinder = jb::Object(
-    jb::Member("Code", jb::Projection(&EC2CredentialsResponse::Code)),
-    jb::OptionalMember("LastUpdated", jb::Projection(&EC2CredentialsResponse::LastUpdated)),
-    jb::OptionalMember("Type", jb::Projection(&EC2CredentialsResponse::Type)),
-    jb::OptionalMember("AccessKeyId", jb::Projection(&EC2CredentialsResponse::AccessKeyId)),
-    jb::OptionalMember("SecretAccessKey", jb::Projection(&EC2CredentialsResponse::SecretAccessKey)),
-    jb::OptionalMember("Token", jb::Projection(&EC2CredentialsResponse::Token)),
-    jb::OptionalMember("Expiration", jb::Projection(&EC2CredentialsResponse::Expiration))
+  jb::Member("Code", jb::Projection(&EC2CredentialsResponse::Code)),
+  jb::OptionalMember("LastUpdated", jb::Projection(&EC2CredentialsResponse::LastUpdated)),
+  jb::OptionalMember("Type", jb::Projection(&EC2CredentialsResponse::Type)),
+  jb::OptionalMember("AccessKeyId", jb::Projection(&EC2CredentialsResponse::AccessKeyId)),
+  jb::OptionalMember("SecretAccessKey", jb::Projection(&EC2CredentialsResponse::SecretAccessKey)),
+  jb::OptionalMember("Token", jb::Projection(&EC2CredentialsResponse::Token)),
+  jb::OptionalMember("Expiration", jb::Projection(&EC2CredentialsResponse::Expiration))
 );
 
-
 } // namespace
+
 
 /// Obtains AWS Credentials from the EC2Metadata.
 ///
@@ -100,74 +101,72 @@ inline constexpr auto EC2CredentialsResponseBinder = jb::Object(
 ///    The first role from a newline separated string is used.
 /// 3. Obtain the associated credentials from path "/latest/meta-data/iam/security-credentials/<iam-role>".
 Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
-    // Obtain an API token for communicating with the EC2 Metadata server
-    auto token_request = HttpRequestBuilder("POST", kTokenUrl)
-                            .AddHeader(absl::StrCat(kTokenTtlHeader, ": 21600"))
-                            .BuildRequest();
+  // Obtain an API token for communicating with the EC2 Metadata server
+  auto token_request = HttpRequestBuilder("POST", kTokenUrl)
+                          .AddHeader(absl::StrCat(kTokenTtlHeader, ": 21600"))
+                          .BuildRequest();
 
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto token_response,
-        transport_->IssueRequest(token_request, {},
-                                 absl::InfiniteDuration(),
-                                 kConnectTimeout).result());
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto token_response,
+      transport_->IssueRequest(token_request, {},
+                                    absl::InfiniteDuration(),
+                                    kConnectTimeout).result());
 
-    TENSORSTORE_RETURN_IF_ERROR(HttpResponseCodeToStatus(token_response));
+  TENSORSTORE_RETURN_IF_ERROR(HttpResponseCodeToStatus(token_response));
 
-    auto token_header = tensorstore::StrCat(kMetadataTokenHeader, ": ", token_response.payload);
+  auto token_header = tensorstore::StrCat(kMetadataTokenHeader, ": ", token_response.payload);
 
-    auto iam_role_request = HttpRequestBuilder("GET", kIamCredentialsUrl)
-                            .AddHeader(token_header)
-                            .BuildRequest();
+  auto iam_role_request = HttpRequestBuilder("GET", kIamCredentialsUrl)
+                          .AddHeader(token_header)
+                          .BuildRequest();
 
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto iam_role_response,
-        transport_->IssueRequest(iam_role_request, {}).result());
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto iam_role_response,
+      transport_->IssueRequest(iam_role_request, {}).result());
 
-    TENSORSTORE_RETURN_IF_ERROR(HttpResponseCodeToStatus(iam_role_response));
+  TENSORSTORE_RETURN_IF_ERROR(HttpResponseCodeToStatus(iam_role_response));
 
-    std::vector<std::string_view> iam_roles = absl::StrSplit(
-                        iam_role_response.payload.Flatten(), '\n',
-                        absl::SkipWhitespace());
+  std::vector<std::string_view> iam_roles = absl::StrSplit(
+                      iam_role_response.payload.Flatten(), '\n',
+                      absl::SkipWhitespace());
 
-    if(iam_roles.size() == 0) {
-        return absl::NotFoundError("Empty EC2 Role list");
-    }
+  if(iam_roles.size() == 0) {
+      return absl::NotFoundError("Empty EC2 Role list");
+  }
 
-    auto iam_credentials_request_url = tensorstore::StrCat(kIamCredentialsUrl,
-                                                           iam_roles[0]);
+  auto iam_credentials_request_url = tensorstore::StrCat(kIamCredentialsUrl,
+                                                         iam_roles[0]);
 
-    auto iam_credentials_request = HttpRequestBuilder("GET", iam_credentials_request_url)
+  auto iam_credentials_request = HttpRequestBuilder("GET", iam_credentials_request_url)
                                     .AddHeader(token_header)
                                     .BuildRequest();
 
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto iam_credentials_response,
-        transport_->IssueRequest(iam_credentials_request, {}).result());
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto iam_credentials_response,
+      transport_->IssueRequest(iam_credentials_request, {}).result());
 
-    TENSORSTORE_RETURN_IF_ERROR(HttpResponseCodeToStatus(iam_credentials_response));
+  TENSORSTORE_RETURN_IF_ERROR(HttpResponseCodeToStatus(iam_credentials_response));
 
-    auto json_sv = iam_credentials_response.payload.Flatten();
-    auto json_credentials = ParseJson(json_sv);
+  auto json_sv = iam_credentials_response.payload.Flatten();
+  auto json_credentials = ParseJson(json_sv);
 
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto iam_credentials,
-        jb::FromJson<EC2CredentialsResponse>(
-            json_credentials,
-            EC2CredentialsResponseBinder));
+  TENSORSTORE_ASSIGN_OR_RETURN(
+    auto iam_credentials,
+    jb::FromJson<EC2CredentialsResponse>(
+        json_credentials,
+        EC2CredentialsResponseBinder));
 
-    if(iam_credentials.Code != kSuccess) {
-        return absl::NotFoundError(
-            absl::StrCat("EC2Metadata request to [",
-                         iam_credentials_request_url,
-                         "] failed with ", json_sv));
+  if(iam_credentials.Code != kSuccess) {
+      return absl::NotFoundError(absl::StrCat("EC2Metadata request to [",
+                                 iam_credentials_request_url,
+                                 "] failed with ", json_sv));
 
     }
 
-    return AwsCredentials{
-        iam_credentials.AccessKeyId.value_or(""),
-        iam_credentials.SecretAccessKey.value_or(""),
-        iam_credentials.Token.value_or("")};
-}
-
+  return AwsCredentials{
+    iam_credentials.AccessKeyId.value_or(""),
+    iam_credentials.SecretAccessKey.value_or(""),
+    iam_credentials.Token.value_or("")};
+  }
 } // namespace tensorstore
 } // namespace internal_kvstore_s3
