@@ -47,22 +47,6 @@ class TestCredentialProvider : public ExpiryCredentialProvider {
 };
 
 
-TEST(CachedCredentialProviderTest, NullCase) {
-    auto provider = CachedCredentialProvider{nullptr};
-
-    // Base case
-    ASSERT_TRUE(provider.IsExpired());
-    ASSERT_EQ(provider.ExpiresAt(), absl::InfiniteFuture());
-    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials, provider.GetCredentials());
-    ASSERT_TRUE(credentials.IsAnonymous());
-
-    // Idempotent
-    ASSERT_TRUE(provider.IsExpired());
-    ASSERT_EQ(provider.ExpiresAt(), absl::InfiniteFuture());
-    TENSORSTORE_ASSERT_OK_AND_ASSIGN(credentials, provider.GetCredentials());
-    ASSERT_TRUE(credentials.IsAnonymous());
-}
-
 TEST(CachedCredentialProviderTest, ExpiringProvider) {
     auto utc = absl::UTCTimeZone();
     auto frozen_time = absl::FromCivil(absl::CivilSecond(2023, 9, 6, 0, 4, 03), utc);

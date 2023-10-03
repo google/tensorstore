@@ -31,7 +31,7 @@ bool CachedCredentialProvider::IsExpired() {
 }
 
 bool CachedCredentialProvider::IsExpiredLocked(const AwsCredentials & credentials) {
-    return !provider_ || credentials.IsAnonymous() || provider_->IsExpired();
+    return credentials.IsAnonymous() || provider_->IsExpired();
 }
 
 Result<absl::Time>
@@ -44,7 +44,7 @@ CachedCredentialProvider::ExpiresAt() {
 Result<AwsCredentials>
 CachedCredentialProvider::GetCredentials() {
     absl::WriterMutexLock lock(&mutex_);
-    if(!IsExpiredLocked(credentials_) || !provider_) {
+    if(!IsExpiredLocked(credentials_)) {
         return credentials_;
     }
 

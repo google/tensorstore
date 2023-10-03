@@ -32,7 +32,7 @@ class CachedCredentialProvider : public AwsCredentialProvider {
 
  public:
   CachedCredentialProvider(std::unique_ptr<AwsCredentialProvider> provider)
-    : provider_(std::move(provider)) {}
+    : provider_(std::move(provider)) { assert(provider_); }
 
   Result<AwsCredentials> GetCredentials() override ABSL_LOCKS_EXCLUDED(mutex_);
   bool IsExpired() override ABSL_LOCKS_EXCLUDED(mutex_);
