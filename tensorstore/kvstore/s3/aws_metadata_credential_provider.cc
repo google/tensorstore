@@ -15,9 +15,11 @@
 
 #include <optional>
 #include <string>
+#include <string_view>
 
 #include "absl/time/time.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_split.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/internal/http/http_request.h"
@@ -49,8 +51,6 @@ static constexpr char kTokenTtlHeader[] = "x-aws-ec2-metadata-token-ttl-seconds"
 static constexpr char kMetadataTokenHeader[] = "x-aws-ec2-metadata-token";
 // Obtain Metadata server API tokens from this url
 static constexpr char kTokenUrl[] = "http://169.254.169.254/latest/api/token";
-// Obtain IAM status from this url
-static constexpr char kIamUrl[] = "http://169.254.169.254/latest/meta-data/iam/";
 // Obtain current IAM role from this url
 static constexpr char kIamCredentialsUrl[] = "http://169.254.169.254/latest/meta-data/iam/security-credentials/";
 
@@ -92,20 +92,14 @@ inline constexpr auto EC2CredentialsResponseBinder = jb::Object(
 /// Obtains AWS Credentials from the EC2Metadata.
 ///
 /// https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-retrieval.html#instancedata-meta-data-retrieval-examples
-/// https://hackingthe.cloud/aws/exploitation/ec2-metadata-ssrf/
 ///
 /// Credential retrieval follows this flow:
 ///
 /// 1. Post to Metadata server path "/latest/api/token" to obtain an API token
-/// 2. Obtain the IAM status from path "/latest/meta-data/iam/".
-///    In the following failure cases, anonymous credentials are retrieved instead:
-///    1. A 404 implies no IAM Role is associated with the current instance.
-///    2. An empty response implies the IAM Role has been revoked,
-///       possibly during the instance lifetime.
-/// 3. Obtain the IAM Role name from path "/latest/meta-data/iam/security-credentials".
-/// 4. Obtain the associated credentials from path "/latest/meta-data/iam/security-credentials/<iam-role>".
+/// 2. Obtain the IAM Role name from path "/latest/meta-data/iam/security-credentials".
+///    The first role from a newline separated string is used.
+/// 3. Obtain the associated credentials from path "/latest/meta-data/iam/security-credentials/<iam-role>".
 Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
-
     // Obtain an API token for communicating with the EC2 Metadata server
     auto token_request = HttpRequestBuilder("POST", kTokenUrl)
                             .AddHeader(absl::StrCat(kTokenTtlHeader, ": 21600"))
@@ -121,26 +115,6 @@ Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
 
     auto token_header = tensorstore::StrCat(kMetadataTokenHeader, ": ", token_response.payload);
 
-    auto iam_request = HttpRequestBuilder("GET", kIamUrl)
-                            .AddHeader(token_header)
-                            .BuildRequest();
-
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto iam_response,
-        transport_->IssueRequest(iam_request, {}).result())
-
-    // No associated IAM role, implies anonymous access?
-    if(iam_response.status_code == 404) {
-        return AwsCredentials{};
-    }
-
-    TENSORSTORE_RETURN_IF_ERROR(HttpResponseCodeToStatus(iam_response));
-
-    // IAM Role has been revoked, assume anonymous access?
-    if(iam_response.payload.empty()) {
-        return AwsCredentials{};
-    }
-
     auto iam_role_request = HttpRequestBuilder("GET", kIamCredentialsUrl)
                             .AddHeader(token_header)
                             .BuildRequest();
@@ -151,8 +125,16 @@ Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
 
     TENSORSTORE_RETURN_IF_ERROR(HttpResponseCodeToStatus(iam_role_response));
 
+    std::vector<std::string_view> iam_roles = absl::StrSplit(
+                        iam_role_response.payload.Flatten(), '\n',
+                        absl::SkipWhitespace());
+
+    if(iam_roles.size() == 0) {
+        return absl::NotFoundError("Empty EC2 Role list");
+    }
+
     auto iam_credentials_request_url = tensorstore::StrCat(kIamCredentialsUrl,
-                                                           iam_role_response.payload);
+                                                           iam_roles[0]);
 
     auto iam_credentials_request = HttpRequestBuilder("GET", iam_credentials_request_url)
                                     .AddHeader(token_header)
