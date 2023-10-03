@@ -21,7 +21,11 @@
 namespace tensorstore {
 namespace internal_kvstore_s3 {
 
-//
+/// The Cached Credential Provider encapsulates an instance of AwsCredentialProvider
+/// to provide:
+/// 1. Thread-safe credential retrieval
+/// 2. Caching of credentials
+/// 3. Refresh of credentials upon expiry
 class CachedCredentialProvider : public AwsCredentialProvider {
  private:
   absl::Mutex mutex_;
