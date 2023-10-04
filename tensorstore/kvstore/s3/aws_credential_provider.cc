@@ -32,6 +32,7 @@
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/internal/path.h"
+#include "tensorstore/kvstore/s3/aws_metadata_credential_provider.h"
 #include "tensorstore/util/result.h"
 
 using ::tensorstore::Result;
@@ -136,7 +137,7 @@ Result<std::unique_ptr<AwsCredentialProvider>> GetDefaultAwsCredentialProvider(
   }
 
   // 3. Obtain credentials from EC2 Metadata server
-  if (false) {
+  if (IsEC2MetadataServiceAvailable(*transport)) {
     ABSL_LOG(INFO) << "Using EC2 Metadata Service AwsCredentialProvider";
     return std::make_unique<EC2MetadataCredentialProvider>(transport);
   }
