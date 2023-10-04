@@ -25,15 +25,14 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_github_grpc_grpc",
-        sha256 = "9cf1a69a921534ac0b760dcbefb900f3c2f735f56070bf0536506913bb5bfd74",
-        strip_prefix = "grpc-1.55.0",
+        sha256 = "860bf758a1437a03318bf09db8e87cb8149a2f578954110ce8549e147f868b62",
+        strip_prefix = "grpc-1.58.1",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/grpc/grpc/archive/v1.55.0.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/grpc/grpc/archive/v1.58.1.tar.gz",
         ],
         patches = [
+            # Fixes, including https://github.com/grpc/grpc/issues/34482
             Label("//third_party:com_github_grpc_grpc/patches/update_build_system.diff"),
-            # https://github.com/grpc/grpc/issues/34482
-            Label("//third_party:com_github_grpc_grpc/patches/issues_34482.diff"),
         ],
         patch_args = ["-p1"],
         repo_mapping = {
