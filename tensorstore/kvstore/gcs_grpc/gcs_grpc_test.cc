@@ -12,20 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <stddef.h>
+
+#include <cstring>
+#include <optional>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_format.h"
 #include "absl/synchronization/notification.h"
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
 #include "tensorstore/context.h"
 #include "tensorstore/internal/flat_cord_builder.h"
 #include "tensorstore/internal/grpc/grpc_mock.h"
 #include "tensorstore/internal/grpc/utils.h"
+#include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/gcs_grpc/mock_storage_service.h"
+#include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"

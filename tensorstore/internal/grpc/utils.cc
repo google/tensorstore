@@ -19,6 +19,7 @@
 #include <string>
 
 #include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/util/status.h"
 
@@ -55,6 +56,11 @@ absl::Status GrpcStatusToAbslStatus(grpc::Status s, SourceLocation loc) {
   auto absl_code = static_cast<absl::StatusCode>(s.error_code());
   absl::Status status(absl_code, s.error_message());
   MaybeAddSourceLocation(status, loc);
+
+  if (!s.error_details().empty()) {
+    // NOTE: Is error_details() a serialized protobuf::Any?
+    status.SetPayload("grpc.Status.details", absl::Cord(s.error_details()));
+  }
   return status;
 }
 

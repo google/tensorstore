@@ -19,15 +19,19 @@
 // https://googleapis.dev/cpp/google-cloud-storage/latest/storage-grpc.html
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <algorithm>
 #include <cassert>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 
+#include "absl/base/thread_annotations.h"
 #include "absl/crc/crc32c.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
@@ -261,24 +265,26 @@ class GcsGrpcKeyValueStore
     return storage_stub_pool_->get_next_stub();
   }
 
-  void SetDefaultContextOptions(grpc::ClientContext& context) {
-    // NOTE: Evaluate this a bit more?
-    // context.set_wait_for_ready(false);
-    if (spec_.timeout > absl::ZeroDuration() &&
-        spec_.timeout < absl::InfiniteDuration()) {
-      context.set_deadline(absl::ToChronoTime(absl::Now() + spec_.timeout));
-    }
+  std::unique_ptr<grpc::ClientContext> AllocateContext() {
+    auto context = std::make_unique<grpc::ClientContext>();
 
     // For a requestor-pays bucket we need to set x-goog-user-project.
     if (spec_.user_project->project_id &&
         !spec_.user_project->project_id->empty()) {
-      context.AddMetadata("x-goog-user-project",
-                          *spec_.user_project->project_id);
+      context->AddMetadata("x-goog-user-project",
+                           *spec_.user_project->project_id);
     }
 
     // gRPC requests need to have routing parameters added.
-    context.AddMetadata("x-goog-request-params",
-                        absl::StrFormat("bucket=%s", bucket_name()));
+    context->AddMetadata("x-goog-request-params",
+                         absl::StrFormat("bucket=%s", bucket_name()));
+
+    // NOTE: Evaluate this a bit more?
+    // context.set_wait_for_ready(false);
+    if (spec_.timeout > absl::ZeroDuration() &&
+        spec_.timeout < absl::InfiniteDuration()) {
+      context->set_deadline(absl::ToChronoTime(absl::Now() + spec_.timeout));
+    }
 
     if (call_credentials_fn_) {
       // The gRPC credentials model includes per-channel credentials,
@@ -286,8 +292,9 @@ class GcsGrpcKeyValueStore
       // `CallCredentials`. Instead of using a composite credentials object,
       // set the CallCredentials on each request which allows using a shared
       // channel pool.
-      context.set_credentials(call_credentials_fn_());
+      context->set_credentials(call_credentials_fn_());
     }
+    return context;
   }
 
   // Apply default backoff/retry logic to the task.
@@ -364,16 +371,9 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
   absl::Mutex mutex_;
   std::unique_ptr<grpc::ClientContext> context_ ABSL_GUARDED_BY(mutex_);
 
-  void TryCancel() {
+  void TryCancel() ABSL_LOCKS_EXCLUDED(mutex_) {
     absl::MutexLock lock(&mutex_);
     if (context_) context_->TryCancel();
-  }
-
-  grpc::ClientContext* AllocateContext() {
-    absl::MutexLock lock(&mutex_);
-    context_ = std::make_unique<grpc::ClientContext>();
-    driver_->SetDefaultContextOptions(*context_);
-    return context_.get();
   }
 
   void Start(const std::string& object_name) {
@@ -416,15 +416,21 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
     }
     read_result_.stamp.time = absl::Now();
     read_result_.stamp.generation = StorageGeneration::Unknown();
+    read_result_.value.Clear();
 
     ABSL_LOG_IF(INFO, TENSORSTORE_GCS_GRPC_DEBUG)
         << "Read: " << this << " " << ConciseDebugString(request_);
 
-    grpc::ClientContext* context = AllocateContext();
+    {
+      absl::MutexLock lock(&mutex_);
+      assert(context_ == nullptr);
+      context_ = driver_->AllocateContext();
 
-    // Start a call.
-    intrusive_ptr_increment(this);  // adopted in OnDone.
-    stub_->async()->ReadObject(context, &request_, this);
+      // Start a call.
+      intrusive_ptr_increment(this);  // adopted in OnDone.
+      stub_->async()->ReadObject(context_.get(), &request_, this);
+    }
+
     StartRead(&response_);
     StartCall();
   }
@@ -500,8 +506,19 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
     }
     ABSL_LOG_IF(INFO, TENSORSTORE_GCS_GRPC_DEBUG)
         << "ReadFinished: " << this << " " << status;
+    {
+      absl::MutexLock lock(&mutex_);
+      context_ = nullptr;
+    }
 
-    if (!status.ok() && IsRetriable(status) && read_result_.value.empty()) {
+    if (!status.ok() && attempt_ == 0 &&
+        status.code() == absl::StatusCode::kUnauthenticated) {
+      // Allow a single unauthenticated error.
+      attempt_++;
+      Retry();
+      return;
+    }
+    if (!status.ok() && IsRetriable(status)) {
       if (driver_->BackoffForAttemptAsync(attempt_++, this)) {
         return;
       }
@@ -562,12 +579,13 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
   internal::IntrusivePtr<GcsGrpcKeyValueStore> driver_;
   kvstore::WriteOptions options_;
   Promise<TimestampedStorageGeneration> promise_;
+  std::string object_name_;
+  absl::Cord value_;
+  Storage::StubInterface* stub_ = nullptr;
 
   // working state.
-  absl::Cord value_;
   absl::crc32c_t crc32c_{0};
   size_t write_offset_ = 0;
-  Storage::StubInterface* stub_ = nullptr;
   WriteObjectRequest request_;
   WriteObjectResponse response_;
   TimestampedStorageGeneration write_result_;
@@ -576,66 +594,30 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
   absl::Mutex mutex_;
   std::unique_ptr<grpc::ClientContext> context_ ABSL_GUARDED_BY(mutex_);
 
-  void TryCancel() {
+  void TryCancel() ABSL_LOCKS_EXCLUDED(mutex_) {
     absl::MutexLock lock(&mutex_);
     if (context_) context_->TryCancel();
   }
 
-  grpc::ClientContext* AllocateContext() {
+  void UpdateRequestForNextWrite() ABSL_LOCKS_EXCLUDED(mutex_) {
     absl::MutexLock lock(&mutex_);
-    context_ = std::make_unique<grpc::ClientContext>();
-    driver_->SetDefaultContextOptions(*context_);
-    return context_.get();
-  }
-
-  // TODO(laramiel): We could write these chunks in parallel.
-  void Start(const std::string& object_name, absl::Cord value) {
-    value_ = std::move(value);
-    stub_ = driver_->get_stub().get();
-    promise_.ExecuteWhenNotNeeded([self = internal::IntrusivePtr<WriteTask>(
-                                       this)] { self->TryCancel(); });
-
-    auto& resource = *request_.mutable_write_object_spec()->mutable_resource();
-    resource.set_bucket(driver_->bucket_name());
-    resource.set_name(object_name);
-    request_.mutable_write_object_spec()->set_object_size(value_.size());
-    if (!StorageGeneration::IsUnknown(options_.if_equal)) {
-      auto gen = StorageGeneration::ToUint64(options_.if_equal);
-      request_.mutable_write_object_spec()->set_if_generation_match(gen);
-    }
-
-    AddChunkData();
-    Retry();
-  }
-
-  // Retry/Continue a call.
-  void Retry() ABSL_LOCKS_EXCLUDED(mutex_) {
-    if (!promise_.result_needed()) {
-      return;
-    }
-
-    /// Set this as the last write time if this is the initial chunk.
-    if (request_.write_offset() == 0) {
+    if (write_offset_ == 0) {
       write_result_.time = absl::Now();
-    }
-
-    ABSL_LOG_IF(INFO, TENSORSTORE_GCS_GRPC_DEBUG)
-        << "Write: " << this << " " << ConciseDebugString(request_);
-
-    grpc::ClientContext* context = AllocateContext();
-
-    // Initiate the write.
-    intrusive_ptr_increment(this);
-    stub_->async()->WriteObject(context, &response_, this);
-    if (request_.finish_write()) {
-      StartWriteLast(&request_, grpc::WriteOptions());
+      // First request, make sure that the spec is setup correctly.
+      auto& resource =
+          *request_.mutable_write_object_spec()->mutable_resource();
+      resource.set_bucket(driver_->bucket_name());
+      resource.set_name(object_name_);
+      request_.mutable_write_object_spec()->set_object_size(value_.size());
+      if (!StorageGeneration::IsUnknown(options_.if_equal)) {
+        auto gen = StorageGeneration::ToUint64(options_.if_equal);
+        request_.mutable_write_object_spec()->set_if_generation_match(gen);
+      }
     } else {
-      StartWrite(&request_, grpc::WriteOptions());
+      // After the first request, clear the spec.
+      request_.clear_write_object_spec();
     }
-    StartCall();
-  }
 
-  void AddChunkData() {
     request_.set_write_offset(write_offset_);
     size_t next_write_offset = std::min(
         write_offset_ + ServiceConstants::MAX_WRITE_CHUNK_BYTES, value_.size());
@@ -649,7 +631,6 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
         value_.Subcord(write_offset_, next_write_offset - write_offset_));
 
     write_offset_ = next_write_offset;
-
     auto chunk_crc32c = ComputeCrc32c(checksummed_data.content());
     checksummed_data.set_crc32c(static_cast<uint32_t>(chunk_crc32c));
     crc32c_ = absl::ConcatCrc32c(crc32c_, chunk_crc32c,
@@ -663,25 +644,56 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
     }
   }
 
-  void OnWriteDone(bool ok) override {
-    // Not streaming any additional data bits.
-    ABSL_LOG_IF(INFO, TENSORSTORE_GCS_GRPC_DEBUG)
-        << "WriteDone: " << this << " " << ok;
+  void Start(std::string object_name, absl::Cord value) {
+    object_name_ = std::move(object_name);
+    value_ = std::move(value);
+    stub_ = driver_->get_stub().get();
+    promise_.ExecuteWhenNotNeeded([self = internal::IntrusivePtr<WriteTask>(
+                                       this)] { self->TryCancel(); });
+    UpdateRequestForNextWrite();
+    Retry();
+  }
 
-    if (!ok) return;
-    if (request_.finish_write()) return;
-    request_.clear_write_object_spec();
+  // Retry/Continue a call.
+  void Retry() ABSL_LOCKS_EXCLUDED(mutex_) {
+    if (!promise_.result_needed()) {
+      return;
+    }
 
-    AddChunkData();
+    {
+      absl::MutexLock lock(&mutex_);
+      assert(context_ == nullptr);
+      context_ = driver_->AllocateContext();
+
+      // Initiate the write.
+      intrusive_ptr_increment(this);
+      stub_->async()->WriteObject(context_.get(), &response_, this);
+    }
 
     ABSL_LOG_IF(INFO, TENSORSTORE_GCS_GRPC_DEBUG)
         << "Write: " << this << " " << ConciseDebugString(request_);
 
-    if (request_.finish_write()) {
-      StartWriteLast(&request_, grpc::WriteOptions());
-    } else {
-      StartWrite(&request_, grpc::WriteOptions());
-    }
+    auto options = grpc::WriteOptions();
+    if (request_.finish_write()) options.set_last_message();
+    StartWrite(&request_, options);
+    StartCall();
+  }
+
+  void OnWriteDone(bool ok) override {
+    // Not streaming any additional data bits.
+    ABSL_LOG_IF(INFO, TENSORSTORE_GCS_GRPC_DEBUG)
+        << "OnWriteDone: " << this << " " << ok;
+
+    if (!ok) return;
+    if (request_.finish_write()) return;
+
+    UpdateRequestForNextWrite();
+
+    ABSL_LOG_IF(INFO, TENSORSTORE_GCS_GRPC_DEBUG)
+        << "Write: " << this << " " << ConciseDebugString(request_);
+    auto options = grpc::WriteOptions();
+    if (request_.finish_write()) options.set_last_message();
+    StartWrite(&request_, options);
   }
 
   void OnDone(const grpc::Status& s) override {
@@ -699,6 +711,18 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
     ABSL_LOG_IF(INFO, TENSORSTORE_GCS_GRPC_DEBUG)
         << "WriteFinished: " << this << " " << status << " "
         << ConciseDebugString(response_);
+    {
+      absl::MutexLock lock(&mutex_);
+      context_ = nullptr;
+    }
+
+    if (!status.ok() && attempt_ == 0 &&
+        status.code() == absl::StatusCode::kUnauthenticated) {
+      // Allow a single unauthenticated error.
+      attempt_++;
+      Retry();
+      return;
+    }
 
     if (!status.ok() && IsRetriable(status)) {
       if (driver_->BackoffForAttemptAsync(attempt_++, this)) {
@@ -713,12 +737,12 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
           StorageGeneration::FromUint64(response_.resource().generation());
     }
     if (absl::IsFailedPrecondition(status) || absl::IsAlreadyExists(status)) {
-      /// if_equal condition did not match.
+      // if_equal condition did not match.
       write_result_.generation = StorageGeneration::Unknown();
       promise_.SetResult(std::move(write_result_));
     } else if (absl::IsNotFound(status) &&
                !StorageGeneration::IsUnknown(options_.if_equal)) {
-      /// precondition did not match.
+      // precondition did not match.
       write_result_.generation = StorageGeneration::Unknown();
       promise_.SetResult(std::move(write_result_));
     } else if (!status.ok()) {
@@ -745,16 +769,9 @@ struct DeleteTask : public internal::AtomicReferenceCount<DeleteTask> {
   absl::Mutex mutex_;
   std::unique_ptr<grpc::ClientContext> context_ ABSL_GUARDED_BY(mutex_);
 
-  void TryCancel() {
+  void TryCancel() ABSL_LOCKS_EXCLUDED(mutex_) {
     absl::MutexLock lock(&mutex_);
     if (context_) context_->TryCancel();
-  }
-
-  grpc::ClientContext* AllocateContext() {
-    absl::MutexLock lock(&mutex_);
-    context_ = std::make_unique<grpc::ClientContext>();
-    driver_->SetDefaultContextOptions(*context_);
-    return context_.get();
   }
 
   void Start(const std::string& object_name) {
@@ -775,20 +792,25 @@ struct DeleteTask : public internal::AtomicReferenceCount<DeleteTask> {
     if (!promise_.result_needed()) {
       return;
     }
-    grpc::ClientContext* context = AllocateContext();
 
     ABSL_LOG_IF(INFO, TENSORSTORE_GCS_GRPC_DEBUG)
         << "Delete: " << this << " " << ConciseDebugString(request_);
-
     start_time_ = absl::Now();
-    intrusive_ptr_increment(this);  // Adopted by OnDone
-    stub_->async()->DeleteObject(
-        context, &request_, &response_,
-        WithExecutor(driver_->executor(), [this](::grpc::Status s) {
-          internal::IntrusivePtr<DeleteTask> self(this,
-                                                  internal::adopt_object_ref);
-          self->DeleteFinished(GrpcStatusToAbslStatus(s));
-        }));
+
+    {
+      absl::MutexLock lock(&mutex_);
+      assert(context_ == nullptr);
+      context_ = driver_->AllocateContext();
+
+      intrusive_ptr_increment(this);  // Adopted by OnDone
+      stub_->async()->DeleteObject(
+          context_.get(), &request_, &response_,
+          WithExecutor(driver_->executor(), [this](::grpc::Status s) {
+            internal::IntrusivePtr<DeleteTask> self(this,
+                                                    internal::adopt_object_ref);
+            self->DeleteFinished(GrpcStatusToAbslStatus(s));
+          }));
+    }
   }
 
   void DeleteFinished(absl::Status status) {
@@ -798,7 +820,18 @@ struct DeleteTask : public internal::AtomicReferenceCount<DeleteTask> {
 
     ABSL_LOG_IF(INFO, TENSORSTORE_GCS_GRPC_DEBUG)
         << "DeleteFinished: " << this << " " << status;
+    {
+      absl::MutexLock lock(&mutex_);
+      context_ = nullptr;
+    }
 
+    if (!status.ok() && attempt_ == 0 &&
+        status.code() == absl::StatusCode::kUnauthenticated) {
+      // Allow a single unauthenticated error.
+      attempt_++;
+      Retry();
+      return;
+    }
     if (!status.ok() && IsRetriable(status)) {
       if (driver_->BackoffForAttemptAsync(attempt_++, this)) {
         return;
@@ -811,10 +844,10 @@ struct DeleteTask : public internal::AtomicReferenceCount<DeleteTask> {
     r.time = start_time_;
     r.generation = StorageGeneration::NoValue();
     if (absl::IsFailedPrecondition(status)) {
-      /// precondition did not match.
+      // precondition did not match.
       r.generation = StorageGeneration::Unknown();
     } else if (absl::IsNotFound(status)) {
-      /// object missing; that's probably ok.
+      // object missing; that's probably ok.
       if (!StorageGeneration::IsNoValue(options_.if_equal) &&
           !StorageGeneration::IsUnknown(options_.if_equal)) {
         r.generation = StorageGeneration::Unknown();
@@ -864,24 +897,17 @@ struct ListTask : public internal::AtomicReferenceCount<ListTask> {
     execution::set_stopping(receiver_);
   }
 
-  bool is_cancelled() {
+  bool is_cancelled() ABSL_LOCKS_EXCLUDED(mutex_) {
     absl::MutexLock l(&mutex_);
     return cancelled_;
   }
 
-  void TryCancel() {
+  void TryCancel() ABSL_LOCKS_EXCLUDED(mutex_) {
     absl::MutexLock l(&mutex_);
     if (!cancelled_) {
       cancelled_ = true;
       if (context_) context_->TryCancel();
     }
-  }
-
-  grpc::ClientContext* AllocateContext() {
-    absl::MutexLock lock(&mutex_);
-    context_ = std::make_unique<grpc::ClientContext>();
-    driver_->SetDefaultContextOptions(*context_);
-    return context_.get();
   }
 
   void Start() {
@@ -901,19 +927,22 @@ struct ListTask : public internal::AtomicReferenceCount<ListTask> {
       return;
     }
 
-    grpc::ClientContext* context = AllocateContext();
-
     ABSL_LOG_IF(INFO, TENSORSTORE_GCS_GRPC_DEBUG)
         << "List: " << this << " " << ConciseDebugString(request);
 
-    intrusive_ptr_increment(this);
-    stub_->async()->ListObjects(
-        context, &request, &response,
-        WithExecutor(driver_->executor(), [this](::grpc::Status s) {
-          internal::IntrusivePtr<ListTask> self(this,
-                                                internal::adopt_object_ref);
-          self->ListFinished(GrpcStatusToAbslStatus(s));
-        }));
+    {
+      absl::MutexLock lock(&mutex_);
+      context_ = driver_->AllocateContext();
+
+      intrusive_ptr_increment(this);
+      stub_->async()->ListObjects(
+          context_.get(), &request, &response,
+          WithExecutor(driver_->executor(), [this](::grpc::Status s) {
+            internal::IntrusivePtr<ListTask> self(this,
+                                                  internal::adopt_object_ref);
+            self->ListFinished(GrpcStatusToAbslStatus(s));
+          }));
+    }
   }
 
   void ListFinished(absl::Status status) {
@@ -959,7 +988,7 @@ struct ListTask : public internal::AtomicReferenceCount<ListTask> {
       execution::set_value(receiver_, std::string(name));
     }
     if (!done && !response.next_page_token().empty()) {
-      /// If there is a continuation token, issue the next request.
+      // If there is a continuation token, issue the next request.
       request.set_page_token(response.next_page_token());
       response.Clear();
       attempt_ = 0;
