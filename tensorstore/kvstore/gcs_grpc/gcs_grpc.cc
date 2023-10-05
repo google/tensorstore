@@ -325,31 +325,12 @@ class GcsGrpcKeyValueStore
 ////////////////////////////////////////////////////
 
 /// Abseil has a convenient crc32_t type, but it doesn't handle cord.
-[[maybe_unused]] absl::crc32c_t ComputeCrc32c(const absl::Cord& cord) {
+absl::crc32c_t ComputeCrc32c(const absl::Cord& cord) {
   absl::crc32c_t crc{0};
   for (auto chunk : cord.Chunks()) {
     crc = absl::ExtendCrc32c(crc, chunk);
   }
   return crc;
-}
-
-[[maybe_unused]] absl::crc32c_t ComputeCrc32c(std::string_view data) {
-  return absl::ComputeCrc32c(data);
-}
-
-// Set google::storage::v2::ChecksummedData::content, which could be either an
-// absl::Cord or a std::string, depending on options. This function is a
-// template to avoid instantiation with the incorrect type.
-template <typename T>
-void SetContentImpl(std::true_type, T& checksummed_data, absl::Cord subcord) {
-  checksummed_data.set_content(std::move(subcord));
-}
-
-template <typename T>
-void SetContentImpl(std::false_type, T& checksummed_data, absl::Cord subcord) {
-  auto* content_ptr = checksummed_data.mutable_content();
-  absl::CopyCordToString(subcord, content_ptr);
-  assert(content_ptr->size() == subcord.size());
 }
 
 // Implements GcsGrpcKeyValueStore::Read
@@ -474,16 +455,23 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
         return;
       }
     }
-    if (response_.has_checksummed_data()) {
-      if (response_.checksummed_data().has_crc32c() &&
-          ComputeCrc32c(response_.checksummed_data().content()) !=
-              absl::crc32c_t(response_.checksummed_data().crc32c())) {
-        promise_.SetResult(absl::DataLossError(
-            "Object fragment crc32c does not match expected crc32c"));
+    if (response_.has_checksummed_data() &&
+        response_.checksummed_data().has_crc32c() &&
+        response_.checksummed_data().crc32c() != 0) {
+      // Validate the content checksum.
+      auto content_crc32c =
+          ComputeCrc32c(response_.checksummed_data().content());
+      if (content_crc32c !=
+          absl::crc32c_t(response_.checksummed_data().crc32c())) {
+        promise_.SetResult(absl::DataLossError(absl::StrFormat(
+            "Object fragment crc32c %08x does not match expected crc32c %08x",
+            static_cast<uint32_t>(content_crc32c),
+            response_.checksummed_data().crc32c())));
         TryCancel();
         return;
       }
-
+    }
+    if (response_.has_checksummed_data()) {
       read_result_.value.Append(response_.checksummed_data().content());
     }
 
@@ -623,18 +611,13 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
         write_offset_ + ServiceConstants::MAX_WRITE_CHUNK_BYTES, value_.size());
 
     auto& checksummed_data = *request_.mutable_checksummed_data();
-    SetContentImpl(
-        std::is_same<absl::Cord,
-                     internal::remove_cvref_t<
-                         decltype(checksummed_data.content())>>::type{},
-        checksummed_data,
+    checksummed_data.set_content(
         value_.Subcord(write_offset_, next_write_offset - write_offset_));
-
-    write_offset_ = next_write_offset;
     auto chunk_crc32c = ComputeCrc32c(checksummed_data.content());
     checksummed_data.set_crc32c(static_cast<uint32_t>(chunk_crc32c));
     crc32c_ = absl::ConcatCrc32c(crc32c_, chunk_crc32c,
                                  checksummed_data.content().size());
+    write_offset_ = next_write_offset;
 
     if (write_offset_ == value_.size()) {
       /// This is the last request.
