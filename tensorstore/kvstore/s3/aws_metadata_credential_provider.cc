@@ -28,6 +28,7 @@
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
@@ -55,19 +56,12 @@ namespace internal_kvstore_s3 {
 
 namespace {
 
-// Token ttl header
-static constexpr char kTokenTtlHeader[] =
-    "x-aws-ec2-metadata-token-ttl-seconds: 21600";
+// Metadata API token header
+static constexpr char kMetadataTokenHeader[] = "x-aws-ec2-metadata-token:";
 
-// Token header
-static constexpr char kMetadataTokenHeader[] = "x-aws-ec2-metadata-token";
-
-// Obtain Metadata server API tokens from this url
-static constexpr char kTokenUrl[] = "http://169.254.169.254/latest/api/token";
-
-// Obtain current IAM role from this url
-static constexpr char kIamCredentialsUrl[] =
-    "http://169.254.169.254/latest/meta-data/iam/security-credentials/";
+// Path to IAM credentials
+static constexpr char kIamCredentialsPath[] =
+    "/latest/meta-data/iam/security-credentials/";
 
 // Requests to the above server block outside AWS
 // Configure a timeout small enough not to degrade performance outside AWS
@@ -77,6 +71,18 @@ static constexpr absl::Duration kDefaultTimeout = absl::Minutes(5);
 
 // Successful EC2Metadata Security Credential Response Code
 static constexpr char kSuccess[] = "Success";
+
+// Returns the AWS_EC2_METADATA_SERVICE_ENDPOINT environment variable or the
+// default metadata service endpoint of http://169.254.169.254.
+//
+// https://docs.aws.amazon.com/sdk-for-go/api/aws/ec2metadata/
+std::string GetEC2MetadataServiceEndpoint() {
+  auto env = internal::GetEnv("AWS_EC2_METADATA_SERVICE_ENDPOINT");
+  if (env && !env->empty()) {
+    return *env;
+  }
+  return "http://169.254.169.254";
+}
 
 /// Represents JSON returned from
 /// http://169.254.169.254/latest/meta-data/iam/security-credentials/<iam-role>/
@@ -108,9 +114,13 @@ inline constexpr auto EC2CredentialsResponseBinder = jb::Object(
 
 // Obtain a metadata token for communicating with the api server.
 Result<absl::Cord> GetEC2ApiToken(internal_http::HttpTransport& transport) {
-  auto token_request = HttpRequestBuilder("POST", kTokenUrl)
-                           .AddHeader(kTokenTtlHeader)
-                           .BuildRequest();
+  // Obtain Metadata server API tokens with a TTL of 21600 seconds
+  auto token_request =
+      HttpRequestBuilder("POST",
+                         tensorstore::StrCat(GetEC2MetadataServiceEndpoint(),
+                                             "/latest/api/token"))
+          .AddHeader("x-aws-ec2-metadata-token-ttl-seconds: 21600")
+          .BuildRequest();
 
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto token_response,
@@ -152,12 +162,14 @@ Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
   // Obtain an API token for communicating with the EC2 Metadata server
   TENSORSTORE_ASSIGN_OR_RETURN(auto api_token, GetEC2ApiToken(*transport_));
 
-  auto token_header =
-      tensorstore::StrCat(kMetadataTokenHeader, ": ", api_token);
+  auto token_header = tensorstore::StrCat(kMetadataTokenHeader, api_token);
 
-  auto iam_role_request = HttpRequestBuilder("GET", kIamCredentialsUrl)
-                              .AddHeader(token_header)
-                              .BuildRequest();
+  auto iam_role_request =
+      HttpRequestBuilder("GET",
+                         tensorstore::StrCat(GetEC2MetadataServiceEndpoint(),
+                                             kIamCredentialsPath))
+          .AddHeader(token_header)
+          .BuildRequest();
 
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto iam_role_response,
@@ -172,8 +184,8 @@ Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
     return absl::NotFoundError("Empty EC2 Role list");
   }
 
-  auto iam_credentials_request_url =
-      tensorstore::StrCat(kIamCredentialsUrl, iam_roles[0]);
+  auto iam_credentials_request_url = tensorstore::StrCat(
+      GetEC2MetadataServiceEndpoint(), kIamCredentialsPath, iam_roles[0]);
 
   auto iam_credentials_request =
       HttpRequestBuilder("GET", iam_credentials_request_url)
