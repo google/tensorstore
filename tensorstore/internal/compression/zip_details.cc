@@ -381,11 +381,13 @@ absl::Status ReadEOCD(riegeli::Reader &reader, ZipEOCD &eocd) {
   return absl::OkStatus();
 }
 
+// TODO: Modify kvstore::ReadResult to include the returned range as well
+// as the size of the file.
+
 std::variant<absl::Status, int64_t> TryReadFullEOCD(riegeli::Reader &reader,
                                                     ZipEOCD &eocd,
                                                     int64_t offset_adjustment) {
   // Try and find the EOCD, which should exist in all ZIP files.
-  int64_t initial_pos = reader.pos();
   if (!internal::FindLast(
           reader, std::string_view(reinterpret_cast<const char *>(kEOCDLiteral),
                                    sizeof(kEOCDLiteral)))) {
@@ -409,50 +411,44 @@ std::variant<absl::Status, int64_t> TryReadFullEOCD(riegeli::Reader &reader,
   if (eocd_start < ZipEOCD64Locator::kRecordSize) {
     return absl::InvalidArgumentError("Block does not contain EOCD64 Locator");
   }
-  do {
-    if (!reader.Seek(eocd_start - ZipEOCD64Locator::kRecordSize)) {
-      break;
-    }
-    ZipEOCD64Locator locator;
-    TENSORSTORE_RETURN_IF_ERROR(ReadEOCD64Locator(reader, locator));
 
-    // TODO: Modify kvstore::ReadResult to include the returned range as well
-    // as the size of the file.
-    if (offset_adjustment < 0) {
-      // when offset_adjustment <0, search for the offset.
-      reader.Seek(initial_pos);
-      riegeli::LimitingReader<> eocd64_reader(
-          &reader,
-          riegeli::LimitingReaderBase::Options().set_exact(true).set_max_pos(
-              eocd_start));
-      if (!internal::FindLast(
-              eocd64_reader,
-              std::string_view(reinterpret_cast<const char *>(kEOCD64Literal),
-                               sizeof(kEOCD64Literal)))) {
-        // RETRY: Read cd_offset should be available
-        return locator.cd_offset;
-      }
-    } else {
-      auto target_pos = locator.cd_offset - offset_adjustment;
-      if (target_pos < 0) {
-        // RETRY: Read cd_offset should be available.
-        assert(offset_adjustment > 0);
-        return locator.cd_offset;
-      }
-      if (!reader.Seek(target_pos)) {
-        break;
-      }
+  if (!reader.Seek(eocd_start - ZipEOCD64Locator::kRecordSize)) {
+    if (!reader.ok() && !reader.status().ok()) {
+      return MaybeAnnotateStatus(reader.status(),
+                                 "Failed to read EOCD64 Locator");
     }
-    TENSORSTORE_RETURN_IF_ERROR(ReadEOCD64(reader, last_eocd));
-    eocd = last_eocd;
-    reader.Seek(eocd_start + 4);
-    return absl::OkStatus();
-  } while (false);
-
-  if (!reader.ok() && !reader.status().ok()) {
-    return MaybeAnnotateStatus(reader.status(), "Failed to read EOCD");
+    return absl::InvalidArgumentError("Failed to read EOCD64 Locator");
   }
-  return absl::InvalidArgumentError("Failed to read EOCD");
+
+  ZipEOCD64Locator locator;
+  TENSORSTORE_RETURN_IF_ERROR(ReadEOCD64Locator(reader, locator));
+
+  if (offset_adjustment < 0) {
+    // It's possible to seek for the location of the EOCD64, but that's
+    // messy. Instead return the position; the caller needs to provide
+    // a better location.
+    return locator.cd_offset;
+  }
+
+  // The offset of the reader with respect to the file is known
+  // (and maybe the whole file), so seeking to the EOCD64 is computable.
+  auto target_pos = locator.cd_offset - offset_adjustment;
+  if (target_pos < 0) {
+    // RETRY: Read cd_offset should be available.
+    assert(offset_adjustment > 0);
+    return locator.cd_offset;
+  }
+  if (!reader.Seek(target_pos)) {
+    if (!reader.ok() && !reader.status().ok()) {
+      return MaybeAnnotateStatus(reader.status(), "Failed to read EOCD64");
+    }
+    return absl::InvalidArgumentError("Failed to read EOCD64");
+  }
+
+  TENSORSTORE_RETURN_IF_ERROR(ReadEOCD64(reader, last_eocd));
+  eocd = last_eocd;
+  reader.Seek(eocd_start + 4);
+  return absl::OkStatus();
 }
 
 // --------------------------------------------------------------------------
