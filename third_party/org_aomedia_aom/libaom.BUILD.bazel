@@ -538,27 +538,17 @@ GENERATED_CONFIGS = [
 ]
 
 # Config settings
-
-config_setting(
-    name = "compiler_msvc",
-    flag_values = {
-        "@bazel_tools//tools/cpp:compiler": "msvc-cl",
-    },
-)
-
-config_setting(
-    name = "compiler_clang",
-    flag_values = {
-        "@bazel_tools//tools/cpp:compiler": "clang",
-    },
-)
-
-config_setting(
-    name = "compiler_mingw_gcc",
-    flag_values = {
-        "@bazel_tools//tools/cpp:compiler": "mingw-gcc",
-    },
-)
+[
+    alias(
+        name = name,
+        actual = "@tensorstore//:{target}".format(target = name),
+    )
+    for name in [
+        "compiler_msvc",
+        "compiler_mingw_gcc",
+        "compiler_clang",
+    ]
+]
 
 # Constraint that indicates whether avx2 intrinsics can be used (subject to
 # runtime CPU detection).
