@@ -64,7 +64,6 @@
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
-#include "tensorstore/util/execution/result_sender.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
@@ -77,6 +76,7 @@
 
 // specializations
 #include "tensorstore/internal/estimate_heap_usage/std_vector.h"  // IWYU pragma: keep
+#include "tensorstore/util/execution/result_sender.h"  // IWYU pragma: keep
 
 namespace tensorstore {
 namespace neuroglancer_uint64_sharded {
@@ -536,43 +536,41 @@ class ShardedKeyValueStoreWriteCache
         internal_kvstore::ReadModifyWriteEntry& entry,
         const StorageGeneration& if_not_equal) {
       auto& self = static_cast<TransactionNode&>(entry.multi_phase());
-      kvstore::ReadResult read_result;
+      TimestampedStorageGeneration stamp;
       std::shared_ptr<const EncodedChunks> encoded_chunks;
       {
         AsyncCache::ReadLock<EncodedChunks> lock{self};
-        read_result.stamp = lock.stamp();
+        stamp = lock.stamp();
         encoded_chunks = lock.shared_data();
       }
-      if (!StorageGeneration::IsUnknown(read_result.stamp.generation) &&
-          read_result.stamp.generation == if_not_equal) {
-        read_result.state = kvstore::ReadResult::kUnspecified;
-      } else {
-        auto* chunk =
-            FindChunk(*encoded_chunks, GetMinishardAndChunkId(entry.key_));
-        if (!chunk) {
-          read_result.state = kvstore::ReadResult::kMissing;
-        } else {
-          read_result.state = kvstore::ReadResult::kValue;
-          TENSORSTORE_ASSIGN_OR_RETURN(
-              read_result.value,
-              DecodeData(chunk->encoded_data,
-                         GetOwningCache(self).sharding_spec().data_encoding));
-        }
-        if (StorageGeneration::IsDirty(read_result.stamp.generation)) {
-          // Add layer to generation in order to make it possible to
-          // distinguish:
-          //
-          // 1. the shard being modified by a predecessor
-          //    `ReadModifyWrite` operation on the underlying
-          //    KeyValueStore.
-          //
-          // 2. the chunk being modified by a `ReadModifyWrite`
-          //    operation attached to this transaction node.
-          read_result.stamp.generation = StorageGeneration::AddLayer(
-              std::move(read_result.stamp.generation));
-        }
+      if (!StorageGeneration::IsUnknown(stamp.generation) &&
+          stamp.generation == if_not_equal) {
+        return kvstore::ReadResult::Unspecified(std::move(stamp));
       }
-      return read_result;
+      if (StorageGeneration::IsDirty(stamp.generation)) {
+        // Add layer to generation in order to make it possible to
+        // distinguish:
+        //
+        // 1. the shard being modified by a predecessor
+        //    `ReadModifyWrite` operation on the underlying
+        //    KeyValueStore.
+        //
+        // 2. the chunk being modified by a `ReadModifyWrite`
+        //    operation attached to this transaction node.
+        stamp.generation =
+            StorageGeneration::AddLayer(std::move(stamp.generation));
+      }
+      auto* chunk =
+          FindChunk(*encoded_chunks, GetMinishardAndChunkId(entry.key_));
+      if (!chunk) {
+        return kvstore::ReadResult::Missing(std::move(stamp));
+      } else {
+        TENSORSTORE_ASSIGN_OR_RETURN(
+            absl::Cord value,
+            DecodeData(chunk->encoded_data,
+                       GetOwningCache(self).sharding_spec().data_encoding));
+        return kvstore::ReadResult::Value(std::move(value), std::move(stamp));
+      }
     }
 
     void Writeback(internal_kvstore::ReadModifyWriteEntry& entry,

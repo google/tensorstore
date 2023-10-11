@@ -23,10 +23,10 @@
 #include <vector>
 
 #include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/match.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
-#include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"
 #include "tensorstore/internal/concurrency_resource.h"
@@ -37,7 +37,6 @@
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/path.h"
@@ -247,8 +246,7 @@ struct ReadTask {
   kvstore::ReadOptions options;
 
   Result<kvstore::ReadResult> operator()() {
-    kvstore::ReadResult read_result;
-
+    absl::Time start_time;
     HttpResponse httpresponse;
     auto retry_status = owner->RetryRequestWithBackoff([&] {
       HttpRequestBuilder request_builder(
@@ -274,7 +272,7 @@ struct ReadTask {
             "if-none-match: \"",
             StorageGeneration::DecodeString(options.if_not_equal), "\""));
       }
-      read_result.stamp.time = absl::Now();
+      start_time = absl::Now();
       auto response =
           owner->transport_->IssueRequest(request_builder.BuildRequest(), {})
               .result();
@@ -307,16 +305,16 @@ struct ReadTask {
               tensorstore::StrCat("Invalid \"date\" response header: ",
                                   tensorstore::QuoteString(date_it->second)));
         }
-        if (response_date < read_result.stamp.time) {
-          if (options.staleness_bound < read_result.stamp.time &&
+        if (response_date < start_time) {
+          if (options.staleness_bound < start_time &&
               response_date < options.staleness_bound) {
             // `response_date` does not satisfy the `staleness_bound`
             // requirement, possibly due to time skew.  Due to the way we
             // compute `max-age` in the request header, in the case of time skew
             // it is correct to just use `staleness_bound` instead.
-            read_result.stamp.time = options.staleness_bound;
+            start_time = options.staleness_bound;
           } else {
-            read_result.stamp.time = response_date;
+            start_time = response_date;
           }
         }
       }
@@ -326,33 +324,29 @@ struct ReadTask {
       case 204:
       case 404:
         // Object not found.
-        read_result.stamp.generation = StorageGeneration::NoValue();
-        read_result.state = kvstore::ReadResult::kMissing;
-        return read_result;
+        return kvstore::ReadResult::Missing(start_time);
       case 412:
         // "Failed precondition": indicates the If-Match condition did
         // not hold.
-        read_result.stamp.generation = StorageGeneration::Unknown();
-        return read_result;
+        return kvstore::ReadResult::Unspecified(TimestampedStorageGeneration{
+            StorageGeneration::Unknown(), start_time});
       case 304:
         // "Not modified": indicates that the If-None-Match condition did
         // not hold.
-        read_result.stamp.generation = options.if_not_equal;
-        return read_result;
+        return kvstore::ReadResult::Unspecified(
+            TimestampedStorageGeneration{options.if_not_equal, start_time});
     }
 
-    read_result.state = kvstore::ReadResult::kValue;
+    absl::Cord value;
     if (options.byte_range.size() != 0) {
       if (httpresponse.status_code != 206) {
         // This may or may not have been a range request; attempt to validate.
         TENSORSTORE_ASSIGN_OR_RETURN(
             auto byte_range,
             options.byte_range.Validate(httpresponse.payload.size()));
-        read_result.value =
-            internal::GetSubCord(httpresponse.payload, byte_range);
+        value = internal::GetSubCord(httpresponse.payload, byte_range);
       } else {
-        read_result.value = httpresponse.payload;
-
+        value = httpresponse.payload;
         // Server should return a parseable content-range header.
         TENSORSTORE_ASSIGN_OR_RETURN(auto content_range_tuple,
                                      ParseContentRangeHeader(httpresponse));
@@ -361,7 +355,7 @@ struct ReadTask {
             (options.byte_range.inclusive_min != -1 &&
              options.byte_range.inclusive_min !=
                  std::get<0>(content_range_tuple)) ||
-            (request_size >= 0 && request_size != read_result.value.size())) {
+            (request_size >= 0 && request_size != value.size())) {
           // Return an error when the response does not start at the requested
           // offset of when the response is smaller than the desired size.
           return absl::OutOfRangeError(tensorstore::StrCat(
@@ -373,6 +367,7 @@ struct ReadTask {
     }
 
     // Parse `ETag` header from response.
+    StorageGeneration generation = StorageGeneration::Invalid();
     {
       auto it = httpresponse.headers.find("etag");
       if (it != httpresponse.headers.end() && it->second.size() > 2 &&
@@ -381,14 +376,13 @@ struct ReadTask {
         std::string_view etag(it->second);
         etag.remove_prefix(1);
         etag.remove_suffix(1);
-        read_result.stamp.generation = StorageGeneration::FromString(etag);
-      } else {
-        // No ETag available.
-        read_result.stamp.generation = StorageGeneration::Invalid();
+        generation = StorageGeneration::FromString(etag);
       }
     }
 
-    return read_result;
+    return kvstore::ReadResult::Value(
+        std::move(value),
+        TimestampedStorageGeneration{std::move(generation), start_time});
   }
 };
 

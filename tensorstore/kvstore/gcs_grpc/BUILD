@@ -38,7 +38,6 @@ tensorstore_cc_library(
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:retry",
         "//tensorstore/internal:schedule_at",
-        "//tensorstore/internal:type_traits",
         "//tensorstore/internal:uri_utils",
         "//tensorstore/internal/cache_key",
         "//tensorstore/internal/grpc:utils",

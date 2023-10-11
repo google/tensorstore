@@ -1569,29 +1569,27 @@ class WriteViaExistingTransactionNode : public internal::TransactionState::Node,
 Future<TimestampedStorageGeneration> WriteViaExistingTransaction(
     Driver* driver, internal::OpenTransactionPtr& transaction, size_t& phase,
     Key key, std::optional<Value> value, WriteOptions options) {
-  ReadResult read_result;
-  if (value) {
-    read_result.state = ReadResult::kValue;
-    read_result.value = std::move(*value);
-  } else {
-    read_result.state = ReadResult::kMissing;
-  }
+  TimestampedStorageGeneration stamp;
   if (StorageGeneration::IsUnknown(options.if_equal)) {
-    read_result.stamp.time = absl::InfiniteFuture();
+    stamp.time = absl::InfiniteFuture();
   } else {
     assert(StorageGeneration::IsClean(options.if_equal));
-    read_result.stamp.time = absl::Time();
+    stamp.time = absl::Time();
   }
   bool if_equal_no_value = StorageGeneration::IsNoValue(options.if_equal);
-  read_result.stamp.generation = std::move(options.if_equal);
-  read_result.stamp.generation.MarkDirty();
+  stamp.generation = std::move(options.if_equal);
+  stamp.generation.MarkDirty();
+
   auto [promise, future] =
       PromiseFuturePair<TimestampedStorageGeneration>::Make();
   using Node = WriteViaExistingTransactionNode;
   internal::WeakTransactionNodePtr<Node> node;
   node.reset(new Node);
   node->promise_ = promise;
-  node->read_result_ = std::move(read_result);
+  node->read_result_ =
+      value ? ReadResult::Value(std::move(*value), std::move(stamp))
+            : ReadResult::Missing(std::move(stamp));
+
   node->if_equal_no_value_ = if_equal_no_value;
   TENSORSTORE_RETURN_IF_ERROR(
       driver->ReadModifyWrite(transaction, phase, std::move(key), *node));

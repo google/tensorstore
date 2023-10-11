@@ -285,12 +285,10 @@ struct ReadOperation : public internal::AtomicReferenceCount<ReadOperation> {
     LinkValue(
         [op = std::move(op)](Promise<kvstore::ReadResult> promise,
                              ReadyFuture<kvstore::ReadResult> read_future) {
-          kvstore::ReadResult read_result;
-          read_result.state = kvstore::ReadResult::kValue;
-          read_result.value = std::move(read_future.result()->value);
-          read_result.stamp.time = op->time;
-          read_result.stamp.generation = std::move(op->generation);
-          promise.SetResult(std::move(read_result));
+          promise.SetResult(kvstore::ReadResult::Value(
+              std::move(read_future.result()->value),
+              TimestampedStorageGeneration{std::move(op->generation),
+                                           op->time}));
         },
         std::move(promise), std::move(read_future));
   }

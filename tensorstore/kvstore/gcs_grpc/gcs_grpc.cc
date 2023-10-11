@@ -28,7 +28,6 @@
 #include <optional>
 #include <string>
 #include <string_view>
-#include <type_traits>
 #include <utility>
 
 #include "absl/base/thread_annotations.h"
@@ -54,7 +53,6 @@
 #include "tensorstore/internal/metrics/histogram.h"
 #include "tensorstore/internal/retry.h"
 #include "tensorstore/internal/schedule_at.h"
-#include "tensorstore/internal/type_traits.h"
 #include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
@@ -346,7 +344,8 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
   ReadObjectRequest request_;
   ReadObjectResponse response_;
   std::optional<absl::crc32c_t> crc32c_;
-  kvstore::ReadResult read_result_;
+  TimestampedStorageGeneration storage_generation_;
+  absl::Cord value_;
 
   int attempt_ = 0;
   absl::Mutex mutex_;
@@ -395,9 +394,8 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
     if (!promise_.result_needed()) {
       return;
     }
-    read_result_.stamp.time = absl::Now();
-    read_result_.stamp.generation = StorageGeneration::Unknown();
-    read_result_.value.Clear();
+    storage_generation_ =
+        TimestampedStorageGeneration{StorageGeneration::Unknown(), absl::Now()};
 
     ABSL_LOG_IF(INFO, TENSORSTORE_GCS_GRPC_DEBUG)
         << "Read: " << this << " " << ConciseDebugString(request_);
@@ -426,7 +424,7 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
       return;
     }
     if (response_.has_metadata()) {
-      read_result_.stamp.generation =
+      storage_generation_.generation =
           StorageGeneration::FromUint64(response_.metadata().generation());
     }
     if (response_.has_object_checksums() &&
@@ -472,7 +470,7 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
       }
     }
     if (response_.has_checksummed_data()) {
-      read_result_.value.Append(response_.checksummed_data().content());
+      value_.Append(response_.checksummed_data().content());
     }
 
     // Issue next request, if necessary.
@@ -514,31 +512,31 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
           tensorstore::StrCat("All retry attempts failed: ", status));
     }
 
-    auto latency = absl::Now() - read_result_.stamp.time;
+    auto latency = absl::Now() - storage_generation_.time;
     gcs_grpc_read_latency_ms.Observe(absl::ToInt64Milliseconds(latency));
 
     if (!status.ok()) {
       if (absl::IsFailedPrecondition(status) || absl::IsAborted(status)) {
         // Failed precondition is set when either the if_generation_match or
         // the if_generation_not_match fails.
-        read_result_.value.Clear();
         if (!StorageGeneration::IsUnknown(options_.if_equal)) {
-          read_result_.stamp.generation = StorageGeneration::Unknown();
+          storage_generation_.generation = StorageGeneration::Unknown();
         } else {
-          read_result_.stamp.generation = options_.if_not_equal;
+          storage_generation_.generation = options_.if_not_equal;
         }
-        promise_.SetResult(std::move(read_result_));
-      } else if (absl::IsNotFound(status)) {
-        read_result_.stamp.generation = StorageGeneration::NoValue();
-        read_result_.state = kvstore::ReadResult::kMissing;
-        read_result_.value.Clear();
-        promise_.SetResult(std::move(read_result_));
-      } else {
-        promise_.SetResult(std::move(status));
+        promise_.SetResult(
+            kvstore::ReadResult::Unspecified(std::move(storage_generation_)));
+        return;
       }
+      if (absl::IsNotFound(status)) {
+        promise_.SetResult(
+            kvstore::ReadResult::Missing(storage_generation_.time));
+        return;
+      }
+      promise_.SetResult(std::move(status));
       return;
     }
-    if (StorageGeneration::IsUnknown(read_result_.stamp.generation)) {
+    if (StorageGeneration::IsUnknown(storage_generation_.generation)) {
       // Bad metadata was returned by BlobService; this is unexpected, and
       // usually indicates a bug in our testing.
       promise_.SetResult(
@@ -546,15 +544,14 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
       return;
     }
     if (options_.byte_range.size() == 0) {
-      read_result_.value.Clear();
-    } else if (crc32c_.has_value() &&
-               ComputeCrc32c(read_result_.value) != *crc32c_) {
+      value_.Clear();
+    } else if (crc32c_.has_value() && ComputeCrc32c(value_) != *crc32c_) {
       promise_.SetResult(
           absl::DataLossError("Object crc32c does not match expected crc32c"));
       return;
     }
-    read_result_.state = kvstore::ReadResult::kValue;
-    promise_.SetResult(std::move(read_result_));
+    promise_.SetResult(kvstore::ReadResult::Value(
+        std::move(value_), std::move(storage_generation_)));
   }
 };
 

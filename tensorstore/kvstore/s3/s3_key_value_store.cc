@@ -561,51 +561,42 @@ struct ReadTask : public RateLimiterNode,
     auto latency = absl::Now() - start_time_;
     s3_read_latency_ms.Observe(absl::ToInt64Milliseconds(latency));
 
-    // Parse `Date` header from response to correctly handle cached responses.
-    // The GCS servers always send a `date` header.
-    kvstore::ReadResult read_result;
-    read_result.stamp.time = start_time_;
-
     switch (httpresponse.status_code) {
       case 204:
       case 404:
         // Object not found.
-        read_result.stamp.generation = StorageGeneration::NoValue();
-        read_result.state = kvstore::ReadResult::kMissing;
-        return read_result;
+        return kvstore::ReadResult::Missing(start_time_);
       case 412:
         // "Failed precondition": indicates the ifGenerationMatch condition
         // did not hold.
         // NOTE: This is returned even when the object does not exist.
-        read_result.stamp.generation = StorageGeneration::Unknown();
-        return read_result;
+        return kvstore::ReadResult::Unspecified(TimestampedStorageGeneration{
+            StorageGeneration::Unknown(), start_time_});
       case 304:
         // "Not modified": indicates that the ifGenerationNotMatch condition
         // did not hold.
-        read_result.stamp.generation = options.if_not_equal;
-        return read_result;
+        return kvstore::ReadResult::Unspecified(
+            TimestampedStorageGeneration{options.if_not_equal, start_time_});
     }
 
-    read_result.state = kvstore::ReadResult::kValue;
+    absl::Cord value;
     if (options.byte_range.size() != 0) {
       if (httpresponse.status_code != 206) {
         // This may or may not have been a range request; attempt to validate.
         TENSORSTORE_ASSIGN_OR_RETURN(
             auto byte_range,
             options.byte_range.Validate(httpresponse.payload.size()));
-        read_result.value =
-            internal::GetSubCord(httpresponse.payload, byte_range);
+        value = internal::GetSubCord(httpresponse.payload, byte_range);
       } else {
-        read_result.value = httpresponse.payload;
+        value = httpresponse.payload;
         // Server should return a parseable content-range header.
         TENSORSTORE_ASSIGN_OR_RETURN(auto content_range_tuple,
                                      ParseContentRangeHeader(httpresponse));
-
         if (auto request_size = options.byte_range.size();
             (options.byte_range.inclusive_min != -1 &&
              options.byte_range.inclusive_min !=
                  std::get<0>(content_range_tuple)) ||
-            (request_size >= 0 && request_size != read_result.value.size())) {
+            (request_size >= 0 && request_size != value.size())) {
           // Return an error when the response does not start at the requested
           // offset of when the response is smaller than the desired size.
           return absl::OutOfRangeError(
@@ -617,9 +608,11 @@ struct ReadTask : public RateLimiterNode,
     }
 
     TENSORSTORE_ASSIGN_OR_RETURN(
-        read_result.stamp.generation,
-        StorageGenerationFromHeaders(httpresponse.headers));
-    return read_result;
+        auto generation, StorageGenerationFromHeaders(httpresponse.headers));
+
+    return kvstore::ReadResult::Value(
+        std::move(value),
+        TimestampedStorageGeneration{std::move(generation), start_time_});
   }
 };
 

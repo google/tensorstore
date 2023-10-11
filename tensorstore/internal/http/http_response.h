@@ -73,6 +73,13 @@ absl::Status HttpResponseCodeToStatus(
 Result<std::tuple<size_t, size_t, size_t>> ParseContentRangeHeader(
     const HttpResponse& response);
 
+/// `strptime`-compatible format string for the HTTP date header.
+///
+/// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Date
+///
+/// Note that the time zone is always UTC and is specified as "GMT".
+constexpr const char kHttpTimeFormat[] = "%a, %d %b %E4Y %H:%M:%S GMT";
+
 /// Attempts to parse a header using SimpleAtoi.
 template <typename T>
 std::optional<T> TryParseIntHeader(
