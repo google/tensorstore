@@ -18,17 +18,11 @@
 #include <map>
 #include <string>
 #include <string_view>
-#include <type_traits>
 
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
 #include "absl/functional/function_ref.h"
 #include "absl/strings/cord.h"
-#include "absl/time/time.h"
 #include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/json_serialization_options.h"
-#include "tensorstore/kvstore/generation.h"
-#include "tensorstore/kvstore/generation_testutil.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/util/result.h"
@@ -137,51 +131,6 @@ void TestKeyValueStoreSpecRoundtripNormalize(
 
 /// Returns the contents of `kv_store` as an `std::map`.
 Result<std::map<kvstore::Key, kvstore::Value>> GetMap(const KvStore& store);
-
-/// Returns a GMock matcher for a `kvstore::ReadResult` or
-/// `Result<kvstore::ReadResult>`.
-template <typename ValueMatcher>
-::testing::Matcher<Result<kvstore::ReadResult>> MatchesKvsReadResult(
-    ValueMatcher value,
-    ::testing::Matcher<StorageGeneration> generation = ::testing::_,
-    ::testing::Matcher<absl::Time> time = ::testing::_) {
-  using ReadResult = kvstore::ReadResult;
-  ::testing::Matcher<kvstore::ReadResult::State> state_matcher;
-  ::testing::Matcher<kvstore::Value> value_matcher;
-  if constexpr (std::is_convertible_v<ValueMatcher,
-                                      ::testing::Matcher<kvstore::Value>>) {
-    value_matcher = ::testing::Matcher<kvstore::Value>(value);
-    state_matcher = kvstore::ReadResult::kValue;
-  } else {
-    static_assert(
-        std::is_convertible_v<ValueMatcher,
-                              ::testing::Matcher<kvstore::ReadResult::State>>);
-    value_matcher = absl::Cord();
-    state_matcher = ::testing::Matcher<kvstore::ReadResult::State>(value);
-  }
-  return ::testing::Optional(::testing::AllOf(
-      ::testing::Field("state", &ReadResult::state, state_matcher),
-      ::testing::Field("value", &ReadResult::value, value_matcher),
-      ::testing::Field("stamp", &ReadResult::stamp,
-                       MatchesTimestampedStorageGeneration(generation, time))));
-}
-
-/// Returns a GMock matcher for a "not found" `kvstore::ReadResult`.
-inline ::testing::Matcher<Result<kvstore::ReadResult>>
-MatchesKvsReadResultNotFound(
-    ::testing::Matcher<absl::Time> time = ::testing::_) {
-  return MatchesKvsReadResult(kvstore::ReadResult::kMissing,
-                              ::testing::Not(StorageGeneration::Unknown()),
-                              time);
-}
-
-/// Returns a GMock matcher for an "aborted" `kvstore::ReadResult`.
-inline ::testing::Matcher<Result<kvstore::ReadResult>>
-MatchesKvsReadResultAborted(
-    ::testing::Matcher<absl::Time> time = ::testing::_) {
-  return MatchesKvsReadResult(kvstore::ReadResult::kUnspecified, ::testing::_,
-                              time);
-}
 
 }  // namespace internal
 }  // namespace tensorstore

@@ -35,6 +35,7 @@
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
+#include "tensorstore/kvstore/read_result_testutil.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender_testutil.h"
@@ -155,7 +156,7 @@ TEST(FileKeyValueStoreTest, LockFiles) {
 
   // Create a lock file to simulate a stale lock file left by a process that
   // crashes in the middle of a Write/Delete operation.
-  std::ofstream(root + "/a/foo.__lock");
+  { std::ofstream x(root + "/a/foo.__lock"); }
   EXPECT_THAT(GetDirectoryContents(root),
               ::testing::UnorderedElementsAre("a", "a/foo", "a/foo.__lock"));
 
@@ -168,7 +169,7 @@ TEST(FileKeyValueStoreTest, LockFiles) {
       kvstore::Write(store, "a/foo", absl::Cord("xyz")).result());
 
   // Recreate the lock file.
-  std::ofstream(root + "/a/foo.__lock");
+  { std::ofstream x(root + "/a/foo.__lock"); }
 
   // Test that the "a" prefix can be deleted despite the presence of the lock
   // file.  Only a single key, "a/foo" is removed.  The lock file should not be

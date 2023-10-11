@@ -62,6 +62,7 @@ tensorstore_cc_test(
         "//tensorstore/internal/http:curl_transport",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:generation",
+        "//tensorstore/kvstore:read_result_testutil",
         "//tensorstore/kvstore:test_util",
         "//tensorstore/util:status_testutil",
         "@com_google_absl//absl/status",

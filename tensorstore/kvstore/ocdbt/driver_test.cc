@@ -39,6 +39,7 @@
 #include "tensorstore/kvstore/ocdbt/test_util.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
+#include "tensorstore/kvstore/read_result_testutil.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/supported_features.h"
 #include "tensorstore/kvstore/test_util.h"

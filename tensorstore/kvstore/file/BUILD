@@ -67,6 +67,7 @@ tensorstore_cc_test(
         "//tensorstore/kvstore:generation",
         "//tensorstore/kvstore:generation_testutil",
         "//tensorstore/kvstore:key_range",
+        "//tensorstore/kvstore:read_result_testutil",
         "//tensorstore/kvstore:test_util",
         "//tensorstore/util:future",
         "//tensorstore/util:result",

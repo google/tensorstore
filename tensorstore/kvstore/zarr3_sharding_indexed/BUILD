@@ -95,6 +95,7 @@ tensorstore_cc_test(
         "//tensorstore/kvstore:generation",
         "//tensorstore/kvstore:generation_testutil",
         "//tensorstore/kvstore:mock_kvstore",
+        "//tensorstore/kvstore:read_result_testutil",
         "//tensorstore/kvstore:test_util",
         "//tensorstore/kvstore/file",
         "//tensorstore/kvstore/memory",

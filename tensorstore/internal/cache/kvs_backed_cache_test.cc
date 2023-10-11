@@ -31,6 +31,7 @@
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/memory/memory_key_value_store.h"
 #include "tensorstore/kvstore/mock_kvstore.h"
+#include "tensorstore/kvstore/read_result_testutil.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/status_testutil.h"

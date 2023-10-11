@@ -185,6 +185,7 @@ tensorstore_cc_test(
         "//tensorstore:context",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:key_range",
+        "//tensorstore/kvstore:read_result_testutil",
         "//tensorstore/kvstore:test_util",
         "//tensorstore/kvstore/memory",  # build_cleaner: keep
         "//tensorstore/util:future",
