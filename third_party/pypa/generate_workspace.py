@@ -37,10 +37,21 @@ import requests
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 
-SUPPORTED_PYTHON_VERSIONS = ("3.8", "3.9", "3.10", "3.11")
-
 Metadata = Any
 Json = Any
+
+SUPPORTED_PYTHON_VERSIONS = ("3.9", "3.10", "3.11")
+
+# Dependencies to ignore (to avoid cycles)
+#
+# https://github.com/sphinx-doc/sphinx/issues/11567
+IGNORED_DEPENDENCIES = {
+    "sphinxcontrib-applehelp": {"sphinx"},
+    "sphinxcontrib-htmlhelp": {"sphinx"},
+    "sphinxcontrib-qthelp": {"sphinx"},
+    "sphinxcontrib-devhelp": {"sphinx"},
+    "sphinxcontrib-serializinghtml": {"sphinx"},
+}
 
 
 @functools.cache
@@ -152,9 +163,12 @@ def get_package_metadata(req_str: str) -> Metadata:
   if requires_dist is None:
     requires_dist = []
   deps = []
+  ignored_deps = IGNORED_DEPENDENCIES.get(name.lower())
   for dep_req_text in requires_dist:
     dep_req = packaging.requirements.Requirement(dep_req_text)
-    if _evaluate_marker(dep_req.marker):
+    if _evaluate_marker(dep_req.marker) and (
+        ignored_deps is None or dep_req.name.lower() not in ignored_deps
+    ):
       deps.append(dep_req.name.lower())
   return {"Requires": sorted(deps), "Name": name, "Version": version_str}
 
@@ -187,8 +201,10 @@ def write_repo_macros(f, metadata):
   repo_name = get_repo_name(package_name)
   f.write(f"""def repo_{repo_name}():
 """)
-  for dep in metadata["Requires"]:
-    f.write(f"    repo_{get_repo_name(dep)}()\n")
+  for repo_dep in sorted(
+      set(get_repo_name(dep) for dep in metadata["Requires"])
+  ):
+    f.write(f"    repo_{repo_dep}()\n")
   f.write(
       """    maybe(
         third_party_python_package,
@@ -205,8 +221,10 @@ def write_repo_macros(f, metadata):
   )
   if metadata["Requires"]:
     f.write("        deps = [\n")
-    for dep in metadata["Requires"]:
-      f.write("            " + json.dumps(get_full_target_name(dep)) + ",\n")
+    for unique_dep in sorted(
+        set(get_full_target_name(dep) for dep in metadata["Requires"])
+    ):
+      f.write("            " + json.dumps(unique_dep) + ",\n")
     f.write("        ],\n")
 
   f.write("""    )

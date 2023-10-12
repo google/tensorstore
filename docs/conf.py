@@ -80,8 +80,6 @@ html_theme_options = {
     'logo_svg': 'logo.svg',
     'site_url': 'https://google.github.io/tensorstore/',
     'repo_url': 'https://github.com/google/tensorstore/',
-    'repo_name': 'google/tensorstore',
-    'repo_type': 'github',
     'globaltoc_collapse': True,
     'features': [
         'navigation.expand',
