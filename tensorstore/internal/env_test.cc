@@ -14,14 +14,13 @@
 
 #include "tensorstore/internal/env.h"
 
-#include <optional>
-
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace {
 
 using ::tensorstore::internal::GetEnv;
+using ::tensorstore::internal::GetEnvironmentMap;
 using ::tensorstore::internal::GetEnvValue;
 using ::tensorstore::internal::SetEnv;
 using ::tensorstore::internal::UnsetEnv;
@@ -41,6 +40,15 @@ TEST(GetEnvTest, Basic) {
     auto var = GetEnv("TENSORSTORE_TEST_ENV_VAR");
     EXPECT_FALSE(var);
   }
+}
+
+TEST(GetEnvTest, GetEnvironmentMap) {
+  // Env is set
+  SetEnv("TENSORSTORE_TEST_ENV_VAR", "test env var");
+
+  auto allenv = GetEnvironmentMap();
+  EXPECT_FALSE(allenv.empty());
+  EXPECT_THAT(allenv.count("TENSORSTORE_TEST_ENV_VAR"), 1);
 }
 
 TEST(GetEnvTest, ParseBool) {

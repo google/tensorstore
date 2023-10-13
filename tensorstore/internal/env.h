@@ -18,11 +18,15 @@
 #include <optional>
 #include <string>
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/log/absl_log.h"
 #include "absl/strings/numbers.h"
 
 namespace tensorstore {
 namespace internal {
+
+// Returns the parsed environment variables
+absl::flat_hash_map<std::string, std::string> GetEnvironmentMap();
 
 // Returns the value of an environment variable or empty.
 std::optional<std::string> GetEnv(char const* variable);

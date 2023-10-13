@@ -15,9 +15,13 @@
 #ifndef TENSORSTORE_INTERNAL_SUBPROCESS_H_
 #define TENSORSTORE_INTERNAL_SUBPROCESS_H_
 
+#include <memory>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "tensorstore/util/result.h"
 
@@ -29,6 +33,9 @@ class Subprocess;
 struct SubprocessOptions {
   std::string executable;         // Path to executable.
   std::vector<std::string> args;  // Arguments to executable.
+
+  // Environment; when unset, inherits from the current process.
+  std::optional<absl::flat_hash_map<std::string, std::string>> env;
 
   bool inherit_stdout = true;
   bool inherit_stderr = true;
