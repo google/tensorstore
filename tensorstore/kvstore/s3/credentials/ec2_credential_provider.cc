@@ -140,11 +140,6 @@ bool IsEC2MetadataServiceAvailable(internal_http::HttpTransport& transport) {
   return GetEC2ApiToken(transport).ok();
 }
 
-bool EC2MetadataCredentialProvider::IsExpired() {
-  absl::MutexLock l(&mutex_);
-  return absl::Now() + absl::Seconds(60) < timeout_;
-}
-
 /// Obtains AWS Credentials from the EC2Metadata.
 ///
 /// https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-retrieval.html#instancedata-meta-data-retrieval-examples
@@ -158,10 +153,6 @@ bool EC2MetadataCredentialProvider::IsExpired() {
 /// 3. Obtain the associated credentials from path
 ///    "/latest/meta-data/iam/security-credentials/<iam-role>".
 Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
-  absl::MutexLock l(&mutex_);
-  if (absl::Now() + absl::Seconds(60) < timeout_) {
-    return credentials_;
-  }
   auto default_timeout = absl::Now() + kDefaultTimeout;
 
   // Obtain an API token for communicating with the EC2 Metadata server
@@ -218,11 +209,11 @@ Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
                                             "] failed with ", json_sv));
   }
 
-  timeout_ = iam_credentials.expiration.value_or(default_timeout);
-  credentials_ = AwsCredentials{iam_credentials.access_key_id.value_or(""),
-                                iam_credentials.secret_access_key.value_or(""),
-                                iam_credentials.token.value_or("")};
-  return credentials_;
+  SetExpiration(iam_credentials.expiration.value_or(default_timeout));
+
+  return AwsCredentials{iam_credentials.access_key_id.value_or(""),
+                        iam_credentials.secret_access_key.value_or(""),
+                        iam_credentials.token.value_or("")};
 }
 
 }  // namespace internal_kvstore_s3
