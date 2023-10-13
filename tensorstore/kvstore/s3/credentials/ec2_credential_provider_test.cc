@@ -63,6 +63,9 @@ class EC2MetadataMockTransport : public HttpTransport {
 };
 
 TEST(EC2MetadataCredentialProviderTest, CredentialRetrievalFlow) {
+  auto expiry = absl::Now() + absl::Seconds(240);
+  auto utc = absl::UTCTimeZone();
+
   auto url_to_response = absl::flat_hash_map<std::string, HttpResponse>{
       {"POST http://169.254.169.254/latest/api/token",
        HttpResponse{200, absl::Cord{"1234567890"}}},
@@ -77,26 +80,31 @@ TEST(EC2MetadataCredentialProviderTest, CredentialRetrievalFlow) {
       {"GET "
        "http://169.254.169.254/latest/meta-data/iam/security-credentials/"
        "mock-iam-role",
-       HttpResponse{200,
-                    absl::Cord(R"({
-                                    "Code": "Success",
-                                    "LastUpdated": "2023-09-21T12:42:12Z",
-                                    "Type": "AWS-HMAC",
-                                    "AccessKeyId": "ASIA1234567890",
-                                    "SecretAccessKey": "1234567890abcdef",
-                                    "Token": "abcdef123456790",
-                                    "Expiration": "2023-09-21T12:42:12Z"
-                                 })"),
+       HttpResponse{200, absl::Cord(
+                    absl::FormatTime(R"({
+                        "Code": "Success",
+                        "LastUpdated": "2023-09-21T12:42:12Z",
+                        "Type": "AWS-HMAC",
+                        "AccessKeyId": "ASIA1234567890",
+                        "SecretAccessKey": "1234567890abcdef",
+                        "Token": "abcdef123456790",
+                        "Expiration": "%Y-%m-%d%ET%H:%M:%E*S%Ez"
+                    })", expiry, utc)),
                     {{"x-aws-ec2-metadata-token", "1234567890"}}}}};
 
   auto mock_transport =
       std::make_shared<EC2MetadataMockTransport>(url_to_response);
   auto provider =
       std::make_shared<EC2MetadataCredentialProvider>(mock_transport);
+  ASSERT_TRUE(provider->IsExpired());
+  ASSERT_EQ(provider->ExpiresAt(), absl::InfinitePast());
   TENSORSTORE_CHECK_OK_AND_ASSIGN(auto credentials, provider->GetCredentials());
   ASSERT_EQ(credentials.access_key, "ASIA1234567890");
   ASSERT_EQ(credentials.secret_key, "1234567890abcdef");
   ASSERT_EQ(credentials.session_token, "abcdef123456790");
+  // expiry less the 60s leeway
+  ASSERT_EQ(provider->ExpiresAt(), expiry - absl::Seconds(60));
+  ASSERT_FALSE(provider->IsExpired());
 }
 
 TEST(EC2MetadataCredentialProviderTest, NoIamRolesInSecurityCredentials) {
