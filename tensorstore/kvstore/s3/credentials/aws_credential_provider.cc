@@ -46,7 +46,14 @@ Result<std::unique_ptr<AwsCredentialProvider>> GetDefaultAwsCredentialProvider(
   std::vector<std::unique_ptr<AwsCredentialProvider>> providers;
   providers.emplace_back(std::make_unique<EnvironmentCredentialProvider>());
   providers.emplace_back(std::make_unique<FileCredentialProvider>(std::string(profile)));
-  providers.emplace_back(std::make_unique<EC2MetadataCredentialProvider>(transport));
+
+  if(IsEC2MetadataServiceAvailable(*transport)) {
+    providers.emplace_back(std::make_unique<EC2MetadataCredentialProvider>(transport));
+  } else {
+    ABSL_LOG(WARNING) << "Initial connection to EC2 Metadata server timed out. "
+                      << "Credentials from this source will be ignored.";
+  }
+
   return std::make_unique<CachedCredentialProvider>(
     std::make_unique<ChainedCredentialProvider>(std::move(providers)));
 }
