@@ -25,8 +25,6 @@
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
-#include "absl/synchronization/mutex.h"
-#include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/http_request.h"

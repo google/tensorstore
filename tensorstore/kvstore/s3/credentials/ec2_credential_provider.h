@@ -19,8 +19,6 @@
 #include <utility>
 
 #include "absl/base/thread_annotations.h"
-#include "absl/synchronization/mutex.h"
-#include "absl/time/time.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/kvstore/s3/credentials/aws_credential_provider.h"
 #include "tensorstore/kvstore/s3/credentials/expiry_credential_provider.h"
