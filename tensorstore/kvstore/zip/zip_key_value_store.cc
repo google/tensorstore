@@ -76,7 +76,6 @@ namespace jb = tensorstore::internal_json_binding;
 
 using ::tensorstore::internal_zip_kvstore::Directory;
 using ::tensorstore::internal_zip_kvstore::ZipDirectoryCache;
-using ::tensorstore::kvstore::ReadResult;
 
 // -----------------------------------------------------------------------------
 
@@ -190,8 +189,8 @@ struct ReadState : public internal::AtomicReferenceCount<ReadState> {
   kvstore::ReadOptions options_;
 
   // The cache read has completed, so the zip directory entries are available.
-  void OnDirectoryReady(Promise<ReadResult> promise) {
-    ReadResult result;
+  void OnDirectoryReady(Promise<kvstore::ReadResult> promise) {
+    TimestampedStorageGeneration stamp;
 
     // Set options for the entry request.
     kvstore::ReadOptions options;
@@ -202,7 +201,7 @@ struct ReadState : public internal::AtomicReferenceCount<ReadState> {
     {
       ZipDirectoryCache::ReadLock<ZipDirectoryCache::ReadData> lock(
           *(owner_->cache_entry_));
-      result.stamp = lock.stamp();
+      stamp = lock.stamp();
 
       // Find key in the directory.
       assert(lock.data());
@@ -215,19 +214,17 @@ struct ReadState : public internal::AtomicReferenceCount<ReadState> {
 
       if (it == dir.entries.end() || it->filename != key_) {
         // Missing value.
-        result.state = kvstore::ReadResult::kMissing;
-        promise.SetResult(std::move(result));
+        promise.SetResult(kvstore::ReadResult::Missing(std::move(stamp)));
         return;
       }
 
       // Check if_equal and if_not_equal conditions.
       // This happens after searching the directory in order to correctly handle
       // IsNoValue matches, above.
-      if (options_.if_not_equal == result.stamp.generation ||
+      if (options_.if_not_equal == stamp.generation ||
           (!StorageGeneration::IsUnknown(options_.if_equal) &&
-           options_.if_equal != result.stamp.generation)) {
-        result.state = kvstore::ReadResult::kUnspecified;
-        promise.SetResult(std::move(result));
+           options_.if_equal != stamp.generation)) {
+        promise.SetResult(kvstore::ReadResult::Unspecified(std::move(stamp)));
         return;
       }
 
@@ -242,7 +239,7 @@ struct ReadState : public internal::AtomicReferenceCount<ReadState> {
       }
     }
 
-    options.if_equal = result.stamp.generation;
+    options.if_equal = stamp.generation;
     Link(WithExecutor(owner_->executor(),
                       [self = internal::IntrusivePtr<ReadState>(this),
                        seek_pos](Promise<kvstore::ReadResult> promise,
@@ -254,8 +251,8 @@ struct ReadState : public internal::AtomicReferenceCount<ReadState> {
          kvstore::Read(owner_->base_, {}, std::move(options)));
   }
 
-  void OnValueRead(Promise<ReadResult> promise, ReadyFuture<ReadResult> ready,
-                   size_t seek_pos) {
+  void OnValueRead(Promise<kvstore::ReadResult> promise,
+                   ReadyFuture<kvstore::ReadResult> ready, size_t seek_pos) {
     if (!promise.result_needed()) return;
     if (!ready.status().ok()) {
       promise.SetResult(ready.status());
@@ -263,7 +260,7 @@ struct ReadState : public internal::AtomicReferenceCount<ReadState> {
     }
 
     internal_zip::ZipEntry local_header{};
-    auto result = [&]() -> Result<ReadResult> {
+    auto result = [&]() -> Result<kvstore::ReadResult> {
       kvstore::ReadResult read_result = std::move(ready.value());
       if (!read_result.has_value()) {
         return read_result;
@@ -309,13 +306,13 @@ struct ReadState : public internal::AtomicReferenceCount<ReadState> {
   }
 };
 
-Future<ReadResult> ZipKvStore::Read(Key key, ReadOptions options) {
+Future<kvstore::ReadResult> ZipKvStore::Read(Key key, ReadOptions options) {
   auto state = internal::MakeIntrusivePtr<ReadState>();
   state->owner_ = internal::IntrusivePtr<ZipKvStore>(this);
   state->key_ = std::move(key);
   state->options_ = options;
 
-  return PromiseFuturePair<ReadResult>::LinkValue(
+  return PromiseFuturePair<kvstore::ReadResult>::LinkValue(
              WithExecutor(
                  executor(),
                  [state = std::move(state)](Promise<ReadResult> promise,

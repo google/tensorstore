@@ -63,11 +63,13 @@ struct ReadDirectoryOp
   std::shared_ptr<const Directory> existing_read_data_;
 
   kvstore::ReadOptions options_;
-  int64_t block_offset_;
   internal_zip::ZipEOCD eocd_;
 
   void StartEOCDBlockRead() {
     auto& cache = internal::GetOwningCache(*entry_);
+    ABSL_LOG_IF(INFO, TENSORSTORE_ZIP_IMPL_LOGGING)
+        << "StartEOCDBlockRead " << entry_->key() << " " << options_.byte_range;
+
     auto future =
         cache.kvstore_driver_->Read(std::string(entry_->key()), options_);
 
@@ -85,6 +87,7 @@ struct ReadDirectoryOp
       ABSL_LOG_IF(INFO, TENSORSTORE_ZIP_IMPL_LOGGING) << r.status();
       if (absl::IsOutOfRange(r.status())) {
         // Retry, reading the full range.
+        assert(!options_.byte_range.IsFull());
         options_.byte_range = OptionalByteRangeRequest{};
         StartEOCDBlockRead();
         return;
@@ -118,7 +121,10 @@ struct ReadDirectoryOp
     absl::Cord* eocd_block = &ready.value().value;
     riegeli::CordReader<absl::Cord*> reader(eocd_block);
 
-    auto read_eocd_variant = TryReadFullEOCD(reader, eocd_, block_offset_);
+    int64_t block_offset =
+        options_.byte_range.IsFull() ? 0 : options_.byte_range.inclusive_min;
+
+    auto read_eocd_variant = TryReadFullEOCD(reader, eocd_, block_offset);
     if (auto* status = std::get_if<absl::Status>(&read_eocd_variant);
         status != nullptr && !status->ok()) {
       entry_->ReadError(std::move(*status));
@@ -135,13 +141,10 @@ struct ReadDirectoryOp
       return;
     }
 
-    if (options_.byte_range.IsFull() ||
-        (options_.byte_range.IsSuffix() &&
-         options_.byte_range.inclusive_min > 0 &&
-         options_.byte_range.inclusive_min <= eocd_.cd_offset)) {
-      // The eocd block contains the directory, so fall through to
+    if (block_offset >= 0 && block_offset <= eocd_.cd_offset) {
+      // The EOCD block contains the directory, so fall through to
       // handling directory entries without another read request.
-      DoDecodeDirectory(std::move(ready), eocd_.cd_offset - block_offset_);
+      DoDecodeDirectory(std::move(ready), eocd_.cd_offset - block_offset);
       return;
     }
 

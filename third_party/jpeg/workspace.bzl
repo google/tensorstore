@@ -30,7 +30,7 @@ def repo():
             "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/libjpeg-turbo/libjpeg-turbo/archive/2.1.4.tar.gz",
         ],
         sha256 = "a78b05c0d8427a90eb5b4eb08af25309770c8379592bb0b8a863373128e6143f",
-        build_file = Label("//third_party:jpeg/bundled.BUILD.bazel"),
+        build_file = Label("//third_party:jpeg/jpeg.BUILD.bazel"),
         system_build_file = Label("//third_party:jpeg/system.BUILD.bazel"),
         cmake_name = "JPEG",
         # libjpeg-turbo maintainers do not wish to support subproject builds

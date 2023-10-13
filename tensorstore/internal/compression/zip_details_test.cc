@@ -328,8 +328,15 @@ struct ZipDirectory {
 };
 
 absl::Status ReadDirectory(riegeli::Reader& reader, ZipDirectory& directory) {
+  int64_t initial_pos = reader.pos();
   auto response =
-      tensorstore::internal_zip::TryReadFullEOCD(reader, directory.eocd, 0);
+      tensorstore::internal_zip::TryReadFullEOCD(reader, directory.eocd, -1);
+  if (std::holds_alternative<int64_t>(response)) {
+    reader.Seek(initial_pos);
+    response =
+        tensorstore::internal_zip::TryReadFullEOCD(reader, directory.eocd, 0);
+  }
+
   if (auto* status = std::get_if<absl::Status>(&response);
       status != nullptr && !status->ok()) {
     return std::move(*status);
@@ -350,7 +357,7 @@ absl::Status ReadDirectory(riegeli::Reader& reader, ZipDirectory& directory) {
     directory.entries.push_back(std::move(header));
   }
 
-  /// The directory should be read at this point.
+  // The directory should be read at this point.
   return absl::OkStatus();
 }
 

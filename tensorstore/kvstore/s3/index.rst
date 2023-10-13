@@ -32,14 +32,14 @@ without credentials.  Otherwise amazon credentials are required:
    :envvar:`AWS_SESSION_TOKEN` environment variable as they would be
    used by the `aws cli <https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html>`_.
 
-2. Credentials may be obtained from the default user credentials file, which may
-   be found at :file:`~/.aws/credentials`, or the file specified by the
+2. Credentials may be obtained from the default user credentials file, when
+   found at :file:`~/.aws/credentials`, or the file specified by the
    environment variable :envvar:`AWS_SHARED_CREDENTIALS_FILE`, along with
    a profile from the schema, or as indicated by the :envvar:`AWS_PROFILE`
    environment variables.
 
-3. Acquiring credentials from the EC2 Metadata server is unimplemented.
-
+3. Credentials may be retrieved from the EC2 Instance Metadata Service (IMDS)
+   when it is available.
 
 .. envvar:: AWS_ACCESS_KEY_ID
 
@@ -74,4 +74,10 @@ without credentials.  Otherwise amazon credentials are required:
   profile named `[default]` in the credentials file.
   See <https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html>
 
+.. envvar:: AWS_EC2_METADATA_SERVICE_ENDPOINT
+
+  Overrides the default EC2 Instance Metadata Service (IMDS) endpoint of 
+  `http://169.254.169.254`. This must be a valid uri, and should respond to the
+  AWS IMDS api endpoints.
+  See <https://docs.aws.amazon.com/sdkref/latest/guide/feature-imds-credentials.html>
 

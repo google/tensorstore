@@ -378,7 +378,6 @@ class MemoryDriver::TransactionNode
 Future<ReadResult> MemoryDriver::Read(Key key, ReadOptions options) {
   auto& data = this->data();
   absl::ReaderMutexLock lock(&data.mutex);
-  ReadResult read_result;
   auto& values = data.values;
   auto it = values.find(key);
   if (it == values.end()) {

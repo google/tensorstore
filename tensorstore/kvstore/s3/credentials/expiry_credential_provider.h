@@ -36,9 +36,12 @@ class ExpiryCredentialProvider : public AwsCredentialProvider {
     absl::Time expiration_;
     absl::FunctionRef<absl::Time()> clock_;
 
+  protected:
+    absl::Time clock() { return clock_(); }
+
   public:
     ExpiryCredentialProvider(absl::FunctionRef<absl::Time()> clock=absl::Now)
-        : expiration_(absl::InfinitePast()), clock_(clock) {}
+        : expiration_(absl::InfinitePast()), clock_(std::move(clock)) {}
     void SetExpiration(const absl::Time & expiration,
                        const absl::Duration & window=absl::Seconds(0)) {
       expiration_ = expiration;

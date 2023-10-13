@@ -67,6 +67,7 @@ tensorstore_cc_library(
         "//tensorstore/util:status",
         "@com_github_grpc_grpc//:grpc++",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:cord",
     ],
 )
 

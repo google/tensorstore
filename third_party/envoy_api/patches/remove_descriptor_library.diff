@@ -1,0 +1,35 @@
+diff -u -Nur a/bazel/api_build_system.bzl b/bazel/api_build_system.bzl
+--- a/bazel/api_build_system.bzl	2023-10-02 17:41:27.000000000 +0000
++++ b/bazel/api_build_system.bzl	2023-10-03 22:56:27.141260428 +0000
+@@ -10,10 +10,10 @@
+     "EXTERNAL_PROTO_GO_BAZEL_DEP_MAP",
+     "EXTERNAL_PROTO_PY_BAZEL_DEP_MAP",
+ )
+-load(
+-    "@envoy//bazel/cc_proto_descriptor_library:builddefs.bzl",
+-    "cc_proto_descriptor_library",
+-)
++#load(
++#    "@envoy//bazel/cc_proto_descriptor_library:builddefs.bzl",
++#    "cc_proto_descriptor_library",
++#)
+ 
+ EnvoyProtoDepsInfo = provider(fields = ["deps"])
+ 
+@@ -138,11 +138,11 @@
+     # Protobuf-Lite generated C++ code does not include reflection
+     # capabilities but analogous functionality can be provided by
+     # cc_proto_descriptor_library.
+-    cc_proto_descriptor_library(
+-        name = name + _CC_PROTO_DESCRIPTOR_SUFFIX,
+-        visibility = visibility,
+-        deps = [name],
+-    )
++    #cc_proto_descriptor_library(
++    #    name = name + _CC_PROTO_DESCRIPTOR_SUFFIX,
++    #    visibility = visibility,
++    #    deps = [name],
++    #)
+ 
+     cc_proto_library_name = name + _CC_PROTO_SUFFIX
+     pgv_cc_proto_library(

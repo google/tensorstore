@@ -17,7 +17,7 @@ cc_library(
             "c/blake3_sse2_x86-64_windows_msvc.asm",
             "c/blake3_sse41_x86-64_windows_msvc.asm",
         ],
-        ":windows_x86_64_mingw-gcc": [
+        ":windows_x86_64_mingw_gcc": [
             "c/blake3_avx2_x86-64_windows_gnu.S",
             "c/blake3_avx512_x86-64_windows_gnu.S",
             "c/blake3_sse2_x86-64_windows_gnu.S",
@@ -26,7 +26,7 @@ cc_library(
         "@platforms//cpu:arm64": [
             "c/blake3_neon.c",
         ],
-        ("linux_x86_64", "macos_x86_64"): [
+        (":linux_x86_64", ":macos_x86_64"): [
             "c/blake3_avx2_x86-64_unix.S",
             "c/blake3_avx512_x86-64_unix.S",
             "c/blake3_sse2_x86-64_unix.S",
@@ -41,48 +41,15 @@ cc_library(
     visibility = ["//visibility:public"],
 )
 
-config_setting(
-    name = "compiler_msvc",
-    flag_values = {
-        "@bazel_tools//tools/cpp:compiler": "msvc-cl",
-    },
-)
-
-config_setting(
-    name = "compiler_mingw-gcc",
-    flag_values = {
-        "@bazel_tools//tools/cpp:compiler": "mingw-gcc",
-    },
-)
-
-selects.config_setting_group(
-    name = "windows_x86_64_msvc",
-    match_all = [
-        "@platforms//cpu:x86_64",
-        ":compiler_msvc",
-    ],
-)
-
-selects.config_setting_group(
-    name = "windows_x86_64_mingw-gcc",
-    match_all = [
-        "@platforms//cpu:x86_64",
-        ":compiler_mingw-gcc",
-    ],
-)
-
-selects.config_setting_group(
-    name = "linux_x86_64",
-    match_all = [
-        "@platforms//os:linux",
-        "@platforms//cpu:x86_64",
-    ],
-)
-
-selects.config_setting_group(
-    name = "macos_x86_64",
-    match_all = [
-        "@platforms//os:macos",
-        "@platforms//cpu:x86_64",
-    ],
-)
+[
+    alias(
+        name = name,
+        actual = "@tensorstore//:{target}".format(target = name),
+    )
+    for name in [
+        "linux_x86_64",
+        "macos_x86_64",
+        "windows_x86_64_msvc",
+        "windows_x86_64_mingw_gcc",
+    ]
+]

@@ -27,6 +27,10 @@ tensorstore_cc_library(
         "//tensorstore/internal:no_destructor",
         "//tensorstore/internal:path",
         "//tensorstore/internal/http",
+        "//tensorstore/internal/json",
+        "//tensorstore/internal/json_binding",
+        "//tensorstore/internal/json_binding:absl_time",
+        "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/util:result",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status",
@@ -70,6 +74,25 @@ tensorstore_cc_test(
         "//tensorstore/internal:test_util",
         "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+
+tensorstore_cc_test(
+    name = "ec2_credential_provider_test",
+    srcs = ["ec2_credential_provider_test.cc"],
+    deps = [
+        ":aws_credential_provider",
+        "//tensorstore/internal/http",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status_testutil",
+        "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/log:absl_log",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest_main",
     ],
 )

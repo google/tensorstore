@@ -19,30 +19,36 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
-#else  // !_WIN32
+// keep below windows.h
+#include <processthreadsapi.h>
+#endif
+
+#ifndef _WIN32
 #include <fcntl.h>
 #include <poll.h>
 #include <signal.h>
 #include <spawn.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #endif
 
-#include <atomic>
-#include <cstdint>
-#include <cstring>
+#include <string.h>  // IWYU pragma: keep
+
+#include <atomic>  // IWYU pragma: keep
+#include <limits>  // IWYU pragma: keep
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
-#include <vector>
+#include <vector>  // IWYU pragma: keep
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
-#include "absl/strings/match.h"
+#include "absl/strings/str_cat.h"
 #include "tensorstore/internal/os_error_code.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
@@ -114,6 +120,22 @@ absl::Status ConvertStringToMultibyte(std::string_view in, std::wstring& out) {
   return absl::OkStatus();
 }
 
+std::wstring BuildEnvironmentBlock(
+    const absl::flat_hash_map<std::string, std::string>& env) {
+  std::wstring result;
+  for (const auto& [key, value] : env) {
+    auto env_str = absl::StrCat(key, "=", value);
+    std::wstring env_wstr;
+    if (ConvertStringToMultibyte(env_str, env_wstr).ok()) {
+      result.append(env_wstr);
+      result.push_back(0);
+    }
+  }
+  result.push_back(0);
+  result.push_back(0);
+  return result;
+}
+
 }  // namespace
 
 struct Subprocess::Impl {
@@ -177,7 +199,7 @@ Result<Subprocess> SpawnSubprocess(const SubprocessOptions& options) {
   // Unlike posix, Windows composes a commandline as one large string,
   // where "executable" (arg[0]) has different quoting conventions from
   // the remaining args.
-  std::string command_line = absl::StrFormat("\"%s\"", options.executable);
+  std::string command_line = absl::StrCat("\"", options.executable, "\"");
   for (const auto& arg : options.args) {
     command_line.append(1, ' ');
     AppendToCommandLine(&command_line, arg);
@@ -188,6 +210,11 @@ Result<Subprocess> SpawnSubprocess(const SubprocessOptions& options) {
   constexpr size_t kMaxWindowsPathSize = 32768;
   if (wpath.size() >= kMaxWindowsPathSize) {
     return absl::InvalidArgumentError("SpawnSubprocess: path too large.");
+  }
+
+  std::wstring env;
+  if (options.env.has_value()) {
+    env = BuildEnvironmentBlock(*options.env);
   }
 
   // Setup STARTUPINFO to redirect handles.
@@ -208,6 +235,13 @@ Result<Subprocess> SpawnSubprocess(const SubprocessOptions& options) {
     startup_info.hStdError = GetStdHandle(STD_ERROR_HANDLE);
   }
 
+  LPVOID lpEnvironment = nullptr;
+  DWORD dwCreationFlags = 0;  // DETACHED_PROCESS?
+  if (!env.empty()) {
+    lpEnvironment = env.data();
+    dwCreationFlags |= CREATE_UNICODE_ENVIRONMENT;
+  }
+
   auto impl = std::make_shared<Subprocess::Impl>();
   if (0 == CreateProcessW(
                /*lpApplicationName=*/nullptr,
@@ -215,8 +249,8 @@ Result<Subprocess> SpawnSubprocess(const SubprocessOptions& options) {
                /*lpProcessAttributes=*/nullptr,
                /*lpThreadAttributes=*/nullptr,
                /*bInheritHandles=*/TRUE,
-               /*dwCreationFlags=*/0,  // DETACHED_PROCESS?
-               /*lpEnvironment=*/nullptr,
+               /*dwCreationFlags=*/dwCreationFlags,
+               /*lpEnvironment=*/lpEnvironment,
                /*lpCurrentDirectory=*/nullptr,
                /*lpStartupInfo,=*/&startup_info,
                /*lpProcessInformation=*/&impl->pi_)) {
@@ -320,6 +354,18 @@ Result<Subprocess> SpawnSubprocess(const SubprocessOptions& options) {
   }
   argv.push_back(nullptr);
 
+  std::vector<std::string> envp_strings;
+  std::vector<char*> envp;
+  if (options.env.has_value()) {
+    envp_strings.reserve(options.env->size());
+    envp.reserve(options.env->size() + 1);
+    for (const auto& [key, value] : *options.env) {
+      envp_strings.push_back(absl::StrCat(key, "=", value));
+      envp.push_back(envp_strings.back().data());
+    }
+    envp.push_back(nullptr);
+  }
+
   /// Add posix file actions; specifically, redirect stdin/stdout/sterr to
   /// /dev/null to ensure that the file descriptors are not reused.
   posix_spawn_file_actions_t file_actions;
@@ -352,7 +398,11 @@ Result<Subprocess> SpawnSubprocess(const SubprocessOptions& options) {
 
   pid_t child_pid = 0;
   int err = posix_spawn(&child_pid, argv[0], &file_actions, nullptr,
-                        const_cast<char* const*>(argv.data()), environ);
+                        const_cast<char* const*>(argv.data()),
+                        options.env.has_value()
+                            ? const_cast<char* const*>(envp.data())
+                            : environ);
+
   ABSL_LOG(INFO) << "posix_spawn " << argv[0] << " err:" << err
                  << " pid: " << child_pid;
 

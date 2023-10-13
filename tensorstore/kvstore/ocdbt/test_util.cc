@@ -18,13 +18,18 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/strings/cord.h"
 #include "absl/time/time.h"
+#include "tensorstore/context.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/kvstore/driver.h"
+#include "tensorstore/kvstore/generation.h"
+#include "tensorstore/kvstore/generation_testutil.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/ocdbt/driver.h"
 #include "tensorstore/kvstore/ocdbt/format/manifest.h"
 #include "tensorstore/kvstore/ocdbt/io_handle.h"
-#include "tensorstore/kvstore/test_util.h"
+#include "tensorstore/kvstore/operations.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"

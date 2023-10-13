@@ -19,6 +19,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/log/absl_log.h" // remove
 #include "tensorstore/internal/test_util.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
@@ -35,13 +36,13 @@ namespace {
 class TestCredentialProvider : public ExpiryCredentialProvider {
  public:
     int iteration = 0;
-    absl::FunctionRef<absl::Time()> clock_;
 
     TestCredentialProvider(absl::FunctionRef<absl::Time()> clock) :
-        ExpiryCredentialProvider(clock), clock_(clock)  {}
+        ExpiryCredentialProvider(std::move(clock)) {}
 
     Result<AwsCredentials> GetCredentials() override {
-        this->SetExpiration(clock_() + absl::Seconds(2));
+        ABSL_LOG(INFO) << "GetCredentials() == " << clock();
+        this->SetExpiration(clock() + absl::Seconds(2));
         return AwsCredentials{"key", std::to_string(++iteration)};
     }
 };
@@ -51,6 +52,7 @@ TEST(CachedCredentialProviderTest, ExpiringProvider) {
     auto utc = absl::UTCTimeZone();
     auto frozen_time = absl::FromCivil(absl::CivilSecond(2023, 9, 6, 0, 4, 03), utc);
     auto stuck_clock = [&frozen_time]() -> absl::Time { return frozen_time; };
+    ASSERT_EQ(stuck_clock(), frozen_time);
 
     auto test_provider = std::make_unique<TestCredentialProvider>(stuck_clock);
     auto test_prov_ptr = test_provider.get();

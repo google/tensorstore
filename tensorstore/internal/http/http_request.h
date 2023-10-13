@@ -64,13 +64,6 @@ std::optional<std::string> FormatCacheControlMaxAgeHeader(
 std::optional<std::string> FormatStalenessBoundCacheControlHeader(
     absl::Time staleness_bound);
 
-/// `strptime`-compatible format string for the HTTP date header.
-///
-/// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Date
-///
-/// Note that the time zone is always UTC and is specified as "GMT".
-constexpr const char kHttpTimeFormat[] = "%a, %d %b %E4Y %H:%M:%S GMT";
-
 /// Implements the builder pattern for HttpRequest.
 class HttpRequestBuilder {
  public:

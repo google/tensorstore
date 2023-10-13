@@ -19,7 +19,8 @@
 ///
 /// Integrates `AsyncCache` with `kvstore::Driver`.
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <memory>
 #include <optional>
 #include <string>
@@ -265,9 +266,8 @@ class KvsBackedCache : public Parent {
           read_state.stamp.time >= options.staleness_bound) {
         ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
             << *this << "KvsWriteback: skipping because condition is satisfied";
-        kvstore::ReadResult read_result;
-        read_result.stamp = std::move(read_state.stamp);
-        return execution::set_value(receiver, std::move(read_result));
+        return execution::set_value(receiver, kvstore::ReadResult::Unspecified(
+                                                  std::move(read_state.stamp)));
       }
       struct EncodeReceiverImpl {
         TransactionNode* self_;
@@ -280,14 +280,10 @@ class KvsBackedCache : public Parent {
         }
         void set_cancel() { ABSL_UNREACHABLE(); }  // COV_NF_LINE
         void set_value(std::optional<absl::Cord> value) {
-          kvstore::ReadResult read_result;
-          read_result.stamp = std::move(update_.stamp);
-          if (value) {
-            read_result.state = kvstore::ReadResult::kValue;
-            read_result.value = std::move(*value);
-          } else {
-            read_result.state = kvstore::ReadResult::kMissing;
-          }
+          kvstore::ReadResult read_result =
+              value ? kvstore::ReadResult::Value(std::move(*value),
+                                                 std::move(update_.stamp))
+                    : kvstore::ReadResult::Missing(std::move(update_.stamp));
 
           // FIXME: only save if committing, also could do this inside
           // ApplyReceiverImpl

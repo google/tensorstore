@@ -34,6 +34,7 @@
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
+#include "tensorstore/kvstore/read_result_testutil.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/status_testutil.h"

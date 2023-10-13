@@ -14,17 +14,20 @@
 
 #include "tensorstore/internal/subprocess.h"
 
-#include <cstring>
+#include <cstdio>
 #include <string>
 #include <string_view>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/container/flat_hash_map.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
+#include "absl/strings/match.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "tensorstore/internal/env.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
 
@@ -98,6 +101,22 @@ TEST(SubprocessTest, Drop) {
   child->Kill().IgnoreError();
 }
 
+TEST(SubprocessTest, Env) {
+  /// Should be able to spawn and just discard the process.
+  SubprocessOptions opts;
+  opts.executable = *program_name;
+  opts.args = {"--env=SUBPROCESS_TEST_ENV"};
+  opts.env = absl::flat_hash_map<std::string, std::string>(
+      {{"SUBPROCESS_TEST_ENV", "1"}});
+
+  auto child = SpawnSubprocess(opts);
+  EXPECT_TRUE(child.ok());
+
+  int exit_code;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(exit_code, child->Join());
+  EXPECT_EQ(exit_code, 41);
+}
+
 }  // namespace
 
 int main(int argc, char* argv[]) {
@@ -105,12 +124,23 @@ int main(int argc, char* argv[]) {
   ABSL_LOG(INFO) << *program_name;
 
   for (int i = 1; i < argc; i++) {
-    if (std::string_view(argv[i]) == kSubprocessArg) {
+    std::string_view argv_i(argv[i]);
+    if (argv_i == kSubprocessArg) {
       printf("PASS\n");
       return 33;
     }
-    if (std::string_view(argv[i]) == kSleepArg) {
+    if (argv_i == kSleepArg) {
       absl::SleepFor(absl::Seconds(1));
+    }
+    if (absl::StartsWith(argv_i, "--env=")) {
+      auto env_str = argv_i.substr(6);
+      if (env_str.empty()) {
+        return 40;
+      }
+      if (tensorstore::internal::GetEnv(env_str.data()).has_value()) {
+        return 41;
+      }
+      return 42;
     }
   }
 

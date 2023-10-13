@@ -27,7 +27,7 @@ def repo():
         ],
         sha256 = "2e458b7017cd58dcf1469ab315389e85e7f445bd035188f2983f81fb19ecfb29",
         strip_prefix = "snappy-984b191f0fefdeb17050b42a90b7625999c13b8d",
-        build_file = Label("//third_party:com_google_snappy/bundled.BUILD.bazel"),
+        build_file = Label("//third_party:com_google_snappy/snappy.BUILD.bazel"),
         system_build_file = Label("//third_party:com_google_snappy/system.BUILD.bazel"),
         cmake_name = "Snappy",
         bazel_to_cmake = {},

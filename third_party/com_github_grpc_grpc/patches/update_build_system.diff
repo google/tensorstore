@@ -15,12 +15,12 @@
 # NOTE: The second patch to includes has no change, but is intended to signal
 # whether we still need a workaround in bazel_to_cmake/emit_cc.py
 #
-diff -u -ur a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
---- a/bazel/grpc_build_system.bzl	2023-05-18 23:47:46.000000000 +0000
-+++ b/bazel/grpc_build_system.bzl	2023-05-24 03:12:30.791821657 +0000
-@@ -31,8 +31,14 @@
- load("//bazel:copts.bzl", "GRPC_DEFAULT_COPTS")
+diff -u -Nur a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
+--- a/bazel/grpc_build_system.bzl	2023-09-13 20:33:23.000000000 +0000
++++ b/bazel/grpc_build_system.bzl	2023-10-04 01:16:42.011957527 +0000
+@@ -32,8 +32,14 @@
  load("//bazel:experiments.bzl", "EXPERIMENTS")
+ load("//bazel:test_experiments.bzl", "TEST_EXPERIMENTS")
  load("@upb//bazel:upb_proto_library.bzl", "upb_proto_library", "upb_proto_reflection_library")
 -load("@build_bazel_rules_apple//apple:ios.bzl", "ios_unit_test")
 -load("@build_bazel_rules_apple//apple/testing/default_runner:ios_test_runner.bzl", "ios_test_runner")
@@ -35,7 +35,7 @@ diff -u -ur a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
  
  # The set of pollers to test against if a test exercises polling
  POLLERS = ["epoll1", "poll"]
-@@ -54,6 +60,12 @@
+@@ -55,6 +61,12 @@
          "//conditions:default": [],
      })
  
@@ -48,7 +48,7 @@ diff -u -ur a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
  def _get_external_deps(external_deps):
      ret = []
      for dep in external_deps:
-@@ -99,7 +111,7 @@
+@@ -105,7 +117,7 @@
          "grpc_opencensus_plugin": PUBLIC,
          "grpcpp_gcp_observability": PUBLIC,
          "grpc_resolver_fake": PRIVATE,
@@ -57,7 +57,7 @@ diff -u -ur a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
          "http": PRIVATE,
          "httpcli": PRIVATE,
          "iomgr_timer": PRIVATE,
-@@ -166,7 +178,7 @@
+@@ -173,7 +185,7 @@
      copts = []
      if language.upper() == "C":
          copts = copts + if_not_windows(["-std=c11"])
@@ -66,7 +66,7 @@ diff -u -ur a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
      if select_deps:
          for select_deps_entry in select_deps:
              deps += select(select_deps_entry)
-@@ -452,7 +464,7 @@
+@@ -486,7 +498,7 @@
      test_args = {
          "data": data,
          "copts": GRPC_DEFAULT_COPTS + copts,
@@ -75,12 +75,12 @@ diff -u -ur a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
          "size": size,
          "timeout": timeout,
          "exec_compatible_with": exec_compatible_with,
-diff -u -ur a/BUILD b/BUILD
---- a/BUILD	2023-05-18 23:47:46.000000000 +0000
-+++ b/BUILD	2023-05-24 03:08:22.441078815 +0000
-@@ -162,6 +162,13 @@
+diff -u -Nur a/BUILD b/BUILD
+--- a/BUILD	2023-09-13 20:33:23.000000000 +0000
++++ b/BUILD	2023-10-04 01:20:07.264833917 +0000
+@@ -194,6 +194,13 @@
  )
-
+ 
  config_setting(
 +    name = "mingw-gcc",
 +    flag_values = {
@@ -90,9 +90,25 @@ diff -u -ur a/BUILD b/BUILD
 +
 +config_setting(
      name = "mac_x86_64",
-     values = {"cpu": "darwin"},
+     values = {"cpu": "darwin_x86_64"},
  )
-@@ -1994,6 +2001,7 @@
+@@ -1116,6 +1123,7 @@
+         "//src/core:slice_refcount",
+         "//src/core:status_helper",
+         "//src/core:transport_fwd",
++        "//src/core:notification",
+     ],
+ )
+ 
+@@ -1842,6 +1850,7 @@
+     deps = [
+         "gpr",
+         "grpc_trace",
++        "grpc_public_hdrs",
+     ],
+ )
+ 
+@@ -2075,6 +2084,7 @@
      external_deps = [
          "protobuf_headers",
          "protobuf",
@@ -100,3 +116,30 @@ diff -u -ur a/BUILD b/BUILD
      ],
      language = "c++",
      public_hdrs = [
+@@ -2738,6 +2748,7 @@
+     external_deps = [
+         "absl/strings",
+         "absl/strings:str_format",
++        "absl/types:optional",
+     ],
+     tags = ["nofixdeps"],
+     visibility = ["@grpc:iomgr_buffer_list"],
+@@ -3647,6 +3658,7 @@
+         "protobuf_struct_upb",
+         "protobuf_timestamp_upb",
+         "ref_counted_ptr",
++        ":server_address",
+         "uri_parser",
+         "work_serializer",
+         "//src/core:default_event_engine",
+diff -u -Nur a/src/core/BUILD b/src/core/BUILD
+--- a/src/core/BUILD	2023-09-13 20:33:23.000000000 +0000
++++ b/src/core/BUILD	2023-10-04 01:16:42.015957934 +0000
+@@ -3125,6 +3125,7 @@
+         "//:exec_ctx",
+         "//:gpr",
+         "//:tsi_base",
++        "//:grpc_public_hdrs",
+     ],
+ )
+ 

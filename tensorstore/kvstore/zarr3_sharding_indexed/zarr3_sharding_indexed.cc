@@ -14,10 +14,10 @@
 
 #include "tensorstore/kvstore/zarr3_sharding_indexed/zarr3_sharding_indexed.h"
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include <cassert>
-#include <cstddef>
 #include <memory>
 #include <optional>
 #include <string>
@@ -41,11 +41,8 @@
 #include "tensorstore/internal/cache/cache_pool_resource.h"
 #include "tensorstore/internal/cache/kvs_backed_cache.h"
 #include "tensorstore/internal/cache_key/cache_key.h"
-#include "tensorstore/internal/cache_key/std_vector.h"  // IWYU pragma: keep
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/estimate_heap_usage/estimate_heap_usage.h"
-#include "tensorstore/internal/estimate_heap_usage/std_optional.h"  // IWYU pragma: keep
-#include "tensorstore/internal/estimate_heap_usage/std_vector.h"  // IWYU pragma: keep
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/dimension_indexed.h"
@@ -66,20 +63,25 @@
 #include "tensorstore/kvstore/transaction.h"
 #include "tensorstore/kvstore/zarr3_sharding_indexed/key.h"
 #include "tensorstore/kvstore/zarr3_sharding_indexed/shard_format.h"
-#include "tensorstore/serialization/std_vector.h"  // IWYU pragma: keep
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
-#include "tensorstore/util/execution/result_sender.h"  // IWYU pragma: keep
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/garbage_collection/garbage_collection.h"
-#include "tensorstore/util/garbage_collection/std_vector.h"  // IWYU pragma: keep
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
+
+// specializations
+#include "tensorstore/internal/cache_key/std_vector.h"  // IWYU pragma: keep
+#include "tensorstore/internal/estimate_heap_usage/std_optional.h"  // IWYU pragma: keep
+#include "tensorstore/internal/estimate_heap_usage/std_vector.h"  // IWYU pragma: keep
+#include "tensorstore/serialization/std_vector.h"  // IWYU pragma: keep
+#include "tensorstore/util/execution/result_sender.h"  // IWYU pragma: keep
+#include "tensorstore/util/garbage_collection/std_vector.h"  // IWYU pragma: keep
 
 namespace tensorstore {
 namespace zarr3_sharding_indexed {
@@ -414,40 +416,38 @@ class ShardedKeyValueStoreWriteCache
         internal_kvstore::ReadModifyWriteEntry& entry,
         const StorageGeneration& if_not_equal) {
       auto& self = static_cast<TransactionNode&>(entry.multi_phase());
-      kvstore::ReadResult read_result;
+      TimestampedStorageGeneration stamp;
       std::shared_ptr<const ShardEntries> entries;
       {
         AsyncCache::ReadLock<ShardEntries> lock{self};
-        read_result.stamp = lock.stamp();
+        stamp = lock.stamp();
         entries = lock.shared_data();
       }
-      if (!StorageGeneration::IsUnknown(read_result.stamp.generation) &&
-          read_result.stamp.generation == if_not_equal) {
-        read_result.state = kvstore::ReadResult::kUnspecified;
-      } else {
-        auto entry_id = InternalKeyToEntryId(entry.key_);
-        const auto& entry = entries->entries[entry_id];
-        if (!entry) {
-          read_result.state = kvstore::ReadResult::kMissing;
-        } else {
-          read_result.state = kvstore::ReadResult::kValue;
-          read_result.value = *entry;
-        }
-        if (StorageGeneration::IsDirty(read_result.stamp.generation)) {
-          // Add layer to generation in order to make it possible to
-          // distinguish:
-          //
-          // 1. the shard being modified by a predecessor
-          //    `ReadModifyWrite` operation on the underlying
-          //    KeyValueStore.
-          //
-          // 2. the chunk being modified by a `ReadModifyWrite`
-          //    operation attached to this transaction node.
-          read_result.stamp.generation = StorageGeneration::AddLayer(
-              std::move(read_result.stamp.generation));
-        }
+      if (!StorageGeneration::IsUnknown(stamp.generation) &&
+          stamp.generation == if_not_equal) {
+        return kvstore::ReadResult::Unspecified(std::move(stamp));
       }
-      return read_result;
+      if (StorageGeneration::IsDirty(stamp.generation)) {
+        // Add layer to generation in order to make it possible to
+        // distinguish:
+        //
+        // 1. the shard being modified by a predecessor
+        //    `ReadModifyWrite` operation on the underlying
+        //    KeyValueStore.
+        //
+        // 2. the chunk being modified by a `ReadModifyWrite`
+        //    operation attached to this transaction node.
+        stamp.generation =
+            StorageGeneration::AddLayer(std::move(stamp.generation));
+      }
+
+      auto entry_id = InternalKeyToEntryId(entry.key_);
+      const auto& shard_entry = entries->entries[entry_id];
+      if (!shard_entry) {
+        return kvstore::ReadResult::Missing(std::move(stamp));
+      } else {
+        return kvstore::ReadResult::Value(*shard_entry, std::move(stamp));
+      }
     }
 
     // Staleness bound for the current pending call to `DoApply`.

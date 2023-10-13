@@ -50,6 +50,7 @@
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
+#include "tensorstore/kvstore/read_result_testutil.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/transaction.h"
 #include "tensorstore/open_mode.h"

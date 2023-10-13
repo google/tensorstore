@@ -146,6 +146,7 @@ tensorstore_cc_test(
         "//tensorstore/kvstore:generation",
         "//tensorstore/kvstore:generation_testutil",
         "//tensorstore/kvstore:key_range",
+        "//tensorstore/kvstore:read_result_testutil",
         "//tensorstore/kvstore:test_util",
         "//tensorstore/util:future",
         "//tensorstore/util:status_testutil",
@@ -227,8 +228,6 @@ tensorstore_cc_test(
     ],
 )
 
-
-
 tensorstore_cc_test(
     name = "localstack_test",
     srcs = ["localstack_test.cc"],
@@ -238,7 +237,7 @@ tensorstore_cc_test(
         "skip-cmake",  # localstack is python, which will not work in bazel_to_cmake.
     ],
     deps = [
-        "//tensorstore/kvstore/s3/aws_credential_provider",
+        "//tensorstore/kvstore/s3/credentials:aws_credential_provider",
         ":s3_request_builder",
         "//tensorstore:context",
         "//tensorstore:json_serialization_options_base",
