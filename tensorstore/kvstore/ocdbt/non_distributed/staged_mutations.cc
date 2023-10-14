@@ -26,14 +26,17 @@
 
 #include "absl/container/inlined_vector.h"
 #include "absl/functional/function_ref.h"
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/intrusive_red_black_tree.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
+#include "tensorstore/kvstore/ocdbt/debug_log.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
 #include "tensorstore/kvstore/ocdbt/non_distributed/storage_generation.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -309,14 +312,20 @@ void PartitionInteriorNodeMutations(
   ComparePrefixedKeyToUnprefixedKey compare_existing_and_new_keys{
       existing_key_prefix};
 
+  // Next mutation entry to assign to a partition.
   auto entry_it = entry_range.begin();
 
+  // Exclusive end point of current partition/child node.
+  //
   // In non-leaf nodes, the keys for entries after the first specify partition
   // points.  The key for the first entry does not specify a partition point.
   auto existing_it = existing_entries.begin() + 1;
 
+  // First mutation entry in the partition that ends at `existing_it`.
   MutationEntry* first_mutation_in_partition = entry_it.to_pointer();
 
+  // Move to next partition/child node.  `end_mutation_in_partition` is one past
+  // the last mutation assigned to the partition.
   const auto end_of_partition = [&](MutationEntry* end_mutation_in_partition) {
     if (first_mutation_in_partition != end_mutation_in_partition) {
       auto& existing_entry = *(existing_it - 1);
@@ -337,6 +346,12 @@ void PartitionInteriorNodeMutations(
                          MutationEntryTree::Range(first_mutation_in_partition,
                                                   end_mutation_in_partition));
       first_mutation_in_partition = entry_it.to_pointer();
+    } else {
+      ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+          << "PartitionInteriorNodeMutations: existing child "
+          << tensorstore::QuoteString(existing_key_prefix) << "+"
+          << tensorstore::QuoteString((existing_it - 1)->key)
+          << " has no mutations";
     }
     ++existing_it;
   };
@@ -347,7 +362,7 @@ void PartitionInteriorNodeMutations(
                 ? compare_existing_and_new_keys(existing_it->key, mutation->key)
                 : 1;
     if (c <= 0) {
-      // Current mutation does not overlap with the current partition.
+      // Current partition ends before lower bound of mutation.
       end_of_partition(entry_it.to_pointer());
       continue;
     }
@@ -374,7 +389,7 @@ void PartitionInteriorNodeMutations(
         c_max = -1;
       }
 
-      if (c_max <= 0) {
+      if (c_max < 0) {
         // `dr_entry` is contained in current partition and not the next
         // partition, and does not end the current partition.
         ++entry_it;
@@ -483,19 +498,30 @@ bool MustReadNodeToApplyMutations(const KeyRange& key_range,
   if (entry_range.end() != std::next(entry_range.begin())) {
     // More than one mutation, which means a single `DeleteRangeEntry` does not
     // cover the entire `key_range`.
+    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+        << "MustReadNodeToApplyMutations: more than one mutation";
     return true;
   }
   MutationEntry* mutation = entry_range.begin().to_pointer();
   if (mutation->kind != MutationEntry::kDeleteRange) {
+    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+        << "MustReadNodeToApplyMutations: not delete range mutation";
     return true;
   }
 
   // `entry_range` consists of a single `DeleteRangeEntry`.
   auto& dr_entry = *static_cast<DeleteRangeEntry*>(mutation);
-  if (dr_entry.key >= key_range.inclusive_min ||
+  if (dr_entry.key > key_range.inclusive_min ||
       KeyRange::CompareExclusiveMax(dr_entry.exclusive_max,
                                     key_range.exclusive_max) < 0) {
     // `DeleteRangeEntry` does not cover the entire key space.
+    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+        << "MustReadNodeToApplyMutations: does not cover entire key space: "
+           "dr_entry.key="
+        << tensorstore::QuoteString(dr_entry.key) << ", dr_entry.exclusive_max="
+        << tensorstore::QuoteString(dr_entry.exclusive_max)
+        << ", key_range.exclusive_max="
+        << tensorstore::QuoteString(key_range.exclusive_max);
     return true;
   }
 
@@ -508,6 +534,8 @@ bool MustReadNodeToApplyMutations(const KeyRange& key_range,
     // There are superseded writes that need to be validated, in order to be
     // able to correctly indicate in the response whether the write "succeeded"
     // (before being overwritten) or was aborted due to a generation mismatch.
+    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+        << "MustReadNodeToApplyMutations: superseded writes";
     return true;
   }
 

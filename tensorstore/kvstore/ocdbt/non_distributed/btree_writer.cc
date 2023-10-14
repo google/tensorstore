@@ -120,10 +120,10 @@ namespace {
 class NonDistributedBtreeWriter : public BtreeWriter {
  public:
   using Ptr = internal::IntrusivePtr<NonDistributedBtreeWriter>;
-  Future<TimestampedStorageGeneration> Write(std::string key,
-                                             std::optional<absl::Cord> value,
-                                             kvstore::WriteOptions options);
-  Future<const void> DeleteRange(KeyRange range);
+  Future<TimestampedStorageGeneration> Write(
+      std::string key, std::optional<absl::Cord> value,
+      kvstore::WriteOptions options) override;
+  Future<const void> DeleteRange(KeyRange range) override;
 
   IoHandle::Ptr io_handle_;
 
@@ -346,7 +346,11 @@ struct CommitOperation
 
     void ApplyMutations() final {
       ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
-          << "ApplyMutations: height=" << static_cast<int>(height_)
+          << "ApplyMutations: existing inclusive_min="
+          << tensorstore::QuoteString(tensorstore::StrCat(
+                 parent_state_->existing_subtree_key_prefix_,
+                 existing_relative_child_key_))
+          << ", height=" << static_cast<int>(height_)
           << ", num_mutations=" << mutations_.size();
       if (mutations_.empty()) {
         // There are no mutations to the key range of this node.  Therefore,
@@ -736,13 +740,28 @@ void CommitOperation::VisitInteriorNode(VisitNodeParameters params) {
   self_state->height_ = params.node->height;
   self_state->existing_node_ = std::move(params.node);
   self_state->existing_subtree_key_prefix_ = std::move(params.full_prefix);
+  self_state->existing_relative_child_key_ =
+      std::move(params.inclusive_min_key_suffix);
 
   PartitionInteriorNodeMutations(
       existing_entries, self_state->existing_subtree_key_prefix_,
       params.key_range, params.entry_range,
       [&](const InteriorNodeEntry& existing_entry, KeyRange key_range,
           MutationEntryTree::Range entry_range) {
+        ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+            << "VisitInteriorNode: Partition: existing_entry="
+            << tensorstore::QuoteString(
+                   self_state->existing_subtree_key_prefix_)
+            << "+" << tensorstore::QuoteString(existing_entry.key)
+            << ", key_range=" << key_range << ", entry_range="
+            << tensorstore::QuoteString(entry_range.begin()->key);
         if (MustReadNodeToApplyMutations(key_range, entry_range)) {
+          ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+              << "VisitInteriorNode: Partition: existing_entry="
+              << tensorstore::QuoteString(
+                     self_state->existing_subtree_key_prefix_)
+              << "+" << tensorstore::QuoteString(existing_entry.key)
+              << ": must visit node";
           // Descend into the subtree to apply mutations.  This is the most
           // common case, and is needed for:
           //
@@ -760,6 +779,12 @@ void CommitOperation::VisitInteriorNode(VisitNodeParameters params) {
                   std::move(key_range), entry_range},
               existing_entry.node);
         } else {
+          ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+              << "VisitInteriorNode: Partition: existing_entry="
+              << tensorstore::QuoteString(
+                     self_state->existing_subtree_key_prefix_)
+              << "+" << tensorstore::QuoteString(existing_entry.key)
+              << ": deleting node";
           // Single DeleteRange operation that covers the full key range of
           // `existing_entry`.  Can just delete unconditionally at this level
           // without descending.

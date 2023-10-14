@@ -264,6 +264,18 @@ TENSORSTORE_GLOBAL_INITIALIZER {
     register_test_case("ReadWriteOps", [](auto& store) {
       tensorstore::internal::TestKeyValueReadWriteOps(store);
     });
+    register_test_case("DeletePrefix", [](auto& store) {
+      tensorstore::internal::TestKeyValueStoreDeletePrefix(store);
+    });
+    register_test_case("DeleteRange", [](auto& store) {
+      tensorstore::internal::TestKeyValueStoreDeleteRange(store);
+    });
+    register_test_case("DeleteRangeToEnd", [](auto& store) {
+      tensorstore::internal::TestKeyValueStoreDeleteRangeToEnd(store);
+    });
+    register_test_case("DeleteRangeFromBeginning", [](auto& store) {
+      tensorstore::internal::TestKeyValueStoreDeleteRangeFromBeginning(store);
+    });
     register_test_case("List", [](auto& store) {
       tensorstore::internal::TestKeyValueStoreList(store);
     });
