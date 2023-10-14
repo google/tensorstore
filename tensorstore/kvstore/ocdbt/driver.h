@@ -117,6 +117,10 @@ class OcdbtDriver
 
   Future<const void> DeleteRange(KeyRange range) override;
 
+  Future<const void> ExperimentalCopyRangeFrom(
+      const internal::OpenTransactionPtr& transaction, const KvStore& source,
+      Key target_prefix, kvstore::CopyRangeOptions options) override;
+
   std::string DescribeKey(std::string_view key) override;
 
   void ListImpl(ListOptions options,

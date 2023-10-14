@@ -82,6 +82,14 @@ class KvStore {
     internal::AppendPathComponent(path, component);
   }
 
+  KvStore WithPathSuffix(std::string_view suffix) && {
+    AppendSuffix(suffix);
+    return std::move(*this);
+  }
+  KvStore WithPathSuffix(std::string_view suffix) const& {
+    return KvStore(*this).WithPathSuffix(suffix);
+  }
+
   /// Returns `true` if this is a valid (non-null) kvstore.
   bool valid() const { return static_cast<bool>(driver); }
 

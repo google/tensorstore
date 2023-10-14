@@ -276,6 +276,9 @@ TENSORSTORE_GLOBAL_INITIALIZER {
     register_test_case("DeleteRangeFromBeginning", [](auto& store) {
       tensorstore::internal::TestKeyValueStoreDeleteRangeFromBeginning(store);
     });
+    register_test_case("CopyRange", [](auto& store) {
+      tensorstore::internal::TestKeyValueStoreCopyRange(store);
+    });
     register_test_case("List", [](auto& store) {
       tensorstore::internal::TestKeyValueStoreList(store);
     });
@@ -431,6 +434,22 @@ TEST(OcdbtTest, NumberedManifest) {
               ::testing::Optional(::testing::UnorderedElementsAre(
                   "manifest.ocdbt", "manifest.0000000000000001",
                   "manifest.0000000000000002", ::testing::StartsWith("d/"))));
+}
+
+TEST(OcdbtTest, CopyRange) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      kvstore::Open({{"driver", "ocdbt"}, {"base", "memory://"}}).result());
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "x/a", absl::Cord("value_a")));
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "x/b", absl::Cord("value_b")));
+  TENSORSTORE_ASSERT_OK(kvstore::ExperimentalCopyRange(
+      store.WithPathSuffix("x/"), store.WithPathSuffix("y/")));
+  EXPECT_THAT(GetMap(store), ::testing::Optional(::testing::ElementsAreArray({
+                                 ::testing::Pair("x/a", absl::Cord("value_a")),
+                                 ::testing::Pair("x/b", absl::Cord("value_b")),
+                                 ::testing::Pair("y/a", absl::Cord("value_a")),
+                                 ::testing::Pair("y/b", absl::Cord("value_b")),
+                             })));
 }
 
 }  // namespace

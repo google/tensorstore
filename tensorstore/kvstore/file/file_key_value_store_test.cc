@@ -347,6 +347,15 @@ TEST(FileKeyValueStoreTest, DeleteRangeFromBeginning) {
   tensorstore::internal::TestKeyValueStoreDeleteRangeFromBeginning(store);
 }
 
+#if 0
+TEST(FileKeyValueStoreTest, CopyRange) {
+  tensorstore::internal::ScopedTemporaryDirectory tempdir;
+  std::string root = tempdir.path() + "/root";
+  auto store = GetStore(root);
+  tensorstore::internal::TestKeyValueStoreCopyRange(store);
+}
+#endif
+
 TEST(FileKeyValueStoreTest, ListErrors) {
   tensorstore::internal::ScopedTemporaryDirectory tempdir;
   std::string root = tempdir.path() + "/root";

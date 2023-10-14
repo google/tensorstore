@@ -306,6 +306,69 @@ Group:
   Accessors
 )");
 
+  cls.def(
+      "__add__",
+      [](Self& self, std::string_view suffix) {
+        auto new_store = self.value;
+        new_store.AppendSuffix(suffix);
+        return new_store;
+      },
+      py::arg("suffix"), R"(
+Returns a key-value store with the suffix appended to the path.
+
+The suffix is appended directly to :py:obj:`.path` without any separator.  To
+ensure there is a :python:`'/'` separator, use :py:obj:`.__truediv__` instead.
+
+Example:
+
+    >>> store = await ts.KvStore.open({'driver': 'file', 'path': 'tmp/data'})
+    >>> store + '/abc'
+    KvStore({
+      'context': {'file_io_concurrency': {}, 'file_io_sync': True},
+      'driver': 'file',
+      'path': 'tmp/data/abc',
+    })
+    >>> store + 'abc'
+    KvStore({
+      'context': {'file_io_concurrency': {}, 'file_io_sync': True},
+      'driver': 'file',
+      'path': 'tmp/dataabc',
+    })
+
+Group:
+  Operators
+)");
+
+  cls.def(
+      "__truediv__",
+      [](Self& self, std::string_view component) {
+        auto new_store = self.value;
+        new_store.AppendPathComponent(component);
+        return new_store;
+      },
+      py::arg("component"), R"(
+Returns a key-value store with an additional path component joined to the path.
+
+Example:
+
+    >>> store = await ts.KvStore.open({'driver': 'file', 'path': 'tmp/data'})
+    >>> store / 'abc'
+    KvStore({
+      'context': {'file_io_concurrency': {}, 'file_io_sync': True},
+      'driver': 'file',
+      'path': 'tmp/data/abc',
+    })
+    >>> store / '/abc'
+    KvStore({
+      'context': {'file_io_concurrency': {}, 'file_io_sync': True},
+      'driver': 'file',
+      'path': 'tmp/data/abc',
+    })
+
+Group:
+  Operators
+)");
+
   cls.def_property(
       "transaction",
       [](Self& self) -> std::optional<internal::TransactionState::CommitPtr> {
@@ -796,6 +859,96 @@ Returns:
     becomes ready when the delete operation is recorded in the transaction.  The
     delete operation is not actually performed until the transaction is
     committed.
+
+Group:
+  I/O
+)");
+
+  cls.def(
+      "experimental_copy_range_to",
+      [](Self& self, const Self& target, std::optional<KeyRange> source_range,
+         std::optional<double> source_staleness_bound) {
+        kvstore::CopyRangeOptions options;
+        if (source_staleness_bound) {
+          options.source_staleness_bound =
+              FromPythonTimestamp(*source_staleness_bound);
+        }
+        if (source_range) {
+          options.source_range = std::move(*source_range);
+        }
+        auto future = kvstore::ExperimentalCopyRange(self.value, target.value,
+                                                     std::move(options));
+        // The returned `PythonFutureObject` must keep Python objects referenced
+        // by either `self` or `target` alive until the future completes.
+        PythonObjectReferenceManager reference_manager;
+        reference_manager.Update(std::pair<const KvStore&, const KvStore&>(
+            self.value, target.value));
+        return PythonFutureWrapper<const void>(std ::move(future),
+                                               std::move(reference_manager));
+      },
+      py::arg("target"), py::arg("source_range") = std::nullopt,
+      py::arg("source_staleness_bound") = std::nullopt,
+      R"(
+Copies a range of keys.
+
+.. warning::
+
+   This API is experimental and subject to change.
+
+Example:
+
+    >>> store = await ts.KvStore.open({
+    ...     'driver': 'ocdbt',
+    ...     'base': 'memory://'
+    ... })
+    >>> await store.write(b'x/a', b'value')
+    >>> await store.write(b'x/b', b'value')
+    >>> await store.list()
+    [b'x/a', b'x/b']
+    >>> await (store / "x/").experimental_copy_range_to(store / "y/")
+    >>> await store.list()
+    [b'x/a', b'x/b', b'y/a', b'y/b']
+
+.. note::
+
+   Depending on the kvstore implementation, this operation may be able to
+   perform the copy without actually re-writing the data.
+
+Args:
+
+  target: Target key-value store.
+
+    .. warning::
+
+       This may refer to the same kvstore as ``self``, but the target key range
+       must not overlap with ``self``.  If this requirement is violated, the
+       behavior is unspecified.
+
+  source_range: Key range to include.  This is relative to the existing
+    :py:obj:`.path`, if any.  If not specified, all keys under :py:obj:`.path`
+    are copied.
+  source_staleness_bound: Specifies a time in (fractional) seconds since the
+    Unix epoch.  If specified, data that is cached internally by the kvstore
+    implementation may be used without validation if not older than the
+    :py:param:`.source_staleness_bound`.  Cached data older than
+    :py:param:`.source_staleness_bound` must be validated before being returned.
+    A value of :python:`float('inf')` indicates that the result must be current
+    as of the time the :py:obj:`.read` request was made, i.e. it is equivalent
+    to specifying a value of :python:`time.time()`.  A value of
+    :python:`float('-inf')` indicates that cached data may be returned without
+    validation irrespective of its age.
+
+Returns:
+
+  - If no :py:obj:`.transaction` is specified for :py:param:`.target`, returns a
+    :py:obj:`Future` that becomes ready when the copy operation has completed
+    and durability is guaranteed (to the extent supported by the
+    :ref:`driver<key-value-store-drivers>`).
+
+  - If a :py:obj:`.transaction` is specified for :py:param:`.target`, returns a
+    :py:obj:`Future` that becomes ready when the copy operation is recorded in
+    the transaction.  The copy operation is not actually performed until the
+    transaction is committed.
 
 Group:
   I/O
@@ -1346,6 +1499,12 @@ Example:
 Group:
   Accessors
 )");
+
+  cls.def("__repr__", [](const Self& self) {
+    return tensorstore::StrCat("KvStore.KeyRange(",
+                               py::repr(py::bytes(self.inclusive_min)), ", ",
+                               py::repr(py::bytes(self.exclusive_max)), ")");
+  });
 
   cls.def(
       "__eq__",

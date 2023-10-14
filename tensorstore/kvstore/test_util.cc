@@ -869,6 +869,23 @@ void TestKeyValueStoreDeleteRangeFromBeginning(const KvStore& store) {
                   ::testing::UnorderedElementsAre("a/c/b", "b/a", "b/b")));
 }
 
+void TestKeyValueStoreCopyRange(const KvStore& store) {
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "w/a", absl::Cord("w_a")));
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "x/a", absl::Cord("value_a")));
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "x/b", absl::Cord("value_b")));
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "z/a", absl::Cord("z_a")));
+  TENSORSTORE_ASSERT_OK(kvstore::ExperimentalCopyRange(
+      store.WithPathSuffix("x/"), store.WithPathSuffix("y/")));
+  EXPECT_THAT(GetMap(store), ::testing::Optional(::testing::ElementsAreArray({
+                                 ::testing::Pair("w/a", absl::Cord("w_a")),
+                                 ::testing::Pair("x/a", absl::Cord("value_a")),
+                                 ::testing::Pair("x/b", absl::Cord("value_b")),
+                                 ::testing::Pair("y/a", absl::Cord("value_a")),
+                                 ::testing::Pair("y/b", absl::Cord("value_b")),
+                                 ::testing::Pair("z/a", absl::Cord("z_a")),
+                             })));
+}
+
 void TestKeyValueStoreSpecRoundtrip(
     const KeyValueStoreSpecRoundtripOptions& options) {
   const auto& expected_minimal_spec = options.minimal_spec.is_discarded()

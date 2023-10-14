@@ -123,6 +123,7 @@ tensorstore_cc_library(
     hdrs = ["btree_writer.h"],
     deps = [
         ":create_new_manifest",
+        ":list",
         ":staged_mutations",
         ":storage_generation",
         ":write_nodes",

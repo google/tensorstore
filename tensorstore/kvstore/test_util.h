@@ -62,6 +62,9 @@ void TestKeyValueStoreDeleteRangeToEnd(const KvStore& store);
 /// Tests DeleteRange on `store`, which should be empty.
 void TestKeyValueStoreDeleteRangeFromBeginning(const KvStore& store);
 
+/// Tests CopyRange on `store`, which should be empty.
+void TestKeyValueStoreCopyRange(const KvStore& store);
+
 /// Tests List on `store`, which should be empty.
 void TestKeyValueStoreList(const KvStore& store);
 

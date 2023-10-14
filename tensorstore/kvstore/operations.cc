@@ -141,6 +141,19 @@ Future<const void> DeleteRange(const KvStore& store, KeyRange range) {
                                                 std::move(range));
 }
 
+Future<const void> ExperimentalCopyRange(const KvStore& source,
+                                         const KvStore& target,
+                                         CopyRangeOptions options) {
+  internal::OpenTransactionPtr target_transaction;
+  if (target.transaction != no_transaction) {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto target_transaction,
+        internal::AcquireOpenTransactionPtrOrError(target.transaction));
+  }
+  return target.driver->ExperimentalCopyRangeFrom(
+      target_transaction, source, target.path, std::move(options));
+}
+
 namespace {
 void AddListOptionsPrefix(ListOptions& options, std::string_view path) {
   options.range = KeyRange::AddPrefix(path, std::move(options.range));

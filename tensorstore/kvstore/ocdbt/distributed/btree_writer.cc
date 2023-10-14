@@ -202,10 +202,11 @@ struct StagedDistributedRequests {
 
 class DistributedBtreeWriter : public BtreeWriter {
  public:
-  Future<TimestampedStorageGeneration> Write(std::string key,
-                                             std::optional<absl::Cord> value,
-                                             kvstore::WriteOptions options);
-  Future<const void> DeleteRange(KeyRange range);
+  Future<TimestampedStorageGeneration> Write(
+      std::string key, std::optional<absl::Cord> value,
+      kvstore::WriteOptions options) override;
+  Future<const void> DeleteRange(KeyRange range) override;
+  Future<const void> CopySubtree(CopySubtreeOptions&& options) override;
 
   // Non-distributed writer instance used to handle `DeleteRange` requests.
   BtreeWriterPtr non_distributed_writer_;
@@ -750,6 +751,11 @@ Future<TimestampedStorageGeneration> DistributedBtreeWriter::Write(
 Future<const void> DistributedBtreeWriter::DeleteRange(KeyRange range) {
   // TODO(jbms): Implement cooperative write support for `DeleteRange`.
   return non_distributed_writer_->DeleteRange(range);
+}
+
+Future<const void> DistributedBtreeWriter::CopySubtree(
+    CopySubtreeOptions&& options) {
+  return non_distributed_writer_->CopySubtree(std::move(options));
 }
 }  // namespace
 

@@ -69,6 +69,8 @@
 
 #include "tensorstore/kvstore/ocdbt/non_distributed/btree_writer.h"
 
+#include <stddef.h>
+
 #include <algorithm>
 #include <cassert>
 #include <memory>
@@ -100,6 +102,7 @@
 #include "tensorstore/kvstore/ocdbt/format/version_tree.h"
 #include "tensorstore/kvstore/ocdbt/io_handle.h"
 #include "tensorstore/kvstore/ocdbt/non_distributed/create_new_manifest.h"
+#include "tensorstore/kvstore/ocdbt/non_distributed/list.h"
 #include "tensorstore/kvstore/ocdbt/non_distributed/staged_mutations.h"
 #include "tensorstore/kvstore/ocdbt/non_distributed/storage_generation.h"
 #include "tensorstore/kvstore/ocdbt/non_distributed/write_nodes.h"
@@ -124,6 +127,7 @@ class NonDistributedBtreeWriter : public BtreeWriter {
       std::string key, std::optional<absl::Cord> value,
       kvstore::WriteOptions options) override;
   Future<const void> DeleteRange(KeyRange range) override;
+  Future<const void> CopySubtree(CopySubtreeOptions&& options) override;
 
   IoHandle::Ptr io_handle_;
 
@@ -1106,6 +1110,75 @@ Future<const void> NonDistributedBtreeWriter::DeleteRange(KeyRange range) {
   }
   CommitOperation::MaybeStart(writer, std::move(lock));
   return future;
+}
+
+struct CopySubtreeListReceiver {
+  NonDistributedBtreeWriter::Ptr writer;
+  size_t strip_prefix_length;
+  std::string add_prefix;
+  Promise<void> promise;
+  FutureCallbackRegistration cancel_registration;
+
+  template <typename Cancel>
+  void set_starting(Cancel cancel) {
+    cancel_registration = promise.ExecuteWhenNotNeeded(std::move(cancel));
+  }
+
+  void set_stopping() { cancel_registration.Unregister(); }
+
+  void set_error(absl::Status status) { promise.SetResult(std::move(status)); }
+
+  void set_value(std::string_view key_prefix,
+                 span<const LeafNodeEntry> entries) {
+    if (entries.empty()) return;
+    UniqueWriterLock lock{writer->mutex_};
+    for (auto& entry : entries) {
+      auto key = tensorstore::StrCat(
+          add_prefix,
+          std::string_view(key_prefix)
+              .substr(std::min(key_prefix.size(), strip_prefix_length)),
+          std::string_view(entry.key).substr(
+              std::min(entry.key.size(),
+                       strip_prefix_length -
+                           std::min(strip_prefix_length, key_prefix.size()))));
+      auto request = std::make_unique<WriteEntry>();
+      request->key = std::move(key);
+      request->kind = MutationEntry::kWrite;
+      auto [promise, future] =
+          PromiseFuturePair<TimestampedStorageGeneration>::Make(std::in_place);
+      request->promise = std::move(promise);
+      request->value = entry.value_reference;
+      LinkError(this->promise, std::move(future));
+      writer->pending_.requests.emplace_back(
+          MutationEntryUniquePtr(request.release()));
+    }
+    CommitOperation::MaybeStart(*writer, std::move(lock));
+  }
+
+  void set_done() {}
+};
+
+Future<const void> NonDistributedBtreeWriter::CopySubtree(
+    CopySubtreeOptions&& options) {
+  // TODO(jbms): Currently this implementation avoids copying indirect values,
+  // but never reuses B+tree nodes.  A more efficient implementation that
+  // re-uses B+tree nodes in many cases is possible.
+  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+      << "CopySubtree: " << options.node
+      << ", height=" << static_cast<int>(options.node_height)
+      << ", range=" << options.range << ", subtree_key_prefix="
+      << tensorstore::QuoteString(options.subtree_key_prefix)
+      << ", strip_prefix_length=" << options.strip_prefix_length
+      << ", add_prefix=" << tensorstore::QuoteString(options.add_prefix);
+
+  auto [promise, future] = PromiseFuturePair<void>::Make(absl::OkStatus());
+  NonDistributedListSubtree(
+      io_handle_, options.node, options.node_height,
+      std::move(options.subtree_key_prefix), std::move(options.range),
+      CopySubtreeListReceiver{
+          NonDistributedBtreeWriter::Ptr(this), options.strip_prefix_length,
+          std::move(options.add_prefix), std::move(promise)});
+  return std::move(future);
 }
 
 BtreeWriterPtr MakeNonDistributedBtreeWriter(IoHandle::Ptr io_handle) {

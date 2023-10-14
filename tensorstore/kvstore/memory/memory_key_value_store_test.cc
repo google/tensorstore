@@ -70,6 +70,13 @@ TEST(MemoryKeyValueStoreTest, DeleteRangeFromBeginning) {
   tensorstore::internal::TestKeyValueStoreDeleteRangeFromBeginning(store);
 }
 
+#if 0
+TEST(MemoryKeyValueStoreTest, CopyRange) {
+  auto store = tensorstore::GetMemoryKeyValueStore();
+  tensorstore::internal::TestKeyValueStoreCopyRange(store);
+}
+#endif
+
 TEST(MemoryKeyValueStoreTest, List) {
   auto store = tensorstore::GetMemoryKeyValueStore();
   tensorstore::internal::TestKeyValueStoreList(store);
