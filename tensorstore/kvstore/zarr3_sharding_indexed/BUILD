@@ -59,6 +59,7 @@ tensorstore_cc_library(
         "//tensorstore/util:str_cat",
         "//tensorstore/util/execution",
         "//tensorstore/util/execution:any_receiver",
+        "//tensorstore/util/execution:flow_sender_operation_state",
         "//tensorstore/util/execution:result_sender",
         "//tensorstore/util/garbage_collection",
         "@com_github_nlohmann_json//:nlohmann_json",

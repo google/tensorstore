@@ -366,6 +366,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/util:future",
         "//tensorstore/util/execution:any_receiver",
+        "//tensorstore/util/execution:flow_sender_operation_state",
         "@com_google_absl//absl/status",
     ],
 )

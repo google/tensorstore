@@ -15,6 +15,7 @@
 #include "tensorstore/kvstore/test_util.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <array>
 #include <cassert>
@@ -39,7 +40,6 @@
 #include "absl/time/clock.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
-#include "tensorstore/data_type.h"
 #include "tensorstore/internal/json_fwd.h"
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/kvstore/byte_range.h"
@@ -61,6 +61,7 @@
 #include "tensorstore/util/execution/sender_testutil.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
@@ -730,11 +731,18 @@ void TestKeyValueStoreList(const KvStore& store) {
         CompletionNotifyingReceiver{&notification, CancelOnStarting{{&log}}});
     notification.WaitForNotification();
 
-    EXPECT_THAT(log, ::testing::ElementsAre("set_starting", "set_done",
-                                            "set_stopping"));
+    ASSERT_THAT(log, ::testing::SizeIs(::testing::Ge(3)));
+
+    EXPECT_EQ("set_starting", log[0]);
+    EXPECT_EQ("set_done", log[log.size() - 2]);
+    EXPECT_EQ("set_stopping", log[log.size() - 1]);
+    EXPECT_THAT(span<const std::string>(&log[1], log.size() - 3),
+                ::testing::IsSubsetOf({"set_value: a/d", "set_value: a/c/z/f",
+                                       "set_value: a/c/y", "set_value: a/c/z/e",
+                                       "set_value: a/c/x", "set_value: a/b"}));
   }
 
-  // Cancellation in the middle of the stream stops the stream.
+  // Cancellation in the middle of the stream may stop the stream.
   struct CancelAfter2 : public tensorstore::LoggingReceiver {
     using Key = kvstore::Key;
     tensorstore::AnyCancelReceiver cancel;
@@ -761,13 +769,15 @@ void TestKeyValueStoreList(const KvStore& store) {
         CompletionNotifyingReceiver{&notification, CancelAfter2{{&log}}});
     notification.WaitForNotification();
 
-    EXPECT_THAT(log,
-                ::testing::ElementsAre(
-                    "set_starting",
-                    ::testing::AnyOf("set_value: a/d", "set_value: a/c/z/f",
-                                     "set_value: a/c/y", "set_value: a/c/z/e",
-                                     "set_value: a/c/x", "set_value: a/b"),
-                    "set_done", "set_stopping"));
+    ASSERT_THAT(log, ::testing::SizeIs(::testing::Gt(3)));
+
+    EXPECT_EQ("set_starting", log[0]);
+    EXPECT_EQ("set_done", log[log.size() - 2]);
+    EXPECT_EQ("set_stopping", log[log.size() - 1]);
+    EXPECT_THAT(span<const std::string>(&log[1], log.size() - 3),
+                ::testing::IsSubsetOf({"set_value: a/d", "set_value: a/c/z/f",
+                                       "set_value: a/c/y", "set_value: a/c/z/e",
+                                       "set_value: a/c/x", "set_value: a/b"}));
   }
 
   ABSL_LOG(INFO) << "Test list: ... delete elements ...";

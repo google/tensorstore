@@ -26,7 +26,14 @@ namespace internal_ocdbt {
 
 void NonDistributedList(ReadonlyIoHandle::Ptr io_handle,
                         kvstore::ListOptions options,
-                        AnyFlowReceiver<absl::Status, kvstore::Key> receiver);
+                        AnyFlowReceiver<absl::Status, kvstore::Key>&& receiver);
+
+void NonDistributedListSubtree(
+    ReadonlyIoHandle::Ptr io_handle, const BtreeNodeReference& node_ref,
+    BtreeNodeHeight node_height, std::string subtree_key_prefix,
+    KeyRange&& key_range,
+    AnyFlowReceiver<absl::Status, std::string_view, span<const LeafNodeEntry>>&&
+        receiver);
 
 }  // namespace internal_ocdbt
 }  // namespace tensorstore

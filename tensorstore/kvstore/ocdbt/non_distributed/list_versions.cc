@@ -14,17 +14,30 @@
 
 #include "tensorstore/kvstore/ocdbt/non_distributed/list_versions.h"
 
+#include <algorithm>
+#include <cassert>
+#include <limits>
+#include <memory>
+#include <utility>
 #include <variant>
+#include <vector>
 
 #include "absl/log/absl_log.h"
+#include "absl/status/status.h"
+#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/kvstore/ocdbt/debug_log.h"
-#include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
 #include "tensorstore/kvstore/ocdbt/format/manifest.h"
 #include "tensorstore/kvstore/ocdbt/format/version_tree.h"
 #include "tensorstore/kvstore/ocdbt/io_handle.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
+#include "tensorstore/util/execution/flow_sender_operation_state.h"
+#include "tensorstore/util/execution/sync_flow_sender.h"
+#include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
@@ -45,12 +58,16 @@ namespace {
 //
 // TODO(jbms): Currently memory usage is not bounded.  That needs to be
 // addressed, e.g. by limiting the number of in-flight nodes.
-struct ListVersionsOperation
-    : public internal::AtomicReferenceCount<ListVersionsOperation> {
+struct ListVersionsOperation : public internal::FlowSenderOperationState<
+                                   std::vector<BtreeGenerationReference>> {
+  using Base =
+      internal::FlowSenderOperationState<std::vector<BtreeGenerationReference>>;
   using Ptr = internal::IntrusivePtr<ListVersionsOperation>;
+
+  using Base::Base;
+
   ReadonlyIoHandle::Ptr io_handle;
   ListVersionsOptions options;
-  AnyFlowReceiver<absl::Status, std::vector<BtreeGenerationReference>> receiver;
 
   // Initiates the asynchronous list operation.
   //
@@ -62,29 +79,10 @@ struct ListVersionsOperation
       ReadonlyIoHandle::Ptr&& io_handle, const ListVersionsOptions& options,
       AnyFlowReceiver<absl::Status, std::vector<BtreeGenerationReference>>&&
           receiver) {
-    auto [cancel_promise, cancel_future] =
-        PromiseFuturePair<void>::Make(absl::OkStatus());
-    execution::set_starting(receiver, [cancel_promise = cancel_promise] {
-      SetDeferredResult(cancel_promise, absl::CancelledError(""));
-    });
-    auto op = internal::MakeIntrusivePtr<ListVersionsOperation>();
+    auto op =
+        internal::MakeIntrusivePtr<ListVersionsOperation>(std::move(receiver));
     op->io_handle = std::move(io_handle);
-    op->receiver = std::move(receiver);
     op->options = options;
-    cancel_future.ExecuteWhenReady([op](ReadyFuture<void> f) {
-      if (f.status().ok() || absl::IsCancelled(f.status())) {
-        execution::set_done(op->receiver);
-      } else {
-        execution::set_error(op->receiver, f.status());
-      }
-      execution::set_stopping(op->receiver);
-    });
-
-    auto [list_promise, list_future] =
-        PromiseFuturePair<void>::Make(absl::OkStatus());
-    Link([](Promise<void> promise,
-            ReadyFuture<void> future) { promise.SetResult(future.result()); },
-         std::move(cancel_promise), std::move(list_future));
 
     auto* op_ptr = op.get();
 
@@ -92,28 +90,28 @@ struct ListVersionsOperation
         op_ptr->io_handle->GetManifest(op->options.staleness_bound);
     Link(WithExecutor(
              op_ptr->io_handle->executor,
-             ListVersionsOperation::ManifestReadyCallback{std::move(op)}),
-         std::move(list_promise), std::move(manifest_future));
+             [op = std::move(op)](
+                 Promise<void> promise,
+                 ReadyFuture<const ManifestWithTime> read_future) mutable {
+               ManifestReady(std::move(op), std::move(read_future));
+             }),
+         op_ptr->promise, std::move(manifest_future));
   }
 
   // Called when the manifest lookup has completed.
-  struct ManifestReadyCallback {
-    Ptr op;
-    void operator()(Promise<void> promise,
-                    ReadyFuture<const ManifestWithTime> read_future) {
-      TENSORSTORE_ASSIGN_OR_RETURN(
-          auto manifest_with_time, read_future.result(),
-          static_cast<void>(SetDeferredResult(promise, _)));
-      const auto* manifest = manifest_with_time.manifest.get();
-      if (!manifest) {
-        // Manifest not present.
-        return;
-      }
-
-      VisitEntries(*op, promise, manifest->version_tree_nodes);
-      VisitEntries(*op, promise, manifest->versions);
+  static void ManifestReady(Ptr op,
+                            ReadyFuture<const ManifestWithTime> read_future) {
+    TENSORSTORE_ASSIGN_OR_RETURN(auto manifest_with_time, read_future.result(),
+                                 op->SetError(_));
+    const auto* manifest = manifest_with_time.manifest.get();
+    if (!manifest) {
+      // Manifest not present.
+      return;
     }
-  };
+
+    VisitEntries(*op, manifest->version_tree_nodes);
+    VisitEntries(*op, manifest->versions);
+  }
 
   // Emit all matches within a subtree.
   //
@@ -121,18 +119,17 @@ struct ListVersionsOperation
   //   op: List operation state.
   //   promise: Promise to be resolved once the operation completes.
   //   node_ref: Node reference.
-  static void VisitSubtree(Ptr op, Promise<void> promise,
-                           const VersionNodeReference& node_ref) {
+  static void VisitSubtree(Ptr op, const VersionNodeReference& node_ref) {
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
         << "ListVersions: "
         << "node_ref=" << node_ref;
-    auto read_future = op->io_handle->GetVersionTreeNode(node_ref.location);
-    auto executor = op->io_handle->executor;
+    auto* op_ptr = op.get();
     Link(WithExecutor(
-             std::move(executor),
+             op_ptr->io_handle->executor,
              NodeReadyCallback{std::move(op), node_ref.generation_number,
                                node_ref.height}),
-         std::move(promise), std::move(read_future));
+         op_ptr->promise,
+         op_ptr->io_handle->GetVersionTreeNode(node_ref.location));
   }
 
   // Called when a version tree node lookup completes.
@@ -144,39 +141,35 @@ struct ListVersionsOperation
     void operator()(
         Promise<void> promise,
         ReadyFuture<const std::shared_ptr<const VersionTreeNode>> read_future) {
-      TENSORSTORE_ASSIGN_OR_RETURN(
-          auto node, read_future.result(),
-          static_cast<void>(SetDeferredResult(promise, _)));
-      if (!promise.result_needed()) return;
+      TENSORSTORE_ASSIGN_OR_RETURN(auto node, read_future.result(),
+                                   op->SetError(_));
+      if (op->cancelled()) return;
       auto* config = op->io_handle->config_state->GetExistingConfig();
       assert(config);
       TENSORSTORE_RETURN_IF_ERROR(
           ValidateVersionTreeNodeReference(*node, *config, generation_number,
                                            height),
-          static_cast<void>(SetDeferredResult(promise, _)));
+          op->SetError(_));
 
-      std::visit(
-          [&](const auto& entries) { VisitEntries(*op, promise, entries); },
-          node->entries);
+      std::visit([&](const auto& entries) { VisitEntries(*op, entries); },
+                 node->entries);
     }
   };
 
   // Recursively visits matching child subtrees.
   static void VisitEntries(ListVersionsOperation& op,
-                           const Promise<void>& promise,
                            span<const VersionNodeReference> entries) {
     auto matching_entries = GetMatches(op, entries);
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
         << "ListVersions: Visiting " << matching_entries.size() << "/"
         << entries.size() << " children of interior node";
     for (const auto& entry : matching_entries) {
-      VisitSubtree(Ptr(&op), promise, entry);
+      VisitSubtree(Ptr(&op), entry);
     }
   }
 
   // Emits matching versions.
   static void VisitEntries(ListVersionsOperation& op,
-                           const Promise<void>& promise,
                            span<const BtreeGenerationReference> entries) {
     auto matching_entries = GetMatches(op, entries);
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
@@ -184,8 +177,9 @@ struct ListVersionsOperation
         << entries.size() << " versions";
     if (!matching_entries.empty()) {
       execution::set_value(
-          op.receiver, std::vector<BtreeGenerationReference>(
-                           matching_entries.begin(), matching_entries.end()));
+          op.shared_receiver->receiver,
+          std::vector<BtreeGenerationReference>(matching_entries.begin(),
+                                                matching_entries.end()));
     }
   }
 
