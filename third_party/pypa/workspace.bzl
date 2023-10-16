@@ -53,6 +53,7 @@ def repo():
     repo_pypa_jsonschema_specifications()
     repo_pypa_markupsafe()
     repo_pypa_matplotlib_inline()
+    repo_pypa_ml_dtypes()
     repo_pypa_numpy()
     repo_pypa_objsize()
     repo_pypa_orjson()
@@ -407,7 +408,7 @@ def repo_pypa_googleapis_common_protos():
         third_party_python_package,
         name = "pypa_googleapis_common_protos",
         target = "googleapis_common_protos",
-        requirement = "googleapis-common-protos==1.60.0",
+        requirement = "googleapis-common-protos==1.61.0",
         deps = [
             "@pypa_protobuf//:protobuf",
         ],
@@ -610,6 +611,18 @@ def repo_pypa_matplotlib_inline():
         requirement = "matplotlib-inline==0.1.6",
         deps = [
             "@pypa_traitlets//:traitlets",
+        ],
+    )
+
+def repo_pypa_ml_dtypes():
+    repo_pypa_numpy()
+    maybe(
+        third_party_python_package,
+        name = "pypa_ml_dtypes",
+        target = "ml_dtypes",
+        requirement = "ml_dtypes==0.3.1",
+        deps = [
+            "@pypa_numpy//:numpy",
         ],
     )
 

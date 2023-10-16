@@ -4,3 +4,4 @@
 # Note: When building redistributable wheels, `oldest-supported-numpy`
 # should be used instead.
 numpy
+ml_dtypes

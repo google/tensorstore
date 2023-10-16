@@ -369,5 +369,6 @@ setuptools.setup(
     },
     install_requires=[
         'numpy>=1.16.0',
+        'ml_dtypes>=0.3.1',
     ],
 )
