@@ -321,7 +321,7 @@ def repo_pypa_dill():
         third_party_python_package,
         name = "pypa_dill",
         target = "dill",
-        requirement = "dill==0.3.7",
+        requirement = "dill==0.3.1.1",
     )
 
 def repo_pypa_dnspython():
@@ -337,7 +337,7 @@ def repo_pypa_docutils():
         third_party_python_package,
         name = "pypa_docutils",
         target = "docutils",
-        requirement = "docutils==0.20.1",
+        requirement = "docutils==0.19",
     )
 
 def repo_pypa_exceptiongroup():
@@ -427,7 +427,7 @@ def repo_pypa_hdfs():
         third_party_python_package,
         name = "pypa_hdfs",
         target = "hdfs",
-        requirement = "hdfs==2.7.2",
+        requirement = "hdfs==2.7.3",
     )
 
 def repo_pypa_httplib2():
@@ -620,7 +620,7 @@ def repo_pypa_ml_dtypes():
         third_party_python_package,
         name = "pypa_ml_dtypes",
         target = "ml_dtypes",
-        requirement = "ml_dtypes==0.3.1",
+        requirement = "ml-dtypes==0.3.1",
         deps = [
             "@pypa_numpy//:numpy",
         ],
@@ -631,7 +631,7 @@ def repo_pypa_numpy():
         third_party_python_package,
         name = "pypa_numpy",
         target = "numpy",
-        requirement = "numpy==1.26.0",
+        requirement = "numpy==1.24.4",
     )
 
 def repo_pypa_objsize():
@@ -639,7 +639,7 @@ def repo_pypa_objsize():
         third_party_python_package,
         name = "pypa_objsize",
         target = "objsize",
-        requirement = "objsize==0.7.0",
+        requirement = "objsize==0.6.1",
     )
 
 def repo_pypa_orjson():
@@ -647,7 +647,7 @@ def repo_pypa_orjson():
         third_party_python_package,
         name = "pypa_orjson",
         target = "orjson",
-        requirement = "orjson==3.9.8",
+        requirement = "orjson==3.9.9",
     )
 
 def repo_pypa_packaging():
@@ -756,7 +756,7 @@ def repo_pypa_pyarrow():
         third_party_python_package,
         name = "pypa_pyarrow",
         target = "pyarrow",
-        requirement = "pyarrow==13.0.0",
+        requirement = "pyarrow==11.0.0",
         deps = [
             "@pypa_numpy//:numpy",
         ],
@@ -1165,7 +1165,7 @@ def repo_pypa_urllib3():
         third_party_python_package,
         name = "pypa_urllib3",
         target = "urllib3",
-        requirement = "urllib3==2.0.6",
+        requirement = "urllib3==2.0.7",
     )
 
 def repo_pypa_wcwidth():
