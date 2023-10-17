@@ -37,6 +37,7 @@
 #include <string.h>  // IWYU pragma: keep
 
 #include <atomic>  // IWYU pragma: keep
+#include <cassert>
 #include <limits>  // IWYU pragma: keep
 #include <memory>
 #include <string>
@@ -274,13 +275,14 @@ bool retry(int e) {
 }  // namespace
 
 struct Subprocess::Impl {
+  Impl(pid_t pid) : child_pid_(pid), exit_code_(-1) {}
   ~Impl();
 
   absl::Status Kill(int signal);
   Result<int> Join(bool block);
 
-  std::atomic<pid_t> child_pid_{-1};
-  std::atomic<int> exit_code_{-1};
+  std::atomic<pid_t> child_pid_;
+  std::atomic<int> exit_code_;
 };
 
 Subprocess::Impl::~Impl() {
@@ -412,19 +414,22 @@ Result<Subprocess> SpawnSubprocess(const SubprocessOptions& options) {
                              options.executable, " failed");
   }
   ABSL_CHECK_GT(child_pid, 0);
-
-  auto impl = std::make_shared<Subprocess::Impl>();
-  impl->child_pid_ = child_pid;
-  return Subprocess(std::move(impl));
+  return Subprocess(std::make_shared<Subprocess::Impl>(child_pid));
 }
 
 #endif  // !_WIN32
 
 Subprocess::~Subprocess() = default;
 
-absl::Status Subprocess::Kill(int signal) const { return impl_->Kill(signal); }
+absl::Status Subprocess::Kill(int signal) const {
+  assert(impl_);
+  return impl_->Kill(signal);
+}
 
-Result<int> Subprocess::Join(bool block) const { return impl_->Join(block); }
+Result<int> Subprocess::Join(bool block) const {
+  assert(impl_);
+  return impl_->Join(block);
+}
 
 }  // namespace internal
 }  // namespace tensorstore

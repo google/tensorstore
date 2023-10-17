@@ -296,6 +296,8 @@ tensorstore_cc_test(
 tensorstore_cc_test(
     name = "localstack_test",
     srcs = ["localstack_test.cc"],
+    # args = ["--localstack_binary=$(location :localstack_cli)"],
+    # data = [":localstack_cli"],
     tags = [
         "manual",
         "notap",  # TODO: Enable before linking by default.
@@ -303,6 +305,7 @@ tensorstore_cc_test(
     ],
     deps = [
         ":aws_credential_provider",
+        ":s3",
         ":s3_request_builder",
         "//tensorstore:context",
         "//tensorstore:json_serialization_options_base",
@@ -311,6 +314,7 @@ tensorstore_cc_test(
         "//tensorstore/internal:subprocess",
         "//tensorstore/internal/http",
         "//tensorstore/internal/http:curl_transport",
+        "//tensorstore/internal/http:transport_test_utils",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:test_util",
         "//tensorstore/util:future",
@@ -326,3 +330,18 @@ tensorstore_cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+# NOTE: For the localstack_test, it seems simples to add a proxy py_binary like:
+# py_binary(
+#     name = "localstack_cli",
+#     testonly = 1,
+#     srcs = ["localstack_cli.py"],
+#     deps = ["@pypa_localstack//:localstack"],
+# )
+#
+# Where localstack_cli.py is something like this:
+#   if __name__ == "__main__":
+#     localstack.cli.main.main()
+#
+# However localstack[runtime] resolves to a pypa dependency on dill which conflicts with
+# the apache-beam dependency on dill.
