@@ -58,6 +58,11 @@ def test_copy():
     assert t3['abc'] == b'def'
 
 
+def test_keyrange():
+  r = ts.KvStore.KeyRange('a', 'b')
+  assert repr(r) == "KvStore.KeyRange(b'a', b'b')"
+
+
 def test_copy_memory():
   spec = {
       'driver': 'memory',
@@ -75,3 +80,21 @@ def test_copy_memory():
   assert t2['abc'] == b'def'
   with pytest.raises(KeyError):
     t3['abc']  # pylint: disable=pointless-statement
+
+
+def test_copy_range_to():
+  context = ts.Context()
+  for k in ['a', 'b', 'c']:
+    child = ts.KvStore.open(
+        {'driver': 'ocdbt', 'base': f'memory://host_{k}/'}, context=context
+    ).result()
+    child[k] = f'value_{k}'
+  parent = ts.KvStore.open(
+      {'driver': 'ocdbt', 'base': 'memory://'}, context=context
+  ).result()
+  for k in ['a', 'b', 'c']:
+    child = ts.KvStore.open(
+        {'driver': 'ocdbt', 'base': f'memory://host_{k}/'}, context=context
+    ).result()
+    child.experimental_copy_range_to(parent).result()
+  assert parent.list().result() == [b'a', b'b', b'c']

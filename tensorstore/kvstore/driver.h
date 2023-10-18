@@ -171,6 +171,13 @@ class Driver {
     return Write(key, std::nullopt, std::move(options));
   }
 
+  /// Copies a range of keys from `source`.
+  ///
+  /// This API is experimental and subject to change.
+  virtual Future<const void> ExperimentalCopyRangeFrom(
+      const internal::OpenTransactionPtr& transaction, const KvStore& source,
+      Key target_prefix, CopyRangeOptions options);
+
   /// Registers a transactional read-modify-write operation.
   ///
   /// Any actual reading will be deferred until requested by `source`, and any

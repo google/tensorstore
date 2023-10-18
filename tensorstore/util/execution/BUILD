@@ -234,3 +234,19 @@ tensorstore_cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+tensorstore_cc_library(
+    name = "flow_sender_operation_state",
+    hdrs = ["flow_sender_operation_state.h"],
+    visibility = [
+        "//tensorstore:internal_packages",
+    ],
+    deps = [
+        ":any_receiver",
+        ":execution",
+        "//tensorstore/internal:intrusive_ptr",
+        "//tensorstore/util:future",
+        "//tensorstore/util:result",
+        "@com_google_absl//absl/status",
+    ],
+)

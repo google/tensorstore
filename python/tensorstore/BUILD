@@ -90,6 +90,7 @@ py_library(
     visibility = ["//visibility:public"],
     deps = [
         ":_tensorstore",
+        "@pypa_ml_dtypes//:ml_dtypes",  # build_cleaner: keep
         "@pypa_numpy//:numpy",
     ],
 )
@@ -438,14 +439,10 @@ pybind11_cc_library(
 pybind11_cc_library(
     name = "data_type",
     srcs = [
-        "bfloat16.cc",
         "data_type.cc",
-        "int4.cc",
     ],
     hdrs = [
-        "bfloat16.h",
         "data_type.h",
-        "int4.h",
     ],
     deps = [
         ":json_type_caster",
@@ -454,15 +451,12 @@ pybind11_cc_library(
         ":tensorstore_module_components",
         "//tensorstore:data_type",
         "//tensorstore/internal:global_initializer",
-        "//tensorstore/internal:type_traits",
-        "//tensorstore/util:bfloat16",
+        "//tensorstore/internal:no_destructor",
         "//tensorstore/util:executor",
-        "//tensorstore/util:int4",
         "//tensorstore/util:quote_string",
         "//tensorstore/util:str_cat",
-        "@com_github_nlohmann_json//:nlohmann_json",
         "@com_github_pybind_pybind11//:pybind11",
-        "@com_google_absl//absl/base",
+        "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/hash",
     ],
     alwayslink = True,
@@ -1107,5 +1101,15 @@ tensorstore_pytest_test(
     srcs = ["tests/metrics_test.py"],
     deps = [
         ":tensorstore",
+    ],
+)
+
+tensorstore_pytest_test(
+    name = "tests/custom_dtypes_test",
+    srcs = ["tests/custom_dtypes_test.py"],
+    deps = [
+        ":tensorstore",
+        "@pypa_ml_dtypes//:ml_dtypes",
+        "@pypa_numpy//:numpy",
     ],
 )

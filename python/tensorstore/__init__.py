@@ -166,6 +166,51 @@ Group:
   Data types
 """
 
+float8_e4m3fn: dtype
+"""8-bit floating-point data type.
+
+Details in https://github.com/jax-ml/ml_dtypes#float8_e4m3fn
+
+Group:
+  Data types
+"""
+
+float8_e4m3fnuz: dtype
+"""8-bit floating-point data type.
+
+Details in https://github.com/jax-ml/ml_dtypes#float8_e4m3fnuz
+
+Group:
+  Data types
+"""
+
+float8_e4m3b11fnuz: dtype
+"""8-bit floating-point data type.
+
+Details in https://github.com/jax-ml/ml_dtypes#float8_e4m3b11fnuz
+
+Group:
+  Data types
+"""
+
+float8_e5m2: dtype
+"""8-bit floating-point data type.
+
+Details in https://github.com/jax-ml/ml_dtypes#float8_e5m2
+
+Group:
+  Data types
+"""
+
+float8_e5m2fnuz: dtype
+"""8-bit floating-point data type.
+
+Details in https://github.com/jax-ml/ml_dtypes#float8_e5m2fnuz
+
+Group:
+  Data types
+"""
+
 float16: dtype
 """:wikipedia:`IEEE 754 binary16 <Half-precision_floating-point_format>` half-precision floating-point data type.  Correspond to ``numpy.float16``.
 

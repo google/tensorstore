@@ -25,22 +25,43 @@ information is available from PyPI.
 
 import argparse
 import concurrent.futures
+from dataclasses import dataclass
 import functools
 import json
 import os
-from typing import Any, Dict, List, Optional, Set
+import re
+import sys
+import traceback
+from typing import Any, Dict, List, Sequence, Tuple
 
-import packaging.requirements
-import packaging.specifiers
+from packaging.markers import Marker
+from packaging.requirements import Requirement
+from packaging.specifiers import SpecifierSet
+from packaging.utils import canonicalize_name
+from packaging.utils import NormalizedName
 import packaging.version
 import requests
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 
-Metadata = Any
 Json = Any
+PackageVersion = Tuple[NormalizedName, str]
 
 SUPPORTED_PYTHON_VERSIONS = ("3.9", "3.10", "3.11")
+
+BAZEL_REQUIREMENTS_FILENAMES = [
+    "build_requirements.txt",
+    "test_requirements.txt",
+    "docs_requirements.txt",
+    "doctest_requirements.txt",
+    "shell_requirements.txt",
+    "examples_requirements.txt",
+]
+
+CI_REQUIREMENTS_FILENAMES = [
+    "cibuildwheel_requirements.txt",
+    "wheel_requirements.txt",
+]
 
 # Dependencies to ignore (to avoid cycles)
 #
@@ -54,6 +75,18 @@ IGNORED_DEPENDENCIES = {
 }
 
 
+def _parse_requirements_file(filename: str) -> List[str]:
+  """Parses a requirements.txt file into a list of requirement strings."""
+  reqs: List[str] = []
+  with open(filename, "r") as f:
+    for line in f.read().splitlines():
+      line = line.strip()
+      if not line or line.startswith("#"):
+        continue
+      reqs.append(line)
+  return reqs
+
+
 @functools.cache
 def _get_session():
   s = requests.Session()
@@ -64,9 +97,10 @@ def _get_session():
   return s
 
 
-def get_package_json(name: str) -> Json:
-  """Fetches a Python package from PyPI."""
-  uri = f"https://pypi.python.org/pypi/{name}/json"
+# https://warehouse.pypa.io/api-reference/json.html
+def get_pypa_json(package_selector: str) -> Json:
+  """Fetches a Python package or package/version from PyPI."""
+  uri = f"https://pypi.python.org/pypi/{package_selector}/json"
   print(uri)
   r = _get_session().get(uri, timeout=5)
   r.raise_for_status()
@@ -98,26 +132,32 @@ class _AnyValue:
     return True
 
 
-def _evaluate_marker(marker):
+def _evaluate_marker(req: Requirement, marker: Marker) -> bool:
+  """Evaluates a packaging.Marker for python versions and Requirement.extras."""
   if marker is None:
     return True
-  return any(
-      marker.evaluate({
+
+  extras = req.extras if req.extras else [None]
+  for v in SUPPORTED_PYTHON_VERSIONS:
+    for e in extras:
+      if marker.evaluate({
           "sys_platform": _AnyValue(),
-          "python_version": python_version,
-          "extra": None,
-      })
-      for python_version in SUPPORTED_PYTHON_VERSIONS
-  )
+          "python_version": v,
+          "extra": e,
+      }):
+        return True
+  return False
 
 
-def _is_suitable_release(release):
+def _is_suitable_release(release: Json):
   remaining_python_versions = set(SUPPORTED_PYTHON_VERSIONS)
   for release_pkg in release:
     requires_python = release_pkg.get("requires_python")
     if requires_python is None:
       return True
-    spec = packaging.specifiers.SpecifierSet(requires_python)
+    while requires_python.endswith(".*"):
+      requires_python = requires_python[:-2]
+    spec = SpecifierSet(requires_python)
     for v in list(remaining_python_versions):
       if v in spec:
         remaining_python_versions.remove(v)
@@ -126,55 +166,210 @@ def _is_suitable_release(release):
   return False
 
 
-def _find_suitable_version(
-    name: str, j: Json, spec: packaging.specifiers.SpecifierSet
-) -> Optional[str]:
-  """Returns the latest suitable release for the package."""
-  releases = j["releases"]
-  versions = []
-  for v in releases.keys():
+def _merge_requirements(dest: Requirement, b: Requirement) -> bool:
+  """Merges Requirement object b into dest."""
+  result = False
+  if dest.extras or b.extras:
+    extras = set()
+    extras.update(dest.extras or [])
+    extras.update(b.extras or [])
+    extras = list(sorted(extras))
+    if extras != list(sorted(dest.extras or [])):
+      dest.extras = extras
+      result = True
+  if dest.specifier != b.specifier:
+    merged = set()
+    merged.update(iter(dest.specifier))
+    merged.update(iter(b.specifier))
+    merged_specifier = SpecifierSet(",".join([str(x) for x in merged]))
+    if merged_specifier != dest.specifier:
+      dest.specifier = merged_specifier
+      result = True
+  return result
+
+
+@dataclass
+class Resolved:
+  package_name: str
+  version: str
+  deps: List[PackageVersion]
+
+
+class RequirementResolver:
+  """Maintains metadata required to resolve sets of Requirements.
+
+  See: https://warehouse.pypa.io/api-reference/json.html
+  """
+
+  def __init__(self):
+    self.package_versions: Dict[NormalizedName, List[str]] = {}
+    self.package_version_requires: Dict[PackageVersion, List[Requirement]] = {}
+
+  def handle_package_version_metadata(self, j: Json):
+    """Process metadata for a specific PyPa package version."""
+    info = j["info"]
+    name = canonicalize_name(info["name"])
+    version = info["version"]
+    ignored_deps = IGNORED_DEPENDENCIES.get(name, [])
+    reqs = []
+    requires_dist = info.get("requires_dist")
+    if requires_dist:
+      for req_txt in requires_dist:
+        r = Requirement(req_txt)
+        if canonicalize_name(r.name) in ignored_deps:
+          continue
+        reqs.append(r)
+    self.package_version_requires[(name, version)] = reqs
+
+  def handle_package_metadata(self, j: Json):
+    """Process metadata for a PyPa package."""
+    info = j["info"]
+    name = canonicalize_name(info["name"])
+    releases = j["releases"]
+    versions = []
+
+    for v, release_list in releases.items():
+      if not _is_suitable_release(release_list):
+        continue
+      try:
+        versions.append((packaging.version.parse(v), v))
+      except packaging.version.InvalidVersion:
+        print(f"{name} skipping invalid version: {v}")
+
+    # package_versions are in order from highest version to lowest, though
+    # still persisted as raw strings.
+    versions.sort()
+    versions.reverse()
+    self.package_versions[name] = [x[1] for x in versions]
+
+    # The package metadata likely contains the information for the
+    # latest build; might as well store it.
+    if info.get("version") and info.get("requires_dist"):
+      self.handle_package_version_metadata(j)
+
+  def _get_package_metadata(self, package_name: NormalizedName):
     try:
-      parsed = packaging.version.parse(v)
-      versions.append((parsed, v))
-    except packaging.version.InvalidVersion:
-      print(f"{name} skipping invalid version: {v}")
-  versions.sort()
-  versions.reverse()
-  first_suitable = None
-  for v, v_str in versions:
-    if not _is_suitable_release(releases[v_str]):
-      continue
-    if v in spec:  # spec typically rejects v.is_prerelease
-      return v_str
-    if not first_suitable:  # allow v.is_prerelease
-      first_suitable = v_str
-  return first_suitable
+      j = get_pypa_json(package_name)
+      self.handle_package_metadata(j)
+    except Exception as e:
+      print(f"{package_name} {e}")
+      traceback.print_exception(*sys.exc_info())
 
+  def _get_version_metadata(self, package_and_version: PackageVersion):
+    try:
+      j = get_pypa_json(f"{package_and_version[0]}/{package_and_version[1]}")
+      self.handle_package_version_metadata(j)
+    except Exception as e:
+      print(f"{package_and_version} {e}")
+      traceback.print_exception(*sys.exc_info())
 
-def get_package_metadata(req_str: str) -> Metadata:
-  req = packaging.requirements.Requirement(req_str)
-  name = req.name
-  j = get_package_json(name)
-  version_str = _find_suitable_version(name, j, req.specifier)
-  if version_str is None:
-    raise ValueError(f"Could not find suitable version for {name}")
-  j = get_package_json(f"{name}/{version_str}")
-  requires_dist = j["info"].get("requires_dist", [])
-  if requires_dist is None:
-    requires_dist = []
-  deps = []
-  ignored_deps = IGNORED_DEPENDENCIES.get(name.lower())
-  for dep_req_text in requires_dist:
-    dep_req = packaging.requirements.Requirement(dep_req_text)
-    if _evaluate_marker(dep_req.marker) and (
-        ignored_deps is None or dep_req.name.lower() not in ignored_deps
-    ):
-      deps.append(dep_req.name.lower())
-  return {"Requires": sorted(deps), "Name": name, "Version": version_str}
+  def get_metadata(
+      self,
+      package_names: Sequence[NormalizedName],
+      package_versions: Sequence[PackageVersion],
+  ):
+    # Each entry in package_name and package_version is retrieved independently.
+    with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
+      for x in package_names:
+        if x not in self.package_versions:
+          executor.submit(self._get_package_metadata, x)
+      for x in package_versions:
+        if x not in self.package_version_requires:
+          executor.submit(self._get_version_metadata, x)
+
+  def resolve_requirements(
+      self, initial_requirements: Sequence[Requirement]
+  ) -> Dict[NormalizedName, Resolved]:
+    """Iteratively resolve the PyPa requirements."""
+
+    # requirements contains all packages along with any constraints
+    # which have been detected during the attempt at resolving package
+    # versions.
+    requirements: Dict[NormalizedName, Requirement] = {}
+    for x in initial_requirements:
+      requirements[canonicalize_name(x.name)] = Requirement(str(x))
+
+    # selected contains the mapping from name to version; this is not
+    # set as a constraint as it may change every loop through the package
+    # resolver.
+    selected: Dict[NormalizedName, str] = {}
+    versions_to_resolve: List[PackageVersion] = []
+    loop: bool = True
+
+    # Repeat until quiescent.
+    while loop:
+      print("Retrieving metadata...")
+      self.get_metadata(
+          requirements.keys(),
+          versions_to_resolve,
+      )
+      versions_to_resolve.clear()
+      loop = False
+
+      # Evaluate each known dependency.
+      for r in list(requirements.values()):
+        name = canonicalize_name(r.name)
+        r_versions = self.package_versions.get(name)
+        if r_versions is None:
+          # This should never happen; all packages should have versions by now.
+          raise ValueError(f"Package has no versions. {str(r)}")
+
+        # 1. Resolve the specifier version filter to the highest version which
+        # satisfies the specifier (the first item in r_versions has the highest
+        # compatible version).
+        suitable = list(r.specifier.filter(r_versions))
+        if not suitable:
+          suitable = list(r.specifier.filter(r_versions, prereleases=True))
+          if not suitable:
+            raise ValueError(f"Cannot satisfy package requirements: {str(r)}")
+
+        selected[name] = suitable[0]
+        version_requires = self.package_version_requires.get(
+            (name, suitable[0])
+        )
+        if version_requires is None:
+          # The first time a dependency is the version data will be unavailable.
+          versions_to_resolve.append((name, suitable[0]))
+          loop = True
+          continue
+
+        # 2. For the selected version, evaluate each possible dependency.
+        # Dependencies are added or merged with the existing requirements.
+        for r_dep in version_requires:
+          if not _evaluate_marker(r, r_dep.marker):
+            continue
+
+          print(f"Package dependency {str(r)} -> {str(r_dep)}")
+
+          r_dep_name = canonicalize_name(r_dep.name)
+          if r_dep_name not in requirements:
+            requirements[r_dep_name] = r_dep
+            loop = True
+            continue
+
+          if _merge_requirements(requirements[r_dep_name], r_dep):
+            loop = True
+
+    # end while
+
+    # Output the versions and dependencies for each package
+    result: Dict[NormalizedName, Resolved] = {}
+    for name, r in requirements.items():
+      version = selected[name]
+      version_requires = self.package_version_requires.get((name, version))
+      deps: List[PackageVersion] = []
+      for r_dep in version_requires:
+        if _evaluate_marker(r, r_dep.marker):
+          r_dep_name = canonicalize_name(r_dep.name)
+          deps.append((r_dep_name, selected[r_dep_name]))
+      result[name] = Resolved(
+          package_name=name, version=selected[name], deps=deps
+      )
+    return result
 
 
 def get_target_name(package_name):
-  return package_name.lower().replace("-", "_")
+  return re.sub("[^0-9a-z_]+", "_", package_name.lower())
 
 
 def get_repo_name(package_name):
@@ -188,22 +383,12 @@ def get_full_target_name(package_name) -> str:
   )
 
 
-def get_package_info(package_names: Set[str]) -> Dict[str, Metadata]:
-  all_metadata: Dict[str, Metadata] = {}
-  with concurrent.futures.ThreadPoolExecutor(max_workers=100) as executor:
-    for metadata in executor.map(get_package_metadata, package_names):
-      all_metadata[metadata["Name"].lower()] = metadata
-  return all_metadata
-
-
-def write_repo_macros(f, metadata):
-  package_name = metadata["Name"].lower()
-  repo_name = get_repo_name(package_name)
+def write_repo_macros(f, metadata: Resolved):
+  package_name = get_target_name(metadata.package_name)
+  repo_name = get_repo_name(metadata.package_name)
   f.write(f"""def repo_{repo_name}():
 """)
-  for repo_dep in sorted(
-      set(get_repo_name(dep) for dep in metadata["Requires"])
-  ):
+  for repo_dep in sorted(set(get_repo_name(dep[0]) for dep in metadata.deps)):
     f.write(f"    repo_{repo_dep}()\n")
   f.write(
       """    maybe(
@@ -212,17 +397,17 @@ def write_repo_macros(f, metadata):
       + json.dumps(repo_name)
       + """,
         target = """
-      + json.dumps(get_target_name(package_name))
+      + json.dumps(package_name)
       + """,
         requirement = """
-      + json.dumps(package_name + "==" + metadata["Version"])
+      + json.dumps(metadata.package_name + "==" + metadata.version)
       + """,
 """
   )
-  if metadata["Requires"]:
+  if metadata.deps:
     f.write("        deps = [\n")
     for unique_dep in sorted(
-        set(get_full_target_name(dep) for dep in metadata["Requires"])
+        set(get_full_target_name(dep[0]) for dep in metadata.deps)
     ):
       f.write("            " + json.dumps(unique_dep) + ",\n")
     f.write("        ],\n")
@@ -231,8 +416,10 @@ def write_repo_macros(f, metadata):
 """)
 
 
-def write_workspace(all_metadata, tools_workspace):
-  all_metadata = sorted(all_metadata, key=lambda x: x["Name"].lower())
+def write_workspace(
+    resolved_metadata: Dict[str, Resolved], tools_workspace: str
+):
+  keys = sorted([k for k in resolved_metadata], key=lambda x: x.lower())
   with open("workspace.bzl", "w") as f:
     f.write("# DO NOT EDIT: Generated by generate_workspace.py\n")
     f.write(
@@ -253,53 +440,18 @@ def write_workspace(all_metadata, tools_workspace):
 """)
     f.write("""def repo():
 """)
-    for metadata in all_metadata:
-      dep_repo_name = get_repo_name(metadata["Name"])
+    for package_name in keys:
+      dep_repo_name = get_repo_name(package_name)
       f.write(f"    repo_{dep_repo_name}()\n")
 
-    for metadata in all_metadata:
+    for package_name in keys:
       f.write("\n")
-      write_repo_macros(f, metadata)
+      write_repo_macros(f, resolved_metadata[package_name])
 
 
-def _parse_requirements_file(filename: str) -> List[str]:
-  """Parses a requirements.txt file into a list of requirement strings."""
-  reqs: List[str] = []
-  with open(filename, "r") as f:
-    for line in f.read().splitlines():
-      line = line.strip()
-      if line.startswith("#"):
-        continue
-      if not line:
-        continue
-      reqs.append(line)
-  return reqs
-
-
-def _resolve_packages(
-    all_packages: Set[str], all_metadata: Dict[str, Metadata]
+def write_frozen_requirements(
+    filename: str, resolved_metadata: Dict[NormalizedName, Resolved]
 ):
-  """Resolves a set of requirement strings to a set of package versions."""
-  seen_packages: Set[str] = set()
-  while all_packages:
-    cur_reqs: Set[str] = set(
-        req_text
-        for req_text in all_packages
-        if packaging.requirements.Requirement(req_text).name not in all_metadata
-    )
-    all_metadata.update(get_package_info(cur_reqs))
-    all_packages: Set[str] = set()
-    for req_text in cur_reqs:
-      req = packaging.requirements.Requirement(req_text)
-      if req.name in seen_packages:
-        continue
-      seen_packages.add(req.name)
-      metadata = all_metadata[req.name]
-      all_packages.update(x for x in metadata["Requires"])
-    all_packages = all_packages - seen_packages
-
-
-def _write_frozen_requirements(filename, all_metadata):
   """Writes a frozen requirements file based an original requirements file."""
   frozen_filename = filename[:-4] + "_frozen.txt"
   basename = os.path.basename(filename)
@@ -308,60 +460,58 @@ def _write_frozen_requirements(filename, all_metadata):
         f"# DO NOT EDIT: Generated from {basename} by generate_workspace.py\n"
     )
     for req_text in _parse_requirements_file(filename):
-      name = packaging.requirements.Requirement(req_text).name
-      metadata = all_metadata[name]
-      package_name = metadata["Name"].lower()
-      version = metadata["Version"]
-      f.write(f"{package_name}=={version}\n")
+      req = Requirement(req_text)
+      if req.marker is not None:
+        raise ValueError(f"Markers not supported for {req_text}")
+      req.specifier = None
+      req.marker = None
+      x = resolved_metadata.get(canonicalize_name(req.name), None)
+      if x:
+        f.write(f"{req}=={x.version}\n")
+      else:
+        f.write(f"{req_text}\n")
 
 
-def generate(args):
+def generate(args: argparse.Namespace):
+  """Generates the pypa workspace.bzl file and the _frozen.txt files."""
   script_dir = os.path.dirname(__file__)
 
-  bazel_requirements_filenames = [
-      os.path.join(script_dir, filename)
-      for filename in [
-          "build_requirements.txt",
-          "test_requirements.txt",
-          "docs_requirements.txt",
-          "doctest_requirements.txt",
-          "shell_requirements.txt",
-          "examples_requirements.txt",
-      ]
-  ]
+  requirements: Dict[str, Requirement] = {}
+  for filename in BAZEL_REQUIREMENTS_FILENAMES:
+    for line in _parse_requirements_file(os.path.join(script_dir, filename)):
+      r = Requirement(line)
+      if r.name not in requirements:
+        requirements[r.name] = r
+        continue
+      _merge_requirements(requirements[r.name], r)
 
-  ci_requirements_filenames = [
-      os.path.join(script_dir, filename)
-      for filename in [
-          "cibuildwheel_requirements.txt",
-          "wheel_requirements.txt",
-      ]
-  ]
-
-  all_requirements_filenames = (
-      bazel_requirements_filenames + ci_requirements_filenames
-  )
-
-  all_packages: Set[str] = set()
-  for filename in bazel_requirements_filenames:
-    all_packages.update(_parse_requirements_file(filename))
-
-  all_metadata: Dict[str, Metadata] = {}
-  _resolve_packages(all_packages, all_metadata)
+  resolver = RequirementResolver()
+  resolved_metadata = resolver.resolve_requirements(requirements.values())
   write_workspace(
-      all_metadata=all_metadata.values(),
+      resolved_metadata=resolved_metadata,
       tools_workspace=args.tools_workspace,
   )
 
+  # "freeze" our selected versions.
+  for r in requirements.values():
+    v = resolved_metadata[canonicalize_name(r.name)].version
+    r.specifier = SpecifierSet(f"=={v}")
+
   # Add in additional packages not required by Bazel but required for by
   # continuous integration.
-  all_packages: Set[str] = set()
-  for filename in ci_requirements_filenames:
-    all_packages.update(_parse_requirements_file(filename))
-  _resolve_packages(all_packages, all_metadata)
+  for filename in CI_REQUIREMENTS_FILENAMES:
+    for line in _parse_requirements_file(os.path.join(script_dir, filename)):
+      r = Requirement(line)
+      if r.name not in requirements:
+        requirements[r.name] = r
+        continue
+      _merge_requirements(requirements[r.name], r)
 
-  for filename in all_requirements_filenames:
-    _write_frozen_requirements(filename, all_metadata)
+  resolved_metadata = resolver.resolve_requirements(requirements.values())
+  for filename in BAZEL_REQUIREMENTS_FILENAMES + CI_REQUIREMENTS_FILENAMES:
+    write_frozen_requirements(
+        os.path.join(script_dir, filename), resolved_metadata
+    )
 
 
 def main():

@@ -320,6 +320,80 @@ std::ostream& operator<<(std::ostream& os, const InteriorNodeEntry& e) {
             << e.subtree_common_prefix_length << ", node=" << e.node << "}";
 }
 
+const LeafNodeEntry* FindBtreeEntry(span<const LeafNodeEntry> entries,
+                                    std::string_view key) {
+  const LeafNodeEntry* entry = FindBtreeEntryLowerBound(entries, key);
+  if (entry == entries.data() + entries.size() || entry->key != key) {
+    return nullptr;
+  }
+  return entry;
+}
+
+const LeafNodeEntry* FindBtreeEntryLowerBound(span<const LeafNodeEntry> entries,
+                                              std::string_view inclusive_min) {
+  return std::lower_bound(
+      entries.data(), entries.data() + entries.size(), inclusive_min,
+      [](const LeafNodeEntry& entry, std::string_view inclusive_min) {
+        return entry.key < inclusive_min;
+      });
+}
+
+span<const LeafNodeEntry> FindBtreeEntryRange(span<const LeafNodeEntry> entries,
+                                              std::string_view inclusive_min,
+                                              std::string_view exclusive_max) {
+  const LeafNodeEntry* lower = FindBtreeEntryLowerBound(entries, inclusive_min);
+  const LeafNodeEntry* upper = entries.data() + entries.size();
+  if (!exclusive_max.empty()) {
+    upper = std::lower_bound(
+        lower, upper, exclusive_max,
+        [](const LeafNodeEntry& entry, std::string_view exclusive_max) {
+          return entry.key < exclusive_max;
+        });
+  }
+  return {lower, upper};
+}
+
+const InteriorNodeEntry* FindBtreeEntry(span<const InteriorNodeEntry> entries,
+                                        std::string_view key) {
+  auto it = std::lower_bound(
+      entries.data(), entries.data() + entries.size(), key,
+      [](const InteriorNodeEntry& entry, std::string_view inclusive_min) {
+        return entry.key <= inclusive_min;
+      });
+  if (it == entries.data()) {
+    // Key not present.
+    return nullptr;
+  }
+  return it - 1;
+}
+
+const InteriorNodeEntry* FindBtreeEntryLowerBound(
+    span<const InteriorNodeEntry> entries, std::string_view inclusive_min) {
+  auto it = std::lower_bound(
+      entries.data(), entries.data() + entries.size(), inclusive_min,
+      [](const InteriorNodeEntry& entry, std::string_view inclusive_min) {
+        return entry.key <= inclusive_min;
+      });
+  if (it != entries.data()) --it;
+  return it;
+}
+
+span<const InteriorNodeEntry> FindBtreeEntryRange(
+    span<const InteriorNodeEntry> entries, std::string_view inclusive_min,
+    std::string_view exclusive_max) {
+  const InteriorNodeEntry* lower =
+      FindBtreeEntryLowerBound(entries, inclusive_min);
+  const InteriorNodeEntry* upper = entries.data() + entries.size();
+  if (!exclusive_max.empty()) {
+    upper = std::lower_bound(
+        lower, upper, exclusive_max,
+        [](const InteriorNodeEntry& entry, std::string_view exclusive_max) {
+          return entry.key < exclusive_max;
+        });
+  }
+  return {lower, upper};
+}
+
 #ifndef NDEBUG
 void CheckBtreeNodeInvariants(const BtreeNode& node) {
   if (node.height == 0) {

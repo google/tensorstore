@@ -147,6 +147,8 @@ struct SerializableAbstractEventLoop {
   };
 };
 
+struct PythonPromiseObject;
+
 /// Base class that represents a Future exposed to Python.
 /// Python wrapper object type for `tensorstore::Future`.
 ///
@@ -223,7 +225,13 @@ struct PythonFutureObject {
 
     internal_future::FutureStatePointer state;
     /// Callbacks to be invoked when the future becomes ready.  Guarded by the
-    /// GIL.
+    /// GIL.  When non-empty, the Python reference count of the
+    /// `PythonFutureObject` is incremented.  If there is an associated
+    /// `PythonPromiseObject`, the additional reference count is considered to
+    /// be logically owned by it, and will participate in cyclic garbage
+    /// collection.  Otherwise, it is considered to be owned by the associated
+    /// C++ future state, and will *not* participate in cyclic garbage
+    /// collection.
     std::vector<pybind11::object> callbacks;
     /// Registration of `ExecuteWhenReady` callback used when `callbacks_` is
     /// non-empty.  Guarded by the GIL.
@@ -235,6 +243,14 @@ struct PythonFutureObject {
     /// that has been set (if done), or by the asynchronous operation
     /// responsible for setting the value (if not yet done).
     PythonObjectReferenceManager reference_manager;
+
+    /// Pointer to promise object, if this Future corresponds to a
+    /// `PythonPromiseObject`.
+    ///
+    /// This effectively behaves like a weak reference (but does not use the
+    /// normal Python weak reference mechanism): it will be set to `nullptr`
+    /// automatically by `PromiseDealloc`.
+    PythonPromiseObject* python_promise_object = nullptr;
   };
 
   // clang-format off
@@ -420,6 +436,20 @@ struct PythonPromiseObject {
     /// Holds strong references to objects weakly referenced by the value that
     /// has been set (if done).
     PythonObjectReferenceManager reference_manager;
+
+    /// Pointer to corresponding `PythonFutureObject`.
+    ///
+    /// This will be set to `nullptr` automatically by `FutureDealloc`.
+    ///
+    /// The ownership semantics of this pointer are as follows:
+    ///
+    /// - If `python_future_object->cpp_data.callbacks.empty()`, this behaves
+    ///   like a weak pointer (but not using the normal Python weak reference
+    ///   mechanism).
+    ///
+    /// - Otherwise, this `PythonPromiseObject` owns a reference to the
+    ///   `python_future_object`.
+    PythonFutureObject* python_future_object = nullptr;
   };
 
   // clang-format off

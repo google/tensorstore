@@ -16,12 +16,15 @@
 
 #include "tensorstore/kvstore/ocdbt/driver.h"
 
+#include <cstdint>
+#include <cstring>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
 
 #include "absl/status/status.h"
+#include "absl/strings/match.h"
 #include "absl/time/time.h"
 #include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"
@@ -36,6 +39,7 @@
 #include "tensorstore/internal/json_binding/std_optional.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/path.h"
+#include "tensorstore/internal/ref_counted_string.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
@@ -45,6 +49,7 @@
 #include "tensorstore/kvstore/ocdbt/distributed/btree_writer.h"
 #include "tensorstore/kvstore/ocdbt/distributed/rpc_security.h"
 #include "tensorstore/kvstore/ocdbt/distributed/rpc_security_registry.h"
+#include "tensorstore/kvstore/ocdbt/format/manifest.h"
 #include "tensorstore/kvstore/ocdbt/io/io_handle_impl.h"
 #include "tensorstore/kvstore/ocdbt/io_handle.h"
 #include "tensorstore/kvstore/ocdbt/non_distributed/btree_writer.h"
@@ -54,7 +59,9 @@
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/registry.h"
 #include "tensorstore/kvstore/spec.h"
+#include "tensorstore/kvstore/supported_features.h"
 #include "tensorstore/open_mode.h"
+#include "tensorstore/transaction.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
@@ -260,6 +267,70 @@ Future<TimestampedStorageGeneration> OcdbtDriver::Write(
 Future<const void> OcdbtDriver::DeleteRange(KeyRange range) {
   ocdbt_delete_range.Increment();
   return btree_writer_->DeleteRange(std::move(range));
+}
+
+Future<const void> OcdbtDriver::ExperimentalCopyRangeFrom(
+    const internal::OpenTransactionPtr& transaction, const KvStore& source,
+    std::string target_prefix, kvstore::CopyRangeOptions options) {
+  if (typeid(*source.driver) == typeid(OcdbtDriver)) {
+    auto& source_driver = static_cast<OcdbtDriver&>(*source.driver);
+    if (source.transaction != no_transaction || transaction) {
+      return absl::UnimplementedError("Transactions not supported");
+    }
+    if (source_driver.base_.driver == base_.driver &&
+        absl::StartsWith(source_driver.base_.path, base_.path)) {
+      auto [promise, future] = PromiseFuturePair<void>::Make();
+      auto manifest_future =
+          source_driver.io_handle_->GetManifest(options.source_staleness_bound);
+      LinkValue(
+          [self = internal::IntrusivePtr<OcdbtDriver>(this),
+           target_prefix = std::move(target_prefix),
+           data_path_prefix =
+               source_driver.base_.path.substr(base_.path.size()),
+           source_range =
+               KeyRange::AddPrefix(source.path, options.source_range),
+           source_prefix_length = source.path.size()](
+              Promise<void> promise,
+              ReadyFuture<const ManifestWithTime> future) mutable {
+            auto& manifest_with_time = future.value();
+            if (!manifest_with_time.manifest) {
+              // Source is empty.
+              promise.SetResult(absl::OkStatus());
+              return;
+            }
+            auto& manifest = *manifest_with_time.manifest;
+            auto& latest_version = manifest.latest_version();
+            if (latest_version.root.location.IsMissing()) {
+              // Source is empty.
+              promise.SetResult(absl::OkStatus());
+              return;
+            }
+            BtreeWriter::CopySubtreeOptions copy_node_options;
+            copy_node_options.node = latest_version.root;
+            if (!data_path_prefix.empty()) {
+              auto& base_path =
+                  copy_node_options.node.location.file_id.base_path;
+              internal::RefCountedStringWriter base_path_writer(
+                  data_path_prefix.size() + base_path.size());
+              std::memcpy(base_path_writer.data(), data_path_prefix.data(),
+                          data_path_prefix.size());
+              std::memcpy(base_path_writer.data() + data_path_prefix.size(),
+                          base_path.data(), base_path.size());
+              base_path = std::move(base_path_writer);
+            }
+            copy_node_options.node_height = latest_version.root_height;
+            copy_node_options.range = std::move(source_range);
+            copy_node_options.strip_prefix_length = source_prefix_length;
+            copy_node_options.add_prefix = std::move(target_prefix);
+            LinkResult(std::move(promise), self->btree_writer_->CopySubtree(
+                                               std::move(copy_node_options)));
+          },
+          std::move(promise), std::move(manifest_future));
+      return std::move(future);
+    }
+  }
+  return kvstore::Driver::ExperimentalCopyRangeFrom(
+      transaction, source, std::move(target_prefix), std::move(options));
 }
 
 std::string OcdbtDriver::DescribeKey(std::string_view key) {

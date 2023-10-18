@@ -246,18 +246,42 @@ TEST(OcdbtTest, SpecRoundtripFile) {
 
 // TODO(jbms): Consider refactoring into TEST_P.
 TENSORSTORE_GLOBAL_INITIALIZER {
-  const auto register_test_case = [](ConfigConstraints config) {
-    tensorstore::internal::RegisterGoogleTestCaseDynamically(
-        "OcdbtBasicFunctionalityTest", config.ToJson().value().dump(),
-        [config] {
-          TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-              auto store,
-              tensorstore::kvstore::Open({{"driver", "ocdbt"},
-                                          {"base", "memory://"},
-                                          {"config", config.ToJson().value()}})
-                  .result());
-          tensorstore::internal::TestKeyValueReadWriteOps(store);
-        });
+  const auto register_test_suite = [](ConfigConstraints config) {
+    const auto register_test_case = [&](std::string case_name, auto op) {
+      tensorstore::internal::RegisterGoogleTestCaseDynamically(
+          "OcdbtBasicFunctionalityTest." + case_name,
+          config.ToJson().value().dump(), [config, op] {
+            TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+                auto store, tensorstore::kvstore::Open(
+                                {{"driver", "ocdbt"},
+                                 {"base", "memory://"},
+                                 {"config", config.ToJson().value()}})
+                                .result());
+            op(store);
+          });
+    };
+
+    register_test_case("ReadWriteOps", [](auto& store) {
+      tensorstore::internal::TestKeyValueReadWriteOps(store);
+    });
+    register_test_case("DeletePrefix", [](auto& store) {
+      tensorstore::internal::TestKeyValueStoreDeletePrefix(store);
+    });
+    register_test_case("DeleteRange", [](auto& store) {
+      tensorstore::internal::TestKeyValueStoreDeleteRange(store);
+    });
+    register_test_case("DeleteRangeToEnd", [](auto& store) {
+      tensorstore::internal::TestKeyValueStoreDeleteRangeToEnd(store);
+    });
+    register_test_case("DeleteRangeFromBeginning", [](auto& store) {
+      tensorstore::internal::TestKeyValueStoreDeleteRangeFromBeginning(store);
+    });
+    register_test_case("CopyRange", [](auto& store) {
+      tensorstore::internal::TestKeyValueStoreCopyRange(store);
+    });
+    register_test_case("List", [](auto& store) {
+      tensorstore::internal::TestKeyValueStoreList(store);
+    });
   };
   for (const auto max_decoded_node_bytes : {0, 1, 1048576}) {
     for (const auto max_inline_value_bytes : {0, 1, 1048576}) {
@@ -270,7 +294,7 @@ TENSORSTORE_GLOBAL_INITIALIZER {
           config.max_inline_value_bytes = max_inline_value_bytes;
           config.version_tree_arity_log2 = version_tree_arity_log2;
           config.compression = compression;
-          register_test_case(config);
+          register_test_suite(config);
         }
       }
     }
@@ -279,7 +303,7 @@ TENSORSTORE_GLOBAL_INITIALIZER {
   {
     ConfigConstraints config;
     config.manifest_kind = ManifestKind::kNumbered;
-    register_test_case(config);
+    register_test_suite(config);
   }
 }
 
@@ -410,6 +434,22 @@ TEST(OcdbtTest, NumberedManifest) {
               ::testing::Optional(::testing::UnorderedElementsAre(
                   "manifest.ocdbt", "manifest.0000000000000001",
                   "manifest.0000000000000002", ::testing::StartsWith("d/"))));
+}
+
+TEST(OcdbtTest, CopyRange) {
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      kvstore::Open({{"driver", "ocdbt"}, {"base", "memory://"}}).result());
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "x/a", absl::Cord("value_a")));
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "x/b", absl::Cord("value_b")));
+  TENSORSTORE_ASSERT_OK(kvstore::ExperimentalCopyRange(
+      store.WithPathSuffix("x/"), store.WithPathSuffix("y/")));
+  EXPECT_THAT(GetMap(store), ::testing::Optional(::testing::ElementsAreArray({
+                                 ::testing::Pair("x/a", absl::Cord("value_a")),
+                                 ::testing::Pair("x/b", absl::Cord("value_b")),
+                                 ::testing::Pair("y/a", absl::Cord("value_a")),
+                                 ::testing::Pair("y/b", absl::Cord("value_b")),
+                             })));
 }
 
 }  // namespace

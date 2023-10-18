@@ -14,13 +14,13 @@
 
 #include "tensorstore/kvstore/ocdbt/non_distributed/list.h"
 
+#include <stddef.h>
+
 #include <algorithm>
 #include <memory>
 #include <string>
 #include <string_view>
-#include <type_traits>
 #include <utility>
-#include <variant>
 #include <vector>
 
 #include "absl/log/absl_log.h"
@@ -37,6 +37,7 @@
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
+#include "tensorstore/util/execution/flow_sender_operation_state.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/quote_string.h"
@@ -63,52 +64,30 @@ namespace {
 //
 // TODO(jbms): Currently memory usage is not bounded.  That needs to be
 // addressed, e.g. by limiting the number of in-flight nodes.
-struct ListOperation : public internal::AtomicReferenceCount<ListOperation> {
+struct ListOperation
+    : public internal::FlowSenderOperationState<std::string_view,
+                                                span<const LeafNodeEntry>> {
   using Ptr = internal::IntrusivePtr<ListOperation>;
-  ReadonlyIoHandle::Ptr io_handle;
-  kvstore::ListOptions list_options;
-  AnyFlowReceiver<absl::Status, kvstore::Key> receiver;
+  using Base = internal::FlowSenderOperationState<std::string_view,
+                                                  span<const LeafNodeEntry>>;
 
-  // Initiates the asynchronous list operation.
+  using Base::Base;
+
+  ReadonlyIoHandle::Ptr io_handle;
+  KeyRange range;
+
+  // Prepares the asynchronous list operation.
   //
   // Args:
   //   io_handle: I/O handle to use.
-  //   options: List options.
+  //   range: Key range constraint.
   //   receiver: Receiver of the results.
-  static void Start(ReadonlyIoHandle::Ptr&& io_handle,
-                    kvstore::ListOptions&& options,
-                    AnyFlowReceiver<absl::Status, kvstore::Key>&& receiver) {
-    auto [cancel_promise, cancel_future] =
-        PromiseFuturePair<void>::Make(absl::OkStatus());
-    execution::set_starting(receiver, [cancel_promise = cancel_promise] {
-      SetDeferredResult(cancel_promise, absl::CancelledError(""));
-    });
-    auto op = internal::MakeIntrusivePtr<ListOperation>();
+  static Ptr Initialize(ReadonlyIoHandle::Ptr&& io_handle, KeyRange&& range,
+                        BaseReceiver&& receiver) {
+    auto op = internal::MakeIntrusivePtr<ListOperation>(std::move(receiver));
     op->io_handle = std::move(io_handle);
-    op->receiver = std::move(receiver);
-    op->list_options = std::move(options);
-    cancel_future.ExecuteWhenReady([op](ReadyFuture<void> f) {
-      if (f.status().ok() || absl::IsCancelled(f.status())) {
-        execution::set_done(op->receiver);
-      } else {
-        execution::set_error(op->receiver, f.status());
-      }
-      execution::set_stopping(op->receiver);
-    });
-
-    auto [list_promise, list_future] =
-        PromiseFuturePair<void>::Make(absl::OkStatus());
-    Link([](Promise<void> promise,
-            ReadyFuture<void> future) { promise.SetResult(future.result()); },
-         std::move(cancel_promise), std::move(list_future));
-
-    auto* op_ptr = op.get();
-
-    auto manifest_future =
-        op_ptr->io_handle->GetManifest(op->list_options.staleness_bound);
-    Link(WithExecutor(op_ptr->io_handle->executor,
-                      ListOperation::ManifestReadyCallback{std::move(op)}),
-         std::move(list_promise), std::move(manifest_future));
+    op->range = std::move(range);
+    return op;
   }
 
   // Called when the manifest lookup has completed.
@@ -116,16 +95,15 @@ struct ListOperation : public internal::AtomicReferenceCount<ListOperation> {
     ListOperation::Ptr op;
     void operator()(Promise<void> promise,
                     ReadyFuture<const ManifestWithTime> read_future) {
-      TENSORSTORE_ASSIGN_OR_RETURN(
-          auto manifest_with_time, read_future.result(),
-          static_cast<void>(SetDeferredResult(promise, _)));
+      TENSORSTORE_ASSIGN_OR_RETURN(auto manifest_with_time,
+                                   read_future.result(), op->SetError(_));
       const auto* manifest = manifest_with_time.manifest.get();
       if (!manifest || manifest->latest_version().root.location.IsMissing()) {
         // Manifest not present or btree is empty.
         return;
       }
       auto& latest_version = manifest->versions.back();
-      VisitSubtree(std::move(op), std::move(promise), latest_version.root,
+      VisitSubtree(std::move(op), latest_version.root,
                    latest_version.root_height,
                    /*inclusive_min_key=*/{},
                    /*subtree_common_prefix_length=*/0);
@@ -136,30 +114,29 @@ struct ListOperation : public internal::AtomicReferenceCount<ListOperation> {
   //
   // Args:
   //   op: List operation state.
-  //   promise: Promise to be resolved once the operation completes.
   //   node_height: Height of the node.
   //   inclusive_min_key: Full inclusive min key for the node.
   //   prefix_length: Length of the prefix of `inclusive_min_key` that specifies
   //     the implicit prefix that is excluded from the encoded representation of
   //     the node.
-  static void VisitSubtree(ListOperation::Ptr op, Promise<void> promise,
+  static void VisitSubtree(ListOperation::Ptr op,
                            const BtreeNodeReference& node_ref,
                            BtreeNodeHeight node_height,
                            std::string inclusive_min_key,
                            KeyLength subtree_common_prefix_length) {
     ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
         << "List: "
-        << "subtree_common_prefix_length=" << subtree_common_prefix_length
+        << "node=" << node_ref
         << ", node_height=" << static_cast<int>(node_height)
-        << ", inclusive_min_key="
-        << tensorstore::QuoteString(inclusive_min_key);
-    auto read_future = op->io_handle->GetBtreeNode(node_ref.location);
-    auto executor = op->io_handle->executor;
-    Link(WithExecutor(std::move(executor),
+        << ", subtree_common_prefix_length=" << subtree_common_prefix_length
+        << ", inclusive_min_key=" << tensorstore::QuoteString(inclusive_min_key)
+        << ", key_range=" << op->range;
+    auto* op_ptr = op.get();
+    Link(WithExecutor(op_ptr->io_handle->executor,
                       NodeReadyCallback{std::move(op), node_height,
                                         std::move(inclusive_min_key),
                                         subtree_common_prefix_length}),
-         std::move(promise), std::move(read_future));
+         op_ptr->promise, op_ptr->io_handle->GetBtreeNode(node_ref.location));
   }
 
   // Called when a B+tree node lookup completes.
@@ -180,58 +157,46 @@ struct ListOperation : public internal::AtomicReferenceCount<ListOperation> {
     void operator()(
         Promise<void> promise,
         ReadyFuture<const std::shared_ptr<const BtreeNode>> read_future) {
-      TENSORSTORE_ASSIGN_OR_RETURN(
-          auto node, read_future.result(),
-          static_cast<void>(SetDeferredResult(promise, _)));
-      if (!promise.result_needed()) return;
+      TENSORSTORE_ASSIGN_OR_RETURN(auto node, read_future.result(),
+                                   op->SetError(_));
+      if (op->cancelled()) return;
       TENSORSTORE_RETURN_IF_ERROR(
           ValidateBtreeNodeReference(*node, node_height,
                                      std::string_view(inclusive_min_key)
                                          .substr(subtree_common_prefix_length)),
-          static_cast<void>(SetDeferredResult(promise, _)));
+          op->SetError(_));
       auto& subtree_key_prefix = inclusive_min_key;
       subtree_key_prefix.resize(subtree_common_prefix_length);
       subtree_key_prefix += node->key_prefix;
-      auto key_range =
-          KeyRange::RemovePrefix(subtree_key_prefix, op->list_options.range);
+      auto key_range = KeyRange::RemovePrefix(subtree_key_prefix, op->range);
 
       if (node->height > 0) {
-        VisitInteriorNode(std::move(op), std::move(promise), *node,
-                          subtree_key_prefix, key_range);
+        VisitInteriorNode(std::move(op), *node, subtree_key_prefix, key_range);
       } else {
-        VisitLeafNode(std::move(op), std::move(promise), *node,
-                      subtree_key_prefix, key_range);
+        VisitLeafNode(std::move(op), *node, subtree_key_prefix, key_range);
       }
     }
   };
 
-  template <typename Entry>
-  static span<const Entry> GetMatchingEntryRange(span<const Entry> entries,
-                                                 const KeyRange& key_range) {
-    auto lower = std::lower_bound(
-        entries.data(), entries.data() + entries.size(),
-        key_range.inclusive_min,
-        [](const Entry& entry, std::string_view inclusive_min) {
-          return entry.key < inclusive_min;
-        });
-    auto upper = std::upper_bound(
-        entries.begin(), entries.end(), key_range.exclusive_max,
-        [](std::string_view exclusive_max, const Entry& entry) {
-          return KeyRange::CompareExclusiveMaxAndKey(exclusive_max, entry.key) <
-                 0;
-        });
-    return {lower, upper};
-  }
-
   // Recursively visits matching children.
-  static void VisitInteriorNode(ListOperation::Ptr op, Promise<void> promise,
-                                const BtreeNode& node,
+  static void VisitInteriorNode(ListOperation::Ptr op, const BtreeNode& node,
                                 std::string_view subtree_key_prefix,
                                 const KeyRange& key_range) {
-    auto entries = GetMatchingEntryRange<InteriorNodeEntry>(
-        std::get<BtreeNode::InteriorNodeEntries>(node.entries), key_range);
+    auto& all_entries = std::get<BtreeNode::InteriorNodeEntries>(node.entries);
+    auto entries = FindBtreeEntryRange(all_entries, key_range.inclusive_min,
+                                       key_range.exclusive_max);
+    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+        << "VisitInteriorNode: "
+        << "subtree_key_prefix=" << tensorstore::QuoteString(subtree_key_prefix)
+        << ", key_range=" << key_range << ", first node key="
+        << tensorstore::QuoteString(all_entries.front().key)
+        << ", last node key="
+        << tensorstore::QuoteString(all_entries.back().key)
+        << ", num matches=" << entries.size();
+    // Note: It is safe to access `all_entries.front()` and `all_entries.back()`
+    // because B+tree nodes are guaranteed to have at least one entry.
     for (const auto& entry : entries) {
-      VisitSubtree(op, promise, entry.node, node.height - 1,
+      VisitSubtree(op, entry.node, node.height - 1,
                    /*inclusive_min_key=*/
                    tensorstore::StrCat(subtree_key_prefix, entry.key),
                    /*subtree_common_prefix_length=*/subtree_key_prefix.size() +
@@ -240,32 +205,89 @@ struct ListOperation : public internal::AtomicReferenceCount<ListOperation> {
   }
 
   // Emits matches in the leaf node.
-  static void VisitLeafNode(ListOperation::Ptr op, Promise<void> promise,
-                            const BtreeNode& node,
+  static void VisitLeafNode(ListOperation::Ptr op, const BtreeNode& node,
                             std::string_view subtree_key_prefix,
                             const KeyRange& key_range) {
-    auto entries = GetMatchingEntryRange<LeafNodeEntry>(
-        std::get<BtreeNode::LeafNodeEntries>(node.entries), key_range);
-    const size_t strip_prefix_length = op->list_options.strip_prefix_length;
-    for (const auto& entry : entries) {
-      auto key = tensorstore::StrCat(
-          std::string_view(subtree_key_prefix)
-              .substr(std::min(subtree_key_prefix.size(), strip_prefix_length)),
-          std::string_view(entry.key).substr(std::min(
-              entry.key.size(),
-              strip_prefix_length -
-                  std::min(strip_prefix_length, subtree_key_prefix.size()))));
-      execution::set_value(op->receiver, std::move(key));
-    }
+    auto& all_entries = std::get<BtreeNode::LeafNodeEntries>(node.entries);
+    auto entries = FindBtreeEntryRange(all_entries, key_range.inclusive_min,
+                                       key_range.exclusive_max);
+    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+        << "VisitLeafNode: "
+        << "subtree_key_prefix=" << tensorstore::QuoteString(subtree_key_prefix)
+        << ", key_range=" << key_range << ", first node key="
+        << tensorstore::QuoteString(all_entries.front().key)
+        << ", last node key="
+        << tensorstore::QuoteString(all_entries.back().key)
+        << ", num matches=" << entries.size();
+    // Note: It is safe to access `all_entries.front()` and `all_entries.back()`
+    // because B+tree nodes are guaranteed to have at least one entry.
+    if (entries.empty()) return;
+    execution::set_value(op->shared_receiver->receiver, subtree_key_prefix,
+                         entries);
   }
 };
+
+// Adapts a kvstore List receiver into the receiver type expected by
+// `ListOperation`.
+struct KeyReceiverAdapter {
+  AnyFlowReceiver<absl::Status, kvstore::Key> receiver;
+  size_t strip_prefix_length = 0;
+
+  void set_done() { execution::set_done(receiver); }
+
+  void set_error(absl::Status&& error) {
+    execution::set_error(receiver, std::move(error));
+  }
+
+  void set_value(std::string_view key_prefix,
+                 span<const LeafNodeEntry> entries) {
+    for (const auto& entry : entries) {
+      auto key = tensorstore::StrCat(
+          std::string_view(key_prefix)
+              .substr(std::min(key_prefix.size(), strip_prefix_length)),
+          std::string_view(entry.key).substr(
+              std::min(entry.key.size(),
+                       strip_prefix_length -
+                           std::min(strip_prefix_length, key_prefix.size()))));
+      execution::set_value(receiver, std::move(key));
+    }
+  }
+
+  template <typename Cancel>
+  void set_starting(Cancel&& cancel) {
+    execution::set_starting(receiver, std::forward<Cancel>(cancel));
+  }
+
+  void set_stopping() { execution::set_stopping(receiver); }
+};
+
 }  // namespace
 
-void NonDistributedList(ReadonlyIoHandle::Ptr io_handle,
-                        kvstore::ListOptions options,
-                        AnyFlowReceiver<absl::Status, kvstore::Key> receiver) {
-  ListOperation::Start(std::move(io_handle), std::move(options),
-                       std::move(receiver));
+void NonDistributedList(
+    ReadonlyIoHandle::Ptr io_handle, kvstore::ListOptions options,
+    AnyFlowReceiver<absl::Status, kvstore::Key>&& receiver) {
+  auto op = ListOperation::Initialize(
+      std::move(io_handle), std::move(options.range),
+      KeyReceiverAdapter{std::move(receiver), options.strip_prefix_length});
+  auto* op_ptr = op.get();
+  Link(WithExecutor(op_ptr->io_handle->executor,
+                    ListOperation::ManifestReadyCallback{std::move(op)}),
+       op_ptr->promise,
+       op_ptr->io_handle->GetManifest(options.staleness_bound));
+}
+
+void NonDistributedListSubtree(
+    ReadonlyIoHandle::Ptr io_handle, const BtreeNodeReference& node_ref,
+    BtreeNodeHeight node_height, std::string subtree_key_prefix,
+    KeyRange&& key_range,
+    AnyFlowReceiver<absl::Status, std::string_view, span<const LeafNodeEntry>>&&
+        receiver) {
+  auto op = ListOperation::Initialize(
+      std::move(io_handle), std::move(key_range), std::move(receiver));
+  const size_t subtree_common_prefix_length = subtree_key_prefix.size();
+  ListOperation::VisitSubtree(std::move(op), node_ref, node_height,
+                              std::move(subtree_key_prefix),
+                              subtree_common_prefix_length);
 }
 
 }  // namespace internal_ocdbt

@@ -47,7 +47,7 @@ TEST(SubprocessTest, Join) {
   opts.args = {kSubprocessArg};
 
   auto child = SpawnSubprocess(opts);
-  EXPECT_TRUE(child.ok());
+  ASSERT_TRUE(child.ok());
 
   int exit_code;
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(exit_code, child->Join());
@@ -60,7 +60,7 @@ TEST(SubprocessTest, Kill) {
   opts.args = {kSleepArg, kSubprocessArg};
 
   auto child = SpawnSubprocess(opts);
-  EXPECT_TRUE(child.ok());
+  ASSERT_TRUE(child.ok());
 
   EXPECT_THAT(child->Join(/*block=*/false),
               tensorstore::MatchesStatus(absl::StatusCode::kUnavailable));
@@ -81,7 +81,7 @@ TEST(SubprocessTest, DontInherit) {
   opts.inherit_stderr = false;
 
   auto child = SpawnSubprocess(opts);
-  EXPECT_TRUE(child.ok());
+  ASSERT_TRUE(child.ok());
 
   int exit_code;
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(exit_code, child->Join());
@@ -95,7 +95,7 @@ TEST(SubprocessTest, Drop) {
   opts.args = {kSubprocessArg};
 
   auto child = SpawnSubprocess(opts);
-  EXPECT_TRUE(child.ok());
+  ASSERT_TRUE(child.ok());
 
   // Kill changes the result;
   child->Kill().IgnoreError();
@@ -110,7 +110,7 @@ TEST(SubprocessTest, Env) {
       {{"SUBPROCESS_TEST_ENV", "1"}});
 
   auto child = SpawnSubprocess(opts);
-  EXPECT_TRUE(child.ok());
+  ASSERT_TRUE(child.ok());
 
   int exit_code;
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(exit_code, child->Join());

@@ -66,6 +66,7 @@
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
+#include "tensorstore/util/execution/flow_sender_operation_state.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
@@ -175,7 +176,7 @@ class ShardIndexCache
   };
 
   Entry* DoAllocateEntry() final { return new Entry; }
-  std::size_t DoGetSizeofEntry() final { return sizeof(Entry); }
+  size_t DoGetSizeofEntry() final { return sizeof(Entry); }
   TransactionNode* DoAllocateTransactionNode(AsyncCache::Entry& entry) final {
     ABSL_UNREACHABLE();
   }
@@ -461,7 +462,7 @@ class ShardedKeyValueStoreWriteCache
   };
 
   Entry* DoAllocateEntry() final { return new Entry; }
-  std::size_t DoGetSizeofEntry() final { return sizeof(Entry); }
+  size_t DoGetSizeofEntry() final { return sizeof(Entry); }
   TransactionNode* DoAllocateTransactionNode(AsyncCache::Entry& entry) final {
     return new TransactionNode(static_cast<Entry&>(entry));
   }
@@ -951,26 +952,21 @@ Future<kvstore::ReadResult> ShardedKeyValueStore::Read(Key key,
 }
 
 // Asynchronous operation state for `ShardedKeyValueStore::ListImpl`.
-struct ListOperationState {
-  AnyFlowReceiver<absl::Status, kvstore::Key> receiver_;
+struct ListOperationState
+    : public internal::FlowSenderOperationState<kvstore::Key> {
+  using Base = internal::FlowSenderOperationState<kvstore::Key>;
+
+  using Base::Base;
+
   internal::PinnedCacheEntry<ShardIndexCache> shard_index_cache_entry_;
-  Promise<void> promise_;
-  Future<void> future_;
   kvstore::ListOptions options_;
 
   static void Start(ShardedKeyValueStore& store, kvstore::ListOptions&& options,
                     AnyFlowReceiver<absl::Status, kvstore::Key>&& receiver) {
     options.range = KeyRangeToInternalKeyRange(
         options.range, store.shard_index_params().grid_shape());
-    auto self = std::make_unique<ListOperationState>();
-    self->receiver_ = std::move(receiver);
-    auto [promise, future] = PromiseFuturePair<void>::Make(MakeResult());
-    self->promise_ = std::move(promise);
-    self->future_ = std::move(future);
-    self->future_.Force();
-    execution::set_starting(self->receiver_, [promise = self->promise_] {
-      promise.SetResult(absl::CancelledError(""));
-    });
+    auto self =
+        internal::MakeIntrusivePtr<ListOperationState>(std::move(receiver));
     self->options_ = std::move(options);
     self->shard_index_cache_entry_ =
         GetCacheEntry(store.shard_index_cache(), std::string_view{});
@@ -981,9 +977,10 @@ struct ListOperationState {
         WithExecutor(store.executor(),
                      [self = std::move(self)](Promise<void> promise,
                                               ReadyFuture<const void> future) {
+                       if (self->cancelled()) return;
                        self->OnShardIndexReady();
                      }),
-        self_ptr->promise_, std::move(shard_index_read_future));
+        self_ptr->promise, std::move(shard_index_read_future));
   }
 
   void OnShardIndexReady() {
@@ -999,23 +996,14 @@ struct ListOperationState {
     span<const Index> grid_shape = shard_index_params.grid_shape();
     auto start_index = InternalKeyToEntryId(options_.range.inclusive_min);
     auto end_index = InternalKeyToEntryId(options_.range.exclusive_max);
+    auto& receiver = shared_receiver->receiver;
     for (EntryId i = start_index; i < end_index; ++i) {
       auto index_entry = (*shard_index)[i];
       if (index_entry.IsMissing()) continue;
       auto key = EntryIdToKey(i, grid_shape);
       key.erase(0, options_.strip_prefix_length);
-      execution::set_value(receiver_, std::move(key));
+      execution::set_value(receiver, std::move(key));
     }
-  }
-
-  ~ListOperationState() {
-    auto& r = promise_.raw_result();
-    if (r.ok()) {
-      execution::set_done(receiver_);
-    } else {
-      execution::set_error(receiver_, r.status());
-    }
-    execution::set_stopping(receiver_);
   }
 };
 

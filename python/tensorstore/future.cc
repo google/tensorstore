@@ -370,6 +370,7 @@ void PythonFutureObject::AddDoneCallback(pybind11::handle callback) {
   }
   cpp_data.callbacks.push_back(py::reinterpret_borrow<py::object>(callback));
   if (cpp_data.callbacks.size() == 1) {
+    Py_INCREF(reinterpret_cast<PyObject*>(this));
     Force();
   }
 }
@@ -384,6 +385,9 @@ std::size_t PythonFutureObject::RemoveDoneCallback(pybind11::handle callback) {
       [&](pybind11::handle h) { return h.ptr() == callback.ptr(); });
   const size_t num_removed = callbacks.end() - it;
   callbacks.erase(it, callbacks.end());
+  if (num_removed && callbacks.empty()) {
+    Py_DECREF(reinterpret_cast<PyObject*>(this));
+  }
   return num_removed;
 }
 
@@ -402,12 +406,15 @@ int PythonFutureObject::TraversePythonReferences(visitproc visit, void* arg) {
 int PythonFutureObject::ClearPythonReferences() {
   cpp_data.state = {};
   cpp_data.registration.Unregister();
+  cpp_data.reference_manager.Clear();
   // Don't modify `cpp_data.callbacks` in place, since clearing callbacks can
   // result in calls back into Python code, and `std::vector` does not support
   // re-entrant mutation.
   auto callbacks = std::move(cpp_data.callbacks);
-  callbacks.clear();
-  cpp_data.reference_manager.Clear();
+  if (!callbacks.empty()) {
+    callbacks.clear();
+    Py_DECREF(reinterpret_cast<PyObject*>(this));
+  }
   return 0;
 }
 
@@ -423,15 +430,21 @@ void PythonFutureObject::RunCancelCallbacks() {
 void PythonFutureObject::RunCallbacks() {
   auto callbacks = std::move(cpp_data.callbacks);
   if (callbacks.empty()) return;
-  for (py::handle callback : callbacks) {
-    if (PyObject* callback_result = PyObject_CallFunctionObjArgs(
-            callback.ptr(), reinterpret_cast<PyObject*>(this), nullptr)) {
-      Py_DECREF(callback_result);
-      continue;
+  // If this object has already been finalized, then it is not safe to call
+  // callbacks, because they may now be in an invalid state due to garbage
+  // collection cycle breaking.
+  if (!PyObject_GC_IsFinalized(reinterpret_cast<PyObject*>(this))) {
+    for (py::handle callback : callbacks) {
+      if (PyObject* callback_result = PyObject_CallFunctionObjArgs(
+              callback.ptr(), reinterpret_cast<PyObject*>(this), nullptr)) {
+        Py_DECREF(callback_result);
+        continue;
+      }
+      PyErr_WriteUnraisable(nullptr);
+      PyErr_Clear();
     }
-    PyErr_WriteUnraisable(nullptr);
-    PyErr_Clear();
   }
+  Py_DECREF(reinterpret_cast<PyObject*>(this));
 }
 
 absl::Time GetWaitDeadline(std::optional<double> timeout,
@@ -544,6 +557,11 @@ PyObject* FutureAlloc(PyTypeObject* type, Py_ssize_t nitems) {
   return ptr;
 }
 
+void FutureFinalize(PyObject* self) {
+  // No-op function that must be specified to ensure that
+  // `PyObject_GC_IsFinalized` becomes `true`.
+}
+
 void FutureDealloc(PyObject* self) {
   auto& obj = *reinterpret_cast<PythonFutureObject*>(self);
   auto& cpp_data = obj.cpp_data;
@@ -560,6 +578,12 @@ void FutureDealloc(PyObject* self) {
     GilScopedRelease gil_release;
     cpp_data.registration.Unregister();
   }
+
+  if (cpp_data.python_promise_object) {
+    cpp_data.python_promise_object->cpp_data.python_future_object = nullptr;
+    cpp_data.python_promise_object = nullptr;
+  }
+
   cpp_data.~CppData();
   PyTypeObject* type = Py_TYPE(self);
   type->tp_free(self);
@@ -567,6 +591,7 @@ void FutureDealloc(PyObject* self) {
 }
 
 int FutureTraverse(PyObject* self, visitproc visit, void* arg) {
+  Py_VISIT(Py_TYPE(self));
   return reinterpret_cast<PythonFutureObject*>(self)->TraversePythonReferences(
       visit, arg);
 }
@@ -670,6 +695,7 @@ Group:
       {Py_tp_dealloc, reinterpret_cast<void*>(&FutureDealloc)},
       {Py_tp_traverse, reinterpret_cast<void*>(&FutureTraverse)},
       {Py_tp_clear, reinterpret_cast<void*>(&FutureClear)},
+      {Py_tp_finalize, reinterpret_cast<void*>(&FutureFinalize)},
       {0, nullptr},
   };
   PyType_Spec spec = {};
@@ -925,6 +951,11 @@ void PromiseDealloc(PyObject* self) {
 
   if (obj.weakrefs) PyObject_ClearWeakRefs(self);
 
+  if (cpp_data.python_future_object) {
+    cpp_data.python_future_object->cpp_data.python_promise_object = nullptr;
+    cpp_data.python_future_object = nullptr;
+  }
+
   cpp_data.~CppData();
   PyTypeObject* type = Py_TYPE(self);
   type->tp_free(self);
@@ -932,13 +963,28 @@ void PromiseDealloc(PyObject* self) {
 }
 
 int PromiseTraverse(PyObject* self, visitproc visit, void* arg) {
+  Py_VISIT(Py_TYPE(self));
   auto& cpp_data = reinterpret_cast<PythonPromiseObject*>(self)->cpp_data;
+  if (cpp_data.python_future_object &&
+      !cpp_data.python_future_object->cpp_data.callbacks.empty()) {
+    auto* future_ptr =
+        reinterpret_cast<PyObject*>(cpp_data.python_future_object);
+    Py_VISIT(future_ptr);
+  }
   return cpp_data.reference_manager.Traverse(visit, arg);
 }
 
 int PromiseClear(PyObject* self) {
   auto& cpp_data = reinterpret_cast<PythonPromiseObject*>(self)->cpp_data;
   cpp_data.reference_manager.Clear();
+  if (auto* future_object = cpp_data.python_future_object) {
+    if (!future_object->cpp_data.callbacks.empty()) {
+      auto callbacks = std::move(future_object->cpp_data.callbacks);
+      future_object->cpp_data.python_promise_object = nullptr;
+      cpp_data.python_future_object = nullptr;
+      Py_DECREF(reinterpret_cast<PyObject*>(future_object));
+    }
+  }
   return 0;
 }
 
@@ -1041,15 +1087,31 @@ Example:
       [] {
         auto [promise, future] =
             PromiseFuturePair<GilSafePythonValueOrExceptionWeakRef>::Make();
-        pybind11::object self = pybind11::reinterpret_steal<pybind11::object>(
-            PythonPromiseObject::python_type->tp_alloc(
-                PythonPromiseObject::python_type, 0));
-        if (!self) throw pybind11::error_already_set();
-        auto& cpp_data =
-            reinterpret_cast<PythonPromiseObject*>(self.ptr())->cpp_data;
-        cpp_data.promise = std::move(promise);
-        return std::make_pair(PromiseWrapper{std::move(self)},
-                              std::move(future));
+        pybind11::object promise_object =
+            pybind11::reinterpret_steal<pybind11::object>(
+                PythonPromiseObject::python_type->tp_alloc(
+                    PythonPromiseObject::python_type, 0));
+        if (!promise_object) throw pybind11::error_already_set();
+        auto& promise_cpp_data =
+            reinterpret_cast<PythonPromiseObject*>(promise_object.ptr())
+                ->cpp_data;
+        promise_cpp_data.promise = std::move(promise);
+
+        pybind11::object future_object =
+            PythonFutureObject::Make(std::move(future));
+        auto& future_cpp_data =
+            reinterpret_cast<PythonFutureObject*>(future_object.ptr())
+                ->cpp_data;
+
+        // Set up the weak references between the `PythonFutureObject` and
+        // `PythonPromiseObject` to enable cyclic garbage collection.
+        promise_cpp_data.python_future_object =
+            reinterpret_cast<PythonFutureObject*>(future_object.ptr());
+        future_cpp_data.python_promise_object =
+            reinterpret_cast<PythonPromiseObject*>(promise_object.ptr());
+
+        return std::make_pair(PromiseWrapper{std::move(promise_object)},
+                              UntypedFutureWrapper{std::move(future_object)});
       },
       R"(
 Creates a linked promise and future pair.

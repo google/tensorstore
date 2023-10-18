@@ -1,2 +1,3 @@
 # DO NOT EDIT: Generated from build_requirements.txt by generate_workspace.py
-numpy==1.26.0
+numpy==1.24.4
+ml_dtypes==0.3.1

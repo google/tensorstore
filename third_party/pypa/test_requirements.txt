@@ -3,6 +3,7 @@ numpy
 pytest
 pytest-asyncio
 cloudpickle
+ml_dtypes
 
 # From storage-testbench/setup.py
 # gunicorn
