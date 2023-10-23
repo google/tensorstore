@@ -14,45 +14,41 @@
 
 #include "tensorstore/kvstore/s3/credentials/cached_credential_provider.h"
 
-#include "absl/synchronization/mutex.h"
 #include "absl/status/status.h"
+#include "absl/synchronization/mutex.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal_kvstore_s3 {
 
-namespace {
-
-} // namespace
-
+namespace {}  // namespace
 
 bool CachedCredentialProvider::IsExpired() {
-    absl::ReaderMutexLock lock(&mutex_);
-    return IsExpiredLocked(credentials_);
+  absl::ReaderMutexLock lock(&mutex_);
+  return IsExpiredLocked(credentials_);
 }
 
-bool CachedCredentialProvider::IsExpiredLocked(const AwsCredentials & credentials) {
-    return credentials.IsAnonymous() || provider_->IsExpired();
+bool CachedCredentialProvider::IsExpiredLocked(
+    const AwsCredentials& credentials) {
+  return credentials.IsAnonymous() || provider_->IsExpired();
 }
 
-Result<absl::Time>
-CachedCredentialProvider::ExpiresAt() {
-    absl::ReaderMutexLock lock(&mutex_);
-    TENSORSTORE_ASSIGN_OR_RETURN(auto expires, provider_->ExpiresAt());
-    if(credentials_.IsAnonymous()) return absl::InfinitePast();
-    return expires;
+Result<absl::Time> CachedCredentialProvider::ExpiresAt() {
+  absl::ReaderMutexLock lock(&mutex_);
+  TENSORSTORE_ASSIGN_OR_RETURN(auto expires, provider_->ExpiresAt());
+  if (credentials_.IsAnonymous()) return absl::InfinitePast();
+  return expires;
 }
 
-Result<AwsCredentials>
-CachedCredentialProvider::GetCredentials() {
-    absl::WriterMutexLock lock(&mutex_);
-    if(!IsExpiredLocked(credentials_)) {
-        return credentials_;
-    }
-
-    TENSORSTORE_ASSIGN_OR_RETURN(credentials_, provider_->GetCredentials());
+Result<AwsCredentials> CachedCredentialProvider::GetCredentials() {
+  absl::WriterMutexLock lock(&mutex_);
+  if (!IsExpiredLocked(credentials_)) {
     return credentials_;
+  }
+
+  TENSORSTORE_ASSIGN_OR_RETURN(credentials_, provider_->GetCredentials());
+  return credentials_;
 }
 
-} // namespace internal_kvstore_s3
-} // namespace tensorstore
+}  // namespace internal_kvstore_s3
+}  // namespace tensorstore

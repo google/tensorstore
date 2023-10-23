@@ -14,11 +14,12 @@
 
 #include "tensorstore/kvstore/s3/credentials/ec2_credential_provider.h"
 
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
 #include <memory>
 #include <string>
 
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
 #include "absl/container/flat_hash_map.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
@@ -80,8 +81,8 @@ TEST(EC2MetadataCredentialProviderTest, CredentialRetrievalFlow) {
       {"GET "
        "http://169.254.169.254/latest/meta-data/iam/security-credentials/"
        "mock-iam-role",
-       HttpResponse{200, absl::Cord(
-                    absl::FormatTime(R"({
+       HttpResponse{200,
+                    absl::Cord(absl::FormatTime(R"({
                         "Code": "Success",
                         "LastUpdated": "2023-09-21T12:42:12Z",
                         "Type": "AWS-HMAC",
@@ -89,7 +90,8 @@ TEST(EC2MetadataCredentialProviderTest, CredentialRetrievalFlow) {
                         "SecretAccessKey": "1234567890abcdef",
                         "Token": "abcdef123456790",
                         "Expiration": "%Y-%m-%d%ET%H:%M:%E*S%Ez"
-                    })", expiry, utc)),
+                    })",
+                                                expiry, utc)),
                     {{"x-aws-ec2-metadata-token", "1234567890"}}}}};
 
   auto mock_transport =

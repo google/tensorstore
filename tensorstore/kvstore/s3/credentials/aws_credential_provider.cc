@@ -12,21 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "tensorstore/kvstore/s3/credentials/aws_credential_provider.h"
+
 #include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
 
-#include "absl/synchronization/mutex.h"
 #include "absl/strings/str_cat.h"
+#include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/no_destructor.h"
-#include "tensorstore/kvstore/s3/credentials/aws_credential_provider.h"
-#include "tensorstore/kvstore/s3/credentials/environment_credential_provider.h"
-#include "tensorstore/kvstore/s3/credentials/file_credential_provider.h"
-#include "tensorstore/kvstore/s3/credentials/ec2_credential_provider.h"
 #include "tensorstore/kvstore/s3/credentials/cached_credential_provider.h"
 #include "tensorstore/kvstore/s3/credentials/chained_credential_provider.h"
+#include "tensorstore/kvstore/s3/credentials/ec2_credential_provider.h"
+#include "tensorstore/kvstore/s3/credentials/environment_credential_provider.h"
+#include "tensorstore/kvstore/s3/credentials/file_credential_provider.h"
 #include "tensorstore/util/result.h"
 
 using ::tensorstore::Result;
@@ -35,27 +36,29 @@ namespace tensorstore {
 namespace internal_kvstore_s3 {
 namespace {
 
-/// Return a ChainedCredentialProvider that attempts to retrieve credentials from
+/// Return a ChainedCredentialProvider that attempts to retrieve credentials
+/// from
 /// 1. AWS Environment Variables, e.g. AWS_ACCESS_KEY_ID
 /// 2. Shared Credential File, e.g. $HOME/.aws/credentials
 /// 3. EC2 Metadata Server
 Result<std::unique_ptr<AwsCredentialProvider>> GetDefaultAwsCredentialProvider(
     std::string_view profile,
     std::shared_ptr<internal_http::HttpTransport> transport) {
-
   std::vector<std::unique_ptr<AwsCredentialProvider>> providers;
   providers.emplace_back(std::make_unique<EnvironmentCredentialProvider>());
-  providers.emplace_back(std::make_unique<FileCredentialProvider>(std::string(profile)));
+  providers.emplace_back(
+      std::make_unique<FileCredentialProvider>(std::string(profile)));
 
-  if(IsEC2MetadataServiceAvailable(*transport)) {
-    providers.emplace_back(std::make_unique<EC2MetadataCredentialProvider>(transport));
+  if (IsEC2MetadataServiceAvailable(*transport)) {
+    providers.emplace_back(
+        std::make_unique<EC2MetadataCredentialProvider>(transport));
   } else {
     ABSL_LOG(WARNING) << "Initial connection to EC2 Metadata server timed out. "
                       << "Credentials from this source will be ignored.";
   }
 
   return std::make_unique<CachedCredentialProvider>(
-    std::make_unique<ChainedCredentialProvider>(std::move(providers)));
+      std::make_unique<ChainedCredentialProvider>(std::move(providers)));
 }
 
 struct AwsCredentialProviderRegistry {
@@ -69,7 +72,6 @@ AwsCredentialProviderRegistry& GetAwsProviderRegistry() {
 }
 
 }  // namespace
-
 
 void RegisterAwsCredentialProviderProvider(AwsCredentialProviderFn provider,
                                            int priority) {
@@ -87,7 +89,8 @@ void RegisterAwsCredentialProviderProvider(AwsCredentialProviderFn provider,
 /// 1. Any registered providers that supply valid credentials
 /// 2. Environment variable provider if valid credential can be obtained from
 ///    AWS_* environment variables
-/// 3. File provider containing credentials from the $HOME/.aws/credentials file.
+/// 3. File provider containing credentials from the $HOME/.aws/credentials
+/// file.
 ///    The `profile` variable overrides the default profile in this file.
 /// 4. EC2 Metadata server. The `transport` variable overrides the default
 ///    HttpTransport.

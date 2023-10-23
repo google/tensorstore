@@ -18,16 +18,15 @@
 #include <string>
 #include <string_view>
 
-#include "absl/strings/strip.h"
-#include "absl/strings/str_cat.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/strip.h"
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/util/result.h"
 
 using ::tensorstore::internal::GetEnv;
 using ::tensorstore::internal::JoinPath;
-
 
 namespace tensorstore {
 namespace internal_kvstore_s3 {
@@ -52,26 +51,28 @@ static constexpr char kDefaultProfile[] = "default";
 Result<std::string> GetAwsCredentialsFileName() {
   std::string result;
 
-  if (auto credentials_file = GetEnv(kEnvAwsCredentialsFile); credentials_file) {
+  if (auto credentials_file = GetEnv(kEnvAwsCredentialsFile);
+      credentials_file) {
     result = *credentials_file;
   } else {
-    if(auto home_dir = GetEnv("HOME"); home_dir) {
+    if (auto home_dir = GetEnv("HOME"); home_dir) {
       result = JoinPath(*home_dir, kDefaultAwsCredentialsFilePath);
     } else {
       return absl::NotFoundError("Could not read $HOME");
     }
   }
 
-  if(auto fstream = std::ifstream(result.c_str()); !fstream.good()) {
+  if (auto fstream = std::ifstream(result.c_str()); !fstream.good()) {
     return absl::NotFoundError(
         absl::StrCat("Could not find the credentials file at "
-                     "location [", result, "]"));
+                     "location [",
+                     result, "]"));
   }
 
   return result;
 }
 
-} // namespace
+}  // namespace
 
 /// https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html#cli-configure-files-format
 Result<AwsCredentials> FileCredentialProvider::GetCredentials() {
@@ -82,9 +83,9 @@ Result<AwsCredentials> FileCredentialProvider::GetCredentials() {
         absl::StrCat("Could not open credentials file [", filename, "]"));
   }
 
-  std::string profile = !profile_.empty() ?
-                          std::string(profile_) :
-                          GetEnv(kEnvAwsProfile).value_or(kDefaultProfile);
+  std::string profile = !profile_.empty()
+                            ? std::string(profile_)
+                            : GetEnv(kEnvAwsProfile).value_or(kDefaultProfile);
 
   AwsCredentials credentials;
   std::string section_name;
@@ -135,5 +136,5 @@ Result<AwsCredentials> FileCredentialProvider::GetCredentials() {
   return credentials;
 }
 
-} // namespace internal_kvstore_s3
-} // namespace tensorstore
+}  // namespace internal_kvstore_s3
+}  // namespace tensorstore

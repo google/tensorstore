@@ -31,7 +31,7 @@ static constexpr char kEnvAwsSecretAccessKey[] = "AWS_SECRET_ACCESS_KEY";
 // AWS session token
 static constexpr char kEnvAwsSessionToken[] = "AWS_SESSION_TOKEN";
 
-} // namespace
+}  // namespace
 
 Result<AwsCredentials> EnvironmentCredentialProvider::GetCredentials() {
   if (auto access_key = GetEnv(kEnvAwsAccessKeyId); access_key) {
@@ -39,11 +39,11 @@ Result<AwsCredentials> EnvironmentCredentialProvider::GetCredentials() {
         << "Using Environment Variable " << kEnvAwsAccessKeyId;
     auto credentials = AwsCredentials{*access_key};
 
-    if(auto secret_key = GetEnv(kEnvAwsSecretAccessKey); secret_key) {
+    if (auto secret_key = GetEnv(kEnvAwsSecretAccessKey); secret_key) {
       credentials.secret_key = *secret_key;
     }
 
-    if(auto session_token = GetEnv(kEnvAwsSessionToken); session_token) {
+    if (auto session_token = GetEnv(kEnvAwsSessionToken); session_token) {
       credentials.session_token = *session_token;
     }
 
@@ -54,5 +54,5 @@ Result<AwsCredentials> EnvironmentCredentialProvider::GetCredentials() {
   return absl::NotFoundError(absl::StrCat(kEnvAwsAccessKeyId, " not set"));
 }
 
-} // namespace internal_kvstore_s3
-} // namespace tensorstore
+}  // namespace internal_kvstore_s3
+}  // namespace tensorstore

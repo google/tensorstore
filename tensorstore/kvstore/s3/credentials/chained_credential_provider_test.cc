@@ -12,12 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <string>
-
 #include "tensorstore/kvstore/s3/credentials/chained_credential_provider.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+#include <string>
+
 #include "tensorstore/internal/test_util.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
@@ -25,8 +26,8 @@
 using ::tensorstore::Future;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::Result;
-using ::tensorstore::internal_kvstore_s3::AwsCredentials;
 using ::tensorstore::internal_kvstore_s3::AwsCredentialProvider;
+using ::tensorstore::internal_kvstore_s3::AwsCredentials;
 using ::tensorstore::internal_kvstore_s3::ChainedCredentialProvider;
 
 namespace {
@@ -37,17 +38,22 @@ class TestCredentialProvider : public AwsCredentialProvider {
   bool expired_;
   bool found_;
   bool has_expired_at_;
-  TestCredentialProvider(std::string access_key="")
-    : credentials_{access_key}, expired_(false), found_(true),
-      has_expired_at_(true) {}
+  TestCredentialProvider(std::string access_key = "")
+      : credentials_{access_key},
+        expired_(false),
+        found_(true),
+        has_expired_at_(true) {}
 
   Result<AwsCredentials> GetCredentials() override {
-    if(found_) { expired_ = true; return credentials_; }
+    if (found_) {
+      expired_ = true;
+      return credentials_;
+    }
     return absl::NotFoundError("Credentials Not Found");
   }
   bool IsExpired() override { return expired_; }
   Result<absl::Time> ExpiresAt() override {
-    if(has_expired_at_) {
+    if (has_expired_at_) {
       return absl::Now();
     }
     return absl::UnimplementedError("TestCredentialProvider::ExpiresAt");
@@ -59,7 +65,8 @@ TEST(ChainedCredentialProviderTest, EmptyProvider) {
   auto credentials = provider.GetCredentials();
   ASSERT_FALSE(credentials.ok());
   ASSERT_TRUE(provider.IsExpired());
-  EXPECT_THAT(provider.ExpiresAt(), MatchesStatus(absl::StatusCode::kUnimplemented));
+  EXPECT_THAT(provider.ExpiresAt(),
+              MatchesStatus(absl::StatusCode::kUnimplemented));
 }
 
 // Tests that Credential Retrieval results in IsExpiry and ExpiresAt
@@ -88,7 +95,8 @@ TEST(ChainedCredentialProviderTest, ChainedGetAndExpiryLogic) {
   one_ptr->expired_ = false;
   one_ptr->has_expired_at_ = false;
   ASSERT_EQ(provider.IsExpired(), false);
-  EXPECT_THAT(provider.ExpiresAt(), MatchesStatus(absl::StatusCode::kUnimplemented));
+  EXPECT_THAT(provider.ExpiresAt(),
+              MatchesStatus(absl::StatusCode::kUnimplemented));
 
   // Disable one's credentials and get new credentials (two)
   one_ptr->found_ = false;
@@ -103,7 +111,8 @@ TEST(ChainedCredentialProviderTest, ChainedGetAndExpiryLogic) {
   two_ptr->expired_ = false;
   two_ptr->has_expired_at_ = false;
   ASSERT_EQ(provider.IsExpired(), false);
-  EXPECT_THAT(provider.ExpiresAt(), MatchesStatus(absl::StatusCode::kUnimplemented));
+  EXPECT_THAT(provider.ExpiresAt(),
+              MatchesStatus(absl::StatusCode::kUnimplemented));
 
   // Disable two's credentials and get new credentials
   two_ptr->found_ = false;
@@ -114,8 +123,8 @@ TEST(ChainedCredentialProviderTest, ChainedGetAndExpiryLogic) {
   // There's no valid provider, so ExpiresAt is also unimplemented
   one_ptr->has_expired_at_ = true;
   two_ptr->has_expired_at_ = true;
-  EXPECT_THAT(provider.ExpiresAt(), MatchesStatus(absl::StatusCode::kUnimplemented));
+  EXPECT_THAT(provider.ExpiresAt(),
+              MatchesStatus(absl::StatusCode::kUnimplemented));
 }
-
 
 }  // namespace

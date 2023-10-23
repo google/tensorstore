@@ -14,11 +14,12 @@
 
 #include "tensorstore/kvstore/s3/credentials/file_credential_provider.h"
 
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
 #include <fstream>
 #include <string>
 
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/test_util.h"
@@ -26,9 +27,9 @@
 
 namespace {
 
+using ::tensorstore::internal::JoinPath;
 using ::tensorstore::internal::SetEnv;
 using ::tensorstore::internal::UnsetEnv;
-using ::tensorstore::internal::JoinPath;
 using ::tensorstore::internal_kvstore_s3::FileCredentialProvider;
 
 class TestData : public tensorstore::internal::ScopedTemporaryDirectory {
@@ -57,7 +58,6 @@ class FileCredentialProviderTest : public ::testing::Test {
  protected:
   void SetUp() override { UnsetEnv("AWS_SHARED_CREDENTIALS_FILE"); }
 };
-
 
 TEST_F(FileCredentialProviderTest, ProviderAwsCredentialsFromFileDefault) {
   TestData test_data;

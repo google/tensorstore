@@ -14,10 +14,11 @@
 
 #include "tensorstore/kvstore/s3/credentials/environment_credential_provider.h"
 
-#include <string>
-
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+#include <string>
+
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/test_util.h"
 #include "tensorstore/util/result.h"
@@ -30,7 +31,6 @@ using ::tensorstore::internal::GetEnv;
 using ::tensorstore::internal::SetEnv;
 using ::tensorstore::internal::UnsetEnv;
 using ::tensorstore::internal_kvstore_s3::EnvironmentCredentialProvider;
-
 
 class EnvironmentCredentialProviderTest : public ::testing::Test {
  protected:
@@ -50,14 +50,12 @@ TEST_F(EnvironmentCredentialProviderTest, ProviderNoCredentials) {
   ASSERT_EQ(provider.ExpiresAt(), absl::InfinitePast());
   ASSERT_FALSE(provider.GetCredentials().ok());
   SetEnv("AWS_ACCESS_KEY_ID", "foo");
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials,
-                                   provider.GetCredentials());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials, provider.GetCredentials());
   ASSERT_EQ(credentials.access_key, "foo");
   ASSERT_TRUE(credentials.secret_key.empty());
   ASSERT_TRUE(credentials.session_token.empty());
   ASSERT_FALSE(provider.IsExpired());
   ASSERT_EQ(provider.ExpiresAt(), absl::InfiniteFuture());
-
 }
 
 TEST_F(EnvironmentCredentialProviderTest, ProviderAwsCredentialsFromEnv) {
