@@ -45,6 +45,7 @@ tensorstore_cc_library(
     local_defines = DEBUG_LOCAL_DEFINES,
     deps = [
         ":aws_credential_provider",
+        ":s3_endpoint",
         ":s3_request_builder",
         ":s3_resource",
         ":s3_uri_utils",
@@ -320,12 +321,50 @@ tensorstore_cc_test(
         "//tensorstore/util:future",
         "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
+        "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "s3_endpoint",
+    srcs = ["s3_endpoint.cc"],
+    hdrs = ["s3_endpoint.h"],
+    deps = [
+        ":validate",
+        "//tensorstore/internal:uri_utils",
+        "//tensorstore/internal/http",
+        "//tensorstore/util:future",
+        "//tensorstore/util:quote_string",
+        "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/log:absl_check",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+    ],
+)
+
+cc_test(
+    name = "s3_endpoint_test",
+    srcs = ["s3_endpoint_test.cc"],
+    deps = [
+        ":s3_endpoint",
+        "//tensorstore/internal/http",
+        "//tensorstore/util:future",
+        "//tensorstore/util:status_testutil",
+        "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/log:absl_log",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest_main",
     ],

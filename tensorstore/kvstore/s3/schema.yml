@@ -28,7 +28,7 @@ allOf:
         Must be an http or https URL. 
       examples:
       - "http://localhost:1234"
-    host:
+    host_header:
       type: string
       title: Override HTTP host header to send in requests.
       description: |

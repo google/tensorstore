@@ -25,9 +25,11 @@
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/curl_transport.h"
@@ -52,10 +54,15 @@
 ABSL_FLAG(std::string, localstack_endpoint, "", "Localstack endpoint");
 ABSL_FLAG(std::string, localstack_binary, "", "Path to the localstack");
 
+// --host_header can override the host: header used for signing.
+// It can be, for example, s3.af-south-1.localstack.localhost.com
+ABSL_FLAG(std::string, host_header, "", "Host header to use for signing");
+
 namespace kvstore = ::tensorstore::kvstore;
 
 using ::tensorstore::Context;
 using ::tensorstore::MatchesJson;
+using ::tensorstore::internal::GetEnv;
 using ::tensorstore::internal::GetEnvironmentMap;
 using ::tensorstore::internal::SetEnv;
 using ::tensorstore::internal::SpawnSubprocess;
@@ -139,19 +146,32 @@ class LocalStackFixture : public ::testing::Test {
   static LocalStackProcess process;
 
   static void SetUpTestSuite() {
-    SetEnv("AWS_ACCESS_KEY_ID", kAwsAccessKeyId);
-    SetEnv("AWS_SECRET_KEY_ID", kAwsSecretKeyId);
+    if (!GetEnv("AWS_ACCESS_KEY_ID") || !GetEnv("AWS_SECRET_KEY_ID")) {
+      SetEnv("AWS_ACCESS_KEY_ID", kAwsAccessKeyId);
+      SetEnv("AWS_SECRET_KEY_ID", kAwsSecretKeyId);
+    }
 
     if (absl::GetFlag(FLAGS_localstack_endpoint).empty()) {
       ABSL_CHECK(!absl::GetFlag(FLAGS_localstack_binary).empty());
 
       process.SpawnProcess();
+    } else {
+      // Don't connect to Amazon; the test uses fixed buckets, etc.
+      ABSL_CHECK(!absl::StrContains(absl::GetFlag(FLAGS_localstack_endpoint),
+                                    "amazonaws.com"));
     }
 
     MaybeCreateBucket();
   }
 
   static void TearDownTestSuite() { process.StopProcess(); }
+
+  static std::string endpoint_url() {
+    if (absl::GetFlag(FLAGS_localstack_endpoint).empty()) {
+      return process.endpoint_url();
+    }
+    return absl::GetFlag(FLAGS_localstack_endpoint);
+  }
 
   // Attempts to create the kBucket bucket on the localstack host.
   static void MaybeCreateBucket() {
@@ -162,11 +182,17 @@ class LocalStackFixture : public ::testing::Test {
         R"(</CreateBucketConfiguration>)",
         kAwsRegion)};
 
-    auto request =
-        S3RequestBuilder("PUT", endpoint_url())
-            .BuildRequest(absl::StrFormat("%s.s3.amazonaws.com", kBucket),
-                          AwsCredentials{}, kAwsRegion, kEmptySha256,
-                          absl::Now());
+    // localstack or other test service should accept s3.<region>.amazonaws.com
+    // as a signing string.
+    std::string my_host_header = absl::GetFlag(FLAGS_host_header);
+    if (my_host_header.empty()) {
+      my_host_header = absl::StrFormat("s3.%s.amazonaws.com", kAwsRegion);
+    }
+
+    auto request = S3RequestBuilder(
+                       "PUT", absl::StrFormat("%s/%s", endpoint_url(), kBucket))
+                       .BuildRequest(my_host_header, AwsCredentials{},
+                                     kAwsRegion, kEmptySha256, absl::Now());
 
     ::tensorstore::Future<HttpResponse> response;
     for (auto deadline = absl::Now() + absl::Seconds(5);;) {
@@ -189,18 +215,6 @@ class LocalStackFixture : public ::testing::Test {
                      << response.value();
     }
   }
-
-  static std::string endpoint_url() {
-    if (absl::GetFlag(FLAGS_localstack_endpoint).empty()) {
-      return process.endpoint_url();
-    }
-    return absl::GetFlag(FLAGS_localstack_endpoint);
-  }
-
-  static std::string host() {
-    return absl::StrFormat("%s.s3.%s.localstack.localhost.com", kBucket,
-                           kAwsRegion);
-  }
 };
 
 LocalStackProcess LocalStackFixture::process;
@@ -216,25 +230,24 @@ Context DefaultTestContext() {
 
 TEST_F(LocalStackFixture, Basic) {
   auto context = DefaultTestContext();
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store, kvstore::Open({{"aws_region", kAwsRegion},
-                                 {"driver", "s3"},
-                                 {"bucket", kBucket},
-                                 {"endpoint", endpoint_url()},
-                                 {"host", host()},
-                                 {"path", "tensorstore/test/"}},
-                                context)
-                      .result());
+  ::nlohmann::json json_spec{
+      {"aws_region", kAwsRegion},     //
+      {"driver", "s3"},               //
+      {"bucket", kBucket},            //
+      {"endpoint", endpoint_url()},   //
+      {"path", "tensorstore/test/"},  //
+  };
+
+  if (!absl::GetFlag(FLAGS_host_header).empty()) {
+    json_spec["host_header"] = absl::GetFlag(FLAGS_host_header);
+  }
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
+                                   kvstore::Open(json_spec, context).result());
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec, store.spec());
-  EXPECT_THAT(
-      spec.ToJson(tensorstore::IncludeDefaults{false}),
-      ::testing::Optional(MatchesJson({{"aws_region", kAwsRegion},
-                                       {"driver", "s3"},
-                                       {"bucket", kBucket},
-                                       {"endpoint", endpoint_url()},
-                                       {"host", host()},
-                                       {"path", "tensorstore/test/"}})));
+  EXPECT_THAT(spec.ToJson(tensorstore::IncludeDefaults{false}),
+              ::testing::Optional(MatchesJson(json_spec)));
 
   tensorstore::internal::TestKeyValueReadWriteOps(store);
 }

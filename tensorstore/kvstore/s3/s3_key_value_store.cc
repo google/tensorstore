@@ -23,12 +23,12 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
 
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/escaping.h"
-#include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/synchronization/mutex.h"
@@ -60,6 +60,7 @@
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/registry.h"
 #include "tensorstore/kvstore/s3/aws_credential_provider.h"
+#include "tensorstore/kvstore/s3/s3_endpoint.h"
 #include "tensorstore/kvstore/s3/s3_metadata.h"
 #include "tensorstore/kvstore/s3/s3_request_builder.h"
 #include "tensorstore/kvstore/s3/s3_resource.h"
@@ -111,6 +112,7 @@ using ::tensorstore::internal_kvstore_s3::IsValidBucketName;
 using ::tensorstore::internal_kvstore_s3::IsValidObjectName;
 using ::tensorstore::internal_kvstore_s3::IsValidStorageGeneration;
 using ::tensorstore::internal_kvstore_s3::S3ConcurrencyResource;
+using ::tensorstore::internal_kvstore_s3::S3EndpointHostRegion;
 using ::tensorstore::internal_kvstore_s3::S3RateLimiterResource;
 using ::tensorstore::internal_kvstore_s3::S3RequestBuilder;
 using ::tensorstore::internal_kvstore_s3::S3RequestRetries;
@@ -164,7 +166,6 @@ auto& s3_list = internal_metrics::Counter<int64_t>::New(
 
 /// S3 strings
 static constexpr char kUriScheme[] = "s3";
-static constexpr char kAmzBucketRegionHeader[] = "x-amz-bucket-region";
 
 /// sha256 hash of an empty string
 static constexpr char kEmptySha256[] =
@@ -266,7 +267,7 @@ struct S3KeyValueStoreSpecData {
   std::string bucket;
   bool requester_pays;
   std::optional<std::string> endpoint;
-  std::optional<std::string> host;
+  std::optional<std::string> host_header;
   std::string aws_region;
 
   Context::Resource<AwsCredentialsResource> aws_credentials;
@@ -276,9 +277,9 @@ struct S3KeyValueStoreSpecData {
   Context::Resource<DataCopyConcurrencyResource> data_copy_concurrency;
 
   constexpr static auto ApplyMembers = [](auto& x, auto f) {
-    return f(x.bucket, x.requester_pays, x.endpoint, x.host, x.aws_region,
-             x.aws_credentials, x.request_concurrency, x.rate_limiter,
-             x.retries, x.data_copy_concurrency);
+    return f(x.bucket, x.requester_pays, x.endpoint, x.host_header,
+             x.aws_region, x.aws_credentials, x.request_concurrency,
+             x.rate_limiter, x.retries, x.data_copy_concurrency);
   };
 
   constexpr static auto default_json_binder = jb::Object(
@@ -296,7 +297,8 @@ struct S3KeyValueStoreSpecData {
       jb::Member("requester_pays",
                  jb::Projection<&S3KeyValueStoreSpecData::requester_pays>(
                      jb::DefaultValue([](auto* v) { *v = false; }))),
-      jb::Member("host", jb::Projection<&S3KeyValueStoreSpecData::host>()),
+      jb::Member("host_header",
+                 jb::Projection<&S3KeyValueStoreSpecData::host_header>()),
       jb::Member("endpoint",
                  jb::Projection<&S3KeyValueStoreSpecData::endpoint>()),
       jb::Member("aws_region",
@@ -316,31 +318,6 @@ struct S3KeyValueStoreSpecData {
                      &S3KeyValueStoreSpecData::data_copy_concurrency>()) /**/
   );
 };
-
-struct S3EndpointHostRegion {
-  std::string endpoint;
-  std::string host_header;
-  std::string aws_region;
-};
-
-// https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html
-// NOTE: If the bucket name contains a '.', then "you can't use
-// virtual-host-style addressing over HTTPS, unless you perform your own
-// certificate validation".
-S3EndpointHostRegion GetS3EndpointHostRegion(std::string_view bucket,
-                                             std::string aws_region) {
-  std::string host;
-  std::string endpoint;
-  if (absl::StrContains(bucket, ".")) {
-    host = tensorstore::StrCat("s3.", aws_region, ".amazonaws.com");
-    endpoint = tensorstore::StrCat("https://", host, "/", bucket);
-  } else {
-    host = tensorstore::StrCat(bucket, ".s3.", aws_region, ".amazonaws.com");
-    endpoint = tensorstore::StrCat("https://", host);
-  }
-  return S3EndpointHostRegion{std::move(endpoint), std::move(host),
-                              std::move(aws_region)};
-}
 
 std::string GetS3Url(std::string_view bucket, std::string_view path) {
   return tensorstore::StrCat(kUriScheme, "://", bucket, "/", S3UriEncode(path));
@@ -1339,37 +1316,25 @@ Future<const S3EndpointHostRegion> S3KeyValueStore::MaybeResolveRegion() {
   absl::MutexLock l(&mutex_);
   if (!resolve_ehr_.null()) return resolve_ehr_;
 
-  // Make global request to get bucket region from response headers,
-  // then create region specific endpoint
-  auto url = tensorstore::StrCat("https://", spec_.bucket, ".s3.amazonaws.com");
-  auto request = internal_http::HttpRequestBuilder("HEAD", url).BuildRequest();
-  auto op = PromiseFuturePair<S3EndpointHostRegion>::Link(
-      WithExecutor(
-          executor(),
-          [self = internal::IntrusivePtr<S3KeyValueStore>{this}](
-              Promise<S3EndpointHostRegion> promise,
-              ReadyFuture<HttpResponse> ready) {
-            if (!promise.result_needed()) return;
-            auto& headers = ready.value().headers;
-            if (auto it = headers.find(kAmzBucketRegionHeader);
-                it != headers.end()) {
-              const auto& aws_region = it->second;
-              // TODO: propagate resolved region back into spec.
-              auto host_endpoint =
-                  GetS3EndpointHostRegion(self->spec_.bucket, aws_region);
-              ABSL_LOG_IF(INFO, (TENSORSTORE_INTERNAL_S3_LOG_REQUESTS ||
-                                 TENSORSTORE_INTERNAL_S3_LOG_RESPONSES))
-                  << "S3 driver using endpoint [" << host_endpoint.endpoint
-                  << "]";
-              promise.SetResult(std::move(host_endpoint));
-              return;
-            }
-            promise.SetResult(absl::FailedPreconditionError(tensorstore::StrCat(
-                "bucket ", self->spec_.bucket, " does not exist")));
-          }),
-      transport_->IssueRequest(request, {}));
+  resolve_ehr_ = internal_kvstore_s3::ResolveEndpointRegion(
+      spec_.bucket,
+      !spec_.endpoint.has_value() || spec_.endpoint.value().empty()
+          ? std::string_view{}
+          : std::string_view(spec_.endpoint.value()),
+      spec_.host_header.value_or(std::string{}), transport_);
+  resolve_ehr_.ExecuteWhenReady(
+      [](ReadyFuture<const S3EndpointHostRegion> ready) {
+        if (!ready.status().ok()) {
+          ABSL_LOG_IF(INFO, (TENSORSTORE_INTERNAL_S3_LOG_REQUESTS ||
+                             TENSORSTORE_INTERNAL_S3_LOG_RESPONSES))
+              << "S3 driver failed to resolve endpoint: " << ready.status();
+        } else {
+          ABSL_LOG_IF(INFO, (TENSORSTORE_INTERNAL_S3_LOG_REQUESTS ||
+                             TENSORSTORE_INTERNAL_S3_LOG_RESPONSES))
+              << "S3 driver using endpoint [" << ready.value() << "]";
+        }
+      });
 
-  resolve_ehr_ = std::move(op.future);
   return resolve_ehr_;
 }
 
@@ -1383,70 +1348,20 @@ Future<kvstore::DriverPtr> S3KeyValueStoreSpec::DoOpen() const {
     ABSL_LOG(INFO) << "Using experimental_s3_rate_limiter";
   }
 
-  if (data_.endpoint.has_value()) {
-    auto endpoint = data_.endpoint.value();
-    auto parsed = internal::ParseGenericUri(endpoint);
-    if (parsed.scheme != "http" && parsed.scheme != "https") {
-      return absl::InvalidArgumentError(
-          tensorstore::StrCat("Endpoint ", endpoint, " has invalid scheme ",
-                              parsed.scheme, ". Should be http(s)."));
-    }
-    if (!parsed.query.empty()) {
-      return absl::InvalidArgumentError(
-          tensorstore::StrCat("Query in endpoint unsupported ", endpoint));
-    }
-    if (!parsed.fragment.empty()) {
-      return absl::InvalidArgumentError(
-          tensorstore::StrCat("Fragment in endpoint unsupported ", endpoint));
-    }
-
-    std::string host_header;
-    if (data_.host.has_value()) {
-      host_header = data_.host.value();
-    } else {
-      auto parsed = internal::ParseGenericUri(endpoint);
-      size_t end_of_host = parsed.authority_and_path.find('/');
-      host_header = parsed.authority_and_path.substr(0, end_of_host);
-    }
-
-    driver->resolve_ehr_ =
-        MakeReadyFuture<S3EndpointHostRegion>(S3EndpointHostRegion{
-            endpoint, std::move(host_header), data_.aws_region});
-
-  } else if (!data_.aws_region.empty() ||
-             internal_kvstore_s3::ClassifyBucketName(data_.bucket) ==
-                 internal_kvstore_s3::BucketNameType::kOldUSEast1) {
-    if (!data_.aws_region.empty() && data_.aws_region != "us-east-1") {
-      // This is an old-style bucket name, so the region must be us-east-1
-      return absl::InvalidArgumentError(
-          tensorstore::StrCat("Bucket ", QuoteString(data_.bucket),
-                              " requires aws_region \"us-east-1\", not ",
-                              QuoteString(data_.aws_region)));
-    }
-
-    driver->resolve_ehr_ = MakeReadyFuture<S3EndpointHostRegion>(
-        GetS3EndpointHostRegion(data_.bucket, data_.aws_region));
-  } else if (absl::StrContains(data_.bucket, ".")) {
-    // TODO: Rework how 'x-amz-bucket-region' is handled. The technique of using
-    // a HEAD request on bucket.s3.amazonaws.com to acquire the aws_region does
-    // not work when there is a . in the bucket name; for now require the
-    // aws_region to be set.
-    //
-    // The aws cli issues a request against the aws-global endpoint,
-    // using host:s3.amazonaws.com, with a string-to-sign using "us-east-1"
-    // zone. The response will be a 301 request with an 'x-amz-bucket-region'
-    // header. We might be able to just do a signed HEAD request against an
-    // possibly non-existent file... But try this later.
-    return absl::InvalidArgumentError(
-        tensorstore::StrCat("bucket ", QuoteString(data_.bucket),
-                            " requires aws_region to be set."));
+  auto result = internal_kvstore_s3::ValidateEndpoint(
+      data_.bucket, data_.aws_region, data_.endpoint.value_or(std::string{}),
+      data_.host_header.value_or(std::string{}));
+  if (auto* status = std::get_if<absl::Status>(&result);
+      status != nullptr && !status->ok()) {
+    return std::move(*status);
   }
-
-  ABSL_LOG_IF(INFO, (TENSORSTORE_INTERNAL_S3_LOG_REQUESTS ||
-                     TENSORSTORE_INTERNAL_S3_LOG_RESPONSES) &&
-                        !driver->resolve_ehr_.null())
-      << "S3 driver using endpoint [" << driver->resolve_ehr_.value().endpoint
-      << "]";
+  if (auto* ehr = std::get_if<S3EndpointHostRegion>(&result); ehr != nullptr) {
+    ABSL_LOG_IF(INFO, (TENSORSTORE_INTERNAL_S3_LOG_REQUESTS ||
+                       TENSORSTORE_INTERNAL_S3_LOG_RESPONSES))
+        << "S3 driver using endpoint [" << *ehr << "]";
+    driver->resolve_ehr_ =
+        MakeReadyFuture<S3EndpointHostRegion>(std::move(*ehr));
+  }
 
   return driver;
 }
