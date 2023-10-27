@@ -34,11 +34,10 @@
 #include <unistd.h>
 #endif
 
-#include <string.h>  // IWYU pragma: keep
-
 #include <atomic>  // IWYU pragma: keep
 #include <cassert>
-#include <limits>  // IWYU pragma: keep
+#include <cstring>  // IWYU pragma: keep
+#include <limits>   // IWYU pragma: keep
 #include <memory>
 #include <string>
 #include <string_view>

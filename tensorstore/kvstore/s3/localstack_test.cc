@@ -58,6 +58,12 @@ ABSL_FLAG(std::string, localstack_binary, "", "Path to the localstack");
 // It can be, for example, s3.af-south-1.localstack.localhost.com
 ABSL_FLAG(std::string, host_header, "", "Host header to use for signing");
 
+// --binary_mode selects whether the `--localstack_binary` is localstack
+// binary or whether it is a moto binary.
+ABSL_FLAG(std::string, binary_mode, "",
+          "Selects options for starting --localstack_binary. Valid values are "
+          "[moto]. Assumes localstack otherwise.");
+
 namespace kvstore = ::tensorstore::kvstore;
 
 using ::tensorstore::Context;
@@ -84,6 +90,35 @@ static constexpr char kAwsRegion[] = "af-south-1";
 static constexpr char kEmptySha256[] =
     "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
+SubprocessOptions SetupLocalstackOptions(int http_port) {
+  // See https://docs.localstack.cloud/references/configuration/
+  // for the allowed environment variables for localstack.
+  SubprocessOptions options{absl::GetFlag(FLAGS_localstack_binary),
+                            {"start", "--host"}};
+  options.env.emplace(GetEnvironmentMap());
+  auto &env = *options.env;
+  env["GATEWAY_LISTEN"] = absl::StrFormat("localhost:%d", http_port);
+  env["LOCALSTACK_HOST"] =
+      absl::StrFormat("localhost.localstack.cloud:%d", http_port);
+  env["SERVICES"] = "s3";
+  return options;
+}
+
+SubprocessOptions SetupMotoOptions(int http_port) {
+  // See https://docs.getmoto.org/en/latest/docs/getting_started.html
+  // and https://docs.getmoto.org/en/latest/docs/server_mode.html
+  SubprocessOptions options{absl::GetFlag(FLAGS_localstack_binary),
+                            {absl::StrFormat("-p%d", http_port)}};
+  options.env.emplace(GetEnvironmentMap());
+  auto &env = *options.env;
+  env["AWS_DEFAULT_REGION"] = kAwsRegion;
+  return options;
+}
+
+// NOTE: Support minio as well, which needs temporary directories.
+// https://min.io/docs/minio/linux/reference/minio-server/minio-server.html
+// minio server --address :12123  /tmp/minio
+
 class LocalStackProcess {
  public:
   LocalStackProcess() = default;
@@ -96,22 +131,21 @@ class LocalStackProcess {
     // flaky tests.
     http_port = TryPickUnusedPort().value_or(4566);
 
-    ABSL_LOG(INFO) << "Spawning localstack: " << endpoint_url();
-    SubprocessOptions options{absl::GetFlag(FLAGS_localstack_binary),
-                              {"start", "--host"}};
+    SubprocessOptions options = [](int http_port) {
+      if (absl::GetFlag(FLAGS_binary_mode) == "moto") {
+        // This could be a moto server
+        return SetupMotoOptions(http_port);
+      } else {
+        return SetupLocalstackOptions(http_port);
+      }
+      ABSL_LOG(FATAL) << "Unknown binary mode: "
+                      << absl::GetFlag(FLAGS_binary_mode);
+    }(http_port);
 
-    // See https://docs.localstack.cloud/references/configuration/
-    // for the allowed environment variables for localstack.
-    options.env.emplace(GetEnvironmentMap());
-    auto &env = *options.env;
-    env["GATEWAY_LISTEN"] = absl::StrFormat("localhost:%d", http_port);
-    env["LOCALSTACK_HOST"] =
-        absl::StrFormat("localhost.localstack.cloud:%d", http_port);
-    env["SERVICES"] = "s3";
+    ABSL_LOG(INFO) << "Spawning: " << endpoint_url();
 
     TENSORSTORE_CHECK_OK_AND_ASSIGN(auto spawn_proc, SpawnSubprocess(options));
 
-    // Once the process is running, start a gRPC server on the provided port.
     absl::SleepFor(absl::Milliseconds(300));
     auto status = spawn_proc.Join(/*block=*/false).status();
 
