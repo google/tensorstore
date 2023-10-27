@@ -112,7 +112,9 @@ absl::Status WebPReader::Context::Init() {
 absl::Status WebPReader::Context::Decode(tensorstore::span<unsigned char> dest,
                                          const WebPReaderOptions& options) {
   WebPDecBuffer buf;
-  WebPInitDecBuffer(&buf);
+  if (!WebPInitDecBuffer(&buf)) {
+    return absl::InternalError("Failed to init WEBP decoder buffer");
+  }
   buf.colorspace = features_.has_alpha ? MODE_RGBA : MODE_RGB;
   buf.u.RGBA.rgba = dest.data();
   buf.u.RGBA.stride = features_.width * (features_.has_alpha ? 4 : 3);
