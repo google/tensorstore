@@ -1,3 +1,2 @@
 # Packages required to run the examples.
-apache-beam
-gin-config
+numpy

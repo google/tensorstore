@@ -100,7 +100,7 @@ def _get_session():
 # https://warehouse.pypa.io/api-reference/json.html
 def get_pypa_json(package_selector: str) -> Json:
   """Fetches a Python package or package/version from PyPI."""
-  uri = f"https://pypi.python.org/pypi/{package_selector}/json"
+  uri = f"https://pypi.org/pypi/{package_selector}/json"
   print(uri)
   r = _get_session().get(uri, timeout=5)
   r.raise_for_status()
@@ -155,8 +155,14 @@ def _is_suitable_release(release: Json):
     requires_python = release_pkg.get("requires_python")
     if requires_python is None:
       return True
-    while requires_python.endswith(".*"):
-      requires_python = requires_python[:-2]
+    # Trim some invalid substrings
+    while True:
+      if requires_python.endswith(".*"):
+        requires_python = requires_python[:-2]
+      elif requires_python.endswith(".*"):
+        requires_python = requires_python[:-1]
+      else:
+        break
     spec = SpecifierSet(requires_python)
     for v in list(remaining_python_versions):
       if v in spec:
@@ -185,6 +191,7 @@ def _merge_requirements(dest: Requirement, b: Requirement) -> bool:
     if merged_specifier != dest.specifier:
       dest.specifier = merged_specifier
       result = True
+  # TODO Merge markers?
   return result
 
 
