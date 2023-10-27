@@ -70,14 +70,32 @@ void FillYUVImage(const ImageInfo& info,
 
   if (info.num_components == 2) {
     image->yuvFormat = AVIF_PIXEL_FORMAT_YUV400;
+#if AVIF_VERSION_MAJOR >= 1
+    ABSL_CHECK_EQ(avifImageAllocatePlanes(image, AVIF_PLANES_ALL),
+                  AVIF_RESULT_OK)
+        << "Cannot allocate AVIF_PLANES_ALL";
+#else
     avifImageAllocatePlanes(image, AVIF_PLANES_ALL);
+#endif
     assert(image->alphaRowBytes > 0);
   } else if (info.num_components == 3) {
     image->yuvFormat = AVIF_PIXEL_FORMAT_YUV444;
+#if AVIF_VERSION_MAJOR >= 1
+    ABSL_CHECK_EQ(avifImageAllocatePlanes(image, AVIF_PLANES_YUV),
+                  AVIF_RESULT_OK)
+        << "Cannot allocate AVIF_PLANES_YUV";
+#else
     avifImageAllocatePlanes(image, AVIF_PLANES_YUV);
+#endif
   } else if (info.num_components == 4) {
     image->yuvFormat = AVIF_PIXEL_FORMAT_YUV444;
+#if AVIF_VERSION_MAJOR >= 1
+    ABSL_CHECK_EQ(avifImageAllocatePlanes(image, AVIF_PLANES_ALL),
+                  AVIF_RESULT_OK)
+        << "Cannot allocate AVIF_PLANES_ALL";
+#else
     avifImageAllocatePlanes(image, AVIF_PLANES_ALL);
+#endif
     assert(image->alphaRowBytes > 0);
   } else {
     ABSL_LOG(FATAL) << "Wrong num_channels for FillYUVImage";
@@ -299,16 +317,37 @@ absl::Status AvifWriter::InitializeImpl(riegeli::Writer* writer,
   /// Use the codec specific cq-level option rather than the global
   /// quantizer setting for quality.
   std::string quantizer = tensorstore::StrCat(options.quantizer);
+#if AVIF_VERSION_MAJOR >= 1
+  if (avifEncoderSetCodecSpecificOption(encoder.get(), "cq-level",
+                                        quantizer.c_str()) != AVIF_RESULT_OK) {
+    return absl::InternalError("Failed to set cq-level option in AVIF");
+  }
+#else
   avifEncoderSetCodecSpecificOption(encoder.get(), "cq-level",
                                     quantizer.c_str());
+#endif
 
   /// Set the rate control to constant-quality mode.
+#if AVIF_VERSION_MAJOR >= 1
+  if (avifEncoderSetCodecSpecificOption(encoder.get(), "end-usage", "q") !=
+      AVIF_RESULT_OK) {
+    return absl::InternalError("Failed to set end-usage option in AVIF");
+  }
+#else
   avifEncoderSetCodecSpecificOption(encoder.get(), "end-usage", "q");
+#endif
 
   /// TODO: Experiment with the tune parameter: ssim vs psnr
 #if 0
   if (cq_level <= 32) {
+#if AVIF_VERSION_MAJOR >= 1
+    if (avifEncoderSetCodecSpecificOption(encoder.get(), "tune", "ssim") !=
+      AVIF_RESULT_OK) {
+    return absl::InternalError("Failed to set tune option in AVIF");
+  }
+#else
     avifEncoderSetCodecSpecificOption(encoder.get(), "tune", "ssim");
+#endif
   }
 #endif
   encoder_ = std::move(encoder);
