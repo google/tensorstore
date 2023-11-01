@@ -1,6 +1,6 @@
-# DO NOT EDIT: Generated from docs_requirements.txt by generate_workspace.py
+# DO NOT EDIT: Generated from docs_requirements.txt by pypi_solver
 sphinx==6.0.1
-sphinx-immaterial==0.11.7
-jsonschema==4.19.1
+sphinx-immaterial==0.11.8
+jsonschema==4.19.2
 pyyaml==6.0.1
 markupsafe==2.1.3

@@ -1,10 +1,10 @@
-# DO NOT EDIT: Generated from test_requirements.txt by generate_workspace.py
+# DO NOT EDIT: Generated from test_requirements.txt by pypi_solver
 numpy==1.26.1
 pytest==7.4.3
 pytest-asyncio==0.21.1
 cloudpickle==3.0.0
 ml_dtypes==0.3.1
-grpcio==1.59.0
+grpcio==1.59.2
 flask==3.0.0
 requests-toolbelt==1.0.0
 scalpl==0.4.2

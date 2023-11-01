@@ -39,6 +39,7 @@ def invoke_tests(argv):
     implicit_args += ['--junitxml', os.environ['XML_OUTPUT_FILE']]
   implicit_args += ['--pyargs']
   implicit_args += PYTEST_TARGETS
+  print(implicit_args + argv[1:])
   return pytest.main(args=implicit_args + argv[1:])
 
 
