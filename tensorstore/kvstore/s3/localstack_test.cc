@@ -127,33 +127,45 @@ class LocalStackProcess {
   void SpawnProcess() {
     if (child_) return;
 
-    // NOTE: We may need to add in a retry loop for port selection to avoid
-    // flaky tests.
-    http_port = TryPickUnusedPort().value_or(4566);
+    const auto start_child = [this] {
+      http_port = TryPickUnusedPort().value_or(0);
+      ABSL_CHECK(http_port > 0);
 
-    SubprocessOptions options = [](int http_port) {
-      if (absl::GetFlag(FLAGS_binary_mode) == "moto") {
-        // This could be a moto server
-        return SetupMotoOptions(http_port);
-      } else {
-        return SetupLocalstackOptions(http_port);
+      SubprocessOptions options =  //
+          (absl::GetFlag(FLAGS_binary_mode) == "moto")
+              ? SetupMotoOptions(http_port)
+              : SetupLocalstackOptions(http_port);
+
+      ABSL_LOG(INFO) << "Spawning: " << endpoint_url();
+
+      absl::SleepFor(absl::Milliseconds(10));
+      TENSORSTORE_CHECK_OK_AND_ASSIGN(auto spawn_proc,
+                                      SpawnSubprocess(options));
+      return spawn_proc;
+    };
+
+    Subprocess spawn_proc = start_child();
+
+    // Give the child process several seconds to start.
+    auto deadline = absl::Now() + absl::Seconds(10);
+    while (absl::Now() < deadline) {
+      absl::SleepFor(absl::Milliseconds(100));
+      auto join_result = spawn_proc.Join(/*block=*/false);
+
+      if (join_result.ok()) {
+        // Process has terminated. Restart.
+        spawn_proc = start_child();
+        continue;
+      } else if (absl::IsUnavailable(join_result.status())) {
+        // Child is running.
+        child_.emplace(std::move(spawn_proc));
+        return;
       }
-      ABSL_LOG(FATAL) << "Unknown binary mode: "
-                      << absl::GetFlag(FLAGS_binary_mode);
-    }(http_port);
+      // TODO: Also check the http port?
+    }
 
-    ABSL_LOG(INFO) << "Spawning: " << endpoint_url();
-
-    TENSORSTORE_CHECK_OK_AND_ASSIGN(auto spawn_proc, SpawnSubprocess(options));
-
-    absl::SleepFor(absl::Milliseconds(300));
-    auto status = spawn_proc.Join(/*block=*/false).status();
-
-    // The process may fail due to an in-use port, or something else.
-    ABSL_CHECK(absl::IsUnavailable(status))
-        << "Failed to spawn localstack: " << status;
-
-    child_.emplace(std::move(spawn_proc));
+    // Deadline has expired & there's nothing to show for it.
+    ABSL_LOG(FATAL) << "Failed to start process";
   }
 
   void StopProcess() {

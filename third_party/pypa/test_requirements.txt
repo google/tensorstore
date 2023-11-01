@@ -4,6 +4,7 @@ pytest
 pytest-asyncio
 cloudpickle
 ml_dtypes
+moto[s3,server]
 
 # From storage-testbench/setup.py
 # gunicorn

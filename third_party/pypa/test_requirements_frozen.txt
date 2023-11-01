@@ -4,6 +4,7 @@ pytest==7.4.3
 pytest-asyncio==0.21.1
 cloudpickle==3.0.0
 ml_dtypes==0.3.1
+moto[s3,server]==4.2.7
 grpcio==1.59.2
 flask==3.0.0
 requests-toolbelt==1.0.0

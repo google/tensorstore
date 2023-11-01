@@ -297,12 +297,13 @@ tensorstore_cc_test(
 tensorstore_cc_test(
     name = "localstack_test",
     srcs = ["localstack_test.cc"],
-    # args = ["--localstack_binary=$(location :localstack_cli)"],
-    # data = [":localstack_cli"],
+    args = [
+        "--localstack_binary=$(location :moto_server)",
+        "--binary_mode=moto",
+    ],
+    data = [":moto_server"],
     tags = [
-        "manual",
-        "notap",  # TODO: Enable before linking by default.
-        "skip-cmake",  # localstack is python, which will not work in bazel_to_cmake.
+        "skip-cmake",  # moto is python, which will not work in bazel_to_cmake.
     ],
     deps = [
         ":aws_credential_provider",
@@ -352,7 +353,7 @@ tensorstore_cc_library(
     ],
 )
 
-cc_test(
+tensorstore_cc_test(
     name = "s3_endpoint_test",
     srcs = ["s3_endpoint_test.cc"],
     deps = [
@@ -370,17 +371,14 @@ cc_test(
     ],
 )
 
-# NOTE: For the localstack_test, it seems simples to add a proxy py_binary like:
-# py_binary(
-#     name = "localstack_cli",
-#     testonly = 1,
-#     srcs = ["localstack_cli.py"],
-#     deps = ["@pypa_localstack//:localstack"],
-# )
-#
-# Where localstack_cli.py is something like this:
-#   if __name__ == "__main__":
-#     localstack.cli.main.main()
-#
-# However localstack[runtime] resolves to a pypa dependency on dill which conflicts with
-# the apache-beam dependency on dill.
+py_binary(
+    name = "moto_server",
+    testonly = 1,
+    srcs = ["moto_server.py"],
+    tags = [
+        "manual",
+        "notap",
+        "skip-cmake",
+    ],
+    deps = ["@pypa_moto//:moto"],
+)
