@@ -210,16 +210,26 @@ cc_library(
                 result.stderr,
                 result.stdout,
             ))
-        build_file_content += """
+
+        build_file_content += ("""
+
 py_library(
   name = """ + repr(ctx.attr.target) + """,
   srcs = glob(["**/*.py"]),
   data = glob(["**/*"], exclude=["**/*.py", "**/* *", "BUILD.bazel", "WORKSPACE"]),
   imports = ["."],
-  deps = """ + repr(ctx.attr.deps) + """,
+  deps = """ + repr(ctx.attr.deps) + """ +
+    select({
+       "@platforms//os:windows": """ + repr(ctx.attr.win32) + """,
+       "//conditions:default":  """ + repr(ctx.attr.not_win32) + """,
+    }) +
+    select({
+       "@platforms//os:osx": """ + repr(ctx.attr.darwin) + """,
+       "//conditions:default": """ + repr(ctx.attr.not_darwin) + """,
+    }),
   visibility = ["//visibility:public"],
 )
-"""
+""")
         if is_numpy:
             build_file_content += """
 
@@ -237,10 +247,16 @@ cc_library(
         content = build_file_content,
     )
 
+# Select is not permitted, so build pypi conditionals from input variables win32, not_win32, etc.
+
 _third_party_python_package_attrs = {
     "requirement": attr.string(),
     "target": attr.string(),
     "deps": attr.string_list(),
+    "win32": attr.string_list(),
+    "not_win32": attr.string_list(),
+    "darwin": attr.string_list(),
+    "not_darwin": attr.string_list(),
     "_create_init_files": attr.label(
         default = Label("//third_party:pypa/create_init_files.py"),
     ),

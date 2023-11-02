@@ -4,6 +4,14 @@ package(default_visibility = ["//tensorstore:internal_packages"])
 
 licenses(["notice"])
 
+# Ensure that ws2_32.lib is linked for mingw.
+_WS2_32_LINKOPTS = select({
+    "@tensorstore//:compiler_mingw_gcc": [
+        "-lws2_32",
+    ],
+    "//conditions:default": [],
+})
+
 tensorstore_cc_library(
     name = "curl_factory",
     srcs = ["curl_factory.cc"],
@@ -134,6 +142,7 @@ tensorstore_cc_test(
 tensorstore_cc_test(
     name = "curl_transport_test",
     srcs = ["curl_transport_test.cc"],
+    linkopts = _WS2_32_LINKOPTS,
     deps = [
         ":curl_transport",
         ":transport_test_utils",
@@ -148,6 +157,7 @@ tensorstore_cc_test(
 tensorstore_cc_test(
     name = "curl_transport_http2_test",
     srcs = ["curl_transport_http2_test.cc"],
+    linkopts = _WS2_32_LINKOPTS,
     deps = [
         ":curl_transport",
         ":http",
@@ -191,12 +201,11 @@ tensorstore_cc_library(
     testonly = 1,
     srcs = ["transport_test_utils.cc"],
     hdrs = ["transport_test_utils.h"],
+    linkopts = _WS2_32_LINKOPTS,
     deps = [
         "//tensorstore/internal:global_initializer",
         "//tensorstore/internal:no_destructor",
         "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/base",
-        "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/log:absl_log",

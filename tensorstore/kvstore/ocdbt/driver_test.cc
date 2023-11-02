@@ -22,6 +22,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/strings/cord.h"
+#include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/json_fwd.h"

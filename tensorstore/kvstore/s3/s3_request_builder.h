@@ -42,18 +42,17 @@ namespace internal_kvstore_s3 {
 /// It adds the following functionality to HttpRequestBuilder:
 ///
 ///   1. The *host*, *x-amz-content-sha256* and *x-amz-date* headers are added
-///   to the request headers
-///      when `BuildRequest` is called.
+///      to the request headers when `BuildRequest` is called.
 ///   2. If provided with S3 credentials, an Authorization header is added to
-///   the request headers.
+///      the request headers.
 ///      Additionally, an *x-amz-security-token* header is added if an STS
 ///      session token is provided in the credentials. The calculation of this
 ///      header is described here.
 ///      https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
 ///   3. If the AWS credentials are empty, the Authorization header is omitted,
-///   representing anonymous access.
+///      representing anonymous access.
 ///   4. The request url and query parameters are encoded using S3 specific URI
-///   encoding logic described here:
+///      encoding logic described here:
 ///      https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html#create-signature-presign-entire-payload
 ///
 class S3RequestBuilder {

@@ -1,14 +1,15 @@
-# DO NOT EDIT: Generated from test_requirements.txt by generate_workspace.py
-numpy==1.24.4
-pytest==7.4.2
+# DO NOT EDIT: Generated from test_requirements.txt by pypi_solver
+numpy==1.26.1
+pytest==7.4.3
 pytest-asyncio==0.21.1
-cloudpickle==2.2.1
+cloudpickle==3.0.0
 ml_dtypes==0.3.1
-grpcio==1.59.0
+moto[s3,server]==4.2.7
+grpcio==1.59.2
 flask==3.0.0
 requests-toolbelt==1.0.0
 scalpl==0.4.2
 crc32c==2.3.post0
-werkzeug==3.0.0
+werkzeug==3.0.1
 googleapis-common-protos==1.61.0
 protobuf==4.24.4

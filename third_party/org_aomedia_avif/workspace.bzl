@@ -26,10 +26,10 @@ def repo():
         third_party_http_archive,
         name = "org_aomedia_avif",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/AOMediaCodec/libavif/archive/88d98ec7a85d6eebbe6ee3630b0701d3d7fcff7b.tar.gz",  # main(2022-11-01)
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/AOMediaCodec/libavif/archive/d1c26facaf5a8a97919ceee06814d05d10e25622.tar.gz",  # 1.0.1(2023-08-30)
         ],
-        sha256 = "7dc8c044b36d72c496eb6d48e9f03675505dbc7ae05b6b12d51a6f09fddaa0f3",
-        strip_prefix = "libavif-88d98ec7a85d6eebbe6ee3630b0701d3d7fcff7b",
+        sha256 = "ace07eede0af2960dbad3b46f66a2902cc622ccdf4c404ad92620e38050498ba",
+        strip_prefix = "libavif-d1c26facaf5a8a97919ceee06814d05d10e25622",
         build_file = Label("//third_party:org_aomedia_avif/libavif.BUILD.bazel"),
         system_build_file = Label("//third_party:org_aomedia_avif/system.BUILD.bazel"),
         cmake_name = "AVIF",

@@ -50,31 +50,13 @@ namespace {
 
 class CustomDTypes {
  public:
-  static const CustomDTypes& GetInstance() {
-    static const internal::NoDestructor<CustomDTypes> instance{CustomDTypes()};
-    return *instance;
-  }
+  CustomDTypes() = delete;
 
-  int GetNumpyTypeNum(DataTypeId id) const {
-    auto it = datatype_to_numpy_map_.find(id);
-    assert(it != datatype_to_numpy_map_.end());
-    return it->second;
-  }
-
-  DataTypeId GetDataTypeId(int num) const {
-    if (auto it = numpy_to_datatype_map_.find(num);
-        it != numpy_to_datatype_map_.end()) {
-      return it->second;
-    } else {
-      return DataTypeId::num_ids;
-    }
-  }
-
- private:
-  CustomDTypes() {
+  static void Initialize() {
+    // this function should be called from the global initialization
     py::module ml_dtypes = py::module::import("ml_dtypes");
 
-    datatype_to_numpy_map_ = {
+    *datatype_to_numpy_map_ = {
         {DataTypeId::bfloat16_t,
          py::dtype::from_args(ml_dtypes.attr("bfloat16")).num()},
         {DataTypeId::float8_e4m3fn_t,
@@ -93,14 +75,37 @@ class CustomDTypes {
         // {DataTypeId::uint4_t, py::dtype::from_args(ml_dtypes.attr("uint4"))},
     };
 
-    for (auto [k, v] : datatype_to_numpy_map_) {
-      numpy_to_datatype_map_.emplace(v, k);
+    for (auto [k, v] : *datatype_to_numpy_map_) {
+      numpy_to_datatype_map_->emplace(v, k);
     }
   }
 
-  absl::flat_hash_map<DataTypeId, int> datatype_to_numpy_map_;
-  absl::flat_hash_map<int, DataTypeId> numpy_to_datatype_map_;
+  static int GetNumpyTypeNum(DataTypeId id) {
+    auto it = datatype_to_numpy_map_->find(id);
+    assert(it != datatype_to_numpy_map_->end());
+    return it->second;
+  }
+
+  static DataTypeId GetDataTypeId(int num) {
+    if (auto it = numpy_to_datatype_map_->find(num);
+        it != numpy_to_datatype_map_->end()) {
+      return it->second;
+    } else {
+      return DataTypeId::num_ids;
+    }
+  }
+
+ private:
+  static internal::NoDestructor<absl::flat_hash_map<DataTypeId, int>>
+      datatype_to_numpy_map_;
+  static internal::NoDestructor<absl::flat_hash_map<int, DataTypeId>>
+      numpy_to_datatype_map_;
 };
+
+internal::NoDestructor<absl::flat_hash_map<DataTypeId, int>>
+    CustomDTypes::datatype_to_numpy_map_;
+internal::NoDestructor<absl::flat_hash_map<int, DataTypeId>>
+    CustomDTypes::numpy_to_datatype_map_;
 
 };  // namespace
 
@@ -133,7 +138,7 @@ int GetNumpyTypeNum(DataType dtype) {
     case DataTypeId::float8_e5m2fnuz_t:
     case DataTypeId::int4_t:
       // case DataTypeId::uint4_t: // TODO (ChromeHearts) implement uint4
-      return CustomDTypes::GetInstance().GetNumpyTypeNum(id);
+      return CustomDTypes::GetNumpyTypeNum(id);
     default:
       return kNumpyTypeNumForDataTypeId[static_cast<size_t>(id)];
   }
@@ -152,7 +157,7 @@ py::dtype GetNumpyDtypeOrThrow(DataType dtype) {
 DataType GetDataType(pybind11::dtype dt) {
   const int type_num = py::detail::array_descriptor_proxy(dt.ptr())->type_num;
 
-  if (DataTypeId type_id = CustomDTypes::GetInstance().GetDataTypeId(type_num);
+  if (DataTypeId type_id = CustomDTypes::GetDataTypeId(type_num);
       type_id != DataTypeId::num_ids) {
     return kDataTypes[static_cast<size_t>(type_id)];
   }
@@ -260,6 +265,8 @@ Overload:
 }
 
 void RegisterDataTypeBindings(pybind11::module m, Executor defer) {
+  CustomDTypes::Initialize();
+
   defer([cls = MakeDataTypeClass(m)]() mutable {
     DefineDataTypeAttributes(cls);
   });

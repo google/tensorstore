@@ -22,12 +22,12 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "se_curl",
-        strip_prefix = "curl-8.3.0",
+        strip_prefix = "curl-8.4.0",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/curl.se/download/curl-8.3.0.tar.gz",
-            "https://curl.se/download/curl-8.3.0.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/curl.se/download/curl-8.4.0.tar.gz",
+            "https://curl.se/download/curl-8.4.0.tar.gz",
         ],
-        sha256 = "d3a19aeea301085a56c32bc0f7d924a818a7893af253e41505d1e26d7db8e95a",
+        sha256 = "816e41809c043ff285e8c0f06a75a1fa250211bbfb2dc0a037eeef39f1a9e427",
         build_file = Label("//third_party:se_curl/curl.BUILD.bazel"),
         system_build_file = Label("//third_party:se_curl/system.BUILD.bazel"),
         cmake_name = "CURL",

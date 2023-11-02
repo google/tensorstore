@@ -44,6 +44,7 @@ tensorstore_cc_library(
     hdrs = ["s3_metadata.h"],
     local_defines = DEBUG_LOCAL_DEFINES,
     deps = [
+        ":s3_endpoint",
         ":s3_request_builder",
         ":s3_resource",
         ":s3_uri_utils",
@@ -231,12 +232,13 @@ tensorstore_cc_test(
 tensorstore_cc_test(
     name = "localstack_test",
     srcs = ["localstack_test.cc"],
-    # args = ["--localstack_binary=$(location :localstack_cli)"],
-    # data = [":localstack_cli"],
+    args = [
+        "--localstack_binary=$(location :moto_server)",
+        "--binary_mode=moto",
+    ],
+    data = [":moto_server"],
     tags = [
-        "manual",
-        "notap",  # TODO: Enable before linking by default.
-        "skip-cmake",  # localstack is python, which will not work in bazel_to_cmake.
+        "skip-cmake",  # moto is python, which will not work in bazel_to_cmake.
     ],
     deps = [
         "//tensorstore/kvstore/s3/credentials:aws_credential_provider",
@@ -255,10 +257,12 @@ tensorstore_cc_test(
         "//tensorstore/util:future",
         "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
+        "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/time",
@@ -266,17 +270,50 @@ tensorstore_cc_test(
     ],
 )
 
-# NOTE: For the localstack_test, it seems simples to add a proxy py_binary like:
-# py_binary(
-#     name = "localstack_cli",
-#     testonly = 1,
-#     srcs = ["localstack_cli.py"],
-#     deps = ["@pypa_localstack//:localstack"],
-# )
-#
-# Where localstack_cli.py is something like this:
-#   if __name__ == "__main__":
-#     localstack.cli.main.main()
-#
-# However localstack[runtime] resolves to a pypa dependency on dill which conflicts with
-# the apache-beam dependency on dill.
+tensorstore_cc_library(
+    name = "s3_endpoint",
+    srcs = ["s3_endpoint.cc"],
+    hdrs = ["s3_endpoint.h"],
+    deps = [
+        ":validate",
+        "//tensorstore/internal:uri_utils",
+        "//tensorstore/internal/http",
+        "//tensorstore/util:future",
+        "//tensorstore/util:quote_string",
+        "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/log:absl_check",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+    ],
+)
+
+tensorstore_cc_test(
+    name = "s3_endpoint_test",
+    srcs = ["s3_endpoint_test.cc"],
+    deps = [
+        ":s3_endpoint",
+        "//tensorstore/internal/http",
+        "//tensorstore/util:future",
+        "//tensorstore/util:status_testutil",
+        "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/log:absl_log",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+py_binary(
+    name = "moto_server",
+    testonly = 1,
+    srcs = ["moto_server.py"],
+    tags = [
+        "manual",
+        "notap",
+        "skip-cmake",
+    ],
+    deps = ["@pypa_moto//:moto"],
+)
