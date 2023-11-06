@@ -181,6 +181,7 @@ tensorstore_cc_test(
         "//tensorstore/util:status_testutil",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/strings:str_format",
         "@com_google_googletest//:gtest_main",
     ],
 )

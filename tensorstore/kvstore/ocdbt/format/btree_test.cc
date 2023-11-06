@@ -14,6 +14,9 @@
 
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
 
+#include <stddef.h>
+
+#include <algorithm>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -22,7 +25,10 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_format.h"
+#include "riegeli/bytes/writer.h"
 #include "tensorstore/kvstore/ocdbt/format/btree_codec.h"
 #include "tensorstore/kvstore/ocdbt/format/btree_node_encoder.h"
 #include "tensorstore/kvstore/ocdbt/format/codec_util.h"
@@ -41,6 +47,7 @@ using ::tensorstore::internal_ocdbt::Config;
 using ::tensorstore::internal_ocdbt::DecodeBtreeNode;
 using ::tensorstore::internal_ocdbt::EncodedNode;
 using ::tensorstore::internal_ocdbt::InteriorNodeEntry;
+using ::tensorstore::internal_ocdbt::kMaxNodeArity;
 using ::tensorstore::internal_ocdbt::LeafNodeEntry;
 
 Result<std::vector<EncodedNode>> EncodeExistingNode(const Config& config,
@@ -273,6 +280,42 @@ TEST(BtreeNodeTest, CorruptInteriorZeroNumEntries) {
       }),
       MatchesStatus(absl::StatusCode::kDataLoss,
                     "Error decoding b-tree node: Empty b-tree node; .*"));
+}
+
+TEST(BtreeNodeTest, MaxArity) {
+  Config config;
+  config.compression = Config::NoCompression{};
+  config.max_decoded_node_bytes = 1000000000;
+  BtreeNode node;
+  node.height = 0;
+  auto& entries = node.entries.emplace<BtreeNode::LeafNodeEntries>();
+  std::vector<std::string> keys;
+  for (size_t i = 0; i <= kMaxNodeArity; ++i) {
+    keys.push_back(absl::StrFormat("%07d", i));
+  }
+  std::sort(keys.begin(), keys.end());
+  const auto add_entry = [&](size_t i) {
+    entries.push_back({/*.key=*/keys[i],
+                       /*.value_reference=*/absl::Cord()});
+  };
+  for (size_t i = 0; i < kMaxNodeArity; ++i) {
+    add_entry(i);
+  }
+  TestBtreeNodeRoundTrip(config, node);
+  add_entry(kMaxNodeArity);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto encoded_nodes,
+                                   EncodeExistingNode(config, node));
+  ASSERT_EQ(2, encoded_nodes.size());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto decoded_node1,
+      DecodeBtreeNode(encoded_nodes[0].encoded_node, /*base_path=*/{}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto decoded_node2,
+      DecodeBtreeNode(encoded_nodes[1].encoded_node, /*base_path=*/{}));
+  EXPECT_EQ(kMaxNodeArity / 2 + 1,
+            std::get<BtreeNode::LeafNodeEntries>(decoded_node1.entries).size());
+  EXPECT_EQ(kMaxNodeArity / 2,
+            std::get<BtreeNode::LeafNodeEntries>(decoded_node2.entries).size());
 }
 
 }  // namespace
