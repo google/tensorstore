@@ -98,7 +98,7 @@ using ::tensorstore::internal::TestSpecSchema;
 using ::tensorstore::internal::TestTensorStoreCreateCheckSchema;
 using ::tensorstore::internal::TestTensorStoreCreateWithSchema;
 using ::testing::ElementsAreArray;
-using ::testing::Pair;
+using ::testing::Pair; 
 using ::testing::UnorderedElementsAreArray;
 
 std::string Bytes(std::vector<unsigned char> values) {
@@ -118,6 +118,79 @@ std::string Bytes(std::vector<unsigned char> values) {
            {"chunks", {3, 2}},
        }},
   };
+}
+
+
+::nlohmann::json GetJsonSpecStruct() {
+    std::string new_spec = R"(
+        {
+            "driver": "zarr",
+            "kvstore": {
+                "driver": "file",
+                "path": "test.zarr"
+            },
+            "field": "a",
+            "metadata": {
+                "compressor": {"id": "blosc"},
+                "dtype": [["a", "<i2"], ["b", "<i4"], ["c", "|V10"]],
+                "shape": [100, 100],
+                "chunks": [3, 2],
+                "dimension_separator": "/"
+            }
+        }
+    )";
+    // Parse the string to a JSON object
+    return nlohmann::json::parse(new_spec);
+}
+
+
+::nlohmann::json GetJsonSpecStructBasic() {
+    std::string new_spec = R"(
+        {
+            "driver": "zarr",
+            "kvstore": {
+                "driver": "file",
+                "path": "test.zarr"
+            }
+        }
+    )";
+    // Parse the string to a JSON object
+    return nlohmann::json::parse(new_spec);
+}
+
+TEST(TENSORSTORE, STRUCTARRAY) {
+  EXPECT_THAT(
+      tensorstore::Open(
+          GetJsonSpecStruct(),
+          tensorstore::OpenMode::create | tensorstore::OpenMode::open,
+          tensorstore::ReadWriteMode::dynamic)
+          .result(),
+      MatchesStatus(
+          absl::StatusCode::kOk)
+    );
+
+    std::cout << " ---------- \n\n\n";
+
+    EXPECT_THAT(
+        tensorstore::Open(
+            GetJsonSpecStructBasic(),
+            tensorstore::OpenMode::open,
+            tensorstore::ReadWriteMode::dynamic)
+            .result(),
+        MatchesStatus(
+            absl::StatusCode::kOk)
+    );
+
+    auto store = tensorstore::Open(
+        GetJsonSpecStructBasic(),
+        tensorstore::OpenMode::open,
+        tensorstore::ReadWriteMode::dynamic).result();
+    std::cout << store->dtype() << std::endl;
+    std::cout << store->domain() << std::endl;
+
+
+    std::filesystem::remove_all("test.zarr");
+
 }
 
 TEST(OpenTest, DeleteExistingWithoutCreate) {

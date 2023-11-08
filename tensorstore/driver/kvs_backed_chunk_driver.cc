@@ -804,7 +804,7 @@ Result<internal::Driver::Handle> CreateTensorStoreFromMetadata(
     OpenState::Ptr state, std::shared_ptr<const void> metadata,
     size_t component_index) {
   ABSL_LOG_IF(INFO, TENSORSTORE_KVS_DRIVER_DEBUG)
-      << "CreateTensorStoreFromMetadata: state=" << state.get();
+      << "CreateTensorStoreFromMetadata : state=" << state.get();
   auto& base = *(PrivateOpenState*)state.get();  // Cast to private base
   // TODO(jbms): The read-write mode should be determined based on the kvstore
   // mode, once that is exposed.
@@ -818,11 +818,16 @@ Result<internal::Driver::Handle> CreateTensorStoreFromMetadata(
   std::string chunk_cache_identifier;
   if (!base.metadata_cache_key_.empty()) {
     auto data_cache_key = state->GetDataCacheKey(metadata.get());
+    // this includes the dtype etc
+    std::cout << "DATA CACHE KEY " << data_cache_key << std::endl;
+
     if (!data_cache_key.empty()) {
       internal::EncodeCacheKey(&chunk_cache_identifier, data_cache_key,
                                base.metadata_cache_key_);
     }
   }
+  std::cout << "OOO OO " << base.metadata_cache_key_ << std::endl;
+
   absl::Status data_key_value_store_status;
   const auto& state_ref = *state;
   auto data_cache =

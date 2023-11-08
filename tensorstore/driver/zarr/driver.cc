@@ -64,12 +64,22 @@ DimensionSeparator GetDimensionSeparator(
 Result<ZarrMetadataPtr> ParseEncodedMetadata(std::string_view encoded_value) {
   nlohmann::json raw_data = nlohmann::json::parse(encoded_value, nullptr,
                                                   /*allow_exceptions=*/false);
+  // gets called after ZarrDriver::Open in open mode
+  std::cout << "WAZZ A WAZZ UP" << std::endl;
+  // raw_data is this {"chunks":[3,2],"compressor":{"blocksize":0,"clevel":5,"cname":"lz4","id":"blosc","shuffle":-1},"dimension_separator":"/","dtype":[["a","<i2"],["b","<i4"],["c","|V10"]],"fill_value":null,"filters":null,"order":"C","shape":[100,100],"zarr_format":2}  
+  //std::cout << raw_data << std::endl;
+  // this will succeed here but fail later ... in the kvs_backed_chunk_driver.cc:1256
+  raw_data["dtype"] = "|V16";
+  // Error opening "zarr" driver: Expected "dtype" of [["a","<i2"],["b","<i4"],["c","|V10"]]
+  //tensorstore/tensorstore/driver/zarr/driver.cc:515
+  //tensorstore/tensorstore/driver/kvs_backed_chunk_driver.cc:1256
   if (raw_data.is_discarded()) {
     return absl::FailedPreconditionError("Invalid JSON");
   }
   auto metadata = std::make_shared<ZarrMetadata>();
   TENSORSTORE_ASSIGN_OR_RETURN(*metadata,
                                ZarrMetadata::FromJson(std::move(raw_data)));
+  ///std::cout << "HHHH\n\n";
   return metadata;
 }
 
@@ -376,6 +386,7 @@ Result<SharedArray<const void>> ZarrDriver::GetFillValue(
 Future<internal::Driver::Handle> ZarrDriverSpec::Open(
     internal::OpenTransactionPtr transaction,
     ReadWriteMode read_write_mode) const {
+      std::cout << "HERE " <<  std::endl;
   return ZarrDriver::Open(std::move(transaction), this, read_write_mode);
 }
 
@@ -438,6 +449,8 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
 
   Result<std::shared_ptr<const void>> Create(
       const void* existing_metadata) override {
+    std::cout << "MAKE SOME NOISE!" << std::endl;
+
     if (existing_metadata) {
       return absl::AlreadyExistsError("");
     }
@@ -451,20 +464,47 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
   }
 
   std::string GetDataCacheKey(const void* metadata) override {
+    std::cout << "BIT CONNECT!" << std::endl;
     std::string result;
     const auto& spec = this->spec();
     const auto& zarr_metadata = *static_cast<const ZarrMetadata*>(metadata);
+
+    // we could change the metadata object here. 
+    // Encode seems to me convert from json to a string.
+    std::cout << zarr_metadata.dtype.has_fields << std::endl;
+
+    // EncodeCacheKey
+    /*  test.zarr/{
+        "chunks": [3, 2],
+        "compressor": {
+          "blocksize":0,"clevel":5,"cname":"lz4","id":"blosc","shuffle":-1
+          },
+        "dimension_separator":"/",
+        "dtype":[["a","<i2"],["b","<i4"],["c","|V10"]],
+        "fill_value":null,"filters":null,
+        "order":"C",
+        "shape":2,
+        "zarr_format":2}.zarray
+    */
+
     internal::EncodeCacheKey(
         &result, spec.store.path,
         GetDimensionSeparator(spec.partial_metadata, zarr_metadata),
         zarr_metadata, spec.metadata_key);
+
+    std::cout << result << std::endl;
     return result;
   }
 
   std::unique_ptr<internal_kvs_backed_chunk_driver::DataCacheBase> GetDataCache(
       DataCache::Initializer&& initializer) override {
+    // seems to get executated after GetDataCacheKey (on creation)
+    std::cout << "HEY HEY HEY" << std::endl;
+    // this is the zarr file
+    std::cout << spec().metadata_key << std::endl;
     const auto& metadata =
         *static_cast<const ZarrMetadata*>(initializer.metadata.get());
+
     return std::make_unique<DataCache>(
         std::move(initializer), spec().store.path,
         GetDimensionSeparator(spec().partial_metadata, metadata),
@@ -474,10 +514,17 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
   Result<std::size_t> GetComponentIndex(const void* metadata_ptr,
                                         OpenMode open_mode) override {
     const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
+
+    // will I crash here
+    std::cout << "Will I crash?" << std::endl;
     TENSORSTORE_RETURN_IF_ERROR(
         ValidateMetadata(metadata, spec().partial_metadata));
+    /// I crash here
+    std::cout << "selected field : " << spec().selected_field << std::endl;
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto field_index, GetFieldIndex(metadata.dtype, spec().selected_field));
+    
+    
     TENSORSTORE_RETURN_IF_ERROR(
         ValidateMetadataSchema(metadata, field_index, spec().schema));
     return field_index;
