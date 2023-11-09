@@ -12,7 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <cstddef>
+#include <stddef.h>
+
+#include <string>
 
 #include "absl/status/status.h"
 #include "tensorstore/util/span.h"

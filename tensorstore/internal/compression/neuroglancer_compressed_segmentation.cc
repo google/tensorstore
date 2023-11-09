@@ -14,9 +14,17 @@
 
 #include "tensorstore/internal/compression/neuroglancer_compressed_segmentation.h"
 
-#include <cstddef>
+#include <stddef.h>
+#include <stdint.h>
+
+#include <algorithm>
+#include <cassert>
+#include <string>
+#include <string_view>
+#include <vector>
 
 #include "absl/base/internal/endian.h"
+#include "absl/container/flat_hash_map.h"
 
 namespace tensorstore {
 namespace neuroglancer_compressed_segmentation {
@@ -33,9 +41,9 @@ void WriteBlockHeader(size_t encoded_value_base_offset,
 }
 
 template <typename Label>
-void EncodeBlock(const Label* input, const std::ptrdiff_t input_shape[3],
-                 const std::ptrdiff_t input_byte_strides[3],
-                 const std::ptrdiff_t block_shape[3], size_t base_offset,
+void EncodeBlock(const Label* input, const ptrdiff_t input_shape[3],
+                 const ptrdiff_t input_byte_strides[3],
+                 const ptrdiff_t block_shape[3], size_t base_offset,
                  size_t* encoded_bits_output, size_t* table_offset_output,
                  EncodedValueCache<Label>* cache, std::string* output) {
   if (input_shape[0] == 0 && input_shape[1] == 0 && input_shape[2] == 0) {
@@ -48,18 +56,18 @@ void EncodeBlock(const Label* input, const std::ptrdiff_t input_shape[3],
 
   // TODO(jbms): allow the memory allocated for these to be shared across
   // multiple calls to EncodeBlock.
-  absl::flat_hash_map<Label, std::uint32_t> seen_values;
+  absl::flat_hash_map<Label, uint32_t> seen_values;
   std::vector<Label> seen_values_inv;
 
   // Calls `func(z, y, x, label)` for each `label` value within the block, in C
   // order.
   const auto ForEachElement = [&](auto func) {
     auto* input_z = reinterpret_cast<const char*>(input);
-    for (std::ptrdiff_t z = 0; z < input_shape[0]; ++z) {
+    for (ptrdiff_t z = 0; z < input_shape[0]; ++z) {
       auto* input_y = input_z;
-      for (std::ptrdiff_t y = 0; y < input_shape[1]; ++y) {
+      for (ptrdiff_t y = 0; y < input_shape[1]; ++y) {
         auto* input_x = input_y;
-        for (std::ptrdiff_t x = 0; x < input_shape[2]; ++x) {
+        for (ptrdiff_t x = 0; x < input_shape[2]; ++x) {
           func(z, y, x, *reinterpret_cast<const Label*>(input_x));
           input_x += input_byte_strides[2];
         }
@@ -146,14 +154,14 @@ void EncodeBlock(const Label* input, const std::ptrdiff_t input_shape[3],
       output_ptr += num_32bit_words_per_label * 4;
     }
     cache->emplace(seen_values_inv,
-                   static_cast<std::uint32_t>(*table_offset_output));
+                   static_cast<uint32_t>(*table_offset_output));
   }
 }
 
 template <class Label>
-void EncodeChannel(const Label* input, const std::ptrdiff_t input_shape[3],
-                   const std::ptrdiff_t input_byte_strides[3],
-                   const std::ptrdiff_t block_shape[3], std::string* output) {
+void EncodeChannel(const Label* input, const ptrdiff_t input_shape[3],
+                   const ptrdiff_t input_byte_strides[3],
+                   const ptrdiff_t block_shape[3], std::string* output) {
   EncodedValueCache<Label> cache;
   const size_t base_offset = output->size();
   ptrdiff_t grid_shape[3];
@@ -192,12 +200,12 @@ void EncodeChannel(const Label* input, const std::ptrdiff_t input_shape[3],
 }
 
 template <class Label>
-void EncodeChannels(const Label* input, const std::ptrdiff_t input_shape[3 + 1],
-                    const std::ptrdiff_t input_byte_strides[3 + 1],
-                    const std::ptrdiff_t block_shape[3], std::string* output) {
+void EncodeChannels(const Label* input, const ptrdiff_t input_shape[3 + 1],
+                    const ptrdiff_t input_byte_strides[3 + 1],
+                    const ptrdiff_t block_shape[3], std::string* output) {
   const size_t base_offset = output->size();
   output->resize(base_offset + input_shape[0] * 4);
-  for (std::ptrdiff_t channel_i = 0; channel_i < input_shape[0]; ++channel_i) {
+  for (ptrdiff_t channel_i = 0; channel_i < input_shape[0]; ++channel_i) {
     absl::little_endian::Store32(output->data() + base_offset + channel_i * 4,
                                  (output->size() - base_offset) / 4);
     EncodeChannel(
@@ -218,9 +226,9 @@ void ReadBlockHeader(const void* header, size_t* encoded_value_base_offset,
 template <typename Label>
 bool DecodeBlock(size_t encoded_bits, const char* encoded_input,
                  const char* table_input, size_t table_size,
-                 const std::ptrdiff_t block_shape[3],
-                 const std::ptrdiff_t output_shape[3],
-                 const std::ptrdiff_t output_byte_strides[3], Label* output) {
+                 const ptrdiff_t block_shape[3],
+                 const ptrdiff_t output_shape[3],
+                 const ptrdiff_t output_byte_strides[3], Label* output) {
   // TODO(jbms): Consider specializing this function for the value of
   // `encoded_bits` and whether `table_size` is `< 2**encoded_bits`.  If
   // `table_size >= 2**encoded_bits`, there is no need to check below that
@@ -231,11 +239,11 @@ bool DecodeBlock(size_t encoded_bits, const char* encoded_input,
   // returns `true` when done.
   const auto for_each_position = [&](auto callback) {
     auto* output_z = reinterpret_cast<char*>(output);
-    for (std::ptrdiff_t z = 0; z < output_shape[0]; ++z) {
+    for (ptrdiff_t z = 0; z < output_shape[0]; ++z) {
       auto* output_y = output_z;
-      for (std::ptrdiff_t y = 0; y < output_shape[1]; ++y) {
+      for (ptrdiff_t y = 0; y < output_shape[1]; ++y) {
         auto* output_x = output_y;
-        for (std::ptrdiff_t x = 0; x < output_shape[2]; ++x) {
+        for (ptrdiff_t x = 0; x < output_shape[2]; ++x) {
           auto& label = *reinterpret_cast<Label*>(output_x);
           if (!callback(label, z, y, x)) return false;
           output_x += output_byte_strides[2];
@@ -267,8 +275,7 @@ bool DecodeBlock(size_t encoded_bits, const char* encoded_input,
         });
   }
 
-  const std::uint32_t encoded_value_mask =
-      (std::uint32_t(1) << encoded_bits) - 1;
+  const uint32_t encoded_value_mask = (1U << encoded_bits) - 1;
   return for_each_position([&](Label& output_label, ptrdiff_t z, ptrdiff_t y,
                                ptrdiff_t x) {
     size_t encoded_offset = x + block_shape[2] * (y + block_shape[1] * z);
@@ -284,9 +291,9 @@ bool DecodeBlock(size_t encoded_bits, const char* encoded_input,
 }
 
 template <typename Label>
-bool DecodeChannel(std::string_view input, const std::ptrdiff_t block_shape[3],
-                   const std::ptrdiff_t output_shape[3],
-                   const std::ptrdiff_t output_byte_strides[3], Label* output) {
+bool DecodeChannel(std::string_view input, const ptrdiff_t block_shape[3],
+                   const ptrdiff_t output_shape[3],
+                   const ptrdiff_t output_byte_strides[3], Label* output) {
   if ((input.size() % 4) != 0) return false;
   ptrdiff_t grid_shape[3];
   size_t block_index_size = kBlockHeaderSize;
@@ -352,16 +359,15 @@ bool DecodeChannel(std::string_view input, const std::ptrdiff_t block_shape[3],
 }
 
 template <typename Label>
-bool DecodeChannels(std::string_view input, const std::ptrdiff_t block_shape[3],
-                    const std::ptrdiff_t output_shape[3 + 1],
-                    const std::ptrdiff_t output_byte_strides[3 + 1],
-                    Label* output) {
+bool DecodeChannels(std::string_view input, const ptrdiff_t block_shape[3],
+                    const ptrdiff_t output_shape[3 + 1],
+                    const ptrdiff_t output_byte_strides[3 + 1], Label* output) {
   if ((input.size() % 4) != 0) return false;
-  if (input.size() / 4 < static_cast<std::size_t>(output_shape[0])) {
+  if (input.size() / 4 < static_cast<size_t>(output_shape[0])) {
     // `input` is too short to contain channel offsets
     return false;
   }
-  for (std::ptrdiff_t channel_i = 0; channel_i < output_shape[0]; ++channel_i) {
+  for (ptrdiff_t channel_i = 0; channel_i < output_shape[0]; ++channel_i) {
     const size_t offset =
         absl::little_endian::Load32(input.data() + channel_i * 4);
     if (offset > input.size() / 4) {
@@ -382,32 +388,32 @@ bool DecodeChannels(std::string_view input, const std::ptrdiff_t block_shape[3],
 
 #define DO_INSTANTIATE(Label)                                                  \
   template void EncodeBlock<Label>(                                            \
-      const Label* input, const std::ptrdiff_t input_shape[3],                 \
-      const std::ptrdiff_t input_byte_strides[3],                              \
-      const std::ptrdiff_t block_shape[3], size_t base_offset,                 \
-      size_t* encoded_bits_output, size_t* table_offset_output,                \
-      EncodedValueCache<Label>* cache, std::string* output);                   \
+      const Label* input, const ptrdiff_t input_shape[3],                      \
+      const ptrdiff_t input_byte_strides[3], const ptrdiff_t block_shape[3],   \
+      size_t base_offset, size_t* encoded_bits_output,                         \
+      size_t* table_offset_output, EncodedValueCache<Label>* cache,            \
+      std::string* output);                                                    \
   template void EncodeChannel<Label>(                                          \
-      const Label* input, const std::ptrdiff_t input_shape[3],                 \
-      const std::ptrdiff_t input_byte_strides[3],                              \
-      const std::ptrdiff_t block_shape[3], std::string* output);               \
+      const Label* input, const ptrdiff_t input_shape[3],                      \
+      const ptrdiff_t input_byte_strides[3], const ptrdiff_t block_shape[3],   \
+      std::string* output);                                                    \
   template void EncodeChannels<Label>(                                         \
-      const Label* input, const std::ptrdiff_t input_shape[3 + 1],             \
-      const std::ptrdiff_t input_byte_strides[3 + 1],                          \
-      const std::ptrdiff_t block_shape[3], std::string* output);               \
+      const Label* input, const ptrdiff_t input_shape[3 + 1],                  \
+      const ptrdiff_t input_byte_strides[3 + 1],                               \
+      const ptrdiff_t block_shape[3], std::string* output);                    \
   template bool DecodeBlock(                                                   \
       size_t encoded_bits, const char* encoded_input, const char* table_input, \
-      size_t table_size, const std::ptrdiff_t block_shape[3],                  \
-      const std::ptrdiff_t output_shape[3],                                    \
-      const std::ptrdiff_t output_byte_strides[3], Label* output);             \
+      size_t table_size, const ptrdiff_t block_shape[3],                       \
+      const ptrdiff_t output_shape[3], const ptrdiff_t output_byte_strides[3], \
+      Label* output);                                                          \
   template bool DecodeChannel<Label>(                                          \
-      std::string_view input, const std::ptrdiff_t block_shape[3],             \
-      const std::ptrdiff_t output_shape[3],                                    \
-      const std::ptrdiff_t output_byte_strides[3], Label* output);             \
+      std::string_view input, const ptrdiff_t block_shape[3],                  \
+      const ptrdiff_t output_shape[3], const ptrdiff_t output_byte_strides[3], \
+      Label* output);                                                          \
   template bool DecodeChannels(                                                \
-      std::string_view input, const std::ptrdiff_t block_shape[3],             \
-      const std::ptrdiff_t output_shape[3 + 1],                                \
-      const std::ptrdiff_t output_byte_strides[3 + 1], Label* output);         \
+      std::string_view input, const ptrdiff_t block_shape[3],                  \
+      const ptrdiff_t output_shape[3 + 1],                                     \
+      const ptrdiff_t output_byte_strides[3 + 1], Label* output);              \
   /**/
 
 DO_INSTANTIATE(std::uint32_t)

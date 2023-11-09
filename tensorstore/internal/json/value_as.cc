@@ -14,12 +14,15 @@
 
 #include "tensorstore/internal/json/value_as.h"
 
+#include <stdint.h>
+
 #include <cmath>
-#include <cstdint>
+#include <cstddef>
 #include <limits>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <type_traits>
 
 #include "absl/status/status.h"
 #include "absl/strings/numbers.h"
@@ -81,8 +84,8 @@ absl::Status JsonRequireIntegerImpl<T>::Execute(const ::nlohmann::json& json,
       tensorstore::StrCat("Expected integer in the range [", min_value, ", ",
                           max_value, "], but received: ", json.dump()));
 }
-template struct JsonRequireIntegerImpl<std::int64_t>;
-template struct JsonRequireIntegerImpl<std::uint64_t>;
+template struct JsonRequireIntegerImpl<int64_t>;
+template struct JsonRequireIntegerImpl<uint64_t>;
 
 template <>
 std::optional<std::nullptr_t> JsonValueAs<std::nullptr_t>(
@@ -110,17 +113,17 @@ template <>
 std::optional<int64_t> JsonValueAs<int64_t>(const ::nlohmann::json& j,
                                             bool strict) {
   if (j.is_number_unsigned()) {
-    auto x = j.get<std::uint64_t>();
-    if (x <= static_cast<std::uint64_t>(std::numeric_limits<int64_t>::max())) {
-      return static_cast<std::int64_t>(x);
+    auto x = j.get<uint64_t>();
+    if (x <= static_cast<uint64_t>(std::numeric_limits<int64_t>::max())) {
+      return static_cast<int64_t>(x);
     }
   } else if (j.is_number_integer()) {
-    return j.get<std::int64_t>();
+    return j.get<int64_t>();
   } else if (j.is_number_float()) {
     auto x = j.get<double>();
     if (x >= -9223372036854775808.0 /*=-2^63*/ &&
         x < 9223372036854775808.0 /*=2^63*/ && x == std::floor(x)) {
-      return static_cast<std::int64_t>(x);
+      return static_cast<int64_t>(x);
     }
   } else if (!strict) {
     if (j.is_string()) {

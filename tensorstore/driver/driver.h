@@ -70,7 +70,6 @@
 #include "tensorstore/util/garbage_collection/garbage_collection.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal {

@@ -24,7 +24,9 @@
 
 // This is extracted from json.h to avoid circular/excessive dependencies.
 
-#include <cstdint>
+#include <stdint.h>
+
+#include <cstddef>
 #include <limits>
 #include <optional>
 #include <string>
@@ -39,7 +41,7 @@
 namespace tensorstore {
 namespace internal_json {
 
-/// Retuns an error message for a json value with the expected type.
+/// Returns an error message for a json value with the expected type.
 absl::Status ExpectedError(const ::nlohmann::json& j,
                            std::string_view type_name);
 
@@ -48,20 +50,16 @@ absl::Status ValidationError(const ::nlohmann::json& j,
                              std::string_view type_name);
 
 /// GetTypeName returns the expected json field type name for error messages.
-inline constexpr const char* GetTypeName(
-    internal::type_identity<std::int64_t>) {
+inline constexpr const char* GetTypeName(internal::type_identity<int64_t>) {
   return "64-bit signed integer";
 }
-inline constexpr const char* GetTypeName(
-    internal::type_identity<std::uint64_t>) {
+inline constexpr const char* GetTypeName(internal::type_identity<uint64_t>) {
   return "64-bit unsigned integer";
 }
-inline constexpr const char* GetTypeName(
-    internal::type_identity<std::int32_t>) {
+inline constexpr const char* GetTypeName(internal::type_identity<int32_t>) {
   return "32-bit signed integer";
 }
-inline constexpr const char* GetTypeName(
-    internal::type_identity<std::uint32_t>) {
+inline constexpr const char* GetTypeName(internal::type_identity<uint32_t>) {
   return "32-bit unsigned integer";
 }
 inline constexpr const char* GetTypeName(internal::type_identity<double>) {
@@ -81,7 +79,7 @@ inline constexpr const char* GetTypeName(...) { return nullptr; }
 
 /// Implementation of `JsonRequireInteger` defined below.
 ///
-/// Only defined for `T` equal to `std::int64_t` or `std::uint64_t`.
+/// Only defined for `T` equal to `int64_t` or `uint64_t`.
 ///
 /// Defined as a class to simplify explicit instantiation.
 template <typename T>
@@ -185,8 +183,8 @@ absl::Status JsonRequireInteger(
     internal::type_identity_t<T> max_value = std::numeric_limits<T>::max()) {
   static_assert(std::numeric_limits<T>::is_integer,
                 "T must be an integer type.");
-  using U = std::conditional_t<std::numeric_limits<T>::is_signed, std::int64_t,
-                               std::uint64_t>;
+  using U =
+      std::conditional_t<std::numeric_limits<T>::is_signed, int64_t, uint64_t>;
   U temp;
   auto status = internal_json::JsonRequireIntegerImpl<U>::Execute(
       json, &temp, strict, min_value, max_value);

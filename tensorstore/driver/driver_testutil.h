@@ -15,7 +15,9 @@
 #ifndef TENSORSTORE_DRIVER_DRIVER_TESTUTIL_H_
 #define TENSORSTORE_DRIVER_DRIVER_TESTUTIL_H_
 
-#include <cstddef>
+#include <stddef.h>
+#include <stdint.h>
+
 #include <functional>
 #include <optional>
 #include <string>

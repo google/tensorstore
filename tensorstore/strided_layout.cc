@@ -14,10 +14,16 @@
 
 #include "tensorstore/strided_layout.h"
 
-#include <cstddef>
-#include <limits>
-#include <ostream>
+#include <stddef.h>
 
+#include <ostream>
+#include <string>
+
+#include "tensorstore/contiguous_layout.h"
+#include "tensorstore/index.h"
+#include "tensorstore/internal/integer_overflow.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {

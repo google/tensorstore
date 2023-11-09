@@ -14,9 +14,10 @@
 
 /// End-to-end tests of the n5 driver.
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <algorithm>
-#include <cstddef>
-#include <cstdint>
 #include <string>
 #include <utility>
 #include <vector>
@@ -194,12 +195,11 @@ TEST(N5DriverTest, Create) {
     EXPECT_EQ(reversed_dim0.domain(), resolved_reversed_dim0.domain());
 
     // Issue a read to be filled with the fill value.
-    EXPECT_THAT(
-        tensorstore::Read<tensorstore::zero_origin>(
-            store |
-            tensorstore::AllDims().TranslateSizedInterval({9, 7}, {1, 1}))
-            .result(),
-        ::testing::Optional(tensorstore::MakeArray<std::int16_t>({{0}})));
+    EXPECT_THAT(tensorstore::Read<tensorstore::zero_origin>(
+                    store | tensorstore::AllDims().TranslateSizedInterval(
+                                {9, 7}, {1, 1}))
+                    .result(),
+                ::testing::Optional(tensorstore::MakeArray<int16_t>({{0}})));
 
     // Issue an out-of-bounds read.
     EXPECT_THAT(tensorstore::Read<tensorstore::zero_origin>(
@@ -210,13 +210,13 @@ TEST(N5DriverTest, Create) {
 
     // Issue a valid write.
     TENSORSTORE_EXPECT_OK(tensorstore::Write(
-        tensorstore::MakeArray<std::int16_t>({{1, 2, 3}, {4, 5, 6}}),
+        tensorstore::MakeArray<int16_t>({{1, 2, 3}, {4, 5, 6}}),
         store | tensorstore::AllDims().TranslateSizedInterval({8, 8}, {2, 3})));
 
     // Issue an out-of-bounds write.
     EXPECT_THAT(
         tensorstore::Write(
-            tensorstore::MakeArray<std::int16_t>({{61, 62, 63}, {64, 65, 66}}),
+            tensorstore::MakeArray<int16_t>({{61, 62, 63}, {64, 65, 66}}),
             store |
                 tensorstore::AllDims().TranslateSizedInterval({9, 8}, {2, 3}))
             .commit_future.result(),
@@ -228,7 +228,7 @@ TEST(N5DriverTest, Create) {
                     store | tensorstore::AllDims().TranslateSizedInterval(
                                 {7, 7}, {3, 4}))
                     .result(),
-                ::testing::Optional(tensorstore::MakeArray<std::int16_t>({
+                ::testing::Optional(tensorstore::MakeArray<int16_t>({
                     {0, 0, 0, 0},
                     {0, 1, 2, 3},
                     {0, 4, 5, 6},
@@ -294,7 +294,7 @@ TEST(N5DriverTest, Create) {
         tensorstore::Open(json_spec, context, tensorstore::OpenMode::open,
                           tensorstore::ReadWriteMode::read_write)
             .result());
-    EXPECT_EQ(tensorstore::MakeArray<std::int16_t>({
+    EXPECT_EQ(tensorstore::MakeArray<int16_t>({
                   {0, 0, 0, 0},
                   {0, 1, 2, 3},
                   {0, 4, 5, 6},
@@ -315,7 +315,7 @@ TEST(N5DriverTest, Create) {
                           tensorstore::ReadWriteMode::read_write)
             .result());
 
-    EXPECT_EQ(tensorstore::MakeArray<std::int16_t>(
+    EXPECT_EQ(tensorstore::MakeArray<int16_t>(
                   {{0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}}),
               tensorstore::Read<tensorstore::zero_origin>(
                   store |
@@ -400,7 +400,7 @@ TEST(N5DriverTest, Resize) {
                             tensorstore::ReadWriteMode::read_write)
               .result());
       TENSORSTORE_EXPECT_OK(tensorstore::Write(
-          tensorstore::MakeArray<std::int8_t>({{1, 2, 3}, {4, 5, 6}}),
+          tensorstore::MakeArray<int8_t>({{1, 2, 3}, {4, 5, 6}}),
           store |
               tensorstore::AllDims().TranslateSizedInterval({2, 1}, {2, 3})));
       // Check that key value store has expected contents.
@@ -454,7 +454,7 @@ TEST(N5DriverTest, ResizeMetadataOnly) {
                         tensorstore::ReadWriteMode::read_write)
           .result());
   TENSORSTORE_EXPECT_OK(tensorstore::Write(
-      tensorstore::MakeArray<std::int8_t>({{1, 2, 3}, {4, 5, 6}}),
+      tensorstore::MakeArray<int8_t>({{1, 2, 3}, {4, 5, 6}}),
       store | tensorstore::AllDims().TranslateSizedInterval({2, 1}, {2, 3})));
   // Check that key value store has expected contents.
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -708,7 +708,7 @@ TEST(N5DriverTest, DataTypeMismatch) {
                       context, tensorstore::OpenMode::create,
                       tensorstore::ReadWriteMode::read_write)
                       .result());
-  EXPECT_EQ(tensorstore::dtype_v<std::int8_t>, store.dtype());
+  EXPECT_EQ(tensorstore::dtype_v<int8_t>, store.dtype());
   EXPECT_THAT(tensorstore::Open(
                   {
                       {"dtype", "uint8"},
@@ -928,7 +928,7 @@ TENSORSTORE_GLOBAL_INITIALIZER {
                                 .implicit_upper_bounds({1, 1})
                                 .Finalize()
                                 .value();
-  options.initial_value = tensorstore::AllocateArray<std::uint16_t>(
+  options.initial_value = tensorstore::AllocateArray<uint16_t>(
       tensorstore::BoxView({10, 11}), tensorstore::c_order,
       tensorstore::value_init);
   tensorstore::internal::RegisterTensorStoreDriverBasicFunctionalityTest(
@@ -957,7 +957,7 @@ TENSORSTORE_GLOBAL_INITIALIZER {
                                 .implicit_upper_bounds({1, 1})
                                 .Finalize()
                                 .value();
-  options.initial_value = tensorstore::AllocateArray<std::uint16_t>(
+  options.initial_value = tensorstore::AllocateArray<uint16_t>(
       tensorstore::BoxView({10, 11}), tensorstore::c_order,
       tensorstore::value_init);
   tensorstore::internal::RegisterTensorStoreDriverBasicFunctionalityTest(
@@ -1013,7 +1013,7 @@ TEST(DriverTest, NoPrefix) {
                         tensorstore::ReadWriteMode::read_write)
           .result());
   TENSORSTORE_EXPECT_OK(tensorstore::Write(
-      tensorstore::MakeArray<std::int8_t>({{1, 2, 3}, {4, 5, 6}}),
+      tensorstore::MakeArray<int8_t>({{1, 2, 3}, {4, 5, 6}}),
       store | tensorstore::AllDims().TranslateSizedInterval({2, 1}, {2, 3})));
   // Check that key value store has expected contents.
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(

@@ -15,13 +15,14 @@
 #ifndef TENSORSTORE_INTERNAL_JSON_JSON_H_
 #define TENSORSTORE_INTERNAL_JSON_JSON_H_
 
+#include <stddef.h>
+
 #include <string_view>
 
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
 #include "tensorstore/internal/json/value_as.h"
 #include "tensorstore/internal/json_fwd.h"
-#include "tensorstore/internal/type_traits.h"
 
 namespace tensorstore {
 namespace internal_json {
@@ -43,9 +44,9 @@ namespace internal_json {
 /// \error `absl::StatusCode::kInvalidArgument` if `j` is not an array.
 absl::Status JsonParseArray(
     const ::nlohmann::json& j,
-    absl::FunctionRef<absl::Status(std::ptrdiff_t size)> size_callback,
+    absl::FunctionRef<absl::Status(ptrdiff_t size)> size_callback,
     absl::FunctionRef<absl::Status(const ::nlohmann::json& value,
-                                   std::ptrdiff_t index)>
+                                   ptrdiff_t index)>
         element_callback);
 
 /// Validates that `parsed_size` matches `expected_size`.
@@ -61,8 +62,8 @@ absl::Status JsonParseArray(
 /// \returns `absl::Status()` if `parsed_size == expected_size`.
 /// \error `absl::StatusCode::kInvalidArgument` if `parsed_size !=
 ///     expected_size`.
-absl::Status JsonValidateArrayLength(std::ptrdiff_t parsed_size,
-                                     std::ptrdiff_t expected_size);
+absl::Status JsonValidateArrayLength(ptrdiff_t parsed_size,
+                                     ptrdiff_t expected_size);
 
 /// Removes the specified member from `*j_obj` if it is present.
 ///

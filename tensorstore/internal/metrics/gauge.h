@@ -15,6 +15,8 @@
 #ifndef TENSORSTORE_INTERNAL_METRICS_GAUGE_H_
 #define TENSORSTORE_INTERNAL_METRICS_GAUGE_H_
 
+#include <stdint.h>
+
 #include <atomic>
 #include <memory>
 #include <string>

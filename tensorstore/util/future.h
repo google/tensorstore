@@ -20,9 +20,10 @@
 /// `Future<T>` and `Promise<T>` which provide an asynchronous one-time channel
 /// between a producer and a consumer.
 
+#include <stddef.h>
+
 #include <atomic>
 #include <cassert>
-#include <cstddef>
 #include <tuple>
 #include <type_traits>
 #include <utility>

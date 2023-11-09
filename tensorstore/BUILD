@@ -1,5 +1,5 @@
-load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
 load("//bazel:non_compile.bzl", "cc_with_non_compile_test")
+load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -734,6 +734,7 @@ tensorstore_cc_library(
         ":static_cast",
         "//tensorstore/internal:attributes",
         "//tensorstore/internal:gdb_scripting",
+        "//tensorstore/internal:integer_overflow",
         "//tensorstore/internal:multi_vector",
         "//tensorstore/internal:multi_vector_view",
         "//tensorstore/internal:type_traits",

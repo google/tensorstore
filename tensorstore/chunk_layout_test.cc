@@ -14,9 +14,10 @@
 
 #include "tensorstore/chunk_layout.h"
 
+#include <stddef.h>
+
 #include <algorithm>
 #include <array>
-#include <cstddef>
 #include <cstdlib>
 #include <random>
 #include <string>

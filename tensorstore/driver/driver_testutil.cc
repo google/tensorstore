@@ -14,10 +14,11 @@
 
 #include "tensorstore/driver/driver_testutil.h"
 
+#include <stddef.h>
+
 #include <algorithm>
 #include <atomic>
 #include <cassert>
-#include <cstddef>
 #include <map>
 #include <memory>
 #include <optional>

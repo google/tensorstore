@@ -15,10 +15,12 @@
 #ifndef TENSORSTORE_INTERNAL_METRICS_HISTOGRAM_H_
 #define TENSORSTORE_INTERNAL_METRICS_HISTOGRAM_H_
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <array>
 #include <atomic>
 #include <cmath>
-#include <cstdint>
 #include <memory>
 #include <string>
 #include <string_view>

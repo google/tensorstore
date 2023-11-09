@@ -14,10 +14,14 @@
 
 #include "tensorstore/util/future.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <atomic>
 #include <cassert>
 #include <new>
 #include <thread>  // NOLINT
+#include <utility>
 
 #include "absl/base/attributes.h"
 #include "absl/base/const_init.h"
@@ -32,6 +36,8 @@
 #include "tensorstore/internal/metrics/gauge.h"
 #include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/util/future_impl.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 namespace internal_future {
@@ -39,22 +45,12 @@ namespace {
 
 auto& live_futures = internal_metrics::Gauge<int64_t>::New(
     "/tensorstore/futures/live", "Live futures");
-
-#if 1
 auto& future_ready_callbacks = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/futures/ready_callbacks", "Ready callbacks");
 auto& future_not_needed_callbacks = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/futures/not_needed_callbacks", "Not needed callbacks");
 auto& future_force_callbacks = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/futures/force_callbacks", "Force callbacks");
-#else
-struct MockCounter {
-  void Increment() {}
-};
-static MockCounter future_ready_callbacks;
-static MockCounter future_not_needed_callbacks;
-static MockCounter future_force_callbacks;
-#endif
 
 }  // namespace
 

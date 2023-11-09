@@ -14,9 +14,10 @@
 
 #include "tensorstore/kvstore/ocdbt/io/coalesce_kvstore.h"
 
+#include <stddef.h>
+
 #include <algorithm>
 #include <cassert>
-#include <cstddef>
 #include <cstring>
 #include <limits>
 #include <optional>

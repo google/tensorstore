@@ -22,9 +22,10 @@
 /// The rank of the multi-dimensional array may be specified either at compile
 /// time or at run time.
 
+#include <stddef.h>
+
 #include <algorithm>
 #include <cassert>
-#include <cstddef>
 #include <iosfwd>
 #include <string>
 #include <type_traits>
@@ -458,8 +459,8 @@ class StridedLayout
     Access::Assign(this, GetStaticOrDynamicExtent(shape), shape.data(),
                    byte_strides.data());
   }
-  template <std::size_t N, typename = std::enable_if_t<
-                               RankConstraint::Implies(N, static_rank)>>
+  template <size_t N, typename = std::enable_if_t<
+                          RankConstraint::Implies(N, static_rank)>>
   explicit StridedLayout(const Index (&shape)[N],
                          const Index (&byte_strides)[N]) {
     Access::Assign(this, StaticRank<N>{}, shape, byte_strides);
@@ -483,7 +484,7 @@ class StridedLayout
                    shape.data(), byte_strides.data());
   }
   template <
-      std::size_t N, ArrayOriginKind SfinaeOKind = OriginKind,
+      size_t N, ArrayOriginKind SfinaeOKind = OriginKind,
       typename = std::enable_if_t<SfinaeOKind == offset_origin &&
                                   RankConstraint::Implies(N, static_rank)>>
   explicit StridedLayout(const Index (&origin)[N], const Index (&shape)[N],
@@ -695,7 +696,7 @@ class StridedLayout
     return IndexInnerProduct(indices_span.size(), byte_strides().data(),
                              indices_span.data());
   }
-  template <typename IndexType, std::size_t N>
+  template <typename IndexType, size_t N>
   std::enable_if_t<
       IsCompatiblePartialIndexVector<static_rank, const IndexType (&)[N]>,
       Index>
@@ -725,7 +726,7 @@ class StridedLayout
            "Length of index vector must match rank of array.");
     return (*this)[indices_span];
   }
-  template <std::size_t N>
+  template <size_t N>
   std::enable_if_t<RankConstraint::EqualOrUnspecified(static_rank, N), Index>
   operator()(const Index (&indices)[N]) const {
     return (*this)(span<const Index, N>(indices));
@@ -739,7 +740,7 @@ class StridedLayout
   template <typename... IndexType>
   std::enable_if_t<IsCompatibleFullIndexPack<static_rank, IndexType...>, Index>
   operator()(IndexType... index) const {
-    constexpr std::size_t N = sizeof...(IndexType);
+    constexpr size_t N = sizeof...(IndexType);
     if constexpr (N == 0) {
       assert(rank() == 0);
       return 0;

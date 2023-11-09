@@ -25,9 +25,10 @@
 
 #include "tensorstore/kvstore/ocdbt/non_distributed/create_new_manifest.h"
 
+#include <stddef.h>
+
 #include <algorithm>
 #include <cassert>
-#include <cstddef>
 #include <limits>
 #include <memory>
 #include <string>
@@ -39,6 +40,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
+#include "absl/time/time.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/kvstore/ocdbt/config.h"
 #include "tensorstore/kvstore/ocdbt/debug_log.h"

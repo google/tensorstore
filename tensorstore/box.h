@@ -19,8 +19,9 @@
 /// Defines types representing hyperrectangles within n-dimensional index
 /// spaces.
 
+#include <stddef.h>
+
 #include <cassert>
-#include <cstddef>
 #include <iosfwd>
 #include <string>
 #include <type_traits>
@@ -255,8 +256,8 @@ class Box : public internal_box::BoxStorage<Rank> {
   explicit Box(OriginVec origin, ShapeVec shape) {
     Access::Assign(this, span(origin), span(shape));
   }
-  template <std::size_t N, typename = std::enable_if_t<
-                               RankConstraint::Implies(N, static_rank)>>
+  template <size_t N, typename = std::enable_if_t<
+                          RankConstraint::Implies(N, static_rank)>>
   explicit Box(const Index (&origin)[N], const Index (&shape)[N]) {
     Access::Assign(this, StaticRank<N>{}, origin, shape);
   }
@@ -286,8 +287,8 @@ class Box : public internal_box::BoxStorage<Rank> {
             GetConstantVector<Index, 0>(GetStaticOrDynamicExtent(span(shape)))
                 .data(),
             shape.data()) {}
-  template <std::size_t N, typename = std::enable_if_t<
-                               RankConstraint::Implies(N, static_rank)>>
+  template <size_t N, typename = std::enable_if_t<
+                          RankConstraint::Implies(N, static_rank)>>
   explicit Box(const Index (&shape)[N]) {
     Access::Assign(this, StaticRank<N>{},
                    GetConstantVector<Index, 0, N>().data(), shape);
@@ -509,11 +510,11 @@ class BoxView : public internal_box::BoxViewStorage<Rank, Mutable> {
     Access::Assign(this, rank, GetConstantVector<Index, 0>(rank).data(),
                    shape.data());
   }
-  template <std::size_t N, bool SfinaeM = Mutable,
+  template <size_t N, bool SfinaeM = Mutable,
             typename = std::enable_if_t<
                 (RankConstraint::Implies(N, static_rank) && SfinaeM == false)>>
   explicit BoxView(IndexType (&shape TENSORSTORE_LIFETIME_BOUND)[N]) {
-    const auto rank = std::integral_constant<std::ptrdiff_t, N>{};
+    const auto rank = std::integral_constant<ptrdiff_t, N>{};
     Access::Assign(this, rank, GetConstantVector<Index, 0>(rank).data(), shape);
   }
 
@@ -524,11 +525,11 @@ class BoxView : public internal_box::BoxViewStorage<Rank, Mutable> {
   explicit BoxView(span<IndexType, Rank> origin, span<IndexType, Rank> shape) {
     Access::Assign(this, origin, shape);
   }
-  template <std::size_t N, typename = std::enable_if_t<
-                               RankConstraint::Implies(N, static_rank)>>
+  template <size_t N, typename = std::enable_if_t<
+                          RankConstraint::Implies(N, static_rank)>>
   explicit BoxView(IndexType (&origin TENSORSTORE_LIFETIME_BOUND)[N],
                    IndexType (&shape TENSORSTORE_LIFETIME_BOUND)[N]) {
-    const auto rank = std::integral_constant<std::ptrdiff_t, N>{};
+    const auto rank = std::integral_constant<ptrdiff_t, N>{};
     Access::Assign(this, rank, origin, shape);
   }
 

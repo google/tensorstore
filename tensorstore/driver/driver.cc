@@ -14,14 +14,14 @@
 
 #include "tensorstore/driver/driver.h"
 
-#include <assert.h>
-
+#include <cassert>
 #include <string_view>
 #include <utility>
 
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "tensorstore/array.h"
+#include "tensorstore/array_storage_statistics.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/codec_spec.h"
 #include "tensorstore/context.h"
