@@ -1,5 +1,7 @@
 $schema: http://json-schema.org/draft-07/schema#
 $id: kvstore/neuroglancer_uint64_sharded
+title: Read/write adapter for the :ref:`Neuroglancer Precomputed<neuroglancer-precomputed-driver>` sharded format.
+description: JSON specification of the key-value store.
 allOf:
 - $ref: KvStore
 - type: object
@@ -15,7 +17,7 @@ allOf:
       $ref: kvstore/neuroglancer_uint64_sharded/ShardingSpec
     cache_pool:
       $ref: ContextResource
-      description: |-
+      description: |
         Specifies or references a previously defined `Context.cache_pool`.  It
         is normally more convenient to specify a default `~Context.cache_pool`
         in the `.context`.
@@ -26,20 +28,17 @@ allOf:
            `~Context.cache_pool.total_bytes_limit` value.  Otherwise, every read
            operation will require 2 additional reads, to read the shard index
            and the minishard index.
-           
       default: cache_pool
     data_copy_concurrency:
       $ref: ContextResource
       description: |-
-        Specifies or references a previously defined
-        `Context.data_copy_concurrency`.  It is normally more
-        convenient to specify a default `~Context.data_copy_concurrency` in
+        Specifies or references a previously defined `Context.data_copy_concurrency`.
+        It is normally more convenient to specify a default `~Context.data_copy_concurrency` in
         the `.context`.
       default: data_copy_concurrency
   required:
   - base
   - metadata
-title: JSON specification of neuroglancer_uint64_sharded key-value store.
 definitions:
   sharding-spec:
     $id: 'kvstore/neuroglancer_uint64_sharded/ShardingSpec'

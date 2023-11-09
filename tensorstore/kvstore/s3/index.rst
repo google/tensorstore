@@ -3,7 +3,8 @@
 ``s3`` Key-Value Store driver
 ===============================
 
-The ``s3`` driver provides access to S3. Keys directly correspond to HTTP paths.
+The ``s3`` driver provides access to Amazon S3 and S3-compatible object stores.
+Keys directly correspond to paths within an S3 bucket.
 
 .. json:schema:: kvstore/s3
 

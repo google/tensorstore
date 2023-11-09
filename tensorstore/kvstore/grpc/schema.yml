@@ -1,5 +1,7 @@
 $schema: http://json-schema.org/draft-07/schema#
 $id: kvstore/grpc
+title: Read/write key-value store using the tensorstore-specific gRPC protocol.
+description: JSON specification of the key-value store.
 allOf:
 - $ref: KvStore
 - type: object
