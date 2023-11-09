@@ -678,7 +678,7 @@
       
         <li class="md-nav__item">
   <a href="#json-kvstore/zarr_sharding_indexed" class="md-nav__link">
-    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="kvstore/zarr_sharding_indexed (JSON type) — JSON specification of zarr_sharding_indexed key-value store." class="md-ellipsis">kvstore/zarr_<wbr>sharding_<wbr>indexed</span>
+    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="kvstore/zarr_sharding_indexed (JSON type) — Read/write adapter for the zarr v3 sharded_indexed format." class="md-ellipsis">kvstore/zarr_<wbr>sharding_<wbr>indexed</span>
   </a>
   
     <nav class="md-nav" aria-label="kvstore/zarr_sharding_indexed">
@@ -866,7 +866,7 @@
       
         <li class="md-nav__item">
   <a href="#json-kvstore/zarr_sharding_indexed" class="md-nav__link">
-    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="kvstore/zarr_sharding_indexed (JSON type) — JSON specification of zarr_sharding_indexed key-value store." class="md-ellipsis">kvstore/zarr_<wbr>sharding_<wbr>indexed</span>
+    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="kvstore/zarr_sharding_indexed (JSON type) — Read/write adapter for the zarr v3 sharded_indexed format." class="md-ellipsis">kvstore/zarr_<wbr>sharding_<wbr>indexed</span>
   </a>
   
     <nav class="md-nav" aria-label="kvstore/zarr_sharding_indexed">
@@ -1004,8 +1004,9 @@ consecutive <code class="docutils literal notranslate"><span class="pre">uint32b
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-kvstore/zarr_sharding_indexed">
 <em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">kvstore/zarr_sharding_indexed</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-kvstore/zarr_sharding_indexed" title="Permalink to this definition">¶</a></dt>
-<dd><span><p>JSON specification of zarr_sharding_indexed key-value store.</p>
-  </span><dl class="field-list simple">
+<dd><span><p>Read/write adapter for the <a class="reference internal" href="../../driver/zarr3/index.html#zarr3-driver"><span class="std std-ref">zarr v3</span></a> sharded_indexed format.</p>
+  </span><p>JSON specification of the key-value store.</p>
+<dl class="field-list simple">
 <dt class="field-odd" id="extends-json-kvstore/zarr_sharding_indexed">Extends<span class="colon">:</span><a class="headerlink" href="#extends-json-kvstore/zarr_sharding_indexed" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><ul class="simple">
 <li><p><a class="reference internal" href="../index.html#json-KvStore" title="KvStore (JSON type) — Key-value store specification."><code class="xref json json-schema docutils literal notranslate"><span class="pre">KvStore</span></code></a> — Key-value store specification.</p></li>
@@ -1072,9 +1073,8 @@ operation will require an additional read to obtain the shard index.</p>
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-kvstore/zarr_sharding_indexed.data_copy_concurrency">
 <span class="sig-name descname"><span class="pre">data_copy_concurrency</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;data_copy_concurrency&quot;</span></code><a class="headerlink" href="#json-kvstore/zarr_sharding_indexed.data_copy_concurrency" title="Permalink to this definition">¶</a></dt>
-<dd><p>Specifies or references a previously defined
-<a class="reference internal" href="../../context.html#json-Context.data_copy_concurrency" title="Context.data_copy_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.data_copy_concurrency</span></code></a>.  It is normally more
-convenient to specify a default <a class="reference internal" href="../../context.html#json-Context.data_copy_concurrency" title="Context.data_copy_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">data_copy_concurrency</span></code></a> in
+<dd><p>Specifies or references a previously defined <a class="reference internal" href="../../context.html#json-Context.data_copy_concurrency" title="Context.data_copy_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.data_copy_concurrency</span></code></a>.
+It is normally more convenient to specify a default <a class="reference internal" href="../../context.html#json-Context.data_copy_concurrency" title="Context.data_copy_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">data_copy_concurrency</span></code></a> in
 the <a class="reference internal" href="#json-kvstore/zarr_sharding_indexed.context" title="kvstore/zarr_sharding_indexed.context (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">context</span></code></a>.</p>
 </dd></dl>
 

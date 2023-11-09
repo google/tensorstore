@@ -663,7 +663,7 @@
       
         <li class="md-nav__item">
   <a href="#json-kvstore/s3" class="md-nav__link">
-    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="kvstore/s3 (JSON type)" class="md-ellipsis">kvstore/s3</span>
+    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="kvstore/s3 (JSON type) — Read/write access to Amazon S3-compatible object stores." class="md-ellipsis">kvstore/s3</span>
   </a>
   
     <nav class="md-nav" aria-label="kvstore/s3">
@@ -1129,7 +1129,7 @@
       
         <li class="md-nav__item">
   <a href="#json-kvstore/s3" class="md-nav__link">
-    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="kvstore/s3 (JSON type)" class="md-ellipsis">kvstore/s3</span>
+    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="kvstore/s3 (JSON type) — Read/write access to Amazon S3-compatible object stores." class="md-ellipsis">kvstore/s3</span>
   </a>
   
     <nav class="md-nav" aria-label="kvstore/s3">
@@ -1521,11 +1521,14 @@
 
 
 <h1 id="s3-key-value-store-driver"><span id="s3-kvstore-driver"></span><code class="docutils literal notranslate"><span class="pre">s3</span></code> Key-Value Store driver<a class="headerlink" href="#s3-key-value-store-driver" title="Permalink to this heading">¶</a></h1>
-<p>The <code class="docutils literal notranslate"><span class="pre">s3</span></code> driver provides access to S3. Keys directly correspond to HTTP paths.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">s3</span></code> driver provides access to Amazon S3 and S3-compatible object stores.
+Keys directly correspond to paths within an S3 bucket.</p>
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-kvstore/s3">
 <em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">kvstore/s3</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-kvstore/s3" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
+<dd><span><p>Read/write access to Amazon S3-compatible object stores.</p>
+  </span><p>JSON specification of the key-value store.</p>
+<dl class="field-list simple">
 <dt class="field-odd" id="extends-json-kvstore/s3">Extends<span class="colon">:</span><a class="headerlink" href="#extends-json-kvstore/s3" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><ul class="simple">
 <li><p><a class="reference internal" href="../index.html#json-KvStore" title="KvStore (JSON type) — Key-value store specification."><code class="xref json json-schema docutils literal notranslate"><span class="pre">KvStore</span></code></a> — Key-value store specification.</p></li>

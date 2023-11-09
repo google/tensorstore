@@ -618,7 +618,7 @@
       
         <li class="md-nav__item">
   <a href="#json-kvstore/memory" class="md-nav__link">
-    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="kvstore/memory (JSON type)" class="md-ellipsis">kvstore/memory</span>
+    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="kvstore/memory (JSON type) — Read/write, non-persistent in-memory storage." class="md-ellipsis">kvstore/memory</span>
   </a>
   
     <nav class="md-nav" aria-label="kvstore/memory">
@@ -858,7 +858,7 @@
       
         <li class="md-nav__item">
   <a href="#json-kvstore/memory" class="md-nav__link">
-    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="kvstore/memory (JSON type)" class="md-ellipsis">kvstore/memory</span>
+    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="kvstore/memory (JSON type) — Read/write, non-persistent in-memory storage." class="md-ellipsis">kvstore/memory</span>
   </a>
   
     <nav class="md-nav" aria-label="kvstore/memory">
@@ -985,7 +985,9 @@ support for multi-key transactions.</p>
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-kvstore/memory">
 <em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">kvstore/memory</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-kvstore/memory" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
+<dd><span><p>Read/write, non-persistent in-memory storage.</p>
+  </span><p>JSON specification of the key-value store.</p>
+<dl class="field-list simple">
 <dt class="field-odd" id="extends-json-kvstore/memory">Extends<span class="colon">:</span><a class="headerlink" href="#extends-json-kvstore/memory" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><ul class="simple">
 <li><p><a class="reference internal" href="../index.html#json-KvStore" title="KvStore (JSON type) — Key-value store specification."><code class="xref json json-schema docutils literal notranslate"><span class="pre">KvStore</span></code></a> — Key-value store specification.</p></li>
@@ -1028,8 +1030,8 @@ should end with <code class="code highlight json docutils literal highlight-json
 <dt class="sig sig-object highlight json" id="json-kvstore/memory.atomic">
 <span class="sig-name descname"><span class="pre">atomic</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">boolean</span></span><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="kc">true</span></code><a class="headerlink" href="#json-kvstore/memory.atomic" title="Permalink to this definition">¶</a></dt>
 <dd><p>Support atomic multi-key transactions.  If set to <code class="code highlight json docutils literal highlight-json"><span class="kc">false</span></code>, the
-transaction behavior matches that of the <a class="reference internal" href="../file/index.html#json-kvstore/file" title="kvstore/file (JSON type) — JSON specification of file-backed key-value store."><code class="xref json json-schema docutils literal notranslate"><span class="pre">kvstore/file</span></code></a> and
-<a class="reference internal" href="../gcs/index.html#json-kvstore/gcs" title="kvstore/gcs (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">kvstore/gcs</span></code></a> drivers, which may be useful for testing purposes.</p>
+transaction behavior matches that of the <a class="reference internal" href="../file/index.html#json-kvstore/file" title="kvstore/file (JSON type) — Read/write access to the local filesystem."><code class="xref json json-schema docutils literal notranslate"><span class="pre">kvstore/file</span></code></a> and
+<a class="reference internal" href="../gcs/index.html#json-kvstore/gcs" title="kvstore/gcs (JSON type) — Read/write access to Google Cloud Storage (GCS)."><code class="xref json json-schema docutils literal notranslate"><span class="pre">kvstore/gcs</span></code></a> drivers, which may be useful for testing purposes.</p>
 </dd></dl>
 
 </dd>
@@ -1039,7 +1041,7 @@ transaction behavior matches that of the <a class="reference internal" href="../
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-Context.memory_key_value_store">
 <em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">Context.memory_key_value_store</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-Context.memory_key_value_store" title="Permalink to this definition">¶</a></dt>
-<dd><p>Represents the in-memory key-value store.  If multiple <a class="reference internal" href="#json-kvstore/memory" title="kvstore/memory (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">kvstore/memory</span></code></a>
+<dd><p>Represents the in-memory key-value store.  If multiple <a class="reference internal" href="#json-kvstore/memory" title="kvstore/memory (JSON type) — Read/write, non-persistent in-memory storage."><code class="xref json json-schema docutils literal notranslate"><span class="pre">kvstore/memory</span></code></a>
 specifications reference the same <a class="reference internal" href="#json-Context.memory_key_value_store" title="Context.memory_key_value_store (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.memory_key_value_store</span></code></a>, they
 all refer to the same in-memory set of key/value pairs.</p>
 </dd></dl>

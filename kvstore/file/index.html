@@ -573,7 +573,7 @@
       
         <li class="md-nav__item">
   <a href="#json-kvstore/file" class="md-nav__link">
-    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="kvstore/file (JSON type) — JSON specification of file-backed key-value store." class="md-ellipsis">kvstore/file</span>
+    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="kvstore/file (JSON type) — Read/write access to the local filesystem." class="md-ellipsis">kvstore/file</span>
   </a>
   
     <nav class="md-nav" aria-label="kvstore/file">
@@ -905,7 +905,7 @@
       
         <li class="md-nav__item">
   <a href="#json-kvstore/file" class="md-nav__link">
-    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="kvstore/file (JSON type) — JSON specification of file-backed key-value store." class="md-ellipsis">kvstore/file</span>
+    <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="kvstore/file (JSON type) — Read/write access to the local filesystem." class="md-ellipsis">kvstore/file</span>
   </a>
   
     <nav class="md-nav" aria-label="kvstore/file">
@@ -1083,8 +1083,9 @@ machines to a network filesystem is also safe.</p>
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-kvstore/file">
 <em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">kvstore/file</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-kvstore/file" title="Permalink to this definition">¶</a></dt>
-<dd><span><p>JSON specification of file-backed key-value store.</p>
-  </span><dl class="field-list simple">
+<dd><span><p>Read/write access to the local filesystem.</p>
+  </span><p>JSON specification of the key-value store.</p>
+<dl class="field-list simple">
 <dt class="field-odd" id="extends-json-kvstore/file">Extends<span class="colon">:</span><a class="headerlink" href="#extends-json-kvstore/file" title="Permalink to this headline">¶</a></dt>
 <dd class="field-odd noindent"><ul class="simple">
 <li><p><a class="reference internal" href="../index.html#json-KvStore" title="KvStore (JSON type) — Key-value store specification."><code class="xref json json-schema docutils literal notranslate"><span class="pre">KvStore</span></code></a> — Key-value store specification.</p></li>
@@ -1117,15 +1118,13 @@ machines to a network filesystem is also safe.</p>
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-kvstore/file.file_io_concurrency">
 <span class="sig-name descname"><span class="pre">file_io_concurrency</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><a class="headerlink" href="#json-kvstore/file.file_io_concurrency" title="Permalink to this definition">¶</a></dt>
-<dd><p>Specifies or references a previously defined
-<a class="reference internal" href="#json-Context.file_io_concurrency" title="Context.file_io_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.file_io_concurrency</span></code></a>.</p>
+<dd><p>Specifies or references a previously defined <a class="reference internal" href="#json-Context.file_io_concurrency" title="Context.file_io_concurrency (JSON type)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.file_io_concurrency</span></code></a>.</p>
 </dd></dl>
 
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-kvstore/file.file_io_sync">
 <span class="sig-name descname"><span class="pre">file_io_sync</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><a class="reference internal" href="../../context.html#json-ContextResource" title="ContextResource (JSON type)"><span class="pre">ContextResource</span></a></span><a class="headerlink" href="#json-kvstore/file.file_io_sync" title="Permalink to this definition">¶</a></dt>
-<dd><p>Specifies or references a previously defined
-<a class="reference internal" href="#json-Context.file_io_sync" title="Context.file_io_sync (JSON type) — Specifies durability of writes."><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.file_io_sync</span></code></a>.</p>
+<dd><p>Specifies or references a previously defined <a class="reference internal" href="#json-Context.file_io_sync" title="Context.file_io_sync (JSON type) — Specifies durability of writes."><code class="xref json json-schema docutils literal notranslate"><span class="pre">Context.file_io_sync</span></code></a>.</p>
 </dd></dl>
 
 </dd>
