@@ -1,3 +1,4 @@
+# Placeholder: load py_binary
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
 
@@ -302,8 +303,10 @@ tensorstore_cc_test(
         "--binary_mode=moto",
     ],
     data = [":moto_server"],
+    flaky = 1,  # Spawning the test process can be flaky.
     tags = [
-        "skip-cmake",  # moto is python, which will not work in bazel_to_cmake.
+        "requires-net:loopback",
+        "skip-cmake",
     ],
     deps = [
         ":aws_credential_provider",

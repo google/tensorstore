@@ -1,5 +1,5 @@
-load("//bazel:tensorstore.bzl", "tensorstore_cc_binary", "tensorstore_cc_library", "tensorstore_cc_test")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+load("//bazel:tensorstore.bzl", "tensorstore_cc_binary", "tensorstore_cc_library", "tensorstore_cc_test")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -12,6 +12,7 @@ DRIVER_DOCS = [
     "memory",
     "neuroglancer_uint64_sharded",
     "ocdbt",
+    "s3",
     "zarr3_sharding_indexed",
     "zip",
 ]
