@@ -14,9 +14,10 @@
 
 #include "tensorstore/chunk_layout.h"
 
+#include <stddef.h>
+
 #include <algorithm>
 #include <array>
-#include <cstddef>
 #include <cstdlib>
 #include <random>
 #include <string>
@@ -1787,6 +1788,70 @@ TEST(ChooseReadWriteChunkShapesTest, WriteShapeConstrained) {
       /*domain=*/BoxView(2), read_chunk_shape, write_chunk_shape));
   EXPECT_THAT(read_chunk_shape, ::testing::ElementsAre(5, 7));
   EXPECT_THAT(write_chunk_shape, ::testing::ElementsAre(10, 14));
+}
+
+TEST(HasHardConstraints, Basic) {
+  ChunkLayout layout;
+  EXPECT_FALSE(layout.HasHardConstraints());
+  TENSORSTORE_ASSERT_OK(layout.Set(tensorstore::RankConstraint{2}));
+  EXPECT_FALSE(layout.HasHardConstraints());
+
+  {
+    auto layout1 = layout;
+    TENSORSTORE_ASSERT_OK(layout1.Set(
+        tensorstore::ChunkLayout::InnerOrder({0, 1},
+                                             /*hard_constraint=*/false)));
+    EXPECT_FALSE(layout1.HasHardConstraints());
+  }
+  {
+    auto layout1 = layout;
+    TENSORSTORE_ASSERT_OK(layout1.Set(
+        tensorstore::ChunkLayout::InnerOrder({0, 1},
+                                             /*hard_constraint=*/true)));
+    EXPECT_TRUE(layout1.HasHardConstraints());
+  }
+
+  {
+    auto layout1 = layout;
+    TENSORSTORE_ASSERT_OK(layout1.Set(
+        tensorstore::ChunkLayout::GridOrigin({100, 200},
+                                             /*hard_constraint=*/false)));
+    EXPECT_FALSE(layout1.HasHardConstraints());
+  }
+  {
+    auto layout1 = layout;
+    TENSORSTORE_ASSERT_OK(
+        layout1.Set(tensorstore::ChunkLayout::GridOrigin({100, 200})));
+    EXPECT_TRUE(layout1.HasHardConstraints());
+  }
+
+  {
+    auto layout1 = layout;
+    TENSORSTORE_ASSERT_OK(layout1.Set(
+        tensorstore::ChunkLayout::ReadChunkShape({100, 200},
+                                                 /*hard_constraint=*/false)));
+    EXPECT_FALSE(layout1.HasHardConstraints());
+  }
+  {
+    auto layout1 = layout;
+    TENSORSTORE_ASSERT_OK(
+        layout1.Set(tensorstore::ChunkLayout::ReadChunkShape({100, 200})));
+    EXPECT_TRUE(layout1.HasHardConstraints());
+  }
+
+  {
+    auto layout1 = layout;
+    TENSORSTORE_ASSERT_OK(
+        layout1.Set(tensorstore::ChunkLayout::ReadChunkAspectRatio({1, 1})));
+    EXPECT_FALSE(layout1.HasHardConstraints());
+  }
+
+  {
+    auto layout1 = layout;
+    TENSORSTORE_ASSERT_OK(
+        layout1.Set(tensorstore::ChunkLayout::ReadChunkElements(200)));
+    EXPECT_FALSE(layout1.HasHardConstraints());
+  }
 }
 
 }  // namespace

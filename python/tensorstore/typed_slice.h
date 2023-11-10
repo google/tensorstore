@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef THIRD_PARTY_PY_TENSORSTORE_TYPED_SLICE_H_
-#define THIRD_PARTY_PY_TENSORSTORE_TYPED_SLICE_H_
+#ifndef PYTHON_TENSORSTORE_TYPED_SLICE_H_
+#define PYTHON_TENSORSTORE_TYPED_SLICE_H_
 
 /// \file Defines a `TypedSlice` class and a pybind11 caster to/from `slice`
 ///     objects.
@@ -73,4 +73,4 @@ struct pybind11::detail::type_caster<
   PYBIND11_TYPE_CASTER(T, _("slice"));
 };
 
-#endif  // THIRD_PARTY_PY_TENSORSTORE_TYPED_SLICE_H_
+#endif  // PYTHON_TENSORSTORE_TYPED_SLICE_H_

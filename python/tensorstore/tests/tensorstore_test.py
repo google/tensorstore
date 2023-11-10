@@ -435,3 +435,41 @@ async def test_tensorstore_ocdbt_zarr_repr():
       create=True,
   ).result()
   repr(arr)
+
+
+async def test_spec_open_mode():
+  spec = ts.Spec({
+      "driver": "zarr",
+      "kvstore": "memory://",
+      "schema": {"dtype": "uint32", "domain": {"shape": [100, 200]}},
+  })
+
+  for open_mode_kwargs in [
+      {"create": True},
+      {"delete_existing": True, "create": True},
+      {"open": True},
+      {"open": True, "create": True},
+      {"open": True, "assume_metadata": True},
+      {"open": True, "assume_cached_metadata": True},
+  ]:
+    spec_copy = spec.copy()
+    open_mode = ts.OpenMode(**open_mode_kwargs)
+    spec_copy.update(**open_mode_kwargs)
+    assert spec_copy.open_mode == open_mode
+
+    spec_copy = spec.copy()
+    spec_copy.update(open_mode=open_mode)
+    assert spec_copy.open_mode == open_mode
+
+    context = None
+    if open_mode == ts.OpenMode(open=True):
+      context = ts.Context()
+      await ts.open(spec, create=True, context=context)
+    store = await ts.open(spec, context=context, **open_mode_kwargs)
+
+    requested_spec = store.spec(**open_mode_kwargs)
+    assert requested_spec.open_mode == open_mode
+
+    store = await ts.open(spec, context=context, open_mode=open_mode)
+    requested_spec = store.spec(**open_mode_kwargs)
+    assert requested_spec.open_mode == open_mode

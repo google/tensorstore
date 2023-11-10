@@ -21,28 +21,39 @@
 /// Refer to the specification here:
 /// https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <array>
-#include <cstddef>
-#include <cstdint>
 #include <functional>
+#include <memory>
 #include <optional>
+#include <ostream>
+#include <string>
 #include <string_view>
+#include <utility>
 #include <variant>
 #include <vector>
 
 #include "absl/status/status.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/box.h"
+#include "tensorstore/chunk_layout.h"
 #include "tensorstore/codec_spec.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_space/dimension_units.h"
+#include "tensorstore/index_space/index_domain.h"
+#include "tensorstore/internal/json_binding/bindable.h"
+#include "tensorstore/json_serialization_options.h"
+#include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/neuroglancer_uint64_sharded/uint64_sharded.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 namespace internal_neuroglancer_precomputed {
@@ -183,7 +194,7 @@ struct ScaleMetadataConstraints {
 struct OpenConstraints {
   MultiscaleMetadataConstraints multiscale;
   ScaleMetadataConstraints scale;
-  std::optional<std::size_t> scale_index;
+  std::optional<size_t> scale_index;
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(OpenConstraints,
                                           JsonSerializationOptions,
                                           JsonSerializationOptions,
@@ -211,7 +222,7 @@ struct NeuroglancerPrecomputedCodecSpec
 /// The compatibility key encodes all parameters that affect the
 /// encoding/decoding of chunks.
 std::string GetMetadataCompatibilityKey(const MultiscaleMetadata& metadata,
-                                        std::size_t scale_index,
+                                        size_t scale_index,
                                         const std::array<Index, 3>& chunk_size);
 
 /// Validates that scale `scale_index` of `existing_metadata` is compatible with
@@ -224,7 +235,7 @@ std::string GetMetadataCompatibilityKey(const MultiscaleMetadata& metadata,
 ///     compatible.
 absl::Status ValidateMetadataCompatibility(
     const MultiscaleMetadata& existing_metadata,
-    const MultiscaleMetadata& new_metadata, std::size_t scale_index,
+    const MultiscaleMetadata& new_metadata, size_t scale_index,
     const std::array<Index, 3>& chunk_size);
 
 /// Attempts to create a new scale.
@@ -235,7 +246,7 @@ absl::Status ValidateMetadataCompatibility(
 ///     satisfied.
 /// \error `absl::StatusCode::kInvalidArgument` if `constraints` are not valid
 ///     for creating a new scale.
-Result<std::pair<std::shared_ptr<MultiscaleMetadata>, std::size_t>> CreateScale(
+Result<std::pair<std::shared_ptr<MultiscaleMetadata>, size_t>> CreateScale(
     const MultiscaleMetadata* existing_metadata,
     const OpenConstraints& constraints, const Schema& schema);
 
@@ -301,9 +312,9 @@ Result<DimensionUnitsVector> GetEffectiveDimensionUnits(
 /// \error `absl::StatusCode::kNotFound` if no such scale is found.
 /// \error `absl::StatusCode::kFailedPrecondition` if constraints are not
 ///     satisfied.
-Result<std::size_t> OpenScale(const MultiscaleMetadata& metadata,
-                              const OpenConstraints& constraints,
-                              const Schema& schema);
+Result<size_t> OpenScale(const MultiscaleMetadata& metadata,
+                         const OpenConstraints& constraints,
+                         const Schema& schema);
 
 /// Resolves `scale_key` relative to `key_prefix`.
 ///
@@ -331,8 +342,8 @@ std::array<int, 3> GetCompressedZIndexBits(span<const Index, 3> shape,
 ///
 /// \param bits The number of bits to use for each index.
 /// \pre `indices[i] < 2**bits[i]` for `0 <= i < 3`
-std::uint64_t EncodeCompressedZIndex(span<const Index, 3> indices,
-                                     std::array<int, 3> bits);
+uint64_t EncodeCompressedZIndex(span<const Index, 3> indices,
+                                std::array<int, 3> bits);
 
 struct ShardChunkHierarchy {
   /// Number of bits for each dimension in compressed Morton code.
@@ -373,10 +384,9 @@ bool GetShardChunkHierarchy(const ShardingSpec& sharding_spec,
 /// \param sharding_spec The sharding spec.
 /// \param volume_shape The volume shape, xyz.
 /// \param chunk_shape The chunk shape, xyz.
-std::function<std::uint64_t(std::uint64_t shard)>
-GetChunksPerVolumeShardFunction(const ShardingSpec& sharding_spec,
-                                span<const Index, 3> volume_shape,
-                                span<const Index, 3> chunk_shape);
+std::function<uint64_t(uint64_t shard)> GetChunksPerVolumeShardFunction(
+    const ShardingSpec& sharding_spec, span<const Index, 3> volume_shape,
+    span<const Index, 3> chunk_shape);
 
 }  // namespace internal_neuroglancer_precomputed
 }  // namespace tensorstore

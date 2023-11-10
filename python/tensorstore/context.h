@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef THIRD_PARTY_PY_TENSORSTORE_CONTEXT_H_
-#define THIRD_PARTY_PY_TENSORSTORE_CONTEXT_H_
+#ifndef PYTHON_TENSORSTORE_CONTEXT_H_
+#define PYTHON_TENSORSTORE_CONTEXT_H_
 
 /// \file Defines the `tensorstore.Context` and `tensorstore.ContextSpec` Python
 /// classes.
@@ -69,4 +69,4 @@ PYBIND11_DECLARE_HOLDER_TYPE(
 // Note that `ContextSpecImplPtr` and `ContextImplPtr` are also defined as
 // holder types by the generic definition in `intrusive_ptr_holder.h`.
 
-#endif  // THIRD_PARTY_PY_TENSORSTORE_CONTEXT_H_
+#endif  // PYTHON_TENSORSTORE_CONTEXT_H_

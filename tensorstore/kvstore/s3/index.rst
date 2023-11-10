@@ -3,7 +3,8 @@
 ``s3`` Key-Value Store driver
 ===============================
 
-The ``s3`` driver provides access to S3. Keys directly correspond to HTTP paths.
+The ``s3`` driver provides access to Amazon S3 and S3-compatible object stores.
+Keys directly correspond to paths within an S3 bucket.
 
 .. json:schema:: kvstore/s3
 
@@ -61,23 +62,28 @@ without credentials.  Otherwise amazon credentials are required:
 .. envvar:: AWS_SHARED_CREDENTIALS_FILE
 
    Specifies the location of the file that the AWS CLI uses to store access keys.
-   The default path is `~/.aws/credentials`.
+   The default path is :file:`~/.aws/credentials`.
    See <https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html>
 
 .. envvar:: AWS_PROFILE
 
   Specifies the name of the AWS CLI profile with the credentials and options to
   use. This can be the name of a profile stored in a credentials or config file,
-  or the value `default`` to use the default profile.
+  or the value ``default`` to use the default profile.
   
   If defined, this environment variable overrides the behavior of using the
-  profile named `[default]` in the credentials file.
+  profile named ``[default]`` in the credentials file.
   See <https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html>
 
 .. envvar:: AWS_EC2_METADATA_SERVICE_ENDPOINT
 
   Overrides the default EC2 Instance Metadata Service (IMDS) endpoint of 
-  `http://169.254.169.254`. This must be a valid uri, and should respond to the
-  AWS IMDS api endpoints.
+  ``http://169.254.169.254``. This must be a valid uri, and should respond to
+  the AWS IMDS api endpoints.
   See <https://docs.aws.amazon.com/sdkref/latest/guide/feature-imds-credentials.html>
+
+.. envvar:: TENSORSTORE_S3_REQUEST_CONCURRENCY
+
+   Specifies the concurrency level used by the shared Context
+   :json:schema:`Context.s3_request_concurrency` resource. Defaults to 32.
 

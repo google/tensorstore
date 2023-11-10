@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef THIRD_PARTY_PY_TENSORSTORE_KEYWORD_ARGUMENTS_H_
-#define THIRD_PARTY_PY_TENSORSTORE_KEYWORD_ARGUMENTS_H_
+#ifndef PYTHON_TENSORSTORE_KEYWORD_ARGUMENTS_H_
+#define PYTHON_TENSORSTORE_KEYWORD_ARGUMENTS_H_
 
 /// \file
 ///
@@ -190,4 +190,4 @@ void ApplyKeywordArguments(Target& target, KeywordArgument<ParamDef>&... arg) {
 }  // namespace internal_python
 }  // namespace tensorstore
 
-#endif  // THIRD_PARTY_PY_TENSORSTORE_KEYWORD_ARGUMENTS_H_
+#endif  // PYTHON_TENSORSTORE_KEYWORD_ARGUMENTS_H_

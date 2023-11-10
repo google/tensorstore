@@ -38,7 +38,7 @@
 #include "tensorstore/open_options.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/serialization/fwd.h"
-#include "tensorstore/spec_impl.h"
+#include "tensorstore/spec_impl.h"  // IWYU pragma: export
 #include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/option.h"
 #include "tensorstore/util/result.h"

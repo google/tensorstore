@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef THIRD_PARTY_PY_TENSORSTORE_TYPE_NAME_OVERRIDE_H_
-#define THIRD_PARTY_PY_TENSORSTORE_TYPE_NAME_OVERRIDE_H_
+#ifndef PYTHON_TENSORSTORE_TYPE_NAME_OVERRIDE_H_
+#define PYTHON_TENSORSTORE_TYPE_NAME_OVERRIDE_H_
 
 /// \file Defines a mechanism for overriding the type name shown in
 ///     pybind11-generated signatures.
@@ -90,4 +90,4 @@ struct pybind11::detail::type_caster<
   PYBIND11_TYPE_CASTER(T, T::tensorstore_pybind11_type_name_override);
 };
 
-#endif  // THIRD_PARTY_PY_TENSORSTORE_TYPE_NAME_OVERRIDE_H_
+#endif  // PYTHON_TENSORSTORE_TYPE_NAME_OVERRIDE_H_

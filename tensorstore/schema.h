@@ -15,7 +15,8 @@
 #ifndef TENSORSTORE_SCHEMA_H_
 #define TENSORSTORE_SCHEMA_H_
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <iosfwd>
 #include <optional>
 #include <type_traits>
@@ -23,6 +24,7 @@
 
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
+#include "tensorstore/box.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/codec_spec.h"
 #include "tensorstore/container_kind.h"

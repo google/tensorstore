@@ -54,15 +54,17 @@ _PACKAGES = [
 ]
 
 [
-  upb_proto_library(
-    name = x + ":pkg_upb_proto",
-    deps = [x + ":pkg"],
-  ) for x in _PACKAGES
+    upb_proto_library(
+        name = x + ":pkg_upb_proto",
+        deps = [x + ":pkg"],
+    )
+    for x in _PACKAGES
 ]
 
 [
-  upb_proto_reflection_library(
-    name = x + ":pkg_upb_proto_reflection",
-    deps = [ x + ":pkg"],
-  ) for x in _PACKAGES
+    upb_proto_reflection_library(
+        name = x + ":pkg_upb_proto_reflection",
+        deps = [x + ":pkg"],
+    )
+    for x in _PACKAGES
 ]

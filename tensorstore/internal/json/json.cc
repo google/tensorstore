@@ -14,6 +14,8 @@
 
 #include "tensorstore/internal/json/json.h"
 
+#include <stddef.h>
+
 #include <map>
 #include <string>
 #include <string_view>
@@ -55,15 +57,15 @@ absl::Status JsonExtraMembersError(const ::nlohmann::json::object_t& j_obj) {
 
 absl::Status JsonParseArray(
     const ::nlohmann::json& j,
-    absl::FunctionRef<absl::Status(std::ptrdiff_t size)> size_callback,
+    absl::FunctionRef<absl::Status(ptrdiff_t size)> size_callback,
     absl::FunctionRef<absl::Status(const ::nlohmann::json& value,
-                                   std::ptrdiff_t index)>
+                                   ptrdiff_t index)>
         element_callback) {
   const auto* j_array = j.get_ptr<const ::nlohmann::json::array_t*>();
   if (!j_array) {
     return internal_json::ExpectedError(j, "array");
   }
-  const std::ptrdiff_t size = j_array->size();
+  const ptrdiff_t size = j_array->size();
   TENSORSTORE_RETURN_IF_ERROR(size_callback(size));
   for (DimensionIndex i = 0; i < size; ++i) {
     auto status = element_callback(j[i], i);
@@ -75,8 +77,8 @@ absl::Status JsonParseArray(
   return absl::OkStatus();
 }
 
-absl::Status JsonValidateArrayLength(std::ptrdiff_t parsed_size,
-                                     std::ptrdiff_t expected_size) {
+absl::Status JsonValidateArrayLength(ptrdiff_t parsed_size,
+                                     ptrdiff_t expected_size) {
   if (parsed_size != expected_size) {
     return absl::InvalidArgumentError(
         tensorstore::StrCat("Array has length ", parsed_size,

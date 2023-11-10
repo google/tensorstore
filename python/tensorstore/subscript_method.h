@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef THIRD_PARTY_PY_TENSORSTORE_SUBSCRIPT_METHOD_H_
-#define THIRD_PARTY_PY_TENSORSTORE_SUBSCRIPT_METHOD_H_
+#ifndef PYTHON_TENSORSTORE_SUBSCRIPT_METHOD_H_
+#define PYTHON_TENSORSTORE_SUBSCRIPT_METHOD_H_
 
 /// \file
 ///
@@ -120,4 +120,4 @@ GetItemHelperClass<Parent, Tag> DefineSubscriptMethod(
 }  // namespace internal_python
 }  // namespace tensorstore
 
-#endif  // THIRD_PARTY_PY_TENSORSTORE_SUBSCRIPT_METHOD_H_
+#endif  // PYTHON_TENSORSTORE_SUBSCRIPT_METHOD_H_

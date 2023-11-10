@@ -217,7 +217,11 @@ python_apigen_rst_prolog = """
 
 """
 
-python_module_names_to_strip_from_xrefs = ['tensorstore']
+python_module_names_to_strip_from_xrefs = [
+    'tensorstore',
+    'collections.abc',
+    'numbers',
+]
 
 python_type_aliases = {
     'dtype': 'numpy.dtype',

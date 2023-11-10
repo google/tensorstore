@@ -179,7 +179,7 @@ struct ChunkLayoutData {
   Index chunk_elements_[kNumUsages] = {kImplicit, kImplicit, kImplicit};
 };
 
-bool IsHardConstraint(ChunkLayoutData& impl, HardConstraintBit bit) {
+bool IsHardConstraint(const ChunkLayoutData& impl, HardConstraintBit bit) {
   return impl.hard_constraint_[static_cast<int>(bit)];
 }
 
@@ -319,6 +319,15 @@ void ClearHardConstraintBits(Storage& impl) {
     impl.chunk_shape_hard_constraint_[i] = false;
     impl.chunk_aspect_ratio_hard_constraint_[i] = false;
   }
+}
+
+bool HasAnyHardConstraints(const Storage& impl) {
+  if (IsHardConstraint(impl, HardConstraintBit::inner_order)) return true;
+  if (impl.grid_origin_hard_constraint_) return true;
+  for (int i = 0; i < kNumUsages; ++i) {
+    if (impl.chunk_shape_hard_constraint_[i]) return true;
+  }
+  return false;
 }
 
 absl::Status RankMismatchError(DimensionIndex new_rank,
@@ -696,6 +705,11 @@ absl::Status SetChunkLayout(ChunkLayout& self, ChunkLayout other,
 DimensionIndex ChunkLayout::rank() const {
   if (storage_) return storage_->rank_;
   return dynamic_rank;
+}
+
+bool ChunkLayout::HasHardConstraints() const {
+  if (!storage_) return false;
+  return HasAnyHardConstraints(*storage_);
 }
 
 absl::Status ChunkLayout::Set(RankConstraint value) {

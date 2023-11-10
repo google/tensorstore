@@ -141,6 +141,8 @@ Result<DimensionIndex> NormalizeDimensionIndex(DimensionIndex index,
 /// \relates DimensionIdentifier
 Result<DimensionIndex> NormalizeDimensionLabel(std::string_view label,
                                                span<const std::string> labels);
+Result<DimensionIndex> NormalizeDimensionLabel(
+    std::string_view label, span<const std::string_view> labels);
 
 /// Normalizes a dimension identifier to a dimension index in the range
 /// ``[0, rank)``.

@@ -15,12 +15,13 @@
 #ifndef TENSORSTORE_DRIVER_NEUROGLANCER_PRECOMPUTED_CHUNK_ENCODING_H_
 #define TENSORSTORE_DRIVER_NEUROGLANCER_PRECOMPUTED_CHUNK_ENCODING_H_
 
-#include <cstddef>
-#include <string>
+#include <stddef.h>
 
+#include "absl/strings/cord.h"
 #include "tensorstore/array.h"
 #include "tensorstore/driver/neuroglancer_precomputed/metadata.h"
 #include "tensorstore/index.h"
+#include "tensorstore/strided_layout.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 
@@ -39,7 +40,7 @@ namespace internal_neuroglancer_precomputed {
 /// \error `absl::StatusCode::kInvalidArgument` if the encoded chunk is invalid.
 Result<SharedArray<const void>> DecodeChunk(span<const Index> chunk_indices,
                                             const MultiscaleMetadata& metadata,
-                                            std::size_t scale_index,
+                                            size_t scale_index,
                                             StridedLayoutView<4> chunk_layout,
                                             absl::Cord buffer);
 
@@ -53,7 +54,7 @@ Result<SharedArray<const void>> DecodeChunk(span<const Index> chunk_indices,
 /// \returns The encoded chunk.
 Result<absl::Cord> EncodeChunk(span<const Index> chunk_indices,
                                const MultiscaleMetadata& metadata,
-                               std::size_t scale_index,
+                               size_t scale_index,
                                const SharedArrayView<const void>& array);
 
 }  // namespace internal_neuroglancer_precomputed

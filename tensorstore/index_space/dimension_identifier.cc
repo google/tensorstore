@@ -14,13 +14,20 @@
 
 #include "tensorstore/index_space/dimension_identifier.h"
 
+#include <cassert>
+#include <ostream>
+#include <string>
 #include <system_error>  // NOLINT
+#include <variant>
 
 #include "absl/status/status.h"
 #include "absl/strings/str_join.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_space/dimension_index_buffer.h"
 #include "tensorstore/util/division.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
@@ -55,8 +62,10 @@ Result<DimensionIndex> NormalizeDimensionExclusiveStopIndex(
   return index >= 0 ? index : index + rank;
 }
 
-Result<DimensionIndex> NormalizeDimensionLabel(std::string_view label,
-                                               span<const std::string> labels) {
+namespace {
+template <typename Label>
+Result<DimensionIndex> NormalizeDimensionLabelImpl(std::string_view label,
+                                                   span<const Label> labels) {
   if (label.empty()) {
     return absl::InvalidArgumentError(
         "Dimension cannot be specified by empty label");
@@ -73,6 +82,16 @@ Result<DimensionIndex> NormalizeDimensionLabel(std::string_view label,
         "}"));
   }
   return dim;
+}
+}  // namespace
+
+Result<DimensionIndex> NormalizeDimensionLabel(std::string_view label,
+                                               span<const std::string> labels) {
+  return NormalizeDimensionLabelImpl(label, labels);
+}
+Result<DimensionIndex> NormalizeDimensionLabel(
+    std::string_view label, span<const std::string_view> labels) {
+  return NormalizeDimensionLabelImpl(label, labels);
 }
 
 Result<DimensionIndex> NormalizeDimensionIdentifier(

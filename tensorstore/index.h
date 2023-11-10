@@ -15,8 +15,8 @@
 #ifndef TENSORSTORE_INDEX_H_
 #define TENSORSTORE_INDEX_H_
 
-#include <cstddef>
-#include <cstdint>
+#include <stddef.h>
+#include <stdint.h>
 
 namespace tensorstore {
 
@@ -27,12 +27,12 @@ namespace tensorstore {
 /// `kMaxFiniteIndex`].
 ///
 /// \ingroup indexing
-using Index = std::int64_t;
+using Index = int64_t;
 
 /// Type for representing a dimension index or rank.
 ///
 /// \ingroup indexing
-using DimensionIndex = std::ptrdiff_t;
+using DimensionIndex = ptrdiff_t;
 
 /// Minimum supported finite `Index` value.
 ///

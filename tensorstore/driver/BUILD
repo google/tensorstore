@@ -1,6 +1,6 @@
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
 load("//docs:doctest.bzl", "doctest_test")
-load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -75,9 +75,19 @@ tensorstore_cc_library(
     name = "chunk_cache_driver",
     hdrs = ["chunk_cache_driver.h"],
     deps = [
+        ":chunk",
         ":driver",
+        "//tensorstore:data_type",
+        "//tensorstore:index",
+        "//tensorstore:staleness_bound",
+        "//tensorstore:transaction",
+        "//tensorstore/index_space:index_transform",
         "//tensorstore/internal:chunk_grid_specification",
+        "//tensorstore/internal/cache",
         "//tensorstore/internal/cache:chunk_cache",
+        "//tensorstore/util:executor",
+        "//tensorstore/util/execution:any_receiver",
+        "@com_google_absl//absl/status",
     ],
 )
 

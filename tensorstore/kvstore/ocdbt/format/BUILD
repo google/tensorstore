@@ -98,8 +98,11 @@ tensorstore_cc_test(
         "//tensorstore/util:quote_string",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/strings:str_format",
         "@com_google_googletest//:gtest_main",
+        "@com_google_riegeli//riegeli/bytes:writer",
     ],
 )
 

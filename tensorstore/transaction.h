@@ -20,8 +20,9 @@
 /// Transactions are used to stage groups of modifications (e.g. writes to
 /// `TensorStore` objects) in memory before being aborted or committed.
 
-#include <cstddef>
-#include <cstdint>
+#include <stddef.h>
+#include <stdint.h>
+
 #include <iosfwd>
 #include <utility>
 
@@ -37,7 +38,7 @@ namespace tensorstore {
 /// Specifies the transaction mode.
 ///
 /// \relates Transaction
-enum TransactionMode : std::uint8_t {
+enum TransactionMode : uint8_t {
   /// Indicates non-transactional semantics.  This is the default for operations
   /// performed without an explicit transaction.
   ///
@@ -230,7 +231,7 @@ class Transaction {
 
   /// Returns an estimate of the number of bytes of memory currently consumed by
   /// the transaction.
-  std::size_t total_bytes() const {
+  size_t total_bytes() const {
     if (state_) return state_->total_bytes();
     return 0;
   }

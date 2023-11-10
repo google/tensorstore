@@ -23,6 +23,7 @@
 #include <variant>
 #include <vector>
 
+#include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/strings/cord.h"
 #include "riegeli/bytes/writer.h"
@@ -320,13 +321,15 @@ Result<std::vector<EncodedNode>> BtreeNodeEncoder<Entry>::Finalize(
     auto& a = buffered_entries_[i - 1];
     auto& b = buffered_entries_[i];
     if (a.existing == b.existing) {
-      assert(a.entry.key < b.entry.key);
+      ABSL_DCHECK_LT(a.entry.key, b.entry.key);
     } else if (a.existing) {
-      assert(ComparePrefixedKeyToUnprefixedKey{existing_prefix_}(
-                 a.entry.key, b.entry.key) < 0);
+      ABSL_DCHECK_LT(ComparePrefixedKeyToUnprefixedKey{existing_prefix_}(
+                         a.entry.key, b.entry.key),
+                     0);
     } else {
-      assert(ComparePrefixedKeyToUnprefixedKey{existing_prefix_}(
-                 b.entry.key, a.entry.key) > 0);
+      ABSL_DCHECK_GT(ComparePrefixedKeyToUnprefixedKey{existing_prefix_}(
+                         b.entry.key, a.entry.key),
+                     0);
     }
   }
 #endif  //  TENSORSTORE_INTERNAL_OCDBT_DEBUG
@@ -345,15 +348,16 @@ Result<std::vector<EncodedNode>> BtreeNodeEncoder<Entry>::Finalize(
   while (start_i < buffered_entries_.size()) {
     size_t size_upper_bound = get_range_size(buffered_entries_.size());
     size_t num_nodes = tensorstore::CeilOfRatio<size_t>(
-        buffered_entries_.size() - start_i, kMinArity);
+        buffered_entries_.size() - start_i, kMaxNodeArity);
     if (config_.max_decoded_node_bytes != 0) {
-      num_nodes = std::min(
+      num_nodes = std::max(
           num_nodes, tensorstore::CeilOfRatio<size_t>(
                          size_upper_bound, config_.max_decoded_node_bytes));
     }
     size_t target_size = tensorstore::CeilOfRatio(size_upper_bound, num_nodes);
     size_t end_i;
     for (end_i = start_i + 1; end_i < buffered_entries_.size(); ++end_i) {
+      if (end_i - start_i >= kMaxNodeArity) break;
       size_t size = get_range_size(end_i);
       if (size >= target_size && end_i >= start_i + kMinArity) {
         if (size > config_.max_decoded_node_bytes &&
@@ -364,6 +368,7 @@ Result<std::vector<EncodedNode>> BtreeNodeEncoder<Entry>::Finalize(
       }
     }
     assert(end_i > start_i);
+    assert(end_i - start_i <= kMaxNodeArity);
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto encoded_node,
         EncodeEntries<Entry>(

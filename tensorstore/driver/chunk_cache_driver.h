@@ -15,9 +15,24 @@
 #ifndef TENSORSTORE_DRIVER_CHUNK_CACHE_DRIVER_H_
 #define TENSORSTORE_DRIVER_CHUNK_CACHE_DRIVER_H_
 
+#include <stddef.h>
+
+#include <cassert>
+#include <utility>
+
+#include "absl/status/status.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/driver/chunk.h"
 #include "tensorstore/driver/driver.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache/chunk_cache.h"
 #include "tensorstore/internal/chunk_grid_specification.h"
+#include "tensorstore/staleness_bound.h"
+#include "tensorstore/transaction.h"
+#include "tensorstore/util/execution/any_receiver.h"
+#include "tensorstore/util/executor.h"
 
 namespace tensorstore {
 namespace internal {

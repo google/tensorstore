@@ -14,15 +14,17 @@
 
 #include "tensorstore/contiguous_layout.h"
 
+#include <stddef.h>
+
 #include <cassert>
-#include <cstddef>
 #include <ostream>
 
+#include "tensorstore/index.h"
 #include "tensorstore/util/span.h"
 
 namespace tensorstore {
 
-void ComputeStrides(ContiguousLayoutOrder order, std::ptrdiff_t element_stride,
+void ComputeStrides(ContiguousLayoutOrder order, ptrdiff_t element_stride,
                     span<const Index> shape, span<Index> strides) {
   const DimensionIndex rank = shape.size();
   assert(strides.size() == rank);
