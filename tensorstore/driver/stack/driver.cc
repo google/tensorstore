@@ -18,19 +18,17 @@
 #include <stddef.h>
 
 #include <algorithm>
-#include <atomic>
 #include <numeric>
-#include <string>
+#include <optional>
 #include <utility>
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
-#include "absl/container/inlined_vector.h"
 #include "absl/hash/hash.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
-#include "tensorstore/array.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/box.h"
 #include "tensorstore/context.h"
 #include "tensorstore/data_type.h"
@@ -39,8 +37,12 @@
 #include "tensorstore/driver/driver_handle.h"
 #include "tensorstore/driver/driver_spec.h"
 #include "tensorstore/driver/registry.h"
+#include "tensorstore/driver/stack/driver.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
+#include "tensorstore/index_space/dim_expression.h"
+#include "tensorstore/index_space/dimension_identifier.h"
+#include "tensorstore/index_space/dimension_units.h"
 #include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/internal/propagate_bounds.h"
@@ -50,21 +52,21 @@
 #include "tensorstore/internal/grid_partition.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/irregular_grid.h"
-#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/staleness_bound.h"  // IWYU pragma: keep
 #include "tensorstore/internal/json_binding/std_array.h"  // IWYU pragma: keep
 #include "tensorstore/internal/tagged_ptr.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/open_mode.h"
+#include "tensorstore/open_options.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/resize_options.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/execution/any_receiver.h"
-#include "tensorstore/util/execution/execution.h"
+#include "tensorstore/util/execution/flow_sender_operation_state.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
-#include "tensorstore/util/iterate.h"
 #include "tensorstore/util/iterate_over_index_range.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
@@ -75,6 +77,7 @@
 #include "tensorstore/internal/context_binding_vector.h"  // IWYU pragma: keep
 #include "tensorstore/serialization/std_vector.h"  // IWYU pragma: keep
 #include "tensorstore/util/garbage_collection/fwd.h"  // IWYU pragma: keep
+#include "tensorstore/util/garbage_collection/std_optional.h"  // IWYU pragma: keep
 #include "tensorstore/util/garbage_collection/std_vector.h"  // IWYU pragma: keep
 
 namespace tensorstore {
@@ -89,6 +92,41 @@ using ::tensorstore::internal::OpenTransactionPtr;
 using ::tensorstore::internal::ReadChunk;
 using ::tensorstore::internal::TransformedDriverSpec;
 using ::tensorstore::internal::WriteChunk;
+
+// Specifies a stack layer as either a `DriverSpec` (to be opened on demand) or
+// an open `Driver`, along with a transform.
+struct StackLayer {
+  // Index transform, must not be null.
+  IndexTransform<> transform;
+
+  // Driver spec, if layer is to be opened on demand.
+  internal::DriverSpecPtr driver_spec;
+
+  // Driver, if layer is already open.
+  internal::ReadWritePtr<internal::Driver> driver;
+
+  bool is_open() const { return static_cast<bool>(driver); }
+
+  internal::DriverHandle GetDriverHandle(Transaction transaction) const {
+    assert(is_open());
+    return {driver, transform, transaction};
+  }
+
+  internal::DriverHandle GetDriverHandle(
+      internal::OpenTransactionPtr& transaction) const {
+    return GetDriverHandle(
+        internal::TransactionState::ToTransaction(transaction));
+  }
+
+  internal::TransformedDriverSpec GetTransformedDriverSpec() const {
+    assert(!is_open());
+    return internal::TransformedDriverSpec{driver_spec, transform};
+  }
+
+  constexpr static auto ApplyMembers = [](auto&& x, auto f) {
+    return f(x.transform, x.driver_spec, x.driver);
+  };
+};
 
 // NOTES:
 //
@@ -109,11 +147,6 @@ using ::tensorstore::internal::WriteChunk;
 //
 
 namespace jb = tensorstore::internal_json_binding;
-
-absl::Status TransactionError() {
-  return absl::UnimplementedError(
-      "\"stack\" driver does not support transactions");
-}
 
 /// Used to index individual cells
 struct Cell {
@@ -156,6 +189,210 @@ struct CellEq {
   }
 };
 
+// Certain operations are applied to either a sequence of
+// `internal::TransformedDriverSpec` used by the `StackDriverSpec` to represent
+// layers, or to a sequence of `StackLayer` used by the open `StackDriver` to
+// represent layers.
+template <typename T>
+constexpr bool IsStackLayerLike = false;
+
+template <>
+constexpr bool IsStackLayerLike<internal::TransformedDriverSpec> = true;
+
+template <>
+constexpr bool IsStackLayerLike<StackLayer> = true;
+
+template <typename Callback>
+absl::Status ForEachLayer(size_t num_layers, Callback&& callback) {
+  for (size_t layer_i = 0; layer_i < num_layers; ++layer_i) {
+    absl::Status status = callback(layer_i);
+    if (!status.ok()) {
+      return tensorstore::MaybeAnnotateStatus(
+          status, absl::StrFormat("Layer %d", layer_i));
+    }
+  }
+  return absl::OkStatus();
+}
+
+using internal::GetEffectiveDomain;
+
+Result<IndexDomain<>> GetEffectiveDomain(const StackLayer& layer) {
+  return layer.is_open()
+             ? layer.transform.domain()
+             : internal::GetEffectiveDomain(layer.GetTransformedDriverSpec());
+}
+
+template <typename Layer>
+Result<std::vector<IndexDomain<>>> GetEffectiveDomainsForLayers(
+    span<const Layer> layers) {
+  static_assert(IsStackLayerLike<Layer>);
+  std::vector<IndexDomain<>> domains;
+  domains.reserve(layers.size());
+  DimensionIndex rank;
+  auto status = ForEachLayer(layers.size(), [&](size_t layer_i) {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto effective_domain,
+        internal_stack::GetEffectiveDomain(layers[layer_i]));
+    if (!effective_domain.valid()) {
+      return absl::InvalidArgumentError(
+          tensorstore::StrCat("Domain must be specified"));
+    }
+    domains.emplace_back(std::move(effective_domain));
+    // validate rank.
+    if (layer_i == 0) {
+      rank = domains.back().rank();
+    } else if (domains.back().rank() != rank) {
+      return absl::InvalidArgumentError(tensorstore::StrCat(
+          "Layer domain ", domains.back(), " of rank ", domains.back().rank(),
+          " does not match layer 0 rank of ", rank));
+    }
+    return absl::OkStatus();
+  });
+  if (!status.ok()) return status;
+  return domains;
+}
+
+Result<IndexDomain<>> GetCombinedDomain(
+    const Schema& schema, span<const IndexDomain<>> layer_domains) {
+  // Each layer is expected to have an effective domain so that each layer
+  // can be queried when resolving chunks.
+  // The overall domain is Hull(layer.domain...)
+  IndexDomain<> domain;
+  auto status = ForEachLayer(layer_domains.size(), [&](size_t layer_i) {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        domain, HullIndexDomains(domain, layer_domains[layer_i]));
+    return absl::OkStatus();
+  });
+  if (!status.ok()) return status;
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      domain, ConstrainIndexDomain(schema.domain(), std::move(domain)));
+  // stack disallows resize, so mark all dimensions as explicit.
+  return WithImplicitDimensions(std::move(domain), false, false);
+}
+
+using internal::GetEffectiveDimensionUnits;
+
+Result<DimensionUnitsVector> GetEffectiveDimensionUnits(
+    const StackLayer& layer) {
+  if (layer.is_open()) {
+    TENSORSTORE_ASSIGN_OR_RETURN(auto units, layer.driver->GetDimensionUnits());
+    return tensorstore::TransformOutputDimensionUnits(layer.transform,
+                                                      std::move(units));
+  } else {
+    return internal::GetEffectiveDimensionUnits(
+        layer.GetTransformedDriverSpec());
+  }
+}
+
+template <typename Layer>
+Result<DimensionUnitsVector> GetDimensionUnits(const Schema& schema,
+                                               span<const Layer> layers) {
+  static_assert(IsStackLayerLike<Layer>);
+  // Retrieve dimension units from schema. These take precedence over computed
+  // dimensions, so disallow further assignment.
+  DimensionUnitsVector dimension_units(schema.dimension_units());
+  DimensionSet allow_assignment(true);
+  for (size_t i = 0; i < dimension_units.size(); i++) {
+    if (dimension_units[i].has_value()) {
+      allow_assignment[i] = false;
+    }
+  }
+  // Merge dimension units from the layers. If there are conflicting values,
+  // clear and disallow further assignment.
+  auto status = ForEachLayer(layers.size(), [&](size_t layer_i) {
+    const auto& d = layers[layer_i];
+    TENSORSTORE_ASSIGN_OR_RETURN(auto du,
+                                 internal_stack::GetEffectiveDimensionUnits(d));
+    if (du.size() > dimension_units.size()) {
+      dimension_units.resize(du.size());
+    }
+    for (size_t i = 0; i < du.size(); i++) {
+      if (!allow_assignment[i]) continue;
+      if (!du[i].has_value()) continue;
+      if (!dimension_units[i].has_value()) {
+        dimension_units[i] = du[i];
+      } else if (dimension_units[i].value() != du[i].value()) {
+        // mismatch; clear and disallow future assignment.
+        dimension_units[i] = std::nullopt;
+        allow_assignment[i] = false;
+      }
+    }
+    return absl::OkStatus();
+  });
+  if (!status.ok()) return status;
+  return dimension_units;
+}
+
+using internal::TransformAndApplyOptions;
+
+absl::Status TransformAndApplyOptions(StackLayer& layer,
+                                      SpecOptions&& options) {
+  assert(!layer.is_open());
+  return internal::TransformAndApplyOptions(layer.driver_spec, layer.transform,
+                                            std::move(options));
+}
+
+template <typename Layer>
+absl::Status ApplyLayerOptions(span<Layer> layers, Schema& schema,
+                               const SpecOptions& options) {
+  if (&schema != &options) {
+    TENSORSTORE_RETURN_IF_ERROR(schema.Set(options.rank()));
+    TENSORSTORE_RETURN_IF_ERROR(schema.Set(options.dtype()));
+    TENSORSTORE_RETURN_IF_ERROR(schema.Set(options.domain()));
+    TENSORSTORE_RETURN_IF_ERROR(schema.Set(options.dimension_units()));
+  }
+  if (options.codec().valid()) {
+    return absl::InvalidArgumentError(
+        "codec option not supported by \"stack\" driver");
+  }
+  if (options.fill_value().valid()) {
+    return absl::InvalidArgumentError(
+        "fill value option not supported by \"stack\" driver");
+  }
+  if (options.kvstore.valid()) {
+    return absl::InvalidArgumentError(
+        "kvstore option not supported by \"stack\" driver");
+  }
+  if (options.chunk_layout().HasHardConstraints()) {
+    return absl::InvalidArgumentError(
+        "chunk layout option not supported by \"stack\" driver");
+  }
+  return ForEachLayer(layers.size(), [&](size_t layer_i) {
+    auto& layer = layers[layer_i];
+    if constexpr (std::is_same_v<Layer, StackLayer>) {
+      if (layer.is_open()) {
+        if (options.open_mode != OpenMode{} &&
+            !(options.open_mode & OpenMode::open)) {
+          return absl::InvalidArgumentError(tensorstore::StrCat(
+              "Open mode of ", options.open_mode,
+              " is not compatible with already-open layer"));
+        }
+        if (options.recheck_cached_data.specified() ||
+            options.recheck_cached_metadata.specified()) {
+          return absl::InvalidArgumentError(
+              "Cannot specify cache rechecking options with already-open "
+              "layer");
+        }
+        return absl::OkStatus();
+      }
+    }
+    // Filter the options to only those that we wish to pass on to the
+    // layers, otherwise we may be passing on nonsensical settings for a
+    // layer.
+    SpecOptions layer_options;
+    layer_options.open_mode = options.open_mode;
+    layer_options.recheck_cached_data = options.recheck_cached_data;
+    layer_options.recheck_cached_metadata = options.recheck_cached_metadata;
+    layer_options.minimal_spec = options.minimal_spec;
+    TENSORSTORE_RETURN_IF_ERROR(
+        static_cast<Schema&>(layer_options).Set(schema.dtype()));
+    TENSORSTORE_RETURN_IF_ERROR(
+        static_cast<Schema&>(layer_options).Set(schema.rank()));
+    return internal_stack::TransformAndApplyOptions(layers[layer_i],
+                                                    std::move(layer_options));
+  });
+}
+
 class StackDriverSpec
     : public internal::RegisteredDriverSpec<StackDriverSpec,
                                             /*Parent=*/internal::DriverSpec> {
@@ -163,7 +400,7 @@ class StackDriverSpec
   constexpr static char id[] = "stack";
 
   Context::Resource<DataCopyConcurrencyResource> data_copy_concurrency;
-  std::vector<TransformedDriverSpec> layers;
+  std::vector<internal::TransformedDriverSpec> layers;
 
   constexpr static auto ApplyMembers = [](auto&& x, auto f) {
     return f(internal::BaseCast<internal::DriverSpec>(x),
@@ -171,17 +408,19 @@ class StackDriverSpec
   };
 
   absl::Status InitializeLayerRankAndDtype() {
-    if (layers.empty()) {
-      return absl::InvalidArgumentError("\"stack\" driver spec has no layers");
-    }
-    /// Set the schema rank and dtype based on the layers.
-    for (auto& d : layers) {
+    return ForEachLayer(layers.size(), [&](size_t layer_i) {
+      auto& layer = layers[layer_i];
+      DimensionIndex layer_rank = internal::GetRank(layer);
+      if (schema.rank() != dynamic_rank && layer_rank != schema.rank()) {
+        return absl::InvalidArgumentError(tensorstore::StrCat(
+            "Rank of ", layer_rank, " does not match existing rank of ",
+            schema.rank()));
+      }
+      schema.Set(RankConstraint{layer_rank}).IgnoreError();
       TENSORSTORE_RETURN_IF_ERROR(
-          this->schema.Set(RankConstraint{internal::GetRank(d)}));
-      TENSORSTORE_RETURN_IF_ERROR(
-          this->schema.Set(d.driver_spec->schema.dtype()));
-    }
-    return absl::OkStatus();
+          schema.Set(layer.driver_spec->schema.dtype()));
+      return absl::OkStatus();
+    });
   }
 
   constexpr static auto default_json_binder = jb::Sequence(
@@ -196,28 +435,8 @@ class StackDriverSpec
       }));
 
   absl::Status ApplyOptions(SpecOptions&& options) override {
-    if (options.codec().valid()) {
-      return absl::InvalidArgumentError(
-          "\"codec\" not supported by \"stack\" driver");
-    }
-    if (options.fill_value().valid()) {
-      return absl::InvalidArgumentError(
-          "\"fill_value\" not supported by \"stack\" driver");
-    }
-    for (auto& d : layers) {
-      // Filter the options to only those that we wish to pass on to the
-      // layers, otherwise we may be passing on nonsensical settings for a
-      // layer.
-      SpecOptions o;
-      o.open_mode = options.open_mode;
-      o.recheck_cached_data = options.recheck_cached_data;
-      o.recheck_cached_metadata = options.recheck_cached_metadata;
-      TENSORSTORE_RETURN_IF_ERROR(static_cast<Schema&>(o).Set(schema.dtype()));
-      TENSORSTORE_RETURN_IF_ERROR(static_cast<Schema&>(o).Set(schema.rank()));
-      TENSORSTORE_RETURN_IF_ERROR(
-          internal::TransformAndApplyOptions(d, std::move(o)));
-    }
-    return schema.Set(static_cast<Schema&&>(options));
+    return internal_stack::ApplyLayerOptions<internal::TransformedDriverSpec>(
+        layers, schema, std::move(options));
   }
 
   OpenMode open_mode() const override {
@@ -231,78 +450,16 @@ class StackDriverSpec
     return prev_mode;
   }
 
-  Result<std::vector<IndexDomain<>>> GetEffectiveDomainsForLayers() const {
-    assert(!layers.empty());
-    std::vector<IndexDomain<>> domains;
-    domains.reserve(layers.size());
-    DimensionIndex rank;
-    for (size_t i = 0; i < layers.size(); i++) {
-      TENSORSTORE_ASSIGN_OR_RETURN(auto effective_domain,
-                                   internal::GetEffectiveDomain(layers[i]));
-      if (!effective_domain.valid()) {
-        return absl::InvalidArgumentError(
-            tensorstore::StrCat("layer[", i, "] domain is unspecified"));
-      }
-      domains.emplace_back(std::move(effective_domain));
-      // validate rank.
-      if (i == 0) {
-        rank = domains.back().rank();
-      } else if (domains.back().rank() != rank) {
-        return absl::InvalidArgumentError(
-            tensorstore::StrCat("layer[", i, "] rank mismatch"));
-      }
-    }
-    return domains;
-  }
-
   Result<IndexDomain<>> GetDomain() const override {
-    // Each layer is expected to have an effective domain so that each layer
-    // can be queried when resolving chunks.
-    // The overall domain is Hull(layer.domain...)
-    IndexDomain<> domain;
-    {
-      TENSORSTORE_ASSIGN_OR_RETURN(auto domains,
-                                   GetEffectiveDomainsForLayers());
-      for (auto& d : domains) {
-        TENSORSTORE_ASSIGN_OR_RETURN(domain, HullIndexDomains(domain, d));
-      }
-    }
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        domain, ConstrainIndexDomain(schema.domain(), std::move(domain)));
-    // stack disallows resize, so mark all dimensions as explicit.
-    return WithImplicitDimensions(std::move(domain), false, false);
+    TENSORSTORE_ASSIGN_OR_RETURN(auto layer_domains,
+                                 internal_stack::GetEffectiveDomainsForLayers<
+                                     internal::TransformedDriverSpec>(layers));
+    return internal_stack::GetCombinedDomain(schema, layer_domains);
   }
 
   Result<DimensionUnitsVector> GetDimensionUnits() const override {
-    /// Retrieve dimension units from schema. These take precedence
-    /// over computed dimensions, so disallow further assignment.
-    DimensionUnitsVector dimension_units(schema.dimension_units());
-    DimensionSet allow_assignment(true);
-    for (size_t i = 0; i < dimension_units.size(); i++) {
-      if (dimension_units[i].has_value()) {
-        allow_assignment[i] = false;
-      }
-    }
-    /// Merge dimension units from the layers. If there are conflicting
-    /// values, clear and disallow further assignment.
-    for (const auto& d : layers) {
-      TENSORSTORE_ASSIGN_OR_RETURN(auto du, GetEffectiveDimensionUnits(d));
-      if (du.size() > dimension_units.size()) {
-        dimension_units.resize(du.size());
-      }
-      for (size_t i = 0; i < du.size(); i++) {
-        if (!allow_assignment[i]) continue;
-        if (!du[i].has_value()) continue;
-        if (!dimension_units[i].has_value()) {
-          dimension_units[i] = du[i];
-        } else if (dimension_units[i].value() != du[i].value()) {
-          // mismatch; clear and disallow future assignment.
-          dimension_units[i] = std::nullopt;
-          allow_assignment[i] = false;
-        }
-      }
-    }
-    return dimension_units;
+    return internal_stack::GetDimensionUnits<internal::TransformedDriverSpec>(
+        schema, layers);
   }
 
   Future<internal::Driver::Handle> Open(
@@ -314,18 +471,11 @@ class StackDriver
     : public internal::RegisteredDriver<StackDriver,
                                         /*Parent=*/internal::Driver> {
  public:
-  explicit StackDriver(StackDriverSpec bound_spec)
-      : bound_spec_(std::move(bound_spec)) {
-    assert(bound_spec_.context_binding_state_ == ContextBindingState::bound);
-    dimension_units_ = bound_spec_.GetDimensionUnits().value_or(
-        DimensionUnitsVector(bound_spec_.schema.rank()));
-  }
-
-  DataType dtype() override { return bound_spec_.schema.dtype(); }
-  DimensionIndex rank() override { return bound_spec_.schema.rank(); }
+  DataType dtype() override { return dtype_; }
+  DimensionIndex rank() override { return layer_domain_.rank(); }
 
   Executor data_copy_executor() override {
-    return bound_spec_.data_copy_concurrency->executor;
+    return data_copy_concurrency_->executor;
   }
 
   Result<DimensionUnitsVector> GetDimensionUnits() override {
@@ -347,14 +497,17 @@ class StackDriver
   void Write(OpenTransactionPtr transaction, IndexTransform<> transform,
              WriteChunkReceiver receiver) override;
 
-  absl::Status InitializeGridIndices(const std::vector<IndexDomain<>>& domains);
+  absl::Status InitializeGridIndices(span<const IndexDomain<>> domains);
 
   constexpr static auto ApplyMembers = [](auto&& x, auto f) {
     // Exclude `context_binding_state_` because it is handled specially.
-    return f(x.bound_spec_);
+    return f(x.dtype_, x.data_copy_concurrency_, x.layers_, x.dimension_units_,
+             x.layer_domain_);
   };
 
-  StackDriverSpec bound_spec_;
+  DataType dtype_;
+  Context::Resource<DataCopyConcurrencyResource> data_copy_concurrency_;
+  std::vector<StackLayer> layers_;
   DimensionUnitsVector dimension_units_;
   IndexDomain<> layer_domain_;
   IrregularGrid grid_;
@@ -362,27 +515,50 @@ class StackDriver
   absl::flat_hash_map<Cell, size_t, CellHash, CellEq> grid_to_layer_;
 };
 
+Result<internal::Driver::Handle> MakeStackDriverHandle(
+    internal::ReadWritePtr<StackDriver> driver,
+    span<const IndexDomain<>> layer_domains, Transaction transaction,
+    const Schema& schema) {
+  driver->dtype_ = schema.dtype();
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      driver->layer_domain_,
+      internal_stack::GetCombinedDomain(schema, layer_domains));
+  TENSORSTORE_RETURN_IF_ERROR(driver->InitializeGridIndices(layer_domains));
+  auto transform = IdentityTransform(driver->layer_domain_);
+  driver->dimension_units_ =
+      internal_stack::GetDimensionUnits<StackLayer>(schema, driver->layers_)
+          .value_or(DimensionUnitsVector(transform.input_rank()));
+  return internal::DriverHandle{std::move(driver), std::move(transform),
+                                std::move(transaction)};
+}
+
 Future<internal::Driver::Handle> StackDriverSpec::Open(
     internal::OpenTransactionPtr transaction,
     ReadWriteMode read_write_mode) const {
-  if (transaction) return TransactionError();
+  if (!schema.dtype().valid()) {
+    return absl::InvalidArgumentError("dtype must be specified");
+  }
   if (read_write_mode == ReadWriteMode::dynamic) {
     read_write_mode = ReadWriteMode::read_write;
   }
-  if (!schema.dtype().valid()) {
-    return absl::InvalidArgumentError(
-        "Unable to infer \"dtype\" in \"stack\" driver");
+  auto driver = internal::MakeReadWritePtr<StackDriver>(read_write_mode);
+  driver->data_copy_concurrency_ = data_copy_concurrency;
+  const size_t num_layers = layers.size();
+  driver->layers_.resize(num_layers);
+  for (size_t layer_i = 0; layer_i < num_layers; ++layer_i) {
+    auto& layer_spec = layers[layer_i];
+    auto& layer = driver->layers_[layer_i];
+    layer.transform = layer_spec.transform;
+    layer.driver_spec = layer_spec.driver_spec;
   }
-
-  TENSORSTORE_ASSIGN_OR_RETURN(auto domains, GetEffectiveDomainsForLayers());
-
-  auto driver_ptr =
-      internal::MakeReadWritePtr<StackDriver>(read_write_mode, *this);
-  TENSORSTORE_ASSIGN_OR_RETURN(driver_ptr->layer_domain_, GetDomain());
-  TENSORSTORE_RETURN_IF_ERROR(driver_ptr->InitializeGridIndices(domains));
-
-  auto transform = tensorstore::IdentityTransform(driver_ptr->layer_domain_);
-  return internal::Driver::Handle{std::move(driver_ptr), std::move(transform)};
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto layer_domains,
+      internal_stack::GetEffectiveDomainsForLayers<StackLayer>(
+          driver->layers_));
+  return internal_stack::MakeStackDriverHandle(
+      std::move(driver), layer_domains,
+      internal::TransactionState::ToTransaction(std::move(transaction)),
+      schema);
 }
 
 /// The mechanism used here is to construct an irregular grid based on
@@ -393,9 +569,10 @@ Future<internal::Driver::Handle> StackDriverSpec::Open(
 /// an R-tree variant using the layer MBRs to restrict the query space,
 /// then applying a similar gridding decomposition to the read transforms.
 absl::Status StackDriver::InitializeGridIndices(
-    const std::vector<IndexDomain<>>& domains) {
-  assert(domains.size() == bound_spec_.layers.size());
-  grid_ = IrregularGrid::Make(span(domains));
+    span<const IndexDomain<>> domains) {
+  assert(domains.size() == layers_.size());
+  grid_ = IrregularGrid::Make(layers_.empty() ? span(&layer_domain_, 1)
+                                              : span(domains));
 
   Index start[kMaxRank];
   Index shape[kMaxRank];
@@ -428,16 +605,35 @@ absl::Status StackDriver::InitializeGridIndices(
 
 Result<TransformedDriverSpec> StackDriver::GetBoundSpec(
     internal::OpenTransactionPtr transaction, IndexTransformView<> transform) {
-  if (transaction) return TransactionError();
   auto driver_spec = internal::DriverSpec::Make<StackDriverSpec>();
-  *driver_spec = bound_spec_;
-
+  driver_spec->data_copy_concurrency = data_copy_concurrency_;
+  driver_spec->schema.Set(dtype_).IgnoreError();
+  driver_spec->schema.Set(RankConstraint{rank()}).IgnoreError();
   // When constructing the bound spec, set the dimension_units_ and
   // the current domain on the schema.
   driver_spec->schema.Set(Schema::DimensionUnits(dimension_units_))
       .IgnoreError();
   driver_spec->schema.Set(layer_domain_).IgnoreError();
 
+  const size_t num_layers = layers_.size();
+  driver_spec->layers.resize(num_layers);
+  auto status = ForEachLayer(num_layers, [&](size_t layer_i) {
+    auto& layer_spec = driver_spec->layers[layer_i];
+    const auto& layer = layers_[layer_i];
+    if (layer.driver_spec) {
+      layer_spec.transform = layer.transform;
+      layer_spec.driver_spec = layer.driver_spec;
+    } else {
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          auto driver_spec,
+          GetTransformedDriverSpec(layer.GetDriverHandle(transaction),
+                                   SpecRequestOptions()));
+      layer_spec.transform = std::move(driver_spec.transform);
+      layer_spec.driver_spec = std::move(driver_spec.driver_spec);
+    }
+    return absl::OkStatus();
+  });
+  if (!status.ok()) return status;
   TransformedDriverSpec spec;
   spec.driver_spec = std::move(driver_spec);
   spec.transform = transform;
@@ -447,7 +643,6 @@ Result<TransformedDriverSpec> StackDriver::GetBoundSpec(
 Future<IndexTransform<>> StackDriver::ResolveBounds(
     OpenTransactionPtr transaction, IndexTransform<> transform,
     ResolveBoundsOptions options) {
-  if (transaction) return TransactionError();
   // All layer bounds are required to be specified in the spec, and
   // may not be modified later, so here we propagate the composed bounds
   // to the index transform.
@@ -458,6 +653,26 @@ Future<IndexTransform<>> StackDriver::ResolveBounds(
       PropagateExplicitBoundsToTransform(
           layer_domain_.box(), TransformAccess::rep_ptr(std::move(transform))));
   return TransformAccess::Make<IndexTransform<>>(std::move(transform_ptr));
+}
+
+template <typename StateType>
+absl::Status ComposeAndDispatchOperation(
+    StateType& state, const internal::DriverHandle& driver_handle,
+    IndexTransform<> cell_transform) {
+  TENSORSTORE_RETURN_IF_ERROR(internal::ValidateSupportsModes(
+      driver_handle.driver.read_write_mode(), StateType::kMode));
+  // The transform for the layer to use is:
+  //    `Compose(outer_request, Compose(driver, cell))`
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto a_transform,
+      ComposeTransforms(state.orig_transform, cell_transform));
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto b_transform,
+      ComposeTransforms(driver_handle.transform, std::move(a_transform)));
+
+  state.Dispatch(driver_handle, std::move(b_transform),
+                 std::move(cell_transform));
+  return absl::OkStatus();
 }
 
 /// Starts reads for each cell against a provided driver handle.
@@ -472,16 +687,9 @@ struct AfterOpenOp {
       return f.result().status();
     }
     // After opening the layer, issue reads to each of the the grid cells.
-    // The read transform is: Compose(outer_request, Compose(driver, cell)).
     for (auto& cell_transform : cells) {
-      TENSORSTORE_ASSIGN_OR_RETURN(
-          auto a_transform,
-          ComposeTransforms(state->orig_transform, cell_transform));
-      TENSORSTORE_ASSIGN_OR_RETURN(
-          auto b_transform,
-          ComposeTransforms(f.result()->transform, std::move(a_transform)));
-
-      state->Dispatch(*f.result(), std::move(b_transform), cell_transform);
+      TENSORSTORE_RETURN_IF_ERROR(ComposeAndDispatchOperation(
+          *state, f.value(), std::move(cell_transform)));
     }
     return absl::OkStatus();
   }
@@ -496,7 +704,7 @@ struct AfterOpenOp {
   }
 };
 
-// OpenLayerOp partitons the transform by layer, invoking UnmappedOp for each
+// OpenLayerOp partitions the transform by layer, invoking UnmappedOp for each
 // grid cell which is not backed by a layer, and then opens each layer and
 // and initiates OpType (one of LayerReadOp/LayerWriteOp) for each layer's
 // cells.
@@ -521,7 +729,19 @@ struct OpenLayerOp {
             IndexTransformView<> cell_transform) {
           auto it = self->grid_to_layer_.find(grid_cell_indices);
           if (it != self->grid_to_layer_.end()) {
-            layers_to_load[it->second].emplace_back(cell_transform);
+            const size_t layer_i = it->second;
+            const auto& layer = self->layers_[layer_i];
+            if (layer.driver) {
+              // Layer is already open, dispatch operation directly.
+              TENSORSTORE_RETURN_IF_ERROR(
+                  ComposeAndDispatchOperation(
+                      *state, layer.GetDriverHandle(state->transaction),
+                      std::move(cell_transform)),
+                  tensorstore::MaybeAnnotateStatus(
+                      _, absl::StrFormat("Layer %d", layer_i)));
+            } else {
+              layers_to_load[it->second].emplace_back(cell_transform);
+            }
             return absl::OkStatus();
           } else {
             return unmapped(grid_cell_indices, cell_transform);
@@ -535,14 +755,17 @@ struct OpenLayerOp {
       return;
     }
 
-    // Open each layer and invoke OpType for all corresponding cell transforms.
+    // Open each layer and invoke OpType for all corresponding cell
+    // transforms.
     for (auto& kv : layers_to_load) {
+      const size_t layer_i = kv.first;
+      const auto& layer = self->layers_[layer_i];
       Link(WithExecutor(
                self->data_copy_executor(),
-               AfterOpenOp<StateType>{state, kv.first, std::move(kv.second)}),
+               AfterOpenOp<StateType>{state, layer_i, std::move(kv.second)}),
            state->promise,
            internal::OpenDriver(state->transaction,
-                                self->bound_spec_.layers[kv.first],
+                                layer.GetTransformedDriverSpec(),
                                 StateType::kMode));
     }
   }
@@ -563,7 +786,7 @@ struct ReadState : public internal::ChunkOperationState<ReadChunk> {
   IndexTransform<> orig_transform;
 
   // Initiate the read of an individual transform; dispatched by AfterOpenOp
-  void Dispatch(internal::Driver::Handle& h,
+  void Dispatch(const internal::Driver::Handle& h,
                 IndexTransform<> composed_transform,
                 IndexTransform<> cell_transform) {
     h.driver->Read(transaction, std::move(composed_transform),
@@ -609,7 +832,7 @@ struct WriteState : public internal::ChunkOperationState<WriteChunk> {
   IndexTransform<> orig_transform;
 
   // Initiate the write of an individual transform; dispatched by AfterOpenOp
-  void Dispatch(internal::Driver::Handle& h,
+  void Dispatch(const internal::Driver::Handle& h,
                 IndexTransform<> composed_transform,
                 IndexTransform<> cell_transform) {
     h.driver->Write(transaction, std::move(composed_transform),
@@ -640,7 +863,238 @@ void StackDriver::Write(OpenTransactionPtr transaction,
       OpenLayerOp<WriteState, UnmappedWriteOp>{std::move(state)});
 }
 
+Result<internal::ReadWritePtr<StackDriver>> MakeDriverFromLayerSpecs(
+    span<const StackLayerSpec> layer_specs, StackOpenOptions& options,
+    DimensionIndex& rank) {
+  auto driver =
+      internal::MakeReadWritePtr<StackDriver>(ReadWriteMode::read_write);
+  auto& dtype = driver->dtype_;
+  dtype = options.dtype();
+  auto& transaction = options.transaction;
+  auto& context = options.context;
+  auto& read_write_mode = options.read_write_mode;
+  driver->layers_.resize(layer_specs.size());
+  if (!context) context = Context::Default();
+  Transaction common_transaction{no_transaction};
+  ReadWriteMode common_read_write_mode = ReadWriteMode::dynamic;
+  DimensionIndex common_rank = dynamic_rank;
+  auto status = ForEachLayer(layer_specs.size(), [&](size_t layer_i) {
+    auto& layer = driver->layers_[layer_i];
+    const auto& layer_spec = layer_specs[layer_i];
+    const auto& layer_transaction =
+        layer_spec.is_open() ? layer_spec.transaction : transaction;
+    if (layer_i == 0) {
+      common_transaction = layer_transaction;
+    } else if (layer_transaction != common_transaction) {
+      return absl::InvalidArgumentError("Transaction mismatch");
+    }
+    layer.transform = layer_spec.transform;
+    layer.driver_spec = layer_spec.driver_spec;
+    layer.driver = layer_spec.driver;
+    DataType layer_dtype;
+    if (layer_spec.is_open()) {
+      common_read_write_mode |= layer_spec.driver.read_write_mode();
+      layer_dtype = layer_spec.driver->dtype();
+    } else {
+      common_read_write_mode = ReadWriteMode::read_write;
+      TENSORSTORE_RETURN_IF_ERROR(
+          DriverSpecBindContext(layer.driver_spec, context));
+      layer_dtype = layer_spec.driver_spec->schema.dtype();
+      if (!layer.transform.valid()) {
+        TENSORSTORE_ASSIGN_OR_RETURN(
+            auto domain,
+            internal::GetEffectiveDomain(layer.GetTransformedDriverSpec()));
+        if (!domain.valid()) {
+          return absl::InvalidArgumentError(
+              tensorstore::StrCat("Domain must be specified"));
+        }
+        layer.transform = IdentityTransform(domain);
+      }
+    }
+    if (layer_dtype.valid()) {
+      if (!dtype.valid()) {
+        dtype = layer_dtype;
+      } else if (dtype != layer_dtype) {
+        return absl::InvalidArgumentError(
+            tensorstore::StrCat("Layer dtype of ", layer_dtype,
+                                " does not match existing dtype of ", dtype));
+      }
+    }
+    DimensionIndex layer_rank = layer.transform.input_rank();
+    if (common_rank == dynamic_rank) {
+      common_rank = layer_rank;
+    } else if (common_rank != layer_rank) {
+      return absl::InvalidArgumentError(tensorstore::StrCat(
+          "Layer domain ", layer.transform.domain(), " of rank ", layer_rank,
+          " does not match layer 0 rank of ", common_rank));
+    }
+    return absl::OkStatus();
+  });
+  if (!status.ok()) return status;
+
+  if (common_read_write_mode == ReadWriteMode::dynamic) {
+    common_read_write_mode = ReadWriteMode::read_write;
+  }
+
+  if (read_write_mode != ReadWriteMode::dynamic) {
+    TENSORSTORE_RETURN_IF_ERROR(internal::ValidateSupportsModes(
+        common_read_write_mode, read_write_mode));
+  } else {
+    read_write_mode = common_read_write_mode;
+  }
+
+  if (transaction != no_transaction) {
+    if (common_transaction != no_transaction &&
+        common_transaction != transaction) {
+      return absl::InvalidArgumentError("Transaction mismatch");
+    }
+  } else {
+    transaction = std::move(common_transaction);
+  }
+
+  if (!dtype.valid()) {
+    return absl::InvalidArgumentError("dtype must be specified");
+  }
+  rank = common_rank;
+  driver.set_read_write_mode(options.read_write_mode);
+  options.Set(driver->dtype_).IgnoreError();
+  return driver;
+}
+
+Result<internal::DriverHandle> FinalizeStackHandle(
+    internal::ReadWritePtr<StackDriver> driver, StackOpenOptions&& options) {
+  Schema& schema = options;
+  TENSORSTORE_RETURN_IF_ERROR(internal_stack::ApplyLayerOptions<StackLayer>(
+      driver->layers_, schema, options));
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      driver->data_copy_concurrency_,
+      options.context.GetResource<internal::DataCopyConcurrencyResource>());
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto layer_domains,
+      internal_stack::GetEffectiveDomainsForLayers<StackLayer>(
+          driver->layers_));
+  return internal_stack::MakeStackDriverHandle(
+      std::move(driver), layer_domains, std::move(options.transaction), schema);
+}
+
 }  // namespace
+
+Result<internal::DriverHandle> Overlay(span<const StackLayerSpec> layer_specs,
+                                       StackOpenOptions&& options) {
+  DimensionIndex rank;
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto driver,
+      internal_stack::MakeDriverFromLayerSpecs(layer_specs, options, rank));
+  TENSORSTORE_RETURN_IF_ERROR(options.Set(RankConstraint{rank}));
+  return internal_stack::FinalizeStackHandle(std::move(driver),
+                                             std::move(options));
+}
+
+Result<internal::DriverHandle> Stack(span<const StackLayerSpec> layer_specs,
+                                     DimensionIndex stack_dimension,
+                                     StackOpenOptions&& options) {
+  if (layer_specs.empty()) {
+    return absl::InvalidArgumentError(
+        "At least one layer must be specified for stack");
+  }
+  DimensionIndex orig_rank;
+  TENSORSTORE_ASSIGN_OR_RETURN(auto driver,
+                               internal_stack::MakeDriverFromLayerSpecs(
+                                   layer_specs, options, orig_rank));
+  if (orig_rank == kMaxRank) {
+    return absl::InvalidArgumentError(
+        tensorstore::StrCat("stack would exceed maximum rank of ", kMaxRank));
+  }
+  const DimensionIndex new_rank = orig_rank + 1;
+  TENSORSTORE_RETURN_IF_ERROR(options.Set(RankConstraint{new_rank}));
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      stack_dimension,
+      tensorstore::NormalizeDimensionIndex(stack_dimension, new_rank));
+  if (auto status = ForEachLayer(
+          layer_specs.size(),
+          [&](size_t layer_i) {
+            auto& transform = driver->layers_[layer_i].transform;
+            TENSORSTORE_ASSIGN_OR_RETURN(
+                transform,
+                std::move(transform) |
+                    Dims(stack_dimension)
+                        .AddNew()
+                        .SizedInterval(static_cast<Index>(layer_i), 1));
+            return absl::OkStatus();
+          });
+      !status.ok()) {
+    return status;
+  }
+  return internal_stack::FinalizeStackHandle(std::move(driver),
+                                             std::move(options));
+}
+
+Result<internal::DriverHandle> Concat(span<const StackLayerSpec> layer_specs,
+                                      DimensionIdentifier concat_dimension,
+                                      StackOpenOptions&& options) {
+  if (layer_specs.empty()) {
+    return absl::InvalidArgumentError(
+        "At least one layer must be specified for concat");
+  }
+  DimensionIndex rank;
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto driver,
+      internal_stack::MakeDriverFromLayerSpecs(layer_specs, options, rank));
+  TENSORSTORE_RETURN_IF_ERROR(options.Set(RankConstraint{rank}));
+  DimensionIndex concat_dimension_index;
+  if (concat_dimension.label().data()) {
+    // concat_dimension specified by label must be resolved to an index.
+    std::string_view labels[kMaxRank];
+    if (auto domain = options.domain(); domain.valid()) {
+      std::copy(domain.labels().begin(), domain.labels().end(), labels);
+    }
+    if (auto status = ForEachLayer(
+            driver->layers_.size(),
+            [&](size_t layer_i) {
+              auto layer_labels =
+                  driver->layers_[layer_i].transform.domain().labels();
+              for (DimensionIndex i = 0; i < rank; ++i) {
+                TENSORSTORE_ASSIGN_OR_RETURN(
+                    labels[i], MergeDimensionLabels(labels[i], layer_labels[i]),
+                    tensorstore::MaybeAnnotateStatus(
+                        _, absl::StrFormat("Mismatch in dimension %d", i)));
+              }
+              return absl::OkStatus();
+            });
+        !status.ok()) {
+      return status;
+    }
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        concat_dimension_index,
+        tensorstore::NormalizeDimensionLabel(
+            concat_dimension.label(),
+            span<const std::string_view>(&labels[0], rank)));
+  } else {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        concat_dimension_index,
+        tensorstore::NormalizeDimensionIndex(concat_dimension.index(), rank));
+  }
+  Index offset;
+  if (auto status = ForEachLayer(
+          layer_specs.size(),
+          [&](size_t layer_i) {
+            auto& transform = driver->layers_[layer_i].transform;
+            if (layer_i != 0) {
+              TENSORSTORE_ASSIGN_OR_RETURN(
+                  transform,
+                  std::move(transform) |
+                      Dims(concat_dimension_index).TranslateTo(offset));
+            }
+            offset = transform.domain()[concat_dimension_index].exclusive_max();
+            return absl::OkStatus();
+          });
+      !status.ok()) {
+    return status;
+  }
+  return internal_stack::FinalizeStackHandle(std::move(driver),
+                                             std::move(options));
+}
+
 }  // namespace internal_stack
 }  // namespace tensorstore
 
@@ -648,4 +1102,5 @@ namespace {
 const tensorstore::internal::DriverRegistration<
     tensorstore::internal_stack::StackDriverSpec>
     driver_registration;
+
 }  // namespace

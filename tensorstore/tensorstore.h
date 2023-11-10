@@ -437,6 +437,20 @@ ModeCast(SourceRef&& source) {
       std::forward<SourceRef>(source));
 }
 
+/// Changes the `ReadWriteMode` of `store` to the specified `new_mode`.
+///
+/// If `new_mode == ReadWriteMode::dynamic`, the existing mode is unchanged.
+///
+/// \relates TensorStore
+template <typename Element, DimensionIndex Rank, ReadWriteMode ExistingMode>
+Result<TensorStore<Element, Rank>> ModeCast(
+    TensorStore<Element, Rank, ExistingMode> store, ReadWriteMode new_mode) {
+  Result<TensorStore<Element, Rank>> result{std::move(store)};
+  TENSORSTORE_RETURN_IF_ERROR(internal::SetReadWriteMode(
+      internal::TensorStoreAccess::handle(*result), new_mode));
+  return result;
+}
+
 /// Read-only `TensorStore` alias.
 ///
 /// \relates TensorStore

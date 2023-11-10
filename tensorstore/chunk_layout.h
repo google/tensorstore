@@ -703,6 +703,9 @@ class ChunkLayout {
   /// Returns the rank constraint, or `dynamic_rank` if unspecified.
   DimensionIndex rank() const;
 
+  /// Returns `true` if any hard constraints, other than rank, are specified.
+  bool HasHardConstraints() const;
+
   /// Sets `box` to the precise write/read chunk template.
   ///
   /// For the purpose of this method, only hard constraints on `grid_origin()`

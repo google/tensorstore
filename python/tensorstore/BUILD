@@ -50,6 +50,7 @@ pybind11_py_extension(
         ":python_imports",
         ":serialization",
         ":spec",
+        ":stack",
         ":tensorstore_class",
         ":tensorstore_module_components",
         ":transaction",
@@ -176,6 +177,16 @@ tensorstore_pytest_test(
     name = "downsample_test",
     size = "small",
     srcs = ["tests/downsample_test.py"],
+    deps = [
+        ":tensorstore",
+        "@pypa_numpy//:numpy",
+    ],
+)
+
+tensorstore_pytest_test(
+    name = "stack_test",
+    size = "small",
+    srcs = ["tests/stack_test.py"],
     deps = [
         ":tensorstore",
         "@pypa_numpy//:numpy",
@@ -823,6 +834,29 @@ pybind11_cc_library(
         "//tensorstore:index",
         "//tensorstore:spec",
         "//tensorstore/driver/downsample:downsample_method_json_binder",
+        "//tensorstore/internal:global_initializer",
+        "//tensorstore/util:executor",
+        "@com_github_pybind_pybind11//:pybind11",
+    ],
+    alwayslink = True,
+)
+
+pybind11_cc_library(
+    name = "stack",
+    srcs = ["stack.cc"],
+    deps = [
+        ":dim_expression",
+        ":index",
+        ":keyword_arguments",
+        ":result_type_caster",
+        ":sequence_parameter",
+        ":spec",
+        ":tensorstore_class",
+        ":tensorstore_module_components",
+        "//tensorstore",
+        "//tensorstore:index",
+        "//tensorstore:spec",
+        "//tensorstore:stack",
         "//tensorstore/internal:global_initializer",
         "//tensorstore/util:executor",
         "@com_github_pybind_pybind11//:pybind11",

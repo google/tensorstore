@@ -4,20 +4,39 @@ package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
-# This source file is compiled as part of the
-# //tensorstore:virtual_chunked target in order to allow the
-# `virtual_chunked.h` header to be part of the top-level package.
-exports_files(["virtual_chunked.cc"])
-
-# Simple forwarding target.
-tensorstore_cc_library(
-    name = "virtual_chunked",
-    deps = ["//tensorstore:virtual_chunked"],
-)
-
 filegroup(
     name = "doc_sources",
     srcs = [],
+)
+
+tensorstore_cc_library(
+    name = "virtual_chunked",
+    srcs = ["virtual_chunked.cc"],
+    hdrs = ["//tensorstore:virtual_chunked.h"],
+    deps = [
+        "//tensorstore",
+        "//tensorstore:array",
+        "//tensorstore:box",
+        "//tensorstore:context",
+        "//tensorstore:staleness_bound",
+        "//tensorstore:transaction",
+        "//tensorstore/driver",
+        "//tensorstore/driver:chunk_cache_driver",
+        "//tensorstore/index_space:index_transform",
+        "//tensorstore/internal:data_copy_concurrency_resource",
+        "//tensorstore/internal/cache:cache_pool_resource",
+        "//tensorstore/internal/cache:chunk_cache",
+        "//tensorstore/kvstore:generation",
+        "//tensorstore/serialization",
+        "//tensorstore/serialization:absl_time",
+        "//tensorstore/serialization:function",
+        "//tensorstore/util:executor",
+        "//tensorstore/util:option",
+        "//tensorstore/util/garbage_collection",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/time",
+    ],
 )
 
 tensorstore_cc_test(

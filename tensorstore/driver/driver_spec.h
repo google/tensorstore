@@ -257,8 +257,14 @@ struct TransformedDriverSpec {
 };
 
 absl::Status ApplyOptions(DriverSpec::Ptr& spec, SpecOptions&& options);
-absl::Status TransformAndApplyOptions(TransformedDriverSpec& spec,
+absl::Status TransformAndApplyOptions(DriverSpec::Ptr& driver_spec,
+                                      IndexTransform<>& transform,
                                       SpecOptions&& options);
+inline absl::Status TransformAndApplyOptions(TransformedDriverSpec& spec,
+                                             SpecOptions&& options) {
+  return internal::TransformAndApplyOptions(spec.driver_spec, spec.transform,
+                                            std::move(options));
+}
 
 OpenMode GetOpenMode(const TransformedDriverSpec& spec);
 

@@ -243,34 +243,14 @@ tensorstore_cc_test(
     ],
 )
 
-tensorstore_cc_library(
+exports_files(
+    ["virtual_chunked.h"],
+    visibility = [":internal_packages"],
+)
+
+alias(
     name = "virtual_chunked",
-    srcs = ["//tensorstore/driver/virtual_chunked:virtual_chunked.cc"],
-    hdrs = ["virtual_chunked.h"],
-    deps = [
-        ":array",
-        ":box",
-        ":context",
-        ":staleness_bound",
-        ":tensorstore",
-        ":transaction",
-        "//tensorstore/driver",
-        "//tensorstore/driver:chunk_cache_driver",
-        "//tensorstore/index_space:index_transform",
-        "//tensorstore/internal:data_copy_concurrency_resource",
-        "//tensorstore/internal/cache:cache_pool_resource",
-        "//tensorstore/internal/cache:chunk_cache",
-        "//tensorstore/kvstore:generation",
-        "//tensorstore/serialization",
-        "//tensorstore/serialization:absl_time",
-        "//tensorstore/serialization:function",
-        "//tensorstore/util:executor",
-        "//tensorstore/util:option",
-        "//tensorstore/util/garbage_collection",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/time",
-    ],
+    actual = "//tensorstore/driver/virtual_chunked",
 )
 
 tensorstore_cc_library(
@@ -998,4 +978,14 @@ tensorstore_cc_test(
         "//tensorstore/util:status_testutil",
         "@com_google_googletest//:gtest_main",
     ],
+)
+
+exports_files(
+    ["stack.h"],
+    visibility = ["//tensorstore:internal_packages"],
+)
+
+alias(
+    name = "stack",
+    actual = "//tensorstore/driver/stack",
 )
