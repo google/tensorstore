@@ -62,7 +62,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#json-driver/stack" class="md-skip">
+        <a href="#python-api" class="md-skip">
           Skip to content
         </a>
       
@@ -570,6 +570,21 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#python-api" class="md-nav__link">
+    <span class="md-ellipsis">Python API</span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#supported-operations" class="md-nav__link">
+    <span class="md-ellipsis">Supported operations</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Supported operations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
   <a href="#json-driver/stack" class="md-nav__link">
     <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="driver/stack (JSON type)" class="md-ellipsis">driver/stack</span>
   </a>
@@ -670,6 +685,11 @@
     </nav>
   
 </li>
+        
+      </ul>
+    </nav>
+  
+</li>
       
         <li class="md-nav__item">
   <a href="#example" class="md-nav__link">
@@ -682,6 +702,54 @@
   <a href="#tensorstore-schema" class="md-nav__link">
     <span class="md-ellipsis">Tensor<wbr>Store Schema</span>
   </a>
+  
+    <nav class="md-nav" aria-label="TensorStore Schema">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#data-type" class="md-nav__link">
+    <span class="md-ellipsis">Data type</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#domain" class="md-nav__link">
+    <span class="md-ellipsis">Domain</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dimension-units" class="md-nav__link">
+    <span class="md-ellipsis">Dimension units</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fill-value" class="md-nav__link">
+    <span class="md-ellipsis">Fill value</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#codec" class="md-nav__link">
+    <span class="md-ellipsis">Codec</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#chunk-layout" class="md-nav__link">
+    <span class="md-ellipsis">Chunk layout</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -780,6 +848,21 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#python-api" class="md-nav__link">
+    <span class="md-ellipsis">Python API</span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#supported-operations" class="md-nav__link">
+    <span class="md-ellipsis">Supported operations</span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Supported operations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
   <a href="#json-driver/stack" class="md-nav__link">
     <span aria-label="JSON type" class="objinfo-icon objinfo-icon__data" title="JSON type">J</span><span title="driver/stack (JSON type)" class="md-ellipsis">driver/stack</span>
   </a>
@@ -880,6 +963,11 @@
     </nav>
   
 </li>
+        
+      </ul>
+    </nav>
+  
+</li>
       
         <li class="md-nav__item">
   <a href="#example" class="md-nav__link">
@@ -892,6 +980,54 @@
   <a href="#tensorstore-schema" class="md-nav__link">
     <span class="md-ellipsis">Tensor<wbr>Store Schema</span>
   </a>
+  
+    <nav class="md-nav" aria-label="TensorStore Schema">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#data-type" class="md-nav__link">
+    <span class="md-ellipsis">Data type</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#domain" class="md-nav__link">
+    <span class="md-ellipsis">Domain</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dimension-units" class="md-nav__link">
+    <span class="md-ellipsis">Dimension units</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fill-value" class="md-nav__link">
+    <span class="md-ellipsis">Fill value</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#codec" class="md-nav__link">
+    <span class="md-ellipsis">Codec</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#chunk-layout" class="md-nav__link">
+    <span class="md-ellipsis">Chunk layout</span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -909,21 +1045,35 @@
                   
 
 
-<h1 id="stack-driver"><code class="docutils literal notranslate"><span class="pre">stack</span></code> Driver<a class="headerlink" href="#stack-driver" title="Permalink to this heading">¶</a></h1>
-<p>The <code class="docutils literal notranslate"><span class="pre">stack</span></code> driver specifies a TensorStore backed by a sequence of layered
-drivers, where each underlying layer describes it’s bounds via a transform.</p>
+<h1 id="stack-driver"><span id="id1"></span><code class="docutils literal notranslate"><span class="pre">stack</span></code> Driver<a class="headerlink" href="#stack-driver" title="Permalink to this heading">¶</a></h1>
+<p>The <code class="docutils literal notranslate"><span class="pre">stack</span></code> driver specifies a TensorStore virtually overlays a sequence of
+TensorStore <em>layers</em> within a common domain.</p>
 <ul class="simple">
-<li><p>The TensorStore for a stack driver has static bounds, which may be derived
-from the underlying <a class="reference internal" href="#json-driver/stack.layers" title="driver/stack.layers (JSON member) — Array of layered tensorstore drivers."><code class="xref json json-schema docutils literal notranslate"><span class="pre">layers</span></code></a></p></li>
-<li><p>Reading is supported if the <a class="reference internal" href="#json-driver/stack.layers" title="driver/stack.layers (JSON member) — Array of layered tensorstore drivers."><code class="xref json json-schema docutils literal notranslate"><span class="pre">layers</span></code></a> TensorStore
-supports reading.</p></li>
-<li><p>Writing is supported if the <a class="reference internal" href="#json-driver/stack.layers" title="driver/stack.layers (JSON member) — Array of layered tensorstore drivers."><code class="xref json json-schema docutils literal notranslate"><span class="pre">layers</span></code></a> TensorStore
-supports writing.</p></li>
+<li><p>If the domains of the <a class="reference internal" href="#json-driver/stack.layers" title="driver/stack.layers (JSON member) — Array of layered tensorstore drivers."><code class="xref json json-schema docutils literal notranslate"><span class="pre">layers</span></code></a> may overlap, the
+last layer that contains any given position within the domain takes
+precedence.  This last layer that contains the position is said to be the
+<em>backing</em> layer for that position.</p></li>
+<li><p>By choosing appropriate transforms for the layers, this driver may be used to
+virtually stack a sequence of TensorStores along a new dimension, or to
+concatenate a sequence of TensorStores along an existing dimension.  For these
+use cases, the layer domains do not overlap.</p></li>
 </ul>
-<p>The layers may overlap, with the subsequent layers overriding values from
-earlier layers in the stack.</p>
-<p>The underlying <code class="docutils literal notranslate"><span class="pre">stack</span></code> TensorStore <a class="reference internal" href="#json-driver/stack.layers" title="driver/stack.layers (JSON member) — Array of layered tensorstore drivers."><code class="xref json json-schema docutils literal notranslate"><span class="pre">layers</span></code></a> are
-opened on demand by each operation.</p>
+<h2 id="python-api">Python API<a class="headerlink" href="#python-api" title="Permalink to this heading">¶</a></h2>
+<p>Python APIs are provided for constructing a stack-driver-backed TensorStore
+based on a sequence of <a class="reference internal" href="../../python/api/tensorstore.Spec.html" title="tensorstore.Spec (Python class) — Specification for opening or creating a TensorStore."><code class="xref py py-obj docutils literal notranslate"><span class="pre">Spec</span></code></a> or already-open
+<a class="reference internal" href="../../python/api/tensorstore.TensorStore.html" title="tensorstore.TensorStore (Python class) — Asynchronous multi-dimensional array handle."><code class="xref py py-obj docutils literal notranslate"><span class="pre">TensorStore</span></code></a> objects.</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="../../python/api/tensorstore.overlay.html" title="tensorstore.overlay (Python function) — Virtually overlays a sequence of TensorStore layers within a common domain."><code class="xref py py-obj docutils literal notranslate"><span class="pre">tensorstore.overlay</span></code></a> virtually overlays a sequence of layers.</p></li>
+<li><p><a class="reference internal" href="../../python/api/tensorstore.stack.html" title="tensorstore.stack (Python function) — Virtually stacks a sequence of TensorStore layers along a new dimension."><code class="xref py py-obj docutils literal notranslate"><span class="pre">tensorstore.stack</span></code></a> stacks a sequence of layers along a new dimension.</p></li>
+<li><p><a class="reference internal" href="../../python/api/tensorstore.concat.html" title="tensorstore.concat (Python function) — Virtually concatenates a sequence of TensorStore layers along an existing dimension."><code class="xref py py-obj docutils literal notranslate"><span class="pre">tensorstore.concat</span></code></a> concatenates a sequence of layers along an
+existing dimension.</p></li>
+</ul>
+<h2 id="supported-operations">Supported operations<a class="headerlink" href="#supported-operations" title="Permalink to this heading">¶</a></h2>
+<p>Opening the stack driver itself does not open any of the layers.  Instead,
+layers are opened on demand as needed to satisfy read and write operations.</p>
+<p>Reading or writing at a given position is supported, if any only if, the backing
+layer supports reading or writing, respectively.  Reading or writing at a
+position that has no backing layer results in an error.</p>
 <dl class="json schema objdesc">
 <dt class="sig sig-object highlight json" id="json-driver/stack">
 <em class="property"><span class="pre">json</span> </em><span class="sig-name descname"><span class="pre">driver/stack</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">object</span></span><a class="headerlink" href="#json-driver/stack" title="Permalink to this definition">¶</a></dt>
@@ -1024,7 +1174,7 @@ specify a default <a class="reference internal" href="../../context.html#json-Co
 
 <h2 id="example">Example<a class="headerlink" href="#example" title="Permalink to this heading">¶</a></h2>
 <div class="example admonition">
-<p class="admonition-title">Example of layer driver</p>
+<p class="admonition-title">Example of stack driver</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">.</span><span class="n">open</span><span class="p">({</span>
 <span class="gp">... </span>    <span class="s1">&#39;driver&#39;</span><span class="p">:</span>
 <span class="gp">... </span>        <span class="s1">&#39;stack&#39;</span><span class="p">,</span>
@@ -1054,29 +1204,40 @@ specify a default <a class="reference internal" href="../../context.html#json-Co
 </div>
 </div>
 <h2 id="tensorstore-schema">TensorStore Schema<a class="headerlink" href="#tensorstore-schema" title="Permalink to this heading">¶</a></h2>
-<p>Only the following TensorStore schema constraints are useful to the <code class="docutils literal notranslate"><span class="pre">stack</span></code>
-driver. They will be propagated and will cause errors when incompatible with
-the layer stack.</p>
-<ul class="simple">
-<li><p><a class="reference internal" href="../../schema.html#json-Schema.rank" title="Schema.rank (JSON member) — Number of dimensions."><code class="xref json json-schema docutils literal notranslate"><span class="pre">Schema.rank</span></code></a>  Sets the rank of the TensorStore and constrains
-the rank of each of the <a class="reference internal" href="#json-driver/stack.layers" title="driver/stack.layers (JSON member) — Array of layered tensorstore drivers."><code class="xref json json-schema docutils literal notranslate"><span class="pre">layers</span></code></a></p></li>
-<li><p><a class="reference internal" href="../../schema.html#json-Schema.dtype" title="Schema.dtype (JSON member) — Specifies the data type of the TensorStore."><code class="xref json json-schema docutils literal notranslate"><span class="pre">Schema.dtype</span></code></a>  Sets the dtype of the TensorStore and constrains
-the dtype of each of the <a class="reference internal" href="#json-driver/stack.layers" title="driver/stack.layers (JSON member) — Array of layered tensorstore drivers."><code class="xref json json-schema docutils literal notranslate"><span class="pre">layers</span></code></a></p></li>
-<li><p><a class="reference internal" href="../../schema.html#json-Schema.domain" title="Schema.domain (JSON member) — Domain of the TensorStore, including bounds and optional dimension labels."><code class="xref json json-schema docutils literal notranslate"><span class="pre">Schema.domain</span></code></a>  Sets the domain of the TensorStore. The <code class="docutils literal notranslate"><span class="pre">stack</span></code>
-driver computes an effective domain as the hull of each layer’s effective
-domain, as derived from the layer schema and transform. For each dimension
-bound which is implicit and unbounded (as when the <code class="docutils literal notranslate"><span class="pre">domain</span></code> is omitted),
-the bounds for that dimension are taken from the effective domain.</p></li>
-<li><p><a class="reference internal" href="../../schema.html#json-Schema.dimension_units" title="Schema.dimension_units (JSON member) — Physical units of each dimension."><code class="xref json json-schema docutils literal notranslate"><span class="pre">Schema.dimension_units</span></code></a>  Sets the dimension units of the
-TensorStore. The <code class="docutils literal notranslate"><span class="pre">stack</span></code> driver will set any unset dimension units from the
-individual layers as long as they are in common.</p></li>
-</ul>
-<p>Scheama options that are not allowed:</p>
-<ul class="simple">
-<li><p><a class="reference internal" href="../../schema.html#json-Schema.fill_value" title="Schema.fill_value (JSON member) — Fill value to use for missing data."><code class="xref json json-schema docutils literal notranslate"><span class="pre">Schema.fill_value</span></code></a></p></li>
-<li><p><a class="reference internal" href="../../schema.html#json-Schema.codec" title="Schema.codec (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">Schema.codec</span></code></a></p></li>
-<li><p><a class="reference internal" href="../../schema.html#json-Schema.chunk_layout" title="Schema.chunk_layout (JSON member) — Data storage layout constraints."><code class="xref json json-schema docutils literal notranslate"><span class="pre">Schema.chunk_layout</span></code></a></p></li>
-</ul>
+<h3 id="data-type">Data type<a class="headerlink" href="#data-type" title="Permalink to this heading">¶</a></h3>
+<p>The <a class="reference internal" href="../../schema.html#json-Schema.dtype" title="Schema.dtype (JSON member) — Specifies the data type of the TensorStore."><code class="xref json json-schema docutils literal notranslate"><span class="pre">dtype</span></code></a> must be specified for at least one layer, or in
+the top-level <a class="reference internal" href="#json-driver/stack.schema" title="driver/stack.schema (JSON member) — Specifies constraints on the schema."><code class="xref json json-schema docutils literal notranslate"><span class="pre">schema</span></code></a>.  All specified data types
+must match.</p>
+<h3 id="domain">Domain<a class="headerlink" href="#domain" title="Permalink to this heading">¶</a></h3>
+<p>The bounds of a stack driver-backed TensorStore, and of each layer, are fixed
+when it is opened, based on the domains specified for each of the
+<a class="reference internal" href="#json-driver/stack.layers" title="driver/stack.layers (JSON member) — Array of layered tensorstore drivers."><code class="xref json json-schema docutils literal notranslate"><span class="pre">layers</span></code></a>, and the <a class="reference internal" href="../../schema.html#json-Schema.domain" title="Schema.domain (JSON member) — Domain of the TensorStore, including bounds and optional dimension labels."><code class="xref json json-schema docutils literal notranslate"><span class="pre">domain</span></code></a>
+specified for the stack driver, if any.</p>
+<p>Any <a class="reference internal" href="../../index_space.html#implicit-bounds"><span class="std std-ref">implicit/resizeable bounds</span></a> of layers become fixed
+(explicit) bounds and will not be affected by subsequent resize operations.</p>
+<p>By default, the bounds of the stack-driver-backed TensorStore are determined by
+computing the hull of the effective domains of the layers, but any finite or
+explicit bound specified on the top-level stack-driver
+<a class="reference internal" href="../../schema.html#json-Schema.domain" title="Schema.domain (JSON member) — Domain of the TensorStore, including bounds and optional dimension labels."><code class="xref json json-schema docutils literal notranslate"><span class="pre">domain</span></code></a> takes precedence and overrides the bound
+determined from the hull.</p>
+<p>Note that it is valid for the domain to include positions that are not backed by
+any layer, but any attempt to read or write such positions results in an error.</p>
+<p>The <a class="reference internal" href="../../index_space.html#dimension-labels"><span class="std std-ref">dimension labels</span></a> are merged and must be compatible.</p>
+<h3 id="dimension-units">Dimension units<a class="headerlink" href="#dimension-units" title="Permalink to this heading">¶</a></h3>
+<p>For each dimension, the corresponding dimension unit is determined as follows:</p>
+<ol class="arabic simple">
+<li><p>If a unit for the dimension is specified directly in the top-level stack-driver
+<a class="reference internal" href="../../schema.html#json-Schema.dimension_units" title="Schema.dimension_units (JSON member) — Physical units of each dimension."><code class="xref json json-schema docutils literal notranslate"><span class="pre">Schema.dimension_units</span></code></a>, the specified unit is assigned.</p></li>
+<li><p>Otherwise, if there is agreement among all the layers that specify a unit for
+the dimension, the common unit is assigned.</p></li>
+<li><p>Otherwise, the unit is unassigned (<code class="code highlight json docutils literal highlight-json"><span class="kc">null</span></code>).</p></li>
+</ol>
+<h3 id="fill-value">Fill value<a class="headerlink" href="#fill-value" title="Permalink to this heading">¶</a></h3>
+<p>Fill values are not supported.</p>
+<h3 id="codec">Codec<a class="headerlink" href="#codec" title="Permalink to this heading">¶</a></h3>
+<p>Codecs are not supported.</p>
+<h3 id="chunk-layout">Chunk layout<a class="headerlink" href="#chunk-layout" title="Permalink to this heading">¶</a></h3>
+<p>Chunk layouts are not supported.</p>
 
 
 
