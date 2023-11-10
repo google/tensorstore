@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef THIRD_PARTY_PY_TENSORSTORE_SERIALIZATION_H_
-#define THIRD_PARTY_PY_TENSORSTORE_SERIALIZATION_H_
+#ifndef PYTHON_TENSORSTORE_SERIALIZATION_H_
+#define PYTHON_TENSORSTORE_SERIALIZATION_H_
 
 #include <pybind11/pybind11.h>
 // Other headers must be included after pybind11 to ensure header-order
@@ -329,4 +329,4 @@ struct Serializer<internal_python::GilSafeHolder<T>>
 TENSORSTORE_DECLARE_SERIALIZER_SPECIALIZATION(
     tensorstore::internal_python::PythonWeakRef)
 
-#endif  // THIRD_PARTY_PY_TENSORSTORE_SERIALIZATION_H_
+#endif  // PYTHON_TENSORSTORE_SERIALIZATION_H_

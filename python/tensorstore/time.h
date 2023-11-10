@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef THIRD_PARTY_PY_TENSORSTORE_TIME_H_
-#define THIRD_PARTY_PY_TENSORSTORE_TIME_H_
+#ifndef PYTHON_TENSORSTORE_TIME_H_
+#define PYTHON_TENSORSTORE_TIME_H_
 
 #include "absl/time/time.h"
 
@@ -37,4 +37,4 @@ absl::Time FromPythonTimestamp(double t);
 }  // namespace internal_python
 }  // namespace tensorstore
 
-#endif  // THIRD_PARTY_PY_TENSORSTORE_TIME_H_
+#endif  // PYTHON_TENSORSTORE_TIME_H_

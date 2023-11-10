@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef THIRD_PARTY_PY_TENSORSTORE_RESULT_TYPE_CASTER_H_
-#define THIRD_PARTY_PY_TENSORSTORE_RESULT_TYPE_CASTER_H_
+#ifndef PYTHON_TENSORSTORE_RESULT_TYPE_CASTER_H_
+#define PYTHON_TENSORSTORE_RESULT_TYPE_CASTER_H_
 
 /// \files
 ///
@@ -104,4 +104,4 @@ struct type_caster<tensorstore::Result<void>> {
 }  // namespace detail
 }  // namespace pybind11
 
-#endif  // THIRD_PARTY_PY_TENSORSTORE_RESULT_TYPE_CASTER_H_
+#endif  // PYTHON_TENSORSTORE_RESULT_TYPE_CASTER_H_

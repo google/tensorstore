@@ -23,30 +23,31 @@ proto_library(
     srcs = ["trace_config.proto"],
 )
 
-
 _TYPES = [
     "trace",
     "trace_config",
 ]
 
 [
-  cc_proto_library(
-    name = x + "_proto_cc",
-    deps = [":" + x + "_proto"],
-  ) for x in _TYPES
+    cc_proto_library(
+        name = x + "_proto_cc",
+        deps = [":" + x + "_proto"],
+    )
+    for x in _TYPES
 ]
 
 [
-  upb_proto_library(
-    name = x + "_proto_upb",
-    deps = [":" + x + "_proto"],
-  ) for x in _TYPES
+    upb_proto_library(
+        name = x + "_proto_upb",
+        deps = [":" + x + "_proto"],
+    )
+    for x in _TYPES
 ]
 
 [
-  upb_proto_reflection_library(
-    name = x + "_proto_upb_reflection",
-    deps = [":" + x + "_proto"],
-  ) for x in _TYPES
+    upb_proto_reflection_library(
+        name = x + "_proto_upb_reflection",
+        deps = [":" + x + "_proto"],
+    )
+    for x in _TYPES
 ]
-
