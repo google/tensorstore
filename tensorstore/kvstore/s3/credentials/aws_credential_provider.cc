@@ -23,11 +23,7 @@
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/no_destructor.h"
-#include "tensorstore/kvstore/s3/credentials/cached_credential_provider.h"
-#include "tensorstore/kvstore/s3/credentials/chained_credential_provider.h"
-#include "tensorstore/kvstore/s3/credentials/ec2_credential_provider.h"
-#include "tensorstore/kvstore/s3/credentials/environment_credential_provider.h"
-#include "tensorstore/kvstore/s3/credentials/file_credential_provider.h"
+#include "tensorstore/kvstore/s3/credentials/default_credential_provider.h"
 #include "tensorstore/util/result.h"
 
 using ::tensorstore::Result;
@@ -44,21 +40,9 @@ namespace {
 Result<std::unique_ptr<AwsCredentialProvider>> GetDefaultAwsCredentialProvider(
     std::string_view profile,
     std::shared_ptr<internal_http::HttpTransport> transport) {
-  std::vector<std::unique_ptr<AwsCredentialProvider>> providers;
-  providers.emplace_back(std::make_unique<EnvironmentCredentialProvider>());
-  providers.emplace_back(
-      std::make_unique<FileCredentialProvider>(std::string(profile)));
 
-  if (IsEC2MetadataServiceAvailable(*transport)) {
-    providers.emplace_back(
-        std::make_unique<EC2MetadataCredentialProvider>(transport));
-  } else {
-    ABSL_LOG(WARNING) << "Initial connection to EC2 Metadata server timed out. "
-                      << "Credentials from this source will be ignored.";
-  }
-
-  return std::make_unique<CachedCredentialProvider>(
-      std::make_unique<ChainedCredentialProvider>(std::move(providers)));
+      return std::make_unique<DefaultAwsCredentialsProvider>(
+        DefaultAwsCredentialsProvider::Options{{}, std::string{profile}, transport});
 }
 
 struct AwsCredentialProviderRegistry {

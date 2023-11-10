@@ -21,14 +21,13 @@
 #include "absl/base/thread_annotations.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/kvstore/s3/credentials/aws_credential_provider.h"
-#include "tensorstore/kvstore/s3/credentials/expiry_credential_provider.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal_kvstore_s3 {
 
 /// Provide S3 credentials from the EC2 Metadata server
-class EC2MetadataCredentialProvider : public ExpiryCredentialProvider {
+class EC2MetadataCredentialProvider : public AwsCredentialProvider {
  public:
   EC2MetadataCredentialProvider(
       std::shared_ptr<internal_http::HttpTransport> transport)

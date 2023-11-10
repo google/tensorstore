@@ -65,14 +65,10 @@ TEST_F(FileCredentialProviderTest, ProviderAwsCredentialsFromFileDefault) {
 
   SetEnv("AWS_SHARED_CREDENTIALS_FILE", credentials_filename.c_str());
   auto provider = FileCredentialProvider("");
-  ASSERT_TRUE(provider.IsExpired());
-  ASSERT_EQ(provider.ExpiresAt(), absl::InfinitePast());
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials, provider.GetCredentials());
   ASSERT_EQ(credentials.access_key, "AKIAIOSFODNN7EXAMPLE");
   ASSERT_EQ(credentials.secret_key, "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY");
   ASSERT_EQ(credentials.session_token, "abcdef1234567890");
-  ASSERT_FALSE(provider.IsExpired());
-  ASSERT_EQ(provider.ExpiresAt(), absl::InfiniteFuture());
 }
 
 TEST_F(FileCredentialProviderTest,
@@ -82,14 +78,10 @@ TEST_F(FileCredentialProviderTest,
 
   SetEnv("AWS_SHARED_CREDENTIALS_FILE", credentials_filename.c_str());
   auto provider = FileCredentialProvider("alice");
-  ASSERT_TRUE(provider.IsExpired());
-  ASSERT_EQ(provider.ExpiresAt(), absl::InfinitePast());
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials, provider.GetCredentials());
   ASSERT_EQ(credentials.access_key, "AKIAIOSFODNN6EXAMPLE");
   ASSERT_EQ(credentials.secret_key, "wJalrXUtnFEMI/K7MDENG/bPxRfiCZEXAMPLEKEY");
   ASSERT_EQ(credentials.session_token, "");
-  ASSERT_FALSE(provider.IsExpired());
-  ASSERT_EQ(provider.ExpiresAt(), absl::InfiniteFuture());
 }
 
 TEST_F(FileCredentialProviderTest, ProviderAwsCredentialsFromFileProfileEnv) {
@@ -99,14 +91,10 @@ TEST_F(FileCredentialProviderTest, ProviderAwsCredentialsFromFileProfileEnv) {
   SetEnv("AWS_SHARED_CREDENTIALS_FILE", credentials_filename.c_str());
   SetEnv("AWS_PROFILE", "alice");
   auto provider = FileCredentialProvider("");
-  ASSERT_TRUE(provider.IsExpired());
-  ASSERT_EQ(provider.ExpiresAt(), absl::InfinitePast());
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials, provider.GetCredentials());
   ASSERT_EQ(credentials.access_key, "AKIAIOSFODNN6EXAMPLE");
   ASSERT_EQ(credentials.secret_key, "wJalrXUtnFEMI/K7MDENG/bPxRfiCZEXAMPLEKEY");
   ASSERT_EQ(credentials.session_token, "");
-  ASSERT_FALSE(provider.IsExpired());
-  ASSERT_EQ(provider.ExpiresAt(), absl::InfiniteFuture());
 }
 
 TEST_F(FileCredentialProviderTest,
@@ -117,11 +105,7 @@ TEST_F(FileCredentialProviderTest,
   SetEnv("AWS_SHARED_CREDENTIALS_FILE", credentials_filename.c_str());
   SetEnv("AWS_PROFILE", "bob");
   auto provider = FileCredentialProvider("");
-  ASSERT_TRUE(provider.IsExpired());
-  ASSERT_EQ(provider.ExpiresAt(), absl::InfinitePast());
   ASSERT_FALSE(provider.GetCredentials().ok());
-  ASSERT_TRUE(provider.IsExpired());
-  ASSERT_EQ(provider.ExpiresAt(), absl::InfinitePast());
 }
 
 }  // namespace

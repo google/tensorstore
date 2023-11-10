@@ -207,12 +207,13 @@ Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
                                             "] failed with ", json_sv));
   }
 
-  SetExpiration(iam_credentials.expiration.value_or(default_timeout),
-                absl::Seconds(60));
+  // Introduce a leeway of 60 seconds to avoid credential expiry conditions
+  auto expires_at = iam_credentials.expiration.value_or(default_timeout) - absl::Seconds(60);
 
   return AwsCredentials{iam_credentials.access_key_id.value_or(""),
                         iam_credentials.secret_access_key.value_or(""),
-                        iam_credentials.token.value_or("")};
+                        iam_credentials.token.value_or(""),
+                        expires_at};
 }
 
 }  // namespace internal_kvstore_s3

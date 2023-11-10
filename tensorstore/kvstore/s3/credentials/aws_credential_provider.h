@@ -39,6 +39,12 @@ struct AwsCredentials {
   std::string secret_key;
   /// AWS_SESSION_TOKEN
   std::string session_token;
+  /// Credentials expiry
+  absl::Time expires_at;
+
+  static AwsCredentials Anonymous() {
+    return AwsCredentials{{}, {}, {}, absl::InfiniteFuture()};
+  }
 
   bool IsAnonymous() const { return access_key.empty(); }
 };
@@ -52,10 +58,6 @@ class AwsCredentialProvider {
   public:
     virtual ~AwsCredentialProvider() = default;
     virtual Result<AwsCredentials> GetCredentials() = 0;
-    virtual bool IsExpired() = 0;
-    virtual Result<absl::Time> ExpiresAt() {
-      return absl::UnimplementedError("AwsCredentialProvider::ExpiresAt");
-    };
 };
 
 

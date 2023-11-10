@@ -40,11 +40,6 @@ class FileCredentialProvider : public AwsCredentialProvider {
   FileCredentialProvider(std::string profile)
     : profile_(std::move(profile)), retrieved_(false) {}
   Result<AwsCredentials> GetCredentials() override;
-  // Shared Credentials never expire once retrieved
-  bool IsExpired() override { return !retrieved_; }
-  Result<absl::Time> ExpiresAt() override {
-    return retrieved_ ? absl::InfiniteFuture() : absl::InfinitePast();
-  }
 };
 
 } // namespace internal_kvstore_s3

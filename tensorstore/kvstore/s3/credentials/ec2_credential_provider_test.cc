@@ -64,7 +64,7 @@ class EC2MetadataMockTransport : public HttpTransport {
 };
 
 TEST(EC2MetadataCredentialProviderTest, CredentialRetrievalFlow) {
-  auto expiry = absl::Now() + absl::Seconds(240);
+  auto expiry = absl::Now() + absl::Seconds(200);
   auto utc = absl::UTCTimeZone();
 
   auto url_to_response = absl::flat_hash_map<std::string, HttpResponse>{
@@ -98,15 +98,12 @@ TEST(EC2MetadataCredentialProviderTest, CredentialRetrievalFlow) {
       std::make_shared<EC2MetadataMockTransport>(url_to_response);
   auto provider =
       std::make_shared<EC2MetadataCredentialProvider>(mock_transport);
-  ASSERT_TRUE(provider->IsExpired());
-  ASSERT_EQ(provider->ExpiresAt(), absl::InfinitePast());
   TENSORSTORE_CHECK_OK_AND_ASSIGN(auto credentials, provider->GetCredentials());
   ASSERT_EQ(credentials.access_key, "ASIA1234567890");
   ASSERT_EQ(credentials.secret_key, "1234567890abcdef");
   ASSERT_EQ(credentials.session_token, "abcdef123456790");
   // expiry less the 60s leeway
-  ASSERT_EQ(provider->ExpiresAt(), expiry - absl::Seconds(60));
-  ASSERT_FALSE(provider->IsExpired());
+  ASSERT_EQ(credentials.expires_at, expiry - absl::Seconds(60));
 }
 
 TEST(EC2MetadataCredentialProviderTest, NoIamRolesInSecurityCredentials) {

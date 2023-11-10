@@ -30,11 +30,6 @@ class EnvironmentCredentialProvider : public AwsCredentialProvider {
  public:
   EnvironmentCredentialProvider() : retrieved_(false) {}
   Result<AwsCredentials> GetCredentials() override;
-  // Credentials obtained from the environment never expire
-  bool IsExpired() override { return !retrieved_; }
-  Result<absl::Time> ExpiresAt() override {
-    return retrieved_ ? absl::InfiniteFuture() : absl::InfinitePast();
-  }
 };
 
 } // namespace internal_kvstore_s3

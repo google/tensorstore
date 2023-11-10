@@ -46,16 +46,12 @@ class EnvironmentCredentialProviderTest : public ::testing::Test {
 
 TEST_F(EnvironmentCredentialProviderTest, ProviderNoCredentials) {
   auto provider = EnvironmentCredentialProvider();
-  ASSERT_TRUE(provider.IsExpired());
-  ASSERT_EQ(provider.ExpiresAt(), absl::InfinitePast());
   ASSERT_FALSE(provider.GetCredentials().ok());
   SetEnv("AWS_ACCESS_KEY_ID", "foo");
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials, provider.GetCredentials());
   ASSERT_EQ(credentials.access_key, "foo");
   ASSERT_TRUE(credentials.secret_key.empty());
   ASSERT_TRUE(credentials.session_token.empty());
-  ASSERT_FALSE(provider.IsExpired());
-  ASSERT_EQ(provider.ExpiresAt(), absl::InfiniteFuture());
 }
 
 TEST_F(EnvironmentCredentialProviderTest, ProviderAwsCredentialsFromEnv) {
@@ -63,14 +59,10 @@ TEST_F(EnvironmentCredentialProviderTest, ProviderAwsCredentialsFromEnv) {
   SetEnv("AWS_SECRET_ACCESS_KEY", "bar");
   SetEnv("AWS_SESSION_TOKEN", "qux");
   auto provider = EnvironmentCredentialProvider();
-  ASSERT_TRUE(provider.IsExpired());
-  ASSERT_EQ(provider.ExpiresAt(), absl::InfinitePast());
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials, provider.GetCredentials());
   ASSERT_EQ(credentials.access_key, "foo");
   ASSERT_EQ(credentials.secret_key, "bar");
   ASSERT_EQ(credentials.session_token, "qux");
-  ASSERT_FALSE(provider.IsExpired());
-  ASSERT_EQ(provider.ExpiresAt(), absl::InfiniteFuture());
 }
 
 }  // namespace
