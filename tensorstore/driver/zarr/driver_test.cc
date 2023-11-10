@@ -132,7 +132,7 @@ std::string Bytes(std::vector<unsigned char> values) {
             "field": "a",
             "metadata": {
                 "compressor": {"id": "blosc"},
-                "dtype": [["a", "<i2"], ["b", "<i4"], ["c", "|V10"]],
+                "dtype": [["a", "<i2"], ["b", "<i4"], ["c", "|V2"]],
                 "shape": [100, 100],
                 "chunks": [3, 2],
                 "dimension_separator": "/"
@@ -158,7 +158,7 @@ std::string Bytes(std::vector<unsigned char> values) {
     return nlohmann::json::parse(new_spec);
 }
 
-TEST(TENSORSTORE, STRUCTARRAY) {
+TEST(TENSORSTORE, STRUCTARRAY1) {
   EXPECT_THAT(
       tensorstore::Open(
           GetJsonSpecStruct(),
@@ -168,8 +168,6 @@ TEST(TENSORSTORE, STRUCTARRAY) {
       MatchesStatus(
           absl::StatusCode::kOk)
     );
-
-    std::cout << " ---------- \n\n\n";
 
     EXPECT_THAT(
         tensorstore::Open(
@@ -185,13 +183,39 @@ TEST(TENSORSTORE, STRUCTARRAY) {
         GetJsonSpecStructBasic(),
         tensorstore::OpenMode::open,
         tensorstore::ReadWriteMode::dynamic).result();
+
+    /// FIXME - check the output type of the store.
     std::cout << store->dtype() << std::endl;
     std::cout << store->domain() << std::endl;
 
+    std::filesystem::remove_all("test.zarr");
+}
+
+
+TEST(TENSORSTORE, STRUCTARRAY2) {
+    // FIXME - make as test
+    auto create_store = tensorstore::Open(
+        GetJsonSpecStruct(),
+        tensorstore::OpenMode::create | tensorstore::OpenMode::open,
+        tensorstore::ReadWriteMode::dynamic)
+        .result();
+
+    std::cout << create_store->dtype() << std::endl;
+    std::cout << create_store->domain() << std::endl;
+    std::cout << " ----- \n\n" << std::endl;
+
+    auto as_byte_array = tensorstore::Open(
+        GetJsonSpecStructBasic(),
+        tensorstore::OpenMode::open,
+        tensorstore::ReadWriteMode::dynamic).result();
+
+    /// FIXME - check the output type of the store.
+    std::cout << as_byte_array->dtype() << std::endl;
+    std::cout << as_byte_array->domain() << std::endl;
 
     std::filesystem::remove_all("test.zarr");
-
 }
+
 
 TEST(OpenTest, DeleteExistingWithoutCreate) {
   EXPECT_THAT(
