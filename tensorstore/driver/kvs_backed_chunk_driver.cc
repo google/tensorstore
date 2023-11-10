@@ -307,6 +307,7 @@ absl::Status ValidateNewMetadata(DataCacheBase* cache,
 Result<MetadataPtr> GetUpdatedMetadataWithAssumeCachedMetadata(
     KvsMetadataDriverBase& driver, DataCacheBase& cache,
     internal::OpenTransactionPtr transaction) {
+
   assert(driver.assumed_metadata_time_ != absl::InfiniteFuture() &&
          driver.assumed_metadata_);
   assert(&cache == driver.cache());
@@ -370,6 +371,7 @@ Result<MetadataPtr> ValidateNewMetadata(
 Result<IndexTransform<>> GetInitialTransform(DataCacheBase* cache,
                                              const void* metadata,
                                              size_t component_index) {
+
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto new_transform, cache->GetExternalToInternalTransform(
                               cache->initial_metadata_.get(), component_index));
@@ -712,6 +714,7 @@ Future<IndexTransform<>> KvsChunkedDriverBase::Resize(
 Result<IndexTransform<>> KvsMetadataDriverBase::GetBoundSpecData(
     internal::OpenTransactionPtr transaction, KvsDriverSpec& spec,
     IndexTransformView<> transform_view) {
+
   auto* cache = this->cache();
   auto* metadata_cache = cache->metadata_cache();
   TENSORSTORE_ASSIGN_OR_RETURN(spec.store.driver,
@@ -794,8 +797,26 @@ Result<std::size_t> ValidateOpenRequest(OpenState* state,
     return absl::NotFoundError(
         GetMetadataMissingErrorMessage(base.metadata_cache_entry_.get()));
   }
-  return state->GetComponentIndex(metadata, base.spec_->open_mode());
+  auto result = state->GetComponentIndex(
+      metadata, base.spec_->open_mode());
+  
+  return result;
 }
+
+/// The goal here is to provide a method to allow us to open struct data
+/// as a bytearray.
+Result<std::shared_ptr<void>> ValidateByteArray(
+    OpenState* state, const void* metadata) {
+
+  auto& base = *(PrivateOpenState*)state;
+  if (!metadata) {
+    return absl::NotFoundError(
+        GetMetadataMissingErrorMessage(base.metadata_cache_entry_.get()));
+  }
+
+  return state->AsByteArray(metadata, base.spec_->open_mode());
+}
+
 
 /// \pre `component_index` is the result of a previous call to
 ///     `state->GetComponentIndex` with the same `metadata`.
@@ -803,6 +824,7 @@ Result<std::size_t> ValidateOpenRequest(OpenState* state,
 Result<internal::Driver::Handle> CreateTensorStoreFromMetadata(
     OpenState::Ptr state, std::shared_ptr<const void> metadata,
     size_t component_index) {
+
   ABSL_LOG_IF(INFO, TENSORSTORE_KVS_DRIVER_DEBUG)
       << "CreateTensorStoreFromMetadata : state=" << state.get();
   auto& base = *(PrivateOpenState*)state.get();  // Cast to private base
@@ -818,16 +840,11 @@ Result<internal::Driver::Handle> CreateTensorStoreFromMetadata(
   std::string chunk_cache_identifier;
   if (!base.metadata_cache_key_.empty()) {
     auto data_cache_key = state->GetDataCacheKey(metadata.get());
-    // this includes the dtype etc
-    std::cout << "DATA CACHE KEY " << data_cache_key << std::endl;
-
     if (!data_cache_key.empty()) {
       internal::EncodeCacheKey(&chunk_cache_identifier, data_cache_key,
                                base.metadata_cache_key_);
     }
   }
-  std::cout << "OOO OO " << base.metadata_cache_key_ << std::endl;
-
   absl::Status data_key_value_store_status;
   const auto& state_ref = *state;
   auto data_cache =
@@ -1075,11 +1092,15 @@ Future<const void> MetadataCache::Entry::RequestAtomicUpdate(
 
 Result<MetadataCache::MetadataPtr> MetadataCache::Entry::GetMetadata(
     internal::OpenTransactionPtr transaction) {
-  if (!transaction) return GetMetadata();
+  if (!transaction){
+    return GetMetadata();
+  }
   TENSORSTORE_ASSIGN_OR_RETURN(auto node,
                                GetTransactionNode(*this, transaction));
+
   TENSORSTORE_ASSIGN_OR_RETURN(auto metadata, node->GetUpdatedMetadata(),
                                this->AnnotateError(_, /*reading=*/false));
+
   return metadata;
 }
 
@@ -1257,10 +1278,23 @@ internal::CachePtr<MetadataCache> GetOrCreateMetadataCache(
 
 Result<internal::Driver::Handle> OpenState::CreateDriverHandleFromMetadata(
     std::shared_ptr<const void> metadata) {
-  TENSORSTORE_ASSIGN_OR_RETURN(std::size_t component_index,
-                               ValidateOpenRequest(this, metadata.get()));
-  return CreateTensorStoreFromMetadata(OpenState::Ptr(this),
-                                       std::move(metadata), component_index);
+  // try to do things by the book ...
+  auto result = ValidateOpenRequest(this, metadata.get());
+
+  if(result.ok()){
+    std::size_t component_index = result.value();
+    return CreateTensorStoreFromMetadata(
+      OpenState::Ptr(this), std::move(metadata), component_index
+    );
+  } else {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+      auto new_metadata, ValidateByteArray(this, metadata.get())
+    )
+    std::size_t component_index = 0;
+    return CreateTensorStoreFromMetadata(
+      OpenState::Ptr(this), std::move(new_metadata), component_index
+    );
+  }
 }
 
 Future<internal::Driver::Handle> OpenDriver(MetadataOpenState::Ptr state) {

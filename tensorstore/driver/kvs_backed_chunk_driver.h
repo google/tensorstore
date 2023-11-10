@@ -195,7 +195,10 @@ class MetadataCache
    public:
     using OwningCache = MetadataCache;
 
-    MetadataPtr GetMetadata() { return ReadLock<void>(*this).shared_data(); }
+    MetadataPtr GetMetadata() {       
+      auto result = ReadLock<void>(*this).shared_data();
+      return result;
+    }
 
     Result<MetadataPtr> GetMetadata(internal::OpenTransactionPtr transaction);
 
@@ -740,6 +743,9 @@ class OpenState : public MetadataOpenState {
   /// If the `metadata` is not compatible, returns an error.
   virtual Result<size_t> GetComponentIndex(const void* metadata,
                                            OpenMode open_mode) = 0;
+  /// attempt to cast to a Void type ...
+  virtual Result<std::shared_ptr<void>> AsByteArray(
+    const void* metadata, OpenMode open_mode) = 0;
 };
 
 /// Attempts to open a TensorStore with a kvstore-backed chunk driver.
