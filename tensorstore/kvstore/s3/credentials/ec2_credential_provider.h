@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_KVSTORE_S3_AWS_METADATA_CREDENTIAL_PROVIDER_H
-#define TENSORSTORE_KVSTORE_S3_AWS_METADATA_CREDENTIAL_PROVIDER_H
+#ifndef TENSORSTORE_KVSTORE_S3_CREDENTIALS_EC2_METADATA_CREDENTIAL_PROVIDER_H
+#define TENSORSTORE_KVSTORE_S3_CREDENTIALS_EC2_METADATA_CREDENTIAL_PROVIDER_H
 
 #include <memory>
 #include <utility>
@@ -46,4 +46,4 @@ bool IsEC2MetadataServiceAvailable(internal_http::HttpTransport& transport);
 }  // namespace internal_kvstore_s3
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_KVSTORE_S3_AWS_METADATA_CREDENTIAL_PROVIDER_H
+#endif  // TENSORSTORE_KVSTORE_S3_CREDENTIALS_EC2_METADATA_CREDENTIAL_PROVIDER_H

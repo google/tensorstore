@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_KVSTORE_S3_FILE_CREDENTIAL_PROVIDER_H
-#define TENSORSTORE_KVSTORE_S3_FILE_CREDENTIAL_PROVIDER_H
+#ifndef TENSORSTORE_KVSTORE_S3_CREDENTIALS_FILE_CREDENTIAL_PROVIDER_H
+#define TENSORSTORE_KVSTORE_S3_CREDENTIALS_FILE_CREDENTIAL_PROVIDER_H
 
 #include <string>
 
@@ -50,4 +50,4 @@ class FileCredentialProvider : public AwsCredentialProvider {
 } // namespace internal_kvstore_s3
 } // namespace tensorstore
 
-#endif // TENSORSTORE_KVSTORE_S3_FILE_CREDENTIAL_PROVIDER_H
+#endif // TENSORSTORE_KVSTORE_S3_CREDENTIALS_FILE_CREDENTIAL_PROVIDER_H

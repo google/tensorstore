@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_KVSTORE_S3_AWS_CREDENTIAL_PROVIDER
-#define TENSORSTORE_KVSTORE_S3_AWS_CREDENTIAL_PROVIDER
+#ifndef TENSORSTORE_KVSTORE_S3_CREDENTIALS_AWS_CREDENTIAL_PROVIDER
+#define TENSORSTORE_KVSTORE_S3_CREDENTIALS_AWS_CREDENTIAL_PROVIDER
 
 #include <functional>
 #include <string_view>
@@ -72,4 +72,4 @@ Result<std::unique_ptr<AwsCredentialProvider>> GetAwsCredentialProvider(
 }  // namespace internal_kvstore_s3
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_KVSTORE_S3_AWS_CREDENTIAL_PROVIDER
+#endif  // TENSORSTORE_KVSTORE_S3_CREDENTIALS_AWS_CREDENTIAL_PROVIDER
