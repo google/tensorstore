@@ -164,7 +164,6 @@ tensorstore_cc_test(
         "//tensorstore:strided_layout",
         "//tensorstore:transaction",
         "//tensorstore/driver:driver_testutil",
-        "//tensorstore/driver/n5",
         "//tensorstore/index_space:dim_expression",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/internal:decoded_matches",
