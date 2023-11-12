@@ -19,6 +19,7 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
@@ -37,8 +38,20 @@ struct SubprocessOptions {
   // Environment; when unset, inherits from the current process.
   std::optional<absl::flat_hash_map<std::string, std::string>> env;
 
-  bool inherit_stdout = true;
-  bool inherit_stderr = true;
+  // Child handle is inherited from the parent process.
+  struct Inherit {};
+
+  // Child handle is set to the equivalent of /dev/null.
+  struct Ignore {};
+
+  // Child handle is redirected to the specified file.
+  struct Redirect {
+    std::string filename;
+  };
+
+  std::variant<Ignore, Redirect> stdin_action = Ignore{};
+  std::variant<Inherit, Ignore, Redirect> stdout_action = Inherit{};
+  std::variant<Inherit, Ignore, Redirect> stderr_action = Inherit{};
 };
 
 /// Spawn a subprocess. On success, a Subprocess object is returned.

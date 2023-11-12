@@ -28,6 +28,7 @@
 #include "absl/synchronization/notification.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
+#include "tensorstore/internal/os/filesystem.h"
 #include "tensorstore/internal/test_util.h"
 #include "tensorstore/internal/thread.h"
 #include "tensorstore/kvstore/generation.h"
@@ -122,7 +123,7 @@ TEST(FileKeyValueStoreTest, InvalidKey) {
 std::vector<std::string> GetDirectoryContents(const std::string& root) {
   std::vector<std::string> paths;
 
-  auto status = tensorstore::internal::EnumeratePaths(
+  auto status = tensorstore::internal_os::EnumeratePaths(
       root, [&](const std::string& name, bool is_dir) {
         if (name != root) {
           paths.emplace_back(name.substr(root.size() + 1));

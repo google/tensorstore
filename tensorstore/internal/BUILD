@@ -1,5 +1,5 @@
-load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
 
 package(default_visibility = ["//tensorstore:internal_packages"])
 
@@ -1083,7 +1083,6 @@ tensorstore_cc_library(
         "//tensorstore/util:iterate",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
-        "@com_google_absl//absl/container:fixed_array",
         "@com_google_absl//absl/status",
     ],
 )
@@ -1555,17 +1554,6 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
-    name = "os_error_code",
-    srcs = ["os_error_code.cc"],
-    hdrs = ["os_error_code.h"],
-    tags = ["msvc"],
-    deps = [
-        "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/status",
-    ],
-)
-
-tensorstore_cc_library(
     name = "parse_json_matches",
     testonly = 1,
     srcs = ["parse_json_matches.cc"],
@@ -1713,42 +1701,6 @@ tensorstore_cc_test(
 )
 
 tensorstore_cc_library(
-    name = "subprocess",
-    testonly = True,
-    srcs = ["subprocess.cc"],
-    hdrs = ["subprocess.h"],
-    tags = ["msvc"],
-    deps = [
-        ":os_error_code",
-        "//tensorstore/util:result",
-        "//tensorstore/util:status",
-        "@com_google_absl//absl/container:flat_hash_map",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "subprocess_test",
-    srcs = ["subprocess_test.cc"],
-    tags = ["msvc"],
-    deps = [
-        ":env",
-        ":subprocess",
-        "//tensorstore/util:result",
-        "//tensorstore/util:status_testutil",
-        "@com_google_absl//absl/container:flat_hash_map",
-        "@com_google_absl//absl/log:absl_log",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/time",
-        "@com_google_googletest//:gtest",
-    ],
-)
-
-tensorstore_cc_library(
     name = "tagged_ptr",
     hdrs = ["tagged_ptr.h"],
 )
@@ -1776,17 +1728,15 @@ tensorstore_cc_library(
     ],
     deps = [
         ":env",
-        ":os_error_code",
         ":path",
         ":source_location",
+        "//tensorstore/internal/os:filesystem",
         "//tensorstore/kvstore/file:file_util",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
-        "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/random",
-        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest",
     ],

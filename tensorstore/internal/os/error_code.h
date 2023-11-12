@@ -15,17 +15,18 @@
 #ifndef TENSORSTORE_INTERNAL_OS_ERROR_CODE_H_
 #define TENSORSTORE_INTERNAL_OS_ERROR_CODE_H_
 
-#include <string>
-#include <string_view>
-
-#include "absl/status/status.h"
-
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #else
 #include <errno.h>
 #endif
+
+#include <string>
+#include <string_view>
+
+#include "absl/status/status.h"
+#include "tensorstore/internal/source_location.h"
 
 namespace tensorstore {
 namespace internal {
@@ -55,9 +56,10 @@ absl::StatusCode GetOsErrorStatusCode(OsErrorCode error);
 
 /// Returns an `absl::Status` from an OS error. The message is composed by
 /// catenation of the provided string parts.
-absl::Status StatusFromOsError(OsErrorCode error_code, std::string_view a = {},
-                               std::string_view b = {}, std::string_view c = {},
-                               std::string_view d = {});
+absl::Status StatusFromOsError(
+    OsErrorCode error_code, std::string_view a = {}, std::string_view b = {},
+    std::string_view c = {}, std::string_view d = {},
+    SourceLocation loc = tensorstore::SourceLocation::current());
 
 }  // namespace internal
 }  // namespace tensorstore

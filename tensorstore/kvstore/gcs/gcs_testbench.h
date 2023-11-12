@@ -18,7 +18,7 @@
 #include <optional>
 #include <string>
 
-#include "tensorstore/internal/subprocess.h"
+#include "tensorstore/internal/os/subprocess.h"
 
 namespace gcs_testbench {
 

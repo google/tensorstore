@@ -36,7 +36,7 @@
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/transport_test_utils.h"
 #include "tensorstore/internal/json_gtest.h"
-#include "tensorstore/internal/subprocess.h"
+#include "tensorstore/internal/os/subprocess.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/s3/aws_credential_provider.h"
@@ -53,6 +53,10 @@
 // to a running localstack instance.
 ABSL_FLAG(std::string, localstack_endpoint, "", "Localstack endpoint");
 ABSL_FLAG(std::string, localstack_binary, "", "Path to the localstack");
+
+// --localstack_timeout is the time the process will wait for localstack.
+ABSL_FLAG(absl::Duration, localstack_timeout, absl::Seconds(15),
+          "Time to wait for localstack process to start serving requests");
 
 // --host_header can override the host: header used for signing.
 // It can be, for example, s3.af-south-1.localstack.localhost.com
@@ -149,7 +153,7 @@ class LocalStackProcess {
     // Give the child process several seconds to start.
     auto deadline = absl::Now() + absl::Seconds(10);
     while (absl::Now() < deadline) {
-      absl::SleepFor(absl::Milliseconds(100));
+      absl::SleepFor(absl::Milliseconds(250));
       auto join_result = spawn_proc.Join(/*block=*/false);
 
       if (join_result.ok()) {
@@ -241,16 +245,17 @@ class LocalStackFixture : public ::testing::Test {
                                      kAwsRegion, kEmptySha256, absl::Now());
 
     ::tensorstore::Future<HttpResponse> response;
-    for (auto deadline = absl::Now() + absl::Seconds(5);;) {
-      absl::SleepFor(absl::Milliseconds(100));
+    // Repeat  until available, up to `--localstack_timeout` seconds (about 15).
+    for (auto deadline = absl::Now() + absl::GetFlag(FLAGS_localstack_timeout);
+         absl::Now() < deadline;) {
+      absl::SleepFor(absl::Milliseconds(250));
       response = GetDefaultHttpTransport()->IssueRequest(
           request, value, absl::Seconds(15), absl::Seconds(15));
 
       // Failed to make the request; retry.
-      if (absl::Now() < deadline && absl::IsUnavailable(response.status())) {
-        continue;
+      if (response.status().ok() || !absl::IsUnavailable(response.status())) {
+        break;
       }
-      break;
     }
 
     // Log the response, but don't fail the process on error.
