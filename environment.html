@@ -466,6 +466,13 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#envvar-TENSORSTORE_VERBOSE_LOGGING" class="md-nav__link">
+    <span aria-label="environment variable" class="objinfo-icon objinfo-icon__alias" title="environment variable">$</span><span title="TENSORSTORE_VERBOSE_LOGGING (environment variable) — Enables debug logging for tensorstore internal subsystems.  Set to comma separated list of values, where each value is one of name=int or just name. When all is, present, then verbose logging will be enabled for each subsytem, otherwise logging is set only for those subsystems present in the list." class="md-ellipsis">TENSORSTORE_<wbr>VERBOSE_<wbr>LOGGING</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#envvar-TENSORSTORE_CURL_VERBOSE" class="md-nav__link">
     <span aria-label="environment variable" class="objinfo-icon objinfo-icon__alias" title="environment variable">$</span><span title="TENSORSTORE_CURL_VERBOSE (environment variable) — If set to any value, verbose debugging information will be printed to stderr for all HTTP requests." class="md-ellipsis">TENSORSTORE_<wbr>CURL_<wbr>VERBOSE</span>
   </a>
@@ -795,6 +802,13 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#envvar-TENSORSTORE_VERBOSE_LOGGING" class="md-nav__link">
+    <span aria-label="environment variable" class="objinfo-icon objinfo-icon__alias" title="environment variable">$</span><span title="TENSORSTORE_VERBOSE_LOGGING (environment variable) — Enables debug logging for tensorstore internal subsystems.  Set to comma separated list of values, where each value is one of name=int or just name. When all is, present, then verbose logging will be enabled for each subsytem, otherwise logging is set only for those subsystems present in the list." class="md-ellipsis">TENSORSTORE_<wbr>VERBOSE_<wbr>LOGGING</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#envvar-TENSORSTORE_CURL_VERBOSE" class="md-nav__link">
     <span aria-label="environment variable" class="objinfo-icon objinfo-icon__alias" title="environment variable">$</span><span title="TENSORSTORE_CURL_VERBOSE (environment variable) — If set to any value, verbose debugging information will be printed to stderr for all HTTP requests." class="md-ellipsis">TENSORSTORE_<wbr>CURL_<wbr>VERBOSE</span>
   </a>
@@ -968,6 +982,19 @@ proxying is disabled.  Refer to the <a class="reference external" href="https://
 </dd></dl>
 
 <h3 id="debugging">Debugging<a class="headerlink" href="#debugging" title="Permalink to this heading">¶</a></h3>
+<dl class="std envvar objdesc">
+<dt class="sig sig-object highlight std" id="envvar-TENSORSTORE_VERBOSE_LOGGING">
+<span class="sig-name descname"><span class="pre">TENSORSTORE_VERBOSE_LOGGING</span></span><a class="headerlink" href="#envvar-TENSORSTORE_VERBOSE_LOGGING" title="Permalink to this definition">¶</a></dt>
+<dd><p>Enables debug logging for tensorstore internal subsystems.  Set to comma
+separated list of values, where each value is one of <code class="docutils literal notranslate"><span class="pre">name=int</span></code> or just
+<code class="docutils literal notranslate"><span class="pre">name</span></code>. When <code class="docutils literal notranslate"><span class="pre">all</span></code> is, present, then verbose logging will be enabled for
+each subsytem, otherwise logging is set only for those subsystems present in
+the list.</p>
+<p>Verbose flag values include: <code class="docutils literal notranslate"><span class="pre">curl</span></code>, <code class="docutils literal notranslate"><span class="pre">distributed</span></code>, <code class="docutils literal notranslate"><span class="pre">gcs_grpc</span></code>,
+<code class="docutils literal notranslate"><span class="pre">gcs_http</span></code>, <code class="docutils literal notranslate"><span class="pre">gfile</span></code>, <code class="docutils literal notranslate"><span class="pre">http_kvstore</span></code>, <code class="docutils literal notranslate"><span class="pre">kvstore_cache</span></code>, <code class="docutils literal notranslate"><span class="pre">ocdbt</span></code>,
+<code class="docutils literal notranslate"><span class="pre">s3</span></code>, <code class="docutils literal notranslate"><span class="pre">test</span></code>, <code class="docutils literal notranslate"><span class="pre">zip</span></code>, <code class="docutils literal notranslate"><span class="pre">zip_details</span></code>.</p>
+</dd></dl>
+
 <dl class="std envvar objdesc">
 <dt class="sig sig-object highlight std" id="envvar-TENSORSTORE_CURL_VERBOSE">
 <span class="sig-name descname"><span class="pre">TENSORSTORE_CURL_VERBOSE</span></span><a class="headerlink" href="#envvar-TENSORSTORE_CURL_VERBOSE" title="Permalink to this definition">¶</a></dt>
