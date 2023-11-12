@@ -28,6 +28,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/base/attributes.h"
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/strings/ascii.h"
@@ -40,13 +41,10 @@
 #include <openssl/hmac.h>
 #include "tensorstore/internal/digest/sha256.h"
 #include "tensorstore/internal/http/http_request.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/s3/aws_credential_provider.h"
 #include "tensorstore/kvstore/s3/s3_uri_utils.h"
-
-#ifndef TENSORSTORE_INTERNAL_S3_LOG_AWS4
-#define TENSORSTORE_INTERNAL_S3_LOG_AWS4 0
-#endif
 
 using ::tensorstore::internal::ParseGenericUri;
 using ::tensorstore::internal::SHA256Digester;
@@ -54,8 +52,9 @@ using ::tensorstore::internal_http::HttpRequest;
 
 namespace tensorstore {
 namespace internal_kvstore_s3 {
-
 namespace {
+
+ABSL_CONST_INIT internal_log::VerboseFlag s3_logging("s3");
 
 /// Size of HMAC (size of SHA256 digest).
 constexpr static size_t kHmacSize = 32;
@@ -251,11 +250,11 @@ HttpRequest S3RequestBuilder::BuildRequest(std::string_view host_header,
   auto auth_header = AuthorizationHeader(credentials.access_key, aws_region,
                                          signature_, signed_headers, time);
 
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_AWS4) << "Canonical Request\n"
-                                                      << canonical_request_;
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_AWS4) << "Signing String\n"
-                                                      << signing_string_;
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_AWS4)
+  ABSL_LOG_IF(INFO, s3_logging.Level(1))  //
+      << "Canonical Request\n"
+      << canonical_request_  //
+      << "Signing String\n"
+      << signing_string_  //
       << "Authorization Header\n"
       << auth_header;
 

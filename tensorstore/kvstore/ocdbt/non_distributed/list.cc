@@ -23,11 +23,12 @@
 #include <utility>
 #include <vector>
 
+#include "absl/base/attributes.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/kvstore/key_range.h"
-#include "tensorstore/kvstore/ocdbt/debug_log.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
 #include "tensorstore/kvstore/ocdbt/format/manifest.h"
@@ -48,8 +49,9 @@
 
 namespace tensorstore {
 namespace internal_ocdbt {
-
 namespace {
+
+ABSL_CONST_INIT internal_log::VerboseFlag ocdbt_logging("ocdbt");
 
 // Asynchronous operation state used to implement `internal_ocdbt::List`.
 //
@@ -124,7 +126,7 @@ struct ListOperation
                            BtreeNodeHeight node_height,
                            std::string inclusive_min_key,
                            KeyLength subtree_common_prefix_length) {
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+    ABSL_LOG_IF(INFO, ocdbt_logging)
         << "List: "
         << "node=" << node_ref
         << ", node_height=" << static_cast<int>(node_height)
@@ -185,7 +187,7 @@ struct ListOperation
     auto& all_entries = std::get<BtreeNode::InteriorNodeEntries>(node.entries);
     auto entries = FindBtreeEntryRange(all_entries, key_range.inclusive_min,
                                        key_range.exclusive_max);
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+    ABSL_LOG_IF(INFO, ocdbt_logging)
         << "VisitInteriorNode: "
         << "subtree_key_prefix=" << tensorstore::QuoteString(subtree_key_prefix)
         << ", key_range=" << key_range << ", first node key="
@@ -211,7 +213,7 @@ struct ListOperation
     auto& all_entries = std::get<BtreeNode::LeafNodeEntries>(node.entries);
     auto entries = FindBtreeEntryRange(all_entries, key_range.inclusive_min,
                                        key_range.exclusive_max);
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+    ABSL_LOG_IF(INFO, ocdbt_logging)
         << "VisitLeafNode: "
         << "subtree_key_prefix=" << tensorstore::QuoteString(subtree_key_prefix)
         << ", key_range=" << key_range << ", first node key="

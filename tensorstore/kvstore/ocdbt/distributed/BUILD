@@ -1,7 +1,7 @@
 # Distributed write support for Optionally-cooperative Distributed B+tree driver
 
-load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_proto_library", "tensorstore_cc_test", "tensorstore_proto_library")
 load("//bazel:cc_grpc_library.bzl", "cc_grpc_library")
+load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_proto_library", "tensorstore_cc_test", "tensorstore_proto_library")
 
 package(default_visibility = ["//tensorstore:internal_packages"])
 
@@ -22,7 +22,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/grpc:utils",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
-        "//tensorstore/kvstore/ocdbt:debug_log",
+        "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/proto:encode_time",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
@@ -115,8 +115,8 @@ tensorstore_cc_library(
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:intrusive_red_black_tree",
         "//tensorstore/internal/grpc:utils",
+        "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/kvstore:key_range",
-        "//tensorstore/kvstore/ocdbt:debug_log",
         "//tensorstore/proto:encode_time",
         "//tensorstore/util:future",
         "//tensorstore/util:result",
@@ -186,9 +186,9 @@ tensorstore_cc_library(
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:mutex",
         "//tensorstore/internal/grpc:utils",
+        "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:generation",
-        "//tensorstore/kvstore/ocdbt:debug_log",
         "//tensorstore/kvstore/ocdbt:io_handle",
         "//tensorstore/kvstore/ocdbt/format",
         "//tensorstore/kvstore/ocdbt/non_distributed:create_new_manifest",
@@ -248,12 +248,11 @@ tensorstore_cc_library(
         ":rpc_security",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:mutex",
+        "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:generation",
         "//tensorstore/kvstore:key_range",
         "//tensorstore/kvstore/ocdbt:btree_writer",
-        "//tensorstore/kvstore/ocdbt:config",
-        "//tensorstore/kvstore/ocdbt:debug_log",
         "//tensorstore/kvstore/ocdbt:io_handle",
         "//tensorstore/kvstore/ocdbt/format",
         "//tensorstore/kvstore/ocdbt/non_distributed:btree_writer",
@@ -267,6 +266,7 @@ tensorstore_cc_library(
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
         "@blake3",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:cord",

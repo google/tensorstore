@@ -12,16 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "absl/base/attributes.h"
+#include "absl/log/absl_log.h"
 #include "riegeli/bytes/string_reader.h"
 #include "riegeli/bytes/string_writer.h"
 #include "tensorstore/internal/grpc/utils.h"
-#include "tensorstore/kvstore/ocdbt/debug_log.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/kvstore/ocdbt/distributed/cooperator_impl.h"
 #include "tensorstore/util/division.h"
 #include "tensorstore/util/quote_string.h"
 
 namespace tensorstore {
 namespace internal_ocdbt_cooperator {
+namespace {
+ABSL_CONST_INIT internal_log::VerboseFlag ocdbt_logging("ocdbt");
+}
 
 // Asynchronous state for submitting a mutation batch for a particular B+tree
 // node (`SubmitMutationBatch`).
@@ -58,7 +63,7 @@ struct SubmitMutationBatchOperation
   static Future<MutationBatchResponse> Start(
       Cooperator& server, BtreeNodeIdentifier&& node_identifier,
       MutationBatchRequest&& batch_request) {
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+    ABSL_LOG_IF(INFO, ocdbt_logging)
         << "[Port=" << server.listening_port_
         << "] SubmitMutationBatch: node_identifier=" << node_identifier;
     auto [promise, future] = PromiseFuturePair<MutationBatchResponse>::Make(
@@ -86,7 +91,7 @@ struct SubmitMutationBatchOperation
             Promise<MutationBatchResponse> promise,
             ReadyFuture<const LeaseCacheForCooperator::LeaseNode::Ptr>
                 future) mutable {
-          ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+          ABSL_LOG_IF(INFO, ocdbt_logging)
               << "SubmitMutationBatch: " << state->node_identifier
               << ": got lease: " << future.status();
           TENSORSTORE_ASSIGN_OR_RETURN(state->lease_node, future.result(),
@@ -108,7 +113,7 @@ struct SubmitMutationBatchOperation
   // Called if the lease is owned by this cooperator.
   static void HandleRequestLocally(Ptr state) {
     // FIXME(jbms): Maybe handle lease expiration for local requests as well.
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+    ABSL_LOG_IF(INFO, ocdbt_logging)
         << "SubmitMutationBatch: HandleRequestLocally: "
         << state->node_identifier;
     auto& mutation_requests = state->batch_request.mutations;
@@ -148,7 +153,7 @@ struct SubmitMutationBatchOperation
       Link(
           [state = std::move(state)](Promise<MutationBatchResponse> promise,
                                      ReadyFuture<const void> future) mutable {
-            ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+            ABSL_LOG_IF(INFO, ocdbt_logging)
                 << "SubmitMutationBatch: " << state->node_identifier
                 << ": Flushed indirect writes: " << future.status();
             TENSORSTORE_RETURN_IF_ERROR(
@@ -168,7 +173,7 @@ struct SubmitMutationBatchOperation
   }
 
   static void SendToPeer(Ptr state) {
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+    ABSL_LOG_IF(INFO, ocdbt_logging)
         << "[Port=" << state->server->listening_port_
         << "] SendToPeer: " << state->node_identifier;
     auto* state_ptr = state.get();
@@ -197,7 +202,7 @@ struct SubmitMutationBatchOperation
   }
 
   static void OnPeerWriteResponse(Ptr state, absl::Status status) {
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+    ABSL_LOG_IF(INFO, ocdbt_logging)
         << "[Port=" << state->server->listening_port_
         << "] SendToPeer: " << state->node_identifier << ", status=" << status;
     if (!status.ok()) {
@@ -256,7 +261,7 @@ void EnqueueWriteRequest(Cooperator& server,
                          grpc::ServerUnaryReactor* reactor,
                          const grpc_gen::WriteRequest* request,
                          grpc_gen::WriteResponse* response) {
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+  ABSL_LOG_IF(INFO, ocdbt_logging)
       << "[Port=" << server.listening_port_ << "] EnqueueWriteRequest";
   PendingRequests batch;
   batch.requests.resize(request->mutations().size());
@@ -293,7 +298,7 @@ void EnqueueWriteRequest(Cooperator& server,
   future.ExecuteWhenReady([reactor, response](
                               ReadyFuture<MutationBatchResponse> future) {
     auto& result = future.result();
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+    ABSL_LOG_IF(INFO, ocdbt_logging)
         << "WriteRequest: completed: " << result.status();
     if (!result.ok()) {
       reactor->Finish(internal::AbslStatusToGrpcStatus(result.status()));

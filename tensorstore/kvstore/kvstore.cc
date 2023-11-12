@@ -18,14 +18,17 @@
 #include <stdint.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cassert>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
 
+#include "absl/base/attributes.h"
 #include "absl/base/thread_annotations.h"
 #include "absl/container/flat_hash_map.h"
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
@@ -35,6 +38,7 @@
 #include "tensorstore/context.h"
 #include "tensorstore/internal/cache_key/cache_key.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
@@ -67,6 +71,10 @@ using ::tensorstore::internal::IntrusivePtr;
 
 namespace tensorstore {
 namespace kvstore {
+namespace {
+ABSL_CONST_INIT internal_log::VerboseFlag kvstore_cache_logging(
+    "kvstore_cache");
+}
 
 void intrusive_ptr_increment(Driver* p) {
   p->reference_count_.fetch_add(1, std::memory_order_relaxed);
@@ -186,12 +194,13 @@ Future<DriverPtr> Open(DriverSpecPtr spec, DriverOpenOptions&& options) {
         auto p = open_cache.map.emplace(cache_key, driver.get());
         if (p.second) {
           driver->cache_identifier_ = std::move(cache_key);
+          ABSL_LOG_IF(INFO, kvstore_cache_logging)
+              << "Inserted kvstore into cache: "
+              << QuoteString(driver->cache_identifier_);
+        } else {
+          ABSL_LOG_IF(INFO, kvstore_cache_logging)
+              << "Reusing cached kvstore: " << QuoteString(cache_key);
         }
-#ifdef TENSORSTORE_KVSTORE_OPEN_CACHE_DEBUG
-        ABSL_LOG(INFO) << (p.second ? "Inserted kvstore into cache: "
-                                    : "Reusing cached kvstore: ")
-                       << QuoteString(cache_key);
-#endif
         return DriverPtr(p.first->second);
       },
       spec->DoOpen());
@@ -212,10 +221,9 @@ void Driver::DestroyLastReference() {
     if (it != open_cache.map.end()) {
       assert(it->second == this);
       open_cache.map.erase(it);
-#ifdef TENSORSTORE_KVSTORE_OPEN_CACHE_DEBUG
-      ABSL_LOG(INFO) << "Removed kvstore from open cache: "
-                     << QuoteString(cache_identifier_);
-#endif
+      ABSL_LOG_IF(INFO, kvstore_cache_logging)
+          << "Removed kvstore from open cache: "
+          << QuoteString(cache_identifier_);
     }
   } else {
     // Not stored in the open kvstore cache.  We can just decrement the

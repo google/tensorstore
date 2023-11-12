@@ -36,6 +36,7 @@
 #include "tensorstore/internal/estimate_heap_usage/estimate_heap_usage.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
@@ -59,23 +60,22 @@
 #include "tensorstore/util/str_cat.h"
 
 /// specializations
+#include "absl/base/attributes.h"
 #include "tensorstore/internal/cache_key/std_vector.h"  // IWYU pragma: keep
 #include "tensorstore/serialization/absl_time.h"  // IWYU pragma: keep
 #include "tensorstore/serialization/serialization.h"  // IWYU pragma: keep
 #include "tensorstore/serialization/std_vector.h"  // IWYU pragma: keep
 #include "tensorstore/util/garbage_collection/std_vector.h"  // IWYU pragma: keep
 
-#ifndef TENSORSTORE_ZIP_IMPL_LOGGING
-#define TENSORSTORE_ZIP_IMPL_LOGGING 0
-#endif
+using ::tensorstore::internal_zip_kvstore::Directory;
+using ::tensorstore::internal_zip_kvstore::ZipDirectoryCache;
 
 namespace tensorstore {
 namespace {
 
 namespace jb = tensorstore::internal_json_binding;
 
-using ::tensorstore::internal_zip_kvstore::Directory;
-using ::tensorstore::internal_zip_kvstore::ZipDirectoryCache;
+ABSL_CONST_INIT internal_log::VerboseFlag zip_logging("zip");
 
 // -----------------------------------------------------------------------------
 
@@ -206,7 +206,7 @@ struct ReadState : public internal::AtomicReferenceCount<ReadState> {
       // Find key in the directory.
       assert(lock.data());
       const ZipDirectoryCache::ReadData& dir = *lock.data();
-      ABSL_LOG_IF(INFO, TENSORSTORE_ZIP_IMPL_LOGGING) << dir;
+      ABSL_LOG_IF(INFO, zip_logging) << dir;
 
       auto it = std::lower_bound(
           dir.entries.begin(), dir.entries.end(), key_,
@@ -298,9 +298,8 @@ struct ReadState : public internal::AtomicReferenceCount<ReadState> {
       return read_result;
     }();
 
-    ABSL_LOG_IF(INFO, TENSORSTORE_ZIP_IMPL_LOGGING && !result.ok())
-        << result.status() << "\n"
-        << local_header;
+    ABSL_LOG_IF(INFO, zip_logging && !result.ok()) << result.status() << "\n"
+                                                   << local_header;
 
     promise.SetResult(std::move(result));
   }

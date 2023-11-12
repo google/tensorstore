@@ -16,24 +16,23 @@
 
 #include <stddef.h>
 
-#include <algorithm>
 #include <memory>
 #include <string>
 #include <string_view>
 #include <type_traits>
 #include <utility>
 #include <variant>
-#include <vector>
 
+#include "absl/base/attributes.h"
 #include "absl/log/absl_log.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/match.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/generation.h"
-#include "tensorstore/kvstore/ocdbt/debug_log.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
 #include "tensorstore/kvstore/ocdbt/format/manifest.h"
@@ -50,8 +49,9 @@
 
 namespace tensorstore {
 namespace internal_ocdbt {
-
 namespace {
+
+ABSL_CONST_INIT internal_log::VerboseFlag ocdbt_logging("ocdbt");
 
 // Asynchronous operation state used to implement
 // `internal_ocdbt::NonDistributedRead`.
@@ -153,7 +153,7 @@ struct ReadOperation : public internal::AtomicReferenceCount<ReadOperation> {
                                   const BtreeNodeReference& node_ref,
                                   BtreeNodeHeight node_height,
                                   std::string_view inclusive_min_key) {
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+    ABSL_LOG_IF(INFO, ocdbt_logging)
         << "Read: key=" << tensorstore::QuoteString(op->key)
         << ", matched_length=" << op->matched_length
         << ", node_height=" << static_cast<int>(node_height)
@@ -218,7 +218,7 @@ struct ReadOperation : public internal::AtomicReferenceCount<ReadOperation> {
       op->KeyNotPresent(promise);
       return;
     }
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+    ABSL_LOG_IF(INFO, ocdbt_logging)
         << "Read: key=" << tensorstore::QuoteString(op->key)
         << ", matched_length=" << op->matched_length
         << ", node.height=" << static_cast<int>(node.height)

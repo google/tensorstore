@@ -26,6 +26,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/base/attributes.h"
 #include "absl/base/thread_annotations.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/hash/hash.h"
@@ -38,12 +39,12 @@
 #include "absl/time/time.h"
 #include "tensorstore/internal/flat_cord_builder.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/schedule_at.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
-#include "tensorstore/kvstore/ocdbt/debug_log.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/spec.h"
@@ -57,6 +58,8 @@
 namespace tensorstore {
 namespace internal_ocdbt {
 namespace {
+
+ABSL_CONST_INIT internal_log::VerboseFlag ocdbt_logging("ocdbt");
 
 absl::Cord DeepCopyCord(const absl::Cord& cord) {
   // If the Cord is flat, skipping the CordBuilder improves performance.
@@ -442,7 +445,7 @@ kvstore::DriverPtr MakeCoalesceKvStoreDriver(kvstore::DriverPtr base,
                                              size_t merged_threshold,
                                              absl::Duration interval,
                                              Executor executor) {
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+  ABSL_LOG_IF(INFO, ocdbt_logging)
       << "Coalescing reads with threshold: " << threshold
       << ", merged_threshold: " << merged_threshold
       << ", interval: " << interval;

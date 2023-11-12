@@ -21,18 +21,18 @@
 #include <optional>
 #include <string>
 #include <string_view>
-#include <type_traits>
 #include <utility>
 
+#include "absl/base/attributes.h"
 #include "absl/container/inlined_vector.h"
 #include "absl/functional/function_ref.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/intrusive_red_black_tree.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
-#include "tensorstore/kvstore/ocdbt/debug_log.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
 #include "tensorstore/kvstore/ocdbt/non_distributed/storage_generation.h"
 #include "tensorstore/util/future.h"
@@ -42,6 +42,9 @@
 
 namespace tensorstore {
 namespace internal_ocdbt {
+namespace {
+ABSL_CONST_INIT internal_log::VerboseFlag ocdbt_logging("ocdbt");
+}
 
 void AbortPendingRequestsWithError(const PendingRequests& pending,
                                    const absl::Status& error) {
@@ -347,7 +350,7 @@ void PartitionInteriorNodeMutations(
                                                   end_mutation_in_partition));
       first_mutation_in_partition = entry_it.to_pointer();
     } else {
-      ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+      ABSL_LOG_IF(INFO, ocdbt_logging)
           << "PartitionInteriorNodeMutations: existing child "
           << tensorstore::QuoteString(existing_key_prefix) << "+"
           << tensorstore::QuoteString((existing_it - 1)->key)
@@ -498,13 +501,13 @@ bool MustReadNodeToApplyMutations(const KeyRange& key_range,
   if (entry_range.end() != std::next(entry_range.begin())) {
     // More than one mutation, which means a single `DeleteRangeEntry` does not
     // cover the entire `key_range`.
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+    ABSL_LOG_IF(INFO, ocdbt_logging)
         << "MustReadNodeToApplyMutations: more than one mutation";
     return true;
   }
   MutationEntry* mutation = entry_range.begin().to_pointer();
   if (mutation->kind != MutationEntry::kDeleteRange) {
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+    ABSL_LOG_IF(INFO, ocdbt_logging)
         << "MustReadNodeToApplyMutations: not delete range mutation";
     return true;
   }
@@ -515,7 +518,7 @@ bool MustReadNodeToApplyMutations(const KeyRange& key_range,
       KeyRange::CompareExclusiveMax(dr_entry.exclusive_max,
                                     key_range.exclusive_max) < 0) {
     // `DeleteRangeEntry` does not cover the entire key space.
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+    ABSL_LOG_IF(INFO, ocdbt_logging)
         << "MustReadNodeToApplyMutations: does not cover entire key space: "
            "dr_entry.key="
         << tensorstore::QuoteString(dr_entry.key) << ", dr_entry.exclusive_max="
@@ -534,7 +537,7 @@ bool MustReadNodeToApplyMutations(const KeyRange& key_range,
     // There are superseded writes that need to be validated, in order to be
     // able to correctly indicate in the response whether the write "succeeded"
     // (before being overwritten) or was aborted due to a generation mismatch.
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+    ABSL_LOG_IF(INFO, ocdbt_logging)
         << "MustReadNodeToApplyMutations: superseded writes";
     return true;
   }

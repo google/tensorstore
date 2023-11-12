@@ -1,5 +1,4 @@
 # Placeholder: load py_binary
-load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
 
 package(default_visibility = ["//visibility:public"])
@@ -14,28 +13,6 @@ filegroup(
     ]),
 )
 
-# To enable debug checks, specify:
-# bazel build --//tensorstore/kvstore/s3:debug
-bool_flag(
-    name = "debug",
-    build_setting_default = False,
-)
-
-config_setting(
-    name = "debug_setting",
-    flag_values = {":debug": "True"},
-    visibility = ["//visibility:private"],
-)
-
-DEBUG_LOCAL_DEFINES = select({
-    "//conditions:default": [],
-    ":debug_setting": [
-        "TENSORSTORE_INTERNAL_S3_LOG_REQUESTS",
-        "TENSORSTORE_INTERNAL_S3_LOG_RESPONSES",
-        "TENSORSTORE_INTERNAL_S3_LOG_AWS4",
-    ],
-})
-
 tensorstore_cc_library(
     name = "s3",
     srcs = [
@@ -43,7 +20,6 @@ tensorstore_cc_library(
         "s3_metadata.cc",
     ],
     hdrs = ["s3_metadata.h"],
-    local_defines = DEBUG_LOCAL_DEFINES,
     deps = [
         ":aws_credential_provider",
         ":s3_endpoint",
@@ -63,6 +39,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/http",
         "//tensorstore/internal/http:curl_transport",
         "//tensorstore/internal/json_binding",
+        "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/internal/metrics",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:byte_range",
@@ -80,6 +57,7 @@ tensorstore_cc_library(
         "//tensorstore/util/execution",
         "//tensorstore/util/execution:any_receiver",
         "//tensorstore/util/garbage_collection",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
@@ -171,14 +149,15 @@ tensorstore_cc_library(
     hdrs = [
         "s3_request_builder.h",
     ],
-    local_defines = DEBUG_LOCAL_DEFINES,
     deps = [
         ":aws_credential_provider",
         ":s3_uri_utils",
         "//tensorstore/internal:uri_utils",
         "//tensorstore/internal/digest:sha256",
         "//tensorstore/internal/http",
+        "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/kvstore:byte_range",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/strings",
@@ -186,7 +165,6 @@ tensorstore_cc_library(
         "@com_google_absl//absl/time",
         "@com_google_boringssl//:crypto",
     ],
-    alwayslink = 1,
 )
 
 tensorstore_cc_test(

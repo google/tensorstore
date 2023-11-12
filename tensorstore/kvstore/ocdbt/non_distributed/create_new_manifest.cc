@@ -31,19 +31,18 @@
 #include <cassert>
 #include <limits>
 #include <memory>
-#include <string>
 #include <utility>
-#include <variant>
 #include <vector>
 
+#include "absl/base/attributes.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/kvstore/ocdbt/config.h"
-#include "tensorstore/kvstore/ocdbt/debug_log.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
 #include "tensorstore/kvstore/ocdbt/format/config.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
@@ -57,8 +56,9 @@
 
 namespace tensorstore {
 namespace internal_ocdbt {
-
 namespace {
+
+ABSL_CONST_INIT internal_log::VerboseFlag ocdbt_logging("ocdbt");
 
 struct CreateNewManifestOperation
     : public internal::AtomicReferenceCount<CreateNewManifestOperation> {
@@ -119,7 +119,7 @@ Future<std::pair<std::shared_ptr<Manifest>, Future<const void>>>
 CreateNewManifest(IoHandle::Ptr io_handle,
                   std::shared_ptr<const Manifest> existing_manifest,
                   BtreeGenerationReference new_generation) {
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG) << "CreateNewManifest";
+  ABSL_LOG_IF(INFO, ocdbt_logging) << "CreateNewManifest";
   auto commit_time = absl::Now();
   if (existing_manifest) {
     // Ensure that `commit_time` is monotonically increasing.

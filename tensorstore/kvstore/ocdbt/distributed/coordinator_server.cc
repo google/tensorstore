@@ -14,6 +14,8 @@
 
 #include "tensorstore/kvstore/ocdbt/distributed/coordinator_server.h"
 
+#include <stdint.h>
+
 #include <functional>
 #include <iterator>
 #include <memory>
@@ -21,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/base/attributes.h"
 #include "absl/base/thread_annotations.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/log/absl_log.h"
@@ -42,7 +45,7 @@
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/std_array.h"
-#include "tensorstore/kvstore/ocdbt/debug_log.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/kvstore/ocdbt/distributed/coordinator.grpc.pb.h"
 #include "tensorstore/kvstore/ocdbt/distributed/coordinator.pb.h"
 #include "tensorstore/kvstore/ocdbt/distributed/rpc_security.h"
@@ -55,6 +58,9 @@
 namespace tensorstore {
 namespace ocdbt {
 namespace {
+
+ABSL_CONST_INIT internal_log::VerboseFlag ocdbt_logging("ocdbt");
+
 struct LeaseNode;
 
 using LeaseTree = internal::intrusive_red_black_tree::Tree<LeaseNode>;
@@ -136,7 +142,7 @@ grpc::ServerUnaryReactor* CoordinatorServer::Impl::RequestLease(
   if (!peer_address.ok()) {
     reactor->Finish(grpc::Status(grpc::StatusCode::INTERNAL,
                                  std::string(peer_address.status().message())));
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+    ABSL_LOG_IF(INFO, ocdbt_logging)
         << "Coordinator: internal error: request=" << request->DebugString();
     return reactor;
   }
@@ -199,7 +205,7 @@ grpc::ServerUnaryReactor* CoordinatorServer::Impl::RequestLease(
                               response->mutable_expiration_time());
     response->set_lease_id(node->lease_id);
   }
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+  ABSL_LOG_IF(INFO, ocdbt_logging)
       << "Coordinator: request=" << request->DebugString()
       << ", response=" << response->DebugString();
   reactor->Finish(grpc::Status());

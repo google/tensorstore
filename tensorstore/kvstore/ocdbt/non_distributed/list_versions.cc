@@ -22,10 +22,11 @@
 #include <variant>
 #include <vector>
 
+#include "absl/base/attributes.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/kvstore/ocdbt/debug_log.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/kvstore/ocdbt/format/manifest.h"
 #include "tensorstore/kvstore/ocdbt/format/version_tree.h"
 #include "tensorstore/kvstore/ocdbt/io_handle.h"
@@ -41,8 +42,9 @@
 
 namespace tensorstore {
 namespace internal_ocdbt {
-
 namespace {
+
+ABSL_CONST_INIT internal_log::VerboseFlag ocdbt_logging("ocdbt");
 
 // Asynchronous operation state used to implement
 // `internal_ocdbt::ListVersions`.
@@ -120,9 +122,8 @@ struct ListVersionsOperation : public internal::FlowSenderOperationState<
   //   promise: Promise to be resolved once the operation completes.
   //   node_ref: Node reference.
   static void VisitSubtree(Ptr op, const VersionNodeReference& node_ref) {
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
-        << "ListVersions: "
-        << "node_ref=" << node_ref;
+    ABSL_LOG_IF(INFO, ocdbt_logging) << "ListVersions: "
+                                     << "node_ref=" << node_ref;
     auto* op_ptr = op.get();
     Link(WithExecutor(
              op_ptr->io_handle->executor,
@@ -160,7 +161,7 @@ struct ListVersionsOperation : public internal::FlowSenderOperationState<
   static void VisitEntries(ListVersionsOperation& op,
                            span<const VersionNodeReference> entries) {
     auto matching_entries = GetMatches(op, entries);
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+    ABSL_LOG_IF(INFO, ocdbt_logging)
         << "ListVersions: Visiting " << matching_entries.size() << "/"
         << entries.size() << " children of interior node";
     for (const auto& entry : matching_entries) {
@@ -172,7 +173,7 @@ struct ListVersionsOperation : public internal::FlowSenderOperationState<
   static void VisitEntries(ListVersionsOperation& op,
                            span<const BtreeGenerationReference> entries) {
     auto matching_entries = GetMatches(op, entries);
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+    ABSL_LOG_IF(INFO, ocdbt_logging)
         << "ListVersions: Emitting " << matching_entries.size() << "/"
         << entries.size() << " versions";
     if (!matching_entries.empty()) {

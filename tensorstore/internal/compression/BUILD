@@ -216,10 +216,12 @@ tensorstore_cc_library(
     srcs = ["zip_details.cc"],
     hdrs = ["zip_details.h"],
     deps = [
+        "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/internal/riegeli:find",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/log",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status",

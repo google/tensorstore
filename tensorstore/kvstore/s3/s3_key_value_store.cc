@@ -25,6 +25,7 @@
 #include <utility>
 #include <variant>
 
+#include "absl/base/attributes.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
@@ -44,6 +45,7 @@
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/histogram.h"
 #include "tensorstore/internal/retry.h"
@@ -85,14 +87,6 @@
 #include "tensorstore/serialization/fwd.h"  // IWYU pragma: keep
 #include "tensorstore/serialization/std_optional.h"  // IWYU pragma: keep
 #include "tensorstore/util/garbage_collection/std_optional.h"  // IWYU pragma: keep
-
-#ifndef TENSORSTORE_INTERNAL_S3_LOG_REQUESTS
-#define TENSORSTORE_INTERNAL_S3_LOG_REQUESTS 0
-#endif
-
-#ifndef TENSORSTORE_INTERNAL_S3_LOG_RESPONSES
-#define TENSORSTORE_INTERNAL_S3_LOG_RESPONSES 0
-#endif
 
 using ::tensorstore::internal::DataCopyConcurrencyResource;
 using ::tensorstore::internal::IntrusivePtr;
@@ -163,6 +157,8 @@ auto& s3_delete_range = internal_metrics::Counter<int64_t>::New(
 
 auto& s3_list = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/s3/list", "S3 driver kvstore::List calls");
+
+ABSL_CONST_INIT internal_log::VerboseFlag s3_logging("s3");
 
 /// S3 strings
 static constexpr char kUriScheme[] = "s3";
@@ -492,8 +488,7 @@ struct ReadTask : public RateLimiterNode,
                        .BuildRequest(ehr.host_header, credentials,
                                      ehr.aws_region, kEmptySha256, start_time_);
 
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS)
-        << "ReadTask: " << request;
+    ABSL_LOG_IF(INFO, s3_logging) << "ReadTask: " << request;
     auto future = owner->transport_->IssueRequest(request, {});
     future.ExecuteWhenReady([self = IntrusivePtr<ReadTask>(this)](
                                 ReadyFuture<HttpResponse> response) {
@@ -505,7 +500,7 @@ struct ReadTask : public RateLimiterNode,
     if (!promise.result_needed()) {
       return;
     }
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_RESPONSES && response.ok())
+    ABSL_LOG_IF(INFO, s3_logging.Level(1) && response.ok())
         << "ReadTask " << *response;
 
     absl::Status status = [&]() -> absl::Status {
@@ -696,8 +691,7 @@ struct WriteTask : public RateLimiterNode,
                        .BuildRequest(ehr.host_header, credentials_,
                                      ehr.aws_region, kEmptySha256, now);
 
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS)
-        << "WriteTask (Peek): " << request;
+    ABSL_LOG_IF(INFO, s3_logging) << "WriteTask (Peek): " << request;
 
     auto future = owner->transport_->IssueRequest(request, {});
     future.ExecuteWhenReady([self = IntrusivePtr<WriteTask>(this)](
@@ -707,7 +701,7 @@ struct WriteTask : public RateLimiterNode,
   }
 
   void OnPeekResponse(const Result<HttpResponse>& response) {
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_RESPONSES && response.ok())
+    ABSL_LOG_IF(INFO, s3_logging.Level(1) && response.ok())
         << "WriteTask (Peek) " << *response;
 
     if (!response.ok()) {
@@ -758,7 +752,7 @@ struct WriteTask : public RateLimiterNode,
             .BuildRequest(ehr.host_header, credentials_, ehr.aws_region,
                           content_sha256, start_time_);
 
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS)
+    ABSL_LOG_IF(INFO, s3_logging)
         << "WriteTask: " << request << " size=" << value.size();
 
     auto future = owner->transport_->IssueRequest(request, value);
@@ -772,7 +766,7 @@ struct WriteTask : public RateLimiterNode,
     if (!promise.result_needed()) {
       return;
     }
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_RESPONSES && response.ok())
+    ABSL_LOG_IF(INFO, s3_logging.Level(1) && response.ok())
         << "WriteTask " << *response;
 
     absl::Status status = !response.ok()
@@ -889,8 +883,7 @@ struct DeleteTask : public RateLimiterNode,
                        .BuildRequest(ehr.host_header, credentials_,
                                      ehr.aws_region, kEmptySha256, now);
 
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS)
-        << "DeleteTask (Peek): " << request;
+    ABSL_LOG_IF(INFO, s3_logging) << "DeleteTask (Peek): " << request;
 
     auto future = owner->transport_->IssueRequest(request, {});
     future.ExecuteWhenReady([self = IntrusivePtr<DeleteTask>(this)](
@@ -900,7 +893,7 @@ struct DeleteTask : public RateLimiterNode,
   }
 
   void OnPeekResponse(const Result<HttpResponse>& response) {
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_RESPONSES && response.ok())
+    ABSL_LOG_IF(INFO, s3_logging.Level(1) && response.ok())
         << "DeleteTask (Peek) " << *response;
 
     if (!response.ok()) {
@@ -940,8 +933,7 @@ struct DeleteTask : public RateLimiterNode,
                        .BuildRequest(ehr.host_header, credentials_,
                                      ehr.aws_region, kEmptySha256, start_time_);
 
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS)
-        << "DeleteTask: " << request;
+    ABSL_LOG_IF(INFO, s3_logging) << "DeleteTask: " << request;
 
     auto future = owner->transport_->IssueRequest(request, {});
     future.ExecuteWhenReady([self = IntrusivePtr<DeleteTask>(this)](
@@ -954,7 +946,7 @@ struct DeleteTask : public RateLimiterNode,
     if (!promise.result_needed()) {
       return;
     }
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_RESPONSES && response.ok())
+    ABSL_LOG_IF(INFO, s3_logging.Level(1) && response.ok())
         << "DeleteTask " << *response;
 
     absl::Status status = [&]() -> absl::Status {
@@ -1138,8 +1130,7 @@ struct ListTask : public RateLimiterNode,
         request_builder.BuildRequest(ehr.host_header, credentials,
                                      ehr.aws_region, kEmptySha256, start_time_);
 
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_REQUESTS)
-        << "List: " << request;
+    ABSL_LOG_IF(INFO, s3_logging) << "List: " << request;
 
     auto future = owner_->transport_->IssueRequest(request, {});
     future.ExecuteWhenReady(WithExecutor(
@@ -1166,7 +1157,7 @@ struct ListTask : public RateLimiterNode,
     if (is_cancelled()) {
       return absl::CancelledError();
     }
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_S3_LOG_RESPONSES && response.ok())
+    ABSL_LOG_IF(INFO, s3_logging.Level(1) && response.ok())
         << "List " << *response;
 
     absl::Status status =
@@ -1325,12 +1316,10 @@ Future<const S3EndpointHostRegion> S3KeyValueStore::MaybeResolveRegion() {
   resolve_ehr_.ExecuteWhenReady(
       [](ReadyFuture<const S3EndpointHostRegion> ready) {
         if (!ready.status().ok()) {
-          ABSL_LOG_IF(INFO, (TENSORSTORE_INTERNAL_S3_LOG_REQUESTS ||
-                             TENSORSTORE_INTERNAL_S3_LOG_RESPONSES))
+          ABSL_LOG_IF(INFO, (s3_logging || s3_logging.Level(1)))
               << "S3 driver failed to resolve endpoint: " << ready.status();
         } else {
-          ABSL_LOG_IF(INFO, (TENSORSTORE_INTERNAL_S3_LOG_REQUESTS ||
-                             TENSORSTORE_INTERNAL_S3_LOG_RESPONSES))
+          ABSL_LOG_IF(INFO, (s3_logging || s3_logging.Level(1)))
               << "S3 driver using endpoint [" << ready.value() << "]";
         }
       });
@@ -1356,8 +1345,7 @@ Future<kvstore::DriverPtr> S3KeyValueStoreSpec::DoOpen() const {
     return std::move(*status);
   }
   if (auto* ehr = std::get_if<S3EndpointHostRegion>(&result); ehr != nullptr) {
-    ABSL_LOG_IF(INFO, (TENSORSTORE_INTERNAL_S3_LOG_REQUESTS ||
-                       TENSORSTORE_INTERNAL_S3_LOG_RESPONSES))
+    ABSL_LOG_IF(INFO, (s3_logging || s3_logging.Level(1)))
         << "S3 driver using endpoint [" << *ehr << "]";
     driver->resolve_ehr_ =
         MakeReadyFuture<S3EndpointHostRegion>(std::move(*ehr));

@@ -32,6 +32,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:absl_time",
         "//tensorstore/internal/json_binding:bindable",
+        "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/internal/metrics",
         "//tensorstore/internal/oauth2",
         "//tensorstore/internal/oauth2:google_auth_provider",
@@ -129,6 +130,7 @@ tensorstore_cc_library(
     hdrs = ["admission_queue.h"],
     deps = [
         ":rate_limiter",
+        "//tensorstore/internal:intrusive_linked_list",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/synchronization",
     ],

@@ -26,6 +26,7 @@
 #include <utility>
 #include <variant>
 
+#include "absl/base/attributes.h"
 #include "absl/log/absl_log.h"
 #include "absl/log/log.h"
 #include "absl/status/status.h"
@@ -40,14 +41,11 @@
 #include "riegeli/xz/xz_reader.h"
 #include "riegeli/zlib/zlib_reader.h"
 #include "riegeli/zstd/zstd_reader.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/riegeli/find.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
-
-#ifndef TENSORSTORE_ZIP_DETAILS_LOGGING
-#define TENSORSTORE_ZIP_DETAILS_LOGGING 0
-#endif
 
 namespace tensorstore {
 namespace internal_zip {
@@ -57,6 +55,8 @@ using ::riegeli::ReadLittleEndian16;
 using ::riegeli::ReadLittleEndian32;
 using ::riegeli::ReadLittleEndian64;
 using ::riegeli::ReadLittleEndianSigned64;
+
+ABSL_CONST_INIT internal_log::VerboseFlag zip_logging("zip_details");
 
 // Windows epoch 1601-01-01T00:00:00Z is 11644473600 seconds before
 // Unix epoch 1970-01-01T00:00:00Z.
@@ -201,7 +201,7 @@ absl::Status ReadExtraField(riegeli::Reader &reader, ZipEntry &entry) {
         !ReadLittleEndian16(reader, tag_size)) {
       return absl::OkStatus();
     }
-    ABSL_LOG_IF(INFO, TENSORSTORE_ZIP_DETAILS_LOGGING)
+    ABSL_LOG_IF(INFO, zip_logging)
         << std::hex << "extra tag " << tag << " size " << tag_size;
     auto pos = reader.pos();
     switch (tag) {
@@ -250,8 +250,7 @@ absl::Status ReadEOCD64Locator(riegeli::Reader &reader,
   ReadLittleEndianSigned64(reader, locator.cd_offset);
   ReadLittleEndian32(reader, ignored32);
   if (locator.cd_offset < 0) {
-    ABSL_LOG_IF(INFO, TENSORSTORE_ZIP_DETAILS_LOGGING && !reader.ok())
-        << reader.status();
+    ABSL_LOG_IF(INFO, zip_logging && !reader.ok()) << reader.status();
     return absl::InvalidArgumentError(
         "Failed to read ZIP64 End of Central Directory Locator");
   }
