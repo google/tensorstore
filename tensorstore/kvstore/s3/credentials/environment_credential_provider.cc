@@ -15,6 +15,7 @@
 #include "tensorstore/kvstore/s3/credentials/environment_credential_provider.h"
 
 #include "absl/status/status.h"
+#include "absl/time/time.h"
 #include "tensorstore/internal/env.h"
 
 using ::tensorstore::internal::GetEnv;
@@ -47,7 +48,7 @@ Result<AwsCredentials> EnvironmentCredentialProvider::GetCredentials() {
       credentials.session_token = *session_token;
     }
 
-    retrieved_ = true;
+    credentials.expires_at = absl::InfiniteFuture();
     return credentials;
   }
 

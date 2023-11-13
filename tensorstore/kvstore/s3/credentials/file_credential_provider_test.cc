@@ -56,7 +56,10 @@ class TestData : public tensorstore::internal::ScopedTemporaryDirectory {
 
 class FileCredentialProviderTest : public ::testing::Test {
  protected:
-  void SetUp() override { UnsetEnv("AWS_SHARED_CREDENTIALS_FILE"); }
+  void SetUp() override {
+    UnsetEnv("AWS_SHARED_CREDENTIALS_FILE");
+    UnsetEnv("AWS_PROFILE");
+  }
 };
 
 TEST_F(FileCredentialProviderTest, ProviderAwsCredentialsFromFileDefault) {
@@ -64,11 +67,12 @@ TEST_F(FileCredentialProviderTest, ProviderAwsCredentialsFromFileDefault) {
   std::string credentials_filename = test_data.WriteCredentialsFile();
 
   SetEnv("AWS_SHARED_CREDENTIALS_FILE", credentials_filename.c_str());
-  auto provider = FileCredentialProvider("");
+  auto provider = FileCredentialProvider("", "");
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials, provider.GetCredentials());
   ASSERT_EQ(credentials.access_key, "AKIAIOSFODNN7EXAMPLE");
   ASSERT_EQ(credentials.secret_key, "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY");
   ASSERT_EQ(credentials.session_token, "abcdef1234567890");
+  ASSERT_EQ(credentials.expires_at, absl::InfiniteFuture());
 }
 
 TEST_F(FileCredentialProviderTest,
@@ -77,35 +81,58 @@ TEST_F(FileCredentialProviderTest,
   std::string credentials_filename = test_data.WriteCredentialsFile();
 
   SetEnv("AWS_SHARED_CREDENTIALS_FILE", credentials_filename.c_str());
-  auto provider = FileCredentialProvider("alice");
+  auto provider = FileCredentialProvider("", "alice");
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials, provider.GetCredentials());
   ASSERT_EQ(credentials.access_key, "AKIAIOSFODNN6EXAMPLE");
   ASSERT_EQ(credentials.secret_key, "wJalrXUtnFEMI/K7MDENG/bPxRfiCZEXAMPLEKEY");
   ASSERT_EQ(credentials.session_token, "");
+  ASSERT_EQ(credentials.expires_at, absl::InfiniteFuture());
 }
 
 TEST_F(FileCredentialProviderTest, ProviderAwsCredentialsFromFileProfileEnv) {
   TestData test_data;
-  std::string credentials_filename = test_data.WriteCredentialsFile();
+  auto credentials_filename = test_data.WriteCredentialsFile();
 
   SetEnv("AWS_SHARED_CREDENTIALS_FILE", credentials_filename.c_str());
   SetEnv("AWS_PROFILE", "alice");
-  auto provider = FileCredentialProvider("");
+  auto provider = FileCredentialProvider("", "");
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials, provider.GetCredentials());
   ASSERT_EQ(credentials.access_key, "AKIAIOSFODNN6EXAMPLE");
   ASSERT_EQ(credentials.secret_key, "wJalrXUtnFEMI/K7MDENG/bPxRfiCZEXAMPLEKEY");
   ASSERT_EQ(credentials.session_token, "");
+  ASSERT_EQ(credentials.expires_at, absl::InfiniteFuture());
 }
 
 TEST_F(FileCredentialProviderTest,
        ProviderAwsCredentialsFromFileInvalidProfileEnv) {
   TestData test_data;
-  std::string credentials_filename = test_data.WriteCredentialsFile();
+  auto credentials_filename = test_data.WriteCredentialsFile();
 
   SetEnv("AWS_SHARED_CREDENTIALS_FILE", credentials_filename.c_str());
   SetEnv("AWS_PROFILE", "bob");
-  auto provider = FileCredentialProvider("");
+  auto provider = FileCredentialProvider("", "");
   ASSERT_FALSE(provider.GetCredentials().ok());
 }
+
+TEST_F(FileCredentialProviderTest,
+       ProviderAwsCredentialsFromFileOverride) {
+  TestData test_data;
+  auto credentials_filename = test_data.WriteCredentialsFile();
+  auto provider = std::make_unique<FileCredentialProvider>(credentials_filename, "");
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials, provider->GetCredentials());
+  ASSERT_EQ(credentials.access_key, "AKIAIOSFODNN7EXAMPLE");
+  ASSERT_EQ(credentials.secret_key, "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY");
+  ASSERT_EQ(credentials.session_token, "abcdef1234567890");
+  ASSERT_EQ(credentials.expires_at, absl::InfiniteFuture());
+
+  provider = std::make_unique<FileCredentialProvider>(credentials_filename, "alice");
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(credentials, provider->GetCredentials());
+  ASSERT_EQ(credentials.access_key, "AKIAIOSFODNN6EXAMPLE");
+  ASSERT_EQ(credentials.secret_key, "wJalrXUtnFEMI/K7MDENG/bPxRfiCZEXAMPLEKEY");
+  ASSERT_EQ(credentials.session_token, "");
+  ASSERT_EQ(credentials.expires_at, absl::InfiniteFuture());
+
+}
+
 
 }  // namespace

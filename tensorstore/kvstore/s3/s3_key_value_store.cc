@@ -211,8 +211,9 @@ struct AwsCredentialsResource
 
   struct Spec {
     std::string profile;
+    std::string filename;
     constexpr static auto ApplyMembers = [](auto&& x, auto f) {
-      return f(x.profile);
+      return f(x.profile, x.filename);
     };
   };
 
@@ -227,7 +228,8 @@ struct AwsCredentialsResource
 
   static constexpr auto JsonBinder() {
     return jb::Object(
-        jb::Member("profile", jb::Projection<&Spec::profile>()) /**/
+        jb::Member("profile", jb::Projection<&Spec::profile>()),
+        jb::Member("filename", jb::Projection<&Spec::filename>())
     );
   }
 

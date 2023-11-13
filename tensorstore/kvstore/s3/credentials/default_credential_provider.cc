@@ -17,37 +17,38 @@
 #include <memory>
 #include <string>
 
-#include "absl/time/time.h"
 #include "absl/synchronization/mutex.h"
+#include "absl/time/time.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/internal/http/http_transport.h"
+#include "tensorstore/kvstore/s3/credentials/ec2_credential_provider.h"
 #include "tensorstore/kvstore/s3/credentials/environment_credential_provider.h"
 #include "tensorstore/kvstore/s3/credentials/file_credential_provider.h"
-#include "tensorstore/kvstore/s3/credentials/ec2_credential_provider.h"
 
 namespace tensorstore {
 namespace internal_kvstore_s3 {
 
-DefaultAwsCredentialsProvider::DefaultAwsCredentialsProvider() {
-  credentials_.expires_at = absl::InfinitePast();
-}
 
-DefaultAwsCredentialsProvider::DefaultAwsCredentialsProvider(Options options) : options_(options) {
-  credentials_.expires_at = absl::InfinitePast();
-}
+DefaultAwsCredentialsProvider::DefaultAwsCredentialsProvider(Options options, absl::FunctionRef<absl::Time()> clock)
+  : options_(std::move(options)), clock_(clock), credentials_{{}, {}, {}, absl::InfinitePast()} {}
 
 Result<AwsCredentials> DefaultAwsCredentialsProvider::GetCredentials() {
   {
     absl::ReaderMutexLock lock(&mutex_);
-    if(credentials_.expires_at > absl::Now()) {
+    if (credentials_.expires_at > clock_()) {
       return credentials_;
     }
   }
 
   absl::WriterMutexLock lock(&mutex_);
+
   // Refresh existing credentials
-  if(provider_) {
-    TENSORSTORE_ASSIGN_OR_RETURN(credentials_, provider_->GetCredentials());
-    return credentials_;
+  if (provider_) {
+    auto credentials_result = provider_->GetCredentials();
+    if (credentials_result.ok()) {
+      credentials_ = credentials_result.value();
+      return credentials_;
+    }
   }
 
   // Return credentials in this order:
@@ -60,7 +61,7 @@ Result<AwsCredentials> DefaultAwsCredentialsProvider::GetCredentials() {
   }
 
   // 2. Shared Credential File, e.g. $HOME/.aws/credentials
-  provider_ = std::make_unique<FileCredentialProvider>(options_.profile);
+  provider_ = std::make_unique<FileCredentialProvider>(options_.filename, options_.profile);
   credentials_result = provider_->GetCredentials();
   if (credentials_result.ok()) {
     credentials_ = credentials_result.value();

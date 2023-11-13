@@ -16,9 +16,7 @@
 #define TENSORSTORE_KVSTORE_S3_CREDENTIALS_EC2_METADATA_CREDENTIAL_PROVIDER_H
 
 #include <memory>
-#include <utility>
 
-#include "absl/base/thread_annotations.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/kvstore/s3/credentials/aws_credential_provider.h"
 #include "tensorstore/util/result.h"

@@ -25,74 +25,24 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/time/time.h"
-#include "tensorstore/internal/http/http_request.h"
+#include "tensorstore/kvstore/s3/credentials/test_utils.h"
 #include "tensorstore/internal/http/http_response.h"
-#include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace {
 
-using ::tensorstore::Future;
 using ::tensorstore::MatchesStatus;
-using ::tensorstore::internal_http::HttpRequest;
 using ::tensorstore::internal_http::HttpResponse;
-using ::tensorstore::internal_http::HttpTransport;
+using ::tensorstore::internal_kvstore_s3::DefaultEC2MetadataFlow;
 using ::tensorstore::internal_kvstore_s3::EC2MetadataCredentialProvider;
+using ::tensorstore::internal_kvstore_s3::EC2MetadataMockTransport;
 
-class EC2MetadataMockTransport : public HttpTransport {
- public:
-  EC2MetadataMockTransport(
-      const absl::flat_hash_map<std::string, HttpResponse>& url_to_response)
-      : url_to_response_(url_to_response) {}
-
-  Future<HttpResponse> IssueRequest(const HttpRequest& request,
-                                    absl::Cord payload,
-                                    absl::Duration request_timeout,
-                                    absl::Duration connect_timeout) override {
-    ABSL_LOG(INFO) << request;
-    auto it = url_to_response_.find(
-        tensorstore::StrCat(request.method, " ", request.url));
-    if (it != url_to_response_.end()) {
-      return it->second;
-    }
-    return HttpResponse{404, absl::Cord(), {}};
-  }
-
-  const absl::flat_hash_map<std::string, HttpResponse>& url_to_response_;
-};
 
 TEST(EC2MetadataCredentialProviderTest, CredentialRetrievalFlow) {
   auto expiry = absl::Now() + absl::Seconds(200);
-  auto utc = absl::UTCTimeZone();
-
-  auto url_to_response = absl::flat_hash_map<std::string, HttpResponse>{
-      {"POST http://169.254.169.254/latest/api/token",
-       HttpResponse{200, absl::Cord{"1234567890"}}},
-      {"GET http://169.254.169.254/latest/meta-data/iam/",
-       HttpResponse{200,
-                    absl::Cord{"info"},
-                    {{"x-aws-ec2-metadata-token", "1234567890"}}}},
-      {"GET http://169.254.169.254/latest/meta-data/iam/security-credentials/",
-       HttpResponse{200,
-                    absl::Cord{"mock-iam-role\nmock-iam-role2"},
-                    {{"x-aws-ec2-metadata-token", "1234567890"}}}},
-      {"GET "
-       "http://169.254.169.254/latest/meta-data/iam/security-credentials/"
-       "mock-iam-role",
-       HttpResponse{200,
-                    absl::Cord(absl::FormatTime(R"({
-                        "Code": "Success",
-                        "LastUpdated": "2023-09-21T12:42:12Z",
-                        "Type": "AWS-HMAC",
-                        "AccessKeyId": "ASIA1234567890",
-                        "SecretAccessKey": "1234567890abcdef",
-                        "Token": "abcdef123456790",
-                        "Expiration": "%Y-%m-%d%ET%H:%M:%E*S%Ez"
-                    })",
-                                                expiry, utc)),
-                    {{"x-aws-ec2-metadata-token", "1234567890"}}}}};
+  auto url_to_response = DefaultEC2MetadataFlow("1234567890", "ASIA1234567890", "1234567890abcdef", "abcdef123456790", expiry);
 
   auto mock_transport =
       std::make_shared<EC2MetadataMockTransport>(url_to_response);

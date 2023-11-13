@@ -16,6 +16,8 @@
 #define TENSORSTORE_KVSTORE_S3_CREDENTIALS_AWS_CREDENTIAL_PROVIDER
 
 #include <functional>
+#include <memory>
+#include <string>
 #include <string_view>
 
 #include "absl/time/time.h"
@@ -27,23 +29,24 @@ namespace internal_kvstore_s3 {
 
 /// Holds AWS credentials
 ///
-/// Contains the access key, secret key and session token.
+/// Contains the access key, secret key, session token and expiry
 /// An empty access key implies anonymous access,
 /// while the presence of a session token implies the use of
 /// short-lived STS credentials
 /// https://docs.aws.amazon.com/STS/latest/APIReference/welcome.html
 struct AwsCredentials {
   /// AWS_ACCESS_KEY_ID
-  std::string access_key;
+  std::string access_key = {};
   /// AWS_SECRET_KEY_ID
-  std::string secret_key;
+  std::string secret_key = {};
   /// AWS_SESSION_TOKEN
-  std::string session_token;
-  /// Credentials expiry
-  absl::Time expires_at;
+  std::string session_token = {};
+  /// Expiration date
+  absl::Time expires_at = absl::InfinitePast();
 
-  static AwsCredentials Anonymous() {
-    return AwsCredentials{{}, {}, {}, absl::InfiniteFuture()};
+  /// Anonymous credentials expiring duration seconds from now
+  static AwsCredentials Anonymous(const absl::Duration & duration=absl::InfiniteDuration()) {
+    return AwsCredentials{{}, {}, {}, absl::Now() + duration};
   }
 
   bool IsAnonymous() const { return access_key.empty(); }
@@ -51,9 +54,7 @@ struct AwsCredentials {
 
 /// Base class for S3 Credential Providers
 ///
-/// Implementers should override GetCredentials, IsExpired and,
-/// if the credential source supports the
-/// representation of an expiry date, ExpiresAt.
+/// Implementers should override GetCredentials.
 class AwsCredentialProvider {
   public:
     virtual ~AwsCredentialProvider() = default;

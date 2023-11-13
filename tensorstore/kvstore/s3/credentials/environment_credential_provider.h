@@ -24,11 +24,7 @@ namespace internal_kvstore_s3 {
 /// Provides credentials from the following environment variables:
 /// AWS_ACCESS_KEY_ID, AWS_SECRET_KEY_ID, AWS_SESSION_TOKEN
 class EnvironmentCredentialProvider : public AwsCredentialProvider {
- private:
-  bool retrieved_;
-
  public:
-  EnvironmentCredentialProvider() : retrieved_(false) {}
   Result<AwsCredentials> GetCredentials() override;
 };
 

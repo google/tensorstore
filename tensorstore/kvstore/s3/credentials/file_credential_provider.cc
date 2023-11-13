@@ -21,6 +21,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/strip.h"
+#include "absl/time/time.h"
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/util/result.h"
@@ -76,21 +77,25 @@ Result<std::string> GetAwsCredentialsFileName() {
 
 /// https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html#cli-configure-files-format
 Result<AwsCredentials> FileCredentialProvider::GetCredentials() {
-  TENSORSTORE_ASSIGN_OR_RETURN(auto filename, GetAwsCredentialsFileName());
+  TENSORSTORE_ASSIGN_OR_RETURN(auto filename, ([&]() -> Result<std::string> {
+    if(!filename_.empty()) return filename_;
+    return GetAwsCredentialsFileName();
+  }()));
+
   std::ifstream ifs(filename.c_str());
   if (!ifs) {
     return absl::NotFoundError(
         absl::StrCat("Could not open credentials file [", filename, "]"));
   }
 
-  std::string profile = !profile_.empty()
-                            ? std::string(profile_)
-                            : GetEnv(kEnvAwsProfile).value_or(kDefaultProfile);
+  auto profile = !profile_.empty()
+                      ? std::string(profile_)
+                      : GetEnv(kEnvAwsProfile).value_or(kDefaultProfile);
 
-  AwsCredentials credentials;
-  std::string section_name;
-  std::string line;
-  bool profile_found = false;
+  auto credentials = AwsCredentials{};
+  auto section_name = std::string{};
+  auto line = std::string{};
+  auto profile_found = false;
 
   while (std::getline(ifs, line)) {
     auto sline = absl::StripAsciiWhitespace(line);
@@ -132,7 +137,7 @@ Result<AwsCredentials> FileCredentialProvider::GetCredentials() {
   ABSL_LOG_FIRST_N(INFO, 1)
       << "Using profile [" << profile << "] in file [" << filename << "]";
 
-  retrieved_ = true;
+  credentials.expires_at = absl::InfiniteFuture();
   return credentials;
 }
 
