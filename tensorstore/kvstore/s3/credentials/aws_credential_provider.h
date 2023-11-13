@@ -45,7 +45,8 @@ struct AwsCredentials {
   absl::Time expires_at = absl::InfinitePast();
 
   /// Anonymous credentials expiring duration seconds from now
-  static AwsCredentials Anonymous(const absl::Duration & duration=absl::InfiniteDuration()) {
+  static AwsCredentials Anonymous(
+      const absl::Duration& duration = absl::InfiniteDuration()) {
     return AwsCredentials{{}, {}, {}, absl::Now() + duration};
   }
 
@@ -56,11 +57,10 @@ struct AwsCredentials {
 ///
 /// Implementers should override GetCredentials.
 class AwsCredentialProvider {
-  public:
-    virtual ~AwsCredentialProvider() = default;
-    virtual Result<AwsCredentials> GetCredentials() = 0;
+ public:
+  virtual ~AwsCredentialProvider() = default;
+  virtual Result<AwsCredentials> GetCredentials() = 0;
 };
-
 
 using AwsCredentialProviderFn =
     std::function<Result<std::unique_ptr<AwsCredentialProvider>>()>;

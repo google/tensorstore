@@ -114,25 +114,25 @@ TEST_F(FileCredentialProviderTest,
   ASSERT_FALSE(provider.GetCredentials().ok());
 }
 
-TEST_F(FileCredentialProviderTest,
-       ProviderAwsCredentialsFromFileOverride) {
+TEST_F(FileCredentialProviderTest, ProviderAwsCredentialsFromFileOverride) {
   TestData test_data;
   auto credentials_filename = test_data.WriteCredentialsFile();
-  auto provider = std::make_unique<FileCredentialProvider>(credentials_filename, "");
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials, provider->GetCredentials());
+  auto provider =
+      std::make_unique<FileCredentialProvider>(credentials_filename, "");
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials,
+                                   provider->GetCredentials());
   ASSERT_EQ(credentials.access_key, "AKIAIOSFODNN7EXAMPLE");
   ASSERT_EQ(credentials.secret_key, "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY");
   ASSERT_EQ(credentials.session_token, "abcdef1234567890");
   ASSERT_EQ(credentials.expires_at, absl::InfiniteFuture());
 
-  provider = std::make_unique<FileCredentialProvider>(credentials_filename, "alice");
+  provider =
+      std::make_unique<FileCredentialProvider>(credentials_filename, "alice");
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(credentials, provider->GetCredentials());
   ASSERT_EQ(credentials.access_key, "AKIAIOSFODNN6EXAMPLE");
   ASSERT_EQ(credentials.secret_key, "wJalrXUtnFEMI/K7MDENG/bPxRfiCZEXAMPLEKEY");
   ASSERT_EQ(credentials.session_token, "");
   ASSERT_EQ(credentials.expires_at, absl::InfiniteFuture());
-
 }
-
 
 }  // namespace

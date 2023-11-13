@@ -78,9 +78,9 @@ Result<std::string> GetAwsCredentialsFileName() {
 /// https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html#cli-configure-files-format
 Result<AwsCredentials> FileCredentialProvider::GetCredentials() {
   TENSORSTORE_ASSIGN_OR_RETURN(auto filename, ([&]() -> Result<std::string> {
-    if(!filename_.empty()) return filename_;
-    return GetAwsCredentialsFileName();
-  }()));
+                                 if (!filename_.empty()) return filename_;
+                                 return GetAwsCredentialsFileName();
+                               }()));
 
   std::ifstream ifs(filename.c_str());
   if (!ifs) {
@@ -89,8 +89,8 @@ Result<AwsCredentials> FileCredentialProvider::GetCredentials() {
   }
 
   auto profile = !profile_.empty()
-                      ? std::string(profile_)
-                      : GetEnv(kEnvAwsProfile).value_or(kDefaultProfile);
+                     ? std::string(profile_)
+                     : GetEnv(kEnvAwsProfile).value_or(kDefaultProfile);
 
   auto credentials = AwsCredentials{};
   auto section_name = std::string{};

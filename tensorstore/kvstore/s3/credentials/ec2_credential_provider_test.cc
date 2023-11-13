@@ -25,8 +25,8 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/time/time.h"
-#include "tensorstore/kvstore/s3/credentials/test_utils.h"
 #include "tensorstore/internal/http/http_response.h"
+#include "tensorstore/kvstore/s3/credentials/test_utils.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
@@ -39,10 +39,11 @@ using ::tensorstore::internal_kvstore_s3::DefaultEC2MetadataFlow;
 using ::tensorstore::internal_kvstore_s3::EC2MetadataCredentialProvider;
 using ::tensorstore::internal_kvstore_s3::EC2MetadataMockTransport;
 
-
 TEST(EC2MetadataCredentialProviderTest, CredentialRetrievalFlow) {
   auto expiry = absl::Now() + absl::Seconds(200);
-  auto url_to_response = DefaultEC2MetadataFlow("1234567890", "ASIA1234567890", "1234567890abcdef", "abcdef123456790", expiry);
+  auto url_to_response =
+      DefaultEC2MetadataFlow("1234567890", "ASIA1234567890", "1234567890abcdef",
+                             "abcdef123456790", expiry);
 
   auto mock_transport =
       std::make_shared<EC2MetadataMockTransport>(url_to_response);

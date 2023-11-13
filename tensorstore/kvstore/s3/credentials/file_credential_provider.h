@@ -40,11 +40,11 @@ class FileCredentialProvider : public AwsCredentialProvider {
 
  public:
   FileCredentialProvider(std::string filename, std::string profile)
-    : filename_(std::move(filename)), profile_(std::move(profile)) {}
+      : filename_(std::move(filename)), profile_(std::move(profile)) {}
   Result<AwsCredentials> GetCredentials() override;
 };
 
-} // namespace internal_kvstore_s3
-} // namespace tensorstore
+}  // namespace internal_kvstore_s3
+}  // namespace tensorstore
 
-#endif // TENSORSTORE_KVSTORE_S3_CREDENTIALS_FILE_CREDENTIAL_PROVIDER_H
+#endif  // TENSORSTORE_KVSTORE_S3_CREDENTIALS_FILE_CREDENTIAL_PROVIDER_H

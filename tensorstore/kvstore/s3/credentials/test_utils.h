@@ -14,9 +14,9 @@
 
 #include <string>
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/log/absl_log.h"
 #include "absl/strings/cord.h"
-#include "absl/container/flat_hash_map.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/util/str_cat.h"
@@ -30,25 +30,26 @@ namespace internal_kvstore_s3 {
 class EC2MetadataMockTransport : public internal_http::HttpTransport {
  public:
   EC2MetadataMockTransport(
-      const absl::flat_hash_map<std::string, internal_http::HttpResponse>& url_to_response)
+      const absl::flat_hash_map<std::string, internal_http::HttpResponse>&
+          url_to_response)
       : url_to_response_(url_to_response) {}
 
-  Future<internal_http::HttpResponse> IssueRequest(const internal_http::HttpRequest& request,
-                                                   absl::Cord payload,
-                                                   absl::Duration request_timeout,
-                                                   absl::Duration connect_timeout) override;
+  Future<internal_http::HttpResponse> IssueRequest(
+      const internal_http::HttpRequest& request, absl::Cord payload,
+      absl::Duration request_timeout, absl::Duration connect_timeout) override;
 
-  const absl::flat_hash_map<std::string, internal_http::HttpResponse>& url_to_response_;
+  const absl::flat_hash_map<std::string, internal_http::HttpResponse>&
+      url_to_response_;
 };
 
 /// Return a Default EC2 Metadata Credential Retrieval Flow, suitable
 /// for passing to EC2MetadataMockTransport
-absl::flat_hash_map<std::string, internal_http::HttpResponse> DefaultEC2MetadataFlow(
-  const std::string & api_token,
-  const std::string & access_key,
-  const std::string & secret_key,
-  const std::string & session_token,
-  const absl::Time & expires_at);
+absl::flat_hash_map<std::string, internal_http::HttpResponse>
+DefaultEC2MetadataFlow(const std::string& api_token,
+                       const std::string& access_key,
+                       const std::string& secret_key,
+                       const std::string& session_token,
+                       const absl::Time& expires_at);
 
-} // namespace internal_kvstore_s3
-} // namespace tensorstore
+}  // namespace internal_kvstore_s3
+}  // namespace tensorstore

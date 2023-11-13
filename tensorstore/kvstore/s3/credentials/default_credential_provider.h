@@ -21,10 +21,10 @@
 #include "absl/base/thread_annotations.h"
 #include "absl/functional/function_ref.h"
 #include "absl/synchronization/mutex.h"
-#include "tensorstore/util/result.h"
 #include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/kvstore/s3/credentials/aws_credential_provider.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal_kvstore_s3 {
@@ -40,31 +40,32 @@ namespace internal_kvstore_s3 {
 /// at which point the original source is queried again to
 /// obtain fresher credentials
 class DefaultAwsCredentialsProvider : public AwsCredentialProvider {
-  public:
-    /// Options to configure the provider. These include the:
-    ///
-    /// 1. Shared Credential Filename
-    /// 2. Shared Credential File Profile
-    /// 3. Http Transport for querying the EC2 Metadata Server
-    struct Options {
-      std::string filename = {};
-      std::string profile = {};
-      std::shared_ptr<internal_http::HttpTransport> transport;
-    };
+ public:
+  /// Options to configure the provider. These include the:
+  ///
+  /// 1. Shared Credential Filename
+  /// 2. Shared Credential File Profile
+  /// 3. Http Transport for querying the EC2 Metadata Server
+  struct Options {
+    std::string filename = {};
+    std::string profile = {};
+    std::shared_ptr<internal_http::HttpTransport> transport;
+  };
 
-    DefaultAwsCredentialsProvider(Options options={{}, {}, internal_http::GetDefaultHttpTransport()},
-                                  absl::FunctionRef<absl::Time()> clock=absl::Now);
-    Result<AwsCredentials> GetCredentials() override;
+  DefaultAwsCredentialsProvider(
+      Options options = {{}, {}, internal_http::GetDefaultHttpTransport()},
+      absl::FunctionRef<absl::Time()> clock = absl::Now);
+  Result<AwsCredentials> GetCredentials() override;
 
-  private:
-    Options options_;
-    absl::FunctionRef<absl::Time()> clock_;
-    absl::Mutex mutex_;
-    std::unique_ptr<AwsCredentialProvider> provider_ ABSL_GUARDED_BY(mutex_);
-    AwsCredentials credentials_ ABSL_GUARDED_BY(mutex_);
+ private:
+  Options options_;
+  absl::FunctionRef<absl::Time()> clock_;
+  absl::Mutex mutex_;
+  std::unique_ptr<AwsCredentialProvider> provider_ ABSL_GUARDED_BY(mutex_);
+  AwsCredentials credentials_ ABSL_GUARDED_BY(mutex_);
 };
 
-} // namespace internal_kvstore_s3
-} // namespace tensorstore
+}  // namespace internal_kvstore_s3
+}  // namespace tensorstore
 
-#endif // TENSORSTORE_KVSTORE_S3_CREDENTIALS_DEFAULT_CREDENTIAL_PROVIDER
+#endif  // TENSORSTORE_KVSTORE_S3_CREDENTIALS_DEFAULT_CREDENTIAL_PROVIDER

@@ -28,7 +28,7 @@ class EnvironmentCredentialProvider : public AwsCredentialProvider {
   Result<AwsCredentials> GetCredentials() override;
 };
 
-} // namespace internal_kvstore_s3
-} // namespace tensorstore
+}  // namespace internal_kvstore_s3
+}  // namespace tensorstore
 
-#endif // TENSORSTORE_KVSTORE_S3_CREDENTIALS_ENVIRONMENT_CREDENTIAL_PROVIDER_H
+#endif  // TENSORSTORE_KVSTORE_S3_CREDENTIALS_ENVIRONMENT_CREDENTIAL_PROVIDER_H

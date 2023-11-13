@@ -19,18 +19,20 @@
 
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
-#include "tensorstore/util/result.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/kvstore/s3/credentials/ec2_credential_provider.h"
 #include "tensorstore/kvstore/s3/credentials/environment_credential_provider.h"
 #include "tensorstore/kvstore/s3/credentials/file_credential_provider.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal_kvstore_s3 {
 
-
-DefaultAwsCredentialsProvider::DefaultAwsCredentialsProvider(Options options, absl::FunctionRef<absl::Time()> clock)
-  : options_(std::move(options)), clock_(clock), credentials_{{}, {}, {}, absl::InfinitePast()} {}
+DefaultAwsCredentialsProvider::DefaultAwsCredentialsProvider(
+    Options options, absl::FunctionRef<absl::Time()> clock)
+    : options_(std::move(options)),
+      clock_(clock),
+      credentials_{{}, {}, {}, absl::InfinitePast()} {}
 
 Result<AwsCredentials> DefaultAwsCredentialsProvider::GetCredentials() {
   {
@@ -61,7 +63,8 @@ Result<AwsCredentials> DefaultAwsCredentialsProvider::GetCredentials() {
   }
 
   // 2. Shared Credential File, e.g. $HOME/.aws/credentials
-  provider_ = std::make_unique<FileCredentialProvider>(options_.filename, options_.profile);
+  provider_ = std::make_unique<FileCredentialProvider>(options_.filename,
+                                                       options_.profile);
   credentials_result = provider_->GetCredentials();
   if (credentials_result.ok()) {
     credentials_ = credentials_result.value();
@@ -69,7 +72,8 @@ Result<AwsCredentials> DefaultAwsCredentialsProvider::GetCredentials() {
   }
 
   // 3. EC2 Metadata Server
-  provider_ = std::make_unique<EC2MetadataCredentialProvider>(options_.transport);
+  provider_ =
+      std::make_unique<EC2MetadataCredentialProvider>(options_.transport);
   credentials_result = provider_->GetCredentials();
   if (credentials_result.ok()) {
     credentials_ = credentials_result.value();
@@ -82,6 +86,5 @@ Result<AwsCredentials> DefaultAwsCredentialsProvider::GetCredentials() {
   return credentials_;
 }
 
-
-} // namespace internal_kvstore_s3
-} // namespace tensorstore
+}  // namespace internal_kvstore_s3
+}  // namespace tensorstore

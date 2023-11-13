@@ -40,9 +40,9 @@ namespace {
 Result<std::unique_ptr<AwsCredentialProvider>> GetDefaultAwsCredentialProvider(
     std::string_view profile,
     std::shared_ptr<internal_http::HttpTransport> transport) {
-
-      return std::make_unique<DefaultAwsCredentialsProvider>(
-        DefaultAwsCredentialsProvider::Options{{}, std::string{profile}, transport});
+  return std::make_unique<DefaultAwsCredentialsProvider>(
+      DefaultAwsCredentialsProvider::Options{
+          {}, std::string{profile}, transport});
 }
 
 struct AwsCredentialProviderRegistry {
