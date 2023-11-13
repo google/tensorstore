@@ -1,9 +1,4 @@
-# Packages required to run the tests.
-numpy
-pytest
-pytest-asyncio
-cloudpickle
-ml_dtypes
+# Packages required to run the C++ tests.
 moto[s3,server]
 
 # From storage-testbench/setup.py

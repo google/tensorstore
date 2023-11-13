@@ -121,7 +121,6 @@ def repo():
     repo_pypa_sympy()
     repo_pypa_tomli()
     repo_pypa_traitlets()
-    repo_pypa_types_pyyaml()
     repo_pypa_typing_extensions()
     repo_pypa_urllib3()
     repo_pypa_wcwidth()
@@ -225,11 +224,15 @@ def repo_pypa_aws_xray_sdk():
     )
 
 def repo_pypa_babel():
+    repo_pypa_setuptools()
     maybe(
         third_party_python_package,
         name = "pypa_babel",
         target = "babel",
         requirement = "babel==2.13.1",
+        deps = [
+            "@pypa_setuptools//:setuptools",
+        ],
     )
 
 def repo_pypa_blinker():
@@ -237,7 +240,7 @@ def repo_pypa_blinker():
         third_party_python_package,
         name = "pypa_blinker",
         target = "blinker",
-        requirement = "blinker==1.6.3",
+        requirement = "blinker==1.7.0",
     )
 
 def repo_pypa_boto3():
@@ -248,7 +251,7 @@ def repo_pypa_boto3():
         third_party_python_package,
         name = "pypa_boto3",
         target = "boto3",
-        requirement = "boto3==1.28.74",
+        requirement = "boto3==1.28.84",
         deps = [
             "@pypa_botocore//:botocore",
             "@pypa_jmespath//:jmespath",
@@ -264,7 +267,7 @@ def repo_pypa_botocore():
         third_party_python_package,
         name = "pypa_botocore",
         target = "botocore",
-        requirement = "botocore==1.31.74",
+        requirement = "botocore==1.31.84",
         deps = [
             "@pypa_jmespath//:jmespath",
             "@pypa_python_dateutil//:python_dateutil",
@@ -327,7 +330,7 @@ def repo_pypa_charset_normalizer():
         third_party_python_package,
         name = "pypa_charset_normalizer",
         target = "charset_normalizer",
-        requirement = "charset-normalizer==3.3.1",
+        requirement = "charset-normalizer==3.3.2",
     )
 
 def repo_pypa_click():
@@ -555,7 +558,7 @@ def repo_pypa_ipython():
         third_party_python_package,
         name = "pypa_ipython",
         target = "ipython",
-        requirement = "ipython==8.17.1",
+        requirement = "ipython==8.17.2",
         darwin = [
             "@pypa_appnope//:appnope",
         ],
@@ -743,7 +746,7 @@ def repo_pypa_markupsafe():
         third_party_python_package,
         name = "pypa_markupsafe",
         target = "markupsafe",
-        requirement = "MarkupSafe==2.1.3",
+        requirement = "markupsafe==2.1.3",
     )
 
 def repo_pypa_matplotlib_inline():
@@ -799,7 +802,7 @@ def repo_pypa_moto():
         third_party_python_package,
         name = "pypa_moto",
         target = "moto",
-        requirement = "moto[s3,server]==4.2.7",
+        requirement = "moto[s3,server]==4.2.8",
         deps = [
             "@pypa_aws_xray_sdk//:aws_xray_sdk",
             "@pypa_boto3//:boto3",
@@ -915,7 +918,7 @@ def repo_pypa_pbr():
         third_party_python_package,
         name = "pypa_pbr",
         target = "pbr",
-        requirement = "pbr==5.11.1",
+        requirement = "pbr==6.0.0",
     )
 
 def repo_pypa_pexpect():
@@ -935,7 +938,7 @@ def repo_pypa_platformdirs():
         third_party_python_package,
         name = "pypa_platformdirs",
         target = "platformdirs",
-        requirement = "platformdirs==3.11.0",
+        requirement = "platformdirs==4.0.0",
     )
 
 def repo_pypa_pluggy():
@@ -952,7 +955,7 @@ def repo_pypa_prompt_toolkit():
         third_party_python_package,
         name = "pypa_prompt_toolkit",
         target = "prompt_toolkit",
-        requirement = "prompt-toolkit==3.0.39",
+        requirement = "prompt-toolkit==3.0.40",
         deps = [
             "@pypa_wcwidth//:wcwidth",
         ],
@@ -963,7 +966,7 @@ def repo_pypa_protobuf():
         third_party_python_package,
         name = "pypa_protobuf",
         target = "protobuf",
-        requirement = "protobuf==4.24.4",
+        requirement = "protobuf==4.25.0",
     )
 
 def repo_pypa_ptyprocess():
@@ -987,7 +990,7 @@ def repo_pypa_py_partiql_parser():
         third_party_python_package,
         name = "pypa_py_partiql_parser",
         target = "py_partiql_parser",
-        requirement = "py-partiql-parser==0.4.1",
+        requirement = "py-partiql-parser==0.4.2",
     )
 
 def repo_pypa_pyasn1():
@@ -1051,7 +1054,7 @@ def repo_pypa_pygments():
         third_party_python_package,
         name = "pypa_pygments",
         target = "pygments",
-        requirement = "pygments==2.16.1",
+        requirement = "Pygments==2.16.1",
     )
 
 def repo_pypa_pyparsing():
@@ -1092,7 +1095,7 @@ def repo_pypa_pytest_asyncio():
         third_party_python_package,
         name = "pypa_pytest_asyncio",
         target = "pytest_asyncio",
-        requirement = "pytest-asyncio==0.21.1",
+        requirement = "pytest-asyncio==0.22.0",
         deps = [
             "@pypa_pytest//:pytest",
         ],
@@ -1141,7 +1144,7 @@ def repo_pypa_pyyaml():
         third_party_python_package,
         name = "pypa_pyyaml",
         target = "pyyaml",
-        requirement = "PyYAML==6.0.1",
+        requirement = "pyyaml==6.0.1",
     )
 
 def repo_pypa_referencing():
@@ -1199,17 +1202,15 @@ def repo_pypa_requests_toolbelt():
 def repo_pypa_responses():
     repo_pypa_pyyaml()
     repo_pypa_requests()
-    repo_pypa_types_pyyaml()
     repo_pypa_urllib3()
     maybe(
         third_party_python_package,
         name = "pypa_responses",
         target = "responses",
-        requirement = "responses==0.23.3",
+        requirement = "responses==0.24.0",
         deps = [
             "@pypa_pyyaml//:pyyaml",
             "@pypa_requests//:requests",
-            "@pypa_types_pyyaml//:types_pyyaml",
             "@pypa_urllib3//:urllib3",
         ],
     )
@@ -1231,7 +1232,7 @@ def repo_pypa_rpds_py():
         third_party_python_package,
         name = "pypa_rpds_py",
         target = "rpds_py",
-        requirement = "rpds-py==0.10.6",
+        requirement = "rpds-py==0.12.0",
     )
 
 def repo_pypa_rsa():
@@ -1480,14 +1481,6 @@ def repo_pypa_traitlets():
         requirement = "traitlets==5.13.0",
     )
 
-def repo_pypa_types_pyyaml():
-    maybe(
-        third_party_python_package,
-        name = "pypa_types_pyyaml",
-        target = "types_pyyaml",
-        requirement = "types-PyYAML==6.0.12.12",
-    )
-
 def repo_pypa_typing_extensions():
     maybe(
         third_party_python_package,
@@ -1526,7 +1519,7 @@ def repo_pypa_werkzeug():
         third_party_python_package,
         name = "pypa_werkzeug",
         target = "werkzeug",
-        requirement = "Werkzeug==3.0.1",
+        requirement = "werkzeug==3.0.1",
         deps = [
             "@pypa_markupsafe//:markupsafe",
         ],
@@ -1537,7 +1530,7 @@ def repo_pypa_wrapt():
         third_party_python_package,
         name = "pypa_wrapt",
         target = "wrapt",
-        requirement = "wrapt==1.15.0",
+        requirement = "wrapt==1.16.0",
     )
 
 def repo_pypa_xmltodict():

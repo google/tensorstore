@@ -39,7 +39,7 @@ IGNORED_DEPENDENCIES = {
     "sphinxcontrib-serializinghtml": {"sphinx"},
 }
 
-SUPPORTED_PYTHON_VERSIONS = ("3.9", "3.10", "3.11")
+SUPPORTED_PYTHON_VERSIONS = ("3.9", "3.10", "3.11", "3.12")
 
 SYS_PLATFORM = ("linux", "win32", "darwin")
 
