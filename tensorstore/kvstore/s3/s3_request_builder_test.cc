@@ -15,7 +15,6 @@
 #include "tensorstore/kvstore/s3/s3_request_builder.h"
 
 #include <string>
-#include <string_view>
 #include <vector>
 
 #include <gmock/gmock.h>

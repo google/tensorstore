@@ -15,11 +15,12 @@
 #include <string>
 
 #include "absl/container/flat_hash_map.h"
-#include "absl/log/absl_log.h"
 #include "absl/strings/cord.h"
 #include "absl/time/time.h"
+#include "tensorstore/internal/http/http_request.h"
+#include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
-#include "tensorstore/util/str_cat.h"
+#include "tensorstore/util/future.h"
 
 namespace tensorstore {
 namespace internal_kvstore_s3 {

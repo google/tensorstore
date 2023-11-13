@@ -15,12 +15,14 @@
 #include "tensorstore/kvstore/s3/credentials/file_credential_provider.h"
 
 #include <fstream>
+#include <optional>
 #include <string>
 #include <string_view>
 
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
-#include "absl/strings/strip.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/path.h"

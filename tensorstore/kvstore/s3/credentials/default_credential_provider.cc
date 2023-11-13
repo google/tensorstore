@@ -15,7 +15,7 @@
 #include "tensorstore/kvstore/s3/credentials/default_credential_provider.h"
 
 #include <memory>
-#include <string>
+#include <utility>
 
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"

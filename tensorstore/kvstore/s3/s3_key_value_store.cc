@@ -14,7 +14,6 @@
 
 #include <stddef.h>
 #include <stdint.h>
-
 #include <algorithm>
 #include <atomic>
 #include <cassert>
@@ -24,6 +23,9 @@
 #include <string_view>
 #include <utility>
 #include <variant>
+#include <map>
+#include <tuple>
+#include <type_traits>
 
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
@@ -51,7 +53,6 @@
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/byte_range.h"
-#include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/gcs/validate.h"
 #include "tensorstore/kvstore/gcs_http/rate_limiter.h"
 #include "tensorstore/kvstore/generation.h"
@@ -77,7 +78,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
-
 // specializations
 #include "tensorstore/internal/cache_key/std_optional.h"  // IWYU pragma: keep
 #include "tensorstore/internal/json_binding/std_array.h"  // IWYU pragma: keep
@@ -85,6 +85,11 @@
 #include "tensorstore/serialization/fwd.h"  // IWYU pragma: keep
 #include "tensorstore/serialization/std_optional.h"  // IWYU pragma: keep
 #include "tensorstore/util/garbage_collection/std_optional.h"  // IWYU pragma: keep
+#include "tensorstore/internal/json_binding/bindable.h"
+#include "tensorstore/internal/poly/poly_impl.h"
+#include "tensorstore/internal/poly/storage.h"
+#include "tensorstore/json_serialization_options_base.h"
+#include "tensorstore/kvstore/gcs_http/admission_queue.h"
 
 #ifndef TENSORSTORE_INTERNAL_S3_LOG_REQUESTS
 #define TENSORSTORE_INTERNAL_S3_LOG_REQUESTS 0

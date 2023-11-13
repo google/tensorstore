@@ -14,7 +14,6 @@
 
 #include "tensorstore/kvstore/s3/credentials/default_credential_provider.h"
 
-#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <fstream>
@@ -27,8 +26,8 @@
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/test_util.h"
 #include "tensorstore/kvstore/s3/credentials/test_utils.h"
+#include "tensorstore/util/future.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 

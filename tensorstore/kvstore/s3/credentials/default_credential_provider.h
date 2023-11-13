@@ -21,6 +21,8 @@
 #include "absl/base/thread_annotations.h"
 #include "absl/functional/function_ref.h"
 #include "absl/synchronization/mutex.h"
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
 #include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/kvstore/s3/credentials/aws_credential_provider.h"

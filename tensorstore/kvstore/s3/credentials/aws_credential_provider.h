@@ -20,6 +20,7 @@
 #include <string>
 #include <string_view>
 
+#include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/util/result.h"

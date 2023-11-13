@@ -21,15 +21,14 @@
 #include <string>
 
 #include "absl/container/flat_hash_map.h"
-#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/kvstore/s3/credentials/test_utils.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 

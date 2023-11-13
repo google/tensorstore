@@ -14,7 +14,12 @@
 
 #include "tensorstore/kvstore/s3/credentials/environment_credential_provider.h"
 
+#include <optional>
+#include <string>
+
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/env.h"
 

@@ -16,7 +16,6 @@
 #define TENSORSTORE_KVSTORE_S3_S3_RESOURCE_H_
 
 #include <stddef.h>
-
 #include <memory>
 #include <optional>
 
@@ -24,13 +23,13 @@
 #include "absl/time/time.h"
 #include "tensorstore/context.h"
 #include "tensorstore/context_resource_provider.h"
+#include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/std_optional.h"
 #include "tensorstore/internal/retries_context_resource.h"
 #include "tensorstore/kvstore/gcs_http/admission_queue.h"
 #include "tensorstore/kvstore/gcs_http/rate_limiter.h"
 #include "tensorstore/util/result.h"
-
 /// specializations
 #include "tensorstore/internal/json_binding/absl_time.h"
 #include "tensorstore/internal/json_binding/bindable.h"

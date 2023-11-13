@@ -12,18 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <memory>
-#include <string>
-#include <type_traits>
-
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <memory>
+#include <string>
+#include <initializer_list>
+#include <map>
+#include <utility>
+#include <vector>
+
 #include "absl/container/flat_hash_map.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/time/time.h"
-#include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/internal/http/http_request.h"
@@ -39,6 +41,9 @@
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
+#include "tensorstore/kvstore/read_result.h"
+#include "tensorstore/kvstore/spec.h"
+#include "tensorstore/util/result.h"
 
 namespace kvstore = ::tensorstore::kvstore;
 

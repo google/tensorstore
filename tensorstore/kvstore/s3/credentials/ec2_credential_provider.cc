@@ -14,6 +14,7 @@
 
 #include "tensorstore/kvstore/s3/credentials/ec2_credential_provider.h"
 
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -25,7 +26,10 @@
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
+#include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "nlohmann/json.hpp"
+#include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
@@ -34,6 +38,7 @@
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/kvstore/s3/credentials/aws_credential_provider.h"
+#include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"

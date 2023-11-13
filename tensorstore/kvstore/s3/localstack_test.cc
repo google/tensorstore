@@ -12,14 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <optional>
-#include <string>
-#include <string_view>
-#include <type_traits>
-#include <utility>
-
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <optional>
+#include <string>
+#include <utility>
+#include <map>
+#include <memory>
+#include <vector>
+
 #include "absl/flags/flag.h"
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
@@ -29,7 +30,6 @@
 #include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
-#include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/curl_transport.h"
@@ -45,6 +45,11 @@
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
+#include "absl/container/flat_hash_map.h"
+#include "nlohmann/detail/json_ref.hpp"
+#include "tensorstore/internal/http/http_transport.h"
+#include "tensorstore/internal/json_fwd.h"
+#include "tensorstore/kvstore/spec.h"
 
 // When provided with --localstack_binary, localstack_test will start
 // localstack in host mode (via package localstack[runtime]).

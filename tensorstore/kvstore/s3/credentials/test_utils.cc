@@ -15,8 +15,11 @@
 #include "tensorstore/kvstore/s3/credentials/test_utils.h"
 
 #include <string>
+#include <utility>
 
+#include "absl/log/absl_log.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_format.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"

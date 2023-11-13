@@ -14,12 +14,13 @@
 
 #include "tensorstore/kvstore/s3/credentials/aws_credential_provider.h"
 
+#include <algorithm>
 #include <memory>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
-#include "absl/strings/str_cat.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/no_destructor.h"

@@ -14,14 +14,13 @@
 
 #include "tensorstore/kvstore/s3/s3_resource.h"
 
-#include <cstddef>
 #include <memory>
 #include <optional>
 #include <string>
+#include <map>
 
 #include "absl/base/call_once.h"
 #include "absl/flags/flag.h"
-#include "absl/flags/marshalling.h"
 #include "absl/log/absl_log.h"
 #include "absl/time/time.h"
 #include "tensorstore/context.h"
@@ -31,7 +30,6 @@
 #include "tensorstore/kvstore/gcs_http/rate_limiter.h"
 #include "tensorstore/kvstore/gcs_http/scaling_rate_limiter.h"
 #include "tensorstore/util/result.h"
-
 /// specializations
 #include "tensorstore/internal/cache_key/absl_time.h"  // IWYU pragma: keep
 #include "tensorstore/internal/cache_key/std_optional.h"  // IWYU pragma: keep

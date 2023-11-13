@@ -14,13 +14,14 @@
 
 #include "tensorstore/kvstore/s3/credentials/environment_credential_provider.h"
 
-#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <initializer_list>
 #include <string>
 
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/test_util.h"
+#include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
 

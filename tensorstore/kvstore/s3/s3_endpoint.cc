@@ -15,6 +15,7 @@
 #include "tensorstore/kvstore/s3/s3_endpoint.h"
 
 #include <cassert>
+#include <map>
 #include <memory>
 #include <string>
 #include <string_view>
