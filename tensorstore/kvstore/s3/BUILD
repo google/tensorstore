@@ -271,6 +271,7 @@ tensorstore_cc_test(
         "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest_main",
     ],
+    size = "small"
 )
 
 tensorstore_cc_library(
@@ -293,6 +294,7 @@ tensorstore_cc_library(
 
 tensorstore_cc_test(
     name = "s3_endpoint_test",
+    size = "small",
     srcs = ["s3_endpoint_test.cc"],
     deps = [
         ":s3_endpoint",

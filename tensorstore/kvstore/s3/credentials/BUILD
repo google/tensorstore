@@ -68,6 +68,7 @@ tensorstore_cc_test(
 
 tensorstore_cc_test(
     name = "environmental_credential_provider_test",
+    size = "small",
     srcs = ["environment_credential_provider_test.cc"],
     deps = [
         ":aws_credential_provider",
@@ -81,6 +82,7 @@ tensorstore_cc_test(
 
 tensorstore_cc_test(
     name = "file_credential_provider_test",
+    size = "small",
     srcs = ["file_credential_provider_test.cc"],
     deps = [
         ":aws_credential_provider",
@@ -95,6 +97,7 @@ tensorstore_cc_test(
 
 tensorstore_cc_test(
     name = "ec2_credential_provider_test",
+    size = "small",
     srcs = ["ec2_credential_provider_test.cc"],
     deps = [
         ":aws_credential_provider",
