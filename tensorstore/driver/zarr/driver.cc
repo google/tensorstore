@@ -497,9 +497,14 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
     const void* metadata_ptr, OpenMode open_mode) override {
     const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
     
+    if(metadata.dtype.fields.size() == 1 && metadata.dtype.fields[0].dtype != tensorstore::dtype_v<std::byte>) {
+      return absl::InvalidArgumentError(
+        "Trying to convert dtype rank 1 to byte array, but dtype is not std::byte"
+      );
+    }
+    
     ZarrMetadata new_metadata(metadata);
-    // FIXME - compute the sizeof the bytearray required
-    new_metadata.dtype = ParseDType("|V8").value();
+    new_metadata.dtype = ParseDType("|V" + getDtypeTotalBytes(metadata_ptr)).value();
 
     auto field = new_metadata.dtype.fields[0];
     new_metadata.fill_value = std::vector<SharedArray<const void>>(
@@ -518,6 +523,18 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
     )
 
     return std::make_shared<ZarrMetadata>(new_metadata);
+  }
+
+  std::string getDtypeTotalBytes(const void* metadata_ptr) {
+    const auto& metadata = *static_cast<const ZarrMetadata*>(metadata_ptr);
+
+    // TODO: Ensure that fields of rank > 1 are handled
+    int bytes = 0;
+    for(auto field : metadata.dtype.fields) {
+      bytes += field.num_bytes;
+    }
+
+    return std::to_string(bytes);
   }
 
   Result<std::size_t> GetComponentIndex(const void* metadata_ptr,

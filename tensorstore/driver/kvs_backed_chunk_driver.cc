@@ -1279,6 +1279,7 @@ internal::CachePtr<MetadataCache> GetOrCreateMetadataCache(
 Result<internal::Driver::Handle> OpenState::CreateDriverHandleFromMetadata(
     std::shared_ptr<const void> metadata) {
   // try to do things by the book ...
+
   auto result = ValidateOpenRequest(this, metadata.get());
 
   if(result.ok()){
@@ -1287,9 +1288,14 @@ Result<internal::Driver::Handle> OpenState::CreateDriverHandleFromMetadata(
       OpenState::Ptr(this), std::move(metadata), component_index
     );
   } else {
+    // Check if the metadata is compatible with our expectation of a byte array
+    auto maybe_new_metadata = ValidateByteArray(this, metadata.get());
+    if(absl::IsInvalidArgument(maybe_new_metadata.status())) {
+      return result.status();
+    }
     TENSORSTORE_ASSIGN_OR_RETURN(
       auto new_metadata, ValidateByteArray(this, metadata.get())
-    )
+    );
     std::size_t component_index = 0;
     return CreateTensorStoreFromMetadata(
       OpenState::Ptr(this), std::move(new_metadata), component_index
