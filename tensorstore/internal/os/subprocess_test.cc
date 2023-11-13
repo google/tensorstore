@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/subprocess.h"
+#include "tensorstore/internal/os/subprocess.h"
 
 #include <cstdio>
 #include <string>
@@ -27,14 +27,19 @@
 #include "absl/strings/match.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "riegeli/bytes/fd_reader.h"
+#include "riegeli/bytes/read_all.h"
 #include "tensorstore/internal/env.h"
+#include "tensorstore/internal/path.h"
+#include "tensorstore/internal/test_util.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
 
+using ::tensorstore::internal::JoinPath;
 using ::tensorstore::internal::SpawnSubprocess;
-using ::tensorstore::internal::Subprocess;
 using ::tensorstore::internal::SubprocessOptions;
 
 static std::string* program_name = nullptr;
@@ -47,7 +52,7 @@ TEST(SubprocessTest, Join) {
   opts.args = {kSubprocessArg};
 
   auto child = SpawnSubprocess(opts);
-  ASSERT_TRUE(child.ok());
+  TENSORSTORE_ASSERT_OK(child.status());
 
   int exit_code;
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(exit_code, child->Join());
@@ -60,7 +65,7 @@ TEST(SubprocessTest, Kill) {
   opts.args = {kSleepArg, kSubprocessArg};
 
   auto child = SpawnSubprocess(opts);
-  ASSERT_TRUE(child.ok());
+  TENSORSTORE_ASSERT_OK(child.status());
 
   EXPECT_THAT(child->Join(/*block=*/false),
               tensorstore::MatchesStatus(absl::StatusCode::kUnavailable));
@@ -77,15 +82,41 @@ TEST(SubprocessTest, DontInherit) {
   SubprocessOptions opts;
   opts.executable = *program_name;
   opts.args = {kSubprocessArg};
-  opts.inherit_stdout = false;
-  opts.inherit_stderr = false;
+  opts.stdout_action = SubprocessOptions::Ignore();
+  opts.stderr_action = SubprocessOptions::Ignore();
 
   auto child = SpawnSubprocess(opts);
-  ASSERT_TRUE(child.ok());
+  TENSORSTORE_ASSERT_OK(child.status());
 
   int exit_code;
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(exit_code, child->Join());
   EXPECT_EQ(exit_code, 33);
+}
+
+TEST(SubprocessTest, Redirects) {
+  ::tensorstore::internal::ScopedTemporaryDirectory temp_dir;
+  std::string out_file = JoinPath(temp_dir.path(), "stdout");
+
+  /// Should be able to spawn and just discard the process.
+  SubprocessOptions opts;
+  opts.executable = *program_name;
+  opts.args = {kSubprocessArg};
+  opts.env = absl::flat_hash_map<std::string, std::string>(
+      {{"SUBPROCESS_TEST_ENV", "1"}});
+  opts.stdout_action = SubprocessOptions::Redirect{out_file};
+  opts.stderr_action = SubprocessOptions::Redirect{out_file};
+
+  auto child = SpawnSubprocess(opts);
+  TENSORSTORE_ASSERT_OK(child.status());
+
+  int exit_code;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(exit_code, child->Join());
+  EXPECT_EQ(exit_code, 33);
+
+  // Expect that the file exists.
+  std::string filedata;
+  TENSORSTORE_CHECK_OK(riegeli::ReadAll(riegeli::FdReader(out_file), filedata));
+  EXPECT_THAT(filedata, ::testing::HasSubstr("PASS"));
 }
 
 TEST(SubprocessTest, Drop) {
@@ -95,7 +126,7 @@ TEST(SubprocessTest, Drop) {
   opts.args = {kSubprocessArg};
 
   auto child = SpawnSubprocess(opts);
-  ASSERT_TRUE(child.ok());
+  TENSORSTORE_ASSERT_OK(child.status());
 
   // Kill changes the result;
   child->Kill().IgnoreError();

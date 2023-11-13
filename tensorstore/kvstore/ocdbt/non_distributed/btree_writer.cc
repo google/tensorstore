@@ -81,19 +81,20 @@
 #include <variant>
 #include <vector>
 
+#include "absl/base/attributes.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/intrusive_red_black_tree.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/ocdbt/btree_writer.h"
 #include "tensorstore/kvstore/ocdbt/config.h"
-#include "tensorstore/kvstore/ocdbt/debug_log.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
 #include "tensorstore/kvstore/ocdbt/format/btree_node_encoder.h"
 #include "tensorstore/kvstore/ocdbt/format/config.h"
@@ -117,8 +118,9 @@
 
 namespace tensorstore {
 namespace internal_ocdbt {
-
 namespace {
+
+ABSL_CONST_INIT internal_log::VerboseFlag ocdbt_logging("ocdbt");
 
 class NonDistributedBtreeWriter : public BtreeWriter {
  public:
@@ -280,7 +282,7 @@ struct CommitOperation
     bool is_root_parent() final { return true; }
 
     void ApplyMutations() final {
-      ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+      ABSL_LOG_IF(INFO, ocdbt_logging)
           << "ApplyMutations: height=" << static_cast<int>(height_)
           << ", num_mutations=" << mutations_.size();
       if (mutations_.empty()) {
@@ -349,7 +351,7 @@ struct CommitOperation
     std::string existing_relative_child_key_;
 
     void ApplyMutations() final {
-      ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+      ABSL_LOG_IF(INFO, ocdbt_logging)
           << "ApplyMutations: existing inclusive_min="
           << tensorstore::QuoteString(tensorstore::StrCat(
                  parent_state_->existing_subtree_key_prefix_,
@@ -545,7 +547,7 @@ void CommitOperation::MaybeStart(NonDistributedBtreeWriter& writer,
   // TODO(jbms): Consider adding a delay here, using `ScheduleAt`.
 
   // Start commit
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG) << "Starting commit";
+  ABSL_LOG_IF(INFO, ocdbt_logging) << "Starting commit";
   writer.commit_in_progress_ = true;
   lock.unlock();
 
@@ -594,8 +596,7 @@ void CommitOperation::ReadManifest(CommitOperation::Ptr commit_op,
 
 void CommitOperation::Fail(CommitOperation::Ptr commit_op,
                            const absl::Status& error) {
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
-      << "Commit failed: " << error;
+  ABSL_LOG_IF(INFO, ocdbt_logging) << "Commit failed: " << error;
   CommitFailed(commit_op->staged_, error);
   auto& writer = *commit_op->writer_;
   PendingRequests pending;
@@ -650,7 +651,7 @@ void CommitOperation::StagePending(CommitOperation& commit_op) {
       pending.flush_promise.Link(std::move(value_future));
     }
   }
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+  ABSL_LOG_IF(INFO, ocdbt_logging)
       << "Stage requests: " << pending.requests.size();
   commit_op.flush_promise_.Link(std::move(pending.flush_promise));
   StageMutations(commit_op.staged_, std::move(pending));
@@ -658,7 +659,7 @@ void CommitOperation::StagePending(CommitOperation& commit_op) {
 
 void CommitOperation::TraverseBtreeStartingFromRoot(
     CommitOperation::Ptr commit_op, Promise<void> promise) {
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+  ABSL_LOG_IF(INFO, ocdbt_logging)
       << "Manifest ready: generation_number="
       << GetLatestGeneration(commit_op->existing_manifest_.get());
   auto* commit_op_ptr = commit_op.get();
@@ -693,7 +694,7 @@ void CommitOperation::TraverseBtreeStartingFromRoot(
 
 void CommitOperation::VisitNodeReference(VisitNodeReferenceParameters&& params,
                                          const BtreeNodeReference& node_ref) {
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+  ABSL_LOG_IF(INFO, ocdbt_logging)
       << "Process node reference: " << params.key_range
       << ", height=" << (params.parent_state->height_ - 1);
   auto read_future =
@@ -712,7 +713,7 @@ void CommitOperation::VisitNode(VisitNodeParameters&& params) {
   if (!params.node) {
     assert(params.inclusive_min_key_suffix.empty());
   }
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+  ABSL_LOG_IF(INFO, ocdbt_logging)
       << "VisitNode: " << params.key_range
       << ", height=" << static_cast<int>(height)
       << ", inclusive_min_key_suffix="
@@ -752,7 +753,7 @@ void CommitOperation::VisitInteriorNode(VisitNodeParameters params) {
       params.key_range, params.entry_range,
       [&](const InteriorNodeEntry& existing_entry, KeyRange key_range,
           MutationEntryTree::Range entry_range) {
-        ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+        ABSL_LOG_IF(INFO, ocdbt_logging)
             << "VisitInteriorNode: Partition: existing_entry="
             << tensorstore::QuoteString(
                    self_state->existing_subtree_key_prefix_)
@@ -760,7 +761,7 @@ void CommitOperation::VisitInteriorNode(VisitNodeParameters params) {
             << ", key_range=" << key_range << ", entry_range="
             << tensorstore::QuoteString(entry_range.begin()->key);
         if (MustReadNodeToApplyMutations(key_range, entry_range)) {
-          ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+          ABSL_LOG_IF(INFO, ocdbt_logging)
               << "VisitInteriorNode: Partition: existing_entry="
               << tensorstore::QuoteString(
                      self_state->existing_subtree_key_prefix_)
@@ -783,7 +784,7 @@ void CommitOperation::VisitInteriorNode(VisitNodeParameters params) {
                   std::move(key_range), entry_range},
               existing_entry.node);
         } else {
-          ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+          ABSL_LOG_IF(INFO, ocdbt_logging)
               << "VisitInteriorNode: Partition: existing_entry="
               << tensorstore::QuoteString(
                      self_state->existing_subtree_key_prefix_)
@@ -1012,7 +1013,7 @@ void CommitOperation::CreateNewManifest(
 
 void CommitOperation::NewManifestReady(Promise<void> promise,
                                        CommitOperation::Ptr commit_op) {
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG) << "NewManifestReady";
+  ABSL_LOG_IF(INFO, ocdbt_logging) << "NewManifestReady";
   auto flush_future = std::move(commit_op->flush_promise_).future();
   if (flush_future.null()) {
     return;
@@ -1031,7 +1032,7 @@ void CommitOperation::WriteNewManifest(CommitOperation::Ptr commit_op) {
       [commit_op =
            std::move(commit_op)](ReadyFuture<TryUpdateManifestResult> future) {
         auto& r = future.result();
-        ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+        ABSL_LOG_IF(INFO, ocdbt_logging)
             << "Manifest written: " << r.status()
             << ", success=" << (r.ok() ? r->success : false);
         auto& writer = *commit_op->writer_;
@@ -1058,7 +1059,7 @@ Future<TimestampedStorageGeneration> NonDistributedBtreeWriter::Write(
     std::string key, std::optional<absl::Cord> value,
     kvstore::WriteOptions options) {
   auto& writer = *this;
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+  ABSL_LOG_IF(INFO, ocdbt_logging)
       << "Write: " << tensorstore::QuoteString(key) << " " << value.has_value();
   auto request = std::make_unique<WriteEntry>();
   request->key = std::move(key);
@@ -1092,8 +1093,7 @@ Future<TimestampedStorageGeneration> NonDistributedBtreeWriter::Write(
 
 Future<const void> NonDistributedBtreeWriter::DeleteRange(KeyRange range) {
   auto& writer = *this;
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
-      << "DeleteRange: " << range;
+  ABSL_LOG_IF(INFO, ocdbt_logging) << "DeleteRange: " << range;
   auto request = std::make_unique<DeleteRangeEntry>();
   request->kind = MutationEntry::kDeleteRange;
   request->key = std::move(range.inclusive_min);
@@ -1163,7 +1163,7 @@ Future<const void> NonDistributedBtreeWriter::CopySubtree(
   // TODO(jbms): Currently this implementation avoids copying indirect values,
   // but never reuses B+tree nodes.  A more efficient implementation that
   // re-uses B+tree nodes in many cases is possible.
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+  ABSL_LOG_IF(INFO, ocdbt_logging)
       << "CopySubtree: " << options.node
       << ", height=" << static_cast<int>(options.node_height)
       << ", range=" << options.range << ", subtree_key_prefix="

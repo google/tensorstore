@@ -12,10 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/os_error_code.h"
+#include "tensorstore/internal/os/error_code.h"
 
-#include <string.h>
+#include <cerrno>
+#include <string>
+#include <string_view>
 
+#include "absl/status/status.h"
+#include "tensorstore/internal/source_location.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -113,10 +118,13 @@ absl::StatusCode GetOsErrorStatusCode(OsErrorCode error) {
 
 absl::Status StatusFromOsError(OsErrorCode error_code, std::string_view a,
                                std::string_view b, std::string_view c,
-                               std::string_view d) {
-  return absl::Status(GetOsErrorStatusCode(error_code),
+                               std::string_view d, SourceLocation loc) {
+  absl::Status status(GetOsErrorStatusCode(error_code),
                       tensorstore::StrCat(a, b, c, d, " [OS error: ",
                                           GetOsErrorMessage(error_code), "]"));
+
+  MaybeAddSourceLocation(status, loc);
+  return status;
 }
 
 }  // namespace internal

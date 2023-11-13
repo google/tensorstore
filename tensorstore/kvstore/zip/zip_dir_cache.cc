@@ -26,6 +26,7 @@
 #include <variant>
 #include <vector>
 
+#include "absl/base/attributes.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
@@ -37,6 +38,7 @@
 #include "tensorstore/internal/compression/zip_details.h"
 #include "tensorstore/internal/estimate_heap_usage/estimate_heap_usage.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
@@ -49,13 +51,11 @@
 // specializations
 #include "tensorstore/internal/estimate_heap_usage/std_vector.h"  // IWYU pragma: keep
 
-#ifndef TENSORSTORE_ZIP_IMPL_LOGGING
-#define TENSORSTORE_ZIP_IMPL_LOGGING 0
-#endif
-
 namespace tensorstore {
 namespace internal_zip_kvstore {
 namespace {
+
+ABSL_CONST_INIT internal_log::VerboseFlag zip_logging("zip");
 
 struct ReadDirectoryOp
     : public internal::AtomicReferenceCount<ReadDirectoryOp> {
@@ -67,7 +67,7 @@ struct ReadDirectoryOp
 
   void StartEOCDBlockRead() {
     auto& cache = internal::GetOwningCache(*entry_);
-    ABSL_LOG_IF(INFO, TENSORSTORE_ZIP_IMPL_LOGGING)
+    ABSL_LOG_IF(INFO, zip_logging)
         << "StartEOCDBlockRead " << entry_->key() << " " << options_.byte_range;
 
     auto future =
@@ -84,7 +84,7 @@ struct ReadDirectoryOp
   void OnEOCDBlockRead(ReadyFuture<kvstore::ReadResult> ready) {
     auto& r = ready.result();
     if (!r.ok()) {
-      ABSL_LOG_IF(INFO, TENSORSTORE_ZIP_IMPL_LOGGING) << r.status();
+      ABSL_LOG_IF(INFO, zip_logging) << r.status();
       if (absl::IsOutOfRange(r.status())) {
         // Retry, reading the full range.
         assert(!options_.byte_range.IsFull());
@@ -168,7 +168,7 @@ struct ReadDirectoryOp
   void OnDirectoryBlockRead(ReadyFuture<kvstore::ReadResult> ready) {
     auto& r = ready.result();
     if (!r.ok()) {
-      ABSL_LOG_IF(INFO, TENSORSTORE_ZIP_IMPL_LOGGING) << r.status();
+      ABSL_LOG_IF(INFO, zip_logging) << r.status();
       entry_->ReadError(
           internal::ConvertInvalidArgumentToFailedPrecondition(r.status()));
       return;
@@ -210,13 +210,13 @@ struct ReadDirectoryOp
       }
       // Only add validated entries to the zip directory.
       if (ValidateEntryIsSupported(entry).ok()) {
-        ABSL_LOG_IF(INFO, TENSORSTORE_ZIP_IMPL_LOGGING) << "Adding " << entry;
+        ABSL_LOG_IF(INFO, zip_logging) << "Adding " << entry;
         dir.entries.push_back(
             Directory::Entry{entry.filename, entry.crc, entry.compressed_size,
                              entry.uncompressed_size, entry.local_header_offset,
                              entry.estimated_read_size});
       } else {
-        ABSL_LOG_IF(INFO, TENSORSTORE_ZIP_IMPL_LOGGING) << "Skipping " << entry;
+        ABSL_LOG_IF(INFO, zip_logging) << "Skipping " << entry;
       }
     }
 
@@ -242,7 +242,7 @@ struct ReadDirectoryOp
                        std::tie(b.filename, a.local_header_offset);
               });
 
-    ABSL_LOG_IF(INFO, TENSORSTORE_ZIP_IMPL_LOGGING) << dir;
+    ABSL_LOG_IF(INFO, zip_logging) << dir;
 
     entry_->ReadSuccess(ZipDirectoryCache::ReadState{
         std::make_shared<const Directory>(std::move(dir)),

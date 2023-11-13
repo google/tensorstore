@@ -30,6 +30,7 @@
 #include <string_view>
 #include <utility>
 
+#include "absl/base/attributes.h"
 #include "absl/base/thread_annotations.h"
 #include "absl/crc/crc32c.h"
 #include "absl/log/absl_log.h"
@@ -49,6 +50,7 @@
 #include "tensorstore/internal/grpc/utils.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/histogram.h"
 #include "tensorstore/internal/retry.h"
@@ -116,12 +118,6 @@ using ::google::storage::v2::WriteObjectRequest;
 using ::google::storage::v2::WriteObjectResponse;
 using ::google::storage::v2::Storage;
 
-// To enable debug checks, specify:
-// bazel build --//tensorstore/kvstore/gcs_grpc:debug
-#ifndef TENSORSTORE_GCS_GRPC_DEBUG
-#define TENSORSTORE_GCS_GRPC_DEBUG 0
-#endif
-
 namespace {
 static constexpr char kUriScheme[] = "gcs_grpc";
 }
@@ -152,6 +148,8 @@ auto& gcs_grpc_list = internal_metrics::Counter<int64_t>::New(
 auto& gcs_grpc_retries = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/gcs_grpc/retries",
     "Count of all retried GCS requests (read/write/delete)");
+
+ABSL_CONST_INIT internal_log::VerboseFlag gcs_grpc_logging("gcs_grpc");
 
 struct GcsGrpcKeyValueStoreSpecData {
   std::string bucket;
@@ -397,7 +395,7 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
     storage_generation_ =
         TimestampedStorageGeneration{StorageGeneration::Unknown(), absl::Now()};
 
-    ABSL_LOG_IF(INFO, TENSORSTORE_GCS_GRPC_DEBUG)
+    ABSL_LOG_IF(INFO, gcs_grpc_logging)
         << "Read: " << this << " " << ConciseDebugString(request_);
 
     {
@@ -415,7 +413,7 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
   }
 
   void OnReadDone(bool ok) override {
-    ABSL_LOG_IF(INFO, TENSORSTORE_GCS_GRPC_DEBUG)
+    ABSL_LOG_IF(INFO, gcs_grpc_logging)
         << "ReadDone: " << this << " " << ok << " "
         << (ok ? ConciseDebugString(response_) : std::string());
     if (!ok) return;
@@ -490,7 +488,7 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
     if (!promise_.result_needed()) {
       return;
     }
-    ABSL_LOG_IF(INFO, TENSORSTORE_GCS_GRPC_DEBUG)
+    ABSL_LOG_IF(INFO, gcs_grpc_logging)
         << "ReadFinished: " << this << " " << status;
     {
       absl::MutexLock lock(&mutex_);
@@ -650,7 +648,7 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
       stub_->async()->WriteObject(context_.get(), &response_, this);
     }
 
-    ABSL_LOG_IF(INFO, TENSORSTORE_GCS_GRPC_DEBUG)
+    ABSL_LOG_IF(INFO, gcs_grpc_logging)
         << "Write: " << this << " " << ConciseDebugString(request_);
 
     auto options = grpc::WriteOptions();
@@ -661,15 +659,14 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
 
   void OnWriteDone(bool ok) override {
     // Not streaming any additional data bits.
-    ABSL_LOG_IF(INFO, TENSORSTORE_GCS_GRPC_DEBUG)
-        << "OnWriteDone: " << this << " " << ok;
+    ABSL_LOG_IF(INFO, gcs_grpc_logging) << "OnWriteDone: " << this << " " << ok;
 
     if (!ok) return;
     if (request_.finish_write()) return;
 
     UpdateRequestForNextWrite();
 
-    ABSL_LOG_IF(INFO, TENSORSTORE_GCS_GRPC_DEBUG)
+    ABSL_LOG_IF(INFO, gcs_grpc_logging)
         << "Write: " << this << " " << ConciseDebugString(request_);
     auto options = grpc::WriteOptions();
     if (request_.finish_write()) options.set_last_message();
@@ -688,7 +685,7 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
     if (!promise_.result_needed()) {
       return;
     }
-    ABSL_LOG_IF(INFO, TENSORSTORE_GCS_GRPC_DEBUG)
+    ABSL_LOG_IF(INFO, gcs_grpc_logging)
         << "WriteFinished: " << this << " " << status << " "
         << ConciseDebugString(response_);
     {
@@ -773,7 +770,7 @@ struct DeleteTask : public internal::AtomicReferenceCount<DeleteTask> {
       return;
     }
 
-    ABSL_LOG_IF(INFO, TENSORSTORE_GCS_GRPC_DEBUG)
+    ABSL_LOG_IF(INFO, gcs_grpc_logging)
         << "Delete: " << this << " " << ConciseDebugString(request_);
     start_time_ = absl::Now();
 
@@ -798,7 +795,7 @@ struct DeleteTask : public internal::AtomicReferenceCount<DeleteTask> {
       return;
     }
 
-    ABSL_LOG_IF(INFO, TENSORSTORE_GCS_GRPC_DEBUG)
+    ABSL_LOG_IF(INFO, gcs_grpc_logging)
         << "DeleteFinished: " << this << " " << status;
     {
       absl::MutexLock lock(&mutex_);
@@ -833,7 +830,6 @@ struct DeleteTask : public internal::AtomicReferenceCount<DeleteTask> {
         r.generation = StorageGeneration::Unknown();
       }
     } else if (!status.ok()) {
-      ABSL_LOG(INFO) << status;
       promise_.SetResult(std::move(status));
       return;
     }
@@ -907,7 +903,7 @@ struct ListTask : public internal::AtomicReferenceCount<ListTask> {
       return;
     }
 
-    ABSL_LOG_IF(INFO, TENSORSTORE_GCS_GRPC_DEBUG)
+    ABSL_LOG_IF(INFO, gcs_grpc_logging)
         << "List: " << this << " " << ConciseDebugString(request);
 
     {
@@ -930,7 +926,7 @@ struct ListTask : public internal::AtomicReferenceCount<ListTask> {
       execution::set_done(receiver_);
       return;
     }
-    ABSL_LOG_IF(INFO, TENSORSTORE_GCS_GRPC_DEBUG)
+    ABSL_LOG_IF(INFO, gcs_grpc_logging)
         << "ListResponse: " << this << " " << status << " :"
         << ConciseDebugString(response);
 

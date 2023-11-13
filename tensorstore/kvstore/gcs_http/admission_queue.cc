@@ -14,8 +14,14 @@
 
 #include "tensorstore/kvstore/gcs_http/admission_queue.h"
 
+#include <stddef.h>
+
 #include <cassert>
-#include <cstddef>
+#include <limits>
+
+#include "absl/synchronization/mutex.h"
+#include "tensorstore/internal/intrusive_linked_list.h"
+#include "tensorstore/kvstore/gcs_http/rate_limiter.h"
 
 namespace tensorstore {
 namespace internal_kvstore_gcs_http {

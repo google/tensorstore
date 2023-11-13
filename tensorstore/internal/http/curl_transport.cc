@@ -16,14 +16,22 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include <stdlib.h>
 
+#include <algorithm>
+#include <atomic>
+#include <cassert>
+#include <cstdio>
+#include <cstdlib>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
+#include "absl/base/attributes.h"
+#include "absl/base/const_init.h"
 #include "absl/log/absl_log.h"
 #include "absl/strings/cord.h"
 #include "absl/synchronization/mutex.h"
@@ -33,8 +41,11 @@
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/curl_factory.h"
 #include "tensorstore/internal/http/curl_handle.h"
+#include "tensorstore/internal/http/curl_wrappers.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
+#include "tensorstore/internal/http/http_transport.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/gauge.h"
 #include "tensorstore/internal/metrics/histogram.h"
@@ -81,6 +92,8 @@ auto& http_first_byte_latency_us =
         "/tensorstore/http/first_byte_latency_us",
         "HTTP first byte received latency (us)");
 
+ABSL_CONST_INIT internal_log::VerboseFlag curl_logging("curl");
+
 // Concurrent CURL HTTP/2 streams.
 int32_t GetMaxHttp2ConcurrentStreams() {
   auto limit = internal::GetEnvValue<int32_t>(
@@ -96,8 +109,8 @@ int32_t GetMaxHttp2ConcurrentStreams() {
 
 // Cached configuration from environment variables.
 struct CurlConfig {
-  bool verbose =
-      internal::GetEnvValue<bool>("TENSORSTORE_CURL_VERBOSE").value_or(false);
+  bool verbose = internal::GetEnvValue<bool>("TENSORSTORE_CURL_VERBOSE")
+                     .value_or(curl_logging.Level(0));
   std::optional<std::string> ca_path = internal::GetEnv("TENSORSTORE_CA_PATH");
   std::optional<std::string> ca_bundle =
       internal::GetEnv("TENSORSTORE_CA_BUNDLE");
@@ -281,8 +294,8 @@ struct CurlRequestState {
     handle_.SetOption(CURLOPT_FORBID_REUSE, 1);
   }
 
-  static std::size_t CurlWriteCallback(void* contents, std::size_t size,
-                                       std::size_t nmemb, void* userdata) {
+  static size_t CurlWriteCallback(void* contents, size_t size, size_t nmemb,
+                                  void* userdata) {
     auto* self = static_cast<CurlRequestState*>(userdata);
     auto data =
         std::string_view(static_cast<char const*>(contents), size * nmemb);
@@ -290,8 +303,8 @@ struct CurlRequestState {
     return data.size();
   }
 
-  static std::size_t CurlReadCallback(void* contents, std::size_t size,
-                                      std::size_t nmemb, void* userdata) {
+  static size_t CurlReadCallback(void* contents, size_t size, size_t nmemb,
+                                 void* userdata) {
     auto* self = static_cast<CurlRequestState*>(userdata);
     size_t n = std::min(size * nmemb, self->payload_remaining_);
     internal::CopyCordToSpan(self->payload_it_, {static_cast<char*>(contents),
@@ -319,8 +332,8 @@ struct CurlRequestState {
     return CURL_SEEKFUNC_OK;
   }
 
-  static std::size_t CurlHeaderCallback(void* contents, std::size_t size,
-                                        std::size_t nmemb, void* userdata) {
+  static size_t CurlHeaderCallback(void* contents, size_t size, size_t nmemb,
+                                   void* userdata) {
     auto* self = static_cast<CurlRequestState*>(userdata);
     auto data =
         std::string_view(static_cast<char const*>(contents), size * nmemb);

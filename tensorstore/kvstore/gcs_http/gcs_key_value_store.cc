@@ -25,6 +25,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/base/attributes.h"
 #include "absl/base/thread_annotations.h"
 #include "absl/log/absl_log.h"
 #include "absl/random/random.h"
@@ -47,6 +48,7 @@
 #include "tensorstore/internal/json/json.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/histogram.h"
 #include "tensorstore/internal/oauth2/auth_provider.h"
@@ -120,14 +122,6 @@ using ::tensorstore::kvstore::Key;
 using ::tensorstore::kvstore::ListOptions;
 using ::tensorstore::kvstore::SupportedFeatures;
 
-#ifndef TENSORSTORE_INTERNAL_GCS_LOG_REQUESTS
-#define TENSORSTORE_INTERNAL_GCS_LOG_REQUESTS 0
-#endif
-
-#ifndef TENSORSTORE_INTERNAL_GCS_LOG_RESPONSES
-#define TENSORSTORE_INTERNAL_GCS_LOG_RESPONSES 0
-#endif
-
 namespace {
 static constexpr char kUriScheme[] = "gs";
 }  // namespace
@@ -170,6 +164,8 @@ auto& gcs_delete_range = internal_metrics::Counter<int64_t>::New(
 
 auto& gcs_list = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/gcs/list", "GCS driver kvstore::List calls");
+
+ABSL_CONST_INIT internal_log::VerboseFlag gcs_http_logging("gcs_http");
 
 std::string_view GetGcsBaseUrl() {
   static std::string url = []() -> std::string {
@@ -395,10 +391,10 @@ class GcsKeyValueStore
     }
 
     // https://cloud.google.com/storage/docs/retry-strategy#exponential-backoff
-    gcs_retries.Increment();
     auto delay = internal::BackoffForAttempt(
         attempt, spec_.retries->initial_delay, spec_.retries->max_delay,
         /*jitter=*/std::min(absl::Seconds(1), spec_.retries->initial_delay));
+    gcs_retries.Increment();
     ScheduleAt(absl::Now() + delay,
                WithExecutor(executor(), [task = IntrusivePtr<Task>(task)] {
                  task->Retry();
@@ -540,8 +536,7 @@ struct ReadTask : public RateLimiterNode,
     auto request = request_builder.EnableAcceptEncoding().BuildRequest();
     start_time_ = absl::Now();
 
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_GCS_LOG_REQUESTS)
-        << "ReadTask: " << request;
+    ABSL_LOG_IF(INFO, gcs_http_logging) << "ReadTask: " << request;
     auto future = owner->transport_->IssueRequest(request, {});
     future.ExecuteWhenReady([self = IntrusivePtr<ReadTask>(this)](
                                 ReadyFuture<HttpResponse> response) {
@@ -553,7 +548,7 @@ struct ReadTask : public RateLimiterNode,
     if (!promise.result_needed()) {
       return;
     }
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_GCS_LOG_RESPONSES && response.ok())
+    ABSL_LOG_IF(INFO, gcs_http_logging.Level(1) && response.ok())
         << "ReadTask " << *response;
 
     absl::Status status = [&]() -> absl::Status {
@@ -751,7 +746,7 @@ struct WriteTask : public RateLimiterNode,
             .BuildRequest();
     start_time_ = absl::Now();
 
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_GCS_LOG_REQUESTS)
+    ABSL_LOG_IF(INFO, gcs_http_logging)
         << "WriteTask: " << request << " size=" << value.size();
 
     auto future = owner->transport_->IssueRequest(request, value);
@@ -765,7 +760,7 @@ struct WriteTask : public RateLimiterNode,
     if (!promise.result_needed()) {
       return;
     }
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_GCS_LOG_RESPONSES && response.ok())
+    ABSL_LOG_IF(INFO, gcs_http_logging.Level(1) && response.ok())
         << "WriteTask " << *response;
 
     absl::Status status = [&]() -> absl::Status {
@@ -901,8 +896,7 @@ struct DeleteTask : public RateLimiterNode,
     auto request = request_builder.BuildRequest();
     start_time_ = absl::Now();
 
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_GCS_LOG_REQUESTS)
-        << "DeleteTask: " << request;
+    ABSL_LOG_IF(INFO, gcs_http_logging) << "DeleteTask: " << request;
 
     auto future = owner->transport_->IssueRequest(request, {});
     future.ExecuteWhenReady([self = IntrusivePtr<DeleteTask>(this)](
@@ -915,7 +909,7 @@ struct DeleteTask : public RateLimiterNode,
     if (!promise.result_needed()) {
       return;
     }
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_GCS_LOG_RESPONSES && response.ok())
+    ABSL_LOG_IF(INFO, gcs_http_logging.Level(1) && response.ok())
         << "DeleteTask " << *response;
 
     absl::Status status = [&]() -> absl::Status {
@@ -1105,8 +1099,7 @@ struct ListTask : public RateLimiterNode,
     }
 
     auto request = request_builder.BuildRequest();
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_GCS_LOG_REQUESTS)
-        << "List: " << request;
+    ABSL_LOG_IF(INFO, gcs_http_logging) << "List: " << request;
 
     auto future = owner_->transport_->IssueRequest(request, {});
     future.ExecuteWhenReady(WithExecutor(
@@ -1135,7 +1128,7 @@ struct ListTask : public RateLimiterNode,
     if (is_cancelled()) {
       return absl::CancelledError();
     }
-    ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_GCS_LOG_RESPONSES && response.ok())
+    ABSL_LOG_IF(INFO, gcs_http_logging.Level(1) && response.ok())
         << "List " << *response;
 
     absl::Status status =

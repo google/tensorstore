@@ -61,7 +61,7 @@
 #include <stdio.h>
 
 #include "absl/log/absl_check.h"
-#include "tensorstore/internal/os_error_code.h"
+#include "tensorstore/internal/os/error_code.h"
 #include "tensorstore/kvstore/file/file_util.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/str_cat.h"
@@ -119,6 +119,7 @@ std::ptrdiff_t WriteCordToFile(FileDescriptor fd, absl::Cord value) {
 }
 
 namespace {
+
 /// Maximum length of Windows path, including terminating NUL.
 constexpr size_t kMaxWindowsPathSize = 32768;
 class WindowsPathConverter {

@@ -96,7 +96,7 @@ def run(args, extra_args):
 
   env["CIBW_ARCHS_MACOS"] = "x86_64 arm64"
   env["CIBW_SKIP"] = (
-      "cp27-*  cp35-* cp36-* cp37-* cp38-* cp312-* pp* *_i686 *-win32"
+      "cp27-*  cp35-* cp36-* cp37-* cp38-* pp* *_i686 *-win32"
       " *-musllinux*"
   )
   env["CIBW_TEST_COMMAND"] = (
@@ -123,7 +123,7 @@ def run(args, extra_args):
   cibw_environment["PIP_NO_BUILD_ISOLATION"] = "0"
 
   env["CIBW_BEFORE_TEST"] = (
-      "pip install -r {package}/third_party/pypa/test_requirements_frozen.txt"
+      "pip install -r {package}/third_party/pypa/python_test_requirements_frozen.txt"
   )
 
   home_dir = str(pathlib.Path.home())

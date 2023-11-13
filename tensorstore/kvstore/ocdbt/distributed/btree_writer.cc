@@ -135,6 +135,9 @@
 
 #include "tensorstore/kvstore/ocdbt/distributed/btree_writer.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <algorithm>
 #include <cassert>
 #include <limits>
@@ -143,11 +146,10 @@
 #include <ostream>
 #include <string>
 #include <string_view>
-#include <type_traits>
 #include <utility>
-#include <variant>
 #include <vector>
 
+#include "absl/base/attributes.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
@@ -155,12 +157,11 @@
 #include "absl/time/time.h"
 #include <blake3.h>
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/ocdbt/btree_writer.h"
-#include "tensorstore/kvstore/ocdbt/config.h"
-#include "tensorstore/kvstore/ocdbt/debug_log.h"
 #include "tensorstore/kvstore/ocdbt/distributed/btree_node_identifier.h"
 #include "tensorstore/kvstore/ocdbt/distributed/btree_node_write_mutation.h"
 #include "tensorstore/kvstore/ocdbt/distributed/cooperator.h"
@@ -185,6 +186,8 @@
 namespace tensorstore {
 namespace internal_ocdbt {
 namespace {
+
+ABSL_CONST_INIT internal_log::VerboseFlag ocdbt_logging("ocdbt");
 
 struct PendingDistributedRequests {
   struct WriteRequest {
@@ -364,7 +367,7 @@ void WriterCommitOperation::MaybeStart(DistributedBtreeWriter& writer,
   // FIXME: maybe have a delay
 
   // Start commit
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG) << "Starting commit";
+  ABSL_LOG_IF(INFO, ocdbt_logging) << "Starting commit";
   writer.commit_in_progress_ = true;
   lock.unlock();
 
@@ -401,12 +404,12 @@ void WriterCommitOperation::StartCommit(DistributedBtreeWriter& writer,
           writer.io_handle_->executor,
           [commit_op = std::move(commit_op)](
               ReadyFuture<const ManifestWithTime> future) mutable {
-            ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+            ABSL_LOG_IF(INFO, ocdbt_logging)
                 << "StartCommit: Got manifest for writing: " << future.status();
             TENSORSTORE_ASSIGN_OR_RETURN(auto existing_manifest_with_time,
                                          future.result(),
                                          commit_op->CommitFailed(_));
-            ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+            ABSL_LOG_IF(INFO, ocdbt_logging)
                 << "StartCommit: manifest latest_version="
                 << existing_manifest_with_time.manifest->latest_version()
                 << ", time=" << existing_manifest_with_time.time;
@@ -425,7 +428,7 @@ void WriterCommitOperation::StartCommit(DistributedBtreeWriter& writer,
 }
 
 void WriterCommitOperation::CommitFailed(const absl::Status& error) {
-  ABSL_LOG(INFO) << "Commit failed: " << error;
+  ABSL_LOG_IF(INFO, ocdbt_logging) << "Commit failed: " << error;
   assert(!error.ok());
   if (staged_.write_requests.empty()) {
     // No requests have been staged yet.
@@ -456,7 +459,7 @@ void WriterCommitOperation::StagePending() {
     writer_->commit_in_progress_ = false;
   }
   staged_.write_requests = std::move(pending.write_requests);
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+  ABSL_LOG_IF(INFO, ocdbt_logging)
       << "Staged write requests: " << staged_.write_requests.size();
   auto config = existing_config();
   const auto max_inline_value_bytes = config.max_inline_value_bytes;
@@ -483,9 +486,8 @@ void WriterCommitOperation::StagePending() {
 void WriterCommitOperation::TraverseBtreeStartingFromRoot(
     WriterCommitOperation::Ptr commit_op) {
   auto* existing_manifest = commit_op->existing_manifest_.get();
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
-      << "TraverseBtreeStartingFromRoot: root="
-      << existing_manifest->latest_version().root;
+  ABSL_LOG_IF(INFO, ocdbt_logging) << "TraverseBtreeStartingFromRoot: root="
+                                   << existing_manifest->latest_version().root;
   VisitNodeParameters state;
   state.begin_i = 0;
   state.end_i = commit_op->staged_.write_requests.size();
@@ -513,7 +515,7 @@ void WriterCommitOperation::VisitNodeReference(
   }
   // Read the interior node referenced by `node_ref` to continue traversing
   // the subtree.
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+  ABSL_LOG_IF(INFO, ocdbt_logging)
       << "VisitNodeReference: " << state << ", node_ref=" << node_ref;
   auto read_future =
       state.commit_op->writer_->io_handle_->GetBtreeNode(node_ref.location);
@@ -534,7 +536,7 @@ void WriterCommitOperation::VisitNodeReference(
 
 void WriterCommitOperation::VisitNode(VisitNodeParameters&& state,
                                       std::shared_ptr<const BtreeNode> node) {
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG) << "VisitNode: " << state;
+  ABSL_LOG_IF(INFO, ocdbt_logging) << "VisitNode: " << state;
   TENSORSTORE_RETURN_IF_ERROR(
       ValidateBtreeNodeReference(
           *node, state.node_identifier.height,
@@ -635,7 +637,7 @@ void WriterCommitOperation::SubmitRequests(
     WriterCommitOperation::Ptr commit_op, BtreeNodeIdentifier identifier,
     StorageGeneration node_generation,
     span<const PendingDistributedRequests::WriteRequest> write_requests) {
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+  ABSL_LOG_IF(INFO, ocdbt_logging)
       << "SubmitRequests: node_identifier=" << identifier
       << ", num_requests=" << write_requests.size();
   internal_ocdbt_cooperator::MutationBatchRequest batch_request;
@@ -693,7 +695,7 @@ void WriterCommitOperation::SubmitRequests(
           return;
         }
         // Retry
-        ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+        ABSL_LOG_IF(INFO, ocdbt_logging)
             << "Retrying mutation batch: " << r.status();
         UniqueWriterLock lock{writer->mutex_};
         auto& pending = writer->pending_.write_requests;
@@ -709,7 +711,7 @@ Future<TimestampedStorageGeneration> DistributedBtreeWriter::Write(
     std::string key, std::optional<absl::Cord> value,
     kvstore::WriteOptions options) {
   auto& writer = *this;
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+  ABSL_LOG_IF(INFO, ocdbt_logging)
       << "Write: " << tensorstore::QuoteString(key) << " " << value.has_value();
   PendingDistributedRequests::WriteRequest request;
   request.mutation = internal::MakeIntrusivePtr<BtreeLeafNodeWriteMutation>();

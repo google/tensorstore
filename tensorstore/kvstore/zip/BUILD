@@ -1,4 +1,3 @@
-load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
 load("//docs:doctest.bzl", "doctest_test")
 
@@ -10,26 +9,6 @@ DOCTEST_SOURCES = glob([
     "**/*.rst",
     "**/*.yml",
 ])
-
-# To enable debug checks, specify:
-# bazel build --//tensorstore/kvstore/zip:debug
-bool_flag(
-    name = "debug",
-    build_setting_default = False,
-)
-
-config_setting(
-    name = "debug_setting",
-    flag_values = {":debug": "True"},
-    visibility = ["//visibility:private"],
-)
-
-DEBUG_LOCAL_DEFINES = select({
-    "//conditions:default": [],
-    ":debug_setting": [
-        "TENSORSTORE_ZIP_IMPL_LOGGING",
-    ],
-})
 
 doctest_test(
     name = "doctest_test",
@@ -44,7 +23,6 @@ filegroup(
 tensorstore_cc_library(
     name = "zip",
     srcs = ["zip_key_value_store.cc"],
-    local_defines = DEBUG_LOCAL_DEFINES,
     deps = [
         ":zip_dir_cache",
         "//tensorstore:context",
@@ -58,6 +36,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/compression:zip_details",
         "//tensorstore/internal/estimate_heap_usage",
         "//tensorstore/internal/json_binding",
+        "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:byte_range",
         "//tensorstore/kvstore:generation",
@@ -73,6 +52,7 @@ tensorstore_cc_library(
         "//tensorstore/util/execution",
         "//tensorstore/util/execution:any_receiver",
         "//tensorstore/util/garbage_collection",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:cord",
@@ -117,7 +97,6 @@ tensorstore_cc_library(
     name = "zip_dir_cache",
     srcs = ["zip_dir_cache.cc"],
     hdrs = ["zip_dir_cache.h"],
-    local_defines = DEBUG_LOCAL_DEFINES,
     deps = [
         "//tensorstore:data_type",
         "//tensorstore/internal:intrusive_ptr",
@@ -125,6 +104,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/cache:async_cache",
         "//tensorstore/internal/compression:zip_details",
         "//tensorstore/internal/estimate_heap_usage",
+        "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:byte_range",
         "//tensorstore/kvstore:generation",

@@ -22,6 +22,8 @@
 #include <utility>
 #include <vector>
 
+#include "absl/base/attributes.h"
+#include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/match.h"
@@ -38,6 +40,7 @@
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/retries_context_resource.h"
@@ -63,18 +66,21 @@
 #include "tensorstore/internal/json_binding/std_array.h"  // IWYU pragma: keep
 #include "tensorstore/serialization/std_vector.h"  // IWYU pragma: keep
 
-namespace tensorstore {
-namespace {
-
-namespace jb = tensorstore::internal_json_binding;
 using ::tensorstore::internal::IntrusivePtr;
 using ::tensorstore::internal_http::HttpRequestBuilder;
 using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_http::HttpTransport;
 
+namespace tensorstore {
+namespace {
+
+namespace jb = tensorstore::internal_json_binding;
+
 auto& http_bytes_read = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/http/bytes_read",
     "Bytes read by the http kvstore driver");
+
+ABSL_CONST_INIT internal_log::VerboseFlag http_logging("http_kvstore");
 
 struct HttpRequestConcurrencyResource : public internal::ConcurrencyResource {
   static constexpr char id[] = "http_request_concurrency";
@@ -272,10 +278,13 @@ struct ReadTask {
             "if-none-match: \"",
             StorageGeneration::DecodeString(options.if_not_equal), "\""));
       }
+
+      auto request = request_builder.BuildRequest();
+
       start_time = absl::Now();
-      auto response =
-          owner->transport_->IssueRequest(request_builder.BuildRequest(), {})
-              .result();
+      ABSL_LOG_IF(INFO, http_logging) << "[http] Read: " << request;
+
+      auto response = owner->transport_->IssueRequest(request, {}).result();
       if (!response.ok()) return response.status();
       httpresponse = std::move(*response);
       switch (httpresponse.status_code) {
@@ -291,6 +300,8 @@ struct ReadTask {
     TENSORSTORE_RETURN_IF_ERROR(retry_status);
 
     http_bytes_read.IncrementBy(httpresponse.payload.size());
+    ABSL_LOG_IF(INFO, http_logging.Level(1))
+        << "[http] Read response: " << httpresponse;
 
     // Parse `Date` header from response to correctly handle cached responses.
     {

@@ -17,14 +17,15 @@
 ///
 /* Examples
 
-bazel run -c opt //tensorstore/internal/benchmark:kvstore_duration
--- \
+bazel run -c opt \
+  //tensorstore/internal/benchmark:kvstore_duration -- \
   --kvstore_spec='"file:///tmp/kvstore"' --duration=1m
 */
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <atomic>
-#include <cstddef>
-#include <cstdint>
 #include <cstring>
 #include <iostream>
 #include <string>
@@ -81,7 +82,6 @@ namespace {
 auto& read_throughput = internal_metrics::Value<double>::New(
     "/tensorstore/kvstore_benchmark/read_throughput",
     "the read throughput in this test");
-
 
 struct ReadState : public internal::AtomicReferenceCount<ReadState> {
   std::vector<std::string> keys;

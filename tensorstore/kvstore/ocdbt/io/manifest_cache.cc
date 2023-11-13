@@ -14,26 +14,42 @@
 
 #include "tensorstore/kvstore/ocdbt/io/manifest_cache.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
+#include <algorithm>
 #include <charconv>
-#include <functional>
 #include <memory>
 #include <optional>
+#include <string_view>
 #include <utility>
+#include <vector>
 
+#include "absl/base/attributes.h"
 #include "absl/base/optimization.h"
+#include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_format.h"
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
 #include "tensorstore/internal/cache/async_cache.h"
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache/kvs_backed_cache.h"
 #include "tensorstore/internal/estimate_heap_usage/estimate_heap_usage.h"
 #include "tensorstore/internal/estimate_heap_usage/std_variant.h"
 #include "tensorstore/internal/estimate_heap_usage/std_vector.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/kvstore/generation.h"
-#include "tensorstore/kvstore/ocdbt/debug_log.h"
+#include "tensorstore/kvstore/key_range.h"
+#include "tensorstore/kvstore/ocdbt/format/config.h"
 #include "tensorstore/kvstore/ocdbt/format/manifest.h"
+#include "tensorstore/kvstore/ocdbt/format/version_tree.h"
 #include "tensorstore/kvstore/ocdbt/io_handle.h"
+#include "tensorstore/kvstore/operations.h"
+#include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
@@ -41,6 +57,7 @@
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
@@ -53,6 +70,8 @@ auto& manifest_updates = internal_metrics::Counter<int64_t>::New(
 auto& manifest_update_errors = internal_metrics::Counter<int64_t>::New(
     "/tensorstore/kvstore/ocdbt/manifest_update_errors",
     "OCDBT driver manifest update errors (typically retried)");
+
+ABSL_CONST_INIT internal_log::VerboseFlag ocdbt_logging("ocdbt");
 
 using ReadState = internal::AsyncCache::ReadState;
 
@@ -169,8 +188,7 @@ void SetWritebackError(ManifestCache::TransactionNode* node,
 
 }  // namespace
 
-std::size_t ManifestCache::Entry::ComputeReadDataSizeInBytes(
-    const void* read_data) {
+size_t ManifestCache::Entry::ComputeReadDataSizeInBytes(const void* read_data) {
   return internal::EstimateHeapUsage(*static_cast<const ReadData*>(read_data));
 }
 
@@ -278,7 +296,7 @@ void ManifestCache::TransactionNode::Commit() {
 
 ManifestCache::Entry* ManifestCache::DoAllocateEntry() { return new Entry; }
 
-std::size_t ManifestCache::DoGetSizeofEntry() { return sizeof(Entry); }
+size_t ManifestCache::DoGetSizeofEntry() { return sizeof(Entry); }
 
 ManifestCache::TransactionNode* ManifestCache::DoAllocateTransactionNode(
     AsyncCache::Entry& entry) {
@@ -305,7 +323,7 @@ Future<TryUpdateManifestResult> ManifestCache::Entry::TryUpdate(
 }
 
 void ManifestCache::TransactionNode::WritebackSuccess(ReadState&& read_state) {
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG) << "WritebackSuccess";
+  ABSL_LOG_IF(INFO, ocdbt_logging) << "WritebackSuccess";
   TryUpdateManifestResult result{/*.time=*/read_state.stamp.time,
                                  /*.success=*/true};
   auto promise = std::move(this->promise);
@@ -316,7 +334,7 @@ void ManifestCache::TransactionNode::WritebackSuccess(ReadState&& read_state) {
   promise.SetResult(std::move(result));
 }
 
-std::size_t NumberedManifestCache::Entry::ComputeReadDataSizeInBytes(
+size_t NumberedManifestCache::Entry::ComputeReadDataSizeInBytes(
     const void* read_data) {
   return internal::EstimateHeapUsage(*static_cast<const ReadData*>(read_data));
 }
@@ -363,7 +381,7 @@ void ListNumberedManifests(NumberedManifestCache::Entry* entry,
           return;
         }
         std::vector<GenerationNumber> versions_present;
-        ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+        ABSL_LOG_IF(INFO, ocdbt_logging)
             << "Manifest files present: " << tensorstore::span(*r);
         for (std::string_view key : *r) {
           GenerationNumber generation_number;
@@ -373,7 +391,7 @@ void ListNumberedManifests(NumberedManifestCache::Entry* entry,
           versions_present.push_back(generation_number);
         }
         std::sort(versions_present.begin(), versions_present.end());
-        ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+        ABSL_LOG_IF(INFO, ocdbt_logging)
             << "Numbered manifest versions present: "
             << tensorstore::span(versions_present);
 
@@ -745,7 +763,7 @@ NumberedManifestCache::Entry* NumberedManifestCache::DoAllocateEntry() {
   return new Entry;
 }
 
-std::size_t NumberedManifestCache::DoGetSizeofEntry() { return sizeof(Entry); }
+size_t NumberedManifestCache::DoGetSizeofEntry() { return sizeof(Entry); }
 
 NumberedManifestCache::TransactionNode*
 NumberedManifestCache::DoAllocateTransactionNode(AsyncCache::Entry& entry) {

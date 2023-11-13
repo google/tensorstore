@@ -14,10 +14,12 @@
 
 #include "tensorstore/kvstore/gcs_grpc/storage_stub_pool.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <algorithm>
-#include <cstddef>
-#include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <thread>  // NOLINT
@@ -38,6 +40,7 @@
 #include "grpcpp/security/credentials.h"  // third_party
 #include "grpcpp/support/channel_arguments.h"  // third_party
 #include "tensorstore/internal/env.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/no_destructor.h"
 
 // protos
@@ -57,6 +60,8 @@ namespace internal_gcs_grpc {
 namespace {
 
 ABSL_CONST_INIT absl::Mutex global_mu(absl::kConstInit);
+
+ABSL_CONST_INIT internal_log::VerboseFlag gcs_grpc_logging("gcs_grpc");
 
 /// Returns whether to use a local subchannel pool.
 bool GetUseLocalSubchannelPool() {
@@ -114,8 +119,8 @@ StorageStubPool::StorageStubPool(
   channels_.resize(size);
   stubs_.resize(size);
 
-  ABSL_LOG(INFO) << "Connecting to " << address_ << " with " << size
-                 << " channels";
+  ABSL_LOG_IF(INFO, gcs_grpc_logging)
+      << "Connecting to " << address_ << " with " << size << " channels";
 
   for (int id = 0; id < channels_.size(); id++) {
     // See google cloud storage client in:
@@ -141,8 +146,9 @@ void StorageStubPool::WaitForConnected(absl::Duration duration) {
       channel->WaitForConnected(timeout);
     }
   }
-  ABSL_LOG(INFO) << "Connection established to " << address_ << " in state "
-                 << channels_[0]->GetState(false);
+  ABSL_LOG_IF(INFO, gcs_grpc_logging)
+      << "Connection established to " << address_ << " in state "
+      << channels_[0]->GetState(false);
 }
 
 std::shared_ptr<StorageStubPool> GetSharedStorageStubPool(

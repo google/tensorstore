@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_KVSTORE_OCDBT_DEBUG_LOG_H_
-#define TENSORSTORE_KVSTORE_OCDBT_DEBUG_LOG_H_
+#ifndef TENSORSTORE_KVSTORE_OCDBT_DEBUG_DEFINES_H_
+#define TENSORSTORE_KVSTORE_OCDBT_DEBUG_DEFINES_H_
 
 // Use as a logging condition via:
 //  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)

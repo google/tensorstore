@@ -22,6 +22,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/base/attributes.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
@@ -31,15 +32,18 @@
 #include "grpcpp/support/server_callback.h"  // third_party
 #include "grpcpp/support/status.h"  // third_party
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
-#include "tensorstore/kvstore/ocdbt/debug_log.h"
 #include "tensorstore/kvstore/ocdbt/distributed/btree_node_identifier.h"
 #include "tensorstore/kvstore/ocdbt/distributed/lease_cache_for_cooperator.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
 
 namespace tensorstore {
 namespace internal_ocdbt_cooperator {
+namespace {
+ABSL_CONST_INIT internal_log::VerboseFlag ocdbt_logging("ocdbt");
+}
 
 void intrusive_ptr_increment(Cooperator* p) {
   intrusive_ptr_increment(
@@ -73,11 +77,11 @@ void PendingRequests::Append(PendingRequests&& other) {
 }
 
 Cooperator::~Cooperator() {
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+  ABSL_LOG_IF(INFO, ocdbt_logging)
       << "[Port=" << listening_port_ << "] ~Cooperator";
   server_->Shutdown();
   server_->Wait();
-  ABSL_LOG_IF(INFO, TENSORSTORE_INTERNAL_OCDBT_DEBUG)
+  ABSL_LOG_IF(INFO, ocdbt_logging)
       << "[Port=" << listening_port_ << "] shutdown complete";
 }
 

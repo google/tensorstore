@@ -144,21 +144,6 @@ config_setting(
     visibility = ["//visibility:private"],
 )
 
-# To enable debug logging for the open KeyValueStore cache, specify:
-# bazel build --//tensorstore/kvstore:open_debug
-bool_flag(
-    name = "open_cache_debug",
-    build_setting_default = False,
-)
-
-config_setting(
-    name = "open_cache_debug_setting",
-    flag_values = {
-        ":open_cache_debug": "True",
-    },
-    visibility = ["//visibility:private"],
-)
-
 tensorstore_cc_library(
     name = "kvstore",
     srcs = [
@@ -184,9 +169,6 @@ tensorstore_cc_library(
     local_defines = select({
         ":transaction_debug_setting": ["TENSORSTORE_INTERNAL_KVSTORE_TRANSACTION_DEBUG"],
         "//conditions:default": [],
-    }) + select({
-        ":open_cache_debug_setting": ["TENSORSTORE_KVSTORE_OPEN_CACHE_DEBUG"],
-        "//conditions:default": [],
     }),
     deps = [
         ":byte_range",
@@ -208,6 +190,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/cache_key",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
+        "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/internal/metrics",
         "//tensorstore/serialization",
         "//tensorstore/serialization:registry",

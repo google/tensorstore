@@ -1,34 +1,12 @@
 load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
-load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 
 package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
-# To enable debug checks, specify:
-# bazel build --//tensorstore/kvstore/gcs_grpc:debug
-bool_flag(
-    name = "debug",
-    build_setting_default = False,
-)
-
-config_setting(
-    name = "debug_setting",
-    flag_values = {
-        ":debug": "True",
-    },
-    visibility = ["//visibility:private"],
-)
-
-DEBUG_LOCAL_DEFINES = select({
-    ":debug_setting": ["TENSORSTORE_GCS_GRPC_DEBUG"],
-    "//conditions:default": [],
-})
-
 tensorstore_cc_library(
     name = "gcs_grpc",
     srcs = ["gcs_grpc.cc"],
-    local_defines = DEBUG_LOCAL_DEFINES,
     deps = [
         ":get_credentials",
         ":storage_stub_pool",
@@ -44,6 +22,7 @@ tensorstore_cc_library(
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:absl_time",
         "//tensorstore/internal/json_binding:bindable",
+        "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/internal/metrics",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:byte_range",
@@ -172,11 +151,11 @@ tensorstore_cc_library(
     name = "storage_stub_pool",
     srcs = ["storage_stub_pool.cc"],
     hdrs = ["storage_stub_pool.h"],
-    local_defines = DEBUG_LOCAL_DEFINES,
     visibility = ["//visibility:private"],
     deps = [
         "//tensorstore/internal:env",
         "//tensorstore/internal:no_destructor",
+        "//tensorstore/internal/log:verbose_flag",
         "@com_github_grpc_grpc//:grpc++",
         "@com_github_grpc_grpc//:grpc_security_base",
         "@com_google_absl//absl/base:core_headers",

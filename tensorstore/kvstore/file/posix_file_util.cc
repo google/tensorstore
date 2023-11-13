@@ -20,8 +20,12 @@
 #include <sys/uio.h>
 #include <unistd.h>
 
+#include <string>
+#include <string_view>
+
 #include "absl/container/inlined_vector.h"
-#include "tensorstore/internal/os_error_code.h"
+#include "absl/strings/cord.h"
+#include "tensorstore/internal/os/error_code.h"
 #include "tensorstore/kvstore/file/file_util.h"
 #include "tensorstore/kvstore/file/potentially_blocking_region.h"
 #include "tensorstore/util/quote_string.h"
@@ -64,7 +68,7 @@ UniqueFileDescriptor OpenFileForWriting(const std::string& path) {
 std::ptrdiff_t WriteCordToFile(FileDescriptor fd, absl::Cord value) {
   absl::InlinedVector<iovec, 16> iovs;
 
-  for (absl::string_view chunk : value.Chunks()) {
+  for (std::string_view chunk : value.Chunks()) {
     struct iovec iov;
     iov.iov_base = const_cast<char*>(chunk.data());
     iov.iov_len = chunk.size();

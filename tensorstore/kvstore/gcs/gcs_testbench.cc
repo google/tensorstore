@@ -33,7 +33,7 @@
 #include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/transport_test_utils.h"
-#include "tensorstore/internal/subprocess.h"
+#include "tensorstore/internal/os/subprocess.h"
 #include "tensorstore/proto/parse_text_proto_or_die.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
