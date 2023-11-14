@@ -30,7 +30,7 @@ namespace tensorstore {
 namespace internal_kvstore_s3 {
 namespace {
 
-/// Return a ChainedCredentialProvider that attempts to retrieve credentials
+/// Return a DefaultCredentialProvider that attempts to retrieve credentials
 /// from
 /// 1. AWS Environment Variables, e.g. AWS_ACCESS_KEY_ID
 /// 2. Shared Credential File, e.g. $HOME/.aws/credentials
