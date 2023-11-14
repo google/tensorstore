@@ -36,18 +36,17 @@ namespace internal_kvstore_s3 {
 /// https://docs.aws.amazon.com/STS/latest/APIReference/welcome.html
 struct AwsCredentials {
   /// AWS_ACCESS_KEY_ID
-  std::string access_key = {};
+  std::string access_key;
   /// AWS_SECRET_KEY_ID
-  std::string secret_key = {};
+  std::string secret_key;
   /// AWS_SESSION_TOKEN
-  std::string session_token = {};
+  std::string session_token;
   /// Expiration date
   absl::Time expires_at = absl::InfinitePast();
 
-  /// Anonymous credentials expiring duration seconds from now
-  static AwsCredentials Anonymous(
-      const absl::Duration& duration = absl::InfiniteDuration()) {
-    return AwsCredentials{{}, {}, {}, absl::Now() + duration};
+  /// Anonymous credentials that do not expire
+  static AwsCredentials Anonymous() {
+    return AwsCredentials{{}, {}, {}, absl::InfiniteFuture()};
   }
 
   bool IsAnonymous() const { return access_key.empty(); }
