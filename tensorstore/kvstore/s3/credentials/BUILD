@@ -48,7 +48,8 @@ tensorstore_cc_library(
     "//tensorstore/util:str_cat",
     "//tensorstore/util:result",
     "@com_google_absl//absl/container:flat_hash_map",
-  ]
+  ],
+  testonly = 1,
 )
 
 tensorstore_cc_test(
