@@ -42,6 +42,15 @@ static constexpr char kEnvAwsSessionToken[] = "AWS_SESSION_TOKEN";
 }  // namespace
 
 Result<AwsCredentials> EnvironmentCredentialProvider::GetCredentials() {
+  auto access_key = GetEnv(kEnvAwsAccessKeyId);
+  if(!access_key) {
+    return absl::NotFoundError(absl::StrCat(kEnvAwsAccessKeyId, " not set"));
+  }
+
+  ABSL_LOG_FIRST_N(INFO, 1)
+      << "Using Environment Variable " << kEnvAwsAccessKeyId;
+
+
   if (auto access_key = GetEnv(kEnvAwsAccessKeyId); access_key) {
     ABSL_LOG_FIRST_N(INFO, 1)
         << "Using Environment Variable " << kEnvAwsAccessKeyId;
