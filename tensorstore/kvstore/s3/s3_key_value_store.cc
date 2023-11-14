@@ -209,8 +209,9 @@ struct AwsCredentialsResource
   struct Spec {
     std::string profile;
     std::string filename;
+    std::string metadata_endpoint;
     constexpr static auto ApplyMembers = [](auto&& x, auto f) {
-      return f(x.profile, x.filename);
+      return f(x.profile, x.filename, x.metadata_endpoint);
     };
   };
 
@@ -226,7 +227,8 @@ struct AwsCredentialsResource
   static constexpr auto JsonBinder() {
     return jb::Object(
         jb::Member("profile", jb::Projection<&Spec::profile>()),
-        jb::Member("filename", jb::Projection<&Spec::filename>())
+        jb::Member("filename", jb::Projection<&Spec::filename>()),
+        jb::Member("metadata_endpoint", jb::Projection<&Spec::metadata_endpoint>())
     );
   }
 
@@ -234,7 +236,7 @@ struct AwsCredentialsResource
       const Spec& spec,
       internal::ContextResourceCreationContext context) const {
     auto result = GetAwsCredentialProvider(
-        spec.profile, internal_http::GetDefaultHttpTransport());
+        spec.profile, spec.filename, spec.metadata_endpoint, internal_http::GetDefaultHttpTransport());
     if (!result.ok() && absl::IsNotFound(result.status())) {
       return Resource{spec, nullptr};
     }

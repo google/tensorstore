@@ -49,15 +49,17 @@ class DefaultAwsCredentialsProvider : public AwsCredentialProvider {
   ///
   /// 1. Shared Credential Filename
   /// 2. Shared Credential File Profile
+  /// 3. EC2 Metadata Server Endpoint
   /// 3. Http Transport for querying the EC2 Metadata Server
   struct Options {
-    std::string filename = {};
-    std::string profile = {};
+    std::string filename;
+    std::string profile;
+    std::string endpoint;
     std::shared_ptr<internal_http::HttpTransport> transport;
   };
 
   DefaultAwsCredentialsProvider(
-      Options options = {{}, {}, internal_http::GetDefaultHttpTransport()},
+      Options options = {{}, {}, {}, internal_http::GetDefaultHttpTransport()},
       absl::FunctionRef<absl::Time()> clock = absl::Now);
   Result<AwsCredentials> GetCredentials() override;
 
@@ -76,7 +78,9 @@ void RegisterAwsCredentialProviderProvider(AwsCredentialProviderFn provider,
                                            int priority);
 
 Result<std::unique_ptr<AwsCredentialProvider>> GetAwsCredentialProvider(
+    std::string_view filename,
     std::string_view profile,
+    std::string_view metadata_endpoint,
     std::shared_ptr<internal_http::HttpTransport> transport);
 
 

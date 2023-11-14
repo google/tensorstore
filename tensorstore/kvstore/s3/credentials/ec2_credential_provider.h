@@ -16,6 +16,8 @@
 #define TENSORSTORE_KVSTORE_S3_CREDENTIALS_EC2_METADATA_CREDENTIAL_PROVIDER_H
 
 #include <memory>
+#include <string>
+#include <string_view>
 #include <utility>
 
 #include "tensorstore/internal/http/http_transport.h"
@@ -29,12 +31,18 @@ namespace internal_kvstore_s3 {
 class EC2MetadataCredentialProvider : public AwsCredentialProvider {
  public:
   EC2MetadataCredentialProvider(
+      std::string_view endpoint,
       std::shared_ptr<internal_http::HttpTransport> transport)
-      : transport_(std::move(transport)) {}
+      : endpoint_(endpoint), transport_(std::move(transport)) {}
 
   Result<AwsCredentials> GetCredentials() override;
 
+  inline const std::string & GetEndpoint() const {
+    return endpoint_;
+  }
+
  private:
+  std::string endpoint_;
   std::shared_ptr<internal_http::HttpTransport> transport_;
 };
 

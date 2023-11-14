@@ -86,7 +86,7 @@ TEST(DefaultCredentialProviderTest, ConfigureEC2ProviderFromOptions) {
       std::make_shared<EC2MetadataMockTransport>(url_to_response);
 
   auto provider = std::make_unique<DefaultAwsCredentialsProvider>(
-      Options{{}, {}, mock_transport}, stuck_clock);
+      Options{{}, {}, {}, mock_transport}, stuck_clock);
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials,
                                    provider->GetCredentials());
   EXPECT_EQ(credentials.access_key, "ASIA1234567890");

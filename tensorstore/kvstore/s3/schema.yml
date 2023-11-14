@@ -116,6 +116,16 @@ definitions:
         description: |-
           The profile name in the :file:`~/.aws/credentials` file, when used.
           Overrides the :envvar:`AWS_PROFILE` environment variables.
+      filename:
+        type: string
+        description: |-
+          The filename containing credentials.
+          Overrides the :envvar:`AWS_SHARED_CREDENTIALS_FILE` environment variable.
+      metadata_endpoint:
+        type: string
+          description: |-
+            The endpoint of the metadata server.
+            Overrides the :envvar:`AWS_EC2_METADATA_SERVICE_ENDPOINT` environment variable.
   experimental_s3_rate_limiter:
     $id: Context.experimental_s3_rate_limiter
     description: |-

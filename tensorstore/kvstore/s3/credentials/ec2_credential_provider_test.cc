@@ -47,7 +47,7 @@ TEST(EC2MetadataCredentialProviderTest, CredentialRetrievalFlow) {
   auto mock_transport =
       std::make_shared<EC2MetadataMockTransport>(url_to_response);
   auto provider =
-      std::make_shared<EC2MetadataCredentialProvider>(mock_transport);
+      std::make_shared<EC2MetadataCredentialProvider>("", mock_transport);
   TENSORSTORE_CHECK_OK_AND_ASSIGN(auto credentials, provider->GetCredentials());
   ASSERT_EQ(credentials.access_key, "ASIA1234567890");
   ASSERT_EQ(credentials.secret_key, "1234567890abcdef");
@@ -68,7 +68,7 @@ TEST(EC2MetadataCredentialProviderTest, NoIamRolesInSecurityCredentials) {
   auto mock_transport =
       std::make_shared<EC2MetadataMockTransport>(url_to_response);
   auto provider =
-      std::make_shared<EC2MetadataCredentialProvider>(mock_transport);
+      std::make_shared<EC2MetadataCredentialProvider>("", mock_transport);
   ASSERT_FALSE(provider->GetCredentials());
   EXPECT_THAT(provider->GetCredentials().status().ToString(),
               ::testing::HasSubstr("Empty EC2 Role list"));
@@ -97,7 +97,7 @@ TEST(EC2MetadataCredentialProviderTest, UnsuccessfulJsonResponse) {
   auto mock_transport =
       std::make_shared<EC2MetadataMockTransport>(url_to_response);
   auto provider =
-      std::make_shared<EC2MetadataCredentialProvider>(mock_transport);
+      std::make_shared<EC2MetadataCredentialProvider>("", mock_transport);
   auto credentials = provider->GetCredentials();
 
   EXPECT_THAT(credentials.status(), MatchesStatus(absl::StatusCode::kNotFound));

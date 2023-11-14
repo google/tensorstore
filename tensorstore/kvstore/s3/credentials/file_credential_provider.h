@@ -16,6 +16,7 @@
 #define TENSORSTORE_KVSTORE_S3_CREDENTIALS_FILE_CREDENTIAL_PROVIDER_H
 
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include "tensorstore/kvstore/s3/credentials/aws_credential_provider.h"
@@ -40,15 +41,16 @@ class FileCredentialProvider : public AwsCredentialProvider {
   std::string profile_;
 
  public:
-  FileCredentialProvider(std::string filename, std::string profile)
-      : filename_(std::move(filename)), profile_(std::move(profile)) {}
+  FileCredentialProvider(std::string_view filename, std::string_view profile)
+        : filename_(filename), profile_(profile) {}
+
   Result<AwsCredentials> GetCredentials() override;
 
-  const std::string & GetFileName() const {
+  inline const std::string & GetFileName() const {
     return filename_;
   }
 
-  const std::string & GetProfile() const {
+  inline const std::string & GetProfile() const {
     return profile_;
   }
 };

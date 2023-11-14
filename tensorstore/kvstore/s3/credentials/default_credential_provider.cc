@@ -36,11 +36,13 @@ namespace {
 /// 2. Shared Credential File, e.g. $HOME/.aws/credentials
 /// 3. EC2 Metadata Server
 Result<std::unique_ptr<AwsCredentialProvider>> GetDefaultAwsCredentialProvider(
+    std::string_view filename,
     std::string_view profile,
+    std::string_view metadata_endpoint,
     std::shared_ptr<internal_http::HttpTransport> transport) {
   return std::make_unique<DefaultAwsCredentialsProvider>(
       DefaultAwsCredentialsProvider::Options{
-          {}, std::string{profile}, transport});
+          std::string{filename}, std::string{profile}, std::string{metadata_endpoint}, transport});
 }
 
 struct AwsCredentialProviderRegistry {
@@ -77,7 +79,9 @@ void RegisterAwsCredentialProviderProvider(AwsCredentialProviderFn provider,
 /// 4. EC2 Metadata server. The `transport` variable overrides the default
 ///    HttpTransport.
 Result<std::unique_ptr<AwsCredentialProvider>> GetAwsCredentialProvider(
+    std::string_view filename,
     std::string_view profile,
+    std::string_view metadata_endpoint,
     std::shared_ptr<internal_http::HttpTransport> transport) {
   auto& registry = GetAwsProviderRegistry();
   absl::WriterMutexLock lock(&registry.mutex);
@@ -86,7 +90,7 @@ Result<std::unique_ptr<AwsCredentialProvider>> GetAwsCredentialProvider(
     if (credentials.ok()) return credentials;
   }
 
-  return GetDefaultAwsCredentialProvider(profile, transport);
+  return GetDefaultAwsCredentialProvider(filename, profile, metadata_endpoint, transport);
 }
 
 DefaultAwsCredentialsProvider::DefaultAwsCredentialsProvider(
@@ -124,8 +128,8 @@ Result<AwsCredentials> DefaultAwsCredentialsProvider::GetCredentials() {
   }
 
   // 2. Shared Credential File, e.g. $HOME/.aws/credentials
-  provider_ = std::make_unique<FileCredentialProvider>(options_.filename,
-                                                       options_.profile);
+  provider_ = std::make_unique<FileCredentialProvider>(
+                    options_.filename, options_.profile);
   credentials_result = provider_->GetCredentials();
   if (credentials_result.ok()) {
     credentials_ = credentials_result.value();
@@ -134,7 +138,8 @@ Result<AwsCredentials> DefaultAwsCredentialsProvider::GetCredentials() {
 
   // 3. EC2 Metadata Server
   provider_ =
-      std::make_unique<EC2MetadataCredentialProvider>(options_.transport);
+      std::make_unique<EC2MetadataCredentialProvider>(
+        options_.endpoint, options_.transport);
   credentials_result = provider_->GetCredentials();
   if (credentials_result.ok()) {
     credentials_ = credentials_result.value();
