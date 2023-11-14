@@ -46,29 +46,17 @@ Result<AwsCredentials> EnvironmentCredentialProvider::GetCredentials() {
   if(!access_key) {
     return absl::NotFoundError(absl::StrCat(kEnvAwsAccessKeyId, " not set"));
   }
-
   ABSL_LOG_FIRST_N(INFO, 1)
       << "Using Environment Variable " << kEnvAwsAccessKeyId;
-
-
-  if (auto access_key = GetEnv(kEnvAwsAccessKeyId); access_key) {
-    ABSL_LOG_FIRST_N(INFO, 1)
-        << "Using Environment Variable " << kEnvAwsAccessKeyId;
-    auto credentials = AwsCredentials{*access_key};
-
-    if (auto secret_key = GetEnv(kEnvAwsSecretAccessKey); secret_key) {
-      credentials.secret_key = *secret_key;
-    }
-
-    if (auto session_token = GetEnv(kEnvAwsSessionToken); session_token) {
-      credentials.session_token = *session_token;
-    }
-
-    credentials.expires_at = absl::InfiniteFuture();
-    return credentials;
+  auto credentials = AwsCredentials{*access_key};
+  if (auto secret_key = GetEnv(kEnvAwsSecretAccessKey); secret_key) {
+    credentials.secret_key = *secret_key;
   }
-
-  return absl::NotFoundError(absl::StrCat(kEnvAwsAccessKeyId, " not set"));
+  if (auto session_token = GetEnv(kEnvAwsSessionToken); session_token) {
+    credentials.session_token = *session_token;
+  }
+  credentials.expires_at = absl::InfiniteFuture();
+  return credentials;
 }
 
 }  // namespace internal_kvstore_s3
