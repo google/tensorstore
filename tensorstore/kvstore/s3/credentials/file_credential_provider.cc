@@ -53,27 +53,15 @@ static constexpr char kEnvAwsProfile[] = "AWS_PROFILE";
 static constexpr char kDefaultProfile[] = "default";
 
 Result<std::string> GetAwsCredentialsFileName() {
-  std::string result;
-
-  if (auto credentials_file = GetEnv(kEnvAwsCredentialsFile);
-      credentials_file) {
-    result = *credentials_file;
-  } else {
-    if (auto home_dir = GetEnv("HOME"); home_dir) {
-      result = JoinPath(*home_dir, kDefaultAwsCredentialsFilePath);
-    } else {
+  auto credentials_file = GetEnv(kEnvAwsCredentialsFile);
+  if(!credentials_file) {
+    auto home_dir = GetEnv("HOME");
+    if(!home_dir) {
       return absl::NotFoundError("Could not read $HOME");
     }
+    return JoinPath(*home_dir, kDefaultAwsCredentialsFilePath);
   }
-
-  if (auto fstream = std::ifstream(result.c_str()); !fstream.good()) {
-    return absl::NotFoundError(
-        absl::StrCat("Could not find the credentials file at "
-                     "location [",
-                     result, "]"));
-  }
-
-  return result;
+  return *credentials_file;
 }
 
 }  // namespace
