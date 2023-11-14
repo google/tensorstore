@@ -14,8 +14,6 @@
 
 #include "tensorstore/kvstore/s3/validate.h"
 
-#include <memory>
-
 #include <gtest/gtest.h>
 
 namespace {

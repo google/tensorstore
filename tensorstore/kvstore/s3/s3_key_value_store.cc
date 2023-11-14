@@ -88,10 +88,6 @@
 #include "tensorstore/serialization/std_optional.h"  // IWYU pragma: keep
 #include "tensorstore/util/garbage_collection/std_optional.h"  // IWYU pragma: keep
 #include "tensorstore/internal/json_binding/bindable.h"
-#include "tensorstore/internal/poly/poly_impl.h"
-#include "tensorstore/internal/poly/storage.h"
-#include "tensorstore/json_serialization_options_base.h"
-#include "tensorstore/kvstore/gcs_http/admission_queue.h"
 
 using ::tensorstore::internal::DataCopyConcurrencyResource;
 using ::tensorstore::internal::IntrusivePtr;

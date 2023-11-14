@@ -24,6 +24,7 @@
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
+#include "tensorstore/kvstore/s3/credentials/aws_credential_provider.h"
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/util/result.h"

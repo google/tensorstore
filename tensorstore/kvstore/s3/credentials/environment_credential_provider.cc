@@ -21,7 +21,9 @@
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
+#include "tensorstore/kvstore/s3/credentials/aws_credential_provider.h"
 #include "tensorstore/internal/env.h"
+#include "tensorstore/util/result.h"
 
 using ::tensorstore::internal::GetEnv;
 

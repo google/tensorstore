@@ -17,11 +17,12 @@
 #include <gtest/gtest.h>
 
 #include <fstream>
+#include <new>
 #include <string>
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/strings/cord.h"
-#include "tensorstore/internal/env.h"
+#include "absl/time/time.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/test_util.h"
@@ -33,8 +34,6 @@ namespace {
 
 using ::tensorstore::Future;
 using ::tensorstore::internal::JoinPath;
-using ::tensorstore::internal::SetEnv;
-using ::tensorstore::internal::UnsetEnv;
 using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_kvstore_s3::DefaultAwsCredentialsProvider;
 using ::tensorstore::internal_kvstore_s3::DefaultEC2MetadataFlow;
