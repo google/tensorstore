@@ -25,10 +25,14 @@
 #include "absl/strings/cord.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/kvstore/s3/credentials/test_utils.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
+
+using ::tensorstore::internal::UnsetEnv;
+using ::tensorstore::internal::SetEnv;
 
 namespace {
 
@@ -38,66 +42,98 @@ using ::tensorstore::internal_kvstore_s3::DefaultEC2MetadataFlow;
 using ::tensorstore::internal_kvstore_s3::EC2MetadataCredentialProvider;
 using ::tensorstore::internal_kvstore_s3::EC2MetadataMockTransport;
 
-TEST(EC2MetadataCredentialProviderTest, CredentialRetrievalFlow) {
+static constexpr char endpoint[] = "http://169.254.169.254";
+static constexpr char api_token[] = "1234567890";
+static constexpr char access_key[] = "ASIA1234567890";
+static constexpr char secret_key[] = "1234567890abcdef";
+static constexpr char session_token[] = "abcdef123456790";
+
+class EC2MetadataCredentialProviderTest : public ::testing::Test {
+ protected:
+  void SetUp() override { UnsetEnv("AWS_EC2_METADATA_SERVICE_ENDPOINT"); }
+};
+
+
+TEST_F(EC2MetadataCredentialProviderTest, CredentialRetrievalFlow) {
   auto expiry = absl::Now() + absl::Seconds(200);
   auto url_to_response =
-      DefaultEC2MetadataFlow("1234567890", "ASIA1234567890", "1234567890abcdef",
-                             "abcdef123456790", expiry);
+      DefaultEC2MetadataFlow(endpoint, api_token, access_key, secret_key,
+                             session_token, expiry);
+
+  auto mock_transport =
+      std::make_shared<EC2MetadataMockTransport>(url_to_response);
+  auto provider =
+      std::make_shared<EC2MetadataCredentialProvider>(endpoint, mock_transport);
+  TENSORSTORE_CHECK_OK_AND_ASSIGN(auto credentials, provider->GetCredentials());
+  ASSERT_EQ(credentials.access_key, access_key);
+  ASSERT_EQ(credentials.secret_key, secret_key);
+  ASSERT_EQ(credentials.session_token, session_token);
+  // expiry less the 60s leeway
+  ASSERT_EQ(credentials.expires_at, expiry - absl::Seconds(60));
+}
+
+TEST_F(EC2MetadataCredentialProviderTest, EnvironmentVariableMetadataServer) {
+  SetEnv("AWS_EC2_METADATA_SERVICE_ENDPOINT", "http://endpoint");
+  auto expiry = absl::Now() + absl::Seconds(200);
+  auto url_to_response =
+      DefaultEC2MetadataFlow("http://endpoint", api_token, access_key, secret_key,
+                             session_token, expiry);
 
   auto mock_transport =
       std::make_shared<EC2MetadataMockTransport>(url_to_response);
   auto provider =
       std::make_shared<EC2MetadataCredentialProvider>("", mock_transport);
   TENSORSTORE_CHECK_OK_AND_ASSIGN(auto credentials, provider->GetCredentials());
-  ASSERT_EQ(credentials.access_key, "ASIA1234567890");
-  ASSERT_EQ(credentials.secret_key, "1234567890abcdef");
-  ASSERT_EQ(credentials.session_token, "abcdef123456790");
+  ASSERT_EQ(credentials.access_key, access_key);
+  ASSERT_EQ(credentials.secret_key, secret_key);
+  ASSERT_EQ(credentials.session_token, session_token);
   // expiry less the 60s leeway
   ASSERT_EQ(credentials.expires_at, expiry - absl::Seconds(60));
 }
 
-TEST(EC2MetadataCredentialProviderTest, NoIamRolesInSecurityCredentials) {
+
+TEST_F(EC2MetadataCredentialProviderTest, NoIamRolesInSecurityCredentials) {
   auto url_to_response = absl::flat_hash_map<std::string, HttpResponse>{
       {"POST http://169.254.169.254/latest/api/token",
-       HttpResponse{200, absl::Cord{"1234567890"}}},
+       HttpResponse{200, absl::Cord{api_token}}},
       {"GET http://169.254.169.254/latest/meta-data/iam/security-credentials/",
        HttpResponse{
-           200, absl::Cord{""}, {{"x-aws-ec2-metadata-token", "1234567890"}}}},
+           200, absl::Cord{""}, {{"x-aws-ec2-metadata-token", api_token}}}},
   };
 
   auto mock_transport =
       std::make_shared<EC2MetadataMockTransport>(url_to_response);
   auto provider =
-      std::make_shared<EC2MetadataCredentialProvider>("", mock_transport);
+      std::make_shared<EC2MetadataCredentialProvider>(endpoint, mock_transport);
   ASSERT_FALSE(provider->GetCredentials());
   EXPECT_THAT(provider->GetCredentials().status().ToString(),
               ::testing::HasSubstr("Empty EC2 Role list"));
 }
 
-TEST(EC2MetadataCredentialProviderTest, UnsuccessfulJsonResponse) {
+TEST_F(EC2MetadataCredentialProviderTest, UnsuccessfulJsonResponse) {
   // Test that "Code" != "Success" parsing succeeds
   auto url_to_response = absl::flat_hash_map<std::string, HttpResponse>{
       {"POST http://169.254.169.254/latest/api/token",
-       HttpResponse{200, absl::Cord{"1234567890"}}},
+       HttpResponse{200, absl::Cord{api_token}}},
       {"GET http://169.254.169.254/latest/meta-data/iam/",
        HttpResponse{200,
                     absl::Cord{"info"},
-                    {{"x-aws-ec2-metadata-token", "1234567890"}}}},
+                    {{"x-aws-ec2-metadata-token", api_token}}}},
       {"GET http://169.254.169.254/latest/meta-data/iam/security-credentials/",
        HttpResponse{200,
                     absl::Cord{"mock-iam-role"},
-                    {{"x-aws-ec2-metadata-token", "1234567890"}}}},
+                    {{"x-aws-ec2-metadata-token", api_token}}}},
       {"GET "
        "http://169.254.169.254/latest/meta-data/iam/security-credentials/"
        "mock-iam-role",
        HttpResponse{200,
                     absl::Cord(R"({"Code": "EntirelyUnsuccessful"})"),
-                    {{"x-aws-ec2-metadata-token", "1234567890"}}}}};
+                    {{"x-aws-ec2-metadata-token", api_token}}}}};
 
   auto mock_transport =
       std::make_shared<EC2MetadataMockTransport>(url_to_response);
   auto provider =
-      std::make_shared<EC2MetadataCredentialProvider>("", mock_transport);
+      std::make_shared<EC2MetadataCredentialProvider>(endpoint, mock_transport);
   auto credentials = provider->GetCredentials();
 
   EXPECT_THAT(credentials.status(), MatchesStatus(absl::StatusCode::kNotFound));

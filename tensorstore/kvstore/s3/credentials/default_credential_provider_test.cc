@@ -41,6 +41,8 @@ using ::tensorstore::internal_kvstore_s3::EC2MetadataMockTransport;
 using Options =
     ::tensorstore::internal_kvstore_s3::DefaultAwsCredentialsProvider::Options;
 
+static constexpr char endpoint[] = "http://endpoint";
+
 class CredentialFileFactory
     : public tensorstore::internal::ScopedTemporaryDirectory {
  public:
@@ -79,14 +81,14 @@ TEST(DefaultCredentialProviderTest, ConfigureEC2ProviderFromOptions) {
   auto now = absl::Now();
   auto stuck_clock = [&]() -> absl::Time { return now; };
   auto expiry = now + absl::Seconds(200);
-  auto url_to_response = DefaultEC2MetadataFlow(
+  auto url_to_response = DefaultEC2MetadataFlow(endpoint,
       "1234", "ASIA1234567890", "1234567890abcdef", "token", expiry);
 
   auto mock_transport =
       std::make_shared<EC2MetadataMockTransport>(url_to_response);
 
   auto provider = std::make_unique<DefaultAwsCredentialsProvider>(
-      Options{{}, {}, {}, mock_transport}, stuck_clock);
+      Options{{}, {}, endpoint, mock_transport}, stuck_clock);
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials,
                                    provider->GetCredentials());
   EXPECT_EQ(credentials.access_key, "ASIA1234567890");
@@ -96,7 +98,7 @@ TEST(DefaultCredentialProviderTest, ConfigureEC2ProviderFromOptions) {
 
   /// Force failure on credential retrieval
   url_to_response = absl::flat_hash_map<std::string, HttpResponse>{
-      {"POST http://169.254.169.254/latest/api/token",
+      {"POST http://endpoint/latest/api/token",
        HttpResponse{404, absl::Cord{""}}},
   };
 
@@ -109,7 +111,7 @@ TEST(DefaultCredentialProviderTest, ConfigureEC2ProviderFromOptions) {
 
   // Force expiry and retrieve new credentials
   now += absl::Seconds(300);
-  url_to_response = DefaultEC2MetadataFlow("1234", "ASIA1234567890",
+  url_to_response = DefaultEC2MetadataFlow(endpoint, "1234", "ASIA1234567890",
                                            "1234567890abcdef", "TOKEN", expiry);
 
   // A new set of credentials is returned
@@ -121,7 +123,7 @@ TEST(DefaultCredentialProviderTest, ConfigureEC2ProviderFromOptions) {
 
   /// Force failure on credential retrieval
   url_to_response = absl::flat_hash_map<std::string, HttpResponse>{
-      {"POST http://169.254.169.254/latest/api/token",
+      {"POST http://endpoint/latest/api/token",
        HttpResponse{404, absl::Cord{""}}},
   };
 

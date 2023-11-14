@@ -46,7 +46,8 @@ class EC2MetadataMockTransport : public internal_http::HttpTransport {
 /// Return a Default EC2 Metadata Credential Retrieval Flow, suitable
 /// for passing to EC2MetadataMockTransport
 absl::flat_hash_map<std::string, internal_http::HttpResponse>
-DefaultEC2MetadataFlow(const std::string& api_token,
+DefaultEC2MetadataFlow(const std::string& endpoint,
+                       const std::string& api_token,
                        const std::string& access_key,
                        const std::string& secret_key,
                        const std::string& session_token,

@@ -41,24 +41,23 @@ Future<internal_http::HttpResponse> EC2MetadataMockTransport::IssueRequest(
 }
 
 absl::flat_hash_map<std::string, internal_http::HttpResponse>
-DefaultEC2MetadataFlow(const std::string& api_token,
+DefaultEC2MetadataFlow(const std::string& endpoint,
+                       const std::string& api_token,
                        const std::string& access_key,
                        const std::string& secret_key,
                        const std::string& session_token,
                        const absl::Time& expires_at) {
   return absl::flat_hash_map<std::string, internal_http::HttpResponse>{
-      {"POST http://169.254.169.254/latest/api/token",
+      {absl::StrFormat("POST %s/latest/api/token", endpoint),
        internal_http::HttpResponse{200, absl::Cord{api_token}}},
-      {"GET http://169.254.169.254/latest/meta-data/iam/",
+      {absl::StrFormat("GET %s/latest/meta-data/iam/", endpoint),
        internal_http::HttpResponse{
            200, absl::Cord{"info"}, {{"x-aws-ec2-metadata-token", api_token}}}},
-      {"GET http://169.254.169.254/latest/meta-data/iam/security-credentials/",
+      {absl::StrFormat("GET %s/latest/meta-data/iam/security-credentials/", endpoint),
        internal_http::HttpResponse{200,
                                    absl::Cord{"mock-iam-role"},
                                    {{"x-aws-ec2-metadata-token", api_token}}}},
-      {"GET "
-       "http://169.254.169.254/latest/meta-data/iam/security-credentials/"
-       "mock-iam-role",
+      {absl::StrFormat("GET %s/latest/meta-data/iam/security-credentials/mock-iam-role", endpoint),
        internal_http::HttpResponse{
            200,
            absl::Cord(absl::StrFormat(
