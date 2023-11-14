@@ -15,8 +15,10 @@
 #ifndef TENSORSTORE_KVSTORE_S3_CREDENTIALS_DEFAULT_CREDENTIAL_PROVIDER
 #define TENSORSTORE_KVSTORE_S3_CREDENTIALS_DEFAULT_CREDENTIAL_PROVIDER
 
+#include <functional>
 #include <memory>
 #include <string>
+#include <string_view>
 
 #include "absl/base/thread_annotations.h"
 #include "absl/functional/function_ref.h"
@@ -66,6 +68,17 @@ class DefaultAwsCredentialsProvider : public AwsCredentialProvider {
   std::unique_ptr<AwsCredentialProvider> provider_ ABSL_GUARDED_BY(mutex_);
   AwsCredentials credentials_ ABSL_GUARDED_BY(mutex_);
 };
+
+using AwsCredentialProviderFn =
+    std::function<Result<std::unique_ptr<AwsCredentialProvider>>()>;
+
+void RegisterAwsCredentialProviderProvider(AwsCredentialProviderFn provider,
+                                           int priority);
+
+Result<std::unique_ptr<AwsCredentialProvider>> GetAwsCredentialProvider(
+    std::string_view profile,
+    std::shared_ptr<internal_http::HttpTransport> transport);
+
 
 }  // namespace internal_kvstore_s3
 }  // namespace tensorstore

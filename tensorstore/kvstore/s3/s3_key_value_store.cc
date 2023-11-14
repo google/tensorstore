@@ -62,7 +62,7 @@
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/registry.h"
-#include "tensorstore/kvstore/s3/credentials/aws_credential_provider.h"
+#include "tensorstore/kvstore/s3/credentials/default_credential_provider.h"
 #include "tensorstore/kvstore/s3/s3_endpoint.h"
 #include "tensorstore/kvstore/s3/s3_metadata.h"
 #include "tensorstore/kvstore/s3/s3_request_builder.h"

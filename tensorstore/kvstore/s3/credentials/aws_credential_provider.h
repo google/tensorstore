@@ -22,7 +22,6 @@
 
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
-#include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
@@ -62,16 +61,6 @@ class AwsCredentialProvider {
   virtual ~AwsCredentialProvider() = default;
   virtual Result<AwsCredentials> GetCredentials() = 0;
 };
-
-using AwsCredentialProviderFn =
-    std::function<Result<std::unique_ptr<AwsCredentialProvider>>()>;
-
-void RegisterAwsCredentialProviderProvider(AwsCredentialProviderFn provider,
-                                           int priority);
-
-Result<std::unique_ptr<AwsCredentialProvider>> GetAwsCredentialProvider(
-    std::string_view profile,
-    std::shared_ptr<internal_http::HttpTransport> transport);
 
 }  // namespace internal_kvstore_s3
 }  // namespace tensorstore

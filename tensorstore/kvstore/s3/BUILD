@@ -46,7 +46,7 @@ tensorstore_cc_library(
         "//tensorstore/kvstore:key_range",
         "//tensorstore/kvstore/gcs:validate",
         "//tensorstore/kvstore/gcs_http:rate_limiter",
-        "//tensorstore/kvstore/s3/credentials:aws_credential_provider",
+        "//tensorstore/kvstore/s3/credentials:default_credential_provider",
         "//tensorstore/serialization",
         "//tensorstore/util:executor",
         "//tensorstore/util:future",
