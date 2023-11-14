@@ -116,11 +116,11 @@ inline constexpr auto EC2CredentialsResponseBinder = jb::Object(
                        jb::Projection(&EC2CredentialsResponse::expiration)));
 
 // Obtain a metadata token for communicating with the api server.
-Result<absl::Cord> GetEC2ApiToken(internal_http::HttpTransport& transport) {
+Result<absl::Cord> GetEC2ApiToken(std::string_view endpoint, internal_http::HttpTransport& transport) {
   // Obtain Metadata server API tokens with a TTL of 21600 seconds
   auto token_request =
       HttpRequestBuilder("POST",
-                         tensorstore::StrCat(GetEC2MetadataServiceEndpoint(),
+                         tensorstore::StrCat(endpoint,
                                              "/latest/api/token"))
           .AddHeader("x-aws-ec2-metadata-token-ttl-seconds: 21600")
           .BuildRequest();
@@ -138,10 +138,6 @@ Result<absl::Cord> GetEC2ApiToken(internal_http::HttpTransport& transport) {
 
 }  // namespace
 
-// Returns whether the EC2 Metadata Server is available.
-bool IsEC2MetadataServiceAvailable(internal_http::HttpTransport& transport) {
-  return GetEC2ApiToken(transport).ok();
-}
 
 /// Obtains AWS Credentials from the EC2Metadata.
 ///
@@ -156,16 +152,17 @@ bool IsEC2MetadataServiceAvailable(internal_http::HttpTransport& transport) {
 /// 3. Obtain the associated credentials from path
 ///    "/latest/meta-data/iam/security-credentials/<iam-role>".
 Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
-  auto default_timeout = absl::Now() + kDefaultTimeout;
+  if(endpoint_.empty()) {
+    endpoint_ = GetEC2MetadataServiceEndpoint();
+  }
 
-  // Obtain an API token for communicating with the EC2 Metadata server
-  TENSORSTORE_ASSIGN_OR_RETURN(auto api_token, GetEC2ApiToken(*transport_));
+  TENSORSTORE_ASSIGN_OR_RETURN(auto api_token, GetEC2ApiToken(endpoint_, *transport_));
 
   auto token_header = tensorstore::StrCat(kMetadataTokenHeader, api_token);
 
   auto iam_role_request =
       HttpRequestBuilder("GET",
-                         tensorstore::StrCat(GetEC2MetadataServiceEndpoint(),
+                         tensorstore::StrCat(endpoint_,
                                              kIamCredentialsPath))
           .AddHeader(token_header)
           .BuildRequest();
@@ -184,7 +181,7 @@ Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
   }
 
   auto iam_credentials_request_url = tensorstore::StrCat(
-      GetEC2MetadataServiceEndpoint(), kIamCredentialsPath, iam_roles[0]);
+      endpoint_, kIamCredentialsPath, iam_roles[0]);
 
   auto iam_credentials_request =
       HttpRequestBuilder("GET", iam_credentials_request_url)
@@ -213,6 +210,7 @@ Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
   }
 
   // Introduce a leeway of 60 seconds to avoid credential expiry conditions
+  auto default_timeout = absl::Now() + kDefaultTimeout;
   auto expires_at =
       iam_credentials.expiration.value_or(default_timeout) - absl::Seconds(60);
 

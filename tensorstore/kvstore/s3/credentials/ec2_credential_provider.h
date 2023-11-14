@@ -46,9 +46,6 @@ class EC2MetadataCredentialProvider : public AwsCredentialProvider {
   std::shared_ptr<internal_http::HttpTransport> transport_;
 };
 
-// Returns whether the EC2 Metadata Server is available.
-bool IsEC2MetadataServiceAvailable(internal_http::HttpTransport& transport);
-
 }  // namespace internal_kvstore_s3
 }  // namespace tensorstore
 
