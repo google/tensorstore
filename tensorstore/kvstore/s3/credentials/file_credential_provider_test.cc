@@ -70,6 +70,8 @@ TEST_F(FileCredentialProviderTest, ProviderAwsCredentialsFromFileDefault) {
   SetEnv("AWS_SHARED_CREDENTIALS_FILE", credentials_filename.c_str());
   auto provider = FileCredentialProvider("", "");
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials, provider.GetCredentials());
+  ASSERT_EQ(provider.GetFileName(), credentials_filename);
+  ASSERT_EQ(provider.GetProfile(), "default");
   ASSERT_EQ(credentials.access_key, "AKIAIOSFODNN7EXAMPLE");
   ASSERT_EQ(credentials.secret_key, "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY");
   ASSERT_EQ(credentials.session_token, "abcdef1234567890");
@@ -84,6 +86,8 @@ TEST_F(FileCredentialProviderTest,
   SetEnv("AWS_SHARED_CREDENTIALS_FILE", credentials_filename.c_str());
   auto provider = FileCredentialProvider("", "alice");
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials, provider.GetCredentials());
+  ASSERT_EQ(provider.GetFileName(), credentials_filename);
+  ASSERT_EQ(provider.GetProfile(), "alice");
   ASSERT_EQ(credentials.access_key, "AKIAIOSFODNN6EXAMPLE");
   ASSERT_EQ(credentials.secret_key, "wJalrXUtnFEMI/K7MDENG/bPxRfiCZEXAMPLEKEY");
   ASSERT_EQ(credentials.session_token, "");
@@ -98,6 +102,8 @@ TEST_F(FileCredentialProviderTest, ProviderAwsCredentialsFromFileProfileEnv) {
   SetEnv("AWS_PROFILE", "alice");
   auto provider = FileCredentialProvider("", "");
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials, provider.GetCredentials());
+  ASSERT_EQ(provider.GetFileName(), credentials_filename);
+  ASSERT_EQ(provider.GetProfile(), "alice");
   ASSERT_EQ(credentials.access_key, "AKIAIOSFODNN6EXAMPLE");
   ASSERT_EQ(credentials.secret_key, "wJalrXUtnFEMI/K7MDENG/bPxRfiCZEXAMPLEKEY");
   ASSERT_EQ(credentials.session_token, "");
@@ -113,6 +119,9 @@ TEST_F(FileCredentialProviderTest,
   SetEnv("AWS_PROFILE", "bob");
   auto provider = FileCredentialProvider("", "");
   ASSERT_FALSE(provider.GetCredentials().ok());
+  ASSERT_EQ(provider.GetFileName(), credentials_filename);
+  ASSERT_EQ(provider.GetProfile(), "bob");
+
 }
 
 TEST_F(FileCredentialProviderTest, ProviderAwsCredentialsFromFileOverride) {
@@ -122,6 +131,8 @@ TEST_F(FileCredentialProviderTest, ProviderAwsCredentialsFromFileOverride) {
       std::make_unique<FileCredentialProvider>(credentials_filename, "");
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials,
                                    provider->GetCredentials());
+  ASSERT_EQ(provider->GetFileName(), credentials_filename);
+  ASSERT_EQ(provider->GetProfile(), "default");
   ASSERT_EQ(credentials.access_key, "AKIAIOSFODNN7EXAMPLE");
   ASSERT_EQ(credentials.secret_key, "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY");
   ASSERT_EQ(credentials.session_token, "abcdef1234567890");
@@ -130,6 +141,8 @@ TEST_F(FileCredentialProviderTest, ProviderAwsCredentialsFromFileOverride) {
   provider =
       std::make_unique<FileCredentialProvider>(credentials_filename, "alice");
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(credentials, provider->GetCredentials());
+  ASSERT_EQ(provider->GetFileName(), credentials_filename);
+  ASSERT_EQ(provider->GetProfile(), "alice");
   ASSERT_EQ(credentials.access_key, "AKIAIOSFODNN6EXAMPLE");
   ASSERT_EQ(credentials.secret_key, "wJalrXUtnFEMI/K7MDENG/bPxRfiCZEXAMPLEKEY");
   ASSERT_EQ(credentials.session_token, "");

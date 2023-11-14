@@ -43,6 +43,14 @@ class FileCredentialProvider : public AwsCredentialProvider {
   FileCredentialProvider(std::string filename, std::string profile)
       : filename_(std::move(filename)), profile_(std::move(profile)) {}
   Result<AwsCredentials> GetCredentials() override;
+
+  const std::string & GetFileName() const {
+    return filename_;
+  }
+
+  const std::string & GetProfile() const {
+    return profile_;
+  }
 };
 
 }  // namespace internal_kvstore_s3

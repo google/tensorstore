@@ -68,20 +68,19 @@ Result<std::string> GetAwsCredentialsFileName() {
 
 /// https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html#cli-configure-files-format
 Result<AwsCredentials> FileCredentialProvider::GetCredentials() {
-  TENSORSTORE_ASSIGN_OR_RETURN(auto filename, ([&]() -> Result<std::string> {
-                                 if (!filename_.empty()) return filename_;
-                                 return GetAwsCredentialsFileName();
-                               }()));
-
-  std::ifstream ifs(filename.c_str());
-  if (!ifs) {
-    return absl::NotFoundError(
-        absl::StrCat("Could not open credentials file [", filename, "]"));
+  if(filename_.empty()) {
+    TENSORSTORE_ASSIGN_OR_RETURN(filename_, GetAwsCredentialsFileName());
   }
 
-  auto profile = !profile_.empty()
-                     ? std::string(profile_)
-                     : GetEnv(kEnvAwsProfile).value_or(kDefaultProfile);
+  if(profile_.empty()) {
+    profile_ = GetEnv(kEnvAwsProfile).value_or(kDefaultProfile);
+  }
+
+  std::ifstream ifs(filename_.c_str());
+  if (!ifs) {
+    return absl::NotFoundError(
+        absl::StrCat("Could not open credentials file [", filename_, "]"));
+  }
 
   auto credentials = AwsCredentials{};
   auto section_name = std::string{};
@@ -101,7 +100,7 @@ Result<AwsCredentials> FileCredentialProvider::GetCredentials() {
     }
 
     // Look for key=value pairs if we're in the appropriate profile
-    if (section_name == profile) {
+    if (section_name == profile_) {
       profile_found = true;
       if (auto pos = sline.find('='); pos != std::string::npos) {
         auto key = absl::StripAsciiWhitespace(sline.substr(0, pos));
@@ -119,14 +118,14 @@ Result<AwsCredentials> FileCredentialProvider::GetCredentials() {
   }
 
   if (!profile_found) {
-    return absl::NotFoundError(absl::StrCat("Profile [", profile,
+    return absl::NotFoundError(absl::StrCat("Profile [", profile_,
                                             "] not found "
                                             "in credentials file [",
-                                            filename, "]"));
+                                            filename_, "]"));
   }
 
   ABSL_LOG_FIRST_N(INFO, 1)
-      << "Using profile [" << profile << "] in file [" << filename << "]";
+      << "Using profile [" << profile_ << "] in file [" << filename_ << "]";
 
   credentials.expires_at = absl::InfiniteFuture();
   return credentials;
