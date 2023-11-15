@@ -16,10 +16,7 @@
 #include <gtest/gtest.h>
 #include <memory>
 #include <string>
-#include <initializer_list>
-#include <map>
 #include <utility>
-#include <vector>
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/log/absl_log.h"
@@ -41,8 +38,6 @@
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/status_testutil.h"
 #include "tensorstore/util/str_cat.h"
-#include "tensorstore/kvstore/read_result.h"
-#include "tensorstore/kvstore/spec.h"
 #include "tensorstore/util/result.h"
 
 namespace kvstore = ::tensorstore::kvstore;

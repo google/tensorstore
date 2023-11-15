@@ -14,8 +14,6 @@
 
 #include "tensorstore/kvstore/s3/s3_metadata.h"
 
-
-#include <algorithm>
 #include <cstring>
 #include <string>
 #include <vector>

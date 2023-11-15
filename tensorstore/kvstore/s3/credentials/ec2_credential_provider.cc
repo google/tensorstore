@@ -14,8 +14,6 @@
 
 #include "tensorstore/kvstore/s3/credentials/ec2_credential_provider.h"
 
-#include <map>
-#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -29,7 +27,6 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "nlohmann/json.hpp"
-#include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"

@@ -17,7 +17,6 @@
 #include <gtest/gtest.h>
 
 #include <fstream>
-#include <new>
 #include <string>
 
 #include "absl/container/flat_hash_map.h"

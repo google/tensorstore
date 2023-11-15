@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include <stddef.h>
-#include <stdint.h>
 #include <algorithm>
 #include <atomic>
 #include <cassert>
@@ -23,9 +22,6 @@
 #include <string_view>
 #include <utility>
 #include <variant>
-#include <map>
-#include <tuple>
-#include <type_traits>
 
 #include "absl/base/attributes.h"
 #include "absl/log/absl_log.h"
@@ -41,7 +37,6 @@
 #include "tensorstore/context_resource_provider.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/digest/sha256.h"
-#include "tensorstore/internal/http/curl_transport.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
@@ -87,7 +82,6 @@
 #include "tensorstore/serialization/fwd.h"  // IWYU pragma: keep
 #include "tensorstore/serialization/std_optional.h"  // IWYU pragma: keep
 #include "tensorstore/util/garbage_collection/std_optional.h"  // IWYU pragma: keep
-#include "tensorstore/internal/json_binding/bindable.h"
 
 using ::tensorstore::internal::DataCopyConcurrencyResource;
 using ::tensorstore::internal::IntrusivePtr;

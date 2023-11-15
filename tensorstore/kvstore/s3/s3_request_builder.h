@@ -18,7 +18,6 @@
 /// \file
 /// S3 Request Builder
 
-#include <algorithm>
 #include <string>
 #include <string_view>
 #include <utility>

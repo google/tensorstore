@@ -15,12 +15,8 @@
 #ifndef TENSORSTORE_KVSTORE_S3_CREDENTIALS_AWS_CREDENTIAL_PROVIDER
 #define TENSORSTORE_KVSTORE_S3_CREDENTIALS_AWS_CREDENTIAL_PROVIDER
 
-#include <functional>
-#include <memory>
 #include <string>
-#include <string_view>
 
-#include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/util/result.h"
 
