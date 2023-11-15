@@ -14,9 +14,14 @@
 
 #include "tensorstore/kvstore/s3/credentials/default_credential_provider.h"
 
+#include <algorithm>
 #include <memory>
+#include <string>
+#include <string_view>
 #include <utility>
+#include <vector>
 
+#include "absl/functional/function_ref.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/http/http_transport.h"

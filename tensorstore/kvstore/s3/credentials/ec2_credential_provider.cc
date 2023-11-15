@@ -35,7 +35,6 @@
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/kvstore/s3/credentials/aws_credential_provider.h"
-#include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"

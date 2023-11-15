@@ -17,7 +17,6 @@
 
 #include <string>
 #include <string_view>
-#include <utility>
 
 #include "tensorstore/kvstore/s3/credentials/aws_credential_provider.h"
 #include "tensorstore/util/result.h"

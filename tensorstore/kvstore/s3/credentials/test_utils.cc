@@ -17,6 +17,7 @@
 #include <string>
 #include <utility>
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/log/absl_log.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_format.h"

@@ -14,19 +14,16 @@
 
 #include "tensorstore/kvstore/s3/credentials/environment_credential_provider.h"
 
-#include <gtest/gtest.h>
-
-#include <initializer_list>
 #include <string>
 
+#include <gtest/gtest.h>
+
 #include "tensorstore/internal/env.h"
-#include "tensorstore/internal/test_util.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
 
-using ::tensorstore::internal::GetEnv;
 using ::tensorstore::internal::SetEnv;
 using ::tensorstore::internal::UnsetEnv;
 using ::tensorstore::internal_kvstore_s3::EnvironmentCredentialProvider;
