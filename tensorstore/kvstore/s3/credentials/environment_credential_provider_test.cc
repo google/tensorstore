@@ -16,10 +16,7 @@
 
 #include <gtest/gtest.h>
 
-#include <string>
-
 #include "tensorstore/internal/env.h"
-#include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
