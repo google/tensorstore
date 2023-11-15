@@ -266,8 +266,15 @@ Result<Subprocess> SpawnSubprocess(const SubprocessOptions& options) {
     return absl::InvalidArgumentError("SpawnSubprocess: path too large.");
   }
 
+  // Build the environment block.
   std::wstring env;
   if (options.env.has_value()) {
+    if (!options.env->count("PATH")) {
+      // Windows uses the PATH when searching for DLLs:
+      // https://learn.microsoft.com/en-us/windows/win32/dlls/dynamic-link-library-search-order
+      ABSL_LOG(INFO) << "SpawnSubprocess: environment missing PATH; Some DLLs "
+                        "may fail to load.";
+    }
     env = BuildEnvironmentBlock(*options.env);
   }
 
@@ -289,8 +296,7 @@ Result<Subprocess> SpawnSubprocess(const SubprocessOptions& options) {
   std::vector<HANDLE> handles_to_close;
   std::vector<HANDLE> handles_to_inherit;
 
-  auto status =
-      SetupHandles(options, ex, handles_to_close, handles_to_inherit);
+  auto status = SetupHandles(options, ex, handles_to_close, handles_to_inherit);
 
   std::unique_ptr<uint8_t[]> ex_storage;
 
