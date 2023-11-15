@@ -78,11 +78,9 @@ void RegisterAwsCredentialProviderProvider(AwsCredentialProviderFn provider,
                                            int priority);
 
 Result<std::unique_ptr<AwsCredentialProvider>> GetAwsCredentialProvider(
-    std::string_view filename,
-    std::string_view profile,
+    std::string_view filename, std::string_view profile,
     std::string_view metadata_endpoint,
     std::shared_ptr<internal_http::HttpTransport> transport);
-
 
 }  // namespace internal_kvstore_s3
 }  // namespace tensorstore

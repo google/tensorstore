@@ -121,7 +121,6 @@ TEST_F(FileCredentialProviderTest,
   ASSERT_FALSE(provider.GetCredentials().ok());
   ASSERT_EQ(provider.GetFileName(), credentials_filename);
   ASSERT_EQ(provider.GetProfile(), "bob");
-
 }
 
 TEST_F(FileCredentialProviderTest, ProviderAwsCredentialsFromFileOverride) {

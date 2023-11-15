@@ -24,9 +24,9 @@
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
-#include "tensorstore/kvstore/s3/credentials/aws_credential_provider.h"
 #include "tensorstore/internal/env.h"
 #include "tensorstore/internal/path.h"
+#include "tensorstore/kvstore/s3/credentials/aws_credential_provider.h"
 #include "tensorstore/util/result.h"
 
 using ::tensorstore::internal::GetEnv;
@@ -54,9 +54,9 @@ static constexpr char kDefaultProfile[] = "default";
 
 Result<std::string> GetAwsCredentialsFileName() {
   auto credentials_file = GetEnv(kEnvAwsCredentialsFile);
-  if(!credentials_file) {
+  if (!credentials_file) {
     auto home_dir = GetEnv("HOME");
-    if(!home_dir) {
+    if (!home_dir) {
       return absl::NotFoundError("Could not read $HOME");
     }
     return JoinPath(*home_dir, kDefaultAwsCredentialsFilePath);
@@ -68,11 +68,11 @@ Result<std::string> GetAwsCredentialsFileName() {
 
 /// https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html#cli-configure-files-format
 Result<AwsCredentials> FileCredentialProvider::GetCredentials() {
-  if(filename_.empty()) {
+  if (filename_.empty()) {
     TENSORSTORE_ASSIGN_OR_RETURN(filename_, GetAwsCredentialsFileName());
   }
 
-  if(profile_.empty()) {
+  if (profile_.empty()) {
     profile_ = GetEnv(kEnvAwsProfile).value_or(kDefaultProfile);
   }
 

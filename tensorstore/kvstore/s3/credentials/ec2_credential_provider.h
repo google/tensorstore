@@ -37,9 +37,7 @@ class EC2MetadataCredentialProvider : public AwsCredentialProvider {
 
   Result<AwsCredentials> GetCredentials() override;
 
-  inline const std::string & GetEndpoint() const {
-    return endpoint_;
-  }
+  inline const std::string& GetEndpoint() const { return endpoint_; }
 
  private:
   std::string endpoint_;

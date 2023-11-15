@@ -31,8 +31,8 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
 
-using ::tensorstore::internal::UnsetEnv;
 using ::tensorstore::internal::SetEnv;
+using ::tensorstore::internal::UnsetEnv;
 
 namespace {
 
@@ -54,12 +54,11 @@ class EC2MetadataCredentialProviderTest : public ::testing::Test {
   void SetUp() override { UnsetEnv("AWS_EC2_METADATA_SERVICE_ENDPOINT"); }
 };
 
-
 TEST_F(EC2MetadataCredentialProviderTest, CredentialRetrievalFlow) {
   auto expiry = absl::Now() + absl::Seconds(200);
   auto url_to_response =
-      DefaultEC2MetadataFlow(default_endpoint, api_token, access_key, secret_key,
-                             session_token, expiry);
+      DefaultEC2MetadataFlow(default_endpoint, api_token, access_key,
+                             secret_key, session_token, expiry);
 
   auto mock_transport =
       std::make_shared<EC2MetadataMockTransport>(url_to_response);
@@ -102,8 +101,8 @@ TEST_F(EC2MetadataCredentialProviderTest, InjectedMetadataServer) {
 
   auto mock_transport =
       std::make_shared<EC2MetadataMockTransport>(url_to_response);
-  auto provider =
-      std::make_shared<EC2MetadataCredentialProvider>(custom_endpoint, mock_transport);
+  auto provider = std::make_shared<EC2MetadataCredentialProvider>(
+      custom_endpoint, mock_transport);
   TENSORSTORE_CHECK_OK_AND_ASSIGN(auto credentials, provider->GetCredentials());
   ASSERT_EQ(provider->GetEndpoint(), custom_endpoint);
   ASSERT_EQ(credentials.access_key, access_key);
@@ -112,7 +111,6 @@ TEST_F(EC2MetadataCredentialProviderTest, InjectedMetadataServer) {
   // expiry less the 60s leeway
   ASSERT_EQ(credentials.expires_at, expiry - absl::Seconds(60));
 }
-
 
 TEST_F(EC2MetadataCredentialProviderTest, NoIamRolesInSecurityCredentials) {
   auto url_to_response = absl::flat_hash_map<std::string, HttpResponse>{
@@ -139,9 +137,8 @@ TEST_F(EC2MetadataCredentialProviderTest, UnsuccessfulJsonResponse) {
       {"POST http://169.254.169.254/latest/api/token",
        HttpResponse{200, absl::Cord{api_token}}},
       {"GET http://169.254.169.254/latest/meta-data/iam/",
-       HttpResponse{200,
-                    absl::Cord{"info"},
-                    {{"x-aws-ec2-metadata-token", api_token}}}},
+       HttpResponse{
+           200, absl::Cord{"info"}, {{"x-aws-ec2-metadata-token", api_token}}}},
       {"GET http://169.254.169.254/latest/meta-data/iam/security-credentials/",
        HttpResponse{200,
                     absl::Cord{"mock-iam-role"},

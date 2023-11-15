@@ -113,12 +113,12 @@ inline constexpr auto EC2CredentialsResponseBinder = jb::Object(
                        jb::Projection(&EC2CredentialsResponse::expiration)));
 
 // Obtain a metadata token for communicating with the api server.
-Result<absl::Cord> GetEC2ApiToken(std::string_view endpoint, internal_http::HttpTransport& transport) {
+Result<absl::Cord> GetEC2ApiToken(std::string_view endpoint,
+                                  internal_http::HttpTransport& transport) {
   // Obtain Metadata server API tokens with a TTL of 21600 seconds
   auto token_request =
       HttpRequestBuilder("POST",
-                         tensorstore::StrCat(endpoint,
-                                             "/latest/api/token"))
+                         tensorstore::StrCat(endpoint, "/latest/api/token"))
           .AddHeader("x-aws-ec2-metadata-token-ttl-seconds: 21600")
           .BuildRequest();
 
@@ -135,7 +135,6 @@ Result<absl::Cord> GetEC2ApiToken(std::string_view endpoint, internal_http::Http
 
 }  // namespace
 
-
 /// Obtains AWS Credentials from the EC2Metadata.
 ///
 /// https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-retrieval.html#instancedata-meta-data-retrieval-examples
@@ -149,18 +148,18 @@ Result<absl::Cord> GetEC2ApiToken(std::string_view endpoint, internal_http::Http
 /// 3. Obtain the associated credentials from path
 ///    "/latest/meta-data/iam/security-credentials/<iam-role>".
 Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
-  if(endpoint_.empty()) {
+  if (endpoint_.empty()) {
     endpoint_ = GetEC2MetadataServiceEndpoint();
   }
 
-  TENSORSTORE_ASSIGN_OR_RETURN(auto api_token, GetEC2ApiToken(endpoint_, *transport_));
+  TENSORSTORE_ASSIGN_OR_RETURN(auto api_token,
+                               GetEC2ApiToken(endpoint_, *transport_));
 
   auto token_header = tensorstore::StrCat(kMetadataTokenHeader, api_token);
 
   auto iam_role_request =
       HttpRequestBuilder("GET",
-                         tensorstore::StrCat(endpoint_,
-                                             kIamCredentialsPath))
+                         tensorstore::StrCat(endpoint_, kIamCredentialsPath))
           .AddHeader(token_header)
           .BuildRequest();
 
@@ -177,8 +176,8 @@ Result<AwsCredentials> EC2MetadataCredentialProvider::GetCredentials() {
     return absl::NotFoundError("Empty EC2 Role list");
   }
 
-  auto iam_credentials_request_url = tensorstore::StrCat(
-      endpoint_, kIamCredentialsPath, iam_roles[0]);
+  auto iam_credentials_request_url =
+      tensorstore::StrCat(endpoint_, kIamCredentialsPath, iam_roles[0]);
 
   auto iam_credentials_request =
       HttpRequestBuilder("GET", iam_credentials_request_url)

@@ -80,8 +80,8 @@ TEST(DefaultCredentialProviderTest, ConfigureEC2ProviderFromOptions) {
   auto now = absl::Now();
   auto stuck_clock = [&]() -> absl::Time { return now; };
   auto expiry = now + absl::Seconds(200);
-  auto url_to_response = DefaultEC2MetadataFlow(endpoint,
-      "1234", "ASIA1234567890", "1234567890abcdef", "token", expiry);
+  auto url_to_response = DefaultEC2MetadataFlow(
+      endpoint, "1234", "ASIA1234567890", "1234567890abcdef", "token", expiry);
 
   auto mock_transport =
       std::make_shared<EC2MetadataMockTransport>(url_to_response);

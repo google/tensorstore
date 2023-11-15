@@ -53,11 +53,14 @@ DefaultEC2MetadataFlow(const std::string& endpoint,
       {absl::StrFormat("GET %s/latest/meta-data/iam/", endpoint),
        internal_http::HttpResponse{
            200, absl::Cord{"info"}, {{"x-aws-ec2-metadata-token", api_token}}}},
-      {absl::StrFormat("GET %s/latest/meta-data/iam/security-credentials/", endpoint),
+      {absl::StrFormat("GET %s/latest/meta-data/iam/security-credentials/",
+                       endpoint),
        internal_http::HttpResponse{200,
                                    absl::Cord{"mock-iam-role"},
                                    {{"x-aws-ec2-metadata-token", api_token}}}},
-      {absl::StrFormat("GET %s/latest/meta-data/iam/security-credentials/mock-iam-role", endpoint),
+      {absl::StrFormat(
+           "GET %s/latest/meta-data/iam/security-credentials/mock-iam-role",
+           endpoint),
        internal_http::HttpResponse{
            200,
            absl::Cord(absl::StrFormat(

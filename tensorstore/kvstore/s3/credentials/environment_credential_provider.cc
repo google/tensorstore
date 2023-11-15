@@ -21,8 +21,8 @@
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
-#include "tensorstore/kvstore/s3/credentials/aws_credential_provider.h"
 #include "tensorstore/internal/env.h"
+#include "tensorstore/kvstore/s3/credentials/aws_credential_provider.h"
 #include "tensorstore/util/result.h"
 
 using ::tensorstore::internal::GetEnv;
@@ -43,7 +43,7 @@ static constexpr char kEnvAwsSessionToken[] = "AWS_SESSION_TOKEN";
 
 Result<AwsCredentials> EnvironmentCredentialProvider::GetCredentials() {
   auto access_key = GetEnv(kEnvAwsAccessKeyId);
-  if(!access_key) {
+  if (!access_key) {
     return absl::NotFoundError(absl::StrCat(kEnvAwsAccessKeyId, " not set"));
   }
   ABSL_LOG_FIRST_N(INFO, 1)
