@@ -72,12 +72,7 @@ class DefaultCredentialProviderTest : public ::testing::Test {
 };
 
 TEST_F(DefaultCredentialProviderTest, AnonymousCredentials) {
-  /// Force failure on credential retrieval
-  auto url_to_response = absl::flat_hash_map<std::string, HttpResponse>{
-      {"POST http://endpoint/latest/api/token",
-       HttpResponse{404, absl::Cord{""}}},
-  };
-
+  auto url_to_response = absl::flat_hash_map<std::string, HttpResponse>();
   auto mock_transport = std::make_shared<EC2MetadataMockTransport>(url_to_response);
   auto provider = std::make_unique<DefaultAwsCredentialsProvider>(
       Options{{}, {}, {}, mock_transport});
@@ -90,7 +85,6 @@ TEST_F(DefaultCredentialProviderTest, AnonymousCredentials) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials2, provider->GetCredentials());
   EXPECT_TRUE(credentials2.IsAnonymous());
   EXPECT_EQ(credentials2.expires_at, absl::InfiniteFuture());
-
 }
 
 

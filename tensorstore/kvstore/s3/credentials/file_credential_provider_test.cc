@@ -81,7 +81,7 @@ TEST_F(FileCredentialProviderTest, ProviderAwsCredentialsFromFileDefault) {
 TEST_F(FileCredentialProviderTest,
        ProviderAwsCredentialsFromFileProfileOverride) {
   TestData test_data;
-  std::string credentials_filename = test_data.WriteCredentialsFile();
+  auto credentials_filename = test_data.WriteCredentialsFile();
 
   SetEnv("AWS_SHARED_CREDENTIALS_FILE", credentials_filename.c_str());
   auto provider = FileCredentialProvider("", "alice");
