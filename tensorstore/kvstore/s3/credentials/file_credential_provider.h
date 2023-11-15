@@ -44,9 +44,7 @@ class FileCredentialProvider : public AwsCredentialProvider {
       : filename_(filename), profile_(profile) {}
 
   Result<AwsCredentials> GetCredentials() override;
-
   inline const std::string& GetFileName() const { return filename_; }
-
   inline const std::string& GetProfile() const { return profile_; }
 };
 
