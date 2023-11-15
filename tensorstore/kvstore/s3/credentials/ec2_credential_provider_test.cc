@@ -42,7 +42,8 @@ using ::tensorstore::internal_kvstore_s3::DefaultEC2MetadataFlow;
 using ::tensorstore::internal_kvstore_s3::EC2MetadataCredentialProvider;
 using ::tensorstore::internal_kvstore_s3::EC2MetadataMockTransport;
 
-static constexpr char endpoint[] = "http://169.254.169.254";
+static constexpr char default_endpoint[] = "http://169.254.169.254";
+static constexpr char custom_endpoint[] = "http://custom.endpoint";
 static constexpr char api_token[] = "1234567890";
 static constexpr char access_key[] = "ASIA1234567890";
 static constexpr char secret_key[] = "1234567890abcdef";
@@ -57,14 +58,15 @@ class EC2MetadataCredentialProviderTest : public ::testing::Test {
 TEST_F(EC2MetadataCredentialProviderTest, CredentialRetrievalFlow) {
   auto expiry = absl::Now() + absl::Seconds(200);
   auto url_to_response =
-      DefaultEC2MetadataFlow(endpoint, api_token, access_key, secret_key,
+      DefaultEC2MetadataFlow(default_endpoint, api_token, access_key, secret_key,
                              session_token, expiry);
 
   auto mock_transport =
       std::make_shared<EC2MetadataMockTransport>(url_to_response);
   auto provider =
-      std::make_shared<EC2MetadataCredentialProvider>(endpoint, mock_transport);
+      std::make_shared<EC2MetadataCredentialProvider>("", mock_transport);
   TENSORSTORE_CHECK_OK_AND_ASSIGN(auto credentials, provider->GetCredentials());
+  ASSERT_EQ(provider->GetEndpoint(), default_endpoint);
   ASSERT_EQ(credentials.access_key, access_key);
   ASSERT_EQ(credentials.secret_key, secret_key);
   ASSERT_EQ(credentials.session_token, session_token);
@@ -73,10 +75,10 @@ TEST_F(EC2MetadataCredentialProviderTest, CredentialRetrievalFlow) {
 }
 
 TEST_F(EC2MetadataCredentialProviderTest, EnvironmentVariableMetadataServer) {
-  SetEnv("AWS_EC2_METADATA_SERVICE_ENDPOINT", "http://endpoint");
+  SetEnv("AWS_EC2_METADATA_SERVICE_ENDPOINT", custom_endpoint);
   auto expiry = absl::Now() + absl::Seconds(200);
   auto url_to_response =
-      DefaultEC2MetadataFlow("http://endpoint", api_token, access_key, secret_key,
+      DefaultEC2MetadataFlow(custom_endpoint, api_token, access_key, secret_key,
                              session_token, expiry);
 
   auto mock_transport =
@@ -84,6 +86,26 @@ TEST_F(EC2MetadataCredentialProviderTest, EnvironmentVariableMetadataServer) {
   auto provider =
       std::make_shared<EC2MetadataCredentialProvider>("", mock_transport);
   TENSORSTORE_CHECK_OK_AND_ASSIGN(auto credentials, provider->GetCredentials());
+  ASSERT_EQ(provider->GetEndpoint(), custom_endpoint);
+  ASSERT_EQ(credentials.access_key, access_key);
+  ASSERT_EQ(credentials.secret_key, secret_key);
+  ASSERT_EQ(credentials.session_token, session_token);
+  // expiry less the 60s leeway
+  ASSERT_EQ(credentials.expires_at, expiry - absl::Seconds(60));
+}
+
+TEST_F(EC2MetadataCredentialProviderTest, InjectedMetadataServer) {
+  auto expiry = absl::Now() + absl::Seconds(200);
+  auto url_to_response =
+      DefaultEC2MetadataFlow(custom_endpoint, api_token, access_key, secret_key,
+                             session_token, expiry);
+
+  auto mock_transport =
+      std::make_shared<EC2MetadataMockTransport>(url_to_response);
+  auto provider =
+      std::make_shared<EC2MetadataCredentialProvider>(custom_endpoint, mock_transport);
+  TENSORSTORE_CHECK_OK_AND_ASSIGN(auto credentials, provider->GetCredentials());
+  ASSERT_EQ(provider->GetEndpoint(), custom_endpoint);
   ASSERT_EQ(credentials.access_key, access_key);
   ASSERT_EQ(credentials.secret_key, secret_key);
   ASSERT_EQ(credentials.session_token, session_token);
@@ -104,8 +126,9 @@ TEST_F(EC2MetadataCredentialProviderTest, NoIamRolesInSecurityCredentials) {
   auto mock_transport =
       std::make_shared<EC2MetadataMockTransport>(url_to_response);
   auto provider =
-      std::make_shared<EC2MetadataCredentialProvider>(endpoint, mock_transport);
+      std::make_shared<EC2MetadataCredentialProvider>("", mock_transport);
   ASSERT_FALSE(provider->GetCredentials());
+  ASSERT_EQ(provider->GetEndpoint(), default_endpoint);
   EXPECT_THAT(provider->GetCredentials().status().ToString(),
               ::testing::HasSubstr("Empty EC2 Role list"));
 }
@@ -133,7 +156,7 @@ TEST_F(EC2MetadataCredentialProviderTest, UnsuccessfulJsonResponse) {
   auto mock_transport =
       std::make_shared<EC2MetadataMockTransport>(url_to_response);
   auto provider =
-      std::make_shared<EC2MetadataCredentialProvider>(endpoint, mock_transport);
+      std::make_shared<EC2MetadataCredentialProvider>("", mock_transport);
   auto credentials = provider->GetCredentials();
 
   EXPECT_THAT(credentials.status(), MatchesStatus(absl::StatusCode::kNotFound));
