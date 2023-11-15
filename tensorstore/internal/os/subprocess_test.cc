@@ -50,7 +50,6 @@ TEST(SubprocessTest, Join) {
   SubprocessOptions opts;
   opts.executable = *program_name;
   opts.args = {kSubprocessArg};
-
   auto child = SpawnSubprocess(opts);
   TENSORSTORE_ASSERT_OK(child.status());
 
@@ -101,8 +100,8 @@ TEST(SubprocessTest, Redirects) {
   SubprocessOptions opts;
   opts.executable = *program_name;
   opts.args = {kSubprocessArg};
-  opts.env = absl::flat_hash_map<std::string, std::string>(
-      {{"SUBPROCESS_TEST_ENV", "1"}});
+  opts.env.emplace(::tensorstore::internal::GetEnvironmentMap());
+  opts.env->insert_or_assign("SUBPROCESS_TEST_ENV", "1");
   opts.stdout_action = SubprocessOptions::Redirect{out_file};
   opts.stderr_action = SubprocessOptions::Redirect{out_file};
 
@@ -137,8 +136,11 @@ TEST(SubprocessTest, Env) {
   SubprocessOptions opts;
   opts.executable = *program_name;
   opts.args = {"--env=SUBPROCESS_TEST_ENV"};
-  opts.env = absl::flat_hash_map<std::string, std::string>(
-      {{"SUBPROCESS_TEST_ENV", "1"}});
+  opts.env = absl::flat_hash_map<std::string, std::string>({
+#ifdef _WIN32
+      {"PATH", ::tensorstore::internal::GetEnv("PATH").value_or("")},
+#endif
+      {"SUBPROCESS_TEST_ENV", "1"}});
 
   auto child = SpawnSubprocess(opts);
   ASSERT_TRUE(child.ok());
