@@ -17,21 +17,22 @@
 #include <gtest/gtest.h>
 
 #include <fstream>
+#include <memory>
+#include <new>
 #include <string>
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/strings/cord.h"
 #include "absl/time/time.h"
+#include "tensorstore/internal/env.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/test_util.h"
 #include "tensorstore/kvstore/s3/credentials/test_utils.h"
-#include "tensorstore/util/future.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
 
-using ::tensorstore::Future;
 using ::tensorstore::internal::JoinPath;
 using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_kvstore_s3::DefaultAwsCredentialsProvider;
@@ -39,6 +40,8 @@ using ::tensorstore::internal_kvstore_s3::DefaultEC2MetadataFlow;
 using ::tensorstore::internal_kvstore_s3::EC2MetadataMockTransport;
 using Options =
     ::tensorstore::internal_kvstore_s3::DefaultAwsCredentialsProvider::Options;
+using ::tensorstore::internal::SetEnv;
+using ::tensorstore::internal::UnsetEnv;
 
 static constexpr char endpoint[] = "http://endpoint";
 
@@ -59,9 +62,64 @@ class CredentialFileFactory
   }
 };
 
+class DefaultCredentialProviderTest : public ::testing::Test {
+  protected:
+    void SetUp() override {
+      UnsetEnv("AWS_ACCESS_KEY_ID");
+      UnsetEnv("AWS_SECRET_KEY_ID");
+      UnsetEnv("AWS_SESSION_TOKEN");
+    }
+};
+
+TEST_F(DefaultCredentialProviderTest, AnonymousCredentials) {
+  /// Force failure on credential retrieval
+  auto url_to_response = absl::flat_hash_map<std::string, HttpResponse>{
+      {"POST http://endpoint/latest/api/token",
+       HttpResponse{404, absl::Cord{""}}},
+  };
+
+  auto mock_transport = std::make_shared<EC2MetadataMockTransport>(url_to_response);
+  auto provider = std::make_unique<DefaultAwsCredentialsProvider>(
+      Options{{}, {}, {}, mock_transport});
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials, provider->GetCredentials());
+  EXPECT_TRUE(credentials.IsAnonymous());
+  EXPECT_EQ(credentials.expires_at, absl::InfiniteFuture());
+
+  // Idempotent
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials2, provider->GetCredentials());
+  EXPECT_TRUE(credentials2.IsAnonymous());
+  EXPECT_EQ(credentials2.expires_at, absl::InfiniteFuture());
+
+}
+
+
+TEST_F(DefaultCredentialProviderTest, EnvironmentCredentialIdempotency) {
+  SetEnv("AWS_ACCESS_KEY_ID", "access");
+  SetEnv("AWS_SECRET_ACCESS_KEY", "secret");
+  SetEnv("AWS_SESSION_TOKEN", "token");
+
+  auto provider = std::make_unique<DefaultAwsCredentialsProvider>();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials,
+                                   provider->GetCredentials());
+  EXPECT_EQ(credentials.access_key, "access");
+  EXPECT_EQ(credentials.secret_key, "secret");
+  EXPECT_EQ(credentials.session_token, "token");
+  EXPECT_EQ(credentials.expires_at, absl::InfiniteFuture());
+
+  // Expect idempotency as environment credentials never expire
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials2,
+                                   provider->GetCredentials());
+  EXPECT_EQ(credentials.access_key, credentials2.access_key);
+  EXPECT_EQ(credentials.secret_key, credentials2.secret_key);
+  EXPECT_EQ(credentials.session_token, credentials2.session_token);
+  EXPECT_EQ(credentials.expires_at, credentials2.expires_at);
+}
+
+
 /// Test configuration of FileCredentialProvider from
 /// DefaultAwsCredentialsProvider::Options
-TEST(DefaultCredentialProviderTest, ConfigureFileProviderFromOptions) {
+TEST_F(DefaultCredentialProviderTest, ConfigureFileProviderFromOptions) {
   auto factory = CredentialFileFactory{};
   auto credentials_file = factory.WriteCredentialsFile();
 
@@ -72,11 +130,21 @@ TEST(DefaultCredentialProviderTest, ConfigureFileProviderFromOptions) {
   EXPECT_EQ(credentials.access_key, "AKIAIOSFODNN6EXAMPLE");
   EXPECT_EQ(credentials.secret_key, "wJalrXUtnFEMI/K7MDENG/bPxRfiCZEXAMPLEKEY");
   EXPECT_EQ(credentials.session_token, "abcdef1234567890");
+  EXPECT_EQ(credentials.expires_at, absl::InfiniteFuture());
+
+  // Expect idempotency as file credentials never expire
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials2,
+                                   provider->GetCredentials());
+  EXPECT_EQ(credentials.access_key, credentials2.access_key);
+  EXPECT_EQ(credentials.secret_key, credentials2.secret_key);
+  EXPECT_EQ(credentials.session_token, credentials2.session_token);
+  EXPECT_EQ(credentials.expires_at, credentials2.expires_at);
+
 }
 
 /// Test configuration of EC2MetaDataProvider from
 /// DefaultAwsCredentialsProvider::Options
-TEST(DefaultCredentialProviderTest, ConfigureEC2ProviderFromOptions) {
+TEST_F(DefaultCredentialProviderTest, ConfigureEC2ProviderFromOptions) {
   auto now = absl::Now();
   auto stuck_clock = [&]() -> absl::Time { return now; };
   auto expiry = now + absl::Seconds(200);
@@ -93,7 +161,7 @@ TEST(DefaultCredentialProviderTest, ConfigureEC2ProviderFromOptions) {
   EXPECT_EQ(credentials.access_key, "ASIA1234567890");
   EXPECT_EQ(credentials.secret_key, "1234567890abcdef");
   EXPECT_EQ(credentials.session_token, "token");
-  ASSERT_EQ(credentials.expires_at, expiry - absl::Seconds(60));
+  EXPECT_EQ(credentials.expires_at, expiry - absl::Seconds(60));
 
   /// Force failure on credential retrieval
   url_to_response = absl::flat_hash_map<std::string, HttpResponse>{
@@ -106,7 +174,7 @@ TEST(DefaultCredentialProviderTest, ConfigureEC2ProviderFromOptions) {
   EXPECT_EQ(credentials.access_key, "ASIA1234567890");
   EXPECT_EQ(credentials.secret_key, "1234567890abcdef");
   EXPECT_EQ(credentials.session_token, "token");
-  ASSERT_EQ(credentials.expires_at, expiry - absl::Seconds(60));
+  EXPECT_EQ(credentials.expires_at, expiry - absl::Seconds(60));
 
   // Force expiry and retrieve new credentials
   now += absl::Seconds(300);
@@ -118,7 +186,7 @@ TEST(DefaultCredentialProviderTest, ConfigureEC2ProviderFromOptions) {
   EXPECT_EQ(credentials.access_key, "ASIA1234567890");
   EXPECT_EQ(credentials.secret_key, "1234567890abcdef");
   EXPECT_EQ(credentials.session_token, "TOKEN");
-  ASSERT_EQ(credentials.expires_at, expiry - absl::Seconds(60));
+  EXPECT_EQ(credentials.expires_at, expiry - absl::Seconds(60));
 
   /// Force failure on credential retrieval
   url_to_response = absl::flat_hash_map<std::string, HttpResponse>{
@@ -131,7 +199,7 @@ TEST(DefaultCredentialProviderTest, ConfigureEC2ProviderFromOptions) {
   EXPECT_EQ(credentials.access_key, "");
   EXPECT_EQ(credentials.secret_key, "");
   EXPECT_EQ(credentials.session_token, "");
-  ASSERT_EQ(credentials.expires_at, absl::InfiniteFuture());
+  EXPECT_EQ(credentials.expires_at, absl::InfiniteFuture());
 }
 
 }  // namespace
