@@ -14,9 +14,9 @@
 
 #include "tensorstore/kvstore/s3/credentials/environment_credential_provider.h"
 
-#include <string>
-
 #include <gtest/gtest.h>
+
+#include <string>
 
 #include "tensorstore/internal/env.h"
 #include "tensorstore/util/result.h"

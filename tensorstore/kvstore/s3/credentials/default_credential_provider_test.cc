@@ -34,14 +34,14 @@
 namespace {
 
 using ::tensorstore::internal::JoinPath;
+using ::tensorstore::internal::SetEnv;
+using ::tensorstore::internal::UnsetEnv;
 using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_kvstore_s3::DefaultAwsCredentialsProvider;
 using ::tensorstore::internal_kvstore_s3::DefaultEC2MetadataFlow;
 using ::tensorstore::internal_kvstore_s3::EC2MetadataMockTransport;
 using Options =
     ::tensorstore::internal_kvstore_s3::DefaultAwsCredentialsProvider::Options;
-using ::tensorstore::internal::SetEnv;
-using ::tensorstore::internal::UnsetEnv;
 
 static constexpr char endpoint[] = "http://endpoint";
 
@@ -63,30 +63,32 @@ class CredentialFileFactory
 };
 
 class DefaultCredentialProviderTest : public ::testing::Test {
-  protected:
-    void SetUp() override {
-      UnsetEnv("AWS_ACCESS_KEY_ID");
-      UnsetEnv("AWS_SECRET_KEY_ID");
-      UnsetEnv("AWS_SESSION_TOKEN");
-    }
+ protected:
+  void SetUp() override {
+    UnsetEnv("AWS_ACCESS_KEY_ID");
+    UnsetEnv("AWS_SECRET_KEY_ID");
+    UnsetEnv("AWS_SESSION_TOKEN");
+  }
 };
 
 TEST_F(DefaultCredentialProviderTest, AnonymousCredentials) {
   auto url_to_response = absl::flat_hash_map<std::string, HttpResponse>();
-  auto mock_transport = std::make_shared<EC2MetadataMockTransport>(url_to_response);
+  auto mock_transport =
+      std::make_shared<EC2MetadataMockTransport>(url_to_response);
   auto provider = std::make_unique<DefaultAwsCredentialsProvider>(
       Options{{}, {}, {}, mock_transport});
 
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials, provider->GetCredentials());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials,
+                                   provider->GetCredentials());
   EXPECT_TRUE(credentials.IsAnonymous());
   EXPECT_EQ(credentials.expires_at, absl::InfiniteFuture());
 
   // Idempotent
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials2, provider->GetCredentials());
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto credentials2,
+                                   provider->GetCredentials());
   EXPECT_TRUE(credentials2.IsAnonymous());
   EXPECT_EQ(credentials2.expires_at, absl::InfiniteFuture());
 }
-
 
 TEST_F(DefaultCredentialProviderTest, EnvironmentCredentialIdempotency) {
   SetEnv("AWS_ACCESS_KEY_ID", "access");
@@ -110,7 +112,6 @@ TEST_F(DefaultCredentialProviderTest, EnvironmentCredentialIdempotency) {
   EXPECT_EQ(credentials.expires_at, credentials2.expires_at);
 }
 
-
 /// Test configuration of FileCredentialProvider from
 /// DefaultAwsCredentialsProvider::Options
 TEST_F(DefaultCredentialProviderTest, ConfigureFileProviderFromOptions) {
@@ -133,7 +134,6 @@ TEST_F(DefaultCredentialProviderTest, ConfigureFileProviderFromOptions) {
   EXPECT_EQ(credentials.secret_key, credentials2.secret_key);
   EXPECT_EQ(credentials.session_token, credentials2.session_token);
   EXPECT_EQ(credentials.expires_at, credentials2.expires_at);
-
 }
 
 /// Test configuration of EC2MetaDataProvider from
