@@ -14,6 +14,7 @@
 
 #include "tensorstore/kvstore/gcs/gcs_testbench.h"
 
+#include <memory>
 #include <optional>
 #include <string>
 
@@ -37,7 +38,6 @@
 #include "tensorstore/proto/parse_text_proto_or_die.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 
 // protos
 #include "google/storage/v2/storage.grpc.pb.h"
@@ -48,6 +48,7 @@ ABSL_FLAG(std::string, testbench_binary, "",
 
 namespace gcs_testbench {
 
+using ::google::storage::v2::Storage;
 using ::tensorstore::internal::GrpcStatusToAbslStatus;
 using ::tensorstore::internal::SpawnSubprocess;
 using ::tensorstore::internal::Subprocess;
@@ -55,7 +56,6 @@ using ::tensorstore::internal::SubprocessOptions;
 using ::tensorstore::internal_http::GetDefaultHttpTransport;
 using ::tensorstore::internal_http::HttpRequestBuilder;
 using ::tensorstore::transport_test_utils::TryPickUnusedPort;
-using ::google::storage::v2::Storage;
 
 StorageTestbench::StorageTestbench() = default;
 
@@ -140,15 +140,9 @@ StorageTestbench::~StorageTestbench() {
   }
 }
 
-void StorageTestbench::CreateBucket(std::string bucket) {
-  ABSL_CHECK(running);
-
-  std::shared_ptr<grpc::Channel> channel = grpc::CreateChannel(
-      grpc_address(), grpc::InsecureChannelCredentials());  // NOLINT
-
-  auto stub = Storage::NewStub(channel);
-
-  grpc::ClientContext client_context;
+/* static */
+absl::Status StorageTestbench::CreateBucket(std::string grpc_endpoint,
+                                            std::string bucket) {
   google::storage::v2::CreateBucketRequest bucket_request =
       tensorstore::ParseTextProtoOrDie(R"pb(
         parent: 'projects/12345'
@@ -158,11 +152,17 @@ void StorageTestbench::CreateBucket(std::string bucket) {
         predefined_default_object_acl: 'publicReadWrite'
       )pb");
   bucket_request.set_bucket_id(bucket);
-
   google::storage::v2::Bucket bucket_response;
+
+  std::shared_ptr<grpc::Channel> channel = grpc::CreateChannel(
+      grpc_endpoint, grpc::InsecureChannelCredentials());  // NOLINT
+
+  auto stub = Storage::NewStub(channel);
+
+  grpc::ClientContext client_context;
   grpc::Status status =
       stub->CreateBucket(&client_context, bucket_request, &bucket_response);
-  ABSL_LOG(INFO) << GrpcStatusToAbslStatus(status);
+  return GrpcStatusToAbslStatus(status);
 }
 
 }  // namespace gcs_testbench
