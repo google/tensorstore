@@ -72,7 +72,6 @@ tensorstore_cc_library(
         "//tensorstore/proto:parse_text_proto_or_die",
         "//tensorstore/util:future",
         "//tensorstore/util:result",
-        "//tensorstore/util:status",
         "@com_github_grpc_grpc//:grpc++",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/log:absl_check",

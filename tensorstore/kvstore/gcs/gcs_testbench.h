@@ -18,6 +18,7 @@
 #include <optional>
 #include <string>
 
+#include "absl/status/status.h"
 #include "tensorstore/internal/os/subprocess.h"
 
 namespace gcs_testbench {
@@ -32,7 +33,8 @@ class StorageTestbench {
   void SpawnProcess();
 
   // Issues a gRPC CreateBucket request against the testbench.
-  void CreateBucket(std::string bucket);
+  static absl::Status CreateBucket(std::string grpc_endpoint,
+                                   std::string bucket);
 
   std::string http_address();
   std::string grpc_address();

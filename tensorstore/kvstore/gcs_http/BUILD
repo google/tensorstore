@@ -237,6 +237,8 @@ tensorstore_cc_test(
         "//tensorstore/util:future",
         "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
+        "@com_google_absl//absl/base",
+        "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
