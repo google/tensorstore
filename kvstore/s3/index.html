@@ -948,6 +948,20 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#json-Context.aws_credentials.filename" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="Context.aws_credentials.filename (JSON member)" class="md-ellipsis">filename</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-Context.aws_credentials.metadata_endpoint" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="Context.aws_credentials.metadata_endpoint (JSON member)" class="md-ellipsis">metadata_<wbr>endpoint</span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1414,6 +1428,20 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#json-Context.aws_credentials.filename" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="Context.aws_credentials.filename (JSON member)" class="md-ellipsis">filename</span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-Context.aws_credentials.metadata_endpoint" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="Context.aws_credentials.metadata_endpoint (JSON member)" class="md-ellipsis">metadata_<wbr>endpoint</span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1735,6 +1763,20 @@ where this setting is useful depend on details to the storage buckets.</p>
 Overrides the <span class="target" id="index-1"></span><a class="reference internal" href="#envvar-AWS_PROFILE" title="AWS_PROFILE (environment variable) — Specifies the name of the AWS CLI profile with the credentials and options to use. This can be the name of a profile stored in a credentials or config file, or the value default to use the default profile."><code class="xref std std-envvar docutils literal notranslate"><span class="pre">AWS_PROFILE</span></code></a> environment variables.</p>
 </dd></dl>
 
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-Context.aws_credentials.filename">
+<span class="sig-name descname"><span class="pre">filename</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><a class="headerlink" href="#json-Context.aws_credentials.filename" title="Permalink to this definition">¶</a></dt>
+<dd><p>The filename containing credentials.
+Overrides the <span class="target" id="index-2"></span><a class="reference internal" href="#envvar-AWS_SHARED_CREDENTIALS_FILE" title="AWS_SHARED_CREDENTIALS_FILE (environment variable) — Specifies the location of the file that the AWS CLI uses to store access keys. The default path is ~/.aws/credentials. See &lt;https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html&gt;"><code class="xref std std-envvar docutils literal notranslate"><span class="pre">AWS_SHARED_CREDENTIALS_FILE</span></code></a> environment variable.</p>
+</dd></dl>
+
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-Context.aws_credentials.metadata_endpoint">
+<span class="sig-name descname"><span class="pre">metadata_endpoint</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">string</span></span><a class="headerlink" href="#json-Context.aws_credentials.metadata_endpoint" title="Permalink to this definition">¶</a></dt>
+<dd><p>The endpoint of the metadata server.
+Overrides the <span class="target" id="index-3"></span><a class="reference internal" href="#envvar-AWS_EC2_METADATA_SERVICE_ENDPOINT" title="AWS_EC2_METADATA_SERVICE_ENDPOINT (environment variable) — Overrides the default EC2 Instance Metadata Service (IMDS) endpoint of http://169.254.169.254. This must be a valid uri, and should respond to the AWS IMDS api endpoints. See &lt;https://docs.aws.amazon.com/sdkref/latest/guide/feature-imds-credentials.html&gt;"><code class="xref std std-envvar docutils literal notranslate"><span class="pre">AWS_EC2_METADATA_SERVICE_ENDPOINT</span></code></a> environment variable.</p>
+</dd></dl>
+
 </dd>
 </dl>
 </dd></dl>
@@ -1787,14 +1829,14 @@ Overrides the <span class="target" id="index-1"></span><a class="reference inter
 without credentials.  Otherwise amazon credentials are required:</p>
 <ol class="arabic simple">
 <li><p>Credentials may be obtained from the environment. Set the
-<span class="target" id="index-2"></span><a class="reference internal" href="#envvar-AWS_ACCESS_KEY_ID" title="AWS_ACCESS_KEY_ID (environment variable) — Specifies an AWS access key associated with an IAM account. See &lt;https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html&gt;"><code class="xref std std-envvar docutils literal notranslate"><span class="pre">AWS_ACCESS_KEY_ID</span></code></a> environment variable, optionally along with
-the <span class="target" id="index-3"></span><a class="reference internal" href="#envvar-AWS_SECRET_ACCESS_KEY" title="AWS_SECRET_ACCESS_KEY (environment variable) — Specifies the secret key associated with the access key. This is essentially the &quot;password&quot; for the access key. See &lt;https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html&gt;"><code class="xref std std-envvar docutils literal notranslate"><span class="pre">AWS_SECRET_ACCESS_KEY</span></code></a> environment variable and the
-<span class="target" id="index-4"></span><a class="reference internal" href="#envvar-AWS_SESSION_TOKEN" title="AWS_SESSION_TOKEN (environment variable) — Specifies the session token value that is required if you are using temporary security credentials that you retrieved directly from AWS STS operations. See &lt;https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html&gt;"><code class="xref std std-envvar docutils literal notranslate"><span class="pre">AWS_SESSION_TOKEN</span></code></a> environment variable as they would be
+<span class="target" id="index-4"></span><a class="reference internal" href="#envvar-AWS_ACCESS_KEY_ID" title="AWS_ACCESS_KEY_ID (environment variable) — Specifies an AWS access key associated with an IAM account. See &lt;https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html&gt;"><code class="xref std std-envvar docutils literal notranslate"><span class="pre">AWS_ACCESS_KEY_ID</span></code></a> environment variable, optionally along with
+the <span class="target" id="index-5"></span><a class="reference internal" href="#envvar-AWS_SECRET_ACCESS_KEY" title="AWS_SECRET_ACCESS_KEY (environment variable) — Specifies the secret key associated with the access key. This is essentially the &quot;password&quot; for the access key. See &lt;https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html&gt;"><code class="xref std std-envvar docutils literal notranslate"><span class="pre">AWS_SECRET_ACCESS_KEY</span></code></a> environment variable and the
+<span class="target" id="index-6"></span><a class="reference internal" href="#envvar-AWS_SESSION_TOKEN" title="AWS_SESSION_TOKEN (environment variable) — Specifies the session token value that is required if you are using temporary security credentials that you retrieved directly from AWS STS operations. See &lt;https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html&gt;"><code class="xref std std-envvar docutils literal notranslate"><span class="pre">AWS_SESSION_TOKEN</span></code></a> environment variable as they would be
 used by the <a class="reference external" href="https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html">aws cli</a>.</p></li>
 <li><p>Credentials may be obtained from the default user credentials file, when
 found at <code class="file docutils literal notranslate"><span class="pre">~/.aws/credentials</span></code>, or the file specified by the
-environment variable <span class="target" id="index-5"></span><a class="reference internal" href="#envvar-AWS_SHARED_CREDENTIALS_FILE" title="AWS_SHARED_CREDENTIALS_FILE (environment variable) — Specifies the location of the file that the AWS CLI uses to store access keys. The default path is ~/.aws/credentials. See &lt;https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html&gt;"><code class="xref std std-envvar docutils literal notranslate"><span class="pre">AWS_SHARED_CREDENTIALS_FILE</span></code></a>, along with
-a profile from the schema, or as indicated by the <span class="target" id="index-6"></span><a class="reference internal" href="#envvar-AWS_PROFILE" title="AWS_PROFILE (environment variable) — Specifies the name of the AWS CLI profile with the credentials and options to use. This can be the name of a profile stored in a credentials or config file, or the value default to use the default profile."><code class="xref std std-envvar docutils literal notranslate"><span class="pre">AWS_PROFILE</span></code></a>
+environment variable <span class="target" id="index-7"></span><a class="reference internal" href="#envvar-AWS_SHARED_CREDENTIALS_FILE" title="AWS_SHARED_CREDENTIALS_FILE (environment variable) — Specifies the location of the file that the AWS CLI uses to store access keys. The default path is ~/.aws/credentials. See &lt;https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html&gt;"><code class="xref std std-envvar docutils literal notranslate"><span class="pre">AWS_SHARED_CREDENTIALS_FILE</span></code></a>, along with
+a profile from the schema, or as indicated by the <span class="target" id="index-8"></span><a class="reference internal" href="#envvar-AWS_PROFILE" title="AWS_PROFILE (environment variable) — Specifies the name of the AWS CLI profile with the credentials and options to use. This can be the name of a profile stored in a credentials or config file, or the value default to use the default profile."><code class="xref std std-envvar docutils literal notranslate"><span class="pre">AWS_PROFILE</span></code></a>
 environment variables.</p></li>
 <li><p>Credentials may be retrieved from the EC2 Instance Metadata Service (IMDS)
 when it is available.</p></li>
