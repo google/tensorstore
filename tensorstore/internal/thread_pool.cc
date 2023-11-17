@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <algorithm>
 #include <cassert>
 #include <queue>
@@ -74,7 +77,7 @@ struct InFlightTask {
 class ManagedTaskQueue : public AtomicReferenceCount<ManagedTaskQueue> {
  public:
   explicit ManagedTaskQueue(IntrusivePtr<SharedThreadPool> pool,
-                            std::size_t thread_limit);
+                            size_t thread_limit);
 
   /// Enqueues a task.  Never blocks.
   ///
@@ -89,9 +92,9 @@ class ManagedTaskQueue : public AtomicReferenceCount<ManagedTaskQueue> {
 
  private:
   const IntrusivePtr<SharedThreadPool> pool_;
-  const std::size_t thread_limit_;
+  const size_t thread_limit_;
   absl::Mutex mutex_;
-  std::size_t num_threads_in_use_ ABSL_GUARDED_BY(mutex_);
+  size_t num_threads_in_use_ ABSL_GUARDED_BY(mutex_);
   std::queue<InFlightTask> queue_ ABSL_GUARDED_BY(mutex_);
 };
 
@@ -135,7 +138,7 @@ class SharedThreadPool : public AtomicReferenceCount<SharedThreadPool> {
   /// Signaled when `queue_blocked()` changes from `false` to `true`.
   absl::CondVar overseer_condvar_;
   std::queue<InFlightTask> queue_ ABSL_GUARDED_BY(mutex_);
-  std::size_t idle_threads_ ABSL_GUARDED_BY(mutex_);
+  size_t idle_threads_ ABSL_GUARDED_BY(mutex_);
   bool has_overseer_thread_ ABSL_GUARDED_BY(mutex_) = false;
   absl::Time last_thread_start_time_ ABSL_GUARDED_BY(mutex_) =
       absl::InfinitePast();
@@ -245,7 +248,7 @@ void SharedThreadPool::StartOverseerThread() {
 }
 
 ManagedTaskQueue::ManagedTaskQueue(IntrusivePtr<SharedThreadPool> pool,
-                                   std::size_t thread_limit)
+                                   size_t thread_limit)
     : pool_(std::move(pool)),
       thread_limit_(thread_limit),
       num_threads_in_use_(0) {}
@@ -280,7 +283,7 @@ void ManagedTaskQueue::TaskDone() {
 
 }  // namespace
 
-Executor DetachedThreadPool(std::size_t num_threads) {
+Executor DetachedThreadPool(size_t num_threads) {
   ABSL_CHECK_GT(num_threads, 0);
   static internal::NoDestructor<SharedThreadPool> pool_;
   intrusive_ptr_increment(pool_.get());

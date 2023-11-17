@@ -15,6 +15,10 @@
 #ifndef TENSORSTORE_INTERNAL_THREAD_POOL_H_
 #define TENSORSTORE_INTERNAL_THREAD_POOL_H_
 
+#include <stddef.h>
+
+#include <limits>
+
 #include "tensorstore/util/executor.h"
 
 namespace tensorstore {
