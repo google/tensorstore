@@ -26,7 +26,7 @@
 #include "absl/time/time.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/kvstore/byte_range.h"
-#include "tensorstore/kvstore/s3/aws_credential_provider.h"
+#include "tensorstore/kvstore/s3/credentials/aws_credentials.h"
 #include "tensorstore/kvstore/s3/s3_uri_utils.h"
 
 namespace tensorstore {

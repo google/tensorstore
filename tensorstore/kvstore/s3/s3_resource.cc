@@ -14,7 +14,8 @@
 
 #include "tensorstore/kvstore/s3/s3_resource.h"
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <memory>
 #include <optional>
 #include <string>

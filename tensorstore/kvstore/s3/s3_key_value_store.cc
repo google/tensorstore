@@ -53,7 +53,6 @@
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/byte_range.h"
-#include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/gcs/validate.h"
 #include "tensorstore/kvstore/gcs_http/rate_limiter.h"
 #include "tensorstore/kvstore/generation.h"
@@ -61,7 +60,8 @@
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/registry.h"
-#include "tensorstore/kvstore/s3/aws_credential_provider.h"
+#include "tensorstore/kvstore/s3/credentials/aws_credentials.h"
+#include "tensorstore/kvstore/s3/credentials/default_credential_provider.h"
 #include "tensorstore/kvstore/s3/s3_endpoint.h"
 #include "tensorstore/kvstore/s3/s3_metadata.h"
 #include "tensorstore/kvstore/s3/s3_request_builder.h"
@@ -207,8 +207,11 @@ struct AwsCredentialsResource
 
   struct Spec {
     std::string profile;
+    std::string filename;
+    std::string metadata_endpoint;
+
     constexpr static auto ApplyMembers = [](auto&& x, auto f) {
-      return f(x.profile);
+      return f(x.profile, x.filename, x.metadata_endpoint);
     };
   };
 
@@ -222,16 +225,18 @@ struct AwsCredentialsResource
   static Spec Default() { return Spec{}; }
 
   static constexpr auto JsonBinder() {
-    return jb::Object(
-        jb::Member("profile", jb::Projection<&Spec::profile>()) /**/
-    );
+    return jb::Object(jb::Member("profile", jb::Projection<&Spec::profile>()),
+                      jb::Member("filename", jb::Projection<&Spec::filename>()),
+                      jb::Member("metadata_endpoint",
+                                 jb::Projection<&Spec::metadata_endpoint>()));
   }
 
   Result<Resource> Create(
       const Spec& spec,
       internal::ContextResourceCreationContext context) const {
     auto result = GetAwsCredentialProvider(
-        spec.profile, internal_http::GetDefaultHttpTransport());
+        spec.profile, spec.filename, spec.metadata_endpoint,
+        internal_http::GetDefaultHttpTransport());
     if (!result.ok() && absl::IsNotFound(result.status())) {
       return Resource{spec, nullptr};
     }

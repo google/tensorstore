@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <memory>
 #include <optional>
 #include <string>
-#include <string_view>
-#include <type_traits>
 #include <utility>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/container/flat_hash_map.h"
 #include "absl/flags/flag.h"
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
@@ -39,8 +39,9 @@
 #include "tensorstore/internal/os/subprocess.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/kvstore.h"
-#include "tensorstore/kvstore/s3/aws_credential_provider.h"
+#include "tensorstore/kvstore/s3/credentials/aws_credentials.h"
 #include "tensorstore/kvstore/s3/s3_request_builder.h"
+#include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
