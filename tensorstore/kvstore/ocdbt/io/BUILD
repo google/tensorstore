@@ -15,8 +15,8 @@ cc_library(
         "//tensorstore:transaction",
         "//tensorstore/internal:flat_cord_builder",
         "//tensorstore/internal:intrusive_ptr",
-        "//tensorstore/internal:schedule_at",
         "//tensorstore/internal/log:verbose_flag",
+        "//tensorstore/internal/thread:schedule_at",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:byte_range",
         "//tensorstore/kvstore:generation",
@@ -44,7 +44,7 @@ tensorstore_cc_test(
     srcs = ["coalesce_kvstore_test.cc"],
     deps = [
         ":coalesce_kvstore",
-        "//tensorstore/internal:thread_pool",
+        "//tensorstore/internal/thread:thread_pool",
         "//tensorstore/kvstore",
         "//tensorstore/kvstore:mock_kvstore",
         "//tensorstore/kvstore:test_util",

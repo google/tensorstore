@@ -12,8 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/schedule_at.h"
+#include "tensorstore/internal/thread/schedule_at.h"
 
+#include <stdint.h>
+
+#include <algorithm>
+#include <atomic>
+#include <iterator>
+#include <memory>
 #include <utility>
 
 #include "absl/base/optimization.h"
@@ -22,13 +28,14 @@
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "tensorstore/internal/attributes.h"
 #include "tensorstore/internal/intrusive_red_black_tree.h"
 #include "tensorstore/internal/metrics/gauge.h"
 #include "tensorstore/internal/metrics/histogram.h"
 #include "tensorstore/internal/metrics/value.h"
 #include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/internal/tagged_ptr.h"
-#include "tensorstore/internal/thread.h"
+#include "tensorstore/internal/thread/thread.h"
 #include "tensorstore/internal/tracing/tracing.h"
 #include "tensorstore/util/stop_token.h"
 
@@ -39,16 +46,16 @@ namespace {
 using ScheduleAtTask = absl::AnyInvocable<void() &&>;
 
 auto& schedule_at_queued_ops = internal_metrics::Gauge<int64_t>::New(
-    "/tensorstore/internal/schedule_at/queued_ops",
+    "/tensorstore/internal/thread/schedule_at/queued_ops",
     "Operations in flight on the schedule_at thread");
 
 auto& schedule_at_next_event = internal_metrics::Value<absl::Time>::New(
-    "/tensorstore/internal/schedule_at/next_event",
+    "/tensorstore/internal/thread/schedule_at/next_event",
     "Time of the next in-flight schedule_at operation");
 
 auto& schedule_at_insert_histogram_ms =
     internal_metrics::Histogram<internal_metrics::DefaultBucketer>::New(
-        "/tensorstore/internal/schedule_at/insert_histogram_ms",
+        "/tensorstore/internal/thread/schedule_at/insert_histogram_ms",
         "Histogram of schedule_at insert delays (ms)");
 
 class DeadlineTaskQueue;

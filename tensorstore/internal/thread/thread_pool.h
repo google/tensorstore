@@ -1,4 +1,4 @@
-// Copyright 2022 The TensorStore Authors
+// Copyright 2020 The TensorStore Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,24 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_SCHEDULE_AT_H_
-#define TENSORSTORE_INTERNAL_SCHEDULE_AT_H_
+#ifndef TENSORSTORE_INTERNAL_THREAD_THREAD_POOL_H_
+#define TENSORSTORE_INTERNAL_THREAD_THREAD_POOL_H_
 
-#include "absl/functional/any_invocable.h"
-#include "absl/time/time.h"
-#include "tensorstore/util/stop_token.h"
+#include <stddef.h>
+
+#include <limits>
+
+#include "tensorstore/util/executor.h"
 
 namespace tensorstore {
 namespace internal {
 
-/// Schedule an executor tast to run near a target time.
-/// Long-running tasks should use WithExecutor() to avoid blocking the thread.
+/// Returns a detached thread pool executor.
 ///
-/// \ingroup async
-void ScheduleAt(absl::Time target_time, absl::AnyInvocable<void() &&> task,
-                const StopToken& stop_token = {});
+/// The thread pool remains alive until the last copy of the returned executor
+/// is destroyed and all queued work has finished.
+///
+/// \param num_threads Number of threads to use.  By default, the number of
+///     threads is unbounded.
+Executor DetachedThreadPool(
+    size_t num_threads = std::numeric_limits<size_t>::max());
 
 }  // namespace internal
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_SCHEDULE_AT_H_
+#endif  //  TENSORSTORE_INTERNAL_THREAD_THREAD_POOL_H_

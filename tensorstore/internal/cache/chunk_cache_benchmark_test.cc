@@ -43,7 +43,7 @@
 #include "tensorstore/internal/cache/chunk_cache.h"
 #include "tensorstore/internal/element_copy_function.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/thread_pool.h"
+#include "tensorstore/internal/thread/thread_pool.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/progress.h"
 #include "tensorstore/rank.h"

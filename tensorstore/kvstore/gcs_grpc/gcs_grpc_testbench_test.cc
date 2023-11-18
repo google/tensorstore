@@ -26,7 +26,7 @@
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "tensorstore/internal/no_destructor.h"
-#include "tensorstore/internal/thread.h"
+#include "tensorstore/internal/thread/thread.h"
 #include "tensorstore/kvstore/gcs/gcs_testbench.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"

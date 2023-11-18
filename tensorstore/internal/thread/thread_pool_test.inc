@@ -12,23 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#ifndef THIRD_PARTY_TENSORSTORE_INTERNAL_THREAD_THREAD_POOL_TEST_INC_
+#define THIRD_PARTY_TENSORSTORE_INTERNAL_THREAD_THREAD_POOL_TEST_INC_
+
+#include <stddef.h>
+
 #include <atomic>
-#include <cstddef>
+#include <functional>
+#include <limits>
 #include <memory>
 #include <vector>
 
 #include <gtest/gtest.h>
 #include "absl/synchronization/notification.h"
 #include "absl/time/clock.h"
+#include "absl/time/time.h"
 #include "tensorstore/util/executor.h"
 
-namespace tensorstore {
-namespace internal {
-Executor DetachedThreadPool(std::size_t num_threads);
-}  // namespace internal
-}  // namespace tensorstore
-
 namespace {
+
 using ::tensorstore::Executor;
 using ::tensorstore::internal::DetachedThreadPool;
 
@@ -63,7 +65,7 @@ TEST(DetachedThreadPoolTest, Concurrent) {
 TEST(DetachedThreadPoolTest, ThreadLimit) {
   constexpr static size_t kThreadLimit = 3;
   auto executor = DetachedThreadPool(kThreadLimit);
-  std::atomic<std::size_t> num_running_tasks{0};
+  std::atomic<size_t> num_running_tasks{0};
   std::vector<absl::Notification> notifications(5);
   for (size_t i = 0; i < notifications.size(); ++i) {
     executor([&num_running_tasks, &notifications, i] {
@@ -116,3 +118,5 @@ TEST(DetachedThreadPoolTest, EnqueueFromTaskDestructor) {
 }
 
 }  // namespace
+
+#endif  // THIRD_PARTY_TENSORSTORE_INTERNAL_THREAD_THREAD_POOL_TEST_INC_

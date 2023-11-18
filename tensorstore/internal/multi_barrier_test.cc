@@ -17,7 +17,7 @@
 #include <type_traits>
 
 #include <gtest/gtest.h>
-#include "tensorstore/internal/thread.h"
+#include "tensorstore/internal/thread/thread.h"
 
 namespace internal = tensorstore::internal;
 

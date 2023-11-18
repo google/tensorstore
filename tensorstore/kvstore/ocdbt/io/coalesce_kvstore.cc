@@ -40,7 +40,7 @@
 #include "tensorstore/internal/flat_cord_builder.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/log/verbose_flag.h"
-#include "tensorstore/internal/schedule_at.h"
+#include "tensorstore/internal/thread/schedule_at.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"

@@ -55,7 +55,7 @@
 #include "tensorstore/internal/memory.h"
 #include "tensorstore/internal/meta.h"
 #include "tensorstore/internal/queue_testutil.h"
-#include "tensorstore/internal/thread_pool.h"
+#include "tensorstore/internal/thread/thread_pool.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/memory/memory_key_value_store.h"
 #include "tensorstore/kvstore/mock_kvstore.h"

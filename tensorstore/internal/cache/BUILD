@@ -1,5 +1,5 @@
-load("//bazel:tensorstore.bzl", "tensorstore_cc_binary", "tensorstore_cc_library", "tensorstore_cc_test")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+load("//bazel:tensorstore.bzl", "tensorstore_cc_binary", "tensorstore_cc_library", "tensorstore_cc_test")
 
 package(default_visibility = ["//tensorstore:internal_packages"])
 
@@ -360,7 +360,7 @@ tensorstore_cc_binary(
         "//tensorstore/index_space:transformed_array",
         "//tensorstore/internal:element_copy_function",
         "//tensorstore/internal:intrusive_ptr",
-        "//tensorstore/internal:thread_pool",
+        "//tensorstore/internal/thread:thread_pool",
         "//tensorstore/kvstore:generation",
         "//tensorstore/util:executor",
         "//tensorstore/util:future",
@@ -405,7 +405,7 @@ tensorstore_cc_test(
         "//tensorstore/internal:memory",
         "//tensorstore/internal:meta",
         "//tensorstore/internal:queue_testutil",
-        "//tensorstore/internal:thread_pool",
+        "//tensorstore/internal/thread:thread_pool",
         "//tensorstore/kvstore:generation",
         "//tensorstore/kvstore:mock_kvstore",
         "//tensorstore/kvstore:test_util",

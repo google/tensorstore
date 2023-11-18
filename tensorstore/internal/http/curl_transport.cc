@@ -50,7 +50,7 @@
 #include "tensorstore/internal/metrics/gauge.h"
 #include "tensorstore/internal/metrics/histogram.h"
 #include "tensorstore/internal/no_destructor.h"
-#include "tensorstore/internal/thread.h"
+#include "tensorstore/internal/thread/thread.h"
 #include "tensorstore/util/future.h"
 
 namespace tensorstore {

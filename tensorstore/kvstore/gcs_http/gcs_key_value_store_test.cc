@@ -43,7 +43,7 @@
 #include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/internal/oauth2/google_auth_provider.h"
 #include "tensorstore/internal/oauth2/google_auth_test_utils.h"
-#include "tensorstore/internal/schedule_at.h"
+#include "tensorstore/internal/thread/schedule_at.h"
 #include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/gcs_http/gcs_mock.h"

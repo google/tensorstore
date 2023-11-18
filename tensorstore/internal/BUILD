@@ -146,12 +146,12 @@ tensorstore_cc_library(
         "concurrency_resource_provider.h",
     ],
     deps = [
-        ":thread_pool",
         ":type_traits",
         "//tensorstore:context",
         "//tensorstore/internal/cache_key",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/json_binding:bindable",
+        "//tensorstore/internal/thread:thread_pool",
         "//tensorstore/util:executor",
         "//tensorstore/util:result",
         "@com_github_nlohmann_json//:nlohmann_json",
@@ -166,7 +166,7 @@ tensorstore_cc_library(
     hdrs = ["concurrent_testutil.h"],
     deps = [
         ":multi_barrier",
-        ":thread",
+        "//tensorstore/internal/thread",
         "@com_google_absl//absl/log:absl_check",
         "@com_google_absl//absl/log:absl_log",
     ],
@@ -1743,68 +1743,6 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
-    name = "thread",
-    srcs = ["thread.cc"],
-    hdrs = ["thread.h"],
-    deps = [
-        "@com_google_absl//absl/functional:any_invocable",
-        "@com_google_absl//absl/log:absl_check",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "thread_test",
-    srcs = ["thread_test.cc"],
-    deps = [
-        ":thread",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
-    name = "thread_pool",
-    srcs = ["thread_pool.cc"],
-    hdrs = ["thread_pool.h"],
-    deps = [
-        ":attributes",
-        ":intrusive_ptr",
-        ":mutex",
-        ":no_destructor",
-        ":thread",
-        "//tensorstore/internal/metrics",
-        "//tensorstore/internal/tracing",
-        "//tensorstore/util:executor",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/functional:any_invocable",
-        "@com_google_absl//absl/log:absl_check",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/synchronization",
-        "@com_google_absl//absl/time",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "thread_pool_test",
-    size = "small",
-    deps = [
-        ":thread_pool",
-        ":thread_pool_test_lib",
-    ],
-)
-
-tensorstore_cc_library(
-    name = "thread_pool_test_lib",
-    testonly = True,
-    srcs = ["thread_pool_test.cc"],
-    deps = [
-        "//tensorstore/util:executor",
-        "@com_google_absl//absl/synchronization",
-        "@com_google_absl//absl/time",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
     name = "type_traits",
     hdrs = ["type_traits.h"],
     deps = ["//tensorstore:index"],
@@ -1932,38 +1870,6 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
-    name = "schedule_at",
-    srcs = ["schedule_at.cc"],
-    hdrs = ["schedule_at.h"],
-    deps = [
-        ":intrusive_red_black_tree",
-        ":no_destructor",
-        ":tagged_ptr",
-        ":thread",
-        "//tensorstore/internal/metrics",
-        "//tensorstore/internal/tracing",
-        "//tensorstore/util:stop_token",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/functional:any_invocable",
-        "@com_google_absl//absl/synchronization",
-        "@com_google_absl//absl/time",
-    ],
-)
-
-tensorstore_cc_test(
-    name = "schedule_at_test",
-    size = "small",
-    srcs = ["schedule_at_test.cc"],
-    deps = [
-        ":schedule_at",
-        "//tensorstore/util:executor",
-        "//tensorstore/util:stop_token",
-        "@com_google_absl//absl/synchronization",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
     name = "multi_barrier",
     srcs = ["multi_barrier.cc"],
     hdrs = ["multi_barrier.h"],
@@ -1978,7 +1884,7 @@ tensorstore_cc_test(
     srcs = ["multi_barrier_test.cc"],
     deps = [
         ":multi_barrier",
-        ":thread",
+        "//tensorstore/internal/thread",
         "@com_google_googletest//:gtest_main",
     ],
 )

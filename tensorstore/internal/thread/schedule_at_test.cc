@@ -12,14 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/schedule_at.h"
+#include "tensorstore/internal/thread/schedule_at.h"
 
+#include <memory>
 #include <thread>  // NOLINT
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/synchronization/notification.h"
-#include "tensorstore/util/executor.h"
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
 #include "tensorstore/util/stop_token.h"
 
 namespace {

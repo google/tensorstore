@@ -30,7 +30,7 @@
 #include "tensorstore/context.h"
 #include "tensorstore/internal/os/filesystem.h"
 #include "tensorstore/internal/test_util.h"
-#include "tensorstore/internal/thread.h"
+#include "tensorstore/internal/thread/thread.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/generation_testutil.h"
 #include "tensorstore/kvstore/key_range.h"
