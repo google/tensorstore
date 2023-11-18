@@ -37,7 +37,6 @@
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include "absl/time/time.h"
-#include <openssl/digest.h>
 #include <openssl/evp.h>  // IWYU pragma: keep
 #include <openssl/hmac.h>
 #include "tensorstore/internal/digest/sha256.h"
