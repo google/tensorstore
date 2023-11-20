@@ -83,6 +83,7 @@ tensorstore_cc_library(
     textual_hdrs = ["thread_pool_test.inc"],
     deps = [
         "//tensorstore/util:executor",
+        "@com_google_absl//absl/random",
         "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest",

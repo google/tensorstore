@@ -15,6 +15,8 @@
 #ifndef TENSORSTORE_INTERNAL_DIGEST_SHA256_H_
 #define TENSORSTORE_INTERNAL_DIGEST_SHA256_H_
 
+#include <stdint.h>
+
 #include <array>
 #include <string_view>
 

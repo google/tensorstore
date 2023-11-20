@@ -16,7 +16,9 @@
 #define THIRD_PARTY_TENSORSTORE_INTERNAL_THREAD_THREAD_POOL_TEST_INC_
 
 #include <stddef.h>
+#include <stdint.h>
 
+#include <algorithm>
 #include <atomic>
 #include <functional>
 #include <limits>
@@ -24,10 +26,12 @@
 #include <vector>
 
 #include <gtest/gtest.h>
+#include "absl/random/random.h"
 #include "absl/synchronization/notification.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/util/executor.h"
+#include "absl/synchronization/blocking_counter.h"
 
 namespace {
 
@@ -115,6 +119,38 @@ TEST(DetachedThreadPoolTest, EnqueueFromTaskDestructor) {
 
   notification1.WaitForNotification();
   notification2.WaitForNotification();
+}
+
+// Mimics the benchmark, only on a smaller scale.
+TEST(DetachedThreadPoolTest, XorTest) {
+  const size_t total_size = (128 << 14) / sizeof(uint64_t);
+  const size_t buffer_size = 128 / sizeof(uint64_t);
+  const size_t n = 128;
+  const size_t chunk0 = total_size / n;
+  const size_t m = chunk0 / buffer_size;
+  const size_t chunk1 = buffer_size;
+
+  std::vector<uint64_t> destination(total_size);
+  std::vector<uint64_t> source(buffer_size);
+
+  absl::BitGen rng;
+  std::generate(source.begin(), source.end(),
+                [&] { return absl::Uniform<uint64_t>(rng); });
+
+  auto executor = DetachedThreadPool(4);
+  absl::BlockingCounter done(n * m);
+  for (size_t i = 0; i < n; i++) {
+    executor([&, i] {
+      for (size_t j = 0; j < m; j++) {
+        executor([&, i, j] {
+          auto* d = destination.data() + (i * chunk0) + (j * chunk1);
+          for (size_t k = 0; k < buffer_size; ++k) d[k] ^= source[k];
+          done.DecrementCount();
+        });
+      }
+    });
+  }
+  done.Wait();
 }
 
 }  // namespace
