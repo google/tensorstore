@@ -38,6 +38,8 @@
 #include "tensorstore/driver/zarr3/codec/codec_spec.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/integer_overflow.h"
+#include "tensorstore/internal/json_binding/bindable.h"
+#include "tensorstore/internal/json_binding/enum.h"
 #include "tensorstore/internal/unowned_to_shared.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/zarr3_sharding_indexed/key.h"
@@ -51,6 +53,14 @@
 
 namespace tensorstore {
 namespace zarr3_sharding_indexed {
+
+namespace jb = ::tensorstore::internal_json_binding;
+
+TENSORSTORE_DEFINE_JSON_BINDER(ShardIndexLocationJsonBinder,
+                               jb::Enum<ShardIndexLocation, const char*>({
+                                   {ShardIndexLocation::kStart, "start"},
+                                   {ShardIndexLocation::kEnd, "end"},
+                               }));
 
 absl::Status ShardIndexEntry::Validate(EntryId entry_id) const {
   if (!IsMissing()) {
@@ -173,11 +183,19 @@ Result<ShardEntries> DecodeShard(
         "Existing shard has size of %d bytes, but expected at least %d bytes",
         shard_data.size(), shard_index_size));
   }
+  absl::Cord encoded_shard_index;
+  switch (shard_index_parameters.index_location) {
+    case ShardIndexLocation::kStart:
+      encoded_shard_index = shard_data.Subcord(0, shard_index_size);
+      break;
+    case ShardIndexLocation::kEnd:
+      encoded_shard_index = shard_data.Subcord(
+          shard_data.size() - shard_index_size, shard_index_size);
+      break;
+  }
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto shard_index,
-      DecodeShardIndex(shard_data.Subcord(shard_data.size() - shard_index_size,
-                                          shard_index_size),
-                       shard_index_parameters),
+      DecodeShardIndex(encoded_shard_index, shard_index_parameters),
       tensorstore::MaybeAnnotateStatus(_, "Error decoding shard index"));
   for (int64_t i = 0; i < num_entries; ++i) {
     const auto entry_index = shard_index[i];
@@ -186,7 +204,7 @@ Result<ShardEntries> DecodeShard(
     ByteRange byte_range{
         static_cast<int64_t>(entry_index.offset),
         static_cast<int64_t>(entry_index.offset + entry_index.length)};
-    if (byte_range.exclusive_max > shard_data.size() - shard_index_size) {
+    if (byte_range.exclusive_max > shard_data.size()) {
       return absl::DataLossError(tensorstore::StrCat(
           "Shard index entry ", i, " with byte range ", byte_range,
           " is invalid for shard of size ", shard_data.size()));
@@ -196,15 +214,20 @@ Result<ShardEntries> DecodeShard(
   return entries;
 }
 
-std::optional<absl::Cord> EncodeShard(
+Result<std::optional<absl::Cord>> EncodeShard(
     const ShardEntries& entries,
     const ShardIndexParameters& shard_index_parameters) {
+  int64_t shard_index_size =
+      shard_index_parameters.index_codec_state->encoded_size();
   absl::Cord shard_data;
   riegeli::CordWriter writer{&shard_data};
   auto shard_index_array = AllocateArray<uint64_t>(
       shard_index_parameters.index_shape, c_order, default_init);
   bool has_entry = false;
-  uint64_t offset = 0;
+  uint64_t offset =
+      shard_index_parameters.index_location == ShardIndexLocation::kStart
+          ? shard_index_size
+          : 0;
   for (size_t i = 0; i < entries.entries.size(); ++i) {
     const auto& entry = entries.entries[i];
     uint64_t entry_offset;
@@ -223,10 +246,27 @@ std::optional<absl::Cord> EncodeShard(
     shard_index_array.data()[i * 2 + 1] = length;
   }
   if (!has_entry) return std::nullopt;
-  TENSORSTORE_CHECK_OK(
-      EncodeShardIndex(writer, ShardIndex{std::move(shard_index_array)},
-                       shard_index_parameters));
-  ABSL_CHECK(writer.Close());
+  switch (shard_index_parameters.index_location) {
+    case ShardIndexLocation::kStart: {
+      ABSL_CHECK(writer.Close());
+      absl::Cord encoded_shard_index;
+      riegeli::CordWriter index_writer{&encoded_shard_index};
+      TENSORSTORE_RETURN_IF_ERROR(EncodeShardIndex(
+          index_writer, ShardIndex{std::move(shard_index_array)},
+          shard_index_parameters));
+      ABSL_CHECK(index_writer.Close());
+      encoded_shard_index.Append(std::move(shard_data));
+      shard_data = std::move(encoded_shard_index);
+      break;
+    }
+    case ShardIndexLocation::kEnd: {
+      TENSORSTORE_RETURN_IF_ERROR(
+          EncodeShardIndex(writer, ShardIndex{std::move(shard_index_array)},
+                           shard_index_parameters));
+      ABSL_CHECK(writer.Close());
+      break;
+    }
+  }
   return shard_data;
 }
 

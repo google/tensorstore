@@ -40,69 +40,80 @@ using ::tensorstore::internal_zarr3::ZarrCodecChainSpec;
 using ::tensorstore::zarr3_sharding_indexed::DecodeShard;
 using ::tensorstore::zarr3_sharding_indexed::EncodeShard;
 using ::tensorstore::zarr3_sharding_indexed::ShardEntries;
+using ::tensorstore::zarr3_sharding_indexed::ShardIndexLocation;
 using ::tensorstore::zarr3_sharding_indexed::ShardIndexParameters;
 
 Result<ShardIndexParameters> GetParams(
-    std::vector<Index> grid_shape,
+    ShardIndexLocation index_location, std::vector<Index> grid_shape,
     ::nlohmann::json::array_t index_codecs_json = {GetDefaultBytesCodecJson(),
                                                    {{"name", "crc32c"}}}) {
   TENSORSTORE_ASSIGN_OR_RETURN(auto index_codecs,
                                ZarrCodecChainSpec::FromJson(index_codecs_json));
   ShardIndexParameters p;
+  p.index_location = index_location;
   TENSORSTORE_RETURN_IF_ERROR(p.Initialize(index_codecs, grid_shape));
   return p;
 }
 
 TEST(InitializeTest, Success) {
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto p, GetParams({2, 3}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto p,
+                                   GetParams(ShardIndexLocation::kEnd, {2, 3}));
   EXPECT_EQ(6, p.num_entries);
   EXPECT_THAT(p.index_shape, ::testing::ElementsAre(2, 3, 2));
 }
 
 TEST(InitializeTest, InvalidIndexCodecs) {
-  EXPECT_THAT(GetParams({2, 3}, {GetDefaultBytesCodecJson(),
-                                 {{"name", "gzip"},
-                                  {"configuration", {{"level", 5}}}}}),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*: only fixed-size encodings are supported"));
+  EXPECT_THAT(
+      GetParams(ShardIndexLocation::kEnd, {2, 3},
+                {GetDefaultBytesCodecJson(),
+                 {{"name", "gzip"}, {"configuration", {{"level", 5}}}}}),
+      MatchesStatus(absl::StatusCode::kInvalidArgument,
+                    ".*: only fixed-size encodings are supported"));
 }
 
 TEST(InitializeTest, InvalidGridShape) {
   EXPECT_THAT(
-      GetParams({1024 * 1024 * 1024 + 1}),
+      GetParams(ShardIndexLocation::kEnd, {1024 * 1024 * 1024 + 1}),
       MatchesStatus(absl::StatusCode::kInvalidArgument,
                     "grid shape of .* has more than 1073741824 entries"));
 }
 
 TEST(EncodeShardTest, RoundTrip) {
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto p, GetParams({2, 3}));
+  for (auto index_location :
+       {ShardIndexLocation::kStart, ShardIndexLocation::kEnd}) {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto p, GetParams(index_location, {2, 3}));
 
-  ShardEntries entries;
-  entries.entries = {
-      absl::Cord("(0, 0)"), absl::Cord("(0, 1)"), std::nullopt,  //
-      std::nullopt,         absl::Cord("(1, 1)"), std::nullopt   //
-  };
-  auto encoded = EncodeShard(entries, p);
-  ASSERT_TRUE(encoded.has_value());
+    ShardEntries entries;
+    entries.entries = {
+        absl::Cord("(0, 0)"), absl::Cord("(0, 1)"), std::nullopt,  //
+        std::nullopt,         absl::Cord("(1, 1)"), std::nullopt   //
+    };
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto encoded, EncodeShard(entries, p));
+    ASSERT_TRUE(encoded.has_value());
 
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto decoded_entries,
-                                   DecodeShard(*encoded, p));
-  EXPECT_THAT(decoded_entries.entries,
-              ::testing::ElementsAreArray(entries.entries));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto decoded_entries,
+                                     DecodeShard(*encoded, p));
+    EXPECT_THAT(decoded_entries.entries,
+                ::testing::ElementsAreArray(entries.entries));
+  }
 }
 
 TEST(EncodeShardTest, RoundTripEmpty) {
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto p, GetParams({2, 3}));
+  for (auto index_location :
+       {ShardIndexLocation::kStart, ShardIndexLocation::kEnd}) {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto p, GetParams(index_location, {2, 3}));
 
-  ShardEntries entries;
-  entries.entries.resize(6);
-  auto encoded = EncodeShard(entries, p);
-  ASSERT_FALSE(encoded.has_value());
+    ShardEntries entries;
+    entries.entries.resize(6);
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto encoded, EncodeShard(entries, p));
+    ASSERT_FALSE(encoded.has_value());
+  }
 }
 
 TEST(DecodeShardTest, TooShort) {
   absl::Cord encoded(std::string{1, 2, 3});
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto p, GetParams({2}));
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto p,
+                                   GetParams(ShardIndexLocation::kEnd, {2}));
   EXPECT_THAT(DecodeShard(encoded, p),
               MatchesStatus(absl::StatusCode::kDataLoss,
                             "Existing shard has size of 3 bytes, but expected "
@@ -111,12 +122,13 @@ TEST(DecodeShardTest, TooShort) {
 
 TEST(DecodeShardTest, ByteRangeOutOfRange) {
   absl::Cord encoded(std::string{
-      0, 0, 0, 0, 0, 0, 0, 0,  //
-      1, 0, 0, 0, 0, 0, 0, 0,  //
+      0, 0, 0, 0, 0, 0, 0, 0,   //
+      17, 0, 0, 0, 0, 0, 0, 0,  //
   });
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto p, GetParams({1}, {{{"name", "bytes"},
-                               {"configuration", {{"endian", "little"}}}}}));
+      auto p, GetParams(ShardIndexLocation::kEnd, {1},
+                        {{{"name", "bytes"},
+                          {"configuration", {{"endian", "little"}}}}}));
   EXPECT_THAT(
       DecodeShard(encoded, p),
       MatchesStatus(absl::StatusCode::kDataLoss,
@@ -131,8 +143,9 @@ TEST(DecodeShardTest, ByteRangeInvalid) {
   absl::Cord encoded(
       std::string_view(reinterpret_cast<const char*>(data), sizeof(data)));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto p, GetParams({1}, {{{"name", "bytes"},
-                               {"configuration", {{"endian", "little"}}}}}));
+      auto p, GetParams(ShardIndexLocation::kEnd, {1},
+                        {{{"name", "bytes"},
+                          {"configuration", {{"endian", "little"}}}}}));
   EXPECT_THAT(DecodeShard(encoded, p),
               MatchesStatus(absl::StatusCode::kDataLoss,
                             "Invalid shard index entry 0 with .*"));

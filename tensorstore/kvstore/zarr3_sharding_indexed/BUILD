@@ -156,6 +156,8 @@ tensorstore_cc_library(
         "//tensorstore/driver/zarr3/codec:codec_chain_spec",
         "//tensorstore/internal:integer_overflow",
         "//tensorstore/internal:unowned_to_shared",
+        "//tensorstore/internal/json_binding",
+        "//tensorstore/internal/json_binding:bindable",
         "//tensorstore/kvstore:byte_range",
         "//tensorstore/util:extents",
         "//tensorstore/util:result",

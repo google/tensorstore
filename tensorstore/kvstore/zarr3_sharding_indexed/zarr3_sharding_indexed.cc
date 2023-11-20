@@ -99,14 +99,25 @@ using ::tensorstore::internal_kvstore::kReadModifyWrite;
 class ShardIndexKeyValueStore : public kvstore::Driver {
  public:
   explicit ShardIndexKeyValueStore(kvstore::DriverPtr base,
+                                   ShardIndexLocation index_location,
                                    int64_t index_size_in_bytes)
-      : base_(std::move(base)), index_size_in_bytes_(index_size_in_bytes) {}
+      : base_(std::move(base)),
+        index_location_(index_location),
+        index_size_in_bytes_(index_size_in_bytes) {}
 
   Future<kvstore::ReadResult> Read(kvstore::Key key,
                                    kvstore::ReadOptions options) override {
     assert(options.byte_range == OptionalByteRangeRequest{});
-    options.byte_range =
-        OptionalByteRangeRequest::SuffixLength(index_size_in_bytes_);
+    switch (index_location_) {
+      case ShardIndexLocation::kStart:
+        options.byte_range =
+            OptionalByteRangeRequest::Range(0, index_size_in_bytes_);
+        break;
+      case ShardIndexLocation::kEnd:
+        options.byte_range =
+            OptionalByteRangeRequest::SuffixLength(index_size_in_bytes_);
+        break;
+    }
     return MapFutureError(
         InlineExecutor{},
         [](const absl::Status& status) {
@@ -128,6 +139,7 @@ class ShardIndexKeyValueStore : public kvstore::Driver {
 
  private:
   kvstore::DriverPtr base_;
+  ShardIndexLocation index_location_;
   int64_t index_size_in_bytes_;
 };
 
@@ -185,7 +197,7 @@ class ShardIndexCache
                            std::string base_kvstore_path, Executor executor,
                            ShardIndexParameters&& params)
       : Base(kvstore::DriverPtr(new ShardIndexKeyValueStore(
-            std::move(base_kvstore),
+            std::move(base_kvstore), params.index_location,
             params.index_codec_state->encoded_size()))),
         base_kvstore_path_(std::move(base_kvstore_path)),
         executor_(std::move(executor)),
@@ -270,9 +282,11 @@ class ShardedKeyValueStoreWriteCache
                   EncodeReceiver receiver) override {
       // Can call `EncodeShard` synchronously without using our executor since
       // `DoEncode` is already guaranteed to be called from our executor.
-      execution::set_value(
-          receiver,
-          EncodeShard(*data, GetOwningCache(*this).shard_index_params()));
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          auto encoded_shard,
+          EncodeShard(*data, GetOwningCache(*this).shard_index_params()),
+          static_cast<void>(execution::set_error(receiver, _)));
+      execution::set_value(receiver, std::move(encoded_shard));
     }
 
     std::string GetKeyValueStoreKey() override {
@@ -699,6 +713,7 @@ struct ShardedKeyValueStoreSpecData {
   kvstore::Spec base;
   std::vector<Index> grid_shape;
   internal_zarr3::ZarrCodecChainSpec index_codecs;
+  ShardIndexLocation index_location;
   TENSORSTORE_DECLARE_JSON_DEFAULT_BINDER(ShardedKeyValueStoreSpecData,
                                           internal_json_binding::NoOptions,
                                           IncludeDefaults,
@@ -706,7 +721,7 @@ struct ShardedKeyValueStoreSpecData {
 
   constexpr static auto ApplyMembers = [](auto&& x, auto f) {
     return f(x.cache_pool, x.data_copy_concurrency, x.base, x.grid_shape,
-             x.index_codecs);
+             x.index_codecs, x.index_location);
   };
 };
 
@@ -727,6 +742,12 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
                    jb::Projection<&ShardedKeyValueStoreSpecData::index_codecs>(
                        internal_zarr3::ZarrCodecChainJsonBinder<
                            /*Constraints=*/false>)),
+        jb::Member(
+            "index_location",
+            jb::Projection<&ShardedKeyValueStoreSpecData::index_location>(
+                jb::DefaultValue<jb::kAlwaysIncludeDefaults>([](auto* x) {
+                  *x = ShardIndexLocation::kEnd;
+                }))),
         jb::Member(internal::CachePoolResource::id,
                    jb::Projection<&ShardedKeyValueStoreSpecData::cache_pool>()),
         jb::Member(
@@ -1115,6 +1136,7 @@ absl::Status ShardedKeyValueStore::GetBoundSpecData(
   spec.cache_pool = data_for_spec_->cache_pool_resource;
   spec.index_codecs = data_for_spec_->index_codecs;
   const auto& shard_index_params = this->shard_index_params();
+  spec.index_location = shard_index_params.index_location;
   spec.grid_shape.assign(shard_index_params.index_shape.begin(),
                          shard_index_params.index_shape.end() - 1);
   return absl::OkStatus();
@@ -1122,6 +1144,7 @@ absl::Status ShardedKeyValueStore::GetBoundSpecData(
 
 Future<kvstore::DriverPtr> ShardedKeyValueStoreSpec::DoOpen() const {
   ShardIndexParameters index_params;
+  index_params.index_location = data_.index_location;
   TENSORSTORE_RETURN_IF_ERROR(
       index_params.Initialize(data_.index_codecs, data_.grid_shape));
   return MapFutureValue(

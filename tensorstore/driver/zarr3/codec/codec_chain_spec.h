@@ -172,8 +172,6 @@ class ZarrShardingCodecSpec : public ZarrArrayToBytesCodecSpec {
 // JSON binder for `ZarrCodecChain` where the
 // `ZarrCodecSpec::FromJsonOptions::constraints` parameter is fixed at
 // compile-time.
-//
-// When converting to JSON, the `Constraints` parameter has no effect.
 template <bool Constraints>
 constexpr auto ZarrCodecChainJsonBinder =
     [](auto is_loading, const auto& orig_options, auto* obj, auto* j) {
@@ -182,10 +180,9 @@ constexpr auto ZarrCodecChainJsonBinder =
                                               ZarrCodecSpec::ToJsonOptions>;
 
       CodecOptions codec_options;
-      if constexpr (is_loading) {
-        codec_options.constraints = Constraints;
-      } else {
-        codec_options = orig_options;
+      codec_options.constraints = Constraints;
+      if constexpr (!is_loading) {
+        static_cast<IncludeDefaults&>(codec_options) = orig_options;
       }
       return ZarrCodecChainSpec::default_json_binder(is_loading, codec_options,
                                                      obj, j);

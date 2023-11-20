@@ -24,10 +24,13 @@
 #include "tensorstore/driver/zarr3/codec/codec_chain_spec.h"
 #include "tensorstore/driver/zarr3/codec/codec_spec.h"
 #include "tensorstore/index.h"
+#include "tensorstore/kvstore/zarr3_sharding_indexed/shard_format.h"
 #include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal_zarr3 {
+
+using ::tensorstore::zarr3_sharding_indexed::ShardIndexLocation;
 
 // Codec that partitions each chunk into sub-chunks and supports efficient
 // reading of each sub-chunk.
@@ -42,6 +45,7 @@ class ShardingIndexedCodecSpec : public ZarrShardingCodecSpec {
     std::optional<std::vector<Index>> sub_chunk_shape;
     std::optional<ZarrCodecChainSpec> index_codecs;
     std::optional<ZarrCodecChainSpec> sub_chunk_codecs;
+    std::optional<ShardIndexLocation> index_location;
   };
   ShardingIndexedCodecSpec() = default;
   explicit ShardingIndexedCodecSpec(Options&& options)

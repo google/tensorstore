@@ -227,6 +227,7 @@ tensorstore_cc_binary(
         ":zarr3",
         "//tensorstore",
         "//tensorstore:array",
+        "//tensorstore:chunk_layout",
         "//tensorstore:contiguous_layout",
         "//tensorstore:data_type",
         "//tensorstore:index",

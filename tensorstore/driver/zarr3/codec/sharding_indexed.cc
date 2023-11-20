@@ -147,6 +147,7 @@ class ShardingIndexedCodec : public ZarrShardingCodec {
     state->sub_chunk_grid = &sub_chunk_grid_;
     state->sub_chunk_codec_chain = sub_chunk_codec_chain_.get();
     state->sub_chunk_codec_state = state->codec_state_.get();
+    state->shard_index_params_.index_location = index_location_;
     TENSORSTORE_RETURN_IF_ERROR(state->shard_index_params_.Initialize(
         *index_codec_chain_, sub_chunk_grid_shape));
     return {std::in_place, std::move(state)};
@@ -155,6 +156,7 @@ class ShardingIndexedCodec : public ZarrShardingCodec {
   internal::ChunkGridSpecification sub_chunk_grid_;
   ZarrCodecChain::Ptr sub_chunk_codec_chain_;
   ZarrCodecChain::Ptr index_codec_chain_;
+  ShardIndexLocation index_location_;
 };
 }  // namespace
 
@@ -172,6 +174,8 @@ absl::Status ShardingIndexedCodecSpec::MergeFrom(const ZarrCodecSpec& other,
       internal_zarr3::MergeZarrCodecSpecs(
           options.sub_chunk_codecs, other_options.sub_chunk_codecs, strict),
       tensorstore::MaybeAnnotateStatus(_, "Incompatible sub-chunk \"codecs\""));
+  TENSORSTORE_RETURN_IF_ERROR(MergeConstraint<&Options::index_location>(
+      "index_location", options, other_options));
   return absl::OkStatus();
 }
 
@@ -255,8 +259,11 @@ Result<ZarrArrayToBytesCodec::Ptr> ShardingIndexedCodecSpec::Resolve(
       EqualityComparisonKind::identical;
   auto codec = internal::MakeIntrusivePtr<ShardingIndexedCodec>(
       internal::ChunkGridSpecification(std::move(components)));
+  codec->index_location_ =
+      options.index_location.value_or(ShardIndexLocation::kEnd);
   if (resolved_options) {
     resolved_options->sub_chunk_shape = codec->sub_chunk_grid_.chunk_shape;
+    resolved_options->index_location = codec->index_location_;
   }
   auto set_up_codecs =
       [&](const ZarrCodecChainSpec& sub_chunk_codecs) -> absl::Status {
@@ -319,7 +326,29 @@ TENSORSTORE_GLOBAL_INITIALIZER {
           jb::Member("index_codecs", jb::Projection<&Options::index_codecs>(
                                          OptionalIfConstraintsBinder())),
           jb::Member("codecs", jb::Projection<&Options::sub_chunk_codecs>(
-                                   OptionalIfConstraintsBinder()))  //
+                                   OptionalIfConstraintsBinder())),
+          jb::Member(
+              "index_location",
+              jb::Projection<&Options::index_location>(
+                  [](auto is_loading, const auto& options, auto* obj, auto* j) {
+                    // For compatibility with implementations that don't support
+                    // `index_location`, don't include it in the stored
+                    // representation when the value is equal to the default of
+                    // "end".
+                    if constexpr (!is_loading) {
+                      if (!options.constraints &&
+                          *obj == ShardIndexLocation::kEnd) {
+                        return absl::OkStatus();
+                      }
+                    }
+                    return jb::Validate([](const auto& options, auto* obj) {
+                      if (!options.constraints) {
+                        if (!obj->has_value()) *obj = ShardIndexLocation::kEnd;
+                      }
+                      return absl::OkStatus();
+                    })(is_loading, options, obj, j);
+                  }))
+          //
           )));
 }
 

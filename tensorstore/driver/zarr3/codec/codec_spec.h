@@ -123,7 +123,12 @@ class ZarrCodecSpec : public internal::AtomicReferenceCount<ZarrCodecSpec> {
     bool constraints = false;
   };
 
-  using ToJsonOptions = IncludeDefaults;
+  struct ToJsonOptions : public IncludeDefaults {
+    constexpr ToJsonOptions() = default;
+    constexpr ToJsonOptions(IncludeDefaults include_defaults)
+        : IncludeDefaults(include_defaults) {}
+    bool constraints = false;
+  };
 };
 
 struct ArrayDataTypeAndShapeInfo {

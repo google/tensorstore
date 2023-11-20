@@ -23,13 +23,18 @@
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/zarr3/codec/codec_chain_spec.h"
 #include "tensorstore/driver/zarr3/codec/codec_spec.h"
+#include "tensorstore/driver/zarr3/codec/codec_test_util.h"
+#include "tensorstore/internal/json_gtest.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
 
+using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::internal_zarr3::ArrayCodecResolveParameters;
 using ::tensorstore::internal_zarr3::BytesCodecResolveParameters;
+using ::tensorstore::internal_zarr3::CodecSpecRoundTripTestParams;
+using ::tensorstore::internal_zarr3::TestCodecSpecRoundTrip;
 using ::tensorstore::internal_zarr3::ZarrCodecChainSpec;
 
 TEST(ShardingIndexedTest, Basic) {
@@ -95,6 +100,135 @@ TEST(ShardingIndexedTest, InvalidBytesToBytes) {
       MatchesStatus(absl::StatusCode::kInvalidArgument,
                     "Sharding codec .* is not compatible with subsequent bytes "
                     "-> bytes .*"));
+}
+
+TEST(ShardingIndexedTest, DefaultIndexLocation) {
+  CodecSpecRoundTripTestParams p;
+  p.resolve_params.rank = 2;
+  p.orig_spec = {
+      {{"name", "sharding_indexed"},
+       {"configuration",
+        {
+            {"chunk_shape", {2, 3}},
+            {"codecs",
+             {{
+                 {"name", "bytes"},
+                 {"configuration", {{"endian", "little"}}},
+             }}},
+            {"index_codecs",
+             {
+                 {
+                     {"name", "bytes"},
+                     {"configuration", {{"endian", "little"}}},
+                 },
+                 {
+                     {"name", "crc32c"},
+                 },
+             }},
+        }}},
+  };
+  p.expected_spec = {
+      {{"name", "sharding_indexed"},
+       {"configuration",
+        {
+            {"chunk_shape", {2, 3}},
+            {"codecs",
+             {{
+                 {"name", "bytes"},
+                 {"configuration", {{"endian", "little"}}},
+             }}},
+            {"index_location", "end"},
+            {"index_codecs",
+             {
+                 {
+                     {"name", "bytes"},
+                     {"configuration", {{"endian", "little"}}},
+                 },
+                 {
+                     {"name", "crc32c"},
+                 },
+             }},
+        }}},
+  };
+  p.to_json_options.constraints = true;
+  TestCodecSpecRoundTrip(p);
+
+  p.expected_spec = {
+      {{"name", "sharding_indexed"},
+       {"configuration",
+        {
+            {"chunk_shape", {2, 3}},
+            {"codecs",
+             {{
+                 {"name", "bytes"},
+                 {"configuration", {{"endian", "little"}}},
+             }}},
+            {"index_codecs",
+             {
+                 {
+                     {"name", "bytes"},
+                     {"configuration", {{"endian", "little"}}},
+                 },
+                 {
+                     {"name", "crc32c"},
+                 },
+             }},
+        }}},
+  };
+  p.to_json_options.constraints = false;
+  TestCodecSpecRoundTrip(p);
+}
+
+TEST(ShardingIndexedTest, IndexLocationEndNotStored) {
+  ArrayCodecResolveParameters p;
+  p.dtype = tensorstore::dtype_v<uint16_t>;
+  p.rank = 2;
+  EXPECT_THAT(TestCodecSpecResolve(
+                  ::nlohmann::json::array_t{
+                      {{"name", "sharding_indexed"},
+                       {"configuration",
+                        {
+                            {"chunk_shape", {2, 3}},
+                            {"codecs",
+                             {{
+                                 {"name", "bytes"},
+                                 {"configuration", {{"endian", "little"}}},
+                             }}},
+                            {"index_codecs",
+                             {
+                                 {
+                                     {"name", "bytes"},
+                                     {"configuration", {{"endian", "little"}}},
+                                 },
+                                 {
+                                     {"name", "crc32c"},
+                                 },
+                             }},
+                            {"index_location", "end"},
+                        }}}},
+                  p,
+                  /*constraints=*/false),
+              ::testing::Optional(MatchesJson(::nlohmann::json::array_t{
+                  {{"name", "sharding_indexed"},
+                   {"configuration",
+                    {
+                        {"chunk_shape", {2, 3}},
+                        {"codecs",
+                         {{
+                             {"name", "bytes"},
+                             {"configuration", {{"endian", "little"}}},
+                         }}},
+                        {"index_codecs",
+                         {
+                             {
+                                 {"name", "bytes"},
+                                 {"configuration", {{"endian", "little"}}},
+                             },
+                             {
+                                 {"name", "crc32c"},
+                             },
+                         }},
+                    }}}})));
 }
 
 }  // namespace

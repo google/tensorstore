@@ -57,7 +57,7 @@
 
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/kvstore/kvstore.h"
-#include "tensorstore/kvstore/zarr3_sharding_indexed/shard_format.h"
+#include "tensorstore/kvstore/zarr3_sharding_indexed/shard_format.h"  // IWYU pragma: export
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/result.h"
 

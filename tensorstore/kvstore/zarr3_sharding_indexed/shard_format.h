@@ -29,6 +29,7 @@
 #include "tensorstore/driver/zarr3/codec/codec.h"
 #include "tensorstore/driver/zarr3/codec/codec_chain_spec.h"
 #include "tensorstore/index.h"
+#include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/kvstore/zarr3_sharding_indexed/key.h"
 #include "tensorstore/util/extents.h"
 #include "tensorstore/util/result.h"
@@ -42,6 +43,16 @@ using internal_zarr3::ZarrCodecChainSpec;
 
 /// Maximum supported size for a shard index.
 constexpr int64_t kMaxNumEntries = 1024 * 1024 * 1024;
+
+enum ShardIndexLocation {
+  kStart,
+  kEnd,
+};
+
+TENSORSTORE_DECLARE_JSON_BINDER(ShardIndexLocationJsonBinder,
+                                ShardIndexLocation,
+                                internal_json_binding::NoOptions,
+                                internal_json_binding::NoOptions);
 
 struct ShardIndexEntry {
   uint64_t offset = std::numeric_limits<uint64_t>::max();
@@ -103,6 +114,8 @@ struct ShardIndexParameters {
       const ZarrCodecChainSpec& codec_chain_spec, span<const Index> grid_shape,
       ZarrCodecChainSpec* resolved_codec_chain_spec = nullptr);
 
+  ShardIndexLocation index_location;
+
   // Equal to `ProductOfExtents(grid_shape())`.
   int64_t num_entries;
 
@@ -146,11 +159,17 @@ Result<ShardEntries> DecodeShard(
 /// Encodes a complete shard (entries followed by shard index).
 ///
 /// Returns `std::nullopt` if all entries are missing.
-std::optional<absl::Cord> EncodeShard(
+Result<std::optional<absl::Cord>> EncodeShard(
     const ShardEntries& entries,
     const ShardIndexParameters& shard_index_parameters);
 
 }  // namespace zarr3_sharding_indexed
+namespace internal_json_binding {
+template <>
+constexpr inline auto
+    DefaultBinder<zarr3_sharding_indexed::ShardIndexLocation> =
+        zarr3_sharding_indexed::ShardIndexLocationJsonBinder;
+}  // namespace internal_json_binding
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_KVSTORE_ZARR_SHARDING_INDEXED_SHARD_FORMAT_H_

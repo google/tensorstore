@@ -188,6 +188,39 @@ TENSORSTORE_GLOBAL_INITIALIZER {
 
 TENSORSTORE_GLOBAL_INITIALIZER {
   tensorstore::internal::TensorStoreDriverBasicFunctionalityTestOptions options;
+  options.test_name = "zarr3/sharding_index_at_start";
+  std::vector<Index> shape{10, 11};
+  options.create_spec = {
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "memory"}}},
+      {"path", "prefix/"},
+      {"metadata",
+       {
+           {"data_type", "uint16"},
+           {"shape", shape},
+           {"chunk_grid",
+            {{"name", "regular"},
+             {"configuration", {{"chunk_shape", {8, 9}}}}}},
+           {"codecs",
+            {{{"name", "sharding_indexed"},
+              {"configuration",
+               {{"index_location", "start"}, {"chunk_shape", {2, 3}}}}}}},
+       }},
+  };
+  options.expected_domain = tensorstore::IndexDomainBuilder(2)
+                                .shape(shape)
+                                .implicit_upper_bounds({1, 1})
+                                .Finalize()
+                                .value();
+  options.initial_value = tensorstore::AllocateArray<uint16_t>(
+      tensorstore::BoxView<>(shape), tensorstore::c_order,
+      tensorstore::value_init);
+  tensorstore::internal::RegisterTensorStoreDriverBasicFunctionalityTest(
+      std::move(options));
+}
+
+TENSORSTORE_GLOBAL_INITIALIZER {
+  tensorstore::internal::TensorStoreDriverBasicFunctionalityTestOptions options;
   options.test_name = "zarr3/sharding_nested";
   std::vector<Index> shape{10, 11};
   options.create_spec = {
@@ -401,6 +434,7 @@ TENSORSTORE_GLOBAL_INITIALIZER {
                     {
                         {"chunk_shape", {3, 2}},
                         {"codecs", {GetDefaultBytesCodecJson()}},
+                        {"index_location", "end"},
                         {"index_codecs",
                          {
                              GetDefaultBytesCodecJson(),
@@ -767,6 +801,7 @@ TEST(DriverCreateWithSchemaTest, ChunkShapeShardedTargetElements) {
                     {"configuration",
                      {
                          {"chunk_shape", {30, 40, 50, 1}},
+                         {"index_location", "end"},
                          {"index_codecs",
                           {GetDefaultBytesCodecJson(), {{"name", "crc32c"}}}},
                          {"codecs", {GetDefaultBytesCodecJson()}},
@@ -811,6 +846,7 @@ TEST(DriverCreateWithSchemaTest, ShardingAndInnerOrder) {
                     {"configuration",
                      {
                          {"chunk_shape", {30, 40, 50, 1}},
+                         {"index_location", "end"},
                          {"index_codecs",
                           {GetDefaultBytesCodecJson(), {{"name", "crc32c"}}}},
                          {"codecs",
@@ -857,6 +893,7 @@ TEST(DriverCreateWithSchemaTest, ChunkShapeShardedWriteChunkSizeNegative1) {
                     {"configuration",
                      {
                          {"chunk_shape", {30, 40, 50, 1}},
+                         {"index_location", "end"},
                          {"index_codecs",
                           {GetDefaultBytesCodecJson(), {{"name", "crc32c"}}}},
                          {"codecs", {GetDefaultBytesCodecJson()}},
@@ -904,6 +941,7 @@ TEST(DriverCreateWithSchemaTest, TransposeGzip) {
                     {"configuration",
                      {
                          {"chunk_shape", {30, 40, 50}},
+                         {"index_location", "end"},
                          {"index_codecs",
                           {GetDefaultBytesCodecJson(), {{"name", "crc32c"}}}},
                          {"codecs",

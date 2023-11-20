@@ -376,6 +376,12 @@ definitions:
               title: Shard index codec chain
               description: |
                 Codec chain used to encode/decode the shard index.
+            index_location:
+              title: "Location of the shard index within the shard."
+              oneOf:
+              - const: "start"
+              - const: "end"
+              default: "end"
     examples:
     - name: sharding_indexed
       configuration:
@@ -386,6 +392,7 @@ definitions:
         index_codecs:
         - {"name": "bytes", "configuration": {"endian": "little"}}
         - {"name": "crc32c"}
+        index_location: "end"
   codec-transpose:
     $id: 'driver/zarr3/Codec/transpose'
     title: |

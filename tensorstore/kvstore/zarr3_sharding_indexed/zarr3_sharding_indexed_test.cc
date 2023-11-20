@@ -97,6 +97,7 @@ using ::tensorstore::zarr3_sharding_indexed::EntryId;
 using ::tensorstore::zarr3_sharding_indexed::EntryIdToKey;
 using ::tensorstore::zarr3_sharding_indexed::GetShardedKeyValueStore;
 using ::tensorstore::zarr3_sharding_indexed::ShardedKeyValueStoreParameters;
+using ::tensorstore::zarr3_sharding_indexed::ShardIndexLocation;
 
 constexpr CachePool::Limits kSmallCacheLimits{10000000, 5000000};
 
@@ -166,6 +167,7 @@ kvstore::DriverPtr GetDefaultStore(kvstore::DriverPtr base_kvstore,
       ZarrCodecChainSpec::FromJson(
           {{{"name", "bytes"}, {"configuration", {{"endian", "little"}}}},
            {{"name", "crc32c"}}}));
+  params.index_params.index_location = ShardIndexLocation::kEnd;
   TENSORSTORE_CHECK_OK(
       params.index_params.Initialize(index_codecs, grid_shape));
   return GetShardedKeyValueStore(std::move(params));
@@ -497,7 +499,7 @@ TEST_F(RawEncodingTest, ShardIndexEntryByteRangeOutOfRange) {
       // entries[1].offset
       0, 0, 0, 0, 0, 0, 0, 0,  //
       // entries[1].length
-      5, 0, 0, 0, 0, 0, 0, 0,  //
+      37, 0, 0, 0, 0, 0, 0, 0,  //
   }));
 
   TENSORSTORE_ASSERT_OK(base_kv_store->Write("shard_path", content));
@@ -1275,6 +1277,7 @@ TEST(ShardedKeyValueStoreTest, SpecRoundtrip) {
       {"driver", "zarr3_sharding_indexed"},
       {"base", options.full_base_spec},
       {"grid_shape", {100, 200}},
+      {"index_location", "end"},
       {"index_codecs",
        {{{"name", "bytes"}, {"configuration", {{"endian", "little"}}}}}},
   };
@@ -1292,6 +1295,7 @@ TEST(ShardedKeyValueStoreTest, SpecRoundtripFile) {
       {"driver", "zarr3_sharding_indexed"},
       {"base", options.full_base_spec},
       {"grid_shape", {100, 200}},
+      {"index_location", "end"},
       {"index_codecs",
        {{{"name", "bytes"}, {"configuration", {{"endian", "little"}}}}}},
   };
@@ -1305,6 +1309,7 @@ TEST(ShardedKeyValueStoreTest, Base) {
           {{"driver", "zarr3_sharding_indexed"},
            {"base", "memory://abc/"},
            {"grid_shape", {100, 200}},
+           {"index_location", "end"},
            {"index_codecs",
             {{{"name", "bytes"}, {"configuration", {{"endian", "little"}}}}}},
            {"path", "1"}}));

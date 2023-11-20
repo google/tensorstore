@@ -21,6 +21,12 @@ allOf:
     index_codecs:
       title: "Codec chain for encoding/decoding the shard index."
       $ref: driver/zarr3/CodecChain
+    index_location:
+      title: "Location of the shard index within the shard."
+      oneOf:
+      - const: "start"
+      - const: "end"
+      default: "end"
     cache_pool:
       $ref: ContextResource
       description: |
