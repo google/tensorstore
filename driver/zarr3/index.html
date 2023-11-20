@@ -1347,6 +1347,13 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#json-driver/zarr3/Codec/sharding_indexed.configuration.index_location" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/zarr3/Codec/sharding_indexed.configuration.index_location (JSON member) — Location of the shard index within the shard." class="md-ellipsis">index_<wbr>location</span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3063,6 +3070,13 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#json-driver/zarr3/Codec/sharding_indexed.configuration.index_location" class="md-nav__link">
+    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="driver/zarr3/Codec/sharding_indexed.configuration.index_location (JSON member) — Location of the shard index within the shard." class="md-ellipsis">index_<wbr>location</span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -4601,6 +4615,12 @@ recommended to instead just specify a permutation explicitly.</p>
   </span><p>Codec chain used to encode/decode the shard index.</p>
 </dd></dl>
 
+<dl class="json schema objdesc">
+<dt class="sig sig-object highlight json" id="json-driver/zarr3/Codec/sharding_indexed.configuration.index_location">
+<span class="sig-name descname"><span class="pre">index_location</span></span><span class="p"> <span class="pre">:</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;start&quot;</span></code><span class="p"> <span class="pre">|</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;end&quot;</span></code><span class="p"> <span class="pre">=</span> </span><code class="code json docutils literal highlight highlight-json"><span class="s2">&quot;end&quot;</span></code><a class="headerlink" href="#json-driver/zarr3/Codec/sharding_indexed.configuration.index_location" title="Permalink to this definition">¶</a></dt>
+<dd><span><p>Location of the shard index within the shard.</p>
+  </span></dd></dl>
+
 </dd>
 </dl>
 </dd></dl>
@@ -4616,7 +4636,8 @@ recommended to instead just specify a permutation explicitly.</p>
 <span class="w">    </span><span class="nt">&quot;codecs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bytes&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;configuration&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;endian&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;little&quot;</span><span class="p">}},</span>
 <span class="w">      </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gzip&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;configuration&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;level&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;5&quot;</span><span class="p">}}],</span>
 <span class="w">    </span><span class="nt">&quot;index_codecs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bytes&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;configuration&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;endian&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;little&quot;</span><span class="p">}},</span>
-<span class="w">      </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;crc32c&quot;</span><span class="p">}]</span>
+<span class="w">      </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;crc32c&quot;</span><span class="p">}],</span>
+<span class="w">    </span><span class="nt">&quot;index_location&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;end&quot;</span>
 <span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div>
