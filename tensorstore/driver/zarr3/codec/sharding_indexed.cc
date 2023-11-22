@@ -121,6 +121,10 @@ class ShardingIndexedCodec : public ZarrShardingCodec {
       return 0;
     }
 
+    // Reference to parent codec, to ensure that `this->sub_chunk_grid` remains
+    // valid.
+    internal::IntrusivePtr<const ZarrShardingCodec> parent_codec_;
+
     std::vector<Index> sub_chunk_grid_shape_;
     ZarrCodecChain::PreparedState::Ptr codec_state_;
     zarr3_sharding_indexed::ShardIndexParameters shard_index_params_;
@@ -133,6 +137,7 @@ class ShardingIndexedCodec : public ZarrShardingCodec {
       return SubChunkRankMismatch(sub_chunk_shape, decoded_shape.size());
     }
     auto state = internal::MakeIntrusivePtr<State>();
+    state->parent_codec_.reset(this);
     auto& sub_chunk_grid_shape = state->sub_chunk_grid_shape_;
     sub_chunk_grid_shape.resize(decoded_shape.size());
     for (DimensionIndex i = 0; i < sub_chunk_shape.size(); ++i) {

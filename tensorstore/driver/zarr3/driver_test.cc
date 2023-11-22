@@ -36,12 +36,14 @@
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_domain_builder.h"
 #include "tensorstore/internal/global_initializer.h"
+#include "tensorstore/internal/test_util.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/schema.h"
 #include "tensorstore/tensorstore.h"
+#include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
@@ -1151,6 +1153,33 @@ TEST(ZarrDriverTest, DeleteExisting) {
       tensorstore::Open(GetJsonSpec(), tensorstore::OpenMode::open, context)
           .result(),
       MatchesStatus(absl::StatusCode::kDataLoss, ".*: Invalid JSON"));
+}
+
+TEST(ZarrDriverTest, CodecLifetime) {
+  tensorstore::internal::ScopedTemporaryDirectory tempdir;
+  tensorstore::Future<const void> future;
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto store,
+        tensorstore::Open(
+            {{"driver", "zarr3"},
+             {"kvstore", {{"driver", "file"}, {"path", tempdir.path()}}},
+             {"metadata",
+              {{"shape", {10}},
+               {"chunk_grid",
+                {{"name", "regular"},
+                 {"configuration", {{"chunk_shape", {10}}}}}},
+               {"codecs",
+                ::nlohmann::json::array_t{
+                    {{"name", "sharding_indexed"},
+                     {"configuration", {{"chunk_shape", {10}}}}}}}}},
+             {"create", true},
+             {"dtype", "float32"}})
+            .result());
+    future = tensorstore::Write(tensorstore::MakeScalarArray<float>(42), store)
+                 .commit_future;
+  }
+  TENSORSTORE_ASSERT_OK(future.status());
 }
 
 }  // namespace
