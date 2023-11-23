@@ -156,7 +156,7 @@ class EvaluationState:
     )
     self.loaded_files: Set[str] = set()
     self._loaded_libraries: Dict[Tuple[TargetId, bool], Dict[str, Any]] = dict()
-    self._wrote_dummy_source = False
+    self._wrote_placeholder_source = False
     self.errors: List[str] = []
     # Track CMakePackage dependencies.
     self._required_dep_packages: Set[CMakePackage] = set()
@@ -493,21 +493,21 @@ class EvaluationState:
       deps.extend(self.get_dep(target))
     return deps
 
-  def get_dummy_source(self):
-    """Returns the path to a dummy source file.
+  def get_placeholder_source(self):
+    """Returns the path to a placeholder source file.
 
     This is used in cases where at least one source file must be specified for a
     CMake target but there are none in the corresponding Bazel target.
     """
-    dummy_source_relative_path = "bazel_to_cmake_empty_source.cc"
-    dummy_source_path = self.active_repo.cmake_binary_dir.joinpath(
-        dummy_source_relative_path
+    placeholder_source_relative_path = "bazel_to_cmake_empty_source.cc"
+    placeholder_source_path = self.active_repo.cmake_binary_dir.joinpath(
+        placeholder_source_relative_path
     )
-    if not self._wrote_dummy_source and not os.path.exists(
-        dummy_source_path.as_posix()
+    if not self._wrote_placeholder_source and not os.path.exists(
+        placeholder_source_path.as_posix()
     ):
-      pathlib.Path(dummy_source_path).write_bytes(b"")
-    return dummy_source_path.as_posix()
+      pathlib.Path(placeholder_source_path).write_bytes(b"")
+    return placeholder_source_path.as_posix()
 
   def load_library(self, target_id: TargetId) -> Dict[str, Any]:
     """Returns the global scope for the given bzl library target.

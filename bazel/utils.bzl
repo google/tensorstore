@@ -39,7 +39,7 @@ def all_conditions(conditions):
     return name
 
 def repository_source_root():
-    return Label(native.repository_name() + "//:dummy").workspace_root
+    return Label(native.repository_name() + "//:fake_target").workspace_root
 
 def package_source_root():
     root = repository_source_root()

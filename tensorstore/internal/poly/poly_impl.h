@@ -159,8 +159,8 @@ class PolyImpl;
 template <typename Derived>
 class PolyImpl<Derived> {
  public:
-  /// Dummy `operator()` definition to allow the using declaration in PolyImpl
-  /// specializations defined below to work.
+  /// Placeholder `operator()` definition to allow the using declaration in
+  /// PolyImpl specializations defined below to work.
   template <int&>
   void operator()();
 };

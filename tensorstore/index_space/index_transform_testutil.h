@@ -15,8 +15,15 @@
 #ifndef TENSORSTORE_INDEX_SPACE_INDEX_TRANSFORM_TESTUTIL_H_
 #define TENSORSTORE_INDEX_SPACE_INDEX_TRANSFORM_TESTUTIL_H_
 
+#include <stddef.h>
+
 #include "absl/random/bit_gen_ref.h"
+#include "tensorstore/box.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/util/span.h"
 
 namespace tensorstore {
 namespace internal {
@@ -39,10 +46,10 @@ IndexTransform<> MakeRandomIndexTransform(absl::BitGenRef gen,
                                           size_t num_ops);
 
 struct MakeStridedIndexTransformForOutputSpaceParameters {
-  /// Maximum number of dummy input dimensions that may be added.
+  /// Maximum number of inert input dimensions that may be added.
   DimensionIndex max_new_dims = 1;
 
-  /// Specifies whether dummy input dimensions have a domain of `[0, 1)` rather
+  /// Specifies whether inert input dimensions have a domain of `[0, 1)` rather
   /// than `(-inf, +inf)`.  If set to `false`, the returned transform is not
   /// actually invertible.
   bool new_dims_are_singleton = true;
@@ -71,7 +78,7 @@ IndexTransform<> MakeRandomStridedIndexTransformForOutputSpace(
     const MakeStridedIndexTransformForOutputSpaceParameters& p = {});
 
 struct MakeStridedIndexTransformForInputSpaceParameters {
-  /// Maximum number of dummy output dimensions that may be added.
+  /// Maximum number of inert output dimensions that may be added.
   DimensionIndex max_new_dims = 1;
 
   /// If `1`, the returned transform is invertible (has a stride of +/-1 for all

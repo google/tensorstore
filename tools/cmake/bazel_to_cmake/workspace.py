@@ -161,7 +161,8 @@ class Workspace:
   def ignore_library(self, target: TargetId) -> None:
     """Marks a bzl library to be ignored.
 
-    When requested via a `load` call, a dummy object will be returned instead.
+    When requested via a `load` call, a placeholder object will be returned
+    instead.
 
     Like all `Workspace` state, this also propagates to bazel_to_cmake
     invocations for dependencies.

@@ -14,6 +14,9 @@
 
 #include "tensorstore/index_space/internal/numpy_indexing_spec.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <algorithm>
 #include <cassert>
 #include <memory>
@@ -24,18 +27,27 @@
 #include <variant>
 #include <vector>
 
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
+#include "tensorstore/container_kind.h"
+#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/dimension_identifier.h"
 #include "tensorstore/index_space/dimension_index_buffer.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_transform.h"
 #include "tensorstore/index_space/index_transform_builder.h"
+#include "tensorstore/index_space/index_vector_or_scalar.h"
 #include "tensorstore/index_space/internal/dimension_selection.h"
 #include "tensorstore/internal/container_to_shared.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/strided_layout.h"
 #include "tensorstore/util/constant_vector.h"
 #include "tensorstore/util/iterate.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
@@ -860,7 +872,7 @@ absl::Status NumpyIndexingSpec::Builder::AddBoolArray(
         spec.joint_index_arrays_consecutive = false;
       }
     }
-    // Rank 0: corresponds to a dummy dimension of length 0 or 1
+    // Rank 0: corresponds to an inert dimension of length 0 or 1
     index_arrays.layout() = StridedLayout<2>({0, array() ? 1 : 0}, {0, 0});
   } else {
     index_arrays = internal::GetBoolTrueIndices(array);

@@ -75,7 +75,7 @@ void GetNDIterationLayoutInfo(const NDIterableLayoutConstraint& iterable,
   }
 
   if (info->iteration_dimensions.empty()) {
-    // Add a dummy dimension for rank 0 case.
+    // Add an inert dimension for rank 0 case.
     info->iteration_dimensions.push_back(-1);
     info->iteration_shape.push_back(1);
   } else {

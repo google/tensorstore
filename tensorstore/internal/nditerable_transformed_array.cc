@@ -278,7 +278,7 @@ class IterableImpl : public NDIterable::Base<IterableImpl> {
       for (DimensionIndex i = 0; i < layout.iteration_rank(); ++i) {
         const DimensionIndex dim = layout.iteration_dimensions[i];
         if (dim == -1) {
-          // Dummy dimension, just assign all-zero strides.
+          // Inert dimension, just assign all-zero strides.
           for (DimensionIndex j = 0; j < num_index_arrays_ + 1; ++j) {
             buffer_[num_index_arrays_ + layout.iteration_rank() * j + i] = 0;
           }

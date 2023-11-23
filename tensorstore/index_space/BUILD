@@ -1,5 +1,5 @@
-load("//bazel:tensorstore.bzl", "tensorstore_cc_binary", "tensorstore_cc_library", "tensorstore_cc_test")
 load("//bazel:non_compile.bzl", "cc_with_non_compile_test")
+load("//bazel:tensorstore.bzl", "tensorstore_cc_binary", "tensorstore_cc_library", "tensorstore_cc_test")
 
 package(default_visibility = ["//tensorstore:internal_packages"])
 
@@ -12,11 +12,15 @@ tensorstore_cc_library(
     deps = [
         ":dimension_index_buffer",
         ":index_transform",
+        ":output_index_method",
+        "//tensorstore:index",
+        "//tensorstore:index_interval",
         "//tensorstore:rank",
         "//tensorstore/internal:string_like",
         "//tensorstore/util:dimension_set",
         "//tensorstore/util:result",
         "//tensorstore/util:span",
+        "//tensorstore/util:status",
     ],
 )
 
@@ -131,6 +135,7 @@ tensorstore_cc_library(
         ":transpose_op",
         "//tensorstore:array",
         "//tensorstore:index",
+        "//tensorstore:rank",
         "//tensorstore/internal:meta",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
@@ -460,6 +465,10 @@ tensorstore_cc_library(
     deps = [
         ":dim_expression",
         ":index_transform",
+        "//tensorstore:box",
+        "//tensorstore:index",
+        "//tensorstore:index_interval",
+        "//tensorstore/util:span",
         "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/random",
@@ -686,13 +695,20 @@ tensorstore_cc_library(
         ":index_transform",
         ":index_vector_or_scalar",
         "//tensorstore:array",
+        "//tensorstore:container_kind",
+        "//tensorstore:contiguous_layout",
         "//tensorstore:index",
         "//tensorstore:index_interval",
+        "//tensorstore:rank",
+        "//tensorstore:strided_layout",
         "//tensorstore/internal:container_to_shared",
         "//tensorstore/util:constant_vector",
         "//tensorstore/util:iterate",
+        "//tensorstore/util:result",
         "//tensorstore/util:span",
+        "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
+        "@com_google_absl//absl/status",
     ],
 )
 

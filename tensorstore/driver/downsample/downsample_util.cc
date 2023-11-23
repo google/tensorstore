@@ -321,8 +321,8 @@ absl::Status PropagateSingleInputDimensionMapDownsamplingAsNewDimension(
 /// Creates a constant output map corresponding to an output index map that
 /// requires a new input dimension in the propagated transform.
 ///
-/// This is used to create a dummy constant output map in the case where the
-/// downsampled transform has an empty domain.
+/// This is used to create a placeholder constant output map in the case where
+/// the downsampled transform has an empty domain.
 ///
 /// \param output_downsample_factor Downsample factor to propagate.
 /// \param new_output_map[out] New output index map to assign.

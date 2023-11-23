@@ -160,7 +160,7 @@ class NDIterator {
 /// Fortran order layout, the array data is in fact simply a dimension
 /// permutation and reflection of a contiguous C order array of size
 /// `{3, 5, 2}` with byte strides `{40, 8, 4}` (for a 4-byte data type), with
-/// an extra dummy dimension of size 4 added.
+/// an extra inert dimension of size 4 added.
 ///
 /// The NDIterable interface makes it possible for `GetNDIterationLayoutInfo` to
 /// discover this structure so that the data can be efficiently iterated over as
@@ -287,10 +287,10 @@ class NDIterableBufferConstraint : public NDIterableLayoutConstraint {
     /// The sequence of simplified dimensions.  The first dimension is the
     /// outermost dimension when iterating (changes slowest), while the last
     /// dimension is the innermost (changes fastest).  A dimension of `-1` means
-    /// a dummy dimension (elements are repeated over this dimension).
+    /// an inert dimension (elements are repeated over this dimension).
     ///
     /// A valid iteration layout always has at least one iteration dimension
-    /// (using a dummy dimension of `-1` if it would otherwise have a rank of
+    /// (using an inert dimension of `-1` if it would otherwise have a rank of
     /// 0).
     ///
     /// All dimensions in `iteration_dimensions` must either be `-1` or a unique

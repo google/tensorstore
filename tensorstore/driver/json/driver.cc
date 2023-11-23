@@ -14,23 +14,68 @@
 
 #include "tensorstore/driver/driver.h"
 
+#include <stddef.h>
+
+#include <algorithm>
+#include <memory>
+#include <optional>
+#include <string>
+#include <utility>
+
 #include "absl/status/status.h"
+#include "absl/strings/cord.h"
+#include "absl/time/clock.h"
+#include <nlohmann/json.hpp>
+#include "tensorstore/chunk_layout.h"
+#include "tensorstore/context.h"
+#include "tensorstore/data_type.h"
+#include "tensorstore/driver/chunk.h"
 #include "tensorstore/driver/driver_handle.h"
+#include "tensorstore/driver/driver_spec.h"
 #include "tensorstore/driver/json/json_change_map.h"
 #include "tensorstore/driver/registry.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_space/index_domain.h"
+#include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/internal/arena.h"
 #include "tensorstore/internal/cache/async_cache.h"
 #include "tensorstore/internal/cache/async_initialized_cache_mixin.h"
+#include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache/cache_pool_resource.h"
 #include "tensorstore/internal/cache/kvs_backed_cache.h"
+#include "tensorstore/internal/cache_key/cache_key.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
+#include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/json/same.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/staleness_bound.h"
 #include "tensorstore/internal/json_pointer.h"
+#include "tensorstore/internal/lock_collection.h"
+#include "tensorstore/internal/mutex.h"
+#include "tensorstore/internal/nditerable.h"
 #include "tensorstore/internal/nditerable_transformed_array.h"
+#include "tensorstore/internal/unowned_to_shared.h"
+#include "tensorstore/kvstore/driver.h"
+#include "tensorstore/kvstore/generation.h"
+#include "tensorstore/kvstore/kvstore.h"
+#include "tensorstore/kvstore/spec.h"
+#include "tensorstore/open_mode.h"
+#include "tensorstore/open_options.h"
+#include "tensorstore/rank.h"
+#include "tensorstore/schema.h"
 #include "tensorstore/serialization/absl_time.h"  // IWYU pragma: keep
+#include "tensorstore/staleness_bound.h"
+#include "tensorstore/transaction.h"
 #include "tensorstore/util/execution/any_receiver.h"
+#include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender_util.h"
+#include "tensorstore/util/executor.h"
+#include "tensorstore/util/future.h"
+#include "tensorstore/util/garbage_collection/fwd.h"
+#include "tensorstore/util/garbage_collection/garbage_collection.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/span.h"
+#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal {
@@ -123,7 +168,7 @@ class JsonCache
             UniqueWriterLock<AsyncCache::TransactionNode> lock(*this);
             // Apply changes.  If `existing_state` is non-null (equivalent to
             // `unconditional == false`), provide it to `Apply`.  Otherwise,
-            // pass in a dummy value (which won't be used).
+            // pass in a placeholder value (which won't be used).
             return changes_.Apply(
                 existing_json
                     ? *existing_json

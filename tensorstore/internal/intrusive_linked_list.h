@@ -48,7 +48,7 @@ struct MemberAccessor {
   static T* GetNext(T* node) { return node->*NextMember; }
 };
 
-/// Initializes a singleton list containing `node` (commonly the dummy head
+/// Initializes a singleton list containing `node` (commonly the auxiliary head
 /// node).
 template <typename Accessor>
 void Initialize(Accessor accessor, typename Accessor::Node node) {

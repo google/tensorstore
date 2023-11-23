@@ -109,7 +109,7 @@ Future<TimestampedStorageGeneration> Write(const KvStore& store,
     assert(!future.result().ok());
     return future;
   }
-  // Just return a dummy stamp; the actual write won't complete until the
+  // Just return a placeholder stamp; the actual write won't complete until the
   // transaction is committed.
   return TimestampedStorageGeneration();
 }

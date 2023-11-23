@@ -72,7 +72,7 @@ class JsonChangeMap {
   /// Determines whether `Apply` called with `sub_value_pointer` does not depend
   /// on `existing`.
   ///
-  /// If this returns `true`, `Apply` may be called with a dummy value
+  /// If this returns `true`, `Apply` may be called with a placeholder value
   /// (e.g. `discarded`) as `existing`.
   bool CanApplyUnconditionally(std::string_view sub_value_pointer) const;
 

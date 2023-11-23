@@ -293,7 +293,7 @@ def handle_cc_common_options(
   )
 
   if src_required and not srcs_file_paths:
-    srcs_file_paths = [state.get_dummy_source()]
+    srcs_file_paths = [state.get_placeholder_source()]
 
   cmake_deps = set(state.get_deps(resolved_deps))
 

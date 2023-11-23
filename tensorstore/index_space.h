@@ -102,7 +102,7 @@
 ///
 ///   5. Extracting the diagonal of some subset of the dimensions.
 ///
-///   6. Adding new dummy/singleton dimensions.
+///   6. Adding new inert/singleton dimensions.
 ///
 ///   7. Reordering (transposing) the dimensions.
 ///

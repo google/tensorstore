@@ -210,7 +210,7 @@ class span {
   /// \dchecks `Extent == dynamic_extent || Extent == (end - begin)`
   /// \id begin, end
   template <
-      // Add an extra dummy template parameter to ensure this overload ranks
+      // Add a placeholder template parameter to ensure this overload ranks
       // lower than the (pointer, index_type) overload in the case of a call of
       // the form (pointer, 0).
       //

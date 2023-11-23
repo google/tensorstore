@@ -508,7 +508,7 @@ dimensions:
 -----------------------------------------------------------
 
 Specifying a value of :py:obj:`.newaxis` (equal to `None`) adds a new
-dummy/singleton dimension with :ref:`implicit bounds<implicit-bounds>`
+inert/singleton dimension with :ref:`implicit bounds<implicit-bounds>`
 :math:`[0, 1)`:
 
    >>> transform = ts.IndexTransform(input_labels=['x', 'y'])

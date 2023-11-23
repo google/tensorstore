@@ -94,7 +94,7 @@ struct NDIterationSimplifiedLayoutInfo {
 
   /// Simplified iteration dimensions.  Dimensions that are skipped or combined
   /// into another dimensions are excluded.  The special value of `-1` indicates
-  /// a dummy dimension, not corresponding to any real dimension, which is used
+  /// an inert dimension, not corresponding to any real dimension, which is used
   /// for zero rank iterables; the corresponding value in `iteration_shape` is
   /// guaranteed to be `1`.
   ///
