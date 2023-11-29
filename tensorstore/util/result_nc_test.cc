@@ -14,11 +14,11 @@
 
 /// Non-compile test for result.h.
 
-#include <any>
-#include <utility>
+#include <any>  // IWYU pragma: keep
+#include <memory>
+#include <utility>  // IWYU pragma: keep
 
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/status.h"
 
 namespace {
 

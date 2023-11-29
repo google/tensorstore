@@ -526,6 +526,9 @@ tensorstore_cc_test(
         ":result",
         ":status",
         ":status_testutil",
+        "//tensorstore/internal:type_traits",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",
     ],
 )
