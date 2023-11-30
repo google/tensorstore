@@ -27,24 +27,48 @@
 #include "absl/random/random.h"
 #include "absl/synchronization/blocking_counter.h"
 #include "tensorstore/internal/digest/sha256.h"
+#include "tensorstore/internal/metrics/collect.h"
+#include "tensorstore/internal/metrics/registry.h"
 #include "tensorstore/util/executor.h"
 
 namespace {
 
+// static constexpr const char kMetric[] =
+// "/tensorstore/thread_pool/total_queue_time_ns";
+static constexpr const char kMetric[] = "/tensorstore/thread_pool/steal_count";
+
 using ::tensorstore::Executor;
 using ::tensorstore::internal::SHA256Digester;
+using ::tensorstore::internal_metrics::GetMetricRegistry;
 
-Executor GetExecutor(size_t num_threads, benchmark::State& state) {
+Executor GetExecutor(size_t num_threads) {
   if (num_threads == 0) {
-    state.SetLabel("InlineExecutor");
     return tensorstore::InlineExecutor{};
   }
   return ::tensorstore::internal::DetachedThreadPool(num_threads);
 }
 
+void SetLabels(benchmark::State& state, size_t num_threads) {
+  if (num_threads == 0) {
+    state.SetLabel("InlineExecutor");
+  } else {
+    auto metric = GetMetricRegistry().Collect(kMetric);
+    if (metric) {
+      tensorstore::internal_metrics::FormatCollectedMetric(
+          *metric, [&state](bool has_value, std::string formatted_line) {
+            if (has_value) {
+              state.SetLabel(formatted_line);
+            }
+          });
+    }
+  }
+}
+
 // This is a thread pool benchmark designed to be fully compute bound.
 // The task itself computes the sha hash of a random buffer concurrently.
 static void BM_ThreadPool_Sha(benchmark::State& state) {
+  GetMetricRegistry().Reset();
+
   const size_t size = state.range(0);
   const size_t repetitions = state.range(1);
   const size_t n = state.range(2);
@@ -64,9 +88,8 @@ static void BM_ThreadPool_Sha(benchmark::State& state) {
 
   std::vector<DigestType> digesters(n);
   for (auto s : state) {
-    auto executor = GetExecutor(state.range(3), state);
     absl::BlockingCounter done(n);
-
+    auto executor = GetExecutor(state.range(3));
     for (size_t i = 0; i < n; i++) {
       executor([&, i] {
         SHA256Digester d;
@@ -82,18 +105,23 @@ static void BM_ThreadPool_Sha(benchmark::State& state) {
 
   state.SetItemsProcessed(state.iterations() * n);  // tasks
   state.SetBytesProcessed(state.iterations() * n * repetitions * source.size());
+  SetLabels(state, state.range(3));
 }
 
 BENCHMARK(BM_ThreadPool_Sha)                //
     ->Args({1024, 4, 1024 * 1024, 0})       // InlineExecutor
     ->Args({1024, 4, 1024 * 1024, 32})      // 4kB, 1M tasks
     ->Args({1024 * 1024, 1, 4 * 1024, 32})  // 1MB, 4k tasks
+    ->Args({1024, 4, 1024 * 1024, 1024})    // 4kB, 1M tasks
+    ->Args({1024 * 1024, 4, 1024, 1024})    // 4MB, 1k tasks
     ->UseRealTime();
 
 // This is a thread pool benchmark designed to create a lot of tasks with
 // large fanout and some memory locality.  The task itself Xors data into a
 // buffer by splitting the buffer into N x M x O chunks.
 static void BM_ThreadPool_XorData(benchmark::State& state) {
+  GetMetricRegistry().Reset();
+
   const size_t total_size = state.range(0) / sizeof(uint64_t);
   const size_t buffer_size = state.range(1) / sizeof(uint64_t);
   ABSL_CHECK_GT(total_size, 0);
@@ -113,7 +141,7 @@ static void BM_ThreadPool_XorData(benchmark::State& state) {
                 [&] { return absl::Uniform<uint64_t>(rng); });
 
   for (auto s : state) {
-    auto executor = GetExecutor(state.range(3), state);
+    auto executor = GetExecutor(state.range(3));
     absl::BlockingCounter done(n * m);
     for (size_t i = 0; i < n; i++) {
       executor([&, i] {
@@ -132,18 +160,21 @@ static void BM_ThreadPool_XorData(benchmark::State& state) {
   state.SetItemsProcessed(state.iterations() * n * m);  // tasks
   state.SetBytesProcessed(state.iterations() * total_size *
                           sizeof(uint64_t));  // bytes
+  SetLabels(state, state.range(3));
 }
 
-BENCHMARK(BM_ThreadPool_XorData)                 //
-    ->Args({1024 * 1024 * 1024, 256, 1024, 0})   // InlineExecutor
-    ->Args({1024 * 1024 * 1024, 256, 1024, 32})  // 1GB x 256-byte writes
-    ->Args({1024 * 1024 * 1024, 64, 2048, 32})   // 1GB x 64-byte writes
+BENCHMARK(BM_ThreadPool_XorData)                  //
+    ->Args({1024 * 1024 * 1024, 256, 1024, 0})    // InlineExecutor
+    ->Args({1024 * 1024 * 1024, 256, 1024, 32})   // 1GB x 256-byte writes
+    ->Args({1024 * 1024 * 1024, 64, 2048, 32})    // 1GB x 64-byte writes
+    ->Args({1024 * 1024 * 1024, 64, 2048, 1024})  // 1GB x 64-byte writes
     ->UseRealTime();
 
 // This is a benchmark which represents a fully memory-bound task. The
 // benchmark decomposes a matrix multiply onto a lot of work units on a thread
 // pool; the matrix multiply is incidental to the benchmark.
 static void BM_ThreadPool_MatrixMultiply_Naive(benchmark::State& state) {
+  GetMetricRegistry().Reset();
   const size_t sz = state.range(0);
   std::vector<float> A(sz * sz);
   std::vector<float> B(sz * sz);
@@ -157,7 +188,7 @@ static void BM_ThreadPool_MatrixMultiply_Naive(benchmark::State& state) {
 
   for (auto s : state) {
     absl::BlockingCounter done(sz * sz);
-    auto executor = GetExecutor(state.range(1), state);
+    auto executor = GetExecutor(state.range(1));
     for (size_t i = 0; i < sz; i++) {
       executor([&, i] {
         for (size_t j = 0; j < sz; ++j) {
@@ -175,6 +206,7 @@ static void BM_ThreadPool_MatrixMultiply_Naive(benchmark::State& state) {
     done.Wait();
   }
   state.SetItemsProcessed(state.iterations() * sz * sz);
+  SetLabels(state, state.range(1));
 }
 
 BENCHMARK(BM_ThreadPool_MatrixMultiply_Naive)  //

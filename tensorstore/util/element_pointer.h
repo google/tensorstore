@@ -28,7 +28,7 @@
 
 #include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
-#include "tensorstore/internal/compressed_pair.h"
+#include "tensorstore/internal/container/compressed_pair.h"
 #include "tensorstore/internal/memory.h"
 #include "tensorstore/internal/type_traits.h"
 #include "tensorstore/internal/unowned_to_shared.h"

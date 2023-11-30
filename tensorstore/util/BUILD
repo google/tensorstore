@@ -216,10 +216,10 @@ tensorstore_cc_library(
         "//tensorstore:data_type",
         "//tensorstore:index",
         "//tensorstore:static_cast",
-        "//tensorstore/internal:compressed_pair",
         "//tensorstore/internal:memory",
         "//tensorstore/internal:type_traits",
         "//tensorstore/internal:unowned_to_shared",
+        "//tensorstore/internal/container:compressed_pair",
     ],
 )
 

@@ -124,21 +124,6 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
-    name = "compressed_pair",
-    hdrs = ["compressed_pair.h"],
-)
-
-tensorstore_cc_test(
-    name = "compressed_pair_test",
-    size = "small",
-    srcs = ["compressed_pair_test.cc"],
-    deps = [
-        ":compressed_pair",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
     name = "concurrency_resource",
     srcs = ["concurrency_resource.cc"],
     hdrs = [

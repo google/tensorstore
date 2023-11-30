@@ -14,8 +14,8 @@
 
 /// Compressed pair that does not store empty types as an optimization.
 
-#ifndef TENSORSTORE_INTERNAL_COMPRESSED_PAIR_H_
-#define TENSORSTORE_INTERNAL_COMPRESSED_PAIR_H_
+#ifndef TENSORSTORE_INTERNAL_CONTAINER_COMPRESSED_PAIR_H_
+#define TENSORSTORE_INTERNAL_CONTAINER_COMPRESSED_PAIR_H_
 
 #include <type_traits>
 #include <utility>
@@ -33,10 +33,11 @@ class CompressedFirstEmptyPair {
     static_assert(std::is_constructible_v<First, T&&>,
                   "First must be constructible from T&&.");
   }
-  static constexpr First first() { return {}; }
+  static constexpr First first() { return First{}; }
+
+  const Second& second() const& { return second_; }
   Second& second() & { return second_; }
   Second&& second() && { return second_; }
-  const Second& second() const& { return second_; }
 
  private:
   Second second_;
@@ -55,7 +56,8 @@ class CompressedSecondEmptyPair {
   const First& first() const& { return first_; }
   First& first() & { return first_; }
   First&& first() && { return first_; }
-  static constexpr Second second() { return {}; }
+
+  static constexpr Second second() { return Second{}; }
 
  private:
   First first_;
@@ -72,9 +74,10 @@ class CompressedFirstSecondPair {
   const First& first() const& { return first_; }
   First& first() & { return first_; }
   First&& first() && { return first_; }
+
+  const Second& second() const& { return second_; }
   Second& second() & { return second_; }
   Second&& second() && { return second_; }
-  const Second& second() const& { return second_; }
 
  private:
   First first_;
@@ -94,4 +97,4 @@ using CompressedPair = std::conditional_t<
 }  // namespace internal
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_COMPRESSED_PAIR_H_
+#endif  // TENSORSTORE_INTERNAL_CONTAINER_COMPRESSED_PAIR_H_

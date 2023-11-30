@@ -12,11 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/compressed_pair.h"
+#include "tensorstore/internal/container/compressed_pair.h"
 
 #include <type_traits>
+#include <utility>
 
 #include <gtest/gtest.h>
+#include "tensorstore/internal/type_traits.h"
 
 namespace {
 
@@ -24,6 +26,7 @@ using ::tensorstore::internal::CompressedFirstEmptyPair;
 using ::tensorstore::internal::CompressedFirstSecondPair;
 using ::tensorstore::internal::CompressedPair;
 using ::tensorstore::internal::CompressedSecondEmptyPair;
+using ::tensorstore::internal::remove_cvref_t;
 
 struct Empty {
   Empty() = default;
@@ -35,7 +38,7 @@ TEST(CompressedPair, FirstEmpty) {
                                CompressedFirstEmptyPair<Empty, int>>);
   CompressedPair<Empty, int> x;
   CompressedPair<Empty, int> x2(1, 2);
-  static_assert(std::is_same_v<decltype(x.first()), Empty>);
+  static_assert(std::is_same_v<remove_cvref_t<decltype(x.first())>, Empty>);
   static_assert(
       std::is_same_v<
           decltype(std::declval<const CompressedPair<Empty, int>&>().second()),
@@ -44,6 +47,9 @@ TEST(CompressedPair, FirstEmpty) {
                 decltype(std::declval<CompressedPair<Empty, int>>().second()),
                 int&&>);
   static_assert(std::is_same_v<decltype(x.second()), int&>);
+
+  static_assert(sizeof(x) == sizeof(int));
+
   EXPECT_EQ(2, x2.second());
 }
 
@@ -51,8 +57,11 @@ TEST(CompressedPair, SecondEmpty) {
   static_assert(std::is_same_v<CompressedPair<int, Empty>,
                                CompressedSecondEmptyPair<int, Empty>>);
   CompressedPair<int, Empty> x;
+
+  static_assert(sizeof(x) == sizeof(int));
+
   CompressedPair<int, Empty> x2(1, 2);
-  static_assert(std::is_same_v<decltype(x.second()), Empty>);
+  static_assert(std::is_same_v<remove_cvref_t<decltype(x.second())>, Empty>);
   static_assert(
       std::is_same_v<
           decltype(std::declval<const CompressedPair<int, Empty>&>().first()),
