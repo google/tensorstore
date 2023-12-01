@@ -164,8 +164,7 @@ class SingleProducerQueue {
     }
   }
 
-  /// Returns the capacity of the TaskQueue. Capacity grows
-  /// by doubling the buffer.
+  /// Returns the capacity of the TaskQueue.
   int64_t capacity() const {
     return array_.load(std::memory_order_relaxed)->capacity;
   }
@@ -174,7 +173,7 @@ class SingleProducerQueue {
   size_t size() const {
     int64_t b = bottom_.load(std::memory_order_relaxed);
     int64_t t = top_.load(std::memory_order_relaxed);
-    return static_cast<size_t>(b >= t ? b - t : 0);
+    return static_cast<size_t>(b > t ? b - t : 0);
   }
 
   /// Returns whether the TaskQueue is empty.
@@ -182,16 +181,17 @@ class SingleProducerQueue {
 
   /// Attempt to add an an item to the queue.
   /// Returns false when the item cannot be added.
+  /// May be called by the owning thread.
   bool push(T x) {
     auto b = bottom_.load(std::memory_order_relaxed);
-    auto t = top_.load(std::memory_order_relaxed);
+    auto t = top_.load(std::memory_order_acquire);
     Array* a = array_.load(std::memory_order_relaxed);
 
     if (a->capacity < (b - t) + 1) {
       // Full, resize.  Consider Chase-Lev 4.1 to reclaim buffer space.
       if (!kCanResize) return false;
       a = a->resize(b, t, &allocator_);
-      array_.store(a, std::memory_order_relaxed);
+      array_.store(a, std::memory_order_release);
     }
     a->item(b).store(std::move(x), std::memory_order_relaxed);
     std::atomic_thread_fence(std::memory_order_release);
@@ -200,6 +200,7 @@ class SingleProducerQueue {
   }
 
   /// Remove an item from the queue.
+  /// May be called by the owning thread.
   optional_t try_pop() {
     auto b = bottom_.load(std::memory_order_relaxed) - 1;
     Array* a = array_.load(std::memory_order_relaxed);
@@ -228,16 +229,18 @@ class SingleProducerQueue {
     return a->item(b).load(std::memory_order_relaxed);
   }
 
-  /// Attempt to steal an item from this queue. Called by non-owning threads.
+  /// Attempt to steal an item from this queue.
+  /// May be called by non-owning threads.
   optional_t try_steal() {
     auto t = top_.load(std::memory_order_acquire);
     std::atomic_thread_fence(std::memory_order_seq_cst);
     auto b = bottom_.load(std::memory_order_acquire);
 
-    if (t >= b) return missing(std::is_pointer<T>{});
+    if (t >= b) {
+      return missing(std::is_pointer<T>{});
+    }
 
-    /* Non-empty queue. */
-    Array* a = array_.load(std::memory_order_relaxed);
+    Array* a = array_.load(std::memory_order_consume);
     T x = a->item(t).load(std::memory_order_relaxed);
     if (!top_.compare_exchange_strong(t, t + 1, std::memory_order_seq_cst,
                                       std::memory_order_relaxed)) {

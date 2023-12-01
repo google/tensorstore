@@ -88,7 +88,7 @@ TEST(SimpleQueue, PushPop) {
 
 TEST(SingleProducerQueueTest, ConcurrentSteal) {
   static constexpr size_t kNumThreads = 4;
-  static constexpr int kSize = 1000;
+  static constexpr int kSize = 10000;
 
   SingleProducerQueue<int> q(32);
   std::atomic<int> remaining(kSize);
@@ -97,12 +97,18 @@ TEST(SingleProducerQueueTest, ConcurrentSteal) {
   threads.reserve(kNumThreads + 1);
 
   for (size_t thread_i = 0; thread_i < kNumThreads; ++thread_i) {
+    bool c = thread_i & 1;
     threads.emplace_back(
-        tensorstore::internal::Thread({"steal"}, [&remaining, &q]() {
+        tensorstore::internal::Thread({"steal"}, [c, &remaining, &q]() {
           while (remaining.load(std::memory_order_seq_cst) > 0) {
             if (auto v = q.try_steal(); v.has_value()) {
               ABSL_CHECK_EQ(*v, 1);
               remaining.fetch_sub(1);
+            }
+            if (c) {
+              q.capacity();
+            } else {
+              q.size();
             }
           }
         }));
