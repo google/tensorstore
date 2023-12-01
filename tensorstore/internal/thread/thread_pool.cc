@@ -23,6 +23,7 @@
 #include <utility>
 
 #include "absl/log/absl_check.h"
+#include "absl/log/absl_log.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/internal/thread/pool_impl.h"
@@ -34,13 +35,15 @@ namespace tensorstore {
 namespace internal {
 
 Executor DetachedThreadPool(size_t num_threads) {
-  ABSL_CHECK_GT(num_threads, 0);
   static internal::NoDestructor<internal_thread_impl::SharedThreadPool> pool_;
   intrusive_ptr_increment(pool_.get());
-  if (num_threads == std::numeric_limits<size_t>::max()) {
+  if (num_threads == 0 || num_threads == std::numeric_limits<size_t>::max()) {
     // Threads are "unbounded"; that doesn't work so well, so put a bound on it.
     num_threads = std::thread::hardware_concurrency() * 16;
     if (num_threads == 0) num_threads = 1024;
+    ABSL_LOG_FIRST_N(INFO, 1)
+        << "DetachedThreadPool should specify num_threads; using "
+        << num_threads;
   }
 
   auto task_group = internal_thread_impl::TaskGroup::Make(
