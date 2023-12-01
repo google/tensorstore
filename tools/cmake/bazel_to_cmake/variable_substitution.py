@@ -78,7 +78,7 @@ def _get_location_replacement(
     rel_paths = [_get_relpath(path) for path in files_provider.paths]
     if not key.endswith("s"):
       if len(rel_paths) != 1:
-        raise ValueError("Expected single file but received: {rel_paths}")
+        raise ValueError(f"Expected single file but received: {rel_paths}")
       return rel_paths[0]
     return " ".join(rel_paths)
 
@@ -124,45 +124,65 @@ def _apply_location_and_make_variable_substitutions(
   # NOTE: location and make variable substitutions do not compose well since
   # for location substitutions to work correctly CMake generator expressions
   # are needed.
-  def _do_replacements(_cmd):
-    out = io.StringIO()
-    while True:
-      i = _cmd.find("$")
-      if i == -1:
-        out.write(_cmd)
-        return out.getvalue()
-      out.write(_cmd[:i])
-      j = i + 1
-      if _cmd[j] == "(":
-        # Multi character literal.
-        j = _cmd.find(")", i + 2)
-        assert j > (i + 2)
-        name = _cmd[i + 2 : j]
-        m = None
-        if enable_location:
-          m = _LOCATION_RE.fullmatch(_cmd[i + 2 : j])
-        if m:
-          out.write(
-              _get_location_replacement(
-                  _context,
-                  cmd,
-                  relative_to,
-                  custom_target_deps,
-                  m.group(1),
-                  m.group(2),
-              )
-          )
-        else:
-          out.write(_get_replacement(name))
-      elif _cmd[j] == "$":
-        # Escaped $
-        out.write("$")
-      else:
-        # Single letter literal.
-        out.write(_get_replacement(_cmd[j]))
-      _cmd = _cmd[j + 1 :]
+  def _do_replace_impl(_cmd):
+    i = _cmd.find("$")
+    if i == -1:
+      return _cmd, None
 
-  return _do_replacements(cmd)
+    j = i + 1
+    if _cmd[j] == "$":
+      return _cmd[:j], _cmd[j + 1 :]
+
+    if _cmd[j] == "(":
+      closeparen = ")"
+    elif _cmd[j] == "{":
+      closeparen = "}"
+    else:
+      # Single character literal.
+      r = _get_replacement(_cmd[j])
+      return f"{_cmd[:i]}{r}", _cmd[j + 1 :]
+
+    # Find matching close, counting the nesting parens.
+    k = j + 1
+    count = 1
+    while k < len(_cmd):
+      if _cmd[k] == _cmd[j]:
+        count += 1
+      elif _cmd[k] == closeparen:
+        count -= 1
+        if count == 0:
+          break
+      k += 1
+
+    # Do replacements on the sub-string.
+    a, b = _do_replace_impl(_cmd[j + 1 : k])
+    if b is None:
+      b = ""
+
+    r = ""
+    if _cmd[j] == "(":
+      m = None
+      if enable_location:
+        m = _LOCATION_RE.fullmatch(a)
+      if m:
+        r = _get_location_replacement(
+            _context,
+            cmd,
+            relative_to,
+            custom_target_deps,
+            m.group(1),
+            m.group(2),
+        )
+      else:
+        r = _get_replacement(a)
+    return f"{_cmd[:i]}{r}{b}", _cmd[k + 1 :]
+
+  out = io.StringIO()
+  b = cmd
+  while b:
+    a, b = _do_replace_impl(b)
+    out.write(a)
+  return out.getvalue()
 
 
 def apply_make_variable_substitutions(

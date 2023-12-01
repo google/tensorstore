@@ -33,6 +33,7 @@ from .starlark.invocation_context import InvocationContext
 from .starlark.provider import Provider
 from .starlark.provider import TargetInfo
 from .starlark.toolchain import CMAKE_TOOLCHAIN
+from .variable_substitution import apply_location_and_make_variable_substitutions
 from .variable_substitution import apply_location_substitutions
 from .variable_substitution import apply_make_variable_substitutions
 from .variable_substitution import generate_substitutions
@@ -132,6 +133,10 @@ def test_apply_make_variable_substitutions():
       ctx, "$$(location $(foo)) $@", subs, []
   )
 
+  assert "ls $(dirname $x)" == apply_make_variable_substitutions(
+      ctx, "ls $$(dirname $$x)", subs, []
+  )
+
   assert "${bar} x" == apply_make_variable_substitutions(
       ctx, "$${bar} $@", subs, []
   )
@@ -166,6 +171,24 @@ def test_apply_location_substitutions():
   # TargetInfo with no targets and no CMakeTarget name raises an exception
   with pytest.raises(Exception):
     apply_location_substitutions(ctx, "$(location a/none/target)", "", [])
+
+
+def test_apply_location_and_make_variable_substitutions():
+  ctx = MyContext()
+
+  subs = {"foo": "some/file.h", "@": "x", "<": "y"}
+
+  assert (
+      "ls $(dirname bar/baz/some/file.h)"
+      == apply_location_and_make_variable_substitutions(
+          ctx,
+          cmd="ls $$(dirname $(location $(foo)))",
+          relative_to="",
+          custom_target_deps=[],
+          substitutions=subs,
+          toolchains=None,
+      )
+  )
 
 
 def test_generate_substitutions():
