@@ -16,8 +16,8 @@
 # whether we still need a workaround in bazel_to_cmake/emit_cc.py
 #
 diff -Nur a/BUILD b/BUILD
---- a/BUILD	2023-09-13 13:33:23
-+++ b/BUILD	2023-12-04 22:12:55
+--- a/BUILD	2023-11-27 16:12:30
++++ b/BUILD	2023-12-07 11:01:08
 @@ -194,6 +194,13 @@
  )
 
@@ -32,32 +32,7 @@ diff -Nur a/BUILD b/BUILD
      name = "mac_x86_64",
      values = {"cpu": "darwin_x86_64"},
  )
-@@ -1116,6 +1123,7 @@
-         "//src/core:slice_refcount",
-         "//src/core:status_helper",
-         "//src/core:transport_fwd",
-+        "//src/core:notification",
-     ],
- )
-
-@@ -1842,6 +1850,7 @@
-     deps = [
-         "gpr",
-         "grpc_trace",
-+        "grpc_public_hdrs",
-     ],
- )
-
-@@ -1924,6 +1933,8 @@
-         "absl/memory",
-         "absl/types:optional",
-         "upb_lib",
-+        "upb_base",
-+        "upb_mem",
-         "protobuf_headers",
-         "absl/container:inlined_vector",
-     ],
-@@ -2075,6 +2086,7 @@
+@@ -2088,6 +2095,7 @@
      external_deps = [
          "protobuf_headers",
          "protobuf",
@@ -65,61 +40,47 @@ diff -Nur a/BUILD b/BUILD
      ],
      language = "c++",
      public_hdrs = [
-@@ -2738,6 +2750,7 @@
+@@ -2730,6 +2738,7 @@
      external_deps = [
          "absl/strings",
          "absl/strings:str_format",
 +        "absl/types:optional",
      ],
      tags = ["nofixdeps"],
-     visibility = ["@grpc:iomgr_buffer_list"],
-@@ -3016,6 +3029,7 @@
-         "absl/types:variant",
-         "upb_collections_lib",
-         "upb_lib",
-+        "upb_base",
-     ],
-     language = "c++",
-     visibility = ["@grpc:client_channel"],
-@@ -3620,6 +3634,8 @@
-         "upb_textformat_lib",
-         "upb_json_lib",
-         "upb_reflection",
-+        "upb_mem",
-+        "upb_base",
-     ],
-     language = "c++",
-     tags = ["nofixdeps"],
-@@ -3647,6 +3663,7 @@
+     visibility = ["@grpc:iomgr_timer"],
+@@ -3713,6 +3722,7 @@
          "protobuf_struct_upb",
          "protobuf_timestamp_upb",
          "ref_counted_ptr",
-+        ":server_address",
++        "server_address",
          "uri_parser",
          "work_serializer",
          "//src/core:default_event_engine",
 diff -Nur a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
---- a/bazel/grpc_build_system.bzl	2023-09-13 13:33:23
-+++ b/bazel/grpc_build_system.bzl	2023-12-04 22:07:56
-@@ -32,9 +32,15 @@
+--- a/bazel/grpc_build_system.bzl	2023-11-27 16:12:30
++++ b/bazel/grpc_build_system.bzl	2023-12-07 10:41:53
+@@ -31,10 +31,18 @@
+ load("//bazel:copts.bzl", "GRPC_DEFAULT_COPTS")
  load("//bazel:experiments.bzl", "EXPERIMENTS")
  load("//bazel:test_experiments.bzl", "TEST_EXPERIMENTS")
- load("@upb//bazel:upb_proto_library.bzl", "upb_proto_library", "upb_proto_reflection_library")
 -load("@build_bazel_rules_apple//apple:ios.bzl", "ios_unit_test")
 -load("@build_bazel_rules_apple//apple/testing/default_runner:ios_test_runner.bzl", "ios_test_runner")
 +# load("@build_bazel_rules_apple//apple:ios.bzl", "ios_unit_test")
 +# load("@build_bazel_rules_apple//apple/testing/default_runner:ios_test_runner.bzl", "ios_test_runner")
+ load("@com_google_protobuf//bazel:upb_proto_library.bzl", "upb_proto_library", "upb_proto_reflection_library")
 
++
 +def ios_unit_test(**kwargs):
 +    pass
 +
 +def ios_test_runner(**kwargs):
 +    pass
 +
++
  # The set of pollers to test against if a test exercises polling
  POLLERS = ["epoll1", "poll"]
 
-@@ -55,6 +61,12 @@
+@@ -55,6 +63,12 @@
          "//conditions:default": [],
      })
 
@@ -132,7 +93,7 @@ diff -Nur a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
  def _get_external_deps(external_deps):
      ret = []
      for dep in external_deps:
-@@ -105,7 +117,7 @@
+@@ -105,7 +119,7 @@
          "grpc_opencensus_plugin": PUBLIC,
          "grpcpp_gcp_observability": PUBLIC,
          "grpc_resolver_fake": PRIVATE,
@@ -141,7 +102,7 @@ diff -Nur a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
          "http": PRIVATE,
          "httpcli": PRIVATE,
          "iomgr_timer": PRIVATE,
-@@ -173,7 +185,7 @@
+@@ -174,7 +188,7 @@
      copts = []
      if language.upper() == "C":
          copts = copts + if_not_windows(["-std=c11"])
@@ -150,7 +111,7 @@ diff -Nur a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
      if select_deps:
          for select_deps_entry in select_deps:
              deps += select(select_deps_entry)
-@@ -486,7 +498,7 @@
+@@ -489,7 +503,7 @@
      test_args = {
          "data": data,
          "copts": GRPC_DEFAULT_COPTS + copts,
@@ -159,67 +120,3 @@ diff -Nur a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
          "size": size,
          "timeout": timeout,
          "exec_compatible_with": exec_compatible_with,
-diff -Nur a/src/core/BUILD b/src/core/BUILD
---- a/src/core/BUILD	2023-09-13 13:33:23
-+++ b/src/core/BUILD	2023-12-05 09:20:07
-@@ -271,6 +271,8 @@
-         "absl/time",
-         "absl/types:optional",
-         "upb_lib",
-+        "upb_base",
-+        "upb_mem",
-     ],
-     language = "c++",
-     deps = [
-@@ -3125,6 +3127,7 @@
-         "//:exec_ctx",
-         "//:gpr",
-         "//:tsi_base",
-+        "//:grpc_public_hdrs",
-     ],
- )
-
-@@ -3993,6 +3996,8 @@
-         "absl/types:optional",
-         "absl/types:variant",
-         "upb_lib",
-+        "upb_mem",
-+        "upb_base",
-     ],
-     language = "c++",
-     deps = [
-@@ -4097,6 +4102,7 @@
-         "absl/strings:str_format",
-         "absl/types:optional",
-         "upb_lib",
-+        "upb_base",
-     ],
-     language = "c++",
-     deps = [
-@@ -4220,6 +4226,8 @@
-         "re2",
-         "upb_reflection",
-         "upb_collections_lib",
-+        "upb_base",
-+        "upb_mem",
-     ],
-     language = "c++",
-     tags = ["nofixdeps"],
-@@ -4696,6 +4704,8 @@
-         "absl/strings",
-         "absl/types:optional",
-         "upb_lib",
-+        "upb_base",
-+        "upb_mem",
-     ],
-     language = "c++",
-     deps = [
-@@ -5187,6 +5197,8 @@
-         "absl/strings",
-         "absl/types:optional",
-         "upb_lib",
-+        "upb_base",
-+        "upb_mem",
-     ],
-     language = "c++",
-     deps = [

@@ -22,10 +22,10 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_github_grpc_grpc",
-        sha256 = "860bf758a1437a03318bf09db8e87cb8149a2f578954110ce8549e147f868b62",
-        strip_prefix = "grpc-1.58.1",
+        sha256 = "437068b8b777d3b339da94d3498f1dc20642ac9bfa76db43abdd522186b1542b",
+        strip_prefix = "grpc-1.60.0",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/grpc/grpc/archive/v1.58.1.tar.gz",
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/grpc/grpc/archive/v1.60.0.tar.gz",
         ],
         patches = [
             # Fixes, including https://github.com/grpc/grpc/issues/34482
@@ -100,8 +100,8 @@ GRPC_NATIVE_BINDINGS = {
     "upb_reflection": "@com_google_protobuf//upb:reflection",
     "upb_textformat_lib": "@com_google_protobuf//upb:text",
     "upb_collections_lib": "@com_google_protobuf//upb:collections",
-    "upb_base": "@com_google_protobuf//upb:base",
-    "upb_mem": "@com_google_protobuf//upb:mem",
+    "upb_base_lib": "@com_google_protobuf//upb:base",
+    "upb_mem_lib": "@com_google_protobuf//upb:mem",
 
     # These exist to be used by grpc_build_system.bzl
     "benchmark": "@com_google_benchmark//:benchmark",
