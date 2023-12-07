@@ -18,26 +18,26 @@ allOf:
         by combining these metadata constraints with any `Schema` constraints.
       $ref: driver/zarr3/Metadata
 examples:
-- driver: zarr
+- driver: zarr3
   kvstore:
     driver: gcs
     bucket: my-bucket
     path: path/to/array/
-  key_encoding: .
   metadata:
     shape:
     - 1000
     - 1000
-    chunks:
-    - 100
-    - 100
-    dtype: <i2
-    order: C
-    compressor:
-      id: blosc
-      shuffle: -1
-      clevel: 5
-      cname: lz4
+    chunk_grid:
+      name: regular
+      configuration:
+        chunk_shape:
+        - 100
+        - 100
+    chunk_key_encoding:
+      name: default
+    codecs:
+    - {"name": "blosc", "configuration": {"cname": "lz4", "clevel": 5}}
+    data_type: int4
 definitions:
   metadata:
     $id: 'driver/zarr3/Metadata'
