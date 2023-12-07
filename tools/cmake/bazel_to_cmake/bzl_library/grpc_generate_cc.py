@@ -20,8 +20,9 @@ from ..cmake_builder import CMakeBuilder
 from ..cmake_target import CMakeDepsProvider
 from ..cmake_target import CMakeTarget
 from ..evaluation import EvaluationState
-from ..native_rules_cc_proto import btc_protobuf
-from ..native_rules_cc_proto import PluginSettings
+from ..native_aspect_proto import btc_protobuf
+from ..native_aspect_proto import get_aspect_dep
+from ..native_aspect_proto import PluginSettings
 from ..starlark.bazel_globals import BazelGlobals
 from ..starlark.bazel_globals import register_bzl_library
 from ..starlark.bazel_target import RepositoryId
@@ -37,12 +38,12 @@ from ..starlark.select import Configurable
 GRPC_REPO = RepositoryId("com_github_grpc_grpc")
 
 _SEP = "\n        "
+
 _GRPC = PluginSettings(
     name="grpc",
     plugin=GRPC_REPO.parse_target("//src/compiler:grpc_cpp_plugin"),
     exts=[".grpc.pb.h", ".grpc.pb.cc"],
     runtime=[GRPC_REPO.parse_target("//:grpc++_codegen_proto")],
-    replacement_targets={},
 )
 
 
@@ -63,7 +64,10 @@ class GrpcGenerateCcLibrary(BazelGlobals):
     context.add_rule(
         target,
         lambda: _generate_cc_impl(
-            context, target, well_known_protos=well_known_protos, **kwargs
+            context,
+            target,
+            well_known_protos=well_known_protos,
+            **kwargs,
         ),
         analyze_by_default=False,
     )
@@ -78,12 +82,6 @@ def _generate_cc_impl(
     **kwargs,
 ):
   del kwargs
-  resolved_srcs = _context.resolve_target_or_label_list(
-      _context.evaluate_configurable_list(srcs)
-  )
-  assert len(resolved_srcs) == 1
-  proto_library_target = resolved_srcs[0]
-
   state = _context.access(EvaluationState)
 
   plugin_settings = _GRPC
@@ -96,22 +94,36 @@ def _generate_cc_impl(
         plugin=resolved_plugin,
         exts=_GRPC.exts,
         runtime=_GRPC.runtime,
-        replacement_targets=_GRPC.replacement_targets,
     )
 
   assert plugin_settings.plugin is not None
   cmake_target_pair = state.generate_cmake_target_pair(_target, alias=False)
 
+  # Only a single source is allowed.
+  resolved_srcs = _context.resolve_target_or_label_list(
+      _context.evaluate_configurable_list(srcs)
+  )
+  assert len(resolved_srcs) == 1
+  proto_library_target = resolved_srcs[0]
+
   # Construct the generated paths, installing this rule as a dependency.
   # TODO: Handle skip_import_prefix?
-  cmake_deps: List[CMakeTarget] = []
   proto_src_files = []
   generated_paths = []
+  cmake_deps: List[CMakeTarget] = [
+      get_aspect_dep(
+          _context,
+          proto_library_target.get_target_id(
+              f"{proto_library_target.target_name}__upb_library"
+          ),
+      )
+  ]
 
   proto_info = _context.get_target_info(proto_library_target).get(
       ProtoLibraryProvider
   )
   assert proto_info is not None
+
   for src in proto_info.srcs:
     proto_src_files.extend(state.get_file_paths(src, cmake_deps))
     assert src.target_name.endswith(".proto"), f"{repr(src)} must end in .proto"
@@ -140,8 +152,8 @@ def _generate_cc_impl(
       cmake_target_pair.target,
       proto_library_target,
       plugin_settings,
-      cmake_deps,
-      flags,
+      cmake_deps=cmake_deps,
+      flags=flags,
   )
 
   builder = _context.access(CMakeBuilder)

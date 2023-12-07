@@ -207,10 +207,11 @@ class EvaluationState:
       callback = self._call_after_analysis.pop()
       callback()
 
-  def add_rule(
+  def add_rule_impl(
       self,
       _mnemonic: str,
       _callers: List[str],
+      *,
       rule_id: TargetId,
       impl: RuleImpl,
       outs: Optional[List[TargetId]] = None,
@@ -331,6 +332,8 @@ class EvaluationState:
     self._unanalyzed_targets.pop(rule_id, None)
 
     self._stack.append((target_id, rule_info))
+    if self.verbose > 2:
+      print(f"Invoking {target_id.as_label()}: {repr(rule_info)}")
     rule_info.impl()
     self._stack.pop()
 
@@ -834,12 +837,12 @@ class EvaluationContext(InvocationContext):
             self._caller_package
         ).analyze_by_default(self.resolve_target_or_label_list(visibility))
 
-    self._state.add_rule(
+    self._state.add_rule_impl(
         self._rule_location[0],
         self._rule_location[1],
-        rule_id,
-        impl,
-        outs,
+        rule_id=rule_id,
+        impl=impl,
+        outs=outs,
         **kwargs,
     )
 

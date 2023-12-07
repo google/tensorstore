@@ -130,17 +130,7 @@ def add_repositories(workspace: Workspace):
           CMakePackage('gRPC'),
           pathlib.PurePosixPath('grpc_src'),
           pathlib.PurePosixPath('grpc_build'),
-          repo_mapping={},
-          persisted_canonical_name={},
-      )
-  )
-  workspace.add_cmake_repository(
-      CMakeRepository(
-          RepositoryId('com_google_protobuf_upb'),
-          CMakePackage('upb'),
-          pathlib.PurePosixPath('upb_src'),
-          pathlib.PurePosixPath('upb_build'),
-          repo_mapping={},
+          repo_mapping={'@com_google_protobuf': '@com_google_protobuf'},
           persisted_canonical_name={},
       )
   )
@@ -153,7 +143,9 @@ def add_repositories(workspace: Workspace):
       target = workspace.root_repository.repository_id.parse_target(str(target))
     assert isinstance(target, TargetId)
 
-    assert target.repository_id in workspace.all_repositories
+    assert (
+        target.repository_id in workspace.all_repositories
+    ), target.repository_id
     repo = workspace.all_repositories[target.repository_id]
 
     cmake_target_pair: CMakeTargetPair = repo.get_cmake_target_pair(
@@ -195,42 +187,41 @@ def add_repositories(workspace: Workspace):
 
   # upb
   persist_cmake_name(
-      '@com_google_protobuf_upb//upbc:protoc-gen-upbdefs',
-      CMakeTarget('upb::protoc-gen-upbdefs'),
+      '@com_google_protobuf//upb_generator:protoc-gen-upb_minitable_stage1',
+      CMakeTarget('protobuf::protoc_gen_upb_minitable_stage1'),
+  )
+  persist_cmake_name(
+      '@com_google_protobuf//upb_generator:protoc-gen-upb',
+      CMakeTarget('protobuf::protoc_gen_upb'),
+  )
+  persist_cmake_name(
+      '@com_google_protobuf//upb_generator:protoc-gen-upb_stage1',
+      CMakeTarget('protobuf::protoc_gen_upb_stage1'),
+  )
+  persist_cmake_name(
+      '@com_google_protobuf//upb_generator:protoc-gen-upbdefs',
+      CMakeTarget('protobuf::protoc_gen_upbdefs'),
   )
 
   persist_cmake_name(
-      '@com_google_protobuf_upb//upbc:protoc-gen-upb',
-      CMakeTarget('protobuf::protoc-gen-upb'),
-  )
-
-  persist_cmake_name(
-      '@com_google_protobuf_upb//upbc:protoc-gen-upb_stage0',
-      CMakeTarget('protobuf::protoc-gen-upb_stage0'),
-  )
-
-  persist_cmake_name(
-      '@com_google_protobuf_upb//upbc:protoc-gen-upb_stage1',
-      CMakeTarget('protobuf::protoc-gen-upb_stage1'),
-  )
-
-  persist_cmake_name(
-      '@com_google_protobuf_upb//:generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me',
+      '@com_google_protobuf//upb:generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me',
       CMakeTarget(
-          'upb::generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me'
+          'protobuf::upb_generated_code_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me'
       ),
   )
-
   persist_cmake_name(
-      '@com_google_protobuf_upb//:generated_reflection_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me',
+      '@com_google_protobuf//upb::generated_reflection_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me',
       CMakeTarget(
-          'upb::generated_reflection_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me'
+          'protobuf::upb_generated_reflection_support__only_for_generated_code_do_not_use__i_give_permission_to_break_me'
       ),
   )
-
   persist_cmake_name(
-      '@com_google_protobuf_upb//:mini_table',
-      CMakeTarget('upb::mini_table'),
+      '@com_google_protobuf//upb::mini_table',
+      CMakeTarget('protobuf::upb_mini_table'),
+  )
+  persist_cmake_name(
+      '@com_google_protobuf//upb::port',
+      CMakeTarget('protobuf::upb_port'),
   )
 
 
@@ -300,15 +291,13 @@ def test_golden(test_name: str, config: Dict[str, Any], tmpdir):
     )
 
   # Analyze
-  if config.get('targets') is None:
-    targets_to_analyze = state.targets_to_analyze
+  if config.get('targets') is not None:
+    targets_to_analyze = [
+        active_repo.repository_id.parse_target(t) for t in config.get('targets')
+    ]
   else:
-    targets_to_analyze = sorted(
-        [
-            active_repo.repository_id.parse_target(t)
-            for t in config.get('targets')
-        ]
-    )
+    targets_to_analyze = sorted(state.targets_to_analyze)
+
   state.analyze(targets_to_analyze)
 
   # Write generated file

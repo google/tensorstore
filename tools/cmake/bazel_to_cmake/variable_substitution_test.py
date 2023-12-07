@@ -36,6 +36,7 @@ from .starlark.toolchain import CMAKE_TOOLCHAIN
 from .variable_substitution import apply_location_and_make_variable_substitutions
 from .variable_substitution import apply_location_substitutions
 from .variable_substitution import apply_make_variable_substitutions
+from .variable_substitution import do_bash_command_replacement
 from .variable_substitution import generate_substitutions
 
 
@@ -240,3 +241,36 @@ def test_generate_substitutions():
       "RULEDIR": ctx.relative_to + "/bindir/foo/bar/baz",
       "SRCS": '"bar/baz/file/a.h" "bar/baz/file/b.h"',
   }
+
+
+def test_do_bash_command_replacement():
+  assert "ls bar/baz/some" == do_bash_command_replacement(
+      "ls $(dirname bar/baz/some/file.h)"
+  )
+
+  assert "ls bar/baz/some/.." == do_bash_command_replacement(
+      "ls $(dirname bar/baz/some/file.h)/.."
+  )
+
+  assert "bar/baz/some" == do_bash_command_replacement(
+      "$(dirname bar/baz/some/..)"
+  )
+
+  assert "$<TARGET_FILE:gen> bar/baz/some" == do_bash_command_replacement(
+      "$<TARGET_FILE:gen> $(dirname bar/baz/some/file.h)"
+  )
+
+  assert "bar/baz" == do_bash_command_replacement(
+      "$(dirname $(dirname bar/baz/some/file.h))"
+  )
+
+  assert "ls bar/baz" == do_bash_command_replacement(
+      "ls $(dirname\n$(dirname\nbar/baz/some/file.h))"
+  )
+
+  assert "./a" == do_bash_command_replacement("$(dirname $(dirname a)/a/b)")
+
+  assert "." == do_bash_command_replacement('$(dirname $(dirname "x.h" ))')
+
+  with pytest.raises(Exception):
+    do_bash_command_replacement("$(dirname )")

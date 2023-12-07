@@ -1,3 +1,5 @@
+# Mimic @io_bazel_rules_go//proto:def.bzl
+
 def go_proto_library(**kwargs):
     pass
 

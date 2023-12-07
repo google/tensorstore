@@ -21,23 +21,10 @@ From: https://github.com/envoyproxy/protoc-gen-validate
     validate/validate.proto
     bazel/pgv_proto_library.bzl
 
-From: https://github.com/protocolbuffers/protobuf
-
-    google/protobuf/any.proto
-    google/protobuf/api.proto
-    google/protobuf/descriptor.proto
-    google/protobuf/duration.proto
-    google/protobuf/empty.proto
-    google/protobuf/field_mask.proto
-    google/protobuf/source_context.proto
-    google/protobuf/struct.proto
-    google/protobuf/timestamp.proto
-    google/protobuf/type.proto
-    google/protobuf/wrappers.proto
-
 From: https://github.com/bazelbuild/rules_go/
 
     proto/def.bzl
+    proto/compiler.bzl
     go/def.bzl
 
 
@@ -63,6 +50,7 @@ def repo():
             # bazelbuild/rules_go
             "proto/BUILD.bazel": "//third_party:local_proto_mirror/src/lpm.BUILD.bazel",
             "proto/def.bzl": "//third_party:local_proto_mirror/src/proto/def.bzl",
+            "proto/compiler.bzl": "//third_party:local_proto_mirror/src/proto/compiler.bzl",
             "go/BUILD.bazel": "//third_party:local_proto_mirror/src/lpm.BUILD.bazel",
             "go/def.bzl": "//third_party:local_proto_mirror/src/go/def.bzl",
             # census-instrumentation/opencensus-proto
@@ -76,19 +64,6 @@ def repo():
             "bazel/pgv_proto_library.bzl": "//third_party:local_proto_mirror/src/bazel/pgv_proto_library.bzl",
             "validate/BUILD.bazel": "//third_party:local_proto_mirror/src/validate/lpm.BUILD.bazel",
             "validate/validate.proto": "//third_party:local_proto_mirror/src/validate/validate.proto",
-            # protocolbuffers/protobuf
-            "google/protobuf/BUILD.bazel": "//third_party:local_proto_mirror/src/google/protobuf/lpm.BUILD.bazel",
-            "google/protobuf/any.proto": "//third_party:local_proto_mirror/src/google/protobuf/any.proto",
-            "google/protobuf/api.proto": "//third_party:local_proto_mirror/src/google/protobuf/api.proto",
-            "google/protobuf/descriptor.proto": "//third_party:local_proto_mirror/src/google/protobuf/descriptor.proto",
-            "google/protobuf/duration.proto": "//third_party:local_proto_mirror/src/google/protobuf/duration.proto",
-            "google/protobuf/empty.proto": "//third_party:local_proto_mirror/src/google/protobuf/empty.proto",
-            "google/protobuf/field_mask.proto": "//third_party:local_proto_mirror/src/google/protobuf/field_mask.proto",
-            "google/protobuf/source_context.proto": "//third_party:local_proto_mirror/src/google/protobuf/source_context.proto",
-            "google/protobuf/struct.proto": "//third_party:local_proto_mirror/src/google/protobuf/struct.proto",
-            "google/protobuf/timestamp.proto": "//third_party:local_proto_mirror/src/google/protobuf/timestamp.proto",
-            "google/protobuf/type.proto": "//third_party:local_proto_mirror/src/google/protobuf/type.proto",
-            "google/protobuf/wrappers.proto": "//third_party:local_proto_mirror/src/google/protobuf/wrappers.proto",
         },
         # Downloaded files
         file_sha256 = {},

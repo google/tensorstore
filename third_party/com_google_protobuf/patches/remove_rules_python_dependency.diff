@@ -1,19 +1,48 @@
+diff -u -ur a/bazel/BUILD b/bazel/BUILD
+--- a/bazel/BUILD	2023-11-15 10:52:57
++++ b/bazel/BUILD	2023-11-28 15:46:31
+@@ -5,7 +5,7 @@
+ # license that can be found in the LICENSE file or at
+ # https://developers.google.com/open-source/licenses/bsd
+
+-load("@rules_python//python:defs.bzl", "py_binary")
++# load("@rules_python//python:defs.bzl", "py_binary")
+ load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+
+ # begin:google_only
 diff -u -ur a/protobuf.bzl b/protobuf.bzl
---- a/protobuf.bzl	2023-05-16 23:13:59.000000000 +0000
-+++ b/protobuf.bzl	2023-05-24 00:38:49.658693970 +0000
-@@ -1,8 +1,13 @@
+--- a/protobuf.bzl	2023-11-15 10:52:57
++++ b/protobuf.bzl	2023-11-28 15:47:23
+@@ -1,8 +1,17 @@
  load("@bazel_skylib//lib:versions.bzl", "versions")
- load("@rules_cc//cc:defs.bzl", "objc_library")
+-load("@rules_cc//cc:defs.bzl", "objc_library")
++#load("@rules_cc//cc:defs.bzl", "objc_library")
  load("@rules_proto//proto:defs.bzl", "ProtoInfo")
 -load("@rules_python//python:defs.bzl", "py_library")
 -load("@rules_ruby//ruby:defs.bzl", "ruby_library")
-+# load("@rules_python//python:defs.bzl", "py_library")
-+# load("@rules_ruby//ruby:defs.bzl", "ruby_library")
++#load("@rules_python//python:defs.bzl", "py_library")
++#load("@rules_ruby//ruby:defs.bzl", "ruby_library")
++
 +
 +py_library = native.py_library
 +
 +def ruby_library(**kwargs):
 +    pass
- 
++
++def objc_library(**kwargs):
++    pass
+
  def _GetPath(ctx, path):
      if ctx.label.workspace_root:
+diff -u -ur a/upb/BUILD b/upb/BUILD
+--- a/upb/BUILD	2023-11-15 10:52:57
++++ b/upb/BUILD	2023-11-28 15:46:39
+@@ -5,7 +5,7 @@
+ # license that can be found in the LICENSE file or at
+ # https://developers.google.com/open-source/licenses/bsd
+
+-load("@rules_python//python:defs.bzl", "py_binary")
++# load("@rules_python//python:defs.bzl", "py_binary")
+ load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+ load("//bazel:build_defs.bzl", "UPB_DEFAULT_COPTS")
+ load("//bazel:upb_minitable_proto_library.bzl", "upb_minitable_proto_library")

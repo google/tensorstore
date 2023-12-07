@@ -12,10 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load(
-    "//third_party:repo.bzl",
-    "third_party_http_archive",
-)
+load("//third_party:repo.bzl", "third_party_http_archive")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 
 def repo():
@@ -29,6 +26,7 @@ def repo():
         sha256 = "93d98f5dcd22289e2bf0126b2f598b940c27a2e7ca74038930b0e273fba0632c",
         repo_mapping = {
             "@com_google_googleapis_imports": "@local_proto_mirror",
+            "@com_google_protobuf_upb": "@com_google_protobuf",
         },
         cmake_name = "Googleapis",
         bazel_to_cmake = {
