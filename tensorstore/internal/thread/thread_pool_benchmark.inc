@@ -67,6 +67,7 @@ void SetLabels(benchmark::State& state, size_t num_threads) {
 // This is a thread pool benchmark designed to be fully compute bound.
 // The task itself computes the sha hash of a random buffer concurrently.
 static void BM_ThreadPool_Sha(benchmark::State& state) {
+  SetupThreadPoolTestEnv();
   GetMetricRegistry().Reset();
 
   const size_t size = state.range(0);
@@ -120,6 +121,7 @@ BENCHMARK(BM_ThreadPool_Sha)                //
 // large fanout and some memory locality.  The task itself Xors data into a
 // buffer by splitting the buffer into N x M x O chunks.
 static void BM_ThreadPool_XorData(benchmark::State& state) {
+  SetupThreadPoolTestEnv();
   GetMetricRegistry().Reset();
 
   const size_t total_size = state.range(0) / sizeof(uint64_t);
@@ -174,6 +176,7 @@ BENCHMARK(BM_ThreadPool_XorData)                  //
 // benchmark decomposes a matrix multiply onto a lot of work units on a thread
 // pool; the matrix multiply is incidental to the benchmark.
 static void BM_ThreadPool_MatrixMultiply_Naive(benchmark::State& state) {
+  SetupThreadPoolTestEnv();
   GetMetricRegistry().Reset();
   const size_t sz = state.range(0);
   std::vector<float> A(sz * sz);

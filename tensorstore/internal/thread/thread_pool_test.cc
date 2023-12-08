@@ -14,4 +14,13 @@
 
 #include "tensorstore/internal/thread/thread_pool.h"  // IWYU pragma: keep
 
+#include <string>
+
+#include "absl/flags/commandlineflag.h"  // IWYU pragma: keep
+#include "absl/flags/reflection.h"       // IWYU pragma: keep
+
+void SetupThreadPoolTestEnv() {
+  // No op
+}
+
 #include "tensorstore/internal/thread/thread_pool_test.inc"  // IWYU pragma: keep

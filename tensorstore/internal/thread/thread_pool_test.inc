@@ -40,6 +40,7 @@ using ::tensorstore::internal::DetachedThreadPool;
 
 // Tests that the thread pool runs a task.
 TEST(DetachedThreadPoolTest, Basic) {
+  SetupThreadPoolTestEnv();
   auto executor = DetachedThreadPool(1);
   absl::Notification notification;
   executor([&] { notification.Notify(); });
@@ -48,6 +49,7 @@ TEST(DetachedThreadPoolTest, Basic) {
 
 // Tests that the thread pool runs two tasks concurrently.
 TEST(DetachedThreadPoolTest, Concurrent) {
+  SetupThreadPoolTestEnv();
   auto executor = DetachedThreadPool(2);
   absl::Notification notification1, notification2, notification3;
   executor([&] {
@@ -67,6 +69,7 @@ TEST(DetachedThreadPoolTest, Concurrent) {
 // Tests that the thread pool does not run more than the maximum number of tasks
 // concurrently.
 TEST(DetachedThreadPoolTest, ThreadLimit) {
+  SetupThreadPoolTestEnv();
   constexpr static size_t kThreadLimit = 3;
   auto executor = DetachedThreadPool(kThreadLimit);
   std::atomic<size_t> num_running_tasks{0};
@@ -87,6 +90,7 @@ TEST(DetachedThreadPoolTest, ThreadLimit) {
 
 // Tests that enqueuing a task from a task's destructor does not deadlock.
 TEST(DetachedThreadPoolTest, EnqueueFromTaskDestructor) {
+  SetupThreadPoolTestEnv();
   struct Task {
     Executor& executor;
     absl::Notification* notification1;
@@ -123,6 +127,7 @@ TEST(DetachedThreadPoolTest, EnqueueFromTaskDestructor) {
 
 // Mimics the benchmark, only on a smaller scale.
 TEST(DetachedThreadPoolTest, XorTest) {
+  SetupThreadPoolTestEnv();
   const size_t total_size = (128 << 14) / sizeof(uint64_t);
   const size_t buffer_size = 128 / sizeof(uint64_t);
   const size_t n = 128;

@@ -33,8 +33,9 @@
 
 namespace tensorstore {
 namespace internal {
+namespace {
 
-Executor DetachedThreadPool(size_t num_threads) {
+Executor DefaultThreadPool(size_t num_threads) {
   static internal::NoDestructor<internal_thread_impl::SharedThreadPool> pool_;
   intrusive_ptr_increment(pool_.get());
   if (num_threads == 0 || num_threads == std::numeric_limits<size_t>::max()) {
@@ -54,6 +55,12 @@ Executor DetachedThreadPool(size_t num_threads) {
     task_group->AddTask(
         std::make_unique<internal_thread_impl::InFlightTask>(std::move(task)));
   };
+}
+
+}  // namespace
+
+Executor DetachedThreadPool(size_t num_threads) {
+  return DefaultThreadPool(num_threads);
 }
 
 }  // namespace internal

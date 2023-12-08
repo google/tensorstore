@@ -68,6 +68,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:no_destructor",
         "//tensorstore/util:executor",
         "@com_google_absl//absl/log:absl_check",
+        "@com_google_absl//absl/log:absl_log",
     ],
 )
 
@@ -91,6 +92,8 @@ tensorstore_cc_test(
     deps = [
         ":thread_pool",
         ":thread_pool_test_cc",
+        "@com_google_absl//absl/flags:commandlineflag",
+        "@com_google_absl//absl/flags:reflection",
         "@com_google_googletest//:gtest_main",
     ],
 )
