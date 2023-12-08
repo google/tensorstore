@@ -224,6 +224,7 @@ tensorstore_cc_library(
 
 tensorstore_cc_binary(
     name = "sharding_benchmark_test",
+    testonly = True,
     srcs = ["sharding_benchmark_test.cc"],
     deps = [
         ":zarr3",
@@ -235,13 +236,15 @@ tensorstore_cc_binary(
         "//tensorstore:index",
         "//tensorstore:open",
         "//tensorstore:open_mode",
+        "//tensorstore:progress",
         "//tensorstore:schema",
         "//tensorstore:spec",
+        "//tensorstore/index_space:dim_expression",
         "//tensorstore/kvstore/memory",
+        "//tensorstore/util:future",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
-        "@com_google_benchmark//:benchmark",
-        "@com_google_benchmark//:benchmark_main",  # build_cleaner: keep
+        "@com_google_benchmark//:benchmark_main",
     ],
 )
 

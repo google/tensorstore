@@ -22,7 +22,7 @@
 #include <string>
 #include <vector>
 
-#include "testing/base/public/benchmark.h"
+#include <benchmark/benchmark.h>
 #include "absl/log/absl_check.h"
 #include "absl/random/random.h"
 #include "absl/synchronization/blocking_counter.h"

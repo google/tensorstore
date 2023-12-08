@@ -14,9 +14,9 @@
 
 #include <vector>
 
+#include <benchmark/benchmark.h>
 #include "absl/log/absl_check.h"
 #include "absl/random/random.h"
-#include <benchmark/benchmark.h>
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/data_type.h"

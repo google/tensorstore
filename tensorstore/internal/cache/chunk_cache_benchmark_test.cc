@@ -20,11 +20,11 @@
 #include <utility>
 #include <vector>
 
+#include <benchmark/benchmark.h>
 #include "absl/base/optimization.h"
 #include "absl/container/inlined_vector.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
-#include <benchmark/benchmark.h>
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
 #include "tensorstore/contiguous_layout.h"

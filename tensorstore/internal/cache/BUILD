@@ -370,8 +370,7 @@ tensorstore_cc_binary(
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:inlined_vector",
         "@com_google_absl//absl/time",
-        "@com_google_benchmark//:benchmark",
-        "@com_google_benchmark//:benchmark_main",  # build_cleaner: keep
+        "@com_google_benchmark//:benchmark_main",
     ],
 )
 
