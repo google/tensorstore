@@ -21,7 +21,7 @@
 #include <thread>
 
 #include "absl/synchronization/mutex.h"
-#include "tensorstore/internal/intrusive_linked_list.h"
+#include "tensorstore/internal/container/intrusive_linked_list.h"
 
 namespace tensorstore {
 namespace internal_stop_token {

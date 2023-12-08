@@ -20,7 +20,7 @@
 #include <limits>
 
 #include "absl/synchronization/mutex.h"
-#include "tensorstore/internal/intrusive_linked_list.h"
+#include "tensorstore/internal/container/intrusive_linked_list.h"
 #include "tensorstore/kvstore/gcs_http/rate_limiter.h"
 
 namespace tensorstore {

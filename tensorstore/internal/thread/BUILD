@@ -11,9 +11,9 @@ tensorstore_cc_library(
     deps = [
         ":thread",
         "//tensorstore/internal:attributes",
-        "//tensorstore/internal:intrusive_red_black_tree",
         "//tensorstore/internal:no_destructor",
         "//tensorstore/internal:tagged_ptr",
+        "//tensorstore/internal/container:intrusive_red_black_tree",
         "//tensorstore/internal/metrics",
         "//tensorstore/internal/tracing",
         "//tensorstore/util:stop_token",

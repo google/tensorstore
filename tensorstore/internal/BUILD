@@ -675,22 +675,6 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
-    name = "heterogeneous_container",
-    hdrs = ["heterogeneous_container.h"],
-    deps = ["@com_google_absl//absl/container:flat_hash_set"],
-)
-
-tensorstore_cc_test(
-    name = "heterogeneous_container_test",
-    size = "small",
-    srcs = ["heterogeneous_container_test.cc"],
-    deps = [
-        ":heterogeneous_container",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
     name = "integer_overflow",
     hdrs = ["integer_overflow.h"],
     deps = ["@com_google_absl//absl/base:core_headers"],
@@ -713,21 +697,6 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
-    name = "intrusive_linked_list",
-    hdrs = ["intrusive_linked_list.h"],
-)
-
-tensorstore_cc_test(
-    name = "intrusive_linked_list_test",
-    size = "small",
-    srcs = ["intrusive_linked_list_test.cc"],
-    deps = [
-        ":intrusive_linked_list",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
     name = "intrusive_ptr",
     hdrs = ["intrusive_ptr.h"],
     deps = [
@@ -743,24 +712,6 @@ tensorstore_cc_test(
     deps = [
         ":intrusive_ptr",
         ":memory",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-tensorstore_cc_library(
-    name = "intrusive_red_black_tree",
-    srcs = ["intrusive_red_black_tree.cc"],
-    hdrs = ["intrusive_red_black_tree.h"],
-    deps = [":tagged_ptr"],
-)
-
-tensorstore_cc_test(
-    name = "intrusive_red_black_tree_test",
-    size = "small",
-    srcs = ["intrusive_red_black_tree_test.cc"],
-    deps = [
-        ":intrusive_red_black_tree",
-        "@com_google_absl//absl/random",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -866,10 +817,10 @@ tensorstore_cc_library(
         "json_registry_fwd.h",
     ],
     deps = [
-        ":heterogeneous_container",
         ":intrusive_ptr",
         ":json_fwd",
         "//tensorstore:json_serialization_options",
+        "//tensorstore/internal/container:heterogeneous_container",
         "//tensorstore/internal/json_binding",
         "//tensorstore/internal/poly",
         "//tensorstore/util:quote_string",

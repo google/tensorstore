@@ -18,7 +18,7 @@
 
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
-#include "tensorstore/internal/heterogeneous_container.h"
+#include "tensorstore/internal/container/heterogeneous_container.h"
 #include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/util/status.h"

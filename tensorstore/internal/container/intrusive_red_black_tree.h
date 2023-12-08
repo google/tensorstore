@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_INTRUSIVE_RED_BLACK_TREE_H_
-#define TENSORSTORE_INTERNAL_INTRUSIVE_RED_BLACK_TREE_H_
+#ifndef TENSORSTORE_INTERNAL_CONTAINER_INTRUSIVE_RED_BLACK_TREE_H_
+#define TENSORSTORE_INTERNAL_CONTAINER_INTRUSIVE_RED_BLACK_TREE_H_
 
 /// \file
 /// Intrusive red-black tree implementation.
@@ -694,4 +694,4 @@ Node* Tree<Node, Tag>::Traverse(Node& x, Direction dir) {
 }  // namespace internal
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_INTRUSIVE_RED_BLACK_TREE_H_
+#endif  // TENSORSTORE_INTERNAL_CONTAINER_INTRUSIVE_RED_BLACK_TREE_H_

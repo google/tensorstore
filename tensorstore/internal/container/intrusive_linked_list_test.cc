@@ -14,7 +14,8 @@
 
 /// Tests for intrusive_linked_list.h.
 
-#include "tensorstore/internal/intrusive_linked_list.h"
+#include "tensorstore/internal/container/intrusive_linked_list.h"
+
 #include <gtest/gtest.h>
 
 namespace {

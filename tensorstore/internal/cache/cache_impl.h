@@ -15,6 +15,7 @@
 #ifndef TENSORSTORE_INTERNAL_CACHE_CACHE_IMPL_H_
 #define TENSORSTORE_INTERNAL_CACHE_CACHE_IMPL_H_
 
+#include <typeinfo>
 #ifndef TENSORSTORE_CACHE_REFCOUNT_DEBUG
 #define TENSORSTORE_CACHE_REFCOUNT_DEBUG 0
 #endif
@@ -37,7 +38,7 @@
 #include "absl/log/absl_log.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/cache/cache_pool_limits.h"
-#include "tensorstore/internal/heterogeneous_container.h"
+#include "tensorstore/internal/container/heterogeneous_container.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 
 namespace tensorstore {
@@ -208,9 +209,9 @@ class CachePoolImpl {
       caches_;
 
   /// Initial strong reference returned when the cache pool is created.
-  std::atomic<std::size_t> strong_references_;
+  std::atomic<size_t> strong_references_;
   /// One weak reference is kept until strong_references_ becomes 0.
-  std::atomic<std::size_t> weak_references_;
+  std::atomic<size_t> weak_references_;
 };
 
 class Access {

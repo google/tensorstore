@@ -17,7 +17,7 @@
 #include <cassert>
 
 #include "absl/synchronization/mutex.h"
-#include "tensorstore/internal/intrusive_linked_list.h"
+#include "tensorstore/internal/container/intrusive_linked_list.h"
 
 namespace tensorstore {
 namespace internal_kvstore_gcs_http {

@@ -49,9 +49,9 @@ tensorstore_cc_library(
     hdrs = ["function.h"],
     deps = [
         ":serialization",
-        "//tensorstore/internal:heterogeneous_container",
         "//tensorstore/internal:intrusive_ptr",
         "//tensorstore/internal:no_destructor",
+        "//tensorstore/internal/container:heterogeneous_container",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
         "//tensorstore/util:str_cat",
@@ -130,8 +130,8 @@ tensorstore_cc_library(
     hdrs = ["registry.h"],
     deps = [
         ":serialization",
-        "//tensorstore/internal:heterogeneous_container",
         "//tensorstore/internal:no_destructor",
+        "//tensorstore/internal/container:heterogeneous_container",
         "//tensorstore/util:str_cat",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status",

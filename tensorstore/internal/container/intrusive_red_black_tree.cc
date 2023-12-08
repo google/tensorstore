@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/intrusive_red_black_tree.h"
+#include "tensorstore/internal/container/intrusive_red_black_tree.h"
 
 namespace tensorstore {
 namespace internal {

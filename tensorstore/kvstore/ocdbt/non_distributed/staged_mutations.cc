@@ -29,7 +29,7 @@
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/time/time.h"
-#include "tensorstore/internal/intrusive_red_black_tree.h"
+#include "tensorstore/internal/container/intrusive_red_black_tree.h"
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/key_range.h"

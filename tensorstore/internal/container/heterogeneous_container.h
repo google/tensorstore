@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_HETEROGENEOUS_CONTAINER_H_
-#define TENSORSTORE_INTERNAL_HETEROGENEOUS_CONTAINER_H_
+#ifndef TENSORSTORE_INTERNAL_CONTAINER_HETEROGENEOUS_CONTAINER_H_
+#define TENSORSTORE_INTERNAL_CONTAINER_HETEROGENEOUS_CONTAINER_H_
 
 #include <functional>
 
@@ -74,4 +74,4 @@ using HeterogeneousHashSet = absl::flat_hash_set<
 }  // namespace internal
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_HETEROGENEOUS_CONTAINER_H_
+#endif  // TENSORSTORE_INTERNAL_CONTAINER_HETEROGENEOUS_CONTAINER_H_

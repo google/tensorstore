@@ -22,8 +22,8 @@
 #include <string_view>
 
 #include "absl/time/time.h"
+#include "tensorstore/internal/container/intrusive_red_black_tree.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/intrusive_red_black_tree.h"
 #include "tensorstore/kvstore/ocdbt/distributed/btree_node_identifier.h"
 #include "tensorstore/kvstore/ocdbt/distributed/cooperator.grpc.pb.h"
 #include "tensorstore/kvstore/ocdbt/distributed/coordinator.grpc.pb.h"

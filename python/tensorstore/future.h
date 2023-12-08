@@ -67,7 +67,7 @@
 #include "python/tensorstore/result_type_caster.h"
 #include "python/tensorstore/status.h"
 #include "python/tensorstore/type_name_override.h"
-#include "tensorstore/internal/intrusive_linked_list.h"
+#include "tensorstore/internal/container/intrusive_linked_list.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"

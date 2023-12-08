@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TENSORSTORE_INTERNAL_INTRUSIVE_LINKED_LIST_H_
-#define TENSORSTORE_INTERNAL_INTRUSIVE_LINKED_LIST_H_
+#ifndef TENSORSTORE_INTERNAL_CONTAINER_INTRUSIVE_LINKED_LIST_H_
+#define TENSORSTORE_INTERNAL_CONTAINER_INTRUSIVE_LINKED_LIST_H_
 
 /// \file
 /// Intrusive circular doubly-linked list functionality.
@@ -86,4 +86,4 @@ bool OnlyContainsNode(Accessor accessor, typename Accessor::Node node) {
 }  // namespace internal
 }  // namespace tensorstore
 
-#endif  // TENSORSTORE_INTERNAL_INTRUSIVE_LINKED_LIST_H_
+#endif  // TENSORSTORE_INTERNAL_CONTAINER_INTRUSIVE_LINKED_LIST_H_

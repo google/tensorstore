@@ -26,7 +26,7 @@
 #include "absl/time/time.h"
 #include "absl/utility/utility.h"
 #include "tensorstore/internal/cache/cache.h"
-#include "tensorstore/internal/intrusive_linked_list.h"
+#include "tensorstore/internal/container/intrusive_linked_list.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/no_destructor.h"

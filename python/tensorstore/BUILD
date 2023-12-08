@@ -605,7 +605,7 @@ pybind11_cc_library(
         ":tensorstore_module_components",
         ":type_name_override",
         "//tensorstore/internal:global_initializer",
-        "//tensorstore/internal:intrusive_linked_list",
+        "//tensorstore/internal/container:intrusive_linked_list",
         "//tensorstore/serialization",
         "//tensorstore/util:executor",
         "//tensorstore/util:future",

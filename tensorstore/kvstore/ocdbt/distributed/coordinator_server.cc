@@ -38,10 +38,10 @@
 #include "grpcpp/server_builder.h"  // third_party
 #include "grpcpp/server_context.h"  // third_party
 #include "grpcpp/support/server_callback.h"  // third_party
+#include "tensorstore/internal/container/heterogeneous_container.h"
+#include "tensorstore/internal/container/intrusive_red_black_tree.h"
 #include "tensorstore/internal/grpc/peer_address.h"
 #include "tensorstore/internal/grpc/utils.h"
-#include "tensorstore/internal/heterogeneous_container.h"
-#include "tensorstore/internal/intrusive_red_black_tree.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/std_array.h"

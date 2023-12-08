@@ -18,21 +18,29 @@
 /// \file Defines the abstract `AsyncCache` base class that extends the basic
 /// `Cache` class with asynchronous read and read-modify-write functionality.
 
-#include <atomic>
-#include <cstddef>
+#include <stddef.h>
+#include <stdint.h>
 
+#include <atomic>
+#include <memory>
+#include <mutex>
+#include <type_traits>
+#include <utility>
+
+#include "absl/base/call_once.h"
 #include "absl/base/thread_annotations.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_format.h"
+#include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/cache/cache.h"
+#include "tensorstore/internal/container/intrusive_red_black_tree.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/intrusive_red_black_tree.h"
 #include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/tagged_ptr.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/execution/any_receiver.h"
-#include "tensorstore/util/execution/sender.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"

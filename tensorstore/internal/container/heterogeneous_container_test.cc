@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorstore/internal/heterogeneous_container.h"
+#include "tensorstore/internal/container/heterogeneous_container.h"
 
 #include <memory>
 

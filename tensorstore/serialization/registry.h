@@ -38,7 +38,7 @@
 #include <typeinfo>
 
 #include "absl/status/status.h"
-#include "tensorstore/internal/heterogeneous_container.h"
+#include "tensorstore/internal/container/heterogeneous_container.h"
 #include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/serialization/fwd.h"
 #include "tensorstore/serialization/serialization.h"

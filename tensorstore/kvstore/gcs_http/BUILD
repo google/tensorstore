@@ -130,7 +130,7 @@ tensorstore_cc_library(
     hdrs = ["admission_queue.h"],
     deps = [
         ":rate_limiter",
-        "//tensorstore/internal:intrusive_linked_list",
+        "//tensorstore/internal/container:intrusive_linked_list",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/synchronization",
     ],
@@ -175,7 +175,7 @@ tensorstore_cc_library(
     srcs = ["rate_limiter.cc"],
     hdrs = ["rate_limiter.h"],
     deps = [
-        "//tensorstore/internal:intrusive_linked_list",
+        "//tensorstore/internal/container:intrusive_linked_list",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/synchronization",
     ],

@@ -28,7 +28,7 @@
 #include "absl/synchronization/mutex.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
-#include "tensorstore/internal/heterogeneous_container.h"
+#include "tensorstore/internal/container/heterogeneous_container.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/json_serialization_options.h"
 #include "tensorstore/util/result.h"
