@@ -29,7 +29,7 @@
 #include "absl/strings/cord.h"
 #include "absl/strings/str_format.h"
 #include "riegeli/bytes/cord_writer.h"
-#include "riegeli/bytes/wrapped_writer.h"
+#include "riegeli/bytes/wrapping_writer.h"
 #include "riegeli/bytes/writer.h"
 #include "tensorstore/array.h"
 #include "tensorstore/contiguous_layout.h"
@@ -93,9 +93,9 @@ absl::Status EncodeShardIndex(riegeli::Writer& writer,
                               const ShardIndex& shard_index,
                               const ShardIndexParameters& parameters) {
   // Wrap `writer` to prevent `EncodeArray` from closing it.
-  riegeli::WrappedWriter wrapped_writer{&writer};
+  riegeli::WrappingWriter wrapping_writer{&writer};
   return parameters.index_codec_state->EncodeArray(shard_index.entries,
-                                                   wrapped_writer);
+                                                   wrapping_writer);
 }
 
 absl::Status ValidateGridShape(span<const Index> grid_shape) {

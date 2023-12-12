@@ -283,7 +283,7 @@ struct ReadState : public internal::AtomicReferenceCount<ReadState> {
       if (byte_range.inclusive_min > 0) {
         // This should, IMO, be Seek, however when the reader is only
         // wrapped in a LimitingReader<>, Seek appear appears to seek the
-        // underlying reader.  Maybe zip_details should use a WrappedReader?
+        // underlying reader.  Maybe zip_details should use a WrappingReader?
         entry_reader->Skip(byte_range.inclusive_min);
       }
 

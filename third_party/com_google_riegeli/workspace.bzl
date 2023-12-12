@@ -24,11 +24,11 @@ def repo():
     maybe(
         third_party_http_archive,
         name = "com_google_riegeli",
-        strip_prefix = "riegeli-81c414981883a606ef4865e6b49353d516aa605d",
+        strip_prefix = "riegeli-e54e4300f61cc113e5da816952d20ae070fe7219",
         urls = [
-            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/google/riegeli/archive/81c414981883a606ef4865e6b49353d516aa605d.tar.gz",  # master(2023-04-01)
+            "https://storage.googleapis.com/tensorstore-bazel-mirror/github.com/google/riegeli/archive/e54e4300f61cc113e5da816952d20ae070fe7219.tar.gz",  # master(2023-12-12)
         ],
-        sha256 = "d17b323ce1c8bdf73d9947ad13384ce8aa72adce6ead9b66dd4e6dbf2f013e50",
+        sha256 = "c2a40a1a422fe513faa198b325865022ccfbb1ca6317ef5f51a8b60d7c2bdc4c",
         patches = [
             # Use absl crc32c rather than separate crc32c library.
             Label("//third_party:com_google_riegeli/patches/absl-crc32c.diff"),

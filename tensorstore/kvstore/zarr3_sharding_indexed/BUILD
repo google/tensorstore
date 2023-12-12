@@ -169,7 +169,7 @@ tensorstore_cc_library(
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/strings:str_format",
         "@com_google_riegeli//riegeli/bytes:cord_writer",
-        "@com_google_riegeli//riegeli/bytes:wrapped_writer",
+        "@com_google_riegeli//riegeli/bytes:wrapping_writer",
         "@com_google_riegeli//riegeli/bytes:writer",
     ],
 )
