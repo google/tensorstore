@@ -55,7 +55,7 @@ tensorstore_cc_test(
     ],
 )
 
-cc_library(
+tensorstore_cc_library(
     name = "metric_hook",
     hdrs = ["metric_hook.h"],
     deps = ["//tensorstore/internal:type_traits"],
