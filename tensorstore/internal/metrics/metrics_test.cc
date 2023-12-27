@@ -12,9 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <algorithm>
 #include <string>
-#include <utility>
 #include <variant>
 #include <vector>
 

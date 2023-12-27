@@ -1,4 +1,11 @@
-load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_proto_library", "tensorstore_cc_test", "tensorstore_proto_library")
+load(
+    "//bazel:tensorstore.bzl",
+    "tensorstore_cc_binary",
+    "tensorstore_cc_library",
+    "tensorstore_cc_proto_library",
+    "tensorstore_cc_test",
+    "tensorstore_proto_library",
+)
 
 package(default_visibility = ["//tensorstore:internal_packages"])
 
@@ -63,11 +70,11 @@ tensorstore_cc_library(
 
 tensorstore_cc_library(
     name = "metric_impl",
+    srcs = ["metric_impl.cc"],
     hdrs = ["metric_impl.h"],
     deps = [
-        ":collect",
         ":metadata",
-        "//tensorstore/internal:type_traits",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:node_hash_map",
         "@com_google_absl//absl/functional:function_ref",
         "@com_google_absl//absl/hash",
@@ -107,6 +114,20 @@ tensorstore_cc_test(
         ":metrics",
         ":registry",
         "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_binary(
+    name = "metrics_benchmark_test",
+    testonly = 1,
+    srcs = ["metrics_benchmark_test.cc"],
+    deps = [
+        ":metrics",
+        ":registry",
+        "//tensorstore/internal/thread:thread_pool",
+        "//tensorstore/util:executor",
+        "@com_google_absl//absl/synchronization",
+        "@com_google_benchmark//:benchmark_main",
     ],
 )
 

@@ -63,7 +63,7 @@ template <typename T, typename... Fields>
 class ABSL_CACHELINE_ALIGNED Value {
   using Cell = std::conditional_t<std::is_arithmetic_v<T>, AtomicValueCell<T>,
                                   MutexValueCell<T>>;
-  using Impl = AbstractMetric<Cell, Fields...>;
+  using Impl = AbstractMetric<Cell, false, Fields...>;
 
  public:
   using value_type = T;

@@ -88,7 +88,7 @@ struct DefaultBucketer {
 template <typename Bucketer, typename... Fields>
 class ABSL_CACHELINE_ALIGNED Histogram {
   using Cell = HistogramCell<Bucketer>;
-  using Impl = AbstractMetric<Cell, Fields...>;
+  using Impl = AbstractMetric<Cell, false, Fields...>;
 
  public:
   using value_type = double;

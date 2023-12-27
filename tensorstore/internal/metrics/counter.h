@@ -65,7 +65,7 @@ class ABSL_CACHELINE_ALIGNED Counter {
   static_assert(std::is_same_v<T, int64_t> || std::is_same_v<T, double>);
   using Cell = std::conditional_t<std::is_same_v<T, int64_t>,
                                   CounterCell<int64_t>, CounterCell<double>>;
-  using Impl = AbstractMetric<Cell, Fields...>;
+  using Impl = AbstractMetric<Cell, true, Fields...>;
 
  public:
   using value_type = T;
@@ -178,6 +178,11 @@ class ABSL_CACHELINE_ALIGNED CounterCell<double> : public CounterTag {
 
   void Reset() { value_ = 0.0; }
 
+  void Combine(CounterCell& other) const {
+    other.value_.store(other.value_.load(std::memory_order_relaxed) +
+                       value_.load(std::memory_order_relaxed));
+  }
+
  private:
   std::atomic<double> value_{0.0};
 };
@@ -199,6 +204,11 @@ class ABSL_CACHELINE_ALIGNED CounterCell<int64_t> : public CounterTag {
   int64_t Get() const { return value_; }
 
   void Reset() { value_ = 0; }
+
+  void Combine(CounterCell& other) const {
+    other.value_.fetch_add(value_.load(std::memory_order_relaxed),
+                           std::memory_order_relaxed);
+  }
 
  private:
   std::atomic<int64_t> value_{0};

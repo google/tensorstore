@@ -18,23 +18,26 @@
 // Implementation details for internal/metrics
 // IWYU pragma: private
 
+#include <stddef.h>
+
 #include <string>
 #include <string_view>
 #include <tuple>
 #include <utility>
 #include <vector>
 
+#include "absl/base/optimization.h"
 #include "absl/container/node_hash_map.h"
 #include "absl/functional/function_ref.h"
 #include "absl/hash/hash.h"
 #include "absl/log/absl_check.h"
 #include "absl/synchronization/mutex.h"
-#include "tensorstore/internal/metrics/collect.h"
 #include "tensorstore/internal/metrics/metadata.h"
-#include "tensorstore/internal/type_traits.h"
 
 namespace tensorstore {
 namespace internal_metrics {
+
+size_t MetricThreadCounter();
 
 // Metrics include an optional set of labels of type {int, string, bool}.
 template <typename K>
@@ -170,7 +173,7 @@ class AbstractMetricBase {
 };
 
 /// AbstractMetric maintains a mapping from a set of field labels to a Cell.
-template <typename Cell, typename... Fields>
+template <typename Cell, bool HasCombine, typename... Fields>
 class AbstractMetric : public AbstractMetricBase<sizeof...(Fields)> {
   using Base = AbstractMetricBase<sizeof...(Fields)>;
 
@@ -233,9 +236,57 @@ class AbstractMetric : public AbstractMetricBase<sizeof...(Fields)> {
   absl::node_hash_map<Key, Cell> impl_;
 };
 
+// Lock-free Specialization for no fields using a sharded counter.
+// This assumes that the SFINAE parameter in AbstractMetric is appropriately
+// set with HasCombine when Cell has a Cell::Combine method.
+template <typename Cell>
+class AbstractMetric<Cell, true> : public AbstractMetricBase<0> {
+  using Base = AbstractMetricBase<0>;
+
+ public:
+  using field_names_type = typename Base::field_names_type;
+  using field_values_type = std::tuple<>;
+  using value_type = typename Cell::value_type;
+
+  ~AbstractMetric() = default;
+
+  using Base::Base;
+  using Base::field_names;
+  using Base::field_names_vector;
+  using Base::metadata;
+  using Base::metric_name;
+
+  const Cell* FindCell() const { return &cells_[get_id()]; }
+  Cell* GetCell() { return &cells_[get_id()]; }
+  bool HasCell() { return true; }
+
+  using CollectCellFn = absl::FunctionRef<void(
+      const Cell& /*value*/, const field_values_type& /*labels*/)>;
+
+  void CollectCells(CollectCellFn on_cell) const {
+    Cell c;
+    for (auto& x : cells_) x.Combine(c);
+    field_values_type g;
+    on_cell(c, g);
+  }
+
+  void Reset() {
+    for (auto& x : cells_) x.Reset();
+  }
+
+ private:
+  size_t get_id() const {
+    thread_local size_t id = MetricThreadCounter() & 3;
+    return id;
+  }
+
+  Cell cells_[4];
+  static_assert(sizeof(cells_) == 4 * ABSL_CACHELINE_SIZE);
+};
+
 // Lock-free Specialization for no fields.
 template <typename Cell>
-class AbstractMetric<Cell> : public AbstractMetricBase<0> {
+class AbstractMetric<Cell, false> : public AbstractMetricBase<0> {
   using Base = AbstractMetricBase<0>;
 
  public:
@@ -270,8 +321,8 @@ class AbstractMetric<Cell> : public AbstractMetricBase<0> {
 };
 
 // Lock-free Specialization for a single boolean field.
-template <typename Cell>
-class AbstractMetric<Cell, bool> : public AbstractMetricBase<1> {
+template <typename Cell, bool HasCombine>
+class AbstractMetric<Cell, HasCombine, bool> : public AbstractMetricBase<1> {
   using Base = AbstractMetricBase<1>;
 
  public:

@@ -65,9 +65,8 @@ class MaxCell;
 template <typename T, typename... Fields>
 class ABSL_CACHELINE_ALIGNED Gauge {
   static_assert(std::is_same_v<T, int64_t> || std::is_same_v<T, double>);
-  using Cell = std::conditional_t<std::is_same_v<T, int64_t>,
-                                  GaugeCell<int64_t>, GaugeCell<double>>;
-  using Impl = AbstractMetric<Cell, Fields...>;
+  using Cell = GaugeCell<T>;
+  using Impl = AbstractMetric<Cell, false, Fields...>;
 
  public:
   using value_type = T;
@@ -196,7 +195,7 @@ template <typename T, typename... Fields>
 class ABSL_CACHELINE_ALIGNED MaxGauge {
   static_assert(std::is_same_v<T, int64_t> || std::is_same_v<T, double>);
   using Cell = MaxCell<T>;
-  using Impl = AbstractMetric<Cell, Fields...>;
+  using Impl = AbstractMetric<Cell, true, Fields...>;
 
  public:
   using value_type = T;
@@ -388,6 +387,13 @@ class ABSL_CACHELINE_ALIGNED MaxCell {
   value_type Get() const { return max_; }
 
   void Reset() { max_ = 0; }
+
+  void Combine(MaxCell& other) const {
+    auto m = max_.load(std::memory_order_relaxed);
+    if (other.max_.load(std::memory_order_relaxed) < m) {
+      other.max_.store(m, std::memory_order_relaxed);
+    }
+  }
 
  private:
   std::atomic<T> max_{0};
