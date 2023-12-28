@@ -1,4 +1,9 @@
-load("//bazel:tensorstore.bzl", "tensorstore_cc_library", "tensorstore_cc_test")
+load(
+    "//bazel:tensorstore.bzl",
+    "tensorstore_cc_binary",
+    "tensorstore_cc_library",
+    "tensorstore_cc_test",
+)
 
 package(default_visibility = ["//tensorstore:internal_packages"])
 
@@ -73,7 +78,36 @@ tensorstore_cc_library(
 )
 
 tensorstore_cc_library(
-    name = "thread_pool_test_cc",
+    name = "thread_pool_benchmark_inc",
+    testonly = 1,
+    textual_hdrs = ["thread_pool_benchmark.inc"],
+    deps = [
+        "//tensorstore/internal/digest:sha256",
+        "//tensorstore/internal/metrics:collect",
+        "//tensorstore/internal/metrics:registry",
+        "//tensorstore/util:executor",
+        "@com_google_absl//absl/log:absl_check",
+        "@com_google_absl//absl/random",
+        "@com_google_absl//absl/synchronization",
+        "@com_google_benchmark//:benchmark",  # build_cleaner: keep
+    ],
+)
+
+tensorstore_cc_binary(
+    name = "thread_pool_benchmark",
+    testonly = 1,
+    srcs = ["thread_pool_benchmark.cc"],
+    deps = [
+        ":thread_pool",
+        ":thread_pool_benchmark_inc",
+        "@com_google_absl//absl/flags:commandlineflag",
+        "@com_google_absl//absl/flags:reflection",
+        "@com_google_benchmark//:benchmark_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "thread_pool_test_inc",
     testonly = 1,
     textual_hdrs = ["thread_pool_test.inc"],
     deps = [
@@ -91,7 +125,7 @@ tensorstore_cc_test(
     srcs = ["thread_pool_test.cc"],
     deps = [
         ":thread_pool",
-        ":thread_pool_test_cc",
+        ":thread_pool_test_inc",
         "@com_google_absl//absl/flags:commandlineflag",
         "@com_google_absl//absl/flags:reflection",
         "@com_google_googletest//:gtest_main",
