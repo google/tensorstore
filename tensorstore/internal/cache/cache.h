@@ -272,16 +272,6 @@ class CacheEntry : private internal_cache::CacheEntryImpl {
   /// while there may be other concurrent accesses to the same cache pool.
   CacheEntryQueueState queue_state() { return queue_state_; }
 
-  /// Sets whether this entry should be evicted as soon as it is not in use,
-  /// regardless of when it was last used or the available memory in the cache
-  /// pool.
-  ///
-  /// This must only be called while the entry is in use, and must not be called
-  /// by multiple threads concurrently for the same entry.
-  void SetEvictWhenNotInUse(bool value = true) {
-    evict_when_not_in_use_ = value;
-  }
-
   /// Specifies an optional size update to be done with an optional lock
   /// hand-off.
   struct SizeUpdate {

@@ -113,7 +113,6 @@ class CacheEntryImpl : public internal_cache::LruListNode {
   std::string key_;
   size_t num_bytes_;
   CacheEntryQueueState queue_state_;
-  bool evict_when_not_in_use_ = false;
 
   // Each strong reference adds 2 to the reference count.  The least-significant
   // bit (LSB) indicates if there is at least one weak reference,
