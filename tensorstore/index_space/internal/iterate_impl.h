@@ -363,7 +363,7 @@ SimplifiedDimensionIterationOrder SimplifyDimensionIterationOrder(
 }
 
 template <std::size_t Arity>
-ArrayIterateResult IterateUsingSimplifiedLayout(
+bool IterateUsingSimplifiedLayout(
     const SimplifiedDimensionIterationOrder& layout,
     span<const Index> input_shape,
     internal::ElementwiseClosure<Arity, void*> closure, void* arg,

@@ -170,18 +170,20 @@ pybind11::object GetNumpyObjectArrayImpl(SharedArrayView<const void> source,
   if (!array_obj) throw py::error_already_set();
   Index target_strides[NPY_MAXDIMS];
   std::copy_n(array_obj.strides(), source.rank(), target_strides);
-  auto iterate_result = internal::IterateOverStridedLayouts<2>(
-      /*closure=*/{kConvertDataTypeToNumpyObjectArray[static_cast<size_t>(
-                       source.dtype().id())],
-                   nullptr},
-      /*arg=*/nullptr,
-      /*shape=*/source.shape(),
-      {{const_cast<void*>(source.data()),
-        static_cast<void*>(py::detail::array_proxy(array_obj.ptr())->data)}},
-      {{source.byte_strides().data(), target_strides}},
-      /*constraints=*/skip_repeated_elements,
-      {{source.dtype().size(), sizeof(PyObject*)}});
-  if (!iterate_result.success) throw py::error_already_set();
+  if (!internal::IterateOverStridedLayouts<2>(
+          /*closure=*/{kConvertDataTypeToNumpyObjectArray[static_cast<size_t>(
+                           source.dtype().id())],
+                       nullptr},
+          /*arg=*/nullptr,
+          /*shape=*/source.shape(),
+          {{const_cast<void*>(source.data()),
+            static_cast<void*>(
+                py::detail::array_proxy(array_obj.ptr())->data)}},
+          {{source.byte_strides().data(), target_strides}},
+          /*constraints=*/skip_repeated_elements,
+          {{source.dtype().size(), sizeof(PyObject*)}})) {
+    throw py::error_already_set();
+  }
   if (is_const) {
     PyArray_CLEARFLAGS(reinterpret_cast<PyArrayObject*>(array_obj.ptr()),
                        NPY_ARRAY_WRITEABLE);
@@ -211,18 +213,20 @@ SharedArray<void, dynamic_rank> ArrayFromNumpyObjectArray(
       array_obj_layout, skip_repeated_elements, default_init, dtype);
 
   ConvertFromObject converter;
-  auto iterate_result = internal::IterateOverStridedLayouts<2>(
-      /*closure=*/{kConvertDataTypeFromNumpyObjectArray[static_cast<size_t>(
-                       dtype.id())],
-                   &converter},
-      /*arg=*/nullptr,
-      /*shape=*/array.shape(),
-      {{static_cast<void*>(py::detail::array_proxy(array_obj.ptr())->data),
-        const_cast<void*>(array.data())}},
-      {{array_obj_layout.byte_strides().data(), array.byte_strides().data()}},
-      /*constraints=*/skip_repeated_elements,
-      {{sizeof(PyObject*), dtype.size()}});
-  if (!iterate_result.success) std::rethrow_exception(std::move(converter.ex));
+  if (!internal::IterateOverStridedLayouts<2>(
+          /*closure=*/{kConvertDataTypeFromNumpyObjectArray[static_cast<size_t>(
+                           dtype.id())],
+                       &converter},
+          /*arg=*/nullptr,
+          /*shape=*/array.shape(),
+          {{static_cast<void*>(py::detail::array_proxy(array_obj.ptr())->data),
+            const_cast<void*>(array.data())}},
+          {{array_obj_layout.byte_strides().data(),
+            array.byte_strides().data()}},
+          /*constraints=*/skip_repeated_elements,
+          {{sizeof(PyObject*), dtype.size()}})) {
+    std::rethrow_exception(std::move(converter.ex));
+  }
   return array;
 }
 

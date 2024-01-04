@@ -121,9 +121,9 @@ class StridedIteratorImpl : public StridedIteratorImplBase<Rank> {
                        layout, orig_byte_strides, byte_strides_.data());
   }
 
-  Index GetBlock(span<const Index> indices, Index block_size,
-                 IterationBufferPointer* pointer,
-                 absl::Status* status) override {
+  bool GetBlock(span<const Index> indices, IterationBufferShape block_shape,
+                IterationBufferPointer* pointer,
+                absl::Status* status) override {
     Index offset;
     if constexpr (Rank == -1) {
       offset = IndexInnerProduct(indices.size(), byte_strides_.data(),
@@ -131,8 +131,10 @@ class StridedIteratorImpl : public StridedIteratorImplBase<Rank> {
     } else {
       offset = IndexInnerProduct<Rank>(byte_strides_.data(), indices.data());
     }
-    *pointer = IterationBufferPointer{data_ + offset, byte_strides_.back()};
-    return block_size;
+    *pointer = IterationBufferPointer{data_ + offset,
+                                      byte_strides_[byte_strides_.size() - 2],
+                                      byte_strides_[byte_strides_.size() - 1]};
+    return true;
   }
 
  private:
@@ -145,30 +147,35 @@ class IndexedIteratorImpl : public NDIterator::Base<IndexedIteratorImpl> {
                       span<const Index> orig_byte_strides,
                       NDIterable::IterationBufferLayoutView layout,
                       ArenaAllocator<> allocator)
-      : buffer_(layout.iteration_rank() + layout.block_size, allocator) {
+      : block_inner_size_(layout.block_shape[1]),
+        buffer_(layout.iteration_rank() +
+                    layout.block_shape[0] * layout.block_shape[1],
+                allocator) {
     data_ = data + ComputeIteratorBaseOffsetAndByteStrides(
                        layout, orig_byte_strides, buffer_.data());
-    FillOffsetsArrayFromStride(
-        buffer_[layout.iteration_rank() - 1],
-        span(buffer_.data() + layout.iteration_rank(), layout.block_size));
+    FillOffsetsArrayFromStride(buffer_[layout.iteration_rank() - 2],
+                               buffer_[layout.iteration_rank() - 1],
+                               layout.block_shape[0], layout.block_shape[1],
+                               buffer_.data() + layout.iteration_rank());
   }
 
   ArenaAllocator<> get_allocator() const override {
     return buffer_.get_allocator();
   }
 
-  Index GetBlock(span<const Index> indices, Index block_size,
-                 IterationBufferPointer* pointer,
-                 absl::Status* status) override {
+  bool GetBlock(span<const Index> indices, IterationBufferShape block_shape,
+                IterationBufferPointer* pointer,
+                absl::Status* status) override {
     *pointer = IterationBufferPointer{
         data_ +
             IndexInnerProduct(indices.size(), buffer_.data(), indices.data()),
-        buffer_.data() + indices.size()};
-    return block_size;
+        block_inner_size_, buffer_.data() + indices.size()};
+    return true;
   }
 
  private:
   ByteStridedPointer<void> data_;
+  Index block_inner_size_;
   std::vector<Index, ArenaAllocator<Index>> buffer_;
 };
 
@@ -236,9 +243,6 @@ class ArrayIterableImpl : public NDIterable::Base<ArrayIterableImpl> {
     };
     switch (layout.iteration_rank()) {
 #ifndef TENSORSTORE_NDITERABLE_DISABLE_ARRAY_OPTIMIZE
-      case 1:
-        return make_strided_iterator(
-            std::integral_constant<DimensionIndex, 1>{});
       case 2:
         return make_strided_iterator(
             std::integral_constant<DimensionIndex, 2>{});
@@ -247,6 +251,7 @@ class ArrayIterableImpl : public NDIterable::Base<ArrayIterableImpl> {
             std::integral_constant<DimensionIndex, 3>{});
 #endif  // !defined(TENSORSTORE_NDITERABLE_DISABLE_ARRAY_OPTIMIZE)
       default:
+        assert(layout.iteration_rank() > 1);
         return make_strided_iterator(
             std::integral_constant<DimensionIndex, -1>{});
     }

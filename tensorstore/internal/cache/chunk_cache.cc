@@ -337,26 +337,20 @@ struct WriteChunkImpl {
 
   WriteChunk::EndWriteResult operator()(WriteChunk::EndWrite,
                                         IndexTransformView<> chunk_transform,
-                                        NDIterable::IterationLayoutView layout,
-                                        span<const Index> write_end_position,
-                                        Arena* arena) const {
+                                        bool success, Arena* arena) const {
     auto& entry = GetOwningEntry(*node);
     const auto& component_spec = entry.component_specs()[component_index];
     Index origin[kMaxRank];
     const span<Index> origin_span(origin, component_spec.rank());
     GetOwningCache(entry).grid().GetComponentOrigin(
         component_index, entry.cell_indices(), origin_span);
-    const bool modified = node->components()[component_index].EndWrite(
-        component_spec, origin_span, chunk_transform, layout,
-        write_end_position, arena);
-    if (modified) node->is_modified = modified;
-    if (modified && IsFullyOverwritten(*node)) {
+    node->components()[component_index].EndWrite(
+        component_spec, origin_span, chunk_transform, success, arena);
+    node->is_modified = true;
+    if (IsFullyOverwritten(*node)) {
       node->SetUnconditional();
     }
-    if (modified) {
-      return {node->OnModified(), node->transaction()->future()};
-    }
-    return {};
+    return {node->OnModified(), node->transaction()->future()};
   }
 };
 

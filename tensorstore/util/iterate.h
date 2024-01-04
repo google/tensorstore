@@ -150,28 +150,6 @@ class IterationConstraints {
   int value_;
 };
 
-/// Specifies status information for an array iteration operation.
-///
-/// \ingroup array iteration
-struct ArrayIterateResult {
-  /// If `true`, all elements were successfully processed.
-  bool success;
-
-  /// The total number of elements successfully processed.
-  Index count;
-
-  /// Returns `success`.
-  explicit operator bool() const { return success; }
-
-  friend constexpr bool operator==(ArrayIterateResult a, ArrayIterateResult b) {
-    return a.success == b.success && a.count == b.count;
-  }
-  friend constexpr bool operator!=(ArrayIterateResult a, ArrayIterateResult b) {
-    return !(a == b);
-  }
-  friend std::ostream& operator<<(std::ostream& os, ArrayIterateResult a);
-};
-
 namespace internal {
 
 /// Iterates over strided arrays and invokes a type-erased element-wise function
@@ -181,8 +159,8 @@ namespace internal {
 /// type-erased element-wise function with a pointer to the element at
 /// `position` in each of the arrays.
 ///
-/// If the element-wise function indicates an error (by returning a count less
-/// than the count with which it was called) iteration stops.
+/// If the element-wise function indicates an error, iteration stops and this
+/// function returns `false`.
 ///
 /// \tparam Arity The arity of the element-wise function, equal to the number of
 ///     arrays over which to iterate simultaneously.
@@ -196,7 +174,7 @@ namespace internal {
 /// \param element_sizes The element sizes (in bytes) corresponding to the
 ///     element types of the arrays.
 template <std::size_t Arity>
-ArrayIterateResult IterateOverStridedLayouts(
+bool IterateOverStridedLayouts(
     ElementwiseClosure<Arity, void*> closure, void* arg,
     span<const Index> shape,
     std::array<ByteStridedPointer<void>, Arity> pointers,

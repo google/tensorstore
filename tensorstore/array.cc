@@ -60,27 +60,24 @@ bool CompareArraysEqualImpl(const ArrayView<const void, dynamic_rank, OKind>& a,
       a.dtype()->compare_equal[static_cast<size_t>(comparison_kind)];
   if (IsBroadcastScalar(a)) {
     return internal::IterateOverArrays(
-               {&funcs.array_scalar, nullptr},
-               /*status=*/
-               reinterpret_cast<absl ::Status*>(
-                   const_cast<void*>(a.byte_strided_origin_pointer().get())),
-               /*constraints=*/skip_repeated_elements, b)
-        .success;
+        {&funcs.array_scalar, nullptr},
+        /*status=*/
+        reinterpret_cast<absl ::Status*>(
+            const_cast<void*>(a.byte_strided_origin_pointer().get())),
+        /*constraints=*/skip_repeated_elements, b);
   }
   if (IsBroadcastScalar(b)) {
     return internal::IterateOverArrays(
-               {&funcs.array_scalar, nullptr},
-               /*status=*/
-               reinterpret_cast<absl ::Status*>(
-                   const_cast<void*>(b.byte_strided_origin_pointer().get())),
-               /*constraints=*/skip_repeated_elements, a)
-        .success;
+        {&funcs.array_scalar, nullptr},
+        /*status=*/
+        reinterpret_cast<absl ::Status*>(
+            const_cast<void*>(b.byte_strided_origin_pointer().get())),
+        /*constraints=*/skip_repeated_elements, a);
   }
   return internal::IterateOverArrays({&funcs.array_array, nullptr},
                                      /*status=*/nullptr,
                                      /*constraints=*/skip_repeated_elements, a,
-                                     b)
-      .success;
+                                     b);
 }
 }  // namespace
 
@@ -119,8 +116,7 @@ absl::Status CopyConvertedArrayImplementation(
   if (!internal::IterateOverArrays(r.closure,
                                    /*status=*/&status,
                                    /*constraints=*/skip_repeated_elements,
-                                   source, dest)
-           .success) {
+                                   source, dest)) {
     return internal::GetElementCopyErrorStatus(std::move(status));
   }
   return status;
@@ -382,12 +378,11 @@ bool EncodeArray(serialization::EncodeSink& sink,
     return false;
 
   return internal::IterateOverArrays(
-             {&internal::kUnalignedDataTypeFunctions[static_cast<size_t>(
-                                                         array.dtype().id())]
-                   .write_native_endian,
-              &sink.writer()},
-             /*arg=*/nullptr, {c_order, skip_repeated_elements}, array)
-      .success;
+      {&internal::kUnalignedDataTypeFunctions[static_cast<size_t>(
+                                                  array.dtype().id())]
+            .write_native_endian,
+       &sink.writer()},
+      /*arg=*/nullptr, {c_order, skip_repeated_elements}, array);
 }
 
 template <ArrayOriginKind OriginKind>
@@ -441,12 +436,11 @@ bool DecodeArray<OriginKind>::Decode(
       array.layout(), array.byte_strides().data(),
       {c_order, skip_repeated_elements}, default_init, dtype);
   return internal::IterateOverArrays(
-             {&internal::kUnalignedDataTypeFunctions[static_cast<size_t>(
-                                                         array.dtype().id())]
-                   .read_native_endian,
-              &source.reader()},
-             /*arg=*/nullptr, {c_order, skip_repeated_elements}, array)
-      .success;
+      {&internal::kUnalignedDataTypeFunctions[static_cast<size_t>(
+                                                  array.dtype().id())]
+            .read_native_endian,
+       &source.reader()},
+      /*arg=*/nullptr, {c_order, skip_repeated_elements}, array);
 }
 
 template struct DecodeArray<zero_origin>;

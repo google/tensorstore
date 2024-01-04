@@ -148,15 +148,13 @@ struct WriteChunk {
       ///
       /// \param chunk_transform Same transform supplied to prior call to
       ///     `BeginWrite`.
-      /// \param layout Iteration layout used for writing to the
-      ///     `NDIterable` returned by `BeginWrite`.
-      /// \param write_end_position One past the last position (with
-      ///     respect to `layout`) that was modified.
+      /// \param success Indicates if the full range of `chunk_transform` was
+      ///     successfully written.  If `false`, only a subset of the range of
+      ///     `chunk_transform` may have been written.
       /// \param arena Non-null pointer to allocation arena that may be
       ///     used for allocating memory.
       EndWriteResult(EndWrite, IndexTransformView<> chunk_transform,
-                     NDIterable::IterationLayoutView layout,
-                     span<const Index> write_end_position, Arena* arena)>;
+                     bool success, Arena* arena)>;
 
   /// Type-erased chunk implementation.  In the case of the chunks produced by
   /// `ChunkCache::Write`, for example, the contained object holds a

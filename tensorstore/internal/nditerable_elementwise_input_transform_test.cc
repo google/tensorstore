@@ -21,6 +21,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
@@ -33,20 +34,20 @@
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/status_testutil.h"
 
 namespace {
 
 using ::tensorstore::Index;
+using ::tensorstore::MatchesStatus;
 using ::tensorstore::internal::NDIterableCopier;
 using ::testing::_;
 using ::testing::Pair;
 
-/// Returns the `absl::Status` returned by `Copy()` and the final
-/// `copier.stepper().position()` value.
+/// Returns the `absl::Status` returned by `Copy()`.
 template <typename Func, typename DestArray, typename... SourceArray>
-std::pair<absl::Status, std::vector<Index>> TestCopy(
-    Func func, tensorstore::IterationConstraints constraints,
-    DestArray dest_array, SourceArray... source_array) {
+absl::Status TestCopy(Func func, tensorstore::IterationConstraints constraints,
+                      DestArray dest_array, SourceArray... source_array) {
   tensorstore::internal::Arena arena;
   tensorstore::internal::ElementwiseClosure<sizeof...(SourceArray) + 1, void*>
       closure = tensorstore::internal::SimpleElementwiseFunction<
@@ -57,22 +58,18 @@ std::pair<absl::Status, std::vector<Index>> TestCopy(
                                                              &arena)
             .value()...}},
       tensorstore::dtype_v<typename DestArray::Element>, closure, &arena);
-  NDIterableCopier copier(
-      *iterable,
-      *tensorstore::internal::GetTransformedArrayNDIterable(dest_array, &arena)
-           .value(),
-      dest_array.shape(), constraints, &arena);
-  auto copy_status = copier.Copy();
-  return {std::move(copy_status),
-          std::vector<Index>(copier.stepper().position().begin(),
-                             copier.stepper().position().end())};
+  return NDIterableCopier(*iterable,
+                          *tensorstore::internal::GetTransformedArrayNDIterable(
+                               dest_array, &arena)
+                               .value(),
+                          dest_array.shape(), constraints, &arena)
+      .Copy();
 }
 
 TEST(NDIterableElementwiseInputTransformTest, Nullary) {
   auto dest = tensorstore::AllocateArray<double>({2, 3});
-  EXPECT_THAT(TestCopy([](double* dest, void* arg) { *dest = 42.0; },
-                       /*constraints=*/{}, dest),
-              Pair(absl::OkStatus(), _));
+  TENSORSTORE_EXPECT_OK(TestCopy([](double* dest, void* arg) { *dest = 42.0; },
+                                 /*constraints=*/{}, dest));
   EXPECT_EQ(
       tensorstore::MakeArray<double>({{42.0, 42.0, 42.0}, {42.0, 42.0, 42.0}}),
       dest);
@@ -81,10 +78,9 @@ TEST(NDIterableElementwiseInputTransformTest, Nullary) {
 TEST(NDIterableElementwiseInputTransformTest, Unary) {
   auto source = tensorstore::MakeArray<int>({{1, 2, 3}, {4, 5, 6}});
   auto dest = tensorstore::AllocateArray<double>(source.shape());
-  EXPECT_THAT(TestCopy([](const int* source, double* dest,
-                          void* arg) { *dest = -*source; },
-                       /*constraints=*/{}, dest, source),
-              Pair(absl::OkStatus(), _));
+  TENSORSTORE_EXPECT_OK(TestCopy(
+      [](const int* source, double* dest, void* arg) { *dest = -*source; },
+      /*constraints=*/{}, dest, source));
   EXPECT_EQ(
       tensorstore::MakeArray<double>({{-1.0, -2.0, -3.0}, {-4.0, -5.0, -6.0}}),
       dest);
@@ -94,10 +90,9 @@ TEST(NDIterableElementwiseInputTransformTest, Binary) {
   auto a = tensorstore::MakeArray<int>({{1, 2, 3}, {4, 5, 6}});
   auto b = tensorstore::MakeArray<int>({{10, 12, 14}, {16, 18, 20}});
   auto dest = tensorstore::AllocateArray<double>(a.shape());
-  EXPECT_THAT(TestCopy([](const int* a, const int* b, double* dest,
-                          void* arg) { *dest = 2.0 * *a + *b; },
-                       /*constraints=*/{}, dest, a, b),
-              Pair(absl::OkStatus(), _));
+  TENSORSTORE_EXPECT_OK(TestCopy([](const int* a, const int* b, double* dest,
+                                    void* arg) { *dest = 2.0 * *a + *b; },
+                                 /*constraints=*/{}, dest, a, b));
   EXPECT_EQ(
       tensorstore::MakeArray<double>({{12.0, 16.0, 20.0}, {24.0, 28.0, 32.0}}),
       dest);
@@ -108,10 +103,10 @@ TEST(NDIterableElementwiseInputTransformTest, Ternary) {
   auto b = tensorstore::MakeArray<int>({{10, 12, 14}, {16, 18, 20}});
   auto c = tensorstore::MakeArray<double>({{1, -1, 1}, {-1, -1, 1}});
   auto dest = tensorstore::AllocateArray<double>(a.shape());
-  EXPECT_THAT(TestCopy([](const int* a, const int* b, const double* c,
-                          double* dest, void* arg) { *dest = *a + *b * *c; },
-                       /*constraints=*/{}, dest, a, b, c),
-              Pair(absl::OkStatus(), _));
+  TENSORSTORE_EXPECT_OK(
+      TestCopy([](const int* a, const int* b, const double* c, double* dest,
+                  void* arg) { *dest = *a + *b * *c; },
+               /*constraints=*/{}, dest, a, b, c));
   EXPECT_EQ(
       tensorstore::MakeArray<double>({{1 + 10 * 1, 2 + 12 * -1, 3 + 14 * 1},
                                       {4 + 16 * -1, 5 + 18 * -1, 6 + 20 * 1}}),
@@ -133,7 +128,7 @@ TEST(NDIterableElementwiseInputTransformTest, PartialCopy) {
                     return true;
                   },
                   /*constraints=*/tensorstore::c_order, dest, source),
-              Pair(absl::UnknownError("zero"), ::testing::ElementsAre(3)));
+              MatchesStatus(absl::StatusCode::kUnknown, "zero"));
   EXPECT_EQ(tensorstore::MakeArray<double>({-1.0, -2.0, -3.0, 0.0, 0.0, 0.0}),
             dest);
 }

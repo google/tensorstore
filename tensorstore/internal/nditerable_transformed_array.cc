@@ -19,7 +19,6 @@
 #include <utility>
 #include <vector>
 
-#include "absl/container/fixed_array.h"
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/data_type.h"
@@ -82,8 +81,8 @@ class IterableImpl : public NDIterable::Base<IterableImpl> {
     // "index array input dimensions") should always come before other
     // dimensions, because (1) we want all the index array input dimensions
     // grouped consecutively in order to potentially combine them, and (2) it is
-    // much more expensive to have an index array input dimension as the final
-    // dimension (inner loop dimension).
+    // much more expensive to have an index array input dimension as one of the
+    // final 2 dimensions (inner loop dimensions).
     auto flags_i = input_dimension_flags_[dim_i];
     if ((flags_i & input_dim_iter_flags::array_indexed) !=
         (input_dimension_flags_[dim_j] & input_dim_iter_flags::array_indexed)) {
@@ -157,9 +156,14 @@ class IterableImpl : public NDIterable::Base<IterableImpl> {
 
   IterationBufferConstraint GetIterationBufferConstraint(
       IterationLayoutView layout) const override {
-    const DimensionIndex last_dim = layout.iteration_dimensions.back();
-    if (last_dim == -1 || (input_dimension_flags_[last_dim] &
-                           input_dim_iter_flags::array_indexed) == 0) {
+    const DimensionIndex penultimate_dim =
+        layout.iteration_dimensions[layout.iteration_dimensions.size() - 2];
+    const DimensionIndex last_dim =
+        layout.iteration_dimensions[layout.iteration_dimensions.size() - 1];
+    if ((last_dim == -1 || (input_dimension_flags_[last_dim] &
+                            input_dim_iter_flags::array_indexed) == 0) &&
+        (penultimate_dim == -1 || (input_dimension_flags_[penultimate_dim] &
+                                   input_dim_iter_flags::array_indexed) == 0)) {
       return {(last_dim == -1 || state_.input_byte_strides[last_dim] *
                                          layout.directions[last_dim] ==
                                      this->dtype_->size)
@@ -215,7 +219,7 @@ class IterableImpl : public NDIterable::Base<IterableImpl> {
   ///    This saves the cost of doing the additional mapping on each call to
   ///    `GetBlock`.
   ///
-  /// 3. If `layout.buffer_kind == kIndexed`, an additional `layout.block_size`
+  /// 3. If `layout.buffer_kind == kIndexed`, an additional `layout.block_shape`
   ///    elements in `buffer_` (following the `remapped_byte_strides` table) is
   ///    used for the offset array.  If `layout.iteration_dimensions.back()` is
   ///    an index array input dimension, then the offset array is recomputed on
@@ -244,7 +248,7 @@ class IterableImpl : public NDIterable::Base<IterableImpl> {
                   layout.iteration_rank() * (num_index_arrays_ + 1) +
                   // Size of the offset array if required.
                   ((layout.buffer_kind == IterationBufferKind::kIndexed)
-                       ? layout.block_size
+                       ? layout.block_shape[0] * layout.block_shape[1]
                        : 0),
               allocator) {
       // Ensure that we can `reinterpret_cast` pointers as `Index` values.
@@ -306,19 +310,22 @@ class IterableImpl : public NDIterable::Base<IterableImpl> {
         Index* offsets_array =
             buffer_.data() + num_index_arrays_ +
             layout.iteration_rank() * (num_index_arrays_ + 1);
-        pointer_ = IterationBufferPointer{
-            iterable->state_.base_pointer + base_offset, offsets_array};
-        if (num_index_array_iteration_dims_ < layout.iteration_rank()) {
-          // The last iteration dimension is not an index array input dimension.
-          // Precomputed the offset array.
+        pointer_ =
+            IterationBufferPointer{iterable->state_.base_pointer + base_offset,
+                                   layout.block_shape[1], offsets_array};
+        if (num_index_array_iteration_dims_ + 1 < layout.iteration_rank()) {
+          // The last 2 iteration dimensions are not index array input
+          // dimensions.  Precompute the offset array.
           FillOffsetsArrayFromStride(
+              buffer_[num_index_arrays_ + layout.iteration_rank() - 2],
               buffer_[num_index_arrays_ + layout.iteration_rank() - 1],
-              span(offsets_array, layout.block_size));
+              layout.block_shape[0], layout.block_shape[1], offsets_array);
         }
       } else {
-        assert(num_index_array_iteration_dims_ < layout.iteration_rank());
+        assert(num_index_array_iteration_dims_ + 1 < layout.iteration_rank());
         pointer_ = IterationBufferPointer{
             iterable->state_.base_pointer + base_offset,
+            buffer_[num_index_arrays_ + layout.iteration_rank() - 2],
             buffer_[num_index_arrays_ + layout.iteration_rank() - 1]};
       }
     }
@@ -327,19 +334,19 @@ class IterableImpl : public NDIterable::Base<IterableImpl> {
       return buffer_.get_allocator();
     }
 
-    Index GetBlock(span<const Index> indices, Index block_size,
-                   IterationBufferPointer* pointer,
-                   absl::Status* status) override {
+    bool GetBlock(span<const Index> indices, IterationBufferShape block_shape,
+                  IterationBufferPointer* pointer,
+                  absl::Status* status) override {
       IterationBufferPointer block_pointer = pointer_;
       // Add the contribution from the direct array byte strides (corresponding
       // to `single_input_dimension` output index maps).
       block_pointer.pointer += IndexInnerProduct(
           indices.size(), indices.data(), buffer_.data() + num_index_arrays_);
-      if (num_index_array_iteration_dims_ < indices.size()) {
-        // The last (inner loop) iteration dimension is not an index array input
-        // dimension.  Therefore, the index array output dimension maps are
-        // already fully determined, and their contribution can be added here.
-        // This is the more efficient case.
+      if (num_index_array_iteration_dims_ + 1 < indices.size()) {
+        // The last 2 (inner loop) iteration dimensions are not index array
+        // input dimensions.  Therefore, the index array output dimension maps
+        // are already fully determined, and their contribution can be added
+        // here.  This is the more efficient case.
         for (DimensionIndex j = 0; j < num_index_arrays_; ++j) {
           const Index index = ByteStridedPointer<const Index>(
               reinterpret_cast<const Index*>(buffer_[j]))[IndexInnerProduct(
@@ -349,47 +356,61 @@ class IterableImpl : public NDIterable::Base<IterableImpl> {
               iterable_->state_.index_array_output_byte_strides[j], index);
         }
       } else {
-        // The last (inner loop) iteration is an index array input dimension.
-        // Initialize the offset array from the last direct array byte stride.
+        // At least one of the last 2 (inner loop) iteration dimensions is an
+        // index array input dimension.  Initialize the offset array from the
+        // last direct array byte stride.
+        block_pointer.byte_offsets_outer_stride = block_shape[1];
         Index* offsets_array = const_cast<Index*>(block_pointer.byte_offsets);
         FillOffsetsArrayFromStride(
-            buffer_[num_index_arrays_ + indices.size() - 1],
-            span(offsets_array, block_size));
+            buffer_[num_index_arrays_ + indices.size() - 2],
+            buffer_[num_index_arrays_ + indices.size() - 1], block_shape[0],
+            block_shape[1], offsets_array);
         for (DimensionIndex j = 0; j < num_index_arrays_; ++j) {
           const Index* index_array_byte_strides =
               buffer_.data() + num_index_arrays_ + indices.size() * (j + 1);
           ByteStridedPointer<const Index> index_array_pointer =
               ByteStridedPointer<const Index>(
                   reinterpret_cast<const Index*>(buffer_[j])) +
-              IndexInnerProduct(indices.size() - 1, indices.data(),
+              IndexInnerProduct(indices.size() - 2, indices.data(),
                                 index_array_byte_strides);
           const Index output_byte_stride =
               iterable_->state_.index_array_output_byte_strides[j];
+          const Index penultimate_index_array_byte_stride =
+              index_array_byte_strides[indices.size() - 2];
           const Index last_index_array_byte_stride =
               index_array_byte_strides[indices.size() - 1];
-          if (last_index_array_byte_stride == 0) {
-            // Index array does not depend on last iteration dimension.
+          if (last_index_array_byte_stride == 0 &&
+              penultimate_index_array_byte_stride == 0) {
+            // Index array does not depend on last 2 iteration dimensions.
             // Incorporate it into the base pointer rather than into
             // `offsets_array`.
             block_pointer.pointer += wrap_on_overflow::Multiply(
                 output_byte_stride, *index_array_pointer);
           } else {
-            // Index array depends on the last iteration dimension.
-            // Incorporate it into `offsets_array`.
-            Index block_start = indices.back();
-            for (Index i = 0; i < block_size; ++i) {
-              const Index cur_contribution = wrap_on_overflow::Multiply(
-                  output_byte_stride,
-                  index_array_pointer[wrap_on_overflow::Multiply(
-                      i + block_start, last_index_array_byte_stride)]);
-              offsets_array[i] =
-                  wrap_on_overflow::Add(offsets_array[i], cur_contribution);
+            // Index array depends on at least one of the last 2 iteration
+            // dimensions.  Incorporate it into `offsets_array`.
+            Index block_start0 = indices[indices.size() - 2];
+            Index block_start1 = indices[indices.size() - 1];
+            for (Index outer = 0; outer < block_shape[0]; ++outer) {
+              for (Index inner = 0; inner < block_shape[1]; ++inner) {
+                Index cur_contribution = wrap_on_overflow::Multiply(
+                    output_byte_stride,
+                    index_array_pointer[wrap_on_overflow::Add(
+                        wrap_on_overflow::Multiply(
+                            outer + block_start0,
+                            penultimate_index_array_byte_stride),
+                        wrap_on_overflow::Multiply(
+                            inner + block_start1,
+                            last_index_array_byte_stride))]);
+                auto& offset = offsets_array[outer * block_shape[1] + inner];
+                offset = wrap_on_overflow::Add(offset, cur_contribution);
+              }
             }
           }
         }
       }
       *pointer = block_pointer;
-      return block_size;
+      return true;
     }
 
    private:

@@ -1634,9 +1634,9 @@ namespace internal {
 
 /// Internal untyped interface for iterating over arrays.
 template <typename... Array>
-ArrayIterateResult IterateOverArrays(
-    ElementwiseClosure<sizeof...(Array), void*> closure, void* arg,
-    IterationConstraints constraints, const Array&... array) {
+bool IterateOverArrays(ElementwiseClosure<sizeof...(Array), void*> closure,
+                       void* arg, IterationConstraints constraints,
+                       const Array&... array) {
   ABSL_CHECK(ArraysHaveSameShapes(array...));
   const std::array<ptrdiff_t, sizeof...(Array)> element_sizes{
       {array.dtype().size()...}};
@@ -1670,8 +1670,7 @@ ArrayIterateResult IterateOverArrays(
 ///     iteration order is determined automatically.
 /// \param array The arrays over which to iterate, which must all have the same
 ///     shape.
-/// \returns An `ArrayIterateResult` that indicates whether iteration completed
-///     and the number of elements processed.
+/// \returns `true` on success, `false` on failure.
 /// \checks `ArraysHaveSameShapes(array...)`
 /// \relates Array
 template <typename Func, typename... Array>
@@ -1679,7 +1678,7 @@ std::enable_if_t<((IsArray<Array> && ...) &&
                   std::is_constructible_v<
                       bool, internal::Void::WrappedType<std::invoke_result_t<
                                 Func&, typename Array::Element*...>>>),
-                 ArrayIterateResult>
+                 bool>
 IterateOverArrays(Func&& func, IterationConstraints constraints,
                   const Array&... array) {
   const auto func_wrapper = [&func](typename Array::Element*... ptr, void*) {

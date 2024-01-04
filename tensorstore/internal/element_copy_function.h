@@ -38,13 +38,12 @@ inline absl::Status GetElementCopyErrorStatus(absl::Status status) {
   return status.ok() ? absl::UnknownError("Data conversion failure.") : status;
 }
 
-inline absl::Status GetElementCopyErrorStatus(
-    Result<ArrayIterateResult>&& iterate_result, absl::Status&& status) {
+inline absl::Status GetElementCopyErrorStatus(Result<bool>&& iterate_result,
+                                              absl::Status&& status) {
   return !iterate_result.ok()
              ? iterate_result.status()
-             : (iterate_result->success
-                    ? absl::Status()
-                    : GetElementCopyErrorStatus(std::move(status)));
+             : (*iterate_result ? absl::OkStatus()
+                                : GetElementCopyErrorStatus(std::move(status)));
 }
 
 }  // namespace internal

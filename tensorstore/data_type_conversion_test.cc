@@ -89,8 +89,9 @@ Result<To> TestConversion(
   To value;
   absl::Status status;
   if ((*r.closure.function)[IterationBufferKind::kContiguous](
-          r.closure.context, 1, IterationBufferPointer(&from, Index(0)),
-          IterationBufferPointer(&value, Index(0)), &status) != 1) {
+          r.closure.context, {1, 1},
+          IterationBufferPointer(&from, Index(0), Index(0)),
+          IterationBufferPointer(&value, Index(0), Index(0)), &status) != 1) {
     return GetElementCopyErrorStatus(std::move(status));
   }
   return value;

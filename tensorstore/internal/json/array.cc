@@ -255,10 +255,10 @@ Result<::nlohmann::json> JsonEncodeNestedArray(ArrayView<const void> array) {
         ::nlohmann::json value;
         if ((*convert.closure
                   .function)[internal::IterationBufferKind::kContiguous](
-                convert.closure.context, 1,
+                convert.closure.context, {1, 1},
                 internal::IterationBufferPointer(const_cast<void*>(ptr),
-                                                 Index(0)),
-                internal::IterationBufferPointer(&value, Index(0)),
+                                                 Index(0), Index(0)),
+                internal::IterationBufferPointer(&value, Index(0), Index(0)),
                 &status) != 1) {
           error = true;
           return nullptr;
@@ -291,10 +291,11 @@ Result<SharedArray<void>> JsonParseNestedArray(const ::nlohmann::json& j,
               absl::Status status;
               if ((*convert.closure
                         .function)[internal::IterationBufferKind::kContiguous](
-                      convert.closure.context, 1,
+                      convert.closure.context, {1, 1},
                       internal::IterationBufferPointer(
-                          const_cast<::nlohmann::json*>(&v), Index(0)),
-                      internal::IterationBufferPointer(out, Index(0)),
+                          const_cast<::nlohmann::json*>(&v), Index(0),
+                          Index(0)),
+                      internal::IterationBufferPointer(out, Index(0), Index(0)),
                       &status) != 1) {
                 return internal::GetElementCopyErrorStatus(std::move(status));
               }

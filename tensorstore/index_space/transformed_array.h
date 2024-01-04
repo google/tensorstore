@@ -799,7 +799,7 @@ namespace internal {
 
 /// Internal untyped interface to tensorstore::IterateOverTransformedArrays.
 template <std::size_t Arity>
-Result<ArrayIterateResult> IterateOverTransformedArrays(
+Result<bool> IterateOverTransformedArrays(
     ElementwiseClosure<Arity, void*> closure, void* arg,
     IterationConstraints constraints,
     span<const TransformedArrayView<const void>, Arity> transformed_arrays);
@@ -832,8 +832,7 @@ Result<ArrayIterateResult> IterateOverTransformedArrays(
 ///     iteration order is determined automatically.
 /// \param arrays The transformed arrays over which to iterate, which must all
 ///     have compatible input domains.
-/// \returns An `ArrayIterateResult` object specifying whether iteration
-///     completed and the number of elements successfully processed.
+/// \returns `true` on success, or `false` in the case of an error.
 /// \error `absl::StatusCode::kInvalidArgument` if the transformed arrays do not
 ///     all have the same rank.
 /// \error `absl::StatusCode::kOutOfRange` if the transformed arrays do not have
@@ -849,7 +848,7 @@ std::enable_if_t<
      std::is_constructible_v<
          bool, internal::Void::WrappedType<std::invoke_result_t<
                    Func&, typename UnwrapResultType<Arrays>::Element*...>>>),
-    Result<ArrayIterateResult>>
+    Result<bool>>
 IterateOverTransformedArrays(Func&& func, IterationConstraints constraints,
                              const Arrays&... arrays) {
   static_assert(RankConstraint::EqualOrUnspecified(

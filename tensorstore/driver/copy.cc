@@ -182,14 +182,13 @@ struct CopyChunkOp {
           std::move(source_iterable), target_iterable->dtype(),
           state->data_type_conversion);
 
-      NDIterableCopier copier(*source_iterable, *target_iterable,
-                              write_chunk.transform.input_shape(), arena);
-      copy_status = copier.Copy();
+      copy_status = NDIterableCopier(*source_iterable, *target_iterable,
+                                     write_chunk.transform.input_shape(), arena)
+                        .Copy();
 
       auto end_write_result =
           write_chunk.impl(WriteChunk::EndWrite{}, write_chunk.transform,
-                           copier.layout_info().layout_view(),
-                           copier.stepper().position(), arena);
+                           copy_status.ok(), arena);
       commit_future = std::move(end_write_result.commit_future);
       if (copy_status.ok()) {
         copy_status = std::move(end_write_result.copy_status);

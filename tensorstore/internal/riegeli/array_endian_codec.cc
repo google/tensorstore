@@ -81,9 +81,8 @@ auto& noncontiguous_bytes = internal_metrics::Counter<int64_t>::New(
       encoded_endian == endian::native ? &functions.write_native_endian
                                        : &functions.write_swapped_endian;
   return internal::IterateOverArrays(
-             {write_func, &writer},
-             /*arg=*/nullptr, {order, include_repeated_elements}, decoded)
-      .success;
+      {write_func, &writer},
+      /*arg=*/nullptr, {order, include_repeated_elements}, decoded);
 }
 
 namespace {
@@ -185,12 +184,12 @@ Result<SharedArray<const void>> DecodeArrayEndian(
     if (riegeli::CopyAll(reader, buffer_sink_writer, expected_length).ok()) {
       absl::Status status;
       if (functions.validate) {
-        if ((*functions.validate)[IterationBufferKind::kContiguous](
-                /*context=*/nullptr, expected_length,
+        if (!(*functions.validate)[IterationBufferKind::kContiguous](
+                /*context=*/nullptr, {1, static_cast<Index>(expected_length)},
                 IterationBufferPointer(
-                    const_cast<void*>(buffer_sink_writer.data.get()),
+                    const_cast<void*>(buffer_sink_writer.data.get()), 0,
                     dtype.size()),
-                &status) != expected_length) {
+                &status)) {
           return status;
         }
       }

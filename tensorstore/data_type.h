@@ -65,6 +65,7 @@
 #include <typeindex>
 #include <typeinfo>
 
+#include "absl/base/attributes.h"
 #include "absl/base/casts.h"
 #include "absl/status/status.h"
 #include <half.hpp>
@@ -871,10 +872,12 @@ struct DataTypeSimpleOperationsImpl {
 template <size_t Size, size_t Alignment>
 struct alignas(Alignment) TrivialObj {
   unsigned char data[Size];
-  friend bool operator==(const TrivialObj& a, const TrivialObj& b) {
+  ABSL_ATTRIBUTE_ALWAYS_INLINE friend bool operator==(const TrivialObj& a,
+                                                      const TrivialObj& b) {
     return std::memcmp(a.data, b.data, Size) == 0;
   }
-  friend bool operator!=(const TrivialObj& a, const TrivialObj& b) {
+  ABSL_ATTRIBUTE_ALWAYS_INLINE friend bool operator!=(const TrivialObj& a,
+                                                      const TrivialObj& b) {
     return !(a == b);
   }
 };
@@ -882,13 +885,14 @@ struct alignas(Alignment) TrivialObj {
 // Implementation for `DataTypeOperations::initialize`.
 struct InitializeImpl {
   template <typename T>
-  void operator()(T* dest, void*) const {
+  ABSL_ATTRIBUTE_ALWAYS_INLINE void operator()(T* dest, void*) const {
     *dest = T();
   }
 
 #ifndef TENSORSTORE_DATA_TYPE_DISABLE_MEMSET_OPTIMIZATION
   template <typename T>
-  static std::enable_if_t<std::is_trivially_constructible_v<T>, Index>
+  ABSL_ATTRIBUTE_ALWAYS_INLINE static std::enable_if_t<
+      std::is_trivially_constructible_v<T>, Index>
   ApplyContiguous(Index count, T* dest, void*) {
     std::memset(dest, 0, sizeof(T) * count);
     return count;
@@ -900,15 +904,26 @@ struct InitializeImpl {
 // `DataTypeOperations::move_assign`).
 struct CopyAssignImpl {
   template <typename T>
-  void operator()(const T* source, T* dest, void*) const {
+  ABSL_ATTRIBUTE_ALWAYS_INLINE void operator()(const T* source, T* dest,
+                                               void*) const {
     *dest = *source;
   }
 
 #ifndef TENSORSTORE_DATA_TYPE_DISABLE_MEMMOVE_OPTIMIZATION
   template <typename T>
-  static std::enable_if_t<std::is_trivially_copyable_v<T>, Index>
+  ABSL_ATTRIBUTE_ALWAYS_INLINE static std::enable_if_t<
+      std::is_trivially_copyable_v<T>, Index>
   ApplyContiguous(Index count, const T* source, T* dest, void*) {
-    std::memmove(dest, source, sizeof(T) * count);
+    // Note: Using `memmove` actually results in ~20% worse performance with
+    // Clang if `count` is small (e.g. 64).  Furthermore, marking `source` and
+    // `dest` as `__restrict__` results in the loop getting converted into a
+    // call to `memmove`, unless the function is also marked with
+    // `__attribute__((no_inline))`.  Just using a simple loop without any
+    // special attributes provides nearly optimal performance for both short and
+    // long counts.
+    for (Index i = 0; i < count; ++i) {
+      dest[i] = source[i];
+    }
     return count;
   }
 #endif  // TENSORSTORE_DATA_TYPE_DISABLE_MEMMOVE_OPTIMIZATION
@@ -917,7 +932,8 @@ struct CopyAssignImpl {
 // Implementation for `DataTypeOperations::move_assign`.
 struct MoveAssignImpl {
   template <typename T>
-  void operator()(T* source, T* dest, void*) const {
+  ABSL_ATTRIBUTE_ALWAYS_INLINE void operator()(T* source, T* dest,
+                                               void*) const {
     *dest = std::move(*source);
   }
 };
@@ -925,7 +941,8 @@ struct MoveAssignImpl {
 // Implementation for `DataTypeOperations::copy_assign_masked`.
 struct CopyAssignUnmaskedImpl {
   template <typename T>
-  void operator()(const T* source, T* dest, const bool* mask, void*) const {
+  ABSL_ATTRIBUTE_ALWAYS_INLINE void operator()(const T* source, T* dest,
+                                               const bool* mask, void*) const {
     if (!*mask) *dest = *source;
   }
 };
@@ -978,13 +995,15 @@ TENSORSTORE_FOR_EACH_COMPLEX_DATA_TYPE(
 // `EqualityComparisonKind::equal`.
 struct CompareEqualImpl {
   template <typename T>
-  bool operator()(const T* a, const T* b, void*) const {
+  ABSL_ATTRIBUTE_ALWAYS_INLINE bool operator()(const T* a, const T* b,
+                                               void*) const {
     return internal_data_type::CompareEqual<T>(*a, *b);
   }
 
 #ifndef TENSORSTORE_DATA_TYPE_DISABLE_MEMCMP_OPTIMIZATION
   template <typename T>
-  static std::enable_if_t<IsTriviallyEqualityComparable<T>, Index>
+  ABSL_ATTRIBUTE_ALWAYS_INLINE static std::enable_if_t<
+      IsTriviallyEqualityComparable<T>, Index>
   ApplyContiguous(Index count, const T* a, T* b, void*) {
     return std::memcmp(a, b, sizeof(T) * count) == 0 ? count : 0;
   }
@@ -995,7 +1014,8 @@ struct CompareEqualImpl {
 // `EqualityComparisonKind::identical`.
 struct CompareIdenticalImpl {
   template <typename T>
-  bool operator()(const T* a, const T* b, void*) const {
+  ABSL_ATTRIBUTE_ALWAYS_INLINE bool operator()(const T* a, const T* b,
+                                               void*) const {
     return internal_data_type::CompareIdentical<T>(*a, *b);
   }
 };
@@ -1010,7 +1030,7 @@ struct CompareIdenticalImpl {
 template <typename CompareImpl>
 struct CompareToScalarImpl {
   template <typename T>
-  bool operator()(const T* a, void* b) const {
+  ABSL_ATTRIBUTE_ALWAYS_INLINE bool operator()(const T* a, void* b) const {
     return CompareImpl{}(a, static_cast<T*>(b), nullptr);
   }
 };

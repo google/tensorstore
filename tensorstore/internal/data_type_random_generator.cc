@@ -78,8 +78,7 @@ template <>
 struct SampleRandomValue<std::string> {
   std::string operator()(absl::BitGenRef gen) const {
     std::string out;
-    out.resize(
-        absl::Uniform<std::size_t>(absl::IntervalClosedClosed, gen, 0, 50));
+    out.resize(absl::Uniform<size_t>(absl::IntervalClosedClosed, gen, 0, 50));
     for (auto& x : out) {
       x = static_cast<char>(absl::Uniform<unsigned char>(
           absl::IntervalClosedClosed, gen, static_cast<unsigned char>('a'),
@@ -115,7 +114,7 @@ struct SampleRandomValue<::tensorstore::dtypes::json_t> {
       case 6: {
         ::tensorstore::dtypes::json_t::array_t out;
         out.resize(
-            absl::Uniform<std::size_t>(absl::IntervalClosedClosed, gen, 0, 3));
+            absl::Uniform<size_t>(absl::IntervalClosedClosed, gen, 0, 3));
         for (auto& x : out) {
           x = (*this)(gen);
         }
@@ -124,7 +123,7 @@ struct SampleRandomValue<::tensorstore::dtypes::json_t> {
       case 7: {
         ::tensorstore::dtypes::json_t::object_t out;
         const auto n =
-            absl::Uniform<std::size_t>(absl::IntervalClosedClosed, gen, 0, 3);
+            absl::Uniform<size_t>(absl::IntervalClosedClosed, gen, 0, 3);
         for (size_t i = 0; i < n; ++i) {
           out.emplace(SampleRandomValue<std::string>()(gen),
                       SampleRandomValue<::tensorstore::dtypes::json_t>()(gen));
@@ -155,10 +154,11 @@ SharedOffsetArray<const void> MakeRandomArray(absl::BitGenRef gen,
                                               ContiguousLayoutOrder order) {
   assert(dtype.id() != DataTypeId::custom);
   auto array = AllocateArray(domain, order, default_init, dtype);
-  kDataTypeRandomGenerationFunctions[static_cast<std::size_t>(
+  kDataTypeRandomGenerationFunctions[static_cast<size_t>(
       dtype.id())][IterationBufferKind::kContiguous](
-      nullptr, array.num_elements(),
-      IterationBufferPointer{array.byte_strided_origin_pointer(), dtype.size()},
+      nullptr, {1, array.num_elements()},
+      IterationBufferPointer{array.byte_strided_origin_pointer(), 0,
+                             dtype.size()},
       gen);
   return array;
 }
@@ -168,10 +168,11 @@ SharedArray<const void> MakeRandomArray(absl::BitGenRef gen,
                                         ContiguousLayoutOrder order) {
   assert(dtype.id() != DataTypeId::custom);
   auto array = AllocateArray(shape, order, default_init, dtype);
-  kDataTypeRandomGenerationFunctions[static_cast<std::size_t>(
+  kDataTypeRandomGenerationFunctions[static_cast<size_t>(
       dtype.id())][IterationBufferKind::kContiguous](
-      nullptr, array.num_elements(),
-      IterationBufferPointer{array.byte_strided_origin_pointer(), dtype.size()},
+      nullptr, {1, array.num_elements()},
+      IterationBufferPointer{array.byte_strided_origin_pointer(), 0,
+                             dtype.size()},
       gen);
   return array;
 }

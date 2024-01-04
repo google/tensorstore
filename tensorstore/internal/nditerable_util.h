@@ -95,8 +95,8 @@ struct NDIterationSimplifiedLayoutInfo {
   /// Simplified iteration dimensions.  Dimensions that are skipped or combined
   /// into another dimensions are excluded.  The special value of `-1` indicates
   /// an inert dimension, not corresponding to any real dimension, which is used
-  /// for zero rank iterables; the corresponding value in `iteration_shape` is
-  /// guaranteed to be `1`.
+  /// for zero rank iterables, and to pad the iteration rank to a minimum of 2;
+  /// the corresponding value in `iteration_shape` is guaranteed to be `1`.
   ///
   /// All dimensions in `iteration_dimensions` must either be `-1` or a unique
   /// dimension index in the range `[0, shape.size())`.
@@ -134,11 +134,11 @@ struct NDIterationBufferInfo {
   /// Minimum buffer kind supported by all iterables.
   IterationBufferKind buffer_kind;
 
-  /// Recommended block size to use for iteration.
-  Index block_size;
+  /// Recommended block shape to use for iteration.
+  IterationBufferShape block_shape;
 };
 
-/// Computes the block size to use for iteration that is L1-cache efficient.
+/// Computes the block shape to use for iteration that is L1-cache efficient.
 ///
 /// For testing purposes, the behavior may be overridden to always return 1 by
 /// calling `SetNDIterableTestUnitBlockSize(true)` or defining the
@@ -147,12 +147,14 @@ struct NDIterationBufferInfo {
 /// \param working_memory_bytes_per_element The number of bytes of temporary
 ///     buffer space required for each block element.
 /// \param iteration_shape The simplified iteration shape, must have
-///     `size() >= 1`.
-/// \returns The block size, which is `<= iteration_shape.back()`.
-Index GetNDIterationBlockSize(std::ptrdiff_t working_memory_bytes_per_element,
-                              span<const Index> iteration_shape);
+///     `size() >= 2`.
+/// \returns The block shape, less than or equal to
+///     `{iteration_shape[rank-2], iteration_shape[rank-1]}`.
+IterationBufferShape GetNDIterationBlockShape(
+    std::ptrdiff_t working_memory_bytes_per_element,
+    span<const Index> iteration_shape);
 
-/// Computes the block size to use for iteration, based on
+/// Computes the block shape to use for iteration, based on
 /// `iterable.GetWorkingMemoryBytesPerElement`.
 ///
 /// \param iterable The buffer constraint.
@@ -160,9 +162,9 @@ Index GetNDIterationBlockSize(std::ptrdiff_t working_memory_bytes_per_element,
 /// \param iteration_shape The simplified iteration shape (must have same length
 ///     as `iteration_dimensions`).
 /// \param buffer_kind The buffer kind.
-Index GetNDIterationBlockSize(const NDIterableBufferConstraint& iterable,
-                              NDIterable::IterationLayoutView layout,
-                              IterationBufferKind buffer_kind);
+IterationBufferShape GetNDIterationBlockShape(
+    const NDIterableBufferConstraint& iterable,
+    NDIterable::IterationLayoutView layout, IterationBufferKind buffer_kind);
 
 /// Computes the buffer kind and block size to use for iteration, based on
 /// `iterable.GetIterationBufferConstraint` and
@@ -189,7 +191,7 @@ struct NDIterationInfo : public NDIterationLayoutInfo<Full>,
   }
 
   NDIterable::IterationBufferKindLayoutView buffer_layout_view() const {
-    return {{this->layout_view(), this->block_size}, this->buffer_kind};
+    return {{this->layout_view(), this->block_shape}, this->buffer_kind};
   }
 };
 
@@ -374,40 +376,22 @@ inline void ResetBufferPositionAtEnd(span<const Index> shape, Index step,
   position[rank - 1] = shape[rank - 1] - step;
 }
 
-/// Fills `offsets_array` with an index array corresponding to the specified
-/// byte `stride`.
+/// Fills `offsets_array` with a 2-d index array corresponding to the specified
+/// 2-d array strides.
 ///
 /// This is used to provide an `IterationBufferKind::kIndexed` view of a strided
 /// array.
-///
-/// Sets `offsets_array[i] = i * stride` for `0 <= i < offsets_array.size()`.
-inline void FillOffsetsArrayFromStride(Index stride,
-                                       span<Index> offsets_array) {
-  for (Index i = 0; i < offsets_array.size(); ++i) {
-    offsets_array[i] = wrap_on_overflow::Multiply(stride, i);
+inline void FillOffsetsArrayFromStride(Index outer_byte_stride,
+                                       Index inner_byte_stride,
+                                       Index outer_size, Index inner_size,
+                                       Index* offsets_array) {
+  for (Index outer_i = 0; outer_i < outer_size; ++outer_i) {
+    for (Index inner_i = 0; inner_i < inner_size; ++inner_i) {
+      *(offsets_array++) = wrap_on_overflow::Add(
+          wrap_on_overflow::Multiply(outer_byte_stride, outer_i),
+          wrap_on_overflow::Multiply(inner_byte_stride, inner_i));
+    }
   }
-}
-
-/// Returns an `IterationBufferPointer` of kind `buffer_kind` specified at run
-/// time.
-///
-/// \param buffer_kind The buffer kind to return.
-/// \param pointer The base pointer value.
-/// \param byte_stride The byte stride value to use if
-///     `buffer_kind != IterationBufferKind::kIndexed`.
-/// \param byte_offsets Pointer to the byte offsets array to use if
-///     `buffer_kind == IterationBufferKind::kIndexed`.
-inline IterationBufferPointer GetIterationBufferPointer(
-    IterationBufferKind buffer_kind, ByteStridedPointer<void> pointer,
-    Index byte_stride, Index* byte_offsets) {
-  IterationBufferPointer result;
-  result.pointer = pointer;
-  if (buffer_kind == IterationBufferKind::kIndexed) {
-    result.byte_offsets = byte_offsets;
-  } else {
-    result.byte_stride = byte_stride;
-  }
-  return result;
 }
 
 /// Stores a buffer position vector, a block size, and a `shape` span.
@@ -512,6 +496,24 @@ class DefaultNDIterableArena {
 /// NDIterable code.
 void SetNDIterableTestUnitBlockSize(bool value);
 #endif
+
+Index UpdatePartialBlock(NDIterator& iterator, span<const Index> indices,
+                         IterationBufferShape block_shape,
+                         IterationBufferKind buffer_kind,
+                         IterationBufferPointer buffer, Index modified_count,
+                         absl::Status* status);
+
+inline Index UpdateBlock(NDIterator& iterator, span<const Index> indices,
+                         IterationBufferShape block_shape,
+                         IterationBufferKind buffer_kind,
+                         IterationBufferPointer buffer, Index modified_count,
+                         absl::Status* status) {
+  if (ABSL_PREDICT_FALSE(modified_count != block_shape[0] * block_shape[1])) {
+    return UpdatePartialBlock(iterator, indices, block_shape, buffer_kind,
+                              buffer, modified_count, status);
+  }
+  return iterator.UpdateBlock(indices, block_shape, buffer, status);
+}
 
 }  // namespace internal
 }  // namespace tensorstore

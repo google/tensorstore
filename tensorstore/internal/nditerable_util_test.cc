@@ -26,7 +26,7 @@ namespace {
 
 using ::tensorstore::Index;
 using ::tensorstore::span;
-using ::tensorstore::internal::GetNDIterationBlockSize;
+using ::tensorstore::internal::GetNDIterationBlockShape;
 using ::tensorstore::internal::NDIterationPositionStepper;
 using ::tensorstore::internal::ResetBufferPositionAtBeginning;
 using ::tensorstore::internal::ResetBufferPositionAtEnd;
@@ -35,7 +35,7 @@ using ::tensorstore::internal::StepBufferPositionForward;
 using ::testing::ElementsAre;
 using ::testing::ElementsAreArray;
 
-TEST(GetNDIterationBlockSize, Basic) {
+TEST(GetNDIterationBlockShape, Basic) {
 #ifndef TENSORSTORE_INTERNAL_NDITERABLE_TEST_UNIT_BLOCK_SIZE
   constexpr auto expected_block_size = [](Index block_size) {
     return block_size;
@@ -43,28 +43,29 @@ TEST(GetNDIterationBlockSize, Basic) {
 #else
   constexpr auto expected_block_size = [](Index block_size) { return 1; };
 #endif
-  // If no temporary buffer is required, uses the full extent of the last
-  // dimension.
-  EXPECT_EQ(expected_block_size(1000000),
-            GetNDIterationBlockSize(/*working_memory_bytes_per_element=*/0,
-                                    span<const Index>({3, 4, 1000000})));
+  // If no temporary buffer is required, uses the full extent of the last 2
+  // dimensions.
+  EXPECT_THAT(
+      GetNDIterationBlockShape(/*working_memory_bytes_per_element=*/0,
+                               span<const Index>({3, 4, 1000000})),
+      ElementsAre(expected_block_size(4), expected_block_size(1000000)));
 
   // Block size is limited by the extent of the last dimension.
-  EXPECT_EQ(expected_block_size(15),
-            GetNDIterationBlockSize(/*working_memory_bytes_per_element=*/1,
-                                    span<const Index>({3, 4, 15})));
+  EXPECT_THAT(GetNDIterationBlockShape(/*working_memory_bytes_per_element=*/1,
+                                       span<const Index>({3, 4, 15})),
+              ElementsAre(expected_block_size(4), expected_block_size(15)));
 
-  EXPECT_EQ(expected_block_size(24 * 1024),
-            GetNDIterationBlockSize(/*working_memory_bytes_per_element=*/1,
-                                    span<const Index>({3, 4, 1000000})));
+  EXPECT_THAT(GetNDIterationBlockShape(/*working_memory_bytes_per_element=*/1,
+                                       span<const Index>({3, 4, 1000000})),
+              ElementsAre(1, expected_block_size(24 * 1024)));
 
-  EXPECT_EQ(expected_block_size(768),
-            GetNDIterationBlockSize(/*working_memory_bytes_per_element=*/32,
-                                    span<const Index>({3, 4, 1000000})));
+  EXPECT_THAT(GetNDIterationBlockShape(/*working_memory_bytes_per_element=*/32,
+                                       span<const Index>({3, 4, 1000000})),
+              ElementsAre(1, expected_block_size(768)));
 
-  EXPECT_EQ(expected_block_size(384),
-            GetNDIterationBlockSize(/*working_memory_bytes_per_element=*/64,
-                                    span<const Index>({3, 4, 1000000})));
+  EXPECT_THAT(GetNDIterationBlockShape(/*working_memory_bytes_per_element=*/64,
+                                       span<const Index>({3, 4, 1000000})),
+              ElementsAre(1, expected_block_size(384)));
 }
 
 TEST(ResetBufferPositionTest, OneDimensional) {

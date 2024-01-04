@@ -66,7 +66,6 @@
 namespace {
 
 using ::tensorstore::Array;
-using ::tensorstore::ArrayIterateResult;
 using ::tensorstore::ArrayOriginKind;
 using ::tensorstore::ArrayView;
 using ::tensorstore::BoxView;
@@ -1353,12 +1352,10 @@ TEST(AllocateArrayElementsLikeTest, OffsetOriginSkipRepeatedElements) {
 
 TEST(IterateOverArrays, VoidReturn) {
   std::vector<std::pair<int, int>> values;
-  EXPECT_EQ(
-      (ArrayIterateResult{true, 4}),
-      IterateOverArrays(
-          [&](const int* a, const int* b) { values.emplace_back(*a, *b); },
-          /*constraints=*/ContiguousLayoutOrder::c,
-          MakeArrayView({{1, 2}, {3, 4}}), MakeArrayView({{5, 6}, {7, 8}})));
+  EXPECT_TRUE(IterateOverArrays(
+      [&](const int* a, const int* b) { values.emplace_back(*a, *b); },
+      /*constraints=*/ContiguousLayoutOrder::c, MakeArrayView({{1, 2}, {3, 4}}),
+      MakeArrayView({{5, 6}, {7, 8}})));
 
   const std::vector<std::pair<int, int>> expected_values{
       {1, 5}, {2, 6}, {3, 7}, {4, 8}};
@@ -1366,23 +1363,20 @@ TEST(IterateOverArrays, VoidReturn) {
 }
 
 TEST(IterateOverArrays, BoolReturnZeroElements) {
-  EXPECT_EQ((ArrayIterateResult{true, 0}),
-            IterateOverArrays([&](const int* a) -> bool { return false; },
-                              /*constraints=*/{},
-                              tensorstore::AllocateArray<int>({0})));
+  EXPECT_TRUE(IterateOverArrays([&](const int* a) -> bool { return false; },
+                                /*constraints=*/{},
+                                tensorstore::AllocateArray<int>({0})));
 }
 
 TEST(IterateOverArrays, BoolTrueReturn) {
   std::vector<std::pair<int, int>> values;
-  EXPECT_EQ(
-      (ArrayIterateResult{true, 4}),
-      IterateOverArrays(
-          [&](const int* a, const int* b) -> bool {
-            values.emplace_back(*a, *b);
-            return true;
-          },
-          /*constraints=*/ContiguousLayoutOrder::c,
-          MakeArrayView({{1, 2}, {3, 4}}), MakeArrayView({{5, 6}, {7, 8}})));
+  EXPECT_TRUE(IterateOverArrays(
+      [&](const int* a, const int* b) -> bool {
+        values.emplace_back(*a, *b);
+        return true;
+      },
+      /*constraints=*/ContiguousLayoutOrder::c, MakeArrayView({{1, 2}, {3, 4}}),
+      MakeArrayView({{5, 6}, {7, 8}})));
 
   const std::vector<std::pair<int, int>> expected_values{
       {1, 5}, {2, 6}, {3, 7}, {4, 8}};
@@ -1391,15 +1385,13 @@ TEST(IterateOverArrays, BoolTrueReturn) {
 
 TEST(IterateOverArrays, BoolFalseReturn) {
   std::vector<std::pair<int, int>> values;
-  EXPECT_EQ(
-      (ArrayIterateResult{false, 1}),
-      IterateOverArrays(
-          [&](const int* a, const int* b) {
-            values.emplace_back(*a, *b);
-            return (*a != 2);
-          },
-          /*constraints=*/ContiguousLayoutOrder::c,
-          MakeArrayView({{1, 2}, {3, 4}}), MakeArrayView({{5, 6}, {7, 8}})));
+  EXPECT_FALSE(IterateOverArrays(
+      [&](const int* a, const int* b) {
+        values.emplace_back(*a, *b);
+        return (*a != 2);
+      },
+      /*constraints=*/ContiguousLayoutOrder::c, MakeArrayView({{1, 2}, {3, 4}}),
+      MakeArrayView({{5, 6}, {7, 8}})));
 
   const std::vector<std::pair<int, int>> expected_values{{1, 5}, {2, 6}};
   EXPECT_EQ(expected_values, values);
@@ -1938,7 +1930,8 @@ class RandomDataSerializationTest
     : public ::testing::TestWithParam<tensorstore::DataType> {};
 
 INSTANTIATE_TEST_SUITE_P(DataTypes, RandomDataSerializationTest,
-                         ::testing::ValuesIn(tensorstore::kDataTypes));
+                         ::testing::ValuesIn(tensorstore::kDataTypes),
+                         ::testing::PrintToStringParamName());
 
 static constexpr int kNumIterations = 10;
 

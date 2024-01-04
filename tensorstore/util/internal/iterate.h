@@ -99,19 +99,21 @@ class StridedLayoutFunctionApplyer {
 
   /// Invokes the element-wise function for each tuple of elements, using the
   /// specified base pointers.
-  ArrayIterateResult operator()(
-      std::array<ByteStridedPointer<void>, Arity> pointers, void* arg) const;
+  bool operator()(std::array<ByteStridedPointer<void>, Arity> pointers,
+                  void* arg) const;
 
   DimensionIndex outer_rank() const {
     return static_cast<DimensionIndex>(iteration_layout_.size());
   }
 
-  Index inner_size() const { return inner_layout_.shape[0]; }
+  Index inner_size() const {
+    return inner_layout_.shape[0] * inner_layout_.shape[1];
+  }
 
  private:
   struct WrappedFunction;
   internal_iterate::StridedIterationLayout<Arity> iteration_layout_;
-  internal_iterate::InnerShapeAndStrides<Arity, 1> inner_layout_;
+  internal_iterate::InnerShapeAndStrides<Arity, 2> inner_layout_;
   void* context_;
   SpecializedElementwiseFunctionPointer<Arity, void*> callback_;
 };

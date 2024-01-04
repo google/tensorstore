@@ -14,14 +14,19 @@
 
 #include "tensorstore/internal/nditerable_util.h"
 
-#include <algorithm>
+#include <stddef.h>
 
-#include "absl/container/fixed_array.h"
+#include <algorithm>
+#include <cassert>
+
+#include "absl/base/optimization.h"
+#include "absl/status/status.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/internal/nditerable.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/span.h"
 
@@ -52,12 +57,13 @@ void GetNDIterationLayoutInfo(const NDIterableLayoutConstraint& iterable,
 
   using DirectionPref = NDIterableLayoutConstraint::DirectionPref;
 
-  absl::FixedArray<DirectionPref, internal::kNumInlinedDims> direction_prefs(
-      shape.size(),
+  DirectionPref direction_prefs[kMaxRank];
+  std::fill_n(
+      direction_prefs, shape.size(),
       constraints.repeated_elements_constraint() == skip_repeated_elements
           ? DirectionPref::kCanSkip
           : DirectionPref::kEither);
-  iterable.UpdateDirectionPrefs(direction_prefs.data());
+  iterable.UpdateDirectionPrefs(direction_prefs);
 
   for (DimensionIndex dim_i = 0; dim_i < shape.size(); ++dim_i) {
     const Index size = shape[dim_i];
@@ -77,6 +83,8 @@ void GetNDIterationLayoutInfo(const NDIterableLayoutConstraint& iterable,
   if (info->iteration_dimensions.empty()) {
     // Add an inert dimension for rank 0 case.
     info->iteration_dimensions.push_back(-1);
+    info->iteration_dimensions.push_back(-1);
+    info->iteration_shape.push_back(1);
     info->iteration_shape.push_back(1);
   } else {
     if (constraints.order_constraint() == ContiguousLayoutOrder::fortran) {
@@ -128,6 +136,11 @@ void GetNDIterationLayoutInfo(const NDIterableLayoutConstraint& iterable,
     info->iteration_dimensions.erase(next_iteration_dim_it + 1,
                                      info->iteration_dimensions.end());
   }
+  if (info->iteration_dimensions.size() < 2) {
+    assert(info->iteration_dimensions.size() == 1);
+    info->iteration_dimensions.insert(info->iteration_dimensions.begin(), -1);
+    info->iteration_shape.insert(info->iteration_shape.begin(), 1);
+  }
 }
 }  // namespace
 
@@ -145,36 +158,45 @@ void GetNDIterationLayoutInfo(const NDIterableLayoutConstraint& iterable,
   GetNDIterationLayoutInfo<true>(iterable, shape, constraints, info);
 }
 
-Index GetNDIterationBlockSize(std::ptrdiff_t working_memory_bytes_per_element,
-                              span<const Index> iteration_shape) {
+IterationBufferShape GetNDIterationBlockShape(
+    ptrdiff_t working_memory_bytes_per_element,
+    span<const Index> iteration_shape) {
 #ifdef TENSORSTORE_INTERNAL_NDITERABLE_TEST_UNIT_BLOCK_SIZE
-  return 1;
+  return {1, 1};
 #else
 #if !defined(NDEBUG)
   if (nditerable_use_unit_block_size) {
-    return 1;
+    return {1, 1};
   }
 #endif
   // TODO(jbms): maybe choose based on actual L1 cache size.
   //
   // Note: Choose an amount smaller than the default arena size of `32 * 1024`.
   constexpr Index kTargetMemoryUsage = 24 * 1024;
-  const Index last_dimension_size = iteration_shape.back();
+  const Index penultimate_dimension_size =
+      iteration_shape[iteration_shape.size() - 2];
+  const Index last_dimension_size = iteration_shape[iteration_shape.size() - 1];
   if (working_memory_bytes_per_element == 0) {
-    return last_dimension_size;
+    return {penultimate_dimension_size, last_dimension_size};
   } else {
-    return std::min(
-        last_dimension_size,
-        std::max(Index(8),
-                 kTargetMemoryUsage / Index(working_memory_bytes_per_element)));
+    const Index target_size = std::max(
+        Index(8), kTargetMemoryUsage / Index(working_memory_bytes_per_element));
+    const Index block_inner_size =
+        std::max(Index(1), std::min(last_dimension_size, target_size));
+    Index block_outer_size = 1;
+    if (block_inner_size < target_size) {
+      block_outer_size =
+          std::min(penultimate_dimension_size, target_size / block_inner_size);
+    }
+    return {block_outer_size, block_inner_size};
   }
 #endif
 }
 
-Index GetNDIterationBlockSize(const NDIterableBufferConstraint& iterable,
-                              NDIterable::IterationLayoutView layout,
-                              IterationBufferKind buffer_kind) {
-  return GetNDIterationBlockSize(
+IterationBufferShape GetNDIterationBlockShape(
+    const NDIterableBufferConstraint& iterable,
+    NDIterable::IterationLayoutView layout, IterationBufferKind buffer_kind) {
+  return GetNDIterationBlockShape(
       iterable.GetWorkingMemoryBytesPerElement(layout, buffer_kind),
       layout.iteration_shape);
 }
@@ -184,8 +206,8 @@ void GetNDIterationBufferInfo(const NDIterableBufferConstraint& iterable,
                               NDIterationBufferInfo* buffer_info) {
   buffer_info->buffer_kind =
       iterable.GetIterationBufferConstraint(layout).min_buffer_kind;
-  buffer_info->block_size =
-      GetNDIterationBlockSize(iterable, layout, buffer_info->buffer_kind);
+  buffer_info->block_shape =
+      GetNDIterationBlockShape(iterable, layout, buffer_info->buffer_kind);
 }
 
 #ifndef NDEBUG
@@ -193,6 +215,33 @@ void SetNDIterableTestUnitBlockSize(bool value) {
   nditerable_use_unit_block_size = value;
 }
 #endif
+
+Index UpdatePartialBlock(NDIterator& iterator, span<const Index> indices,
+                         IterationBufferShape block_shape,
+                         IterationBufferKind buffer_kind,
+                         IterationBufferPointer buffer, Index modified_count,
+                         absl::Status* status) {
+  Index full_rows = modified_count / block_shape[1];
+  Index final_row_count = modified_count % block_shape[1];
+  Index updated = 0;
+  if (full_rows != 0) {
+    updated = iterator.UpdateBlock(indices, {full_rows, block_shape[1]}, buffer,
+                                   status);
+    if (ABSL_PREDICT_FALSE(updated != full_rows * block_shape[1])) {
+      return updated;
+    }
+  }
+  if (final_row_count != 0) {
+    buffer.AddElementOffset(buffer_kind, full_rows, 0);
+    Index final_row_indices[kMaxRank];
+    std::copy(indices.begin(), indices.end(), final_row_indices);
+    final_row_indices[indices.size() - 2] += full_rows;
+    updated += iterator.UpdateBlock(
+        span<const Index>(final_row_indices, indices.size()),
+        {1, final_row_count}, buffer, status);
+  }
+  return updated;
+}
 
 }  // namespace internal
 }  // namespace tensorstore

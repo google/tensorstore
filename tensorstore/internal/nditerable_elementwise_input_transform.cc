@@ -49,13 +49,13 @@ class ElementwiseInputTransformNDIterator
     return inputs_.get_allocator();
   }
 
-  Index GetBlock(span<const Index> indices, Index block_size,
-                 IterationBufferPointer* pointer,
-                 absl::Status* status) override {
-    if (!inputs_.GetBlock(indices, block_size, status)) return 0;
-    return InvokeElementwiseFunction<Arity>(
-        elementwise_function_, context_, block_size, inputs_.block_pointers(),
-        *pointer, static_cast<void*>(status));
+  bool GetBlock(span<const Index> indices, IterationBufferShape block_shape,
+                IterationBufferPointer* pointer,
+                absl::Status* status) override {
+    return inputs_.GetBlock(indices, block_shape, status) &&
+           InvokeElementwiseFunction<Arity>(
+               elementwise_function_, context_, block_shape,
+               inputs_.block_pointers(), *pointer, static_cast<void*>(status));
   }
 
  private:

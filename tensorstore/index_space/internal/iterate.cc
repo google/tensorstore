@@ -14,6 +14,10 @@
 
 #include "tensorstore/util/internal/iterate.h"
 
+#include <stddef.h>
+
+#include <array>
+
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
 #include "tensorstore/index_space/index_transform.h"
@@ -318,18 +322,18 @@ void FillOffsetsArray(span<Index> offsets, span<const Index> position,
   }
 }
 
-template <std::size_t Arity>
-ArrayIterateResult IterateUsingSimplifiedLayout(
+template <size_t Arity>
+bool IterateUsingSimplifiedLayout(
     const SimplifiedDimensionIterationOrder& layout,
     span<const Index> input_shape,
     internal::ElementwiseClosure<Arity, void*> closure, void* arg,
     span<const SingleArrayIterationState, Arity> single_array_states,
-    std::array<std::ptrdiff_t, Arity> element_sizes) {
+    std::array<ptrdiff_t, Arity> element_sizes) {
   const Index final_indexed_dim_size =
       layout.simplified_shape[layout.pure_strided_start_dim - 1];
 
   std::array<const Index*, Arity> strides;
-  for (std::size_t i = 0; i < Arity; ++i) {
+  for (size_t i = 0; i < Arity; ++i) {
     strides[i] = &single_array_states[i].input_byte_strides[0];
   }
 
@@ -345,18 +349,15 @@ ArrayIterateResult IterateUsingSimplifiedLayout(
 
   const DimensionIndex last_indexed_dim = layout.pure_strided_start_dim - 1;
 
-  ArrayIterateResult outer_result;
-  outer_result.count = 0;
-
   // Iterate over all but the last array-indexed dimension.  We handle the last
   // array-indexed dimension specially for efficiency.
-  outer_result.success = IterateOverIndexRange(
+  return IterateOverIndexRange(
       span<const Index>(&layout.simplified_shape[0], last_indexed_dim),
       [&](span<const Index> position) {
         std::array<SingleArrayOffsetsBuffer, Arity> single_array_offset_buffers;
         std::array<ByteStridedPointer<void>, Arity> pointers;
         std::array<Index, Arity> final_indexed_dim_byte_strides;
-        for (std::size_t i = 0; i < Arity; ++i) {
+        for (size_t i = 0; i < Arity; ++i) {
           const auto& single_array_state = single_array_states[i];
           pointers[i] = single_array_state.base_pointer +
                         internal_index_space::IndirectInnerProduct(
@@ -373,7 +374,7 @@ ArrayIterateResult IterateUsingSimplifiedLayout(
           const Index block_size = std::min(
               final_indexed_dim_size - final_indexed_dim_start_position,
               temp_index_buffer_size);
-          for (std::size_t i = 0; i < Arity; ++i) {
+          for (size_t i = 0; i < Arity; ++i) {
             Index* offsets = single_array_offset_buffers[i].offsets;
             FillOffsetsArray(span(offsets, block_size), position,
                              &layout.input_dimension_order[0],
@@ -384,43 +385,41 @@ ArrayIterateResult IterateUsingSimplifiedLayout(
           if (strided_applyer.inner_size() == 1) {
             std::array<internal::IterationBufferPointer, Arity>
                 pointers_with_offset_arrays;
-            for (std::size_t i = 0; i < Arity; ++i) {
+            for (size_t i = 0; i < Arity; ++i) {
               pointers_with_offset_arrays[i] = internal::IterationBufferPointer{
-                  pointers[i], single_array_offset_buffers[i].offsets};
+                  pointers[i], /*offset_array_outer_stride=*/0,
+                  single_array_offset_buffers[i].offsets};
             }
-            Index cur_count = internal::InvokeElementwiseClosure(
-                closure, internal::IterationBufferKind::kIndexed, block_size,
-                pointers_with_offset_arrays, arg);
-            outer_result.count += cur_count;
-            if (cur_count != block_size) return false;
+            if (!internal::InvokeElementwiseClosure(
+                    closure, internal::IterationBufferKind::kIndexed,
+                    {1, block_size}, pointers_with_offset_arrays, arg)) {
+              return false;
+            }
           } else {
             for (Index j = 0; j < block_size; ++j) {
               auto cur_pointers = pointers;
-              for (std::size_t i = 0; i < Arity; ++i) {
+              for (size_t i = 0; i < Arity; ++i) {
                 cur_pointers[i] += single_array_offset_buffers[i].offsets[j];
               }
-              auto inner_result = strided_applyer(cur_pointers, arg);
-              outer_result.count += inner_result.count;
-              if (!inner_result.success) return false;
+              if (!strided_applyer(cur_pointers, arg)) return false;
             }
           }
         }
 
         return true;
       });
-  return outer_result;
 }
 
 // TODO(jbms): Consider making this a static method of a class template to
 // simplify the explicit instantiation.
 #define TENSORSTORE_INTERNAL_DO_INSTANTIATE_ITERATE_USING_SIMPLIFIED_LAYOUT( \
     Arity)                                                                   \
-  template ArrayIterateResult IterateUsingSimplifiedLayout<Arity>(           \
+  template bool IterateUsingSimplifiedLayout<Arity>(                         \
       const SimplifiedDimensionIterationOrder& layout,                       \
       span<const Index> input_shape,                                         \
       internal::ElementwiseClosure<Arity, void*> closure, void* arg,         \
       span<const SingleArrayIterationState, Arity> single_array_states,      \
-      std::array<std::ptrdiff_t, Arity> element_sizes);
+      std::array<ptrdiff_t, Arity> element_sizes);
 TENSORSTORE_INTERNAL_FOR_EACH_ARITY(
     TENSORSTORE_INTERNAL_DO_INSTANTIATE_ITERATE_USING_SIMPLIFIED_LAYOUT)
 #undef TENSORSTORE_INTERNAL_DO_INSTANTIATE_ITERATE_USING_SIMPLIFIED_LAYOUT

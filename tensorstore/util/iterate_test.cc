@@ -31,7 +31,6 @@
 
 namespace {
 
-using ::tensorstore::ArrayIterateResult;
 using ::tensorstore::c_order;
 using ::tensorstore::ContiguousLayoutOrder;
 using ::tensorstore::DimensionIndex;
@@ -523,23 +522,6 @@ TEST(IterateOverStridedLayoutsTest, InnerRank0NonContiguousFortranStop) {
                             ContiguousLayoutOrder::fortran, 0, 0);
   std::vector<R> expected_result{R{0, 0}, R{3, 12}};
   EXPECT_EQ(expected_result, result);
-}
-
-TEST(ArrayIterateResultTest, Comparison) {
-  ArrayIterateResult r0{true, 3};
-  ArrayIterateResult r1{true, 4};
-  ArrayIterateResult r2{false, 4};
-  EXPECT_EQ(r0, r0);
-  EXPECT_EQ(r1, r1);
-  EXPECT_EQ(r2, r2);
-  EXPECT_NE(r0, r1);
-  EXPECT_NE(r0, r2);
-  EXPECT_NE(r1, r2);
-}
-
-TEST(ArrayIterateResultTest, PrintToOstream) {
-  EXPECT_EQ("{success=1, count=3}",
-            tensorstore::StrCat(ArrayIterateResult{true, 3}));
 }
 
 template <ContiguousLayoutOrder Order>

@@ -28,16 +28,18 @@ NDIterable::~NDIterable() = default;
 NDIterableLayoutConstraint::~NDIterableLayoutConstraint() = default;
 NDIterableBufferConstraint::~NDIterableBufferConstraint() = default;
 
-Index NDIterator::GetBlock(span<const Index> indices, Index block_size,
-                           IterationBufferPointer* pointer,
-                           absl::Status* status) {
-  return block_size;
+bool NDIterator::GetBlock(span<const Index> indices,
+                          IterationBufferShape block_shape,
+                          IterationBufferPointer* pointer,
+                          absl::Status* status) {
+  return true;
 }
 
-Index NDIterator::UpdateBlock(span<const Index> indices, Index block_size,
-                              IterationBufferPointer pointer,
-                              absl::Status* status) {
-  return block_size;
+bool NDIterator::UpdateBlock(span<const Index> indices,
+                             IterationBufferShape block_shape,
+                             IterationBufferPointer pointer,
+                             absl::Status* status) {
+  return true;
 }
 
 }  // namespace internal

@@ -47,15 +47,13 @@ struct ElementwiseOutputTransformNDIterator
     return output_.get_allocator();
   }
 
-  Index UpdateBlock(span<const Index> indices, Index block_size,
-                    IterationBufferPointer pointer,
-                    absl::Status* status) override {
-    if (!output_.GetBlock(indices, block_size, status)) {
-      return 0;
-    }
-    block_size = elementwise_function_(context_, block_size, pointer,
-                                       output_.block_pointers()[0], status);
-    return output_.UpdateBlock(indices, block_size, status);
+  bool UpdateBlock(span<const Index> indices, IterationBufferShape block_shape,
+                   IterationBufferPointer pointer,
+                   absl::Status* status) override {
+    return output_.GetBlock(indices, block_shape, status) &&
+           elementwise_function_(context_, block_shape, pointer,
+                                 output_.block_pointers()[0], status) &&
+           output_.UpdateBlock(indices, block_shape, status);
   }
 
   NDIteratorsWithManagedBuffers<1> output_;

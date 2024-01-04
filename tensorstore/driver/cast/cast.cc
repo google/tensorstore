@@ -350,11 +350,8 @@ struct WriteChunkImpl {
 
   WriteChunk::EndWriteResult operator()(WriteChunk::EndWrite,
                                         IndexTransformView<> chunk_transform,
-                                        NDIterable::IterationLayoutView layout,
-                                        span<const Index> write_end_position,
-                                        Arena* arena) {
-    return base(WriteChunk::EndWrite{}, chunk_transform, layout,
-                write_end_position, arena);
+                                        bool success, Arena* arena) {
+    return base(WriteChunk::EndWrite{}, chunk_transform, success, arena);
   }
 };
 

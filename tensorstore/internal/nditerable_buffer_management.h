@@ -18,6 +18,8 @@
 /// \file
 /// Utilities for managing external buffers for NDIterator objects.
 
+#include <stddef.h>
+
 #include <algorithm>
 #include <array>
 #include <utility>
@@ -26,9 +28,11 @@
 #include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/arena.h"
+#include "tensorstore/internal/element_copy_function.h"
 #include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/internal/nditerable.h"
 #include "tensorstore/internal/nditerable_util.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/util/division.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/span.h"
@@ -70,10 +74,10 @@ class NDIterablesWithManagedBuffers
     return NDIterable::IterationBufferConstraint{buffer_kind, true};
   }
 
-  std::ptrdiff_t GetWorkingMemoryBytesPerElement(
+  ptrdiff_t GetWorkingMemoryBytesPerElement(
       NDIterable::IterationLayoutView layout,
       IterationBufferKind buffer_kind) const override {
-    std::ptrdiff_t num_bytes = 0;
+    ptrdiff_t num_bytes = 0;
     for (size_t i = 0; i < this->iterables.size(); ++i) {
       const auto& iterable = this->iterables[i];
       const auto constraint = iterable->GetIterationBufferConstraint(layout);
@@ -103,7 +107,7 @@ class NDIterablesWithManagedBuffers
 /// \param NumBufferKinds Number of separate buffer kind views (of the same
 ///     underlying buffer) to support for each iterator, e.g. to provide both a
 ///     `kContiguous` or `kStrided` and a `kIndexed` view of the same buffer.
-template <std::size_t Arity, std::size_t NumBufferKinds>
+template <size_t Arity, size_t NumBufferKinds>
 class NDIteratorExternalBufferManager {
  public:
   using allocator_type = ArenaAllocator<>;
@@ -123,7 +127,7 @@ class NDIteratorExternalBufferManager {
   ///
   /// Frees any previously-allocated buffers.
   ///
-  /// \param block_size The block size.
+  /// \param block_shape The block shape.
   /// \param data_types For each `0 <= i < Arity` for which
   ///     `data_types[i].valid() == true`, allocates a buffer of size
   ///     `block_size` of the specified data type, and sets
@@ -131,13 +135,14 @@ class NDIteratorExternalBufferManager {
   ///     `buffer_kinds[j][i]` that refers to it for `0 <= j < NumBufferKinds`.
   /// \param buffer_kinds For each `0 <= i < Arity` for which
   ///     `data_types[i].valid() == true`, specifies the buffer kinds.  If
-  ///     `data_types[i].valid() == false`, `data_types[j][i]` is ignored.
+  ///     `data_types[i].valid() == false`, `buffer_kinds[j][i]` is ignored.
   void Initialize(
-      Index block_size, std::array<DataType, Arity> data_types,
+      IterationBufferShape block_shape, std::array<DataType, Arity> data_types,
       std::array<std::array<IterationBufferKind, NumBufferKinds>, Arity>
           buffer_kinds) {
     Free();
     data_types_ = data_types;
+    const Index block_size = block_shape[0] * block_shape[1];
     block_size_ = block_size;
     ptrdiff_t buffer_bytes_needed = 0;
     ptrdiff_t num_offset_arrays = 0;
@@ -186,14 +191,19 @@ class NDIteratorExternalBufferManager {
           byte_offsets =
               reinterpret_cast<Index*>(buffer_ + next_offset_array_offset);
           next_offset_array_offset += block_size * sizeof(Index);
-          FillOffsetsArrayFromStride(dtype->size,
-                                     span(byte_offsets, block_size));
+          FillOffsetsArrayFromStride(dtype->size * block_shape[1], dtype->size,
+                                     block_shape[0], block_shape[1],
+                                     byte_offsets);
           break;
         }
       }
       for (size_t j = 0; j < NumBufferKinds; ++j) {
-        buffer_pointers_[j][i] = GetIterationBufferPointer(
-            buffer_kinds[i][j], buffer_ptr, dtype->size, byte_offsets);
+        buffer_pointers_[j][i] =
+            (buffer_kinds[i][j] == IterationBufferKind::kIndexed)
+                ? IterationBufferPointer(buffer_ptr, block_shape[1],
+                                         byte_offsets)
+                : IterationBufferPointer(
+                      buffer_ptr, dtype->size * block_shape[1], dtype->size);
       }
     }
   }
@@ -254,7 +264,7 @@ class NDIteratorExternalBufferManager {
 ///
 /// This can be used to apply an elementwise operation to a collection of
 /// read-only/write-only/read-write iterables.
-template <std::size_t Arity>
+template <size_t Arity>
 struct NDIteratorsWithManagedBuffers {
   /// Obtains iterators and allocates any necessary external buffers.
   ///
@@ -285,16 +295,16 @@ struct NDIteratorsWithManagedBuffers {
       }
     }
 
-    buffer_manager_.Initialize(layout.block_size, data_types, buffer_kinds);
+    buffer_manager_.Initialize(layout.block_shape, data_types, buffer_kinds);
     for (size_t i = 0; i < Arity; ++i) {
       iterators_[i] = iterables[i]->GetIterator(
           {static_cast<const NDIterable::IterationBufferLayoutView&>(layout),
            buffer_constraints[i].external
                ? buffer_constraints[i].min_buffer_kind
                : layout.buffer_kind});
+      size_t buffer_index = buffer_constraints[i].external ? 0 : 1;
       get_block_pointers_[i] =
-          &buffer_manager_
-               .buffer_pointers()[buffer_constraints[i].external ? 0 : 1][i];
+          &buffer_manager_.buffer_pointers()[buffer_index][i];
     }
   }
 
@@ -311,19 +321,19 @@ struct NDIteratorsWithManagedBuffers {
   ///
   /// \param indices Specifies the position of the block.  Vector of length
   ///     `layout.rank()`, where `layout` is the constructor parameter.
-  /// \param block_size The size of the block, must be `<= layout.block_size`,
-  ///     where `layout` is the constructor parameter.
+  /// \param block_shape The shape of the block, must be
+  ///     `<= layout.block_shape`, where `layout` is the constructor parameter.
   /// \param status[out] Non-null pointer to location where error status may be
   ///     stored if the return value is `false`.  It may be left unmodified even
   ///     if the return value is `false`, in which case a default error should
   ///     be assumed.
-  /// \returns `true` if `GetBlock` succeeded (returned `block_size`) for all of
-  ///     the iterators, `false` otherwise.
-  bool GetBlock(span<const Index> indices, DimensionIndex block_size,
+  /// \returns `true` if `GetBlock` succeeded for all of the iterators, `false`
+  ///     otherwise.
+  bool GetBlock(span<const Index> indices, IterationBufferShape block_shape,
                 absl::Status* status) {
     for (size_t i = 0; i < Arity; ++i) {
-      if (iterators_[i]->GetBlock(indices, block_size, get_block_pointers_[i],
-                                  status) != block_size) {
+      if (!iterators_[i]->GetBlock(indices, block_shape, get_block_pointers_[i],
+                                   status)) {
         return false;
       }
     }
@@ -333,22 +343,23 @@ struct NDIteratorsWithManagedBuffers {
   /// Calls `UpdateBlock` on each iterator.
   ///
   /// \param indices Equivalent vector as passed to prior call to `GetBlock`.
-  /// \param block_size Same `block_size` as passed to prior call to `GetBlock`.
+  /// \param block_shape Same `block_shape` as passed to prior call to
+  ///     `GetBlock`.
   /// \param status[out] Non-null pointer to location where error status may be
-  ///     stored if the return value is less than `block_size`.  It may be left
-  ///     unmodified even if the return value is `false`, in which case a
-  ///     default error should be assumed.
-  /// \returns The minimum number of elements successfully updated in all
-  ///     iterators (equal to `block_size` on success).
-  Index UpdateBlock(span<const Index> indices, DimensionIndex block_size,
-                    absl::Status* status) {
-    Index n = block_size;
+  ///     stored if the return value is less than
+  ///     `block_shape[0] * block_shape[1]`.  It may be left unmodified even if
+  ///     the return value is `false`, in which case a default error should be
+  ///     assumed.
+  /// \returns `true` on success, `false` to indicate an error.
+  bool UpdateBlock(span<const Index> indices, IterationBufferShape block_shape,
+                   absl::Status* status) {
     for (size_t i = 0; i < Arity; ++i) {
-      n = std::min(n,
-                   iterators_[i]->UpdateBlock(indices, block_size,
-                                              *get_block_pointers_[i], status));
+      if (!iterators_[i]->UpdateBlock(indices, block_shape,
+                                      *get_block_pointers_[i], status)) {
+        return false;
+      }
     }
-    return n;
+    return true;
   }
 
   /// Returns block pointers corresponding to the prior successful call to
@@ -368,7 +379,7 @@ struct NDIteratorsWithManagedBuffers {
 ///
 /// Example usage:
 ///
-///     Arena arena;
+///     DefaultNDIterableArena arena;
 ///     NDIterable::Ptr iterable_a = ...;
 ///     NDIterable::Ptr iterable_b = ...;
 ///     ElementwiseClosure<2, void*> closure = ...;
@@ -376,32 +387,28 @@ struct NDIteratorsWithManagedBuffers {
 ///         shape, constraints, {{ iterable_a.get(), iterable_b.get() }},
 ///         &arena);
 ///     absl::Status status;
-///     for (Index block_size = multi_iterator.ResetAtBeginning();
-///          block_size;
-///          block_size = multi_iterator.StepForward(block_size)) {
-///       if (!multi_iterator.GetBlock(block_size, &status)) {
+///     for (auto block_shape = multi_iterator.ResetAtBeginning();
+///          block_shape[0] && block_shape[1];
+///          block_shape = multi_iterator.StepForward(block_shape)) {
+///       if (!multi_iterator.GetBlock(block_shape, &status)) {
 ///         // handle error
 ///         break;
 ///       }
-///       Index n = InvokeElementwiseClosure(closure, block_size,
+///       Index n = InvokeElementwiseClosure(closure, block_shape,
 ///                                         multi_iterator.block_pointers(),
 ///                                         &status);
-///       if (multi_iterator.UpdateBlock(n, &status) != n) {
-///         // handle error
-///         break;
-///       }
-///       if (n != block_size) {
+///       if (multi_iterator.UpdateBlock(block_shape, n, &status)
+///             != block_shape[0] * block_shape[1]) {
 ///         // handle error
 ///         break;
 ///       }
 ///     }
-template <std::ptrdiff_t Arity, bool Full = false>
+template <ptrdiff_t Arity, bool Full = false>
 struct MultiNDIterator : public NDIterationInfo<Full>,
-                         public NDIteratorsWithManagedBuffers<Arity>,
-                         public NDIterationPositionStepper {
+                         public NDIteratorsWithManagedBuffers<Arity> {
   using Iterables = std::array<const NDIterable*, Arity>;
 
-  using NDIterationInfo<Full>::block_size;
+  using NDIterationInfo<Full>::block_shape;
   using NDIterationInfo<Full>::shape;
 
   /// Computes a layout for the specified `iterables`, obtains iterators, and
@@ -412,19 +419,70 @@ struct MultiNDIterator : public NDIterationInfo<Full>,
             NDIterablesWithManagedBuffers<Iterables>{iterables}, shape,
             constraints),
         NDIteratorsWithManagedBuffers<Arity>(
-            iterables, this->buffer_layout_view(), allocator),
-        NDIterationPositionStepper(this->iteration_shape, this->block_size) {}
+            iterables, this->buffer_layout_view(), allocator) {}
 
-  bool GetBlock(Index cur_size, absl::Status* status) {
-    return NDIteratorsWithManagedBuffers<Arity>::GetBlock(
-        this->position(), this->block_size, status);
+  IterationBufferShape ResetAtBeginning() {
+    std::fill_n(position_, this->iteration_shape.size(), Index(0));
+    return block_shape;
   }
 
-  Index UpdateBlock(Index cur_size, absl::Status* status) {
-    return NDIteratorsWithManagedBuffers<Arity>::UpdateBlock(
-        this->position(), this->block_size, status);
+  IterationBufferShape StepForward(IterationBufferShape step) {
+    if (step[1] != this->block_shape[1]) {
+      const Index next_block_size = StepBufferPositionForward(
+          this->iteration_shape, 1, this->block_shape[1], position_);
+      return {1, next_block_size};
+    } else {
+      const Index next_block_size = StepBufferPositionForward(
+          span<const Index>(&this->iteration_shape[0],
+                            this->iteration_shape.size() - 1),
+          step[0], block_shape[0], position_);
+      return {next_block_size, step[1]};
+    }
   }
+
+  bool GetBlock(IterationBufferShape cur_shape, absl::Status* status) {
+    return NDIteratorsWithManagedBuffers<Arity>::GetBlock(this->position(),
+                                                          cur_shape, status);
+  }
+
+  bool UpdateBlock(IterationBufferShape cur_shape, absl::Status* status) {
+    return NDIteratorsWithManagedBuffers<Arity>::UpdateBlock(this->position(),
+                                                             cur_shape, status);
+  }
+
+  span<Index> position() {
+    return span<Index>(position_, this->iteration_shape.size());
+  }
+
+  span<const Index> position() const {
+    return span<const Index>(position_, this->iteration_shape.size());
+  }
+
+ private:
+  Index position_[kMaxRank];
 };
+
+template <ptrdiff_t Arity, bool Update, typename... ExtraArg>
+absl::Status IterateOverNDIterables(
+    span<const Index> shape, IterationConstraints constraints,
+    std::array<const NDIterable*, Arity> iterables, ArenaAllocator<> allocator,
+    ElementwiseClosure<Arity, ExtraArg...> closure, ExtraArg... arg) {
+  absl::Status status;
+  MultiNDIterator<Arity> multi_iterator(shape, constraints, iterables,
+                                        allocator);
+  for (IterationBufferShape buffer_shape = multi_iterator.ResetAtBeginning();
+       buffer_shape[0] && buffer_shape[1];
+       buffer_shape = multi_iterator.StepForward(buffer_shape)) {
+    if (!multi_iterator.GetBlock(buffer_shape, &status) ||
+        !internal::InvokeElementwiseClosure(
+            closure, multi_iterator.buffer_kind, buffer_shape,
+            multi_iterator.block_pointers(), arg...) ||
+        (Update ? !multi_iterator.UpdateBlock(buffer_shape, &status) : false)) {
+      return GetElementCopyErrorStatus(std::move(status));
+    }
+  }
+  return absl::OkStatus();
+}
 
 }  // namespace internal
 }  // namespace tensorstore

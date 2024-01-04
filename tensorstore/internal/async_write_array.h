@@ -20,11 +20,18 @@
 /// Define `AsyncWriteArray`, which is used by TensorStore `Driver`
 /// implementations to track uncommitted writes.
 
+#include <stddef.h>
+
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include "tensorstore/array.h"
+#include "tensorstore/box.h"
+#include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/internal/arena.h"
 #include "tensorstore/internal/masked_array.h"
 #include "tensorstore/internal/nditerable.h"
 #include "tensorstore/kvstore/generation.h"
@@ -132,7 +139,7 @@ struct AsyncWriteArray {
                                               IndexTransform<> chunk_transform,
                                               Arena* arena) const;
 
-    std::size_t EstimateReadStateSizeInBytes(bool valid) const {
+    size_t EstimateReadStateSizeInBytes(bool valid) const {
       if (!valid) return 0;
       return num_elements() * dtype()->size;
     }
@@ -171,7 +178,7 @@ struct AsyncWriteArray {
     explicit MaskedArray(DimensionIndex rank);
 
     /// Returns an estimate of the memory required.
-    std::size_t EstimateSizeInBytes(const Spec& spec) const;
+    size_t EstimateSizeInBytes(const Spec& spec) const;
 
     /// Optional pointer to C-order multi-dimensional array of data type and
     /// shape given by the `dtype` and `shape`, respectively, of the `Spec`.
@@ -211,16 +218,10 @@ struct AsyncWriteArray {
     /// \param origin The associated origin of the array.
     /// \param chunk_transform Same transform supplied to prior call to
     ///     `BeginWrite`, the output rank must equal `spec.rank()`.
-    /// \param layout The layout used for iterating over the `NDIterable`
-    ///     returned by `BeginWrite`.
-    /// \param write_end_position One past the last position (with respect to
-    ///     `layout`) that was modified.
     /// \param arena Arena Non-null pointer to allocation arena that may be used
     ///     for allocating memory.
-    bool EndWrite(const Spec& spec, span<const Index> origin,
-                  IndexTransformView<> chunk_transform,
-                  NDIterable::IterationLayoutView layout,
-                  span<const Index> write_end_position, Arena* arena);
+    void EndWrite(const Spec& spec, span<const Index> origin,
+                  IndexTransformView<> chunk_transform, Arena* arena);
 
     /// Write the fill value.
     ///
@@ -298,10 +299,20 @@ struct AsyncWriteArray {
                                      IndexTransform<> chunk_transform,
                                      Arena* arena);
 
-  bool EndWrite(const Spec& spec, span<const Index> origin,
-                IndexTransformView<> chunk_transform,
-                NDIterable::IterationLayoutView layout,
-                span<const Index> write_end_position, Arena* arena);
+  /// Must be called after writing to the `NDIterable` returned by `BeginWrite`,
+  /// even if an error occurs.
+  ///
+  /// \param spec The associated `Spec`.
+  /// \param origin The associated origin of the array.
+  /// \param chunk_transform Same transform supplied to prior call to
+  ///     `BeginWrite`, the output rank must equal `spec.rank()`.
+  /// \param success Indicates if all positions in the range of
+  ///     `chunk_transform` were successfully updated.
+  /// \param arena Arena Non-null pointer to allocation arena that may be used
+  ///     for allocating memory.
+  void EndWrite(const Spec& spec, span<const Index> origin,
+                IndexTransformView<> chunk_transform, bool success,
+                Arena* arena);
 
   /// Returns an array to write back the current modifications.
   ///

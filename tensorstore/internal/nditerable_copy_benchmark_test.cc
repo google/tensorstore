@@ -188,7 +188,6 @@ void BM_Copy(benchmark::State& state) {
         break;
       }
       case kDataType: {
-#if 0
         using ::tensorstore::internal::IterationBufferKind;
         using ::tensorstore::internal::IterationBufferPointer;
         auto input_pointer = IterationBufferPointer(
@@ -200,7 +199,6 @@ void BM_Copy(benchmark::State& state) {
             [IterationBufferKind::kContiguous](nullptr, {outer, inner},
                                                input_pointer, output_pointer,
                                                nullptr);
-#endif
         break;
       }
     }

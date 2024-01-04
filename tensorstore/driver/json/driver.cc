@@ -542,15 +542,11 @@ struct WriteChunkImpl {
 
   WriteChunk::EndWriteResult operator()(WriteChunk::EndWrite,
                                         IndexTransformView<> chunk_transform,
-                                        NDIterable::IterationLayoutView layout,
-                                        span<const Index> write_end_position,
-                                        Arena* arena) {
-    // There is only 1 element, so any non-zero index in write_end_position
-    // means it was written.
-    const bool modified =
-        std::any_of(write_end_position.begin(), write_end_position.end(),
-                    [](Index x) { return x != 0; });
-    if (!modified) return {};
+                                        bool success, Arena* arena) {
+    if (chunk_transform.domain().box().is_empty()) {
+      return {};
+    }
+    if (!success) return {};
     const auto convert_error = [&](const absl::Status& error) {
       return WriteChunk::EndWriteResult{
           /*.copy_status=*/entry->AnnotateError(error, /*reading=*/false),

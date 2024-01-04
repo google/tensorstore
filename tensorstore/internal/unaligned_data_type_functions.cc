@@ -14,13 +14,16 @@
 
 #include "tensorstore/internal/unaligned_data_type_functions.h"
 
-#include <nlohmann/json.hpp>
+#include <stddef.h>
+
+#include <array>
+#include <complex>
+
+#include "absl/status/status.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/internal/endian_elementwise_conversion.h"
-#include "tensorstore/serialization/serialization.h"
-#include "tensorstore/util/endian.h"
-#include "tensorstore/util/utf8_string.h"
+#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal {
@@ -39,26 +42,21 @@ struct SwapEndianSizes<std::complex<T>> {
   constexpr static size_t num_elements = 2;
 };
 
-struct ValidateBoolLoopTemplate {
-  using ElementwiseFunctionType = ElementwiseFunction<1, void*>;
-
-  template <typename ArrayAccessor>
-  static Index Loop(void* context, Index count, IterationBufferPointer buffer,
-                    void* arg) {
+struct ValidateBoolLoopImpl {
+  bool operator()(const unsigned char* value, void* arg) const {
     auto* status = static_cast<absl::Status*>(arg);
-    for (Index i = 0; i < count; ++i) {
-      unsigned char val =
-          *ArrayAccessor::template GetPointerAtOffset<const unsigned char>(
-              buffer, i);
-      if (val & ~static_cast<unsigned char>(1)) {
-        *status = absl::InvalidArgumentError(
-            tensorstore::StrCat("Invalid bool value: ", static_cast<int>(val)));
-        return i;
-      }
+    if (*value & ~static_cast<unsigned char>(1)) {
+      *status = absl::InvalidArgumentError(tensorstore::StrCat(
+          "Invalid bool value: ", static_cast<int>(*value)));
+      return false;
     }
-    return count;
+    return true;
   }
 };
+
+using ValidateBoolLoopTemplate =
+    internal_elementwise_function::SimpleLoopTemplate<
+        ValidateBoolLoopImpl(const unsigned char), void*>;
 
 }  // namespace
 

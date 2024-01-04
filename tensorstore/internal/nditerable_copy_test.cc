@@ -82,7 +82,6 @@ TEST(NDIterableCopyTest, Example) {
       *source_iterable, *dest_iterable, dest_array.shape(),
       tensorstore::c_order, &arena);
   EXPECT_EQ(absl::UnknownError("5"), copier.Copy());
-  EXPECT_THAT(copier.stepper().position(), ::testing::ElementsAre(4));
   EXPECT_EQ(MakeArray<int>({{1, 2, 3}, {4, 0, 0}}), dest_array);
 }
 
@@ -132,19 +131,18 @@ TEST(NDIterableCopyTest, ExternalBuffer) {
       auto source = tensorstore::MakeArray<int>({{1, 2, 3}, {4, 5, 6}});
       tensorstore::TransformedArray<Shared<const int>> tsource = source;
       if (indexed_source) {
-        tsource =
-            ChainResult(source, tensorstore::Dims(0, 1).OuterIndexArraySlice(
-                                    MakeArray<Index>({0, 1}),
-                                    MakeArray<Index>({0, 1, 2})))
-                .value();
+        tsource = (source |
+                   tensorstore::Dims(0, 1).OuterIndexArraySlice(
+                       MakeArray<Index>({0, 1}), MakeArray<Index>({0, 1, 2})))
+                      .value();
       }
       auto dest = tensorstore::AllocateArray<double>(source.shape());
       tensorstore::TransformedArray<Shared<double>> tdest = dest;
       if (indexed_dest) {
-        tdest = ChainResult(dest, tensorstore::Dims(0, 1).OuterIndexArraySlice(
-                                      MakeArray<Index>({0, 1}),
-                                      MakeArray<Index>({0, 1, 2})))
-                    .value();
+        tdest =
+            (dest | tensorstore::Dims(0, 1).OuterIndexArraySlice(
+                        MakeArray<Index>({0, 1}), MakeArray<Index>({0, 1, 2})))
+                .value();
       }
       EXPECT_EQ(absl::OkStatus(),
                 (TestCopy<unsigned int>(

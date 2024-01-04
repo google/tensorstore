@@ -41,7 +41,7 @@
 namespace tensorstore {
 namespace internal {
 
-/// Interface for retrieving 1-dimensional buffers within a multi-dimensional
+/// Interface for retrieving 2-dimensional buffers within a multi-dimensional
 /// NDIterable.
 ///
 /// NDIterable instances are always allocated using an `ArenaAllocator` and
@@ -62,13 +62,15 @@ namespace internal {
 ///     for providing an external buffer to store the data at a given position.
 ///     If `false`, the `NDIterator` provides its own buffer.
 ///
-///   - `DimensionIndex rank`, with `rank >= 1`: the rank of the iteration
+///   - `DimensionIndex rank`, with `rank >= 2`: the rank of the iteration
 ///     space.
 ///
 ///   - `span<const Index> iteration_shape`: The shape of the iteration space,
 ///     of size `rank`.
 ///
-///   - `Index max_block_size`: the maximum supported block size.
+///   - `IterationBufferShape max_block_shape`: the maximum supported block
+///     shape, equal to the `block_shape` field of the
+///     `IterationBufferKindLayoutView` passed to `NDIterable::GetIterator`.
 ///
 ///   - The supported read/write/read-write mode of the iterator.
 class NDIterator {
@@ -89,32 +91,30 @@ class NDIterator {
   ///
   /// \param indices Vector of length equal to the implicitly-associated `rank`.
   ///     Must satisfy `0 >= indices[i] && indices[i] <= iteration_shape[i]` for
-  ///     `0 <= i < rank`, and
-  ///     `indices[rank-1] + block_size <= iteration_shape[rank-1]`.
-  /// \param block_size The extent along the last iteration dimension, must be
-  ///     `<= max_block_size`.
+  ///     `0 <= i < rank`,
+  ///     `indices[rank-2] + block_outer_size <= iteration_shape[rank-2]`, and
+  ///     `indices[rank-1] + block_inner_size <= iteration_shape[rank-1]`.
+  /// \param block_shape The extent along the last 2 dimensions, must be
+  ///     elementwise `<= max_block_shape`.
   /// \param pointer[in,out] If the implicit attribute `external == true`,
   ///     `*pointer` must be an already-constructed buffer of kind
-  ///     `buffer_kind`, data type `dtype`, and length `block_size` to fill
-  ///     with the data starting at the specified position.  If
-  ///     `external == false`, the existing value of `*pointer` is ignored and
-  ///     `*pointer` must be assigned to a buffer of kind `buffer_kind`, length
-  ///     `block_size`, and data type `dtype` containing the data starting
-  ///     at `indices`.  The returned buffer is invalidated upon the next call
-  ///     to `GetBlock`, `UpdateBlock`, or if the `NDIterator` is destroyed.
+  ///     `buffer_kind`, data type `dtype`, and shape `block_shape` to fill with
+  ///     the data starting at the specified position.  If `external == false`,
+  ///     the existing value of `*pointer` is ignored and `*pointer` must be
+  ///     assigned to a buffer of kind `buffer_kind`, shape `block_shape`, and
+  ///     data type `dtype` containing the data starting at `indices`.  The
+  ///     returned buffer is invalidated upon the next call to `GetBlock`,
+  ///     `UpdateBlock`, or if the `NDIterator` is destroyed.
   /// \param status[out] Non-null pointer to location in which an error may be
-  ///     returned if the return value is less than `block_size`.
-  /// \returns The number of elements, starting at the beginning of the buffer,
-  ///     that were successfully filled with data.  If `external == true`,
-  ///     positions in the `*pointer` buffer after the returned number of
-  ///     elements must not be modified.  If no error occurred, `block_size`
-  ///     should be returned.  Otherwise, a number less than `block_size` may be
-  ///     returned and `*status` may optionally be set to an error.  If
+  ///     returned if the return value is `false`.
+  /// \returns `true` in the case of success, `false` to indicate an error.  If
+  ///     `false` is returned, `*status` may optionally be set to an error.  If
   ///     `*status` is left unchanged, a default error status is used.
-  /// \remark The default implementation just returns `block_size`.  Except for
+  /// \remark The default implementation just returns `true`.  Except for
   ///     write-only iterators with `external == true`, it must be overridden.
-  virtual Index GetBlock(span<const Index> indices, Index block_size,
-                         IterationBufferPointer* pointer, absl::Status* status);
+  virtual bool GetBlock(span<const Index> indices,
+                        internal::IterationBufferShape block_shape,
+                        IterationBufferPointer* pointer, absl::Status* status);
 
   /// Updates the block at the specified location.
   ///
@@ -123,21 +123,19 @@ class NDIterator {
   ///
   /// \param indices Must specify same index vector (same contents, not
   ///     necessarily the same address) as prior call to `GetBlock`.
-  /// \param block_size Number of elements, starting at the beginning of the
-  ///     buffer, that were modified.  Must be <= return value from prior call
-  ///     to `GetBlock`.
-  /// \param pointer[in] Must equal to the pointer passed to (if
-  ///     `external == true`) or returned by (if `external == false`) prior call
-  ///     to `GetBlock`.
+  /// \param block_shape The shape of the block, must be the same as passed to
+  ///     the prior call to `GetBlock`.
+  /// \param pointer[in] Must equal the pointerpassed to (if `external == true`)
+  ///     or returned by (if `external == false`) the prior call to `GetBlock`.
   /// \param status[out] Non-null pointer to location in which an error may be
-  ///     returned if the return value is less than `block_size`.
-  /// \returns The number of elements, starting at the beginning of the buffer,
-  ///     that were successfully updated.
-  /// \remark The default implementation just returns `block_size`, and need not
-  ///     be overridden by read-only iterators.
-  virtual Index UpdateBlock(span<const Index> indices, Index block_size,
-                            IterationBufferPointer pointer,
-                            absl::Status* status);
+  ///     returned if the return value is `false`.
+  /// \returns `true` on success, or `false` to indicate an error.
+  /// \remark The default implementation just returns `true`, and need not be
+  ///     overridden by read-only iterators.
+  virtual bool UpdateBlock(span<const Index> indices,
+                           internal::IterationBufferShape block_shape,
+                           IterationBufferPointer pointer,
+                           absl::Status* status);
 
   /// Needed by `VirtualDestroyDeleter`.
   virtual void Destroy() = 0;
@@ -321,7 +319,7 @@ class NDIterableBufferConstraint : public NDIterableLayoutConstraint {
 
   /// Returns the number of working memory bytes per element given the
   /// specified iteration dimensions and buffer kind.
-  virtual std::ptrdiff_t GetWorkingMemoryBytesPerElement(
+  virtual ptrdiff_t GetWorkingMemoryBytesPerElement(
       IterationLayoutView layout, IterationBufferKind buffer_kind) const = 0;
 
   virtual ~NDIterableBufferConstraint();
@@ -357,7 +355,7 @@ class NDIterable : public NDIterableBufferConstraint {
   /// Combines an `IterationLayoutView` with a block size value.
   struct IterationBufferLayoutView : public IterationLayoutView {
     /// Block size to use when iterating.
-    Index block_size;
+    internal::IterationBufferShape block_shape;
   };
 
   /// Combines an `IterationBufferLayoutView` with an `IterationBufferKind`.
@@ -376,9 +374,8 @@ class NDIterable : public NDIterableBufferConstraint {
   /// \returns A non-null `NDIterator` with an associated `iteration_shape`
   ///     equal to the implicitly associated `shape`, indexed by
   ///     `layout.iteration_dimensions`, and associated `dtype` equal to
-  ///     `this->dtype()`, an associated `buffer_kind` of
-  ///     `layout.buffer_kind`, and an associated `max_block_size` of
-  ///     `layout.block_size`.
+  ///     `this->dtype()`, an associated `buffer_kind` of `layout.buffer_kind`,
+  ///     and an associated `max_block_shape` of `layout.block_shape`.
   virtual NDIterator::Ptr GetIterator(
       IterationBufferKindLayoutView layout) const = 0;
 

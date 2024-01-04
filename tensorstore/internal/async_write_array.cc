@@ -14,20 +14,31 @@
 
 #include "tensorstore/internal/async_write_array.h"
 
-#include <cstddef>
+#include <stddef.h>
+
+#include <cassert>
 #include <memory>
 #include <utility>
 #include <vector>
 
 #include "tensorstore/array.h"
+#include "tensorstore/box.h"
 #include "tensorstore/contiguous_layout.h"
+#include "tensorstore/data_type.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
+#include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/transformed_array.h"
+#include "tensorstore/internal/arena.h"
+#include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/internal/masked_array.h"
 #include "tensorstore/internal/nditerable.h"
 #include "tensorstore/internal/nditerable_transformed_array.h"
-#include "tensorstore/internal/unowned_to_shared.h"
+#include "tensorstore/kvstore/generation.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/element_pointer.h"
+#include "tensorstore/util/extents.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 
@@ -158,9 +169,9 @@ AsyncWriteArray::MaskedArray::GetArrayForWriteback(
   return writeback;
 }
 
-std::size_t AsyncWriteArray::MaskedArray::EstimateSizeInBytes(
+size_t AsyncWriteArray::MaskedArray::EstimateSizeInBytes(
     const Spec& spec) const {
-  std::size_t total = 0;
+  size_t total = 0;
   const Index num_elements = ProductOfExtents(spec.shape());
   if (data) {
     total += num_elements * spec.fill_value.dtype()->size;
@@ -176,9 +187,10 @@ void AsyncWriteArray::MaskedArray::EnsureWritable(const Spec& spec) {
   auto dtype = spec.dtype();
   auto new_data = spec.AllocateAndConstructBuffer();
   dtype->copy_assign[IterationBufferKind::kContiguous](
-      /*context=*/nullptr, spec.num_elements(),
-      IterationBufferPointer(data.get(), dtype.size()),
-      IterationBufferPointer(new_data.get(), dtype.size()), /*status=*/nullptr);
+      /*context=*/nullptr, {1, spec.num_elements()},
+      IterationBufferPointer(data.get(), 0, dtype.size()),
+      IterationBufferPointer(new_data.get(), 0, dtype.size()),
+      /*status=*/nullptr);
   data = std::move(new_data);
 }
 
@@ -217,13 +229,10 @@ Result<NDIterable::Ptr> AsyncWriteArray::MaskedArray::BeginWrite(
       arena);
 }
 
-bool AsyncWriteArray::MaskedArray::EndWrite(
+void AsyncWriteArray::MaskedArray::EndWrite(
     const Spec& spec, span<const Index> origin,
-    IndexTransformView<> chunk_transform,
-    NDIterable::IterationLayoutView layout,
-    span<const Index> write_end_position, Arena* arena) {
-  return WriteToMask(&mask, BoxView<>(origin, spec.shape()), chunk_transform,
-                     layout, write_end_position, arena);
+    IndexTransformView<> chunk_transform, Arena* arena) {
+  WriteToMask(&mask, BoxView<>(origin, spec.shape()), chunk_transform, arena);
 }
 
 void AsyncWriteArray::MaskedArray::Clear() {
@@ -279,13 +288,14 @@ Result<NDIterable::Ptr> AsyncWriteArray::BeginWrite(
                                 arena);
 }
 
-bool AsyncWriteArray::EndWrite(const Spec& spec, span<const Index> origin,
+void AsyncWriteArray::EndWrite(const Spec& spec, span<const Index> origin,
                                IndexTransformView<> chunk_transform,
-                               NDIterable::IterationLayoutView layout,
-                               span<const Index> write_end_position,
-                               Arena* arena) {
-  return write_state.EndWrite(spec, origin, chunk_transform, std::move(layout),
-                              write_end_position, arena);
+                               bool success, Arena* arena) {
+  if (!success) {
+    InvalidateReadState();
+    return;
+  }
+  write_state.EndWrite(spec, origin, chunk_transform, arena);
 }
 
 }  // namespace internal

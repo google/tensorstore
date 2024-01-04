@@ -23,12 +23,12 @@
 /// To avoid the overhead of an indirect function call for each element, to
 /// type-erase a given element-wise function, we generate several vectorized
 /// function variants.  Logically, each vectorized function variant is called
-/// with `N` one-dimensional arrays (called "iteration buffers"), and invokes
+/// with `N` two-dimensional arrays (called "iteration buffers"), and invokes
 /// the elementwise function with pointers to the corresponding elements of each
 /// of the arrays.  A variant is generated for each of the following cases:
 ///
-///   1. A variant used when all arguments are contiguous arrays
-///      (`IterationBufferKind::kContiguous`).
+///   1. A variant used when all arguments are contiguous along the innermost
+///      dimension (`IterationBufferKind::kContiguous`).
 ///
 ///   2. A variant used when all arguments have a fixed stride (specified at
 ///      run-time) between consecutive elements (corresponds to
@@ -40,9 +40,8 @@
 ///      `IterationBufferKind::kIndexed`).  (This variant is used if at least
 ///      one array argument requires the indirection of an offset array.)
 ///
-/// Each of the generated function variants returns a count of the number of
-/// elements processed successfully.  The function indicates an error by
-/// returning a count less than the element count provided to it.
+/// Each of the generated function variants returns `true` to indicate that all
+/// elements were processed successfully, or `false` to indicate an error.
 ///
 /// This facility is used by other library components that provide mechanisms
 /// for invoking element-wise functions over multi-dimensional arrays.  The
@@ -52,14 +51,14 @@
 /// namespace that accepts `N` type-erased arrays in some form and an
 /// `ElementwiseClosure<N>, and returns a `bool` value, e.g.:
 ///
-///     template <std::size_t N>
+///     template <size_t N>
 ///     bool SomeIterateFunction(const std::array<ArrayView<void>,N> &arrays,
 ///                              ElementwiseClosure<N> closure);
 ///
 /// This function should call one of `closure.function->functions` for each
-/// one-dimensional sub-array, passing in `closure.context` as the first
-/// argument, and should return `false` as soon as a callback function returns a
-/// number not equal to count passed to it.
+/// two-dimensional sub-array, passing in `closure.context` as the first
+/// argument, and should return `false` as soon as a callback function returns
+/// `false`.
 ///
 /// The library component also defines a templated wrapper function intended for
 /// public consumption that accepts `N` typed arrays in some form as well as an
@@ -94,17 +93,14 @@
 ///     using ElementwiseFunctionType = ElementwiseFunction<Arity, ExtraArg...>;
 ///
 ///     template <typename ArrayAccessor>
-///     static Index Loop(void *context, Index count,
-///                       IterationBufferPointer pointer...,
-///                       ExtraArg... extra_arg);
+///     static bool Loop(void *context, IterationBufferShape shape,
+///                      IterationBufferPointer pointer...,
+///                      ExtraArg... extra_arg);
 ///
-///  This function invokes an element-wise function for each of the `count`
-///  elements, using the specified base pointers.  The number of `pointer`
-///  parameters must be equal to `Arity`.  This function returns the number of
-///  elements successfully processed.  Returning `count` indicates that all
-///  elements were processed successfully and iteration should continue.
-///  Returning a number less than `count` indicates that an error occurred and
-///  that iteration should stop.
+///  This function invokes an element-wise function for each of the
+///  `` elements within the two-dimensional array, using the specified base
+///  pointers.  The number of `pointer` parameters must be equal to `Arity`.
+///  This function returns `true` on success and `false` in the case of failure.
 ///
 ///  The `extra_arg...` parameters have no pre-specified purpose and are simply
 ///  passed through.
@@ -123,11 +119,11 @@
 ///       absl::Status status;
 ///       struct LoopTemplate {
 ///         template <typename ArrayAccessor>
-///         static Index Loop(void* void_context, Index count,
-///                           typename ArrayAccessor::Array array) {
+///         static bool Loop(void* void_context, IterationBufferShape shape,
+///                          typename ArrayAccessor::Array array) {
 ///           auto* context = static_cast<WrapContext*>(void_context);
 ///           return context->orig_function[ArrayAccessor::buffer_kind](
-///               context->orig_context, count, array, &status);
+///               context->orig_context, shape, array, &status);
 ///         }
 ///       };
 ///     };
@@ -173,8 +169,11 @@ enum class IterationBufferKind {
 
 constexpr size_t kNumIterationBufferKinds = 3;
 
-/// Specifies a pointer to either a contiguous, strided, or indexed buffer
-/// (corresponding to one of the values of `IterationBufferKind`).
+/// Specifies a 2d buffer that is either contiguous, strided, or indexed along
+/// the inner dimension (corresponding to one of the values of
+/// `IterationBufferKind`).  The outer dimension is always strided.
+///
+/// The inner and outer dimensions of the buffer must be passed separately.
 ///
 /// The same type is used for all three pointer types to simplify dynamic
 /// dispatch.  The `IterationBufferKind` is not stored within the
@@ -188,29 +187,73 @@ struct IterationBufferPointer {
   /// Constructs a strided pointer (corresponding to
   /// `IterationBufferKind::kContiguous` or `IterationBufferKind::kStrided`).
   explicit IterationBufferPointer(ByteStridedPointer<void> pointer,
-                                  Index byte_stride)
-      : pointer(pointer), byte_stride(byte_stride) {}
+                                  Index outer_byte_stride,
+                                  Index inner_byte_stride)
+      : pointer(pointer),
+        outer_byte_stride(outer_byte_stride),
+        inner_byte_stride(inner_byte_stride) {}
 
   /// Constructs a pointer with an offset array (corresponding to
   /// `IterationBufferKind::kIndexed`).
   explicit IterationBufferPointer(ByteStridedPointer<void> pointer,
+                                  Index byte_offsets_outer_stride,
                                   const Index* byte_offsets)
-      : pointer(pointer), byte_offsets(byte_offsets) {}
+      : pointer(pointer),
+        byte_offsets_outer_stride(byte_offsets_outer_stride),
+        byte_offsets(byte_offsets) {}
 
   /// Base pointer of the array.
   ByteStridedPointer<void> pointer;
-  union {
-    /// Stride in bytes between consecutive elements.  For `kContiguous` buffers
-    /// of type `T`, this must be `sizeof(T)`.  For `kStrided` buffers, this
-    /// must be an integer multiple of `alignof(T)`.  For `kIndexed` buffers,
-    /// this member may not be accessed.
-    Index byte_stride;
 
-    /// For `kIndexed` buffers of size `n`, pointer to an array of length `n`.
-    /// For `0 <= i < n`, element `i` is at address `pointer + offsets[i]`.  For
-    /// `kContiguous` and `kStrided` buffers, this member may not be accessed.
+  union {
+    /// Stride in bytes between consecutive elements in the buffer along the
+    /// outer dimension.  Only used for `kConsecutive` and `kStrided` buffers.
+    Index outer_byte_stride;
+
+    /// Stride in units of `Index` elements between consecutive elements in the
+    /// `byte_offsets` array, along the outer dimension.  Only used for
+    /// `kIndexed` buffers.
+    Index byte_offsets_outer_stride;
+  };
+
+  union {
+    /// Stride in bytes between consecutive elements along the inner dimension.
+    /// For `kContiguous` buffers of type `T`, this must be `sizeof(T)`.  For
+    /// `kStrided` buffers, this must be an integer multiple of `alignof(T)`.
+    /// For `kIndexed` buffers, this member may not be accessed.
+    ///
+    /// The element at outer position `j` and inner position `i` is at address
+    /// `pointer + j * outer_byte_stride + i * inner_byte_stride`.
+    Index inner_byte_stride;
+
+    /// For `kIndexed` buffers, pointer to a row-major array of shape
+    /// `(outer_size, inner_size)`.  For `kContiguous` and `kStrided` buffers,
+    /// this member may not be accessed.
+    ///
+    /// The element at outer position `j` and inner position `i` is at address
+    /// `pointer + byte_offsets[j * byte_offsets_outer_stride + i]`.
     const Index* byte_offsets;
   };
+
+  /// Adjusts the starting position of `buffer` forward by
+  /// `(outer_offset, inner_offset)`.
+  ///
+  /// \param kind The kind of this buffer.
+  /// \param outer_offset Number of elements by which to shift the outer
+  ///     dimension.
+  /// \param inner_offset Number of elements by which to shift the inner
+  ///     dimension.
+  void AddElementOffset(IterationBufferKind kind, Index outer_offset,
+                        Index inner_offset) {
+    if (kind == IterationBufferKind::kIndexed) {
+      byte_offsets += inner_offset;
+      byte_offsets +=
+          wrap_on_overflow::Multiply(byte_offsets_outer_stride, outer_offset);
+    } else {
+      pointer += wrap_on_overflow::Multiply(inner_byte_stride, inner_offset);
+      pointer += wrap_on_overflow::Multiply(outer_byte_stride, outer_offset);
+    }
+  }
 };
 
 /// Defines a static method template `GetPointerAtOffset` for accessing an
@@ -229,10 +272,12 @@ struct IterationBufferAccessor<IterationBufferKind::kStrided> {
   constexpr static IterationBufferKind buffer_kind =
       IterationBufferKind::kStrided;
   template <typename Element>
-  static Element* GetPointerAtOffset(IterationBufferPointer ptr, Index offset) {
+  static Element* GetPointerAtPosition(IterationBufferPointer ptr, Index outer,
+                                       Index inner) {
     return static_cast<Element*>(
         ptr.pointer +
-        internal::wrap_on_overflow::Multiply(ptr.byte_stride, offset));
+        internal::wrap_on_overflow::Multiply(ptr.outer_byte_stride, outer) +
+        internal::wrap_on_overflow::Multiply(ptr.inner_byte_stride, inner));
   }
 };
 
@@ -241,10 +286,13 @@ struct IterationBufferAccessor<IterationBufferKind::kContiguous> {
   constexpr static IterationBufferKind buffer_kind =
       IterationBufferKind::kContiguous;
   template <typename Element>
-  static Element* GetPointerAtOffset(IterationBufferPointer ptr, Index offset) {
+  static Element* GetPointerAtPosition(IterationBufferPointer ptr, Index outer,
+                                       Index inner) {
     return static_cast<Element*>(
-        ptr.pointer + internal::wrap_on_overflow::Multiply(
-                          static_cast<Index>(sizeof(Element)), offset));
+        ptr.pointer +
+        internal::wrap_on_overflow::Multiply(ptr.outer_byte_stride, outer) +
+        internal::wrap_on_overflow::Multiply(
+            static_cast<Index>(sizeof(Element)), inner));
   }
 };
 
@@ -253,13 +301,20 @@ struct IterationBufferAccessor<IterationBufferKind::kIndexed> {
   constexpr static IterationBufferKind buffer_kind =
       IterationBufferKind::kIndexed;
   template <typename Element>
-  static Element* GetPointerAtOffset(IterationBufferPointer ptr, Index offset) {
-    return static_cast<Element*>(ptr.pointer + ptr.byte_offsets[offset]);
+  static Element* GetPointerAtPosition(IterationBufferPointer ptr, Index outer,
+                                       Index inner) {
+    return static_cast<Element*>(
+        ptr.pointer +
+        ptr.byte_offsets[internal::wrap_on_overflow::Multiply(
+                             ptr.byte_offsets_outer_stride, outer) +
+                         inner]);
   }
 };
 
-template <std::size_t Arity, typename... ExtraArg>
+template <size_t Arity, typename... ExtraArg>
 class ElementwiseFunction;
+
+using IterationBufferShape = std::array<Index, 2>;
 
 }  // namespace internal
 
@@ -272,14 +327,14 @@ struct ElementwiseFunctionPointerHelper;
 // Alias used by `ElementwiseFunctionPointerHelper` (in place of e.g.
 // `FirstType`) to work around MSVC 2019 (v19.24) bug:
 // https://developercommunity.visualstudio.com/content/problem/919634/ice-with-decltype-and-variadic-arguments.html
-template <std::size_t I>
+template <size_t I>
 using IterationBufferPointerHelper = internal::IterationBufferPointer;
 
-template <std::size_t... Is, typename... ExtraArg>
+template <size_t... Is, typename... ExtraArg>
 struct ElementwiseFunctionPointerHelper<std::index_sequence<Is...>,
                                         ExtraArg...> {
-  using type = Index (*)(void*, Index, IterationBufferPointerHelper<Is>...,
-                         ExtraArg...);
+  using type = bool (*)(void*, internal::IterationBufferShape,
+                        IterationBufferPointerHelper<Is>..., ExtraArg...);
 };
 
 template <typename, typename SFINAE, typename...>
@@ -296,6 +351,25 @@ constexpr inline bool HasApplyContiguous<
 template <typename, typename...>
 struct SimpleLoopTemplate;
 
+template <typename T, typename Func>
+struct Stateless {
+  static_assert(std::is_empty_v<Func>);
+  using type = Func;
+  using ContextType = T;
+};
+
+template <typename T>
+struct StatelessTraits {
+  constexpr static bool is_stateless = false;
+  using type = T;
+};
+
+template <typename T, typename Func>
+struct StatelessTraits<Stateless<T, Func>> {
+  constexpr static bool is_stateless = true;
+  using type = Func;
+};
+
 /// LoopTemplate implementation for an element-wise function that returns either
 /// `void` or `true`.
 ///
@@ -303,52 +377,85 @@ struct SimpleLoopTemplate;
 /// \tparam Element... The array element types.
 /// \tparam ExtraArg Additional arguments supplied to `Func`.
 ///
-/// If `Func` is an empty type (such as a capture-less lambda), the context
-/// pointer is ignored and may be `nullptr`.  Otherwise, the context pointer
-/// must be a valid pointer to an object of type `Func`.
+/// - If `Func` is `Stateless<T, InnerFunc>`, the context parameter must be a
+///   pointer to `T`, which is dereferenced and passed as an additional first
+///   argument to the function.
+///
+/// - If `Func` is not an instance of `Stateless`, but is an empty type (such as
+///   a capture-less lambda), the context pointer is ignored and may be
+///   `nullptr`.
+///
+/// - Otherwise, the context pointer must be a valid pointer to an object of
+///   type `Func`.
 template <typename Func, typename... Element, typename... ExtraArg>
 struct SimpleLoopTemplate<Func(Element...), ExtraArg...> {
   using ElementwiseFunctionType =
       internal::ElementwiseFunction<sizeof...(Element), ExtraArg...>;
   /// \tparam ArrayAccessor The ArrayAccessor type.
   template <typename ArrayAccessor>
-  static Index Loop(
-      void* context, Index count,
+  static bool Loop(
+      void* context, internal::IterationBufferShape shape,
       internal::FirstType<internal::IterationBufferPointer, Element>... pointer,
       ExtraArg... extra_arg) {
-    internal::PossiblyEmptyObjectGetter<Func> func_helper;
-    Func& func = func_helper.get(static_cast<Func*>(context));
-    if constexpr (ArrayAccessor::buffer_kind ==
-                      internal::IterationBufferKind::kContiguous &&
-                  HasApplyContiguous<Func(Element...), /*SFINAE=*/void,
-                                     ExtraArg...>) {
-      return func.ApplyContiguous(
-          count,
-          ArrayAccessor::template GetPointerAtOffset<Element>(pointer, 0)...,
-          extra_arg...);
-    } else {
-      for (Index i = 0; i < count; ++i) {
-        if (!internal::Void::CallAndWrap(
-                func,
-                ArrayAccessor::template GetPointerAtOffset<Element>(pointer,
-                                                                    i)...,
-                extra_arg...)) {
-          return i;
+    using Traits = StatelessTraits<Func>;
+    using FuncType = typename Traits::type;
+    internal::PossiblyEmptyObjectGetter<FuncType> func_helper;
+    FuncType& func = func_helper.get(static_cast<FuncType*>(context));
+    for (Index outer = 0; outer < shape[0]; ++outer) {
+      if constexpr (ArrayAccessor::buffer_kind ==
+                        internal::IterationBufferKind::kContiguous &&
+                    HasApplyContiguous<Func(Element...), /*SFINAE=*/void,
+                                       ExtraArg...>) {
+        if constexpr (Traits::is_stateless) {
+          if (!func.ApplyContiguous(
+                  *static_cast<typename Func::ContextType*>(context), shape[1],
+                  ArrayAccessor::template GetPointerAtPosition<Element>(
+                      pointer, outer, 0)...,
+                  extra_arg...)) {
+            return false;
+          }
+        } else {
+          if (!func.ApplyContiguous(
+                  shape[1],
+                  ArrayAccessor::template GetPointerAtPosition<Element>(
+                      pointer, outer, 0)...,
+                  extra_arg...)) {
+            return false;
+          }
+        }
+      } else {
+        for (Index inner = 0; inner < shape[1]; ++inner) {
+          if constexpr (Traits::is_stateless) {
+            if (!static_cast<bool>(internal::Void::CallAndWrap(
+                    func, *static_cast<typename Func::ContextType*>(context),
+                    ArrayAccessor::template GetPointerAtPosition<Element>(
+                        pointer, outer, inner)...,
+                    extra_arg...))) {
+              return false;
+            }
+          } else {
+            if (!static_cast<bool>(internal::Void::CallAndWrap(
+                    func,
+                    ArrayAccessor::template GetPointerAtPosition<Element>(
+                        pointer, outer, inner)...,
+                    extra_arg...))) {
+              return false;
+            }
+          }
         }
       }
-      return count;
     }
+    return true;
   }
 };
 
 }  // namespace internal_elementwise_function
 
 namespace internal {
-
 /// Type alias that evaluates to the type
 /// `Index (*)(void *, Index, IterationBufferPointer..., ExtraArg...)`, where
 /// the `IterationBufferPointer` parameter is repeated `Arity` times.
-template <std::size_t Arity, typename... ExtraArg>
+template <size_t Arity, typename... ExtraArg>
 using SpecializedElementwiseFunctionPointer =
     typename internal_elementwise_function::ElementwiseFunctionPointerHelper<
         std::make_index_sequence<Arity>, ExtraArg...>::type;
@@ -357,10 +464,10 @@ using SpecializedElementwiseFunctionPointer =
 /// which it can be invoked.
 ///
 /// Typically, `function` points to a static constant.
-template <std::size_t Arity, typename... ExtraArg>
+template <size_t Arity, typename... ExtraArg>
 struct ElementwiseClosure {
   using Function = ElementwiseFunction<Arity, ExtraArg...>;
-  constexpr static std::size_t arity = Arity;
+  constexpr static size_t arity = Arity;
   const Function* function;
   void* context;
 };
@@ -371,10 +478,10 @@ struct ElementwiseClosure {
 ///
 /// This representation is suitable for iterating over arrays with arbitrary
 /// index space transforms.
-template <std::size_t Arity, typename... ExtraArg>
+template <size_t Arity, typename... ExtraArg>
 class ElementwiseFunction {
  public:
-  constexpr static std::size_t arity = Arity;
+  constexpr static size_t arity = Arity;
 
   using Closure = ElementwiseClosure<Arity, ExtraArg...>;
 
@@ -419,8 +526,8 @@ class ElementwiseFunction {
 ///
 ///     struct MyFunc {
 ///       template <typename ArrayAccessor>
-///       Index Loop(void *context, Index count,
-///                  IterationBufferPointer pointer) {
+///       bool Loop(void *context, IterationBufferShape shape,
+///                 IterationBufferPointer pointer) {
 ///         MyFunc *obj = static_cast<MyFunc*>(context);
 ///         /// ...
 ///       }
@@ -467,17 +574,17 @@ constexpr typename LoopTemplate::ElementwiseFunctionType
 template <typename, typename...>
 struct SimpleElementwiseFunction;
 
-/// Convenience interface for creating a type-erased element-wise function from
-/// a function object type.
+/// Convenience interface for creating a type-erased element-wise function
+/// from a function object type.
 ///
 /// This class inherits from `GetElementwiseFunction` (defined above) and is
-/// therefore implicitly convertible to compatible `ElementwiseFunction` types.
-/// Additionally, it provides convenience interfaces for obtaining an
+/// therefore implicitly convertible to compatible `ElementwiseFunction`
+/// types. Additionally, it provides convenience interfaces for obtaining an
 /// `ElementwiseClosure`.
 ///
 /// This differs from the more general `GetElementwiseFunction` in that the
-/// `Func` argument is a regular, non-type-erased function object, rather than a
-/// `LoopTemplate`.
+/// `Func` argument is a regular, non-type-erased function object, rather than
+/// a `LoopTemplate`.
 ///
 /// Example usage:
 ///
@@ -490,8 +597,8 @@ struct SimpleElementwiseFunction;
 ///     ElementwiseFunction<2> func =
 ///         SimpleElementwiseFunction<MyFunc(int, float)>();
 ///
-///     // Implicitly converts to `const ElementwiseFunction*` (static constant)
-///     const ElementwiseFunction<2>* func_ptr =
+///     // Implicitly converts to `const ElementwiseFunction*` (static
+///     constant) const ElementwiseFunction<2>* func_ptr =
 ///         SimpleElementwiseFunction<MyFunc(int, float)>();
 ///
 ///     // Converts to the closure `{ func_ptr, &obj }`.
@@ -546,16 +653,15 @@ struct SimpleElementwiseFunction<Func(Element...), ExtraArg...>
 }  // namespace internal
 
 namespace internal_elementwise_function {
-template <std::size_t Arity, typename... ExtraArg, typename Pointers,
-          std::size_t... Is>
-inline Index InvokeElementwiseFunctionImpl(
+template <size_t Arity, typename... ExtraArg, typename Pointers, size_t... Is>
+inline bool InvokeElementwiseFunctionImpl(
     std::index_sequence<Is...>,
     internal::SpecializedElementwiseFunctionPointer<Arity, ExtraArg...>
         function,
-    void* context, Index size, const Pointers& pointers,
-    ExtraArg... extra_arg) {
+    void* context, internal::IterationBufferShape shape,
+    const Pointers& pointers, ExtraArg... extra_arg) {
   using std::get;
-  return function(context, size, get<Is>(pointers)...,
+  return function(context, shape, get<Is>(pointers)...,
                   std::forward<ExtraArg>(extra_arg)...);
 }
 }  // namespace internal_elementwise_function
@@ -564,21 +670,22 @@ inline Index InvokeElementwiseFunctionImpl(
 ///
 /// \param closure The `ElementwiseClosure` to invoke.
 /// \param buffer_kind The buffer kind of `pointers`.
-/// \param size The number of elements in each buffer.
+/// \param shape The shape of the buffer.
 /// \param pointers `get<I>`-compatible container of `IterationBufferPointer` of
 ///     length `Arity`, such as `std::array<IterationBufferPointer,Arity>`.
 /// \param extra_arg... Extra arguments to pass to `closure`.
-/// \returns The element count returned by the closure.
+/// \returns `true` on success.
 namespace internal {
-template <std::size_t Arity, typename... ExtraArg, typename Pointers>
-inline Index InvokeElementwiseClosure(
+template <size_t Arity, typename... ExtraArg, typename Pointers>
+inline bool InvokeElementwiseClosure(
     ElementwiseClosure<Arity, ExtraArg...> closure,
-    IterationBufferKind buffer_kind, Index size, const Pointers& pointers,
+    IterationBufferKind buffer_kind, internal::IterationBufferShape shape,
+    const Pointers& pointers,
     internal::type_identity_t<ExtraArg>... extra_arg) {
   return internal_elementwise_function::InvokeElementwiseFunctionImpl<
-      Arity, ExtraArg...>(std::make_index_sequence<Arity>{},
-                          (*closure.function)[buffer_kind], closure.context,
-                          size, pointers, std::forward<ExtraArg>(extra_arg)...);
+      Arity, ExtraArg...>(
+      std::make_index_sequence<Arity>{}, (*closure.function)[buffer_kind],
+      closure.context, shape, pointers, std::forward<ExtraArg>(extra_arg)...);
 }
 
 /// Invokes a `SpecializedElementwiseFunctionPointer` with the specified
@@ -587,19 +694,20 @@ inline Index InvokeElementwiseClosure(
 /// \tparam Arity The number of arrays with which to invoke the element-wise
 ///     function.  Must be specified explicitly.
 /// \param function The elementwise function to invoke.
-/// \param size The number of elements in each buffer.
+/// \param shape The shape of the buffer.
 /// \param pointers `get<I>`-compatible container of `IterationBufferPointer` of
 ///     length `Arity`, such as `std::array<IterationBufferPointer,Arity>`.
 /// \param extra_arg... Extra trailing arguments to pass to `function`.
-/// \returns The element count returned by `function`.
-template <std::size_t Arity, typename... ExtraArg, typename Pointers>
-inline Index InvokeElementwiseFunction(
+/// \returns `true` on success.
+template <size_t Arity, typename... ExtraArg, typename Pointers>
+inline bool InvokeElementwiseFunction(
     SpecializedElementwiseFunctionPointer<Arity, ExtraArg...> function,
-    void* context, Index size, const Pointers& pointers,
-    ExtraArg... extra_arg) {
+    void* context, internal::IterationBufferShape shape,
+    const Pointers& pointers, ExtraArg... extra_arg) {
   return internal_elementwise_function::InvokeElementwiseFunctionImpl<
       Arity, ExtraArg...>(std::make_index_sequence<Arity>{}, function, context,
-                          size, pointers, std::forward<ExtraArg>(extra_arg)...);
+                          shape, pointers,
+                          std::forward<ExtraArg>(extra_arg)...);
 }
 
 }  // namespace internal

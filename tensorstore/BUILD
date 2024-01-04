@@ -369,6 +369,7 @@ tensorstore_cc_library(
         "//tensorstore/util:utf8_string",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_absl//absl/base",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/status",
         "@net_sourceforge_half//:half",
     ],
