@@ -131,7 +131,7 @@ Future<absl::Cord> KvsBackedTestCache::Entry::ReadValue(
 
 void KvsBackedTestCache::TransactionNode::DoApply(ApplyOptions options,
                                                   ApplyReceiver receiver) {
-  if (options.validate_only && validators.empty()) {
+  if (options.apply_mode == ApplyOptions::kValidateOnly && validators.empty()) {
     execution::set_value(
         receiver, ReadState{{}, TimestampedStorageGeneration::Unconditional()});
     return;

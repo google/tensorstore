@@ -557,33 +557,29 @@ absl::Status ChunkCache::TransactionNode::OnModified() {
   return absl::OkStatus();
 }
 
-namespace {
-bool IsCommitUnconditional(ChunkCache::TransactionNode& node) {
-  return node.IsUnconditional() || !node.is_modified;
-}
-}  // namespace
-
 void ChunkCache::TransactionNode::DoApply(ApplyOptions options,
                                           ApplyReceiver receiver) {
-  if (options.validate_only) {
+  if (options.apply_mode == ApplyOptions::kValidateOnly) {
     execution::set_value(
         receiver, ReadState{{}, TimestampedStorageGeneration::Unconditional()});
     return;
   }
   auto continuation = WithExecutor(
       GetOwningCache(*this).executor(),
-      [this, receiver = std::move(receiver)](
+      [this, receiver = std::move(receiver),
+       specify_unchanged =
+           options.apply_mode == ApplyOptions::kSpecifyUnchanged](
           tensorstore::ReadyFuture<const void> future) mutable {
         if (!future.result().ok()) {
           return execution::set_error(receiver, future.result().status());
         }
         AsyncCache::ReadState read_state;
-        if (!IsCommitUnconditional(*this)) {
-          read_state = AsyncCache::ReadLock<void>(*this).read_state();
-        } else {
+        if (this->IsUnconditional() ||
+            (!this->is_modified && !specify_unchanged)) {
           read_state.stamp = TimestampedStorageGeneration::Unconditional();
+        } else {
+          read_state = AsyncCache::ReadLock<void>(*this).read_state();
         }
-        std::shared_ptr<const void> new_data;
         if (is_modified) {
           // Protect against concurrent calls to `DoApply`, since this may
           // modify the write arrays to incorporate the read state.
@@ -595,7 +591,9 @@ void ChunkCache::TransactionNode::DoApply(ApplyOptions options,
         }
         execution::set_value(receiver, std::move(read_state));
       });
-  if (IsCommitUnconditional(*this)) {
+  if (this->IsUnconditional() ||
+      (!this->is_modified &&
+       options.apply_mode != ApplyOptions::kSpecifyUnchanged)) {
     continuation(MakeReadyFuture());
   } else {
     this->Read(options.staleness_bound)

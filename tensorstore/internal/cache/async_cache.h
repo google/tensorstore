@@ -753,16 +753,34 @@ class AsyncCache : public Cache {
     using ApplyReceiver = AnyReceiver<absl::Status, ReadState>;
 
     struct ApplyOptions {
-      /// Returned `ReadStateUpdate` must reflect an existing read state that is
-      /// current as of `staleness_bound`.
+      // Returned `ReadStateUpdate` must reflect an existing read state that is
+      // current as of `staleness_bound`.
       absl::Time staleness_bound;
 
-      /// If `true`, the `data` returned in the `ReadState` will be ignored.
-      /// This option is used if `DoApply` is called solely to validate the read
-      /// state.  If no validation is necessary, the `stamp` field of the
-      /// `ReadState` may be set to
-      /// `TimestampedStorageGeneration::Unconditional()`.
-      bool validate_only = false;
+      enum ApplyMode {
+        // The `stamp` field of the `ReadState` may be set to
+        // `TimestampedStorageGeneration::Unconditional()` to indicate that this
+        // transaction node does nothing (e.g. read-only and does not
+        // validation).  In this case the `data` returned in the `ReadState`
+        // will be ignored.  Otherwise, the `stamp` must not be
+        // `StorageGeneration::Unknown()`, and should be marked "dirty" if the
+        // data has been modified by this transaction node.
+        kNormal,
+
+        // The `data` returned in the `ReadState` must be valid even if this
+        // transaction node does not modify it.  The `stamp` field of the
+        // `ReadState` must not be
+        // `TimestampedStorageGeneration::Unconditional()`.
+        kSpecifyUnchanged,
+
+        // The `data` returned in the `ReadState` will be ignored.  This option
+        // is used if `DoApply` is called solely to validate the read state.  If
+        // no validation is necessary, the `stamp` field of the `ReadState` may
+        // be set to `TimestampedStorageGeneration::Unconditional()`.
+        kValidateOnly,
+      };
+
+      ApplyMode apply_mode = kNormal;
     };
 
     /// Requests an updated read state that reflects the modifications made by
@@ -778,6 +796,8 @@ class AsyncCache : public Cache {
     /// This is not invoked directly by `AsyncCache` (and therefore does not
     /// necessarily need to be implemented), but is required by
     /// `KvsBackedCache`.
+    ///
+    /// Must not call `set_cancel`.
     virtual void DoApply(ApplyOptions option, ApplyReceiver receiver);
 
     /// Invoked by the `TransactionState` implementation to commit this node.

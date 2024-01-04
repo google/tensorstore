@@ -198,7 +198,7 @@ class KvsBackedCache : public Parent {
     virtual void DoEncode(
         std::shared_ptr<const typename Derived::ReadData> read_data,
         EncodeReceiver receiver) {
-      ABSL_UNREACHABLE();  // COV_NF_LINE;
+      ABSL_UNREACHABLE();  // COV_NF_LINE
     }
 
     absl::Status AnnotateError(const absl::Status& error, bool reading) {
@@ -303,7 +303,9 @@ class KvsBackedCache : public Parent {
         void set_value(AsyncCache::ReadState update) {
           if (!StorageGeneration::NotEqualOrUnspecified(update.stamp.generation,
                                                         if_not_equal_)) {
-            return execution::set_cancel(receiver_);
+            return execution::set_value(
+                receiver_,
+                kvstore::ReadResult::Unspecified(std::move(update.stamp)));
           }
           if (!StorageGeneration::IsInnerLayerDirty(update.stamp.generation) &&
               writeback_mode_ !=
@@ -312,7 +314,8 @@ class KvsBackedCache : public Parent {
               self_->new_data_ = std::move(update.data);
             }
             return execution::set_value(
-                receiver_, kvstore::ReadResult::Unspecified(update.stamp));
+                receiver_,
+                kvstore::ReadResult::Unspecified(std::move(update.stamp)));
           }
           ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
               << *self_ << "DoEncode";
@@ -327,8 +330,20 @@ class KvsBackedCache : public Parent {
       };
       AsyncCache::TransactionNode::ApplyOptions apply_options;
       apply_options.staleness_bound = options.staleness_bound;
-      apply_options.validate_only =
-          options.writeback_mode == ReadModifyWriteSource::kValidateOnly;
+      switch (options.writeback_mode) {
+        case ReadModifyWriteSource::kValidateOnly:
+          apply_options.apply_mode =
+              AsyncCache::TransactionNode::ApplyOptions::kValidateOnly;
+          break;
+        case ReadModifyWriteSource::kSpecifyUnchangedWriteback:
+          apply_options.apply_mode =
+              AsyncCache::TransactionNode::ApplyOptions::kSpecifyUnchanged;
+          break;
+        case ReadModifyWriteSource::kNormalWriteback:
+          apply_options.apply_mode =
+              AsyncCache::TransactionNode::ApplyOptions::kNormal;
+          break;
+      }
       this->DoApply(
           std::move(apply_options),
           ApplyReceiverImpl{this, std::move(options.if_not_equal),
@@ -348,6 +363,8 @@ class KvsBackedCache : public Parent {
 
     // Target to which this `ReadModifyWriteSource` is bound.
     ReadModifyWriteTarget* target_;
+
+    // New data for the cache if the writeback completes successfully.
     std::shared_ptr<const void> new_data_;
   };
 

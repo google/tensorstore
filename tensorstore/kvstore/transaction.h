@@ -310,6 +310,10 @@ class ReadModifyWriteEntry : public MutationEntry,
   /// repeatedly due to splits and merges.
   constexpr static Flags kDeleted = 32;
 
+  /// Only meaningful if `kWritebackProvided` is also set.  Indicates that the
+  /// writeback completed with a state not equal to `ReadResult::kUnspecified`.
+  constexpr static Flags kTransitivelyDirty = 64;
+
   // Implementation of `ReadModifyWriteTarget` interface:
 
   /// Satisfies a read request by requesting a writeback of `prev_`, or by

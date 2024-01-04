@@ -1595,4 +1595,131 @@ TEST_F(ChunkCacheTest, SelfCopySameChunkSeparateCachesWithExistingData) {
   EXPECT_THAT(GetChunk({0}), ElementsAre(MakeArray<int>({42, 42})));
 }
 
+TEST_F(ChunkCacheTest, SeparateCachesTransactionalReadThenWrite) {
+  // Dimension 0 is chunked with a size of 2.
+  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  auto cache1 = MakeChunkCache();
+  auto cache2 = MakeChunkCache();
+
+  Transaction transaction(tensorstore::isolated);
+
+  auto read_future =
+      tensorstore::Read(GetTensorStore(cache1, {}, 0, transaction) |
+                        tensorstore::Dims(0).TranslateSizedInterval(0, 2));
+  {
+    auto r = mock_store->read_requests.pop();
+    EXPECT_THAT(ParseKey(r.key), ElementsAre(0));
+    r(memory_store);
+  }
+
+  EXPECT_THAT(read_future.result(),
+              ::testing::Optional(MakeArray<int>({1, 2})));
+
+  TENSORSTORE_ASSERT_OK(tensorstore::Write(
+      MakeArray<int>({42, 43}),
+      GetTensorStore(cache2, {}, 0, transaction) |
+          tensorstore::Dims(0).TranslateSizedInterval(0, 2)));
+
+  transaction.CommitAsync().IgnoreFuture();
+
+  {
+    auto r = mock_store->write_requests.pop();
+    EXPECT_THAT(ParseKey(r.key), ElementsAre(0));
+    r(memory_store);
+  }
+
+  TENSORSTORE_EXPECT_OK(transaction.future());
+
+  EXPECT_THAT(GetChunk({0}), ElementsAre(MakeArray<int>({42, 43})));
+}
+
+TEST_F(ChunkCacheTest, SeparateCachesTransactionalWriteThenRead) {
+  // Dimension 0 is chunked with a size of 2.
+  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  auto cache1 = MakeChunkCache();
+  auto cache2 = MakeChunkCache();
+
+  Transaction transaction(tensorstore::isolated);
+
+  TENSORSTORE_ASSERT_OK(tensorstore::Write(
+      MakeArray<int>({42, 43}),
+      GetTensorStore(cache1, {}, 0, transaction) |
+          tensorstore::Dims(0).TranslateSizedInterval(0, 2)));
+
+  EXPECT_THAT(
+      tensorstore::Read(GetTensorStore(cache2, {}, 0, transaction) |
+                        tensorstore::Dims(0).TranslateSizedInterval(0, 2))
+          .result(),
+      ::testing::Optional(MakeArray<int>({42, 43})));
+
+  transaction.CommitAsync().IgnoreFuture();
+
+  {
+    auto r = mock_store->write_requests.pop();
+    EXPECT_THAT(ParseKey(r.key), ElementsAre(0));
+    r(memory_store);
+  }
+
+  TENSORSTORE_EXPECT_OK(transaction.future());
+
+  EXPECT_THAT(GetChunk({0}), ElementsAre(MakeArray<int>({42, 43})));
+}
+
+TEST_F(ChunkCacheTest, SeparateCachesReadIfNotEqualAbort) {
+  // Dimension 0 is chunked with a size of 2.
+  grid = ChunkGridSpecification({ChunkGridSpecification::Component{
+      SharedArray<const void>(MakeArray<int>({1, 2})), Box<>(1)}});
+  auto cache1 = MakeChunkCache();
+  auto cache2 = MakeChunkCache();
+
+  Transaction transaction(tensorstore::isolated);
+
+  // Read to populate entry in cache1.
+  {
+    auto read_future =
+        tensorstore::Read(GetTensorStore(cache1, {}, 0, transaction) |
+                          tensorstore::Dims(0).TranslateSizedInterval(0, 2));
+    {
+      auto r = mock_store->read_requests.pop();
+      EXPECT_THAT(ParseKey(r.key), ElementsAre(0));
+      EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_not_equal);
+      r(memory_store);
+    }
+    EXPECT_THAT(read_future.result(),
+                ::testing::Optional(MakeArray<int>({1, 2})));
+  }
+
+  // Read to populate read state of transaction node in cache2.
+  {
+    auto read_future =
+        tensorstore::Read(GetTensorStore(cache2, {}, 0, transaction) |
+                          tensorstore::Dims(0).TranslateSizedInterval(0, 2));
+    {
+      auto r = mock_store->read_requests.pop();
+      EXPECT_THAT(ParseKey(r.key), ElementsAre(0));
+      EXPECT_EQ(StorageGeneration::NoValue(), r.options.if_not_equal);
+      r(memory_store);
+    }
+    EXPECT_THAT(read_future.result(),
+                ::testing::Optional(MakeArray<int>({1, 2})));
+  }
+
+  // Re-read transaction node in cache2.
+  {
+    auto read_future =
+        tensorstore::Read(GetTensorStore(cache2, {}, 0, transaction) |
+                          tensorstore::Dims(0).TranslateSizedInterval(0, 2));
+    {
+      auto r = mock_store->read_requests.pop();
+      EXPECT_THAT(ParseKey(r.key), ElementsAre(0));
+      EXPECT_EQ(StorageGeneration::NoValue(), r.options.if_not_equal);
+      r(memory_store);
+    }
+    EXPECT_THAT(read_future.result(),
+                ::testing::Optional(MakeArray<int>({1, 2})));
+  }
+}
+
 }  // namespace
