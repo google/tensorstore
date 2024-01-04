@@ -1251,6 +1251,28 @@ tensorstore_cc_test(
     ],
 )
 
+tensorstore_cc_test(
+    name = "nditerable_copy_benchmark_test",
+    size = "small",
+    srcs = ["nditerable_copy_benchmark_test.cc"],
+    deps = [
+        ":arena",
+        ":elementwise_function",
+        ":nditerable_array",
+        ":nditerable_copy",
+        ":nditerable_transformed_array",
+        "//tensorstore:array",
+        "//tensorstore:contiguous_layout",
+        "//tensorstore:data_type",
+        "//tensorstore/index_space:dim_expression",
+        "//tensorstore/index_space:transformed_array",
+        "//tensorstore/util:result",
+        "//tensorstore/util:status",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_benchmark//:benchmark_main",
+    ],
+)
+
 tensorstore_cc_library(
     name = "nditerable_data_type_conversion",
     srcs = ["nditerable_data_type_conversion.cc"],
