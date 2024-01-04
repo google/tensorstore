@@ -14,16 +14,20 @@
 
 #include "tensorstore/kvstore/ocdbt/io/io_handle_impl.h"
 
+#include <stdint.h>
+
 #include <memory>
 #include <optional>
 #include <string>
-#include <type_traits>
 #include <utility>
 
+#include "absl/base/attributes.h"
+#include "absl/log/absl_check.h"
+#include "absl/log/absl_log.h"
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/time/time.h"
 #include "tensorstore/context.h"
-#include "tensorstore/data_type.h"
 #include "tensorstore/internal/cache/async_cache.h"
 #include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/cache_key/cache_key.h"
@@ -31,11 +35,13 @@
 #include "tensorstore/internal/concurrency_resource.h"
 #include "tensorstore/internal/data_copy_concurrency_resource.h"
 #include "tensorstore/internal/intrusive_ptr.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/ocdbt/config.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
+#include "tensorstore/kvstore/ocdbt/format/config.h"
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference.h"
 #include "tensorstore/kvstore/ocdbt/format/manifest.h"
 #include "tensorstore/kvstore/ocdbt/format/version_tree.h"
@@ -49,11 +55,16 @@
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/kvstore/spec.h"
+#include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/status.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
+
+namespace {
+ABSL_CONST_INIT internal_log::VerboseFlag ocdbt_logging("ocdbt");
+}  // namespace
 
 class IoHandleImpl : public IoHandle {
  public:
@@ -105,6 +116,8 @@ class IoHandleImpl : public IoHandle {
       if (manifest_with_time.manifest &&
           manifest_with_time.manifest->config.manifest_kind !=
               ManifestKind::kSingle) {
+        ABSL_LOG_IF(INFO, ocdbt_logging)
+            << "GetManifestOp::Start: using cached non-single manifest";
         HandleNonSingleManifest(IoHandleImpl::Ptr(self), std::move(promise),
                                 staleness_bound);
         return;
@@ -156,6 +169,10 @@ class IoHandleImpl : public IoHandle {
             }
 
             if (manifest_with_time.manifest) {
+              ABSL_LOG_IF(INFO, ocdbt_logging)
+                  << "HandleNonSingleManifest: got manifest: "
+                  << manifest_with_time.manifest->latest_generation();
+
               TENSORSTORE_RETURN_IF_ERROR(
                   self->config_state->ValidateNewConfig(
                       manifest_with_time.manifest->config),
@@ -284,6 +301,9 @@ class IoHandleImpl : public IoHandle {
     static void ValidateNewNumberedManifest(
         Ptr self, PromiseType promise,
         std::shared_ptr<const Manifest> new_manifest, absl::Time time) {
+      ABSL_LOG_IF(INFO, ocdbt_logging)
+          << "ValidateNewNumberedManifest: generation="
+          << new_manifest->latest_generation();
       auto read_future = internal_ocdbt::ReadVersion(
           self, new_manifest->latest_generation(), time);
       LinkValue(

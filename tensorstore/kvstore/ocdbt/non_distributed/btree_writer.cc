@@ -1024,6 +1024,11 @@ void CommitOperation::NewManifestReady(Promise<void> promise,
 
 void CommitOperation::WriteNewManifest(CommitOperation::Ptr commit_op) {
   auto& writer = *commit_op->writer_;
+  ABSL_LOG_IF(INFO, ocdbt_logging)
+      << "WriteNewManifest: existing_generation="
+      << GetLatestGeneration(commit_op->existing_manifest_.get())
+      << ", new_generation="
+      << GetLatestGeneration(commit_op->new_manifest_.get());
   auto update_future = writer.io_handle_->TryUpdateManifest(
       commit_op->existing_manifest_, commit_op->new_manifest_, absl::Now());
   update_future.Force();

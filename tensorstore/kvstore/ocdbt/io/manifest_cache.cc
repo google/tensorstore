@@ -404,6 +404,8 @@ void ReadNumberedManifest(NumberedManifestCache::Entry* entry,
                           GenerationNumber generation_number,
                           absl::Time staleness_bound, Receiver receiver) {
   auto& cache = GetOwningCache(*entry);
+  ABSL_LOG_IF(INFO, ocdbt_logging)
+      << "Reading numbered manifest: " << generation_number;
   auto read_future = cache.kvstore_driver_->Read(
       GetNumberedManifestPath(entry->key(), generation_number));
   read_future.Force();
@@ -505,6 +507,8 @@ void ListAndReadNumberedManifests(
       if (cached_manifest &&
           cached_manifest->latest_generation() == generation_number) {
         // No newer version is present, just re-use cached manifest.
+        ABSL_LOG_IF(INFO, ocdbt_logging)
+            << "Using cached numbered manifest: " << generation_number;
         numbered_manifest->manifest = std::move(cached_manifest);
         execution::set_value(receiver, std::move(numbered_manifest), time);
         return;
@@ -586,7 +590,18 @@ Future<TryUpdateManifestResult> NumberedManifestCache::Entry::TryUpdate(
   transaction_node->promise = promise;
   LinkError(std::move(promise), transaction.future());
   static_cast<void>(transaction.CommitAsync());
-  return future;
+  // Extra promise is needed to ensure the returned future is not ready until
+  // after the transaction commits and the updated manifest is present in the
+  // cache.
+  auto [promise2, future2] = PromiseFuturePair<TryUpdateManifestResult>::Make();
+  LinkValue(
+      [](Promise<TryUpdateManifestResult> promise,
+         ReadyFuture<const void> transaction_future,
+         ReadyFuture<TryUpdateManifestResult> manifest_future) {
+        promise.SetResult(std::move(manifest_future.value()));
+      },
+      std::move(promise2), transaction.future(), std::move(future));
+  return std::move(future2);
 }
 
 void NumberedManifestCache::TransactionNode::DoRead(
