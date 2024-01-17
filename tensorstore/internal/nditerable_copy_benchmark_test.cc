@@ -33,12 +33,20 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 
+#if defined(__clang__) || defined(__GNUC__)
+#define TENSORSTORE_INTERNAL_RESTRICT __restrict__
+#elif defined(_MSC_VER)
+#define TENSORSTORE_INTERNAL_RESTRICT __restrict
+#else
+#define TENSORSTORE_INTERNAL_RESTRICT
+#endif
+
 namespace {
 
-void DoCopyUnrolled(const uint8_t* __restrict__ src,
-                    uint8_t* __restrict__ target, int64_t inner_size,
-                    int64_t outer_size, ptrdiff_t src_outer_stride,
-                    ptrdiff_t target_outer_stride) {
+void DoCopyUnrolled(const uint8_t* TENSORSTORE_INTERNAL_RESTRICT src,
+                    uint8_t* TENSORSTORE_INTERNAL_RESTRICT target,
+                    int64_t inner_size, int64_t outer_size,
+                    ptrdiff_t src_outer_stride, ptrdiff_t target_outer_stride) {
   const auto do_outer_unroll = [&](auto outer_unroll_size) {
     constexpr size_t kNumRows = decltype(outer_unroll_size)::value;
     const uint8_t* src_rows[kNumRows];
@@ -84,9 +92,10 @@ void DoCopySimple(const uint8_t* src, uint8_t* target, int64_t inner_size,
   }
 }
 
-void DoCopySimpleRestrict(const uint8_t* __restrict__ src,
-                          uint8_t* __restrict__ target, int64_t inner_size,
-                          int64_t outer_size, ptrdiff_t src_outer_stride,
+void DoCopySimpleRestrict(const uint8_t* TENSORSTORE_INTERNAL_RESTRICT src,
+                          uint8_t* TENSORSTORE_INTERNAL_RESTRICT target,
+                          int64_t inner_size, int64_t outer_size,
+                          ptrdiff_t src_outer_stride,
                           ptrdiff_t target_outer_stride) {
   for (int64_t outer_i = 0; outer_i < outer_size; ++outer_i) {
     for (int64_t inner_i = 0; inner_i < inner_size; ++inner_i) {
@@ -96,11 +105,11 @@ void DoCopySimpleRestrict(const uint8_t* __restrict__ src,
   }
 }
 
-void DoCopySimpleRestrictNoBuiltin(const uint8_t* __restrict__ src,
-                                   uint8_t* __restrict__ target,
-                                   int64_t inner_size, int64_t outer_size,
-                                   ptrdiff_t src_outer_stride,
-                                   ptrdiff_t target_outer_stride)
+void DoCopySimpleRestrictNoBuiltin(
+    const uint8_t* TENSORSTORE_INTERNAL_RESTRICT src,
+    uint8_t* TENSORSTORE_INTERNAL_RESTRICT target, int64_t inner_size,
+    int64_t outer_size, ptrdiff_t src_outer_stride,
+    ptrdiff_t target_outer_stride)
 #if ABSL_HAVE_ATTRIBUTE(no_builtin)
     __attribute__((no_builtin))
 #endif
