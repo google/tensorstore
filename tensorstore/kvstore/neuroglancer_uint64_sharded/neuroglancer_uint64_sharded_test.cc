@@ -892,6 +892,25 @@ TEST_F(UnderlyingKeyValueStoreTest, Read) {
   }
 }
 
+// Verify that a read-only transaction does not do any I/O on commit.
+TEST_F(UnderlyingKeyValueStoreTest, TransactionReadThenCommit) {
+  tensorstore::Transaction txn(tensorstore::isolated);
+  auto memory_store = tensorstore::GetMemoryKeyValueStore();
+  {
+    auto future = kvstore::Read(KvStore{store, txn}, GetChunkKey(0x50), {});
+    {
+      auto req = mock_store->read_requests.pop();
+      req(memory_store);
+      ASSERT_EQ(0, mock_store->read_requests.size());
+    }
+    EXPECT_THAT(future.result(),
+                ::testing::Optional(MatchesKvsReadResultNotFound()));
+  }
+
+  auto commit_future = txn.CommitAsync();
+  TENSORSTORE_ASSERT_OK(commit_future.result());
+}
+
 // Tests issuing read for chunk in uncached minishard index while there is a
 // concurrent modification.
 TEST_F(UnderlyingKeyValueStoreTest,
