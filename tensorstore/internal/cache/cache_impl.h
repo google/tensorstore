@@ -46,7 +46,6 @@ namespace internal {
 class Cache;
 class CacheEntry;
 class CachePool;
-enum class CacheEntryQueueState : int;
 }  // namespace internal
 namespace internal_cache {
 using internal::Cache;
@@ -61,8 +60,6 @@ using internal::CachePoolLimits;
 class Access;
 class CacheImpl;
 class CachePoolImpl;
-
-using CacheEntryQueueState = internal::CacheEntryQueueState;
 
 struct LruListNode {
   LruListNode* next;
@@ -111,8 +108,14 @@ class CacheEntryImpl : public internal_cache::LruListNode {
  public:
   CacheImpl* cache_;
   std::string key_;
+
+  // Protects `num_bytes_`, `flags_`, and any other fields that reflect the
+  // state of the cached data in derived classes.
+  absl::Mutex mutex_;
+
+  // Most recently computed value of `DoGetSizeInBytes` that is reflected in the
+  // LRU cache state.
   size_t num_bytes_;
-  CacheEntryQueueState queue_state_;
 
   // Each strong reference adds 2 to the reference count.  The least-significant
   // bit (LSB) indicates if there is at least one weak reference,
@@ -128,12 +131,22 @@ class CacheEntryImpl : public internal_cache::LruListNode {
   // Guards calls to `DoInitializeEntry`.
   absl::once_flag initialized_;
 
+  using Flags = uint8_t;
+
+  // Bit vector of flags, see below.
+  //
+  // These must only be changed while holding `mutex_`.
+  Flags flags_ = 0;
+
+  // Set if the return value of `DoGetSizeInBytes` may have changed.
+  constexpr static Flags kSizeChanged = 1;
+
   // Initially set to `nullptr`.  Allocated when the first weak reference is
   // obtained, and remains until the entry is destroyed even if all weak
-  // references are released.  May be read without holding
-  // `cache_->pool_->mutex_`, but may not be written without holding
-  // `cache_->pool_->mutex_`.
+  // references are released.
   std::atomic<CacheEntryWeakState*> weak_state_{nullptr};
+
+  virtual ~CacheEntryImpl() = default;
 };
 
 class CacheImpl {
@@ -174,6 +187,9 @@ class CacheImpl {
 
   std::atomic<uint32_t> reference_count_;
 
+  // Protects access to `entries_`.
+  absl::Mutex entries_mutex_;
+
   internal::HeterogeneousHashSet<CacheEntryImpl*, std::string_view,
                                  &CacheEntryImpl::key_>
       entries_;
@@ -192,18 +208,20 @@ class CachePoolImpl {
 
   using CacheKey = CacheImpl::CacheKey;
 
-  /// Protects access to `total_bytes_`, `queued_for_writeback_bytes_`,
-  /// `writeback_queue_`, `eviction_queue_`, `caches_`, and the `entries_` hash
-  /// tables of all caches associated with this pool.
-  absl::Mutex mutex_;
   CachePoolLimits limits_;
-  size_t total_bytes_;
-  size_t queued_for_writeback_bytes_;
-  LruListNode writeback_queue_;
+  std::atomic<size_t> total_bytes_;
+
+  // Protects access to `eviction_queue_`.  If `lru_mutex_` is held at the same
+  // time as `caches_mutex_`, `caches_mutex_` must be acquired first.  If
+  // `lru_mutex_` is held at the same time as `entries_mutex_`, `lru_mutex_`
+  // must be acquired first.
+  absl::Mutex lru_mutex_;
 
   // next points to the front of the queue, which is the first to be evicted.
   LruListNode eviction_queue_;
 
+  // Protects access to `caches_`.
+  absl::Mutex caches_mutex_;
   internal::HeterogeneousHashSet<CacheImpl*, CacheKey, &CacheImpl::cache_key>
       caches_;
 
@@ -302,6 +320,12 @@ CachePtr<Cache> GetCacheInternal(
 
 CacheEntryStrongPtr<CacheEntry> GetCacheEntryInternal(internal::Cache* cache,
                                                       std::string_view key);
+
+inline bool HasLruCache(CachePoolImpl* pool) {
+  return pool && pool->limits_.total_bytes_limit != 0;
+}
+
+void UpdateTotalBytes(CachePoolImpl& pool, ptrdiff_t change);
 
 }  // namespace internal_cache
 }  // namespace tensorstore

@@ -37,17 +37,7 @@ struct CachePoolResourceTraits
     return jb::Object(
         jb::Member("total_bytes_limit",
                    jb::Projection(&Spec::total_bytes_limit,
-                                  jb::DefaultValue([](auto* v) { *v = 0; }))),
-        jb::Member(
-            "queued_for_writeback_bytes_limit",
-            jb::Dependent(
-                [](auto is_loading, const auto& options, auto* obj, auto* j) {
-                  return jb::Projection(
-                      &Spec::queued_for_writeback_bytes_limit,
-                      jb::DefaultValue(
-                          [obj](auto* v) { *v = obj->total_bytes_limit / 2; },
-                          jb::Integer<std::size_t>(0, obj->total_bytes_limit)));
-                })));
+                                  jb::DefaultValue([](auto* v) { *v = 0; }))));
   }
   static Result<Resource> Create(const Spec& limits,
                                  ContextResourceCreationContext context) {

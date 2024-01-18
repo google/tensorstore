@@ -61,14 +61,6 @@ definitions:
           least-recently used data that is not in use is evicted from the cache
           when this limit is reached.
         default: 0
-      queued_for_writeback_bytes_limit:
-        type: integer
-        minimum: 0
-        description: |-
-          Soft limit on the total number of bytes of data pending writeback.
-          Writeback is initated on the least-recently used data that is pending
-          writeback when this limit is reached.  Defaults to half of
-          `.total_bytes_limit`.
   data_copy_concurrency:
     $id: Context.data_copy_concurrency
     description: |-

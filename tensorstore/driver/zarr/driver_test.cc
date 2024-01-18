@@ -481,6 +481,7 @@ TEST(ZarrDriverTest, MetadataCache) {
       {"open", true},
   };
   auto store_future = tensorstore::Open(json_spec, context);
+  store_future.Force();
   mock_key_value_store->read_requests.pop()(memory_store);
   mock_key_value_store->write_requests.pop()(memory_store);
   TENSORSTORE_EXPECT_OK(store_future);
@@ -2223,63 +2224,6 @@ TEST_P(RecheckCachedTest, RecheckCachedMetadata) {
           /*expected_dim1=*/modify_after_reopen() ? 200 : 100);
       break;
   }
-}
-
-// Tests that `Read` does not return uncommitted write data, regardless of
-// caching options.
-TEST(ZarrDriverTest, ReadAfterUncommittedWrite) {
-  ::nlohmann::json json_spec{
-      {"driver", "zarr"},
-      {"kvstore",
-       {
-           {"driver", "memory"},
-           {"path", "prefix/"},
-       }},
-      // Use cache to ensure write is not committed immediately.
-      {"cache_pool", {{"total_bytes_limit", 10000000}}},
-      // Even with this, read still shouldn't return uncommitted data.
-      {"recheck_cached_data", false},
-      {"metadata",
-       {
-           {"compressor", {{"id", "blosc"}}},
-           {"dtype", "<i2"},
-           {"shape", {4, 3}},
-           {"chunks", {2, 3}},
-       }},
-  };
-
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto store,
-      tensorstore::Open(json_spec, tensorstore::OpenMode::create).result());
-
-  auto write_future =
-      tensorstore::Write(tensorstore::MakeScalarArray<int16_t>(42), store);
-  TENSORSTORE_EXPECT_OK(write_future.copy_future.result());
-
-  // As long as there is available memory in the cache pool, writeback never
-  // happens automatically.
-  EXPECT_FALSE(write_future.commit_future.ready());
-
-  // Writeback has not yet completed, read returns fill value.
-  EXPECT_THAT(tensorstore::Read(store).result(),
-              ::testing::Optional(tensorstore::MakeArray<int16_t>({
-                  {0, 0, 0},
-                  {0, 0, 0},
-                  {0, 0, 0},
-                  {0, 0, 0},
-              })));
-
-  // Force writeback.
-  TENSORSTORE_EXPECT_OK(write_future.result());
-
-  // Now that writeback has completed, read returns updated value.
-  EXPECT_THAT(tensorstore::Read(store).result(),
-              ::testing::Optional(tensorstore::MakeArray<int16_t>({
-                  {42, 42, 42},
-                  {42, 42, 42},
-                  {42, 42, 42},
-                  {42, 42, 42},
-              })));
 }
 
 TENSORSTORE_GLOBAL_INITIALIZER {

@@ -77,6 +77,7 @@ namespace kvstore = ::tensorstore::kvstore;
 using ::tensorstore::Executor;
 using ::tensorstore::Future;
 using ::tensorstore::Index;
+using ::tensorstore::KvStore;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::OptionalByteRangeRequest;
 using ::tensorstore::Result;
@@ -85,6 +86,7 @@ using ::tensorstore::StorageGeneration;
 using ::tensorstore::TimestampedStorageGeneration;
 using ::tensorstore::Transaction;
 using ::tensorstore::internal::CachePool;
+using ::tensorstore::internal::GetCache;
 using ::tensorstore::internal::KvsBackedTestCache;
 using ::tensorstore::internal::MatchesKvsReadResult;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
@@ -99,7 +101,7 @@ using ::tensorstore::zarr3_sharding_indexed::GetShardedKeyValueStore;
 using ::tensorstore::zarr3_sharding_indexed::ShardedKeyValueStoreParameters;
 using ::tensorstore::zarr3_sharding_indexed::ShardIndexLocation;
 
-constexpr CachePool::Limits kSmallCacheLimits{10000000, 5000000};
+constexpr CachePool::Limits kSmallCacheLimits{10000000};
 
 absl::Cord Bytes(std::initializer_list<unsigned char> x) {
   return absl::Cord(std::string(x.begin(), x.end()));
@@ -226,12 +228,11 @@ TEST_F(RawEncodingTest, MultipleUnconditionalWrites) {
                                  absl::Cord("efgh")};
   std::vector<Future<TimestampedStorageGeneration>> futures;
   auto key = EntryIdToKey(10, grid_shape);
+  tensorstore::Transaction txn(tensorstore::isolated);
   for (auto value : values) {
-    futures.push_back(store->Write(key, value));
+    futures.push_back(kvstore::WriteCommitted(KvStore{store, txn}, key, value));
   }
-  // Nothing is written until `Force`/`result` is called.
-  EXPECT_THAT(GetMap(base_kv_store),
-              ::testing::Optional(::testing::ElementsAre()));
+  txn.CommitAsync().IgnoreFuture();
   std::vector<Result<TimestampedStorageGeneration>> results;
   for (const auto& future : futures) {
     results.push_back(future.result());
@@ -274,33 +275,47 @@ TEST_F(RawEncodingTest, List) {
 TEST_F(RawEncodingTest, WritesAndDeletes) {
   std::vector<Index> grid_shape{100};
   kvstore::DriverPtr store = GetStore(grid_shape);
-  auto init_future1 =
-      store->Write(EntryIdToKey(1, grid_shape), absl::Cord("a"));
-  auto init_future2 =
-      store->Write(EntryIdToKey(2, grid_shape), absl::Cord("bc"));
-  auto init_future3 =
-      store->Write(EntryIdToKey(3, grid_shape), absl::Cord("def"));
+  StorageGeneration gen1, gen2, gen3;
+  {
+    tensorstore::Transaction txn(tensorstore::isolated);
+    auto init_future1 = kvstore::WriteCommitted(
+        KvStore{store, txn}, EntryIdToKey(1, grid_shape), absl::Cord("a"));
+    auto init_future2 = kvstore::WriteCommitted(
+        KvStore{store, txn}, EntryIdToKey(2, grid_shape), absl::Cord("bc"));
+    auto init_future3 = kvstore::WriteCommitted(
+        KvStore{store, txn}, EntryIdToKey(3, grid_shape), absl::Cord("def"));
+    txn.CommitAsync().IgnoreFuture();
 
-  auto gen1 = init_future1.value().generation;
-  auto gen2 = init_future2.value().generation;
-  auto gen3 = init_future3.value().generation;
+    gen1 = init_future1.value().generation;
+    gen2 = init_future2.value().generation;
+    gen3 = init_future3.value().generation;
+  }
+
+  tensorstore::Transaction txn(tensorstore::isolated);
 
   // Conditional delete with mismatched generation.
-  auto future1 = store->Delete(EntryIdToKey(1, grid_shape),
+  auto future1 =
+      kvstore::DeleteCommitted(KvStore{store, txn}, EntryIdToKey(1, grid_shape),
                                {StorageGeneration::NoValue()});
 
   // Conditional write with matching generation.
   auto future2 =
-      store->Write(EntryIdToKey(2, grid_shape), absl::Cord("ww"), {gen2});
+      kvstore::WriteCommitted(KvStore{store, txn}, EntryIdToKey(2, grid_shape),
+                              absl::Cord("ww"), {gen2});
   auto future3 =
-      store->Write(EntryIdToKey(2, grid_shape), absl::Cord("xx"), {gen2});
+      kvstore::WriteCommitted(KvStore{store, txn}, EntryIdToKey(2, grid_shape),
+                              absl::Cord("xx"), {gen2});
 
   // Conditional write with matching generation
-  auto future4 = store->Write(EntryIdToKey(4, grid_shape), absl::Cord("zz"),
-                              {StorageGeneration::NoValue()});
+  auto future4 =
+      kvstore::WriteCommitted(KvStore{store, txn}, EntryIdToKey(4, grid_shape),
+                              absl::Cord("zz"), {StorageGeneration::NoValue()});
 
   // Conditional delete with matching generation.
-  auto future5 = store->Delete(EntryIdToKey(3, grid_shape), {gen3});
+  auto future5 = kvstore::DeleteCommitted(KvStore{store, txn},
+                                          EntryIdToKey(3, grid_shape), {gen3});
+
+  txn.CommitAsync().IgnoreFuture();
 
   EXPECT_THAT(future1.result(), MatchesTimestampedStorageGeneration(
                                     StorageGeneration::Unknown()));
@@ -337,7 +352,8 @@ std::vector<std::vector<Result<TimestampedStorageGeneration>>>
 TestOrderDependentWrites(
     std::function<void()> init,
     std::function<Future<TimestampedStorageGeneration>()> op0,
-    std::function<Future<TimestampedStorageGeneration>()> op1) {
+    std::function<Future<TimestampedStorageGeneration>()> op1,
+    std::function<void()> finalize) {
   std::vector<std::vector<Result<TimestampedStorageGeneration>>> all_results;
   for (int i = 0; i < 2; ++i) {
     std::vector<Future<TimestampedStorageGeneration>> futures(2);
@@ -349,6 +365,7 @@ TestOrderDependentWrites(
       futures[1] = op1();
       futures[0] = op0();
     }
+    finalize();
     all_results.push_back({futures[0].result(), futures[1].result()});
   }
   return all_results;
@@ -370,6 +387,7 @@ TEST_F(RawEncodingTest, MultipleDeleteExisting) {
   std::vector<Index> grid_shape{100};
   kvstore::DriverPtr store = GetStore(grid_shape);
   StorageGeneration gen;
+  tensorstore::Transaction txn{tensorstore::no_transaction};
   EXPECT_THAT(
       TestOrderDependentWrites(
           /*init=*/
@@ -377,20 +395,24 @@ TEST_F(RawEncodingTest, MultipleDeleteExisting) {
             gen = store->Write(EntryIdToKey(1, grid_shape), absl::Cord("a"))
                       .value()
                       .generation;
+            txn = tensorstore::Transaction(tensorstore::isolated);
           },
           /*op0=*/
           [&] {
             // Delete conditioned on `gen` is guaranteed to succeed.
-            return store->Delete(EntryIdToKey(1, grid_shape),
-                                 {/*.if_equal=*/gen});
+            return kvstore::DeleteCommitted(KvStore{store, txn},
+                                            EntryIdToKey(1, grid_shape),
+                                            {/*.if_equal=*/gen});
           },
           /*op1=*/
           [&] {
             // Delete conditioned on `StorageGeneration::NoValue()` succeeds if
             // it is attempted after the other delete, otherwise it fails.
-            return store->Delete(EntryIdToKey(1, grid_shape),
-                                 {/*.if_equal=*/StorageGeneration::NoValue()});
-          }),
+            return kvstore::DeleteCommitted(
+                KvStore{store, txn}, EntryIdToKey(1, grid_shape),
+                {/*.if_equal=*/StorageGeneration::NoValue()});
+          },
+          /*finalize=*/[&] { txn.CommitAsync().IgnoreFuture(); }),
       // Test we covered each of the two cases (corresponding to different sort
       // orders) exactly once.
       ::testing::UnorderedElementsAre(
@@ -409,22 +431,30 @@ TEST_F(RawEncodingTest, MultipleDeleteExisting) {
 TEST_F(RawEncodingTest, WriteWithUnmatchedConditionAfterDelete) {
   std::vector<Index> grid_shape{100};
   kvstore::DriverPtr store = GetStore(grid_shape);
+  tensorstore::Transaction txn{tensorstore::no_transaction};
   EXPECT_THAT(
       TestOrderDependentWrites(
           /*init=*/
-          [&] { store->Delete(EntryIdToKey(0, grid_shape)).value(); },
+          [&] {
+            store->Delete(EntryIdToKey(0, grid_shape)).value();
+            txn = tensorstore::Transaction(tensorstore::isolated);
+          },
           /*op0=*/
           [&] {
             // Write should succeed.
-            return store->Write(EntryIdToKey(0, grid_shape), absl::Cord("a"));
+            return kvstore::WriteCommitted(KvStore{store, txn},
+                                           EntryIdToKey(0, grid_shape),
+                                           absl::Cord("a"));
           },
           /*op1=*/
           [&] {
             // Write should fail due to prior write.
-            return store->Write(
-                EntryIdToKey(0, grid_shape), absl::Cord("b"),
+            return kvstore::WriteCommitted(
+                KvStore{store, txn}, EntryIdToKey(0, grid_shape),
+                absl::Cord("b"),
                 {/*.if_equal=*/StorageGeneration::FromString("g")});
-          }),
+          },
+          /*finalize=*/[&] { txn.CommitAsync().IgnoreFuture(); }),
       // Regardless of order of operations, the result is the same.
       ::testing::Each(::testing::ElementsAre(
           MatchesTimestampedStorageGeneration(
@@ -436,10 +466,13 @@ TEST_F(RawEncodingTest, WriteWithUnmatchedConditionAfterDelete) {
 TEST_F(RawEncodingTest, MultipleDeleteNonExisting) {
   std::vector<Index> grid_shape{100};
   kvstore::DriverPtr store = GetStore(grid_shape);
-  std::vector futures{store->Delete(EntryIdToKey(1, grid_shape),
-                                    {StorageGeneration::NoValue()}),
-                      store->Delete(EntryIdToKey(1, grid_shape),
-                                    {StorageGeneration::NoValue()})};
+  tensorstore::Transaction txn(tensorstore::isolated);
+  std::vector futures{
+      kvstore::DeleteCommitted(KvStore{store, txn}, EntryIdToKey(1, grid_shape),
+                               {StorageGeneration::NoValue()}),
+      kvstore::DeleteCommitted(KvStore{store, txn}, EntryIdToKey(1, grid_shape),
+                               {StorageGeneration::NoValue()})};
+  txn.CommitAsync().IgnoreFuture();
   std::vector results{futures[0].result(), futures[1].result()};
   EXPECT_THAT(
       results,
@@ -907,9 +940,6 @@ TEST_F(UnderlyingKeyValueStoreTest, WriteWithNoExistingShard) {
   grid_shape = {2};
   store = GetStore(grid_shape);
   auto future = store->Write(EntryIdToKey(1, grid_shape), Bytes({1, 2, 3}));
-  ASSERT_EQ(0, mock_store->read_requests.size());
-  ASSERT_EQ(0, mock_store->write_requests.size());
-  future.Force();
   {
     auto req = mock_store->read_requests.pop_nonblock().value();
     ASSERT_EQ(0, mock_store->read_requests.size());
@@ -950,12 +980,14 @@ TEST_F(UnderlyingKeyValueStoreTest, WriteWithNoExistingShard) {
 TEST_F(UnderlyingKeyValueStoreTest, UnconditionalWrite) {
   grid_shape = {2};
   store = GetStore(grid_shape);
-  auto future1 = store->Write(EntryIdToKey(0, grid_shape), Bytes({1, 2, 3}));
-  auto future2 = store->Write(EntryIdToKey(1, grid_shape), Bytes({4, 5, 6}));
+  auto txn = Transaction(tensorstore::isolated);
+  auto future1 = kvstore::WriteCommitted(
+      KvStore{store, txn}, EntryIdToKey(0, grid_shape), Bytes({1, 2, 3}));
+  auto future2 = kvstore::WriteCommitted(
+      KvStore{store, txn}, EntryIdToKey(1, grid_shape), Bytes({4, 5, 6}));
   ASSERT_EQ(0, mock_store->read_requests.size());
   ASSERT_EQ(0, mock_store->write_requests.size());
-  future1.Force();
-  future2.Force();
+  txn.CommitAsync().IgnoreFuture();
   ASSERT_EQ(0, mock_store->read_requests.size());
   absl::Time write_time;
   {
@@ -999,9 +1031,6 @@ TEST_F(UnderlyingKeyValueStoreTest, ConditionalWriteDespiteMaxChunks) {
   store = GetStore(grid_shape);
   auto future = store->Write(EntryIdToKey(0, grid_shape), Bytes({1, 2, 3}),
                              {/*.if_equal=*/StorageGeneration::NoValue()});
-  ASSERT_EQ(0, mock_store->read_requests.size());
-  ASSERT_EQ(0, mock_store->write_requests.size());
-  future.Force();
   {
     auto req = mock_store->read_requests.pop_nonblock().value();
     ASSERT_EQ(0, mock_store->read_requests.size());
@@ -1043,10 +1072,6 @@ TEST_F(UnderlyingKeyValueStoreTest, WriteWithExistingShard) {
   grid_shape = {2};
   store = GetStore(grid_shape);
   auto future = store->Write(EntryIdToKey(0, grid_shape), Bytes({1, 2, 3}));
-
-  ASSERT_EQ(0, mock_store->read_requests.size());
-  ASSERT_EQ(0, mock_store->write_requests.size());
-  future.Force();
   ASSERT_FALSE(future.ready()) << future.status();
   {
     auto req = mock_store->read_requests.pop_nonblock().value();
@@ -1108,10 +1133,6 @@ TEST_F(UnderlyingKeyValueStoreTest, WriteWithExistingShard) {
 
 TEST_F(UnderlyingKeyValueStoreTest, WriteWithExistingShardReadError) {
   auto future = store->Write(EntryIdToKey(1, grid_shape), Bytes({1, 2, 3}));
-
-  ASSERT_EQ(0, mock_store->read_requests.size());
-  ASSERT_EQ(0, mock_store->write_requests.size());
-  future.Force();
   {
     auto req = mock_store->read_requests.pop_nonblock().value();
     ASSERT_EQ(0, mock_store->read_requests.size());
@@ -1165,9 +1186,9 @@ class ReadModifyWriteTest : public ::testing::Test {
   /// `KeyValueStore`; if none is specified, calls `GetStore()`.
   auto GetKvsBackedCache(kvstore::DriverPtr store = {}) {
     if (!store) store = GetStore();
-    return CachePool::Make(CachePool::Limits{})
-        ->GetCache<KvsBackedTestCache>(
-            "", [&] { return std::make_unique<KvsBackedTestCache>(store); });
+    return GetCache<KvsBackedTestCache>(
+        CachePool::Make(CachePool::Limits{}).get(), "",
+        [&] { return std::make_unique<KvsBackedTestCache>(store); });
   }
 };
 

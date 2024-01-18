@@ -825,25 +825,22 @@ Result<internal::Driver::Handle> CreateTensorStoreFromMetadata(
   }
   absl::Status data_key_value_store_status;
   const auto& state_ref = *state;
-  auto data_cache =
-      (*state->cache_pool())
-          ->GetCache<DataCacheBase>(
-              typeid(state_ref), chunk_cache_identifier,
-              [&]() -> std::unique_ptr<DataCacheBase> {
-                auto store_result = state->GetDataKeyValueStore(
-                    GetOwningCache(*base.metadata_cache_entry_).base_store_,
-                    metadata.get());
-                if (!store_result) {
-                  data_key_value_store_status =
-                      std::move(store_result).status();
-                  return nullptr;
-                }
-                DataCacheInitializer initializer;
-                initializer.store = std::move(*store_result);
-                initializer.metadata_cache_entry = base.metadata_cache_entry_;
-                initializer.metadata = metadata;
-                return state->GetDataCache(std::move(initializer));
-              });
+  auto data_cache = internal::GetCacheWithExplicitTypeInfo<DataCacheBase>(
+      state->cache_pool()->get(), typeid(state_ref), chunk_cache_identifier,
+      [&]() -> std::unique_ptr<DataCacheBase> {
+        auto store_result = state->GetDataKeyValueStore(
+            GetOwningCache(*base.metadata_cache_entry_).base_store_,
+            metadata.get());
+        if (!store_result) {
+          data_key_value_store_status = std::move(store_result).status();
+          return nullptr;
+        }
+        DataCacheInitializer initializer;
+        initializer.store = std::move(*store_result);
+        initializer.metadata_cache_entry = base.metadata_cache_entry_;
+        initializer.metadata = metadata;
+        return state->GetDataCache(std::move(initializer));
+      });
   TENSORSTORE_RETURN_IF_ERROR(data_key_value_store_status);
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto new_transform,
@@ -1225,7 +1222,7 @@ internal::CachePtr<MetadataCache> GetOrCreateMetadataCache(
   internal::EncodeCacheKey(&base.metadata_cache_key_, spec.store.driver,
                            typeid(*state), state->GetMetadataCacheKey());
   return internal::GetOrCreateAsyncInitializedCache<MetadataCache>(
-      **state->cache_pool(), base.metadata_cache_key_,
+      state->cache_pool()->get(), base.metadata_cache_key_,
       [&] {
         ABSL_LOG_IF(INFO, TENSORSTORE_KVS_DRIVER_DEBUG)
             << "Creating metadata cache: open_state=" << state;

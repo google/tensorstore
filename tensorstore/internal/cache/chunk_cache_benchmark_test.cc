@@ -77,6 +77,7 @@ using ::tensorstore::internal::ChunkGridSpecification;
 using ::tensorstore::internal::ConcreteChunkCache;
 using ::tensorstore::internal::Driver;
 using ::tensorstore::internal::ElementCopyFunction;
+using ::tensorstore::internal::GetCache;
 using ::tensorstore::internal::GetOwningCache;
 
 /// Benchmark configuration for read/write benchmark.
@@ -237,8 +238,9 @@ class CopyBenchmarkRunner {
         AllocateArray(config.cell_shape, tensorstore::c_order,
                       tensorstore::value_init, config.dtype),
         Box<>(rank), chunked_dims}});
-    cache = pool->GetCache<BenchmarkCache>(
-        "", [&] { return std::make_unique<BenchmarkCache>(grid, executor); });
+    cache = GetCache<BenchmarkCache>(pool.get(), "", [&] {
+      return std::make_unique<BenchmarkCache>(grid, executor);
+    });
     driver.reset(new TestDriver(TestDriver::Initializer{cache, 0}));
     array = AllocateArray(config.copy_shape, tensorstore::c_order,
                           tensorstore::value_init, config.dtype);

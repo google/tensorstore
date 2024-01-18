@@ -173,7 +173,7 @@ Future<kvstore::DriverPtr> OcdbtDriverSpec::DoOpen() const {
         driver->experimental_read_coalescing_interval_ =
             spec->data_.experimental_read_coalescing_interval;
         driver->io_handle_ = internal_ocdbt::MakeIoHandle(
-            driver->data_copy_concurrency_, **driver->cache_pool_,
+            driver->data_copy_concurrency_, driver->cache_pool_->get(),
             driver->base_,
             internal::MakeIntrusivePtr<ConfigState>(
                 spec->data_.config, supported_manifest_features),

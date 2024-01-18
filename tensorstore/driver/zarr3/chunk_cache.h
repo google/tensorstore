@@ -197,15 +197,6 @@ class ZarrShardedChunkCache : public internal::Cache, public ZarrChunkCache {
   Future<const void> DeleteCell(span<const Index> grid_cell_indices,
                                 internal::OpenTransactionPtr transaction);
 
-  struct TransactionNode : public internal::TransactionState::Node {
-    using Base = internal::TransactionState::Node;
-    using Base::Base;
-    void PrepareForCommit() override;
-    void Commit() override;
-    void RemoveFromEntry();
-    void Abort() override;
-  };
-
   class Entry : public internal::Cache::Entry {
    public:
     using OwningCache = ZarrShardedChunkCache;
@@ -216,10 +207,6 @@ class ZarrShardedChunkCache : public internal::Cache, public ZarrChunkCache {
     // Weak reference to the parent chunk, if applicable.
     internal::WeakPinnedCacheEntry parent_chunk;
 
-    absl::Mutex implicit_transaction_node_mutex;
-    internal::TransactionState::WeakNodePtrT<TransactionNode>
-        implicit_transaction_node;
-
     /// Returns the grid cell index vector corresponding to this cache entry.
     span<const Index> cell_indices() {
       return {reinterpret_cast<const Index*>(key().data()),
@@ -227,13 +214,10 @@ class ZarrShardedChunkCache : public internal::Cache, public ZarrChunkCache {
     }
 
     void DoInitialize() override;
-
-    Result<internal::OpenTransactionPtr> GetImplicitTransaction();
   };
 
   Entry* DoAllocateEntry() final { return new Entry; }
   size_t DoGetSizeofEntry() final { return sizeof(Entry); }
-  void DoRequestWriteback(internal::Cache::PinnedEntry entry) override;
 
   kvstore::Driver* GetKvStoreDriver() override;
 

@@ -1672,11 +1672,6 @@ absl::Status Driver::ReadModifyWrite(internal::OpenTransactionPtr& transaction,
   return internal_kvstore::GetNonAtomicReadModifyWriteError(*node, rmw_status);
 }
 
-Result<internal::OpenTransactionPtr> Driver::GetImplicitTransaction(
-    const Key& key) {
-  return internal::TransactionState::MakeImplicit();
-}
-
 absl::Status Driver::TransactionalDeleteRange(
     const internal::OpenTransactionPtr& transaction, KeyRange range) {
   if (range.empty()) return absl::OkStatus();

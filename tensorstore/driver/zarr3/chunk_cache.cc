@@ -280,17 +280,11 @@ void ShardedReadOrWrite(
         if (!entry->sharding_error.ok()) {
           return entry->sharding_error;
         }
-        internal::OpenTransactionPtr implicit_transaction;
+        internal::OpenTransactionPtr shard_transaction = transaction;
         if constexpr (std::is_same_v<ChunkType, internal::WriteChunk>) {
-          if (!transaction) {
-            // Hold open the implicit transaction associated with the top-level
-            // chunk.  We can't pass an implicit transaction on to `Read` or
-            // `Write`, because that is not supported by `AsyncCache`, but
-            // merely holding the `OpenTransactionPtr` is sufficient to ensure
-            // that the same implicit transaction will be used by all sub-chunks
-            // due to the caching behavior of the sharded key-value store.
-            TENSORSTORE_ASSIGN_OR_RETURN(implicit_transaction,
-                                         entry->GetImplicitTransaction());
+          if (!shard_transaction) {
+            shard_transaction = internal::TransactionState::MakeImplicit();
+            shard_transaction->RequestCommit();
           }
         }
         using Receiver =
@@ -299,11 +293,11 @@ void ShardedReadOrWrite(
             self,
             /*base_func=*/
             [=, entry = std::move(entry),
-             implicit_transaction = std::move(implicit_transaction)](
+             shard_transaction = std::move(shard_transaction)](
                 span<const Index> decoded_shape, IndexTransform<> transform,
                 Receiver&& receiver) {
               (entry->sub_chunk_cache.get()->*Method)(
-                  transaction, std::move(transform), args...,
+                  std::move(shard_transaction), std::move(transform), args...,
                   std::move(receiver));
             },
             /*codec_func=*/
@@ -425,11 +419,6 @@ void ZarrShardedChunkCache::GetStorageStatistics(
       shape, std::move(transform), staleness_bound);
 }
 
-void ZarrShardedChunkCache::DoRequestWriteback(
-    internal::Cache::PinnedEntry entry) {
-  // Ignore
-}
-
 void ZarrShardedChunkCache::Entry::DoInitialize() {
   auto& cache = GetOwningCache(*this);
   if (cache.parent_chunk_) {
@@ -440,66 +429,25 @@ void ZarrShardedChunkCache::Entry::DoInitialize() {
   auto sharding_kvstore = sharding_state.GetSubChunkKvstore(
       cache.base_kvstore_,
       cache.GetChunkStorageKeyParser().FormatKey(cell_indices()),
-      cache.executor(), internal::CachePool::WeakPtr(&cache.pool()));
+      cache.executor(), internal::CachePool::WeakPtr(cache.pool()));
   ZarrChunkCache* zarr_chunk_cache;
-  cache.pool()
-      .GetCache<internal::Cache>(
-          "",
-          [&]() -> std::unique_ptr<internal::Cache> {
-            auto new_cache =
-                internal_zarr3::MakeZarrChunkCache<ZarrChunkCache,
-                                                   ZarrShardSubChunkCache>(
-                    *sharding_state.sub_chunk_codec_chain,
-                    std::move(sharding_kvstore), cache.executor(),
-                    ZarrShardingCodec::PreparedState::Ptr(&sharding_state));
-            zarr_chunk_cache = new_cache.release();
-            return std::unique_ptr<internal::Cache>(&zarr_chunk_cache->cache());
-          })
+  internal::GetCache<internal::Cache>(
+      cache.pool(), "",
+      [&]() -> std::unique_ptr<internal::Cache> {
+        auto new_cache =
+            internal_zarr3::MakeZarrChunkCache<ZarrChunkCache,
+                                               ZarrShardSubChunkCache>(
+                *sharding_state.sub_chunk_codec_chain,
+                std::move(sharding_kvstore), cache.executor(),
+                ZarrShardingCodec::PreparedState::Ptr(&sharding_state));
+        zarr_chunk_cache = new_cache.release();
+        return std::unique_ptr<internal::Cache>(&zarr_chunk_cache->cache());
+      })
       .release();
   sub_chunk_cache =
       ZarrChunkCache::Ptr(zarr_chunk_cache, internal::adopt_object_ref);
   sub_chunk_cache->parent_chunk_ = this;
 }
-
-Result<internal::OpenTransactionPtr>
-ZarrShardedChunkCache::Entry::GetImplicitTransaction() {
-  absl::MutexLock lock(&implicit_transaction_node_mutex);
-  if (implicit_transaction_node) {
-    auto open_ptr =
-        implicit_transaction_node->transaction()->AcquireImplicitOpenPtr();
-    if (open_ptr) return open_ptr;
-  }
-  auto& cache = GetOwningCache(*this);
-  TENSORSTORE_ASSIGN_OR_RETURN(
-      auto open_transaction,
-      cache.base_kvstore_->GetImplicitTransaction(
-          cache.GetChunkStorageKeyParser().FormatKey(cell_indices())));
-  internal::WeakTransactionNodePtr<TransactionNode> implicit_transaction_node(
-      new TransactionNode(this));
-  implicit_transaction_node->SetTransaction(*open_transaction);
-  TENSORSTORE_RETURN_IF_ERROR(implicit_transaction_node->Register());
-  this->implicit_transaction_node = std::move(implicit_transaction_node);
-  return open_transaction;
-}
-
-void ZarrShardedChunkCache::TransactionNode::RemoveFromEntry() {
-  auto& entry = *static_cast<Entry*>(associated_data());
-  absl::MutexLock lock(&entry.implicit_transaction_node_mutex);
-  entry.implicit_transaction_node = nullptr;
-}
-
-void ZarrShardedChunkCache::TransactionNode::PrepareForCommit() {
-  RemoveFromEntry();
-  PrepareDone();
-  ReadyForCommit();
-}
-
-void ZarrShardedChunkCache::TransactionNode::Abort() {
-  RemoveFromEntry();
-  AbortDone();
-}
-
-void ZarrShardedChunkCache::TransactionNode::Commit() { CommitDone(); }
 
 kvstore::Driver* ZarrShardedChunkCache::GetKvStoreDriver() {
   return this->base_kvstore_.get();

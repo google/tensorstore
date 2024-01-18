@@ -24,6 +24,7 @@ tensorstore_cc_library(
         "//tensorstore/driver:chunk_cache_driver",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/internal:data_copy_concurrency_resource",
+        "//tensorstore/internal/cache",
         "//tensorstore/internal/cache:cache_pool_resource",
         "//tensorstore/internal/cache:chunk_cache",
         "//tensorstore/kvstore:generation",

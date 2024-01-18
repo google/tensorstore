@@ -165,8 +165,8 @@ Future<kvstore::DriverPtr> ZipKvStoreSpec::DoOpen() const {
                                  base_kvstore.path,
                                  spec->data_.data_copy_concurrency);
         auto& cache_pool = *spec->data_.cache_pool;
-        auto directory_cache =
-            cache_pool->GetCache<ZipDirectoryCache>(cache_key, [&] {
+        auto directory_cache = internal::GetCache<ZipDirectoryCache>(
+            cache_pool.get(), cache_key, [&] {
               return std::make_unique<ZipDirectoryCache>(
                   base_kvstore.driver,
                   spec->data_.data_copy_concurrency->executor);

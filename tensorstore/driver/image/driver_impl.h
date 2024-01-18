@@ -347,7 +347,7 @@ Future<internal::DriverHandle> ImageDriverSpec<Specialization>::Open(
   internal::EncodeCacheKey(&cache_identifier, store.driver,
                            data_copy_concurrency, store.path);
   auto cache = internal::GetOrCreateAsyncInitializedCache<CacheType>(
-      **cache_pool, cache_identifier,
+      cache_pool->get(), cache_identifier,
       [&] {
         auto cache = std::make_unique<CacheType>();
         cache->data_copy_concurrency_ = data_copy_concurrency;

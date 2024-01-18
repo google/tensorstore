@@ -362,7 +362,7 @@ class IoHandleImpl : public IoHandle {
 IoHandle::Ptr MakeIoHandle(
     const Context::Resource<tensorstore::internal::DataCopyConcurrencyResource>&
         data_copy_concurrency,
-    internal::CachePool& cache_pool, const KvStore& base_kvstore,
+    internal::CachePool* cache_pool, const KvStore& base_kvstore,
     ConfigStatePtr config_state,
     std::optional<int64_t> max_read_coalescing_overhead_bytes_per_request,
     std::optional<int64_t> max_read_coalescing_merged_bytes_per_request,
@@ -402,8 +402,8 @@ IoHandle::Ptr MakeIoHandle(
                            max_read_coalescing_overhead_bytes_per_request);
   {
     auto manifest_cache =
-        cache_pool.GetCache<tensorstore::internal_ocdbt::ManifestCache>(
-            manifest_cache_identifier, [&] {
+        internal::GetCache<tensorstore::internal_ocdbt::ManifestCache>(
+            cache_pool, manifest_cache_identifier, [&] {
               return std::make_unique<ManifestCache>(
                   base_kvstore.driver, data_copy_concurrency->executor);
             });
@@ -412,8 +412,8 @@ IoHandle::Ptr MakeIoHandle(
   }
   {
     auto numbered_manifest_cache =
-        cache_pool.GetCache<tensorstore::internal_ocdbt::NumberedManifestCache>(
-            manifest_cache_identifier, [&] {
+        internal::GetCache<tensorstore::internal_ocdbt::NumberedManifestCache>(
+            cache_pool, manifest_cache_identifier, [&] {
               return std::make_unique<NumberedManifestCache>(
                   base_kvstore.driver, data_copy_concurrency->executor);
             });

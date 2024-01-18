@@ -793,9 +793,6 @@ class ShardedKeyValueStore
                                size_t& phase, Key key,
                                ReadModifyWriteSource& source) override;
 
-  Result<internal::OpenTransactionPtr> GetImplicitTransaction(
-      const Key& key) override;
-
   absl::Status TransactionalDeleteRange(
       const internal::OpenTransactionPtr& transaction, KeyRange range) override;
 
@@ -840,15 +837,17 @@ class ShardedKeyValueStore
 ShardedKeyValueStore::ShardedKeyValueStore(
     ShardedKeyValueStoreParameters&& params,
     std::string_view shared_cache_key) {
-  write_cache_ = params.cache_pool->GetCache<ShardedKeyValueStoreWriteCache>(
-      shared_cache_key, [&] {
+  write_cache_ = internal::GetCache<ShardedKeyValueStoreWriteCache>(
+      params.cache_pool.get(), shared_cache_key, [&] {
         return std::make_unique<ShardedKeyValueStoreWriteCache>(
-            params.cache_pool->GetCache<ShardIndexCache>("", [&] {
-              return std::make_unique<ShardIndexCache>(
-                  std::move(params.base_kvstore),
-                  std::move(params.base_kvstore_path),
-                  std::move(params.executor), std::move(params.index_params));
-            }));
+            internal::GetCache<ShardIndexCache>(
+                params.cache_pool.get(), "", [&] {
+                  return std::make_unique<ShardIndexCache>(
+                      std::move(params.base_kvstore),
+                      std::move(params.base_kvstore_path),
+                      std::move(params.executor),
+                      std::move(params.index_params));
+                }));
       });
 }
 
@@ -1059,15 +1058,6 @@ absl::Status ShardedKeyValueStore::ReadModifyWrite(
     transaction.reset(node.unlock()->transaction());
   }
   return absl::OkStatus();
-}
-
-Result<internal::OpenTransactionPtr>
-ShardedKeyValueStore::GetImplicitTransaction(const Key& key) {
-  auto entry = GetCacheEntry(write_cache_, std::string_view{});
-  internal::OpenTransactionPtr transaction;
-  TENSORSTORE_ASSIGN_OR_RETURN(auto node,
-                               GetTransactionNode(*entry, transaction));
-  return transaction;
 }
 
 absl::Status ShardedKeyValueStore::TransactionalDeleteRange(

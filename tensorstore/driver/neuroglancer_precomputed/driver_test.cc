@@ -61,6 +61,7 @@
 #include "tensorstore/static_cast.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/tensorstore.h"
+#include "tensorstore/transaction.h"
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
@@ -1501,9 +1502,7 @@ TEST(ShardedWriteTest, Basic) {
   EXPECT_THAT(tensorstore::Read(store).result(), ::testing::Optional(array));
 }
 
-// Disable due to race condition whereby writeback of a shard may start while
-// some chunks that have been modified are still being written back to it.
-TEST(FullShardWriteTest, Basic) {
+TEST(FullShardWriteTest, WithTransaction) {
   auto context = Context::Default();
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -1512,8 +1511,6 @@ TEST(FullShardWriteTest, Basic) {
   auto mock_key_value_store = *mock_key_value_store_resource;
 
   ::nlohmann::json json_spec{
-      // Use a cache to avoid early writeback of partial shard.
-      {"context", {{"cache_pool", {{"total_bytes_limit", 10'000'000}}}}},
       {"driver", "neuroglancer_precomputed"},
       {"kvstore",
        {
@@ -1556,51 +1553,46 @@ TEST(FullShardWriteTest, Basic) {
   // Shard 4 origin: {0, 0, 8}
   // Shard 5 origin: {0, 4, 8}
 
-  // Repeat the test to try to detect errors due to possible timing-dependent
-  // behavior differences.
-  for (int i = 0; i < 100; ++i) {
-    auto store_future = tensorstore::Open(json_spec, context);
-    store_future.Force();
+  tensorstore::Transaction txn(tensorstore::isolated);
+  auto store_future = tensorstore::Open(json_spec, context);
+  store_future.Force();
 
-    {
-      auto req = mock_key_value_store->read_requests.pop();
-      EXPECT_EQ("prefix/info", req.key);
-      req.promise.SetResult(kvstore::ReadResult::Missing(absl::Now()));
-    }
-
-    {
-      auto req = mock_key_value_store->write_requests.pop();
-      EXPECT_EQ("prefix/info", req.key);
-      EXPECT_EQ(StorageGeneration::NoValue(), req.options.if_equal);
-      req.promise.SetResult(TimestampedStorageGeneration{
-          StorageGeneration::FromString("g0"), absl::Now()});
-    }
-
-    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store, store_future.result());
-
-    auto future = tensorstore::Write(
-        tensorstore::MakeScalarArray<uint16_t>(42),
-        tensorstore::ChainResult(
-            store,
-            tensorstore::Dims(0, 1, 2).SizedInterval({0, 4, 8}, {4, 2, 2})));
-
-    // Ensure copying finishes before writeback starts.
-    TENSORSTORE_ASSERT_OK(future.copy_future.result());
-    ASSERT_FALSE(future.commit_future.ready());
-
-    future.Force();
-
-    {
-      auto req = mock_key_value_store->write_requests.pop();
-      ASSERT_EQ("prefix/1_1_1/5.shard", req.key);
-      // Writeback is unconditional because the entire shard is being written.
-      ASSERT_EQ(StorageGeneration::Unknown(), req.options.if_equal);
-      req.promise.SetResult(TimestampedStorageGeneration{
-          StorageGeneration::FromString("g0"), absl::Now()});
-    }
-
-    TENSORSTORE_ASSERT_OK(future.result());
+  {
+    auto req = mock_key_value_store->read_requests.pop();
+    EXPECT_EQ("prefix/info", req.key);
+    req.promise.SetResult(kvstore::ReadResult::Missing(absl::Now()));
   }
+
+  {
+    auto req = mock_key_value_store->write_requests.pop();
+    EXPECT_EQ("prefix/info", req.key);
+    EXPECT_EQ(StorageGeneration::NoValue(), req.options.if_equal);
+    req.promise.SetResult(TimestampedStorageGeneration{
+        StorageGeneration::FromString("g0"), absl::Now()});
+  }
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store, store_future.result());
+
+  auto future = tensorstore::Write(
+      tensorstore::MakeScalarArray<uint16_t>(42),
+      store | txn |
+          tensorstore::Dims(0, 1, 2).SizedInterval({0, 4, 8}, {4, 2, 2}));
+
+  // Ensure copying finishes before writeback starts.
+  TENSORSTORE_ASSERT_OK(future);
+
+  txn.CommitAsync().IgnoreFuture();
+
+  {
+    auto req = mock_key_value_store->write_requests.pop();
+    ASSERT_EQ("prefix/1_1_1/5.shard", req.key);
+    // Writeback is unconditional because the entire shard is being written.
+    ASSERT_EQ(StorageGeneration::Unknown(), req.options.if_equal);
+    req.promise.SetResult(TimestampedStorageGeneration{
+        StorageGeneration::FromString("g0"), absl::Now()});
+  }
+
+  TENSORSTORE_ASSERT_OK(txn.future());
 }
 
 // Tests that an empty path is handled correctly.

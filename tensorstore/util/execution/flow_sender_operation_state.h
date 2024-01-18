@@ -52,6 +52,7 @@ struct FlowSenderOperationState
         this->shared_receiver->receiver, [promise = this->promise] {
           SetDeferredResult(promise, absl::CancelledError(""));
         });
+    future.Force();
     std::move(future).ExecuteWhenReady(
         [shared_receiver = this->shared_receiver](ReadyFuture<void> future) {
           auto& result = future.result();

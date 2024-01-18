@@ -114,10 +114,35 @@ Future<TimestampedStorageGeneration> Write(const KvStore& store,
   return TimestampedStorageGeneration();
 }
 
+Future<TimestampedStorageGeneration> WriteCommitted(const KvStore& store,
+                                                    std::string_view key,
+                                                    std::optional<Value> value,
+                                                    WriteOptions options) {
+  auto full_key = tensorstore::StrCat(store.path, key);
+  if (store.transaction == no_transaction) {
+    // Regular non-transactional write.
+    return store.driver->Write(std::move(full_key), std::move(value),
+                               std::move(options));
+  }
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      auto open_transaction,
+      internal::AcquireOpenTransactionPtrOrError(store.transaction));
+  size_t phase;
+  return internal_kvstore::WriteViaExistingTransaction(
+      store.driver.get(), open_transaction, phase, std::move(full_key),
+      std::move(value), std::move(options));
+}
+
 Future<TimestampedStorageGeneration> Delete(const KvStore& store,
                                             std::string_view key,
                                             WriteOptions options) {
   return Write(store, key, std::nullopt, std::move(options));
+}
+
+Future<TimestampedStorageGeneration> DeleteCommitted(const KvStore& store,
+                                                     std::string_view key,
+                                                     WriteOptions options) {
+  return WriteCommitted(store, key, std::nullopt, std::move(options));
 }
 
 Future<const void> DeleteRange(Driver* driver,

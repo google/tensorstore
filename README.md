@@ -21,7 +21,7 @@ storage and manipulation of large multi-dimensional arrays that:
 * Offers an asynchronous API to enable high-throughput access even to
   high-latency remote storage.
 
-* Supports read/writeback caching and transactions, with strong atomicity,
+* Supports read caching and transactions, with strong atomicity,
   isolation, consistency, and durability (ACID) guarantees.
 
 * Supports safe, efficient access from multiple processes and machines via

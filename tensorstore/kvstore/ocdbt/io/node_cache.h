@@ -127,13 +127,13 @@ class DecodedIndirectDataCache
 
 template <typename Derived>
 internal::CachePtr<Derived> GetDecodedIndirectDataCache(
-    internal::CachePool& pool, const kvstore::DriverPtr& kvstore_driver,
+    internal::CachePool* pool, const kvstore::DriverPtr& kvstore_driver,
     const Context::Resource<internal::DataCopyConcurrencyResource>&
         data_copy_concurrency) {
   std::string cache_identifier;
   internal::EncodeCacheKey(&cache_identifier, data_copy_concurrency,
                            kvstore_driver);
-  return pool.GetCache<Derived>(cache_identifier, [&] {
+  return internal::GetCache<Derived>(pool, cache_identifier, [&] {
     return std::make_unique<Derived>(kvstore_driver,
                                      data_copy_concurrency->executor);
   });

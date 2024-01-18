@@ -187,7 +187,7 @@ CachePtr<KvsBackedTestCache> KvsBackedTestCache::Make(
   if (!pool) {
     pool = CachePool::Make(CachePool::Limits{});
   }
-  return pool->GetCache<KvsBackedTestCache>(cache_identifier, [&] {
+  return GetCache<KvsBackedTestCache>(pool.get(), cache_identifier, [&] {
     return std::make_unique<KvsBackedTestCache>(kvstore);
   });
 }

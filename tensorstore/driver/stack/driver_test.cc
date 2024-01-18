@@ -85,7 +85,7 @@ using ::tensorstore::span;
   if (exclusive_max == -1) {
     exclusive_max = inclusive_min + 4;
   }
-  auto path = absl::StrCat("p", inclusive_min, exclusive_max, "/");
+  auto path = absl::StrCat("p", inclusive_min, "_", exclusive_max, "/");
   auto result = ::nlohmann::json{
       {"driver", "n5"},
       {"kvstore",

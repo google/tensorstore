@@ -249,6 +249,7 @@ TEST(JsonDriverTest, ReadError) {
   {
     auto write_future =
         tensorstore::Write(MakeScalarArray<::nlohmann::json>(42), store);
+    write_future.Force();
     TENSORSTORE_EXPECT_OK(write_future.copy_future);
     mock_key_value_store->read_requests.pop().promise.SetResult(
         absl::UnknownError("read error2"));
@@ -274,6 +275,7 @@ TEST(JsonDriverTest, ConditionalWriteback) {
   {
     auto write_future =
         tensorstore::Write(MakeScalarArray<::nlohmann::json>(42), store);
+    write_future.Force();
     TENSORSTORE_EXPECT_OK(write_future.copy_future);
     mock_key_value_store->read_requests.pop()(memory_store);
     mock_key_value_store->write_requests.pop()(memory_store);
@@ -284,6 +286,7 @@ TEST(JsonDriverTest, ConditionalWriteback) {
   {
     auto write_future =
         tensorstore::Write(MakeScalarArray<::nlohmann::json>(42), store);
+    write_future.Force();
     TENSORSTORE_EXPECT_OK(write_future.copy_future);
     mock_key_value_store->read_requests.pop()(memory_store);
     // No write request, since value is unchanged.
@@ -304,6 +307,7 @@ TEST(JsonDriverTest, UnconditionalWriteback) {
                                    tensorstore::Open(spec, context).result());
   auto write_future =
       tensorstore::Write(MakeScalarArray<::nlohmann::json>(42), store);
+  write_future.Force();
   {
     auto write_req = mock_key_value_store->write_requests.pop();
     EXPECT_EQ(tensorstore::StorageGeneration::Unknown(),
@@ -315,29 +319,21 @@ TEST(JsonDriverTest, UnconditionalWriteback) {
 
 TEST(JsonDriverTest, ZeroElementWrite) {
   auto json_spec = GetSpec("");
-  json_spec["cache_pool"] = {{"total_bytes_limit", 10000000}};
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
-                                   tensorstore::Open(json_spec).result());
-  // Confirm that a one-element write is not immediately committed due to cache.
-  {
-    auto write_future =
-        tensorstore::Write(MakeScalarArray<::nlohmann::json>(42), store);
-    TENSORSTORE_EXPECT_OK(write_future.copy_future);
-    absl::SleepFor(absl::Milliseconds(10));
-    EXPECT_FALSE(write_future.commit_future.ready());
-    // When forced, future becomes ready.
-    TENSORSTORE_EXPECT_OK(write_future.commit_future);
-  }
-
+  json_spec["kvstore"] = {{"driver", "mock_key_value_store"},
+                          {"path", GetPath()}};
+  auto context = tensorstore::Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto mock_key_value_store_resource,
+      context.GetResource<tensorstore::internal::MockKeyValueStoreResource>());
+  auto mock_key_value_store = *mock_key_value_store_resource;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, tensorstore::Open(json_spec, context).result());
   // Test that a write to zero elements is detected as a non-modification, and
   // leads to an immediately-ready future.
   {
     auto write_future = tensorstore::Write(
         tensorstore::AllocateArray<::nlohmann::json>({0}),
         store | tensorstore::Dims(0).AddNew().SizedInterval(0, 0));
-    TENSORSTORE_EXPECT_OK(write_future.copy_future);
-    absl::SleepFor(absl::Milliseconds(10));
-    EXPECT_TRUE(write_future.commit_future.ready());
     TENSORSTORE_EXPECT_OK(write_future.commit_future);
   }
 }

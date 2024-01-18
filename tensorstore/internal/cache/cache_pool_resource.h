@@ -23,6 +23,8 @@ namespace internal {
 /// Context resource corresponding to a CachePool.
 struct CachePoolResource {
   static constexpr char id[] = "cache_pool";
+
+  // nullptr indicates the cache is disabled completely.
   using Resource = CachePool::WeakPtr;
 };
 

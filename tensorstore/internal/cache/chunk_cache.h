@@ -95,7 +95,7 @@ class ChunkCache : public AsyncCache {
     /// Returns the grid cell index vector corresponding to this cache entry.
     span<const Index> cell_indices() {
       return {reinterpret_cast<const Index*>(key().data()),
-              static_cast<std::ptrdiff_t>(key().size() / sizeof(Index))};
+              static_cast<ptrdiff_t>(key().size() / sizeof(Index))};
     }
 
     span<const ChunkGridSpecification::Component> component_specs() {
@@ -104,7 +104,7 @@ class ChunkCache : public AsyncCache {
 
     Future<const void> Delete(internal::OpenTransactionPtr transaction);
 
-    std::size_t ComputeReadDataSizeInBytes(const void* read_data) override;
+    size_t ComputeReadDataSizeInBytes(const void* read_data) override;
   };
 
   class TransactionNode : public AsyncCache::TransactionNode {
@@ -120,7 +120,7 @@ class ChunkCache : public AsyncCache {
     /// Overwrites all components with the fill value.
     absl::Status Delete();
 
-    std::size_t ComputeWriteStateSizeInBytes() override;
+    size_t ComputeWriteStateSizeInBytes() override;
 
     span<const ChunkGridSpecification::Component> component_specs() {
       return GetOwningCache(*this).grid().components;

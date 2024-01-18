@@ -43,15 +43,15 @@ using ::tensorstore::no_transaction;
 using ::tensorstore::Transaction;
 using ::tensorstore::UniqueWriterLock;
 using ::tensorstore::internal::AsyncCache;
-using ::tensorstore::internal::CacheEntryQueueState;
 using ::tensorstore::internal::CachePool;
+using ::tensorstore::internal::GetCache;
 using ::tensorstore::internal::OpenTransactionPtr;
 using ::tensorstore::internal::PinnedCacheEntry;
 using ::tensorstore::internal::TransactionState;
 using ::tensorstore::internal::UniqueNow;
 using ::tensorstore::internal::WeakTransactionNodePtr;
 
-constexpr CachePool::Limits kSmallCacheLimits{10000000, 5000000};
+constexpr CachePool::Limits kSmallCacheLimits{10000000};
 
 struct RequestLog {
   struct ReadRequest {
@@ -93,6 +93,12 @@ struct RequestLog {
   tensorstore::internal::ConcurrentQueue<TransactionReadRequest>
       transaction_reads;
   tensorstore::internal::ConcurrentQueue<WritebackRequest> writebacks;
+
+  void HandleWritebacks() {
+    while (auto req = writebacks.pop_nonblock()) {
+      req->Success();
+    }
+  }
 };
 
 class TestCache : public tensorstore::internal::AsyncCache {
@@ -117,10 +123,6 @@ class TestCache : public tensorstore::internal::AsyncCache {
 
     void DoRead(absl::Time staleness_bound) override {
       GetOwningCache(*this).log_->reads.push(RequestLog::ReadRequest{this});
-    }
-
-    bool ShareImplicitTransactionNodes() override {
-      return share_implicit_transaction_nodes;
     }
 
     size_t ComputeReadDataSizeInBytes(const void* data) override {
@@ -176,8 +178,8 @@ class TestCache : public tensorstore::internal::AsyncCache {
 TEST(AsyncCacheTest, ReadBasic) {
   auto pool = CachePool::Make(CachePool::Limits{});
   RequestLog log;
-  auto cache = pool->GetCache<TestCache>(
-      "", [&] { return std::make_unique<TestCache>(&log); });
+  auto cache = GetCache<TestCache>(
+      pool.get(), "", [&] { return std::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
   absl::Time read_time1, read_time2;
@@ -345,8 +347,8 @@ TEST(AsyncCacheTest, ReadBasic) {
 TEST(AsyncCacheTest, ReadFailed) {
   auto pool = CachePool::Make(kSmallCacheLimits);
   RequestLog log;
-  auto cache = pool->GetCache<TestCache>(
-      "", [&] { return std::make_unique<TestCache>(&log); });
+  auto cache = GetCache<TestCache>(
+      pool.get(), "", [&] { return std::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
   const auto read_status = absl::UnknownError("read failed");
@@ -385,8 +387,8 @@ TEST(AsyncCacheTest, ReadFailed) {
 TEST(AsyncCacheTest, ReadFailedAfterSuccessfulRead) {
   auto pool = CachePool::Make(kSmallCacheLimits);
   RequestLog log;
-  auto cache = pool->GetCache<TestCache>(
-      "", [&] { return std::make_unique<TestCache>(&log); });
+  auto cache = GetCache<TestCache>(
+      pool.get(), "", [&] { return std::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
   // First initialize the entry with a successful read.
@@ -441,8 +443,8 @@ TEST(AsyncCacheTest, ReadFailedAfterSuccessfulRead) {
 TEST(AsyncCacheTest, NonTransactionalWrite) {
   auto pool = CachePool::Make(kSmallCacheLimits);
   RequestLog log;
-  auto cache = pool->GetCache<TestCache>(
-      "", [&] { return std::make_unique<TestCache>(&log); });
+  auto cache = GetCache<TestCache>(
+      pool.get(), "", [&] { return std::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
   WeakTransactionNodePtr<TestCache::TransactionNode> weak_node;
@@ -454,10 +456,6 @@ TEST(AsyncCacheTest, NonTransactionalWrite) {
     write_future = node->transaction()->future();
   }
 
-  ASSERT_FALSE(write_future.ready());
-  ASSERT_EQ(0, log.reads.size());
-  ASSERT_EQ(0, log.writebacks.size());
-  write_future.Force();
   ASSERT_FALSE(write_future.ready());
   ASSERT_EQ(0, log.reads.size());
   ASSERT_EQ(1, log.writebacks.size());
@@ -475,17 +473,12 @@ TEST(AsyncCacheTest, NonTransactionalWrite) {
 TEST(AsyncCacheTest, NonTransactionalWriteback) {
   auto pool = CachePool::Make(kSmallCacheLimits);
   RequestLog log;
-  auto cache = pool->GetCache<TestCache>(
-      "", [&] { return std::make_unique<TestCache>(&log); });
+  auto cache = GetCache<TestCache>(
+      pool.get(), "", [&] { return std::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
   auto write_future = entry->CreateWriteTransactionFuture();
 
-  ASSERT_FALSE(write_future.ready());
-  ASSERT_EQ(0, log.reads.size());
-  ASSERT_EQ(0, log.writebacks.size());
-
-  write_future.Force();
   ASSERT_FALSE(write_future.ready());
   ASSERT_EQ(0, log.reads.size());
   ASSERT_EQ(1, log.writebacks.size());
@@ -521,35 +514,11 @@ TEST(AsyncCacheTest, NonTransactionalWriteback) {
   }
 }
 
-// Tests that an implicit transaction is destroyed if there are no references to
-// the writeback future.
-TEST(AsyncCacheTest, WritebackCancelled) {
-  auto pool = CachePool::Make(kSmallCacheLimits);
-  RequestLog log;
-  auto cache = pool->GetCache<TestCache>(
-      "", [&] { return std::make_unique<TestCache>(&log); });
-  auto entry = GetCacheEntry(cache, "a");
-
-  auto write_future = entry->CreateWriteTransactionFuture();
-
-  ASSERT_FALSE(write_future.ready());
-  ASSERT_EQ(0, log.reads.size());
-  ASSERT_EQ(0, log.writebacks.size());
-  EXPECT_EQ(CacheEntryQueueState::dirty, entry->queue_state());
-
-  write_future = Future<void>();
-
-  EXPECT_EQ(CacheEntryQueueState::clean_and_in_use, entry->queue_state());
-
-  ASSERT_EQ(0, log.reads.size());
-  ASSERT_EQ(0, log.writebacks.size());
-}
-
 TEST(AsyncCacheTest, WritebackRequestedWithReadIssued) {
   auto pool = CachePool::Make(kSmallCacheLimits);
   RequestLog log;
-  auto cache = pool->GetCache<TestCache>(
-      "", [&] { return std::make_unique<TestCache>(&log); });
+  auto cache = GetCache<TestCache>(
+      pool.get(), "", [&] { return std::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
   auto read_future = entry->Read(absl::InfiniteFuture());
@@ -584,56 +553,14 @@ TEST(AsyncCacheTest, WritebackRequestedWithReadIssued) {
   ASSERT_EQ(0, log.writebacks.size());
 }
 
-// Tests that two writes issued before writeback starts share the same
-// transaction.
-TEST(AsyncCacheTest, WriteFutureSharing) {
-  auto pool = CachePool::Make(kSmallCacheLimits);
-  RequestLog log;
-  auto cache = pool->GetCache<TestCache>(
-      "", [&] { return std::make_unique<TestCache>(&log); });
-  auto entry = GetCacheEntry(cache, "a");
-
-  auto write_future = entry->CreateWriteTransactionFuture();
-  auto write_future2 = entry->CreateWriteTransactionFuture();
-  EXPECT_TRUE(HaveSameSharedState(write_future, write_future2));
-}
-
-TEST(AsyncCacheTest, WriteFutureSharingAfterWritebackIssued) {
-  auto pool = CachePool::Make(kSmallCacheLimits);
-  RequestLog log;
-  auto cache = pool->GetCache<TestCache>(
-      "", [&] { return std::make_unique<TestCache>(&log); });
-  auto entry = GetCacheEntry(cache, "a");
-
-  auto write_future = entry->CreateWriteTransactionFuture();
-
-  ASSERT_FALSE(write_future.ready());
-  ASSERT_EQ(0, log.reads.size());
-  ASSERT_EQ(0, log.writebacks.size());
-  write_future.Force();
-  ASSERT_FALSE(write_future.ready());
-  ASSERT_EQ(0, log.reads.size());
-  ASSERT_EQ(1, log.writebacks.size());
-
-  auto write_req = log.writebacks.pop();
-  write_req.Success();
-  auto write_future2 = entry->CreateWriteTransactionFuture();
-  EXPECT_FALSE(HaveSameSharedState(write_future, write_future2));
-  auto write_future3 = entry->CreateWriteTransactionFuture();
-  EXPECT_TRUE(HaveSameSharedState(write_future2, write_future3));
-  ASSERT_FALSE(write_future2.ready());
-}
-
 TEST(AsyncCacheTest, WritebackRequestedByCache) {
   auto pool = CachePool::Make(CachePool::Limits{});
   RequestLog log;
-  auto cache = pool->GetCache<TestCache>(
-      "", [&] { return std::make_unique<TestCache>(&log); });
+  auto cache = GetCache<TestCache>(
+      pool.get(), "", [&] { return std::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
 
   auto write_future = entry->CreateWriteTransactionFuture();
-  EXPECT_EQ(CacheEntryQueueState::writeback_requested, entry->queue_state());
-
   ASSERT_FALSE(write_future.ready());
   ASSERT_EQ(0, log.reads.size());
   ASSERT_EQ(1, log.writebacks.size());
@@ -646,14 +573,13 @@ TEST(AsyncCacheTest, WritebackRequestedByCache) {
   TENSORSTORE_ASSERT_OK(write_future);
   ASSERT_EQ(0, log.reads.size());
   ASSERT_EQ(0, log.writebacks.size());
-  EXPECT_EQ(CacheEntryQueueState::clean_and_in_use, entry->queue_state());
 }
 
 TEST(AsyncCacheTest, TransactionalReadBasic) {
   auto pool = CachePool::Make(CachePool::Limits{});
   RequestLog log;
-  auto cache = pool->GetCache<TestCache>(
-      "", [&] { return std::make_unique<TestCache>(&log); });
+  auto cache = GetCache<TestCache>(
+      pool.get(), "", [&] { return std::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
   auto transaction = Transaction(tensorstore::atomic_isolated);
 
@@ -842,8 +768,8 @@ TEST(AsyncCacheTest, TransactionalReadBasic) {
 TEST(AsyncCacheTest, TransactionalWritebackSuccess) {
   auto pool = CachePool::Make(kSmallCacheLimits);
   RequestLog log;
-  auto cache = pool->GetCache<TestCache>(
-      "", [&] { return std::make_unique<TestCache>(&log); });
+  auto cache = GetCache<TestCache>(
+      pool.get(), "", [&] { return std::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
   auto transaction = Transaction(tensorstore::atomic_isolated);
 
@@ -872,8 +798,8 @@ TEST(AsyncCacheTest, TransactionalWritebackSuccess) {
 TEST(AsyncCacheTest, TransactionalWritebackError) {
   auto pool = CachePool::Make(kSmallCacheLimits);
   RequestLog log;
-  auto cache = pool->GetCache<TestCache>(
-      "", [&] { return std::make_unique<TestCache>(&log); });
+  auto cache = GetCache<TestCache>(
+      pool.get(), "", [&] { return std::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
   auto transaction = Transaction(tensorstore::isolated);
   WeakTransactionNodePtr<TestCache::TransactionNode> weak_node;
@@ -900,8 +826,8 @@ TEST(AsyncCacheTest, TransactionalWritebackError) {
 TEST(AsyncCacheTest, ConcurrentTransactionCommit) {
   auto pool = CachePool::Make(kSmallCacheLimits);
   RequestLog log;
-  auto cache = pool->GetCache<TestCache>(
-      "", [&] { return std::make_unique<TestCache>(&log); });
+  auto cache = GetCache<TestCache>(
+      pool.get(), "", [&] { return std::make_unique<TestCache>(&log); });
   static constexpr size_t kNumEntries = 2;
   tensorstore::internal::PinnedCacheEntry<TestCache> entries[kNumEntries];
   for (size_t i = 0; i < kNumEntries; ++i) {
@@ -971,8 +897,8 @@ TEST(AsyncCacheTest, ConcurrentTransactionCommit) {
 TEST(AsyncCacheTest, DoInitializeTransactionError) {
   auto pool = CachePool::Make(kSmallCacheLimits);
   RequestLog log;
-  auto cache = pool->GetCache<TestCache>(
-      "", [&] { return std::make_unique<TestCache>(&log); });
+  auto cache = GetCache<TestCache>(
+      pool.get(), "", [&] { return std::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
   entry->do_initialize_transaction_error = absl::UnknownError("initialize");
 
@@ -1001,8 +927,8 @@ TEST(AsyncCacheTest, DoInitializeTransactionError) {
 TEST(AsyncCacheTest, ConcurrentInitializeExplicitTransaction) {
   auto pool = CachePool::Make(kSmallCacheLimits);
   RequestLog log;
-  auto cache = pool->GetCache<TestCache>(
-      "", [&] { return std::make_unique<TestCache>(&log); });
+  auto cache = GetCache<TestCache>(
+      pool.get(), "", [&] { return std::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
   OpenTransactionPtr open_transaction;
   tensorstore::internal::TestConcurrent<2>(
@@ -1029,15 +955,15 @@ TEST(AsyncCacheTest, ConcurrentInitializeExplicitTransaction) {
 TEST(AsyncCacheTest, ConcurrentInitializeImplicitTransaction) {
   auto pool = CachePool::Make(kSmallCacheLimits);
   RequestLog log;
-  auto cache = pool->GetCache<TestCache>(
-      "", [&] { return std::make_unique<TestCache>(&log); });
+  auto cache = GetCache<TestCache>(
+      pool.get(), "", [&] { return std::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
   tensorstore::internal::TestConcurrent<2>(
       /*num_iterations=*/100,
       /*initialize=*/
       [] {},
       /*finalize=*/
-      [] {},
+      [&] { log.HandleWritebacks(); },
       /*concurrent_op=*/
       [&](size_t i) {
         OpenTransactionPtr transaction;
@@ -1047,60 +973,27 @@ TEST(AsyncCacheTest, ConcurrentInitializeImplicitTransaction) {
       });
 }
 
-// Tests that implicit transaction nodes are shared when
-// `ShareImplicitTransactionNodes()` returns `true`.
-TEST(AsyncCacheTest, ShareImplicitTransactionNodesTrue) {
-  auto pool = CachePool::Make(kSmallCacheLimits);
-  RequestLog log;
-  auto cache = pool->GetCache<TestCache>(
-      "", [&] { return std::make_unique<TestCache>(&log); });
-  auto entry = GetCacheEntry(cache, "a");
-  auto node = entry->CreateWriteTransaction();
-  EXPECT_EQ(node, entry->CreateWriteTransaction());
-}
-
 // Tests that implicit transaction nodes are not shared when
 // `ShareImplicitTransactionNodes()` returns `false`.
 TEST(AsyncCacheTest, ShareImplicitTransactionNodesFalse) {
   auto pool = CachePool::Make(kSmallCacheLimits);
   RequestLog log;
-  auto cache = pool->GetCache<TestCache>(
-      "", [&] { return std::make_unique<TestCache>(&log); });
+  auto cache = GetCache<TestCache>(
+      pool.get(), "", [&] { return std::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
-  entry->share_implicit_transaction_nodes = false;
   auto node = entry->CreateWriteTransaction();
-  EXPECT_NE(node, entry->CreateWriteTransaction());
-}
-
-// Tests that a single entry cannot have more than two associated implicit
-// transactions if `ShareImplicitTransactionNodes()` is `false`.
-TEST(AsyncCacheTest, NotMoreThanTwoImplicitTransactions) {
-  auto pool = CachePool::Make(CachePool::Limits{});
-  RequestLog log;
-  auto cache = pool->GetCache<TestCache>(
-      "", [&] { return std::make_unique<TestCache>(&log); });
-  auto entry = GetCacheEntry(cache, "a");
-
-  auto future0 = entry->CreateWriteTransactionFuture();
-  future0.Force();
-  auto future1 = entry->CreateWriteTransactionFuture();
-  future1.Force();
-  auto future2 = entry->CreateWriteTransactionFuture();
-  future2.Force();
-
-  EXPECT_FALSE(HaveSameSharedState(future0, future1));
-  EXPECT_TRUE(HaveSameSharedState(future1, future2));
-
-  log.writebacks.pop().Success();
-  log.writebacks.pop().Success();
-  EXPECT_EQ(0, log.writebacks.size());
+  auto node2 = entry->CreateWriteTransaction();
+  EXPECT_NE(node, node2);
+  node = {};
+  node2 = {};
+  log.HandleWritebacks();
 }
 
 TEST(AsyncCacheTest, ReadSizeInBytes) {
-  auto pool = CachePool::Make(CachePool::Limits{20000, 10000});
+  auto pool = CachePool::Make(CachePool::Limits{20000});
   RequestLog log;
-  auto cache = pool->GetCache<TestCache>(
-      "", [&] { return std::make_unique<TestCache>(&log); });
+  auto cache = GetCache<TestCache>(
+      pool.get(), "", [&] { return std::make_unique<TestCache>(&log); });
 
   {
     auto entry = GetCacheEntry(cache, "a");
@@ -1154,58 +1047,11 @@ TEST(AsyncCacheTest, ReadSizeInBytes) {
   }
 }
 
-TEST(AsyncCacheTest, ImplicitTransactionSize) {
-  auto pool = CachePool::Make(CachePool::Limits{20000, 10000});
-  RequestLog log;
-  auto cache = pool->GetCache<TestCache>(
-      "", [&] { return std::make_unique<TestCache>(&log); });
-
-  auto entry = GetCacheEntry(cache, "a");
-
-  Future<const void> write_future;
-  {
-    auto node = entry->CreateWriteTransaction();
-    UniqueWriterLock lock(*node);
-    node->size = 9000;
-    node->MarkSizeUpdated();
-    write_future = node->transaction()->future();
-  }
-
-  // Writeback was not started because size is less than
-  // `queued_for_writeback_bytes_limit`.
-  EXPECT_TRUE(log.writebacks.empty());
-
-  {
-    auto node = entry->CreateWriteTransaction();
-    UniqueWriterLock lock(*node);
-    EXPECT_EQ(9000, node->size);
-    node->size = 11000;
-    node->MarkSizeUpdated();
-  }
-
-  log.writebacks.pop().Success();
-
-  ASSERT_TRUE(write_future.ready());
-
-  auto entry2 = GetCacheEntry(cache, "b");
-  {
-    auto node = entry2->CreateWriteTransaction();
-    UniqueWriterLock lock(*node);
-    node->size = 9000;
-    node->MarkSizeUpdated();
-  }
-
-  // Writeback was not started because size is less than
-  // `queued_for_writeback_bytes_limit`, now that the implicit transaction for
-  // `entry` has been committed.
-  EXPECT_TRUE(log.writebacks.empty());
-}
-
 TEST(AsyncCacheTest, ExplicitTransactionSize) {
-  auto pool = CachePool::Make(CachePool::Limits{20000, 10000});
+  auto pool = CachePool::Make(CachePool::Limits{20000});
   RequestLog log;
-  auto cache = pool->GetCache<TestCache>(
-      "", [&] { return std::make_unique<TestCache>(&log); });
+  auto cache = GetCache<TestCache>(
+      pool.get(), "", [&] { return std::make_unique<TestCache>(&log); });
 
   // Create canary entry to detect eviction.
   {
@@ -1259,8 +1105,8 @@ TEST(AsyncCacheTest, ExplicitTransactionSize) {
 void TestRevokedTransactionNode(bool reverse_order) {
   auto pool = CachePool::Make(CachePool::Limits{});
   RequestLog log;
-  auto cache = pool->GetCache<TestCache>(
-      "", [&] { return std::make_unique<TestCache>(&log); });
+  auto cache = GetCache<TestCache>(
+      pool.get(), "", [&] { return std::make_unique<TestCache>(&log); });
   auto entry = GetCacheEntry(cache, "a");
   auto transaction = Transaction(tensorstore::atomic_isolated);
 

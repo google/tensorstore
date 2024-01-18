@@ -18,6 +18,7 @@
 
 #include "tensorstore/internal/cache/kvs_backed_cache.h"
 
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -83,9 +84,9 @@ class MockStoreTest : public ::testing::Test {
       std::string cache_identifier = {},
       kvstore::DriverPtr kvstore_driver = {}) {
     if (!kvstore_driver) kvstore_driver = mock_store;
-    return pool->GetCache<KvsBackedTestCache>(cache_identifier, [&] {
-      return std::make_unique<KvsBackedTestCache>(kvstore_driver);
-    });
+    return tensorstore::internal::GetCache<KvsBackedTestCache>(
+        pool.get(), cache_identifier,
+        [&] { return std::make_unique<KvsBackedTestCache>(kvstore_driver); });
   }
 
   tensorstore::internal::CachePtr<KvsBackedTestCache> cache = GetCache();
@@ -874,31 +875,5 @@ class InitializationRaceTestingKvstore : public MockKeyValueStore {
                                               std::move(key), source);
   }
 };
-
-// Tests that `AsyncCache::DoRequestWriteback` on an entry can be safely called
-// before the entry's `implicit_transaction_node_` has been fully initialized.
-TEST(InitializeTest, Basic) {
-  auto mock_kvstore = tensorstore::internal::MakeIntrusivePtr<
-      InitializationRaceTestingKvstore>();
-  CachePool::StrongPtr pool = CachePool::Make(CachePool::Limits{});
-  kvstore::DriverPtr memory_store = tensorstore::GetMemoryKeyValueStore();
-  auto cache = pool->GetCache<KvsBackedTestCache>(
-      "", [&] { return std::make_unique<KvsBackedTestCache>(mock_kvstore); });
-  auto entry = GetCacheEntry(cache, "a");
-  mock_kvstore->on_read_modify_write = [&] {
-    cache->DoRequestWriteback(entry);
-  };
-
-  {
-    Transaction transaction{tensorstore::no_transaction};
-    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-        auto open_transaction,
-        tensorstore::internal::AcquireOpenTransactionPtrOrError(transaction));
-    TENSORSTORE_ASSERT_OK(entry->Modify(open_transaction, true, "abc"));
-  }
-
-  auto req = mock_kvstore->write_requests.pop();
-  req(memory_store);
-}
 
 }  // namespace

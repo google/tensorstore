@@ -66,6 +66,7 @@ namespace zlib = ::tensorstore::zlib;
 namespace kvstore = ::tensorstore::kvstore;
 
 using ::tensorstore::Future;
+using ::tensorstore::KvStore;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::OptionalByteRangeRequest;
 using ::tensorstore::Result;
@@ -73,6 +74,7 @@ using ::tensorstore::StorageGeneration;
 using ::tensorstore::TimestampedStorageGeneration;
 using ::tensorstore::Transaction;
 using ::tensorstore::internal::CachePool;
+using ::tensorstore::internal::GetCache;
 using ::tensorstore::internal::KvsBackedTestCache;
 using ::tensorstore::internal::MatchesKvsReadResult;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
@@ -84,7 +86,7 @@ using ::tensorstore::neuroglancer_uint64_sharded::ChunkIdToKey;
 using ::tensorstore::neuroglancer_uint64_sharded::GetShardedKeyValueStore;
 using ::tensorstore::neuroglancer_uint64_sharded::ShardingSpec;
 
-constexpr CachePool::Limits kSmallCacheLimits{10000000, 5000000};
+constexpr CachePool::Limits kSmallCacheLimits{10000000};
 
 absl::Cord Bytes(std::initializer_list<unsigned char> x) {
   return absl::Cord(std::string(x.begin(), x.end()));
@@ -218,12 +220,11 @@ TEST_F(RawEncodingTest, MultipleUnconditionalWrites) {
                                  absl::Cord("efgh")};
   std::vector<Future<TimestampedStorageGeneration>> futures;
   auto key = GetChunkKey(10);
+  tensorstore::Transaction txn(tensorstore::isolated);
   for (auto value : values) {
-    futures.push_back(store->Write(key, value));
+    futures.push_back(kvstore::WriteCommitted(KvStore{store, txn}, key, value));
   }
-  // Nothing is written until `Force`/`result` is called.
-  EXPECT_THAT(GetMap(base_kv_store),
-              ::testing::Optional(::testing::ElementsAre()));
+  txn.CommitAsync().IgnoreFuture();
   std::vector<Result<TimestampedStorageGeneration>> results;
   for (const auto& future : futures) {
     results.push_back(future.result());
@@ -262,27 +263,45 @@ TEST_F(RawEncodingTest, List) {
 }
 
 TEST_F(RawEncodingTest, WritesAndDeletes) {
-  auto init_future1 = store->Write(GetChunkKey(1), absl::Cord("a"));
-  auto init_future2 = store->Write(GetChunkKey(2), absl::Cord("bc"));
-  auto init_future3 = store->Write(GetChunkKey(3), absl::Cord("def"));
+  StorageGeneration gen1, gen2, gen3;
 
-  auto gen1 = init_future1.value().generation;
-  auto gen2 = init_future2.value().generation;
-  auto gen3 = init_future3.value().generation;
+  {
+    tensorstore::Transaction txn(tensorstore::isolated);
+    auto init_future1 = kvstore::WriteCommitted(
+        KvStore{store, txn}, GetChunkKey(1), absl::Cord("a"));
+    auto init_future2 = kvstore::WriteCommitted(
+        KvStore{store, txn}, GetChunkKey(2), absl::Cord("bc"));
+    auto init_future3 = kvstore::WriteCommitted(
+        KvStore{store, txn}, GetChunkKey(3), absl::Cord("def"));
+    txn.CommitAsync().IgnoreFuture();
+
+    gen1 = init_future1.value().generation;
+    gen2 = init_future2.value().generation;
+    gen3 = init_future3.value().generation;
+  }
+
+  tensorstore::Transaction txn(tensorstore::isolated);
 
   // Conditional delete with mismatched generation.
-  auto future1 = store->Delete(GetChunkKey(1), {StorageGeneration::NoValue()});
+  auto future1 = kvstore::DeleteCommitted(KvStore{store, txn}, GetChunkKey(1),
+                                          {StorageGeneration::NoValue()});
 
   // Conditional write with matching generation.
-  auto future2 = store->Write(GetChunkKey(2), absl::Cord("ww"), {gen2});
-  auto future3 = store->Write(GetChunkKey(2), absl::Cord("xx"), {gen2});
+  auto future2 = kvstore::WriteCommitted(KvStore{store, txn}, GetChunkKey(2),
+                                         absl::Cord("ww"), {gen2});
+  auto future3 = kvstore::WriteCommitted(KvStore{store, txn}, GetChunkKey(2),
+                                         absl::Cord("xx"), {gen2});
 
   // Conditional write with matching generation
-  auto future4 = store->Write(GetChunkKey(4), absl::Cord("zz"),
-                              {StorageGeneration::NoValue()});
+  auto future4 =
+      kvstore::WriteCommitted(KvStore{store, txn}, GetChunkKey(4),
+                              absl::Cord("zz"), {StorageGeneration::NoValue()});
 
   // Conditional delete with matching generation.
-  auto future5 = store->Delete(GetChunkKey(3), {gen3});
+  auto future5 =
+      kvstore::DeleteCommitted(KvStore{store, txn}, GetChunkKey(3), {gen3});
+
+  txn.CommitAsync().IgnoreFuture();
 
   EXPECT_THAT(future1.result(), MatchesTimestampedStorageGeneration(
                                     StorageGeneration::Unknown()));
@@ -319,7 +338,8 @@ std::vector<std::vector<Result<TimestampedStorageGeneration>>>
 TestOrderDependentWrites(
     std::function<void()> init,
     std::function<Future<TimestampedStorageGeneration>()> op0,
-    std::function<Future<TimestampedStorageGeneration>()> op1) {
+    std::function<Future<TimestampedStorageGeneration>()> op1,
+    std::function<void()> finalize) {
   std::vector<std::vector<Result<TimestampedStorageGeneration>>> all_results;
   for (int i = 0; i < 2; ++i) {
     std::vector<Future<TimestampedStorageGeneration>> futures(2);
@@ -331,6 +351,7 @@ TestOrderDependentWrites(
       futures[1] = op1();
       futures[0] = op0();
     }
+    finalize();
     all_results.push_back({futures[0].result(), futures[1].result()});
   }
   return all_results;
@@ -347,6 +368,7 @@ TEST_F(RawEncodingTest, WriteThenDelete) {
 
 TEST_F(RawEncodingTest, MultipleDeleteExisting) {
   StorageGeneration gen;
+  tensorstore::Transaction txn{tensorstore::no_transaction};
   EXPECT_THAT(
       TestOrderDependentWrites(
           /*init=*/
@@ -354,19 +376,23 @@ TEST_F(RawEncodingTest, MultipleDeleteExisting) {
             gen = store->Write(GetChunkKey(1), absl::Cord("a"))
                       .value()
                       .generation;
+            txn = tensorstore::Transaction(tensorstore::isolated);
           },
           /*op0=*/
           [&] {
             // Delete conditioned on `gen` is guaranteed to succeed.
-            return store->Delete(GetChunkKey(1), {/*.if_equal=*/gen});
+            return kvstore::DeleteCommitted(KvStore{store, txn}, GetChunkKey(1),
+                                            {/*.if_equal=*/gen});
           },
           /*op1=*/
           [&] {
             // Delete conditioned on `StorageGeneration::NoValue()` succeeds if
             // it is attempted after the other delete, otherwise it fails.
-            return store->Delete(GetChunkKey(1),
-                                 {/*.if_equal=*/StorageGeneration::NoValue()});
-          }),
+            return kvstore::DeleteCommitted(
+                KvStore{store, txn}, GetChunkKey(1),
+                {/*.if_equal=*/StorageGeneration::NoValue()});
+          },
+          /*finalize=*/[&] { txn.CommitAsync().IgnoreFuture(); }),
       // Test we covered each of the two cases (corresponding to different sort
       // orders) exactly once.
       ::testing::UnorderedElementsAre(
@@ -383,22 +409,28 @@ TEST_F(RawEncodingTest, MultipleDeleteExisting) {
 // Tests that a conditional `Write` performed in the same commit after another
 // `Write` fails.
 TEST_F(RawEncodingTest, WriteWithUnmatchedConditionAfterDelete) {
+  tensorstore::Transaction txn{tensorstore::no_transaction};
   EXPECT_THAT(
       TestOrderDependentWrites(
           /*init=*/
-          [&] { store->Delete(GetChunkKey(0)).value(); },
+          [&] {
+            store->Delete(GetChunkKey(0)).value();
+            txn = tensorstore::Transaction(tensorstore::isolated);
+          },
           /*op0=*/
           [&] {
             // Write should succeed.
-            return store->Write(GetChunkKey(0), absl::Cord("a"));
+            return kvstore::WriteCommitted(KvStore{store, txn}, GetChunkKey(0),
+                                           absl::Cord("a"));
           },
           /*op1=*/
           [&] {
             // Write should fail due to prior write.
-            return store->Write(
-                GetChunkKey(0), absl::Cord("b"),
+            return kvstore::WriteCommitted(
+                KvStore{store, txn}, GetChunkKey(0), absl::Cord("b"),
                 {/*.if_equal=*/StorageGeneration::FromString("g")});
-          }),
+          },
+          /*finalize=*/[&] { txn.CommitAsync().IgnoreFuture(); }),
       // Regardless of order of operations, the result is the same.
       ::testing::Each(::testing::ElementsAre(
           MatchesTimestampedStorageGeneration(
@@ -408,9 +440,13 @@ TEST_F(RawEncodingTest, WriteWithUnmatchedConditionAfterDelete) {
 }
 
 TEST_F(RawEncodingTest, MultipleDeleteNonExisting) {
+  tensorstore::Transaction txn(tensorstore::isolated);
   std::vector futures{
-      store->Delete(GetChunkKey(1), {StorageGeneration::NoValue()}),
-      store->Delete(GetChunkKey(1), {StorageGeneration::NoValue()})};
+      kvstore::DeleteCommitted(KvStore{store, txn}, GetChunkKey(1),
+                               {StorageGeneration::NoValue()}),
+      kvstore::DeleteCommitted(KvStore{store, txn}, GetChunkKey(1),
+                               {StorageGeneration::NoValue()})};
+  txn.CommitAsync().IgnoreFuture();
   std::vector results{futures[0].result(), futures[1].result()};
   EXPECT_THAT(
       results,
@@ -1166,9 +1202,6 @@ TEST_F(UnderlyingKeyValueStoreTest, WriteWithNoExistingShard) {
       store = GetStore();
     }
     auto future = store->Write(GetChunkKey(0x50), Bytes({1, 2, 3}));
-    ASSERT_EQ(0, mock_store->read_requests.size());
-    ASSERT_EQ(0, mock_store->write_requests.size());
-    future.Force();
     {
       auto req = mock_store->read_requests.pop_nonblock().value();
       ASSERT_EQ(0, mock_store->read_requests.size());
@@ -1207,12 +1240,14 @@ TEST_F(UnderlyingKeyValueStoreTest, UnconditionalWrite) {
       /*get_max_chunks_per_shard=*/[](uint64_t shard) -> uint64_t {
         return 2;
       });
-  auto future1 = store->Write(GetChunkKey(0x50), Bytes({1, 2, 3}));
-  auto future2 = store->Write(GetChunkKey(0x54), Bytes({4, 5, 6}));
+  auto txn = Transaction(tensorstore::isolated);
+  auto future1 = kvstore::WriteCommitted(KvStore{store, txn}, GetChunkKey(0x50),
+                                         Bytes({1, 2, 3}));
+  auto future2 = kvstore::WriteCommitted(KvStore{store, txn}, GetChunkKey(0x54),
+                                         Bytes({4, 5, 6}));
   ASSERT_EQ(0, mock_store->read_requests.size());
   ASSERT_EQ(0, mock_store->write_requests.size());
-  future1.Force();
-  future2.Force();
+  txn.CommitAsync().IgnoreFuture();
   ASSERT_EQ(0, mock_store->read_requests.size());
   absl::Time write_time;
   {
@@ -1257,9 +1292,6 @@ TEST_F(UnderlyingKeyValueStoreTest, ConditionalWriteDespiteMaxChunks) {
       });
   auto future = store->Write(GetChunkKey(0x50), Bytes({1, 2, 3}),
                              {/*.if_equal=*/StorageGeneration::NoValue()});
-  ASSERT_EQ(0, mock_store->read_requests.size());
-  ASSERT_EQ(0, mock_store->write_requests.size());
-  future.Force();
   {
     auto req = mock_store->read_requests.pop_nonblock().value();
     ASSERT_EQ(0, mock_store->read_requests.size());
@@ -1278,7 +1310,6 @@ TEST_F(UnderlyingKeyValueStoreTest, ConditionalWriteDespiteMaxChunks) {
 
 TEST_F(UnderlyingKeyValueStoreTest, WriteWithNoExistingShardError) {
   auto future = store->Write(GetChunkKey(0x50), Bytes({1, 2, 3}));
-  future.Force();
   {
     auto req = mock_store->read_requests.pop_nonblock().value();
     ASSERT_EQ(0, mock_store->read_requests.size());
@@ -1298,10 +1329,6 @@ TEST_F(UnderlyingKeyValueStoreTest, WriteWithNoExistingShardError) {
 
 TEST_F(UnderlyingKeyValueStoreTest, WriteWithExistingShard) {
   auto future = store->Write(GetChunkKey(0x50), Bytes({1, 2, 3}));
-
-  ASSERT_EQ(0, mock_store->read_requests.size());
-  ASSERT_EQ(0, mock_store->write_requests.size());
-  future.Force();
   {
     auto req = mock_store->read_requests.pop_nonblock().value();
     ASSERT_EQ(0, mock_store->read_requests.size());
@@ -1361,10 +1388,6 @@ TEST_F(UnderlyingKeyValueStoreTest, WriteMaxChunksWithExistingShard) {
           });
     }
     auto future = store->Write(GetChunkKey(0x50), Bytes({1, 2, 3}));
-
-    ASSERT_EQ(0, mock_store->read_requests.size());
-    ASSERT_EQ(0, mock_store->write_requests.size());
-    future.Force();
     if (!specify_max_chunks) {
       auto req = mock_store->read_requests.pop_nonblock().value();
       ASSERT_EQ(0, mock_store->read_requests.size());
@@ -1402,10 +1425,6 @@ TEST_F(UnderlyingKeyValueStoreTest, WriteMaxChunksWithExistingShard) {
 
 TEST_F(UnderlyingKeyValueStoreTest, WriteWithExistingShardReadError) {
   auto future = store->Write(GetChunkKey(0x50), Bytes({1, 2, 3}));
-
-  ASSERT_EQ(0, mock_store->read_requests.size());
-  ASSERT_EQ(0, mock_store->write_requests.size());
-  future.Force();
   {
     auto req = mock_store->read_requests.pop_nonblock().value();
     ASSERT_EQ(0, mock_store->read_requests.size());
@@ -1465,9 +1484,9 @@ class ReadModifyWriteTest : public ::testing::Test {
   /// `KeyValueStore`; if none is specified, calls `GetStore()`.
   auto GetKvsBackedCache(kvstore::DriverPtr store = {}) {
     if (!store) store = GetStore();
-    return CachePool::Make(CachePool::Limits{})
-        ->GetCache<KvsBackedTestCache>(
-            "", [&] { return std::make_unique<KvsBackedTestCache>(store); });
+    return GetCache<KvsBackedTestCache>(
+        CachePool::Make(CachePool::Limits{}).get(), "",
+        [&] { return std::make_unique<KvsBackedTestCache>(store); });
   }
 };
 

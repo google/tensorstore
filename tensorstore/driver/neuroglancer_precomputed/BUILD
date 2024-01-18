@@ -82,6 +82,7 @@ tensorstore_cc_test(
         "//tensorstore:staleness_bound",
         "//tensorstore:static_cast",
         "//tensorstore:strided_layout",
+        "//tensorstore:transaction",
         "//tensorstore/driver:driver_testutil",
         "//tensorstore/driver/zarr",
         "//tensorstore/index_space:dim_expression",

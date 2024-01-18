@@ -359,41 +359,6 @@ void TestKeyValueStoreStalenessBoundOps(const KvStore& store, std::string key,
                   MatchesKvsReadResult(value2, write_result2->generation)));
 }
 
-void TestKeyValueStoreGetImplicitTransaction(const KvStore& store,
-                                             std::vector<std::string> keys) {
-  SCOPED_TRACE("TestKeyValueStoreGetImplicitTransaction");
-  Cleanup cleanup(store, keys);
-
-  std::vector<internal::OpenTransactionPtr> implicit_txns_direct;
-  std::vector<internal::OpenTransactionPtr>
-      implicit_txns_from_read_modify_write;
-  for (const auto& key : keys) {
-    auto full_key = store.path + key;
-    {
-      TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-          auto txn, store.driver->GetImplicitTransaction(full_key));
-      implicit_txns_direct.push_back(std::move(txn));
-    }
-    {
-      internal::OpenTransactionPtr txn;
-      size_t phase;
-      auto future = internal_kvstore::WriteViaExistingTransaction(
-          store.driver.get(), txn, phase, full_key, std::nullopt,
-          kvstore::WriteOptions{});
-      ASSERT_TRUE(txn);
-      implicit_txns_from_read_modify_write.push_back(std::move(txn));
-    }
-  }
-
-  for (size_t i = 0; i < keys.size(); ++i) {
-    for (size_t j = i + 1; j < keys.size(); ++j) {
-      EXPECT_EQ((implicit_txns_direct[i] == implicit_txns_direct[j]),
-                (implicit_txns_from_read_modify_write[i] ==
-                 implicit_txns_from_read_modify_write[j]));
-    }
-  }
-}
-
 }  // namespace
 
 void TestKeyValueStoreReadOps(const KvStore& store, std::string key,
@@ -644,15 +609,6 @@ void TestKeyValueReadWriteOps(
 
   TestKeyValueStoreStalenessBoundOps(store, get_key("stale"), expected_value,
                                      other_value);
-
-  {
-    std::vector<std::string> keys;
-    constexpr size_t kNumKeys = 4;
-    for (size_t i = 0; i < kNumKeys; ++i) {
-      keys.push_back(get_key(tensorstore::StrCat("implicit", i)));
-    }
-    TestKeyValueStoreGetImplicitTransaction(store, std::move(keys));
-  }
 }
 
 /// Tests List on `store`, which should be empty.

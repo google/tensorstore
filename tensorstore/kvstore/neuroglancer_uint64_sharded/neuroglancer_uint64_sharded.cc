@@ -1010,11 +1010,11 @@ class ShardedKeyValueStore
       std::string key_prefix, const ShardingSpec& sharding_spec,
       internal::CachePool::WeakPtr cache_pool,
       GetMaxChunksPerShardFunction get_max_chunks_per_shard = {})
-      : write_cache_(
-            cache_pool->GetCache<ShardedKeyValueStoreWriteCache>("", [&] {
+      : write_cache_(internal::GetCache<ShardedKeyValueStoreWriteCache>(
+            cache_pool.get(), "", [&] {
               return std::make_unique<ShardedKeyValueStoreWriteCache>(
-                  cache_pool->GetCache<MinishardIndexCache>(
-                      "",
+                  internal::GetCache<MinishardIndexCache>(
+                      cache_pool.get(), "",
                       [&] {
                         return std::make_unique<MinishardIndexCache>(
                             std::move(base_kvstore), std::move(executor),
@@ -1123,21 +1123,6 @@ class ShardedKeyValueStore
       transaction.reset(node.unlock()->transaction());
     }
     return absl::OkStatus();
-  }
-
-  Result<internal::OpenTransactionPtr> GetImplicitTransaction(
-      const Key& key) override {
-    TENSORSTORE_ASSIGN_OR_RETURN(ChunkId chunk_id, KeyToChunkIdOrError(key));
-    const auto& sharding_spec = this->sharding_spec();
-    const auto shard_info = GetSplitShardInfo(
-        sharding_spec, GetChunkShardInfo(sharding_spec, chunk_id));
-    const uint64_t shard = shard_info.shard;
-    auto entry = GetCacheEntry(
-        write_cache_, ShardedKeyValueStoreWriteCache::ShardToKey(shard));
-    internal::OpenTransactionPtr transaction;
-    TENSORSTORE_ASSIGN_OR_RETURN(auto node,
-                                 GetTransactionNode(*entry, transaction));
-    return transaction;
   }
 
   absl::Status TransactionalDeleteRange(

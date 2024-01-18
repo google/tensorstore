@@ -41,6 +41,7 @@
 using ::tensorstore::Context;
 using ::tensorstore::InlineExecutor;
 using ::tensorstore::internal::CachePool;
+using ::tensorstore::internal::GetCache;
 using ::tensorstore::internal_zip_kvstore::Directory;
 using ::tensorstore::internal_zip_kvstore::ZipDirectoryCache;
 using ::tensorstore::kvstore::DriverPtr;
@@ -73,7 +74,7 @@ TEST(ZipDirectoryKvsTest, Basic) {
           .result(),
       ::tensorstore::IsOk());
 
-  auto cache = pool->GetCache<ZipDirectoryCache>("", [&] {
+  auto cache = GetCache<ZipDirectoryCache>(pool.get(), "", [&] {
     return std::make_unique<ZipDirectoryCache>(memory.driver, InlineExecutor{});
   });
 
@@ -101,7 +102,7 @@ TEST(ZipDirectoryKvsTest, MissingEntry) {
       tensorstore::KvStore memory,
       tensorstore::kvstore::Open({{"driver", "memory"}}, context).result());
 
-  auto cache = pool->GetCache<ZipDirectoryCache>("", [&] {
+  auto cache = GetCache<ZipDirectoryCache>(pool.get(), "", [&] {
     return std::make_unique<ZipDirectoryCache>(memory.driver, InlineExecutor{});
   });
 
@@ -176,7 +177,7 @@ TEST(ZipDirectoryKvsTest, MinimalZip) {
                   .result(),
               ::tensorstore::IsOk());
 
-  auto cache = pool->GetCache<ZipDirectoryCache>("", [&] {
+  auto cache = GetCache<ZipDirectoryCache>(pool.get(), "", [&] {
     return std::make_unique<ZipDirectoryCache>(memory.driver, InlineExecutor{});
   });
 
