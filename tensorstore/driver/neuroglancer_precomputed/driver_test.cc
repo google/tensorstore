@@ -1595,6 +1595,94 @@ TEST(FullShardWriteTest, WithTransaction) {
   TENSORSTORE_ASSERT_OK(txn.future());
 }
 
+TEST(FullShardWriteTest, WithoutTransaction) {
+  auto context = Context::Default();
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto mock_key_value_store_resource,
+      context.GetResource<tensorstore::internal::MockKeyValueStoreResource>());
+  auto mock_key_value_store = *mock_key_value_store_resource;
+
+  ::nlohmann::json json_spec{
+      {"driver", "neuroglancer_precomputed"},
+      {"kvstore",
+       {
+           {"driver", "mock_key_value_store"},
+           {"path", "prefix/"},
+       }},
+      {"create", true},
+      {"multiscale_metadata",
+       {
+           {"data_type", "uint16"},
+           {"num_channels", 1},
+           {"type", "image"},
+       }},
+      {"scale_metadata",
+       {
+           {"key", "1_1_1"},
+           {"resolution", {1, 1, 1}},
+           {"encoding", "raw"},
+           {"chunk_size", {2, 2, 2}},
+           {"size", {4, 6, 10}},
+           {"voxel_offset", {0, 0, 0}},
+           {"sharding",
+            {{"@type", "neuroglancer_uint64_sharded_v1"},
+             {"preshift_bits", 1},
+             {"minishard_bits", 2},
+             {"shard_bits", 3},
+             {"data_encoding", "raw"},
+             {"minishard_index_encoding", "raw"},
+             {"hash", "identity"}}},
+       }},
+  };
+
+  // Grid shape: {2, 3, 5}
+  // Full shard shape is {2, 2, 2} in chunks.
+  // Full shard shape is {4, 4, 4} in voxels.
+  // Shard 0 origin: {0, 0, 0}
+  // Shard 1 origin: {0, 4, 0}
+  // Shard 2 origin: {0, 0, 4}
+  // Shard 3 origin: {0, 4, 4}
+  // Shard 4 origin: {0, 0, 8}
+  // Shard 5 origin: {0, 4, 8}
+
+  auto store_future = tensorstore::Open(json_spec, context);
+  store_future.Force();
+
+  {
+    auto req = mock_key_value_store->read_requests.pop();
+    EXPECT_EQ("prefix/info", req.key);
+    req.promise.SetResult(kvstore::ReadResult::Missing(absl::Now()));
+  }
+
+  {
+    auto req = mock_key_value_store->write_requests.pop();
+    EXPECT_EQ("prefix/info", req.key);
+    EXPECT_EQ(StorageGeneration::NoValue(), req.options.if_equal);
+    req.promise.SetResult(TimestampedStorageGeneration{
+        StorageGeneration::FromString("g0"), absl::Now()});
+  }
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store, store_future.result());
+
+  auto future = tensorstore::Write(
+      tensorstore::MakeScalarArray<uint16_t>(42),
+      store | tensorstore::Dims(0, 1, 2).SizedInterval({0, 4, 8}, {4, 2, 2}));
+
+  future.Force();
+
+  {
+    auto req = mock_key_value_store->write_requests.pop();
+    ASSERT_EQ("prefix/1_1_1/5.shard", req.key);
+    // Writeback is unconditional because the entire shard is being written.
+    ASSERT_EQ(StorageGeneration::Unknown(), req.options.if_equal);
+    req.promise.SetResult(TimestampedStorageGeneration{
+        StorageGeneration::FromString("g0"), absl::Now()});
+  }
+
+  TENSORSTORE_ASSERT_OK(future);
+}
+
 // Tests that an empty path is handled correctly.
 TEST(DriverTest, NoPrefix) {
   auto context = Context::Default();

@@ -44,7 +44,9 @@
 #include "tensorstore/context.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
+#include "tensorstore/driver/chunk.h"
 #include "tensorstore/driver/chunk_cache_driver.h"
+#include "tensorstore/driver/chunk_receiver_utils.h"
 #include "tensorstore/driver/kvs_backed_chunk_driver.h"
 #include "tensorstore/driver/neuroglancer_precomputed/chunk_encoding.h"
 #include "tensorstore/driver/neuroglancer_precomputed/metadata.h"
@@ -59,6 +61,7 @@
 #include "tensorstore/internal/cache_key/cache_key.h"
 #include "tensorstore/internal/chunk_grid_specification.h"
 #include "tensorstore/internal/grid_chunk_key_ranges_base10.h"
+#include "tensorstore/internal/grid_partition.h"
 #include "tensorstore/internal/grid_storage_statistics.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
@@ -75,6 +78,7 @@
 #include "tensorstore/util/constant_vector.h"
 #include "tensorstore/util/dimension_set.h"
 #include "tensorstore/util/division.h"
+#include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/fwd.h"
 #include "tensorstore/util/result.h"
@@ -592,36 +596,18 @@ class ShardedDataCache : public DataCacheBase {
       const void* metadata_ptr, size_t component_index) override {
     const auto& metadata = this->metadata();
     const auto& scale = metadata.scales[scale_index_];
-    const auto& sharding = *std::get_if<ShardingSpec>(&scale.sharding);
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto layout, GetBaseChunkLayout(metadata, ChunkLayout::kRead));
-    if (ShardChunkHierarchy hierarchy; GetShardChunkHierarchy(
-            sharding, scale.box.shape(), scale.chunk_sizes[0], hierarchy)) {
-      // Each shard corresponds to a rectangular region.
-      Index write_chunk_shape[4];
-      write_chunk_shape[0] = metadata.num_channels;
-      for (int dim = 0; dim < 3; ++dim) {
-        const Index chunk_size = scale.chunk_sizes[0][dim];
-        const Index volume_size = scale.box.shape()[dim];
-        write_chunk_shape[3 - dim] = RoundUpTo(
-            std::min(hierarchy.shard_shape_in_chunks[dim] * chunk_size,
-                     volume_size),
-            chunk_size);
-      }
-      TENSORSTORE_RETURN_IF_ERROR(
-          layout.Set(ChunkLayout::WriteChunkShape(write_chunk_shape)));
-    } else {
-      // Each shard does not correspond to a rectangular region.  The write
-      // chunk shape is equal to the full domain.
-      Index write_chunk_shape[4];
-      write_chunk_shape[0] = metadata.num_channels;
-      for (int dim = 0; dim < 3; ++dim) {
-        write_chunk_shape[3 - dim] =
-            RoundUpTo(scale.box.shape()[dim], scale.chunk_sizes[0][dim]);
-      }
-      TENSORSTORE_RETURN_IF_ERROR(
-          layout.Set(ChunkLayout::WriteChunkShape(write_chunk_shape)));
+    // Each shard does not correspond to a rectangular region.  The write
+    // chunk shape is equal to the full domain.
+    Index write_chunk_shape[4];
+    write_chunk_shape[0] = metadata.num_channels;
+    for (int dim = 0; dim < 3; ++dim) {
+      write_chunk_shape[3 - dim] =
+          RoundUpTo(scale.box.shape()[dim], scale.chunk_sizes[0][dim]);
     }
+    TENSORSTORE_RETURN_IF_ERROR(
+        layout.Set(ChunkLayout::WriteChunkShape(write_chunk_shape)));
     TENSORSTORE_RETURN_IF_ERROR(layout.Finalize());
     return layout;
   }
@@ -635,6 +621,121 @@ class ShardedDataCache : public DataCacheBase {
   }
 
   std::array<int, 3> compressed_z_index_bits_;
+};
+
+// DataCache for sharded format in the case that shards correspond to
+// rectangular regions.
+class RegularlyShardedDataCache : public ShardedDataCache {
+ public:
+  RegularlyShardedDataCache(Initializer initializer,
+                            std::string_view key_prefix,
+                            const MultiscaleMetadata& metadata,
+                            size_t scale_index,
+                            std::array<Index, 3> chunk_size_xyz,
+                            ShardChunkHierarchy hierarchy)
+      : ShardedDataCache(std::move(initializer), key_prefix, metadata,
+                         scale_index, chunk_size_xyz),
+        hierarchy_(hierarchy) {}
+
+  Result<ChunkLayout> GetChunkLayoutFromMetadata(
+      const void* metadata_ptr, size_t component_index) override {
+    const auto& metadata = this->metadata();
+    const auto& scale = metadata.scales[scale_index_];
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto layout, GetBaseChunkLayout(metadata, ChunkLayout::kRead));
+    // Each shard corresponds to a rectangular region.
+    Index write_chunk_shape[4];
+    write_chunk_shape[0] = metadata.num_channels;
+    for (int dim = 0; dim < 3; ++dim) {
+      const Index chunk_size = scale.chunk_sizes[0][dim];
+      const Index volume_size = scale.box.shape()[dim];
+      write_chunk_shape[3 - dim] =
+          RoundUpTo(std::min(hierarchy_.shard_shape_in_chunks[dim] * chunk_size,
+                             volume_size),
+                    chunk_size);
+    }
+    TENSORSTORE_RETURN_IF_ERROR(
+        layout.Set(ChunkLayout::WriteChunkShape(write_chunk_shape)));
+    TENSORSTORE_RETURN_IF_ERROR(layout.Finalize());
+    return layout;
+  }
+
+  void Read(internal::OpenTransactionPtr transaction, size_t component_index,
+            IndexTransform<> transform, absl::Time staleness,
+            AnyFlowReceiver<absl::Status, internal::ReadChunk, IndexTransform<>>
+                receiver) override {
+    return ShardedReadOrWrite(
+        std::move(transaction), std::move(transform), std::move(receiver),
+        [&](internal::OpenTransactionPtr transaction,
+            IndexTransform<> transform,
+            AnyFlowReceiver<absl::Status, internal::ReadChunk, IndexTransform<>>
+                receiver) {
+          return ShardedDataCache::Read(std::move(transaction), component_index,
+                                        std::move(transform), staleness,
+                                        std::move(receiver));
+        });
+  }
+
+  void Write(
+      internal::OpenTransactionPtr transaction, size_t component_index,
+      IndexTransform<> transform,
+      AnyFlowReceiver<absl::Status, internal::WriteChunk, IndexTransform<>>
+          receiver) override {
+    return ShardedReadOrWrite(
+        std::move(transaction), std::move(transform), std::move(receiver),
+        [&](internal::OpenTransactionPtr transaction,
+            IndexTransform<> transform,
+            AnyFlowReceiver<absl::Status, internal::WriteChunk,
+                            IndexTransform<>>
+                receiver) {
+          return ShardedDataCache::Write(std::move(transaction),
+                                         component_index, std::move(transform),
+                                         std::move(receiver));
+        });
+  }
+
+ private:
+  template <typename ChunkType, typename Callback>
+  void ShardedReadOrWrite(
+      internal::OpenTransactionPtr transaction, IndexTransform<> transform,
+      AnyFlowReceiver<absl::Status, ChunkType, IndexTransform<>> receiver,
+      Callback callback) {
+    const auto& metadata = this->metadata();
+    const auto& scale = metadata.scales[scale_index_];
+    const DimensionIndex chunked_to_cell_dimensions[] = {3, 2, 1};
+    Index shard_shape_in_elements[3];
+    for (DimensionIndex dim = 0; dim < 3; ++dim) {
+      shard_shape_in_elements[dim] =
+          scale.chunk_sizes[0][dim] * hierarchy_.shard_shape_in_chunks[dim];
+    }
+    using State = internal::ChunkOperationState<ChunkType>;
+    using ForwardingReceiver =
+        internal::ForwardingChunkOperationReceiver<State>;
+    auto state = internal::MakeIntrusivePtr<State>(std::move(receiver));
+    auto status = internal::PartitionIndexTransformOverRegularGrid(
+        chunked_to_cell_dimensions, shard_shape_in_elements, transform,
+        [&](span<const Index> grid_cell_indices,
+            IndexTransformView<> cell_transform) -> absl::Status {
+          if (state->cancelled()) {
+            return absl::CancelledError("");
+          }
+          TENSORSTORE_ASSIGN_OR_RETURN(
+              auto cell_to_source,
+              ComposeTransforms(transform, cell_transform));
+          internal::OpenTransactionPtr shard_transaction = transaction;
+          if constexpr (std::is_same_v<ChunkType, internal::WriteChunk>) {
+            if (!shard_transaction) {
+              shard_transaction = internal::TransactionState::MakeImplicit();
+              shard_transaction->RequestCommit();
+            }
+          }
+          callback(std::move(shard_transaction), std::move(cell_to_source),
+                   ForwardingReceiver{state, cell_transform});
+          return absl::OkStatus();
+        });
+  }
+
+  ShardChunkHierarchy hierarchy_;
 };
 
 class NeuroglancerPrecomputedDriver;
@@ -744,9 +845,17 @@ class NeuroglancerPrecomputedDriver::OpenState
     assert(scale_index_);
     const auto& scale = metadata.scales[scale_index_.value()];
     if (std::holds_alternative<ShardingSpec>(scale.sharding)) {
-      return std::make_unique<ShardedDataCache>(
-          std::move(initializer), spec().store.path, metadata,
-          scale_index_.value(), chunk_size_xyz_);
+      if (ShardChunkHierarchy hierarchy; GetShardChunkHierarchy(
+              std::get<ShardingSpec>(scale.sharding), scale.box.shape(),
+              scale.chunk_sizes[0], hierarchy)) {
+        return std::make_unique<RegularlyShardedDataCache>(
+            std::move(initializer), spec().store.path, metadata,
+            scale_index_.value(), chunk_size_xyz_, hierarchy);
+      } else {
+        return std::make_unique<ShardedDataCache>(
+            std::move(initializer), spec().store.path, metadata,
+            scale_index_.value(), chunk_size_xyz_);
+      }
     } else {
       return std::make_unique<UnshardedDataCache>(
           std::move(initializer), spec().store.path, metadata,

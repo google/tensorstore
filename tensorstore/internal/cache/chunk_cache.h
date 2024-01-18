@@ -217,8 +217,8 @@ class ChunkCache : public AsyncCache {
   /// \param staleness Cached data older than `staleness` will not be returned
   ///     without being rechecked.
   /// \param receiver Receiver for the chunks.
-  void Read(
-      internal::OpenTransactionPtr transaction, std::size_t component_index,
+  virtual void Read(
+      internal::OpenTransactionPtr transaction, size_t component_index,
       IndexTransform<> transform, absl::Time staleness,
       AnyFlowReceiver<absl::Status, ReadChunk, IndexTransform<>> receiver);
 
@@ -234,8 +234,8 @@ class ChunkCache : public AsyncCache {
   ///     `[0, grid().components.size())`.
   /// \param transform The transform to apply.
   /// \param receiver Receiver for the chunks.
-  void Write(
-      internal::OpenTransactionPtr transaction, std::size_t component_index,
+  virtual void Write(
+      internal::OpenTransactionPtr transaction, size_t component_index,
       IndexTransform<> transform,
       AnyFlowReceiver<absl::Status, WriteChunk, IndexTransform<>> receiver);
 
