@@ -465,11 +465,11 @@ class ShardedKeyValueStoreWriteCache
       }
     }
 
-    // Staleness bound for the current pending call to `DoApply`.
-    absl::Time apply_staleness_bound_;
-
     // The receiver argument for the current pending call to `DoApply`.
     ApplyReceiver apply_receiver_;
+
+    // Options for the current pending call to `DoApply`.
+    ApplyOptions apply_options_;
 
     // Error status for the current pending call to `DoApply`.
     absl::Status apply_status_;
@@ -509,14 +509,14 @@ void ShardedKeyValueStoreWriteCache::TransactionNode::InvalidateReadState() {
 void ShardedKeyValueStoreWriteCache::TransactionNode::DoApply(
     ApplyOptions options, ApplyReceiver receiver) {
   apply_receiver_ = std::move(receiver);
-  apply_staleness_bound_ = options.staleness_bound;
+  apply_options_ = options;
   apply_status_ = absl::OkStatus();
 
   GetOwningCache(*this).executor()([this] { this->StartApply(); });
 }
 
 void ShardedKeyValueStoreWriteCache::TransactionNode::StartApply() {
-  RetryAtomicWriteback(phases_, apply_staleness_bound_);
+  RetryAtomicWriteback(phases_, apply_options_.staleness_bound);
 }
 
 void ShardedKeyValueStoreWriteCache::TransactionNode::AllEntriesDone(
@@ -530,6 +530,7 @@ void ShardedKeyValueStoreWriteCache::TransactionNode::AllEntriesDone(
   GetOwningCache(*this).executor()([&self] {
     TimestampedStorageGeneration stamp;
     bool mismatch = false;
+    bool modified = false;
 
     int64_t num_entries = 0;
     auto& cache = GetOwningCache(self);
@@ -542,14 +543,19 @@ void ShardedKeyValueStoreWriteCache::TransactionNode::AllEntriesDone(
         auto& dr_entry = static_cast<DeleteRangeEntry&>(entry);
         auto [begin_id, end_id] = InternalKeyRangeToEntryRange(
             dr_entry.key_, dr_entry.exclusive_max_, num_entries_per_shard);
+        modified = true;
         num_entries += end_id - begin_id;
         continue;
       }
       auto& buffered_entry =
           static_cast<AtomicMultiPhaseMutation::BufferedReadModifyWriteEntry&>(
               entry);
+      if (buffered_entry.read_result_.state !=
+          kvstore::ReadResult::kUnspecified) {
+        modified = true;
+        ++num_entries;
+      }
       auto& entry_stamp = buffered_entry.read_result_.stamp;
-      ++num_entries;
       if (StorageGeneration::IsConditional(entry_stamp.generation)) {
         if (!StorageGeneration::IsUnknown(stamp.generation) &&
             StorageGeneration::Clean(stamp.generation) !=
@@ -565,14 +571,23 @@ void ShardedKeyValueStoreWriteCache::TransactionNode::AllEntriesDone(
     if (mismatch) {
       // Retry with newer staleness bound to try to obtain consistent
       // conditions.
-      self.apply_staleness_bound_ = absl::Now();
+      self.apply_options_.staleness_bound = absl::Now();
       self.StartApply();
+      return;
+    }
+    if (!modified && StorageGeneration::IsUnknown(stamp.generation) &&
+        self.apply_options_.apply_mode !=
+            ApplyOptions::ApplyMode::kSpecifyUnchanged) {
+      internal::AsyncCache::ReadState update;
+      update.stamp = TimestampedStorageGeneration::Unconditional();
+      execution::set_value(std::exchange(self.apply_receiver_, {}),
+                           std::move(update));
       return;
     }
     if (!StorageGeneration::IsUnknown(stamp.generation) ||
         num_entries != num_entries_per_shard) {
       self.internal::AsyncCache::TransactionNode::Read(
-              self.apply_staleness_bound_)
+              self.apply_options_.staleness_bound)
           .ExecuteWhenReady([&self](ReadyFuture<const void> future) {
             if (!future.result().ok()) {
               execution::set_error(std::exchange(self.apply_receiver_, {}),
@@ -672,7 +687,7 @@ void ShardedKeyValueStoreWriteCache::TransactionNode::MergeForWriteback(
     // However, even in that case, the extra retries aren't really an added
     // cost, because those retries would still be needed anyway due to the
     // concurrent modifications.
-    apply_staleness_bound_ = absl::Now();
+    apply_options_.staleness_bound = absl::Now();
     this->StartApply();
     return;
   }
