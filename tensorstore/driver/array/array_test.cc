@@ -74,9 +74,10 @@ TEST(ArrayDriverTest, Read) {
       /*executor=*/tensorstore::InlineExecutor{},
       /*source=*/transformed_driver,
       /*target=*/dest_array,
-      {/*.progress_function=*/[&read_progress](ReadProgress progress) {
-        read_progress.push_back(progress);
-      }}));
+      {/*.progress_function=*/tensorstore::ReadProgressFunction{
+          [&read_progress](ReadProgress progress) {
+            read_progress.push_back(progress);
+          }}}));
   EXPECT_EQ(array, dest_array);
   EXPECT_THAT(read_progress, ::testing::ElementsAre(ReadProgress{6, 6}));
 }
@@ -119,9 +120,10 @@ TEST(ArrayDriverTest, ReadDomainMismatch) {
       /*executor=*/tensorstore::InlineExecutor{},
       /*source=*/transformed_driver,
       /*target=*/dest_array,
-      {/*.progress_function=*/[&read_progress](ReadProgress progress) {
-        read_progress.push_back(progress);
-      }});
+      {/*.progress_function=*/tensorstore::ReadProgressFunction{
+          [&read_progress](ReadProgress progress) {
+            read_progress.push_back(progress);
+          }}});
   EXPECT_THAT(future.result(),
               MatchesStatus(absl::StatusCode::kInvalidArgument, kMismatchRE));
   EXPECT_THAT(read_progress, ::testing::ElementsAre());
@@ -145,9 +147,10 @@ TEST(ArrayDriverTest, ReadCopyTransformError) {
       /*executor=*/tensorstore::InlineExecutor{},
       /*source=*/transformed_driver,
       /*target=*/dest_array,
-      {/*.progress_function=*/[&read_progress](ReadProgress progress) {
-        read_progress.push_back(progress);
-      }});
+      {/*.progress_function=*/tensorstore::ReadProgressFunction{
+          [&read_progress](ReadProgress progress) {
+            read_progress.push_back(progress);
+          }}});
   // Error occurs due to the invalid index of 1 in the index array, which is
   // validated when copying from the ReadChunk to the target array.
   EXPECT_THAT(future.result(), MatchesStatus(absl::StatusCode::kOutOfRange,
@@ -170,9 +173,10 @@ TEST(ArrayDriverTest, Write) {
       {driver, ChainResult(transform, tensorstore::Dims(0, 1).SizedInterval(
                                           {2, 3}, {1, 2}))
                    .value()},
-      {/*.progress_function=*/[&write_progress](WriteProgress progress) {
-        write_progress.push_back(progress);
-      }});
+      {/*.progress_function=*/tensorstore::WriteProgressFunction{
+          [&write_progress](WriteProgress progress) {
+            write_progress.push_back(progress);
+          }}});
   TENSORSTORE_EXPECT_OK(write_result.copy_future);
   TENSORSTORE_EXPECT_OK(write_result.commit_future);
   EXPECT_EQ(tensorstore::MakeOffsetArray<int>({1, 2}, {{1, 2, 3}, {4, 7, 8}}),
@@ -198,9 +202,10 @@ TEST(ArrayDriverTest, WriteDomainMismatch) {
       {driver, ChainResult(transform, tensorstore::Dims(0, 1).SizedInterval(
                                           {2, 3}, {1, 2}))
                    .value()},
-      {/*.progress_function=*/[&write_progress](WriteProgress progress) {
-        write_progress.push_back(progress);
-      }});
+      {/*.progress_function=*/tensorstore::WriteProgressFunction{
+          [&write_progress](WriteProgress progress) {
+            write_progress.push_back(progress);
+          }}});
   EXPECT_THAT(write_result.copy_future.result(),
               MatchesStatus(absl::StatusCode::kInvalidArgument, kMismatchRE));
   EXPECT_THAT(write_result.commit_future.result(),
@@ -232,9 +237,8 @@ TEST(ArrayDriverTest, Copy) {
        ChainResult(transform_b, tensorstore::Dims(0, 1).TranslateSizedInterval(
                                     {1, 5}, {2, 2}))
            .value()},
-      {/*.progress_function=*/[&progress](CopyProgress p) {
-        progress.push_back(p);
-      }});
+      {/*.progress_function=*/tensorstore::CopyProgressFunction{
+          [&progress](CopyProgress p) { progress.push_back(p); }}});
   TENSORSTORE_EXPECT_OK(write_result.copy_future);
   TENSORSTORE_EXPECT_OK(write_result.commit_future);
   EXPECT_EQ(tensorstore::MakeOffsetArray<int>({1, 4}, {{7, 1, 3}, {7, 4, 6}}),
@@ -261,9 +265,8 @@ TEST(ArrayDriverTest, CopyDomainMismatch) {
       /*executor=*/tensorstore::InlineExecutor{},
       /*source=*/transformed_driver_a,
       /*target=*/transformed_driver_b,
-      {/*.progress_function=*/[&progress](CopyProgress p) {
-        progress.push_back(p);
-      }});
+      {/*.progress_function=*/tensorstore::CopyProgressFunction{
+          [&progress](CopyProgress p) { progress.push_back(p); }}});
   EXPECT_THAT(write_result.copy_future,
               MatchesStatus(absl::StatusCode::kInvalidArgument, kMismatchRE));
   EXPECT_EQ(write_result.copy_future.status(),

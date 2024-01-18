@@ -108,24 +108,24 @@ struct CopyState : public internal::AtomicReferenceCount<CopyState> {
     std::atomic<Index> read_elements{0};
 
     void UpdateReadProgress(Index num_elements) {
-      if (!progress_function) return;
-      progress_function(CopyProgress{total_elements,
-                                     read_elements += num_elements,
-                                     copied_elements, committed_elements});
+      if (!progress_function.value) return;
+      progress_function.value(
+          CopyProgress{total_elements, read_elements += num_elements,
+                       copied_elements, committed_elements});
     }
 
     void UpdateCopyProgress(Index num_elements) {
-      if (!progress_function) return;
-      progress_function(CopyProgress{total_elements, read_elements,
-                                     copied_elements += num_elements,
-                                     committed_elements});
+      if (!progress_function.value) return;
+      progress_function.value(CopyProgress{total_elements, read_elements,
+                                           copied_elements += num_elements,
+                                           committed_elements});
     }
 
     void UpdateCommitProgress(Index num_elements) {
-      if (!progress_function) return;
-      progress_function(CopyProgress{total_elements, read_elements,
-                                     copied_elements,
-                                     committed_elements += num_elements});
+      if (!progress_function.value) return;
+      progress_function.value(CopyProgress{total_elements, read_elements,
+                                           copied_elements,
+                                           committed_elements += num_elements});
     }
   };
   Executor executor;

@@ -21,6 +21,7 @@
 #include "tensorstore/driver/write.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/progress.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/status.h"
@@ -74,9 +75,10 @@ TEST(WriteTest, ChunkError) {
       {/*.driver=*/driver,
        /*.transform=*/tensorstore::IdentityTransform(0)},
       /*options=*/
-      {/*.progress_function=*/[&write_progress](WriteProgress progress) {
-        write_progress.push_back(progress);
-      }});
+      {/*.progress_function=*/tensorstore::WriteProgressFunction{
+          [&write_progress](WriteProgress progress) {
+            write_progress.push_back(progress);
+          }}});
   EXPECT_THAT(write_result.copy_future.result(),
               MatchesStatus(absl::StatusCode::kUnknown, "Chunk error"));
   EXPECT_EQ(write_result.copy_future.status(),

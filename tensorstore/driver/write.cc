@@ -104,14 +104,14 @@ struct WriteState : public internal::AtomicReferenceCount<WriteState> {
     std::atomic<Index> committed_elements{0};
 
     void UpdateCopyProgress(Index num_elements) {
-      if (!write_progress_function) return;
-      write_progress_function(WriteProgress{
+      if (!write_progress_function.value) return;
+      write_progress_function.value(WriteProgress{
           total_elements, copied_elements += num_elements, committed_elements});
     }
 
     void UpdateCommitProgress(Index num_elements) {
-      if (!write_progress_function) return;
-      write_progress_function(WriteProgress{
+      if (!write_progress_function.value) return;
+      write_progress_function.value(WriteProgress{
           total_elements, copied_elements, committed_elements += num_elements});
     }
   };

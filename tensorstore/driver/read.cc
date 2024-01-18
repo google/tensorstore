@@ -112,8 +112,8 @@ struct ReadState
   }
 
   void UpdateProgress(Index num_elements) {
-    if (!read_progress_function) return;
-    read_progress_function(
+    if (!read_progress_function.value) return;
+    read_progress_function.value(
         ReadProgress{total_elements, copied_elements += num_elements});
   }
 };

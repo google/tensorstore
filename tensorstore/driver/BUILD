@@ -185,6 +185,7 @@ tensorstore_cc_test(
         "//tensorstore:array",
         "//tensorstore:context",
         "//tensorstore:index",
+        "//tensorstore:progress",
         "//tensorstore/index_space:index_transform",
         "//tensorstore/util:executor",
         "//tensorstore/util:status",

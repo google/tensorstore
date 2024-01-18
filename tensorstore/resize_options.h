@@ -16,6 +16,9 @@
 #define TENSORSTORE_RESIZE_OPTIONS_H_
 
 #include <iosfwd>
+#include <type_traits>
+
+#include "absl/meta/type_traits.h"
 
 namespace tensorstore {
 
@@ -76,11 +79,23 @@ std::ostream& operator<<(std::ostream& os, ResolveBoundsMode mode);
 ///
 /// \relates ResolveBounds
 struct ResolveBoundsOptions {
-  ResolveBoundsOptions() = default;
-  ResolveBoundsOptions(ResolveBoundsMode mode) : mode(mode) {}
+  template <typename T>
+  constexpr static inline bool IsOption = false;
+
+  /// Combines any number of supported options.
+  template <typename... T, typename = std::enable_if_t<
+                               (IsOption<absl::remove_cvref_t<T>> && ...)>>
+  ResolveBoundsOptions(T&&... option) {
+    (Set(std::forward<T>(option)), ...);
+  }
+
+  void Set(ResolveBoundsMode value) { this->mode = value; }
 
   ResolveBoundsMode mode = ResolveBoundsMode{};
 };
+
+template <>
+constexpr inline bool ResolveBoundsOptions::IsOption<ResolveBoundsMode> = true;
 
 /// Bitvector specifying resize options.
 ///
@@ -145,21 +160,26 @@ std::ostream& operator<<(std::ostream& os, ResizeMode mode);
 ///
 /// \relates Resize
 struct ResizeOptions {
-  /// Constructs the default resize options.
-  ///
-  /// \id default
-  ResizeOptions() = default;
+  template <typename T>
+  constexpr static inline bool IsOption = false;
 
-  /// Constructs from a `ResizeMode`.
-  ///
-  /// \id mode
-  ResizeOptions(ResizeMode mode) : mode(mode) {}
+  /// Combines any number of supported options.
+  template <typename... T, typename = std::enable_if_t<
+                               (IsOption<absl::remove_cvref_t<T>> && ...)>>
+  ResizeOptions(T&&... option) {
+    (Set(std::forward<T>(option)), ...);
+  }
+
+  void Set(ResizeMode value) { this->mode = value; }
 
   /// Specifies the resize mode.
   ResizeMode mode = ResizeMode{};
 
   // TOOD: Add delete progress callback
 };
+
+template <>
+constexpr inline bool ResizeOptions::IsOption<ResizeMode> = true;
 
 }  // namespace tensorstore
 

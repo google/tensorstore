@@ -466,19 +466,26 @@ using TensorWriter = TensorStore<Element, Rank, ReadWriteMode::write>;
 /// Returns a new `TensorStore` that is equivalent to `store` but has implicit
 /// bounds resolved if possible, and explicit bounds checked.
 ///
+/// Options compatible with `ResolveBoundsOptions` are specified in any order
+/// after `store`.  The meaning of each option is determined by its type.
+///
+/// Supported option types are:
+///
+/// - `ResolveBoundsMode`
+///
 /// Example::
 ///
 ///     TensorStore<std::int32_t, 3> store = ...;
 ///     store = ResolveBounds(store).value();
 ///
 /// \param store The TensorStore to resolve.  May be `Result`-wrapped.
-/// \param options Options for resolving bounds.
+/// \param options Any option compatible with `ResolveBoundsOptions`.
 /// \relates TensorStore
 /// \membergroup I/O
 template <typename StoreResult>
 std::enable_if_t<internal::IsTensorStore<UnwrapResultType<StoreResult>>,
                  Future<UnwrapResultType<StoreResult>>>
-ResolveBounds(StoreResult store, ResolveBoundsOptions options = {}) {
+ResolveBounds(StoreResult store, ResolveBoundsOptions options) {
   using Store = UnwrapResultType<StoreResult>;
   return MapResult(
       [&](auto&& store) -> Future<Store> {
@@ -499,6 +506,15 @@ ResolveBounds(StoreResult store, ResolveBoundsOptions options = {}) {
       },
       std::move(store));
 }
+template <typename StoreResult, typename... Option>
+std::enable_if_t<(IsCompatibleOptionSequence<ResolveBoundsOptions, Option...> &&
+                  internal::IsTensorStore<UnwrapResultType<StoreResult>>),
+                 Future<UnwrapResultType<StoreResult>>>
+ResolveBounds(StoreResult store, Option&&... options) {
+  return tensorstore::ResolveBounds(
+      std::forward<StoreResult>(store),
+      ResolveBoundsOptions(std::forward<Option>(options)...));
+}
 
 /// Resizes a `TensorStore` to have the specified `inclusive_min` and
 /// `exclusive_max` bounds.
@@ -506,6 +522,13 @@ ResolveBounds(StoreResult store, ResolveBoundsOptions options = {}) {
 /// The new bounds are specified in input space of the transform through which
 /// `store` operates, but these bounds are mapped back to base, untransformed
 /// TensorStore.
+///
+/// Options compatible with `ResizeOptions` are specified in any order after
+/// `store`.  The meaning of each option is determined by its type.
+///
+/// Supported option types are:
+///
+/// - `ResizeMode`
 ///
 /// Example::
 ///
@@ -520,7 +543,7 @@ ResolveBounds(StoreResult store, ResolveBoundsOptions options = {}) {
 ///     inclusive min bounds.  A bound of `kImplicit` indicates no change.
 /// \param exclusive_max Vector of length `store.rank()` specifying the new
 ///     exclusive max bounds.  A bound of `kImplicit` indicates no change.
-/// \param options Options affecting the resize behavior.
+/// \param options Any option compatible with `ResizeOptions`.
 /// \returns A future that becomes ready once the resize operation has completed
 ///     (successfully or unsuccessfully).
 /// \relates TensorStore
@@ -536,7 +559,7 @@ Resize(
     StoreResult store,
     span<const Index, UnwrapResultType<StoreResult>::static_rank> inclusive_min,
     span<const Index, UnwrapResultType<StoreResult>::static_rank> exclusive_max,
-    ResizeOptions options = {}) {
+    ResizeOptions options) {
   using Store = UnwrapResultType<StoreResult>;
   return MapResult(
       // Capture `inclusive_min` and `exclusive_max` by value to avoid code
@@ -568,6 +591,18 @@ Resize(
       },
       std::move(store));
 }
+template <typename StoreResult, typename... Option>
+std::enable_if_t<(IsCompatibleOptionSequence<ResizeOptions, Option...> &&
+                  internal::IsTensorStore<UnwrapResultType<StoreResult>>),
+                 Future<UnwrapResultType<StoreResult>>>
+Resize(
+    StoreResult store,
+    span<const Index, UnwrapResultType<StoreResult>::static_rank> inclusive_min,
+    span<const Index, UnwrapResultType<StoreResult>::static_rank> exclusive_max,
+    Option&&... options) {
+  return Resize(std::move(store), inclusive_min, exclusive_max,
+                ResizeOptions(std::forward<Option>(options)...));
+}
 
 /// Copies from `source` TensorStore to `target` array.
 ///
@@ -576,6 +611,15 @@ Resize(
 ///
 /// If an error occurs while reading, the `target` array may be left in a
 /// partially-written state.
+///
+/// Options compatible with `ReadOptions` are specified in any order after
+/// `store`.  The meaning of each option is determined by its type.
+///
+/// Supported option types are:
+///
+/// - `DomainAlignmentOptions`
+///
+/// - `ReadProgressFunction`
 ///
 /// Example::
 ///
@@ -590,7 +634,7 @@ Resize(
 /// \param target `Array` or `TransformedArray` with a non-``const`` element
 ///    type.  May be `Result`-wrapped.  This array must remain valid until the
 ///    returned future becomes ready.
-/// \param options Additional read options.
+/// \param options Any option compatible with `ReadOptions`.
 /// \returns A future that becomes ready when the read has completed
 ///     successfully or has failed.
 /// \relates TensorStore
@@ -600,7 +644,7 @@ template <typename Source, typename TargetArray>
 internal::EnableIfCanCopyTensorStoreToArray<
     UnwrapResultType<internal::remove_cvref_t<Source>>,
     UnwrapResultType<internal::remove_cvref_t<TargetArray>>, Future<void>>
-Read(Source&& source, TargetArray&& target, ReadOptions options = {}) {
+Read(Source&& source, TargetArray&& target, ReadOptions options) {
   return MapResult(
       [&](UnwrapQualifiedResultType<Source&&> unwrapped_source,
           UnwrapQualifiedResultType<TargetArray&&> unwrapped_target) {
@@ -612,8 +656,27 @@ Read(Source&& source, TargetArray&& target, ReadOptions options = {}) {
       },
       std::forward<Source>(source), std::forward<TargetArray>(target));
 }
+template <typename Source, typename TargetArray, typename... Option>
+internal::EnableIfCanCopyTensorStoreToArray<
+    UnwrapResultType<internal::remove_cvref_t<Source>>,
+    UnwrapResultType<internal::remove_cvref_t<TargetArray>>, Future<void>>
+Read(Source&& source, TargetArray&& target, Option&&... options) {
+  return tensorstore::Read(std::forward<Source>(source),
+                           std::forward<TargetArray>(target),
+                           ReadOptions(std::forward<Option>(options)...));
+}
 
 /// Copies from a `source` `TensorStore` to a newly-allocated target `Array`.
+///
+/// Options compatible with `ReadIntoNewArrayOptions` are specified in any order
+/// after `store`.  The meaning of each option is determined by its type.
+///
+/// Supported option types are:
+///
+/// - `ContiguousLayoutOrder`, specifying the layout of the returned array.  If
+///   not specified, defaults to `c_order`.
+///
+/// - `ReadProgressFunction`
 ///
 /// Example::
 ///
@@ -627,7 +690,7 @@ Read(Source&& source, TargetArray&& target, ReadOptions options = {}) {
 ///     translated to have an origin of zero for all dimensions.
 /// \param source Source TensorStore object that supports reading.  May be
 ///     `Result`-wrapped.
-/// \param options Additional read options.
+/// \param options Any option compatible with `ReadIntoNewArrayOptions`.
 /// \returns A future that becomes ready when the read has completed
 ///     successfully or has failed.
 /// \relates TensorStore
@@ -636,7 +699,7 @@ Read(Source&& source, TargetArray&& target, ReadOptions options = {}) {
 template <ArrayOriginKind OriginKind = offset_origin, typename Source>
 internal::ReadTensorStoreIntoNewArrayResult<
     OriginKind, UnwrapResultType<internal::remove_cvref_t<Source>>>
-Read(Source&& source, ReadIntoNewArrayOptions options = {}) {
+Read(Source&& source, ReadIntoNewArrayOptions options) {
   return MapResult(
       [&](UnwrapQualifiedResultType<Source&&> unwrapped_source) {
         using Store = UnwrapResultType<internal::remove_cvref_t<Source>>;
@@ -649,6 +712,17 @@ Read(Source&& source, ReadIntoNewArrayOptions options = {}) {
       },
       std::forward<Source>(source));
 }
+template <ArrayOriginKind OriginKind = offset_origin, typename Source,
+          typename... Option>
+std::enable_if_t<
+    IsCompatibleOptionSequence<ReadIntoNewArrayOptions, Option...>,
+    internal::ReadTensorStoreIntoNewArrayResult<
+        OriginKind, UnwrapResultType<internal::remove_cvref_t<Source>>>>
+Read(Source&& source, Option&&... options) {
+  return tensorstore::Read<OriginKind>(
+      std::forward<Source>(source),
+      ReadIntoNewArrayOptions(std::forward<Option>(options)...));
+}
 
 /// Copies from a `source` array to `target` TensorStore.
 ///
@@ -657,6 +731,15 @@ Read(Source&& source, ReadIntoNewArrayOptions options = {}) {
 ///
 /// If an error occurs while writing, the `target` TensorStore may be left in a
 /// partially-written state.
+///
+/// Options compatible with `WriteOptions` are specified in any order after
+/// `store`.  The meaning of each option is determined by its type.
+///
+/// Supported option types are:
+///
+/// - `DomainAlignmentOptions`
+///
+/// - `WriteProgressFunction`
 ///
 /// Example::
 ///
@@ -670,7 +753,7 @@ Read(Source&& source, ReadIntoNewArrayOptions options = {}) {
 ///     `Result`-wrapped.  This array must remain valid until the returned
 ///     `WriteFutures::copy_future` becomes ready.
 /// \param target The target `TensorStore`.  May be `Result`-wrapped.
-/// \param options Additional write options.
+/// \param options Any option compatible with `WriteOptions`.
 /// \relates TensorStore
 /// \membergoup I/O
 /// \id Array, TensorStore
@@ -678,7 +761,7 @@ template <typename SourceArray, typename Target>
 internal::EnableIfCanCopyArrayToTensorStore<
     UnwrapResultType<internal::remove_cvref_t<SourceArray>>,
     UnwrapResultType<internal::remove_cvref_t<Target>>, WriteFutures>
-Write(SourceArray&& source, Target&& target, WriteOptions options = {}) {
+Write(SourceArray&& source, Target&& target, WriteOptions options) {
   return MapResult(
       [&](UnwrapQualifiedResultType<SourceArray&&> unwrapped_source,
           UnwrapQualifiedResultType<Target&&> unwrapped_target) {
@@ -690,6 +773,17 @@ Write(SourceArray&& source, Target&& target, WriteOptions options = {}) {
       },
       std::forward<SourceArray>(source), std::forward<Target>(target));
 }
+template <typename SourceArray, typename Target, typename... Option>
+std::enable_if_t<
+    IsCompatibleOptionSequence<WriteOptions, Option...>,
+    internal::EnableIfCanCopyArrayToTensorStore<
+        UnwrapResultType<internal::remove_cvref_t<SourceArray>>,
+        UnwrapResultType<internal::remove_cvref_t<Target>>, WriteFutures>>
+Write(SourceArray&& source, Target&& target, Option&&... options) {
+  return tensorstore::Write(std::forward<SourceArray>(source),
+                            std::forward<Target>(target),
+                            WriteOptions(std::forward<Option>(options)...));
+}
 
 /// Copies from `source` `TensorStore` to `target` `TensorStore`.
 ///
@@ -699,6 +793,15 @@ Write(SourceArray&& source, Target&& target, WriteOptions options = {}) {
 ///
 /// If an error occurs while copying, the `target` TensorStore may be left in a
 /// partially-written state.
+///
+/// Options compatible with `CopyOptions` are specified in any order after
+/// `store`.  The meaning of each option is determined by its type.
+///
+/// Supported option types are:
+///
+/// - `DomainAlignmentOptions`
+///
+/// - `CopyProgressFunction`
 ///
 /// Example::
 ///
@@ -714,7 +817,7 @@ Write(SourceArray&& source, Target&& target, WriteOptions options = {}) {
 ///     `WriteFutures::copy_future` becomes ready.
 /// \param target The target `TensorStore` that supports writing.  May be
 ///     `Result`-wrapped.
-/// \param options Additional write options.
+/// \param options Any option compatible with `CopyOptions`.
 /// \relates TensorStore
 /// \membergoup I/O
 /// \id TensorStore, TensorStore
@@ -722,7 +825,7 @@ template <typename Source, typename Target>
 internal::EnableIfCanCopyTensorStoreToTensorStore<
     UnwrapResultType<internal::remove_cvref_t<Source>>,
     UnwrapResultType<internal::remove_cvref_t<Target>>, WriteFutures>
-Copy(Source&& source, Target&& target, CopyOptions options = {}) {
+Copy(Source&& source, Target&& target, CopyOptions options) {
   return MapResult(
       [&](UnwrapQualifiedResultType<Source&&> unwrapped_source,
           UnwrapQualifiedResultType<Target&&> unwrapped_target) {
@@ -734,6 +837,17 @@ Copy(Source&& source, Target&& target, CopyOptions options = {}) {
             std::move(options));
       },
       std::forward<Source>(source), std::forward<Target>(target));
+}
+template <typename Source, typename Target, typename... Option>
+std::enable_if_t<
+    IsCompatibleOptionSequence<CopyOptions, Option...>,
+    internal::EnableIfCanCopyTensorStoreToTensorStore<
+        UnwrapResultType<internal::remove_cvref_t<Source>>,
+        UnwrapResultType<internal::remove_cvref_t<Target>>, WriteFutures>>
+Copy(Source&& source, Target&& target, Option&&... options) {
+  return tensorstore::Copy(std::forward<Source>(source),
+                           std::forward<Target>(target),
+                           CopyOptions(std::forward<Option>(options)...));
 }
 
 /// Retrieves statistics of the data stored within the given array region.

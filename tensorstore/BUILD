@@ -599,6 +599,7 @@ tensorstore_cc_library(
         ":contiguous_layout",
         ":progress",
         "//tensorstore/index_space:alignment",
+        "@com_google_absl//absl/meta:type_traits",
     ],
 )
 
@@ -606,7 +607,10 @@ tensorstore_cc_library(
     name = "resize_options",
     srcs = ["resize_options.cc"],
     hdrs = ["resize_options.h"],
-    deps = ["@com_google_absl//absl/base:core_headers"],
+    deps = [
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/meta:type_traits",
+    ],
 )
 
 tensorstore_cc_test(

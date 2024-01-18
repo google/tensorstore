@@ -171,23 +171,38 @@ inline absl::Status GetStatus(const WriteFutures& future) {
   return future.status();
 }
 
-/// Type-erased movable function with signature `void (ReadProgress)`.
+/// Specifies a read progress function for use with `tensorstore::Read`.
 ///
 /// \relates ReadProgress
-using ReadProgressFunction =
-    poly::Poly<sizeof(void*) * 2, /*Copyable=*/false, void(ReadProgress)>;
+struct ReadProgressFunction {
+  /// Type-erased movable function with signature `void (ReadProgress)`.
+  using Function =
+      poly::Poly<sizeof(void*) * 2, /*Copyable=*/false, void(ReadProgress)>;
 
-/// Type-erased movable function with signature `void (WriteProgress)`.
+  Function value;
+};
+
+/// Specifies a write progress function for use with `tensorstore::Write`.
 ///
 /// \relates WriteProgress
-using WriteProgressFunction =
-    poly::Poly<sizeof(void*) * 2, /*Copyable=*/false, void(WriteProgress)>;
+struct WriteProgressFunction {
+  /// Type-erased movable function with signature `void (WriteProgress)`.
+  using Function =
+      poly::Poly<sizeof(void*) * 2, /*Copyable=*/false, void(WriteProgress)>;
 
-/// Type-erased movable function with signature `void (CopyProgress)`.
+  Function value;
+};
+
+/// Specifies a copy progress function for use with `tensorstore::Copy`.
 ///
 /// \relates CopyProgress
-using CopyProgressFunction =
-    poly::Poly<sizeof(void*) * 2, /*Copyable=*/false, void(CopyProgress)>;
+struct CopyProgressFunction {
+  /// Type-erased movable function with signature `void (CopyProgress)`.
+  using Function =
+      poly::Poly<sizeof(void*) * 2, /*Copyable=*/false, void(CopyProgress)>;
+
+  Function value;
+};
 
 }  // namespace tensorstore
 
