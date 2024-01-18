@@ -226,6 +226,11 @@ struct ReadChunkTransactionImpl {
       read_array =
           ChunkCache::GetReadComponent(read_lock.data(), component_index);
       read_generation = read_lock.stamp().generation;
+      if (!node->IsUnconditional() &&
+          (node->transaction()->mode() & repeatable_read)) {
+        TENSORSTORE_RETURN_IF_ERROR(
+            node->RequireRepeatableRead(read_generation));
+      }
     }
     return component.GetReadNDIterable(component_spec, origin_span,
                                        std::move(read_array), read_generation,

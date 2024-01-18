@@ -14,22 +14,32 @@
 
 /// End-to-end tests of the json driver.
 
+#include <optional>
+#include <string>
+#include <utility>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "absl/time/clock.h"
+#include "absl/status/status.h"
+#include "absl/strings/cord.h"
+#include <nlohmann/json.hpp>
+#include "tensorstore/array.h"
 #include "tensorstore/context.h"
 #include "tensorstore/driver/driver_testutil.h"
 #include "tensorstore/index_space/dim_expression.h"
-#include "tensorstore/internal/cache/cache.h"
 #include "tensorstore/internal/global_initializer.h"
-#include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/parse_json_matches.h"
+#include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/memory/memory_key_value_store.h"
 #include "tensorstore/kvstore/mock_kvstore.h"
+#include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/open.h"
-#include "tensorstore/util/status.h"
+#include "tensorstore/spec.h"
+#include "tensorstore/tensorstore.h"
+#include "tensorstore/transaction.h"
+#include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -418,6 +428,34 @@ TEST(SpecTest, InvalidCodec) {
                    {"schema", {{"codec", {{"driver", "n5"}}}}}}),
               MatchesStatus(absl::StatusCode::kInvalidArgument,
                             "codec not supported by json driver"));
+}
+
+TENSORSTORE_GLOBAL_INITIALIZER {
+  tensorstore::internal::TensorStoreRepeatableReadTestOptions options;
+  options.test_suite_name = "RepeatableReadTest";
+  options.fill_value = tensorstore::MakeScalarArray<::nlohmann::json>(
+      ::nlohmann::json::value_t::discarded);
+  options.value1 = tensorstore::MakeScalarArray<::nlohmann::json>(1);
+  options.value2 = tensorstore::MakeScalarArray<::nlohmann::json>(2);
+  options.value3 = tensorstore::MakeScalarArray<::nlohmann::json>(3);
+  options.key = "key.json";
+
+  options.encode_value = [](tensorstore::SharedArray<const void> value)
+      -> tensorstore::Result<std::optional<absl::Cord>> {
+    return absl::Cord(
+        static_cast<const ::nlohmann::json*>(value.data())->dump());
+  };
+  options.make_tensorstore = [](const tensorstore::Context& context)
+      -> tensorstore::Result<tensorstore::TensorStore<>> {
+    return tensorstore::Open(
+               {{"driver", "json"},
+                {"kvstore",
+                 {{"driver", "mock_key_value_store"}, {"path", "key.json"}}},
+                {"recheck_cached_data", true}},
+               context)
+        .result();
+  };
+  tensorstore::internal::RegisterTensorStoreRepeatableReadTest(options);
 }
 
 }  // namespace

@@ -269,6 +269,19 @@ class KvsBackedCache : public Parent {
         return execution::set_value(receiver, kvstore::ReadResult::Unspecified(
                                                   std::move(read_state.stamp)));
       }
+      if (!StorageGeneration::IsUnknown(require_repeatable_read_) &&
+          read_state.stamp.time < options.staleness_bound) {
+        // Read required to validate repeatable read.
+        auto read_future = this->Read(options.staleness_bound);
+        read_future.Force();
+        read_future.ExecuteWhenReady(
+            [this, options = std::move(options),
+             receiver =
+                 std::move(receiver)](ReadyFuture<const void> future) mutable {
+              this->KvsWriteback(std::move(options), std::move(receiver));
+            });
+        return;
+      }
       struct EncodeReceiverImpl {
         TransactionNode* self_;
         AsyncCache::ReadState update_;
@@ -301,6 +314,24 @@ class KvsBackedCache : public Parent {
         }
         void set_cancel() { ABSL_UNREACHABLE(); }  // COV_NF_LINE
         void set_value(AsyncCache::ReadState update) {
+          if (!StorageGeneration::IsUnknown(self_->require_repeatable_read_)) {
+            if (!StorageGeneration::IsConditional(update.stamp.generation)) {
+              update.stamp.generation = StorageGeneration::Condition(
+                  update.stamp.generation, self_->require_repeatable_read_);
+              auto read_stamp = AsyncCache::ReadLock<void>(*self_).stamp();
+              if (!StorageGeneration::IsUnknown(read_stamp.generation) &&
+                  read_stamp.generation != self_->require_repeatable_read_) {
+                execution::set_error(receiver_, GetGenerationMismatchError());
+                return;
+              }
+              update.stamp.time = read_stamp.time;
+            } else if (!StorageGeneration::IsConditionalOn(
+                           update.stamp.generation,
+                           self_->require_repeatable_read_)) {
+              execution::set_error(receiver_, GetGenerationMismatchError());
+              return;
+            }
+          }
           if (!StorageGeneration::NotEqualOrUnspecified(update.stamp.generation,
                                                         if_not_equal_)) {
             return execution::set_value(
@@ -358,6 +389,26 @@ class KvsBackedCache : public Parent {
 
     void KvsRevoke() override { this->Revoke(); }
 
+    // Must be called with `mutex()` held.
+    virtual absl::Status RequireRepeatableRead(
+        const StorageGeneration& generation) {
+      this->DebugAssertMutexHeld();
+      if (!StorageGeneration::IsUnknown(require_repeatable_read_)) {
+        if (require_repeatable_read_ != generation) {
+          return GetOwningEntry(*this).AnnotateError(
+              GetGenerationMismatchError(),
+              /*reading=*/true);
+        }
+      } else {
+        require_repeatable_read_ = generation;
+      }
+      return absl::OkStatus();
+    }
+
+    static absl::Status GetGenerationMismatchError() {
+      return absl::AbortedError("Generation mismatch");
+    }
+
    private:
     friend class KvsBackedCache;
 
@@ -366,6 +417,10 @@ class KvsBackedCache : public Parent {
 
     // New data for the cache if the writeback completes successfully.
     std::shared_ptr<const void> new_data_;
+
+    // If not `StorageGeneration::Unknown()`, requires that the prior generation
+    // match this generation when the transaction is committed.
+    StorageGeneration require_repeatable_read_;
   };
 
   /// Returns the associated `kvstore::Driver`.

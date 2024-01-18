@@ -87,7 +87,28 @@ enum TransactionMode : uint8_t {
   ///
   /// - Durability is guaranteed.
   atomic_isolated = 3,
+
+  /// Repeated reads are guaranteed to return the same result.  If a concurrent
+  /// change occurs, the transaction will fail to commit.  Whether concurrent
+  /// changes lead to transaction failure prior to commit is unspecified.
+  ///
+  /// Spurious errors due to concurrent writes to data that was not read (but
+  /// may be "nearby" data that was read) may occur.
+  repeatable_read = 4,
 };
+
+/// Unions the requirements of two transaction modes.
+///
+/// \relates TransactionMode
+constexpr inline TransactionMode operator|(TransactionMode a,
+                                           TransactionMode b) {
+  return static_cast<TransactionMode>(static_cast<uint8_t>(a) |
+                                      static_cast<uint8_t>(b));
+}
+constexpr inline TransactionMode& operator|=(TransactionMode& a,
+                                             TransactionMode b) {
+  return (a = (a | b));
+}
 
 /// Prints a string representation of the transaction mode to an `std::ostream`.
 ///

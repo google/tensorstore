@@ -355,6 +355,34 @@ TestSpecSchema(::nlohmann::json json_spec, Option&&... option) {
 
 void TestSpecSchema(::nlohmann::json json_spec, ::nlohmann::json json_schema);
 
+// Tests repeatable read operations using a TensorStore that reads/writes a
+// single key in a kvstore.
+struct TensorStoreRepeatableReadTestOptions {
+  std::string test_suite_name;
+
+  // Function that returns a TensorStore that uses the
+  // `MockKeyValueStoreResource` from `context`.
+  std::function<Result<TensorStore<void>>(const Context& context)>
+      make_tensorstore;
+
+  // Initial read value of the `TensorStore` returned from `make_tensorstore`.
+  SharedArray<const void> fill_value;
+
+  // Distinct arrays of the same shape and data type as `fill_value`.
+  SharedArray<const void> value1, value2, value3;
+
+  // KvStore key representing the value.
+  std::string key;
+
+  // Encodes an array to the KvStore representation.
+  std::function<Result<std::optional<absl::Cord>>(SharedArray<const void>)>
+      encode_value;
+};
+
+// Registers the test suite specified by `options`.
+void RegisterTensorStoreRepeatableReadTest(
+    const TensorStoreRepeatableReadTestOptions& options);
+
 }  // namespace internal
 }  // namespace tensorstore
 

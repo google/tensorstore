@@ -14,8 +14,13 @@
 
 #include "tensorstore/kvstore/generation.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
+#include <cstring>
 #include <ostream>
 #include <string_view>
+#include <utility>
 
 #include "absl/time/time.h"
 #include "tensorstore/serialization/absl_time.h"
@@ -122,6 +127,16 @@ bool StorageGeneration::IsConditional(const StorageGeneration& generation) {
     --new_size;
   }
   return (new_size != 0);
+}
+
+bool StorageGeneration::IsConditionalOn(const StorageGeneration& generation,
+                                        const StorageGeneration& condition) {
+  size_t size = generation.value.size();
+  return size != 0 && condition.value.size() == size &&
+         std::memcmp(generation.value.data(), condition.value.data(),
+                     size - 1) == 0 &&
+         (generation.value[size] | kDirty | kNewlyDirty) ==
+             (condition.value[size] | kDirty | kNewlyDirty);
 }
 
 bool StorageGeneration::EqualOrUnspecified(const StorageGeneration& generation,

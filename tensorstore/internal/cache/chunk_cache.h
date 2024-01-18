@@ -143,6 +143,17 @@ class ChunkCache : public AsyncCache {
 
     void InvalidateReadState() override;
 
+    // Require that the existing generation match `generation` when this
+    // transaction is committed.
+    //
+    // This is overridden by KvsBackedCache.
+    //
+    // Must be called with `mutex()` locked.
+    virtual absl::Status RequireRepeatableRead(
+        const StorageGeneration& generation) {
+      return absl::OkStatus();
+    }
+
    private:
     friend class ChunkCache;
     absl::InlinedVector<Component, 1> components_;

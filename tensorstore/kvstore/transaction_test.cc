@@ -72,10 +72,36 @@ TEST(KvStoreTest, WriteThenRead) {
   TENSORSTORE_ASSERT_OK(future);
 }
 
-TEST(KvStoreTest, Read) {
+TEST(KvStoreTest, ReadWithoutRepeatableReadIsolation) {
   auto mock_driver = MockKeyValueStore::Make();
 
   Transaction txn(tensorstore::isolated);
+
+  KvStore store(mock_driver, "", txn);
+
+  {
+    auto read_future = kvstore::Read(store, "a");
+
+    {
+      auto req = mock_driver->read_requests.pop();
+      EXPECT_THAT(req.key, "a");
+      req.promise.SetResult(ReadResult::Value(
+          absl::Cord("value"),
+          TimestampedStorageGeneration(StorageGeneration::FromString("abc"),
+                                       absl::Now())));
+    }
+
+    EXPECT_THAT(read_future.result(),
+                ::testing::Optional(MatchesKvsReadResult(absl::Cord("value"))));
+  }
+
+  TENSORSTORE_ASSERT_OK(txn.CommitAsync().result());
+}
+
+TEST(KvStoreTest, ReadWithRepeatableReadIsolation) {
+  auto mock_driver = MockKeyValueStore::Make();
+
+  Transaction txn(tensorstore::isolated | tensorstore::repeatable_read);
 
   KvStore store(mock_driver, "", txn);
 
@@ -138,7 +164,7 @@ TEST(KvStoreTest, ReadInvalidOptionByteRange) {
 TEST(KvStoreTest, ReadMismatch) {
   auto mock_driver = MockKeyValueStore::Make();
 
-  Transaction txn(tensorstore::isolated);
+  Transaction txn(tensorstore::isolated | tensorstore::repeatable_read);
 
   KvStore store(mock_driver, "", txn);
 

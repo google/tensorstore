@@ -29,17 +29,20 @@
 #include "absl/container/inlined_vector.h"
 #include "absl/log/absl_check.h"
 #include "absl/strings/numbers.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_split.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "tensorstore/array.h"
 #include "tensorstore/box.h"
+#include "tensorstore/context.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/chunk.h"
 #include "tensorstore/driver/chunk_cache_driver.h"
 #include "tensorstore/driver/driver.h"
 #include "tensorstore/driver/driver_handle.h"
+#include "tensorstore/driver/driver_testutil.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_transform.h"
@@ -50,6 +53,7 @@
 #include "tensorstore/internal/cache/kvs_backed_cache.h"
 #include "tensorstore/internal/element_copy_function.h"
 #include "tensorstore/internal/elementwise_function.h"
+#include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/masked_array.h"
 #include "tensorstore/internal/memory.h"
@@ -1835,6 +1839,43 @@ TEST_F(ChunkCacheTest, SeparateCachesReadIfNotEqualAbort) {
     EXPECT_THAT(read_future.result(),
                 ::testing::Optional(MakeArray<int>({1, 2})));
   }
+}
+
+TENSORSTORE_GLOBAL_INITIALIZER {
+  tensorstore::internal::TensorStoreRepeatableReadTestOptions options;
+  options.test_suite_name = "RepeatableReadTest";
+  options.fill_value = MakeArray<int>({1, 2});
+  options.value1 = MakeArray<int>({3, 4});
+  options.value2 = MakeArray<int>({5, 6});
+  options.value3 = MakeArray<int>({7, 8});
+  options.key = EncodeKey({{0}});
+
+  auto grid = std::make_shared<ChunkGridSpecification>(
+      ChunkGridSpecification({ChunkGridSpecification::Component{
+          SharedArray<const void>(options.fill_value), Box<>(1)}}));
+
+  options.encode_value =
+      [=](SharedArray<const void> value) -> Result<std::optional<absl::Cord>> {
+    return EncodeRaw(*grid, std::vector<SharedArray<const void>>{value});
+  };
+  options.make_tensorstore =
+      [=](const tensorstore::Context& context) -> Result<TensorStore<>> {
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        auto mock_key_value_store_resource,
+        context
+            .GetResource<tensorstore::internal::MockKeyValueStoreResource>());
+    auto thread_pool = tensorstore::internal::DetachedThreadPool(1);
+    auto mock_store = *mock_key_value_store_resource;
+    auto pool = CachePool::Make(CachePool::Limits{});
+    auto cache = GetCache<TestCache>(pool.get(), "", [&] {
+      return std::make_unique<TestCache>(mock_store, *grid, thread_pool);
+    });
+    return tensorstore::internal::TensorStoreAccess::Construct<TensorStore<>>(
+               tensorstore::internal::Driver::Handle{
+                   MakeDriver(cache), tensorstore::IdentityTransform(1)}) |
+           tensorstore::Dims(0).TranslateSizedInterval(0, 2);
+  };
+  tensorstore::internal::RegisterTensorStoreRepeatableReadTest(options);
 }
 
 }  // namespace

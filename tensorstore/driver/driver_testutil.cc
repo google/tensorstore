@@ -15,6 +15,7 @@
 #include "tensorstore/driver/driver_testutil.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <algorithm>
 #include <atomic>
@@ -31,6 +32,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/algorithm/container.h"
+#include "absl/functional/function_ref.h"
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/random/bit_gen_ref.h"
@@ -42,6 +44,7 @@
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
+#include "tensorstore/array_testutil.h"
 #include "tensorstore/box.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/context.h"
@@ -67,6 +70,9 @@
 #include "tensorstore/internal/nditerable_transformed_array.h"
 #include "tensorstore/internal/test_util.h"
 #include "tensorstore/json_serialization_options_base.h"
+#include "tensorstore/kvstore/generation.h"
+#include "tensorstore/kvstore/memory/memory_key_value_store.h"
+#include "tensorstore/kvstore/mock_kvstore.h"
 #include "tensorstore/kvstore/test_util.h"
 #include "tensorstore/open.h"
 #include "tensorstore/open_mode.h"
@@ -216,7 +222,7 @@ void TestTensorStoreDriverSpecRoundtrip(
           tensorstore::Write(value_to_create,
                              store | tensorstore::AllDims().IndexSlice(
                                          store.domain().origin()))
-              .result());
+              .status());
     }
 
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
@@ -1231,6 +1237,214 @@ void TestSpecSchemaImpl(::nlohmann::json json_spec, const Schema& schema) {
 void TestSpecSchema(::nlohmann::json json_spec, ::nlohmann::json json_schema) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto schema, Schema::FromJson(json_schema));
   TestSpecSchemaImpl(std::move(json_spec), schema);
+}
+
+namespace {
+struct RepeatableReadParams {
+  bool has_initial_value;
+  bool value_changes;
+  bool repeatable;
+  enum FullyOverwritten {
+    kInitially,
+    kAfterRead,
+    kNever,
+  };
+  FullyOverwritten fully_overwritten;
+  bool read_before_commit;
+
+  std::string GetIdentifier() const {
+    return absl::StrFormat(
+        "has_initial_value_%d__value_changes_%d__repeatable_read_%d__"
+        "fully_overwritten_%s__read_before_commit_%d",
+        has_initial_value, value_changes, repeatable,
+        fully_overwritten == kInitially
+            ? "initially"
+            : (fully_overwritten == kAfterRead ? "after_read" : "never"),
+        read_before_commit);
+  }
+
+  template <typename Callback>
+  static void ForEach(Callback callback) {
+    for (auto has_initial_value : {false, true}) {
+      for (auto value_changes : {false, true}) {
+        for (auto repeatable : {false, true}) {
+          for (auto fully_overwritten : {kInitially, kAfterRead, kNever}) {
+            for (auto read_before_commit : {false, true}) {
+              callback(RepeatableReadParams{has_initial_value, value_changes,
+                                            repeatable, fully_overwritten,
+                                            read_before_commit});
+            }
+          }
+        }
+      }
+    }
+  }
+};
+
+void TestTensorStoreRepeatableRead(
+    const TensorStoreRepeatableReadTestOptions& options,
+    const RepeatableReadParams& params) {
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto mock_key_value_store_resource,
+      context.GetResource<tensorstore::internal::MockKeyValueStoreResource>());
+  auto mock_store = *mock_key_value_store_resource;
+  auto memory_store = tensorstore::GetMemoryKeyValueStore();
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto store,
+                                   options.make_tensorstore(context));
+
+  auto set_chunk = [&](SharedArray<const void> value) -> absl::Status {
+    TENSORSTORE_ASSIGN_OR_RETURN(auto encoded, options.encode_value(value));
+    return memory_store->Write(options.key, encoded).status();
+  };
+
+  auto transaction = Transaction(
+      params.repeatable ? (tensorstore::isolated | tensorstore::repeatable_read)
+                        : tensorstore::isolated);
+
+  SharedArray<const void> expected_value = options.fill_value;
+
+  if (params.has_initial_value) {
+    TENSORSTORE_ASSERT_OK(set_chunk(options.value1));
+    expected_value = options.value1;
+  }
+
+  if (params.fully_overwritten == RepeatableReadParams::kInitially) {
+    // Because the value gets fully overwritten in the transaction node before
+    // the first read request, the existing value is never observed and the
+    // repeatable_read requirement has no effect.
+    TENSORSTORE_ASSERT_OK(
+        tensorstore::Write(options.value3, store | transaction).status());
+    expected_value = options.value3;
+  }
+
+  {
+    auto read_future = tensorstore::Read(store | transaction);
+    // If already fully overwritten, read request is satisfied by cached
+    // value.
+
+    if (params.fully_overwritten != RepeatableReadParams::kInitially) {
+      auto r = mock_store->read_requests.pop();
+      EXPECT_THAT(r.key, options.key);
+      EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_not_equal);
+      r(memory_store);
+    }
+    EXPECT_THAT(read_future.result(),
+                ::testing::Optional(MatchesArrayIdentically(expected_value)));
+  }
+
+  // Re-read before value changes.
+  {
+    auto read_future = tensorstore::Read(store | transaction);
+    // If already fully overwritten, read request is satisfied by cached
+    // value.
+    if (params.fully_overwritten != RepeatableReadParams::kInitially) {
+      auto r = mock_store->read_requests.pop();
+      EXPECT_THAT(r.key, options.key);
+      r(memory_store);
+    }
+    EXPECT_THAT(read_future.result(),
+                ::testing::Optional(MatchesArrayIdentically(expected_value)));
+  }
+
+  if (params.fully_overwritten == RepeatableReadParams::kAfterRead) {
+    TENSORSTORE_ASSERT_OK(
+        tensorstore::Write(options.value3, store | transaction).status());
+    expected_value = options.value3;
+
+    auto read_future = tensorstore::Read(store | transaction);
+    EXPECT_THAT(read_future.result(),
+                ::testing::Optional(MatchesArrayIdentically(expected_value)));
+  }
+
+  if (params.value_changes) {
+    TENSORSTORE_ASSERT_OK(set_chunk(options.value2));
+    if (params.fully_overwritten == RepeatableReadParams::kNever) {
+      // Subsequent reads will observe the new value.
+      expected_value = options.value2;
+    }
+  }
+
+  // Re-read possibly after changing value.
+  if (params.read_before_commit) {
+    auto read_future = tensorstore::Read(store | transaction);
+    // If fully overwritten, read request is satisfied by cached value.
+    if (params.fully_overwritten == RepeatableReadParams::kNever) {
+      auto r = mock_store->read_requests.pop();
+      EXPECT_THAT(r.key, options.key);
+      r(memory_store);
+    }
+    auto read_result = read_future.result();
+    if (params.repeatable && params.value_changes &&
+        params.fully_overwritten == RepeatableReadParams::kNever) {
+      EXPECT_THAT(read_result, MatchesStatus(absl::StatusCode::kAborted,
+                                             ".*: Generation mismatch"));
+    } else {
+      EXPECT_THAT(read_result,
+                  ::testing::Optional(MatchesArrayIdentically(expected_value)));
+    }
+  }
+
+  auto commit_future = transaction.CommitAsync();
+
+  if (params.fully_overwritten != RepeatableReadParams::kNever) {
+    {
+      auto r = mock_store->write_requests.pop();
+      EXPECT_THAT(r.key, options.key);
+      if (params.repeatable &&
+          params.fully_overwritten != RepeatableReadParams::kInitially) {
+        EXPECT_NE(StorageGeneration::Unknown(), r.options.if_equal);
+      } else {
+        EXPECT_EQ(StorageGeneration::Unknown(), r.options.if_equal);
+      }
+      r(memory_store);
+    }
+
+    if (params.repeatable &&
+        params.fully_overwritten != RepeatableReadParams::kInitially &&
+        params.value_changes) {
+      auto r = mock_store->read_requests.pop();
+      EXPECT_THAT(r.key, options.key);
+      r(memory_store);
+    }
+  } else if (params.repeatable) {
+    // If `value_changes && read_before_commit`, commit fails immediately based
+    // on cached read state.
+    if (!params.value_changes || !params.read_before_commit) {
+      auto r = mock_store->read_requests.pop();
+      EXPECT_THAT(r.key, options.key);
+      r(memory_store);
+
+      if (params.value_changes) {
+        // Currently an additional unnecessary read is performed in the failure
+        // case, because we retry in the case of a generation mismatch.
+        auto r = mock_store->read_requests.pop();
+        EXPECT_THAT(r.key, options.key);
+        r(memory_store);
+      }
+    }
+  }
+
+  if (!params.repeatable || !params.value_changes ||
+      params.fully_overwritten == RepeatableReadParams::kInitially) {
+    TENSORSTORE_EXPECT_OK(commit_future);
+  } else {
+    EXPECT_THAT(
+        commit_future.result(),
+        MatchesStatus(absl::StatusCode::kAborted, ".*: Generation mismatch"));
+  }
+}
+
+}  // namespace
+
+void RegisterTensorStoreRepeatableReadTest(
+    const TensorStoreRepeatableReadTestOptions& options) {
+  RepeatableReadParams::ForEach([&](const auto& params) {
+    internal::RegisterGoogleTestCaseDynamically(
+        options.test_suite_name, params.GetIdentifier(),
+        [=] { TestTensorStoreRepeatableRead(options, params); });
+  });
 }
 
 }  // namespace internal

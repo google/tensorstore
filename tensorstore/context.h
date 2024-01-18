@@ -304,7 +304,7 @@ class Context {
     return GetResource(spec);
   }
   template <typename Provider>
-  Result<Resource<Provider>> GetResource() {
+  Result<Resource<Provider>> GetResource() const {
     return GetResource<Provider>(Provider::id);
   }
 

@@ -80,17 +80,19 @@ void PerformWriteback(Driver* driver, Controller controller,
     // This is a conditional read or stale read; but not a dirty read, so
     // reissue the read.
     ReadOptions read_options;
-    read_options.if_not_equal =
+    auto if_not_equal =
         StorageGeneration::Clean(std::move(read_result.stamp.generation));
+    read_options.if_not_equal = if_not_equal;
     read_options.byte_range = OptionalByteRangeRequest{0, 0};
     auto future = driver->Read(controller.GetKey(), std::move(read_options));
     future.Force();
     std::move(future).ExecuteWhenReady(
-        [controller](ReadyFuture<ReadResult> future) mutable {
+        [controller, if_not_equal = std::move(if_not_equal)](
+            ReadyFuture<ReadResult> future) mutable {
           auto& r = future.result();
           if (!r.ok()) {
             ReportWritebackError(controller, "reading", r.status());
-          } else if (r->aborted()) {
+          } else if (r->aborted() || r->stamp.generation == if_not_equal) {
             controller.Success(std::move(r->stamp));
           } else {
             controller.Retry(r->stamp.time);
@@ -1398,6 +1400,13 @@ class ReadViaExistingTransactionNode : public internal::TransactionState::Node,
         absl::MutexLock lock(&mutex_);
         expected_stamp = expected_stamp_;
       }
+      if (StorageGeneration::IsUnknown(expected_stamp.generation)) {
+        // No repeatable_read validation required.
+        execution::set_value(
+            receiver, ReadResult::Unspecified(
+                          TimestampedStorageGeneration::Unconditional()));
+        return;
+      }
       if (StorageGeneration::IsClean(expected_stamp.generation) &&
           expected_stamp.time >= read_options.staleness_bound) {
         // Nothing to write back, just need to verify generation.
@@ -1471,7 +1480,7 @@ Future<ReadResult> ReadViaExistingTransaction(
     Promise<ReadResult> promise_;
 
     void set_value(ReadResult read_result) {
-      {
+      if (node_->transaction()->mode() & repeatable_read) {
         absl::MutexLock lock(&node_->mutex_);
         node_->expected_stamp_ = read_result.stamp;
       }
