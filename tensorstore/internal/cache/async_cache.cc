@@ -50,6 +50,10 @@ using PendingWritebackQueueAccessor =
     TransactionNode::PendingWritebackQueueAccessor;
 using PrepareForCommitState = TransactionNode::PrepareForCommitState;
 
+// While the real epsilon is `absl::Nanoseconds(1) / 4`, `operator/` is not
+// constexpr, and this value is sufficient for use here.
+constexpr absl::Duration kEpsilonDuration = absl::Nanoseconds(1);
+
 void AcquireReadRequestReference(Entry& entry) {
   // Prevent the entry from being destroyed while the read is in progress.
   internal::PinnedCacheEntry<AsyncCache>(&entry).release();
@@ -229,6 +233,7 @@ void SetReadState(EntryOrNode& entry_or_node, ReadState&& read_state,
       return;
     }
   }
+  entry_or_node.read_request_state_.known_to_be_stale = false;
   entry_or_node.read_request_state_.read_state = std::move(read_state);
   size_t change =
       read_state_size -
@@ -245,21 +250,27 @@ void SetReadState(EntryOrNode& entry_or_node, ReadState&& read_state,
 
 template <typename EntryOrNode>
 Future<const void> RequestRead(EntryOrNode& entry_or_node,
-                               absl::Time staleness_bound) {
+                               absl::Time staleness_bound,
+                               bool must_not_be_known_to_be_stale) {
   static_assert(std::is_same_v<EntryOrNode, Entry> ||
                 std::is_same_v<EntryOrNode, TransactionNode>);
   auto& entry = GetOwningEntry(entry_or_node);
   UniqueWriterLock lock(entry);
 
-  auto& request_state = entry_or_node.read_request_state_;
-  const auto existing_time =
-      GetEffectiveReadRequestState(entry_or_node).read_state.stamp.time;
+  auto& effective_request_state = GetEffectiveReadRequestState(entry_or_node);
+  const auto existing_time = effective_request_state.read_state.stamp.time;
   if (existing_time != absl::InfinitePast() &&
       existing_time >= staleness_bound) {
-    // `staleness_bound` satisfied by current data.
-    return MakeReadyFuture();
+    if (must_not_be_known_to_be_stale &&
+        effective_request_state.known_to_be_stale) {
+      staleness_bound = existing_time + kEpsilonDuration;
+    } else {
+      // `staleness_bound` satisfied by current data.
+      return MakeReadyFuture();
+    }
   }
 
+  auto& request_state = entry_or_node.read_request_state_;
   // `staleness_bound` not satisfied by current data.
   request_state.queued_time = std::max(request_state.queued_time,
                                        std::min(staleness_bound, absl::Now()));
@@ -423,10 +434,12 @@ size_t AsyncCache::DoGetSizeInBytes(Cache::Entry* base_entry) {
          entry->read_request_state_.read_state_size;
 }
 
-Future<const void> AsyncCache::Entry::Read(absl::Time staleness_bound) {
+Future<const void> AsyncCache::Entry::Read(absl::Time staleness_bound,
+                                           bool must_not_be_known_to_be_stale) {
   ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
-      << *this << "Read: staleness_bound=" << staleness_bound;
-  return RequestRead(*this, staleness_bound);
+      << *this << "Read: staleness_bound=" << staleness_bound
+      << ", must_not_be_known_to_be_stale=" << must_not_be_known_to_be_stale;
+  return RequestRead(*this, staleness_bound, must_not_be_known_to_be_stale);
 }
 
 void AsyncCache::Entry::ReadSuccess(ReadState&& read_state) {
@@ -448,15 +461,17 @@ AsyncCache::TransactionNode::TransactionNode(Entry& entry)
       size_updated_(false) {}
 
 Future<const void> AsyncCache::TransactionNode::Read(
-    absl::Time staleness_bound) {
+    absl::Time staleness_bound, bool must_not_be_known_to_be_stale) {
   ABSL_LOG_IF(INFO, TENSORSTORE_ASYNC_CACHE_DEBUG)
-      << *this << "Read: staleness_bound=" << staleness_bound;
+      << *this << "Read: staleness_bound=" << staleness_bound
+      << ", must_not_be_known_to_be_stale=" << must_not_be_known_to_be_stale;
   if (reads_committed_ &&
       (prepare_for_commit_state_.load(std::memory_order_acquire) !=
        PrepareForCommitState::kReadyForCommitCalled)) {
-    return RequestRead(GetOwningEntry(*this), staleness_bound);
+    return RequestRead(GetOwningEntry(*this), staleness_bound,
+                       must_not_be_known_to_be_stale);
   }
-  return RequestRead(*this, staleness_bound);
+  return RequestRead(*this, staleness_bound, must_not_be_known_to_be_stale);
 }
 
 void AsyncCache::TransactionNode::ReadSuccess(ReadState&& read_state) {
@@ -531,8 +546,7 @@ void AsyncCache::TransactionNode::WritebackSuccess(ReadState&& read_state) {
     assert(read_state_time >= request_state.read_state.stamp.time);
     SetReadState(entry, std::move(read_state), read_state_size);
   } else if (read_state_time > request_state.read_state.stamp.time) {
-    read_state_time = request_state.read_state.stamp.time =
-        absl::InfinitePast();
+    request_state.known_to_be_stale = true;
   }
 
   QueuedReadHandler queued_read_handler(request_state, read_state_time);

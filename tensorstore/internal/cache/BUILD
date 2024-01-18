@@ -104,6 +104,10 @@ tensorstore_cc_library(
     name = "kvs_backed_cache",
     srcs = ["kvs_backed_cache.cc"],
     hdrs = ["kvs_backed_cache.h"],
+    defines = select({
+        ":async_cache_debug_setting": ["TENSORSTORE_ASYNC_CACHE_DEBUG"],
+        "//conditions:default": [],
+    }),
     deps = [
         ":async_cache",
         "//tensorstore:transaction",

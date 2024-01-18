@@ -195,6 +195,10 @@ class AsyncCache : public Cache {
     /// The most recently-cached read state.
     ReadState read_state;
 
+    /// `read_state` is known to be out-of-date, due to a local modification not
+    /// reflected in the cache.
+    bool known_to_be_stale = false;
+
     /// The size in bytes consumed by `read_state.read_data`.  This is the
     /// cached result of calling
     /// `Entry::ComputeReadDataSizeInBytes(read_state.read_data.get())`.
@@ -346,10 +350,15 @@ class AsyncCache : public Cache {
     /// Requests data no older than `staleness_bound`.
     ///
     /// \param staleness_bound Limit on data staleness.
+    /// \param must_not_be_known_to_be_stale Requests newer data if the existing
+    ///     data is known to be out-of-date (e.g. due to a local write not
+    ///     reflected in the cache), even if the existing data satisfies
+    ///     `staleness_bound`.
     /// \returns A future that resolves to a success state once data no older
     ///     than `staleness_bound` is available, or to an error state if the
     ///     request failed.
-    Future<const void> Read(absl::Time staleness_bound);
+    Future<const void> Read(absl::Time staleness_bound,
+                            bool must_not_be_known_to_be_stale = true);
 
     /// Obtains an existing or new transaction node for the specified entry and
     /// transaction.  May also be used to obtain an implicit transaction node.
@@ -616,7 +625,8 @@ class AsyncCache : public Cache {
 
     /// Requests a read state for this transaction node that is current as of
     /// the specified `staleness_bound`.
-    Future<const void> Read(absl::Time staleness_bound);
+    Future<const void> Read(absl::Time staleness_bound,
+                            bool must_not_be_known_to_be_stale = true);
 
     /// Requests initial or updated data from persistent storage for a single
     /// `Entry`.
