@@ -255,6 +255,7 @@ tensorstore_cc_test(
     deps = [
         ":metadata",
         "//tensorstore:array",
+        "//tensorstore:array_testutil",
         "//tensorstore:chunk_layout",
         "//tensorstore:codec_spec",
         "//tensorstore:data_type",

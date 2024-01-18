@@ -21,6 +21,7 @@
 #include "absl/random/random.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
+#include "tensorstore/array_testutil.h"
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/zarr3/codec/codec.h"
@@ -111,10 +112,9 @@ void TestCodecRoundTrip(const CodecRoundTripTestParams& params) {
 
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto encoded,
                                    prepared_state->EncodeArray(data));
-  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
-      auto decoded, prepared_state->DecodeArray(params.shape, encoded));
-  ASSERT_TRUE(AreArraysIdenticallyEqual(decoded, data))
-      << "data=" << data << ", decoded=" << decoded;
+  EXPECT_THAT(prepared_state->DecodeArray(params.shape, encoded),
+              ::testing::Optional(MatchesArrayIdentically(data)))
+      << "data=" << data;
 }
 
 Result<::nlohmann::json> TestCodecMerge(::nlohmann::json a, ::nlohmann::json b,

@@ -28,6 +28,7 @@
 #include "absl/base/casts.h"
 #include "absl/status/status.h"
 #include "tensorstore/array.h"
+#include "tensorstore/array_testutil.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/codec_spec.h"
 #include "tensorstore/data_type.h"
@@ -506,9 +507,9 @@ void TestFillValue(std::vector<std::pair<T, ::nlohmann::json>> cases,
                   ::testing::Optional(MatchesJson(json)))
           << "value=" << value << ", json=" << json;
     }
-    auto decoded_result = jb::FromJson<SharedArray<const void>>(json, binder);
-    TENSORSTORE_ASSERT_OK(decoded_result.status()) << "json=" << json;
-    EXPECT_TRUE(AreArraysIdenticallyEqual(*decoded_result, expected_fill_value))
+    EXPECT_THAT(jb::FromJson<SharedArray<const void>>(json, binder),
+                ::testing::Optional(
+                    tensorstore::MatchesArrayIdentically(expected_fill_value)))
         << "json=" << json;
   }
 }

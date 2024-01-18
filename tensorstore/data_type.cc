@@ -32,6 +32,7 @@
 #include <nlohmann/json.hpp>
 #include "tensorstore/data_type_conversion.h"
 #include "tensorstore/index.h"
+#include "tensorstore/internal/json/same.h"
 #include "tensorstore/internal/json/value_as.h"
 #include "tensorstore/internal/utf8.h"
 #include "tensorstore/serialization/serialization.h"
@@ -622,6 +623,17 @@ absl::Status NonSerializableDataTypeError(DataType dtype) {
       "Cannot serialize custom data type: ", dtype->type.name()));
 }
 }  // namespace internal
+
+namespace internal_data_type {
+
+template <>
+bool CompareIdentical<::tensorstore::dtypes::json_t>(
+    const ::tensorstore::dtypes::json_t& a,
+    const ::tensorstore::dtypes::json_t& b) {
+  return internal_json::JsonSame(a, b);
+}
+
+}  // namespace internal_data_type
 
 namespace serialization {
 bool Serializer<DataType>::Encode(EncodeSink& sink, const DataType& value) {

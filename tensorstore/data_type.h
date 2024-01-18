@@ -835,6 +835,11 @@ TENSORSTORE_FOR_EACH_COMPLEX_DATA_TYPE(
     TENSORSTORE_INTERNAL_DO_DEFINE_COMPARE_IDENTICAL_COMPLEX)
 #undef TENSORSTORE_INTERNAL_DO_DEFINE_COMPARE_IDENTICAL_COMPLEX
 
+template <>
+bool CompareIdentical<::tensorstore::dtypes::json_t>(
+    const ::tensorstore::dtypes::json_t& a,
+    const ::tensorstore::dtypes::json_t& b);
+
 /// Non-template functions referenced by `DataTypeOperations`.
 ///
 /// These are defined separately so that they can be explicitly instantiated.
@@ -973,7 +978,7 @@ TENSORSTORE_FOR_EACH_INT_DATA_TYPE(
 
 // Checks if `CompareIdentical` is equivalent to `CompareEqual`.
 //
-// This is true for all types except float/complex data types.
+// This is true for all types except float/complex/json data types.
 template <typename T>
 constexpr inline bool HasSeparateIdenticalComparison = false;
 
@@ -988,6 +993,8 @@ TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(
 
 TENSORSTORE_FOR_EACH_COMPLEX_DATA_TYPE(
     TENSORSTORE_INTERNAL_DEFINE_SEPARATE_IDENTICAL_COMPARISON)
+
+TENSORSTORE_INTERNAL_DEFINE_SEPARATE_IDENTICAL_COMPARISON(json_t)
 
 #undef TENSORSTORE_INTERNAL_DEFINE_SEPARATE_IDENTICAL_COMPARISON
 

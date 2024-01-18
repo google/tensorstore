@@ -83,10 +83,14 @@ TEST(ParseOrderTest, Failure) {
 
 void TestFillValueRoundTrip(
     const ::nlohmann::json& dtype, const ::nlohmann::json& encoded_fill_value,
-    std::vector<tensorstore::SharedArray<const void>> fill_values,
-    std::vector<tensorstore::ArrayMatcher> fill_values_matcher) {
+    std::vector<tensorstore::SharedArray<const void>> fill_values) {
   SCOPED_TRACE(tensorstore::StrCat("dtype=", dtype.dump()));
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto parsed_dtype, ParseDType(dtype));
+  std::vector<tensorstore::ArrayMatcher> fill_values_matcher;
+  for (const auto& fill_value : fill_values) {
+    fill_values_matcher.push_back(
+        tensorstore::MatchesArrayIdentically(fill_value));
+  }
   EXPECT_THAT(
       ParseFillValue(encoded_fill_value, parsed_dtype),
       ::testing::Optional(::testing::ElementsAreArray(fill_values_matcher)))
@@ -95,15 +99,6 @@ void TestFillValueRoundTrip(
   EXPECT_EQ(encoded_fill_value, EncodeFillValue(parsed_dtype, fill_values))
       << "encoded_fill_value=" << encoded_fill_value.dump()
       << ", fill_values=" << ::testing::PrintToString(fill_values);
-}
-
-void TestFillValueRoundTrip(
-    const ::nlohmann::json& dtype, const ::nlohmann::json& encoded_fill_value,
-    std::vector<tensorstore::SharedArray<const void>> fill_values) {
-  std::vector<tensorstore::ArrayMatcher> fill_values_matcher(
-      fill_values.begin(), fill_values.end());
-  return TestFillValueRoundTrip(dtype, encoded_fill_value, fill_values,
-                                fill_values_matcher);
 }
 
 template <typename FloatType>
@@ -120,13 +115,9 @@ void TestFillValueRoundTripFloat(const ::nlohmann::json& dtype) {
   }
   if constexpr (std::is_same_v<FloatType, float> ||
                 std::is_same_v<FloatType, double>) {
-    // `testing::internal::FloatingEqMatcher` only supports the builtin
-    // floating point types.
     TestFillValueRoundTrip(
-        dtype, "NaN", {MakeScalarArray<FloatType>(static_cast<FloatType>(NAN))},
-        {tensorstore::MatchesScalarArray<FloatType>(
-            ::testing::internal::FloatingEqMatcher<FloatType>(
-                static_cast<FloatType>(NAN), /*nan_eq_nan=*/true))});
+        dtype, "NaN",
+        {MakeScalarArray<FloatType>(static_cast<FloatType>(NAN))});
   }
 
   // Also test non-strict float values.
@@ -135,12 +126,9 @@ void TestFillValueRoundTripFloat(const ::nlohmann::json& dtype) {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto parsed_dtype, ParseDType(dtype));
     std::vector<tensorstore::SharedArray<const void>> fill_values{
         MakeScalarArray<FloatType>(static_cast<FloatType>(1.0))};
-    std::vector<tensorstore::ArrayMatcher> fill_values_matcher(
-        fill_values.begin(), fill_values.end());
-
-    EXPECT_THAT(
-        ParseFillValue("1.0", parsed_dtype),
-        ::testing::Optional(::testing::ElementsAreArray(fill_values_matcher)))
+    EXPECT_THAT(ParseFillValue("1.0", parsed_dtype),
+                ::testing::Optional(::testing::ElementsAre(
+                    tensorstore::MatchesArrayIdentically(fill_values[0]))))
         << "encoded_fill_value=\"1.0\", fill_values="
         << ::testing::PrintToString(fill_values);
   }
@@ -596,12 +584,9 @@ TEST(EncodeDecodeMetadataTest, FillValuesNan) {
     EXPECT_EQ(dtype_v<double>, metadata.dtype.fields[0].dtype);
     EXPECT_TRUE(metadata.fill_value[0].valid());
     EXPECT_THAT(metadata.fill_value[0].shape(), ElementsAre());
-    if (std::isnan(pair.first)) {
-      EXPECT_TRUE(std::isnan(
-          *static_cast<const double*>(metadata.fill_value[0].data())));
-    } else {
-      EXPECT_EQ(MakeScalarArray<double>(pair.first), metadata.fill_value[0]);
-    }
+    EXPECT_THAT(metadata.fill_value,
+                ::testing::ElementsAre(tensorstore::MatchesArrayIdentically(
+                    MakeScalarArray<double>(pair.first))));
     EXPECT_EQ(tensorstore::endian::little, metadata.dtype.fields[0].endian);
     EXPECT_THAT(metadata.dtype.fields[0].field_shape, ElementsAre());
     EXPECT_EQ(0, metadata.dtype.fields[0].byte_offset);

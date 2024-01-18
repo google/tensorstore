@@ -94,11 +94,18 @@ tensorstore_cc_test(
 tensorstore_cc_library(
     name = "array_testutil",
     testonly = 1,
-    srcs = ["array_testutil_matches_array.inc"],
+    srcs = [
+        "array_testutil.cc",
+        "array_testutil_matches_array.inc",
+    ],
     hdrs = ["array_testutil.h"],
     deps = [
         ":array",
+        ":data_type",
+        ":index",
+        ":static_cast",
         "//tensorstore/util:iterate_over_index_range",
+        "//tensorstore/util:span",
         "@com_google_googletest//:gtest",
     ],
 )
@@ -358,6 +365,7 @@ tensorstore_cc_library(
         "//tensorstore/internal:json_fwd",
         "//tensorstore/internal:type_traits",
         "//tensorstore/internal:utf8",
+        "//tensorstore/internal/json:same",
         "//tensorstore/internal/json:value_as",
         "//tensorstore/serialization",
         "//tensorstore/util:bfloat16",

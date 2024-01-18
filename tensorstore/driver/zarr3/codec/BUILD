@@ -352,6 +352,7 @@ tensorstore_cc_library(
         ":codec",
         ":codec_chain_spec",
         "//tensorstore:array",
+        "//tensorstore:array_testutil",
         "//tensorstore:contiguous_layout",
         "//tensorstore:data_type",
         "//tensorstore:index",
