@@ -1146,6 +1146,12 @@ std::string MetadataCache::Entry::GetKeyValueStoreKey() {
 
 void MetadataCache::TransactionNode::DoApply(ApplyOptions options,
                                              ApplyReceiver receiver) {
+  if (this->pending_writes.empty() &&
+      options.apply_mode != ApplyOptions::kSpecifyUnchanged) {
+    execution::set_value(
+        receiver, ReadState{{}, TimestampedStorageGeneration::Unconditional()});
+    return;
+  }
   auto continuation = [this, receiver = std::move(receiver)](
                           ReadyFuture<const void> future) mutable {
     if (!future.result().ok()) {
