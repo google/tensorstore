@@ -105,6 +105,18 @@ TEST(TransposeTest, RankMismatch) {
                     "permutation for a rank 2 array"));
 }
 
+TEST(TransposeTest, AttributeMismatch) {
+  ArrayCodecResolveParameters p;
+  p.dtype = dtype_v<uint16_t>;
+  p.rank = 2;
+  EXPECT_THAT(
+      TestCodecSpecResolve(
+          {{{"name", "transpose"},
+            {"configuration", {{"order", {0, 1}}, {"extra", 1}}}}},
+          p),
+      MatchesStatus(absl::StatusCode::kInvalidArgument, ".* \"extra\""));
+}
+
 TEST(TransposeTest, Merge) {
   ::nlohmann::json perm_012 = {
       {{"name", "transpose"}, {"configuration", {{"order", {0, 1, 2}}}}}};
