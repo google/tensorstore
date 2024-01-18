@@ -560,13 +560,6 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#json-Context.cache_pool.queued_for_writeback_bytes_limit" class="md-nav__link">
-    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="Context.cache_pool.queued_for_writeback_bytes_limit (JSON member)" class="md-ellipsis">queued_<wbr>for_<wbr>writeback_<wbr>bytes_<wbr>limit</span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
@@ -764,13 +757,6 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#json-Context.cache_pool.queued_for_writeback_bytes_limit" class="md-nav__link">
-    <span aria-label="JSON member" class="objinfo-icon objinfo-icon__sub-data" title="JSON member">j</span><span title="Context.cache_pool.queued_for_writeback_bytes_limit (JSON member)" class="md-ellipsis">queued_<wbr>for_<wbr>writeback_<wbr>bytes_<wbr>limit</span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
@@ -915,15 +901,6 @@ matches the type of this resource.</p>
 <dd><p>Soft limit on the total number of bytes in the cache.  The
 least-recently used data that is not in use is evicted from the cache
 when this limit is reached.</p>
-</dd></dl>
-
-<dl class="json schema objdesc">
-<dt class="sig sig-object highlight json" id="json-Context.cache_pool.queued_for_writeback_bytes_limit">
-<span class="sig-name descname"><span class="pre">queued_for_writeback_bytes_limit</span></span><span class="p"> <span class="pre">:</span> </span><span class="desctype"><span class="pre">integer</span></span><sub><span class="p"><span class="pre">[</span></span><code class="code json docutils literal highlight highlight-json"><span class="mi">0</span></code><span class="p"><span class="pre">,</span> </span><span class="o"><span class="pre">+∞</span></span><span class="p"><span class="pre">)</span></span></sub><a class="headerlink" href="#json-Context.cache_pool.queued_for_writeback_bytes_limit" title="Permalink to this definition">¶</a></dt>
-<dd><p>Soft limit on the total number of bytes of data pending writeback.
-Writeback is initated on the least-recently used data that is pending
-writeback when this limit is reached.  Defaults to half of
-<a class="reference internal" href="#json-Context.cache_pool.total_bytes_limit" title="Context.cache_pool.total_bytes_limit (JSON member)"><code class="xref json json-schema docutils literal notranslate"><span class="pre">total_bytes_limit</span></code></a>.</p>
 </dd></dl>
 
 </dd>
