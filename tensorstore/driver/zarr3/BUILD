@@ -93,6 +93,7 @@ tensorstore_cc_library(
     srcs = ["metadata.cc"],
     hdrs = ["metadata.h"],
     deps = [
+        ":default_nan",
         ":name_configuration_json_binder",
         "//tensorstore:array",
         "//tensorstore:box",
@@ -298,5 +299,15 @@ tensorstore_cc_test(
         "//tensorstore/util:result",
         "//tensorstore/util:status_testutil",
         "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tensorstore_cc_library(
+    name = "default_nan",
+    hdrs = ["default_nan.h"],
+    deps = [
+        "//tensorstore:data_type",
+        "//tensorstore/util:float8",
+        "@com_google_absl//absl/base",
     ],
 )

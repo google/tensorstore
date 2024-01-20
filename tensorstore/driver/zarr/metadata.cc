@@ -46,6 +46,7 @@
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/zarr/dtype.h"
+#include "tensorstore/driver/zarr3/default_nan.h"
 #include "tensorstore/index.h"
 #include "tensorstore/internal/data_type_endian_conversion.h"
 #include "tensorstore/internal/flat_cord_builder.h"
@@ -97,25 +98,26 @@ void to_json(::nlohmann::json& out, DimensionSeparator value) {
 
 namespace {
 
-Result<double> DecodeFloat(const nlohmann::json& j) {
+template <typename T>
+Result<T> DecodeFloat(const nlohmann::json& j) {
   if (j.is_string()) {
     const auto& j_str = j.get_ref<std::string const&>();
     if (j_str == "NaN") {
-      return std::numeric_limits<double>::quiet_NaN();
+      return internal_zarr3::GetDefaultNaN<T>();
     } else if (j_str == "Infinity") {
-      return std::numeric_limits<double>::infinity();
+      return std::numeric_limits<T>::infinity();
     } else if (j_str == "-Infinity") {
-      return -std::numeric_limits<double>::infinity();
+      return -std::numeric_limits<T>::infinity();
     } else {
       // SimpleAtod also parses nan, inf, which are excluded below.
       double value = 0;
       if (absl::SimpleAtod(j_str, &value) && !std::isnan(value) &&
           !std::isinf(value)) {
-        return value;
+        return static_cast<T>(value);
       }
     }
   } else if (j.is_number()) {
-    return j.get<double>();
+    return static_cast<T>(j.get<double>());
   }
   return absl::InvalidArgumentError(
       tensorstore::StrCat("Invalid floating-point value: ", j.dump()));
@@ -154,9 +156,22 @@ Result<std::vector<SharedArray<const void>>> ParseFillValue(
     char type_indicator = GetTypeIndicator(field.encoded_dtype);
     switch (type_indicator) {
       case 'f': {
-        TENSORSTORE_ASSIGN_OR_RETURN(double value, DecodeFloat(j));
-        fill_values[0] =
-            MakeCopy(MakeScalarArrayView(value), c_order, field.dtype).value();
+        switch (field.dtype.id()) {
+#define TENSORSTORE_INTERNAL_DO_HANDLE_FLOAT(T, ...)              \
+  case DataTypeId::T:                                             \
+    if (auto result = DecodeFloat<::tensorstore::dtypes::T>(j)) { \
+      fill_values[0] = MakeScalarArray(*result);                  \
+    } else {                                                      \
+      return result.status();                                     \
+    }                                                             \
+    break;                                                        \
+    /**/
+          TENSORSTORE_FOR_EACH_FLOAT_DATA_TYPE(
+              TENSORSTORE_INTERNAL_DO_HANDLE_FLOAT)
+#undef TENSORSTORE_INTERNAL_DO_HANDLE_FLOAT
+          default:
+            ABSL_UNREACHABLE();
+        }
         return fill_values;
       }
       case 'i': {
@@ -190,25 +205,39 @@ Result<std::vector<SharedArray<const void>>> ParseFillValue(
         return fill_values;
       }
       case 'c': {
-        double values[2];
         if (!j.is_array()) {
           // Fallthrough to allow base64 encoding.
           break;
         }
-        TENSORSTORE_RETURN_IF_ERROR(internal_json::JsonParseArray(
-            j,
-            [](std::ptrdiff_t size) {
-              return internal_json::JsonValidateArrayLength(size, 2);
-            },
-            [&](const ::nlohmann::json& v, std::ptrdiff_t i) {
-              TENSORSTORE_ASSIGN_OR_RETURN(values[i], DecodeFloat(v));
-              return absl::OkStatus();
-            }));
-        fill_values[0] =
-            MakeCopy(MakeScalarArrayView(::tensorstore::dtypes::complex128_t(
-                         values[0], values[1])),
-                     c_order, field.dtype)
-                .value();
+        switch (field.dtype.id()) {
+#define TENSORSTORE_INTERNAL_DO_HANDLE_COMPLEX(T, ...)                        \
+  case DataTypeId::T: {                                                       \
+    using Float = ::tensorstore::dtypes::T::value_type;                       \
+    Float values[2];                                                          \
+    if (auto status = internal_json::JsonParseArray(                          \
+            j,                                                                \
+            [](ptrdiff_t size) {                                              \
+              return internal_json::JsonValidateArrayLength(size, 2);         \
+            },                                                                \
+            [&](const ::nlohmann::json& v, ptrdiff_t i) {                     \
+              TENSORSTORE_ASSIGN_OR_RETURN(values[i], DecodeFloat<Float>(v)); \
+              return absl::OkStatus();                                        \
+            });                                                               \
+        status.ok()) {                                                        \
+      fill_values[0] =                                                        \
+          MakeScalarArray(::tensorstore::dtypes::T(values[0], values[1]));    \
+    } else {                                                                  \
+      return status;                                                          \
+    }                                                                         \
+    break;                                                                    \
+  }                                                                           \
+    /**/
+          TENSORSTORE_FOR_EACH_COMPLEX_DATA_TYPE(
+              TENSORSTORE_INTERNAL_DO_HANDLE_COMPLEX)
+#undef TENSORSTORE_INTERNAL_DO_HANDLE_COMPLEX
+          default:
+            ABSL_UNREACHABLE();
+        }
         return fill_values;
       }
     }

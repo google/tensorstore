@@ -34,6 +34,7 @@
 #include "tensorstore/contiguous_layout.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/driver/zarr/dtype.h"
+#include "tensorstore/driver/zarr3/default_nan.h"
 #include "tensorstore/internal/json_binding/gtest.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/endian.h"
@@ -61,6 +62,7 @@ using ::tensorstore::internal_zarr::OrderJsonBinder;
 using ::tensorstore::internal_zarr::ParseDType;
 using ::tensorstore::internal_zarr::ParseFillValue;
 using ::tensorstore::internal_zarr::ZarrMetadata;
+using ::tensorstore::internal_zarr3::GetDefaultNaN;
 using ::testing::ElementsAre;
 
 TEST(OrderJsonBinderTest, Success) {
@@ -113,12 +115,8 @@ void TestFillValueRoundTripFloat(const ::nlohmann::json& dtype) {
         dtype, "-Infinity",
         {MakeScalarArray<FloatType>(static_cast<FloatType>(-INFINITY))});
   }
-  if constexpr (std::is_same_v<FloatType, float> ||
-                std::is_same_v<FloatType, double>) {
-    TestFillValueRoundTrip(
-        dtype, "NaN",
-        {MakeScalarArray<FloatType>(static_cast<FloatType>(NAN))});
-  }
+  TestFillValueRoundTrip(
+      dtype, "NaN", {MakeScalarArray<FloatType>(GetDefaultNaN<FloatType>())});
 
   // Also test non-strict float values.
   {
@@ -140,7 +138,11 @@ void TestFillValueRoundTripComplex(const ::nlohmann::json& dtype) {
   TestFillValueRoundTrip(dtype, {3.5, 4.5},
                          {MakeScalarArray<Complex>({3.5, 4.5})});
   TestFillValueRoundTrip(dtype, {"Infinity", 4.5},
-                         {MakeScalarArray<Complex>(Complex{INFINITY, 4.5})});
+                         {MakeScalarArray<Complex>(
+                             Complex{static_cast<FloatType>(INFINITY), 4.5})});
+  TestFillValueRoundTrip(
+      dtype, {"NaN", 4.5},
+      {MakeScalarArray<Complex>(Complex{GetDefaultNaN<FloatType>(), 4.5})});
 }
 
 TEST(ParseFillValueTest, FloatingPointSuccess) {

@@ -48,6 +48,7 @@
 #include "tensorstore/driver/zarr3/codec/codec_chain_spec.h"
 #include "tensorstore/driver/zarr3/codec/codec_spec.h"
 #include "tensorstore/driver/zarr3/codec/sharding_indexed.h"
+#include "tensorstore/driver/zarr3/default_nan.h"
 #include "tensorstore/driver/zarr3/name_configuration_json_binder.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dimension_units.h"
@@ -120,60 +121,6 @@ absl::Status ValidateDataType(DataType dtype) {
 }
 
 namespace {
-
-template <typename T>
-inline T GetDefaultNaN() = delete;
-
-template <>
-inline dtypes::float32_t GetDefaultNaN<dtypes::float32_t>() {
-  return absl::bit_cast<dtypes::float32_t>(uint32_t{0x7fc00000});
-}
-
-template <>
-inline dtypes::float64_t GetDefaultNaN<dtypes::float64_t>() {
-  return absl::bit_cast<dtypes::float64_t>(uint64_t{0x7ff8000000000000});
-}
-
-template <>
-inline dtypes::float16_t GetDefaultNaN<dtypes::float16_t>() {
-  return absl::bit_cast<dtypes::float16_t>(uint16_t{0x7e00});
-}
-
-template <>
-inline dtypes::bfloat16_t GetDefaultNaN<dtypes::bfloat16_t>() {
-  return absl::bit_cast<dtypes::bfloat16_t>(uint16_t{0x7fc0});
-}
-
-template <>
-inline dtypes::float8_e4m3fn_t GetDefaultNaN<dtypes::float8_e4m3fn_t>() {
-  // only a single Nan representation is supported
-  return std::numeric_limits<Float8e4m3fn>::quiet_NaN();
-}
-
-template <>
-inline dtypes::float8_e4m3fnuz_t GetDefaultNaN<dtypes::float8_e4m3fnuz_t>() {
-  // only a single Nan representation is supported
-  return std::numeric_limits<Float8e4m3fnuz>::quiet_NaN();
-}
-
-template <>
-inline dtypes::float8_e4m3b11fnuz_t
-GetDefaultNaN<dtypes::float8_e4m3b11fnuz_t>() {
-  // only a single Nan representation is supported
-  return std::numeric_limits<Float8e4m3b11fnuz>::quiet_NaN();
-}
-
-template <>
-inline dtypes::float8_e5m2_t GetDefaultNaN<dtypes::float8_e5m2_t>() {
-  // support both quiet and signaling nan, returning quiet one
-  return std::numeric_limits<Float8e5m2>::quiet_NaN();
-}
-
-template <>
-inline dtypes::float8_e5m2fnuz_t GetDefaultNaN<dtypes::float8_e5m2fnuz_t>() {
-  // only a single Nan representation is supported
-  return std::numeric_limits<Float8e5m2fnuz>::quiet_NaN();
-}
 
 template <typename T>
 constexpr auto FloatFillValueJsonBinder() {
