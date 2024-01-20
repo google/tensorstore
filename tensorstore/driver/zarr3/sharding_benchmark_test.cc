@@ -150,7 +150,7 @@ void BM_Read(benchmark::State& state) {
 template <typename Bench>
 void DefineArgs(Bench* bench) {
   for (auto chunk_size : {16, 32, 64, 128}) {
-    for (auto parallelism : {1, 8}) {
+    for (auto parallelism : {1, 8, 32}) {
       bench->Args({1024, chunk_size, chunk_size, parallelism});
       bench->Args({1024, 1024, chunk_size, parallelism});
     }
