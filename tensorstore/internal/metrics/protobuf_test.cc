@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#ifndef TENSORSTORE_METRICS_DISABLED
+
 #include "tensorstore/internal/metrics/protobuf.h"
 
 #include <stdint.h>
@@ -319,3 +321,5 @@ TEST(ProtobufTest, FromRegistry) {
 }
 
 }  // namespace
+
+#endif  // !defined(TENSORSTORE_METRICS_DISABLED)

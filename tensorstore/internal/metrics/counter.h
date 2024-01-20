@@ -39,6 +39,8 @@
 namespace tensorstore {
 namespace internal_metrics {
 
+#ifndef TENSORSTORE_METRICS_DISABLED
+
 /// CounterCell holds an individual "counter" metric value.
 template <typename T>
 class CounterCell;
@@ -213,6 +215,35 @@ class ABSL_CACHELINE_ALIGNED CounterCell<int64_t> : public CounterTag {
  private:
   std::atomic<int64_t> value_{0};
 };
+
+#else
+template <typename T>
+struct CounterCell {
+  static void IncrementBy(T value) {}
+  static void Increment() { IncrementBy(1); }
+};
+template <typename T, typename... Fields>
+class Counter {
+ public:
+  using value_type = T;
+  using Cell = CounterCell<T>;
+
+  static Counter& New(
+      std::string_view metric_name,
+      typename internal::FirstType<std::string_view, Fields>... field_names,
+      MetricMetadata metadata) {
+    static constexpr Counter metric;
+    return const_cast<Counter&>(metric);
+  }
+  static void Increment(typename FieldTraits<Fields>::param_type... labels) {}
+  static void IncrementBy(value_type value,
+                          typename FieldTraits<Fields>::param_type... labels) {}
+  static Cell& GetCell(typename FieldTraits<Fields>::param_type... labels) {
+    static constexpr Cell cell;
+    return const_cast<Cell&>(cell);
+  }
+};
+#endif  // TENSORSTORE_METRICS_DISABLED
 
 }  // namespace internal_metrics
 }  // namespace tensorstore

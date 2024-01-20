@@ -128,8 +128,10 @@ def _config_setting_impl(
     if flag_values:
       for flag, value in flag_values.items():
         if (
-            _context.evaluate_build_setting(
-                _context.resolve_target_or_label(flag)
+            str(
+                _context.evaluate_build_setting(
+                    _context.resolve_target_or_label(flag)
+                )
             )
             != value
         ):

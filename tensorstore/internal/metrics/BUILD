@@ -1,3 +1,4 @@
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 load(
     "//bazel:tensorstore.bzl",
     "tensorstore_cc_binary",
@@ -10,6 +11,19 @@ load(
 package(default_visibility = ["//tensorstore:internal_packages"])
 
 licenses(["notice"])
+
+bool_flag(
+    name = "enable",
+    build_setting_default = True,
+)
+
+config_setting(
+    name = "enable_setting",
+    flag_values = {
+        ":enable": "True",
+    },
+    visibility = ["//visibility:private"],
+)
 
 tensorstore_proto_library(
     name = "metrics_proto",
@@ -91,6 +105,10 @@ tensorstore_cc_library(
         "histogram.h",
         "value.h",
     ],
+    defines = select({
+        ":enable_setting": [],
+        "//conditions:default": ["TENSORSTORE_METRICS_DISABLED"],
+    }),
     deps = [
         ":collect",
         ":metadata",
