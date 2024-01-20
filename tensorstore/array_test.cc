@@ -1960,4 +1960,14 @@ TEST_P(RandomDataSerializationTest, FOrder) {
   }
 }
 
+TEST(ArrayTest, GetByteExtent) {
+  EXPECT_THAT(GetByteExtent(tensorstore::AllocateArray<int32_t>({2, 3, 4})),
+              2 * 3 * 4 * sizeof(int32_t));
+  EXPECT_THAT(GetByteExtent(tensorstore::AllocateArray<int32_t>(
+                  {2, 3, 4}, tensorstore::fortran_order)),
+              2 * 3 * 4 * sizeof(int32_t));
+  EXPECT_THAT(GetByteExtent(tensorstore::MakeScalarArray<int32_t>(1)),
+              sizeof(int32_t));
+}
+
 }  // namespace

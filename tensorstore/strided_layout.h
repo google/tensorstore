@@ -963,6 +963,21 @@ bool IsBroadcastScalar(const StridedLayout<Rank, OriginKind, CKind>& layout) {
       layout.rank(), layout.shape().data(), layout.byte_strides().data());
 }
 
+namespace internal_strided_layout {
+Index GetByteExtent(StridedLayoutView<> layout, Index element_size);
+}  // namespace internal_strided_layout
+
+/// Returns smallest number of contiguous bytes into which the specified layout
+/// fits.
+template <DimensionIndex Rank, ArrayOriginKind OriginKind, ContainerKind CKind>
+Index GetByteExtent(const StridedLayout<Rank, OriginKind, CKind>& layout,
+                    Index element_size) {
+  return internal_strided_layout::GetByteExtent(
+      StridedLayoutView<>(layout.rank(), layout.shape().data(),
+                          layout.byte_strides().data()),
+      element_size);
+}
+
 }  // namespace tensorstore
 
 #endif  // TENSORSTORE_STRIDED_LAYOUT_H_

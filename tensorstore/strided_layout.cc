@@ -16,6 +16,8 @@
 
 #include <stddef.h>
 
+#include <algorithm>
+#include <cstdlib>
 #include <ostream>
 #include <string>
 
@@ -88,6 +90,20 @@ bool IsBroadcastScalar(DimensionIndex rank, const Index* shape,
   }
   return true;
 }
+
+Index GetByteExtent(StridedLayoutView<> layout, Index element_size) {
+  Index byte_extent = element_size;
+  for (DimensionIndex i = 0, rank = layout.rank(); i < rank; ++i) {
+    const Index size = layout.shape()[i];
+    if (size == 0) return 0;
+    if (size == 1) continue;
+    byte_extent =
+        std::max(byte_extent, internal::wrap_on_overflow::Multiply(
+                                  std::abs(layout.byte_strides()[i]), size));
+  }
+  return byte_extent;
+}
+
 }  // namespace internal_strided_layout
 
 }  // namespace tensorstore

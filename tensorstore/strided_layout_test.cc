@@ -1153,4 +1153,19 @@ TEST(StridedLayoutTest, IsBroadcastScalar) {
   EXPECT_TRUE(IsBroadcastScalar(StridedLayout<>({1, 2}, {5, 0})));
 }
 
+TEST(StridedLayoutTest, GetByteExtent) {
+  EXPECT_THAT(GetByteExtent(
+                  StridedLayout<>(ContiguousLayoutOrder::c, 2, {{3, 4, 5}}), 2),
+              3 * 4 * 5 * 2);
+  EXPECT_THAT(
+      GetByteExtent(
+          StridedLayout<>(ContiguousLayoutOrder::fortran, 2, {{3, 4, 5}}), 2),
+      3 * 4 * 5 * 2);
+  EXPECT_THAT(GetByteExtent(StridedLayout<>({{1, 0, 3}}, {{2, 3, 4}}), 2), 0);
+  EXPECT_THAT(GetByteExtent(StridedLayout<>({{1, 5, 3}}, {{1000, -6, 4}}), 2),
+              30);
+  EXPECT_THAT(GetByteExtent(StridedLayout<>({{1, 1, 1}}, {{1000, -6, 4}}), 2),
+              2);
+}
+
 }  // namespace

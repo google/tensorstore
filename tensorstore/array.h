@@ -2073,6 +2073,14 @@ bool IsBroadcastScalar(
   return tensorstore::IsBroadcastScalar(array.layout());
 }
 
+/// Returns minimum number of contiguous bytes into which the array fits.
+template <typename ElementTag, DimensionIndex Rank, ArrayOriginKind OriginKind,
+          ContainerKind LayoutCKind>
+Index GetByteExtent(
+    const Array<ElementTag, Rank, OriginKind, LayoutCKind>& array) {
+  return tensorstore::GetByteExtent(array.layout(), array.dtype().size());
+}
+
 namespace internal_array {
 
 /// Encodes an array to `sink`.
