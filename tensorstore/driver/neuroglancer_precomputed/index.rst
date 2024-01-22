@@ -3,7 +3,7 @@
 ``neuroglancer_precomputed`` Driver
 ===================================
 
-The ``neuroglancer_precomputed`` driver provides access to `Neuroglancer Precomputed format <https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed>`_ volumes backed by any supported :ref:`key_value_store`.  It supports reading, writing, and creating new volumes.
+The ``neuroglancer_precomputed`` driver provides access to `Neuroglancer Precomputed format <https://github.com/google/neuroglancer/tree/master/src/datasource/precomputed>`_ volumes backed by any supported :ref:`key_value_store`.  It supports reading, writing, and creating new volumes.
 
 Multiscale volumes are supported, but each scale must be opened individually.
 

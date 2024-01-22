@@ -19,7 +19,7 @@
 /// Metadata handling for the Neuroglancer precomputed format.
 ///
 /// Refer to the specification here:
-/// https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed
+/// https://github.com/google/neuroglancer/tree/master/src/datasource/precomputed
 
 #include <stddef.h>
 #include <stdint.h>

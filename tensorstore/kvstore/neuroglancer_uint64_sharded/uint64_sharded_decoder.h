@@ -19,7 +19,7 @@
 /// Support for decoding the neuroglancer_uint64_sharded_v1 format.
 ///
 /// See description of format here:
-/// https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed#sharded-format
+/// https://github.com/google/neuroglancer/tree/master/src/datasource/precomputed#sharded-format
 
 #include <optional>
 #include <string_view>
