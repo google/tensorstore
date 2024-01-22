@@ -66,8 +66,8 @@ inline size_t ItemsToMigrateToGlobalQueue(size_t available) {
 }
 
 // Tunable parameter: Self-assign up to 2 additional tasks (max 1/8 available).
-inline size_t ItemsToSelfAssign(size_t available) {
-  return (std::min)(size_t{2}, available >> 3);
+inline size_t ItemsToSelfAssign(size_t default_assign, size_t available) {
+  return (std::min)(default_assign, available >> 3);
 }
 
 // ThreadMetrics is used to batch-update the tensorstore metrics.
@@ -117,6 +117,7 @@ struct ThreadMetrics {
 
 struct TaskGroup::PerThreadData {
   std::atomic<void*> owner = nullptr;
+  size_t default_assign = 1;
   InFlightTaskQueue queue{128};
   size_t slot = 0;
 };
@@ -219,6 +220,7 @@ std::unique_ptr<InFlightTask> TaskGroup::AcquireTask(PerThreadData* thread_data,
     ~ScopedIncDec() { x_.fetch_sub(1, std::memory_order_relaxed); }
   };
 
+  // First, attempt to acquire a task from the local queue.
   if (auto* t = thread_data->queue.try_pop(); t != nullptr) {
     return std::unique_ptr<InFlightTask>(t);
   }
@@ -230,17 +232,24 @@ std::unique_ptr<InFlightTask> TaskGroup::AcquireTask(PerThreadData* thread_data,
       std::unique_ptr<InFlightTask> task = std::move(queue_.front());
       queue_.pop_front();
 
-      // Tunable parameter: Preemptively assign some items to self.
-      size_t x = ItemsToSelfAssign(queue_.size());
+      // Tunable parameter: Preemptively assign additional items to self.
+      size_t x = ItemsToSelfAssign(thread_data->default_assign, queue_.size());
       while (x--) {
         thread_data->queue.push(queue_.front().release());
         queue_.pop_front();
       }
+
+      if (thread_data->default_assign < 16) {
+        thread_data->default_assign *= 2;
+      }
+
       return task;
     }
 
-    // The main queue is empty; move work from per-thread queues.
-    for (size_t i = 0; i < thread_queues_.size(); i++, steal_index_++) {
+    thread_data->default_assign = 1;
+
+    // Third, migrate tasks from per-thread queues.
+    for (size_t i = 0; i < thread_queues_.size(); ++i, ++steal_index_) {
       if (steal_index_ >= thread_queues_.size()) steal_index_ = 0;
       auto* other_data = thread_queues_[steal_index_];
       if (!other_data || other_data == thread_data) continue;
@@ -258,7 +267,7 @@ std::unique_ptr<InFlightTask> TaskGroup::AcquireTask(PerThreadData* thread_data,
       return task;
     }
 
-    // Then wait until more work appears on this managed queue.
+    // No tasks acquired; wait until more work appears on the global queue.
     ScopedIncDec blocked(threads_blocked_);
     if (!mutex_.AwaitWithTimeout(
             absl::Condition(
