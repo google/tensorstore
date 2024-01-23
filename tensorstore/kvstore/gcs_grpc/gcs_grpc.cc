@@ -355,6 +355,8 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
   }
 
   void Start(const std::string& object_name) {
+    ABSL_LOG_IF(INFO, gcs_grpc_logging) << "ReadTask::Start " << this;
+
     stub_ = driver_->get_stub().get();
     promise_.ExecuteWhenNotNeeded(
         [self = internal::IntrusivePtr<ReadTask>(this)] { self->TryCancel(); });
@@ -392,11 +394,14 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
     if (!promise_.result_needed()) {
       return;
     }
+
+    // Retry always starts from a "clean" request, so clear the value.
+    value_.Clear();
     storage_generation_ =
         TimestampedStorageGeneration{StorageGeneration::Unknown(), absl::Now()};
 
     ABSL_LOG_IF(INFO, gcs_grpc_logging)
-        << "Read: " << this << " " << ConciseDebugString(request_);
+        << "ReadTask::Retry " << this << " " << ConciseDebugString(request_);
 
     {
       absl::MutexLock lock(&mutex_);
@@ -414,7 +419,7 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
 
   void OnReadDone(bool ok) override {
     ABSL_LOG_IF(INFO, gcs_grpc_logging)
-        << "ReadDone: " << this << " " << ok << " "
+        << "ReadTask::OnReadDone: " << this << " " << ok << " "
         << (ok ? ConciseDebugString(response_) : std::string());
     if (!ok) return;
     if (!promise_.result_needed()) {
@@ -472,6 +477,8 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
     }
 
     // Issue next request, if necessary.
+    ABSL_LOG_IF(INFO, gcs_grpc_logging)
+        << "ReadTask (next) " << this << " " << ConciseDebugString(request_);
     StartRead(&response_);
   }
 
@@ -489,7 +496,7 @@ struct ReadTask : public internal::AtomicReferenceCount<ReadTask>,
       return;
     }
     ABSL_LOG_IF(INFO, gcs_grpc_logging)
-        << "ReadFinished: " << this << " " << status;
+        << "ReadTask::ReadFinished: " << this << " " << status;
     {
       absl::MutexLock lock(&mutex_);
       context_ = nullptr;
@@ -623,6 +630,8 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
   }
 
   void Start(std::string object_name, absl::Cord value) {
+    ABSL_LOG_IF(INFO, gcs_grpc_logging) << "WriteTask::Start " << this;
+
     object_name_ = std::move(object_name);
     value_ = std::move(value);
     stub_ = driver_->get_stub().get();
@@ -638,6 +647,9 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
       return;
     }
 
+    ABSL_LOG_IF(INFO, gcs_grpc_logging)
+        << "WriteTask::Retry " << this << " " << ConciseDebugString(request_);
+
     {
       absl::MutexLock lock(&mutex_);
       assert(context_ == nullptr);
@@ -648,9 +660,6 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
       stub_->async()->WriteObject(context_.get(), &response_, this);
     }
 
-    ABSL_LOG_IF(INFO, gcs_grpc_logging)
-        << "Write: " << this << " " << ConciseDebugString(request_);
-
     auto options = grpc::WriteOptions();
     if (request_.finish_write()) options.set_last_message();
     StartWrite(&request_, options);
@@ -659,17 +668,18 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
 
   void OnWriteDone(bool ok) override {
     // Not streaming any additional data bits.
-    ABSL_LOG_IF(INFO, gcs_grpc_logging) << "OnWriteDone: " << this << " " << ok;
+    ABSL_LOG_IF(INFO, gcs_grpc_logging)
+        << "WriteTask::OnWriteDone: " << this << " " << ok;
 
     if (!ok) return;
     if (request_.finish_write()) return;
 
     UpdateRequestForNextWrite();
 
-    ABSL_LOG_IF(INFO, gcs_grpc_logging)
-        << "Write: " << this << " " << ConciseDebugString(request_);
     auto options = grpc::WriteOptions();
     if (request_.finish_write()) options.set_last_message();
+    ABSL_LOG_IF(INFO, gcs_grpc_logging)
+        << "WriteTask (next) " << this << " " << ConciseDebugString(request_);
     StartWrite(&request_, options);
   }
 
@@ -686,7 +696,7 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
       return;
     }
     ABSL_LOG_IF(INFO, gcs_grpc_logging)
-        << "WriteFinished: " << this << " " << status << " "
+        << "WriteTask::WriteFinished: " << this << " " << status << " "
         << ConciseDebugString(response_);
     {
       absl::MutexLock lock(&mutex_);

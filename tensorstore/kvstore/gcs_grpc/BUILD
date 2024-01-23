@@ -79,6 +79,7 @@ tensorstore_cc_test(
         "//tensorstore/util:status_testutil",
         "//tensorstore/util/execution",
         "//tensorstore/util/execution:sender_testutil",
+        "@com_github_grpc_grpc//:grpc++",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:cord",
