@@ -29,7 +29,9 @@ def expand_template(out: str, template: str, substitutions: str):
   if subs:
     pattern = '|'.join(re.escape(key) for key in subs.keys())
     text = re.sub(pattern, lambda m: subs[m.group(0)], text)
-  pathlib.Path(out).write_text(text, encoding='utf-8')
+  path = pathlib.Path(out)
+  path.parent.mkdir(parents=True, exist_ok=True)
+  path.write_text(text, encoding='utf-8')
 
 
 def main():
