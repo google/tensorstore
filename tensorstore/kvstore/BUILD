@@ -33,7 +33,7 @@ DRIVERS = DRIVER_DOCS + [
     "gcs_http",
 ]
 
-EXTRA_DRIVER_TARGETS = []
+EXTRA_DRIVER_TARGETS = ["//tensorstore/kvstore/grpc:grpc_kvstore"]
 
 tensorstore_cc_library(
     name = "all_drivers",
