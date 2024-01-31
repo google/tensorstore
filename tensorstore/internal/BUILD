@@ -757,7 +757,6 @@ tensorstore_cc_library(
         ":json_pointer",
         "//tensorstore/internal/json:same",
         "//tensorstore/util:quote_string",
-        "//tensorstore/util:status_testutil",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_googletest//:gtest",
     ],

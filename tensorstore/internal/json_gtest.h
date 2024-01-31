@@ -16,11 +16,12 @@
 #define TENSORSTORE_INTERNAL_JSON_GTEST_H_
 
 #include <ostream>
+#include <string>
+#include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <nlohmann/json.hpp>
-#include "tensorstore/util/status_testutil.h"
 
 namespace nlohmann {
 //
@@ -74,9 +75,6 @@ namespace tensorstore {
 ///     EXPECT_THAT(obj, JsonSubValuesMatch({{"/a", 123}, {"/b/c", "xyz"}}));
 ::testing::Matcher<::nlohmann::json> JsonSubValuesMatch(
     std::vector<std::pair<std::string, ::nlohmann::json>> matchers);
-::testing::Matcher<::nlohmann::json> JsonSubValuesMatch(
-    std::vector<std::pair<std::string, ::testing::Matcher<::nlohmann::json>>>
-        matchers);
 
 }  // namespace tensorstore
 

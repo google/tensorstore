@@ -14,11 +14,14 @@
 
 #include "tensorstore/internal/json_gtest.h"
 
+#include <ostream>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
+#include <gtest/gtest.h>
+#include <nlohmann/json.hpp>
 #include "tensorstore/internal/json/same.h"
 #include "tensorstore/internal/json_pointer.h"
 #include "tensorstore/util/quote_string.h"
@@ -127,19 +130,9 @@ class JsonPointerMatcherImpl
   return JsonSubValueMatches(std::move(json_pointer),
                              MatchesJson(std::move(value_matcher)));
 }
-::testing::Matcher<::nlohmann::json> JsonSubValuesMatch(
-    std::vector<std::pair<std::string, ::nlohmann::json>> matchers) {
-  std::vector<::testing::Matcher<::nlohmann::json>> all;
-  all.reserve(matchers.size());
-  for (const auto& p : matchers) {
-    all.push_back(JsonSubValueMatches(p.first, p.second));
-  }
-  return ::testing::AllOfArray(all);
-}
 
 ::testing::Matcher<::nlohmann::json> JsonSubValuesMatch(
-    std::vector<std::pair<std::string, ::testing::Matcher<::nlohmann::json>>>
-        matchers) {
+    std::vector<std::pair<std::string, ::nlohmann::json>> matchers) {
   std::vector<::testing::Matcher<::nlohmann::json>> all;
   all.reserve(matchers.size());
   for (const auto& p : matchers) {
