@@ -746,6 +746,7 @@ tensorstore_cc_test(
 tensorstore_cc_library(
     name = "json_fwd",
     hdrs = ["json_fwd.h"],
+    deps = ["@com_github_nlohmann_json//:nlohmann_json"],
 )
 
 tensorstore_cc_library(
