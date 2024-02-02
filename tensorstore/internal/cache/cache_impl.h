@@ -15,7 +15,6 @@
 #ifndef TENSORSTORE_INTERNAL_CACHE_CACHE_IMPL_H_
 #define TENSORSTORE_INTERNAL_CACHE_CACHE_IMPL_H_
 
-#include <typeinfo>
 #ifndef TENSORSTORE_CACHE_REFCOUNT_DEBUG
 #define TENSORSTORE_CACHE_REFCOUNT_DEBUG 0
 #endif
@@ -26,15 +25,18 @@
 #include <stdint.h>
 
 #include <atomic>
-#include <functional>
 #include <memory>
 #include <string>
 #include <string_view>
 #include <typeindex>
+#include <typeinfo>
 #include <utility>
 
 #include "absl/base/call_once.h"
+#include "absl/base/optimization.h"
+#include "absl/base/thread_annotations.h"
 #include "absl/functional/function_ref.h"
+#include "absl/hash/hash.h"
 #include "absl/log/absl_log.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/cache/cache_pool_limits.h"
@@ -187,12 +189,19 @@ class CacheImpl {
 
   std::atomic<uint32_t> reference_count_;
 
-  // Protects access to `entries_`.
-  absl::Mutex entries_mutex_;
+  struct ABSL_CACHELINE_ALIGNED Shard {
+    absl::Mutex mutex;
+    internal::HeterogeneousHashSet<CacheEntryImpl*, std::string_view,
+                                   &CacheEntryImpl::key_>
+        entries ABSL_GUARDED_BY(mutex);
+  };
 
-  internal::HeterogeneousHashSet<CacheEntryImpl*, std::string_view,
-                                 &CacheEntryImpl::key_>
-      entries_;
+  Shard shards_[8];
+
+  Shard& ShardForKey(std::string_view key) {
+    absl::Hash<std::string_view> h;
+    return shards_[h(key) & 7];
+  }
 
   // Key by which a cache may be looked up in a `CachePool`.
   using CacheKey = std::pair<std::type_index, std::string_view>;

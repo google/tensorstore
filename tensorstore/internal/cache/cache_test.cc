@@ -19,31 +19,27 @@
 #include <atomic>
 #include <deque>
 #include <memory>
-#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/base/thread_annotations.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/concurrent_testutil.h"
 #include "tensorstore/internal/intrusive_ptr.h"
-#include "tensorstore/internal/memory.h"
 #include "tensorstore/internal/mutex.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
-using ::tensorstore::StrCat;
 using ::tensorstore::UniqueWriterLock;
 using ::tensorstore::internal::Cache;
 using ::tensorstore::internal::CachePool;
 using ::tensorstore::internal::CachePtr;
 using ::tensorstore::internal::GetCache;
 using ::tensorstore::internal::PinnedCacheEntry;
-using ::tensorstore::internal::static_pointer_cast;
 using ::tensorstore::internal::TestConcurrent;
 using ::tensorstore::internal::WeakPinnedCacheEntry;
 using ::tensorstore::internal_cache::Access;
@@ -126,7 +122,7 @@ class TestCache : public Cache {
     }
   }
 
-  std::size_t DoGetSizeInBytes(Cache::Entry* base_entry) override {
+  size_t DoGetSizeInBytes(Cache::Entry* base_entry) override {
     auto* entry = static_cast<Entry*>(base_entry);
     return entry->size;
   }
@@ -158,7 +154,8 @@ absl::flat_hash_set<EntryIdentifier> GetEntrySet(LruListNode* head) {
 
 // Check the invariants of pool, which should contain the specified caches.
 void AssertInvariants(const CachePool::StrongPtr& pool,
-                      absl::flat_hash_set<Cache*> expected_caches) {
+                      absl::flat_hash_set<Cache*> expected_caches)
+    ABSL_NO_THREAD_SAFETY_ANALYSIS {
   auto* pool_impl = GetPoolImpl(pool);
   auto eviction_queue_entries = GetEntrySet(&pool_impl->eviction_queue_);
 
@@ -184,13 +181,16 @@ void AssertInvariants(const CachePool::StrongPtr& pool,
     }
 
     if (pool_impl->limits_.total_bytes_limit != 0) {
-      for (CacheEntryImpl* entry : cache_impl->entries_) {
-        EXPECT_EQ(
-            entry->num_bytes_,
-            cache->DoGetSizeInBytes(Access::StaticCast<Cache::Entry>(entry)));
-        expected_total_bytes += entry->num_bytes_;
-        if (entry->reference_count_.load() == 0) {
-          expected_eviction_queue_entries.emplace(GetEntryIdentifier(entry));
+      for (auto& shard : cache_impl->shards_) {
+        // absl::MutexLock lock(&shard.mutex);
+        for (CacheEntryImpl* entry : shard.entries) {
+          EXPECT_EQ(
+              entry->num_bytes_,
+              cache->DoGetSizeInBytes(Access::StaticCast<Cache::Entry>(entry)));
+          expected_total_bytes += entry->num_bytes_;
+          if (entry->reference_count_.load() == 0) {
+            expected_eviction_queue_entries.emplace(GetEntryIdentifier(entry));
+          }
         }
       }
     }
@@ -603,7 +603,7 @@ TEST(CacheTest, CacheDependsOnOtherCache) {
     using Base::Base;
 
     Entry* DoAllocateEntry() final { return new Entry; }
-    std::size_t DoGetSizeofEntry() final { return sizeof(Entry); }
+    size_t DoGetSizeofEntry() final { return sizeof(Entry); }
   };
 
   class CacheB : public tensorstore::internal::Cache {
@@ -614,7 +614,7 @@ TEST(CacheTest, CacheDependsOnOtherCache) {
     using Base::Base;
 
     Entry* DoAllocateEntry() final { return new Entry; }
-    std::size_t DoGetSizeofEntry() final { return sizeof(Entry); }
+    size_t DoGetSizeofEntry() final { return sizeof(Entry); }
 
     CachePtr<CacheA> cache_a;
   };
@@ -702,7 +702,7 @@ TEST(CacheTest, ConcurrentGetCache) {
         EXPECT_EQ(2, GetPoolImpl(pool)->weak_references_.load());
         TENSORSTORE_INTERNAL_ASSERT_CACHE_INVARIANTS(
             pool, {caches[0].get(), caches[1].get(), caches[2].get()});
-        std::size_t use_count = 3;
+        size_t use_count = 3;
         for (auto& cache : caches) {
           EXPECT_EQ(use_count, cache->use_count());
           cache.reset();

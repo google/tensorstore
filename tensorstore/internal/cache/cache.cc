@@ -22,11 +22,10 @@
 #include <cassert>
 #include <memory>
 #include <mutex>  // NOLINT
-#include <optional>
-#include <ostream>
 #include <string>
 #include <string_view>
-#include <typeindex>
+#include <type_traits>
+#include <typeinfo>
 #include <utility>
 #include <vector>
 
@@ -38,7 +37,6 @@
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/cache/cache_pool_limits.h"
 #include "tensorstore/internal/container/intrusive_linked_list.h"
-#include "tensorstore/internal/integer_overflow.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/mutex.h"
@@ -165,9 +163,10 @@ void MaybeEvictEntries(CachePoolImpl* pool) noexcept {
     auto* entry = static_cast<CacheEntryImpl*>(queue->next);
     auto* cache = entry->cache_;
     bool evict = false;
-    if (absl::MutexLock lock(&cache->entries_mutex_);
+    auto& shard = cache->ShardForKey(entry->key_);
+    if (absl::MutexLock lock(&shard.mutex);
         entry->reference_count_.load(std::memory_order_acquire) == 0) {
-      [[maybe_unused]] size_t erase_count = cache->entries_.erase(entry);
+      [[maybe_unused]] size_t erase_count = shard.entries.erase(entry);
       assert(erase_count == 1);
       evict = true;
     }
@@ -203,34 +202,42 @@ void InitializeNewEntry(CacheEntryImpl* entry, CacheImpl* cache) noexcept {
   Initialize(LruListAccessor{}, entry);
 }
 
-void DestroyCache(CachePoolImpl* pool, CacheImpl* cache) noexcept {
+void DestroyCache(CachePoolImpl* pool,
+                  CacheImpl* cache) noexcept ABSL_NO_THREAD_SAFETY_ANALYSIS {
   if (pool) {
     if (HasLruCache(pool)) {
       absl::MutexLock lru_lock(&pool->lru_mutex_);
-      absl::MutexLock entries_lock(&cache->entries_mutex_);
-      for (CacheEntryImpl* entry : cache->entries_) {
-        // Increment reference count by 2, to ensure that concurrently releasing
-        // the last weak reference to `entry` does not result in a concurrent
-        // attempt to return `entry` back to the eviction list.
-        entry->reference_count_.fetch_add(2, std::memory_order_acq_rel);
-        // Ensure entry is not on LRU list.
-        UnregisterEntryFromPool(entry, pool);
+      for (auto& shard : cache->shards_) {
+        absl::MutexLock lock(&shard.mutex);
+        for (CacheEntryImpl* entry : shard.entries) {
+          // Increment reference count by 2, to ensure that concurrently
+          // releasing the last weak reference to `entry` does not result in a
+          // concurrent attempt to return `entry` back to the eviction list.
+          entry->reference_count_.fetch_add(2, std::memory_order_acq_rel);
+          // Ensure entry is not on LRU list.
+          UnregisterEntryFromPool(entry, pool);
+        }
       }
       // At this point, no external references to any entry are possible, and
       // the entries can safely be destroyed without holding any locks.
     } else {
-      absl::MutexLock entries_lock(&cache->entries_mutex_);
-      for (CacheEntryImpl* entry : cache->entries_) {
-        // Increment reference count by 2, to ensure that concurrently releasing
-        // the last weak reference to `entry` does not result in a concurrent
-        // attempt to return `entry` back to the eviction list.
-        entry->reference_count_.fetch_add(2, std::memory_order_acq_rel);
+      for (auto& shard : cache->shards_) {
+        absl::MutexLock lock(&shard.mutex);
+        for (CacheEntryImpl* entry : shard.entries) {
+          // Increment reference count by 2, to ensure that concurrently
+          // releasing the last weak reference to `entry` does not result in a
+          // concurrent attempt to return `entry` back to the eviction list.
+          entry->reference_count_.fetch_add(2, std::memory_order_acq_rel);
+        }
       }
     }
-    for (CacheEntryImpl* entry : cache->entries_) {
-      assert(entry->reference_count_.load() >= 2 &&
-             entry->reference_count_.load() <= 3);
-      delete Access::StaticCast<Cache::Entry>(entry);
+    for (auto& shard : cache->shards_) {
+      // absl::MutexLock lock(&shard.mutex);
+      for (CacheEntryImpl* entry : shard.entries) {
+        assert(entry->reference_count_.load() >= 2 &&
+               entry->reference_count_.load() <= 3);
+        delete Access::StaticCast<Cache::Entry>(entry);
+      }
     }
   }
   delete Access::StaticCast<Cache>(cache);
@@ -250,11 +257,14 @@ void DestroyCache(CachePoolImpl* pool, CacheImpl* cache) noexcept {
 //   new_count[out]: Set to new reference count on return.
 //   decrease_amount: Amount to subtract from `reference_count`.
 //   lock_threshold: Maximum reference count for which `mutex` must be locked.
-template <typename T>
+template <typename T, typename LockFn>
 inline UniqueWriterLock<absl::Mutex> DecrementReferenceCountWithLock(
-    std::atomic<T>& reference_count, absl::Mutex& mutex, T& new_count,
+    std::atomic<T>& reference_count, LockFn mutex_fn, T& new_count,
     internal::type_identity_t<T> decrease_amount,
     internal::type_identity_t<T> lock_threshold) {
+  static_assert(std::is_invocable_v<LockFn>);
+  static_assert(std::is_same_v<absl::Mutex&, std::invoke_result_t<LockFn>>);
+
   // If the new reference count will be greater than lock_threshold, we can
   // simply subtract `decrease_amount`.  However, if the reference count will
   // possibly become less than or equal to `lock_threshold`, we must lock the
@@ -274,8 +284,7 @@ inline UniqueWriterLock<absl::Mutex> DecrementReferenceCountWithLock(
 
   // Handle the case of the reference_count possibly becoming less than or equal
   // to lock_threshold.
-
-  UniqueWriterLock lock(mutex);
+  UniqueWriterLock lock(mutex_fn());
   // Reference count may have changed between the time at which we last
   // checked it and the time at which we acquired the mutex.
   auto count =
@@ -292,25 +301,34 @@ inline UniqueWriterLock<absl::Mutex> DecrementReferenceCountWithLock(
 
 }  // namespace
 
-void StrongPtrTraitsCacheEntry::decrement(CacheEntry* p) noexcept {
+void StrongPtrTraitsCacheEntry::decrement(CacheEntry* p) noexcept
+    ABSL_NO_THREAD_SAFETY_ANALYSIS {
   auto* entry = Access::StaticCast<CacheEntryImpl>(p);
   auto* cache = entry->cache_;
   uint32_t new_count;
   if (auto* pool_impl = cache->pool_) {
     if (pool_impl->limits_.total_bytes_limit == 0) {
+      CacheImpl::Shard* shard = nullptr;
       auto lock = DecrementReferenceCountWithLock(
-          entry->reference_count_, cache->entries_mutex_, new_count,
+          entry->reference_count_,
+          [&]() -> absl::Mutex& {
+            shard = &cache->ShardForKey(entry->key_);
+            return shard->mutex;
+          },
+          new_count,
           /*decrease_amount=*/2, /*lock_threshold=*/1);
       TENSORSTORE_INTERNAL_CACHE_DEBUG_REFCOUNT("CacheEntry:decrement", p,
                                                 new_count);
       if (!lock) return;
       if (new_count == 0) {
-        cache->entries_.erase(entry);
+        shard->entries.erase(entry);
         delete p;
       }
     } else {
       auto lock = DecrementReferenceCountWithLock(
-          entry->reference_count_, pool_impl->lru_mutex_, new_count,
+          entry->reference_count_,
+          [pool_impl]() -> absl::Mutex& { return pool_impl->lru_mutex_; },
+          new_count,
           /*decrease_amount=*/2, /*lock_threshold=*/1);
       TENSORSTORE_INTERNAL_CACHE_DEBUG_REFCOUNT("CacheEntry:decrement", p,
                                                 new_count);
@@ -381,9 +399,10 @@ PinnedCacheEntry<Cache> GetCacheEntryInternal(internal::Cache* cache,
     returned_entry = PinnedCacheEntry<Cache>(
         Access::StaticCast<CacheEntry>(entry_impl), internal::adopt_object_ref);
   } else {
-    absl::MutexLock lock(&cache_impl->entries_mutex_);
-    auto it = cache_impl->entries_.find(key);
-    if (it != cache_impl->entries_.end()) {
+    auto& shard = cache_impl->ShardForKey(key);
+    absl::MutexLock lock(&shard.mutex);
+    auto it = shard.entries.find(key);
+    if (it != shard.entries.end()) {
       hit_count.Increment();
       auto* entry_impl = *it;
       if (entry_impl->reference_count_.fetch_add(
@@ -409,8 +428,7 @@ PinnedCacheEntry<Cache> GetCacheEntryInternal(internal::Cache* cache,
           Access::StaticCast<CacheEntry>(entry_impl));
       // Add to entries table.  This may throw, in which case the entry will be
       // deleted during unwind.
-      [[maybe_unused]] auto inserted =
-          cache_impl->entries_.insert(entry_impl).second;
+      [[maybe_unused]] auto inserted = shard.entries.insert(entry_impl).second;
       assert(inserted);
       StrongPtrTraitsCache::increment(cache);
       returned_entry =
@@ -447,7 +465,9 @@ void StrongPtrTraitsCache::decrement(Cache* p) noexcept {
     return;
   }
   auto lock = DecrementReferenceCountWithLock(
-      cache->reference_count_, cache->pool_->caches_mutex_, new_count,
+      cache->reference_count_,
+      [cache]() -> absl::Mutex& { return cache->pool_->caches_mutex_; },
+      new_count,
       /*decrease_amount=*/1, /*lock_threshold=*/0);
   TENSORSTORE_INTERNAL_CACHE_DEBUG_REFCOUNT("Cache:decrement", p, new_count);
   if (!lock) return;
@@ -462,8 +482,12 @@ void StrongPtrTraitsCache::decrement(Cache* p) noexcept {
     return;
   }
 
-  if (absl::MutexLock entries_lock(&cache->entries_mutex_);
-      cache->entries_.empty()) {
+  bool all_empty = true;
+  for (auto& shard : cache->shards_) {
+    absl::MutexLock lock(&shard.mutex);
+    all_empty &= shard.entries.empty();
+  }
+  if (all_empty) {
     // The cache contains no entries.  Remove it from the pool's table of
     // caches, and destroy it.
     pool->caches_.erase(cache);
@@ -474,7 +498,7 @@ void StrongPtrTraitsCache::decrement(Cache* p) noexcept {
     cache = nullptr;
   }
   lock.unlock();
-  delete cache;
+  if (cache) delete cache;
   ReleaseWeakReference(pool);
 }
 
@@ -492,7 +516,8 @@ void StrongPtrTraitsCachePool::decrement(CachePool* p) noexcept {
   auto* pool = Access::StaticCast<CachePoolImpl>(p);
   size_t new_count;
   auto lock = DecrementReferenceCountWithLock(
-      pool->strong_references_, pool->caches_mutex_, new_count,
+      pool->strong_references_,
+      [pool]() -> absl::Mutex& { return pool->caches_mutex_; }, new_count,
       /*decrease_amount=*/1, /*lock_threshold=*/0);
   TENSORSTORE_INTERNAL_CACHE_DEBUG_REFCOUNT("CachePool:decrement", p,
                                             new_count);
@@ -518,10 +543,12 @@ void WeakPtrTraitsCachePool::decrement(CachePool* p) noexcept {
   ReleaseWeakReference(Access::StaticCast<CachePoolImpl>(p));
 }
 
-void intrusive_ptr_decrement(CacheEntryWeakState* p) {
+void intrusive_ptr_decrement(CacheEntryWeakState* p)
+    ABSL_NO_THREAD_SAFETY_ANALYSIS {
   size_t new_weak_count;
   auto weak_lock = DecrementReferenceCountWithLock(
-      p->weak_references, p->mutex, new_weak_count,
+      p->weak_references, [p]() -> absl::Mutex& { return p->mutex; },
+      new_weak_count,
       /*decrease_amount=*/1, /*lock_threshold=*/0);
   TENSORSTORE_INTERNAL_CACHE_DEBUG_REFCOUNT("CacheEntryWeakState:decrement", p,
                                             new_weak_count);
@@ -543,22 +570,29 @@ void intrusive_ptr_decrement(CacheEntryWeakState* p) {
   auto* pool = cache->pool_;
   ABSL_ASSUME(pool);
   if (!HasLruCache(pool)) {
+    CacheImpl::Shard* shard = nullptr;
     auto entries_lock = DecrementReferenceCountWithLock(
-        entry->reference_count_, cache->entries_mutex_, new_count,
+        entry->reference_count_,
+        [&]() -> absl::Mutex& {
+          shard = &cache->ShardForKey(entry->key_);
+          return shard->mutex;
+        },
+        new_count,
         /*decrease_amount=*/1, /*lock_threshold=*/0);
     TENSORSTORE_INTERNAL_CACHE_DEBUG_REFCOUNT("CacheEntry:decrement", entry,
                                               new_count);
     weak_lock = {};
     if (!entries_lock) return;
-    cache->entries_.erase(entry);
+    shard->entries.erase(entry);
     entries_lock = {};
     delete Access::StaticCast<CacheEntry>(entry);
     return;
   }
-  auto pool_lock = DecrementReferenceCountWithLock(entry->reference_count_,
-                                                   pool->lru_mutex_, new_count,
-                                                   /*decrease_amount=*/1,
-                                                   /*lock_threshold=*/0);
+  auto pool_lock = DecrementReferenceCountWithLock(
+      entry->reference_count_,
+      [pool]() -> absl::Mutex& { return pool->lru_mutex_; }, new_count,
+      /*decrease_amount=*/1,
+      /*lock_threshold=*/0);
   TENSORSTORE_INTERNAL_CACHE_DEBUG_REFCOUNT("CacheEntry:decrement", entry,
                                             new_count);
   if (!pool_lock) return;
@@ -625,7 +659,7 @@ namespace internal {
 Cache::Cache() = default;
 Cache::~Cache() = default;
 
-std::size_t Cache::DoGetSizeInBytes(Cache::Entry* entry) {
+size_t Cache::DoGetSizeInBytes(Cache::Entry* entry) {
   return ((internal_cache::CacheEntryImpl*)entry)->key_.capacity() +
          this->DoGetSizeofEntry();
 }
