@@ -16,8 +16,12 @@
 //
 // Both read and write benchmarks have 4 parameters:
 //
-// BM_Read/<total_size>/<write_chunk_size>/<read_chunk_size>/<parallelism>
-// BM_Write/<total_size>/<write_chunk_size>/<read_chunk_size>/<parallelism>
+// BM_Read/<cache_pool_size>/<write_chunk_size>/<read_chunk_size>/<parallelism>
+// BM_Write/<cache_pool_size>/<write_chunk_size>/<read_chunk_size>/<parallelism>
+//
+// cache_pool_size:
+//
+//   Size of the context "cache_pool" "total_bytes_limit"
 //
 // total_size:
 //
@@ -43,6 +47,7 @@
 #include <vector>
 
 #include <benchmark/benchmark.h>
+#include <nlohmann/json.hpp>
 #include "tensorstore/array.h"
 #include "tensorstore/chunk_layout.h"
 #include "tensorstore/contiguous_layout.h"
@@ -70,14 +75,21 @@ using ::tensorstore::Schema;
 using ::tensorstore::Spec;
 using ::tensorstore::WriteFutures;
 
+static constexpr Index kTotalSize = 1024;
+
 struct BenchmarkHelper {
-  explicit BenchmarkHelper(Index total_size, Index write_chunk_size,
-                           Index read_chunk_size)
+  explicit BenchmarkHelper(int64_t cache_pool_size, Index total_size,
+                           Index write_chunk_size, Index read_chunk_size)
       : shape(3, total_size) {
-    TENSORSTORE_CHECK_OK_AND_ASSIGN(spec, Spec::FromJson({
-                                              {"driver", "zarr3"},
-                                              {"kvstore", "memory://"},
-                                          }));
+    ::nlohmann::json json_spec{
+        {"driver", "zarr3"},
+        {"kvstore", "memory://"},
+    };
+    if (cache_pool_size > 0) {
+      json_spec["cache_pool"] = {{"total_bytes_limit", cache_pool_size}};
+    }
+
+    TENSORSTORE_CHECK_OK_AND_ASSIGN(spec, Spec::FromJson(json_spec));
     TENSORSTORE_CHECK_OK(
         spec.Set(dtype_v<uint8_t>,
                  Schema::FillValue(tensorstore::MakeScalarArray<uint8_t>(42)),
@@ -91,6 +103,17 @@ struct BenchmarkHelper {
         shape, tensorstore::c_order, tensorstore::value_init, spec.dtype());
     total_bytes = source_data.num_elements() * source_data.dtype().size();
   }
+
+  template <typename Callback>
+  void ForEachBlock(int top_level_parallelism, Callback callback) {
+    const auto size0 = source_data.shape()[0];
+    const auto block_size = size0 / top_level_parallelism;
+    for (int i = 0; i < top_level_parallelism; ++i) {
+      callback(i,
+               Dims(0).HalfOpenInterval(block_size * i, block_size * (i + 1)));
+    }
+  }
+
   tensorstore::Spec spec;
   const std::vector<Index> shape;
   tensorstore::SharedArray<void> source_data;
@@ -98,22 +121,17 @@ struct BenchmarkHelper {
 };
 
 void BM_Write(benchmark::State& state) {
-  BenchmarkHelper helper{state.range(0), state.range(1), state.range(2)};
+  BenchmarkHelper helper{state.range(0), kTotalSize, state.range(1),
+                         state.range(2)};
   const int top_level_parallelism = state.range(3);
-  const auto size0 = helper.source_data.shape()[0];
-  const auto block_size = size0 / top_level_parallelism;
   for (auto s : state) {
     TENSORSTORE_CHECK_OK_AND_ASSIGN(auto store,
                                     tensorstore::Open(helper.spec).result());
     std::vector<WriteFutures> write_futures(top_level_parallelism);
-    for (int i = 0; i < top_level_parallelism; ++i) {
-      write_futures[i] = tensorstore::Write(
-          helper.source_data |
-              Dims(0).HalfOpenInterval(block_size * i, block_size * (i + 1)),
-          store |
-              Dims(0).HalfOpenInterval(block_size * i, block_size * (i + 1)));
+    helper.ForEachBlock(top_level_parallelism, [&](int i, auto e) {
+      write_futures[i] = tensorstore::Write(helper.source_data | e, store | e);
       write_futures[i].Force();
-    }
+    });
     for (int i = 0; i < top_level_parallelism; ++i) {
       TENSORSTORE_CHECK_OK(write_futures[i].result());
     }
@@ -123,22 +141,17 @@ void BM_Write(benchmark::State& state) {
 }
 
 void BM_Read(benchmark::State& state) {
-  BenchmarkHelper helper{state.range(0), state.range(1), state.range(2)};
+  BenchmarkHelper helper{state.range(0), kTotalSize, state.range(1),
+                         state.range(2)};
   const int top_level_parallelism = state.range(3);
-  const auto size0 = helper.source_data.shape()[0];
-  const auto block_size = size0 / top_level_parallelism;
   TENSORSTORE_CHECK_OK_AND_ASSIGN(auto store,
                                   tensorstore::Open(helper.spec).result());
   TENSORSTORE_CHECK_OK(tensorstore::Write(helper.source_data, store).result());
   for (auto s : state) {
     std::vector<Future<const void>> read_futures(top_level_parallelism);
-    for (int i = 0; i < top_level_parallelism; ++i) {
-      read_futures[i] = tensorstore::Read(
-          store |
-              Dims(0).HalfOpenInterval(block_size * i, block_size * (i + 1)),
-          helper.source_data |
-              Dims(0).HalfOpenInterval(block_size * i, block_size * (i + 1)));
-    }
+    helper.ForEachBlock(top_level_parallelism, [&](int i, auto e) {
+      read_futures[i] = tensorstore::Read(store | e, helper.source_data | e);
+    });
     for (int i = 0; i < top_level_parallelism; ++i) {
       TENSORSTORE_CHECK_OK(read_futures[i].result());
     }
@@ -149,10 +162,12 @@ void BM_Read(benchmark::State& state) {
 
 template <typename Bench>
 void DefineArgs(Bench* bench) {
-  for (auto chunk_size : {16, 32, 64, 128}) {
-    for (auto parallelism : {1, 8, 32}) {
-      bench->Args({1024, chunk_size, chunk_size, parallelism});
-      bench->Args({1024, 1024, chunk_size, parallelism});
+  for (int cache_pool_size : {0, 64 * 1024 * 1024}) {
+    for (auto chunk_size : {16, 32, 64, 128}) {
+      for (auto parallelism : {1, 8, 32}) {
+        bench->Args({cache_pool_size, chunk_size, chunk_size, parallelism});
+        bench->Args({cache_pool_size, 1024, chunk_size, parallelism});
+      }
     }
   }
   bench->UseRealTime();

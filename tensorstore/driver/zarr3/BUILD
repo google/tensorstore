@@ -245,6 +245,7 @@ tensorstore_cc_binary(
         "//tensorstore/util:future",
         "//tensorstore/util:result",
         "//tensorstore/util:status",
+        "@com_github_nlohmann_json//:nlohmann_json",
         "@com_google_benchmark//:benchmark_main",
     ],
 )
