@@ -21,10 +21,13 @@
 #include <utility>
 #include <vector>
 
+#include "absl/base/attributes.h"
 #include "absl/functional/function_ref.h"
+#include "absl/log/absl_log.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/http/http_transport.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/no_destructor.h"
 #include "tensorstore/kvstore/s3/credentials/aws_credentials.h"
 #include "tensorstore/kvstore/s3/credentials/ec2_credential_provider.h"
@@ -35,6 +38,8 @@
 namespace tensorstore {
 namespace internal_kvstore_s3 {
 namespace {
+
+ABSL_CONST_INIT internal_log::VerboseFlag s3_logging("s3");
 
 /// Return a DefaultCredentialProvider that attempts to retrieve credentials
 /// from
@@ -127,28 +132,39 @@ Result<AwsCredentials> DefaultAwsCredentialsProvider::GetCredentials() {
   // Return credentials in this order:
   // 1. AWS Environment Variables, e.g. AWS_ACCESS_KEY_ID
   provider_ = std::make_unique<EnvironmentCredentialProvider>();
-  auto credentials_result = provider_->GetCredentials();
-  if (credentials_result.ok()) {
-    credentials_ = credentials_result.value();
+  if (auto credentials_result = provider_->GetCredentials();
+      credentials_result.ok()) {
+    credentials_ = std::move(credentials_result).value();
     return credentials_;
+  } else if (s3_logging) {
+    ABSL_LOG_FIRST_N(INFO, 1)
+        << "Could not acquire credentials from environment: "
+        << credentials_result.status();
   }
 
   // 2. Shared Credential File, e.g. $HOME/.aws/credentials
   provider_ = std::make_unique<FileCredentialProvider>(options_.filename,
                                                        options_.profile);
-  credentials_result = provider_->GetCredentials();
-  if (credentials_result.ok()) {
-    credentials_ = credentials_result.value();
+  if (auto credentials_result = provider_->GetCredentials();
+      credentials_result.ok()) {
+    credentials_ = std::move(credentials_result).value();
     return credentials_;
+  } else if (s3_logging) {
+    ABSL_LOG_FIRST_N(INFO, 1)
+        << "Could not acquire credentials from '" << options_.filename << "', '"
+        << options_.profile << "': " << credentials_result.status();
   }
 
   // 3. EC2 Metadata Server
   provider_ = std::make_unique<EC2MetadataCredentialProvider>(
       options_.endpoint, options_.transport);
-  credentials_result = provider_->GetCredentials();
-  if (credentials_result.ok()) {
-    credentials_ = credentials_result.value();
+  if (auto credentials_result = provider_->GetCredentials();
+      credentials_result.ok()) {
+    credentials_ = std::move(credentials_result).value();
     return credentials_;
+  } else if (s3_logging) {
+    ABSL_LOG(INFO) << "Could not acquire credentials from EC2 Metadata Server "
+                   << options_.endpoint << ": " << credentials_result.status();
   }
 
   // 4. Anonymous credentials
