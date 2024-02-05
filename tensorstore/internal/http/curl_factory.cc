@@ -18,6 +18,7 @@
 
 #include "absl/base/call_once.h"
 #include "absl/log/absl_check.h"
+#include "absl/log/absl_log.h"
 #include <curl/curl.h>
 #include "tensorstore/internal/http/curl_wrappers.h"
 
@@ -27,12 +28,42 @@ namespace {
 
 static absl::once_flag g_init;
 
+// See curl:src/lib/curl_trc.c
+static constexpr const char* kCurlTypeStrings[] = {
+    ": * ",  // CURLINFO_TEXT,
+    ": < ",  // CURLINFO_HEADER_IN,
+    ": > ",  // CURLINFO_HEADER_OUT,
+    ": ",    // CURLINFO_DATA_IN,
+    ": ",    // CURLINFO_DATA_OUT,
+    ": ",    // CURLINFO_SSL_DATA_IN,
+    ": ",    // CURLINFO_SSL_DATA_OUT,
+};
+
+int CurlLogToAbseil(CURL* handle, curl_infotype type, char* data, size_t size,
+                    void* userp) {
+  switch (type) {
+    case CURLINFO_TEXT:
+    case CURLINFO_HEADER_OUT:
+    case CURLINFO_HEADER_IN:
+      break;
+    default: /* nada */
+      return 0;
+  }
+  ABSL_LOG(INFO) << handle << kCurlTypeStrings[type]
+                 << std::string_view(data, size);
+  return 0;
+}
+
 /// DefaultCurlHandleFactory generates a new handle on each request.
 class DefaultCurlHandleFactory : public CurlHandleFactory {
  public:
   DefaultCurlHandleFactory() = default;
 
-  CurlPtr CreateHandle() override { return CurlPtr(curl_easy_init()); };
+  CurlPtr CreateHandle() override {
+    CurlPtr handle(curl_easy_init());
+    curl_easy_setopt(handle.get(), CURLOPT_DEBUGFUNCTION, CurlLogToAbseil);
+    return handle;
+  };
 
   void CleanupHandle(CurlPtr&& h) override { h.reset(); }
 

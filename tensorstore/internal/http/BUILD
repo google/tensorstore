@@ -20,6 +20,7 @@ tensorstore_cc_library(
         ":curl_wrappers",
         "@com_google_absl//absl/base",
         "@com_google_absl//absl/log:absl_check",
+        "@com_google_absl//absl/log:absl_log",
     ],
 )
 
