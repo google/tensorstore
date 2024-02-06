@@ -76,6 +76,7 @@ tensorstore_cc_test(
         "//tensorstore/proto:parse_text_proto_or_die",
         "//tensorstore/proto:protobuf_matchers",
         "//tensorstore/util:future",
+        "//tensorstore/util:span",
         "//tensorstore/util:status_testutil",
         "//tensorstore/util/execution",
         "//tensorstore/util/execution:sender_testutil",

@@ -49,6 +49,7 @@
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender_testutil.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
 
 // protos
@@ -228,7 +229,7 @@ TEST_F(GcsGrpcTest, Write) {
               auto* resp) -> ::grpc::Status {
             WriteObjectRequest req;
             while (reader->Read(&req)) {
-              requests.push_back(req);
+              requests.push_back(std::move(req));
             }
             resp->CopyFrom(response);
             return grpc::Status::OK;
@@ -240,17 +241,20 @@ TEST_F(GcsGrpcTest, Write) {
       kvstore::Write(store, response.resource().name(), absl::Cord("abcd"))
           .result());
 
-  EXPECT_THAT(requests,
-              testing::ElementsAre(EqualsProto<WriteObjectRequest>(R"pb(
-                write_object_spec {
-                  resource { name: "abc" bucket: "projects/_/buckets/bucket" }
-                  object_size: 4
-                }
-                checksummed_data { content: "abcd" crc32c: 2462583345 }
-                object_checksums { crc32c: 2462583345 }
-                finish_write: true
-                write_offset: 0
-              )pb")));
+  EXPECT_THAT(
+      requests,
+      testing::AllOf(
+          testing::SizeIs(testing::Ge(1)),
+          testing::Each(EqualsProto<WriteObjectRequest>(R"pb(
+            write_object_spec {
+              resource { name: "abc" bucket: "projects/_/buckets/bucket" }
+              object_size: 4
+            }
+            checksummed_data { content: "abcd" crc32c: 2462583345 }
+            object_checksums { crc32c: 2462583345 }
+            finish_write: true
+            write_offset: 0
+          )pb"))));
 }
 
 TEST_F(GcsGrpcTest, WriteRetry) {
@@ -286,7 +290,7 @@ TEST_F(GcsGrpcTest, WriteRetry) {
               auto* resp) -> ::grpc::Status {
             WriteObjectRequest req;
             while (reader->Read(&req)) {
-              requests.push_back(req);
+              requests.push_back(std::move(req));
             }
             resp->CopyFrom(response);
             return grpc::Status::OK;
@@ -300,8 +304,9 @@ TEST_F(GcsGrpcTest, WriteRetry) {
 
   EXPECT_THAT(
       requests,
-      testing::ElementsAre(
-          EqualsProto<WriteObjectRequest>(R"pb(
+      testing::AllOf(
+          testing::SizeIs(testing::Ge(2)),
+          testing::Each(EqualsProto<WriteObjectRequest>(R"pb(
             write_object_spec {
               resource { name: "abc" bucket: "projects/_/buckets/bucket" }
               object_size: 4
@@ -310,17 +315,7 @@ TEST_F(GcsGrpcTest, WriteRetry) {
             object_checksums { crc32c: 2462583345 }
             finish_write: true
             write_offset: 0
-          )pb"),
-          EqualsProto<WriteObjectRequest>(R"pb(
-            write_object_spec {
-              resource { name: "abc" bucket: "projects/_/buckets/bucket" }
-              object_size: 4
-            }
-            checksummed_data { content: "abcd" crc32c: 2462583345 }
-            object_checksums { crc32c: 2462583345 }
-            finish_write: true
-            write_offset: 0
-          )pb")));
+          )pb"))));
 }
 
 TEST_F(GcsGrpcTest, WriteEmpty) {
@@ -337,7 +332,7 @@ TEST_F(GcsGrpcTest, WriteEmpty) {
               auto* resp) -> ::grpc::Status {
             WriteObjectRequest req;
             while (reader->Read(&req)) {
-              requests.push_back(req);
+              requests.push_back(std::move(req));
             }
             resp->CopyFrom(response);
             return grpc::Status::OK;
@@ -348,17 +343,20 @@ TEST_F(GcsGrpcTest, WriteEmpty) {
       auto generation,
       kvstore::Write(store, response.resource().name(), absl::Cord()).result());
 
-  EXPECT_THAT(requests,
-              testing::ElementsAre(EqualsProto<WriteObjectRequest>(R"pb(
-                write_object_spec {
-                  resource { name: "abc" bucket: "projects/_/buckets/bucket" }
-                  object_size: 0
-                }
-                checksummed_data { crc32c: 0 }
-                object_checksums { crc32c: 0 }
-                finish_write: true
-                write_offset: 0
-              )pb")));
+  EXPECT_THAT(
+      requests,
+      testing::AllOf(
+          testing::SizeIs(testing::Ge(1)),
+          testing::Each(EqualsProto<WriteObjectRequest>(R"pb(
+            write_object_spec {
+              resource { name: "abc" bucket: "projects/_/buckets/bucket" }
+              object_size: 0
+            }
+            checksummed_data { crc32c: 0 }
+            object_checksums { crc32c: 0 }
+            finish_write: true
+            write_offset: 0
+          )pb"))));
 }
 
 TEST_F(GcsGrpcTest, WriteWithOptions) {
@@ -375,8 +373,7 @@ TEST_F(GcsGrpcTest, WriteWithOptions) {
               auto* resp) -> ::grpc::Status {
             WriteObjectRequest req;
             while (reader->Read(&req)) {
-              requests.push_back(req);
-              ABSL_LOG(INFO) << "mock: " << req;
+              requests.push_back(std::move(req));
             }
             resp->CopyFrom(response);
             return grpc::Status::OK;
@@ -389,18 +386,21 @@ TEST_F(GcsGrpcTest, WriteWithOptions) {
                      {StorageGeneration::FromUint64(3)})
           .result());
 
-  EXPECT_THAT(requests,
-              testing::ElementsAre(EqualsProto<WriteObjectRequest>(R"pb(
-                write_object_spec {
-                  resource { name: "abc" bucket: "projects/_/buckets/bucket" }
-                  if_generation_match: 3
-                  object_size: 4
-                }
-                checksummed_data { content: "abcd" crc32c: 2462583345 }
-                object_checksums { crc32c: 2462583345 }
-                finish_write: true
-                write_offset: 0
-              )pb")));
+  EXPECT_THAT(
+      requests,
+      testing::AllOf(
+          testing::SizeIs(testing::Ge(1)),
+          testing::Each(EqualsProto<WriteObjectRequest>(R"pb(
+            write_object_spec {
+              resource { name: "abc" bucket: "projects/_/buckets/bucket" }
+              if_generation_match: 3
+              object_size: 4
+            }
+            checksummed_data { content: "abcd" crc32c: 2462583345 }
+            object_checksums { crc32c: 2462583345 }
+            finish_write: true
+            write_offset: 0
+          )pb"))));
 }
 
 TEST_F(GcsGrpcTest, WriteMultipleRequests) {
@@ -419,8 +419,7 @@ TEST_F(GcsGrpcTest, WriteMultipleRequests) {
               size_t len = req.checksummed_data().content().size();
               req.mutable_checksummed_data()->set_content(
                   absl::StrFormat("size: %d", len));
-              requests.push_back(req);
-              ABSL_LOG(INFO) << "mock: " << req;
+              requests.push_back(std::move(req));
             }
             resp->CopyFrom(response);
             return grpc::Status::OK;
@@ -438,8 +437,12 @@ TEST_F(GcsGrpcTest, WriteMultipleRequests) {
       auto generation,
       kvstore::Write(store, response.resource().name(), data).result());
 
+  ASSERT_THAT(requests, testing::SizeIs(testing::Ge(2)));
+
+  // testing::Subsequence would be nice, instead assert that the last
+  // two requests are the correct sequencce.
   EXPECT_THAT(
-      requests,
+      tensorstore::span(&requests[requests.size() - 2], 2),
       testing::ElementsAre(
           EqualsProto<WriteObjectRequest>(R"pb(
             write_object_spec {

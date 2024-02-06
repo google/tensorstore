@@ -120,7 +120,9 @@ using ::google::storage::v2::Storage;
 
 namespace {
 static constexpr char kUriScheme[] = "gcs_grpc";
-}
+static constexpr size_t kMaxWriteBytes =
+    ServiceConstants::MAX_WRITE_CHUNK_BYTES;
+}  // namespace
 
 namespace tensorstore {
 namespace {
@@ -574,11 +576,11 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
   Storage::StubInterface* stub_ = nullptr;
 
   // working state.
-  absl::crc32c_t crc32c_{0};
-  size_t write_offset_ = 0;
   WriteObjectRequest request_;
   WriteObjectResponse response_;
   TimestampedStorageGeneration write_result_;
+  size_t write_offset_;
+  absl::crc32c_t crc32c_;
 
   int attempt_ = 0;
   absl::Mutex mutex_;
@@ -609,8 +611,8 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
     }
 
     request_.set_write_offset(write_offset_);
-    size_t next_write_offset = std::min(
-        write_offset_ + ServiceConstants::MAX_WRITE_CHUNK_BYTES, value_.size());
+    size_t next_write_offset =
+        std::min(write_offset_ + kMaxWriteBytes, value_.size());
 
     auto& checksummed_data = *request_.mutable_checksummed_data();
     checksummed_data.set_content(
@@ -637,7 +639,6 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
     stub_ = driver_->get_stub().get();
     promise_.ExecuteWhenNotNeeded([self = internal::IntrusivePtr<WriteTask>(
                                        this)] { self->TryCancel(); });
-    UpdateRequestForNextWrite();
     Retry();
   }
 
@@ -647,8 +648,10 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
       return;
     }
 
-    ABSL_LOG_IF(INFO, gcs_grpc_logging)
-        << "WriteTask::Retry " << this << " " << ConciseDebugString(request_);
+    // Clear the working state on retries.
+    write_offset_ = 0;
+    crc32c_ = absl::crc32c_t{0};
+    request_.Clear();
 
     {
       absl::MutexLock lock(&mutex_);
@@ -660,8 +663,15 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
       stub_->async()->WriteObject(context_.get(), &response_, this);
     }
 
+    UpdateRequestForNextWrite();
+
+    ABSL_LOG_IF(INFO, gcs_grpc_logging)
+        << "WriteTask::Retry " << this << " " << ConciseDebugString(request_);
+
     auto options = grpc::WriteOptions();
-    if (request_.finish_write()) options.set_last_message();
+    if (request_.finish_write()) {
+      options.set_last_message();
+    }
     StartWrite(&request_, options);
     StartCall();
   }
@@ -677,7 +687,9 @@ struct WriteTask : public internal::AtomicReferenceCount<WriteTask>,
     UpdateRequestForNextWrite();
 
     auto options = grpc::WriteOptions();
-    if (request_.finish_write()) options.set_last_message();
+    if (request_.finish_write()) {
+      options.set_last_message();
+    }
     ABSL_LOG_IF(INFO, gcs_grpc_logging)
         << "WriteTask (next) " << this << " " << ConciseDebugString(request_);
     StartWrite(&request_, options);
