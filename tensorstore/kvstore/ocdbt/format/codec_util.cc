@@ -14,15 +14,18 @@
 
 #include "tensorstore/kvstore/ocdbt/format/codec_util.h"
 
+#include <stddef.h>
+
 #include <algorithm>
 #include <cstdint>
 #include <limits>
-#include <string>
+#include <string_view>
 #include <variant>
 
 #include "absl/base/internal/endian.h"
 #include "absl/crc/crc32c.h"
 #include "absl/functional/function_ref.h"
+#include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_format.h"
@@ -49,7 +52,7 @@ namespace internal_ocdbt {
 
 bool ReadVarintChecked(riegeli::Reader& reader, uint64_t& value) {
   if (riegeli::ReadVarint64(reader, value)) return true;
-  if (!reader.ok() || !reader.available()) {
+  if (!reader.Pull()) {
     // Error status already set, or EOF.
     return false;
   }
@@ -59,7 +62,7 @@ bool ReadVarintChecked(riegeli::Reader& reader, uint64_t& value) {
 
 bool ReadVarintChecked(riegeli::Reader& reader, uint32_t& value) {
   if (riegeli::ReadVarint32(reader, value)) return true;
-  if (!reader.ok() || !reader.available()) {
+  if (!reader.Pull()) {
     // Error status already set, or EOF.
     return false;
   }
@@ -69,11 +72,9 @@ bool ReadVarintChecked(riegeli::Reader& reader, uint32_t& value) {
 
 bool ReadVarintChecked(riegeli::Reader& reader, uint16_t& value) {
   uint32_t temp;
-  if (!riegeli::ReadVarint32(reader, temp)) {
-    if (!reader.ok() || !reader.available()) {
-      // Error status already set, or EOF.
-      return false;
-    }
+  if (!ReadVarintChecked(reader, temp)) {
+    // Error status already set, or EOF.
+    return false;
   }
   if (temp <= std::numeric_limits<uint16_t>::max()) {
     value = static_cast<uint16_t>(temp);
@@ -98,14 +99,14 @@ absl::Status DecodeWithOptionalCompression(
                         encoded.size(), kMinLength));
   }
 
-  riegeli::CordReader<> reader{&encoded};
+  riegeli::CordReader reader(&encoded);
 
   // Reserve the final 4 bytes for the crc32
-  riegeli::DigestingReader<riegeli::Crc32cDigester, riegeli::LimitingReader<>>
-      digesting_reader{std::tuple(
-          &reader,
-          riegeli::LimitingReaderBase::Options().set_exact(true).set_max_length(
-              encoded.size() - 4))};
+  riegeli::DigestingReader digesting_reader(
+      riegeli::LimitingReader(
+          &reader, riegeli::LimitingReaderBase::Options().set_exact_length(
+                       encoded.size() - 4)),
+      riegeli::Crc32cDigester());
 
   bool success = [&] {
     {
@@ -151,7 +152,7 @@ absl::Status DecodeWithOptionalCompression(
         success = decode_decompressed(digesting_reader, version);
         break;
       case 1: {
-        riegeli::ZstdReader<> zstd_reader(&digesting_reader);
+        riegeli::ZstdReader zstd_reader(&digesting_reader);
         success = decode_decompressed(zstd_reader, version) &&
                   zstd_reader.VerifyEndAndClose();
         if (!success && !zstd_reader.ok()) {
@@ -186,7 +187,7 @@ Result<absl::Cord> EncodeWithOptionalCompression(
     const Config& config, uint32_t magic, uint32_t version_number,
     absl::FunctionRef<bool(riegeli::Writer& writer)> encode) {
   absl::Cord encoded;
-  riegeli::CordWriter<> writer{&encoded};
+  riegeli::CordWriter writer(&encoded);
   bool success = [&] {
     char header[12];
     absl::big_endian::Store32(header, magic);
@@ -195,7 +196,8 @@ Result<absl::Cord> EncodeWithOptionalCompression(
     if (!writer.WriteZeros(12)) return false;
 
     // Compute CRC-32C digest of remaining data.
-    riegeli::DigestingWriter<riegeli::Crc32cDigester> digesting_writer(&writer);
+    riegeli::DigestingWriter digesting_writer(&writer,
+                                              riegeli::Crc32cDigester());
     if (!riegeli::WriteVarint32(version_number, digesting_writer)) return false;
     if (std::holds_alternative<Config::NoCompression>(config.compression)) {
       if (!riegeli::WriteVarint32(0, digesting_writer)) return false;
@@ -204,10 +206,10 @@ Result<absl::Cord> EncodeWithOptionalCompression(
       if (!riegeli::WriteVarint32(1, digesting_writer)) return false;
       const auto& zstd_config =
           std::get<Config::ZstdCompression>(config.compression);
-      riegeli::ZstdWriter<> zstd_writer{
+      riegeli::ZstdWriter zstd_writer(
           &digesting_writer,
-          riegeli::ZstdWriter<>::Options().set_compression_level(
-              zstd_config.level)};
+          riegeli::ZstdWriterBase::Options().set_compression_level(
+              zstd_config.level));
       if (!encode(zstd_writer) || !zstd_writer.Close()) {
         digesting_writer.Fail(zstd_writer.status());
         return false;
