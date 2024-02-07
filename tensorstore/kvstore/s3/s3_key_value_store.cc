@@ -235,7 +235,7 @@ struct AwsCredentialsResource
       const Spec& spec,
       internal::ContextResourceCreationContext context) const {
     auto result = GetAwsCredentialProvider(
-        spec.profile, spec.filename, spec.metadata_endpoint,
+        spec.filename, spec.profile, spec.metadata_endpoint,
         internal_http::GetDefaultHttpTransport());
     if (!result.ok() && absl::IsNotFound(result.status())) {
       return Resource{spec, nullptr};
