@@ -274,6 +274,9 @@ struct ReadOperation : public internal::AtomicReferenceCount<ReadOperation> {
     op->generation = std::move(generation);
     auto read_future =
         op->io_handle->ReadIndirectData(indirect_ref, std::move(read_options));
+    ABSL_LOG_IF(INFO, ocdbt_logging)
+        << "Reading " << tensorstore::QuoteString(op->key) << " from "
+        << indirect_ref;
     LinkValue(
         [op = std::move(op)](Promise<kvstore::ReadResult> promise,
                              ReadyFuture<kvstore::ReadResult> read_future) {
