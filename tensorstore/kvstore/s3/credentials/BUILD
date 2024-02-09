@@ -36,11 +36,16 @@ tensorstore_cc_library(
         ":aws_credentials",
         "//tensorstore/internal:env",
         "//tensorstore/internal:path",
+        "//tensorstore/internal/log:verbose_flag",
         "//tensorstore/util:result",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/log:absl_log",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/time",
+        "@com_google_riegeli//riegeli/bytes:fd_reader",
+        "@com_google_riegeli//riegeli/lines:line_reading",
     ],
 )
 

@@ -41,21 +41,6 @@ namespace {
 
 ABSL_CONST_INIT internal_log::VerboseFlag s3_logging("s3");
 
-/// Return a DefaultCredentialProvider that attempts to retrieve credentials
-/// from
-/// 1. AWS Environment Variables, e.g. AWS_ACCESS_KEY_ID
-/// 2. Shared Credential File, e.g. $HOME/.aws/credentials
-/// 3. EC2 Metadata Server
-Result<std::unique_ptr<AwsCredentialProvider>> GetDefaultAwsCredentialProvider(
-    std::string_view filename, std::string_view profile,
-    std::string_view metadata_endpoint,
-    std::shared_ptr<internal_http::HttpTransport> transport) {
-  return std::make_unique<DefaultAwsCredentialsProvider>(
-      DefaultAwsCredentialsProvider::Options{
-          std::string{filename}, std::string{profile},
-          std::string{metadata_endpoint}, transport});
-}
-
 struct AwsCredentialProviderRegistry {
   std::vector<std::pair<int, AwsCredentialProviderFn>> providers;
   absl::Mutex mutex;
@@ -100,8 +85,10 @@ Result<std::unique_ptr<AwsCredentialProvider>> GetAwsCredentialProvider(
     if (credentials.ok()) return credentials;
   }
 
-  return GetDefaultAwsCredentialProvider(filename, profile, metadata_endpoint,
-                                         transport);
+  return std::make_unique<DefaultAwsCredentialsProvider>(
+      DefaultAwsCredentialsProvider::Options{
+          std::string{filename}, std::string{profile},
+          std::string{metadata_endpoint}, transport});
 }
 
 DefaultAwsCredentialsProvider::DefaultAwsCredentialsProvider(
@@ -129,42 +116,56 @@ Result<AwsCredentials> DefaultAwsCredentialsProvider::GetCredentials() {
     }
   }
 
+  bool only_default_options = options_.filename.empty() &&
+                              options_.profile.empty() &&
+                              options_.endpoint.empty();
   // Return credentials in this order:
-  // 1. AWS Environment Variables, e.g. AWS_ACCESS_KEY_ID
-  provider_ = std::make_unique<EnvironmentCredentialProvider>();
-  if (auto credentials_result = provider_->GetCredentials();
-      credentials_result.ok()) {
-    credentials_ = std::move(credentials_result).value();
-    return credentials_;
-  } else if (s3_logging) {
-    ABSL_LOG_FIRST_N(INFO, 1)
-        << "Could not acquire credentials from environment: "
-        << credentials_result.status();
+  //
+  // 1. AWS Environment Variables, e.g. AWS_ACCESS_KEY_ID,
+  // however these are only queried when filename/profile are unspecified
+  // (and thus empty).
+  if (only_default_options) {
+    provider_ = std::make_unique<EnvironmentCredentialProvider>();
+    if (auto credentials_result = provider_->GetCredentials();
+        credentials_result.ok()) {
+      credentials_ = std::move(credentials_result).value();
+      return credentials_;
+    } else if (s3_logging) {
+      ABSL_LOG_FIRST_N(INFO, 1)
+          << "Could not acquire credentials from environment: "
+          << credentials_result.status();
+    }
   }
 
-  // 2. Shared Credential File, e.g. $HOME/.aws/credentials
-  provider_ = std::make_unique<FileCredentialProvider>(options_.filename,
-                                                       options_.profile);
-  if (auto credentials_result = provider_->GetCredentials();
-      credentials_result.ok()) {
-    credentials_ = std::move(credentials_result).value();
-    return credentials_;
-  } else if (s3_logging) {
-    ABSL_LOG_FIRST_N(INFO, 1)
-        << "Could not acquire credentials from '" << options_.filename << "', '"
-        << options_.profile << "': " << credentials_result.status();
+  // 2. Shared Credential file, e.g. $HOME/.aws/credentials
+  if (only_default_options || !options_.filename.empty() ||
+      !options_.profile.empty()) {
+    provider_ = std::make_unique<FileCredentialProvider>(options_.filename,
+                                                         options_.profile);
+    if (auto credentials_result = provider_->GetCredentials();
+        credentials_result.ok()) {
+      credentials_ = std::move(credentials_result).value();
+      return credentials_;
+    } else if (s3_logging) {
+      ABSL_LOG_FIRST_N(INFO, 1)
+          << "Could not acquire credentials from file/profile: "
+          << credentials_result.status();
+    }
   }
 
   // 3. EC2 Metadata Server
-  provider_ = std::make_unique<EC2MetadataCredentialProvider>(
-      options_.endpoint, options_.transport);
-  if (auto credentials_result = provider_->GetCredentials();
-      credentials_result.ok()) {
-    credentials_ = std::move(credentials_result).value();
-    return credentials_;
-  } else if (s3_logging) {
-    ABSL_LOG(INFO) << "Could not acquire credentials from EC2 Metadata Server "
-                   << options_.endpoint << ": " << credentials_result.status();
+  if (only_default_options || !options_.endpoint.empty()) {
+    provider_ = std::make_unique<EC2MetadataCredentialProvider>(
+        options_.endpoint, options_.transport);
+    if (auto credentials_result = provider_->GetCredentials();
+        credentials_result.ok()) {
+      credentials_ = std::move(credentials_result).value();
+      return credentials_;
+    } else if (s3_logging) {
+      ABSL_LOG(INFO)
+          << "Could not acquire credentials from EC2 Metadata Server "
+          << options_.endpoint << ": " << credentials_result.status();
+    }
   }
 
   // 4. Anonymous credentials

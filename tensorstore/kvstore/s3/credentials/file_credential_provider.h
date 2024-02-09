@@ -31,17 +31,16 @@ namespace internal_kvstore_s3 {
 /// However, if filename is passed as an empty string, the filename is
 /// obtained from AWS_SHARED_CREDENTIAL_FILE before defaulting to
 /// `.aws/credentials`.
-/// Likewise, if profile is passed as an empty string,
-/// the profile is obtained from AWS_DEFAULT_PROFILE, AWS_PROFILE before
-/// finally defaulting to "default".
+///
+/// When profile is empty, the profile indicated by
+/// AWS_DEFAULT_PROFILE is used, if set, or "default".
 class FileCredentialProvider : public AwsCredentialProvider {
  private:
   std::string filename_;
   std::string profile_;
 
  public:
-  FileCredentialProvider(std::string_view filename, std::string_view profile)
-      : filename_(filename), profile_(profile) {}
+  FileCredentialProvider(std::string_view filename, std::string_view profile);
 
   Result<AwsCredentials> GetCredentials() override;
   inline const std::string& GetFileName() const { return filename_; }
