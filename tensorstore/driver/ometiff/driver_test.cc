@@ -315,4 +315,48 @@ TEST(OMETiffDriverTest, ZSTD) {
   EXPECT_EQ(data, expected_data);
 }
 
+TEST(OMETiffDriverTest, ZSTDMultiTile32Bit) {
+  std::vector<uint32_t> expected_data(48 * 32);
+  std::iota(expected_data.begin(), expected_data.end(), 0);
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(
+          GetFileSpec(
+              "/Users/hsidky/Code/tensorstore/"
+              "tensorstore/driver/ometiff/testdata/multitile_32bit.tiff"))
+          .result());
+  EXPECT_TRUE(!!store.base());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto array,
+                                   tensorstore::Read(store).result());
+  std::vector<uint32_t> data(array.num_elements());
+  std::copy(static_cast<uint32_t*>(array.data()),
+            static_cast<uint32_t*>(array.data()) + array.num_elements(),
+            data.data());
+  EXPECT_EQ(data, expected_data);
+}
+
+TEST(OMETiffDriverTest, ZSTDMultiStrip32Bit) {
+  std::vector<uint32_t> expected_data(48 * 32);
+  std::iota(expected_data.begin(), expected_data.end(), 0);
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      tensorstore::Open(
+          GetFileSpec(
+              "/Users/hsidky/Code/tensorstore/"
+              "tensorstore/driver/ometiff/testdata/multistrip_32bit.tiff"))
+          .result());
+  EXPECT_TRUE(!!store.base());
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto array,
+                                   tensorstore::Read(store).result());
+  std::vector<uint32_t> data(array.num_elements());
+  std::copy(static_cast<uint32_t*>(array.data()),
+            static_cast<uint32_t*>(array.data()) + array.num_elements(),
+            data.data());
+  EXPECT_EQ(data, expected_data);
+}
+
 }  // namespace

@@ -40,9 +40,10 @@
 
 // Include libtiff last.
 // See: http://www.libtiff.org/man/index.html
-#include "tensorstore/internal/image/tiff_common.h"
 #include <tiff.h>
 #include <tiffio.h>
+
+#include "tensorstore/internal/image/tiff_common.h"
 
 namespace tensorstore {
 namespace internal_image {

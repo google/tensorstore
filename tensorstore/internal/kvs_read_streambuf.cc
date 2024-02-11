@@ -81,7 +81,7 @@ std::streamsize KvsReadStreambuf::xsgetn(char* s, std::streamsize count) {
   if (offset >= count) return offset;
 
   kvstore::ReadOptions options;
-  options.staleness_bound = absl::Now();
+  options.staleness_bound = absl::InfiniteFuture();
   options.if_not_equal = StorageGeneration::NoValue();
   options.byte_range =
       ByteRange{static_cast<int64_t>(source_pos_),
